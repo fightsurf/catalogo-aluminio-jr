@@ -1,52 +1,51 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <title>Admin – Atualizar Preços</title>
+  <meta charset="UTF-8">
+  <title>Admin Catálogo</title>
   <style>
-    body { font-family: Arial; background:#f5f5f5; padding:20px }
-    textarea { width:100%; height:300px; font-family: monospace }
-    button {
-      margin-top:10px; padding:10px 20px;
-      background:#0a7; color:#fff; border:0; cursor:pointer
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #f5f5f5;
     }
-    pre { background:#fff; padding:10px }
+    textarea {
+      width: 100%;
+      height: 300px;
+      font-family: monospace;
+      font-size: 14px;
+    }
+    button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #resultado {
+      margin-top: 15px;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
 
-<h2>🔐 Atualização de Preços em Massa</h2>
+<h2>📋 Atualizar Catálogo</h2>
 
-<p>
-Cole abaixo (do Excel):<br>
-<strong>Nome do produto [TAB] Preço</strong>
-</p>
+<form method="POST" action="/admin-1234">
+  <textarea name="texto" placeholder="Cole aqui a tabela copiada do Excel"></textarea>
+  <br>
+  <button type="submit">Salvar</button>
+</form>
 
-<textarea id="texto" placeholder="Ex:
-Panela de pressão 3L	25,10
-Cuscuzeira Express	13,15"></textarea>
-
-<br>
-<button onclick="enviar()">Atualizar</button>
-
-<pre id="resultado"></pre>
+<div id="resultado"></div>
 
 <script>
-function enviar() {
-  fetch(location.pathname + '/bulk-update', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ texto: document.getElementById('texto').value })
-  })
-  .then(r => r.json())
-  .then(r => {
-    document.getElementById('resultado').textContent =
-      `Atualizados: ${r.atualizados}\nNão encontrados:\n` +
-      (r.naoEncontrados.join('\n') || 'Nenhum');
-  });
-}
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('ok')) {
+    document.getElementById('resultado').innerText =
+      '✅ Catálogo atualizado com sucesso';
+  }
 </script>
 
 </body>
 </html>
-
