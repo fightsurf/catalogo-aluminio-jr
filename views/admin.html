@@ -1,1 +1,52 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin – Atualizar Preços</title>
+  <style>
+    body { font-family: Arial; background:#f5f5f5; padding:20px }
+    textarea { width:100%; height:300px; font-family: monospace }
+    button {
+      margin-top:10px; padding:10px 20px;
+      background:#0a7; color:#fff; border:0; cursor:pointer
+    }
+    pre { background:#fff; padding:10px }
+  </style>
+</head>
+<body>
+
+<h2>🔐 Atualização de Preços em Massa</h2>
+
+<p>
+Cole abaixo (do Excel):<br>
+<strong>Nome do produto [TAB] Preço</strong>
+</p>
+
+<textarea id="texto" placeholder="Ex:
+Panela de pressão 3L	25,10
+Cuscuzeira Express	13,15"></textarea>
+
+<br>
+<button onclick="enviar()">Atualizar</button>
+
+<pre id="resultado"></pre>
+
+<script>
+function enviar() {
+  fetch(location.pathname + '/bulk-update', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ texto: document.getElementById('texto').value })
+  })
+  .then(r => r.json())
+  .then(r => {
+    document.getElementById('resultado').textContent =
+      `Atualizados: ${r.atualizados}\nNão encontrados:\n` +
+      (r.naoEncontrados.join('\n') || 'Nenhum');
+  });
+}
+</script>
+
+</body>
+</html>
 
