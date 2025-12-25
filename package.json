@@ -1,1 +1,13 @@
+{
+  "name": "catalogo-aluminio-jr",
+  "version": "1.0.0",
+  "description": "Catálogo online Alumínio JR",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2"
+  }
+}
 
