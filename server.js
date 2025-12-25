@@ -21,6 +21,16 @@ function lerProdutos() {
   }
 }
 
+// ===== GERAR ID AUTOMÁTICO =====
+function gerarId(nome) {
+  return nome
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9 ]/g, '')
+    .trim()
+    .replace(/\s+/g, '_');
+}
+
 // ===== CATÁLOGO =====
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'catalogo.html'));
@@ -31,7 +41,7 @@ app.get('/api/produtos', (req, res) => {
   res.json(lerProdutos());
 });
 
-// ===== ADMIN DE PREÇOS =====
+// ===== ADMIN PREÇOS =====
 app.get('/admin-1234', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'admin.html'));
 });
@@ -55,23 +65,25 @@ app.post('/admin-1234', (req, res) => {
     const linha = l.trim();
     if (!linha) return;
 
-    // categoria (linha toda maiúscula)
-    if (linha === linha.toUpperCase()) {
+    // categoria = linha toda maiúscula sem número
+    if (linha === linha.toUpperCase() && !linha.match(/\d/)) {
       categoriaAtual = linha;
       return;
     }
 
-    // formato: ID | NOME | PREÇO
-    const partes = linha.split('|').map(p => p.trim());
+    // formato esperado do Excel:
+    // NUMERO \t NOME \t R$ PREÇO
+    const partes = linha.split('\t').map(p => p.trim());
     if (partes.length < 3) return;
 
-    const id = partes[0];
     const nome = partes[1];
     const preco = parseFloat(
       partes[2].replace(',', '.').replace(/[^\d.]/g, '')
     );
 
-    if (!id || !nome || isNaN(preco)) return;
+    if (!nome || isNaN(preco)) return;
+
+    const id = gerarId(nome);
 
     if (mapa[id]) {
       mapa[id].nome = nome;
@@ -94,7 +106,7 @@ app.post('/admin-1234', (req, res) => {
   res.json({ ok: true, total: listaFinal.length });
 });
 
-// ===== ADMIN DE FOTOS =====
+// ===== ADMIN FOTOS =====
 app.get('/admin-fotos', (req, res) => {
   const produtos = lerProdutos();
 
@@ -167,5 +179,5 @@ app.post('/admin-fotos', (req, res) => {
 // ===== SERVER =====
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log('🟢 Catálogo rodando com admin de preços e fotos');
+  console.log('🟢 Catálogo rodando (Excel + Fotos + IDs)');
 });
