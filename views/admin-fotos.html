@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Fotos</title>
+</head>
+<body>
+  <h2>Atualizar Fotos dos Produtos</h2>
+
+  <form method="POST" action="/admin-fotos-1234">
+    <label>ID do produto</label><br>
+    <input type="text" name="id" required><br><br>
+
+    <label>URL da foto</label><br>
+    <input type="text" name="foto" required style="width:400px"><br><br>
+
+    <button type="submit">Salvar Foto</button>
+  </form>
+
+  <p>Use a URL da imagem (Cloudflare R2 ou outra).</p>
+</body>
+</html>
