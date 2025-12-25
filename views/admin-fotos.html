@@ -3,20 +3,67 @@
 <head>
   <meta charset="UTF-8">
   <title>Admin Fotos</title>
+  <style>
+    body { font-family: Arial, sans-serif; }
+    .produto {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+    input[type="text"] {
+      width: 350px;
+    }
+    button {
+      cursor: pointer;
+    }
+  </style>
 </head>
 <body>
-  <h2>Atualizar Fotos dos Produtos</h2>
+  <h2>Administração de Fotos</h2>
 
-  <form method="POST" action="/admin-fotos-1234">
-    <label>ID do produto</label><br>
-    <input type="text" name="id" required><br><br>
+  <div id="lista"></div>
 
-    <label>URL da foto</label><br>
-    <input type="text" name="foto" required style="width:400px"><br><br>
+  <script>
+    async function carregarProdutos() {
+      const res = await fetch('/api/produtos');
+      const produtos = await res.json();
 
-    <button type="submit">Salvar Foto</button>
-  </form>
+      const lista = document.getElementById('lista');
+      lista.innerHTML = '';
 
-  <p>Use a URL da imagem (Cloudflare R2 ou outra).</p>
+      produtos.forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'produto';
+
+        div.innerHTML = `
+          <strong>${p.id}</strong>
+          <span>${p.nome}</span>
+          <input type="text" placeholder="URL da foto" value="${p.foto || ''}">
+          <button>Salvar</button>
+        `;
+
+        const input = div.querySelector('input');
+        const btn = div.querySelector('button');
+
+        btn.onclick = async () => {
+          await fetch('/admin-fotos-1234', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              id: p.id,
+              foto: input.value
+            })
+          });
+          btn.textContent = 'Salvo ✓';
+          setTimeout(() => btn.textContent = 'Salvar', 1000);
+        };
+
+        lista.appendChild(div);
+      });
+    }
+
+    carregarProdutos();
+  </script>
 </body>
 </html>
