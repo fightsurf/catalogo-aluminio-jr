@@ -2,42 +2,72 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <title>Catálogo – Alumínio JR</title>
+  <title>Catálogo Alumínio JR</title>
   <style>
-    body { font-family: Arial, sans-serif; background:#f5f5f5; padding:20px }
-    h1 { text-align:center }
-    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:15px }
-    .card {
-      background:#fff; border-radius:8px; padding:15px;
-      box-shadow:0 2px 5px rgba(0,0,0,.1)
+    body {
+      font-family: Arial, sans-serif;
+      background: #f7f7f7;
+      margin: 20px;
     }
-    .nome { font-weight:bold; margin-bottom:8px }
-    .preco { color:#0a7; font-size:18px }
+    h1 {
+      text-align: center;
+    }
+    .categoria {
+      margin-top: 30px;
+      padding: 10px;
+      background: #222;
+      color: #fff;
+      font-weight: bold;
+    }
+    .produto {
+      background: #fff;
+      padding: 8px 12px;
+      border-bottom: 1px solid #ddd;
+      display: flex;
+      justify-content: space-between;
+    }
+    .preco {
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
 
 <h1>📦 Catálogo Alumínio JR</h1>
-
-<div class="grid" id="lista"></div>
+<div id="catalogo"></div>
 
 <script>
 fetch('/api/produtos')
-  .then(r => r.json())
+  .then(res => res.json())
   .then(produtos => {
-    const lista = document.getElementById('lista');
+    const container = document.getElementById('catalogo');
+    const grupos = {};
+
     produtos.forEach(p => {
-      const div = document.createElement('div');
-      div.className = 'card';
-      div.innerHTML = `
-        <div class="nome">${p.nome}</div>
-        <div class="preco">R$ ${p.preco.toFixed(2)}</div>
-      `;
-      lista.appendChild(div);
+      if (!grupos[p.categoria]) {
+        grupos[p.categoria] = [];
+      }
+      grupos[p.categoria].push(p);
+    });
+
+    Object.keys(grupos).forEach(categoria => {
+      const titulo = document.createElement('div');
+      titulo.className = 'categoria';
+      titulo.innerText = categoria;
+      container.appendChild(titulo);
+
+      grupos[categoria].forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'produto';
+        div.innerHTML = `
+          <span>${p.nome}</span>
+          <span class="preco">R$ ${p.preco.toFixed(2)}</span>
+        `;
+        container.appendChild(div);
+      });
     });
   });
 </script>
 
 </body>
 </html>
-
