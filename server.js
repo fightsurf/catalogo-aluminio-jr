@@ -10,38 +10,35 @@ app.use(express.urlencoded({ extended: true }));
 const DATA_DIR = '/opt/render/project/data';
 const DATA_PATH = path.join(DATA_DIR, 'produtos.json');
 
-// garante pasta e arquivo
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
 }
-
 if (!fs.existsSync(DATA_PATH)) {
   fs.writeFileSync(DATA_PATH, '[]');
 }
 
-// ===== FUNÇÃO SEGURA PARA LER JSON =====
+// ===== LEITURA SEGURA =====
 function lerProdutos() {
   try {
-    const conteudo = fs.readFileSync(DATA_PATH, 'utf-8').trim();
-    if (!conteudo) return [];
-    return JSON.parse(conteudo);
+    const txt = fs.readFileSync(DATA_PATH, 'utf-8').trim();
+    if (!txt) return [];
+    return JSON.parse(txt);
   } catch (err) {
-    console.error('❌ ERRO AO LER produtos.json:', err.message);
+    console.error('❌ ERRO JSON:', err.message);
     return [];
   }
 }
 
-// ===== CATÁLOGO PÚBLICO =====
+// ===== CATÁLOGO =====
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'catalogo.html'));
 });
 
-// ===== API =====
 app.get('/api/produtos', (req, res) => {
   res.json(lerProdutos());
 });
 
-// ===== ADMIN (PLANILHA) =====
+// ===== ADMIN PLANILHA =====
 app.get('/admin-1234', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'admin.html'));
 });
@@ -54,54 +51,49 @@ app.post('/admin-1234', (req, res) => {
 
   const linhas = texto.split('\n');
   const produtosExistentes = lerProdutos();
-  const mapa = {};
 
-  // indexa produtos existentes por ID
+  // mapa por ID
+  const mapa = {};
   produtosExistentes.forEach(p => {
     if (p.id) mapa[p.id] = p;
   });
 
   let categoriaAtual = 'SEM CATEGORIA';
+  let contador = 0;
 
-  linhas.forEach(l => {
-    const linha = l.trim();
+  linhas.forEach(raw => {
+    const linha = raw.trim();
     if (!linha) return;
 
-    // linha toda maiúscula = categoria
-    if (linha === linha.toUpperCase()) {
+    // categoria (linha toda maiúscula e sem número)
+    if (
+      linha === linha.toUpperCase() &&
+      !linha.match(/^\d+/)
+    ) {
       categoriaAtual = linha;
       return;
     }
 
-    // aceita TAB, | ou múltiplos espaços
-    let partes = [];
-
-    if (linha.includes('|')) {
-      partes = linha.split('|').map(p => p.trim());
-    } else if (linha.includes('\t')) {
-      partes = linha.split('\t').map(p => p.trim());
-    } else {
-      // tenta separar por espaços grandes
-      partes = linha.split(/\s{2,}/).map(p => p.trim());
-    }
+    // tenta TAB (Excel)
+    const partes = linha.split('\t').map(p => p.trim());
 
     if (partes.length < 3) return;
 
     const id = partes[0];
     const nome = partes[1];
+    const precoTexto = partes[2];
+
     const preco = parseFloat(
-      partes[2].replace(',', '.').replace(/[^\d.]/g, '')
+      precoTexto.replace(',', '.').replace(/[^\d.]/g, '')
     );
 
     if (!id || !nome || isNaN(preco)) return;
 
     if (mapa[id]) {
-      // atualiza mantendo foto
       mapa[id].nome = nome;
       mapa[id].preco = preco;
       mapa[id].categoria = categoriaAtual;
     } else {
-      // cria novo produto
       mapa[id] = {
         id,
         nome,
@@ -110,6 +102,8 @@ app.post('/admin-1234', (req, res) => {
         foto: ''
       };
     }
+
+    contador++;
   });
 
   const listaFinal = Object.values(mapa);
@@ -117,12 +111,13 @@ app.post('/admin-1234', (req, res) => {
 
   res.json({
     ok: true,
-    total: listaFinal.length
+    total: listaFinal.length,
+    processados: contador
   });
 });
 
 // ===== SERVER =====
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log('🟢 Catálogo rodando com DISCO PERSISTENTE');
+  console.log('🟢 Catálogo rodando – parser Excel OK');
 });
