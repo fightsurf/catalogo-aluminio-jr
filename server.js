@@ -51,9 +51,8 @@ app.post('/admin-1234', (req, res) => {
 
   const linhas = texto.split('\n');
   const produtosExistentes = lerProdutos();
-
-  // mapa por ID
   const mapa = {};
+
   produtosExistentes.forEach(p => {
     if (p.id) mapa[p.id] = p;
   });
@@ -65,18 +64,12 @@ app.post('/admin-1234', (req, res) => {
     const linha = raw.trim();
     if (!linha) return;
 
-    // categoria (linha toda maiúscula e sem número)
-    if (
-      linha === linha.toUpperCase() &&
-      !linha.match(/^\d+/)
-    ) {
+    if (linha === linha.toUpperCase() && !linha.match(/^\d+/)) {
       categoriaAtual = linha;
       return;
     }
 
-    // tenta TAB (Excel)
     const partes = linha.split('\t').map(p => p.trim());
-
     if (partes.length < 3) return;
 
     const id = partes[0];
@@ -106,18 +99,37 @@ app.post('/admin-1234', (req, res) => {
     contador++;
   });
 
-  const listaFinal = Object.values(mapa);
-  fs.writeFileSync(DATA_PATH, JSON.stringify(listaFinal, null, 2));
+  fs.writeFileSync(DATA_PATH, JSON.stringify(Object.values(mapa), null, 2));
 
-  res.json({
-    ok: true,
-    total: listaFinal.length,
-    processados: contador
-  });
+  res.json({ ok: true, total: Object.keys(mapa).length, processados: contador });
+});
+
+// ===== ADMIN FOTOS =====
+app.get('/admin-fotos-1234', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'admin-fotos.html'));
+});
+
+app.post('/admin-fotos-1234', (req, res) => {
+  const { id, foto } = req.body;
+  if (!id || !foto) {
+    return res.json({ ok: false });
+  }
+
+  const produtos = lerProdutos();
+  const produto = produtos.find(p => p.id === id);
+
+  if (!produto) {
+    return res.json({ ok: false, erro: 'Produto não encontrado' });
+  }
+
+  produto.foto = foto.trim();
+
+  fs.writeFileSync(DATA_PATH, JSON.stringify(produtos, null, 2));
+  res.json({ ok: true });
 });
 
 // ===== SERVER =====
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log('🟢 Catálogo rodando – parser Excel OK');
+  console.log('🟢 Catálogo rodando com ADMIN DE FOTOS');
 });
