@@ -6,67 +6,111 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f7f7f7;
-      margin: 20px;
+      background: #f4f4f4;
+      margin: 0;
+      padding: 20px;
     }
+
     h1 {
       text-align: center;
     }
+
     .categoria {
-      margin-top: 30px;
-      padding: 10px;
+      margin-top: 40px;
+    }
+
+    .categoria h2 {
       background: #222;
       color: #fff;
-      font-weight: bold;
+      padding: 10px;
     }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 15px;
+      margin-top: 15px;
+    }
+
     .produto {
       background: #fff;
-      padding: 8px 12px;
-      border-bottom: 1px solid #ddd;
-      display: flex;
-      justify-content: space-between;
+      border: 1px solid #ddd;
+      padding: 10px;
+      text-align: center;
     }
+
+    .produto img {
+      width: 100%;
+      height: 160px;
+      object-fit: cover;
+      border: 1px solid #ccc;
+    }
+
+    .nome {
+      font-size: 14px;
+      margin: 8px 0;
+    }
+
     .preco {
       font-weight: bold;
+      color: #0a7;
     }
   </style>
 </head>
 <body>
 
 <h1>📦 Catálogo Alumínio JR</h1>
+
 <div id="catalogo"></div>
 
 <script>
-fetch('/api/produtos')
-  .then(res => res.json())
-  .then(produtos => {
-    const container = document.getElementById('catalogo');
-    const grupos = {};
+async function carregarCatalogo() {
+  const res = await fetch('/api/produtos');
+  const produtos = await res.json();
 
-    produtos.forEach(p => {
-      if (!grupos[p.categoria]) {
-        grupos[p.categoria] = [];
-      }
-      grupos[p.categoria].push(p);
-    });
+  const porCategoria = {};
 
-    Object.keys(grupos).forEach(categoria => {
-      const titulo = document.createElement('div');
-      titulo.className = 'categoria';
-      titulo.innerText = categoria;
-      container.appendChild(titulo);
-
-      grupos[categoria].forEach(p => {
-        const div = document.createElement('div');
-        div.className = 'produto';
-        div.innerHTML = `
-          <span>${p.nome}</span>
-          <span class="preco">R$ ${p.preco.toFixed(2)}</span>
-        `;
-        container.appendChild(div);
-      });
-    });
+  produtos.forEach(p => {
+    if (!porCategoria[p.categoria]) {
+      porCategoria[p.categoria] = [];
+    }
+    porCategoria[p.categoria].push(p);
   });
+
+  const container = document.getElementById('catalogo');
+
+  Object.keys(porCategoria).forEach(cat => {
+    const bloco = document.createElement('div');
+    bloco.className = 'categoria';
+
+    bloco.innerHTML = `<h2>${cat}</h2>`;
+
+    const grid = document.createElement('div');
+    grid.className = 'grid';
+
+    porCategoria[cat].forEach(p => {
+      const foto = p.foto && p.foto.trim() !== ''
+        ? p.foto
+        : 'https://via.placeholder.com/300x300?text=Sem+Foto';
+
+      const card = document.createElement('div');
+      card.className = 'produto';
+
+      card.innerHTML = `
+        <img src="${foto}" alt="${p.nome}">
+        <div class="nome">${p.nome}</div>
+        <div class="preco">R$ ${p.preco.toFixed(2).replace('.', ',')}</div>
+      `;
+
+      grid.appendChild(card);
+    });
+
+    bloco.appendChild(grid);
+    container.appendChild(bloco);
+  });
+}
+
+carregarCatalogo();
 </script>
 
 </body>
