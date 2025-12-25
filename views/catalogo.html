@@ -1,1 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Catálogo – Alumínio JR</title>
+  <style>
+    body { font-family: Arial, sans-serif; background:#f5f5f5; padding:20px }
+    h1 { text-align:center }
+    .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:15px }
+    .card {
+      background:#fff; border-radius:8px; padding:15px;
+      box-shadow:0 2px 5px rgba(0,0,0,.1)
+    }
+    .nome { font-weight:bold; margin-bottom:8px }
+    .preco { color:#0a7; font-size:18px }
+  </style>
+</head>
+<body>
+
+<h1>📦 Catálogo Alumínio JR</h1>
+
+<div class="grid" id="lista"></div>
+
+<script>
+fetch('/api/produtos')
+  .then(r => r.json())
+  .then(produtos => {
+    const lista = document.getElementById('lista');
+    produtos.forEach(p => {
+      const div = document.createElement('div');
+      div.className = 'card';
+      div.innerHTML = `
+        <div class="nome">${p.nome}</div>
+        <div class="preco">R$ ${p.preco.toFixed(2)}</div>
+      `;
+      lista.appendChild(div);
+    });
+  });
+</script>
+
+</body>
+</html>
 
