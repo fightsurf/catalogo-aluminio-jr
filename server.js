@@ -8,6 +8,19 @@ app.use(express.urlencoded({ extended: true }));
 
 const DATA_PATH = path.join(__dirname, 'data', 'produtos.json');
 
+// ===== FUNÇÃO SEGURA PARA LER JSON =====
+function lerProdutos() {
+  try {
+    if (!fs.existsSync(DATA_PATH)) return [];
+    const conteudo = fs.readFileSync(DATA_PATH, 'utf-8').trim();
+    if (!conteudo) return [];
+    return JSON.parse(conteudo);
+  } catch (err) {
+    console.error('❌ ERRO AO LER produtos.json:', err.message);
+    return [];
+  }
+}
+
 // ===== CATÁLOGO =====
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'catalogo.html'));
@@ -15,8 +28,8 @@ app.get('/', (req, res) => {
 
 // ===== API =====
 app.get('/api/produtos', (req, res) => {
-  const dados = fs.readFileSync(DATA_PATH, 'utf-8');
-  res.json(JSON.parse(dados));
+  const produtos = lerProdutos();
+  res.json(produtos);
 });
 
 // ===== ADMIN =====
@@ -26,7 +39,7 @@ app.get('/admin-1234', (req, res) => {
 
 app.post('/admin-1234', (req, res) => {
   const texto = req.body.texto;
-  if (!texto) return res.json({ ok: false });
+  if (!texto) return res.json({ ok: false, erro: 'Texto vazio' });
 
   const linhas = texto.split('\n');
   const produtos = [];
@@ -37,23 +50,32 @@ app.post('/admin-1234', (req, res) => {
     const limpa = linha.trim();
     if (!limpa) return;
 
-    // linha toda maiúscula = categoria
+    // categoria = linha toda maiúscula
     if (limpa === limpa.toUpperCase()) {
       categoriaAtual = limpa;
       return;
     }
 
-    // produto (TAB ou R$)
-    const partes = limpa.split('\t');
-    if (partes.length < 2) return;
+    // aceita TAB ou "R$"
+    let nome = '';
+    let precoTexto = '';
 
-    const nome = partes[0].trim();
-    const precoTexto = partes[1]
-      .replace('R$', '')
-      .replace(',', '.')
-      .trim();
+    if (limpa.includes('\t')) {
+      const partes = limpa.split('\t');
+      nome = partes[0].trim();
+      precoTexto = partes[1];
+    } else if (limpa.includes('R$')) {
+      const partes = limpa.split('R$');
+      nome = partes[0].trim();
+      precoTexto = partes[1];
+    } else {
+      return;
+    }
 
-    const preco = parseFloat(precoTexto);
+    const preco = parseFloat(
+      precoTexto.replace(',', '.').replace(/[^\d.]/g, '')
+    );
+
     if (isNaN(preco)) return;
 
     produtos.push({
@@ -70,5 +92,5 @@ app.post('/admin-1234', (req, res) => {
 // ===== SERVER =====
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+  console.log(`🟢 Catálogo rodando na porta ${PORT}`);
 });
