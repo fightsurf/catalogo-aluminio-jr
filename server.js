@@ -28,8 +28,7 @@ app.get('/', (req, res) => {
 
 // ===== API =====
 app.get('/api/produtos', (req, res) => {
-  const produtos = lerProdutos();
-  res.json(produtos);
+  res.json(lerProdutos());
 });
 
 // ===== ADMIN =====
@@ -42,55 +41,63 @@ app.post('/admin-1234', (req, res) => {
   if (!texto) return res.json({ ok: false, erro: 'Texto vazio' });
 
   const linhas = texto.split('\n');
-  const produtos = [];
+  const produtosExistentes = lerProdutos();
+  const mapa = {};
+
+  // indexa produtos existentes por ID
+  produtosExistentes.forEach(p => {
+    if (p.id) mapa[p.id] = p;
+  });
 
   let categoriaAtual = 'SEM CATEGORIA';
 
-  linhas.forEach(linha => {
-    const limpa = linha.trim();
-    if (!limpa) return;
+  linhas.forEach(l => {
+    const linha = l.trim();
+    if (!linha) return;
 
-    // categoria = linha toda maiúscula
-    if (limpa === limpa.toUpperCase()) {
-      categoriaAtual = limpa;
+    // categoria (linha toda maiúscula)
+    if (linha === linha.toUpperCase()) {
+      categoriaAtual = linha;
       return;
     }
 
-    // aceita TAB ou "R$"
-    let nome = '';
-    let precoTexto = '';
+    // formato: ID | NOME | PREÇO
+    const partes = linha.split('|').map(p => p.trim());
+    if (partes.length < 3) return;
 
-    if (limpa.includes('\t')) {
-      const partes = limpa.split('\t');
-      nome = partes[0].trim();
-      precoTexto = partes[1];
-    } else if (limpa.includes('R$')) {
-      const partes = limpa.split('R$');
-      nome = partes[0].trim();
-      precoTexto = partes[1];
-    } else {
-      return;
-    }
-
+    const id = partes[0];
+    const nome = partes[1];
     const preco = parseFloat(
-      precoTexto.replace(',', '.').replace(/[^\d.]/g, '')
+      partes[2].replace(',', '.').replace(/[^\d.]/g, '')
     );
 
-    if (isNaN(preco)) return;
+    if (!id || !nome || isNaN(preco)) return;
 
-    produtos.push({
-      categoria: categoriaAtual,
-      nome,
-      preco
-    });
+    if (mapa[id]) {
+      // atualiza produto existente
+      mapa[id].nome = nome;
+      mapa[id].preco = preco;
+      mapa[id].categoria = categoriaAtual;
+    } else {
+      // cria novo produto
+      mapa[id] = {
+        id,
+        nome,
+        preco,
+        categoria: categoriaAtual,
+        foto: ''
+      };
+    }
   });
 
-  fs.writeFileSync(DATA_PATH, JSON.stringify(produtos, null, 2));
-  res.json({ ok: true, total: produtos.length });
+  const listaFinal = Object.values(mapa);
+  fs.writeFileSync(DATA_PATH, JSON.stringify(listaFinal, null, 2));
+
+  res.json({ ok: true, total: listaFinal.length });
 });
 
 // ===== SERVER =====
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log(`🟢 Catálogo rodando na porta ${PORT}`);
+  console.log('🟢 Catálogo rodando com ID fixo por planilha');
 });
