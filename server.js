@@ -6,19 +6,32 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const DATA_PATH = path.join(__dirname, 'data', 'produtos.json');
+// ===== DISCO PERSISTENTE (RENDER) =====
+const DATA_DIR = '/opt/render/project/data';
+const DATA_PATH = path.join(DATA_DIR, 'produtos.json');
 
-// ===== LEITURA SEGURA =====
+// garante pasta e arquivo
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+if (!fs.existsSync(DATA_PATH)) {
+  fs.writeFileSync(DATA_PATH, '[]');
+}
+
+// ===== FUNÇÃO SEGURA PARA LER JSON =====
 function lerProdutos() {
   try {
-    if (!fs.existsSync(DATA_PATH)) return [];
-    return JSON.parse(fs.readFileSync(DATA_PATH, 'utf-8'));
-  } catch {
+    const conteudo = fs.readFileSync(DATA_PATH, 'utf-8').trim();
+    if (!conteudo) return [];
+    return JSON.parse(conteudo);
+  } catch (err) {
+    console.error('❌ ERRO AO LER produtos.json:', err.message);
     return [];
   }
 }
 
-// ===== CATÁLOGO =====
+// ===== CATÁLOGO PÚBLICO =====
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'catalogo.html'));
 });
@@ -28,59 +41,88 @@ app.get('/api/produtos', (req, res) => {
   res.json(lerProdutos());
 });
 
-// ===== ADMIN (GERADOR) =====
+// ===== ADMIN (PLANILHA) =====
 app.get('/admin-1234', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'admin.html'));
 });
 
-// ⚠️ NÃO GRAVA EM DISCO NO RENDER
 app.post('/admin-1234', (req, res) => {
   const texto = req.body.texto;
-  if (!texto) return res.json({ ok: false });
+  if (!texto) {
+    return res.json({ ok: false, erro: 'Texto vazio' });
+  }
 
   const linhas = texto.split('\n');
-  const produtos = [];
+  const produtosExistentes = lerProdutos();
+  const mapa = {};
+
+  // indexa produtos existentes por ID
+  produtosExistentes.forEach(p => {
+    if (p.id) mapa[p.id] = p;
+  });
+
   let categoriaAtual = 'SEM CATEGORIA';
 
   linhas.forEach(l => {
     const linha = l.trim();
     if (!linha) return;
 
+    // linha toda maiúscula = categoria
     if (linha === linha.toUpperCase()) {
       categoriaAtual = linha;
       return;
     }
 
-    const partes = linha.split('\t');
+    // aceita TAB, | ou múltiplos espaços
+    let partes = [];
+
+    if (linha.includes('|')) {
+      partes = linha.split('|').map(p => p.trim());
+    } else if (linha.includes('\t')) {
+      partes = linha.split('\t').map(p => p.trim());
+    } else {
+      // tenta separar por espaços grandes
+      partes = linha.split(/\s{2,}/).map(p => p.trim());
+    }
+
     if (partes.length < 3) return;
 
-    const id = partes[0].trim();
-    const nome = partes[1].trim();
+    const id = partes[0];
+    const nome = partes[1];
     const preco = parseFloat(
       partes[2].replace(',', '.').replace(/[^\d.]/g, '')
     );
 
     if (!id || !nome || isNaN(preco)) return;
 
-    produtos.push({
-      id,
-      nome,
-      preco,
-      categoria: categoriaAtual,
-      foto: ''
-    });
+    if (mapa[id]) {
+      // atualiza mantendo foto
+      mapa[id].nome = nome;
+      mapa[id].preco = preco;
+      mapa[id].categoria = categoriaAtual;
+    } else {
+      // cria novo produto
+      mapa[id] = {
+        id,
+        nome,
+        preco,
+        categoria: categoriaAtual,
+        foto: ''
+      };
+    }
   });
 
-  // devolve JSON para você copiar
+  const listaFinal = Object.values(mapa);
+  fs.writeFileSync(DATA_PATH, JSON.stringify(listaFinal, null, 2));
+
   res.json({
     ok: true,
-    total: produtos.length,
-    produtos
+    total: listaFinal.length
   });
 });
 
 // ===== SERVER =====
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log('🟢 Catálogo rodando (dados versionados no GitHub)');
+  console.log('🟢 Catálogo rodando com DISCO PERSISTENTE');
 });
