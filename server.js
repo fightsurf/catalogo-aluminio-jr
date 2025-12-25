@@ -31,7 +31,7 @@ app.get('/api/produtos', (req, res) => {
   res.json(lerProdutos());
 });
 
-// ===== ADMIN =====
+// ===== ADMIN DE PREÇOS =====
 app.get('/admin-1234', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'admin.html'));
 });
@@ -74,12 +74,10 @@ app.post('/admin-1234', (req, res) => {
     if (!id || !nome || isNaN(preco)) return;
 
     if (mapa[id]) {
-      // atualiza produto existente
       mapa[id].nome = nome;
       mapa[id].preco = preco;
       mapa[id].categoria = categoriaAtual;
     } else {
-      // cria novo produto
       mapa[id] = {
         id,
         nome,
@@ -96,8 +94,78 @@ app.post('/admin-1234', (req, res) => {
   res.json({ ok: true, total: listaFinal.length });
 });
 
+// ===== ADMIN DE FOTOS =====
+app.get('/admin-fotos', (req, res) => {
+  const produtos = lerProdutos();
+
+  res.send(`
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8">
+      <title>Admin Fotos</title>
+      <style>
+        body { font-family: Arial; padding: 20px; background: #f5f5f5; }
+        table { width: 100%; border-collapse: collapse; background: #fff; }
+        th, td { border: 1px solid #ccc; padding: 8px; }
+        th { background: #eee; }
+        input { width: 100%; }
+        button { margin-top: 15px; padding: 10px 20px; font-size: 16px; }
+      </style>
+    </head>
+    <body>
+
+    <h2>📸 Atualizar fotos dos produtos</h2>
+
+    <form method="POST" action="/admin-fotos">
+      <table>
+        <tr>
+          <th>ID</th>
+          <th>Produto</th>
+          <th>URL da Foto</th>
+        </tr>
+
+        ${produtos.map(p => `
+          <tr>
+            <td>${p.id}</td>
+            <td>${p.nome}</td>
+            <td>
+              <input
+                type="text"
+                name="foto_${p.id}"
+                value="${p.foto || ''}"
+                placeholder="https://..."
+              >
+            </td>
+          </tr>
+        `).join('')}
+
+      </table>
+
+      <button type="submit">Salvar Fotos</button>
+    </form>
+
+    </body>
+    </html>
+  `);
+});
+
+app.post('/admin-fotos', (req, res) => {
+  const produtos = lerProdutos();
+
+  produtos.forEach(p => {
+    const novaFoto = req.body[`foto_${p.id}`];
+    if (novaFoto !== undefined) {
+      p.foto = novaFoto.trim();
+    }
+  });
+
+  fs.writeFileSync(DATA_PATH, JSON.stringify(produtos, null, 2));
+  res.redirect('/admin-fotos');
+});
+
 // ===== SERVER =====
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log('🟢 Catálogo rodando com ID fixo por planilha');
+  console.log('🟢 Catálogo rodando com admin de preços e fotos');
 });
