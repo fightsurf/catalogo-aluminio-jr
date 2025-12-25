@@ -6,37 +6,20 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ===== GARANTIR PASTA DATA =====
-const DATA_DIR = path.join(__dirname, 'data');
-const DATA_PATH = path.join(DATA_DIR, 'produtos.json');
+const DATA_PATH = path.join(__dirname, 'data', 'produtos.json');
 
-if (!fs.existsSync(DATA_DIR)) {
-  fs.mkdirSync(DATA_DIR);
-}
-
-if (!fs.existsSync(DATA_PATH)) {
-  fs.writeFileSync(DATA_PATH, '[]');
-}
-
-// ===== ARQUIVOS ESTÁTICOS =====
-app.use('/public', express.static(path.join(__dirname, 'public')));
-
-// ===== CATÁLOGO PÚBLICO =====
+// ===== CATÁLOGO =====
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'catalogo.html'));
 });
 
-// ===== API PRODUTOS =====
+// ===== API =====
 app.get('/api/produtos', (req, res) => {
-  try {
-    const dados = fs.readFileSync(DATA_PATH, 'utf-8');
-    res.json(JSON.parse(dados));
-  } catch (err) {
-    res.json([]);
-  }
+  const dados = fs.readFileSync(DATA_PATH, 'utf-8');
+  res.json(JSON.parse(dados));
 });
 
-// ===== ADMIN SECRETO =====
+// ===== ADMIN =====
 app.get('/admin-1234', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'admin.html'));
 });
@@ -48,14 +31,36 @@ app.post('/admin-1234', (req, res) => {
   const linhas = texto.split('\n');
   const produtos = [];
 
+  let categoriaAtual = 'SEM CATEGORIA';
+
   linhas.forEach(linha => {
-    const partes = linha.split('\t');
-    if (partes.length >= 2) {
-      produtos.push({
-        nome: partes[0].trim(),
-        preco: partes[1].trim()
-      });
+    const limpa = linha.trim();
+    if (!limpa) return;
+
+    // linha toda maiúscula = categoria
+    if (limpa === limpa.toUpperCase()) {
+      categoriaAtual = limpa;
+      return;
     }
+
+    // produto (TAB ou R$)
+    const partes = limpa.split('\t');
+    if (partes.length < 2) return;
+
+    const nome = partes[0].trim();
+    const precoTexto = partes[1]
+      .replace('R$', '')
+      .replace(',', '.')
+      .trim();
+
+    const preco = parseFloat(precoTexto);
+    if (isNaN(preco)) return;
+
+    produtos.push({
+      categoria: categoriaAtual,
+      nome,
+      preco
+    });
   });
 
   fs.writeFileSync(DATA_PATH, JSON.stringify(produtos, null, 2));
@@ -65,5 +70,5 @@ app.post('/admin-1234', (req, res) => {
 // ===== SERVER =====
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log(`🟢 Catálogo rodando na porta ${PORT}`);
+  console.log(`Servidor rodando na porta ${PORT}`);
 });
