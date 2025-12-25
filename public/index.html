@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Catálogo Alumínio JR</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f6f6f6;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+    }
+    .produto {
+      background: #fff;
+      border-radius: 6px;
+      padding: 12px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      font-size: 16px;
+    }
+    .preco {
+      font-weight: bold;
+      color: #0a7c2f;
+    }
+  </style>
+</head>
+<body>
+
+<h1>📦 Catálogo Alumínio JR</h1>
+
+<div id="lista"></div>
+
+<script>
+  fetch('/produtos')
+    .then(res => res.json())
+    .then(produtos => {
+      const lista = document.getElementById('lista');
+
+      if (produtos.length === 0) {
+        lista.innerHTML = '<p>Nenhum produto cadastrado.</p>';
+        return;
+      }
+
+      produtos.forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'produto';
+        div.innerHTML = `
+          <span>${p.nome}</span>
+          <span class="preco">R$ ${p.preco.toFixed(2)}</span>
+        `;
+        lista.appendChild(div);
+      });
+    });
+</script>
+
+</body>
+</html>
