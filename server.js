@@ -6,8 +6,20 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// caminhos
-const DATA_PATH = path.join(__dirname, 'data', 'produtos.json');
+// ===== GARANTIR PASTA DATA =====
+const DATA_DIR = path.join(__dirname, 'data');
+const DATA_PATH = path.join(DATA_DIR, 'produtos.json');
+
+if (!fs.existsSync(DATA_DIR)) {
+  fs.mkdirSync(DATA_DIR);
+}
+
+if (!fs.existsSync(DATA_PATH)) {
+  fs.writeFileSync(DATA_PATH, '[]');
+}
+
+// ===== ARQUIVOS ESTÁTICOS =====
+app.use('/public', express.static(path.join(__dirname, 'public')));
 
 // ===== CATÁLOGO PÚBLICO =====
 app.get('/', (req, res) => {
@@ -16,12 +28,15 @@ app.get('/', (req, res) => {
 
 // ===== API PRODUTOS =====
 app.get('/api/produtos', (req, res) => {
-  const dados = fs.readFileSync(DATA_PATH, 'utf-8');
-  res.json(JSON.parse(dados));
+  try {
+    const dados = fs.readFileSync(DATA_PATH, 'utf-8');
+    res.json(JSON.parse(dados));
+  } catch (err) {
+    res.json([]);
+  }
 });
 
 // ===== ADMIN SECRETO =====
-// troque o sufixo se quiser
 app.get('/admin-1234', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'admin.html'));
 });
@@ -50,5 +65,5 @@ app.post('/admin-1234', (req, res) => {
 // ===== SERVER =====
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log(`Servidor rodando na porta ${PORT}`);
+  console.log(`🟢 Catálogo rodando na porta ${PORT}`);
 });
