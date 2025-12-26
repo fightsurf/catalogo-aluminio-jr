@@ -3,16 +3,38 @@
 <head>
   <meta charset="UTF-8" />
   <title>Catálogo Alumínio JR</title>
+
   <style>
     body {
       font-family: Arial, sans-serif;
       background: #f4f4f4;
       margin: 0;
-      padding: 20px;
+      padding: 0;
     }
 
-    h1 {
-      text-align: center;
+    /* ===== TOPO ===== */
+    header {
+      background: #ffffff;
+      border-bottom: 2px solid #ddd;
+      padding: 15px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    header h1 {
+      margin: 0;
+      font-size: 22px;
+    }
+
+    .whatsapp {
+      text-decoration: none;
+      font-size: 28px;
+    }
+
+    /* ===== CONTEÚDO ===== */
+    .container {
+      padding: 20px;
     }
 
     .categoria {
@@ -23,51 +45,70 @@
       background: #222;
       color: #fff;
       padding: 10px;
+      margin: 0 0 15px 0;
+      font-size: 18px;
     }
 
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 15px;
-      margin-top: 15px;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 20px;
     }
 
     .produto {
       background: #fff;
       border: 1px solid #ddd;
-      padding: 10px;
+      padding: 12px;
       text-align: center;
     }
 
     .produto img {
       width: 100%;
-      height: 160px;
-      object-fit: cover;
+      height: 220px;
+      object-fit: contain;
+      background: #fafafa;
       border: 1px solid #ccc;
     }
 
     .nome {
       font-size: 14px;
-      margin: 8px 0;
+      margin: 10px 0 5px 0;
+      min-height: 36px;
     }
 
     .preco {
       font-weight: bold;
       color: #0a7;
+      font-size: 15px;
     }
   </style>
 </head>
 <body>
 
-<h1>📦 Catálogo Alumínio JR</h1>
+<header>
+  <h1>CATÁLOGO ALUMÍNIO JR</h1>
 
-<div id="catalogo"></div>
+  <!-- WhatsApp IA -->
+  <a
+    class="whatsapp"
+    href="https://wa.me/558399792085"
+    target="_blank"
+    title="Falar no WhatsApp"
+  >
+    🟢
+  </a>
+</header>
+
+<div class="container">
+  <div id="catalogo"></div>
+</div>
 
 <script>
 async function carregarCatalogo() {
   const res = await fetch('/api/produtos');
   const produtos = await res.json();
 
+  // Agrupa por categoria
   const porCategoria = {};
 
   produtos.forEach(p => {
@@ -80,6 +121,11 @@ async function carregarCatalogo() {
   const container = document.getElementById('catalogo');
 
   Object.keys(porCategoria).forEach(cat => {
+    // ORDENA ALFABETICAMENTE
+    porCategoria[cat].sort((a, b) =>
+      a.nome.localeCompare(b.nome, 'pt-BR')
+    );
+
     const bloco = document.createElement('div');
     bloco.className = 'categoria';
 
@@ -91,7 +137,7 @@ async function carregarCatalogo() {
     porCategoria[cat].forEach(p => {
       const foto = p.foto && p.foto.trim() !== ''
         ? p.foto
-        : 'https://via.placeholder.com/300x300?text=Sem+Foto';
+        : 'https://via.placeholder.com/400x400?text=Sem+Foto';
 
       const card = document.createElement('div');
       card.className = 'produto';
@@ -99,7 +145,7 @@ async function carregarCatalogo() {
       card.innerHTML = `
         <img src="${foto}" alt="${p.nome}">
         <div class="nome">${p.nome}</div>
-        <div class="preco">R$ ${p.preco.toFixed(2).replace('.', ',')}</div>
+        <div class="preco">R$ ${Number(p.preco).toFixed(2).replace('.', ',')}</div>
       `;
 
       grid.appendChild(card);
