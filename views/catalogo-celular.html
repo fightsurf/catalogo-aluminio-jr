@@ -13,23 +13,10 @@
       padding: 10px;
     }
 
-    /* ===== TOPO ===== */
-    .topo {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      margin-bottom: 15px;
-    }
-
-    .topo h1 {
+    h1 {
+      text-align: center;
       font-size: 22px;
-      margin: 0;
-    }
-
-    .whatsapp-link img {
-      height: 32px; /* um pouco maior que o texto */
-      width: auto;
+      margin-bottom: 15px;
     }
 
     /* ===== PRODUTO ===== */
@@ -58,37 +45,60 @@
       color: #0a7;
       margin-top: 4px;
     }
+
+    /* ===== WHATSAPP FLUTUANTE ===== */
+    .whatsapp-flutuante {
+      position: fixed;
+      bottom: 18px;
+      right: 18px;
+      z-index: 9999;
+      width: 64px;
+      height: 64px;
+      border-radius: 50%;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      background: #25d366;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .whatsapp-flutuante img {
+      width: 42px;
+      height: 42px;
+    }
+
+    .whatsapp-flutuante:active {
+      transform: scale(0.95);
+    }
   </style>
 </head>
 
 <body>
 
-  <!-- ===== CABEÇALHO ===== -->
-  <div class="topo">
-    <h1>📦 Catálogo Alumínio JR</h1>
+  <h1>📦 Catálogo Alumínio JR</h1>
 
-    <a
-      class="whatsapp-link"
-      href="https://wa.me/558399792085"
-      target="_blank"
-      title="Falar no WhatsApp"
-    >
-      <img
-        src="https://pub-51cb4ace3dfb43a4ac45a4b7c399904d.r2.dev/%C3%ADcone%20whatsapp.jpg"
-        alt="WhatsApp"
-      />
-    </a>
-  </div>
-
-  <!-- ===== LISTA DE PRODUTOS ===== -->
+  <!-- LISTA DE PRODUTOS -->
   <div id="lista"></div>
+
+  <!-- WHATSAPP FLUTUANTE -->
+  <a
+    class="whatsapp-flutuante"
+    href="https://wa.me/558399792085"
+    target="_blank"
+    title="Falar no WhatsApp"
+  >
+    <img
+      src="https://pub-51cb4ace3dfb43a4ac45a4b7c399904d.r2.dev/%C3%ADcone%20whatsapp.jpg"
+      alt="WhatsApp"
+    />
+  </a>
 
   <script>
     async function carregarProdutos() {
       const res = await fetch('/api/produtos');
       const produtos = await res.json();
 
-      // ordena alfabeticamente
+      // ordem alfabética
       produtos.sort((a, b) =>
         a.nome.localeCompare(b.nome, 'pt-BR')
       );
