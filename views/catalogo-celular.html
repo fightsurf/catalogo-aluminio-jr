@@ -3,102 +3,91 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Catálogo Alumínio JR</title>
+  <title>Catálogo Alumínio JR – Celular</title>
 
   <style>
     body {
       margin: 0;
-      padding: 12px;
+      padding: 10px;
       font-family: Arial, sans-serif;
-      background: #f4f4f4;
+      background: #f2f2f2;
     }
 
     h1 {
       text-align: center;
       font-size: 20px;
-      margin-bottom: 16px;
+      margin-bottom: 15px;
     }
 
     .produto {
       background: #fff;
-      margin-bottom: 16px;
       border-radius: 8px;
-      overflow: hidden;
+      margin-bottom: 15px;
+      padding: 10px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.1);
     }
 
     .produto img {
       width: 100%;
       height: auto;
-      display: block;
-    }
-
-    .info {
-      padding: 10px;
+      border-radius: 6px;
+      margin-bottom: 8px;
     }
 
     .nome {
       font-size: 16px;
       font-weight: bold;
-      margin-bottom: 6px;
+      margin-bottom: 5px;
     }
 
     .preco {
-      font-size: 15px;
+      font-size: 18px;
       color: #0a7;
       font-weight: bold;
     }
-
-    .categoria {
-      font-size: 13px;
-      color: #666;
-      margin-bottom: 6px;
-    }
   </style>
 </head>
+
 <body>
 
-  <h1>📦 Catálogo Alumínio JR</h1>
+<h1>📦 Catálogo Alumínio JR</h1>
 
-  <div id="lista"></div>
+<div id="lista"></div>
 
-  <script>
-    async function carregarCatalogo() {
-      const res = await fetch('/api/produtos');
-      const produtos = await res.json();
+<script>
+async function carregarProdutos() {
+  try {
+    const res = await fetch('/api/produtos');
+    const produtos = await res.json();
 
-      // ordena alfabeticamente
-      produtos.sort((a, b) =>
-        a.nome.localeCompare(b.nome, 'pt-BR')
-      );
+    const container = document.getElementById('lista');
+    container.innerHTML = '';
 
-      const container = document.getElementById('lista');
+    produtos.forEach(p => {
+      const foto = p.foto && p.foto.trim() !== ''
+        ? p.foto
+        : 'https://via.placeholder.com/600x600?text=Sem+Foto';
 
-      produtos.forEach(p => {
-        const foto = p.foto && p.foto.trim() !== ''
-          ? p.foto
-          : 'https://via.placeholder.com/600x600?text=Sem+Foto';
+      const div = document.createElement('div');
+      div.className = 'produto';
 
-        const card = document.createElement('div');
-        card.className = 'produto';
+      div.innerHTML = `
+        <img src="${foto}" alt="${p.nome}">
+        <div class="nome">${p.nome}</div>
+        <div class="preco">R$ ${Number(p.preco).toFixed(2).replace('.', ',')}</div>
+      `;
 
-        card.innerHTML = `
-          <img src="${foto}" alt="${p.nome}">
-          <div class="info">
-            <div class="categoria">${p.categoria || ''}</div>
-            <div class="nome">${p.nome}</div>
-            <div class="preco">
-              R$ ${Number(p.preco).toFixed(2).replace('.', ',')}
-            </div>
-          </div>
-        `;
+      container.appendChild(div);
+    });
 
-        container.appendChild(card);
-      });
-    }
+  } catch (err) {
+    document.getElementById('lista').innerHTML =
+      '<p>Erro ao carregar produtos.</p>';
+  }
+}
 
-    carregarCatalogo();
-  </script>
+carregarProdutos();
+</script>
 
 </body>
 </html>
