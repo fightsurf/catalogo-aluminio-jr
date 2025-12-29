@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Kit Feirinha – Alumínio JR</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      margin: 0;
+      padding: 10px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 22px;
+      margin-bottom: 10px;
+    }
+
+    .produto {
+      background: #fff;
+      margin-bottom: 10px;
+      padding: 10px;
+      border-radius: 6px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.1);
+    }
+
+    .linha {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .linha img {
+      width: 80px;
+      height: 80px;
+      object-fit: cover;
+      border-radius: 4px;
+    }
+
+    .info {
+      flex: 1;
+    }
+
+    .nome {
+      font-size: 14px;
+    }
+
+    .preco {
+      font-weight: bold;
+      color: #0a7;
+      margin-top: 4px;
+    }
+
+    .qtd {
+      width: 60px;
+    }
+
+    .resultado {
+      background: #fff;
+      padding: 12px;
+      border-radius: 6px;
+      margin-top: 15px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.15);
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 10px;
+      font-size: 16px;
+      background: #25d366;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    textarea {
+      width: 100%;
+      height: 160px;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+
+<body>
+
+<h1>🧺 Kit Feirinha – Alumínio JR</h1>
+
+<div id="lista"></div>
+
+<div class="resultado">
+  <strong>Total do Kit:</strong> R$ <span id="total">0,00</span><br>
+  <strong>Preço médio por item:</strong> R$ <span id="medio">0,00</span>
+
+  <button onclick="gerarTexto()">Gerar Cálculo do Kit e Copiar para WhatsApp</button>
+
+  <textarea id="textoFinal" placeholder="Texto do WhatsApp"></textarea>
+</div>
+
+<script>
+let produtos = [];
+
+async function carregarProdutos() {
+  const res = await fetch('/api/produtos');
+  produtos = await res.json();
+
+  const lista = document.getElementById('lista');
+
+  produtos.forEach(p => {
+    const foto = p.foto && p.foto.trim() !== ''
+      ? p.foto
+      : 'https://via.placeholder.com/200x200?text=Sem+Foto';
+
+    const div = document.createElement('div');
+    div.className = 'produto';
+
+    div.innerHTML = `
+      <div class="linha">
+        <input type="checkbox" onchange="calcular()">
+        <img src="${foto}">
+        <div class="info">
+          <div class="nome">${p.nome}</div>
+          <div class="preco">R$ ${Number(p.preco).toFixed(2).replace('.', ',')}</div>
+        </div>
+        <input class="qtd" type="number" min="1" value="1" onchange="calcular()">
+      </div>
+    `;
+
+    div.dataset.nome = p.nome;
+    div.dataset.preco = p.preco;
+
+    lista.appendChild(div);
+  });
+}
+
+function calcular() {
+  const cards = document.querySelectorAll('.produto');
+  let total = 0;
+  let itens = 0;
+
+  cards.forEach(c => {
+    const check = c.querySelector('input[type=checkbox]');
+    const qtdInput = c.querySelector('.qtd');
+
+    if (check.checked) {
+      const preco = Number(c.dataset.preco);
+      const qtd = Number(qtdInput.value);
+      total += preco * qtd;
+      itens += qtd;
+    }
+  });
+
+  document.getElementById('total').innerText = total.toFixed(2).replace('.', ',');
+  document.getElementById('medio').innerText =
+    itens > 0 ? (total / itens).toFixed(2).replace('.', ',') : '0,00';
+}
+
+function gerarTexto() {
+  const cards = document.querySelectorAll('.produto');
+  let linhas = [];
+  let total = 0;
+  let itens = 0;
+
+  cards.forEach(c => {
+    const check = c.querySelector('input[type=checkbox]');
+    const qtdInput = c.querySelector('.qtd');
+
+    if (check.checked) {
+      const nome = c.dataset.nome;
+      const preco = Number(c.dataset.preco);
+      const qtd = Number(qtdInput.value);
+
+      linhas.push(`- ${nome} (x${qtd})`);
+      total += preco * qtd;
+      itens += qtd;
+    }
+  });
+
+  if (itens === 0) {
+    alert('Selecione pelo menos um item.');
+    return;
+  }
+
+  const texto =
+`*${itens} itens selecionados:*
+${linhas.join('\n')}
+
+*Preço final do kit: R$ ${total.toFixed(2).replace('.', ',')}*
+*Preço médio por item: R$ ${(total / itens).toFixed(2).replace('.', ',')}*`;
+
+  const area = document.getElementById('textoFinal');
+  area.value = texto;
+  area.select();
+  document.execCommand('copy');
+
+  alert('Texto copiado! Cole no WhatsApp.');
+}
+
+carregarProdutos();
+</script>
+
+</body>
+</html>
