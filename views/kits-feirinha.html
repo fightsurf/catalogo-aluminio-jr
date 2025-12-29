@@ -11,6 +11,7 @@
       background: #f4f4f4;
       margin: 0;
       padding: 15px;
+      padding-bottom: 140px;
     }
 
     h1 {
@@ -70,18 +71,39 @@
       text-align: center;
     }
 
-    button {
+    /* ===== PAINEL FLUTUANTE ===== */
+    .painel {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
       width: 100%;
-      padding: 15px;
+      max-width: 480px;
+      background: #ffffff;
+      border-top: 2px solid #0a7;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
+      padding: 12px;
+      z-index: 999;
+    }
+
+    .painel p {
+      margin: 4px 0;
+      font-size: 15px;
+      font-weight: bold;
+    }
+
+    .painel button {
+      width: 100%;
+      padding: 14px;
       font-size: 16px;
       background: #0a7;
       color: #fff;
       border: none;
-      margin-top: 20px;
+      margin-top: 8px;
       cursor: pointer;
     }
 
-    button:active {
+    .painel button:active {
       background: #086;
     }
   </style>
@@ -92,7 +114,13 @@
 
 <div id="lista"></div>
 
-<button onclick="gerarKit()">Gerar cálculo do kit e copiar para WhatsApp</button>
+<!-- PAINEL FLUTUANTE -->
+<div class="painel">
+  <p id="resumo-itens">0 itens selecionados</p>
+  <p id="resumo-total">Total: R$ 0,00</p>
+  <p id="resumo-medio">Médio por item: R$ 0,00</p>
+  <button onclick="enviarWhatsApp()">Enviar para WhatsApp</button>
+</div>
 
 <script>
 let produtos = [];
@@ -113,16 +141,14 @@ async function carregarProdutos() {
   const container = document.getElementById('lista');
 
   Object.keys(porCategoria).forEach(cat => {
-    // ordena produtos da categoria
     porCategoria[cat].sort((a, b) => a.nome.localeCompare(b.nome));
 
     const bloco = document.createElement('div');
     bloco.className = 'categoria';
-
     bloco.innerHTML = `<h2>${cat}</h2>`;
 
     porCategoria[cat].forEach(p => {
-      const foto = p.foto && p.foto.trim() !== ''
+      const foto = p.foto && p.foto.trim()
         ? p.foto
         : 'https://via.placeholder.com/100x100?text=Sem+Foto';
 
@@ -130,7 +156,7 @@ async function carregarProdutos() {
       div.className = 'produto';
 
       div.innerHTML = `
-        <input type="checkbox" class="chk" data-id="${p.id}">
+        <input type="checkbox" class="chk" data-id="${p.id}" onchange="atualizarResumo()">
         <img src="${foto}">
         <div class="info">
           <strong>${p.nome}</strong>
@@ -138,7 +164,10 @@ async function carregarProdutos() {
         </div>
         <div class="controles">
           <span>Qtd</span>
-          <input type="number" min="1" value="1" class="qtd" data-id="${p.id}">
+          <input type="number" min="1" value="1"
+            class="qtd"
+            data-id="${p.id}"
+            onchange="atualizarResumo()">
         </div>
       `;
 
@@ -149,7 +178,34 @@ async function carregarProdutos() {
   });
 }
 
-function gerarKit() {
+function atualizarResumo() {
+  let total = 0;
+  let totalItens = 0;
+
+  document.querySelectorAll('.chk:checked').forEach(chk => {
+    const id = chk.dataset.id;
+    const produto = produtos.find(p => p.id === id);
+    const qtd = Number(document.querySelector(`.qtd[data-id="${id}"]`).value);
+
+    if (!produto || qtd <= 0) return;
+
+    total += produto.preco * qtd;
+    totalItens += qtd;
+  });
+
+  const medio = totalItens > 0 ? total / totalItens : 0;
+
+  document.getElementById('resumo-itens').innerText =
+    `${totalItens} itens selecionados`;
+
+  document.getElementById('resumo-total').innerText =
+    `Total: R$ ${total.toFixed(2).replace('.', ',')}`;
+
+  document.getElementById('resumo-medio').innerText =
+    `Médio por item: R$ ${medio.toFixed(2).replace('.', ',')}`;
+}
+
+function enviarWhatsApp() {
   let selecionados = [];
   let total = 0;
   let totalItens = 0;
@@ -161,12 +217,7 @@ function gerarKit() {
 
     if (!produto || qtd <= 0) return;
 
-    selecionados.push({
-      nome: produto.nome,
-      qtd,
-      preco: produto.preco
-    });
-
+    selecionados.push({ nome: produto.nome, qtd });
     total += produto.preco * qtd;
     totalItens += qtd;
   });
@@ -176,7 +227,7 @@ function gerarKit() {
     return;
   }
 
-  const precoMedio = total / totalItens;
+  const medio = total / totalItens;
 
   let texto = `*${totalItens} itens selecionados:*\n`;
 
@@ -184,11 +235,11 @@ function gerarKit() {
     texto += `- ${p.nome} (x${p.qtd})\n`;
   });
 
-  texto += `\n*Preço final do kit: R$ ${total.toFixed(2).replace('.', ',')}*\n`;
-  texto += `*Preço médio por item: R$ ${precoMedio.toFixed(2).replace('.', ',')}*`;
+  texto += `\n*Preço final do kit: R$ ${total.toFixed(2).replace('.', ',')}*`;
+  texto += `\n*Preço médio por item: R$ ${medio.toFixed(2).replace('.', ',')}*`;
 
-  navigator.clipboard.writeText(texto);
-  alert('Cálculo copiado para o WhatsApp!');
+  const url = `https://wa.me/558399792085?text=${encodeURIComponent(texto)}`;
+  window.open(url, '_blank');
 }
 
 carregarProdutos();
