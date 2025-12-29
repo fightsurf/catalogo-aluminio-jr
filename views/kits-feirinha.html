@@ -2,105 +2,97 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Kit Feirinha – Alumínio JR</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 
   <style>
     body {
       font-family: Arial, sans-serif;
       background: #f4f4f4;
       margin: 0;
-      padding: 10px;
+      padding: 15px;
     }
 
     h1 {
       text-align: center;
-      font-size: 22px;
-      margin-bottom: 10px;
+      margin-bottom: 20px;
+    }
+
+    .categoria {
+      margin-bottom: 25px;
+    }
+
+    .categoria h2 {
+      background: #222;
+      color: #fff;
+      padding: 8px;
+      font-size: 15px;
     }
 
     .produto {
       background: #fff;
-      margin-bottom: 10px;
+      border: 1px solid #ddd;
       padding: 10px;
-      border-radius: 6px;
-      box-shadow: 0 0 5px rgba(0,0,0,0.1);
-    }
-
-    .linha {
       display: flex;
       align-items: center;
       gap: 10px;
     }
 
-    .linha img {
-      width: 80px;
-      height: 80px;
+    .produto + .produto {
+      border-top: none;
+    }
+
+    .produto img {
+      width: 70px;
+      height: 70px;
       object-fit: cover;
-      border-radius: 4px;
+      border: 1px solid #ccc;
     }
 
     .info {
       flex: 1;
-    }
-
-    .nome {
       font-size: 14px;
     }
 
-    .preco {
-      font-weight: bold;
-      color: #0a7;
-      margin-top: 4px;
+    .info strong {
+      display: block;
     }
 
-    .qtd {
-      width: 60px;
+    .controles {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
     }
 
-    .resultado {
-      background: #fff;
-      padding: 12px;
-      border-radius: 6px;
-      margin-top: 15px;
-      box-shadow: 0 0 5px rgba(0,0,0,0.15);
+    .controles input[type="number"] {
+      width: 55px;
+      text-align: center;
     }
 
     button {
       width: 100%;
-      padding: 12px;
-      margin-top: 10px;
+      padding: 15px;
       font-size: 16px;
-      background: #25d366;
+      background: #0a7;
       color: #fff;
       border: none;
-      border-radius: 6px;
+      margin-top: 20px;
       cursor: pointer;
     }
 
-    textarea {
-      width: 100%;
-      height: 160px;
-      margin-top: 10px;
-      font-size: 14px;
+    button:active {
+      background: #086;
     }
   </style>
 </head>
-
 <body>
 
 <h1>🧺 Kit Feirinha – Alumínio JR</h1>
 
 <div id="lista"></div>
 
-<div class="resultado">
-  <strong>Total do Kit:</strong> R$ <span id="total">0,00</span><br>
-  <strong>Preço médio por item:</strong> R$ <span id="medio">0,00</span>
-
-  <button onclick="gerarTexto()">Gerar Cálculo do Kit e Copiar para WhatsApp</button>
-
-  <textarea id="textoFinal" placeholder="Texto do WhatsApp"></textarea>
-</div>
+<button onclick="gerarKit()">Gerar cálculo do kit e copiar para WhatsApp</button>
 
 <script>
 let produtos = [];
@@ -109,96 +101,94 @@ async function carregarProdutos() {
   const res = await fetch('/api/produtos');
   produtos = await res.json();
 
-  const lista = document.getElementById('lista');
+  const porCategoria = {};
 
   produtos.forEach(p => {
-    const foto = p.foto && p.foto.trim() !== ''
-      ? p.foto
-      : 'https://via.placeholder.com/200x200?text=Sem+Foto';
+    if (!porCategoria[p.categoria]) {
+      porCategoria[p.categoria] = [];
+    }
+    porCategoria[p.categoria].push(p);
+  });
 
-    const div = document.createElement('div');
-    div.className = 'produto';
+  const container = document.getElementById('lista');
 
-    div.innerHTML = `
-      <div class="linha">
-        <input type="checkbox" onchange="calcular()">
+  Object.keys(porCategoria).forEach(cat => {
+    // ordena produtos da categoria
+    porCategoria[cat].sort((a, b) => a.nome.localeCompare(b.nome));
+
+    const bloco = document.createElement('div');
+    bloco.className = 'categoria';
+
+    bloco.innerHTML = `<h2>${cat}</h2>`;
+
+    porCategoria[cat].forEach(p => {
+      const foto = p.foto && p.foto.trim() !== ''
+        ? p.foto
+        : 'https://via.placeholder.com/100x100?text=Sem+Foto';
+
+      const div = document.createElement('div');
+      div.className = 'produto';
+
+      div.innerHTML = `
+        <input type="checkbox" class="chk" data-id="${p.id}">
         <img src="${foto}">
         <div class="info">
-          <div class="nome">${p.nome}</div>
-          <div class="preco">R$ ${Number(p.preco).toFixed(2).replace('.', ',')}</div>
+          <strong>${p.nome}</strong>
+          R$ ${p.preco.toFixed(2).replace('.', ',')}
         </div>
-        <input class="qtd" type="number" min="1" value="1" onchange="calcular()">
-      </div>
-    `;
+        <div class="controles">
+          <span>Qtd</span>
+          <input type="number" min="1" value="1" class="qtd" data-id="${p.id}">
+        </div>
+      `;
 
-    div.dataset.nome = p.nome;
-    div.dataset.preco = p.preco;
+      bloco.appendChild(div);
+    });
 
-    lista.appendChild(div);
+    container.appendChild(bloco);
   });
 }
 
-function calcular() {
-  const cards = document.querySelectorAll('.produto');
+function gerarKit() {
+  let selecionados = [];
   let total = 0;
-  let itens = 0;
+  let totalItens = 0;
 
-  cards.forEach(c => {
-    const check = c.querySelector('input[type=checkbox]');
-    const qtdInput = c.querySelector('.qtd');
+  document.querySelectorAll('.chk:checked').forEach(chk => {
+    const id = chk.dataset.id;
+    const produto = produtos.find(p => p.id === id);
+    const qtd = Number(document.querySelector(`.qtd[data-id="${id}"]`).value);
 
-    if (check.checked) {
-      const preco = Number(c.dataset.preco);
-      const qtd = Number(qtdInput.value);
-      total += preco * qtd;
-      itens += qtd;
-    }
+    if (!produto || qtd <= 0) return;
+
+    selecionados.push({
+      nome: produto.nome,
+      qtd,
+      preco: produto.preco
+    });
+
+    total += produto.preco * qtd;
+    totalItens += qtd;
   });
 
-  document.getElementById('total').innerText = total.toFixed(2).replace('.', ',');
-  document.getElementById('medio').innerText =
-    itens > 0 ? (total / itens).toFixed(2).replace('.', ',') : '0,00';
-}
-
-function gerarTexto() {
-  const cards = document.querySelectorAll('.produto');
-  let linhas = [];
-  let total = 0;
-  let itens = 0;
-
-  cards.forEach(c => {
-    const check = c.querySelector('input[type=checkbox]');
-    const qtdInput = c.querySelector('.qtd');
-
-    if (check.checked) {
-      const nome = c.dataset.nome;
-      const preco = Number(c.dataset.preco);
-      const qtd = Number(qtdInput.value);
-
-      linhas.push(`- ${nome} (x${qtd})`);
-      total += preco * qtd;
-      itens += qtd;
-    }
-  });
-
-  if (itens === 0) {
-    alert('Selecione pelo menos um item.');
+  if (selecionados.length === 0) {
+    alert('Selecione ao menos um produto.');
     return;
   }
 
-  const texto =
-`*${itens} itens selecionados:*
-${linhas.join('\n')}
+  const precoMedio = total / totalItens;
 
-*Preço final do kit: R$ ${total.toFixed(2).replace('.', ',')}*
-*Preço médio por item: R$ ${(total / itens).toFixed(2).replace('.', ',')}*`;
+  let texto = `*${totalItens} itens selecionados:*\n`;
 
-  const area = document.getElementById('textoFinal');
-  area.value = texto;
-  area.select();
-  document.execCommand('copy');
+  selecionados.forEach(p => {
+    texto += `- ${p.nome} (x${p.qtd})\n`;
+  });
 
-  alert('Texto copiado! Cole no WhatsApp.');
+  texto += `\n*Preço final do kit: R$ ${total.toFixed(2).replace('.', ',')}*\n`;
+  texto += `*Preço médio por item: R$ ${precoMedio.toFixed(2).replace('.', ',')}*`;
+
+  navigator.clipboard.writeText(texto);
+  alert('Cálculo copiado para o WhatsApp!');
 }
 
 carregarProdutos();
