@@ -2,92 +2,119 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Catálogo Alumínio JR – Celular</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Catálogo Alumínio JR</title>
 
   <style>
     body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
       margin: 0;
       padding: 10px;
-      font-family: Arial, sans-serif;
-      background: #f2f2f2;
     }
 
-    h1 {
-      text-align: center;
-      font-size: 20px;
+    /* ===== TOPO ===== */
+    .topo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
       margin-bottom: 15px;
     }
 
+    .topo h1 {
+      font-size: 22px;
+      margin: 0;
+    }
+
+    .whatsapp-link img {
+      height: 32px; /* um pouco maior que o texto */
+      width: auto;
+    }
+
+    /* ===== PRODUTO ===== */
     .produto {
       background: #fff;
-      border-radius: 8px;
       margin-bottom: 15px;
+      border-radius: 6px;
       padding: 10px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      box-shadow: 0 0 5px rgba(0,0,0,0.1);
     }
 
     .produto img {
       width: 100%;
       height: auto;
-      border-radius: 6px;
-      margin-bottom: 8px;
+      border-radius: 4px;
     }
 
     .nome {
       font-size: 16px;
-      font-weight: bold;
-      margin-bottom: 5px;
+      margin-top: 8px;
     }
 
     .preco {
       font-size: 18px;
-      color: #0a7;
       font-weight: bold;
+      color: #0a7;
+      margin-top: 4px;
     }
   </style>
 </head>
 
 <body>
 
-<h1>📦 Catálogo Alumínio JR</h1>
+  <!-- ===== CABEÇALHO ===== -->
+  <div class="topo">
+    <h1>📦 Catálogo Alumínio JR</h1>
 
-<div id="lista"></div>
+    <a
+      class="whatsapp-link"
+      href="https://wa.me/558399792085"
+      target="_blank"
+      title="Falar no WhatsApp"
+    >
+      <img
+        src="https://pub-51cb4ace3dfb43a4ac45a4b7c399904d.r2.dev/%C3%ADcone%20whatsapp.jpg"
+        alt="WhatsApp"
+      />
+    </a>
+  </div>
 
-<script>
-async function carregarProdutos() {
-  try {
-    const res = await fetch('/api/produtos');
-    const produtos = await res.json();
+  <!-- ===== LISTA DE PRODUTOS ===== -->
+  <div id="lista"></div>
 
-    const container = document.getElementById('lista');
-    container.innerHTML = '';
+  <script>
+    async function carregarProdutos() {
+      const res = await fetch('/api/produtos');
+      const produtos = await res.json();
 
-    produtos.forEach(p => {
-      const foto = p.foto && p.foto.trim() !== ''
-        ? p.foto
-        : 'https://via.placeholder.com/600x600?text=Sem+Foto';
+      // ordena alfabeticamente
+      produtos.sort((a, b) =>
+        a.nome.localeCompare(b.nome, 'pt-BR')
+      );
 
-      const div = document.createElement('div');
-      div.className = 'produto';
+      const container = document.getElementById('lista');
 
-      div.innerHTML = `
-        <img src="${foto}" alt="${p.nome}">
-        <div class="nome">${p.nome}</div>
-        <div class="preco">R$ ${Number(p.preco).toFixed(2).replace('.', ',')}</div>
-      `;
+      produtos.forEach(p => {
+        const foto = p.foto && p.foto.trim() !== ''
+          ? p.foto
+          : 'https://via.placeholder.com/400x400?text=Sem+Foto';
 
-      container.appendChild(div);
-    });
+        const div = document.createElement('div');
+        div.className = 'produto';
 
-  } catch (err) {
-    document.getElementById('lista').innerHTML =
-      '<p>Erro ao carregar produtos.</p>';
-  }
-}
+        div.innerHTML = `
+          <img src="${foto}" alt="${p.nome}">
+          <div class="nome">${p.nome}</div>
+          <div class="preco">R$ ${Number(p.preco).toFixed(2).replace('.', ',')}</div>
+        `;
 
-carregarProdutos();
-</script>
+        container.appendChild(div);
+      });
+    }
+
+    carregarProdutos();
+  </script>
 
 </body>
 </html>
