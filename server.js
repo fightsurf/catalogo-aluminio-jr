@@ -39,7 +39,12 @@ app.get('/catalogo-celular', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'catalogo-celular.html'));
 });
 
-// ===== API =====
+// ===== KIT FEIRINHA =====
+app.get('/kits-feirinha', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'kits-feirinha.html'));
+});
+
+// ===== API PRODUTOS =====
 app.get('/api/produtos', (req, res) => {
   res.json(lerProdutos());
 });
@@ -70,7 +75,6 @@ app.post('/admin-1234', (req, res) => {
     const linha = raw.trim();
     if (!linha) return;
 
-    // linha toda em maiúscula = categoria
     if (linha === linha.toUpperCase() && !linha.match(/^\d+/)) {
       categoriaAtual = linha;
       return;
@@ -108,11 +112,7 @@ app.post('/admin-1234', (req, res) => {
 
   fs.writeFileSync(DATA_PATH, JSON.stringify(Object.values(mapa), null, 2));
 
-  res.json({
-    ok: true,
-    total: Object.keys(mapa).length,
-    processados: contador
-  });
+  res.json({ ok: true, total: Object.keys(mapa).length, processados: contador });
 });
 
 // ===== ADMIN FOTOS =====
@@ -143,5 +143,4 @@ app.post('/admin-fotos-1234', (req, res) => {
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log('🟢 Catálogo rodando');
-  console.log('📱 Catálogo celular em /catalogo-celular');
 });
