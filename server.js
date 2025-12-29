@@ -29,11 +29,17 @@ function lerProdutos() {
   }
 }
 
-// ===== CATÁLOGO =====
+// ===== CATÁLOGO DESKTOP =====
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'catalogo.html'));
 });
 
+// ===== CATÁLOGO CELULAR =====
+app.get('/catalogo-celular', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'catalogo-celular.html'));
+});
+
+// ===== API =====
 app.get('/api/produtos', (req, res) => {
   res.json(lerProdutos());
 });
@@ -64,6 +70,7 @@ app.post('/admin-1234', (req, res) => {
     const linha = raw.trim();
     if (!linha) return;
 
+    // linha toda em maiúscula = categoria
     if (linha === linha.toUpperCase() && !linha.match(/^\d+/)) {
       categoriaAtual = linha;
       return;
@@ -101,7 +108,11 @@ app.post('/admin-1234', (req, res) => {
 
   fs.writeFileSync(DATA_PATH, JSON.stringify(Object.values(mapa), null, 2));
 
-  res.json({ ok: true, total: Object.keys(mapa).length, processados: contador });
+  res.json({
+    ok: true,
+    total: Object.keys(mapa).length,
+    processados: contador
+  });
 });
 
 // ===== ADMIN FOTOS =====
@@ -131,5 +142,6 @@ app.post('/admin-fotos-1234', (req, res) => {
 // ===== SERVER =====
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log('🟢 Catálogo rodando com ADMIN DE FOTOS');
+  console.log('🟢 Catálogo rodando');
+  console.log('📱 Catálogo celular em /catalogo-celular');
 });
