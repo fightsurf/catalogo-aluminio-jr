@@ -151,18 +151,26 @@ async function carregarProdutos() {
       div.className = 'produto';
 
       div.innerHTML = `
-        <input type="checkbox" class="chk" data-id="${p.id}" onchange="atualizarResumo()">
+        <input type="checkbox"
+               class="chk"
+               data-id="${p.id}"
+               onchange="atualizarResumo()">
+
         <img src="${foto}">
+
         <div class="info">
           <strong>${p.nome}</strong>
           R$ ${p.preco.toFixed(2).replace('.', ',')}
         </div>
+
         <div class="controles">
           <span>Qtd</span>
-          <input type="number" min="1" value="1"
-            class="qtd"
-            data-id="${p.id}"
-            onchange="atualizarResumo()">
+          <input type="number"
+                 min="1"
+                 value="1"
+                 class="qtd"
+                 data-id="${p.id}"
+                 onchange="quantidadeAlterada('${p.id}')">
         </div>
       `;
 
@@ -171,6 +179,14 @@ async function carregarProdutos() {
 
     container.appendChild(bloco);
   });
+}
+
+function quantidadeAlterada(id) {
+  const chk = document.querySelector(`.chk[data-id="${id}"]`);
+  if (!chk.checked) {
+    chk.checked = true;
+  }
+  atualizarResumo();
 }
 
 function atualizarResumo() {
