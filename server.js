@@ -38,12 +38,17 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'catalogo.html'));
 });
 
-// Catálogo mobile (se existir)
+// Catálogo mobile
 app.get('/catalogo-celular', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'catalogo-celular.html'));
 });
 
-// 👉 NOVO: ORÇAMENTO
+// 🔥 KITS FEIRINHA (RESTAURADO)
+app.get('/kits-feirinha', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'kits-feirinha.html'));
+});
+
+// 📋 ORÇAMENTO
 app.get('/orcamento', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'orcamento.html'));
 });
@@ -161,5 +166,6 @@ app.listen(PORT, () => {
   console.log('🟢 Catálogo Alumínio JR rodando');
   console.log('📦 Catálogo: /');
   console.log('📱 Catálogo celular: /catalogo-celular');
+  console.log('🔥 Kits feirinha: /kits-feirinha');
   console.log('📋 Orçamento: /orcamento');
 });
