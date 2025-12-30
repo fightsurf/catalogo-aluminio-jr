@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Orçamento – Alumínio JR</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      margin: 0;
+      padding: 15px;
+      padding-bottom: 130px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .categoria {
+      margin-bottom: 25px;
+    }
+
+    .categoria h2 {
+      background: #222;
+      color: #fff;
+      padding: 8px;
+      font-size: 15px;
+    }
+
+    .produto {
+      background: #fff;
+      border: 1px solid #ddd;
+      padding: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .produto + .produto {
+      border-top: none;
+    }
+
+    .produto img {
+      width: 70px;
+      height: 70px;
+      object-fit: cover;
+      border: 1px solid #ccc;
+    }
+
+    .info {
+      flex: 1;
+      font-size: 14px;
+    }
+
+    .info strong {
+      display: block;
+    }
+
+    .controles {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .controles input[type="number"] {
+      width: 55px;
+      text-align: center;
+    }
+
+    /* ===== PAINEL FLUTUANTE ===== */
+    .painel {
+      position: fixed;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 100%;
+      max-width: 480px;
+      background: #ffffff;
+      border-top: 2px solid #333;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
+      padding: 12px;
+      z-index: 999;
+    }
+
+    .painel p {
+      margin: 4px 0;
+      font-size: 15px;
+      font-weight: bold;
+    }
+
+    .painel button {
+      width: 100%;
+      padding: 14px;
+      font-size: 16px;
+      background: #333;
+      color: #fff;
+      border: none;
+      margin-top: 8px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+<h1>📋 Orçamento – Alumínio JR</h1>
+
+<div id="lista"></div>
+
+<!-- PAINEL FLUTUANTE -->
+<div class="painel">
+  <p id="resumo-itens">0 itens selecionados</p>
+  <p id="resumo-total">Total: R$ 0,00</p>
+  <button onclick="enviarWhatsApp()">Enviar Orçamento</button>
+</div>
+
+<script>
+let produtos = [];
+
+async function carregarProdutos() {
+  const res = await fetch('/api/produtos');
+  produtos = await res.json();
+
+  const porCategoria = {};
+
+  produtos.forEach(p => {
+    if (!porCategoria[p.categoria]) {
+      porCategoria[p.categoria] = [];
+    }
+    porCategoria[p.categoria].push(p);
+  });
+
+  const container = document.getElementById('lista');
+
+  Object.keys(porCategoria).forEach(cat => {
+    porCategoria[cat].sort((a, b) => a.nome.localeCompare(b.nome));
+
+    const bloco = document.createElement('div');
+    bloco.className = 'categoria';
+    bloco.innerHTML = `<h2>${cat}</h2>`;
+
+    porCategoria[cat].forEach(p => {
+      const foto = p.foto && p.foto.trim()
+        ? p.foto
+        : 'https://via.placeholder.com/100x100?text=Sem+Foto';
+
+      const div = document.createElement('div');
+      div.className = 'produto';
+
+      div.innerHTML = `
+        <input type="checkbox" class="chk" data-id="${p.id}" onchange="atualizarResumo()">
+        <img src="${foto}">
+        <div class="info">
+          <strong>${p.nome}</strong>
+          R$ ${p.preco.toFixed(2).replace('.', ',')}
+        </div>
+        <div class="controles">
+          <span>Qtd</span>
+          <input type="number" min="1" value="1"
+            class="qtd"
+            data-id="${p.id}"
+            onchange="atualizarResumo()">
+        </div>
+      `;
+
+      bloco.appendChild(div);
+    });
+
+    container.appendChild(bloco);
+  });
+}
+
+function atualizarResumo() {
+  let total = 0;
+  let totalItens = 0;
+
+  document.querySelectorAll('.chk:checked').forEach(chk => {
+    const id = chk.dataset.id;
+    const produto = produtos.find(p => p.id === id);
+    const qtd = Number(document.querySelector(`.qtd[data-id="${id}"]`).value);
+
+    if (!produto || qtd <= 0) return;
+
+    total += produto.preco * qtd;
+    totalItens += qtd;
+  });
+
+  document.getElementById('resumo-itens').innerText =
+    `${totalItens} itens selecionados`;
+
+  document.getElementById('resumo-total').innerText =
+    `Total: R$ ${total.toFixed(2).replace('.', ',')}`;
+}
+
+function enviarWhatsApp() {
+  let selecionados = [];
+  let total = 0;
+
+  document.querySelectorAll('.chk:checked').forEach(chk => {
+    const id = chk.dataset.id;
+    const produto = produtos.find(p => p.id === id);
+    const qtd = Number(document.querySelector(`.qtd[data-id="${id}"]`).value);
+
+    if (!produto || qtd <= 0) return;
+
+    selecionados.push({ nome: produto.nome, qtd });
+    total += produto.preco * qtd;
+  });
+
+  if (selecionados.length === 0) {
+    alert('Selecione ao menos um produto.');
+    return;
+  }
+
+  let texto = `*Orçamento Alumínio JR*\n\n`;
+
+  selecionados.forEach(p => {
+    texto += `- ${p.nome} (x${p.qtd})\n`;
+  });
+
+  texto += `\n*Valor total: R$ ${total.toFixed(2).replace('.', ',')}*`;
+
+  const url = `https://wa.me/558399792085?text=${encodeURIComponent(texto)}`;
+  window.open(url, '_blank');
+}
+
+carregarProdutos();
+</script>
+
+</body>
+</html>
