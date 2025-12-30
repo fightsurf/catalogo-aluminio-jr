@@ -11,7 +11,7 @@
       background: #f4f4f4;
       margin: 0;
       padding: 15px;
-      padding-bottom: 130px;
+      padding-bottom: 140px;
     }
 
     h1 {
@@ -71,7 +71,7 @@
       text-align: center;
     }
 
-    /* ===== PAINEL FLUTUANTE ===== */
+    /* PAINEL */
     .painel {
       position: fixed;
       bottom: 0;
@@ -79,10 +79,10 @@
       transform: translateX(-50%);
       width: 100%;
       max-width: 480px;
-      background: #ffffff;
+      background: #fff;
       border-top: 2px solid #333;
-      box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
       padding: 12px;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.2);
       z-index: 999;
     }
 
@@ -110,7 +110,6 @@
 
 <div id="lista"></div>
 
-<!-- PAINEL FLUTUANTE -->
 <div class="painel">
   <p id="resumo-itens">0 itens selecionados</p>
   <p id="resumo-total">Total: R$ 0,00</p>
@@ -127,9 +126,7 @@ async function carregarProdutos() {
   const porCategoria = {};
 
   produtos.forEach(p => {
-    if (!porCategoria[p.categoria]) {
-      porCategoria[p.categoria] = [];
-    }
+    if (!porCategoria[p.categoria]) porCategoria[p.categoria] = [];
     porCategoria[p.categoria].push(p);
   });
 
@@ -143,7 +140,7 @@ async function carregarProdutos() {
     bloco.innerHTML = `<h2>${cat}</h2>`;
 
     porCategoria[cat].forEach(p => {
-      const foto = p.foto && p.foto.trim()
+      const foto = p.foto?.trim()
         ? p.foto
         : 'https://via.placeholder.com/100x100?text=Sem+Foto';
 
@@ -151,42 +148,28 @@ async function carregarProdutos() {
       div.className = 'produto';
 
       div.innerHTML = `
-        <input type="checkbox"
-               class="chk"
-               data-id="${p.id}"
-               onchange="atualizarResumo()">
-
+        <input type="checkbox" class="chk" data-id="${p.id}" onchange="atualizarResumo()">
         <img src="${foto}">
-
         <div class="info">
           <strong>${p.nome}</strong>
           R$ ${p.preco.toFixed(2).replace('.', ',')}
         </div>
-
         <div class="controles">
           <span>Qtd</span>
-          <input type="number"
-                 min="1"
-                 value="1"
-                 class="qtd"
-                 data-id="${p.id}"
-                 onchange="quantidadeAlterada('${p.id}')">
+          <input type="number" min="1" value="1"
+            class="qtd"
+            data-id="${p.id}"
+            onchange="
+              document.querySelector('.chk[data-id=${p.id}]').checked = true;
+              atualizarResumo();
+            ">
         </div>
       `;
-
       bloco.appendChild(div);
     });
 
     container.appendChild(bloco);
   });
-}
-
-function quantidadeAlterada(id) {
-  const chk = document.querySelector(`.chk[data-id="${id}"]`);
-  if (!chk.checked) {
-    chk.checked = true;
-  }
-  atualizarResumo();
 }
 
 function atualizarResumo() {
@@ -212,8 +195,8 @@ function atualizarResumo() {
 }
 
 function enviarWhatsApp() {
-  let selecionados = [];
   let total = 0;
+  let linhas = [];
 
   document.querySelectorAll('.chk:checked').forEach(chk => {
     const id = chk.dataset.id;
@@ -222,22 +205,24 @@ function enviarWhatsApp() {
 
     if (!produto || qtd <= 0) return;
 
-    selecionados.push({ nome: produto.nome, qtd });
-    total += produto.preco * qtd;
+    const subtotal = produto.preco * qtd;
+    total += subtotal;
+
+    linhas.push(
+      `• ${produto.nome}\n` +
+      `  R$ ${produto.preco.toFixed(2).replace('.', ',')} × ${qtd} = *R$ ${subtotal.toFixed(2).replace('.', ',')}*`
+    );
   });
 
-  if (selecionados.length === 0) {
+  if (linhas.length === 0) {
     alert('Selecione ao menos um produto.');
     return;
   }
 
-  let texto = `*Orçamento Alumínio JR*\n\n`;
-
-  selecionados.forEach(p => {
-    texto += `- ${p.nome} (x${p.qtd})\n`;
-  });
-
-  texto += `\n*Valor total: R$ ${total.toFixed(2).replace('.', ',')}*`;
+  let texto =
+    `*📋 Orçamento Alumínio JR*\n\n` +
+    linhas.join('\n\n') +
+    `\n\n*💰 Valor total do orçamento: R$ ${total.toFixed(2).replace('.', ',')}*`;
 
   const url = `https://wa.me/558399792085?text=${encodeURIComponent(texto)}`;
   window.open(url, '_blank');
