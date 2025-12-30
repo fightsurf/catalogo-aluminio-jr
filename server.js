@@ -29,27 +29,35 @@ function lerProdutos() {
   }
 }
 
-// ===== CATÁLOGO DESKTOP =====
+// =====================================================
+// 📦 CATÁLOGOS
+// =====================================================
+
+// Catálogo padrão (desktop)
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'catalogo.html'));
 });
 
-// ===== CATÁLOGO CELULAR =====
+// Catálogo mobile (se existir)
 app.get('/catalogo-celular', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'catalogo-celular.html'));
 });
 
-// ===== KIT FEIRINHA =====
-app.get('/kits-feirinha', (req, res) => {
-  res.sendFile(path.join(__dirname, 'views', 'kits-feirinha.html'));
+// 👉 NOVO: ORÇAMENTO
+app.get('/orcamento', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'orcamento.html'));
 });
 
-// ===== API PRODUTOS =====
+// =====================================================
+// 📡 API PRODUTOS
+// =====================================================
 app.get('/api/produtos', (req, res) => {
   res.json(lerProdutos());
 });
 
-// ===== ADMIN PLANILHA =====
+// =====================================================
+// 🔐 ADMIN – PLANILHA
+// =====================================================
 app.get('/admin-1234', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'admin.html'));
 });
@@ -112,10 +120,16 @@ app.post('/admin-1234', (req, res) => {
 
   fs.writeFileSync(DATA_PATH, JSON.stringify(Object.values(mapa), null, 2));
 
-  res.json({ ok: true, total: Object.keys(mapa).length, processados: contador });
+  res.json({
+    ok: true,
+    total: Object.keys(mapa).length,
+    processados: contador
+  });
 });
 
-// ===== ADMIN FOTOS =====
+// =====================================================
+// 🖼️ ADMIN – FOTOS
+// =====================================================
 app.get('/admin-fotos-1234', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'admin-fotos.html'));
 });
@@ -134,13 +148,18 @@ app.post('/admin-fotos-1234', (req, res) => {
   }
 
   produto.foto = foto.trim();
-
   fs.writeFileSync(DATA_PATH, JSON.stringify(produtos, null, 2));
+
   res.json({ ok: true });
 });
 
-// ===== SERVER =====
+// =====================================================
+// 🚀 SERVER
+// =====================================================
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-  console.log('🟢 Catálogo rodando');
+  console.log('🟢 Catálogo Alumínio JR rodando');
+  console.log('📦 Catálogo: /');
+  console.log('📱 Catálogo celular: /catalogo-celular');
+  console.log('📋 Orçamento: /orcamento');
 });
