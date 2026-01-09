@@ -84,18 +84,19 @@ function gerarCombinacoes() {
   const precoMax = parseFloat(document.getElementById('precoMax').value);
   const permitirRepeticao = document.getElementById('permitirRepeticao').checked;
 
-  const obrigInputs = [...document.querySelectorAll('.chk-obrig:checked')];
-  const obrigIds = obrigInputs.map(c => c.dataset.id);
-  const obrigQtds = obrigInputs.map(c => parseInt(document.querySelector('.qtd-obrig[data-id="'+c.dataset.id+'"]').value));
-
   const obrigatorios = [];
-  obrigIds.forEach((id, i) => {
-    const produto = produtos.find(p => p.id === id);
-    if (produto) for (let j = 0; j < obrigQtds[i]; j++) obrigatorios.push(produto);
+  document.querySelectorAll('.chk-obrig').forEach(chk => {
+    if (chk.checked) {
+      const id = chk.dataset.id;
+      const qtdInput = document.querySelector(`.qtd-obrig[data-id="${id}"]`);
+      const qtd = parseInt(qtdInput ? qtdInput.value : 1);
+      const produto = produtos.find(p => p.id === id);
+      if (produto) for (let i = 0; i < qtd; i++) obrigatorios.push(produto);
+    }
   });
 
-  const proibIds = [...document.querySelectorAll('.chk-proib:checked')].map(c => c.dataset.id);
-  const proibidos = new Set(proibIds);
+  const proibidos = new Set([...document.querySelectorAll('.chk-proib:checked')].map(c => c.dataset.id));
+  const obrigIds = obrigatorios.map(p => p.id);
   const disponiveis = produtos.filter(p => !proibidos.has(p.id) && !obrigIds.includes(p.id)).sort((a, b) => a.preco - b.preco);
 
   combinacoes = [];
