@@ -1,3 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>💰 Combinações — Kits Feirinha</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; background: #f9f9f9; color: #333; }
+  h1 { color: #333; }
+  h2 { color: #555; margin-top: 25px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
+  th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
+  th { background: #007bff; color: white; cursor: pointer; }
+  tr:hover { background: #eef; }
+  .categoria { background: #e9e9e9; font-weight: bold; text-align: left; }
+  button { margin-top: 10px; padding: 10px 16px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+  button:hover { background-color: #0056b3; }
+  input[type="number"] { width: 70px; }
+  input[type="checkbox"] { transform: scale(1.2); }
+  #config { background: #fff; padding: 10px; border: 1px solid #ccc; border-radius: 5px; margin-bottom: 15px; }
+</style>
+</head>
+<body>
+
+<h1>💰 Gerador de Combinações — Kits Feirinha</h1>
+
+<div id="config">
+  <label><b>Qtd. máx. de itens:</b> <input type="number" id="tamKit" value="5" min="1"></label>
+  <label style="margin-left:10px"><b>Média máxima (R$):</b> <input type="number" id="precoMax" value="15" step="0.01"></label>
+  <label style="margin-left:10px"><input type="checkbox" id="permitirRepeticao" checked> Permitir repetição</label>
+  <button id="btnGerar">Gerar Combinações</button>
+</div>
+
+<h2>🔹 Itens Disponíveis</h2>
+<table id="tabelaItens">
+  <thead>
+    <tr>
+      <th>Nome</th>
+      <th>Categoria</th>
+      <th>Preço (R$)</th>
+      <th>Obrigatório</th>
+      <th>Qtd.</th>
+      <th>Proibido</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
+
+<h2>🔹 Resultados</h2>
+<table id="tabelaResultados">
+  <thead>
+    <tr>
+      <th onclick="ordenarPor('total')">Preço Total</th>
+      <th onclick="ordenarPor('medio')">Preço Médio</th>
+      <th>Itens</th>
+    </tr>
+  </thead>
+  <tbody><tr><td colspan="3">Aguardando geração...</td></tr></tbody>
+</table>
+
 <script>
 let produtos = [];
 let combinacoes = [];
@@ -70,13 +130,13 @@ function gerarCombinacoes() {
   });
 
   const proibidos = new Set([...document.querySelectorAll('.chk-proib:checked')].map(c => c.dataset.id));
-  const obrigIds = obrigatorios.map(p => p.id);
   const disponiveis = produtos.filter(p => !proibidos.has(p.id));
 
   disponiveis.sort((a, b) => a.preco - b.preco);
 
   combinacoes = [];
   let testadas = 0;
+  let melhorTentativa = null;
 
   const baseTotal = obrigatorios.reduce((s, p) => s + p.preco, 0);
   const faltantes = tamKit - obrigatorios.length;
@@ -86,7 +146,6 @@ function gerarCombinacoes() {
     return;
   }
 
-  // Gerador de combinações com ou sem repetição
   for (let i = 0; i < disponiveis.length; i++) {
     const itens = [...obrigatorios];
     let total = baseTotal;
@@ -104,17 +163,28 @@ function gerarCombinacoes() {
     if (itens.length < tamKit) continue;
 
     const medio = total / tamKit;
-    if (medio <= precoMax) combinacoes.push({ total, medio, itens });
+
+    if (!melhorTentativa || medio < melhorTentativa.medio)
+      melhorTentativa = { total, medio, itens };
+
+    if (medio <= precoMax)
+      combinacoes.push({ total, medio, itens });
+
     if (combinacoes.length >= 1000) break;
   }
 
   const tbodyRes = document.querySelector('#tabelaResultados tbody');
+  tbodyRes.innerHTML = '';
+
   if (combinacoes.length === 0) {
-    tbodyRes.innerHTML = `<tr><td colspan="3">⚠️ Nenhum kit encontrado.<br>Testadas ${testadas} combinações — todas acima de R$ ${precoMax.toFixed(2)} de média.</td></tr>`;
+    let msg = `⚠️ Nenhum kit encontrado dentro da média de R$ ${precoMax.toFixed(2)}.<br>Testadas ${testadas} combinações.`;
+    if (melhorTentativa)
+      msg += `<br><br>🟢 Melhor tentativa: ${melhorTentativa.itens.length} itens — total R$ ${melhorTentativa.total.toFixed(2)} (média R$ ${melhorTentativa.medio.toFixed(2)})<br>${melhorTentativa.itens.map(p => p.nome + " (" + p.preco.toFixed(2) + ")").join(" — ")}`;
+    tbodyRes.innerHTML = `<tr><td colspan="3">${msg}</td></tr>`;
   } else {
     combinacoes.sort((a, b) => a[ordenacao] - b[ordenacao]);
     renderTabelaResultados();
-    tbodyRes.insertAdjacentHTML('beforeend', `<tr><td colspan="3">(${combinacoes.length} combinações válidas encontradas)</td></tr>`);
+    tbodyRes.insertAdjacentHTML('beforeend', `<tr><td colspan="3">(${combinacoes.length} combinações válidas encontradas de ${testadas} testadas)</td></tr>`);
   }
 }
 
@@ -124,7 +194,7 @@ function renderTabelaResultados() {
     <tr onclick="copiarWhatsApp(${i})">
       <td>R$ ${c.total.toFixed(2)}</td>
       <td>R$ ${c.medio.toFixed(2)}</td>
-      <td>${c.itens.map(p => `${p.nome} — R$ ${p.preco.toFixed(2)}`).join(' — ')}</td>
+      <td>${c.itens.map(p => `${p.nome} (${p.preco.toFixed(2)})`).join(' — ')}</td>
     </tr>
   `).join('');
 }
@@ -147,3 +217,6 @@ function ordenarPor(tipo) {
 document.getElementById('btnGerar').addEventListener('click', gerarCombinacoes);
 carregarProdutos();
 </script>
+
+</body>
+</html>
