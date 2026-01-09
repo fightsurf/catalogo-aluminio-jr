@@ -3,137 +3,187 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>🔢 Combinador de Kits — Alumínio JR</title>
+<title>⚙️ Combinador de Kits — Alumínio JR</title>
 <style>
-  body { font-family: Arial, sans-serif; background: #f8f9fa; margin: 20px; color: #333; }
-  h1 { color: #222; }
-  h2 { color: #444; margin-top: 25px; }
-  button { background: #007bff; color: #fff; padding: 8px 16px; border: none; border-radius: 6px; cursor: pointer; margin-top: 15px; }
-  button:hover { background: #0056b3; }
-  table { width: 100%; border-collapse: collapse; margin-top: 25px; background: #fff; }
-  th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-  th { background: #007bff; color: white; cursor: pointer; }
-  tr:nth-child(even) { background: #f2f2f2; }
-  .produto-linha { margin-bottom: 6px; }
+  body { font-family: Arial, sans-serif; margin: 20px; background: #f9f9f9; color: #333; }
+  h1 { color: #333; }
+  h2 { color: #555; margin-top: 25px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+  th, td { padding: 8px; border: 1px solid #ccc; text-align: left; }
+  th { background-color: #e8e8e8; cursor: pointer; }
+  tr:nth-child(even) { background-color: #f5f5f5; }
+  .config, .paginacao { margin-top: 15px; }
+  select, input { margin: 5px; padding: 5px; }
+  button { padding: 10px 16px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+  button:hover { background-color: #0056b3; }
+  .checkboxes { display: flex; flex-wrap: wrap; gap: 10px; max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background: white; }
+  .checkboxes label { width: 48%; }
+  .aviso { background: #ffe0e0; padding: 10px; margin-top: 15px; border: 1px solid #f88; display: none; }
 </style>
 </head>
 <body>
 
-<h1>🔢 Combinador de Kits — Alumínio JR</h1>
+<h1>⚙️ Combinador de Kits — Alumínio JR</h1>
 
-<p>Marque os itens obrigatórios e proibidos abaixo. O sistema gerará automaticamente as combinações possíveis de kits.</p>
+<div class="config">
+  <label><b>Tamanho do kit:</b> <input type="number" id="tamKit" value="5" min="1" max="10"></label>
+  <label><b>Preço médio máximo (R$):</b> <input type="number" id="precoMax" value="17" step="0.01"></label>
+</div>
 
-<h2>Itens disponíveis</h2>
-<div id="lista-produtos">Carregando produtos...</div>
+<h2>Itens obrigatórios</h2>
+<div id="itensObrigatorios" class="checkboxes"></div>
 
-<button id="gerar">Gerar Combinações</button>
+<h2>Itens proibidos</h2>
+<div id="itensProibidos" class="checkboxes"></div>
+
+<button onclick="gerarCombinacoes()">Gerar combinações</button>
+<div class="aviso" id="aviso"></div>
 
 <h2>Resultados</h2>
-<table id="tabela-resultados">
+<div class="paginacao">
+  <label>Itens por página:
+    <select id="itensPorPagina" onchange="renderTabela()">
+      <option value="10">10</option>
+      <option value="20">20</option>
+      <option value="50">50</option>
+      <option value="100" selected>100</option>
+    </select>
+  </label>
+  <span id="paginacaoInfo"></span>
+</div>
+
+<table id="tabelaResultados">
   <thead>
     <tr>
-      <th data-coluna="total">Preço Total (R$)</th>
-      <th data-coluna="medio">Preço Médio (R$)</th>
-      <th>Itens</th>
+      <th onclick="ordenarPor('total')">Preço Total</th>
+      <th onclick="ordenarPor('medio')">Preço Médio</th>
+      <th>Itens (com preços)</th>
     </tr>
   </thead>
   <tbody></tbody>
 </table>
 
+<div class="paginacao">
+  <button onclick="paginaAnterior()">« Anterior</button>
+  <button onclick="proximaPagina()">Próximo »</button>
+</div>
+
 <script>
+let produtos = [];
+let combinacoes = [];
+let paginaAtual = 1;
+let ordenacao = 'medio';
+
 async function carregarProdutos() {
-  const res = await fetch("https://catalogo-aluminio-jr.onrender.com/api/produtos");
-  const produtos = await res.json();
-  const lista = document.getElementById("lista-produtos");
-  lista.innerHTML = "";
+  const res = await fetch('/api/produtos');
+  produtos = await res.json();
+  renderCheckboxes();
+}
 
+function renderCheckboxes() {
+  const obrig = document.getElementById('itensObrigatorios');
+  const proib = document.getElementById('itensProibidos');
+  obrig.innerHTML = '';
+  proib.innerHTML = '';
   produtos.forEach(p => {
-    const div = document.createElement("div");
-    div.className = "produto-linha";
-    div.innerHTML = `
-      <label><input type="checkbox" class="chk-obrigatorio" data-id="${p.id}"> obrigatório</label>
-      <label><input type="checkbox" class="chk-proibido" data-id="${p.id}"> proibido</label>
-      <b>${p.nome}</b> — R$ ${p.preco.toFixed(2)}
-    `;
-    lista.appendChild(div);
+    const checkO = document.createElement('label');
+    const checkP = document.createElement('label');
+    checkO.innerHTML = `<input type="checkbox" data-id="${p.id}" class="chk-obrig"> ${p.nome}`;
+    checkP.innerHTML = `<input type="checkbox" data-id="${p.id}" class="chk-proib"> ${p.nome}`;
+    obrig.appendChild(checkO);
+    proib.appendChild(checkP);
   });
 }
 
-function gerarCombinacoes(produtos, obrigatorios, proibidos) {
-  const combinacoes = [];
+function gerarCombinacoes() {
+  const tamKit = parseInt(document.getElementById('tamKit').value);
+  const precoMax = parseFloat(document.getElementById('precoMax').value);
 
-  // Simulação simples: gera combinações de até 5 produtos válidos
-  const validos = produtos.filter(p => !proibidos.includes(p.id));
+  const obrigIds = [...document.querySelectorAll('.chk-obrig:checked')].map(c => c.dataset.id);
+  const proibIds = [...document.querySelectorAll('.chk-proib:checked')].map(c => c.dataset.id);
 
-  for (let i = 0; i < validos.length; i++) {
-    const grupo = [validos[i]];
-    obrigatorios.forEach(o => {
-      if (!grupo.find(g => g.id === o.id)) grupo.push(o);
-    });
+  const obrigatorios = produtos.filter(p => obrigIds.includes(p.id));
+  const proibidos = new Set(proibIds);
+  const disponiveis = produtos.filter(p => !proibidos.has(p.id));
 
-    const total = grupo.reduce((s, g) => s + g.preco, 0);
-    const medio = total / grupo.length;
-
-    combinacoes.push({
-      total: total.toFixed(2),
-      medio: medio.toFixed(2),
-      itens: grupo.map(g => g.nome).join(" - ")
-    });
-  }
-
-  return combinacoes;
-}
-
-function atualizarTabela(dados) {
-  const tbody = document.querySelector("#tabela-resultados tbody");
-  tbody.innerHTML = "";
-
-  dados.forEach(l => {
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
-      <td>${l.total}</td>
-      <td>${l.medio}</td>
-      <td>${l.itens}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-}
-
-// Ordenação clicável
-document.querySelectorAll("th[data-coluna]").forEach(th => {
-  th.addEventListener("click", () => {
-    const coluna = th.dataset.coluna;
-    const tbody = document.querySelector("#tabela-resultados tbody");
-    const linhas = Array.from(tbody.querySelectorAll("tr"));
-    const asc = !th.classList.contains("asc");
-    document.querySelectorAll("th").forEach(el => el.classList.remove("asc", "desc"));
-    th.classList.add(asc ? "asc" : "desc");
-
-    linhas.sort((a, b) => {
-      const va = parseFloat(a.children[coluna === "total" ? 0 : 1].innerText);
-      const vb = parseFloat(b.children[coluna === "total" ? 0 : 1].innerText);
-      return asc ? va - vb : vb - va;
-    });
-
-    linhas.forEach(l => tbody.appendChild(l));
-  });
-});
-
-document.getElementById("gerar").addEventListener("click", async () => {
-  const res = await fetch("https://catalogo-aluminio-jr.onrender.com/api/produtos");
-  const produtos = await res.json();
-
-  const obrigatorios = produtos.filter(p => document.querySelector(`.chk-obrigatorio[data-id="${p.id}"]`)?.checked);
-  const proibidos = produtos.filter(p => document.querySelector(`.chk-proibido[data-id="${p.id}"]`)?.checked);
-
-  if (obrigatorios.length === 0) {
-    alert("Selecione pelo menos um item obrigatório.");
+  if (obrigatorios.length > tamKit) {
+    alert('⚠️ Quantidade de obrigatórios maior que o tamanho do kit!');
     return;
   }
 
-  const combinacoes = gerarCombinacoes(produtos, obrigatorios, proibidos);
-  atualizarTabela(combinacoes);
-});
+  const maxComb = 10000;
+  combinacoes = [];
+
+  function combinar(arr, k, prefix = []) {
+    if (combinacoes.length >= maxComb) return;
+    if (prefix.length === k) {
+      const itens = [...obrigatorios, ...prefix];
+      const total = itens.reduce((s, p) => s + p.preco, 0);
+      const medio = total / itens.length;
+      if (medio <= precoMax) {
+        combinacoes.push({ total, medio, itens });
+      }
+      return;
+    }
+    for (let i = 0; i < arr.length; i++) {
+      combinar(arr.slice(i + 1), k, [...prefix, arr[i]]);
+    }
+  }
+
+  const k = tamKit - obrigatorios.length;
+  combinar(disponiveis.filter(p => !obrigIds.includes(p.id)), k);
+
+  if (combinacoes.length === 0) {
+    alert('Nenhum kit válido encontrado com essas condições.');
+    return;
+  }
+
+  if (combinacoes.length >= maxComb) {
+    document.getElementById('aviso').style.display = 'block';
+    document.getElementById('aviso').innerText = '⚠️ Limite de 10.000 combinações atingido — resultados parciais.';
+  } else {
+    document.getElementById('aviso').style.display = 'none';
+  }
+
+  combinacoes.sort((a, b) => a.medio - b.medio);
+  paginaAtual = 1;
+  renderTabela();
+}
+
+function renderTabela() {
+  const tbody = document.querySelector('#tabelaResultados tbody');
+  const itensPorPagina = parseInt(document.getElementById('itensPorPagina').value);
+  const inicio = (paginaAtual - 1) * itensPorPagina;
+  const fim = inicio + itensPorPagina;
+  const pagina = combinacoes.slice(inicio, fim);
+
+  tbody.innerHTML = pagina.map(c => `
+    <tr>
+      <td>R$ ${c.total.toFixed(2)}</td>
+      <td>R$ ${c.medio.toFixed(2)}</td>
+      <td>${c.itens.map(p => `${p.nome} (R$ ${p.preco.toFixed(2)})`).join(' — ')}</td>
+    </tr>
+  `).join('');
+
+  const totalPaginas = Math.ceil(combinacoes.length / itensPorPagina);
+  document.getElementById('paginacaoInfo').innerText =
+    `Página ${paginaAtual} de ${totalPaginas} (${combinacoes.length} kits encontrados)`;
+}
+
+function paginaAnterior() {
+  if (paginaAtual > 1) { paginaAtual--; renderTabela(); }
+}
+function proximaPagina() {
+  const itensPorPagina = parseInt(document.getElementById('itensPorPagina').value);
+  const totalPaginas = Math.ceil(combinacoes.length / itensPorPagina);
+  if (paginaAtual < totalPaginas) { paginaAtual++; renderTabela(); }
+}
+function ordenarPor(tipo) {
+  ordenacao = tipo;
+  combinacoes.sort((a, b) => a[tipo] - b[tipo]);
+  paginaAtual = 1;
+  renderTabela();
+}
 
 carregarProdutos();
 </script>
