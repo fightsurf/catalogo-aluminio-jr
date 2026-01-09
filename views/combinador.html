@@ -7,19 +7,15 @@
 <style>
   body { font-family: Arial, sans-serif; margin: 20px; background: #f9f9f9; color: #333; }
   h1 { color: #333; }
-  h2 { color: #555; margin-top: 25px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-  th, td { padding: 8px; border: 1px solid #ccc; text-align: left; }
-  th { background-color: #e8e8e8; cursor: pointer; }
+  table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+  th, td { padding: 8px; border: 1px solid #ccc; text-align: center; }
+  th { background-color: #e8e8e8; }
   tr:nth-child(even) { background-color: #f5f5f5; }
   tr:hover { background: #dfe9ff; cursor: pointer; }
-  .config { margin-top: 15px; }
-  select, input { margin: 5px; padding: 5px; }
-  button { padding: 10px 16px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+  .config { margin-bottom: 20px; }
+  input[type="number"] { width: 60px; }
+  button { margin-top: 15px; padding: 10px 16px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
   button:hover { background-color: #0056b3; }
-  .checkboxes { display: flex; flex-wrap: wrap; gap: 8px; max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background: white; }
-  .checkboxes label { width: 48%; display: flex; justify-content: space-between; align-items: center; }
-  .aviso { background: #ffe0e0; padding: 10px; margin-top: 15px; border: 1px solid #f88; display: none; }
 </style>
 </head>
 <body>
@@ -32,17 +28,22 @@
   <label><input type="checkbox" id="permitirRepeticao" checked> Permitir repetição de itens</label>
 </div>
 
-<h2>Itens obrigatórios</h2>
-<div id="itensObrigatorios" class="checkboxes"></div>
-
-<h2>Itens proibidos</h2>
-<div id="itensProibidos" class="checkboxes"></div>
+<table id="tabelaItens">
+  <thead>
+    <tr>
+      <th>Produto</th>
+      <th>Preço (R$)</th>
+      <th>Obrigatório</th>
+      <th>Qtd</th>
+      <th>Proibido</th>
+    </tr>
+  </thead>
+  <tbody></tbody>
+</table>
 
 <button onclick="gerarCombinacoes()">Gerar combinações</button>
-<div class="aviso" id="aviso"></div>
 
 <h2>Resultados</h2>
-
 <table id="tabelaResultados">
   <thead>
     <tr>
@@ -62,27 +63,20 @@ let ordenacao = 'medio';
 async function carregarProdutos() {
   const res = await fetch('/api/produtos');
   produtos = await res.json();
-  renderCheckboxes();
+  renderTabelaItens();
 }
 
-function renderCheckboxes() {
-  const obrig = document.getElementById('itensObrigatorios');
-  const proib = document.getElementById('itensProibidos');
-  obrig.innerHTML = '';
-  proib.innerHTML = '';
-
-  produtos.forEach(p => {
-    const divO = document.createElement('label');
-    divO.innerHTML = `
-      <span><input type="checkbox" data-id="${p.id}" class="chk-obrig"> ${p.nome}</span>
-      <input type="number" data-id="${p.id}" class="qtd-obrig" value="1" min="1" max="10" style="width:50px;">
-    `;
-    obrig.appendChild(divO);
-
-    const divP = document.createElement('label');
-    divP.innerHTML = `<input type="checkbox" data-id="${p.id}" class="chk-proib"> ${p.nome}`;
-    proib.appendChild(divP);
-  });
+function renderTabelaItens() {
+  const tbody = document.querySelector('#tabelaItens tbody');
+  tbody.innerHTML = produtos.map(p => `
+    <tr>
+      <td style="text-align:left">${p.nome}</td>
+      <td>${p.preco.toFixed(2)}</td>
+      <td><input type="checkbox" class="chk-obrig" data-id="${p.id}"></td>
+      <td><input type="number" class="qtd-obrig" data-id="${p.id}" value="1" min="1" max="10"></td>
+      <td><input type="checkbox" class="chk-proib" data-id="${p.id}"></td>
+    </tr>
+  `).join('');
 }
 
 function gerarCombinacoes() {
@@ -97,17 +91,12 @@ function gerarCombinacoes() {
   const obrigatorios = [];
   obrigIds.forEach((id, i) => {
     const produto = produtos.find(p => p.id === id);
-    if (produto) {
-      for (let j = 0; j < obrigQtds[i]; j++) obrigatorios.push(produto);
-    }
+    if (produto) for (let j = 0; j < obrigQtds[i]; j++) obrigatorios.push(produto);
   });
 
   const proibIds = [...document.querySelectorAll('.chk-proib:checked')].map(c => c.dataset.id);
   const proibidos = new Set(proibIds);
-
-  const disponiveis = produtos
-    .filter(p => !proibidos.has(p.id) && !obrigIds.includes(p.id))
-    .sort((a, b) => a.preco - b.preco);
+  const disponiveis = produtos.filter(p => !proibidos.has(p.id) && !obrigIds.includes(p.id)).sort((a, b) => a.preco - b.preco);
 
   combinacoes = [];
   const maxComb = 1000;
@@ -122,31 +111,18 @@ function gerarCombinacoes() {
       usados.add(escolha.id);
       const total = itens.reduce((s, p) => s + p.preco, 0);
       const medio = total / itens.length;
-      if (medio > precoMax) {
-        itens.pop();
-        usados.delete(escolha.id);
-        break;
-      }
+      if (medio > precoMax) { itens.pop(); usados.delete(escolha.id); break; }
     }
     const total = itens.reduce((s, p) => s + p.preco, 0);
     const medio = total / itens.length;
-    if (medio <= precoMax && itens.length === tamKit) {
-      combinacoes.push({ total, medio, itens });
-    }
+    if (medio <= precoMax && itens.length === tamKit) combinacoes.push({ total, medio, itens });
   }
 
-  combinacoes = combinacoes
-    .sort((a, b) => a[ordenacao] - b[ordenacao])
-    .slice(0, maxComb);
-
-  if (combinacoes.length === 0) {
-    alert('⚠️ Nenhum kit encontrado dentro do limite. Experimente aumentar o preço médio ou reduzir o tamanho.');
-  }
-
-  renderTabela();
+  combinacoes.sort((a, b) => a[ordenacao] - b[ordenacao]);
+  renderTabelaResultados();
 }
 
-function renderTabela() {
+function renderTabelaResultados() {
   const tbody = document.querySelector('#tabelaResultados tbody');
   tbody.innerHTML = combinacoes.map((c, i) => `
     <tr onclick="copiarWhatsApp(${i})">
@@ -169,7 +145,7 @@ function copiarWhatsApp(index) {
 function ordenarPor(tipo) {
   ordenacao = tipo;
   combinacoes.sort((a, b) => a[tipo] - b[tipo]);
-  renderTabela();
+  renderTabelaResultados();
 }
 
 carregarProdutos();
