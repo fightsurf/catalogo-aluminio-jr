@@ -131,12 +131,7 @@ function gerarCombinacoes() {
 
   const proibidos = new Set([...document.querySelectorAll('.chk-proib:checked')].map(c => c.dataset.id));
   const disponiveis = produtos.filter(p => !proibidos.has(p.id));
-
   disponiveis.sort((a, b) => a.preco - b.preco);
-
-  combinacoes = [];
-  let testadas = 0;
-  let melhorTentativa = null;
 
   const baseTotal = obrigatorios.reduce((s, p) => s + p.preco, 0);
   const faltantes = tamKit - obrigatorios.length;
@@ -146,30 +141,44 @@ function gerarCombinacoes() {
     return;
   }
 
-  for (let i = 0; i < disponiveis.length; i++) {
+  combinacoes = [];
+  let testadas = 0;
+  let melhorTentativa = null;
+
+  // 🔹 Estratégia: preencher faltantes com combinações das peças mais baratas possíveis
+  function tentarCombinacao() {
     const itens = [...obrigatorios];
     let total = baseTotal;
-
-    for (let j = 0; itens.length < tamKit; j++) {
-      const index = permitirRepeticao ? (j % disponiveis.length) : j;
-      const p = disponiveis[index];
-      if (!p || proibidos.has(p.id)) break;
+    for (let i = 0; i < faltantes; i++) {
+      const p = disponiveis[i % disponiveis.length];
       itens.push(p);
       total += p.preco;
-      if (!permitirRepeticao && itens.includes(p)) break;
     }
-
-    testadas++;
-    if (itens.length < tamKit) continue;
-
     const medio = total / tamKit;
-
     if (!melhorTentativa || medio < melhorTentativa.medio)
       melhorTentativa = { total, medio, itens };
+    if (medio <= precoMax) combinacoes.push({ total, medio, itens });
+  }
 
-    if (medio <= precoMax)
-      combinacoes.push({ total, medio, itens });
-
+  // 🔹 Testa diversas variações trocando o mix das peças mais baratas
+  for (let i = 0; i < disponiveis.length; i++) {
+    for (let j = i; j < disponiveis.length; j++) {
+      const itens = [...obrigatorios];
+      let total = baseTotal;
+      for (let k = 0; itens.length < tamKit; k++) {
+        const index = permitirRepeticao ? (k % disponiveis.length) : (i + k);
+        const p = disponiveis[index];
+        if (!p) break;
+        itens.push(p);
+        total += p.preco;
+      }
+      const medio = total / tamKit;
+      if (!melhorTentativa || medio < melhorTentativa.medio)
+        melhorTentativa = { total, medio, itens };
+      if (medio <= precoMax) combinacoes.push({ total, medio, itens });
+      testadas++;
+      if (combinacoes.length >= 1000) break;
+    }
     if (combinacoes.length >= 1000) break;
   }
 
@@ -177,14 +186,14 @@ function gerarCombinacoes() {
   tbodyRes.innerHTML = '';
 
   if (combinacoes.length === 0) {
-    let msg = `⚠️ Nenhum kit encontrado dentro da média de R$ ${precoMax.toFixed(2)}.<br>Testadas ${testadas} combinações.`;
+    let msg = `⚠️ Nenhum kit encontrado até R$ ${precoMax.toFixed(2)} de média.<br>Testadas ${testadas} combinações.`;
     if (melhorTentativa)
       msg += `<br><br>🟢 Melhor tentativa: ${melhorTentativa.itens.length} itens — total R$ ${melhorTentativa.total.toFixed(2)} (média R$ ${melhorTentativa.medio.toFixed(2)})<br>${melhorTentativa.itens.map(p => p.nome + " (" + p.preco.toFixed(2) + ")").join(" — ")}`;
     tbodyRes.innerHTML = `<tr><td colspan="3">${msg}</td></tr>`;
   } else {
     combinacoes.sort((a, b) => a[ordenacao] - b[ordenacao]);
     renderTabelaResultados();
-    tbodyRes.insertAdjacentHTML('beforeend', `<tr><td colspan="3">(${combinacoes.length} combinações válidas encontradas de ${testadas} testadas)</td></tr>`);
+    tbodyRes.insertAdjacentHTML('beforeend', `<tr><td colspan="3">(${combinacoes.length} combinações válidas encontradas)</td></tr>`);
   }
 }
 
