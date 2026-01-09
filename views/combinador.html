@@ -1,14 +1,82 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚙️ Combinador de Kits — Alumínio JR</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; background: #f9f9f9; color: #333; }
+  h1 { color: #333; margin-bottom: 10px; }
+  h2 { color: #444; margin-top: 20px; border-bottom: 2px solid #ccc; padding-bottom: 4px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  th, td { padding: 6px; border: 1px solid #ccc; text-align: center; }
+  th { background-color: #e8e8e8; cursor: pointer; }
+  tr:nth-child(even) { background-color: #f5f5f5; }
+  tr:hover { background: #dfe9ff; cursor: pointer; }
+  .config { margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  input[type="number"] { width: 60px; }
+  button { padding: 10px 16px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+  button:hover { background-color: #0056b3; }
+  .categoria { background: #ddd; font-weight: bold; text-align: left; padding: 5px; border: 1px solid #ccc; }
+</style>
+</head>
+<body>
+
+<h1>⚙️ Combinador de Kits — Alumínio JR</h1>
+
+<div class="config">
+  <label><b>Tamanho máximo do kit:</b> <input type="number" id="tamKit" value="5" min="1" max="20"></label>
+  <label><b>Preço médio máximo (R$):</b> <input type="number" id="precoMax" value="15" step="0.01"></label>
+  <label><input type="checkbox" id="permitirRepeticao" checked> Permitir repetição de itens</label>
+  <button id="btnGerar">Gerar combinações</button>
+</div>
+
+<table id="tabelaItens">
+  <thead>
+    <tr>
+      <th>Produto</th>
+      <th>Categoria</th>
+      <th>Preço (R$)</th>
+      <th>Obrigatório</th>
+      <th>Qtd</th>
+      <th>Proibido</th>
+    </tr>
+  </thead>
+  <tbody><tr><td colspan="6" id="status">⏳ Carregando produtos...</td></tr></tbody>
+</table>
+
+<h2>Resultados</h2>
+<table id="tabelaResultados">
+  <thead>
+    <tr>
+      <th onclick="ordenarPor('total')">Preço Total</th>
+      <th onclick="ordenarPor('medio')">Preço Médio</th>
+      <th>Itens (com preços)</th>
+    </tr>
+  </thead>
+  <tbody><tr><td colspan="3">Nenhum kit gerado ainda.</td></tr></tbody>
+</table>
+
 <script>
 let produtos = [];
 let combinacoes = [];
 let ordenacao = 'medio';
 
 async function carregarProdutos() {
+  const tbody = document.querySelector('#tabelaItens tbody');
+  const status = document.getElementById('status');
   try {
-    const res = await fetch('/api/produtos');
+    const res = await fetch('/api/produtos', { cache: 'no-store' });
+    if (!res.ok) throw new Error("Erro ao buscar produtos");
     produtos = await res.json();
-  } catch {
-    document.querySelector('#tabelaItens tbody').innerHTML = `<tr><td colspan="6">Erro ao carregar produtos.</td></tr>`;
+  } catch (e) {
+    console.error("❌ Falha ao carregar produtos:", e);
+    if (status) status.textContent = "⚠️ Erro ao carregar produtos da API.";
+    return;
+  }
+
+  if (!Array.isArray(produtos) || produtos.length === 0) {
+    if (status) status.textContent = "⚠️ Nenhum produto cadastrado.";
     return;
   }
 
@@ -42,11 +110,12 @@ function renderTabelaItens() {
       tbody.appendChild(rowCat);
     }
 
+    const preco = typeof p.preco === 'number' ? p.preco.toFixed(2) : '0.00';
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td style="text-align:left">${p.nome}</td>
       <td>${p.categoria}</td>
-      <td>${p.preco?.toFixed(2) || '0.00'}</td>
+      <td>${preco}</td>
       <td><input type="checkbox" class="chk-obrig" data-id="${p.id}"></td>
       <td><input type="number" class="qtd-obrig" data-id="${p.id}" value="1" min="1" max="10"></td>
       <td><input type="checkbox" class="chk-proib" data-id="${p.id}"></td>
@@ -59,6 +128,11 @@ function gerarCombinacoes() {
   const tamKit = parseInt(document.getElementById('tamKit').value);
   const precoMax = parseFloat(document.getElementById('precoMax').value);
   const permitirRepeticao = document.getElementById('permitirRepeticao').checked;
+
+  if (!Array.isArray(produtos) || produtos.length === 0) {
+    alert("⚠️ Nenhum produto carregado.");
+    return;
+  }
 
   const obrigatorios = [];
   document.querySelectorAll('.chk-obrig:checked').forEach(chk => {
@@ -73,18 +147,15 @@ function gerarCombinacoes() {
   const obrigIds = obrigatorios.map(p => p.id);
   const disponiveis = produtos.filter(p => !proibidos.has(p.id) && !obrigIds.includes(p.id));
 
-  // Ordenar por preço crescente (mais barato primeiro)
   disponiveis.sort((a, b) => a.preco - b.preco);
 
   combinacoes = [];
   let testadas = 0;
-
-  // Construir deterministicamente
-  const baseTotal = obrigatorios.reduce((s, p) => s + p.preco, 0);
+  const baseTotal = obrigatorios.reduce((s, p) => s + (p.preco || 0), 0);
   const faltantes = tamKit - obrigatorios.length;
 
   if (faltantes <= 0) {
-    alert("O número de obrigatórios já excede o tamanho do kit.");
+    alert("⚠️ Número de obrigatórios já excede o tamanho do kit.");
     return;
   }
 
@@ -98,15 +169,13 @@ function gerarCombinacoes() {
       if (!permitirRepeticao && usados.has(p.id)) continue;
       itens.push(p);
       usados.add(p.id);
-      total += p.preco;
+      total += (p.preco || 0);
     }
 
     testadas++;
-
     if (itens.length === tamKit) {
       const medio = total / tamKit;
-      if (medio <= precoMax)
-        combinacoes.push({ total, medio, itens });
+      if (medio <= precoMax) combinacoes.push({ total, medio, itens });
     }
 
     if (combinacoes.length >= 1000) break;
@@ -114,11 +183,10 @@ function gerarCombinacoes() {
 
   const tbodyRes = document.querySelector('#tabelaResultados tbody');
   if (combinacoes.length === 0) {
-    tbodyRes.innerHTML = `<tr><td colspan="3">⚠️ Nenhum kit encontrado.<br>Testadas ${testadas} combinações — todas com média acima de R$ ${precoMax.toFixed(2)}.</td></tr>`;
+    tbodyRes.innerHTML = `<tr><td colspan="3">⚠️ Nenhuma combinação encontrada.<br>Testadas ${testadas} combinações — todas com média acima de R$ ${precoMax.toFixed(2)}.</td></tr>`;
   } else {
     combinacoes.sort((a, b) => a[ordenacao] - b[ordenacao]);
     renderTabelaResultados();
-    tbodyRes.insertAdjacentHTML('beforeend', `<tr><td colspan="3">(${combinacoes.length} combinações válidas encontradas de ${testadas} testadas)</td></tr>`);
   }
 }
 
@@ -128,7 +196,7 @@ function renderTabelaResultados() {
     <tr onclick="copiarWhatsApp(${i})">
       <td>R$ ${c.total.toFixed(2)}</td>
       <td>R$ ${c.medio.toFixed(2)}</td>
-      <td>${c.itens.map(p => `${p.nome} — R$ ${p.preco.toFixed(2)}`).join(' — ')}</td>
+      <td>${c.itens.map(p => `${p.nome} — R$ ${(p.preco || 0).toFixed(2)}`).join(' — ')}</td>
     </tr>
   `).join('');
 }
@@ -151,3 +219,6 @@ function ordenarPor(tipo) {
 document.getElementById('btnGerar').addEventListener('click', gerarCombinacoes);
 carregarProdutos();
 </script>
+
+</body>
+</html>
