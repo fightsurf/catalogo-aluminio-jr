@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧮 Combinador de Kits — Alumínio JR</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; background: #f8f8f8; color: #333; }
+  h1 { color: #333; }
+  table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+  th, td { border: 1px solid #ccc; padding: 6px; text-align: left; cursor: default; }
+  th.sortable { cursor: pointer; background: #e0e0e0; }
+  th.sortable:hover { background: #d0d0d0; }
+  input[type="number"], input[type="text"] { width: 120px; padding: 3px; }
+  button { margin-top: 10px; padding: 8px 14px; border: none; background: #007bff; color: #fff; border-radius: 4px; cursor: pointer; }
+  button:hover { background: #0056b3; }
+  .alerta { background: #ffe9e9; color: #b30000; padding: 10px; margin: 10px 0; border: 1px solid #b30000; display: none; }
+  .resultado { margin-top: 20px; background: #fff; padding: 10px; border: 1px solid #ccc; }
+  .secao { margin-top: 20px; }
+</style>
+</head>
+<body>
+
+<h1>🧮 Combinador de Kits — Alumínio JR</h1>
+
+<div class="alerta" id="alerta"></div>
+
+<div class="secao">
+  <h2>Itens obrigatórios</h2>
+  <table id="tabelaObrigatorios">
+    <tr><th>Item obrigatório</th><th>Qtd.</th><th>Ações</th></tr>
+  </table>
+  <button onclick="adicionarObrigatorio()">+ Adicionar obrigatório</button>
+</div>
+
+<div class="secao">
+  <h2>Itens proibidos</h2>
+  <table id="tabelaProibidos">
+    <tr><th>Item proibido</th><th>Ações</th></tr>
+  </table>
+  <button onclick="adicionarProibido()">+ Adicionar proibido</button>
+</div>
+
+<div class="secao">
+  <h2>Configurações</h2>
+  <label>Preço médio máximo (R$): <input type="number" id="precoMax" value="17" step="0.1"></label><br><br>
+  <label>Qtd mínima de itens no kit: <input type="number" id="minItens" value="5"></label><br><br>
+  <label>Qtd máxima de itens no kit: <input type="number" id="maxItens" value="8"></label><br><br>
+  <button onclick="gerarCombinacoes()">Gerar combinações</button>
+</div>
+
+<div class="resultado" id="resultado">
+  <h2>Resultado</h2>
+  <table id="tabelaResultado">
+    <tr>
+      <th class="sortable" onclick="ordenarTabela(0)">Preço total (R$)</th>
+      <th class="sortable" onclick="ordenarTabela(1)">Preço médio (R$)</th>
+      <th>Itens</th>
+    </tr>
+  </table>
+</div>
+
+<script>
+let produtosAPI = [];
+let resultadosGlobais = [];
+let ordemAtual = { coluna: null, asc: true };
+
+async function carregarProdutos() {
+  try {
+    const resp = await fetch('https://catalogo-aluminio-jr.onrender.com/api/produtos');
+    produtosAPI = await resp.json();
+  } catch (e) {
+    exibirAlerta("Erro ao carregar produtos da API. Verifique a conexão.");
+  }
+}
+
+function exibirAlerta(msg) {
+  const alerta = document.getElementById("alerta");
+  alerta.innerText = msg;
+  alerta.style.display = "block";
+  setTimeout(() => alerta.style.display = "none", 5000);
+}
+
+function adicionarObrigatorio() {
+  const tabela = document.getElementById("tabelaObrigatorios");
+  const linha = tabela.insertRow(-1);
+  linha.innerHTML = `
+    <td><input type="text" placeholder="Nome do item"></td>
+    <td><input type="number" value="1" min="1"></td>
+    <td><button onclick="this.parentElement.parentElement.remove()">❌</button></td>
+  `;
+}
+
+function adicionarProibido() {
+  const tabela = document.getElementById("tabelaProibidos");
+  const linha = tabela.insertRow(-1);
+  linha.innerHTML = `
+    <td><input type="text" placeholder="Nome do item"></td>
+    <td><button onclick="this.parentElement.parentElement.remove()">❌</button></td>
+  `;
+}
+
+function gerarCombinacoes() {
+  if (produtosAPI.length === 0) {
+    exibirAlerta("Produtos ainda não carregados. Aguarde alguns segundos.");
+    return;
+  }
+
+  const precoMax = parseFloat(document.getElementById("precoMax").value);
+  const minItens = parseInt(document.getElementById("minItens").value);
+  const maxItens = parseInt(document.getElementById("maxItens").value);
+
+  const obrigatorios = Array.from(document.querySelectorAll("#tabelaObrigatorios tr"))
+    .slice(1)
+    .map(linha => ({
+      nome: linha.cells[0].querySelector("input").value.trim().toLowerCase(),
+      qtd: parseInt(linha.cells[1].querySelector("input").value)
+    }))
+    .filter(x => x.nome !== "");
+
+  const proibidos = Array.from(document.querySelectorAll("#tabelaProibidos tr"))
+    .slice(1)
+    .map(linha => linha.cells[0].querySelector("input").value.trim().toLowerCase())
+    .filter(x => x !== "");
+
+  if (obrigatorios.some(o => proibidos.includes(o.nome))) {
+    exibirAlerta("Um item obrigatório também foi marcado como proibido.");
+    return;
+  }
+
+  const obrigatoriosTotal = obrigatorios.reduce((acc, o) => acc + o.qtd, 0);
+  if (obrigatoriosTotal > maxItens) {
+    exibirAlerta("Número de obrigatórios excede o limite máximo de itens por kit.");
+    return;
+  }
+
+  const listaBase = produtosAPI.filter(p => !proibidos.some(f => p.nome.toLowerCase().includes(f)));
+
+  const resultados = [];
+  for (let i = 0; i < 3000; i++) {
+    const kit = [];
+    obrigatorios.forEach(o => {
+      for (let n = 0; n < o.qtd; n++) {
+        const item = listaBase.find(p => p.nome.toLowerCase().includes(o.nome));
+        if (item) kit.push(item);
+      }
+    });
+
+    while (kit.length < maxItens) {
+      const extra = listaBase[Math.floor(Math.random() * listaBase.length)];
+      if (extra && !kit.includes(extra)) kit.push(extra);
+      if (kit.length >= minItens && Math.random() > 0.8) break;
+    }
+
+    const total = kit.reduce((sum, p) => sum + (parseFloat(p.preco) || 0), 0);
+    const media = total / kit.length;
+
+    if (media <= precoMax) {
+      resultados.push({
+        total: parseFloat(total.toFixed(2)),
+        media: parseFloat(media.toFixed(2)),
+        itens: kit.map(p => p.nome).join(" – ")
+      });
+    }
+  }
+
+  resultadosGlobais = resultados;
+  mostrarResultados(resultados);
+}
+
+function mostrarResultados(resultados) {
+  const tabela = document.getElementById("tabelaResultado");
+  tabela.innerHTML = `
+    <tr>
+      <th class="sortable" onclick="ordenarTabela(0)">Preço total (R$)</th>
+      <th class="sortable" onclick="ordenarTabela(1)">Preço médio (R$)</th>
+      <th>Itens</th>
+    </tr>`;
+  if (resultados.length === 0) {
+    exibirAlerta("Nenhum kit atende aos critérios definidos.");
+    return;
+  }
+
+  resultados.slice(0, 100).forEach(r => {
+    const linha = tabela.insertRow(-1);
+    linha.innerHTML = `<td>${r.total.toFixed(2)}</td><td>${r.media.toFixed(2)}</td><td>${r.itens}</td>`;
+  });
+}
+
+function ordenarTabela(coluna) {
+  if (!resultadosGlobais.length) return;
+  const asc = ordemAtual.coluna === coluna ? !ordemAtual.asc : true;
+  ordemAtual = { coluna, asc };
+
+  resultadosGlobais.sort((a, b) => {
+    const valA = coluna === 0 ? a.total : a.media;
+    const valB = coluna === 0 ? b.total : b.media;
+    return asc ? valA - valB : valB - valA;
+  });
+
+  mostrarResultados(resultadosGlobais);
+}
+
+carregarProdutos();
+</script>
+
+</body>
+</html>
