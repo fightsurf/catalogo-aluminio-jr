@@ -1,62 +1,3 @@
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>⚙️ Combinador de Kits — Alumínio JR</title>
-<style>
-  body { font-family: Arial, sans-serif; margin: 20px; background: #f9f9f9; color: #333; }
-  h1 { color: #333; margin-bottom: 10px; }
-  h2 { color: #444; margin-top: 20px; border-bottom: 2px solid #ccc; padding-bottom: 4px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-  th, td { padding: 6px; border: 1px solid #ccc; text-align: center; }
-  th { background-color: #e8e8e8; cursor: pointer; }
-  tr:nth-child(even) { background-color: #f5f5f5; }
-  tr:hover { background: #dfe9ff; cursor: pointer; }
-  .config { margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-  input[type="number"] { width: 60px; }
-  button { padding: 10px 16px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
-  button:hover { background-color: #0056b3; }
-  .categoria { background: #ddd; font-weight: bold; text-align: left; padding: 5px; border: 1px solid #ccc; }
-</style>
-</head>
-<body>
-
-<h1>⚙️ Combinador de Kits — Alumínio JR</h1>
-
-<div class="config">
-  <label><b>Tamanho máximo do kit:</b> <input type="number" id="tamKit" value="5" min="1" max="20"></label>
-  <label><b>Preço médio máximo (R$):</b> <input type="number" id="precoMax" value="15" step="0.01"></label>
-  <label><input type="checkbox" id="permitirRepeticao" checked> Permitir repetição de itens</label>
-  <button id="btnGerar">Gerar combinações</button>
-</div>
-
-<table id="tabelaItens">
-  <thead>
-    <tr>
-      <th>Produto</th>
-      <th>Categoria</th>
-      <th>Preço (R$)</th>
-      <th>Obrigatório</th>
-      <th>Qtd</th>
-      <th>Proibido</th>
-    </tr>
-  </thead>
-  <tbody><tr><td colspan="6">Carregando produtos...</td></tr></tbody>
-</table>
-
-<h2>Resultados</h2>
-<table id="tabelaResultados">
-  <thead>
-    <tr>
-      <th onclick="ordenarPor('total')">Preço Total</th>
-      <th onclick="ordenarPor('medio')">Preço Médio</th>
-      <th>Itens (com preços)</th>
-    </tr>
-  </thead>
-  <tbody><tr><td colspan="3">Nenhum kit gerado ainda.</td></tr></tbody>
-</table>
-
 <script>
 let produtos = [];
 let combinacoes = [];
@@ -65,16 +6,9 @@ let ordenacao = 'medio';
 async function carregarProdutos() {
   try {
     const res = await fetch('/api/produtos');
-    if (!res.ok) throw new Error("Erro ao buscar produtos");
     produtos = await res.json();
-  } catch (e) {
-    console.error("❌ Falha ao carregar produtos:", e);
+  } catch {
     document.querySelector('#tabelaItens tbody').innerHTML = `<tr><td colspan="6">Erro ao carregar produtos.</td></tr>`;
-    return;
-  }
-
-  if (!Array.isArray(produtos) || produtos.length === 0) {
-    document.querySelector('#tabelaItens tbody').innerHTML = `<tr><td colspan="6">Nenhum produto encontrado.</td></tr>`;
     return;
   }
 
@@ -139,35 +73,52 @@ function gerarCombinacoes() {
   const obrigIds = obrigatorios.map(p => p.id);
   const disponiveis = produtos.filter(p => !proibidos.has(p.id) && !obrigIds.includes(p.id));
 
+  // Ordenar por preço crescente (mais barato primeiro)
+  disponiveis.sort((a, b) => a.preco - b.preco);
+
   combinacoes = [];
-  const maxComb = 2000;
+  let testadas = 0;
 
-  for (let i = 0; i < maxComb; i++) {
-    const itens = [...obrigatorios];
-    const usados = new Set(obrigIds);
+  // Construir deterministicamente
+  const baseTotal = obrigatorios.reduce((s, p) => s + p.preco, 0);
+  const faltantes = tamKit - obrigatorios.length;
 
-    while (itens.length < tamKit) {
-      const escolha = disponiveis[Math.floor(Math.random() * disponiveis.length)];
-      if (!escolha) break;
-      if (!permitirRepeticao && usados.has(escolha.id)) continue;
-      itens.push(escolha);
-      usados.add(escolha.id);
-    }
-
-    if (itens.length < tamKit) continue;
-
-    const total = itens.reduce((s, p) => s + (p.preco || 0), 0);
-    const medio = total / itens.length;
-
-    if (medio <= precoMax) combinacoes.push({ total, medio, itens });
+  if (faltantes <= 0) {
+    alert("O número de obrigatórios já excede o tamanho do kit.");
+    return;
   }
 
+  for (let i = 0; i < disponiveis.length; i++) {
+    const itens = [...obrigatorios];
+    const usados = new Set(obrigIds);
+    let total = baseTotal;
+
+    for (let j = i; j < disponiveis.length && itens.length < tamKit; j++) {
+      const p = disponiveis[j];
+      if (!permitirRepeticao && usados.has(p.id)) continue;
+      itens.push(p);
+      usados.add(p.id);
+      total += p.preco;
+    }
+
+    testadas++;
+
+    if (itens.length === tamKit) {
+      const medio = total / tamKit;
+      if (medio <= precoMax)
+        combinacoes.push({ total, medio, itens });
+    }
+
+    if (combinacoes.length >= 1000) break;
+  }
+
+  const tbodyRes = document.querySelector('#tabelaResultados tbody');
   if (combinacoes.length === 0) {
-    document.querySelector('#tabelaResultados tbody').innerHTML =
-      `<tr><td colspan="3">⚠️ Nenhuma combinação encontrada com esses parâmetros.</td></tr>`;
+    tbodyRes.innerHTML = `<tr><td colspan="3">⚠️ Nenhum kit encontrado.<br>Testadas ${testadas} combinações — todas com média acima de R$ ${precoMax.toFixed(2)}.</td></tr>`;
   } else {
     combinacoes.sort((a, b) => a[ordenacao] - b[ordenacao]);
     renderTabelaResultados();
+    tbodyRes.insertAdjacentHTML('beforeend', `<tr><td colspan="3">(${combinacoes.length} combinações válidas encontradas de ${testadas} testadas)</td></tr>`);
   }
 }
 
@@ -200,6 +151,3 @@ function ordenarPor(tipo) {
 document.getElementById('btnGerar').addEventListener('click', gerarCombinacoes);
 carregarProdutos();
 </script>
-
-</body>
-</html>
