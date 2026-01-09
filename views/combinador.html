@@ -27,8 +27,8 @@
 <h1>⚙️ Combinador de Kits — Alumínio JR</h1>
 
 <div class="config">
-  <label><b>Tamanho do kit:</b> <input type="number" id="tamKit" value="5" min="1" max="10"></label>
-  <label><b>Preço médio máximo (R$):</b> <input type="number" id="precoMax" value="17" step="0.01"></label>
+  <label><b>Tamanho máximo do kit:</b> <input type="number" id="tamKit" value="9" min="1" max="20"></label>
+  <label><b>Preço médio máximo (R$):</b> <input type="number" id="precoMax" value="15" step="0.01"></label>
 </div>
 
 <h2>Itens obrigatórios</h2>
@@ -71,7 +71,6 @@ function renderCheckboxes() {
   proib.innerHTML = '';
 
   produtos.forEach(p => {
-    // Itens obrigatórios com contador
     const divO = document.createElement('label');
     divO.innerHTML = `
       <span><input type="checkbox" data-id="${p.id}" class="chk-obrig"> ${p.nome}</span>
@@ -79,7 +78,6 @@ function renderCheckboxes() {
     `;
     obrig.appendChild(divO);
 
-    // Itens proibidos simples
     const divP = document.createElement('label');
     divP.innerHTML = `<input type="checkbox" data-id="${p.id}" class="chk-proib"> ${p.nome}`;
     proib.appendChild(divP);
@@ -106,50 +104,41 @@ function gerarCombinacoes() {
 
   const proibIds = [...document.querySelectorAll('.chk-proib:checked')].map(c => c.dataset.id);
   const proibidos = new Set(proibIds);
-  const disponiveis = produtos.filter(p => !proibidos.has(p.id));
 
-  const totalObrig = obrigatorios.length;
-  if (totalObrig > tamKit) {
-    alert('⚠️ Quantidade de obrigatórios maior que o tamanho do kit!');
-    return;
-  }
+  const disponiveis = produtos
+    .filter(p => !proibidos.has(p.id) && !obrigIds.includes(p.id))
+    .sort((a, b) => a.preco - b.preco); // mais barato primeiro
 
-  const maxComb = 1000;
   combinacoes = [];
+  const maxComb = 1000;
 
-  function combinar(arr, k, prefix = []) {
-    if (combinacoes.length >= maxComb) return;
-    if (prefix.length === k) {
-      const itens = [...obrigatorios, ...prefix];
+  for (let i = 0; i < maxComb; i++) {
+    const itens = [...obrigatorios];
+    while (itens.length < tamKit) {
+      const escolha = disponiveis[Math.floor(Math.random() * disponiveis.length)];
+      itens.push(escolha);
       const total = itens.reduce((s, p) => s + p.preco, 0);
       const medio = total / itens.length;
-      if (medio <= precoMax) {
-        combinacoes.push({ total, medio, itens });
+      if (medio > precoMax) {
+        itens.pop(); // se ultrapassar, remove o último
+        break;
       }
-      return;
     }
-    for (let i = 0; i < arr.length; i++) {
-      combinar(arr.slice(i + 1), k, [...prefix, arr[i]]);
-      if (combinacoes.length >= maxComb) return;
+    const total = itens.reduce((s, p) => s + p.preco, 0);
+    const medio = total / itens.length;
+    if (medio <= precoMax) {
+      combinacoes.push({ total, medio, itens });
     }
   }
 
-  const k = tamKit - totalObrig;
-  combinar(disponiveis.filter(p => !obrigIds.includes(p.id)), k);
+  combinacoes = combinacoes
+    .sort((a, b) => a[ordenacao] - b[ordenacao])
+    .slice(0, maxComb);
 
   if (combinacoes.length === 0) {
-    alert('Nenhum kit válido encontrado com essas condições.');
-    return;
+    alert('⚠️ Nenhum kit encontrado dentro do limite. Experimente aumentar o preço médio ou reduzir itens.');
   }
 
-  if (combinacoes.length >= maxComb) {
-    document.getElementById('aviso').style.display = 'block';
-    document.getElementById('aviso').innerText = '⚠️ Limite de 1000 combinações atingido — resultados parciais.';
-  } else {
-    document.getElementById('aviso').style.display = 'none';
-  }
-
-  combinacoes.sort((a, b) => a[ordenacao] - b[ordenacao]);
   renderTabela();
 }
 
