@@ -12,12 +12,13 @@
   th, td { padding: 8px; border: 1px solid #ccc; text-align: left; }
   th { background-color: #e8e8e8; cursor: pointer; }
   tr:nth-child(even) { background-color: #f5f5f5; }
-  .config, .paginacao { margin-top: 15px; }
+  tr:hover { background: #dfe9ff; cursor: pointer; }
+  .config { margin-top: 15px; }
   select, input { margin: 5px; padding: 5px; }
   button { padding: 10px 16px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
   button:hover { background-color: #0056b3; }
-  .checkboxes { display: flex; flex-wrap: wrap; gap: 10px; max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background: white; }
-  .checkboxes label { width: 48%; }
+  .checkboxes { display: flex; flex-wrap: wrap; gap: 8px; max-height: 200px; overflow-y: auto; border: 1px solid #ccc; padding: 10px; background: white; }
+  .checkboxes label { width: 48%; display: flex; justify-content: space-between; align-items: center; }
   .aviso { background: #ffe0e0; padding: 10px; margin-top: 15px; border: 1px solid #f88; display: none; }
 </style>
 </head>
@@ -40,17 +41,6 @@
 <div class="aviso" id="aviso"></div>
 
 <h2>Resultados</h2>
-<div class="paginacao">
-  <label>Itens por página:
-    <select id="itensPorPagina" onchange="renderTabela()">
-      <option value="10">10</option>
-      <option value="20">20</option>
-      <option value="50">50</option>
-      <option value="100" selected>100</option>
-    </select>
-  </label>
-  <span id="paginacaoInfo"></span>
-</div>
 
 <table id="tabelaResultados">
   <thead>
@@ -63,15 +53,9 @@
   <tbody></tbody>
 </table>
 
-<div class="paginacao">
-  <button onclick="paginaAnterior()">« Anterior</button>
-  <button onclick="proximaPagina()">Próximo »</button>
-</div>
-
 <script>
 let produtos = [];
 let combinacoes = [];
-let paginaAtual = 1;
 let ordenacao = 'medio';
 
 async function carregarProdutos() {
@@ -85,13 +69,20 @@ function renderCheckboxes() {
   const proib = document.getElementById('itensProibidos');
   obrig.innerHTML = '';
   proib.innerHTML = '';
+
   produtos.forEach(p => {
-    const checkO = document.createElement('label');
-    const checkP = document.createElement('label');
-    checkO.innerHTML = `<input type="checkbox" data-id="${p.id}" class="chk-obrig"> ${p.nome}`;
-    checkP.innerHTML = `<input type="checkbox" data-id="${p.id}" class="chk-proib"> ${p.nome}`;
-    obrig.appendChild(checkO);
-    proib.appendChild(checkP);
+    // Itens obrigatórios com contador
+    const divO = document.createElement('label');
+    divO.innerHTML = `
+      <span><input type="checkbox" data-id="${p.id}" class="chk-obrig"> ${p.nome}</span>
+      <input type="number" data-id="${p.id}" class="qtd-obrig" value="1" min="1" max="10" style="width:50px;">
+    `;
+    obrig.appendChild(divO);
+
+    // Itens proibidos simples
+    const divP = document.createElement('label');
+    divP.innerHTML = `<input type="checkbox" data-id="${p.id}" class="chk-proib"> ${p.nome}`;
+    proib.appendChild(divP);
   });
 }
 
@@ -99,19 +90,31 @@ function gerarCombinacoes() {
   const tamKit = parseInt(document.getElementById('tamKit').value);
   const precoMax = parseFloat(document.getElementById('precoMax').value);
 
-  const obrigIds = [...document.querySelectorAll('.chk-obrig:checked')].map(c => c.dataset.id);
-  const proibIds = [...document.querySelectorAll('.chk-proib:checked')].map(c => c.dataset.id);
+  const obrigInputs = [...document.querySelectorAll('.chk-obrig:checked')];
+  const obrigIds = obrigInputs.map(c => c.dataset.id);
+  const obrigQtds = obrigInputs.map(c => parseInt(document.querySelector('.qtd-obrig[data-id="'+c.dataset.id+'"]').value));
 
-  const obrigatorios = produtos.filter(p => obrigIds.includes(p.id));
+  const obrigatorios = [];
+  obrigIds.forEach((id, i) => {
+    const produto = produtos.find(p => p.id === id);
+    if (produto) {
+      for (let j = 0; j < obrigQtds[i]; j++) {
+        obrigatorios.push(produto);
+      }
+    }
+  });
+
+  const proibIds = [...document.querySelectorAll('.chk-proib:checked')].map(c => c.dataset.id);
   const proibidos = new Set(proibIds);
   const disponiveis = produtos.filter(p => !proibidos.has(p.id));
 
-  if (obrigatorios.length > tamKit) {
+  const totalObrig = obrigatorios.length;
+  if (totalObrig > tamKit) {
     alert('⚠️ Quantidade de obrigatórios maior que o tamanho do kit!');
     return;
   }
 
-  const maxComb = 10000;
+  const maxComb = 1000;
   combinacoes = [];
 
   function combinar(arr, k, prefix = []) {
@@ -127,10 +130,11 @@ function gerarCombinacoes() {
     }
     for (let i = 0; i < arr.length; i++) {
       combinar(arr.slice(i + 1), k, [...prefix, arr[i]]);
+      if (combinacoes.length >= maxComb) return;
     }
   }
 
-  const k = tamKit - obrigatorios.length;
+  const k = tamKit - totalObrig;
   combinar(disponiveis.filter(p => !obrigIds.includes(p.id)), k);
 
   if (combinacoes.length === 0) {
@@ -140,48 +144,40 @@ function gerarCombinacoes() {
 
   if (combinacoes.length >= maxComb) {
     document.getElementById('aviso').style.display = 'block';
-    document.getElementById('aviso').innerText = '⚠️ Limite de 10.000 combinações atingido — resultados parciais.';
+    document.getElementById('aviso').innerText = '⚠️ Limite de 1000 combinações atingido — resultados parciais.';
   } else {
     document.getElementById('aviso').style.display = 'none';
   }
 
-  combinacoes.sort((a, b) => a.medio - b.medio);
-  paginaAtual = 1;
+  combinacoes.sort((a, b) => a[ordenacao] - b[ordenacao]);
   renderTabela();
 }
 
 function renderTabela() {
   const tbody = document.querySelector('#tabelaResultados tbody');
-  const itensPorPagina = parseInt(document.getElementById('itensPorPagina').value);
-  const inicio = (paginaAtual - 1) * itensPorPagina;
-  const fim = inicio + itensPorPagina;
-  const pagina = combinacoes.slice(inicio, fim);
-
-  tbody.innerHTML = pagina.map(c => `
-    <tr>
+  tbody.innerHTML = combinacoes.map((c, i) => `
+    <tr onclick="copiarWhatsApp(${i})">
       <td>R$ ${c.total.toFixed(2)}</td>
       <td>R$ ${c.medio.toFixed(2)}</td>
       <td>${c.itens.map(p => `${p.nome} (R$ ${p.preco.toFixed(2)})`).join(' — ')}</td>
     </tr>
   `).join('');
-
-  const totalPaginas = Math.ceil(combinacoes.length / itensPorPagina);
-  document.getElementById('paginacaoInfo').innerText =
-    `Página ${paginaAtual} de ${totalPaginas} (${combinacoes.length} kits encontrados)`;
 }
 
-function paginaAnterior() {
-  if (paginaAtual > 1) { paginaAtual--; renderTabela(); }
+function copiarWhatsApp(index) {
+  const kit = combinacoes[index];
+  const qtdItens = kit.itens.length;
+  const itensLista = kit.itens.map(p => `- ${p.nome} (x1)`).join('\n');
+
+  const texto = `*${qtdItens} itens selecionados:*\n${itensLista}\n\n*Preço final do kit: R$ ${kit.total.toFixed(2)}*\n*Preço médio por item: R$ ${kit.medio.toFixed(2)}*`;
+
+  navigator.clipboard.writeText(texto);
+  alert("✅ Kit copiado no formato WhatsApp!");
 }
-function proximaPagina() {
-  const itensPorPagina = parseInt(document.getElementById('itensPorPagina').value);
-  const totalPaginas = Math.ceil(combinacoes.length / itensPorPagina);
-  if (paginaAtual < totalPaginas) { paginaAtual++; renderTabela(); }
-}
+
 function ordenarPor(tipo) {
   ordenacao = tipo;
   combinacoes.sort((a, b) => a[tipo] - b[tipo]);
-  paginaAtual = 1;
   renderTabela();
 }
 
