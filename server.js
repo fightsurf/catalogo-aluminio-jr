@@ -43,7 +43,7 @@ app.get('/catalogo-celular', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'catalogo-celular.html'));
 });
 
-// 🔥 KITS FEIRINHA (RESTAURADO)
+// 🔥 KITS FEIRINHA
 app.get('/kits-feirinha', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'kits-feirinha.html'));
 });
@@ -51,6 +51,11 @@ app.get('/kits-feirinha', (req, res) => {
 // 📋 ORÇAMENTO
 app.get('/orcamento', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'orcamento.html'));
+});
+
+// 💡 COMBINADOR DE KITS (NOVO)
+app.get('/combinador', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'combinador.html'));
 });
 
 // =====================================================
@@ -88,6 +93,7 @@ app.post('/admin-1234', (req, res) => {
     const linha = raw.trim();
     if (!linha) return;
 
+    // Linha em maiúsculas → categoria
     if (linha === linha.toUpperCase() && !linha.match(/^\d+/)) {
       categoriaAtual = linha;
       return;
@@ -167,5 +173,6 @@ app.listen(PORT, () => {
   console.log('📦 Catálogo: /');
   console.log('📱 Catálogo celular: /catalogo-celular');
   console.log('🔥 Kits feirinha: /kits-feirinha');
+  console.log('🧮 Combinador de kits: /combinador');
   console.log('📋 Orçamento: /orcamento');
 });
