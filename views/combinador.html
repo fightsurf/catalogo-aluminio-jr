@@ -29,6 +29,7 @@
 <div class="config">
   <label><b>Tamanho máximo do kit:</b> <input type="number" id="tamKit" value="9" min="1" max="20"></label>
   <label><b>Preço médio máximo (R$):</b> <input type="number" id="precoMax" value="15" step="0.01"></label>
+  <label><input type="checkbox" id="permitirRepeticao" checked> Permitir repetição de itens</label>
 </div>
 
 <h2>Itens obrigatórios</h2>
@@ -87,6 +88,7 @@ function renderCheckboxes() {
 function gerarCombinacoes() {
   const tamKit = parseInt(document.getElementById('tamKit').value);
   const precoMax = parseFloat(document.getElementById('precoMax').value);
+  const permitirRepeticao = document.getElementById('permitirRepeticao').checked;
 
   const obrigInputs = [...document.querySelectorAll('.chk-obrig:checked')];
   const obrigIds = obrigInputs.map(c => c.dataset.id);
@@ -96,9 +98,7 @@ function gerarCombinacoes() {
   obrigIds.forEach((id, i) => {
     const produto = produtos.find(p => p.id === id);
     if (produto) {
-      for (let j = 0; j < obrigQtds[i]; j++) {
-        obrigatorios.push(produto);
-      }
+      for (let j = 0; j < obrigQtds[i]; j++) obrigatorios.push(produto);
     }
   });
 
@@ -107,26 +107,30 @@ function gerarCombinacoes() {
 
   const disponiveis = produtos
     .filter(p => !proibidos.has(p.id) && !obrigIds.includes(p.id))
-    .sort((a, b) => a.preco - b.preco); // mais barato primeiro
+    .sort((a, b) => a.preco - b.preco);
 
   combinacoes = [];
   const maxComb = 1000;
 
   for (let i = 0; i < maxComb; i++) {
     const itens = [...obrigatorios];
+    const usados = new Set(obrigIds);
     while (itens.length < tamKit) {
       const escolha = disponiveis[Math.floor(Math.random() * disponiveis.length)];
+      if (!permitirRepeticao && usados.has(escolha.id)) continue;
       itens.push(escolha);
+      usados.add(escolha.id);
       const total = itens.reduce((s, p) => s + p.preco, 0);
       const medio = total / itens.length;
       if (medio > precoMax) {
-        itens.pop(); // se ultrapassar, remove o último
+        itens.pop();
+        usados.delete(escolha.id);
         break;
       }
     }
     const total = itens.reduce((s, p) => s + p.preco, 0);
     const medio = total / itens.length;
-    if (medio <= precoMax) {
+    if (medio <= precoMax && itens.length === tamKit) {
       combinacoes.push({ total, medio, itens });
     }
   }
@@ -136,7 +140,7 @@ function gerarCombinacoes() {
     .slice(0, maxComb);
 
   if (combinacoes.length === 0) {
-    alert('⚠️ Nenhum kit encontrado dentro do limite. Experimente aumentar o preço médio ou reduzir itens.');
+    alert('⚠️ Nenhum kit encontrado dentro do limite. Experimente aumentar o preço médio ou reduzir o tamanho.');
   }
 
   renderTabela();
@@ -157,9 +161,7 @@ function copiarWhatsApp(index) {
   const kit = combinacoes[index];
   const qtdItens = kit.itens.length;
   const itensLista = kit.itens.map(p => `- ${p.nome} (x1)`).join('\n');
-
   const texto = `*${qtdItens} itens selecionados:*\n${itensLista}\n\n*Preço final do kit: R$ ${kit.total.toFixed(2)}*\n*Preço médio por item: R$ ${kit.medio.toFixed(2)}*`;
-
   navigator.clipboard.writeText(texto);
   alert("✅ Kit copiado no formato WhatsApp!");
 }
