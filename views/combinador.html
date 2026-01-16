@@ -27,7 +27,6 @@
 <div id="config">
   <label><b>Qtd. máx. de itens:</b> <input type="number" id="tamKit" value="5" min="1"></label>
   <label style="margin-left:10px"><b>Média máxima (R$):</b> <input type="number" id="precoMax" value="15" step="0.01"></label>
-  <label style="margin-left:10px"><input type="checkbox" id="permitirRepeticao" checked> Permitir repetição</label>
   <button id="btnGerar">Gerar Combinações</button>
 </div>
 
@@ -39,7 +38,6 @@
       <th>Categoria</th>
       <th>Preço (R$)</th>
       <th>Obrigatório</th>
-      <th>Qtd.</th>
       <th>Proibido</th>
     </tr>
   </thead>
@@ -64,161 +62,114 @@ let combinacoes = [];
 let ordenacao = 'medio';
 
 async function carregarProdutos() {
-  try {
-    const res = await fetch('/api/produtos');
-    produtos = await res.json();
-  } catch {
-    document.querySelector('#tabelaItens tbody').innerHTML = `<tr><td colspan="6">Erro ao carregar produtos.</td></tr>`;
-    return;
-  }
+  const res = await fetch('/api/produtos');
+  produtos = await res.json();
 
-  const ordemCategorias = [
-    "LINHA COMUM COM TAMPA DE ALUMÍNIO",
-    "LINHA COMUM COM TAMPA DE VIDRO",
-    "LINHA ANTIADERENTE SEM TAMPA",
-    "LINHA ANTIADERENTE COM TAMPA DE VIDRO"
-  ];
-
-  produtos.sort((a, b) => {
-    const ai = ordemCategorias.indexOf((a.categoria || "").toUpperCase());
-    const bi = ordemCategorias.indexOf((b.categoria || "").toUpperCase());
-    return (ai - bi) || a.nome.localeCompare(b.nome);
-  });
-
+  produtos.sort((a, b) => a.preco - b.preco);
   renderTabelaItens();
 }
 
 function renderTabelaItens() {
   const tbody = document.querySelector('#tabelaItens tbody');
   tbody.innerHTML = '';
-
-  let categoriaAtual = '';
+  let catAtual = '';
 
   produtos.forEach(p => {
-    if (p.categoria !== categoriaAtual) {
-      categoriaAtual = p.categoria;
-      const rowCat = document.createElement('tr');
-      rowCat.innerHTML = `<td colspan="6" class="categoria">${categoriaAtual}</td>`;
-      tbody.appendChild(rowCat);
+    if (p.categoria !== catAtual) {
+      catAtual = p.categoria;
+      tbody.insertAdjacentHTML('beforeend',
+        `<tr><td colspan="5" class="categoria">${catAtual}</td></tr>`);
     }
 
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td style="text-align:left">${p.nome}</td>
-      <td>${p.categoria}</td>
-      <td>${p.preco?.toFixed(2) || '0.00'}</td>
-      <td><input type="checkbox" class="chk-obrig" data-id="${p.id}"></td>
-      <td><input type="number" class="qtd-obrig" data-id="${p.id}" value="1" min="1" max="10"></td>
-      <td><input type="checkbox" class="chk-proib" data-id="${p.id}"></td>
-    `;
-    tbody.appendChild(tr);
+    tbody.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td style="text-align:left">${p.nome}</td>
+        <td>${p.categoria}</td>
+        <td>${p.preco.toFixed(2)}</td>
+        <td><input type="checkbox" class="chk-obrig" data-id="${p.id}"></td>
+        <td><input type="checkbox" class="chk-proib" data-id="${p.id}"></td>
+      </tr>
+    `);
   });
 }
 
 function gerarCombinacoes() {
   const tamKit = parseInt(document.getElementById('tamKit').value);
   const precoMax = parseFloat(document.getElementById('precoMax').value);
-  const permitirRepeticao = document.getElementById('permitirRepeticao').checked;
 
   const obrigatorios = [];
-  document.querySelectorAll('.chk-obrig:checked').forEach(chk => {
-    const id = chk.dataset.id;
-    const qtdInput = document.querySelector(`.qtd-obrig[data-id="${id}"]`);
-    const qtd = parseInt(qtdInput?.value || 1);
-    const produto = produtos.find(p => p.id === id);
-    if (produto) for (let i = 0; i < qtd; i++) obrigatorios.push(produto);
+  document.querySelectorAll('.chk-obrig:checked').forEach(c => {
+    const p = produtos.find(x => x.id === c.dataset.id);
+    if (p) obrigatorios.push(p);
   });
 
   const proibidos = new Set([...document.querySelectorAll('.chk-proib:checked')].map(c => c.dataset.id));
   const disponiveis = produtos.filter(p => !proibidos.has(p.id));
-  disponiveis.sort((a, b) => a.preco - b.preco);
 
   const baseTotal = obrigatorios.reduce((s, p) => s + p.preco, 0);
   const faltantes = tamKit - obrigatorios.length;
 
-  if (faltantes <= 0) {
-    alert("O número de obrigatórios já excede o tamanho do kit.");
+  combinacoes = [];
+
+  function backtrack(inicio, kit, soma) {
+    if (kit.length === faltantes) {
+      const itens = [...obrigatorios, ...kit];
+      const total = soma + baseTotal;
+      const medio = total / tamKit;
+
+      if (medio <= precoMax) {
+        combinacoes.push({
+          total,
+          medio,
+          itens
+        });
+      }
+      return;
+    }
+
+    for (let i = inicio; i < disponiveis.length; i++) {
+      const p = disponiveis[i];
+      const novaSoma = soma + p.preco;
+      const mediaParcial = (novaSoma + baseTotal) / (obrigatorios.length + kit.length + 1);
+
+      if (mediaParcial > precoMax) break;
+
+      kit.push(p);
+      backtrack(i + 1, kit, novaSoma);
+      kit.pop();
+    }
+  }
+
+  backtrack(0, [], 0);
+
+  combinacoes.sort((a, b) => a[ordenacao] - b[ordenacao]);
+  renderResultados();
+}
+
+function renderResultados() {
+  const tbody = document.querySelector('#tabelaResultados tbody');
+
+  if (combinacoes.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="3">⚠️ Nenhuma combinação encontrada.</td></tr>`;
     return;
   }
 
-  combinacoes = [];
-  let testadas = 0;
-  let melhorTentativa = null;
-  const assinaturas = new Set(); // ← filtro antirrepetição
-
-  // 🔹 Gerador de kits com repetição e filtro
-  for (let i = 0; i < disponiveis.length; i++) {
-    for (let j = i; j < disponiveis.length; j++) {
-      const itens = [...obrigatorios];
-      let total = baseTotal;
-
-      while (itens.length < tamKit) {
-        const index = permitirRepeticao ? (itens.length % disponiveis.length) : j + itens.length - obrigatorios.length;
-        const p = disponiveis[index % disponiveis.length];
-        if (!p) break;
-        itens.push(p);
-        total += p.preco;
-      }
-
-      if (itens.length !== tamKit) continue;
-
-      const medio = total / tamKit;
-      const assinatura = itens.map(p => p.nome).sort().join('|'); // ← assinatura única
-
-      if (assinaturas.has(assinatura)) continue;
-      assinaturas.add(assinatura);
-
-      if (!melhorTentativa || medio < melhorTentativa.medio)
-        melhorTentativa = { total, medio, itens };
-
-      if (medio <= precoMax)
-        combinacoes.push({ total, medio, itens });
-
-      testadas++;
-      if (combinacoes.length >= 1000) break;
-    }
-    if (combinacoes.length >= 1000) break;
-  }
-
-  const tbodyRes = document.querySelector('#tabelaResultados tbody');
-  tbodyRes.innerHTML = '';
-
-  if (combinacoes.length === 0) {
-    let msg = `⚠️ Nenhum kit encontrado até R$ ${precoMax.toFixed(2)} de média.<br>Testadas ${testadas} combinações únicas.`;
-    if (melhorTentativa)
-      msg += `<br><br>🟢 Melhor tentativa: ${melhorTentativa.itens.length} itens — total R$ ${melhorTentativa.total.toFixed(2)} (média R$ ${melhorTentativa.medio.toFixed(2)})<br>${melhorTentativa.itens.map(p => p.nome + " (" + p.preco.toFixed(2) + ")").join(" — ")}`;
-    tbodyRes.innerHTML = `<tr><td colspan="3">${msg}</td></tr>`;
-  } else {
-    combinacoes.sort((a, b) => a[ordenacao] - b[ordenacao]);
-    renderTabelaResultados();
-    tbodyRes.insertAdjacentHTML('beforeend', `<tr><td colspan="3">(${combinacoes.length} combinações únicas encontradas)</td></tr>`);
-  }
-}
-
-function renderTabelaResultados() {
-  const tbody = document.querySelector('#tabelaResultados tbody');
-  tbody.innerHTML = combinacoes.map((c, i) => `
-    <tr onclick="copiarWhatsApp(${i})">
+  tbody.innerHTML = combinacoes.map(c => `
+    <tr>
       <td>R$ ${c.total.toFixed(2)}</td>
       <td>R$ ${c.medio.toFixed(2)}</td>
-      <td>${c.itens.map(p => `${p.nome} (${p.preco.toFixed(2)})`).join(' — ')}</td>
+      <td>${c.itens.map(p => p.nome).join(' - ')}</td>
     </tr>
   `).join('');
-}
 
-function copiarWhatsApp(index) {
-  const kit = combinacoes[index];
-  const qtdItens = kit.itens.length;
-  const itensLista = kit.itens.map(p => `- ${p.nome} (x1)`).join('\n');
-  const texto = `*${qtdItens} itens selecionados:*\n${itensLista}\n\n*Preço final do kit: R$ ${kit.total.toFixed(2)}*\n*Preço médio por item: R$ ${kit.medio.toFixed(2)}*`;
-  navigator.clipboard.writeText(texto);
-  alert("✅ Kit copiado no formato WhatsApp!");
+  tbody.insertAdjacentHTML('beforeend',
+    `<tr><td colspan="3">(${combinacoes.length} combinações encontradas)</td></tr>`);
 }
 
 function ordenarPor(tipo) {
   ordenacao = tipo;
   combinacoes.sort((a, b) => a[tipo] - b[tipo]);
-  renderTabelaResultados();
+  renderResultados();
 }
 
 document.getElementById('btnGerar').addEventListener('click', gerarCombinacoes);
