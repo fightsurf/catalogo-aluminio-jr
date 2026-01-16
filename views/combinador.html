@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>💰 Combinações — Kits Feirinha</title>
+
 <style>
   body { font-family: Arial, sans-serif; margin: 20px; background: #f9f9f9; color: #333; }
   h1 { color: #333; }
@@ -20,13 +21,20 @@
   #config { background: #fff; padding: 10px; border: 1px solid #ccc; border-radius: 5px; margin-bottom: 15px; }
 </style>
 </head>
+
 <body>
 
 <h1>💰 Gerador de Combinações — Kits Feirinha</h1>
 
 <div id="config">
-  <label><b>Qtd. máx. de itens:</b> <input type="number" id="tamKit" value="5" min="1"></label>
-  <label style="margin-left:10px"><b>Média máxima (R$):</b> <input type="number" id="precoMax" value="15" step="0.01"></label>
+  <label><b>Qtd. máx. de itens:</b>
+    <input type="number" id="tamKit" value="5" min="1">
+  </label>
+
+  <label style="margin-left:10px"><b>Média máxima (R$):</b>
+    <input type="number" id="precoMax" value="15" step="0.01">
+  </label>
+
   <button id="btnGerar">Gerar Combinações</button>
 </div>
 
@@ -53,7 +61,9 @@
       <th>Itens</th>
     </tr>
   </thead>
-  <tbody><tr><td colspan="3">Aguardando geração...</td></tr></tbody>
+  <tbody>
+    <tr><td colspan="3">Aguardando geração...</td></tr>
+  </tbody>
 </table>
 
 <script>
@@ -64,35 +74,50 @@ let ordenacao = 'medio';
 async function carregarProdutos() {
   const res = await fetch('/api/produtos');
   produtos = await res.json();
-
-  produtos.sort((a, b) => a.preco - b.preco);
   renderTabelaItens();
 }
 
+/* ========= TABELA DE ITENS (AGRUPADA POR CATEGORIA) ========= */
 function renderTabelaItens() {
   const tbody = document.querySelector('#tabelaItens tbody');
   tbody.innerHTML = '';
-  let catAtual = '';
 
+  // Agrupar por categoria
+  const grupos = {};
   produtos.forEach(p => {
-    if (p.categoria !== catAtual) {
-      catAtual = p.categoria;
-      tbody.insertAdjacentHTML('beforeend',
-        `<tr><td colspan="5" class="categoria">${catAtual}</td></tr>`);
-    }
+    const cat = p.categoria || 'SEM CATEGORIA';
+    if (!grupos[cat]) grupos[cat] = [];
+    grupos[cat].push(p);
+  });
 
-    tbody.insertAdjacentHTML('beforeend', `
-      <tr>
-        <td style="text-align:left">${p.nome}</td>
-        <td>${p.categoria}</td>
-        <td>${p.preco.toFixed(2)}</td>
-        <td><input type="checkbox" class="chk-obrig" data-id="${p.id}"></td>
-        <td><input type="checkbox" class="chk-proib" data-id="${p.id}"></td>
-      </tr>
-    `);
+  // Ordem das categorias (alfabética)
+  const categorias = Object.keys(grupos).sort();
+
+  categorias.forEach(cat => {
+    // Cabeçalho da categoria (UMA VEZ)
+    tbody.insertAdjacentHTML(
+      'beforeend',
+      `<tr><td colspan="5" class="categoria">${cat}</td></tr>`
+    );
+
+    // Produtos da categoria
+    grupos[cat]
+      .sort((a, b) => a.nome.localeCompare(b.nome))
+      .forEach(p => {
+        tbody.insertAdjacentHTML('beforeend', `
+          <tr>
+            <td style="text-align:left">${p.nome}</td>
+            <td>${p.categoria}</td>
+            <td>${p.preco.toFixed(2)}</td>
+            <td><input type="checkbox" class="chk-obrig" data-id="${p.id}"></td>
+            <td><input type="checkbox" class="chk-proib" data-id="${p.id}"></td>
+          </tr>
+        `);
+      });
   });
 }
 
+/* ========= GERAÇÃO DE COMBINAÇÕES (COMBINAÇÃO SIMPLES + PODA) ========= */
 function gerarCombinacoes() {
   const tamKit = parseInt(document.getElementById('tamKit').value);
   const precoMax = parseFloat(document.getElementById('precoMax').value);
@@ -103,8 +128,13 @@ function gerarCombinacoes() {
     if (p) obrigatorios.push(p);
   });
 
-  const proibidos = new Set([...document.querySelectorAll('.chk-proib:checked')].map(c => c.dataset.id));
-  const disponiveis = produtos.filter(p => !proibidos.has(p.id));
+  const proibidos = new Set(
+    [...document.querySelectorAll('.chk-proib:checked')].map(c => c.dataset.id)
+  );
+
+  const disponiveis = produtos
+    .filter(p => !proibidos.has(p.id))
+    .sort((a, b) => a.preco - b.preco);
 
   const baseTotal = obrigatorios.reduce((s, p) => s + p.preco, 0);
   const faltantes = tamKit - obrigatorios.length;
@@ -118,11 +148,7 @@ function gerarCombinacoes() {
       const medio = total / tamKit;
 
       if (medio <= precoMax) {
-        combinacoes.push({
-          total,
-          medio,
-          itens
-        });
+        combinacoes.push({ total, medio, itens });
       }
       return;
     }
@@ -130,7 +156,9 @@ function gerarCombinacoes() {
     for (let i = inicio; i < disponiveis.length; i++) {
       const p = disponiveis[i];
       const novaSoma = soma + p.preco;
-      const mediaParcial = (novaSoma + baseTotal) / (obrigatorios.length + kit.length + 1);
+      const mediaParcial =
+        (novaSoma + baseTotal) /
+        (obrigatorios.length + kit.length + 1);
 
       if (mediaParcial > precoMax) break;
 
@@ -146,6 +174,7 @@ function gerarCombinacoes() {
   renderResultados();
 }
 
+/* ========= RESULTADOS ========= */
 function renderResultados() {
   const tbody = document.querySelector('#tabelaResultados tbody');
 
@@ -162,10 +191,13 @@ function renderResultados() {
     </tr>
   `).join('');
 
-  tbody.insertAdjacentHTML('beforeend',
-    `<tr><td colspan="3">(${combinacoes.length} combinações encontradas)</td></tr>`);
+  tbody.insertAdjacentHTML(
+    'beforeend',
+    `<tr><td colspan="3">(${combinacoes.length} combinações encontradas)</td></tr>`
+  );
 }
 
+/* ========= ORDENAÇÃO ========= */
 function ordenarPor(tipo) {
   ordenacao = tipo;
   combinacoes.sort((a, b) => a[tipo] - b[tipo]);
