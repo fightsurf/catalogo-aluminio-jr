@@ -229,6 +229,38 @@ app.get('/init-db', async (req, res) => {
 });
 
 
+// =====================================================
+// 🌎 IMPORTAR CIDADES DO IBGE (TEMPORÁRIO)
+// =====================================================
+
+const fetch = (...args) =>
+  import('node-fetch').then(({ default: fetch }) => fetch(...args));
+
+app.get('/importar-cidades', async (req, res) => {
+  try {
+    const response = await fetch('https://servicodados.ibge.gov.br/api/v1/localidades/municipios');
+    const municipios = await response.json();
+
+    for (const m of municipios) {
+      const nome = m.nome;
+      const estado = m.microrregiao.mesorregiao.UF.sigla;
+      const codigo = m.id;
+
+      await pool.query(
+        `INSERT INTO cidades (nome, estado, codigo_ibge)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (codigo_ibge) DO NOTHING`,
+        [nome, estado, codigo]
+      );
+    }
+
+    res.json({ message: 'Cidades importadas com sucesso' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao importar cidades' });
+  }
+});
+
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log('🟢 Catálogo Alumínio JR rodando');
