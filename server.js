@@ -185,10 +185,6 @@ app.get('/db-test', async (req, res) => {
 });
 
 // =====================================================
-// 🚀 SERVER
-// =====================================================
-
-// =====================================================
 // 🏗️ CRIAR TABELAS (TEMPORÁRIO)
 // =====================================================
 
@@ -228,7 +224,6 @@ app.get('/init-db', async (req, res) => {
   }
 });
 
-
 // =====================================================
 // 🌎 IMPORTAR CIDADES DO IBGE (TEMPORÁRIO)
 // =====================================================
@@ -243,8 +238,14 @@ app.get('/importar-cidades', async (req, res) => {
 
     for (const m of municipios) {
       const nome = m.nome;
-      const estado = m.microrregiao.mesorregiao.UF.sigla;
+      const estado =
+        m.microrregiao?.mesorregiao?.UF?.sigla ||
+        m.mesorregiao?.UF?.sigla ||
+        null;
+
       const codigo = m.id;
+
+      if (!estado) continue;
 
       await pool.query(
         `INSERT INTO cidades (nome, estado, codigo_ibge)
@@ -257,9 +258,13 @@ app.get('/importar-cidades', async (req, res) => {
     res.json({ message: 'Cidades importadas com sucesso' });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Erro ao importar cidades' });
+    res.status(500).json({ error: error.message });
   }
 });
+
+// =====================================================
+// 🚀 SERVER
+// =====================================================
 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
