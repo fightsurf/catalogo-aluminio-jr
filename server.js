@@ -188,6 +188,47 @@ app.get('/db-test', async (req, res) => {
 // 🚀 SERVER
 // =====================================================
 
+// =====================================================
+// 🏗️ CRIAR TABELAS (TEMPORÁRIO)
+// =====================================================
+
+app.get('/init-db', async (req, res) => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS transportadoras (
+        id SERIAL PRIMARY KEY,
+        nome TEXT NOT NULL,
+        contato_principal TEXT,
+        telefone TEXT,
+        observacoes TEXT
+      );
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS cidades (
+        id SERIAL PRIMARY KEY,
+        nome TEXT NOT NULL,
+        estado TEXT NOT NULL,
+        codigo_ibge INTEGER UNIQUE NOT NULL
+      );
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS transportadora_cidade (
+        id SERIAL PRIMARY KEY,
+        transportadora_id INTEGER REFERENCES transportadoras(id) ON DELETE CASCADE,
+        cidade_id INTEGER REFERENCES cidades(id) ON DELETE CASCADE
+      );
+    `);
+
+    res.json({ message: 'Tabelas criadas com sucesso' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao criar tabelas' });
+  }
+});
+
+
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log('🟢 Catálogo Alumínio JR rodando');
