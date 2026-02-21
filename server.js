@@ -179,8 +179,7 @@ app.get('/db-test', async (req, res) => {
     const result = await pool.query('SELECT NOW()');
     res.json({ server_time: result.rows[0].now });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Erro ao conectar no banco' });
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -219,8 +218,7 @@ app.get('/init-db', async (req, res) => {
 
     res.json({ message: 'Tabelas criadas com sucesso' });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Erro ao criar tabelas' });
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -257,7 +255,19 @@ app.get('/importar-cidades', async (req, res) => {
 
     res.json({ message: 'Cidades importadas com sucesso' });
   } catch (error) {
-    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// =====================================================
+// 📊 TOTAL DE CIDADES
+// =====================================================
+
+app.get('/total-cidades', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT COUNT(*) FROM cidades');
+    res.json({ total: result.rows[0].count });
+  } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
