@@ -1,10 +1,19 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const { Pool } = require('pg');
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// ===== CONEXÃO POSTGRESQL =====
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
 
 // ===== DISCO PERSISTENTE (RENDER) =====
 const DATA_DIR = '/opt/render/project/data';
@@ -33,34 +42,30 @@ function lerProdutos() {
 // 📦 CATÁLOGOS
 // =====================================================
 
-// Catálogo padrão (desktop)
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'catalogo.html'));
 });
 
-// Catálogo mobile
 app.get('/catalogo-celular', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'catalogo-celular.html'));
 });
 
-// 🔥 KITS FEIRINHA
 app.get('/kits-feirinha', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'kits-feirinha.html'));
 });
 
-// 📋 ORÇAMENTO
 app.get('/orcamento', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'orcamento.html'));
 });
 
-// 💡 COMBINADOR DE KITS (NOVO)
 app.get('/combinador', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'combinador.html'));
 });
 
 // =====================================================
-// 📡 API PRODUTOS
+// 📡 API PRODUTOS (AINDA JSON)
 // =====================================================
+
 app.get('/api/produtos', (req, res) => {
   res.json(lerProdutos());
 });
@@ -68,6 +73,7 @@ app.get('/api/produtos', (req, res) => {
 // =====================================================
 // 🔐 ADMIN – PLANILHA
 // =====================================================
+
 app.get('/admin-1234', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'admin.html'));
 });
@@ -93,7 +99,6 @@ app.post('/admin-1234', (req, res) => {
     const linha = raw.trim();
     if (!linha) return;
 
-    // Linha em maiúsculas → categoria
     if (linha === linha.toUpperCase() && !linha.match(/^\d+/)) {
       categoriaAtual = linha;
       return;
@@ -141,6 +146,7 @@ app.post('/admin-1234', (req, res) => {
 // =====================================================
 // 🖼️ ADMIN – FOTOS
 // =====================================================
+
 app.get('/admin-fotos-1234', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'admin-fotos.html'));
 });
@@ -165,14 +171,24 @@ app.post('/admin-fotos-1234', (req, res) => {
 });
 
 // =====================================================
+// 🧪 TESTE DE BANCO
+// =====================================================
+
+app.get('/db-test', async (req, res) => {
+  try {
+    const result = await pool.query('SELECT NOW()');
+    res.json({ server_time: result.rows[0].now });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao conectar no banco' });
+  }
+});
+
+// =====================================================
 // 🚀 SERVER
 // =====================================================
+
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log('🟢 Catálogo Alumínio JR rodando');
-  console.log('📦 Catálogo: /');
-  console.log('📱 Catálogo celular: /catalogo-celular');
-  console.log('🔥 Kits feirinha: /kits-feirinha');
-  console.log('🧮 Combinador de kits: /combinador');
-  console.log('📋 Orçamento: /orcamento');
 });
