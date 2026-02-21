@@ -4,7 +4,7 @@ const pool = require('../../db/connection');
 
 // =====================================================
 // POST /transportadoras/:id/cidades
-// Vincular cidade à transportadora
+// Vincular cidade à transportadora usando codigo_ibge
 // =====================================================
 router.post('/transportadoras/:id/cidades', async (req, res) => {
   const { id } = req.params;
@@ -15,21 +15,35 @@ router.post('/transportadoras/:id/cidades', async (req, res) => {
   }
 
   try {
-    const result = await pool.query(
-      `
-      INSERT INTO transportadora_cidade (transportadora_id, codigo_ibge)
-      VALUES ($1, $2)
-      ON CONFLICT (transportadora_id, codigo_ibge) DO NOTHING
-      RETURNING *;
-      `,
-      [id, codigo_ibge]
+    // 1️⃣ Buscar cidade pelo codigo_ibge
+    const cidadeResult = await pool.query(
+      'SELECT id FROM cidades WHERE codigo_ibge = $1',
+      [codigo_ibge]
     );
 
-    if (result.rowCount === 0) {
+    if (cidadeResult.rowCount === 0) {
+      return res.status(404).json({ error: 'Cidade não encontrada' });
+    }
+
+    const cidade_id = cidadeResult.rows[0].id;
+
+    // 2️⃣ Inserir relacionamento usando cidade_id
+    const insertResult = await pool.query(
+      `
+      INSERT INTO transportadora_cidade (transportadora_id, cidade_id)
+      VALUES ($1, $2)
+      ON CONFLICT DO NOTHING
+      RETURNING *;
+      `,
+      [id, cidade_id]
+    );
+
+    if (insertResult.rowCount === 0) {
       return res.status(409).json({ message: 'Relacionamento já existe' });
     }
 
-    res.status(201).json(result.rows[0]);
+    res.status(201).json(insertResult.rows[0]);
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erro ao vincular cidade' });
@@ -38,7 +52,7 @@ router.post('/transportadoras/:id/cidades', async (req, res) => {
 
 // =====================================================
 // GET /transportadoras/:id/cidades
-// Listar cidades da transportadora
+// Listar cidades vinculadas à transportadora
 // =====================================================
 router.get('/transportadoras/:id/cidades', async (req, res) => {
   const { id } = req.params;
@@ -48,13 +62,14 @@ router.get('/transportadoras/:id/cidades', async (req, res) => {
       `
       SELECT c.codigo_ibge, c.nome, c.estado
       FROM transportadora_cidade tc
-      JOIN cidades c ON tc.codigo_ibge = c.codigo_ibge
+      JOIN cidades c ON tc.cidade_id = c.id
       WHERE tc.transportadora_id = $1;
       `,
       [id]
     );
 
     res.json(result.rows);
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erro ao buscar cidades' });
@@ -63,7 +78,7 @@ router.get('/transportadoras/:id/cidades', async (req, res) => {
 
 // =====================================================
 // GET /cidades/:codigo_ibge/transportadoras
-// Listar transportadoras por cidade
+// Listar transportadoras que atendem a cidade
 // =====================================================
 router.get('/cidades/:codigo_ibge/transportadoras', async (req, res) => {
   const { codigo_ibge } = req.params;
@@ -73,13 +88,15 @@ router.get('/cidades/:codigo_ibge/transportadoras', async (req, res) => {
       `
       SELECT t.id, t.nome, t.telefone
       FROM transportadora_cidade tc
+      JOIN cidades c ON tc.cidade_id = c.id
       JOIN transportadoras t ON tc.transportadora_id = t.id
-      WHERE tc.codigo_ibge = $1;
+      WHERE c.codigo_ibge = $1;
       `,
       [codigo_ibge]
     );
 
     res.json(result.rows);
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erro ao buscar transportadoras' });
