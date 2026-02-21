@@ -2,6 +2,7 @@ const express = require('express');
 const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
+const transportadorasRouter = require('./src/routes/transportadoras');
 
 const app = express();
 app.use(express.json());
@@ -69,6 +70,12 @@ app.get('/combinador', (req, res) => {
 app.get('/api/produtos', (req, res) => {
   res.json(lerProdutos());
 });
+
+// =====================================================
+// 🚚 API TRANSPORTADORAS
+// =====================================================
+
+app.use('/api/transportadoras', transportadorasRouter);
 
 // =====================================================
 // 🔐 ADMIN – PLANILHA
