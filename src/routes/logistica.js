@@ -45,8 +45,7 @@ router.post('/transportadoras/:id/cidades', async (req, res) => {
 
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: 'Erro ao vincular cidade' });
-  }
+    res.status(500).json({ error: error.message });  }
 });
 
 module.exports = router;
