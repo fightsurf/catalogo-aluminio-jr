@@ -1,22 +1,12 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const { Pool } = require('pg');
 
-const transportadorasRouter = require('./src/routes/transportadoras');
-const logisticaRouter = require('./src/routes/logistica');
+const transportadorasRoutes = require('./src/routes/transportadorasRoutes');
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// ===== CONEXÃO POSTGRESQL =====
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
-});
 
 // ===== DISCO PERSISTENTE =====
 const DATA_DIR = '/opt/render/project/data';
@@ -72,8 +62,7 @@ app.get('/api/produtos', (req, res) => {
   res.json(lerProdutos());
 });
 
-app.use('/api/transportadoras', transportadorasRouter);
-app.use('/api', logisticaRouter);
+app.use('/api/transportadoras', transportadorasRoutes);
 
 // =====================================================
 // SERVER
