@@ -4,6 +4,7 @@ const path = require('path');
 const { Pool } = require('pg');
 
 const transportadorasRouter = require('./src/routes/transportadoras');
+const logisticaRouter = require('./src/routes/logistica');
 
 const app = express();
 app.use(express.json());
@@ -72,6 +73,7 @@ app.get('/api/produtos', (req, res) => {
 });
 
 app.use('/api/transportadoras', transportadorasRouter);
+app.use('/api', logisticaRouter);
 
 // =====================================================
 // SERVER
