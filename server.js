@@ -3,9 +3,6 @@ const fs = require('fs');
 const path = require('path');
 const { Pool } = require('pg');
 
-const transportadorasRouter = require('./src/routes/transportadoras');
-const transportadoraCidadeRouter = require('./src/routes/transportadoraCidade');
-
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -71,9 +68,6 @@ app.get('/combinador', (req, res) => {
 app.get('/api/produtos', (req, res) => {
   res.json(lerProdutos());
 });
-
-app.use('/api/transportadoras', transportadorasRouter);
-app.use('/api', transportadoraCidadeRouter);
 
 // =====================================================
 // SERVER
