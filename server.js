@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 
 const transportadorasRoutes = require('./src/routes/transportadorasRoutes');
+const logisticaRoutes = require('./src/routes/logisticaRoutes');
 
 const app = express();
 app.use(express.json());
@@ -63,6 +64,7 @@ app.get('/api/produtos', (req, res) => {
 });
 
 app.use('/api/transportadoras', transportadorasRoutes);
+app.use('/api', logisticaRoutes);
 
 // =====================================================
 // SERVER
