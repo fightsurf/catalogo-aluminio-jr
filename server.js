@@ -1,6 +1,7 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const { Pool } = require('pg');
 
 const transportadorasRoutes = require('./src/routes/transportadorasRoutes');
 const logisticaRoutes = require('./src/routes/logisticaRoutes');
@@ -8,6 +9,12 @@ const logisticaRoutes = require('./src/routes/logisticaRoutes');
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// ===== CONEXÃO POSTGRESQL =====
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
 
 // ===== DISCO PERSISTENTE =====
 const DATA_DIR = '/opt/render/project/data';
@@ -25,8 +32,7 @@ function lerProdutos() {
     const txt = fs.readFileSync(DATA_PATH, 'utf-8').trim();
     if (!txt) return [];
     return JSON.parse(txt);
-  } catch (err) {
-    console.error(err);
+  } catch {
     return [];
   }
 }
@@ -53,6 +59,11 @@ app.get('/orcamento', (req, res) => {
 
 app.get('/combinador', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'combinador.html'));
+});
+
+// 🔥 NOVO ADMIN LOGÍSTICA
+app.get('/admin-logistica', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'logistica-admin.html'));
 });
 
 // =====================================================
