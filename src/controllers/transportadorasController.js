@@ -4,7 +4,7 @@ async function listar(req, res) {
   try {
     const dados = await service.listarTransportadoras();
     res.json(dados);
-  } catch (error) {
+  } catch {
     res.status(500).json({ error: 'Erro ao buscar transportadoras' });
   }
 }
@@ -26,10 +26,9 @@ async function criar(req, res) {
 
 async function atualizar(req, res) {
   const { id } = req.params;
-  const { nome, telefone } = req.body;
 
   try {
-    const atualizada = await service.atualizarTransportadora(id, { nome, telefone });
+    const atualizada = await service.atualizarTransportadora(id, req.body);
     res.json(atualizada);
   } catch {
     res.status(500).json({ error: 'Erro ao atualizar' });
