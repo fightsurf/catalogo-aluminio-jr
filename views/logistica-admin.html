@@ -5,9 +5,10 @@
   <title>Admin Logística - Alumínio JR</title>
   <style>
     body { font-family: Arial; padding: 20px; }
-    input, button { padding: 6px; margin: 4px; }
-    .card { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
-    .cidade { font-size: 14px; }
+    input, textarea, button { padding: 6px; margin: 4px; }
+    textarea { width: 300px; height: 60px; }
+    .card { border: 1px solid #ccc; padding: 10px; margin-bottom: 15px; }
+    .cidade { font-size: 14px; margin-bottom: 4px; }
     .btn-danger { background: #d9534f; color: white; border: none; }
     .btn-edit { background: #0275d8; color: white; border: none; }
   </style>
@@ -18,6 +19,9 @@
 
 <input id="nome" placeholder="Nome">
 <input id="telefone" placeholder="Telefone">
+<br>
+<textarea id="observacao" placeholder="Observação da transportadora"></textarea>
+<br>
 <button onclick="criarTransportadora()">Criar</button>
 
 <hr>
@@ -39,9 +43,14 @@ async function carregarTransportadoras() {
     div.innerHTML += `
       <div class="card">
         <b>${t.nome}</b> (${t.telefone || ''})
-        <button class="btn-edit" onclick="editarTransportadora(${t.id}, '${t.nome}', '${t.telefone || ''}')">Editar</button>
+        <br>
+        <i>${t.observacao || ''}</i>
+        <br>
+        <button class="btn-edit" onclick="editarTransportadora(${t.id})">Editar</button>
         <button class="btn-danger" onclick="excluirTransportadora(${t.id})">Excluir</button>
-        <br><br>
+
+        <hr>
+
         <input placeholder="Buscar cidade" onkeyup="buscarCidade(event, ${t.id})">
         <div id="busca-${t.id}"></div>
         <div id="cidades-${t.id}"></div>
@@ -54,35 +63,39 @@ async function carregarTransportadoras() {
 async function criarTransportadora() {
   const nome = document.getElementById('nome').value;
   const telefone = document.getElementById('telefone').value;
+  const observacao = document.getElementById('observacao').value;
 
   await fetch(API + '/transportadoras', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nome, telefone })
+    body: JSON.stringify({ nome, telefone, observacao })
   });
 
   document.getElementById('nome').value = '';
   document.getElementById('telefone').value = '';
+  document.getElementById('observacao').value = '';
+
   carregarTransportadoras();
 }
 
-async function editarTransportadora(id, nomeAtual, telefoneAtual) {
-  const nome = prompt('Novo nome:', nomeAtual);
-  const telefone = prompt('Novo telefone:', telefoneAtual);
+async function editarTransportadora(id) {
+  const nome = prompt('Novo nome:');
+  const telefone = prompt('Novo telefone:');
+  const observacao = prompt('Nova observação:');
 
   if (!nome) return;
 
   await fetch(API + '/transportadoras/' + id, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nome, telefone })
+    body: JSON.stringify({ nome, telefone, observacao })
   });
 
   carregarTransportadoras();
 }
 
 async function excluirTransportadora(id) {
-  if (!confirm('Deseja realmente excluir esta transportadora?')) return;
+  if (!confirm('Excluir transportadora?')) return;
 
   await fetch(API + '/transportadoras/' + id, {
     method: 'DELETE'
@@ -105,17 +118,26 @@ async function buscarCidade(event, transportadoraId) {
     div.innerHTML += `
       <div class="cidade">
         ${c.nome} - ${c.estado}
-        <button onclick="vincular(${transportadoraId}, ${c.codigo_ibge})">Vincular</button>
+        <br>
+        <input id="obs-${transportadoraId}-${c.codigo_ibge}" 
+               placeholder="Observação para esta cidade">
+        <button onclick="vincular(${transportadoraId}, ${c.codigo_ibge})">
+          Vincular
+        </button>
       </div>
     `;
   });
 }
 
 async function vincular(transportadoraId, codigo_ibge) {
+  const observacao = document.getElementById(
+    `obs-${transportadoraId}-${codigo_ibge}`
+  ).value;
+
   await fetch(API + '/transportadoras/' + transportadoraId + '/cidades', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ codigo_ibge })
+    body: JSON.stringify({ codigo_ibge, observacao })
   });
 
   carregarCidades(transportadoraId);
@@ -140,7 +162,12 @@ async function carregarCidades(transportadoraId) {
     div.innerHTML += `
       <div class="cidade">
         ${c.nome} - ${c.estado}
-        <button class="btn-danger" onclick="removerCidade(${transportadoraId}, ${c.codigo_ibge})">Remover</button>
+        <br>
+        <i>${c.observacao || ''}</i>
+        <button class="btn-danger"
+          onclick="removerCidade(${transportadoraId}, ${c.codigo_ibge})">
+          Remover
+        </button>
       </div>
     `;
   });
