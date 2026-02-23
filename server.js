@@ -75,7 +75,7 @@ app.get('/api/produtos', (req, res) => {
 });
 
 app.use('/api/transportadoras', transportadorasRoutes);
-app.use('/api', logisticaRoutes);
+app.use('/api/logistica', logisticaRoutes);
 
 // =====================================================
 // SERVER
