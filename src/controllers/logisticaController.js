@@ -1,5 +1,8 @@
 const service = require('../services/logisticaService');
 
+// =====================================================
+// Vincular cidade
+// =====================================================
 async function vincular(req, res) {
   const { id } = req.params;
   const { codigo_ibge } = req.body;
@@ -22,6 +25,9 @@ async function vincular(req, res) {
   }
 }
 
+// =====================================================
+// Listar cidades da transportadora
+// =====================================================
 async function cidades(req, res) {
   const { id } = req.params;
 
@@ -34,6 +40,9 @@ async function cidades(req, res) {
   }
 }
 
+// =====================================================
+// Listar transportadoras por cidade
+// =====================================================
 async function transportadoras(req, res) {
   const { codigo_ibge } = req.params;
 
@@ -46,8 +55,28 @@ async function transportadoras(req, res) {
   }
 }
 
+// =====================================================
+// Buscar cidades por nome
+// =====================================================
+async function buscarCidades(req, res) {
+  const { nome } = req.query;
+
+  if (!nome) {
+    return res.status(400).json({ error: 'Parâmetro nome é obrigatório' });
+  }
+
+  try {
+    const dados = await service.buscarCidadesPorNome(nome);
+    res.json(dados);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erro ao buscar cidades' });
+  }
+}
+
 module.exports = {
   vincular,
   cidades,
-  transportadoras
+  transportadoras,
+  buscarCidades
 };
