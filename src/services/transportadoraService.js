@@ -35,7 +35,12 @@ async function atualizarTransportadora(id, dados) {
     WHERE id = $4
     RETURNING *;
     `,
-    [nome, telefone, observacao, id]
+    [
+      nome || null,
+      telefone || null,
+      observacao || null,
+      id
+    ]
   );
 
   return result.rows[0];
