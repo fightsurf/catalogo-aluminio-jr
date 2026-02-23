@@ -1,10 +1,6 @@
 const pool = require('../../db/connection');
 
-// =====================================================
-// Vincular cidade à transportadora
-// =====================================================
 async function vincularCidade(transportadora_id, codigo_ibge) {
-  // Buscar cidade pelo codigo_ibge
   const cidadeResult = await pool.query(
     'SELECT id FROM cidades WHERE codigo_ibge = $1',
     [codigo_ibge]
@@ -29,9 +25,19 @@ async function vincularCidade(transportadora_id, codigo_ibge) {
   return result;
 }
 
-// =====================================================
-// Listar cidades da transportadora
-// =====================================================
+async function removerCidade(transportadora_id, codigo_ibge) {
+  await pool.query(
+    `
+    DELETE FROM transportadora_cidade
+    USING cidades
+    WHERE transportadora_cidade.cidade_id = cidades.id
+    AND transportadora_id = $1
+    AND cidades.codigo_ibge = $2;
+    `,
+    [transportadora_id, codigo_ibge]
+  );
+}
+
 async function listarCidades(transportadora_id) {
   const result = await pool.query(
     `
@@ -47,9 +53,6 @@ async function listarCidades(transportadora_id) {
   return result.rows;
 }
 
-// =====================================================
-// Listar transportadoras por cidade
-// =====================================================
 async function listarTransportadorasPorCidade(codigo_ibge) {
   const result = await pool.query(
     `
@@ -57,8 +60,7 @@ async function listarTransportadorasPorCidade(codigo_ibge) {
     FROM transportadora_cidade tc
     JOIN cidades c ON tc.cidade_id = c.id
     JOIN transportadoras t ON tc.transportadora_id = t.id
-    WHERE c.codigo_ibge = $1
-    ORDER BY t.nome;
+    WHERE c.codigo_ibge = $1;
     `,
     [codigo_ibge]
   );
@@ -66,9 +68,6 @@ async function listarTransportadorasPorCidade(codigo_ibge) {
   return result.rows;
 }
 
-// =====================================================
-// Buscar cidades por nome (para frontend autocomplete)
-// =====================================================
 async function buscarCidadesPorNome(nome) {
   const result = await pool.query(
     `
@@ -86,6 +85,7 @@ async function buscarCidadesPorNome(nome) {
 
 module.exports = {
   vincularCidade,
+  removerCidade,
   listarCidades,
   listarTransportadorasPorCidade,
   buscarCidadesPorNome
