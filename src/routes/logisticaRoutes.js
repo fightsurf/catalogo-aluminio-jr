@@ -14,8 +14,10 @@ router.get('/frete', async (req, res) => {
     const resultado = await service.buscarTransportadorasPorNomeCidade(cidade);
     res.json(resultado);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Erro ao buscar frete' });
+
+    console.error('ERRO REAL:', error);
+    res.status(500).json({ error: error.message });
+    
   }
 });
 
