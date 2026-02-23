@@ -23,7 +23,33 @@ async function criarTransportadora(dados) {
   return result.rows[0];
 }
 
+async function atualizarTransportadora(id, dados) {
+  const { nome, telefone } = dados;
+
+  const result = await pool.query(
+    `
+    UPDATE transportadoras
+    SET nome = $1,
+        telefone = $2
+    WHERE id = $3
+    RETURNING *;
+    `,
+    [nome, telefone, id]
+  );
+
+  return result.rows[0];
+}
+
+async function deletarTransportadora(id) {
+  await pool.query(
+    'DELETE FROM transportadoras WHERE id = $1',
+    [id]
+  );
+}
+
 module.exports = {
   listarTransportadoras,
-  criarTransportadora
+  criarTransportadora,
+  atualizarTransportadora,
+  deletarTransportadora
 };
