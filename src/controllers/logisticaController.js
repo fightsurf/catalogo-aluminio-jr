@@ -2,15 +2,10 @@ const service = require('../services/logisticaService');
 
 async function vincular(req, res) {
   const { id } = req.params;
-  const { codigo_ibge } = req.body;
+  const { codigo_ibge, observacao } = req.body;
 
   try {
-    const result = await service.vincularCidade(id, codigo_ibge);
-
-    if (result.rowCount === 0) {
-      return res.status(409).json({ message: 'Relacionamento já existe' });
-    }
-
+    const result = await service.vincularCidade(id, codigo_ibge, observacao);
     res.status(201).json(result.rows[0]);
   } catch (error) {
     res.status(500).json({ error: error.message });
