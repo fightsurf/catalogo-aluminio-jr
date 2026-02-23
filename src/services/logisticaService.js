@@ -23,7 +23,7 @@ async function vincularCidade(transportadora_id, codigo_ibge, observacao) {
     [transportadora_id, cidade_id, observacao || null]
   );
 
-  return result;
+  return result.rows[0];
 }
 
 async function removerCidade(transportadora_id, codigo_ibge) {
@@ -69,6 +69,29 @@ async function listarTransportadorasPorCidade(codigo_ibge) {
   return result.rows;
 }
 
+// 🔥 NOVA FUNÇÃO PARA O BOT (buscar por NOME da cidade)
+async function buscarTransportadorasPorNomeCidade(nomeCidade) {
+  const result = await pool.query(
+    `
+    SELECT 
+      t.id,
+      t.nome,
+      t.telefone,
+      tc.observacao,
+      c.nome AS cidade_nome,
+      c.estado
+    FROM transportadora_cidade tc
+    JOIN cidades c ON tc.cidade_id = c.id
+    JOIN transportadoras t ON tc.transportadora_id = t.id
+    WHERE LOWER(c.nome) LIKE LOWER($1)
+    ORDER BY t.nome;
+    `,
+    [`%${nomeCidade}%`]
+  );
+
+  return result.rows;
+}
+
 async function buscarCidadesPorNome(nome) {
   const result = await pool.query(
     `
@@ -89,5 +112,6 @@ module.exports = {
   removerCidade,
   listarCidades,
   listarTransportadorasPorCidade,
-  buscarCidadesPorNome
+  buscarCidadesPorNome,
+  buscarTransportadorasPorNomeCidade
 };
