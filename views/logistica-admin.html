@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Logística - Alumínio JR</title>
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    input, button { padding: 6px; margin: 4px; }
+    .card { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
+    .cidade { font-size: 14px; }
+  </style>
+</head>
+<body>
+
+<h2>🚚 Cadastro de Transportadoras</h2>
+
+<input id="nome" placeholder="Nome">
+<input id="telefone" placeholder="Telefone">
+<button onclick="criarTransportadora()">Criar</button>
+
+<hr>
+
+<h2>📋 Transportadoras</h2>
+<div id="lista"></div>
+
+<script>
+const API = '/api';
+
+async function carregarTransportadoras() {
+  const res = await fetch(API + '/transportadoras');
+  const dados = await res.json();
+
+  const div = document.getElementById('lista');
+  div.innerHTML = '';
+
+  dados.forEach(t => {
+    div.innerHTML += `
+      <div class="card">
+        <b>${t.nome}</b> (${t.telefone || ''})
+        <br>
+        <input placeholder="Buscar cidade" onkeyup="buscarCidade(event, ${t.id})">
+        <div id="busca-${t.id}"></div>
+        <div id="cidades-${t.id}"></div>
+      </div>
+    `;
+    carregarCidades(t.id);
+  });
+}
+
+async function criarTransportadora() {
+  const nome = document.getElementById('nome').value;
+  const telefone = document.getElementById('telefone').value;
+
+  await fetch(API + '/transportadoras', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nome, telefone })
+  });
+
+  carregarTransportadoras();
+}
+
+async function buscarCidade(event, transportadoraId) {
+  const termo = event.target.value;
+  if (termo.length < 3) return;
+
+  const res = await fetch(API + '/cidades/busca?nome=' + termo);
+  const dados = await res.json();
+
+  const div = document.getElementById('busca-' + transportadoraId);
+  div.innerHTML = '';
+
+  dados.forEach(c => {
+    div.innerHTML += `
+      <div class="cidade">
+        ${c.nome} - ${c.estado}
+        <button onclick="vincular(${transportadoraId}, ${c.codigo_ibge})">Vincular</button>
+      </div>
+    `;
+  });
+}
+
+async function vincular(transportadoraId, codigo_ibge) {
+  await fetch(API + '/transportadoras/' + transportadoraId + '/cidades', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ codigo_ibge })
+  });
+
+  carregarCidades(transportadoraId);
+}
+
+async function carregarCidades(transportadoraId) {
+  const res = await fetch(API + '/transportadoras/' + transportadoraId + '/cidades');
+  const dados = await res.json();
+
+  const div = document.getElementById('cidades-' + transportadoraId);
+  div.innerHTML = '<b>Cidades:</b><br>';
+
+  dados.forEach(c => {
+    div.innerHTML += `
+      <div class="cidade">${c.nome} - ${c.estado}</div>
+    `;
+  });
+}
+
+carregarTransportadoras();
+</script>
+
+</body>
+</html>
