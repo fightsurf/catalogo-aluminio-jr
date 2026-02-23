@@ -8,6 +8,8 @@
     input, button { padding: 6px; margin: 4px; }
     .card { border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
     .cidade { font-size: 14px; }
+    .btn-danger { background: #d9534f; color: white; border: none; }
+    .btn-edit { background: #0275d8; color: white; border: none; }
   </style>
 </head>
 <body>
@@ -37,7 +39,9 @@ async function carregarTransportadoras() {
     div.innerHTML += `
       <div class="card">
         <b>${t.nome}</b> (${t.telefone || ''})
-        <br>
+        <button class="btn-edit" onclick="editarTransportadora(${t.id}, '${t.nome}', '${t.telefone || ''}')">Editar</button>
+        <button class="btn-danger" onclick="excluirTransportadora(${t.id})">Excluir</button>
+        <br><br>
         <input placeholder="Buscar cidade" onkeyup="buscarCidade(event, ${t.id})">
         <div id="busca-${t.id}"></div>
         <div id="cidades-${t.id}"></div>
@@ -55,6 +59,33 @@ async function criarTransportadora() {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ nome, telefone })
+  });
+
+  document.getElementById('nome').value = '';
+  document.getElementById('telefone').value = '';
+  carregarTransportadoras();
+}
+
+async function editarTransportadora(id, nomeAtual, telefoneAtual) {
+  const nome = prompt('Novo nome:', nomeAtual);
+  const telefone = prompt('Novo telefone:', telefoneAtual);
+
+  if (!nome) return;
+
+  await fetch(API + '/transportadoras/' + id, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nome, telefone })
+  });
+
+  carregarTransportadoras();
+}
+
+async function excluirTransportadora(id) {
+  if (!confirm('Deseja realmente excluir esta transportadora?')) return;
+
+  await fetch(API + '/transportadoras/' + id, {
+    method: 'DELETE'
   });
 
   carregarTransportadoras();
@@ -90,6 +121,14 @@ async function vincular(transportadoraId, codigo_ibge) {
   carregarCidades(transportadoraId);
 }
 
+async function removerCidade(transportadoraId, codigo_ibge) {
+  await fetch(API + '/transportadoras/' + transportadoraId + '/cidades/' + codigo_ibge, {
+    method: 'DELETE'
+  });
+
+  carregarCidades(transportadoraId);
+}
+
 async function carregarCidades(transportadoraId) {
   const res = await fetch(API + '/transportadoras/' + transportadoraId + '/cidades');
   const dados = await res.json();
@@ -99,7 +138,10 @@ async function carregarCidades(transportadoraId) {
 
   dados.forEach(c => {
     div.innerHTML += `
-      <div class="cidade">${c.nome} - ${c.estado}</div>
+      <div class="cidade">
+        ${c.nome} - ${c.estado}
+        <button class="btn-danger" onclick="removerCidade(${transportadoraId}, ${c.codigo_ibge})">Remover</button>
+      </div>
     `;
   });
 }
