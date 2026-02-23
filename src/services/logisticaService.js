@@ -1,6 +1,6 @@
 const pool = require('../../db/connection');
 
-async function vincularCidade(transportadora_id, codigo_ibge) {
+async function vincularCidade(transportadora_id, codigo_ibge, observacao) {
   const cidadeResult = await pool.query(
     'SELECT id FROM cidades WHERE codigo_ibge = $1',
     [codigo_ibge]
@@ -14,12 +14,13 @@ async function vincularCidade(transportadora_id, codigo_ibge) {
 
   const result = await pool.query(
     `
-    INSERT INTO transportadora_cidade (transportadora_id, cidade_id)
-    VALUES ($1, $2)
-    ON CONFLICT (transportadora_id, cidade_id) DO NOTHING
+    INSERT INTO transportadora_cidade (transportadora_id, cidade_id, observacao)
+    VALUES ($1, $2, $3)
+    ON CONFLICT (transportadora_id, cidade_id)
+    DO UPDATE SET observacao = EXCLUDED.observacao
     RETURNING *;
     `,
-    [transportadora_id, cidade_id]
+    [transportadora_id, cidade_id, observacao || null]
   );
 
   return result;
@@ -41,7 +42,7 @@ async function removerCidade(transportadora_id, codigo_ibge) {
 async function listarCidades(transportadora_id) {
   const result = await pool.query(
     `
-    SELECT c.codigo_ibge, c.nome, c.estado
+    SELECT c.codigo_ibge, c.nome, c.estado, tc.observacao
     FROM transportadora_cidade tc
     JOIN cidades c ON tc.cidade_id = c.id
     WHERE tc.transportadora_id = $1
@@ -56,7 +57,7 @@ async function listarCidades(transportadora_id) {
 async function listarTransportadorasPorCidade(codigo_ibge) {
   const result = await pool.query(
     `
-    SELECT t.id, t.nome, t.telefone
+    SELECT t.id, t.nome, t.telefone, tc.observacao
     FROM transportadora_cidade tc
     JOIN cidades c ON tc.cidade_id = c.id
     JOIN transportadoras t ON tc.transportadora_id = t.id
