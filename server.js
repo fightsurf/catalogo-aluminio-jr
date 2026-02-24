@@ -1,26 +1,15 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
-const { Pool } = require('pg');
 
 const transportadorasRoutes = require('./src/routes/transportadorasRoutes');
 const logisticaRoutes = require('./src/routes/logisticaRoutes');
+const funcionarioRoutes = require('./src/routes/funcionario/funcionario.routes');
 
 const app = express();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-
-// =====================================================
-// 🔐 CONEXÃO POSTGRESQL
-// =====================================================
-
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
-});
 
 // =====================================================
 // 💾 DISCO PERSISTENTE (PRODUTOS)
@@ -77,6 +66,11 @@ app.get('/admin-logistica', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'logistica-admin.html'));
 });
 
+// 🔥 ADMIN FUNCIONÁRIOS
+app.get('/admin-funcionarios', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'funcionario', 'admin-funcionario.html'));
+});
+
 // =====================================================
 // 📡 APIs
 // =====================================================
@@ -89,8 +83,11 @@ app.get('/api/produtos', (req, res) => {
 // Transportadoras (CRUD principal)
 app.use('/api/transportadoras', transportadorasRoutes);
 
-// Logística (relacionamento transportadora ↔ cidades)
+// Logística
 app.use('/api/logistica', logisticaRoutes);
+
+// Funcionários
+app.use('/api/funcionarios', funcionarioRoutes);
 
 // =====================================================
 // 🚀 SERVER
