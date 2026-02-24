@@ -83,6 +83,16 @@ small {
   background: #eee;
   margin: 10px 0;
 }
+
+.copy-icon {
+  cursor: pointer;
+  margin-left: 8px;
+  font-size: 16px;
+}
+
+.copy-icon:hover {
+  opacity: 0.7;
+}
 </style>
 </head>
 
@@ -179,6 +189,19 @@ function renderDetalhes() {
   }
 
   div.innerHTML = `
+    <div style="display:flex; align-items:center;">
+      <strong style="font-size:18px;">
+        ${transportadoraSelecionada.nome}
+      </strong>
+      <span class="copy-icon"
+            title="Copiar cidades"
+            onclick="copiarCidades()">
+        📋
+      </span>
+    </div>
+
+    <div class="divider"></div>
+
     <input id="edit-nome" value="${transportadoraSelecionada.nome}">
     <input id="edit-telefone" value="${transportadoraSelecionada.telefone || ''}">
     <textarea id="edit-observacao">${transportadoraSelecionada.observacao || ''}</textarea>
@@ -186,6 +209,35 @@ function renderDetalhes() {
     <button class="btn-edit" onclick="salvarEdicao()">Salvar</button>
     <button class="btn-danger" onclick="excluirTransportadora()">Excluir</button>
   `;
+}
+
+// =============================
+// COPIAR CIDADES
+// =============================
+async function copiarCidades() {
+  if (!transportadoraSelecionada) return;
+
+  const res = await fetch(
+    API_LOGISTICA +
+    '/transportadoras/' +
+    transportadoraSelecionada.id +
+    '/cidades'
+  );
+
+  const dados = await res.json();
+
+  if (!dados.length) {
+    alert('Nenhuma cidade vinculada.');
+    return;
+  }
+
+  const lista = dados.map(c =>
+    `${c.nome} - ${c.estado}`
+  ).join('\n');
+
+  navigator.clipboard.writeText(lista)
+    .then(() => alert('Cidades copiadas para a memória.'))
+    .catch(() => alert('Erro ao copiar.'));
 }
 
 // =============================
@@ -256,7 +308,13 @@ async function carregarCidades() {
     return;
   }
 
-  const res = await fetch(API_LOGISTICA + '/transportadoras/' + transportadoraSelecionada.id + '/cidades');
+  const res = await fetch(
+    API_LOGISTICA +
+    '/transportadoras/' +
+    transportadoraSelecionada.id +
+    '/cidades'
+  );
+
   const dados = await res.json();
 
   div.innerHTML = `
@@ -275,14 +333,14 @@ async function carregarCidades() {
       <div class="cidade">
         ${c.nome} - ${c.estado}
         <small>${c.observacao || ''}</small><br>
-        <button class="btn-danger" onclick="removerCidade(${c.codigo_ibge})">Remover</button>
+        <button class="btn-danger" onclick="removerCidade(${c.codigo_ibge})">
+          Remover
+        </button>
       </div>
     `;
   });
 }
 
-// =============================
-// BUSCAR CIDADE
 // =============================
 async function buscarCidade(event) {
   const termo = event.target.value;
@@ -299,7 +357,9 @@ async function buscarCidade(event) {
         ${c.nome} - ${c.estado}
         <input id="obs-${c.codigo_ibge}" placeholder="Observação">
         <button class="btn-primary"
-          onclick="vincular(${c.codigo_ibge})">Vincular</button>
+          onclick="vincular(${c.codigo_ibge})">
+          Vincular
+        </button>
       </div>
     `;
   });
@@ -309,20 +369,31 @@ async function buscarCidade(event) {
 async function vincular(codigo_ibge) {
   const observacao = document.getElementById(`obs-${codigo_ibge}`).value;
 
-  await fetch(API_LOGISTICA + '/transportadoras/' + transportadoraSelecionada.id + '/cidades', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ codigo_ibge, observacao })
-  });
+  await fetch(
+    API_LOGISTICA +
+    '/transportadoras/' +
+    transportadoraSelecionada.id +
+    '/cidades',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codigo_ibge, observacao })
+    }
+  );
 
   carregarCidades();
 }
 
 // =============================
 async function removerCidade(codigo_ibge) {
-  await fetch(API_LOGISTICA + '/transportadoras/' + transportadoraSelecionada.id + '/cidades/' + codigo_ibge, {
-    method: 'DELETE'
-  });
+  await fetch(
+    API_LOGISTICA +
+    '/transportadoras/' +
+    transportadoraSelecionada.id +
+    '/cidades/' +
+    codigo_ibge,
+    { method: 'DELETE' }
+  );
 
   carregarCidades();
 }
