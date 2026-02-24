@@ -3,8 +3,29 @@ const router = express.Router();
 const service = require('../services/logisticaService');
 
 // =====================================================
-// 🔍 Buscar transportadoras por nome da cidade
-// GET /api/logistica/frete?cidade=nome
+// 🔍 Buscar cidades por nome (para vincular)
+// GET /api/logistica/cidades/busca?nome=abc
+// =====================================================
+
+router.get('/cidades/busca', async (req, res) => {
+  const { nome } = req.query;
+
+  if (!nome) {
+    return res.status(400).json({ error: 'Nome é obrigatório' });
+  }
+
+  try {
+    const resultado = await service.buscarCidadesPorNome(nome);
+    res.json(resultado);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// =====================================================
+// 🔍 Buscar transportadoras por nome da cidade (bot)
+// GET /api/logistica/frete?cidade=abc
 // =====================================================
 
 router.get('/frete', async (req, res) => {
@@ -54,12 +75,7 @@ router.post('/transportadoras/:id/cidades', async (req, res) => {
   }
 
   try {
-    const resultado = await service.vincularCidade(
-      id,
-      codigo_ibge,
-      observacao
-    );
-
+    const resultado = await service.vincularCidade(id, codigo_ibge, observacao);
     res.status(201).json(resultado);
   } catch (error) {
     console.error(error);
