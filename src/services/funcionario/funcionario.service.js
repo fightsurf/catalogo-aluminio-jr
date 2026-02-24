@@ -1,4 +1,4 @@
-const pool = require('../../db/connection');
+const pool = require('../../../db/connection');
 
 async function listar(nome, ativo) {
   let query = 'SELECT * FROM funcionarios WHERE 1=1';
