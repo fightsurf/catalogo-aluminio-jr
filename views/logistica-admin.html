@@ -97,10 +97,14 @@
 </div>
 
 <script>
-const API = '/api/logistica';
+const API_TRANSPORTADORAS = '/api/transportadoras';
+const API_LOGISTICA = '/api/logistica';
 
+// =============================
+// CARREGAR TRANSPORTADORAS
+// =============================
 async function carregarTransportadoras() {
-  const res = await fetch(API + '/transportadoras');
+  const res = await fetch(API_TRANSPORTADORAS);
   const dados = await res.json();
 
   const div = document.getElementById('lista');
@@ -137,12 +141,15 @@ async function carregarTransportadoras() {
   });
 }
 
+// =============================
+// CRIAR
+// =============================
 async function criarTransportadora() {
   const nome = document.getElementById('nome').value;
   const telefone = document.getElementById('telefone').value;
   const observacao = document.getElementById('observacao').value;
 
-  await fetch(API + '/transportadoras', {
+  await fetch(API_TRANSPORTADORAS, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ nome, telefone, observacao })
@@ -155,6 +162,9 @@ async function criarTransportadora() {
   carregarTransportadoras();
 }
 
+// =============================
+// EDITAR
+// =============================
 async function editarTransportadora(id) {
   const nome = prompt('Novo nome:');
   const telefone = prompt('Novo telefone:');
@@ -162,7 +172,7 @@ async function editarTransportadora(id) {
 
   if (!nome) return;
 
-  await fetch(API + '/transportadoras/' + id, {
+  await fetch(API_TRANSPORTADORAS + '/' + id, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ nome, telefone, observacao })
@@ -171,21 +181,27 @@ async function editarTransportadora(id) {
   carregarTransportadoras();
 }
 
+// =============================
+// EXCLUIR
+// =============================
 async function excluirTransportadora(id) {
   if (!confirm('Excluir transportadora?')) return;
 
-  await fetch(API + '/transportadoras/' + id, {
+  await fetch(API_TRANSPORTADORAS + '/' + id, {
     method: 'DELETE'
   });
 
   carregarTransportadoras();
 }
 
+// =============================
+// BUSCAR CIDADE
+// =============================
 async function buscarCidade(event, transportadoraId) {
   const termo = event.target.value;
   if (termo.length < 3) return;
 
-  const res = await fetch(API + '/cidades/busca?nome=' + termo);
+  const res = await fetch(API_LOGISTICA + '/cidades/busca?nome=' + termo);
   const dados = await res.json();
 
   const div = document.getElementById('busca-' + transportadoraId);
@@ -206,12 +222,15 @@ async function buscarCidade(event, transportadoraId) {
   });
 }
 
+// =============================
+// VINCULAR
+// =============================
 async function vincular(transportadoraId, codigo_ibge) {
   const observacao = document.getElementById(
     `obs-${transportadoraId}-${codigo_ibge}`
   ).value;
 
-  await fetch(API + '/transportadoras/' + transportadoraId + '/cidades', {
+  await fetch(API_LOGISTICA + '/transportadoras/' + transportadoraId + '/cidades', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ codigo_ibge, observacao })
@@ -220,20 +239,31 @@ async function vincular(transportadoraId, codigo_ibge) {
   carregarCidades(transportadoraId);
 }
 
+// =============================
+// REMOVER
+// =============================
 async function removerCidade(transportadoraId, codigo_ibge) {
-  await fetch(API + '/transportadoras/' + transportadoraId + '/cidades/' + codigo_ibge, {
+  await fetch(API_LOGISTICA + '/transportadoras/' + transportadoraId + '/cidades/' + codigo_ibge, {
     method: 'DELETE'
   });
 
   carregarCidades(transportadoraId);
 }
 
+// =============================
+// CARREGAR CIDADES
+// =============================
 async function carregarCidades(transportadoraId) {
-  const res = await fetch(API + '/transportadoras/' + transportadoraId + '/cidades');
+  const res = await fetch(API_LOGISTICA + '/transportadoras/' + transportadoraId + '/cidades');
   const dados = await res.json();
 
   const div = document.getElementById('cidades-' + transportadoraId);
   div.innerHTML = '<strong>Cidades Atendidas:</strong><br>';
+
+  if (!dados.length) {
+    div.innerHTML += '<small>Nenhuma cidade vinculada</small>';
+    return;
+  }
 
   dados.forEach(c => {
     div.innerHTML += `
@@ -251,6 +281,5 @@ async function carregarCidades(transportadoraId) {
 
 carregarTransportadoras();
 </script>
-
 </body>
 </html>
