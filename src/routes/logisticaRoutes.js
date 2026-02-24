@@ -24,7 +24,7 @@ router.get('/frete', async (req, res) => {
 });
 
 // =====================================================
-// 📍 Listar cidades de uma transportadora
+// 📍 Listar cidades da transportadora
 // GET /api/logistica/transportadoras/:id/cidades
 // =====================================================
 
@@ -32,7 +32,7 @@ router.get('/transportadoras/:id/cidades', async (req, res) => {
   const { id } = req.params;
 
   try {
-    const resultado = await service.listarCidadesPorTransportadora(id);
+    const resultado = await service.listarCidades(id);
     res.json(resultado);
   } catch (error) {
     console.error(error);
