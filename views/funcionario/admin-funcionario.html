@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Funcionários</title>
+  <style>
+    body { font-family: Arial; padding: 30px; background: #f4f6f9; }
+    h2 { margin-bottom: 10px; }
+    input, button { padding: 8px; margin: 5px 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+    th { background: #eee; }
+    .inativo { color: red; }
+  </style>
+</head>
+<body>
+
+<h2>Cadastro de Funcionários</h2>
+
+<form id="formFuncionario">
+  <input type="text" id="nome" placeholder="Nome" required><br>
+  <input type="text" id="telefone" placeholder="Telefone" required><br>
+  <input type="date" id="data_nascimento" required><br>
+  <button type="submit">Salvar</button>
+</form>
+
+<h2>Lista de Funcionários</h2>
+
+<input type="text" id="buscaNome" placeholder="Buscar por nome">
+<select id="filtroAtivo">
+  <option value="">Todos</option>
+  <option value="true">Ativos</option>
+  <option value="false">Inativos</option>
+</select>
+<button onclick="carregar()">Filtrar</button>
+
+<table>
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Nome</th>
+      <th>Telefone</th>
+      <th>Data Nascimento</th>
+      <th>Status</th>
+      <th>Ações</th>
+    </tr>
+  </thead>
+  <tbody id="tabela"></tbody>
+</table>
+
+<script>
+async function carregar() {
+  const nome = document.getElementById('buscaNome').value;
+  const ativo = document.getElementById('filtroAtivo').value;
+
+  let url = '/api/funcionarios?';
+
+  if (nome) url += `nome=${nome}&`;
+  if (ativo) url += `ativo=${ativo}`;
+
+  const res = await fetch(url);
+  const data = await res.json();
+
+  const tbody = document.getElementById('tabela');
+  tbody.innerHTML = '';
+
+  data.forEach(f => {
+    tbody.innerHTML += `
+      <tr class="${f.ativo ? '' : 'inativo'}">
+        <td>${f.id}</td>
+        <td>${f.nome}</td>
+        <td>${f.telefone}</td>
+        <td>${f.data_nascimento}</td>
+        <td>${f.ativo ? 'Ativo' : 'Inativo'}</td>
+        <td>
+          ${f.ativo ? `<button onclick="desativar(${f.id})">Desativar</button>` : ''}
+        </td>
+      </tr>
+    `;
+  });
+}
+
+async function desativar(id) {
+  await fetch(`/api/funcionarios/${id}`, { method: 'DELETE' });
+  carregar();
+}
+
+document.getElementById('formFuncionario').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const nome = document.getElementById('nome').value;
+  const telefone = document.getElementById('telefone').value;
+  const data_nascimento = document.getElementById('data_nascimento').value;
+
+  await fetch('/api/funcionarios', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nome, telefone, data_nascimento })
+  });
+
+  e.target.reset();
+  carregar();
+});
+
+carregar();
+</script>
+
+</body>
+</html>
