@@ -168,8 +168,6 @@ async function carregarTransportadoras() {
 }
 
 // =============================
-// SELECIONAR
-// =============================
 function selecionarTransportadora(t) {
   transportadoraSelecionada = t;
   carregarTransportadoras();
@@ -177,8 +175,6 @@ function selecionarTransportadora(t) {
   carregarCidades();
 }
 
-// =============================
-// RENDER DETALHES
 // =============================
 function renderDetalhes() {
   const div = document.getElementById('detalhes');
@@ -212,8 +208,6 @@ function renderDetalhes() {
 }
 
 // =============================
-// COPIAR CIDADES
-// =============================
 async function copiarCidades() {
   if (!transportadoraSelecionada) return;
 
@@ -241,8 +235,6 @@ async function copiarCidades() {
 }
 
 // =============================
-// SALVAR EDIÇÃO
-// =============================
 async function salvarEdicao() {
   const nome = document.getElementById('edit-nome').value;
   const telefone = document.getElementById('edit-telefone').value;
@@ -261,8 +253,6 @@ async function salvarEdicao() {
 }
 
 // =============================
-// EXCLUIR
-// =============================
 async function excluirTransportadora() {
   if (!confirm('Excluir transportadora?')) return;
 
@@ -276,8 +266,6 @@ async function excluirTransportadora() {
   carregarTransportadoras();
 }
 
-// =============================
-// CRIAR
 // =============================
 async function criarTransportadora() {
   const nome = document.getElementById('novo-nome').value;
@@ -298,8 +286,6 @@ async function criarTransportadora() {
 }
 
 // =============================
-// CARREGAR CIDADES
-// =============================
 async function carregarCidades() {
   const div = document.getElementById('cidades-area');
 
@@ -318,18 +304,24 @@ async function carregarCidades() {
   const dados = await res.json();
 
   div.innerHTML = `
-    <input placeholder="Buscar cidade..." onkeyup="buscarCidade(event)">
+    <input id="input-busca-cidade"
+           placeholder="Buscar cidade..."
+           onkeyup="buscarCidade(event)">
+    <div id="resultado-busca"></div>
     <div class="divider"></div>
     <strong>Cidades vinculadas:</strong><br>
+    <div id="lista-cidades-vinculadas"></div>
   `;
 
+  const lista = document.getElementById('lista-cidades-vinculadas');
+
   if (!dados.length) {
-    div.innerHTML += '<small>Nenhuma cidade vinculada</small>';
+    lista.innerHTML = '<small>Nenhuma cidade vinculada</small>';
     return;
   }
 
   dados.forEach(c => {
-    div.innerHTML += `
+    lista.innerHTML += `
       <div class="cidade">
         ${c.nome} - ${c.estado}
         <small>${c.observacao || ''}</small><br>
@@ -344,15 +336,20 @@ async function carregarCidades() {
 // =============================
 async function buscarCidade(event) {
   const termo = event.target.value;
-  if (termo.length < 3) return;
+  const resultadoDiv = document.getElementById('resultado-busca');
+
+  if (termo.length < 3) {
+    resultadoDiv.innerHTML = '';
+    return;
+  }
 
   const res = await fetch(API_LOGISTICA + '/cidades/busca?nome=' + termo);
   const dados = await res.json();
 
-  const div = document.getElementById('cidades-area');
+  resultadoDiv.innerHTML = '';
 
   dados.forEach(c => {
-    div.innerHTML += `
+    resultadoDiv.innerHTML += `
       <div class="cidade">
         ${c.nome} - ${c.estado}
         <input id="obs-${c.codigo_ibge}" placeholder="Observação">
