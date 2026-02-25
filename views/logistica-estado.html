@@ -2,59 +2,69 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Mapa Logístico - Alumínio JR</title>
+<title>Consulta por Estado - Logística</title>
 
 <style>
 body {
   font-family: Arial;
   background: #f4f6f9;
-  padding: 20px;
+  padding: 30px;
 }
 
 .container {
-  max-width: 1300px;
+  max-width: 1000px;
   margin: auto;
-}
-
-.layout {
-  display: grid;
-  grid-template-columns: 550px 1fr;
-  gap: 30px;
 }
 
 .box {
   background: white;
   padding: 20px;
+  margin-bottom: 20px;
   border-radius: 8px;
   box-shadow: 0 2px 6px rgba(0,0,0,0.1);
 }
 
-svg path {
-  fill: #d0d7de;
-  stroke: #ffffff;
-  stroke-width: 1;
+input {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+
+button {
+  padding: 8px 16px;
+  background: #007bff;
+  color: white;
+  border: none;
   cursor: pointer;
-  transition: 0.2s;
+  border-radius: 4px;
 }
 
-svg path:hover {
-  fill: #007bff;
-}
-
-svg path.ativo {
-  fill: #28a745;
+button:hover {
+  opacity: 0.9;
 }
 
 .cidade {
-  margin-bottom: 10px;
-  padding: 8px;
+  margin-bottom: 15px;
+  padding: 12px;
   background: #f8f9fa;
-  border-radius: 4px;
+  border-radius: 6px;
 }
 
 .transportadora {
   margin-left: 15px;
   font-size: 14px;
+}
+
+.loading {
+  color: #666;
+}
+
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 </style>
 </head>
@@ -62,104 +72,68 @@ svg path.ativo {
 <body>
 
 <div class="container">
-  <h2>🗺️ Mapa Logístico - Clique no Estado</h2>
+  <h2>🔎 Consulta de Cidades por Estado</h2>
 
-  <div class="layout">
-
-    <div class="box">
-
-      <!-- MAPA REAL SIMPLIFICADO DO BRASIL -->
-      <svg viewBox="0 0 800 800" width="100%">
-
-        <!-- NORTE -->
-        <path data-estado="Acre" d="M90 300 L130 280 L150 320 L110 340 Z"/>
-        <path data-estado="Amazonas" d="M150 250 L260 220 L290 320 L200 350 Z"/>
-        <path data-estado="Roraima" d="M250 150 L310 140 L320 200 L270 210 Z"/>
-        <path data-estado="Pará" d="M300 230 L420 210 L450 300 L350 330 Z"/>
-        <path data-estado="Amapá" d="M420 150 L460 140 L470 190 L430 200 Z"/>
-        <path data-estado="Rondônia" d="M140 320 L200 300 L220 350 L160 370 Z"/>
-        <path data-estado="Tocantins" d="M360 300 L420 280 L440 350 L380 370 Z"/>
-
-        <!-- NORDESTE -->
-        <path data-estado="Maranhão" d="M420 260 L480 240 L500 300 L450 320 Z"/>
-        <path data-estado="Piauí" d="M500 260 L540 240 L560 300 L520 320 Z"/>
-        <path data-estado="Ceará" d="M540 240 L580 230 L600 270 L560 290 Z"/>
-        <path data-estado="Rio Grande do Norte" d="M600 260 L630 260 L630 280 L600 280 Z"/>
-        <path data-estado="Paraíba" d="M600 280 L630 280 L630 300 L600 300 Z"/>
-        <path data-estado="Pernambuco" d="M570 300 L620 300 L620 330 L570 330 Z"/>
-        <path data-estado="Alagoas" d="M600 330 L630 330 L630 350 L600 350 Z"/>
-        <path data-estado="Sergipe" d="M600 350 L630 350 L630 370 L600 370 Z"/>
-        <path data-estado="Bahia" d="M480 320 L580 300 L600 420 L500 440 Z"/>
-
-        <!-- CENTRO-OESTE -->
-        <path data-estado="Mato Grosso" d="M260 320 L360 300 L380 400 L280 420 Z"/>
-        <path data-estado="Mato Grosso do Sul" d="M280 420 L360 400 L380 480 L300 500 Z"/>
-        <path data-estado="Goiás" d="M360 360 L420 340 L450 420 L390 440 Z"/>
-        <path data-estado="Distrito Federal" d="M410 390 L420 390 L420 400 L410 400 Z"/>
-
-        <!-- SUDESTE -->
-        <path data-estado="Minas Gerais" d="M420 400 L520 380 L540 450 L460 470 Z"/>
-        <path data-estado="Espírito Santo" d="M540 400 L560 400 L560 440 L540 440 Z"/>
-        <path data-estado="Rio de Janeiro" d="M520 450 L560 450 L560 480 L520 480 Z"/>
-        <path data-estado="São Paulo" d="M460 470 L540 450 L550 520 L480 530 Z"/>
-
-        <!-- SUL -->
-        <path data-estado="Paraná" d="M480 530 L540 520 L550 580 L490 590 Z"/>
-        <path data-estado="Santa Catarina" d="M500 590 L540 580 L550 620 L510 630 Z"/>
-        <path data-estado="Rio Grande do Sul" d="M490 630 L550 620 L560 690 L500 700 Z"/>
-
-      </svg>
-
-    </div>
-
-    <div class="box">
-      <div id="resultado">
-        <p>Selecione um estado no mapa.</p>
-      </div>
-    </div>
-
+  <div class="box">
+    <input id="estado"
+           placeholder="Digite o nome do estado (ex: Bahia)"
+           onkeypress="if(event.key==='Enter') buscar()">
+    <button onclick="buscar()">Buscar</button>
   </div>
+
+  <div id="resultado"></div>
 </div>
 
 <script>
 const API = '/api/logistica';
 
-const estados = document.querySelectorAll('svg path');
+function normalizarTexto(txt) {
+  return txt
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
 
-estados.forEach(estado => {
-  estado.addEventListener('click', function () {
+async function buscar() {
+  const estadoInput = document.getElementById('estado');
+  const estado = normalizarTexto(estadoInput.value.trim());
 
-    estados.forEach(e => e.classList.remove('ativo'));
-    this.classList.add('ativo');
-
-    const nomeEstado = this.dataset.estado;
-    buscarPorEstado(nomeEstado);
-  });
-});
-
-async function buscarPorEstado(nomeEstado) {
+  if (!estado) return;
 
   const div = document.getElementById('resultado');
-  div.innerHTML = `<p>Carregando ${nomeEstado}...</p>`;
+  div.innerHTML = '<p class="loading">Carregando...</p>';
 
   try {
-    const res = await fetch(API + '/estado/' + encodeURIComponent(nomeEstado));
+    const res = await fetch(API + '/estado/' + encodeURIComponent(estado));
 
-    if (!res.ok) throw new Error();
+    if (!res.ok) {
+      throw new Error('Erro na requisição');
+    }
 
     const dados = await res.json();
 
     if (!dados.length) {
-      div.innerHTML = `<p>Nenhuma cidade encontrada em ${nomeEstado}.</p>`;
+      div.innerHTML = '<p>Nenhuma cidade encontrada.</p>';
       return;
     }
 
-    div.innerHTML = `<h3>${nomeEstado}</h3>`;
+    // 🔥 Copiar apenas cidades
+    const textoCopiar = dados
+      .map(c => `${c.cidade} - ${c.estado}`)
+      .join('\n');
+
+    window.textoParaCopiar = textoCopiar;
+
+    div.innerHTML = `
+      <div class="box top-bar">
+        <strong>${dados.length} cidade(s) encontrada(s)</strong>
+        <button onclick="copiarTudo()">📋 Copiar cidades</button>
+      </div>
+    `;
 
     dados.forEach(c => {
       div.innerHTML += `
-        <div class="cidade">
-          <strong>${c.cidade}</strong>
+        <div class="box cidade">
+          <strong>${c.cidade} - ${c.estado}</strong>
           ${c.transportadoras.map(t => `
             <div class="transportadora">
               🚚 ${t.nome} - ${t.telefone || 'Sem telefone'}
@@ -169,9 +143,18 @@ async function buscarPorEstado(nomeEstado) {
       `;
     });
 
-  } catch (err) {
+  } catch (error) {
     div.innerHTML = '<p>Erro ao buscar dados.</p>';
+    console.error(error);
   }
+}
+
+function copiarTudo() {
+  if (!window.textoParaCopiar) return;
+
+  navigator.clipboard.writeText(window.textoParaCopiar)
+    .then(() => alert('Cidades copiadas com sucesso.'))
+    .catch(() => alert('Erro ao copiar.'));
 }
 </script>
 
