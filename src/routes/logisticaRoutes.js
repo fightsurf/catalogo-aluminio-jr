@@ -2,98 +2,16 @@ const express = require('express');
 const router = express.Router();
 const service = require('../services/logisticaService');
 
-// =====================================================
-// 🔍 Buscar cidades por nome (para vincular)
-// GET /api/logistica/cidades/busca?nome=abc
-// =====================================================
-
-router.get('/cidades/busca', async (req, res) => {
-  const { nome } = req.query;
-
-  if (!nome) {
-    return res.status(400).json({ error: 'Nome é obrigatório' });
-  }
+// ==========================================
+// CIDADES POR ESTADO
+// GET /api/logistica/estado/:nomeEstado
+// ==========================================
+router.get('/estado/:nomeEstado', async (req, res) => {
+  const { nomeEstado } = req.params;
 
   try {
-    const resultado = await service.buscarCidadesPorNome(nome);
+    const resultado = await service.listarCidadesPorEstado(nomeEstado);
     res.json(resultado);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// =====================================================
-// 🔍 Buscar transportadoras por nome da cidade (bot)
-// GET /api/logistica/frete?cidade=abc
-// =====================================================
-
-router.get('/frete', async (req, res) => {
-  const { cidade } = req.query;
-
-  if (!cidade) {
-    return res.status(400).json({ error: 'Cidade é obrigatória' });
-  }
-
-  try {
-    const resultado = await service.buscarTransportadorasPorNomeCidade(cidade);
-    res.json(resultado);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// =====================================================
-// 📍 Listar cidades da transportadora
-// GET /api/logistica/transportadoras/:id/cidades
-// =====================================================
-
-router.get('/transportadoras/:id/cidades', async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    const resultado = await service.listarCidades(id);
-    res.json(resultado);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// =====================================================
-// ➕ Vincular cidade
-// POST /api/logistica/transportadoras/:id/cidades
-// =====================================================
-
-router.post('/transportadoras/:id/cidades', async (req, res) => {
-  const { id } = req.params;
-  const { codigo_ibge, observacao } = req.body;
-
-  if (!codigo_ibge) {
-    return res.status(400).json({ error: 'codigo_ibge é obrigatório' });
-  }
-
-  try {
-    const resultado = await service.vincularCidade(id, codigo_ibge, observacao);
-    res.status(201).json(resultado);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// =====================================================
-// ❌ Remover cidade
-// DELETE /api/logistica/transportadoras/:id/cidades/:codigo_ibge
-// =====================================================
-
-router.delete('/transportadoras/:id/cidades/:codigo_ibge', async (req, res) => {
-  const { id, codigo_ibge } = req.params;
-
-  try {
-    await service.removerCidade(id, codigo_ibge);
-    res.json({ sucesso: true });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });
