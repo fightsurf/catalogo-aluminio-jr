@@ -74,6 +74,13 @@ app.get('/admin-funcionarios', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'funcionario', 'admin-funcionario.html'));
 });
 
+// 🔥 LOGÍSTICA ESTADO
+app.get('/logistica-estado', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'logistica-estado.html'));
+});
+
+
+
 // =====================================================
 // 📡 APIs
 // =====================================================
