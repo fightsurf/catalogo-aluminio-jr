@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Mapa Logística - Alumínio JR</title>
+<title>Mapa Logístico - Alumínio JR</title>
 
 <style>
 body {
@@ -12,22 +12,27 @@ body {
 }
 
 .container {
-  max-width: 1200px;
+  max-width: 1300px;
   margin: auto;
-}
-
-h2 {
-  text-align: center;
 }
 
 .layout {
   display: grid;
-  grid-template-columns: 500px 1fr;
+  grid-template-columns: 550px 1fr;
   gap: 30px;
+}
+
+.box {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
 }
 
 svg path {
   fill: #d0d7de;
+  stroke: #ffffff;
+  stroke-width: 1;
   cursor: pointer;
   transition: 0.2s;
 }
@@ -38,13 +43,6 @@ svg path:hover {
 
 svg path.ativo {
   fill: #28a745;
-}
-
-.box {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
 }
 
 .cidade {
@@ -68,29 +66,52 @@ svg path.ativo {
 
   <div class="layout">
 
-    <!-- MAPA -->
     <div class="box">
-      <!-- SVG simplificado com alguns estados para exemplo -->
-      <svg viewBox="0 0 600 600" width="100%">
 
-        <path data-estado="Bahia"
-              d="M250 300 L300 280 L320 330 L270 350 Z" />
+      <!-- MAPA REAL SIMPLIFICADO DO BRASIL -->
+      <svg viewBox="0 0 800 800" width="100%">
 
-        <path data-estado="São Paulo"
-              d="M200 400 L260 380 L280 420 L220 440 Z" />
+        <!-- NORTE -->
+        <path data-estado="Acre" d="M90 300 L130 280 L150 320 L110 340 Z"/>
+        <path data-estado="Amazonas" d="M150 250 L260 220 L290 320 L200 350 Z"/>
+        <path data-estado="Roraima" d="M250 150 L310 140 L320 200 L270 210 Z"/>
+        <path data-estado="Pará" d="M300 230 L420 210 L450 300 L350 330 Z"/>
+        <path data-estado="Amapá" d="M420 150 L460 140 L470 190 L430 200 Z"/>
+        <path data-estado="Rondônia" d="M140 320 L200 300 L220 350 L160 370 Z"/>
+        <path data-estado="Tocantins" d="M360 300 L420 280 L440 350 L380 370 Z"/>
 
-        <path data-estado="Rio de Janeiro"
-              d="M280 420 L310 410 L320 430 L290 440 Z" />
+        <!-- NORDESTE -->
+        <path data-estado="Maranhão" d="M420 260 L480 240 L500 300 L450 320 Z"/>
+        <path data-estado="Piauí" d="M500 260 L540 240 L560 300 L520 320 Z"/>
+        <path data-estado="Ceará" d="M540 240 L580 230 L600 270 L560 290 Z"/>
+        <path data-estado="Rio Grande do Norte" d="M600 260 L630 260 L630 280 L600 280 Z"/>
+        <path data-estado="Paraíba" d="M600 280 L630 280 L630 300 L600 300 Z"/>
+        <path data-estado="Pernambuco" d="M570 300 L620 300 L620 330 L570 330 Z"/>
+        <path data-estado="Alagoas" d="M600 330 L630 330 L630 350 L600 350 Z"/>
+        <path data-estado="Sergipe" d="M600 350 L630 350 L630 370 L600 370 Z"/>
+        <path data-estado="Bahia" d="M480 320 L580 300 L600 420 L500 440 Z"/>
 
-        <path data-estado="Pernambuco"
-              d="M300 250 L340 230 L360 260 L320 270 Z" />
+        <!-- CENTRO-OESTE -->
+        <path data-estado="Mato Grosso" d="M260 320 L360 300 L380 400 L280 420 Z"/>
+        <path data-estado="Mato Grosso do Sul" d="M280 420 L360 400 L380 480 L300 500 Z"/>
+        <path data-estado="Goiás" d="M360 360 L420 340 L450 420 L390 440 Z"/>
+        <path data-estado="Distrito Federal" d="M410 390 L420 390 L420 400 L410 400 Z"/>
 
-        <!-- Você pode depois colocar SVG completo -->
+        <!-- SUDESTE -->
+        <path data-estado="Minas Gerais" d="M420 400 L520 380 L540 450 L460 470 Z"/>
+        <path data-estado="Espírito Santo" d="M540 400 L560 400 L560 440 L540 440 Z"/>
+        <path data-estado="Rio de Janeiro" d="M520 450 L560 450 L560 480 L520 480 Z"/>
+        <path data-estado="São Paulo" d="M460 470 L540 450 L550 520 L480 530 Z"/>
+
+        <!-- SUL -->
+        <path data-estado="Paraná" d="M480 530 L540 520 L550 580 L490 590 Z"/>
+        <path data-estado="Santa Catarina" d="M500 590 L540 580 L550 620 L510 630 Z"/>
+        <path data-estado="Rio Grande do Sul" d="M490 630 L550 620 L560 690 L500 700 Z"/>
 
       </svg>
+
     </div>
 
-    <!-- RESULTADO -->
     <div class="box">
       <div id="resultado">
         <p>Selecione um estado no mapa.</p>
