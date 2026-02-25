@@ -116,35 +116,32 @@ async function buscar() {
       return;
     }
 
-    let textoCopiar = '';
+    // 🔥 Copiar apenas cidades
+    const textoCopiar = dados
+      .map(c => `${c.cidade} - ${c.estado}`)
+      .join('\n');
+
+    window.textoParaCopiar = textoCopiar;
 
     div.innerHTML = `
       <div class="box top-bar">
         <strong>${dados.length} cidade(s) encontrada(s)</strong>
-        <button onclick="copiarTudo()">📋 Copiar tudo</button>
+        <button onclick="copiarTudo()">📋 Copiar cidades</button>
       </div>
     `;
 
     dados.forEach(c => {
-
-      textoCopiar += `${c.cidade} - ${c.estado}\n`;
-
       div.innerHTML += `
         <div class="box cidade">
           <strong>${c.cidade} - ${c.estado}</strong>
-          ${c.transportadoras.map(t => {
-            textoCopiar += `  - ${t.nome} (${t.telefone || 'Sem telefone'})\n`;
-            return `
-              <div class="transportadora">
-                🚚 ${t.nome} - ${t.telefone || 'Sem telefone'}
-              </div>
-            `;
-          }).join('')}
+          ${c.transportadoras.map(t => `
+            <div class="transportadora">
+              🚚 ${t.nome} - ${t.telefone || 'Sem telefone'}
+            </div>
+          `).join('')}
         </div>
       `;
     });
-
-    window.textoParaCopiar = textoCopiar;
 
   } catch (error) {
     div.innerHTML = '<p>Erro ao buscar dados.</p>';
@@ -156,7 +153,7 @@ function copiarTudo() {
   if (!window.textoParaCopiar) return;
 
   navigator.clipboard.writeText(window.textoParaCopiar)
-    .then(() => alert('Resultado copiado.'))
+    .then(() => alert('Cidades copiadas com sucesso.'))
     .catch(() => alert('Erro ao copiar.'));
 }
 </script>
