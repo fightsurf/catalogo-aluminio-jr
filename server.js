@@ -5,6 +5,9 @@ const path = require('path');
 const transportadorasRoutes = require('./src/routes/transportadorasRoutes');
 const logisticaRoutes = require('./src/routes/logisticaRoutes');
 const funcionarioRoutes = require('./src/routes/funcionario/funcionario.routes');
+const fornecedorRoutes = require('./src/routes/fornecedor/fornecedor.routes');
+
+
 
 const app = express();
 
@@ -88,6 +91,9 @@ app.use('/api/logistica', logisticaRoutes);
 
 // Funcionários
 app.use('/api/funcionarios', funcionarioRoutes);
+
+//Fornecedores
+app.use('/api/fornecedores', fornecedorRoutes);
 
 // =====================================================
 // 🚀 SERVER
