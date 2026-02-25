@@ -1,62 +1,83 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <title>Consulta por Estado - Logística</title>
-  <style>
-    body {
-      font-family: Arial;
-      background: #f4f6f9;
-      padding: 30px;
-    }
+<meta charset="UTF-8">
+<title>Consulta por Estado - Logística</title>
 
-    .container {
-      max-width: 900px;
-      margin: auto;
-    }
+<style>
+body {
+  font-family: Arial;
+  background: #f4f6f9;
+  padding: 30px;
+}
 
-    .box {
-      background: white;
-      padding: 20px;
-      margin-bottom: 20px;
-      border-radius: 8px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    }
+.container {
+  max-width: 1000px;
+  margin: auto;
+}
 
-    input {
-      width: 100%;
-      padding: 10px;
-      margin-bottom: 10px;
-    }
+.box {
+  background: white;
+  padding: 20px;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
 
-    button {
-      padding: 8px 16px;
-      background: #007bff;
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
+input {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
 
-    .cidade {
-      margin-bottom: 15px;
-      padding: 10px;
-      background: #f8f9fa;
-      border-radius: 4px;
-    }
+button {
+  padding: 8px 16px;
+  background: #007bff;
+  color: white;
+  border: none;
+  cursor: pointer;
+  border-radius: 4px;
+}
 
-    .transportadora {
-      margin-left: 10px;
-      font-size: 14px;
-    }
-  </style>
+button:hover {
+  opacity: 0.9;
+}
+
+.cidade {
+  margin-bottom: 15px;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 6px;
+}
+
+.transportadora {
+  margin-left: 15px;
+  font-size: 14px;
+}
+
+.loading {
+  color: #666;
+}
+
+.top-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+</style>
 </head>
+
 <body>
 
 <div class="container">
   <h2>🔎 Consulta de Cidades por Estado</h2>
 
   <div class="box">
-    <input id="estado" placeholder="Digite o nome do estado (ex: Bahia)">
+    <input id="estado"
+           placeholder="Digite o nome do estado (ex: Bahia)"
+           onkeypress="if(event.key==='Enter') buscar()">
     <button onclick="buscar()">Buscar</button>
   </div>
 
@@ -66,34 +87,77 @@
 <script>
 const API = '/api/logistica';
 
+function normalizarTexto(txt) {
+  return txt
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
 async function buscar() {
-  const estado = document.getElementById('estado').value;
+  const estadoInput = document.getElementById('estado');
+  const estado = normalizarTexto(estadoInput.value.trim());
 
   if (!estado) return;
 
-  const res = await fetch(API + '/estado/' + estado);
-  const dados = await res.json();
-
   const div = document.getElementById('resultado');
-  div.innerHTML = '';
+  div.innerHTML = '<p class="loading">Carregando...</p>';
 
-  if (!dados.length) {
-    div.innerHTML = '<p>Nenhuma cidade encontrada.</p>';
-    return;
-  }
+  try {
+    const res = await fetch(API + '/estado/' + encodeURIComponent(estado));
 
-  dados.forEach(c => {
-    div.innerHTML += `
-      <div class="box cidade">
-        <strong>${c.cidade} - ${c.estado}</strong>
-        ${c.transportadoras.map(t => `
-          <div class="transportadora">
-            🚚 ${t.nome} - ${t.telefone || 'Sem telefone'}
-          </div>
-        `).join('')}
+    if (!res.ok) {
+      throw new Error('Erro na requisição');
+    }
+
+    const dados = await res.json();
+
+    if (!dados.length) {
+      div.innerHTML = '<p>Nenhuma cidade encontrada.</p>';
+      return;
+    }
+
+    let textoCopiar = '';
+
+    div.innerHTML = `
+      <div class="box top-bar">
+        <strong>${dados.length} cidade(s) encontrada(s)</strong>
+        <button onclick="copiarTudo()">📋 Copiar tudo</button>
       </div>
     `;
-  });
+
+    dados.forEach(c => {
+
+      textoCopiar += `${c.cidade} - ${c.estado}\n`;
+
+      div.innerHTML += `
+        <div class="box cidade">
+          <strong>${c.cidade} - ${c.estado}</strong>
+          ${c.transportadoras.map(t => {
+            textoCopiar += `  - ${t.nome} (${t.telefone || 'Sem telefone'})\n`;
+            return `
+              <div class="transportadora">
+                🚚 ${t.nome} - ${t.telefone || 'Sem telefone'}
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    });
+
+    window.textoParaCopiar = textoCopiar;
+
+  } catch (error) {
+    div.innerHTML = '<p>Erro ao buscar dados.</p>';
+    console.error(error);
+  }
+}
+
+function copiarTudo() {
+  if (!window.textoParaCopiar) return;
+
+  navigator.clipboard.writeText(window.textoParaCopiar)
+    .then(() => alert('Resultado copiado.'))
+    .catch(() => alert('Erro ao copiar.'));
 }
 </script>
 
