@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Admin Fornecedores - Alumínio JR</title>
+  <style>
+    body { font-family: Arial; padding: 30px; background: #f4f6f9; }
+    .container { max-width: 900px; margin: auto; }
+    .box { background: #fff; padding: 20px; margin-bottom: 20px; border-radius: 8px; }
+    input, select, button {
+      width: 100%;
+      padding: 8px;
+      margin-bottom: 10px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 8px;
+    }
+    button { cursor: pointer; }
+  </style>
+</head>
+<body>
+<div class="container">
+
+  <div class="box">
+    <h2>Novo Fornecedor</h2>
+    <input type="text" id="nome" placeholder="Nome">
+    <input type="text" id="contato" placeholder="Contato Principal">
+    <input type="text" id="telefone" placeholder="Telefone">
+    <input type="number" id="cidade_id" placeholder="ID da Cidade">
+    <input type="text" id="estado" placeholder="Estado">
+    <button onclick="criar()">Salvar</button>
+  </div>
+
+  <div class="box">
+    <h2>Lista</h2>
+    <input type="text" id="filtroNome" placeholder="Buscar por nome">
+    <button onclick="listar()">Buscar</button>
+
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Nome</th>
+          <th>Contato</th>
+          <th>Telefone</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody id="tabela"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+const API = '/api/fornecedores';
+
+async function listar() {
+  const nome = document.getElementById('filtroNome').value;
+  const res = await fetch(`${API}?nome=${nome}`);
+  const data = await res.json();
+
+  const tbody = document.getElementById('tabela');
+  tbody.innerHTML = '';
+
+  data.forEach(f => {
+    tbody.innerHTML += `
+      <tr>
+        <td>${f.id}</td>
+        <td>${f.nome}</td>
+        <td>${f.contato_principal}</td>
+        <td>${f.telefone}</td>
+        <td>
+          <button onclick="deletar(${f.id})">Excluir</button>
+        </td>
+      </tr>
+    `;
+  });
+}
+
+async function criar() {
+  const body = {
+    nome: document.getElementById('nome').value,
+    contato_principal: document.getElementById('contato').value,
+    telefone: document.getElementById('telefone').value,
+    cidade_id: document.getElementById('cidade_id').value,
+    estado: document.getElementById('estado').value
+  };
+
+  await fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  listar();
+}
+
+async function deletar(id) {
+  await fetch(`${API}/${id}`, { method: 'DELETE' });
+  listar();
+}
+
+listar();
+</script>
+</body>
+</html>
