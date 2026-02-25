@@ -64,7 +64,7 @@ async function listarCidades(transportadora_id) {
 }
 
 // ==========================================
-// BUSCAR CIDADES POR NOME
+// BUSCAR CIDADES POR NOME (continua parcial)
 // ==========================================
 async function buscarCidadesPorNome(nome) {
   const result = await pool.query(
@@ -83,10 +83,16 @@ async function buscarCidadesPorNome(nome) {
 
 // ==========================================
 // BUSCAR TRANSPORTADORAS POR NOME DA CIDADE
+// (AGORA COM BUSCA EXATA)
 // ==========================================
 async function buscarTransportadorasPorNomeCidade(nomeCidade) {
-  const result = await pool.query(
-    `
+
+  const partes = nomeCidade.split('-').map(p => p.trim());
+
+  const cidade = partes[0];
+  const estado = partes[1] || null;
+
+  let query = `
     SELECT 
       t.id,
       t.nome,
@@ -97,17 +103,25 @@ async function buscarTransportadorasPorNomeCidade(nomeCidade) {
     FROM transportadora_cidade tc
     JOIN cidades c ON tc.cidade_id = c.id
     JOIN transportadoras t ON tc.transportadora_id = t.id
-    WHERE LOWER(c.nome) LIKE LOWER($1)
-    ORDER BY t.nome;
-    `,
-    [`%${nomeCidade}%`]
-  );
+    WHERE LOWER(c.nome) = LOWER($1)
+  `;
+
+  let params = [cidade];
+
+  if (estado) {
+    query += ` AND LOWER(c.estado) = LOWER($2)`;
+    params.push(estado);
+  }
+
+  query += ` ORDER BY t.nome;`;
+
+  const result = await pool.query(query, params);
 
   return result.rows;
 }
 
 // ==========================================
-// NOVO: LISTAR CIDADES POR ESTADO
+// LISTAR CIDADES POR ESTADO
 // ==========================================
 async function listarCidadesPorEstado(nomeEstado) {
   const result = await pool.query(
