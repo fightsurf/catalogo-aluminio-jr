@@ -82,17 +82,16 @@ async function buscarCidadesPorNome(nome) {
 }
 
 // ==========================================
-// BUSCAR TRANSPORTADORAS POR NOME DA CIDADE
-// (AGORA COM BUSCA EXATA)
+// BUSCA INTELIGENTE PARA O BOT
 // ==========================================
 async function buscarTransportadorasPorNomeCidade(nomeCidade) {
 
   const partes = nomeCidade.split('-').map(p => p.trim());
-
   const cidade = partes[0];
   const estado = partes[1] || null;
 
-  let query = `
+  // 1️⃣ BUSCA EXATA
+  let queryExata = `
     SELECT 
       t.id,
       t.nome,
@@ -106,18 +105,47 @@ async function buscarTransportadorasPorNomeCidade(nomeCidade) {
     WHERE LOWER(c.nome) = LOWER($1)
   `;
 
-  let params = [cidade];
+  let paramsExata = [cidade];
 
   if (estado) {
-    query += ` AND LOWER(c.estado) = LOWER($2)`;
-    params.push(estado);
+    queryExata += ` AND LOWER(c.estado) = LOWER($2)`;
+    paramsExata.push(estado);
   }
 
-  query += ` ORDER BY t.nome;`;
+  queryExata += ` ORDER BY t.nome;`;
 
-  const result = await pool.query(query, params);
+  const resultadoExato = await pool.query(queryExata, paramsExata);
 
-  return result.rows;
+  if (resultadoExato.rows.length > 0) {
+    return {
+      tipo: 'resultado',
+      dados: resultadoExato.rows
+    };
+  }
+
+  // 2️⃣ BUSCA PARCIAL PARA SUGESTÕES
+  const resultadoParcial = await pool.query(
+    `
+    SELECT DISTINCT nome, estado
+    FROM cidades
+    WHERE LOWER(nome) LIKE LOWER($1)
+    ORDER BY nome
+    LIMIT 5;
+    `,
+    [`%${cidade}%`]
+  );
+
+  if (resultadoParcial.rows.length > 0) {
+    return {
+      tipo: 'sugestao',
+      cidades: resultadoParcial.rows
+    };
+  }
+
+  // 3️⃣ NADA ENCONTRADO
+  return {
+    tipo: 'vazio'
+  };
 }
 
 // ==========================================
