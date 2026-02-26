@@ -80,6 +80,10 @@ app.get('/logistica-estado', (req, res) => {
 });
 
 
+// 🔥 LOGÍSTICA CIDADE
+app.get('/frete', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'frete-bot.html'));
+});
 
 // =====================================================
 // 📡 APIs
