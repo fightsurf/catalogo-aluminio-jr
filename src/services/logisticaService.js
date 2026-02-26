@@ -126,21 +126,18 @@ async function buscarTransportadorasPorNomeCidade(nomeCidade) {
 // 2️⃣ BUSCA PARCIAL PARA SUGESTÕES
 const resultadoParcial = await pool.query(
   `
-  SELECT DISTINCT nome, estado
+  SELECT nome, estado
   FROM cidades
   WHERE LOWER(nome) LIKE LOWER($1)
   ORDER BY
-    CASE 
-      WHEN LOWER(nome) = LOWER($2) THEN 1
-      WHEN LOWER(nome) LIKE LOWER($3) THEN 2
-      ELSE 3
-    END,
+    (LOWER(nome) = LOWER($2)) DESC,
+    (LOWER(nome) LIKE LOWER($3)) DESC,
     nome;
   `,
   [
-    `%${cidade}%`,     // $1
-    cidade,            // $2
-    `${cidade}%`       // $3
+    `%${cidade}%`,   // $1
+    cidade,          // $2
+    `${cidade}%`     // $3
   ]
 );
 
