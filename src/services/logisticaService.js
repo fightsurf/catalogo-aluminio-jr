@@ -123,7 +123,7 @@ async function buscarTransportadorasPorNomeCidade(nomeCidade) {
     };
   }
 
-  // 2️⃣ BUSCA PARCIAL PARA SUGESTÕES
+// 2️⃣ BUSCA PARCIAL PARA SUGESTÕES
 const resultadoParcial = await pool.query(
   `
   SELECT DISTINCT nome, estado
@@ -132,14 +132,19 @@ const resultadoParcial = await pool.query(
   ORDER BY
     CASE 
       WHEN LOWER(nome) = LOWER($2) THEN 1
-      WHEN LOWER(nome) LIKE LOWER($2 || '%') THEN 2
+      WHEN LOWER(nome) LIKE LOWER($3) THEN 2
       ELSE 3
     END,
     nome;
   `,
-  [`%${cidade}%`, cidade]
+  [
+    `%${cidade}%`,     // $1
+    cidade,            // $2
+    `${cidade}%`       // $3
+  ]
 );
 
+  
   if (resultadoParcial.rows.length > 0) {
     return {
       tipo: 'sugestao',
