@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Consulta de Frete - Alumínio JR</title>
+
+<style>
+body {
+  font-family: Arial;
+  background: #f4f6f9;
+  padding: 30px;
+}
+
+.container {
+  max-width: 900px;
+  margin: auto;
+}
+
+.box {
+  background: white;
+  padding: 20px;
+  margin-bottom: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+input {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 10px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+
+button {
+  padding: 8px 16px;
+  background: #007bff;
+  color: white;
+  border: none;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+button:hover {
+  opacity: 0.9;
+}
+
+.transportadora {
+  margin-left: 10px;
+  margin-top: 5px;
+}
+
+.sugestao {
+  cursor: pointer;
+  padding: 8px;
+  background: #f8f9fa;
+  margin-bottom: 5px;
+  border-radius: 4px;
+}
+
+.sugestao:hover {
+  background: #e9ecef;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  <h2>🚚 Consulta de Frete</h2>
+
+  <div class="box">
+    <input id="cidade"
+           placeholder="Digite a cidade (ex: Cruz - CE)"
+           onkeypress="if(event.key==='Enter') buscar()">
+    <button onclick="buscar()">Buscar</button>
+  </div>
+
+  <div id="resultado"></div>
+</div>
+
+<script>
+const API = '/api/logistica/frete';
+
+async function buscar() {
+  const cidadeInput = document.getElementById('cidade');
+  const cidade = cidadeInput.value.trim();
+
+  if (!cidade) return;
+
+  const div = document.getElementById('resultado');
+  div.innerHTML = "Carregando...";
+
+  try {
+    const res = await fetch(API + '?cidade=' + encodeURIComponent(cidade));
+    const data = await res.json();
+
+    // =============================
+    // RESULTADO NORMAL
+    // =============================
+    if (data.tipo === "resultado") {
+
+      const cidadeNome = data.dados[0].cidade_nome;
+      const estado = data.dados[0].estado;
+
+      let html = `
+        <div class="box">
+          <strong>Frete para ${cidadeNome} - ${estado}</strong>
+      `;
+
+      data.dados.forEach(t => {
+        html += `
+          <div class="transportadora">
+            🚚 ${t.nome} - ${t.telefone || 'Sem telefone'}
+          </div>
+        `;
+      });
+
+      html += `</div>`;
+      div.innerHTML = html;
+      return;
+    }
+
+    // =============================
+    // SUGESTÕES
+    // =============================
+    if (data.tipo === "sugestao") {
+
+      let html = `
+        <div class="box">
+          <strong>Escolha a cidade:</strong>
+      `;
+
+      data.cidades.forEach(c => {
+        html += `
+          <div class="sugestao"
+               onclick="selecionar('${c.nome} - ${c.estado}')">
+            ${c.nome} - ${c.estado}
+          </div>
+        `;
+      });
+
+      html += `</div>`;
+      div.innerHTML = html;
+      return;
+    }
+
+    // =============================
+    // NADA ENCONTRADO
+    // =============================
+    if (data.tipo === "vazio") {
+      div.innerHTML = "<div class='box'>Nenhuma cidade encontrada.</div>";
+      return;
+    }
+
+  } catch (error) {
+    div.innerHTML = "Erro ao consultar.";
+    console.error(error);
+  }
+}
+
+function selecionar(valor) {
+  document.getElementById('cidade').value = valor;
+  buscar();
+}
+</script>
+
+</body>
+</html>
