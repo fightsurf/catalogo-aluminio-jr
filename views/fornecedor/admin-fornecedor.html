@@ -7,7 +7,7 @@
     body { font-family: Arial; padding: 30px; background: #f4f6f9; }
     .container { max-width: 900px; margin: auto; }
     .box { background: #fff; padding: 20px; margin-bottom: 20px; border-radius: 8px; }
-    input, button {
+    input, select, button {
       width: 100%;
       padding: 8px;
       margin-bottom: 10px;
@@ -21,40 +21,33 @@
       padding: 8px;
     }
     button { cursor: pointer; }
-
     #cidadeResultados {
-      border: 1px solid #ccc;
       max-height: 150px;
       overflow-y: auto;
       display: none;
-      background: white;
     }
-
-    .cidade-item {
-      padding: 6px;
-      cursor: pointer;
-    }
-
-    .cidade-item:hover {
-      background: #f0f0f0;
-    }
+    .btn-editar { background: orange; color: #fff; border: none; }
+    .btn-excluir { background: red; color: #fff; border: none; }
+    .btn-salvar { background: green; color: #fff; border: none; }
   </style>
 </head>
 <body>
 <div class="container">
 
   <div class="box">
-    <h2>Novo Fornecedor</h2>
+    <h2 id="tituloForm">Novo Fornecedor</h2>
+
+    <input type="hidden" id="fornecedor_id">
 
     <input type="text" id="nome" placeholder="Nome" required>
     <input type="text" id="contato" placeholder="Contato Principal" required>
     <input type="text" id="telefone" placeholder="Telefone" required>
 
-    <input type="text" id="cidadeBusca" placeholder="Digite a cidade" autocomplete="off" required>
-    <div id="cidadeResultados"></div>
+    <input type="text" id="cidadeBusca" placeholder="Digite a cidade" required>
+    <select id="cidadeResultados" size="5"></select>
     <input type="hidden" id="cidade_id">
 
-    <button onclick="criar()">Salvar</button>
+    <button class="btn-salvar" onclick="salvar()">Salvar</button>
   </div>
 
   <div class="box">
@@ -81,46 +74,6 @@
 <script>
 const API = '/api/fornecedores';
 
-const cidadeInput = document.getElementById('cidadeBusca');
-const resultados = document.getElementById('cidadeResultados');
-const hiddenCidadeId = document.getElementById('cidade_id');
-
-// ===============================
-// BUSCA CIDADE
-// ===============================
-cidadeInput.addEventListener('input', async function() {
-  const termo = this.value;
-  hiddenCidadeId.value = '';
-
-  if (termo.length < 2) {
-    resultados.style.display = 'none';
-    return;
-  }
-
-  const res = await fetch(`/api/logistica/cidades/busca-id?nome=${termo}`);
-  const cidades = await res.json();
-
-  resultados.innerHTML = '';
-  resultados.style.display = 'block';
-
-  cidades.forEach(c => {
-    const div = document.createElement('div');
-    div.className = 'cidade-item';
-    div.textContent = `${c.nome} - ${c.estado}`;
-
-    div.onclick = function() {
-      hiddenCidadeId.value = c.id;
-      cidadeInput.value = `${c.nome} - ${c.estado}`;
-      resultados.style.display = 'none';
-    };
-
-    resultados.appendChild(div);
-  });
-});
-
-// ===============================
-// LISTAR
-// ===============================
 async function listar() {
   const nome = document.getElementById('filtroNome').value;
   const res = await fetch(`${API}?nome=${nome}`);
@@ -137,68 +90,105 @@ async function listar() {
         <td>${f.contato_principal}</td>
         <td>${f.telefone}</td>
         <td>
-          <button onclick="deletar(${f.id})">Excluir</button>
+          <button class="btn-editar" onclick="editar(${f.id}, '${f.nome}', '${f.contato_principal}', '${f.telefone}', ${f.cidade_id})">Editar</button>
+          <button class="btn-excluir" onclick="deletar(${f.id})">Excluir</button>
         </td>
       </tr>
     `;
   });
 }
 
-// ===============================
-// CRIAR
-// ===============================
-async function criar() {
+function editar(id, nome, contato, telefone, cidade_id) {
+  document.getElementById('fornecedor_id').value = id;
+  document.getElementById('nome').value = nome;
+  document.getElementById('contato').value = contato;
+  document.getElementById('telefone').value = telefone;
+  document.getElementById('cidade_id').value = cidade_id;
 
-  const cidadeIdNumero = parseInt(hiddenCidadeId.value);
+  document.getElementById('tituloForm').innerText = "Editar Fornecedor";
+}
 
-  if (isNaN(cidadeIdNumero)) {
-    alert("Selecione a cidade clicando na lista.");
-    return;
-  }
+async function salvar() {
+
+  const id = document.getElementById('fornecedor_id').value;
 
   const body = {
     nome: document.getElementById('nome').value,
     contato_principal: document.getElementById('contato').value,
     telefone: document.getElementById('telefone').value,
-    cidade_id: cidadeIdNumero
+    cidade_id: parseInt(document.getElementById('cidade_id').value)
   };
 
-  const res = await fetch(API, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-
-  if (!res.ok) {
-    const erro = await res.json();
-    alert(erro.error);
+  if (!body.cidade_id) {
+    alert("Selecione a cidade clicando na lista.");
     return;
+  }
+
+  if (id) {
+    await fetch(`${API}/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+  } else {
+    await fetch(API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
   }
 
   limparFormulario();
   listar();
 }
 
-// ===============================
-// DELETE
-// ===============================
 async function deletar(id) {
   await fetch(`${API}/${id}`, { method: 'DELETE' });
   listar();
 }
 
-// ===============================
-// LIMPAR
-// ===============================
 function limparFormulario() {
+  document.getElementById('fornecedor_id').value = '';
   document.getElementById('nome').value = '';
   document.getElementById('contato').value = '';
   document.getElementById('telefone').value = '';
-  cidadeInput.value = '';
-  hiddenCidadeId.value = '';
+  document.getElementById('cidadeBusca').value = '';
+  document.getElementById('cidade_id').value = '';
+  document.getElementById('tituloForm').innerText = "Novo Fornecedor";
 }
 
-// Inicializa
+const cidadeInput = document.getElementById('cidadeBusca');
+const resultados = document.getElementById('cidadeResultados');
+
+cidadeInput.addEventListener('input', async function() {
+  const termo = this.value;
+
+  if (termo.length < 2) {
+    resultados.style.display = 'none';
+    return;
+  }
+
+  const res = await fetch(`/api/logistica/cidades/busca-id?nome=${termo}`);
+  const cidades = await res.json();
+
+  resultados.innerHTML = '';
+  resultados.style.display = 'block';
+
+  cidades.forEach(c => {
+    const option = document.createElement('option');
+    option.value = c.id;
+    option.textContent = `${c.nome} - ${c.estado}`;
+    resultados.appendChild(option);
+  });
+});
+
+resultados.addEventListener('change', function() {
+  const selected = this.options[this.selectedIndex];
+  document.getElementById('cidade_id').value = selected.value;
+  document.getElementById('cidadeBusca').value = selected.textContent;
+  resultados.style.display = 'none';
+});
+
 listar();
 </script>
 
