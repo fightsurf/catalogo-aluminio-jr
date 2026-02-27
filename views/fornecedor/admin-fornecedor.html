@@ -74,6 +74,9 @@
 <script>
 const API = '/api/fornecedores';
 
+// ===============================
+// LISTAR
+// ===============================
 async function listar() {
   const nome = document.getElementById('filtroNome').value;
   const res = await fetch(`${API}?nome=${nome}`);
@@ -90,7 +93,7 @@ async function listar() {
         <td>${f.contato_principal}</td>
         <td>${f.telefone}</td>
         <td>
-          <button class="btn-editar" onclick="editar(${f.id}, '${f.nome}', '${f.contato_principal}', '${f.telefone}', ${f.cidade_id})">Editar</button>
+          <button class="btn-editar" onclick="editar(${f.id})">Editar</button>
           <button class="btn-excluir" onclick="deletar(${f.id})">Excluir</button>
         </td>
       </tr>
@@ -98,16 +101,35 @@ async function listar() {
   });
 }
 
-function editar(id, nome, contato, telefone, cidade_id) {
-  document.getElementById('fornecedor_id').value = id;
-  document.getElementById('nome').value = nome;
-  document.getElementById('contato').value = contato;
-  document.getElementById('telefone').value = telefone;
-  document.getElementById('cidade_id').value = cidade_id;
+// ===============================
+// EDITAR (PROFISSIONAL)
+// ===============================
+async function editar(id) {
+
+  const res = await fetch(`${API}/${id}`);
+  const fornecedor = await res.json();
+
+  document.getElementById('fornecedor_id').value = fornecedor.id;
+  document.getElementById('nome').value = fornecedor.nome;
+  document.getElementById('contato').value = fornecedor.contato_principal;
+  document.getElementById('telefone').value = fornecedor.telefone;
+  document.getElementById('cidade_id').value = fornecedor.cidade_id;
+
+  // 🔥 Busca cidade pelo ID real
+  const cidadeRes = await fetch(`/api/logistica/cidades/id/${fornecedor.cidade_id}`);
+  const cidade = await cidadeRes.json();
+
+  if (cidade) {
+    document.getElementById('cidadeBusca').value =
+      `${cidade.nome} - ${cidade.estado}`;
+  }
 
   document.getElementById('tituloForm').innerText = "Editar Fornecedor";
 }
 
+// ===============================
+// SALVAR (POST ou PUT)
+// ===============================
 async function salvar() {
 
   const id = document.getElementById('fornecedor_id').value;
@@ -142,11 +164,17 @@ async function salvar() {
   listar();
 }
 
+// ===============================
+// DELETE
+// ===============================
 async function deletar(id) {
   await fetch(`${API}/${id}`, { method: 'DELETE' });
   listar();
 }
 
+// ===============================
+// LIMPAR FORM
+// ===============================
 function limparFormulario() {
   document.getElementById('fornecedor_id').value = '';
   document.getElementById('nome').value = '';
@@ -157,6 +185,9 @@ function limparFormulario() {
   document.getElementById('tituloForm').innerText = "Novo Fornecedor";
 }
 
+// ===============================
+// BUSCA DINÂMICA CIDADE
+// ===============================
 const cidadeInput = document.getElementById('cidadeBusca');
 const resultados = document.getElementById('cidadeResultados');
 
