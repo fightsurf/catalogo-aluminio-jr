@@ -38,7 +38,7 @@
     <input type="text" id="contato" placeholder="Contato Principal" required>
     <input type="text" id="telefone" placeholder="Telefone" required>
 
-    <input type="text" id="cidadeBusca" placeholder="Digite a cidade" required>
+    <input type="text" id="cidadeBusca" placeholder="Digite a cidade" autocomplete="off" required>
     <select id="cidadeResultados" size="5"></select>
     <input type="hidden" id="cidade_id">
 
@@ -78,7 +78,6 @@ const hiddenCidadeId = document.getElementById('cidade_id');
 // ===============================
 cidadeInput.addEventListener('input', async function() {
   const termo = this.value;
-
   hiddenCidadeId.value = '';
 
   if (termo.length < 2) {
@@ -100,12 +99,13 @@ cidadeInput.addEventListener('input', async function() {
   });
 });
 
-resultados.addEventListener('click', function() {
-  const selected = resultados.options[resultados.selectedIndex];
-  if (!selected) return;
+// 🔥 AGORA USANDO CHANGE CORRETAMENTE
+resultados.addEventListener('change', function() {
+  const selectedOption = this.options[this.selectedIndex];
+  if (!selectedOption) return;
 
-  hiddenCidadeId.value = selected.value;
-  cidadeInput.value = selected.textContent;
+  hiddenCidadeId.value = selectedOption.value;
+  cidadeInput.value = selectedOption.textContent;
   resultados.style.display = 'none';
 });
 
@@ -143,7 +143,7 @@ async function criar() {
   const cidadeIdNumero = parseInt(hiddenCidadeId.value);
 
   if (isNaN(cidadeIdNumero)) {
-    alert("Selecione a cidade clicando na lista.");
+    alert("Selecione a cidade na lista antes de salvar.");
     return;
   }
 
