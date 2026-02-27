@@ -41,7 +41,6 @@
     <input type="text" id="cidadeBusca" placeholder="Digite a cidade" required>
     <select id="cidadeResultados" size="5"></select>
     <input type="hidden" id="cidade_id">
-    <input type="text" id="estado" placeholder="Estado" readonly>
 
     <button onclick="criar()">Salvar</button>
   </div>
@@ -120,7 +119,6 @@ cidadeInput.addEventListener('input', async function() {
     const option = document.createElement('option');
     option.value = c.id;
     option.textContent = `${c.nome} - ${c.estado}`;
-    option.dataset.estado = c.estado;
     resultados.appendChild(option);
   });
 });
@@ -130,7 +128,6 @@ resultados.addEventListener('change', function() {
 
   document.getElementById('cidade_id').value = selected.value;
   document.getElementById('cidadeBusca').value = selected.textContent;
-  document.getElementById('estado').value = selected.dataset.estado;
 
   resultados.style.display = 'none';
 });
@@ -144,8 +141,7 @@ async function criar() {
     nome: document.getElementById('nome').value,
     contato_principal: document.getElementById('contato').value,
     telefone: document.getElementById('telefone').value,
-    cidade_id: document.getElementById('cidade_id').value,
-    estado: document.getElementById('estado').value
+    cidade_id: document.getElementById('cidade_id').value
   };
 
   if (!body.cidade_id) {
@@ -180,7 +176,6 @@ function limparFormulario() {
   document.getElementById('telefone').value = '';
   document.getElementById('cidadeBusca').value = '';
   document.getElementById('cidade_id').value = '';
-  document.getElementById('estado').value = '';
 }
 
 // Inicializa
