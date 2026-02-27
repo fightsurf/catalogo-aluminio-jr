@@ -5,9 +5,18 @@ class FornecedorService {
   async listar(nome) {
     try {
       let query = `
-        SELECT f.id, f.nome, f.contato_principal, f.telefone, f.cidade_id, f.estado
+        SELECT 
+          f.id,
+          f.nome,
+          f.contato_principal,
+          f.telefone,
+          f.cidade_id,
+          c.nome AS cidade,
+          c.estado
         FROM fornecedores f
+        JOIN cidades c ON c.id = f.cidade_id
       `;
+
       const values = [];
 
       if (nome) {
@@ -19,7 +28,9 @@ class FornecedorService {
 
       const result = await pool.query(query, values);
       return result.rows;
+
     } catch (error) {
+      console.error(error);
       throw error;
     }
   }
@@ -27,12 +38,22 @@ class FornecedorService {
   async buscarPorId(id) {
     try {
       const query = `
-        SELECT id, nome, contato_principal, telefone, cidade_id, estado
-        FROM fornecedores
-        WHERE id = $1
+        SELECT 
+          f.id,
+          f.nome,
+          f.contato_principal,
+          f.telefone,
+          f.cidade_id,
+          c.nome AS cidade,
+          c.estado
+        FROM fornecedores f
+        JOIN cidades c ON c.id = f.cidade_id
+        WHERE f.id = $1
       `;
+
       const result = await pool.query(query, [id]);
       return result.rows[0];
+
     } catch (error) {
       throw error;
     }
@@ -41,20 +62,21 @@ class FornecedorService {
   async criar(data) {
     try {
       const query = `
-        INSERT INTO fornecedores (nome, contato_principal, telefone, cidade_id, estado)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO fornecedores (nome, contato_principal, telefone, cidade_id)
+        VALUES ($1, $2, $3, $4)
         RETURNING *
       `;
+
       const values = [
         data.nome,
         data.contato_principal,
         data.telefone,
-        data.cidade_id,
-        data.estado
+        data.cidade_id
       ];
 
       const result = await pool.query(query, values);
       return result.rows[0];
+
     } catch (error) {
       throw error;
     }
@@ -67,9 +89,8 @@ class FornecedorService {
         SET nome = $1,
             contato_principal = $2,
             telefone = $3,
-            cidade_id = $4,
-            estado = $5
-        WHERE id = $6
+            cidade_id = $4
+        WHERE id = $5
         RETURNING *
       `;
 
@@ -78,12 +99,12 @@ class FornecedorService {
         data.contato_principal,
         data.telefone,
         data.cidade_id,
-        data.estado,
         id
       ];
 
       const result = await pool.query(query, values);
       return result.rows[0];
+
     } catch (error) {
       throw error;
     }
