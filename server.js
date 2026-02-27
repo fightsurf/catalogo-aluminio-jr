@@ -74,6 +74,11 @@ app.get('/admin-funcionarios', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'funcionario', 'admin-funcionario.html'));
 });
 
+// 🔥 ADMIN FORNECEDORES
+app.get('/admin-fornecedores', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'fornecedor', 'admin-fornecedor.html'));
+});
+
 // 🔥 LOGÍSTICA ESTADO
 app.get('/logistica-estado', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'logistica-estado.html'));
