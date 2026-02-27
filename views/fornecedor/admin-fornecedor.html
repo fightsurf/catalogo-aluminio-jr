@@ -97,7 +97,7 @@ cidadeInput.addEventListener('input', async function() {
     return;
   }
 
-  const res = await fetch(`/api/logistica/cidades/busca?nome=${termo}`);
+  const res = await fetch(`/api/logistica/cidades/busca-id?nome=${termo}`);
   const cidades = await res.json();
 
   resultados.innerHTML = '';
