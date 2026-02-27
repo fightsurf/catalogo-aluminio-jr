@@ -16,11 +16,24 @@ router.get('/estado/:nomeEstado', async (req, res) => {
 });
 
 // ==========================================
-// BUSCAR CIDADES POR NOME
+// BUSCAR CIDADES POR NOME (LOGÍSTICA - IBGE)
 // ==========================================
 router.get('/cidades/busca', async (req, res) => {
   try {
     const resultado = await service.buscarCidadesPorNome(req.query.nome);
+    res.json(resultado);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==========================================
+// 🔥 NOVA ROTA PARA FORNECEDORES (USA ID REAL)
+// ==========================================
+router.get('/cidades/busca-id', async (req, res) => {
+  try {
+    const resultado = await service.buscarCidadesPorNomeComId(req.query.nome);
     res.json(resultado);
   } catch (error) {
     console.error(error);
@@ -75,10 +88,8 @@ router.delete('/transportadoras/:id/cidades/:codigo_ibge', async (req, res) => {
   }
 });
 
-
 // ==========================================
 // CONSULTAR FRETE POR NOME DA CIDADE
-// GET /api/logistica/frete?cidade=
 // ==========================================
 router.get('/frete', async (req, res) => {
   const { cidade } = req.query;
@@ -89,15 +100,11 @@ router.get('/frete', async (req, res) => {
 
   try {
     const resultado = await service.buscarTransportadorasPorNomeCidade(cidade);
-
-    // 🔥 Retorna array direto (formato antigo)
     res.json(resultado);
-
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });
   }
 });
-
 
 module.exports = router;
