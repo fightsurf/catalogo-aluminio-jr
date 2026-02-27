@@ -64,7 +64,7 @@ async function listarCidades(transportadora_id) {
 }
 
 // ==========================================
-// BUSCAR CIDADES POR NOME (continua parcial)
+// BUSCAR CIDADES POR NOME
 // ==========================================
 async function buscarCidadesPorNome(nome) {
   const result = await pool.query(
@@ -82,7 +82,7 @@ async function buscarCidadesPorNome(nome) {
 }
 
 // ==========================================
-// BUSCA INTELIGENTE PARA O BOT (VERSÃO FINAL)
+// BUSCA INTELIGENTE PARA O BOT
 // ==========================================
 async function buscarTransportadorasPorNomeCidade(nomeCidade) {
 
@@ -90,27 +90,23 @@ async function buscarTransportadorasPorNomeCidade(nomeCidade) {
   const cidade = partes[0];
   const estado = partes[1] || null;
 
-  // ==========================
   // 1️⃣ VERIFICA SE A CIDADE EXISTE
-  // ==========================
   let cidadeQuery = `
     SELECT nome, estado
     FROM cidades
-    WHERE unaccent(LOWER(nome)) = unaccent(LOWER($1))
+    WHERE LOWER(unaccent(nome)) = LOWER(unaccent($1))
   `;
 
   let cidadeParams = [cidade];
 
   if (estado) {
-    cidadeQuery += ` AND unaccent(LOWER(estado)) = unaccent(LOWER($2))`;
+    cidadeQuery += ` AND LOWER(unaccent(estado)) = LOWER(unaccent($2))`;
     cidadeParams.push(estado);
   }
 
   const cidadeExiste = await pool.query(cidadeQuery, cidadeParams);
 
-  // ==========================
   // 2️⃣ SE EXISTE → BUSCAR TRANSPORTADORAS
-  // ==========================
   if (cidadeExiste.rows.length > 0) {
 
     const resultadoFrete = await pool.query(
@@ -125,8 +121,8 @@ async function buscarTransportadorasPorNomeCidade(nomeCidade) {
       FROM transportadora_cidade tc
       JOIN cidades c ON tc.cidade_id = c.id
       JOIN transportadoras t ON tc.transportadora_id = t.id
-      WHERE unaccent(LOWER(c.nome)) = unaccent(LOWER($1))
-      ${estado ? "AND unaccent(LOWER(c.estado)) = unaccent(LOWER($2))" : ""}
+      WHERE LOWER(unaccent(c.nome)) = LOWER(unaccent($1))
+      ${estado ? "AND LOWER(unaccent(c.estado)) = LOWER(unaccent($2))" : ""}
       ORDER BY t.nome;
       `,
       cidadeParams
@@ -139,7 +135,7 @@ async function buscarTransportadorasPorNomeCidade(nomeCidade) {
       };
     }
 
-    // 🔥 Cidade existe mas não tem transportadora
+    // Cidade existe mas não tem transportadora
     return {
       tipo: "sem_frete",
       cidade: cidadeExiste.rows[0].nome,
@@ -147,14 +143,12 @@ async function buscarTransportadorasPorNomeCidade(nomeCidade) {
     };
   }
 
-  // ==========================
   // 3️⃣ NÃO EXISTE → BUSCA PARCIAL
-  // ==========================
   const resultadoParcial = await pool.query(
     `
     SELECT nome, estado
     FROM cidades
-    WHERE unaccent(LOWER(nome)) LIKE unaccent(LOWER($1))
+    WHERE LOWER(unaccent(nome)) LIKE LOWER(unaccent($1))
     ORDER BY nome;
     `,
     [`%${cidade}%`]
@@ -168,37 +162,6 @@ async function buscarTransportadorasPorNomeCidade(nomeCidade) {
   }
 
   return { tipo: "vazio" };
-}
-// 2️⃣ BUSCA PARCIAL PARA SUGESTÕES
-const resultadoParcial = await pool.query(
-  `
-  SELECT nome, estado
-  FROM cidades
-  WHERE LOWER(nome) LIKE LOWER($1)
-  ORDER BY
-    (LOWER(nome) = LOWER($2)) DESC,
-    (LOWER(nome) LIKE LOWER($3)) DESC,
-    nome;
-  `,
-  [
-    `%${cidade}%`,   // $1
-    cidade,          // $2
-    `${cidade}%`     // $3
-  ]
-);
-
-  
-  if (resultadoParcial.rows.length > 0) {
-    return {
-      tipo: 'sugestao',
-      cidades: resultadoParcial.rows
-    };
-  }
-
-  // 3️⃣ NADA ENCONTRADO
-  return {
-    tipo: 'vazio'
-  };
 }
 
 // ==========================================
