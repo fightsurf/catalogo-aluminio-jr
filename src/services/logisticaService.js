@@ -64,7 +64,7 @@ async function listarCidades(transportadora_id) {
 }
 
 // ==========================================
-// BUSCAR CIDADES POR NOME (LOGÍSTICA - USA IBGE)
+// BUSCAR CIDADES POR NOME (LOGÍSTICA)
 // ==========================================
 async function buscarCidadesPorNome(nome) {
   const result = await pool.query(
@@ -82,8 +82,7 @@ async function buscarCidadesPorNome(nome) {
 }
 
 // ==========================================
-// 🔥 NOVA FUNÇÃO EXCLUSIVA PARA FORNECEDORES
-// (RETORNA ID REAL DA TABELA)
+// BUSCAR CIDADES POR NOME COM ID (FORNECEDOR)
 // ==========================================
 async function buscarCidadesPorNomeComId(nome) {
   const result = await pool.query(
@@ -101,10 +100,25 @@ async function buscarCidadesPorNomeComId(nome) {
 }
 
 // ==========================================
+// 🔥 NOVA FUNÇÃO — BUSCAR CIDADE POR ID
+// ==========================================
+async function buscarCidadePorId(id) {
+  const result = await pool.query(
+    `
+    SELECT id, nome, estado
+    FROM cidades
+    WHERE id = $1;
+    `,
+    [id]
+  );
+
+  return result.rows[0];
+}
+
+// ==========================================
 // BUSCA INTELIGENTE PARA O BOT
 // ==========================================
 async function buscarTransportadorasPorNomeCidade(nomeCidade) {
-
   const partes = nomeCidade.split('-').map(p => p.trim());
   const cidade = partes[0];
   const estado = partes[1] || null;
@@ -156,23 +170,6 @@ async function buscarTransportadorasPorNomeCidade(nomeCidade) {
       tipo: "sem_frete",
       cidade: cidadeExiste.rows[0].nome,
       estado: cidadeExiste.rows[0].estado
-    };
-  }
-
-  const resultadoParcial = await pool.query(
-    `
-    SELECT nome, estado
-    FROM cidades
-    WHERE LOWER(unaccent(nome)) LIKE LOWER(unaccent($1))
-    ORDER BY nome;
-    `,
-    [`%${cidade}%`]
-  );
-
-  if (resultadoParcial.rows.length > 0) {
-    return {
-      tipo: "sugestao",
-      cidades: resultadoParcial.rows
     };
   }
 
@@ -228,7 +225,8 @@ module.exports = {
   removerCidade,
   listarCidades,
   buscarCidadesPorNome,
-  buscarCidadesPorNomeComId, // 🔥 nova função exportada
+  buscarCidadesPorNomeComId,
+  buscarCidadePorId, // 🔥 nova exportação
   buscarTransportadorasPorNomeCidade,
   listarCidadesPorEstado
 };
