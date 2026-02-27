@@ -64,12 +64,31 @@ async function listarCidades(transportadora_id) {
 }
 
 // ==========================================
-// BUSCAR CIDADES POR NOME
+// BUSCAR CIDADES POR NOME (LOGÍSTICA - USA IBGE)
 // ==========================================
 async function buscarCidadesPorNome(nome) {
   const result = await pool.query(
     `
     SELECT codigo_ibge, nome, estado
+    FROM cidades
+    WHERE LOWER(nome) LIKE LOWER($1)
+    ORDER BY nome
+    LIMIT 20;
+    `,
+    [`%${nome}%`]
+  );
+
+  return result.rows;
+}
+
+// ==========================================
+// 🔥 NOVA FUNÇÃO EXCLUSIVA PARA FORNECEDORES
+// (RETORNA ID REAL DA TABELA)
+// ==========================================
+async function buscarCidadesPorNomeComId(nome) {
+  const result = await pool.query(
+    `
+    SELECT id, nome, estado
     FROM cidades
     WHERE LOWER(nome) LIKE LOWER($1)
     ORDER BY nome
@@ -90,7 +109,6 @@ async function buscarTransportadorasPorNomeCidade(nomeCidade) {
   const cidade = partes[0];
   const estado = partes[1] || null;
 
-  // 1️⃣ VERIFICA SE A CIDADE EXISTE
   let cidadeQuery = `
     SELECT nome, estado
     FROM cidades
@@ -106,7 +124,6 @@ async function buscarTransportadorasPorNomeCidade(nomeCidade) {
 
   const cidadeExiste = await pool.query(cidadeQuery, cidadeParams);
 
-  // 2️⃣ SE EXISTE → BUSCAR TRANSPORTADORAS
   if (cidadeExiste.rows.length > 0) {
 
     const resultadoFrete = await pool.query(
@@ -135,7 +152,6 @@ async function buscarTransportadorasPorNomeCidade(nomeCidade) {
       };
     }
 
-    // Cidade existe mas não tem transportadora
     return {
       tipo: "sem_frete",
       cidade: cidadeExiste.rows[0].nome,
@@ -143,7 +159,6 @@ async function buscarTransportadorasPorNomeCidade(nomeCidade) {
     };
   }
 
-  // 3️⃣ NÃO EXISTE → BUSCA PARCIAL
   const resultadoParcial = await pool.query(
     `
     SELECT nome, estado
@@ -213,6 +228,7 @@ module.exports = {
   removerCidade,
   listarCidades,
   buscarCidadesPorNome,
+  buscarCidadesPorNomeComId, // 🔥 nova função exportada
   buscarTransportadorasPorNomeCidade,
   listarCidadesPorEstado
 };
