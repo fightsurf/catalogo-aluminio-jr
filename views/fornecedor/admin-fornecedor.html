@@ -7,7 +7,7 @@
     body { font-family: Arial; padding: 30px; background: #f4f6f9; }
     .container { max-width: 900px; margin: auto; }
     .box { background: #fff; padding: 20px; margin-bottom: 20px; border-radius: 8px; }
-    input, select, button {
+    input, button {
       width: 100%;
       padding: 8px;
       margin-bottom: 10px;
@@ -21,10 +21,22 @@
       padding: 8px;
     }
     button { cursor: pointer; }
+
     #cidadeResultados {
+      border: 1px solid #ccc;
       max-height: 150px;
       overflow-y: auto;
       display: none;
+      background: white;
+    }
+
+    .cidade-item {
+      padding: 6px;
+      cursor: pointer;
+    }
+
+    .cidade-item:hover {
+      background: #f0f0f0;
     }
   </style>
 </head>
@@ -39,7 +51,7 @@
     <input type="text" id="telefone" placeholder="Telefone" required>
 
     <input type="text" id="cidadeBusca" placeholder="Digite a cidade" autocomplete="off" required>
-    <select id="cidadeResultados" size="5"></select>
+    <div id="cidadeResultados"></div>
     <input type="hidden" id="cidade_id">
 
     <button onclick="criar()">Salvar</button>
@@ -92,21 +104,18 @@ cidadeInput.addEventListener('input', async function() {
   resultados.style.display = 'block';
 
   cidades.forEach(c => {
-    const option = document.createElement('option');
-    option.value = c.id;
-    option.textContent = `${c.nome} - ${c.estado}`;
-    resultados.appendChild(option);
+    const div = document.createElement('div');
+    div.className = 'cidade-item';
+    div.textContent = `${c.nome} - ${c.estado}`;
+
+    div.onclick = function() {
+      hiddenCidadeId.value = c.id;
+      cidadeInput.value = `${c.nome} - ${c.estado}`;
+      resultados.style.display = 'none';
+    };
+
+    resultados.appendChild(div);
   });
-});
-
-// 🔥 AGORA USANDO CHANGE CORRETAMENTE
-resultados.addEventListener('change', function() {
-  const selectedOption = this.options[this.selectedIndex];
-  if (!selectedOption) return;
-
-  hiddenCidadeId.value = selectedOption.value;
-  cidadeInput.value = selectedOption.textContent;
-  resultados.style.display = 'none';
 });
 
 // ===============================
@@ -143,7 +152,7 @@ async function criar() {
   const cidadeIdNumero = parseInt(hiddenCidadeId.value);
 
   if (isNaN(cidadeIdNumero)) {
-    alert("Selecione a cidade na lista antes de salvar.");
+    alert("Selecione a cidade clicando na lista.");
     return;
   }
 
