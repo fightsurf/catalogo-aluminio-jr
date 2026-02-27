@@ -69,8 +69,48 @@
 <script>
 const API = '/api/fornecedores';
 
+const cidadeInput = document.getElementById('cidadeBusca');
+const resultados = document.getElementById('cidadeResultados');
+const hiddenCidadeId = document.getElementById('cidade_id');
+
 // ===============================
-// LISTAR FORNECEDORES
+// BUSCA CIDADE
+// ===============================
+cidadeInput.addEventListener('input', async function() {
+  const termo = this.value;
+
+  hiddenCidadeId.value = '';
+
+  if (termo.length < 2) {
+    resultados.style.display = 'none';
+    return;
+  }
+
+  const res = await fetch(`/api/logistica/cidades/busca?nome=${termo}`);
+  const cidades = await res.json();
+
+  resultados.innerHTML = '';
+  resultados.style.display = 'block';
+
+  cidades.forEach(c => {
+    const option = document.createElement('option');
+    option.value = c.id;
+    option.textContent = `${c.nome} - ${c.estado}`;
+    resultados.appendChild(option);
+  });
+});
+
+resultados.addEventListener('click', function() {
+  const selected = resultados.options[resultados.selectedIndex];
+  if (!selected) return;
+
+  hiddenCidadeId.value = selected.value;
+  cidadeInput.value = selected.textContent;
+  resultados.style.display = 'none';
+});
+
+// ===============================
+// LISTAR
 // ===============================
 async function listar() {
   const nome = document.getElementById('filtroNome').value;
@@ -96,62 +136,23 @@ async function listar() {
 }
 
 // ===============================
-// BUSCA DINÂMICA DE CIDADE
-// ===============================
-const cidadeInput = document.getElementById('cidadeBusca');
-const resultados = document.getElementById('cidadeResultados');
-const hiddenCidadeId = document.getElementById('cidade_id');
-
-cidadeInput.addEventListener('input', async function() {
-  const termo = this.value;
-
-  hiddenCidadeId.value = '';
-
-  if (termo.length < 2) {
-    resultados.style.display = 'none';
-    return;
-  }
-
-  const res = await fetch(`/api/logistica/cidades/busca?nome=${termo}`);
-  const cidades = await res.json();
-
-  resultados.innerHTML = '';
-  resultados.style.display = 'block';
-
-  cidades.forEach(c => {
-    const option = document.createElement('option');
-    option.value = c.id;
-    option.textContent = `${c.nome} - ${c.estado}`;
-    resultados.appendChild(option);
-  });
-});
-
-// 🔥 EVENTO CORRIGIDO
-resultados.addEventListener('click', function() {
-  const selected = resultados.options[resultados.selectedIndex];
-  if (!selected) return;
-
-  hiddenCidadeId.value = selected.value;
-  cidadeInput.value = selected.textContent;
-  resultados.style.display = 'none';
-});
-
-// ===============================
-// CRIAR FORNECEDOR
+// CRIAR
 // ===============================
 async function criar() {
+
+  const cidadeIdNumero = parseInt(hiddenCidadeId.value);
+
+  if (isNaN(cidadeIdNumero)) {
+    alert("Selecione a cidade clicando na lista.");
+    return;
+  }
 
   const body = {
     nome: document.getElementById('nome').value,
     contato_principal: document.getElementById('contato').value,
     telefone: document.getElementById('telefone').value,
-    cidade_id: hiddenCidadeId.value
+    cidade_id: cidadeIdNumero
   };
-
-  if (!body.cidade_id) {
-    alert("Selecione uma cidade válida clicando na lista.");
-    return;
-  }
 
   const res = await fetch(API, {
     method: 'POST',
@@ -161,7 +162,7 @@ async function criar() {
 
   if (!res.ok) {
     const erro = await res.json();
-    alert(erro.error || "Erro ao salvar.");
+    alert(erro.error);
     return;
   }
 
@@ -170,7 +171,7 @@ async function criar() {
 }
 
 // ===============================
-// DELETAR
+// DELETE
 // ===============================
 async function deletar(id) {
   await fetch(`${API}/${id}`, { method: 'DELETE' });
@@ -178,13 +179,13 @@ async function deletar(id) {
 }
 
 // ===============================
-// LIMPAR FORM
+// LIMPAR
 // ===============================
 function limparFormulario() {
   document.getElementById('nome').value = '';
   document.getElementById('contato').value = '';
   document.getElementById('telefone').value = '';
-  document.getElementById('cidadeBusca').value = '';
+  cidadeInput.value = '';
   hiddenCidadeId.value = '';
 }
 
