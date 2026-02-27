@@ -8,15 +8,14 @@ class FornecedorController {
       const fornecedores = await fornecedorService.listar(nome);
       return res.json(fornecedores);
     } catch (error) {
-      console.error(error);
-      return res.status(500).json({ error: 'Erro ao listar fornecedores' });
+      console.error("ERRO LISTAR:", error);
+      return res.status(500).json({ error: error.message });
     }
   }
 
   async buscarPorId(req, res) {
     try {
       const { id } = req.params;
-
       const fornecedor = await fornecedorService.buscarPorId(id);
 
       if (!fornecedor) {
@@ -26,8 +25,8 @@ class FornecedorController {
       return res.json(fornecedor);
 
     } catch (error) {
-      console.error(error);
-      return res.status(500).json({ error: 'Erro ao buscar fornecedor' });
+      console.error("ERRO BUSCAR:", error);
+      return res.status(500).json({ error: error.message });
     }
   }
 
@@ -49,8 +48,8 @@ class FornecedorController {
       return res.status(201).json(novoFornecedor);
 
     } catch (error) {
-      console.error(error);
-      return res.status(500).json({ error: 'Erro ao criar fornecedor' });
+      console.error("ERRO CRIAR:", error);
+      return res.status(500).json({ error: error.message });
     }
   }
 
@@ -77,22 +76,19 @@ class FornecedorController {
       return res.json(atualizado);
 
     } catch (error) {
-      console.error(error);
-      return res.status(500).json({ error: 'Erro ao atualizar fornecedor' });
+      console.error("ERRO ATUALIZAR:", error);
+      return res.status(500).json({ error: error.message });
     }
   }
 
   async deletar(req, res) {
     try {
       const { id } = req.params;
-
       await fornecedorService.deletar(id);
-
       return res.json({ message: 'Fornecedor removido com sucesso' });
-
     } catch (error) {
-      console.error(error);
-      return res.status(500).json({ error: 'Erro ao deletar fornecedor' });
+      console.error("ERRO DELETE:", error);
+      return res.status(500).json({ error: error.message });
     }
   }
 
