@@ -6,8 +6,8 @@ function normalizarTexto(texto) {
     // Converter • em quebras de linha PRIMEIRO
     .replace(/•/g, '\n')
     // Remover emojis
-    .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')
-    .replace(/[\u{2600}-\u{27BF}]/gu, '')
+    .replace(/[000}-\u{1FFFF}]/gu, '')
+    .replace(/[600}-\u{27BF}]/gu, '')
     // Remover caracteres de formatação
     .replace(/[*_~]/g, '')
     // Limpar múltiplos espaços
@@ -56,6 +56,19 @@ function extrairItens(texto) {
       }
       continue;
     }
+
+    // FORMATO KIT FEIRINHA: contém (x1), (x2), etc
+    const kitMatch = linha.match(/\(x(\d+)\)/);
+    if (kitMatch) {
+      const quantidade = parseInt(kitMatch[1]);
+      const nome = linha
+        .replace(/\(x\d+\)/g, '')
+        .replace(/^-=\s*/, '')
+        .trim();
+      
+      if (nome) itens.push({ nome, quantidade });
+      continue;
+    }
   }
 
   return itens;
@@ -71,7 +84,7 @@ async function buscarProduto(nome) {
 }
 
 // Calcular volumes
-async function calcular(texto) {
+async function calcular(texto, multiplicador = 1) {
   const itens = extrairItens(texto);
 
   if (itens.length === 0) {
@@ -93,13 +106,18 @@ async function calcular(texto) {
     // Ignorar produtos com capacidade_caixa = 0
     if (produto.capacidade_caixa === 0) continue;
 
+    // Multiplicar quantidade pelo multiplicador
+    const quantidadeFinal = item.quantidade * multiplicador;
+
     // Manter DECIMAL para cada produto
-    const volumes = item.quantidade / produto.capacidade_caixa;
+    const volumes = quantidadeFinal / produto.capacidade_caixa;
     somaVolumes += volumes;
 
     resultado.push({
       produto: produto.nome,
       quantidade: item.quantidade,
+      multiplicador: multiplicador,
+      quantidade_final: quantidadeFinal,
       capacidade_caixa: produto.capacidade_caixa,
       volumes  // ← DECIMAL (ex: 1.4, 2.0)
     });
@@ -112,7 +130,7 @@ async function calcular(texto) {
   // Arredondar APENAS o total final
   const total_volumes = Math.ceil(somaVolumes);
 
-  return { itens: resultado, total_volumes };
+  return { itens: resultado, total_volumes, multiplicador };
 }
 
 module.exports = { normalizarTexto, extrairItens, buscarProduto, calcular };
