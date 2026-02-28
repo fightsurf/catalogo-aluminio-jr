@@ -82,60 +82,84 @@
 <div id="catalogo"></div>
 
 <script>
+async function apiGet(url) {
+  const response = await fetch(url);
+  const json = await response.json();
+
+  if (!json.success) {
+    throw new Error(json.message || 'Erro na API');
+  }
+
+  return json.data;
+}
+
 async function carregarCatalogo() {
-  const res = await fetch('/api/produtos');
-  const produtos = await res.json();
+  try {
+    const produtos = await apiGet('/api/produtos');
 
-  const porCategoria = {};
+    const porCategoria = {};
 
-  produtos.forEach(p => {
-    if (!porCategoria[p.categoria]) {
-      porCategoria[p.categoria] = [];
-    }
-    porCategoria[p.categoria].push(p);
-  });
+    produtos.forEach(p => {
+      const categoria = p.categoria || 'Sem Categoria';
 
-  const container = document.getElementById('catalogo');
+      if (!porCategoria[categoria]) {
+        porCategoria[categoria] = [];
+      }
 
-  Object.keys(porCategoria).forEach(cat => {
-
-    // 🔤 ORDENA ALFABETICAMENTE OS PRODUTOS DA CATEGORIA
-    porCategoria[cat].sort((a, b) =>
-      a.nome.localeCompare(b.nome, 'pt-BR')
-    );
-
-    const bloco = document.createElement('div');
-    bloco.className = 'categoria';
-
-    bloco.innerHTML = `<h2>${cat}</h2>`;
-
-    const grid = document.createElement('div');
-    grid.className = 'grid';
-
-    porCategoria[cat].forEach(p => {
-      const foto = p.foto && p.foto.trim() !== ''
-        ? p.foto
-        : 'https://via.placeholder.com/300x300?text=Sem+Foto';
-
-      const card = document.createElement('div');
-      card.className = 'produto';
-
-      card.innerHTML = `
-        <img src="${foto}" alt="${p.nome}">
-        <div class="nome">${p.nome}</div>
-        <div class="preco">R$ ${p.preco.toFixed(2).replace('.', ',')}</div>
-      `;
-
-      grid.appendChild(card);
+      porCategoria[categoria].push(p);
     });
 
-    bloco.appendChild(grid);
-    container.appendChild(bloco);
-  });
+    const container = document.getElementById('catalogo');
+    container.innerHTML = '';
+
+    Object.keys(porCategoria).forEach(cat => {
+
+      // 🔤 Ordena alfabeticamente
+      porCategoria[cat].sort((a, b) =>
+        a.nome.localeCompare(b.nome, 'pt-BR')
+      );
+
+      const bloco = document.createElement('div');
+      bloco.className = 'categoria';
+
+      bloco.innerHTML = `<h2>${cat}</h2>`;
+
+      const grid = document.createElement('div');
+      grid.className = 'grid';
+
+      porCategoria[cat].forEach(p => {
+        const foto = p.foto && p.foto.trim() !== ''
+          ? p.foto
+          : 'https://via.placeholder.com/300x300?text=Sem+Foto';
+
+        const preco = Number(p.preco);
+
+        const card = document.createElement('div');
+        card.className = 'produto';
+
+        card.innerHTML = `
+          <img src="${foto}" alt="${p.nome}">
+          <div class="nome">${p.nome}</div>
+          <div class="preco">
+            R$ ${preco.toFixed(2).replace('.', ',')}
+          </div>
+        `;
+
+        grid.appendChild(card);
+      });
+
+      bloco.appendChild(grid);
+      container.appendChild(bloco);
+    });
+
+  } catch (error) {
+    console.error('Erro ao carregar catálogo:', error);
+    document.getElementById('catalogo').innerHTML =
+      '<p style="color:red;text-align:center;">Erro ao carregar produtos.</p>';
+  }
 }
 
 carregarCatalogo();
 </script>
-
 </body>
 </html>
