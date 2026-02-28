@@ -1,3 +1,6 @@
+const pool = require('../../../db/connection');
+
+// Normalizar texto (remover emojis, caracteres especiais, etc)
 function normalizarTexto(texto) {
   return texto
     // Converter • em quebras de linha PRIMEIRO
@@ -16,6 +19,7 @@ function normalizarTexto(texto) {
     .join('\n');
 }
 
+// Extrair itens do texto normalizado
 function extrairItens(texto) {
   const itens = [];
   const normalizado = normalizarTexto(texto);
@@ -35,7 +39,7 @@ function extrairItens(texto) {
 
       // Limpar nome (remover preço)
       const nome = esquerda
-        .replace(/R\$[\s\d.,]+$/, '') // Remove preço
+        .replace(/R\$[\s\d.,]+$/, '')
         .replace(/[,;:•]+$/, '')
         .trim();
 
@@ -56,3 +60,55 @@ function extrairItens(texto) {
 
   return itens;
 }
+
+// Buscar produto no banco
+async function buscarProduto(nome) {
+  const result = await pool.query(
+    `SELECT nome, capacidade_caixa FROM produtos WHERE nome ILIKE $1 LIMIT 1`,
+    [`%${nome}%`]
+  );
+  return result.rows[0] || null;
+}
+
+// Calcular volumes
+async function calcular(texto) {
+  const itens = extrairItens(texto);
+
+  if (itens.length === 0) {
+    throw new Error('Nenhum produto encontrado no texto');
+  }
+
+  const naoEncontrados = [];
+  const resultado = [];
+
+  for (const item of itens) {
+    const produto = await buscarProduto(item.nome);
+
+    if (!produto) {
+      naoEncontrados.push(item.nome);
+      continue;
+    }
+
+    // Ignorar produtos com capacidade_caixa = 0
+    if (produto.capacidade_caixa === 0) continue;
+
+    const volumes = Math.ceil(item.quantidade / produto.capacidade_caixa);
+
+    resultado.push({
+      produto: produto.nome,
+      quantidade: item.quantidade,
+      capacidade_caixa: produto.capacidade_caixa,
+      volumes
+    });
+  }
+
+  if (naoEncontrados.length > 0) {
+    throw new Error(`Produtos não encontrados: ${naoEncontrados.join(', ')}`);
+  }
+
+  const total_volumes = resultado.reduce((acc, i) => acc + i.volumes, 0);
+
+  return { itens: resultado, total_volumes };
+}
+
+module.exports = { normalizarTexto, extrairItens, buscarProduto, calcular };
