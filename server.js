@@ -129,6 +129,12 @@ app.get('/frete', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'frete-bot.html'));
 });
 
+app.get('/debug-produtos', (req, res) => {
+  const produtos = lerProdutos();
+  res.json(produtos);
+});
+
+
 // =====================================================
 // 📡 APIs
 // =====================================================
