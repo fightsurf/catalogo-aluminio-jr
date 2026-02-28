@@ -21,14 +21,22 @@ async function buscar(id) {
 }
 
 async function criar(data) {
+
   const { nome } = data;
 
-  const result = await pool.query(
-    `INSERT INTO produtos_categorias (nome)
-     VALUES ($1)
-     RETURNING *`,
-    [nome]
-  );
+  if (!nome) {
+    throw new Error('Nome é obrigatório');
+  }
+
+  const query = `
+    INSERT INTO produtos_categorias (nome)
+    VALUES ($1)
+    RETURNING *;
+  `;
+
+  const values = [nome];
+
+  const result = await pool.query(query, values);
 
   return result.rows[0];
 }
