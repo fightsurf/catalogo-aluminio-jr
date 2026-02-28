@@ -20,22 +20,20 @@ async function buscar(id) {
   return result.rows[0];
 }
 
-async function criar(req, res) {
-  try {
+async function criar(data) {
 
-    const resultado = await service.criar(req.body);
+  const { nome } = data;
 
-    return res.status(201).json({
-      success: true,
-      data: resultado
-    });
-
-  } catch (error) {
-    return res.status(400).json({
-      success: false,
-      message: error.message
-    });
+  if (!nome) {
+    throw new Error('Nome é obrigatório');
   }
+
+  const result = await pool.query(
+    'INSERT INTO produtos_categorias (nome) VALUES ($1) RETURNING *',
+    [nome]
+  );
+
+  return result.rows[0];
 }
 
 async function atualizar(id, data) {
@@ -58,7 +56,6 @@ async function atualizar(id, data) {
 
 async function excluir(id) {
 
-  // 🔒 Verificar se existem produtos vinculados
   const vinculos = await pool.query(
     'SELECT COUNT(*) FROM produtos WHERE categoria_id = $1',
     [id]
