@@ -10,24 +10,26 @@ body {
   font-family: Arial, sans-serif;
   background: #f4f4f4;
   margin: 0;
-  padding: 20px;
+  padding: 25px;
 }
 
 h1 {
   text-align: center;
+  margin-bottom: 30px;
 }
 
 .tabs {
   display: flex;
   gap: 10px;
-  margin-bottom: 20px;
+  margin-bottom: 25px;
 }
 
 .tab-btn {
-  padding: 10px 15px;
+  padding: 10px 18px;
   border: none;
   cursor: pointer;
   background: #ddd;
+  border-radius: 4px;
 }
 
 .tab-btn.active {
@@ -45,29 +47,76 @@ h1 {
 
 .card {
   background: #fff;
-  padding: 15px;
-  margin-bottom: 15px;
+  padding: 20px;
+  margin-bottom: 20px;
   border: 1px solid #ddd;
+  border-radius: 6px;
+}
+
+h3 {
+  margin-top: 0;
+  margin-bottom: 15px;
+}
+
+/* ===== FORM GRID ===== */
+
+.form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+label {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  display: block;
 }
 
 input, select {
-  padding: 6px;
-  margin: 4px 0;
   width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.checkbox-area {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.button-area {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
 }
 
 button {
-  padding: 6px 10px;
-  margin-top: 5px;
+  background: #222;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
   cursor: pointer;
 }
+
+button:hover {
+  background: #000;
+}
+
+/* ===== LISTA ===== */
 
 .lista-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 6px 0;
+  padding: 10px 0;
   border-bottom: 1px solid #eee;
+}
+
+.lista-item span {
+  font-size: 14px;
 }
 </style>
 </head>
@@ -86,8 +135,15 @@ button {
 
   <div class="card">
     <h3>Nova Categoria</h3>
-    <input type="text" id="novaCategoriaNome" placeholder="Nome da categoria">
-    <button onclick="criarCategoria()">Criar</button>
+    <div class="form-grid">
+      <div>
+        <label>Nome da Categoria</label>
+        <input type="text" id="novaCategoriaNome">
+      </div>
+      <div class="button-area">
+        <button onclick="criarCategoria()">Salvar</button>
+      </div>
+    </div>
   </div>
 
   <div class="card">
@@ -103,15 +159,44 @@ button {
 
   <div class="card">
     <h3>Novo Produto</h3>
-    <input type="text" id="produtoNome" placeholder="Nome">
-    <input type="number" step="0.01" id="produtoPreco" placeholder="Preço">
-    <select id="produtoCategoria"></select>
-    <input type="text" id="produtoFoto" placeholder="URL da Foto">
-    <input type="number" id="produtoCaixa" placeholder="Capacidade Caixa" value="1">
-    <label>
-      <input type="checkbox" id="produtoAtivo" checked> Ativo
-    </label>
-    <button onclick="criarProduto()">Criar Produto</button>
+
+    <div class="form-grid">
+
+      <div>
+        <label>Nome</label>
+        <input type="text" id="produtoNome">
+      </div>
+
+      <div>
+        <label>Preço</label>
+        <input type="number" step="0.01" id="produtoPreco">
+      </div>
+
+      <div>
+        <label>Categoria</label>
+        <select id="produtoCategoria"></select>
+      </div>
+
+      <div>
+        <label>Capacidade por Caixa</label>
+        <input type="number" id="produtoCaixa" value="1" min="1">
+      </div>
+
+      <div style="grid-column: span 2;">
+        <label>URL da Foto</label>
+        <input type="text" id="produtoFoto">
+      </div>
+
+      <div class="checkbox-area">
+        <input type="checkbox" id="produtoAtivo" checked>
+        <label for="produtoAtivo">Produto Ativo</label>
+      </div>
+
+      <div class="button-area">
+        <button onclick="criarProduto()">Salvar Produto</button>
+      </div>
+
+    </div>
   </div>
 
   <div class="card">
