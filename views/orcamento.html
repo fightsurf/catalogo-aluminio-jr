@@ -144,7 +144,13 @@ async function carregarProdutos() {
     const container = document.getElementById('lista');
     container.innerHTML = '';
 
-    Object.keys(porCategoria).forEach(cat => {
+    const categoriasOrdenadas = Object.keys(porCategoria).sort((catA, catB) => {
+      const idMinA = Math.min(...porCategoria[catA].map(p => Number(p.id)));
+      const idMinB = Math.min(...porCategoria[catB].map(p => Number(p.id)));
+      return idMinA - idMinB;
+    });
+
+    categoriasOrdenadas.forEach(cat => {
       porCategoria[cat].sort((a, b) =>
         a.nome.localeCompare(b.nome, 'pt-BR')
       );
