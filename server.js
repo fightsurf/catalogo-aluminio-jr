@@ -70,6 +70,10 @@ app.get('/admin-fotos-1234', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'admin-fotos.html'));
 });
 
+app.get('/admin-produtos', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'produto', 'admin-produtos.html'));
+});
+
 app.get('/frete', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'frete-bot.html'));
 });
