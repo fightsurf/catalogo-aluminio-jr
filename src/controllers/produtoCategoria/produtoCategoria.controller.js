@@ -21,10 +21,19 @@ async function buscar(req, res) {
 
 async function criar(req, res) {
   try {
-    const dados = await service.criar(req.body);
-    res.status(201).json({ success: true, data: dados });
+
+    const resultado = await produtoCategoriaService.criar(req.body);
+
+    return res.status(201).json({
+      success: true,
+      data: resultado
+    });
+
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
   }
 }
 
