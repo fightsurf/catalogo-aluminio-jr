@@ -24,6 +24,9 @@ app.use(express.urlencoded({ extended: true }));
 // 📦 ROTAS DE PÁGINAS (VIEWS)
 // =====================================================
 
+const migracaoRoutes = require('./src/routes/migracao.routes');
+app.use('/api', migracaoRoutes);
+
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'catalogo.html'));
 });
