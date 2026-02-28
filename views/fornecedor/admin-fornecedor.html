@@ -3,57 +3,143 @@
 <head>
   <meta charset="UTF-8">
   <title>Admin Fornecedores - Alumínio JR</title>
+
   <style>
-    body { font-family: Arial; padding: 30px; background: #f4f6f9; }
-    .container { max-width: 900px; margin: auto; }
-    .box { background: #fff; padding: 20px; margin-bottom: 20px; border-radius: 8px; }
-    input, select, button {
-      width: 100%;
-      padding: 8px;
-      margin-bottom: 10px;
+    body {
+      font-family: Arial, sans-serif;
+      background: #eef2f7;
+      padding: 30px;
     }
+
+    .container {
+      max-width: 1100px;
+      margin: auto;
+    }
+
+    h2 {
+      margin-top: 0;
+      color: #333;
+    }
+
+    .box {
+      background: #fff;
+      padding: 25px;
+      margin-bottom: 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 15px;
+    }
+
+    .full {
+      grid-column: span 2;
+    }
+
+    input, select, button {
+      padding: 10px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+    }
+
+    button {
+      cursor: pointer;
+      font-weight: bold;
+      border: none;
+    }
+
+    .btn-salvar {
+      background: #2ecc71;
+      color: #fff;
+    }
+
+    .btn-editar {
+      background: #f39c12;
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 5px;
+    }
+
+    .btn-excluir {
+      background: #e74c3c;
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 5px;
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
+      margin-top: 15px;
     }
-    th, td {
-      border: 1px solid #ddd;
-      padding: 8px;
+
+    th {
+      background: #2c3e50;
+      color: #fff;
+      padding: 10px;
+      text-align: left;
     }
-    button { cursor: pointer; }
+
+    td {
+      padding: 10px;
+      border-bottom: 1px solid #eee;
+    }
+
+    tr:hover {
+      background: #f9f9f9;
+    }
+
     #cidadeResultados {
       max-height: 150px;
       overflow-y: auto;
       display: none;
     }
-    .btn-editar { background: orange; color: #fff; border: none; }
-    .btn-excluir { background: red; color: #fff; border: none; }
-    .btn-salvar { background: green; color: #fff; border: none; }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+    }
+
   </style>
 </head>
+
 <body>
 <div class="container">
 
+  <!-- FORM -->
   <div class="box">
     <h2 id="tituloForm">Novo Fornecedor</h2>
 
     <input type="hidden" id="fornecedor_id">
 
-    <input type="text" id="nome" placeholder="Nome" required>
-    <input type="text" id="contato" placeholder="Contato Principal" required>
-    <input type="text" id="telefone" placeholder="Telefone" required>
+    <div class="grid">
+      <input type="text" id="nome" placeholder="Nome" required>
+      <input type="text" id="contato" placeholder="Contato Principal" required>
 
-    <input type="text" id="cidadeBusca" placeholder="Digite a cidade" required>
-    <select id="cidadeResultados" size="5"></select>
-    <input type="hidden" id="cidade_id">
+      <input type="text" id="telefone" placeholder="Telefone" required>
 
-    <button class="btn-salvar" onclick="salvar()">Salvar</button>
+      <div>
+        <input type="text" id="cidadeBusca" placeholder="Digite a cidade" required>
+        <select id="cidadeResultados" size="5"></select>
+        <input type="hidden" id="cidade_id">
+      </div>
+
+      <button class="btn-salvar full" onclick="salvar()">Salvar</button>
+    </div>
   </div>
 
+  <!-- LISTA -->
   <div class="box">
-    <h2>Lista</h2>
-    <input type="text" id="filtroNome" placeholder="Buscar por nome">
-    <button onclick="listar()">Buscar</button>
+    <h2>Fornecedores</h2>
+
+    <div style="display:flex; gap:10px;">
+      <input type="text" id="filtroNome" placeholder="Buscar por nome">
+      <button onclick="listar()">Buscar</button>
+    </div>
 
     <table>
       <thead>
@@ -62,6 +148,7 @@
           <th>Nome</th>
           <th>Contato</th>
           <th>Telefone</th>
+          <th>Cidade</th>
           <th>Ações</th>
         </tr>
       </thead>
@@ -75,7 +162,7 @@
 const API = '/api/fornecedores';
 
 // ===============================
-// LISTAR
+// LISTAR COM CIDADE
 // ===============================
 async function listar() {
   const nome = document.getElementById('filtroNome').value;
@@ -85,24 +172,32 @@ async function listar() {
   const tbody = document.getElementById('tabela');
   tbody.innerHTML = '';
 
-  data.forEach(f => {
+  for (const f of data) {
+
+    // 🔥 buscar cidade pelo id
+    const cidadeRes = await fetch(`/api/logistica/cidades/id/${f.cidade_id}`);
+    const cidade = await cidadeRes.json();
+
     tbody.innerHTML += `
       <tr>
         <td>${f.id}</td>
         <td>${f.nome}</td>
         <td>${f.contato_principal}</td>
         <td>${f.telefone}</td>
+        <td>${cidade ? cidade.nome + ' - ' + cidade.estado : ''}</td>
         <td>
-          <button class="btn-editar" onclick="editar(${f.id})">Editar</button>
-          <button class="btn-excluir" onclick="deletar(${f.id})">Excluir</button>
+          <div class="actions">
+            <button class="btn-editar" onclick="editar(${f.id})">Editar</button>
+            <button class="btn-excluir" onclick="deletar(${f.id})">Excluir</button>
+          </div>
         </td>
       </tr>
     `;
-  });
+  }
 }
 
 // ===============================
-// EDITAR (PROFISSIONAL)
+// EDITAR
 // ===============================
 async function editar(id) {
 
@@ -115,7 +210,6 @@ async function editar(id) {
   document.getElementById('telefone').value = fornecedor.telefone;
   document.getElementById('cidade_id').value = fornecedor.cidade_id;
 
-  // 🔥 Busca cidade pelo ID real
   const cidadeRes = await fetch(`/api/logistica/cidades/id/${fornecedor.cidade_id}`);
   const cidade = await cidadeRes.json();
 
@@ -128,7 +222,7 @@ async function editar(id) {
 }
 
 // ===============================
-// SALVAR (POST ou PUT)
+// SALVAR
 // ===============================
 async function salvar() {
 
@@ -165,16 +259,12 @@ async function salvar() {
 }
 
 // ===============================
-// DELETE
-// ===============================
 async function deletar(id) {
+  if (!confirm("Tem certeza que deseja excluir?")) return;
   await fetch(`${API}/${id}`, { method: 'DELETE' });
   listar();
 }
 
-// ===============================
-// LIMPAR FORM
-// ===============================
 function limparFormulario() {
   document.getElementById('fornecedor_id').value = '';
   document.getElementById('nome').value = '';
