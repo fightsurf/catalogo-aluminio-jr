@@ -129,14 +129,14 @@ button:hover { background: #000; }
 <div id="categorias" class="section active">
 
   <div class="card">
-    <h3>Nova Categoria</h3>
+    <h3>Nova / Editar Categoria</h3>
     <div class="form-grid">
       <div>
         <label>Nome</label>
         <input type="text" id="novaCategoriaNome">
       </div>
       <div class="button-area">
-        <button onclick="criarCategoria()">Salvar</button>
+        <button onclick="salvarCategoria()">Salvar</button>
       </div>
     </div>
   </div>
@@ -212,6 +212,7 @@ button:hover { background: #000; }
 let categorias = [];
 let produtos = [];
 let produtoEditando = null;
+let categoriaEditando = null;
 
 function trocarTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -229,7 +230,6 @@ function trocarTab(tab) {
 async function api(url, method='GET', body=null) {
   const options = { method, headers: { 'Content-Type': 'application/json' } };
   if (body) options.body = JSON.stringify(body);
-
   const r = await fetch(url, options);
   return r.json();
 }
@@ -247,7 +247,10 @@ async function carregarCategorias() {
     lista.innerHTML += `
       <div class="lista-item">
         <span>${c.nome}</span>
-        <button onclick="excluirCategoria(${c.id})">Excluir</button>
+        <div class="lista-acoes">
+          <button onclick="editarCategoria(${c.id})">Editar</button>
+          <button onclick="excluirCategoria(${c.id})">Excluir</button>
+        </div>
       </div>
     `;
   });
@@ -264,11 +267,23 @@ async function carregarCategorias() {
   });
 }
 
-async function criarCategoria() {
+function editarCategoria(id) {
+  const c = categorias.find(c => c.id === id);
+  categoriaEditando = id;
+  document.getElementById('novaCategoriaNome').value = c.nome;
+}
+
+async function salvarCategoria() {
   const nome = document.getElementById('novaCategoriaNome').value;
   if (!nome) return;
 
-  await api('/api/produtos-categorias', 'POST', { nome });
+  if (categoriaEditando) {
+    await api(`/api/produtos-categorias/${categoriaEditando}`, 'PUT', { nome });
+  } else {
+    await api('/api/produtos-categorias', 'POST', { nome });
+  }
+
+  categoriaEditando = null;
   document.getElementById('novaCategoriaNome').value = '';
   carregarCategorias();
 }
@@ -352,12 +367,7 @@ function editarProduto(id) {
 
 async function toggleAtivo(id) {
   const p = produtos.find(p => p.id === id);
-
-  await api(`/api/produtos/${id}`, 'PUT', {
-    ...p,
-    ativo: !p.ativo
-  });
-
+  await api(`/api/produtos/${id}`, 'PUT', { ...p, ativo: !p.ativo });
   carregarProdutos();
 }
 
