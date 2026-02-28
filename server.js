@@ -12,11 +12,13 @@ const fornecedorRoutes = require('./src/routes/fornecedor/fornecedor.routes');
 const produtoRoutes = require('./src/routes/produto/produto.routes');
 
 const app = express();
+const produtoCategoriaRoutes = require('./src/routes/produtoCategoria/produtoCategoria.routes');
+
 
 // =====================================================
 // 🔧 MIDDLEWARES
 // =====================================================
-
+app.use('/api/produtos-categorias', produtoCategoriaRoutes);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
