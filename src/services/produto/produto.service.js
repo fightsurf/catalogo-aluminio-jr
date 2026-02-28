@@ -31,7 +31,7 @@ async function listar(filtros = {}) {
     query += ` AND p.ativo = true`;
   }
 
-  query += ` ORDER BY c.nome, p.nome`;
+  query += ` ORDER BY p.nome ASC`;
 
   const result = await pool.query(query, values);
 
