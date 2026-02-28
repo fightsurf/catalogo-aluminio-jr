@@ -37,13 +37,8 @@ h1 {
   color: #fff;
 }
 
-.section {
-  display: none;
-}
-
-.section.active {
-  display: block;
-}
+.section { display: none; }
+.section.active { display: block; }
 
 .card {
   background: #fff;
@@ -53,12 +48,7 @@ h1 {
   border-radius: 6px;
 }
 
-h3 {
-  margin-top: 0;
-  margin-bottom: 15px;
-}
-
-/* ===== FORM GRID ===== */
+h3 { margin-top: 0; margin-bottom: 15px; }
 
 .form-grid {
   display: grid;
@@ -96,16 +86,13 @@ button {
   background: #222;
   color: #fff;
   border: none;
-  padding: 8px 16px;
+  padding: 7px 14px;
   border-radius: 4px;
   cursor: pointer;
+  font-size: 13px;
 }
 
-button:hover {
-  background: #000;
-}
-
-/* ===== LISTA ===== */
+button:hover { background: #000; }
 
 .lista-item {
   display: flex;
@@ -113,10 +100,18 @@ button:hover {
   align-items: center;
   padding: 10px 0;
   border-bottom: 1px solid #eee;
+  font-size: 14px;
 }
 
-.lista-item span {
-  font-size: 14px;
+.lista-acoes {
+  display: flex;
+  gap: 6px;
+}
+
+.filtro-area {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
 }
 </style>
 </head>
@@ -137,7 +132,7 @@ button:hover {
     <h3>Nova Categoria</h3>
     <div class="form-grid">
       <div>
-        <label>Nome da Categoria</label>
+        <label>Nome</label>
         <input type="text" id="novaCategoriaNome">
       </div>
       <div class="button-area">
@@ -158,7 +153,7 @@ button:hover {
 <div id="produtos" class="section">
 
   <div class="card">
-    <h3>Novo Produto</h3>
+    <h3>Novo / Editar Produto</h3>
 
     <div class="form-grid">
 
@@ -193,7 +188,7 @@ button:hover {
       </div>
 
       <div class="button-area">
-        <button onclick="criarProduto()">Salvar Produto</button>
+        <button onclick="salvarProduto()">Salvar Produto</button>
       </div>
 
     </div>
@@ -201,6 +196,12 @@ button:hover {
 
   <div class="card">
     <h3>Lista de Produtos</h3>
+
+    <div class="filtro-area">
+      <input type="text" id="buscaNome" placeholder="Buscar por nome..." oninput="renderProdutos()">
+      <select id="filtroCategoria" onchange="renderProdutos()"></select>
+    </div>
+
     <div id="listaProdutos"></div>
   </div>
 
@@ -210,6 +211,7 @@ button:hover {
 
 let categorias = [];
 let produtos = [];
+let produtoEditando = null;
 
 function trocarTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -224,87 +226,97 @@ function trocarTab(tab) {
   }
 }
 
-async function apiGet(url) {
-  const r = await fetch(url);
-  const j = await r.json();
-  if (!j.success) throw new Error(j.message);
-  return j.data;
-}
+async function api(url, method='GET', body=null) {
+  const options = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) options.body = JSON.stringify(body);
 
-async function apiPost(url, body) {
-  const r = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
-  });
-  return r.json();
-}
-
-async function apiDelete(url) {
-  const r = await fetch(url, { method: 'DELETE' });
+  const r = await fetch(url, options);
   return r.json();
 }
 
 /* ================= CATEGORIAS ================= */
 
 async function carregarCategorias() {
-  categorias = await apiGet('/api/produtos-categorias');
+  const res = await api('/api/produtos-categorias');
+  categorias = res.data;
 
   const lista = document.getElementById('listaCategorias');
   lista.innerHTML = '';
 
   categorias.forEach(c => {
-    const div = document.createElement('div');
-    div.className = 'lista-item';
-    div.innerHTML = `
-      <span>${c.nome}</span>
-      <button onclick="excluirCategoria(${c.id})">Excluir</button>
+    lista.innerHTML += `
+      <div class="lista-item">
+        <span>${c.nome}</span>
+        <button onclick="excluirCategoria(${c.id})">Excluir</button>
+      </div>
     `;
-    lista.appendChild(div);
   });
 
   const select = document.getElementById('produtoCategoria');
+  const filtro = document.getElementById('filtroCategoria');
+
   select.innerHTML = '';
+  filtro.innerHTML = '<option value="">Todas Categorias</option>';
+
   categorias.forEach(c => {
     select.innerHTML += `<option value="${c.id}">${c.nome}</option>`;
+    filtro.innerHTML += `<option value="${c.id}">${c.nome}</option>`;
   });
 }
 
 async function criarCategoria() {
   const nome = document.getElementById('novaCategoriaNome').value;
-  if (!nome) return alert('Digite o nome');
+  if (!nome) return;
 
-  await apiPost('/api/produtos-categorias', { nome });
+  await api('/api/produtos-categorias', 'POST', { nome });
   document.getElementById('novaCategoriaNome').value = '';
   carregarCategorias();
 }
 
 async function excluirCategoria(id) {
-  const r = await apiDelete(`/api/produtos-categorias/${id}`);
-  if (!r.success) return alert(r.message);
+  await api(`/api/produtos-categorias/${id}`, 'DELETE');
   carregarCategorias();
 }
 
 /* ================= PRODUTOS ================= */
 
 async function carregarProdutos() {
-  produtos = await apiGet('/api/produtos');
+  const res = await api('/api/produtos');
+  produtos = res.data;
+  renderProdutos();
+}
 
+function renderProdutos() {
   const lista = document.getElementById('listaProdutos');
   lista.innerHTML = '';
 
-  produtos.forEach(p => {
-    const div = document.createElement('div');
-    div.className = 'lista-item';
-    div.innerHTML = `
-      <span>${p.nome} — R$ ${Number(p.preco).toFixed(2)} — ${p.categoria} — ${p.ativo ? 'Ativo' : 'Inativo'}</span>
-      <button onclick="excluirProduto(${p.id})">Excluir</button>
-    `;
-    lista.appendChild(div);
-  });
+  const busca = document.getElementById('buscaNome').value.toLowerCase();
+  const filtroCat = document.getElementById('filtroCategoria').value;
+
+  produtos
+    .filter(p =>
+      (!busca || p.nome.toLowerCase().includes(busca)) &&
+      (!filtroCat || p.categoria_id == filtroCat)
+    )
+    .forEach(p => {
+      lista.innerHTML += `
+        <div class="lista-item">
+          <span>
+            ${p.nome} — R$ ${Number(p.preco).toFixed(2)} — ${p.categoria} — ${p.ativo ? 'Ativo' : 'Inativo'}
+          </span>
+          <div class="lista-acoes">
+            <button onclick="editarProduto(${p.id})">Editar</button>
+            <button onclick="toggleAtivo(${p.id})">
+              ${p.ativo ? 'Desativar' : 'Ativar'}
+            </button>
+            <button onclick="excluirProduto(${p.id})">Excluir</button>
+          </div>
+        </div>
+      `;
+    });
 }
 
-async function criarProduto() {
+async function salvarProduto() {
   const data = {
     nome: document.getElementById('produtoNome').value,
     preco: Number(document.getElementById('produtoPreco').value),
@@ -314,18 +326,53 @@ async function criarProduto() {
     ativo: document.getElementById('produtoAtivo').checked
   };
 
-  await apiPost('/api/produtos', data);
+  if (produtoEditando) {
+    await api(`/api/produtos/${produtoEditando}`, 'PUT', data);
+  } else {
+    await api('/api/produtos', 'POST', data);
+  }
 
-  document.getElementById('produtoNome').value = '';
-  document.getElementById('produtoPreco').value = '';
-  document.getElementById('produtoFoto').value = '';
+  limparFormulario();
+  carregarProdutos();
+}
+
+function editarProduto(id) {
+  const p = produtos.find(p => p.id === id);
+  produtoEditando = id;
+
+  document.getElementById('produtoNome').value = p.nome;
+  document.getElementById('produtoPreco').value = p.preco;
+  document.getElementById('produtoCategoria').value = p.categoria_id;
+  document.getElementById('produtoFoto').value = p.foto;
+  document.getElementById('produtoCaixa').value = p.capacidade_caixa;
+  document.getElementById('produtoAtivo').checked = p.ativo;
+
+  trocarTab('produtos');
+}
+
+async function toggleAtivo(id) {
+  const p = produtos.find(p => p.id === id);
+
+  await api(`/api/produtos/${id}`, 'PUT', {
+    ...p,
+    ativo: !p.ativo
+  });
 
   carregarProdutos();
 }
 
 async function excluirProduto(id) {
-  await apiDelete(`/api/produtos/${id}`);
+  await api(`/api/produtos/${id}`, 'DELETE');
   carregarProdutos();
+}
+
+function limparFormulario() {
+  produtoEditando = null;
+  document.getElementById('produtoNome').value = '';
+  document.getElementById('produtoPreco').value = '';
+  document.getElementById('produtoFoto').value = '';
+  document.getElementById('produtoCaixa').value = 1;
+  document.getElementById('produtoAtivo').checked = true;
 }
 
 carregarCategorias();
