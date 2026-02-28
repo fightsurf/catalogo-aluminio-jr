@@ -1,4 +1,3 @@
-
 const service = require('../../services/produtoCategoria/produtoCategoria.service');
 
 async function listar(req, res) {
@@ -22,7 +21,7 @@ async function buscar(req, res) {
 async function criar(req, res) {
   try {
 
-    const resultado = await produtoCategoriaService.criar(req.body);
+    const resultado = await service.criar(req.body);
 
     return res.status(201).json({
       success: true,
