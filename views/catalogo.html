@@ -116,7 +116,7 @@ async function carregarCatalogo() {
 
       // 🔢 Ordena por ID crescente
       porCategoria[cat].sort((a, b) =>
-        a.id - b.id
+        Number(a.id) - Number(b.id)
       );
 
       const bloco = document.createElement('div');
