@@ -10,17 +10,27 @@ const logisticaRoutes = require('./src/routes/logisticaRoutes');
 const funcionarioRoutes = require('./src/routes/funcionario/funcionario.routes');
 const fornecedorRoutes = require('./src/routes/fornecedor/fornecedor.routes');
 const produtoRoutes = require('./src/routes/produto/produto.routes');
-
-const app = express();
 const produtoCategoriaRoutes = require('./src/routes/produtoCategoria/produtoCategoria.routes');
 
+const app = express();
 
 // =====================================================
-// 🔧 MIDDLEWARES
+// 🔧 MIDDLEWARES (SEMPRE ANTES DAS ROTAS)
 // =====================================================
-app.use('/api/produtos-categorias', produtoCategoriaRoutes);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// =====================================================
+// 📡 APIs (ROTAS DO BACKEND)
+// =====================================================
+
+app.use('/api/produtos-categorias', produtoCategoriaRoutes);
+app.use('/api/produtos', produtoRoutes);
+app.use('/api/transportadoras', transportadorasRoutes);
+app.use('/api/logistica', logisticaRoutes);
+app.use('/api/funcionarios', funcionarioRoutes);
+app.use('/api/fornecedores', fornecedorRoutes);
 
 // =====================================================
 // 📦 ROTAS DE PÁGINAS (VIEWS)
@@ -36,6 +46,10 @@ app.get('/catalogo-celular', (req, res) => {
 
 app.get('/admin-1234', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'admin.html'));
+});
+
+app.get('/admin-produtos', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'produto', 'admin-produtos.html'));
 });
 
 app.get('/kits-feirinha', (req, res) => {
@@ -70,32 +84,9 @@ app.get('/admin-fotos-1234', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'admin-fotos.html'));
 });
 
-app.get('/admin-produtos', (req, res) => {
-  res.sendFile(path.join(__dirname, 'views', 'produto', 'admin-produtos.html'));
-});
-
 app.get('/frete', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'frete-bot.html'));
 });
-
-// =====================================================
-// 📡 APIs
-// =====================================================
-
-// 🔥 PRODUTOS (100% BANCO)
-app.use('/api/produtos', produtoRoutes);
-
-// Transportadoras
-app.use('/api/transportadoras', transportadorasRoutes);
-
-// Logística
-app.use('/api/logistica', logisticaRoutes);
-
-// Funcionários
-app.use('/api/funcionarios', funcionarioRoutes);
-
-// Fornecedores
-app.use('/api/fornecedores', fornecedorRoutes);
 
 // =====================================================
 // 🚀 SERVER
