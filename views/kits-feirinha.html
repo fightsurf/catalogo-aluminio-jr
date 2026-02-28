@@ -153,7 +153,16 @@ async function carregarProdutos() {
     const container = document.getElementById('lista');
     container.innerHTML = '';
 
-    Object.keys(porCategoria).forEach(cat => {
+    // 1️⃣ PRIMEIRO: Ordena as CATEGORIAS pelo menor ID
+    const categoriasOrdenadas = Object.keys(porCategoria).sort((catA, catB) => {
+      const idMinA = porCategoria[catA].reduce((min, p) => Math.min(min, Number(p.id)), Infinity);
+      const idMinB = porCategoria[catB].reduce((min, p) => Math.min(min, Number(p.id)), Infinity);
+      return idMinA - idMinB;
+    });
+
+    // 2️⃣ DEPOIS: Processa as categorias em ordem crescente
+    categoriasOrdenadas.forEach(cat => {
+      // 🔤 Ordena os produtos ALFABETICAMENTE
       porCategoria[cat].sort((a, b) =>
         a.nome.localeCompare(b.nome, 'pt-BR')
       );
