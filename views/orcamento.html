@@ -71,7 +71,6 @@
       text-align: center;
     }
 
-    /* PAINEL */
     .painel {
       position: fixed;
       bottom: 0;
@@ -119,57 +118,82 @@
 <script>
 let produtos = [];
 
+async function apiGet(url) {
+  const response = await fetch(url);
+  const json = await response.json();
+
+  if (!json.success) {
+    throw new Error(json.message || 'Erro na API');
+  }
+
+  return json.data;
+}
+
 async function carregarProdutos() {
-  const res = await fetch('/api/produtos');
-  produtos = await res.json();
+  try {
+    produtos = await apiGet('/api/produtos');
 
-  const porCategoria = {};
+    const porCategoria = {};
 
-  produtos.forEach(p => {
-    if (!porCategoria[p.categoria]) porCategoria[p.categoria] = [];
-    porCategoria[p.categoria].push(p);
-  });
-
-  const container = document.getElementById('lista');
-
-  Object.keys(porCategoria).forEach(cat => {
-    porCategoria[cat].sort((a, b) => a.nome.localeCompare(b.nome));
-
-    const bloco = document.createElement('div');
-    bloco.className = 'categoria';
-    bloco.innerHTML = `<h2>${cat}</h2>`;
-
-    porCategoria[cat].forEach(p => {
-      const foto = p.foto?.trim()
-        ? p.foto
-        : 'https://via.placeholder.com/100x100?text=Sem+Foto';
-
-      const div = document.createElement('div');
-      div.className = 'produto';
-
-      div.innerHTML = `
-        <input type="checkbox" class="chk" data-id="${p.id}" onchange="atualizarResumo()">
-        <img src="${foto}">
-        <div class="info">
-          <strong>${p.nome}</strong>
-          R$ ${p.preco.toFixed(2).replace('.', ',')}
-        </div>
-        <div class="controles">
-          <span>Qtd</span>
-          <input type="number" min="1" value="1"
-            class="qtd"
-            data-id="${p.id}"
-            onchange="
-              document.querySelector('.chk[data-id=${p.id}]').checked = true;
-              atualizarResumo();
-            ">
-        </div>
-      `;
-      bloco.appendChild(div);
+    produtos.forEach(p => {
+      const categoria = p.categoria || 'SEM CATEGORIA';
+      if (!porCategoria[categoria]) porCategoria[categoria] = [];
+      porCategoria[categoria].push(p);
     });
 
-    container.appendChild(bloco);
-  });
+    const container = document.getElementById('lista');
+    container.innerHTML = '';
+
+    Object.keys(porCategoria).forEach(cat => {
+      porCategoria[cat].sort((a, b) =>
+        a.nome.localeCompare(b.nome, 'pt-BR')
+      );
+
+      const bloco = document.createElement('div');
+      bloco.className = 'categoria';
+      bloco.innerHTML = `<h2>${cat}</h2>`;
+
+      porCategoria[cat].forEach(p => {
+
+        const foto = p.foto && p.foto.trim()
+          ? p.foto
+          : 'https://via.placeholder.com/100x100?text=Sem+Foto';
+
+        const preco = Number(p.preco);
+
+        const div = document.createElement('div');
+        div.className = 'produto';
+
+        div.innerHTML = `
+          <input type="checkbox" class="chk" data-id="${p.id}" onchange="atualizarResumo()">
+          <img src="${foto}">
+          <div class="info">
+            <strong>${p.nome}</strong>
+            R$ ${preco.toFixed(2).replace('.', ',')}
+          </div>
+          <div class="controles">
+            <span>Qtd</span>
+            <input type="number" min="1" value="1"
+              class="qtd"
+              data-id="${p.id}"
+              onchange="
+                document.querySelector('.chk[data-id=&quot;${p.id}&quot;]').checked = true;
+                atualizarResumo();
+              ">
+          </div>
+        `;
+
+        bloco.appendChild(div);
+      });
+
+      container.appendChild(bloco);
+    });
+
+  } catch (error) {
+    console.error('Erro ao carregar produtos:', error);
+    document.getElementById('lista').innerHTML =
+      '<p style="color:red;text-align:center;">Erro ao carregar produtos.</p>';
+  }
 }
 
 function atualizarResumo() {
@@ -178,12 +202,12 @@ function atualizarResumo() {
 
   document.querySelectorAll('.chk:checked').forEach(chk => {
     const id = chk.dataset.id;
-    const produto = produtos.find(p => p.id === id);
+    const produto = produtos.find(p => String(p.id) === id);
     const qtd = Number(document.querySelector(`.qtd[data-id="${id}"]`).value);
 
     if (!produto || qtd <= 0) return;
 
-    total += produto.preco * qtd;
+    total += Number(produto.preco) * qtd;
     totalItens += qtd;
   });
 
@@ -200,17 +224,18 @@ function enviarWhatsApp() {
 
   document.querySelectorAll('.chk:checked').forEach(chk => {
     const id = chk.dataset.id;
-    const produto = produtos.find(p => p.id === id);
+    const produto = produtos.find(p => String(p.id) === id);
     const qtd = Number(document.querySelector(`.qtd[data-id="${id}"]`).value);
 
     if (!produto || qtd <= 0) return;
 
-    const subtotal = produto.preco * qtd;
+    const preco = Number(produto.preco);
+    const subtotal = preco * qtd;
     total += subtotal;
 
     linhas.push(
       `• ${produto.nome}\n` +
-      `  R$ ${produto.preco.toFixed(2).replace('.', ',')} × ${qtd} = *R$ ${subtotal.toFixed(2).replace('.', ',')}*`
+      `  R$ ${preco.toFixed(2).replace('.', ',')} × ${qtd} = *R$ ${subtotal.toFixed(2).replace('.', ',')}*`
     );
   });
 
