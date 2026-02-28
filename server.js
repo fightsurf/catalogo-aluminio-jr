@@ -11,6 +11,7 @@ const funcionarioRoutes = require('./src/routes/funcionario/funcionario.routes')
 const fornecedorRoutes = require('./src/routes/fornecedor/fornecedor.routes');
 const produtoRoutes = require('./src/routes/produto/produto.routes');
 const produtoCategoriaRoutes = require('./src/routes/produtoCategoria/produtoCategoria.routes');
+const volumeRoutes = require('./src/routes/volume/volume.routes');
 
 const app = express();
 
@@ -31,6 +32,7 @@ app.use('/api/transportadoras', transportadorasRoutes);
 app.use('/api/logistica', logisticaRoutes);
 app.use('/api/funcionarios', funcionarioRoutes);
 app.use('/api/fornecedores', fornecedorRoutes);
+app.use('/api/volume', volumeRoutes);
 
 // =====================================================
 // 📦 ROTAS DE PÁGINAS (VIEWS)
