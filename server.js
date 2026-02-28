@@ -90,6 +90,10 @@ app.get('/frete', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'frete-bot.html'));
 });
 
+app.get('/calcular-volumes', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'volume', 'volume.html'));
+});
+
 // =====================================================
 // 🚀 SERVER
 // =====================================================
