@@ -1,7 +1,8 @@
 const pool = require('../../../db/connection');
 
-async function listar() {
-  const result = await pool.query(`
+async function listar(filtros = {}) {
+
+  let query = `
     SELECT 
       p.id,
       p.nome,
@@ -14,8 +15,25 @@ async function listar() {
     FROM produtos p
     LEFT JOIN produtos_categorias c 
       ON p.categoria_id = c.id
-    ORDER BY c.nome, p.nome
-  `);
+    WHERE 1=1
+  `;
+
+  const values = [];
+
+  // 🔎 Busca por nome
+  if (filtros.busca) {
+    values.push(`%${filtros.busca}%`);
+    query += ` AND p.nome ILIKE $${values.length}`;
+  }
+
+  // ✅ Apenas ativos (para bot e catálogo)
+  if (filtros.apenasAtivos) {
+    query += ` AND p.ativo = true`;
+  }
+
+  query += ` ORDER BY c.nome, p.nome`;
+
+  const result = await pool.query(query, values);
 
   return result.rows;
 }
