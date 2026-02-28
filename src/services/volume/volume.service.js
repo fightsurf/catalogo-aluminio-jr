@@ -2,12 +2,14 @@ const pool = require('../../../db/connection');
 
 // Normalizar texto (remover emojis, caracteres especiais, etc)
 function normalizarTexto(texto) {
-  return texto
+  return (texto || '')
+    // Remover caracteres invisíveis comuns do WhatsApp / cópia
+    .replace(/\uFFFD/g, '')
     // Converter • em quebras de linha PRIMEIRO
     .replace(/•/g, '\n')
-    // Remover emojis
-    .replace(/[000}-\u{1FFFF}]/gu, '')
-    .replace(/[600}-\u{27BF}]/gu, '')
+    // Remover emojis (faixas comuns)
+    .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')
+    .replace(/[\u{2600}-\u{27BF}]/gu, '')
     // Remover caracteres de formatação
     .replace(/[*_~]/g, '')
     // Limpar múltiplos espaços
@@ -26,10 +28,18 @@ function extrairItens(texto) {
   const linhas = normalizado.split('\n');
 
   for (const linha of linhas) {
-    // FORMATO ORÇAMENTO: contém ×
-    if (linha.includes('×')) {
-      const partes = linha.split('×');
-      const esquerda = partes[0];
+    const l = (linha || '').toLowerCase();
+
+    // Ignorar cabeçalhos e totais do orçamento
+    if (l.includes('orçamento') || l.includes('orcamento') || l.includes('valor total')) {
+      continue;
+    }
+
+    // FORMATO ORÇAMENTO: contém × (ou x/X)
+    if (linha.includes('×') || /\sx\s/i.test(linha)) {
+      // Separar nome e quantidade
+      const partes = linha.includes('×') ? linha.split('×') : linha.split(/\sx\s/i);
+      const esquerda = partes[0] || '';
       const direita = partes[1] || '';
 
       // Extrair quantidade da direita
@@ -37,9 +47,9 @@ function extrairItens(texto) {
       if (!qtyMatch) continue;
       const quantidade = parseInt(qtyMatch[1]);
 
-      // Limpar nome (remover preço)
+      // Nome = tudo antes do primeiro "R$" (mais robusto)
       const nome = esquerda
-        .replace(/R\$[\s\d.,]+$/, '')
+        .split('R$')[0]
         .replace(/[,;:•]+$/, '')
         .trim();
 
@@ -63,9 +73,9 @@ function extrairItens(texto) {
       const quantidade = parseInt(kitMatch[1]);
       const nome = linha
         .replace(/\(x\d+\)/g, '')
-        .replace(/^-=\s*/, '')
+        .replace(/^-\s*/, '')
         .trim();
-      
+
       if (nome) itens.push({ nome, quantidade });
       continue;
     }
@@ -119,7 +129,7 @@ async function calcular(texto, multiplicador = 1) {
       multiplicador: multiplicador,
       quantidade_final: quantidadeFinal,
       capacidade_caixa: produto.capacidade_caixa,
-      volumes  // ← DECIMAL (ex: 1.4, 2.0)
+      volumes
     });
   }
 
