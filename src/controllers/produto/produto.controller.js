@@ -2,7 +2,13 @@ const produtoService = require('../../services/produto/produto.service');
 
 async function listar(req, res) {
     try {
-        const dados = await produtoService.listar();
+        const { busca, ativos } = req.query;
+
+        const dados = await produtoService.listar({
+            busca,
+            apenasAtivos: ativos === 'true'
+        });
+
         res.json({ success: true, data: dados });
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
