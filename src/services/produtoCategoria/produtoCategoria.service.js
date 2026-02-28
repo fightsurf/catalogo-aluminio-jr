@@ -20,25 +20,22 @@ async function buscar(id) {
   return result.rows[0];
 }
 
-async function criar(data) {
+async function criar(req, res) {
+  try {
 
-  const { nome } = data;
+    const resultado = await service.criar(req.body);
 
-  if (!nome) {
-    throw new Error('Nome é obrigatório');
+    return res.status(201).json({
+      success: true,
+      data: resultado
+    });
+
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message
+    });
   }
-
-  const query = `
-    INSERT INTO produtos_categorias (nome)
-    VALUES ($1)
-    RETURNING *;
-  `;
-
-  const values = [nome];
-
-  const result = await pool.query(query, values);
-
-  return result.rows[0];
 }
 
 async function atualizar(id, data) {
