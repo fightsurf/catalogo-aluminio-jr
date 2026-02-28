@@ -26,6 +26,17 @@
       margin-bottom: 20px;
     }
 
+    .input-group {
+      margin-bottom: 15px;
+    }
+
+    .input-group label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 5px;
+      font-size: 14px;
+    }
+
     textarea {
       width: 100%;
       box-sizing: border-box;
@@ -35,6 +46,14 @@
       padding: 10px;
       border: 1px solid #ccc;
       resize: vertical;
+    }
+
+    input[type="number"] {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 10px;
+      font-size: 14px;
+      border: 1px solid #ccc;
     }
 
     table {
@@ -107,7 +126,9 @@
 <h1>📦 Calcular Volumes – Alumínio JR</h1>
 
 <div class="card">
-  <textarea id="texto" placeholder="Cole aqui o texto do WhatsApp. Exemplos:
+  <div class="input-group">
+    <label for="texto">📝 Texto do WhatsApp (Orçamento ou Kit Feirinha)</label>
+    <textarea id="texto" placeholder="Cole aqui o texto do WhatsApp. Exemplos:
 
 Formato KIT:
 - CAÇAROLA 16 + TAMPA ALUMÍNIO (x1)
@@ -116,6 +137,12 @@ Formato KIT:
 Formato ORÇAMENTO:
 • BALDE 8L PLASTICO R$ 10,94 × 9 = *R$ 98,46*
 • CAÇAROLA 16 + TAMPA ALUMÍNIO R$ 15,00 × 3 = *R$ 45,00*"></textarea>
+  </div>
+
+  <div class="input-group">
+    <label for="multiplicador">🔢 Quantos kits/volumes? (padrão: 1)</label>
+    <input type="number" id="multiplicador" min="1" value="1" />
+  </div>
 
   <div id="erro" class="erro" style="display:none;"></div>
   <div id="resultado" style="display:none;">
@@ -123,7 +150,9 @@ Formato ORÇAMENTO:
       <thead>
         <tr>
           <th>Produto</th>
-          <th>Qtd</th>
+          <th>Qtd Original</th>
+          <th>Multiplicador</th>
+          <th>Qtd Final</th>
           <th>Caixa</th>
           <th>Volumes</th>
         </tr>
@@ -142,6 +171,7 @@ Formato ORÇAMENTO:
 <script>
 async function calcularVolumes() {
   const texto = document.getElementById('texto').value.trim();
+  const multiplicador = parseInt(document.getElementById('multiplicador').value) || 1;
   const erroEl = document.getElementById('erro');
   const resultadoEl = document.getElementById('resultado');
   const corpoEl = document.getElementById('tabela-corpo');
@@ -163,7 +193,7 @@ async function calcularVolumes() {
     const response = await fetch('/api/volume/calcular', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ texto })
+      body: JSON.stringify({ texto, multiplicador })
     });
 
     const json = await response.json();
@@ -179,16 +209,30 @@ async function calcularVolumes() {
 
     itens.forEach(item => {
       const tr = document.createElement('tr');
-      ['produto', 'quantidade', 'capacidade_caixa', 'volumes'].forEach(campo => {
+      [
+        'produto', 
+        'quantidade', 
+        'multiplicador', 
+        'quantidade_final', 
+        'capacidade_caixa', 
+        'volumes'
+      ].forEach(campo => {
         const td = document.createElement('td');
-        td.textContent = item[campo];
+        if (campo === 'volumes') {
+          td.textContent = typeof item[campo] === 'number' 
+            ? item[campo].toFixed(2) 
+            : item[campo];
+        } else {
+          td.textContent = item[campo];
+        }
         tr.appendChild(td);
       });
       corpoEl.appendChild(tr);
     });
 
     const total = Number(total_volumes) || 0;
-    resumoEl.textContent = `Total: ${total} volume${total !== 1 ? 's' : ''}`;
+    const multiplicadorText = multiplicador > 1 ? ` (${multiplicador}x)` : '';
+    resumoEl.textContent = `Total: ${total} volume${total !== 1 ? 's' : ''}${multiplicadorText}`;
     resultadoEl.style.display = 'block';
 
   } catch (err) {
@@ -199,6 +243,7 @@ async function calcularVolumes() {
 
 function limpar() {
   document.getElementById('texto').value = '';
+  document.getElementById('multiplicador').value = '1';
   document.getElementById('erro').style.display = 'none';
   document.getElementById('erro').textContent = '';
   document.getElementById('resultado').style.display = 'none';
