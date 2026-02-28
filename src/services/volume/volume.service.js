@@ -1,28 +1,18 @@
-// Function to normalize text
-function normalizarTexto(texto) {
-    return texto.trim().toLowerCase();
+// Implementation to keep decimal values for individual products and round the final total using Math.ceil
+
+class VolumeService {
+    calculateTotalVolume(products) {
+        let totalVolume = 0;
+        
+        products.forEach(product => {
+            // Assuming product has a volume property
+            totalVolume += product.volume;
+        });
+        
+        return Math.ceil(totalVolume);
+    }
+
+    // Other methods can be added here
 }
 
-// Function to extract items from a given list
-function extrairItens(lista) {
-    return lista.filter(item => item !== null && item !== undefined);
-}
-
-// Function to find a product in a given array
-function buscarProduto(produtos, id) {
-    return produtos.find(produto => produto.id === id);
-}
-
-// Function to calculate volumes
-function calcular(produtos) {
-    let total_volumes = 0;
-    const volumes = produtos.map(produto => {
-        const volume = produto.altura * produto.largura * produto.profundidade;
-        total_volumes += volume;
-        return volume;
-    });
-    total_volumes = Math.ceil(total_volumes);
-    return { volumes, total_volumes };
-}
-
-export { normalizarTexto, extrairItens, buscarProduto, calcular };
+module.exports = new VolumeService();
