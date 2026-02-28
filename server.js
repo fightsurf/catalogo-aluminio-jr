@@ -1,5 +1,3 @@
-require('dotenv').config();
-
 const express = require('express');
 const path = require('path');
 
@@ -11,7 +9,7 @@ const transportadorasRoutes = require('./src/routes/transportadorasRoutes');
 const logisticaRoutes = require('./src/routes/logisticaRoutes');
 const funcionarioRoutes = require('./src/routes/funcionario/funcionario.routes');
 const fornecedorRoutes = require('./src/routes/fornecedor/fornecedor.routes');
-const produtoRoutes = require('./src/routes/produto/produto.routes'); // 🔥 NOVO
+const produtoRoutes = require('./src/routes/produto/produto.routes');
 
 const app = express();
 
@@ -78,7 +76,7 @@ app.get('/frete', (req, res) => {
 // 📡 APIs
 // =====================================================
 
-// 🔥 PRODUTOS (AGORA 100% BANCO)
+// 🔥 PRODUTOS (100% BANCO)
 app.use('/api/produtos', produtoRoutes);
 
 // Transportadoras
