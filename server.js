@@ -52,6 +52,42 @@ app.get('/catalogo-celular', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'catalogo-celular.html'));
 });
 
+
+// 🔥 ADMIN CATÁLOGO
+app.get('/admin-1234', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'admin.html'));
+});
+
+app.post('/admin-1234', (req, res) => {
+  const texto = req.body.texto;
+
+  try {
+    const linhas = texto
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => l !== '');
+
+    const produtos = linhas.map((linha, index) => {
+      const partes = linha.split('\t'); // vindo do Excel
+
+      return {
+        id: index + 1,
+        nome: partes[0] || '',
+        preco: parseFloat((partes[1] || '0').replace(',', '.')),
+        capacidade_caixa: parseInt(partes[2] || '1')
+      };
+    });
+
+    fs.writeFileSync(DATA_PATH, JSON.stringify(produtos, null, 2));
+
+    res.redirect('/admin-1234?ok=1');
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Erro ao salvar catálogo');
+  }
+});
+
 app.get('/kits-feirinha', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'kits-feirinha.html'));
 });
@@ -84,6 +120,9 @@ app.get('/logistica-estado', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'logistica-estado.html'));
 });
 
+app.get('/admin-fotos-1234', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'admin-fotos.html'));
+});
 
 // 🔥 LOGÍSTICA CIDADE
 app.get('/frete', (req, res) => {
