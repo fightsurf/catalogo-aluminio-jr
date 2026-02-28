@@ -1,23 +1,58 @@
-// Assuming the context of the file, here is the modified logic for the specified functions:
-
 function normalizarTexto(texto) {
-    // Replace • with newlines
-    const textoComQuebras = texto.replace(/•/g, '\n');
-    // Now, remove any other unwanted characters if needed
-    // Add existing removal logic here (if any)
-    return textoComQuebras;
+  return texto
+    // Converter • em quebras de linha PRIMEIRO
+    .replace(/•/g, '\n')
+    // Remover emojis
+    .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')
+    .replace(/[\u{2600}-\u{27BF}]/gu, '')
+    // Remover caracteres de formatação
+    .replace(/[*_~]/g, '')
+    // Limpar múltiplos espaços
+    .replace(/[ \t]+/g, ' ')
+    // Trim e remover linhas vazias
+    .split('\n')
+    .map(l => l.trim())
+    .filter(l => l.length > 0)
+    .join('\n');
 }
 
 function extrairItens(texto) {
-    // Enhanced logic for extracting items from 'formato orçamento'
-    const regex = /([\w\s]+)\s*\$\s*([\d,\.]+)/g; // Adjust regex to capture product name better
-    const itensExtraidos = [];
-    let match;
-    while ((match = regex.exec(texto)) !== null) {
-        itensExtraidos.push({
-            produto: match[1].trim(),
-            preco: match[2].trim()
-        });
+  const itens = [];
+  const normalizado = normalizarTexto(texto);
+  const linhas = normalizado.split('\n');
+
+  for (const linha of linhas) {
+    // FORMATO ORÇAMENTO: contém ×
+    if (linha.includes('×')) {
+      const partes = linha.split('×');
+      const esquerda = partes[0];
+      const direita = partes[1] || '';
+
+      // Extrair quantidade da direita
+      const qtyMatch = direita.match(/(\d+)/);
+      if (!qtyMatch) continue;
+      const quantidade = parseInt(qtyMatch[1]);
+
+      // Limpar nome (remover preço)
+      const nome = esquerda
+        .replace(/R\$[\s\d.,]+$/, '') // Remove preço
+        .replace(/[,;:•]+$/, '')
+        .trim();
+
+      if (nome) itens.push({ nome, quantidade });
+      continue;
     }
-    return itensExtraidos;
+
+    // FORMATO KIT: contém +
+    if (linha.includes('+')) {
+      const produtos = linha.split('+');
+      for (const produto of produtos) {
+        const nome = produto.trim();
+        if (nome) itens.push({ nome, quantidade: 1 });
+      }
+      continue;
+    }
+  }
+
+  return itens;
 }
