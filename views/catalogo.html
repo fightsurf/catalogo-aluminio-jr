@@ -114,9 +114,9 @@ async function carregarCatalogo() {
 
     Object.keys(porCategoria).forEach(cat => {
 
-      // 🔤 Ordena alfabeticamente
+      // 🔢 Ordena por ID crescente
       porCategoria[cat].sort((a, b) =>
-        a.nome.localeCompare(b.nome, 'pt-BR')
+        a.id - b.id
       );
 
       const bloco = document.createElement('div');
