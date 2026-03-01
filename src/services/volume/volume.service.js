@@ -1,26 +1,29 @@
-function extrairItens(texto) {
-    const linhas = texto.split('\n');
-    const itens = [];
-    
-    for (let linha of linhas) {
-        // Ignorar linhas com "Orçamento" ou "Valor total"
-        if (linha.includes('Orçamento') || linha.includes('Valor total')) {
-            continue;
-        }
-        
-        // Verificar por × (orçamento format) e extrair nome do produto
-        const matchOrcamento = linha.match(/(.*?)(?:\s*R\$)/);
-        if (matchOrcamento) {
-            itens.push(matchOrcamento[1].trim());
-            continue;
-        }
-        
-        // Verificar por + (kit format) e extrair nome do produto
-        const matchKit = linha.match(/(.*?)(?:\s*R\$)/);
-        if (matchKit) {
-            itens.push(matchKit[1].trim());
-        }
-    }
-    
-    return itens;
+// Normalize Text Function
+function normalizarTexto(texto) {
+    return texto.trim().toLowerCase();
 }
+
+// Extract Items Function
+function extrairItens(produto) {
+    let itemRegex = /\b\w+\b/g;
+    return produto.match(itemRegex) || [];
+}
+
+// Product Search Function
+function buscarProduto(produtos, nomeProduto) {
+    nomeProduto = normalizarTexto(nomeProduto);
+    return produtos.find(produto => normalizarTexto(produto.nome) === nomeProduto);
+}
+
+// Calculate Function
+function calcular(preco, quantidade, tipo) {
+    if (tipo === '×') {
+        return preco * quantidade;
+    } else if (tipo === '+') {
+        return preco + quantidade;
+    }
+    throw new Error('Tipo inválido');
+}
+
+// Proper exports
+module.exports = { normalizarTexto, extrairItens, buscarProduto, calcular };
