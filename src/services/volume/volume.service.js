@@ -14,50 +14,36 @@ function normalizarTexto(texto) {
 }
 
 // ===============================
-// EXTRAI ITENS (FORMATO KIT + ORÇAMENTO)
+// EXTRAI ITENS DO TEXTO
 // ===============================
 function extrairItens(texto) {
   const itens = [];
   const normalizado = normalizarTexto(texto);
 
-  // ===============================
-  // FORMATO ORÇAMENTO
-  // Ex:
-  // • PRODUTO R$ 12,00 × 3 = R$ 36,00
-  // ===============================
+  // ORÇAMENTO
   const regexOrc = /•?\s*([^•\n]+?)\s+R\$\s*[\d.,]+\s*×\s*(\d+)/g;
-
   let match;
+
   while ((match = regexOrc.exec(normalizado)) !== null) {
     const nome = match[1].trim();
     const quantidade = parseInt(match[2]);
-
-    if (nome) {
-      itens.push({ nome, quantidade });
-    }
+    if (nome) itens.push({ nome, quantidade });
   }
 
-  // ===============================
-  // FORMATO KIT
-  // Ex:
-  // - PRODUTO (x3)
-  // ===============================
+  // KIT
   const regexKit = /-\s*(.+?)\s*\(x(\d+)\)/g;
 
   while ((match = regexKit.exec(normalizado)) !== null) {
     const nome = match[1].trim();
     const quantidade = parseInt(match[2]);
-
-    if (nome) {
-      itens.push({ nome, quantidade });
-    }
+    if (nome) itens.push({ nome, quantidade });
   }
 
   return itens;
 }
 
 // ===============================
-// BUSCA PRODUTO NO BANCO
+// BUSCA PRODUTO
 // ===============================
 async function buscarProduto(nome) {
   const result = await pool.query(
@@ -74,12 +60,20 @@ async function buscarProduto(nome) {
 }
 
 // ===============================
-// FUNÇÃO PRINCIPAL
+// CÁLCULO PRINCIPAL (MODO HÍBRIDO)
 // ===============================
-async function calcular(texto, multiplicador = 1) {
-  const itens = extrairItens(texto);
+async function calcular({ texto, itens, multiplicador = 1 }) {
 
-  if (itens.length === 0) {
+  // 🔥 Se vier JSON estruturado, usa direto
+  let listaItens = [];
+
+  if (Array.isArray(itens) && itens.length > 0) {
+    listaItens = itens;
+  } else if (texto) {
+    listaItens = extrairItens(texto);
+  }
+
+  if (!listaItens || listaItens.length === 0) {
     throw new Error('Nenhum produto encontrado no texto');
   }
 
@@ -87,7 +81,7 @@ async function calcular(texto, multiplicador = 1) {
   const resultado = [];
   let somaVolumes = 0;
 
-  for (const item of itens) {
+  for (const item of listaItens) {
     const produto = await buscarProduto(item.nome);
 
     if (!produto) {
@@ -96,9 +90,9 @@ async function calcular(texto, multiplicador = 1) {
     }
 
     const capacidade = Number(produto.capacidade_caixa);
-    const quantidadeFinal = item.quantidade * multiplicador;
+    const quantidadeFinal = Number(item.quantidade) * multiplicador;
 
-    // 🔥 REGRA: capacidade 0 = IGNORADO
+    // Capacidade 0 = IGNORADO
     if (capacidade === 0) {
       resultado.push({
         produto: produto.nome,
@@ -138,8 +132,5 @@ async function calcular(texto, multiplicador = 1) {
 }
 
 module.exports = {
-  normalizarTexto,
-  extrairItens,
-  buscarProduto,
   calcular
 };
