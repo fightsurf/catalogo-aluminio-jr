@@ -1,83 +1,64 @@
 const pool = require('../../../db/connection');
 
+// ===============================
+// NORMALIZA TEXTO
+// ===============================
 function normalizarTexto(texto) {
   return (texto || '')
     .replace(/\uFFFD/g, '')
-    .replace(/•/g, '\n')
     .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')
     .replace(/[\u{2600}-\u{27BF}]/gu, '')
     .replace(/[*_~]/g, '')
     .replace(/[ \t]+/g, ' ')
-    .split('\n')
-    .map(l => l.trim())
-    .filter(l => l.length > 0)
-    .join('\n');
+    .trim();
 }
 
+// ===============================
+// EXTRAI ITENS (FORMATO KIT + ORÇAMENTO)
+// ===============================
 function extrairItens(texto) {
   const itens = [];
   const normalizado = normalizarTexto(texto);
-  const linhas = normalizado.split('\n');
 
-  for (const linha of linhas) {
-    const l = (linha || '').toLowerCase();
+  // ===============================
+  // FORMATO ORÇAMENTO
+  // Ex:
+  // • PRODUTO R$ 12,00 × 3 = R$ 36,00
+  // ===============================
+  const regexOrc = /•?\s*([^•\n]+?)\s+R\$\s*[\d.,]+\s*×\s*(\d+)/g;
 
-    if (
-      l.includes('orçamento') ||
-      l.includes('orcamento') ||
-      l.includes('valor total')
-    ) continue;
+  let match;
+  while ((match = regexOrc.exec(normalizado)) !== null) {
+    const nome = match[1].trim();
+    const quantidade = parseInt(match[2]);
 
-    // FORMATO ORÇAMENTO (×)
-    if (linha.includes('×') || /\sx\s/i.test(linha)) {
-      const partes = linha.includes('×')
-        ? linha.split('×')
-        : linha.split(/\sx\s/i);
-
-      const esquerda = partes[0] || '';
-      const direita = partes[1] || '';
-
-      const qtyMatch = direita.match(/(\d+)/);
-      if (!qtyMatch) continue;
-
-      const quantidade = parseInt(qtyMatch[1]);
-
-      const nome = esquerda
-        .split('R$')[0]
-        .replace(/[,;:•]+$/, '')
-        .trim();
-
-      if (nome) itens.push({ nome, quantidade });
-      continue;
+    if (nome) {
+      itens.push({ nome, quantidade });
     }
+  }
 
-    // FORMATO KIT (xN)
-    const kitMatch = linha.match(/\(x(\d+)\)/);
-    if (kitMatch) {
-      const quantidade = parseInt(kitMatch[1]);
+  // ===============================
+  // FORMATO KIT
+  // Ex:
+  // - PRODUTO (x3)
+  // ===============================
+  const regexKit = /-\s*(.+?)\s*\(x(\d+)\)/g;
 
-      const nome = linha
-        .replace(/\(x\d+\)/g, '')
-        .replace(/^-/, '')
-        .trim();
+  while ((match = regexKit.exec(normalizado)) !== null) {
+    const nome = match[1].trim();
+    const quantidade = parseInt(match[2]);
 
-      if (nome) itens.push({ nome, quantidade });
-      continue;
-    }
-
-    // Fallback simples (itens separados por +)
-    if (linha.includes('+')) {
-      const produtos = linha.split('+');
-      for (const produto of produtos) {
-        const nome = produto.trim();
-        if (nome) itens.push({ nome, quantidade: 1 });
-      }
+    if (nome) {
+      itens.push({ nome, quantidade });
     }
   }
 
   return itens;
 }
 
+// ===============================
+// BUSCA PRODUTO NO BANCO
+// ===============================
 async function buscarProduto(nome) {
   const result = await pool.query(
     `
@@ -92,6 +73,9 @@ async function buscarProduto(nome) {
   return result.rows[0] || null;
 }
 
+// ===============================
+// FUNÇÃO PRINCIPAL
+// ===============================
 async function calcular(texto, multiplicador = 1) {
   const itens = extrairItens(texto);
 
@@ -114,7 +98,7 @@ async function calcular(texto, multiplicador = 1) {
     const capacidade = Number(produto.capacidade_caixa);
     const quantidadeFinal = item.quantidade * multiplicador;
 
-    // 🔥 REGRA NOVA — capacidade 0 = IGNORADO
+    // 🔥 REGRA: capacidade 0 = IGNORADO
     if (capacidade === 0) {
       resultado.push({
         produto: produto.nome,
