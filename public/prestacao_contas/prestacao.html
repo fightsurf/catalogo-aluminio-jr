@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Prestação de Contas</title>
+  <link rel="stylesheet" href="/prestacao_contas/prestacao.css" />
+</head>
+<body>
+
+  <!-- ─── TOOLBAR ──────────────────────────────────────── -->
+  <div class="toolbar">
+    <label for="sel-prestacao" style="font-size:13px;font-weight:bold;">Prestação:</label>
+    <select id="sel-prestacao">
+      <option value="">-- selecione --</option>
+    </select>
+    <button id="btn-nova">+ Nova Prestação</button>
+    <button class="btn-whatsapp" id="btn-whatsapp">📤 GERAR IMAGEM PARA WHATSAPP</button>
+  </div>
+
+  <!-- ─── PLANILHA ──────────────────────────────────────── -->
+  <div class="planilha-container" id="planilha-container" style="display:none;">
+
+    <!-- PLANILHA 1 – MATERIAIS -->
+    <div class="faixa-titulo" id="faixa-titulo">PRESTAÇÃO DE CONTAS</div>
+
+    <table id="tabela-materiais">
+      <thead>
+        <tr>
+          <th>MATERIAL</th>
+          <th>PESO (Kg)</th>
+          <th>PREÇO KG (R$)</th>
+          <th>TOTAL (R$)</th>
+          <th style="width:50px;"></th>
+        </tr>
+      </thead>
+      <tbody id="tbody-materiais">
+      </tbody>
+      <tfoot>
+        <tr class="linha-total" id="linha-total-materiais">
+          <td>TOTAL</td>
+          <td id="total-peso" class="num"></td>
+          <td></td>
+          <td id="total-material" class="num"></td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <!-- Formulário adicionar item -->
+    <div class="form-section" id="form-item">
+      <label>Material<input type="text" id="item-material" placeholder="Ex: Alumínio 6060" /></label>
+      <label>Peso (Kg)<input type="number" id="item-peso" step="0.001" min="0" /></label>
+      <label>Preço/Kg (R$)<input type="number" id="item-preco" step="0.01" min="0" /></label>
+      <button id="btn-add-item">+ Adicionar</button>
+    </div>
+
+    <div class="separador"></div>
+
+    <!-- PLANILHA 2 – PAGAMENTOS -->
+    <div class="faixa-titulo">PAGAMENTOS</div>
+
+    <table id="tabela-pagamentos">
+      <thead>
+        <tr>
+          <th>DATA</th>
+          <th>VALOR (R$)</th>
+          <th>OBSERVAÇÃO</th>
+          <th style="width:50px;"></th>
+        </tr>
+      </thead>
+      <tbody id="tbody-pagamentos">
+      </tbody>
+      <tfoot>
+        <tr class="linha-total" id="linha-total-pagamentos">
+          <td>TOTAL (R$)</td>
+          <td id="total-pago" class="num" colspan="2"></td>
+          <td></td>
+        </tr>
+        <tr class="linha-restante">
+          <td>RESTANTE (R$)</td>
+          <td id="saldo-restante" class="num" colspan="2"></td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <!-- Formulário adicionar pagamento -->
+    <div class="form-section" id="form-pagamento">
+      <label>Data<input type="date" id="pag-data" /></label>
+      <label>Valor (R$)<input type="number" id="pag-valor" step="0.01" min="0" /></label>
+      <label>Observação<input type="text" id="pag-obs" placeholder="Opcional" style="width:200px;" /></label>
+      <button id="btn-add-pag">+ Adicionar</button>
+    </div>
+
+  </div>
+
+  <script src="/prestacao_contas/prestacao.js"></script>
+</body>
+</html>
