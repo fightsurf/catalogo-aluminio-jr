@@ -131,6 +131,11 @@ tr.linha-restante td:first-child {
   height: 28px;
 }
 
+/* ─── FORMULÁRIO NOVA PRESTAÇÃO ──────────── */
+.form-nova-prestacao {
+  border-top: 1px solid #ccc;
+}
+
 /* ─── FORMULÁRIOS INLINE ─────────────────── */
 .form-section {
   background: #fff;

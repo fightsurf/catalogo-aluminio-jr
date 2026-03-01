@@ -29,8 +29,8 @@ class PrestacaoContasController {
   async criar(req, res) {
     try {
       const { titulo, data_referencia, fornecedor_id } = req.body;
-      if (!titulo || !data_referencia) {
-        return res.status(400).json({ success: false, message: 'titulo e data_referencia são obrigatórios' });
+      if (!titulo || !data_referencia || !fornecedor_id) {
+        return res.status(400).json({ success: false, message: 'titulo, data_referencia e fornecedor_id são obrigatórios' });
       }
       const data = await prestacaoContasService.criar({ titulo, data_referencia, fornecedor_id });
       return res.status(201).json({ success: true, data });
@@ -44,8 +44,8 @@ class PrestacaoContasController {
     try {
       const { id } = req.params;
       const { titulo, data_referencia, fornecedor_id } = req.body;
-      if (!titulo || !data_referencia) {
-        return res.status(400).json({ success: false, message: 'titulo e data_referencia são obrigatórios' });
+      if (!titulo || !data_referencia || !fornecedor_id) {
+        return res.status(400).json({ success: false, message: 'titulo, data_referencia e fornecedor_id são obrigatórios' });
       }
       const data = await prestacaoContasService.atualizar(id, { titulo, data_referencia, fornecedor_id });
       if (!data) return res.status(404).json({ success: false, message: 'Prestação não encontrada' });
