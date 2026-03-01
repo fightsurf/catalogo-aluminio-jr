@@ -10,12 +10,12 @@
 
   <!-- ─── TOOLBAR ──────────────────────────────────────── -->
   <div class="toolbar">
-    <label for="sel-prestacao" style="font-size:13px;font-weight:bold;">Prestação:</label>
-    <select id="sel-prestacao">
-      <option value="">-- selecione --</option>
-    </select>
     <button id="btn-nova">+ Nova Prestação</button>
     <button class="btn-whatsapp" id="btn-whatsapp">📤 GERAR IMAGEM PARA WHATSAPP</button>
+    <!-- sel-prestacao mantido no DOM para compatibilidade, substituído pelo grid abaixo -->
+    <select id="sel-prestacao" style="display:none;">
+      <option value="">-- selecione --</option>
+    </select>
   </div>
 
   <!-- ─── MENSAGEM DE FEEDBACK ──────────────────────────── -->
@@ -32,6 +32,32 @@
     </label>
     <button id="btn-confirmar-nova">Criar</button>
     <button id="btn-cancelar-nova" class="btn-secundario">Cancelar</button>
+  </div>
+
+  <!-- ─── GRID DE PRESTAÇÕES ───────────────────────────── -->
+  <div class="grid-section">
+    <div class="grid-header">
+      <span class="grid-titulo">Prestações recentes</span>
+      <label class="grid-filtro-label">Fornecedor:
+        <select id="filtro-fornecedor">
+          <option value="">Todos</option>
+        </select>
+      </label>
+    </div>
+    <table class="tabela-lista">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Título</th>
+          <th>Data Ref.</th>
+          <th>Fornecedor</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tbody-lista">
+        <tr><td colspan="5" class="msg-vazio">Carregando...</td></tr>
+      </tbody>
+    </table>
   </div>
 
   <!-- ─── PLANILHA ──────────────────────────────────────── -->

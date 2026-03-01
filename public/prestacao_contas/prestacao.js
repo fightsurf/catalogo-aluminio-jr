@@ -6,6 +6,7 @@
 const API_BASE = '/api/prestacoes';
 
 let prestacaoAtualId = null;
+let todasPrestacoes = [];
 
 // ─── FORMAT HELPERS ────────────────────────────────────────────
 
@@ -42,6 +43,7 @@ async function carregarLista() {
     const res = await fetch(API_BASE);
     const json = await res.json();
     if (!json.success) throw new Error(json.message);
+    todasPrestacoes = json.data;
     const sel = document.getElementById('sel-prestacao');
     const anteriorId = prestacaoAtualId;
     sel.innerHTML = '<option value="">-- selecione --</option>';
@@ -54,9 +56,50 @@ async function carregarLista() {
     if (anteriorId) {
       sel.value = anteriorId;
     }
+    renderizarGrid();
   } catch (e) {
     console.error('Erro ao carregar lista:', e);
   }
+}
+
+// ─── RENDERIZAR GRID DE PRESTAÇÕES ────────────────────────────
+
+function renderizarGrid() {
+  const filtroId = document.getElementById('filtro-fornecedor').value;
+  const lista = filtroId
+    ? todasPrestacoes.filter(p => String(p.fornecedor_id) === String(filtroId))
+    : todasPrestacoes;
+  const tbody = document.getElementById('tbody-lista');
+  tbody.innerHTML = '';
+  if (!lista.length) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td colspan="5" class="msg-vazio">Nenhuma prestação encontrada.</td>';
+    tbody.appendChild(tr);
+    return;
+  }
+  lista.forEach(p => {
+    const tr = document.createElement('tr');
+    if (prestacaoAtualId && String(p.id) === String(prestacaoAtualId)) {
+      tr.classList.add('linha-ativa');
+    }
+    tr.innerHTML = `
+      <td>${p.id}</td>
+      <td>${p.titulo}</td>
+      <td>${fmtData(p.data_referencia)}</td>
+      <td>${p.fornecedor_nome || '—'}</td>
+      <td style="text-align:center;"><button class="btn-selecionar">Abrir</button></td>
+    `;
+    tr.querySelector('.btn-selecionar').addEventListener('click', () => selecionarPrestacao(p.id));
+    tbody.appendChild(tr);
+  });
+}
+
+async function selecionarPrestacao(id) {
+  prestacaoAtualId = id;
+  document.getElementById('sel-prestacao').value = id;
+  renderizarGrid();
+  await carregarResumo(id);
+  document.getElementById('planilha-container').scrollIntoView({ behavior: 'smooth' });
 }
 
 // ─── CARREGAR RESUMO DA PRESTAÇÃO SELECIONADA ──────────────────
@@ -135,10 +178,23 @@ async function carregarFornecedores() {
       opt.textContent = f.nome;
       sel.appendChild(opt);
     });
+    // Also populate the grid filter
+    const filtro = document.getElementById('filtro-fornecedor');
+    const filtroAnterior = filtro.value;
+    filtro.innerHTML = '<option value="">Todos</option>';
+    lista.forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = f.id;
+      opt.textContent = f.nome;
+      filtro.appendChild(opt);
+    });
+    if (filtroAnterior) filtro.value = filtroAnterior;
   } catch (e) {
     console.error('Erro ao carregar fornecedores:', e);
   }
 }
+
+document.getElementById('filtro-fornecedor').addEventListener('change', renderizarGrid);
 
 // ─── NOVA PRESTAÇÃO – ABRIR/FECHAR FORMULÁRIO ──────────────────
 
@@ -342,3 +398,4 @@ document.getElementById('btn-whatsapp').addEventListener('click', () => {
 // ─── INIT ──────────────────────────────────────────────────────
 
 carregarLista();
+carregarFornecedores();
