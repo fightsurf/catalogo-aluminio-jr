@@ -4,177 +4,210 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Prestação de Contas</title>
+  <link rel="stylesheet" href="/css/theme.css" />
   <link rel="stylesheet" href="/prestacao_contas/prestacao.css" />
 </head>
 <body>
 
-  <!-- ─── HEADER STICKY ─────────────────────────────────── -->
-  <header class="page-header">
-    <div class="page-header-title">
-      <h1>Prestação de Contas</h1>
-      <span id="prestacao-ativa-subtitle" class="prestacao-subtitle"></span>
-    </div>
-    <div class="page-header-actions">
-      <div class="btn-group">
-        <button id="btn-nova">+ Nova Prestação</button>
-        <button class="btn-whatsapp" id="btn-whatsapp">Enviar para contato pelo zap</button>
+  <!-- ─── TOPBAR ──────────────────────────────────────────── -->
+  <header class="topbar">
+    <div class="topbar-brand">
+      <span class="topbar-icon">📊</span>
+      <div>
+        <h1 class="topbar-title">Prestação de Contas</h1>
+        <span id="prestacao-ativa-subtitle" class="topbar-subtitle"></span>
       </div>
     </div>
-    <!-- sel-prestacao mantido no DOM para compatibilidade, substituído pelo grid abaixo -->
+    <div class="topbar-actions">
+      <button id="btn-nova" class="btn-nova">＋ Nova Prestação</button>
+      <button id="btn-whatsapp" class="btn-zap">📲 WhatsApp</button>
+    </div>
+    <!-- mantido para compatibilidade com JS -->
     <select id="sel-prestacao" style="display:none;">
       <option value="">-- selecione --</option>
     </select>
   </header>
 
-  <!-- ─── MENSAGEM DE FEEDBACK ──────────────────────────── -->
+  <!-- ─── FEEDBACK ────────────────────────────────────────── -->
   <div id="msg-feedback" class="msg-feedback" style="display:none;"></div>
 
-  <!-- ─── FORMULÁRIO NOVA PRESTAÇÃO ────────────────────── -->
-  <div class="form-section form-nova-prestacao" id="form-nova" style="display:none;">
-    <label>Título<input type="text" id="nova-titulo" placeholder="Ex: Maio 2026" /></label>
-    <label>Data de Referência<input type="date" id="nova-data" /></label>
-    <label>Fornecedor
-      <select id="nova-fornecedor">
-        <option value="">-- selecione --</option>
-      </select>
-    </label>
-    <button id="btn-confirmar-nova">Criar</button>
-    <button id="btn-cancelar-nova" class="btn-secundario">Cancelar</button>
+  <!-- ─── FORM NOVA PRESTAÇÃO ─────────────────────────────── -->
+  <div id="form-nova" class="form-nova-prestacao nova-panel" style="display:none;">
+    <div class="nova-grid">
+      <label class="nova-field">
+        <span>Título</span>
+        <input type="text" id="nova-titulo" placeholder="Ex: Maio 2026" />
+      </label>
+      <label class="nova-field">
+        <span>Data de Referência</span>
+        <input type="date" id="nova-data" />
+      </label>
+      <label class="nova-field">
+        <span>Fornecedor</span>
+        <select id="nova-fornecedor">
+          <option value="">-- selecione --</option>
+        </select>
+      </label>
+    </div>
+    <div class="nova-footer">
+      <button id="btn-confirmar-nova" class="btn-criar">Criar Prestação</button>
+      <button id="btn-cancelar-nova" class="btn-secundario">Cancelar</button>
+    </div>
   </div>
 
-  <!-- ─── LAYOUT 2 COLUNAS ─────────────────────────────── -->
-  <div class="main-layout">
+  <!-- ─── SEÇÃO LISTA ──────────────────────────────────────── -->
+  <section class="page-section">
+    <div class="section-head">
+      <h2 class="section-title grid-titulo">Prestações</h2>
+      <label class="grid-filtro-label filter-wrap">
+        <span>Fornecedor:</span>
+        <select id="filtro-fornecedor">
+          <option value="">Todos</option>
+        </select>
+      </label>
+    </div>
+    <div class="table-scroll">
+      <table class="tabela-lista">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Título</th>
+            <th>Data Ref.</th>
+            <th>Fornecedor</th>
+            <th style="width:90px;"></th>
+          </tr>
+        </thead>
+        <tbody id="tbody-lista">
+          <tr><td colspan="5" class="msg-vazio">Carregando...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
 
-    <!-- COLUNA ESQUERDA: lista de prestações -->
-    <aside class="col-lista">
-      <div class="grid-section">
-        <div class="grid-header">
-          <span class="grid-titulo">Prestações recentes</span>
-          <label class="grid-filtro-label">Fornecedor:
-            <select id="filtro-fornecedor">
-              <option value="">Todos</option>
-            </select>
-          </label>
-        </div>
-        <table class="tabela-lista">
+  <!-- ─── ESTADO VAZIO ─────────────────────────────────────── -->
+  <div id="empty-state" class="empty-state">
+    <div class="empty-icon">📋</div>
+    <p>Clique em <strong>Abrir</strong> em uma prestação acima para ver os detalhes.</p>
+  </div>
+
+  <!-- ─── DETALHE (planilha-container) ─────────────────────── -->
+  <section class="page-section detail-section" id="planilha-container" style="display:none;">
+
+    <!-- cabeçalho do detalhe -->
+    <div class="detail-head">
+      <div class="detail-head-info">
+        <h2 id="faixa-titulo" class="detail-title">PRESTAÇÃO DE CONTAS</h2>
+        <p id="faixa-pagamentos" class="detail-sub"></p>
+      </div>
+      <button id="btn-excluir-prestacao" class="btn-excluir-prestacao">🗑 Excluir prestação</button>
+    </div>
+
+    <!-- abas -->
+    <div class="tab-bar">
+      <button class="tab-btn tab-active" data-tab="materiais">📦 Materiais</button>
+      <button class="tab-btn" data-tab="pagamentos">💰 Pagamentos</button>
+    </div>
+
+    <!-- aba materiais -->
+    <div class="tab-panel" id="tab-materiais">
+      <div class="table-scroll">
+        <table id="tabela-materiais">
           <thead>
             <tr>
-              <th>#</th>
-              <th>Título</th>
-              <th>Data Ref.</th>
-              <th>Fornecedor</th>
-              <th></th>
+              <th>Material</th>
+              <th class="col-num">Peso (Kg)</th>
+              <th class="col-num">Preço/Kg (R$)</th>
+              <th class="col-num">Total (R$)</th>
+              <th style="width:50px;"></th>
             </tr>
           </thead>
-          <tbody id="tbody-lista">
-            <tr><td colspan="5" class="msg-vazio">Carregando...</td></tr>
-          </tbody>
+          <tbody id="tbody-materiais"></tbody>
+          <tfoot>
+            <tr class="linha-total" id="linha-total-materiais">
+              <td>Total</td>
+              <td id="total-peso" class="num"></td>
+              <td></td>
+              <td id="total-material" class="num"></td>
+              <td></td>
+            </tr>
+          </tfoot>
         </table>
       </div>
-    </aside>
-
-    <!-- COLUNA DIREITA: planilha / estado vazio -->
-    <main class="col-detalhe">
-
-      <!-- ─── ESTADO VAZIO ──────────────────────────── -->
-      <div id="empty-state" class="empty-state">
-        <div class="empty-state-icon">&#128196;</div>
-        <p>Selecione uma prestação na lista ao lado para visualizar os detalhes.</p>
+      <!-- formulário adicionar item -->
+      <div class="add-row form-section" id="form-item">
+        <label class="add-field">
+          <span>Material</span>
+          <input type="text" id="item-material" placeholder="Ex: Alumínio 6060" />
+        </label>
+        <label class="add-field">
+          <span>Peso (Kg)</span>
+          <input type="number" id="item-peso" step="0.001" min="0" />
+        </label>
+        <label class="add-field">
+          <span>Preço/Kg (R$)</span>
+          <input type="number" id="item-preco" step="0.01" min="0" />
+        </label>
+        <button id="btn-add-item" class="btn-add">＋ Adicionar</button>
       </div>
+    </div><!-- /#tab-materiais -->
 
-      <!-- ─── PLANILHA ──────────────────────────────── -->
-      <div class="planilha-container" id="planilha-container" style="display:none;">
-
-        <!-- Toolbar da prestação ativa -->
-        <div class="planilha-toolbar">
-          <button id="btn-excluir-prestacao" class="btn-excluir-prestacao">Excluir Prestação</button>
+    <!-- aba pagamentos -->
+    <div class="tab-panel" id="tab-pagamentos" style="display:none;">
+      <!-- saldo banner -->
+      <div class="saldo-banner">
+        <div class="saldo-card">
+          <span class="saldo-label">Total pago</span>
+          <span id="total-pago" class="saldo-val"></span>
         </div>
+        <div class="saldo-card saldo-card-restante">
+          <span class="saldo-label">Saldo restante</span>
+          <span id="saldo-restante" class="saldo-val"></span>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table id="tabela-pagamentos">
+          <thead>
+            <tr>
+              <th>Data</th>
+              <th class="col-num">Valor (R$)</th>
+              <th>Observação</th>
+              <th style="width:50px;"></th>
+            </tr>
+          </thead>
+          <tbody id="tbody-pagamentos"></tbody>
+        </table>
+      </div>
+      <!-- formulário adicionar pagamento -->
+      <div class="add-row form-section" id="form-pagamento">
+        <label class="add-field">
+          <span>Data</span>
+          <input type="date" id="pag-data" />
+        </label>
+        <label class="add-field">
+          <span>Valor (R$)</span>
+          <input type="number" id="pag-valor" step="0.01" min="0" />
+        </label>
+        <label class="add-field">
+          <span>Observação</span>
+          <input type="text" id="pag-obs" placeholder="Opcional" />
+        </label>
+        <button id="btn-add-pag" class="btn-add">＋ Adicionar</button>
+      </div>
+    </div><!-- /#tab-pagamentos -->
 
-        <!-- PLANILHAS LADO A LADO -->
-        <div class="sheets">
-
-          <!-- PLANILHA 1 – MATERIAIS -->
-          <div class="sheet sheet-materiais">
-            <div class="faixa-titulo" id="faixa-titulo">PRESTAÇÃO DE CONTAS</div>
-
-            <table id="tabela-materiais">
-              <thead>
-                <tr>
-                  <th>MATERIAL</th>
-                  <th>PESO (Kg)</th>
-                  <th>PREÇO KG (R$)</th>
-                  <th>TOTAL (R$)</th>
-                  <th style="width:50px;"></th>
-                </tr>
-              </thead>
-              <tbody id="tbody-materiais">
-              </tbody>
-              <tfoot>
-                <tr class="linha-total" id="linha-total-materiais">
-                  <td>TOTAL</td>
-                  <td id="total-peso" class="num"></td>
-                  <td></td>
-                  <td id="total-material" class="num"></td>
-                  <td></td>
-                </tr>
-              </tfoot>
-            </table>
-
-            <!-- Formulário adicionar item -->
-            <div class="form-section" id="form-item">
-              <label>Material<input type="text" id="item-material" placeholder="Ex: Alumínio 6060" /></label>
-              <label>Peso (Kg)<input type="number" id="item-peso" step="0.001" min="0" /></label>
-              <label>Preço/Kg (R$)<input type="number" id="item-preco" step="0.01" min="0" /></label>
-              <button id="btn-add-item">+ Adicionar</button>
-            </div>
-          </div><!-- /.sheet-materiais -->
-
-          <!-- PLANILHA 2 – PAGAMENTOS -->
-          <div class="sheet sheet-pagamentos">
-            <div class="faixa-titulo" id="faixa-pagamentos">PAGAMENTOS</div>
-
-            <table id="tabela-pagamentos">
-              <thead>
-                <tr>
-                  <th>DATA</th>
-                  <th>VALOR (R$)</th>
-                  <th>OBSERVAÇÃO</th>
-                  <th style="width:50px;"></th>
-                </tr>
-              </thead>
-              <tbody id="tbody-pagamentos">
-              </tbody>
-              <tfoot>
-                <tr class="linha-total" id="linha-total-pagamentos">
-                  <td>TOTAL (R$)</td>
-                  <td id="total-pago" class="num" colspan="2"></td>
-                  <td></td>
-                </tr>
-                <tr class="linha-restante">
-                  <td>RESTANTE (R$)</td>
-                  <td id="saldo-restante" class="num" colspan="2"></td>
-                  <td></td>
-                </tr>
-              </tfoot>
-            </table>
-
-            <!-- Formulário adicionar pagamento -->
-            <div class="form-section" id="form-pagamento">
-              <label>Data<input type="date" id="pag-data" /></label>
-              <label>Valor (R$)<input type="number" id="pag-valor" step="0.01" min="0" /></label>
-              <label>Observação<input type="text" id="pag-obs" placeholder="Opcional" /></label>
-              <button id="btn-add-pag">+ Adicionar</button>
-            </div>
-          </div><!-- /.sheet-pagamentos -->
-
-        </div><!-- /.sheets -->
-
-      </div><!-- /#planilha-container -->
-
-    </main><!-- /.col-detalhe -->
-
-  </div><!-- /.main-layout -->
+  </section><!-- /#planilha-container -->
 
   <script src="/prestacao_contas/prestacao.js"></script>
+  <script>
+    // Troca de abas
+    document.querySelectorAll('.tab-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('tab-active'); });
+        document.querySelectorAll('.tab-panel').forEach(function(p) { p.style.display = 'none'; });
+        btn.classList.add('tab-active');
+        document.getElementById('tab-' + btn.dataset.tab).style.display = 'block';
+      });
+    });
+  </script>
 </body>
 </html>
