@@ -97,8 +97,10 @@ app.get('/calcular-volumes', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'volume', 'volume.html'));
 });
 
+app.use('/prestacao-contas', express.static(path.join(__dirname, 'views', 'prestacao_contas')));
+
 app.get('/prestacao-contas', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'prestacao_contas', 'prestacao.html'));
+  res.sendFile(path.join(__dirname, 'views', 'prestacao_contas', 'prestacao.html'));
 });
 
 // =====================================================

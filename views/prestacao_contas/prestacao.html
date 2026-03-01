@@ -1,12 +1,147 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Prestação de Contas</title>
-  <link rel="stylesheet" href="./prestacao.css">
+  <link rel="stylesheet" href="./prestacao.css" />
 </head>
 <body>
+
+  <!-- ─── TOOLBAR ──────────────────────────────────────── -->
+  <div class="toolbar">
+    <button id="btn-nova">+ Nova Prestação</button>
+    <button class="btn-whatsapp" id="btn-whatsapp">📤 GERAR IMAGEM PARA WHATSAPP</button>
+    <!-- sel-prestacao mantido no DOM para compatibilidade, substituído pelo grid abaixo -->
+    <select id="sel-prestacao" style="display:none;">
+      <option value="">-- selecione --</option>
+    </select>
+  </div>
+
+  <!-- ─── MENSAGEM DE FEEDBACK ──────────────────────────── -->
+  <div id="msg-feedback" class="msg-feedback" style="display:none;"></div>
+
+  <!-- ─── FORMULÁRIO NOVA PRESTAÇÃO ────────────────────── -->
+  <div class="form-section form-nova-prestacao" id="form-nova" style="display:none; max-width:820px; margin-bottom:12px;">
+    <label>Título<input type="text" id="nova-titulo" placeholder="Ex: Maio 2026" /></label>
+    <label>Data de Referência<input type="date" id="nova-data" /></label>
+    <label>Fornecedor
+      <select id="nova-fornecedor">
+        <option value="">-- selecione --</option>
+      </select>
+    </label>
+    <button id="btn-confirmar-nova">Criar</button>
+    <button id="btn-cancelar-nova" class="btn-secundario">Cancelar</button>
+  </div>
+
+  <!-- ─── GRID DE PRESTAÇÕES ───────────────────────────── -->
+  <div class="grid-section">
+    <div class="grid-header">
+      <span class="grid-titulo">Prestações recentes</span>
+      <label class="grid-filtro-label">Fornecedor:
+        <select id="filtro-fornecedor">
+          <option value="">Todos</option>
+        </select>
+      </label>
+    </div>
+    <table class="tabela-lista">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Título</th>
+          <th>Data Ref.</th>
+          <th>Fornecedor</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="tbody-lista">
+        <tr><td colspan="5" class="msg-vazio">Carregando...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ─── PLANILHA ──────────────────────────────────────── -->
+  <div class="planilha-container" id="planilha-container" style="display:none;">
+
+    <!-- Toolbar da prestação ativa -->
+    <div class="planilha-toolbar">
+      <button id="btn-excluir-prestacao" class="btn-excluir-prestacao">🗑 Excluir Prestação</button>
+    </div>
+
+    <!-- PLANILHA 1 – MATERIAIS -->
+    <div class="faixa-titulo" id="faixa-titulo">PRESTAÇÃO DE CONTAS</div>
+
+    <table id="tabela-materiais">
+      <thead>
+        <tr>
+          <th>MATERIAL</th>
+          <th>PESO (Kg)</th>
+          <th>PREÇO KG (R$)</th>
+          <th>TOTAL (R$)</th>
+          <th style="width:50px;"></th>
+        </tr>
+      </thead>
+      <tbody id="tbody-materiais">
+      </tbody>
+      <tfoot>
+        <tr class="linha-total" id="linha-total-materiais">
+          <td>TOTAL</td>
+          <td id="total-peso" class="num"></td>
+          <td></td>
+          <td id="total-material" class="num"></td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <!-- Formulário adicionar item -->
+    <div class="form-section" id="form-item">
+      <label>Material<input type="text" id="item-material" placeholder="Ex: Alumínio 6060" /></label>
+      <label>Peso (Kg)<input type="number" id="item-peso" step="0.001" min="0" /></label>
+      <label>Preço/Kg (R$)<input type="number" id="item-preco" step="0.01" min="0" /></label>
+      <button id="btn-add-item">+ Adicionar</button>
+    </div>
+
+    <div class="separador"></div>
+
+    <!-- PLANILHA 2 – PAGAMENTOS -->
+    <div class="faixa-titulo">PAGAMENTOS</div>
+
+    <table id="tabela-pagamentos">
+      <thead>
+        <tr>
+          <th>DATA</th>
+          <th>VALOR (R$)</th>
+          <th>OBSERVAÇÃO</th>
+          <th style="width:50px;"></th>
+        </tr>
+      </thead>
+      <tbody id="tbody-pagamentos">
+      </tbody>
+      <tfoot>
+        <tr class="linha-total" id="linha-total-pagamentos">
+          <td>TOTAL (R$)</td>
+          <td id="total-pago" class="num" colspan="2"></td>
+          <td></td>
+        </tr>
+        <tr class="linha-restante">
+          <td>RESTANTE (R$)</td>
+          <td id="saldo-restante" class="num" colspan="2"></td>
+          <td></td>
+        </tr>
+      </tfoot>
+    </table>
+
+    <!-- Formulário adicionar pagamento -->
+    <div class="form-section" id="form-pagamento">
+      <label>Data<input type="date" id="pag-data" /></label>
+      <label>Valor (R$)<input type="number" id="pag-valor" step="0.01" min="0" /></label>
+      <label>Observação<input type="text" id="pag-obs" placeholder="Opcional" style="width:200px;" /></label>
+      <button id="btn-add-pag">+ Adicionar</button>
+    </div>
+
+  </div>
+
   <script src="./prestacao.js"></script>
 </body>
 </html>
