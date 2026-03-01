@@ -36,6 +36,14 @@ function showMsg(msg, tipo) {
   el._timer = setTimeout(() => { el.style.display = 'none'; }, 5000);
 }
 
+// ─── VISIBILIDADE DA PLANILHA / EMPTY STATE ─────────────────────
+
+function setPlanilhaVisible(visible) {
+  document.getElementById('planilha-container').style.display = visible ? 'block' : 'none';
+  const emptyState = document.getElementById('empty-state');
+  if (emptyState) emptyState.style.display = visible ? 'none' : 'flex';
+}
+
 // ─── CARREGAR LISTA DE PRESTAÇÕES ──────────────────────────────
 
 async function carregarLista() {
@@ -114,7 +122,7 @@ async function carregarResumo(id) {
     const json = await res.json();
     if (!json.success) throw new Error(json.message);
     renderizarPlanilha(json.data);
-    document.getElementById('planilha-container').style.display = 'block';
+    setPlanilhaVisible(true);
   } catch (e) {
     console.error('Erro ao carregar resumo:', e);
     showMsg('Erro ao carregar prestação: ' + e.message, 'erro');
@@ -131,6 +139,14 @@ function renderizarPlanilha(resumo) {
     ? `PRESTAÇÃO DE CONTAS – ${cabecalho.titulo} ${fmtData(cabecalho.data_referencia)}`
     : 'PRESTAÇÃO DE CONTAS';
   document.getElementById('faixa-titulo').textContent = titulo;
+
+  // Subtítulo no header
+  const subtituloEl = document.getElementById('header-subtitle');
+  if (subtituloEl) {
+    subtituloEl.textContent = cabecalho
+      ? `${cabecalho.titulo} – ${fmtData(cabecalho.data_referencia)}`
+      : '';
+  }
 
   // Tabela materiais
   const tbodyMat = document.getElementById('tbody-materiais');
@@ -258,7 +274,7 @@ document.getElementById('sel-prestacao').addEventListener('change', async (e) =>
   const id = e.target.value;
   if (!id) {
     prestacaoAtualId = null;
-    document.getElementById('planilha-container').style.display = 'none';
+    setPlanilhaVisible(false);
     return;
   }
   prestacaoAtualId = id;
@@ -387,7 +403,9 @@ async function deletarPrestacao(id, btn) {
     if (!json.success) throw new Error(json.message);
     if (String(prestacaoAtualId) === String(id)) {
       prestacaoAtualId = null;
-      document.getElementById('planilha-container').style.display = 'none';
+      setPlanilhaVisible(false);
+      const subtituloEl = document.getElementById('header-subtitle');
+      if (subtituloEl) subtituloEl.textContent = '';
     }
     await carregarLista();
     showMsg('Prestação excluída.', 'sucesso');
@@ -436,7 +454,32 @@ document.getElementById('btn-whatsapp').addEventListener('click', () => {
   console.log('Gerar imagem');
 });
 
+// ─── SEÇÕES COLAPSÁVEIS ────────────────────────────────────────
+
+function initToggle(headerId, contentId) {
+  const hdr = document.getElementById(headerId);
+  const content = document.getElementById(contentId);
+  if (!hdr || !content) return;
+  hdr.addEventListener('click', () => _toggleSection(hdr, content));
+  hdr.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      _toggleSection(hdr, content);
+    }
+  });
+}
+
+function _toggleSection(hdr, content) {
+  const expanded = hdr.getAttribute('aria-expanded') === 'true';
+  hdr.setAttribute('aria-expanded', String(!expanded));
+  content.classList.toggle('collapsed', expanded);
+}
+
 // ─── INIT ──────────────────────────────────────────────────────
 
 carregarLista();
 carregarFornecedores();
+
+initToggle('toggle-lista', 'lista-content');
+initToggle('toggle-materiais', 'materiais-content');
+initToggle('toggle-pagamentos', 'pagamentos-content');
