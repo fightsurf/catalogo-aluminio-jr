@@ -194,11 +194,11 @@ class PrestacaoContasService {
     `, [total_material, total_pago, saldo_restante, prestacao_id]);
   }
 
-  async _registrarLog(prestacao_id, acao, descricao) {
+  async _registrarLog(prestacao_id, tipo, descricao) {
     await pool.query(`
-      INSERT INTO prestacao_logs (prestacao_id, acao, descricao)
+      INSERT INTO prestacao_logs (prestacao_id, tipo, descricao)
       VALUES ($1, $2, $3)
-    `, [prestacao_id, acao, descricao]);
+    `, [prestacao_id, tipo, descricao]);
   }
 
   _parseDate(value) {
