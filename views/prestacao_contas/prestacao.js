@@ -98,6 +98,20 @@ function renderizarGrid() {
   });
 }
 
+function _mostrarPlanilha() {
+  const empty = document.getElementById('empty-state');
+  if (empty) empty.style.display = 'none';
+  document.getElementById('planilha-container').style.display = 'block';
+}
+
+function _mostrarEmptyState() {
+  document.getElementById('planilha-container').style.display = 'none';
+  const empty = document.getElementById('empty-state');
+  if (empty) empty.style.display = '';
+  const subtitle = document.getElementById('prestacao-ativa-subtitle');
+  if (subtitle) subtitle.textContent = '';
+}
+
 async function selecionarPrestacao(id) {
   prestacaoAtualId = id;
   document.getElementById('sel-prestacao').value = id;
@@ -114,7 +128,7 @@ async function carregarResumo(id) {
     const json = await res.json();
     if (!json.success) throw new Error(json.message);
     renderizarPlanilha(json.data);
-    document.getElementById('planilha-container').style.display = 'block';
+    _mostrarPlanilha();
   } catch (e) {
     console.error('Erro ao carregar resumo:', e);
     showMsg('Erro ao carregar prestação: ' + e.message, 'erro');
@@ -131,6 +145,8 @@ function renderizarPlanilha(resumo) {
     ? `PRESTAÇÃO DE CONTAS – ${cabecalho.titulo} ${fmtData(cabecalho.data_referencia)}`
     : 'PRESTAÇÃO DE CONTAS';
   document.getElementById('faixa-titulo').textContent = titulo;
+  const subtitle = document.getElementById('prestacao-ativa-subtitle');
+  if (subtitle) subtitle.textContent = cabecalho ? `${cabecalho.titulo} – ${fmtData(cabecalho.data_referencia)}` : '';
 
   // Tabela materiais
   const tbodyMat = document.getElementById('tbody-materiais');
@@ -258,7 +274,7 @@ document.getElementById('sel-prestacao').addEventListener('change', async (e) =>
   const id = e.target.value;
   if (!id) {
     prestacaoAtualId = null;
-    document.getElementById('planilha-container').style.display = 'none';
+    _mostrarEmptyState();
     return;
   }
   prestacaoAtualId = id;
@@ -387,7 +403,7 @@ async function deletarPrestacao(id, btn) {
     if (!json.success) throw new Error(json.message);
     if (String(prestacaoAtualId) === String(id)) {
       prestacaoAtualId = null;
-      document.getElementById('planilha-container').style.display = 'none';
+      _mostrarEmptyState();
     }
     await carregarLista();
     showMsg('Prestação excluída.', 'sucesso');
