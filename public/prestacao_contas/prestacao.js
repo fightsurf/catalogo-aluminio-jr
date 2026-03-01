@@ -87,9 +87,13 @@ function renderizarGrid() {
       <td>${p.titulo}</td>
       <td>${fmtData(p.data_referencia)}</td>
       <td>${p.fornecedor_nome || '—'}</td>
-      <td style="text-align:center;"><button class="btn-selecionar">Abrir</button></td>
+      <td style="text-align:center; white-space:nowrap;">
+        <button class="btn-selecionar">Abrir</button>
+        <button class="btn-del btn-del-lista">✕</button>
+      </td>
     `;
     tr.querySelector('.btn-selecionar').addEventListener('click', () => selecionarPrestacao(p.id));
+    tr.querySelector('.btn-del-lista').addEventListener('click', (e) => deletarPrestacao(p.id, e.currentTarget));
     tbody.appendChild(tr);
   });
 }
@@ -358,6 +362,43 @@ document.getElementById('btn-add-pag').addEventListener('click', async () => {
     console.error('Erro ao adicionar pagamento:', e);
     showMsg('Erro ao adicionar pagamento: ' + e.message, 'erro');
   }
+});
+
+// ─── DELETAR PRESTAÇÃO ────────────────────────────────────────
+
+async function deletarPrestacao(id, btn) {
+  if (!btn.dataset.confirming) {
+    btn.dataset.confirming = '1';
+    const orig = btn.textContent;
+    btn.textContent = 'Confirmar?';
+    btn.style.background = '#c70';
+    _btnTimers.set(btn, setTimeout(() => {
+      delete btn.dataset.confirming;
+      btn.textContent = orig;
+      btn.style.background = '';
+    }, 3000));
+    return;
+  }
+  clearTimeout(_btnTimers.get(btn));
+  _btnTimers.delete(btn);
+  try {
+    const res = await fetch(`${API_BASE}/${id}`, { method: 'DELETE' });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+    if (String(prestacaoAtualId) === String(id)) {
+      prestacaoAtualId = null;
+      document.getElementById('planilha-container').style.display = 'none';
+    }
+    await carregarLista();
+    showMsg('Prestação excluída.', 'sucesso');
+  } catch (e) {
+    console.error('Erro ao deletar prestação:', e);
+    showMsg('Erro ao excluir prestação: ' + e.message, 'erro');
+  }
+}
+
+document.getElementById('btn-excluir-prestacao').addEventListener('click', (e) => {
+  if (prestacaoAtualId) deletarPrestacao(prestacaoAtualId, e.currentTarget);
 });
 
 // ─── DELETAR PAGAMENTO ─────────────────────────────────────────
