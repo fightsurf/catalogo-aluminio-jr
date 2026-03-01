@@ -23,6 +23,7 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
+app.use('/prestacao_contas', express.static(path.join(__dirname, 'views', 'prestacao_contas')));
 
 // =====================================================
 // 📡 APIs (ROTAS DO BACKEND)
@@ -98,7 +99,7 @@ app.get('/calcular-volumes', (req, res) => {
 });
 
 app.get('/prestacao-contas', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'prestacao_contas', 'prestacao.html'));
+  res.sendFile(path.join(__dirname, 'views', 'prestacao_contas', 'prestacao.html'));
 });
 
 // =====================================================
