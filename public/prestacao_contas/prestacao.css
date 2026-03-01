@@ -321,3 +321,28 @@ tr.linha-restante td:first-child {
 .btn-del:hover {
   background: #900;
 }
+
+.btn-del-lista {
+  margin-left: 4px;
+}
+
+/* ─── TOOLBAR DA PLANILHA ATIVA ──────────── */
+.planilha-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 6px;
+}
+
+.btn-excluir-prestacao {
+  padding: 5px 14px;
+  background: #c00;
+  color: #fff;
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.btn-excluir-prestacao:hover {
+  background: #900;
+}
