@@ -24,6 +24,17 @@ function fmtData(v) {
   return v;
 }
 
+// ─── FEEDBACK ──────────────────────────────────────────────────
+
+function showMsg(msg, tipo) {
+  const el = document.getElementById('msg-feedback');
+  el.textContent = msg;
+  el.className = 'msg-feedback ' + (tipo || 'sucesso');
+  el.style.display = 'block';
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => { el.style.display = 'none'; }, 5000);
+}
+
 // ─── CARREGAR LISTA DE PRESTAÇÕES ──────────────────────────────
 
 async function carregarLista() {
@@ -59,7 +70,7 @@ async function carregarResumo(id) {
     document.getElementById('planilha-container').style.display = 'block';
   } catch (e) {
     console.error('Erro ao carregar resumo:', e);
-    alert('Erro ao carregar prestação: ' + e.message);
+    showMsg('Erro ao carregar prestação: ' + e.message, 'erro');
   }
 }
 
@@ -110,13 +121,26 @@ function renderizarPlanilha(resumo) {
   document.getElementById('saldo-restante').textContent = 'R$ ' + fmtMoeda(totais.saldo_restante);
 }
 
-// ─── NOVA PRESTAÇÃO ────────────────────────────────────────────
+// ─── NOVA PRESTAÇÃO – ABRIR/FECHAR FORMULÁRIO ──────────────────
 
-document.getElementById('btn-nova').addEventListener('click', async () => {
-  const titulo = prompt('Título da prestação:');
-  if (!titulo) return;
-  const dataRef = prompt('Data de referência (AAAA-MM-DD):');
-  if (!dataRef) return;
+document.getElementById('btn-nova').addEventListener('click', () => {
+  const form = document.getElementById('form-nova');
+  form.style.display = form.style.display === 'none' ? 'flex' : 'none';
+});
+
+document.getElementById('btn-cancelar-nova').addEventListener('click', () => {
+  document.getElementById('form-nova').style.display = 'none';
+  document.getElementById('nova-titulo').value = '';
+  document.getElementById('nova-data').value = '';
+});
+
+document.getElementById('btn-confirmar-nova').addEventListener('click', async () => {
+  const titulo = document.getElementById('nova-titulo').value.trim();
+  const dataRef = document.getElementById('nova-data').value;
+  if (!titulo || !dataRef) {
+    showMsg('Preencha o título e a data de referência.', 'erro');
+    return;
+  }
 
   try {
     const res = await fetch(API_BASE, {
@@ -127,12 +151,16 @@ document.getElementById('btn-nova').addEventListener('click', async () => {
     const json = await res.json();
     if (!json.success) throw new Error(json.message);
     prestacaoAtualId = json.data.id;
+    document.getElementById('form-nova').style.display = 'none';
+    document.getElementById('nova-titulo').value = '';
+    document.getElementById('nova-data').value = '';
     await carregarLista();
     document.getElementById('sel-prestacao').value = prestacaoAtualId;
     await carregarResumo(prestacaoAtualId);
+    showMsg('Prestação criada com sucesso!', 'sucesso');
   } catch (e) {
     console.error('Erro ao criar prestação:', e);
-    alert('Erro: ' + e.message);
+    showMsg('Erro ao criar prestação: ' + e.message, 'erro');
   }
 });
 
@@ -152,11 +180,17 @@ document.getElementById('sel-prestacao').addEventListener('change', async (e) =>
 // ─── ADICIONAR ITEM ────────────────────────────────────────────
 
 document.getElementById('btn-add-item').addEventListener('click', async () => {
-  if (!prestacaoAtualId) return alert('Selecione uma prestação primeiro.');
+  if (!prestacaoAtualId) {
+    showMsg('Selecione uma prestação primeiro.', 'erro');
+    return;
+  }
   const material = document.getElementById('item-material').value.trim();
   const peso_kg = document.getElementById('item-peso').value;
   const preco_por_kg = document.getElementById('item-preco').value;
-  if (!material || !peso_kg || !preco_por_kg) return alert('Preencha todos os campos do item.');
+  if (!material || !peso_kg || !preco_por_kg) {
+    showMsg('Preencha todos os campos do item.', 'erro');
+    return;
+  }
 
   try {
     const res = await fetch(`${API_BASE}/${prestacaoAtualId}/itens`, {
@@ -170,9 +204,10 @@ document.getElementById('btn-add-item').addEventListener('click', async () => {
     document.getElementById('item-peso').value = '';
     document.getElementById('item-preco').value = '';
     await carregarResumo(prestacaoAtualId);
+    showMsg('Item adicionado com sucesso!', 'sucesso');
   } catch (e) {
     console.error('Erro ao adicionar item:', e);
-    alert('Erro: ' + e.message);
+    showMsg('Erro ao adicionar item: ' + e.message, 'erro');
   }
 });
 
@@ -187,18 +222,24 @@ async function deletarItem(itemId) {
     await carregarResumo(prestacaoAtualId);
   } catch (e) {
     console.error('Erro ao deletar item:', e);
-    alert('Erro: ' + e.message);
+    showMsg('Erro ao remover item: ' + e.message, 'erro');
   }
 }
 
 // ─── ADICIONAR PAGAMENTO ───────────────────────────────────────
 
 document.getElementById('btn-add-pag').addEventListener('click', async () => {
-  if (!prestacaoAtualId) return alert('Selecione uma prestação primeiro.');
+  if (!prestacaoAtualId) {
+    showMsg('Selecione uma prestação primeiro.', 'erro');
+    return;
+  }
   const data = document.getElementById('pag-data').value;
   const valor = document.getElementById('pag-valor').value;
   const observacao = document.getElementById('pag-obs').value.trim();
-  if (!data || !valor) return alert('Preencha data e valor do pagamento.');
+  if (!data || !valor) {
+    showMsg('Preencha data e valor do pagamento.', 'erro');
+    return;
+  }
 
   try {
     const res = await fetch(`${API_BASE}/${prestacaoAtualId}/pagamentos`, {
@@ -212,9 +253,10 @@ document.getElementById('btn-add-pag').addEventListener('click', async () => {
     document.getElementById('pag-valor').value = '';
     document.getElementById('pag-obs').value = '';
     await carregarResumo(prestacaoAtualId);
+    showMsg('Pagamento adicionado com sucesso!', 'sucesso');
   } catch (e) {
     console.error('Erro ao adicionar pagamento:', e);
-    alert('Erro: ' + e.message);
+    showMsg('Erro ao adicionar pagamento: ' + e.message, 'erro');
   }
 });
 
@@ -229,7 +271,7 @@ async function deletarPagamento(pagamentoId) {
     await carregarResumo(prestacaoAtualId);
   } catch (e) {
     console.error('Erro ao deletar pagamento:', e);
-    alert('Erro: ' + e.message);
+    showMsg('Erro ao remover pagamento: ' + e.message, 'erro');
   }
 }
 

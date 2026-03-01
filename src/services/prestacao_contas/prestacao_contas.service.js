@@ -30,7 +30,7 @@ class PrestacaoContasService {
       INSERT INTO prestacoes (titulo, data_referencia, fornecedor_id, total_material, total_pago, saldo_restante)
       VALUES ($1, $2, $3, 0, 0, 0)
       RETURNING *
-    `, [titulo, data_referencia, fornecedor_id]);
+    `, [titulo, this._parseDate(data_referencia), fornecedor_id]);
     const prestacao = result.rows[0];
     await this._registrarLog(prestacao.id, 'CRIAR_PRESTACAO', `Prestação criada: ${titulo}`);
     return prestacao;
@@ -43,7 +43,7 @@ class PrestacaoContasService {
       SET titulo = $1, data_referencia = $2, fornecedor_id = $3
       WHERE id = $4
       RETURNING *
-    `, [titulo, data_referencia, fornecedor_id, id]);
+    `, [titulo, this._parseDate(data_referencia), fornecedor_id, id]);
     const prestacao = result.rows[0] || null;
     if (prestacao) {
       await this._registrarLog(id, 'ATUALIZAR_PRESTACAO', `Prestação atualizada: ${titulo}`);
@@ -117,7 +117,7 @@ class PrestacaoContasService {
       INSERT INTO prestacao_pagamentos (prestacao_id, data, valor, observacao)
       VALUES ($1, $2, $3, $4)
       RETURNING *
-    `, [prestacao_id, dataPag, valor, observacao || null]);
+    `, [prestacao_id, this._parseDate(dataPag), valor, observacao || null]);
     const pagamento = result.rows[0];
     await this._recalcular(prestacao_id);
     await this._registrarLog(prestacao_id, 'CRIAR_PAGAMENTO', `Pagamento registrado: R$ ${valor}`);
@@ -199,6 +199,16 @@ class PrestacaoContasService {
       INSERT INTO prestacao_logs (prestacao_id, acao, descricao)
       VALUES ($1, $2, $3)
     `, [prestacao_id, acao, descricao]);
+  }
+
+  _parseDate(value) {
+    if (!value) return value;
+    // Convert DD/MM/YYYY → YYYY-MM-DD
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
+      const [d, m, y] = value.split('/');
+      return `${y}-${m}-${d}`;
+    }
+    return value;
   }
 
 }
