@@ -141,10 +141,16 @@ function renderizarPlanilha(resumo) {
   const { cabecalho, materiais, pagamentos, totais } = resumo;
 
   // Faixa título
-  const titulo = cabecalho
-    ? `PRESTAÇÃO DE CONTAS – ${cabecalho.titulo} ${fmtData(cabecalho.data_referencia)}`
+  const dataFmt = cabecalho ? fmtData(cabecalho.data_referencia) : '';
+  const tituloMateriais = cabecalho
+    ? `PRESTAÇÃO DE CONTAS - COLETA MATERIAL ${dataFmt}`
     : 'PRESTAÇÃO DE CONTAS';
-  document.getElementById('faixa-titulo').textContent = titulo;
+  const tituloMat = document.getElementById('faixa-titulo');
+  if (tituloMat) tituloMat.textContent = tituloMateriais;
+  const tituloPag = document.getElementById('faixa-pagamentos');
+  if (tituloPag) tituloPag.textContent = cabecalho
+    ? `PRESTAÇÃO DE CONTAS - PAGAMENTOS DA COLETA ${dataFmt}`
+    : 'PAGAMENTOS';
   const subtitle = document.getElementById('prestacao-ativa-subtitle');
   if (subtitle) subtitle.textContent = cabecalho ? `${cabecalho.titulo} – ${fmtData(cabecalho.data_referencia)}` : '';
 
