@@ -15,8 +15,10 @@
       <span id="prestacao-ativa-subtitle" class="prestacao-subtitle"></span>
     </div>
     <div class="page-header-actions">
-      <button id="btn-nova">+ Nova Prestação</button>
-      <button class="btn-whatsapp" id="btn-whatsapp">Gerar imagem para WhatsApp</button>
+      <div class="btn-group">
+        <button id="btn-nova">+ Nova Prestação</button>
+        <button class="btn-whatsapp" id="btn-whatsapp">Enviar para contato pelo zap</button>
+      </div>
     </div>
     <!-- sel-prestacao mantido no DOM para compatibilidade, substituído pelo grid abaixo -->
     <select id="sel-prestacao" style="display:none;">
@@ -88,77 +90,84 @@
           <button id="btn-excluir-prestacao" class="btn-excluir-prestacao">Excluir Prestação</button>
         </div>
 
-        <!-- PLANILHA 1 – MATERIAIS -->
-        <div class="faixa-titulo" id="faixa-titulo">PRESTAÇÃO DE CONTAS</div>
+        <!-- PLANILHAS LADO A LADO -->
+        <div class="sheets">
 
-        <table id="tabela-materiais">
-          <thead>
-            <tr>
-              <th>MATERIAL</th>
-              <th>PESO (Kg)</th>
-              <th>PREÇO KG (R$)</th>
-              <th>TOTAL (R$)</th>
-              <th style="width:50px;"></th>
-            </tr>
-          </thead>
-          <tbody id="tbody-materiais">
-          </tbody>
-          <tfoot>
-            <tr class="linha-total" id="linha-total-materiais">
-              <td>TOTAL</td>
-              <td id="total-peso" class="num"></td>
-              <td></td>
-              <td id="total-material" class="num"></td>
-              <td></td>
-            </tr>
-          </tfoot>
-        </table>
+          <!-- PLANILHA 1 – MATERIAIS -->
+          <div class="sheet sheet-materiais">
+            <div class="faixa-titulo" id="faixa-titulo">PRESTAÇÃO DE CONTAS</div>
 
-        <!-- Formulário adicionar item -->
-        <div class="form-section" id="form-item">
-          <label>Material<input type="text" id="item-material" placeholder="Ex: Alumínio 6060" /></label>
-          <label>Peso (Kg)<input type="number" id="item-peso" step="0.001" min="0" /></label>
-          <label>Preço/Kg (R$)<input type="number" id="item-preco" step="0.01" min="0" /></label>
-          <button id="btn-add-item">+ Adicionar</button>
-        </div>
+            <table id="tabela-materiais">
+              <thead>
+                <tr>
+                  <th>MATERIAL</th>
+                  <th>PESO (Kg)</th>
+                  <th>PREÇO KG (R$)</th>
+                  <th>TOTAL (R$)</th>
+                  <th style="width:50px;"></th>
+                </tr>
+              </thead>
+              <tbody id="tbody-materiais">
+              </tbody>
+              <tfoot>
+                <tr class="linha-total" id="linha-total-materiais">
+                  <td>TOTAL</td>
+                  <td id="total-peso" class="num"></td>
+                  <td></td>
+                  <td id="total-material" class="num"></td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
 
-        <div class="separador"></div>
+            <!-- Formulário adicionar item -->
+            <div class="form-section" id="form-item">
+              <label>Material<input type="text" id="item-material" placeholder="Ex: Alumínio 6060" /></label>
+              <label>Peso (Kg)<input type="number" id="item-peso" step="0.001" min="0" /></label>
+              <label>Preço/Kg (R$)<input type="number" id="item-preco" step="0.01" min="0" /></label>
+              <button id="btn-add-item">+ Adicionar</button>
+            </div>
+          </div><!-- /.sheet-materiais -->
 
-        <!-- PLANILHA 2 – PAGAMENTOS -->
-        <div class="faixa-titulo">PAGAMENTOS</div>
+          <!-- PLANILHA 2 – PAGAMENTOS -->
+          <div class="sheet sheet-pagamentos">
+            <div class="faixa-titulo" id="faixa-pagamentos">PAGAMENTOS</div>
 
-        <table id="tabela-pagamentos">
-          <thead>
-            <tr>
-              <th>DATA</th>
-              <th>VALOR (R$)</th>
-              <th>OBSERVAÇÃO</th>
-              <th style="width:50px;"></th>
-            </tr>
-          </thead>
-          <tbody id="tbody-pagamentos">
-          </tbody>
-          <tfoot>
-            <tr class="linha-total" id="linha-total-pagamentos">
-              <td>TOTAL (R$)</td>
-              <td id="total-pago" class="num" colspan="2"></td>
-              <td></td>
-            </tr>
-            <tr class="linha-restante">
-              <td>RESTANTE (R$)</td>
-              <td id="saldo-restante" class="num" colspan="2"></td>
-              <td></td>
-            </tr>
-          </tfoot>
-        </table>
+            <table id="tabela-pagamentos">
+              <thead>
+                <tr>
+                  <th>DATA</th>
+                  <th>VALOR (R$)</th>
+                  <th>OBSERVAÇÃO</th>
+                  <th style="width:50px;"></th>
+                </tr>
+              </thead>
+              <tbody id="tbody-pagamentos">
+              </tbody>
+              <tfoot>
+                <tr class="linha-total" id="linha-total-pagamentos">
+                  <td>TOTAL (R$)</td>
+                  <td id="total-pago" class="num" colspan="2"></td>
+                  <td></td>
+                </tr>
+                <tr class="linha-restante">
+                  <td>RESTANTE (R$)</td>
+                  <td id="saldo-restante" class="num" colspan="2"></td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
 
-        <!-- Formulário adicionar pagamento -->
-        <div class="form-section" id="form-pagamento">
-          <label>Data<input type="date" id="pag-data" /></label>
-          <label>Valor (R$)<input type="number" id="pag-valor" step="0.01" min="0" /></label>
-          <label>Observação<input type="text" id="pag-obs" placeholder="Opcional" /></label>
-          <button id="btn-add-pag">+ Adicionar</button>
-        </div>
+            <!-- Formulário adicionar pagamento -->
+            <div class="form-section" id="form-pagamento">
+              <label>Data<input type="date" id="pag-data" /></label>
+              <label>Valor (R$)<input type="number" id="pag-valor" step="0.01" min="0" /></label>
+              <label>Observação<input type="text" id="pag-obs" placeholder="Opcional" /></label>
+              <button id="btn-add-pag">+ Adicionar</button>
+            </div>
+          </div><!-- /.sheet-pagamentos -->
+
+        </div><!-- /.sheets -->
 
       </div><!-- /#planilha-container -->
 
