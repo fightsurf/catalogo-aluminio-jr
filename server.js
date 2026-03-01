@@ -12,6 +12,7 @@ const fornecedorRoutes = require('./src/routes/fornecedor/fornecedor.routes');
 const produtoRoutes = require('./src/routes/produto/produto.routes');
 const produtoCategoriaRoutes = require('./src/routes/produtoCategoria/produtoCategoria.routes');
 const volumeRoutes = require('./src/routes/volume/volume.routes');
+const prestacaoContasRoutes = require('./src/routes/prestacao_contas/prestacao_contas.routes');
 
 const app = express();
 
@@ -21,6 +22,7 @@ const app = express();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'public')));
 
 // =====================================================
 // 📡 APIs (ROTAS DO BACKEND)
@@ -33,6 +35,7 @@ app.use('/api/logistica', logisticaRoutes);
 app.use('/api/funcionarios', funcionarioRoutes);
 app.use('/api/fornecedores', fornecedorRoutes);
 app.use('/api/volume', volumeRoutes);
+app.use('/api/prestacoes', prestacaoContasRoutes);
 
 // =====================================================
 // 📦 ROTAS DE PÁGINAS (VIEWS)
@@ -92,6 +95,10 @@ app.get('/frete', (req, res) => {
 
 app.get('/calcular-volumes', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'volume', 'volume.html'));
+});
+
+app.get('/prestacao-contas', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'prestacao_contas', 'prestacao.html'));
 });
 
 // =====================================================
