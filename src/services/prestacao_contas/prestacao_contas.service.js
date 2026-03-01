@@ -75,7 +75,7 @@ class PrestacaoContasService {
     const { material, peso_kg, preco_por_kg } = data;
     const total_item = parseFloat(peso_kg) * parseFloat(preco_por_kg);
     const result = await pool.query(`
-      INSERT INTO prestacao_itens (prestacao_id, material, peso_kg, preco_por_kg, total_item)
+      INSERT INTO prestacao_itens (prestacao_id, descricao_material, peso_kg, preco_por_kg, total_item)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING *
     `, [prestacao_id, material, peso_kg, preco_por_kg, total_item]);
@@ -90,7 +90,7 @@ class PrestacaoContasService {
     const total_item = parseFloat(peso_kg) * parseFloat(preco_por_kg);
     const result = await pool.query(`
       UPDATE prestacao_itens
-      SET material = $1, peso_kg = $2, preco_por_kg = $3, total_item = $4
+      SET descricao_material = $1, peso_kg = $2, preco_por_kg = $3, total_item = $4
       WHERE id = $5 AND prestacao_id = $6
       RETURNING *
     `, [material, peso_kg, preco_por_kg, total_item, itemId, prestacao_id]);
@@ -114,7 +114,7 @@ class PrestacaoContasService {
   async criarPagamento(prestacao_id, data) {
     const { data: dataPag, valor, observacao } = data;
     const result = await pool.query(`
-      INSERT INTO prestacao_pagamentos (prestacao_id, data, valor, observacao)
+      INSERT INTO prestacao_pagamentos (prestacao_id, data_pagamento, valor, observacao)
       VALUES ($1, $2, $3, $4)
       RETURNING *
     `, [prestacao_id, this._parseDate(dataPag), valor, observacao || null]);
@@ -147,7 +147,7 @@ class PrestacaoContasService {
     `, [prestacao_id]);
 
     const pagamentosRes = await pool.query(`
-      SELECT * FROM prestacao_pagamentos WHERE prestacao_id = $1 ORDER BY data ASC, id ASC
+      SELECT * FROM prestacao_pagamentos WHERE prestacao_id = $1 ORDER BY data_pagamento ASC, id ASC
     `, [prestacao_id]);
 
     const total_material = parseFloat(cabecalho ? cabecalho.total_material : 0);
