@@ -97,7 +97,7 @@ function renderizarPlanilha(resumo) {
       <td class="num">${fmtMoeda(item.total_item)}</td>
       <td style="text-align:center;"><button class="btn-del" data-id="${item.id}">✕</button></td>
     `;
-    tr.querySelector('.btn-del').addEventListener('click', () => deletarItem(item.id));
+    tr.querySelector('.btn-del').addEventListener('click', (e) => deletarItem(item.id, e.currentTarget));
     tbodyMat.appendChild(tr);
   });
   document.getElementById('total-peso').textContent = fmtPeso(totais.peso_total);
@@ -114,31 +114,58 @@ function renderizarPlanilha(resumo) {
       <td>${pag.observacao || ''}</td>
       <td style="text-align:center;"><button class="btn-del" data-id="${pag.id}">✕</button></td>
     `;
-    tr.querySelector('.btn-del').addEventListener('click', () => deletarPagamento(pag.id));
+    tr.querySelector('.btn-del').addEventListener('click', (e) => deletarPagamento(pag.id, e.currentTarget));
     tbodyPag.appendChild(tr);
   });
   document.getElementById('total-pago').textContent = 'R$ ' + fmtMoeda(totais.total_pago);
   document.getElementById('saldo-restante').textContent = 'R$ ' + fmtMoeda(totais.saldo_restante);
 }
 
+// ─── CARREGAR FORNECEDORES ─────────────────────────────────────
+
+async function carregarFornecedores() {
+  try {
+    const res = await fetch('/api/fornecedores');
+    const lista = await res.json();
+    const sel = document.getElementById('nova-fornecedor');
+    sel.innerHTML = '<option value="">-- selecione --</option>';
+    lista.forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = f.id;
+      opt.textContent = f.nome;
+      sel.appendChild(opt);
+    });
+  } catch (e) {
+    console.error('Erro ao carregar fornecedores:', e);
+  }
+}
+
 // ─── NOVA PRESTAÇÃO – ABRIR/FECHAR FORMULÁRIO ──────────────────
 
 document.getElementById('btn-nova').addEventListener('click', () => {
   const form = document.getElementById('form-nova');
-  form.style.display = form.style.display === 'none' ? 'flex' : 'none';
+  const isHidden = form.style.display === 'none';
+  form.style.display = isHidden ? 'flex' : 'none';
+  if (isHidden) carregarFornecedores();
 });
 
 document.getElementById('btn-cancelar-nova').addEventListener('click', () => {
   document.getElementById('form-nova').style.display = 'none';
   document.getElementById('nova-titulo').value = '';
   document.getElementById('nova-data').value = '';
+  document.getElementById('nova-fornecedor').value = '';
 });
 
 document.getElementById('btn-confirmar-nova').addEventListener('click', async () => {
   const titulo = document.getElementById('nova-titulo').value.trim();
   const dataRef = document.getElementById('nova-data').value;
+  const fornecedor_id = document.getElementById('nova-fornecedor').value;
   if (!titulo || !dataRef) {
     showMsg('Preencha o título e a data de referência.', 'erro');
+    return;
+  }
+  if (!fornecedor_id) {
+    showMsg('Selecione um fornecedor.', 'erro');
     return;
   }
 
@@ -146,7 +173,7 @@ document.getElementById('btn-confirmar-nova').addEventListener('click', async ()
     const res = await fetch(API_BASE, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ titulo, data_referencia: dataRef })
+      body: JSON.stringify({ titulo, data_referencia: dataRef, fornecedor_id })
     });
     const json = await res.json();
     if (!json.success) throw new Error(json.message);
@@ -154,6 +181,7 @@ document.getElementById('btn-confirmar-nova').addEventListener('click', async ()
     document.getElementById('form-nova').style.display = 'none';
     document.getElementById('nova-titulo').value = '';
     document.getElementById('nova-data').value = '';
+    document.getElementById('nova-fornecedor').value = '';
     await carregarLista();
     document.getElementById('sel-prestacao').value = prestacaoAtualId;
     await carregarResumo(prestacaoAtualId);
@@ -213,13 +241,29 @@ document.getElementById('btn-add-item').addEventListener('click', async () => {
 
 // ─── DELETAR ITEM ──────────────────────────────────────────────
 
-async function deletarItem(itemId) {
-  if (!confirm('Remover este item?')) return;
+const _btnTimers = new WeakMap();
+
+async function deletarItem(itemId, btn) {
+  if (!btn.dataset.confirming) {
+    btn.dataset.confirming = '1';
+    const orig = btn.textContent;
+    btn.textContent = 'Confirmar?';
+    btn.style.background = '#c70';
+    _btnTimers.set(btn, setTimeout(() => {
+      delete btn.dataset.confirming;
+      btn.textContent = orig;
+      btn.style.background = '';
+    }, 3000));
+    return;
+  }
+  clearTimeout(_btnTimers.get(btn));
+  _btnTimers.delete(btn);
   try {
     const res = await fetch(`${API_BASE}/${prestacaoAtualId}/itens/${itemId}`, { method: 'DELETE' });
     const json = await res.json();
     if (!json.success) throw new Error(json.message);
     await carregarResumo(prestacaoAtualId);
+    showMsg('Item removido.', 'sucesso');
   } catch (e) {
     console.error('Erro ao deletar item:', e);
     showMsg('Erro ao remover item: ' + e.message, 'erro');
@@ -262,13 +306,27 @@ document.getElementById('btn-add-pag').addEventListener('click', async () => {
 
 // ─── DELETAR PAGAMENTO ─────────────────────────────────────────
 
-async function deletarPagamento(pagamentoId) {
-  if (!confirm('Remover este pagamento?')) return;
+async function deletarPagamento(pagamentoId, btn) {
+  if (!btn.dataset.confirming) {
+    btn.dataset.confirming = '1';
+    const orig = btn.textContent;
+    btn.textContent = 'Confirmar?';
+    btn.style.background = '#c70';
+    _btnTimers.set(btn, setTimeout(() => {
+      delete btn.dataset.confirming;
+      btn.textContent = orig;
+      btn.style.background = '';
+    }, 3000));
+    return;
+  }
+  clearTimeout(_btnTimers.get(btn));
+  _btnTimers.delete(btn);
   try {
     const res = await fetch(`${API_BASE}/${prestacaoAtualId}/pagamentos/${pagamentoId}`, { method: 'DELETE' });
     const json = await res.json();
     if (!json.success) throw new Error(json.message);
     await carregarResumo(prestacaoAtualId);
+    showMsg('Pagamento removido.', 'sucesso');
   } catch (e) {
     console.error('Erro ao deletar pagamento:', e);
     showMsg('Erro ao remover pagamento: ' + e.message, 'erro');
