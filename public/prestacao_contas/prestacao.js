@@ -138,7 +138,7 @@ function renderizarPlanilha(resumo) {
   materiais.forEach(item => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${item.material}</td>
+      <td>${item.descricao_material}</td>
       <td class="num">${fmtPeso(item.peso_kg)}</td>
       <td class="num">${fmtMoeda(item.preco_por_kg)}</td>
       <td class="num">${fmtMoeda(item.total_item)}</td>
@@ -156,7 +156,7 @@ function renderizarPlanilha(resumo) {
   pagamentos.forEach(pag => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${fmtData(pag.data)}</td>
+      <td>${fmtData(pag.data_pagamento)}</td>
       <td class="num">${fmtMoeda(pag.valor)}</td>
       <td>${pag.observacao || ''}</td>
       <td style="text-align:center;"><button class="btn-del" data-id="${pag.id}">✕</button></td>
