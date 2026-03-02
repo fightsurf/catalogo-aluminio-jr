@@ -12,6 +12,7 @@ const fornecedorRoutes = require('./src/routes/fornecedor/fornecedor.routes');
 const produtoRoutes = require('./src/routes/produto/produto.routes');
 const produtoCategoriaRoutes = require('./src/routes/produtoCategoria/produtoCategoria.routes');
 const volumeRoutes = require('./src/routes/volume/volume.routes');
+const adminVolumeRoutes = require('./src/routes/volume/adminVolume.routes');
 const prestacaoContasRoutes = require('./src/routes/prestacao_contas/prestacao_contas.routes');
 const botRoutes = require('./src/routes/bot/bot.routes');
 const botAdminRoutes = require('./src/routes/bot/bot.admin.routes');
@@ -38,6 +39,7 @@ app.use('/api/logistica', logisticaRoutes);
 app.use('/api/funcionarios', funcionarioRoutes);
 app.use('/api/fornecedores', fornecedorRoutes);
 app.use('/api/volume', volumeRoutes);
+app.use('/api/admin-volume', adminVolumeRoutes);
 app.use('/api/prestacoes', prestacaoContasRoutes);
 app.use('/bot', botRoutes);
 app.use('/bot/admin', botAdminRoutes);
@@ -105,6 +107,10 @@ app.get('/frete', (req, res) => {
 
 app.get('/calcular-volumes', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'volume', 'volume.html'));
+});
+
+app.get('/admin-volume', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'volume', 'admin-volume.html'));
 });
 
 app.get('/prestacao-contas', (req, res) => {
