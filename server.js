@@ -14,6 +14,7 @@ const produtoCategoriaRoutes = require('./src/routes/produtoCategoria/produtoCat
 const volumeRoutes = require('./src/routes/volume/volume.routes');
 const prestacaoContasRoutes = require('./src/routes/prestacao_contas/prestacao_contas.routes');
 const botRoutes = require('./src/routes/bot/bot.routes');
+const botAdminRoutes = require('./src/routes/bot/bot.admin.routes');
 
 const app = express();
 
@@ -39,6 +40,12 @@ app.use('/api/fornecedores', fornecedorRoutes);
 app.use('/api/volume', volumeRoutes);
 app.use('/api/prestacoes', prestacaoContasRoutes);
 app.use('/bot', botRoutes);
+app.use('/bot/admin', botAdminRoutes);
+app.use('/bot-admin', express.static(path.join(__dirname, 'src', 'public', 'bot-admin')));
+
+app.get('/bot/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'src', 'public', 'bot-admin', 'index.html'));
+});
 
 // =====================================================
 // 📦 ROTAS DE PÁGINAS (VIEWS)
@@ -109,6 +116,10 @@ app.get('/prestacao-contas', (req, res) => {
 // =====================================================
 
 const PORT = process.env.PORT || 10000;
+
+// Criar índices de forma segura ao iniciar
+const botAdminService = require('./src/services/bot/bot.admin.service');
+botAdminService.criarIndices().catch(err => console.warn('⚠️  Índices bot (não crítico):', err.message));
 
 app.listen(PORT, () => {
   console.log('🟢 Catálogo Alumínio JR rodando na porta', PORT);

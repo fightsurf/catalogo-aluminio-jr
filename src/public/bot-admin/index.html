@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bot Admin – Alumínio JR</title>
+  <link rel="stylesheet" href="/bot-admin/style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- SIDEBAR: lista de conversas -->
+    <aside id="sidebar">
+      <div id="filtros">
+        <h2>🤖 Bot Admin</h2>
+        <input type="text" id="filtro-telefone" placeholder="Buscar telefone..." />
+        <input type="date" id="filtro-data-inicio" title="Data início" />
+        <input type="date" id="filtro-data-fim" title="Data fim" />
+        <select id="filtro-nivel">
+          <option value="">Todos os níveis</option>
+          <option value="HUMANO">HUMANO</option>
+          <option value="IA">IA</option>
+        </select>
+        <button id="btn-filtrar">Filtrar</button>
+      </div>
+      <div id="lista-conversas"></div>
+      <div id="paginacao-conversas"></div>
+    </aside>
+
+    <!-- MAIN: histórico de mensagens -->
+    <main id="chat-area">
+      <div id="chat-header">
+        <span id="chat-titulo">Selecione uma conversa</span>
+      </div>
+      <div id="chat-mensagens"></div>
+      <div id="paginacao-mensagens"></div>
+    </main>
+  </div>
+
+  <script src="/bot-admin/script.js"></script>
+</body>
+</html>
