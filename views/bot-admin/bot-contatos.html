@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bot Admin – Contatos</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #f4f4f4; color: #333; padding: 20px; }
+    h1 { margin-bottom: 16px; font-size: 1.4rem; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 6px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #e0e0e0; font-size: 0.9rem; }
+    th { background: #2c3e50; color: #fff; }
+    tr:last-child td { border-bottom: none; }
+    input[type="text"] { width: 100%; padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; }
+    select { padding: 6px 8px; border: 1px solid #ccc; border-radius: 4px; }
+    button.salvar { background: #27ae60; color: #fff; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+    button.salvar:hover { background: #219150; }
+    .msg { font-size: 0.8rem; margin-top: 4px; }
+    .msg.ok { color: #27ae60; }
+    .msg.err { color: #e74c3c; }
+    #loading { margin: 20px 0; color: #555; }
+  </style>
+</head>
+<body>
+  <h1>🤖 Gestão de Contatos – Bot WhatsApp</h1>
+  <p id="loading">Carregando contatos…</p>
+  <table id="tabela" style="display:none">
+    <thead>
+      <tr>
+        <th>Telefone</th>
+        <th>Nome</th>
+        <th>Última Mensagem</th>
+        <th>Nível</th>
+        <th>Ação</th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+  <script>
+    async function carregarContatos() {
+      try {
+        const res = await fetch('/bot/contatos');
+        if (!res.ok) throw new Error('Erro ao carregar contatos');
+        const contatos = await res.json();
+        const tbody = document.getElementById('tbody');
+        tbody.innerHTML = '';
+        contatos.forEach(c => {
+          const tr = document.createElement('tr');
+          tr.dataset.id = c.id;
+          tr.innerHTML = `
+            <td>${escapar(c.telefone || '')}</td>
+            <td><input type="text" class="campo-nome" value="${escapar(c.nome || '')}" /></td>
+            <td>${escapar(c.ultima_mensagem || '')}</td>
+            <td>
+              <select class="campo-nivel">
+                <option value="IA"${c.nivel_atendimento === 'IA' ? ' selected' : ''}>IA</option>
+                <option value="HUMANO"${c.nivel_atendimento === 'HUMANO' ? ' selected' : ''}>HUMANO</option>
+              </select>
+            </td>
+            <td>
+              <button class="salvar" onclick="salvar(this)">Salvar</button>
+              <div class="msg"></div>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('tabela').style.display = '';
+      } catch (err) {
+        document.getElementById('loading').textContent = 'Erro ao carregar contatos: ' + err.message;
+      }
+    }
+
+    async function salvar(btn) {
+      const tr = btn.closest('tr');
+      const id = tr.dataset.id;
+      const nome = tr.querySelector('.campo-nome').value;
+      const nivel_atendimento = tr.querySelector('.campo-nivel').value;
+      const msgEl = tr.querySelector('.msg');
+      msgEl.textContent = '';
+      msgEl.className = 'msg';
+
+      try {
+        const res = await fetch(`/bot/contatos/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nome, nivel_atendimento })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Erro ao salvar');
+        msgEl.textContent = '✓ Salvo';
+        msgEl.classList.add('ok');
+      } catch (err) {
+        msgEl.textContent = '✗ ' + err.message;
+        msgEl.classList.add('err');
+      }
+    }
+
+    function escapar(str) {
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
+    carregarContatos();
+  </script>
+</body>
+</html>

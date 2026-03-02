@@ -16,6 +16,7 @@ const adminVolumeRoutes = require('./src/routes/volume/adminVolume.routes');
 const prestacaoContasRoutes = require('./src/routes/prestacao_contas/prestacao_contas.routes');
 const botRoutes = require('./src/routes/bot/bot.routes');
 const botAdminRoutes = require('./src/routes/bot/bot.admin.routes');
+const botContatosRoutes = require('./src/routes/bot/botContatos.routes');
 
 const app = express();
 
@@ -43,6 +44,7 @@ app.use('/api/admin-volume', adminVolumeRoutes);
 app.use('/api/prestacoes', prestacaoContasRoutes);
 app.use('/bot', botRoutes);
 app.use('/bot/admin', botAdminRoutes);
+app.use('/bot', botContatosRoutes);
 app.use('/bot-admin', express.static(path.join(__dirname, 'views', 'bot-admin')));
 
 app.get('/bot/admin', (req, res) => {
