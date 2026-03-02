@@ -208,7 +208,8 @@ body {
 
 /* ── Seções (cards) ────────────────────────────────────── */
 .page-section {
-  margin: 16px 24px;
+  margin: 16px auto;
+  max-width: 720px;
   background: var(--pc-surface);
   border: 1px solid var(--pc-border);
   border-radius: var(--pc-radius);
@@ -318,7 +319,8 @@ body {
 
 /* ── Empty state ───────────────────────────────────────── */
 .empty-state {
-  margin: 0 24px 24px;
+  margin: 0 auto 24px;
+  max-width: 720px;
   padding: 48px 24px;
   background: var(--pc-surface);
   border: 2px dashed var(--pc-border);
@@ -406,7 +408,7 @@ body {
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
-  min-width: 400px;
+  min-width: 200px;
 }
 #tabela-materiais th, #tabela-materiais td,
 #tabela-pagamentos th, #tabela-pagamentos td {
@@ -431,11 +433,11 @@ body {
 
 #tabela-materiais tfoot td,
 #tabela-pagamentos tfoot td {
-  font-weight: 700;
-  background: var(--pc-bg);
+  font-weight: 700 !important;
+  background: #000 !important;
   border-top: 2px solid var(--pc-border);
   border-bottom: none;
-  color: var(--pc-primary-d);
+  color: #fff !important;
 }
 
 /* ── Saldo banner ──────────────────────────────────────── */
