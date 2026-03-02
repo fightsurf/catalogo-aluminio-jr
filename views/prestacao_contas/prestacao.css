@@ -532,6 +532,43 @@ body {
 .btn-add:hover { background: var(--pc-primary-d); }
 .btn-add:focus-visible { outline: 2px solid var(--pc-primary); outline-offset: 2px; }
 
+/* ── Grid enhancements: header roxo, divisórias, zebra ── */
+:root { --pc-row-alt: rgba(79,70,229,.08); }
+
+/* Cabeçalhos com fundo roxo principal e texto branco */
+.tabela-lista thead th,
+#tabela-materiais thead th,
+#tabela-pagamentos thead th {
+  background: var(--pc-primary);
+  color: #fff;
+}
+
+/* Divisórias verticais entre colunas */
+.tabela-lista th, .tabela-lista td,
+#tabela-materiais th, #tabela-materiais td,
+#tabela-pagamentos th, #tabela-pagamentos td {
+  border-right: 1px solid var(--pc-border);
+}
+.tabela-lista th:last-child, .tabela-lista td:last-child,
+#tabela-materiais th:last-child, #tabela-materiais td:last-child,
+#tabela-pagamentos th:last-child, #tabela-pagamentos td:last-child {
+  border-right: none;
+}
+
+/* Zebra striping */
+.tabela-lista tbody tr:nth-child(even) td,
+#tabela-materiais tbody tr:nth-child(even) td,
+#tabela-pagamentos tbody tr:nth-child(even) td {
+  background: var(--pc-row-alt);
+}
+
+/* Hover consistente com zebra */
+.tabela-lista tbody tr:hover td,
+#tabela-materiais tbody tr:hover td,
+#tabela-pagamentos tbody tr:hover td {
+  background: rgba(79,70,229,.14);
+}
+
 /* ── Responsive ────────────────────────────────────────── */
 @media (max-width: 640px) {
   .topbar { padding: 10px 14px; }
