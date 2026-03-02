@@ -99,7 +99,6 @@
         <h2 id="faixa-titulo" class="detail-title">PRESTAÇÃO DE CONTAS</h2>
         <p id="faixa-pagamentos" class="detail-sub"></p>
       </div>
-      <button id="btn-excluir-prestacao" class="btn-excluir-prestacao">🗑 Excluir prestação</button>
     </div>
 
     <!-- abas -->
@@ -153,17 +152,6 @@
 
     <!-- aba pagamentos -->
     <div class="tab-panel" id="tab-pagamentos" style="display:none;">
-      <!-- saldo banner -->
-      <div class="saldo-banner">
-        <div class="saldo-card">
-          <span class="saldo-label">Total pago</span>
-          <span id="total-pago" class="saldo-val"></span>
-        </div>
-        <div class="saldo-card saldo-card-restante">
-          <span class="saldo-label">Saldo restante</span>
-          <span id="saldo-restante" class="saldo-val"></span>
-        </div>
-      </div>
       <div class="table-scroll">
         <table id="tabela-pagamentos">
           <thead>
@@ -175,6 +163,14 @@
             </tr>
           </thead>
           <tbody id="tbody-pagamentos"></tbody>
+          <tfoot>
+            <tr class="linha-total">
+              <th scope="row">Total pago</th>
+              <td id="total-pago" class="num"></td>
+              <th scope="row">Saldo restante</th>
+              <td id="saldo-restante" class="num"></td>
+            </tr>
+          </tfoot>
         </table>
       </div>
       <!-- formulário adicionar pagamento -->

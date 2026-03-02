@@ -179,7 +179,7 @@ function renderizarPlanilha(resumo) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${fmtData(pag.data_pagamento)}</td>
-      <td class="num">${fmtMoeda(pag.valor)}</td>
+      <td class="num">R$ ${fmtMoeda(pag.valor)}</td>
       <td>${pag.observacao || ''}</td>
       <td style="text-align:center;"><button class="btn-del" data-id="${pag.id}">✕</button></td>
     `;
@@ -419,9 +419,12 @@ async function deletarPrestacao(id, btn) {
   }
 }
 
-document.getElementById('btn-excluir-prestacao').addEventListener('click', (e) => {
-  if (prestacaoAtualId) deletarPrestacao(prestacaoAtualId, e.currentTarget);
-});
+const btnExcluirPrestacao = document.getElementById('btn-excluir-prestacao');
+if (btnExcluirPrestacao) {
+  btnExcluirPrestacao.addEventListener('click', (e) => {
+    if (prestacaoAtualId) deletarPrestacao(prestacaoAtualId, e.currentTarget);
+  });
+}
 
 // ─── DELETAR PAGAMENTO ─────────────────────────────────────────
 
