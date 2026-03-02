@@ -18,6 +18,7 @@
   --pc-radius:    10px;
   --pc-shadow:    0 1px 3px rgba(79,70,229,.08), 0 4px 12px rgba(79,70,229,.06);
   --pc-shadow-md: 0 4px 16px rgba(79,70,229,.12), 0 1px 4px rgba(0,0,0,.06);
+  --pc-row-alt:   rgba(79,70,229,.08);
 }
 
 *, *::before, *::after { box-sizing: border-box; }
@@ -543,4 +544,46 @@ body {
   .add-row { flex-direction: column; }
   .add-field { min-width: 100%; }
   .saldo-banner { padding: 10px 14px; }
+}
+
+/* ── Ajustes finais de tabelas ─────────────────────────── */
+
+/* 1. Cabeçalhos roxos com texto branco */
+.tabela-lista thead th,
+#tabela-materiais thead th,
+#tabela-pagamentos thead th {
+  background: var(--pc-primary);
+  color: #fff;
+}
+
+/* 2. Divisórias verticais entre colunas */
+.tabela-lista th,
+.tabela-lista td,
+#tabela-materiais th,
+#tabela-materiais td,
+#tabela-pagamentos th,
+#tabela-pagamentos td {
+  border-right: 1px solid var(--pc-border);
+}
+.tabela-lista th:last-child,
+.tabela-lista td:last-child,
+#tabela-materiais th:last-child,
+#tabela-materiais td:last-child,
+#tabela-pagamentos th:last-child,
+#tabela-pagamentos td:last-child {
+  border-right: none;
+}
+
+/* 3. Zebra striping no tbody */
+.tabela-lista tbody tr:nth-child(even) td,
+#tabela-materiais tbody tr:nth-child(even) td,
+#tabela-pagamentos tbody tr:nth-child(even) td {
+  background: var(--pc-row-alt);
+}
+
+/* 4. Hover consistente com zebra */
+.tabela-lista tbody tr:hover td,
+#tabela-materiais tbody tr:hover td,
+#tabela-pagamentos tbody tr:hover td {
+  background: rgba(79,70,229,.14);
 }
