@@ -13,6 +13,7 @@ const produtoRoutes = require('./src/routes/produto/produto.routes');
 const produtoCategoriaRoutes = require('./src/routes/produtoCategoria/produtoCategoria.routes');
 const volumeRoutes = require('./src/routes/volume/volume.routes');
 const prestacaoContasRoutes = require('./src/routes/prestacao_contas/prestacao_contas.routes');
+const botRoutes = require('./src/routes/bot/bot.routes');
 
 const app = express();
 
@@ -37,6 +38,7 @@ app.use('/api/funcionarios', funcionarioRoutes);
 app.use('/api/fornecedores', fornecedorRoutes);
 app.use('/api/volume', volumeRoutes);
 app.use('/api/prestacoes', prestacaoContasRoutes);
+app.use('/bot', botRoutes);
 
 // =====================================================
 // 📦 ROTAS DE PÁGINAS (VIEWS)
