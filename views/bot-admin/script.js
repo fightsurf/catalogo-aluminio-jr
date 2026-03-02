@@ -161,7 +161,7 @@
     const totalPaginas = Math.ceil(total / LIMIT_MENSAGENS);
     const pag = document.getElementById('paginacao-mensagens');
     if (!totalPaginas || totalPaginas <= 1) {
-      pag.innerHTML = `<span>${total} mensagem(ns)</span>`;
+      pag.innerHTML = `<span>${total} mensagem(s)</span>`;
       return;
     }
     pag.innerHTML = `
