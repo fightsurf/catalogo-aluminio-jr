@@ -7,8 +7,8 @@
   <style>
     body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 25px; }
     h1 { text-align: center; margin-bottom: 25px; }
-    .search-area { display: flex; gap: 10px; margin-bottom: 15px; }
-    .search-area input { flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+    .search-area { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+    .search-area input, .search-area select { flex: 1; padding: 8px; border: 1px solid #ccc; border-radius: 4px; min-width: 160px; }
     .search-area button { padding: 8px 16px; background: #222; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
     .search-area button:hover { background: #000; }
     table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 6px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.1); }
@@ -32,6 +32,9 @@
 
 <div class="search-area">
   <input type="text" id="campoBusca" placeholder="Buscar por código ou descrição..." oninput="filtrarTabela()">
+  <select id="filtroCategoria" onchange="carregarProdutos()">
+    <option value="">Todas as Categorias</option>
+  </select>
   <button onclick="carregarProdutos()">🔄 Recarregar</button>
 </div>
 
@@ -40,6 +43,7 @@
     <tr>
       <th>Código</th>
       <th>Descrição</th>
+      <th>Categoria</th>
       <th>Volume (capacidade/caixa)</th>
       <th>Ação</th>
     </tr>
@@ -50,9 +54,31 @@
 <script>
 let produtos = [];
 
+async function carregarCategorias() {
+  try {
+    const res = await fetch('/api/produtos-categorias');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    if (!json.success) return;
+    const select = document.getElementById('filtroCategoria');
+    json.data.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.id;
+      opt.textContent = c.nome;
+      select.appendChild(opt);
+    });
+  } catch (err) {
+    console.error('Erro ao carregar categorias:', err.message);
+  }
+}
+
 async function carregarProdutos() {
   const search = document.getElementById('campoBusca').value.trim();
-  const url = '/api/admin-volume/produtos' + (search ? `?search=${encodeURIComponent(search)}` : '');
+  const categoria = document.getElementById('filtroCategoria').value;
+  const params = new URLSearchParams();
+  if (search) params.set('search', search);
+  if (categoria) params.set('categoria', categoria);
+  const url = '/api/admin-volume/produtos' + (params.toString() ? '?' + params.toString() : '');
   try {
     const res = await fetch(url);
     const json = await res.json();
@@ -84,6 +110,9 @@ function renderTabela(lista) {
     const tdNome = document.createElement('td');
     tdNome.textContent = p.nome;
 
+    const tdCat = document.createElement('td');
+    tdCat.textContent = p.categoria || '—';
+
     const tdVol = document.createElement('td');
     const input = document.createElement('input');
     input.type = 'number';
@@ -102,6 +131,7 @@ function renderTabela(lista) {
 
     tr.appendChild(tdId);
     tr.appendChild(tdNome);
+    tr.appendChild(tdCat);
     tr.appendChild(tdVol);
     tr.appendChild(tdAcao);
     tbody.appendChild(tr);
@@ -135,7 +165,7 @@ function mostrarMensagem(texto, tipo) {
   el._timer = setTimeout(() => { el.className = 'msg'; }, 4000);
 }
 
-carregarProdutos();
+carregarCategorias().then(carregarProdutos);
 </script>
 
 </body>

@@ -1,19 +1,26 @@
 const pool = require('../../../db/connection');
 
-async function listar(search) {
+async function listar({ search, categoria } = {}) {
   let query = `
-    SELECT id, nome, capacidade_caixa AS volume
-    FROM produtos
+    SELECT p.id, p.nome, p.capacidade_caixa AS volume,
+           c.id AS categoria_id, c.nome AS categoria
+    FROM produtos p
+    LEFT JOIN produtos_categorias c ON p.categoria_id = c.id
     WHERE 1=1
   `;
   const values = [];
 
   if (search) {
     values.push(`%${search}%`);
-    query += ` AND (nome ILIKE $${values.length} OR id::text ILIKE $${values.length})`;
+    query += ` AND (p.nome ILIKE $${values.length} OR p.id::text ILIKE $${values.length})`;
   }
 
-  query += ` ORDER BY nome ASC`;
+  if (categoria) {
+    values.push(categoria);
+    query += ` AND p.categoria_id = $${values.length}`;
+  }
+
+  query += ` ORDER BY p.nome ASC`;
 
   const result = await pool.query(query, values);
   return result.rows;

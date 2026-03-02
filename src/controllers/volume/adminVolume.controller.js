@@ -2,8 +2,8 @@ const adminVolumeService = require('../../services/volume/adminVolume.Service');
 
 async function listar(req, res) {
   try {
-    const { search } = req.query;
-    const dados = await adminVolumeService.listar(search);
+    const { search, categoria } = req.query;
+    const dados = await adminVolumeService.listar({ search, categoria });
     res.json({ success: true, data: dados });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
