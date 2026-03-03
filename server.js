@@ -44,7 +44,7 @@ app.use('/api/admin-volume', adminVolumeRoutes);
 app.use('/api/prestacoes', prestacaoContasRoutes);
 app.use('/bot', botRoutes);
 app.use('/bot/admin', botAdminRoutes);
-app.use('/bot', botContatosRoutes);
+app.use('/api/bot', botContatosRoutes);
 app.use('/bot-admin', express.static(path.join(__dirname, 'views', 'bot-admin')));
 
 app.get('/bot/admin', (req, res) => {
@@ -117,6 +117,10 @@ app.get('/admin-volume', (req, res) => {
 
 app.get('/prestacao-contas', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'prestacao_contas', 'prestacao.html'));
+});
+
+app.get('/bot/contatos', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'bot-admin', 'bot-contatos.html'));
 });
 
 // =====================================================
