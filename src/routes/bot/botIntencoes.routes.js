@@ -2,11 +2,9 @@ const express = require('express');
 const router = express.Router();
 const botIntencoesController = require('../../controllers/bot/botIntencoes.controller');
 
-// CRUD Operations
-router.get('/intencoes', botIntencoesController.getAllIntencoes);
-router.get('/intencoes/:id', botIntencoesController.getIntencaoById);
-router.post('/intencoes', botIntencoesController.createIntencao);
-router.put('/intencoes/:id', botIntencoesController.updateIntencao);
-router.delete('/intencoes/:id', botIntencoesController.deleteIntencao);
+router.get('/intencoes', botIntencoesController.listarTodas);
+router.post('/intencoes', botIntencoesController.criar);
+router.put('/intencoes/:id', botIntencoesController.atualizar);
+router.get('/intencoes-ativas', botIntencoesController.listarAtivas);
 
 module.exports = router;
