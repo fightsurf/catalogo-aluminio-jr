@@ -17,6 +17,7 @@ const prestacaoContasRoutes = require('./src/routes/prestacao_contas/prestacao_c
 const botRoutes = require('./src/routes/bot/bot.routes');
 const botAdminRoutes = require('./src/routes/bot/bot.admin.routes');
 const botContatosRoutes = require('./src/routes/bot/botContatos.routes');
+const botIntencoesRoutes = require('./src/routes/bot/botIntencoes.routes');
 
 const app = express();
 
@@ -45,6 +46,7 @@ app.use('/api/prestacoes', prestacaoContasRoutes);
 app.use('/bot', botRoutes);
 app.use('/bot/admin', botAdminRoutes);
 app.use('/api/bot', botContatosRoutes);
+app.use('/bot', botIntencoesRoutes);
 app.use('/bot-admin', express.static(path.join(__dirname, 'views', 'bot-admin')));
 
 app.get('/bot/admin', (req, res) => {
@@ -121,6 +123,10 @@ app.get('/prestacao-contas', (req, res) => {
 
 app.get('/bot/contatos', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'bot-admin', 'bot-contatos.html'));
+});
+
+app.get('/bot/intencoes-admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'bot-admin', 'bot-intencoes.html'));
 });
 
 // =====================================================
