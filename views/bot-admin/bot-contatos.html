@@ -41,7 +41,7 @@
   <script>
     async function carregarContatos() {
       try {
-        const res = await fetch('/bot/contatos');
+        const res = await fetch('/api/bot/contatos');
         if (!res.ok) throw new Error('Erro ao carregar contatos');
         const contatos = await res.json();
         const tbody = document.getElementById('tbody');
@@ -83,7 +83,7 @@
       msgEl.className = 'msg';
 
       try {
-        const res = await fetch(`/bot/contatos/${id}`, {
+        const res = await fetch(`/api/bot/contatos/${id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ nome, nivel_atendimento })
