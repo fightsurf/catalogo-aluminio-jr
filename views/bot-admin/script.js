@@ -1,5 +1,6 @@
 (() => {
   const API = '/bot/admin';
+  const INTENCAO_DESCONHECIDO = 'DESCONHECIDO';
 
   let paginaConversas = 1;
   let totalPaginasConversas = 1;
@@ -106,6 +107,8 @@
     document.getElementById('chat-titulo').textContent = `📱 ${telefone}`;
     document.getElementById('chat-mensagens').innerHTML = '<p class="msg-carregando">Carregando mensagens...</p>';
     document.getElementById('paginacao-mensagens').innerHTML = '';
+    document.getElementById('btn-classificar').disabled = false;
+    resetarClassificacao();
 
     // Destacar item ativo na lista
     document.querySelectorAll('.conversa-item').forEach(el => {
@@ -173,9 +176,53 @@
     document.getElementById('pag-msg-prox').addEventListener('click', () => carregarMensagens(telefone, pagina + 1));
   }
 
+  // ── Classificação de Intenção ───────────────────────────────
+
+  function resetarClassificacao() {
+    const badge = document.getElementById('badge-intencao');
+    const status = document.getElementById('status-classificacao');
+    badge.textContent = '';
+    badge.className = 'badge-intencao oculto';
+    status.textContent = '';
+  }
+
+  async function classificarIntencao() {
+    if (!telefoneAtivo) return;
+
+    const btn = document.getElementById('btn-classificar');
+    const badge = document.getElementById('badge-intencao');
+    const status = document.getElementById('status-classificacao');
+
+    btn.disabled = true;
+    status.textContent = 'Classificando...';
+    badge.className = 'badge-intencao oculto';
+
+    try {
+      const res = await fetch(`/bot/classificar-intencao/${encodeURIComponent(telefoneAtivo)}`, {
+        method: 'POST'
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        status.textContent = data.message || 'Erro ao classificar';
+        return;
+      }
+
+      const intencao = data.intencao || INTENCAO_DESCONHECIDO;
+      badge.textContent = intencao;
+      badge.className = `badge-intencao${intencao === INTENCAO_DESCONHECIDO ? ' desconhecido' : ''}`;
+      status.textContent = '';
+    } catch (err) {
+      status.textContent = 'Erro de conexão';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
   // ── Init ────────────────────────────────────────────────────
 
   document.getElementById('btn-filtrar').addEventListener('click', () => carregarConversas(1));
+  document.getElementById('btn-classificar').addEventListener('click', classificarIntencao);
 
   document.getElementById('filtro-telefone').addEventListener('keydown', e => {
     if (e.key === 'Enter') carregarConversas(1);

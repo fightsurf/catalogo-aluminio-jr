@@ -189,6 +189,65 @@ body {
   font-size: 1rem;
   font-weight: bold;
   color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+#classificacao-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+#btn-classificar {
+  padding: 7px 14px;
+  background: #3498db;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: bold;
+  transition: filter 0.2s;
+  white-space: nowrap;
+}
+
+#btn-classificar:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+#btn-classificar:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.badge-intencao {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  background: #2ecc71;
+  color: #fff;
+  white-space: nowrap;
+}
+
+.badge-intencao.desconhecido {
+  background: #e67e22;
+}
+
+.badge-intencao.oculto {
+  display: none;
+}
+
+#status-classificacao {
+  font-size: 0.8rem;
+  font-weight: normal;
+  color: rgba(255,255,255,0.75);
+  white-space: nowrap;
 }
 
 #chat-mensagens {

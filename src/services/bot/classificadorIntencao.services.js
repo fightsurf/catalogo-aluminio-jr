@@ -1,0 +1,154 @@
+const https = require('https');
+const pool = require('../../../db/connection');
+
+const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
+const INTENCAO_DESCONHECIDO = 'DESCONHECIDO';
+
+function chamarOpenAI(prompt) {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify({
+      model: OPENAI_MODEL,
+      temperature: 0,
+      response_format: { type: 'json_object' },
+      messages: [
+        {
+          role: 'system',
+          content:
+            'Você é um classificador de intenções. Analise as mensagens do cliente e retorne apenas um JSON com a chave "intencao" contendo o nome da intenção mais adequada.'
+        },
+        { role: 'user', content: prompt }
+      ]
+    });
+
+    const options = {
+      hostname: 'api.openai.com',
+      path: '/v1/chat/completions',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        'Content-Length': Buffer.byteLength(body)
+      }
+    };
+
+    const req = https.request(options, res => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data);
+          if (parsed.error) return reject(new Error(`OpenAI: ${parsed.error.message}`));
+          resolve(parsed);
+        } catch (e) {
+          reject(new Error('Resposta inválida da OpenAI'));
+        }
+      });
+    });
+
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+async function classificarIntencao(telefone) {
+  // ── Passo 1: capturar mensagens e intenções em transação separada ──
+  const client = await pool.connect();
+  let mensagens;
+  let intencoes;
+  let ids;
+
+  try {
+    await client.query('BEGIN');
+
+    const resMensagens = await client.query(
+      `SELECT id, mensagem
+       FROM bot_mensagens
+       WHERE telefone = $1
+         AND direcao = 'ENTRADA'
+         AND processada_ia = false
+       ORDER BY criada_em DESC
+       LIMIT 3
+       FOR UPDATE SKIP LOCKED`,
+      [telefone]
+    );
+
+    if (!resMensagens.rows.length) {
+      await client.query('ROLLBACK');
+      const err = new Error('Nenhuma mensagem não processada encontrada para este telefone.');
+      err.status = 404;
+      throw err;
+    }
+
+    mensagens = resMensagens.rows;
+    ids = mensagens.map(m => m.id);
+
+    const resIntencoes = await client.query(
+      `SELECT nome, descricao FROM bot_intencoes WHERE ativa = true`
+    );
+
+    if (!resIntencoes.rows.length) {
+      await client.query('ROLLBACK');
+      const err = new Error('Nenhuma intenção ativa cadastrada.');
+      err.status = 503;
+      throw err;
+    }
+
+    intencoes = resIntencoes.rows;
+
+    // Confirmar leitura para liberar locks antes da chamada externa
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+
+  // ── Passo 2: montar prompt e chamar OpenAI (fora da transação) ──
+  const listaIntencoes = intencoes
+    .map(i => `- ${i.nome}: ${i.descricao}`)
+    .join('\n');
+
+  const textoMensagens = mensagens
+    .map((m, idx) => `Mensagem ${idx + 1}: "${m.mensagem}"`)
+    .join('\n');
+
+  const prompt =
+    `Intenções disponíveis:\n${listaIntencoes}\n\n` +
+    `Mensagens do cliente:\n${textoMensagens}\n\n` +
+    `Classifique a intenção do cliente e retorne JSON: {"intencao": "<NOME_DA_INTENCAO>"}`;
+
+  let intencaoDetectada = INTENCAO_DESCONHECIDO;
+
+  const resposta = await chamarOpenAI(prompt);
+  try {
+    const conteudo = resposta.choices[0].message.content;
+    const json = JSON.parse(conteudo);
+    const nomeIntencao = (json.intencao || '').toString().trim().toUpperCase();
+    const nomesAtivos = intencoes.map(i => i.nome.toUpperCase());
+    intencaoDetectada = nomesAtivos.includes(nomeIntencao) ? nomeIntencao : INTENCAO_DESCONHECIDO;
+  } catch {
+    intencaoDetectada = INTENCAO_DESCONHECIDO;
+  }
+
+  // ── Passo 3: marcar mensagens como processadas em nova transação ──
+  const client2 = await pool.connect();
+  try {
+    await client2.query('BEGIN');
+    await client2.query(
+      `UPDATE bot_mensagens SET processada_ia = true WHERE id = ANY($1::bigint[])`,
+      [ids]
+    );
+    await client2.query('COMMIT');
+  } catch (err) {
+    await client2.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client2.release();
+  }
+
+  return { intencao: intencaoDetectada };
+}
+
+module.exports = { classificarIntencao };

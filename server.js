@@ -18,6 +18,7 @@ const botRoutes = require('./src/routes/bot/bot.routes');
 const botAdminRoutes = require('./src/routes/bot/bot.admin.routes');
 const botContatosRoutes = require('./src/routes/bot/botContatos.routes');
 const botIntencoesRoutes = require('./src/routes/bot/botIntencoes.routes');
+const classificadorIntencaoRoutes = require('./src/routes/bot/classificadorIntencao.routes');
 
 const app = express();
 
@@ -47,6 +48,7 @@ app.use('/bot', botRoutes);
 app.use('/bot/admin', botAdminRoutes);
 app.use('/api/bot', botContatosRoutes);
 app.use('/bot', botIntencoesRoutes);
+app.use('/bot', classificadorIntencaoRoutes);
 app.use('/bot-admin', express.static(path.join(__dirname, 'views', 'bot-admin')));
 
 app.get('/bot/admin', (req, res) => {
