@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bot Admin – Intenções</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #f4f4f4; color: #333; padding: 20px; }
+    h1 { margin-bottom: 16px; font-size: 1.4rem; }
+    .topo { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .topo h1 { margin-bottom: 0; }
+    button.btn-voltar { background: #7f8c8d; color: #fff; border: none; padding: 7px 14px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+    button.btn-voltar:hover { background: #636e72; }
+    button.btn-novo { background: #2980b9; color: #fff; border: none; padding: 7px 14px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+    button.btn-novo:hover { background: #1f6fa3; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 6px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #e0e0e0; font-size: 0.9rem; }
+    th { background: #2c3e50; color: #fff; }
+    tr:last-child td { border-bottom: none; }
+    button.btn-editar { background: #f39c12; color: #fff; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 0.82rem; }
+    button.btn-editar:hover { background: #d68910; }
+    #loading { margin: 20px 0; color: #555; }
+    /* Modal */
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 100; }
+    .overlay.ativo { display: flex; align-items: center; justify-content: center; }
+    .modal { background: #fff; border-radius: 8px; padding: 24px; width: 100%; max-width: 480px; box-shadow: 0 4px 16px rgba(0,0,0,.2); }
+    .modal h2 { margin-bottom: 16px; font-size: 1.1rem; }
+    .campo { margin-bottom: 12px; }
+    .campo label { display: block; font-size: 0.85rem; margin-bottom: 4px; font-weight: bold; }
+    .campo input[type="text"], .campo textarea { width: 100%; padding: 7px 9px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem; }
+    .campo textarea { resize: vertical; min-height: 70px; }
+    .campo input[disabled] { background: #eee; color: #666; cursor: not-allowed; }
+    .campo-check { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+    .acoes-modal { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
+    button.btn-salvar { background: #27ae60; color: #fff; border: none; padding: 8px 18px; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
+    button.btn-salvar:hover { background: #219150; }
+    button.btn-cancelar { background: #bdc3c7; color: #333; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
+    button.btn-cancelar:hover { background: #a0a8ad; }
+    .msg-modal { font-size: 0.82rem; margin-top: 8px; }
+    .msg-modal.ok { color: #27ae60; }
+    .msg-modal.err { color: #e74c3c; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.78rem; font-weight: bold; }
+    .badge-sim { background: #d5f5e3; color: #1e8449; }
+    .badge-nao { background: #fde8e8; color: #c0392b; }
+  </style>
+</head>
+<body>
+  <div class="topo">
+    <button class="btn-voltar" onclick="location.href='/bot/admin'">← Voltar</button>
+    <h1>🤖 Gestão de Intenções – Bot WhatsApp</h1>
+    <button class="btn-novo" onclick="abrirModalNovo()">+ Nova Intenção</button>
+  </div>
+
+  <p id="loading">Carregando intenções…</p>
+  <table id="tabela" style="display:none">
+    <thead>
+      <tr>
+        <th>Nome</th>
+        <th>Descrição</th>
+        <th>Resposta</th>
+        <th>Ação</th>
+        <th>Exige Humano</th>
+        <th>Ativa</th>
+        <th>Criado em</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="tbody"></tbody>
+  </table>
+
+  <!-- Modal -->
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <h2 id="modal-titulo">Nova Intenção</h2>
+      <div class="campo">
+        <label for="campo-nome">Nome <small>(sem espaços, será salvo em MAIÚSCULO)</small></label>
+        <input type="text" id="campo-nome" placeholder="ex: SAUDACAO" />
+      </div>
+      <div class="campo">
+        <label for="campo-descricao">Descrição *</label>
+        <input type="text" id="campo-descricao" placeholder="Descrição da intenção" />
+      </div>
+      <div class="campo">
+        <label for="campo-resposta">Resposta Texto</label>
+        <textarea id="campo-resposta" placeholder="Texto de resposta automática (opcional)"></textarea>
+      </div>
+      <div class="campo">
+        <label for="campo-acao">Ação</label>
+        <input type="text" id="campo-acao" placeholder="Identificador de ação (opcional)" />
+      </div>
+      <div class="campo">
+        <div class="campo-check">
+          <input type="checkbox" id="campo-exige-humano" />
+          <label for="campo-exige-humano">Exige atendimento humano</label>
+        </div>
+      </div>
+      <div class="campo" id="campo-ativa-wrap" style="display:none">
+        <div class="campo-check">
+          <input type="checkbox" id="campo-ativa" />
+          <label for="campo-ativa">Ativa</label>
+        </div>
+      </div>
+      <div class="acoes-modal">
+        <button class="btn-cancelar" onclick="fecharModal()">Cancelar</button>
+        <button class="btn-salvar" onclick="salvar()">Salvar</button>
+      </div>
+      <div class="msg-modal" id="msg-modal"></div>
+    </div>
+  </div>
+
+  <script>
+    let modoEdicao = false;
+    let idEdicao = null;
+
+    async function carregar() {
+      try {
+        const res = await fetch('/bot/intencoes');
+        if (!res.ok) throw new Error('Erro ao carregar intenções');
+        const intencoes = await res.json();
+        const tbody = document.getElementById('tbody');
+        tbody.innerHTML = '';
+        intencoes.forEach(i => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${esc(i.nome)}</strong></td>
+            <td>${esc(i.descricao)}</td>
+            <td>${esc(i.resposta_texto || '—')}</td>
+            <td>${esc(i.acao || '—')}</td>
+            <td><span class="badge ${i.exige_humano ? 'badge-sim' : 'badge-nao'}">${i.exige_humano ? 'Sim' : 'Não'}</span></td>
+            <td><span class="badge ${i.ativa ? 'badge-sim' : 'badge-nao'}">${i.ativa ? 'Sim' : 'Não'}</span></td>
+            <td>${formatarData(i.criado_em)}</td>
+            <td><button class="btn-editar" onclick='abrirModalEditar(${JSON.stringify(i)})'>Editar</button></td>
+          `;
+          tbody.appendChild(tr);
+        });
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('tabela').style.display = '';
+      } catch (err) {
+        document.getElementById('loading').textContent = 'Erro ao carregar: ' + err.message;
+      }
+    }
+
+    function abrirModalNovo() {
+      modoEdicao = false;
+      idEdicao = null;
+      document.getElementById('modal-titulo').textContent = 'Nova Intenção';
+      document.getElementById('campo-nome').value = '';
+      document.getElementById('campo-nome').disabled = false;
+      document.getElementById('campo-descricao').value = '';
+      document.getElementById('campo-resposta').value = '';
+      document.getElementById('campo-acao').value = '';
+      document.getElementById('campo-exige-humano').checked = false;
+      document.getElementById('campo-ativa').checked = true;
+      document.getElementById('campo-ativa-wrap').style.display = 'none';
+      document.getElementById('msg-modal').textContent = '';
+      document.getElementById('msg-modal').className = 'msg-modal';
+      document.getElementById('overlay').classList.add('ativo');
+    }
+
+    function abrirModalEditar(i) {
+      modoEdicao = true;
+      idEdicao = i.id;
+      document.getElementById('modal-titulo').textContent = 'Editar Intenção';
+      document.getElementById('campo-nome').value = i.nome;
+      document.getElementById('campo-nome').disabled = true;
+      document.getElementById('campo-descricao').value = i.descricao;
+      document.getElementById('campo-resposta').value = i.resposta_texto || '';
+      document.getElementById('campo-acao').value = i.acao || '';
+      document.getElementById('campo-exige-humano').checked = !!i.exige_humano;
+      document.getElementById('campo-ativa').checked = !!i.ativa;
+      document.getElementById('campo-ativa-wrap').style.display = '';
+      document.getElementById('msg-modal').textContent = '';
+      document.getElementById('msg-modal').className = 'msg-modal';
+      document.getElementById('overlay').classList.add('ativo');
+    }
+
+    function fecharModal() {
+      document.getElementById('overlay').classList.remove('ativo');
+    }
+
+    async function salvar() {
+      const msgEl = document.getElementById('msg-modal');
+      msgEl.textContent = '';
+      msgEl.className = 'msg-modal';
+
+      const descricao = document.getElementById('campo-descricao').value.trim();
+      const resposta_texto = document.getElementById('campo-resposta').value.trim();
+      const acao = document.getElementById('campo-acao').value.trim();
+      const exige_humano = document.getElementById('campo-exige-humano').checked;
+
+      try {
+        let res;
+        if (modoEdicao) {
+          const ativa = document.getElementById('campo-ativa').checked;
+          res = await fetch(`/bot/intencoes/${idEdicao}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ descricao, resposta_texto: resposta_texto || null, acao: acao || null, exige_humano, ativa })
+          });
+        } else {
+          const nome = document.getElementById('campo-nome').value.trim();
+          res = await fetch('/bot/intencoes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nome, descricao, resposta_texto: resposta_texto || null, acao: acao || null, exige_humano })
+          });
+        }
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Erro ao salvar');
+        msgEl.textContent = '✓ Salvo com sucesso!';
+        msgEl.classList.add('ok');
+        setTimeout(() => { fecharModal(); carregar(); }, 800);
+      } catch (err) {
+        msgEl.textContent = '✗ ' + err.message;
+        msgEl.classList.add('err');
+      }
+    }
+
+    function esc(str) {
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+
+    function formatarData(iso) {
+      if (!iso) return '—';
+      const d = new Date(iso);
+      return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    carregar();
+  </script>
+</body>
+</html>
