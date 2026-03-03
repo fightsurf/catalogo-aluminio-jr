@@ -5,9 +5,9 @@
 }
 
 body {
-  font-family: 'Segoe UI', Arial, sans-serif;
-  background: #111b21;
-  color: #e9edef;
+  font-family: Arial, sans-serif;
+  background: #eef2f7;
+  color: #333;
   height: 100vh;
   overflow: hidden;
 }
@@ -21,57 +21,57 @@ body {
 #sidebar {
   width: 30%;
   min-width: 260px;
-  background: #202c33;
+  background: #fff;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid #2a3942;
+  border-right: 1px solid #e6e9ef;
 }
 
 #filtros {
-  padding: 12px;
-  background: #1f2c34;
-  border-bottom: 1px solid #2a3942;
+  padding: 16px;
+  background: #fff;
+  border-bottom: 1px solid #e6e9ef;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 #filtros h2 {
-  font-size: 1rem;
-  color: #00a884;
+  font-size: 1.1rem;
+  color: #2c3e50;
   margin-bottom: 4px;
 }
 
 #filtros input,
 #filtros select {
-  padding: 7px 10px;
+  padding: 10px;
   border-radius: 6px;
-  border: none;
-  background: #2a3942;
-  color: #e9edef;
-  font-size: 0.85rem;
+  border: 1px solid #ccc;
+  background: #fff;
+  color: #333;
+  font-size: 0.9rem;
   outline: none;
   width: 100%;
 }
 
 #filtros input::placeholder {
-  color: #8696a0;
+  color: #777;
 }
 
 #btn-filtrar {
-  padding: 8px;
-  background: #00a884;
-  color: #111b21;
+  padding: 10px;
+  background: #2ecc71;
+  color: #fff;
   border: none;
   border-radius: 6px;
   cursor: pointer;
   font-weight: bold;
-  font-size: 0.85rem;
-  transition: background 0.2s;
+  font-size: 0.9rem;
+  transition: filter 0.2s;
 }
 
 #btn-filtrar:hover {
-  background: #02bf98;
+  filter: brightness(0.95);
 }
 
 #lista-conversas {
@@ -83,30 +83,30 @@ body {
   display: flex;
   flex-direction: column;
   padding: 12px 16px;
-  border-bottom: 1px solid #2a3942;
+  border-bottom: 1px solid #eef0f4;
   cursor: pointer;
   transition: background 0.15s;
 }
 
 .conversa-item:hover,
 .conversa-item.ativa {
-  background: #2a3942;
+  background: #f9f9f9;
 }
 
 .conversa-telefone {
   font-weight: bold;
-  font-size: 0.9rem;
-  color: #e9edef;
+  font-size: 0.95rem;
+  color: #333;
 }
 
 .conversa-nome {
-  font-size: 0.8rem;
-  color: #8696a0;
+  font-size: 0.82rem;
+  color: #666;
 }
 
 .conversa-preview {
-  font-size: 0.78rem;
-  color: #8696a0;
+  font-size: 0.8rem;
+  color: #666;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -129,17 +129,17 @@ body {
 
 .nivel-HUMANO {
   background: #2a6496;
-  color: #e9edef;
+  color: #fff;
 }
 
 .nivel-IA {
-  background: #00a884;
-  color: #111b21;
+  background: #2ecc71;
+  color: #fff;
 }
 
 .conversa-data {
   font-size: 0.7rem;
-  color: #8696a0;
+  color: #777;
 }
 
 /* ── PAGINAÇÃO ──────────────────────────────── */
@@ -149,25 +149,24 @@ body {
   justify-content: center;
   align-items: center;
   gap: 8px;
-  padding: 8px;
-  background: #1f2c34;
-  border-top: 1px solid #2a3942;
-  font-size: 0.8rem;
+  padding: 10px;
+  background: #fff;
+  border-top: 1px solid #e6e9ef;
+  font-size: 0.85rem;
 }
 
 .btn-pag {
-  padding: 4px 10px;
-  background: #2a3942;
-  color: #e9edef;
+  padding: 6px 12px;
+  background: #2c3e50;
+  color: #fff;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.8rem;
+  font-size: 0.85rem;
 }
 
 .btn-pag:hover {
-  background: #00a884;
-  color: #111b21;
+  filter: brightness(1.05);
 }
 
 .btn-pag:disabled {
@@ -180,16 +179,16 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: #0b141a;
+  background: transparent;
 }
 
 #chat-header {
   padding: 14px 20px;
-  background: #202c33;
-  border-bottom: 1px solid #2a3942;
+  background: #2c3e50;
+  border-bottom: 1px solid #e6e9ef;
   font-size: 1rem;
   font-weight: bold;
-  color: #e9edef;
+  color: #fff;
 }
 
 #chat-mensagens {
@@ -203,26 +202,26 @@ body {
 
 .bolha {
   max-width: 65%;
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-size: 0.88rem;
+  padding: 10px 12px;
+  border-radius: 10px;
+  font-size: 0.9rem;
   line-height: 1.4;
   position: relative;
   word-break: break-word;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.06);
 }
 
 .bolha-ENTRADA {
   align-self: flex-start;
-  background: #202c33;
-  color: #e9edef;
-  border-bottom-left-radius: 2px;
+  background: #fff;
+  color: #333;
+  border: 1px solid #eef0f4;
 }
 
 .bolha-SAIDA {
   align-self: flex-end;
-  background: #005c4b;
-  color: #e9edef;
-  border-bottom-right-radius: 2px;
+  background: #2ecc71;
+  color: #fff;
 }
 
 .bolha-meta {
@@ -230,8 +229,12 @@ body {
   justify-content: flex-end;
   gap: 6px;
   margin-top: 4px;
-  font-size: 0.68rem;
-  color: #8696a0;
+  font-size: 0.7rem;
+  color: rgba(0,0,0,0.55);
+}
+
+.bolha-SAIDA .bolha-meta {
+  color: rgba(255,255,255,0.85);
 }
 
 .bolha-tipo {
@@ -240,8 +243,8 @@ body {
 
 .msg-vazia,
 .msg-carregando {
-  color: #8696a0;
-  font-size: 0.9rem;
+  color: #666;
+  font-size: 0.95rem;
   text-align: center;
   margin-top: 40px;
 }
