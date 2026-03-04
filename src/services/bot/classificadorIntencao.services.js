@@ -3,6 +3,7 @@ const pool = require('../../../db/connection');
 
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 const INTENCAO_DESCONHECIDO = 'DESCONHECIDO';
+const DESCRICAO_DESCONHECIDO = 'use quando a mensagem não se encaixar claramente em nenhuma das intenções acima';
 const DEBUG = process.env.DEBUG_INTENCAO === 'true';
 
 function chamarOpenAI(prompt) {
@@ -15,7 +16,7 @@ function chamarOpenAI(prompt) {
         {
           role: 'system',
           content:
-            'Você é um classificador de intenções. Analise as mensagens do cliente e retorne apenas um JSON com a chave "intencao" contendo o nome da intenção mais adequada.'
+            'Você é um classificador de intenções. Analise as mensagens do cliente e retorne APENAS JSON válido no formato {"intencao":"<NOME>"}. Não inclua texto extra, explicações ou markdown.'
         },
         { role: 'user', content: prompt }
       ]
@@ -107,6 +108,8 @@ async function classificarIntencao(telefone) {
   }
 
   // ── Passo 2: montar prompt e chamar OpenAI (fora da transação) ──
+  const nomesPermitidos = Array.from(new Set(intencoes.map(i => i.nome.toUpperCase())).add(INTENCAO_DESCONHECIDO));
+
   const listaIntencoes = intencoes
     .map(i => `- ${i.nome}: ${i.descricao}`)
     .join('\n');
@@ -116,15 +119,17 @@ async function classificarIntencao(telefone) {
     .join('\n');
 
   const prompt =
-    `Intenções disponíveis:\n${listaIntencoes}\n\n` +
+    `Intenções disponíveis:\n${listaIntencoes}\n- ${INTENCAO_DESCONHECIDO}: ${DESCRICAO_DESCONHECIDO}.\n\n` +
     `Mensagens do cliente:\n${textoMensagens}\n\n` +
-    `Classifique a intenção do cliente e retorne JSON: {"intencao": "<NOME_DA_INTENCAO>"}`;
+    `Responda APENAS com JSON válido no formato: {"intencao":"<NOME>"}\n` +
+    `O valor de "intencao" deve ser EXATAMENTE um dos nomes: ${nomesPermitidos.join(', ')}.\n` +
+    `Não invente novas intenções. Não inclua texto extra. Sem markdown. Sem explicações.`;
 
   if (DEBUG) {
     console.log('[DEBUG_INTENCAO] telefone:', telefone);
     console.log('[DEBUG_INTENCAO] ids:', ids);
     console.log('[DEBUG_INTENCAO] mensagens:', mensagens.map(m => m.mensagem));
-    console.log('[DEBUG_INTENCAO] intencoes:', intencoes.map(i => i.nome));
+    console.log('[DEBUG_INTENCAO] intencoes permitidas:', nomesPermitidos);
     console.log('[DEBUG_INTENCAO] prompt:', prompt);
   }
 
@@ -138,9 +143,18 @@ async function classificarIntencao(telefone) {
     const conteudo = resposta.choices[0].message.content;
     const json = JSON.parse(conteudo);
     const nomeIntencao = (json.intencao || '').toString().trim().toUpperCase();
-    const nomesAtivos = intencoes.map(i => i.nome.toUpperCase());
-    intencaoDetectada = nomesAtivos.includes(nomeIntencao) ? nomeIntencao : INTENCAO_DESCONHECIDO;
-  } catch {
+    if (nomesPermitidos.includes(nomeIntencao)) {
+      intencaoDetectada = nomeIntencao;
+    } else {
+      if (DEBUG) {
+        console.warn('[DEBUG_INTENCAO] fallback: intenção retornada pelo modelo não está na lista permitida:', nomeIntencao);
+      }
+      intencaoDetectada = INTENCAO_DESCONHECIDO;
+    }
+  } catch (e) {
+    if (DEBUG) {
+      console.warn('[DEBUG_INTENCAO] fallback: falha ao parsear resposta da OpenAI:', e.message);
+    }
     intencaoDetectada = INTENCAO_DESCONHECIDO;
   }
 
