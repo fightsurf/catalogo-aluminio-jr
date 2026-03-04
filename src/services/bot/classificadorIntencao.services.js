@@ -3,6 +3,7 @@ const pool = require('../../../db/connection');
 
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o-mini';
 const INTENCAO_DESCONHECIDO = 'DESCONHECIDO';
+const DEBUG = process.env.DEBUG_INTENCAO === 'true';
 
 function chamarOpenAI(prompt) {
   return new Promise((resolve, reject) => {
@@ -119,9 +120,20 @@ async function classificarIntencao(telefone) {
     `Mensagens do cliente:\n${textoMensagens}\n\n` +
     `Classifique a intenção do cliente e retorne JSON: {"intencao": "<NOME_DA_INTENCAO>"}`;
 
+  if (DEBUG) {
+    console.log('[DEBUG_INTENCAO] telefone:', telefone);
+    console.log('[DEBUG_INTENCAO] ids:', ids);
+    console.log('[DEBUG_INTENCAO] mensagens:', mensagens.map(m => m.mensagem));
+    console.log('[DEBUG_INTENCAO] intencoes:', intencoes.map(i => i.nome));
+    console.log('[DEBUG_INTENCAO] prompt:', prompt);
+  }
+
   let intencaoDetectada = INTENCAO_DESCONHECIDO;
 
   const resposta = await chamarOpenAI(prompt);
+  if (DEBUG) {
+    console.log('[DEBUG_INTENCAO] resposta OpenAI:', JSON.stringify(resposta));
+  }
   try {
     const conteudo = resposta.choices[0].message.content;
     const json = JSON.parse(conteudo);

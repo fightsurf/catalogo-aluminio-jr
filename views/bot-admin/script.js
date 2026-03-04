@@ -108,6 +108,7 @@
     document.getElementById('chat-mensagens').innerHTML = '<p class="msg-carregando">Carregando mensagens...</p>';
     document.getElementById('paginacao-mensagens').innerHTML = '';
     document.getElementById('btn-classificar').disabled = false;
+    document.getElementById('classificacao-controls').style.display = 'flex';
     resetarClassificacao();
 
     // Destacar item ativo na lista
