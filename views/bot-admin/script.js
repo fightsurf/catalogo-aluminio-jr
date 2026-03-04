@@ -9,6 +9,109 @@
   let totalMensagens = 0;
   const LIMIT_MENSAGENS = 50;
 
+  // ── WebSocket / Fallback ─────────────────────────────────────
+
+  const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/bot-admin`;
+  const BACKOFF = [2000, 5000, 10000];
+  let wsAttempt = 0;
+  let wsConnected = false;
+  let fallbackTimer = null;
+  let wsInstance = null;
+
+  function iniciarFallback() {
+    if (fallbackTimer) return;
+    fallbackTimer = setInterval(() => {
+      atualizarListaSilenciosa();
+    }, 15000);
+  }
+
+  function pararFallback() {
+    if (fallbackTimer) {
+      clearInterval(fallbackTimer);
+      fallbackTimer = null;
+    }
+  }
+
+  function conectarWs() {
+    if (wsInstance) {
+      try { wsInstance.close(); } catch (_) {}
+    }
+
+    const ws = new WebSocket(WS_URL);
+    wsInstance = ws;
+
+    ws.onopen = () => {
+      wsConnected = true;
+      wsAttempt = 0;
+      pararFallback();
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        if (data.tipo === 'nova_mensagem') {
+          atualizarListaSilenciosa();
+          if (telefoneAtivo && data.telefone === telefoneAtivo) {
+            recarregarMensagensAtivas();
+          }
+        }
+      } catch (_) {}
+    };
+
+    ws.onclose = () => {
+      wsConnected = false;
+      wsInstance = null;
+      iniciarFallback();
+      const delay = BACKOFF[Math.min(wsAttempt, BACKOFF.length - 1)];
+      wsAttempt++;
+      setTimeout(conectarWs, delay);
+    };
+
+    ws.onerror = () => {
+      ws.close();
+    };
+  }
+
+  // Atualizar lista sem "piscar" (sem mostrar spinner)
+  async function atualizarListaSilenciosa() {
+    const filtros = getFiltros();
+    const qs = buildQuery({ ...filtros, page: paginaConversas, limit: 20 });
+    try {
+      const res = await fetch(`${API}/conversas?${qs}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      totalPaginasConversas = data.total_paginas || 1;
+      renderConversas(data.dados || []);
+      renderPaginacaoConversas(data.pagina, data.total_paginas, data.total);
+    } catch (_) {}
+  }
+
+  // Recarregar mensagens da conversa ativa preservando scroll inteligente
+  async function recarregarMensagensAtivas() {
+    if (!telefoneAtivo) return;
+    const container = document.getElementById('chat-mensagens');
+    const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 120;
+
+    try {
+      const qs = buildQuery({ page: paginaMensagens, limit: LIMIT_MENSAGENS });
+      const res = await fetch(`${API}/mensagens/${encodeURIComponent(telefoneAtivo)}?${qs}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      totalMensagens = data.total || 0;
+      renderMensagensSilencioso(data.dados || [], nearBottom);
+      renderPaginacaoMensagens(telefoneAtivo, paginaMensagens, totalMensagens);
+    } catch (_) {}
+  }
+
+  function renderMensagensSilencioso(mensagens, autoScroll) {
+    const container = document.getElementById('chat-mensagens');
+    if (!mensagens.length) return;
+    container.innerHTML = mensagens.map(m => buildBolhaHtml(m)).join('');
+    if (autoScroll) {
+      container.scrollTop = container.scrollHeight;
+    }
+  }
+
   // ── Helpers ────────────────────────────────────────────────
 
   function formatarData(iso) {
@@ -145,6 +248,25 @@
     }
   }
 
+  function buildBolhaHtml(m) {
+    const dir = m.direcao === 'SAIDA' ? 'SAIDA' : 'ENTRADA';
+    const badgeProcessada = m.direcao === 'ENTRADA'
+      ? `<span class="msg-badge ${m.processada_ia ? 'badge-processada' : 'badge-nao-processada'}">${m.processada_ia ? '✓ Processada' : '⏳ Não processada'}</span>`
+      : '';
+    const badgeIntencao = m.intencao_classificada
+      ? `<span class="msg-badge badge-intencao-msg">🏷 ${esc(m.intencao_classificada)}</span>`
+      : '';
+    return `
+      <div class="bolha bolha-${dir}">
+        <span>${m.mensagem || ''}</span>
+        <div class="bolha-meta">
+          <span class="bolha-tipo">${m.tipo || ''}</span>
+          <span>${formatarData(m.criada_em)}</span>
+        </div>
+        ${badgeProcessada || badgeIntencao ? `<div class="bolha-badges">${badgeProcessada}${badgeIntencao}</div>` : ''}
+      </div>`;
+  }
+
   function renderMensagens(mensagens) {
     const container = document.getElementById('chat-mensagens');
     if (!mensagens.length) {
@@ -152,24 +274,7 @@
       return;
     }
 
-    container.innerHTML = mensagens.map(m => {
-      const dir = m.direcao === 'SAIDA' ? 'SAIDA' : 'ENTRADA';
-      const badgeProcessada = m.direcao === 'ENTRADA'
-        ? `<span class="msg-badge ${m.processada_ia ? 'badge-processada' : 'badge-nao-processada'}">${m.processada_ia ? '✓ Processada' : '⏳ Não processada'}</span>`
-        : '';
-      const badgeIntencao = m.intencao_classificada
-        ? `<span class="msg-badge badge-intencao-msg">🏷 ${esc(m.intencao_classificada)}</span>`
-        : '';
-      return `
-        <div class="bolha bolha-${dir}">
-          <span>${m.mensagem || ''}</span>
-          <div class="bolha-meta">
-            <span class="bolha-tipo">${m.tipo || ''}</span>
-            <span>${formatarData(m.criada_em)}</span>
-          </div>
-          ${badgeProcessada || badgeIntencao ? `<div class="bolha-badges">${badgeProcessada}${badgeIntencao}</div>` : ''}
-        </div>`;
-    }).join('');
+    container.innerHTML = mensagens.map(m => buildBolhaHtml(m)).join('');
 
     // Scroll para o fim ao carregar a primeira página
     if (paginaMensagens === 1) {
@@ -246,4 +351,5 @@
   });
 
   carregarConversas(1);
+  conectarWs();
 })();

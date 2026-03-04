@@ -1,4 +1,5 @@
 const pool = require('../../../db/connection');
+const botEvents = require('./botEvents');
 
 async function receberMensagem({ telefone, mensagem, tipo }) {
   const client = await pool.connect();
@@ -36,6 +37,8 @@ async function receberMensagem({ telefone, mensagem, tipo }) {
     );
 
     await client.query('COMMIT');
+
+    botEvents.emit('nova_mensagem', { telefone, mensagem, tipo });
 
     return { status: 'mensagem_registrada' };
   } catch (error) {

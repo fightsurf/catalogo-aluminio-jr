@@ -13,13 +13,15 @@
       <div id="filtros">
         <h2>🤖 Bot Admin</h2>
         <input type="text" id="filtro-telefone" placeholder="Buscar telefone..." />
-        <input type="date" id="filtro-data-inicio" title="Data início" />
-        <input type="date" id="filtro-data-fim" title="Data fim" />
-        <select id="filtro-nivel">
-          <option value="">Todos os níveis</option>
-          <option value="HUMANO">HUMANO</option>
-          <option value="IA">IA</option>
-        </select>
+        <div id="filtros-grid">
+          <input type="date" id="filtro-data-inicio" title="Data início" />
+          <input type="date" id="filtro-data-fim" title="Data fim" />
+          <select id="filtro-nivel">
+            <option value="">Todos os níveis</option>
+            <option value="HUMANO">HUMANO</option>
+            <option value="IA">IA</option>
+          </select>
+        </div>
         <button id="btn-filtrar">Filtrar</button>
       </div>
       <div id="lista-conversas"></div>

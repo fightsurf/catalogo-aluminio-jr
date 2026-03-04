@@ -28,28 +28,28 @@ body {
 }
 
 #filtros {
-  padding: 16px;
+  padding: 10px 12px;
   background: #161b22;
   border-bottom: 1px solid #30363d;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 6px;
 }
 
 #filtros h2 {
-  font-size: 1.1rem;
+  font-size: 1rem;
   color: #c9d1d9;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 
 #filtros input,
 #filtros select {
-  padding: 10px;
+  padding: 7px 8px;
   border-radius: 6px;
   border: 1px solid #30363d;
   background: #21262d;
   color: #c9d1d9;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   outline: none;
   width: 100%;
 }
@@ -58,15 +58,26 @@ body {
   color: #6e7681;
 }
 
+/* Grade compacta: datas + nível em 2 colunas */
+#filtros-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+#filtros-grid select {
+  grid-column: 1 / -1;
+}
+
 #btn-filtrar {
-  padding: 10px;
+  padding: 7px 10px;
   background: #2ecc71;
   color: #fff;
   border: none;
   border-radius: 6px;
   cursor: pointer;
   font-weight: bold;
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   transition: filter 0.2s;
 }
 

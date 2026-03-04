@@ -1,5 +1,8 @@
 const express = require('express');
+const http = require('http');
 const path = require('path');
+const { WebSocketServer, WebSocket } = require('ws');
+const botEvents = require('./src/services/bot/botEvents');
 
 // =====================================================
 // 📦 IMPORTAÇÃO DE ROTAS MODULARES
@@ -141,6 +144,40 @@ const PORT = process.env.PORT || 10000;
 const botAdminService = require('./src/services/bot/bot.admin.service');
 botAdminService.criarIndices().catch(err => console.warn('⚠️  Índices bot (não crítico):', err.message));
 
-app.listen(PORT, () => {
+// =====================================================
+// 🔌 WEBSOCKET – Bot Admin (tempo real)
+// =====================================================
+
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server, path: '/ws/bot-admin' });
+
+wss.on('connection', (ws) => {
+  ws.isAlive = true;
+  ws.on('pong', () => { ws.isAlive = true; });
+});
+
+// Heartbeat para detectar clientes desconectados
+const heartbeat = setInterval(() => {
+  wss.clients.forEach((ws) => {
+    if (!ws.isAlive) return ws.terminate();
+    ws.isAlive = false;
+    ws.ping();
+  });
+}, 30000);
+
+wss.on('close', () => clearInterval(heartbeat));
+
+function broadcast(data) {
+  const msg = JSON.stringify(data);
+  wss.clients.forEach((ws) => {
+    if (ws.readyState === WebSocket.OPEN) ws.send(msg);
+  });
+}
+
+botEvents.on('nova_mensagem', ({ telefone }) => {
+  broadcast({ tipo: 'nova_mensagem', telefone });
+});
+
+server.listen(PORT, () => {
   console.log('🟢 Catálogo Alumínio JR rodando na porta', PORT);
 });
