@@ -17,6 +17,15 @@
     return d.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
   }
 
+  function esc(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
   function getFiltros() {
     return {
       telefone: document.getElementById('filtro-telefone').value.trim(),
@@ -145,6 +154,12 @@
 
     container.innerHTML = mensagens.map(m => {
       const dir = m.direcao === 'SAIDA' ? 'SAIDA' : 'ENTRADA';
+      const badgeProcessada = m.direcao === 'ENTRADA'
+        ? `<span class="msg-badge ${m.processada_ia ? 'badge-processada' : 'badge-nao-processada'}">${m.processada_ia ? '✓ Processada' : '⏳ Não processada'}</span>`
+        : '';
+      const badgeIntencao = m.intencao_classificada
+        ? `<span class="msg-badge badge-intencao-msg">🏷 ${esc(m.intencao_classificada)}</span>`
+        : '';
       return `
         <div class="bolha bolha-${dir}">
           <span>${m.mensagem || ''}</span>
@@ -152,6 +167,7 @@
             <span class="bolha-tipo">${m.tipo || ''}</span>
             <span>${formatarData(m.criada_em)}</span>
           </div>
+          ${badgeProcessada || badgeIntencao ? `<div class="bolha-badges">${badgeProcessada}${badgeIntencao}</div>` : ''}
         </div>`;
     }).join('');
 

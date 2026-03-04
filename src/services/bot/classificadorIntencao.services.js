@@ -163,8 +163,8 @@ async function classificarIntencao(telefone) {
   try {
     await client2.query('BEGIN');
     await client2.query(
-      `UPDATE bot_mensagens SET processada_ia = true WHERE id = ANY($1::bigint[])`,
-      [ids]
+      `UPDATE bot_mensagens SET processada_ia = true, intencao_classificada = $2 WHERE id = ANY($1::bigint[])`,
+      [ids, intencaoDetectada]
     );
     await client2.query('COMMIT');
   } catch (err) {

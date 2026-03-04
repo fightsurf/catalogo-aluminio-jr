@@ -68,7 +68,7 @@ async function listarMensagens({ telefone, page, limit }) {
   const total = parseInt(countResult.rows[0].count);
 
   const dataResult = await pool.query(
-    `SELECT id, telefone, mensagem, tipo, direcao, processada_ia, criada_em
+    `SELECT id, telefone, mensagem, tipo, direcao, processada_ia, intencao_classificada, criada_em
      FROM bot_mensagens
      WHERE telefone = $1
      ORDER BY criada_em ASC
@@ -88,6 +88,9 @@ async function criarIndices() {
   );
   await pool.query(
     `CREATE INDEX IF NOT EXISTS idx_bot_contatos_atualizado_em ON bot_contatos(atualizado_em)`
+  );
+  await pool.query(
+    `ALTER TABLE bot_mensagens ADD COLUMN IF NOT EXISTS intencao_classificada VARCHAR(100)`
   );
 }
 

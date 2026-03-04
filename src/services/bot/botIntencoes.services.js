@@ -100,4 +100,12 @@ async function listarAtivas() {
   return result.rows;
 }
 
-module.exports = { listarTodas, criar, atualizar, listarAtivas, ValidationError, DuplicateError };
+async function deletar(id) {
+  const result = await pool.query(
+    `DELETE FROM bot_intencoes WHERE id = $1 RETURNING id`,
+    [id]
+  );
+  return result.rows[0] || null;
+}
+
+module.exports = { listarTodas, criar, atualizar, listarAtivas, deletar, ValidationError, DuplicateError };
