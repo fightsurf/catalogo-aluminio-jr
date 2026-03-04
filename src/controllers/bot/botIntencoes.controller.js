@@ -50,4 +50,17 @@ async function listarAtivas(req, res) {
   }
 }
 
-module.exports = { listarTodas, criar, atualizar, listarAtivas };
+async function deletar(req, res) {
+  try {
+    const { id } = req.params;
+    const intencao = await botIntencoesService.deletar(id);
+    if (!intencao) {
+      return res.status(404).json({ success: false, message: 'Intenção não encontrada.' });
+    }
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+module.exports = { listarTodas, criar, atualizar, listarAtivas, deletar };

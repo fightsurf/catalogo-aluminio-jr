@@ -20,6 +20,8 @@
     tr:last-child td { border-bottom: none; }
     button.btn-editar { background: #f39c12; color: #fff; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 0.82rem; }
     button.btn-editar:hover { background: #d68910; }
+    button.btn-excluir { background: #e74c3c; color: #fff; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 0.82rem; margin-left: 6px; }
+    button.btn-excluir:hover { background: #c0392b; }
     #loading { margin: 20px 0; color: #555; }
     /* Modal */
     .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 100; }
@@ -130,7 +132,7 @@
             <td><span class="badge ${i.exige_humano ? 'badge-sim' : 'badge-nao'}">${i.exige_humano ? 'Sim' : 'Não'}</span></td>
             <td><span class="badge ${i.ativa ? 'badge-sim' : 'badge-nao'}">${i.ativa ? 'Sim' : 'Não'}</span></td>
             <td>${formatarData(i.criado_em)}</td>
-            <td><button class="btn-editar" onclick='abrirModalEditar(${JSON.stringify(i)})'>Editar</button></td>
+            <td><button class="btn-editar" onclick='abrirModalEditar(${JSON.stringify(i)})'>Editar</button><button class="btn-excluir" onclick='excluir(${i.id}, "${esc(i.nome)}")'>Excluir</button></td>
           `;
           tbody.appendChild(tr);
         });
@@ -138,6 +140,18 @@
         document.getElementById('tabela').style.display = '';
       } catch (err) {
         document.getElementById('loading').textContent = 'Erro ao carregar: ' + err.message;
+      }
+    }
+
+    async function excluir(id, nome) {
+      if (!confirm(`Tem certeza que deseja excluir a intenção "${nome}"? Esta ação não pode ser desfeita.`)) return;
+      try {
+        const res = await fetch(`/bot/intencoes/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Erro ao excluir');
+        carregar();
+      } catch (err) {
+        alert('Erro ao excluir: ' + err.message);
       }
     }
 
