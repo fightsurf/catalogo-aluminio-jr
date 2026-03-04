@@ -334,6 +334,9 @@
       badge.textContent = intencao;
       badge.className = `badge-intencao${intencao === INTENCAO_DESCONHECIDO ? ' desconhecido' : ''}`;
       status.textContent = '';
+
+      recarregarMensagensAtivas();
+      atualizarListaSilenciosa();
     } catch (err) {
       status.textContent = 'Erro de conexão';
     } finally {
