@@ -91,7 +91,7 @@ async function atualizar(id, dados) {
 
 async function listarAtivas() {
   const result = await pool.query(
-    `SELECT nome, descricao FROM bot_intencoes WHERE ativa = true`
+    `SELECT nome, descricao, fluxo_chave FROM bot_intencoes WHERE ativa = true`
   );
   return result.rows;
 }
