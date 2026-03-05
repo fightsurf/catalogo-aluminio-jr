@@ -60,8 +60,7 @@
       <tr>
         <th>Nome</th>
         <th>Descrição</th>
-        <th>Resposta</th>
-        <th>Ação</th>
+        <th>Fluxo (chave)</th>
         <th>Exige Humano</th>
         <th>Ativa</th>
         <th>Criado em</th>
@@ -84,12 +83,8 @@
         <input type="text" id="campo-descricao" placeholder="Descrição da intenção" />
       </div>
       <div class="campo">
-        <label for="campo-resposta">Resposta Texto</label>
-        <textarea id="campo-resposta" placeholder="Texto de resposta automática (opcional)"></textarea>
-      </div>
-      <div class="campo">
-        <label for="campo-acao">Ação</label>
-        <input type="text" id="campo-acao" placeholder="Identificador de ação (opcional)" />
+        <label for="campo-fluxo-chave">Fluxo (chave)</label>
+        <input type="text" id="campo-fluxo-chave" placeholder="Chave do fluxo para o motor de ações (opcional)" />
       </div>
       <div class="campo">
         <div class="campo-check">
@@ -127,8 +122,7 @@
           tr.innerHTML = `
             <td><strong>${esc(i.nome)}</strong></td>
             <td>${esc(i.descricao)}</td>
-            <td>${esc(i.resposta_texto || '—')}</td>
-            <td>${esc(i.acao || '—')}</td>
+            <td>${esc(i.fluxo_chave || '—')}</td>
             <td><span class="badge ${i.exige_humano ? 'badge-sim' : 'badge-nao'}">${i.exige_humano ? 'Sim' : 'Não'}</span></td>
             <td><span class="badge ${i.ativa ? 'badge-sim' : 'badge-nao'}">${i.ativa ? 'Sim' : 'Não'}</span></td>
             <td>${formatarData(i.criado_em)}</td>
@@ -162,8 +156,7 @@
       document.getElementById('campo-nome').value = '';
       document.getElementById('campo-nome').disabled = false;
       document.getElementById('campo-descricao').value = '';
-      document.getElementById('campo-resposta').value = '';
-      document.getElementById('campo-acao').value = '';
+      document.getElementById('campo-fluxo-chave').value = '';
       document.getElementById('campo-exige-humano').checked = false;
       document.getElementById('campo-ativa').checked = true;
       document.getElementById('campo-ativa-wrap').style.display = 'none';
@@ -179,8 +172,7 @@
       document.getElementById('campo-nome').value = i.nome;
       document.getElementById('campo-nome').disabled = true;
       document.getElementById('campo-descricao').value = i.descricao;
-      document.getElementById('campo-resposta').value = i.resposta_texto || '';
-      document.getElementById('campo-acao').value = i.acao || '';
+      document.getElementById('campo-fluxo-chave').value = i.fluxo_chave || '';
       document.getElementById('campo-exige-humano').checked = !!i.exige_humano;
       document.getElementById('campo-ativa').checked = !!i.ativa;
       document.getElementById('campo-ativa-wrap').style.display = '';
@@ -199,8 +191,7 @@
       msgEl.className = 'msg-modal';
 
       const descricao = document.getElementById('campo-descricao').value.trim();
-      const resposta_texto = document.getElementById('campo-resposta').value.trim();
-      const acao = document.getElementById('campo-acao').value.trim();
+      const fluxo_chave = document.getElementById('campo-fluxo-chave').value.trim();
       const exige_humano = document.getElementById('campo-exige-humano').checked;
 
       try {
@@ -210,14 +201,14 @@
           res = await fetch(`/bot/intencoes/${idEdicao}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ descricao, resposta_texto: resposta_texto || null, acao: acao || null, exige_humano, ativa })
+            body: JSON.stringify({ descricao, fluxo_chave: fluxo_chave || null, exige_humano, ativa })
           });
         } else {
           const nome = document.getElementById('campo-nome').value.trim();
           res = await fetch('/bot/intencoes', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ nome, descricao, resposta_texto: resposta_texto || null, acao: acao || null, exige_humano })
+            body: JSON.stringify({ nome, descricao, fluxo_chave: fluxo_chave || null, exige_humano })
           });
         }
         const data = await res.json();

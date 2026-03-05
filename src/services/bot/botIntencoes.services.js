@@ -16,7 +16,7 @@ class DuplicateError extends Error {
 
 async function listarTodas() {
   const result = await pool.query(
-    `SELECT id, nome, descricao, resposta_texto, acao, exige_humano, ativa, criado_em, atualizado_em
+    `SELECT id, nome, descricao, fluxo_chave, exige_humano, ativa, criado_em, atualizado_em
      FROM bot_intencoes
      ORDER BY criado_em DESC`
   );
@@ -24,7 +24,7 @@ async function listarTodas() {
 }
 
 async function criar(dados) {
-  const { nome, descricao, resposta_texto, acao, exige_humano } = dados;
+  const { nome, descricao, fluxo_chave, exige_humano } = dados;
 
   if (!nome || /\s/.test(nome)) {
     throw new ValidationError('nome é obrigatório e não pode conter espaços.');
@@ -37,10 +37,10 @@ async function criar(dados) {
 
   try {
     const result = await pool.query(
-      `INSERT INTO bot_intencoes (nome, descricao, resposta_texto, acao, exige_humano)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, nome, descricao, resposta_texto, acao, exige_humano, ativa, criado_em, atualizado_em`,
-      [nomeMaiusculo, descricao, resposta_texto || null, acao || null, exige_humano || false]
+      `INSERT INTO bot_intencoes (nome, descricao, fluxo_chave, exige_humano)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, nome, descricao, fluxo_chave, exige_humano, ativa, criado_em, atualizado_em`,
+      [nomeMaiusculo, descricao, fluxo_chave || null, exige_humano || false]
     );
     return result.rows[0];
   } catch (err) {
@@ -50,7 +50,7 @@ async function criar(dados) {
 }
 
 async function atualizar(id, dados) {
-  const { descricao, resposta_texto, acao, exige_humano, ativa } = dados;
+  const { descricao, fluxo_chave, exige_humano, ativa } = dados;
 
   const sets = [];
   const params = [];
@@ -60,13 +60,9 @@ async function atualizar(id, dados) {
     params.push(descricao);
     sets.push(`descricao = $${params.length}`);
   }
-  if (resposta_texto !== undefined) {
-    params.push(resposta_texto);
-    sets.push(`resposta_texto = $${params.length}`);
-  }
-  if (acao !== undefined) {
-    params.push(acao);
-    sets.push(`acao = $${params.length}`);
+  if (fluxo_chave !== undefined) {
+    params.push(fluxo_chave);
+    sets.push(`fluxo_chave = $${params.length}`);
   }
   if (exige_humano !== undefined) {
     params.push(exige_humano);
@@ -86,7 +82,7 @@ async function atualizar(id, dados) {
 
   const result = await pool.query(
     `UPDATE bot_intencoes SET ${sets.join(', ')} WHERE id = $${params.length}
-     RETURNING id, nome, descricao, resposta_texto, acao, exige_humano, ativa, criado_em, atualizado_em`,
+     RETURNING id, nome, descricao, fluxo_chave, exige_humano, ativa, criado_em, atualizado_em`,
     params
   );
 
