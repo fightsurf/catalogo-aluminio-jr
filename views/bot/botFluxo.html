@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bot Admin – Ações do Fluxo</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, sans-serif; background: #f4f4f4; color: #333; padding: 20px; }
+    .topo { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    h1 { font-size: 1.4rem; }
+    button.btn-voltar { background: #7f8c8d; color: #fff; border: none; padding: 7px 14px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+    button.btn-voltar:hover { background: #636e72; }
+    button.btn-atualizar { background: #2980b9; color: #fff; border: none; padding: 7px 14px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+    button.btn-atualizar:hover { background: #1f6fa3; }
+    table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 6px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #e0e0e0; font-size: 0.9rem; overflow-wrap: break-word; word-break: break-word; }
+    th { background: #2c3e50; color: #fff; }
+    tr:last-child td { border-bottom: none; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.78rem; font-weight: bold; }
+    .badge-sim { background: #d5f5e3; color: #1e8449; }
+    .badge-nao { background: #fde8e8; color: #c0392b; }
+    #loading { margin: 20px 0; color: #555; }
+    #erro { margin: 12px 0; color: #e74c3c; font-size: 0.9rem; }
+  </style>
+</head>
+<body>
+  <div class="topo">
+    <button class="btn-voltar" onclick="history.back()">← Voltar</button>
+    <h1>Ações do Fluxo (bot_acoes)</h1>
+    <button class="btn-atualizar" onclick="carregarAcoes()">Atualizar</button>
+  </div>
+  <div id="loading">Carregando...</div>
+  <div id="erro" style="display:none;"></div>
+  <table id="tabela" style="display:none;">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Intenção</th>
+        <th>Ordem</th>
+        <th>Tipo</th>
+        <th>Conteúdo</th>
+        <th>Delay (ms)</th>
+        <th>Ativo</th>
+      </tr>
+    </thead>
+    <tbody id="corpo"></tbody>
+  </table>
+
+  <script>
+    async function carregarAcoes() {
+      const loading = document.getElementById('loading');
+      const erro = document.getElementById('erro');
+      const tabela = document.getElementById('tabela');
+      const corpo = document.getElementById('corpo');
+
+      loading.style.display = 'block';
+      erro.style.display = 'none';
+      tabela.style.display = 'none';
+      corpo.innerHTML = '';
+
+      try {
+        const response = await fetch('/bot/fluxo/admin/acoes');
+        if (!response.ok) throw new Error(`Erro ${response.status}`);
+        const acoes = await response.json();
+
+        if (!acoes.length) {
+          loading.textContent = 'Nenhuma ação cadastrada.';
+          return;
+        }
+
+        acoes.forEach(a => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${escHtml(a.id)}</td>
+            <td>${escHtml(a.intencao_nome)}</td>
+            <td>${escHtml(a.ordem)}</td>
+            <td>${escHtml(a.tipo_acao)}</td>
+            <td>${escHtml(a.conteudo)}</td>
+            <td>${escHtml(a.delay_ms ?? 0)}</td>
+            <td><span class="badge ${a.ativo ? 'badge-sim' : 'badge-nao'}">${a.ativo ? 'Sim' : 'Não'}</span></td>
+          `;
+          corpo.appendChild(tr);
+        });
+
+        loading.style.display = 'none';
+        tabela.style.display = 'table';
+      } catch (e) {
+        loading.style.display = 'none';
+        erro.textContent = 'Falha ao carregar ações: ' + e.message;
+        erro.style.display = 'block';
+      }
+    }
+
+    function escHtml(val) {
+      if (val === null || val === undefined) return '';
+      return String(val)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    carregarAcoes();
+  </script>
+</body>
+</html>
