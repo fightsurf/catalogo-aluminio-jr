@@ -31,7 +31,7 @@ function extrairItens(texto) {
   }
 
   // KIT
-  const regexKit = /-\s*(.+?)\s*\(x(\d+)\)/g;
+  const regexKit = /(.+?)\s*\(x(\d+)\)/gi;
 
   while ((match = regexKit.exec(normalizado)) !== null) {
     const nome = match[1].trim();
