@@ -92,6 +92,9 @@ async function criarIndices() {
   await pool.query(
     `ALTER TABLE bot_mensagens ADD COLUMN IF NOT EXISTS intencao_classificada VARCHAR(100)`
   );
+  await pool.query(
+    `ALTER TABLE bot_intencoes ADD COLUMN IF NOT EXISTS fluxo_chave TEXT`
+  );
 }
 
 module.exports = { listarConversas, listarMensagens, criarIndices };

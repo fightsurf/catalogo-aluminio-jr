@@ -38,6 +38,17 @@ async function registrarExecucao(telefone, intencao) {
 }
 
 // ──────────────────────────────────────────────────────────────
+// Buscar fluxo_chave da intenção para roteamento no motor de ações
+// ──────────────────────────────────────────────────────────────
+async function buscarFluxoChave(intencaoNome) {
+  const result = await pool.query(
+    `SELECT fluxo_chave FROM bot_intencoes WHERE nome = $1 AND ativa = true LIMIT 1`,
+    [intencaoNome]
+  );
+  return result.rows.length > 0 ? result.rows[0].fluxo_chave : null;
+}
+
+// ──────────────────────────────────────────────────────────────
 // Buscar ações ativas ordenadas para a intenção
 // ──────────────────────────────────────────────────────────────
 async function buscarAcoesPorIntencao(intencao) {
@@ -113,9 +124,12 @@ async function executarFluxo(telefone, intencao) {
 
   await registrarExecucao(telefone, intencao);
 
-  const acoes = await buscarAcoesPorIntencao(intencao);
+  const fluxoChave = await buscarFluxoChave(intencao);
+  const chaveExecucao = fluxoChave || intencao;
+
+  const acoes = await buscarAcoesPorIntencao(chaveExecucao);
   if (!acoes.length) {
-    console.log(`[botFluxo] nenhuma ação ativa para intencao="${intencao}"`);
+    console.log(`[botFluxo] nenhuma ação ativa para intencao="${intencao}" fluxo_chave="${chaveExecucao}"`);
     return { status: 'nenhuma_acao' };
   }
 
@@ -151,6 +165,7 @@ async function listarAcoes() {
 module.exports = {
   verificarDuplicidade,
   registrarExecucao,
+  buscarFluxoChave,
   buscarAcoesPorIntencao,
   enviarAcaoZAPI,
   executarFluxo,
