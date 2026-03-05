@@ -137,7 +137,7 @@ app.get('/bot/intencoes-admin', (req, res) => {
 });
 
 app.get('/bot/fluxo', (req, res) => {
-  res.sendFile(path.join(__dirname, 'views', 'bot-admin', 'botFluxo.html'));
+  res.sendFile(path.join(__dirname, 'views', 'bot', 'botFluxo.html'));
 });
 
 
