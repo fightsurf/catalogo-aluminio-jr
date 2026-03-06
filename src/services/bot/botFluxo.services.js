@@ -49,7 +49,7 @@ async function registrarExecucaoComIdempotencia(telefone, intencao) {
   const result = await pool.query(
     `INSERT INTO bot_execucoes_fluxo (telefone, intencao, executado_em, idempotency_key)
      VALUES ($1, $2, NOW(), $3)
-     ON CONFLICT (idempotency_key) DO NOTHING
+     ON CONFLICT DO NOTHING
      RETURNING id`,
     [telefone, intencao, idempotencyKey]
   );
