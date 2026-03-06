@@ -205,10 +205,8 @@ async function enviarAcaoZAPI(telefone, acao) {
   try {
     response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ClientToken: ZAPI_TOKEN
-      },
+      headers: {'Content-Type': 'application/json'
+               },
       body: JSON.stringify(payload)
     });
   } catch (err) {
