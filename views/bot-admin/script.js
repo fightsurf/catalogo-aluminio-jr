@@ -353,6 +353,22 @@
 
   // ── Init ────────────────────────────────────────────────────
 
+  // ── Execução de fluxo autônomo ───────────────────────────────
+  if (window.BotBus) {
+    window.BotBus.addEventListener('bot:action-decision', function (e) {
+      const { decision } = e.detail || {};
+      if (!decision || decision.autonomous !== true) return;
+      if (!telefoneAtivo) return;
+      fetch('/bot/fluxo/executar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ telefone: telefoneAtivo, intencao: decision.intentName })
+      }).catch(function (err) {
+        console.error('[BotAdmin] Erro ao executar fluxo autônomo:', err);
+      });
+    });
+  }
+
   document.getElementById('btn-filtrar').addEventListener('click', () => carregarConversas(1));
   document.getElementById('btn-classificar').addEventListener('click', classificarIntencao);
 
