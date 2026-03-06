@@ -337,6 +337,13 @@
 
       recarregarMensagensAtivas();
       atualizarListaSilenciosa();
+
+      // Dispara pipeline de ações autônomas com base na intenção classificada.
+      // O classificador atual não retorna pontuação de confiança; usa-se 1 (máximo)
+      // pois a classificação já foi confirmada pelo modelo de IA no servidor.
+      if (intencao !== INTENCAO_DESCONHECIDO && window.BotAdmin && window.BotAdmin.emitIntent) {
+        window.BotAdmin.emitIntent({ name: intencao, confidence: 1, entities: {} });
+      }
     } catch (err) {
       status.textContent = 'Erro de conexão';
     } finally {

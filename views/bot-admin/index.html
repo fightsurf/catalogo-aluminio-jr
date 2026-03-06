@@ -72,16 +72,19 @@
           dryRun: false,           // true = simula sem efeitos colaterais reais
           thresholds: {            // confiança mínima por intenção (0–1)
             SAUDACAO: 0.70,
+            LOCALIZACAO: 0.75,
             CATALOGO: 0.75,
             ORCAMENTO: 0.80,
             FOLLOWUP: 0.70
           },
           intentionActionMap: {    // intenção -> tipo de ação a disparar
+            LOCALIZACAO: 'SEND_LOCATION',
             CATALOGO: 'SEND_CATALOG_LINK',
             ORCAMENTO: 'CREATE_QUOTE_DRAFT',
             FOLLOWUP: 'FOLLOWUP_MESSAGE'
           },
           autonomousActions: [     // allowlist de ações que podem ser executadas autonomamente
+            'SEND_LOCATION',
             'SEND_CATALOG_LINK',
             'CREATE_QUOTE_DRAFT',
             'FOLLOWUP_MESSAGE'
