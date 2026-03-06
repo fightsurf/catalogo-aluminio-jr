@@ -90,7 +90,13 @@
       </div>
       <div class="campo">
         <label for="campo-tipo">Tipo de ação *</label>
-        <input type="text" id="campo-tipo" placeholder="ex: texto, imagem, audio" />
+        <select id="campo-tipo">
+          <option value="" disabled selected>Selecione o tipo de ação</option>
+          <option value="SEND_LOCATION">SEND_LOCATION</option>
+          <option value="SEND_CATALOG_LINK">SEND_CATALOG_LINK</option>
+          <option value="CREATE_QUOTE_DRAFT">CREATE_QUOTE_DRAFT</option>
+          <option value="FOLLOWUP_MESSAGE">FOLLOWUP_MESSAGE</option>
+        </select>
       </div>
       <div class="campo">
         <label for="campo-conteudo">Conteúdo *</label>
@@ -120,6 +126,8 @@
     let intencoesCache = [];
     // Map of action id -> action data for safe onclick references
     const acoesMap = {};
+    // Fixed allowlist of valid action types (must match BotConfig.autonomousActions)
+    const VALID_TIPOS = ['SEND_LOCATION', 'SEND_CATALOG_LINK', 'CREATE_QUOTE_DRAFT', 'FOLLOWUP_MESSAGE'];
 
     async function carregarIntencoes() {
       try {
@@ -297,7 +305,7 @@
 
       const intencao_id = document.getElementById('campo-intencao').value;
       const ordem = document.getElementById('campo-ordem').value;
-      const tipo_acao = document.getElementById('campo-tipo').value.trim();
+      const tipo_acao = document.getElementById('campo-tipo').value;
       const conteudo = document.getElementById('campo-conteudo').value.trim();
       const delay_ms = document.getElementById('campo-delay').value;
       const ativo = document.getElementById('campo-ativo').checked;
@@ -313,8 +321,8 @@
         msgEl.classList.add('err');
         return;
       }
-      if (!tipo_acao) {
-        msgEl.textContent = '✗ Tipo de ação é obrigatório.';
+      if (!tipo_acao || !VALID_TIPOS.includes(tipo_acao)) {
+        msgEl.textContent = '✗ Selecione um tipo de ação válido.';
         msgEl.classList.add('err');
         return;
       }
@@ -405,16 +413,19 @@
           dryRun: false,
           thresholds: {
             SAUDACAO: 0.70,
+            LOCALIZACAO: 0.75,
             CATALOGO: 0.75,
             ORCAMENTO: 0.80,
             FOLLOWUP: 0.70
           },
           intentionActionMap: {
+            LOCALIZACAO: 'SEND_LOCATION',
             CATALOGO: 'SEND_CATALOG_LINK',
             ORCAMENTO: 'CREATE_QUOTE_DRAFT',
             FOLLOWUP: 'FOLLOWUP_MESSAGE'
           },
           autonomousActions: [
+            'SEND_LOCATION',
             'SEND_CATALOG_LINK',
             'CREATE_QUOTE_DRAFT',
             'FOLLOWUP_MESSAGE'
@@ -458,6 +469,18 @@
      * Lança Error se a ação falhar (permitindo rollback de idempotência).
      */
     const _actionHandlers = {
+      // Envia localização da loja para o contato
+      SEND_LOCATION: async function (decision, entities) {
+        console.log('[BotFluxo] SEND_LOCATION – entidades:', entities);
+        const res = await fetch('/bot/acoes/send-location', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ intentName: decision.intentName, entities: entities })
+        });
+        if (!res.ok) throw new Error('SEND_LOCATION falhou: HTTP ' + res.status);
+        return res.json();
+      },
+
       // Envia link do catálogo de alumínio para o contato
       SEND_CATALOG_LINK: async function (decision, entities) {
         console.log('[BotFluxo] SEND_CATALOG_LINK – entidades:', entities);

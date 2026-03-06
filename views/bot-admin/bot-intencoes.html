@@ -264,16 +264,19 @@
           dryRun: false,
           thresholds: {
             SAUDACAO: 0.70,
+            LOCALIZACAO: 0.75,
             CATALOGO: 0.75,
             ORCAMENTO: 0.80,
             FOLLOWUP: 0.70
           },
           intentionActionMap: {
+            LOCALIZACAO: 'SEND_LOCATION',
             CATALOGO: 'SEND_CATALOG_LINK',
             ORCAMENTO: 'CREATE_QUOTE_DRAFT',
             FOLLOWUP: 'FOLLOWUP_MESSAGE'
           },
           autonomousActions: [
+            'SEND_LOCATION',
             'SEND_CATALOG_LINK',
             'CREATE_QUOTE_DRAFT',
             'FOLLOWUP_MESSAGE'
@@ -329,6 +332,9 @@
         const allowlist   = cfg.autonomousActions || [];
         const autonomous  = allowlist.includes(actionType);
 
+        if (!autonomous) {
+          console.log('[BotIntentions] actionType "' + actionType + '" não está na allowlist de ações autônomas; decisão emitida com autonomous=false.');
+        }
         const decision = {
           actionType: actionType,
           autonomous: autonomous,
