@@ -13,6 +13,8 @@
     button.btn-voltar:hover { background: #636e72; }
     button.btn-atualizar { background: #2980b9; color: #fff; border: none; padding: 7px 14px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
     button.btn-atualizar:hover { background: #1f6fa3; }
+    button.btn-novo { background: #27ae60; color: #fff; border: none; padding: 7px 14px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+    button.btn-novo:hover { background: #219150; }
     table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 6px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
     th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #e0e0e0; font-size: 0.9rem; overflow-wrap: break-word; word-break: break-word; }
     th { background: #2c3e50; color: #fff; }
@@ -22,6 +24,29 @@
     .badge-nao { background: #fde8e8; color: #c0392b; }
     #loading { margin: 20px 0; color: #555; }
     #erro { margin: 12px 0; color: #e74c3c; font-size: 0.9rem; }
+    button.btn-editar { background: #f39c12; color: #fff; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 0.82rem; }
+    button.btn-editar:hover { background: #d68910; }
+    button.btn-excluir { background: #e74c3c; color: #fff; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 0.82rem; margin-left: 6px; }
+    button.btn-excluir:hover { background: #c0392b; }
+    /* Modal */
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 100; }
+    .overlay.ativo { display: flex; align-items: center; justify-content: center; }
+    .modal { background: #fff; border-radius: 8px; padding: 24px; width: 100%; max-width: 480px; box-shadow: 0 4px 16px rgba(0,0,0,.2); }
+    .modal h2 { margin-bottom: 16px; font-size: 1.1rem; }
+    .campo { margin-bottom: 12px; }
+    .campo label { display: block; font-size: 0.85rem; margin-bottom: 4px; font-weight: bold; }
+    .campo input[type="text"], .campo input[type="number"], .campo textarea, .campo select { width: 100%; padding: 7px 9px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.9rem; }
+    .campo textarea { resize: vertical; min-height: 70px; }
+    .campo-check { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+    .acoes-modal { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
+    button.btn-salvar { background: #27ae60; color: #fff; border: none; padding: 8px 18px; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
+    button.btn-salvar:hover { background: #219150; }
+    button.btn-salvar:disabled { background: #a0c8a8; cursor: not-allowed; }
+    button.btn-cancelar { background: #bdc3c7; color: #333; border: none; padding: 8px 14px; border-radius: 4px; cursor: pointer; font-size: 0.9rem; }
+    button.btn-cancelar:hover { background: #a0a8ad; }
+    .msg-modal { font-size: 0.82rem; margin-top: 8px; }
+    .msg-modal.ok { color: #27ae60; }
+    .msg-modal.err { color: #e74c3c; }
   </style>
 </head>
 <body>
@@ -29,6 +54,7 @@
     <button class="btn-voltar" onclick="history.back()">← Voltar</button>
     <h1>Ações do Fluxo (bot_acoes)</h1>
     <button class="btn-atualizar" onclick="carregarAcoes()">Atualizar</button>
+    <button class="btn-novo" onclick="abrirModalNovo()">+ Nova Ação</button>
   </div>
   <div id="loading">Carregando...</div>
   <div id="erro" style="display:none;"></div>
@@ -42,12 +68,95 @@
         <th>Conteúdo</th>
         <th>Delay (ms)</th>
         <th>Ativo</th>
+        <th>Ações</th>
       </tr>
     </thead>
     <tbody id="corpo"></tbody>
   </table>
 
+  <!-- Modal create/edit -->
+  <div class="overlay" id="overlay">
+    <div class="modal">
+      <h2 id="modal-titulo">Nova Ação</h2>
+      <div class="campo">
+        <label for="campo-intencao">Intenção *</label>
+        <select id="campo-intencao">
+          <option value="">Carregando intenções…</option>
+        </select>
+      </div>
+      <div class="campo">
+        <label for="campo-ordem">Ordem *</label>
+        <input type="number" id="campo-ordem" min="1" placeholder="ex: 1" />
+      </div>
+      <div class="campo">
+        <label for="campo-tipo">Tipo de ação *</label>
+        <input type="text" id="campo-tipo" placeholder="ex: texto, imagem, audio" />
+      </div>
+      <div class="campo">
+        <label for="campo-conteudo">Conteúdo *</label>
+        <textarea id="campo-conteudo" placeholder="Conteúdo da ação"></textarea>
+      </div>
+      <div class="campo">
+        <label for="campo-delay">Delay (ms)</label>
+        <input type="number" id="campo-delay" min="0" value="0" />
+      </div>
+      <div class="campo">
+        <div class="campo-check">
+          <input type="checkbox" id="campo-ativo" checked />
+          <label for="campo-ativo">Ativo</label>
+        </div>
+      </div>
+      <div class="acoes-modal">
+        <button class="btn-cancelar" onclick="fecharModal()">Cancelar</button>
+        <button class="btn-salvar" id="btn-salvar" onclick="salvar()">Salvar</button>
+      </div>
+      <div class="msg-modal" id="msg-modal"></div>
+    </div>
+  </div>
+
   <script>
+    let modoEdicao = false;
+    let idEdicao = null;
+    let intencoesCache = [];
+    // Map of action id -> action data for safe onclick references
+    const acoesMap = {};
+
+    async function carregarIntencoes() {
+      try {
+        const res = await fetch('/bot/intencoes');
+        if (!res.ok) throw new Error('Erro ao carregar intenções');
+        const todas = await res.json();
+        intencoesCache = todas;
+        const sel = document.getElementById('campo-intencao');
+        sel.innerHTML = '<option value="">Selecione uma intenção</option>';
+        todas
+          .filter(i => i.ativa)
+          .forEach(i => {
+            const opt = document.createElement('option');
+            opt.value = i.id;
+            opt.textContent = i.nome + (i.descricao ? ' \u2013 ' + i.descricao : '');
+            sel.appendChild(opt);
+          });
+        // Include inactive ones clearly marked
+        const inativos = todas.filter(i => !i.ativa);
+        if (inativos.length) {
+          const sep = document.createElement('option');
+          sep.disabled = true;
+          sep.textContent = '\u2500\u2500 Inativas \u2500\u2500';
+          sel.appendChild(sep);
+          inativos.forEach(i => {
+            const opt = document.createElement('option');
+            opt.value = i.id;
+            opt.textContent = i.nome + ' (inativa)';
+            sel.appendChild(opt);
+          });
+        }
+      } catch (err) {
+        const sel = document.getElementById('campo-intencao');
+        sel.innerHTML = '<option value="">Erro ao carregar intenções</option>';
+      }
+    }
+
     async function carregarAcoes() {
       const loading = document.getElementById('loading');
       const erro = document.getElementById('erro');
@@ -55,6 +164,7 @@
       const corpo = document.getElementById('corpo');
 
       loading.style.display = 'block';
+      loading.textContent = 'Carregando...';
       erro.style.display = 'none';
       tabela.style.display = 'none';
       corpo.innerHTML = '';
@@ -70,6 +180,9 @@
         }
 
         acoes.forEach(a => {
+          // Store action data in map for safe retrieval from onclick
+          acoesMap[a.id] = a;
+
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td>${escHtml(a.id)}</td>
@@ -79,6 +192,10 @@
             <td>${escHtml(a.conteudo)}</td>
             <td>${escHtml(a.delay_ms ?? 0)}</td>
             <td><span class="badge ${a.ativo ? 'badge-sim' : 'badge-nao'}">${a.ativo ? 'Sim' : 'Não'}</span></td>
+            <td>
+              <button class="btn-editar" onclick="abrirModalEditar(${Number(a.id)})">Editar</button>
+              <button class="btn-excluir" onclick="excluir(${Number(a.id)})">Excluir</button>
+            </td>
           `;
           corpo.appendChild(tr);
         });
@@ -92,6 +209,163 @@
       }
     }
 
+    async function excluir(id) {
+      const a = acoesMap[id];
+      const label = a ? `#${id} (${a.intencao_nome}, ordem ${a.ordem})` : `#${id}`;
+      if (!confirm(`Tem certeza que deseja excluir a ação ${label}? Esta ação não pode ser desfeita.`)) return;
+      try {
+        const res = await fetch(`/bot/fluxo/admin/acoes/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Erro ao excluir');
+        carregarAcoes();
+      } catch (err) {
+        alert('Erro ao excluir: ' + err.message);
+      }
+    }
+
+    function abrirModalNovo() {
+      modoEdicao = false;
+      idEdicao = null;
+      document.getElementById('modal-titulo').textContent = 'Nova Ação';
+      document.getElementById('campo-intencao').value = '';
+      document.getElementById('campo-ordem').value = '';
+      document.getElementById('campo-tipo').value = '';
+      document.getElementById('campo-conteudo').value = '';
+      document.getElementById('campo-delay').value = '0';
+      document.getElementById('campo-ativo').checked = true;
+      document.getElementById('msg-modal').textContent = '';
+      document.getElementById('msg-modal').className = 'msg-modal';
+      document.getElementById('btn-salvar').disabled = false;
+      document.getElementById('overlay').classList.add('ativo');
+    }
+
+    function abrirModalEditar(id) {
+      const a = acoesMap[id];
+      if (!a) return;
+      modoEdicao = true;
+      idEdicao = a.id;
+      document.getElementById('modal-titulo').textContent = 'Editar Ação';
+
+      // Try to find intencao_id by nome from cache
+      const sel = document.getElementById('campo-intencao');
+      const msgEl = document.getElementById('msg-modal');
+      const intencao = intencoesCache.find(i => i.nome === a.intencao_nome);
+      let intencaoEncontrada = true;
+      if (intencao) {
+        sel.value = intencao.id;
+      } else {
+        // Fallback: search options by plain text content
+        let found = false;
+        for (const opt of sel.options) {
+          if (opt.textContent.startsWith(a.intencao_nome)) {
+            sel.value = opt.value;
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          sel.value = '';
+          intencaoEncontrada = false;
+        }
+      }
+
+      document.getElementById('campo-ordem').value = a.ordem;
+      document.getElementById('campo-tipo').value = a.tipo_acao;
+      document.getElementById('campo-conteudo').value = a.conteudo;
+      document.getElementById('campo-delay').value = a.delay_ms ?? 0;
+      document.getElementById('campo-ativo').checked = !!a.ativo;
+      if (intencaoEncontrada) {
+        msgEl.textContent = '';
+        msgEl.className = 'msg-modal';
+      } else {
+        msgEl.textContent = '\u26a0 Inten\u00e7\u00e3o "' + a.intencao_nome + '" n\u00e3o encontrada na lista. Selecione manualmente.';
+        msgEl.className = 'msg-modal err';
+      }
+      document.getElementById('btn-salvar').disabled = false;
+      document.getElementById('overlay').classList.add('ativo');
+    }
+
+    function fecharModal() {
+      document.getElementById('overlay').classList.remove('ativo');
+    }
+
+    async function salvar() {
+      const msgEl = document.getElementById('msg-modal');
+      const btnSalvar = document.getElementById('btn-salvar');
+      msgEl.textContent = '';
+      msgEl.className = 'msg-modal';
+
+      const intencao_id = document.getElementById('campo-intencao').value;
+      const ordem = document.getElementById('campo-ordem').value;
+      const tipo_acao = document.getElementById('campo-tipo').value.trim();
+      const conteudo = document.getElementById('campo-conteudo').value.trim();
+      const delay_ms = document.getElementById('campo-delay').value;
+      const ativo = document.getElementById('campo-ativo').checked;
+
+      // Frontend validation
+      if (!intencao_id) {
+        msgEl.textContent = '✗ Selecione uma intenção.';
+        msgEl.classList.add('err');
+        return;
+      }
+      if (!ordem || Number(ordem) < 1) {
+        msgEl.textContent = '✗ Ordem deve ser >= 1.';
+        msgEl.classList.add('err');
+        return;
+      }
+      if (!tipo_acao) {
+        msgEl.textContent = '✗ Tipo de ação é obrigatório.';
+        msgEl.classList.add('err');
+        return;
+      }
+      if (!conteudo) {
+        msgEl.textContent = '✗ Conteúdo é obrigatório.';
+        msgEl.classList.add('err');
+        return;
+      }
+      if (Number(delay_ms) < 0) {
+        msgEl.textContent = '✗ Delay deve ser >= 0.';
+        msgEl.classList.add('err');
+        return;
+      }
+
+      const payload = {
+        intencao_id: Number(intencao_id),
+        ordem: Number(ordem),
+        tipo_acao,
+        conteudo,
+        delay_ms: Number(delay_ms),
+        ativo
+      };
+
+      btnSalvar.disabled = true;
+      try {
+        let res;
+        if (modoEdicao) {
+          res = await fetch(`/bot/fluxo/admin/acoes/${idEdicao}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+        } else {
+          res = await fetch('/bot/fluxo/admin/acoes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+        }
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Erro ao salvar');
+        msgEl.textContent = '✓ Salvo com sucesso!';
+        msgEl.classList.add('ok');
+        setTimeout(() => { fecharModal(); carregarAcoes(); }, 800);
+      } catch (err) {
+        msgEl.textContent = '✗ ' + err.message;
+        msgEl.classList.add('err');
+        btnSalvar.disabled = false;
+      }
+    }
+
     function escHtml(val) {
       if (val === null || val === undefined) return '';
       return String(val)
@@ -101,6 +375,7 @@
         .replace(/"/g, '&quot;');
     }
 
+    carregarIntencoes();
     carregarAcoes();
   </script>
 </body>

@@ -162,6 +162,71 @@ async function listarAcoes() {
   return result.rows;
 }
 
+// ──────────────────────────────────────────────────────────────
+// Criar nova ação
+// ──────────────────────────────────────────────────────────────
+async function criarAcao({ intencao_id, ordem, tipo_acao, conteudo, delay_ms = 0, ativo = true }) {
+  if (!intencao_id) throw new Error('intencao_id é obrigatório.');
+  if (!ordem || Number(ordem) < 1) throw new Error('Ordem deve ser >= 1.');
+  if (!tipo_acao || !String(tipo_acao).trim()) throw new Error('Tipo de ação é obrigatório.');
+  if (!conteudo || !String(conteudo).trim()) throw new Error('Conteúdo é obrigatório.');
+  if (Number(delay_ms) < 0) throw new Error('Delay deve ser >= 0.');
+
+  // Resolve intencao_nome a partir do id
+  const intRes = await pool.query(
+    `SELECT nome FROM bot_intencoes WHERE id = $1 LIMIT 1`,
+    [intencao_id]
+  );
+  if (!intRes.rows.length) throw new Error('Intenção não encontrada.');
+  const intencao_nome = intRes.rows[0].nome;
+
+  const result = await pool.query(
+    `INSERT INTO bot_acoes (intencao_nome, ordem, tipo_acao, conteudo, delay_ms, ativo)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id, intencao_nome, ordem, tipo_acao, conteudo, delay_ms, ativo`,
+    [intencao_nome, Number(ordem), String(tipo_acao).trim(), String(conteudo).trim(), Number(delay_ms), !!ativo]
+  );
+  return result.rows[0];
+}
+
+// ──────────────────────────────────────────────────────────────
+// Atualizar ação existente
+// ──────────────────────────────────────────────────────────────
+async function atualizarAcao(id, { intencao_id, ordem, tipo_acao, conteudo, delay_ms = 0, ativo }) {
+  if (!intencao_id) throw new Error('intencao_id é obrigatório.');
+  if (!ordem || Number(ordem) < 1) throw new Error('Ordem deve ser >= 1.');
+  if (!tipo_acao || !String(tipo_acao).trim()) throw new Error('Tipo de ação é obrigatório.');
+  if (!conteudo || !String(conteudo).trim()) throw new Error('Conteúdo é obrigatório.');
+  if (Number(delay_ms) < 0) throw new Error('Delay deve ser >= 0.');
+
+  const intRes = await pool.query(
+    `SELECT nome FROM bot_intencoes WHERE id = $1 LIMIT 1`,
+    [intencao_id]
+  );
+  if (!intRes.rows.length) throw new Error('Intenção não encontrada.');
+  const intencao_nome = intRes.rows[0].nome;
+
+  const result = await pool.query(
+    `UPDATE bot_acoes
+     SET intencao_nome = $1, ordem = $2, tipo_acao = $3, conteudo = $4, delay_ms = $5, ativo = $6
+     WHERE id = $7
+     RETURNING id, intencao_nome, ordem, tipo_acao, conteudo, delay_ms, ativo`,
+    [intencao_nome, Number(ordem), String(tipo_acao).trim(), String(conteudo).trim(), Number(delay_ms), !!ativo, id]
+  );
+  return result.rows[0] || null;
+}
+
+// ──────────────────────────────────────────────────────────────
+// Deletar ação
+// ──────────────────────────────────────────────────────────────
+async function deletarAcao(id) {
+  const result = await pool.query(
+    `DELETE FROM bot_acoes WHERE id = $1 RETURNING id`,
+    [id]
+  );
+  return result.rows[0] || null;
+}
+
 module.exports = {
   verificarDuplicidade,
   registrarExecucao,
@@ -169,5 +234,8 @@ module.exports = {
   buscarAcoesPorIntencao,
   enviarAcaoZAPI,
   executarFluxo,
-  listarAcoes
+  listarAcoes,
+  criarAcao,
+  atualizarAcao,
+  deletarAcao
 };
