@@ -266,19 +266,31 @@
             SAUDACAO: 0.70,
             CATALOGO: 0.75,
             ORCAMENTO: 0.80,
-            FOLLOWUP: 0.70
+            FOLLOWUP: 0.70,
+            LOCALIZACAO: 0.70
           },
           intentionActionMap: {
             CATALOGO: 'SEND_CATALOG_LINK',
             ORCAMENTO: 'CREATE_QUOTE_DRAFT',
-            FOLLOWUP: 'FOLLOWUP_MESSAGE'
+            FOLLOWUP: 'FOLLOWUP_MESSAGE',
+            LOCALIZACAO: 'SEND_LOCATION'
           },
           autonomousActions: [
             'SEND_CATALOG_LINK',
             'CREATE_QUOTE_DRAFT',
-            'FOLLOWUP_MESSAGE'
+            'FOLLOWUP_MESSAGE',
+            'SEND_LOCATION'
           ]
         };
+        // Aliases de compatibilidade
+        Object.defineProperty(window.BotConfig, 'intentToAction', {
+          get: function () { return window.BotConfig.intentionActionMap; },
+          enumerable: false
+        });
+        Object.defineProperty(window.BotConfig, 'autonomousAllowlist', {
+          get: function () { return window.BotConfig.autonomousActions; },
+          enumerable: false
+        });
       }
     })();
   </script>
@@ -300,6 +312,8 @@
         const confidence = Number((intentResult && intentResult.confidence) || 0);
         const entities   = (intentResult && intentResult.entities) ? intentResult.entities : {};
 
+        console.log('[BotIntentions] Classificação recebida:', { name: name, confidence: confidence, entities: entities });
+
         const cfg = window.BotConfig || {};
 
         // Autonomia desabilitada globalmente
@@ -314,20 +328,25 @@
           : 0.75;
 
         if (confidence < threshold) {
-          console.log('[BotIntentions] Confiança ' + confidence + ' abaixo do threshold ' + threshold + ' para ' + name + '; nenhuma ação autônoma.');
+          console.log('[BotIntentions] Confiança ' + confidence + ' abaixo do threshold ' + threshold + ' para ' + name + '; bloqueado.');
           return;
         }
 
-        // Verifica se há mapeamento intenção -> tipo de ação
-        const actionType = cfg.intentionActionMap && cfg.intentionActionMap[name];
+        // Verifica mapeamento intenção -> tipo de ação (suporta intentionActionMap e alias intentToAction)
+        const intentActionMap = cfg.intentionActionMap || cfg.intentToAction || {};
+        const actionType = intentActionMap[name];
         if (!actionType) {
-          console.log('[BotIntentions] Intenção "' + name + '" sem mapeamento de ação; nenhuma ação autônoma.');
+          console.log('[BotIntentions] Intenção "' + name + '" sem mapeamento de ação; bloqueado.');
           return;
         }
 
-        // Verifica se o tipo de ação está na allowlist de ações autônomas
-        const allowlist   = cfg.autonomousActions || [];
-        const autonomous  = allowlist.includes(actionType);
+        // Verifica se o tipo de ação está na allowlist de ações autônomas (suporta autonomousActions e alias autonomousAllowlist)
+        const allowlist  = cfg.autonomousActions || cfg.autonomousAllowlist || [];
+        const autonomous = allowlist.includes(actionType);
+
+        if (!autonomous) {
+          console.log('[BotIntentions] Ação "' + actionType + '" não está na allowlist; decision.autonomous=false.');
+        }
 
         const decision = {
           actionType: actionType,
@@ -343,7 +362,7 @@
           timestamp:    new Date().toISOString()
         };
 
-        console.log('[BotIntentions] Decisão gerada:', payload);
+        console.log('[BotIntentions] Decisão publicada:', payload);
 
         // Publica evento para o BotBus (local + BroadcastChannel para outras abas)
         if (window.BotBus) {
@@ -370,6 +389,13 @@
         <input type="text" id="teste-entities" placeholder="{}" style="padding:6px 8px; border:1px solid #ccc; border-radius:4px; font-size:0.88rem; width:160px;" />
       </div>
       <button onclick="dispararTestIntencao()" style="background:#2980b9; color:#fff; border:none; padding:7px 14px; border-radius:4px; cursor:pointer; font-size:0.85rem; height:32px;">Disparar</button>
+    </div>
+    <div style="margin-top:10px; display:flex; align-items:center; gap:10px;">
+      <label id="label-auto-classify-intencoes" title="Quando ativo, classificação automática está habilitada no painel admin" style="font-size:0.82rem; cursor:pointer; user-select:none;">
+        <input type="checkbox" id="chk-auto-classify-intencoes" style="vertical-align:middle;" />
+        <span style="vertical-align:middle;">Classificação automática</span>
+      </label>
+      <span id="status-auto-classify" style="font-size:0.78rem; color:#555;"></span>
     </div>
     <div id="teste-resultado" style="margin-top:10px; font-size:0.82rem; color:#555;"></div>
   </div>
@@ -405,6 +431,32 @@
         resultado.style.color = '#27ae60';
       }, 300);
     }
+
+    // Toggle de classificação automática (espelhado em localStorage para sincronismo com index.html)
+    (function () {
+      var chk    = document.getElementById('chk-auto-classify-intencoes');
+      var status = document.getElementById('status-auto-classify');
+      if (!chk) return;
+
+      function atualizar() {
+        var ativo = localStorage.getItem('botAutoClassify') === '1';
+        chk.checked = ativo;
+        if (status) status.textContent = ativo ? '● Ativa' : '○ Inativa';
+      }
+
+      atualizar();
+
+      chk.addEventListener('change', function () {
+        localStorage.setItem('botAutoClassify', chk.checked ? '1' : '0');
+        if (status) status.textContent = chk.checked ? '● Ativa' : '○ Inativa';
+        console.log('[BotIntencoes] Auto-classificação:', chk.checked ? 'ativada' : 'desativada');
+      });
+
+      // Sincroniza quando outra aba altera o localStorage
+      window.addEventListener('storage', function (e) {
+        if (e.key === 'botAutoClassify') atualizar();
+      });
+    })();
   </script>
 </body>
 </html>

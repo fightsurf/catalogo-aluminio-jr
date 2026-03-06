@@ -36,6 +36,10 @@
           <button id="btn-classificar" disabled>🔍 Classificar intenção</button>
           <span id="badge-intencao" class="badge-intencao oculto"></span>
           <span id="status-classificacao"></span>
+          <label id="label-auto-classify" title="Quando ativo, dispara o pipeline de ações automaticamente após classificar" style="font-size:0.82rem; margin-left:10px; cursor:pointer; user-select:none; white-space:nowrap;">
+            <input type="checkbox" id="chk-auto-classify" style="vertical-align:middle;" />
+            <span style="vertical-align:middle;">Auto-classificação</span>
+          </label>
         </div>
       </div>
       <div id="chat-mensagens"></div>
@@ -74,27 +78,106 @@
             SAUDACAO: 0.70,
             CATALOGO: 0.75,
             ORCAMENTO: 0.80,
-            FOLLOWUP: 0.70
+            FOLLOWUP: 0.70,
+            LOCALIZACAO: 0.70
           },
           intentionActionMap: {    // intenção -> tipo de ação a disparar
             CATALOGO: 'SEND_CATALOG_LINK',
             ORCAMENTO: 'CREATE_QUOTE_DRAFT',
-            FOLLOWUP: 'FOLLOWUP_MESSAGE'
+            FOLLOWUP: 'FOLLOWUP_MESSAGE',
+            LOCALIZACAO: 'SEND_LOCATION'
           },
           autonomousActions: [     // allowlist de ações que podem ser executadas autonomamente
             'SEND_CATALOG_LINK',
             'CREATE_QUOTE_DRAFT',
-            'FOLLOWUP_MESSAGE'
+            'FOLLOWUP_MESSAGE',
+            'SEND_LOCATION'
           ]
+        };
+        // Aliases de compatibilidade
+        Object.defineProperty(window.BotConfig, 'intentToAction', {
+          get: function () { return window.BotConfig.intentionActionMap; },
+          enumerable: false
+        });
+        Object.defineProperty(window.BotConfig, 'autonomousAllowlist', {
+          get: function () { return window.BotConfig.autonomousActions; },
+          enumerable: false
+        });
+      }
+
+      // BotIntentions: pipeline de decisão autônoma (disponível nesta aba sem depender de bot-intencoes.html)
+      if (!window.BotIntentions) {
+        window.BotIntentions = {
+          /**
+           * Ponto de entrada principal. Deve ser chamado com o resultado da classificação.
+           * @param {{ name: string, confidence: number, entities?: object }} intentResult
+           */
+          onIntentDetected: function (intentResult) {
+            const name       = (intentResult && intentResult.name) ? String(intentResult.name).toUpperCase() : '';
+            const confidence = Number((intentResult && intentResult.confidence) || 0);
+            const entities   = (intentResult && intentResult.entities) ? intentResult.entities : {};
+
+            console.log('[BotIntentions] Classificação recebida:', { name: name, confidence: confidence, entities: entities });
+
+            const cfg = window.BotConfig || {};
+
+            // Autonomia desabilitada globalmente
+            if (!cfg.autonomyEnabled) {
+              console.log('[BotIntentions] Autonomia desabilitada; decisão ignorada.');
+              return;
+            }
+
+            // Threshold de confiança mínimo por intenção (default 0.75)
+            const threshold = cfg.thresholds && cfg.thresholds[name] != null
+              ? cfg.thresholds[name]
+              : 0.75;
+
+            if (confidence < threshold) {
+              console.log('[BotIntentions] Confiança ' + confidence + ' abaixo do threshold ' + threshold + ' para ' + name + '; bloqueado.');
+              return;
+            }
+
+            // Verifica mapeamento intenção -> tipo de ação (suporta intentionActionMap e alias intentToAction)
+            const intentActionMap = cfg.intentionActionMap || cfg.intentToAction || {};
+            const actionType = intentActionMap[name];
+            if (!actionType) {
+              console.log('[BotIntentions] Intenção "' + name + '" sem mapeamento de ação; bloqueado.');
+              return;
+            }
+
+            // Verifica allowlist de ações autônomas (suporta autonomousActions e alias autonomousAllowlist)
+            const allowlist  = cfg.autonomousActions || cfg.autonomousAllowlist || [];
+            const autonomous = allowlist.includes(actionType);
+
+            if (!autonomous) {
+              console.log('[BotIntentions] Ação "' + actionType + '" não está na allowlist; decision.autonomous=false.');
+            }
+
+            const decision = {
+              actionType: actionType,
+              autonomous: autonomous,
+              intentName: name,
+              confidence: confidence,
+              entities:   entities
+            };
+
+            const payload = {
+              intentResult: intentResult,
+              decision:     decision,
+              timestamp:    new Date().toISOString()
+            };
+
+            console.log('[BotIntentions] Decisão publicada:', payload);
+
+            // Publica evento para o BotBus (local + BroadcastChannel para outras abas)
+            if (window.BotBus) {
+              window.BotBus.emit('bot:action-decision', payload);
+            }
+          }
         };
       }
 
-      // Helper global: emite uma intenção classificada para o barramento.
-      // Caminho primário: delega ao pipeline de decisão de BotIntentions (bot-intencoes.html).
-      // Caminho alternativo (fallback): publica bot:intent-raw quando BotIntentions não está
-      // carregado na mesma aba (ex.: index.html usado isoladamente). Nesse caso, o consumidor
-      // responsável por ouvir bot:intent-raw e chamar onIntentDetected deve ser registrado
-      // pela aplicação que integrar este módulo.
+      // BotAdmin.emitIntent: helper global para emitir intenção classificada para o pipeline
       window.BotAdmin = window.BotAdmin || {};
       window.BotAdmin.emitIntent = function (intentResult) {
         if (window.BotIntentions && window.BotIntentions.onIntentDetected) {
@@ -105,6 +188,20 @@
           window.BotBus.emit('bot:intent-raw', intentResult);
         }
       };
+    })();
+  </script>
+
+  <!-- ─── Inicialização do toggle de auto-classificação ────────────────────── -->
+  <script>
+    (function () {
+      var chk = document.getElementById('chk-auto-classify');
+      if (!chk) return;
+      // Restaura estado salvo no localStorage
+      chk.checked = localStorage.getItem('botAutoClassify') === '1';
+      chk.addEventListener('change', function () {
+        localStorage.setItem('botAutoClassify', chk.checked ? '1' : '0');
+        console.log('[BotAdmin] Auto-classificação:', chk.checked ? 'ativada' : 'desativada');
+      });
     })();
   </script>
 

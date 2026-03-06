@@ -335,6 +335,22 @@
       badge.className = `badge-intencao${intencao === INTENCAO_DESCONHECIDO ? ' desconhecido' : ''}`;
       status.textContent = '';
 
+      console.log('[BotAdmin] Classificação recebida do servidor:', intencao);
+
+      // Auto-disparo: se o toggle estiver ativo e a intenção for reconhecida, dispara o pipeline
+      const chkAuto = document.getElementById('chk-auto-classify');
+      if (chkAuto && chkAuto.checked && intencao !== INTENCAO_DESCONHECIDO) {
+        console.log('[BotAdmin] Auto-classificação ativada – disparando pipeline para:', intencao);
+        // Confiança 1.0: o backend já tomou a decisão de classificação; confiamos totalmente no resultado.
+        // O servidor não retorna score de confiança, portanto usamos o valor máximo para garantir
+        // que a intenção passe pelos thresholds configurados no BotConfig.
+        const intentResult = { name: intencao, confidence: 1.0, entities: {} };
+        if (window.BotAdmin && window.BotAdmin.emitIntent) {
+          window.BotAdmin.emitIntent(intentResult);
+          status.textContent = '⚡ Pipeline disparado';
+        }
+      }
+
       recarregarMensagensAtivas();
       atualizarListaSilenciosa();
     } catch (err) {

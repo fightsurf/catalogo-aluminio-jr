@@ -407,19 +407,31 @@
             SAUDACAO: 0.70,
             CATALOGO: 0.75,
             ORCAMENTO: 0.80,
-            FOLLOWUP: 0.70
+            FOLLOWUP: 0.70,
+            LOCALIZACAO: 0.70
           },
           intentionActionMap: {
             CATALOGO: 'SEND_CATALOG_LINK',
             ORCAMENTO: 'CREATE_QUOTE_DRAFT',
-            FOLLOWUP: 'FOLLOWUP_MESSAGE'
+            FOLLOWUP: 'FOLLOWUP_MESSAGE',
+            LOCALIZACAO: 'SEND_LOCATION'
           },
           autonomousActions: [
             'SEND_CATALOG_LINK',
             'CREATE_QUOTE_DRAFT',
-            'FOLLOWUP_MESSAGE'
+            'FOLLOWUP_MESSAGE',
+            'SEND_LOCATION'
           ]
         };
+        // Aliases de compatibilidade
+        Object.defineProperty(window.BotConfig, 'intentToAction', {
+          get: function () { return window.BotConfig.intentionActionMap; },
+          enumerable: false
+        });
+        Object.defineProperty(window.BotConfig, 'autonomousAllowlist', {
+          get: function () { return window.BotConfig.autonomousActions; },
+          enumerable: false
+        });
       }
     })();
   </script>
@@ -491,6 +503,18 @@
           body: JSON.stringify({ intentName: decision.intentName, entities: entities })
         });
         if (!res.ok) throw new Error('FOLLOWUP_MESSAGE falhou: HTTP ' + res.status);
+        return res.json();
+      },
+
+      // Envia localização do negócio para o contato (intenção LOCALIZACAO)
+      SEND_LOCATION: async function (decision, entities) {
+        console.log('[BotFluxo] SEND_LOCATION – entidades:', entities);
+        const res = await fetch('/bot/acoes/send-location', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ intentName: decision.intentName, entities: entities })
+        });
+        if (!res.ok) throw new Error('SEND_LOCATION falhou: HTTP ' + res.status);
         return res.json();
       }
     };
