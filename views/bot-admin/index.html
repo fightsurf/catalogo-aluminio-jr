@@ -79,15 +79,17 @@
           },
           intentionActionMap: {    // intenção -> tipo de ação a disparar
             LOCALIZACAO: 'SEND_LOCATION',
-            CATALOGO: 'SEND_CATALOG_LINK',
-            ORCAMENTO: 'CREATE_QUOTE_DRAFT',
-            FOLLOWUP: 'FOLLOWUP_MESSAGE'
+            CATALOGO: 'SEND_LINK',
+            ORCAMENTO: 'SEND_TEXT',
+            FOLLOWUP: 'SEND_TEXT'
           },
           autonomousActions: [     // allowlist de ações que podem ser executadas autonomamente
+            'SEND_TEXT',
+            'SEND_IMAGE',
             'SEND_LOCATION',
-            'SEND_CATALOG_LINK',
-            'CREATE_QUOTE_DRAFT',
-            'FOLLOWUP_MESSAGE'
+            'SEND_VIDEO',
+            'SEND_AUDIO',
+            'SEND_LINK'
           ]
         };
       }
@@ -109,6 +111,71 @@
         }
       };
     })();
+  </script>
+
+  <!-- ─── Pipeline de decisão de ações a partir de intenções detectadas ──────── -->
+  <script>
+    /**
+     * BotIntentions: módulo de decisão autônoma.
+     * Recebe o resultado de uma intenção classificada, avalia se deve disparar
+     * uma ação autônoma e publica o evento bot:action-decision no BotBus.
+     */
+    window.BotIntentions = window.BotIntentions || {
+      onIntentDetected: function (intentResult) {
+        const name       = (intentResult && intentResult.name) ? String(intentResult.name).toUpperCase() : '';
+        const confidence = Number((intentResult && intentResult.confidence) || 0);
+        const entities   = (intentResult && intentResult.entities) ? intentResult.entities : {};
+
+        const cfg = window.BotConfig || {};
+
+        if (!cfg.autonomyEnabled) {
+          console.log('[BotIntentions] Autonomia desabilitada; decisão ignorada.');
+          return;
+        }
+
+        const threshold = cfg.thresholds && cfg.thresholds[name] != null
+          ? cfg.thresholds[name]
+          : 0.75;
+
+        if (confidence < threshold) {
+          console.log('[BotIntentions] Confiança ' + confidence + ' abaixo do threshold ' + threshold + ' para ' + name + '; nenhuma ação autônoma.');
+          return;
+        }
+
+        const actionType = cfg.intentionActionMap && cfg.intentionActionMap[name];
+        if (!actionType) {
+          console.log('[BotIntentions] Intenção "' + name + '" sem mapeamento de ação; nenhuma ação autônoma.');
+          return;
+        }
+
+        const allowlist  = cfg.autonomousActions || [];
+        const autonomous = allowlist.includes(actionType);
+
+        if (!autonomous) {
+          console.log('[BotIntentions] actionType "' + actionType + '" não está na allowlist de ações autônomas; decisão emitida com autonomous=false.');
+        }
+
+        const decision = {
+          actionType: actionType,
+          autonomous: autonomous,
+          intentName: name,
+          confidence: confidence,
+          entities:   entities
+        };
+
+        const payload = {
+          intentResult: intentResult,
+          decision:     decision,
+          timestamp:    new Date().toISOString()
+        };
+
+        console.log('[BotIntentions] Decisão gerada:', payload);
+
+        if (window.BotBus) {
+          window.BotBus.emit('bot:action-decision', payload);
+        }
+      }
+    };
   </script>
 
   <script src="/bot-admin/script.js"></script>

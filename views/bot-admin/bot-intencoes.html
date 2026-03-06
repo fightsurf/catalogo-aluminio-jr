@@ -271,15 +271,17 @@
           },
           intentionActionMap: {
             LOCALIZACAO: 'SEND_LOCATION',
-            CATALOGO: 'SEND_CATALOG_LINK',
-            ORCAMENTO: 'CREATE_QUOTE_DRAFT',
-            FOLLOWUP: 'FOLLOWUP_MESSAGE'
+            CATALOGO: 'SEND_LINK',
+            ORCAMENTO: 'SEND_TEXT',
+            FOLLOWUP: 'SEND_TEXT'
           },
           autonomousActions: [
+            'SEND_TEXT',
+            'SEND_IMAGE',
             'SEND_LOCATION',
-            'SEND_CATALOG_LINK',
-            'CREATE_QUOTE_DRAFT',
-            'FOLLOWUP_MESSAGE'
+            'SEND_VIDEO',
+            'SEND_AUDIO',
+            'SEND_LINK'
           ]
         };
       }

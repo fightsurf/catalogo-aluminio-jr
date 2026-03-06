@@ -90,17 +90,20 @@
       </div>
       <div class="campo">
         <label for="campo-tipo">Tipo de ação *</label>
-        <select id="campo-tipo">
+        <select id="campo-tipo" onchange="atualizarHintConteudo()">
           <option value="" disabled selected>Selecione o tipo de ação</option>
+          <option value="SEND_TEXT">SEND_TEXT</option>
+          <option value="SEND_IMAGE">SEND_IMAGE</option>
           <option value="SEND_LOCATION">SEND_LOCATION</option>
-          <option value="SEND_CATALOG_LINK">SEND_CATALOG_LINK</option>
-          <option value="CREATE_QUOTE_DRAFT">CREATE_QUOTE_DRAFT</option>
-          <option value="FOLLOWUP_MESSAGE">FOLLOWUP_MESSAGE</option>
+          <option value="SEND_VIDEO">SEND_VIDEO</option>
+          <option value="SEND_AUDIO">SEND_AUDIO</option>
+          <option value="SEND_LINK">SEND_LINK</option>
         </select>
       </div>
       <div class="campo">
         <label for="campo-conteudo">Conteúdo *</label>
         <textarea id="campo-conteudo" placeholder="Conteúdo da ação"></textarea>
+        <small id="hint-conteudo" style="color:#888; font-size:0.78rem; display:block; margin-top:3px;"></small>
       </div>
       <div class="campo">
         <label for="campo-delay">Delay (ms)</label>
@@ -127,7 +130,7 @@
     // Map of action id -> action data for safe onclick references
     const acoesMap = {};
     // Fixed allowlist of valid action types (must match BotConfig.autonomousActions)
-    const VALID_TIPOS = ['SEND_LOCATION', 'SEND_CATALOG_LINK', 'CREATE_QUOTE_DRAFT', 'FOLLOWUP_MESSAGE'];
+    const VALID_TIPOS = ['SEND_TEXT', 'SEND_IMAGE', 'SEND_LOCATION', 'SEND_VIDEO', 'SEND_AUDIO', 'SEND_LINK'];
 
     async function carregarIntencoes() {
       try {
@@ -244,6 +247,7 @@
       document.getElementById('msg-modal').textContent = '';
       document.getElementById('msg-modal').className = 'msg-modal';
       document.getElementById('btn-salvar').disabled = false;
+      atualizarHintConteudo();
       document.getElementById('overlay').classList.add('ativo');
     }
 
@@ -282,6 +286,7 @@
       document.getElementById('campo-conteudo').value = a.conteudo;
       document.getElementById('campo-delay').value = a.delay_ms ?? 0;
       document.getElementById('campo-ativo').checked = !!a.ativo;
+      atualizarHintConteudo();
       if (intencaoEncontrada) {
         msgEl.textContent = '';
         msgEl.className = 'msg-modal';
@@ -328,6 +333,14 @@
       }
       if (!conteudo) {
         msgEl.textContent = '✗ Conteúdo é obrigatório.';
+        msgEl.classList.add('err');
+        return;
+      }
+
+      // Validação específica por tipo de ação
+      const erroPayload = validarPayload(tipo_acao, conteudo);
+      if (erroPayload) {
+        msgEl.textContent = '✗ ' + erroPayload;
         msgEl.classList.add('err');
         return;
       }
@@ -383,6 +396,69 @@
         .replace(/"/g, '&quot;');
     }
 
+    /** Atualiza o texto de dica abaixo do campo conteúdo conforme o tipo selecionado. */
+    function atualizarHintConteudo() {
+      const tipo = document.getElementById('campo-tipo').value;
+      const hint = document.getElementById('hint-conteudo');
+      const hints = {
+        SEND_TEXT:     'Texto da mensagem a enviar.',
+        SEND_IMAGE:    'URL da imagem (ex: https://exemplo.com/foto.jpg).',
+        SEND_LOCATION: 'JSON {"lat":-23.5,"lng":-46.6,"address":"Endereço"} ou apenas o endereço.',
+        SEND_VIDEO:    'URL do vídeo a enviar.',
+        SEND_AUDIO:    'URL do áudio a enviar.',
+        SEND_LINK:     'URL do link ou JSON {"url":"https://...","title":"Título","text":"Texto opcional"}.'
+      };
+      hint.textContent = hints[tipo] || '';
+    }
+
+    /**
+     * Valida o payload mínimo do campo conteúdo por tipo de ação.
+     * Retorna uma string de erro ou null se válido.
+     */
+    function validarPayload(tipo, conteudo) {
+      switch (tipo) {
+        case 'SEND_TEXT':
+          return conteudo.trim() ? null : 'SEND_TEXT requer texto no conteúdo.';
+
+        case 'SEND_IMAGE':
+          try { new URL(conteudo.trim()); return null; } catch (_) { /* URL inválida */ }
+          return 'SEND_IMAGE requer uma URL de imagem válida no conteúdo.';
+
+        case 'SEND_LOCATION': {
+          // Aceita JSON com lat/lng ou qualquer string de endereço
+          try {
+            const loc = JSON.parse(conteudo);
+            if (loc && (loc.address || (loc.lat !== null && loc.lat !== undefined && loc.lng !== null && loc.lng !== undefined))) return null;
+            return 'SEND_LOCATION requer JSON com "lat"/"lng" ou "address".';
+          } catch (_) {
+            return conteudo.trim() ? null : 'SEND_LOCATION requer endereço ou JSON de localização.';
+          }
+        }
+
+        case 'SEND_VIDEO':
+          try { new URL(conteudo.trim()); return null; } catch (_) { /* URL inválida */ }
+          return 'SEND_VIDEO requer uma URL de vídeo válida no conteúdo.';
+
+        case 'SEND_AUDIO':
+          try { new URL(conteudo.trim()); return null; } catch (_) { /* URL inválida */ }
+          return 'SEND_AUDIO requer uma URL de áudio válida no conteúdo.';
+
+        case 'SEND_LINK': {
+          let urlStr = conteudo.trim();
+          try {
+            const parsed = JSON.parse(urlStr);
+            urlStr = (parsed && parsed.url) ? String(parsed.url).trim() : '';
+            if (!urlStr) return 'SEND_LINK requer campo "url" no JSON do conteúdo.';
+          } catch (_) { /* conteúdo é URL direta; segue validação abaixo */ }
+          try { new URL(urlStr); return null; } catch (_) { /* URL inválida */ }
+          return 'SEND_LINK requer uma URL válida no conteúdo.';
+        }
+
+        default:
+          return null;
+      }
+    }
+
     carregarIntencoes();
     carregarAcoes();
   </script>
@@ -420,15 +496,17 @@
           },
           intentionActionMap: {
             LOCALIZACAO: 'SEND_LOCATION',
-            CATALOGO: 'SEND_CATALOG_LINK',
-            ORCAMENTO: 'CREATE_QUOTE_DRAFT',
-            FOLLOWUP: 'FOLLOWUP_MESSAGE'
+            CATALOGO: 'SEND_LINK',
+            ORCAMENTO: 'SEND_TEXT',
+            FOLLOWUP: 'SEND_TEXT'
           },
           autonomousActions: [
+            'SEND_TEXT',
+            'SEND_IMAGE',
             'SEND_LOCATION',
-            'SEND_CATALOG_LINK',
-            'CREATE_QUOTE_DRAFT',
-            'FOLLOWUP_MESSAGE'
+            'SEND_VIDEO',
+            'SEND_AUDIO',
+            'SEND_LINK'
           ]
         };
       }
@@ -469,6 +547,30 @@
      * Lança Error se a ação falhar (permitindo rollback de idempotência).
      */
     const _actionHandlers = {
+      // Envia mensagem de texto para o contato
+      SEND_TEXT: async function (decision, entities) {
+        console.log('[BotFluxo] SEND_TEXT – entidades:', entities);
+        const res = await fetch('/bot/acoes/send-text', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ intentName: decision.intentName, entities: entities })
+        });
+        if (!res.ok) throw new Error('SEND_TEXT falhou: HTTP ' + res.status);
+        return res.json();
+      },
+
+      // Envia imagem para o contato
+      SEND_IMAGE: async function (decision, entities) {
+        console.log('[BotFluxo] SEND_IMAGE – entidades:', entities);
+        const res = await fetch('/bot/acoes/send-image', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ intentName: decision.intentName, entities: entities })
+        });
+        if (!res.ok) throw new Error('SEND_IMAGE falhou: HTTP ' + res.status);
+        return res.json();
+      },
+
       // Envia localização da loja para o contato
       SEND_LOCATION: async function (decision, entities) {
         console.log('[BotFluxo] SEND_LOCATION – entidades:', entities);
@@ -481,39 +583,39 @@
         return res.json();
       },
 
-      // Envia link do catálogo de alumínio para o contato
-      SEND_CATALOG_LINK: async function (decision, entities) {
-        console.log('[BotFluxo] SEND_CATALOG_LINK – entidades:', entities);
-        const res = await fetch('/bot/acoes/send-catalog', {
+      // Envia vídeo para o contato
+      SEND_VIDEO: async function (decision, entities) {
+        console.log('[BotFluxo] SEND_VIDEO – entidades:', entities);
+        const res = await fetch('/bot/acoes/send-video', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ intentName: decision.intentName, entities: entities })
         });
-        if (!res.ok) throw new Error('SEND_CATALOG_LINK falhou: HTTP ' + res.status);
+        if (!res.ok) throw new Error('SEND_VIDEO falhou: HTTP ' + res.status);
         return res.json();
       },
 
-      // Cria rascunho de orçamento a partir das entidades da intenção
-      CREATE_QUOTE_DRAFT: async function (decision, entities) {
-        console.log('[BotFluxo] CREATE_QUOTE_DRAFT – entidades:', entities);
-        const res = await fetch('/bot/acoes/create-quote', {
+      // Envia áudio para o contato
+      SEND_AUDIO: async function (decision, entities) {
+        console.log('[BotFluxo] SEND_AUDIO – entidades:', entities);
+        const res = await fetch('/bot/acoes/send-audio', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ intentName: decision.intentName, entities: entities })
         });
-        if (!res.ok) throw new Error('CREATE_QUOTE_DRAFT falhou: HTTP ' + res.status);
+        if (!res.ok) throw new Error('SEND_AUDIO falhou: HTTP ' + res.status);
         return res.json();
       },
 
-      // Envia mensagem de acompanhamento (follow-up)
-      FOLLOWUP_MESSAGE: async function (decision, entities) {
-        console.log('[BotFluxo] FOLLOWUP_MESSAGE – entidades:', entities);
-        const res = await fetch('/bot/acoes/followup', {
+      // Envia link (ex.: catálogo) para o contato
+      SEND_LINK: async function (decision, entities) {
+        console.log('[BotFluxo] SEND_LINK – entidades:', entities);
+        const res = await fetch('/bot/acoes/send-link', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ intentName: decision.intentName, entities: entities })
         });
-        if (!res.ok) throw new Error('FOLLOWUP_MESSAGE falhou: HTTP ' + res.status);
+        if (!res.ok) throw new Error('SEND_LINK falhou: HTTP ' + res.status);
         return res.json();
       }
     };
