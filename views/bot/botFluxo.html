@@ -28,7 +28,6 @@
     button.btn-editar:hover { background: #d68910; }
     button.btn-excluir { background: #e74c3c; color: #fff; border: none; padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 0.82rem; margin-left: 6px; }
     button.btn-excluir:hover { background: #c0392b; }
-    /* Modal */
     .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 100; }
     .overlay.ativo { display: flex; align-items: center; justify-content: center; }
     .modal { background: #fff; border-radius: 8px; padding: 24px; width: 100%; max-width: 480px; box-shadow: 0 4px 16px rgba(0,0,0,.2); }
@@ -56,8 +55,10 @@
     <button class="btn-atualizar" onclick="carregarAcoes()">Atualizar</button>
     <button class="btn-novo" onclick="abrirModalNovo()">+ Nova Ação</button>
   </div>
+
   <div id="loading">Carregando...</div>
   <div id="erro" style="display:none;"></div>
+
   <table id="tabela" style="display:none;">
     <thead>
       <tr>
@@ -74,20 +75,22 @@
     <tbody id="corpo"></tbody>
   </table>
 
-  <!-- Modal create/edit -->
   <div class="overlay" id="overlay">
     <div class="modal">
       <h2 id="modal-titulo">Nova Ação</h2>
+
       <div class="campo">
         <label for="campo-intencao">Intenção *</label>
         <select id="campo-intencao">
           <option value="">Carregando intenções…</option>
         </select>
       </div>
+
       <div class="campo">
         <label for="campo-ordem">Ordem *</label>
         <input type="number" id="campo-ordem" min="1" placeholder="ex: 1" />
       </div>
+
       <div class="campo">
         <label for="campo-tipo">Tipo de ação *</label>
         <select id="campo-tipo" onchange="atualizarHintConteudo()">
@@ -97,28 +100,34 @@
           <option value="SEND_LOCATION">SEND_LOCATION</option>
           <option value="SEND_VIDEO">SEND_VIDEO</option>
           <option value="SEND_AUDIO">SEND_AUDIO</option>
+          <option value="SEND_DOCUMENT">SEND_DOCUMENT</option>
           <option value="SEND_LINK">SEND_LINK</option>
         </select>
       </div>
+
       <div class="campo">
         <label for="campo-conteudo">Conteúdo *</label>
         <textarea id="campo-conteudo" placeholder="Conteúdo da ação"></textarea>
         <small id="hint-conteudo" style="color:#888; font-size:0.78rem; display:block; margin-top:3px;"></small>
       </div>
+
       <div class="campo">
         <label for="campo-delay">Delay (ms)</label>
         <input type="number" id="campo-delay" min="0" value="0" />
       </div>
+
       <div class="campo">
         <div class="campo-check">
           <input type="checkbox" id="campo-ativo" checked />
           <label for="campo-ativo">Ativo</label>
         </div>
       </div>
+
       <div class="acoes-modal">
         <button class="btn-cancelar" onclick="fecharModal()">Cancelar</button>
         <button class="btn-salvar" id="btn-salvar" onclick="salvar()">Salvar</button>
       </div>
+
       <div class="msg-modal" id="msg-modal"></div>
     </div>
   </div>
@@ -127,34 +136,45 @@
     let modoEdicao = false;
     let idEdicao = null;
     let intencoesCache = [];
-    // Map of action id -> action data for safe onclick references
     const acoesMap = {};
-    // Fixed allowlist of valid action types (must match BotConfig.autonomousActions)
-    const VALID_TIPOS = ['SEND_TEXT', 'SEND_IMAGE', 'SEND_LOCATION', 'SEND_VIDEO', 'SEND_AUDIO', 'SEND_LINK'];
+
+    const VALID_TIPOS = [
+      'SEND_TEXT',
+      'SEND_IMAGE',
+      'SEND_LOCATION',
+      'SEND_VIDEO',
+      'SEND_AUDIO',
+      'SEND_DOCUMENT',
+      'SEND_LINK'
+    ];
 
     async function carregarIntencoes() {
       try {
         const res = await fetch('/bot/intencoes');
         if (!res.ok) throw new Error('Erro ao carregar intenções');
+
         const todas = await res.json();
         intencoesCache = todas;
+
         const sel = document.getElementById('campo-intencao');
         sel.innerHTML = '<option value="">Selecione uma intenção</option>';
+
         todas
           .filter(i => i.ativa)
           .forEach(i => {
             const opt = document.createElement('option');
             opt.value = i.id;
-            opt.textContent = i.nome + (i.descricao ? ' \u2013 ' + i.descricao : '');
+            opt.textContent = i.nome + (i.descricao ? ' – ' + i.descricao : '');
             sel.appendChild(opt);
           });
-        // Include inactive ones clearly marked
+
         const inativos = todas.filter(i => !i.ativa);
         if (inativos.length) {
           const sep = document.createElement('option');
           sep.disabled = true;
-          sep.textContent = '\u2500\u2500 Inativas \u2500\u2500';
+          sep.textContent = '── Inativas ──';
           sel.appendChild(sep);
+
           inativos.forEach(i => {
             const opt = document.createElement('option');
             opt.value = i.id;
@@ -183,6 +203,7 @@
       try {
         const response = await fetch('/bot/fluxo/admin/acoes');
         if (!response.ok) throw new Error(`Erro ${response.status}`);
+
         const acoes = await response.json();
 
         if (!acoes.length) {
@@ -191,7 +212,6 @@
         }
 
         acoes.forEach(a => {
-          // Store action data in map for safe retrieval from onclick
           acoesMap[a.id] = a;
 
           const tr = document.createElement('tr');
@@ -223,11 +243,17 @@
     async function excluir(id) {
       const a = acoesMap[id];
       const label = a ? `#${id} (${a.intencao_nome}, ordem ${a.ordem})` : `#${id}`;
-      if (!confirm(`Tem certeza que deseja excluir a ação ${label}? Esta ação não pode ser desfeita.`)) return;
+
+      if (!confirm(`Tem certeza que deseja excluir a ação ${label}? Esta ação não pode ser desfeita.`)) {
+        return;
+      }
+
       try {
         const res = await fetch(`/bot/fluxo/admin/acoes/${id}`, { method: 'DELETE' });
         const data = await res.json();
+
         if (!res.ok) throw new Error(data.message || 'Erro ao excluir');
+
         carregarAcoes();
       } catch (err) {
         alert('Erro ao excluir: ' + err.message);
@@ -237,6 +263,7 @@
     function abrirModalNovo() {
       modoEdicao = false;
       idEdicao = null;
+
       document.getElementById('modal-titulo').textContent = 'Nova Ação';
       document.getElementById('campo-intencao').value = '';
       document.getElementById('campo-ordem').value = '';
@@ -247,6 +274,7 @@
       document.getElementById('msg-modal').textContent = '';
       document.getElementById('msg-modal').className = 'msg-modal';
       document.getElementById('btn-salvar').disabled = false;
+
       atualizarHintConteudo();
       document.getElementById('overlay').classList.add('ativo');
     }
@@ -254,19 +282,21 @@
     function abrirModalEditar(id) {
       const a = acoesMap[id];
       if (!a) return;
+
       modoEdicao = true;
       idEdicao = a.id;
+
       document.getElementById('modal-titulo').textContent = 'Editar Ação';
 
-      // Try to find intencao_id by nome from cache
       const sel = document.getElementById('campo-intencao');
       const msgEl = document.getElementById('msg-modal');
       const intencao = intencoesCache.find(i => i.nome === a.intencao_nome);
+
       let intencaoEncontrada = true;
+
       if (intencao) {
         sel.value = intencao.id;
       } else {
-        // Fallback: search options by plain text content
         let found = false;
         for (const opt of sel.options) {
           if (opt.textContent.startsWith(a.intencao_nome)) {
@@ -275,6 +305,7 @@
             break;
           }
         }
+
         if (!found) {
           sel.value = '';
           intencaoEncontrada = false;
@@ -286,14 +317,17 @@
       document.getElementById('campo-conteudo').value = a.conteudo;
       document.getElementById('campo-delay').value = a.delay_ms ?? 0;
       document.getElementById('campo-ativo').checked = !!a.ativo;
+
       atualizarHintConteudo();
+
       if (intencaoEncontrada) {
         msgEl.textContent = '';
         msgEl.className = 'msg-modal';
       } else {
-        msgEl.textContent = '\u26a0 Inten\u00e7\u00e3o "' + a.intencao_nome + '" n\u00e3o encontrada na lista. Selecione manualmente.';
+        msgEl.textContent = `⚠ Intenção "${a.intencao_nome}" não encontrada na lista. Selecione manualmente.`;
         msgEl.className = 'msg-modal err';
       }
+
       document.getElementById('btn-salvar').disabled = false;
       document.getElementById('overlay').classList.add('ativo');
     }
@@ -305,6 +339,7 @@
     async function salvar() {
       const msgEl = document.getElementById('msg-modal');
       const btnSalvar = document.getElementById('btn-salvar');
+
       msgEl.textContent = '';
       msgEl.className = 'msg-modal';
 
@@ -315,35 +350,37 @@
       const delay_ms = document.getElementById('campo-delay').value;
       const ativo = document.getElementById('campo-ativo').checked;
 
-      // Frontend validation
       if (!intencao_id) {
         msgEl.textContent = '✗ Selecione uma intenção.';
         msgEl.classList.add('err');
         return;
       }
+
       if (!ordem || Number(ordem) < 1) {
         msgEl.textContent = '✗ Ordem deve ser >= 1.';
         msgEl.classList.add('err');
         return;
       }
+
       if (!tipo_acao || !VALID_TIPOS.includes(tipo_acao)) {
         msgEl.textContent = '✗ Selecione um tipo de ação válido.';
         msgEl.classList.add('err');
         return;
       }
+
       if (!conteudo) {
         msgEl.textContent = '✗ Conteúdo é obrigatório.';
         msgEl.classList.add('err');
         return;
       }
 
-      // Validação específica por tipo de ação
       const erroPayload = validarPayload(tipo_acao, conteudo);
       if (erroPayload) {
         msgEl.textContent = '✗ ' + erroPayload;
         msgEl.classList.add('err');
         return;
       }
+
       if (Number(delay_ms) < 0) {
         msgEl.textContent = '✗ Delay deve ser >= 0.';
         msgEl.classList.add('err');
@@ -360,8 +397,10 @@
       };
 
       btnSalvar.disabled = true;
+
       try {
         let res;
+
         if (modoEdicao) {
           res = await fetch(`/bot/fluxo/admin/acoes/${idEdicao}`, {
             method: 'PUT',
@@ -375,11 +414,17 @@
             body: JSON.stringify(payload)
           });
         }
+
         const data = await res.json();
         if (!res.ok) throw new Error(data.message || 'Erro ao salvar');
+
         msgEl.textContent = '✓ Salvo com sucesso!';
         msgEl.classList.add('ok');
-        setTimeout(() => { fecharModal(); carregarAcoes(); }, 800);
+
+        setTimeout(() => {
+          fecharModal();
+          carregarAcoes();
+        }, 800);
       } catch (err) {
         msgEl.textContent = '✗ ' + err.message;
         msgEl.classList.add('err');
@@ -396,63 +441,58 @@
         .replace(/"/g, '&quot;');
     }
 
-    /** Atualiza o texto de dica abaixo do campo conteúdo conforme o tipo selecionado. */
     function atualizarHintConteudo() {
       const tipo = document.getElementById('campo-tipo').value;
       const hint = document.getElementById('hint-conteudo');
+
       const hints = {
-        SEND_TEXT:     'Texto da mensagem a enviar.',
-        SEND_IMAGE:    'URL da imagem (ex: https://exemplo.com/foto.jpg).',
+        SEND_TEXT: 'Texto da mensagem a enviar.',
+        SEND_IMAGE: 'URL da imagem (ex: https://exemplo.com/foto.jpg).',
         SEND_LOCATION: 'JSON {"lat":-23.5,"lng":-46.6,"address":"Endereço"} ou apenas o endereço.',
-        SEND_VIDEO:    'URL do vídeo a enviar.',
-        SEND_AUDIO:    'URL do áudio a enviar.',
-        SEND_LINK:     'URL do link ou JSON {"url":"https://...","title":"Título","text":"Texto opcional"}.'
+        SEND_VIDEO: 'URL do vídeo a enviar.',
+        SEND_AUDIO: 'URL do áudio a enviar.',
+        SEND_DOCUMENT: 'URL do documento a enviar.',
+        SEND_LINK: 'URL do link ou texto que será enviado como mensagem.'
       };
+
       hint.textContent = hints[tipo] || '';
     }
 
-    /**
-     * Valida o payload mínimo do campo conteúdo por tipo de ação.
-     * Retorna uma string de erro ou null se válido.
-     */
     function validarPayload(tipo, conteudo) {
       switch (tipo) {
         case 'SEND_TEXT':
           return conteudo.trim() ? null : 'SEND_TEXT requer texto no conteúdo.';
 
         case 'SEND_IMAGE':
-          try { new URL(conteudo.trim()); return null; } catch (_) { /* URL inválida */ }
+          try { new URL(conteudo.trim()); return null; } catch (_) {}
           return 'SEND_IMAGE requer uma URL de imagem válida no conteúdo.';
 
         case 'SEND_LOCATION': {
-          // Aceita JSON com lat/lng ou qualquer string de endereço
           try {
             const loc = JSON.parse(conteudo);
-            if (loc && (loc.address || (loc.lat !== null && loc.lat !== undefined && loc.lng !== null && loc.lng !== undefined))) return null;
-            return 'SEND_LOCATION requer JSON com "lat"/"lng" ou "address".';
+            if (loc && (loc.address || (loc.lat !== null && loc.lat !== undefined && loc.lng !== null && loc.lng !== undefined) || (loc.latitude !== null && loc.latitude !== undefined && loc.longitude !== null && loc.longitude !== undefined))) {
+              return null;
+            }
+            return 'SEND_LOCATION requer JSON com "lat"/"lng", "latitude"/"longitude" ou "address".';
           } catch (_) {
             return conteudo.trim() ? null : 'SEND_LOCATION requer endereço ou JSON de localização.';
           }
         }
 
         case 'SEND_VIDEO':
-          try { new URL(conteudo.trim()); return null; } catch (_) { /* URL inválida */ }
+          try { new URL(conteudo.trim()); return null; } catch (_) {}
           return 'SEND_VIDEO requer uma URL de vídeo válida no conteúdo.';
 
         case 'SEND_AUDIO':
-          try { new URL(conteudo.trim()); return null; } catch (_) { /* URL inválida */ }
+          try { new URL(conteudo.trim()); return null; } catch (_) {}
           return 'SEND_AUDIO requer uma URL de áudio válida no conteúdo.';
 
-        case 'SEND_LINK': {
-          let urlStr = conteudo.trim();
-          try {
-            const parsed = JSON.parse(urlStr);
-            urlStr = (parsed && parsed.url) ? String(parsed.url).trim() : '';
-            if (!urlStr) return 'SEND_LINK requer campo "url" no JSON do conteúdo.';
-          } catch (_) { /* conteúdo é URL direta; segue validação abaixo */ }
-          try { new URL(urlStr); return null; } catch (_) { /* URL inválida */ }
-          return 'SEND_LINK requer uma URL válida no conteúdo.';
-        }
+        case 'SEND_DOCUMENT':
+          try { new URL(conteudo.trim()); return null; } catch (_) {}
+          return 'SEND_DOCUMENT requer uma URL de documento válida no conteúdo.';
+
+        case 'SEND_LINK':
+          return conteudo.trim() ? null : 'SEND_LINK requer conteúdo.';
 
         default:
           return null;
@@ -461,215 +501,6 @@
 
     carregarIntencoes();
     carregarAcoes();
-  </script>
-
-  <!-- ─── BotBus & BotConfig – inicialização compartilhada ─────────────────── -->
-  <script>
-    (function () {
-      // BotBus: EventTarget local com bridge via BroadcastChannel
-      if (!window.BotBus) {
-        const bus = new EventTarget();
-        const ch = new BroadcastChannel('bot-channel');
-
-        bus.emit = function (type, detail) {
-          bus.dispatchEvent(new CustomEvent(type, { detail: detail }));
-          ch.postMessage({ type: type, detail: detail });
-        };
-
-        ch.onmessage = function (e) {
-          bus.dispatchEvent(new CustomEvent(e.data.type, { detail: e.data.detail }));
-        };
-
-        window.BotBus = bus;
-      }
-
-      if (!window.BotConfig) {
-        window.BotConfig = {
-          autonomyEnabled: true,
-          dryRun: false,
-          thresholds: {
-            SAUDACAO: 0.70,
-            LOCALIZACAO: 0.75,
-            CATALOGO: 0.75,
-            ORCAMENTO: 0.80,
-            FOLLOWUP: 0.70
-          },
-          intentionActionMap: {
-            LOCALIZACAO: 'SEND_LOCATION',
-            CATALOGO: 'SEND_LINK',
-            ORCAMENTO: 'SEND_TEXT',
-            FOLLOWUP: 'SEND_TEXT'
-          },
-          autonomousActions: [
-            'SEND_TEXT',
-            'SEND_IMAGE',
-            'SEND_LOCATION',
-            'SEND_VIDEO',
-            'SEND_AUDIO',
-            'SEND_LINK'
-          ]
-        };
-      }
-    })();
-  </script>
-
-  <!-- ─── Motor de execução autônoma de ações ─────────────────────────────── -->
-  <script>
-    // Conjunto de chaves de idempotência (máx. 200 entradas para evitar vazamento de memória)
-    const _executedKeys = new Set();
-    const _MAX_IDEMPOTENCY_KEYS = 200;
-
-    /** Gera chave única determinística para uma decisão (chaves de entidades ordenadas). */
-    function _idempotencyKey(decision) {
-      const raw = decision.entities && typeof decision.entities === 'object'
-        ? decision.entities
-        : {};
-      // Ordena as chaves para garantir serialização consistente independente da ordem
-      const sorted = Object.keys(raw).sort().reduce(function (acc, k) {
-        acc[k] = raw[k];
-        return acc;
-      }, {});
-      return decision.actionType + ':' + decision.intentName + ':' + JSON.stringify(sorted);
-    }
-
-    /** Registra uma chave de idempotência, removendo a mais antiga se o limite for atingido. */
-    function _addIdempotencyKey(key) {
-      if (_executedKeys.size >= _MAX_IDEMPOTENCY_KEYS) {
-        // Remove o primeiro item inserido (FIFO)
-        _executedKeys.delete(_executedKeys.values().next().value);
-      }
-      _executedKeys.add(key);
-    }
-
-    /**
-     * Handlers por tipo de ação.
-     * Cada handler recebe (decision, entities) e deve retornar uma Promise.
-     * Lança Error se a ação falhar (permitindo rollback de idempotência).
-     */
-    const _actionHandlers = {
-      // Envia mensagem de texto para o contato
-      SEND_TEXT: async function (decision, entities) {
-        console.log('[BotFluxo] SEND_TEXT – entidades:', entities);
-        const res = await fetch('/bot/acoes/send-text', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ intentName: decision.intentName, entities: entities })
-        });
-        if (!res.ok) throw new Error('SEND_TEXT falhou: HTTP ' + res.status);
-        return res.json();
-      },
-
-      // Envia imagem para o contato
-      SEND_IMAGE: async function (decision, entities) {
-        console.log('[BotFluxo] SEND_IMAGE – entidades:', entities);
-        const res = await fetch('/bot/acoes/send-image', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ intentName: decision.intentName, entities: entities })
-        });
-        if (!res.ok) throw new Error('SEND_IMAGE falhou: HTTP ' + res.status);
-        return res.json();
-      },
-
-      // Envia localização da loja para o contato
-      SEND_LOCATION: async function (decision, entities) {
-        console.log('[BotFluxo] SEND_LOCATION – entidades:', entities);
-        const res = await fetch('/bot/acoes/send-location', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ intentName: decision.intentName, entities: entities })
-        });
-        if (!res.ok) throw new Error('SEND_LOCATION falhou: HTTP ' + res.status);
-        return res.json();
-      },
-
-      // Envia vídeo para o contato
-      SEND_VIDEO: async function (decision, entities) {
-        console.log('[BotFluxo] SEND_VIDEO – entidades:', entities);
-        const res = await fetch('/bot/acoes/send-video', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ intentName: decision.intentName, entities: entities })
-        });
-        if (!res.ok) throw new Error('SEND_VIDEO falhou: HTTP ' + res.status);
-        return res.json();
-      },
-
-      // Envia áudio para o contato
-      SEND_AUDIO: async function (decision, entities) {
-        console.log('[BotFluxo] SEND_AUDIO – entidades:', entities);
-        const res = await fetch('/bot/acoes/send-audio', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ intentName: decision.intentName, entities: entities })
-        });
-        if (!res.ok) throw new Error('SEND_AUDIO falhou: HTTP ' + res.status);
-        return res.json();
-      },
-
-      // Envia link (ex.: catálogo) para o contato
-      SEND_LINK: async function (decision, entities) {
-        console.log('[BotFluxo] SEND_LINK – entidades:', entities);
-        const res = await fetch('/bot/acoes/send-link', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ intentName: decision.intentName, entities: entities })
-        });
-        if (!res.ok) throw new Error('SEND_LINK falhou: HTTP ' + res.status);
-        return res.json();
-      }
-    };
-
-    /**
-     * Listener principal: escuta bot:action-decision e executa a ação
-     * somente quando decision.autonomous === true e as guardas passam.
-     */
-    window.BotBus.addEventListener('bot:action-decision', async function (evt) {
-      const payload  = evt.detail || {};
-      const decision = payload.decision || {};
-      const intent   = payload.intentResult || {};
-
-      // Só executa ações marcadas como autônomas
-      if (!decision.autonomous) {
-        console.log('[BotFluxo] Decisão não autônoma; ação ignorada:', decision.actionType);
-        return;
-      }
-
-      const handler = _actionHandlers[decision.actionType];
-      if (!handler) {
-        console.warn('[BotFluxo] Nenhum handler para actionType:', decision.actionType);
-        return;
-      }
-
-      // Idempotência: bloqueia execuções duplicadas da mesma decisão
-      const key = _idempotencyKey(decision);
-      if (_executedKeys.has(key)) {
-        console.log('[BotFluxo] Execução duplicada bloqueada (idempotência):', key);
-        return;
-      }
-
-      // Registra antes de executar; será removido em caso de erro (permitindo retry)
-      _addIdempotencyKey(key);
-
-      const cfg = window.BotConfig || {};
-
-      // dryRun: simula sem efeitos colaterais
-      if (cfg.dryRun) {
-        console.log('[BotFluxo] DRY RUN – ação simulada sem efeito:', decision.actionType, payload);
-        return;
-      }
-
-      try {
-        const result = await handler(decision, intent.entities || {});
-        console.log('[BotFluxo] Ação executada com sucesso:', decision.actionType, result);
-      } catch (err) {
-        console.error('[BotFluxo] Falha na execução de:', decision.actionType, err);
-        // Rollback da chave para permitir retry posterior
-        _executedKeys.delete(key);
-      }
-    });
-
-    console.log('[BotFluxo] Motor autônomo inicializado e aguardando bot:action-decision.');
   </script>
 </body>
 </html>
