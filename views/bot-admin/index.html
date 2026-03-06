@@ -43,6 +43,71 @@
     </main>
   </div>
 
+  <!-- ─── BotBus & BotConfig – inicialização compartilhada ─────────────────── -->
+  <script>
+    (function () {
+      // BotBus: EventTarget local com bridge via BroadcastChannel para comunicação entre abas/páginas
+      if (!window.BotBus) {
+        const bus = new EventTarget();
+        const ch = new BroadcastChannel('bot-channel');
+
+        // Emite localmente e propaga para outras abas/páginas
+        bus.emit = function (type, detail) {
+          bus.dispatchEvent(new CustomEvent(type, { detail: detail }));
+          ch.postMessage({ type: type, detail: detail });
+        };
+
+        // Recebe eventos emitidos por outras abas/páginas
+        ch.onmessage = function (e) {
+          bus.dispatchEvent(new CustomEvent(e.data.type, { detail: e.data.detail }));
+        };
+
+        window.BotBus = bus;
+      }
+
+      // BotConfig: configuração central do bot (autonomia, thresholds, mapeamentos)
+      if (!window.BotConfig) {
+        window.BotConfig = {
+          autonomyEnabled: true,   // habilita operação autônoma do bot
+          dryRun: false,           // true = simula sem efeitos colaterais reais
+          thresholds: {            // confiança mínima por intenção (0–1)
+            SAUDACAO: 0.70,
+            CATALOGO: 0.75,
+            ORCAMENTO: 0.80,
+            FOLLOWUP: 0.70
+          },
+          intentionActionMap: {    // intenção -> tipo de ação a disparar
+            CATALOGO: 'SEND_CATALOG_LINK',
+            ORCAMENTO: 'CREATE_QUOTE_DRAFT',
+            FOLLOWUP: 'FOLLOWUP_MESSAGE'
+          },
+          autonomousActions: [     // allowlist de ações que podem ser executadas autonomamente
+            'SEND_CATALOG_LINK',
+            'CREATE_QUOTE_DRAFT',
+            'FOLLOWUP_MESSAGE'
+          ]
+        };
+      }
+
+      // Helper global: emite uma intenção classificada para o barramento.
+      // Caminho primário: delega ao pipeline de decisão de BotIntentions (bot-intencoes.html).
+      // Caminho alternativo (fallback): publica bot:intent-raw quando BotIntentions não está
+      // carregado na mesma aba (ex.: index.html usado isoladamente). Nesse caso, o consumidor
+      // responsável por ouvir bot:intent-raw e chamar onIntentDetected deve ser registrado
+      // pela aplicação que integrar este módulo.
+      window.BotAdmin = window.BotAdmin || {};
+      window.BotAdmin.emitIntent = function (intentResult) {
+        if (window.BotIntentions && window.BotIntentions.onIntentDetected) {
+          // Preferencial: passa pelo pipeline de decisão completo
+          window.BotIntentions.onIntentDetected(intentResult);
+        } else if (window.BotBus) {
+          // Fallback: publica evento bruto para que outro módulo processe
+          window.BotBus.emit('bot:intent-raw', intentResult);
+        }
+      };
+    })();
+  </script>
+
   <script src="/bot-admin/script.js"></script>
 </body>
 </html>

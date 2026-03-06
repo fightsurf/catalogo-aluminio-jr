@@ -378,5 +378,173 @@
     carregarIntencoes();
     carregarAcoes();
   </script>
+
+  <!-- ─── BotBus & BotConfig – inicialização compartilhada ─────────────────── -->
+  <script>
+    (function () {
+      // BotBus: EventTarget local com bridge via BroadcastChannel
+      if (!window.BotBus) {
+        const bus = new EventTarget();
+        const ch = new BroadcastChannel('bot-channel');
+
+        bus.emit = function (type, detail) {
+          bus.dispatchEvent(new CustomEvent(type, { detail: detail }));
+          ch.postMessage({ type: type, detail: detail });
+        };
+
+        ch.onmessage = function (e) {
+          bus.dispatchEvent(new CustomEvent(e.data.type, { detail: e.data.detail }));
+        };
+
+        window.BotBus = bus;
+      }
+
+      if (!window.BotConfig) {
+        window.BotConfig = {
+          autonomyEnabled: true,
+          dryRun: false,
+          thresholds: {
+            SAUDACAO: 0.70,
+            CATALOGO: 0.75,
+            ORCAMENTO: 0.80,
+            FOLLOWUP: 0.70
+          },
+          intentionActionMap: {
+            CATALOGO: 'SEND_CATALOG_LINK',
+            ORCAMENTO: 'CREATE_QUOTE_DRAFT',
+            FOLLOWUP: 'FOLLOWUP_MESSAGE'
+          },
+          autonomousActions: [
+            'SEND_CATALOG_LINK',
+            'CREATE_QUOTE_DRAFT',
+            'FOLLOWUP_MESSAGE'
+          ]
+        };
+      }
+    })();
+  </script>
+
+  <!-- ─── Motor de execução autônoma de ações ─────────────────────────────── -->
+  <script>
+    // Conjunto de chaves de idempotência (máx. 200 entradas para evitar vazamento de memória)
+    const _executedKeys = new Set();
+    const _MAX_IDEMPOTENCY_KEYS = 200;
+
+    /** Gera chave única determinística para uma decisão (chaves de entidades ordenadas). */
+    function _idempotencyKey(decision) {
+      const raw = decision.entities && typeof decision.entities === 'object'
+        ? decision.entities
+        : {};
+      // Ordena as chaves para garantir serialização consistente independente da ordem
+      const sorted = Object.keys(raw).sort().reduce(function (acc, k) {
+        acc[k] = raw[k];
+        return acc;
+      }, {});
+      return decision.actionType + ':' + decision.intentName + ':' + JSON.stringify(sorted);
+    }
+
+    /** Registra uma chave de idempotência, removendo a mais antiga se o limite for atingido. */
+    function _addIdempotencyKey(key) {
+      if (_executedKeys.size >= _MAX_IDEMPOTENCY_KEYS) {
+        // Remove o primeiro item inserido (FIFO)
+        _executedKeys.delete(_executedKeys.values().next().value);
+      }
+      _executedKeys.add(key);
+    }
+
+    /**
+     * Handlers por tipo de ação.
+     * Cada handler recebe (decision, entities) e deve retornar uma Promise.
+     * Lança Error se a ação falhar (permitindo rollback de idempotência).
+     */
+    const _actionHandlers = {
+      // Envia link do catálogo de alumínio para o contato
+      SEND_CATALOG_LINK: async function (decision, entities) {
+        console.log('[BotFluxo] SEND_CATALOG_LINK – entidades:', entities);
+        const res = await fetch('/bot/acoes/send-catalog', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ intentName: decision.intentName, entities: entities })
+        });
+        if (!res.ok) throw new Error('SEND_CATALOG_LINK falhou: HTTP ' + res.status);
+        return res.json();
+      },
+
+      // Cria rascunho de orçamento a partir das entidades da intenção
+      CREATE_QUOTE_DRAFT: async function (decision, entities) {
+        console.log('[BotFluxo] CREATE_QUOTE_DRAFT – entidades:', entities);
+        const res = await fetch('/bot/acoes/create-quote', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ intentName: decision.intentName, entities: entities })
+        });
+        if (!res.ok) throw new Error('CREATE_QUOTE_DRAFT falhou: HTTP ' + res.status);
+        return res.json();
+      },
+
+      // Envia mensagem de acompanhamento (follow-up)
+      FOLLOWUP_MESSAGE: async function (decision, entities) {
+        console.log('[BotFluxo] FOLLOWUP_MESSAGE – entidades:', entities);
+        const res = await fetch('/bot/acoes/followup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ intentName: decision.intentName, entities: entities })
+        });
+        if (!res.ok) throw new Error('FOLLOWUP_MESSAGE falhou: HTTP ' + res.status);
+        return res.json();
+      }
+    };
+
+    /**
+     * Listener principal: escuta bot:action-decision e executa a ação
+     * somente quando decision.autonomous === true e as guardas passam.
+     */
+    window.BotBus.addEventListener('bot:action-decision', async function (evt) {
+      const payload  = evt.detail || {};
+      const decision = payload.decision || {};
+      const intent   = payload.intentResult || {};
+
+      // Só executa ações marcadas como autônomas
+      if (!decision.autonomous) {
+        console.log('[BotFluxo] Decisão não autônoma; ação ignorada:', decision.actionType);
+        return;
+      }
+
+      const handler = _actionHandlers[decision.actionType];
+      if (!handler) {
+        console.warn('[BotFluxo] Nenhum handler para actionType:', decision.actionType);
+        return;
+      }
+
+      // Idempotência: bloqueia execuções duplicadas da mesma decisão
+      const key = _idempotencyKey(decision);
+      if (_executedKeys.has(key)) {
+        console.log('[BotFluxo] Execução duplicada bloqueada (idempotência):', key);
+        return;
+      }
+
+      // Registra antes de executar; será removido em caso de erro (permitindo retry)
+      _addIdempotencyKey(key);
+
+      const cfg = window.BotConfig || {};
+
+      // dryRun: simula sem efeitos colaterais
+      if (cfg.dryRun) {
+        console.log('[BotFluxo] DRY RUN – ação simulada sem efeito:', decision.actionType, payload);
+        return;
+      }
+
+      try {
+        const result = await handler(decision, intent.entities || {});
+        console.log('[BotFluxo] Ação executada com sucesso:', decision.actionType, result);
+      } catch (err) {
+        console.error('[BotFluxo] Falha na execução de:', decision.actionType, err);
+        // Rollback da chave para permitir retry posterior
+        _executedKeys.delete(key);
+      }
+    });
+
+    console.log('[BotFluxo] Motor autônomo inicializado e aguardando bot:action-decision.');
+  </script>
 </body>
 </html>
