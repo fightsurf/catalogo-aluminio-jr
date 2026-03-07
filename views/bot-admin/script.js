@@ -9,6 +9,8 @@
   let totalMensagens = 0;
   const LIMIT_MENSAGENS = 50;
 
+  let autonomiaAtiva = false;
+
   // ── WebSocket / Fallback ─────────────────────────────────────
 
   const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/bot-admin`;
@@ -70,6 +72,62 @@
     ws.onerror = () => {
       ws.close();
     };
+  }
+
+  // ── Bot autonomia ────────────────────────────────────────────
+
+  function renderBotAutonomia() {
+    const btn = document.getElementById('btn-autonomia');
+    const status = document.getElementById('status-autonomia');
+    if (!btn || !status) return;
+
+    if (autonomiaAtiva) {
+      btn.textContent = '🟢 Bot ON';
+      btn.style.background = '#27ae60';
+      btn.style.color = '#fff';
+      status.textContent = 'Autônomo ativo';
+    } else {
+      btn.textContent = '🔴 Bot OFF';
+      btn.style.background = '#c0392b';
+      btn.style.color = '#fff';
+      status.textContent = 'Autônomo desligado';
+    }
+  }
+
+  async function carregarStatusAutonomia() {
+    try {
+      const res = await fetch('/bot/autonomia/status');
+      if (!res.ok) throw new Error('Falha ao carregar status do bot');
+
+      const data = await res.json();
+      autonomiaAtiva = !!data.ativa;
+      renderBotAutonomia();
+    } catch (err) {
+      console.error('[BotAdmin] erro ao carregar autonomia:', err);
+    }
+  }
+
+  async function alternarAutonomia() {
+    const proximoValor = !autonomiaAtiva;
+
+    try {
+      const res = await fetch('/bot/autonomia/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ativa: proximoValor })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || 'Erro ao alterar autonomia');
+      }
+
+      autonomiaAtiva = !!data.ativa;
+      renderBotAutonomia();
+    } catch (err) {
+      console.error('[BotAdmin] erro ao alterar autonomia:', err);
+      alert('Erro ao alterar autonomia do bot.');
+    }
   }
 
   // Atualizar lista sem "piscar" (sem mostrar spinner)
@@ -201,11 +259,13 @@
       pag.innerHTML = `<span>${total || 0} conversa(s)</span>`;
       return;
     }
+
     pag.innerHTML = `
       <button class="btn-pag" id="pag-conv-ant" ${pagina <= 1 ? 'disabled' : ''}>◀</button>
       <span>${pagina} / ${totalPaginas}</span>
       <button class="btn-pag" id="pag-conv-prox" ${pagina >= totalPaginas ? 'disabled' : ''}>▶</button>
     `;
+
     document.getElementById('pag-conv-ant').addEventListener('click', () => carregarConversas(pagina - 1));
     document.getElementById('pag-conv-prox').addEventListener('click', () => carregarConversas(pagina + 1));
   }
@@ -223,7 +283,6 @@
     document.getElementById('classificacao-controls').style.display = 'flex';
     resetarClassificacao();
 
-    // Destacar item ativo na lista
     document.querySelectorAll('.conversa-item').forEach(el => {
       el.classList.toggle('ativa', el.dataset.telefone === telefone);
     });
@@ -256,6 +315,7 @@
     const badgeIntencao = m.intencao_classificada
       ? `<span class="msg-badge badge-intencao-msg">🏷 ${esc(m.intencao_classificada)}</span>`
       : '';
+
     return `
       <div class="bolha bolha-${dir}">
         <span>${m.mensagem || ''}</span>
@@ -276,7 +336,6 @@
 
     container.innerHTML = mensagens.map(m => buildBolhaHtml(m)).join('');
 
-    // Scroll para o fim ao carregar a primeira página
     if (paginaMensagens === 1) {
       container.scrollTop = container.scrollHeight;
     }
@@ -285,15 +344,18 @@
   function renderPaginacaoMensagens(telefone, pagina, total) {
     const totalPaginas = Math.ceil(total / LIMIT_MENSAGENS);
     const pag = document.getElementById('paginacao-mensagens');
+
     if (!totalPaginas || totalPaginas <= 1) {
       pag.innerHTML = `<span>${total} mensagem(s)</span>`;
       return;
     }
+
     pag.innerHTML = `
       <button class="btn-pag" id="pag-msg-ant" ${pagina <= 1 ? 'disabled' : ''}>◀</button>
       <span>${pagina} / ${totalPaginas} (${total} msg)</span>
       <button class="btn-pag" id="pag-msg-prox" ${pagina >= totalPaginas ? 'disabled' : ''}>▶</button>
     `;
+
     document.getElementById('pag-msg-ant').addEventListener('click', () => carregarMensagens(telefone, pagina - 1));
     document.getElementById('pag-msg-prox').addEventListener('click', () => carregarMensagens(telefone, pagina + 1));
   }
@@ -323,6 +385,7 @@
       const res = await fetch(`/bot/classificar-intencao/${encodeURIComponent(telefoneAtivo)}`, {
         method: 'POST'
       });
+
       const data = await res.json();
 
       if (!res.ok) {
@@ -338,9 +401,6 @@
       recarregarMensagensAtivas();
       atualizarListaSilenciosa();
 
-      // Dispara pipeline de ações autônomas com base na intenção classificada.
-      // O classificador atual não retorna pontuação de confiança; usa-se 1 (máximo)
-      // pois a classificação já foi confirmada pelo modelo de IA no servidor.
       if (intencao !== INTENCAO_DESCONHECIDO && window.BotAdmin && window.BotAdmin.emitIntent) {
         window.BotAdmin.emitIntent({ name: intencao, confidence: 1, entities: {} });
       }
@@ -353,12 +413,12 @@
 
   // ── Init ────────────────────────────────────────────────────
 
-  // ── Execução de fluxo autônomo ───────────────────────────────
   if (window.BotBus) {
     window.BotBus.addEventListener('bot:action-decision', function (e) {
       const { decision } = e.detail || {};
       if (!decision || decision.autonomous !== true) return;
       if (!telefoneAtivo) return;
+
       fetch('/bot/fluxo/executar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
