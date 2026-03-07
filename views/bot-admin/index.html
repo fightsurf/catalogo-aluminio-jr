@@ -12,6 +12,17 @@
     <aside id="sidebar">
       <div id="filtros">
         <h2>🤖 Bot Admin</h2>
+
+        <div style="display:flex; gap:8px; margin-bottom:12px; align-items:center; flex-wrap:wrap;">
+          <button
+            id="btn-autonomia"
+            style="padding:8px 12px; border:none; border-radius:6px; cursor:pointer; font-weight:bold;"
+          >
+            Carregando...
+          </button>
+          <span id="status-autonomia" style="display:flex; align-items:center; font-size:12px; color:#666;"></span>
+        </div>
+
         <input type="text" id="filtro-telefone" placeholder="Buscar telefone..." />
         <div id="filtros-grid">
           <input type="date" id="filtro-data-inicio" title="Data início" />
@@ -43,21 +54,17 @@
     </main>
   </div>
 
-  <!-- ─── BotBus & BotConfig – inicialização compartilhada ─────────────────── -->
   <script>
     (function () {
-      // BotBus: EventTarget local com bridge via BroadcastChannel para comunicação entre abas/páginas
       if (!window.BotBus) {
         const bus = new EventTarget();
         const ch = new BroadcastChannel('bot-channel');
 
-        // Emite localmente e propaga para outras abas/páginas
         bus.emit = function (type, detail) {
           bus.dispatchEvent(new CustomEvent(type, { detail: detail }));
           ch.postMessage({ type: type, detail: detail });
         };
 
-        // Recebe eventos emitidos por outras abas/páginas
         ch.onmessage = function (e) {
           bus.dispatchEvent(new CustomEvent(e.data.type, { detail: e.data.detail }));
         };
@@ -65,25 +72,24 @@
         window.BotBus = bus;
       }
 
-      // BotConfig: configuração central do bot (autonomia, thresholds, mapeamentos)
       if (!window.BotConfig) {
         window.BotConfig = {
-          autonomyEnabled: true,   // habilita operação autônoma do bot
-          dryRun: false,           // true = simula sem efeitos colaterais reais
-          thresholds: {            // confiança mínima por intenção (0–1)
+          autonomyEnabled: true,
+          dryRun: false,
+          thresholds: {
             SAUDACAO: 0.70,
             LOCALIZACAO: 0.75,
             CATALOGO: 0.75,
             ORCAMENTO: 0.80,
             FOLLOWUP: 0.70
           },
-          intentionActionMap: {    // intenção -> tipo de ação a disparar
+          intentionActionMap: {
             LOCALIZACAO: 'SEND_LOCATION',
             CATALOGO: 'SEND_LINK',
             ORCAMENTO: 'SEND_TEXT',
             FOLLOWUP: 'SEND_TEXT'
           },
-          autonomousActions: [     // allowlist de ações que podem ser executadas autonomamente
+          autonomousActions: [
             'SEND_TEXT',
             'SEND_IMAGE',
             'SEND_LOCATION',
@@ -94,37 +100,23 @@
         };
       }
 
-      // Helper global: emite uma intenção classificada para o barramento.
-      // Caminho primário: delega ao pipeline de decisão de BotIntentions (bot-intencoes.html).
-      // Caminho alternativo (fallback): publica bot:intent-raw quando BotIntentions não está
-      // carregado na mesma aba (ex.: index.html usado isoladamente). Nesse caso, o consumidor
-      // responsável por ouvir bot:intent-raw e chamar onIntentDetected deve ser registrado
-      // pela aplicação que integrar este módulo.
       window.BotAdmin = window.BotAdmin || {};
       window.BotAdmin.emitIntent = function (intentResult) {
         if (window.BotIntentions && window.BotIntentions.onIntentDetected) {
-          // Preferencial: passa pelo pipeline de decisão completo
           window.BotIntentions.onIntentDetected(intentResult);
         } else if (window.BotBus) {
-          // Fallback: publica evento bruto para que outro módulo processe
           window.BotBus.emit('bot:intent-raw', intentResult);
         }
       };
     })();
   </script>
 
-  <!-- ─── Pipeline de decisão de ações a partir de intenções detectadas ──────── -->
   <script>
-    /**
-     * BotIntentions: módulo de decisão autônoma.
-     * Recebe o resultado de uma intenção classificada, avalia se deve disparar
-     * uma ação autônoma e publica o evento bot:action-decision no BotBus.
-     */
     window.BotIntentions = window.BotIntentions || {
       onIntentDetected: function (intentResult) {
-        const name       = (intentResult && intentResult.name) ? String(intentResult.name).toUpperCase() : '';
+        const name = (intentResult && intentResult.name) ? String(intentResult.name).toUpperCase() : '';
         const confidence = Number((intentResult && intentResult.confidence) || 0);
-        const entities   = (intentResult && intentResult.entities) ? intentResult.entities : {};
+        const entities = (intentResult && intentResult.entities) ? intentResult.entities : {};
 
         const cfg = window.BotConfig || {};
 
@@ -148,7 +140,7 @@
           return;
         }
 
-        const allowlist  = cfg.autonomousActions || [];
+        const allowlist = cfg.autonomousActions || [];
         const autonomous = allowlist.includes(actionType);
 
         if (!autonomous) {
@@ -160,13 +152,13 @@
           autonomous: autonomous,
           intentName: name,
           confidence: confidence,
-          entities:   entities
+          entities: entities
         };
 
         const payload = {
           intentResult: intentResult,
-          decision:     decision,
-          timestamp:    new Date().toISOString()
+          decision: decision,
+          timestamp: new Date().toISOString()
         };
 
         console.log('[BotIntentions] Decisão gerada:', payload);
