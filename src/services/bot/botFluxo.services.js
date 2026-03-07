@@ -115,15 +115,15 @@ function montarRequisicaoZapi(telefone, acao) {
         }
       };
 
-case 'SEND_VIDEO':
-  console.log('[botFluxo] enviando video:', conteudo);
-  return {
-    endpoint: '/send-video',
-    payload: {
-      phone: telefone,
-      video: conteudo
-    }
-  };
+    case 'SEND_VIDEO':
+      console.log('[botFluxo] enviando video:', conteudo);
+      return {
+        endpoint: '/send-video',
+        payload: {
+          phone: telefone,
+          video: conteudo
+        }
+      };
 
     case 'SEND_DOCUMENT':
       return {
@@ -207,19 +207,22 @@ async function enviarAcaoZAPI(telefone, acao) {
     response = await fetch(url, {
       method: 'POST',
       headers: {
-  'Content-Type': 'application/json',
-  'Client-Token': ZAPI_TOKEN
-},
+        'Content-Type': 'application/json',
+        'Client-Token': ZAPI_TOKEN
+      },
       body: JSON.stringify(payload)
     });
   } catch (err) {
     throw new Error(`Falha ao conectar à Z-API (${url}): ${err.message}`);
   }
 
+  const retornoTexto = await response.text().catch(() => '');
+
   if (!response.ok) {
-    const texto = await response.text().catch(() => '');
-    throw new Error(`Z-API respondeu ${response.status}: ${texto}`);
+    throw new Error(`Z-API respondeu ${response.status}: ${retornoTexto}`);
   }
+
+  console.log('[botFluxo] retorno Z-API:', retornoTexto);
 
   return true;
 }
