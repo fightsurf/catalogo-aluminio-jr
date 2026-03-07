@@ -71,13 +71,13 @@ async function listarMensagens({ telefone, page, limit }) {
     `SELECT id, telefone, mensagem, tipo, direcao, processada_ia, intencao_classificada, criada_em
      FROM bot_mensagens
      WHERE telefone = $1
-     ORDER BY criada_em ASC
+     ORDER BY criada_em DESC, id DESC
      LIMIT $2 OFFSET $3`,
     [telefone, limitNum, offset]
   );
 
   return {
-    dados: dataResult.rows,
+    dados: dataResult.rows.reverse(),
     total
   };
 }
