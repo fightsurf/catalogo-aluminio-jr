@@ -115,14 +115,15 @@ function montarRequisicaoZapi(telefone, acao) {
         }
       };
 
-    case 'SEND_VIDEO':
-      return {
-        endpoint: '/send-video',
-        payload: {
-          phone: telefone,
-          video: conteudo
-        }
-      };
+case 'SEND_VIDEO':
+  console.log('[botFluxo] enviando video:', conteudo);
+  return {
+    endpoint: '/send-video',
+    payload: {
+      phone: telefone,
+      video: conteudo
+    }
+  };
 
     case 'SEND_DOCUMENT':
       return {
