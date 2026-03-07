@@ -436,6 +436,12 @@
     if (e.key === 'Enter') carregarConversas(1);
   });
 
+  const btnAutonomia = document.getElementById('btn-autonomia');
+  if (btnAutonomia) {
+    btnAutonomia.addEventListener('click', alternarAutonomia);
+  }
+
+  carregarStatusAutonomia();
   carregarConversas(1);
   conectarWs();
 })();
