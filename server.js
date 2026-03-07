@@ -7,7 +7,8 @@ const botEvents = require('./src/services/bot/botEvents');
 // =====================================================
 // 📦 IMPORTAÇÃO DE ROTAS MODULARES
 // =====================================================
-
+const botAutonomiaService = require('./src/services/bot/botAutonomia.services');
+const botAutonomiaRoutes = require('./src/routes/bot/botAutonomia.routes');
 const transportadorasRoutes = require('./src/routes/transportadorasRoutes');
 const logisticaRoutes = require('./src/routes/logisticaRoutes');
 const funcionarioRoutes = require('./src/routes/funcionario/funcionario.routes');
@@ -39,6 +40,7 @@ app.use('/prestacao_contas', express.static(path.join(__dirname, 'views', 'prest
 // 📡 APIs (ROTAS DO BACKEND)
 // =====================================================
 
+app.use('/bot/autonomia', botAutonomiaRoutes);
 app.use('/api/produtos-categorias', produtoCategoriaRoutes);
 app.use('/api/produtos', produtoRoutes);
 app.use('/api/transportadoras', transportadorasRoutes);
@@ -183,6 +185,10 @@ function broadcast(data) {
 
 botEvents.on('nova_mensagem', ({ telefone }) => {
   broadcast({ tipo: 'nova_mensagem', telefone });
+
+  botAutonomiaService
+    .processarTelefoneAutonomamente({ telefone, porta: PORT })
+    .catch(err => console.error('[botAutonomia] erro ao disparar processamento:', err.message));
 });
 
 server.listen(PORT, () => {
