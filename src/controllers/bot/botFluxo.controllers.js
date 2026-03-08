@@ -27,7 +27,11 @@ async function executarFluxo(req, res) {
 
 async function getAcoesView(req, res) {
   try {
-    const acoes = await botFluxoService.listarAcoes();
+    const intencao = req.query.intencao
+      ? String(req.query.intencao).trim().toUpperCase()
+      : '';
+
+    const acoes = await botFluxoService.listarAcoes(intencao);
     res.json(acoes);
   } catch (err) {
     console.error('[botFluxo] erro ao listar ações:', err.message);
