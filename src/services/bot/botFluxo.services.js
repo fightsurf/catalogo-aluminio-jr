@@ -268,7 +268,21 @@ async function executarFluxo(telefone, intencao) {
   return { status: 'fluxo_concluido' };
 }
 
-async function listarAcoes() {
+async function listarAcoes(intencaoFiltro = '') {
+  const intencao = String(intencaoFiltro || '').trim().toUpperCase();
+
+  if (intencao) {
+    const result = await pool.query(
+      `SELECT id, intencao_nome, ordem, tipo_acao, conteudo, delay_ms, ativo
+       FROM bot_acoes
+       WHERE intencao_nome = $1
+       ORDER BY ordem ASC, id ASC`,
+      [intencao]
+    );
+
+    return result.rows;
+  }
+
   const result = await pool.query(
     `SELECT id, intencao_nome, ordem, tipo_acao, conteudo, delay_ms, ativo
      FROM bot_acoes
