@@ -7,7 +7,7 @@
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body { font-family: Arial, sans-serif; background: #f4f4f4; color: #333; padding: 20px; }
-    .topo { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .topo { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
     h1 { font-size: 1.4rem; }
     button.btn-voltar { background: #7f8c8d; color: #fff; border: none; padding: 7px 14px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
     button.btn-voltar:hover { background: #636e72; }
@@ -15,6 +15,41 @@
     button.btn-atualizar:hover { background: #1f6fa3; }
     button.btn-novo { background: #27ae60; color: #fff; border: none; padding: 7px 14px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
     button.btn-novo:hover { background: #219150; }
+
+    .filtro-barra {
+      display: flex;
+      align-items: end;
+      gap: 12px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    .filtro-box {
+      min-width: 280px;
+    }
+
+    .filtro-box label {
+      display: block;
+      font-size: 0.85rem;
+      margin-bottom: 4px;
+      font-weight: bold;
+    }
+
+    .filtro-box select {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      background: #fff;
+    }
+
+    .filtro-info {
+      font-size: 0.85rem;
+      color: #666;
+      margin-bottom: 12px;
+    }
+
     table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 6px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
     th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #e0e0e0; font-size: 0.9rem; overflow-wrap: break-word; word-break: break-word; }
     th { background: #2c3e50; color: #fff; }
@@ -55,6 +90,17 @@
     <button class="btn-atualizar" onclick="carregarAcoes()">Atualizar</button>
     <button class="btn-novo" onclick="abrirModalNovo()">+ Nova Ação</button>
   </div>
+
+  <div class="filtro-barra">
+    <div class="filtro-box">
+      <label for="filtro-intencao">Filtrar por intenção</label>
+      <select id="filtro-intencao" onchange="carregarAcoes()">
+        <option value="">Todas as intenções</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="filtro-info" id="filtro-info"></div>
 
   <div id="loading">Carregando...</div>
   <div id="erro" style="display:none;"></div>
@@ -156,35 +202,76 @@
         const todas = await res.json();
         intencoesCache = todas;
 
-        const sel = document.getElementById('campo-intencao');
-        sel.innerHTML = '<option value="">Selecione uma intenção</option>';
-
-        todas
-          .filter(i => i.ativa)
-          .forEach(i => {
-            const opt = document.createElement('option');
-            opt.value = i.id;
-            opt.textContent = i.nome + (i.descricao ? ' – ' + i.descricao : '');
-            sel.appendChild(opt);
-          });
-
-        const inativos = todas.filter(i => !i.ativa);
-        if (inativos.length) {
-          const sep = document.createElement('option');
-          sep.disabled = true;
-          sep.textContent = '── Inativas ──';
-          sel.appendChild(sep);
-
-          inativos.forEach(i => {
-            const opt = document.createElement('option');
-            opt.value = i.id;
-            opt.textContent = i.nome + ' (inativa)';
-            sel.appendChild(opt);
-          });
-        }
+        preencherSelectModalIntencao(todas);
+        preencherFiltroIntencao(todas);
       } catch (err) {
-        const sel = document.getElementById('campo-intencao');
-        sel.innerHTML = '<option value="">Erro ao carregar intenções</option>';
+        const selModal = document.getElementById('campo-intencao');
+        selModal.innerHTML = '<option value="">Erro ao carregar intenções</option>';
+
+        const selFiltro = document.getElementById('filtro-intencao');
+        selFiltro.innerHTML = '<option value="">Erro ao carregar intenções</option>';
+      }
+    }
+
+    function preencherSelectModalIntencao(todas) {
+      const sel = document.getElementById('campo-intencao');
+      sel.innerHTML = '<option value="">Selecione uma intenção</option>';
+
+      todas
+        .filter(i => i.ativa)
+        .forEach(i => {
+          const opt = document.createElement('option');
+          opt.value = i.id;
+          opt.textContent = i.nome + (i.descricao ? ' – ' + i.descricao : '');
+          sel.appendChild(opt);
+        });
+
+      const inativos = todas.filter(i => !i.ativa);
+      if (inativos.length) {
+        const sep = document.createElement('option');
+        sep.disabled = true;
+        sep.textContent = '── Inativas ──';
+        sel.appendChild(sep);
+
+        inativos.forEach(i => {
+          const opt = document.createElement('option');
+          opt.value = i.id;
+          opt.textContent = i.nome + ' (inativa)';
+          sel.appendChild(opt);
+        });
+      }
+    }
+
+    function preencherFiltroIntencao(todas) {
+      const filtro = document.getElementById('filtro-intencao');
+      const valorAtual = filtro.value;
+
+      filtro.innerHTML = '<option value="">Todas as intenções</option>';
+
+      todas.forEach(i => {
+        const opt = document.createElement('option');
+        opt.value = i.nome;
+        opt.textContent = i.nome + (i.ativa ? '' : ' (inativa)');
+        filtro.appendChild(opt);
+      });
+
+      if ([...filtro.options].some(opt => opt.value === valorAtual)) {
+        filtro.value = valorAtual;
+      }
+    }
+
+    function obterIntencaoFiltroSelecionada() {
+      return document.getElementById('filtro-intencao').value.trim();
+    }
+
+    function atualizarInfoFiltro(totalAcoes) {
+      const info = document.getElementById('filtro-info');
+      const intencao = obterIntencaoFiltroSelecionada();
+
+      if (intencao) {
+        info.textContent = `${totalAcoes} ação(ões) encontrada(s) para a intenção ${intencao}.`;
+      } else {
+        info.textContent = `${totalAcoes} ação(ões) cadastrada(s) no total.`;
       }
     }
 
@@ -193,6 +280,7 @@
       const erro = document.getElementById('erro');
       const tabela = document.getElementById('tabela');
       const corpo = document.getElementById('corpo');
+      const intencaoFiltro = obterIntencaoFiltroSelecionada();
 
       loading.style.display = 'block';
       loading.textContent = 'Carregando...';
@@ -201,13 +289,23 @@
       corpo.innerHTML = '';
 
       try {
-        const response = await fetch('/bot/fluxo/admin/acoes');
+        let url = '/bot/fluxo/admin/acoes';
+        if (intencaoFiltro) {
+          url += `?intencao=${encodeURIComponent(intencaoFiltro)}`;
+        }
+
+        const response = await fetch(url);
         if (!response.ok) throw new Error(`Erro ${response.status}`);
 
         const acoes = await response.json();
 
+        Object.keys(acoesMap).forEach(k => delete acoesMap[k]);
+
         if (!acoes.length) {
-          loading.textContent = 'Nenhuma ação cadastrada.';
+          loading.textContent = intencaoFiltro
+            ? `Nenhuma ação cadastrada para a intenção ${intencaoFiltro}.`
+            : 'Nenhuma ação cadastrada.';
+          atualizarInfoFiltro(0);
           return;
         }
 
@@ -231,6 +329,7 @@
           corpo.appendChild(tr);
         });
 
+        atualizarInfoFiltro(acoes.length);
         loading.style.display = 'none';
         tabela.style.display = 'table';
       } catch (e) {
@@ -274,6 +373,14 @@
       document.getElementById('msg-modal').textContent = '';
       document.getElementById('msg-modal').className = 'msg-modal';
       document.getElementById('btn-salvar').disabled = false;
+
+      const intencaoFiltro = obterIntencaoFiltroSelecionada();
+      if (intencaoFiltro) {
+        const intencao = intencoesCache.find(i => i.nome === intencaoFiltro);
+        if (intencao) {
+          document.getElementById('campo-intencao').value = intencao.id;
+        }
+      }
 
       atualizarHintConteudo();
       document.getElementById('overlay').classList.add('ativo');
