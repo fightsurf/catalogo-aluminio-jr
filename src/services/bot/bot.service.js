@@ -1,8 +1,10 @@
 const pool = require('../../../db/connection');
 const botEvents = require('./botEvents');
+const botFluxoService = require('./botFluxo.services');
 
 async function receberMensagem({ telefone, mensagem, tipo }) {
   const client = await pool.connect();
+  let contatoCriadoAgora = false;
 
   try {
     await client.query('BEGIN');
@@ -19,6 +21,8 @@ async function receberMensagem({ telefone, mensagem, tipo }) {
          VALUES ($1, NOW(), NOW())`,
         [telefone]
       );
+
+      contatoCriadoAgora = true;
     }
 
     // Inserir mensagem
@@ -38,9 +42,25 @@ async function receberMensagem({ telefone, mensagem, tipo }) {
 
     await client.query('COMMIT');
 
+    if (contatoCriadoAgora) {
+      setImmediate(() => {
+        botFluxoService
+          .executarFluxo(telefone, 'PRIMEIRO_CONTATO')
+          .then(resultado => {
+            console.log(`[botPrimeiroContato] fluxo disparado | telefone=${telefone} status=${resultado.status}`);
+          })
+          .catch(err => {
+            console.error(`[botPrimeiroContato] erro ao disparar fluxo | telefone=${telefone}: ${err.message}`);
+          });
+      });
+    }
+
     botEvents.emit('nova_mensagem', { telefone, mensagem, tipo });
 
-    return { status: 'mensagem_registrada' };
+    return {
+      status: 'mensagem_registrada',
+      primeiro_contato: contatoCriadoAgora
+    };
   } catch (error) {
     await client.query('ROLLBACK');
     throw error;
