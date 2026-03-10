@@ -4,25 +4,52 @@ const botFluxoService = require('./botFluxo.services');
 
 async function receberMensagem({ telefone, mensagem, tipo }) {
   const client = await pool.connect();
-  let contatoCriadoAgora = false;
+  let deveDispararPrimeiroContato = false;
 
   try {
     await client.query('BEGIN');
 
-    // Verificar se contato existe; criar se não existir
-    const contatoExiste = await client.query(
-      'SELECT id FROM bot_contatos WHERE telefone = $1',
+    // Busca contato com lock para evitar corrida em mensagens simultâneas
+    let contatoResult = await client.query(
+      `SELECT id, fluxo_primeiro_contato_enviado
+       FROM bot_contatos
+       WHERE telefone = $1
+       FOR UPDATE`,
       [telefone]
     );
 
-    if (contatoExiste.rows.length === 0) {
+    if (contatoResult.rows.length === 0) {
       await client.query(
-        `INSERT INTO bot_contatos (telefone, criado_em, atualizado_em)
-         VALUES ($1, NOW(), NOW())`,
+        `INSERT INTO bot_contatos (
+          telefone,
+          criado_em,
+          atualizado_em,
+          fluxo_primeiro_contato_enviado
+        )
+        VALUES ($1, NOW(), NOW(), false)`,
         [telefone]
       );
 
-      contatoCriadoAgora = true;
+      contatoResult = await client.query(
+        `SELECT id, fluxo_primeiro_contato_enviado
+         FROM bot_contatos
+         WHERE telefone = $1
+         FOR UPDATE`,
+        [telefone]
+      );
+    }
+
+    const contato = contatoResult.rows[0];
+
+    if (contato && contato.fluxo_primeiro_contato_enviado === false) {
+      await client.query(
+        `UPDATE bot_contatos
+         SET fluxo_primeiro_contato_enviado = true
+         WHERE id = $1`,
+        [contato.id]
+      );
+
+      deveDispararPrimeiroContato = true;
     }
 
     // Inserir mensagem
@@ -42,7 +69,7 @@ async function receberMensagem({ telefone, mensagem, tipo }) {
 
     await client.query('COMMIT');
 
-    if (contatoCriadoAgora) {
+    if (deveDispararPrimeiroContato) {
       setImmediate(() => {
         botFluxoService
           .executarFluxo(telefone, 'PRIMEIRO_CONTATO')
@@ -59,7 +86,7 @@ async function receberMensagem({ telefone, mensagem, tipo }) {
 
     return {
       status: 'mensagem_registrada',
-      primeiro_contato: contatoCriadoAgora
+      primeiro_contato: deveDispararPrimeiroContato
     };
   } catch (error) {
     await client.query('ROLLBACK');
