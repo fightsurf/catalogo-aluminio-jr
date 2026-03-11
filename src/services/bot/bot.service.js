@@ -9,46 +9,30 @@ async function receberMensagem({ telefone, mensagem, tipo }) {
   try {
     await client.query('BEGIN');
 
-    // Busca contato com lock para evitar corrida em mensagens simultâneas
-    let contatoResult = await client.query(
-      `SELECT id, fluxo_primeiro_contato_enviado
-       FROM bot_contatos
-       WHERE telefone = $1
-       FOR UPDATE`,
+    // Garante que o contato exista
+    await client.query(
+      `INSERT INTO bot_contatos (
+        telefone,
+        criado_em,
+        atualizado_em,
+        fluxo_primeiro_contato_enviado
+      )
+      VALUES ($1, NOW(), NOW(), false)
+      ON CONFLICT (telefone) DO NOTHING`,
       [telefone]
     );
 
-    if (contatoResult.rows.length === 0) {
-      await client.query(
-        `INSERT INTO bot_contatos (
-          telefone,
-          criado_em,
-          atualizado_em,
-          fluxo_primeiro_contato_enviado
-        )
-        VALUES ($1, NOW(), NOW(), false)`,
-        [telefone]
-      );
+    // Reivindica o direito de disparar o primeiro contato de forma atômica
+    const claimResult = await client.query(
+      `UPDATE bot_contatos
+       SET fluxo_primeiro_contato_enviado = true
+       WHERE telefone = $1
+         AND fluxo_primeiro_contato_enviado = false
+       RETURNING id`,
+      [telefone]
+    );
 
-      contatoResult = await client.query(
-        `SELECT id, fluxo_primeiro_contato_enviado
-         FROM bot_contatos
-         WHERE telefone = $1
-         FOR UPDATE`,
-        [telefone]
-      );
-    }
-
-    const contato = contatoResult.rows[0];
-
-    if (contato && contato.fluxo_primeiro_contato_enviado === false) {
-      await client.query(
-        `UPDATE bot_contatos
-         SET fluxo_primeiro_contato_enviado = true
-         WHERE id = $1`,
-        [contato.id]
-      );
-
+    if (claimResult.rows.length > 0) {
       deveDispararPrimeiroContato = true;
     }
 
