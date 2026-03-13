@@ -130,6 +130,10 @@ async function apiGet(url) {
   return json.data;
 }
 
+function formatarMoeda(valor) {
+  return Number(valor).toFixed(2).replace('.', ',');
+}
+
 async function carregarProdutos() {
   try {
     produtos = await apiGet('/api/produtos');
@@ -175,7 +179,7 @@ async function carregarProdutos() {
           <img src="${foto}">
           <div class="info">
             <strong>${p.nome}</strong>
-            R$ ${preco.toFixed(2).replace('.', ',')}
+            R$ ${formatarMoeda(preco)}
           </div>
           <div class="controles">
             <span>Qtd</span>
@@ -221,12 +225,12 @@ function atualizarResumo() {
     `${totalItens} itens selecionados`;
 
   document.getElementById('resumo-total').innerText =
-    `Total: R$ ${total.toFixed(2).replace('.', ',')}`;
+    `Total: R$ ${formatarMoeda(total)}`;
 }
 
 function enviarWhatsApp() {
   let total = 0;
-  let linhas = [];
+  let itens = [];
 
   document.querySelectorAll('.chk:checked').forEach(chk => {
     const id = chk.dataset.id;
@@ -236,22 +240,36 @@ function enviarWhatsApp() {
     if (!produto || qtd <= 0) return;
 
     const preco = Number(produto.preco);
-    total += preco * qtd;
+    const subtotal = preco * qtd;
 
-    linhas.push(
-      `• ${produto.nome} | QTD: ${qtd} | R$ ${preco.toFixed(2).replace('.', ',')}`
-    );
+    total += subtotal;
+
+    itens.push({
+      nome: produto.nome,
+      qtd: qtd,
+      preco: preco,
+      subtotal: subtotal
+    });
   });
 
-  if (linhas.length === 0) {
+  if (itens.length === 0) {
     alert('Selecione ao menos um produto.');
     return;
   }
 
-  let texto =
-    `📦 RELATÓRIO ALUMÍNIO JR\n\n` +
-    linhas.join('\n') +
-    `\n\nValor total: R$ ${total.toFixed(2).replace('.', ',')}`;
+  let texto = `📦 *RELATÓRIO ALUMÍNIO JR*\n\n`;
+
+  itens.forEach((item, index) => {
+    texto += `• ${item.nome}\n`;
+    texto += `Qtd: ${item.qtd} × R$ ${formatarMoeda(item.preco)}\n`;
+    texto += `Subtotal: R$ ${formatarMoeda(item.subtotal)}`;
+
+    if (index < itens.length - 1) {
+      texto += `\n\n`;
+    }
+  });
+
+  texto += `\n\n*Valor total: R$ ${formatarMoeda(total)}*`;
 
   const url = `https://wa.me/558399792085?text=${encodeURIComponent(texto)}`;
   window.open(url, '_blank');
