@@ -154,16 +154,13 @@ async function carregarProdutos() {
     const container = document.getElementById('lista');
     container.innerHTML = '';
 
-    // 1️⃣ PRIMEIRO: Ordena as CATEGORIAS pelo menor ID
     const categoriasOrdenadas = Object.keys(porCategoria).sort((catA, catB) => {
       const idMinA = porCategoria[catA].reduce((min, p) => Math.min(min, Number(p.id)), Infinity);
       const idMinB = porCategoria[catB].reduce((min, p) => Math.min(min, Number(p.id)), Infinity);
       return idMinA - idMinB;
     });
 
-    // 2️⃣ DEPOIS: Processa as categorias em ordem crescente
     categoriasOrdenadas.forEach(cat => {
-      // 🔤 Ordena os produtos ALFABETICAMENTE
       porCategoria[cat].sort((a, b) =>
         a.nome.localeCompare(b.nome, 'pt-BR')
       );
@@ -173,7 +170,6 @@ async function carregarProdutos() {
       bloco.innerHTML = `<h2>${cat}</h2>`;
 
       porCategoria[cat].forEach(p => {
-
         const foto = p.foto && p.foto.trim()
           ? p.foto
           : 'https://via.placeholder.com/100x100?text=Sem+Foto';
@@ -251,7 +247,11 @@ function enviarWhatsApp() {
 
     if (!produto || qtd <= 0) return;
 
-    selecionados.push({ nome: produto.nome, qtd });
+    selecionados.push({
+      nome: produto.nome,
+      qtd: qtd
+    });
+
     total += Number(produto.preco) * qtd;
     totalItens += qtd;
   });
@@ -261,16 +261,17 @@ function enviarWhatsApp() {
     return;
   }
 
-  const medio = total / totalItens;
+  const medio = totalItens > 0 ? total / totalItens : 0;
+  const medioFormatado = medio.toFixed(2).replace('.', ',');
+  const totalFormatado = total.toFixed(2).replace('.', ',');
 
-  let texto = `*${totalItens} itens selecionados:*\n`;
+  let texto = '📦 RELATÓRIO ALUMÍNIO JR\n\n';
 
   selecionados.forEach(p => {
-    texto += `- ${p.nome} (x${p.qtd})\n`;
+    texto += `• ${p.nome} | QTD: ${p.qtd} | R$ ${medioFormatado}\n`;
   });
 
-  texto += `\n*Preço final do kit: R$ ${total.toFixed(2).replace('.', ',')}*`;
-  texto += `\n*Preço médio por item: R$ ${medio.toFixed(2).replace('.', ',')}*`;
+  texto += `\nValor total: R$ ${totalFormatado}`;
 
   const url = `https://wa.me/558399792085?text=${encodeURIComponent(texto)}`;
   window.open(url, '_blank');
