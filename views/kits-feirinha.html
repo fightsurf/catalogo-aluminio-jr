@@ -268,21 +268,21 @@ function enviarWhatsApp() {
   const medio = totalItens > 0 ? total / totalItens : 0;
   const medioFormatado = formatarMoeda(medio);
 
-  let texto = `📦 *RELATÓRIO ALUMÍNIO JR*\n\n`;
+  let texto = `📦 RELATÓRIO ALUMÍNIO JR\n\n`;
 
   selecionados.forEach((p, index) => {
     const subtotal = p.qtd * Number(medioFormatado.replace(',', '.'));
 
-    texto += `• ${p.nome}\n`;
-    texto += `Qtd: ${p.qtd} × R$ ${medioFormatado}\n`;
-    texto += `Subtotal: R$ ${formatarMoeda(subtotal)}`;
+    texto += `• ${p.nome} | QTD: ${p.qtd}\n`;
+    texto += `  UNIT: R$ ${medioFormatado}\n`;
+    texto += `  SUBTOTAL: R$ ${formatarMoeda(subtotal)}`;
 
     if (index < selecionados.length - 1) {
       texto += `\n\n`;
     }
   });
 
-  texto += `\n\n*Valor total: R$ ${formatarMoeda(total)}*`;
+  texto += `\n\nValor total: R$ ${formatarMoeda(total)}`;
 
   const url = `https://wa.me/558399792085?text=${encodeURIComponent(texto)}`;
   window.open(url, '_blank');
