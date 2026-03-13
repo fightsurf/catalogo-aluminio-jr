@@ -1,42 +1,30 @@
 const pool = require('../../../db/connection');
 
 // ===============================
-// NORMALIZA TEXTO
-// ===============================
-function normalizarTexto(texto) {
-  return (texto || '')
-    .replace(/\uFFFD/g, '')
-    .replace(/[\u{1F000}-\u{1FFFF}]/gu, '')
-    .replace(/[\u{2600}-\u{27BF}]/gu, '')
-    .replace(/[*_~]/g, '')
-    .replace(/[ \t]+/g, ' ')
-    .trim();
-}
-
-// ===============================
-// EXTRAI ITENS DO TEXTO
+// EXTRAI ITENS DO TEXTO PADRONIZADO
 // ===============================
 function extrairItens(texto) {
   const itens = [];
-  const normalizado = normalizarTexto(texto);
 
-  // ORÇAMENTO
-  const regexOrc = /•?\s*([^•\n]+?)\s+R\$\s*[\d.,]+\s*×\s*(\d+)/g;
+  if (!texto) return itens;
+
+  // Regex tolerante ao WhatsApp
+  // Aceita:
+  // * PRODUTO | QTD: 1
+  // • PRODUTO |QTD:1
+  // - PRODUTO | QTD: 1
+  // . PRODUTO | QTD:1
+  const regex = /(?:^|\n)[^\S\r\n]*[*•\-.]?\s*(.+?)\s*\|\s*QTD:\s*(\d+)/gi;
+
   let match;
 
-  while ((match = regexOrc.exec(normalizado)) !== null) {
+  while ((match = regex.exec(texto)) !== null) {
     const nome = match[1].trim();
     const quantidade = parseInt(match[2]);
-    if (nome) itens.push({ nome, quantidade });
-  }
 
-  // KIT
-  const regexKit = /(.+?)\s*\(x(\d+)\)/gi;
-
-  while ((match = regexKit.exec(normalizado)) !== null) {
-    const nome = match[1].trim();
-    const quantidade = parseInt(match[2]);
-    if (nome) itens.push({ nome, quantidade });
+    if (nome && !isNaN(quantidade)) {
+      itens.push({ nome, quantidade });
+    }
   }
 
   return itens;
@@ -60,11 +48,10 @@ async function buscarProduto(nome) {
 }
 
 // ===============================
-// CÁLCULO PRINCIPAL (MODO HÍBRIDO)
+// CÁLCULO PRINCIPAL
 // ===============================
 async function calcular({ texto, itens, multiplicador = 1 }) {
 
-  // 🔥 Se vier JSON estruturado, usa direto
   let listaItens = [];
 
   if (Array.isArray(itens) && itens.length > 0) {
