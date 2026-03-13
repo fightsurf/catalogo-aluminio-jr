@@ -257,19 +257,19 @@ function enviarWhatsApp() {
     return;
   }
 
-  let texto = `📦 *RELATÓRIO ALUMÍNIO JR*\n\n`;
+  let texto = `📦 RELATÓRIO ALUMÍNIO JR\n\n`;
 
   itens.forEach((item, index) => {
-    texto += `• ${item.nome}\n`;
-    texto += `Qtd: ${item.qtd} × R$ ${formatarMoeda(item.preco)}\n`;
-    texto += `Subtotal: R$ ${formatarMoeda(item.subtotal)}`;
+    texto += `• ${item.nome} | QTD: ${item.qtd}\n`;
+    texto += `  UNIT: R$ ${formatarMoeda(item.preco)}\n`;
+    texto += `  SUBTOTAL: R$ ${formatarMoeda(item.subtotal)}`;
 
     if (index < itens.length - 1) {
       texto += `\n\n`;
     }
   });
 
-  texto += `\n\n*Valor total: R$ ${formatarMoeda(total)}*`;
+  texto += `\n\nValor total: R$ ${formatarMoeda(total)}`;
 
   const url = `https://wa.me/558399792085?text=${encodeURIComponent(texto)}`;
   window.open(url, '_blank');
