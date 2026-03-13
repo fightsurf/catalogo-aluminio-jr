@@ -161,7 +161,6 @@ async function carregarProdutos() {
       bloco.innerHTML = `<h2>${cat}</h2>`;
 
       porCategoria[cat].forEach(p => {
-
         const foto = p.foto && p.foto.trim()
           ? p.foto
           : 'https://via.placeholder.com/100x100?text=Sem+Foto';
@@ -237,12 +236,10 @@ function enviarWhatsApp() {
     if (!produto || qtd <= 0) return;
 
     const preco = Number(produto.preco);
-    const subtotal = preco * qtd;
-    total += subtotal;
+    total += preco * qtd;
 
     linhas.push(
-      `• ${produto.nome}\n` +
-      `  R$ ${preco.toFixed(2).replace('.', ',')} × ${qtd} = *R$ ${subtotal.toFixed(2).replace('.', ',')}*`
+      `• ${produto.nome} | QTD: ${qtd} | R$ ${preco.toFixed(2).replace('.', ',')}`
     );
   });
 
@@ -252,9 +249,9 @@ function enviarWhatsApp() {
   }
 
   let texto =
-    `*📋 Orçamento Alumínio JR*\n\n` +
-    linhas.join('\n\n') +
-    `\n\n*💰 Valor total do orçamento: R$ ${total.toFixed(2).replace('.', ',')}*`;
+    `📦 RELATÓRIO ALUMÍNIO JR\n\n` +
+    linhas.join('\n') +
+    `\n\nValor total: R$ ${total.toFixed(2).replace('.', ',')}`;
 
   const url = `https://wa.me/558399792085?text=${encodeURIComponent(texto)}`;
   window.open(url, '_blank');
