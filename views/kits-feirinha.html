@@ -139,14 +139,6 @@ function formatarMoeda(valor) {
   return Number(valor).toFixed(2).replace('.', ',');
 }
 
-function paraCentavos(valor) {
-  return Math.round(Number(valor) * 100);
-}
-
-function deCentavosParaReais(valorCentavos) {
-  return valorCentavos / 100;
-}
-
 async function carregarProdutos() {
   try {
     produtos = await apiGet('/api/produtos');
@@ -273,42 +265,24 @@ function enviarWhatsApp() {
     return;
   }
 
-  const totalCentavos = paraCentavos(total);
   const medio = totalItens > 0 ? total / totalItens : 0;
   const medioFormatado = formatarMoeda(medio);
 
-  let subtotalAcumuladoCentavos = 0;
-
-  const itensRelatorio = selecionados.map((item, index) => {
-    let subtotalCentavos;
-
-    if (index < selecionados.length - 1) {
-      subtotalCentavos = paraCentavos(item.qtd * medio);
-      subtotalAcumuladoCentavos += subtotalCentavos;
-    } else {
-      subtotalCentavos = totalCentavos - subtotalAcumuladoCentavos;
-    }
-
-    return {
-      nome: item.nome,
-      qtd: item.qtd,
-      subtotalCentavos
-    };
-  });
-
   let texto = `📦 *RELATÓRIO ALUMÍNIO JR*\n\n`;
 
-  itensRelatorio.forEach((item, index) => {
-    texto += `• ${item.nome}\n`;
-    texto += `Qtd: ${item.qtd} × R$ ${medioFormatado}\n`;
-    texto += `Subtotal: R$ ${formatarMoeda(deCentavosParaReais(item.subtotalCentavos))}`;
+  selecionados.forEach((p, index) => {
+    const subtotal = p.qtd * Number(medioFormatado.replace(',', '.'));
 
-    if (index < itensRelatorio.length - 1) {
+    texto += `• ${p.nome}\n`;
+    texto += `Qtd: ${p.qtd} × R$ ${medioFormatado}\n`;
+    texto += `Subtotal: R$ ${formatarMoeda(subtotal)}`;
+
+    if (index < selecionados.length - 1) {
       texto += `\n\n`;
     }
   });
 
-  texto += `\n\n*Valor total: R$ ${formatarMoeda(deCentavosParaReais(totalCentavos))}*`;
+  texto += `\n\n*Valor total: R$ ${formatarMoeda(total)}*`;
 
   const url = `https://wa.me/558399792085?text=${encodeURIComponent(texto)}`;
   window.open(url, '_blank');
