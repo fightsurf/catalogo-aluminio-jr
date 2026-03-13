@@ -8,18 +8,30 @@ function extrairItens(texto) {
 
   if (!texto) return itens;
 
-  // Regex tolerante ao WhatsApp
-  // Aceita:
-  // * PRODUTO | QTD: 1
-  // • PRODUTO |QTD:1
-  // - PRODUTO | QTD: 1
-  // . PRODUTO | QTD:1
+  // 🔥 Limpeza pesada contra WhatsApp
+  texto = texto
+    .replace(/\uFFFD/g, '') // remove caractere inválido
+    .replace(/[^\x20-\x7EÀ-ÿ\n]/g, '') // remove lixo invisível
+    .replace(/\r/g, '');
+
+  /*
+    Aceita formatos como:
+
+    • PRODUTO | QTD: 1
+    * PRODUTO |QTD:1
+    - PRODUTO | QTD: 1
+    . PRODUTO | QTD:1
+  */
+
   const regex = /(?:^|\n)[^\S\r\n]*[*•\-.]?\s*(.+?)\s*\|\s*QTD:\s*(\d+)/gi;
 
   let match;
 
   while ((match = regex.exec(texto)) !== null) {
-    const nome = match[1].trim();
+    const nome = match[1]
+      .replace(/^[*•\-.]\s*/, '') // remove marcador residual
+      .trim();
+
     const quantidade = parseInt(match[2]);
 
     if (nome && !isNaN(quantidade)) {
@@ -79,7 +91,7 @@ async function calcular({ texto, itens, multiplicador = 1 }) {
     const capacidade = Number(produto.capacidade_caixa);
     const quantidadeFinal = Number(item.quantidade) * multiplicador;
 
-    // Capacidade 0 = IGNORADO
+    // 🔥 Capacidade 0 = IGNORADO
     if (capacidade === 0) {
       resultado.push({
         produto: produto.nome,
