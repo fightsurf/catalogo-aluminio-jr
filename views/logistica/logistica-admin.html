@@ -5,102 +5,41 @@
 <title>Admin Logística - Alumínio JR</title>
 
 <style>
-body {
-  font-family: Arial;
-  background: #f4f6f9;
-  margin: 0;
-  padding: 20px;
-}
+body { font-family: Arial; background:#f4f6f9; margin:0; padding:20px; }
+.main-grid { display:grid; grid-template-columns:260px 1fr 1fr; gap:20px; }
+.box { background:white; padding:15px; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,0.1); }
+.transportadora-item { padding:8px; border-radius:6px; cursor:pointer; margin-bottom:5px; }
+.transportadora-item:hover { background:#eef2f7; }
+.transportadora-item.active { background:#007bff; color:white; }
+input, textarea, select { width:100%; padding:6px; margin-bottom:8px; border:1px solid #ccc; border-radius:4px; }
+button { padding:6px 12px; border:none; border-radius:4px; cursor:pointer; }
+.btn-primary { background:#007bff; color:white; }
+.btn-danger { background:#dc3545; color:white; }
+.btn-edit { background:#17a2b8; color:white; }
+.cidade { background:#f8f9fa; padding:6px; margin-bottom:5px; border-radius:4px; font-size:14px; }
+.divider { height:1px; background:#eee; margin:10px 0; }
 
-h3 { margin-top: 0; }
-
-.main-grid {
-  display: grid;
-  grid-template-columns: 260px 1fr 1fr;
-  gap: 20px;
-}
-
-.box {
-  background: white;
-  padding: 15px;
-  border-radius: 8px;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-  height: fit-content;
-}
-
-.transportadora-item {
-  padding: 8px;
-  border-radius: 6px;
-  cursor: pointer;
-  margin-bottom: 5px;
-}
-
-.transportadora-item:hover { background: #eef2f7; }
-
-.transportadora-item.active {
-  background: #007bff;
-  color: white;
-}
-
-input, textarea, select {
-  width: 100%;
-  padding: 6px;
-  margin-bottom: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-}
-
-button {
-  padding: 6px 12px;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-right: 5px;
-}
-
-.btn-primary { background: #007bff; color: white; }
-.btn-danger { background: #dc3545; color: white; }
-.btn-edit { background: #17a2b8; color: white; }
-
-.cidade {
-  background: #f8f9fa;
-  padding: 6px;
-  margin-bottom: 5px;
-  border-radius: 4px;
-  font-size: 14px;
-}
-
-.divider {
-  height: 1px;
-  background: #eee;
-  margin: 10px 0;
-}
-
-/* MODAL */
+/* Modal */
 .modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0,0,0,0.5);
-  display: none;
-  justify-content: center;
-  align-items: center;
-  z-index: 999;
+  position:fixed;
+  top:0; left:0;
+  width:100%; height:100%;
+  background:rgba(0,0,0,0.5);
+  display:none;
+  justify-content:center;
+  align-items:center;
+  z-index:999;
 }
-
 .modal {
-  background: white;
-  padding: 20px;
-  border-radius: 8px;
-  width: 320px;
+  background:white;
+  padding:20px;
+  border-radius:8px;
+  width:320px;
 }
-
 .modal-buttons {
-  margin-top: 15px;
-  display: flex;
-  justify-content: space-between;
+  margin-top:15px;
+  display:flex;
+  justify-content:space-between;
 }
 </style>
 </head>
@@ -111,35 +50,25 @@ button {
 
 <div class="main-grid">
 
-  <!-- COLUNA 1 -->
-  <div class="box">
-    <h3>Transportadoras</h3>
-    <div class="divider"></div>
+<div class="box">
+<h3>Transportadoras</h3>
+<input id="novo-nome" placeholder="Nome">
+<input id="novo-telefone" placeholder="Telefone">
+<textarea id="novo-observacao" placeholder="Observação"></textarea>
+<button class="btn-primary" onclick="criarTransportadora()">Criar</button>
+<div class="divider"></div>
+<div id="lista"></div>
+</div>
 
-    <input id="novo-nome" placeholder="Nome">
-    <input id="novo-telefone" placeholder="Telefone">
-    <textarea id="novo-observacao" placeholder="Observação"></textarea>
-    <button class="btn-primary" onclick="criarTransportadora()">Criar</button>
+<div class="box">
+<h3>Detalhes</h3>
+<div id="detalhes"><small>Selecione uma transportadora</small></div>
+</div>
 
-    <div class="divider"></div>
-    <div id="lista"></div>
-  </div>
-
-  <!-- COLUNA 2 -->
-  <div class="box">
-    <h3>Detalhes</h3>
-    <div id="detalhes">
-      <small>Selecione uma transportadora</small>
-    </div>
-  </div>
-
-  <!-- COLUNA 3 -->
-  <div class="box">
-    <h3>Cidades</h3>
-    <div id="cidades-area">
-      <small>Selecione uma transportadora</small>
-    </div>
-  </div>
+<div class="box">
+<h3>Cidades</h3>
+<div id="cidades-area"><small>Selecione uma transportadora</small></div>
+</div>
 
 </div>
 
@@ -148,18 +77,8 @@ button {
   <div class="modal">
     <h3>Nova Cidade</h3>
     <input id="nova-cidade-nome" placeholder="Nome da cidade">
-
     <select id="nova-cidade-estado">
-      <option value="">Selecione o estado</option>
-      <option>PB</option>
-      <option>CE</option>
-      <option>PE</option>
-      <option>RN</option>
-      <option>MA</option>
-      <option>PI</option>
-      <option>AL</option>
-      <option>BA</option>
-      <option>SE</option>
+      <option value="">Carregando estados...</option>
     </select>
 
     <div class="modal-buttons">
@@ -204,7 +123,7 @@ function selecionarTransportadora(t) {
   carregarTransportadoras();
   renderDetalhes();
   carregarCidades();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  window.scrollTo({ top:0, behavior:'smooth' });
 }
 
 // =============================
@@ -233,17 +152,13 @@ function renderDetalhes() {
 // CIDADES
 // =============================
 async function carregarCidades() {
+
+  if (!transportadoraSelecionada) return;
+
   const div = document.getElementById('cidades-area');
 
-  if (!transportadoraSelecionada) {
-    div.innerHTML = '<small>Selecione uma transportadora</small>';
-    return;
-  }
-
   div.innerHTML = `
-    <input id="input-busca-cidade"
-           placeholder="Buscar cidade..."
-           onkeyup="buscarCidade(event)">
+    <input id="input-busca-cidade" placeholder="Buscar cidade..." onkeyup="buscarCidade(event)">
     <div id="resultado-busca"></div>
     <div class="divider"></div>
     <strong>Cidades vinculadas:</strong>
@@ -269,8 +184,7 @@ async function carregarCidades() {
     lista.innerHTML += `
       <div class="cidade">
         ${c.nome} - ${c.estado}
-        <button class="btn-danger"
-          onclick="removerCidade(${c.codigo_ibge})">
+        <button class="btn-danger" onclick="removerCidade(${c.codigo_ibge})">
           Remover
         </button>
       </div>
@@ -279,9 +193,10 @@ async function carregarCidades() {
 }
 
 // =============================
-// BUSCA
+// BUSCAR CIDADE
 // =============================
 async function buscarCidade(event) {
+
   const termo = event.target.value;
   const resultadoDiv = document.getElementById('resultado-busca');
 
@@ -297,8 +212,7 @@ async function buscarCidade(event) {
     resultadoDiv.innerHTML = `
       <div class="cidade">
         Nenhuma cidade encontrada.<br><br>
-        <button class="btn-edit"
-          onclick="abrirModalNovaCidade('${termo}')">
+        <button class="btn-edit" onclick="abrirModalNovaCidade('${termo}')">
           Cadastrar nova cidade
         </button>
       </div>
@@ -312,8 +226,7 @@ async function buscarCidade(event) {
     resultadoDiv.innerHTML += `
       <div class="cidade">
         ${c.nome} - ${c.estado}
-        <button class="btn-primary"
-          onclick="vincular(${c.codigo_ibge})">
+        <button class="btn-primary" onclick="vincular(${c.codigo_ibge})">
           Vincular
         </button>
       </div>
@@ -327,6 +240,7 @@ async function buscarCidade(event) {
 function abrirModalNovaCidade(nome='') {
   document.getElementById('modal-overlay').style.display = 'flex';
   document.getElementById('nova-cidade-nome').value = nome;
+  carregarEstados();
 }
 
 function fecharModal() {
@@ -337,15 +251,32 @@ window.addEventListener('keydown', e => {
   if (e.key === 'Escape') fecharModal();
 });
 
-document.getElementById('modal-overlay')
-.addEventListener('click', e => {
+document.getElementById('modal-overlay').addEventListener('click', e => {
   if (e.target.id === 'modal-overlay') fecharModal();
 });
+
+// =============================
+// CARREGAR ESTADOS
+// =============================
+async function carregarEstados() {
+  const select = document.getElementById('nova-cidade-estado');
+  select.innerHTML = '<option value="">Carregando...</option>';
+
+  const res = await fetch('/api/logistica/estados');
+  const dados = await res.json();
+
+  select.innerHTML = '<option value="">Selecione o estado</option>';
+
+  dados.forEach(e => {
+    select.innerHTML += `<option value="${e.estado}">${e.estado}</option>`;
+  });
+}
 
 // =============================
 // SALVAR CIDADE
 // =============================
 async function salvarNovaCidade() {
+
   const nome = document.getElementById('nova-cidade-nome').value.trim();
   const estado = document.getElementById('nova-cidade-estado').value;
 
@@ -356,7 +287,7 @@ async function salvarNovaCidade() {
 
   const res = await fetch('/api/logistica/cidades', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type':'application/json' },
     body: JSON.stringify({ nome, estado })
   });
 
@@ -372,8 +303,8 @@ async function salvarNovaCidade() {
   await fetch(
     `/api/logistica/transportadoras/${transportadoraSelecionada.id}/cidades`,
     {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({
         codigo_ibge: novaCidade.codigo_ibge,
         observacao: ''
@@ -384,25 +315,24 @@ async function salvarNovaCidade() {
   carregarCidades();
 }
 
+// =============================
 async function vincular(codigo_ibge) {
   await fetch(
     `/api/logistica/transportadoras/${transportadoraSelecionada.id}/cidades`,
     {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ codigo_ibge, observacao: '' })
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ codigo_ibge, observacao:'' })
     }
   );
-
   carregarCidades();
 }
 
 async function removerCidade(codigo_ibge) {
   await fetch(
     `/api/logistica/transportadoras/${transportadoraSelecionada.id}/cidades/${codigo_ibge}`,
-    { method: 'DELETE' }
+    { method:'DELETE' }
   );
-
   carregarCidades();
 }
 
