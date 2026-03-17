@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const service = require('../services/logisticaService');
+
+// 🔥 CAMINHO CORRIGIDO
+const service = require('../../services/logistica/logisticaService');
 
 // ==========================================
 // CIDADES POR ESTADO
@@ -60,11 +62,13 @@ router.get('/transportadoras/:id/cidades', async (req, res) => {
 router.post('/transportadoras/:id/cidades', async (req, res) => {
   try {
     const { codigo_ibge, observacao } = req.body;
+
     const resultado = await service.vincularCidade(
       req.params.id,
       codigo_ibge,
       observacao
     );
+
     res.json(resultado);
   } catch (error) {
     console.error(error);
@@ -81,13 +85,13 @@ router.delete('/transportadoras/:id/cidades/:codigo_ibge', async (req, res) => {
       req.params.id,
       req.params.codigo_ibge
     );
+
     res.json({ success: true });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });
   }
 });
-
 
 // ==========================================
 // 🔥 BUSCAR CIDADE POR ID
@@ -101,12 +105,12 @@ router.get('/cidades/id/:id', async (req, res) => {
     }
 
     res.json(resultado);
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });
   }
 });
-
 
 // ==========================================
 // CONSULTAR FRETE POR NOME DA CIDADE
@@ -121,6 +125,7 @@ router.get('/frete', async (req, res) => {
   try {
     const resultado = await service.buscarTransportadorasPorNomeCidade(cidade);
     res.json(resultado);
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });
