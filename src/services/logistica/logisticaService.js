@@ -82,45 +82,10 @@ async function buscarCidadesPorNome(nome) {
 }
 
 // ==========================================
-// BUSCAR CIDADES POR NOME COM ID
-// ==========================================
-async function buscarCidadesPorNomeComId(nome) {
-  const result = await pool.query(
-    `
-    SELECT id, nome, estado
-    FROM cidades
-    WHERE LOWER(unaccent(nome)) LIKE LOWER(unaccent($1))
-    ORDER BY LOWER(unaccent(nome))
-    LIMIT 20;
-    `,
-    [`%${nome}%`]
-  );
-
-  return result.rows;
-}
-
-// ==========================================
-// BUSCAR CIDADE POR ID
-// ==========================================
-async function buscarCidadePorId(id) {
-  const result = await pool.query(
-    `
-    SELECT id, nome, estado, codigo_ibge
-    FROM cidades
-    WHERE id = $1;
-    `,
-    [id]
-  );
-
-  return result.rows[0];
-}
-
-// ==========================================
-// CRIAR NOVA CIDADE (COM VALIDAÇÃO)
+// CRIAR CIDADE
 // ==========================================
 async function criarCidade(nome, estado) {
 
-  // Verifica se já existe
   const existente = await pool.query(
     `
     SELECT id
@@ -148,108 +113,16 @@ async function criarCidade(nome, estado) {
 }
 
 // ==========================================
-// BUSCA INTELIGENTE PARA O BOT
+// LISTAR ESTADOS (DINÂMICO)
 // ==========================================
-async function buscarTransportadorasPorNomeCidade(nomeCidade) {
-  const partes = nomeCidade.split('-').map(p => p.trim());
-  const cidade = partes[0];
-  const estado = partes[1] || null;
-
-  let cidadeQuery = `
-    SELECT nome, estado
+async function listarEstados() {
+  const result = await pool.query(`
+    SELECT DISTINCT estado
     FROM cidades
-    WHERE LOWER(unaccent(nome)) = LOWER(unaccent($1))
-  `;
+    ORDER BY LOWER(unaccent(estado));
+  `);
 
-  let cidadeParams = [cidade];
-
-  if (estado) {
-    cidadeQuery += ` AND LOWER(unaccent(estado)) = LOWER(unaccent($2))`;
-    cidadeParams.push(estado);
-  }
-
-  const cidadeExiste = await pool.query(cidadeQuery, cidadeParams);
-
-  if (cidadeExiste.rows.length > 0) {
-
-    const resultadoFrete = await pool.query(
-      `
-      SELECT 
-        t.id,
-        t.nome,
-        t.telefone,
-        tc.observacao,
-        c.nome AS cidade_nome,
-        c.estado
-      FROM transportadora_cidade tc
-      JOIN cidades c ON tc.cidade_id = c.id
-      JOIN transportadoras t ON tc.transportadora_id = t.id
-      WHERE LOWER(unaccent(c.nome)) = LOWER(unaccent($1))
-      ${estado ? "AND LOWER(unaccent(c.estado)) = LOWER(unaccent($2))" : ""}
-      ORDER BY LOWER(unaccent(t.nome));
-      `,
-      cidadeParams
-    );
-
-    if (resultadoFrete.rows.length > 0) {
-      return {
-        tipo: "resultado",
-        dados: resultadoFrete.rows
-      };
-    }
-
-    return {
-      tipo: "sem_frete",
-      cidade: cidadeExiste.rows[0].nome,
-      estado: cidadeExiste.rows[0].estado
-    };
-  }
-
-  return { tipo: "vazio" };
-}
-
-// ==========================================
-// LISTAR CIDADES POR ESTADO
-// ==========================================
-async function listarCidadesPorEstado(nomeEstado) {
-  const result = await pool.query(
-    `
-    SELECT 
-      c.codigo_ibge,
-      c.nome AS cidade,
-      c.estado,
-      t.id AS transportadora_id,
-      t.nome AS transportadora_nome,
-      t.telefone
-    FROM cidades c
-    JOIN transportadora_cidade tc ON tc.cidade_id = c.id
-    JOIN transportadoras t ON tc.transportadora_id = t.id
-    WHERE LOWER(unaccent(c.estado)) LIKE LOWER(unaccent($1))
-    ORDER BY LOWER(unaccent(c.nome)), LOWER(unaccent(t.nome));
-    `,
-    [`%${nomeEstado}%`]
-  );
-
-  const cidadesMap = {};
-
-  result.rows.forEach(row => {
-    if (!cidadesMap[row.codigo_ibge]) {
-      cidadesMap[row.codigo_ibge] = {
-        codigo_ibge: row.codigo_ibge,
-        cidade: row.cidade,
-        estado: row.estado,
-        transportadoras: []
-      };
-    }
-
-    cidadesMap[row.codigo_ibge].transportadoras.push({
-      id: row.transportadora_id,
-      nome: row.transportadora_nome,
-      telefone: row.telefone
-    });
-  });
-
-  return Object.values(cidadesMap);
+  return result.rows;
 }
 
 module.exports = {
@@ -257,9 +130,6 @@ module.exports = {
   removerCidade,
   listarCidades,
   buscarCidadesPorNome,
-  buscarCidadesPorNomeComId,
-  buscarCidadePorId,
   criarCidade,
-  buscarTransportadorasPorNomeCidade,
-  listarCidadesPorEstado
+  listarEstados
 };
