@@ -51,11 +51,15 @@ async function removerCidade(transportadora_id, codigo_ibge) {
 async function listarCidades(transportadora_id) {
   const result = await pool.query(
     `
-    SELECT c.codigo_ibge, c.nome, c.estado, tc.observacao
+    SELECT 
+      c.codigo_ibge,
+      c.nome,
+      c.estado,
+      tc.observacao
     FROM transportadora_cidade tc
     JOIN cidades c ON tc.cidade_id = c.id
     WHERE tc.transportadora_id = $1
-    ORDER BY LOWER(unaccent(c.nome));
+    ORDER BY c.nome;
     `,
     [transportadora_id]
   );
@@ -71,8 +75,8 @@ async function buscarCidadesPorNome(nome) {
     `
     SELECT codigo_ibge, nome, estado
     FROM cidades
-    WHERE LOWER(unaccent(nome)) LIKE LOWER(unaccent($1))
-    ORDER BY LOWER(unaccent(nome))
+    WHERE LOWER(nome) LIKE LOWER($1)
+    ORDER BY nome
     LIMIT 20;
     `,
     [`%${nome}%`]
@@ -90,8 +94,8 @@ async function criarCidade(nome, estado) {
     `
     SELECT id
     FROM cidades
-    WHERE LOWER(unaccent(nome)) = LOWER(unaccent($1))
-      AND LOWER(unaccent(estado)) = LOWER(unaccent($2));
+    WHERE LOWER(nome) = LOWER($1)
+      AND LOWER(estado) = LOWER($2);
     `,
     [nome, estado]
   );
@@ -113,13 +117,13 @@ async function criarCidade(nome, estado) {
 }
 
 // ==========================================
-// LISTAR ESTADOS (DINÂMICO)
+// LISTAR ESTADOS (CORRIGIDO)
 // ==========================================
 async function listarEstados() {
   const result = await pool.query(`
     SELECT DISTINCT estado
     FROM cidades
-    ORDER BY LOWER(unaccent(estado));
+    ORDER BY estado;
   `);
 
   return result.rows;
