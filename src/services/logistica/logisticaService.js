@@ -1,4 +1,5 @@
 const pool = require('../../../db/connection');
+
 // ==========================================
 // VINCULAR CIDADE
 // ==========================================
@@ -54,7 +55,7 @@ async function listarCidades(transportadora_id) {
     FROM transportadora_cidade tc
     JOIN cidades c ON tc.cidade_id = c.id
     WHERE tc.transportadora_id = $1
-    ORDER BY c.nome;
+    ORDER BY LOWER(unaccent(c.nome));
     `,
     [transportadora_id]
   );
@@ -63,15 +64,15 @@ async function listarCidades(transportadora_id) {
 }
 
 // ==========================================
-// BUSCAR CIDADES POR NOME (LOGÍSTICA)
+// BUSCAR CIDADES POR NOME
 // ==========================================
 async function buscarCidadesPorNome(nome) {
   const result = await pool.query(
     `
     SELECT codigo_ibge, nome, estado
     FROM cidades
-    WHERE LOWER(nome) LIKE LOWER($1)
-    ORDER BY nome
+    WHERE LOWER(unaccent(nome)) LIKE LOWER(unaccent($1))
+    ORDER BY LOWER(unaccent(nome))
     LIMIT 20;
     `,
     [`%${nome}%`]
@@ -81,15 +82,15 @@ async function buscarCidadesPorNome(nome) {
 }
 
 // ==========================================
-// BUSCAR CIDADES POR NOME COM ID (FORNECEDOR)
+// BUSCAR CIDADES POR NOME COM ID
 // ==========================================
 async function buscarCidadesPorNomeComId(nome) {
   const result = await pool.query(
     `
     SELECT id, nome, estado
     FROM cidades
-    WHERE LOWER(nome) LIKE LOWER($1)
-    ORDER BY nome
+    WHERE LOWER(unaccent(nome)) LIKE LOWER(unaccent($1))
+    ORDER BY LOWER(unaccent(nome))
     LIMIT 20;
     `,
     [`%${nome}%`]
@@ -99,16 +100,48 @@ async function buscarCidadesPorNomeComId(nome) {
 }
 
 // ==========================================
-// 🔥 NOVA FUNÇÃO — BUSCAR CIDADE POR ID
+// BUSCAR CIDADE POR ID
 // ==========================================
 async function buscarCidadePorId(id) {
   const result = await pool.query(
     `
-    SELECT id, nome, estado
+    SELECT id, nome, estado, codigo_ibge
     FROM cidades
     WHERE id = $1;
     `,
     [id]
+  );
+
+  return result.rows[0];
+}
+
+// ==========================================
+// CRIAR NOVA CIDADE (COM VALIDAÇÃO)
+// ==========================================
+async function criarCidade(nome, estado) {
+
+  // Verifica se já existe
+  const existente = await pool.query(
+    `
+    SELECT id
+    FROM cidades
+    WHERE LOWER(unaccent(nome)) = LOWER(unaccent($1))
+      AND LOWER(unaccent(estado)) = LOWER(unaccent($2));
+    `,
+    [nome, estado]
+  );
+
+  if (existente.rows.length > 0) {
+    throw new Error('Cidade já cadastrada para este estado');
+  }
+
+  const result = await pool.query(
+    `
+    INSERT INTO cidades (nome, estado, codigo_ibge)
+    VALUES ($1, $2, nextval('cidades_id_seq'))
+    RETURNING id, nome, estado, codigo_ibge;
+    `,
+    [nome.trim(), estado.trim()]
   );
 
   return result.rows[0];
@@ -153,7 +186,7 @@ async function buscarTransportadorasPorNomeCidade(nomeCidade) {
       JOIN transportadoras t ON tc.transportadora_id = t.id
       WHERE LOWER(unaccent(c.nome)) = LOWER(unaccent($1))
       ${estado ? "AND LOWER(unaccent(c.estado)) = LOWER(unaccent($2))" : ""}
-      ORDER BY t.nome;
+      ORDER BY LOWER(unaccent(t.nome));
       `,
       cidadeParams
     );
@@ -191,8 +224,8 @@ async function listarCidadesPorEstado(nomeEstado) {
     FROM cidades c
     JOIN transportadora_cidade tc ON tc.cidade_id = c.id
     JOIN transportadoras t ON tc.transportadora_id = t.id
-    WHERE LOWER(c.estado) LIKE LOWER($1)
-    ORDER BY c.nome, t.nome;
+    WHERE LOWER(unaccent(c.estado)) LIKE LOWER(unaccent($1))
+    ORDER BY LOWER(unaccent(c.nome)), LOWER(unaccent(t.nome));
     `,
     [`%${nomeEstado}%`]
   );
@@ -225,7 +258,8 @@ module.exports = {
   listarCidades,
   buscarCidadesPorNome,
   buscarCidadesPorNomeComId,
-  buscarCidadePorId, // 🔥 nova exportação
+  buscarCidadePorId,
+  criarCidade,
   buscarTransportadorasPorNomeCidade,
   listarCidadesPorEstado
 };
