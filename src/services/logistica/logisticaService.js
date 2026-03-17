@@ -1,5 +1,4 @@
-const pool = require('../../db/connection');
-
+const pool = require('../../../db/connection');
 // ==========================================
 // VINCULAR CIDADE
 // ==========================================
