@@ -1,16 +1,14 @@
 const express = require('express');
 const router = express.Router();
-
-// 🔥 CAMINHO CORRIGIDO
 const service = require('../../services/logistica/logisticaService');
 
 // ==========================================
-// CIDADES POR ESTADO
+// LISTAR ESTADOS (DINÂMICO)
 // ==========================================
-router.get('/estado/:nomeEstado', async (req, res) => {
+router.get('/estados', async (req, res) => {
   try {
-    const resultado = await service.listarCidadesPorEstado(req.params.nomeEstado);
-    res.json(resultado);
+    const estados = await service.listarEstados();
+    res.json(estados);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });
@@ -18,11 +16,17 @@ router.get('/estado/:nomeEstado', async (req, res) => {
 });
 
 // ==========================================
-// BUSCAR CIDADES POR NOME (LOGÍSTICA - IBGE)
+// BUSCAR CIDADES POR NOME
 // ==========================================
 router.get('/cidades/busca', async (req, res) => {
   try {
-    const resultado = await service.buscarCidadesPorNome(req.query.nome);
+    const { nome } = req.query;
+
+    if (!nome) {
+      return res.status(400).json({ error: 'Nome não informado' });
+    }
+
+    const resultado = await service.buscarCidadesPorNome(nome);
     res.json(resultado);
   } catch (error) {
     console.error(error);
@@ -31,12 +35,19 @@ router.get('/cidades/busca', async (req, res) => {
 });
 
 // ==========================================
-// 🔥 NOVA ROTA PARA FORNECEDORES (USA ID REAL)
+// CRIAR NOVA CIDADE
 // ==========================================
-router.get('/cidades/busca-id', async (req, res) => {
+router.post('/cidades', async (req, res) => {
   try {
-    const resultado = await service.buscarCidadesPorNomeComId(req.query.nome);
-    res.json(resultado);
+    const { nome, estado } = req.body;
+
+    if (!nome || !estado) {
+      return res.status(400).json({ error: 'Nome e estado são obrigatórios' });
+    }
+
+    const novaCidade = await service.criarCidade(nome, estado);
+    res.status(201).json(novaCidade);
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });
@@ -44,7 +55,7 @@ router.get('/cidades/busca-id', async (req, res) => {
 });
 
 // ==========================================
-// LISTAR CIDADES DA TRANSPORTADORA
+// LISTAR CIDADES POR TRANSPORTADORA
 // ==========================================
 router.get('/transportadoras/:id/cidades', async (req, res) => {
   try {
@@ -70,6 +81,7 @@ router.post('/transportadoras/:id/cidades', async (req, res) => {
     );
 
     res.json(resultado);
+
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: error.message });
@@ -87,44 +99,6 @@ router.delete('/transportadoras/:id/cidades/:codigo_ibge', async (req, res) => {
     );
 
     res.json({ success: true });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ==========================================
-// 🔥 BUSCAR CIDADE POR ID
-// ==========================================
-router.get('/cidades/id/:id', async (req, res) => {
-  try {
-    const resultado = await service.buscarCidadePorId(req.params.id);
-
-    if (!resultado) {
-      return res.status(404).json({ error: 'Cidade não encontrada' });
-    }
-
-    res.json(resultado);
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// ==========================================
-// CONSULTAR FRETE POR NOME DA CIDADE
-// ==========================================
-router.get('/frete', async (req, res) => {
-  const { cidade } = req.query;
-
-  if (!cidade) {
-    return res.status(400).json({ error: 'Cidade não informada' });
-  }
-
-  try {
-    const resultado = await service.buscarTransportadorasPorNomeCidade(cidade);
-    res.json(resultado);
 
   } catch (error) {
     console.error(error);
