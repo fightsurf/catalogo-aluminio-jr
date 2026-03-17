@@ -1,4 +1,4 @@
-const service = require('../services/logisticaService');
+const service = require('../../services/logistica/logisticaService');
 
 async function vincular(req, res) {
   const { id } = req.params;
@@ -6,7 +6,7 @@ async function vincular(req, res) {
 
   try {
     const result = await service.vincularCidade(id, codigo_ibge, observacao);
-    res.status(201).json(result.rows[0]);
+    res.status(201).json(result);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -18,27 +18,39 @@ async function remover(req, res) {
   try {
     await service.removerCidade(id, codigo_ibge);
     res.json({ sucesso: true });
-  } catch {
-    res.status(500).json({ error: 'Erro ao remover cidade' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 }
 
 async function cidades(req, res) {
-  const { id } = req.params;
-  const dados = await service.listarCidades(id);
-  res.json(dados);
+  try {
+    const { id } = req.params;
+    const dados = await service.listarCidades(id);
+    res.json(dados);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 }
 
 async function transportadoras(req, res) {
-  const { codigo_ibge } = req.params;
-  const dados = await service.listarTransportadorasPorCidade(codigo_ibge);
-  res.json(dados);
+  try {
+    const { codigo_ibge } = req.params;
+    const dados = await service.listarTransportadorasPorCidade(codigo_ibge);
+    res.json(dados);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 }
 
 async function buscarCidades(req, res) {
-  const { nome } = req.query;
-  const dados = await service.buscarCidadesPorNome(nome);
-  res.json(dados);
+  try {
+    const { nome } = req.query;
+    const dados = await service.buscarCidadesPorNome(nome);
+    res.json(dados);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
 }
 
 module.exports = {
