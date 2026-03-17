@@ -1,10 +1,10 @@
-const service = require('../services/transportadoraService');
+const service = require('../../services/logistica/transportadoraService');
 
 async function listar(req, res) {
   try {
     const dados = await service.listarTransportadoras();
     res.json(dados);
-  } catch {
+  } catch (error) {
     res.status(500).json({ error: 'Erro ao buscar transportadoras' });
   }
 }
@@ -19,7 +19,7 @@ async function criar(req, res) {
   try {
     const nova = await service.criarTransportadora(req.body);
     res.status(201).json(nova);
-  } catch {
+  } catch (error) {
     res.status(500).json({ error: 'Erro ao criar transportadora' });
   }
 }
@@ -30,7 +30,7 @@ async function atualizar(req, res) {
   try {
     const atualizada = await service.atualizarTransportadora(id, req.body);
     res.json(atualizada);
-  } catch {
+  } catch (error) {
     res.status(500).json({ error: 'Erro ao atualizar' });
   }
 }
@@ -41,7 +41,7 @@ async function deletar(req, res) {
   try {
     await service.deletarTransportadora(id);
     res.json({ sucesso: true });
-  } catch {
+  } catch (error) {
     res.status(500).json({ error: 'Erro ao deletar' });
   }
 }
