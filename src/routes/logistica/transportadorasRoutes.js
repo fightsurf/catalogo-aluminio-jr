@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
-const controller = require('../controllers/transportadorasController');
+
+// 🔥 CAMINHO CORRIGIDO
+const controller = require('../../controllers/logistica/transportadorasController');
 
 router.get('/', controller.listar);
 router.post('/', controller.criar);
