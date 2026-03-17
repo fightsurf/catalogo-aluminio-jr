@@ -12,9 +12,7 @@ body {
   padding: 20px;
 }
 
-h3 {
-  margin-top: 0;
-}
+h3 { margin-top: 0; }
 
 .main-grid {
   display: grid;
@@ -37,16 +35,14 @@ h3 {
   margin-bottom: 5px;
 }
 
-.transportadora-item:hover {
-  background: #eef2f7;
-}
+.transportadora-item:hover { background: #eef2f7; }
 
 .transportadora-item.active {
   background: #007bff;
   color: white;
 }
 
-input, textarea {
+input, textarea, select {
   width: 100%;
   padding: 6px;
   margin-bottom: 8px;
@@ -74,27 +70,39 @@ button {
   font-size: 14px;
 }
 
-small {
-  color: #666;
-}
-
 .divider {
   height: 1px;
   background: #eee;
   margin: 10px 0;
 }
 
-.copy-icon {
-  cursor: pointer;
-  margin-left: 8px;
-  font-size: 16px;
+/* MODAL */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.5);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 999;
 }
 
-.copy-icon:hover {
-  opacity: 0.7;
+.modal {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  width: 320px;
+}
+
+.modal-buttons {
+  margin-top: 15px;
+  display: flex;
+  justify-content: space-between;
 }
 </style>
-  <link rel="stylesheet" href="/css/theme.css" />
 </head>
 
 <body>
@@ -106,7 +114,6 @@ small {
   <!-- COLUNA 1 -->
   <div class="box">
     <h3>Transportadoras</h3>
-
     <div class="divider"></div>
 
     <input id="novo-nome" placeholder="Nome">
@@ -115,7 +122,6 @@ small {
     <button class="btn-primary" onclick="criarTransportadora()">Criar</button>
 
     <div class="divider"></div>
-
     <div id="lista"></div>
   </div>
 
@@ -137,6 +143,32 @@ small {
 
 </div>
 
+<!-- MODAL -->
+<div id="modal-overlay" class="modal-overlay">
+  <div class="modal">
+    <h3>Nova Cidade</h3>
+    <input id="nova-cidade-nome" placeholder="Nome da cidade">
+
+    <select id="nova-cidade-estado">
+      <option value="">Selecione o estado</option>
+      <option>PB</option>
+      <option>CE</option>
+      <option>PE</option>
+      <option>RN</option>
+      <option>MA</option>
+      <option>PI</option>
+      <option>AL</option>
+      <option>BA</option>
+      <option>SE</option>
+    </select>
+
+    <div class="modal-buttons">
+      <button class="btn-primary" onclick="salvarNovaCidade()">Salvar</button>
+      <button class="btn-danger" onclick="fecharModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const API_TRANSPORTADORAS = '/api/transportadoras';
 const API_LOGISTICA = '/api/logistica';
@@ -144,7 +176,7 @@ const API_LOGISTICA = '/api/logistica';
 let transportadoraSelecionada = null;
 
 // =============================
-// LISTAR TRANSPORTADORAS
+// TRANSPORTADORAS
 // =============================
 async function carregarTransportadoras() {
   const res = await fetch(API_TRANSPORTADORAS);
@@ -157,7 +189,6 @@ async function carregarTransportadoras() {
     const item = document.createElement('div');
     item.className = 'transportadora-item';
     item.innerText = t.nome;
-
     item.onclick = () => selecionarTransportadora(t);
 
     if (transportadoraSelecionada && transportadoraSelecionada.id === t.id) {
@@ -168,17 +199,16 @@ async function carregarTransportadoras() {
   });
 }
 
-// =============================
 function selecionarTransportadora(t) {
   transportadoraSelecionada = t;
   carregarTransportadoras();
   renderDetalhes();
   carregarCidades();
-
-  // 🔥 Força scroll para o topo
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
+// =============================
+// DETALHES
 // =============================
 function renderDetalhes() {
   const div = document.getElementById('detalhes');
@@ -189,106 +219,18 @@ function renderDetalhes() {
   }
 
   div.innerHTML = `
-    <div style="display:flex; align-items:center;">
-      <strong style="font-size:18px;">
-        ${transportadoraSelecionada.nome}
-      </strong>
-      <span class="copy-icon"
-            title="Copiar cidades"
-            onclick="copiarCidades()">
-        📋
-      </span>
-    </div>
-
+    <strong>${transportadoraSelecionada.nome}</strong>
     <div class="divider"></div>
-
     <input id="edit-nome" value="${transportadoraSelecionada.nome}">
     <input id="edit-telefone" value="${transportadoraSelecionada.telefone || ''}">
     <textarea id="edit-observacao">${transportadoraSelecionada.observacao || ''}</textarea>
-
     <button class="btn-edit" onclick="salvarEdicao()">Salvar</button>
     <button class="btn-danger" onclick="excluirTransportadora()">Excluir</button>
   `;
 }
 
 // =============================
-async function copiarCidades() {
-  if (!transportadoraSelecionada) return;
-
-  const res = await fetch(
-    API_LOGISTICA +
-    '/transportadoras/' +
-    transportadoraSelecionada.id +
-    '/cidades'
-  );
-
-  const dados = await res.json();
-
-  if (!dados.length) {
-    alert('Nenhuma cidade vinculada.');
-    return;
-  }
-
-  const lista = dados.map(c =>
-    `${c.nome} - ${c.estado}`
-  ).join('\n');
-
-  navigator.clipboard.writeText(lista)
-    .then(() => alert('Cidades copiadas para a memória.'))
-    .catch(() => alert('Erro ao copiar.'));
-}
-
-// =============================
-async function salvarEdicao() {
-  const nome = document.getElementById('edit-nome').value;
-  const telefone = document.getElementById('edit-telefone').value;
-  const observacao = document.getElementById('edit-observacao').value;
-
-  await fetch(API_TRANSPORTADORAS + '/' + transportadoraSelecionada.id, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nome, telefone, observacao })
-  });
-
-  transportadoraSelecionada = null;
-  document.getElementById('detalhes').innerHTML = '';
-  document.getElementById('cidades-area').innerHTML = '';
-  carregarTransportadoras();
-}
-
-// =============================
-async function excluirTransportadora() {
-  if (!confirm('Excluir transportadora?')) return;
-
-  await fetch(API_TRANSPORTADORAS + '/' + transportadoraSelecionada.id, {
-    method: 'DELETE'
-  });
-
-  transportadoraSelecionada = null;
-  document.getElementById('detalhes').innerHTML = '';
-  document.getElementById('cidades-area').innerHTML = '';
-  carregarTransportadoras();
-}
-
-// =============================
-async function criarTransportadora() {
-  const nome = document.getElementById('novo-nome').value;
-  const telefone = document.getElementById('novo-telefone').value;
-  const observacao = document.getElementById('novo-observacao').value;
-
-  await fetch(API_TRANSPORTADORAS, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nome, telefone, observacao })
-  });
-
-  document.getElementById('novo-nome').value = '';
-  document.getElementById('novo-telefone').value = '';
-  document.getElementById('novo-observacao').value = '';
-
-  carregarTransportadoras();
-}
-
+// CIDADES
 // =============================
 async function carregarCidades() {
   const div = document.getElementById('cidades-area');
@@ -298,6 +240,16 @@ async function carregarCidades() {
     return;
   }
 
+  div.innerHTML = `
+    <input id="input-busca-cidade"
+           placeholder="Buscar cidade..."
+           onkeyup="buscarCidade(event)">
+    <div id="resultado-busca"></div>
+    <div class="divider"></div>
+    <strong>Cidades vinculadas:</strong>
+    <div id="lista-cidades-vinculadas"></div>
+  `;
+
   const res = await fetch(
     API_LOGISTICA +
     '/transportadoras/' +
@@ -306,17 +258,6 @@ async function carregarCidades() {
   );
 
   const dados = await res.json();
-
-  div.innerHTML = `
-    <input id="input-busca-cidade"
-           placeholder="Buscar cidade..."
-           onkeyup="buscarCidade(event)">
-    <div id="resultado-busca"></div>
-    <div class="divider"></div>
-    <strong>Cidades vinculadas:</strong><br>
-    <div id="lista-cidades-vinculadas"></div>
-  `;
-
   const lista = document.getElementById('lista-cidades-vinculadas');
 
   if (!dados.length) {
@@ -328,8 +269,8 @@ async function carregarCidades() {
     lista.innerHTML += `
       <div class="cidade">
         ${c.nome} - ${c.estado}
-        <small>${c.observacao || ''}</small><br>
-        <button class="btn-danger" onclick="removerCidade(${c.codigo_ibge})">
+        <button class="btn-danger"
+          onclick="removerCidade(${c.codigo_ibge})">
           Remover
         </button>
       </div>
@@ -337,6 +278,8 @@ async function carregarCidades() {
   });
 }
 
+// =============================
+// BUSCA
 // =============================
 async function buscarCidade(event) {
   const termo = event.target.value;
@@ -350,13 +293,25 @@ async function buscarCidade(event) {
   const res = await fetch(API_LOGISTICA + '/cidades/busca?nome=' + termo);
   const dados = await res.json();
 
+  if (!dados.length) {
+    resultadoDiv.innerHTML = `
+      <div class="cidade">
+        Nenhuma cidade encontrada.<br><br>
+        <button class="btn-edit"
+          onclick="abrirModalNovaCidade('${termo}')">
+          Cadastrar nova cidade
+        </button>
+      </div>
+    `;
+    return;
+  }
+
   resultadoDiv.innerHTML = '';
 
   dados.forEach(c => {
     resultadoDiv.innerHTML += `
       <div class="cidade">
         ${c.nome} - ${c.estado}
-        <input id="obs-${c.codigo_ibge}" placeholder="Observação">
         <button class="btn-primary"
           onclick="vincular(${c.codigo_ibge})">
           Vincular
@@ -367,32 +322,84 @@ async function buscarCidade(event) {
 }
 
 // =============================
-async function vincular(codigo_ibge) {
-  const observacao = document.getElementById(`obs-${codigo_ibge}`).value;
+// MODAL
+// =============================
+function abrirModalNovaCidade(nome='') {
+  document.getElementById('modal-overlay').style.display = 'flex';
+  document.getElementById('nova-cidade-nome').value = nome;
+}
+
+function fecharModal() {
+  document.getElementById('modal-overlay').style.display = 'none';
+}
+
+window.addEventListener('keydown', e => {
+  if (e.key === 'Escape') fecharModal();
+});
+
+document.getElementById('modal-overlay')
+.addEventListener('click', e => {
+  if (e.target.id === 'modal-overlay') fecharModal();
+});
+
+// =============================
+// SALVAR CIDADE
+// =============================
+async function salvarNovaCidade() {
+  const nome = document.getElementById('nova-cidade-nome').value.trim();
+  const estado = document.getElementById('nova-cidade-estado').value;
+
+  if (!nome || !estado) {
+    alert('Preencha todos os campos.');
+    return;
+  }
+
+  const res = await fetch('/api/logistica/cidades', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nome, estado })
+  });
+
+  if (!res.ok) {
+    const erro = await res.json();
+    alert(erro.error || 'Erro ao criar cidade');
+    return;
+  }
+
+  const novaCidade = await res.json();
+  fecharModal();
 
   await fetch(
-    API_LOGISTICA +
-    '/transportadoras/' +
-    transportadoraSelecionada.id +
-    '/cidades',
+    `/api/logistica/transportadoras/${transportadoraSelecionada.id}/cidades`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ codigo_ibge, observacao })
+      body: JSON.stringify({
+        codigo_ibge: novaCidade.codigo_ibge,
+        observacao: ''
+      })
     }
   );
 
   carregarCidades();
 }
 
-// =============================
+async function vincular(codigo_ibge) {
+  await fetch(
+    `/api/logistica/transportadoras/${transportadoraSelecionada.id}/cidades`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ codigo_ibge, observacao: '' })
+    }
+  );
+
+  carregarCidades();
+}
+
 async function removerCidade(codigo_ibge) {
   await fetch(
-    API_LOGISTICA +
-    '/transportadoras/' +
-    transportadoraSelecionada.id +
-    '/cidades/' +
-    codigo_ibge,
+    `/api/logistica/transportadoras/${transportadoraSelecionada.id}/cidades/${codigo_ibge}`,
     { method: 'DELETE' }
   );
 
