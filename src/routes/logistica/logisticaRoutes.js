@@ -106,4 +106,24 @@ router.delete('/transportadoras/:id/cidades/:codigo_ibge', async (req, res) => {
   }
 });
 
+// ==========================================
+// 🔥 CONSULTAR FRETE (BOT)
+// ==========================================
+router.get('/frete', async (req, res) => {
+  try {
+    const { cidade } = req.query;
+
+    if (!cidade) {
+      return res.status(400).json({ error: 'Cidade não informada' });
+    }
+
+    const resultado = await service.buscarTransportadorasPorNomeCidade(cidade);
+    res.json(resultado);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
