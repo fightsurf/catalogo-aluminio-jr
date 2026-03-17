@@ -129,11 +129,76 @@ async function listarEstados() {
   return result.rows;
 }
 
+// ==========================================
+// 🔥 BUSCA DE FRETE (BOT)
+// ==========================================
+async function buscarTransportadorasPorNomeCidade(nomeCidade) {
+
+  const partes = nomeCidade.split('-').map(p => p.trim());
+  const cidade = partes[0];
+  const estado = partes[1] || null;
+
+  let queryCidade = `
+    SELECT nome, estado
+    FROM cidades
+    WHERE LOWER(nome) = LOWER($1)
+  `;
+
+  let params = [cidade];
+
+  if (estado) {
+    queryCidade += ` AND LOWER(estado) = LOWER($2)`;
+    params.push(estado);
+  }
+
+  const cidadeExiste = await pool.query(queryCidade, params);
+
+  if (cidadeExiste.rows.length === 0) {
+    return { tipo: "vazio" };
+  }
+
+  let queryFrete = `
+    SELECT 
+      t.id,
+      t.nome,
+      t.telefone,
+      tc.observacao,
+      c.nome AS cidade_nome,
+      c.estado
+    FROM transportadora_cidade tc
+    JOIN cidades c ON tc.cidade_id = c.id
+    JOIN transportadoras t ON tc.transportadora_id = t.id
+    WHERE LOWER(c.nome) = LOWER($1)
+  `;
+
+  if (estado) {
+    queryFrete += ` AND LOWER(c.estado) = LOWER($2)`;
+  }
+
+  queryFrete += ` ORDER BY t.nome`;
+
+  const resultadoFrete = await pool.query(queryFrete, params);
+
+  if (resultadoFrete.rows.length > 0) {
+    return {
+      tipo: "resultado",
+      dados: resultadoFrete.rows
+    };
+  }
+
+  return {
+    tipo: "sem_frete",
+    cidade: cidadeExiste.rows[0].nome,
+    estado: cidadeExiste.rows[0].estado
+  };
+}
+
 module.exports = {
   vincularCidade,
   removerCidade,
   listarCidades,
   buscarCidadesPorNome,
   criarCidade,
-  listarEstados
+  listarEstados,
+  buscarTransportadorasPorNomeCidade // 🔥 ESSENCIAL PRO BOT
 };
