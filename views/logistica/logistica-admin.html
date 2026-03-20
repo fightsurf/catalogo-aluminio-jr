@@ -19,7 +19,6 @@ button { padding:6px 12px; border:none; border-radius:4px; cursor:pointer; }
 .cidade { background:#f8f9fa; padding:6px; margin-bottom:5px; border-radius:4px; font-size:14px; }
 .divider { height:1px; background:#eee; margin:10px 0; }
 
-/* Modal */
 .modal-overlay {
   position:fixed;
   top:0; left:0;
@@ -95,7 +94,43 @@ const API_LOGISTICA = '/api/logistica';
 let transportadoraSelecionada = null;
 
 // =============================
-// TRANSPORTADORAS
+// CRIAR TRANSPORTADORA (🔥 CORREÇÃO)
+// =============================
+async function criarTransportadora() {
+
+  const nome = document.getElementById('novo-nome').value.trim();
+  const telefone = document.getElementById('novo-telefone').value.trim();
+  const observacao = document.getElementById('novo-observacao').value.trim();
+
+  if (!nome) {
+    alert('Nome é obrigatório');
+    return;
+  }
+
+  try {
+    const res = await fetch(API_TRANSPORTADORAS, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ nome, telefone, observacao })
+    });
+
+    if (!res.ok) {
+      const erro = await res.json();
+      alert(erro.error || 'Erro ao criar transportadora');
+      return;
+    }
+
+    document.getElementById('novo-nome').value = '';
+    document.getElementById('novo-telefone').value = '';
+    document.getElementById('novo-observacao').value = '';
+
+    carregarTransportadoras();
+
+  } catch {
+    alert('Erro inesperado');
+  }
+}
+
 // =============================
 async function carregarTransportadoras() {
   const res = await fetch(API_TRANSPORTADORAS);
@@ -127,8 +162,6 @@ function selecionarTransportadora(t) {
 }
 
 // =============================
-// DETALHES
-// =============================
 function renderDetalhes() {
   const div = document.getElementById('detalhes');
 
@@ -149,10 +182,7 @@ function renderDetalhes() {
 }
 
 // =============================
-// CIDADES
-// =============================
 async function carregarCidades() {
-
   if (!transportadoraSelecionada) return;
 
   const div = document.getElementById('cidades-area');
@@ -193,10 +223,7 @@ async function carregarCidades() {
 }
 
 // =============================
-// BUSCAR CIDADE
-// =============================
 async function buscarCidade(event) {
-
   const termo = event.target.value;
   const resultadoDiv = document.getElementById('resultado-busca');
 
@@ -235,8 +262,6 @@ async function buscarCidade(event) {
 }
 
 // =============================
-// MODAL
-// =============================
 function abrirModalNovaCidade(nome='') {
   document.getElementById('modal-overlay').style.display = 'flex';
   document.getElementById('nova-cidade-nome').value = nome;
@@ -247,20 +272,9 @@ function fecharModal() {
   document.getElementById('modal-overlay').style.display = 'none';
 }
 
-window.addEventListener('keydown', e => {
-  if (e.key === 'Escape') fecharModal();
-});
-
-document.getElementById('modal-overlay').addEventListener('click', e => {
-  if (e.target.id === 'modal-overlay') fecharModal();
-});
-
-// =============================
-// CARREGAR ESTADOS
 // =============================
 async function carregarEstados() {
   const select = document.getElementById('nova-cidade-estado');
-  select.innerHTML = '<option value="">Carregando...</option>';
 
   const res = await fetch('/api/logistica/estados');
   const dados = await res.json();
@@ -272,8 +286,6 @@ async function carregarEstados() {
   });
 }
 
-// =============================
-// SALVAR CIDADE
 // =============================
 async function salvarNovaCidade() {
 
@@ -290,12 +302,6 @@ async function salvarNovaCidade() {
     headers: { 'Content-Type':'application/json' },
     body: JSON.stringify({ nome, estado })
   });
-
-  if (!res.ok) {
-    const erro = await res.json();
-    alert(erro.error || 'Erro ao criar cidade');
-    return;
-  }
 
   const novaCidade = await res.json();
   fecharModal();
