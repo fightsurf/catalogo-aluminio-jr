@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clientes do Legado - Alumínio JR</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f6f9;
+      color: #111827;
+      padding: 18px;
+    }
+
+    .titulo-pagina {
+      font-size: 22px;
+      font-weight: bold;
+      margin-bottom: 18px;
+    }
+
+    .layout {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
+    .box {
+      background: #ffffff;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+
+    .box h2 {
+      margin: 0 0 14px 0;
+      font-size: 18px;
+    }
+
+    .busca-linha {
+      display: flex;
+      gap: 10px;
+      align-items: end;
+      flex-wrap: wrap;
+    }
+
+    .campo {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 180px;
+      flex: 1;
+    }
+
+    .campo.uf {
+      max-width: 100px;
+      min-width: 100px;
+      flex: 0 0 100px;
+    }
+
+    .campo.limite {
+      max-width: 120px;
+      min-width: 120px;
+      flex: 0 0 120px;
+    }
+
+    .campo label {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .campo input {
+      height: 38px;
+      border: 1px solid #cfd6dd;
+      border-radius: 4px;
+      padding: 0 10px;
+      font-size: 14px;
+      outline: none;
+    }
+
+    .campo input:focus {
+      border-color: #3b82f6;
+    }
+
+    .acoes-busca {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      height: 38px;
+      border: none;
+      border-radius: 4px;
+      padding: 0 16px;
+      font-size: 14px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .btn-primary {
+      background: #0ea5b7;
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      opacity: 0.92;
+    }
+
+    .btn-secondary {
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    .btn-secondary:hover {
+      opacity: 0.92;
+    }
+
+    .mensagem {
+      margin-top: 12px;
+      font-size: 14px;
+      color: #374151;
+    }
+
+    .erro {
+      color: #dc2626;
+      font-weight: 600;
+    }
+
+    .info-topo {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .resumo {
+      font-size: 14px;
+      color: #374151;
+      font-weight: 600;
+    }
+
+    .placeholder {
+      color: #6b7280;
+      font-size: 15px;
+    }
+
+    .tabela-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 760px;
+    }
+
+    th, td {
+      border: 1px solid #e5e7eb;
+      padding: 10px;
+      font-size: 14px;
+      text-align: left;
+      vertical-align: middle;
+    }
+
+    th {
+      background: #f9fafb;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    .cliente-link {
+      background: none;
+      border: none;
+      padding: 0;
+      margin: 0;
+      color: #0f766e;
+      font-size: 14px;
+      font-weight: 700;
+      text-transform: uppercase;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .cliente-link:hover {
+      text-decoration: underline;
+    }
+
+    .telefone-link {
+      color: #0f766e;
+      font-weight: 600;
+      text-decoration: none;
+    }
+
+    .telefone-link:hover {
+      text-decoration: underline;
+    }
+
+    .sem-registros {
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(17, 24, 39, 0.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 9999;
+    }
+
+    .modal-overlay.ativo {
+      display: flex;
+    }
+
+    .modal {
+      width: 100%;
+      max-width: 620px;
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
+      overflow: hidden;
+    }
+
+    .modal-topo {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 16px;
+      border-bottom: 1px solid #e5e7eb;
+      background: #f9fafb;
+    }
+
+    .modal-topo h3 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .modal-fechar {
+      width: 34px;
+      height: 34px;
+      border: none;
+      border-radius: 6px;
+      background: #e5e7eb;
+      cursor: pointer;
+      font-size: 18px;
+      font-weight: bold;
+      color: #111827;
+    }
+
+    .modal-fechar:hover {
+      opacity: 0.92;
+    }
+
+    .modal-conteudo {
+      padding: 16px;
+    }
+
+    .modal-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .modal-card {
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    .modal-card-label {
+      display: block;
+      font-size: 12px;
+      font-weight: 700;
+      color: #6b7280;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+    }
+
+    .modal-card-valor {
+      font-size: 14px;
+      color: #111827;
+      word-break: break-word;
+    }
+
+    .modal-acoes-futuras {
+      border: 1px dashed #cbd5e1;
+      border-radius: 8px;
+      padding: 14px;
+      background: #f8fafc;
+    }
+
+    .modal-acoes-futuras h4 {
+      margin: 0 0 10px 0;
+      font-size: 15px;
+    }
+
+    .modal-acoes-futuras ul {
+      margin: 0;
+      padding-left: 18px;
+      color: #374151;
+      font-size: 14px;
+    }
+
+    .modal-rodape {
+      padding: 16px;
+      border-top: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    @media (max-width: 700px) {
+      .modal-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .acoes-busca {
+        width: 100%;
+      }
+
+      .acoes-busca .btn {
+        flex: 1;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="layout">
+    <div class="titulo-pagina">👥 Clientes do Legado</div>
+
+    <div class="box">
+      <h2>Pesquisar Clientes</h2>
+
+      <div class="busca-linha">
+        <div class="campo">
+          <label for="filtroNome">Nome</label>
+          <input
+            type="text"
+            id="filtroNome"
+            placeholder="Digite o nome do cliente"
+          />
+        </div>
+
+        <div class="campo">
+          <label for="filtroCidade">Cidade</label>
+          <input
+            type="text"
+            id="filtroCidade"
+            placeholder="Digite a cidade"
+          />
+        </div>
+
+        <div class="campo uf">
+          <label for="filtroUf">UF</label>
+          <input
+            type="text"
+            id="filtroUf"
+            maxlength="2"
+            placeholder="UF"
+          />
+        </div>
+
+        <div class="campo limite">
+          <label for="filtroLimite">Limite</label>
+          <input
+            type="number"
+            id="filtroLimite"
+            min="1"
+            max="500"
+            value="50"
+          />
+        </div>
+
+        <div class="acoes-busca">
+          <button id="btnPesquisar" class="btn btn-primary">
+            Pesquisar
+          </button>
+
+          <button id="btnLimpar" class="btn btn-secondary" type="button">
+            Limpar
+          </button>
+        </div>
+      </div>
+
+      <div id="mensagem" class="mensagem">Aguardando pesquisa.</div>
+    </div>
+
+    <div class="box">
+      <div class="info-topo">
+        <div>
+          <h2 style="margin: 0;">Resultado</h2>
+        </div>
+
+        <div id="resumo" class="resumo">Nenhum cliente carregado.</div>
+      </div>
+
+      <div id="blocoTabela">
+        <div class="placeholder">Nenhum cliente carregado.</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalOverlay" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-topo">
+        <h3>Cliente</h3>
+        <button id="btnFecharModalTopo" class="modal-fechar" type="button">×</button>
+      </div>
+
+      <div class="modal-conteudo">
+        <div class="modal-grid">
+          <div class="modal-card">
+            <span class="modal-card-label">Nome</span>
+            <div id="modalNome" class="modal-card-valor">-</div>
+          </div>
+
+          <div class="modal-card">
+            <span class="modal-card-label">Telefone</span>
+            <div id="modalTelefone" class="modal-card-valor">-</div>
+          </div>
+
+          <div class="modal-card">
+            <span class="modal-card-label">Cidade</span>
+            <div id="modalCidade" class="modal-card-valor">-</div>
+          </div>
+
+          <div class="modal-card">
+            <span class="modal-card-label">UF</span>
+            <div id="modalUf" class="modal-card-valor">-</div>
+          </div>
+        </div>
+
+        <div class="modal-acoes-futuras">
+          <h4>Espaço para próximas funções</h4>
+          <ul>
+            <li>Histórico de compras do cliente</li>
+            <li>Consulta detalhada do cadastro</li>
+            <li>Ações comerciais e observações</li>
+            <li>Novas integrações com o legado</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="modal-rodape">
+        <button id="btnFecharModalRodape" class="btn btn-secondary" type="button">
+          Fechar
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const filtroNome = document.getElementById('filtroNome');
+    const filtroCidade = document.getElementById('filtroCidade');
+    const filtroUf = document.getElementById('filtroUf');
+    const filtroLimite = document.getElementById('filtroLimite');
+    const btnPesquisar = document.getElementById('btnPesquisar');
+    const btnLimpar = document.getElementById('btnLimpar');
+    const mensagem = document.getElementById('mensagem');
+    const resumo = document.getElementById('resumo');
+    const blocoTabela = document.getElementById('blocoTabela');
+
+    const modalOverlay = document.getElementById('modalOverlay');
+    const modalNome = document.getElementById('modalNome');
+    const modalTelefone = document.getElementById('modalTelefone');
+    const modalCidade = document.getElementById('modalCidade');
+    const modalUf = document.getElementById('modalUf');
+    const btnFecharModalTopo = document.getElementById('btnFecharModalTopo');
+    const btnFecharModalRodape = document.getElementById('btnFecharModalRodape');
+
+    function setMensagem(texto, erro = false) {
+      mensagem.textContent = texto;
+      mensagem.className = erro ? 'mensagem erro' : 'mensagem';
+    }
+
+    function limparTabela() {
+      blocoTabela.innerHTML = '<div class="placeholder">Nenhum cliente carregado.</div>';
+      resumo.textContent = 'Nenhum cliente carregado.';
+    }
+
+    function limparSomenteNumeros(valor) {
+      return String(valor || '').replace(/\D/g, '');
+    }
+
+    function formatarTelefoneExibicao(valor) {
+      const numeros = limparSomenteNumeros(valor);
+
+      if (!numeros) {
+        return '-';
+      }
+
+      return valor;
+    }
+
+    function montarLinkWhatsapp(valor) {
+      let numeros = limparSomenteNumeros(valor);
+
+      if (!numeros) {
+        return '';
+      }
+
+      if (numeros.length === 10 || numeros.length === 11) {
+        numeros = `55${numeros}`;
+      }
+
+      return `https://web.whatsapp.com/send?phone=${numeros}`;
+    }
+
+    function criarHtmlTelefone(valor) {
+      const telefoneFormatado = formatarTelefoneExibicao(valor);
+      const linkWhatsapp = montarLinkWhatsapp(valor);
+
+      if (!linkWhatsapp) {
+        return '-';
+      }
+
+      return `
+        <a
+          href="${linkWhatsapp}"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="telefone-link"
+          title="Abrir conversa no WhatsApp Web"
+        >
+          ${telefoneFormatado}
+        </a>
+      `;
+    }
+
+    function abrirModal(cliente) {
+      modalNome.textContent = cliente?.nome || '-';
+      modalCidade.textContent = cliente?.cidade || '-';
+      modalUf.textContent = cliente?.uf || '-';
+
+      const linkWhatsapp = montarLinkWhatsapp(cliente?.telefonePrincipal || '');
+
+      if (linkWhatsapp) {
+        modalTelefone.innerHTML = `
+          <a
+            href="${linkWhatsapp}"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="telefone-link"
+            title="Abrir conversa no WhatsApp Web"
+          >
+            ${formatarTelefoneExibicao(cliente?.telefonePrincipal)}
+          </a>
+        `;
+      } else {
+        modalTelefone.textContent = '-';
+      }
+
+      modalOverlay.classList.add('ativo');
+    }
+
+    function fecharModal() {
+      modalOverlay.classList.remove('ativo');
+    }
+
+    function renderizarTabela(clientes) {
+      if (!clientes || !clientes.length) {
+        blocoTabela.innerHTML = '<div class="sem-registros">Nenhum cliente encontrado.</div>';
+        resumo.textContent = '0 clientes encontrados.';
+        return;
+      }
+
+      resumo.textContent = `${clientes.length} cliente(s) encontrado(s).`;
+
+      blocoTabela.innerHTML = `
+        <div class="tabela-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Nome</th>
+                <th>Telefone</th>
+                <th>Cidade</th>
+                <th>UF</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${clientes.map((cliente, index) => `
+                <tr>
+                  <td>
+                    <button
+                      type="button"
+                      class="cliente-link"
+                      data-index="${index}"
+                    >
+                      ${cliente.nome || '-'}
+                    </button>
+                  </td>
+                  <td>${criarHtmlTelefone(cliente.telefonePrincipal)}</td>
+                  <td>${cliente.cidade || '-'}</td>
+                  <td>${cliente.uf || '-'}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      blocoTabela.querySelectorAll('.cliente-link').forEach((botao) => {
+        botao.addEventListener('click', () => {
+          const indice = Number(botao.dataset.index);
+          abrirModal(clientes[indice]);
+        });
+      });
+    }
+
+    function montarQueryString() {
+      const params = new URLSearchParams();
+
+      const nome = filtroNome.value.trim();
+      const cidade = filtroCidade.value.trim();
+      const uf = filtroUf.value.trim().toUpperCase();
+      const limite = filtroLimite.value.trim();
+
+      if (nome) {
+        params.set('nome', nome);
+      }
+
+      if (cidade) {
+        params.set('cidade', cidade);
+      }
+
+      if (uf) {
+        params.set('uf', uf);
+      }
+
+      if (limite) {
+        params.set('limite', limite);
+      }
+
+      return params.toString();
+    }
+
+    async function pesquisarClientes() {
+      setMensagem('Pesquisando clientes...');
+      limparTabela();
+
+      try {
+        const queryString = montarQueryString();
+        const url = queryString
+          ? `/api/legado/clientes?${queryString}`
+          : '/api/legado/clientes';
+
+        const response = await fetch(url);
+        const json = await response.json();
+
+        if (!response.ok) {
+          throw new Error(json?.erro || json?.detalhe || 'Erro ao consultar clientes.');
+        }
+
+        const clientes = Array.isArray(json?.dados) ? json.dados : [];
+
+        renderizarTabela(clientes);
+
+        if (!clientes.length) {
+          setMensagem('Nenhum cliente encontrado.', true);
+          return;
+        }
+
+        setMensagem('Clientes carregados com sucesso.');
+      } catch (error) {
+        limparTabela();
+        setMensagem(error.message || 'Erro ao consultar clientes.', true);
+      }
+    }
+
+    function limparFiltros() {
+      filtroNome.value = '';
+      filtroCidade.value = '';
+      filtroUf.value = '';
+      filtroLimite.value = '50';
+      setMensagem('Filtros limpos.');
+      limparTabela();
+    }
+
+    btnPesquisar.addEventListener('click', pesquisarClientes);
+    btnLimpar.addEventListener('click', limparFiltros);
+
+    [filtroNome, filtroCidade, filtroUf, filtroLimite].forEach((campo) => {
+      campo.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          pesquisarClientes();
+        }
+      });
+    });
+
+    filtroUf.addEventListener('input', () => {
+      filtroUf.value = filtroUf.value.toUpperCase().slice(0, 2);
+    });
+
+    btnFecharModalTopo.addEventListener('click', fecharModal);
+    btnFecharModalRodape.addEventListener('click', fecharModal);
+
+    modalOverlay.addEventListener('click', (event) => {
+      if (event.target === modalOverlay) {
+        fecharModal();
+      }
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') {
+        fecharModal();
+      }
+    });
+  </script>
+</body>
+</html>
