@@ -7,6 +7,7 @@ const botEvents = require('./src/services/bot/botEvents');
 // =====================================================
 // 📦 IMPORTAÇÃO DE ROTAS MODULARES
 // =====================================================
+const pedidosLegadoPageRoutes = require('./src/routes/legado/pedido/pedidosLegadoPage.routes');
 const pedidosLegadoRoutes = require('./src/routes/legado/pedido/pedidosLegado.routes');
 
 const botAutonomiaService = require('./src/services/bot/botAutonomia.services');
@@ -44,6 +45,7 @@ app.use('/prestacao_contas', express.static(path.join(__dirname, 'views', 'prest
 // 📡 APIs
 // =====================================================
 app.use('/api/legado', pedidosLegadoRoutes);
+app.use('/', pedidosLegadoPageRoutes);
 
 app.use('/bot/autonomia', botAutonomiaRoutes);
 app.use('/api/produtos-categorias', produtoCategoriaRoutes);
