@@ -9,182 +9,594 @@
       box-sizing: border-box;
     }
 
-    body {
+    :root {
+      --bg: #bfcddd;
+      --panel: #d8e4f0;
+      --panel-dark: #c7d6e6;
+      --line: #6e7f91;
+      --text: #111;
+      --white: #fff;
+      --header: #a8bfd8;
+      --header-2: #98b4d1;
+      --table-head: #d9e3ee;
+    }
+
+    html, body {
       margin: 0;
-      font-family: Arial, sans-serif;
-      background: #f4f6f9;
-      color: #1f2937;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
     }
 
-    .container {
-      max-width: 1200px;
-      margin: 30px auto;
-      padding: 0 16px;
+    .app {
+      width: 100vw;
+      height: 100vh;
+      padding: 6px;
+      display: grid;
+      grid-template-rows: 46px 58px 1fr;
+      gap: 6px;
     }
 
-    .card {
-      background: #ffffff;
-      border-radius: 10px;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
-      padding: 20px;
-      margin-bottom: 20px;
+    .barra-topo {
+      display: grid;
+      grid-template-columns: 160px 1fr 220px 150px;
+      gap: 6px;
+      align-items: stretch;
     }
 
-    h1, h2, h3 {
-      margin-top: 0;
+    .painel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      min-width: 0;
     }
 
-    .busca-linha {
+    .painel-titulo {
+      height: 18px;
+      line-height: 18px;
+      font-size: 12px;
+      text-align: center;
+      background: var(--header);
+      border-bottom: 1px solid var(--line);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .painel-corpo {
+      padding: 4px 6px;
+      height: calc(100% - 18px);
+      overflow: hidden;
+    }
+
+    .logo {
       display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
       align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 18px;
+      letter-spacing: 0.5px;
+      background: var(--panel-dark);
     }
 
-    .busca-linha input {
-      flex: 1;
-      min-width: 260px;
-      padding: 12px;
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      font-size: 16px;
+    .busca-wrap {
+      display: grid;
+      grid-template-columns: 130px 1fr 100px;
+      gap: 6px;
+      align-items: center;
+      height: 100%;
     }
 
-    .busca-linha button {
-      padding: 12px 18px;
-      border: none;
-      border-radius: 8px;
-      background: #2563eb;
-      color: #fff;
-      cursor: pointer;
-      font-size: 15px;
+    .label-inline {
+      font-size: 12px;
       font-weight: bold;
     }
 
-    .busca-linha button:hover {
-      background: #1d4ed8;
-    }
-
-    .mensagem {
-      margin-top: 12px;
+    input, button {
+      height: 30px;
+      border: 1px solid var(--line);
       font-size: 14px;
-      color: #374151;
+      padding: 0 8px;
+      outline: none;
     }
 
-    .erro {
-      color: #b91c1c;
-      font-weight: bold;
-    }
-
-    .lista-pedidos {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    .pedido-item {
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 14px;
-      cursor: pointer;
-      transition: 0.2s;
+    input {
       background: #fff;
     }
 
-    .pedido-item:hover {
-      background: #f9fafb;
-      border-color: #cbd5e1;
-    }
-
-    .grid-resumo {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      gap: 12px;
-    }
-
-    .campo {
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 12px;
-    }
-
-    .campo-label {
-      font-size: 12px;
-      color: #6b7280;
-      margin-bottom: 6px;
-      text-transform: uppercase;
+    button {
+      background: #e8eef5;
+      cursor: pointer;
       font-weight: bold;
     }
 
-    .campo-valor {
-      font-size: 15px;
-      color: #111827;
-      word-break: break-word;
+    button:hover {
+      background: #dce6f0;
+    }
+
+    .mensagem {
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 6px;
+      text-align: center;
+    }
+
+    .mensagem.erro {
+      color: #a50000;
+      font-weight: bold;
+    }
+
+    .resumo-rapido {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 4px;
+      height: 100%;
+    }
+
+    .campo-mini {
+      border: 1px solid var(--line);
+      background: #fff;
+      display: grid;
+      grid-template-rows: 16px 1fr;
+      min-width: 0;
+    }
+
+    .campo-mini-label {
+      font-size: 11px;
+      text-align: center;
+      background: var(--table-head);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .campo-mini-valor {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 6px;
+      font-size: 16px;
+      font-weight: bold;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .linha-resultados {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 6px;
+      min-height: 0;
+    }
+
+    .resultados-scroll {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      padding-bottom: 2px;
+      height: 100%;
+    }
+
+    .resultado-card {
+      min-width: 260px;
+      max-width: 260px;
+      border: 1px solid var(--line);
+      background: #fff;
+      padding: 6px;
+      cursor: pointer;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .resultado-card:hover {
+      background: #f6f9fc;
+    }
+
+    .resultado-card.ativo {
+      background: #dce8f4;
+      border-color: #35506b;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 250px 1fr 155px;
+      gap: 6px;
+      min-height: 0;
+    }
+
+    .coluna {
+      display: grid;
+      gap: 6px;
+      min-height: 0;
+    }
+
+    .coluna-esquerda {
+      grid-template-rows: 150px 70px 1fr;
+    }
+
+    .coluna-centro {
+      grid-template-rows: 84px 1fr;
+    }
+
+    .coluna-direita {
+      grid-template-rows: 70px 70px 70px 1fr;
+    }
+
+    .cliente-box {
+      padding: 6px;
+      font-size: 12px;
+      line-height: 1.45;
+      background: #ececec;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .cliente-nome {
+      color: #c40000;
+      font-weight: bold;
+      font-size: 14px;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+    }
+
+    .campo-info-simples {
+      padding: 6px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      background: #fff;
+    }
+
+    .topo-pedido {
+      display: grid;
+      grid-template-columns: 1fr 180px 140px;
+      gap: 6px;
+      height: 100%;
+    }
+
+    .observacao-box {
+      background: #ececec;
+      border: 1px solid var(--line);
+      padding: 6px;
+      font-size: 12px;
+      line-height: 1.4;
+      overflow: auto;
+      height: 100%;
+    }
+
+    .info-card {
+      border: 1px solid var(--line);
+      background: #fff;
+      display: grid;
+      grid-template-rows: 18px 1fr;
+      min-width: 0;
+    }
+
+    .info-card-label {
+      font-size: 11px;
+      text-align: center;
+      background: var(--table-head);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .info-card-valor {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 6px;
+      font-size: 22px;
+      font-weight: bold;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .tabela-wrap {
+      border: 1px solid var(--line);
+      background: #fff;
+      display: grid;
+      grid-template-rows: 28px 1fr 30px;
+      min-height: 0;
+    }
+
+    .abas {
+      display: flex;
+      align-items: end;
+      gap: 4px;
+      padding: 3px 4px 0 4px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .aba {
+      min-width: 88px;
+      text-align: center;
+      font-size: 12px;
+      border: 1px solid var(--line);
+      border-bottom: none;
+      background: #f2f2f2;
+      padding: 4px 8px;
+    }
+
+    .aba.ativa {
+      background: #fff;
+      font-weight: bold;
+    }
+
+    .tabela-area {
+      overflow: auto;
+      min-height: 0;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      margin-top: 12px;
+      table-layout: fixed;
+      font-size: 12px;
     }
 
     th, td {
-      padding: 12px;
-      border-bottom: 1px solid #e5e7eb;
-      text-align: left;
-      font-size: 14px;
+      border: 1px solid #c6cfda;
+      padding: 3px 5px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      height: 24px;
     }
 
     th {
-      background: #f9fafb;
+      background: var(--table-head);
+      font-weight: normal;
     }
 
-    .hidden {
-      display: none;
-    }
-
-    .right {
+    td.right, th.right {
       text-align: right;
+    }
+
+    .rodape-tabela {
+      display: grid;
+      grid-template-columns: 50px 70px 1fr 110px 120px;
+      gap: 6px;
+      padding: 4px 6px;
+      background: var(--panel);
+      border-top: 1px solid var(--line);
+      align-items: center;
+    }
+
+    .rodape-box {
+      height: 22px;
+      border: 1px solid var(--line);
+      background: #d8e7f7;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+    }
+
+    .rodape-box.total {
+      font-weight: bold;
+      background: #d4e3f5;
+    }
+
+    .total-box {
+      display: grid;
+      grid-template-rows: 18px 1fr;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .total-box-label {
+      text-align: center;
+      font-size: 11px;
+      background: var(--header);
+      border-bottom: 1px solid var(--line);
+      font-weight: bold;
+    }
+
+    .total-box-valor {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 0 8px;
+      font-size: 26px;
+      font-weight: bold;
+      color: #003d9a;
+    }
+
+    .placeholder-centro {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #555;
+      font-size: 12px;
+      background: #eef3f8;
+      border: 1px dashed var(--line);
+      height: 100%;
+    }
+
+    @media (max-width: 1200px) {
+      body {
+        overflow: auto;
+      }
+
+      .app {
+        height: auto;
+        min-height: 100vh;
+        overflow: visible;
+      }
+
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .coluna-esquerda,
+      .coluna-centro,
+      .coluna-direita {
+        grid-template-rows: auto;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="card">
-      <h1>Pedidos do Legado</h1>
+  <div class="app">
+    <div class="barra-topo">
+      <div class="painel logo">PEDIDOS LEGADO</div>
 
-      <div class="busca-linha">
-        <input
-          type="text"
-          id="numeroPedido"
-          placeholder="Digite o número do pedido"
-        />
-        <button id="btnPesquisar">Pesquisar</button>
+      <div class="painel">
+        <div class="painel-titulo">Pesquisa de Pedido</div>
+        <div class="painel-corpo">
+          <div class="busca-wrap">
+            <div class="label-inline">Nº Pedido</div>
+            <input type="text" id="numeroPedido" placeholder="Digite o número do pedido" />
+            <button id="btnPesquisar">Pesquisar</button>
+          </div>
+        </div>
       </div>
 
-      <div id="mensagem" class="mensagem"></div>
+      <div class="painel">
+        <div class="painel-titulo">Status</div>
+        <div id="mensagem" class="painel-corpo mensagem">Aguardando pesquisa.</div>
+      </div>
+
+      <div class="painel">
+        <div class="painel-titulo">Resumo Rápido</div>
+        <div class="painel-corpo resumo-rapido">
+          <div class="campo-mini">
+            <div class="campo-mini-label">Itens</div>
+            <div class="campo-mini-valor" id="resumoItens">0</div>
+          </div>
+          <div class="campo-mini">
+            <div class="campo-mini-label">Qtd Total</div>
+            <div class="campo-mini-valor" id="resumoQuantidade">0</div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <div id="boxResultados" class="card hidden">
-      <h2>Resultados</h2>
-      <div id="listaPedidos" class="lista-pedidos"></div>
+    <div class="linha-resultados">
+      <div class="painel" style="height: 100%;">
+        <div class="painel-titulo">Resultados da Pesquisa</div>
+        <div class="painel-corpo" style="padding: 4px;">
+          <div id="listaPedidos" class="resultados-scroll"></div>
+        </div>
+      </div>
     </div>
 
-    <div id="boxDetalhes" class="hidden">
-      <div class="card">
-        <h2>Resumo do Pedido</h2>
-        <div id="resumoPedido" class="grid-resumo"></div>
+    <div class="layout">
+      <div class="coluna coluna-esquerda">
+        <div class="painel">
+          <div class="painel-titulo">Cliente</div>
+          <div id="dadosCliente" class="cliente-box">
+            <div class="cliente-nome">-</div>
+            <div>-</div>
+            <div>-</div>
+            <div>-</div>
+          </div>
+        </div>
+
+        <div class="painel">
+          <div class="painel-titulo">Observação</div>
+          <div id="observacaoPedido" class="campo-info-simples">-</div>
+        </div>
+
+        <div class="painel">
+          <div class="painel-titulo">Ações</div>
+          <div class="painel-corpo" style="display:flex; align-items:center; justify-content:center; font-size:12px;">
+            Clique em um pedido encontrado para carregar os itens.
+          </div>
+        </div>
       </div>
 
-      <div class="card">
-        <h2>Cliente</h2>
-        <div id="dadosCliente" class="grid-resumo"></div>
+      <div class="coluna coluna-centro">
+        <div class="painel">
+          <div class="painel-titulo">Dados do Pedido</div>
+          <div class="painel-corpo">
+            <div class="topo-pedido">
+              <div class="observacao-box" id="boxInfoPedido">
+                <div><strong>Pedido:</strong> <span id="pedidoNumero">-</span></div>
+                <div><strong>Data:</strong> <span id="pedidoData">-</span></div>
+                <div><strong>Total:</strong> <span id="pedidoTotal">-</span></div>
+                <div><strong>Desconto:</strong> <span id="pedidoDesconto">-</span></div>
+                <div><strong>Total Produtos:</strong> <span id="pedidoTotalProdutos">-</span></div>
+              </div>
+
+              <div class="info-card">
+                <div class="info-card-label">Data</div>
+                <div class="info-card-valor" id="pedidoDataGrande">-</div>
+              </div>
+
+              <div class="info-card">
+                <div class="info-card-label">Número</div>
+                <div class="info-card-valor" id="pedidoNumeroGrande">-</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tabela-wrap">
+          <div class="abas">
+            <div class="aba ativa">1. Itens</div>
+          </div>
+
+          <div class="tabela-area">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 56%;">Descrição</th>
+                  <th class="right" style="width: 12%;">Qtd.</th>
+                  <th class="right" style="width: 16%;">Preço</th>
+                  <th class="right" style="width: 16%;">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody id="tabelaItensBody">
+                <tr>
+                  <td colspan="4" style="text-align:center;">Nenhum pedido carregado.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="rodape-tabela">
+            <div class="rodape-box" id="rodapeItens">0</div>
+            <div class="rodape-box">Itens</div>
+            <div></div>
+            <div class="rodape-box total" id="rodapeQuantidade">0,00</div>
+            <div class="rodape-box total" id="rodapeTotal">R$ 0,00</div>
+          </div>
+        </div>
       </div>
 
-      <div class="card">
-        <h2>Itens do Pedido</h2>
-        <div id="tabelaItens"></div>
+      <div class="coluna coluna-direita">
+        <div class="total-box">
+          <div class="total-box-label">Desconto</div>
+          <div class="total-box-valor" id="boxDesconto">R$ 0,00</div>
+        </div>
+
+        <div class="total-box">
+          <div class="total-box-label">Total Produtos</div>
+          <div class="total-box-valor" id="boxTotalProdutos">R$ 0,00</div>
+        </div>
+
+        <div class="total-box">
+          <div class="total-box-label">Total Pedido</div>
+          <div class="total-box-valor" id="boxTotalPedido">R$ 0,00</div>
+        </div>
+
+        <div class="painel">
+          <div class="painel-titulo">Visualização</div>
+          <div class="painel-corpo">
+            <div class="placeholder-centro">
+              Layout ajustado para deixar tudo visível sem descer a página.
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -193,12 +605,33 @@
     const numeroPedidoInput = document.getElementById('numeroPedido');
     const btnPesquisar = document.getElementById('btnPesquisar');
     const mensagem = document.getElementById('mensagem');
-    const boxResultados = document.getElementById('boxResultados');
     const listaPedidos = document.getElementById('listaPedidos');
-    const boxDetalhes = document.getElementById('boxDetalhes');
-    const resumoPedido = document.getElementById('resumoPedido');
+
+    const resumoItens = document.getElementById('resumoItens');
+    const resumoQuantidade = document.getElementById('resumoQuantidade');
+
     const dadosCliente = document.getElementById('dadosCliente');
-    const tabelaItens = document.getElementById('tabelaItens');
+    const observacaoPedido = document.getElementById('observacaoPedido');
+
+    const pedidoNumero = document.getElementById('pedidoNumero');
+    const pedidoData = document.getElementById('pedidoData');
+    const pedidoTotal = document.getElementById('pedidoTotal');
+    const pedidoDesconto = document.getElementById('pedidoDesconto');
+    const pedidoTotalProdutos = document.getElementById('pedidoTotalProdutos');
+
+    const pedidoNumeroGrande = document.getElementById('pedidoNumeroGrande');
+    const pedidoDataGrande = document.getElementById('pedidoDataGrande');
+
+    const boxDesconto = document.getElementById('boxDesconto');
+    const boxTotalProdutos = document.getElementById('boxTotalProdutos');
+    const boxTotalPedido = document.getElementById('boxTotalPedido');
+
+    const tabelaItensBody = document.getElementById('tabelaItensBody');
+    const rodapeItens = document.getElementById('rodapeItens');
+    const rodapeQuantidade = document.getElementById('rodapeQuantidade');
+    const rodapeTotal = document.getElementById('rodapeTotal');
+
+    let pedidoAtivoId = null;
 
     function formatarData(dataIso) {
       if (!dataIso) return '-';
@@ -219,35 +652,135 @@
       });
     }
 
-    function renderCampo(label, valor) {
-      return `
-        <div class="campo">
-          <div class="campo-label">${label}</div>
-          <div class="campo-valor">${valor ?? '-'}</div>
-        </div>
+    function formatarNumero(valor) {
+      return Number(valor || 0).toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+
+    function setMensagem(texto, erro = false) {
+      mensagem.textContent = texto;
+      mensagem.classList.toggle('erro', erro);
+    }
+
+    function resetarDetalhes() {
+      dadosCliente.innerHTML = `
+        <div class="cliente-nome">-</div>
+        <div>-</div>
+        <div>-</div>
+        <div>-</div>
+      `;
+
+      observacaoPedido.textContent = '-';
+
+      pedidoNumero.textContent = '-';
+      pedidoData.textContent = '-';
+      pedidoTotal.textContent = '-';
+      pedidoDesconto.textContent = '-';
+      pedidoTotalProdutos.textContent = '-';
+
+      pedidoNumeroGrande.textContent = '-';
+      pedidoDataGrande.textContent = '-';
+
+      boxDesconto.textContent = formatarMoeda(0);
+      boxTotalProdutos.textContent = formatarMoeda(0);
+      boxTotalPedido.textContent = formatarMoeda(0);
+
+      tabelaItensBody.innerHTML = `
+        <tr>
+          <td colspan="4" style="text-align:center;">Nenhum pedido carregado.</td>
+        </tr>
+      `;
+
+      rodapeItens.textContent = '0';
+      rodapeQuantidade.textContent = '0,00';
+      rodapeTotal.textContent = formatarMoeda(0);
+
+      resumoItens.textContent = '0';
+      resumoQuantidade.textContent = '0';
+    }
+
+    function preencherCliente(cliente) {
+      dadosCliente.innerHTML = `
+        <div class="cliente-nome">${cliente.nome || '-'}</div>
+        <div>${cliente.cidade || '-'}</div>
+        <div>${cliente.uf || '-'}</div>
+        <div>&nbsp;</div>
       `;
     }
 
-    function limparTela() {
-      boxResultados.classList.add('hidden');
-      boxDetalhes.classList.add('hidden');
-      listaPedidos.innerHTML = '';
-      resumoPedido.innerHTML = '';
-      dadosCliente.innerHTML = '';
-      tabelaItens.innerHTML = '';
+    function preencherPedido(pedido) {
+      pedidoNumero.textContent = pedido.numero || '-';
+      pedidoData.textContent = formatarData(pedido.data);
+      pedidoTotal.textContent = formatarMoeda(pedido.total);
+      pedidoDesconto.textContent = formatarMoeda(pedido.desconto);
+      pedidoTotalProdutos.textContent = formatarMoeda(pedido.totalProdutos);
+
+      pedidoNumeroGrande.textContent = pedido.numero || '-';
+      pedidoDataGrande.textContent = formatarData(pedido.data);
+
+      observacaoPedido.textContent = pedido.observacao || '-';
+
+      boxDesconto.textContent = formatarMoeda(pedido.desconto);
+      boxTotalProdutos.textContent = formatarMoeda(pedido.totalProdutos);
+      boxTotalPedido.textContent = formatarMoeda(pedido.total);
+    }
+
+    function preencherItens(itens) {
+      if (!itens.length) {
+        tabelaItensBody.innerHTML = `
+          <tr>
+            <td colspan="4" style="text-align:center;">Nenhum item encontrado.</td>
+          </tr>
+        `;
+        rodapeItens.textContent = '0';
+        rodapeQuantidade.textContent = '0,00';
+        rodapeTotal.textContent = formatarMoeda(0);
+        resumoItens.textContent = '0';
+        resumoQuantidade.textContent = '0';
+        return;
+      }
+
+      tabelaItensBody.innerHTML = itens.map(item => `
+        <tr>
+          <td title="${item.descricao || ''}">${item.descricao || '-'}</td>
+          <td class="right">${formatarNumero(item.quantidade)}</td>
+          <td class="right">${formatarMoeda(item.preco)}</td>
+          <td class="right">${formatarMoeda(item.subtotal)}</td>
+        </tr>
+      `).join('');
+
+      const quantidadeTotal = itens.reduce((acc, item) => acc + Number(item.quantidade || 0), 0);
+      const subtotalTotal = itens.reduce((acc, item) => acc + Number(item.subtotal || 0), 0);
+
+      rodapeItens.textContent = String(itens.length);
+      rodapeQuantidade.textContent = formatarNumero(quantidadeTotal);
+      rodapeTotal.textContent = formatarMoeda(subtotalTotal);
+
+      resumoItens.textContent = String(itens.length);
+      resumoQuantidade.textContent = formatarNumero(quantidadeTotal);
+    }
+
+    function marcarResultadoAtivo() {
+      document.querySelectorAll('.resultado-card').forEach((card) => {
+        card.classList.toggle('ativo', Number(card.dataset.id) === Number(pedidoAtivoId));
+      });
     }
 
     async function pesquisarPedidos() {
       const numero = numeroPedidoInput.value.trim();
 
-      limparTela();
+      listaPedidos.innerHTML = '';
+      pedidoAtivoId = null;
+      resetarDetalhes();
 
       if (!numero) {
-        mensagem.innerHTML = '<span class="erro">Informe o número do pedido.</span>';
+        setMensagem('Informe o número do pedido.', true);
         return;
       }
 
-      mensagem.textContent = 'Pesquisando...';
+      setMensagem('Pesquisando...');
 
       try {
         const response = await fetch(`/api/legado/pedidos?numero=${encodeURIComponent(numero)}`);
@@ -260,36 +793,40 @@
         const pedidos = json.data || [];
 
         if (!pedidos.length) {
-          mensagem.innerHTML = '<span class="erro">Nenhum pedido encontrado.</span>';
+          setMensagem('Nenhum pedido encontrado.', true);
+          listaPedidos.innerHTML = '<div class="resultado-card">Sem resultados.</div>';
           return;
         }
 
-        mensagem.textContent = `${pedidos.length} pedido(s) encontrado(s).`;
-        boxResultados.classList.remove('hidden');
+        listaPedidos.innerHTML = pedidos.map((pedido) => `
+          <div class="resultado-card" data-id="${pedido.idMestre}">
+            <div><strong>Pedido:</strong> ${pedido.numero || '-'}</div>
+            <div><strong>Cliente:</strong> ${pedido.cliente?.nome || '-'}</div>
+            <div><strong>Data:</strong> ${formatarData(pedido.data)}</div>
+            <div><strong>Total:</strong> ${formatarMoeda(pedido.total)}</div>
+          </div>
+        `).join('');
 
-        pedidos.forEach((pedido) => {
-          const div = document.createElement('div');
-          div.className = 'pedido-item';
-          div.innerHTML = `
-            <strong>Pedido:</strong> ${pedido.numero}<br>
-            <strong>Cliente:</strong> ${pedido.cliente?.nome || '-'}<br>
-            <strong>Data:</strong> ${formatarData(pedido.data)}<br>
-            <strong>Total:</strong> ${formatarMoeda(pedido.total)}
-          `;
-
-          div.addEventListener('click', () => carregarItensPedido(pedido.idMestre));
-          listaPedidos.appendChild(div);
+        document.querySelectorAll('.resultado-card').forEach((card) => {
+          card.addEventListener('click', () => carregarPedido(Number(card.dataset.id)));
         });
+
+        setMensagem(`${pedidos.length} pedido(s) encontrado(s).`);
+
+        if (pedidos.length === 1) {
+          await carregarPedido(pedidos[0].idMestre);
+        }
       } catch (error) {
-        mensagem.innerHTML = `<span class="erro">${error.message}</span>`;
+        setMensagem(error.message || 'Erro ao pesquisar pedidos.', true);
       }
     }
 
-    async function carregarItensPedido(idMestre) {
-      mensagem.textContent = 'Carregando pedido...';
-      boxDetalhes.classList.add('hidden');
-
+    async function carregarPedido(idMestre) {
       try {
+        pedidoAtivoId = idMestre;
+        marcarResultadoAtivo();
+        setMensagem('Carregando pedido...');
+
         const response = await fetch(`/api/legado/pedidos/${idMestre}/itens`);
         const json = await response.json();
 
@@ -297,57 +834,18 @@
           throw new Error(json.message || 'Erro ao carregar pedido.');
         }
 
-        const data = json.data;
+        const data = json.data || {};
         const pedido = data.pedido || {};
         const cliente = data.cliente || {};
         const itens = data.itens || [];
 
-        resumoPedido.innerHTML = [
-          renderCampo('Número', pedido.numero || '-'),
-          renderCampo('Data', formatarData(pedido.data)),
-          renderCampo('Total', formatarMoeda(pedido.total)),
-          renderCampo('Observação', pedido.observacao || '-'),
-          renderCampo('Desconto', formatarMoeda(pedido.desconto)),
-          renderCampo('Total Produtos', formatarMoeda(pedido.totalProdutos))
-        ].join('');
+        preencherPedido(pedido);
+        preencherCliente(cliente);
+        preencherItens(itens);
 
-        dadosCliente.innerHTML = [
-          renderCampo('Nome', cliente.nome || '-'),
-          renderCampo('Cidade', cliente.cidade || '-'),
-          renderCampo('UF', cliente.uf || '-')
-        ].join('');
-
-        if (!itens.length) {
-          tabelaItens.innerHTML = '<p>Nenhum item encontrado.</p>';
-        } else {
-          tabelaItens.innerHTML = `
-            <table>
-              <thead>
-                <tr>
-                  <th>Descrição</th>
-                  <th class="right">Quantidade</th>
-                  <th class="right">Preço</th>
-                  <th class="right">Subtotal</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${itens.map(item => `
-                  <tr>
-                    <td>${item.descricao || '-'}</td>
-                    <td class="right">${item.quantidade ?? 0}</td>
-                    <td class="right">${formatarMoeda(item.preco)}</td>
-                    <td class="right">${formatarMoeda(item.subtotal)}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
-          `;
-        }
-
-        boxDetalhes.classList.remove('hidden');
-        mensagem.textContent = 'Pedido carregado.';
+        setMensagem('Pedido carregado.');
       } catch (error) {
-        mensagem.innerHTML = `<span class="erro">${error.message}</span>`;
+        setMensagem(error.message || 'Erro ao carregar pedido.', true);
       }
     }
 
@@ -358,6 +856,8 @@
         pesquisarPedidos();
       }
     });
+
+    resetarDetalhes();
   </script>
 </body>
 </html>
