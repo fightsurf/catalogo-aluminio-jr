@@ -271,5 +271,6 @@ module.exports = {
   criarCidade,
   listarEstados,
   listarCidadesPorEstado,
+  listarSomenteCidadesPorEstado,
   buscarTransportadorasPorNomeCidade
 };
