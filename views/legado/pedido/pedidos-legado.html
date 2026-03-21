@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Pedidos do Legado - Alumínio JR</title>
+
   <style>
     * {
       box-sizing: border-box;
@@ -24,8 +25,8 @@
     }
 
     .layout {
-     max-width: 1000px;
-     margin: 0 auto;
+      max-width: 1000px;
+      margin: 0 auto;
     }
 
     .box {
@@ -121,6 +122,7 @@
     .cliente-linha {
       font-size: 14px;
       color: #374151;
+      margin-bottom: 6px;
     }
 
     .placeholder {
@@ -161,10 +163,13 @@
     }
   </style>
 </head>
+
 <body>
   <div class="layout">
+
     <div class="titulo-pagina">📦 Pedidos do Legado</div>
 
+    <!-- BUSCA -->
     <div class="box">
       <h2>Pesquisar Pedido</h2>
 
@@ -186,15 +191,18 @@
       <div id="mensagem" class="mensagem">Aguardando pesquisa.</div>
     </div>
 
+    <!-- CLIENTE -->
     <div class="box">
       <div id="dadosCliente">
         <div class="placeholder">Nenhum pedido carregado.</div>
       </div>
     </div>
 
+    <!-- ITENS -->
     <div class="box">
       <div id="blocoItens" class="sem-itens">Nenhum item carregado.</div>
     </div>
+
   </div>
 
   <script>
@@ -231,9 +239,16 @@
       });
     }
 
-    function renderizarCliente(cliente) {
+    function renderizarCliente(cliente, dataPedido) {
+      const dataFormatada = dataPedido
+        ? new Date(dataPedido).toLocaleDateString('pt-BR')
+        : '-';
+
       dadosCliente.innerHTML = `
+        <div class="cliente-linha"><strong>Data:</strong> ${dataFormatada}</div>
+
         <div class="cliente-nome">${cliente?.nome || '-'}</div>
+
         <div class="cliente-dados-linha">
           <div class="cliente-linha"><strong>Cidade:</strong> ${cliente?.cidade || '-'}</div>
           <div class="cliente-linha"><strong>UF:</strong> ${cliente?.uf || '-'}</div>
@@ -241,48 +256,47 @@
       `;
     }
 
-function renderizarItens(itens) {
-  if (!itens || !itens.length) {
-    blocoItens.innerHTML = '<div class="sem-itens">Nenhum item encontrado.</div>';
-    return;
-  }
+    function renderizarItens(itens) {
+      if (!itens || !itens.length) {
+        blocoItens.innerHTML = '<div class="sem-itens">Nenhum item encontrado.</div>';
+        return;
+      }
 
-  const totalQuantidade = itens.reduce((acc, item) => acc + Number(item.quantidade || 0), 0);
-  const totalSubtotal = itens.reduce((acc, item) => acc + Number(item.subtotal || 0), 0);
+      const totalQuantidade = itens.reduce((acc, item) => acc + Number(item.quantidade || 0), 0);
+      const totalSubtotal = itens.reduce((acc, item) => acc + Number(item.subtotal || 0), 0);
 
-  blocoItens.innerHTML = `
-    <div class="tabela-wrap">
-      <table>
-        <thead>
-          <tr>
-            <th>Descrição</th>
-            <th class="right">Quantidade</th>
-            <th class="right">Preço</th>
-            <th class="right">Subtotal</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${itens.map((item) => `
-            <tr>
-              <td>${item.descricao || '-'}</td>
-              <td class="right">${numero(item.quantidade)}</td>
-              <td class="right">${moeda(item.preco)}</td>
-              <td class="right">${moeda(item.subtotal)}</td>
-            </tr>
-          `).join('')}
+      blocoItens.innerHTML = `
+        <div class="tabela-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Descrição</th>
+                <th class="right">Quantidade</th>
+                <th class="right">Preço</th>
+                <th class="right">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itens.map((item) => `
+                <tr>
+                  <td>${item.descricao || '-'}</td>
+                  <td class="right">${numero(item.quantidade)}</td>
+                  <td class="right">${moeda(item.preco)}</td>
+                  <td class="right">${moeda(item.subtotal)}</td>
+                </tr>
+              `).join('')}
 
-          <!-- LINHA TOTAL -->
-          <tr style="background:#000; color:#fff; font-weight:bold;">
-            <td>Total</td>
-            <td class="right">${numero(totalQuantidade)}</td>
-            <td></td>
-            <td class="right">${moeda(totalSubtotal)}</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-  `;
-}
+              <tr style="background:#000; color:#fff; font-weight:bold;">
+                <td>Total</td>
+                <td class="right">${numero(totalQuantidade)}</td>
+                <td></td>
+                <td class="right">${moeda(totalSubtotal)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+    }
 
     async function pesquisarPedidos() {
       const numeroPedido = numeroPedidoInput.value.trim();
@@ -313,7 +327,8 @@ function renderizarItens(itens) {
         }
 
         const primeiroPedido = pedidos[0];
-        renderizarCliente(primeiroPedido.cliente);
+
+        renderizarCliente(primeiroPedido.cliente, primeiroPedido.data);
 
         const responseItens = await fetch(`/api/legado/pedidos/${primeiroPedido.idMestre}/itens`);
         const jsonItens = await responseItens.json();
@@ -323,6 +338,7 @@ function renderizarItens(itens) {
         }
 
         renderizarItens(jsonItens.data?.itens || []);
+
         setMensagem('Cliente carregado.');
       } catch (error) {
         limparCliente();
