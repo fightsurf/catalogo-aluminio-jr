@@ -9,591 +9,325 @@
       box-sizing: border-box;
     }
 
-    :root {
-      --bg: #bfcddd;
-      --panel: #d8e4f0;
-      --panel-dark: #c7d6e6;
-      --line: #6e7f91;
-      --text: #111;
-      --white: #fff;
-      --header: #a8bfd8;
-      --header-2: #98b4d1;
-      --table-head: #d9e3ee;
-    }
-
-    html, body {
+    body {
       margin: 0;
-      padding: 0;
+      font-family: Arial, sans-serif;
+      background: #cfd9e4;
+      color: #111;
+    }
+
+    .pagina {
       width: 100%;
-      height: 100%;
-      font-family: Arial, Helvetica, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      overflow: hidden;
+      max-width: 1200px;
+      margin: 10px auto;
+      padding: 0 10px;
     }
 
-    .app {
-      width: 100vw;
-      height: 100vh;
-      padding: 6px;
-      display: grid;
-      grid-template-rows: 46px 58px 1fr;
-      gap: 6px;
-    }
-
-    .barra-topo {
-      display: grid;
-      grid-template-columns: 160px 1fr 220px 150px;
-      gap: 6px;
-      align-items: stretch;
-    }
-
-    .painel {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      min-width: 0;
-    }
-
-    .painel-titulo {
-      height: 18px;
-      line-height: 18px;
-      font-size: 12px;
-      text-align: center;
-      background: var(--header);
-      border-bottom: 1px solid var(--line);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .painel-corpo {
-      padding: 4px 6px;
-      height: calc(100% - 18px);
-      overflow: hidden;
-    }
-
-    .logo {
+    .topo-busca {
       display: flex;
+      gap: 10px;
       align-items: center;
-      justify-content: center;
-      font-weight: bold;
-      font-size: 18px;
-      letter-spacing: 0.5px;
-      background: var(--panel-dark);
+      margin-bottom: 10px;
     }
 
-    .busca-wrap {
-      display: grid;
-      grid-template-columns: 130px 1fr 100px;
-      gap: 6px;
-      align-items: center;
-      height: 100%;
-    }
-
-    .label-inline {
-      font-size: 12px;
-      font-weight: bold;
-    }
-
-    input, button {
-      height: 30px;
-      border: 1px solid var(--line);
+    .topo-busca input,
+    .topo-busca button {
+      height: 34px;
+      border: 1px solid #7f8c99;
+      padding: 0 10px;
       font-size: 14px;
-      padding: 0 8px;
-      outline: none;
     }
 
-    input {
+    .topo-busca input {
+      width: 220px;
       background: #fff;
     }
 
-    button {
-      background: #e8eef5;
+    .topo-busca button {
       cursor: pointer;
+      background: #e6edf5;
       font-weight: bold;
     }
 
-    button:hover {
-      background: #dce6f0;
-    }
-
     .mensagem {
-      font-size: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0 6px;
-      text-align: center;
+      font-size: 13px;
+      margin-bottom: 10px;
     }
 
-    .mensagem.erro {
+    .erro {
       color: #a50000;
       font-weight: bold;
     }
 
-    .resumo-rapido {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 4px;
-      height: 100%;
-    }
-
-    .campo-mini {
-      border: 1px solid var(--line);
-      background: #fff;
-      display: grid;
-      grid-template-rows: 16px 1fr;
-      min-width: 0;
-    }
-
-    .campo-mini-label {
-      font-size: 11px;
-      text-align: center;
-      background: var(--table-head);
-      border-bottom: 1px solid var(--line);
-    }
-
-    .campo-mini-valor {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0 6px;
-      font-size: 16px;
-      font-weight: bold;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .linha-resultados {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 6px;
-      min-height: 0;
-    }
-
-    .resultados-scroll {
-      display: flex;
-      gap: 6px;
-      overflow-x: auto;
-      overflow-y: hidden;
-      padding-bottom: 2px;
-      height: 100%;
-    }
-
-    .resultado-card {
-      min-width: 260px;
-      max-width: 260px;
-      border: 1px solid var(--line);
-      background: #fff;
-      padding: 6px;
-      cursor: pointer;
-      font-size: 12px;
-      line-height: 1.4;
-    }
-
-    .resultado-card:hover {
-      background: #f6f9fc;
-    }
-
-    .resultado-card.ativo {
-      background: #dce8f4;
-      border-color: #35506b;
-    }
-
     .layout {
+      border: 1px solid #6f8091;
+      background: #d8e4f0;
+      height: calc(100vh - 90px);
       display: grid;
-      grid-template-columns: 250px 1fr 155px;
-      gap: 6px;
-      min-height: 0;
+      grid-template-columns: 320px 1fr;
+      grid-template-rows: 120px 1fr;
+      gap: 8px;
+      padding: 8px;
     }
 
-    .coluna {
-      display: grid;
-      gap: 6px;
-      min-height: 0;
-    }
-
-    .coluna-esquerda {
-      grid-template-rows: 150px 70px 1fr;
-    }
-
-    .coluna-centro {
-      grid-template-rows: 84px 1fr;
-    }
-
-    .coluna-direita {
-      grid-template-rows: 70px 70px 70px 1fr;
-    }
-
-    .cliente-box {
-      padding: 6px;
-      font-size: 12px;
-      line-height: 1.45;
-      background: #ececec;
-      height: 100%;
-      overflow: hidden;
-    }
-
-    .cliente-nome {
-      color: #c40000;
-      font-weight: bold;
-      font-size: 14px;
-      margin-bottom: 4px;
-      text-transform: uppercase;
-    }
-
-    .campo-info-simples {
-      padding: 6px;
-      font-size: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 100%;
-      background: #fff;
-    }
-
-    .topo-pedido {
-      display: grid;
-      grid-template-columns: 1fr 180px 140px;
-      gap: 6px;
-      height: 100%;
-    }
-
-    .observacao-box {
-      background: #ececec;
-      border: 1px solid var(--line);
-      padding: 6px;
-      font-size: 12px;
-      line-height: 1.4;
-      overflow: auto;
-      height: 100%;
-    }
-
-    .info-card {
-      border: 1px solid var(--line);
-      background: #fff;
-      display: grid;
-      grid-template-rows: 18px 1fr;
-      min-width: 0;
-    }
-
-    .info-card-label {
-      font-size: 11px;
-      text-align: center;
-      background: var(--table-head);
-      border-bottom: 1px solid var(--line);
-    }
-
-    .info-card-valor {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 0 6px;
-      font-size: 22px;
-      font-weight: bold;
-      min-width: 0;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-
-    .tabela-wrap {
-      border: 1px solid var(--line);
-      background: #fff;
-      display: grid;
-      grid-template-rows: 28px 1fr 30px;
-      min-height: 0;
-    }
-
-    .abas {
-      display: flex;
-      align-items: end;
-      gap: 4px;
-      padding: 3px 4px 0 4px;
-      background: var(--panel);
-      border-bottom: 1px solid var(--line);
-    }
-
-    .aba {
-      min-width: 88px;
-      text-align: center;
-      font-size: 12px;
-      border: 1px solid var(--line);
-      border-bottom: none;
+    .bloco {
+      border: 1px solid #6f8091;
       background: #f2f2f2;
+      min-width: 0;
+      min-height: 0;
+    }
+
+    .titulo {
+      background: #b8cadc;
+      border-bottom: 1px solid #6f8091;
+      font-size: 12px;
+      font-weight: bold;
       padding: 4px 8px;
     }
 
-    .aba.ativa {
+    .conteudo {
+      padding: 8px;
+      height: calc(100% - 26px);
+      overflow: auto;
+      font-size: 13px;
+    }
+
+    .cliente {
+      grid-row: 1 / 3;
+    }
+
+    .cliente-nome {
+      font-size: 22px;
+      font-weight: bold;
+      color: #b30000;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .cliente-linha {
+      margin-bottom: 6px;
+      font-size: 15px;
+    }
+
+    .vendedor-box {
+      margin-top: 18px;
+      border: 1px solid #6f8091;
       background: #fff;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      padding: 0 8px;
+      font-size: 14px;
+    }
+
+    .dados-pedido {
+      display: grid;
+      grid-template-columns: 1fr 130px 130px;
+      gap: 8px;
+      height: 100%;
+    }
+
+    .observacao-area {
+      border: 1px solid #6f8091;
+      background: #fff;
+      padding: 8px;
+      font-size: 13px;
+      overflow: auto;
+    }
+
+    .campo-box {
+      border: 1px solid #6f8091;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      height: 55px;
+    }
+
+    .campo-label {
+      background: #d5e0eb;
+      border-bottom: 1px solid #6f8091;
+      font-size: 12px;
+      text-align: center;
+      padding: 3px;
       font-weight: bold;
     }
 
-    .tabela-area {
-      overflow: auto;
+    .campo-valor {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      font-weight: bold;
+      padding: 0 8px;
+      background: #fff;
+    }
+
+    .totais {
+      margin-top: 8px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      font-size: 16px;
+      font-weight: bold;
+    }
+
+    .produtos {
+      grid-column: 2 / 3;
+      grid-row: 2 / 3;
+      display: flex;
+      flex-direction: column;
       min-height: 0;
+    }
+
+    .resultado-pedidos {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      margin-bottom: 8px;
+    }
+
+    .pedido-card {
+      min-width: 240px;
+      border: 1px solid #6f8091;
+      background: #fff;
+      padding: 8px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .pedido-card:hover,
+    .pedido-card.ativo {
+      background: #dce8f4;
+    }
+
+    .tabela-area {
+      flex: 1;
+      border: 1px solid #6f8091;
+      background: #fff;
+      overflow: auto;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      table-layout: fixed;
-      font-size: 12px;
+      font-size: 13px;
     }
 
     th, td {
-      border: 1px solid #c6cfda;
-      padding: 3px 5px;
+      border: 1px solid #c7d1db;
+      padding: 6px 8px;
       white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      height: 24px;
     }
 
     th {
-      background: var(--table-head);
-      font-weight: normal;
+      background: #d9e4ee;
+      text-align: left;
     }
 
-    td.right, th.right {
+    .right {
       text-align: right;
     }
 
-    .rodape-tabela {
-      display: grid;
-      grid-template-columns: 50px 70px 1fr 110px 120px;
-      gap: 6px;
-      padding: 4px 6px;
-      background: var(--panel);
-      border-top: 1px solid var(--line);
-      align-items: center;
-    }
-
-    .rodape-box {
-      height: 22px;
-      border: 1px solid var(--line);
-      background: #d8e7f7;
+    .rodape {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 12px;
-    }
-
-    .rodape-box.total {
-      font-weight: bold;
-      background: #d4e3f5;
-    }
-
-    .total-box {
-      display: grid;
-      grid-template-rows: 18px 1fr;
-      border: 1px solid var(--line);
-      background: #fff;
-    }
-
-    .total-box-label {
-      text-align: center;
-      font-size: 11px;
-      background: var(--header);
-      border-bottom: 1px solid var(--line);
-      font-weight: bold;
-    }
-
-    .total-box-valor {
-      display: flex;
-      align-items: center;
       justify-content: flex-end;
-      padding: 0 8px;
-      font-size: 26px;
+      gap: 16px;
+      margin-top: 8px;
+      font-size: 16px;
       font-weight: bold;
-      color: #003d9a;
-    }
-
-    .placeholder-centro {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #555;
-      font-size: 12px;
-      background: #eef3f8;
-      border: 1px dashed var(--line);
-      height: 100%;
-    }
-
-    @media (max-width: 1200px) {
-      body {
-        overflow: auto;
-      }
-
-      .app {
-        height: auto;
-        min-height: 100vh;
-        overflow: visible;
-      }
-
-      .layout {
-        grid-template-columns: 1fr;
-      }
-
-      .coluna-esquerda,
-      .coluna-centro,
-      .coluna-direita {
-        grid-template-rows: auto;
-      }
     }
   </style>
 </head>
 <body>
-  <div class="app">
-    <div class="barra-topo">
-      <div class="painel logo">PEDIDOS LEGADO</div>
-
-      <div class="painel">
-        <div class="painel-titulo">Pesquisa de Pedido</div>
-        <div class="painel-corpo">
-          <div class="busca-wrap">
-            <div class="label-inline">Nº Pedido</div>
-            <input type="text" id="numeroPedido" placeholder="Digite o número do pedido" />
-            <button id="btnPesquisar">Pesquisar</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="painel">
-        <div class="painel-titulo">Status</div>
-        <div id="mensagem" class="painel-corpo mensagem">Aguardando pesquisa.</div>
-      </div>
-
-      <div class="painel">
-        <div class="painel-titulo">Resumo Rápido</div>
-        <div class="painel-corpo resumo-rapido">
-          <div class="campo-mini">
-            <div class="campo-mini-label">Itens</div>
-            <div class="campo-mini-valor" id="resumoItens">0</div>
-          </div>
-          <div class="campo-mini">
-            <div class="campo-mini-label">Qtd Total</div>
-            <div class="campo-mini-valor" id="resumoQuantidade">0</div>
-          </div>
-        </div>
-      </div>
+  <div class="pagina">
+    <div class="topo-busca">
+      <input type="text" id="numeroPedido" placeholder="Número do pedido" />
+      <button id="btnPesquisar">Pesquisar</button>
     </div>
 
-    <div class="linha-resultados">
-      <div class="painel" style="height: 100%;">
-        <div class="painel-titulo">Resultados da Pesquisa</div>
-        <div class="painel-corpo" style="padding: 4px;">
-          <div id="listaPedidos" class="resultados-scroll"></div>
-        </div>
-      </div>
-    </div>
+    <div id="mensagem" class="mensagem">Aguardando pesquisa.</div>
 
     <div class="layout">
-      <div class="coluna coluna-esquerda">
-        <div class="painel">
-          <div class="painel-titulo">Cliente</div>
-          <div id="dadosCliente" class="cliente-box">
-            <div class="cliente-nome">-</div>
-            <div>-</div>
-            <div>-</div>
-            <div>-</div>
-          </div>
-        </div>
+      <div class="bloco cliente">
+        <div class="titulo">Dados do Cliente</div>
+        <div id="dadosCliente" class="conteudo">
+          <div class="cliente-nome">-</div>
+          <div class="cliente-linha">Cidade: -</div>
+          <div class="cliente-linha">UF: -</div>
 
-        <div class="painel">
-          <div class="painel-titulo">Observação</div>
-          <div id="observacaoPedido" class="campo-info-simples">-</div>
-        </div>
-
-        <div class="painel">
-          <div class="painel-titulo">Ações</div>
-          <div class="painel-corpo" style="display:flex; align-items:center; justify-content:center; font-size:12px;">
-            Clique em um pedido encontrado para carregar os itens.
-          </div>
+          <div style="margin-top: 20px; font-weight: bold;">Vendedor</div>
+          <div class="vendedor-box">-</div>
         </div>
       </div>
 
-      <div class="coluna coluna-centro">
-        <div class="painel">
-          <div class="painel-titulo">Dados do Pedido</div>
-          <div class="painel-corpo">
-            <div class="topo-pedido">
-              <div class="observacao-box" id="boxInfoPedido">
-                <div><strong>Pedido:</strong> <span id="pedidoNumero">-</span></div>
-                <div><strong>Data:</strong> <span id="pedidoData">-</span></div>
-                <div><strong>Total:</strong> <span id="pedidoTotal">-</span></div>
-                <div><strong>Desconto:</strong> <span id="pedidoDesconto">-</span></div>
-                <div><strong>Total Produtos:</strong> <span id="pedidoTotalProdutos">-</span></div>
+      <div class="bloco">
+        <div class="titulo">Pedido</div>
+        <div class="conteudo">
+          <div class="dados-pedido">
+            <div>
+              <div class="observacao-area" id="observacaoPedido">-</div>
+
+              <div class="totais">
+                <div>Total: <span id="pedidoTotal">R$ 0,00</span></div>
+              </div>
+            </div>
+
+            <div>
+              <div class="campo-box">
+                <div class="campo-label">Data</div>
+                <div class="campo-valor" id="pedidoData">-</div>
               </div>
 
-              <div class="info-card">
-                <div class="info-card-label">Data</div>
-                <div class="info-card-valor" id="pedidoDataGrande">-</div>
+              <div class="campo-box" style="margin-top: 8px;">
+                <div class="campo-label">Desconto</div>
+                <div class="campo-valor" id="pedidoDesconto">R$ 0,00</div>
+              </div>
+            </div>
+
+            <div>
+              <div class="campo-box">
+                <div class="campo-label">Número</div>
+                <div class="campo-valor" id="pedidoNumero">-</div>
               </div>
 
-              <div class="info-card">
-                <div class="info-card-label">Número</div>
-                <div class="info-card-valor" id="pedidoNumeroGrande">-</div>
+              <div class="campo-box" style="margin-top: 8px;">
+                <div class="campo-label">Total Produtos</div>
+                <div class="campo-valor" id="pedidoTotalProdutos">R$ 0,00</div>
               </div>
             </div>
           </div>
         </div>
-
-        <div class="tabela-wrap">
-          <div class="abas">
-            <div class="aba ativa">1. Itens</div>
-          </div>
-
-          <div class="tabela-area">
-            <table>
-              <thead>
-                <tr>
-                  <th style="width: 56%;">Descrição</th>
-                  <th class="right" style="width: 12%;">Qtd.</th>
-                  <th class="right" style="width: 16%;">Preço</th>
-                  <th class="right" style="width: 16%;">Subtotal</th>
-                </tr>
-              </thead>
-              <tbody id="tabelaItensBody">
-                <tr>
-                  <td colspan="4" style="text-align:center;">Nenhum pedido carregado.</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="rodape-tabela">
-            <div class="rodape-box" id="rodapeItens">0</div>
-            <div class="rodape-box">Itens</div>
-            <div></div>
-            <div class="rodape-box total" id="rodapeQuantidade">0,00</div>
-            <div class="rodape-box total" id="rodapeTotal">R$ 0,00</div>
-          </div>
-        </div>
       </div>
 
-      <div class="coluna coluna-direita">
-        <div class="total-box">
-          <div class="total-box-label">Desconto</div>
-          <div class="total-box-valor" id="boxDesconto">R$ 0,00</div>
-        </div>
+      <div class="produtos">
+        <div id="listaPedidos" class="resultado-pedidos"></div>
 
-        <div class="total-box">
-          <div class="total-box-label">Total Produtos</div>
-          <div class="total-box-valor" id="boxTotalProdutos">R$ 0,00</div>
-        </div>
+        <div class="bloco" style="flex: 1; min-height: 0;">
+          <div class="titulo">Produtos</div>
+          <div class="conteudo" style="display:flex; flex-direction:column; min-height:0;">
+            <div class="tabela-area">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Descrição</th>
+                    <th class="right">Qtd.</th>
+                    <th class="right">Preço</th>
+                    <th class="right">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody id="tabelaItensBody">
+                  <tr>
+                    <td colspan="4" style="text-align:center;">Nenhum pedido carregado.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
 
-        <div class="total-box">
-          <div class="total-box-label">Total Pedido</div>
-          <div class="total-box-valor" id="boxTotalPedido">R$ 0,00</div>
-        </div>
-
-        <div class="painel">
-          <div class="painel-titulo">Visualização</div>
-          <div class="painel-corpo">
-            <div class="placeholder-centro">
-              Layout ajustado para deixar tudo visível sem descer a página.
+            <div class="rodape">
+              <div>Itens: <span id="rodapeItens">0</span></div>
+              <div>Qtd: <span id="rodapeQuantidade">0,00</span></div>
+              <div>Total: <span id="rodapeTotal">R$ 0,00</span></div>
             </div>
           </div>
         </div>
@@ -607,24 +341,13 @@
     const mensagem = document.getElementById('mensagem');
     const listaPedidos = document.getElementById('listaPedidos');
 
-    const resumoItens = document.getElementById('resumoItens');
-    const resumoQuantidade = document.getElementById('resumoQuantidade');
-
     const dadosCliente = document.getElementById('dadosCliente');
     const observacaoPedido = document.getElementById('observacaoPedido');
-
     const pedidoNumero = document.getElementById('pedidoNumero');
     const pedidoData = document.getElementById('pedidoData');
     const pedidoTotal = document.getElementById('pedidoTotal');
     const pedidoDesconto = document.getElementById('pedidoDesconto');
     const pedidoTotalProdutos = document.getElementById('pedidoTotalProdutos');
-
-    const pedidoNumeroGrande = document.getElementById('pedidoNumeroGrande');
-    const pedidoDataGrande = document.getElementById('pedidoDataGrande');
-
-    const boxDesconto = document.getElementById('boxDesconto');
-    const boxTotalProdutos = document.getElementById('boxTotalProdutos');
-    const boxTotalPedido = document.getElementById('boxTotalPedido');
 
     const tabelaItensBody = document.getElementById('tabelaItensBody');
     const rodapeItens = document.getElementById('rodapeItens');
@@ -635,13 +358,8 @@
 
     function formatarData(dataIso) {
       if (!dataIso) return '-';
-
       const data = new Date(dataIso);
-
-      if (Number.isNaN(data.getTime())) {
-        return dataIso;
-      }
-
+      if (Number.isNaN(data.getTime())) return dataIso;
       return data.toLocaleDateString('pt-BR');
     }
 
@@ -661,31 +379,24 @@
 
     function setMensagem(texto, erro = false) {
       mensagem.textContent = texto;
-      mensagem.classList.toggle('erro', erro);
+      mensagem.className = erro ? 'mensagem erro' : 'mensagem';
     }
 
-    function resetarDetalhes() {
+    function resetarTela() {
       dadosCliente.innerHTML = `
         <div class="cliente-nome">-</div>
-        <div>-</div>
-        <div>-</div>
-        <div>-</div>
+        <div class="cliente-linha">Cidade: -</div>
+        <div class="cliente-linha">UF: -</div>
+        <div style="margin-top: 20px; font-weight: bold;">Vendedor</div>
+        <div class="vendedor-box">-</div>
       `;
 
       observacaoPedido.textContent = '-';
-
       pedidoNumero.textContent = '-';
       pedidoData.textContent = '-';
-      pedidoTotal.textContent = '-';
-      pedidoDesconto.textContent = '-';
-      pedidoTotalProdutos.textContent = '-';
-
-      pedidoNumeroGrande.textContent = '-';
-      pedidoDataGrande.textContent = '-';
-
-      boxDesconto.textContent = formatarMoeda(0);
-      boxTotalProdutos.textContent = formatarMoeda(0);
-      boxTotalPedido.textContent = formatarMoeda(0);
+      pedidoTotal.textContent = formatarMoeda(0);
+      pedidoDesconto.textContent = formatarMoeda(0);
+      pedidoTotalProdutos.textContent = formatarMoeda(0);
 
       tabelaItensBody.innerHTML = `
         <tr>
@@ -696,35 +407,25 @@
       rodapeItens.textContent = '0';
       rodapeQuantidade.textContent = '0,00';
       rodapeTotal.textContent = formatarMoeda(0);
-
-      resumoItens.textContent = '0';
-      resumoQuantidade.textContent = '0';
     }
 
     function preencherCliente(cliente) {
       dadosCliente.innerHTML = `
         <div class="cliente-nome">${cliente.nome || '-'}</div>
-        <div>${cliente.cidade || '-'}</div>
-        <div>${cliente.uf || '-'}</div>
-        <div>&nbsp;</div>
+        <div class="cliente-linha">Cidade: ${cliente.cidade || '-'}</div>
+        <div class="cliente-linha">UF: ${cliente.uf || '-'}</div>
+        <div style="margin-top: 20px; font-weight: bold;">Vendedor</div>
+        <div class="vendedor-box">-</div>
       `;
     }
 
     function preencherPedido(pedido) {
+      observacaoPedido.textContent = pedido.observacao || '-';
       pedidoNumero.textContent = pedido.numero || '-';
       pedidoData.textContent = formatarData(pedido.data);
       pedidoTotal.textContent = formatarMoeda(pedido.total);
       pedidoDesconto.textContent = formatarMoeda(pedido.desconto);
       pedidoTotalProdutos.textContent = formatarMoeda(pedido.totalProdutos);
-
-      pedidoNumeroGrande.textContent = pedido.numero || '-';
-      pedidoDataGrande.textContent = formatarData(pedido.data);
-
-      observacaoPedido.textContent = pedido.observacao || '-';
-
-      boxDesconto.textContent = formatarMoeda(pedido.desconto);
-      boxTotalProdutos.textContent = formatarMoeda(pedido.totalProdutos);
-      boxTotalPedido.textContent = formatarMoeda(pedido.total);
     }
 
     function preencherItens(itens) {
@@ -737,14 +438,12 @@
         rodapeItens.textContent = '0';
         rodapeQuantidade.textContent = '0,00';
         rodapeTotal.textContent = formatarMoeda(0);
-        resumoItens.textContent = '0';
-        resumoQuantidade.textContent = '0';
         return;
       }
 
       tabelaItensBody.innerHTML = itens.map(item => `
         <tr>
-          <td title="${item.descricao || ''}">${item.descricao || '-'}</td>
+          <td>${item.descricao || '-'}</td>
           <td class="right">${formatarNumero(item.quantidade)}</td>
           <td class="right">${formatarMoeda(item.preco)}</td>
           <td class="right">${formatarMoeda(item.subtotal)}</td>
@@ -752,20 +451,11 @@
       `).join('');
 
       const quantidadeTotal = itens.reduce((acc, item) => acc + Number(item.quantidade || 0), 0);
-      const subtotalTotal = itens.reduce((acc, item) => acc + Number(item.subtotal || 0), 0);
+      const total = itens.reduce((acc, item) => acc + Number(item.subtotal || 0), 0);
 
       rodapeItens.textContent = String(itens.length);
       rodapeQuantidade.textContent = formatarNumero(quantidadeTotal);
-      rodapeTotal.textContent = formatarMoeda(subtotalTotal);
-
-      resumoItens.textContent = String(itens.length);
-      resumoQuantidade.textContent = formatarNumero(quantidadeTotal);
-    }
-
-    function marcarResultadoAtivo() {
-      document.querySelectorAll('.resultado-card').forEach((card) => {
-        card.classList.toggle('ativo', Number(card.dataset.id) === Number(pedidoAtivoId));
-      });
+      rodapeTotal.textContent = formatarMoeda(total);
     }
 
     async function pesquisarPedidos() {
@@ -773,7 +463,7 @@
 
       listaPedidos.innerHTML = '';
       pedidoAtivoId = null;
-      resetarDetalhes();
+      resetarTela();
 
       if (!numero) {
         setMensagem('Informe o número do pedido.', true);
@@ -794,12 +484,11 @@
 
         if (!pedidos.length) {
           setMensagem('Nenhum pedido encontrado.', true);
-          listaPedidos.innerHTML = '<div class="resultado-card">Sem resultados.</div>';
           return;
         }
 
         listaPedidos.innerHTML = pedidos.map((pedido) => `
-          <div class="resultado-card" data-id="${pedido.idMestre}">
+          <div class="pedido-card" data-id="${pedido.idMestre}">
             <div><strong>Pedido:</strong> ${pedido.numero || '-'}</div>
             <div><strong>Cliente:</strong> ${pedido.cliente?.nome || '-'}</div>
             <div><strong>Data:</strong> ${formatarData(pedido.data)}</div>
@@ -807,24 +496,29 @@
           </div>
         `).join('');
 
-        document.querySelectorAll('.resultado-card').forEach((card) => {
-          card.addEventListener('click', () => carregarPedido(Number(card.dataset.id)));
+        document.querySelectorAll('.pedido-card').forEach((card) => {
+          card.addEventListener('click', () => carregarPedido(Number(card.dataset.id), card));
         });
 
         setMensagem(`${pedidos.length} pedido(s) encontrado(s).`);
 
         if (pedidos.length === 1) {
-          await carregarPedido(pedidos[0].idMestre);
+          const card = document.querySelector('.pedido-card');
+          await carregarPedido(pedidos[0].idMestre, card);
         }
       } catch (error) {
         setMensagem(error.message || 'Erro ao pesquisar pedidos.', true);
       }
     }
 
-    async function carregarPedido(idMestre) {
+    async function carregarPedido(idMestre, cardSelecionado) {
       try {
         pedidoAtivoId = idMestre;
-        marcarResultadoAtivo();
+
+        document.querySelectorAll('.pedido-card').forEach((card) => {
+          card.classList.toggle('ativo', Number(card.dataset.id) === Number(idMestre));
+        });
+
         setMensagem('Carregando pedido...');
 
         const response = await fetch(`/api/legado/pedidos/${idMestre}/itens`);
@@ -835,13 +529,9 @@
         }
 
         const data = json.data || {};
-        const pedido = data.pedido || {};
-        const cliente = data.cliente || {};
-        const itens = data.itens || [];
-
-        preencherPedido(pedido);
-        preencherCliente(cliente);
-        preencherItens(itens);
+        preencherPedido(data.pedido || {});
+        preencherCliente(data.cliente || {});
+        preencherItens(data.itens || []);
 
         setMensagem('Pedido carregado.');
       } catch (error) {
@@ -857,7 +547,7 @@
       }
     });
 
-    resetarDetalhes();
+    resetarTela();
   </script>
 </body>
 </html>
