@@ -89,7 +89,6 @@ async function buscarCidadesPorNome(nome) {
 // CRIAR CIDADE
 // ==========================================
 async function criarCidade(nome, estado) {
-
   const existente = await pool.query(
     `
     SELECT id
@@ -117,7 +116,7 @@ async function criarCidade(nome, estado) {
 }
 
 // ==========================================
-// LISTAR ESTADOS (CORRIGIDO)
+// LISTAR ESTADOS
 // ==========================================
 async function listarEstados() {
   const result = await pool.query(`
@@ -130,10 +129,57 @@ async function listarEstados() {
 }
 
 // ==========================================
+// NOVO: LISTAR CIDADES + TRANSPORTADORAS POR UF
+// Retorno no formato que a view já espera
+// ==========================================
+async function listarCidadesPorEstado(uf) {
+  const ufNormalizada = String(uf).trim().toUpperCase();
+
+  const result = await pool.query(
+    `
+    SELECT
+      c.id AS cidade_id,
+      c.nome AS cidade,
+      c.estado,
+      t.nome AS transportadora_nome,
+      t.telefone AS transportadora_telefone
+    FROM cidades c
+    LEFT JOIN transportadora_cidade tc
+      ON tc.cidade_id = c.id
+    LEFT JOIN transportadoras t
+      ON t.id = tc.transportadora_id
+    WHERE UPPER(c.estado) = UPPER($1)
+    ORDER BY c.nome, t.nome;
+    `,
+    [ufNormalizada]
+  );
+
+  const mapa = new Map();
+
+  for (const row of result.rows) {
+    if (!mapa.has(row.cidade_id)) {
+      mapa.set(row.cidade_id, {
+        cidade: row.cidade,
+        estado: row.estado,
+        transportadoras: []
+      });
+    }
+
+    if (row.transportadora_nome) {
+      mapa.get(row.cidade_id).transportadoras.push({
+        nome: row.transportadora_nome,
+        telefone: row.transportadora_telefone
+      });
+    }
+  }
+
+  return Array.from(mapa.values());
+}
+
+// ==========================================
 // 🔥 BUSCA DE FRETE (BOT)
 // ==========================================
 async function buscarTransportadorasPorNomeCidade(nomeCidade) {
-
   const partes = nomeCidade.split('-').map(p => p.trim());
   const cidade = partes[0];
   const estado = partes[1] || null;
@@ -200,5 +246,6 @@ module.exports = {
   buscarCidadesPorNome,
   criarCidade,
   listarEstados,
-  buscarTransportadorasPorNomeCidade // 🔥 ESSENCIAL PRO BOT
+  listarCidadesPorEstado,
+  buscarTransportadorasPorNomeCidade
 };
