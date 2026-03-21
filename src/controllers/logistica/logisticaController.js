@@ -71,11 +71,32 @@ async function listarPorEstado(req, res) {
   }
 }
 
+// ==========================================
+// NOVO: LISTAR SOMENTE CIDADES POR UF
+// Uso específico para bot / n8n
+// ==========================================
+async function listarSomenteCidades(req, res) {
+  try {
+    const { uf } = req.params;
+
+    if (!uf) {
+      return res.status(400).json({ error: 'UF não informada' });
+    }
+
+    const dados = await service.listarSomenteCidadesPorEstado(uf);
+    res.json(dados);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
+
 module.exports = {
   vincular,
   remover,
   cidades,
   transportadoras,
   buscarCidades,
-  listarPorEstado
+  listarPorEstado,
+  listarSomenteCidades
 };
