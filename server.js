@@ -10,6 +10,7 @@ const botEvents = require('./src/services/bot/botEvents');
 const pedidosLegadoPageRoutes = require('./src/routes/legado/pedido/pedidosLegadoPage.routes');
 const pedidosLegadoRoutes = require('./src/routes/legado/pedido/pedidosLegado.routes');
 const clientesLegadoRoutes = require('./src/routes/legado/clientes/clientes.routes');
+const clientesLegadoViewRoutes = require('./src/routes/legado/clientes/clientes.view.routes');
 
 
 const botAutonomiaService = require('./src/services/bot/botAutonomia.services');
@@ -49,6 +50,7 @@ app.use('/prestacao_contas', express.static(path.join(__dirname, 'views', 'prest
 app.use('/api/legado', pedidosLegadoRoutes);
 app.use('/', pedidosLegadoPageRoutes);
 app.use('/api/legado/clientes', clientesLegadoRoutes);
+app.use('/legado/clientes', clientesLegadoViewRoutes);
 
 
 app.use('/bot/autonomia', botAutonomiaRoutes);
