@@ -173,6 +173,33 @@ async function listarCidadesPorEstado(uf) {
 
   return Array.from(mapa.values());
 }
+
+
+// ==========================================
+// NOVO: LISTAR APENAS CIDADES COM FRETE POR UF
+// Uso específico para bot / n8n
+// ==========================================
+async function listarSomenteCidadesPorEstado(uf) {
+  const ufNormalizada = String(uf).trim().toUpperCase();
+
+  const result = await pool.query(
+    `
+    SELECT DISTINCT
+      c.nome AS cidade,
+      c.estado
+    FROM cidades c
+    JOIN transportadora_cidade tc
+      ON tc.cidade_id = c.id
+    WHERE UPPER(c.estado) = UPPER($1)
+    ORDER BY c.nome;
+    `,
+    [ufNormalizada]
+  );
+
+  return result.rows;
+}
+
+
 // ==========================================
 // 🔥 BUSCA DE FRETE (BOT)
 // ==========================================
