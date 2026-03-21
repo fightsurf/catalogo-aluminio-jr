@@ -7,10 +7,10 @@ function limparTexto(valor) {
 }
 
 function montarUrlClientes(filtros = {}) {
-  const baseUrl = limparTexto(process.env.LEGACY_FIREBIRD_API_URL);
+  const baseUrl = limparTexto(process.env.LEGADO_BRIDGE_URL);
 
   if (!baseUrl) {
-    throw new Error('LEGACY_FIREBIRD_API_URL não configurada.');
+    throw new Error('LEGADO_BRIDGE_URL não configurada.');
   }
 
   const url = new URL(`${baseUrl.replace(/\/+$/, '')}/api/clientes`);
@@ -42,7 +42,7 @@ async function listarClientes(filtros = {}) {
   const url = montarUrlClientes(filtros);
 
   console.log('[LEGADO CLIENTES] URL FINAL:', url);
-  console.log('[LEGADO CLIENTES] ENV BASE:', process.env.LEGACY_FIREBIRD_API_URL);
+  console.log('[LEGADO CLIENTES] ENV BASE:', process.env.LEGADO_BRIDGE_URL);
 
   if (typeof fetch !== 'function') {
     throw new Error('fetch não está disponível no ambiente Node do Render.');
