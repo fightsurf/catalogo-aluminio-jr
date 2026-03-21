@@ -1,6 +1,5 @@
 const express = require('express');
-const controller = require('../../../src/controllers/legado/pedido/pedidosLegado.controller');
-
+const controller = require('../../../controllers/legado/pedido/pedidosLegado.controller');
 const router = express.Router();
 
 router.get('/pedidos', controller.pesquisarPedidos);
