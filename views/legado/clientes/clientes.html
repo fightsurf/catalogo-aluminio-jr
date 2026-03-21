@@ -193,13 +193,20 @@
       text-decoration: underline;
     }
 
-    .telefone-link {
+    .telefone-link-btn {
+      background: none;
+      border: none;
+      padding: 0;
+      margin: 0;
       color: #0f766e;
       font-weight: 600;
+      cursor: pointer;
+      font-size: 14px;
+      font-family: Arial, sans-serif;
       text-decoration: none;
     }
 
-    .telefone-link:hover {
+    .telefone-link-btn:hover {
       text-decoration: underline;
     }
 
@@ -506,38 +513,62 @@
       return valor;
     }
 
-    function montarLinkWhatsapp(valor) {
-      let numeros = limparSomenteNumeros(valor);
+    function abrirWhatsapp(telefone) {
+      let numeros = limparSomenteNumeros(telefone);
 
       if (!numeros) {
-        return '';
+        return;
       }
 
       if (numeros.length === 10 || numeros.length === 11) {
         numeros = `55${numeros}`;
       }
 
-      return `https://web.whatsapp.com/send?phone=${numeros}`;
+      const appUrl = `whatsapp://send?phone=${numeros}`;
+      const webUrl = `https://wa.me/${numeros}`;
+
+      let fallbackExecutado = false;
+
+      const executarFallback = () => {
+        if (fallbackExecutado) {
+          return;
+        }
+
+        fallbackExecutado = true;
+        window.open(webUrl, '_blank');
+      };
+
+      const iframe = document.createElement('iframe');
+      iframe.style.display = 'none';
+      iframe.src = appUrl;
+      document.body.appendChild(iframe);
+
+      setTimeout(() => {
+        if (document.body.contains(iframe)) {
+          document.body.removeChild(iframe);
+        }
+
+        executarFallback();
+      }, 1200);
     }
 
     function criarHtmlTelefone(valor) {
       const telefoneFormatado = formatarTelefoneExibicao(valor);
-      const linkWhatsapp = montarLinkWhatsapp(valor);
+      const telefoneSeguro = String(valor || '').replace(/'/g, "\\'");
 
-      if (!linkWhatsapp) {
+      if (telefoneFormatado === '-') {
         return '-';
       }
 
       return `
-        <a
-          href="${linkWhatsapp}"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="telefone-link"
-          title="Abrir conversa no WhatsApp Web"
+        <button
+          type="button"
+          class="telefone-link-btn"
+          onclick="abrirWhatsapp('${telefoneSeguro}')"
+          title="Abrir conversa no WhatsApp"
         >
           ${telefoneFormatado}
-        </a>
+        </button>
       `;
     }
 
@@ -546,19 +577,20 @@
       modalCidade.textContent = cliente?.cidade || '-';
       modalUf.textContent = cliente?.uf || '-';
 
-      const linkWhatsapp = montarLinkWhatsapp(cliente?.telefonePrincipal || '');
+      const telefoneCliente = cliente?.telefonePrincipal || '';
+      const telefoneFormatado = formatarTelefoneExibicao(telefoneCliente);
+      const telefoneSeguro = String(telefoneCliente).replace(/'/g, "\\'");
 
-      if (linkWhatsapp) {
+      if (telefoneFormatado !== '-') {
         modalTelefone.innerHTML = `
-          <a
-            href="${linkWhatsapp}"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="telefone-link"
-            title="Abrir conversa no WhatsApp Web"
+          <button
+            type="button"
+            class="telefone-link-btn"
+            onclick="abrirWhatsapp('${telefoneSeguro}')"
+            title="Abrir conversa no WhatsApp"
           >
-            ${formatarTelefoneExibicao(cliente?.telefonePrincipal)}
-          </a>
+            ${telefoneFormatado}
+          </button>
         `;
       } else {
         modalTelefone.textContent = '-';
