@@ -196,7 +196,18 @@ async function listarSomenteCidadesPorEstado(uf) {
     [ufNormalizada]
   );
 
-  return result.rows;
+  if (result.rows.length === 0) {
+    return {
+      tipo: 'vazio',
+      uf: ufNormalizada
+    };
+  }
+
+  return {
+    tipo: 'resultado',
+    uf: ufNormalizada,
+    dados: result.rows
+  };
 }
 
 
