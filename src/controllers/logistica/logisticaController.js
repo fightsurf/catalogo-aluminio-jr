@@ -53,10 +53,29 @@ async function buscarCidades(req, res) {
   }
 }
 
+// ==========================================
+// NOVO: LISTAR CIDADES POR SIGLA DO ESTADO
+// ==========================================
+async function listarPorEstado(req, res) {
+  try {
+    const { uf } = req.params;
+
+    if (!uf) {
+      return res.status(400).json({ error: 'UF não informada' });
+    }
+
+    const dados = await service.listarCidadesPorEstado(uf);
+    res.json(dados);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
+
 module.exports = {
   vincular,
   remover,
   cidades,
   transportadoras,
-  buscarCidades
+  buscarCidades,
+  listarPorEstado
 };
