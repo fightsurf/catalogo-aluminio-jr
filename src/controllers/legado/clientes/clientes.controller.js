@@ -14,7 +14,8 @@ async function listarClientes(req, res) {
     console.error('Erro ao consultar clientes do legado:', error);
 
     return res.status(500).json({
-      erro: 'Erro ao consultar clientes do sistema legado.'
+      erro: 'Erro ao consultar clientes do sistema legado.',
+      detalhe: error.message
     });
   }
 }
