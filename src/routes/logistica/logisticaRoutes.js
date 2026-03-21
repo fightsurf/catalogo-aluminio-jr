@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const service = require('../../services/logistica/logisticaService');
+const controller = require('../../controllers/logistica/logisticaController');
 
 // ==========================================
 // LISTAR ESTADOS (DINÂMICO)
@@ -14,6 +15,12 @@ router.get('/estados', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// ==========================================
+// NOVO: LISTAR CIDADES + TRANSPORTADORAS POR UF
+// Exemplo: GET /api/logistica/estado/PB
+// ==========================================
+router.get('/estado/:uf', controller.listarPorEstado);
 
 // ==========================================
 // BUSCAR CIDADES POR NOME
