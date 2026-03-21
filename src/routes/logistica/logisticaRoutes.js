@@ -23,6 +23,13 @@ router.get('/estados', async (req, res) => {
 router.get('/estado/:uf', controller.listarPorEstado);
 
 // ==========================================
+// NOVO: LISTAR SOMENTE CIDADES POR UF
+// Exemplo: GET /api/logistica/estado/PB/cidades
+// Uso específico para bot / n8n
+// ==========================================
+router.get('/estado/:uf/cidades', controller.listarSomenteCidades);
+
+// ==========================================
 // BUSCAR CIDADES POR NOME
 // ==========================================
 router.get('/cidades/busca', async (req, res) => {
