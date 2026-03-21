@@ -50,6 +50,7 @@ app.use('/api/legado', pedidosLegadoRoutes);
 app.use('/', pedidosLegadoPageRoutes);
 app.use('/api/legado/clientes', clientesLegadoRoutes);
 
+
 app.use('/bot/autonomia', botAutonomiaRoutes);
 app.use('/api/produtos-categorias', produtoCategoriaRoutes);
 app.use('/api/produtos', produtoRoutes);
