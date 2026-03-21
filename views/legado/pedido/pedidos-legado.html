@@ -24,7 +24,8 @@
     }
 
     .layout {
-      max-width: 1000px;
+     max-width: 1000px;
+     margin: 0 auto;
     }
 
     .box {
@@ -240,37 +241,48 @@
       `;
     }
 
-    function renderizarItens(itens) {
-      if (!itens || !itens.length) {
-        blocoItens.innerHTML = '<div class="sem-itens">Nenhum item encontrado.</div>';
-        return;
-      }
+function renderizarItens(itens) {
+  if (!itens || !itens.length) {
+    blocoItens.innerHTML = '<div class="sem-itens">Nenhum item encontrado.</div>';
+    return;
+  }
 
-      blocoItens.innerHTML = `
-        <div class="tabela-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Descrição</th>
-                <th class="right">Quantidade</th>
-                <th class="right">Preço</th>
-                <th class="right">Subtotal</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${itens.map((item) => `
-                <tr>
-                  <td>${item.descricao || '-'}</td>
-                  <td class="right">${numero(item.quantidade)}</td>
-                  <td class="right">${moeda(item.preco)}</td>
-                  <td class="right">${moeda(item.subtotal)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-      `;
-    }
+  const totalQuantidade = itens.reduce((acc, item) => acc + Number(item.quantidade || 0), 0);
+  const totalSubtotal = itens.reduce((acc, item) => acc + Number(item.subtotal || 0), 0);
+
+  blocoItens.innerHTML = `
+    <div class="tabela-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Descrição</th>
+            <th class="right">Quantidade</th>
+            <th class="right">Preço</th>
+            <th class="right">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${itens.map((item) => `
+            <tr>
+              <td>${item.descricao || '-'}</td>
+              <td class="right">${numero(item.quantidade)}</td>
+              <td class="right">${moeda(item.preco)}</td>
+              <td class="right">${moeda(item.subtotal)}</td>
+            </tr>
+          `).join('')}
+
+          <!-- LINHA TOTAL -->
+          <tr style="background:#000; color:#fff; font-weight:bold;">
+            <td>Total</td>
+            <td class="right">${numero(totalQuantidade)}</td>
+            <td></td>
+            <td class="right">${moeda(totalSubtotal)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  `;
+}
 
     async function pesquisarPedidos() {
       const numeroPedido = numeroPedidoInput.value.trim();
