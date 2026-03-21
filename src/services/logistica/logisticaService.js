@@ -144,9 +144,9 @@ async function listarCidadesPorEstado(uf) {
       t.nome AS transportadora_nome,
       t.telefone AS transportadora_telefone
     FROM cidades c
-    LEFT JOIN transportadora_cidade tc
+    JOIN transportadora_cidade tc
       ON tc.cidade_id = c.id
-    LEFT JOIN transportadoras t
+    JOIN transportadoras t
       ON t.id = tc.transportadora_id
     WHERE UPPER(c.estado) = UPPER($1)
     ORDER BY c.nome, t.nome;
@@ -165,17 +165,14 @@ async function listarCidadesPorEstado(uf) {
       });
     }
 
-    if (row.transportadora_nome) {
-      mapa.get(row.cidade_id).transportadoras.push({
-        nome: row.transportadora_nome,
-        telefone: row.transportadora_telefone
-      });
-    }
+    mapa.get(row.cidade_id).transportadoras.push({
+      nome: row.transportadora_nome,
+      telefone: row.transportadora_telefone
+    });
   }
 
   return Array.from(mapa.values());
 }
-
 // ==========================================
 // 🔥 BUSCA DE FRETE (BOT)
 // ==========================================
