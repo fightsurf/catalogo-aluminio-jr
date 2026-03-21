@@ -24,7 +24,7 @@
     }
 
     .layout {
-      max-width: 820px;
+      max-width: 1000px;
     }
 
     .box {
@@ -104,21 +104,59 @@
     }
 
     .cliente-nome {
-      font-size: 28px;
-      font-weight: bold;
-      margin-bottom: 14px;
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 10px;
       color: #111827;
+      text-transform: uppercase;
+    }
+
+    .cliente-dados-linha {
+      display: flex;
+      gap: 24px;
+      flex-wrap: wrap;
     }
 
     .cliente-linha {
-      font-size: 16px;
-      margin-bottom: 10px;
+      font-size: 14px;
       color: #374151;
     }
 
     .placeholder {
       color: #6b7280;
       font-size: 15px;
+    }
+
+    .tabela-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 600px;
+    }
+
+    th, td {
+      border: 1px solid #e5e7eb;
+      padding: 10px;
+      font-size: 14px;
+      text-align: left;
+    }
+
+    th {
+      background: #f9fafb;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    .right {
+      text-align: right;
+    }
+
+    .sem-itens {
+      color: #6b7280;
+      font-size: 14px;
     }
   </style>
 </head>
@@ -148,11 +186,13 @@
     </div>
 
     <div class="box">
-      <h2>Dados do Cliente</h2>
-
       <div id="dadosCliente">
         <div class="placeholder">Nenhum pedido carregado.</div>
       </div>
+    </div>
+
+    <div class="box">
+      <div id="blocoItens" class="sem-itens">Nenhum item carregado.</div>
     </div>
   </div>
 
@@ -161,6 +201,7 @@
     const btnPesquisar = document.getElementById('btnPesquisar');
     const mensagem = document.getElementById('mensagem');
     const dadosCliente = document.getElementById('dadosCliente');
+    const blocoItens = document.getElementById('blocoItens');
 
     function setMensagem(texto, erro = false) {
       mensagem.textContent = texto;
@@ -171,20 +212,73 @@
       dadosCliente.innerHTML = '<div class="placeholder">Nenhum pedido carregado.</div>';
     }
 
+    function limparItens() {
+      blocoItens.innerHTML = '<div class="sem-itens">Nenhum item carregado.</div>';
+    }
+
+    function moeda(valor) {
+      return Number(valor || 0).toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+      });
+    }
+
+    function numero(valor) {
+      return Number(valor || 0).toLocaleString('pt-BR', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+      });
+    }
+
     function renderizarCliente(cliente) {
       dadosCliente.innerHTML = `
         <div class="cliente-nome">${cliente?.nome || '-'}</div>
-        <div class="cliente-linha"><strong>Cidade:</strong> ${cliente?.cidade || '-'}</div>
-        <div class="cliente-linha"><strong>UF:</strong> ${cliente?.uf || '-'}</div>
+        <div class="cliente-dados-linha">
+          <div class="cliente-linha"><strong>Cidade:</strong> ${cliente?.cidade || '-'}</div>
+          <div class="cliente-linha"><strong>UF:</strong> ${cliente?.uf || '-'}</div>
+        </div>
+      `;
+    }
+
+    function renderizarItens(itens) {
+      if (!itens || !itens.length) {
+        blocoItens.innerHTML = '<div class="sem-itens">Nenhum item encontrado.</div>';
+        return;
+      }
+
+      blocoItens.innerHTML = `
+        <div class="tabela-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Descrição</th>
+                <th class="right">Quantidade</th>
+                <th class="right">Preço</th>
+                <th class="right">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itens.map((item) => `
+                <tr>
+                  <td>${item.descricao || '-'}</td>
+                  <td class="right">${numero(item.quantidade)}</td>
+                  <td class="right">${moeda(item.preco)}</td>
+                  <td class="right">${moeda(item.subtotal)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
       `;
     }
 
     async function pesquisarPedidos() {
-      const numero = numeroPedidoInput.value.trim();
+      const numeroPedido = numeroPedidoInput.value.trim();
 
       limparCliente();
+      limparItens();
 
-      if (!numero) {
+      if (!numeroPedido) {
         setMensagem('Informe o número do pedido.', true);
         return;
       }
@@ -192,7 +286,7 @@
       setMensagem('Pesquisando...');
 
       try {
-        const response = await fetch(`/api/legado/pedidos?numero=${encodeURIComponent(numero)}`);
+        const response = await fetch(`/api/legado/pedidos?numero=${encodeURIComponent(numeroPedido)}`);
         const json = await response.json();
 
         if (!response.ok || !json.success) {
@@ -206,9 +300,21 @@
           return;
         }
 
-        renderizarCliente(pedidos[0].cliente);
+        const primeiroPedido = pedidos[0];
+        renderizarCliente(primeiroPedido.cliente);
+
+        const responseItens = await fetch(`/api/legado/pedidos/${primeiroPedido.idMestre}/itens`);
+        const jsonItens = await responseItens.json();
+
+        if (!responseItens.ok || !jsonItens.success) {
+          throw new Error(jsonItens.message || 'Erro ao carregar itens.');
+        }
+
+        renderizarItens(jsonItens.data?.itens || []);
         setMensagem('Cliente carregado.');
       } catch (error) {
+        limparCliente();
+        limparItens();
         setMensagem(error.message || 'Erro ao pesquisar pedidos.', true);
       }
     }
