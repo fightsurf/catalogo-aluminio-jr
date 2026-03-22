@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pedidos do Cliente - Alumínio JR</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: Arial, sans-serif;
+      background: #f4f6f9;
+      color: #1f2937;
+    }
+
+    .container {
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+
+    .box {
+      background: #ffffff;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+      padding: 20px;
+    }
+
+    .topo {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 18px;
+      flex-wrap: wrap;
+    }
+
+    .titulo {
+      margin: 0 0 6px 0;
+      font-size: 24px;
+    }
+
+    .subtitulo {
+      margin: 0;
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    .acoes {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: none;
+      border-radius: 6px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+
+    .btn-secundario {
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    .btn-secundario:hover {
+      background: #d1d5db;
+    }
+
+    .status {
+      margin: 14px 0 18px 0;
+      padding: 12px 14px;
+      border-radius: 8px;
+      font-size: 14px;
+      display: none;
+    }
+
+    .status.info {
+      display: block;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+    }
+
+    .status.erro {
+      display: block;
+      background: #fef2f2;
+      color: #b91c1c;
+      border: 1px solid #fecaca;
+    }
+
+    .status.ok {
+      display: block;
+      background: #ecfdf5;
+      color: #047857;
+      border: 1px solid #a7f3d0;
+    }
+
+    .tabela-wrap {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 720px;
+    }
+
+    thead {
+      background: #f9fafb;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 12px 14px;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 14px;
+    }
+
+    th {
+      color: #374151;
+      font-weight: bold;
+    }
+
+    tbody tr {
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    tbody tr:hover {
+      background: #f3f4f6;
+    }
+
+    .pedido-link {
+      color: #2563eb;
+      font-weight: bold;
+      text-decoration: none;
+    }
+
+    .pedido-link:hover {
+      text-decoration: underline;
+    }
+
+    .total-cell {
+      font-weight: bold;
+      white-space: nowrap;
+    }
+
+    .vazio {
+      text-align: center;
+      color: #6b7280;
+      padding: 30px 12px;
+    }
+
+    @media (max-width: 700px) {
+      body {
+        padding: 14px;
+      }
+
+      .titulo {
+        font-size: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="box">
+      <div class="topo">
+        <div>
+          <h1 class="titulo">Pedidos do Cliente</h1>
+          <p class="subtitulo" id="subtituloCliente">Carregando cliente...</p>
+        </div>
+
+        <div class="acoes">
+          <button type="button" class="btn-secundario" id="btnVoltar">Voltar</button>
+        </div>
+      </div>
+
+      <div id="status" class="status info">Carregando pedidos...</div>
+
+      <div class="tabela-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Número</th>
+              <th>Data</th>
+              <th>Total</th>
+              <th>Vendedor</th>
+            </tr>
+          </thead>
+          <tbody id="tabelaPedidos">
+            <tr>
+              <td colspan="4" class="vazio">Carregando...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+
+    const favorecido = params.get('favorecido');
+    const nomeClienteFallback = params.get('cliente') || params.get('nome') || '';
+
+    const ROTA_VISUALIZA_PEDIDO =
+      params.get('destinoPedido') || '/legado/visualiza-pedido';
+
+    const subtituloCliente = document.getElementById('subtituloCliente');
+    const statusEl = document.getElementById('status');
+    const tabelaPedidos = document.getElementById('tabelaPedidos');
+    const btnVoltar = document.getElementById('btnVoltar');
+
+    btnVoltar.addEventListener('click', () => {
+      if (document.referrer) {
+        window.history.back();
+        return;
+      }
+
+      window.location.href = '/legado/clientes';
+    });
+
+    function mostrarStatus(tipo, mensagem) {
+      statusEl.className = `status ${tipo}`;
+      statusEl.textContent = mensagem;
+    }
+
+    function atualizarSubtitulo(cliente) {
+      const nome = cliente?.nome || nomeClienteFallback || 'Cliente não informado';
+      const codigo = cliente?.favorecido || favorecido || '-';
+      subtituloCliente.textContent = `${nome} | Favorecido: ${codigo}`;
+    }
+
+    function formatarData(data) {
+      if (!data) return '';
+
+      const dt = new Date(data);
+
+      if (Number.isNaN(dt.getTime())) {
+        return String(data);
+      }
+
+      return dt.toLocaleDateString('pt-BR');
+    }
+
+    function formatarMoeda(valor) {
+      const numero = Number(valor || 0);
+      return numero.toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+      });
+    }
+
+    function abrirPedido(pedido) {
+      const url = new URL(ROTA_VISUALIZA_PEDIDO, window.location.origin);
+      url.searchParams.set('numero', pedido.numero ?? '');
+      url.searchParams.set('saida', pedido.saida ?? '');
+      window.location.href = url.toString();
+    }
+
+    function renderizarTabela(pedidos) {
+      if (!Array.isArray(pedidos) || pedidos.length === 0) {
+        tabelaPedidos.innerHTML = `
+          <tr>
+            <td colspan="4" class="vazio">Nenhum pedido encontrado para este cliente.</td>
+          </tr>
+        `;
+        mostrarStatus('ok', 'Consulta concluída.');
+        return;
+      }
+
+      tabelaPedidos.innerHTML = pedidos.map((pedido, index) => `
+        <tr data-index="${index}">
+          <td>
+            <a href="#" class="pedido-link" data-index="${index}">
+              ${pedido.numero ?? ''}
+            </a>
+          </td>
+          <td>${formatarData(pedido.data)}</td>
+          <td class="total-cell">${formatarMoeda(pedido.total)}</td>
+          <td>${pedido.VendedorNome || ''}</td>
+        </tr>
+      `).join('');
+
+      tabelaPedidos.querySelectorAll('tr[data-index]').forEach((row) => {
+        row.addEventListener('click', () => {
+          const pedido = pedidos[Number(row.dataset.index)];
+          abrirPedido(pedido);
+        });
+      });
+
+      tabelaPedidos.querySelectorAll('.pedido-link').forEach((link) => {
+        link.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          const pedido = pedidos[Number(link.dataset.index)];
+          abrirPedido(pedido);
+        });
+      });
+
+      mostrarStatus('ok', `${pedidos.length} pedido(s) encontrado(s).`);
+    }
+
+    async function carregarPedidos() {
+      if (!favorecido) {
+        atualizarSubtitulo(null);
+        tabelaPedidos.innerHTML = `
+          <tr>
+            <td colspan="4" class="vazio">Parâmetro "favorecido" não informado.</td>
+          </tr>
+        `;
+        mostrarStatus('erro', 'Parâmetro "favorecido" não informado na URL.');
+        return;
+      }
+
+      try {
+        mostrarStatus('info', 'Carregando pedidos...');
+        const response = await fetch(`/api/legado/pedidos-cliente/${encodeURIComponent(favorecido)}`);
+        const payload = await response.json();
+
+        if (!response.ok || !payload.sucesso) {
+          throw new Error(payload.detalhe || payload.mensagem || 'Erro ao carregar pedidos.');
+        }
+
+        atualizarSubtitulo(payload.cliente || null);
+        renderizarTabela(payload.dados || []);
+      } catch (error) {
+        atualizarSubtitulo(null);
+        tabelaPedidos.innerHTML = `
+          <tr>
+            <td colspan="4" class="vazio">Erro ao carregar pedidos.</td>
+          </tr>
+        `;
+        mostrarStatus('erro', `Erro: ${error.message}`);
+      }
+    }
+
+    atualizarSubtitulo(null);
+    carregarPedidos();
+  </script>
+</body>
+</html>
