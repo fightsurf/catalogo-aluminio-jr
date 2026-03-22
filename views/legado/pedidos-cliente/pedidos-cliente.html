@@ -49,6 +49,11 @@
       font-size: 14px;
     }
 
+    .nome-cliente-destaque {
+      font-weight: 700;
+      color: #374151;
+    }
+
     .acoes {
       display: flex;
       gap: 10px;
@@ -151,6 +156,16 @@
       white-space: nowrap;
     }
 
+    .linha-total-geral td {
+      background: #f9fafb;
+      font-weight: 700;
+      border-top: 2px solid #d1d5db;
+    }
+
+    .linha-total-geral td:last-child {
+      white-space: nowrap;
+    }
+
     .vazio {
       text-align: center;
       color: #6b7280;
@@ -174,7 +189,9 @@
       <div class="topo">
         <div>
           <h1 class="titulo">Pedidos do Cliente</h1>
-          <p class="subtitulo" id="subtituloCliente">Carregando cliente...</p>
+          <p class="subtitulo">
+            <strong id="nomeClienteTexto" class="nome-cliente-destaque">Carregando cliente...</strong>
+          </p>
         </div>
 
         <div class="acoes">
@@ -199,6 +216,7 @@
               <td colspan="4" class="vazio">Carregando...</td>
             </tr>
           </tbody>
+          <tfoot id="rodapePedidos"></tfoot>
         </table>
       </div>
     </div>
@@ -213,9 +231,10 @@
     const ROTA_VISUALIZA_PEDIDO =
       params.get('destinoPedido') || '/legado/visualiza-pedido';
 
-    const subtituloCliente = document.getElementById('subtituloCliente');
+    const nomeClienteTexto = document.getElementById('nomeClienteTexto');
     const statusEl = document.getElementById('status');
     const tabelaPedidos = document.getElementById('tabelaPedidos');
+    const rodapePedidos = document.getElementById('rodapePedidos');
     const btnVoltar = document.getElementById('btnVoltar');
 
     btnVoltar.addEventListener('click', () => {
@@ -234,17 +253,23 @@
 
     function atualizarSubtitulo(cliente) {
       const nome = cliente?.nome || nomeClienteFallback || 'Cliente não informado';
-      const codigo = cliente?.favorecido || favorecido || '-';
-      subtituloCliente.textContent = `${nome} | Favorecido: ${codigo}`;
+      nomeClienteTexto.textContent = nome;
     }
 
     function formatarData(data) {
       if (!data) return '';
 
+      const texto = String(data);
+
+      if (/^\d{4}-\d{2}-\d{2}/.test(texto)) {
+        const partes = texto.slice(0, 10).split('-');
+        return `${partes[2]}/${partes[1]}/${partes[0]}`;
+      }
+
       const dt = new Date(data);
 
       if (Number.isNaN(dt.getTime())) {
-        return String(data);
+        return texto;
       }
 
       return dt.toLocaleDateString('pt-BR');
@@ -265,6 +290,29 @@
       window.location.href = url.toString();
     }
 
+    function calcularTotalGeral(pedidos) {
+      return pedidos.reduce((acumulador, pedido) => {
+        return acumulador + Number(pedido.total || 0);
+      }, 0);
+    }
+
+    function renderizarRodape(pedidos) {
+      if (!Array.isArray(pedidos) || pedidos.length === 0) {
+        rodapePedidos.innerHTML = '';
+        return;
+      }
+
+      const totalGeral = calcularTotalGeral(pedidos);
+
+      rodapePedidos.innerHTML = `
+        <tr class="linha-total-geral">
+          <td colspan="2">Total geral</td>
+          <td>${formatarMoeda(totalGeral)}</td>
+          <td></td>
+        </tr>
+      `;
+    }
+
     function renderizarTabela(pedidos) {
       if (!Array.isArray(pedidos) || pedidos.length === 0) {
         tabelaPedidos.innerHTML = `
@@ -272,6 +320,7 @@
             <td colspan="4" class="vazio">Nenhum pedido encontrado para este cliente.</td>
           </tr>
         `;
+        rodapePedidos.innerHTML = '';
         mostrarStatus('ok', 'Consulta concluída.');
         return;
       }
@@ -288,6 +337,8 @@
           <td>${pedido.VendedorNome || ''}</td>
         </tr>
       `).join('');
+
+      renderizarRodape(pedidos);
 
       tabelaPedidos.querySelectorAll('tr[data-index]').forEach((row) => {
         row.addEventListener('click', () => {
@@ -316,6 +367,7 @@
             <td colspan="4" class="vazio">Parâmetro "favorecido" não informado.</td>
           </tr>
         `;
+        rodapePedidos.innerHTML = '';
         mostrarStatus('erro', 'Parâmetro "favorecido" não informado na URL.');
         return;
       }
@@ -338,6 +390,7 @@
             <td colspan="4" class="vazio">Erro ao carregar pedidos.</td>
           </tr>
         `;
+        rodapePedidos.innerHTML = '';
         mostrarStatus('erro', `Erro: ${error.message}`);
       }
     }
