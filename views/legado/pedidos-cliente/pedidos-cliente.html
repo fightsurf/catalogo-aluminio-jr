@@ -228,8 +228,7 @@
     const favorecido = params.get('favorecido');
     const nomeClienteFallback = params.get('cliente') || params.get('nome') || '';
 
-    const ROTA_VISUALIZA_PEDIDO =
-      params.get('destinoPedido') || '/legado/visualiza-pedido';
+    const ROTA_PEDIDO = '/legado/pedidos';
 
     const nomeClienteTexto = document.getElementById('nomeClienteTexto');
     const statusEl = document.getElementById('status');
@@ -283,10 +282,24 @@
       });
     }
 
+    function obterNumeroPedido(pedido) {
+      if (pedido?.numero === null || pedido?.numero === undefined) {
+        return '';
+      }
+
+      return String(pedido.numero).trim();
+    }
+
     function abrirPedido(pedido) {
-      const url = new URL(ROTA_VISUALIZA_PEDIDO, window.location.origin);
-      url.searchParams.set('numero', pedido.numero ?? '');
-      url.searchParams.set('saida', pedido.saida ?? '');
+      const numeroPedido = obterNumeroPedido(pedido);
+
+      if (!numeroPedido) {
+        mostrarStatus('erro', 'Número do pedido não encontrado.');
+        return;
+      }
+
+      const url = new URL(ROTA_PEDIDO, window.location.origin);
+      url.searchParams.set('numero', numeroPedido);
       window.location.href = url.toString();
     }
 
@@ -329,7 +342,7 @@
         <tr data-index="${index}">
           <td>
             <a href="#" class="pedido-link" data-index="${index}">
-              ${pedido.numero ?? ''}
+              ${obterNumeroPedido(pedido)}
             </a>
           </td>
           <td>${formatarData(pedido.data)}</td>
