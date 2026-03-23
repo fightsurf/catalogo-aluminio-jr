@@ -169,7 +169,6 @@
 
     <div class="titulo-pagina">📦 Pedidos do Legado</div>
 
-    <!-- BUSCA -->
     <div class="box">
       <h2>Pesquisar Pedido</h2>
 
@@ -191,14 +190,12 @@
       <div id="mensagem" class="mensagem">Aguardando pesquisa.</div>
     </div>
 
-    <!-- CLIENTE -->
     <div class="box">
       <div id="dadosCliente">
         <div class="placeholder">Nenhum pedido carregado.</div>
       </div>
     </div>
 
-    <!-- ITENS -->
     <div class="box">
       <div id="blocoItens" class="sem-itens">Nenhum item carregado.</div>
     </div>
@@ -237,6 +234,11 @@
         minimumFractionDigits: 0,
         maximumFractionDigits: 2
       });
+    }
+
+    function obterNumeroDaUrl() {
+      const params = new URLSearchParams(window.location.search);
+      return (params.get('numero') || '').trim();
     }
 
     function renderizarCliente(cliente, dataPedido) {
@@ -298,8 +300,8 @@
       `;
     }
 
-    async function pesquisarPedidos() {
-      const numeroPedido = numeroPedidoInput.value.trim();
+    async function pesquisarPedidos(numeroInformado = null) {
+      const numeroPedido = (numeroInformado ?? numeroPedidoInput.value).trim();
 
       limparCliente();
       limparItens();
@@ -347,11 +349,20 @@
       }
     }
 
-    btnPesquisar.addEventListener('click', pesquisarPedidos);
+    btnPesquisar.addEventListener('click', () => pesquisarPedidos());
 
     numeroPedidoInput.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         pesquisarPedidos();
+      }
+    });
+
+    window.addEventListener('DOMContentLoaded', () => {
+      const numeroUrl = obterNumeroDaUrl();
+
+      if (numeroUrl) {
+        numeroPedidoInput.value = numeroUrl;
+        pesquisarPedidos(numeroUrl);
       }
     });
   </script>
