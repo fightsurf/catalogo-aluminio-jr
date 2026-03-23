@@ -41,30 +41,14 @@ function montarUrlClientes(filtros = {}) {
 async function listarClientes(filtros = {}) {
   const url = montarUrlClientes(filtros);
 
-  console.log('[LEGADO CLIENTES] URL FINAL:', url);
-  console.log('[LEGADO CLIENTES] ENV BASE:', process.env.LEGADO_BRIDGE_URL);
-
-  if (typeof fetch !== 'function') {
-    throw new Error('fetch não está disponível no ambiente Node do Render.');
-  }
-
-  let response;
-
-  try {
-    response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json'
-      }
-    });
-  } catch (error) {
-    throw new Error(`Falha de conexão com a API local: ${error.message}`);
-  }
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json'
+    }
+  });
 
   const rawBody = await response.text();
-
-  console.log('[LEGADO CLIENTES] STATUS:', response.status);
-  console.log('[LEGADO CLIENTES] BODY:', rawBody);
 
   if (!response.ok) {
     throw new Error(`API local respondeu com status ${response.status}. Corpo: ${rawBody}`);
@@ -82,9 +66,17 @@ async function listarClientes(filtros = {}) {
     throw new Error(`Formato inesperado da API local. Corpo recebido: ${rawBody}`);
   }
 
+  const dados = parsed.dados.map((item) => ({
+    favorecido: item?.favorecido ?? null,
+    nome: limparTexto(item?.nome),
+    telefonePrincipal: limparTexto(item?.telefonePrincipal),
+    cidade: limparTexto(item?.cidade),
+    uf: limparTexto(item?.uf)
+  }));
+
   return {
-    total: parsed.total ?? parsed.dados.length,
-    dados: parsed.dados
+    total: parsed.total ?? dados.length,
+    dados
   };
 }
 
