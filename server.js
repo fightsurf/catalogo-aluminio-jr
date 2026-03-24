@@ -36,7 +36,8 @@ const botContatosRoutes = require('./src/routes/bot/botContatos.routes');
 const botIntencoesRoutes = require('./src/routes/bot/botIntencoes.routes');
 const classificadorIntencaoRoutes = require('./src/routes/bot/classificadorIntencao.routes');
 const botFluxoRoutes = require('./src/routes/bot/botFluxo.routes');
-const relatorioAcrescimoRoutes = require('./src/routes/vendas/relatorio-acrescimo.routes');
+const relatorioAcrescimoApiRoutes = require('./src/routes/vendas/relatorio-acrescimo.routes');
+const relatorioAcrescimoViewRoutes = require('./src/routes/vendas/relatorio-acrescimo.view.routes');
 
 
 const app = express();
@@ -58,7 +59,8 @@ app.use('/api/legado/clientes', clientesLegadoRoutes);
 app.use('/legado/clientes', clientesLegadoViewRoutes);
 app.use('/api/legado/pedidos-cliente', pedidosClienteApiRoutes);
 app.use('/legado/pedidos-cliente', pedidosClienteViewRoutes);
-app.use('/api/vendas', relatorioAcrescimoRoutes);
+app.use('/api/vendas', relatorioAcrescimoApiRoutes);
+app.use('/vendas', relatorioAcrescimoViewRoutes);
 
 app.use('/bot/autonomia', botAutonomiaRoutes);
 app.use('/api/produtos-categorias', produtoCategoriaRoutes);
