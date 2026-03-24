@@ -13,8 +13,7 @@ const clientesLegadoRoutes = require('./src/routes/legado/clientes/clientes.rout
 const clientesLegadoViewRoutes = require('./src/routes/legado/clientes/clientes.view.routes');
 const pedidosClienteApiRoutes = require('./src/routes/legado/pedidos-cliente/pedidos-cliente.routes');
 const pedidosClienteViewRoutes = require('./src/routes/legado/pedidos-cliente/pedidos-cliente.view.routes');
-
-
+const pedidosInsercaoLegadoRoutes = require('./src/routes/legado/pedidos-insercao/pedidos-insercao.routes');
 
 const botAutonomiaService = require('./src/services/bot/botAutonomia.services');
 const botAutonomiaRoutes = require('./src/routes/bot/botAutonomia.routes');
@@ -39,7 +38,6 @@ const botFluxoRoutes = require('./src/routes/bot/botFluxo.routes');
 const relatorioAcrescimoApiRoutes = require('./src/routes/vendas/relatorio-acrescimo.routes');
 const relatorioAcrescimoViewRoutes = require('./src/routes/vendas/relatorio-acrescimo.view.routes');
 
-
 const app = express();
 
 // =====================================================
@@ -59,6 +57,7 @@ app.use('/api/legado/clientes', clientesLegadoRoutes);
 app.use('/legado/clientes', clientesLegadoViewRoutes);
 app.use('/api/legado/pedidos-cliente', pedidosClienteApiRoutes);
 app.use('/legado/pedidos-cliente', pedidosClienteViewRoutes);
+app.use('/api/legado/pedidos-insercao', pedidosInsercaoLegadoRoutes);
 app.use('/api/vendas', relatorioAcrescimoApiRoutes);
 app.use('/vendas', relatorioAcrescimoViewRoutes);
 
