@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Relatório com Acréscimo - Alumínio JR</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f6f9;
+      color: #222;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 30px auto;
+      padding: 0 20px;
+    }
+
+    .topo {
+      margin-bottom: 20px;
+    }
+
+    .topo h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      color: #111;
+    }
+
+    .topo p {
+      margin: 0;
+      color: #555;
+      font-size: 14px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 20px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    }
+
+    .card h2 {
+      margin: 0 0 16px;
+      font-size: 20px;
+      color: #111;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    textarea,
+    input {
+      width: 100%;
+      border: 1px solid #cfd6df;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 14px;
+      font-family: Arial, sans-serif;
+      outline: none;
+      background: #fff;
+    }
+
+    textarea:focus,
+    input:focus {
+      border-color: #111;
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 360px;
+      line-height: 1.45;
+    }
+
+    .linha-campos {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 16px;
+      margin-bottom: 16px;
+    }
+
+    .acoes {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: 12px 18px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    .btn-principal {
+      background: #111;
+      color: #fff;
+    }
+
+    .btn-secundario {
+      background: #e9edf2;
+      color: #111;
+    }
+
+    .btn-copiar {
+      background: #0b7a33;
+      color: #fff;
+    }
+
+    .btn:disabled,
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .status {
+      margin-top: 14px;
+      font-size: 14px;
+      min-height: 20px;
+    }
+
+    .status.erro {
+      color: #c62828;
+      font-weight: bold;
+    }
+
+    .status.sucesso {
+      color: #0b7a33;
+      font-weight: bold;
+    }
+
+    .resumo {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .resumo-item {
+      background: #f8fafc;
+      border: 1px solid #d9e1ea;
+      border-radius: 10px;
+      padding: 12px;
+    }
+
+    .resumo-item strong {
+      display: block;
+      font-size: 12px;
+      color: #555;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+    }
+
+    .resumo-item span {
+      font-size: 20px;
+      color: #111;
+      font-weight: bold;
+    }
+
+    .resultado-box {
+      margin-top: 16px;
+    }
+
+    .resultado-box textarea {
+      background: #fcfcfc;
+    }
+
+    .rodape-info {
+      margin-top: 14px;
+      font-size: 12px;
+      color: #666;
+      line-height: 1.5;
+    }
+
+    @media (max-width: 900px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .linha-campos {
+        grid-template-columns: 1fr;
+      }
+
+      textarea {
+        min-height: 280px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="topo">
+      <h1>Relatório com Acréscimo</h1>
+      <p>Cole o relatório, informe o valor extra e o multiplicador. O sistema gera um novo relatório no mesmo formato.</p>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Entrada</h2>
+
+        <label for="relatorio">Relatório original</label>
+        <textarea
+          id="relatorio"
+          placeholder="Cole aqui o relatório no formato padrão do sistema..."
+          spellcheck="false"
+        ></textarea>
+
+        <div class="linha-campos">
+          <div>
+            <label for="valorExtra">Valor extra</label>
+            <input
+              type="text"
+              id="valorExtra"
+              placeholder="Ex: 50,00"
+              inputmode="decimal"
+            />
+          </div>
+
+          <div>
+            <label for="multiplicador">Multiplicador</label>
+            <input
+              type="number"
+              id="multiplicador"
+              min="1"
+              step="1"
+              value="1"
+            />
+          </div>
+        </div>
+
+        <div class="acoes">
+          <button class="btn-principal" id="btnProcessar">Gerar novo relatório</button>
+          <button class="btn-secundario" id="btnLimpar" type="button">Limpar</button>
+        </div>
+
+        <div class="status" id="status"></div>
+      </div>
+
+      <div class="card">
+        <h2>Saída</h2>
+
+        <div class="resumo">
+          <div class="resumo-item">
+            <strong>Total original</strong>
+            <span id="totalOriginal">R$ 0,00</span>
+          </div>
+
+          <div class="resumo-item">
+            <strong>Total final</strong>
+            <span id="totalFinal">R$ 0,00</span>
+          </div>
+
+          <div class="resumo-item">
+            <strong>Total de unidades</strong>
+            <span id="totalUnidades">0</span>
+          </div>
+        </div>
+
+        <div class="acoes">
+          <button class="btn-copiar" id="btnCopiar" type="button" disabled>Copiar relatório</button>
+        </div>
+
+        <div class="resultado-box">
+          <label for="resultado">Novo relatório</label>
+          <textarea id="resultado" readonly spellcheck="false"></textarea>
+        </div>
+
+        <div class="rodape-info">
+          O relatório de saída mantém o mesmo formato textual do sistema.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const relatorioInput = document.getElementById('relatorio');
+    const valorExtraInput = document.getElementById('valorExtra');
+    const multiplicadorInput = document.getElementById('multiplicador');
+
+    const btnProcessar = document.getElementById('btnProcessar');
+    const btnLimpar = document.getElementById('btnLimpar');
+    const btnCopiar = document.getElementById('btnCopiar');
+
+    const statusEl = document.getElementById('status');
+    const resultadoEl = document.getElementById('resultado');
+    const totalOriginalEl = document.getElementById('totalOriginal');
+    const totalFinalEl = document.getElementById('totalFinal');
+    const totalUnidadesEl = document.getElementById('totalUnidades');
+
+    function setStatus(texto, tipo) {
+      statusEl.textContent = texto;
+      statusEl.className = 'status';
+
+      if (tipo) {
+        statusEl.classList.add(tipo);
+      }
+    }
+
+    function limparResultado() {
+      resultadoEl.value = '';
+      totalOriginalEl.textContent = 'R$ 0,00';
+      totalFinalEl.textContent = 'R$ 0,00';
+      totalUnidadesEl.textContent = '0';
+      btnCopiar.disabled = true;
+    }
+
+    async function processarRelatorio() {
+      const relatorio = relatorioInput.value.trim();
+      const valorExtra = valorExtraInput.value.trim();
+      const multiplicador = multiplicadorInput.value.trim();
+
+      if (!relatorio) {
+        setStatus('Cole o relatório original.', 'erro');
+        relatorioInput.focus();
+        return;
+      }
+
+      if (!valorExtra) {
+        setStatus('Informe o valor extra.', 'erro');
+        valorExtraInput.focus();
+        return;
+      }
+
+      if (!multiplicador || Number(multiplicador) <= 0) {
+        setStatus('Informe um multiplicador válido.', 'erro');
+        multiplicadorInput.focus();
+        return;
+      }
+
+      btnProcessar.disabled = true;
+      btnCopiar.disabled = true;
+      setStatus('Processando relatório...');
+      limparResultado();
+
+      try {
+        const response = await fetch('/api/vendas/acrescimo', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            relatorio,
+            valorExtra,
+            multiplicador: Number(multiplicador)
+          })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.sucesso) {
+          throw new Error(data.erro || 'Erro ao processar o relatório.');
+        }
+
+        resultadoEl.value = data.relatorio || '';
+        totalOriginalEl.textContent = `R$ ${data.totalOriginal || '0,00'}`;
+        totalFinalEl.textContent = `R$ ${data.totalFinal || '0,00'}`;
+        totalUnidadesEl.textContent = data.totalUnidadesNovas || 0;
+
+        btnCopiar.disabled = !resultadoEl.value;
+        setStatus('Relatório gerado com sucesso.', 'sucesso');
+      } catch (error) {
+        setStatus(error.message || 'Erro ao processar o relatório.', 'erro');
+      } finally {
+        btnProcessar.disabled = false;
+      }
+    }
+
+    async function copiarResultado() {
+      const texto = resultadoEl.value.trim();
+
+      if (!texto) {
+        setStatus('Não há relatório para copiar.', 'erro');
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(texto);
+        setStatus('Relatório copiado.', 'sucesso');
+      } catch (error) {
+        setStatus('Não foi possível copiar automaticamente. Copie manualmente.', 'erro');
+      }
+    }
+
+    function limparFormulario() {
+      relatorioInput.value = '';
+      valorExtraInput.value = '';
+      multiplicadorInput.value = '1';
+      setStatus('');
+      limparResultado();
+      relatorioInput.focus();
+    }
+
+    btnProcessar.addEventListener('click', processarRelatorio);
+    btnCopiar.addEventListener('click', copiarResultado);
+    btnLimpar.addEventListener('click', limparFormulario);
+  </script>
+</body>
+</html>
