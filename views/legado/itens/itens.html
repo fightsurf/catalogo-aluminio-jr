@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sincronismo de Itens do Legado</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f6f9;
+      color: #1f2937;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+    }
+    .subtitulo {
+      margin: 0 0 20px;
+      color: #4b5563;
+    }
+    .mensagem {
+      margin-bottom: 16px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      background: #e5e7eb;
+      color: #111827;
+      display: none;
+    }
+    .mensagem.erro {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 18px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+      min-height: 500px;
+    }
+    .card h2 {
+      margin-top: 0;
+      font-size: 20px;
+    }
+    .filtros {
+      display: grid;
+      grid-template-columns: 1fr 120px auto;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+    .filtros input, .filtros button, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+    }
+    .filtros button, .acoes button {
+      border: none;
+      background: #111827;
+      color: #fff;
+      cursor: pointer;
+    }
+    .filtros button.secundario, .acoes button.secundario {
+      background: #6b7280;
+    }
+    .lista {
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      overflow: hidden;
+      max-height: 520px;
+      overflow-y: auto;
+      background: #fff;
+    }
+    .linha {
+      width: 100%;
+      text-align: left;
+      padding: 14px;
+      border: none;
+      border-bottom: 1px solid #e5e7eb;
+      background: #fff;
+      cursor: pointer;
+    }
+    .linha:hover { background: #f9fafb; }
+    .linha.ativa {
+      background: #dbeafe;
+      outline: 2px solid #2563eb;
+    }
+    .linha strong { display: block; margin-bottom: 4px; }
+    .linha small { color: #6b7280; display: block; }
+    .selecionado {
+      margin-top: 16px;
+      padding: 14px;
+      border-radius: 10px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+    }
+    .acoes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    textarea {
+      min-height: 100px;
+      resize: vertical;
+      margin-top: 12px;
+    }
+    .contador {
+      margin-top: 6px;
+      font-size: 12px;
+      color: #6b7280;
+      text-align: right;
+    }
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+      .filtros { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Sincronismo de itens do legado</h1>
+    <p class="subtitulo">Comparar produto do Render com item do Firebird e atualizar apenas o campo descrição.</p>
+    <div id="mensagem" class="mensagem"></div>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Produtos do Render</h2>
+        <div class="filtros">
+          <input id="buscaProduto" type="text" placeholder="Buscar produto pelo nome" />
+          <button id="btnBuscarProdutos">Buscar</button>
+          <button id="btnLimparProdutos" class="secundario">Limpar</button>
+        </div>
+        <div id="listaProdutos" class="lista"></div>
+        <div id="produtoSelecionado" class="selecionado">Nenhum produto selecionado.</div>
+      </section>
+
+      <section class="card">
+        <h2>Itens do legado</h2>
+        <div class="filtros">
+          <input id="buscaItem" type="text" placeholder="Buscar item pela descrição" />
+          <input id="limiteItens" type="number" min="1" max="200" value="50" />
+          <button id="btnBuscarItens">Buscar</button>
+        </div>
+        <div id="listaItens" class="lista"></div>
+        <div id="itemSelecionado" class="selecionado">Nenhum item selecionado.</div>
+
+        <textarea id="descricaoManual" maxlength="50" placeholder="Digite a nova descrição do item legado"></textarea>
+        <div class="contador"><span id="contadorDescricao">0</span>/50</div>
+
+        <div class="acoes">
+          <button id="btnCopiarNome">Copiar nome do produto para descrição</button>
+          <button id="btnSalvarDescricao" class="secundario">Salvar descrição digitada</button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const mensagem = document.getElementById('mensagem');
+    const buscaProduto = document.getElementById('buscaProduto');
+    const buscaItem = document.getElementById('buscaItem');
+    const limiteItens = document.getElementById('limiteItens');
+    const listaProdutos = document.getElementById('listaProdutos');
+    const listaItens = document.getElementById('listaItens');
+    const produtoSelecionadoBox = document.getElementById('produtoSelecionado');
+    const itemSelecionadoBox = document.getElementById('itemSelecionado');
+    const descricaoManual = document.getElementById('descricaoManual');
+    const contadorDescricao = document.getElementById('contadorDescricao');
+
+    let produtos = [];
+    let itens = [];
+    let produtoSelecionado = null;
+    let itemSelecionado = null;
+
+    function setMensagem(texto, erro = false) {
+      if (!texto) {
+        mensagem.style.display = 'none';
+        mensagem.textContent = '';
+        mensagem.classList.remove('erro');
+        return;
+      }
+
+      mensagem.style.display = 'block';
+      mensagem.textContent = texto;
+      mensagem.classList.toggle('erro', erro);
+    }
+
+    async function lerJson(response) {
+      const json = await response.json();
+
+      if (!response.ok) {
+        throw new Error(json?.detalhe || json?.erro || json?.message || 'Erro na requisição.');
+      }
+
+      return json;
+    }
+
+    function atualizarContador() {
+      contadorDescricao.textContent = descricaoManual.value.length;
+    }
+
+    function renderProdutos() {
+      if (!produtos.length) {
+        listaProdutos.innerHTML = '<div class="linha">Nenhum produto encontrado.</div>';
+        return;
+      }
+
+      listaProdutos.innerHTML = produtos.map((produto) => `
+        <button type="button" class="linha ${produtoSelecionado?.id === produto.id ? 'ativa' : ''}" data-id="${produto.id}">
+          <strong>${produto.nome || '-'}</strong>
+          <small>ID: ${produto.id} | Categoria: ${produto.categoria || '-'}</small>
+        </button>
+      `).join('');
+
+      listaProdutos.querySelectorAll('.linha').forEach((botao) => {
+        botao.addEventListener('click', () => {
+          const id = Number(botao.dataset.id);
+          produtoSelecionado = produtos.find((produto) => produto.id === id) || null;
+          renderProdutos();
+          renderProdutoSelecionado();
+        });
+      });
+    }
+
+    function renderItens() {
+      if (!itens.length) {
+        listaItens.innerHTML = '<div class="linha">Nenhum item encontrado.</div>';
+        return;
+      }
+
+      listaItens.innerHTML = itens.map((item) => `
+        <button type="button" class="linha ${itemSelecionado?.item === item.item ? 'ativa' : ''}" data-item="${item.item}">
+          <strong>${item.descricao || '-'}</strong>
+          <small>ITEM: ${item.item} | CÓDIGO: ${item.codigo || '-'} | ${item.desativado === 'S' ? 'Inativo' : 'Ativo'}</small>
+        </button>
+      `).join('');
+
+      listaItens.querySelectorAll('.linha').forEach((botao) => {
+        botao.addEventListener('click', () => {
+          const itemId = Number(botao.dataset.item);
+          itemSelecionado = itens.find((item) => item.item === itemId) || null;
+          descricaoManual.value = itemSelecionado?.descricao || '';
+          atualizarContador();
+          renderItens();
+          renderItemSelecionado();
+        });
+      });
+    }
+
+    function renderProdutoSelecionado() {
+      if (!produtoSelecionado) {
+        produtoSelecionadoBox.textContent = 'Nenhum produto selecionado.';
+        return;
+      }
+
+      produtoSelecionadoBox.innerHTML = `
+        <strong>Produto selecionado</strong><br />
+        ID: ${produtoSelecionado.id}<br />
+        Nome: ${produtoSelecionado.nome || '-'}
+      `;
+    }
+
+    function renderItemSelecionado() {
+      if (!itemSelecionado) {
+        itemSelecionadoBox.textContent = 'Nenhum item selecionado.';
+        return;
+      }
+
+      itemSelecionadoBox.innerHTML = `
+        <strong>Item legado selecionado</strong><br />
+        ITEM: ${itemSelecionado.item}<br />
+        Código: ${itemSelecionado.codigo || '-'}<br />
+        Descrição atual: ${itemSelecionado.descricao || '-'}
+      `;
+    }
+
+    async function carregarProdutos() {
+      setMensagem('Carregando produtos...');
+
+      try {
+        const termo = buscaProduto.value.trim();
+        const url = termo ? `/api/produtos?busca=${encodeURIComponent(termo)}` : '/api/produtos';
+        const json = await lerJson(await fetch(url));
+        produtos = Array.isArray(json?.data) ? json.data : [];
+        renderProdutos();
+        setMensagem('Produtos carregados.');
+      } catch (error) {
+        produtos = [];
+        renderProdutos();
+        setMensagem(error.message || 'Erro ao carregar produtos.', true);
+      }
+    }
+
+    async function carregarItens() {
+      setMensagem('Carregando itens do legado...');
+
+      try {
+        const params = new URLSearchParams();
+        const descricao = buscaItem.value.trim();
+        const limite = limiteItens.value.trim();
+
+        if (descricao) {
+          params.set('descricao', descricao);
+        }
+
+        if (limite) {
+          params.set('limite', limite);
+        }
+
+        const queryString = params.toString();
+        const url = queryString ? `/api/legado/itens?${queryString}` : '/api/legado/itens';
+        const json = await lerJson(await fetch(url));
+        itens = Array.isArray(json?.dados) ? json.dados : [];
+        renderItens();
+        setMensagem('Itens do legado carregados.');
+      } catch (error) {
+        itens = [];
+        renderItens();
+        setMensagem(error.message || 'Erro ao carregar itens.', true);
+      }
+    }
+
+    async function salvarDescricao(descricao) {
+      if (!itemSelecionado) {
+        setMensagem('Selecione um item do legado.', true);
+        return;
+      }
+
+      setMensagem('Salvando descrição no legado...');
+
+      try {
+        const json = await lerJson(await fetch(`/api/legado/itens/${itemSelecionado.item}/descricao`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ descricao })
+        }));
+
+        itemSelecionado = json?.dado || null;
+        descricaoManual.value = itemSelecionado?.descricao || '';
+        atualizarContador();
+        await carregarItens();
+        renderItemSelecionado();
+
+        const avisoTruncada = itemSelecionado?.descricaoTruncada ? ' A descrição foi cortada para 50 caracteres.' : '';
+        setMensagem((json?.mensagem || 'Descrição salva com sucesso.') + avisoTruncada);
+      } catch (error) {
+        setMensagem(error.message || 'Erro ao salvar descrição.', true);
+      }
+    }
+
+    async function sincronizarNomeProduto() {
+      if (!produtoSelecionado) {
+        setMensagem('Selecione um produto do Render.', true);
+        return;
+      }
+
+      if (!itemSelecionado) {
+        setMensagem('Selecione um item do legado.', true);
+        return;
+      }
+
+      setMensagem('Sincronizando produto para o legado...');
+
+      try {
+        const json = await lerJson(await fetch('/api/legado/itens/sincronizar-descricao', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            produtoId: produtoSelecionado.id,
+            item: itemSelecionado.item
+          })
+        }));
+
+        itemSelecionado = json?.dado || null;
+        descricaoManual.value = itemSelecionado?.descricao || '';
+        atualizarContador();
+        await carregarItens();
+        renderItemSelecionado();
+
+        const avisoTruncada = itemSelecionado?.descricaoTruncada ? ' O nome do produto foi cortado para 50 caracteres.' : '';
+        setMensagem((json?.mensagem || 'Sincronismo concluído com sucesso.') + avisoTruncada);
+      } catch (error) {
+        setMensagem(error.message || 'Erro ao sincronizar produto.', true);
+      }
+    }
+
+    document.getElementById('btnBuscarProdutos').addEventListener('click', carregarProdutos);
+    document.getElementById('btnLimparProdutos').addEventListener('click', () => {
+      buscaProduto.value = '';
+      carregarProdutos();
+    });
+    document.getElementById('btnBuscarItens').addEventListener('click', carregarItens);
+    document.getElementById('btnSalvarDescricao').addEventListener('click', () => salvarDescricao(descricaoManual.value));
+    document.getElementById('btnCopiarNome').addEventListener('click', sincronizarNomeProduto);
+    descricaoManual.addEventListener('input', atualizarContador);
+
+    [buscaProduto, buscaItem, limiteItens].forEach((campo) => {
+      campo.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          if (campo === buscaProduto) {
+            carregarProdutos();
+            return;
+          }
+
+          carregarItens();
+        }
+      });
+    });
+
+    atualizarContador();
+    carregarProdutos();
+    carregarItens();
+  </script>
+</body>
+</html>
