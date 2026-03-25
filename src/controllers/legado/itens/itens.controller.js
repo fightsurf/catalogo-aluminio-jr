@@ -69,9 +69,65 @@ async function sincronizarDescricaoProduto(req, res) {
   }
 }
 
+async function associarProdutoAoItemLegado(req, res) {
+  try {
+    const resultado = await itensService.associarProdutoAoItemLegado({
+      produtoId: req.body?.produtoId,
+      item: req.body?.item
+    });
+
+    return res.status(200).json(resultado);
+  } catch (error) {
+    console.error('Erro ao associar produto do Render ao item legado:', error);
+
+    return res.status(400).json({
+      erro: 'Erro ao associar produto ao item do legado.',
+      detalhe: error.message
+    });
+  }
+}
+
+async function desassociarProdutoDoItemLegado(req, res) {
+  try {
+    const resultado = await itensService.desassociarProdutoDoItemLegado({
+      produtoId: req.params.produtoId
+    });
+
+    return res.status(200).json(resultado);
+  } catch (error) {
+    console.error('Erro ao desassociar produto do item legado:', error);
+
+    return res.status(400).json({
+      erro: 'Erro ao desassociar produto do item do legado.',
+      detalhe: error.message
+    });
+  }
+}
+
+async function transferirAssociacaoProdutoAoItemLegado(req, res) {
+  try {
+    const resultado = await itensService.transferirAssociacaoProdutoAoItemLegado({
+      produtoId: req.body?.produtoId,
+      item: req.body?.item
+    });
+
+    return res.status(200).json(resultado);
+  } catch (error) {
+    console.error('Erro ao transferir associação do item legado:', error);
+
+    return res.status(400).json({
+      erro: 'Erro ao transferir associação do item legado.',
+      detalhe: error.message
+    });
+  }
+}
+
 module.exports = {
   listarItens,
   buscarItem,
   atualizarDescricao,
-  sincronizarDescricaoProduto
+  sincronizarDescricaoProduto,
+  associarProdutoAoItemLegado,
+  desassociarProdutoDoItemLegado,
+  transferirAssociacaoProdutoAoItemLegado
 };
