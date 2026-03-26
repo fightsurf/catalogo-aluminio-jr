@@ -40,6 +40,9 @@ const classificadorIntencaoRoutes = require('./src/routes/bot/classificadorInten
 const botFluxoRoutes = require('./src/routes/bot/botFluxo.routes');
 const relatorioAcrescimoApiRoutes = require('./src/routes/vendas/relatorio-acrescimo.routes');
 const relatorioAcrescimoViewRoutes = require('./src/routes/vendas/relatorio-acrescimo.view.routes');
+const pedidosInsercaoLegadoV2Routes = require('./src/routes/legado/pedidos-insercao-v2/pedidos-insercao-v2.routes');
+const pedidosInsercaoLegadoV2ViewRoutes = require('./src/routes/legado/pedidos-insercao-v2/pedidos-insercao-v2.view.routes');
+
 
 const app = express();
 
@@ -77,6 +80,8 @@ app.use('/api/fornecedores', fornecedorRoutes);
 app.use('/api/volume', volumeRoutes);
 app.use('/api/admin-volume', adminVolumeRoutes);
 app.use('/api/prestacoes', prestacaoContasRoutes);
+app.use('/api/legado/pedidos-insercao-v2', pedidosInsercaoLegadoV2Routes);
+app.use('/legado/pedidos-insercao-v2', pedidosInsercaoLegadoV2ViewRoutes);
 
 app.use('/bot', botRoutes);
 app.use('/bot/admin', botAdminRoutes);
