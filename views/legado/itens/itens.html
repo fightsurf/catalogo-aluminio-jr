@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sincronismo de Itens do Legado</title>
+  <title>Sincronismo de itens do legado</title>
   <style>
     * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: Arial, sans-serif;
-      background: #f4f6f9;
-      color: #1f2937;
+      background: #f3f4f6;
+      color: #111827;
     }
     .container {
       max-width: 1400px;
@@ -32,6 +32,7 @@
       background: #e5e7eb;
       color: #111827;
       display: none;
+      white-space: pre-line;
     }
     .mensagem.erro {
       background: #fee2e2;
@@ -75,6 +76,15 @@
     .filtros button.secundario, .acoes button.secundario {
       background: #6b7280;
     }
+    .filtros button.acao-principal, .acoes button.acao-principal {
+      background: #2563eb;
+    }
+    .filtros button.acao-alerta, .acoes button.acao-alerta {
+      background: #b45309;
+    }
+    .filtros button.acao-remover, .acoes button.acao-remover {
+      background: #991b1b;
+    }
     .lista {
       border: 1px solid #e5e7eb;
       border-radius: 10px;
@@ -105,6 +115,21 @@
       border-radius: 10px;
       background: #f9fafb;
       border: 1px solid #e5e7eb;
+      line-height: 1.6;
+    }
+    .status-vinculo {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 10px;
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      color: #92400e;
+      line-height: 1.5;
+    }
+    .status-vinculo.livre {
+      background: #ecfdf5;
+      border-color: #6ee7b7;
+      color: #065f46;
     }
     .acoes {
       display: flex;
@@ -123,6 +148,29 @@
       color: #6b7280;
       text-align: right;
     }
+    .acoes-topo {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+    .acoes-topo button {
+      border: none;
+      border-radius: 8px;
+      padding: 10px 12px;
+      cursor: pointer;
+      background: #374151;
+      color: #fff;
+    }
+    .badge-vinculo {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: bold;
+      color: #fff;
+    }
     @media (max-width: 900px) {
       .grid { grid-template-columns: 1fr; }
       .filtros { grid-template-columns: 1fr; }
@@ -132,7 +180,7 @@
 <body>
   <div class="container">
     <h1>Sincronismo de itens do legado</h1>
-    <p class="subtitulo">Comparar produto do Render com item do Firebird e atualizar apenas o campo descrição.</p>
+    <p class="subtitulo">Associar produto do Render ao item do Firebird, gravar descrição no legado, salvar o ITEM legado no PostgreSQL e agora também exibir/sincronizar os preços do legado em todas as tabelas de preço do item.</p>
     <div id="mensagem" class="mensagem"></div>
 
     <div class="grid">
@@ -154,14 +202,21 @@
           <input id="limiteItens" type="number" min="1" max="200" value="50" />
           <button id="btnBuscarItens">Buscar</button>
         </div>
+        <div class="acoes-topo">
+          <button id="btnMostrarVinculados" class="secundario">Exibir itens vinculados aos produtos do Render</button>
+        </div>
         <div id="listaItens" class="lista"></div>
         <div id="itemSelecionado" class="selecionado">Nenhum item selecionado.</div>
+        <div id="statusVinculo" class="status-vinculo livre">Selecione um produto e um item para ver o status da associação.</div>
 
         <textarea id="descricaoManual" maxlength="50" placeholder="Digite a nova descrição do item legado"></textarea>
         <div class="contador"><span id="contadorDescricao">0</span>/50</div>
 
         <div class="acoes">
-          <button id="btnCopiarNome">Copiar nome do produto para descrição</button>
+          <button id="btnAssociar" class="acao-principal">Associar item + descrição + preços</button>
+          <button id="btnTransferir" class="acao-alerta">Transferir associação</button>
+          <button id="btnDesassociar" class="acao-remover">Desassociar produto</button>
+          <button id="btnSomenteSincronizar">Somente sincronizar descrição + preços</button>
           <button id="btnSalvarDescricao" class="secundario">Salvar descrição digitada</button>
         </div>
       </section>
@@ -177,13 +232,33 @@
     const listaItens = document.getElementById('listaItens');
     const produtoSelecionadoBox = document.getElementById('produtoSelecionado');
     const itemSelecionadoBox = document.getElementById('itemSelecionado');
+    const statusVinculo = document.getElementById('statusVinculo');
     const descricaoManual = document.getElementById('descricaoManual');
     const contadorDescricao = document.getElementById('contadorDescricao');
+    const btnMostrarVinculados = document.getElementById('btnMostrarVinculados');
+
+    const PALETA_VINCULOS = [
+      { bg: '#dbeafe', border: '#2563eb' },
+      { bg: '#dcfce7', border: '#16a34a' },
+      { bg: '#fef3c7', border: '#d97706' },
+      { bg: '#fce7f3', border: '#db2777' },
+      { bg: '#ede9fe', border: '#7c3aed' },
+      { bg: '#cffafe', border: '#0891b2' },
+      { bg: '#fae8ff', border: '#a21caf' },
+      { bg: '#fee2e2', border: '#dc2626' },
+      { bg: '#ecfccb', border: '#65a30d' },
+      { bg: '#ffedd5', border: '#ea580c' },
+      { bg: '#e0e7ff', border: '#4f46e5' },
+      { bg: '#ccfbf1', border: '#0f766e' }
+    ];
 
     let produtos = [];
     let itens = [];
     let produtoSelecionado = null;
     let itemSelecionado = null;
+    let modoSomenteVinculados = false;
+    let produtosAssociados = [];
+    let mapaCoresVinculos = new Map();
 
     function setMensagem(texto, erro = false) {
       if (!texto) {
@@ -208,8 +283,147 @@
       return json;
     }
 
+    function formatarMoeda(valor) {
+      const numero = Number(valor);
+
+      if (!Number.isFinite(numero)) {
+        return '-';
+      }
+
+      return numero.toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+      });
+    }
+
+
+    function normalizarNumero(valor) {
+      const numero = Number(valor);
+      return Number.isFinite(numero) ? numero : null;
+    }
+
+    function gerarMapaCoresVinculos(listaProdutos = []) {
+      const mapa = new Map();
+      const vinculadosOrdenados = (Array.isArray(listaProdutos) ? listaProdutos : [])
+        .filter((produto) => normalizarNumero(produto?.item_legado) > 0)
+        .sort((a, b) => {
+          const itemA = normalizarNumero(a?.item_legado) || 0;
+          const itemB = normalizarNumero(b?.item_legado) || 0;
+
+          if (itemA !== itemB) {
+            return itemA - itemB;
+          }
+
+          return String(a?.nome || '').localeCompare(String(b?.nome || ''), 'pt-BR');
+        });
+
+      vinculadosOrdenados.forEach((produto, index) => {
+        const itemLegado = normalizarNumero(produto?.item_legado);
+        const paleta = PALETA_VINCULOS[index % PALETA_VINCULOS.length];
+
+        if (itemLegado) {
+          mapa.set(itemLegado, {
+            ...paleta,
+            indice: index + 1,
+            produtoId: normalizarNumero(produto?.id),
+            produtoNome: produto?.nome || ''
+          });
+        }
+      });
+
+      return mapa;
+    }
+
+    function obterMetaVinculoPorProduto(produto) {
+      const itemLegado = normalizarNumero(produto?.item_legado);
+      return itemLegado ? mapaCoresVinculos.get(itemLegado) || null : null;
+    }
+
+    function obterMetaVinculoPorItem(item) {
+      const itemLegado = normalizarNumero(item?.item);
+      return itemLegado ? mapaCoresVinculos.get(itemLegado) || null : null;
+    }
+
+    function montarStyleVinculo(metaVinculo) {
+      if (!metaVinculo) {
+        return '';
+      }
+
+      return `style="background:${metaVinculo.bg}; border-left: 6px solid ${metaVinculo.border};"`;
+    }
+
+    function montarBadgeVinculo(metaVinculo) {
+      if (!metaVinculo) {
+        return '';
+      }
+
+      return `<span class="badge-vinculo" style="background:${metaVinculo.border};">Vínculo ${metaVinculo.indice}</span>`;
+    }
+
+    function atualizarMapaVinculos() {
+      mapaCoresVinculos = gerarMapaCoresVinculos(produtosAssociados);
+    }
+
+    function encontrarProdutoDonoDoItem(itemLegado) {
+      const itemNumero = normalizarNumero(itemLegado);
+
+      if (!itemNumero) {
+        return null;
+      }
+
+      return produtosAssociados.find((produto) => normalizarNumero(produto?.item_legado) === itemNumero) || null;
+    }
+
     function atualizarContador() {
       contadorDescricao.textContent = descricaoManual.value.length;
+    }
+
+    function encontrarProdutoPorItemLegado(itemLegado, ignorarProdutoId = null) {
+      const itemNumero = normalizarNumero(itemLegado);
+
+      if (!itemNumero) {
+        return null;
+      }
+
+      return produtosAssociados.find((produto) => normalizarNumero(produto?.item_legado) === itemNumero && normalizarNumero(produto?.id) !== normalizarNumero(ignorarProdutoId)) || null;
+    }
+
+    function atualizarStatusVinculo() {
+      if (!produtoSelecionado && !itemSelecionado) {
+        statusVinculo.className = 'status-vinculo livre';
+        statusVinculo.textContent = 'Selecione um produto e um item para ver o status da associação.';
+        return;
+      }
+
+      if (!produtoSelecionado) {
+        statusVinculo.className = 'status-vinculo livre';
+        statusVinculo.textContent = 'Selecione um produto do Render.';
+        return;
+      }
+
+      if (!itemSelecionado) {
+        statusVinculo.className = 'status-vinculo livre';
+        statusVinculo.textContent = 'Selecione um item do legado.';
+        return;
+      }
+
+      const produtoDonoDoItem = encontrarProdutoPorItemLegado(itemSelecionado.item, produtoSelecionado.id);
+      const produtoJaApontaParaEsseItem = Number(produtoSelecionado.item_legado) === Number(itemSelecionado.item);
+
+      if (produtoJaApontaParaEsseItem) {
+        statusVinculo.className = 'status-vinculo livre';
+        statusVinculo.textContent = 'Esse ITEM legado já está associado ao produto selecionado.';
+        return;
+      }
+
+      if (produtoDonoDoItem) {
+        statusVinculo.className = 'status-vinculo';
+        statusVinculo.textContent = `Atenção: o ITEM legado ${itemSelecionado.item} já está vinculado ao produto "${produtoDonoDoItem.nome}" (ID ${produtoDonoDoItem.id}). Use "Transferir associação" se quiser mover esse vínculo.`;
+        return;
+      }
+
+      statusVinculo.className = 'status-vinculo livre';
+      statusVinculo.textContent = 'Esse ITEM legado está livre para associação.';
     }
 
     function renderProdutos() {
@@ -218,19 +432,34 @@
         return;
       }
 
-      listaProdutos.innerHTML = produtos.map((produto) => `
-        <button type="button" class="linha ${produtoSelecionado?.id === produto.id ? 'ativa' : ''}" data-id="${produto.id}">
-          <strong>${produto.nome || '-'}</strong>
-          <small>ID: ${produto.id} | Categoria: ${produto.categoria || '-'}</small>
-        </button>
-      `).join('');
+      listaProdutos.innerHTML = produtos.map((produto) => {
+        const metaVinculo = obterMetaVinculoPorProduto(produto);
+
+        return `
+          <button type="button" class="linha ${produtoSelecionado?.id === produto.id ? 'ativa' : ''}" data-id="${produto.id}" ${montarStyleVinculo(metaVinculo)}>
+            <strong>${produto.nome || '-'}</strong>
+            <small>ID: ${produto.id} | Preço Render: ${formatarMoeda(produto.preco)} | Categoria: ${produto.categoria || '-'} | ITEM legado: ${produto.item_legado || '-'}</small>
+            ${montarBadgeVinculo(metaVinculo)}
+          </button>
+        `;
+      }).join('');
 
       listaProdutos.querySelectorAll('.linha').forEach((botao) => {
         botao.addEventListener('click', () => {
           const id = Number(botao.dataset.id);
           produtoSelecionado = produtos.find((produto) => produto.id === id) || null;
+
+          if (modoSomenteVinculados && produtoSelecionado?.item_legado) {
+            itemSelecionado = itens.find((item) => Number(item.item) === Number(produtoSelecionado.item_legado)) || itemSelecionado;
+            descricaoManual.value = itemSelecionado?.descricao || '';
+            atualizarContador();
+          }
+
           renderProdutos();
           renderProdutoSelecionado();
+          renderItens();
+          renderItemSelecionado();
+          atualizarStatusVinculo();
         });
       });
     }
@@ -241,21 +470,42 @@
         return;
       }
 
-      listaItens.innerHTML = itens.map((item) => `
-        <button type="button" class="linha ${itemSelecionado?.item === item.item ? 'ativa' : ''}" data-item="${item.item}">
-          <strong>${item.descricao || '-'}</strong>
-          <small>ITEM: ${item.item} | CÓDIGO: ${item.codigo || '-'} | ${item.desativado === 'S' ? 'Inativo' : 'Ativo'}</small>
-        </button>
-      `).join('');
+      listaItens.innerHTML = itens.map((item) => {
+        const produtoDono = encontrarProdutoDonoDoItem(item.item);
+        const metaVinculo = obterMetaVinculoPorItem(item);
+        const livreOuVinculo = produtoDono
+          ? ` | Vinculado a: ${produtoDono.nome} (ID ${produtoDono.id})`
+          : ' | Livre';
+        const tabelaPreco = item.tabelaPrecoAtual === null || item.tabelaPrecoAtual === undefined ? '-' : item.tabelaPrecoAtual;
+        const erroVinculo = item?.erroVinculo ? `<small>${item.erroVinculo}</small>` : '';
+
+        return `
+          <button type="button" class="linha ${itemSelecionado?.item === item.item ? 'ativa' : ''}" data-item="${item.item}" ${montarStyleVinculo(metaVinculo)}>
+            <strong>${item.descricao || '-'}</strong>
+            <small>ITEM: ${item.item} | CÓDIGO: ${item.codigo || '-'} | PREÇO PRINCIPAL LEGADO: ${formatarMoeda(item.precoAtual)} | TABELA BASE: ${tabelaPreco} | ${item.desativado === 'S' ? 'Inativo' : 'Ativo'}${livreOuVinculo}</small>
+            ${montarBadgeVinculo(metaVinculo)}
+            ${erroVinculo}
+          </button>
+        `;
+      }).join('');
 
       listaItens.querySelectorAll('.linha').forEach((botao) => {
         botao.addEventListener('click', () => {
           const itemId = Number(botao.dataset.item);
           itemSelecionado = itens.find((item) => item.item === itemId) || null;
+          const produtoDono = encontrarProdutoDonoDoItem(itemSelecionado?.item);
+
+          if (modoSomenteVinculados && produtoDono) {
+            produtoSelecionado = produtos.find((produto) => Number(produto.id) === Number(produtoDono.id)) || produtoSelecionado;
+          }
+
           descricaoManual.value = itemSelecionado?.descricao || '';
           atualizarContador();
+          renderProdutos();
           renderItens();
+          renderProdutoSelecionado();
           renderItemSelecionado();
+          atualizarStatusVinculo();
         });
       });
     }
@@ -269,7 +519,9 @@
       produtoSelecionadoBox.innerHTML = `
         <strong>Produto selecionado</strong><br />
         ID: ${produtoSelecionado.id}<br />
-        Nome: ${produtoSelecionado.nome || '-'}
+        Nome: ${produtoSelecionado.nome || '-'}<br />
+        Preço Render: ${formatarMoeda(produtoSelecionado.preco)}<br />
+        ITEM legado vinculado: ${produtoSelecionado.item_legado || '-'}
       `;
     }
 
@@ -279,35 +531,71 @@
         return;
       }
 
+      const produtoDonoDoItem = encontrarProdutoDonoDoItem(itemSelecionado.item);
+      const tabelaPreco = itemSelecionado.tabelaPrecoAtual === null || itemSelecionado.tabelaPrecoAtual === undefined ? '-' : itemSelecionado.tabelaPrecoAtual;
+
       itemSelecionadoBox.innerHTML = `
         <strong>Item legado selecionado</strong><br />
         ITEM: ${itemSelecionado.item}<br />
         Código: ${itemSelecionado.codigo || '-'}<br />
-        Descrição atual: ${itemSelecionado.descricao || '-'}
+        Descrição atual: ${itemSelecionado.descricao || '-'}<br />
+        Preço principal exibido na tela: ${formatarMoeda(itemSelecionado.precoAtual)}<br />
+        Tabela principal exibida: ${tabelaPreco}<br />
+        Vinculado no Render: ${produtoDonoDoItem ? `${produtoDonoDoItem.nome} (ID ${produtoDonoDoItem.id})` : 'Livre'}
       `;
     }
 
-    async function carregarProdutos() {
+    async function carregarProdutos(manterSelecao = true) {
       setMensagem('Carregando produtos...');
 
       try {
+        const produtoIdSelecionado = manterSelecao ? produtoSelecionado?.id : null;
         const termo = buscaProduto.value.trim();
         const url = termo ? `/api/produtos?busca=${encodeURIComponent(termo)}` : '/api/produtos';
         const json = await lerJson(await fetch(url));
         produtos = Array.isArray(json?.data) ? json.data : [];
+
+        if (!termo) {
+          produtosAssociados = produtos.filter((produto) => normalizarNumero(produto?.item_legado) > 0);
+        } else {
+          const jsonAssociados = await lerJson(await fetch('/api/produtos'));
+          const todosProdutos = Array.isArray(jsonAssociados?.data) ? jsonAssociados.data : [];
+          produtosAssociados = todosProdutos.filter((produto) => normalizarNumero(produto?.item_legado) > 0);
+        }
+
+        atualizarMapaVinculos();
+
+        if (produtoIdSelecionado) {
+          produtoSelecionado = produtos.find((produto) => produto.id === produtoIdSelecionado) || null;
+        }
+
         renderProdutos();
-        setMensagem('Produtos carregados.');
+        renderProdutoSelecionado();
+        renderItens();
+        renderItemSelecionado();
+        atualizarStatusVinculo();
+        setMensagem(modoSomenteVinculados ? 'Produtos vinculados carregados.' : 'Produtos carregados.');
       } catch (error) {
         produtos = [];
+        if (!modoSomenteVinculados) {
+          produtosAssociados = [];
+          atualizarMapaVinculos();
+        }
+        produtoSelecionado = null;
         renderProdutos();
+        renderProdutoSelecionado();
+        renderItens();
+        renderItemSelecionado();
+        atualizarStatusVinculo();
         setMensagem(error.message || 'Erro ao carregar produtos.', true);
       }
     }
 
-    async function carregarItens() {
+    async function carregarItens(manterSelecao = true) {
       setMensagem('Carregando itens do legado...');
 
       try {
+        const itemIdSelecionado = manterSelecao ? itemSelecionado?.item : null;
         const params = new URLSearchParams();
         const descricao = buscaItem.value.trim();
         const limite = limiteItens.value.trim();
@@ -324,13 +612,106 @@
         const url = queryString ? `/api/legado/itens?${queryString}` : '/api/legado/itens';
         const json = await lerJson(await fetch(url));
         itens = Array.isArray(json?.dados) ? json.dados : [];
+
+        if (itemIdSelecionado) {
+          itemSelecionado = itens.find((item) => item.item === itemIdSelecionado) || itemSelecionado;
+        }
+
         renderItens();
+        renderItemSelecionado();
+        atualizarStatusVinculo();
         setMensagem('Itens do legado carregados.');
       } catch (error) {
         itens = [];
+        itemSelecionado = null;
         renderItens();
+        renderItemSelecionado();
+        atualizarStatusVinculo();
         setMensagem(error.message || 'Erro ao carregar itens.', true);
       }
+    }
+
+
+    async function carregarItensVinculados() {
+      setMensagem('Carregando todos os vínculos Render x Legado...');
+
+      try {
+        const jsonProdutos = await lerJson(await fetch('/api/produtos'));
+        const todosProdutos = Array.isArray(jsonProdutos?.data) ? jsonProdutos.data : [];
+        const vinculados = todosProdutos
+          .filter((produto) => normalizarNumero(produto?.item_legado) > 0)
+          .sort((a, b) => {
+            const itemA = normalizarNumero(a?.item_legado) || 0;
+            const itemB = normalizarNumero(b?.item_legado) || 0;
+            if (itemA !== itemB) {
+              return itemA - itemB;
+            }
+            return String(a?.nome || '').localeCompare(String(b?.nome || ''), 'pt-BR');
+          });
+
+        produtosAssociados = vinculados;
+        atualizarMapaVinculos();
+        produtos = vinculados;
+
+        const itemSelecionadoAnterior = itemSelecionado?.item;
+        const produtoSelecionadoAnterior = produtoSelecionado?.id;
+
+        const itensVinculados = await Promise.all(vinculados.map(async (produto) => {
+          try {
+            const jsonItem = await lerJson(await fetch(`/api/legado/itens/${encodeURIComponent(produto.item_legado)}`));
+            return jsonItem?.dado || null;
+          } catch (error) {
+            return {
+              item: Number(produto.item_legado),
+              codigo: '-',
+              descricao: `Falha ao carregar o ITEM legado ${produto.item_legado}`,
+              desativado: '',
+              precoAtual: null,
+              tabelaPrecoAtual: null,
+              erroVinculo: error.message || 'Erro ao consultar item do legado.'
+            };
+          }
+        }));
+
+        itens = itensVinculados.filter(Boolean);
+        modoSomenteVinculados = true;
+        btnMostrarVinculados.textContent = 'Voltar para busca normal';
+
+        produtoSelecionado = produtoSelecionadoAnterior
+          ? produtos.find((produto) => Number(produto.id) === Number(produtoSelecionadoAnterior)) || null
+          : null;
+        itemSelecionado = itemSelecionadoAnterior
+          ? itens.find((item) => Number(item.item) === Number(itemSelecionadoAnterior)) || null
+          : null;
+
+        if (!itemSelecionado && produtoSelecionado?.item_legado) {
+          itemSelecionado = itens.find((item) => Number(item.item) === Number(produtoSelecionado.item_legado)) || null;
+        }
+
+        if (!produtoSelecionado && itemSelecionado) {
+          const produtoDono = encontrarProdutoDonoDoItem(itemSelecionado.item);
+          produtoSelecionado = produtos.find((produto) => Number(produto.id) === Number(produtoDono?.id)) || null;
+        }
+
+        descricaoManual.value = itemSelecionado?.descricao || '';
+        atualizarContador();
+        renderProdutos();
+        renderProdutoSelecionado();
+        renderItens();
+        renderItemSelecionado();
+        atualizarStatusVinculo();
+        setMensagem(`${produtos.length} vínculo(s) exibido(s). Os pares sincronizados foram coloridos com cores diferentes nos dois lados.`);
+      } catch (error) {
+        setMensagem(error.message || 'Erro ao carregar itens vinculados.', true);
+      }
+    }
+
+    async function sairModoItensVinculados() {
+      modoSomenteVinculados = false;
+      btnMostrarVinculados.textContent = 'Exibir itens vinculados aos produtos do Render';
+      await carregarProdutos(false);
+      await carregarItens(false);
+      setMensagem('Busca normal reativada.');
     }
 
     async function salvarDescricao(descricao) {
@@ -363,6 +744,28 @@
       }
     }
 
+
+    function montarResumoPrecos(item) {
+      const quantidade = Number(item?.quantidadeTabelasAtualizadas || 0);
+
+      if (!quantidade) {
+        return '';
+      }
+
+      const tabelaPrincipal = item?.tabelaPrecoPrincipalUsada ?? item?.tabelaPrecoAlterada ?? '-';
+      const detalhes = Array.isArray(item?.tabelasPrecoAtualizadas)
+        ? item.tabelasPrecoAtualizadas
+            .slice(0, 4)
+            .map((linha) => `T${linha.tabelaPreco ?? '-'}: ${formatarMoeda(linha.precoAplicado)}`)
+            .join(', ')
+        : '';
+      const restante = Array.isArray(item?.tabelasPrecoAtualizadas) && item.tabelasPrecoAtualizadas.length > 4
+        ? ` +${item.tabelasPrecoAtualizadas.length - 4} tabela(s)`
+        : '';
+
+      return ` Preços recalculados em ${quantidade} tabela(s), base ${formatarMoeda(item?.precoOriginalInformado)} na tabela principal ${tabelaPrincipal}.${detalhes ? ` ${detalhes}${restante}.` : ''}`;
+    }
+
     async function sincronizarNomeProduto() {
       if (!produtoSelecionado) {
         setMensagem('Selecione um produto do Render.', true);
@@ -374,7 +777,7 @@
         return;
       }
 
-      setMensagem('Sincronizando produto para o legado...');
+      setMensagem('Sincronizando descrição e preços do produto para o legado...');
 
       try {
         const json = await lerJson(await fetch('/api/legado/itens/sincronizar-descricao', {
@@ -395,25 +798,192 @@
         renderItemSelecionado();
 
         const avisoTruncada = itemSelecionado?.descricaoTruncada ? ' O nome do produto foi cortado para 50 caracteres.' : '';
-        setMensagem((json?.mensagem || 'Sincronismo concluído com sucesso.') + avisoTruncada);
+        const avisoPreco = montarResumoPrecos(itemSelecionado);
+        setMensagem((json?.mensagem || 'Sincronismo concluído com sucesso.') + avisoTruncada + avisoPreco);
       } catch (error) {
         setMensagem(error.message || 'Erro ao sincronizar produto.', true);
       }
     }
 
-    document.getElementById('btnBuscarProdutos').addEventListener('click', carregarProdutos);
+    async function associarItem() {
+      if (!produtoSelecionado) {
+        setMensagem('Selecione um produto do Render.', true);
+        return;
+      }
+
+      if (!itemSelecionado) {
+        setMensagem('Selecione um item do legado.', true);
+        return;
+      }
+
+      setMensagem('Associando item legado ao produto e sincronizando descrição e preços...');
+
+      try {
+        const json = await lerJson(await fetch('/api/legado/itens/associar', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            produtoId: produtoSelecionado.id,
+            item: itemSelecionado.item
+          })
+        }));
+
+        produtoSelecionado = {
+          ...produtoSelecionado,
+          item_legado: json?.produto?.item_legado || null
+        };
+        itemSelecionado = json?.dado || null;
+        descricaoManual.value = itemSelecionado?.descricao || '';
+        atualizarContador();
+        await carregarProdutos();
+        await carregarItens();
+        renderProdutoSelecionado();
+        renderItemSelecionado();
+
+        const avisoTruncada = itemSelecionado?.descricaoTruncada ? ' O nome do produto foi cortado para 50 caracteres.' : '';
+        const avisoPreco = montarResumoPrecos(itemSelecionado);
+        setMensagem((json?.mensagem || 'Associação concluída com sucesso.') + ` ITEM legado gravado no PostgreSQL: ${json?.produto?.item_legado || '-'}.` + avisoTruncada + avisoPreco);
+      } catch (error) {
+        setMensagem(error.message || 'Erro ao associar produto ao item legado.', true);
+      }
+    }
+
+    async function desassociarProduto() {
+      if (!produtoSelecionado) {
+        setMensagem('Selecione um produto do Render.', true);
+        return;
+      }
+
+      if (!produtoSelecionado.item_legado) {
+        setMensagem('Esse produto já está sem ITEM legado associado.', true);
+        return;
+      }
+
+      const confirmar = window.confirm(`Desassociar o produto "${produtoSelecionado.nome}" do ITEM legado ${produtoSelecionado.item_legado}?`);
+
+      if (!confirmar) {
+        return;
+      }
+
+      setMensagem('Desassociando produto do ITEM legado...');
+
+      try {
+        const json = await lerJson(await fetch(`/api/legado/itens/associacao/${produtoSelecionado.id}`, {
+          method: 'DELETE'
+        }));
+
+        produtoSelecionado = {
+          ...produtoSelecionado,
+          item_legado: null
+        };
+        await carregarProdutos();
+        await carregarItens();
+        renderProdutoSelecionado();
+        renderItemSelecionado();
+        setMensagem(json?.mensagem || 'Produto desassociado com sucesso.');
+      } catch (error) {
+        setMensagem(error.message || 'Erro ao desassociar produto.', true);
+      }
+    }
+
+    async function transferirAssociacao() {
+      if (!produtoSelecionado) {
+        setMensagem('Selecione um produto do Render.', true);
+        return;
+      }
+
+      if (!itemSelecionado) {
+        setMensagem('Selecione um item do legado.', true);
+        return;
+      }
+
+      const produtoDonoDoItem = encontrarProdutoPorItemLegado(itemSelecionado.item, produtoSelecionado.id);
+      const itemAtualDoProduto = produtoSelecionado.item_legado || 'nenhum';
+      const mensagemConfirmacao = produtoDonoDoItem
+        ? `O ITEM legado ${itemSelecionado.item} está vinculado a "${produtoDonoDoItem.nome}" (ID ${produtoDonoDoItem.id}).\n\nSe continuar, esse vínculo sai de lá e vai para "${produtoSelecionado.nome}".\nITEM atual do produto selecionado: ${itemAtualDoProduto}.\n\nDeseja transferir?`
+        : `O ITEM legado ${itemSelecionado.item} está livre.\n\nSe continuar, ele será vinculado ao produto "${produtoSelecionado.nome}". ITEM atual do produto selecionado: ${itemAtualDoProduto}.\n\nDeseja continuar?`;
+
+      if (!window.confirm(mensagemConfirmacao)) {
+        return;
+      }
+
+      setMensagem('Transferindo associação do ITEM legado e sincronizando descrição + preços...');
+
+      try {
+        const json = await lerJson(await fetch('/api/legado/itens/transferir-associacao', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            produtoId: produtoSelecionado.id,
+            item: itemSelecionado.item
+          })
+        }));
+
+        produtoSelecionado = {
+          ...produtoSelecionado,
+          item_legado: json?.produto?.item_legado || null
+        };
+        itemSelecionado = json?.dado || null;
+        descricaoManual.value = itemSelecionado?.descricao || '';
+        atualizarContador();
+        await carregarProdutos();
+        await carregarItens();
+        renderProdutoSelecionado();
+        renderItemSelecionado();
+
+        const avisoTruncada = itemSelecionado?.descricaoTruncada ? ' O nome do produto foi cortado para 50 caracteres.' : '';
+        const textoAnterior = json?.produtoAnterior
+          ? ` O vínculo anterior saiu do produto "${json.produtoAnterior.nome}" (ID ${json.produtoAnterior.id}).`
+          : '';
+        const avisoPreco = montarResumoPrecos(itemSelecionado);
+
+        setMensagem((json?.mensagem || 'Transferência concluída com sucesso.') + textoAnterior + avisoTruncada + avisoPreco);
+      } catch (error) {
+        setMensagem(error.message || 'Erro ao transferir associação.', true);
+      }
+    }
+
+    document.getElementById('btnBuscarProdutos').addEventListener('click', () => {
+      modoSomenteVinculados = false;
+      btnMostrarVinculados.textContent = 'Exibir itens vinculados aos produtos do Render';
+      carregarProdutos();
+    });
     document.getElementById('btnLimparProdutos').addEventListener('click', () => {
+      modoSomenteVinculados = false;
+      btnMostrarVinculados.textContent = 'Exibir itens vinculados aos produtos do Render';
       buscaProduto.value = '';
       carregarProdutos();
     });
-    document.getElementById('btnBuscarItens').addEventListener('click', carregarItens);
+    document.getElementById('btnBuscarItens').addEventListener('click', () => {
+      modoSomenteVinculados = false;
+      btnMostrarVinculados.textContent = 'Exibir itens vinculados aos produtos do Render';
+      carregarItens();
+    });
+    btnMostrarVinculados.addEventListener('click', async () => {
+      if (modoSomenteVinculados) {
+        await sairModoItensVinculados();
+        return;
+      }
+
+      await carregarItensVinculados();
+    });
     document.getElementById('btnSalvarDescricao').addEventListener('click', () => salvarDescricao(descricaoManual.value));
-    document.getElementById('btnCopiarNome').addEventListener('click', sincronizarNomeProduto);
+    document.getElementById('btnSomenteSincronizar').addEventListener('click', sincronizarNomeProduto);
+    document.getElementById('btnAssociar').addEventListener('click', associarItem);
+    document.getElementById('btnTransferir').addEventListener('click', transferirAssociacao);
+    document.getElementById('btnDesassociar').addEventListener('click', desassociarProduto);
     descricaoManual.addEventListener('input', atualizarContador);
 
     [buscaProduto, buscaItem, limiteItens].forEach((campo) => {
       campo.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
+          modoSomenteVinculados = false;
+          btnMostrarVinculados.textContent = 'Exibir itens vinculados aos produtos do Render';
+
           if (campo === buscaProduto) {
             carregarProdutos();
             return;
@@ -425,8 +995,8 @@
     });
 
     atualizarContador();
-    carregarProdutos();
-    carregarItens();
+    carregarProdutos(false);
+    carregarItens(false);
   </script>
 </body>
 </html>

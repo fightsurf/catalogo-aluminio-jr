@@ -18,6 +18,20 @@ function normalizarInteiroPositivo(valor, mensagem) {
   return numero;
 }
 
+function normalizarPrecoProduto(valor) {
+  if (valor === undefined || valor === null || `${valor}`.trim() === '') {
+    throw new Error('Produto do Render sem preço válido para sincronismo.');
+  }
+
+  const numero = Number.parseFloat(`${valor}`.replace(',', '.'));
+
+  if (!Number.isFinite(numero) || numero < 0) {
+    throw new Error('Produto do Render sem preço válido para sincronismo.');
+  }
+
+  return Math.round(numero * 1000) / 1000;
+}
+
 function baseUrlLegado() {
   const baseUrl = limparTexto(process.env.LEGADO_BRIDGE_URL);
 
@@ -64,15 +78,49 @@ async function lerJson(response) {
   return parsed;
 }
 
+function mapearTabelasPrecoAtualizadas(tabelas) {
+  if (!Array.isArray(tabelas)) {
+    return [];
+  }
+
+  return tabelas.map((linha) => ({
+    produtoPrecoId: linha?.produtoPrecoId ?? linha?.produto_preco_id ?? null,
+    tabelaPreco: linha?.tabelaPreco ?? linha?.tabela_preco ?? null,
+    unidade: limparTexto(linha?.unidade),
+    precoAnterior: linha?.precoAnterior === null || linha?.precoAnterior === undefined ? null : Number(linha.precoAnterior),
+    precoAplicado: linha?.precoAplicado === null || linha?.precoAplicado === undefined ? null : Number(linha.precoAplicado)
+  }));
+}
+
 function mapearItem(item) {
   return {
     item: item?.item ?? null,
     codigo: limparTexto(item?.codigo),
     descricao: limparTexto(item?.descricao),
     desativado: limparTexto(item?.desativado),
+    produtoPrecoId: item?.produtoPrecoId ?? item?.produto_preco_id ?? null,
+    tabelaPrecoAtual: item?.tabelaPrecoAtual ?? item?.tabela_preco_atual ?? null,
+    unidadePrecoAtual: limparTexto(item?.unidadePrecoAtual ?? item?.unidade_preco_atual),
+    precoAtual: item?.precoAtual === null || item?.precoAtual === undefined ? null : Number(item.precoAtual),
+    precoPromocionalAtual: item?.precoPromocionalAtual === null || item?.precoPromocionalAtual === undefined
+      ? null
+      : Number(item.precoPromocionalAtual),
     descricaoOriginal: limparTexto(item?.descricaoOriginal),
     descricaoAplicada: limparTexto(item?.descricaoAplicada),
-    descricaoTruncada: Boolean(item?.descricaoTruncada)
+    descricaoTruncada: Boolean(item?.descricaoTruncada),
+    precoOriginalInformado: item?.precoOriginalInformado === null || item?.precoOriginalInformado === undefined
+      ? null
+      : Number(item.precoOriginalInformado),
+    precoAplicado: item?.precoAplicado === null || item?.precoAplicado === undefined
+      ? null
+      : Number(item.precoAplicado),
+    tabelaPrecoAlterada: item?.tabelaPrecoAlterada ?? null,
+    tabelaPrecoPrincipalUsada: item?.tabelaPrecoPrincipalUsada ?? item?.tabela_preco_principal_usada ?? null,
+    precoPrincipalAnterior: item?.precoPrincipalAnterior === null || item?.precoPrincipalAnterior === undefined
+      ? null
+      : Number(item.precoPrincipalAnterior),
+    quantidadeTabelasAtualizadas: item?.quantidadeTabelasAtualizadas ?? item?.quantidade_tabelas_atualizadas ?? 0,
+    tabelasPrecoAtualizadas: mapearTabelasPrecoAtualizadas(item?.tabelasPrecoAtualizadas ?? item?.tabelas_preco_atualizadas)
   };
 }
 
@@ -130,6 +178,26 @@ async function atualizarDescricaoItem({ item, descricao }) {
   };
 }
 
+async function atualizarPrecoItem({ item, preco }) {
+  const itemNormalizado = normalizarInteiroPositivo(item, 'ITEM do legado inválido.');
+
+  const response = await fetch(`${baseUrlLegado()}/api/itens/${encodeURIComponent(itemNormalizado)}/preco`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json'
+    },
+    body: JSON.stringify({ preco })
+  });
+
+  const parsed = await lerJson(response);
+
+  return {
+    mensagem: parsed?.mensagem || 'Preços atualizados com sucesso em todas as tabelas.',
+    dado: mapearItem(parsed?.dado || {})
+  };
+}
+
 async function sincronizarDescricaoProduto({ produtoId, item }) {
   const produto = await produtoService.buscar(produtoId);
 
@@ -137,19 +205,33 @@ async function sincronizarDescricaoProduto({ produtoId, item }) {
     throw new Error('Produto do Render sem nome válido para sincronismo.');
   }
 
-  const atualizado = await atualizarDescricaoItem({
-    item,
-    descricao: produto.nome
+  const precoProduto = normalizarPrecoProduto(produto?.preco);
+  const itemNormalizado = normalizarInteiroPositivo(item, 'ITEM do legado inválido.');
+
+  const response = await fetch(`${baseUrlLegado()}/api/itens/${encodeURIComponent(itemNormalizado)}/sincronizar-render`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json'
+    },
+    body: JSON.stringify({
+      descricao: produto.nome,
+      preco: precoProduto
+    })
   });
 
+  const parsed = await lerJson(response);
+  const dado = mapearItem(parsed?.dado || {});
+
   return {
-    mensagem: 'Produto sincronizado com o item legado com sucesso.',
+    mensagem: parsed?.mensagem || 'Produto sincronizado com o item legado com sucesso.',
     produto: {
       id: produto.id,
       nome: limparTexto(produto.nome),
+      preco: precoProduto,
       item_legado: produto?.item_legado ?? null
     },
-    dado: atualizado.dado
+    dado
   };
 }
 
@@ -161,6 +243,8 @@ async function associarProdutoAoItemLegado({ produtoId, item }) {
     throw new Error('Produto do Render sem nome válido para associação.');
   }
 
+  normalizarPrecoProduto(produto?.preco);
+
   const produtoJaAssociado = await produtoService.buscarPorItemLegado(itemNormalizado, {
     ignorarProdutoId: produto.id
   });
@@ -169,9 +253,9 @@ async function associarProdutoAoItemLegado({ produtoId, item }) {
     throw new Error(`O ITEM legado ${itemNormalizado} já está associado ao produto "${limparTexto(produtoJaAssociado.nome) || `ID ${produtoJaAssociado.id}`}" (ID ${produtoJaAssociado.id}).`);
   }
 
-  const atualizadoLegado = await atualizarDescricaoItem({
-    item: itemNormalizado,
-    descricao: produto.nome
+  const atualizadoLegado = await sincronizarDescricaoProduto({
+    produtoId: produto.id,
+    item: itemNormalizado
   });
 
   const produtoAssociado = await produtoService.associarItemLegado(produto.id, itemNormalizado);
@@ -181,6 +265,7 @@ async function associarProdutoAoItemLegado({ produtoId, item }) {
     produto: {
       id: produtoAssociado.id,
       nome: limparTexto(produtoAssociado.nome),
+      preco: produtoAssociado?.preco === null || produtoAssociado?.preco === undefined ? null : Number(produtoAssociado.preco),
       item_legado: produtoAssociado.item_legado
     },
     dado: atualizadoLegado.dado
@@ -200,6 +285,7 @@ async function desassociarProdutoDoItemLegado({ produtoId }) {
     produto: {
       id: produtoDesassociado.id,
       nome: limparTexto(produtoDesassociado.nome),
+      preco: produtoDesassociado?.preco === null || produtoDesassociado?.preco === undefined ? null : Number(produtoDesassociado.preco),
       item_legado: produtoDesassociado.item_legado ?? null
     },
     itemAnterior
@@ -214,13 +300,15 @@ async function transferirAssociacaoProdutoAoItemLegado({ produtoId, item }) {
     throw new Error('Produto do Render sem nome válido para transferência.');
   }
 
+  normalizarPrecoProduto(produtoDestino?.preco);
+
   const produtoOrigem = await produtoService.buscarPorItemLegado(itemNormalizado, {
     ignorarProdutoId: produtoDestino.id
   });
 
-  const atualizadoLegado = await atualizarDescricaoItem({
-    item: itemNormalizado,
-    descricao: produtoDestino.nome
+  const atualizadoLegado = await sincronizarDescricaoProduto({
+    produtoId: produtoDestino.id,
+    item: itemNormalizado
   });
 
   const transferencia = await produtoService.transferirItemLegado(produtoDestino.id, itemNormalizado);
@@ -232,12 +320,14 @@ async function transferirAssociacaoProdutoAoItemLegado({ produtoId, item }) {
     produto: {
       id: transferencia.produto.id,
       nome: limparTexto(transferencia.produto.nome),
+      preco: transferencia.produto?.preco === null || transferencia.produto?.preco === undefined ? null : Number(transferencia.produto.preco),
       item_legado: transferencia.produto.item_legado
     },
     produtoAnterior: transferencia.produtoAnterior
       ? {
           id: transferencia.produtoAnterior.id,
           nome: limparTexto(transferencia.produtoAnterior.nome),
+          preco: transferencia.produtoAnterior?.preco === null || transferencia.produtoAnterior?.preco === undefined ? null : Number(transferencia.produtoAnterior.preco),
           item_legado: transferencia.produtoAnterior.item_legado ?? null
         }
       : null,
@@ -249,6 +339,7 @@ module.exports = {
   listarItens,
   buscarItem,
   atualizarDescricaoItem,
+  atualizarPrecoItem,
   sincronizarDescricaoProduto,
   associarProdutoAoItemLegado,
   desassociarProdutoDoItemLegado,

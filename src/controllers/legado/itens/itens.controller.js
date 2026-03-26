@@ -63,7 +63,7 @@ async function sincronizarDescricaoProduto(req, res) {
     console.error('Erro ao sincronizar produto para item legado:', error);
 
     return res.status(400).json({
-      erro: 'Erro ao sincronizar descrição do produto para o legado.',
+      erro: 'Erro ao sincronizar descrição e preços do produto para o legado.',
       detalhe: error.message
     });
   }
