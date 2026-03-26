@@ -14,6 +14,7 @@ const clientesLegadoViewRoutes = require('./src/routes/legado/clientes/clientes.
 const pedidosClienteApiRoutes = require('./src/routes/legado/pedidos-cliente/pedidos-cliente.routes');
 const pedidosClienteViewRoutes = require('./src/routes/legado/pedidos-cliente/pedidos-cliente.view.routes');
 const pedidosInsercaoLegadoRoutes = require('./src/routes/legado/pedidos-insercao/pedidos-insercao.routes');
+const pedidosInsercaoLegadoViewRoutes = require('./src/routes/legado/pedidos-insercao/pedidos-insercao.view.routes');
 const itensLegadoRoutes = require('./src/routes/legado/itens/itens.routes');
 const itensLegadoViewRoutes = require('./src/routes/legado/itens/itens.view.routes');
 
@@ -60,6 +61,7 @@ app.use('/legado/clientes', clientesLegadoViewRoutes);
 app.use('/api/legado/pedidos-cliente', pedidosClienteApiRoutes);
 app.use('/legado/pedidos-cliente', pedidosClienteViewRoutes);
 app.use('/api/legado/pedidos-insercao', pedidosInsercaoLegadoRoutes);
+app.use('/legado/pedidos-insercao', pedidosInsercaoLegadoViewRoutes);
 app.use('/api/legado/itens', itensLegadoRoutes);
 app.use('/legado/itens', itensLegadoViewRoutes);
 app.use('/api/vendas', relatorioAcrescimoApiRoutes);
