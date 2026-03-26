@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inserção de pedido no legado V2</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #f3f4f6; color: #111827; }
+    .container { max-width: 1480px; margin: 0 auto; padding: 24px; }
+    h1 { margin: 0 0 8px; font-size: 28px; }
+    .subtitulo { margin: 0 0 20px; color: #4b5563; }
+    .mensagem { margin-bottom: 16px; padding: 12px 14px; border-radius: 8px; background: #e5e7eb; display: none; white-space: pre-line; }
+    .mensagem.erro { background: #fee2e2; color: #991b1b; }
+    .grid { display: grid; grid-template-columns: 380px 1fr; gap: 20px; }
+    .card { background: #fff; border-radius: 12px; padding: 18px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+    .card h2 { margin-top: 0; font-size: 20px; }
+    .filtros { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; margin-bottom: 14px; }
+    .filtros input, .filtros button, .campo, .tabela-itens input, .footer-pedido textarea, .relatorio-box textarea {
+      width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;
+    }
+    button { border: none; border-radius: 8px; padding: 10px 12px; cursor: pointer; background: #111827; color: #fff; }
+    button.secundario { background: #6b7280; }
+    button.acao-principal { background: #2563eb; }
+    button.acao-importar { background: #0f766e; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .lista-busca { border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; max-height: 320px; overflow-y: auto; }
+    .linha-busca { width: 100%; text-align: left; background: #fff; border: none; border-bottom: 1px solid #e5e7eb; padding: 12px 14px; cursor: pointer; }
+    .linha-busca:hover, .linha-busca.ativa { background: #eff6ff; }
+    .linha-busca strong { display: block; margin-bottom: 4px; }
+    .linha-busca small { color: #6b7280; }
+    .selecionado { margin-top: 14px; padding: 14px; border-radius: 10px; background: #f9fafb; border: 1px solid #e5e7eb; line-height: 1.6; }
+    .busca-wrap { position: relative; }
+    .dropdown { position: absolute; top: calc(100% + 6px); left: 0; right: 0; background: #fff; border: 1px solid #d1d5db; border-radius: 10px; box-shadow: 0 8px 18px rgba(0,0,0,0.08); max-height: 280px; overflow-y: auto; z-index: 20; display: none; }
+    .dropdown-item { padding: 12px 14px; border-bottom: 1px solid #e5e7eb; cursor: pointer; }
+    .dropdown-item:last-child { border-bottom: none; }
+    .dropdown-item:hover, .dropdown-item.ativo { background: #eff6ff; }
+    .dropdown-item strong { display: block; margin-bottom: 4px; }
+    .dropdown-item small { color: #6b7280; }
+    .rotulo-pequeno { font-size: 12px; color: #6b7280; margin-bottom: 6px; display: block; }
+    .bloco-topo { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 18px; }
+    .relatorio-box textarea { min-height: 220px; resize: vertical; font-family: Consolas, Monaco, monospace; }
+    .relatorio-acoes { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+    .aviso { margin-top: 10px; padding: 12px; border-radius: 10px; background: #f9fafb; border: 1px solid #e5e7eb; color: #374151; }
+    .nao-reconhecidos { margin-top: 16px; border: 1px solid #fecaca; background: #fff7f7; border-radius: 10px; padding: 14px; display: none; }
+    .nao-reconhecidos h3 { margin: 0 0 10px; font-size: 16px; color: #991b1b; }
+    .nao-reconhecidos ul { margin: 0; padding-left: 18px; }
+    .nao-reconhecidos li { margin-bottom: 8px; color: #7f1d1d; }
+    .tabela-itens { width: 100%; border-collapse: collapse; margin-top: 18px; }
+    .tabela-itens th, .tabela-itens td { padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: left; vertical-align: middle; }
+    .tabela-itens th { font-size: 13px; color: #374151; }
+    .tabela-itens td.valor, .tabela-itens th.valor { text-align: right; }
+    .tabela-itens input[type=number] { text-align: right; }
+    .tabela-vazia { padding: 18px; color: #6b7280; background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 10px; }
+    .footer-pedido { margin-top: 18px; display: grid; grid-template-columns: 1fr 140px 180px; gap: 12px; align-items: start; }
+    .footer-pedido textarea { min-height: 84px; resize: vertical; }
+    .total-box { background: #111827; color: #fff; border-radius: 10px; padding: 16px; }
+    .total-box small { display: block; opacity: 0.8; margin-bottom: 6px; }
+    .total-box strong { font-size: 24px; }
+    .acoes-final { margin-top: 16px; display: flex; gap: 10px; justify-content: flex-end; }
+    .resultado-sucesso { margin-top: 16px; padding: 14px; border-radius: 10px; background: #ecfdf5; border: 1px solid #6ee7b7; color: #065f46; display: none; }
+    .tag { display: inline-block; padding: 4px 8px; border-radius: 999px; font-size: 12px; background: #dbeafe; color: #1d4ed8; margin-left: 8px; }
+    @media (max-width: 1100px) {
+      .grid { grid-template-columns: 1fr; }
+      .bloco-topo { grid-template-columns: 1fr; }
+      .footer-pedido { grid-template-columns: 1fr; }
+      .filtros { grid-template-columns: 1fr; }
+      .acoes-final { justify-content: stretch; flex-direction: column; }
+      .relatorio-acoes { flex-direction: column; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Inserção de pedido no legado V2</h1>
+    <p class="subtitulo">Segundo módulo. Mantém a V1 intacta e permite importar itens por texto gerado no orçamento ou kits feirinha.</p>
+
+    <div id="mensagem" class="mensagem"></div>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Cliente</h2>
+        <div class="filtros">
+          <input id="buscaCliente" type="text" placeholder="Buscar cliente pelo nome" />
+          <button id="btnBuscarCliente">Buscar</button>
+          <button id="btnLimparCliente" class="secundario">Limpar</button>
+        </div>
+        <div id="listaClientes" class="lista-busca"></div>
+        <div id="clienteSelecionado" class="selecionado">Nenhum cliente selecionado.</div>
+      </section>
+
+      <section class="card">
+        <h2>Itens do pedido <span class="tag">V2</span></h2>
+
+        <div class="bloco-topo">
+          <div class="relatorio-box">
+            <label class="rotulo-pequeno" for="textoRelatorio">Cole aqui o relatório gerado pelo orçamento ou kits feirinha</label>
+            <textarea id="textoRelatorio" placeholder="Exemplo:\n• CAÇAROLA 16 + TAMPA ALUMÍNIO | QTD: 1\n  UNIT: R$ 17,87\n  SUBTOTAL: R$ 17,87"></textarea>
+            <div class="relatorio-acoes">
+              <button id="btnImportarRelatorio" type="button" class="acao-importar">Importar itens</button>
+              <button id="btnLimparRelatorio" type="button" class="secundario">Limpar texto</button>
+            </div>
+            <div class="aviso">A importação procura o produto no Render pelo nome. Só entram produtos ativos com <strong>item_legado</strong> preenchido. O que não bater vai para a caixa de não reconhecidos.</div>
+          </div>
+
+          <div>
+            <label class="rotulo-pequeno" for="buscaProduto">Adicionar produto manualmente</label>
+            <div class="busca-wrap">
+              <input id="buscaProduto" class="campo" type="text" autocomplete="off" placeholder="Digite ao menos 2 letras. Enter adiciona o primeiro resultado." />
+              <div id="dropdownProdutos" class="dropdown"></div>
+            </div>
+            <div class="aviso" style="margin-top:16px;">
+              A busca manual continua ativa como fallback. Você pode importar o relatório e depois completar ou corrigir manualmente.
+            </div>
+          </div>
+        </div>
+
+        <div id="naoReconhecidosBox" class="nao-reconhecidos">
+          <h3>Itens não reconhecidos</h3>
+          <ul id="listaNaoReconhecidos"></ul>
+        </div>
+
+        <div id="tabelaItensWrap"></div>
+
+        <div class="footer-pedido">
+          <div>
+            <label class="rotulo-pequeno" for="obsPedido">Observação</label>
+            <textarea id="obsPedido" placeholder="Observação do pedido"></textarea>
+          </div>
+          <div>
+            <label class="rotulo-pequeno" for="volumesPedido">Volumes</label>
+            <input id="volumesPedido" class="campo" type="number" min="0" step="1" value="0" />
+          </div>
+          <div class="total-box">
+            <small>Total do pedido</small>
+            <strong id="totalPedido">R$ 0,00</strong>
+          </div>
+        </div>
+
+        <div class="acoes-final">
+          <button id="btnNovoPedido" class="secundario">Limpar pedido</button>
+          <button id="btnSalvarPedido" class="acao-principal">Salvar pedido</button>
+        </div>
+
+        <div id="resultadoSucesso" class="resultado-sucesso"></div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const mensagem = document.getElementById('mensagem');
+    const buscaCliente = document.getElementById('buscaCliente');
+    const btnBuscarCliente = document.getElementById('btnBuscarCliente');
+    const btnLimparCliente = document.getElementById('btnLimparCliente');
+    const listaClientes = document.getElementById('listaClientes');
+    const clienteSelecionadoBox = document.getElementById('clienteSelecionado');
+
+    const textoRelatorio = document.getElementById('textoRelatorio');
+    const btnImportarRelatorio = document.getElementById('btnImportarRelatorio');
+    const btnLimparRelatorio = document.getElementById('btnLimparRelatorio');
+    const naoReconhecidosBox = document.getElementById('naoReconhecidosBox');
+    const listaNaoReconhecidos = document.getElementById('listaNaoReconhecidos');
+
+    const buscaProduto = document.getElementById('buscaProduto');
+    const dropdownProdutos = document.getElementById('dropdownProdutos');
+    const tabelaItensWrap = document.getElementById('tabelaItensWrap');
+    const obsPedido = document.getElementById('obsPedido');
+    const volumesPedido = document.getElementById('volumesPedido');
+    const totalPedido = document.getElementById('totalPedido');
+    const btnNovoPedido = document.getElementById('btnNovoPedido');
+    const btnSalvarPedido = document.getElementById('btnSalvarPedido');
+    const resultadoSucesso = document.getElementById('resultadoSucesso');
+
+    let clientes = [];
+    let clienteSelecionado = null;
+    let produtosEncontrados = [];
+    let indiceProdutoAtivo = -1;
+    let itensPedido = [];
+    let itensNaoReconhecidos = [];
+    let timerBuscaProduto = null;
+    let salvando = false;
+    let carregandoCatalogo = false;
+    let catalogoProdutos = [];
+    let catalogoPorChave = new Map();
+
+    function setMensagem(texto, erro = false) {
+      if (!texto) {
+        mensagem.style.display = 'none';
+        mensagem.textContent = '';
+        mensagem.classList.remove('erro');
+        return;
+      }
+
+      mensagem.style.display = 'block';
+      mensagem.textContent = texto;
+      mensagem.classList.toggle('erro', erro);
+    }
+
+    function formatarMoeda(valor) {
+      const numero = Number(valor);
+      if (!Number.isFinite(numero)) return 'R$ 0,00';
+      return numero.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    function lerNumeroBrasil(valor) {
+      if (valor === undefined || valor === null) return NaN;
+      const texto = String(valor).trim().replace(/\./g, '').replace(',', '.');
+      return Number(texto);
+    }
+
+    async function lerJson(response) {
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(json?.detalhe || json?.erro || json?.message || 'Erro na requisição.');
+      }
+      return json;
+    }
+
+    function normalizarTexto(valor) {
+      return String(valor || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/&/g, ' E ')
+        .replace(/[^A-Z0-9]+/gi, ' ')
+        .toUpperCase()
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function gerarChavesComparacao(nome) {
+      const normalizado = normalizarTexto(nome);
+      const semEspacos = normalizado.replace(/\s+/g, '');
+      const semUnidadesPontuais = normalizado
+        .replace(/\bUN\b/g, '')
+        .replace(/\bUND\b/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      return Array.from(new Set([
+        normalizado,
+        semEspacos,
+        semUnidadesPontuais,
+        semUnidadesPontuais.replace(/\s+/g, '')
+      ].filter(Boolean)));
+    }
+
+    function indexarCatalogo(produtos) {
+      catalogoPorChave = new Map();
+
+      produtos.forEach((produto) => {
+        gerarChavesComparacao(produto.nome).forEach((chave) => {
+          if (!catalogoPorChave.has(chave)) {
+            catalogoPorChave.set(chave, []);
+          }
+          catalogoPorChave.get(chave).push(produto);
+        });
+      });
+    }
+
+    async function carregarCatalogoImportacao() {
+      if (catalogoProdutos.length || carregandoCatalogo) {
+        return;
+      }
+
+      carregandoCatalogo = true;
+
+      try {
+        const response = await fetch('/api/produtos?ativos=true');
+        const json = await lerJson(response);
+        const lista = Array.isArray(json?.data) ? json.data : [];
+        catalogoProdutos = lista.filter((produto) => Number(produto?.item_legado) > 0);
+        indexarCatalogo(catalogoProdutos);
+      } finally {
+        carregandoCatalogo = false;
+      }
+    }
+
+    function renderClientes() {
+      if (!clientes.length) {
+        listaClientes.innerHTML = '<div class="tabela-vazia">Nenhum cliente encontrado.</div>';
+        return;
+      }
+
+      listaClientes.innerHTML = clientes.map((cliente) => `
+        <button type="button" class="linha-busca" data-favorecido="${cliente.favorecido}">
+          <strong>${cliente.nome || 'Sem nome'}</strong>
+          <small>${cliente.cidade || '-'}${cliente.uf ? `/${cliente.uf}` : ''}</small>
+        </button>
+      `).join('');
+
+      listaClientes.querySelectorAll('[data-favorecido]').forEach((botao) => {
+        botao.addEventListener('click', () => {
+          const favorecido = Number(botao.dataset.favorecido);
+          clienteSelecionado = clientes.find((cliente) => Number(cliente.favorecido) === favorecido) || null;
+          renderClienteSelecionado();
+          setMensagem('');
+        });
+      });
+    }
+
+    function renderClienteSelecionado() {
+      if (!clienteSelecionado) {
+        clienteSelecionadoBox.textContent = 'Nenhum cliente selecionado.';
+        return;
+      }
+
+      clienteSelecionadoBox.innerHTML = `
+        <strong>${clienteSelecionado.nome || 'Sem nome'}</strong><br>
+        Código: ${clienteSelecionado.favorecido}<br>
+        Cidade/UF: ${clienteSelecionado.cidade || '-'}${clienteSelecionado.uf ? `/${clienteSelecionado.uf}` : ''}
+      `;
+    }
+
+    async function carregarClientes() {
+      const termo = buscaCliente.value.trim();
+
+      if (!termo) {
+        setMensagem('Informe ao menos parte do nome para buscar o cliente.', true);
+        return;
+      }
+
+      try {
+        setMensagem('Buscando clientes...');
+        const response = await fetch(`/api/legado/clientes?nome=${encodeURIComponent(termo)}&limite=20`);
+        const json = await lerJson(response);
+        clientes = Array.isArray(json?.dados) ? json.dados : [];
+        renderClientes();
+        setMensagem(clientes.length ? '' : 'Nenhum cliente encontrado para esse filtro.', !clientes.length);
+      } catch (error) {
+        setMensagem(error.message, true);
+      }
+    }
+
+    function esconderDropdownProdutos() {
+      dropdownProdutos.style.display = 'none';
+      indiceProdutoAtivo = -1;
+    }
+
+    function renderDropdownProdutos() {
+      if (!produtosEncontrados.length) {
+        dropdownProdutos.innerHTML = '<div class="dropdown-item">Nenhum produto vinculado encontrado.</div>';
+        dropdownProdutos.style.display = 'block';
+        return;
+      }
+
+      dropdownProdutos.innerHTML = produtosEncontrados.map((produto, index) => `
+        <div class="dropdown-item ${index === indiceProdutoAtivo ? 'ativo' : ''}" data-index="${index}">
+          <strong>${produto.nome || 'Sem nome'}</strong>
+          <small>${formatarMoeda(produto.preco)}</small>
+        </div>
+      `).join('');
+
+      dropdownProdutos.style.display = 'block';
+
+      dropdownProdutos.querySelectorAll('[data-index]').forEach((item) => {
+        item.addEventListener('click', () => {
+          adicionarProdutoAoPedido(produtosEncontrados[Number(item.dataset.index)]);
+        });
+      });
+    }
+
+    async function buscarProdutos() {
+      const termo = buscaProduto.value.trim();
+
+      if (termo.length < 2) {
+        produtosEncontrados = [];
+        esconderDropdownProdutos();
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/produtos?busca=${encodeURIComponent(termo)}&ativos=true`);
+        const json = await lerJson(response);
+        const lista = Array.isArray(json?.data) ? json.data : [];
+        produtosEncontrados = lista.filter((produto) => Number(produto?.item_legado) > 0);
+        indiceProdutoAtivo = produtosEncontrados.length ? 0 : -1;
+        renderDropdownProdutos();
+      } catch (error) {
+        produtosEncontrados = [];
+        esconderDropdownProdutos();
+        setMensagem(error.message, true);
+      }
+    }
+
+    function focarBuscaProduto() {
+      buscaProduto.value = '';
+      produtosEncontrados = [];
+      esconderDropdownProdutos();
+      buscaProduto.focus();
+    }
+
+    function calcularSubtotal(item) {
+      return Number(item.quantidade || 0) * Number(item.preco || 0);
+    }
+
+    function calcularTotal() {
+      return itensPedido.reduce((acc, item) => acc + calcularSubtotal(item), 0);
+    }
+
+    function atualizarTotal() {
+      totalPedido.textContent = formatarMoeda(calcularTotal());
+    }
+
+    function adicionarItemPedido(itemEntrada) {
+      const precoNormalizado = Number(Number(itemEntrada.preco || 0).toFixed(2));
+      const quantidadeNormalizada = Number(itemEntrada.quantidade || 0);
+
+      const existente = itensPedido.find((item) =>
+        Number(item.produto_id) === Number(itemEntrada.produto_id) &&
+        Number(Number(item.preco).toFixed(2)) === precoNormalizado
+      );
+
+      if (existente) {
+        existente.quantidade = Number(existente.quantidade) + quantidadeNormalizada;
+      } else {
+        itensPedido.push({
+          produto_id: Number(itemEntrada.produto_id),
+          nome: itemEntrada.nome || 'Sem nome',
+          quantidade: quantidadeNormalizada,
+          preco: precoNormalizado
+        });
+      }
+    }
+
+    function adicionarProdutoAoPedido(produto) {
+      if (!produto || !produto.id) return;
+
+      adicionarItemPedido({
+        produto_id: Number(produto.id),
+        nome: produto.nome || 'Sem nome',
+        quantidade: 1,
+        preco: Number(produto.preco || 0)
+      });
+
+      renderItensPedido();
+      focarBuscaProduto();
+      setMensagem('');
+    }
+
+    function renderNaoReconhecidos() {
+      if (!itensNaoReconhecidos.length) {
+        naoReconhecidosBox.style.display = 'none';
+        listaNaoReconhecidos.innerHTML = '';
+        return;
+      }
+
+      listaNaoReconhecidos.innerHTML = itensNaoReconhecidos.map((item) => `
+        <li>
+          <strong>${item.nome}</strong> | QTD: ${item.quantidade} | UNIT: ${formatarMoeda(item.preco)}<br>
+          ${item.motivo}
+        </li>
+      `).join('');
+      naoReconhecidosBox.style.display = 'block';
+    }
+
+    function renderItensPedido() {
+      if (!itensPedido.length) {
+        tabelaItensWrap.innerHTML = '<div class="tabela-vazia" style="margin-top:18px;">Nenhum item no pedido ainda.</div>';
+        atualizarTotal();
+        renderNaoReconhecidos();
+        return;
+      }
+
+      tabelaItensWrap.innerHTML = `
+        <table class="tabela-itens">
+          <thead>
+            <tr>
+              <th>Produto</th>
+              <th class="valor">Quantidade</th>
+              <th class="valor">Preço</th>
+              <th class="valor">Subtotal</th>
+              <th class="valor">Ação</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${itensPedido.map((item, index) => `
+              <tr>
+                <td>${item.nome}</td>
+                <td class="valor"><input type="number" min="0.01" step="1" value="${item.quantidade}" data-campo="quantidade" data-index="${index}"></td>
+                <td class="valor"><input type="number" min="0" step="0.01" value="${Number(item.preco).toFixed(2)}" data-campo="preco" data-index="${index}"></td>
+                <td class="valor">${formatarMoeda(calcularSubtotal(item))}</td>
+                <td class="valor"><button type="button" class="secundario" data-remover="${index}">Remover</button></td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `;
+
+      tabelaItensWrap.querySelectorAll('input[data-index]').forEach((input) => {
+        input.addEventListener('change', (event) => {
+          const index = Number(event.target.dataset.index);
+          const campo = event.target.dataset.campo;
+          const valor = Number(event.target.value);
+
+          if (!Number.isFinite(valor)) {
+            renderItensPedido();
+            return;
+          }
+
+          if (campo === 'quantidade') {
+            itensPedido[index].quantidade = valor > 0 ? valor : 1;
+          }
+
+          if (campo === 'preco') {
+            itensPedido[index].preco = valor >= 0 ? valor : 0;
+          }
+
+          renderItensPedido();
+        });
+      });
+
+      tabelaItensWrap.querySelectorAll('button[data-remover]').forEach((botao) => {
+        botao.addEventListener('click', () => {
+          itensPedido.splice(Number(botao.dataset.remover), 1);
+          renderItensPedido();
+        });
+      });
+
+      atualizarTotal();
+      renderNaoReconhecidos();
+    }
+
+    function extrairItensRelatorio(texto) {
+      const linhas = String(texto || '').split(/\r?\n/);
+      const itens = [];
+
+      for (let i = 0; i < linhas.length; i += 1) {
+        const linhaAtual = (linhas[i] || '').trim();
+        const matchItem = linhaAtual.match(/^[•\-*]\s*(.+?)\s*\|\s*QTD:\s*([\d.,]+)\s*$/i);
+
+        if (!matchItem) {
+          continue;
+        }
+
+        const nome = String(matchItem[1] || '').trim();
+        const quantidade = lerNumeroBrasil(matchItem[2]);
+        let preco = NaN;
+
+        for (let j = i + 1; j < linhas.length; j += 1) {
+          const proximaLinha = (linhas[j] || '').trim();
+
+          if (/^[•\-*]\s*/.test(proximaLinha)) {
+            break;
+          }
+
+          const matchUnit = proximaLinha.match(/^UNIT:\s*R\$\s*([\d.,]+)\s*$/i);
+          if (matchUnit) {
+            preco = lerNumeroBrasil(matchUnit[1]);
+            break;
+          }
+        }
+
+        if (!nome || !Number.isFinite(quantidade) || quantidade <= 0 || !Number.isFinite(preco) || preco < 0) {
+          itens.push({
+            nome: nome || 'Item sem nome',
+            quantidade: Number.isFinite(quantidade) ? quantidade : 0,
+            preco: Number.isFinite(preco) ? preco : 0,
+            invalido: true,
+            motivo: 'Formato inválido no relatório.'
+          });
+          continue;
+        }
+
+        itens.push({ nome, quantidade, preco, invalido: false });
+      }
+
+      return itens;
+    }
+
+    function encontrarProdutoPorNomeRelatorio(nomeRelatorio) {
+      const chaves = gerarChavesComparacao(nomeRelatorio);
+
+      for (const chave of chaves) {
+        const candidatos = catalogoPorChave.get(chave) || [];
+        if (candidatos.length === 1) {
+          return { produto: candidatos[0], ambiguidade: false };
+        }
+        if (candidatos.length > 1) {
+          return { produto: null, ambiguidade: true };
+        }
+      }
+
+      return { produto: null, ambiguidade: false };
+    }
+
+    async function importarRelatorio() {
+      const texto = textoRelatorio.value.trim();
+
+      if (!texto) {
+        setMensagem('Cole o relatório antes de importar.', true);
+        return;
+      }
+
+      try {
+        setMensagem('Carregando catálogo de produtos e importando relatório...');
+        await carregarCatalogoImportacao();
+
+        const itensExtraidos = extrairItensRelatorio(texto);
+
+        if (!itensExtraidos.length) {
+          setMensagem('Nenhum item no formato esperado foi encontrado no texto colado.', true);
+          return;
+        }
+
+        let adicionados = 0;
+        let naoReconhecidos = 0;
+
+        itensExtraidos.forEach((itemExtraido) => {
+          if (itemExtraido.invalido) {
+            itensNaoReconhecidos.push({
+              nome: itemExtraido.nome,
+              quantidade: itemExtraido.quantidade,
+              preco: itemExtraido.preco,
+              motivo: itemExtraido.motivo
+            });
+            naoReconhecidos += 1;
+            return;
+          }
+
+          const { produto, ambiguidade } = encontrarProdutoPorNomeRelatorio(itemExtraido.nome);
+
+          if (!produto) {
+            itensNaoReconhecidos.push({
+              nome: itemExtraido.nome,
+              quantidade: itemExtraido.quantidade,
+              preco: itemExtraido.preco,
+              motivo: ambiguidade
+                ? 'Mais de um produto do Render bateu com esse nome. Ajuste manualmente.'
+                : 'Nenhum produto ativo com item_legado foi encontrado para esse nome.'
+            });
+            naoReconhecidos += 1;
+            return;
+          }
+
+          adicionarItemPedido({
+            produto_id: Number(produto.id),
+            nome: produto.nome || itemExtraido.nome,
+            quantidade: Number(itemExtraido.quantidade),
+            preco: Number(itemExtraido.preco)
+          });
+          adicionados += 1;
+        });
+
+        renderItensPedido();
+        setMensagem(`Importação concluída. Itens adicionados: ${adicionados}. Não reconhecidos: ${naoReconhecidos}.`, naoReconhecidos > 0 && adicionados === 0);
+      } catch (error) {
+        setMensagem(error.message, true);
+      }
+    }
+
+    function montarPayload() {
+      return {
+        data: new Date().toISOString().slice(0, 10),
+        favorecido: clienteSelecionado?.favorecido,
+        obs: obsPedido.value.trim() || null,
+        volumes: Number(volumesPedido.value || 0),
+        total: Number(calcularTotal().toFixed(2)),
+        itens: itensPedido.map((item) => ({
+          produto_id: item.produto_id,
+          quantidade: Number(item.quantidade),
+          preco: Number(Number(item.preco).toFixed(2))
+        }))
+      };
+    }
+
+    async function salvarPedido() {
+      if (salvando) return;
+
+      if (!clienteSelecionado?.favorecido) {
+        setMensagem('Selecione um cliente antes de salvar.', true);
+        return;
+      }
+
+      if (!itensPedido.length) {
+        setMensagem('Adicione ao menos 1 produto ao pedido.', true);
+        return;
+      }
+
+      try {
+        salvando = true;
+        btnSalvarPedido.disabled = true;
+        resultadoSucesso.style.display = 'none';
+        setMensagem('Salvando pedido...');
+
+        const response = await fetch('/api/legado/pedidos-insercao-v2', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(montarPayload())
+        });
+
+        const json = await lerJson(response);
+        const pedido = json?.pedido || json?.data?.pedido || json?.data || json;
+
+        resultadoSucesso.innerHTML = `
+          <strong>Pedido gravado com sucesso.</strong><br>
+          Número: ${pedido?.numero || '-'}<br>
+          Saída: ${pedido?.saida || '-'}<br>
+          Total: ${formatarMoeda(pedido?.total || calcularTotal())}
+        `;
+        resultadoSucesso.style.display = 'block';
+
+        itensPedido = [];
+        itensNaoReconhecidos = [];
+        textoRelatorio.value = '';
+        obsPedido.value = '';
+        volumesPedido.value = '0';
+        renderItensPedido();
+        focarBuscaProduto();
+        setMensagem('Pedido salvo com sucesso.');
+      } catch (error) {
+        setMensagem(error.message, true);
+      } finally {
+        salvando = false;
+        btnSalvarPedido.disabled = false;
+      }
+    }
+
+    function limparPedidoCompleto() {
+      itensPedido = [];
+      itensNaoReconhecidos = [];
+      clienteSelecionado = null;
+      clientes = [];
+      buscaCliente.value = '';
+      listaClientes.innerHTML = '';
+      renderClienteSelecionado();
+      textoRelatorio.value = '';
+      obsPedido.value = '';
+      volumesPedido.value = '0';
+      resultadoSucesso.style.display = 'none';
+      renderItensPedido();
+      focarBuscaProduto();
+      setMensagem('');
+    }
+
+    btnBuscarCliente.addEventListener('click', carregarClientes);
+    btnLimparCliente.addEventListener('click', () => {
+      clientes = [];
+      clienteSelecionado = null;
+      buscaCliente.value = '';
+      listaClientes.innerHTML = '';
+      renderClienteSelecionado();
+      setMensagem('');
+    });
+
+    buscaCliente.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        carregarClientes();
+      }
+    });
+
+    buscaProduto.addEventListener('input', () => {
+      clearTimeout(timerBuscaProduto);
+      timerBuscaProduto = setTimeout(buscarProdutos, 250);
+    });
+
+    buscaProduto.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowDown' && produtosEncontrados.length) {
+        event.preventDefault();
+        indiceProdutoAtivo = Math.min(indiceProdutoAtivo + 1, produtosEncontrados.length - 1);
+        renderDropdownProdutos();
+        return;
+      }
+
+      if (event.key === 'ArrowUp' && produtosEncontrados.length) {
+        event.preventDefault();
+        indiceProdutoAtivo = Math.max(indiceProdutoAtivo - 1, 0);
+        renderDropdownProdutos();
+        return;
+      }
+
+      if (event.key === 'Enter') {
+        event.preventDefault();
+
+        if (produtosEncontrados.length) {
+          adicionarProdutoAoPedido(produtosEncontrados[indiceProdutoAtivo >= 0 ? indiceProdutoAtivo : 0]);
+          return;
+        }
+
+        buscarProdutos();
+      }
+
+      if (event.key === 'Escape') {
+        esconderDropdownProdutos();
+      }
+    });
+
+    document.addEventListener('click', (event) => {
+      if (!dropdownProdutos.contains(event.target) && event.target !== buscaProduto) {
+        esconderDropdownProdutos();
+      }
+    });
+
+    btnImportarRelatorio.addEventListener('click', importarRelatorio);
+    btnLimparRelatorio.addEventListener('click', () => {
+      textoRelatorio.value = '';
+      setMensagem('');
+    });
+    btnSalvarPedido.addEventListener('click', salvarPedido);
+    btnNovoPedido.addEventListener('click', limparPedidoCompleto);
+
+    renderClienteSelecionado();
+    renderItensPedido();
+  </script>
+</body>
+</html>
