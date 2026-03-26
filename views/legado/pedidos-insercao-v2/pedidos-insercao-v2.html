@@ -7,46 +7,32 @@
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; font-family: Arial, sans-serif; background: #f3f4f6; color: #111827; }
-    .container { max-width: 1480px; margin: 0 auto; padding: 24px; }
-    h1 { margin: 0 0 8px; font-size: 28px; }
-    .subtitulo { margin: 0 0 20px; color: #4b5563; }
-    .mensagem { margin-bottom: 16px; padding: 12px 14px; border-radius: 8px; background: #e5e7eb; display: none; white-space: pre-line; }
-    .mensagem.erro { background: #fee2e2; color: #991b1b; }
-    .grid { display: grid; grid-template-columns: 380px 1fr; gap: 20px; }
-    .card { background: #fff; border-radius: 12px; padding: 18px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
-    .card h2 { margin-top: 0; font-size: 20px; }
+    .container { max-width: 1420px; margin: 0 auto; padding: 24px; }
+    h1 { margin: 0 0 8px; }
+    .subtitulo { margin: 0 0 24px; color: #4b5563; }
+    .grid { display: grid; grid-template-columns: 380px 1fr; gap: 24px; }
+    .card { background: #fff; border-radius: 14px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+    .card h2 { margin-top: 0; margin-bottom: 16px; font-size: 20px; }
+    .mensagem { margin-bottom: 18px; padding: 14px 16px; border-radius: 10px; background: #eff6ff; color: #1d4ed8; display: none; }
+    .mensagem.erro { background: #fef2f2; color: #b91c1c; }
     .filtros { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; margin-bottom: 14px; }
-    .filtros input, .filtros button, .campo, .tabela-itens input, .footer-pedido textarea, .relatorio-box textarea {
-      width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;
-    }
-    button { border: none; border-radius: 8px; padding: 10px 12px; cursor: pointer; background: #111827; color: #fff; }
-    button.secundario { background: #6b7280; }
-    button.acao-principal { background: #2563eb; }
-    button.acao-importar { background: #0f766e; }
-    button:disabled { opacity: 0.6; cursor: not-allowed; }
-    .lista-busca { border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; max-height: 320px; overflow-y: auto; }
-    .linha-busca { width: 100%; text-align: left; background: #fff; border: none; border-bottom: 1px solid #e5e7eb; padding: 12px 14px; cursor: pointer; }
-    .linha-busca:hover, .linha-busca.ativa { background: #eff6ff; }
-    .linha-busca strong { display: block; margin-bottom: 4px; }
-    .linha-busca small { color: #6b7280; }
-    .selecionado { margin-top: 14px; padding: 14px; border-radius: 10px; background: #f9fafb; border: 1px solid #e5e7eb; line-height: 1.6; }
+    .campo, textarea, input[type=text], input[type=number] { width: 100%; padding: 11px 12px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 14px; }
+    textarea { min-height: 170px; resize: vertical; }
+    button { border: none; border-radius: 10px; padding: 11px 16px; cursor: pointer; font-weight: bold; }
+    .acao-principal { background: #111827; color: #fff; }
+    .secundario { background: #e5e7eb; color: #111827; }
+    .lista-busca { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; }
+    .linha-busca { text-align: left; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; cursor: pointer; }
+    .linha-busca:hover { background: #eff6ff; border-color: #bfdbfe; }
+    .selecionado { margin-top: 12px; padding: 12px; border-radius: 10px; background: #ecfdf5; border: 1px solid #a7f3d0; }
     .busca-wrap { position: relative; }
-    .dropdown { position: absolute; top: calc(100% + 6px); left: 0; right: 0; background: #fff; border: 1px solid #d1d5db; border-radius: 10px; box-shadow: 0 8px 18px rgba(0,0,0,0.08); max-height: 280px; overflow-y: auto; z-index: 20; display: none; }
+    .dropdown { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #fff; border: 1px solid #d1d5db; border-radius: 12px; box-shadow: 0 12px 24px rgba(0,0,0,0.08); max-height: 280px; overflow-y: auto; z-index: 20; display: none; }
     .dropdown-item { padding: 12px 14px; border-bottom: 1px solid #e5e7eb; cursor: pointer; }
     .dropdown-item:last-child { border-bottom: none; }
     .dropdown-item:hover, .dropdown-item.ativo { background: #eff6ff; }
     .dropdown-item strong { display: block; margin-bottom: 4px; }
     .dropdown-item small { color: #6b7280; }
-    .rotulo-pequeno { font-size: 12px; color: #6b7280; margin-bottom: 6px; display: block; }
-    .bloco-topo { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 18px; }
-    .relatorio-box textarea { min-height: 220px; resize: vertical; font-family: Consolas, Monaco, monospace; }
-    .relatorio-acoes { display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
-    .aviso { margin-top: 10px; padding: 12px; border-radius: 10px; background: #f9fafb; border: 1px solid #e5e7eb; color: #374151; }
-    .nao-reconhecidos { margin-top: 16px; border: 1px solid #fecaca; background: #fff7f7; border-radius: 10px; padding: 14px; display: none; }
-    .nao-reconhecidos h3 { margin: 0 0 10px; font-size: 16px; color: #991b1b; }
-    .nao-reconhecidos ul { margin: 0; padding-left: 18px; }
-    .nao-reconhecidos li { margin-bottom: 8px; color: #7f1d1d; }
-    .tabela-itens { width: 100%; border-collapse: collapse; margin-top: 18px; }
+    .tabela-itens { width: 100%; border-collapse: collapse; margin-top: 10px; }
     .tabela-itens th, .tabela-itens td { padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: left; vertical-align: middle; }
     .tabela-itens th { font-size: 13px; color: #374151; }
     .tabela-itens td.valor, .tabela-itens th.valor { text-align: right; }
@@ -59,21 +45,24 @@
     .total-box strong { font-size: 24px; }
     .acoes-final { margin-top: 16px; display: flex; gap: 10px; justify-content: flex-end; }
     .resultado-sucesso { margin-top: 16px; padding: 14px; border-radius: 10px; background: #ecfdf5; border: 1px solid #6ee7b7; color: #065f46; display: none; }
-    .tag { display: inline-block; padding: 4px 8px; border-radius: 999px; font-size: 12px; background: #dbeafe; color: #1d4ed8; margin-left: 8px; }
-    @media (max-width: 1100px) {
+    .rotulo-pequeno { font-size: 12px; color: #6b7280; margin-bottom: 6px; display: block; }
+    .linha-importacao { display: grid; grid-template-columns: 1fr 140px auto; gap: 10px; align-items: end; margin-top: 12px; }
+    .caixa-alerta { margin-top: 14px; padding: 14px; border-radius: 10px; border: 1px solid #f59e0b; background: #fffbeb; color: #92400e; display: none; }
+    .caixa-alerta ul { margin: 8px 0 0 18px; padding: 0; }
+    .caixa-explicativa { margin-top: 10px; padding: 10px 12px; border-radius: 10px; background: #f9fafb; border: 1px solid #e5e7eb; color: #374151; font-size: 13px; }
+    @media (max-width: 980px) {
       .grid { grid-template-columns: 1fr; }
-      .bloco-topo { grid-template-columns: 1fr; }
       .footer-pedido { grid-template-columns: 1fr; }
       .filtros { grid-template-columns: 1fr; }
+      .linha-importacao { grid-template-columns: 1fr; }
       .acoes-final { justify-content: stretch; flex-direction: column; }
-      .relatorio-acoes { flex-direction: column; }
     }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Inserção de pedido no legado V2</h1>
-    <p class="subtitulo">Segundo módulo. Mantém a V1 intacta e permite importar itens por texto gerado no orçamento ou kits feirinha.</p>
+    <p class="subtitulo">Módulo paralelo da V1. Aqui você pode colar o relatório do orçamento ou kit feirinha, aplicar multiplicador e transformar tudo em itens do pedido.</p>
 
     <div id="mensagem" class="mensagem"></div>
 
@@ -90,37 +79,33 @@
       </section>
 
       <section class="card">
-        <h2>Itens do pedido <span class="tag">V2</span></h2>
+        <h2>Itens do pedido</h2>
 
-        <div class="bloco-topo">
-          <div class="relatorio-box">
-            <label class="rotulo-pequeno" for="textoRelatorio">Cole aqui o relatório gerado pelo orçamento ou kits feirinha</label>
-            <textarea id="textoRelatorio" placeholder="Exemplo:\n• CAÇAROLA 16 + TAMPA ALUMÍNIO | QTD: 1\n  UNIT: R$ 17,87\n  SUBTOTAL: R$ 17,87"></textarea>
-            <div class="relatorio-acoes">
-              <button id="btnImportarRelatorio" type="button" class="acao-importar">Importar itens</button>
-              <button id="btnLimparRelatorio" type="button" class="secundario">Limpar texto</button>
-            </div>
-            <div class="aviso">A importação procura o produto no Render pelo nome. Só entram produtos ativos com <strong>item_legado</strong> preenchido. O que não bater vai para a caixa de não reconhecidos.</div>
-          </div>
+        <label class="rotulo-pequeno" for="textoRelatorio">Colar relatório do orçamento / kit feirinha</label>
+        <textarea id="textoRelatorio" placeholder="Cole aqui o relatório completo gerado pelo sistema"></textarea>
 
+        <div class="linha-importacao">
           <div>
-            <label class="rotulo-pequeno" for="buscaProduto">Adicionar produto manualmente</label>
-            <div class="busca-wrap">
-              <input id="buscaProduto" class="campo" type="text" autocomplete="off" placeholder="Digite ao menos 2 letras. Enter adiciona o primeiro resultado." />
-              <div id="dropdownProdutos" class="dropdown"></div>
-            </div>
-            <div class="aviso" style="margin-top:16px;">
-              A busca manual continua ativa como fallback. Você pode importar o relatório e depois completar ou corrigir manualmente.
-            </div>
+            <label class="rotulo-pequeno" for="multiplicadorKit">Multiplicador do kit</label>
+            <input id="multiplicadorKit" class="campo" type="number" min="1" step="1" value="1" />
           </div>
+          <div></div>
+          <button id="btnImportarRelatorio" type="button">Importar itens</button>
         </div>
 
-        <div id="naoReconhecidosBox" class="nao-reconhecidos">
-          <h3>Itens não reconhecidos</h3>
-          <ul id="listaNaoReconhecidos"></ul>
+        <div class="caixa-explicativa">
+          Use multiplicador <strong>1</strong> para orçamento comum. Em kit feirinha, se o relatório vier com <strong>QTD: 1</strong>, informe aqui a quantidade de kits. Ex.: multiplicador 50 faz cada item entrar com quantidade 50.
         </div>
 
-        <div id="tabelaItensWrap"></div>
+        <div id="caixaNaoReconhecidos" class="caixa-alerta"></div>
+
+        <label class="rotulo-pequeno" for="buscaProduto" style="margin-top:18px;">Buscar produto do Render manualmente</label>
+        <div class="busca-wrap">
+          <input id="buscaProduto" class="campo" type="text" autocomplete="off" placeholder="Digite ao menos 2 letras. Enter adiciona o primeiro resultado." />
+          <div id="dropdownProdutos" class="dropdown"></div>
+        </div>
+
+        <div id="tabelaItensWrap" style="margin-top: 18px;"></div>
 
         <div class="footer-pedido">
           <div>
@@ -156,10 +141,9 @@
     const clienteSelecionadoBox = document.getElementById('clienteSelecionado');
 
     const textoRelatorio = document.getElementById('textoRelatorio');
+    const multiplicadorKit = document.getElementById('multiplicadorKit');
     const btnImportarRelatorio = document.getElementById('btnImportarRelatorio');
-    const btnLimparRelatorio = document.getElementById('btnLimparRelatorio');
-    const naoReconhecidosBox = document.getElementById('naoReconhecidosBox');
-    const listaNaoReconhecidos = document.getElementById('listaNaoReconhecidos');
+    const caixaNaoReconhecidos = document.getElementById('caixaNaoReconhecidos');
 
     const buscaProduto = document.getElementById('buscaProduto');
     const dropdownProdutos = document.getElementById('dropdownProdutos');
@@ -176,12 +160,9 @@
     let produtosEncontrados = [];
     let indiceProdutoAtivo = -1;
     let itensPedido = [];
-    let itensNaoReconhecidos = [];
     let timerBuscaProduto = null;
     let salvando = false;
-    let carregandoCatalogo = false;
-    let catalogoProdutos = [];
-    let catalogoPorChave = new Map();
+    let cacheProdutosImportacao = null;
 
     function setMensagem(texto, erro = false) {
       if (!texto) {
@@ -202,12 +183,6 @@
       return numero.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     }
 
-    function lerNumeroBrasil(valor) {
-      if (valor === undefined || valor === null) return NaN;
-      const texto = String(valor).trim().replace(/\./g, '').replace(',', '.');
-      return Number(texto);
-    }
-
     async function lerJson(response) {
       const json = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -216,63 +191,41 @@
       return json;
     }
 
-    function normalizarTexto(valor) {
+    function normalizarNome(valor) {
       return String(valor || '')
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
-        .replace(/&/g, ' E ')
-        .replace(/[^A-Z0-9]+/gi, ' ')
-        .toUpperCase()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
     }
 
-    function gerarChavesComparacao(nome) {
-      const normalizado = normalizarTexto(nome);
-      const semEspacos = normalizado.replace(/\s+/g, '');
-      const semUnidadesPontuais = normalizado
-        .replace(/\bUN\b/g, '')
-        .replace(/\bUND\b/g, '')
-        .replace(/\s+/g, ' ')
+    function parseNumeroBR(valor) {
+      const limpo = String(valor || '')
+        .replace(/R\$/gi, '')
+        .replace(/\./g, '')
+        .replace(/,/g, '.')
         .trim();
 
-      return Array.from(new Set([
-        normalizado,
-        semEspacos,
-        semUnidadesPontuais,
-        semUnidadesPontuais.replace(/\s+/g, '')
-      ].filter(Boolean)));
+      const numero = Number(limpo);
+      return Number.isFinite(numero) ? numero : NaN;
     }
 
-    function indexarCatalogo(produtos) {
-      catalogoPorChave = new Map();
-
-      produtos.forEach((produto) => {
-        gerarChavesComparacao(produto.nome).forEach((chave) => {
-          if (!catalogoPorChave.has(chave)) {
-            catalogoPorChave.set(chave, []);
-          }
-          catalogoPorChave.get(chave).push(produto);
-        });
-      });
-    }
-
-    async function carregarCatalogoImportacao() {
-      if (catalogoProdutos.length || carregandoCatalogo) {
+    function setNaoReconhecidos(lista) {
+      if (!Array.isArray(lista) || !lista.length) {
+        caixaNaoReconhecidos.style.display = 'none';
+        caixaNaoReconhecidos.innerHTML = '';
         return;
       }
 
-      carregandoCatalogo = true;
-
-      try {
-        const response = await fetch('/api/produtos?ativos=true');
-        const json = await lerJson(response);
-        const lista = Array.isArray(json?.data) ? json.data : [];
-        catalogoProdutos = lista.filter((produto) => Number(produto?.item_legado) > 0);
-        indexarCatalogo(catalogoProdutos);
-      } finally {
-        carregandoCatalogo = false;
-      }
+      caixaNaoReconhecidos.innerHTML = `
+        <strong>Itens não reconhecidos no cadastro do Render:</strong>
+        <ul>
+          ${lista.map((item) => `<li>${item.nome} | QTD: ${item.quantidade} | UNIT: ${formatarMoeda(item.preco)}</li>`).join('')}
+        </ul>
+      `;
+      caixaNaoReconhecidos.style.display = 'block';
     }
 
     function renderClientes() {
@@ -314,8 +267,8 @@
     async function carregarClientes() {
       const termo = buscaCliente.value.trim();
 
-      if (!termo) {
-        setMensagem('Informe ao menos parte do nome para buscar o cliente.', true);
+      if (termo.length < 2) {
+        setMensagem('Digite ao menos 2 letras para buscar o cliente.', true);
         return;
       }
 
@@ -389,6 +342,33 @@
       buscaProduto.focus();
     }
 
+    function adicionarItemNormalizado({ produto, quantidade, preco }) {
+      if (!produto || !produto.id) return;
+
+      const quantidadeNumero = Number(quantidade || 0);
+      const precoNumero = Number(preco || 0);
+
+      const existente = itensPedido.find((item) => Number(item.produto_id) === Number(produto.id) && Number(item.preco) === precoNumero);
+
+      if (existente) {
+        existente.quantidade = Number(existente.quantidade) + quantidadeNumero;
+      } else {
+        itensPedido.push({
+          produto_id: Number(produto.id),
+          nome: produto.nome || 'Sem nome',
+          quantidade: quantidadeNumero,
+          preco: precoNumero
+        });
+      }
+    }
+
+    function adicionarProdutoAoPedido(produto) {
+      adicionarItemNormalizado({ produto, quantidade: 1, preco: Number(produto?.preco || 0) });
+      renderItensPedido();
+      focarBuscaProduto();
+      setMensagem('');
+    }
+
     function calcularSubtotal(item) {
       return Number(item.quantidade || 0) * Number(item.preco || 0);
     }
@@ -401,63 +381,10 @@
       totalPedido.textContent = formatarMoeda(calcularTotal());
     }
 
-    function adicionarItemPedido(itemEntrada) {
-      const precoNormalizado = Number(Number(itemEntrada.preco || 0).toFixed(2));
-      const quantidadeNormalizada = Number(itemEntrada.quantidade || 0);
-
-      const existente = itensPedido.find((item) =>
-        Number(item.produto_id) === Number(itemEntrada.produto_id) &&
-        Number(Number(item.preco).toFixed(2)) === precoNormalizado
-      );
-
-      if (existente) {
-        existente.quantidade = Number(existente.quantidade) + quantidadeNormalizada;
-      } else {
-        itensPedido.push({
-          produto_id: Number(itemEntrada.produto_id),
-          nome: itemEntrada.nome || 'Sem nome',
-          quantidade: quantidadeNormalizada,
-          preco: precoNormalizado
-        });
-      }
-    }
-
-    function adicionarProdutoAoPedido(produto) {
-      if (!produto || !produto.id) return;
-
-      adicionarItemPedido({
-        produto_id: Number(produto.id),
-        nome: produto.nome || 'Sem nome',
-        quantidade: 1,
-        preco: Number(produto.preco || 0)
-      });
-
-      renderItensPedido();
-      focarBuscaProduto();
-      setMensagem('');
-    }
-
-    function renderNaoReconhecidos() {
-      if (!itensNaoReconhecidos.length) {
-        naoReconhecidosBox.style.display = 'none';
-        listaNaoReconhecidos.innerHTML = '';
-        return;
-      }
-
-      listaNaoReconhecidos.innerHTML = itensNaoReconhecidos.map((item) => `
-        <li>
-          <strong>${item.nome}</strong> | QTD: ${item.quantidade} | UNIT: ${formatarMoeda(item.preco)}<br>
-          ${item.motivo}
-        </li>
-      `).join('');
-      naoReconhecidosBox.style.display = 'block';
-    }
-
     function renderItensPedido() {
       if (!itensPedido.length) {
-        tabelaItensWrap.innerHTML = '<div class="tabela-vazia" style="margin-top:18px;">Nenhum item no pedido ainda.</div>';
+        tabelaItensWrap.innerHTML = '<div class="tabela-vazia">Nenhum item no pedido ainda.</div>';
         atualizarTotal();
-        renderNaoReconhecidos();
         return;
       }
 
@@ -517,132 +444,126 @@
       });
 
       atualizarTotal();
-      renderNaoReconhecidos();
     }
 
-    function extrairItensRelatorio(texto) {
-      const linhas = String(texto || '').split(/\r?\n/);
+    function extrairItensDoRelatorio(texto) {
+      const blocos = String(texto || '')
+        .split(/\n\s*\n/g)
+        .map((parte) => parte.trim())
+        .filter(Boolean);
+
       const itens = [];
 
-      for (let i = 0; i < linhas.length; i += 1) {
-        const linhaAtual = (linhas[i] || '').trim();
-        const matchItem = linhaAtual.match(/^[•\-*]\s*(.+?)\s*\|\s*QTD:\s*([\d.,]+)\s*$/i);
+      for (const bloco of blocos) {
+        if (!bloco.includes('QTD:')) continue;
+        if (!bloco.includes('UNIT:')) continue;
+        if (!bloco.includes('•')) continue;
 
-        if (!matchItem) {
-          continue;
-        }
+        const linhas = bloco.split('\n').map((linha) => linha.trim()).filter(Boolean);
+        const linhaPrincipal = linhas.find((linha) => linha.startsWith('•')) || '';
+        const linhaUnit = linhas.find((linha) => /UNIT:/i.test(linha)) || '';
 
-        const nome = String(matchItem[1] || '').trim();
-        const quantidade = lerNumeroBrasil(matchItem[2]);
-        let preco = NaN;
+        const matchPrincipal = linhaPrincipal.match(/^•\s*(.*?)\s*\|\s*QTD:\s*([\d.,]+)/i);
+        const matchUnit = linhaUnit.match(/UNIT:\s*R\$\s*([\d.,]+)/i);
 
-        for (let j = i + 1; j < linhas.length; j += 1) {
-          const proximaLinha = (linhas[j] || '').trim();
+        if (!matchPrincipal || !matchUnit) continue;
 
-          if (/^[•\-*]\s*/.test(proximaLinha)) {
-            break;
-          }
+        const nome = String(matchPrincipal[1] || '').trim();
+        const quantidade = parseNumeroBR(matchPrincipal[2]);
+        const preco = parseNumeroBR(matchUnit[1]);
 
-          const matchUnit = proximaLinha.match(/^UNIT:\s*R\$\s*([\d.,]+)\s*$/i);
-          if (matchUnit) {
-            preco = lerNumeroBrasil(matchUnit[1]);
-            break;
-          }
-        }
+        if (!nome || !Number.isFinite(quantidade) || !Number.isFinite(preco)) continue;
 
-        if (!nome || !Number.isFinite(quantidade) || quantidade <= 0 || !Number.isFinite(preco) || preco < 0) {
-          itens.push({
-            nome: nome || 'Item sem nome',
-            quantidade: Number.isFinite(quantidade) ? quantidade : 0,
-            preco: Number.isFinite(preco) ? preco : 0,
-            invalido: true,
-            motivo: 'Formato inválido no relatório.'
-          });
-          continue;
-        }
-
-        itens.push({ nome, quantidade, preco, invalido: false });
+        itens.push({ nome, quantidade, preco });
       }
 
       return itens;
     }
 
-    function encontrarProdutoPorNomeRelatorio(nomeRelatorio) {
-      const chaves = gerarChavesComparacao(nomeRelatorio);
+    function localizarProdutoPorNome(produtos, nomeRelatorio) {
+      const alvo = normalizarNome(nomeRelatorio);
+      if (!alvo) return null;
 
-      for (const chave of chaves) {
-        const candidatos = catalogoPorChave.get(chave) || [];
-        if (candidatos.length === 1) {
-          return { produto: candidatos[0], ambiguidade: false };
-        }
-        if (candidatos.length > 1) {
-          return { produto: null, ambiguidade: true };
-        }
+      let produto = produtos.find((item) => normalizarNome(item.nome) === alvo);
+      if (produto) return produto;
+
+      produto = produtos.find((item) => normalizarNome(item.nome).includes(alvo));
+      if (produto) return produto;
+
+      produto = produtos.find((item) => alvo.includes(normalizarNome(item.nome)));
+      return produto || null;
+    }
+
+    async function carregarProdutosParaImportacao() {
+      if (Array.isArray(cacheProdutosImportacao)) {
+        return cacheProdutosImportacao;
       }
 
-      return { produto: null, ambiguidade: false };
+      const response = await fetch('/api/produtos?ativos=true');
+      const json = await lerJson(response);
+      const lista = Array.isArray(json?.data) ? json.data : [];
+      cacheProdutosImportacao = lista.filter((produto) => Number(produto?.item_legado) > 0);
+      return cacheProdutosImportacao;
     }
 
     async function importarRelatorio() {
       const texto = textoRelatorio.value.trim();
+      const multiplicador = Number(multiplicadorKit.value || 1);
 
       if (!texto) {
         setMensagem('Cole o relatório antes de importar.', true);
         return;
       }
 
-      try {
-        setMensagem('Carregando catálogo de produtos e importando relatório...');
-        await carregarCatalogoImportacao();
+      if (!Number.isInteger(multiplicador) || multiplicador <= 0) {
+        setMensagem('Informe um multiplicador inteiro maior que zero.', true);
+        return;
+      }
 
-        const itensExtraidos = extrairItensRelatorio(texto);
+      try {
+        setMensagem('Importando itens do relatório...');
+        setNaoReconhecidos([]);
+
+        const itensExtraidos = extrairItensDoRelatorio(texto);
 
         if (!itensExtraidos.length) {
-          setMensagem('Nenhum item no formato esperado foi encontrado no texto colado.', true);
-          return;
+          throw new Error('Não encontrei itens válidos no texto colado.');
         }
 
-        let adicionados = 0;
-        let naoReconhecidos = 0;
+        const produtos = await carregarProdutosParaImportacao();
+        const naoReconhecidos = [];
+        let quantidadeImportada = 0;
 
-        itensExtraidos.forEach((itemExtraido) => {
-          if (itemExtraido.invalido) {
-            itensNaoReconhecidos.push({
-              nome: itemExtraido.nome,
-              quantidade: itemExtraido.quantidade,
-              preco: itemExtraido.preco,
-              motivo: itemExtraido.motivo
-            });
-            naoReconhecidos += 1;
-            return;
-          }
-
-          const { produto, ambiguidade } = encontrarProdutoPorNomeRelatorio(itemExtraido.nome);
+        itensExtraidos.forEach((item) => {
+          const produto = localizarProdutoPorNome(produtos, item.nome);
+          const quantidadeFinal = Number(item.quantidade) * multiplicador;
 
           if (!produto) {
-            itensNaoReconhecidos.push({
-              nome: itemExtraido.nome,
-              quantidade: itemExtraido.quantidade,
-              preco: itemExtraido.preco,
-              motivo: ambiguidade
-                ? 'Mais de um produto do Render bateu com esse nome. Ajuste manualmente.'
-                : 'Nenhum produto ativo com item_legado foi encontrado para esse nome.'
+            naoReconhecidos.push({
+              nome: item.nome,
+              quantidade: quantidadeFinal,
+              preco: item.preco
             });
-            naoReconhecidos += 1;
             return;
           }
 
-          adicionarItemPedido({
-            produto_id: Number(produto.id),
-            nome: produto.nome || itemExtraido.nome,
-            quantidade: Number(itemExtraido.quantidade),
-            preco: Number(itemExtraido.preco)
+          adicionarItemNormalizado({
+            produto,
+            quantidade: quantidadeFinal,
+            preco: item.preco
           });
-          adicionados += 1;
+
+          quantidadeImportada += 1;
         });
 
         renderItensPedido();
-        setMensagem(`Importação concluída. Itens adicionados: ${adicionados}. Não reconhecidos: ${naoReconhecidos}.`, naoReconhecidos > 0 && adicionados === 0);
+        setNaoReconhecidos(naoReconhecidos);
+
+        if (!quantidadeImportada) {
+          throw new Error('Nenhum item do relatório foi reconhecido no cadastro do Render.');
+        }
+
+        setMensagem(`Importação concluída. ${quantidadeImportada} item(ns) reconhecido(s).${naoReconhecidos.length ? ` ${naoReconhecidos.length} não reconhecido(s).` : ''}`);
       } catch (error) {
         setMensagem(error.message, true);
       }
@@ -700,10 +621,11 @@
         resultadoSucesso.style.display = 'block';
 
         itensPedido = [];
-        itensNaoReconhecidos = [];
         textoRelatorio.value = '';
+        multiplicadorKit.value = '1';
         obsPedido.value = '';
         volumesPedido.value = '0';
+        setNaoReconhecidos([]);
         renderItensPedido();
         focarBuscaProduto();
         setMensagem('Pedido salvo com sucesso.');
@@ -717,16 +639,17 @@
 
     function limparPedidoCompleto() {
       itensPedido = [];
-      itensNaoReconhecidos = [];
       clienteSelecionado = null;
       clientes = [];
       buscaCliente.value = '';
       listaClientes.innerHTML = '';
       renderClienteSelecionado();
       textoRelatorio.value = '';
+      multiplicadorKit.value = '1';
       obsPedido.value = '';
       volumesPedido.value = '0';
       resultadoSucesso.style.display = 'none';
+      setNaoReconhecidos([]);
       renderItensPedido();
       focarBuscaProduto();
       setMensagem('');
@@ -791,10 +714,6 @@
     });
 
     btnImportarRelatorio.addEventListener('click', importarRelatorio);
-    btnLimparRelatorio.addEventListener('click', () => {
-      textoRelatorio.value = '';
-      setMensagem('');
-    });
     btnSalvarPedido.addEventListener('click', salvarPedido);
     btnNovoPedido.addEventListener('click', limparPedidoCompleto);
 
