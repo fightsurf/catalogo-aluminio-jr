@@ -77,10 +77,37 @@
       font-size: 14px;
     }
     th { color: var(--muted); font-size: 13px; }
-    .pedido-total {
-      text-align: right;
-      margin-top: 12px;
+    .linha-total-pedido td {
+      background: #111827;
+      color: #fff;
       font-weight: 700;
+      border-bottom: 0;
+    }
+    .resumo-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(200px, 1fr));
+      gap: 12px;
+      margin-top: 10px;
+    }
+    .resumo-item {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      background: #fff;
+    }
+    .resumo-label {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+    .resumo-valor {
+      font-size: 18px;
+      font-weight: 700;
+    }
+    @media (max-width: 700px) {
+      .resumo-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -107,6 +134,15 @@
     const params = new URLSearchParams(window.location.search);
     const codigo = params.get('codigo');
 
+    function escapeHtml(valor) {
+      return String(valor ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     function formatarData(valor) {
       if (!valor) return '';
       const data = new Date(valor);
@@ -121,6 +157,10 @@
       });
     }
 
+    function formatarQuantidade(valor) {
+      return Number(valor || 0).toLocaleString('pt-BR');
+    }
+
     async function request(url, options = {}) {
       const response = await fetch(url, options);
       const data = await response.json().catch(() => ({}));
@@ -132,49 +172,112 @@
       return data.data;
     }
 
+    function calcularResumo(carrada) {
+      const pedidos = Array.isArray(carrada.pedidos) ? carrada.pedidos : [];
+
+      return pedidos.reduce((acc, pedido) => {
+        acc.totalPedidos += 1;
+        acc.totalGeral += Number(pedido.total || 0);
+
+        const itens = Array.isArray(pedido.itens) ? pedido.itens : [];
+        itens.forEach((item) => {
+          acc.totalItens += Number(item.quantidade || 0);
+        });
+
+        return acc;
+      }, {
+        totalPedidos: 0,
+        totalItens: 0,
+        totalGeral: 0
+      });
+    }
+
     function renderCarrada(carrada) {
       document.getElementById('titulo').textContent = `Carrada ${carrada.codigo}`;
       document.getElementById('subtitulo').textContent = `Data: ${formatarData(carrada.data)} | Descrição: ${carrada.descricao || '-'}`;
 
       const conteudo = document.getElementById('conteudo');
+      const pedidos = Array.isArray(carrada.pedidos) ? carrada.pedidos : [];
 
-      if (!Array.isArray(carrada.pedidos) || !carrada.pedidos.length) {
+      if (!pedidos.length) {
         conteudo.innerHTML = '<div class="card">Nenhum pedido nesta carrada.</div>';
         return;
       }
 
-      conteudo.innerHTML = carrada.pedidos.map((pedido) => `
+      const resumo = calcularResumo(carrada);
+
+      conteudo.innerHTML = `
+        ${pedidos.map((pedido) => {
+          const itens = Array.isArray(pedido.itens) ? pedido.itens : [];
+          const quantidadePedido = itens.reduce((total, item) => total + Number(item.quantidade || 0), 0);
+
+          return `
+            <section class="card">
+              <div class="pedido-header">
+                <div>
+                  <h2>Pedido ${escapeHtml(pedido.numero)}</h2>
+                  <div class="muted">Cliente: ${escapeHtml(pedido.cliente?.nome || '-')} | Data: ${escapeHtml(formatarData(pedido.data))}</div>
+                </div>
+                <div><strong>Total: ${escapeHtml(formatarMoeda(pedido.total))}</strong></div>
+              </div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Produto</th>
+                    <th>Quantidade</th>
+                    <th>Preço</th>
+                    <th>Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${itens.length ? itens.map((item) => `
+                    <tr>
+                      <td>${escapeHtml(item.descricao || '')}</td>
+                      <td>${escapeHtml(formatarQuantidade(item.quantidade))}</td>
+                      <td>${escapeHtml(formatarMoeda(item.preco))}</td>
+                      <td>${escapeHtml(formatarMoeda(item.subtotal))}</td>
+                    </tr>
+                  `).join('') : '<tr><td colspan="4" class="muted">Nenhum item encontrado.</td></tr>'}
+                </tbody>
+                <tfoot>
+                  <tr class="linha-total-pedido">
+                    <td>Total do pedido</td>
+                    <td>${escapeHtml(formatarQuantidade(quantidadePedido))}</td>
+                    <td></td>
+                    <td>${escapeHtml(formatarMoeda(pedido.total))}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </section>
+          `;
+        }).join('')}
+
         <section class="card">
-          <div class="pedido-header">
-            <div>
-              <h2>Pedido ${pedido.numero}</h2>
-              <div class="muted">Cliente: ${pedido.cliente?.nome || '-'} | Data: ${formatarData(pedido.data)}</div>
+          <h2>Resumo da carrada</h2>
+          <div class="resumo-grid">
+            <div class="resumo-item">
+              <div class="resumo-label">Data da carrada</div>
+              <div class="resumo-valor">${escapeHtml(formatarData(carrada.data))}</div>
             </div>
-            <div><strong>Total: ${formatarMoeda(pedido.total)}</strong></div>
+            <div class="resumo-item">
+              <div class="resumo-label">Descrição da carrada</div>
+              <div class="resumo-valor">${escapeHtml(carrada.descricao || '-')}</div>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-label">Quantidade de pedidos</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(resumo.totalPedidos))}</div>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-label">Quantidade de itens</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(resumo.totalItens))}</div>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-label">Total dos pedidos</div>
+              <div class="resumo-valor">${escapeHtml(formatarMoeda(resumo.totalGeral))}</div>
+            </div>
           </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Produto</th>
-                <th>Quantidade</th>
-                <th>Preço</th>
-                <th>Subtotal</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${(pedido.itens || []).map((item) => `
-                <tr>
-                  <td>${item.descricao || ''}</td>
-                  <td>${item.quantidade ?? 0}</td>
-                  <td>${formatarMoeda(item.preco)}</td>
-                  <td>${formatarMoeda(item.subtotal)}</td>
-                </tr>
-              `).join('') || '<tr><td colspan="4" class="muted">Nenhum item encontrado.</td></tr>'}
-            </tbody>
-          </table>
-          <div class="pedido-total">Total do pedido: ${formatarMoeda(pedido.total)}</div>
         </section>
-      `).join('');
+      `;
     }
 
     async function carregar() {
@@ -187,7 +290,7 @@
         const carrada = await request(`/api/legado/carradas/${codigo}`);
         renderCarrada(carrada);
       } catch (error) {
-        document.getElementById('conteudo').innerHTML = `<div class="card">${error.message}</div>`;
+        document.getElementById('conteudo').innerHTML = `<div class="card">${escapeHtml(error.message)}</div>`;
       }
     }
 

@@ -14,6 +14,12 @@
       --primary: #111827;
       --primaryText: #ffffff;
       --danger: #991b1b;
+      --clienteBg: #f8fafc;
+      --clienteBorder: #cbd5e1;
+      --pedidoBg: #fff7ed;
+      --pedidoBorder: #fdba74;
+      --selecionadoBg: #eef2ff;
+      --selecionadoBorder: #c7d2fe;
     }
     * { box-sizing: border-box; }
     body {
@@ -59,6 +65,10 @@
       cursor: pointer;
       font-weight: 700;
     }
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
     .btn-primary { background: var(--primary); color: var(--primaryText); }
     .btn-secondary { background: #fff; border: 1px solid var(--line); }
     .btn-danger { background: var(--danger); color: #fff; }
@@ -89,17 +99,52 @@
     .card {
       border: 1px solid var(--line);
       border-radius: 12px;
-      padding: 12px;
+      padding: 12px 14px;
       background: #fff;
     }
-    .card-title { font-weight: 700; margin-bottom: 6px; }
-    .card-meta { color: var(--muted); font-size: 13px; line-height: 1.5; }
+    .compact-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    .card-main {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+    .card-cliente {
+      background: var(--clienteBg);
+      border-color: var(--clienteBorder);
+    }
+    .card-pedido {
+      background: var(--pedidoBg);
+      border-color: var(--pedidoBorder);
+    }
+    .card-selecionado {
+      background: var(--selecionadoBg);
+      border-color: var(--selecionadoBorder);
+    }
+    .card-title { font-weight: 700; margin-bottom: 4px; }
+    .card-meta { color: var(--muted); font-size: 13px; line-height: 1.45; }
     .card-actions {
       display: flex;
       gap: 8px;
       justify-content: flex-end;
-      margin-top: 10px;
       flex-wrap: wrap;
+      margin-top: 0;
+      flex-shrink: 0;
+      align-items: center;
+    }
+    .cliente-topo {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+      padding: 10px 12px;
+      border: 1px solid var(--clienteBorder);
+      border-radius: 12px;
+      background: #f8fafc;
     }
     .empty { color: var(--muted); padding: 18px 0; }
     .list-panel { margin-top: 18px; }
@@ -121,6 +166,13 @@
     .selected-count { font-size: 14px; color: var(--muted); }
     @media (max-width: 980px) {
       .layout { grid-template-columns: 1fr; }
+      .compact-card {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .card-actions {
+        justify-content: flex-start;
+      }
     }
   </style>
 </head>
@@ -176,6 +228,7 @@
               <button class="btn-primary" id="btnBuscarCliente">Buscar cliente</button>
             </div>
           </div>
+          <div id="clienteSelecionadoBox"></div>
           <div class="cards" id="listaClientes"></div>
         </div>
 
@@ -254,7 +307,9 @@
       modoBusca: 'cliente',
       codigoCarradaAtual: null,
       pedidosDisponiveis: [],
-      pedidosSelecionados: []
+      pedidosSelecionados: [],
+      clientesCarregados: [],
+      clienteSelecionado: null
     };
 
     const el = {
@@ -263,6 +318,7 @@
       descricaoCarrada: document.getElementById('descricaoCarrada'),
       btnSalvar: document.getElementById('btnSalvar'),
       listaClientes: document.getElementById('listaClientes'),
+      clienteSelecionadoBox: document.getElementById('clienteSelecionadoBox'),
       listaPedidosDisponiveis: document.getElementById('listaPedidosDisponiveis'),
       listaPedidosSelecionados: document.getElementById('listaPedidosSelecionados'),
       contadorSelecionados: document.getElementById('contadorSelecionados'),
@@ -291,6 +347,15 @@
       return data.data || [];
     }
 
+    function escapeHtml(valor) {
+      return String(valor ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     function formatarData(valor) {
       if (!valor) return '';
       const data = new Date(valor);
@@ -305,6 +370,11 @@
       });
     }
 
+    function limparBuscaClienteSelecionado() {
+      estado.clienteSelecionado = null;
+      el.clienteSelecionadoBox.innerHTML = '';
+    }
+
     function setModoBusca(modo) {
       estado.modoBusca = modo;
       document.querySelectorAll('[data-modo]').forEach((botao) => {
@@ -314,19 +384,53 @@
       el.areaBuscaData.style.display = modo === 'data' ? 'block' : 'none';
       el.areaBuscaNumero.style.display = modo === 'numero' ? 'block' : 'none';
       el.listaClientes.innerHTML = '';
+      estado.clientesCarregados = [];
+      limparBuscaClienteSelecionado();
       renderPedidosDisponiveis([]);
     }
 
+    function renderClienteSelecionado() {
+      if (!estado.clienteSelecionado) {
+        el.clienteSelecionadoBox.innerHTML = '';
+        return;
+      }
+
+      el.clienteSelecionadoBox.innerHTML = `
+        <div class="cliente-topo">
+          <div>
+            <strong>${escapeHtml(estado.clienteSelecionado.nome)}</strong><br>
+            <span class="muted">${escapeHtml(estado.clienteSelecionado.cidade || '-')} / ${escapeHtml(estado.clienteSelecionado.uf || '-')}</span>
+          </div>
+          <button class="btn-secondary" id="btnTrocarCliente">Trocar cliente</button>
+        </div>
+      `;
+
+      document.getElementById('btnTrocarCliente').addEventListener('click', () => {
+        limparBuscaClienteSelecionado();
+        renderClientes(estado.clientesCarregados);
+        renderPedidosDisponiveis([]);
+      });
+    }
+
     function renderClientes(clientes) {
-      if (!clientes.length) {
+      estado.clientesCarregados = Array.isArray(clientes) ? clientes : [];
+      renderClienteSelecionado();
+
+      const clientesParaExibir = estado.clienteSelecionado
+        ? estado.clientesCarregados.filter((cliente) => Number(cliente.favorecido) === Number(estado.clienteSelecionado.favorecido))
+        : estado.clientesCarregados;
+
+      if (!clientesParaExibir.length) {
         el.listaClientes.innerHTML = '<div class="empty">Nenhum cliente encontrado.</div>';
         return;
       }
 
-      el.listaClientes.innerHTML = clientes.map((cliente) => `
-        <div class="card">
-          <div class="card-title">${cliente.nome}</div>
-          <div class="card-meta">${cliente.cidade || '-'} / ${cliente.uf || '-'}</div>
+      el.listaClientes.innerHTML = clientesParaExibir.map((cliente) => `
+        <div class="card card-cliente compact-card">
+          <div class="card-main">
+            <div class="card-title">${escapeHtml(cliente.nome)}</div>
+            <div class="card-meta">${escapeHtml(cliente.cidade || '-')} / ${escapeHtml(cliente.uf || '-')}</div>
+          </div>
           <div class="card-actions">
             <button class="btn-primary" data-favorecido="${cliente.favorecido}">Ver pedidos</button>
           </div>
@@ -334,7 +438,12 @@
       `).join('');
 
       el.listaClientes.querySelectorAll('[data-favorecido]').forEach((botao) => {
-        botao.addEventListener('click', () => carregarPedidosPorCliente(botao.dataset.favorecido));
+        botao.addEventListener('click', () => {
+          const cliente = estado.clientesCarregados.find((item) => Number(item.favorecido) === Number(botao.dataset.favorecido));
+          estado.clienteSelecionado = cliente || null;
+          renderClientes(estado.clientesCarregados);
+          carregarPedidosPorCliente(botao.dataset.favorecido);
+        });
       });
     }
 
@@ -351,15 +460,17 @@
       }
 
       el.listaPedidosDisponiveis.innerHTML = pedidos.map((pedido) => `
-        <div class="card">
-          <div class="card-title">Pedido ${pedido.numero}</div>
-          <div class="card-meta">
-            Cliente: ${pedido.cliente?.nome || '-'}<br>
-            Data: ${formatarData(pedido.data)}<br>
-            Valor: ${formatarMoeda(pedido.total)}
+        <div class="card card-pedido compact-card">
+          <div class="card-main">
+            <div class="card-title">Pedido ${escapeHtml(pedido.numero)}</div>
+            <div class="card-meta">
+              Cliente: ${escapeHtml(pedido.cliente?.nome || '-')}<br>
+              Data: ${escapeHtml(formatarData(pedido.data))}<br>
+              Valor: ${escapeHtml(formatarMoeda(pedido.total))}
+            </div>
           </div>
           <div class="card-actions">
-            <button class="btn-primary" data-numero="${pedido.numero}" ${pedidoSelecionado(pedido.numero) ? 'disabled' : ''}>Adicionar</button>
+            <button class="btn-primary" data-numero="${escapeHtml(pedido.numero)}" ${pedidoSelecionado(pedido.numero) ? 'disabled' : ''}>Adicionar</button>
           </div>
         </div>
       `).join('');
@@ -378,15 +489,17 @@
       }
 
       el.listaPedidosSelecionados.innerHTML = estado.pedidosSelecionados.map((pedido) => `
-        <div class="card">
-          <div class="card-title">Pedido ${pedido.numero}</div>
-          <div class="card-meta">
-            Cliente: ${pedido.cliente?.nome || '-'}<br>
-            Data: ${formatarData(pedido.data)}<br>
-            Valor: ${formatarMoeda(pedido.total)}
+        <div class="card card-selecionado compact-card">
+          <div class="card-main">
+            <div class="card-title">Pedido ${escapeHtml(pedido.numero)}</div>
+            <div class="card-meta">
+              Cliente: ${escapeHtml(pedido.cliente?.nome || '-')}<br>
+              Data: ${escapeHtml(formatarData(pedido.data))}<br>
+              Valor: ${escapeHtml(formatarMoeda(pedido.total))}
+            </div>
           </div>
           <div class="card-actions">
-            <button class="btn-danger" data-remover="${pedido.numero}">Remover</button>
+            <button class="btn-danger" data-remover="${escapeHtml(pedido.numero)}">Remover</button>
           </div>
         </div>
       `).join('');
@@ -405,8 +518,8 @@
       el.tabelaCarradas.innerHTML = carradas.map((carrada) => `
         <tr>
           <td>${carrada.codigo}</td>
-          <td>${formatarData(carrada.data)}</td>
-          <td>${carrada.descricao || ''}</td>
+          <td>${escapeHtml(formatarData(carrada.data))}</td>
+          <td>${escapeHtml(carrada.descricao || '')}</td>
           <td class="actions-cell">
             <button class="btn-secondary" data-visualizar="${carrada.codigo}">Abrir</button>
             <button class="btn-secondary" data-editar="${carrada.codigo}">Editar</button>
@@ -448,6 +561,8 @@
       estado.codigoCarradaAtual = null;
       estado.pedidosSelecionados = [];
       estado.pedidosDisponiveis = [];
+      estado.clientesCarregados = [];
+      limparBuscaClienteSelecionado();
       el.dataCarrada.value = '';
       el.descricaoCarrada.value = '';
       el.tituloMontagem.textContent = 'Carrada em montagem';
@@ -467,8 +582,16 @@
     }
 
     async function buscarClientes() {
+      const nome = el.buscaCliente.value.trim();
+      if (!nome) {
+        alert('Digite o nome do cliente.');
+        return;
+      }
+
       try {
-        const clientes = await request(`/api/legado/carradas/clientes?nome=${encodeURIComponent(el.buscaCliente.value)}`);
+        limparBuscaClienteSelecionado();
+        renderPedidosDisponiveis([]);
+        const clientes = await request(`/api/legado/carradas/clientes?nome=${encodeURIComponent(nome)}`);
         renderClientes(clientes);
       } catch (error) {
         alert(error.message);
@@ -476,6 +599,11 @@
     }
 
     async function buscarPorData() {
+      if (!el.buscaData.value) {
+        alert('Informe a data do pedido.');
+        return;
+      }
+
       try {
         const pedidos = await request(`/api/legado/carradas/pedidos/por-data?data=${encodeURIComponent(el.buscaData.value)}`);
         renderPedidosDisponiveis(pedidos);
@@ -485,8 +613,14 @@
     }
 
     async function buscarPorNumero() {
+      const numero = el.buscaNumero.value.trim();
+      if (!numero) {
+        alert('Informe o número do pedido.');
+        return;
+      }
+
       try {
-        const pedidos = await request(`/api/legado/carradas/pedidos/por-numero?numero=${encodeURIComponent(el.buscaNumero.value)}`);
+        const pedidos = await request(`/api/legado/carradas/pedidos/por-numero?numero=${encodeURIComponent(numero)}`);
         renderPedidosDisponiveis(pedidos);
       } catch (error) {
         alert(error.message);
@@ -498,7 +632,7 @@
         const carradas = await request('/api/legado/carradas');
         renderCarradas(carradas);
       } catch (error) {
-        el.tabelaCarradas.innerHTML = `<tr><td colspan="4" class="muted">${error.message}</td></tr>`;
+        el.tabelaCarradas.innerHTML = `<tr><td colspan="4" class="muted">${escapeHtml(error.message)}</td></tr>`;
       }
     }
 
@@ -584,6 +718,9 @@
     el.btnSalvar.addEventListener('click', salvarCarrada);
     el.btnNovo.addEventListener('click', limparFormulario);
     el.btnRecarregarCarradas.addEventListener('click', carregarCarradas);
+    el.buscaCliente.addEventListener('keydown', (event) => { if (event.key === 'Enter') buscarClientes(); });
+    el.buscaData.addEventListener('keydown', (event) => { if (event.key === 'Enter') buscarPorData(); });
+    el.buscaNumero.addEventListener('keydown', (event) => { if (event.key === 'Enter') buscarPorNumero(); });
 
     carregarCarradas();
     renderPedidosSelecionados();
