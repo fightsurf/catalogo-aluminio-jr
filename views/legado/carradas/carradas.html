@@ -136,17 +136,10 @@
       align-items: center;
     }
     .cliente-topo {
-      display: flex;
-      justify-content: flex-end;
-      align-items: center;
-      gap: 10px;
       margin: 0 0 14px 0;
-      padding: 0;
     }
-    .cliente-topo .btn-secondary {
-      min-width: 150px;
-      background: #f8fafc;
-      border: 1px solid var(--clienteBorder);
+    .cliente-topo .card {
+      margin: 0;
     }
     .empty { color: var(--muted); padding: 18px 0; }
     .list-panel { margin-top: 18px; }
@@ -399,15 +392,14 @@
 
       el.clienteSelecionadoBox.innerHTML = `
         <div class="cliente-topo">
-          <button class="btn-secondary" id="btnTrocarCliente">Trocar cliente</button>
+          <div class="card card-cliente compact-card">
+            <div class="card-main">
+              <div class="card-title">${escapeHtml(estado.clienteSelecionado.nome || '-')}</div>
+              <div class="card-meta">${escapeHtml(estado.clienteSelecionado.cidade || '-')} / ${escapeHtml(estado.clienteSelecionado.uf || '-')}</div>
+            </div>
+          </div>
         </div>
       `;
-
-      document.getElementById('btnTrocarCliente').addEventListener('click', () => {
-        limparBuscaClienteSelecionado();
-        renderClientes(estado.clientesCarregados);
-        renderPedidosDisponiveis([]);
-      });
     }
 
     function renderClientes(clientes) {
