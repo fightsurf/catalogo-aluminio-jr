@@ -199,10 +199,15 @@
           totalPedidos: item.pedidos.size
         }))
         .sort((a, b) => {
-          if (a.item && b.item) return a.item - b.item;
-          if (a.item) return -1;
-          if (b.item) return 1;
-          return String(a.descricao || '').localeCompare(String(b.descricao || ''), 'pt-BR');
+          const descricaoA = String(a.descricao || '').trim();
+          const descricaoB = String(b.descricao || '').trim();
+          const comparacaoDescricao = descricaoA.localeCompare(descricaoB, 'pt-BR');
+
+          if (comparacaoDescricao !== 0) return comparacaoDescricao;
+
+          const codigoA = Number(a.item || 0);
+          const codigoB = Number(b.item || 0);
+          return codigoA - codigoB;
         });
 
       return {
@@ -250,7 +255,6 @@
           <table>
             <thead>
               <tr>
-                <th>Cód. item legado</th>
                 <th>Descrição</th>
                 <th>Qtd. total</th>
                 <th>Pedidos</th>
@@ -259,7 +263,6 @@
             <tbody>
               ${resumo.itens.map((item) => `
                 <tr>
-                  <td>${escapeHtml(item.item ?? '-')}</td>
                   <td>${escapeHtml(item.descricao || '-')}</td>
                   <td>${escapeHtml(formatarQuantidade(item.quantidade))}</td>
                   <td>${escapeHtml(formatarQuantidade(item.totalPedidos))}</td>
@@ -268,9 +271,9 @@
             </tbody>
             <tfoot>
               <tr class="linha-total">
-                <td colspan="2">Total geral</td>
+                <td>Total geral</td>
                 <td>${escapeHtml(formatarQuantidade(resumo.totalItens))}</td>
-                <td>${escapeHtml(formatarQuantidade(resumo.totalPedidos))}</td>
+                <td></td>
               </tr>
             </tfoot>
           </table>
