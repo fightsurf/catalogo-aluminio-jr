@@ -33,11 +33,7 @@
       flex-wrap: wrap;
       margin-bottom: 18px;
     }
-    .actions {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
     a.button, button {
       height: 42px;
       padding: 0 16px;
@@ -60,11 +56,24 @@
       margin-bottom: 16px;
     }
     .muted { color: var(--muted); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      background: #fff;
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      font-size: 14px;
+    }
+    th { color: var(--muted); font-size: 13px; }
     .resumo-grid {
       display: grid;
-      grid-template-columns: repeat(2, minmax(220px, 1fr));
+      grid-template-columns: repeat(4, minmax(180px, 1fr));
       gap: 12px;
-      margin-top: 12px;
+      margin-bottom: 16px;
     }
     .resumo-item {
       border: 1px solid var(--line);
@@ -81,56 +90,17 @@
       font-size: 18px;
       font-weight: 700;
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 10px;
-      background: #fff;
-    }
-    th, td {
-      padding: 12px 10px;
-      border-bottom: 1px solid var(--line);
-      text-align: left;
-      font-size: 14px;
-    }
-    th {
-      color: var(--muted);
-      font-size: 13px;
-    }
-    .td-quantidade {
-      width: 180px;
-      text-align: right;
-      font-weight: 700;
-    }
     .linha-total td {
       background: #111827;
       color: #fff;
       font-weight: 700;
       border-bottom: 0;
     }
-    @media (max-width: 700px) {
-      .resumo-grid {
-        grid-template-columns: 1fr;
-      }
-      .td-quantidade {
-        width: auto;
-      }
+    @media (max-width: 900px) {
+      .resumo-grid { grid-template-columns: repeat(2, minmax(180px, 1fr)); }
     }
-    @media print {
-      .actions {
-        display: none;
-      }
-      body {
-        background: #fff;
-      }
-      .page {
-        max-width: 100%;
-        padding: 0;
-      }
-      .card {
-        border: 0;
-        padding: 0;
-      }
+    @media (max-width: 640px) {
+      .resumo-grid { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -138,12 +108,12 @@
   <div class="page">
     <div class="topbar">
       <div>
-        <h1 id="titulo">Resumo de itens da carrada</h1>
+        <h1 id="titulo">Resumo de itens</h1>
         <p class="muted" id="subtitulo"></p>
       </div>
       <div class="actions">
-        <a class="button btn-secondary" id="btnVoltarDetalhe" href="#">Voltar ao detalhe</a>
-        <button class="btn-primary" id="btnImprimir" type="button">Imprimir</button>
+        <a class="button btn-secondary" id="linkDetalhe" href="/legado/carradas">Voltar ao detalhe</a>
+        <button class="btn-primary" id="btnImprimir">Imprimir</button>
       </div>
     </div>
 
@@ -187,64 +157,69 @@
       return data.data;
     }
 
-    function normalizarDescricao(descricao) {
-      return String(descricao || '')
-        .trim()
-        .replace(/\s+/g, ' ')
-        .toUpperCase();
-    }
-
-    function gerarResumo(carrada) {
+    function consolidarItens(carrada) {
       const pedidos = Array.isArray(carrada.pedidos) ? carrada.pedidos : [];
       const mapa = new Map();
-      let quantidadeTotal = 0;
+      let totalItens = 0;
 
       pedidos.forEach((pedido) => {
         const itens = Array.isArray(pedido.itens) ? pedido.itens : [];
 
         itens.forEach((item) => {
-          const descricaoOriginal = String(item.descricao || '').trim().replace(/\s+/g, ' ');
-          const chave = normalizarDescricao(descricaoOriginal);
-
-          if (!chave) {
-            return;
-          }
+          const codigoItem = Number(item.item || 0);
+          const chave = codigoItem > 0 ? String(codigoItem) : `SEM-CODIGO::${String(item.descricao || '').trim().toUpperCase()}`;
+          const quantidade = Number(item.quantidade || 0);
+          totalItens += quantidade;
 
           if (!mapa.has(chave)) {
             mapa.set(chave, {
-              descricao: descricaoOriginal,
-              quantidadeTotal: 0
+              item: codigoItem > 0 ? codigoItem : null,
+              descricao: String(item.descricao || '').trim(),
+              quantidade: 0,
+              pedidos: new Set()
             });
           }
 
-          const registro = mapa.get(chave);
-          const quantidade = Number(item.quantidade || 0);
-
-          registro.quantidadeTotal += quantidade;
-          quantidadeTotal += quantidade;
+          const atual = mapa.get(chave);
+          if (!atual.descricao && item.descricao) {
+            atual.descricao = String(item.descricao).trim();
+          }
+          atual.quantidade += quantidade;
+          if (pedido.numero) {
+            atual.pedidos.add(String(pedido.numero));
+          }
         });
       });
 
-      const itens = Array.from(mapa.values()).sort((a, b) => {
-        return a.descricao.localeCompare(b.descricao, 'pt-BR');
-      });
+      const itens = Array.from(mapa.values())
+        .map((item) => ({
+          item: item.item,
+          descricao: item.descricao,
+          quantidade: item.quantidade,
+          totalPedidos: item.pedidos.size
+        }))
+        .sort((a, b) => {
+          if (a.item && b.item) return a.item - b.item;
+          if (a.item) return -1;
+          if (b.item) return 1;
+          return String(a.descricao || '').localeCompare(String(b.descricao || ''), 'pt-BR');
+        });
 
       return {
+        itens,
         totalPedidos: pedidos.length,
-        totalItensDistintos: itens.length,
-        quantidadeTotal,
-        itens
+        totalItens,
+        totalTipos: itens.length
       };
     }
 
     function renderResumo(carrada) {
-      const resumo = gerarResumo(carrada);
-
       document.getElementById('titulo').textContent = `Resumo de itens da carrada ${carrada.codigo}`;
       document.getElementById('subtitulo').textContent = `Data: ${formatarData(carrada.data)} | Descrição: ${carrada.descricao || '-'}`;
-      document.getElementById('btnVoltarDetalhe').href = `/legado/carradas/detalhe?codigo=${encodeURIComponent(carrada.codigo)}`;
+      document.getElementById('linkDetalhe').href = `/legado/carradas/detalhe?codigo=${encodeURIComponent(carrada.codigo)}`;
 
       const conteudo = document.getElementById('conteudo');
+      const resumo = consolidarItens(carrada);
 
       if (!resumo.itens.length) {
         conteudo.innerHTML = '<div class="card">Nenhum item encontrado nesta carrada.</div>';
@@ -253,52 +228,49 @@
 
       conteudo.innerHTML = `
         <section class="card">
-          <h2>Resumo para produção</h2>
           <div class="resumo-grid">
             <div class="resumo-item">
-              <div class="resumo-label">Data da carrada</div>
-              <div class="resumo-valor">${escapeHtml(formatarData(carrada.data))}</div>
-            </div>
-            <div class="resumo-item">
-              <div class="resumo-label">Descrição da carrada</div>
-              <div class="resumo-valor">${escapeHtml(carrada.descricao || '-')}</div>
+              <div class="resumo-label">Carrada</div>
+              <div class="resumo-valor">${escapeHtml(carrada.codigo)}</div>
             </div>
             <div class="resumo-item">
               <div class="resumo-label">Quantidade de pedidos</div>
               <div class="resumo-valor">${escapeHtml(formatarQuantidade(resumo.totalPedidos))}</div>
             </div>
             <div class="resumo-item">
-              <div class="resumo-label">Itens distintos</div>
-              <div class="resumo-valor">${escapeHtml(formatarQuantidade(resumo.totalItensDistintos))}</div>
+              <div class="resumo-label">Quantidade total de itens</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(resumo.totalItens))}</div>
             </div>
             <div class="resumo-item">
-              <div class="resumo-label">Quantidade total consolidada</div>
-              <div class="resumo-valor">${escapeHtml(formatarQuantidade(resumo.quantidadeTotal))}</div>
+              <div class="resumo-label">Tipos de itens</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(resumo.totalTipos))}</div>
             </div>
           </div>
-        </section>
 
-        <section class="card">
-          <h2>Itens consolidados</h2>
           <table>
             <thead>
               <tr>
-                <th>Item</th>
-                <th class="td-quantidade">Quantidade total</th>
+                <th>Cód. item legado</th>
+                <th>Descrição</th>
+                <th>Qtd. total</th>
+                <th>Pedidos</th>
               </tr>
             </thead>
             <tbody>
               ${resumo.itens.map((item) => `
                 <tr>
-                  <td>${escapeHtml(item.descricao)}</td>
-                  <td class="td-quantidade">${escapeHtml(formatarQuantidade(item.quantidadeTotal))}</td>
+                  <td>${escapeHtml(item.item ?? '-')}</td>
+                  <td>${escapeHtml(item.descricao || '-')}</td>
+                  <td>${escapeHtml(formatarQuantidade(item.quantidade))}</td>
+                  <td>${escapeHtml(formatarQuantidade(item.totalPedidos))}</td>
                 </tr>
               `).join('')}
             </tbody>
             <tfoot>
               <tr class="linha-total">
-                <td>Total consolidado</td>
-                <td class="td-quantidade">${escapeHtml(formatarQuantidade(resumo.quantidadeTotal))}</td>
+                <td colspan="2">Total geral</td>
+                <td>${escapeHtml(formatarQuantidade(resumo.totalItens))}</td>
+                <td>${escapeHtml(formatarQuantidade(resumo.totalPedidos))}</td>
               </tr>
             </tfoot>
           </table>

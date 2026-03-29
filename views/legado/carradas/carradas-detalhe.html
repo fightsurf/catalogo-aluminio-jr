@@ -120,7 +120,7 @@
       </div>
       <div class="actions">
         <a class="button btn-secondary" href="/legado/carradas">Voltar</a>
-        <a class="button btn-primary" id="btnResumoItens" href="#">Resumo de itens</a>
+        <button class="btn-secondary" id="btnResumoItens">Resumo de itens</button>
         <button class="btn-secondary" id="btnEditar">Editar</button>
         <button class="btn-danger" id="btnExcluir">Excluir</button>
       </div>
@@ -134,11 +134,6 @@
   <script>
     const params = new URLSearchParams(window.location.search);
     const codigo = params.get('codigo');
-    const btnResumoItens = document.getElementById('btnResumoItens');
-
-    if (codigo && btnResumoItens) {
-      btnResumoItens.href = `/legado/carradas/resumo-itens?codigo=${encodeURIComponent(codigo)}`;
-    }
 
     function escapeHtml(valor) {
       return String(valor ?? '')
@@ -299,6 +294,10 @@
         document.getElementById('conteudo').innerHTML = `<div class="card">${escapeHtml(error.message)}</div>`;
       }
     }
+
+    document.getElementById('btnResumoItens').addEventListener('click', () => {
+      window.location.href = `/legado/carradas/resumo-itens?codigo=${codigo}`;
+    });
 
     document.getElementById('btnEditar').addEventListener('click', () => {
       window.location.href = `/legado/carradas?codigo=${codigo}`;
