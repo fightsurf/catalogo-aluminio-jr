@@ -12,7 +12,14 @@ function abrirPaginaDetalheCarrada(req, res) {
   );
 }
 
+function abrirPaginaResumoItensCarrada(req, res) {
+  return res.sendFile(
+    path.resolve(__dirname, '../../../../views/legado/carradas/carradas-resumo-itens.html')
+  );
+}
+
 module.exports = {
   abrirPaginaCarradas,
-  abrirPaginaDetalheCarrada
+  abrirPaginaDetalheCarrada,
+  abrirPaginaResumoItensCarrada
 };

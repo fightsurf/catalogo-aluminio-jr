@@ -5,5 +5,6 @@ const router = express.Router();
 
 router.get('/', controller.abrirPaginaCarradas);
 router.get('/detalhe', controller.abrirPaginaDetalheCarrada);
+router.get('/resumo-itens', controller.abrirPaginaResumoItensCarrada);
 
 module.exports = router;
