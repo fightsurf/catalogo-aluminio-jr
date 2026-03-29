@@ -97,6 +97,9 @@
       font-weight: 700;
       border-bottom: 0;
     }
+    .col-indice {
+      width: 64px;
+    }
     .pedidos-hover {
       position: relative;
       display: inline-flex;
@@ -116,10 +119,10 @@
     .pedidos-hover__tooltip {
       position: absolute;
       left: 50%;
-      top: calc(100% + 8px);
+      top: calc(100% - 2px);
       transform: translateX(-50%);
-      min-width: 180px;
-      max-width: 280px;
+      min-width: 220px;
+      max-width: 320px;
       padding: 10px 12px;
       border-radius: 10px;
       background: #111827;
@@ -135,18 +138,35 @@
       white-space: normal;
     }
     .pedidos-hover:hover .pedidos-hover__tooltip,
-    .pedidos-hover:focus-within .pedidos-hover__tooltip {
+    .pedidos-hover:focus-within .pedidos-hover__tooltip,
+    .pedidos-hover__tooltip:hover {
       opacity: 1;
       visibility: visible;
+      pointer-events: auto;
     }
     .pedidos-hover__titulo {
       display: block;
       font-weight: 700;
-      margin-bottom: 6px;
+      margin-bottom: 8px;
     }
     .pedidos-hover__lista {
-      display: block;
-      word-break: break-word;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .pedidos-hover__link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+      text-decoration: none;
+      font-weight: 700;
+    }
+    .pedidos-hover__link:hover {
+      background: rgba(255, 255, 255, 0.22);
     }
     @media (max-width: 900px) {
       .resumo-grid { grid-template-columns: repeat(2, minmax(180px, 1fr)); }
@@ -275,13 +295,18 @@
     function renderPedidosHover(numerosPedidos) {
       const totalPedidos = numerosPedidos.length;
       const titulo = totalPedidos === 1 ? 'Pedido:' : 'Pedidos:';
+      const links = numerosPedidos.map((numero) => {
+        const numeroTexto = String(numero || '').trim();
+        const href = `/legado/pedidos?numero=${encodeURIComponent(numeroTexto)}`;
+        return `<a class="pedidos-hover__link" href="${href}" target="_blank" rel="noopener noreferrer">${escapeHtml(numeroTexto)}</a>`;
+      }).join('');
 
       return `
         <span class="pedidos-hover" tabindex="0">
           <span class="pedidos-hover__numero">${escapeHtml(formatarQuantidade(totalPedidos))}</span>
           <span class="pedidos-hover__tooltip">
             <span class="pedidos-hover__titulo">${escapeHtml(titulo)}</span>
-            <span class="pedidos-hover__lista">${escapeHtml(numerosPedidos.join(', '))}</span>
+            <span class="pedidos-hover__lista">${links}</span>
           </span>
         </span>
       `;
@@ -324,14 +349,16 @@
           <table>
             <thead>
               <tr>
+                <th class="col-indice">#</th>
                 <th>Descrição</th>
                 <th>Qtd. total</th>
                 <th>Pedidos</th>
               </tr>
             </thead>
             <tbody>
-              ${resumo.itens.map((item) => `
+              ${resumo.itens.map((item, indice) => `
                 <tr>
+                  <td>${escapeHtml(String(indice + 1))}</td>
                   <td>${escapeHtml(item.descricao || '-')}</td>
                   <td>${escapeHtml(formatarQuantidade(item.quantidade))}</td>
                   <td>${renderPedidosHover(item.numerosPedidos)}</td>
@@ -340,6 +367,7 @@
             </tbody>
             <tfoot>
               <tr class="linha-total">
+                <td></td>
                 <td>Total geral</td>
                 <td>${escapeHtml(formatarQuantidade(resumo.totalItens))}</td>
                 <td></td>
