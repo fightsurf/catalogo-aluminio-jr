@@ -67,6 +67,7 @@
       border-bottom: 1px solid var(--line);
       text-align: left;
       font-size: 14px;
+      vertical-align: middle;
     }
     th { color: var(--muted); font-size: 13px; }
     .resumo-grid {
@@ -96,11 +97,67 @@
       font-weight: 700;
       border-bottom: 0;
     }
+    .pedidos-hover {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 28px;
+      cursor: default;
+    }
+    .pedidos-hover__numero {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 24px;
+      padding: 2px 6px;
+      border-radius: 999px;
+    }
+    .pedidos-hover__tooltip {
+      position: absolute;
+      left: 50%;
+      top: calc(100% + 8px);
+      transform: translateX(-50%);
+      min-width: 180px;
+      max-width: 280px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #111827;
+      color: #fff;
+      font-size: 12px;
+      line-height: 1.45;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.15s ease, visibility 0.15s ease;
+      z-index: 20;
+      white-space: normal;
+    }
+    .pedidos-hover:hover .pedidos-hover__tooltip,
+    .pedidos-hover:focus-within .pedidos-hover__tooltip {
+      opacity: 1;
+      visibility: visible;
+    }
+    .pedidos-hover__titulo {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+    .pedidos-hover__lista {
+      display: block;
+      word-break: break-word;
+    }
     @media (max-width: 900px) {
       .resumo-grid { grid-template-columns: repeat(2, minmax(180px, 1fr)); }
     }
     @media (max-width: 640px) {
       .resumo-grid { grid-template-columns: 1fr; }
+      .pedidos-hover__tooltip {
+        left: auto;
+        right: 0;
+        transform: none;
+      }
     }
   </style>
 </head>
@@ -157,6 +214,10 @@
       return data.data;
     }
 
+    function obterDescricaoResumo(item) {
+      return String(item.descricaoOriginal || '').trim();
+    }
+
     function consolidarItens(carrada) {
       const pedidos = Array.isArray(carrada.pedidos) ? carrada.pedidos : [];
       const mapa = new Map();
@@ -167,22 +228,25 @@
 
         itens.forEach((item) => {
           const codigoItem = Number(item.item || 0);
-          const chave = codigoItem > 0 ? String(codigoItem) : `SEM-CODIGO::${String(item.descricao || '').trim().toUpperCase()}`;
+          const descricaoResumo = obterDescricaoResumo(item);
+          const chave = codigoItem > 0
+            ? String(codigoItem)
+            : `SEM-CODIGO::${descricaoResumo.toUpperCase()}`;
           const quantidade = Number(item.quantidade || 0);
           totalItens += quantidade;
 
           if (!mapa.has(chave)) {
             mapa.set(chave, {
               item: codigoItem > 0 ? codigoItem : null,
-              descricao: String(item.descricao || '').trim(),
+              descricao: descricaoResumo,
               quantidade: 0,
               pedidos: new Set()
             });
           }
 
           const atual = mapa.get(chave);
-          if (!atual.descricao && item.descricao) {
-            atual.descricao = String(item.descricao).trim();
+          if (!atual.descricao && descricaoResumo) {
+            atual.descricao = descricaoResumo;
           }
           atual.quantidade += quantidade;
           if (pedido.numero) {
@@ -193,22 +257,12 @@
 
       const itens = Array.from(mapa.values())
         .map((item) => ({
-          item: item.item,
           descricao: item.descricao,
           quantidade: item.quantidade,
-          totalPedidos: item.pedidos.size
+          totalPedidos: item.pedidos.size,
+          numerosPedidos: Array.from(item.pedidos).sort((a, b) => String(a).localeCompare(String(b), 'pt-BR', { numeric: true })),
         }))
-        .sort((a, b) => {
-          const descricaoA = String(a.descricao || '').trim();
-          const descricaoB = String(b.descricao || '').trim();
-          const comparacaoDescricao = descricaoA.localeCompare(descricaoB, 'pt-BR');
-
-          if (comparacaoDescricao !== 0) return comparacaoDescricao;
-
-          const codigoA = Number(a.item || 0);
-          const codigoB = Number(b.item || 0);
-          return codigoA - codigoB;
-        });
+        .sort((a, b) => String(a.descricao || '').localeCompare(String(b.descricao || ''), 'pt-BR'));
 
       return {
         itens,
@@ -216,6 +270,21 @@
         totalItens,
         totalTipos: itens.length
       };
+    }
+
+    function renderPedidosHover(numerosPedidos) {
+      const totalPedidos = numerosPedidos.length;
+      const titulo = totalPedidos === 1 ? 'Pedido:' : 'Pedidos:';
+
+      return `
+        <span class="pedidos-hover" tabindex="0">
+          <span class="pedidos-hover__numero">${escapeHtml(formatarQuantidade(totalPedidos))}</span>
+          <span class="pedidos-hover__tooltip">
+            <span class="pedidos-hover__titulo">${escapeHtml(titulo)}</span>
+            <span class="pedidos-hover__lista">${escapeHtml(numerosPedidos.join(', '))}</span>
+          </span>
+        </span>
+      `;
     }
 
     function renderResumo(carrada) {
@@ -265,7 +334,7 @@
                 <tr>
                   <td>${escapeHtml(item.descricao || '-')}</td>
                   <td>${escapeHtml(formatarQuantidade(item.quantidade))}</td>
-                  <td>${escapeHtml(formatarQuantidade(item.totalPedidos))}</td>
+                  <td>${renderPedidosHover(item.numerosPedidos)}</td>
                 </tr>
               `).join('')}
             </tbody>
