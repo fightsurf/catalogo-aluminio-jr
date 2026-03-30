@@ -516,7 +516,9 @@
               Cliente: ${escapeHtml(pedido.cliente?.nome || '-')}<br>
               Data: ${escapeHtml(formatarData(pedido.data))}<br>
               Vendedor: ${escapeHtml(pedido.vendedorInfo?.nome || '-')}<br>
-              Valor: ${escapeHtml(formatarMoeda(pedido.total))}
+              Valor: ${escapeHtml(formatarMoeda(pedido.total))}<br>
+              Total já pago: ${escapeHtml(formatarMoeda(pedido.totalPago || 0))}<br>
+              Saldo restante: ${escapeHtml(formatarMoeda(pedido.saldoRestante || 0))}
             </div>
           </div>
           <div class="card-actions">
