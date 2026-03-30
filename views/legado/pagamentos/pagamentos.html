@@ -118,6 +118,7 @@
     }
     .card-cliente { background: var(--clienteBg); border-color: var(--clienteBorder); }
     .card-pedido { background: var(--pedidoBg); border-color: var(--pedidoBorder); }
+    .card-pedido-incompleto { background: #fee2e2; border-color: #fca5a5; }
     .card-main { min-width: 0; flex: 1 1 auto; }
     .compact-card {
       display: flex;
@@ -500,6 +501,14 @@
       });
     }
 
+    function pedidoTemSaldoPendente(pedido) {
+      return Number(pedido?.saldoRestante || 0) > 0;
+    }
+
+    function classeCardPedido(pedido) {
+      return pedidoTemSaldoPendente(pedido) ? 'card-pedido-incompleto' : '';
+    }
+
     function renderPedidosDisponiveis(pedidos) {
       estado.pedidosDisponiveis = Array.isArray(pedidos) ? pedidos : [];
 
@@ -509,7 +518,7 @@
       }
 
       el.listaPedidosDisponiveis.innerHTML = estado.pedidosDisponiveis.map((pedido) => `
-        <div class="card card-pedido compact-card">
+        <div class="card card-pedido ${classeCardPedido(pedido)} compact-card">
           <div class="card-main">
             <div class="card-title">Pedido ${escapeHtml(pedido.numero || '-')}</div>
             <div class="card-meta">
@@ -518,7 +527,7 @@
               Vendedor: ${escapeHtml(pedido.vendedorInfo?.nome || '-')}<br>
               Valor: ${escapeHtml(formatarMoeda(pedido.total))}<br>
               Total já pago: ${escapeHtml(formatarMoeda(pedido.totalPago || 0))}<br>
-              Saldo restante: ${escapeHtml(formatarMoeda(Number(pedido.excedente || 0) > 0 ? 0 : (pedido.saldoRestante ?? pedido.total ?? 0)))}
+              Saldo restante: ${escapeHtml(formatarMoeda(pedido.saldoRestante || 0))}
             </div>
           </div>
           <div class="card-actions">
@@ -808,23 +817,6 @@
       }
     }
 
-    function sincronizarPedidoSelecionadoNaLista(data) {
-      if (!data?.pedido || !data?.resumo) {
-        return;
-      }
-
-      const pedidoAtualizado = {
-        ...data.pedido,
-        totalPago: Number(data.resumo.totalPago || 0),
-        saldoRestante: Number(data.resumo.saldoRestante ?? data.pedido.total ?? 0),
-        excedente: Number(data.resumo.excedente || 0),
-        quantidadePagamentos: Number(data.resumo.quantidadePagamentos || 0)
-      };
-
-      estado.pedidosDisponiveis = [pedidoAtualizado];
-      renderPedidosDisponiveis(estado.pedidosDisponiveis);
-    }
-
     function aplicarDetalhePedido(data) {
       estado.pedidoSelecionado = data.pedido;
       estado.pagamentos = Array.isArray(data.pagamentos) ? data.pagamentos : [];
@@ -832,7 +824,18 @@
       estado.modoFormulario = 'novo';
       estado.pagamentoEmEdicao = null;
       estado.tipoPagamento = 'V';
-      sincronizarPedidoSelecionadoNaLista(data);
+
+      if (estado.pedidoSelecionado) {
+        estado.pedidosDisponiveis = [{
+          ...estado.pedidoSelecionado,
+          totalPago: Number(estado.resumo?.totalPago || 0),
+          saldoRestante: Number(estado.resumo?.saldoRestante || 0),
+          excedente: Number(estado.resumo?.excedente || 0),
+          quantidadePagamentos: Number(estado.resumo?.quantidadePagamentos || 0)
+        }];
+        renderPedidosDisponiveis(estado.pedidosDisponiveis);
+      }
+
       renderPainelPedidoSelecionado();
     }
 
