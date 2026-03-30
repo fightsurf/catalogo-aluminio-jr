@@ -518,7 +518,7 @@
               Vendedor: ${escapeHtml(pedido.vendedorInfo?.nome || '-')}<br>
               Valor: ${escapeHtml(formatarMoeda(pedido.total))}<br>
               Total já pago: ${escapeHtml(formatarMoeda(pedido.totalPago || 0))}<br>
-              Saldo restante: ${escapeHtml(formatarMoeda(pedido.saldoRestante || 0))}
+              Saldo restante: ${escapeHtml(formatarMoeda(Number(pedido.excedente || 0) > 0 ? 0 : (pedido.saldoRestante ?? pedido.total ?? 0)))}
             </div>
           </div>
           <div class="card-actions">
@@ -808,6 +808,23 @@
       }
     }
 
+    function sincronizarPedidoSelecionadoNaLista(data) {
+      if (!data?.pedido || !data?.resumo) {
+        return;
+      }
+
+      const pedidoAtualizado = {
+        ...data.pedido,
+        totalPago: Number(data.resumo.totalPago || 0),
+        saldoRestante: Number(data.resumo.saldoRestante ?? data.pedido.total ?? 0),
+        excedente: Number(data.resumo.excedente || 0),
+        quantidadePagamentos: Number(data.resumo.quantidadePagamentos || 0)
+      };
+
+      estado.pedidosDisponiveis = [pedidoAtualizado];
+      renderPedidosDisponiveis(estado.pedidosDisponiveis);
+    }
+
     function aplicarDetalhePedido(data) {
       estado.pedidoSelecionado = data.pedido;
       estado.pagamentos = Array.isArray(data.pagamentos) ? data.pagamentos : [];
@@ -815,6 +832,7 @@
       estado.modoFormulario = 'novo';
       estado.pagamentoEmEdicao = null;
       estado.tipoPagamento = 'V';
+      sincronizarPedidoSelecionadoNaLista(data);
       renderPainelPedidoSelecionado();
     }
 
