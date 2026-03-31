@@ -1,117 +1,229 @@
+/* =========================================================
+   Prestacao de Contas – Dashboard Stacked + Tabbed
+   Paleta: indigo/violet, fundo branco, cards com sombra
+   ========================================================= */
 
-/* ===============================
-   PRESTAÇÃO DE CONTAS - ESTILO EXCEL COMPACTO
-   =============================== */
+:root {
+  --pc-primary:   #4f46e5;
+  --pc-primary-d: #3730a3;
+  --pc-accent:    #7c3aed;
+  --pc-bg:        #f5f3ff;
+  --pc-surface:   #ffffff;
+  --pc-border:    #e0e7ff;
+  --pc-text:      #1e1b4b;
+  --pc-muted:     #6b7280;
+  --pc-danger:    #dc2626;
+  --pc-success:   #059669;
+  --pc-warning:   #d97706;
+  --pc-radius:    10px;
+  --pc-shadow:    0 1px 3px rgba(79,70,229,.08), 0 4px 12px rgba(79,70,229,.06);
+  --pc-shadow-md: 0 4px 16px rgba(79,70,229,.12), 0 1px 4px rgba(0,0,0,.06);
+  --pc-row-alt:   rgba(79,70,229,.08);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
 
 body {
-    font-family: Arial, Helvetica, sans-serif;
-    font-size: 13px;
-    margin: 0;
-    padding: 20px;
-    background-color: #f4f6fb;
+  margin: 0;
+  background: var(--pc-bg);
+  color: var(--pc-text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 13px;        /* reduzido */
+  line-height: 1.35;      /* reduzido */
+  -webkit-font-smoothing: antialiased;
 }
 
-/* ===============================
-   CABEÇALHO AMARELO
-   =============================== */
-
-.cabecalho-prestacao {
-    background-color: #FFD700;
-    color: #000;
-    text-align: center;
-    font-weight: bold;
-    padding: 8px 10px;
-    font-size: 14px;
-    border: 1px solid #999;
+/* ── Topbar ────────────────────────────────────────────── */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: linear-gradient(135deg, var(--pc-primary) 0%, var(--pc-accent) 100%);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  box-shadow: 0 2px 12px rgba(79,70,229,.35);
 }
 
-/* ===============================
-   BLOCO DA PLANILHA
-   =============================== */
-
-.planilha-bloco {
-    margin-bottom: 16px;
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #fff;
+  min-width: 0;
+}
+.topbar-icon { font-size: 22px; flex-shrink: 0; }
+.topbar-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+}
+.topbar-subtitle {
+  display: block;
+  font-size: 11px;
+  color: rgba(255,255,255,.75);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
 }
 
-/* ===============================
-   TABELA BASE
-   =============================== */
-
-.tabela-prestacao {
-    border-collapse: collapse;
-    width: 100%;
-    font-size: 12px;
-    background-color: #CFE2F3;
+.topbar-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
-.tabela-prestacao th {
-    background-color: #0B5394;
-    color: #ffffff;
-    padding: 4px 6px;
-    text-align: center;
-    border: 1px solid #9fc5e8;
-    font-weight: 600;
+.btn-nova {
+  padding: 7px 16px;
+  background: #fff;
+  color: var(--pc-primary);
+  border: none;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px rgba(0,0,0,.15);
+  transition: transform 80ms, box-shadow 80ms;
+}
+.btn-nova:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0,0,0,.2); }
+
+.btn-zap {
+  padding: 7px 14px;
+  background: rgba(255,255,255,.18);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,.4);
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
 }
 
-.tabela-prestacao td {
-    padding: 4px 6px;
-    border: 1px solid #9fc5e8;
-    height: 26px;
+/* ── Tabela lista ──────────────────────────────────────── */
+
+.table-scroll { overflow-x: auto; }
+
+.tabela-lista {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 480px;
 }
 
-/* ===============================
-   CÉLULAS NUMÉRICAS
-   =============================== */
-
-.numero {
-    text-align: right;
-    background-color: #FCE5CD;
-    font-weight: 500;
+.tabela-lista th, .tabela-lista td {
+  padding: 6px 10px;   /* reduzido */
+  border-bottom: 1px solid var(--pc-border);
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* ===============================
-   LINHA TOTAL PRETA
-   =============================== */
-
-.linha-total {
-    background-color: #000;
-    color: #fff;
-    font-weight: bold;
+.tabela-lista thead th {
+  background: var(--pc-bg);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--pc-muted);
+  text-transform: uppercase;
+  letter-spacing: .05em;
 }
 
-.linha-total td {
-    border: 1px solid #000;
+/* ── Tabelas de detalhe ────────────────────────────────── */
+
+#tabela-materiais, #tabela-pagamentos {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 200px;
 }
 
-/* ===============================
-   LINHA RESTANTE CINZA ESCURO
-   =============================== */
-
-.linha-restante {
-    background-color: #444;
-    color: #fff;
-    font-weight: bold;
+#tabela-materiais th, #tabela-materiais td,
+#tabela-pagamentos th, #tabela-pagamentos td {
+  padding: 6px 10px;   /* reduzido */
+  border-bottom: 1px solid var(--pc-border);
+  text-align: left;
 }
 
-.linha-restante td {
-    border: 1px solid #444;
+.col-num { text-align: right; }
+.num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* ── Saldo banner ──────────────────────────────────────── */
+
+.saldo-banner {
+  display: flex;
+  gap: 12px;
+  padding: 14px 20px;
+  flex-wrap: wrap;
 }
 
-/* ===============================
-   BOTÃO WHATSAPP
-   =============================== */
-
-.botao-whatsapp {
-    margin-top: 12px;
-    padding: 6px 12px;
-    font-size: 12px;
-    background-color: #25D366;
-    color: #fff;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
+.saldo-card {
+  flex: 1;
+  min-width: 160px;
+  background: var(--pc-bg);
+  border: 1px solid var(--pc-border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.botao-whatsapp:hover {
-    background-color: #1ebe5d;
+.saldo-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--pc-muted);
+}
+
+.saldo-val {
+  font-size: 16px;   /* reduzido */
+  font-weight: 800;
+  color: var(--pc-primary-d);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Formulários de adição ─────────────────────────────── */
+
+.add-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-end;
+  padding: 14px 16px;
+  background: var(--pc-bg);
+  border-top: 1px solid var(--pc-border);
+  flex-wrap: wrap;
+}
+
+.add-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 130px;
+}
+
+.add-field span {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--pc-muted);
+}
+
+.add-field input, .add-field select {
+  padding: 5px 8px;     /* reduzido */
+  font-size: 12px;      /* reduzido */
+  border: 1px solid var(--pc-border);
+  border-radius: 7px;
+  font-family: inherit;
+  background: var(--pc-surface);
+  color: var(--pc-text);
 }
