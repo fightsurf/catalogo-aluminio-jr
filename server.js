@@ -11,6 +11,7 @@ const pedidosLegadoPageRoutes = require('./src/routes/legado/pedido/pedidosLegad
 const pedidosLegadoRoutes = require('./src/routes/legado/pedido/pedidosLegado.routes');
 const clientesLegadoRoutes = require('./src/routes/legado/clientes/clientes.routes');
 const clientesLegadoViewRoutes = require('./src/routes/legado/clientes/clientes.view.routes');
+const vendedoresLegadoRoutes = require('./src/routes/legado/vendedores/vendedores.routes');
 const pedidosClienteApiRoutes = require('./src/routes/legado/pedidos-cliente/pedidos-cliente.routes');
 const pedidosClienteViewRoutes = require('./src/routes/legado/pedidos-cliente/pedidos-cliente.view.routes');
 const pedidosInsercaoLegadoRoutes = require('./src/routes/legado/pedidos-insercao/pedidos-insercao.routes');
@@ -64,6 +65,7 @@ app.use('/prestacao_contas', express.static(path.join(__dirname, 'views', 'prest
 app.use('/api/legado', pedidosLegadoRoutes);
 app.use('/', pedidosLegadoPageRoutes);
 app.use('/api/legado/clientes', clientesLegadoRoutes);
+app.use('/api/legado/vendedores', vendedoresLegadoRoutes);
 app.use('/legado/clientes', clientesLegadoViewRoutes);
 app.use('/api/legado/pedidos-cliente', pedidosClienteApiRoutes);
 app.use('/legado/pedidos-cliente', pedidosClienteViewRoutes);

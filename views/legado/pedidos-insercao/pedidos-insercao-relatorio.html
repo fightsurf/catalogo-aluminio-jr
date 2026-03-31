@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Relatório do pedido</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #d9d9d9; color: #111; }
+    .toolbar { display: flex; gap: 10px; justify-content: flex-end; padding: 14px 18px; position: sticky; top: 0; background: #d9d9d9; z-index: 10; }
+    .toolbar button { border: 0; background: #111827; color: #fff; padding: 10px 14px; border-radius: 8px; cursor: pointer; }
+    .pagina { width: 1000px; min-height: 1410px; margin: 0 auto 24px; background: #ececec; padding: 28px 28px 36px; }
+    .topo { display: flex; justify-content: space-between; align-items: flex-start; font-size: 18px; line-height: 1.3; }
+    .topo-direita { text-align: left; min-width: 230px; }
+    .linha-topo { border-top: 2px solid #a4a4a4; margin: 36px 0 22px; }
+    .titulo-faixa { position: relative; text-align: center; font-size: 28px; font-weight: 700; margin: 0 0 14px; }
+    .numero-box { position: absolute; right: 0; top: -4px; border: 2px solid #888; padding: 8px 42px; background: #f5f5f5; box-shadow: 4px 4px 0 #8c8c8c; }
+    .data-pedido { font-size: 18px; margin: 0 0 10px 78px; }
+    .blocos-superiores { display: grid; grid-template-columns: 1.15fr 1fr; gap: 78px; margin-bottom: 18px; }
+    .bloco { border: 2px solid #9a9a9a; border-radius: 18px; min-height: 102px; position: relative; padding: 26px 20px 18px; background: transparent; }
+    .bloco .rotulo { position: absolute; top: -13px; left: 18px; background: #ececec; padding: 0 6px; font-size: 16px; }
+    .cliente-nome { font-size: 19px; font-weight: 700; margin-top: 16px; }
+    .linha-campos { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+    .campo-pequeno { border: 2px solid #9a9a9a; border-radius: 5px; min-height: 42px; position: relative; padding: 14px 10px 8px; background: transparent; }
+    .campo-pequeno .rotulo { position: absolute; top: -12px; left: 10px; background: #ececec; padding: 0 4px; font-size: 14px; }
+    .campo-pequeno .valor { font-size: 18px; font-weight: 700; }
+    .tabela-itens { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 16px; }
+    .tabela-itens thead th { border: 2px solid #8f8f8f; padding: 6px 8px; font-size: 16px; }
+    .tabela-itens tbody td { border-left: 2px solid #8f8f8f; border-right: 2px solid #8f8f8f; padding: 8px 8px; vertical-align: top; }
+    .tabela-itens tbody tr:last-child td { border-bottom: 2px solid #8f8f8f; }
+    .tabela-itens .descricao { width: 56%; }
+    .tabela-itens .qtd, .tabela-itens .preco, .tabela-itens .subtotal { width: 14%; text-align: right; }
+    .grade-itens-wrap { min-height: 500px; }
+    .rodape-totais { display: grid; grid-template-columns: 1fr 250px; gap: 18px; margin-top: 10px; align-items: start; }
+    .mensagem-box { border: 2px solid #9a9a9a; border-radius: 8px; min-height: 56px; padding: 10px 14px; position: relative; }
+    .mensagem-box .rotulo { position: absolute; top: -14px; left: 10px; background: #ececec; padding: 0 4px; font-size: 14px; font-weight: 700; }
+    .totais-box { display: flex; flex-direction: column; gap: 6px; }
+    .total-final { border: 2px solid #8f8f8f; border-radius: 6px; background: #f5f5f5; box-shadow: 4px 4px 0 #8c8c8c; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; font-size: 22px; font-weight: 700; }
+    .vazio { border: 2px dashed #999; padding: 20px; border-radius: 10px; background: #fff; }
+    @media print {
+      body { background: #fff; }
+      .toolbar { display: none; }
+      .pagina { margin: 0; width: auto; min-height: auto; background: #fff; }
+      @page { size: A4 portrait; margin: 10mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button type="button" onclick="window.print()">Imprimir</button>
+  </div>
+  <div class="pagina" id="paginaRelatorio"></div>
+
+  <script>
+    const STORAGE_PREFIX = 'pedido-relatorio:';
+
+    function formatarMoeda(valor) {
+      const numero = Number(valor || 0);
+      return numero.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    function formatarNumero(valor) {
+      const numero = Number(valor || 0);
+      return numero.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function formatarData(dataIso) {
+      if (!dataIso) return '-';
+      const data = new Date(`${dataIso}T00:00:00`);
+      if (Number.isNaN(data.getTime())) return dataIso;
+      return data.toLocaleDateString('pt-BR');
+    }
+
+    function formatarDataHora(dataIso) {
+      const data = dataIso ? new Date(dataIso) : new Date();
+      if (Number.isNaN(data.getTime())) return '-';
+      return data.toLocaleString('pt-BR');
+    }
+
+    function escaparHtml(texto) {
+      return String(texto ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function obterNumeroDaUrl() {
+      const url = new URL(window.location.href);
+      return (url.searchParams.get('numero') || '').trim();
+    }
+
+    function obterDadosRelatorio(numero) {
+      if (!numero) return null;
+      const bruto = localStorage.getItem(`${STORAGE_PREFIX}${numero}`);
+      if (!bruto) return null;
+      try {
+        return JSON.parse(bruto);
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function renderizarRelatorio(dados) {
+      const pagina = document.getElementById('paginaRelatorio');
+
+      if (!dados) {
+        pagina.innerHTML = `
+          <div class="vazio">
+            Relatório não encontrado neste navegador para o número informado.
+
+A estrutura já está pronta para futuramente abrir o relatório apenas pelo número do pedido.
+          </div>
+        `;
+        return;
+      }
+
+      const itens = Array.isArray(dados.itens) ? dados.itens : [];
+      const linhasItens = itens.length
+        ? itens.map((item) => `
+            <tr>
+              <td class="descricao">${escaparHtml(item.descricao || '')}</td>
+              <td class="qtd">${formatarNumero(item.quantidade)}</td>
+              <td class="preco">${formatarMoeda(item.preco)}</td>
+              <td class="subtotal">${formatarMoeda(item.subtotal)}</td>
+            </tr>
+          `).join('')
+        : '<tr><td class="descricao">Sem itens</td><td class="qtd">0,00</td><td class="preco">R$ 0,00</td><td class="subtotal">R$ 0,00</td></tr>';
+
+      pagina.innerHTML = `
+        <div class="topo">
+          <div>
+            <div>${escaparHtml(dados.empresaNome || 'ALUMINIOJR')}</div>
+          </div>
+          <div class="topo-direita">
+            <div>${formatarDataHora(dados.dataHoraImpressao)}</div>
+            <div>CONTROLE</div>
+            <div>1 / 1</div>
+          </div>
+        </div>
+
+        <div class="linha-topo"></div>
+
+        <div class="titulo-faixa">
+          VENDA DE MERCADORIA
+          <div class="numero-box">#${escaparHtml(dados.numero || '')}</div>
+        </div>
+
+        <div class="data-pedido"><strong>Data:</strong> ${formatarData(dados.dataPedido)}</div>
+
+        <div class="blocos-superiores">
+          <div>
+            <div class="bloco">
+              <div class="rotulo">Cliente:</div>
+              <div class="cliente-nome">${escaparHtml(dados.cliente?.nome || '')}</div>
+            </div>
+          </div>
+          <div>
+            <div class="linha-campos">
+              <div class="campo-pequeno">
+                <div class="rotulo">Vendedor</div>
+                <div class="valor">${escaparHtml(dados.vendedor?.nome || '')}</div>
+              </div>
+              <div class="campo-pequeno">
+                <div class="rotulo">Data do pedido</div>
+                <div class="valor">${formatarData(dados.dataPedido)}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grade-itens-wrap">
+          <table class="tabela-itens">
+            <thead>
+              <tr>
+                <th class="descricao">Descrição</th>
+                <th class="qtd">Qtd.</th>
+                <th class="preco">Preço</th>
+                <th class="subtotal">SubTotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${linhasItens}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="rodape-totais">
+          <div class="mensagem-box">
+            <div class="rotulo">Mensagem ao Cliente</div>
+            <div>${escaparHtml(dados.observacao || '')}</div>
+          </div>
+          <div class="totais-box">
+            <div class="total-final">
+              <span>Total Final</span>
+              <span>${formatarMoeda(dados.total)}</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    renderizarRelatorio(obterDadosRelatorio(obterNumeroDaUrl()));
+  </script>
+</body>
+</html>

@@ -16,12 +16,13 @@
     .card { background: #fff; border-radius: 12px; padding: 18px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
     .card h2 { margin-top: 0; font-size: 20px; }
     .filtros { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; margin-bottom: 14px; }
-    .filtros input, .filtros button, .campo, .tabela-itens input, .footer-pedido textarea {
+    .filtros input, .filtros button, .campo, .campo-select, .tabela-itens input, .footer-pedido textarea {
       width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;
     }
     button { border: none; border-radius: 8px; padding: 10px 12px; cursor: pointer; background: #111827; color: #fff; }
     button.secundario { background: #6b7280; }
     button.acao-principal { background: #2563eb; }
+    button.impressao { background: #047857; }
     button:disabled { opacity: 0.6; cursor: not-allowed; }
     .lista-busca { border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; max-height: 320px; overflow-y: auto; }
     .linha-busca { width: 100%; text-align: left; background: #fff; border: none; border-bottom: 1px solid #e5e7eb; padding: 12px 14px; cursor: pointer; }
@@ -42,17 +43,19 @@
     .tabela-itens td.valor, .tabela-itens th.valor { text-align: right; }
     .tabela-itens input[type=number] { text-align: right; }
     .tabela-vazia { padding: 18px; color: #6b7280; background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 10px; }
-    .footer-pedido { margin-top: 18px; display: grid; grid-template-columns: 1fr 140px 180px; gap: 12px; align-items: start; }
+    .footer-pedido { margin-top: 18px; display: grid; grid-template-columns: 1fr 180px 140px 180px; gap: 12px; align-items: start; }
     .footer-pedido textarea { min-height: 84px; resize: vertical; }
     .total-box { background: #111827; color: #fff; border-radius: 10px; padding: 16px; }
     .total-box small { display: block; opacity: 0.8; margin-bottom: 6px; }
     .total-box strong { font-size: 24px; }
-    .acoes-final { margin-top: 16px; display: flex; gap: 10px; justify-content: flex-end; }
+    .acoes-final { margin-top: 16px; display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
     .resultado-sucesso { margin-top: 16px; padding: 14px; border-radius: 10px; background: #ecfdf5; border: 1px solid #6ee7b7; color: #065f46; display: none; }
     .rotulo-pequeno { font-size: 12px; color: #6b7280; margin-bottom: 6px; display: block; }
-    @media (max-width: 980px) {
+    @media (max-width: 1120px) {
       .grid { grid-template-columns: 1fr; }
       .footer-pedido { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 980px) {
       .filtros { grid-template-columns: 1fr; }
       .acoes-final { justify-content: stretch; flex-direction: column; }
     }
@@ -61,7 +64,7 @@
 <body>
   <div class="container">
     <h1>Inserção de pedido no legado</h1>
-    <p class="subtitulo">Selecione o cliente do legado, adicione produtos do Render já vinculados ao item do legado e grave o pedido.</p>
+    <p class="subtitulo">Selecione o cliente do legado, escolha o vendedor, adicione produtos do Render já vinculados ao item do legado e grave o pedido.</p>
 
     <div id="mensagem" class="mensagem"></div>
 
@@ -93,6 +96,12 @@
             <textarea id="obsPedido" placeholder="Observação do pedido"></textarea>
           </div>
           <div>
+            <label class="rotulo-pequeno" for="vendedorPedido">Vendedor</label>
+            <select id="vendedorPedido" class="campo-select">
+              <option value="">Carregando vendedores...</option>
+            </select>
+          </div>
+          <div>
             <label class="rotulo-pequeno" for="volumesPedido">Volumes</label>
             <input id="volumesPedido" class="campo" type="number" min="0" step="1" value="0" />
           </div>
@@ -103,6 +112,7 @@
         </div>
 
         <div class="acoes-final">
+          <button id="btnImprimirRelatorio" class="impressao" type="button" style="display:none;">Imprimir relatório</button>
           <button id="btnNovoPedido" class="secundario">Limpar pedido</button>
           <button id="btnSalvarPedido" class="acao-principal">Salvar pedido</button>
         </div>
@@ -113,6 +123,8 @@
   </div>
 
   <script>
+    const RELATORIO_STORAGE_PREFIX = 'pedido-relatorio:';
+
     const mensagem = document.getElementById('mensagem');
     const buscaCliente = document.getElementById('buscaCliente');
     const btnBuscarCliente = document.getElementById('btnBuscarCliente');
@@ -124,10 +136,12 @@
     const dropdownProdutos = document.getElementById('dropdownProdutos');
     const tabelaItensWrap = document.getElementById('tabelaItensWrap');
     const obsPedido = document.getElementById('obsPedido');
+    const vendedorPedido = document.getElementById('vendedorPedido');
     const volumesPedido = document.getElementById('volumesPedido');
     const totalPedido = document.getElementById('totalPedido');
     const btnNovoPedido = document.getElementById('btnNovoPedido');
     const btnSalvarPedido = document.getElementById('btnSalvarPedido');
+    const btnImprimirRelatorio = document.getElementById('btnImprimirRelatorio');
     const resultadoSucesso = document.getElementById('resultadoSucesso');
 
     let clientes = [];
@@ -135,6 +149,8 @@
     let produtosEncontrados = [];
     let indiceProdutoAtivo = -1;
     let itensPedido = [];
+    let vendedores = [];
+    let ultimoRelatorio = null;
     let timerBuscaProduto = null;
     let salvando = false;
 
@@ -155,6 +171,13 @@
       const numero = Number(valor);
       if (!Number.isFinite(numero)) return 'R$ 0,00';
       return numero.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    function formatarData(dataIso) {
+      if (!dataIso) return '-';
+      const data = new Date(`${dataIso}T00:00:00`);
+      if (Number.isNaN(data.getTime())) return dataIso;
+      return data.toLocaleDateString('pt-BR');
     }
 
     async function lerJson(response) {
@@ -217,6 +240,21 @@
         renderClientes();
         setMensagem(clientes.length ? '' : 'Nenhum cliente encontrado para esse filtro.', !clientes.length);
       } catch (error) {
+        setMensagem(error.message, true);
+      }
+    }
+
+    async function carregarVendedores() {
+      try {
+        const response = await fetch('/api/legado/vendedores?limite=200');
+        const json = await lerJson(response);
+        vendedores = Array.isArray(json?.dados) ? json.dados : [];
+
+        vendedorPedido.innerHTML = '<option value="">Selecione o vendedor</option>' + vendedores.map((vendedor) => `
+          <option value="${vendedor.favorecido}">${vendedor.nome || `Vendedor ${vendedor.favorecido}`}</option>
+        `).join('');
+      } catch (error) {
+        vendedorPedido.innerHTML = '<option value="">Erro ao carregar vendedores</option>';
         setMensagem(error.message, true);
       }
     }
@@ -382,6 +420,7 @@
         data: new Date().toISOString().slice(0, 10),
         favorecido: clienteSelecionado?.favorecido,
         obs: obsPedido.value.trim() || null,
+        vendedor: Number(vendedorPedido.value || 0) || null,
         volumes: Number(volumesPedido.value || 0),
         total: Number(calcularTotal().toFixed(2)),
         itens: itensPedido.map((item) => ({
@@ -392,11 +431,53 @@
       };
     }
 
+    function montarDadosRelatorio(pedidoSalvo) {
+      const vendedorSelecionado = vendedores.find((item) => Number(item.favorecido) === Number(vendedorPedido.value));
+
+      return {
+        empresaNome: 'ALUMINIOJR',
+        numero: pedidoSalvo?.numero || '',
+        dataPedido: pedidoSalvo?.data || new Date().toISOString().slice(0, 10),
+        dataHoraImpressao: new Date().toISOString(),
+        cliente: {
+          nome: clienteSelecionado?.nome || '',
+          cidade: clienteSelecionado?.cidade || '',
+          uf: clienteSelecionado?.uf || ''
+        },
+        vendedor: {
+          favorecido: Number(vendedorPedido.value || 0) || null,
+          nome: vendedorSelecionado?.nome || ''
+        },
+        observacao: obsPedido.value.trim() || '',
+        total: Number(pedidoSalvo?.total || calcularTotal() || 0),
+        itens: itensPedido.map((item) => ({
+          descricao: item.nome,
+          quantidade: Number(item.quantidade || 0),
+          preco: Number(item.preco || 0),
+          subtotal: Number(calcularSubtotal(item).toFixed(2))
+        }))
+      };
+    }
+
+    function registrarRelatorioNoStorage(dadosRelatorio) {
+      if (!dadosRelatorio?.numero) return;
+      localStorage.setItem(`${RELATORIO_STORAGE_PREFIX}${dadosRelatorio.numero}`, JSON.stringify(dadosRelatorio));
+    }
+
+    function atualizarBotaoImpressao() {
+      btnImprimirRelatorio.style.display = ultimoRelatorio?.numero ? 'inline-flex' : 'none';
+    }
+
     async function salvarPedido() {
       if (salvando) return;
 
       if (!clienteSelecionado?.favorecido) {
         setMensagem('Selecione um cliente antes de salvar.', true);
+        return;
+      }
+
+      if (!vendedorPedido.value) {
+        setMensagem('Selecione o vendedor antes de salvar.', true);
         return;
       }
 
@@ -420,6 +501,10 @@
         const json = await lerJson(response);
         const pedido = json?.pedido || json?.data?.pedido || json?.data || json;
 
+        ultimoRelatorio = montarDadosRelatorio(pedido);
+        registrarRelatorioNoStorage(ultimoRelatorio);
+        atualizarBotaoImpressao();
+
         resultadoSucesso.innerHTML = `
           <strong>Pedido gravado com sucesso.</strong><br>
           Número: ${pedido?.numero || '-'}<br>
@@ -427,12 +512,6 @@
           Total: ${formatarMoeda(pedido?.total || calcularTotal())}
         `;
         resultadoSucesso.style.display = 'block';
-
-        itensPedido = [];
-        obsPedido.value = '';
-        volumesPedido.value = '0';
-        renderItensPedido();
-        focarBuscaProduto();
         setMensagem('Pedido salvo com sucesso.');
       } catch (error) {
         setMensagem(error.message, true);
@@ -446,15 +525,28 @@
       itensPedido = [];
       clienteSelecionado = null;
       clientes = [];
+      ultimoRelatorio = null;
       buscaCliente.value = '';
       listaClientes.innerHTML = '';
       renderClienteSelecionado();
       obsPedido.value = '';
       volumesPedido.value = '0';
+      vendedorPedido.value = '';
       resultadoSucesso.style.display = 'none';
+      atualizarBotaoImpressao();
       renderItensPedido();
       focarBuscaProduto();
       setMensagem('');
+    }
+
+    function abrirRelatorio() {
+      if (!ultimoRelatorio?.numero) {
+        setMensagem('Nenhum relatório disponível para impressão.', true);
+        return;
+      }
+
+      const url = `/legado/pedidos-insercao/relatorio?numero=${encodeURIComponent(ultimoRelatorio.numero)}`;
+      window.open(url, '_blank', 'noopener');
     }
 
     btnBuscarCliente.addEventListener('click', carregarClientes);
@@ -517,9 +609,11 @@
 
     btnSalvarPedido.addEventListener('click', salvarPedido);
     btnNovoPedido.addEventListener('click', limparPedidoCompleto);
+    btnImprimirRelatorio.addEventListener('click', abrirRelatorio);
 
     renderClienteSelecionado();
     renderItensPedido();
+    carregarVendedores();
   </script>
 </body>
 </html>

@@ -4,5 +4,6 @@ const pedidosInsercaoViewController = require('../../../controllers/legado/pedid
 const router = express.Router();
 
 router.get('/', pedidosInsercaoViewController.abrirPaginaPedidosInsercao);
+router.get('/relatorio', pedidosInsercaoViewController.abrirPaginaRelatorioPedidosInsercao);
 
 module.exports = router;
