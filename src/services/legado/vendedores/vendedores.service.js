@@ -6,32 +6,18 @@ function limparTexto(valor) {
   return valor.trim();
 }
 
-function montarUrlVendedores(filtros = {}) {
+function montarUrlVendedores() {
   const baseUrl = limparTexto(process.env.LEGADO_BRIDGE_URL);
 
   if (!baseUrl) {
     throw new Error('LEGADO_BRIDGE_URL não configurada.');
   }
 
-  const url = new URL(`${baseUrl.replace(/\/+$/, '')}/api/vendedores`);
-
-  if (limparTexto(filtros.nome)) {
-    url.searchParams.set('nome', limparTexto(filtros.nome));
-  }
-
-  if (
-    filtros.limite !== undefined &&
-    filtros.limite !== null &&
-    `${filtros.limite}` !== ''
-  ) {
-    url.searchParams.set('limite', `${filtros.limite}`);
-  }
-
-  return url.toString();
+  return `${baseUrl.replace(/\/+$/, '')}/api/vendedores`;
 }
 
-async function listarVendedores(filtros = {}) {
-  const url = montarUrlVendedores(filtros);
+async function listarVendedores() {
+  const url = montarUrlVendedores();
 
   const response = await fetch(url, {
     method: 'GET',

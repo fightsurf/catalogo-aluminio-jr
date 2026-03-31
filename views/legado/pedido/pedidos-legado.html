@@ -185,6 +185,9 @@
         <button id="btnPesquisar" class="btn btn-primary">
           Pesquisar pedido
         </button>
+        <button id="btnImprimirRelatorio" class="btn" style="display:none; background:#111827; color:#fff;">
+          Imprimir relatório
+        </button>
       </div>
 
       <div id="mensagem" class="mensagem">Aguardando pesquisa.</div>
@@ -205,9 +208,11 @@
   <script>
     const numeroPedidoInput = document.getElementById('numeroPedido');
     const btnPesquisar = document.getElementById('btnPesquisar');
+    const btnImprimirRelatorio = document.getElementById('btnImprimirRelatorio');
     const mensagem = document.getElementById('mensagem');
     const dadosCliente = document.getElementById('dadosCliente');
     const blocoItens = document.getElementById('blocoItens');
+    let ultimoRelatorioPedido = null;
 
     function setMensagem(texto, erro = false) {
       mensagem.textContent = texto;
@@ -216,6 +221,8 @@
 
     function limparCliente() {
       dadosCliente.innerHTML = '<div class="placeholder">Nenhum pedido carregado.</div>';
+      btnImprimirRelatorio.style.display = 'none';
+      ultimoRelatorioPedido = null;
     }
 
     function limparItens() {
@@ -239,6 +246,17 @@
     function obterNumeroDaUrl() {
       const params = new URLSearchParams(window.location.search);
       return (params.get('numero') || '').trim();
+    }
+
+    function salvarRelatorioTemporario(relatorio) {
+      if (!relatorio?.numero) return;
+      ultimoRelatorioPedido = relatorio;
+      sessionStorage.setItem(`relatorio-pedido:${relatorio.numero}`, JSON.stringify(relatorio));
+    }
+
+    function abrirRelatorioPedido(numero) {
+      if (!numero) return;
+      window.open(`/legado/relatorio-pedido?numero=${encodeURIComponent(numero)}`, '_blank');
     }
 
     function renderizarCliente(cliente, dataPedido) {
@@ -339,9 +357,26 @@
           throw new Error(jsonItens.message || 'Erro ao carregar itens.');
         }
 
-        renderizarItens(jsonItens.data?.itens || []);
+        const itens = jsonItens.data?.itens || [];
+        renderizarItens(itens);
 
-        setMensagem('Cliente carregado.');
+        salvarRelatorioTemporario({
+          numero: primeiroPedido.numero || numeroPedido,
+          data: primeiroPedido.data || null,
+          cliente: primeiroPedido.cliente?.nome || '-',
+          vendedor: primeiroPedido.vendedor?.nome || '-',
+          obs: primeiroPedido.obs || '',
+          total: Number(primeiroPedido.total || itens.reduce((acc, item) => acc + Number(item.subtotal || 0), 0)),
+          itens: itens.map((item) => ({
+            descricao: item.descricao || '-',
+            quantidade: Number(item.quantidade || 0),
+            preco: Number(item.preco || 0),
+            subtotal: Number(item.subtotal || 0)
+          }))
+        });
+        btnImprimirRelatorio.style.display = 'inline-block';
+
+        setMensagem('Pedido carregado.');
       } catch (error) {
         limparCliente();
         limparItens();
@@ -350,6 +385,12 @@
     }
 
     btnPesquisar.addEventListener('click', () => pesquisarPedidos());
+    btnImprimirRelatorio.addEventListener('click', () => {
+      if (ultimoRelatorioPedido?.numero) {
+        salvarRelatorioTemporario(ultimoRelatorioPedido);
+        abrirRelatorioPedido(ultimoRelatorioPedido.numero);
+      }
+    });
 
     numeroPedidoInput.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {

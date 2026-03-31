@@ -2,11 +2,7 @@ const vendedoresService = require('../../../services/legado/vendedores/vendedore
 
 async function listarVendedores(req, res) {
   try {
-    const resultado = await vendedoresService.listarVendedores({
-      nome: req.query.nome,
-      limite: req.query.limite
-    });
-
+    const resultado = await vendedoresService.listarVendedores();
     return res.status(200).json(resultado);
   } catch (error) {
     console.error('Erro ao consultar vendedores do legado:', error);

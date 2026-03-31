@@ -11,7 +11,6 @@ const pedidosLegadoPageRoutes = require('./src/routes/legado/pedido/pedidosLegad
 const pedidosLegadoRoutes = require('./src/routes/legado/pedido/pedidosLegado.routes');
 const clientesLegadoRoutes = require('./src/routes/legado/clientes/clientes.routes');
 const clientesLegadoViewRoutes = require('./src/routes/legado/clientes/clientes.view.routes');
-const vendedoresLegadoRoutes = require('./src/routes/legado/vendedores/vendedores.routes');
 const pedidosClienteApiRoutes = require('./src/routes/legado/pedidos-cliente/pedidos-cliente.routes');
 const pedidosClienteViewRoutes = require('./src/routes/legado/pedidos-cliente/pedidos-cliente.view.routes');
 const pedidosInsercaoLegadoRoutes = require('./src/routes/legado/pedidos-insercao/pedidos-insercao.routes');
@@ -47,6 +46,8 @@ const relatorioAcrescimoApiRoutes = require('./src/routes/vendas/relatorio-acres
 const relatorioAcrescimoViewRoutes = require('./src/routes/vendas/relatorio-acrescimo.view.routes');
 const pedidosInsercaoLegadoV2Routes = require('./src/routes/legado/pedidos-insercao-v2/pedidos-insercao-v2.routes');
 const pedidosInsercaoLegadoV2ViewRoutes = require('./src/routes/legado/pedidos-insercao-v2/pedidos-insercao-v2.view.routes');
+const vendedoresLegadoRoutes = require('./src/routes/legado/vendedores/vendedores.routes');
+const relatorioPedidoViewRoutes = require('./src/routes/legado/relatorio-pedido/relatorio-pedido.view.routes');
 
 
 const app = express();
@@ -65,7 +66,6 @@ app.use('/prestacao_contas', express.static(path.join(__dirname, 'views', 'prest
 app.use('/api/legado', pedidosLegadoRoutes);
 app.use('/', pedidosLegadoPageRoutes);
 app.use('/api/legado/clientes', clientesLegadoRoutes);
-app.use('/api/legado/vendedores', vendedoresLegadoRoutes);
 app.use('/legado/clientes', clientesLegadoViewRoutes);
 app.use('/api/legado/pedidos-cliente', pedidosClienteApiRoutes);
 app.use('/legado/pedidos-cliente', pedidosClienteViewRoutes);
@@ -92,6 +92,8 @@ app.use('/api/admin-volume', adminVolumeRoutes);
 app.use('/api/prestacoes', prestacaoContasRoutes);
 app.use('/api/legado/pedidos-insercao-v2', pedidosInsercaoLegadoV2Routes);
 app.use('/legado/pedidos-insercao-v2', pedidosInsercaoLegadoV2ViewRoutes);
+app.use('/api/legado/vendedores', vendedoresLegadoRoutes);
+app.use('/legado/relatorio-pedido', relatorioPedidoViewRoutes);
 
 app.use('/bot', botRoutes);
 app.use('/bot/admin', botAdminRoutes);

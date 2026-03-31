@@ -16,7 +16,7 @@
     .mensagem { margin-bottom: 18px; padding: 14px 16px; border-radius: 10px; background: #eff6ff; color: #1d4ed8; display: none; }
     .mensagem.erro { background: #fef2f2; color: #b91c1c; }
     .filtros { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; margin-bottom: 14px; }
-    .campo, textarea, input[type=text], input[type=number] { width: 100%; padding: 11px 12px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 14px; }
+    .campo, textarea, input[type=text], input[type=number], select { width: 100%; padding: 11px 12px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 14px; }
     textarea { min-height: 170px; resize: vertical; }
     button { border: none; border-radius: 10px; padding: 11px 16px; cursor: pointer; font-weight: bold; }
     .acao-principal { background: #111827; color: #fff; }
@@ -38,7 +38,7 @@
     .tabela-itens td.valor, .tabela-itens th.valor { text-align: right; }
     .tabela-itens input[type=number] { text-align: right; }
     .tabela-vazia { padding: 18px; color: #6b7280; background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 10px; }
-    .footer-pedido { margin-top: 18px; display: grid; grid-template-columns: 1fr 140px 180px; gap: 12px; align-items: start; }
+    .footer-pedido { margin-top: 18px; display: grid; grid-template-columns: 1fr 260px 140px 180px; gap: 12px; align-items: start; }
     .footer-pedido textarea { min-height: 84px; resize: vertical; }
     .total-box { background: #111827; color: #fff; border-radius: 10px; padding: 16px; }
     .total-box small { display: block; opacity: 0.8; margin-bottom: 6px; }
@@ -113,6 +113,12 @@
             <textarea id="obsPedido" placeholder="Observação do pedido"></textarea>
           </div>
           <div>
+            <label class="rotulo-pequeno" for="vendedorPedido">Vendedor</label>
+            <select id="vendedorPedido">
+              <option value="">Selecione o vendedor</option>
+            </select>
+          </div>
+          <div>
             <label class="rotulo-pequeno" for="volumesPedido">Volumes</label>
             <input id="volumesPedido" class="campo" type="number" min="0" step="1" value="0" />
           </div>
@@ -123,6 +129,7 @@
         </div>
 
         <div class="acoes-final">
+          <button id="btnImprimirRelatorio" class="secundario" style="display:none;">Imprimir relatório</button>
           <button id="btnNovoPedido" class="secundario">Limpar pedido</button>
           <button id="btnSalvarPedido" class="acao-principal">Salvar pedido</button>
         </div>
@@ -149,14 +156,18 @@
     const dropdownProdutos = document.getElementById('dropdownProdutos');
     const tabelaItensWrap = document.getElementById('tabelaItensWrap');
     const obsPedido = document.getElementById('obsPedido');
+    const vendedorPedido = document.getElementById('vendedorPedido');
     const volumesPedido = document.getElementById('volumesPedido');
     const totalPedido = document.getElementById('totalPedido');
+    const btnImprimirRelatorio = document.getElementById('btnImprimirRelatorio');
     const btnNovoPedido = document.getElementById('btnNovoPedido');
     const btnSalvarPedido = document.getElementById('btnSalvarPedido');
     const resultadoSucesso = document.getElementById('resultadoSucesso');
 
     let clientes = [];
     let clienteSelecionado = null;
+    let vendedores = [];
+    let ultimoRelatorioPedido = null;
     let produtosEncontrados = [];
     let indiceProdutoAtivo = -1;
     let itensPedido = [];
@@ -226,6 +237,76 @@
         </ul>
       `;
       caixaNaoReconhecidos.style.display = 'block';
+    }
+
+    function renderVendedores() {
+      const valorAtual = vendedorPedido.value;
+
+      vendedorPedido.innerHTML = `
+        <option value="">Selecione o vendedor</option>
+        ${vendedores.map((vendedor) => `<option value="${vendedor.favorecido}">${vendedor.nome}</option>`).join('')}
+      `;
+
+      if (valorAtual && vendedores.some((vendedor) => String(vendedor.favorecido) === String(valorAtual))) {
+        vendedorPedido.value = valorAtual;
+      }
+    }
+
+    async function carregarVendedores() {
+      try {
+        const response = await fetch('/api/legado/vendedores');
+        const json = await lerJson(response);
+        vendedores = Array.isArray(json?.dados) ? json.dados : [];
+        renderVendedores();
+      } catch (error) {
+        vendedores = [];
+        renderVendedores();
+        setMensagem(error.message, true);
+      }
+    }
+
+    function obterVendedorSelecionado() {
+      const codigo = String(vendedorPedido.value || '').trim();
+      if (!codigo) return null;
+      return vendedores.find((vendedor) => String(vendedor.favorecido) === codigo) || null;
+    }
+
+    function salvarRelatorioTemporario(relatorio) {
+      if (!relatorio?.numero) return;
+      ultimoRelatorioPedido = relatorio;
+      sessionStorage.setItem(`relatorio-pedido:${relatorio.numero}`, JSON.stringify(relatorio));
+    }
+
+    function abrirRelatorioPedido(numero) {
+      if (!numero) return;
+      window.open(`/legado/relatorio-pedido?numero=${encodeURIComponent(numero)}`, '_blank');
+    }
+
+    function montarDadosRelatorio(pedidoSalvo) {
+      const vendedorSelecionado = obterVendedorSelecionado();
+      const itensRelatorio = Array.isArray(pedidoSalvo?.itens)
+        ? pedidoSalvo.itens.map((item) => ({
+            descricao: item?.descricao || '-',
+            quantidade: Number(item?.quantidade || 0),
+            preco: Number(item?.preco || 0),
+            subtotal: Number(item?.subtotalitem || (Number(item?.quantidade || 0) * Number(item?.preco || 0)))
+          }))
+        : itensPedido.map((item) => ({
+            descricao: item.nome || '-',
+            quantidade: Number(item.quantidade || 0),
+            preco: Number(item.preco || 0),
+            subtotal: Number(calcularSubtotal(item))
+          }));
+
+      return {
+        numero: pedidoSalvo?.numero || '',
+        data: pedidoSalvo?.data || new Date().toISOString().slice(0, 10),
+        cliente: clienteSelecionado?.nome || '-',
+        vendedor: vendedorSelecionado?.nome || '-',
+        obs: obsPedido.value.trim() || '',
+        total: Number(pedidoSalvo?.total || calcularTotal()),
+        itens: itensRelatorio
+      };
     }
 
     function renderClientes() {
@@ -574,6 +655,7 @@
         data: new Date().toISOString().slice(0, 10),
         favorecido: clienteSelecionado?.favorecido,
         obs: obsPedido.value.trim() || null,
+        vendedor: vendedorPedido.value ? Number(vendedorPedido.value) : null,
         volumes: Number(volumesPedido.value || 0),
         total: Number(calcularTotal().toFixed(2)),
         itens: itensPedido.map((item) => ({
@@ -597,6 +679,11 @@
         return;
       }
 
+      if (!String(vendedorPedido.value || '').trim()) {
+        setMensagem('Selecione o vendedor antes de salvar.', true);
+        return;
+      }
+
       try {
         salvando = true;
         btnSalvarPedido.disabled = true;
@@ -611,6 +698,8 @@
 
         const json = await lerJson(response);
         const pedido = json?.pedido || json?.data?.pedido || json?.data || json;
+        const relatorio = montarDadosRelatorio(pedido);
+        salvarRelatorioTemporario(relatorio);
 
         resultadoSucesso.innerHTML = `
           <strong>Pedido gravado com sucesso.</strong><br>
@@ -619,6 +708,7 @@
           Total: ${formatarMoeda(pedido?.total || calcularTotal())}
         `;
         resultadoSucesso.style.display = 'block';
+        btnImprimirRelatorio.style.display = 'inline-block';
 
         itensPedido = [];
         textoRelatorio.value = '';
@@ -648,7 +738,10 @@
       multiplicadorKit.value = '1';
       obsPedido.value = '';
       volumesPedido.value = '0';
+      vendedorPedido.value = '';
       resultadoSucesso.style.display = 'none';
+      btnImprimirRelatorio.style.display = 'none';
+      ultimoRelatorioPedido = null;
       setNaoReconhecidos([]);
       renderItensPedido();
       focarBuscaProduto();
@@ -716,9 +809,16 @@
     btnImportarRelatorio.addEventListener('click', importarRelatorio);
     btnSalvarPedido.addEventListener('click', salvarPedido);
     btnNovoPedido.addEventListener('click', limparPedidoCompleto);
+    btnImprimirRelatorio.addEventListener('click', () => {
+      if (ultimoRelatorioPedido?.numero) {
+        salvarRelatorioTemporario(ultimoRelatorioPedido);
+        abrirRelatorioPedido(ultimoRelatorioPedido.numero);
+      }
+    });
 
     renderClienteSelecionado();
     renderItensPedido();
+    carregarVendedores();
   </script>
 </body>
 </html>

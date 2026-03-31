@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Relatório do Pedido</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #e5e7eb; font-family: Arial, sans-serif; color: #111827; }
+    .toolbar { max-width: 980px; margin: 16px auto 0; display: flex; justify-content: flex-end; gap: 10px; padding: 0 16px; }
+    .toolbar button { border: none; border-radius: 8px; padding: 10px 14px; font-weight: 700; cursor: pointer; }
+    .toolbar .primario { background: #111827; color: #fff; }
+    .toolbar .secundario { background: #d1d5db; color: #111827; }
+    .pagina { width: 210mm; min-height: 297mm; margin: 16px auto 24px; background: #fff; padding: 16mm 12mm 14mm; box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+    .cabecalho { display: flex; justify-content: space-between; gap: 24px; align-items: flex-start; margin-bottom: 14px; }
+    .empresa h1 { margin: 0 0 4px; font-size: 22px; letter-spacing: 0.6px; }
+    .empresa .sub { font-size: 12px; color: #4b5563; }
+    .titulo-box { min-width: 250px; border: 1px solid #111827; padding: 10px 12px; text-align: center; }
+    .titulo-box .titulo { font-size: 18px; font-weight: 700; letter-spacing: 0.4px; }
+    .titulo-box .numero { margin-top: 6px; font-size: 14px; }
+    .meta-impressao { margin-top: 8px; font-size: 12px; text-align: right; color: #374151; }
+    .bloco { border: 1px solid #111827; margin-top: 12px; }
+    .bloco .linha { display: grid; grid-template-columns: 130px 1fr 130px 1fr; border-top: 1px solid #111827; }
+    .bloco .linha:first-child { border-top: 0; }
+    .bloco .cell { padding: 8px 10px; font-size: 13px; min-height: 34px; border-left: 1px solid #111827; }
+    .bloco .cell:first-child { border-left: 0; }
+    .label { font-weight: 700; }
+    .tabela { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    .tabela th, .tabela td { border: 1px solid #111827; padding: 8px 10px; font-size: 13px; }
+    .tabela th { background: #f3f4f6; text-align: left; }
+    .tabela .valor { text-align: right; white-space: nowrap; }
+    .rodape-grid { display: grid; grid-template-columns: 1fr 220px; gap: 12px; margin-top: 12px; align-items: start; }
+    .mensagem-box, .total-box { border: 1px solid #111827; min-height: 92px; }
+    .mensagem-box .titulo, .total-box .titulo { padding: 8px 10px; font-size: 13px; font-weight: 700; border-bottom: 1px solid #111827; background: #f3f4f6; }
+    .mensagem-box .conteudo { padding: 10px; font-size: 13px; white-space: pre-wrap; }
+    .total-box .conteudo { padding: 12px 10px; display: flex; justify-content: space-between; font-size: 16px; font-weight: 700; }
+    .vazio { max-width: 980px; margin: 24px auto; padding: 24px; background: #fff; border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+    @media print {
+      body { background: #fff; }
+      .toolbar { display: none; }
+      .pagina { margin: 0; box-shadow: none; width: auto; min-height: auto; }
+      @page { size: A4 portrait; margin: 10mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button class="secundario" type="button" onclick="window.close()">Fechar</button>
+    <button class="primario" type="button" onclick="window.print()">Imprimir</button>
+  </div>
+  <div id="conteudo"></div>
+  <script>
+    function formatarMoeda(valor) {
+      const numero = Number(valor || 0);
+      return numero.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    function formatarData(valor) {
+      if (!valor) return '-';
+      const texto = String(valor).trim();
+      if (/^\d{4}-\d{2}-\d{2}/.test(texto)) {
+        const data = new Date(`${texto.slice(0, 10)}T00:00:00`);
+        return data.toLocaleDateString('pt-BR');
+      }
+      const data = new Date(texto);
+      if (Number.isNaN(data.getTime())) return texto;
+      return data.toLocaleDateString('pt-BR');
+    }
+
+    function formatarDataHoraAgora() {
+      return new Date().toLocaleString('pt-BR');
+    }
+
+    function obterNumero() {
+      const params = new URLSearchParams(window.location.search);
+      return (params.get('numero') || '').trim();
+    }
+
+    function lerRelatorio(numero) {
+      if (!numero) return null;
+      const bruto = sessionStorage.getItem(`relatorio-pedido:${numero}`);
+      if (!bruto) return null;
+      try {
+        return JSON.parse(bruto);
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function renderizarRelatorio(relatorio) {
+      const itens = Array.isArray(relatorio.itens) ? relatorio.itens : [];
+      const total = Number(relatorio.total || 0);
+      const html = `
+        <div class="pagina">
+          <div class="cabecalho">
+            <div class="empresa">
+              <h1>ALUMINIOJR</h1>
+              <div class="sub">Relatório de pedido para impressão</div>
+            </div>
+            <div>
+              <div class="titulo-box">
+                <div class="titulo">VENDA DE MERCADORIA</div>
+                <div class="numero"><strong>Pedido:</strong> ${relatorio.numero || '-'}</div>
+              </div>
+              <div class="meta-impressao">Impresso em: ${formatarDataHoraAgora()}</div>
+            </div>
+          </div>
+
+          <div class="bloco">
+            <div class="linha">
+              <div class="cell label">Data do pedido</div>
+              <div class="cell">${formatarData(relatorio.data)}</div>
+              <div class="cell label">Vendedor</div>
+              <div class="cell">${relatorio.vendedor || '-'}</div>
+            </div>
+            <div class="linha">
+              <div class="cell label">Cliente</div>
+              <div class="cell" style="grid-column: span 3;">${relatorio.cliente || '-'}</div>
+            </div>
+          </div>
+
+          <table class="tabela">
+            <thead>
+              <tr>
+                <th>Descrição</th>
+                <th class="valor">Quantidade</th>
+                <th class="valor">Preço</th>
+                <th class="valor">Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itens.map((item) => `
+                <tr>
+                  <td>${item.descricao || '-'}</td>
+                  <td class="valor">${Number(item.quantidade || 0).toLocaleString('pt-BR')}</td>
+                  <td class="valor">${formatarMoeda(item.preco)}</td>
+                  <td class="valor">${formatarMoeda(item.subtotal)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="rodape-grid">
+            <div class="mensagem-box">
+              <div class="titulo">Mensagem ao Cliente</div>
+              <div class="conteudo">${relatorio.obs || ''}</div>
+            </div>
+            <div class="total-box">
+              <div class="titulo">Total final</div>
+              <div class="conteudo">
+                <span>Total</span>
+                <span>${formatarMoeda(total)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      document.getElementById('conteudo').innerHTML = html;
+      setTimeout(() => window.print(), 300);
+    }
+
+    function renderizarVazio(numero) {
+      document.getElementById('conteudo').innerHTML = `
+        <div class="vazio">
+          <h2>Relatório não encontrado</h2>
+          <p>Não achei os dados do pedido ${numero || '-'} nesta aba do navegador.</p>
+          <p>Esta rota já está pronta para no futuro abrir relatório por número. Por enquanto, ela depende dos dados salvos temporariamente no navegador pela tela de origem.</p>
+        </div>
+      `;
+    }
+
+    const numero = obterNumero();
+    const relatorio = lerRelatorio(numero);
+
+    if (relatorio) {
+      renderizarRelatorio(relatorio);
+    } else {
+      renderizarVazio(numero);
+    }
+  </script>
+</body>
+</html>
