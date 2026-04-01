@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Relatório do pedido</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #f3f4f6; color: #111827; }
+    .toolbar { display: flex; gap: 10px; padding: 14px 18px; background: #111827; position: sticky; top: 0; z-index: 20; }
+    .toolbar button { border: none; border-radius: 8px; padding: 10px 14px; font-weight: 700; cursor: pointer; }
+    .toolbar .primario { background: #ffffff; color: #111827; }
+    .toolbar .secundario { background: #374151; color: #ffffff; }
+    .aviso { max-width: 980px; margin: 16px auto 0; padding: 12px 16px; border-radius: 10px; background: #eff6ff; color: #1d4ed8; }
+    .aviso.erro { background: #fef2f2; color: #b91c1c; }
+    .pagina { width: 980px; margin: 18px auto 32px; background: #fff; padding: 28px 34px; box-shadow: 0 12px 30px rgba(0,0,0,0.08); }
+    .cabecalho { display: flex; justify-content: space-between; align-items: flex-start; gap: 18px; border-bottom: 2px solid #111827; padding-bottom: 14px; }
+    .empresa h1 { margin: 0; font-size: 28px; letter-spacing: 1px; }
+    .empresa .titulo { margin-top: 10px; font-size: 18px; font-weight: bold; }
+    .cabecalho-direita { text-align: right; font-size: 13px; line-height: 1.5; }
+    .bloco { margin-top: 18px; border: 1px solid #111827; }
+    .bloco-titulo { background: #f3f4f6; padding: 8px 12px; font-size: 13px; font-weight: bold; border-bottom: 1px solid #111827; text-transform: uppercase; }
+    .bloco-conteudo { padding: 12px; }
+    .linha-info { display: grid; grid-template-columns: 140px 1fr 120px 1fr; gap: 8px 12px; font-size: 14px; }
+    .linha-info strong { font-size: 13px; text-transform: uppercase; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #111827; padding: 8px 10px; font-size: 13px; }
+    th { background: #f9fafb; text-transform: uppercase; }
+    .right { text-align: right; }
+    .descricao { width: 58%; }
+    .totais-wrap { display: flex; justify-content: flex-end; margin-top: 14px; }
+    .totais { width: 280px; border: 1px solid #111827; }
+    .totais .linha { display: flex; justify-content: space-between; gap: 10px; padding: 10px 12px; border-bottom: 1px solid #111827; font-size: 14px; }
+    .totais .linha:last-child { border-bottom: none; font-weight: bold; font-size: 18px; }
+    .rodape { margin-top: 18px; border: 1px solid #111827; min-height: 90px; }
+    .rodape .bloco-conteudo { white-space: pre-wrap; min-height: 60px; font-size: 14px; }
+    @media print {
+      body { background: #fff; }
+      .toolbar, .aviso { display: none !important; }
+      .pagina { box-shadow: none; margin: 0; width: auto; padding: 0; }
+      @page { size: A4; margin: 10mm; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <button class="primario" onclick="window.print()">Imprimir</button>
+    <button class="secundario" onclick="window.close()">Fechar</button>
+  </div>
+
+  <div id="aviso" class="aviso">Carregando relatório...</div>
+
+  <div class="pagina" id="pagina" style="display:none;">
+    <div class="cabecalho">
+      <div class="empresa">
+        <h1>ALUMINIOJR</h1>
+        <div class="titulo">VENDA DE MERCADORIA</div>
+      </div>
+      <div class="cabecalho-direita">
+        <div><strong>Número:</strong> <span id="numeroPedido">-</span></div>
+        <div><strong>Impresso em:</strong> <span id="dataHoraImpressao">-</span></div>
+      </div>
+    </div>
+
+    <div class="bloco">
+      <div class="bloco-titulo">Dados do pedido</div>
+      <div class="bloco-conteudo">
+        <div class="linha-info">
+          <strong>Data do pedido</strong><div id="dataPedido">-</div>
+          <strong>Vendedor</strong><div id="vendedorPedido">-</div>
+          <strong>Cliente</strong><div id="clientePedido" style="grid-column: span 3;">-</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bloco">
+      <div class="bloco-titulo">Itens</div>
+      <div class="bloco-conteudo" style="padding:0;">
+        <table>
+          <thead>
+            <tr>
+              <th class="descricao">Descrição</th>
+              <th class="right">Quantidade</th>
+              <th class="right">Preço</th>
+              <th class="right">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody id="corpoItens"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="totais-wrap">
+      <div class="totais">
+        <div class="linha">
+          <span>Total final</span>
+          <span id="totalFinal">R$ 0,00</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="rodape">
+      <div class="bloco-titulo">Mensagem ao Cliente</div>
+      <div class="bloco-conteudo" id="observacaoPedido"></div>
+    </div>
+  </div>
+
+  <script>
+    const aviso = document.getElementById('aviso');
+    const pagina = document.getElementById('pagina');
+
+    function setAviso(texto, erro = false) {
+      aviso.textContent = texto;
+      aviso.className = erro ? 'aviso erro' : 'aviso';
+    }
+
+    function moeda(valor) {
+      return Number(valor || 0).toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+      });
+    }
+
+    function formatarData(valor) {
+      if (!valor) return '-';
+
+      const data = new Date(valor);
+
+      if (Number.isNaN(data.getTime())) {
+        return String(valor);
+      }
+
+      return data.toLocaleDateString('pt-BR');
+    }
+
+    function formatarDataHoraAgora() {
+      return new Date().toLocaleString('pt-BR');
+    }
+
+    function getParams() {
+      const params = new URLSearchParams(window.location.search);
+      return {
+        numero: (params.get('numero') || '').trim(),
+        storageKey: (params.get('storageKey') || '').trim(),
+        autoPrint: params.get('autoPrint') === '1'
+      };
+    }
+
+    function lerPedidoDoStorage(storageKey) {
+      if (!storageKey) return null;
+
+      try {
+        const bruto = localStorage.getItem(storageKey);
+        return bruto ? JSON.parse(bruto) : null;
+      } catch (error) {
+        return null;
+      }
+    }
+
+    async function lerJson(response) {
+      const json = await response.json().catch(() => ({}));
+
+      if (!response.ok || json?.success === false) {
+        throw new Error(json?.message || json?.erro || json?.detalhe || 'Erro ao carregar relatório.');
+      }
+
+      return json;
+    }
+
+    async function carregarPedidoPorNumero(numero) {
+      if (!numero) {
+        throw new Error('Número do pedido não informado.');
+      }
+
+      const responsePedido = await fetch(`/api/legado/pedidos?numero=${encodeURIComponent(numero)}`);
+      const jsonPedido = await lerJson(responsePedido);
+      const pedidos = Array.isArray(jsonPedido?.data) ? jsonPedido.data : [];
+
+      if (!pedidos.length) {
+        throw new Error('Pedido não encontrado.');
+      }
+
+      const pedido = pedidos.find((item) => String(item?.numero || '').trim() === numero) || pedidos[0];
+
+      const responseItens = await fetch(`/api/legado/pedidos/${pedido.idMestre}/itens`);
+      const jsonItens = await lerJson(responseItens);
+
+      return {
+        numero: pedido?.numero || numero,
+        data: pedido?.data || null,
+        cliente: {
+          nome: pedido?.cliente?.nome || '-'
+        },
+        vendedor: {
+          nome: pedido?.vendedor?.nome || '-'
+        },
+        obs: pedido?.obs || '',
+        total: Number(pedido?.total || 0),
+        itens: Array.isArray(jsonItens?.data?.itens)
+          ? jsonItens.data.itens.map((item) => ({
+              descricao: item?.descricao || '-',
+              quantidade: Number(item?.quantidade || 0),
+              preco: Number(item?.preco || 0),
+              subtotal: Number(item?.subtotal || 0)
+            }))
+          : []
+      };
+    }
+
+    function renderizarPedido(pedido) {
+      document.getElementById('numeroPedido').textContent = pedido?.numero || '-';
+      document.getElementById('dataHoraImpressao').textContent = formatarDataHoraAgora();
+      document.getElementById('dataPedido').textContent = formatarData(pedido?.data);
+      document.getElementById('clientePedido').textContent = pedido?.cliente?.nome || '-';
+      document.getElementById('vendedorPedido').textContent = pedido?.vendedor?.nome || '-';
+      document.getElementById('totalFinal').textContent = moeda(pedido?.total || 0);
+      document.getElementById('observacaoPedido').textContent = pedido?.obs || '';
+
+      const itens = Array.isArray(pedido?.itens) ? pedido.itens : [];
+      const corpoItens = document.getElementById('corpoItens');
+
+      corpoItens.innerHTML = itens.length
+        ? itens.map((item) => `
+            <tr>
+              <td>${item.descricao || '-'}</td>
+              <td class="right">${Number(item.quantidade || 0).toLocaleString('pt-BR')}</td>
+              <td class="right">${moeda(item.preco)}</td>
+              <td class="right">${moeda(item.subtotal)}</td>
+            </tr>
+          `).join('')
+        : `
+            <tr>
+              <td colspan="4" style="text-align:center;">Nenhum item encontrado.</td>
+            </tr>
+          `;
+
+      pagina.style.display = 'block';
+      aviso.style.display = 'none';
+    }
+
+    async function iniciar() {
+      const { numero, storageKey, autoPrint } = getParams();
+
+      try {
+        let pedido = lerPedidoDoStorage(storageKey);
+
+        if (!pedido && numero) {
+          pedido = await carregarPedidoPorNumero(numero);
+        }
+
+        if (!pedido) {
+          throw new Error('Não encontrei os dados do relatório.');
+        }
+
+        renderizarPedido(pedido);
+
+        if (autoPrint) {
+          setTimeout(() => window.print(), 300);
+        }
+      } catch (error) {
+        setAviso(error.message, true);
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', iniciar);
+  </script>
+</body>
+</html>

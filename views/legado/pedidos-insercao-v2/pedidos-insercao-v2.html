@@ -16,7 +16,7 @@
     .mensagem { margin-bottom: 18px; padding: 14px 16px; border-radius: 10px; background: #eff6ff; color: #1d4ed8; display: none; }
     .mensagem.erro { background: #fef2f2; color: #b91c1c; }
     .filtros { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; margin-bottom: 14px; }
-    .campo, textarea, input[type=text], input[type=number], select { width: 100%; padding: 11px 12px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 14px; }
+    .campo, textarea, input[type=text], input[type=number] { width: 100%; padding: 11px 12px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 14px; }
     textarea { min-height: 170px; resize: vertical; }
     button { border: none; border-radius: 10px; padding: 11px 16px; cursor: pointer; font-weight: bold; }
     .acao-principal { background: #111827; color: #fff; }
@@ -38,12 +38,13 @@
     .tabela-itens td.valor, .tabela-itens th.valor { text-align: right; }
     .tabela-itens input[type=number] { text-align: right; }
     .tabela-vazia { padding: 18px; color: #6b7280; background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 10px; }
-    .footer-pedido { margin-top: 18px; display: grid; grid-template-columns: 1fr 260px 140px 180px; gap: 12px; align-items: start; }
+    .footer-pedido { margin-top: 18px; display: grid; grid-template-columns: 1fr 140px 180px; gap: 12px; align-items: start; }
     .footer-pedido textarea { min-height: 84px; resize: vertical; }
     .total-box { background: #111827; color: #fff; border-radius: 10px; padding: 16px; }
     .total-box small { display: block; opacity: 0.8; margin-bottom: 6px; }
     .total-box strong { font-size: 24px; }
     .acoes-final { margin-top: 16px; display: flex; gap: 10px; justify-content: flex-end; }
+    .oculto { display: none !important; }
     .resultado-sucesso { margin-top: 16px; padding: 14px; border-radius: 10px; background: #ecfdf5; border: 1px solid #6ee7b7; color: #065f46; display: none; }
     .rotulo-pequeno { font-size: 12px; color: #6b7280; margin-bottom: 6px; display: block; }
     .linha-importacao { display: grid; grid-template-columns: 1fr 140px auto; gap: 10px; align-items: end; margin-top: 12px; }
@@ -114,12 +115,10 @@
           </div>
           <div>
             <label class="rotulo-pequeno" for="vendedorPedido">Vendedor</label>
-            <select id="vendedorPedido">
+            <select id="vendedorPedido" class="campo">
               <option value="">Selecione o vendedor</option>
             </select>
-          </div>
-          <div>
-            <label class="rotulo-pequeno" for="volumesPedido">Volumes</label>
+            <label class="rotulo-pequeno" for="volumesPedido" style="margin-top:12px;">Volumes</label>
             <input id="volumesPedido" class="campo" type="number" min="0" step="1" value="0" />
           </div>
           <div class="total-box">
@@ -129,7 +128,7 @@
         </div>
 
         <div class="acoes-final">
-          <button id="btnImprimirRelatorio" class="secundario" style="display:none;">Imprimir relatório</button>
+          <button id="btnImprimirRelatorio" class="secundario oculto">Imprimir relatório</button>
           <button id="btnNovoPedido" class="secundario">Limpar pedido</button>
           <button id="btnSalvarPedido" class="acao-principal">Salvar pedido</button>
         </div>
@@ -159,15 +158,15 @@
     const vendedorPedido = document.getElementById('vendedorPedido');
     const volumesPedido = document.getElementById('volumesPedido');
     const totalPedido = document.getElementById('totalPedido');
-    const btnImprimirRelatorio = document.getElementById('btnImprimirRelatorio');
     const btnNovoPedido = document.getElementById('btnNovoPedido');
+    const btnImprimirRelatorio = document.getElementById('btnImprimirRelatorio');
     const btnSalvarPedido = document.getElementById('btnSalvarPedido');
     const resultadoSucesso = document.getElementById('resultadoSucesso');
 
     let clientes = [];
     let clienteSelecionado = null;
     let vendedores = [];
-    let ultimoRelatorioPedido = null;
+    let ultimoPedidoSalvo = null;
     let produtosEncontrados = [];
     let indiceProdutoAtivo = -1;
     let itensPedido = [];
@@ -239,76 +238,6 @@
       caixaNaoReconhecidos.style.display = 'block';
     }
 
-    function renderVendedores() {
-      const valorAtual = vendedorPedido.value;
-
-      vendedorPedido.innerHTML = `
-        <option value="">Selecione o vendedor</option>
-        ${vendedores.map((vendedor) => `<option value="${vendedor.favorecido}">${vendedor.nome}</option>`).join('')}
-      `;
-
-      if (valorAtual && vendedores.some((vendedor) => String(vendedor.favorecido) === String(valorAtual))) {
-        vendedorPedido.value = valorAtual;
-      }
-    }
-
-    async function carregarVendedores() {
-      try {
-        const response = await fetch('/api/legado/vendedores');
-        const json = await lerJson(response);
-        vendedores = Array.isArray(json?.dados) ? json.dados : [];
-        renderVendedores();
-      } catch (error) {
-        vendedores = [];
-        renderVendedores();
-        setMensagem(error.message, true);
-      }
-    }
-
-    function obterVendedorSelecionado() {
-      const codigo = String(vendedorPedido.value || '').trim();
-      if (!codigo) return null;
-      return vendedores.find((vendedor) => String(vendedor.favorecido) === codigo) || null;
-    }
-
-    function salvarRelatorioTemporario(relatorio) {
-      if (!relatorio?.numero) return;
-      ultimoRelatorioPedido = relatorio;
-      sessionStorage.setItem(`relatorio-pedido:${relatorio.numero}`, JSON.stringify(relatorio));
-    }
-
-    function abrirRelatorioPedido(numero) {
-      if (!numero) return;
-      window.open(`/legado/relatorio-pedido?numero=${encodeURIComponent(numero)}`, '_blank');
-    }
-
-    function montarDadosRelatorio(pedidoSalvo) {
-      const vendedorSelecionado = obterVendedorSelecionado();
-      const itensRelatorio = Array.isArray(pedidoSalvo?.itens)
-        ? pedidoSalvo.itens.map((item) => ({
-            descricao: item?.descricao || '-',
-            quantidade: Number(item?.quantidade || 0),
-            preco: Number(item?.preco || 0),
-            subtotal: Number(item?.subtotalitem || (Number(item?.quantidade || 0) * Number(item?.preco || 0)))
-          }))
-        : itensPedido.map((item) => ({
-            descricao: item.nome || '-',
-            quantidade: Number(item.quantidade || 0),
-            preco: Number(item.preco || 0),
-            subtotal: Number(calcularSubtotal(item))
-          }));
-
-      return {
-        numero: pedidoSalvo?.numero || '',
-        data: pedidoSalvo?.data || new Date().toISOString().slice(0, 10),
-        cliente: clienteSelecionado?.nome || '-',
-        vendedor: vendedorSelecionado?.nome || '-',
-        obs: obsPedido.value.trim() || '',
-        total: Number(pedidoSalvo?.total || calcularTotal()),
-        itens: itensRelatorio
-      };
-    }
-
     function renderClientes() {
       if (!clientes.length) {
         listaClientes.innerHTML = '<div class="tabela-vazia">Nenhum cliente encontrado.</div>';
@@ -343,6 +272,44 @@
         Código: ${clienteSelecionado.favorecido}<br>
         Cidade/UF: ${clienteSelecionado.cidade || '-'}${clienteSelecionado.uf ? `/${clienteSelecionado.uf}` : ''}
       `;
+    }
+
+
+    async function carregarVendedores() {
+      try {
+        const response = await fetch('/api/legado/vendedores');
+        const json = await lerJson(response);
+        vendedores = Array.isArray(json?.dados) ? json.dados : [];
+
+        vendedorPedido.innerHTML = `
+          <option value="">Selecione o vendedor</option>
+          ${vendedores.map((vendedor) => `<option value="${vendedor.favorecido}">${vendedor.nome || 'Sem nome'}</option>`).join('')}
+        `;
+      } catch (error) {
+        vendedores = [];
+        vendedorPedido.innerHTML = '<option value="">Erro ao carregar vendedores</option>';
+        setMensagem(error.message, true);
+      }
+    }
+
+    function obterVendedorSelecionado() {
+      const favorecido = Number(vendedorPedido.value || 0);
+      if (!favorecido) {
+        return null;
+      }
+
+      return vendedores.find((item) => Number(item.favorecido) === favorecido) || null;
+    }
+
+    function abrirRelatorioPedido(pedido) {
+      if (!pedido?.numero) {
+        return;
+      }
+
+      const storageKey = `relatorio_pedido_${pedido.numero}_${Date.now()}`;
+
+      localStorage.setItem(storageKey, JSON.stringify(pedido));
+      window.open(`/legado/pedidos-relatorio?numero=${encodeURIComponent(pedido.numero)}&storageKey=${encodeURIComponent(storageKey)}&autoPrint=1`, '_blank');
     }
 
     async function carregarClientes() {
@@ -655,7 +622,7 @@
         data: new Date().toISOString().slice(0, 10),
         favorecido: clienteSelecionado?.favorecido,
         obs: obsPedido.value.trim() || null,
-        vendedor: vendedorPedido.value ? Number(vendedorPedido.value) : null,
+        vendedor: Number(vendedorPedido.value || 0) || null,
         volumes: Number(volumesPedido.value || 0),
         total: Number(calcularTotal().toFixed(2)),
         itens: itensPedido.map((item) => ({
@@ -679,8 +646,8 @@
         return;
       }
 
-      if (!String(vendedorPedido.value || '').trim()) {
-        setMensagem('Selecione o vendedor antes de salvar.', true);
+      if (!vendedorPedido.value) {
+        setMensagem('Selecione um vendedor antes de salvar.', true);
         return;
       }
 
@@ -698,8 +665,27 @@
 
         const json = await lerJson(response);
         const pedido = json?.pedido || json?.data?.pedido || json?.data || json;
-        const relatorio = montarDadosRelatorio(pedido);
-        salvarRelatorioTemporario(relatorio);
+        const vendedorSelecionado = obterVendedorSelecionado();
+
+        ultimoPedidoSalvo = {
+          numero: pedido?.numero || '',
+          data: pedido?.data || new Date().toISOString().slice(0, 10),
+          cliente: {
+            nome: clienteSelecionado?.nome || '-'
+          },
+          vendedor: {
+            favorecido: vendedorSelecionado?.favorecido || null,
+            nome: vendedorSelecionado?.nome || '-'
+          },
+          obs: obsPedido.value.trim() || '',
+          total: Number(pedido?.total || calcularTotal()),
+          itens: itensPedido.map((item) => ({
+            descricao: item.nome,
+            quantidade: Number(item.quantidade || 0),
+            preco: Number(item.preco || 0),
+            subtotal: Number((Number(item.quantidade || 0) * Number(item.preco || 0)).toFixed(2))
+          }))
+        };
 
         resultadoSucesso.innerHTML = `
           <strong>Pedido gravado com sucesso.</strong><br>
@@ -708,7 +694,7 @@
           Total: ${formatarMoeda(pedido?.total || calcularTotal())}
         `;
         resultadoSucesso.style.display = 'block';
-        btnImprimirRelatorio.style.display = 'inline-block';
+        btnImprimirRelatorio.classList.remove('oculto');
 
         itensPedido = [];
         textoRelatorio.value = '';
@@ -738,10 +724,9 @@
       multiplicadorKit.value = '1';
       obsPedido.value = '';
       volumesPedido.value = '0';
-      vendedorPedido.value = '';
       resultadoSucesso.style.display = 'none';
-      btnImprimirRelatorio.style.display = 'none';
-      ultimoRelatorioPedido = null;
+      btnImprimirRelatorio.classList.add('oculto');
+      ultimoPedidoSalvo = null;
       setNaoReconhecidos([]);
       renderItensPedido();
       focarBuscaProduto();
@@ -810,15 +795,14 @@
     btnSalvarPedido.addEventListener('click', salvarPedido);
     btnNovoPedido.addEventListener('click', limparPedidoCompleto);
     btnImprimirRelatorio.addEventListener('click', () => {
-      if (ultimoRelatorioPedido?.numero) {
-        salvarRelatorioTemporario(ultimoRelatorioPedido);
-        abrirRelatorioPedido(ultimoRelatorioPedido.numero);
+      if (ultimoPedidoSalvo) {
+        abrirRelatorioPedido(ultimoPedidoSalvo);
       }
     });
 
+    carregarVendedores();
     renderClienteSelecionado();
     renderItensPedido();
-    carregarVendedores();
   </script>
 </body>
 </html>

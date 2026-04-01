@@ -49,6 +49,16 @@
       flex-wrap: wrap;
     }
 
+    .acoes-pedido {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 12px;
+    }
+
+    .oculto {
+      display: none !important;
+    }
+
     .campo {
       display: flex;
       flex-direction: column;
@@ -185,12 +195,12 @@
         <button id="btnPesquisar" class="btn btn-primary">
           Pesquisar pedido
         </button>
-        <button id="btnImprimirRelatorio" class="btn" style="display:none; background:#111827; color:#fff;">
-          Imprimir relatório
-        </button>
       </div>
 
       <div id="mensagem" class="mensagem">Aguardando pesquisa.</div>
+      <div class="acoes-pedido">
+        <button id="btnImprimirRelatorio" class="btn btn-primary oculto">Imprimir relatório</button>
+      </div>
     </div>
 
     <div class="box">
@@ -208,11 +218,12 @@
   <script>
     const numeroPedidoInput = document.getElementById('numeroPedido');
     const btnPesquisar = document.getElementById('btnPesquisar');
-    const btnImprimirRelatorio = document.getElementById('btnImprimirRelatorio');
     const mensagem = document.getElementById('mensagem');
     const dadosCliente = document.getElementById('dadosCliente');
     const blocoItens = document.getElementById('blocoItens');
-    let ultimoRelatorioPedido = null;
+    const btnImprimirRelatorio = document.getElementById('btnImprimirRelatorio');
+
+    let pedidoCarregado = null;
 
     function setMensagem(texto, erro = false) {
       mensagem.textContent = texto;
@@ -221,8 +232,8 @@
 
     function limparCliente() {
       dadosCliente.innerHTML = '<div class="placeholder">Nenhum pedido carregado.</div>';
-      btnImprimirRelatorio.style.display = 'none';
-      ultimoRelatorioPedido = null;
+      btnImprimirRelatorio.classList.add('oculto');
+      pedidoCarregado = null;
     }
 
     function limparItens() {
@@ -243,35 +254,39 @@
       });
     }
 
+
+    function abrirRelatorioPedido(pedido) {
+      if (!pedido?.numero) {
+        return;
+      }
+
+      const storageKey = `relatorio_pedido_${pedido.numero}_${Date.now()}`;
+
+      localStorage.setItem(storageKey, JSON.stringify(pedido));
+      window.open(`/legado/pedidos-relatorio?numero=${encodeURIComponent(pedido.numero)}&storageKey=${encodeURIComponent(storageKey)}&autoPrint=1`, '_blank');
+    }
+
     function obterNumeroDaUrl() {
       const params = new URLSearchParams(window.location.search);
       return (params.get('numero') || '').trim();
     }
 
-    function salvarRelatorioTemporario(relatorio) {
-      if (!relatorio?.numero) return;
-      ultimoRelatorioPedido = relatorio;
-      sessionStorage.setItem(`relatorio-pedido:${relatorio.numero}`, JSON.stringify(relatorio));
-    }
-
-    function abrirRelatorioPedido(numero) {
-      if (!numero) return;
-      window.open(`/legado/relatorio-pedido?numero=${encodeURIComponent(numero)}`, '_blank');
-    }
-
-    function renderizarCliente(cliente, dataPedido) {
-      const dataFormatada = dataPedido
-        ? new Date(dataPedido).toLocaleDateString('pt-BR')
+    function renderizarCliente(pedido) {
+      const dataFormatada = pedido?.data
+        ? new Date(pedido.data).toLocaleDateString('pt-BR')
         : '-';
 
       dadosCliente.innerHTML = `
         <div class="cliente-linha"><strong>Data:</strong> ${dataFormatada}</div>
+        <div class="cliente-linha"><strong>Número:</strong> ${pedido?.numero || '-'}</div>
+        <div class="cliente-linha"><strong>Vendedor:</strong> ${pedido?.vendedor?.nome || '-'}</div>
 
-        <div class="cliente-nome">${cliente?.nome || '-'}</div>
+        <div class="cliente-nome">${pedido?.cliente?.nome || '-'}</div>
 
         <div class="cliente-dados-linha">
-          <div class="cliente-linha"><strong>Cidade:</strong> ${cliente?.cidade || '-'}</div>
-          <div class="cliente-linha"><strong>UF:</strong> ${cliente?.uf || '-'}</div>
+          <div class="cliente-linha"><strong>Cidade:</strong> ${pedido?.cliente?.cidade || '-'}</div>
+          <div class="cliente-linha"><strong>UF:</strong> ${pedido?.cliente?.uf || '-'}</div>
+          <div class="cliente-linha"><strong>Total:</strong> ${moeda(pedido?.total || 0)}</div>
         </div>
       `;
     }
@@ -346,9 +361,7 @@
           return;
         }
 
-        const primeiroPedido = pedidos[0];
-
-        renderizarCliente(primeiroPedido.cliente, primeiroPedido.data);
+        const primeiroPedido = pedidos.find((item) => String(item?.numero || '').trim() === numeroPedido) || pedidos[0];
 
         const responseItens = await fetch(`/api/legado/pedidos/${primeiroPedido.idMestre}/itens`);
         const jsonItens = await responseItens.json();
@@ -357,24 +370,19 @@
           throw new Error(jsonItens.message || 'Erro ao carregar itens.');
         }
 
-        const itens = jsonItens.data?.itens || [];
-        renderizarItens(itens);
+        pedidoCarregado = {
+          numero: primeiroPedido?.numero || numeroPedido,
+          data: primeiroPedido?.data || null,
+          cliente: primeiroPedido?.cliente || {},
+          vendedor: primeiroPedido?.vendedor || {},
+          obs: primeiroPedido?.obs || '',
+          total: Number(primeiroPedido?.total || 0),
+          itens: Array.isArray(jsonItens?.data?.itens) ? jsonItens.data.itens : []
+        };
 
-        salvarRelatorioTemporario({
-          numero: primeiroPedido.numero || numeroPedido,
-          data: primeiroPedido.data || null,
-          cliente: primeiroPedido.cliente?.nome || '-',
-          vendedor: primeiroPedido.vendedor?.nome || '-',
-          obs: primeiroPedido.obs || '',
-          total: Number(primeiroPedido.total || itens.reduce((acc, item) => acc + Number(item.subtotal || 0), 0)),
-          itens: itens.map((item) => ({
-            descricao: item.descricao || '-',
-            quantidade: Number(item.quantidade || 0),
-            preco: Number(item.preco || 0),
-            subtotal: Number(item.subtotal || 0)
-          }))
-        });
-        btnImprimirRelatorio.style.display = 'inline-block';
+        renderizarCliente(pedidoCarregado);
+        renderizarItens(pedidoCarregado.itens);
+        btnImprimirRelatorio.classList.remove('oculto');
 
         setMensagem('Pedido carregado.');
       } catch (error) {
@@ -386,9 +394,8 @@
 
     btnPesquisar.addEventListener('click', () => pesquisarPedidos());
     btnImprimirRelatorio.addEventListener('click', () => {
-      if (ultimoRelatorioPedido?.numero) {
-        salvarRelatorioTemporario(ultimoRelatorioPedido);
-        abrirRelatorioPedido(ultimoRelatorioPedido.numero);
+      if (pedidoCarregado) {
+        abrirRelatorioPedido(pedidoCarregado);
       }
     });
 

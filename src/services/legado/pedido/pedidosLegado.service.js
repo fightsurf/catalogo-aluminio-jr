@@ -8,29 +8,52 @@ function limparTexto(valor) {
   return valor.trim();
 }
 
+function normalizarPedido(item) {
+  return {
+    idMestre: item.idMestre ?? item.IDMESTRE ?? item.idmestre ?? null,
+    numero: item.numero ?? item.NUMERO ?? null,
+    data: item.data ?? item.DATA ?? null,
+    total: Number(item.total ?? item.TOTAL ?? 0),
+    obs: item.obs ?? item.OBS ?? '',
+    vendedor: {
+      favorecido:
+        item?.vendedor?.favorecido ??
+        item?.VENDEDOR ??
+        item?.vendedor ??
+        null,
+      nome:
+        item?.vendedor?.nome ??
+        item?.V_NOME ??
+        item?.v_nome ??
+        ''
+    },
+    cliente: {
+      nome:
+        item?.cliente?.nome ??
+        item?.F_NOME ??
+        item?.f_nome ??
+        '',
+      cidade:
+        item?.cliente?.cidade ??
+        item?.F_CIDADE ??
+        item?.f_cidade ??
+        '',
+      uf:
+        item?.cliente?.uf ??
+        item?.F_UF ??
+        item?.f_uf ??
+        ''
+    }
+  };
+}
+
 async function pesquisarPedidos(numero) {
   const response = await legadoBridgeService.get('/api/legado/pedidos', {
     numero
   });
 
-  const lista = Array.isArray(response.data) ? response.data : [];
-
-  return lista.map((item) => ({
-    idMestre: item?.idMestre ?? null,
-    numero: item?.numero ?? '',
-    data: item?.data ?? null,
-    obs: item?.obs ?? null,
-    total: item?.total ?? 0,
-    vendedor: {
-      codigo: item?.vendedor?.codigo ?? null,
-      nome: limparTexto(item?.vendedor?.nome)
-    },
-    cliente: {
-      nome: limparTexto(item?.cliente?.nome),
-      cidade: limparTexto(item?.cliente?.cidade),
-      uf: limparTexto(item?.cliente?.uf)
-    }
-  }));
+  const dados = Array.isArray(response.data) ? response.data : [];
+  return dados.map(normalizarPedido);
 }
 
 async function buscarItensPedido(idMestre) {
@@ -38,7 +61,22 @@ async function buscarItensPedido(idMestre) {
     `/api/legado/pedidos/${idMestre}/itens`
   );
 
-  return response.data || null;
+  const pedido = response.data || null;
+
+  if (!pedido) {
+    return null;
+  }
+
+  return {
+    itens: Array.isArray(pedido.itens)
+      ? pedido.itens.map((item) => ({
+          descricao: limparTexto(item?.descricao),
+          quantidade: Number(item?.quantidade ?? 0),
+          preco: Number(item?.preco ?? 0),
+          subtotal: Number(item?.subtotal ?? 0)
+        }))
+      : []
+  };
 }
 
 module.exports = {
