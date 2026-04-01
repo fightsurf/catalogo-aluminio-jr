@@ -944,12 +944,33 @@
       }
     });
 
+    async function inicializarPorQueryString() {
+      const params = new URLSearchParams(window.location.search);
+      const empresa = params.get('empresa');
+      const saida = params.get('saida');
+      const pdv = params.get('pdv');
+      const numero = (params.get('numero') || '').trim();
+
+      if (empresa && saida && pdv !== null) {
+        await selecionarPedido({ empresa, saida, pdv });
+        return;
+      }
+
+      if (numero) {
+        setModoBusca('numero');
+        el.buscaNumero.value = numero;
+        await buscarPedidosPorNumero();
+      }
+    }
+
     el.buscaNumero.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
         buscarPedidosPorNumero();
       }
     });
+
+    inicializarPorQueryString();
   </script>
 </body>
 </html>

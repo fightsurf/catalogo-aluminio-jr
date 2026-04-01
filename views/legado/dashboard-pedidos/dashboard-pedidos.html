@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard de Pedidos</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #dbe3ef;
+      --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+      --red-bg: #fee2e2;
+      --red-border: #fca5a5;
+      --green-bg: #dcfce7;
+      --green-border: #86efac;
+      --chip: #eff6ff;
+      --chip-border: #bfdbfe;
+      --chip-text: #1d4ed8;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .container {
+      max-width: 1600px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    .title h1 {
+      margin: 0 0 6px;
+      font-size: 28px;
+    }
+    .title p {
+      margin: 0;
+      color: var(--muted);
+    }
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    button, .button-link {
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      text-decoration: none;
+      font-size: 14px;
+    }
+    button:hover, .button-link:hover { filter: brightness(0.98); }
+    .grid {
+      display: grid;
+      grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+      gap: 20px;
+      align-items: start;
+    }
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .panel-header {
+      padding: 16px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    .panel-header h2 {
+      margin: 0;
+      font-size: 20px;
+    }
+    .panel-header p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .panel-body { padding: 16px; }
+    .status {
+      margin-bottom: 16px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: #fff;
+      display: none;
+    }
+    .status.show { display: block; }
+    .status.error {
+      border-color: var(--red-border);
+      background: #fff1f2;
+      color: #991b1b;
+    }
+    .cards {
+      display: grid;
+      gap: 12px;
+    }
+    .pedido-card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      cursor: pointer;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+    .pedido-card:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+    }
+    .pedido-card.red {
+      background: var(--red-bg);
+      border-color: var(--red-border);
+    }
+    .pedido-card.green {
+      background: var(--green-bg);
+      border-color: var(--green-border);
+    }
+    .pedido-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: flex-start;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+    .pedido-numero {
+      font-size: 20px;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+    .pedido-data {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .pedido-cliente {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 4px;
+    }
+    .pedido-local,
+    .pedido-vendedor {
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .pedido-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .info-box {
+      background: rgba(255,255,255,0.68);
+      border: 1px solid rgba(255,255,255,0.85);
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
+    .info-box .label {
+      color: var(--muted);
+      font-size: 12px;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .info-box .value {
+      font-size: 18px;
+      font-weight: bold;
+    }
+    .card-links {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+    .chip-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--chip-border);
+      background: var(--chip);
+      color: var(--chip-text);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: bold;
+    }
+    .chip-link.muted {
+      color: var(--muted);
+      border-color: var(--border);
+      background: rgba(255,255,255,0.74);
+    }
+    .carradas-list {
+      display: grid;
+      gap: 12px;
+    }
+    .carrada-card {
+      display: block;
+      text-decoration: none;
+      color: inherit;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      background: #fff;
+    }
+    .carrada-card:hover {
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08);
+    }
+    .carrada-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .carrada-codigo {
+      font-size: 20px;
+      font-weight: bold;
+    }
+    .carrada-data {
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .carrada-desc {
+      font-size: 14px;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+    .carrada-grid {
+      display: grid;
+      gap: 8px;
+    }
+    .mini-box {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: #f8fafc;
+    }
+    .mini-box .label {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .mini-box .value {
+      font-size: 17px;
+      font-weight: bold;
+    }
+    .empty {
+      border: 1px dashed var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      text-align: center;
+      color: var(--muted);
+      background: #fff;
+    }
+    @media (max-width: 1100px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 700px) {
+      .pedido-grid { grid-template-columns: 1fr; }
+      .container { padding: 16px; }
+      .title h1 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="topbar">
+      <div class="title">
+        <h1>Dashboard de Pedidos</h1>
+        <p id="subtitulo">Carregando dados...</p>
+      </div>
+      <div class="actions">
+        <a class="button-link" href="/legado/carradas">Carradas</a>
+        <a class="button-link" href="/legado/pagamentos">Pagamentos</a>
+        <button id="btnRecarregar" type="button">Recarregar</button>
+      </div>
+    </div>
+
+    <div id="status" class="status"></div>
+
+    <div class="grid">
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>Últimos pedidos</h2>
+            <p id="descricaoPedidos">Faixa dos últimos 30 dias.</p>
+          </div>
+          <div id="contadorPedidos" class="pedido-data"></div>
+        </div>
+        <div class="panel-body">
+          <div id="listaPedidos" class="cards">
+            <div class="empty">Carregando pedidos...</div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>Carradas</h2>
+            <p id="descricaoCarradas">Faixa dos últimos 60 dias.</p>
+          </div>
+          <div id="contadorCarradas" class="pedido-data"></div>
+        </div>
+        <div class="panel-body">
+          <div id="listaCarradas" class="carradas-list">
+            <div class="empty">Carregando carradas...</div>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function formatarMoeda(valor) {
+      return Number(valor || 0).toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+      });
+    }
+
+    function formatarData(valor) {
+      if (!valor) return '-';
+      const data = new Date(valor);
+      if (Number.isNaN(data.getTime())) return '-';
+      return data.toLocaleDateString('pt-BR');
+    }
+
+    function mostrarStatus(tipo, mensagem) {
+      const el = document.getElementById('status');
+      el.className = `status show ${tipo || ''}`;
+      el.textContent = mensagem;
+    }
+
+    function limparStatus() {
+      const el = document.getElementById('status');
+      el.className = 'status';
+      el.textContent = '';
+    }
+
+    async function request(url) {
+      const response = await fetch(url, {
+        headers: { Accept: 'application/json' }
+      });
+
+      const json = await response.json().catch(() => ({}));
+
+      if (!response.ok || json.success === false) {
+        throw new Error(json.error || json.message || 'Erro na requisição.');
+      }
+
+      return json.data;
+    }
+
+    function montarLinkPagamentos(pedido) {
+      const params = new URLSearchParams({
+        empresa: String(pedido.empresa ?? -1),
+        saida: String(pedido.saida ?? ''),
+        pdv: String(pedido.pdv ?? 0)
+      });
+      return `/legado/pagamentos?${params.toString()}`;
+    }
+
+    function montarCardPedido(pedido) {
+      const classe = pedido.quitado && pedido.carrada ? 'green' : 'red';
+      const cidadeUf = [pedido?.cliente?.cidade || '-', pedido?.cliente?.uf || '-'].filter(Boolean).join(' / ');
+      const carradaTexto = pedido.carrada
+        ? `Carrada ${escapeHtml(pedido.carrada.codigo)}${pedido.carrada.descricao ? ' • ' + escapeHtml(pedido.carrada.descricao) : ''}`
+        : 'Sem carrada';
+
+      return `
+        <article class="pedido-card ${classe}" data-link-pedido="/legado/pedidos?numero=${encodeURIComponent(pedido.numero || '')}">
+          <div class="pedido-top">
+            <div>
+              <div class="pedido-numero">Pedido ${escapeHtml(pedido.numero || '-')}</div>
+              <div class="pedido-data">Data: ${escapeHtml(formatarData(pedido.data))}</div>
+            </div>
+            <div class="pedido-data">${pedido.quitado ? 'Quitado' : 'Não quitado'}</div>
+          </div>
+
+          <div class="pedido-cliente">${escapeHtml(pedido?.cliente?.nome || '-')}</div>
+          <div class="pedido-local">${escapeHtml(cidadeUf)}</div>
+          <div class="pedido-vendedor">Vendedor: ${escapeHtml(pedido?.vendedor?.nome || '-')}</div>
+
+          <div class="pedido-grid">
+            <div class="info-box js-link-pagamento" data-link="${escapeHtml(montarLinkPagamentos(pedido))}" role="link" tabindex="0">
+              <div class="label">Valor do pedido</div>
+              <div class="value">${escapeHtml(formatarMoeda(pedido.valor))}</div>
+            </div>
+            <div class="info-box js-link-pagamento" data-link="${escapeHtml(montarLinkPagamentos(pedido))}" role="link" tabindex="0">
+              <div class="label">Total pago</div>
+              <div class="value">${escapeHtml(formatarMoeda(pedido.totalPago))}</div>
+            </div>
+          </div>
+
+          <div class="card-links">
+            ${pedido.carrada
+              ? `<a class="chip-link" data-stop-card="1" href="/legado/carradas/detalhe?codigo=${encodeURIComponent(pedido.carrada.codigo)}">${carradaTexto}</a>`
+              : `<span class="chip-link muted">${carradaTexto}</span>`}
+            <a class="chip-link" data-stop-card="1" href="${escapeHtml(montarLinkPagamentos(pedido))}">Abrir pagamentos</a>
+          </div>
+        </article>
+      `;
+    }
+
+    function renderPedidos(pedidos) {
+      const lista = document.getElementById('listaPedidos');
+      const contador = document.getElementById('contadorPedidos');
+      contador.textContent = `${pedidos.length} pedido(s)`;
+
+      if (!Array.isArray(pedidos) || !pedidos.length) {
+        lista.innerHTML = '<div class="empty">Nenhum pedido encontrado na faixa informada.</div>';
+        return;
+      }
+
+      lista.innerHTML = pedidos.map(montarCardPedido).join('');
+
+      lista.querySelectorAll('.pedido-card').forEach((card) => {
+        card.addEventListener('click', () => {
+          window.location.href = card.dataset.linkPedido;
+        });
+      });
+
+      lista.querySelectorAll('[data-stop-card="1"]').forEach((el) => {
+        el.addEventListener('click', (event) => event.stopPropagation());
+      });
+
+      lista.querySelectorAll('.js-link-pagamento').forEach((box) => {
+        const abrir = () => { window.location.href = box.dataset.link; };
+        box.addEventListener('click', (event) => {
+          event.stopPropagation();
+          abrir();
+        });
+        box.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            event.stopPropagation();
+            abrir();
+          }
+        });
+      });
+    }
+
+    function montarCardCarrada(carrada) {
+      return `
+        <a class="carrada-card" href="/legado/carradas/detalhe?codigo=${encodeURIComponent(carrada.codigo)}">
+          <div class="carrada-top">
+            <div>
+              <div class="carrada-codigo">Carrada ${escapeHtml(carrada.codigo)}</div>
+              <div class="carrada-data">${escapeHtml(formatarData(carrada.data))}</div>
+            </div>
+          </div>
+          <div class="carrada-desc">${escapeHtml(carrada.descricao || '-')}</div>
+          <div class="carrada-grid">
+            <div class="mini-box">
+              <div class="label">Qtde de pedidos</div>
+              <div class="value">${escapeHtml(carrada.qtdePedidos)}</div>
+            </div>
+            <div class="mini-box">
+              <div class="label">Valor total dos pedidos</div>
+              <div class="value">${escapeHtml(formatarMoeda(carrada.valorTotalPedidos))}</div>
+            </div>
+            <div class="mini-box">
+              <div class="label">Valor pago dos pedidos</div>
+              <div class="value">${escapeHtml(formatarMoeda(carrada.valorPagoPedidos))}</div>
+            </div>
+          </div>
+        </a>
+      `;
+    }
+
+    function renderCarradas(carradas) {
+      const lista = document.getElementById('listaCarradas');
+      const contador = document.getElementById('contadorCarradas');
+      contador.textContent = `${carradas.length} carrada(s)`;
+
+      if (!Array.isArray(carradas) || !carradas.length) {
+        lista.innerHTML = '<div class="empty">Nenhuma carrada encontrada na faixa informada.</div>';
+        return;
+      }
+
+      lista.innerHTML = carradas.map(montarCardCarrada).join('');
+    }
+
+    async function carregarDashboard() {
+      try {
+        limparStatus();
+        document.getElementById('subtitulo').textContent = 'Carregando dados do dashboard...';
+        const data = await request('/api/legado/dashboard-pedidos');
+
+        document.getElementById('subtitulo').textContent = 'Pedidos recentes com status de pagamento e vínculo com carrada.';
+        document.getElementById('descricaoPedidos').textContent = `Faixa dos últimos ${Number(data?.filtros?.diasPedidos || 30)} dias.`;
+        document.getElementById('descricaoCarradas').textContent = `Faixa dos últimos ${Number(data?.filtros?.diasCarradas || 60)} dias.`;
+
+        renderPedidos(Array.isArray(data.pedidos) ? data.pedidos : []);
+        renderCarradas(Array.isArray(data.carradas) ? data.carradas : []);
+      } catch (error) {
+        mostrarStatus('error', error.message || 'Falha ao carregar dashboard.');
+        document.getElementById('listaPedidos').innerHTML = '<div class="empty">Falha ao carregar pedidos.</div>';
+        document.getElementById('listaCarradas').innerHTML = '<div class="empty">Falha ao carregar carradas.</div>';
+        document.getElementById('subtitulo').textContent = 'Falha ao carregar dados do dashboard.';
+      }
+    }
+
+    document.getElementById('btnRecarregar').addEventListener('click', carregarDashboard);
+    carregarDashboard();
+  </script>
+</body>
+</html>
