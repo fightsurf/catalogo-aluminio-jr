@@ -296,17 +296,24 @@
         '-----------------------------------------------'
       ];
 
-      (Array.isArray(ultimoPedidoSalvo?.itens) ? ultimoPedidoSalvo.itens : []).forEach((item) => {
+      const itens = Array.isArray(ultimoPedidoSalvo?.itens) ? ultimoPedidoSalvo.itens : [];
+      itens.forEach((item, index) => {
         linhas.push(`- ${item.descricao || '-'}`);
         linhas.push(`- QTD: ${Number(item.quantidade || 0)}`);
         linhas.push(`- Preço: *${formatarMoeda(item.preco || 0)}*`);
         linhas.push(`- Subtotal: *${formatarMoeda(item.subtotal || 0)}*`);
-        linhas.push('');
+        if (index < itens.length - 1) {
+          linhas.push('');
+        }
       });
 
+      if (itens.length) {
+        linhas.push('');
+      }
       linhas.push(`Total do pedido: *${formatarMoeda(ultimoPedidoSalvo?.total || 0)}*`);
 
       if (ultimoPedidoSalvo?.obs) {
+        linhas.push('');
         linhas.push(`Observação: ${ultimoPedidoSalvo.obs}`);
       }
 

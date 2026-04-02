@@ -297,17 +297,24 @@
         '-----------------------------------------------'
       ];
 
-      (Array.isArray(pedido?.itens) ? pedido.itens : []).forEach((item) => {
+      const itens = Array.isArray(pedido?.itens) ? pedido.itens : [];
+      itens.forEach((item, index) => {
         linhas.push(`- ${item.descricao || '-'}`);
         linhas.push(`- QTD: ${Number(item.quantidade || 0)}`);
         linhas.push(`- Preço: *${moeda(item.preco || 0)}*`);
         linhas.push(`- Subtotal: *${moeda(item.subtotal || 0)}*`);
-        linhas.push('');
+        if (index < itens.length - 1) {
+          linhas.push('');
+        }
       });
 
+      if (itens.length) {
+        linhas.push('');
+      }
       linhas.push(`Total do pedido: *${moeda(pedido?.total || 0)}*`);
 
       if (pedido?.obs) {
+        linhas.push('');
         linhas.push(`Observação: ${pedido.obs}`);
       }
 
