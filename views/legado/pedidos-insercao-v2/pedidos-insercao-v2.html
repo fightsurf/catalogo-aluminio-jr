@@ -297,7 +297,11 @@
       ];
 
       (Array.isArray(ultimoPedidoSalvo?.itens) ? ultimoPedidoSalvo.itens : []).forEach((item) => {
-        linhas.push(`- ${item.descricao || '-'} | QTD: ${Number(item.quantidade || 0)} | Preço: *${formatarMoeda(item.preco || 0)}* | Subtotal: *${formatarMoeda(item.subtotal || 0)}*`);
+        linhas.push(`- ${item.descricao || '-'}`);
+        linhas.push(`- QTD: ${Number(item.quantidade || 0)}`);
+        linhas.push(`- Preço: *${formatarMoeda(item.preco || 0)}*`);
+        linhas.push(`- Subtotal: *${formatarMoeda(item.subtotal || 0)}*`);
+        linhas.push('');
       });
 
       linhas.push(`Total do pedido: *${formatarMoeda(ultimoPedidoSalvo?.total || 0)}*`);

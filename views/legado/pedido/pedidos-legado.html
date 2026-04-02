@@ -298,7 +298,11 @@
       ];
 
       (Array.isArray(pedido?.itens) ? pedido.itens : []).forEach((item) => {
-        linhas.push(`- ${item.descricao || '-'} | QTD: ${Number(item.quantidade || 0)} | Preço: *${moeda(item.preco || 0)}* | Subtotal: *${moeda(item.subtotal || 0)}*`);
+        linhas.push(`- ${item.descricao || '-'}`);
+        linhas.push(`- QTD: ${Number(item.quantidade || 0)}`);
+        linhas.push(`- Preço: *${moeda(item.preco || 0)}*`);
+        linhas.push(`- Subtotal: *${moeda(item.subtotal || 0)}*`);
+        linhas.push('');
       });
 
       linhas.push(`Total do pedido: *${moeda(pedido?.total || 0)}*`);
