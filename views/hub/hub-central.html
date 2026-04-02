@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Central de Módulos</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --text: #111827;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --accent: #111111;
+      --shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; height: 100%; font-family: Arial, Helvetica, sans-serif; background: var(--bg); color: var(--text); }
+    button, input, select, textarea { font: inherit; }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .sidebar {
+      border-right: 1px solid var(--line);
+      background: #fbfbfc;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    .brand {
+      padding: 18px 18px 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand h1 { margin: 0; font-size: 22px; }
+    .brand p { margin: 6px 0 0; color: var(--muted); font-size: 13px; }
+
+    .sidebar-tools {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      display: grid;
+      gap: 10px;
+    }
+
+    .sidebar-tools input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: #fff;
+    }
+
+    .tool-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .btn {
+      border: 0;
+      background: var(--accent);
+      color: #fff;
+      padding: 10px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .btn.secondary {
+      background: #fff;
+      color: var(--text);
+      border: 1px solid var(--line);
+      font-weight: 600;
+    }
+
+    .sidebar-scroll {
+      flex: 1;
+      overflow: auto;
+      padding: 14px;
+    }
+
+    .menu-section {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      margin-bottom: 12px;
+      box-shadow: var(--shadow);
+    }
+
+    .menu-section.dragging,
+    .menu-item.dragging,
+    .card.dragging {
+      opacity: 0.45;
+    }
+
+    .menu-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 12px;
+      cursor: grab;
+      user-select: none;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .menu-section-header h3 { margin: 0; font-size: 15px; }
+    .menu-section-header .actions { display: flex; gap: 6px; }
+    .mini-btn {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 10px;
+      padding: 6px 8px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .menu-items {
+      list-style: none;
+      margin: 0;
+      padding: 8px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .menu-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: #fff;
+      cursor: grab;
+    }
+
+    .menu-item:hover,
+    .menu-item.active {
+      border-color: #111;
+      background: #f3f4f6;
+    }
+
+    .menu-item .grow { flex: 1; min-width: 0; }
+    .menu-item strong { display: block; font-size: 14px; }
+    .menu-item span { display: block; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .content {
+      display: grid;
+      grid-template-rows: auto auto 1fr;
+      min-width: 0;
+      overflow: hidden;
+    }
+
+    .topbar {
+      padding: 14px 18px;
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .topbar-left h2 { margin: 0; font-size: 18px; }
+    .topbar-left p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+    .topbar-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .cards-wrap {
+      padding: 16px 18px 10px;
+      overflow: auto;
+      max-height: 42vh;
+    }
+
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      position: relative;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      cursor: grab;
+      min-height: 150px;
+    }
+
+    .card.size-wide { grid-column: span 2; }
+    .card.size-tall { min-height: 220px; }
+    .card.size-small { min-height: 120px; }
+
+    .card-image {
+      height: 88px;
+      background: linear-gradient(135deg, #e5e7eb, #f8fafc);
+      background-size: cover;
+      background-position: center;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .card-body { padding: 14px; }
+    .card-body h3 { margin: 0 0 8px; font-size: 16px; }
+    .card-body p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.45; }
+    .card-actions {
+      display: flex;
+      gap: 8px;
+      padding: 0 14px 14px;
+    }
+    .card-actions .btn,
+    .card-actions .btn.secondary { flex: 1; }
+
+    .workspace {
+      padding: 0 18px 18px;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    .frame-panel {
+      height: 100%;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    .frame-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+      padding: 12px 14px;
+      background: #fff;
+    }
+
+    .frame-header .title { min-width: 0; }
+    .frame-header strong { display: block; }
+    .frame-header span { display: block; color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .frame-actions { display: flex; gap: 8px; }
+
+    iframe {
+      width: 100%;
+      height: 100%;
+      border: 0;
+      background: #fff;
+    }
+
+    .drawer {
+      position: fixed;
+      top: 0;
+      right: -520px;
+      width: 520px;
+      max-width: 100%;
+      height: 100vh;
+      background: #fff;
+      border-left: 1px solid var(--line);
+      box-shadow: -12px 0 24px rgba(15, 23, 42, 0.12);
+      transition: right 0.22s ease;
+      z-index: 30;
+      display: grid;
+      grid-template-rows: auto 1fr auto;
+    }
+
+    .drawer.open { right: 0; }
+    .drawer-header,
+    .drawer-footer {
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .drawer-footer { border-top: 1px solid var(--line); border-bottom: 0; }
+
+    .drawer-body {
+      overflow: auto;
+      padding: 16px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .config-block {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      background: #fafafa;
+    }
+
+    .config-block h3 { margin: 0 0 12px; font-size: 16px; }
+    .config-list { display: grid; gap: 10px; }
+    .config-item {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 12px;
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .field-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .field-grid.full { grid-template-columns: 1fr; }
+    .field-grid label {
+      display: grid;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .field-grid input,
+    .field-grid select,
+    .field-grid textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px 10px;
+      background: #fff;
+      color: var(--text);
+    }
+
+    .config-item .row-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .hidden { display: none !important; }
+    .muted { color: var(--muted); }
+
+    @media (max-width: 1100px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .cards-wrap { max-height: none; }
+      .card.size-wide { grid-column: span 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="brand">
+        <h1 id="brandTitle">Central de Módulos</h1>
+        <p id="brandSubtitle">Alumínio JR</p>
+      </div>
+
+      <div class="sidebar-tools">
+        <input id="searchInput" type="text" placeholder="Buscar módulo, tag ou card">
+        <div class="tool-row">
+          <button class="btn" id="openConfigBtn">Configurar</button>
+          <button class="btn secondary" id="resetBtn">Resetar</button>
+        </div>
+      </div>
+
+      <div class="sidebar-scroll">
+        <div id="menuSections"></div>
+      </div>
+    </aside>
+
+    <main class="content">
+      <div class="topbar">
+        <div class="topbar-left">
+          <h2 id="activeTitle">Selecione um módulo</h2>
+          <p id="activeDescription">Os cards e menus podem ser reorganizados por arrastar e soltar.</p>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn secondary" id="openExternalBtn">Abrir em nova aba</button>
+          <button class="btn" id="openConfigBtnTop">Editar hub</button>
+        </div>
+      </div>
+
+      <section class="cards-wrap">
+        <div class="cards-grid" id="cardsGrid"></div>
+      </section>
+
+      <section class="workspace">
+        <div class="frame-panel">
+          <div class="frame-header">
+            <div class="title">
+              <strong id="frameModuleName">Nenhum módulo carregado</strong>
+              <span id="frameModuleUrl">Clique em um card ou menu para abrir o módulo.</span>
+            </div>
+            <div class="frame-actions">
+              <button class="btn secondary" id="reloadFrameBtn">Recarregar</button>
+            </div>
+          </div>
+          <iframe id="moduleFrame" title="Módulo"></iframe>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <aside class="drawer" id="configDrawer">
+    <div class="drawer-header">
+      <strong>Configuração do Hub</strong>
+      <button class="btn secondary" id="closeDrawerBtn">Fechar</button>
+    </div>
+    <div class="drawer-body">
+      <section class="config-block">
+        <h3>Configuração geral</h3>
+        <div class="field-grid">
+          <label>Título
+            <input id="cfgAppTitle" type="text">
+          </label>
+          <label>Subtítulo
+            <input id="cfgAppSubtitle" type="text">
+          </label>
+        </div>
+      </section>
+
+      <section class="config-block">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+          <h3>Módulos</h3>
+          <button class="btn secondary" id="addModuleBtn">Novo módulo</button>
+        </div>
+        <div class="config-list" id="modulesEditor"></div>
+      </section>
+
+      <section class="config-block">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+          <h3>Seções do menu</h3>
+          <button class="btn secondary" id="addSectionBtn">Nova seção</button>
+        </div>
+        <div class="config-list" id="sectionsEditor"></div>
+      </section>
+
+      <section class="config-block">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
+          <h3>Cards centrais</h3>
+          <button class="btn secondary" id="addCardBtn">Novo card</button>
+        </div>
+        <div class="config-list" id="cardsEditor"></div>
+      </section>
+
+      <section class="config-block">
+        <h3>Importar / exportar</h3>
+        <div class="tool-row" style="margin-bottom:8px;">
+          <button class="btn secondary" id="exportJsonBtn">Exportar JSON</button>
+          <label class="btn secondary" style="display:inline-flex;align-items:center;justify-content:center;cursor:pointer;">
+            Importar JSON
+            <input id="importJsonInput" type="file" accept="application/json" class="hidden">
+          </label>
+        </div>
+        <p class="muted" style="margin:0;font-size:12px;">A configuração personalizada fica salva no navegador deste computador.</p>
+      </section>
+    </div>
+    <div class="drawer-footer">
+      <button class="btn secondary" id="cancelConfigBtn">Cancelar</button>
+      <button class="btn" id="saveConfigBtn">Salvar alterações</button>
+    </div>
+  </aside>
+
+  <script>
+    const STORAGE_KEY = 'aluminio_jr_hub_config_v1';
+    const state = {
+      defaultConfig: null,
+      config: null,
+      draftConfig: null,
+      activeModuleId: null,
+      searchTerm: ''
+    };
+
+    const el = {
+      brandTitle: document.getElementById('brandTitle'),
+      brandSubtitle: document.getElementById('brandSubtitle'),
+      searchInput: document.getElementById('searchInput'),
+      menuSections: document.getElementById('menuSections'),
+      cardsGrid: document.getElementById('cardsGrid'),
+      moduleFrame: document.getElementById('moduleFrame'),
+      activeTitle: document.getElementById('activeTitle'),
+      activeDescription: document.getElementById('activeDescription'),
+      frameModuleName: document.getElementById('frameModuleName'),
+      frameModuleUrl: document.getElementById('frameModuleUrl'),
+      openExternalBtn: document.getElementById('openExternalBtn'),
+      openConfigBtn: document.getElementById('openConfigBtn'),
+      openConfigBtnTop: document.getElementById('openConfigBtnTop'),
+      closeDrawerBtn: document.getElementById('closeDrawerBtn'),
+      cancelConfigBtn: document.getElementById('cancelConfigBtn'),
+      saveConfigBtn: document.getElementById('saveConfigBtn'),
+      resetBtn: document.getElementById('resetBtn'),
+      reloadFrameBtn: document.getElementById('reloadFrameBtn'),
+      configDrawer: document.getElementById('configDrawer'),
+      cfgAppTitle: document.getElementById('cfgAppTitle'),
+      cfgAppSubtitle: document.getElementById('cfgAppSubtitle'),
+      modulesEditor: document.getElementById('modulesEditor'),
+      sectionsEditor: document.getElementById('sectionsEditor'),
+      cardsEditor: document.getElementById('cardsEditor'),
+      addModuleBtn: document.getElementById('addModuleBtn'),
+      addSectionBtn: document.getElementById('addSectionBtn'),
+      addCardBtn: document.getElementById('addCardBtn'),
+      exportJsonBtn: document.getElementById('exportJsonBtn'),
+      importJsonInput: document.getElementById('importJsonInput')
+    };
+
+    function cloneDeep(value) {
+      return JSON.parse(JSON.stringify(value));
+    }
+
+    function uid(prefix) {
+      return prefix + '-' + Math.random().toString(36).slice(2, 9);
+    }
+
+    function saveToStorage() {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.config));
+    }
+
+    function loadFromStorage() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        return raw ? JSON.parse(raw) : null;
+      } catch (error) {
+        console.error('Falha ao ler configuração salva:', error);
+        return null;
+      }
+    }
+
+    function moduleMap(config) {
+      const map = new Map();
+      config.modules.forEach((module) => map.set(module.id, module));
+      return map;
+    }
+
+    function getModuleById(moduleId) {
+      return state.config.modules.find((item) => item.id === moduleId) || null;
+    }
+
+    function openModule(moduleId, forceNewTab = false) {
+      const module = getModuleById(moduleId);
+      if (!module || module.active === false) return;
+
+      state.activeModuleId = module.id;
+      const targetUrl = module.embedUrl || module.url;
+      const openMode = forceNewTab ? 'newtab' : (module.openMode || 'iframe');
+
+      el.activeTitle.textContent = module.nome;
+      el.activeDescription.textContent = module.descricao || 'Módulo aberto pela central.';
+      el.frameModuleName.textContent = module.nome;
+      el.frameModuleUrl.textContent = openMode === 'newtab' ? module.url : targetUrl;
+
+      if (openMode === 'newtab') {
+        window.open(module.url, '_blank');
+      } else {
+        el.moduleFrame.src = targetUrl;
+      }
+
+      renderMenus();
+    }
+
+    function renderMenus() {
+      const search = state.searchTerm.trim().toLowerCase();
+      const modules = moduleMap(state.config);
+      el.menuSections.innerHTML = '';
+
+      state.config.menuSections.forEach((section, sectionIndex) => {
+        const sectionModules = section.items
+          .map((moduleId) => modules.get(moduleId))
+          .filter(Boolean)
+          .filter((module) => {
+            if (!search) return true;
+            const haystack = [module.nome, module.descricao, module.categoria, ...(module.tags || [])]
+              .join(' ')
+              .toLowerCase();
+            return haystack.includes(search);
+          });
+
+        if (!sectionModules.length && search) return;
+
+        const sectionEl = document.createElement('div');
+        sectionEl.className = 'menu-section';
+        sectionEl.draggable = true;
+        sectionEl.dataset.sectionIndex = String(sectionIndex);
+
+        sectionEl.innerHTML = `
+          <div class="menu-section-header">
+            <h3>${escapeHtml(section.title)}</h3>
+            <div class="actions">
+              <button class="mini-btn" data-action="toggle">${section.collapsed ? 'Abrir' : 'Fechar'}</button>
+            </div>
+          </div>
+          <ul class="menu-items ${section.collapsed ? 'hidden' : ''}"></ul>
+        `;
+
+        const header = sectionEl.querySelector('.menu-section-header');
+        header.querySelector('[data-action="toggle"]').addEventListener('click', () => {
+          section.collapsed = !section.collapsed;
+          saveToStorage();
+          renderMenus();
+        });
+
+        sectionEl.addEventListener('dragstart', (event) => onSectionDragStart(event, sectionIndex));
+        sectionEl.addEventListener('dragover', onSectionDragOver);
+        sectionEl.addEventListener('drop', (event) => onSectionDrop(event, sectionIndex));
+        sectionEl.addEventListener('dragend', clearDraggingStates);
+
+        const list = sectionEl.querySelector('.menu-items');
+        sectionModules.forEach((module) => {
+          const itemEl = document.createElement('li');
+          itemEl.className = 'menu-item' + (state.activeModuleId === module.id ? ' active' : '');
+          itemEl.draggable = true;
+          itemEl.dataset.sectionId = section.id;
+          itemEl.dataset.moduleId = module.id;
+          itemEl.innerHTML = `
+            <div>${escapeHtml(module.icon || '📁')}</div>
+            <div class="grow">
+              <strong>${escapeHtml(module.nome)}</strong>
+              <span>${escapeHtml(module.descricao || module.url)}</span>
+            </div>
+          `;
+          itemEl.addEventListener('click', () => openModule(module.id));
+          itemEl.addEventListener('dragstart', (event) => onMenuItemDragStart(event, section.id, module.id));
+          itemEl.addEventListener('dragover', onMenuItemDragOver);
+          itemEl.addEventListener('drop', (event) => onMenuItemDrop(event, section.id, module.id));
+          itemEl.addEventListener('dragend', clearDraggingStates);
+          list.appendChild(itemEl);
+        });
+
+        list.addEventListener('dragover', onMenuItemDragOver);
+        list.addEventListener('drop', (event) => onMenuListDrop(event, section.id));
+
+        el.menuSections.appendChild(sectionEl);
+      });
+    }
+
+    function renderCards() {
+      const search = state.searchTerm.trim().toLowerCase();
+      const modules = moduleMap(state.config);
+      el.cardsGrid.innerHTML = '';
+
+      state.config.cards
+        .filter((card) => card.active !== false)
+        .filter((card) => {
+          const module = modules.get(card.moduleId);
+          if (!module) return false;
+          if (!search) return true;
+          const haystack = [card.title, card.subtitle, module.nome, module.descricao, ...(module.tags || [])]
+            .join(' ')
+            .toLowerCase();
+          return haystack.includes(search);
+        })
+        .forEach((card, index) => {
+          const module = modules.get(card.moduleId);
+          if (!module) return;
+
+          const cardEl = document.createElement('article');
+          cardEl.className = `card size-${card.size || 'normal'}`;
+          cardEl.draggable = true;
+          cardEl.dataset.cardIndex = String(index);
+
+          const imageStyle = card.imageUrl
+            ? `style="background-image:url('${escapeAttribute(card.imageUrl)}')"`
+            : '';
+
+          cardEl.innerHTML = `
+            <div class="card-image" ${imageStyle}></div>
+            <div class="card-body">
+              <h3>${escapeHtml(card.title || module.nome)}</h3>
+              <p>${escapeHtml(card.subtitle || module.descricao || '')}</p>
+            </div>
+            <div class="card-actions">
+              <button class="btn" data-action="open">Abrir</button>
+              <button class="btn secondary" data-action="newtab">Nova aba</button>
+            </div>
+          `;
+
+          cardEl.querySelector('[data-action="open"]').addEventListener('click', () => openModule(module.id));
+          cardEl.querySelector('[data-action="newtab"]').addEventListener('click', () => openModule(module.id, true));
+
+          cardEl.addEventListener('dragstart', (event) => onCardDragStart(event, index));
+          cardEl.addEventListener('dragover', onCardDragOver);
+          cardEl.addEventListener('drop', (event) => onCardDrop(event, index));
+          cardEl.addEventListener('dragend', clearDraggingStates);
+
+          el.cardsGrid.appendChild(cardEl);
+        });
+    }
+
+    function onSectionDragStart(event, index) {
+      event.dataTransfer.setData('text/plain', JSON.stringify({ type: 'section', index }));
+      event.currentTarget.classList.add('dragging');
+    }
+
+    function onSectionDragOver(event) {
+      event.preventDefault();
+    }
+
+    function onSectionDrop(event, targetIndex) {
+      event.preventDefault();
+      const payload = parseDragPayload(event);
+      if (!payload || payload.type !== 'section' || payload.index === targetIndex) return;
+      const item = state.config.menuSections.splice(payload.index, 1)[0];
+      state.config.menuSections.splice(targetIndex, 0, item);
+      saveToStorage();
+      renderMenus();
+    }
+
+    function onMenuItemDragStart(event, sectionId, moduleId) {
+      event.dataTransfer.setData('text/plain', JSON.stringify({ type: 'menuItem', sectionId, moduleId }));
+      event.currentTarget.classList.add('dragging');
+    }
+
+    function onMenuItemDragOver(event) {
+      event.preventDefault();
+    }
+
+    function onMenuItemDrop(event, targetSectionId, targetModuleId) {
+      event.preventDefault();
+      const payload = parseDragPayload(event);
+      if (!payload || payload.type !== 'menuItem') return;
+      moveMenuItem(payload.sectionId, payload.moduleId, targetSectionId, targetModuleId);
+    }
+
+    function onMenuListDrop(event, targetSectionId) {
+      event.preventDefault();
+      const payload = parseDragPayload(event);
+      if (!payload || payload.type !== 'menuItem') return;
+      moveMenuItem(payload.sectionId, payload.moduleId, targetSectionId, null);
+    }
+
+    function moveMenuItem(fromSectionId, moduleId, toSectionId, beforeModuleId) {
+      const fromSection = state.config.menuSections.find((item) => item.id === fromSectionId);
+      const toSection = state.config.menuSections.find((item) => item.id === toSectionId);
+      if (!fromSection || !toSection) return;
+
+      fromSection.items = fromSection.items.filter((item) => item !== moduleId);
+      const beforeIndex = beforeModuleId ? toSection.items.indexOf(beforeModuleId) : -1;
+      if (beforeIndex >= 0) {
+        toSection.items.splice(beforeIndex, 0, moduleId);
+      } else {
+        toSection.items.push(moduleId);
+      }
+      saveToStorage();
+      renderMenus();
+      renderEditors();
+    }
+
+    function onCardDragStart(event, index) {
+      event.dataTransfer.setData('text/plain', JSON.stringify({ type: 'card', index }));
+      event.currentTarget.classList.add('dragging');
+    }
+
+    function onCardDragOver(event) {
+      event.preventDefault();
+    }
+
+    function onCardDrop(event, targetIndex) {
+      event.preventDefault();
+      const payload = parseDragPayload(event);
+      if (!payload || payload.type !== 'card' || payload.index === targetIndex) return;
+      const [item] = state.config.cards.splice(payload.index, 1);
+      state.config.cards.splice(targetIndex, 0, item);
+      saveToStorage();
+      renderCards();
+      renderEditors();
+    }
+
+    function clearDraggingStates() {
+      document.querySelectorAll('.dragging').forEach((element) => element.classList.remove('dragging'));
+    }
+
+    function parseDragPayload(event) {
+      try {
+        return JSON.parse(event.dataTransfer.getData('text/plain'));
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function openConfigDrawer() {
+      state.draftConfig = cloneDeep(state.config);
+      syncDrawerForm();
+      renderEditors();
+      el.configDrawer.classList.add('open');
+    }
+
+    function closeConfigDrawer() {
+      el.configDrawer.classList.remove('open');
+      state.draftConfig = null;
+    }
+
+    function syncDrawerForm() {
+      if (!state.draftConfig) return;
+      el.cfgAppTitle.value = state.draftConfig.appTitle || '';
+      el.cfgAppSubtitle.value = state.draftConfig.appSubtitle || '';
+    }
+
+    function renderEditors() {
+      renderModulesEditor();
+      renderSectionsEditor();
+      renderCardsEditor();
+    }
+
+    function renderModulesEditor() {
+      const modules = state.draftConfig.modules;
+      el.modulesEditor.innerHTML = '';
+      modules.forEach((module, index) => {
+        const item = document.createElement('div');
+        item.className = 'config-item';
+        item.innerHTML = `
+          <div class="field-grid">
+            <label>ID<input data-field="id" value="${escapeAttribute(module.id)}"></label>
+            <label>Nome<input data-field="nome" value="${escapeAttribute(module.nome)}"></label>
+          </div>
+          <div class="field-grid full">
+            <label>Descrição<input data-field="descricao" value="${escapeAttribute(module.descricao || '')}"></label>
+          </div>
+          <div class="field-grid">
+            <label>Categoria<input data-field="categoria" value="${escapeAttribute(module.categoria || '')}"></label>
+            <label>Ícone<input data-field="icon" value="${escapeAttribute(module.icon || '')}"></label>
+          </div>
+          <div class="field-grid">
+            <label>URL<input data-field="url" value="${escapeAttribute(module.url || '')}"></label>
+            <label>Embed URL<input data-field="embedUrl" value="${escapeAttribute(module.embedUrl || '')}"></label>
+          </div>
+          <div class="field-grid">
+            <label>Imagem URL<input data-field="imageUrl" value="${escapeAttribute(module.imageUrl || '')}"></label>
+            <label>Modo de abertura
+              <select data-field="openMode">
+                <option value="iframe" ${module.openMode === 'iframe' ? 'selected' : ''}>iframe</option>
+                <option value="newtab" ${module.openMode === 'newtab' ? 'selected' : ''}>nova aba</option>
+              </select>
+            </label>
+          </div>
+          <div class="field-grid">
+            <label>Tags (separadas por vírgula)<input data-field="tags" value="${escapeAttribute((module.tags || []).join(', '))}"></label>
+            <label>Ativo
+              <select data-field="active">
+                <option value="true" ${module.active !== false ? 'selected' : ''}>sim</option>
+                <option value="false" ${module.active === false ? 'selected' : ''}>não</option>
+              </select>
+            </label>
+          </div>
+          <div class="row-actions">
+            <button class="mini-btn" data-action="remove">Remover</button>
+          </div>
+        `;
+        item.querySelectorAll('[data-field]').forEach((input) => {
+          input.addEventListener('input', () => updateModuleField(index, input.dataset.field, input.value));
+          input.addEventListener('change', () => updateModuleField(index, input.dataset.field, input.value));
+        });
+        item.querySelector('[data-action="remove"]').addEventListener('click', () => removeModule(index));
+        el.modulesEditor.appendChild(item);
+      });
+    }
+
+    function renderSectionsEditor() {
+      const modules = state.draftConfig.modules;
+      el.sectionsEditor.innerHTML = '';
+      state.draftConfig.menuSections.forEach((section, index) => {
+        const item = document.createElement('div');
+        item.className = 'config-item';
+        item.innerHTML = `
+          <div class="field-grid">
+            <label>ID<input data-field="id" value="${escapeAttribute(section.id)}"></label>
+            <label>Título<input data-field="title" value="${escapeAttribute(section.title)}"></label>
+          </div>
+          <div class="field-grid">
+            <label>Recolhida
+              <select data-field="collapsed">
+                <option value="false" ${section.collapsed ? '' : 'selected'}>não</option>
+                <option value="true" ${section.collapsed ? 'selected' : ''}>sim</option>
+              </select>
+            </label>
+          </div>
+          <div class="field-grid full">
+            <label>Módulos desta seção</label>
+            <div style="display:grid;gap:6px;">
+              ${modules.map((module) => `
+                <label style="display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text);">
+                  <input type="checkbox" data-module-id="${escapeAttribute(module.id)}" ${section.items.includes(module.id) ? 'checked' : ''}>
+                  ${escapeHtml(module.nome)}
+                </label>
+              `).join('')}
+            </div>
+          </div>
+          <div class="row-actions">
+            <button class="mini-btn" data-action="remove">Remover</button>
+          </div>
+        `;
+        item.querySelectorAll('[data-field]').forEach((input) => {
+          input.addEventListener('input', () => updateSectionField(index, input.dataset.field, input.value));
+          input.addEventListener('change', () => updateSectionField(index, input.dataset.field, input.value));
+        });
+        item.querySelectorAll('[data-module-id]').forEach((checkbox) => {
+          checkbox.addEventListener('change', () => toggleModuleInSection(index, checkbox.dataset.moduleId, checkbox.checked));
+        });
+        item.querySelector('[data-action="remove"]').addEventListener('click', () => removeSection(index));
+        el.sectionsEditor.appendChild(item);
+      });
+    }
+
+    function renderCardsEditor() {
+      const modules = state.draftConfig.modules;
+      el.cardsEditor.innerHTML = '';
+      state.draftConfig.cards.forEach((card, index) => {
+        const item = document.createElement('div');
+        item.className = 'config-item';
+        item.innerHTML = `
+          <div class="field-grid">
+            <label>ID<input data-field="id" value="${escapeAttribute(card.id)}"></label>
+            <label>Título<input data-field="title" value="${escapeAttribute(card.title || '')}"></label>
+          </div>
+          <div class="field-grid full">
+            <label>Subtítulo<input data-field="subtitle" value="${escapeAttribute(card.subtitle || '')}"></label>
+          </div>
+          <div class="field-grid">
+            <label>Módulo
+              <select data-field="moduleId">
+                ${modules.map((module) => `<option value="${escapeAttribute(module.id)}" ${card.moduleId === module.id ? 'selected' : ''}>${escapeHtml(module.nome)}</option>`).join('')}
+              </select>
+            </label>
+            <label>Tamanho
+              <select data-field="size">
+                <option value="small" ${card.size === 'small' ? 'selected' : ''}>small</option>
+                <option value="normal" ${card.size === 'normal' ? 'selected' : ''}>normal</option>
+                <option value="wide" ${card.size === 'wide' ? 'selected' : ''}>wide</option>
+                <option value="tall" ${card.size === 'tall' ? 'selected' : ''}>tall</option>
+              </select>
+            </label>
+          </div>
+          <div class="field-grid">
+            <label>Imagem URL<input data-field="imageUrl" value="${escapeAttribute(card.imageUrl || '')}"></label>
+            <label>Ativo
+              <select data-field="active">
+                <option value="true" ${card.active !== false ? 'selected' : ''}>sim</option>
+                <option value="false" ${card.active === false ? 'selected' : ''}>não</option>
+              </select>
+            </label>
+          </div>
+          <div class="row-actions">
+            <button class="mini-btn" data-action="remove">Remover</button>
+          </div>
+        `;
+        item.querySelectorAll('[data-field]').forEach((input) => {
+          input.addEventListener('input', () => updateCardField(index, input.dataset.field, input.value));
+          input.addEventListener('change', () => updateCardField(index, input.dataset.field, input.value));
+        });
+        item.querySelector('[data-action="remove"]').addEventListener('click', () => removeCard(index));
+        el.cardsEditor.appendChild(item);
+      });
+    }
+
+    function updateModuleField(index, field, value) {
+      const target = state.draftConfig.modules[index];
+      if (!target) return;
+      if (field === 'tags') target[field] = value.split(',').map((item) => item.trim()).filter(Boolean);
+      else if (field === 'active') target[field] = value === 'true';
+      else target[field] = value;
+      renderSectionsEditor();
+      renderCardsEditor();
+    }
+
+    function updateSectionField(index, field, value) {
+      const target = state.draftConfig.menuSections[index];
+      if (!target) return;
+      target[field] = field === 'collapsed' ? value === 'true' : value;
+    }
+
+    function updateCardField(index, field, value) {
+      const target = state.draftConfig.cards[index];
+      if (!target) return;
+      target[field] = field === 'active' ? value === 'true' : value;
+    }
+
+    function toggleModuleInSection(sectionIndex, moduleId, checked) {
+      const section = state.draftConfig.menuSections[sectionIndex];
+      if (!section) return;
+      section.items = section.items.filter((item) => item !== moduleId);
+      if (checked) section.items.push(moduleId);
+    }
+
+    function removeModule(index) {
+      const [removed] = state.draftConfig.modules.splice(index, 1);
+      if (!removed) return;
+      state.draftConfig.menuSections.forEach((section) => {
+        section.items = section.items.filter((item) => item !== removed.id);
+      });
+      state.draftConfig.cards = state.draftConfig.cards.filter((card) => card.moduleId !== removed.id);
+      renderEditors();
+    }
+
+    function removeSection(index) {
+      state.draftConfig.menuSections.splice(index, 1);
+      renderEditors();
+    }
+
+    function removeCard(index) {
+      state.draftConfig.cards.splice(index, 1);
+      renderEditors();
+    }
+
+    function addModule() {
+      state.draftConfig.modules.push({
+        id: uid('modulo'),
+        nome: 'Novo módulo',
+        descricao: '',
+        categoria: 'Geral',
+        url: '/',
+        embedUrl: '/',
+        imageUrl: '',
+        icon: '📁',
+        openMode: 'iframe',
+        active: true,
+        tags: []
+      });
+      renderEditors();
+    }
+
+    function addSection() {
+      state.draftConfig.menuSections.push({
+        id: uid('secao'),
+        title: 'Nova seção',
+        collapsed: false,
+        items: []
+      });
+      renderEditors();
+    }
+
+    function addCard() {
+      const firstModule = state.draftConfig.modules[0];
+      if (!firstModule) return;
+      state.draftConfig.cards.push({
+        id: uid('card'),
+        moduleId: firstModule.id,
+        title: 'Novo card',
+        subtitle: '',
+        imageUrl: '',
+        size: 'normal',
+        active: true
+      });
+      renderEditors();
+    }
+
+    function applyDraftConfig() {
+      state.draftConfig.appTitle = el.cfgAppTitle.value.trim() || 'Central de Módulos';
+      state.draftConfig.appSubtitle = el.cfgAppSubtitle.value.trim() || '';
+      state.config = cloneDeep(state.draftConfig);
+      saveToStorage();
+      closeConfigDrawer();
+      renderAll();
+    }
+
+    function resetConfig() {
+      if (!confirm('Resetar a configuração do hub para a versão padrão?')) return;
+      state.config = cloneDeep(state.defaultConfig);
+      localStorage.removeItem(STORAGE_KEY);
+      renderAll();
+    }
+
+    function exportConfigJson() {
+      const blob = new Blob([JSON.stringify(state.config, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'hub-config.json';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    async function importConfigJson(file) {
+      if (!file) return;
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      state.config = parsed;
+      saveToStorage();
+      renderAll();
+    }
+
+    function renderAll() {
+      el.brandTitle.textContent = state.config.appTitle || 'Central de Módulos';
+      el.brandSubtitle.textContent = state.config.appSubtitle || '';
+      renderMenus();
+      renderCards();
+
+      if (!state.activeModuleId) {
+        const firstModule = state.config.modules.find((item) => item.active !== false);
+        if (firstModule) openModule(firstModule.id);
+      } else {
+        renderMenus();
+      }
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#39;');
+    }
+
+    function escapeAttribute(value) {
+      return escapeHtml(value || '');
+    }
+
+    async function init() {
+      const response = await fetch('/hub/api/config');
+      const payload = await response.json();
+      if (!payload || !payload.ok) throw new Error('Falha ao carregar configuração do hub.');
+      state.defaultConfig = payload.config;
+      state.config = loadFromStorage() || cloneDeep(payload.config);
+      renderAll();
+    }
+
+    el.searchInput.addEventListener('input', (event) => {
+      state.searchTerm = event.target.value || '';
+      renderMenus();
+      renderCards();
+    });
+
+    el.openConfigBtn.addEventListener('click', openConfigDrawer);
+    el.openConfigBtnTop.addEventListener('click', openConfigDrawer);
+    el.closeDrawerBtn.addEventListener('click', closeConfigDrawer);
+    el.cancelConfigBtn.addEventListener('click', closeConfigDrawer);
+    el.saveConfigBtn.addEventListener('click', applyDraftConfig);
+    el.resetBtn.addEventListener('click', resetConfig);
+    el.reloadFrameBtn.addEventListener('click', () => {
+      if (el.moduleFrame.src) el.moduleFrame.src = el.moduleFrame.src;
+    });
+    el.openExternalBtn.addEventListener('click', () => {
+      const module = getModuleById(state.activeModuleId);
+      if (module) window.open(module.url, '_blank');
+    });
+    el.addModuleBtn.addEventListener('click', addModule);
+    el.addSectionBtn.addEventListener('click', addSection);
+    el.addCardBtn.addEventListener('click', addCard);
+    el.exportJsonBtn.addEventListener('click', exportConfigJson);
+    el.importJsonInput.addEventListener('change', async (event) => {
+      try {
+        await importConfigJson(event.target.files[0]);
+      } catch (error) {
+        alert('Falha ao importar JSON do hub.');
+      } finally {
+        event.target.value = '';
+      }
+    });
+
+    init().catch((error) => {
+      console.error(error);
+      alert('Falha ao iniciar a Central de Módulos.');
+    });
+  </script>
+</body>
+</html>
