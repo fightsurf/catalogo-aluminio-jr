@@ -503,11 +503,11 @@
       ];
 
       (Array.isArray(estado.pagamentos) ? estado.pagamentos : []).forEach((pagamento) => {
-        linhas.push(`- ${obterDataPagamentoMensagem(pagamento)}: *${formatarMoeda(pagamento.valor)}*`);
+        linhas.push(`<br>- ${obterDataPagamentoMensagem(pagamento)}: *${formatarMoeda(pagamento.valor)}*`);
       });
 
-      linhas.push(`Total pago: *${formatarMoeda(estado.resumo.totalPago)}*`);
-      linhas.push(`Restante a pagar: *${formatarMoeda(estado.resumo.saldoRestante)}*`);
+      linhas.push(`<br>Total pago: *${formatarMoeda(estado.resumo.totalPago)}*`);
+      linhas.push(`<br>Restante a pagar: *${formatarMoeda(estado.resumo.saldoRestante)}*`);
 
       return linhas.join('\n');
     }
