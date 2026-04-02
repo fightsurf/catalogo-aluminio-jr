@@ -21,10 +21,6 @@ const carradasLegadoRoutes = require('./src/routes/legado/carradas/carradas.rout
 const carradasLegadoViewRoutes = require('./src/routes/legado/carradas/carradas.view.routes');
 const pagamentosLegadoRoutes = require('./src/routes/legado/pagamentos/pagamentos.routes');
 const pagamentosLegadoViewRoutes = require('./src/routes/legado/pagamentos/pagamentos.view.routes');
-const vendedoresLegadoRoutes = require('./src/routes/legado/vendedores/vendedores.routes');
-const dashboardPedidosLegadoRoutes = require('./src/routes/legado/dashboard-pedidos/dashboard-pedidos.routes');
-const dashboardPedidosLegadoViewRoutes = require('./src/routes/legado/dashboard-pedidos/dashboard-pedidos.view.routes');
-const pedidosRelatorioViewRoutes = require('./src/routes/legado/pedidos-relatorio/pedidos-relatorio.view.routes');
 
 const botAutonomiaService = require('./src/services/bot/botAutonomia.services');
 const botAutonomiaRoutes = require('./src/routes/bot/botAutonomia.routes');
@@ -46,12 +42,11 @@ const botContatosRoutes = require('./src/routes/bot/botContatos.routes');
 const botIntencoesRoutes = require('./src/routes/bot/botIntencoes.routes');
 const classificadorIntencaoRoutes = require('./src/routes/bot/classificadorIntencao.routes');
 const botFluxoRoutes = require('./src/routes/bot/botFluxo.routes');
+const whatsappRoutes = require('./src/routes/whatsapp/whatsapp.routes');
 const relatorioAcrescimoApiRoutes = require('./src/routes/vendas/relatorio-acrescimo.routes');
 const relatorioAcrescimoViewRoutes = require('./src/routes/vendas/relatorio-acrescimo.view.routes');
 const pedidosInsercaoLegadoV2Routes = require('./src/routes/legado/pedidos-insercao-v2/pedidos-insercao-v2.routes');
 const pedidosInsercaoLegadoV2ViewRoutes = require('./src/routes/legado/pedidos-insercao-v2/pedidos-insercao-v2.view.routes');
-const envioWhatsappRoutes = require('./src/routes/whatsapp/envio-whatsapp.routes');
-const envioWhatsappViewRoutes = require('./src/routes/whatsapp/envio-whatsapp.view.routes');
 
 
 const app = express();
@@ -81,10 +76,6 @@ app.use('/api/legado/carradas', carradasLegadoRoutes);
 app.use('/legado/carradas', carradasLegadoViewRoutes);
 app.use('/api/legado/pagamentos', pagamentosLegadoRoutes);
 app.use('/legado/pagamentos', pagamentosLegadoViewRoutes);
-app.use('/api/legado/vendedores', vendedoresLegadoRoutes);
-app.use('/api/legado/dashboard-pedidos', dashboardPedidosLegadoRoutes);
-app.use('/legado/dashboard-pedidos', dashboardPedidosLegadoViewRoutes);
-app.use('/legado/pedidos-relatorio', pedidosRelatorioViewRoutes);
 app.use('/api/vendas', relatorioAcrescimoApiRoutes);
 app.use('/vendas', relatorioAcrescimoViewRoutes);
 
@@ -100,8 +91,6 @@ app.use('/api/admin-volume', adminVolumeRoutes);
 app.use('/api/prestacoes', prestacaoContasRoutes);
 app.use('/api/legado/pedidos-insercao-v2', pedidosInsercaoLegadoV2Routes);
 app.use('/legado/pedidos-insercao-v2', pedidosInsercaoLegadoV2ViewRoutes);
-app.use('/api/whatsapp', envioWhatsappRoutes);
-app.use('/whatsapp', envioWhatsappViewRoutes);
 
 app.use('/bot', botRoutes);
 app.use('/bot/admin', botAdminRoutes);
@@ -109,6 +98,7 @@ app.use('/api/bot', botContatosRoutes);
 app.use('/bot', botIntencoesRoutes);
 app.use('/bot', classificadorIntencaoRoutes);
 app.use('/bot/fluxo', botFluxoRoutes);
+app.use('/api/whatsapp', whatsappRoutes);
 
 app.use('/bot-admin', express.static(path.join(__dirname, 'views', 'bot-admin')));
 
