@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Semanas</title>
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --primary: #111827;
+      --primaryText: #ffffff;
+      --danger: #991b1b;
+      --disponivelBg: #eff6ff;
+      --disponivelBorder: #93c5fd;
+      --selecionadoBg: #ecfdf5;
+      --selecionadoBorder: #86efac;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .page {
+      max-width: 1500px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1, h2, h3, p { margin: 0; }
+    .topbar {
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .form-inline {
+      display: flex;
+      gap: 10px;
+      align-items: end;
+      flex-wrap: wrap;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 200px;
+    }
+    .field label {
+      font-size: 13px;
+      color: var(--muted);
+    }
+    .field input {
+      height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 0 12px;
+      background: #fff;
+    }
+    button, a.button {
+      border: 0;
+      border-radius: 10px;
+      padding: 0 16px;
+      height: 42px;
+      cursor: pointer;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .btn-primary { background: var(--primary); color: var(--primaryText); }
+    .btn-secondary { background: #fff; border: 1px solid var(--line); color: var(--text); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .layout {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+    }
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .cards {
+      display: grid;
+      gap: 10px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 14px;
+      background: #fff;
+    }
+    .card-disponivel {
+      background: var(--disponivelBg);
+      border-color: var(--disponivelBorder);
+    }
+    .card-selecionado {
+      background: var(--selecionadoBg);
+      border-color: var(--selecionadoBorder);
+    }
+    .compact-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    .card-main {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+    .card-title {
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .card-meta {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .card-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      flex-shrink: 0;
+    }
+    .empty {
+      color: var(--muted);
+      padding: 18px 0;
+    }
+    .muted { color: var(--muted); }
+    .selected-count { font-size: 14px; color: var(--muted); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      font-size: 14px;
+    }
+    th { color: var(--muted); font-size: 13px; }
+    .actions-cell { white-space: nowrap; }
+    .list-panel { margin-top: 18px; }
+    .field-help {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+      .compact-card {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .card-actions {
+        justify-content: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="topbar">
+      <div>
+        <h1>Módulo de Semanas</h1>
+        <p class="muted">Agrupe carradas, salve semanas e gere a consolidação de itens.</p>
+      </div>
+      <button class="btn-secondary" id="btnNovo">Nova semana</button>
+    </div>
+
+    <div class="panel" style="margin-bottom: 16px;">
+      <div class="form-inline">
+        <div class="field">
+          <label for="dataInicial">Data inicial</label>
+          <input type="date" id="dataInicial" />
+        </div>
+        <div class="field">
+          <label for="dataFinal">Data final</label>
+          <input type="date" id="dataFinal" />
+        </div>
+        <div class="field" style="min-width: 320px;">
+          <label for="descricaoSemana">Descrição</label>
+          <input type="text" id="descricaoSemana" placeholder="Descrição da semana" maxlength="100" />
+        </div>
+        <div class="field" style="min-width: 180px;">
+          <label>&nbsp;</label>
+          <button class="btn-primary" id="btnSalvar">Salvar semana</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="layout">
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>Carradas disponíveis</h2>
+            <p class="muted">Busque por data exata, período e descrição.</p>
+          </div>
+          <button class="btn-secondary" id="btnLimparBusca">Limpar busca</button>
+        </div>
+
+        <div class="form-inline" style="margin-bottom: 10px;">
+          <div class="field">
+            <label for="buscaDataExata">Data exata</label>
+            <input type="date" id="buscaDataExata" />
+          </div>
+          <div class="field">
+            <label for="buscaDataInicial">Período inicial</label>
+            <input type="date" id="buscaDataInicial" />
+          </div>
+          <div class="field">
+            <label for="buscaDataFinal">Período final</label>
+            <input type="date" id="buscaDataFinal" />
+          </div>
+          <div class="field" style="min-width: 280px;">
+            <label for="buscaDescricao">Descrição</label>
+            <input type="text" id="buscaDescricao" placeholder="Digite parte da descrição" />
+          </div>
+          <div class="field" style="min-width: 180px;">
+            <label>&nbsp;</label>
+            <button class="btn-primary" id="btnBuscarCarradas">Buscar carradas</button>
+          </div>
+        </div>
+        <div class="field-help">A busca mostra apenas carradas livres ou carradas já ligadas à semana em edição.</div>
+
+        <div class="cards" id="listaCarradasDisponiveis" style="margin-top: 14px;">
+          <div class="empty">Nenhuma carrada carregada.</div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h2 id="tituloMontagem">Semana em montagem</h2>
+            <p class="selected-count" id="contadorSelecionados">0 carrada(s) selecionada(s)</p>
+          </div>
+        </div>
+
+        <div class="cards" id="listaCarradasSelecionadas">
+          <div class="empty">Adicione carradas do lado esquerdo.</div>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel list-panel">
+      <div class="panel-header">
+        <div>
+          <h2>Semanas salvas</h2>
+          <p class="muted">Abra, edite, resuma ou exclua uma semana já gravada.</p>
+        </div>
+        <button class="btn-secondary" id="btnRecarregarSemanas">Recarregar</button>
+      </div>
+      <div style="overflow:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Data inicial</th>
+              <th>Data final</th>
+              <th>Descrição</th>
+              <th>Qtd. carradas</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="tabelaSemanas">
+            <tr><td colspan="5" class="muted">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const estado = {
+      idSemanaAtual: null,
+      carradasDisponiveis: [],
+      carradasSelecionadas: []
+    };
+
+    const el = {
+      btnNovo: document.getElementById('btnNovo'),
+      dataInicial: document.getElementById('dataInicial'),
+      dataFinal: document.getElementById('dataFinal'),
+      descricaoSemana: document.getElementById('descricaoSemana'),
+      btnSalvar: document.getElementById('btnSalvar'),
+      buscaDataExata: document.getElementById('buscaDataExata'),
+      buscaDataInicial: document.getElementById('buscaDataInicial'),
+      buscaDataFinal: document.getElementById('buscaDataFinal'),
+      buscaDescricao: document.getElementById('buscaDescricao'),
+      btnBuscarCarradas: document.getElementById('btnBuscarCarradas'),
+      btnLimparBusca: document.getElementById('btnLimparBusca'),
+      listaCarradasDisponiveis: document.getElementById('listaCarradasDisponiveis'),
+      listaCarradasSelecionadas: document.getElementById('listaCarradasSelecionadas'),
+      contadorSelecionados: document.getElementById('contadorSelecionados'),
+      tituloMontagem: document.getElementById('tituloMontagem'),
+      tabelaSemanas: document.getElementById('tabelaSemanas'),
+      btnRecarregarSemanas: document.getElementById('btnRecarregarSemanas')
+    };
+
+    function escapeHtml(valor) {
+      return String(valor ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatarData(valor) {
+      if (!valor) return '';
+      const data = new Date(valor);
+      if (Number.isNaN(data.getTime())) return String(valor);
+      return data.toLocaleDateString('pt-BR');
+    }
+
+    function formatarQuantidade(valor) {
+      return Number(valor || 0).toLocaleString('pt-BR');
+    }
+
+    async function request(url, options = {}) {
+      const response = await fetch(url, options);
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || data.success === false) {
+        throw new Error(data.error || data.message || 'Falha na requisição.');
+      }
+
+      return data.data;
+    }
+
+    function carradaSelecionada(codigo) {
+      return estado.carradasSelecionadas.some((item) => Number(item.codigo) === Number(codigo));
+    }
+
+    function montarMetaCarrada(carrada) {
+      const partes = [`Data: ${formatarData(carrada.data) || '-'}`];
+
+      if (carrada.quantidade_pedidos !== undefined) {
+        partes.push(`Pedidos: ${formatarQuantidade(carrada.quantidade_pedidos)}`);
+      }
+
+      if (carrada.quantidade_itens !== undefined) {
+        partes.push(`Itens: ${formatarQuantidade(carrada.quantidade_itens)}`);
+      }
+
+      return partes.join(' | ');
+    }
+
+    function renderCarradasDisponiveis(carradas) {
+      estado.carradasDisponiveis = Array.isArray(carradas) ? carradas : [];
+
+      const carradasLivres = estado.carradasDisponiveis.filter((carrada) => !carradaSelecionada(carrada.codigo));
+
+      if (!carradasLivres.length) {
+        el.listaCarradasDisponiveis.innerHTML = '<div class="empty">Nenhuma carrada disponível encontrada.</div>';
+        return;
+      }
+
+      el.listaCarradasDisponiveis.innerHTML = carradasLivres.map((carrada) => `
+        <div class="card card-disponivel compact-card">
+          <div class="card-main">
+            <div class="card-title">Carrada ${escapeHtml(carrada.codigo)}</div>
+            <div class="card-meta">${escapeHtml(montarMetaCarrada(carrada))}</div>
+            <div class="card-meta">Descrição: ${escapeHtml(carrada.descricao || '-')}</div>
+          </div>
+          <div class="card-actions">
+            <button class="btn-primary" data-adicionar="${escapeHtml(carrada.codigo)}">Adicionar</button>
+          </div>
+        </div>
+      `).join('');
+
+      el.listaCarradasDisponiveis.querySelectorAll('[data-adicionar]').forEach((botao) => {
+        botao.addEventListener('click', () => adicionarCarrada(botao.dataset.adicionar));
+      });
+    }
+
+    function renderCarradasSelecionadas() {
+      el.contadorSelecionados.textContent = `${estado.carradasSelecionadas.length} carrada(s) selecionada(s)`;
+
+      if (!estado.carradasSelecionadas.length) {
+        el.listaCarradasSelecionadas.innerHTML = '<div class="empty">Adicione carradas do lado esquerdo.</div>';
+        return;
+      }
+
+      el.listaCarradasSelecionadas.innerHTML = estado.carradasSelecionadas.map((carrada) => `
+        <div class="card card-selecionado compact-card">
+          <div class="card-main">
+            <div class="card-title">Carrada ${escapeHtml(carrada.codigo)}</div>
+            <div class="card-meta">${escapeHtml(montarMetaCarrada(carrada))}</div>
+            <div class="card-meta">Descrição: ${escapeHtml(carrada.descricao || '-')}</div>
+          </div>
+          <div class="card-actions">
+            <a class="button btn-secondary" href="/legado/carradas/detalhe?codigo=${encodeURIComponent(carrada.codigo)}">Abrir</a>
+            <button class="btn-danger" data-remover="${escapeHtml(carrada.codigo)}">Remover</button>
+          </div>
+        </div>
+      `).join('');
+
+      el.listaCarradasSelecionadas.querySelectorAll('[data-remover]').forEach((botao) => {
+        botao.addEventListener('click', () => removerCarrada(botao.dataset.remover));
+      });
+    }
+
+    function renderSemanas(semanas) {
+      if (!Array.isArray(semanas) || !semanas.length) {
+        el.tabelaSemanas.innerHTML = '<tr><td colspan="5" class="muted">Nenhuma semana cadastrada.</td></tr>';
+        return;
+      }
+
+      el.tabelaSemanas.innerHTML = semanas.map((semana) => `
+        <tr>
+          <td>${escapeHtml(formatarData(semana.data_inicial))}</td>
+          <td>${escapeHtml(formatarData(semana.data_final))}</td>
+          <td>${escapeHtml(semana.descricao || '-')}</td>
+          <td>${escapeHtml(formatarQuantidade(semana.quantidade_carradas))}</td>
+          <td class="actions-cell">
+            <button class="btn-secondary" data-visualizar="${escapeHtml(semana.id)}">Abrir</button>
+            <button class="btn-secondary" data-editar="${escapeHtml(semana.id)}">Editar</button>
+            <button class="btn-secondary" data-resumo="${escapeHtml(semana.id)}">Resumo</button>
+            <button class="btn-danger" data-excluir="${escapeHtml(semana.id)}">Excluir</button>
+          </td>
+        </tr>
+      `).join('');
+
+      el.tabelaSemanas.querySelectorAll('[data-visualizar]').forEach((botao) => {
+        botao.addEventListener('click', () => {
+          window.location.href = `/legado/semanas/detalhe?id=${encodeURIComponent(botao.dataset.visualizar)}`;
+        });
+      });
+
+      el.tabelaSemanas.querySelectorAll('[data-editar]').forEach((botao) => {
+        botao.addEventListener('click', () => carregarSemana(botao.dataset.editar));
+      });
+
+      el.tabelaSemanas.querySelectorAll('[data-resumo]').forEach((botao) => {
+        botao.addEventListener('click', () => {
+          window.location.href = `/legado/semanas/resumo?id=${encodeURIComponent(botao.dataset.resumo)}`;
+        });
+      });
+
+      el.tabelaSemanas.querySelectorAll('[data-excluir]').forEach((botao) => {
+        botao.addEventListener('click', () => excluirSemana(botao.dataset.excluir));
+      });
+    }
+
+    function adicionarCarrada(codigo) {
+      const carrada = estado.carradasDisponiveis.find((item) => Number(item.codigo) === Number(codigo));
+      if (!carrada || carradaSelecionada(codigo)) {
+        return;
+      }
+
+      estado.carradasSelecionadas.push(carrada);
+      renderCarradasSelecionadas();
+      renderCarradasDisponiveis(estado.carradasDisponiveis);
+    }
+
+    function removerCarrada(codigo) {
+      estado.carradasSelecionadas = estado.carradasSelecionadas.filter((carrada) => Number(carrada.codigo) !== Number(codigo));
+      renderCarradasSelecionadas();
+      renderCarradasDisponiveis(estado.carradasDisponiveis);
+    }
+
+    function limparBusca() {
+      el.buscaDataExata.value = '';
+      el.buscaDataInicial.value = '';
+      el.buscaDataFinal.value = '';
+      el.buscaDescricao.value = '';
+      renderCarradasDisponiveis([]);
+    }
+
+    function limparFormulario() {
+      estado.idSemanaAtual = null;
+      estado.carradasDisponiveis = [];
+      estado.carradasSelecionadas = [];
+      el.dataInicial.value = '';
+      el.dataFinal.value = '';
+      el.descricaoSemana.value = '';
+      el.tituloMontagem.textContent = 'Semana em montagem';
+      el.btnSalvar.textContent = 'Salvar semana';
+      limparBusca();
+      renderCarradasSelecionadas();
+      window.history.replaceState({}, '', '/legado/semanas');
+    }
+
+    async function buscarCarradasDisponiveis() {
+      const params = new URLSearchParams();
+
+      if (el.buscaDataExata.value) params.set('data', el.buscaDataExata.value);
+      if (el.buscaDataInicial.value) params.set('data_inicial', el.buscaDataInicial.value);
+      if (el.buscaDataFinal.value) params.set('data_final', el.buscaDataFinal.value);
+      if (el.buscaDescricao.value.trim()) params.set('descricao', el.buscaDescricao.value.trim());
+      if (estado.idSemanaAtual) params.set('semana_id_excluir', estado.idSemanaAtual);
+
+      try {
+        const carradas = await request(`/api/legado/semanas/carradas/disponiveis?${params.toString()}`);
+        renderCarradasDisponiveis(carradas);
+      } catch (error) {
+        alert(error.message);
+      }
+    }
+
+    async function carregarSemanas() {
+      try {
+        const semanas = await request('/api/legado/semanas');
+        renderSemanas(semanas);
+      } catch (error) {
+        el.tabelaSemanas.innerHTML = `<tr><td colspan="5" class="muted">${escapeHtml(error.message)}</td></tr>`;
+      }
+    }
+
+    async function carregarSemana(id) {
+      try {
+        const semana = await request(`/api/legado/semanas/${id}`);
+        estado.idSemanaAtual = semana.id;
+        el.dataInicial.value = semana.data_inicial ? String(semana.data_inicial).slice(0, 10) : '';
+        el.dataFinal.value = semana.data_final ? String(semana.data_final).slice(0, 10) : '';
+        el.descricaoSemana.value = semana.descricao || '';
+        estado.carradasSelecionadas = Array.isArray(semana.carradas) ? [...semana.carradas] : [];
+        el.tituloMontagem.textContent = `Editando semana ${formatarData(semana.data_inicial)} a ${formatarData(semana.data_final)}`;
+        el.btnSalvar.textContent = 'Atualizar semana';
+        renderCarradasSelecionadas();
+        await buscarCarradasDisponiveis();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        window.history.replaceState({}, '', `/legado/semanas?id=${encodeURIComponent(semana.id)}`);
+      } catch (error) {
+        alert(error.message);
+      }
+    }
+
+    async function salvarSemana() {
+      if (!el.dataInicial.value) {
+        alert('Informe a data inicial da semana.');
+        return;
+      }
+
+      if (!el.dataFinal.value) {
+        alert('Informe a data final da semana.');
+        return;
+      }
+
+      if (!estado.carradasSelecionadas.length) {
+        alert('Selecione ao menos uma carrada.');
+        return;
+      }
+
+      const payload = {
+        data_inicial: el.dataInicial.value,
+        data_final: el.dataFinal.value,
+        descricao: el.descricaoSemana.value.trim(),
+        carradas: estado.carradasSelecionadas.map((carrada) => ({ codigo: carrada.codigo }))
+      };
+
+      try {
+        const url = estado.idSemanaAtual
+          ? `/api/legado/semanas/${estado.idSemanaAtual}`
+          : '/api/legado/semanas';
+        const method = estado.idSemanaAtual ? 'PUT' : 'POST';
+
+        const semana = await request(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        window.location.href = `/legado/semanas/detalhe?id=${encodeURIComponent(semana.id)}`;
+      } catch (error) {
+        alert(error.message);
+      }
+    }
+
+    async function excluirSemana(id) {
+      if (!confirm('Deseja excluir esta semana?')) {
+        return;
+      }
+
+      try {
+        await request(`/api/legado/semanas/${id}`, { method: 'DELETE' });
+        if (estado.idSemanaAtual && Number(estado.idSemanaAtual) === Number(id)) {
+          limparFormulario();
+        }
+        await carregarSemanas();
+      } catch (error) {
+        alert(error.message);
+      }
+    }
+
+    el.btnBuscarCarradas.addEventListener('click', buscarCarradasDisponiveis);
+    el.btnLimparBusca.addEventListener('click', limparBusca);
+    el.btnSalvar.addEventListener('click', salvarSemana);
+    el.btnNovo.addEventListener('click', limparFormulario);
+    el.btnRecarregarSemanas.addEventListener('click', carregarSemanas);
+
+    [el.buscaDataExata, el.buscaDataInicial, el.buscaDataFinal, el.buscaDescricao].forEach((campo) => {
+      campo.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          buscarCarradasDisponiveis();
+        }
+      });
+    });
+
+    carregarSemanas();
+    renderCarradasSelecionadas();
+
+    const params = new URLSearchParams(window.location.search);
+    const idEdicao = params.get('id');
+    if (idEdicao) {
+      carregarSemana(idEdicao);
+    }
+  </script>
+</body>
+</html>

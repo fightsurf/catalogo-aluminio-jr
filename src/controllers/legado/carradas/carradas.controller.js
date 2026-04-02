@@ -1,4 +1,5 @@
 const carradasService = require('../../../services/legado/carradas/carradas.service');
+const semanasService = require('../../../services/legado/semanas/semanas.service');
 
 async function listarClientes(req, res) {
   try {
@@ -79,10 +80,20 @@ async function atualizarCarrada(req, res) {
 
 async function excluirCarrada(req, res) {
   try {
+    const semanaVinculada = await semanasService.buscarSemanaDaCarrada(req.params.codigo);
+
+    if (semanaVinculada) {
+      return res.status(409).json({
+        success: false,
+        message: `A carrada ${req.params.codigo} está vinculada à semana de ${semanaVinculada.data_inicial} até ${semanaVinculada.data_final}${semanaVinculada.descricao ? ` (${semanaVinculada.descricao})` : ''}. Remova a carrada da semana antes de excluí-la.`
+      });
+    }
+
     const data = await carradasService.excluirCarrada(req.params.codigo);
     return res.status(200).json({ success: true, data });
   } catch (error) {
-    return res.status(500).json({ success: false, message: 'Erro ao excluir carrada.', error: error.message });
+    const status = Number(error?.statusCode || 500);
+    return res.status(status).json({ success: false, message: error.message || 'Erro ao excluir carrada.', error: error.message });
   }
 }
 

@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Detalhe da Semana</title>
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --card: #ffffff;
+      --text: #111827;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --primary: #111827;
+      --danger: #991b1b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    button, a.button {
+      height: 42px;
+      padding: 0 16px;
+      border-radius: 10px;
+      border: 0;
+      cursor: pointer;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-secondary { background: #fff; border: 1px solid var(--line); color: var(--text); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .muted { color: var(--muted); }
+    .resumo-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(180px, 1fr));
+      gap: 12px;
+      margin-top: 10px;
+    }
+    .resumo-item {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      background: #fff;
+    }
+    .resumo-label {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+    .resumo-valor {
+      font-size: 18px;
+      font-weight: 700;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      font-size: 14px;
+    }
+    th { color: var(--muted); font-size: 13px; }
+    .linha-total td {
+      background: #111827;
+      color: #fff;
+      font-weight: 700;
+      border-bottom: 0;
+    }
+    @media (max-width: 900px) {
+      .resumo-grid {
+        grid-template-columns: repeat(2, minmax(180px, 1fr));
+      }
+    }
+    @media (max-width: 640px) {
+      .resumo-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="topbar">
+      <div>
+        <h1 id="titulo">Semana</h1>
+        <p class="muted" id="subtitulo"></p>
+      </div>
+      <div class="actions">
+        <a class="button btn-secondary" href="/legado/semanas">Voltar</a>
+        <button class="btn-secondary" id="btnResumo">Resumo da semana</button>
+        <button class="btn-secondary" id="btnEditar">Editar</button>
+        <button class="btn-danger" id="btnExcluir">Excluir</button>
+      </div>
+    </div>
+
+    <div id="conteudo">
+      <div class="card">Carregando semana...</div>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+
+    function escapeHtml(valor) {
+      return String(valor ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatarData(valor) {
+      if (!valor) return '';
+      const data = new Date(valor);
+      if (Number.isNaN(data.getTime())) return String(valor);
+      return data.toLocaleDateString('pt-BR');
+    }
+
+    function formatarMoeda(valor) {
+      return Number(valor || 0).toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+      });
+    }
+
+    function formatarQuantidade(valor) {
+      return Number(valor || 0).toLocaleString('pt-BR');
+    }
+
+    async function request(url, options = {}) {
+      const response = await fetch(url, options);
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || data.success === false) {
+        throw new Error(data.error || data.message || 'Falha na requisição.');
+      }
+
+      return data.data;
+    }
+
+    function renderSemana(semana) {
+      document.getElementById('titulo').textContent = 'Detalhe da semana';
+      document.getElementById('subtitulo').textContent = `Período: ${formatarData(semana.data_inicial)} até ${formatarData(semana.data_final)} | Descrição: ${semana.descricao || '-'}`;
+
+      const conteudo = document.getElementById('conteudo');
+      const carradas = Array.isArray(semana.carradas) ? semana.carradas : [];
+      const totais = semana.totais || {};
+
+      conteudo.innerHTML = `
+        <section class="card">
+          <h2>Resumo da semana</h2>
+          <div class="resumo-grid">
+            <div class="resumo-item">
+              <div class="resumo-label">Data inicial</div>
+              <div class="resumo-valor">${escapeHtml(formatarData(semana.data_inicial))}</div>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-label">Data final</div>
+              <div class="resumo-valor">${escapeHtml(formatarData(semana.data_final))}</div>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-label">Quantidade de carradas</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(totais.quantidade_carradas))}</div>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-label">Quantidade de pedidos</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(totais.quantidade_pedidos))}</div>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-label">Quantidade total de itens</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(totais.quantidade_itens))}</div>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-label">Total geral dos pedidos</div>
+              <div class="resumo-valor">${escapeHtml(formatarMoeda(totais.total_geral_pedidos))}</div>
+            </div>
+            <div class="resumo-item" style="grid-column: 1 / -1;">
+              <div class="resumo-label">Descrição</div>
+              <div class="resumo-valor">${escapeHtml(semana.descricao || '-')}</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>Carradas da semana</h2>
+          ${carradas.length ? `
+            <table>
+              <thead>
+                <tr>
+                  <th>Código</th>
+                  <th>Data</th>
+                  <th>Descrição</th>
+                  <th>Pedidos</th>
+                  <th>Itens</th>
+                  <th>Total dos pedidos</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${carradas.map((carrada) => `
+                  <tr>
+                    <td>${escapeHtml(carrada.codigo)}</td>
+                    <td>${escapeHtml(formatarData(carrada.data))}</td>
+                    <td>${escapeHtml(carrada.descricao || '-')}</td>
+                    <td>${escapeHtml(formatarQuantidade(carrada.quantidade_pedidos))}</td>
+                    <td>${escapeHtml(formatarQuantidade(carrada.quantidade_itens))}</td>
+                    <td>${escapeHtml(formatarMoeda(carrada.total_pedidos))}</td>
+                    <td>
+                      <a class="button btn-secondary" href="/legado/carradas/detalhe?codigo=${encodeURIComponent(carrada.codigo)}">Abrir carrada</a>
+                    </td>
+                  </tr>
+                `).join('')}
+              </tbody>
+              <tfoot>
+                <tr class="linha-total">
+                  <td></td>
+                  <td></td>
+                  <td>Total geral</td>
+                  <td>${escapeHtml(formatarQuantidade(totais.quantidade_pedidos))}</td>
+                  <td>${escapeHtml(formatarQuantidade(totais.quantidade_itens))}</td>
+                  <td>${escapeHtml(formatarMoeda(totais.total_geral_pedidos))}</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          ` : '<div class="muted" style="padding-top: 12px;">Nenhuma carrada vinculada nesta semana.</div>'}
+        </section>
+      `;
+    }
+
+    async function carregar() {
+      if (!id) {
+        document.getElementById('conteudo').innerHTML = '<div class="card">ID da semana não informado.</div>';
+        return;
+      }
+
+      try {
+        const semana = await request(`/api/legado/semanas/${id}`);
+        renderSemana(semana);
+      } catch (error) {
+        document.getElementById('conteudo').innerHTML = `<div class="card">${escapeHtml(error.message)}</div>`;
+      }
+    }
+
+    document.getElementById('btnResumo').addEventListener('click', () => {
+      if (!id) return;
+      window.location.href = `/legado/semanas/resumo?id=${encodeURIComponent(id)}`;
+    });
+
+    document.getElementById('btnEditar').addEventListener('click', () => {
+      if (!id) return;
+      window.location.href = `/legado/semanas?id=${encodeURIComponent(id)}`;
+    });
+
+    document.getElementById('btnExcluir').addEventListener('click', async () => {
+      if (!id) return;
+      if (!confirm('Deseja excluir esta semana?')) {
+        return;
+      }
+
+      try {
+        await request(`/api/legado/semanas/${id}`, { method: 'DELETE' });
+        window.location.href = '/legado/semanas';
+      } catch (error) {
+        alert(error.message);
+      }
+    });
+
+    carregar();
+  </script>
+</body>
+</html>
