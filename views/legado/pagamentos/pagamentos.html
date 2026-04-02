@@ -20,10 +20,6 @@
       --dangerBorder: #fecaca;
       --successBg: #ecfdf5;
       --successBorder: #a7f3d0;
-      --whatsapp: #111827;
-      --whatsappHover: #000000;
-      --whatsappText: #ffffff;
-      --link: #1d4ed8;
       --clienteBg: #f8fafc;
       --clienteBorder: #cbd5e1;
       --pedidoBg: #eff6ff;
@@ -122,7 +118,6 @@
     }
     .card-cliente { background: var(--clienteBg); border-color: var(--clienteBorder); }
     .card-pedido { background: var(--pedidoBg); border-color: var(--pedidoBorder); }
-    .card-pedido-incompleto { background: #fee2e2; border-color: #fca5a5; }
     .card-main { min-width: 0; flex: 1 1 auto; }
     .compact-card {
       display: flex;
@@ -171,15 +166,17 @@
       color: var(--muted);
       margin-bottom: 4px;
     }
-    .summary-side {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
     .summary-grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(160px, 1fr));
       gap: 12px;
+    }
+
+    .order-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
     }
     .summary-card {
       border: 1px solid var(--line);
@@ -200,65 +197,6 @@
     .summary-card.success { background: var(--successBg); border-color: var(--successBorder); }
     .summary-card.warning { background: var(--warningBg); border-color: var(--warningBorder); }
     .summary-card.danger { background: var(--dangerBg); border-color: var(--dangerBorder); }
-    .contact-actions {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-      align-items: stretch;
-    }
-    .contact-card {
-      flex: 1 1 220px;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 12px 14px;
-      background: #fff;
-    }
-    .contact-card strong {
-      display: block;
-      font-size: 13px;
-      color: var(--muted);
-      margin-bottom: 6px;
-    }
-    .contact-value {
-      font-size: 20px;
-      font-weight: 700;
-      word-break: break-word;
-    }
-    .contact-link {
-      color: var(--link);
-      text-decoration: none;
-    }
-    .contact-link:hover {
-      text-decoration: underline;
-    }
-    .contact-value.empty {
-      font-size: 15px;
-      font-weight: 400;
-      color: var(--muted);
-    }
-    .btn-whatsapp {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      min-width: 240px;
-      background: var(--whatsapp);
-      color: var(--whatsappText);
-      text-decoration: none;
-      border-radius: 12px;
-      padding: 0 18px;
-      min-height: 54px;
-      font-weight: 700;
-      box-shadow: 0 2px 10px rgba(37, 211, 102, 0.22);
-    }
-    .btn-whatsapp:hover { background: var(--whatsappHover); }
-    .btn-whatsapp.disabled, .btn-whatsapp[aria-disabled="true"] {
-      background: #9ca3af;
-      box-shadow: none;
-      cursor: not-allowed;
-      pointer-events: none;
-    }
-    .btn-whatsapp svg { flex-shrink: 0; }
     .workspace {
       display: grid;
       grid-template-columns: 380px 1fr;
@@ -311,7 +249,6 @@
       .compact-card { flex-direction: column; align-items: stretch; }
       .card-actions { justify-content: flex-start; }
       .summary-grid, .order-info-grid { grid-template-columns: 1fr; }
-      .btn-whatsapp { width: 100%; min-width: 0; }
     }
   </style>
 </head>
@@ -463,97 +400,74 @@
       });
     }
 
-    function normalizarTelefone(valor) {
-      return String(valor || '').replace(/\D+/g, '');
+    function parseValorMonetario(valor) {
+      const texto = String(valor || '').trim();
+      if (!texto) return 0;
+      return Number(texto.replace(/\./g, '').replace(',', '.')) || 0;
     }
 
-    function formatarTelefoneExibicao(valor) {
-      const telefone = normalizarTelefone(valor);
-      if (!telefone) return '';
-      if (telefone.length === 13) return `+${telefone.slice(0, 2)} (${telefone.slice(2, 4)}) ${telefone.slice(4, 9)}-${telefone.slice(9)}`;
-      if (telefone.length === 12) return `+${telefone.slice(0, 2)} (${telefone.slice(2, 4)}) ${telefone.slice(4, 8)}-${telefone.slice(8)}`;
-      if (telefone.length === 11) return `(${telefone.slice(0, 2)}) ${telefone.slice(2, 7)}-${telefone.slice(7)}`;
-      if (telefone.length === 10) return `(${telefone.slice(0, 2)}) ${telefone.slice(2, 6)}-${telefone.slice(6)}`;
-      return telefone;
+    function normalizarTelefoneWhatsApp(telefone) {
+      const digitos = String(telefone || '').replace(/\D/g, '');
+      if (!digitos) return '';
+      if (digitos.startsWith('55') && digitos.length >= 12) return digitos;
+      if (digitos.length === 10 || digitos.length === 11) return `55${digitos}`;
+      return digitos;
     }
 
-    function obterWhatsappHref() {
-      const telefone = normalizarTelefone(estado.pedidoSelecionado?.cliente?.telefone1 || estado.pedidoSelecionado?.cliente?.telefonePrincipal);
-      if (!telefone) return '#';
-      const params = new URLSearchParams({ telefone, mensagem: '' });
-      return `${window.location.origin}/whatsapp/enviar?${params.toString()}`;
-    }
-
-    function obterDataPagamentoMensagem(pagamento) {
-      if (!pagamento) return '-';
-      return formatarData(pagamento.condicao === 'C' ? pagamento.dataVencimento : pagamento.dataPgto) || '-';
-    }
-
-    function montarMensagemWhatsappPagamento() {
-      if (!estado.pedidoSelecionado || !estado.resumo) {
-        return '';
-      }
+    function montarMensagemWhatsApp() {
+      const pedido = estado.pedidoSelecionado || {};
+      const cliente = pedido.cliente || {};
+      const resumo = estado.resumo || {};
+      const pagamentos = Array.isArray(estado.pagamentos) ? estado.pagamentos : [];
 
       const linhas = [
         '💰 *Relatório de pagamentos*',
-        `Cliente: *${estado.pedidoSelecionado.cliente?.nome || '-'}*`,
-        `Número do pedido: *${estado.pedidoSelecionado.numero || '-'}*`,
+        `Cliente: *${cliente.nome || '-'}*`,
+        `Número do pedido: *${pedido.numero || '-'}*`,
         '-----------------------------------------------',
-        `Valor do pedido: *${formatarMoeda(estado.resumo.totalVenda)}*`
+        `Valor do pedido: *${formatarMoeda(resumo.totalVenda || pedido.total || 0)}*`,
+        ''
       ];
 
-      (Array.isArray(estado.pagamentos) ? estado.pagamentos : []).forEach((pagamento) => {
-        linhas.push(`- ${obterDataPagamentoMensagem(pagamento)}: *${formatarMoeda(pagamento.valor)}*`);
-      });
+      if (pagamentos.length) {
+        const blocoPagamentos = pagamentos.map((pagamento, index) => {
+          const dataPagamento = pagamento.dataPgto || pagamento.dataVencimento || null;
+          return `${index + 1} - ${formatarData(dataPagamento) || '-'}: *${formatarMoeda(pagamento.valor || 0)}*`;
+        }).join('\n\n');
 
-      linhas.push(`Total pago: *${formatarMoeda(estado.resumo.totalPago)}*`);
-      linhas.push(`Restante a pagar: *${formatarMoeda(estado.resumo.saldoRestante)}*`);
+        linhas.push(blocoPagamentos);
+        linhas.push('');
+      }
+
+      linhas.push(`Total pago: *${formatarMoeda(resumo.totalPago || 0)}*`);
+      linhas.push('');
+      linhas.push(`Restante a pagar: *${formatarMoeda(resumo.saldoRestante || 0)}*`);
 
       return linhas.join('\n');
     }
 
-    async function enviarMensagemPagamentoWhatsapp() {
-      const telefone = normalizarTelefone(estado.pedidoSelecionado?.cliente?.telefone1 || estado.pedidoSelecionado?.cliente?.telefonePrincipal);
+    async function enviarWhatsAppPedido() {
+      const telefone = normalizarTelefoneWhatsApp(estado.pedidoSelecionado?.cliente?.telefone);
 
       if (!telefone) {
-        mostrarStatus('warning', 'Telefone 1 não encontrado no legado para este cliente.');
+        mostrarStatus('error', 'Cliente sem telefone cadastrado.');
         return;
       }
 
-      const mensagem = montarMensagemWhatsappPagamento();
-      const botao = document.getElementById('btnEnviarWhatsappInterno');
-      const textoOriginal = botao ? botao.innerHTML : '';
-
       try {
-        if (botao) {
-          botao.disabled = true;
-          botao.innerHTML = 'Enviando...';
-        }
-
+        mostrarStatus('info', 'Enviando mensagem para o WhatsApp...');
         await request('/api/whatsapp/enviar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             telefone,
-            mensagem
+            mensagem: montarMensagemWhatsApp()
           })
         });
-
-        mostrarStatus('success', 'Mensagem de pagamentos enviada com sucesso pelo WhatsApp.');
+        mostrarStatus('success', 'Mensagem enviada com sucesso pelo WhatsApp.');
       } catch (error) {
-        mostrarStatus('error', error.message || 'Falha ao enviar mensagem de pagamentos pelo WhatsApp.');
-      } finally {
-        if (botao) {
-          botao.disabled = false;
-          botao.innerHTML = textoOriginal;
-        }
+        mostrarStatus('error', error.message || 'Falha ao enviar mensagem pelo WhatsApp.');
       }
-    }
-
-    function parseValorMonetario(valor) {
-      const texto = String(valor || '').trim();
-      if (!texto) return 0;
-      return Number(texto.replace(/\./g, '').replace(',', '.')) || 0;
     }
 
     function mostrarStatus(tipo, mensagem) {
@@ -566,10 +480,6 @@
       el.status.textContent = '';
     }
 
-    function atualizarVisibilidadeListaPedidos() {
-      el.listaPedidosDisponiveis.style.display = estado.pedidoSelecionado ? 'none' : 'grid';
-    }
-
     function limparPedidoSelecionado() {
       estado.pedidoSelecionado = null;
       estado.pagamentos = [];
@@ -578,7 +488,6 @@
       estado.pagamentoEmEdicao = null;
       el.painelPedidoSelecionado.style.display = 'none';
       el.painelPedidoSelecionado.innerHTML = '';
-      atualizarVisibilidadeListaPedidos();
     }
 
     function resetarBuscaClienteSelecionado() {
@@ -662,17 +571,8 @@
       });
     }
 
-    function pedidoTemSaldoPendente(pedido) {
-      return Number(pedido?.saldoRestante || 0) > 0;
-    }
-
-    function classeCardPedido(pedido) {
-      return pedidoTemSaldoPendente(pedido) ? 'card-pedido-incompleto' : '';
-    }
-
     function renderPedidosDisponiveis(pedidos) {
       estado.pedidosDisponiveis = Array.isArray(pedidos) ? pedidos : [];
-      atualizarVisibilidadeListaPedidos();
 
       if (!estado.pedidosDisponiveis.length) {
         el.listaPedidosDisponiveis.innerHTML = '<div class="empty">Nenhum pedido encontrado.</div>';
@@ -680,16 +580,14 @@
       }
 
       el.listaPedidosDisponiveis.innerHTML = estado.pedidosDisponiveis.map((pedido) => `
-        <div class="card card-pedido ${classeCardPedido(pedido)} compact-card">
+        <div class="card card-pedido compact-card">
           <div class="card-main">
             <div class="card-title">Pedido ${escapeHtml(pedido.numero || '-')}</div>
             <div class="card-meta">
               Cliente: ${escapeHtml(pedido.cliente?.nome || '-')}<br>
               Data: ${escapeHtml(formatarData(pedido.data))}<br>
               Vendedor: ${escapeHtml(pedido.vendedorInfo?.nome || '-')}<br>
-              Valor: ${escapeHtml(formatarMoeda(pedido.total))}<br>
-              Total já pago: ${escapeHtml(formatarMoeda(pedido.totalPago || 0))}<br>
-              Saldo restante: ${escapeHtml(formatarMoeda(pedido.saldoRestante || 0))}
+              Valor: ${escapeHtml(formatarMoeda(pedido.total))}
             </div>
           </div>
           <div class="card-actions">
@@ -737,8 +635,11 @@
                 <div class="info-box"><strong>Cliente</strong>${escapeHtml(estado.pedidoSelecionado.cliente?.nome || '-')}</div>
                 <div class="info-box"><strong>Vendedor</strong>${escapeHtml(estado.pedidoSelecionado.vendedorInfo?.nome || '-')}</div>
               </div>
+              <div class="order-actions">
+                <button type="button" class="btn-primary" id="btnEnviarWhatsapp">WhatsApp</button>
+              </div>
             </div>
-            <div class="summary-side">
+            <div>
               <div class="summary-grid">
                 <div class="summary-card ${resumoClass}">
                   <strong>Total da venda</strong>
@@ -752,19 +653,6 @@
                   <strong>${Number(estado.resumo.excedente || 0) > 0 ? 'Excedente' : 'Saldo restante'}</strong>
                   <div class="value">${escapeHtml(formatarMoeda(Number(estado.resumo.excedente || 0) > 0 ? estado.resumo.excedente : estado.resumo.saldoRestante))}</div>
                 </div>
-              </div>
-              <div class="contact-actions">
-                <div class="contact-card">
-                  <strong>Telefone</strong>
-                  <div class="contact-value ${normalizarTelefone(estado.pedidoSelecionado.cliente?.telefone1 || estado.pedidoSelecionado.cliente?.telefonePrincipal) ? '' : 'empty'}">${normalizarTelefone(estado.pedidoSelecionado.cliente?.telefone1 || estado.pedidoSelecionado.cliente?.telefonePrincipal) ? `<a class="contact-link" href="${escapeHtml(obterWhatsappHref())}" target="_blank" rel="noopener noreferrer">${escapeHtml(formatarTelefoneExibicao(estado.pedidoSelecionado.cliente?.telefone1 || estado.pedidoSelecionado.cliente?.telefonePrincipal))}</a>` : 'Telefone 1 não encontrado no legado.'}</div>
-                </div>
-                <button type="button" id="btnEnviarWhatsappInterno" class="btn-whatsapp" ${normalizarTelefone(estado.pedidoSelecionado.cliente?.telefone1 || estado.pedidoSelecionado.cliente?.telefonePrincipal) ? '' : 'disabled'}>
-                  <svg width="20" height="20" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-                    <path fill="currentColor" d="M19.11 17.2c-.27-.13-1.6-.79-1.85-.88-.25-.09-.43-.13-.61.13-.18.27-.7.88-.86 1.06-.16.18-.31.2-.58.07-.27-.13-1.12-.41-2.14-1.32-.79-.7-1.33-1.57-1.49-1.83-.16-.27-.02-.41.12-.54.12-.12.27-.31.4-.47.13-.16.18-.27.27-.45.09-.18.04-.34-.02-.47-.07-.13-.61-1.47-.83-2.02-.22-.53-.45-.46-.61-.46h-.52c-.18 0-.47.07-.72.34-.25.27-.95.93-.95 2.27s.97 2.63 1.11 2.81c.13.18 1.91 2.92 4.62 4.1.64.27 1.14.43 1.53.55.64.2 1.22.17 1.68.1.51-.08 1.6-.65 1.82-1.28.22-.63.22-1.16.15-1.28-.07-.12-.25-.2-.52-.34Z"/>
-                    <path fill="currentColor" d="M27.19 4.8A15.84 15.84 0 0 0 16.05.02C7.3.02.2 7.12.2 15.87c0 2.8.73 5.54 2.13 7.96L.02 31.98l8.37-2.19a15.8 15.8 0 0 0 7.66 1.96h.01c8.74 0 15.85-7.11 15.85-15.86 0-4.24-1.65-8.22-4.72-11.09ZM16.06 29.08h-.01a13.18 13.18 0 0 1-6.71-1.84l-.48-.29-4.97 1.3 1.33-4.85-.31-.5a13.17 13.17 0 0 1-2.02-7.02c0-7.27 5.91-13.18 13.18-13.18 3.52 0 6.82 1.37 9.31 3.86a13.1 13.1 0 0 1 3.85 9.31c0 7.27-5.91 13.18-13.17 13.18Z"/>
-                  </svg>
-                  Enviar para WhatsApp
-                </button>
               </div>
               ${excedenteAviso}
             </div>
@@ -894,9 +782,9 @@
         btnCancelarEdicao.addEventListener('click', cancelarEdicaoPagamento);
       }
 
-      const btnEnviarWhatsappInterno = document.getElementById('btnEnviarWhatsappInterno');
-      if (btnEnviarWhatsappInterno) {
-        btnEnviarWhatsappInterno.addEventListener('click', enviarMensagemPagamentoWhatsapp);
+      const btnEnviarWhatsapp = document.getElementById('btnEnviarWhatsapp');
+      if (btnEnviarWhatsapp) {
+        btnEnviarWhatsapp.addEventListener('click', enviarWhatsAppPedido);
       }
     }
 
@@ -1004,18 +892,6 @@
       estado.modoFormulario = 'novo';
       estado.pagamentoEmEdicao = null;
       estado.tipoPagamento = 'V';
-
-      if (estado.pedidoSelecionado) {
-        estado.pedidosDisponiveis = [{
-          ...estado.pedidoSelecionado,
-          totalPago: Number(estado.resumo?.totalPago || 0),
-          saldoRestante: Number(estado.resumo?.saldoRestante || 0),
-          excedente: Number(estado.resumo?.excedente || 0),
-          quantidadePagamentos: Number(estado.resumo?.quantidadePagamentos || 0)
-        }];
-        renderPedidosDisponiveis(estado.pedidosDisponiveis);
-      }
-
       renderPainelPedidoSelecionado();
     }
 
@@ -1124,33 +1000,12 @@
       }
     });
 
-    async function inicializarPorQueryString() {
-      const params = new URLSearchParams(window.location.search);
-      const empresa = params.get('empresa');
-      const saida = params.get('saida');
-      const pdv = params.get('pdv');
-      const numero = (params.get('numero') || '').trim();
-
-      if (empresa && saida && pdv !== null) {
-        await selecionarPedido({ empresa, saida, pdv });
-        return;
-      }
-
-      if (numero) {
-        setModoBusca('numero');
-        el.buscaNumero.value = numero;
-        await buscarPedidosPorNumero();
-      }
-    }
-
     el.buscaNumero.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
         buscarPedidosPorNumero();
       }
     });
-
-    inicializarPorQueryString();
   </script>
 </body>
 </html>
