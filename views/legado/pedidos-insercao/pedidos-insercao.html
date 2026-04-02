@@ -23,6 +23,7 @@
     button.secundario { background: #6b7280; }
     button.acao-principal { background: #2563eb; }
     button.impressao { background: #047857; }
+    button.whatsapp { background: #111827; color: #fff; }
     button:disabled { opacity: 0.6; cursor: not-allowed; }
     .lista-busca { border: 1px solid #e5e7eb; border-radius: 10px; background: #fff; max-height: 320px; overflow-y: auto; }
     .linha-busca { width: 100%; text-align: left; background: #fff; border: none; border-bottom: 1px solid #e5e7eb; padding: 12px 14px; cursor: pointer; color: #111827; }
@@ -52,6 +53,9 @@
     .acoes-final { margin-top: 16px; display: flex; gap: 10px; justify-content: flex-end; flex-wrap: wrap; }
     .resultado-sucesso { margin-top: 16px; padding: 14px; border-radius: 10px; background: #ecfdf5; border: 1px solid #6ee7b7; color: #065f46; display: none; }
     .rotulo-pequeno { font-size: 12px; color: #6b7280; margin-bottom: 6px; display: block; }
+    .telefone-link { color: #111827; font-weight: 600; text-decoration: underline; }
+    .telefone-link:hover { color: #000; }
+    .telefone-vazio { color: #6b7280; }
     @media (max-width: 1120px) {
       .grid { grid-template-columns: 1fr; }
       .footer-pedido { grid-template-columns: 1fr; }
@@ -113,6 +117,7 @@
         </div>
 
         <div class="acoes-final">
+          <button id="btnEnviarWhatsapp" class="whatsapp" type="button" style="display:none;">Enviar para WhatsApp</button>
           <button id="btnImprimirRelatorio" class="impressao" type="button" style="display:none;">Imprimir relatório</button>
           <button id="btnNovoPedido" class="secundario">Limpar pedido</button>
           <button id="btnSalvarPedido" class="acao-principal">Salvar pedido</button>
@@ -143,6 +148,7 @@
     const btnNovoPedido = document.getElementById('btnNovoPedido');
     const btnSalvarPedido = document.getElementById('btnSalvarPedido');
     const btnImprimirRelatorio = document.getElementById('btnImprimirRelatorio');
+    const btnEnviarWhatsapp = document.getElementById('btnEnviarWhatsapp');
     const resultadoSucesso = document.getElementById('resultadoSucesso');
 
     let clientes = [];
@@ -212,16 +218,71 @@
       });
     }
 
+    function normalizarTelefone(valor) {
+      return String(valor || '').replace(/\D+/g, '');
+    }
+
+    function formatarTelefoneExibicao(valor) {
+      const telefone = normalizarTelefone(valor);
+      if (!telefone) return '';
+      if (telefone.length === 13) return `+${telefone.slice(0, 2)} (${telefone.slice(2, 4)}) ${telefone.slice(4, 9)}-${telefone.slice(9)}`;
+      if (telefone.length === 12) return `+${telefone.slice(0, 2)} (${telefone.slice(2, 4)}) ${telefone.slice(4, 8)}-${telefone.slice(8)}`;
+      if (telefone.length === 11) return `(${telefone.slice(0, 2)}) ${telefone.slice(2, 7)}-${telefone.slice(7)}`;
+      if (telefone.length === 10) return `(${telefone.slice(0, 2)}) ${telefone.slice(2, 6)}-${telefone.slice(6)}`;
+      return telefone;
+    }
+
+    function obterTelefoneClienteAtual() {
+      return normalizarTelefone(ultimoRelatorio?.cliente?.telefone || clienteSelecionado?.telefonePrincipal || clienteSelecionado?.telefone1 || '');
+    }
+
+    function montarMensagemWhatsappPedido() {
+      if (!ultimoRelatorio?.numero) return '';
+
+      const linhas = [
+        '📦 *Pedido Alumínio JR*',
+        `Cliente: *${ultimoRelatorio?.cliente?.nome || '-'}*`,
+        `Número do pedido: *${ultimoRelatorio?.numero || '-'}*`,
+        `Vendedor: *${ultimoRelatorio?.vendedor?.nome || '-'}*`,
+        '-----------------------------------------------'
+      ];
+
+      (Array.isArray(ultimoRelatorio?.itens) ? ultimoRelatorio.itens : []).forEach((item) => {
+        linhas.push(`- ${item.descricao || '-'} | QTD: ${Number(item.quantidade || 0)} | Preço: *${formatarMoeda(item.preco || 0)}* | Subtotal: *${formatarMoeda(item.subtotal || 0)}*`);
+      });
+
+      linhas.push(`Total do pedido: *${formatarMoeda(ultimoRelatorio?.total || 0)}*`);
+
+      if (ultimoRelatorio?.observacao) {
+        linhas.push(`Observação: ${ultimoRelatorio.observacao}`);
+      }
+
+      return linhas.join('\n');
+    }
+
+    function obterWhatsappHrefPedido() {
+      const telefone = obterTelefoneClienteAtual();
+      if (!telefone) return '#';
+      const params = new URLSearchParams({ telefone, mensagem: montarMensagemWhatsappPedido() });
+      return `${window.location.origin}/whatsapp/enviar?${params.toString()}`;
+    }
+
     function renderClienteSelecionado() {
       if (!clienteSelecionado) {
         clienteSelecionadoBox.textContent = 'Nenhum cliente selecionado.';
         return;
       }
 
+      const telefone = normalizarTelefone(clienteSelecionado.telefonePrincipal || clienteSelecionado.telefone1 || '');
+      const telefoneHtml = telefone
+        ? `<a class="telefone-link" href="${obterWhatsappHrefPedido()}" target="_blank" rel="noopener noreferrer">${formatarTelefoneExibicao(telefone)}</a>`
+        : '<span class="telefone-vazio">Telefone não encontrado.</span>';
+
       clienteSelecionadoBox.innerHTML = `
         <strong>${clienteSelecionado.nome || 'Sem nome'}</strong><br>
         Código: ${clienteSelecionado.favorecido}<br>
-        Cidade/UF: ${clienteSelecionado.cidade || '-'}${clienteSelecionado.uf ? `/${clienteSelecionado.uf}` : ''}
+        Cidade/UF: ${clienteSelecionado.cidade || '-'}${clienteSelecionado.uf ? `/${clienteSelecionado.uf}` : ''}<br>
+        Telefone: ${telefoneHtml}
       `;
     }
 
@@ -443,7 +504,8 @@
         cliente: {
           nome: clienteSelecionado?.nome || '',
           cidade: clienteSelecionado?.cidade || '',
-          uf: clienteSelecionado?.uf || ''
+          uf: clienteSelecionado?.uf || '',
+          telefone: clienteSelecionado?.telefonePrincipal || clienteSelecionado?.telefone1 || ''
         },
         vendedor: {
           favorecido: Number(vendedorPedido.value || 0) || null,
@@ -465,8 +527,11 @@
       localStorage.setItem(`${RELATORIO_STORAGE_PREFIX}${dadosRelatorio.numero}`, JSON.stringify(dadosRelatorio));
     }
 
-    function atualizarBotaoImpressao() {
-      btnImprimirRelatorio.style.display = ultimoRelatorio?.numero ? 'inline-flex' : 'none';
+    function atualizarBotoesAcao() {
+      const exibir = !!ultimoRelatorio?.numero;
+      btnImprimirRelatorio.style.display = exibir ? 'inline-flex' : 'none';
+      btnEnviarWhatsapp.style.display = exibir ? 'inline-flex' : 'none';
+      btnEnviarWhatsapp.disabled = exibir ? !obterTelefoneClienteAtual() : true;
     }
 
     async function salvarPedido() {
@@ -504,7 +569,7 @@
 
         ultimoRelatorio = montarDadosRelatorio(pedido);
         registrarRelatorioNoStorage(ultimoRelatorio);
-        atualizarBotaoImpressao();
+        atualizarBotoesAcao();
 
         resultadoSucesso.innerHTML = `
           <strong>Pedido gravado com sucesso.</strong><br>
@@ -534,7 +599,7 @@
       volumesPedido.value = '0';
       vendedorPedido.value = '';
       resultadoSucesso.style.display = 'none';
-      atualizarBotaoImpressao();
+      atualizarBotoesAcao();
       renderItensPedido();
       focarBuscaProduto();
       setMensagem('');
@@ -548,6 +613,40 @@
 
       const url = `/legado/pedidos-insercao/relatorio?numero=${encodeURIComponent(ultimoRelatorio.numero)}`;
       window.open(url, '_blank', 'noopener');
+    }
+
+    async function enviarWhatsappPedido() {
+      if (!ultimoRelatorio?.numero) {
+        setMensagem('Nenhum pedido salvo disponível para envio.', true);
+        return;
+      }
+
+      const telefone = obterTelefoneClienteAtual();
+      if (!telefone) {
+        setMensagem('Telefone do cliente não encontrado.', true);
+        return;
+      }
+
+      const textoOriginal = btnEnviarWhatsapp.textContent;
+
+      try {
+        btnEnviarWhatsapp.disabled = true;
+        btnEnviarWhatsapp.textContent = 'Enviando...';
+
+        const response = await fetch('/api/whatsapp/enviar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ telefone, mensagem: montarMensagemWhatsappPedido() })
+        });
+
+        await lerJson(response);
+        setMensagem('Pedido enviado com sucesso pelo WhatsApp.');
+      } catch (error) {
+        setMensagem(error.message, true);
+      } finally {
+        btnEnviarWhatsapp.disabled = !obterTelefoneClienteAtual();
+        btnEnviarWhatsapp.textContent = textoOriginal;
+      }
     }
 
     btnBuscarCliente.addEventListener('click', carregarClientes);
@@ -611,10 +710,12 @@
     btnSalvarPedido.addEventListener('click', salvarPedido);
     btnNovoPedido.addEventListener('click', limparPedidoCompleto);
     btnImprimirRelatorio.addEventListener('click', abrirRelatorio);
+    btnEnviarWhatsapp.addEventListener('click', enviarWhatsappPedido);
 
     renderClienteSelecionado();
     renderItensPedido();
     carregarVendedores();
+    atualizarBotoesAcao();
   </script>
 </body>
 </html>

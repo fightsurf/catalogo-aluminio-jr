@@ -44,6 +44,10 @@
     .total-box small { display: block; opacity: 0.8; margin-bottom: 6px; }
     .total-box strong { font-size: 24px; }
     .acoes-final { margin-top: 16px; display: flex; gap: 10px; justify-content: flex-end; }
+    .whatsapp { background: #111827; color: #fff; }
+    .telefone-link { color: #111827; font-weight: 600; text-decoration: underline; }
+    .telefone-link:hover { color: #000; }
+    .telefone-vazio { color: #6b7280; }
     .oculto { display: none !important; }
     .resultado-sucesso { margin-top: 16px; padding: 14px; border-radius: 10px; background: #ecfdf5; border: 1px solid #6ee7b7; color: #065f46; display: none; }
     .rotulo-pequeno { font-size: 12px; color: #6b7280; margin-bottom: 6px; display: block; }
@@ -128,6 +132,7 @@
         </div>
 
         <div class="acoes-final">
+          <button id="btnEnviarWhatsapp" class="whatsapp oculto" type="button">Enviar para WhatsApp</button>
           <button id="btnImprimirRelatorio" class="secundario oculto">Imprimir relatório</button>
           <button id="btnNovoPedido" class="secundario">Limpar pedido</button>
           <button id="btnSalvarPedido" class="acao-principal">Salvar pedido</button>
@@ -160,6 +165,7 @@
     const totalPedido = document.getElementById('totalPedido');
     const btnNovoPedido = document.getElementById('btnNovoPedido');
     const btnImprimirRelatorio = document.getElementById('btnImprimirRelatorio');
+    const btnEnviarWhatsapp = document.getElementById('btnEnviarWhatsapp');
     const btnSalvarPedido = document.getElementById('btnSalvarPedido');
     const resultadoSucesso = document.getElementById('resultadoSucesso');
 
@@ -261,16 +267,71 @@
       });
     }
 
+    function normalizarTelefone(valor) {
+      return String(valor || '').replace(/\D+/g, '');
+    }
+
+    function formatarTelefoneExibicao(valor) {
+      const telefone = normalizarTelefone(valor);
+      if (!telefone) return '';
+      if (telefone.length === 13) return `+${telefone.slice(0, 2)} (${telefone.slice(2, 4)}) ${telefone.slice(4, 9)}-${telefone.slice(9)}`;
+      if (telefone.length === 12) return `+${telefone.slice(0, 2)} (${telefone.slice(2, 4)}) ${telefone.slice(4, 8)}-${telefone.slice(8)}`;
+      if (telefone.length === 11) return `(${telefone.slice(0, 2)}) ${telefone.slice(2, 7)}-${telefone.slice(7)}`;
+      if (telefone.length === 10) return `(${telefone.slice(0, 2)}) ${telefone.slice(2, 6)}-${telefone.slice(6)}`;
+      return telefone;
+    }
+
+    function obterTelefoneClienteAtual() {
+      return normalizarTelefone(ultimoPedidoSalvo?.cliente?.telefone || clienteSelecionado?.telefonePrincipal || clienteSelecionado?.telefone1 || '');
+    }
+
+    function montarMensagemWhatsappPedido() {
+      if (!ultimoPedidoSalvo?.numero) return '';
+
+      const linhas = [
+        '📦 *Pedido Alumínio JR*',
+        `Cliente: *${ultimoPedidoSalvo?.cliente?.nome || '-'}*`,
+        `Número do pedido: *${ultimoPedidoSalvo?.numero || '-'}*`,
+        `Vendedor: *${ultimoPedidoSalvo?.vendedor?.nome || '-'}*`,
+        '-----------------------------------------------'
+      ];
+
+      (Array.isArray(ultimoPedidoSalvo?.itens) ? ultimoPedidoSalvo.itens : []).forEach((item) => {
+        linhas.push(`- ${item.descricao || '-'} | QTD: ${Number(item.quantidade || 0)} | Preço: *${formatarMoeda(item.preco || 0)}* | Subtotal: *${formatarMoeda(item.subtotal || 0)}*`);
+      });
+
+      linhas.push(`Total do pedido: *${formatarMoeda(ultimoPedidoSalvo?.total || 0)}*`);
+
+      if (ultimoPedidoSalvo?.obs) {
+        linhas.push(`Observação: ${ultimoPedidoSalvo.obs}`);
+      }
+
+      return linhas.join('\n');
+    }
+
+    function obterWhatsappHrefPedido() {
+      const telefone = obterTelefoneClienteAtual();
+      if (!telefone) return '#';
+      const params = new URLSearchParams({ telefone, mensagem: montarMensagemWhatsappPedido() });
+      return `${window.location.origin}/whatsapp/enviar?${params.toString()}`;
+    }
+
     function renderClienteSelecionado() {
       if (!clienteSelecionado) {
         clienteSelecionadoBox.textContent = 'Nenhum cliente selecionado.';
         return;
       }
 
+      const telefone = normalizarTelefone(clienteSelecionado.telefonePrincipal || clienteSelecionado.telefone1 || '');
+      const telefoneHtml = telefone
+        ? `<a class="telefone-link" href="${obterWhatsappHrefPedido()}" target="_blank" rel="noopener noreferrer">${formatarTelefoneExibicao(telefone)}</a>`
+        : '<span class="telefone-vazio">Telefone não encontrado.</span>';
+
       clienteSelecionadoBox.innerHTML = `
         <strong>${clienteSelecionado.nome || 'Sem nome'}</strong><br>
         Código: ${clienteSelecionado.favorecido}<br>
-        Cidade/UF: ${clienteSelecionado.cidade || '-'}${clienteSelecionado.uf ? `/${clienteSelecionado.uf}` : ''}
+        Cidade/UF: ${clienteSelecionado.cidade || '-'}${clienteSelecionado.uf ? `/${clienteSelecionado.uf}` : ''}<br>
+        Telefone: ${telefoneHtml}
       `;
     }
 
@@ -671,7 +732,8 @@
           numero: pedido?.numero || '',
           data: pedido?.data || new Date().toISOString().slice(0, 10),
           cliente: {
-            nome: clienteSelecionado?.nome || '-'
+            nome: clienteSelecionado?.nome || '-',
+            telefone: clienteSelecionado?.telefonePrincipal || clienteSelecionado?.telefone1 || ''
           },
           vendedor: {
             favorecido: vendedorSelecionado?.favorecido || null,
@@ -695,6 +757,8 @@
         `;
         resultadoSucesso.style.display = 'block';
         btnImprimirRelatorio.classList.remove('oculto');
+        btnEnviarWhatsapp.classList.remove('oculto');
+        btnEnviarWhatsapp.disabled = !obterTelefoneClienteAtual();
 
         itensPedido = [];
         textoRelatorio.value = '';
@@ -726,6 +790,8 @@
       volumesPedido.value = '0';
       resultadoSucesso.style.display = 'none';
       btnImprimirRelatorio.classList.add('oculto');
+      btnEnviarWhatsapp.classList.add('oculto');
+      btnEnviarWhatsapp.disabled = true;
       ultimoPedidoSalvo = null;
       setNaoReconhecidos([]);
       renderItensPedido();
@@ -800,9 +866,44 @@
       }
     });
 
+    btnEnviarWhatsapp.addEventListener('click', async () => {
+      if (!ultimoPedidoSalvo?.numero) {
+        setMensagem('Nenhum pedido salvo disponível para envio.', true);
+        return;
+      }
+
+      const telefone = obterTelefoneClienteAtual();
+      if (!telefone) {
+        setMensagem('Telefone do cliente não encontrado.', true);
+        return;
+      }
+
+      const textoOriginal = btnEnviarWhatsapp.textContent;
+
+      try {
+        btnEnviarWhatsapp.disabled = true;
+        btnEnviarWhatsapp.textContent = 'Enviando...';
+
+        const response = await fetch('/api/whatsapp/enviar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ telefone, mensagem: montarMensagemWhatsappPedido() })
+        });
+
+        await lerJson(response);
+        setMensagem('Pedido enviado com sucesso pelo WhatsApp.');
+      } catch (error) {
+        setMensagem(error.message, true);
+      } finally {
+        btnEnviarWhatsapp.disabled = !obterTelefoneClienteAtual();
+        btnEnviarWhatsapp.textContent = textoOriginal;
+      }
+    });
+
     carregarVendedores();
     renderClienteSelecionado();
     renderItensPedido();
+    btnEnviarWhatsapp.disabled = true;
   </script>
 </body>
 </html>

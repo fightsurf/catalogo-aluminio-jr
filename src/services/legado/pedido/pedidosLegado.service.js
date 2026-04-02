@@ -42,6 +42,13 @@ function normalizarPedido(item) {
         item?.cliente?.uf ??
         item?.F_UF ??
         item?.f_uf ??
+        '',
+      telefonePrincipal:
+        item?.cliente?.telefonePrincipal ??
+        item?.F_TELEFONE_PRINCIPAL ??
+        item?.f_telefone_principal ??
+        item?.F_FONE1 ??
+        item?.f_fone1 ??
         ''
     }
   };
