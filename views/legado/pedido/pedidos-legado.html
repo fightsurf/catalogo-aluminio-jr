@@ -290,6 +290,7 @@
 
       <div class="acoes-pedido">
         <button id="btnEnviarWhatsapp" class="btn btn-whatsapp oculto">Enviar para WhatsApp</button>
+        <button id="btnAdicionarPagamentos" class="btn btn-primary oculto">Adicionar pagamentos</button>
         <button id="btnImprimirRelatorio" class="btn btn-primary oculto">Imprimir relatório</button>
       </div>
     </div>
@@ -316,6 +317,7 @@
     const blocoItens = document.getElementById('blocoItens');
     const btnImprimirRelatorio = document.getElementById('btnImprimirRelatorio');
     const btnEnviarWhatsapp = document.getElementById('btnEnviarWhatsapp');
+    const btnAdicionarPagamentos = document.getElementById('btnAdicionarPagamentos');
     const resultadosBusca = document.getElementById('resultadosBusca');
     const resultadoLista = document.getElementById('resultadoLista');
 
@@ -331,6 +333,7 @@
       dadosCliente.innerHTML = '<div class="placeholder">Nenhum pedido carregado.</div>';
       btnImprimirRelatorio.classList.add('oculto');
       btnEnviarWhatsapp.classList.add('oculto');
+      btnAdicionarPagamentos.classList.add('oculto');
       btnEnviarWhatsapp.disabled = true;
       pedidoCarregado = null;
     }
@@ -420,6 +423,33 @@
         minimumFractionDigits: 0,
         maximumFractionDigits: 2
       });
+    }
+
+    function obterUrlPagamentos(pedido) {
+      const empresa = pedido?.empresa;
+      const saida = pedido?.saida ?? pedido?.idMestre;
+      const pdv = pedido?.pdv ?? 0;
+
+      if (saida !== undefined && saida !== null && String(saida).trim() !== '') {
+        const params = new URLSearchParams({
+          empresa: String(empresa ?? -1),
+          saida: String(saida),
+          pdv: String(pdv)
+        });
+
+        return `/legado/pagamentos?${params.toString()}`;
+      }
+
+      const numero = String(pedido?.numero || '').trim();
+      if (!numero) {
+        return '/legado/pagamentos';
+      }
+
+      return `/legado/pagamentos?numero=${encodeURIComponent(numero)}`;
+    }
+
+    function abrirTelaPagamentos(pedido) {
+      window.location.href = obterUrlPagamentos(pedido);
     }
 
     function abrirRelatorioPedido(pedido) {
@@ -528,7 +558,7 @@
             Pedido ${pedido?.numero || '-'} · ${pedido?.cliente?.nome || '-'}
           </div>
           <div class="resultado-secundario">
-            Data: ${formatarData(pedido?.data)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)}
+            Data: ${formatarData(pedido?.data)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)} · Já pago: ${moeda(pedido?.totalPago || 0)}
           </div>
         </div>
       `).join('');
@@ -556,7 +586,7 @@
             Pedido ${pedido?.numero || '-'} · ${pedido?.cliente?.nome || '-'}
           </div>
           <div class="resultado-secundario">
-            Data: ${formatarData(pedido?.data)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)}
+            Data: ${formatarData(pedido?.data)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)} · Já pago: ${moeda(pedido?.totalPago || 0)}
           </div>
         </div>
       `).join('');
@@ -578,6 +608,11 @@
         vendedor: pedidoBase?.vendedor || {},
         obs: pedidoBase?.obs || '',
         total: Number(pedidoBase?.total || 0),
+        totalPago: Number(pedidoBase?.totalPago || 0),
+        saldoRestante: Number(pedidoBase?.saldoRestante || 0),
+        empresa: pedidoBase?.empresa ?? -1,
+        saida: pedidoBase?.saida ?? pedidoBase?.idMestre ?? null,
+        pdv: pedidoBase?.pdv ?? 0,
         itens: Array.isArray(jsonItens?.data?.itens) ? jsonItens.data.itens : []
       };
 
@@ -585,6 +620,7 @@
       renderizarItens(pedidoCarregado.itens);
       btnImprimirRelatorio.classList.remove('oculto');
       btnEnviarWhatsapp.classList.remove('oculto');
+      btnAdicionarPagamentos.classList.remove('oculto');
       btnEnviarWhatsapp.disabled = !normalizarTelefone(pedidoCarregado?.cliente?.telefonePrincipal || pedidoCarregado?.cliente?.telefone1 || '');
     }
 
@@ -661,6 +697,15 @@
       if (pedidoCarregado) {
         abrirRelatorioPedido(pedidoCarregado);
       }
+    });
+
+    btnAdicionarPagamentos.addEventListener('click', () => {
+      if (!pedidoCarregado) {
+        setMensagem('Nenhum pedido carregado para abrir pagamentos.', true);
+        return;
+      }
+
+      abrirTelaPagamentos(pedidoCarregado);
     });
 
     btnEnviarWhatsapp.addEventListener('click', async () => {
