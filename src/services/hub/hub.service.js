@@ -1,71 +1,178 @@
-const HUB_DEFAULT_CONFIG = require('../../config/hub.default.config');
+const fs = require('fs/promises');
+const path = require('path');
+const defaultConfig = require('../../config/hub.default.config');
 
-function cloneDeep(value) {
+const DATA_DIR = process.env.HUB_DATA_DIR || (
+  process.cwd().includes('/opt/render/project/src')
+    ? path.resolve(process.cwd(), '..', 'data')
+    : path.join(process.cwd(), 'data')
+);
+const CONFIG_FILE = path.join(DATA_DIR, 'hub-config.json');
+
+function slugify(value, fallback) {
+  const text = String(value || fallback || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+
+  return text || fallback || 'item';
+}
+
+function deepClone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-function normalizeConfig(config) {
-  const safeConfig = cloneDeep(config || HUB_DEFAULT_CONFIG);
+function normalizeModule(moduleData, usedIds) {
+  const baseId = slugify(moduleData.id || moduleData.title, 'modulo');
+  let id = baseId;
+  let counter = 2;
 
-  safeConfig.appTitle = safeConfig.appTitle || 'Central de Módulos';
-  safeConfig.appSubtitle = safeConfig.appSubtitle || 'Alumínio JR';
-  safeConfig.iframeInitialUrl = safeConfig.iframeInitialUrl || '/';
-  safeConfig.modules = Array.isArray(safeConfig.modules) ? safeConfig.modules : [];
-  safeConfig.menuSections = Array.isArray(safeConfig.menuSections) ? safeConfig.menuSections : [];
-  safeConfig.cards = Array.isArray(safeConfig.cards) ? safeConfig.cards : [];
+  while (usedIds.has(id)) {
+    id = `${baseId}-${counter}`;
+    counter += 1;
+  }
 
-  const moduleMap = new Map();
-  safeConfig.modules = safeConfig.modules
-    .filter((item) => item && item.id && item.nome && item.url)
-    .map((item) => {
-      const normalized = {
-        id: String(item.id),
-        nome: String(item.nome),
-        descricao: item.descricao ? String(item.descricao) : '',
-        categoria: item.categoria ? String(item.categoria) : 'Geral',
-        url: String(item.url),
-        embedUrl: item.embedUrl ? String(item.embedUrl) : String(item.url),
-        imageUrl: item.imageUrl ? String(item.imageUrl) : '',
-        icon: item.icon ? String(item.icon) : '📁',
-        openMode: item.openMode === 'newtab' ? 'newtab' : 'iframe',
-        active: item.active !== false,
-        tags: Array.isArray(item.tags) ? item.tags.map(String) : []
-      };
-      moduleMap.set(normalized.id, normalized);
-      return normalized;
-    });
+  usedIds.add(id);
 
-  safeConfig.menuSections = safeConfig.menuSections
-    .filter((section) => section && section.id && section.title)
-    .map((section) => ({
-      id: String(section.id),
-      title: String(section.title),
-      collapsed: Boolean(section.collapsed),
-      items: Array.isArray(section.items)
-        ? section.items.map(String).filter((itemId) => moduleMap.has(itemId))
-        : []
-    }));
-
-  safeConfig.cards = safeConfig.cards
-    .filter((card) => card && card.id && card.moduleId && moduleMap.has(String(card.moduleId)))
-    .map((card) => ({
-      id: String(card.id),
-      moduleId: String(card.moduleId),
-      title: card.title ? String(card.title) : moduleMap.get(String(card.moduleId)).nome,
-      subtitle: card.subtitle ? String(card.subtitle) : '',
-      imageUrl: card.imageUrl ? String(card.imageUrl) : (moduleMap.get(String(card.moduleId)).imageUrl || ''),
-      size: ['small', 'normal', 'wide', 'tall'].includes(card.size) ? card.size : 'normal',
-      active: card.active !== false
-    }));
-
-  return safeConfig;
+  return {
+    id,
+    title: String(moduleData.title || moduleData.nome || 'Novo módulo').trim(),
+    url: String(moduleData.url || '').trim(),
+    icon: String(moduleData.icon || moduleData.icone || '📁').trim() || '📁',
+    openMode: moduleData.openMode === 'new_tab' ? 'new_tab' : 'iframe',
+    active: moduleData.active !== false
+  };
 }
 
-function getDefaultConfig() {
-  return normalizeConfig(HUB_DEFAULT_CONFIG);
+function normalizeSection(sectionData, usedIds, validModuleIds) {
+  const baseId = slugify(sectionData.id || sectionData.title, 'secao');
+  let id = baseId;
+  let counter = 2;
+
+  while (usedIds.has(id)) {
+    id = `${baseId}-${counter}`;
+    counter += 1;
+  }
+
+  usedIds.add(id);
+
+  const items = Array.isArray(sectionData.items)
+    ? sectionData.items
+        .map((item) => String(item || '').trim())
+        .filter((itemId) => validModuleIds.has(itemId))
+    : [];
+
+  return {
+    id,
+    title: String(sectionData.title || 'Nova seção').trim(),
+    items
+  };
+}
+
+function normalizeCard(cardData, usedIds, validModuleIds) {
+  const moduleId = String(cardData.moduleId || '').trim();
+  const baseId = slugify(cardData.id || cardData.title || moduleId, 'card');
+  let id = baseId;
+  let counter = 2;
+
+  while (usedIds.has(id)) {
+    id = `${baseId}-${counter}`;
+    counter += 1;
+  }
+
+  usedIds.add(id);
+
+  return {
+    id,
+    moduleId: validModuleIds.has(moduleId) ? moduleId : '',
+    title: String(cardData.title || '').trim(),
+    subtitle: String(cardData.subtitle || '').trim(),
+    imageUrl: String(cardData.imageUrl || '').trim(),
+    size: cardData.size === 'wide' ? 'wide' : 'normal',
+    active: cardData.active !== false
+  };
+}
+
+function normalizeConfig(inputConfig) {
+  const source = inputConfig && typeof inputConfig === 'object' ? inputConfig : {};
+  const config = deepClone(defaultConfig);
+
+  config.title = String(source.title || defaultConfig.title).trim() || defaultConfig.title;
+  config.subtitle = String(source.subtitle || defaultConfig.subtitle).trim();
+  config.iframeInitialUrl = String(source.iframeInitialUrl || '').trim();
+
+  const moduleIds = new Set();
+  const modules = Array.isArray(source.modules) ? source.modules : [];
+  config.modules = modules
+    .filter((moduleData) => moduleData && typeof moduleData === 'object')
+    .map((moduleData) => normalizeModule(moduleData, moduleIds));
+
+  const validModuleIds = new Set(config.modules.map((moduleData) => moduleData.id));
+
+  const sectionIds = new Set();
+  const sections = Array.isArray(source.menuSections) ? source.menuSections : [];
+  config.menuSections = sections
+    .filter((sectionData) => sectionData && typeof sectionData === 'object')
+    .map((sectionData) => normalizeSection(sectionData, sectionIds, validModuleIds))
+    .filter((sectionData) => sectionData.title);
+
+  const cardIds = new Set();
+  const cards = Array.isArray(source.cards) ? source.cards : [];
+  config.cards = cards
+    .filter((cardData) => cardData && typeof cardData === 'object')
+    .map((cardData) => normalizeCard(cardData, cardIds, validModuleIds))
+    .filter((cardData) => cardData.moduleId);
+
+  return config;
+}
+
+async function ensureConfigFile() {
+  await fs.mkdir(DATA_DIR, { recursive: true });
+
+  try {
+    await fs.access(CONFIG_FILE);
+  } catch (error) {
+    const normalizedDefault = normalizeConfig(defaultConfig);
+    await fs.writeFile(CONFIG_FILE, `${JSON.stringify(normalizedDefault, null, 2)}\n`, 'utf8');
+  }
+}
+
+async function loadConfig() {
+  await ensureConfigFile();
+
+  try {
+    const raw = await fs.readFile(CONFIG_FILE, 'utf8');
+    const parsed = JSON.parse(raw);
+    const normalized = normalizeConfig(parsed);
+
+    if (JSON.stringify(parsed) !== JSON.stringify(normalized)) {
+      await fs.writeFile(CONFIG_FILE, `${JSON.stringify(normalized, null, 2)}\n`, 'utf8');
+    }
+
+    return normalized;
+  } catch (error) {
+    const normalizedDefault = normalizeConfig(defaultConfig);
+    await fs.writeFile(CONFIG_FILE, `${JSON.stringify(normalizedDefault, null, 2)}\n`, 'utf8');
+    return normalizedDefault;
+  }
+}
+
+async function saveConfig(inputConfig) {
+  const normalized = normalizeConfig(inputConfig);
+  await fs.mkdir(DATA_DIR, { recursive: true });
+
+  const tempFile = `${CONFIG_FILE}.tmp`;
+  await fs.writeFile(tempFile, `${JSON.stringify(normalized, null, 2)}\n`, 'utf8');
+  await fs.rename(tempFile, CONFIG_FILE);
+
+  return normalized;
 }
 
 module.exports = {
-  getDefaultConfig,
-  normalizeConfig
+  loadConfig,
+  saveConfig,
+  normalizeConfig,
+  CONFIG_FILE
 };
