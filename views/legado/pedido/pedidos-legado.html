@@ -498,10 +498,11 @@
           <div class="cliente-linha"><strong>Cidade:</strong> ${pedido?.cliente?.cidade || '-'}</div>
           <div class="cliente-linha"><strong>UF:</strong> ${pedido?.cliente?.uf || '-'}</div>
           <div class="cliente-linha"><strong>Telefone:</strong> ${normalizarTelefone(pedido?.cliente?.telefonePrincipal || pedido?.cliente?.telefone1 || '') ? `<a class="telefone-link" href="${obterWhatsappHref(pedido)}" target="_blank" rel="noopener noreferrer">${formatarTelefoneExibicao(pedido?.cliente?.telefonePrincipal || pedido?.cliente?.telefone1 || '')}</a>` : 'Telefone não encontrado.'}</div>
-          <div class="cliente-linha"><strong>Total:</strong> ${moeda(pedido?.total || 0)}</div>
+          
         </div>
 
         <div class="cliente-dados-linha">
+          <div class="cliente-linha"><strong>Total:</strong> ${moeda(pedido?.total || 0)}</div>
           <div class="cliente-linha"><strong>Total pago:</strong> ${moeda(pedido?.totalPago || 0)}</div>
           <div class="cliente-linha"><strong>Saldo restante:</strong> ${moeda(pedido?.saldoRestante || 0)}</div>
         </div>
