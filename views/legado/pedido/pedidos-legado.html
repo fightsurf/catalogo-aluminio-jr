@@ -500,6 +500,11 @@
           <div class="cliente-linha"><strong>Telefone:</strong> ${normalizarTelefone(pedido?.cliente?.telefonePrincipal || pedido?.cliente?.telefone1 || '') ? `<a class="telefone-link" href="${obterWhatsappHref(pedido)}" target="_blank" rel="noopener noreferrer">${formatarTelefoneExibicao(pedido?.cliente?.telefonePrincipal || pedido?.cliente?.telefone1 || '')}</a>` : 'Telefone não encontrado.'}</div>
           <div class="cliente-linha"><strong>Total:</strong> ${moeda(pedido?.total || 0)}</div>
         </div>
+
+        <div class="cliente-dados-linha">
+          <div class="cliente-linha"><strong>Total pago:</strong> ${moeda(pedido?.totalPago || 0)}</div>
+          <div class="cliente-linha"><strong>Saldo restante:</strong> ${moeda(pedido?.saldoRestante || 0)}</div>
+        </div>
       `;
     }
 
@@ -558,7 +563,9 @@
             Pedido ${pedido?.numero || '-'} · ${pedido?.cliente?.nome || '-'}
           </div>
           <div class="resultado-secundario">
-            Data: ${formatarData(pedido?.data)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)} · Já pago: ${moeda(pedido?.totalPago || 0)}
+            Data: ${formatarData(pedido?.data)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)}</div>
+          <div class="resultado-secundario">
+            Total pago: ${moeda(pedido?.totalPago || 0)} · Restante a pagar: ${moeda(pedido?.saldoRestante || 0)}
           </div>
         </div>
       `).join('');
@@ -586,7 +593,9 @@
             Pedido ${pedido?.numero || '-'} · ${pedido?.cliente?.nome || '-'}
           </div>
           <div class="resultado-secundario">
-            Data: ${formatarData(pedido?.data)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)} · Já pago: ${moeda(pedido?.totalPago || 0)}
+            Data: ${formatarData(pedido?.data)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)}</div>
+          <div class="resultado-secundario">
+            Total pago: ${moeda(pedido?.totalPago || 0)} · Restante a pagar: ${moeda(pedido?.saldoRestante || 0)}
           </div>
         </div>
       `).join('');
