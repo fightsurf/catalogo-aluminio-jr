@@ -1,17 +1,27 @@
 const pedidosLegadoService = require('../../../services/legado/pedido/pedidosLegado.service');
 
+function textoOuVazio(valor) {
+  return String(valor || '').trim();
+}
+
 async function pesquisarPedidos(req, res) {
   try {
-    const { numero } = req.query;
+    const numero = textoOuVazio(req.query.numero);
+    const cliente = textoOuVazio(req.query.cliente);
+    const data = textoOuVazio(req.query.data);
 
-    if (!numero || !String(numero).trim()) {
+    if (!numero && !cliente && !data) {
       return res.status(400).json({
         success: false,
-        message: 'Informe o número do pedido.'
+        message: 'Informe pelo menos um filtro: número, cliente ou data.'
       });
     }
 
-    const pedidos = await pedidosLegadoService.pesquisarPedidos(numero);
+    const pedidos = await pedidosLegadoService.pesquisarPedidos({
+      numero,
+      cliente,
+      data
+    });
 
     return res.json({
       success: true,

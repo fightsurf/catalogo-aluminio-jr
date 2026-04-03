@@ -65,7 +65,7 @@
       display: flex;
       flex-direction: column;
       gap: 6px;
-      min-width: 260px;
+      min-width: 180px;
       flex: 1;
     }
 
@@ -192,6 +192,52 @@
       color: #6b7280;
       font-size: 14px;
     }
+
+    .resultados-box {
+      margin-top: 14px;
+      border-top: 1px solid #e5e7eb;
+      padding-top: 14px;
+    }
+
+    .resultados-box h3 {
+      margin: 0 0 10px 0;
+      font-size: 15px;
+    }
+
+    .resultado-lista {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .resultado-item {
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 10px 12px;
+      cursor: pointer;
+      background: #fff;
+      transition: 0.2s;
+    }
+
+    .resultado-item:hover {
+      background: #f9fafb;
+      border-color: #cfd6dd;
+    }
+
+    .resultado-item.ativo {
+      border-color: #0ea5b7;
+      background: #ecfeff;
+    }
+
+    .resultado-principal {
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .resultado-secundario {
+      font-size: 13px;
+      color: #4b5563;
+    }
   </style>
 </head>
 
@@ -213,12 +259,35 @@
           />
         </div>
 
+        <div class="campo">
+          <label for="clientePedido">Cliente</label>
+          <input
+            type="text"
+            id="clientePedido"
+            placeholder="Digite o nome do cliente"
+          />
+        </div>
+
+        <div class="campo">
+          <label for="dataPedido">Data</label>
+          <input
+            type="date"
+            id="dataPedido"
+          />
+        </div>
+
         <button id="btnPesquisar" class="btn btn-primary">
           Pesquisar pedido
         </button>
       </div>
 
       <div id="mensagem" class="mensagem">Aguardando pesquisa.</div>
+
+      <div id="resultadosBusca" class="resultados-box oculto">
+        <h3>Resultados encontrados</h3>
+        <div id="resultadoLista" class="resultado-lista"></div>
+      </div>
+
       <div class="acoes-pedido">
         <button id="btnEnviarWhatsapp" class="btn btn-whatsapp oculto">Enviar para WhatsApp</button>
         <button id="btnImprimirRelatorio" class="btn btn-primary oculto">Imprimir relatório</button>
@@ -239,14 +308,19 @@
 
   <script>
     const numeroPedidoInput = document.getElementById('numeroPedido');
+    const clientePedidoInput = document.getElementById('clientePedido');
+    const dataPedidoInput = document.getElementById('dataPedido');
     const btnPesquisar = document.getElementById('btnPesquisar');
     const mensagem = document.getElementById('mensagem');
     const dadosCliente = document.getElementById('dadosCliente');
     const blocoItens = document.getElementById('blocoItens');
     const btnImprimirRelatorio = document.getElementById('btnImprimirRelatorio');
     const btnEnviarWhatsapp = document.getElementById('btnEnviarWhatsapp');
+    const resultadosBusca = document.getElementById('resultadosBusca');
+    const resultadoLista = document.getElementById('resultadoLista');
 
     let pedidoCarregado = null;
+    let pedidosEncontrados = [];
 
     function setMensagem(texto, erro = false) {
       mensagem.textContent = texto;
@@ -263,6 +337,12 @@
 
     function limparItens() {
       blocoItens.innerHTML = '<div class="sem-itens">Nenhum item carregado.</div>';
+    }
+
+    function limparResultados() {
+      pedidosEncontrados = [];
+      resultadoLista.innerHTML = '';
+      resultadosBusca.classList.add('oculto');
     }
 
     function moeda(valor) {
@@ -284,6 +364,13 @@
       if (telefone.length === 11) return `(${telefone.slice(0, 2)}) ${telefone.slice(2, 7)}-${telefone.slice(7)}`;
       if (telefone.length === 10) return `(${telefone.slice(0, 2)}) ${telefone.slice(2, 6)}-${telefone.slice(6)}`;
       return telefone;
+    }
+
+    function formatarData(valor) {
+      if (!valor) return '-';
+      const data = new Date(valor);
+      if (Number.isNaN(data.getTime())) return valor;
+      return data.toLocaleDateString('pt-BR');
     }
 
     function montarMensagemWhatsappPedido(pedido) {
@@ -335,7 +422,6 @@
       });
     }
 
-
     function abrirRelatorioPedido(pedido) {
       if (!pedido?.numero) {
         return;
@@ -347,9 +433,23 @@
       window.open(`/legado/pedidos-relatorio?numero=${encodeURIComponent(pedido.numero)}&storageKey=${encodeURIComponent(storageKey)}&autoPrint=1`, '_blank');
     }
 
-    function obterNumeroDaUrl() {
+    function obterFiltrosDaUrl() {
       const params = new URLSearchParams(window.location.search);
-      return (params.get('numero') || '').trim();
+      return {
+        numero: (params.get('numero') || '').trim(),
+        cliente: (params.get('cliente') || '').trim(),
+        data: (params.get('data') || '').trim()
+      };
+    }
+
+    function construirQuery(filtros) {
+      const params = new URLSearchParams();
+
+      if (filtros.numero) params.set('numero', filtros.numero);
+      if (filtros.cliente) params.set('cliente', filtros.cliente);
+      if (filtros.data) params.set('data', filtros.data);
+
+      return params.toString();
     }
 
     function renderizarCliente(pedido) {
@@ -415,68 +515,135 @@
       `;
     }
 
-    async function pesquisarPedidos(numeroInformado = null) {
-      const numeroPedido = (numeroInformado ?? numeroPedidoInput.value).trim();
+    function renderizarResultados(pedidos) {
+      if (!Array.isArray(pedidos) || !pedidos.length) {
+        limparResultados();
+        return;
+      }
+
+      resultadosBusca.classList.remove('oculto');
+      resultadoLista.innerHTML = pedidos.map((pedido, index) => `
+        <div class="resultado-item" data-index="${index}">
+          <div class="resultado-principal">
+            Pedido ${pedido?.numero || '-'} · ${pedido?.cliente?.nome || '-'}
+          </div>
+          <div class="resultado-secundario">
+            Data: ${formatarData(pedido?.data)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)}
+          </div>
+        </div>
+      `).join('');
+
+      document.querySelectorAll('.resultado-item').forEach((item) => {
+        item.addEventListener('click', async () => {
+          const index = Number(item.dataset.index);
+          const pedido = pedidosEncontrados[index];
+          await carregarPedidoSelecionado(pedido);
+          marcarResultadoAtivo(index);
+        });
+      });
+    }
+
+    function marcarResultadoAtivo(indexAtivo) {
+      document.querySelectorAll('.resultado-item').forEach((item) => {
+        item.classList.toggle('ativo', Number(item.dataset.index) === Number(indexAtivo));
+      });
+    }
+
+    async function carregarPedidoSelecionado(pedidoBase) {
+      const responseItens = await fetch(`/api/legado/pedidos/${pedidoBase.idMestre}/itens`);
+      const jsonItens = await responseItens.json();
+
+      if (!responseItens.ok || !jsonItens.success) {
+        throw new Error(jsonItens.message || 'Erro ao carregar itens.');
+      }
+
+      pedidoCarregado = {
+        idMestre: pedidoBase?.idMestre || null,
+        numero: pedidoBase?.numero || '',
+        data: pedidoBase?.data || null,
+        cliente: pedidoBase?.cliente || {},
+        vendedor: pedidoBase?.vendedor || {},
+        obs: pedidoBase?.obs || '',
+        total: Number(pedidoBase?.total || 0),
+        itens: Array.isArray(jsonItens?.data?.itens) ? jsonItens.data.itens : []
+      };
+
+      renderizarCliente(pedidoCarregado);
+      renderizarItens(pedidoCarregado.itens);
+      btnImprimirRelatorio.classList.remove('oculto');
+      btnEnviarWhatsapp.classList.remove('oculto');
+      btnEnviarWhatsapp.disabled = !normalizarTelefone(pedidoCarregado?.cliente?.telefonePrincipal || pedidoCarregado?.cliente?.telefone1 || '');
+    }
+
+    async function pesquisarPedidos(filtrosExternos = null) {
+      const filtros = filtrosExternos || {
+        numero: numeroPedidoInput.value.trim(),
+        cliente: clientePedidoInput.value.trim(),
+        data: dataPedidoInput.value.trim()
+      };
 
       limparCliente();
       limparItens();
+      limparResultados();
 
-      if (!numeroPedido) {
-        setMensagem('Informe o número do pedido.', true);
+      if (!filtros.numero && !filtros.cliente && !filtros.data) {
+        setMensagem('Informe pelo menos um filtro: número, cliente ou data.', true);
         return;
       }
 
       setMensagem('Pesquisando...');
 
       try {
-        const response = await fetch(`/api/legado/pedidos?numero=${encodeURIComponent(numeroPedido)}`);
+        const query = construirQuery(filtros);
+        const response = await fetch(`/api/legado/pedidos?${query}`);
         const json = await response.json();
 
         if (!response.ok || !json.success) {
           throw new Error(json.message || 'Erro ao pesquisar pedidos.');
         }
 
-        const pedidos = json.data || [];
+        const pedidos = Array.isArray(json.data) ? json.data : [];
+        pedidosEncontrados = pedidos;
 
         if (!pedidos.length) {
           setMensagem('Nenhum pedido encontrado.', true);
           return;
         }
 
-        const primeiroPedido = pedidos.find((item) => String(item?.numero || '').trim() === numeroPedido) || pedidos[0];
+        let pedidoSelecionado = null;
+        let indiceSelecionado = -1;
 
-        const responseItens = await fetch(`/api/legado/pedidos/${primeiroPedido.idMestre}/itens`);
-        const jsonItens = await responseItens.json();
-
-        if (!responseItens.ok || !jsonItens.success) {
-          throw new Error(jsonItens.message || 'Erro ao carregar itens.');
+        if (filtros.numero) {
+          indiceSelecionado = pedidos.findIndex((item) => String(item?.numero || '').trim() === filtros.numero.trim());
+          if (indiceSelecionado >= 0) {
+            pedidoSelecionado = pedidos[indiceSelecionado];
+          }
         }
 
-        pedidoCarregado = {
-          numero: primeiroPedido?.numero || numeroPedido,
-          data: primeiroPedido?.data || null,
-          cliente: primeiroPedido?.cliente || {},
-          vendedor: primeiroPedido?.vendedor || {},
-          obs: primeiroPedido?.obs || '',
-          total: Number(primeiroPedido?.total || 0),
-          itens: Array.isArray(jsonItens?.data?.itens) ? jsonItens.data.itens : []
-        };
+        if (!pedidoSelecionado && pedidos.length === 1) {
+          pedidoSelecionado = pedidos[0];
+          indiceSelecionado = 0;
+        }
 
-        renderizarCliente(pedidoCarregado);
-        renderizarItens(pedidoCarregado.itens);
-        btnImprimirRelatorio.classList.remove('oculto');
-        btnEnviarWhatsapp.classList.remove('oculto');
-        btnEnviarWhatsapp.disabled = !normalizarTelefone(pedidoCarregado?.cliente?.telefonePrincipal || pedidoCarregado?.cliente?.telefone1 || '');
+        renderizarResultados(pedidos);
 
-        setMensagem('Pedido carregado.');
+        if (pedidoSelecionado) {
+          await carregarPedidoSelecionado(pedidoSelecionado);
+          marcarResultadoAtivo(indiceSelecionado);
+          setMensagem('Pedido carregado.');
+        } else {
+          setMensagem(`${pedidos.length} pedidos encontrados. Selecione um resultado.`);
+        }
       } catch (error) {
         limparCliente();
         limparItens();
+        limparResultados();
         setMensagem(error.message || 'Erro ao pesquisar pedidos.', true);
       }
     }
 
     btnPesquisar.addEventListener('click', () => pesquisarPedidos());
+
     btnImprimirRelatorio.addEventListener('click', () => {
       if (pedidoCarregado) {
         abrirRelatorioPedido(pedidoCarregado);
@@ -521,18 +688,23 @@
       }
     });
 
-    numeroPedidoInput.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') {
-        pesquisarPedidos();
-      }
+    [numeroPedidoInput, clientePedidoInput, dataPedidoInput].forEach((campo) => {
+      campo.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          pesquisarPedidos();
+        }
+      });
     });
 
     window.addEventListener('DOMContentLoaded', () => {
-      const numeroUrl = obterNumeroDaUrl();
+      const filtrosUrl = obterFiltrosDaUrl();
 
-      if (numeroUrl) {
-        numeroPedidoInput.value = numeroUrl;
-        pesquisarPedidos(numeroUrl);
+      if (filtrosUrl.numero) numeroPedidoInput.value = filtrosUrl.numero;
+      if (filtrosUrl.cliente) clientePedidoInput.value = filtrosUrl.cliente;
+      if (filtrosUrl.data) dataPedidoInput.value = filtrosUrl.data;
+
+      if (filtrosUrl.numero || filtrosUrl.cliente || filtrosUrl.data) {
+        pesquisarPedidos(filtrosUrl);
       }
     });
   </script>

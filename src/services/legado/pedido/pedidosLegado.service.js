@@ -54,9 +54,11 @@ function normalizarPedido(item) {
   };
 }
 
-async function pesquisarPedidos(numero) {
+async function pesquisarPedidos(filtros = {}) {
   const response = await legadoBridgeService.get('/api/legado/pedidos', {
-    numero
+    numero: filtros.numero,
+    cliente: filtros.cliente,
+    data: filtros.data
   });
 
   const dados = Array.isArray(response.data) ? response.data : [];
