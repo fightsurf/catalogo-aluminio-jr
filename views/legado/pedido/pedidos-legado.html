@@ -291,6 +291,7 @@
       <div class="acoes-pedido">
         <button id="btnEnviarWhatsapp" class="btn btn-whatsapp oculto">Enviar para WhatsApp</button>
         <button id="btnAdicionarPagamentos" class="btn btn-primary oculto">Adicionar pagamentos</button>
+        <button id="btnImprimirRelatorioProducao" class="btn btn-primary oculto">Imprimir relatório para produção</button>
         <button id="btnImprimirRelatorio" class="btn btn-primary oculto">Imprimir relatório</button>
       </div>
     </div>
@@ -316,6 +317,7 @@
     const dadosCliente = document.getElementById('dadosCliente');
     const blocoItens = document.getElementById('blocoItens');
     const btnImprimirRelatorio = document.getElementById('btnImprimirRelatorio');
+    const btnImprimirRelatorioProducao = document.getElementById('btnImprimirRelatorioProducao');
     const btnEnviarWhatsapp = document.getElementById('btnEnviarWhatsapp');
     const btnAdicionarPagamentos = document.getElementById('btnAdicionarPagamentos');
     const resultadosBusca = document.getElementById('resultadosBusca');
@@ -332,6 +334,7 @@
     function limparCliente() {
       dadosCliente.innerHTML = '<div class="placeholder">Nenhum pedido carregado.</div>';
       btnImprimirRelatorio.classList.add('oculto');
+      btnImprimirRelatorioProducao.classList.add('oculto');
       btnEnviarWhatsapp.classList.add('oculto');
       btnAdicionarPagamentos.classList.add('oculto');
       btnEnviarWhatsapp.disabled = true;
@@ -452,7 +455,7 @@
       window.location.href = obterUrlPagamentos(pedido);
     }
 
-    function abrirRelatorioPedido(pedido) {
+    function abrirRelatorioPedido(pedido, modo = '') {
       if (!pedido?.numero) {
         return;
       }
@@ -460,7 +463,18 @@
       const storageKey = `relatorio_pedido_${pedido.numero}_${Date.now()}`;
 
       localStorage.setItem(storageKey, JSON.stringify(pedido));
-      window.open(`/legado/pedidos-relatorio?numero=${encodeURIComponent(pedido.numero)}&storageKey=${encodeURIComponent(storageKey)}&autoPrint=1`, '_blank');
+
+      const params = new URLSearchParams({
+        numero: String(pedido.numero),
+        storageKey,
+        autoPrint: '1'
+      });
+
+      if (modo) {
+        params.set('modo', modo);
+      }
+
+      window.open(`/legado/pedidos-relatorio?${params.toString()}`, '_blank');
     }
 
     function obterFiltrosDaUrl() {
@@ -498,7 +512,7 @@
           <div class="cliente-linha"><strong>Cidade:</strong> ${pedido?.cliente?.cidade || '-'}</div>
           <div class="cliente-linha"><strong>UF:</strong> ${pedido?.cliente?.uf || '-'}</div>
           <div class="cliente-linha"><strong>Telefone:</strong> ${normalizarTelefone(pedido?.cliente?.telefonePrincipal || pedido?.cliente?.telefone1 || '') ? `<a class="telefone-link" href="${obterWhatsappHref(pedido)}" target="_blank" rel="noopener noreferrer">${formatarTelefoneExibicao(pedido?.cliente?.telefonePrincipal || pedido?.cliente?.telefone1 || '')}</a>` : 'Telefone não encontrado.'}</div>
-          
+
         </div>
 
         <div class="cliente-dados-linha">
@@ -629,6 +643,7 @@
       renderizarCliente(pedidoCarregado);
       renderizarItens(pedidoCarregado.itens);
       btnImprimirRelatorio.classList.remove('oculto');
+      btnImprimirRelatorioProducao.classList.remove('oculto');
       btnEnviarWhatsapp.classList.remove('oculto');
       btnAdicionarPagamentos.classList.remove('oculto');
       btnEnviarWhatsapp.disabled = !normalizarTelefone(pedidoCarregado?.cliente?.telefonePrincipal || pedidoCarregado?.cliente?.telefone1 || '');
@@ -706,6 +721,12 @@
     btnImprimirRelatorio.addEventListener('click', () => {
       if (pedidoCarregado) {
         abrirRelatorioPedido(pedidoCarregado);
+      }
+    });
+
+    btnImprimirRelatorioProducao.addEventListener('click', () => {
+      if (pedidoCarregado) {
+        abrirRelatorioPedido(pedidoCarregado, 'producao');
       }
     });
 

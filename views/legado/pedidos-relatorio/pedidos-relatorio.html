@@ -34,6 +34,11 @@
     .totais .linha:last-child { border-bottom: none; font-weight: bold; font-size: 18px; }
     .rodape { margin-top: 18px; border: 1px solid #111827; min-height: 90px; }
     .rodape .bloco-conteudo { white-space: pre-wrap; min-height: 60px; font-size: 14px; }
+    body.modo-producao .coluna-preco,
+    body.modo-producao .coluna-subtotal,
+    body.modo-producao #totaisWrap {
+      display: none;
+    }
     @media print {
       body { background: #fff; }
       .toolbar, .aviso { display: none !important; }
@@ -81,8 +86,8 @@
             <tr>
               <th class="descricao">Descrição</th>
               <th class="right">Quantidade</th>
-              <th class="right">Preço</th>
-              <th class="right">Subtotal</th>
+              <th class="right coluna-preco">Preço</th>
+              <th class="right coluna-subtotal">Subtotal</th>
             </tr>
           </thead>
           <tbody id="corpoItens"></tbody>
@@ -90,7 +95,7 @@
       </div>
     </div>
 
-    <div class="totais-wrap">
+    <div class="totais-wrap" id="totaisWrap">
       <div class="totais">
         <div class="linha">
           <span>Total final</span>
@@ -142,7 +147,8 @@
       return {
         numero: (params.get('numero') || '').trim(),
         storageKey: (params.get('storageKey') || '').trim(),
-        autoPrint: params.get('autoPrint') === '1'
+        autoPrint: params.get('autoPrint') === '1',
+        modoProducao: (params.get('modo') || '').trim().toLowerCase() === 'producao'
       };
     }
 
@@ -207,7 +213,12 @@
       };
     }
 
-    function renderizarPedido(pedido) {
+    function aplicarModoRelatorio(modoProducao) {
+      document.body.classList.toggle('modo-producao', !!modoProducao);
+    }
+
+    function renderizarPedido(pedido, modoProducao = false) {
+      aplicarModoRelatorio(modoProducao);
       document.getElementById('numeroPedido').textContent = pedido?.numero || '-';
       document.getElementById('dataHoraImpressao').textContent = formatarDataHoraAgora();
       document.getElementById('dataPedido').textContent = formatarData(pedido?.data);
@@ -224,8 +235,8 @@
             <tr>
               <td>${item.descricao || '-'}</td>
               <td class="right">${Number(item.quantidade || 0).toLocaleString('pt-BR')}</td>
-              <td class="right">${moeda(item.preco)}</td>
-              <td class="right">${moeda(item.subtotal)}</td>
+              <td class="right coluna-preco">${moeda(item.preco)}</td>
+              <td class="right coluna-subtotal">${moeda(item.subtotal)}</td>
             </tr>
           `).join('')
         : `
@@ -239,7 +250,7 @@
     }
 
     async function iniciar() {
-      const { numero, storageKey, autoPrint } = getParams();
+      const { numero, storageKey, autoPrint, modoProducao } = getParams();
 
       try {
         let pedido = lerPedidoDoStorage(storageKey);
@@ -252,7 +263,7 @@
           throw new Error('Não encontrei os dados do relatório.');
         }
 
-        renderizarPedido(pedido);
+        renderizarPedido(pedido, modoProducao);
 
         if (autoPrint) {
           setTimeout(() => window.print(), 300);
