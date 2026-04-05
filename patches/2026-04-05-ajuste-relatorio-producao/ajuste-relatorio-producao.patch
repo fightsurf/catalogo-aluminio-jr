@@ -1,0 +1,260 @@
+### pedidos-legado.patch
+
+--- /mnt/data/renderrepo2/render/views/legado/pedido/pedidos-legado.html	2026-04-05 21:04:01.574486869 +0000
++++ /mnt/data/pedidos-legado.final.html	2026-04-05 21:09:43.863480545 +0000
+@@ -290,6 +290,8 @@
+ 
+       <div class="acoes-pedido">
+         <button id="btnEnviarWhatsapp" class="btn btn-whatsapp oculto">Enviar para WhatsApp</button>
++        <button id="btnAdicionarPagamentos" class="btn btn-primary oculto">Adicionar pagamentos</button>
++        <button id="btnImprimirRelatorioProducao" class="btn btn-primary oculto">Imprimir relatório para produção</button>
+         <button id="btnImprimirRelatorio" class="btn btn-primary oculto">Imprimir relatório</button>
+       </div>
+     </div>
+@@ -315,7 +317,9 @@
+     const dadosCliente = document.getElementById('dadosCliente');
+     const blocoItens = document.getElementById('blocoItens');
+     const btnImprimirRelatorio = document.getElementById('btnImprimirRelatorio');
++    const btnImprimirRelatorioProducao = document.getElementById('btnImprimirRelatorioProducao');
+     const btnEnviarWhatsapp = document.getElementById('btnEnviarWhatsapp');
++    const btnAdicionarPagamentos = document.getElementById('btnAdicionarPagamentos');
+     const resultadosBusca = document.getElementById('resultadosBusca');
+     const resultadoLista = document.getElementById('resultadoLista');
+ 
+@@ -330,7 +334,9 @@
+     function limparCliente() {
+       dadosCliente.innerHTML = '<div class="placeholder">Nenhum pedido carregado.</div>';
+       btnImprimirRelatorio.classList.add('oculto');
++      btnImprimirRelatorioProducao.classList.add('oculto');
+       btnEnviarWhatsapp.classList.add('oculto');
++      btnAdicionarPagamentos.classList.add('oculto');
+       btnEnviarWhatsapp.disabled = true;
+       pedidoCarregado = null;
+     }
+@@ -422,7 +428,34 @@
+       });
+     }
+ 
+-    function abrirRelatorioPedido(pedido) {
++    function obterUrlPagamentos(pedido) {
++      const empresa = pedido?.empresa;
++      const saida = pedido?.saida ?? pedido?.idMestre;
++      const pdv = pedido?.pdv ?? 0;
++
++      if (saida !== undefined && saida !== null && String(saida).trim() !== '') {
++        const params = new URLSearchParams({
++          empresa: String(empresa ?? -1),
++          saida: String(saida),
++          pdv: String(pdv)
++        });
++
++        return `/legado/pagamentos?${params.toString()}`;
++      }
++
++      const numero = String(pedido?.numero || '').trim();
++      if (!numero) {
++        return '/legado/pagamentos';
++      }
++
++      return `/legado/pagamentos?numero=${encodeURIComponent(numero)}`;
++    }
++
++    function abrirTelaPagamentos(pedido) {
++      window.location.href = obterUrlPagamentos(pedido);
++    }
++
++    function abrirRelatorioPedido(pedido, modo = '') {
+       if (!pedido?.numero) {
+         return;
+       }
+@@ -430,7 +463,18 @@
+       const storageKey = `relatorio_pedido_${pedido.numero}_${Date.now()}`;
+ 
+       localStorage.setItem(storageKey, JSON.stringify(pedido));
+-      window.open(`/legado/pedidos-relatorio?numero=${encodeURIComponent(pedido.numero)}&storageKey=${encodeURIComponent(storageKey)}&autoPrint=1`, '_blank');
++
++      const params = new URLSearchParams({
++        numero: String(pedido.numero),
++        storageKey,
++        autoPrint: '1'
++      });
++
++      if (modo) {
++        params.set('modo', modo);
++      }
++
++      window.open(`/legado/pedidos-relatorio?${params.toString()}`, '_blank');
+     }
+ 
+     function obterFiltrosDaUrl() {
+@@ -468,7 +512,13 @@
+           <div class="cliente-linha"><strong>Cidade:</strong> ${pedido?.cliente?.cidade || '-'}</div>
+           <div class="cliente-linha"><strong>UF:</strong> ${pedido?.cliente?.uf || '-'}</div>
+           <div class="cliente-linha"><strong>Telefone:</strong> ${normalizarTelefone(pedido?.cliente?.telefonePrincipal || pedido?.cliente?.telefone1 || '') ? `<a class="telefone-link" href="${obterWhatsappHref(pedido)}" target="_blank" rel="noopener noreferrer">${formatarTelefoneExibicao(pedido?.cliente?.telefonePrincipal || pedido?.cliente?.telefone1 || '')}</a>` : 'Telefone não encontrado.'}</div>
++
++        </div>
++
++        <div class="cliente-dados-linha">
+           <div class="cliente-linha"><strong>Total:</strong> ${moeda(pedido?.total || 0)}</div>
++          <div class="cliente-linha"><strong>Total pago:</strong> ${moeda(pedido?.totalPago || 0)}</div>
++          <div class="cliente-linha"><strong>Saldo restante:</strong> ${moeda(pedido?.saldoRestante || 0)}</div>
+         </div>
+       `;
+     }
+@@ -528,7 +578,9 @@
+             Pedido ${pedido?.numero || '-'} · ${pedido?.cliente?.nome || '-'}
+           </div>
+           <div class="resultado-secundario">
+-            Data: ${formatarData(pedido?.data)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)}
++            Data: ${formatarData(pedido?.data)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)}</div>
++          <div class="resultado-secundario">
++            Total pago: ${moeda(pedido?.totalPago || 0)} · Restante a pagar: ${moeda(pedido?.saldoRestante || 0)}
+           </div>
+         </div>
+       `).join('');
+@@ -556,7 +608,9 @@
+             Pedido ${pedido?.numero || '-'} · ${pedido?.cliente?.nome || '-'}
+           </div>
+           <div class="resultado-secundario">
+-            Data: ${formatarData(pedido?.data)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)}
++            Data: ${formatarData(pedido?.data)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)}</div>
++          <div class="resultado-secundario">
++            Total pago: ${moeda(pedido?.totalPago || 0)} · Restante a pagar: ${moeda(pedido?.saldoRestante || 0)}
+           </div>
+         </div>
+       `).join('');
+@@ -578,13 +632,20 @@
+         vendedor: pedidoBase?.vendedor || {},
+         obs: pedidoBase?.obs || '',
+         total: Number(pedidoBase?.total || 0),
++        totalPago: Number(pedidoBase?.totalPago || 0),
++        saldoRestante: Number(pedidoBase?.saldoRestante || 0),
++        empresa: pedidoBase?.empresa ?? -1,
++        saida: pedidoBase?.saida ?? pedidoBase?.idMestre ?? null,
++        pdv: pedidoBase?.pdv ?? 0,
+         itens: Array.isArray(jsonItens?.data?.itens) ? jsonItens.data.itens : []
+       };
+ 
+       renderizarCliente(pedidoCarregado);
+       renderizarItens(pedidoCarregado.itens);
+       btnImprimirRelatorio.classList.remove('oculto');
++      btnImprimirRelatorioProducao.classList.remove('oculto');
+       btnEnviarWhatsapp.classList.remove('oculto');
++      btnAdicionarPagamentos.classList.remove('oculto');
+       btnEnviarWhatsapp.disabled = !normalizarTelefone(pedidoCarregado?.cliente?.telefonePrincipal || pedidoCarregado?.cliente?.telefone1 || '');
+     }
+ 
+@@ -663,6 +724,21 @@
+       }
+     });
+ 
++    btnImprimirRelatorioProducao.addEventListener('click', () => {
++      if (pedidoCarregado) {
++        abrirRelatorioPedido(pedidoCarregado, 'producao');
++      }
++    });
++
++    btnAdicionarPagamentos.addEventListener('click', () => {
++      if (!pedidoCarregado) {
++        setMensagem('Nenhum pedido carregado para abrir pagamentos.', true);
++        return;
++      }
++
++      abrirTelaPagamentos(pedidoCarregado);
++    });
++
+     btnEnviarWhatsapp.addEventListener('click', async () => {
+       if (!pedidoCarregado?.numero) {
+         setMensagem('Nenhum pedido carregado para envio.', true);
+ }
+
+
+### pedidos-relatorio.patch
+
+--- /mnt/data/renderrepo2/render/views/legado/pedidos-relatorio/pedidos-relatorio.html	2026-04-05 21:04:01.576623415 +0000
++++ /mnt/data/pedidos-relatorio.final.html	2026-04-05 21:10:28.123391963 +0000
+@@ -34,6 +34,11 @@
+     .totais .linha:last-child { border-bottom: none; font-weight: bold; font-size: 18px; }
+     .rodape { margin-top: 18px; border: 1px solid #111827; min-height: 90px; }
+     .rodape .bloco-conteudo { white-space: pre-wrap; min-height: 60px; font-size: 14px; }
++    body.modo-producao .coluna-preco,
++    body.modo-producao .coluna-subtotal,
++    body.modo-producao #totaisWrap {
++      display: none;
++    }
+     @media print {
+       body { background: #fff; }
+       .toolbar, .aviso { display: none !important; }
+@@ -81,8 +86,8 @@
+             <tr>
+               <th class="descricao">Descrição</th>
+               <th class="right">Quantidade</th>
+-              <th class="right">Preço</th>
+-              <th class="right">Subtotal</th>
++              <th class="right coluna-preco">Preço</th>
++              <th class="right coluna-subtotal">Subtotal</th>
+             </tr>
+           </thead>
+           <tbody id="corpoItens"></tbody>
+@@ -90,7 +95,7 @@
+       </div>
+     </div>
+ 
+-    <div class="totais-wrap">
++    <div class="totais-wrap" id="totaisWrap">
+       <div class="totais">
+         <div class="linha">
+           <span>Total final</span>
+@@ -142,7 +147,8 @@
+       return {
+         numero: (params.get('numero') || '').trim(),
+         storageKey: (params.get('storageKey') || '').trim(),
+-        autoPrint: params.get('autoPrint') === '1'
++        autoPrint: params.get('autoPrint') === '1',
++        modoProducao: (params.get('modo') || '').trim().toLowerCase() === 'producao'
+       };
+     }
+ 
+@@ -207,7 +213,12 @@
+       };
+     }
+ 
+-    function renderizarPedido(pedido) {
++    function aplicarModoRelatorio(modoProducao) {
++      document.body.classList.toggle('modo-producao', !!modoProducao);
++    }
++
++    function renderizarPedido(pedido, modoProducao = false) {
++      aplicarModoRelatorio(modoProducao);
+       document.getElementById('numeroPedido').textContent = pedido?.numero || '-';
+       document.getElementById('dataHoraImpressao').textContent = formatarDataHoraAgora();
+       document.getElementById('dataPedido').textContent = formatarData(pedido?.data);
+@@ -224,8 +235,8 @@
+             <tr>
+               <td>${item.descricao || '-'}</td>
+               <td class="right">${Number(item.quantidade || 0).toLocaleString('pt-BR')}</td>
+-              <td class="right">${moeda(item.preco)}</td>
+-              <td class="right">${moeda(item.subtotal)}</td>
++              <td class="right coluna-preco">${moeda(item.preco)}</td>
++              <td class="right coluna-subtotal">${moeda(item.subtotal)}</td>
+             </tr>
+           `).join('')
+         : `
+@@ -239,7 +250,7 @@
+     }
+ 
+     async function iniciar() {
+-      const { numero, storageKey, autoPrint } = getParams();
++      const { numero, storageKey, autoPrint, modoProducao } = getParams();
+ 
+       try {
+         let pedido = lerPedidoDoStorage(storageKey);
+@@ -252,7 +263,7 @@
+           throw new Error('Não encontrei os dados do relatório.');
+         }
+ 
+-        renderizarPedido(pedido);
++        renderizarPedido(pedido, modoProducao);
+ 
+         if (autoPrint) {
+           setTimeout(() => window.print(), 300);
