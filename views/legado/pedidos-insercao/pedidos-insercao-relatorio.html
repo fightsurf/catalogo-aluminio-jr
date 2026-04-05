@@ -91,6 +91,11 @@
       return (url.searchParams.get('numero') || '').trim();
     }
 
+    function obterModoDaUrl() {
+      const url = new URL(window.location.href);
+      return (url.searchParams.get('modo') || 'normal').trim().toLowerCase();
+    }
+
     function obterDadosRelatorio(numero) {
       if (!numero) return null;
       const bruto = localStorage.getItem(`${STORAGE_PREFIX}${numero}`);
@@ -104,6 +109,8 @@
 
     function renderizarRelatorio(dados) {
       const pagina = document.getElementById('paginaRelatorio');
+      const modo = obterModoDaUrl();
+      const ehProducao = modo === 'producao';
 
       if (!dados) {
         pagina.innerHTML = `
@@ -117,8 +124,30 @@ A estrutura já está pronta para futuramente abrir o relatório apenas pelo nú
       }
 
       const itens = Array.isArray(dados.itens) ? dados.itens : [];
+      const colunasCabecalho = ehProducao
+        ? `
+              <tr>
+                <th class="descricao">Descrição</th>
+                <th class="qtd">Qtd.</th>
+              </tr>
+          `
+        : `
+              <tr>
+                <th class="descricao">Descrição</th>
+                <th class="qtd">Qtd.</th>
+                <th class="preco">Preço</th>
+                <th class="subtotal">SubTotal</th>
+              </tr>
+          `;
       const linhasItens = itens.length
-        ? itens.map((item) => `
+        ? itens.map((item) => ehProducao
+            ? `
+            <tr>
+              <td class="descricao">${escaparHtml(item.descricao || '')}</td>
+              <td class="qtd">${formatarNumero(item.quantidade)}</td>
+            </tr>
+          `
+            : `
             <tr>
               <td class="descricao">${escaparHtml(item.descricao || '')}</td>
               <td class="qtd">${formatarNumero(item.quantidade)}</td>
@@ -126,7 +155,9 @@ A estrutura já está pronta para futuramente abrir o relatório apenas pelo nú
               <td class="subtotal">${formatarMoeda(item.subtotal)}</td>
             </tr>
           `).join('')
-        : '<tr><td class="descricao">Sem itens</td><td class="qtd">0,00</td><td class="preco">R$ 0,00</td><td class="subtotal">R$ 0,00</td></tr>';
+        : (ehProducao
+            ? '<tr><td class="descricao">Sem itens</td><td class="qtd">0,00</td></tr>'
+            : '<tr><td class="descricao">Sem itens</td><td class="qtd">0,00</td><td class="preco">R$ 0,00</td><td class="subtotal">R$ 0,00</td></tr>');
 
       pagina.innerHTML = `
         <div class="topo">
@@ -143,7 +174,7 @@ A estrutura já está pronta para futuramente abrir o relatório apenas pelo nú
         <div class="linha-topo"></div>
 
         <div class="titulo-faixa">
-          VENDA DE MERCADORIA
+          ${ehProducao ? 'VENDA DE MERCADORIA - PRODUÇÃO' : 'VENDA DE MERCADORIA'}
           <div class="numero-box">#${escaparHtml(dados.numero || '')}</div>
         </div>
 
@@ -173,12 +204,7 @@ A estrutura já está pronta para futuramente abrir o relatório apenas pelo nú
         <div class="grade-itens-wrap">
           <table class="tabela-itens">
             <thead>
-              <tr>
-                <th class="descricao">Descrição</th>
-                <th class="qtd">Qtd.</th>
-                <th class="preco">Preço</th>
-                <th class="subtotal">SubTotal</th>
-              </tr>
+              ${colunasCabecalho}
             </thead>
             <tbody>
               ${linhasItens}
@@ -192,10 +218,12 @@ A estrutura já está pronta para futuramente abrir o relatório apenas pelo nú
             <div>${escaparHtml(dados.observacao || '')}</div>
           </div>
           <div class="totais-box">
+            ${ehProducao ? '' : `
             <div class="total-final">
               <span>Total Final</span>
               <span>${formatarMoeda(dados.total)}</span>
             </div>
+            `}
           </div>
         </div>
       `;
