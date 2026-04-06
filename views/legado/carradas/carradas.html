@@ -544,7 +544,7 @@
       }
 
       el.tabelaCarradas.innerHTML = carradas.map((carrada) => `
-        <tr class="${carrada.progressoConcluido ? 'carrada-concluida' : ''}">
+        <tr data-codigo-row="${carrada.codigo}" class="${carrada.progressoConcluido ? 'carrada-concluida' : ''}">
           <td>${carrada.codigo}</td>
           <td>${escapeHtml(formatarData(carrada.data))}</td>
           <td>${escapeHtml(carrada.descricao || '')}</td>
@@ -662,30 +662,46 @@
       }
     }
 
+    function aplicarResumoProgressoNaTabela(resumoProgresso) {
+      const itens = Array.isArray(resumoProgresso) ? resumoProgresso : [];
+
+      itens.forEach((item) => {
+        const codigo = Number(item?.codigoCarrada);
+
+        if (!codigo) {
+          return;
+        }
+
+        const linha = el.tabelaCarradas.querySelector(`tr[data-codigo-row="${codigo}"]`);
+
+        if (!linha) {
+          return;
+        }
+
+        linha.classList.toggle('carrada-concluida', Boolean(item?.concluida));
+      });
+    }
+
+    async function carregarResumoProgressoDasCarradasEmSegundoPlano(carradas) {
+      const codigos = (Array.isArray(carradas) ? carradas : []).map((carrada) => carrada.codigo).filter(Boolean);
+
+      if (!codigos.length) {
+        return;
+      }
+
+      try {
+        const resumoProgresso = await request(`/api/legado/carradas-progresso/resumo/lista?codigos=${encodeURIComponent(codigos.join(','))}`);
+        aplicarResumoProgressoNaTabela(resumoProgresso);
+      } catch (errorResumo) {
+        console.error('Não foi possível carregar o resumo do progresso das carradas:', errorResumo);
+      }
+    }
+
     async function carregarCarradas() {
       try {
         const carradas = await request('/api/legado/carradas');
-        const codigos = carradas.map((carrada) => carrada.codigo).filter(Boolean);
 
-        let resumoProgresso = [];
-
-        if (codigos.length) {
-          try {
-            resumoProgresso = await request(`/api/legado/carradas-progresso/resumo/lista?codigos=${encodeURIComponent(codigos.join(','))}`);
-          } catch (errorResumo) {
-            console.error('Não foi possível carregar o resumo do progresso das carradas:', errorResumo);
-            resumoProgresso = [];
-          }
-        }
-
-        const mapaResumo = new Map((Array.isArray(resumoProgresso) ? resumoProgresso : []).map((item) => [Number(item.codigoCarrada), item]));
-
-        const carradasComResumo = carradas.map((carrada) => ({
-          ...carrada,
-          progressoConcluido: Boolean(mapaResumo.get(Number(carrada.codigo))?.concluida)
-        }));
-
-        carradasComResumo.sort((a, b) => {
+        const carradasOrdenadas = (Array.isArray(carradas) ? carradas : []).slice().sort((a, b) => {
           const dataB = obterTimestampOrdenacaoData(b.data);
           const dataA = obterTimestampOrdenacaoData(a.data);
 
@@ -694,9 +710,16 @@
           }
 
           return Number(b.codigo || 0) - Number(a.codigo || 0);
-        });
+        }).map((carrada) => ({
+          ...carrada,
+          progressoConcluido: false
+        }));
 
-        renderCarradas(carradasComResumo);
+        renderCarradas(carradasOrdenadas);
+
+        setTimeout(() => {
+          carregarResumoProgressoDasCarradasEmSegundoPlano(carradasOrdenadas);
+        }, 50);
       } catch (error) {
         el.tabelaCarradas.innerHTML = `<tr><td colspan="4" class="muted">${escapeHtml(error.message)}</td></tr>`;
       }
