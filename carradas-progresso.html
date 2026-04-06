@@ -1,0 +1,1194 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Progresso da carrada</title>
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --card: #ffffff;
+      --text: #111827;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --primary: #111827;
+      --primary-text: #ffffff;
+      --success: #15803d;
+      --success-bg: #dcfce7;
+      --warning-bg: #fff7ed;
+      --warning-border: #fdba74;
+      --danger: #991b1b;
+      --shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    button, input, select, textarea {
+      font-family: inherit;
+    }
+    .page {
+      max-width: 1500px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .topbar h1,
+    .topbar p,
+    .panel h2,
+    .panel p,
+    .card h3,
+    .card p,
+    .modal h3,
+    .modal p {
+      margin: 0;
+    }
+    .muted {
+      color: var(--muted);
+    }
+    .topbar-actions,
+    .header-actions,
+    .modal-actions,
+    .cell-actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .btn,
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 0 16px;
+      height: 42px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .btn-primary {
+      background: var(--primary);
+      color: var(--primary-text);
+    }
+    .btn-secondary {
+      background: #fff;
+      border: 1px solid var(--line);
+      color: var(--text);
+    }
+    .btn-danger {
+      background: var(--danger);
+      color: #fff;
+    }
+    .btn-success {
+      background: var(--success);
+      color: #fff;
+    }
+    .btn:disabled,
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .header-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(180px, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+    }
+    .card strong {
+      display: block;
+      font-size: 20px;
+      margin-top: 8px;
+    }
+    .status-cards {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(180px, 1fr));
+      gap: 12px;
+    }
+    .status-card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      background: #fff;
+    }
+    .status-card strong {
+      display: block;
+      margin-top: 8px;
+      font-size: 24px;
+    }
+    .legend {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .legend-item {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .legend-color {
+      width: 16px;
+      height: 16px;
+      border-radius: 4px;
+      border: 1px solid var(--line);
+      background: #fff;
+    }
+    .legend-color.success {
+      background: var(--success-bg);
+      border-color: #86efac;
+    }
+    .table-wrap {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+      max-height: calc(100vh - 250px);
+    }
+    table {
+      width: 100%;
+      min-width: 1220px;
+      border-collapse: separate;
+      border-spacing: 0;
+    }
+    th,
+    td {
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      vertical-align: middle;
+      background: #fff;
+    }
+    th:last-child,
+    td:last-child {
+      border-right: 0;
+    }
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      background: #f8fafc;
+      color: #334155;
+      font-size: 13px;
+      text-align: center;
+    }
+    th.sticky-col,
+    td.sticky-col {
+      position: sticky;
+      left: 0;
+      z-index: 4;
+      background: #fff;
+      min-width: 250px;
+      max-width: 250px;
+      text-align: left;
+    }
+    th.sticky-col {
+      z-index: 6;
+      background: #f8fafc;
+    }
+    tr:hover td {
+      background: #fcfcfd;
+    }
+    tr:hover td.sticky-col {
+      background: #fcfcfd;
+    }
+    .pedido-title {
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .pedido-meta {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    .cell-button {
+      width: 100%;
+      min-height: 48px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--text);
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 8px;
+      line-height: 1.2;
+    }
+    .cell-button.done {
+      background: var(--success-bg);
+      border-color: #86efac;
+      color: var(--success);
+    }
+    .cell-button.readonly {
+      cursor: default;
+    }
+    .cell-button.special {
+      font-size: 12px;
+    }
+    .cell-button .subtext {
+      display: block;
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 400;
+      margin-top: 4px;
+    }
+    .loading,
+    .empty {
+      padding: 30px;
+      text-align: center;
+      color: var(--muted);
+    }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 100;
+    }
+    .modal-backdrop.open {
+      display: flex;
+    }
+    .modal {
+      width: min(900px, 100%);
+      max-height: calc(100vh - 40px);
+      overflow: auto;
+      background: #fff;
+      border-radius: 18px;
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+      border: 1px solid var(--line);
+    }
+    .modal-header,
+    .modal-body,
+    .modal-footer {
+      padding: 18px;
+    }
+    .modal-header {
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+    }
+    .modal-body {
+      display: grid;
+      gap: 16px;
+    }
+    .modal-footer {
+      border-top: 1px solid var(--line);
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .field label {
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .field input,
+    .field select,
+    .field textarea {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #fff;
+      color: var(--text);
+    }
+    .field textarea {
+      min-height: 140px;
+      resize: vertical;
+    }
+    .summary-box {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      background: #fff;
+    }
+    .summary-items {
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+    .summary-items table {
+      min-width: 640px;
+    }
+    .summary-items th,
+    .summary-items td {
+      text-align: left;
+      position: static;
+      background: #fff;
+    }
+    .summary-items th {
+      background: #f8fafc;
+    }
+    .message-box {
+      white-space: pre-wrap;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #f8fafc;
+      padding: 12px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .feedback {
+      font-size: 14px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #f8fafc;
+      border: 1px solid var(--line);
+    }
+    .feedback.success {
+      background: var(--success-bg);
+      border-color: #86efac;
+      color: var(--success);
+    }
+    .feedback.error {
+      background: #fee2e2;
+      border-color: #fca5a5;
+      color: #b91c1c;
+    }
+    @media (max-width: 1100px) {
+      .header-grid,
+      .status-cards,
+      .grid-2 {
+        grid-template-columns: 1fr 1fr;
+      }
+    }
+    @media (max-width: 720px) {
+      .page {
+        padding: 14px;
+      }
+      .header-grid,
+      .status-cards,
+      .grid-2 {
+        grid-template-columns: 1fr;
+      }
+      .modal-header {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="topbar">
+      <div>
+        <h1>Progresso da carrada</h1>
+        <p class="muted">Procure as células que ainda não ficaram verdes e resolva o operacional.</p>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn-secondary" id="btnVoltar">Voltar para carradas</button>
+        <button class="btn-secondary" id="btnRecarregar">Recarregar</button>
+      </div>
+    </div>
+
+    <section class="panel">
+      <div class="header-actions" style="justify-content: space-between; align-items: flex-start;">
+        <div>
+          <h2 id="tituloCarrada">Carrada</h2>
+          <p class="muted" id="subtituloCarrada">Carregando dados da carrada...</p>
+        </div>
+      </div>
+      <div class="header-grid" id="cardsCabecalho"></div>
+      <div class="legend">
+        <div class="legend-item"><span class="legend-color success"></span> Verde = fase concluída</div>
+        <div class="legend-item"><span class="legend-color"></span> Branco = pendência operacional</div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; margin-bottom:14px;">
+        <div>
+          <h2>Resumo das fases</h2>
+          <p class="muted">Quantidade de pedidos concluídos por fase.</p>
+        </div>
+      </div>
+      <div class="status-cards" id="cardsFases"></div>
+    </section>
+
+    <section class="panel">
+      <div style="display:flex; justify-content:space-between; gap:12px; align-items:flex-start; flex-wrap:wrap; margin-bottom:14px;">
+        <div>
+          <h2>Matriz de progresso</h2>
+          <p class="muted">Clique nas células para registrar as etapas manuais do pedido.</p>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="sticky-col">Pedido</th>
+              <th title="Em produção">Produção</th>
+              <th title="Pedido pronto">Pronto</th>
+              <th title="Etiqueta volumes">Etiqueta</th>
+              <th title="Vídeo feito">Vídeo</th>
+              <th title="Quer nota fiscal">NF</th>
+              <th title="Local de entrega">Entrega</th>
+              <th title="Pagamento quitado">Quitado</th>
+              <th title="Ligação pós-venda">Pós-venda</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyMatriz">
+            <tr><td colspan="9" class="loading">Carregando progresso da carrada...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div class="modal-backdrop" id="modalResumoBackdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <div>
+          <h3 id="modalResumoTitulo">Resumo do pedido</h3>
+          <p class="muted" id="modalResumoSubtitulo"></p>
+        </div>
+        <button class="btn-secondary" data-close-modal="modalResumoBackdrop">Fechar</button>
+      </div>
+      <div class="modal-body" id="modalResumoBody"></div>
+      <div class="modal-footer">
+        <button class="btn-secondary" data-close-modal="modalResumoBackdrop">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modalEtiquetaBackdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <div>
+          <h3 id="modalEtiquetaTitulo">Etiqueta volumes</h3>
+          <p class="muted" id="modalEtiquetaSubtitulo"></p>
+        </div>
+        <button class="btn-secondary" data-close-modal="modalEtiquetaBackdrop">Fechar</button>
+      </div>
+      <div class="modal-body">
+        <div class="grid-2">
+          <div class="field">
+            <label for="selectEtiquetas">Texto salvo do cliente</label>
+            <select id="selectEtiquetas"></select>
+          </div>
+          <div class="field">
+            <label for="inputEtiquetaApelido">Apelido</label>
+            <input type="text" id="inputEtiquetaApelido" maxlength="100" placeholder="Ex.: Loja Campina" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="textareaEtiquetaTexto">Texto da etiqueta</label>
+          <textarea id="textareaEtiquetaTexto" placeholder="Digite os dizeres que serão impressos nas caixas."></textarea>
+        </div>
+        <div class="feedback" id="feedbackEtiqueta">Selecione um texto salvo ou crie um novo.</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="btnEtiquetaDesconfirmar">Desmarcar confirmação</button>
+        <button class="btn-success" id="btnEtiquetaConfirmar">Marcar confirmado</button>
+        <button class="btn-primary" id="btnEtiquetaEnviar">Enviar ao cliente para confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modalLocalEntregaBackdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <div>
+          <h3 id="modalLocalEntregaTitulo">Local de entrega</h3>
+          <p class="muted" id="modalLocalEntregaSubtitulo"></p>
+        </div>
+        <button class="btn-secondary" data-close-modal="modalLocalEntregaBackdrop">Fechar</button>
+      </div>
+      <div class="modal-body">
+        <div class="grid-2">
+          <div class="field">
+            <label for="selectTransportadora">Transportadora</label>
+            <select id="selectTransportadora"></select>
+          </div>
+          <div class="field">
+            <label for="inputAgenciaCidade">Agência - cidade</label>
+            <input type="text" id="inputAgenciaCidade" maxlength="150" placeholder="Opcional" />
+          </div>
+        </div>
+        <div class="feedback" id="feedbackLocalEntrega">Defina a transportadora. O campo agência - cidade é opcional.</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-danger" id="btnLocalEntregaRemover">Remover</button>
+        <button class="btn-primary" id="btnLocalEntregaSalvar">Salvar local de entrega</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const CODIGO_CARRADA = new URLSearchParams(window.location.search).get('codigo');
+
+    const FASES = [
+      { codigo: 'EM_PRODUCAO', nome: 'Em produção', tipo: 'boolean' },
+      { codigo: 'PEDIDO_PRONTO', nome: 'Pedido pronto', tipo: 'boolean' },
+      { codigo: 'ETIQUETA_VOLUMES', nome: 'Etiqueta volumes', tipo: 'especial' },
+      { codigo: 'VIDEO_FEITO', nome: 'Vídeo feito', tipo: 'boolean' },
+      { codigo: 'QUER_NOTA_FISCAL', nome: 'Quer nota fiscal', tipo: 'boolean' },
+      { codigo: 'LOCAL_ENTREGA', nome: 'Local de entrega', tipo: 'especial' },
+      { codigo: 'PAGAMENTO_QUITADO', nome: 'Pagamento quitado', tipo: 'automatico' },
+      { codigo: 'LIGACAO_POS_VENDA', nome: 'Ligação pós-venda', tipo: 'boolean' }
+    ];
+
+    const estado = {
+      carregando: false,
+      matriz: null,
+      pedidoModalAtual: null,
+      transportadoras: null,
+      etiquetaModal: {
+        pedidoNumero: null,
+        payload: null
+      },
+      localEntregaModal: {
+        pedidoNumero: null,
+        payload: null
+      }
+    };
+
+    const el = {
+      btnVoltar: document.getElementById('btnVoltar'),
+      btnRecarregar: document.getElementById('btnRecarregar'),
+      tituloCarrada: document.getElementById('tituloCarrada'),
+      subtituloCarrada: document.getElementById('subtituloCarrada'),
+      cardsCabecalho: document.getElementById('cardsCabecalho'),
+      cardsFases: document.getElementById('cardsFases'),
+      tbodyMatriz: document.getElementById('tbodyMatriz'),
+      modalResumoBackdrop: document.getElementById('modalResumoBackdrop'),
+      modalResumoTitulo: document.getElementById('modalResumoTitulo'),
+      modalResumoSubtitulo: document.getElementById('modalResumoSubtitulo'),
+      modalResumoBody: document.getElementById('modalResumoBody'),
+      modalEtiquetaBackdrop: document.getElementById('modalEtiquetaBackdrop'),
+      modalEtiquetaTitulo: document.getElementById('modalEtiquetaTitulo'),
+      modalEtiquetaSubtitulo: document.getElementById('modalEtiquetaSubtitulo'),
+      selectEtiquetas: document.getElementById('selectEtiquetas'),
+      inputEtiquetaApelido: document.getElementById('inputEtiquetaApelido'),
+      textareaEtiquetaTexto: document.getElementById('textareaEtiquetaTexto'),
+      feedbackEtiqueta: document.getElementById('feedbackEtiqueta'),
+      btnEtiquetaEnviar: document.getElementById('btnEtiquetaEnviar'),
+      btnEtiquetaConfirmar: document.getElementById('btnEtiquetaConfirmar'),
+      btnEtiquetaDesconfirmar: document.getElementById('btnEtiquetaDesconfirmar'),
+      modalLocalEntregaBackdrop: document.getElementById('modalLocalEntregaBackdrop'),
+      modalLocalEntregaTitulo: document.getElementById('modalLocalEntregaTitulo'),
+      modalLocalEntregaSubtitulo: document.getElementById('modalLocalEntregaSubtitulo'),
+      selectTransportadora: document.getElementById('selectTransportadora'),
+      inputAgenciaCidade: document.getElementById('inputAgenciaCidade'),
+      feedbackLocalEntrega: document.getElementById('feedbackLocalEntrega'),
+      btnLocalEntregaSalvar: document.getElementById('btnLocalEntregaSalvar'),
+      btnLocalEntregaRemover: document.getElementById('btnLocalEntregaRemover')
+    };
+
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatarData(value) {
+      if (!value) return '';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return String(value);
+      return date.toLocaleDateString('pt-BR');
+    }
+
+    function formatarDataHora(value) {
+      if (!value) return '';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return String(value);
+      return date.toLocaleString('pt-BR');
+    }
+
+    function formatarMoeda(value) {
+      return Number(value || 0).toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+      });
+    }
+
+    async function request(url, options = {}) {
+      const response = await fetch(url, options);
+      const data = await response.json().catch(() => null);
+
+      if (!response.ok) {
+        const message = data?.message || data?.error || data?.detalhe || `Falha HTTP ${response.status}`;
+        throw new Error(message);
+      }
+
+      if (data && typeof data === 'object' && Object.prototype.hasOwnProperty.call(data, 'success')) {
+        if (data.success === false) {
+          throw new Error(data.message || data.error || 'Falha na requisição.');
+        }
+        return data.data;
+      }
+
+      return data;
+    }
+
+    function abrirModal(backdrop) {
+      backdrop.classList.add('open');
+    }
+
+    function fecharModal(backdrop) {
+      backdrop.classList.remove('open');
+    }
+
+    function obterPedido(numero) {
+      return (estado.matriz?.pedidos || []).find((pedido) => String(pedido.numero) === String(numero)) || null;
+    }
+
+    function setFeedback(element, message, type = '') {
+      element.textContent = message;
+      element.className = `feedback${type ? ` ${type}` : ''}`;
+    }
+
+    function renderCabecalho() {
+      const carrada = estado.matriz?.carrada;
+
+      if (!carrada) {
+        el.tituloCarrada.textContent = 'Carrada';
+        el.subtituloCarrada.textContent = 'Não foi possível carregar a carrada.';
+        el.cardsCabecalho.innerHTML = '';
+        return;
+      }
+
+      el.tituloCarrada.textContent = `Carrada ${carrada.codigo}`;
+      el.subtituloCarrada.textContent = `${carrada.descricao || 'Sem descrição'} • ${formatarData(carrada.data)}`;
+
+      const cards = [
+        { titulo: 'Código', valor: carrada.codigo },
+        { titulo: 'Data', valor: formatarData(carrada.data) || '-' },
+        { titulo: 'Pedidos', valor: carrada.totalPedidos },
+        { titulo: 'Valor total', valor: formatarMoeda(carrada.totalValorPedidos) }
+      ];
+
+      el.cardsCabecalho.innerHTML = cards.map((card) => `
+        <div class="card">
+          <span class="muted">${escapeHtml(card.titulo)}</span>
+          <strong>${escapeHtml(card.valor)}</strong>
+        </div>
+      `).join('');
+    }
+
+    function renderCardsFases() {
+      const totais = estado.matriz?.totaisFases || {};
+
+      el.cardsFases.innerHTML = FASES.map((fase) => {
+        const total = totais[fase.codigo] || { concluidos: 0, total: 0 };
+        return `
+          <div class="status-card">
+            <span class="muted">${escapeHtml(fase.nome)}</span>
+            <strong>${escapeHtml(`${total.concluidos}/${total.total}`)}</strong>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function tituloCelulaEspecial(faseCodigo, faseData) {
+      if (faseCodigo === 'ETIQUETA_VOLUMES') {
+        if (faseData?.concluido) {
+          return faseData.apelido || 'Confirmado';
+        }
+        if (faseData?.enviadoEm) {
+          return 'Enviado';
+        }
+        return 'Abrir';
+      }
+
+      if (faseCodigo === 'LOCAL_ENTREGA') {
+        if (faseData?.concluido) {
+          return faseData.transportadoraNome || 'Definido';
+        }
+        return 'Definir';
+      }
+
+      if (faseCodigo === 'PAGAMENTO_QUITADO') {
+        return faseData?.concluido ? 'Quitado' : 'Pendente';
+      }
+
+      return faseData?.concluido ? '✓' : '';
+    }
+
+    function subtituloCelulaEspecial(faseCodigo, faseData) {
+      if (faseCodigo === 'ETIQUETA_VOLUMES') {
+        if (faseData?.confirmadoEm) {
+          return `Confirmado em ${formatarDataHora(faseData.confirmadoEm)}`;
+        }
+        if (faseData?.enviadoEm) {
+          return `Enviado em ${formatarDataHora(faseData.enviadoEm)}`;
+        }
+        return 'Cliente ainda não confirmou';
+      }
+
+      if (faseCodigo === 'LOCAL_ENTREGA') {
+        return faseData?.agenciaCidade || 'Agência - cidade opcional';
+      }
+
+      if (faseCodigo === 'PAGAMENTO_QUITADO') {
+        return `Saldo: ${formatarMoeda(faseData?.saldoRestante || 0)}`;
+      }
+
+      return '';
+    }
+
+    function renderMatriz() {
+      const pedidos = estado.matriz?.pedidos || [];
+
+      if (!pedidos.length) {
+        el.tbodyMatriz.innerHTML = '<tr><td colspan="9" class="empty">Nenhum pedido encontrado nesta carrada.</td></tr>';
+        return;
+      }
+
+      el.tbodyMatriz.innerHTML = pedidos.map((pedido) => {
+        const fasesHtml = FASES.map((fase) => {
+          const faseData = pedido.fases?.[fase.codigo] || { concluido: false };
+          const classes = [
+            'cell-button',
+            faseData.concluido ? 'done' : '',
+            fase.tipo === 'automatico' ? 'readonly' : '',
+            fase.tipo !== 'boolean' ? 'special' : ''
+          ].filter(Boolean).join(' ');
+
+          const titulo = tituloCelulaEspecial(fase.codigo, faseData);
+          const subtitulo = subtituloCelulaEspecial(fase.codigo, faseData);
+          const readonly = fase.tipo === 'automatico' ? 'data-readonly="true"' : '';
+
+          return `
+            <td>
+              <button
+                class="${classes}"
+                data-numero-pedido="${escapeHtml(pedido.numero)}"
+                data-fase-codigo="${escapeHtml(fase.codigo)}"
+                ${readonly}
+                title="${escapeHtml(fase.nome)}"
+              >
+                <span>
+                  ${escapeHtml(titulo || (faseData.concluido ? '✓' : ''))}
+                  ${subtitulo ? `<span class="subtext">${escapeHtml(subtitulo)}</span>` : ''}
+                </span>
+              </button>
+            </td>
+          `;
+        }).join('');
+
+        return `
+          <tr>
+            <td class="sticky-col">
+              <div class="pedido-title">Pedido ${escapeHtml(pedido.numero)}</div>
+              <div class="pedido-meta">
+                ${escapeHtml(pedido.cliente?.nome || '-')}<br>
+                Data: ${escapeHtml(formatarData(pedido.data) || '-')}<br>
+                Valor: ${escapeHtml(formatarMoeda(pedido.total))}
+              </div>
+            </td>
+            ${fasesHtml}
+          </tr>
+        `;
+      }).join('');
+
+      el.tbodyMatriz.querySelectorAll('[data-fase-codigo]').forEach((botao) => {
+        botao.addEventListener('click', () => onClickCelula(botao));
+      });
+    }
+
+    async function carregarMatriz() {
+      if (!CODIGO_CARRADA) {
+        el.tbodyMatriz.innerHTML = '<tr><td colspan="9" class="empty">Código da carrada não informado.</td></tr>';
+        return;
+      }
+
+      estado.carregando = true;
+      el.tbodyMatriz.innerHTML = '<tr><td colspan="9" class="loading">Carregando progresso da carrada...</td></tr>';
+
+      try {
+        estado.matriz = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}`);
+        renderCabecalho();
+        renderCardsFases();
+        renderMatriz();
+      } catch (error) {
+        el.tbodyMatriz.innerHTML = `<tr><td colspan="9" class="empty">${escapeHtml(error.message)}</td></tr>`;
+      } finally {
+        estado.carregando = false;
+      }
+    }
+
+    function construirResumoHtml(resumoPedido, notificacao) {
+      const itens = Array.isArray(resumoPedido?.itens) ? resumoPedido.itens : [];
+      const feedback = notificacao
+        ? `<div class="feedback ${notificacao.success ? 'success' : 'error'}">${escapeHtml(notificacao.success ? `WhatsApp enviado para ${notificacao.telefone || '-'} com sucesso.` : `Falha ao enviar WhatsApp: ${notificacao.error || 'Erro desconhecido.'}`)}</div>`
+        : '';
+      const mensagem = notificacao?.mensagem
+        ? `
+          <div class="summary-box">
+            <h4 style="margin:0 0 10px 0;">Mensagem enviada</h4>
+            <div class="message-box">${escapeHtml(notificacao.mensagem)}</div>
+          </div>
+        `
+        : '';
+
+      return `
+        <div class="grid-2">
+          <div class="summary-box">
+            <h4 style="margin:0 0 10px 0;">Dados do pedido</h4>
+            <div class="pedido-meta">
+              Número: <strong>${escapeHtml(resumoPedido.numeroPedido || '-')}</strong><br>
+              Cliente: <strong>${escapeHtml(resumoPedido.cliente?.nome || '-')}</strong><br>
+              Data: <strong>${escapeHtml(formatarData(resumoPedido.data) || '-')}</strong><br>
+              Valor: <strong>${escapeHtml(formatarMoeda(resumoPedido.valorPedido))}</strong>
+            </div>
+          </div>
+          <div class="summary-box">
+            <h4 style="margin:0 0 10px 0;">Resumo financeiro</h4>
+            <div class="pedido-meta">
+              Total pago: <strong>${escapeHtml(formatarMoeda(resumoPedido.totalPago))}</strong><br>
+              Saldo restante: <strong>${escapeHtml(formatarMoeda(resumoPedido.saldoRestante))}</strong><br>
+              Tipos de itens: <strong>${escapeHtml(resumoPedido.quantidadeTiposItens)}</strong><br>
+              Quantidade total de itens: <strong>${escapeHtml(resumoPedido.quantidadeItens)}</strong>
+            </div>
+          </div>
+        </div>
+        ${feedback}
+        ${mensagem}
+        <div class="summary-box">
+          <h4 style="margin:0 0 10px 0;">Itens do pedido</h4>
+          <div class="summary-items">
+            <table>
+              <thead>
+                <tr>
+                  <th>Descrição</th>
+                  <th>Quantidade</th>
+                  <th>Preço</th>
+                  <th>Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itens.length ? itens.map((item) => `
+                  <tr>
+                    <td>${escapeHtml(item.descricaoOriginal || item.descricao || '-')}</td>
+                    <td>${escapeHtml(item.quantidade)}</td>
+                    <td>${escapeHtml(formatarMoeda(item.preco))}</td>
+                    <td>${escapeHtml(formatarMoeda(item.subtotal))}</td>
+                  </tr>
+                `).join('') : '<tr><td colspan="4" class="empty">Nenhum item encontrado.</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+
+    function abrirResumoPedido(titulo, resumoPedido, notificacao = null) {
+      el.modalResumoTitulo.textContent = titulo;
+      el.modalResumoSubtitulo.textContent = `${resumoPedido?.cliente?.nome || '-'} • Pedido ${resumoPedido?.numeroPedido || '-'}`;
+      el.modalResumoBody.innerHTML = construirResumoHtml(resumoPedido, notificacao);
+      abrirModal(el.modalResumoBackdrop);
+    }
+
+    async function alternarFaseBooleana(numeroPedido, faseCodigo) {
+      const pedido = obterPedido(numeroPedido);
+      if (!pedido) return;
+
+      const faseAtual = pedido.fases?.[faseCodigo];
+      const novoValor = !Boolean(faseAtual?.concluido);
+      const faseInfo = FASES.find((fase) => fase.codigo === faseCodigo);
+
+      if (!novoValor) {
+        const confirma = window.confirm(`Deseja desmarcar a fase \"${faseInfo?.nome || faseCodigo}\" do pedido ${numeroPedido}?`);
+        if (!confirma) {
+          return;
+        }
+      }
+
+      try {
+        const data = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/fases/${encodeURIComponent(faseCodigo)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ valor: novoValor })
+        });
+
+        await carregarMatriz();
+
+        if (novoValor && (faseCodigo === 'EM_PRODUCAO' || faseCodigo === 'PEDIDO_PRONTO')) {
+          abrirResumoPedido(faseInfo?.nome || 'Resumo do pedido', data.resumoPedido, data.notificacao || null);
+        }
+      } catch (error) {
+        window.alert(error.message);
+      }
+    }
+
+    function popularSelectEtiquetas(payload) {
+      const etiquetas = Array.isArray(payload?.etiquetas) ? payload.etiquetas : [];
+      const atual = payload?.atual || null;
+      const options = ['<option value="__novo__">Novo texto</option>']
+        .concat(etiquetas.map((etiqueta) => `<option value="${escapeHtml(etiqueta.id)}">${escapeHtml(etiqueta.apelido || `Texto ${etiqueta.id}`)}</option>`));
+      el.selectEtiquetas.innerHTML = options.join('');
+
+      if (atual?.etiquetaClienteId) {
+        el.selectEtiquetas.value = String(atual.etiquetaClienteId);
+      } else {
+        el.selectEtiquetas.value = '__novo__';
+      }
+
+      preencherCamposEtiquetaPorSelect();
+    }
+
+    function preencherCamposEtiquetaPorSelect() {
+      const payload = estado.etiquetaModal.payload;
+      if (!payload) return;
+
+      const etiquetas = Array.isArray(payload.etiquetas) ? payload.etiquetas : [];
+      const valor = el.selectEtiquetas.value;
+
+      if (valor === '__novo__') {
+        if (payload?.atual?.etiquetaClienteId) {
+          el.inputEtiquetaApelido.value = '';
+          el.textareaEtiquetaTexto.value = '';
+        } else {
+          el.inputEtiquetaApelido.value = payload?.atual?.apelido || '';
+          el.textareaEtiquetaTexto.value = payload?.atual?.textoSnapshot || '';
+        }
+        return;
+      }
+
+      const etiqueta = etiquetas.find((item) => String(item.id) === String(valor));
+      if (!etiqueta) return;
+      el.inputEtiquetaApelido.value = etiqueta.apelido || '';
+      el.textareaEtiquetaTexto.value = etiqueta.textoEtiqueta || '';
+    }
+
+    async function abrirModalEtiqueta(numeroPedido) {
+      try {
+        const payload = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/etiqueta-volumes`);
+        estado.etiquetaModal = { pedidoNumero: numeroPedido, payload };
+        const pedido = obterPedido(numeroPedido);
+        el.modalEtiquetaTitulo.textContent = `Etiqueta volumes • Pedido ${numeroPedido}`;
+        el.modalEtiquetaSubtitulo.textContent = `${pedido?.cliente?.nome || payload?.pedido?.cliente?.nome || '-'} • ${formatarMoeda(pedido?.total || payload?.pedido?.total || 0)}`;
+        popularSelectEtiquetas(payload);
+
+        if (payload?.atual?.confirmadoBoolean) {
+          setFeedback(el.feedbackEtiqueta, `Cliente já confirmou este texto em ${formatarDataHora(payload.atual.confirmadoEm)}.`, 'success');
+        } else if (payload?.atual?.enviadoEm) {
+          setFeedback(el.feedbackEtiqueta, `Texto enviado em ${formatarDataHora(payload.atual.enviadoEm)}. Ainda aguardando confirmação.`, '');
+        } else {
+          setFeedback(el.feedbackEtiqueta, 'Selecione um texto salvo ou crie um novo.', '');
+        }
+
+        abrirModal(el.modalEtiquetaBackdrop);
+      } catch (error) {
+        window.alert(error.message);
+      }
+    }
+
+    async function enviarEtiquetaModal() {
+      const numeroPedido = estado.etiquetaModal.pedidoNumero;
+      if (!numeroPedido) return;
+
+      const isNovo = el.selectEtiquetas.value === '__novo__';
+      const payload = isNovo
+        ? {
+            apelido: el.inputEtiquetaApelido.value.trim(),
+            textoEtiqueta: el.textareaEtiquetaTexto.value.trim()
+          }
+        : {
+            etiquetaClienteId: Number(el.selectEtiquetas.value)
+          };
+
+      try {
+        const data = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/etiqueta-volumes`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const notificacao = data.notificacao;
+        if (notificacao?.success) {
+          setFeedback(el.feedbackEtiqueta, `Texto enviado com sucesso para ${notificacao.telefone || '-'}.`, 'success');
+        } else {
+          setFeedback(el.feedbackEtiqueta, `Falha ao enviar WhatsApp: ${notificacao?.error || 'Erro desconhecido.'}`, 'error');
+        }
+
+        await carregarMatriz();
+      } catch (error) {
+        setFeedback(el.feedbackEtiqueta, error.message, 'error');
+      }
+    }
+
+    async function confirmarEtiquetaModal(confirmado) {
+      const numeroPedido = estado.etiquetaModal.pedidoNumero;
+      if (!numeroPedido) return;
+
+      try {
+        await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/etiqueta-volumes/confirmacao`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ confirmado })
+        });
+
+        fecharModal(el.modalEtiquetaBackdrop);
+        await carregarMatriz();
+      } catch (error) {
+        setFeedback(el.feedbackEtiqueta, error.message, 'error');
+      }
+    }
+
+    async function carregarTransportadoras() {
+      if (Array.isArray(estado.transportadoras)) {
+        return estado.transportadoras;
+      }
+
+      const transportadoras = await request('/api/transportadoras');
+      estado.transportadoras = Array.isArray(transportadoras) ? transportadoras : [];
+      return estado.transportadoras;
+    }
+
+    async function abrirModalLocalEntrega(numeroPedido) {
+      const pedido = obterPedido(numeroPedido);
+      if (!pedido) return;
+
+      try {
+        const transportadoras = await carregarTransportadoras();
+        estado.localEntregaModal = {
+          pedidoNumero: numeroPedido,
+          payload: pedido.fases?.LOCAL_ENTREGA || null
+        };
+
+        el.modalLocalEntregaTitulo.textContent = `Local de entrega • Pedido ${numeroPedido}`;
+        el.modalLocalEntregaSubtitulo.textContent = `${pedido?.cliente?.nome || '-'} • ${formatarMoeda(pedido?.total || 0)}`;
+        el.selectTransportadora.innerHTML = ['<option value="">Selecione</option>']
+          .concat(transportadoras.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.nome)}</option>`))
+          .join('');
+
+        el.selectTransportadora.value = pedido?.fases?.LOCAL_ENTREGA?.transportadoraId ? String(pedido.fases.LOCAL_ENTREGA.transportadoraId) : '';
+        el.inputAgenciaCidade.value = pedido?.fases?.LOCAL_ENTREGA?.agenciaCidade || '';
+
+        if (pedido?.fases?.LOCAL_ENTREGA?.concluido) {
+          setFeedback(el.feedbackLocalEntrega, `Transportadora atual: ${pedido.fases.LOCAL_ENTREGA.transportadoraNome || '-'}${pedido.fases.LOCAL_ENTREGA.agenciaCidade ? ` • ${pedido.fases.LOCAL_ENTREGA.agenciaCidade}` : ''}`, 'success');
+        } else {
+          setFeedback(el.feedbackLocalEntrega, 'Defina a transportadora. O campo agência - cidade é opcional.', '');
+        }
+
+        abrirModal(el.modalLocalEntregaBackdrop);
+      } catch (error) {
+        window.alert(error.message);
+      }
+    }
+
+    async function salvarLocalEntregaModal(transportadoraId) {
+      const numeroPedido = estado.localEntregaModal.pedidoNumero;
+      if (!numeroPedido) return;
+
+      try {
+        await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/local-entrega`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            transportadoraId,
+            agenciaCidade: el.inputAgenciaCidade.value.trim()
+          })
+        });
+
+        fecharModal(el.modalLocalEntregaBackdrop);
+        await carregarMatriz();
+      } catch (error) {
+        setFeedback(el.feedbackLocalEntrega, error.message, 'error');
+      }
+    }
+
+    async function onClickCelula(botao) {
+      const faseCodigo = botao.dataset.faseCodigo;
+      const numeroPedido = botao.dataset.numeroPedido;
+      const fase = FASES.find((item) => item.codigo === faseCodigo);
+
+      if (!fase || fase.tipo === 'automatico') {
+        return;
+      }
+
+      if (faseCodigo === 'ETIQUETA_VOLUMES') {
+        await abrirModalEtiqueta(numeroPedido);
+        return;
+      }
+
+      if (faseCodigo === 'LOCAL_ENTREGA') {
+        await abrirModalLocalEntrega(numeroPedido);
+        return;
+      }
+
+      await alternarFaseBooleana(numeroPedido, faseCodigo);
+    }
+
+    document.querySelectorAll('[data-close-modal]').forEach((botao) => {
+      botao.addEventListener('click', () => {
+        const target = document.getElementById(botao.dataset.closeModal);
+        if (target) {
+          fecharModal(target);
+        }
+      });
+    });
+
+    document.querySelectorAll('.modal-backdrop').forEach((backdrop) => {
+      backdrop.addEventListener('click', (event) => {
+        if (event.target === backdrop) {
+          fecharModal(backdrop);
+        }
+      });
+    });
+
+    el.btnVoltar.addEventListener('click', () => {
+      window.location.href = '/legado/carradas';
+    });
+
+    el.btnRecarregar.addEventListener('click', carregarMatriz);
+    el.selectEtiquetas.addEventListener('change', preencherCamposEtiquetaPorSelect);
+    el.btnEtiquetaEnviar.addEventListener('click', enviarEtiquetaModal);
+    el.btnEtiquetaConfirmar.addEventListener('click', () => confirmarEtiquetaModal(true));
+    el.btnEtiquetaDesconfirmar.addEventListener('click', () => confirmarEtiquetaModal(false));
+    el.btnLocalEntregaSalvar.addEventListener('click', () => salvarLocalEntregaModal(el.selectTransportadora.value));
+    el.btnLocalEntregaRemover.addEventListener('click', () => salvarLocalEntregaModal(''));
+
+    if (!CODIGO_CARRADA) {
+      window.alert('Código da carrada não informado.');
+      window.location.href = '/legado/carradas';
+    } else {
+      carregarMatriz();
+    }
+  </script>
+</body>
+</html>
