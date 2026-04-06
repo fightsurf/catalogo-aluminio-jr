@@ -519,6 +519,7 @@
             <button class="btn-secondary" data-visualizar="${carrada.codigo}">Abrir</button>
             <button class="btn-secondary" data-editar="${carrada.codigo}">Editar</button>
             <button class="btn-danger" data-excluir="${carrada.codigo}">Excluir</button>
+            <button class="btn-secondary" data-progresso="${carrada.codigo}">Progresso</button>
           </td>
         </tr>
       `).join('');
@@ -535,6 +536,12 @@
 
       el.tabelaCarradas.querySelectorAll('[data-excluir]').forEach((botao) => {
         botao.addEventListener('click', () => excluirCarrada(botao.dataset.excluir));
+      });
+
+      el.tabelaCarradas.querySelectorAll('[data-progresso]').forEach((botao) => {
+        botao.addEventListener('click', () => {
+          window.location.href = `/legado/carradas/progresso?codigo=${botao.dataset.progresso}`;
+        });
       });
     }
 
