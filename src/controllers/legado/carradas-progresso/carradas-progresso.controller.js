@@ -9,6 +9,21 @@ function responderErro(res, error, fallbackMessage) {
   });
 }
 
+
+async function buscarResumoListaCarradas(req, res) {
+  try {
+    const codigos = String(req.query?.codigos || '')
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+
+    const data = await service.buscarResumoListaCarradas(codigos);
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return responderErro(res, error, 'Erro ao carregar o resumo das carradas.');
+  }
+}
+
 async function buscarMatriz(req, res) {
   try {
     const data = await service.buscarMatriz(req.params.codigo);
@@ -92,6 +107,7 @@ async function salvarLocalEntrega(req, res) {
 }
 
 module.exports = {
+  buscarResumoListaCarradas,
   buscarMatriz,
   salvarFaseBooleana,
   buscarDadosEtiquetaPedido,

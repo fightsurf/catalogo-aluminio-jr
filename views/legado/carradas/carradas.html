@@ -157,6 +157,12 @@
     }
     th { color: var(--muted); font-size: 13px; }
     .actions-cell { white-space: nowrap; }
+    .carrada-concluida td {
+      background: #dcfce7;
+    }
+    .carrada-concluida td:first-child {
+      border-left: 3px solid #22c55e;
+    }
     .muted { color: var(--muted); }
     .selected-count { font-size: 14px; color: var(--muted); }
     @media (max-width: 980px) {
@@ -365,6 +371,33 @@
       });
     }
 
+    function obterTimestampOrdenacaoData(valor) {
+      if (!valor) return 0;
+
+      if (valor instanceof Date && !Number.isNaN(valor.getTime())) {
+        return valor.getTime();
+      }
+
+      const texto = String(valor).trim();
+      if (!texto) return 0;
+
+      const dataDireta = new Date(texto);
+      if (!Number.isNaN(dataDireta.getTime())) {
+        return dataDireta.getTime();
+      }
+
+      const match = texto.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (match) {
+        const [, dia, mes, ano] = match;
+        const dataNormalizada = new Date(`${ano}-${mes}-${dia}T00:00:00`);
+        if (!Number.isNaN(dataNormalizada.getTime())) {
+          return dataNormalizada.getTime();
+        }
+      }
+
+      return 0;
+    }
+
     function limparBuscaClienteSelecionado() {
       estado.clienteSelecionado = null;
       el.clienteSelecionadoBox.innerHTML = '';
@@ -511,7 +544,7 @@
       }
 
       el.tabelaCarradas.innerHTML = carradas.map((carrada) => `
-        <tr>
+        <tr class="${carrada.progressoConcluido ? 'carrada-concluida' : ''}">
           <td>${carrada.codigo}</td>
           <td>${escapeHtml(formatarData(carrada.data))}</td>
           <td>${escapeHtml(carrada.descricao || '')}</td>
@@ -632,7 +665,38 @@
     async function carregarCarradas() {
       try {
         const carradas = await request('/api/legado/carradas');
-        renderCarradas(carradas);
+        const codigos = carradas.map((carrada) => carrada.codigo).filter(Boolean);
+
+        let resumoProgresso = [];
+
+        if (codigos.length) {
+          try {
+            resumoProgresso = await request(`/api/legado/carradas-progresso/resumo/lista?codigos=${encodeURIComponent(codigos.join(','))}`);
+          } catch (errorResumo) {
+            console.error('Não foi possível carregar o resumo do progresso das carradas:', errorResumo);
+            resumoProgresso = [];
+          }
+        }
+
+        const mapaResumo = new Map((Array.isArray(resumoProgresso) ? resumoProgresso : []).map((item) => [Number(item.codigoCarrada), item]));
+
+        const carradasComResumo = carradas.map((carrada) => ({
+          ...carrada,
+          progressoConcluido: Boolean(mapaResumo.get(Number(carrada.codigo))?.concluida)
+        }));
+
+        carradasComResumo.sort((a, b) => {
+          const dataB = obterTimestampOrdenacaoData(b.data);
+          const dataA = obterTimestampOrdenacaoData(a.data);
+
+          if (dataB !== dataA) {
+            return dataB - dataA;
+          }
+
+          return Number(b.codigo || 0) - Number(a.codigo || 0);
+        });
+
+        renderCarradas(carradasComResumo);
       } catch (error) {
         el.tabelaCarradas.innerHTML = `<tr><td colspan="4" class="muted">${escapeHtml(error.message)}</td></tr>`;
       }

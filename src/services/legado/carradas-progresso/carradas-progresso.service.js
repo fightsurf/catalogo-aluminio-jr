@@ -531,6 +531,103 @@ async function buscarMatriz(codigoCarradaParam) {
   };
 }
 
+
+function calcularResumoConclusaoDaMatriz(matriz) {
+  const pedidos = Array.isArray(matriz?.pedidos) ? matriz.pedidos : [];
+  const fases = Array.isArray(matriz?.fases) ? matriz.fases : [];
+
+  const totalCelulas = pedidos.length * fases.length;
+
+  if (!totalCelulas) {
+    return {
+      totalPedidos: pedidos.length,
+      totalFases: fases.length,
+      totalCelulas,
+      celulasConcluidas: 0,
+      percentualConclusao: 0,
+      concluida: false
+    };
+  }
+
+  const celulasConcluidas = pedidos.reduce((acc, pedido) => {
+    return acc + fases.reduce((subtotal, fase) => {
+      return subtotal + (pedido?.fases?.[fase.codigo]?.concluido ? 1 : 0);
+    }, 0);
+  }, 0);
+
+  const percentualConclusao = Number(((celulasConcluidas / totalCelulas) * 100).toFixed(2));
+
+  return {
+    totalPedidos: pedidos.length,
+    totalFases: fases.length,
+    totalCelulas,
+    celulasConcluidas,
+    percentualConclusao,
+    concluida: celulasConcluidas === totalCelulas
+  };
+}
+
+async function buscarResumoListaCarradas(codigosParam) {
+  const codigosNormalizados = Array.isArray(codigosParam)
+    ? [...new Set(codigosParam.map((codigo) => Number.parseInt(codigo, 10)).filter((codigo) => Number.isInteger(codigo) && codigo > 0))]
+    : [];
+
+  const carradasBase = codigosNormalizados.length
+    ? codigosNormalizados.map((codigo) => ({ codigo }))
+    : await carradasService.listarCarradas();
+
+  let tabelasExistem = false;
+
+  try {
+    tabelasExistem = await tabelasModuloExistem();
+  } catch (error) {
+    tabelasExistem = false;
+  }
+
+  const itens = await Promise.all((Array.isArray(carradasBase) ? carradasBase : []).map(async (carrada) => {
+    const codigo = Number.parseInt(carrada?.codigo, 10);
+
+    if (!Number.isInteger(codigo) || codigo <= 0) {
+      return null;
+    }
+
+    if (!tabelasExistem) {
+      return {
+        codigoCarrada: codigo,
+        concluida: false,
+        percentualConclusao: 0,
+        totalPedidos: 0,
+        totalFases: FASES_MATRIZ.length,
+        totalCelulas: 0,
+        celulasConcluidas: 0
+      };
+    }
+
+    try {
+      const matriz = await buscarMatriz(codigo);
+      const resumo = calcularResumoConclusaoDaMatriz(matriz);
+
+      return {
+        codigoCarrada: codigo,
+        ...resumo
+      };
+    } catch (error) {
+      return {
+        codigoCarrada: codigo,
+        concluida: false,
+        percentualConclusao: 0,
+        totalPedidos: 0,
+        totalFases: FASES_MATRIZ.length,
+        totalCelulas: 0,
+        celulasConcluidas: 0,
+        erro: error?.message || 'Falha ao calcular o resumo do progresso.'
+      };
+    }
+  }));
+
+  return (itens.filter(Boolean)).sort((a, b) => a.codigoCarrada - b.codigoCarrada);
+}
+
 async function salvarFaseBooleana({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam, faseCodigo: faseCodigoParam, valor }) {
   await garantirTabelasModulo();
 
@@ -1006,6 +1103,7 @@ async function salvarLocalEntrega({ codigoCarrada: codigoCarradaParam, numeroPed
 module.exports = {
   FASES_MATRIZ,
   buscarMatriz,
+  buscarResumoListaCarradas,
   salvarFaseBooleana,
   buscarDadosEtiquetaPedido,
   enviarEtiquetaVolumes,

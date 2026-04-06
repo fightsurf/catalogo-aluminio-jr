@@ -3,6 +3,7 @@ const controller = require('../../../controllers/legado/carradas-progresso/carra
 
 const router = express.Router();
 
+router.get('/resumo/lista', controller.buscarResumoListaCarradas);
 router.get('/:codigo', controller.buscarMatriz);
 router.patch('/:codigo/pedidos/:numeroPedido/fases/:faseCodigo', controller.salvarFaseBooleana);
 router.get('/:codigo/pedidos/:numeroPedido/etiqueta-volumes', controller.buscarDadosEtiquetaPedido);
