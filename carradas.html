@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Carradas</title>
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --primary: #111827;
+      --primaryText: #ffffff;
+      --danger: #991b1b;
+      --clienteBg: #f8fafc;
+      --clienteBorder: #cbd5e1;
+      --pedidoBg: #fff7ed;
+      --pedidoBorder: #fdba74;
+      --selecionadoBg: #eef2ff;
+      --selecionadoBorder: #c7d2fe;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .page {
+      max-width: 1500px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1, h2, h3, p { margin: 0; }
+    .topbar {
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+    .form-inline {
+      display: flex;
+      gap: 10px;
+      align-items: end;
+      flex-wrap: wrap;
+    }
+    .field { display: flex; flex-direction: column; gap: 6px; min-width: 220px; }
+    .field label { font-size: 13px; color: var(--muted); }
+    .field input, .field select {
+      height: 42px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 0 12px;
+      background: #fff;
+    }
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 0 16px;
+      height: 42px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+    .btn-primary { background: var(--primary); color: var(--primaryText); }
+    .btn-secondary { background: #fff; border: 1px solid var(--line); }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .layout {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+    .panel {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+    }
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .modes { display: flex; gap: 8px; flex-wrap: wrap; }
+    .modes button.active { background: var(--primary); color: #fff; }
+    .cards { display: grid; gap: 10px; }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px 14px;
+      background: #fff;
+    }
+    .compact-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+    .card-main {
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+    .card-cliente {
+      background: var(--clienteBg);
+      border-color: var(--clienteBorder);
+    }
+    .card-pedido {
+      background: var(--pedidoBg);
+      border-color: var(--pedidoBorder);
+    }
+    .card-selecionado {
+      background: var(--selecionadoBg);
+      border-color: var(--selecionadoBorder);
+    }
+    .card-title { font-weight: 700; margin-bottom: 4px; }
+    .card-meta { color: var(--muted); font-size: 13px; line-height: 1.45; }
+    .card-actions {
+      display: flex;
+      gap: 8px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+      margin-top: 0;
+      flex-shrink: 0;
+      align-items: center;
+    }
+    .cliente-topo {
+      margin: 0 0 14px 0;
+    }
+    .cliente-topo .card {
+      margin: 0;
+    }
+    .empty { color: var(--muted); padding: 18px 0; }
+    .list-panel { margin-top: 18px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      font-size: 14px;
+    }
+    th { color: var(--muted); font-size: 13px; }
+    .actions-cell { white-space: nowrap; }
+    .carrada-concluida td {
+      background: #dcfce7;
+    }
+    .carrada-concluida td:first-child {
+      border-left: 3px solid #22c55e;
+    }
+    .muted { color: var(--muted); }
+    .selected-count { font-size: 14px; color: var(--muted); }
+    @media (max-width: 980px) {
+      .layout { grid-template-columns: 1fr; }
+      .compact-card {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .card-actions {
+        justify-content: flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="topbar">
+      <div>
+        <h1>Módulo de Carradas</h1>
+        <p class="muted">Monte, salve e edite carradas sem apagar o restante do sistema.</p>
+      </div>
+      <button class="btn-secondary" id="btnNovo">Nova carrada</button>
+    </div>
+
+    <div class="panel" style="margin-bottom: 16px;">
+      <div class="form-inline">
+        <div class="field">
+          <label for="dataCarrada">Data da carrada</label>
+          <input type="date" id="dataCarrada" />
+        </div>
+        <div class="field" style="min-width: 320px;">
+          <label for="descricaoCarrada">Descrição</label>
+          <input type="text" id="descricaoCarrada" placeholder="Descrição da carrada" maxlength="100" />
+        </div>
+        <div class="field" style="min-width: 180px;">
+          <label>&nbsp;</label>
+          <button class="btn-primary" id="btnSalvar">Salvar carrada</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="layout">
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h2>Pedidos disponíveis</h2>
+            <p class="muted">Busque por cliente, data ou número.</p>
+          </div>
+          <div class="modes">
+            <button class="btn-secondary active" data-modo="cliente">Cliente</button>
+            <button class="btn-secondary" data-modo="data">Data</button>
+            <button class="btn-secondary" data-modo="numero">Número</button>
+          </div>
+        </div>
+
+        <div id="areaBuscaCliente">
+          <div class="form-inline" style="margin-bottom: 12px;">
+            <div class="field" style="min-width: 320px;">
+              <label for="buscaCliente">Nome do cliente</label>
+              <input type="text" id="buscaCliente" placeholder="Digite parte do nome" />
+            </div>
+            <div class="field" style="min-width: 180px;">
+              <label>&nbsp;</label>
+              <button class="btn-primary" id="btnBuscarCliente">Buscar cliente</button>
+            </div>
+          </div>
+          <div id="clienteSelecionadoBox"></div>
+          <div class="cards" id="listaClientes"></div>
+        </div>
+
+        <div id="areaBuscaData" style="display:none;">
+          <div class="form-inline" style="margin-bottom: 12px;">
+            <div class="field">
+              <label for="buscaData">Data do pedido</label>
+              <input type="date" id="buscaData" />
+            </div>
+            <div class="field" style="min-width: 180px;">
+              <label>&nbsp;</label>
+              <button class="btn-primary" id="btnBuscarData">Buscar data</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="areaBuscaNumero" style="display:none;">
+          <div class="form-inline" style="margin-bottom: 12px;">
+            <div class="field">
+              <label for="buscaNumero">Número do pedido</label>
+              <input type="text" id="buscaNumero" placeholder="Ex.: 0018589" />
+            </div>
+            <div class="field" style="min-width: 180px;">
+              <label>&nbsp;</label>
+              <button class="btn-primary" id="btnBuscarNumero">Buscar número</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="cards" id="listaPedidosDisponiveis">
+          <div class="empty">Nenhum pedido carregado.</div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <div>
+            <h2 id="tituloMontagem">Carrada em montagem</h2>
+            <p class="selected-count" id="contadorSelecionados">0 pedido(s) selecionado(s)</p>
+          </div>
+        </div>
+        <div class="cards" id="listaPedidosSelecionados">
+          <div class="empty">Adicione pedidos do lado esquerdo.</div>
+        </div>
+      </section>
+    </div>
+
+    <section class="panel list-panel">
+      <div class="panel-header">
+        <div>
+          <h2>Carradas salvas</h2>
+          <p class="muted">Abra, edite ou exclua uma carrada já gravada.</p>
+        </div>
+        <button class="btn-secondary" id="btnRecarregarCarradas">Recarregar</button>
+      </div>
+      <div style="overflow:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Código</th>
+              <th>Data</th>
+              <th>Descrição</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="tabelaCarradas">
+            <tr><td colspan="4" class="muted">Carregando...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const estado = {
+      modoBusca: 'cliente',
+      codigoCarradaAtual: null,
+      pedidosDisponiveis: [],
+      pedidosSelecionados: [],
+      clientesCarregados: [],
+      clienteSelecionado: null
+    };
+
+    const el = {
+      btnNovo: document.getElementById('btnNovo'),
+      dataCarrada: document.getElementById('dataCarrada'),
+      descricaoCarrada: document.getElementById('descricaoCarrada'),
+      btnSalvar: document.getElementById('btnSalvar'),
+      listaClientes: document.getElementById('listaClientes'),
+      clienteSelecionadoBox: document.getElementById('clienteSelecionadoBox'),
+      listaPedidosDisponiveis: document.getElementById('listaPedidosDisponiveis'),
+      listaPedidosSelecionados: document.getElementById('listaPedidosSelecionados'),
+      contadorSelecionados: document.getElementById('contadorSelecionados'),
+      tituloMontagem: document.getElementById('tituloMontagem'),
+      tabelaCarradas: document.getElementById('tabelaCarradas'),
+      btnBuscarCliente: document.getElementById('btnBuscarCliente'),
+      buscaCliente: document.getElementById('buscaCliente'),
+      btnBuscarData: document.getElementById('btnBuscarData'),
+      buscaData: document.getElementById('buscaData'),
+      btnBuscarNumero: document.getElementById('btnBuscarNumero'),
+      buscaNumero: document.getElementById('buscaNumero'),
+      btnRecarregarCarradas: document.getElementById('btnRecarregarCarradas'),
+      areaBuscaCliente: document.getElementById('areaBuscaCliente'),
+      areaBuscaData: document.getElementById('areaBuscaData'),
+      areaBuscaNumero: document.getElementById('areaBuscaNumero')
+    };
+
+    async function request(url, options = {}) {
+      const response = await fetch(url, options);
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || data.success === false) {
+        throw new Error(data.error || data.detalhe || data.message || 'Falha na requisição.');
+      }
+
+      return data.data || [];
+    }
+
+    function escapeHtml(valor) {
+      return String(valor ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatarData(valor) {
+      if (!valor) return '';
+      const data = new Date(valor);
+      if (Number.isNaN(data.getTime())) return String(valor);
+      return data.toLocaleDateString('pt-BR');
+    }
+
+    function formatarMoeda(valor) {
+      return Number(valor || 0).toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+      });
+    }
+
+    function obterTimestampOrdenacaoData(valor) {
+      if (!valor) return 0;
+
+      if (valor instanceof Date && !Number.isNaN(valor.getTime())) {
+        return valor.getTime();
+      }
+
+      const texto = String(valor).trim();
+      if (!texto) return 0;
+
+      const dataDireta = new Date(texto);
+      if (!Number.isNaN(dataDireta.getTime())) {
+        return dataDireta.getTime();
+      }
+
+      const match = texto.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (match) {
+        const [, dia, mes, ano] = match;
+        const dataNormalizada = new Date(`${ano}-${mes}-${dia}T00:00:00`);
+        if (!Number.isNaN(dataNormalizada.getTime())) {
+          return dataNormalizada.getTime();
+        }
+      }
+
+      return 0;
+    }
+
+    function limparBuscaClienteSelecionado() {
+      estado.clienteSelecionado = null;
+      el.clienteSelecionadoBox.innerHTML = '';
+    }
+
+    function setModoBusca(modo) {
+      estado.modoBusca = modo;
+      document.querySelectorAll('[data-modo]').forEach((botao) => {
+        botao.classList.toggle('active', botao.dataset.modo === modo);
+      });
+      el.areaBuscaCliente.style.display = modo === 'cliente' ? 'block' : 'none';
+      el.areaBuscaData.style.display = modo === 'data' ? 'block' : 'none';
+      el.areaBuscaNumero.style.display = modo === 'numero' ? 'block' : 'none';
+      el.listaClientes.innerHTML = '';
+      estado.clientesCarregados = [];
+      limparBuscaClienteSelecionado();
+      renderPedidosDisponiveis([]);
+    }
+
+    function renderClienteSelecionado() {
+      if (!estado.clienteSelecionado) {
+        el.clienteSelecionadoBox.innerHTML = '';
+        return;
+      }
+
+      el.clienteSelecionadoBox.innerHTML = `
+        <div class="cliente-topo">
+          <div class="card card-cliente compact-card">
+            <div class="card-main">
+              <div class="card-title">${escapeHtml(estado.clienteSelecionado.nome || '-')}</div>
+              <div class="card-meta">${escapeHtml(estado.clienteSelecionado.cidade || '-')} / ${escapeHtml(estado.clienteSelecionado.uf || '-')}</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderClientes(clientes) {
+      estado.clientesCarregados = Array.isArray(clientes) ? clientes : [];
+      renderClienteSelecionado();
+
+      const clientesParaExibir = estado.clienteSelecionado
+        ? estado.clientesCarregados.filter((cliente) => Number(cliente.favorecido) === Number(estado.clienteSelecionado.favorecido))
+        : estado.clientesCarregados;
+
+      if (estado.clienteSelecionado) {
+        el.listaClientes.innerHTML = '';
+        return;
+      }
+
+      if (!clientesParaExibir.length) {
+        el.listaClientes.innerHTML = '<div class="empty">Nenhum cliente encontrado.</div>';
+        return;
+      }
+
+      el.listaClientes.innerHTML = clientesParaExibir.map((cliente) => `
+        <div class="card card-cliente compact-card">
+          <div class="card-main">
+            <div class="card-title">${escapeHtml(cliente.nome)}</div>
+            <div class="card-meta">${escapeHtml(cliente.cidade || '-')} / ${escapeHtml(cliente.uf || '-')}</div>
+          </div>
+          <div class="card-actions">
+            <button class="btn-primary" data-favorecido="${cliente.favorecido}">Ver pedidos</button>
+          </div>
+        </div>
+      `).join('');
+
+      el.listaClientes.querySelectorAll('[data-favorecido]').forEach((botao) => {
+        botao.addEventListener('click', () => {
+          const cliente = estado.clientesCarregados.find((item) => Number(item.favorecido) === Number(botao.dataset.favorecido));
+          estado.clienteSelecionado = cliente || null;
+          renderClientes(estado.clientesCarregados);
+          carregarPedidosPorCliente(botao.dataset.favorecido);
+        });
+      });
+    }
+
+    function pedidoSelecionado(numero) {
+      return estado.pedidosSelecionados.some((pedido) => pedido.numero === numero);
+    }
+
+    function renderPedidosDisponiveis(pedidos) {
+      estado.pedidosDisponiveis = pedidos;
+
+      if (!pedidos.length) {
+        el.listaPedidosDisponiveis.innerHTML = '<div class="empty">Nenhum pedido disponível.</div>';
+        return;
+      }
+
+      el.listaPedidosDisponiveis.innerHTML = pedidos.map((pedido) => `
+        <div class="card card-pedido compact-card">
+          <div class="card-main">
+            <div class="card-title">Pedido ${escapeHtml(pedido.numero)}</div>
+            <div class="card-meta">
+              Cliente: ${escapeHtml(pedido.cliente?.nome || '-')}<br>
+              Data: ${escapeHtml(formatarData(pedido.data))}<br>
+              Valor: ${escapeHtml(formatarMoeda(pedido.total))}
+            </div>
+          </div>
+          <div class="card-actions">
+            <button class="btn-primary" data-numero="${escapeHtml(pedido.numero)}" ${pedidoSelecionado(pedido.numero) ? 'disabled' : ''}>Adicionar</button>
+          </div>
+        </div>
+      `).join('');
+
+      el.listaPedidosDisponiveis.querySelectorAll('[data-numero]').forEach((botao) => {
+        botao.addEventListener('click', () => adicionarPedido(botao.dataset.numero));
+      });
+    }
+
+    function renderPedidosSelecionados() {
+      el.contadorSelecionados.textContent = `${estado.pedidosSelecionados.length} pedido(s) selecionado(s)`;
+
+      if (!estado.pedidosSelecionados.length) {
+        el.listaPedidosSelecionados.innerHTML = '<div class="empty">Adicione pedidos do lado esquerdo.</div>';
+        return;
+      }
+
+      el.listaPedidosSelecionados.innerHTML = estado.pedidosSelecionados.map((pedido) => `
+        <div class="card card-selecionado compact-card">
+          <div class="card-main">
+            <div class="card-title">Pedido ${escapeHtml(pedido.numero)}</div>
+            <div class="card-meta">
+              Cliente: ${escapeHtml(pedido.cliente?.nome || '-')}<br>
+              Data: ${escapeHtml(formatarData(pedido.data))}<br>
+              Valor: ${escapeHtml(formatarMoeda(pedido.total))}
+            </div>
+          </div>
+          <div class="card-actions">
+            <button class="btn-danger" data-remover="${escapeHtml(pedido.numero)}">Remover</button>
+          </div>
+        </div>
+      `).join('');
+
+      el.listaPedidosSelecionados.querySelectorAll('[data-remover]').forEach((botao) => {
+        botao.addEventListener('click', () => removerPedido(botao.dataset.remover));
+      });
+    }
+
+    function renderCarradas(carradas) {
+      if (!carradas.length) {
+        el.tabelaCarradas.innerHTML = '<tr><td colspan="4" class="muted">Nenhuma carrada encontrada.</td></tr>';
+        return;
+      }
+
+      el.tabelaCarradas.innerHTML = carradas.map((carrada) => `
+        <tr class="${carrada.progressoConcluido ? 'carrada-concluida' : ''}">
+          <td>${carrada.codigo}</td>
+          <td>${escapeHtml(formatarData(carrada.data))}</td>
+          <td>${escapeHtml(carrada.descricao || '')}</td>
+          <td class="actions-cell">
+            <button class="btn-secondary" data-visualizar="${carrada.codigo}">Abrir</button>
+            <button class="btn-secondary" data-editar="${carrada.codigo}">Editar</button>
+            <button class="btn-danger" data-excluir="${carrada.codigo}">Excluir</button>
+            <button class="btn-secondary" data-progresso="${carrada.codigo}">Progresso</button>
+          </td>
+        </tr>
+      `).join('');
+
+      el.tabelaCarradas.querySelectorAll('[data-visualizar]').forEach((botao) => {
+        botao.addEventListener('click', () => {
+          window.location.href = `/legado/carradas/detalhe?codigo=${botao.dataset.visualizar}`;
+        });
+      });
+
+      el.tabelaCarradas.querySelectorAll('[data-editar]').forEach((botao) => {
+        botao.addEventListener('click', () => carregarCarrada(botao.dataset.editar));
+      });
+
+      el.tabelaCarradas.querySelectorAll('[data-excluir]').forEach((botao) => {
+        botao.addEventListener('click', () => excluirCarrada(botao.dataset.excluir));
+      });
+
+      el.tabelaCarradas.querySelectorAll('[data-progresso]').forEach((botao) => {
+        botao.addEventListener('click', () => {
+          window.location.href = `/legado/carradas/progresso?codigo=${botao.dataset.progresso}`;
+        });
+      });
+    }
+
+    function adicionarPedido(numero) {
+      const pedido = estado.pedidosDisponiveis.find((item) => item.numero === numero);
+      if (!pedido || pedidoSelecionado(numero)) return;
+      estado.pedidosSelecionados.push(pedido);
+      renderPedidosSelecionados();
+      renderPedidosDisponiveis(estado.pedidosDisponiveis);
+    }
+
+    function removerPedido(numero) {
+      estado.pedidosSelecionados = estado.pedidosSelecionados.filter((pedido) => pedido.numero !== numero);
+      renderPedidosSelecionados();
+      renderPedidosDisponiveis(estado.pedidosDisponiveis);
+    }
+
+    function limparFormulario() {
+      estado.codigoCarradaAtual = null;
+      estado.pedidosSelecionados = [];
+      estado.pedidosDisponiveis = [];
+      estado.clientesCarregados = [];
+      limparBuscaClienteSelecionado();
+      el.dataCarrada.value = '';
+      el.descricaoCarrada.value = '';
+      el.tituloMontagem.textContent = 'Carrada em montagem';
+      el.btnSalvar.textContent = 'Salvar carrada';
+      renderPedidosSelecionados();
+      renderPedidosDisponiveis([]);
+      el.listaClientes.innerHTML = '';
+    }
+
+    async function carregarPedidosPorCliente(favorecido) {
+      try {
+        const pedidos = await request(`/api/legado/carradas/pedidos/por-cliente/${favorecido}`);
+        renderPedidosDisponiveis(pedidos);
+      } catch (error) {
+        alert(error.message);
+      }
+    }
+
+    async function buscarClientes() {
+      const nome = el.buscaCliente.value.trim();
+      if (!nome) {
+        alert('Digite o nome do cliente.');
+        return;
+      }
+
+      try {
+        limparBuscaClienteSelecionado();
+        renderPedidosDisponiveis([]);
+        const clientes = await request(`/api/legado/carradas/clientes?nome=${encodeURIComponent(nome)}`);
+        renderClientes(clientes);
+      } catch (error) {
+        alert(error.message);
+      }
+    }
+
+    async function buscarPorData() {
+      if (!el.buscaData.value) {
+        alert('Informe a data do pedido.');
+        return;
+      }
+
+      try {
+        const pedidos = await request(`/api/legado/carradas/pedidos/por-data?data=${encodeURIComponent(el.buscaData.value)}`);
+        renderPedidosDisponiveis(pedidos);
+      } catch (error) {
+        alert(error.message);
+      }
+    }
+
+    async function buscarPorNumero() {
+      const numero = el.buscaNumero.value.trim();
+      if (!numero) {
+        alert('Informe o número do pedido.');
+        return;
+      }
+
+      try {
+        const pedidos = await request(`/api/legado/carradas/pedidos/por-numero?numero=${encodeURIComponent(numero)}`);
+        renderPedidosDisponiveis(pedidos);
+      } catch (error) {
+        alert(error.message);
+      }
+    }
+
+    function ordenarCarradas(carradas) {
+      const lista = Array.isArray(carradas) ? [...carradas] : [];
+
+      lista.sort((a, b) => {
+        const dataB = obterTimestampOrdenacaoData(b.data);
+        const dataA = obterTimestampOrdenacaoData(a.data);
+
+        if (dataB !== dataA) {
+          return dataB - dataA;
+        }
+
+        return Number(b.codigo || 0) - Number(a.codigo || 0);
+      });
+
+      return lista;
+    }
+
+    async function carregarResumoProgressoCarradas(carradas) {
+      const codigos = (Array.isArray(carradas) ? carradas : []).map((carrada) => carrada.codigo).filter(Boolean);
+
+      if (!codigos.length) {
+        return;
+      }
+
+      try {
+        const resumoProgresso = await Promise.race([
+          request(`/api/legado/carradas-progresso/resumo/lista?codigos=${encodeURIComponent(codigos.join(','))}`),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Tempo excedido ao carregar o resumo do progresso das carradas.')), 8000))
+        ]);
+
+        const mapaResumo = new Map((Array.isArray(resumoProgresso) ? resumoProgresso : []).map((item) => [Number(item.codigoCarrada), item]));
+
+        const carradasComResumo = ordenarCarradas(carradas).map((carrada) => ({
+          ...carrada,
+          progressoConcluido: Boolean(mapaResumo.get(Number(carrada.codigo))?.concluida)
+        }));
+
+        renderCarradas(carradasComResumo);
+      } catch (errorResumo) {
+        console.error('Não foi possível carregar o resumo do progresso das carradas:', errorResumo);
+      }
+    }
+
+    async function carregarCarradas() {
+      try {
+        const carradas = await request('/api/legado/carradas');
+        const carradasOrdenadas = ordenarCarradas(carradas).map((carrada) => ({
+          ...carrada,
+          progressoConcluido: false
+        }));
+
+        renderCarradas(carradasOrdenadas);
+        carregarResumoProgressoCarradas(carradasOrdenadas);
+      } catch (error) {
+        el.tabelaCarradas.innerHTML = `<tr><td colspan="4" class="muted">${escapeHtml(error.message)}</td></tr>`;
+      }
+    }
+
+    async function carregarCarrada(codigo) {
+      try {
+        const carrada = await request(`/api/legado/carradas/${codigo}`);
+        estado.codigoCarradaAtual = carrada.codigo;
+        el.dataCarrada.value = carrada.data ? new Date(carrada.data).toISOString().slice(0, 10) : '';
+        el.descricaoCarrada.value = carrada.descricao || '';
+        estado.pedidosSelecionados = Array.isArray(carrada.pedidos) ? carrada.pedidos.map((pedido) => ({
+          numero: pedido.numero,
+          data: pedido.data,
+          total: pedido.total,
+          cliente: pedido.cliente || {}
+        })) : [];
+        el.tituloMontagem.textContent = `Editando carrada ${carrada.codigo}`;
+        el.btnSalvar.textContent = 'Atualizar carrada';
+        renderPedidosSelecionados();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (error) {
+        alert(error.message);
+      }
+    }
+
+    async function salvarCarrada() {
+      if (!el.dataCarrada.value) {
+        alert('Informe a data da carrada.');
+        return;
+      }
+
+      if (!estado.pedidosSelecionados.length) {
+        alert('Selecione ao menos um pedido.');
+        return;
+      }
+
+      const payload = {
+        data: el.dataCarrada.value,
+        descricao: el.descricaoCarrada.value,
+        pedidos: estado.pedidosSelecionados.map((pedido) => ({ numero: pedido.numero }))
+      };
+
+      try {
+        const url = estado.codigoCarradaAtual
+          ? `/api/legado/carradas/${estado.codigoCarradaAtual}`
+          : '/api/legado/carradas';
+        const method = estado.codigoCarradaAtual ? 'PUT' : 'POST';
+
+        const carrada = await request(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        window.location.href = `/legado/carradas/detalhe?codigo=${carrada.codigo}`;
+      } catch (error) {
+        alert(error.message);
+      }
+    }
+
+    async function excluirCarrada(codigo) {
+      if (!confirm(`Deseja excluir a carrada ${codigo}?`)) {
+        return;
+      }
+
+      try {
+        await request(`/api/legado/carradas/${codigo}`, { method: 'DELETE' });
+        if (estado.codigoCarradaAtual && Number(estado.codigoCarradaAtual) === Number(codigo)) {
+          limparFormulario();
+        }
+        await carregarCarradas();
+      } catch (error) {
+        alert(error.message);
+      }
+    }
+
+    document.querySelectorAll('[data-modo]').forEach((botao) => {
+      botao.addEventListener('click', () => setModoBusca(botao.dataset.modo));
+    });
+
+    el.btnBuscarCliente.addEventListener('click', buscarClientes);
+    el.btnBuscarData.addEventListener('click', buscarPorData);
+    el.btnBuscarNumero.addEventListener('click', buscarPorNumero);
+    el.btnSalvar.addEventListener('click', salvarCarrada);
+    el.btnNovo.addEventListener('click', limparFormulario);
+    el.btnRecarregarCarradas.addEventListener('click', carregarCarradas);
+    el.buscaCliente.addEventListener('keydown', (event) => { if (event.key === 'Enter') buscarClientes(); });
+    el.buscaData.addEventListener('keydown', (event) => { if (event.key === 'Enter') buscarPorData(); });
+    el.buscaNumero.addEventListener('keydown', (event) => { if (event.key === 'Enter') buscarPorNumero(); });
+
+    carregarCarradas();
+    renderPedidosSelecionados();
+    const params = new URLSearchParams(window.location.search);
+    const codigoEdicao = params.get('codigo');
+    if (codigoEdicao) {
+      carregarCarrada(codigoEdicao);
+    }
+  </script>
+</body>
+</html>
