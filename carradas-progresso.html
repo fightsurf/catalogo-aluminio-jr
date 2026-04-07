@@ -31,7 +31,7 @@
       font-family: inherit;
     }
     .page {
-      max-width: 1500px;
+      max-width: 1380px;
       margin: 0 auto;
       padding: 20px;
     }
@@ -166,17 +166,18 @@
       border: 1px solid var(--line);
       border-radius: 14px;
       background: #fff;
-      max-height: calc(100vh - 250px);
+      min-height: 72vh;
+      max-height: calc(100vh - 110px);
     }
     table {
       width: 100%;
-      min-width: 1220px;
+      min-width: 1080px;
       border-collapse: separate;
       border-spacing: 0;
     }
     th,
     td {
-      padding: 10px 8px;
+      padding: 8px 6px;
       border-bottom: 1px solid var(--line);
       border-right: 1px solid var(--line);
       vertical-align: middle;
@@ -192,8 +193,14 @@
       z-index: 5;
       background: #f8fafc;
       color: #334155;
-      font-size: 13px;
+      font-size: 11px;
+      line-height: 1.15;
       text-align: center;
+    }
+    th:not(.sticky-col),
+    td:not(.sticky-col) {
+      min-width: 82px;
+      max-width: 82px;
     }
     th.sticky-col,
     td.sticky-col {
@@ -201,8 +208,8 @@
       left: 0;
       z-index: 4;
       background: #fff;
-      min-width: 250px;
-      max-width: 250px;
+      min-width: 220px;
+      max-width: 220px;
       text-align: left;
     }
     th.sticky-col {
@@ -217,16 +224,18 @@
     }
     .pedido-title {
       font-weight: 700;
-      margin-bottom: 4px;
+      font-size: 13px;
+      margin-bottom: 3px;
+      line-height: 1.2;
     }
     .pedido-meta {
-      font-size: 13px;
+      font-size: 10px;
       color: var(--muted);
       line-height: 1.45;
     }
     .cell-button {
       width: 100%;
-      min-height: 48px;
+      min-height: 40px;
       border-radius: 12px;
       border: 1px solid var(--line);
       background: #fff;
@@ -236,7 +245,7 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-      padding: 8px;
+      padding: 6px;
       line-height: 1.2;
     }
     .cell-button.done {
@@ -248,11 +257,11 @@
       cursor: default;
     }
     .cell-button.special {
-      font-size: 12px;
+      font-size: 10px;
     }
     .cell-button .subtext {
       display: block;
-      font-size: 11px;
+      font-size: 10px;
       color: var(--muted);
       font-weight: 400;
       margin-top: 4px;
@@ -456,14 +465,14 @@
           <thead>
             <tr>
               <th class="sticky-col">Pedido</th>
-              <th title="Em produção">Produção</th>
-              <th title="Pedido pronto">Pronto</th>
-              <th title="Etiqueta volumes">Etiqueta</th>
+              <th title="Em produção">Prod.</th>
+              <th title="Pedido pronto">Prt.</th>
+              <th title="Etiqueta volumes">Etq.</th>
               <th title="Vídeo feito">Vídeo</th>
               <th title="Quer nota fiscal">NF</th>
-              <th title="Local de entrega">Entrega</th>
-              <th title="Pagamento quitado">Quitado</th>
-              <th title="Ligação pós-venda">Pós-venda</th>
+              <th title="Local de entrega">Ent.</th>
+              <th title="Pagamento quitado">Pgto</th>
+              <th title="Ligação pós-venda">Pós</th>
             </tr>
           </thead>
           <tbody id="tbodyMatriz">
@@ -922,6 +931,45 @@
       abrirModal(el.modalResumoBackdrop);
     }
 
+
+    function atualizarFaseBooleanaLocal(numeroPedido, faseCodigo, concluido) {
+      if (!estado.matriz || !Array.isArray(estado.matriz.pedidos)) {
+        return;
+      }
+
+      const pedido = estado.matriz.pedidos.find((item) => String(item.numero) === String(numeroPedido));
+      if (!pedido) {
+        return;
+      }
+
+      if (!pedido.fases || typeof pedido.fases !== 'object') {
+        pedido.fases = {};
+      }
+
+      const faseAtual = pedido.fases[faseCodigo] || {};
+      pedido.fases[faseCodigo] = {
+        ...faseAtual,
+        concluido: Boolean(concluido)
+      };
+
+      const totalPedidos = estado.matriz.pedidos.length;
+      const concluidos = estado.matriz.pedidos.reduce((acc, item) => {
+        return acc + (item.fases?.[faseCodigo]?.concluido ? 1 : 0);
+      }, 0);
+
+      if (!estado.matriz.totaisFases || typeof estado.matriz.totaisFases !== 'object') {
+        estado.matriz.totaisFases = {};
+      }
+
+      estado.matriz.totaisFases[faseCodigo] = {
+        total: totalPedidos,
+        concluidos
+      };
+
+      renderCardsFases();
+      renderMatriz();
+    }
+
     async function alternarFaseBooleana(numeroPedido, faseCodigo) {
       const pedido = obterPedido(numeroPedido);
       if (!pedido) return;
@@ -944,10 +992,15 @@
           body: JSON.stringify({ valor: novoValor })
         });
 
-        await carregarMatriz();
+        atualizarFaseBooleanaLocal(numeroPedido, faseCodigo, novoValor);
 
-        if (novoValor && (faseCodigo === 'EM_PRODUCAO' || faseCodigo === 'PEDIDO_PRONTO')) {
+        if (novoValor && faseCodigo === 'PEDIDO_PRONTO') {
           abrirResumoPedido(faseInfo?.nome || 'Resumo do pedido', data.resumoPedido, data.notificacao || null);
+          return;
+        }
+
+        if (novoValor && faseCodigo === 'EM_PRODUCAO' && data?.notificacao?.success === false) {
+          window.alert(`Pedido marcado em produção, mas houve falha no WhatsApp: ${data.notificacao.error || 'Erro desconhecido.'}`);
         }
       } catch (error) {
         window.alert(error.message);
