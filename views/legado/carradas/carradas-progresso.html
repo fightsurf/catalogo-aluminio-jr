@@ -931,6 +931,46 @@
       abrirModal(el.modalResumoBackdrop);
     }
 
+    function recalcularTotaisFases() {
+      const pedidos = Array.isArray(estado.matriz?.pedidos) ? estado.matriz.pedidos : [];
+      const totais = {};
+
+      FASES.forEach((fase) => {
+        totais[fase.codigo] = { concluidos: 0, total: pedidos.length };
+      });
+
+      pedidos.forEach((pedido) => {
+        FASES.forEach((fase) => {
+          if (pedido?.fases?.[fase.codigo]?.concluido) {
+            totais[fase.codigo].concluidos += 1;
+          }
+        });
+      });
+
+      if (estado.matriz) {
+        estado.matriz.totaisFases = totais;
+      }
+    }
+
+    function atualizarFaseLocal(numeroPedido, faseCodigo, concluido) {
+      const pedido = obterPedido(numeroPedido);
+      if (!pedido) return;
+
+      if (!pedido.fases) {
+        pedido.fases = {};
+      }
+
+      const faseAtual = pedido.fases[faseCodigo] || {};
+      pedido.fases[faseCodigo] = {
+        ...faseAtual,
+        concluido: Boolean(concluido)
+      };
+
+      recalcularTotaisFases();
+      renderCardsFases();
+      renderMatriz();
+    }
+
     async function alternarFaseBooleana(numeroPedido, faseCodigo) {
       const pedido = obterPedido(numeroPedido);
       if (!pedido) return;
@@ -953,9 +993,14 @@
           body: JSON.stringify({ valor: novoValor })
         });
 
+        if (faseCodigo === 'EM_PRODUCAO') {
+          atualizarFaseLocal(numeroPedido, faseCodigo, novoValor);
+          return;
+        }
+
         await carregarMatriz();
 
-        if (novoValor && (faseCodigo === 'EM_PRODUCAO' || faseCodigo === 'PEDIDO_PRONTO')) {
+        if (novoValor && faseCodigo === 'PEDIDO_PRONTO') {
           abrirResumoPedido(faseInfo?.nome || 'Resumo do pedido', data.resumoPedido, data.notificacao || null);
         }
       } catch (error) {
