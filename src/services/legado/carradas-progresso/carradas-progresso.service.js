@@ -34,7 +34,8 @@ const FASES_BOOLEANAS = {
   },
   QUER_NOTA_FISCAL: {
     nome: 'Quer nota fiscal',
-    enviaWhatsapp: false
+    enviaWhatsapp: true,
+    construirMensagem: () => 'Vai precisar de Nota Fiscal? Preciso calcular os impostos para acrescentar se for querer.'
   },
   LIGACAO_POS_VENDA: {
     nome: 'Ligação pós-venda',

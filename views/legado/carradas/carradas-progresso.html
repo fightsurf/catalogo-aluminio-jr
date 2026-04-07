@@ -824,7 +824,6 @@
               <div class="pedido-title">Pedido ${escapeHtml(pedido.numero)}</div>
               <div class="pedido-meta">
                 ${escapeHtml(pedido.cliente?.nome || '-')}<br>
-                Cidade: ${escapeHtml([pedido.cliente?.cidade, pedido.cliente?.uf].filter(Boolean).join(' - ') || '-')}<br>
                 Data: ${escapeHtml(formatarData(pedido.data) || '-')}<br>
                 Valor: ${escapeHtml(formatarMoeda(pedido.total))}
               </div>
@@ -932,6 +931,26 @@
       abrirModal(el.modalResumoBackdrop);
     }
 
+    function aplicarResultadoFaseBooleana(numeroPedido, faseCodigo, data) {
+      const pedido = obterPedido(numeroPedido);
+      if (!pedido) return;
+
+      if (!pedido.fases || typeof pedido.fases !== 'object') {
+        pedido.fases = {};
+      }
+
+      pedido.fases[faseCodigo] = {
+        ...(pedido.fases[faseCodigo] || {}),
+        codigo: data?.fase?.codigo || faseCodigo,
+        nome: data?.fase?.nome || FASES.find((fase) => fase.codigo === faseCodigo)?.nome || faseCodigo,
+        concluido: Boolean(data?.fase?.concluido),
+        updatedAt: data?.fase?.updatedAt || null
+      };
+
+      renderCardsFases();
+      renderMatriz();
+    }
+
     async function alternarFaseBooleana(numeroPedido, faseCodigo) {
       const pedido = obterPedido(numeroPedido);
       if (!pedido) return;
@@ -941,7 +960,7 @@
       const faseInfo = FASES.find((fase) => fase.codigo === faseCodigo);
 
       if (!novoValor) {
-        const confirma = window.confirm(`Deseja desmarcar a fase \"${faseInfo?.nome || faseCodigo}\" do pedido ${numeroPedido}?`);
+        const confirma = window.confirm(`Deseja desmarcar a fase "${faseInfo?.nome || faseCodigo}" do pedido ${numeroPedido}?`);
         if (!confirma) {
           return;
         }
@@ -954,11 +973,7 @@
           body: JSON.stringify({ valor: novoValor })
         });
 
-        await carregarMatriz();
-
-        if (novoValor && (faseCodigo === 'EM_PRODUCAO' || faseCodigo === 'PEDIDO_PRONTO')) {
-          abrirResumoPedido(faseInfo?.nome || 'Resumo do pedido', data.resumoPedido, data.notificacao || null);
-        }
+        aplicarResultadoFaseBooleana(numeroPedido, faseCodigo, data);
       } catch (error) {
         window.alert(error.message);
       }
