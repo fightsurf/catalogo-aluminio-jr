@@ -31,7 +31,7 @@
       font-family: inherit;
     }
     .page {
-      max-width: 1800px;
+      max-width: 1380px;
       margin: 0 auto;
       padding: 20px;
     }
@@ -170,13 +170,13 @@
     }
     table {
       width: 100%;
-      min-width: 1600px;
+      min-width: 1080px;
       border-collapse: separate;
       border-spacing: 0;
     }
     th,
     td {
-      padding: 12px 10px;
+      padding: 8px 6px;
       border-bottom: 1px solid var(--line);
       border-right: 1px solid var(--line);
       vertical-align: middle;
@@ -192,8 +192,14 @@
       z-index: 5;
       background: #f8fafc;
       color: #334155;
-      font-size: 13px;
+      font-size: 11px;
+      line-height: 1.15;
       text-align: center;
+    }
+    th:not(.sticky-col),
+    td:not(.sticky-col) {
+      min-width: 82px;
+      max-width: 82px;
     }
     th.sticky-col,
     td.sticky-col {
@@ -201,8 +207,8 @@
       left: 0;
       z-index: 4;
       background: #fff;
-      min-width: 300px;
-      max-width: 300px;
+      min-width: 220px;
+      max-width: 220px;
       text-align: left;
     }
     th.sticky-col {
@@ -217,16 +223,18 @@
     }
     .pedido-title {
       font-weight: 700;
-      margin-bottom: 4px;
+      font-size: 13px;
+      margin-bottom: 3px;
+      line-height: 1.2;
     }
     .pedido-meta {
-      font-size: 13px;
+      font-size: 10px;
       color: var(--muted);
       line-height: 1.45;
     }
     .cell-button {
       width: 100%;
-      min-height: 54px;
+      min-height: 40px;
       border-radius: 12px;
       border: 1px solid var(--line);
       background: #fff;
@@ -236,7 +244,7 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-      padding: 8px;
+      padding: 6px;
       line-height: 1.2;
     }
     .cell-button.done {
@@ -248,11 +256,11 @@
       cursor: default;
     }
     .cell-button.special {
-      font-size: 12px;
+      font-size: 10px;
     }
     .cell-button .subtext {
       display: block;
-      font-size: 11px;
+      font-size: 10px;
       color: var(--muted);
       font-weight: 400;
       margin-top: 4px;
@@ -456,14 +464,14 @@
           <thead>
             <tr>
               <th class="sticky-col">Pedido</th>
-              <th>Em produção</th>
-              <th>Pedido pronto</th>
-              <th>Etiqueta volumes</th>
-              <th>Vídeo feito</th>
-              <th>Quer nota fiscal</th>
-              <th>Local de entrega</th>
-              <th>Pagamento quitado</th>
-              <th>Ligação pós-venda</th>
+              <th title="Em produção">Prod.</th>
+              <th title="Pedido pronto">Prt.</th>
+              <th title="Etiqueta volumes">Etq.</th>
+              <th title="Vídeo feito">Vídeo</th>
+              <th title="Quer nota fiscal">NF</th>
+              <th title="Local de entrega">Ent.</th>
+              <th title="Pagamento quitado">Pgto</th>
+              <th title="Ligação pós-venda">Pós</th>
             </tr>
           </thead>
           <tbody id="tbodyMatriz">
