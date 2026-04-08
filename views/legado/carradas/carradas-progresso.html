@@ -166,18 +166,19 @@
       border: 1px solid var(--line);
       border-radius: 14px;
       background: #fff;
-      min-height: 72vh;
-      max-height: calc(100vh - 110px);
+      min-height: calc(100vh - 70px);
+      height: calc(100vh - 70px);
+      max-height: calc(100vh - 70px);
     }
     table {
       width: 100%;
+      min-width: 1080px;
       border-collapse: separate;
       border-spacing: 0;
-      table-layout: fixed;
     }
     th,
     td {
-      padding: 6px 4px;
+      padding: 8px 6px;
       border-bottom: 1px solid var(--line);
       border-right: 1px solid var(--line);
       vertical-align: middle;
@@ -193,9 +194,14 @@
       z-index: 5;
       background: #f8fafc;
       color: #334155;
-      font-size: 10px;
-      line-height: 1.1;
+      font-size: 11px;
+      line-height: 1.15;
       text-align: center;
+    }
+    th:not(.sticky-col),
+    td:not(.sticky-col) {
+      min-width: 82px;
+      max-width: 82px;
     }
     th.sticky-col,
     td.sticky-col {
@@ -203,42 +209,9 @@
       left: 0;
       z-index: 4;
       background: #fff;
-      width: 180px;
-      min-width: 180px;
-      max-width: 180px;
+      min-width: 220px;
+      max-width: 220px;
       text-align: left;
-    }
-    thead th:nth-child(2),
-    tbody td:nth-child(2) {
-      width: 58px;
-    }
-    thead th:nth-child(3),
-    tbody td:nth-child(3) {
-      width: 58px;
-    }
-    thead th:nth-child(4),
-    tbody td:nth-child(4) {
-      width: 62px;
-    }
-    thead th:nth-child(5),
-    tbody td:nth-child(5) {
-      width: 54px;
-    }
-    thead th:nth-child(6),
-    tbody td:nth-child(6) {
-      width: 46px;
-    }
-    thead th:nth-child(7),
-    tbody td:nth-child(7) {
-      width: 78px;
-    }
-    thead th:nth-child(8),
-    tbody td:nth-child(8) {
-      width: 74px;
-    }
-    thead th:nth-child(9),
-    tbody td:nth-child(9) {
-      width: 60px;
     }
     th.sticky-col {
       z-index: 6;
@@ -252,18 +225,18 @@
     }
     .pedido-title {
       font-weight: 700;
-      font-size: 12px;
-      margin-bottom: 2px;
-      line-height: 1.15;
+      font-size: 13px;
+      margin-bottom: 3px;
+      line-height: 1.2;
     }
     .pedido-meta {
-      font-size: 9px;
+      font-size: 10px;
       color: var(--muted);
-      line-height: 1.25;
+      line-height: 1.45;
     }
     .cell-button {
       width: 100%;
-      min-height: 36px;
+      min-height: 40px;
       border-radius: 12px;
       border: 1px solid var(--line);
       background: #fff;
@@ -272,9 +245,9 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 4px;
-      padding: 4px;
-      line-height: 1.05;
+      gap: 8px;
+      padding: 6px;
+      line-height: 1.2;
     }
     .cell-button.done {
       background: var(--success-bg);
@@ -285,15 +258,16 @@
       cursor: default;
     }
     .cell-button.special {
-      font-size: 9px;
+      font-size: 10px;
     }
     .cell-button .subtext {
       display: block;
-      font-size: 8px;
+      font-size: 10px;
       color: var(--muted);
       font-weight: 400;
-      margin-top: 2px;
-      line-height: 1.05;
+      margin-top: 4px;
+      white-space: pre-line;
+      line-height: 1.25;
     }
     .loading,
     .empty {
@@ -785,7 +759,7 @@
       return faseData?.concluido ? '✓' : '';
     }
 
-    function subtituloCelulaEspecial(faseCodigo, faseData) {
+    function subtituloCelulaEspecial(faseCodigo, faseData, pedido) {
       if (faseCodigo === 'ETIQUETA_VOLUMES') {
         if (faseData?.confirmadoEm) {
           return `Confirmado em ${formatarDataHora(faseData.confirmadoEm)}`;
@@ -826,7 +800,7 @@
           ].filter(Boolean).join(' ');
 
           const titulo = tituloCelulaEspecial(fase.codigo, faseData);
-          const subtitulo = subtituloCelulaEspecial(fase.codigo, faseData);
+          const subtitulo = subtituloCelulaEspecial(fase.codigo, faseData, pedido);
           const readonly = fase.tipo === 'automatico' ? 'data-readonly="true"' : '';
 
           return `
@@ -853,6 +827,7 @@
               <div class="pedido-title">Pedido ${escapeHtml(pedido.numero)}</div>
               <div class="pedido-meta">
                 ${escapeHtml(pedido.cliente?.nome || '-')}<br>
+                Cidade: ${escapeHtml([pedido.cliente?.cidade, pedido.cliente?.uf].filter(Boolean).join(' - ') || '-')}<br>
                 Data: ${escapeHtml(formatarData(pedido.data) || '-')}<br>
                 Valor: ${escapeHtml(formatarMoeda(pedido.total))}
               </div>
@@ -960,39 +935,20 @@
       abrirModal(el.modalResumoBackdrop);
     }
 
-
-    function atualizarFaseBooleanaLocal(numeroPedido, faseCodigo, concluido) {
-      if (!estado.matriz || !Array.isArray(estado.matriz.pedidos)) {
-        return;
-      }
-
-      const pedido = estado.matriz.pedidos.find((item) => String(item.numero) === String(numeroPedido));
-      if (!pedido) {
-        return;
-      }
+    function aplicarResultadoFaseBooleana(numeroPedido, faseCodigo, data) {
+      const pedido = obterPedido(numeroPedido);
+      if (!pedido) return;
 
       if (!pedido.fases || typeof pedido.fases !== 'object') {
         pedido.fases = {};
       }
 
-      const faseAtual = pedido.fases[faseCodigo] || {};
       pedido.fases[faseCodigo] = {
-        ...faseAtual,
-        concluido: Boolean(concluido)
-      };
-
-      const totalPedidos = estado.matriz.pedidos.length;
-      const concluidos = estado.matriz.pedidos.reduce((acc, item) => {
-        return acc + (item.fases?.[faseCodigo]?.concluido ? 1 : 0);
-      }, 0);
-
-      if (!estado.matriz.totaisFases || typeof estado.matriz.totaisFases !== 'object') {
-        estado.matriz.totaisFases = {};
-      }
-
-      estado.matriz.totaisFases[faseCodigo] = {
-        total: totalPedidos,
-        concluidos
+        ...(pedido.fases[faseCodigo] || {}),
+        codigo: data?.fase?.codigo || faseCodigo,
+        nome: data?.fase?.nome || FASES.find((fase) => fase.codigo === faseCodigo)?.nome || faseCodigo,
+        concluido: Boolean(data?.fase?.concluido),
+        updatedAt: data?.fase?.updatedAt || null
       };
 
       renderCardsFases();
@@ -1008,7 +964,7 @@
       const faseInfo = FASES.find((fase) => fase.codigo === faseCodigo);
 
       if (!novoValor) {
-        const confirma = window.confirm(`Deseja desmarcar a fase \"${faseInfo?.nome || faseCodigo}\" do pedido ${numeroPedido}?`);
+        const confirma = window.confirm(`Deseja desmarcar a fase "${faseInfo?.nome || faseCodigo}" do pedido ${numeroPedido}?`);
         if (!confirma) {
           return;
         }
@@ -1021,16 +977,7 @@
           body: JSON.stringify({ valor: novoValor })
         });
 
-        atualizarFaseBooleanaLocal(numeroPedido, faseCodigo, novoValor);
-
-        if (novoValor && faseCodigo === 'PEDIDO_PRONTO') {
-          abrirResumoPedido(faseInfo?.nome || 'Resumo do pedido', data.resumoPedido, data.notificacao || null);
-          return;
-        }
-
-        if (novoValor && faseCodigo === 'EM_PRODUCAO' && data?.notificacao?.success === false) {
-          window.alert(`Pedido marcado em produção, mas houve falha no WhatsApp: ${data.notificacao.error || 'Erro desconhecido.'}`);
-        }
+        aplicarResultadoFaseBooleana(numeroPedido, faseCodigo, data);
       } catch (error) {
         window.alert(error.message);
       }
@@ -1219,7 +1166,16 @@
       const numeroPedido = botao.dataset.numeroPedido;
       const fase = FASES.find((item) => item.codigo === faseCodigo);
 
-      if (!fase || fase.tipo === 'automatico') {
+      if (!fase) {
+        return;
+      }
+
+      if (faseCodigo === 'PAGAMENTO_QUITADO') {
+        window.open(`/legado/pagamentos?numero=${encodeURIComponent(numeroPedido)}`, '_blank', 'noopener');
+        return;
+      }
+
+      if (fase.tipo === 'automatico') {
         return;
       }
 
