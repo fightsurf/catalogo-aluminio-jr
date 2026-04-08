@@ -31,7 +31,7 @@
       font-family: inherit;
     }
     .page {
-      max-width: 1800px;
+      max-width: 1380px;
       margin: 0 auto;
       padding: 20px;
     }
@@ -166,18 +166,18 @@
       border: 1px solid var(--line);
       border-radius: 14px;
       background: #fff;
-      height: 1700px;
-
+      min-height: 72vh;
+      max-height: calc(100vh - 110px);
     }
     table {
       width: 100%;
-      min-width: 1600px;
       border-collapse: separate;
       border-spacing: 0;
+      table-layout: fixed;
     }
     th,
     td {
-      padding: 12px 10px;
+      padding: 6px 4px;
       border-bottom: 1px solid var(--line);
       border-right: 1px solid var(--line);
       vertical-align: middle;
@@ -193,7 +193,8 @@
       z-index: 5;
       background: #f8fafc;
       color: #334155;
-      font-size: 13px;
+      font-size: 10px;
+      line-height: 1.1;
       text-align: center;
     }
     th.sticky-col,
@@ -202,9 +203,42 @@
       left: 0;
       z-index: 4;
       background: #fff;
-      min-width: 300px;
-      max-width: 300px;
+      width: 180px;
+      min-width: 180px;
+      max-width: 180px;
       text-align: left;
+    }
+    thead th:nth-child(2),
+    tbody td:nth-child(2) {
+      width: 58px;
+    }
+    thead th:nth-child(3),
+    tbody td:nth-child(3) {
+      width: 58px;
+    }
+    thead th:nth-child(4),
+    tbody td:nth-child(4) {
+      width: 62px;
+    }
+    thead th:nth-child(5),
+    tbody td:nth-child(5) {
+      width: 54px;
+    }
+    thead th:nth-child(6),
+    tbody td:nth-child(6) {
+      width: 46px;
+    }
+    thead th:nth-child(7),
+    tbody td:nth-child(7) {
+      width: 78px;
+    }
+    thead th:nth-child(8),
+    tbody td:nth-child(8) {
+      width: 74px;
+    }
+    thead th:nth-child(9),
+    tbody td:nth-child(9) {
+      width: 60px;
     }
     th.sticky-col {
       z-index: 6;
@@ -218,23 +252,18 @@
     }
     .pedido-title {
       font-weight: 700;
-      margin-bottom: 4px;
-    }
-    .pedido-link {
-      color: inherit;
-      text-decoration: none;
-    }
-    .pedido-link:hover {
-      text-decoration: underline;
+      font-size: 12px;
+      margin-bottom: 2px;
+      line-height: 1.15;
     }
     .pedido-meta {
-      font-size: 13px;
+      font-size: 9px;
       color: var(--muted);
-      line-height: 1.45;
+      line-height: 1.25;
     }
     .cell-button {
       width: 100%;
-      min-height: 54px;
+      min-height: 36px;
       border-radius: 12px;
       border: 1px solid var(--line);
       background: #fff;
@@ -243,9 +272,9 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 8px;
-      padding: 8px;
-      line-height: 1.2;
+      gap: 4px;
+      padding: 4px;
+      line-height: 1.05;
     }
     .cell-button.done {
       background: var(--success-bg);
@@ -256,14 +285,15 @@
       cursor: default;
     }
     .cell-button.special {
-      font-size: 12px;
+      font-size: 9px;
     }
     .cell-button .subtext {
       display: block;
-      font-size: 11px;
+      font-size: 8px;
       color: var(--muted);
       font-weight: 400;
-      margin-top: 4px;
+      margin-top: 2px;
+      line-height: 1.05;
     }
     .loading,
     .empty {
@@ -393,43 +423,6 @@
       border-color: #fca5a5;
       color: #b91c1c;
     }
-
-    /* ajuste apenas das larguras de Etiqueta, Local entrega e Pgto quitado */
-    thead th:nth-child(4),
-    tbody td:nth-child(4) {
-      width: 72px;
-      min-width: 72px;
-      max-width: 72px;
-      padding: 6px 4px;
-    }
-    thead th:nth-child(7),
-    tbody td:nth-child(7) {
-      width: 88px;
-      min-width: 88px;
-      max-width: 88px;
-      padding: 6px 4px;
-    }
-    thead th:nth-child(8),
-    tbody td:nth-child(8) {
-      width: 82px;
-      min-width: 82px;
-      max-width: 82px;
-      padding: 6px 4px;
-    }
-    tbody td:nth-child(4) .cell-button,
-    tbody td:nth-child(7) .cell-button,
-    tbody td:nth-child(8) .cell-button {
-      padding: 4px;
-      font-size: 10px;
-      line-height: 1.05;
-    }
-    tbody td:nth-child(4) .cell-button .subtext,
-    tbody td:nth-child(7) .cell-button .subtext,
-    tbody td:nth-child(8) .cell-button .subtext {
-      font-size: 9px;
-      margin-top: 2px;
-    }
-
     @media (max-width: 1100px) {
       .header-grid,
       .status-cards,
@@ -501,14 +494,14 @@
           <thead>
             <tr>
               <th class="sticky-col">Pedido</th>
-              <th>Produção</th>
-              <th>Pronto</th>
-              <th>Etiqueta</th>
-              <th>Vídeo</th>
-              <th>NF</th>
-              <th>Local entrega</th>
-              <th>Pgto quitado</th>
-              <th>Pós-venda</th>
+              <th title="Em produção">Prod.</th>
+              <th title="Pedido pronto">Prt.</th>
+              <th title="Etiqueta volumes">Etq.</th>
+              <th title="Vídeo feito">Vídeo</th>
+              <th title="Quer nota fiscal">NF</th>
+              <th title="Local de entrega">Ent.</th>
+              <th title="Pagamento quitado">Pgto</th>
+              <th title="Ligação pós-venda">Pós</th>
             </tr>
           </thead>
           <tbody id="tbodyMatriz">
@@ -857,7 +850,7 @@
         return `
           <tr>
             <td class="sticky-col">
-              <div class="pedido-title"><a class="pedido-link" href="/legado/pedidos?numero=${encodeURIComponent(pedido.numero)}" target="_blank" rel="noopener noreferrer">Pedido ${escapeHtml(pedido.numero)}</a></div>
+              <div class="pedido-title">Pedido ${escapeHtml(pedido.numero)}</div>
               <div class="pedido-meta">
                 ${escapeHtml(pedido.cliente?.nome || '-')}<br>
                 Data: ${escapeHtml(formatarData(pedido.data) || '-')}<br>
@@ -967,6 +960,45 @@
       abrirModal(el.modalResumoBackdrop);
     }
 
+
+    function atualizarFaseBooleanaLocal(numeroPedido, faseCodigo, concluido) {
+      if (!estado.matriz || !Array.isArray(estado.matriz.pedidos)) {
+        return;
+      }
+
+      const pedido = estado.matriz.pedidos.find((item) => String(item.numero) === String(numeroPedido));
+      if (!pedido) {
+        return;
+      }
+
+      if (!pedido.fases || typeof pedido.fases !== 'object') {
+        pedido.fases = {};
+      }
+
+      const faseAtual = pedido.fases[faseCodigo] || {};
+      pedido.fases[faseCodigo] = {
+        ...faseAtual,
+        concluido: Boolean(concluido)
+      };
+
+      const totalPedidos = estado.matriz.pedidos.length;
+      const concluidos = estado.matriz.pedidos.reduce((acc, item) => {
+        return acc + (item.fases?.[faseCodigo]?.concluido ? 1 : 0);
+      }, 0);
+
+      if (!estado.matriz.totaisFases || typeof estado.matriz.totaisFases !== 'object') {
+        estado.matriz.totaisFases = {};
+      }
+
+      estado.matriz.totaisFases[faseCodigo] = {
+        total: totalPedidos,
+        concluidos
+      };
+
+      renderCardsFases();
+      renderMatriz();
+    }
+
     async function alternarFaseBooleana(numeroPedido, faseCodigo) {
       const pedido = obterPedido(numeroPedido);
       if (!pedido) return;
@@ -989,10 +1021,15 @@
           body: JSON.stringify({ valor: novoValor })
         });
 
-        await carregarMatriz();
+        atualizarFaseBooleanaLocal(numeroPedido, faseCodigo, novoValor);
 
-        if (novoValor && (faseCodigo === 'EM_PRODUCAO' || faseCodigo === 'PEDIDO_PRONTO')) {
+        if (novoValor && faseCodigo === 'PEDIDO_PRONTO') {
           abrirResumoPedido(faseInfo?.nome || 'Resumo do pedido', data.resumoPedido, data.notificacao || null);
+          return;
+        }
+
+        if (novoValor && faseCodigo === 'EM_PRODUCAO' && data?.notificacao?.success === false) {
+          window.alert(`Pedido marcado em produção, mas houve falha no WhatsApp: ${data.notificacao.error || 'Erro desconhecido.'}`);
         }
       } catch (error) {
         window.alert(error.message);
