@@ -202,8 +202,8 @@
       left: 0;
       z-index: 4;
       background: #fff;
-      min-width: 220px;
-      max-width: 220px;
+      min-width: 300px;
+      max-width: 300px;
       text-align: left;
     }
     th.sticky-col {
@@ -393,6 +393,43 @@
       border-color: #fca5a5;
       color: #b91c1c;
     }
+
+    /* ajuste apenas das larguras de Etiqueta, Local entrega e Pgto quitado */
+    thead th:nth-child(4),
+    tbody td:nth-child(4) {
+      width: 72px;
+      min-width: 72px;
+      max-width: 72px;
+      padding: 6px 4px;
+    }
+    thead th:nth-child(7),
+    tbody td:nth-child(7) {
+      width: 88px;
+      min-width: 88px;
+      max-width: 88px;
+      padding: 6px 4px;
+    }
+    thead th:nth-child(8),
+    tbody td:nth-child(8) {
+      width: 82px;
+      min-width: 82px;
+      max-width: 82px;
+      padding: 6px 4px;
+    }
+    tbody td:nth-child(4) .cell-button,
+    tbody td:nth-child(7) .cell-button,
+    tbody td:nth-child(8) .cell-button {
+      padding: 4px;
+      font-size: 10px;
+      line-height: 1.05;
+    }
+    tbody td:nth-child(4) .cell-button .subtext,
+    tbody td:nth-child(7) .cell-button .subtext,
+    tbody td:nth-child(8) .cell-button .subtext {
+      font-size: 9px;
+      margin-top: 2px;
+    }
+
     @media (max-width: 1100px) {
       .header-grid,
       .status-cards,
@@ -823,7 +860,6 @@
               <div class="pedido-title"><a class="pedido-link" href="/legado/pedidos?numero=${encodeURIComponent(pedido.numero)}" target="_blank" rel="noopener noreferrer">Pedido ${escapeHtml(pedido.numero)}</a></div>
               <div class="pedido-meta">
                 ${escapeHtml(pedido.cliente?.nome || '-')}<br>
-                Cidade: ${escapeHtml(pedido.cliente?.cidade || '-')} ${pedido.cliente?.uf ? `- ${escapeHtml(pedido.cliente.uf)}` : ''}<br>
                 Data: ${escapeHtml(formatarData(pedido.data) || '-')}<br>
                 Valor: ${escapeHtml(formatarMoeda(pedido.total))}
               </div>
