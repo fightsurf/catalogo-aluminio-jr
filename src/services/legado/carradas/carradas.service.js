@@ -1,4 +1,13 @@
+const envioWhatsappService = require('../../whatsapp/envio-whatsapp.service');
 const legadoBridgeService = require('../legadoBridge.service');
+
+function limparTexto(valor) {
+  if (valor === undefined || valor === null) {
+    return '';
+  }
+
+  return String(valor).trim();
+}
 
 function getBridgeBaseUrl() {
   const baseUrl = String(process.env.LEGADO_BRIDGE_URL || '').trim();
@@ -29,6 +38,96 @@ async function request(path, options = {}) {
   }
 
   return data;
+}
+
+function formatarDataParaMensagem(valor) {
+  if (!valor) {
+    return '';
+  }
+
+  const data = new Date(valor);
+
+  if (Number.isNaN(data.getTime())) {
+    return limparTexto(valor).slice(0, 10);
+  }
+
+  return data.toLocaleDateString('pt-BR', {
+    timeZone: 'America/Fortaleza'
+  });
+}
+
+function montarMensagemCarrada({ tipo, pedido, carrada }) {
+  const numeroPedido = limparTexto(pedido?.numero);
+  const nomeCliente = limparTexto(pedido?.cliente?.nome);
+  const dataCarrada = formatarDataParaMensagem(carrada?.data);
+  const descricaoCarrada = limparTexto(carrada?.descricao);
+  const acao = tipo === 'saida' ? 'saiu' : 'entrou';
+
+  return [
+    `🚚 Pedido: ${numeroPedido}`,
+    `Cliente: ${nomeCliente}`,
+    '',
+    `Seu pedido ${acao} na produção da carrada do dia ${dataCarrada}`,
+    descricaoCarrada
+  ]
+    .filter((linha, indice, linhas) => {
+      if (indice === linhas.length - 1) {
+        return Boolean(linha);
+      }
+      return true;
+    })
+    .join('\n');
+}
+
+async function enviarNotificacaoCarrada({ tipo, pedido, carrada }) {
+  const telefone = limparTexto(pedido?.cliente?.telefonePrincipal);
+
+  if (!telefone) {
+    return { enviado: false, motivo: 'sem_telefone' };
+  }
+
+  const mensagem = montarMensagemCarrada({ tipo, pedido, carrada });
+
+  try {
+    await envioWhatsappService.enviarMensagem({ telefone, mensagem });
+    return { enviado: true };
+  } catch (error) {
+    return { enviado: false, motivo: 'erro_envio', detalhe: error.message };
+  }
+}
+
+async function enviarNotificacoesCriacao(carrada) {
+  const pedidos = Array.isArray(carrada?.pedidos) ? carrada.pedidos : [];
+
+  for (const pedido of pedidos) {
+    await enviarNotificacaoCarrada({ tipo: 'entrada', pedido, carrada });
+  }
+}
+
+async function enviarNotificacoesAtualizacao(carradaAntes, carradaDepois) {
+  const pedidosAntes = Array.isArray(carradaAntes?.pedidos) ? carradaAntes.pedidos : [];
+  const pedidosDepois = Array.isArray(carradaDepois?.pedidos) ? carradaDepois.pedidos : [];
+
+  const mapaAntes = new Map(pedidosAntes.map((pedido) => [limparTexto(pedido?.numero), pedido]));
+  const mapaDepois = new Map(pedidosDepois.map((pedido) => [limparTexto(pedido?.numero), pedido]));
+
+  for (const [numero, pedidoDepois] of mapaDepois.entries()) {
+    if (!numero || mapaAntes.has(numero)) continue;
+    await enviarNotificacaoCarrada({ tipo: 'entrada', pedido: pedidoDepois, carrada: carradaDepois });
+  }
+
+  for (const [numero, pedidoAntes] of mapaAntes.entries()) {
+    if (!numero || mapaDepois.has(numero)) continue;
+    await enviarNotificacaoCarrada({ tipo: 'saida', pedido: pedidoAntes, carrada: carradaAntes });
+  }
+}
+
+async function enviarNotificacoesExclusao(carrada) {
+  const pedidos = Array.isArray(carrada?.pedidos) ? carrada.pedidos : [];
+
+  for (const pedido of pedidos) {
+    await enviarNotificacaoCarrada({ tipo: 'saida', pedido, carrada });
+  }
 }
 
 async function listarClientes(nome) {
@@ -67,22 +166,42 @@ async function criarCarrada(payload) {
     body: JSON.stringify(payload)
   });
 
-  return response.dado || null;
+  const carrada = response.dado || null;
+
+  if (carrada) {
+    await enviarNotificacoesCriacao(carrada);
+  }
+
+  return carrada;
 }
 
 async function atualizarCarrada(codigo, payload) {
+  const carradaAntes = await buscarCarrada(codigo);
+
   const response = await request(`/api/carradas/${codigo}`, {
     method: 'PUT',
     body: JSON.stringify(payload)
   });
 
-  return response.dado || null;
+  const carradaDepois = response.dado || null;
+
+  if (carradaAntes && carradaDepois) {
+    await enviarNotificacoesAtualizacao(carradaAntes, carradaDepois);
+  }
+
+  return carradaDepois;
 }
 
 async function excluirCarrada(codigo) {
+  const carradaAntes = await buscarCarrada(codigo);
+
   const response = await request(`/api/carradas/${codigo}`, {
     method: 'DELETE'
   });
+
+  if (carradaAntes) {
+    await enviarNotificacoesExclusao(carradaAntes);
+  }
 
   return response.dado || null;
 }
