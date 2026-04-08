@@ -265,6 +265,8 @@
       color: var(--muted);
       font-weight: 400;
       margin-top: 4px;
+      white-space: pre-line;
+      line-height: 1.25;
     }
     .loading,
     .empty {
@@ -750,13 +752,13 @@
       }
 
       if (faseCodigo === 'PAGAMENTO_QUITADO') {
-        return faseData?.concluido ? 'Quitado' : 'Abrir';
+        return faseData?.concluido ? 'Quitado' : 'Pendente';
       }
 
       return faseData?.concluido ? '✓' : '';
     }
 
-    function subtituloCelulaEspecial(faseCodigo, faseData) {
+    function subtituloCelulaEspecial(faseCodigo, faseData, pedido) {
       if (faseCodigo === 'ETIQUETA_VOLUMES') {
         if (faseData?.confirmadoEm) {
           return `Confirmado em ${formatarDataHora(faseData.confirmadoEm)}`;
@@ -772,9 +774,7 @@
       }
 
       if (faseCodigo === 'PAGAMENTO_QUITADO') {
-        return faseData?.concluido
-          ? `Saldo: ${formatarMoeda(faseData?.saldoRestante || 0)}`
-          : `Abrir pagamentos`;
+        return `Saldo: ${formatarMoeda(faseData?.saldoRestante || 0)}`;
       }
 
       return '';
@@ -799,7 +799,7 @@
           ].filter(Boolean).join(' ');
 
           const titulo = tituloCelulaEspecial(fase.codigo, faseData);
-          const subtitulo = subtituloCelulaEspecial(fase.codigo, faseData);
+          const subtitulo = subtituloCelulaEspecial(fase.codigo, faseData, pedido);
           const readonly = fase.tipo === 'automatico' ? 'data-readonly="true"' : '';
 
           return `
@@ -826,6 +826,7 @@
               <div class="pedido-title">Pedido ${escapeHtml(pedido.numero)}</div>
               <div class="pedido-meta">
                 ${escapeHtml(pedido.cliente?.nome || '-')}<br>
+                Cidade: ${escapeHtml([pedido.cliente?.cidade, pedido.cliente?.uf].filter(Boolean).join(' - ') || '-')}<br>
                 Data: ${escapeHtml(formatarData(pedido.data) || '-')}<br>
                 Valor: ${escapeHtml(formatarMoeda(pedido.total))}
               </div>
@@ -933,6 +934,26 @@
       abrirModal(el.modalResumoBackdrop);
     }
 
+    function aplicarResultadoFaseBooleana(numeroPedido, faseCodigo, data) {
+      const pedido = obterPedido(numeroPedido);
+      if (!pedido) return;
+
+      if (!pedido.fases || typeof pedido.fases !== 'object') {
+        pedido.fases = {};
+      }
+
+      pedido.fases[faseCodigo] = {
+        ...(pedido.fases[faseCodigo] || {}),
+        codigo: data?.fase?.codigo || faseCodigo,
+        nome: data?.fase?.nome || FASES.find((fase) => fase.codigo === faseCodigo)?.nome || faseCodigo,
+        concluido: Boolean(data?.fase?.concluido),
+        updatedAt: data?.fase?.updatedAt || null
+      };
+
+      renderCardsFases();
+      renderMatriz();
+    }
+
     async function alternarFaseBooleana(numeroPedido, faseCodigo) {
       const pedido = obterPedido(numeroPedido);
       if (!pedido) return;
@@ -942,7 +963,7 @@
       const faseInfo = FASES.find((fase) => fase.codigo === faseCodigo);
 
       if (!novoValor) {
-        const confirma = window.confirm(`Deseja desmarcar a fase \"${faseInfo?.nome || faseCodigo}\" do pedido ${numeroPedido}?`);
+        const confirma = window.confirm(`Deseja desmarcar a fase "${faseInfo?.nome || faseCodigo}" do pedido ${numeroPedido}?`);
         if (!confirma) {
           return;
         }
@@ -955,11 +976,7 @@
           body: JSON.stringify({ valor: novoValor })
         });
 
-        await carregarMatriz();
-
-        if (novoValor && (faseCodigo === 'EM_PRODUCAO' || faseCodigo === 'PEDIDO_PRONTO')) {
-          abrirResumoPedido(faseInfo?.nome || 'Resumo do pedido', data.resumoPedido, data.notificacao || null);
-        }
+        aplicarResultadoFaseBooleana(numeroPedido, faseCodigo, data);
       } catch (error) {
         window.alert(error.message);
       }
@@ -1153,7 +1170,7 @@
       }
 
       if (faseCodigo === 'PAGAMENTO_QUITADO') {
-        window.location.href = `/legado/pagamentos?numero=${encodeURIComponent(numeroPedido)}`;
+        window.open(`/legado/pagamentos?numero=${encodeURIComponent(numeroPedido)}`, '_blank', 'noopener');
         return;
       }
 
