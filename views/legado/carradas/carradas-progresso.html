@@ -31,7 +31,7 @@
       font-family: inherit;
     }
     .page {
-      max-width: 1380px;
+      max-width: 1800px;
       margin: 0 auto;
       padding: 20px;
     }
@@ -166,18 +166,17 @@
       border: 1px solid var(--line);
       border-radius: 14px;
       background: #fff;
-      min-height: 300vh;
-      max-height: calc(100vh - 110px);
+      max-height: calc(100vh - 250px);
     }
     table {
       width: 100%;
-      min-width: 1080px;
+      min-width: 1600px;
       border-collapse: separate;
       border-spacing: 0;
     }
     th,
     td {
-      padding: 8px 6px;
+      padding: 12px 10px;
       border-bottom: 1px solid var(--line);
       border-right: 1px solid var(--line);
       vertical-align: middle;
@@ -193,14 +192,8 @@
       z-index: 5;
       background: #f8fafc;
       color: #334155;
-      font-size: 11px;
-      line-height: 1.15;
+      font-size: 13px;
       text-align: center;
-    }
-    th:not(.sticky-col),
-    td:not(.sticky-col) {
-      min-width: 82px;
-      max-width: 82px;
     }
     th.sticky-col,
     td.sticky-col {
@@ -208,8 +201,8 @@
       left: 0;
       z-index: 4;
       background: #fff;
-      min-width: 220px;
-      max-width: 220px;
+      min-width: 300px;
+      max-width: 300px;
       text-align: left;
     }
     th.sticky-col {
@@ -224,18 +217,23 @@
     }
     .pedido-title {
       font-weight: 700;
-      font-size: 13px;
-      margin-bottom: 3px;
-      line-height: 1.2;
+      margin-bottom: 4px;
+    }
+    .pedido-link {
+      color: inherit;
+      text-decoration: none;
+    }
+    .pedido-link:hover {
+      text-decoration: underline;
     }
     .pedido-meta {
-      font-size: 10px;
+      font-size: 13px;
       color: var(--muted);
       line-height: 1.45;
     }
     .cell-button {
       width: 100%;
-      min-height: 40px;
+      min-height: 54px;
       border-radius: 12px;
       border: 1px solid var(--line);
       background: #fff;
@@ -245,7 +243,7 @@
       align-items: center;
       justify-content: center;
       gap: 8px;
-      padding: 6px;
+      padding: 8px;
       line-height: 1.2;
     }
     .cell-button.done {
@@ -257,16 +255,14 @@
       cursor: default;
     }
     .cell-button.special {
-      font-size: 10px;
+      font-size: 12px;
     }
     .cell-button .subtext {
       display: block;
-      font-size: 10px;
+      font-size: 11px;
       color: var(--muted);
       font-weight: 400;
       margin-top: 4px;
-      white-space: pre-line;
-      line-height: 1.25;
     }
     .loading,
     .empty {
@@ -467,14 +463,14 @@
           <thead>
             <tr>
               <th class="sticky-col">Pedido</th>
-              <th title="Em produção">Prod.</th>
-              <th title="Pedido pronto">Prt.</th>
-              <th title="Etiqueta volumes">Etq.</th>
-              <th title="Vídeo feito">Vídeo</th>
-              <th title="Quer nota fiscal">NF</th>
-              <th title="Local de entrega">Ent.</th>
-              <th title="Pagamento quitado">Pgto</th>
-              <th title="Ligação pós-venda">Pós</th>
+              <th>Em produção</th>
+              <th>Pedido pronto</th>
+              <th>Etiqueta volumes</th>
+              <th>Vídeo feito</th>
+              <th>Quer nota fiscal</th>
+              <th>Local de entrega</th>
+              <th>Pagamento quitado</th>
+              <th>Ligação pós-venda</th>
             </tr>
           </thead>
           <tbody id="tbodyMatriz">
@@ -758,7 +754,7 @@
       return faseData?.concluido ? '✓' : '';
     }
 
-    function subtituloCelulaEspecial(faseCodigo, faseData, pedido) {
+    function subtituloCelulaEspecial(faseCodigo, faseData) {
       if (faseCodigo === 'ETIQUETA_VOLUMES') {
         if (faseData?.confirmadoEm) {
           return `Confirmado em ${formatarDataHora(faseData.confirmadoEm)}`;
@@ -799,7 +795,7 @@
           ].filter(Boolean).join(' ');
 
           const titulo = tituloCelulaEspecial(fase.codigo, faseData);
-          const subtitulo = subtituloCelulaEspecial(fase.codigo, faseData, pedido);
+          const subtitulo = subtituloCelulaEspecial(fase.codigo, faseData);
           const readonly = fase.tipo === 'automatico' ? 'data-readonly="true"' : '';
 
           return `
@@ -823,10 +819,9 @@
         return `
           <tr>
             <td class="sticky-col">
-              <div class="pedido-title">Pedido ${escapeHtml(pedido.numero)}</div>
+              <div class="pedido-title"><a class="pedido-link" href="/legado/pedidos?numero=${encodeURIComponent(pedido.numero)}" target="_blank" rel="noopener noreferrer">Pedido ${escapeHtml(pedido.numero)}</a></div>
               <div class="pedido-meta">
                 ${escapeHtml(pedido.cliente?.nome || '-')}<br>
-                Cidade: ${escapeHtml([pedido.cliente?.cidade, pedido.cliente?.uf].filter(Boolean).join(' - ') || '-')}<br>
                 Data: ${escapeHtml(formatarData(pedido.data) || '-')}<br>
                 Valor: ${escapeHtml(formatarMoeda(pedido.total))}
               </div>
@@ -934,26 +929,6 @@
       abrirModal(el.modalResumoBackdrop);
     }
 
-    function aplicarResultadoFaseBooleana(numeroPedido, faseCodigo, data) {
-      const pedido = obterPedido(numeroPedido);
-      if (!pedido) return;
-
-      if (!pedido.fases || typeof pedido.fases !== 'object') {
-        pedido.fases = {};
-      }
-
-      pedido.fases[faseCodigo] = {
-        ...(pedido.fases[faseCodigo] || {}),
-        codigo: data?.fase?.codigo || faseCodigo,
-        nome: data?.fase?.nome || FASES.find((fase) => fase.codigo === faseCodigo)?.nome || faseCodigo,
-        concluido: Boolean(data?.fase?.concluido),
-        updatedAt: data?.fase?.updatedAt || null
-      };
-
-      renderCardsFases();
-      renderMatriz();
-    }
-
     async function alternarFaseBooleana(numeroPedido, faseCodigo) {
       const pedido = obterPedido(numeroPedido);
       if (!pedido) return;
@@ -963,7 +938,7 @@
       const faseInfo = FASES.find((fase) => fase.codigo === faseCodigo);
 
       if (!novoValor) {
-        const confirma = window.confirm(`Deseja desmarcar a fase "${faseInfo?.nome || faseCodigo}" do pedido ${numeroPedido}?`);
+        const confirma = window.confirm(`Deseja desmarcar a fase \"${faseInfo?.nome || faseCodigo}\" do pedido ${numeroPedido}?`);
         if (!confirma) {
           return;
         }
@@ -976,7 +951,11 @@
           body: JSON.stringify({ valor: novoValor })
         });
 
-        aplicarResultadoFaseBooleana(numeroPedido, faseCodigo, data);
+        await carregarMatriz();
+
+        if (novoValor && (faseCodigo === 'EM_PRODUCAO' || faseCodigo === 'PEDIDO_PRONTO')) {
+          abrirResumoPedido(faseInfo?.nome || 'Resumo do pedido', data.resumoPedido, data.notificacao || null);
+        }
       } catch (error) {
         window.alert(error.message);
       }
@@ -1165,16 +1144,7 @@
       const numeroPedido = botao.dataset.numeroPedido;
       const fase = FASES.find((item) => item.codigo === faseCodigo);
 
-      if (!fase) {
-        return;
-      }
-
-      if (faseCodigo === 'PAGAMENTO_QUITADO') {
-        window.open(`/legado/pagamentos?numero=${encodeURIComponent(numeroPedido)}`, '_blank', 'noopener');
-        return;
-      }
-
-      if (fase.tipo === 'automatico') {
+      if (!fase || fase.tipo === 'automatico') {
         return;
       }
 
