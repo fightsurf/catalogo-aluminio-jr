@@ -2,165 +2,89 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>💰 Combinações — Kits Feirinha</title>
+<title>Combinador de Kits</title>
 
 <style>
-  body { font-family: Arial, sans-serif; margin: 20px; background: #f9f9f9; color: #333; }
-  h1 { color: #333; }
-  h2 { color: #555; margin-top: 25px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
+  body { font-family: Arial; margin: 20px; background: #f9f9f9; }
+  h1 { margin-bottom: 10px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; background: #fff; }
   th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
   th { background: #007bff; color: white; cursor: pointer; }
   tr:hover { background: #eef; }
-  .categoria { background: #e9e9e9; font-weight: bold; text-align: left; }
-  button { margin-top: 10px; padding: 10px 16px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
-  button:hover { background-color: #0056b3; }
-  input[type="number"] { width: 70px; }
-  input[type="checkbox"] { transform: scale(1.2); }
-  #config { background: #fff; padding: 10px; border: 1px solid #ccc; border-radius: 5px; margin-bottom: 15px; }
+  #config { background: #fff; padding: 10px; border: 1px solid #ccc; margin-bottom: 15px; }
+  button { padding: 8px 14px; background: #007bff; color: white; border: none; cursor: pointer; }
 </style>
-  <link rel="stylesheet" href="/css/theme.css" />
 </head>
 
 <body>
 
-<h1>💰 Gerador de Combinações — Kits Feirinha</h1>
+<h1>Gerador de Kits</h1>
 
 <div id="config">
-  <label><b>Qtd. máx. de itens:</b>
-    <input type="number" id="tamKit" value="5" min="1">
+  <label>Qtd de itens:
+    <input type="number" id="tamKit" value="4" min="1">
   </label>
 
-  <label style="margin-left:10px"><b>Média máxima (R$):</b>
+  <label style="margin-left:10px">Preço médio máximo:
     <input type="number" id="precoMax" value="15" step="0.01">
   </label>
 
-  <button id="btnGerar">Gerar Combinações</button>
+  <button onclick="gerar()">Gerar</button>
 </div>
 
-<h2>🔹 Itens Disponíveis</h2>
-<table id="tabelaItens">
+<table id="tabela">
   <thead>
     <tr>
-      <th>Nome</th>
-      <th>Categoria</th>
-      <th>Preço (R$)</th>
-      <th>Obrigatório</th>
-      <th>Proibido</th>
-    </tr>
-  </thead>
-  <tbody></tbody>
-</table>
-
-<h2>🔹 Resultados</h2>
-<table id="tabelaResultados">
-  <thead>
-    <tr>
-      <th onclick="ordenarPor('total')">Preço Total</th>
-      <th onclick="ordenarPor('medio')">Preço Médio</th>
+      <th onclick="ordenar(0)">Valor</th>
+      <th onclick="ordenar(1)">Médio</th>
       <th>Itens</th>
     </tr>
   </thead>
   <tbody>
-    <tr><td colspan="3">Aguardando geração...</td></tr>
+    <tr><td colspan="3">Aguardando...</td></tr>
   </tbody>
 </table>
 
 <script>
-let produtos = [];
-let combinacoes = [];
-let ordenacao = 'medio';
+const API = '/api/produtos';
 
-async function carregarProdutos() {
-  const res = await fetch('/api/produtos');
-  produtos = await res.json();
-  renderTabelaItens();
-}
+let resultados = [];
+let asc = true;
 
-/* ========= TABELA DE ITENS (AGRUPADA POR CATEGORIA) ========= */
-function renderTabelaItens() {
-  const tbody = document.querySelector('#tabelaItens tbody');
-  tbody.innerHTML = '';
-
-  // Agrupar por categoria
-  const grupos = {};
-  produtos.forEach(p => {
-    const cat = p.categoria || 'SEM CATEGORIA';
-    if (!grupos[cat]) grupos[cat] = [];
-    grupos[cat].push(p);
-  });
-
-  // Ordem das categorias (alfabética)
-  const categorias = Object.keys(grupos).sort();
-
-  categorias.forEach(cat => {
-    // Cabeçalho da categoria (UMA VEZ)
-    tbody.insertAdjacentHTML(
-      'beforeend',
-      `<tr><td colspan="5" class="categoria">${cat}</td></tr>`
-    );
-
-    // Produtos da categoria
-    grupos[cat]
-      .sort((a, b) => a.nome.localeCompare(b.nome))
-      .forEach(p => {
-        tbody.insertAdjacentHTML('beforeend', `
-          <tr>
-            <td style="text-align:left">${p.nome}</td>
-            <td>${p.categoria}</td>
-            <td>${p.preco.toFixed(2)}</td>
-            <td><input type="checkbox" class="chk-obrig" data-id="${p.id}"></td>
-            <td><input type="checkbox" class="chk-proib" data-id="${p.id}"></td>
-          </tr>
-        `);
-      });
-  });
-}
-
-/* ========= GERAÇÃO DE COMBINAÇÕES (COMBINAÇÃO SIMPLES + PODA) ========= */
-function gerarCombinacoes() {
+async function gerar() {
   const tamKit = parseInt(document.getElementById('tamKit').value);
   const precoMax = parseFloat(document.getElementById('precoMax').value);
 
-  const obrigatorios = [];
-  document.querySelectorAll('.chk-obrig:checked').forEach(c => {
-    const p = produtos.find(x => x.id === c.dataset.id);
-    if (p) obrigatorios.push(p);
-  });
-
-  const proibidos = new Set(
-    [...document.querySelectorAll('.chk-proib:checked')].map(c => c.dataset.id)
-  );
-
-  const disponiveis = produtos
-    .filter(p => !proibidos.has(p.id))
+  const res = await fetch(API);
+  const produtos = (await res.json())
+    .map(p => ({ nome: p.nome, preco: Number(p.preco) }))
     .sort((a, b) => a.preco - b.preco);
 
-  const baseTotal = obrigatorios.reduce((s, p) => s + p.preco, 0);
-  const faltantes = tamKit - obrigatorios.length;
-
-  combinacoes = [];
+  resultados = [];
 
   function backtrack(inicio, kit, soma) {
-    if (kit.length === faltantes) {
-      const itens = [...obrigatorios, ...kit];
-      const total = soma + baseTotal;
-      const medio = total / tamKit;
+    if (kit.length === tamKit) {
+      const medio = soma / tamKit;
 
       if (medio <= precoMax) {
-        combinacoes.push({ total, medio, itens });
+        resultados.push([
+          soma.toFixed(2),
+          medio.toFixed(2),
+          kit.map(p => p.nome).join(' - ')
+        ]);
       }
       return;
     }
 
-    for (let i = inicio; i < disponiveis.length; i++) {
-      const p = disponiveis[i];
-      const novaSoma = soma + p.preco;
-      const mediaParcial =
-        (novaSoma + baseTotal) /
-        (obrigatorios.length + kit.length + 1);
+    for (let i = inicio; i < produtos.length; i++) {
+      const p = produtos[i];
 
+      const novaSoma = soma + p.preco;
+      const novaQtd = kit.length + 1;
+
+      const mediaParcial = novaSoma / novaQtd;
+
+      // PODA
       if (mediaParcial > precoMax) break;
 
       kit.push(p);
@@ -171,42 +95,39 @@ function gerarCombinacoes() {
 
   backtrack(0, [], 0);
 
-  combinacoes.sort((a, b) => a[ordenacao] - b[ordenacao]);
-  renderResultados();
+  render();
 }
 
-/* ========= RESULTADOS ========= */
-function renderResultados() {
-  const tbody = document.querySelector('#tabelaResultados tbody');
+function render() {
+  const tbody = document.querySelector('#tabela tbody');
 
-  if (combinacoes.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="3">⚠️ Nenhuma combinação encontrada.</td></tr>`;
+  if (resultados.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="3">Nenhum resultado</td></tr>`;
     return;
   }
 
-  tbody.innerHTML = combinacoes.map(c => `
+  tbody.innerHTML = resultados.map(r => `
     <tr>
-      <td>R$ ${c.total.toFixed(2)}</td>
-      <td>R$ ${c.medio.toFixed(2)}</td>
-      <td>${c.itens.map(p => p.nome).join(' - ')}</td>
+      <td>R$ ${r[0]}</td>
+      <td>R$ ${r[1]}</td>
+      <td>${r[2]}</td>
     </tr>
   `).join('');
 
-  tbody.insertAdjacentHTML(
-    'beforeend',
-    `<tr><td colspan="3">(${combinacoes.length} combinações encontradas)</td></tr>`
+  tbody.insertAdjacentHTML('beforeend',
+    `<tr><td colspan="3">(${resultados.length} kits)</td></tr>`
   );
 }
 
-/* ========= ORDENAÇÃO ========= */
-function ordenarPor(tipo) {
-  ordenacao = tipo;
-  combinacoes.sort((a, b) => a[tipo] - b[tipo]);
-  renderResultados();
+function ordenar(col) {
+  resultados.sort((a, b) => {
+    return asc
+      ? parseFloat(a[col]) - parseFloat(b[col])
+      : parseFloat(b[col]) - parseFloat(a[col]);
+  });
+  asc = !asc;
+  render();
 }
-
-document.getElementById('btnGerar').addEventListener('click', gerarCombinacoes);
-carregarProdutos();
 </script>
 
 </body>
