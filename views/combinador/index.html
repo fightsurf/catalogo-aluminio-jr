@@ -5,12 +5,18 @@
 <title>Combinador de Kits</title>
 
 <style>
-body { font-family: Arial; margin: 20px; background: #f9f9f9; }
-table { width: 100%; border-collapse: collapse; margin-top: 10px; background: #fff; }
-th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
-th { background: #007bff; color: white; }
-select, input { margin-right: 10px; }
-button { padding: 8px 14px; background: #007bff; color: white; border: none; cursor: pointer; }
+  body { font-family: Arial; margin: 20px; background: #f9f9f9; }
+  h1 { margin-bottom: 10px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; background: #fff; }
+  th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
+  th { background: #007bff; color: white; cursor: pointer; }
+  tr:hover { background: #eef; }
+  #config { background: #fff; padding: 10px; border: 1px solid #ccc; margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  label { display: flex; flex-direction: column; font-size: 13px; gap: 4px; }
+  input, select { padding: 5px; border: 1px solid #ccc; border-radius: 3px; }
+  button { padding: 8px 18px; background: #007bff; color: white; border: none; cursor: pointer; border-radius: 3px; align-self: flex-end; }
+  button:hover { background: #0056b3; }
+  #status { font-size: 13px; color: #555; margin-bottom: 6px; }
 </style>
 </head>
 
@@ -18,16 +24,16 @@ button { padding: 8px 14px; background: #007bff; color: white; border: none; cur
 
 <h1>Gerador de Kits</h1>
 
-<div>
-  <label>Qtd de itens:
-    <input type="number" id="tamKit" value="4" min="1">
+<div id="config">
+  <label>Qtd de itens
+    <input type="number" id="tamKit" value="4" min="1" max="20">
   </label>
 
-  <label>Preço médio máximo:
-    <input type="number" id="precoMax" value="15" step="0.01">
+  <label>Preço médio máximo (R$)
+    <input type="number" id="precoMax" value="15" step="0.01" min="0">
   </label>
 
-  <label>Item obrigatório:
+  <label>Item obrigatório
     <select id="obrigatorio">
       <option value="">Nenhum</option>
     </select>
@@ -36,17 +42,19 @@ button { padding: 8px 14px; background: #007bff; color: white; border: none; cur
   <button onclick="gerar()">Gerar</button>
 </div>
 
+<div id="status"></div>
+
 <table id="tabela">
-<thead>
-<tr>
-<th onclick="ordenar(0)">Valor</th>
-<th onclick="ordenar(1)">Médio</th>
-<th>Itens</th>
-</tr>
-</thead>
-<tbody>
-<tr><td colspan="3">Aguardando...</td></tr>
-</tbody>
+  <thead>
+    <tr>
+      <th onclick="ordenar(0)">Valor ↕</th>
+      <th onclick="ordenar(1)">Médio ↕</th>
+      <th>Itens</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr><td colspan="3">Carregando produtos...</td></tr>
+  </tbody>
 </table>
 
 <script>
@@ -56,23 +64,31 @@ let produtos = [];
 let resultados = [];
 let asc = true;
 
+// ─── Carrega produtos ao abrir a página ──────────────────────────────────────
+
 async function carregarProdutos() {
   const select = document.getElementById('obrigatorio');
+  setStatus('Carregando produtos da API...');
 
   try {
     const res = await fetch(API);
-    if (!res.ok) throw new Error();
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
-    produtos = await res.json();
+    const json = await res.json();
 
-    produtos = produtos
-      .filter(p => p.nome && p.preco)
+    // A API retorna { success: true, data: [...] }
+    const lista = Array.isArray(json) ? json : (json.data || []);
+
+    if (!lista.length) throw new Error('Nenhum produto retornado');
+
+    produtos = lista
+      .filter(p => p.nome && p.preco != null)
       .map(p => ({
         id: p.id,
         nome: p.nome,
         preco: Number(p.preco)
       }))
-      .sort((a,b)=>a.preco-b.preco);
+      .sort((a, b) => a.preco - b.preco);
 
     produtos.forEach(p => {
       const opt = document.createElement('option');
@@ -81,99 +97,120 @@ async function carregarProdutos() {
       select.appendChild(opt);
     });
 
+    setStatus(`${produtos.length} produtos carregados. Configure e clique em Gerar.`);
+    setTabela('<tr><td colspan="3">Aguardando...</td></tr>');
+
   } catch (e) {
-    document.querySelector('#tabela tbody').innerHTML =
-      `<tr><td colspan="3">Erro ao carregar produtos</td></tr>`;
+    setStatus('');
+    setTabela(`<tr><td colspan="3">❌ Erro ao carregar produtos: ${e.message}</td></tr>`);
   }
 }
+
+// ─── Geração dos kits ────────────────────────────────────────────────────────
 
 function gerar() {
-  const tamKit = +document.getElementById('tamKit').value;
-  const precoMax = +document.getElementById('precoMax').value;
-  const obrigId = document.getElementById('obrigatorio').value;
+  const tamKit  = parseInt(document.getElementById('tamKit').value);
+  const precoMax = parseFloat(document.getElementById('precoMax').value);
+  const obrigId  = document.getElementById('obrigatorio').value;
 
-  const tbody = document.querySelector('#tabela tbody');
-  tbody.innerHTML = `<tr><td colspan="3">Calculando...</td></tr>`;
-
-  const obrigatorio = produtos.find(p => p.id == obrigId);
-
-  const lista = obrigatorio
-    ? produtos.filter(p => p.id != obrigatorio.id)
-    : produtos;
-
-  resultados = [];
-
-  function bt(i, kit, soma) {
-    const qtdAtual = kit.length + (obrigatorio ? 1 : 0);
-
-    if (qtdAtual === tamKit) {
-      const total = soma + (obrigatorio ? obrigatorio.preco : 0);
-      const medio = total / tamKit;
-
-      if (medio <= precoMax) {
-        const itensFinal = obrigatorio
-          ? [obrigatorio, ...kit]
-          : kit;
-
-        resultados.push([
-          total.toFixed(2),
-          medio.toFixed(2),
-          itensFinal.map(p => p.nome).join(' - ')
-        ]);
-      }
-      return;
-    }
-
-    for (let x = i; x < lista.length; x++) {
-      const p = lista[x];
-
-      const novaSoma = soma + p.preco;
-      const novaQtd = kit.length + 1 + (obrigatorio ? 1 : 0);
-
-      const mediaParcial =
-        (novaSoma + (obrigatorio ? obrigatorio.preco : 0)) / novaQtd;
-
-      if (mediaParcial > precoMax) break;
-
-      kit.push(p);
-      bt(x + 1, kit, novaSoma);
-      kit.pop();
-    }
-  }
-
-  bt(0, [], 0);
-  render();
-}
-
-function render() {
-  const tbody = document.querySelector('#tabela tbody');
-
-  if (resultados.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="3">Nenhum resultado</td></tr>`;
+  if (!produtos.length) {
+    setStatus('Produtos ainda não carregados.');
     return;
   }
 
-  tbody.innerHTML = resultados.map(r => `
+  setStatus('Calculando...');
+  setTabela('<tr><td colspan="3">Calculando...</td></tr>');
+
+  // Deixa o DOM atualizar antes do loop pesado
+  setTimeout(() => {
+    const obrigatorio = obrigId ? produtos.find(p => String(p.id) === String(obrigId)) : null;
+    const lista = obrigatorio
+      ? produtos.filter(p => String(p.id) !== String(obrigId))
+      : produtos;
+
+    resultados = [];
+
+    // Se houver obrigatório, o item já entra em cada kit
+    // Os demais slots = tamKit - 1
+    const slotsLivres = obrigatorio ? tamKit - 1 : tamKit;
+    const basePreco   = obrigatorio ? obrigatorio.preco : 0;
+
+    function bt(i, kit, soma) {
+      if (kit.length === slotsLivres) {
+        const total = soma + basePreco;
+        const medio = total / tamKit;
+
+        if (medio <= precoMax) {
+          const itensFinal = obrigatorio ? [obrigatorio, ...kit] : [...kit];
+          resultados.push([
+            total.toFixed(2),
+            medio.toFixed(2),
+            itensFinal.map(p => p.nome).join(' - ')
+          ]);
+        }
+        return;
+      }
+
+      for (let x = i; x < lista.length; x++) {
+        const p = lista[x];
+        const novaSoma  = soma + p.preco;
+        const novaQtd   = kit.length + 1 + (obrigatorio ? 1 : 0);
+        const mediaParcial = (novaSoma + basePreco) / novaQtd;
+
+        // Poda: lista ordenada por preço → se média já estourou, os próximos só pioram
+        if (mediaParcial > precoMax) break;
+
+        kit.push(p);
+        bt(x + 1, kit, novaSoma);
+        kit.pop();
+      }
+    }
+
+    bt(0, [], 0);
+    setStatus('');
+    render();
+  }, 0);
+}
+
+// ─── Renderização ────────────────────────────────────────────────────────────
+
+function render() {
+  if (resultados.length === 0) {
+    setTabela('<tr><td colspan="3">Nenhum resultado para os critérios informados.</td></tr>');
+    return;
+  }
+
+  const linhas = resultados.map(r => `
     <tr>
       <td>R$ ${r[0]}</td>
       <td>R$ ${r[1]}</td>
-      <td>${r[2]}</td>
+      <td style="text-align:left">${r[2]}</td>
     </tr>
   `).join('');
 
-  tbody.insertAdjacentHTML('beforeend',
-    `<tr><td colspan="3">(${resultados.length} kits)</td></tr>`
-  );
+  setTabela(linhas + `<tr><td colspan="3" style="color:#555;font-size:12px">(${resultados.length} kits encontrados)</td></tr>`);
 }
 
 function ordenar(col) {
-  resultados.sort((a,b)=> asc
+  resultados.sort((a, b) => asc
     ? parseFloat(a[col]) - parseFloat(b[col])
     : parseFloat(b[col]) - parseFloat(a[col])
   );
   asc = !asc;
   render();
 }
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function setTabela(html) {
+  document.querySelector('#tabela tbody').innerHTML = html;
+}
+
+function setStatus(msg) {
+  document.getElementById('status').textContent = msg;
+}
+
+// ─── Init ────────────────────────────────────────────────────────────────────
 
 carregarProdutos();
 </script>
