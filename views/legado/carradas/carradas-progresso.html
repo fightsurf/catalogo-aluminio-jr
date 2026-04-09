@@ -848,6 +848,7 @@
               <div class="pedido-title"><a class="pedido-link" href="/legado/pedidos?numero=${encodeURIComponent(pedido.numero)}" target="_blank" rel="noopener noreferrer">Pedido ${escapeHtml(pedido.numero)}</a></div>
               <div class="pedido-meta">
                 ${escapeHtml(pedido.cliente?.nome || '-')}<br>
+                ${pedido.cliente?.cidade ? escapeHtml(pedido.cliente.cidade) + (pedido.cliente?.uf ? ' - ' + escapeHtml(pedido.cliente.uf) : '') + '<br>' : ''}
                 Data: ${escapeHtml(formatarData(pedido.data) || '-')}<br>
                 Valor: ${escapeHtml(formatarMoeda(pedido.total))}
               </div>
