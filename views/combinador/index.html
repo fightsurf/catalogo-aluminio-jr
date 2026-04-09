@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Combinador de Kits</title>
+<style>
+body { font-family: Arial; margin: 20px; background: #f9f9f9; }
+table { width: 100%; border-collapse: collapse; margin-top: 10px; background: #fff; }
+th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
+th { background: #007bff; color: white; cursor: pointer; }
+</style>
+</head>
+<body>
+
+<h1>Gerador de Kits</h1>
+
+<label>Qtd de itens:
+<input type="number" id="tamKit" value="4">
+</label>
+
+<label>Preço médio máximo:
+<input type="number" id="precoMax" value="15">
+</label>
+
+<button onclick="gerar()">Gerar</button>
+
+<table id="tabela">
+<thead>
+<tr>
+<th onclick="ordenar(0)">Valor</th>
+<th onclick="ordenar(1)">Médio</th>
+<th>Itens</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+<script>
+const API = '/api/produtos';
+let resultados = [];
+let asc = true;
+
+async function gerar() {
+  const tamKit = +document.getElementById('tamKit').value;
+  const precoMax = +document.getElementById('precoMax').value;
+
+  const res = await fetch(API);
+  const produtos = (await res.json())
+    .map(p => ({ nome: p.nome, preco: +p.preco }))
+    .sort((a,b)=>a.preco-b.preco);
+
+  resultados = [];
+
+  function bt(i, kit, soma) {
+    if (kit.length === tamKit) {
+      const m = soma/tamKit;
+      if (m <= precoMax) {
+        resultados.push([
+          soma.toFixed(2),
+          m.toFixed(2),
+          kit.map(p=>p.nome).join(' - ')
+        ]);
+      }
+      return;
+    }
+
+    for (let x=i; x<produtos.length; x++) {
+      const p = produtos[x];
+      const ns = soma+p.preco;
+      const mp = ns/(kit.length+1);
+      if (mp > precoMax) break;
+
+      kit.push(p);
+      bt(x+1, kit, ns);
+      kit.pop();
+    }
+  }
+
+  bt(0,[],0);
+  render();
+}
+
+function render() {
+  const tbody = document.querySelector('#tabela tbody');
+  tbody.innerHTML = resultados.map(r=>`
+    <tr>
+      <td>R$ ${r[0]}</td>
+      <td>R$ ${r[1]}</td>
+      <td>${r[2]}</td>
+    </tr>
+  `).join('');
+}
+
+function ordenar(c) {
+  resultados.sort((a,b)=> asc
+    ? a[c]-b[c]
+    : b[c]-a[c]
+  );
+  asc=!asc;
+  render();
+}
+</script>
+
+</body>
+</html>
