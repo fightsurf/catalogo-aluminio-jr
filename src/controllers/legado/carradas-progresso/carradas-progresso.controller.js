@@ -39,7 +39,8 @@ async function salvarFaseBooleana(req, res) {
       codigoCarrada: req.params.codigo,
       numeroPedido: req.params.numeroPedido,
       faseCodigo: req.params.faseCodigo,
-      valor: req.body?.valor
+      valor: req.body?.valor,
+      silencioso: req.body?.silencioso === true || req.body?.silencioso === 'true'
     });
 
     return res.status(200).json({ success: true, data });

@@ -762,7 +762,7 @@ async function buscarResumoListaCarradas(codigosParam) {
   return itens.sort((a, b) => a.codigoCarrada - b.codigoCarrada);
 }
 
-async function salvarFaseBooleana({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam, faseCodigo: faseCodigoParam, valor }) {
+async function salvarFaseBooleana({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam, faseCodigo: faseCodigoParam, valor, silencioso }) {
   await garantirTabelasModulo();
 
   const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
@@ -814,7 +814,7 @@ async function salvarFaseBooleana({ codigoCarrada: codigoCarradaParam, numeroPed
 
   let notificacao = null;
 
-  if (valorBoolean && !valorAnterior && FASES_BOOLEANAS[faseCodigo].enviaWhatsapp) {
+  if (valorBoolean && !valorAnterior && FASES_BOOLEANAS[faseCodigo].enviaWhatsapp && !silencioso) {
     const telefone = normalizarTelefonePedido(detalhePagamento);
     const mensagem = FASES_BOOLEANAS[faseCodigo].construirMensagem({
       numeroPedido,

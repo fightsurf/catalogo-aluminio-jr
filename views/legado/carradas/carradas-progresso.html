@@ -272,6 +272,19 @@
       font-weight: 400;
       margin-top: 4px;
     }
+    .silent-link {
+      display: block;
+      font-size: 9px;
+      color: var(--muted);
+      text-align: center;
+      margin-top: 3px;
+      text-decoration: none;
+      line-height: 1.2;
+    }
+    .silent-link:hover {
+      color: var(--text);
+      text-decoration: underline;
+    }
     .loading,
     .empty {
       padding: 30px;
@@ -806,6 +819,10 @@
           const subtitulo = subtituloCelulaEspecial(fase.codigo, faseData);
           const readonly = fase.tipo === 'automatico' ? 'data-readonly="true"' : '';
 
+          const silentLink = fase.codigo === 'EM_PRODUCAO'
+            ? `<a href="#" class="silent-link" data-silent-numero="${escapeHtml(pedido.numero)}" data-silent-fase="${escapeHtml(fase.codigo)}" title="Marcar/desmarcar sem enviar mensagem">${faseData.concluido ? '↺ desmarcar sem msg' : '↺ marcar sem msg'}</a>`
+            : '';
+
           return `
             <td>
               <button
@@ -820,6 +837,7 @@
                   ${subtitulo ? `<span class="subtext">${escapeHtml(subtitulo)}</span>` : ''}
                 </span>
               </button>
+              ${silentLink}
             </td>
           `;
         }).join('');
@@ -841,6 +859,13 @@
 
       el.tbodyMatriz.querySelectorAll('[data-fase-codigo]').forEach((botao) => {
         botao.addEventListener('click', () => onClickCelula(botao));
+      });
+
+      el.tbodyMatriz.querySelectorAll('[data-silent-numero]').forEach((link) => {
+        link.addEventListener('click', (event) => {
+          event.preventDefault();
+          toggleBooleanoSilencioso(link.dataset.silentNumero, link.dataset.silentFase);
+        });
       });
     }
 
@@ -1144,6 +1169,45 @@
         await carregarMatriz();
       } catch (error) {
         setFeedback(el.feedbackLocalEntrega, error.message, 'error');
+      }
+    }
+
+    async function toggleBooleanoSilencioso(numeroPedido, faseCodigo) {
+      const pedido = obterPedido(numeroPedido);
+      if (!pedido) return;
+
+      const faseAtual = pedido.fases?.[faseCodigo];
+      const novoValor = !Boolean(faseAtual?.concluido);
+
+      try {
+        await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/fases/${encodeURIComponent(faseCodigo)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ valor: novoValor, silencioso: true })
+        });
+
+        // Atualiza estado local sem recarregar tudo do servidor
+        if (estado.matriz?.pedidos) {
+          const idx = estado.matriz.pedidos.findIndex((p) => String(p.numero) === String(numeroPedido));
+          if (idx !== -1) {
+            estado.matriz.pedidos[idx].fases[faseCodigo].concluido = novoValor;
+
+            // Recalcula totaisFases localmente
+            const fasesMeta = estado.matriz.fases || [];
+            fasesMeta.forEach((fase) => {
+              if (estado.matriz.totaisFases?.[fase.codigo]) {
+                estado.matriz.totaisFases[fase.codigo].concluidos = estado.matriz.pedidos.filter(
+                  (p) => Boolean(p.fases?.[fase.codigo]?.concluido)
+                ).length;
+              }
+            });
+          }
+        }
+
+        renderCardsFases();
+        renderMatriz();
+      } catch (error) {
+        window.alert(error.message);
       }
     }
 
