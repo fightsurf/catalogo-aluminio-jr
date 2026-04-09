@@ -1004,7 +1004,24 @@
           body: JSON.stringify({ valor: novoValor })
         });
 
-        await carregarMatriz();
+        if (estado.matriz?.pedidos) {
+          const idx = estado.matriz.pedidos.findIndex((p) => String(p.numero) === String(numeroPedido));
+          if (idx !== -1) {
+            estado.matriz.pedidos[idx].fases[faseCodigo].concluido = novoValor;
+
+            const fasesMeta = estado.matriz.fases || [];
+            fasesMeta.forEach((fase) => {
+              if (estado.matriz.totaisFases?.[fase.codigo]) {
+                estado.matriz.totaisFases[fase.codigo].concluidos = estado.matriz.pedidos.filter(
+                  (p) => Boolean(p.fases?.[fase.codigo]?.concluido)
+                ).length;
+              }
+            });
+          }
+        }
+
+        renderCardsFases();
+        renderMatriz();
 
         if (novoValor && (faseCodigo === 'EM_PRODUCAO' || faseCodigo === 'PEDIDO_PRONTO')) {
           abrirResumoPedido(faseInfo?.nome || 'Resumo do pedido', data.resumoPedido, data.notificacao || null);
