@@ -3,26 +3,38 @@
 <head>
 <meta charset="UTF-8">
 <title>Combinador de Kits</title>
+
 <style>
 body { font-family: Arial; margin: 20px; background: #f9f9f9; }
 table { width: 100%; border-collapse: collapse; margin-top: 10px; background: #fff; }
 th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
-th { background: #007bff; color: white; cursor: pointer; }
+th { background: #007bff; color: white; }
+select, input { margin-right: 10px; }
+button { padding: 8px 14px; background: #007bff; color: white; border: none; cursor: pointer; }
 </style>
 </head>
+
 <body>
 
 <h1>Gerador de Kits</h1>
 
-<label>Qtd de itens:
-<input type="number" id="tamKit" value="4">
-</label>
+<div>
+  <label>Qtd de itens:
+    <input type="number" id="tamKit" value="4" min="1">
+  </label>
 
-<label>Preço médio máximo:
-<input type="number" id="precoMax" value="15">
-</label>
+  <label>Preço médio máximo:
+    <input type="number" id="precoMax" value="15" step="0.01">
+  </label>
 
-<button onclick="gerar()">Gerar</button>
+  <label>Item obrigatório:
+    <select id="obrigatorio">
+      <option value="">Nenhum</option>
+    </select>
+  </label>
+
+  <button onclick="gerar()">Gerar</button>
+</div>
 
 <table id="tabela">
 <thead>
@@ -32,73 +44,138 @@ th { background: #007bff; color: white; cursor: pointer; }
 <th>Itens</th>
 </tr>
 </thead>
-<tbody></tbody>
+<tbody>
+<tr><td colspan="3">Aguardando...</td></tr>
+</tbody>
 </table>
 
 <script>
 const API = '/api/produtos';
+
+let produtos = [];
 let resultados = [];
 let asc = true;
 
-async function gerar() {
+async function carregarProdutos() {
+  const select = document.getElementById('obrigatorio');
+
+  try {
+    const res = await fetch(API);
+    if (!res.ok) throw new Error();
+
+    produtos = await res.json();
+
+    produtos = produtos
+      .filter(p => p.nome && p.preco)
+      .map(p => ({
+        id: p.id,
+        nome: p.nome,
+        preco: Number(p.preco)
+      }))
+      .sort((a,b)=>a.preco-b.preco);
+
+    produtos.forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = `${p.nome} (R$ ${p.preco.toFixed(2)})`;
+      select.appendChild(opt);
+    });
+
+  } catch (e) {
+    document.querySelector('#tabela tbody').innerHTML =
+      `<tr><td colspan="3">Erro ao carregar produtos</td></tr>`;
+  }
+}
+
+function gerar() {
   const tamKit = +document.getElementById('tamKit').value;
   const precoMax = +document.getElementById('precoMax').value;
+  const obrigId = document.getElementById('obrigatorio').value;
 
-  const res = await fetch(API);
-  const produtos = (await res.json())
-    .map(p => ({ nome: p.nome, preco: +p.preco }))
-    .sort((a,b)=>a.preco-b.preco);
+  const tbody = document.querySelector('#tabela tbody');
+  tbody.innerHTML = `<tr><td colspan="3">Calculando...</td></tr>`;
+
+  const obrigatorio = produtos.find(p => p.id == obrigId);
+
+  const lista = obrigatorio
+    ? produtos.filter(p => p.id != obrigatorio.id)
+    : produtos;
 
   resultados = [];
 
   function bt(i, kit, soma) {
-    if (kit.length === tamKit) {
-      const m = soma/tamKit;
-      if (m <= precoMax) {
+    const qtdAtual = kit.length + (obrigatorio ? 1 : 0);
+
+    if (qtdAtual === tamKit) {
+      const total = soma + (obrigatorio ? obrigatorio.preco : 0);
+      const medio = total / tamKit;
+
+      if (medio <= precoMax) {
+        const itensFinal = obrigatorio
+          ? [obrigatorio, ...kit]
+          : kit;
+
         resultados.push([
-          soma.toFixed(2),
-          m.toFixed(2),
-          kit.map(p=>p.nome).join(' - ')
+          total.toFixed(2),
+          medio.toFixed(2),
+          itensFinal.map(p => p.nome).join(' - ')
         ]);
       }
       return;
     }
 
-    for (let x=i; x<produtos.length; x++) {
-      const p = produtos[x];
-      const ns = soma+p.preco;
-      const mp = ns/(kit.length+1);
-      if (mp > precoMax) break;
+    for (let x = i; x < lista.length; x++) {
+      const p = lista[x];
+
+      const novaSoma = soma + p.preco;
+      const novaQtd = kit.length + 1 + (obrigatorio ? 1 : 0);
+
+      const mediaParcial =
+        (novaSoma + (obrigatorio ? obrigatorio.preco : 0)) / novaQtd;
+
+      if (mediaParcial > precoMax) break;
 
       kit.push(p);
-      bt(x+1, kit, ns);
+      bt(x + 1, kit, novaSoma);
       kit.pop();
     }
   }
 
-  bt(0,[],0);
+  bt(0, [], 0);
   render();
 }
 
 function render() {
   const tbody = document.querySelector('#tabela tbody');
-  tbody.innerHTML = resultados.map(r=>`
+
+  if (resultados.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="3">Nenhum resultado</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = resultados.map(r => `
     <tr>
       <td>R$ ${r[0]}</td>
       <td>R$ ${r[1]}</td>
       <td>${r[2]}</td>
     </tr>
   `).join('');
+
+  tbody.insertAdjacentHTML('beforeend',
+    `<tr><td colspan="3">(${resultados.length} kits)</td></tr>`
+  );
 }
 
-function ordenar(c) {
+function ordenar(col) {
   resultados.sort((a,b)=> asc
-    ? a[c]-b[c]
-    : b[c]-a[c]
+    ? parseFloat(a[col]) - parseFloat(b[col])
+    : parseFloat(b[col]) - parseFloat(a[col])
   );
-  asc=!asc;
+  asc = !asc;
   render();
 }
+
+carregarProdutos();
 </script>
 
 </body>
