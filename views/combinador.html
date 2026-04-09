@@ -2,205 +2,459 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Combinador de Kits</title>
-
+<title>Combinador de Kits – Alumínio JR</title>
 <style>
-  body { font-family: Arial; margin: 20px; background: #f9f9f9; }
-  h1 { margin-bottom: 10px; }
-  table { width: 100%; border-collapse: collapse; margin-top: 10px; background: #fff; }
-  th, td { border: 1px solid #ccc; padding: 6px; text-align: center; }
-  th { background: #007bff; color: white; cursor: pointer; }
-  tr:hover { background: #eef; }
-  #config { background: #fff; padding: 10px; border: 1px solid #ccc; margin-bottom: 15px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-  label { display: flex; flex-direction: column; font-size: 13px; gap: 4px; }
-  input, select { padding: 5px; border: 1px solid #ccc; border-radius: 3px; }
-  button { padding: 8px 18px; background: #007bff; color: white; border: none; cursor: pointer; border-radius: 3px; align-self: flex-end; }
-  button:hover { background: #0056b3; }
-  #status { font-size: 13px; color: #555; margin-bottom: 6px; }
+  *, *::before, *::after { box-sizing: border-box; }
+
+  body {
+    font-family: Arial, sans-serif;
+    margin: 0;
+    background: #f0f2f5;
+    color: #222;
+  }
+
+  /* ── Cabeçalho ── */
+  header {
+    background: #1a56db;
+    color: #fff;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  header h1 { margin: 0; font-size: 18px; font-weight: 700; }
+  header span { font-size: 13px; opacity: .75; }
+
+  /* ── Layout principal ── */
+  .layout {
+    display: flex;
+    gap: 0;
+    min-height: calc(100vh - 56px);
+  }
+
+  /* ── Painel lateral ── */
+  .painel {
+    width: 280px;
+    min-width: 240px;
+    background: #fff;
+    border-right: 1px solid #dde1e9;
+    padding: 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .painel-section h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: #6b7280;
+    margin: 0 0 8px;
+  }
+
+  select {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 14px;
+    background: #fafafa;
+  }
+
+  /* ── Proibidos ── */
+  #lista-proibidos {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 340px;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  #lista-proibidos label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    padding: 4px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    line-height: 1.3;
+  }
+  #lista-proibidos label:hover { background: #f3f4f6; }
+  #lista-proibidos label.bloqueado {
+    opacity: .35;
+    pointer-events: none;
+  }
+  #lista-proibidos input[type="checkbox"] { accent-color: #e53e3e; flex-shrink: 0; }
+
+  .btn-gerar {
+    width: 100%;
+    padding: 11px;
+    background: #1a56db;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: auto;
+    transition: background .15s;
+  }
+  .btn-gerar:hover { background: #1447b5; }
+  .btn-gerar:disabled { background: #93aee8; cursor: default; }
+
+  /* ── Área de resultados ── */
+  .resultados {
+    flex: 1;
+    padding: 20px;
+    overflow-x: auto;
+  }
+
+  .barra-topo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  #status {
+    font-size: 13px;
+    color: #6b7280;
+  }
+
+  #aviso-limite {
+    display: none;
+    font-size: 12px;
+    background: #fef3c7;
+    border: 1px solid #fbbf24;
+    color: #92400e;
+    padding: 5px 10px;
+    border-radius: 5px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+    font-size: 13px;
+  }
+
+  thead tr { background: #1a56db; color: #fff; }
+
+  th {
+    padding: 10px 12px;
+    text-align: center;
+    font-weight: 600;
+    white-space: nowrap;
+    user-select: none;
+  }
+  th.sortable { cursor: pointer; }
+  th.sortable:hover { background: #1447b5; }
+  th .seta { margin-left: 4px; opacity: .6; font-size: 11px; }
+
+  td {
+    padding: 7px 12px;
+    border-bottom: 1px solid #e5e7eb;
+    vertical-align: middle;
+  }
+  td:nth-child(1), td:nth-child(2), td:nth-child(3) {
+    text-align: center;
+    white-space: nowrap;
+  }
+  td:nth-child(4) { text-align: left; }
+
+  tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: #f0f4ff; }
+
+  .td-obrig { font-weight: 700; color: #1a56db; }
+
+  .rodape-tabela td {
+    background: #f9fafb;
+    color: #6b7280;
+    font-size: 12px;
+    text-align: center;
+  }
+
+  .badge {
+    display: inline-block;
+    background: #e0e7ff;
+    color: #3730a3;
+    border-radius: 99px;
+    padding: 1px 8px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  @media (max-width: 640px) {
+    .layout { flex-direction: column; }
+    .painel { width: 100%; border-right: none; border-bottom: 1px solid #dde1e9; }
+    #lista-proibidos { max-height: 180px; }
+  }
 </style>
 </head>
-
 <body>
 
-<h1>Gerador de Kits</h1>
+<header>
+  <h1>&#9881; Combinador de Kits</h1>
+  <span>Alumínio JR</span>
+</header>
 
-<div id="config">
-  <label>Qtd de itens
-    <input type="number" id="tamKit" value="4" min="1" max="20">
-  </label>
+<div class="layout">
 
-  <label>Preço médio máximo (R$)
-    <input type="number" id="precoMax" value="15" step="0.01" min="0">
-  </label>
+  <aside class="painel">
 
-  <label>Item obrigatório
-    <select id="obrigatorio">
-      <option value="">Nenhum</option>
-    </select>
-  </label>
+    <div class="painel-section">
+      <h2>Item obrigatório</h2>
+      <select id="obrigatorio">
+        <option value="">— selecione —</option>
+      </select>
+    </div>
 
-  <button onclick="gerar()">Gerar</button>
+    <div class="painel-section">
+      <h2>Itens proibidos</h2>
+      <div id="lista-proibidos">
+        <span style="font-size:13px;color:#9ca3af">Carregando...</span>
+      </div>
+    </div>
+
+    <button class="btn-gerar" id="btn-gerar" onclick="gerar()" disabled>
+      Gerar Kits
+    </button>
+
+  </aside>
+
+  <main class="resultados">
+
+    <div class="barra-topo">
+      <div id="status">Selecione um item obrigatório para começar.</div>
+      <div id="aviso-limite">&#9888; Exibindo os primeiros 5.000 kits. Refine com itens proibidos.</div>
+    </div>
+
+    <table id="tabela">
+      <thead>
+        <tr>
+          <th class="sortable" onclick="ordenar(0)">Qtd<span class="seta">&#8597;</span></th>
+          <th class="sortable" onclick="ordenar(1)">Valor do Kit<span class="seta">&#8597;</span></th>
+          <th class="sortable" onclick="ordenar(2)">Preço Médio<span class="seta">&#8597;</span></th>
+          <th>Itens</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td colspan="4" style="text-align:center;padding:20px;color:#9ca3af">Aguardando...</td></tr>
+      </tbody>
+    </table>
+
+  </main>
+
 </div>
 
-<div id="status"></div>
-
-<table id="tabela">
-  <thead>
-    <tr>
-      <th onclick="ordenar(0)">Valor ↕</th>
-      <th onclick="ordenar(1)">Médio ↕</th>
-      <th>Itens</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr><td colspan="3">Carregando produtos...</td></tr>
-  </tbody>
-</table>
-
 <script>
-const API = '/api/produtos';
+// ─── Estado ───────────────────────────────────────────────────────────────────
 
-let produtos = [];
+let produtos   = [];
 let resultados = [];
-let asc = true;
+let colOrdem   = -1;
+let asc        = true;
 
-// ─── Carrega produtos ao abrir a página ──────────────────────────────────────
+const MAX_RESULTADOS = 5000;
+const MAX_KIT        = 8;
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
 
 async function carregarProdutos() {
-  const select = document.getElementById('obrigatorio');
-  setStatus('Carregando produtos da API...');
-
   try {
-    const res = await fetch(API);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const res = await fetch('/api/produtos');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
 
     const json = await res.json();
-
-    // A API retorna { success: true, data: [...] }
     const lista = Array.isArray(json) ? json : (json.data || []);
 
-    if (!lista.length) throw new Error('Nenhum produto retornado');
+    if (!lista.length) throw new Error('Lista de produtos vazia');
 
     produtos = lista
-      .filter(p => p.nome && p.preco != null)
-      .map(p => ({
-        id: p.id,
-        nome: p.nome,
-        preco: Number(p.preco)
-      }))
-      .sort((a, b) => a.preco - b.preco);
+      .filter(function(p) { return p.nome && p.preco != null; })
+      .map(function(p) { return { id: String(p.id), nome: p.nome, preco: Number(p.preco) }; })
+      .sort(function(a, b) { return a.preco - b.preco; });
 
-    produtos.forEach(p => {
-      const opt = document.createElement('option');
-      opt.value = p.id;
-      opt.textContent = `${p.nome} (R$ ${p.preco.toFixed(2)})`;
-      select.appendChild(opt);
-    });
+    preencherObrigatorio();
+    preencherProibidos();
+    document.getElementById('btn-gerar').disabled = false;
 
-    setStatus(`${produtos.length} produtos carregados. Configure e clique em Gerar.`);
-    setTabela('<tr><td colspan="3">Aguardando...</td></tr>');
-
-  } catch (e) {
-    setStatus('');
-    setTabela(`<tr><td colspan="3">❌ Erro ao carregar produtos: ${e.message}</td></tr>`);
+  } catch(e) {
+    setStatus('Erro ao carregar produtos: ' + e.message);
+    setTabela('<tr><td colspan="4" style="text-align:center;color:#e53e3e;padding:20px">' + e.message + '</td></tr>');
   }
 }
 
-// ─── Geração dos kits ────────────────────────────────────────────────────────
+// ─── Preencher controles ──────────────────────────────────────────────────────
+
+function preencherObrigatorio() {
+  var sel = document.getElementById('obrigatorio');
+  sel.innerHTML = '<option value="">— selecione —</option>';
+  produtos.forEach(function(p) {
+    var opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = p.nome + '  (R$ ' + p.preco.toFixed(2) + ')';
+    sel.appendChild(opt);
+  });
+  sel.addEventListener('change', sincronizarProibidos);
+}
+
+function preencherProibidos() {
+  var container = document.getElementById('lista-proibidos');
+  container.innerHTML = '';
+
+  produtos.forEach(function(p) {
+    var label = document.createElement('label');
+    label.dataset.id = p.id;
+
+    var chk = document.createElement('input');
+    chk.type = 'checkbox';
+    chk.value = p.id;
+
+    label.appendChild(chk);
+    label.appendChild(document.createTextNode(' ' + p.nome));
+    container.appendChild(label);
+  });
+}
+
+function sincronizarProibidos() {
+  var obrigId = document.getElementById('obrigatorio').value;
+  document.querySelectorAll('#lista-proibidos label').forEach(function(label) {
+    var ehObrig = label.dataset.id === obrigId;
+    label.classList.toggle('bloqueado', ehObrig);
+    if (ehObrig) label.querySelector('input').checked = false;
+  });
+}
+
+// ─── Gerar ────────────────────────────────────────────────────────────────────
 
 function gerar() {
-  const tamKit  = parseInt(document.getElementById('tamKit').value);
-  const precoMax = parseFloat(document.getElementById('precoMax').value);
-  const obrigId  = document.getElementById('obrigatorio').value;
-
-  if (!produtos.length) {
-    setStatus('Produtos ainda não carregados.');
+  var obrigId = document.getElementById('obrigatorio').value;
+  if (!obrigId) {
+    setStatus('Selecione um item obrigatório.');
     return;
   }
 
+  var proibidosIds = new Set(
+    Array.from(document.querySelectorAll('#lista-proibidos input:checked')).map(function(c) { return c.value; })
+  );
+
+  var obrigatorio = produtos.find(function(p) { return p.id === obrigId; });
+  var pool = produtos.filter(function(p) { return p.id !== obrigId && !proibidosIds.has(p.id); });
+
   setStatus('Calculando...');
-  setTabela('<tr><td colspan="3">Calculando...</td></tr>');
+  setTabela('<tr><td colspan="4" style="text-align:center;padding:20px;color:#6b7280">Calculando...</td></tr>');
+  document.getElementById('aviso-limite').style.display = 'none';
+  document.getElementById('btn-gerar').disabled = true;
 
-  // Deixa o DOM atualizar antes do loop pesado
-  setTimeout(() => {
-    const obrigatorio = obrigId ? produtos.find(p => String(p.id) === String(obrigId)) : null;
-    const lista = obrigatorio
-      ? produtos.filter(p => String(p.id) !== String(obrigId))
-      : produtos;
-
+  setTimeout(function() {
     resultados = [];
-
-    // Se houver obrigatório, o item já entra em cada kit
-    // Os demais slots = tamKit - 1
-    const slotsLivres = obrigatorio ? tamKit - 1 : tamKit;
-    const basePreco   = obrigatorio ? obrigatorio.preco : 0;
+    var truncado = false;
 
     function bt(i, kit, soma) {
-      if (kit.length === slotsLivres) {
-        const total = soma + basePreco;
-        const medio = total / tamKit;
+      if (truncado) return;
 
-        if (medio <= precoMax) {
-          const itensFinal = obrigatorio ? [obrigatorio, ...kit] : [...kit];
-          resultados.push([
-            total.toFixed(2),
-            medio.toFixed(2),
-            itensFinal.map(p => p.nome).join(' - ')
-          ]);
+      // Registra kit atual (obrigatório + os do kit) se kit tiver ao menos 1 item
+      if (kit.length >= 1) {
+        var total = soma + obrigatorio.preco;
+        var qtd   = kit.length + 1;
+        var medio = total / qtd;
+        var nomes = [obrigatorio.nome].concat(kit.map(function(p) { return p.nome; })).join(' - ');
+        resultados.push([qtd, total, medio, nomes]);
+
+        if (resultados.length >= MAX_RESULTADOS) {
+          truncado = true;
+          return;
         }
-        return;
       }
 
-      for (let x = i; x < lista.length; x++) {
-        const p = lista[x];
-        const novaSoma  = soma + p.preco;
-        const novaQtd   = kit.length + 1 + (obrigatorio ? 1 : 0);
-        const mediaParcial = (novaSoma + basePreco) / novaQtd;
+      // Não expandir além do cap
+      if (kit.length + 1 >= MAX_KIT) return;
 
-        // Poda: lista ordenada por preço → se média já estourou, os próximos só pioram
-        if (mediaParcial > precoMax) break;
-
-        kit.push(p);
-        bt(x + 1, kit, novaSoma);
+      for (var x = i; x < pool.length; x++) {
+        if (truncado) return;
+        kit.push(pool[x]);
+        bt(x + 1, kit, soma + pool[x].preco);
         kit.pop();
       }
     }
 
     bt(0, [], 0);
-    setStatus('');
+
+    document.getElementById('btn-gerar').disabled = false;
+    document.getElementById('aviso-limite').style.display = truncado ? 'inline-block' : 'none';
+
+    colOrdem = -1;
+    asc = true;
     render();
   }, 0);
 }
 
-// ─── Renderização ────────────────────────────────────────────────────────────
+// ─── Render ───────────────────────────────────────────────────────────────────
 
 function render() {
-  if (resultados.length === 0) {
-    setTabela('<tr><td colspan="3">Nenhum resultado para os critérios informados.</td></tr>');
+  if (!resultados.length) {
+    setStatus('Nenhum resultado.');
+    setTabela('<tr><td colspan="4" style="text-align:center;padding:20px;color:#9ca3af">Nenhum resultado para os critérios informados.</td></tr>');
     return;
   }
 
-  const linhas = resultados.map(r => `
-    <tr>
-      <td>R$ ${r[0]}</td>
-      <td>R$ ${r[1]}</td>
-      <td style="text-align:left">${r[2]}</td>
-    </tr>
-  `).join('');
+  var obrigNome = '';
+  var sel = document.getElementById('obrigatorio');
+  var obrigProd = produtos.find(function(p) { return p.id === sel.value; });
+  if (obrigProd) obrigNome = obrigProd.nome;
 
-  setTabela(linhas + `<tr><td colspan="3" style="color:#555;font-size:12px">(${resultados.length} kits encontrados)</td></tr>`);
+  var linhas = resultados.map(function(r) {
+    var partes = r[3].split(' - ');
+    var itensHtml = partes.map(function(nome) {
+      var cls = nome === obrigNome ? ' class="td-obrig"' : '';
+      return '<span' + cls + '>' + nome + '</span>';
+    }).join(' <span style="color:#9ca3af">—</span> ');
+
+    return '<tr>' +
+      '<td><span class="badge">' + r[0] + '</span></td>' +
+      '<td>R$ ' + r[1].toFixed(2) + '</td>' +
+      '<td>R$ ' + r[2].toFixed(2) + '</td>' +
+      '<td>' + itensHtml + '</td>' +
+    '</tr>';
+  }).join('');
+
+  var n = resultados.length;
+  var rodape = '<tr class="rodape-tabela"><td colspan="4">' + n + ' kit' + (n !== 1 ? 's' : '') + ' gerado' + (n !== 1 ? 's' : '') + '</td></tr>';
+
+  setTabela(linhas + rodape);
+  setStatus(n + ' kits encontrados.');
 }
 
+// ─── Ordenação ────────────────────────────────────────────────────────────────
+
 function ordenar(col) {
-  resultados.sort((a, b) => asc
-    ? parseFloat(a[col]) - parseFloat(b[col])
-    : parseFloat(b[col]) - parseFloat(a[col])
-  );
-  asc = !asc;
+  if (colOrdem === col) {
+    asc = !asc;
+  } else {
+    colOrdem = col;
+    asc = true;
+  }
+
+  resultados.sort(function(a, b) {
+    return asc ? a[col] - b[col] : b[col] - a[col];
+  });
+
+  document.querySelectorAll('th.sortable .seta').forEach(function(s, i) {
+    s.textContent = i === col ? (asc ? '\u25b2' : '\u25bc') : '\u2195';
+  });
+
   render();
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function setTabela(html) {
   document.querySelector('#tabela tbody').innerHTML = html;
@@ -210,10 +464,9 @@ function setStatus(msg) {
   document.getElementById('status').textContent = msg;
 }
 
-// ─── Init ────────────────────────────────────────────────────────────────────
+// ─── Start ────────────────────────────────────────────────────────────────────
 
 carregarProdutos();
 </script>
-
 </body>
 </html>
