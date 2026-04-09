@@ -819,7 +819,7 @@
           const subtitulo = subtituloCelulaEspecial(fase.codigo, faseData);
           const readonly = fase.tipo === 'automatico' ? 'data-readonly="true"' : '';
 
-          const silentLink = (fase.codigo === 'EM_PRODUCAO' || fase.codigo === 'PEDIDO_PRONTO')
+          const silentLink = (fase.codigo === 'EM_PRODUCAO' || fase.codigo === 'PEDIDO_PRONTO' || fase.codigo === 'QUER_NOTA_FISCAL' || fase.codigo === 'ETIQUETA_VOLUMES')
             ? `<a href="#" class="silent-link" data-silent-numero="${escapeHtml(pedido.numero)}" data-silent-fase="${escapeHtml(fase.codigo)}" title="Marcar/desmarcar sem enviar mensagem">${faseData.concluido ? '↺ desmarcar sem msg' : '↺ marcar sem msg'}</a>`
             : '';
 
@@ -865,7 +865,27 @@
       el.tbodyMatriz.querySelectorAll('[data-silent-numero]').forEach((link) => {
         link.addEventListener('click', (event) => {
           event.preventDefault();
-          toggleBooleanoSilencioso(link.dataset.silentNumero, link.dataset.silentFase);
+          event.stopPropagation();
+          const faseCodigo = link.dataset.silentFase;
+          if (faseCodigo === 'ETIQUETA_VOLUMES') {
+            toggleEtiquetaSilencioso(link.dataset.silentNumero);
+          } else {
+            toggleBooleanoSilencioso(link.dataset.silentNumero, faseCodigo);
+          }
+        });
+      });
+
+      el.tbodyMatriz.querySelectorAll('[data-fase-codigo="PAGAMENTO_QUITADO"]').forEach((botao) => {
+        botao.addEventListener('click', () => {
+          const numeroPedido = botao.dataset.numeroPedido;
+          const pedido = obterPedido(numeroPedido);
+          if (!pedido) return;
+          const params = new URLSearchParams({
+            empresa: pedido.empresa ?? -1,
+            saida: pedido.saida ?? '',
+            pdv: pedido.pdv ?? 0
+          });
+          window.open(`/legado/pagamentos?${params.toString()}`, '_blank');
         });
       });
     }
@@ -1173,6 +1193,44 @@
       }
     }
 
+    async function toggleEtiquetaSilencioso(numeroPedido) {
+      const pedido = obterPedido(numeroPedido);
+      if (!pedido) return;
+
+      const faseAtual = pedido.fases?.ETIQUETA_VOLUMES;
+      const novoValor = !Boolean(faseAtual?.concluido);
+
+      try {
+        await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/etiqueta-volumes/confirmacao`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ confirmado: novoValor })
+        });
+
+        if (estado.matriz?.pedidos) {
+          const idx = estado.matriz.pedidos.findIndex((p) => String(p.numero) === String(numeroPedido));
+          if (idx !== -1) {
+            estado.matriz.pedidos[idx].fases.ETIQUETA_VOLUMES.concluido = novoValor;
+            estado.matriz.pedidos[idx].fases.ETIQUETA_VOLUMES.confirmadoEm = novoValor ? new Date().toISOString() : null;
+
+            const fasesMeta = estado.matriz.fases || [];
+            fasesMeta.forEach((fase) => {
+              if (estado.matriz.totaisFases?.[fase.codigo]) {
+                estado.matriz.totaisFases[fase.codigo].concluidos = estado.matriz.pedidos.filter(
+                  (p) => Boolean(p.fases?.[fase.codigo]?.concluido)
+                ).length;
+              }
+            });
+          }
+        }
+
+        renderCardsFases();
+        renderMatriz();
+      } catch (error) {
+        window.alert(error.message);
+      }
+    }
+
     async function toggleBooleanoSilencioso(numeroPedido, faseCodigo) {
       const pedido = obterPedido(numeroPedido);
       if (!pedido) return;
@@ -1218,6 +1276,7 @@
       const fase = FASES.find((item) => item.codigo === faseCodigo);
 
       if (!fase || fase.tipo === 'automatico') {
+        // PAGAMENTO_QUITADO é tratado pelo listener dedicado no renderMatriz
         return;
       }
 
