@@ -199,20 +199,32 @@ async function buscarTransportadorasPorNomeCidade(nomeCidade) {
 }
 
 // ==========================================
-// LISTAR CIDADES POR ESTADO (UF)
+// LISTAR CIDADES COM TRANSPORTADORA POR ESTADO (UF)
 // ==========================================
 async function listarCidadesPorEstado(uf) {
-    const result = await pool.query(
-          `SELECT id, codigo_ibge, nome, estado
-               FROM cidades
-                    WHERE LOWER(estado) = LOWER($1)
-                         ORDER BY nome;`,
-          [uf]
-        );
-    return result.rows;
+      const result = await pool.query(
+              `SELECT
+                     c.id,
+                            c.codigo_ibge,
+                                   c.nome,
+                                          c.estado,
+                                                 json_agg(
+                                                          json_build_object(
+                                                                     'nome', t.nome,
+                                                                                'telefone', t.telefone,
+                                                                                           'observacao', tc.observacao
+                                                                                                    ) ORDER BY t.nome
+                                                                                                           ) AS transportadoras
+                                                                                                                FROM cidades c
+                                                                                                                     JOIN transportadora_cidade tc ON tc.cidade_id = c.id
+                                                                                                                          JOIN transportadoras t ON t.id = tc.transportadora_id
+                                                                                                                               WHERE LOWER(c.estado) = LOWER($1)
+                                                                                                                                    GROUP BY c.id, c.codigo_ibge, c.nome, c.estado
+                                                                                                                                         ORDER BY c.nome;`,
+              [uf]
+            );
+      return result.rows;
 }
-
-// ==========================================
 // LISTAR SOMENTE NOMES DE CIDADES POR ESTADO
 // (uso bot / n8n)
 // ==========================================
