@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <html>
-<head>
+<head>h
 <meta charset="UTF-8">
 <title>Consulta por Estado - Logística</title>
 
@@ -129,7 +129,7 @@ async function buscar() {
     }
 
     const textoCopiar = dados
-      .map(c => `${c.nome} - ${c.estado}`)
+      .map(c => `${c.nome ?? 'N/D'} - ${c.estado}`)
       .join('\n');
 
     window.textoParaCopiar = textoCopiar;
@@ -144,7 +144,7 @@ async function buscar() {
     dados.forEach(c => {
       div.innerHTML += `
         <div class="box cidade">
-          <strong>${c.nome} - ${c.estado}</strong>
+          <strong>${c.nome ?? 'N/D'} - ${c.estado}</strong>
           ${
             c.transportadoras && c.transportadoras.length
               ? c.transportadoras.map(t => `
