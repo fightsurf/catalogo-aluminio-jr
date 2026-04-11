@@ -227,13 +227,15 @@ async function listarCidadesPorEstado(uf) {
 }
 // LISTAR SOMENTE NOMES DE CIDADES POR ESTADO
 // (uso bot / n8n)
+// traz apenas cidades com transportadora vinculada
 // ==========================================
 async function listarSomenteCidadesPorEstado(uf) {
     const result = await pool.query(
-          `SELECT nome
-               FROM cidades
-                    WHERE LOWER(estado) = LOWER($1)
-                         ORDER BY nome;`,
+          `SELECT DISTINCT c.nome
+               FROM cidades c
+                    JOIN transportadora_cidade tc ON tc.cidade_id = c.id
+                         WHERE LOWER(c.estado) = LOWER($1)
+                              ORDER BY c.nome;`,
           [uf]
         );
     return result.rows.map(r => r.nome);
