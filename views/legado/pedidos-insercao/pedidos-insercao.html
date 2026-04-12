@@ -132,6 +132,7 @@
 
         <div class="acoes-final">
           <button id="btnEnviarWhatsapp" class="whatsapp" type="button" style="display:none;">Enviar para WhatsApp</button>
+          <button id="btnAdicionarPagamento" class="secundario" type="button" style="display:none;">Adicionar pagamento</button>
           <button id="btnImprimirRelatorio" class="impressao" type="button" style="display:none;">Imprimir relatório</button>
           <button id="btnImprimirRelatorioProducao" class="impressao" type="button" style="display:none;">Imprimir relatório para produção</button>
           <button id="btnNovoPedido" class="secundario">Limpar pedido</button>
@@ -166,6 +167,7 @@
     const btnImprimirRelatorio = document.getElementById('btnImprimirRelatorio');
     const btnImprimirRelatorioProducao = document.getElementById('btnImprimirRelatorioProducao');
     const btnEnviarWhatsapp = document.getElementById('btnEnviarWhatsapp');
+    const btnAdicionarPagamento = document.getElementById('btnAdicionarPagamento');
     const resultadoSucesso = document.getElementById('resultadoSucesso');
 
     let clientes = [];
@@ -176,6 +178,7 @@
     let vendedores = [];
     let carradasRecentes = [];
     let ultimoRelatorio = null;
+    let ultimoPedidoSalvo = null;
     let timerBuscaProduto = null;
     let salvando = false;
 
@@ -220,6 +223,40 @@
       const data = new Date(dataValor);
       if (Number.isNaN(data.getTime())) return String(dataValor);
       return data.toLocaleDateString('pt-BR');
+    }
+
+    function obterUrlPagamentosPedido() {
+      const pedido = ultimoPedidoSalvo || ultimoRelatorio || null;
+      const empresa = pedido?.empresa;
+      const saida = pedido?.saida ?? pedido?.idMestre;
+      const pdv = pedido?.pdv ?? 0;
+
+      if (saida !== undefined && saida !== null && String(saida).trim() !== '') {
+        const params = new URLSearchParams({
+          empresa: String(empresa ?? -1),
+          saida: String(saida),
+          pdv: String(pdv)
+        });
+
+        return `/legado/pagamentos?${params.toString()}`;
+      }
+
+      const numero = String(pedido?.numero || '').trim();
+      if (!numero) {
+        return '/legado/pagamentos';
+      }
+
+      return `/legado/pagamentos?numero=${encodeURIComponent(numero)}`;
+    }
+
+    function abrirTelaPagamentos() {
+      const pedido = ultimoPedidoSalvo || ultimoRelatorio;
+      if (!pedido?.numero) {
+        setMensagem('Nenhum pedido salvo disponível para adicionar pagamento.', true);
+        return;
+      }
+
+      window.location.href = obterUrlPagamentosPedido();
     }
 
     async function lerJson(response) {
@@ -611,6 +648,7 @@
       btnImprimirRelatorio.style.display = exibir ? 'inline-flex' : 'none';
       btnImprimirRelatorioProducao.style.display = exibir ? 'inline-flex' : 'none';
       btnEnviarWhatsapp.style.display = exibir ? 'inline-flex' : 'none';
+      btnAdicionarPagamento.style.display = exibir ? 'inline-flex' : 'none';
       btnEnviarWhatsapp.disabled = exibir ? !obterTelefoneClienteAtual() : true;
     }
 
@@ -647,6 +685,7 @@
         const json = await lerJson(response);
         const pedido = json?.pedido || json?.data?.pedido || json?.data || json;
 
+        ultimoPedidoSalvo = pedido;
         ultimoRelatorio = montarDadosRelatorio(pedido);
         registrarRelatorioNoStorage(ultimoRelatorio);
         atualizarBotoesAcao();
@@ -672,6 +711,7 @@
       clienteSelecionado = null;
       clientes = [];
       ultimoRelatorio = null;
+      ultimoPedidoSalvo = null;
       buscaCliente.value = '';
       listaClientes.innerHTML = '';
       renderClienteSelecionado();
@@ -797,6 +837,7 @@
     btnImprimirRelatorio.addEventListener('click', () => abrirRelatorio('normal'));
     btnImprimirRelatorioProducao.addEventListener('click', abrirRelatorioProducao);
     btnEnviarWhatsapp.addEventListener('click', enviarWhatsappPedido);
+    btnAdicionarPagamento.addEventListener('click', abrirTelaPagamentos);
 
     renderClienteSelecionado();
     renderItensPedido();
