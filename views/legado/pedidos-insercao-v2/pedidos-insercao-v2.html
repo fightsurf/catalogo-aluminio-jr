@@ -150,7 +150,8 @@
         <div class="acoes-final">
           <button id="btnEnviarWhatsapp" class="whatsapp oculto" type="button">Enviar para WhatsApp</button>
           <button id="btnAdicionarPagamento" class="secundario oculto" type="button">Adicionar pagamento</button>
-          <button id="btnImprimirRelatorio" class="secundario oculto">Imprimir relatório</button>
+          <button id="btnImprimirRelatorio" class="secundario oculto" type="button">Imprimir relatório</button>
+          <button id="btnImprimirRelatorioProducao" class="secundario oculto" type="button">Imprimir relatório para produção</button>
           <button id="btnNovoPedido" class="secundario">Limpar pedido</button>
           <button id="btnSalvarPedido" class="acao-principal">Salvar pedido</button>
         </div>
@@ -183,6 +184,7 @@
     const totalPedido = document.getElementById('totalPedido');
     const btnNovoPedido = document.getElementById('btnNovoPedido');
     const btnImprimirRelatorio = document.getElementById('btnImprimirRelatorio');
+    const btnImprimirRelatorioProducao = document.getElementById('btnImprimirRelatorioProducao');
     const btnEnviarWhatsapp = document.getElementById('btnEnviarWhatsapp');
     const btnAdicionarPagamento = document.getElementById('btnAdicionarPagamento');
     const btnSalvarPedido = document.getElementById('btnSalvarPedido');
@@ -482,15 +484,24 @@
       return vendedores.find((item) => Number(item.favorecido) === favorecido) || null;
     }
 
-    function abrirRelatorioPedido(pedido) {
+    function abrirRelatorioPedido(pedido, modo = 'normal') {
       if (!pedido?.numero) {
         return;
       }
 
       const storageKey = `relatorio_pedido_${pedido.numero}_${Date.now()}`;
+      const params = new URLSearchParams({
+        numero: String(pedido.numero),
+        storageKey,
+        autoPrint: '1'
+      });
+
+      if (String(modo || '').trim()) {
+        params.set('modo', String(modo).trim());
+      }
 
       localStorage.setItem(storageKey, JSON.stringify(pedido));
-      window.open(`/legado/pedidos-relatorio?numero=${encodeURIComponent(pedido.numero)}&storageKey=${encodeURIComponent(storageKey)}&autoPrint=1`, '_blank');
+      window.open(`/legado/pedidos-relatorio?${params.toString()}`, '_blank');
     }
 
     function obterUrlPagamentosPedido() {
@@ -531,6 +542,7 @@
       const exibirPagamento = !!(ultimoPedidoSalvo?.numero || ultimoPedidoSalvo?.saida);
 
       btnImprimirRelatorio.classList.toggle('oculto', !exibirRelatorio);
+      btnImprimirRelatorioProducao.classList.toggle('oculto', !exibirRelatorio);
       btnEnviarWhatsapp.classList.toggle('oculto', !exibirRelatorio);
       btnAdicionarPagamento.classList.toggle('oculto', !exibirPagamento);
       btnEnviarWhatsapp.disabled = exibirRelatorio ? !obterTelefoneClienteAtual() : true;
@@ -1058,6 +1070,12 @@ setMensagem([
     btnImprimirRelatorio.addEventListener('click', () => {
       if (ultimoPedidoSalvo) {
         abrirRelatorioPedido(ultimoPedidoSalvo);
+      }
+    });
+
+    btnImprimirRelatorioProducao.addEventListener('click', () => {
+      if (ultimoPedidoSalvo) {
+        abrirRelatorioPedido(ultimoPedidoSalvo, 'producao');
       }
     });
 
