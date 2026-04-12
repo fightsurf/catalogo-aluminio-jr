@@ -17,6 +17,24 @@ function numeroSeguro(valor, fallback = 0) {
   return Number.isFinite(numero) ? numero : fallback;
 }
 
+function normalizarCarrada(item) {
+  if (!item) {
+    return null;
+  }
+
+  const codigo = item.codigo ?? item.CODIGO ?? null;
+
+  if (!codigo) {
+    return null;
+  }
+
+  return {
+    codigo,
+    data: item.data ?? item.DATA ?? null,
+    descricao: item.descricao ?? item.DESCRICAO ?? ''
+  };
+}
+
 function normalizarPedido(item) {
   return {
     idMestre: item.idMestre ?? item.IDMESTRE ?? item.idmestre ?? null,
@@ -29,6 +47,7 @@ function normalizarPedido(item) {
     saida: item.saida ?? item.SAIDA ?? item.idMestre ?? item.IDMESTRE ?? item.idmestre ?? null,
     pdv: item.pdv ?? item.PDV ?? 0,
     obs: item.obs ?? item.OBS ?? '',
+    carradaAtual: normalizarCarrada(item.carradaAtual ?? item.CARRADA_ATUAL ?? null),
     vendedor: {
       favorecido:
         item?.vendedor?.favorecido ??
@@ -187,8 +206,12 @@ async function buscarItensPedido(idMestre) {
   }
 
   return {
+    carradaAtual: normalizarCarrada(pedido.carradaAtual),
     itens: Array.isArray(pedido.itens)
       ? pedido.itens.map((item) => ({
+          saidaItem: item?.saidaItem ?? item?.SAIDAITEM ?? null,
+          sequencia: item?.sequencia ?? item?.SEQUENCIA ?? null,
+          item: item?.item ?? item?.ITEM ?? null,
           descricao: limparTexto(item?.descricao),
           quantidade: Number(item?.quantidade ?? 0),
           preco: Number(item?.preco ?? 0),
@@ -198,7 +221,39 @@ async function buscarItensPedido(idMestre) {
   };
 }
 
+async function atualizarPedido(idMestre, payload = {}) {
+  const response = await legadoBridgeService.put(
+    `/api/legado/pedidos/${idMestre}`,
+    payload
+  );
+
+  const pedido = response?.data || null;
+
+  if (!pedido) {
+    return null;
+  }
+
+  return {
+    ...normalizarPedido({
+      ...pedido,
+      carradaAtual: pedido?.carradaAtual || null
+    }),
+    itens: Array.isArray(pedido?.itens)
+      ? pedido.itens.map((item) => ({
+          saidaItem: item?.saidaItem ?? item?.SAIDAITEM ?? null,
+          sequencia: item?.sequencia ?? item?.SEQUENCIA ?? null,
+          item: item?.item ?? item?.ITEM ?? null,
+          descricao: limparTexto(item?.descricao),
+          quantidade: Number(item?.quantidade ?? 0),
+          preco: Number(item?.preco ?? 0),
+          subtotal: Number(item?.subtotal ?? item?.subtotalitem ?? 0)
+        }))
+      : []
+  };
+}
+
 module.exports = {
   pesquisarPedidos,
-  buscarItensPedido
+  buscarItensPedido,
+  atualizarPedido
 };

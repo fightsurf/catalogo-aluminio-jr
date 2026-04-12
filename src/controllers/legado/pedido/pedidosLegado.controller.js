@@ -69,7 +69,35 @@ async function buscarItensPedido(req, res) {
   }
 }
 
+async function atualizarPedido(req, res) {
+  try {
+    const { idMestre } = req.params;
+
+    if (!idMestre) {
+      return res.status(400).json({
+        success: false,
+        message: 'Informe o id do pedido.'
+      });
+    }
+
+    const pedido = await pedidosLegadoService.atualizarPedido(idMestre, req.body || {});
+
+    return res.json({
+      success: true,
+      message: 'Pedido atualizado com sucesso.',
+      data: pedido
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message || 'Erro ao atualizar pedido do legado.',
+      error: error.message
+    });
+  }
+}
+
 module.exports = {
   pesquisarPedidos,
-  buscarItensPedido
+  buscarItensPedido,
+  atualizarPedido
 };

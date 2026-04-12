@@ -6,9 +6,7 @@
   <title>Pedidos do Legado - Alumínio JR</title>
 
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -25,7 +23,7 @@
     }
 
     .layout {
-      max-width: 1000px;
+      max-width: 1100px;
       margin: 0 auto;
     }
 
@@ -42,26 +40,36 @@
       font-size: 18px;
     }
 
-    .busca-linha {
+    .busca-linha,
+    .acoes-pedido,
+    .acoes-edicao,
+    .busca-item-linha,
+    .cabecalho-edicao {
       display: flex;
       gap: 10px;
-      align-items: end;
       flex-wrap: wrap;
+      align-items: end;
     }
 
     .acoes-pedido {
-      display: flex;
       justify-content: flex-end;
       margin-top: 12px;
-      gap: 10px;
-      flex-wrap: wrap;
     }
 
-    .oculto {
-      display: none !important;
+    .acoes-edicao {
+      justify-content: space-between;
+      margin-top: 12px;
     }
 
-    .campo {
+    .cabecalho-edicao {
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .oculto { display: none !important; }
+
+    .campo,
+    .campo-edicao {
       display: flex;
       flex-direction: column;
       gap: 6px;
@@ -69,51 +77,56 @@
       flex: 1;
     }
 
-    .campo label {
+    .campo label,
+    .campo-edicao label {
       font-size: 14px;
       font-weight: 600;
     }
 
-    .campo input {
-      height: 38px;
+    .campo input,
+    .campo-edicao input,
+    .campo-edicao select,
+    .campo-edicao textarea {
+      min-height: 38px;
       border: 1px solid #cfd6dd;
       border-radius: 4px;
-      padding: 0 10px;
+      padding: 8px 10px;
       font-size: 14px;
       outline: none;
+      width: 100%;
+      background: #fff;
     }
 
-    .campo input:focus {
+    .campo input:focus,
+    .campo-edicao input:focus,
+    .campo-edicao select:focus,
+    .campo-edicao textarea:focus {
       border-color: #3b82f6;
     }
 
+    .campo-edicao textarea {
+      min-height: 86px;
+      resize: vertical;
+    }
+
     .btn {
-      height: 38px;
+      min-height: 38px;
       border: none;
       border-radius: 4px;
-      padding: 0 16px;
+      padding: 8px 16px;
       font-size: 14px;
       cursor: pointer;
       font-weight: 600;
     }
 
-    .btn-primary {
-      background: #0ea5b7;
-      color: #fff;
-    }
+    .btn-primary { background: #0ea5b7; color: #fff; }
+    .btn-primary:hover { opacity: 0.92; }
 
-    .btn-primary:hover {
-      opacity: 0.92;
-    }
+    .btn-whatsapp { background: #111827; color: #fff; }
+    .btn-whatsapp:hover { opacity: 0.92; }
 
-    .btn-whatsapp {
-      background: #111827;
-      color: #fff;
-    }
-
-    .btn-whatsapp:hover {
-      opacity: 0.92;
-    }
+    .btn-danger { background: #dc2626; color: #fff; }
+    .btn-danger:hover { opacity: 0.92; }
 
     .mensagem {
       margin-top: 12px;
@@ -121,10 +134,7 @@
       color: #374151;
     }
 
-    .erro {
-      color: #dc2626;
-      font-weight: 600;
-    }
+    .erro { color: #dc2626; font-weight: 600; }
 
     .cliente-nome {
       font-size: 14px;
@@ -152,23 +162,19 @@
       text-decoration: underline;
     }
 
-    .telefone-link:hover {
-      color: #000;
-    }
+    .telefone-link:hover { color: #000; }
 
-    .placeholder {
+    .placeholder, .sem-itens, .sem-resultados-busca-item {
       color: #6b7280;
       font-size: 15px;
     }
 
-    .tabela-wrap {
-      overflow-x: auto;
-    }
+    .tabela-wrap { overflow-x: auto; }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 600px;
+      min-width: 760px;
     }
 
     th, td {
@@ -176,6 +182,7 @@
       padding: 10px;
       font-size: 14px;
       text-align: left;
+      vertical-align: top;
     }
 
     th {
@@ -184,14 +191,7 @@
       color: #374151;
     }
 
-    .right {
-      text-align: right;
-    }
-
-    .sem-itens {
-      color: #6b7280;
-      font-size: 14px;
-    }
+    .right { text-align: right; }
 
     .resultados-box {
       margin-top: 14px;
@@ -204,13 +204,15 @@
       font-size: 15px;
     }
 
-    .resultado-lista {
+    .resultado-lista,
+    .lista-busca-itens {
       display: flex;
       flex-direction: column;
       gap: 8px;
     }
 
-    .resultado-item {
+    .resultado-item,
+    .item-encontrado {
       border: 1px solid #e5e7eb;
       border-radius: 6px;
       padding: 10px 12px;
@@ -219,7 +221,8 @@
       transition: 0.2s;
     }
 
-    .resultado-item:hover {
+    .resultado-item:hover,
+    .item-encontrado:hover {
       background: #f9fafb;
       border-color: #cfd6dd;
     }
@@ -229,21 +232,73 @@
       background: #ecfeff;
     }
 
-    .resultado-principal {
+    .resultado-principal,
+    .item-encontrado-principal {
       font-weight: 600;
       margin-bottom: 4px;
     }
 
-    .resultado-secundario {
+    .resultado-secundario,
+    .item-encontrado-secundario,
+    .texto-ajuda {
       font-size: 13px;
       color: #4b5563;
+    }
+
+    .grid-edicao {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(220px, 1fr));
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .campo-edicao.full {
+      grid-column: 1 / -1;
+    }
+
+    .resumo-edicao {
+      margin-top: 12px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 18px;
+      flex-wrap: wrap;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .item-actions-cell {
+      width: 90px;
+      text-align: center;
+    }
+
+    .input-numero-curto {
+      width: 120px;
+      min-width: 100px;
+    }
+
+    .input-preco-curto {
+      width: 130px;
+      min-width: 110px;
+    }
+
+    .busca-item-linha .campo-edicao {
+      min-width: 280px;
+    }
+
+    @media (max-width: 900px) {
+      .grid-edicao {
+        grid-template-columns: 1fr;
+      }
+
+      .acoes-edicao {
+        justify-content: flex-start;
+      }
     }
   </style>
 </head>
 
 <body>
   <div class="layout">
-
     <div class="titulo-pagina">📦 Pedidos do Legado</div>
 
     <div class="box">
@@ -252,33 +307,20 @@
       <div class="busca-linha">
         <div class="campo">
           <label for="numeroPedido">Número do pedido</label>
-          <input
-            type="text"
-            id="numeroPedido"
-            placeholder="Digite o número do pedido"
-          />
+          <input type="text" id="numeroPedido" placeholder="Digite o número do pedido" />
         </div>
 
         <div class="campo">
           <label for="clientePedido">Cliente</label>
-          <input
-            type="text"
-            id="clientePedido"
-            placeholder="Digite o nome do cliente"
-          />
+          <input type="text" id="clientePedido" placeholder="Digite o nome do cliente" />
         </div>
 
         <div class="campo">
           <label for="dataPedido">Data</label>
-          <input
-            type="date"
-            id="dataPedido"
-          />
+          <input type="date" id="dataPedido" />
         </div>
 
-        <button id="btnPesquisar" class="btn btn-primary">
-          Pesquisar pedido
-        </button>
+        <button id="btnPesquisar" class="btn btn-primary">Pesquisar pedido</button>
       </div>
 
       <div id="mensagem" class="mensagem">Aguardando pesquisa.</div>
@@ -306,6 +348,70 @@
       <div id="blocoItens" class="sem-itens">Nenhum item carregado.</div>
     </div>
 
+    <div class="box oculto" id="boxEdicaoPedido">
+      <div class="cabecalho-edicao">
+        <h2>Editar pedido</h2>
+        <div class="texto-ajuda">Aqui você pode alterar vendedor, observação, carrada e itens.</div>
+      </div>
+
+      <div class="grid-edicao">
+        <div class="campo-edicao">
+          <label for="edicaoVendedor">Vendedor</label>
+          <select id="edicaoVendedor"></select>
+        </div>
+
+        <div class="campo-edicao">
+          <label for="edicaoCarrada">Carrada</label>
+          <select id="edicaoCarrada"></select>
+        </div>
+
+        <div class="campo-edicao full">
+          <label for="edicaoObservacao">Observação</label>
+          <textarea id="edicaoObservacao" placeholder="Digite a observação do pedido"></textarea>
+        </div>
+      </div>
+
+      <div class="busca-item-linha">
+        <div class="campo-edicao">
+          <label for="buscarItemDescricao">Adicionar item por descrição</label>
+          <input type="text" id="buscarItemDescricao" placeholder="Digite parte da descrição do item" />
+        </div>
+
+        <button id="btnBuscarItemDescricao" class="btn btn-primary">Buscar item</button>
+        <button id="btnLimparBuscaItem" class="btn btn-primary">Limpar busca</button>
+      </div>
+
+      <div id="resultadoBuscaItens" class="resultados-box oculto">
+        <h3>Itens encontrados</h3>
+        <div id="listaBuscaItens" class="lista-busca-itens"></div>
+      </div>
+
+      <div class="tabela-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 90px;">Item</th>
+              <th>Descrição</th>
+              <th class="right" style="width: 130px;">Quantidade</th>
+              <th class="right" style="width: 140px;">Preço</th>
+              <th class="right" style="width: 140px;">Subtotal</th>
+              <th class="item-actions-cell">Ação</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyEdicaoItens"></tbody>
+        </table>
+      </div>
+
+      <div class="resumo-edicao">
+        <div>Total de itens: <span id="resumoTotalItens">0</span></div>
+        <div>Total do pedido: <span id="resumoTotalPedido">R$ 0,00</span></div>
+      </div>
+
+      <div class="acoes-edicao">
+        <div class="texto-ajuda">Para trocar um produto, remova a linha atual e adicione o novo item pela busca.</div>
+        <button id="btnSalvarAlteracoes" class="btn btn-primary">Salvar alterações</button>
+      </div>
+    </div>
   </div>
 
   <script>
@@ -323,32 +429,29 @@
     const resultadosBusca = document.getElementById('resultadosBusca');
     const resultadoLista = document.getElementById('resultadoLista');
 
+    const boxEdicaoPedido = document.getElementById('boxEdicaoPedido');
+    const edicaoVendedor = document.getElementById('edicaoVendedor');
+    const edicaoCarrada = document.getElementById('edicaoCarrada');
+    const edicaoObservacao = document.getElementById('edicaoObservacao');
+    const buscarItemDescricao = document.getElementById('buscarItemDescricao');
+    const btnBuscarItemDescricao = document.getElementById('btnBuscarItemDescricao');
+    const btnLimparBuscaItem = document.getElementById('btnLimparBuscaItem');
+    const resultadoBuscaItens = document.getElementById('resultadoBuscaItens');
+    const listaBuscaItens = document.getElementById('listaBuscaItens');
+    const tbodyEdicaoItens = document.getElementById('tbodyEdicaoItens');
+    const resumoTotalItens = document.getElementById('resumoTotalItens');
+    const resumoTotalPedido = document.getElementById('resumoTotalPedido');
+    const btnSalvarAlteracoes = document.getElementById('btnSalvarAlteracoes');
+
     let pedidoCarregado = null;
     let pedidosEncontrados = [];
+    let vendedoresCache = [];
+    let carradasCache = [];
+    let itensEdicao = [];
 
     function setMensagem(texto, erro = false) {
       mensagem.textContent = texto;
       mensagem.className = erro ? 'mensagem erro' : 'mensagem';
-    }
-
-    function limparCliente() {
-      dadosCliente.innerHTML = '<div class="placeholder">Nenhum pedido carregado.</div>';
-      btnImprimirRelatorio.classList.add('oculto');
-      btnImprimirRelatorioProducao.classList.add('oculto');
-      btnEnviarWhatsapp.classList.add('oculto');
-      btnAdicionarPagamentos.classList.add('oculto');
-      btnEnviarWhatsapp.disabled = true;
-      pedidoCarregado = null;
-    }
-
-    function limparItens() {
-      blocoItens.innerHTML = '<div class="sem-itens">Nenhum item carregado.</div>';
-    }
-
-    function limparResultados() {
-      pedidosEncontrados = [];
-      resultadoLista.innerHTML = '';
-      resultadosBusca.classList.add('oculto');
     }
 
     function moeda(valor) {
@@ -356,6 +459,18 @@
         style: 'currency',
         currency: 'BRL'
       });
+    }
+
+    function numero(valor) {
+      return Number(valor || 0).toLocaleString('pt-BR', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+      });
+    }
+
+    function numeroFixo(valor, casas = 3) {
+      const numeroAtual = Number(valor || 0);
+      return Number.isFinite(numeroAtual) ? numeroAtual.toFixed(casas) : (0).toFixed(casas);
     }
 
     function normalizarTelefone(valor) {
@@ -377,6 +492,70 @@
       const data = new Date(valor);
       if (Number.isNaN(data.getTime())) return valor;
       return data.toLocaleDateString('pt-BR');
+    }
+
+    function calcularSubtotalItem(item) {
+      const quantidade = Number(item?.quantidade || 0);
+      const preco = Number(item?.preco || 0);
+      return quantidade * preco;
+    }
+
+    function totalPedidoAtual() {
+      return itensEdicao.reduce((acc, item) => acc + calcularSubtotalItem(item), 0);
+    }
+
+    function totalQuantidadeItensAtual() {
+      return itensEdicao.reduce((acc, item) => acc + Number(item?.quantidade || 0), 0);
+    }
+
+    async function fetchJson(url, options = {}) {
+      const response = await fetch(url, options);
+      const json = await response.json().catch(() => ({}));
+
+      if (!response.ok || json?.success === false || json?.sucesso === false) {
+        throw new Error(json?.message || json?.erro || json?.detalhe || 'Erro ao processar requisição.');
+      }
+
+      return json;
+    }
+
+    function limparResultados() {
+      pedidosEncontrados = [];
+      resultadoLista.innerHTML = '';
+      resultadosBusca.classList.add('oculto');
+    }
+
+    function limparBuscaItens() {
+      buscarItemDescricao.value = '';
+      listaBuscaItens.innerHTML = '';
+      resultadoBuscaItens.classList.add('oculto');
+    }
+
+    function limparEdicao() {
+      boxEdicaoPedido.classList.add('oculto');
+      edicaoVendedor.innerHTML = '';
+      edicaoCarrada.innerHTML = '';
+      edicaoObservacao.value = '';
+      tbodyEdicaoItens.innerHTML = '';
+      resumoTotalItens.textContent = '0';
+      resumoTotalPedido.textContent = moeda(0);
+      itensEdicao = [];
+      limparBuscaItens();
+    }
+
+    function limparCliente() {
+      dadosCliente.innerHTML = '<div class="placeholder">Nenhum pedido carregado.</div>';
+      btnImprimirRelatorio.classList.add('oculto');
+      btnImprimirRelatorioProducao.classList.add('oculto');
+      btnEnviarWhatsapp.classList.add('oculto');
+      btnAdicionarPagamentos.classList.add('oculto');
+      btnEnviarWhatsapp.disabled = true;
+      pedidoCarregado = null;
+      limparEdicao();
+    }
+
+    function limparItens() {
+      blocoItens.innerHTML = '<div class="sem-itens">Nenhum item carregado.</div>';
     }
 
     function montarMensagemWhatsappPedido(pedido) {
@@ -404,6 +583,7 @@
       if (itens.length) {
         linhas.push('');
       }
+
       linhas.push(`Total do pedido: *${moeda(pedido?.total || 0)}*`);
 
       if (pedido?.obs) {
@@ -421,13 +601,6 @@
       return `${window.location.origin}/whatsapp/enviar?${params.toString()}`;
     }
 
-    function numero(valor) {
-      return Number(valor || 0).toLocaleString('pt-BR', {
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 2
-      });
-    }
-
     function obterUrlPagamentos(pedido) {
       const empresa = pedido?.empresa;
       const saida = pedido?.saida ?? pedido?.idMestre;
@@ -443,12 +616,12 @@
         return `/legado/pagamentos?${params.toString()}`;
       }
 
-      const numero = String(pedido?.numero || '').trim();
-      if (!numero) {
+      const numeroPedido = String(pedido?.numero || '').trim();
+      if (!numeroPedido) {
         return '/legado/pagamentos';
       }
 
-      return `/legado/pagamentos?numero=${encodeURIComponent(numero)}`;
+      return `/legado/pagamentos?numero=${encodeURIComponent(numeroPedido)}`;
     }
 
     function abrirTelaPagamentos(pedido) {
@@ -456,12 +629,9 @@
     }
 
     function abrirRelatorioPedido(pedido, modo = '') {
-      if (!pedido?.numero) {
-        return;
-      }
+      if (!pedido?.numero) return;
 
       const storageKey = `relatorio_pedido_${pedido.numero}_${Date.now()}`;
-
       localStorage.setItem(storageKey, JSON.stringify(pedido));
 
       const params = new URLSearchParams({
@@ -496,6 +666,26 @@
       return params.toString();
     }
 
+    async function carregarVendedores() {
+      if (vendedoresCache.length) {
+        return vendedoresCache;
+      }
+
+      const json = await fetchJson('/api/legado/vendedores?status=ativos&limite=500');
+      vendedoresCache = Array.isArray(json?.dados) ? json.dados : [];
+      return vendedoresCache;
+    }
+
+    async function carregarCarradas() {
+      if (carradasCache.length) {
+        return carradasCache;
+      }
+
+      const json = await fetchJson('/api/legado/carradas');
+      carradasCache = Array.isArray(json?.data) ? json.data : [];
+      return carradasCache;
+    }
+
     function renderizarCliente(pedido) {
       const dataFormatada = pedido?.data
         ? new Date(pedido.data).toLocaleDateString('pt-BR')
@@ -512,7 +702,7 @@
           <div class="cliente-linha"><strong>Cidade:</strong> ${pedido?.cliente?.cidade || '-'}</div>
           <div class="cliente-linha"><strong>UF:</strong> ${pedido?.cliente?.uf || '-'}</div>
           <div class="cliente-linha"><strong>Telefone:</strong> ${normalizarTelefone(pedido?.cliente?.telefonePrincipal || pedido?.cliente?.telefone1 || '') ? `<a class="telefone-link" href="${obterWhatsappHref(pedido)}" target="_blank" rel="noopener noreferrer">${formatarTelefoneExibicao(pedido?.cliente?.telefonePrincipal || pedido?.cliente?.telefone1 || '')}</a>` : 'Telefone não encontrado.'}</div>
-
+          <div class="cliente-linha"><strong>Carrada:</strong> ${pedido?.carradaAtual?.codigo ? `${pedido.carradaAtual.codigo} - ${pedido.carradaAtual.descricao || formatarData(pedido.carradaAtual.data)}` : 'Sem carrada'}</div>
         </div>
 
         <div class="cliente-dados-linha">
@@ -537,6 +727,7 @@
           <table>
             <thead>
               <tr>
+                <th>Item</th>
                 <th>Descrição</th>
                 <th class="right">Quantidade</th>
                 <th class="right">Preço</th>
@@ -546,6 +737,7 @@
             <tbody>
               ${itens.map((item) => `
                 <tr>
+                  <td>${item.item || '-'}</td>
                   <td>${item.descricao || '-'}</td>
                   <td class="right">${numero(item.quantidade)}</td>
                   <td class="right">${moeda(item.preco)}</td>
@@ -554,7 +746,7 @@
               `).join('')}
 
               <tr style="background:#000; color:#fff; font-weight:bold;">
-                <td>Total</td>
+                <td colspan="2">Total</td>
                 <td class="right">${numero(totalQuantidade)}</td>
                 <td></td>
                 <td class="right">${moeda(totalSubtotal)}</td>
@@ -578,7 +770,8 @@
             Pedido ${pedido?.numero || '-'} · ${pedido?.cliente?.nome || '-'}
           </div>
           <div class="resultado-secundario">
-            Data: ${formatarData(pedido?.data)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)}</div>
+            Data: ${formatarData(pedido?.data)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)}
+          </div>
           <div class="resultado-secundario">
             Total pago: ${moeda(pedido?.totalPago || 0)} · Restante a pagar: ${moeda(pedido?.saldoRestante || 0)}
           </div>
@@ -608,7 +801,8 @@
             Pedido ${pedido?.numero || '-'} · ${pedido?.cliente?.nome || '-'}
           </div>
           <div class="resultado-secundario">
-            Data: ${formatarData(pedido?.data)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)}</div>
+            Data: ${formatarData(pedido?.data)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)}
+          </div>
           <div class="resultado-secundario">
             Total pago: ${moeda(pedido?.totalPago || 0)} · Restante a pagar: ${moeda(pedido?.saldoRestante || 0)}
           </div>
@@ -616,13 +810,204 @@
       `).join('');
     }
 
-    async function carregarPedidoSelecionado(pedidoBase) {
-      const responseItens = await fetch(`/api/legado/pedidos/${pedidoBase.idMestre}/itens`);
-      const jsonItens = await responseItens.json();
+    function sincronizarResumoEdicao() {
+      resumoTotalItens.textContent = numero(totalQuantidadeItensAtual());
+      resumoTotalPedido.textContent = moeda(totalPedidoAtual());
+    }
 
-      if (!responseItens.ok || !jsonItens.success) {
-        throw new Error(jsonItens.message || 'Erro ao carregar itens.');
+    function atualizarTotaisPedidoCarregadoPelosItens() {
+      if (!pedidoCarregado) return;
+
+      pedidoCarregado.total = totalPedidoAtual();
+      pedidoCarregado.saldoRestante = Math.max(Number(pedidoCarregado.total || 0) - Number(pedidoCarregado.totalPago || 0), 0);
+    }
+
+    function renderizarTabelaEdicaoItens() {
+      if (!itensEdicao.length) {
+        tbodyEdicaoItens.innerHTML = `
+          <tr>
+            <td colspan="6" class="sem-itens">Nenhum item no pedido. Adicione um item pela busca acima.</td>
+          </tr>
+        `;
+        sincronizarResumoEdicao();
+        return;
       }
+
+      tbodyEdicaoItens.innerHTML = itensEdicao.map((item, index) => `
+        <tr data-index="${index}">
+          <td>${item.item}</td>
+          <td>${item.descricao || '-'}</td>
+          <td class="right">
+            <input class="input-numero-curto" type="number" min="0.001" step="0.001" data-campo="quantidade" data-index="${index}" value="${numeroFixo(item.quantidade)}" />
+          </td>
+          <td class="right">
+            <input class="input-preco-curto" type="number" min="0" step="0.001" data-campo="preco" data-index="${index}" value="${numeroFixo(item.preco)}" />
+          </td>
+          <td class="right">${moeda(calcularSubtotalItem(item))}</td>
+          <td class="item-actions-cell">
+            <button class="btn btn-danger" type="button" data-acao="remover-item" data-index="${index}">Remover</button>
+          </td>
+        </tr>
+      `).join('');
+
+      tbodyEdicaoItens.querySelectorAll('input[data-campo]').forEach((input) => {
+        input.addEventListener('change', () => {
+          const index = Number(input.dataset.index);
+          const campo = input.dataset.campo;
+          const valor = Number(input.value);
+
+          if (!Number.isFinite(valor)) {
+            return;
+          }
+
+          itensEdicao[index][campo] = valor;
+          renderizarTabelaEdicaoItens();
+        });
+      });
+
+      tbodyEdicaoItens.querySelectorAll('button[data-acao="remover-item"]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const index = Number(button.dataset.index);
+          itensEdicao.splice(index, 1);
+          renderizarTabelaEdicaoItens();
+        });
+      });
+
+      sincronizarResumoEdicao();
+    }
+
+    function preencherSelectVendedores(vendedores, vendedorAtual) {
+      edicaoVendedor.innerHTML = [
+        '<option value="">Selecione...</option>',
+        ...vendedores.map((vendedor) => `
+          <option value="${vendedor?.favorecido ?? ''}">
+            ${(vendedor?.nome || '-').trim()}
+          </option>
+        `)
+      ].join('');
+
+      if (vendedorAtual) {
+        edicaoVendedor.value = String(vendedorAtual);
+      }
+    }
+
+    function preencherSelectCarradas(carradas, carradaAtual) {
+      const opcoes = ['<option value="">Sem carrada</option>'];
+
+      carradas.forEach((carrada) => {
+        opcoes.push(`
+          <option value="${carrada?.codigo ?? ''}">
+            ${carrada?.codigo ?? ''} - ${(carrada?.descricao || formatarData(carrada?.data) || '').trim()}
+          </option>
+        `);
+      });
+
+      edicaoCarrada.innerHTML = opcoes.join('');
+
+      if (carradaAtual?.codigo) {
+        const codigoAtual = String(carradaAtual.codigo);
+        const existe = carradas.some((carrada) => String(carrada?.codigo || '') === codigoAtual);
+
+        if (!existe) {
+          const option = document.createElement('option');
+          option.value = codigoAtual;
+          option.textContent = `${codigoAtual} - ${(carradaAtual?.descricao || formatarData(carradaAtual?.data) || '').trim()}`;
+          edicaoCarrada.appendChild(option);
+        }
+
+        edicaoCarrada.value = codigoAtual;
+      } else {
+        edicaoCarrada.value = '';
+      }
+    }
+
+    async function prepararEdicaoPedido(pedido) {
+      const [vendedores, carradas] = await Promise.all([
+        carregarVendedores(),
+        carregarCarradas()
+      ]);
+
+      preencherSelectVendedores(vendedores, pedido?.vendedor?.favorecido);
+      preencherSelectCarradas(carradas, pedido?.carradaAtual || null);
+      edicaoObservacao.value = pedido?.obs || '';
+      itensEdicao = Array.isArray(pedido?.itens)
+        ? pedido.itens.map((item) => ({
+            item: Number(item?.item || 0),
+            descricao: item?.descricao || '',
+            quantidade: Number(item?.quantidade || 0),
+            preco: Number(item?.preco || 0)
+          }))
+        : [];
+
+      renderizarTabelaEdicaoItens();
+      boxEdicaoPedido.classList.remove('oculto');
+    }
+
+    function renderizarBuscaItens(lista) {
+      if (!Array.isArray(lista) || !lista.length) {
+        listaBuscaItens.innerHTML = '<div class="sem-resultados-busca-item">Nenhum item encontrado para essa descrição.</div>';
+        resultadoBuscaItens.classList.remove('oculto');
+        return;
+      }
+
+      listaBuscaItens.innerHTML = lista.map((item) => `
+        <div class="item-encontrado" data-item="${item?.item ?? ''}" data-descricao="${(item?.descricao || '').replace(/"/g, '&quot;')}" data-preco="${item?.precoAtual ?? 0}">
+          <div class="item-encontrado-principal">
+            Item ${item?.item ?? '-'} · ${item?.descricao || '-'}
+          </div>
+          <div class="item-encontrado-secundario">
+            Preço atual: ${moeda(item?.precoAtual ?? 0)}
+          </div>
+        </div>
+      `).join('');
+
+      resultadoBuscaItens.classList.remove('oculto');
+
+      document.querySelectorAll('.item-encontrado').forEach((elemento) => {
+        elemento.addEventListener('click', () => {
+          const item = Number(elemento.dataset.item || 0);
+          const descricao = elemento.dataset.descricao || '';
+          const preco = Number(elemento.dataset.preco || 0);
+
+          if (!item) {
+            return;
+          }
+
+          itensEdicao.push({
+            item,
+            descricao,
+            quantidade: 1,
+            preco
+          });
+
+          renderizarTabelaEdicaoItens();
+          limparBuscaItens();
+          setMensagem(`Item ${item} adicionado ao pedido.`);
+        });
+      });
+    }
+
+    async function pesquisarItensPorDescricao() {
+      const descricao = buscarItemDescricao.value.trim();
+
+      if (!descricao) {
+        setMensagem('Digite uma descrição para buscar itens.', true);
+        return;
+      }
+
+      setMensagem('Buscando itens do legado...');
+
+      try {
+        const json = await fetchJson(`/api/legado/itens?descricao=${encodeURIComponent(descricao)}&limite=20`);
+        renderizarBuscaItens(Array.isArray(json?.dados) ? json.dados : []);
+        setMensagem('Selecione um item encontrado para adicionar ao pedido.');
+      } catch (error) {
+        setMensagem(error.message || 'Erro ao buscar itens do legado.', true);
+      }
+    }
+
+    async function carregarPedidoSelecionado(pedidoBase) {
+      const jsonItens = await fetchJson(`/api/legado/pedidos/${pedidoBase.idMestre}/itens`);
 
       pedidoCarregado = {
         idMestre: pedidoBase?.idMestre || null,
@@ -637,11 +1022,14 @@
         empresa: pedidoBase?.empresa ?? -1,
         saida: pedidoBase?.saida ?? pedidoBase?.idMestre ?? null,
         pdv: pedidoBase?.pdv ?? 0,
+        carradaAtual: jsonItens?.data?.carradaAtual || null,
         itens: Array.isArray(jsonItens?.data?.itens) ? jsonItens.data.itens : []
       };
 
       renderizarCliente(pedidoCarregado);
       renderizarItens(pedidoCarregado.itens);
+      await prepararEdicaoPedido(pedidoCarregado);
+
       btnImprimirRelatorio.classList.remove('oculto');
       btnImprimirRelatorioProducao.classList.remove('oculto');
       btnEnviarWhatsapp.classList.remove('oculto');
@@ -669,13 +1057,7 @@
 
       try {
         const query = construirQuery(filtros);
-        const response = await fetch(`/api/legado/pedidos?${query}`);
-        const json = await response.json();
-
-        if (!response.ok || !json.success) {
-          throw new Error(json.message || 'Erro ao pesquisar pedidos.');
-        }
-
+        const json = await fetchJson(`/api/legado/pedidos?${query}`);
         const pedidos = Array.isArray(json.data) ? json.data : [];
         pedidosEncontrados = pedidos;
 
@@ -713,6 +1095,89 @@
         limparItens();
         limparResultados();
         setMensagem(error.message || 'Erro ao pesquisar pedidos.', true);
+      }
+    }
+
+    async function salvarAlteracoesPedido() {
+      if (!pedidoCarregado?.idMestre) {
+        setMensagem('Nenhum pedido carregado para edição.', true);
+        return;
+      }
+
+      if (!edicaoVendedor.value) {
+        setMensagem('Selecione um vendedor para salvar.', true);
+        return;
+      }
+
+      if (!itensEdicao.length) {
+        setMensagem('O pedido precisa ter ao menos 1 item.', true);
+        return;
+      }
+
+      const payload = {
+        vendedor: Number(edicaoVendedor.value),
+        obs: edicaoObservacao.value || '',
+        codigoCarrada: edicaoCarrada.value || null,
+        itens: itensEdicao.map((item) => ({
+          item: Number(item.item),
+          descricao: item.descricao || '',
+          quantidade: Number(item.quantidade || 0),
+          preco: Number(item.preco || 0)
+        }))
+      };
+
+      const textoOriginal = btnSalvarAlteracoes.textContent;
+
+      try {
+        btnSalvarAlteracoes.disabled = true;
+        btnSalvarAlteracoes.textContent = 'Salvando...';
+
+        const json = await fetchJson(`/api/legado/pedidos/${pedidoCarregado.idMestre}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const pedidoAtualizado = json?.data || null;
+        if (!pedidoAtualizado) {
+          throw new Error('A API não retornou o pedido atualizado.');
+        }
+
+        const totalPagoAtual = Number(pedidoCarregado?.totalPago || 0);
+
+        pedidoCarregado = {
+          ...pedidoCarregado,
+          ...pedidoAtualizado,
+          totalPago: totalPagoAtual,
+          saldoRestante: Math.max(Number(pedidoAtualizado?.total || 0) - totalPagoAtual, 0),
+          itens: Array.isArray(pedidoAtualizado?.itens) ? pedidoAtualizado.itens : itensEdicao.map((item) => ({
+            item: item.item,
+            descricao: item.descricao,
+            quantidade: item.quantidade,
+            preco: item.preco,
+            subtotal: calcularSubtotalItem(item)
+          }))
+        };
+
+        pedidosEncontrados = pedidosEncontrados.map((pedido) => ({
+          ...pedido,
+          ...(String(pedido?.idMestre || '') === String(pedidoCarregado?.idMestre || '') ? {
+            vendedor: pedidoCarregado.vendedor,
+            obs: pedidoCarregado.obs,
+            total: pedidoCarregado.total,
+            carradaAtual: pedidoCarregado.carradaAtual
+          } : {})
+        }));
+
+        renderizarCliente(pedidoCarregado);
+        renderizarItens(pedidoCarregado.itens);
+        await prepararEdicaoPedido(pedidoCarregado);
+        setMensagem('Pedido atualizado com sucesso.');
+      } catch (error) {
+        setMensagem(error.message || 'Erro ao salvar alterações do pedido.', true);
+      } finally {
+        btnSalvarAlteracoes.disabled = false;
+        btnSalvarAlteracoes.textContent = textoOriginal;
       }
     }
 
@@ -757,16 +1222,11 @@
         btnEnviarWhatsapp.disabled = true;
         btnEnviarWhatsapp.textContent = 'Enviando...';
 
-        const response = await fetch('/api/whatsapp/enviar', {
+        await fetchJson('/api/whatsapp/enviar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ telefone, mensagem: montarMensagemWhatsappPedido(pedidoCarregado) })
         });
-
-        const json = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(json?.detalhe || json?.erro || json?.message || 'Erro ao enviar mensagem.');
-        }
 
         setMensagem('Pedido enviado com sucesso pelo WhatsApp.');
       } catch (error) {
@@ -774,6 +1234,17 @@
       } finally {
         btnEnviarWhatsapp.disabled = !normalizarTelefone(pedidoCarregado?.cliente?.telefonePrincipal || pedidoCarregado?.cliente?.telefone1 || '');
         btnEnviarWhatsapp.textContent = textoOriginal;
+      }
+    });
+
+    btnBuscarItemDescricao.addEventListener('click', pesquisarItensPorDescricao);
+    btnLimparBuscaItem.addEventListener('click', limparBuscaItens);
+    btnSalvarAlteracoes.addEventListener('click', salvarAlteracoesPedido);
+
+    buscarItemDescricao.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        pesquisarItensPorDescricao();
       }
     });
 
