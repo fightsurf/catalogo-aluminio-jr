@@ -93,6 +93,12 @@ async function prepararPayloadLegado(payload = {}) {
     itens.push(itemResolvido);
   }
 
+    const carradaCodigoBruto = payload?.carrada_codigo ?? payload?.carradaCodigo ?? null;
+  const carradaCodigo =
+    carradaCodigoBruto === undefined || carradaCodigoBruto === null || String(carradaCodigoBruto).trim() === ''
+      ? null
+      : normalizarInteiroPositivo(carradaCodigoBruto, 'carrada_codigo');
+
   return {
     data: payload?.data,
     favorecido: payload?.favorecido,
@@ -100,6 +106,7 @@ async function prepararPayloadLegado(payload = {}) {
     vendedor: payload?.vendedor,
     volumes: payload?.volumes,
     total: payload?.total,
+    carrada_codigo: carradaCodigo,
     itens
   };
 }
@@ -113,7 +120,7 @@ async function inserirPedido(payload) {
 
   const payloadLegado = await prepararPayloadLegado(payload);
 
-  const response = await fetch(`${baseUrl}/api/pedidos-insercao`, {
+  const response = await fetch(`${baseUrl}/api/pedidos-insercao-v2`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json'

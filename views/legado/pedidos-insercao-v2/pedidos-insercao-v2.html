@@ -16,7 +16,7 @@
     .mensagem { margin-bottom: 18px; padding: 14px 16px; border-radius: 10px; background: #eff6ff; color: #1d4ed8; display: none; }
     .mensagem.erro { background: #fef2f2; color: #b91c1c; }
     .filtros { display: grid; grid-template-columns: 1fr auto auto; gap: 10px; margin-bottom: 14px; }
-    .campo, textarea, input[type=text], input[type=number] { width: 100%; padding: 11px 12px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 14px; }
+    .campo, textarea, input[type=text], input[type=number], select { width: 100%; padding: 11px 12px; border: 1px solid #d1d5db; border-radius: 10px; font-size: 14px; }
     textarea { min-height: 170px; resize: vertical; }
     button { border: none; border-radius: 10px; padding: 11px 16px; cursor: pointer; font-weight: bold; }
     .acao-principal { background: #111827; color: #fff; }
@@ -124,6 +124,10 @@
             </select>
             <label class="rotulo-pequeno" for="volumesPedido" style="margin-top:12px;">Volumes</label>
             <input id="volumesPedido" class="campo" type="number" min="0" step="1" value="0" />
+            <label class="rotulo-pequeno" for="carradaPedido" style="margin-top:12px;">Carrada (opcional)</label>
+            <select id="carradaPedido" class="campo">
+              <option value="">Carregando carradas...</option>
+            </select>
           </div>
           <div class="total-box">
             <small>Total do pedido</small>
@@ -134,7 +138,6 @@
         <div class="acoes-final">
           <button id="btnEnviarWhatsapp" class="whatsapp oculto" type="button">Enviar para WhatsApp</button>
           <button id="btnImprimirRelatorio" class="secundario oculto">Imprimir relatório</button>
-          <button id="btnImprimirRelatorioProducao" class="secundario oculto">Imprimir relatório para produção</button>
           <button id="btnNovoPedido" class="secundario">Limpar pedido</button>
           <button id="btnSalvarPedido" class="acao-principal">Salvar pedido</button>
         </div>
@@ -163,10 +166,10 @@
     const obsPedido = document.getElementById('obsPedido');
     const vendedorPedido = document.getElementById('vendedorPedido');
     const volumesPedido = document.getElementById('volumesPedido');
+    const carradaPedido = document.getElementById('carradaPedido');
     const totalPedido = document.getElementById('totalPedido');
     const btnNovoPedido = document.getElementById('btnNovoPedido');
     const btnImprimirRelatorio = document.getElementById('btnImprimirRelatorio');
-    const btnImprimirRelatorioProducao = document.getElementById('btnImprimirRelatorioProducao');
     const btnEnviarWhatsapp = document.getElementById('btnEnviarWhatsapp');
     const btnSalvarPedido = document.getElementById('btnSalvarPedido');
     const resultadoSucesso = document.getElementById('resultadoSucesso');
@@ -181,6 +184,7 @@
     let timerBuscaProduto = null;
     let salvando = false;
     let cacheProdutosImportacao = null;
+    let carradasDisponiveis = [];
 
     function setMensagem(texto, erro = false) {
       if (!texto) {
@@ -199,6 +203,20 @@
       const numero = Number(valor);
       if (!Number.isFinite(numero)) return 'R$ 0,00';
       return numero.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    function formatarData(valor) {
+      if (!valor) return '-';
+      const data = new Date(valor);
+      if (Number.isNaN(data.getTime())) {
+        const texto = String(valor).trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
+          const [ano, mes, dia] = texto.split('-');
+          return `${dia}/${mes}/${ano}`;
+        }
+        return texto;
+      }
+      return data.toLocaleDateString('pt-BR');
     }
 
     async function lerJson(response) {
@@ -349,6 +367,81 @@
     }
 
 
+
+    function montarRotuloCarrada(carrada) {
+      const codigo = carrada?.codigo ?? '-';
+      const data = formatarData(carrada?.data);
+      const descricao = (carrada?.descricao || '').trim();
+      return `Código ${codigo} — ${data} — ${descricao || 'Sem descrição'}`;
+    }
+
+    function preencherSelectCarradas(lista) {
+      carradasDisponiveis = Array.isArray(lista) ? lista : [];
+
+      carradaPedido.innerHTML = [
+        '<option value="">Sem carrada</option>',
+        ...carradasDisponiveis.map((carrada) => `<option value="${carrada.codigo}">${montarRotuloCarrada(carrada)}</option>`)
+      ].join('');
+    }
+
+    async function carregarCarradasParaPedido() {
+      try {
+        carradaPedido.innerHTML = '<option value="">Carregando carradas...</option>';
+        const response = await fetch('/api/legado/carradas');
+        const json = await lerJson(response);
+        const dados = Array.isArray(json?.data) ? json.data : [];
+
+        const ordenadas = dados
+          .slice()
+          .sort((a, b) => {
+            const dataA = a?.data ? new Date(a.data).getTime() : 0;
+            const dataB = b?.data ? new Date(b.data).getTime() : 0;
+            if (dataA !== dataB) return dataB - dataA;
+            return Number(b?.codigo || 0) - Number(a?.codigo || 0);
+          })
+          .slice(0, 20);
+
+        preencherSelectCarradas(ordenadas);
+      } catch (error) {
+        carradasDisponiveis = [];
+        carradaPedido.innerHTML = '<option value="">Erro ao carregar carradas</option>';
+        setMensagem(error.message, true);
+      }
+    }
+
+    function montarMensagemWhatsappCarrada() {
+      if (!ultimoPedidoSalvo?.numero || !ultimoPedidoSalvo?.carrada?.codigo) {
+        return '';
+      }
+
+      return [
+        `📦 Pedido: ${ultimoPedidoSalvo.numero}`,
+        `Cliente: ${ultimoPedidoSalvo?.cliente?.nome || '-'}`,
+        `Seu pedido entrou na produção da carrada do dia ${formatarData(ultimoPedidoSalvo?.carrada?.data)}`,
+        `Descrição da carrada: ${ultimoPedidoSalvo?.carrada?.descricao || '-'}`
+      ].join('\n');
+    }
+
+    async function enviarWhatsappCarradaAutomatico() {
+      const telefone = obterTelefoneClienteAtual();
+      if (!telefone) {
+        throw new Error('Telefone do cliente não encontrado.');
+      }
+
+      const mensagemCarrada = montarMensagemWhatsappCarrada();
+      if (!mensagemCarrada) {
+        return;
+      }
+
+      const response = await fetch('/api/whatsapp/enviar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ telefone, mensagem: mensagemCarrada })
+      });
+
+      await lerJson(response);
+    }
+
     async function carregarVendedores() {
       try {
         const response = await fetch('/api/legado/vendedores');
@@ -375,24 +468,15 @@
       return vendedores.find((item) => Number(item.favorecido) === favorecido) || null;
     }
 
-    function abrirRelatorioPedido(pedido, modo = 'normal') {
+    function abrirRelatorioPedido(pedido) {
       if (!pedido?.numero) {
         return;
       }
 
       const storageKey = `relatorio_pedido_${pedido.numero}_${Date.now()}`;
-      const params = new URLSearchParams({
-        numero: String(pedido.numero),
-        storageKey,
-        autoPrint: '1'
-      });
-
-      if (String(modo).toLowerCase() === 'producao') {
-        params.set('modo', 'producao');
-      }
 
       localStorage.setItem(storageKey, JSON.stringify(pedido));
-      window.open(`/legado/pedidos-relatorio?${params.toString()}`, '_blank');
+      window.open(`/legado/pedidos-relatorio?numero=${encodeURIComponent(pedido.numero)}&storageKey=${encodeURIComponent(storageKey)}&autoPrint=1`, '_blank');
     }
 
     async function carregarClientes() {
@@ -707,6 +791,7 @@
         obs: obsPedido.value.trim() || null,
         vendedor: Number(vendedorPedido.value || 0) || null,
         volumes: Number(volumesPedido.value || 0),
+        carrada_codigo: carradaPedido.value ? Number(carradaPedido.value) : null,
         total: Number(calcularTotal().toFixed(2)),
         itens: itensPedido.map((item) => ({
           produto_id: item.produto_id,
@@ -746,52 +831,79 @@
           body: JSON.stringify(montarPayload())
         });
 
-        const json = await lerJson(response);
-        const pedido = json?.pedido || json?.data?.pedido || json?.data || json;
-        const vendedorSelecionado = obterVendedorSelecionado();
 
-        ultimoPedidoSalvo = {
-          numero: pedido?.numero || '',
-          data: pedido?.data || new Date().toISOString().slice(0, 10),
-          cliente: {
-            nome: clienteSelecionado?.nome || '-',
-            telefone: clienteSelecionado?.telefonePrincipal || clienteSelecionado?.telefone1 || ''
-          },
-          vendedor: {
-            favorecido: vendedorSelecionado?.favorecido || null,
-            nome: vendedorSelecionado?.nome || '-'
-          },
-          obs: obsPedido.value.trim() || '',
-          total: Number(pedido?.total || calcularTotal()),
-          itens: itensPedido.map((item) => ({
-            descricao: item.nome,
-            quantidade: Number(item.quantidade || 0),
-            preco: Number(item.preco || 0),
-            subtotal: Number((Number(item.quantidade || 0) * Number(item.preco || 0)).toFixed(2))
-          }))
-        };
+const json = await lerJson(response);
+const pedido = json?.pedido || json?.data?.pedido || json?.data || json;
+const vendedorSelecionado = obterVendedorSelecionado();
+const carradaVinculada = json?.carradaVinculada?.sucesso ? json.carradaVinculada : null;
+const avisos = [];
 
-        resultadoSucesso.innerHTML = `
-          <strong>Pedido gravado com sucesso.</strong><br>
-          Número: ${pedido?.numero || '-'}<br>
-          Saída: ${pedido?.saida || '-'}<br>
-          Total: ${formatarMoeda(pedido?.total || calcularTotal())}
-        `;
-        resultadoSucesso.style.display = 'block';
-        btnImprimirRelatorio.classList.remove('oculto');
-        btnImprimirRelatorioProducao.classList.remove('oculto');
-        btnEnviarWhatsapp.classList.remove('oculto');
-        btnEnviarWhatsapp.disabled = !obterTelefoneClienteAtual();
+ultimoPedidoSalvo = {
+  numero: pedido?.numero || '',
+  data: pedido?.data || new Date().toISOString().slice(0, 10),
+  cliente: {
+    nome: clienteSelecionado?.nome || '-',
+    telefone: clienteSelecionado?.telefonePrincipal || clienteSelecionado?.telefone1 || ''
+  },
+  vendedor: {
+    favorecido: vendedorSelecionado?.favorecido || null,
+    nome: vendedorSelecionado?.nome || '-'
+  },
+  carrada: carradaVinculada
+    ? {
+        codigo: carradaVinculada.codigo,
+        data: carradaVinculada.data,
+        descricao: carradaVinculada.descricao || ''
+      }
+    : null,
+  obs: obsPedido.value.trim() || '',
+  total: Number(pedido?.total || calcularTotal()),
+  itens: itensPedido.map((item) => ({
+    descricao: item.nome,
+    quantidade: Number(item.quantidade || 0),
+    preco: Number(item.preco || 0),
+    subtotal: Number((Number(item.quantidade || 0) * Number(item.preco || 0)).toFixed(2))
+  }))
+};
 
-        itensPedido = [];
-        textoRelatorio.value = '';
-        multiplicadorKit.value = '1';
-        obsPedido.value = '';
-        volumesPedido.value = '0';
-        setNaoReconhecidos([]);
-        renderItensPedido();
-        focarBuscaProduto();
-        setMensagem('Pedido salvo com sucesso.');
+if (json?.aviso) {
+  avisos.push(json.aviso);
+}
+
+if (ultimoPedidoSalvo.carrada) {
+  try {
+    await enviarWhatsappCarradaAutomatico();
+    avisos.push(`Aviso de carrada enviado pelo WhatsApp para ${ultimoPedidoSalvo.cliente?.nome || 'o cliente'}.`);
+  } catch (error) {
+    avisos.push(`Pedido e vínculo gravados, mas o aviso de carrada no WhatsApp falhou: ${error.message}`);
+  }
+}
+
+resultadoSucesso.innerHTML = `
+  <strong>Pedido gravado com sucesso.</strong><br>
+  Número: ${pedido?.numero || '-'}<br>
+  Saída: ${pedido?.saida || '-'}<br>
+  Total: ${formatarMoeda(pedido?.total || calcularTotal())}${ultimoPedidoSalvo.carrada ? `<br>Carrada: ${montarRotuloCarrada(ultimoPedidoSalvo.carrada)}` : ''}
+`;
+resultadoSucesso.style.display = 'block';
+btnImprimirRelatorio.classList.remove('oculto');
+btnEnviarWhatsapp.classList.remove('oculto');
+btnEnviarWhatsapp.disabled = !obterTelefoneClienteAtual();
+
+itensPedido = [];
+textoRelatorio.value = '';
+multiplicadorKit.value = '1';
+obsPedido.value = '';
+volumesPedido.value = '0';
+setNaoReconhecidos([]);
+renderItensPedido();
+focarBuscaProduto();
+setMensagem([
+  ultimoPedidoSalvo.carrada
+    ? `Pedido salvo com sucesso e vinculado à carrada ${ultimoPedidoSalvo.carrada.codigo}.`
+    : 'Pedido salvo com sucesso.',
+  ...avisos
+].filter(Boolean).join(' '));
       } catch (error) {
         setMensagem(error.message, true);
       } finally {
@@ -811,9 +923,9 @@
       multiplicadorKit.value = '1';
       obsPedido.value = '';
       volumesPedido.value = '0';
+      carradaPedido.value = '';
       resultadoSucesso.style.display = 'none';
       btnImprimirRelatorio.classList.add('oculto');
-      btnImprimirRelatorioProducao.classList.add('oculto');
       btnEnviarWhatsapp.classList.add('oculto');
       btnEnviarWhatsapp.disabled = true;
       ultimoPedidoSalvo = null;
@@ -890,12 +1002,6 @@
       }
     });
 
-    btnImprimirRelatorioProducao.addEventListener('click', () => {
-      if (ultimoPedidoSalvo) {
-        abrirRelatorioPedido(ultimoPedidoSalvo, 'producao');
-      }
-    });
-
     btnEnviarWhatsapp.addEventListener('click', async () => {
       if (!ultimoPedidoSalvo?.numero) {
         setMensagem('Nenhum pedido salvo disponível para envio.', true);
@@ -931,6 +1037,7 @@
     });
 
     carregarVendedores();
+    carregarCarradasParaPedido();
     renderClienteSelecionado();
     renderItensPedido();
     btnEnviarWhatsapp.disabled = true;
