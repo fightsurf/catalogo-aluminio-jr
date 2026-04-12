@@ -1,4 +1,5 @@
 const produtoService = require('../../produto/produto.service');
+const carradasService = require('../carradas/carradas.service');
 
 function getBridgeBaseUrl() {
   return (
@@ -100,6 +101,7 @@ async function prepararPayloadLegado(payload = {}) {
     vendedor: payload?.vendedor,
     volumes: payload?.volumes,
     total: payload?.total,
+    carrada_codigo: payload?.carrada_codigo,
     itens
   };
 }
@@ -118,7 +120,15 @@ async function inserirPedido(payload) {
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify(payloadLegado)
+    body: JSON.stringify({
+      data: payloadLegado.data,
+      favorecido: payloadLegado.favorecido,
+      obs: payloadLegado.obs,
+      vendedor: payloadLegado.vendedor,
+      volumes: payloadLegado.volumes,
+      total: payloadLegado.total,
+      itens: payloadLegado.itens
+    })
   });
 
   const data = await response.json().catch(() => ({}));
@@ -127,7 +137,30 @@ async function inserirPedido(payload) {
     throw new Error(data?.detalhe || data?.erro || `Falha HTTP ${response.status}`);
   }
 
-  return data;
+  const codigoCarrada = payloadLegado?.carrada_codigo ? normalizarInteiroPositivo(payloadLegado.carrada_codigo, 'carrada_codigo') : null;
+
+  if (!codigoCarrada) {
+    return data;
+  }
+
+  const pedidoSalvo = data?.pedido || data?.data?.pedido || data?.data || null;
+  const numeroPedido = limparTexto(pedidoSalvo?.numero);
+
+  if (!numeroPedido) {
+    throw new Error('Pedido salvo, mas o número do pedido não foi retornado para vincular à carrada.');
+  }
+
+  const resultadoVinculo = await carradasService.vincularPedidoNaCarrada(codigoCarrada, {
+    numero: numeroPedido,
+    qtdeVolume: Number(pedidoSalvo?.volumes ?? payloadLegado?.volumes ?? 0),
+    observacao: ''
+  });
+
+  return {
+    ...data,
+    carrada: resultadoVinculo?.carrada || null,
+    notificacaoCarrada: resultadoVinculo?.notificacao || null
+  };
 }
 
 module.exports = {

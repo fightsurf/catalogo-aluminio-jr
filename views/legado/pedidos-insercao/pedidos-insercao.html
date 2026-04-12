@@ -45,7 +45,7 @@
     .tabela-itens td.valor, .tabela-itens th.valor { text-align: right; }
     .tabela-itens input[type=number] { text-align: right; }
     .tabela-vazia { padding: 18px; color: #6b7280; background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 10px; }
-    .footer-pedido { margin-top: 18px; display: grid; grid-template-columns: 1fr 180px 140px 180px; gap: 12px; align-items: start; }
+    .footer-pedido { margin-top: 18px; display: grid; grid-template-columns: 1fr 180px 240px 140px 180px; gap: 12px; align-items: start; }
     .footer-pedido textarea { min-height: 84px; resize: vertical; }
     .total-box { background: #111827; color: #fff; border-radius: 10px; padding: 16px; }
     .total-box small { display: block; opacity: 0.8; margin-bottom: 6px; }
@@ -107,6 +107,12 @@
             </select>
           </div>
           <div>
+            <label class="rotulo-pequeno" for="carradaPedido">Carrada (opcional)</label>
+            <select id="carradaPedido" class="campo-select">
+              <option value="">Carregando carradas...</option>
+            </select>
+          </div>
+          <div>
             <label class="rotulo-pequeno" for="volumesPedido">Volumes</label>
             <input id="volumesPedido" class="campo" type="number" min="0" step="1" value="0" />
           </div>
@@ -144,6 +150,7 @@
     const tabelaItensWrap = document.getElementById('tabelaItensWrap');
     const obsPedido = document.getElementById('obsPedido');
     const vendedorPedido = document.getElementById('vendedorPedido');
+    const carradaPedido = document.getElementById('carradaPedido');
     const volumesPedido = document.getElementById('volumesPedido');
     const totalPedido = document.getElementById('totalPedido');
     const btnNovoPedido = document.getElementById('btnNovoPedido');
@@ -159,6 +166,7 @@
     let indiceProdutoAtivo = -1;
     let itensPedido = [];
     let vendedores = [];
+    let carradasRecentes = [];
     let ultimoRelatorio = null;
     let timerBuscaProduto = null;
     let salvando = false;
@@ -334,6 +342,30 @@
       }
     }
 
+
+    function formatarRotuloCarrada(carrada) {
+      const codigo = Number(carrada?.codigo || 0);
+      const data = formatarData(carrada?.data);
+      const descricao = carrada?.descricao || 'Sem descrição';
+      return `Código ${codigo} — ${data} — ${descricao}`;
+    }
+
+    async function carregarCarradas() {
+      try {
+        const response = await fetch('/api/legado/carradas');
+        const json = await lerJson(response);
+        const lista = Array.isArray(json?.data) ? json.data : [];
+        carradasRecentes = lista.slice(0, 20);
+
+        carradaPedido.innerHTML = '<option value="">Nenhuma carrada</option>' + carradasRecentes.map((carrada) => `
+          <option value="${carrada.codigo}">${formatarRotuloCarrada(carrada)}</option>
+        `).join('');
+      } catch (error) {
+        carradaPedido.innerHTML = '<option value="">Erro ao carregar carradas</option>';
+        setMensagem(error.message, true);
+      }
+    }
+
     function esconderDropdownProdutos() {
       dropdownProdutos.style.display = 'none';
       indiceProdutoAtivo = -1;
@@ -496,6 +528,7 @@
         favorecido: clienteSelecionado?.favorecido,
         obs: obsPedido.value.trim() || null,
         vendedor: Number(vendedorPedido.value || 0) || null,
+        carrada_codigo: Number(carradaPedido.value || 0) || null,
         volumes: Number(volumesPedido.value || 0),
         total: Number(calcularTotal().toFixed(2)),
         itens: itensPedido.map((item) => ({
@@ -526,6 +559,7 @@
         },
         observacao: obsPedido.value.trim() || '',
         total: Number(pedidoSalvo?.total || calcularTotal() || 0),
+        carrada: carradasRecentes.find((item) => Number(item.codigo) === Number(carradaPedido.value)) || null,
         itens: itensPedido.map((item) => ({
           descricao: item.nome,
           quantidade: Number(item.quantidade || 0),
@@ -589,7 +623,7 @@
           <strong>Pedido gravado com sucesso.</strong><br>
           Número: ${pedido?.numero || '-'}<br>
           Saída: ${pedido?.saida || '-'}<br>
-          Total: ${formatarMoeda(pedido?.total || calcularTotal())}
+          Total: ${formatarMoeda(pedido?.total || calcularTotal())}${json?.carrada ? `<br>Carrada: ${formatarRotuloCarrada(json.carrada)}` : ''}
         `;
         resultadoSucesso.style.display = 'block';
         setMensagem('Pedido salvo com sucesso.');
@@ -612,6 +646,7 @@
       obsPedido.value = '';
       volumesPedido.value = '0';
       vendedorPedido.value = '';
+      carradaPedido.value = '';
       resultadoSucesso.style.display = 'none';
       atualizarBotoesAcao();
       renderItensPedido();
@@ -734,6 +769,7 @@
     renderClienteSelecionado();
     renderItensPedido();
     carregarVendedores();
+    carregarCarradas();
     atualizarBotoesAcao();
   </script>
 </body>

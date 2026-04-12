@@ -192,6 +192,29 @@ async function atualizarCarrada(codigo, payload) {
   return carradaDepois;
 }
 
+
+async function vincularPedidoNaCarrada(codigo, payload) {
+  const response = await request(`/api/carradas/${codigo}/pedidos`, {
+    method: 'POST',
+    body: JSON.stringify(payload || {})
+  });
+
+  const carrada = response.dado || null;
+  let notificacao = null;
+
+  if (carrada && payload?.numero) {
+    const pedido = Array.isArray(carrada.pedidos)
+      ? carrada.pedidos.find((item) => limparTexto(item?.numero) === limparTexto(payload.numero))
+      : null;
+
+    if (pedido) {
+      notificacao = await enviarNotificacaoCarrada({ tipo: 'entrada', pedido, carrada });
+    }
+  }
+
+  return { carrada, notificacao };
+}
+
 async function excluirCarrada(codigo) {
   const carradaAntes = await buscarCarrada(codigo);
 
@@ -215,5 +238,6 @@ module.exports = {
   buscarCarrada,
   criarCarrada,
   atualizarCarrada,
+  vincularPedidoNaCarrada,
   excluirCarrada
 };
