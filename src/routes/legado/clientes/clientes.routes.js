@@ -4,5 +4,9 @@ const clientesController = require('../../../controllers/legado/clientes/cliente
 const router = express.Router();
 
 router.get('/', clientesController.listarClientes);
+router.get('/:favorecido', clientesController.buscarCliente);
+router.post('/', clientesController.criarCliente);
+router.put('/:favorecido', clientesController.atualizarCliente);
+router.delete('/:favorecido', clientesController.desativarCliente);
 
 module.exports = router;

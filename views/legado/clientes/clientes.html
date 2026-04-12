@@ -3,542 +3,338 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Clientes do Legado - Alumínio JR</title>
-
+  <title>CRUD de clientes do legado</title>
   <style>
-    * {
-      box-sizing: border-box;
-    }
-
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: Arial, sans-serif;
-      background: #f4f6f9;
+      background: #f3f4f6;
       color: #111827;
-      padding: 18px;
     }
-
-    .titulo-pagina {
-      font-size: 22px;
-      font-weight: bold;
-      margin-bottom: 18px;
-    }
-
-    .layout {
-      max-width: 1100px;
+    .container {
+      max-width: 1500px;
       margin: 0 auto;
+      padding: 24px;
     }
-
-    .box {
-      background: #ffffff;
-      border-radius: 10px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-      padding: 16px;
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+    }
+    .subtitulo {
+      margin: 0 0 20px;
+      color: #4b5563;
+    }
+    .mensagem {
       margin-bottom: 16px;
-    }
-
-    .box h2 {
-      margin: 0 0 14px 0;
-      font-size: 18px;
-    }
-
-    .busca-linha {
-      display: flex;
-      gap: 10px;
-      align-items: end;
-      flex-wrap: wrap;
-    }
-
-    .campo {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      min-width: 180px;
-      flex: 1;
-    }
-
-    .campo.uf {
-      max-width: 100px;
-      min-width: 100px;
-      flex: 0 0 100px;
-    }
-
-    .campo.limite {
-      max-width: 120px;
-      min-width: 120px;
-      flex: 0 0 120px;
-    }
-
-    .campo label {
-      font-size: 14px;
-      font-weight: 600;
-    }
-
-    .campo input {
-      height: 38px;
-      border: 1px solid #cfd6dd;
-      border-radius: 4px;
-      padding: 0 10px;
-      font-size: 14px;
-      outline: none;
-    }
-
-    .campo input:focus {
-      border-color: #3b82f6;
-    }
-
-    .acoes-busca {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .btn {
-      height: 38px;
-      border: none;
-      border-radius: 4px;
-      padding: 0 16px;
-      font-size: 14px;
-      cursor: pointer;
-      font-weight: 600;
-    }
-
-    .btn-primary {
-      background: #0ea5b7;
-      color: #fff;
-    }
-
-    .btn-primary:hover {
-      opacity: 0.92;
-    }
-
-    .btn-secondary {
+      padding: 12px 14px;
+      border-radius: 8px;
       background: #e5e7eb;
       color: #111827;
+      display: none;
+      white-space: pre-line;
     }
-
-    .btn-secondary:hover {
-      opacity: 0.92;
+    .mensagem.erro {
+      background: #fee2e2;
+      color: #991b1b;
     }
-
-    .btn-acao-modal {
+    .grid {
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 20px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 18px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    }
+    .card h2 {
+      margin-top: 0;
+      margin-bottom: 14px;
+      font-size: 20px;
+    }
+    .campo-wrap {
+      margin-bottom: 14px;
+    }
+    .campo-wrap label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: #374151;
+    }
+    .campo-wrap input,
+    .campo-wrap select {
       width: 100%;
-      height: 42px;
+      padding: 10px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+      background: #fff;
+    }
+    .linha-dupla {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .linha-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 12px 0 16px;
+      color: #374151;
+    }
+    .linha-checkbox input {
+      width: auto;
+    }
+    .acoes-form,
+    .filtros,
+    .acoes-lista {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    button {
       border: none;
       border-radius: 8px;
-      background: #0f766e;
-      color: #ffffff;
-      font-size: 14px;
-      font-weight: 700;
+      padding: 10px 12px;
       cursor: pointer;
-      text-align: left;
-      padding: 0 14px;
-    }
-
-    .btn-acao-modal:hover {
-      opacity: 0.92;
-    }
-
-    .btn-acao-modal:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
-    }
-
-    .mensagem {
-      margin-top: 12px;
+      background: #111827;
+      color: #fff;
       font-size: 14px;
-      color: #374151;
     }
-
-    .erro {
-      color: #dc2626;
-      font-weight: 600;
-    }
-
-    .info-topo {
-      display: flex;
-      justify-content: space-between;
-      gap: 10px;
-      align-items: center;
-      flex-wrap: wrap;
-      margin-bottom: 12px;
-    }
-
-    .resumo {
-      font-size: 14px;
-      color: #374151;
-      font-weight: 600;
-    }
-
-    .placeholder {
-      color: #6b7280;
-      font-size: 15px;
-    }
-
+    button.secundario { background: #6b7280; }
+    button.primario { background: #2563eb; }
+    button.alerta { background: #b45309; }
+    button.perigo { background: #991b1b; }
+    button.sucesso { background: #0f766e; }
     .tabela-wrap {
       overflow-x: auto;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      background: #fff;
+      margin-top: 16px;
     }
-
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 760px;
+      min-width: 1000px;
     }
-
     th, td {
-      border: 1px solid #e5e7eb;
-      padding: 10px;
-      font-size: 14px;
+      padding: 12px 10px;
+      border-bottom: 1px solid #e5e7eb;
       text-align: left;
+      font-size: 14px;
       vertical-align: middle;
     }
-
     th {
       background: #f9fafb;
-      font-weight: 600;
-      color: #374151;
-    }
-
-    .cliente-link {
-      background: none;
-      border: none;
-      padding: 0;
-      margin: 0;
-      color: #0f766e;
-      font-size: 14px;
-      font-weight: 700;
+      font-size: 12px;
       text-transform: uppercase;
-      cursor: pointer;
-      text-align: left;
-    }
-
-    .cliente-link:hover {
-      text-decoration: underline;
-    }
-
-    .telefone-link-btn {
-      background: none;
-      border: none;
-      padding: 0;
-      margin: 0;
-      color: #0f766e;
-      font-weight: 600;
-      cursor: pointer;
-      font-size: 14px;
-      font-family: Arial, sans-serif;
-      text-decoration: none;
-    }
-
-    .telefone-link-btn:hover {
-      text-decoration: underline;
-    }
-
-    .sem-registros {
+      letter-spacing: 0.04em;
       color: #6b7280;
-      font-size: 14px;
     }
-
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(17, 24, 39, 0.55);
-      display: none;
+    tr.inativo td {
+      background: #fff7ed;
+      color: #7c2d12;
+    }
+    .status {
+      display: inline-flex;
       align-items: center;
-      justify-content: center;
-      padding: 20px;
-      z-index: 9999;
-    }
-
-    .modal-overlay.ativo {
-      display: flex;
-    }
-
-    .modal {
-      width: 100%;
-      max-width: 620px;
-      background: #ffffff;
-      border-radius: 12px;
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
-      overflow: hidden;
-    }
-
-    .modal-topo {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 16px;
-      border-bottom: 1px solid #e5e7eb;
-      background: #f9fafb;
-    }
-
-    .modal-topo h3 {
-      margin: 0;
-      font-size: 18px;
-    }
-
-    .modal-fechar {
-      width: 34px;
-      height: 34px;
-      border: none;
-      border-radius: 6px;
-      background: #e5e7eb;
-      cursor: pointer;
-      font-size: 18px;
-      font-weight: bold;
-      color: #111827;
-    }
-
-    .modal-fechar:hover {
-      opacity: 0.92;
-    }
-
-    .modal-conteudo {
-      padding: 16px;
-    }
-
-    .modal-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-
-    .modal-card {
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 12px;
-    }
-
-    .modal-card-label {
-      display: block;
+      border-radius: 999px;
+      padding: 4px 10px;
       font-size: 12px;
       font-weight: 700;
-      color: #6b7280;
-      margin-bottom: 6px;
-      text-transform: uppercase;
     }
-
-    .modal-card-valor {
-      font-size: 14px;
-      color: #111827;
-      word-break: break-word;
+    .status.ativo {
+      background: #dcfce7;
+      color: #166534;
     }
-
-    .modal-acoes {
-      border: 1px solid #d1d5db;
-      border-radius: 8px;
-      padding: 14px;
-      background: #f8fafc;
+    .status.inativo {
+      background: #fee2e2;
+      color: #991b1b;
     }
-
-    .modal-acoes h4 {
-      margin: 0 0 10px 0;
-      font-size: 15px;
-    }
-
-    .modal-acoes p {
-      margin: 10px 0 0 0;
-      font-size: 13px;
-      color: #6b7280;
-    }
-
-    .modal-rodape {
-      padding: 16px;
-      border-top: 1px solid #e5e7eb;
+    .acoes-linha {
       display: flex;
-      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
     }
-
-    @media (max-width: 700px) {
-      .modal-grid {
+    .acoes-linha button {
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+    .vazio {
+      padding: 16px;
+      color: #6b7280;
+      font-size: 14px;
+    }
+    .telefone-btn {
+      background: none;
+      border: none;
+      padding: 0;
+      color: #0f766e;
+      text-decoration: underline;
+      font-size: 14px;
+      cursor: pointer;
+    }
+    @media (max-width: 1100px) {
+      .grid {
         grid-template-columns: 1fr;
       }
-
-      .acoes-busca {
-        width: 100%;
-      }
-
-      .acoes-busca .btn {
-        flex: 1;
+    }
+    @media (max-width: 640px) {
+      .linha-dupla {
+        grid-template-columns: 1fr;
       }
     }
   </style>
 </head>
-
 <body>
-  <div class="layout">
-    <div class="titulo-pagina">👥 Clientes do Legado</div>
+  <div class="container">
+    <h1>CRUD de clientes do legado</h1>
+    <p class="subtitulo">Cliente é tratado em <strong>FAVORECIDOS</strong> com <strong>TIPOFAVORECIDO = 1</strong>. A exclusão aqui é lógica por <strong>DESATIVADO</strong>, para não quebrar histórico do legado.</p>
+    <div id="mensagem" class="mensagem"></div>
 
-    <div class="box">
-      <h2>Pesquisar Clientes</h2>
+    <div class="grid">
+      <section class="card">
+        <h2>Cadastro</h2>
+        <form id="formCliente">
+          <input type="hidden" id="favorecido" />
 
-      <div class="busca-linha">
-        <div class="campo">
-          <label for="filtroNome">Nome</label>
-          <input
-            type="text"
-            id="filtroNome"
-            placeholder="Digite o nome do cliente"
-          />
-        </div>
-
-        <div class="campo">
-          <label for="filtroCidade">Cidade</label>
-          <input
-            type="text"
-            id="filtroCidade"
-            placeholder="Digite a cidade"
-          />
-        </div>
-
-        <div class="campo uf">
-          <label for="filtroUf">UF</label>
-          <input
-            type="text"
-            id="filtroUf"
-            maxlength="2"
-            placeholder="UF"
-          />
-        </div>
-
-        <div class="campo limite">
-          <label for="filtroLimite">Limite</label>
-          <input
-            type="number"
-            id="filtroLimite"
-            min="1"
-            max="500"
-            value="50"
-          />
-        </div>
-
-        <div class="acoes-busca">
-          <button id="btnPesquisar" class="btn btn-primary">
-            Pesquisar
-          </button>
-
-          <button id="btnLimpar" class="btn btn-secondary" type="button">
-            Limpar
-          </button>
-        </div>
-      </div>
-
-      <div id="mensagem" class="mensagem">Aguardando pesquisa.</div>
-    </div>
-
-    <div class="box">
-      <div class="info-topo">
-        <div>
-          <h2 style="margin: 0;">Resultado</h2>
-        </div>
-
-        <div id="resumo" class="resumo">Nenhum cliente carregado.</div>
-      </div>
-
-      <div id="blocoTabela">
-        <div class="placeholder">Nenhum cliente carregado.</div>
-      </div>
-    </div>
-  </div>
-
-  <div id="modalOverlay" class="modal-overlay">
-    <div class="modal">
-      <div class="modal-topo">
-        <h3>Cliente</h3>
-        <button id="btnFecharModalTopo" class="modal-fechar" type="button">×</button>
-      </div>
-
-      <div class="modal-conteudo">
-        <div class="modal-grid">
-          <div class="modal-card">
-            <span class="modal-card-label">Nome</span>
-            <div id="modalNome" class="modal-card-valor">-</div>
+          <div class="campo-wrap">
+            <label for="nome">Nome</label>
+            <input id="nome" type="text" maxlength="120" required />
           </div>
 
-          <div class="modal-card">
-            <span class="modal-card-label">Telefone</span>
-            <div id="modalTelefone" class="modal-card-valor">-</div>
+          <div class="campo-wrap">
+            <label for="razao">Razão</label>
+            <input id="razao" type="text" maxlength="120" placeholder="Se vazio, usa o nome" />
           </div>
 
-          <div class="modal-card">
-            <span class="modal-card-label">Cidade</span>
-            <div id="modalCidade" class="modal-card-valor">-</div>
+          <div class="linha-dupla">
+            <div class="campo-wrap">
+              <label for="codigo">Código</label>
+              <input id="codigo" type="text" maxlength="30" placeholder="Se vazio, usa o próprio ID gerado" />
+            </div>
+
+            <div class="campo-wrap">
+              <label for="telefonePrincipal">Telefone</label>
+              <input id="telefonePrincipal" type="text" maxlength="30" />
+            </div>
           </div>
 
-          <div class="modal-card">
-            <span class="modal-card-label">UF</span>
-            <div id="modalUf" class="modal-card-valor">-</div>
+          <div class="linha-dupla">
+            <div class="campo-wrap">
+              <label for="cidade">Cidade</label>
+              <input id="cidade" type="text" maxlength="60" />
+            </div>
+
+            <div class="campo-wrap">
+              <label for="uf">UF</label>
+              <input id="uf" type="text" maxlength="2" />
+            </div>
+          </div>
+
+          <label class="linha-checkbox">
+            <input id="ativo" type="checkbox" checked />
+            Cliente ativo
+          </label>
+
+          <div class="acoes-form">
+            <button type="submit" class="primario">Salvar</button>
+            <button type="button" id="btnNovo" class="secundario">Novo</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Lista</h2>
+        <div class="filtros">
+          <div class="campo-wrap" style="flex:1 1 240px; margin-bottom:0;">
+            <label for="buscaNome">Buscar por nome</label>
+            <input id="buscaNome" type="text" placeholder="Nome ou razão" />
+          </div>
+          <div class="campo-wrap" style="flex:1 1 180px; margin-bottom:0;">
+            <label for="buscaCidade">Cidade</label>
+            <input id="buscaCidade" type="text" placeholder="Cidade" />
+          </div>
+          <div class="campo-wrap" style="width:100px; margin-bottom:0;">
+            <label for="buscaUf">UF</label>
+            <input id="buscaUf" type="text" maxlength="2" placeholder="UF" />
+          </div>
+          <div class="campo-wrap" style="width:180px; margin-bottom:0;">
+            <label for="filtroStatus">Status</label>
+            <select id="filtroStatus">
+              <option value="ativos">Ativos</option>
+              <option value="inativos">Inativos</option>
+              <option value="todos">Todos</option>
+            </select>
           </div>
         </div>
-
-        <div class="modal-acoes">
-          <h4>Ações</h4>
-          <button
-            id="btnHistoricoCompras"
-            type="button"
-            class="btn-acao-modal"
-          >
-            Histórico de compras do cliente
-          </button>
-          <p id="modalAcaoInfo">Ao clicar, será aberta a página de pedidos deste cliente.</p>
+        <div class="acoes-lista">
+          <button id="btnBuscar" class="primario">Buscar</button>
+          <button id="btnLimparFiltros" class="secundario">Limpar filtros</button>
         </div>
-      </div>
 
-      <div class="modal-rodape">
-        <button id="btnFecharModalRodape" class="btn btn-secondary" type="button">
-          Fechar
-        </button>
-      </div>
+        <div class="tabela-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Favorecido</th>
+                <th>Nome</th>
+                <th>Razão</th>
+                <th>Código</th>
+                <th>Telefone</th>
+                <th>Cidade/UF</th>
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyClientes"></tbody>
+          </table>
+        </div>
+      </section>
     </div>
   </div>
 
   <script>
-    const filtroNome = document.getElementById('filtroNome');
-    const filtroCidade = document.getElementById('filtroCidade');
-    const filtroUf = document.getElementById('filtroUf');
-    const filtroLimite = document.getElementById('filtroLimite');
-    const btnPesquisar = document.getElementById('btnPesquisar');
-    const btnLimpar = document.getElementById('btnLimpar');
     const mensagem = document.getElementById('mensagem');
-    const resumo = document.getElementById('resumo');
-    const blocoTabela = document.getElementById('blocoTabela');
+    const formCliente = document.getElementById('formCliente');
+    const campoFavorecido = document.getElementById('favorecido');
+    const campoNome = document.getElementById('nome');
+    const campoRazao = document.getElementById('razao');
+    const campoCodigo = document.getElementById('codigo');
+    const campoTelefonePrincipal = document.getElementById('telefonePrincipal');
+    const campoCidade = document.getElementById('cidade');
+    const campoUf = document.getElementById('uf');
+    const campoAtivo = document.getElementById('ativo');
+    const buscaNome = document.getElementById('buscaNome');
+    const buscaCidade = document.getElementById('buscaCidade');
+    const buscaUf = document.getElementById('buscaUf');
+    const filtroStatus = document.getElementById('filtroStatus');
+    const tbodyClientes = document.getElementById('tbodyClientes');
+    const btnNovo = document.getElementById('btnNovo');
+    const btnBuscar = document.getElementById('btnBuscar');
+    const btnLimparFiltros = document.getElementById('btnLimparFiltros');
 
-    const modalOverlay = document.getElementById('modalOverlay');
-    const modalNome = document.getElementById('modalNome');
-    const modalTelefone = document.getElementById('modalTelefone');
-    const modalCidade = document.getElementById('modalCidade');
-    const modalUf = document.getElementById('modalUf');
-    const btnFecharModalTopo = document.getElementById('btnFecharModalTopo');
-    const btnFecharModalRodape = document.getElementById('btnFecharModalRodape');
-    const btnHistoricoCompras = document.getElementById('btnHistoricoCompras');
-    const modalAcaoInfo = document.getElementById('modalAcaoInfo');
-
-    let clienteSelecionadoAtual = null;
+    let clientes = [];
 
     function setMensagem(texto, erro = false) {
-      mensagem.textContent = texto;
-      mensagem.className = erro ? 'mensagem erro' : 'mensagem';
-    }
+      if (!texto) {
+        mensagem.style.display = 'none';
+        mensagem.textContent = '';
+        mensagem.classList.remove('erro');
+        return;
+      }
 
-    function limparTabela() {
-      blocoTabela.innerHTML = '<div class="placeholder">Nenhum cliente carregado.</div>';
-      resumo.textContent = 'Nenhum cliente carregado.';
+      mensagem.textContent = texto;
+      mensagem.style.display = 'block';
+      mensagem.classList.toggle('erro', Boolean(erro));
     }
 
     function limparSomenteNumeros(valor) {
       return String(valor || '').replace(/\D/g, '');
-    }
-
-    function formatarTelefoneExibicao(valor) {
-      const numeros = limparSomenteNumeros(valor);
-
-      if (!numeros) {
-        return '-';
-      }
-
-      return valor;
     }
 
     function abrirWhatsapp(telefone) {
@@ -552,272 +348,257 @@
         numeros = `55${numeros}`;
       }
 
-      const appUrl = `whatsapp://send?phone=${numeros}`;
-      const webUrl = `https://wa.me/${numeros}`;
-
-      let fallbackExecutado = false;
-
-      const executarFallback = () => {
-        if (fallbackExecutado) {
-          return;
-        }
-
-        fallbackExecutado = true;
-        window.open(webUrl, '_blank');
-      };
-
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.src = appUrl;
-      document.body.appendChild(iframe);
-
-      setTimeout(() => {
-        if (document.body.contains(iframe)) {
-          document.body.removeChild(iframe);
-        }
-
-        executarFallback();
-      }, 1200);
+      window.open(`https://wa.me/${numeros}`, '_blank');
     }
 
-    function criarHtmlTelefone(valor) {
-      const telefoneFormatado = formatarTelefoneExibicao(valor);
-      const telefoneSeguro = String(valor || '').replace(/'/g, "\\'");
+    function resetarFormulario() {
+      campoFavorecido.value = '';
+      campoNome.value = '';
+      campoRazao.value = '';
+      campoCodigo.value = '';
+      campoTelefonePrincipal.value = '';
+      campoCidade.value = '';
+      campoUf.value = '';
+      campoAtivo.checked = true;
+      campoNome.focus();
+    }
 
-      if (telefoneFormatado === '-') {
+    function preencherFormulario(cliente) {
+      campoFavorecido.value = cliente.favorecido || '';
+      campoNome.value = cliente.nome || '';
+      campoRazao.value = cliente.razao || '';
+      campoCodigo.value = cliente.codigo || '';
+      campoTelefonePrincipal.value = cliente.telefonePrincipal || '';
+      campoCidade.value = cliente.cidade || '';
+      campoUf.value = cliente.uf || '';
+      campoAtivo.checked = Boolean(cliente.ativo);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function formatarCidadeUf(cliente) {
+      const cidade = cliente.cidade || '-';
+      const uf = cliente.uf || '';
+      return uf ? `${cidade}/${uf}` : cidade;
+    }
+
+    function renderizarTelefone(telefone) {
+      if (!telefone) {
         return '-';
       }
 
-      return `
-        <button
-          type="button"
-          class="telefone-link-btn"
-          onclick="abrirWhatsapp('${telefoneSeguro}')"
-          title="Abrir conversa no WhatsApp"
-        >
-          ${telefoneFormatado}
-        </button>
-      `;
+      const telefoneSeguro = String(telefone).replace(/'/g, "\\'");
+      return `<button type="button" class="telefone-btn" onclick="abrirWhatsapp('${telefoneSeguro}')">${telefone}</button>`;
     }
 
-    function obterFavorecidoCliente(cliente) {
-      return (
-        cliente?.favorecido ??
-        cliente?.Favorecido ??
-        cliente?.FAVORECIDO ??
-        cliente?.codigo ??
-        cliente?.CODIGO ??
-        ''
-      );
-    }
-
-    function atualizarAcaoHistorico(cliente) {
-      const favorecido = obterFavorecidoCliente(cliente);
-
-      if (!favorecido) {
-        btnHistoricoCompras.disabled = true;
-        modalAcaoInfo.textContent = 'Código do cliente não disponível para abrir o histórico.';
+    function renderizarTabela() {
+      if (!clientes.length) {
+        tbodyClientes.innerHTML = '<tr><td colspan="8" class="vazio">Nenhum cliente encontrado.</td></tr>';
         return;
       }
 
-      btnHistoricoCompras.disabled = false;
-      modalAcaoInfo.textContent = 'Ao clicar, será aberta a página de pedidos deste cliente.';
+      tbodyClientes.innerHTML = clientes.map((cliente) => `
+        <tr class="${cliente.ativo ? '' : 'inativo'}">
+          <td>${cliente.favorecido ?? '-'}</td>
+          <td>${cliente.nome || '-'}</td>
+          <td>${cliente.razao || '-'}</td>
+          <td>${cliente.codigo || '-'}</td>
+          <td>${renderizarTelefone(cliente.telefonePrincipal)}</td>
+          <td>${formatarCidadeUf(cliente)}</td>
+          <td>
+            <span class="status ${cliente.ativo ? 'ativo' : 'inativo'}">${cliente.ativo ? 'Ativo' : 'Inativo'}</span>
+          </td>
+          <td>
+            <div class="acoes-linha">
+              <button type="button" class="secundario" onclick="editarCliente(${cliente.favorecido})">Editar</button>
+              <button type="button" class="sucesso" onclick="abrirHistorico(${cliente.favorecido})">Histórico</button>
+              ${cliente.ativo
+                ? `<button type="button" class="perigo" onclick="desativarCliente(${cliente.favorecido})">Desativar</button>`
+                : `<button type="button" class="alerta" onclick="reativarCliente(${cliente.favorecido})">Reativar</button>`}
+            </div>
+          </td>
+        </tr>
+      `).join('');
     }
 
-    function abrirModal(cliente) {
-      clienteSelecionadoAtual = cliente || null;
+    async function carregarClientes() {
+      setMensagem('');
 
-      modalNome.textContent = cliente?.nome || '-';
-      modalCidade.textContent = cliente?.cidade || '-';
-      modalUf.textContent = cliente?.uf || '-';
+      try {
+        const params = new URLSearchParams();
 
-      const telefoneCliente = cliente?.telefonePrincipal || '';
-      const telefoneFormatado = formatarTelefoneExibicao(telefoneCliente);
-      const telefoneSeguro = String(telefoneCliente).replace(/'/g, "\\'");
+        if (buscaNome.value.trim()) {
+          params.set('nome', buscaNome.value.trim());
+        }
 
-      if (telefoneFormatado !== '-') {
-        modalTelefone.innerHTML = `
-          <button
-            type="button"
-            class="telefone-link-btn"
-            onclick="abrirWhatsapp('${telefoneSeguro}')"
-            title="Abrir conversa no WhatsApp"
-          >
-            ${telefoneFormatado}
-          </button>
-        `;
-      } else {
-        modalTelefone.textContent = '-';
+        if (buscaCidade.value.trim()) {
+          params.set('cidade', buscaCidade.value.trim());
+        }
+
+        if (buscaUf.value.trim()) {
+          params.set('uf', buscaUf.value.trim().toUpperCase());
+        }
+
+        if (filtroStatus.value) {
+          params.set('status', filtroStatus.value);
+        }
+
+        params.set('limite', '100');
+
+        const response = await fetch(`/api/legado/clientes?${params.toString()}`);
+        const json = await response.json();
+
+        if (!response.ok || !json.sucesso) {
+          throw new Error(json.erro || 'Erro ao carregar clientes.');
+        }
+
+        clientes = Array.isArray(json.dados) ? json.dados : [];
+        renderizarTabela();
+      } catch (error) {
+        clientes = [];
+        renderizarTabela();
+        setMensagem(error.message || 'Erro ao carregar clientes.', true);
       }
-
-      atualizarAcaoHistorico(cliente);
-      modalOverlay.classList.add('ativo');
     }
 
-    function fecharModal() {
-      modalOverlay.classList.remove('ativo');
+    async function editarCliente(favorecido) {
+      try {
+        const response = await fetch(`/api/legado/clientes/${favorecido}`);
+        const json = await response.json();
+
+        if (!response.ok || !json.sucesso) {
+          throw new Error(json.erro || 'Erro ao carregar cliente.');
+        }
+
+        preencherFormulario(json.dado || {});
+      } catch (error) {
+        setMensagem(error.message || 'Erro ao carregar cliente.', true);
+      }
     }
 
-    function abrirHistoricoCompras() {
-      const favorecido = obterFavorecidoCliente(clienteSelecionadoAtual);
-
-      if (!favorecido) {
-        modalAcaoInfo.textContent = 'Código do cliente não disponível para abrir o histórico.';
+    async function desativarCliente(favorecido) {
+      if (!window.confirm('Deseja desativar este cliente?')) {
         return;
       }
 
+      try {
+        const response = await fetch(`/api/legado/clientes/${favorecido}`, { method: 'DELETE' });
+        const json = await response.json();
+
+        if (!response.ok || !json.sucesso) {
+          throw new Error(json.erro || 'Erro ao desativar cliente.');
+        }
+
+        setMensagem('Cliente desativado com sucesso.');
+        if (String(campoFavorecido.value || '') === String(favorecido)) {
+          resetarFormulario();
+        }
+        await carregarClientes();
+      } catch (error) {
+        setMensagem(error.message || 'Erro ao desativar cliente.', true);
+      }
+    }
+
+    async function reativarCliente(favorecido) {
+      try {
+        const response = await fetch(`/api/legado/clientes/${favorecido}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ativo: true })
+        });
+        const json = await response.json();
+
+        if (!response.ok || !json.sucesso) {
+          throw new Error(json.erro || 'Erro ao reativar cliente.');
+        }
+
+        setMensagem('Cliente reativado com sucesso.');
+        await carregarClientes();
+      } catch (error) {
+        setMensagem(error.message || 'Erro ao reativar cliente.', true);
+      }
+    }
+
+    async function salvarCliente(event) {
+      event.preventDefault();
+      setMensagem('');
+
+      const payload = {
+        nome: campoNome.value.trim(),
+        razao: campoRazao.value.trim(),
+        codigo: campoCodigo.value.trim(),
+        telefonePrincipal: campoTelefonePrincipal.value.trim(),
+        cidade: campoCidade.value.trim(),
+        uf: campoUf.value.trim().toUpperCase(),
+        ativo: campoAtivo.checked
+      };
+
+      const favorecido = campoFavorecido.value.trim();
+      const method = favorecido ? 'PUT' : 'POST';
+      const url = favorecido ? `/api/legado/clientes/${favorecido}` : '/api/legado/clientes';
+
+      try {
+        const response = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const json = await response.json();
+
+        if (!response.ok || !json.sucesso) {
+          throw new Error(json.erro || 'Erro ao salvar cliente.');
+        }
+
+        setMensagem(favorecido ? 'Cliente atualizado com sucesso.' : 'Cliente criado com sucesso.');
+        resetarFormulario();
+        await carregarClientes();
+      } catch (error) {
+        setMensagem(error.message || 'Erro ao salvar cliente.', true);
+      }
+    }
+
+    function abrirHistorico(favorecido) {
       window.location.href = `/legado/pedidos-cliente?favorecido=${encodeURIComponent(favorecido)}`;
     }
 
-    function renderizarTabela(clientes) {
-      if (!clientes || !clientes.length) {
-        blocoTabela.innerHTML = '<div class="sem-registros">Nenhum cliente encontrado.</div>';
-        resumo.textContent = '0 clientes encontrados.';
-        return;
-      }
+    formCliente.addEventListener('submit', salvarCliente);
+    btnNovo.addEventListener('click', () => {
+      setMensagem('');
+      resetarFormulario();
+    });
+    btnBuscar.addEventListener('click', carregarClientes);
+    btnLimparFiltros.addEventListener('click', () => {
+      buscaNome.value = '';
+      buscaCidade.value = '';
+      buscaUf.value = '';
+      filtroStatus.value = 'ativos';
+      carregarClientes();
+    });
 
-      resumo.textContent = `${clientes.length} cliente(s) encontrado(s).`;
-
-      blocoTabela.innerHTML = `
-        <div class="tabela-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Nome</th>
-                <th>Telefone</th>
-                <th>Cidade</th>
-                <th>UF</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${clientes.map((cliente, index) => `
-                <tr>
-                  <td>
-                    <button
-                      type="button"
-                      class="cliente-link"
-                      data-index="${index}"
-                    >
-                      ${cliente.nome || '-'}
-                    </button>
-                  </td>
-                  <td>${criarHtmlTelefone(cliente.telefonePrincipal)}</td>
-                  <td>${cliente.cidade || '-'}</td>
-                  <td>${cliente.uf || '-'}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-        </div>
-      `;
-
-      blocoTabela.querySelectorAll('.cliente-link').forEach((botao) => {
-        botao.addEventListener('click', () => {
-          const indice = Number(botao.dataset.index);
-          abrirModal(clientes[indice]);
-        });
-      });
-    }
-
-    function montarQueryString() {
-      const params = new URLSearchParams();
-
-      const nome = filtroNome.value.trim();
-      const cidade = filtroCidade.value.trim();
-      const uf = filtroUf.value.trim().toUpperCase();
-      const limite = filtroLimite.value.trim();
-
-      if (nome) {
-        params.set('nome', nome);
-      }
-
-      if (cidade) {
-        params.set('cidade', cidade);
-      }
-
-      if (uf) {
-        params.set('uf', uf);
-      }
-
-      if (limite) {
-        params.set('limite', limite);
-      }
-
-      return params.toString();
-    }
-
-    async function pesquisarClientes() {
-      setMensagem('Pesquisando clientes...');
-      limparTabela();
-
-      try {
-        const queryString = montarQueryString();
-        const url = queryString
-          ? `/api/legado/clientes?${queryString}`
-          : '/api/legado/clientes';
-
-        const response = await fetch(url);
-        const json = await response.json();
-
-        if (!response.ok) {
-          throw new Error(json?.erro || json?.detalhe || 'Erro ao consultar clientes.');
-        }
-
-        const clientes = Array.isArray(json?.dados) ? json.dados : [];
-
-        renderizarTabela(clientes);
-
-        if (!clientes.length) {
-          setMensagem('Nenhum cliente encontrado.', true);
-          return;
-        }
-
-        setMensagem('Clientes carregados com sucesso.');
-      } catch (error) {
-        limparTabela();
-        setMensagem(error.message || 'Erro ao consultar clientes.', true);
-      }
-    }
-
-    function limparFiltros() {
-      filtroNome.value = '';
-      filtroCidade.value = '';
-      filtroUf.value = '';
-      filtroLimite.value = '50';
-      setMensagem('Filtros limpos.');
-      limparTabela();
-    }
-
-    btnPesquisar.addEventListener('click', pesquisarClientes);
-    btnLimpar.addEventListener('click', limparFiltros);
-    btnHistoricoCompras.addEventListener('click', abrirHistoricoCompras);
-
-    [filtroNome, filtroCidade, filtroUf, filtroLimite].forEach((campo) => {
+    [buscaNome, buscaCidade, buscaUf].forEach((campo) => {
       campo.addEventListener('keydown', (event) => {
         if (event.key === 'Enter') {
-          pesquisarClientes();
+          event.preventDefault();
+          carregarClientes();
         }
       });
     });
 
-    filtroUf.addEventListener('input', () => {
-      filtroUf.value = filtroUf.value.toUpperCase().slice(0, 2);
+    campoUf.addEventListener('input', () => {
+      campoUf.value = campoUf.value.toUpperCase().slice(0, 2);
     });
 
-    btnFecharModalTopo.addEventListener('click', fecharModal);
-    btnFecharModalRodape.addEventListener('click', fecharModal);
-
-    modalOverlay.addEventListener('click', (event) => {
-      if (event.target === modalOverlay) {
-        fecharModal();
-      }
+    buscaUf.addEventListener('input', () => {
+      buscaUf.value = buscaUf.value.toUpperCase().slice(0, 2);
     });
 
-    document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') {
-        fecharModal();
-      }
-    });
+    window.editarCliente = editarCliente;
+    window.desativarCliente = desativarCliente;
+    window.reativarCliente = reativarCliente;
+    window.abrirHistorico = abrirHistorico;
+    window.abrirWhatsapp = abrirWhatsapp;
+
+    resetarFormulario();
+    carregarClientes();
   </script>
 </body>
 </html>
