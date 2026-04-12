@@ -45,8 +45,10 @@
     .tabela-itens td.valor, .tabela-itens th.valor { text-align: right; }
     .tabela-itens input[type=number] { text-align: right; }
     .tabela-vazia { padding: 18px; color: #6b7280; background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 10px; }
-    .footer-pedido { margin-top: 18px; display: grid; grid-template-columns: 1fr 180px 240px 140px 180px; gap: 12px; align-items: start; }
-    .footer-pedido textarea { min-height: 84px; resize: vertical; }
+    .footer-pedido { margin-top: 18px; display: flex; flex-direction: column; gap: 12px; align-items: stretch; }
+    .footer-pedido-top { display: grid; grid-template-columns: 10cm 1fr 180px; gap: 12px; align-items: end; }
+    .footer-pedido-bottom { display: grid; grid-template-columns: 1fr 140px; gap: 12px; align-items: end; }
+    .footer-pedido textarea { width: 10cm; min-width: 10cm; max-width: 10cm; min-height: 2cm; height: 2cm; resize: vertical; }
     .total-box { background: #111827; color: #fff; border-radius: 10px; padding: 16px; }
     .total-box small { display: block; opacity: 0.8; margin-bottom: 6px; }
     .total-box strong { font-size: 24px; }
@@ -59,6 +61,7 @@
     @media (max-width: 1120px) {
       .grid { grid-template-columns: 1fr; }
       .footer-pedido-top, .footer-pedido-bottom { grid-template-columns: 1fr; }
+      .footer-pedido textarea { width: 100%; min-width: 0; max-width: 100%; }
     }
     @media (max-width: 980px) {
       .filtros { grid-template-columns: 1fr; }
