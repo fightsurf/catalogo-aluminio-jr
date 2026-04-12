@@ -622,7 +622,21 @@
     async function carregarCarradas() {
       if (carradasCache.length) return carradasCache;
       const json = await fetchJson('/api/legado/carradas');
-      carradasCache = Array.isArray(json?.data) ? json.data : [];
+      const lista = Array.isArray(json?.data) ? json.data : [];
+
+      carradasCache = lista.sort((a, b) => {
+        const dataA = a?.data ? new Date(a.data).getTime() : 0;
+        const dataB = b?.data ? new Date(b.data).getTime() : 0;
+
+        if (dataB !== dataA) {
+          return dataB - dataA;
+        }
+
+        const codigoA = Number(a?.codigo || 0);
+        const codigoB = Number(b?.codigo || 0);
+        return codigoB - codigoA;
+      });
+
       return carradasCache;
     }
 
@@ -720,6 +734,8 @@
             <div class="cliente-linha"><strong>Total pago:</strong> ${moeda(pedido?.totalPago || 0)}</div>
             <div class="cliente-linha"><strong>Saldo restante:</strong> ${moeda(pedido?.saldoRestante || 0)}</div>
           </div>
+
+          <div class="cliente-linha"><strong>Observação:</strong> ${pedido?.obs ? pedido.obs : '-'}</div>
         `;
         return;
       }
