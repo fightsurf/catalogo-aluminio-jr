@@ -58,7 +58,7 @@
     .telefone-vazio { color: #6b7280; }
     @media (max-width: 1120px) {
       .grid { grid-template-columns: 1fr; }
-      .footer-pedido { grid-template-columns: 1fr; }
+      .footer-pedido-top, .footer-pedido-bottom { grid-template-columns: 1fr; }
     }
     @media (max-width: 980px) {
       .filtros { grid-template-columns: 1fr; }
@@ -96,29 +96,34 @@
         <div id="tabelaItensWrap" style="margin-top: 18px;"></div>
 
         <div class="footer-pedido">
-          <div>
-            <label class="rotulo-pequeno" for="obsPedido">Observação</label>
-            <textarea id="obsPedido" placeholder="Observação do pedido"></textarea>
+          <div class="footer-pedido-top">
+            <div>
+              <label class="rotulo-pequeno" for="obsPedido">Observação</label>
+              <textarea id="obsPedido" placeholder="Observação do pedido"></textarea>
+            </div>
+            <div>
+              <label class="rotulo-pequeno" for="vendedorPedido">Vendedor</label>
+              <select id="vendedorPedido" class="campo-select">
+                <option value="">Carregando vendedores...</option>
+              </select>
+            </div>
+            <div class="total-box">
+              <small>Total do pedido</small>
+              <strong id="totalPedido">R$ 0,00</strong>
+            </div>
           </div>
-          <div>
-            <label class="rotulo-pequeno" for="vendedorPedido">Vendedor</label>
-            <select id="vendedorPedido" class="campo-select">
-              <option value="">Carregando vendedores...</option>
-            </select>
-          </div>
-          <div>
-            <label class="rotulo-pequeno" for="carradaPedido">Carrada (opcional)</label>
-            <select id="carradaPedido" class="campo-select">
-              <option value="">Carregando carradas...</option>
-            </select>
-          </div>
-          <div>
-            <label class="rotulo-pequeno" for="volumesPedido">Volumes</label>
-            <input id="volumesPedido" class="campo" type="number" min="0" step="1" value="0" />
-          </div>
-          <div class="total-box">
-            <small>Total do pedido</small>
-            <strong id="totalPedido">R$ 0,00</strong>
+
+          <div class="footer-pedido-bottom">
+            <div>
+              <label class="rotulo-pequeno" for="carradaPedido">Carrada (opcional)</label>
+              <select id="carradaPedido" class="campo-select">
+                <option value="">Carregando carradas...</option>
+              </select>
+            </div>
+            <div>
+              <label class="rotulo-pequeno" for="volumesPedido">Volumes</label>
+              <input id="volumesPedido" class="campo" type="number" min="0" step="1" value="0" />
+            </div>
           </div>
         </div>
 
