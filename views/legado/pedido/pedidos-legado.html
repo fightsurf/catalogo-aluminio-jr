@@ -16,19 +16,19 @@
       padding: 18px;
     }
 
+    .layout {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+
     .titulo-pagina {
       font-size: 22px;
       font-weight: bold;
       margin-bottom: 18px;
     }
 
-    .layout {
-      max-width: 1100px;
-      margin: 0 auto;
-    }
-
     .box {
-      background: #ffffff;
+      background: #fff;
       border-radius: 10px;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
       padding: 16px;
@@ -42,13 +42,19 @@
 
     .busca-linha,
     .acoes-pedido,
-    .acoes-edicao,
-    .busca-item-linha,
-    .cabecalho-edicao {
+    .linha-topo-itens,
+    .busca-produto-linha,
+    .cabecalho-box {
       display: flex;
       gap: 10px;
-      flex-wrap: wrap;
       align-items: end;
+      flex-wrap: wrap;
+    }
+
+    .cabecalho-box {
+      justify-content: space-between;
+      margin-bottom: 14px;
+      align-items: center;
     }
 
     .acoes-pedido {
@@ -56,20 +62,9 @@
       margin-top: 12px;
     }
 
-    .acoes-edicao {
-      justify-content: space-between;
-      margin-top: 12px;
-    }
-
-    .cabecalho-edicao {
-      justify-content: space-between;
-      margin-bottom: 12px;
-    }
-
-    .oculto { display: none !important; }
-
     .campo,
-    .campo-edicao {
+    .campo-inline,
+    .campo-busca-produto {
       display: flex;
       flex-direction: column;
       gap: 6px;
@@ -77,16 +72,21 @@
       flex: 1;
     }
 
+    .campo-inline { min-width: 220px; }
+    .campo-busca-produto { min-width: 280px; }
+
     .campo label,
-    .campo-edicao label {
+    .campo-inline label,
+    .campo-busca-produto label {
       font-size: 14px;
       font-weight: 600;
     }
 
     .campo input,
-    .campo-edicao input,
-    .campo-edicao select,
-    .campo-edicao textarea {
+    .campo-inline input,
+    .campo-inline select,
+    .campo-inline textarea,
+    .campo-busca-produto input {
       min-height: 38px;
       border: 1px solid #cfd6dd;
       border-radius: 4px;
@@ -97,16 +97,17 @@
       background: #fff;
     }
 
-    .campo input:focus,
-    .campo-edicao input:focus,
-    .campo-edicao select:focus,
-    .campo-edicao textarea:focus {
-      border-color: #3b82f6;
-    }
-
-    .campo-edicao textarea {
+    .campo-inline textarea {
       min-height: 86px;
       resize: vertical;
+    }
+
+    .campo input:focus,
+    .campo-inline input:focus,
+    .campo-inline select:focus,
+    .campo-inline textarea:focus,
+    .campo-busca-produto input:focus {
+      border-color: #3b82f6;
     }
 
     .btn {
@@ -128,26 +129,52 @@
     .btn-danger { background: #dc2626; color: #fff; }
     .btn-danger:hover { opacity: 0.92; }
 
+    .btn-secondary { background: #6b7280; color: #fff; }
+    .btn-secondary:hover { opacity: 0.92; }
+
     .mensagem {
       margin-top: 12px;
       font-size: 14px;
       color: #374151;
     }
 
-    .erro { color: #dc2626; font-weight: 600; }
+    .erro {
+      color: #dc2626;
+      font-weight: 600;
+    }
+
+    .oculto { display: none !important; }
+
+    .placeholder,
+    .sem-itens,
+    .sem-resultados {
+      color: #6b7280;
+      font-size: 15px;
+    }
+
+    .texto-ajuda {
+      font-size: 13px;
+      color: #4b5563;
+    }
 
     .cliente-nome {
       font-size: 14px;
-      font-weight: 600;
+      font-weight: 700;
       margin-bottom: 10px;
       color: #111827;
       text-transform: uppercase;
     }
 
-    .cliente-dados-linha {
+    .cliente-dados-linha,
+    .grid-edicao-cliente {
       display: flex;
       gap: 24px;
       flex-wrap: wrap;
+    }
+
+    .grid-edicao-cliente {
+      margin-top: 12px;
+      gap: 12px;
     }
 
     .cliente-linha {
@@ -164,9 +191,17 @@
 
     .telefone-link:hover { color: #000; }
 
-    .placeholder, .sem-itens, .sem-resultados-busca-item {
-      color: #6b7280;
-      font-size: 15px;
+    .bloco-resumo-edicao {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px solid #e5e7eb;
+      font-size: 14px;
+      font-weight: 600;
     }
 
     .tabela-wrap { overflow-x: auto; }
@@ -193,6 +228,16 @@
 
     .right { text-align: right; }
 
+    .input-curto {
+      width: 120px;
+      min-width: 100px;
+    }
+
+    .input-preco {
+      width: 130px;
+      min-width: 110px;
+    }
+
     .resultados-box {
       margin-top: 14px;
       border-top: 1px solid #e5e7eb;
@@ -205,24 +250,25 @@
     }
 
     .resultado-lista,
-    .lista-busca-itens {
+    .lista-produtos-busca {
       display: flex;
       flex-direction: column;
       gap: 8px;
     }
 
     .resultado-item,
-    .item-encontrado {
+    .produto-item-busca {
       border: 1px solid #e5e7eb;
       border-radius: 6px;
       padding: 10px 12px;
-      cursor: pointer;
       background: #fff;
       transition: 0.2s;
     }
 
+    .resultado-item { cursor: pointer; }
+
     .resultado-item:hover,
-    .item-encontrado:hover {
+    .produto-item-busca:hover {
       background: #f9fafb;
       border-color: #cfd6dd;
     }
@@ -233,65 +279,43 @@
     }
 
     .resultado-principal,
-    .item-encontrado-principal {
+    .produto-item-principal {
       font-weight: 600;
       margin-bottom: 4px;
     }
 
     .resultado-secundario,
-    .item-encontrado-secundario,
-    .texto-ajuda {
+    .produto-item-secundario,
+    .linha-info-edicao {
       font-size: 13px;
       color: #4b5563;
     }
 
-    .grid-edicao {
-      display: grid;
-      grid-template-columns: repeat(3, minmax(220px, 1fr));
-      gap: 12px;
-      margin-bottom: 14px;
-    }
-
-    .campo-edicao.full {
-      grid-column: 1 / -1;
-    }
-
-    .resumo-edicao {
-      margin-top: 12px;
+    .acoes-produto-busca {
+      margin-top: 8px;
       display: flex;
       justify-content: flex-end;
-      gap: 18px;
-      flex-wrap: wrap;
-      font-size: 14px;
-      font-weight: 600;
     }
 
-    .item-actions-cell {
-      width: 90px;
-      text-align: center;
-    }
-
-    .input-numero-curto {
-      width: 120px;
-      min-width: 100px;
-    }
-
-    .input-preco-curto {
-      width: 130px;
-      min-width: 110px;
-    }
-
-    .busca-item-linha .campo-edicao {
-      min-width: 280px;
+    .tag-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      background: #e0f2fe;
+      color: #0369a1;
     }
 
     @media (max-width: 900px) {
-      .grid-edicao {
-        grid-template-columns: 1fr;
+      .acoes-pedido {
+        justify-content: flex-start;
       }
 
-      .acoes-edicao {
-        justify-content: flex-start;
+      .grid-edicao-cliente {
+        flex-direction: column;
       }
     }
   </style>
@@ -331,6 +355,9 @@
       </div>
 
       <div class="acoes-pedido">
+        <button id="btnEditarPedido" class="btn btn-primary oculto">Editar pedido</button>
+        <button id="btnCancelarEdicao" class="btn btn-secondary oculto">Cancelar edição</button>
+        <button id="btnSalvarAlteracoes" class="btn btn-primary oculto">Salvar alterações</button>
         <button id="btnEnviarWhatsapp" class="btn btn-whatsapp oculto">Enviar para WhatsApp</button>
         <button id="btnAdicionarPagamentos" class="btn btn-primary oculto">Adicionar pagamentos</button>
         <button id="btnImprimirRelatorioProducao" class="btn btn-primary oculto">Imprimir relatório para produção</button>
@@ -347,71 +374,6 @@
     <div class="box">
       <div id="blocoItens" class="sem-itens">Nenhum item carregado.</div>
     </div>
-
-    <div class="box oculto" id="boxEdicaoPedido">
-      <div class="cabecalho-edicao">
-        <h2>Editar pedido</h2>
-        <div class="texto-ajuda">Aqui você pode alterar vendedor, observação, carrada e itens.</div>
-      </div>
-
-      <div class="grid-edicao">
-        <div class="campo-edicao">
-          <label for="edicaoVendedor">Vendedor</label>
-          <select id="edicaoVendedor"></select>
-        </div>
-
-        <div class="campo-edicao">
-          <label for="edicaoCarrada">Carrada</label>
-          <select id="edicaoCarrada"></select>
-        </div>
-
-        <div class="campo-edicao full">
-          <label for="edicaoObservacao">Observação</label>
-          <textarea id="edicaoObservacao" placeholder="Digite a observação do pedido"></textarea>
-        </div>
-      </div>
-
-      <div class="busca-item-linha">
-        <div class="campo-edicao">
-          <label for="buscarItemDescricao">Adicionar item por descrição</label>
-          <input type="text" id="buscarItemDescricao" placeholder="Digite parte da descrição do item" />
-        </div>
-
-        <button id="btnBuscarItemDescricao" class="btn btn-primary">Buscar item</button>
-        <button id="btnLimparBuscaItem" class="btn btn-primary">Limpar busca</button>
-      </div>
-
-      <div id="resultadoBuscaItens" class="resultados-box oculto">
-        <h3>Itens encontrados</h3>
-        <div id="listaBuscaItens" class="lista-busca-itens"></div>
-      </div>
-
-      <div class="tabela-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th style="width: 90px;">Item</th>
-              <th>Descrição</th>
-              <th class="right" style="width: 130px;">Quantidade</th>
-              <th class="right" style="width: 140px;">Preço</th>
-              <th class="right" style="width: 140px;">Subtotal</th>
-              <th class="item-actions-cell">Ação</th>
-            </tr>
-          </thead>
-          <tbody id="tbodyEdicaoItens"></tbody>
-        </table>
-      </div>
-
-      <div class="resumo-edicao">
-        <div>Total de itens: <span id="resumoTotalItens">0</span></div>
-        <div>Total do pedido: <span id="resumoTotalPedido">R$ 0,00</span></div>
-      </div>
-
-      <div class="acoes-edicao">
-        <div class="texto-ajuda">Para trocar um produto, remova a linha atual e adicione o novo item pela busca.</div>
-        <button id="btnSalvarAlteracoes" class="btn btn-primary">Salvar alterações</button>
-      </div>
-    </div>
   </div>
 
   <script>
@@ -420,34 +382,30 @@
     const dataPedidoInput = document.getElementById('dataPedido');
     const btnPesquisar = document.getElementById('btnPesquisar');
     const mensagem = document.getElementById('mensagem');
-    const dadosCliente = document.getElementById('dadosCliente');
-    const blocoItens = document.getElementById('blocoItens');
-    const btnImprimirRelatorio = document.getElementById('btnImprimirRelatorio');
-    const btnImprimirRelatorioProducao = document.getElementById('btnImprimirRelatorioProducao');
-    const btnEnviarWhatsapp = document.getElementById('btnEnviarWhatsapp');
-    const btnAdicionarPagamentos = document.getElementById('btnAdicionarPagamentos');
     const resultadosBusca = document.getElementById('resultadosBusca');
     const resultadoLista = document.getElementById('resultadoLista');
+    const dadosCliente = document.getElementById('dadosCliente');
+    const blocoItens = document.getElementById('blocoItens');
 
-    const boxEdicaoPedido = document.getElementById('boxEdicaoPedido');
-    const edicaoVendedor = document.getElementById('edicaoVendedor');
-    const edicaoCarrada = document.getElementById('edicaoCarrada');
-    const edicaoObservacao = document.getElementById('edicaoObservacao');
-    const buscarItemDescricao = document.getElementById('buscarItemDescricao');
-    const btnBuscarItemDescricao = document.getElementById('btnBuscarItemDescricao');
-    const btnLimparBuscaItem = document.getElementById('btnLimparBuscaItem');
-    const resultadoBuscaItens = document.getElementById('resultadoBuscaItens');
-    const listaBuscaItens = document.getElementById('listaBuscaItens');
-    const tbodyEdicaoItens = document.getElementById('tbodyEdicaoItens');
-    const resumoTotalItens = document.getElementById('resumoTotalItens');
-    const resumoTotalPedido = document.getElementById('resumoTotalPedido');
+    const btnEditarPedido = document.getElementById('btnEditarPedido');
+    const btnCancelarEdicao = document.getElementById('btnCancelarEdicao');
     const btnSalvarAlteracoes = document.getElementById('btnSalvarAlteracoes');
+    const btnEnviarWhatsapp = document.getElementById('btnEnviarWhatsapp');
+    const btnAdicionarPagamentos = document.getElementById('btnAdicionarPagamentos');
+    const btnImprimirRelatorioProducao = document.getElementById('btnImprimirRelatorioProducao');
+    const btnImprimirRelatorio = document.getElementById('btnImprimirRelatorio');
 
     let pedidoCarregado = null;
     let pedidosEncontrados = [];
     let vendedoresCache = [];
     let carradasCache = [];
     let itensEdicao = [];
+    let modoEdicao = false;
+    let vendedorEdicao = '';
+    let codigoCarradaEdicao = '';
+    let observacaoEdicao = '';
+    let buscaProdutoTermo = '';
+    let buscaProdutoResultados = [];
 
     function setMensagem(texto, erro = false) {
       mensagem.textContent = texto;
@@ -469,8 +427,8 @@
     }
 
     function numeroFixo(valor, casas = 3) {
-      const numeroAtual = Number(valor || 0);
-      return Number.isFinite(numeroAtual) ? numeroAtual.toFixed(casas) : (0).toFixed(casas);
+      const atual = Number(valor || 0);
+      return Number.isFinite(atual) ? atual.toFixed(casas) : (0).toFixed(casas);
     }
 
     function normalizarTelefone(valor) {
@@ -495,9 +453,7 @@
     }
 
     function calcularSubtotalItem(item) {
-      const quantidade = Number(item?.quantidade || 0);
-      const preco = Number(item?.preco || 0);
-      return quantidade * preco;
+      return Number(item?.quantidade || 0) * Number(item?.preco || 0);
     }
 
     function totalPedidoAtual() {
@@ -519,43 +475,62 @@
       return json;
     }
 
+    function atualizarVisibilidadeAcoes() {
+      const haPedido = !!pedidoCarregado;
+      btnEditarPedido.classList.toggle('oculto', !haPedido || modoEdicao);
+      btnCancelarEdicao.classList.toggle('oculto', !haPedido || !modoEdicao);
+      btnSalvarAlteracoes.classList.toggle('oculto', !haPedido || !modoEdicao);
+
+      const ocultarAcoesLeitura = !haPedido || modoEdicao;
+      btnEnviarWhatsapp.classList.toggle('oculto', ocultarAcoesLeitura);
+      btnAdicionarPagamentos.classList.toggle('oculto', ocultarAcoesLeitura);
+      btnImprimirRelatorioProducao.classList.toggle('oculto', ocultarAcoesLeitura);
+      btnImprimirRelatorio.classList.toggle('oculto', ocultarAcoesLeitura);
+    }
+
     function limparResultados() {
       pedidosEncontrados = [];
       resultadoLista.innerHTML = '';
       resultadosBusca.classList.add('oculto');
     }
 
-    function limparBuscaItens() {
-      buscarItemDescricao.value = '';
-      listaBuscaItens.innerHTML = '';
-      resultadoBuscaItens.classList.add('oculto');
-    }
-
-    function limparEdicao() {
-      boxEdicaoPedido.classList.add('oculto');
-      edicaoVendedor.innerHTML = '';
-      edicaoCarrada.innerHTML = '';
-      edicaoObservacao.value = '';
-      tbodyEdicaoItens.innerHTML = '';
-      resumoTotalItens.textContent = '0';
-      resumoTotalPedido.textContent = moeda(0);
-      itensEdicao = [];
-      limparBuscaItens();
+    function limparBuscaProduto() {
+      buscaProdutoTermo = '';
+      buscaProdutoResultados = [];
     }
 
     function limparCliente() {
-      dadosCliente.innerHTML = '<div class="placeholder">Nenhum pedido carregado.</div>';
-      btnImprimirRelatorio.classList.add('oculto');
-      btnImprimirRelatorioProducao.classList.add('oculto');
-      btnEnviarWhatsapp.classList.add('oculto');
-      btnAdicionarPagamentos.classList.add('oculto');
-      btnEnviarWhatsapp.disabled = true;
       pedidoCarregado = null;
-      limparEdicao();
+      modoEdicao = false;
+      vendedorEdicao = '';
+      codigoCarradaEdicao = '';
+      observacaoEdicao = '';
+      itensEdicao = [];
+      limparBuscaProduto();
+      dadosCliente.innerHTML = '<div class="placeholder">Nenhum pedido carregado.</div>';
+      atualizarVisibilidadeAcoes();
+      btnEnviarWhatsapp.disabled = true;
     }
 
     function limparItens() {
       blocoItens.innerHTML = '<div class="sem-itens">Nenhum item carregado.</div>';
+    }
+
+    function obterFiltrosDaUrl() {
+      const params = new URLSearchParams(window.location.search);
+      return {
+        numero: (params.get('numero') || '').trim(),
+        cliente: (params.get('cliente') || '').trim(),
+        data: (params.get('data') || '').trim()
+      };
+    }
+
+    function construirQuery(filtros) {
+      const params = new URLSearchParams();
+      if (filtros.numero) params.set('numero', filtros.numero);
+      if (filtros.cliente) params.set('cliente', filtros.cliente);
+      if (filtros.data) params.set('data', filtros.data);
+      return params.toString();
     }
 
     function montarMensagemWhatsappPedido(pedido) {
@@ -580,10 +555,7 @@
         }
       });
 
-      if (itens.length) {
-        linhas.push('');
-      }
-
+      if (itens.length) linhas.push('');
       linhas.push(`Total do pedido: *${moeda(pedido?.total || 0)}*`);
 
       if (pedido?.obs) {
@@ -612,15 +584,11 @@
           saida: String(saida),
           pdv: String(pdv)
         });
-
         return `/legado/pagamentos?${params.toString()}`;
       }
 
       const numeroPedido = String(pedido?.numero || '').trim();
-      if (!numeroPedido) {
-        return '/legado/pagamentos';
-      }
-
+      if (!numeroPedido) return '/legado/pagamentos';
       return `/legado/pagamentos?numero=${encodeURIComponent(numeroPedido)}`;
     }
 
@@ -640,121 +608,354 @@
         autoPrint: '1'
       });
 
-      if (modo) {
-        params.set('modo', modo);
-      }
-
+      if (modo) params.set('modo', modo);
       window.open(`/legado/pedidos-relatorio?${params.toString()}`, '_blank');
     }
 
-    function obterFiltrosDaUrl() {
-      const params = new URLSearchParams(window.location.search);
-      return {
-        numero: (params.get('numero') || '').trim(),
-        cliente: (params.get('cliente') || '').trim(),
-        data: (params.get('data') || '').trim()
-      };
-    }
-
-    function construirQuery(filtros) {
-      const params = new URLSearchParams();
-
-      if (filtros.numero) params.set('numero', filtros.numero);
-      if (filtros.cliente) params.set('cliente', filtros.cliente);
-      if (filtros.data) params.set('data', filtros.data);
-
-      return params.toString();
-    }
-
     async function carregarVendedores() {
-      if (vendedoresCache.length) {
-        return vendedoresCache;
-      }
-
+      if (vendedoresCache.length) return vendedoresCache;
       const json = await fetchJson('/api/legado/vendedores?status=ativos&limite=500');
       vendedoresCache = Array.isArray(json?.dados) ? json.dados : [];
       return vendedoresCache;
     }
 
     async function carregarCarradas() {
-      if (carradasCache.length) {
-        return carradasCache;
-      }
-
+      if (carradasCache.length) return carradasCache;
       const json = await fetchJson('/api/legado/carradas');
       carradasCache = Array.isArray(json?.data) ? json.data : [];
       return carradasCache;
     }
 
+    function montarOpcoesVendedor(valorAtual) {
+      return [
+        '<option value="">Selecione...</option>',
+        ...vendedoresCache.map((vendedor) => `
+          <option value="${vendedor?.favorecido ?? ''}" ${String(vendedor?.favorecido ?? '') === String(valorAtual ?? '') ? 'selected' : ''}>
+            ${(vendedor?.nome || '-').trim()}
+          </option>
+        `)
+      ].join('');
+    }
+
+    function montarOpcoesCarrada(valorAtual) {
+      const opcoes = ['<option value="">Sem carrada</option>'];
+      let existeAtual = false;
+
+      carradasCache.forEach((carrada) => {
+        const codigo = String(carrada?.codigo ?? '');
+        if (codigo && codigo === String(valorAtual ?? '')) {
+          existeAtual = true;
+        }
+        opcoes.push(`
+          <option value="${codigo}" ${codigo === String(valorAtual ?? '') ? 'selected' : ''}>
+            ${codigo} - ${(carrada?.descricao || formatarData(carrada?.data) || '').trim()}
+          </option>
+        `);
+      });
+
+      if (valorAtual && !existeAtual && pedidoCarregado?.carradaAtual?.codigo) {
+        const atual = pedidoCarregado.carradaAtual;
+        opcoes.push(`
+          <option value="${atual.codigo}" selected>
+            ${atual.codigo} - ${(atual?.descricao || formatarData(atual?.data) || '').trim()}
+          </option>
+        `);
+      }
+
+      return opcoes.join('');
+    }
+
+    function anexarEventosClienteEdicao() {
+      const selectVendedor = document.getElementById('selectVendedorEdicao');
+      const selectCarrada = document.getElementById('selectCarradaEdicao');
+      const textareaObs = document.getElementById('textareaObservacaoEdicao');
+
+      if (selectVendedor) {
+        selectVendedor.addEventListener('change', () => {
+          vendedorEdicao = selectVendedor.value;
+        });
+      }
+
+      if (selectCarrada) {
+        selectCarrada.addEventListener('change', () => {
+          codigoCarradaEdicao = selectCarrada.value;
+        });
+      }
+
+      if (textareaObs) {
+        textareaObs.addEventListener('input', () => {
+          observacaoEdicao = textareaObs.value;
+        });
+      }
+    }
+
     function renderizarCliente(pedido) {
-      const dataFormatada = pedido?.data
-        ? new Date(pedido.data).toLocaleDateString('pt-BR')
-        : '-';
+      if (!pedido) {
+        dadosCliente.innerHTML = '<div class="placeholder">Nenhum pedido carregado.</div>';
+        return;
+      }
+
+      const dataFormatada = pedido?.data ? new Date(pedido.data).toLocaleDateString('pt-BR') : '-';
+      const telefoneHtml = normalizarTelefone(pedido?.cliente?.telefonePrincipal || pedido?.cliente?.telefone1 || '')
+        ? `<a class="telefone-link" href="${obterWhatsappHref(pedido)}" target="_blank" rel="noopener noreferrer">${formatarTelefoneExibicao(pedido?.cliente?.telefonePrincipal || pedido?.cliente?.telefone1 || '')}</a>`
+        : 'Telefone não encontrado.';
+
+      if (!modoEdicao) {
+        dadosCliente.innerHTML = `
+          <div class="cliente-linha"><strong>Data:</strong> ${dataFormatada}</div>
+          <div class="cliente-linha"><strong>Número:</strong> ${pedido?.numero || '-'}</div>
+          <div class="cliente-linha"><strong>Vendedor:</strong> ${pedido?.vendedor?.nome || '-'}</div>
+
+          <div class="cliente-nome">${pedido?.cliente?.nome || '-'}</div>
+
+          <div class="cliente-dados-linha">
+            <div class="cliente-linha"><strong>Cidade:</strong> ${pedido?.cliente?.cidade || '-'}</div>
+            <div class="cliente-linha"><strong>UF:</strong> ${pedido?.cliente?.uf || '-'}</div>
+            <div class="cliente-linha"><strong>Telefone:</strong> ${telefoneHtml}</div>
+            <div class="cliente-linha"><strong>Carrada:</strong> ${pedido?.carradaAtual?.codigo ? `${pedido.carradaAtual.codigo} - ${pedido.carradaAtual.descricao || formatarData(pedido.carradaAtual.data)}` : 'Sem carrada'}</div>
+          </div>
+
+          <div class="cliente-dados-linha">
+            <div class="cliente-linha"><strong>Total:</strong> ${moeda(pedido?.total || 0)}</div>
+            <div class="cliente-linha"><strong>Total pago:</strong> ${moeda(pedido?.totalPago || 0)}</div>
+            <div class="cliente-linha"><strong>Saldo restante:</strong> ${moeda(pedido?.saldoRestante || 0)}</div>
+          </div>
+        `;
+        return;
+      }
 
       dadosCliente.innerHTML = `
-        <div class="cliente-linha"><strong>Data:</strong> ${dataFormatada}</div>
-        <div class="cliente-linha"><strong>Número:</strong> ${pedido?.numero || '-'}</div>
-        <div class="cliente-linha"><strong>Vendedor:</strong> ${pedido?.vendedor?.nome || '-'}</div>
-
-        <div class="cliente-nome">${pedido?.cliente?.nome || '-'}</div>
+        <div class="cabecalho-box">
+          <div>
+            <div class="cliente-nome">${pedido?.cliente?.nome || '-'}</div>
+            <div class="linha-info-edicao">Número: ${pedido?.numero || '-'} · Data: ${dataFormatada}</div>
+          </div>
+          <div class="tag-status">Modo edição</div>
+        </div>
 
         <div class="cliente-dados-linha">
           <div class="cliente-linha"><strong>Cidade:</strong> ${pedido?.cliente?.cidade || '-'}</div>
           <div class="cliente-linha"><strong>UF:</strong> ${pedido?.cliente?.uf || '-'}</div>
-          <div class="cliente-linha"><strong>Telefone:</strong> ${normalizarTelefone(pedido?.cliente?.telefonePrincipal || pedido?.cliente?.telefone1 || '') ? `<a class="telefone-link" href="${obterWhatsappHref(pedido)}" target="_blank" rel="noopener noreferrer">${formatarTelefoneExibicao(pedido?.cliente?.telefonePrincipal || pedido?.cliente?.telefone1 || '')}</a>` : 'Telefone não encontrado.'}</div>
-          <div class="cliente-linha"><strong>Carrada:</strong> ${pedido?.carradaAtual?.codigo ? `${pedido.carradaAtual.codigo} - ${pedido.carradaAtual.descricao || formatarData(pedido.carradaAtual.data)}` : 'Sem carrada'}</div>
+          <div class="cliente-linha"><strong>Telefone:</strong> ${telefoneHtml}</div>
+          <div class="cliente-linha"><strong>Total pago:</strong> ${moeda(pedido?.totalPago || 0)}</div>
+          <div class="cliente-linha"><strong>Saldo restante:</strong> ${moeda(Math.max(totalPedidoAtual() - Number(pedido?.totalPago || 0), 0))}</div>
         </div>
 
-        <div class="cliente-dados-linha">
-          <div class="cliente-linha"><strong>Total:</strong> ${moeda(pedido?.total || 0)}</div>
-          <div class="cliente-linha"><strong>Total pago:</strong> ${moeda(pedido?.totalPago || 0)}</div>
-          <div class="cliente-linha"><strong>Saldo restante:</strong> ${moeda(pedido?.saldoRestante || 0)}</div>
+        <div class="grid-edicao-cliente">
+          <div class="campo-inline">
+            <label for="selectVendedorEdicao">Vendedor</label>
+            <select id="selectVendedorEdicao">${montarOpcoesVendedor(vendedorEdicao)}</select>
+          </div>
+
+          <div class="campo-inline">
+            <label for="selectCarradaEdicao">Carrada</label>
+            <select id="selectCarradaEdicao">${montarOpcoesCarrada(codigoCarradaEdicao)}</select>
+          </div>
+
+          <div class="campo-inline" style="min-width:100%; flex-basis:100%;">
+            <label for="textareaObservacaoEdicao">Observação</label>
+            <textarea id="textareaObservacaoEdicao" placeholder="Digite a observação do pedido">${observacaoEdicao || ''}</textarea>
+          </div>
         </div>
       `;
+
+      anexarEventosClienteEdicao();
     }
 
-    function renderizarItens(itens) {
-      if (!itens || !itens.length) {
-        blocoItens.innerHTML = '<div class="sem-itens">Nenhum item encontrado.</div>';
+    function anexarEventosItensEdicao() {
+      const inputBusca = document.getElementById('inputBuscarProdutoEdicao');
+      const btnBuscar = document.getElementById('btnBuscarProdutoEdicao');
+      const btnLimpar = document.getElementById('btnLimparBuscaProdutoEdicao');
+
+      if (inputBusca) {
+        inputBusca.addEventListener('input', () => {
+          buscaProdutoTermo = inputBusca.value;
+        });
+
+        inputBusca.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            pesquisarProdutosRender();
+          }
+        });
+      }
+
+      if (btnBuscar) {
+        btnBuscar.addEventListener('click', pesquisarProdutosRender);
+      }
+
+      if (btnLimpar) {
+        btnLimpar.addEventListener('click', () => {
+          limparBuscaProduto();
+          renderizarItens(pedidoCarregado);
+        });
+      }
+
+      document.querySelectorAll('input[data-campo-item]').forEach((input) => {
+        input.addEventListener('change', () => {
+          const index = Number(input.dataset.index);
+          const campo = input.dataset.campoItem;
+          const valor = Number(input.value);
+          if (!Number.isFinite(valor)) return;
+          itensEdicao[index][campo] = valor;
+          renderizarCliente(pedidoCarregado);
+          renderizarItens(pedidoCarregado);
+        });
+      });
+
+      document.querySelectorAll('button[data-acao-item="remover"]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const index = Number(button.dataset.index);
+          itensEdicao.splice(index, 1);
+          renderizarCliente(pedidoCarregado);
+          renderizarItens(pedidoCarregado);
+        });
+      });
+
+      document.querySelectorAll('button[data-acao-produto="adicionar"]').forEach((button) => {
+        button.addEventListener('click', () => {
+          const index = Number(button.dataset.index);
+          const produto = buscaProdutoResultados[index];
+          if (!produto) return;
+
+          itensEdicao.push({
+            item: Number(produto.item_legado || 0),
+            descricao: produto.nome || '',
+            quantidade: 1,
+            preco: Number(produto.preco || 0)
+          });
+
+          limparBuscaProduto();
+          renderizarCliente(pedidoCarregado);
+          renderizarItens(pedidoCarregado);
+          setMensagem(`Produto "${produto.nome}" adicionado ao pedido.`);
+        });
+      });
+    }
+
+    function renderizarItens(pedido) {
+      if (!pedido) {
+        blocoItens.innerHTML = '<div class="sem-itens">Nenhum item carregado.</div>';
         return;
       }
 
-      const totalQuantidade = itens.reduce((acc, item) => acc + Number(item.quantidade || 0), 0);
-      const totalSubtotal = itens.reduce((acc, item) => acc + Number(item.subtotal || 0), 0);
+      if (!modoEdicao) {
+        const itens = Array.isArray(pedido?.itens) ? pedido.itens : [];
+        if (!itens.length) {
+          blocoItens.innerHTML = '<div class="sem-itens">Nenhum item encontrado.</div>';
+          return;
+        }
+
+        const totalQuantidade = itens.reduce((acc, item) => acc + Number(item.quantidade || 0), 0);
+        const totalSubtotal = itens.reduce((acc, item) => acc + Number(item.subtotal || 0), 0);
+
+        blocoItens.innerHTML = `
+          <div class="tabela-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Descrição</th>
+                  <th class="right">Quantidade</th>
+                  <th class="right">Preço</th>
+                  <th class="right">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itens.map((item) => `
+                  <tr>
+                    <td>${item.item || '-'}</td>
+                    <td>${item.descricao || '-'}</td>
+                    <td class="right">${numero(item.quantidade)}</td>
+                    <td class="right">${moeda(item.preco)}</td>
+                    <td class="right">${moeda(item.subtotal)}</td>
+                  </tr>
+                `).join('')}
+                <tr style="background:#000; color:#fff; font-weight:bold;">
+                  <td colspan="2">Total</td>
+                  <td class="right">${numero(totalQuantidade)}</td>
+                  <td></td>
+                  <td class="right">${moeda(totalSubtotal)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        `;
+        return;
+      }
 
       blocoItens.innerHTML = `
-        <div class="tabela-wrap">
+        <div class="cabecalho-box">
+          <div>
+            <h2 style="margin:0; font-size:18px;">Itens do pedido</h2>
+            <div class="texto-ajuda">Para trocar um item, remova a linha atual e adicione o item correto pela busca. A busca carrega apenas produtos do Render com ITEM legado vinculado.</div>
+          </div>
+        </div>
+
+        <div class="busca-produto-linha">
+          <div class="campo-busca-produto">
+            <label for="inputBuscarProdutoEdicao">Adicionar item</label>
+            <input id="inputBuscarProdutoEdicao" type="text" placeholder="Digite parte do nome do produto" value="${buscaProdutoTermo.replace(/"/g, '&quot;')}" />
+          </div>
+          <button id="btnBuscarProdutoEdicao" class="btn btn-primary" type="button">Buscar produto</button>
+          <button id="btnLimparBuscaProdutoEdicao" class="btn btn-secondary" type="button">Limpar busca</button>
+        </div>
+
+        ${buscaProdutoResultados.length ? `
+          <div class="resultados-box">
+            <h3>Produtos encontrados</h3>
+            <div class="lista-produtos-busca">
+              ${buscaProdutoResultados.map((produto, index) => `
+                <div class="produto-item-busca">
+                  <div class="produto-item-principal">${produto?.nome || '-'}</div>
+                  <div class="produto-item-secundario">ITEM legado: ${produto?.item_legado || '-'} · Preço Render: ${moeda(produto?.preco || 0)}</div>
+                  <div class="acoes-produto-busca">
+                    <button type="button" class="btn btn-primary" data-acao-produto="adicionar" data-index="${index}">Adicionar ao pedido</button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        ` : (buscaProdutoTermo ? '<div class="resultados-box"><div class="sem-resultados">Nenhum produto vinculado ao legado encontrado para essa busca.</div></div>' : '')}
+
+        <div class="tabela-wrap" style="margin-top:14px;">
           <table>
             <thead>
               <tr>
-                <th>Item</th>
+                <th style="width:90px;">Item</th>
                 <th>Descrição</th>
-                <th class="right">Quantidade</th>
-                <th class="right">Preço</th>
-                <th class="right">Subtotal</th>
+                <th class="right" style="width:130px;">Quantidade</th>
+                <th class="right" style="width:140px;">Preço</th>
+                <th class="right" style="width:140px;">Subtotal</th>
+                <th style="width:110px;">Ação</th>
               </tr>
             </thead>
             <tbody>
-              ${itens.map((item) => `
+              ${itensEdicao.length ? itensEdicao.map((item, index) => `
                 <tr>
                   <td>${item.item || '-'}</td>
                   <td>${item.descricao || '-'}</td>
-                  <td class="right">${numero(item.quantidade)}</td>
-                  <td class="right">${moeda(item.preco)}</td>
-                  <td class="right">${moeda(item.subtotal)}</td>
+                  <td class="right"><input class="input-curto" type="number" min="0.001" step="0.001" data-campo-item="quantidade" data-index="${index}" value="${numeroFixo(item.quantidade)}" /></td>
+                  <td class="right"><input class="input-preco" type="number" min="0" step="0.001" data-campo-item="preco" data-index="${index}" value="${numeroFixo(item.preco)}" /></td>
+                  <td class="right">${moeda(calcularSubtotalItem(item))}</td>
+                  <td><button class="btn btn-danger" type="button" data-acao-item="remover" data-index="${index}">Remover</button></td>
                 </tr>
-              `).join('')}
-
-              <tr style="background:#000; color:#fff; font-weight:bold;">
-                <td colspan="2">Total</td>
-                <td class="right">${numero(totalQuantidade)}</td>
-                <td></td>
-                <td class="right">${moeda(totalSubtotal)}</td>
-              </tr>
+              `).join('') : `
+                <tr>
+                  <td colspan="6" class="sem-itens">Nenhum item no pedido. Busque um produto acima para adicionar.</td>
+                </tr>
+              `}
             </tbody>
           </table>
         </div>
+
+        <div class="bloco-resumo-edicao">
+          <div>Total de itens: ${numero(totalQuantidadeItensAtual())}</div>
+          <div>Total do pedido: ${moeda(totalPedidoAtual())}</div>
+        </div>
       `;
+
+      anexarEventosItensEdicao();
     }
 
     function renderizarResultados(pedidos) {
@@ -766,15 +967,9 @@
       resultadosBusca.classList.remove('oculto');
       resultadoLista.innerHTML = pedidos.map((pedido, index) => `
         <div class="resultado-item" data-index="${index}">
-          <div class="resultado-principal">
-            Pedido ${pedido?.numero || '-'} · ${pedido?.cliente?.nome || '-'}
-          </div>
-          <div class="resultado-secundario">
-            Data: ${formatarData(pedido?.data)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)}
-          </div>
-          <div class="resultado-secundario">
-            Total pago: ${moeda(pedido?.totalPago || 0)} · Restante a pagar: ${moeda(pedido?.saldoRestante || 0)}
-          </div>
+          <div class="resultado-principal">Pedido ${pedido?.numero || '-'} · ${pedido?.cliente?.nome || '-'}</div>
+          <div class="resultado-secundario">Data: ${formatarData(pedido?.data)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)}</div>
+          <div class="resultado-secundario">Total pago: ${moeda(pedido?.totalPago || 0)} · Restante a pagar: ${moeda(pedido?.saldoRestante || 0)}</div>
         </div>
       `).join('');
 
@@ -794,215 +989,82 @@
       });
 
       pedidosEncontrados = pedidosEncontrados.filter((_, index) => index === Number(indexAtivo));
-
       resultadoLista.innerHTML = pedidosEncontrados.map((pedido, index) => `
         <div class="resultado-item ativo" data-index="${index}">
-          <div class="resultado-principal">
-            Pedido ${pedido?.numero || '-'} · ${pedido?.cliente?.nome || '-'}
-          </div>
-          <div class="resultado-secundario">
-            Data: ${formatarData(pedido?.data)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)}
-          </div>
-          <div class="resultado-secundario">
-            Total pago: ${moeda(pedido?.totalPago || 0)} · Restante a pagar: ${moeda(pedido?.saldoRestante || 0)}
-          </div>
+          <div class="resultado-principal">Pedido ${pedido?.numero || '-'} · ${pedido?.cliente?.nome || '-'}</div>
+          <div class="resultado-secundario">Data: ${formatarData(pedido?.data)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)}</div>
+          <div class="resultado-secundario">Total pago: ${moeda(pedido?.totalPago || 0)} · Restante a pagar: ${moeda(pedido?.saldoRestante || 0)}</div>
         </div>
       `).join('');
     }
 
-    function sincronizarResumoEdicao() {
-      resumoTotalItens.textContent = numero(totalQuantidadeItensAtual());
-      resumoTotalPedido.textContent = moeda(totalPedidoAtual());
+    function renderizarPedidoCompleto() {
+      renderizarCliente(pedidoCarregado);
+      renderizarItens(pedidoCarregado);
+      atualizarVisibilidadeAcoes();
+      btnEnviarWhatsapp.disabled = !normalizarTelefone(pedidoCarregado?.cliente?.telefonePrincipal || pedidoCarregado?.cliente?.telefone1 || '');
     }
 
-    function atualizarTotaisPedidoCarregadoPelosItens() {
-      if (!pedidoCarregado) return;
-
-      pedidoCarregado.total = totalPedidoAtual();
-      pedidoCarregado.saldoRestante = Math.max(Number(pedidoCarregado.total || 0) - Number(pedidoCarregado.totalPago || 0), 0);
-    }
-
-    function renderizarTabelaEdicaoItens() {
-      if (!itensEdicao.length) {
-        tbodyEdicaoItens.innerHTML = `
-          <tr>
-            <td colspan="6" class="sem-itens">Nenhum item no pedido. Adicione um item pela busca acima.</td>
-          </tr>
-        `;
-        sincronizarResumoEdicao();
+    async function entrarModoEdicao() {
+      if (!pedidoCarregado) {
+        setMensagem('Nenhum pedido carregado para edição.', true);
         return;
       }
-
-      tbodyEdicaoItens.innerHTML = itensEdicao.map((item, index) => `
-        <tr data-index="${index}">
-          <td>${item.item}</td>
-          <td>${item.descricao || '-'}</td>
-          <td class="right">
-            <input class="input-numero-curto" type="number" min="0.001" step="0.001" data-campo="quantidade" data-index="${index}" value="${numeroFixo(item.quantidade)}" />
-          </td>
-          <td class="right">
-            <input class="input-preco-curto" type="number" min="0" step="0.001" data-campo="preco" data-index="${index}" value="${numeroFixo(item.preco)}" />
-          </td>
-          <td class="right">${moeda(calcularSubtotalItem(item))}</td>
-          <td class="item-actions-cell">
-            <button class="btn btn-danger" type="button" data-acao="remover-item" data-index="${index}">Remover</button>
-          </td>
-        </tr>
-      `).join('');
-
-      tbodyEdicaoItens.querySelectorAll('input[data-campo]').forEach((input) => {
-        input.addEventListener('change', () => {
-          const index = Number(input.dataset.index);
-          const campo = input.dataset.campo;
-          const valor = Number(input.value);
-
-          if (!Number.isFinite(valor)) {
-            return;
-          }
-
-          itensEdicao[index][campo] = valor;
-          renderizarTabelaEdicaoItens();
-        });
-      });
-
-      tbodyEdicaoItens.querySelectorAll('button[data-acao="remover-item"]').forEach((button) => {
-        button.addEventListener('click', () => {
-          const index = Number(button.dataset.index);
-          itensEdicao.splice(index, 1);
-          renderizarTabelaEdicaoItens();
-        });
-      });
-
-      sincronizarResumoEdicao();
-    }
-
-    function preencherSelectVendedores(vendedores, vendedorAtual) {
-      edicaoVendedor.innerHTML = [
-        '<option value="">Selecione...</option>',
-        ...vendedores.map((vendedor) => `
-          <option value="${vendedor?.favorecido ?? ''}">
-            ${(vendedor?.nome || '-').trim()}
-          </option>
-        `)
-      ].join('');
-
-      if (vendedorAtual) {
-        edicaoVendedor.value = String(vendedorAtual);
-      }
-    }
-
-    function preencherSelectCarradas(carradas, carradaAtual) {
-      const opcoes = ['<option value="">Sem carrada</option>'];
-
-      carradas.forEach((carrada) => {
-        opcoes.push(`
-          <option value="${carrada?.codigo ?? ''}">
-            ${carrada?.codigo ?? ''} - ${(carrada?.descricao || formatarData(carrada?.data) || '').trim()}
-          </option>
-        `);
-      });
-
-      edicaoCarrada.innerHTML = opcoes.join('');
-
-      if (carradaAtual?.codigo) {
-        const codigoAtual = String(carradaAtual.codigo);
-        const existe = carradas.some((carrada) => String(carrada?.codigo || '') === codigoAtual);
-
-        if (!existe) {
-          const option = document.createElement('option');
-          option.value = codigoAtual;
-          option.textContent = `${codigoAtual} - ${(carradaAtual?.descricao || formatarData(carradaAtual?.data) || '').trim()}`;
-          edicaoCarrada.appendChild(option);
-        }
-
-        edicaoCarrada.value = codigoAtual;
-      } else {
-        edicaoCarrada.value = '';
-      }
-    }
-
-    async function prepararEdicaoPedido(pedido) {
-      const [vendedores, carradas] = await Promise.all([
-        carregarVendedores(),
-        carregarCarradas()
-      ]);
-
-      preencherSelectVendedores(vendedores, pedido?.vendedor?.favorecido);
-      preencherSelectCarradas(carradas, pedido?.carradaAtual || null);
-      edicaoObservacao.value = pedido?.obs || '';
-      itensEdicao = Array.isArray(pedido?.itens)
-        ? pedido.itens.map((item) => ({
-            item: Number(item?.item || 0),
-            descricao: item?.descricao || '',
-            quantidade: Number(item?.quantidade || 0),
-            preco: Number(item?.preco || 0)
-          }))
-        : [];
-
-      renderizarTabelaEdicaoItens();
-      boxEdicaoPedido.classList.remove('oculto');
-    }
-
-    function renderizarBuscaItens(lista) {
-      if (!Array.isArray(lista) || !lista.length) {
-        listaBuscaItens.innerHTML = '<div class="sem-resultados-busca-item">Nenhum item encontrado para essa descrição.</div>';
-        resultadoBuscaItens.classList.remove('oculto');
-        return;
-      }
-
-      listaBuscaItens.innerHTML = lista.map((item) => `
-        <div class="item-encontrado" data-item="${item?.item ?? ''}" data-descricao="${(item?.descricao || '').replace(/"/g, '&quot;')}" data-preco="${item?.precoAtual ?? 0}">
-          <div class="item-encontrado-principal">
-            Item ${item?.item ?? '-'} · ${item?.descricao || '-'}
-          </div>
-          <div class="item-encontrado-secundario">
-            Preço atual: ${moeda(item?.precoAtual ?? 0)}
-          </div>
-        </div>
-      `).join('');
-
-      resultadoBuscaItens.classList.remove('oculto');
-
-      document.querySelectorAll('.item-encontrado').forEach((elemento) => {
-        elemento.addEventListener('click', () => {
-          const item = Number(elemento.dataset.item || 0);
-          const descricao = elemento.dataset.descricao || '';
-          const preco = Number(elemento.dataset.preco || 0);
-
-          if (!item) {
-            return;
-          }
-
-          itensEdicao.push({
-            item,
-            descricao,
-            quantidade: 1,
-            preco
-          });
-
-          renderizarTabelaEdicaoItens();
-          limparBuscaItens();
-          setMensagem(`Item ${item} adicionado ao pedido.`);
-        });
-      });
-    }
-
-    async function pesquisarItensPorDescricao() {
-      const descricao = buscarItemDescricao.value.trim();
-
-      if (!descricao) {
-        setMensagem('Digite uma descrição para buscar itens.', true);
-        return;
-      }
-
-      setMensagem('Buscando itens do legado...');
 
       try {
-        const json = await fetchJson(`/api/legado/itens?descricao=${encodeURIComponent(descricao)}&limite=20`);
-        renderizarBuscaItens(Array.isArray(json?.dados) ? json.dados : []);
-        setMensagem('Selecione um item encontrado para adicionar ao pedido.');
+        setMensagem('Preparando edição...');
+        await Promise.all([carregarVendedores(), carregarCarradas()]);
+
+        modoEdicao = true;
+        vendedorEdicao = String(pedidoCarregado?.vendedor?.favorecido || '');
+        codigoCarradaEdicao = String(pedidoCarregado?.carradaAtual?.codigo || '');
+        observacaoEdicao = pedidoCarregado?.obs || '';
+        itensEdicao = Array.isArray(pedidoCarregado?.itens)
+          ? pedidoCarregado.itens.map((item) => ({
+              item: Number(item?.item || 0),
+              descricao: item?.descricao || '',
+              quantidade: Number(item?.quantidade || 0),
+              preco: Number(item?.preco || 0)
+            }))
+          : [];
+        limparBuscaProduto();
+        renderizarPedidoCompleto();
+        setMensagem('Modo edição ativado.');
       } catch (error) {
-        setMensagem(error.message || 'Erro ao buscar itens do legado.', true);
+        setMensagem(error.message || 'Erro ao preparar edição.', true);
+      }
+    }
+
+    function sairModoEdicao() {
+      if (!pedidoCarregado) return;
+      modoEdicao = false;
+      vendedorEdicao = '';
+      codigoCarradaEdicao = '';
+      observacaoEdicao = '';
+      itensEdicao = [];
+      limparBuscaProduto();
+      renderizarPedidoCompleto();
+      setMensagem('Edição cancelada.');
+    }
+
+    async function pesquisarProdutosRender() {
+      const termo = (buscaProdutoTermo || '').trim();
+
+      if (!termo) {
+        setMensagem('Digite parte do nome do produto para buscar.', true);
+        return;
+      }
+
+      setMensagem('Buscando produtos vinculados ao legado...');
+
+      try {
+        const json = await fetchJson(`/api/produtos?busca=${encodeURIComponent(termo)}&ativos=true`);
+        const lista = Array.isArray(json?.data) ? json.data : [];
+        buscaProdutoResultados = lista.filter((produto) => Number(produto?.item_legado || 0) > 0);
+        renderizarItens(pedidoCarregado);
+        setMensagem(buscaProdutoResultados.length ? 'Selecione um produto para adicionar ao pedido.' : 'Nenhum produto vinculado ao legado encontrado para essa busca.');
+      } catch (error) {
+        setMensagem(error.message || 'Erro ao buscar produtos do Render.', true);
       }
     }
 
@@ -1026,15 +1088,13 @@
         itens: Array.isArray(jsonItens?.data?.itens) ? jsonItens.data.itens : []
       };
 
-      renderizarCliente(pedidoCarregado);
-      renderizarItens(pedidoCarregado.itens);
-      await prepararEdicaoPedido(pedidoCarregado);
-
-      btnImprimirRelatorio.classList.remove('oculto');
-      btnImprimirRelatorioProducao.classList.remove('oculto');
-      btnEnviarWhatsapp.classList.remove('oculto');
-      btnAdicionarPagamentos.classList.remove('oculto');
-      btnEnviarWhatsapp.disabled = !normalizarTelefone(pedidoCarregado?.cliente?.telefonePrincipal || pedidoCarregado?.cliente?.telefone1 || '');
+      modoEdicao = false;
+      vendedorEdicao = '';
+      codigoCarradaEdicao = '';
+      observacaoEdicao = '';
+      itensEdicao = [];
+      limparBuscaProduto();
+      renderizarPedidoCompleto();
     }
 
     async function pesquisarPedidos(filtrosExternos = null) {
@@ -1058,7 +1118,7 @@
       try {
         const query = construirQuery(filtros);
         const json = await fetchJson(`/api/legado/pedidos?${query}`);
-        const pedidos = Array.isArray(json.data) ? json.data : [];
+        const pedidos = Array.isArray(json?.data) ? json.data : [];
         pedidosEncontrados = pedidos;
 
         if (!pedidos.length) {
@@ -1104,7 +1164,7 @@
         return;
       }
 
-      if (!edicaoVendedor.value) {
+      if (!vendedorEdicao) {
         setMensagem('Selecione um vendedor para salvar.', true);
         return;
       }
@@ -1115,9 +1175,9 @@
       }
 
       const payload = {
-        vendedor: Number(edicaoVendedor.value),
-        obs: edicaoObservacao.value || '',
-        codigoCarrada: edicaoCarrada.value || null,
+        vendedor: Number(vendedorEdicao),
+        obs: observacaoEdicao || '',
+        codigoCarrada: codigoCarradaEdicao || null,
         itens: itensEdicao.map((item) => ({
           item: Number(item.item),
           descricao: item.descricao || '',
@@ -1150,28 +1210,36 @@
           ...pedidoAtualizado,
           totalPago: totalPagoAtual,
           saldoRestante: Math.max(Number(pedidoAtualizado?.total || 0) - totalPagoAtual, 0),
-          itens: Array.isArray(pedidoAtualizado?.itens) ? pedidoAtualizado.itens : itensEdicao.map((item) => ({
-            item: item.item,
-            descricao: item.descricao,
-            quantidade: item.quantidade,
-            preco: item.preco,
-            subtotal: calcularSubtotalItem(item)
-          }))
+          itens: Array.isArray(pedidoAtualizado?.itens)
+            ? pedidoAtualizado.itens
+            : itensEdicao.map((item) => ({
+                item: item.item,
+                descricao: item.descricao,
+                quantidade: item.quantidade,
+                preco: item.preco,
+                subtotal: calcularSubtotalItem(item)
+              }))
         };
 
-        pedidosEncontrados = pedidosEncontrados.map((pedido) => ({
-          ...pedido,
-          ...(String(pedido?.idMestre || '') === String(pedidoCarregado?.idMestre || '') ? {
-            vendedor: pedidoCarregado.vendedor,
-            obs: pedidoCarregado.obs,
-            total: pedidoCarregado.total,
-            carradaAtual: pedidoCarregado.carradaAtual
-          } : {})
-        }));
+        pedidosEncontrados = pedidosEncontrados.map((pedido) => (
+          String(pedido?.idMestre || '') === String(pedidoCarregado?.idMestre || '')
+            ? {
+                ...pedido,
+                vendedor: pedidoCarregado.vendedor,
+                obs: pedidoCarregado.obs,
+                total: pedidoCarregado.total,
+                carradaAtual: pedidoCarregado.carradaAtual
+              }
+            : pedido
+        ));
 
-        renderizarCliente(pedidoCarregado);
-        renderizarItens(pedidoCarregado.itens);
-        await prepararEdicaoPedido(pedidoCarregado);
+        modoEdicao = false;
+        vendedorEdicao = '';
+        codigoCarradaEdicao = '';
+        observacaoEdicao = '';
+        itensEdicao = [];
+        limparBuscaProduto();
+        renderizarPedidoCompleto();
         setMensagem('Pedido atualizado com sucesso.');
       } catch (error) {
         setMensagem(error.message || 'Erro ao salvar alterações do pedido.', true);
@@ -1182,17 +1250,16 @@
     }
 
     btnPesquisar.addEventListener('click', () => pesquisarPedidos());
+    btnEditarPedido.addEventListener('click', entrarModoEdicao);
+    btnCancelarEdicao.addEventListener('click', sairModoEdicao);
+    btnSalvarAlteracoes.addEventListener('click', salvarAlteracoesPedido);
 
     btnImprimirRelatorio.addEventListener('click', () => {
-      if (pedidoCarregado) {
-        abrirRelatorioPedido(pedidoCarregado);
-      }
+      if (pedidoCarregado) abrirRelatorioPedido(pedidoCarregado);
     });
 
     btnImprimirRelatorioProducao.addEventListener('click', () => {
-      if (pedidoCarregado) {
-        abrirRelatorioPedido(pedidoCarregado, 'producao');
-      }
+      if (pedidoCarregado) abrirRelatorioPedido(pedidoCarregado, 'producao');
     });
 
     btnAdicionarPagamentos.addEventListener('click', () => {
@@ -1200,7 +1267,6 @@
         setMensagem('Nenhum pedido carregado para abrir pagamentos.', true);
         return;
       }
-
       abrirTelaPagamentos(pedidoCarregado);
     });
 
@@ -1234,17 +1300,6 @@
       } finally {
         btnEnviarWhatsapp.disabled = !normalizarTelefone(pedidoCarregado?.cliente?.telefonePrincipal || pedidoCarregado?.cliente?.telefone1 || '');
         btnEnviarWhatsapp.textContent = textoOriginal;
-      }
-    });
-
-    btnBuscarItemDescricao.addEventListener('click', pesquisarItensPorDescricao);
-    btnLimparBuscaItem.addEventListener('click', limparBuscaItens);
-    btnSalvarAlteracoes.addEventListener('click', salvarAlteracoesPedido);
-
-    buscarItemDescricao.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') {
-        event.preventDefault();
-        pesquisarItensPorDescricao();
       }
     });
 
