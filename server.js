@@ -25,6 +25,7 @@ const semanasLegadoViewRoutes = require('./src/routes/legado/semanas/semanas.vie
 const pagamentosLegadoRoutes = require('./src/routes/legado/pagamentos/pagamentos.routes');
 const pagamentosLegadoViewRoutes = require('./src/routes/legado/pagamentos/pagamentos.view.routes');
 const vendedoresLegadoRoutes = require('./src/routes/legado/vendedores/vendedores.routes');
+const vendedoresLegadoViewRoutes = require('./src/routes/legado/vendedores/vendedores.view.routes');
 const dashboardPedidosLegadoRoutes = require('./src/routes/legado/dashboard-pedidos/dashboard-pedidos.routes');
 const dashboardPedidosLegadoViewRoutes = require('./src/routes/legado/dashboard-pedidos/dashboard-pedidos.view.routes');
 const pedidosRelatorioViewRoutes = require('./src/routes/legado/pedidos-relatorio/pedidos-relatorio.view.routes');
@@ -89,6 +90,7 @@ app.use('/legado/semanas', semanasLegadoViewRoutes);
 app.use('/api/legado/pagamentos', pagamentosLegadoRoutes);
 app.use('/legado/pagamentos', pagamentosLegadoViewRoutes);
 app.use('/api/legado/vendedores', vendedoresLegadoRoutes);
+app.use('/legado/vendedores', vendedoresLegadoViewRoutes);
 app.use('/api/legado/dashboard-pedidos', dashboardPedidosLegadoRoutes);
 app.use('/legado/dashboard-pedidos', dashboardPedidosLegadoViewRoutes);
 app.use('/legado/pedidos-relatorio', pedidosRelatorioViewRoutes);

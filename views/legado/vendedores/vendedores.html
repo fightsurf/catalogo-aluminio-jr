@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CRUD de vendedores do legado</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f3f4f6;
+      color: #111827;
+    }
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+    }
+    .subtitulo {
+      margin: 0 0 20px;
+      color: #4b5563;
+    }
+    .mensagem {
+      margin-bottom: 16px;
+      padding: 12px 14px;
+      border-radius: 8px;
+      background: #e5e7eb;
+      color: #111827;
+      display: none;
+      white-space: pre-line;
+    }
+    .mensagem.erro {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 20px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 18px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    }
+    .card h2 {
+      margin-top: 0;
+      margin-bottom: 14px;
+      font-size: 20px;
+    }
+    .campo-wrap {
+      margin-bottom: 14px;
+    }
+    .campo-wrap label {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      color: #374151;
+    }
+    .campo-wrap input,
+    .campo-wrap select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+      background: #fff;
+    }
+    .linha-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 12px 0 16px;
+      color: #374151;
+    }
+    .linha-checkbox input {
+      width: auto;
+    }
+    .acoes-form,
+    .filtros,
+    .acoes-lista {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: 10px 12px;
+      cursor: pointer;
+      background: #111827;
+      color: #fff;
+      font-size: 14px;
+    }
+    button.secundario {
+      background: #6b7280;
+    }
+    button.primario {
+      background: #2563eb;
+    }
+    button.alerta {
+      background: #b45309;
+    }
+    button.perigo {
+      background: #991b1b;
+    }
+    .tabela-wrap {
+      overflow-x: auto;
+      border: 1px solid #e5e7eb;
+      border-radius: 10px;
+      background: #fff;
+      margin-top: 16px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 760px;
+    }
+    th, td {
+      padding: 12px 10px;
+      border-bottom: 1px solid #e5e7eb;
+      text-align: left;
+      font-size: 14px;
+      vertical-align: middle;
+    }
+    th {
+      background: #f9fafb;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #6b7280;
+    }
+    tr.inativo td {
+      background: #fff7ed;
+      color: #7c2d12;
+    }
+    .status {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .status.ativo {
+      background: #dcfce7;
+      color: #166534;
+    }
+    .status.inativo {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    .acoes-linha {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .acoes-linha button {
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+    .vazio {
+      padding: 16px;
+      color: #6b7280;
+      font-size: 14px;
+    }
+    @media (max-width: 980px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>CRUD de vendedores do legado</h1>
+    <p class="subtitulo">Baseado no comportamento do sistema legado: vendedor fica em <strong>FAVORECIDOS</strong>, marcado com <strong>ISVendedor = 'S'</strong>. A remoção aqui é lógica, via <strong>Desativado</strong>.</p>
+    <div id="mensagem" class="mensagem"></div>
+
+    <div class="grid">
+      <section class="card">
+        <h2>Cadastro</h2>
+        <form id="formVendedor">
+          <input type="hidden" id="favorecido" />
+
+          <div class="campo-wrap">
+            <label for="nome">Nome</label>
+            <input id="nome" type="text" maxlength="120" required />
+          </div>
+
+          <div class="campo-wrap">
+            <label for="codigo">Código</label>
+            <input id="codigo" type="text" maxlength="30" placeholder="Se vazio, usa o próprio ID gerado" />
+          </div>
+
+          <div class="campo-wrap">
+            <label for="comissao">Comissão</label>
+            <input id="comissao" type="number" min="0" step="0.0001" value="0" />
+          </div>
+
+          <label class="linha-checkbox">
+            <input id="ativo" type="checkbox" checked />
+            Vendedor ativo
+          </label>
+
+          <div class="acoes-form">
+            <button type="submit" class="primario">Salvar</button>
+            <button type="button" id="btnNovo" class="secundario">Novo</button>
+          </div>
+        </form>
+      </section>
+
+      <section class="card">
+        <h2>Lista</h2>
+        <div class="filtros">
+          <div class="campo-wrap" style="flex:1 1 260px; margin-bottom:0;">
+            <label for="buscaNome">Buscar por nome</label>
+            <input id="buscaNome" type="text" placeholder="Digite parte do nome" />
+          </div>
+          <div class="campo-wrap" style="width:180px; margin-bottom:0;">
+            <label for="filtroStatus">Status</label>
+            <select id="filtroStatus">
+              <option value="ativos">Ativos</option>
+              <option value="inativos">Inativos</option>
+              <option value="todos">Todos</option>
+            </select>
+          </div>
+        </div>
+        <div class="acoes-lista">
+          <button id="btnBuscar" class="primario">Buscar</button>
+          <button id="btnLimparFiltros" class="secundario">Limpar filtros</button>
+        </div>
+
+        <div class="tabela-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Favorecido</th>
+                <th>Nome</th>
+                <th>Código</th>
+                <th>Comissão</th>
+                <th>Status</th>
+                <th>Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyVendedores"></tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    const mensagem = document.getElementById('mensagem');
+    const formVendedor = document.getElementById('formVendedor');
+    const campoFavorecido = document.getElementById('favorecido');
+    const campoNome = document.getElementById('nome');
+    const campoCodigo = document.getElementById('codigo');
+    const campoComissao = document.getElementById('comissao');
+    const campoAtivo = document.getElementById('ativo');
+    const buscaNome = document.getElementById('buscaNome');
+    const filtroStatus = document.getElementById('filtroStatus');
+    const tbodyVendedores = document.getElementById('tbodyVendedores');
+    const btnNovo = document.getElementById('btnNovo');
+    const btnBuscar = document.getElementById('btnBuscar');
+    const btnLimparFiltros = document.getElementById('btnLimparFiltros');
+
+    let vendedores = [];
+
+    function formatarNumero(valor) {
+      const numero = Number(valor || 0);
+      return numero.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+    }
+
+    function setMensagem(texto, erro = false) {
+      if (!texto) {
+        mensagem.style.display = 'none';
+        mensagem.textContent = '';
+        mensagem.classList.remove('erro');
+        return;
+      }
+
+      mensagem.textContent = texto;
+      mensagem.style.display = 'block';
+      mensagem.classList.toggle('erro', Boolean(erro));
+    }
+
+    function resetarFormulario() {
+      campoFavorecido.value = '';
+      campoNome.value = '';
+      campoCodigo.value = '';
+      campoComissao.value = '0';
+      campoAtivo.checked = true;
+      campoNome.focus();
+    }
+
+    function preencherFormulario(vendedor) {
+      campoFavorecido.value = vendedor.favorecido || '';
+      campoNome.value = vendedor.nome || '';
+      campoCodigo.value = vendedor.codigo || '';
+      campoComissao.value = Number(vendedor.comissao || 0);
+      campoAtivo.checked = Boolean(vendedor.ativo);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function renderizarTabela() {
+      if (!vendedores.length) {
+        tbodyVendedores.innerHTML = '<tr><td colspan="6" class="vazio">Nenhum vendedor encontrado.</td></tr>';
+        return;
+      }
+
+      tbodyVendedores.innerHTML = vendedores.map((vendedor) => `
+        <tr class="${vendedor.ativo ? '' : 'inativo'}">
+          <td>${vendedor.favorecido ?? '-'}</td>
+          <td>${vendedor.nome || '-'}</td>
+          <td>${vendedor.codigo || '-'}</td>
+          <td>${formatarNumero(vendedor.comissao)}</td>
+          <td>
+            <span class="status ${vendedor.ativo ? 'ativo' : 'inativo'}">${vendedor.ativo ? 'Ativo' : 'Inativo'}</span>
+          </td>
+          <td>
+            <div class="acoes-linha">
+              <button type="button" class="secundario" onclick="editarVendedor(${vendedor.favorecido})">Editar</button>
+              ${vendedor.ativo
+                ? `<button type="button" class="perigo" onclick="desativarVendedor(${vendedor.favorecido})">Desativar</button>`
+                : `<button type="button" class="alerta" onclick="reativarVendedor(${vendedor.favorecido})">Reativar</button>`}
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function carregarVendedores() {
+      setMensagem('');
+
+      try {
+        const params = new URLSearchParams();
+
+        if (buscaNome.value.trim()) {
+          params.set('nome', buscaNome.value.trim());
+        }
+
+        if (filtroStatus.value) {
+          params.set('status', filtroStatus.value);
+        }
+
+        const response = await fetch(`/api/legado/vendedores?${params.toString()}`);
+        const json = await response.json();
+
+        if (!response.ok || !json.sucesso) {
+          throw new Error(json.erro || 'Erro ao carregar vendedores.');
+        }
+
+        vendedores = Array.isArray(json.dados) ? json.dados : [];
+        renderizarTabela();
+      } catch (error) {
+        vendedores = [];
+        renderizarTabela();
+        setMensagem(error.message || 'Erro ao carregar vendedores.', true);
+      }
+    }
+
+    async function editarVendedor(favorecido) {
+      try {
+        const response = await fetch(`/api/legado/vendedores/${favorecido}`);
+        const json = await response.json();
+
+        if (!response.ok || !json.sucesso) {
+          throw new Error(json.erro || 'Erro ao carregar vendedor.');
+        }
+
+        preencherFormulario(json.dado || {});
+      } catch (error) {
+        setMensagem(error.message || 'Erro ao carregar vendedor.', true);
+      }
+    }
+
+    async function desativarVendedor(favorecido) {
+      if (!window.confirm('Deseja desativar este vendedor?')) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/legado/vendedores/${favorecido}`, { method: 'DELETE' });
+        const json = await response.json();
+
+        if (!response.ok || !json.sucesso) {
+          throw new Error(json.erro || 'Erro ao desativar vendedor.');
+        }
+
+        setMensagem('Vendedor desativado com sucesso.');
+        if (String(campoFavorecido.value || '') === String(favorecido)) {
+          resetarFormulario();
+        }
+        await carregarVendedores();
+      } catch (error) {
+        setMensagem(error.message || 'Erro ao desativar vendedor.', true);
+      }
+    }
+
+    async function reativarVendedor(favorecido) {
+      try {
+        const response = await fetch(`/api/legado/vendedores/${favorecido}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ativo: true })
+        });
+        const json = await response.json();
+
+        if (!response.ok || !json.sucesso) {
+          throw new Error(json.erro || 'Erro ao reativar vendedor.');
+        }
+
+        setMensagem('Vendedor reativado com sucesso.');
+        await carregarVendedores();
+      } catch (error) {
+        setMensagem(error.message || 'Erro ao reativar vendedor.', true);
+      }
+    }
+
+    async function salvarVendedor(event) {
+      event.preventDefault();
+      setMensagem('');
+
+      const payload = {
+        nome: campoNome.value.trim(),
+        codigo: campoCodigo.value.trim(),
+        comissao: campoComissao.value,
+        ativo: campoAtivo.checked
+      };
+
+      const favorecido = campoFavorecido.value.trim();
+      const method = favorecido ? 'PUT' : 'POST';
+      const url = favorecido ? `/api/legado/vendedores/${favorecido}` : '/api/legado/vendedores';
+
+      try {
+        const response = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const json = await response.json();
+
+        if (!response.ok || !json.sucesso) {
+          throw new Error(json.erro || 'Erro ao salvar vendedor.');
+        }
+
+        setMensagem(favorecido ? 'Vendedor atualizado com sucesso.' : 'Vendedor criado com sucesso.');
+        resetarFormulario();
+        await carregarVendedores();
+      } catch (error) {
+        setMensagem(error.message || 'Erro ao salvar vendedor.', true);
+      }
+    }
+
+    formVendedor.addEventListener('submit', salvarVendedor);
+    btnNovo.addEventListener('click', () => {
+      setMensagem('');
+      resetarFormulario();
+    });
+    btnBuscar.addEventListener('click', carregarVendedores);
+    btnLimparFiltros.addEventListener('click', () => {
+      buscaNome.value = '';
+      filtroStatus.value = 'ativos';
+      carregarVendedores();
+    });
+    buscaNome.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        carregarVendedores();
+      }
+    });
+
+    window.editarVendedor = editarVendedor;
+    window.desativarVendedor = desativarVendedor;
+    window.reativarVendedor = reativarVendedor;
+
+    resetarFormulario();
+    carregarVendedores();
+  </script>
+</body>
+</html>

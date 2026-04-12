@@ -16,7 +16,7 @@ function montarUrl(path, query = {}) {
   return url.toString();
 }
 
-async function get(path, query = {}) {
+function montarHeaders() {
   const headers = {
     'Content-Type': 'application/json'
   };
@@ -25,20 +25,44 @@ async function get(path, query = {}) {
     headers['x-api-key'] = process.env.LEGADO_BRIDGE_API_KEY;
   }
 
+  return headers;
+}
+
+async function request(method, path, { query = {}, body } = {}) {
   const response = await fetch(montarUrl(path, query), {
-    method: 'GET',
-    headers
+    method,
+    headers: montarHeaders(),
+    body: body === undefined ? undefined : JSON.stringify(body)
   });
 
   const data = await response.json();
 
   if (!response.ok) {
-    throw new Error(data.message || 'Erro ao consumir API do legado');
+    throw new Error(data?.erro || data?.message || 'Erro ao consumir API do legado');
   }
 
   return data;
 }
 
+async function get(path, query = {}) {
+  return request('GET', path, { query });
+}
+
+async function post(path, body = {}, query = {}) {
+  return request('POST', path, { query, body });
+}
+
+async function put(path, body = {}, query = {}) {
+  return request('PUT', path, { query, body });
+}
+
+async function del(path, query = {}) {
+  return request('DELETE', path, { query });
+}
+
 module.exports = {
-  get
+  get,
+  post,
+  put,
+  delete: del
 };

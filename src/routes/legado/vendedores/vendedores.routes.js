@@ -4,5 +4,9 @@ const vendedoresController = require('../../../controllers/legado/vendedores/ven
 const router = express.Router();
 
 router.get('/', vendedoresController.listarVendedores);
+router.get('/:favorecido', vendedoresController.buscarVendedor);
+router.post('/', vendedoresController.criarVendedor);
+router.put('/:favorecido', vendedoresController.atualizarVendedor);
+router.delete('/:favorecido', vendedoresController.desativarVendedor);
 
 module.exports = router;
