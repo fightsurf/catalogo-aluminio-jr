@@ -198,10 +198,27 @@
       return numero.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
     }
 
-    function formatarData(dataIso) {
-      if (!dataIso) return '-';
-      const data = new Date(`${dataIso}T00:00:00`);
-      if (Number.isNaN(data.getTime())) return dataIso;
+    function formatarData(dataValor) {
+      if (!dataValor) return '-';
+
+      if (typeof dataValor === 'string') {
+        const texto = dataValor.trim();
+
+        if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
+          const [ano, mes, dia] = texto.split('-');
+          return `${dia}/${mes}/${ano}`;
+        }
+
+        const dataIso = new Date(texto);
+        if (!Number.isNaN(dataIso.getTime())) {
+          return dataIso.toLocaleDateString('pt-BR');
+        }
+
+        return texto;
+      }
+
+      const data = new Date(dataValor);
+      if (Number.isNaN(data.getTime())) return String(dataValor);
       return data.toLocaleDateString('pt-BR');
     }
 
@@ -363,7 +380,14 @@
         const response = await fetch('/api/legado/carradas');
         const json = await lerJson(response);
         const lista = Array.isArray(json?.data) ? json.data : [];
-        carradasRecentes = lista.slice(0, 20);
+        carradasRecentes = lista
+          .slice()
+          .sort((a, b) => {
+            const dataA = new Date(a?.data || 0).getTime() || 0;
+            const dataB = new Date(b?.data || 0).getTime() || 0;
+            return dataB - dataA;
+          })
+          .slice(0, 20);
 
         carradaPedido.innerHTML = '<option value="">Nenhuma carrada</option>' + carradasRecentes.map((carrada) => `
           <option value="${carrada.codigo}">${formatarRotuloCarrada(carrada)}</option>
