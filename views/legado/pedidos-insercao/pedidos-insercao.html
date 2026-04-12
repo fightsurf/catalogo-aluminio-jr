@@ -644,12 +644,14 @@
     }
 
     function atualizarBotoesAcao() {
-      const exibir = !!ultimoRelatorio?.numero;
-      btnImprimirRelatorio.style.display = exibir ? 'inline-flex' : 'none';
-      btnImprimirRelatorioProducao.style.display = exibir ? 'inline-flex' : 'none';
-      btnEnviarWhatsapp.style.display = exibir ? 'inline-flex' : 'none';
-      btnAdicionarPagamento.style.display = exibir ? 'inline-flex' : 'none';
-      btnEnviarWhatsapp.disabled = exibir ? !obterTelefoneClienteAtual() : true;
+      const exibirRelatorios = !!ultimoRelatorio?.numero;
+      const exibirPagamento = !!(ultimoPedidoSalvo?.numero || ultimoPedidoSalvo?.saida || ultimoRelatorio?.numero);
+
+      btnImprimirRelatorio.style.display = exibirRelatorios ? 'inline-flex' : 'none';
+      btnImprimirRelatorioProducao.style.display = exibirRelatorios ? 'inline-flex' : 'none';
+      btnEnviarWhatsapp.style.display = exibirRelatorios ? 'inline-flex' : 'none';
+      btnAdicionarPagamento.style.display = exibirPagamento ? 'inline-flex' : 'none';
+      btnEnviarWhatsapp.disabled = exibirRelatorios ? !obterTelefoneClienteAtual() : true;
     }
 
     async function salvarPedido() {
@@ -688,6 +690,7 @@
         ultimoPedidoSalvo = pedido;
         ultimoRelatorio = montarDadosRelatorio(pedido);
         registrarRelatorioNoStorage(ultimoRelatorio);
+        btnAdicionarPagamento.style.display = 'inline-flex';
         atualizarBotoesAcao();
 
         resultadoSucesso.innerHTML = `
