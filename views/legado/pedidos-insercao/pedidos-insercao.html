@@ -705,7 +705,7 @@
         setMensagem(error.message, true);
       } finally {
         salvando = false;
-        btnSalvarPedido.disabled = false;
+        btnSalvarPedido.disabled = !!ultimoPedidoSalvo?.numero;
       }
     }
 
@@ -723,6 +723,7 @@
       vendedorPedido.value = '';
       carradaPedido.value = '';
       resultadoSucesso.style.display = 'none';
+      btnSalvarPedido.disabled = false;
       atualizarBotoesAcao();
       renderItensPedido();
       focarBuscaProduto();
