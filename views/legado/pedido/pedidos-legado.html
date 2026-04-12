@@ -204,6 +204,14 @@
       font-weight: 600;
     }
 
+    .acoes-edicao-inline {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
     .tabela-wrap { overflow-x: auto; }
 
     table {
@@ -258,6 +266,7 @@
 
     .resultado-item,
     .produto-item-busca {
+      cursor: pointer;
       border: 1px solid #e5e7eb;
       border-radius: 6px;
       padding: 10px 12px;
@@ -268,9 +277,10 @@
     .resultado-item { cursor: pointer; }
 
     .resultado-item:hover,
-    .produto-item-busca:hover {
-      background: #f9fafb;
-      border-color: #cfd6dd;
+    .produto-item-busca:hover,
+    .produto-item-busca.ativo {
+      background: #f0fdfa;
+      border-color: #0ea5b7;
     }
 
     .resultado-item.ativo {
@@ -406,6 +416,9 @@
     let observacaoEdicao = '';
     let buscaProdutoTermo = '';
     let buscaProdutoResultados = [];
+    let buscaProdutoTimer = null;
+    let buscaProdutoRequestId = 0;
+    let indiceProdutoDestacado = 0;
 
     function setMensagem(texto, erro = false) {
       mensagem.textContent = texto;
@@ -478,8 +491,8 @@
     function atualizarVisibilidadeAcoes() {
       const haPedido = !!pedidoCarregado;
       btnEditarPedido.classList.toggle('oculto', !haPedido || modoEdicao);
-      btnCancelarEdicao.classList.toggle('oculto', !haPedido || !modoEdicao);
-      btnSalvarAlteracoes.classList.toggle('oculto', !haPedido || !modoEdicao);
+      btnCancelarEdicao.classList.add('oculto');
+      btnSalvarAlteracoes.classList.add('oculto');
 
       const ocultarAcoesLeitura = !haPedido || modoEdicao;
       btnEnviarWhatsapp.classList.toggle('oculto', ocultarAcoesLeitura);
@@ -497,6 +510,12 @@
     function limparBuscaProduto() {
       buscaProdutoTermo = '';
       buscaProdutoResultados = [];
+      indiceProdutoDestacado = 0;
+      if (buscaProdutoTimer) {
+        clearTimeout(buscaProdutoTimer);
+        buscaProdutoTimer = null;
+      }
+      renderizarResultadosBuscaProduto();
     }
 
     function limparCliente() {
@@ -778,26 +797,99 @@
       anexarEventosClienteEdicao();
     }
 
+
+    function renderizarResultadosBuscaProduto() {
+      const container = document.getElementById('resultadoBuscaProdutoEdicao');
+      if (!container) return;
+
+      const termo = (buscaProdutoTermo || '').trim();
+
+      if (!termo) {
+        container.innerHTML = '';
+        return;
+      }
+
+      if (termo.length < 2) {
+        container.innerHTML = '<div class="resultados-box"><div class="sem-resultados">Digite pelo menos 2 letras para buscar.</div></div>';
+        return;
+      }
+
+      if (!buscaProdutoResultados.length) {
+        container.innerHTML = '<div class="resultados-box"><div class="sem-resultados">Nenhum produto vinculado ao legado encontrado para essa busca.</div></div>';
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="resultados-box">
+          <h3>Produtos encontrados</h3>
+          <div class="lista-produtos-busca">
+            ${buscaProdutoResultados.map((produto, index) => `
+              <div class="produto-item-busca ${index === indiceProdutoDestacado ? 'ativo' : ''}" data-index="${index}">
+                <div class="produto-item-principal">${produto?.nome || '-'}</div>
+                <div class="produto-item-secundario">ITEM legado: ${produto?.item_legado || '-'} · Preço Render: ${moeda(produto?.preco || 0)}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+
+      container.querySelectorAll('.produto-item-busca').forEach((item) => {
+        item.addEventListener('click', () => {
+          const index = Number(item.dataset.index);
+          selecionarProdutoBusca(index);
+        });
+      });
+    }
+
+    function selecionarProdutoBusca(index = 0) {
+      const produto = buscaProdutoResultados[index];
+      if (!produto) return;
+
+      itensEdicao.push({
+        item: Number(produto.item_legado || 0),
+        descricao: produto.nome || '',
+        quantidade: 1,
+        preco: Number(produto.preco || 0)
+      });
+
+      const nomeProduto = produto.nome || 'Produto';
+      limparBuscaProduto();
+      renderizarCliente(pedidoCarregado);
+      renderizarItens(pedidoCarregado);
+      setMensagem(`Produto "${nomeProduto}" adicionado ao pedido.`);
+    }
+
+    function agendarBuscaProdutosRender() {
+      if (buscaProdutoTimer) {
+        clearTimeout(buscaProdutoTimer);
+      }
+
+      buscaProdutoTimer = setTimeout(() => {
+        pesquisarProdutosRender(true);
+      }, 250);
+    }
+
     function anexarEventosItensEdicao() {
       const inputBusca = document.getElementById('inputBuscarProdutoEdicao');
-      const btnBuscar = document.getElementById('btnBuscarProdutoEdicao');
       const btnLimpar = document.getElementById('btnLimparBuscaProdutoEdicao');
+      const btnSalvarInline = document.getElementById('btnSalvarAlteracoesInline');
+      const btnCancelarInline = document.getElementById('btnCancelarEdicaoInline');
 
       if (inputBusca) {
         inputBusca.addEventListener('input', () => {
           buscaProdutoTermo = inputBusca.value;
+          indiceProdutoDestacado = 0;
+          agendarBuscaProdutosRender();
         });
 
         inputBusca.addEventListener('keydown', (event) => {
           if (event.key === 'Enter') {
             event.preventDefault();
-            pesquisarProdutosRender();
+            if (buscaProdutoResultados.length) {
+              selecionarProdutoBusca(indiceProdutoDestacado);
+            }
           }
         });
-      }
-
-      if (btnBuscar) {
-        btnBuscar.addEventListener('click', pesquisarProdutosRender);
       }
 
       if (btnLimpar) {
@@ -805,6 +897,14 @@
           limparBuscaProduto();
           renderizarItens(pedidoCarregado);
         });
+      }
+
+      if (btnSalvarInline) {
+        btnSalvarInline.addEventListener('click', salvarAlteracoesPedido);
+      }
+
+      if (btnCancelarInline) {
+        btnCancelarInline.addEventListener('click', sairModoEdicao);
       }
 
       document.querySelectorAll('input[data-campo-item]').forEach((input) => {
@@ -828,25 +928,7 @@
         });
       });
 
-      document.querySelectorAll('button[data-acao-produto="adicionar"]').forEach((button) => {
-        button.addEventListener('click', () => {
-          const index = Number(button.dataset.index);
-          const produto = buscaProdutoResultados[index];
-          if (!produto) return;
-
-          itensEdicao.push({
-            item: Number(produto.item_legado || 0),
-            descricao: produto.nome || '',
-            quantidade: 1,
-            preco: Number(produto.preco || 0)
-          });
-
-          limparBuscaProduto();
-          renderizarCliente(pedidoCarregado);
-          renderizarItens(pedidoCarregado);
-          setMensagem(`Produto "${produto.nome}" adicionado ao pedido.`);
-        });
-      });
+      renderizarResultadosBuscaProduto();
     }
 
     function renderizarItens(pedido) {
@@ -911,28 +993,13 @@
         <div class="busca-produto-linha">
           <div class="campo-busca-produto">
             <label for="inputBuscarProdutoEdicao">Adicionar item</label>
-            <input id="inputBuscarProdutoEdicao" type="text" placeholder="Digite parte do nome do produto" value="${buscaProdutoTermo.replace(/"/g, '&quot;')}" />
+            <input id="inputBuscarProdutoEdicao" type="text" placeholder="Digite pelo menos 2 letras do produto e pressione Enter para selecionar" value="${buscaProdutoTermo.replace(/"/g, '&quot;')}" autocomplete="off" />
+            <div class="texto-ajuda">A busca acontece enquanto você digita. Pressione Enter para adicionar o primeiro produto encontrado.</div>
           </div>
-          <button id="btnBuscarProdutoEdicao" class="btn btn-primary" type="button">Buscar produto</button>
           <button id="btnLimparBuscaProdutoEdicao" class="btn btn-secondary" type="button">Limpar busca</button>
         </div>
 
-        ${buscaProdutoResultados.length ? `
-          <div class="resultados-box">
-            <h3>Produtos encontrados</h3>
-            <div class="lista-produtos-busca">
-              ${buscaProdutoResultados.map((produto, index) => `
-                <div class="produto-item-busca">
-                  <div class="produto-item-principal">${produto?.nome || '-'}</div>
-                  <div class="produto-item-secundario">ITEM legado: ${produto?.item_legado || '-'} · Preço Render: ${moeda(produto?.preco || 0)}</div>
-                  <div class="acoes-produto-busca">
-                    <button type="button" class="btn btn-primary" data-acao-produto="adicionar" data-index="${index}">Adicionar ao pedido</button>
-                  </div>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        ` : (buscaProdutoTermo ? '<div class="resultados-box"><div class="sem-resultados">Nenhum produto vinculado ao legado encontrado para essa busca.</div></div>' : '')}
+        <div id="resultadoBuscaProdutoEdicao"></div>
 
         <div class="tabela-wrap" style="margin-top:14px;">
           <table>
@@ -968,6 +1035,11 @@
         <div class="bloco-resumo-edicao">
           <div>Total de itens: ${numero(totalQuantidadeItensAtual())}</div>
           <div>Total do pedido: ${moeda(totalPedidoAtual())}</div>
+        </div>
+
+        <div class="acoes-edicao-inline">
+          <button id="btnCancelarEdicaoInline" class="btn btn-secondary" type="button">Cancelar alterações</button>
+          <button id="btnSalvarAlteracoesInline" class="btn btn-primary" type="button">Salvar alterações</button>
         </div>
       `;
 
@@ -1063,24 +1135,42 @@
       setMensagem('Edição cancelada.');
     }
 
-    async function pesquisarProdutosRender() {
+    async function pesquisarProdutosRender(silencioso = false) {
       const termo = (buscaProdutoTermo || '').trim();
 
-      if (!termo) {
-        setMensagem('Digite parte do nome do produto para buscar.', true);
+      if (termo.length < 2) {
+        buscaProdutoResultados = [];
+        indiceProdutoDestacado = 0;
+        renderizarResultadosBuscaProduto();
         return;
       }
 
-      setMensagem('Buscando produtos vinculados ao legado...');
+      const requestId = ++buscaProdutoRequestId;
 
       try {
         const json = await fetchJson(`/api/produtos?busca=${encodeURIComponent(termo)}&ativos=true`);
+        if (requestId !== buscaProdutoRequestId) {
+          return;
+        }
+
         const lista = Array.isArray(json?.data) ? json.data : [];
         buscaProdutoResultados = lista.filter((produto) => Number(produto?.item_legado || 0) > 0);
-        renderizarItens(pedidoCarregado);
-        setMensagem(buscaProdutoResultados.length ? 'Selecione um produto para adicionar ao pedido.' : 'Nenhum produto vinculado ao legado encontrado para essa busca.');
+        indiceProdutoDestacado = 0;
+        renderizarResultadosBuscaProduto();
+
+        if (!silencioso) {
+          setMensagem(buscaProdutoResultados.length ? 'Pressione Enter para adicionar o primeiro produto encontrado.' : 'Nenhum produto vinculado ao legado encontrado para essa busca.');
+        }
       } catch (error) {
-        setMensagem(error.message || 'Erro ao buscar produtos do Render.', true);
+        if (requestId !== buscaProdutoRequestId) {
+          return;
+        }
+        buscaProdutoResultados = [];
+        indiceProdutoDestacado = 0;
+        renderizarResultadosBuscaProduto();
+        if (!silencioso) {
+          setMensagem(error.message || 'Erro ao buscar produtos do Render.', true);
+        }
       }
     }
 
