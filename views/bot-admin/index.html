@@ -45,8 +45,15 @@
         <span id="chat-titulo">Selecione uma conversa</span>
         <div id="classificacao-controls" style="display:none">
           <button id="btn-classificar" disabled>🔍 Classificar intenção</button>
+          <div id="execucao-intencao-controls" class="execucao-intencao-controls">
+            <select id="select-intencao-manual" disabled>
+              <option value="">Carregando intenções...</option>
+            </select>
+            <button id="btn-executar-intencao" disabled>▶ Executar</button>
+          </div>
           <span id="badge-intencao" class="badge-intencao oculto"></span>
           <span id="status-classificacao"></span>
+          <span id="status-execucao-intencao"></span>
         </div>
       </div>
       <div id="chat-mensagens"></div>

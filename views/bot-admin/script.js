@@ -1,5 +1,6 @@
 (() => {
   const API = '/bot/admin';
+  const API_INTENCOES_ATIVAS = '/bot/intencoes';
   const INTENCAO_DESCONHECIDO = 'DESCONHECIDO';
 
   let paginaConversas = 1;
@@ -10,6 +11,7 @@
   const LIMIT_MENSAGENS = 50;
 
   let autonomiaAtiva = false;
+  let intencoesAtivas = [];
 
   // ── WebSocket / Fallback ─────────────────────────────────────
 
@@ -203,6 +205,119 @@
       .join('&');
   }
 
+  function resetarStatusExecucaoIntencao() {
+    const status = document.getElementById('status-execucao-intencao');
+    if (status) {
+      status.textContent = '';
+    }
+  }
+
+  function preencherSelectIntencoes() {
+    const select = document.getElementById('select-intencao-manual');
+    const btnExecutar = document.getElementById('btn-executar-intencao');
+    if (!select || !btnExecutar) return;
+
+    if (!intencoesAtivas.length) {
+      select.innerHTML = '<option value="">Nenhuma intenção cadastrada</option>';
+      select.disabled = true;
+      btnExecutar.disabled = true;
+      return;
+    }
+
+    const valorAtual = select.value;
+    select.innerHTML = [
+      '<option value="">Selecione a intenção</option>',
+      ...intencoesAtivas.map(intencao => (
+        `<option value="${esc(intencao.nome)}">${esc(intencao.nome)}${intencao.ativa === false ? ' (inativa)' : ''}${intencao.descricao ? ` — ${esc(intencao.descricao)}` : ''}</option>`
+      ))
+    ].join('');
+
+    if (valorAtual && intencoesAtivas.some(item => item.nome === valorAtual)) {
+      select.value = valorAtual;
+    }
+
+    select.disabled = false;
+    btnExecutar.disabled = !telefoneAtivo || !select.value;
+  }
+
+  async function carregarIntencoesAtivas() {
+    const select = document.getElementById('select-intencao-manual');
+    const btnExecutar = document.getElementById('btn-executar-intencao');
+
+    if (select) {
+      select.disabled = true;
+      select.innerHTML = '<option value="">Carregando intenções...</option>';
+    }
+
+    if (btnExecutar) {
+      btnExecutar.disabled = true;
+    }
+
+    try {
+      const res = await fetch(API_INTENCOES_ATIVAS);
+      if (!res.ok) throw new Error('Erro ao carregar intenções');
+
+      const data = await res.json();
+      intencoesAtivas = Array.isArray(data) ? data : [];
+      preencherSelectIntencoes();
+    } catch (err) {
+      intencoesAtivas = [];
+      if (select) {
+        select.innerHTML = '<option value="">Erro ao carregar intenções</option>';
+        select.disabled = true;
+      }
+      if (btnExecutar) {
+        btnExecutar.disabled = true;
+      }
+      console.error('[BotAdmin] erro ao carregar intenções:', err);
+    }
+  }
+
+  async function executarIntencaoManual() {
+    if (!telefoneAtivo) return;
+
+    const select = document.getElementById('select-intencao-manual');
+    const btn = document.getElementById('btn-executar-intencao');
+    const status = document.getElementById('status-execucao-intencao');
+    const intencao = String(select?.value || '').trim();
+
+    if (!intencao) {
+      if (status) status.textContent = 'Selecione uma intenção';
+      return;
+    }
+
+    btn.disabled = true;
+    if (select) select.disabled = true;
+    if (status) status.textContent = 'Executando...';
+
+    try {
+      const res = await fetch('/bot/admin/executar-intencao', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ telefone: telefoneAtivo, intencao })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.message || 'Erro ao executar intenção');
+      }
+
+      if (status) {
+        status.textContent = `Intenção ${data.intencao} executada (${data.total_acoes} ação(ões))`;
+      }
+
+      atualizarListaSilenciosa();
+      recarregarMensagensAtivas();
+    } catch (err) {
+      if (status) {
+        status.textContent = `Erro: ${err.message}`;
+      }
+    } finally {
+      preencherSelectIntencoes();
+    }
+  }
+
   // ── Lista de Conversas ──────────────────────────────────────
 
   async function carregarConversas(pagina = 1) {
@@ -282,6 +397,8 @@
     document.getElementById('btn-classificar').disabled = false;
     document.getElementById('classificacao-controls').style.display = 'flex';
     resetarClassificacao();
+    resetarStatusExecucaoIntencao();
+    preencherSelectIntencoes();
 
     document.querySelectorAll('.conversa-item').forEach(el => {
       el.classList.toggle('ativa', el.dataset.telefone === telefone);
@@ -370,6 +487,20 @@
     status.textContent = '';
   }
 
+  function selecionarIntencaoManual(intencao) {
+    const select = document.getElementById('select-intencao-manual');
+    const btn = document.getElementById('btn-executar-intencao');
+    if (!select) return;
+
+    if (intencao && intencoesAtivas.some(item => item.nome === intencao)) {
+      select.value = intencao;
+    }
+
+    if (btn) {
+      btn.disabled = !telefoneAtivo || !select.value;
+    }
+  }
+
   async function classificarIntencao() {
     if (!telefoneAtivo) return;
 
@@ -397,6 +528,7 @@
       badge.textContent = intencao;
       badge.className = `badge-intencao${intencao === INTENCAO_DESCONHECIDO ? ' desconhecido' : ''}`;
       status.textContent = '';
+      selecionarIntencaoManual(intencao);
 
       recarregarMensagensAtivas();
       atualizarListaSilenciosa();
@@ -431,6 +563,12 @@
 
   document.getElementById('btn-filtrar').addEventListener('click', () => carregarConversas(1));
   document.getElementById('btn-classificar').addEventListener('click', classificarIntencao);
+  document.getElementById('btn-executar-intencao').addEventListener('click', executarIntencaoManual);
+  document.getElementById('select-intencao-manual').addEventListener('change', e => {
+    const btn = document.getElementById('btn-executar-intencao');
+    resetarStatusExecucaoIntencao();
+    btn.disabled = !telefoneAtivo || !e.target.value;
+  });
 
   document.getElementById('filtro-telefone').addEventListener('keydown', e => {
     if (e.key === 'Enter') carregarConversas(1);
@@ -442,6 +580,7 @@
   }
 
   carregarStatusAutonomia();
+  carregarIntencoesAtivas();
   carregarConversas(1);
   conectarWs();
 })();

@@ -46,6 +46,7 @@ const prestacaoContasRoutes = require('./src/routes/prestacao_contas/prestacao_c
 
 const botRoutes = require('./src/routes/bot/bot.routes');
 const botAdminRoutes = require('./src/routes/bot/bot.admin.routes');
+const executarIntencaoRoutes = require('./src/routes/bot/executar-intencao.routes');
 const botContatosRoutes = require('./src/routes/bot/botContatos.routes');
 const botIntencoesRoutes = require('./src/routes/bot/botIntencoes.routes');
 const classificadorIntencaoRoutes = require('./src/routes/bot/classificadorIntencao.routes');
@@ -115,6 +116,7 @@ app.use('/hub', hubRoutes);
 
 app.use('/bot', botRoutes);
 app.use('/bot/admin', botAdminRoutes);
+app.use('/bot/admin', executarIntencaoRoutes);
 app.use('/api/bot', botContatosRoutes);
 app.use('/bot', botIntencoesRoutes);
 app.use('/bot', classificadorIntencaoRoutes);

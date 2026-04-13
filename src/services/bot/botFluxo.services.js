@@ -1,26 +1,10 @@
 const pool = require('../../../db/connection');
+const zapiService = require('../integracoes/zapi.service');
 
-const ZAPI_URL = process.env.ZAPI_URL;
-const ZAPI_TOKEN = process.env.ZAPI_TOKEN;
-
-const TIPOS_VALIDOS = [
-  'SEND_TEXT',
-  'SEND_IMAGE',
-  'SEND_AUDIO',
-  'SEND_VIDEO',
-  'SEND_DOCUMENT',
-  'SEND_LOCATION',
-  'SEND_LINK'
-];
+const TIPOS_VALIDOS = zapiService.TIPOS_VALIDOS;
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-function garantirEnvZapi() {
-  if (!ZAPI_URL || !ZAPI_TOKEN) {
-    throw new Error('ZAPI_URL e ZAPI_TOKEN são obrigatórios nas variáveis de ambiente.');
-  }
 }
 
 function normalizarTelefone(telefone) {
@@ -32,7 +16,7 @@ function normalizarIntencao(intencao) {
 }
 
 function normalizarTipoAcao(tipo) {
-  return String(tipo || '').trim().toUpperCase();
+  return zapiService.normalizarTipoAcao(tipo);
 }
 
 function gerarBucketDezSegundos() {
@@ -83,148 +67,12 @@ async function buscarAcoesPorIntencao(intencao) {
   return result.rows;
 }
 
-function montarRequisicaoZapi(telefone, acao) {
-  const tipo = normalizarTipoAcao(acao.tipo_acao);
-  const conteudo = String(acao.conteudo || '').trim();
-
-  switch (tipo) {
-    case 'SEND_TEXT':
-      return {
-        endpoint: '/send-text',
-        payload: {
-          phone: telefone,
-          message: conteudo
-        }
-      };
-
-    case 'SEND_IMAGE':
-      return {
-        endpoint: '/send-image',
-        payload: {
-          phone: telefone,
-          image: conteudo
-        }
-      };
-
-    case 'SEND_AUDIO':
-      return {
-        endpoint: '/send-audio',
-        payload: {
-          phone: telefone,
-          audio: conteudo
-        }
-      };
-
-    case 'SEND_VIDEO':
-      console.log('[botFluxo] enviando video:', conteudo);
-      return {
-        endpoint: '/send-video',
-        payload: {
-          phone: telefone,
-          video: conteudo
-        }
-      };
-
-    case 'SEND_DOCUMENT':
-      return {
-        endpoint: '/send-document',
-        payload: {
-          phone: telefone,
-          document: conteudo
-        }
-      };
-
-    case 'SEND_LINK':
-      return {
-        endpoint: '/send-text',
-        payload: {
-          phone: telefone,
-          message: conteudo
-        }
-      };
-
-    case 'SEND_LOCATION': {
-      try {
-        const parsed = JSON.parse(conteudo);
-
-        if (parsed && parsed.latitude != null && parsed.longitude != null) {
-          return {
-            endpoint: '/send-location',
-            payload: {
-              phone: telefone,
-              latitude: Number(parsed.latitude),
-              longitude: Number(parsed.longitude),
-              address: parsed.address || ''
-            }
-          };
-        }
-
-        if (parsed && parsed.lat != null && parsed.lng != null) {
-          return {
-            endpoint: '/send-location',
-            payload: {
-              phone: telefone,
-              latitude: Number(parsed.lat),
-              longitude: Number(parsed.lng),
-              address: parsed.address || ''
-            }
-          };
-        }
-
-        if (parsed && parsed.address) {
-          return {
-            endpoint: '/send-text',
-            payload: {
-              phone: telefone,
-              message: String(parsed.address)
-            }
-          };
-        }
-      } catch (_) {}
-
-      return {
-        endpoint: '/send-text',
-        payload: {
-          phone: telefone,
-          message: conteudo
-        }
-      };
-    }
-
-    default:
-      throw new Error(`Tipo de ação inválido: ${tipo}`);
-  }
-}
-
 async function enviarAcaoZAPI(telefone, acao) {
-  garantirEnvZapi();
-
-  const { endpoint, payload } = montarRequisicaoZapi(telefone, acao);
-  const url = `${ZAPI_URL}${endpoint}`;
-
-  let response;
-  try {
-    response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Client-Token': ZAPI_TOKEN
-      },
-      body: JSON.stringify(payload)
-    });
-  } catch (err) {
-    throw new Error(`Falha ao conectar à Z-API (${url}): ${err.message}`);
-  }
-
-  const retornoTexto = await response.text().catch(() => '');
-
-  if (!response.ok) {
-    throw new Error(`Z-API respondeu ${response.status}: ${retornoTexto}`);
-  }
-
-  console.log('[botFluxo] retorno Z-API:', retornoTexto);
-
-  return true;
+  return zapiService.enviarAcao({
+    telefone,
+    tipo: acao.tipo_acao,
+    conteudo: acao.conteudo
+  });
 }
 
 async function executarFluxo(telefone, intencao) {
