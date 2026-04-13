@@ -85,12 +85,12 @@
 
     if (autonomiaAtiva) {
       btn.textContent = '🟢 Bot ON';
-      btn.style.background = '#27ae60';
+      btn.style.background = '#1a7f37';
       btn.style.color = '#fff';
       status.textContent = 'Autônomo ativo';
     } else {
       btn.textContent = '🔴 Bot OFF';
-      btn.style.background = '#c0392b';
+      btn.style.background = '#d1242f';
       btn.style.color = '#fff';
       status.textContent = 'Autônomo desligado';
     }
