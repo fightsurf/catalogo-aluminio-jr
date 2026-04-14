@@ -7,80 +7,56 @@
   <link rel="stylesheet" href="/bot-admin/style.css" />
 </head>
 <body>
-  <header id="top-controls">
-    <div class="top-brand">
-      <h2>🤖 Bot Admin</h2>
-
-      <div class="autonomia-row">
-        <button id="btn-autonomia" class="btn-autonomia">Carregando...</button>
-        <span id="status-autonomia" class="status-autonomia"></span>
-      </div>
-    </div>
-
-    <div class="top-actions">
-      <div class="control-card control-card-largo">
-        <label for="novo-telefone">Nova conversa</label>
-        <div class="input-group-inline">
-          <input type="text" id="novo-telefone" placeholder="Digite o telefone..." />
-          <button id="btn-abrir-conversa" type="button">Abrir</button>
-        </div>
-        <small>Abra uma conversa manual e execute a intenção escolhida.</small>
-      </div>
-
-      <div class="control-card">
-        <label for="filtro-telefone">Buscar telefone</label>
-        <input type="text" id="filtro-telefone" placeholder="Buscar telefone..." />
-      </div>
-
-      <div class="control-card control-card-select">
-        <label for="filtro-nivel">Nível</label>
-        <select id="filtro-nivel">
-          <option value="">Todos os níveis</option>
-          <option value="HUMANO">HUMANO</option>
-          <option value="IA">IA</option>
-        </select>
-      </div>
-
-      <div class="control-card control-card-botao">
-        <label>&nbsp;</label>
-        <button id="btn-filtrar" type="button">Filtrar</button>
-      </div>
-
-      <div id="acoes-conversa" class="control-card control-card-acoes oculto">
-        <div class="executar-intencao-box">
-          <label for="select-intencao-executar">Executar intenção</label>
-          <div class="executar-intencao-linha">
-            <select id="select-intencao-executar">
-              <option value="">Carregando intenções...</option>
-            </select>
-            <button id="btn-executar-intencao" type="button" disabled>Executar</button>
-          </div>
-          <span id="status-execucao-intencao" class="status-execucao-intencao"></span>
-        </div>
-
-        <div id="classificacao-controls" class="classificacao-controls" style="display:none">
-          <button id="btn-classificar" disabled>🔍 Classificar intenção</button>
-          <span id="badge-intencao" class="badge-intencao oculto"></span>
-          <span id="status-classificacao"></span>
-        </div>
-      </div>
-    </div>
-  </header>
-
   <div id="app">
     <aside id="sidebar">
-      <div id="sidebar-header">Telefones</div>
+      <div id="sidebar-header">
+        <h2>Telefones</h2>
+      </div>
       <div id="lista-conversas"></div>
       <div id="paginacao-conversas"></div>
     </aside>
 
     <main id="chat-area">
-      <div id="chat-header">
-        <div class="chat-header-main">
-          <span id="chat-titulo">Selecione uma conversa</span>
-          <span id="chat-subtitulo">Escolha um telefone na lista ou abra uma nova conversa manualmente.</span>
+      <div id="topbar">
+        <div class="topbar-row topbar-row-main">
+          <div id="chat-titulo">Selecione uma conversa</div>
+          <div class="toolbar-group toolbar-group-busca">
+            <input type="text" id="filtro-telefone" placeholder="Buscar telefone" />
+            <select id="filtro-nivel">
+              <option value="">Todos os níveis</option>
+              <option value="HUMANO">HUMANO</option>
+              <option value="IA">IA</option>
+            </select>
+            <button id="btn-filtrar">Buscar</button>
+          </div>
+          <div class="toolbar-group toolbar-group-autonomia">
+            <button id="btn-autonomia">Carregando...</button>
+            <span id="status-autonomia" class="status-inline"></span>
+          </div>
+        </div>
+
+        <div class="topbar-row topbar-row-actions">
+          <div class="toolbar-group toolbar-group-manual">
+            <input type="text" id="novo-telefone" placeholder="Novo telefone" />
+            <button id="btn-abrir-conversa">Abrir</button>
+          </div>
+
+          <div class="toolbar-group toolbar-group-intencao">
+            <button id="btn-classificar" disabled>Classificar intenção</button>
+            <select id="select-intencao-manual" disabled>
+              <option value="">Carregando intenções...</option>
+            </select>
+            <button id="btn-executar-intencao" disabled>Executar</button>
+          </div>
+
+          <div class="toolbar-group toolbar-group-status">
+            <span id="badge-intencao" class="badge-intencao oculto"></span>
+            <span id="status-classificacao" class="status-inline"></span>
+            <span id="status-execucao-intencao" class="status-inline"></span>
+          </div>
         </div>
       </div>
+
       <div id="chat-mensagens"></div>
       <div id="paginacao-mensagens"></div>
     </main>
