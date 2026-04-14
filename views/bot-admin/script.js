@@ -88,6 +88,20 @@
     }
   }
 
+  function normalizarTelefone(telefone) {
+    return String(telefone || '').replace(/\D/g, '');
+  }
+
+  function atualizarEstadoExecucaoIntencao() {
+    const select = document.getElementById('select-intencao-executar');
+    const btn = document.getElementById('btn-executar-intencao');
+    if (!select || !btn) return;
+
+    const temTelefone = !!normalizarTelefone(telefoneAtivo);
+    const temIntencao = !!String(select.value || '').trim();
+    btn.disabled = !(temTelefone && temIntencao);
+  }
+
   async function carregarStatusAutonomia() {
     try {
       const res = await fetch('/bot/autonomia/status');
@@ -129,6 +143,7 @@
     if (!select) return;
 
     select.innerHTML = '<option value="">Carregando intenções...</option>';
+    atualizarEstadoExecucaoIntencao();
 
     try {
       const res = await fetch('/bot/intencoes');
@@ -140,6 +155,7 @@
 
       if (!intencoesDisponiveis.length) {
         select.innerHTML = '<option value="">Nenhuma intenção disponível</option>';
+        atualizarEstadoExecucaoIntencao();
         return;
       }
 
@@ -148,9 +164,11 @@
         '<option value="">Selecione a intenção</option>',
         ...intencoesDisponiveis.map(item => `<option value="${esc(item.nome)}">${esc(item.nome)}</option>`)
       ].join('');
+      atualizarEstadoExecucaoIntencao();
     } catch (err) {
       console.error('[BotAdmin] erro ao carregar intenções:', err);
       select.innerHTML = '<option value="">Erro ao carregar intenções</option>';
+      atualizarEstadoExecucaoIntencao();
     }
   }
 
@@ -207,10 +225,6 @@
       .replace(/'/g, '&#39;');
   }
 
-  function normalizarTelefone(telefone) {
-    return String(telefone || '').replace(/\D/g, '');
-  }
-
   function getFiltros() {
     return {
       telefone: document.getElementById('filtro-telefone').value.trim(),
@@ -249,22 +263,15 @@
   function renderConversas(conversas) {
     const lista = document.getElementById('lista-conversas');
     if (!conversas.length) {
-      lista.innerHTML = '<p class="msg-vazia">Nenhuma conversa encontrada.</p>';
+      lista.innerHTML = '<p class="msg-vazia">Nenhum telefone encontrado.</p>';
       return;
     }
 
     lista.innerHTML = conversas.map(c => {
-      const nivel = c.nivel_atendimento || 'HUMANO';
-      const ativa = c.telefone === telefoneAtivo ? ' ativa' : '';
+      const ativa = normalizarTelefone(c.telefone) === normalizarTelefone(telefoneAtivo) ? ' ativa' : '';
       return `
-        <div class="conversa-item${ativa}" data-telefone="${esc(c.telefone)}">
+        <div class="conversa-item${ativa}" data-telefone="${esc(c.telefone)}" title="${esc(c.telefone)}">
           <span class="conversa-telefone">${esc(c.telefone)}</span>
-          ${c.nome ? `<span class="conversa-nome">${esc(c.nome)}</span>` : ''}
-          <span class="conversa-preview">${esc(c.ultima_mensagem || '')}</span>
-          <div class="conversa-meta">
-            <span class="conversa-nivel nivel-${esc(nivel)}">${esc(nivel)}</span>
-            <span class="conversa-data">${formatarData(c.atualizado_em)}</span>
-          </div>
         </div>`;
     }).join('');
 
@@ -276,7 +283,7 @@
   function renderPaginacaoConversas(pagina, totalPaginas, total) {
     const pag = document.getElementById('paginacao-conversas');
     if (!totalPaginas || totalPaginas <= 1) {
-      pag.innerHTML = `<span>${total || 0} conversa(s)</span>`;
+      pag.innerHTML = `<span>${total || 0} telefone(s)</span>`;
       return;
     }
 
@@ -304,7 +311,7 @@
     document.getElementById('chat-titulo').textContent = `📱 ${tel}`;
     document.getElementById('chat-subtitulo').textContent = manual
       ? 'Conversa manual aberta para disparo de intenção.'
-      : 'Histórico do contato selecionado.';
+      : 'Histórico do telefone selecionado.';
     document.getElementById('chat-mensagens').innerHTML = '<p class="msg-carregando">Carregando mensagens...</p>';
     document.getElementById('paginacao-mensagens').innerHTML = '';
     document.getElementById('btn-classificar').disabled = false;
@@ -312,9 +319,10 @@
     document.getElementById('acoes-conversa').classList.remove('oculto');
     limparStatusExecucaoIntencao();
     resetarClassificacao();
+    atualizarEstadoExecucaoIntencao();
 
     document.querySelectorAll('.conversa-item').forEach(el => {
-      el.classList.toggle('ativa', el.dataset.telefone === tel);
+      el.classList.toggle('ativa', normalizarTelefone(el.dataset.telefone) === tel);
     });
 
     await carregarMensagens(tel, 1, { manual });
@@ -451,6 +459,7 @@
         }
       }
 
+      atualizarEstadoExecucaoIntencao();
       recarregarMensagensAtivas();
       atualizarListaSilenciosa();
 
@@ -500,7 +509,7 @@
       console.error('[BotAdmin] erro ao executar intenção manual:', err);
       definirStatusExecucaoIntencao(err.message || 'Erro ao executar fluxo.', 'error');
     } finally {
-      btn.disabled = false;
+      atualizarEstadoExecucaoIntencao();
     }
   }
 
@@ -538,6 +547,7 @@
   document.getElementById('btn-classificar').addEventListener('click', classificarIntencao);
   document.getElementById('btn-executar-intencao').addEventListener('click', executarIntencaoManual);
   document.getElementById('btn-abrir-conversa').addEventListener('click', abrirConversaManualPeloCampo);
+  document.getElementById('select-intencao-executar').addEventListener('change', atualizarEstadoExecucaoIntencao);
 
   document.getElementById('filtro-telefone').addEventListener('keydown', e => {
     if (e.key === 'Enter') carregarConversas(1);
