@@ -320,7 +320,7 @@ async function buscarEtiquetasRows(codigoCarrada) {
         c.texto_etiqueta,
         c.ativo
       FROM carradas_pedidos_etiquetas_volumes p
-      INNER JOIN clientes_etiquetas_volumes c ON c.id = p.etiqueta_cliente_id
+      LEFT JOIN clientes_etiquetas_volumes c ON c.id = p.etiqueta_cliente_id
       WHERE p.codigo_carrada = $1
     `,
     [codigoCarrada]
@@ -1135,7 +1135,7 @@ async function confirmarEtiquetaVolumes({ codigoCarrada: codigoCarradaParam, num
   const numeroPedido = normalizarNumeroPedido(numeroPedidoParam);
   const confirmadoBoolean = normalizarBoolean(confirmado);
 
-  const result = await pool.query(
+  let result = await pool.query(
     `
       UPDATE carradas_pedidos_etiquetas_volumes
       SET confirmado_boolean = $3,
@@ -1148,8 +1148,42 @@ async function confirmarEtiquetaVolumes({ codigoCarrada: codigoCarradaParam, num
     [codigoCarrada, numeroPedido, confirmadoBoolean]
   );
 
+  if (!result.rows.length && confirmadoBoolean) {
+    const carrada = await buscarCarradaOuFalhar(codigoCarrada);
+    const pedido = encontrarPedidoNaCarrada(carrada, numeroPedido);
+
+    result = await pool.query(
+      `
+        INSERT INTO carradas_pedidos_etiquetas_volumes (
+          codigo_carrada,
+          numero_pedido,
+          saida,
+          etiqueta_cliente_id,
+          texto_snapshot,
+          confirmado_boolean,
+          enviado_em,
+          confirmado_em
+        ) VALUES ($1, $2, $3, NULL, '', TRUE, NULL, NOW())
+        ON CONFLICT (codigo_carrada, numero_pedido)
+        DO UPDATE SET
+          saida = EXCLUDED.saida,
+          confirmado_boolean = TRUE,
+          confirmado_em = NOW(),
+          updated_at = NOW()
+        RETURNING codigo_carrada, numero_pedido, etiqueta_cliente_id, texto_snapshot, confirmado_boolean, enviado_em, confirmado_em, updated_at
+      `,
+      [codigoCarrada, numeroPedido, pedido?.saida ?? null]
+    );
+  }
+
   if (!result.rows.length) {
-    throw criarErro('Ainda não existe etiqueta de volumes enviada para este pedido.', 404);
+    return {
+      numeroPedido,
+      confirmadoBoolean: false,
+      enviadoEm: null,
+      confirmadoEm: null,
+      updatedAt: null
+    };
   }
 
   return {
