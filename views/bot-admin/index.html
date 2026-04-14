@@ -4,30 +4,30 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Bot Admin – Alumínio JR</title>
-  <link rel="stylesheet" href="/css/theme.css" />
   <link rel="stylesheet" href="/bot-admin/style.css" />
 </head>
 <body>
   <div id="app">
-    <!-- SIDEBAR: lista de conversas -->
     <aside id="sidebar">
       <div id="filtros">
         <h2>🤖 Bot Admin</h2>
 
-        <div style="display:flex; gap:8px; margin-bottom:12px; align-items:center; flex-wrap:wrap;">
-          <button
-            id="btn-autonomia"
-            style="padding:8px 12px; border:none; border-radius:6px; cursor:pointer; font-weight:bold;"
-          >
-            Carregando...
-          </button>
-          <span id="status-autonomia" style="display:flex; align-items:center; font-size:12px; color:#666;"></span>
+        <div class="autonomia-row">
+          <button id="btn-autonomia" class="btn-autonomia">Carregando...</button>
+          <span id="status-autonomia" class="status-autonomia"></span>
+        </div>
+
+        <div class="card-acao card-nova-conversa">
+          <label for="novo-telefone">Nova conversa</label>
+          <div class="input-group-inline">
+            <input type="text" id="novo-telefone" placeholder="Digite o telefone..." />
+            <button id="btn-abrir-conversa" type="button">Abrir</button>
+          </div>
+          <small>Abra uma conversa manual e execute a intenção escolhida.</small>
         </div>
 
         <input type="text" id="filtro-telefone" placeholder="Buscar telefone..." />
         <div id="filtros-grid">
-          <input type="date" id="filtro-data-inicio" title="Data início" />
-          <input type="date" id="filtro-data-fim" title="Data fim" />
           <select id="filtro-nivel">
             <option value="">Todos os níveis</option>
             <option value="HUMANO">HUMANO</option>
@@ -40,21 +40,30 @@
       <div id="paginacao-conversas"></div>
     </aside>
 
-    <!-- MAIN: histórico de mensagens -->
     <main id="chat-area">
       <div id="chat-header">
-        <span id="chat-titulo">Selecione uma conversa</span>
-        <div id="classificacao-controls" style="display:none">
-          <button id="btn-classificar" disabled>🔍 Classificar intenção</button>
-          <div id="execucao-intencao-controls" class="execucao-intencao-controls">
-            <select id="select-intencao-manual" disabled>
-              <option value="">Carregando intenções...</option>
-            </select>
-            <button id="btn-executar-intencao" disabled>▶ Executar</button>
+        <div class="chat-header-main">
+          <span id="chat-titulo">Selecione uma conversa</span>
+          <span id="chat-subtitulo">Escolha uma conversa da lista ou abra uma manualmente.</span>
+        </div>
+
+        <div id="acoes-conversa" class="acoes-conversa oculto">
+          <div class="executar-intencao-box">
+            <label for="select-intencao-executar">Executar intenção</label>
+            <div class="executar-intencao-linha">
+              <select id="select-intencao-executar">
+                <option value="">Carregando intenções...</option>
+              </select>
+              <button id="btn-executar-intencao" type="button" disabled>Executar</button>
+            </div>
+            <span id="status-execucao-intencao" class="status-execucao-intencao"></span>
           </div>
-          <span id="badge-intencao" class="badge-intencao oculto"></span>
-          <span id="status-classificacao"></span>
-          <span id="status-execucao-intencao"></span>
+
+          <div id="classificacao-controls" style="display:none">
+            <button id="btn-classificar" disabled>🔍 Classificar intenção</button>
+            <span id="badge-intencao" class="badge-intencao oculto"></span>
+            <span id="status-classificacao"></span>
+          </div>
         </div>
       </div>
       <div id="chat-mensagens"></div>
