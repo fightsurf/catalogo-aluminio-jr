@@ -404,6 +404,13 @@
       return 0;
     }
 
+    function obterLimiteNoventaDias() {
+      const agora = new Date();
+      agora.setHours(0, 0, 0, 0);
+      agora.setDate(agora.getDate() - 90);
+      return agora.getTime();
+    }
+
     function limparBuscaClienteSelecionado() {
       estado.clienteSelecionado = null;
       el.clienteSelecionadoBox.innerHTML = '';
@@ -686,9 +693,12 @@
 
         linha.classList.remove('carrada-semicompleta', 'carrada-completa');
 
-        if (item?.statusLinha === 'completa') {
+        const linhaCompleta = item?.concluida === true || item?.statusLinha === 'completa';
+        const linhaSemicompleta = item?.semicompleta === true || item?.statusLinha === 'semicompleta';
+
+        if (linhaCompleta) {
           linha.classList.add('carrada-completa');
-        } else if (item?.statusLinha === 'semicompleta') {
+        } else if (linhaSemicompleta) {
           linha.classList.add('carrada-semicompleta');
         }
       });
@@ -712,20 +722,24 @@
     async function carregarCarradas() {
       try {
         const carradas = await request('/api/legado/carradas');
+        const limiteNoventaDias = obterLimiteNoventaDias();
 
-        const carradasOrdenadas = (Array.isArray(carradas) ? carradas : []).slice().sort((a, b) => {
-          const dataB = obterTimestampOrdenacaoData(b.data);
-          const dataA = obterTimestampOrdenacaoData(a.data);
+        const carradasOrdenadas = (Array.isArray(carradas) ? carradas : [])
+          .filter((carrada) => obterTimestampOrdenacaoData(carrada.data) >= limiteNoventaDias)
+          .slice()
+          .sort((a, b) => {
+            const dataB = obterTimestampOrdenacaoData(b.data);
+            const dataA = obterTimestampOrdenacaoData(a.data);
 
-          if (dataB !== dataA) {
-            return dataB - dataA;
-          }
+            if (dataB !== dataA) {
+              return dataB - dataA;
+            }
 
-          return Number(b.codigo || 0) - Number(a.codigo || 0);
-        }).map((carrada) => ({
-          ...carrada,
-          progressoStatusLinha: 'incompleta'
-        }));
+            return Number(b.codigo || 0) - Number(a.codigo || 0);
+          }).map((carrada) => ({
+            ...carrada,
+            progressoStatusLinha: 'incompleta'
+          }));
 
         renderCarradas(carradasOrdenadas);
 
