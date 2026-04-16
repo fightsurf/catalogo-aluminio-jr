@@ -160,6 +160,11 @@ async function buscarCarrada(codigo) {
   return response.dado || null;
 }
 
+async function buscarResumoCarrada(codigo) {
+  const response = await legadoBridgeService.get(`/api/carradas/${codigo}/resumo`);
+  return response.dado || null;
+}
+
 async function criarCarrada(payload) {
   const response = await request('/api/carradas', {
     method: 'POST',
@@ -236,6 +241,7 @@ module.exports = {
   listarPedidosPorNumero,
   listarCarradas,
   buscarCarrada,
+  buscarResumoCarrada,
   criarCarrada,
   atualizarCarrada,
   vincularPedidoNaCarrada,

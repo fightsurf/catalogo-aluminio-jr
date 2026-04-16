@@ -470,7 +470,11 @@ async function buscarMatriz(codigoCarradaParam) {
   await garantirTabelasModulo();
 
   const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
-  const carrada = await buscarCarradaOuFalhar(codigoCarrada);
+  const carrada = await carradasService.buscarResumoCarrada(codigoCarrada);
+
+  if (!carrada) {
+    throw criarErro('Carrada não encontrada.', 404);
+  }
   const pedidos = Array.isArray(carrada?.pedidos) ? carrada.pedidos : [];
 
   const [booleanRowsMap, etiquetasMap, localEntregaMap] = await Promise.all([
@@ -577,6 +581,31 @@ function calcularResumoConclusaoDaMatriz(matriz) {
 
 const FASES_BOOLEANAS_CODIGOS = Object.keys(FASES_BOOLEANAS);
 
+async function mapearComConcorrencia(itens, limite, worker) {
+  const lista = Array.isArray(itens) ? itens : [];
+  const maximo = Number.isInteger(limite) && limite > 0 ? limite : 1;
+  const resultados = new Array(lista.length);
+  let indiceAtual = 0;
+
+  async function executar() {
+    while (true) {
+      const indice = indiceAtual;
+      indiceAtual += 1;
+
+      if (indice >= lista.length) {
+        return;
+      }
+
+      resultados[indice] = await worker(lista[indice], indice);
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(maximo, lista.length) }, () => executar());
+  await Promise.all(workers);
+  return resultados;
+}
+
+
 async function buscarResumoBooleanosConcluidosPorCarrada(codigoCarrada) {
   const result = await pool.query(
     `
@@ -649,7 +678,11 @@ async function buscarResumoLocalEntregaPorCarrada(codigoCarrada) {
 }
 
 async function calcularResumoRapidoCarrada(codigoCarrada) {
-  const carrada = await buscarCarradaOuFalhar(codigoCarrada);
+  const carrada = await carradasService.buscarResumoCarrada(codigoCarrada);
+
+  if (!carrada) {
+    throw criarErro('Carrada não encontrada.', 404);
+  }
   const pedidos = Array.isArray(carrada?.pedidos) ? carrada.pedidos : [];
   const totalPedidos = pedidos.length;
   const totalFases = FASES_MATRIZ.length;
@@ -675,37 +708,35 @@ async function calcularResumoRapidoCarrada(codigoCarrada) {
     buscarResumoLocalEntregaPorCarrada(codigoCarrada)
   ]);
 
-  const resumosPedidos = await Promise.all(
-    pedidos.map(async (pedido) => {
-      const numeroPedido = String(pedido?.numero || '');
-      const booleanSet = booleanMap.get(numeroPedido) || new Set();
-      const emProducao = booleanSet.has('EM_PRODUCAO');
-      const pedidoPronto = booleanSet.has('PEDIDO_PRONTO');
-      const videoFeito = booleanSet.has('VIDEO_FEITO');
-      const querNotaFiscal = booleanSet.has('QUER_NOTA_FISCAL');
-      const ligacaoPosVenda = booleanSet.has('LIGACAO_POS_VENDA');
-      const etiquetaConcluida = etiquetasSet.has(numeroPedido);
-      const localEntregaConcluido = localEntregaSet.has(numeroPedido) || booleanSet.has('LOCAL_ENTREGA');
-      const detalhePagamento = await buscarDetalhePagamentoDoPedido(pedido);
-      const pagamentoQuitado = calcularPagamentoQuitado(detalhePagamento);
+  const resumosPedidos = await mapearComConcorrencia(pedidos, 6, async (pedido) => {
+    const numeroPedido = String(pedido?.numero || '');
+    const booleanSet = booleanMap.get(numeroPedido) || new Set();
+    const emProducao = booleanSet.has('EM_PRODUCAO');
+    const pedidoPronto = booleanSet.has('PEDIDO_PRONTO');
+    const videoFeito = booleanSet.has('VIDEO_FEITO');
+    const querNotaFiscal = booleanSet.has('QUER_NOTA_FISCAL');
+    const ligacaoPosVenda = booleanSet.has('LIGACAO_POS_VENDA');
+    const etiquetaConcluida = etiquetasSet.has(numeroPedido);
+    const localEntregaConcluido = localEntregaSet.has(numeroPedido) || booleanSet.has('LOCAL_ENTREGA');
+    const detalhePagamento = await buscarDetalhePagamentoDoPedido(pedido);
+    const pagamentoQuitado = calcularPagamentoQuitado(detalhePagamento);
 
-      const concluidasSemLigacao = [
-        emProducao,
-        pedidoPronto,
-        etiquetaConcluida,
-        videoFeito,
-        querNotaFiscal,
-        localEntregaConcluido,
-        pagamentoQuitado
-      ].filter(Boolean).length;
+    const concluidasSemLigacao = [
+      emProducao,
+      pedidoPronto,
+      etiquetaConcluida,
+      videoFeito,
+      querNotaFiscal,
+      localEntregaConcluido,
+      pagamentoQuitado
+    ].filter(Boolean).length;
 
-      return {
-        semLigacaoConcluido: concluidasSemLigacao === 7,
-        completo: concluidasSemLigacao === 7 && ligacaoPosVenda,
-        totalConcluido: concluidasSemLigacao + (ligacaoPosVenda ? 1 : 0)
-      };
-    })
-  );
+    return {
+      semLigacaoConcluido: concluidasSemLigacao === 7,
+      completo: concluidasSemLigacao === 7 && ligacaoPosVenda,
+      totalConcluido: concluidasSemLigacao + (ligacaoPosVenda ? 1 : 0)
+    };
+  });
 
   const celulasConcluidas = resumosPedidos.reduce((total, item) => total + item.totalConcluido, 0);
   const semicompleta = resumosPedidos.every((item) => item.semLigacaoConcluido);
@@ -742,35 +773,29 @@ async function buscarResumoListaCarradas(codigosParam) {
     tabelasExistem = false;
   }
 
-  const itens = [];
+  const carradasValidas = (Array.isArray(carradasBase) ? carradasBase : [])
+    .map((carrada) => Number.parseInt(carrada?.codigo, 10))
+    .filter((codigo) => Number.isInteger(codigo) && codigo > 0);
 
-  for (const carrada of (Array.isArray(carradasBase) ? carradasBase : [])) {
-    const codigo = Number.parseInt(carrada?.codigo, 10);
+  if (!tabelasExistem) {
+    return carradasValidas.map((codigo) => ({
+      codigoCarrada: codigo,
+      concluida: false,
+      semicompleta: false,
+      statusLinha: 'incompleta',
+      percentualConclusao: 0,
+      totalPedidos: 0,
+      totalFases: FASES_MATRIZ.length,
+      totalCelulas: 0,
+      celulasConcluidas: 0
+    })).sort((a, b) => a.codigoCarrada - b.codigoCarrada);
+  }
 
-    if (!Number.isInteger(codigo) || codigo <= 0) {
-      continue;
-    }
-
-    if (!tabelasExistem) {
-      itens.push({
-        codigoCarrada: codigo,
-        concluida: false,
-        semicompleta: false,
-        statusLinha: 'incompleta',
-        percentualConclusao: 0,
-        totalPedidos: 0,
-        totalFases: FASES_MATRIZ.length,
-        totalCelulas: 0,
-        celulasConcluidas: 0
-      });
-      continue;
-    }
-
+  const itens = await mapearComConcorrencia(carradasValidas, 4, async (codigo) => {
     try {
-      const resumo = await calcularResumoRapidoCarrada(codigo);
-      itens.push(resumo);
+      return await calcularResumoRapidoCarrada(codigo);
     } catch (error) {
-      itens.push({
+      return {
         codigoCarrada: codigo,
         concluida: false,
         semicompleta: false,
@@ -781,9 +806,9 @@ async function buscarResumoListaCarradas(codigosParam) {
         totalCelulas: 0,
         celulasConcluidas: 0,
         erro: error?.message || 'Falha ao calcular o resumo do progresso.'
-      });
+      };
     }
-  }
+  });
 
   return itens.sort((a, b) => a.codigoCarrada - b.codigoCarrada);
 }
@@ -795,7 +820,11 @@ async function salvarMarcacaoSilenciosaEspecial({ codigoCarrada: codigoCarradaPa
   const numeroPedido = normalizarNumeroPedido(numeroPedidoParam);
   const faseCodigo = limparTexto(faseCodigoParam).toUpperCase();
   const valorBoolean = normalizarBoolean(valor);
-  const carrada = await buscarCarradaOuFalhar(codigoCarrada);
+  const carrada = await carradasService.buscarResumoCarrada(codigoCarrada);
+
+  if (!carrada) {
+    throw criarErro('Carrada não encontrada.', 404);
+  }
   const pedido = encontrarPedidoNaCarrada(carrada, numeroPedido);
 
   const result = await pool.query(
@@ -858,7 +887,11 @@ async function salvarFaseBooleana({ codigoCarrada: codigoCarradaParam, numeroPed
     throw criarErro('Fase booleana inválida.', 400);
   }
 
-  const carrada = await buscarCarradaOuFalhar(codigoCarrada);
+  const carrada = await carradasService.buscarResumoCarrada(codigoCarrada);
+
+  if (!carrada) {
+    throw criarErro('Carrada não encontrada.', 404);
+  }
   const pedido = encontrarPedidoNaCarrada(carrada, numeroPedido);
 
   const anteriorResult = await pool.query(
@@ -982,7 +1015,11 @@ async function buscarDadosEtiquetaPedido({ codigoCarrada: codigoCarradaParam, nu
 
   const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
   const numeroPedido = normalizarNumeroPedido(numeroPedidoParam);
-  const carrada = await buscarCarradaOuFalhar(codigoCarrada);
+  const carrada = await carradasService.buscarResumoCarrada(codigoCarrada);
+
+  if (!carrada) {
+    throw criarErro('Carrada não encontrada.', 404);
+  }
   const pedido = encontrarPedidoNaCarrada(carrada, numeroPedido);
   const etiquetasCliente = await listarEtiquetasDoCliente(pedido?.cliente?.favorecido ?? null);
 
@@ -1101,7 +1138,11 @@ async function enviarEtiquetaVolumes({ codigoCarrada: codigoCarradaParam, numero
 
   const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
   const numeroPedido = normalizarNumeroPedido(numeroPedidoParam);
-  const carrada = await buscarCarradaOuFalhar(codigoCarrada);
+  const carrada = await carradasService.buscarResumoCarrada(codigoCarrada);
+
+  if (!carrada) {
+    throw criarErro('Carrada não encontrada.', 404);
+  }
   const pedido = encontrarPedidoNaCarrada(carrada, numeroPedido);
   const favorecido = pedido?.cliente?.favorecido;
 
@@ -1283,7 +1324,11 @@ async function salvarLocalEntrega({ codigoCarrada: codigoCarradaParam, numeroPed
 
   const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
   const numeroPedido = normalizarNumeroPedido(numeroPedidoParam);
-  const carrada = await buscarCarradaOuFalhar(codigoCarrada);
+  const carrada = await carradasService.buscarResumoCarrada(codigoCarrada);
+
+  if (!carrada) {
+    throw criarErro('Carrada não encontrada.', 404);
+  }
   const pedido = encontrarPedidoNaCarrada(carrada, numeroPedido);
 
   if (transportadoraId === null || transportadoraId === undefined || transportadoraId === '') {
