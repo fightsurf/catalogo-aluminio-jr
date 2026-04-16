@@ -818,7 +818,15 @@
           const subtitulo = subtituloCelulaEspecial(fase.codigo, faseData);
           const readonly = fase.tipo === 'automatico' ? 'data-readonly="true"' : '';
 
-          const silentLink = (fase.codigo === 'EM_PRODUCAO' || fase.codigo === 'PEDIDO_PRONTO' || fase.codigo === 'QUER_NOTA_FISCAL' || fase.codigo === 'ETIQUETA_VOLUMES')
+          const exibirSilentLink = (
+            fase.codigo === 'EM_PRODUCAO'
+            || fase.codigo === 'PEDIDO_PRONTO'
+            || fase.codigo === 'QUER_NOTA_FISCAL'
+            || fase.codigo === 'ETIQUETA_VOLUMES'
+            || (fase.codigo === 'LOCAL_ENTREGA' && !faseData.transportadoraId)
+          );
+
+          const silentLink = exibirSilentLink
             ? `<a href="#" class="silent-link" data-silent-numero="${escapeHtml(pedido.numero)}" data-silent-fase="${escapeHtml(fase.codigo)}" title="Marcar/desmarcar sem enviar mensagem">${faseData.concluido ? '↺ desmarcar sem msg' : '↺ marcar sem msg'}</a>`
             : '';
 

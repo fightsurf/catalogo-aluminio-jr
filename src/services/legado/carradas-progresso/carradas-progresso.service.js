@@ -37,6 +37,10 @@ const FASES_BOOLEANAS = {
     enviaWhatsapp: true,
     construirMensagem: () => 'Vai precisar de Nota Fiscal? Preciso calcular os impostos para acrescentar se for querer.'
   },
+  LOCAL_ENTREGA: {
+    nome: 'Local de entrega',
+    enviaWhatsapp: false
+  },
   LIGACAO_POS_VENDA: {
     nome: 'Ligação pós-venda',
     enviaWhatsapp: false
@@ -394,10 +398,10 @@ function montarFasesDoPedido({ pedido, booleanRows = {}, etiquetaRow = null, loc
   const fasePedidoPronto = Boolean(booleanRows.PEDIDO_PRONTO?.valorBoolean);
   const faseVideoFeito = Boolean(booleanRows.VIDEO_FEITO?.valorBoolean);
   const faseQuerNotaFiscal = Boolean(booleanRows.QUER_NOTA_FISCAL?.valorBoolean);
+  const faseLocalEntregaSilencioso = Boolean(booleanRows.LOCAL_ENTREGA?.valorBoolean);
   const faseLigacaoPosVenda = Boolean(booleanRows.LIGACAO_POS_VENDA?.valorBoolean);
-  const etiquetaSilenciosa = Boolean(booleanRows.ETIQUETA_VOLUMES?.valorBoolean);
-  const etiquetaConfirmada = Boolean(etiquetaRow?.confirmadoBoolean || etiquetaSilenciosa);
-  const localEntregaDefinido = Boolean(localEntregaRow?.transportadoraId);
+  const etiquetaConfirmada = Boolean(etiquetaRow?.confirmadoBoolean);
+  const localEntregaDefinido = Boolean(localEntregaRow?.transportadoraId) || faseLocalEntregaSilencioso;
   const pagamentoQuitado = calcularPagamentoQuitado(detalhePagamento);
 
   return {
@@ -421,7 +425,7 @@ function montarFasesDoPedido({ pedido, booleanRows = {}, etiquetaRow = null, loc
       apelido: etiquetaRow?.apelido || '',
       textoSnapshot: etiquetaRow?.textoSnapshot || '',
       enviadoEm: etiquetaRow?.enviadoEm || null,
-      confirmadoEm: etiquetaRow?.confirmadoEm || (etiquetaSilenciosa ? booleanRows.ETIQUETA_VOLUMES?.updatedAt || null : null)
+      confirmadoEm: etiquetaRow?.confirmadoEm || null
     },
     VIDEO_FEITO: {
       codigo: 'VIDEO_FEITO',
@@ -442,7 +446,8 @@ function montarFasesDoPedido({ pedido, booleanRows = {}, etiquetaRow = null, loc
       transportadoraId: localEntregaRow?.transportadoraId || null,
       transportadoraNome: localEntregaRow?.transportadoraNome || '',
       agenciaCidade: localEntregaRow?.agenciaCidade || '',
-      updatedAt: localEntregaRow?.updatedAt || null
+      marcadoSilencioso: faseLocalEntregaSilencioso,
+      updatedAt: localEntregaRow?.updatedAt || booleanRows.LOCAL_ENTREGA?.updatedAt || null
     },
     PAGAMENTO_QUITADO: {
       codigo: 'PAGAMENTO_QUITADO',
@@ -600,32 +605,17 @@ async function buscarResumoBooleanosConcluidosPorCarrada(codigoCarrada) {
 }
 
 async function buscarResumoEtiquetasConfirmadasPorCarrada(codigoCarrada) {
-  const [etiquetasResult, silenciosoResult] = await Promise.all([
-    pool.query(
-      `
-        SELECT numero_pedido
-        FROM carradas_pedidos_etiquetas_volumes
-        WHERE codigo_carrada = $1
-          AND confirmado_boolean = TRUE
-      `,
-      [codigoCarrada]
-    ),
-    pool.query(
-      `
-        SELECT numero_pedido
-        FROM carradas_pedidos_fases
-        WHERE codigo_carrada = $1
-          AND fase_codigo = 'ETIQUETA_VOLUMES'
-          AND valor_boolean = TRUE
-      `,
-      [codigoCarrada]
-    )
-  ]);
+  const result = await pool.query(
+    `
+      SELECT numero_pedido
+      FROM carradas_pedidos_etiquetas_volumes
+      WHERE codigo_carrada = $1
+        AND confirmado_boolean = TRUE
+    `,
+    [codigoCarrada]
+  );
 
-  return new Set([
-    ...etiquetasResult.rows.map((row) => String(row.numero_pedido)),
-    ...silenciosoResult.rows.map((row) => String(row.numero_pedido))
-  ]);
+  return new Set(result.rows.map((row) => String(row.numero_pedido)));
 }
 
 async function buscarResumoLocalEntregaPorCarrada(codigoCarrada) {
@@ -672,9 +662,10 @@ async function calcularResumoRapidoCarrada(codigoCarrada) {
 
   for (const pedido of pedidos) {
     const numeroPedido = String(pedido?.numero || '');
-    const fasesBooleanasConcluidas = booleanMap.get(numeroPedido)?.size || 0;
+    const booleanSet = booleanMap.get(numeroPedido) || new Set();
+    const fasesBooleanasConcluidas = Array.from(booleanSet).filter((faseCodigo) => faseCodigo !== 'LOCAL_ENTREGA').length;
     const etiquetaConcluida = etiquetasSet.has(numeroPedido);
-    const localEntregaConcluido = localEntregaSet.has(numeroPedido);
+    const localEntregaConcluido = localEntregaSet.has(numeroPedido) || booleanSet.has('LOCAL_ENTREGA');
     const manualConcluidoNestePedido = fasesBooleanasConcluidas + (etiquetaConcluida ? 1 : 0) + (localEntregaConcluido ? 1 : 0);
 
     celulasConcluidas += manualConcluidoNestePedido;
@@ -1076,16 +1067,6 @@ async function enviarEtiquetaVolumes({ codigoCarrada: codigoCarradaParam, numero
     [codigoCarrada, numeroPedido, pedido.saida ?? null, etiqueta.id, textoSnapshot]
   );
 
-  await pool.query(
-    `
-      DELETE FROM carradas_pedidos_fases
-      WHERE codigo_carrada = $1
-        AND numero_pedido = $2
-        AND fase_codigo = 'ETIQUETA_VOLUMES'
-    `,
-    [codigoCarrada, numeroPedido]
-  );
-
   const detalhePagamento = await buscarDetalhePagamentoDoPedido(pedido);
   const telefone = normalizarTelefonePedido(detalhePagamento);
   const mensagem = [
@@ -1160,10 +1141,8 @@ async function confirmarEtiquetaVolumes({ codigoCarrada: codigoCarradaParam, num
   const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
   const numeroPedido = normalizarNumeroPedido(numeroPedidoParam);
   const confirmadoBoolean = normalizarBoolean(confirmado);
-  const carrada = await buscarCarradaOuFalhar(codigoCarrada);
-  const pedido = encontrarPedidoNaCarrada(carrada, numeroPedido);
 
-  const etiquetaResult = await pool.query(
+  const result = await pool.query(
     `
       UPDATE carradas_pedidos_etiquetas_volumes
       SET confirmado_boolean = $3,
@@ -1176,71 +1155,16 @@ async function confirmarEtiquetaVolumes({ codigoCarrada: codigoCarradaParam, num
     [codigoCarrada, numeroPedido, confirmadoBoolean]
   );
 
-  if (etiquetaResult.rows.length) {
-    await pool.query(
-      `
-        DELETE FROM carradas_pedidos_fases
-        WHERE codigo_carrada = $1
-          AND numero_pedido = $2
-          AND fase_codigo = 'ETIQUETA_VOLUMES'
-      `,
-      [codigoCarrada, numeroPedido]
-    );
-
-    return {
-      numeroPedido,
-      confirmadoBoolean: Boolean(etiquetaResult.rows[0].confirmado_boolean),
-      enviadoEm: etiquetaResult.rows[0].enviado_em || null,
-      confirmadoEm: etiquetaResult.rows[0].confirmado_em || null,
-      updatedAt: etiquetaResult.rows[0].updated_at || null
-    };
+  if (!result.rows.length) {
+    throw criarErro('Ainda não existe etiqueta de volumes enviada para este pedido.', 404);
   }
-
-  if (!confirmadoBoolean) {
-    await pool.query(
-      `
-        DELETE FROM carradas_pedidos_fases
-        WHERE codigo_carrada = $1
-          AND numero_pedido = $2
-          AND fase_codigo = 'ETIQUETA_VOLUMES'
-      `,
-      [codigoCarrada, numeroPedido]
-    );
-
-    return {
-      numeroPedido,
-      confirmadoBoolean: false,
-      enviadoEm: null,
-      confirmadoEm: null,
-      updatedAt: new Date().toISOString()
-    };
-  }
-
-  const silenciosoResult = await pool.query(
-    `
-      INSERT INTO carradas_pedidos_fases (
-        codigo_carrada,
-        numero_pedido,
-        saida,
-        fase_codigo,
-        valor_boolean
-      ) VALUES ($1, $2, $3, 'ETIQUETA_VOLUMES', TRUE)
-      ON CONFLICT (codigo_carrada, numero_pedido, fase_codigo)
-      DO UPDATE SET
-        saida = EXCLUDED.saida,
-        valor_boolean = EXCLUDED.valor_boolean,
-        updated_at = NOW()
-      RETURNING codigo_carrada, numero_pedido, saida, fase_codigo, valor_boolean, created_at, updated_at
-    `,
-    [codigoCarrada, numeroPedido, pedido.saida ?? null]
-  );
 
   return {
     numeroPedido,
-    confirmadoBoolean: Boolean(silenciosoResult.rows[0].valor_boolean),
-    enviadoEm: null,
-    confirmadoEm: silenciosoResult.rows[0].updated_at || null,
-    updatedAt: silenciosoResult.rows[0].updated_at || null
+    confirmadoBoolean: Boolean(result.rows[0].confirmado_boolean),
+    enviadoEm: result.rows[0].enviado_em || null,
+    confirmadoEm: result.rows[0].confirmado_em || null,
+    updatedAt: result.rows[0].updated_at || null
   };
 }
 
@@ -1255,6 +1179,11 @@ async function salvarLocalEntrega({ codigoCarrada: codigoCarradaParam, numeroPed
   if (transportadoraId === null || transportadoraId === undefined || transportadoraId === '') {
     await pool.query(
       `DELETE FROM carradas_pedidos_local_entrega WHERE codigo_carrada = $1 AND numero_pedido = $2`,
+      [codigoCarrada, numeroPedido]
+    );
+
+    await pool.query(
+      `DELETE FROM carradas_pedidos_fases WHERE codigo_carrada = $1 AND numero_pedido = $2 AND fase_codigo = 'LOCAL_ENTREGA'`,
       [codigoCarrada, numeroPedido]
     );
 
@@ -1304,6 +1233,11 @@ async function salvarLocalEntrega({ codigoCarrada: codigoCarradaParam, numeroPed
       RETURNING codigo_carrada, numero_pedido, saida, transportadora_id, agencia_cidade, updated_at
     `,
     [codigoCarrada, numeroPedido, pedido.saida ?? null, transportadoraIdInt, agenciaCidadeNormalizada]
+  );
+
+  await pool.query(
+    `DELETE FROM carradas_pedidos_fases WHERE codigo_carrada = $1 AND numero_pedido = $2 AND fase_codigo = 'LOCAL_ENTREGA'`,
+    [codigoCarrada, numeroPedido]
   );
 
   return {
