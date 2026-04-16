@@ -37,6 +37,10 @@ const FASES_BOOLEANAS = {
     enviaWhatsapp: true,
     construirMensagem: () => 'Vai precisar de Nota Fiscal? Preciso calcular os impostos para acrescentar se for querer.'
   },
+  LOCAL_ENTREGA: {
+    nome: 'Local de entrega',
+    enviaWhatsapp: false
+  },
   LIGACAO_POS_VENDA: {
     nome: 'Ligação pós-venda',
     enviaWhatsapp: false
@@ -394,10 +398,11 @@ function montarFasesDoPedido({ pedido, booleanRows = {}, etiquetaRow = null, loc
   const fasePedidoPronto = Boolean(booleanRows.PEDIDO_PRONTO?.valorBoolean);
   const faseVideoFeito = Boolean(booleanRows.VIDEO_FEITO?.valorBoolean);
   const faseQuerNotaFiscal = Boolean(booleanRows.QUER_NOTA_FISCAL?.valorBoolean);
+  const faseLocalEntregaSilencioso = Boolean(booleanRows.LOCAL_ENTREGA?.valorBoolean);
   const faseLigacaoPosVenda = Boolean(booleanRows.LIGACAO_POS_VENDA?.valorBoolean);
   const etiquetaSilenciosa = Boolean(booleanRows.ETIQUETA_VOLUMES?.valorBoolean);
   const etiquetaConfirmada = Boolean(etiquetaRow?.confirmadoBoolean) || etiquetaSilenciosa;
-  const localEntregaDefinido = Boolean(localEntregaRow?.transportadoraId);
+  const localEntregaDefinido = Boolean(localEntregaRow?.transportadoraId) || faseLocalEntregaSilencioso;
   const pagamentoQuitado = calcularPagamentoQuitado(detalhePagamento);
 
   return {
@@ -442,7 +447,8 @@ function montarFasesDoPedido({ pedido, booleanRows = {}, etiquetaRow = null, loc
       transportadoraId: localEntregaRow?.transportadoraId || null,
       transportadoraNome: localEntregaRow?.transportadoraNome || '',
       agenciaCidade: localEntregaRow?.agenciaCidade || '',
-      updatedAt: localEntregaRow?.updatedAt || null
+      marcadoSilencioso: faseLocalEntregaSilencioso,
+      updatedAt: localEntregaRow?.updatedAt || booleanRows.LOCAL_ENTREGA?.updatedAt || null
     },
     PAGAMENTO_QUITADO: {
       codigo: 'PAGAMENTO_QUITADO',
@@ -600,17 +606,32 @@ async function buscarResumoBooleanosConcluidosPorCarrada(codigoCarrada) {
 }
 
 async function buscarResumoEtiquetasConfirmadasPorCarrada(codigoCarrada) {
-  const result = await pool.query(
-    `
-      SELECT numero_pedido
-      FROM carradas_pedidos_etiquetas_volumes
-      WHERE codigo_carrada = $1
-        AND confirmado_boolean = TRUE
-    `,
-    [codigoCarrada]
-  );
+  const [etiquetasResult, silenciosoResult] = await Promise.all([
+    pool.query(
+      `
+        SELECT numero_pedido
+        FROM carradas_pedidos_etiquetas_volumes
+        WHERE codigo_carrada = $1
+          AND confirmado_boolean = TRUE
+      `,
+      [codigoCarrada]
+    ),
+    pool.query(
+      `
+        SELECT numero_pedido
+        FROM carradas_pedidos_fases
+        WHERE codigo_carrada = $1
+          AND fase_codigo = 'ETIQUETA_VOLUMES'
+          AND valor_boolean = TRUE
+      `,
+      [codigoCarrada]
+    )
+  ]);
 
-  return new Set(result.rows.map((row) => String(row.numero_pedido)));
+  return new Set([
+    ...etiquetasResult.rows.map((row) => String(row.numero_pedido)),
+    ...silenciosoResult.rows.map((row) => String(row.numero_pedido))
+  ]);
 }
 
 async function buscarResumoLocalEntregaPorCarrada(codigoCarrada) {
@@ -657,9 +678,10 @@ async function calcularResumoRapidoCarrada(codigoCarrada) {
 
   for (const pedido of pedidos) {
     const numeroPedido = String(pedido?.numero || '');
-    const fasesBooleanasConcluidas = booleanMap.get(numeroPedido)?.size || 0;
+    const booleanSet = booleanMap.get(numeroPedido) || new Set();
+    const fasesBooleanasConcluidas = Array.from(booleanSet).filter((faseCodigo) => faseCodigo !== 'LOCAL_ENTREGA').length;
     const etiquetaConcluida = etiquetasSet.has(numeroPedido);
-    const localEntregaConcluido = localEntregaSet.has(numeroPedido);
+    const localEntregaConcluido = localEntregaSet.has(numeroPedido) || booleanSet.has('LOCAL_ENTREGA');
     const manualConcluidoNestePedido = fasesBooleanasConcluidas + (etiquetaConcluida ? 1 : 0) + (localEntregaConcluido ? 1 : 0);
 
     celulasConcluidas += manualConcluidoNestePedido;
@@ -802,6 +824,32 @@ async function salvarFaseBooleana({ codigoCarrada: codigoCarradaParam, numeroPed
   const numeroPedido = normalizarNumeroPedido(numeroPedidoParam);
   const faseCodigo = limparTexto(faseCodigoParam).toUpperCase();
   const valorBoolean = normalizarBoolean(valor);
+
+  if (faseCodigo === 'ETIQUETA_VOLUMES' && silencioso) {
+    return confirmarEtiquetaVolumes({
+      codigoCarrada,
+      numeroPedido,
+      confirmado: valorBoolean
+    });
+  }
+
+  if (faseCodigo === 'LOCAL_ENTREGA' && silencioso) {
+    const marcado = await salvarMarcacaoSilenciosaEspecial({
+      codigoCarrada,
+      numeroPedido,
+      faseCodigo,
+      valor: valorBoolean
+    });
+
+    return {
+      numeroPedido,
+      concluido: Boolean(marcado?.valor_boolean),
+      transportadoraId: null,
+      transportadoraNome: '',
+      agenciaCidade: '',
+      updatedAt: marcado?.updated_at || null
+    };
+  }
 
   if (!FASES_BOOLEANAS[faseCodigo]) {
     throw criarErro('Fase booleana inválida.', 400);
@@ -1241,6 +1289,11 @@ async function salvarLocalEntrega({ codigoCarrada: codigoCarradaParam, numeroPed
       [codigoCarrada, numeroPedido]
     );
 
+    await pool.query(
+      `DELETE FROM carradas_pedidos_fases WHERE codigo_carrada = $1 AND numero_pedido = $2 AND fase_codigo = 'LOCAL_ENTREGA'`,
+      [codigoCarrada, numeroPedido]
+    );
+
     return {
       numeroPedido,
       concluido: false,
@@ -1287,6 +1340,11 @@ async function salvarLocalEntrega({ codigoCarrada: codigoCarradaParam, numeroPed
       RETURNING codigo_carrada, numero_pedido, saida, transportadora_id, agencia_cidade, updated_at
     `,
     [codigoCarrada, numeroPedido, pedido.saida ?? null, transportadoraIdInt, agenciaCidadeNormalizada]
+  );
+
+  await pool.query(
+    `DELETE FROM carradas_pedidos_fases WHERE codigo_carrada = $1 AND numero_pedido = $2 AND fase_codigo = 'LOCAL_ENTREGA'`,
+    [codigoCarrada, numeroPedido]
   );
 
   return {
