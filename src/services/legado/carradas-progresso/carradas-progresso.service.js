@@ -659,6 +659,8 @@ async function calcularResumoRapidoCarrada(codigoCarrada) {
     return {
       codigoCarrada,
       concluida: false,
+      semicompleta: false,
+      statusLinha: 'incompleta',
       percentualConclusao: 0,
       totalPedidos,
       totalFases,
@@ -673,51 +675,48 @@ async function calcularResumoRapidoCarrada(codigoCarrada) {
     buscarResumoLocalEntregaPorCarrada(codigoCarrada)
   ]);
 
-  let celulasConcluidas = 0;
-  let todosManuaisConcluidos = true;
+  const resumosPedidos = await Promise.all(
+    pedidos.map(async (pedido) => {
+      const numeroPedido = String(pedido?.numero || '');
+      const booleanSet = booleanMap.get(numeroPedido) || new Set();
+      const emProducao = booleanSet.has('EM_PRODUCAO');
+      const pedidoPronto = booleanSet.has('PEDIDO_PRONTO');
+      const videoFeito = booleanSet.has('VIDEO_FEITO');
+      const querNotaFiscal = booleanSet.has('QUER_NOTA_FISCAL');
+      const ligacaoPosVenda = booleanSet.has('LIGACAO_POS_VENDA');
+      const etiquetaConcluida = etiquetasSet.has(numeroPedido);
+      const localEntregaConcluido = localEntregaSet.has(numeroPedido) || booleanSet.has('LOCAL_ENTREGA');
+      const detalhePagamento = await buscarDetalhePagamentoDoPedido(pedido);
+      const pagamentoQuitado = calcularPagamentoQuitado(detalhePagamento);
 
-  for (const pedido of pedidos) {
-    const numeroPedido = String(pedido?.numero || '');
-    const booleanSet = booleanMap.get(numeroPedido) || new Set();
-    const fasesBooleanasConcluidas = Array.from(booleanSet).filter((faseCodigo) => faseCodigo !== 'LOCAL_ENTREGA').length;
-    const etiquetaConcluida = etiquetasSet.has(numeroPedido);
-    const localEntregaConcluido = localEntregaSet.has(numeroPedido) || booleanSet.has('LOCAL_ENTREGA');
-    const manualConcluidoNestePedido = fasesBooleanasConcluidas + (etiquetaConcluida ? 1 : 0) + (localEntregaConcluido ? 1 : 0);
+      const concluidasSemLigacao = [
+        emProducao,
+        pedidoPronto,
+        etiquetaConcluida,
+        videoFeito,
+        querNotaFiscal,
+        localEntregaConcluido,
+        pagamentoQuitado
+      ].filter(Boolean).length;
 
-    celulasConcluidas += manualConcluidoNestePedido;
+      return {
+        semLigacaoConcluido: concluidasSemLigacao === 7,
+        completo: concluidasSemLigacao === 7 && ligacaoPosVenda,
+        totalConcluido: concluidasSemLigacao + (ligacaoPosVenda ? 1 : 0)
+      };
+    })
+  );
 
-    if (manualConcluidoNestePedido !== 7) {
-      todosManuaisConcluidos = false;
-    }
-  }
-
-  if (!todosManuaisConcluidos) {
-    return {
-      codigoCarrada,
-      concluida: false,
-      percentualConclusao: Number(((celulasConcluidas / totalCelulas) * 100).toFixed(2)),
-      totalPedidos,
-      totalFases,
-      totalCelulas,
-      celulasConcluidas
-    };
-  }
-
-  let pagamentosQuitados = 0;
-
-  for (const pedido of pedidos) {
-    const detalhePagamento = await buscarDetalhePagamentoDoPedido(pedido);
-
-    if (calcularPagamentoQuitado(detalhePagamento)) {
-      pagamentosQuitados += 1;
-    }
-  }
-
-  celulasConcluidas += pagamentosQuitados;
+  const celulasConcluidas = resumosPedidos.reduce((total, item) => total + item.totalConcluido, 0);
+  const semicompleta = resumosPedidos.every((item) => item.semLigacaoConcluido);
+  const concluida = resumosPedidos.every((item) => item.completo);
+  const statusLinha = concluida ? 'completa' : (semicompleta ? 'semicompleta' : 'incompleta');
 
   return {
     codigoCarrada,
-    concluida: pagamentosQuitados === totalPedidos,
+    concluida,
+    semicompleta,
+    statusLinha,
     percentualConclusao: Number(((celulasConcluidas / totalCelulas) * 100).toFixed(2)),
     totalPedidos,
     totalFases,
@@ -756,6 +755,8 @@ async function buscarResumoListaCarradas(codigosParam) {
       itens.push({
         codigoCarrada: codigo,
         concluida: false,
+        semicompleta: false,
+        statusLinha: 'incompleta',
         percentualConclusao: 0,
         totalPedidos: 0,
         totalFases: FASES_MATRIZ.length,
@@ -772,6 +773,8 @@ async function buscarResumoListaCarradas(codigosParam) {
       itens.push({
         codigoCarrada: codigo,
         concluida: false,
+        semicompleta: false,
+        statusLinha: 'incompleta',
         percentualConclusao: 0,
         totalPedidos: 0,
         totalFases: FASES_MATRIZ.length,

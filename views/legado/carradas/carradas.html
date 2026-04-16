@@ -157,11 +157,17 @@
     }
     th { color: var(--muted); font-size: 13px; }
     .actions-cell { white-space: nowrap; }
-    .carrada-concluida td {
+    .carrada-semicompleta td {
       background: #dcfce7;
     }
-    .carrada-concluida td:first-child {
+    .carrada-semicompleta td:first-child {
       border-left: 3px solid #22c55e;
+    }
+    .carrada-completa td {
+      background: #dbeafe;
+    }
+    .carrada-completa td:first-child {
+      border-left: 3px solid #3b82f6;
     }
     .muted { color: var(--muted); }
     .selected-count { font-size: 14px; color: var(--muted); }
@@ -544,7 +550,7 @@
       }
 
       el.tabelaCarradas.innerHTML = carradas.map((carrada) => `
-        <tr data-codigo-row="${carrada.codigo}" class="${carrada.progressoConcluido ? 'carrada-concluida' : ''}">
+        <tr data-codigo-row="${carrada.codigo}" class="${carrada.progressoStatusLinha === 'completa' ? 'carrada-completa' : (carrada.progressoStatusLinha === 'semicompleta' ? 'carrada-semicompleta' : '')}">
           <td>${carrada.codigo}</td>
           <td>${escapeHtml(formatarData(carrada.data))}</td>
           <td>${escapeHtml(carrada.descricao || '')}</td>
@@ -678,7 +684,13 @@
           return;
         }
 
-        linha.classList.toggle('carrada-concluida', Boolean(item?.concluida));
+        linha.classList.remove('carrada-semicompleta', 'carrada-completa');
+
+        if (item?.statusLinha === 'completa') {
+          linha.classList.add('carrada-completa');
+        } else if (item?.statusLinha === 'semicompleta') {
+          linha.classList.add('carrada-semicompleta');
+        }
       });
     }
 
@@ -712,7 +724,7 @@
           return Number(b.codigo || 0) - Number(a.codigo || 0);
         }).map((carrada) => ({
           ...carrada,
-          progressoConcluido: false
+          progressoStatusLinha: 'incompleta'
         }));
 
         renderCarradas(carradasOrdenadas);
