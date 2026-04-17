@@ -35,30 +35,26 @@
       margin-bottom: 18px;
     }
     .actions { display: flex; gap: 8px; flex-wrap: wrap; }
-    button, a.button, select {
+    .nav-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    button, a.button {
       height: 42px;
       padding: 0 16px;
       border-radius: 10px;
-      font-weight: 700;
-      font-size: 14px;
-    }
-    button, a.button {
       border: 0;
       cursor: pointer;
+      font-weight: 700;
       text-decoration: none;
       display: inline-flex;
       align-items: center;
       justify-content: center;
     }
-    select {
-      border: 1px solid var(--line);
-      background: #fff;
-      color: var(--text);
-      min-width: 260px;
-    }
     .btn-primary { background: var(--primary); color: #fff; }
     .btn-secondary { background: #fff; border: 1px solid var(--line); color: var(--text); }
     .btn-danger { background: var(--danger); color: #fff; }
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
     .card {
       background: var(--card);
       border: 1px solid var(--line);
@@ -73,26 +69,6 @@
       gap: 12px;
       flex-wrap: wrap;
       margin-bottom: 12px;
-      align-items: flex-start;
-    }
-    .pedido-header-actions {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 10px;
-      min-width: 260px;
-    }
-    .pedido-mover-box {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      align-items: center;
-      justify-content: flex-end;
-    }
-    .pedido-mover-box .muted {
-      width: 100%;
-      text-align: right;
-      font-size: 12px;
     }
     table {
       width: 100%;
@@ -137,21 +113,6 @@
       .resumo-grid {
         grid-template-columns: 1fr;
       }
-      .pedido-header-actions {
-        width: 100%;
-        min-width: 0;
-        align-items: stretch;
-      }
-      .pedido-mover-box {
-        justify-content: flex-start;
-      }
-      .pedido-mover-box .muted {
-        text-align: left;
-      }
-      select {
-        min-width: 0;
-        width: 100%;
-      }
     }
   </style>
 </head>
@@ -163,6 +124,10 @@
         <p class="muted" id="subtitulo"></p>
       </div>
       <div class="actions">
+        <div class="nav-actions">
+          <button class="btn-secondary" id="btnCarradaAnterior" type="button">Carrada anterior</button>
+          <button class="btn-secondary" id="btnProximaCarrada" type="button">Próxima carrada</button>
+        </div>
         <a class="button btn-secondary" href="/legado/carradas">Voltar</a>
         <button class="btn-secondary" id="btnResumoItens">Resumo de itens</button>
         <button class="btn-secondary" id="btnEditar">Editar</button>
@@ -178,11 +143,6 @@
   <script>
     const params = new URLSearchParams(window.location.search);
     const codigo = params.get('codigo');
-    let carradaAtual = null;
-    let pedidoComMoverAberto = null;
-    let carradasDisponiveis = [];
-    let carregandoCarradasDisponiveis = false;
-    let salvandoMovimentacaoNumero = null;
 
     function escapeHtml(valor) {
       return String(valor ?? '')
@@ -242,21 +202,7 @@
       });
     }
 
-    function montarOpcoesCarradas() {
-      if (!Array.isArray(carradasDisponiveis) || !carradasDisponiveis.length) {
-        return '<option value="">Nenhuma outra carrada disponível</option>';
-      }
-
-      return ['<option value="">Selecione a carrada</option>']
-        .concat(carradasDisponiveis.map((item) => {
-          const texto = `${formatarData(item.data)} — ${item.descricao || '-'}`;
-          return `<option value="${escapeHtml(item.codigo)}">${escapeHtml(texto)}</option>`;
-        }))
-        .join('');
-    }
-
     function renderCarrada(carrada) {
-      carradaAtual = carrada;
       document.getElementById('titulo').textContent = `Carrada ${carrada.codigo}`;
       document.getElementById('subtitulo').textContent = `Data: ${formatarData(carrada.data)} | Descrição: ${carrada.descricao || '-'}`;
 
@@ -274,9 +220,6 @@
         ${pedidos.map((pedido) => {
           const itens = Array.isArray(pedido.itens) ? pedido.itens : [];
           const quantidadePedido = itens.reduce((total, item) => total + Number(item.quantidade || 0), 0);
-          const numeroPedido = String(pedido.numero || '');
-          const abrirMover = pedidoComMoverAberto === numeroPedido;
-          const salvandoEstePedido = salvandoMovimentacaoNumero === numeroPedido;
 
           return `
             <section class="card">
@@ -285,21 +228,7 @@
                   <h2>Pedido ${escapeHtml(pedido.numero)}</h2>
                   <div class="muted">Cliente: ${escapeHtml(pedido.cliente?.nome || '-')} | Data: ${escapeHtml(formatarData(pedido.data))}</div>
                 </div>
-                <div class="pedido-header-actions">
-                  <div><strong>Total: ${escapeHtml(formatarMoeda(pedido.total))}</strong></div>
-                  <div class="pedido-mover-box">
-                    ${abrirMover ? `
-                      <div class="muted">Mover pedido para outra carrada</div>
-                      <select id="selectMover-${escapeHtml(numeroPedido)}" ${carregandoCarradasDisponiveis || salvandoEstePedido ? 'disabled' : ''}>
-                        ${carregandoCarradasDisponiveis ? '<option value="">Carregando carradas...</option>' : montarOpcoesCarradas()}
-                      </select>
-                      <button class="btn-primary" data-acao="salvar-movimentacao" data-numero="${escapeHtml(numeroPedido)}" ${carregandoCarradasDisponiveis || salvandoEstePedido ? 'disabled' : ''}>${salvandoEstePedido ? 'Salvando...' : 'Salvar'}</button>
-                      <button class="btn-secondary" data-acao="cancelar-movimentacao" ${salvandoEstePedido ? 'disabled' : ''}>Cancelar</button>
-                    ` : `
-                      <button class="btn-secondary" data-acao="abrir-movimentacao" data-numero="${escapeHtml(numeroPedido)}">Mudar de carrada</button>
-                    `}
-                  </div>
-                </div>
+                <div><strong>Total: ${escapeHtml(formatarMoeda(pedido.total))}</strong></div>
               </div>
               <table>
                 <thead>
@@ -359,82 +288,46 @@
           </div>
         </section>
       `;
-
-      vincularEventosDaTela();
     }
 
-    function vincularEventosDaTela() {
-      document.querySelectorAll('[data-acao="abrir-movimentacao"]').forEach((botao) => {
-        botao.addEventListener('click', async () => {
-          await abrirMovimentacao(botao.dataset.numero || '');
-        });
-      });
+    async function configurarNavegacaoCarradas() {
+      const btnAnterior = document.getElementById('btnCarradaAnterior');
+      const btnProxima = document.getElementById('btnProximaCarrada');
 
-      document.querySelectorAll('[data-acao="cancelar-movimentacao"]').forEach((botao) => {
-        botao.addEventListener('click', () => {
-          pedidoComMoverAberto = null;
-          carradasDisponiveis = [];
-          renderCarrada(carradaAtual);
-        });
-      });
+      btnAnterior.disabled = true;
+      btnProxima.disabled = true;
 
-      document.querySelectorAll('[data-acao="salvar-movimentacao"]').forEach((botao) => {
-        botao.addEventListener('click', async () => {
-          await salvarMovimentacao(botao.dataset.numero || '');
-        });
-      });
-    }
-
-    async function abrirMovimentacao(numeroPedido) {
-      pedidoComMoverAberto = String(numeroPedido || '');
-      carradasDisponiveis = [];
-      carregandoCarradasDisponiveis = true;
-      renderCarrada(carradaAtual);
-
-      try {
-        carradasDisponiveis = await request(`/api/legado/carradas/${codigo}/disponiveis-movimentacao`);
-      } catch (error) {
-        pedidoComMoverAberto = null;
-        carradasDisponiveis = [];
-        alert(error.message);
-      } finally {
-        carregandoCarradasDisponiveis = false;
-        renderCarrada(carradaAtual);
-      }
-    }
-
-    async function salvarMovimentacao(numeroPedido) {
-      const select = document.getElementById(`selectMover-${numeroPedido}`);
-      const codigoCarradaDestino = Number(select?.value || 0);
-
-      if (!codigoCarradaDestino) {
-        alert('Selecione a carrada de destino.');
+      if (!codigo) {
         return;
       }
 
-      salvandoMovimentacaoNumero = String(numeroPedido || '');
-      renderCarrada(carradaAtual);
-
       try {
-        await request(`/api/legado/carradas/${codigo}/mover-pedido`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            numero: numeroPedido,
-            codigoCarradaDestino
-          })
-        });
+        const carradas = await request('/api/legado/carradas');
+        const lista = Array.isArray(carradas) ? carradas : [];
+        const indiceAtual = lista.findIndex((item) => String(item?.codigo) === String(codigo));
 
-        pedidoComMoverAberto = null;
-        carradasDisponiveis = [];
-        window.location.reload();
+        if (indiceAtual === -1) {
+          return;
+        }
+
+        const carradaAnterior = lista[indiceAtual + 1] || null;
+        const proximaCarrada = lista[indiceAtual - 1] || null;
+
+        if (carradaAnterior?.codigo) {
+          btnAnterior.disabled = false;
+          btnAnterior.onclick = () => {
+            window.location.href = `/legado/carradas/detalhe?codigo=${carradaAnterior.codigo}`;
+          };
+        }
+
+        if (proximaCarrada?.codigo) {
+          btnProxima.disabled = false;
+          btnProxima.onclick = () => {
+            window.location.href = `/legado/carradas/detalhe?codigo=${proximaCarrada.codigo}`;
+          };
+        }
       } catch (error) {
-        alert(error.message);
-      } finally {
-        salvandoMovimentacaoNumero = null;
-        renderCarrada(carradaAtual);
+        console.error('Erro ao configurar navegação entre carradas:', error);
       }
     }
 
@@ -447,6 +340,7 @@
       try {
         const carrada = await request(`/api/legado/carradas/${codigo}`);
         renderCarrada(carrada);
+        await configurarNavegacaoCarradas();
       } catch (error) {
         document.getElementById('conteudo').innerHTML = `<div class="card">${escapeHtml(error.message)}</div>`;
       }
