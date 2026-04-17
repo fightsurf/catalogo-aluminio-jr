@@ -46,12 +46,21 @@ async function listarCarradas(req, res) {
   }
 }
 
-async function listarCarradasDisponiveisParaMovimentacao(req, res) {
+async function listarCarradasDisponiveis(req, res) {
   try {
-    const data = await carradasService.listarCarradasDisponiveisParaMovimentacao(req.params.codigo);
+    const data = await carradasService.listarCarradasDisponiveis(req.params.codigo, req.query.dias);
     return res.status(200).json({ success: true, data });
   } catch (error) {
-    return res.status(500).json({ success: false, message: 'Erro ao listar carradas disponíveis para movimentação.', error: error.message });
+    return res.status(500).json({ success: false, message: 'Erro ao listar carradas disponíveis.', error: error.message });
+  }
+}
+
+async function moverPedidoEntreCarradas(req, res) {
+  try {
+    const data = await carradasService.moverPedidoEntreCarradas(req.params.codigo, req.body);
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Erro ao mover pedido entre carradas.', error: error.message });
   }
 }
 
@@ -87,15 +96,6 @@ async function atualizarCarrada(req, res) {
   }
 }
 
-async function moverPedidoParaCarrada(req, res) {
-  try {
-    const data = await carradasService.moverPedidoParaCarrada(req.params.codigo, req.body);
-    return res.status(200).json({ success: true, data });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: 'Erro ao mover pedido para outra carrada.', error: error.message });
-  }
-}
-
 async function excluirCarrada(req, res) {
   try {
     const semanaVinculada = await semanasService.buscarSemanaDaCarrada(req.params.codigo);
@@ -121,10 +121,10 @@ module.exports = {
   listarPedidosPorData,
   listarPedidosPorNumero,
   listarCarradas,
-  listarCarradasDisponiveisParaMovimentacao,
+  listarCarradasDisponiveis,
   buscarCarrada,
   criarCarrada,
   atualizarCarrada,
-  moverPedidoParaCarrada,
+  moverPedidoEntreCarradas,
   excluirCarrada
 };
