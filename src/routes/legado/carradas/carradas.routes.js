@@ -8,9 +8,11 @@ router.get('/pedidos/por-cliente/:favorecido', controller.listarPedidosPorClient
 router.get('/pedidos/por-data', controller.listarPedidosPorData);
 router.get('/pedidos/por-numero', controller.listarPedidosPorNumero);
 router.get('/', controller.listarCarradas);
+router.get('/:codigo/disponiveis-movimentacao', controller.listarCarradasDisponiveisParaMovimentacao);
 router.get('/:codigo', controller.buscarCarrada);
 router.post('/', controller.criarCarrada);
 router.put('/:codigo', controller.atualizarCarrada);
+router.post('/:codigo/mover-pedido', controller.moverPedidoParaCarrada);
 router.delete('/:codigo', controller.excluirCarrada);
 
 module.exports = router;

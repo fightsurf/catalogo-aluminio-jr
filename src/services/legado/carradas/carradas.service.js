@@ -155,6 +155,11 @@ async function listarCarradas() {
   return response.dados || [];
 }
 
+async function listarCarradasDisponiveisParaMovimentacao(codigo) {
+  const response = await legadoBridgeService.get(`/api/carradas/${codigo}/disponiveis-movimentacao`);
+  return response.dados || [];
+}
+
 async function buscarCarrada(codigo) {
   const response = await legadoBridgeService.get(`/api/carradas/${codigo}`);
   return response.dado || null;
@@ -197,7 +202,6 @@ async function atualizarCarrada(codigo, payload) {
   return carradaDepois;
 }
 
-
 async function vincularPedidoNaCarrada(codigo, payload) {
   const response = await request(`/api/carradas/${codigo}/pedidos`, {
     method: 'POST',
@@ -220,6 +224,45 @@ async function vincularPedidoNaCarrada(codigo, payload) {
   return { carrada, notificacao };
 }
 
+async function moverPedidoParaCarrada(codigo, payload) {
+  const codigoOrigem = limparTexto(codigo);
+  const numeroPedido = limparTexto(payload?.numero);
+  const codigoCarradaDestino = payload?.codigoCarradaDestino;
+
+  const carradaOrigemAntes = await buscarCarrada(codigoOrigem);
+
+  const response = await request(`/api/carradas/${codigoOrigem}/mover-pedido`, {
+    method: 'POST',
+    body: JSON.stringify({ numero: numeroPedido, codigoCarradaDestino })
+  });
+
+  const dado = response.dado || null;
+  const carradaOrigemDepois = dado?.origem || await buscarCarrada(codigoOrigem);
+  const carradaDestinoDepois = dado?.destino || (codigoCarradaDestino ? await buscarCarrada(codigoCarradaDestino) : null);
+
+  const pedidoOrigem = Array.isArray(carradaOrigemAntes?.pedidos)
+    ? carradaOrigemAntes.pedidos.find((item) => limparTexto(item?.numero) === numeroPedido)
+    : null;
+
+  const pedidoDestino = Array.isArray(carradaDestinoDepois?.pedidos)
+    ? carradaDestinoDepois.pedidos.find((item) => limparTexto(item?.numero) === numeroPedido)
+    : pedidoOrigem;
+
+  if (pedidoOrigem && carradaOrigemAntes) {
+    await enviarNotificacaoCarrada({ tipo: 'saida', pedido: pedidoOrigem, carrada: carradaOrigemAntes });
+  }
+
+  if (pedidoDestino && carradaDestinoDepois) {
+    await enviarNotificacaoCarrada({ tipo: 'entrada', pedido: pedidoDestino, carrada: carradaDestinoDepois });
+  }
+
+  return {
+    origem: carradaOrigemDepois,
+    destino: carradaDestinoDepois,
+    numeroPedido
+  };
+}
+
 async function excluirCarrada(codigo) {
   const carradaAntes = await buscarCarrada(codigo);
 
@@ -240,10 +283,12 @@ module.exports = {
   listarPedidosPorData,
   listarPedidosPorNumero,
   listarCarradas,
+  listarCarradasDisponiveisParaMovimentacao,
   buscarCarrada,
   buscarResumoCarrada,
   criarCarrada,
   atualizarCarrada,
   vincularPedidoNaCarrada,
+  moverPedidoParaCarrada,
   excluirCarrada
 };

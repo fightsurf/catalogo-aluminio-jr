@@ -46,6 +46,15 @@ async function listarCarradas(req, res) {
   }
 }
 
+async function listarCarradasDisponiveisParaMovimentacao(req, res) {
+  try {
+    const data = await carradasService.listarCarradasDisponiveisParaMovimentacao(req.params.codigo);
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Erro ao listar carradas disponíveis para movimentação.', error: error.message });
+  }
+}
+
 async function buscarCarrada(req, res) {
   try {
     const data = await carradasService.buscarCarrada(req.params.codigo);
@@ -78,6 +87,15 @@ async function atualizarCarrada(req, res) {
   }
 }
 
+async function moverPedidoParaCarrada(req, res) {
+  try {
+    const data = await carradasService.moverPedidoParaCarrada(req.params.codigo, req.body);
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: 'Erro ao mover pedido para outra carrada.', error: error.message });
+  }
+}
+
 async function excluirCarrada(req, res) {
   try {
     const semanaVinculada = await semanasService.buscarSemanaDaCarrada(req.params.codigo);
@@ -103,8 +121,10 @@ module.exports = {
   listarPedidosPorData,
   listarPedidosPorNumero,
   listarCarradas,
+  listarCarradasDisponiveisParaMovimentacao,
   buscarCarrada,
   criarCarrada,
   atualizarCarrada,
+  moverPedidoParaCarrada,
   excluirCarrada
 };
