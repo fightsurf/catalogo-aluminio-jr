@@ -169,6 +169,12 @@
     .carrada-completa td:first-child {
       border-left: 3px solid #3b82f6;
     }
+    .carrada-hoje td {
+      background: #ffedd5;
+    }
+    .carrada-hoje td:first-child {
+      border-left: 3px solid #f97316;
+    }
     .muted { color: var(--muted); }
     .selected-count { font-size: 14px; color: var(--muted); }
     @media (max-width: 980px) {
@@ -411,6 +417,15 @@
       return agora.getTime();
     }
 
+    function dataEhHoje(valor) {
+      const timestamp = obterTimestampOrdenacaoData(valor);
+      if (!timestamp) return false;
+
+      const hoje = new Date();
+      hoje.setHours(0, 0, 0, 0);
+      return timestamp === hoje.getTime();
+    }
+
     function limparBuscaClienteSelecionado() {
       estado.clienteSelecionado = null;
       el.clienteSelecionadoBox.innerHTML = '';
@@ -556,8 +571,19 @@
         return;
       }
 
-      el.tabelaCarradas.innerHTML = carradas.map((carrada) => `
-        <tr data-codigo-row="${carrada.codigo}" class="${carrada.progressoStatusLinha === 'completa' ? 'carrada-completa' : (carrada.progressoStatusLinha === 'semicompleta' ? 'carrada-semicompleta' : '')}">
+      el.tabelaCarradas.innerHTML = carradas.map((carrada) => {
+        const classes = [];
+        if (dataEhHoje(carrada.data)) {
+          classes.push('carrada-hoje');
+        }
+        if (carrada.progressoStatusLinha === 'completa') {
+          classes.push('carrada-completa');
+        } else if (carrada.progressoStatusLinha === 'semicompleta') {
+          classes.push('carrada-semicompleta');
+        }
+
+        return `
+        <tr data-codigo-row="${carrada.codigo}" class="${classes.join(' ')}">
           <td>${carrada.codigo}</td>
           <td>${escapeHtml(formatarData(carrada.data))}</td>
           <td>${escapeHtml(carrada.descricao || '')}</td>
@@ -568,7 +594,8 @@
             <button class="btn-secondary" data-progresso="${carrada.codigo}">Progresso</button>
           </td>
         </tr>
-      `).join('');
+      `;
+      }).join('');
 
       el.tabelaCarradas.querySelectorAll('[data-visualizar]').forEach((botao) => {
         botao.addEventListener('click', () => {
