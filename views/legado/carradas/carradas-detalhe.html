@@ -285,7 +285,7 @@
               <div class="pedido-header">
                 <div>
                   <h2>Pedido ${escapeHtml(pedido.numero)}</h2>
-                  <div class="muted">Cliente: ${escapeHtml(pedido.cliente?.nome || '-')} | Data: ${escapeHtml(formatarData(pedido.data))}</div>
+                  <div class="muted">Cliente: ${escapeHtml(pedido.cliente?.nome || '-')} | Cidade: ${escapeHtml(((pedido.cliente?.cidade || '') + ((pedido.cliente?.uf || '') ? ' / ' + pedido.cliente.uf : '')).trim() || '-')} | Data: ${escapeHtml(formatarData(pedido.data))}</div>
                 </div>
                 <div class="pedido-acoes">
                   <button class="btn-secondary btn-mudar-carrada" data-numero="${escapeHtml(pedido.numero)}">Mudar de carrada</button>
