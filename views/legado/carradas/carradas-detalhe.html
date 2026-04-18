@@ -35,6 +35,12 @@
       margin-bottom: 18px;
     }
     .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+
+    .nav-carradas {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
     button, a.button {
       height: 42px;
       padding: 0 16px;
@@ -159,6 +165,10 @@
         <p class="muted" id="subtitulo"></p>
       </div>
       <div class="actions">
+        <div class="nav-carradas">
+          <button class="btn-secondary" id="btnCarradaAnterior" disabled>Carrada anterior</button>
+          <button class="btn-secondary" id="btnProximaCarrada" disabled>Próxima carrada</button>
+        </div>
         <a class="button btn-secondary" href="/legado/carradas">Voltar</a>
         <button class="btn-secondary" id="btnResumoItens">Resumo de itens</button>
         <button class="btn-secondary" id="btnEditar">Editar</button>
@@ -407,6 +417,60 @@
       });
     }
 
+    function obterTimestampData(valor) {
+      if (!valor) return Number.NaN;
+      const data = new Date(valor);
+      if (Number.isNaN(data.getTime())) return Number.NaN;
+      return new Date(data.getFullYear(), data.getMonth(), data.getDate()).getTime();
+    }
+
+    async function inicializarNavegacaoCarradas(carradaAtual) {
+      const btnAnterior = document.getElementById('btnCarradaAnterior');
+      const btnProxima = document.getElementById('btnProximaCarrada');
+
+      if (!btnAnterior || !btnProxima || !carradaAtual) {
+        return;
+      }
+
+      const carradas = await request('/api/legado/carradas');
+      const lista = Array.isArray(carradas) ? carradas : [];
+      const dataAtualTs = obterTimestampData(carradaAtual.data);
+
+      if (Number.isNaN(dataAtualTs)) {
+        return;
+      }
+
+      const ordenadas = lista
+        .map((item) => ({
+          ...item,
+          _dataTs: obterTimestampData(item.data),
+          _codigo: Number(item.codigo || 0)
+        }))
+        .filter((item) => !Number.isNaN(item._dataTs))
+        .sort((a, b) => {
+          if (b._dataTs !== a._dataTs) return b._dataTs - a._dataTs;
+          return b._codigo - a._codigo;
+        });
+
+      const anterior = ordenadas.find((item) => item._dataTs < dataAtualTs);
+      const proxima = [...ordenadas].reverse().find((item) => item._dataTs > dataAtualTs);
+
+      if (anterior?.codigo) {
+        btnAnterior.disabled = false;
+        btnAnterior.addEventListener('click', () => {
+          window.location.href = `/legado/carradas/detalhe?codigo=${encodeURIComponent(anterior.codigo)}`;
+        });
+      }
+
+      if (proxima?.codigo) {
+        btnProxima.disabled = false;
+        btnProxima.addEventListener('click', () => {
+          window.location.href = `/legado/carradas/detalhe?codigo=${encodeURIComponent(proxima.codigo)}`;
+        });
+      }
+    }
+
+
     async function carregar() {
       if (!codigo) {
         document.getElementById('conteudo').innerHTML = '<div class="card">Código da carrada não informado.</div>';
@@ -416,6 +480,7 @@
       try {
         const carrada = await request(`/api/legado/carradas/${codigo}`);
         renderCarrada(carrada);
+        await inicializarNavegacaoCarradas(carrada);
         if (Array.isArray(carrada?.pedidos) && carrada.pedidos.length) {
           await inicializarMoverCarrada();
         }
