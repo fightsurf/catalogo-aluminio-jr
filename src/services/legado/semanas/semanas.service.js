@@ -131,6 +131,19 @@ function resumirCarradaDetalhada(carrada) {
   };
 }
 
+function ordenarCarradasPorDataDecrescente(carradas) {
+  return [...carradas].sort((a, b) => {
+    const dataA = normalizarDataIso(a?.data) || '';
+    const dataB = normalizarDataIso(b?.data) || '';
+
+    if (dataA !== dataB) {
+      return dataB.localeCompare(dataA);
+    }
+
+    return Number(b?.codigo || 0) - Number(a?.codigo || 0);
+  });
+}
+
 async function carregarDetalhesCarradas(codigosCarradas) {
   if (!codigosCarradas.length) {
     return [];
@@ -406,7 +419,9 @@ async function buscarSemanaPorId(id) {
     .filter((codigo) => Number.isInteger(codigo));
 
   const carradasDetalhadas = await carregarDetalhesCarradas(codigosCarradas);
-  const carradas = carradasDetalhadas.map((carrada) => resumirCarradaDetalhada(carrada));
+  const carradas = ordenarCarradasPorDataDecrescente(
+    carradasDetalhadas.map((carrada) => resumirCarradaDetalhada(carrada))
+  );
 
   const totais = carradas.reduce((acc, carrada) => {
     acc.quantidade_carradas += 1;
