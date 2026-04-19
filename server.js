@@ -41,6 +41,9 @@ const fornecedorRoutes = require('./src/routes/fornecedor/fornecedor.routes');
 const produtoRoutes = require('./src/routes/produto/produto.routes');
 const produtoCategoriaRoutes = require('./src/routes/produtoCategoria/produtoCategoria.routes');
 const insumoCategoriaRoutes = require('./src/routes/insumoCategoria/insumoCategoria.routes');
+const insumoRoutes = require('./src/routes/insumo/insumo.routes');
+const insumoDiscoRoutes = require('./src/routes/insumoDisco/insumoDisco.routes');
+const insumoFornecedorRoutes = require('./src/routes/insumoFornecedor/insumoFornecedor.routes');
 const volumeRoutes = require('./src/routes/volume/volume.routes');
 const adminVolumeRoutes = require('./src/routes/volume/adminVolume.routes');
 const prestacaoContasRoutes = require('./src/routes/prestacao_contas/prestacao_contas.routes');
@@ -102,6 +105,9 @@ app.use('/vendas', relatorioAcrescimoViewRoutes);
 app.use('/bot/autonomia', botAutonomiaRoutes);
 app.use('/api/produtos-categorias', produtoCategoriaRoutes);
 app.use('/api/insumos-categorias', insumoCategoriaRoutes);
+app.use('/api/insumos', insumoRoutes);
+app.use('/api/insumos-discos', insumoDiscoRoutes);
+app.use('/api/insumos-fornecedores', insumoFornecedorRoutes);
 app.use('/api/produtos', produtoRoutes);
 app.use('/api/transportadoras', transportadorasRoutes);
 app.use('/api/logistica', logisticaRoutes);
@@ -152,6 +158,18 @@ app.get('/admin-produtos', (req, res) => {
 
 app.get('/admin-insumos-categorias', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'insumoCategoria', 'admin-insumo-categoria.html'));
+});
+
+app.get('/admin-insumos', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'insumo', 'admin-insumo.html'));
+});
+
+app.get('/admin-insumos-discos', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'insumoDisco', 'admin-insumo-disco.html'));
+});
+
+app.get('/admin-insumos-fornecedores', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'insumoFornecedor', 'admin-insumo-fornecedor.html'));
 });
 
 app.get('/kits-feirinha', (req, res) => {

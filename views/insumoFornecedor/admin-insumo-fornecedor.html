@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Custos de Insumos por Fornecedor - Alumínio JR</title>
+  <link rel="stylesheet" href="/css/theme.css" />
+  <style>
+    body { font-family: Arial, sans-serif; background: #eef2f7; margin: 0; padding: 24px; }
+    .container { max-width: 1280px; margin: 0 auto; }
+    .box { background: #fff; padding: 24px; border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,.08); margin-bottom: 24px; }
+    h1,h2 { margin-top: 0; color: #243447; }
+    .menu-modulo { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+    .menu-modulo a { text-decoration:none; background:#34495e; color:#fff; padding:9px 12px; border-radius:6px; font-size:13px; }
+    .menu-modulo a.ativo { background:#2ecc71; }
+    .grid-form { display:grid; grid-template-columns: 1.2fr 1fr 120px 120px 120px 120px 120px 120px 120px 140px 140px; gap:12px; align-items:end; }
+    .grid-filtro { display:grid; grid-template-columns: 1fr 1fr 1fr 160px 140px 140px; gap:12px; align-items:end; }
+    label { display:block; font-size:13px; font-weight:bold; color:#4a5568; margin-bottom:6px; }
+    input, select, button { width:100%; padding:10px 12px; border-radius:6px; border:1px solid #ccd3db; font-size:14px; box-sizing:border-box; }
+    input[readonly] { background:#f4f7fa; }
+    button { border:none; cursor:pointer; font-weight:bold; }
+    .btn-salvar { background:#2ecc71; color:#fff; }
+    .btn-limpar { background:#95a5a6; color:#fff; }
+    .btn-buscar { background:#34495e; color:#fff; }
+    .btn-editar { background:#f39c12; color:#fff; padding:8px 10px; }
+    .btn-excluir { background:#e74c3c; color:#fff; padding:8px 10px; }
+    table { width:100%; border-collapse:collapse; margin-top:16px; }
+    th { background:#2c3e50; color:#fff; padding:10px; text-align:left; }
+    td { padding:10px; border-bottom:1px solid #e9edf2; vertical-align:middle; }
+    tr:hover { background:#f9fbfd; }
+    .acoes { display:flex; gap:8px; flex-wrap:wrap; }
+    .status { font-weight:bold; }
+    .status-ativo { color:#1e8449; }
+    .status-inativo { color:#c0392b; }
+    .mensagem { margin-top:12px; font-weight:bold; display:none; }
+    .mensagem.sucesso { color:#1e8449; display:block; }
+    .mensagem.erro { color:#c0392b; display:block; }
+    .observacao-disco { margin-top: 12px; font-size: 13px; color: #2c3e50; background: #f5f8fb; padding: 10px 12px; border-radius: 6px; display:none; }
+    @media (max-width: 1280px) { .grid-form,.grid-filtro { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="box">
+      <h1>Custos de Insumos por Fornecedor</h1>
+      <div class="menu-modulo">
+        <a href="/admin-insumos-categorias">Categorias de insumo</a>
+        <a href="/admin-insumos">Insumos</a>
+        <a href="/admin-insumos-discos">Discos de alumínio</a>
+        <a href="/admin-insumos-fornecedores" class="ativo">Custos por fornecedor</a>
+      </div>
+
+      <input type="hidden" id="registro_id" />
+      <div class="grid-form">
+        <div>
+          <label for="insumo_id">Insumo</label>
+          <select id="insumo_id" onchange="atualizarInsumoSelecionado()"></select>
+        </div>
+        <div>
+          <label for="fornecedor_id">Fornecedor</label>
+          <select id="fornecedor_id"></select>
+        </div>
+        <div>
+          <label for="unidade_custo">Unidade custo</label>
+          <input type="text" id="unidade_custo" readonly />
+        </div>
+        <div>
+          <label for="preco_base">Preço base</label>
+          <input type="number" id="preco_base" min="0" step="0.0001" oninput="atualizarCustoFinalPreview()" />
+        </div>
+        <div>
+          <label for="impostos_valor">Impostos</label>
+          <input type="number" id="impostos_valor" min="0" step="0.0001" oninput="atualizarCustoFinalPreview()" />
+        </div>
+        <div>
+          <label for="frete_valor">Frete</label>
+          <input type="number" id="frete_valor" min="0" step="0.0001" oninput="atualizarCustoFinalPreview()" />
+        </div>
+        <div>
+          <label for="outras_despesas_valor">Outras despesas</label>
+          <input type="number" id="outras_despesas_valor" min="0" step="0.0001" oninput="atualizarCustoFinalPreview()" />
+        </div>
+        <div>
+          <label for="desconto_valor">Desconto</label>
+          <input type="number" id="desconto_valor" min="0" step="0.0001" oninput="atualizarCustoFinalPreview()" />
+        </div>
+        <div>
+          <label for="custo_final">Custo final</label>
+          <input type="text" id="custo_final" readonly />
+        </div>
+        <div>
+          <label for="ativo">Ativo</label>
+          <select id="ativo">
+            <option value="true">Sim</option>
+            <option value="false">Não</option>
+          </select>
+        </div>
+        <div style="display:flex; gap:12px;">
+          <button type="button" class="btn-salvar" onclick="salvar()">Salvar</button>
+          <button type="button" class="btn-limpar" onclick="limparFormulario()">Limpar</button>
+        </div>
+      </div>
+      <div id="discoInfo" class="observacao-disco"></div>
+      <div id="mensagem" class="mensagem"></div>
+    </div>
+
+    <div class="box">
+      <h2>Lista de Custos</h2>
+      <div class="grid-filtro">
+        <div>
+          <label for="filtroInsumo">Buscar por insumo</label>
+          <input type="text" id="filtroInsumo" placeholder="Nome do insumo" />
+        </div>
+        <div>
+          <label for="filtroCategoria">Categoria</label>
+          <select id="filtroCategoria"></select>
+        </div>
+        <div>
+          <label for="filtroFornecedor">Fornecedor</label>
+          <select id="filtroFornecedor"></select>
+        </div>
+        <div>
+          <label for="filtroAtivo">Status</label>
+          <select id="filtroAtivo">
+            <option value="">Todos</option>
+            <option value="true">Ativos</option>
+            <option value="false">Inativos</option>
+          </select>
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button type="button" class="btn-buscar" onclick="listar()">Buscar</button>
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button type="button" class="btn-limpar" onclick="limparFiltros()">Limpar filtros</button>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Insumo</th>
+            <th>Categoria</th>
+            <th>Fornecedor</th>
+            <th>Unid.</th>
+            <th>Custo final</th>
+            <th>Status</th>
+            <th style="width:160px;">Ações</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const API = '/api/insumos-fornecedores';
+    let insumos = [];
+    let fornecedores = [];
+    let categorias = [];
+
+    function mostrarMensagem(texto, tipo = 'sucesso') {
+      const el = document.getElementById('mensagem');
+      el.textContent = texto;
+      el.className = `mensagem ${tipo}`;
+    }
+
+    function limparMensagem() {
+      const el = document.getElementById('mensagem');
+      el.textContent = '';
+      el.className = 'mensagem';
+    }
+
+    function moeda(valor) {
+      return Number(valor || 0).toFixed(4);
+    }
+
+    async function carregarBases() {
+      const [insumosResp, fornResp, catResp] = await Promise.all([
+        fetch('/api/insumos/todos?ativo=true'),
+        fetch('/api/fornecedores'),
+        fetch('/api/insumos-categorias')
+      ]);
+
+      const insumosJson = await insumosResp.json();
+      const fornJson = await fornResp.json();
+      const catJson = await catResp.json();
+
+      insumos = insumosJson.data || [];
+      fornecedores = Array.isArray(fornJson) ? fornJson : (fornJson.data || []);
+      categorias = catJson.data || [];
+
+      document.getElementById('insumo_id').innerHTML = '<option value="">Selecione</option>' + insumos.map(i => `<option value="${i.id}">${i.nome}</option>`).join('');
+      document.getElementById('fornecedor_id').innerHTML = '<option value="">Selecione</option>' + fornecedores.map(f => `<option value="${f.id}">${f.nome}</option>`).join('');
+      document.getElementById('filtroFornecedor').innerHTML = '<option value="">Todos</option>' + fornecedores.map(f => `<option value="${f.id}">${f.nome}</option>`).join('');
+      document.getElementById('filtroCategoria').innerHTML = '<option value="">Todas</option>' + categorias.map(c => `<option value="${c.id}">${c.nome}</option>`).join('');
+    }
+
+    function obterInsumoSelecionado() {
+      const id = Number(document.getElementById('insumo_id').value || 0);
+      return insumos.find(item => Number(item.id) === id) || null;
+    }
+
+    function atualizarInsumoSelecionado() {
+      const insumo = obterInsumoSelecionado();
+      const unidade = insumo ? (insumo.eh_disco ? 'kg' : insumo.unidade_medida) : '';
+      document.getElementById('unidade_custo').value = unidade;
+
+      const info = document.getElementById('discoInfo');
+      if (insumo && insumo.eh_disco) {
+        info.style.display = 'block';
+        info.innerHTML = `<strong>Disco selecionado:</strong> ${insumo.nome} | Diâmetro: ${Number(insumo.diametro_mm).toFixed(2).replace(/\.00$/, '')} mm | Espessura: ${Number(insumo.espessura_mm).toFixed(2)} mm | Peso: ${Number(insumo.peso_kg).toFixed(6)} kg | Unidade de custo fixa: kg`;
+      } else {
+        info.style.display = 'none';
+        info.textContent = '';
+      }
+    }
+
+    function atualizarCustoFinalPreview() {
+      const preco = Number(document.getElementById('preco_base').value || 0);
+      const impostos = Number(document.getElementById('impostos_valor').value || 0);
+      const frete = Number(document.getElementById('frete_valor').value || 0);
+      const outras = Number(document.getElementById('outras_despesas_valor').value || 0);
+      const desconto = Number(document.getElementById('desconto_valor').value || 0);
+      document.getElementById('custo_final').value = (preco + impostos + frete + outras - desconto).toFixed(4);
+    }
+
+    function limparFormulario() {
+      document.getElementById('registro_id').value = '';
+      document.getElementById('insumo_id').value = '';
+      document.getElementById('fornecedor_id').value = '';
+      document.getElementById('unidade_custo').value = '';
+      document.getElementById('preco_base').value = '';
+      document.getElementById('impostos_valor').value = '';
+      document.getElementById('frete_valor').value = '';
+      document.getElementById('outras_despesas_valor').value = '';
+      document.getElementById('desconto_valor').value = '';
+      document.getElementById('custo_final').value = '';
+      document.getElementById('ativo').value = 'true';
+      atualizarInsumoSelecionado();
+      limparMensagem();
+    }
+
+    function limparFiltros() {
+      document.getElementById('filtroInsumo').value = '';
+      document.getElementById('filtroCategoria').value = '';
+      document.getElementById('filtroFornecedor').value = '';
+      document.getElementById('filtroAtivo').value = '';
+      listar();
+    }
+
+    async function listar() {
+      const params = new URLSearchParams();
+      const insumo = document.getElementById('filtroInsumo').value.trim();
+      const categoria = document.getElementById('filtroCategoria').value;
+      const fornecedor = document.getElementById('filtroFornecedor').value;
+      const ativo = document.getElementById('filtroAtivo').value;
+      if (insumo) params.append('insumo', insumo);
+      if (categoria) params.append('categoria_insumo_id', categoria);
+      if (fornecedor) params.append('fornecedor_id', fornecedor);
+      if (ativo) params.append('ativo', ativo);
+
+      const resp = await fetch(`${API}?${params.toString()}`);
+      const json = await resp.json();
+      const dados = json.data || [];
+      const tbody = document.getElementById('tbody');
+
+      tbody.innerHTML = dados.map(item => `
+        <tr>
+          <td>${item.insumo}${item.eh_disco ? `<br><small>Ø ${Number(item.diametro_mm).toFixed(2).replace(/\.00$/, '')} | Esp. ${Number(item.espessura_mm).toFixed(2)} | Peso ${Number(item.peso_kg).toFixed(6)} kg</small>` : ''}</td>
+          <td>${item.categoria}</td>
+          <td>${item.fornecedor}</td>
+          <td>${item.unidade_custo}</td>
+          <td>${moeda(item.custo_final)}</td>
+          <td><span class="status ${item.ativo ? 'status-ativo' : 'status-inativo'}">${item.ativo ? 'Ativo' : 'Inativo'}</span></td>
+          <td>
+            <div class="acoes">
+              <button class="btn-editar" onclick="editar(${item.id})">Editar</button>
+              <button class="btn-excluir" onclick="inativar(${item.id})">Inativar</button>
+            </div>
+          </td>
+        </tr>
+      `).join('') || '<tr><td colspan="7">Nenhum registro encontrado.</td></tr>';
+    }
+
+    async function editar(id) {
+      const resp = await fetch(`${API}/${id}`);
+      const json = await resp.json();
+      if (!json.success) {
+        mostrarMensagem(json.message || 'Erro ao carregar registro', 'erro');
+        return;
+      }
+
+      const item = json.data;
+      document.getElementById('registro_id').value = item.id;
+      document.getElementById('insumo_id').value = item.insumo_id;
+      document.getElementById('fornecedor_id').value = item.fornecedor_id;
+      document.getElementById('preco_base').value = item.preco_base;
+      document.getElementById('impostos_valor').value = item.impostos_valor;
+      document.getElementById('frete_valor').value = item.frete_valor;
+      document.getElementById('outras_despesas_valor').value = item.outras_despesas_valor;
+      document.getElementById('desconto_valor').value = item.desconto_valor;
+      document.getElementById('ativo').value = String(item.ativo);
+      atualizarInsumoSelecionado();
+      atualizarCustoFinalPreview();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      limparMensagem();
+    }
+
+    async function salvar() {
+      try {
+        limparMensagem();
+        const id = document.getElementById('registro_id').value;
+        const payload = {
+          insumo_id: document.getElementById('insumo_id').value,
+          fornecedor_id: document.getElementById('fornecedor_id').value,
+          preco_base: document.getElementById('preco_base').value,
+          impostos_valor: document.getElementById('impostos_valor').value,
+          frete_valor: document.getElementById('frete_valor').value,
+          outras_despesas_valor: document.getElementById('outras_despesas_valor').value,
+          desconto_valor: document.getElementById('desconto_valor').value,
+          ativo: document.getElementById('ativo').value === 'true'
+        };
+
+        const metodo = id ? 'PUT' : 'POST';
+        const url = id ? `${API}/${id}` : API;
+        const resp = await fetch(url, {
+          method: metodo,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const json = await resp.json();
+        if (!resp.ok || !json.success) {
+          throw new Error(json.message || 'Erro ao salvar registro');
+        }
+
+        mostrarMensagem('Registro salvo com sucesso');
+        limparFormulario();
+        listar();
+      } catch (error) {
+        mostrarMensagem(error.message, 'erro');
+      }
+    }
+
+    async function inativar(id) {
+      if (!confirm('Deseja inativar este registro de custo?')) return;
+      const resp = await fetch(`${API}/${id}`, { method: 'DELETE' });
+      const json = await resp.json();
+      if (!resp.ok || !json.success) {
+        mostrarMensagem(json.message || 'Erro ao inativar registro', 'erro');
+        return;
+      }
+      mostrarMensagem('Registro inativado com sucesso');
+      listar();
+    }
+
+    (async function init() {
+      await carregarBases();
+      atualizarInsumoSelecionado();
+      await listar();
+    })();
+  </script>
+</body>
+</html>
