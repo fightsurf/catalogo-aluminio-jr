@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>Admin Fornecedores - Alumínio JR</title>
+  <link rel="stylesheet" href="/css/theme.css" />
 
   <style>
     body {
@@ -39,11 +40,13 @@
       grid-column: span 2;
     }
 
-    input, select, button {
+    input, button {
       padding: 10px;
       border-radius: 6px;
       border: 1px solid #ccc;
       font-size: 14px;
+      width: 100%;
+      box-sizing: border-box;
     }
 
     button {
@@ -54,6 +57,11 @@
 
     .btn-salvar {
       background: #2ecc71;
+      color: #fff;
+    }
+
+    .btn-cancelar {
+      background: #7f8c8d;
       color: #fff;
     }
 
@@ -87,35 +95,89 @@
     td {
       padding: 10px;
       border-bottom: 1px solid #eee;
+      vertical-align: top;
     }
 
     tr:hover {
       background: #f9f9f9;
     }
 
-    #cidadeResultados {
-      max-height: 150px;
-      overflow-y: auto;
-      display: none;
-    }
-
     .actions {
       display: flex;
       gap: 8px;
+      flex-wrap: wrap;
     }
 
+    .cidade-wrapper {
+      position: relative;
+    }
+
+    #cidadeResultados {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      max-height: 220px;
+      overflow-y: auto;
+      display: none;
+      z-index: 30;
+    }
+
+    .cidade-item {
+      padding: 10px;
+      cursor: pointer;
+      border-bottom: 1px solid #eee;
+    }
+
+    .cidade-item:hover {
+      background: #f3f6fa;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .form-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    @media (max-width: 800px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .full {
+        grid-column: span 1;
+      }
+
+      .toolbar {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .form-actions {
+        grid-template-columns: 1fr;
+      }
+    }
   </style>
-  <link rel="stylesheet" href="/css/theme.css" />
 </head>
 
 <body>
 <div class="container">
 
-  <!-- FORM -->
   <div class="box">
     <h2 id="tituloForm">Novo Fornecedor</h2>
 
     <input type="hidden" id="fornecedor_id">
+    <input type="hidden" id="cidade_id">
 
     <div class="grid">
       <input type="text" id="nome" placeholder="Nome" required>
@@ -123,21 +185,22 @@
 
       <input type="text" id="telefone" placeholder="Telefone" required>
 
-      <div>
-        <input type="text" id="cidadeBusca" placeholder="Digite a cidade" required>
-        <select id="cidadeResultados" size="5"></select>
-        <input type="hidden" id="cidade_id">
+      <div class="cidade-wrapper">
+        <input type="text" id="cidadeBusca" placeholder="Digite a cidade" autocomplete="off" required>
+        <div id="cidadeResultados"></div>
       </div>
 
-      <button class="btn-salvar full" onclick="salvar()">Salvar</button>
+      <div class="form-actions full">
+        <button class="btn-salvar" onclick="salvar()">Salvar</button>
+        <button class="btn-cancelar" type="button" onclick="limparFormulario()">Cancelar edição</button>
+      </div>
     </div>
   </div>
 
-  <!-- LISTA -->
   <div class="box">
     <h2>Fornecedores</h2>
 
-    <div style="display:flex; gap:10px;">
+    <div class="toolbar">
       <input type="text" id="filtroNome" placeholder="Buscar por nome">
       <button onclick="listar()">Buscar</button>
     </div>
@@ -161,31 +224,47 @@
 
 <script>
 const API = '/api/fornecedores';
+const cidadeInput = document.getElementById('cidadeBusca');
+const cidadeResultados = document.getElementById('cidadeResultados');
+const cidadeIdInput = document.getElementById('cidade_id');
 
-// ===============================
-// LISTAR COM CIDADE
-// ===============================
+function escaparHtml(valor) {
+  return String(valor ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 async function listar() {
-  const nome = document.getElementById('filtroNome').value;
-  const res = await fetch(`${API}?nome=${nome}`);
+  const nome = document.getElementById('filtroNome').value.trim();
+  const res = await fetch(`${API}?nome=${encodeURIComponent(nome)}`);
   const data = await res.json();
 
   const tbody = document.getElementById('tabela');
   tbody.innerHTML = '';
 
   for (const f of data) {
+    let cidadeTexto = '';
 
-    // 🔥 buscar cidade pelo id
-    const cidadeRes = await fetch(`/api/logistica/cidades/id/${f.cidade_id}`);
-    const cidade = await cidadeRes.json();
+    if (f.cidade && f.estado) {
+      cidadeTexto = `${f.cidade} - ${f.estado}`;
+    } else if (f.cidade_id) {
+      const cidadeRes = await fetch(`/api/logistica/cidades/id/${f.cidade_id}`);
+      if (cidadeRes.ok) {
+        const cidade = await cidadeRes.json();
+        cidadeTexto = cidade ? `${cidade.nome} - ${cidade.estado}` : '';
+      }
+    }
 
     tbody.innerHTML += `
       <tr>
         <td>${f.id}</td>
-        <td>${f.nome}</td>
-        <td>${f.contato_principal}</td>
-        <td>${f.telefone}</td>
-        <td>${cidade ? cidade.nome + ' - ' + cidade.estado : ''}</td>
+        <td>${escaparHtml(f.nome)}</td>
+        <td>${escaparHtml(f.contato_principal)}</td>
+        <td>${escaparHtml(f.telefone)}</td>
+        <td>${escaparHtml(cidadeTexto)}</td>
         <td>
           <div class="actions">
             <button class="btn-editar" onclick="editar(${f.id})">Editar</button>
@@ -197,73 +276,87 @@ async function listar() {
   }
 }
 
-// ===============================
-// EDITAR
-// ===============================
 async function editar(id) {
-
   const res = await fetch(`${API}/${id}`);
-  const fornecedor = await res.json();
-
-  document.getElementById('fornecedor_id').value = fornecedor.id;
-  document.getElementById('nome').value = fornecedor.nome;
-  document.getElementById('contato').value = fornecedor.contato_principal;
-  document.getElementById('telefone').value = fornecedor.telefone;
-  document.getElementById('cidade_id').value = fornecedor.cidade_id;
-
-  const cidadeRes = await fetch(`/api/logistica/cidades/id/${fornecedor.cidade_id}`);
-  const cidade = await cidadeRes.json();
-
-  if (cidade) {
-    document.getElementById('cidadeBusca').value =
-      `${cidade.nome} - ${cidade.estado}`;
-  }
-
-  document.getElementById('tituloForm').innerText = "Editar Fornecedor";
-}
-
-// ===============================
-// SALVAR
-// ===============================
-async function salvar() {
-
-  const id = document.getElementById('fornecedor_id').value;
-
-  const body = {
-    nome: document.getElementById('nome').value,
-    contato_principal: document.getElementById('contato').value,
-    telefone: document.getElementById('telefone').value,
-    cidade_id: parseInt(document.getElementById('cidade_id').value)
-  };
-
-  if (!body.cidade_id) {
-    alert("Selecione a cidade clicando na lista.");
+  if (!res.ok) {
+    alert('Erro ao carregar fornecedor para edição.');
     return;
   }
 
-  if (id) {
-    await fetch(`${API}/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-  } else {
-    await fetch(API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
+  const fornecedor = await res.json();
+
+  document.getElementById('fornecedor_id').value = fornecedor.id;
+  document.getElementById('nome').value = fornecedor.nome || '';
+  document.getElementById('contato').value = fornecedor.contato_principal || '';
+  document.getElementById('telefone').value = fornecedor.telefone || '';
+  cidadeIdInput.value = fornecedor.cidade_id || '';
+
+  if (fornecedor.cidade && fornecedor.estado) {
+    cidadeInput.value = `${fornecedor.cidade} - ${fornecedor.estado}`;
+  } else if (fornecedor.cidade_id) {
+    const cidadeRes = await fetch(`/api/logistica/cidades/id/${fornecedor.cidade_id}`);
+    if (cidadeRes.ok) {
+      const cidade = await cidadeRes.json();
+      if (cidade) {
+        cidadeInput.value = `${cidade.nome} - ${cidade.estado}`;
+      }
+    }
+  }
+
+  document.getElementById('tituloForm').innerText = 'Editar Fornecedor';
+}
+
+async function salvar() {
+  const id = document.getElementById('fornecedor_id').value;
+  const nome = document.getElementById('nome').value.trim();
+  const contato_principal = document.getElementById('contato').value.trim();
+  const telefone = document.getElementById('telefone').value.trim();
+  const cidade_id = Number(cidadeIdInput.value);
+
+  if (!nome || !contato_principal || !telefone || !cidade_id) {
+    alert('Preencha todos os campos e selecione a cidade na lista.');
+    return;
+  }
+
+  const body = {
+    nome,
+    contato_principal,
+    telefone,
+    cidade_id
+  };
+
+  const url = id ? `${API}/${id}` : API;
+  const method = id ? 'PUT' : 'POST';
+
+  const res = await fetch(url, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+
+  const resposta = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    alert(resposta.error || 'Erro ao salvar fornecedor.');
+    return;
   }
 
   limparFormulario();
-  listar();
+  await listar();
 }
 
-// ===============================
 async function deletar(id) {
-  if (!confirm("Tem certeza que deseja excluir?")) return;
-  await fetch(`${API}/${id}`, { method: 'DELETE' });
-  listar();
+  if (!confirm('Tem certeza que deseja excluir?')) return;
+
+  const res = await fetch(`${API}/${id}`, { method: 'DELETE' });
+  const resposta = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    alert(resposta.error || 'Erro ao excluir fornecedor.');
+    return;
+  }
+
+  await listar();
 }
 
 function limparFormulario() {
@@ -271,44 +364,59 @@ function limparFormulario() {
   document.getElementById('nome').value = '';
   document.getElementById('contato').value = '';
   document.getElementById('telefone').value = '';
-  document.getElementById('cidadeBusca').value = '';
-  document.getElementById('cidade_id').value = '';
-  document.getElementById('tituloForm').innerText = "Novo Fornecedor";
+  cidadeInput.value = '';
+  cidadeIdInput.value = '';
+  cidadeResultados.innerHTML = '';
+  cidadeResultados.style.display = 'none';
+  document.getElementById('tituloForm').innerText = 'Novo Fornecedor';
 }
 
-// ===============================
-// BUSCA DINÂMICA CIDADE
-// ===============================
-const cidadeInput = document.getElementById('cidadeBusca');
-const resultados = document.getElementById('cidadeResultados');
-
 cidadeInput.addEventListener('input', async function() {
-  const termo = this.value;
+  const termo = this.value.trim();
+  cidadeIdInput.value = '';
 
   if (termo.length < 2) {
-    resultados.style.display = 'none';
+    cidadeResultados.innerHTML = '';
+    cidadeResultados.style.display = 'none';
     return;
   }
 
-  const res = await fetch(`/api/logistica/cidades/busca-id?nome=${termo}`);
+  const res = await fetch(`/api/logistica/cidades/busca-id?nome=${encodeURIComponent(termo)}`);
+  if (!res.ok) {
+    cidadeResultados.innerHTML = '';
+    cidadeResultados.style.display = 'none';
+    return;
+  }
+
   const cidades = await res.json();
+  cidadeResultados.innerHTML = '';
 
-  resultados.innerHTML = '';
-  resultados.style.display = 'block';
+  if (!Array.isArray(cidades) || cidades.length === 0) {
+    cidadeResultados.style.display = 'none';
+    return;
+  }
 
-  cidades.forEach(c => {
-    const option = document.createElement('option');
-    option.value = c.id;
-    option.textContent = `${c.nome} - ${c.estado}`;
-    resultados.appendChild(option);
+  cidades.forEach(cidade => {
+    const item = document.createElement('div');
+    item.className = 'cidade-item';
+    item.textContent = `${cidade.nome} - ${cidade.estado}`;
+    item.addEventListener('click', () => {
+      cidadeInput.value = `${cidade.nome} - ${cidade.estado}`;
+      cidadeIdInput.value = cidade.id;
+      cidadeResultados.innerHTML = '';
+      cidadeResultados.style.display = 'none';
+    });
+    cidadeResultados.appendChild(item);
   });
+
+  cidadeResultados.style.display = 'block';
 });
 
-resultados.addEventListener('change', function() {
-  const selected = this.options[this.selectedIndex];
-  document.getElementById('cidade_id').value = selected.value;
-  document.getElementById('cidadeBusca').value = selected.textContent;
-  resultados.style.display = 'none';
+document.addEventListener('click', (event) => {
+  const clicouDentro = event.target === cidadeInput || cidadeResultados.contains(event.target);
+  if (!clicouDentro) {
+    cidadeResultados.style.display = 'none';
+  }
 });
 
 listar();
