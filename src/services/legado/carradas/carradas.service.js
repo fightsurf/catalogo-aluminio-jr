@@ -160,6 +160,10 @@ async function buscarCarrada(codigo) {
   return response.dado || null;
 }
 
+async function buscarResumoCarrada(codigo) {
+  return buscarCarrada(codigo);
+}
+
 async function criarCarrada(payload) {
   const response = await request('/api/carradas', {
     method: 'POST',
@@ -274,6 +278,7 @@ module.exports = {
   listarCarradas,
   listarCarradasDisponiveis,
   buscarCarrada,
+  buscarResumoCarrada,
   criarCarrada,
   atualizarCarrada,
   vincularPedidoNaCarrada,
