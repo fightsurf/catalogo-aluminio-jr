@@ -8,5 +8,6 @@ router.get('/:favorecido', clientesController.buscarCliente);
 router.post('/', clientesController.criarCliente);
 router.put('/:favorecido', clientesController.atualizarCliente);
 router.delete('/:favorecido', clientesController.desativarCliente);
+router.patch('/:favorecido/reativar', clientesController.reativarCliente);
 
 module.exports = router;

@@ -25,10 +25,16 @@ async function desativarCliente(favorecido) {
   return response.dado || null;
 }
 
+async function reativarCliente(favorecido) {
+  const response = await legadoBridgeService.patch(`/api/clientes/${favorecido}/reativar`);
+  return response.dado || null;
+}
+
 module.exports = {
   listarClientes,
   buscarCliente,
   criarCliente,
   atualizarCliente,
-  desativarCliente
+  desativarCliente,
+  reativarCliente
 };

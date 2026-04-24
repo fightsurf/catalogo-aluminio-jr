@@ -6,9 +6,7 @@
   <title>Clientes do Legado - Alumínio JR</title>
 
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -18,15 +16,15 @@
       padding: 18px;
     }
 
-    .titulo-pagina {
-      font-size: 22px;
-      font-weight: bold;
-      margin-bottom: 18px;
+    .layout {
+      max-width: 1200px;
+      margin: 0 auto;
     }
 
-    .layout {
-      max-width: 1100px;
-      margin: 0 auto;
+    .titulo-pagina {
+      font-size: 22px;
+      font-weight: 800;
+      margin-bottom: 18px;
     }
 
     .box {
@@ -42,54 +40,104 @@
       font-size: 18px;
     }
 
-    .busca-linha {
+    .topo-box {
       display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .grid-form,
+    .grid-filtros {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
       gap: 10px;
       align-items: end;
-      flex-wrap: wrap;
     }
 
     .campo {
       display: flex;
       flex-direction: column;
       gap: 6px;
-      min-width: 180px;
-      flex: 1;
-    }
-
-    .campo.uf {
-      max-width: 100px;
-      min-width: 100px;
-      flex: 0 0 100px;
-    }
-
-    .campo.limite {
-      max-width: 120px;
-      min-width: 120px;
-      flex: 0 0 120px;
+      position: relative;
     }
 
     .campo label {
-      font-size: 14px;
-      font-weight: 600;
+      font-size: 13px;
+      font-weight: 700;
+      color: #374151;
     }
 
-    .campo input {
+    .campo input,
+    .campo select {
       height: 38px;
       border: 1px solid #cfd6dd;
-      border-radius: 4px;
+      border-radius: 6px;
       padding: 0 10px;
       font-size: 14px;
       outline: none;
+      background: #ffffff;
+      width: 100%;
     }
 
-    .campo input:focus {
-      border-color: #3b82f6;
+    .campo input:focus,
+    .campo select:focus {
+      border-color: #0ea5b7;
+      box-shadow: 0 0 0 2px rgba(14, 165, 183, 0.12);
     }
 
-    .campo.autocomplete {
-      position: relative;
+    .campo-1 { grid-column: span 1; }
+    .campo-2 { grid-column: span 2; }
+    .campo-3 { grid-column: span 3; }
+    .campo-4 { grid-column: span 4; }
+    .campo-5 { grid-column: span 5; }
+    .campo-6 { grid-column: span 6; }
+    .campo-8 { grid-column: span 8; }
+
+    .linha-botoes {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+      align-items: center;
     }
+
+    .btn {
+      height: 38px;
+      border: none;
+      border-radius: 6px;
+      padding: 0 14px;
+      font-size: 14px;
+      cursor: pointer;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .btn-primary { background: #0ea5b7; color: #ffffff; }
+    .btn-secondary { background: #e5e7eb; color: #111827; }
+    .btn-success { background: #16a34a; color: #ffffff; }
+    .btn-danger { background: #dc2626; color: #ffffff; }
+    .btn-warning { background: #f59e0b; color: #111827; }
+    .btn-dark { background: #111827; color: #ffffff; }
+
+    .btn:hover { opacity: 0.92; }
+
+    .mensagem {
+      margin-top: 12px;
+      font-size: 14px;
+      color: #374151;
+      min-height: 18px;
+    }
+
+    .erro { color: #dc2626; font-weight: 700; }
+    .ok { color: #15803d; font-weight: 700; }
 
     .autocomplete-lista {
       position: absolute;
@@ -106,9 +154,7 @@
       display: none;
     }
 
-    .autocomplete-lista.ativo {
-      display: block;
-    }
+    .autocomplete-lista.ativo { display: block; }
 
     .autocomplete-item {
       width: 100%;
@@ -123,82 +169,12 @@
     }
 
     .autocomplete-item:hover,
-    .autocomplete-item.ativo {
-      background: #eff6ff;
-    }
+    .autocomplete-item.ativo { background: #eff6ff; }
 
     .autocomplete-vazio {
       padding: 10px 12px;
       font-size: 14px;
       color: #6b7280;
-    }
-
-    .acoes-busca {
-      display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .btn {
-      height: 38px;
-      border: none;
-      border-radius: 4px;
-      padding: 0 16px;
-      font-size: 14px;
-      cursor: pointer;
-      font-weight: 600;
-    }
-
-    .btn-primary {
-      background: #0ea5b7;
-      color: #fff;
-    }
-
-    .btn-primary:hover {
-      opacity: 0.92;
-    }
-
-    .btn-secondary {
-      background: #e5e7eb;
-      color: #111827;
-    }
-
-    .btn-secondary:hover {
-      opacity: 0.92;
-    }
-
-    .btn-acao-modal {
-      width: 100%;
-      height: 42px;
-      border: none;
-      border-radius: 8px;
-      background: #0f766e;
-      color: #ffffff;
-      font-size: 14px;
-      font-weight: 700;
-      cursor: pointer;
-      text-align: left;
-      padding: 0 14px;
-    }
-
-    .btn-acao-modal:hover {
-      opacity: 0.92;
-    }
-
-    .btn-acao-modal:disabled {
-      opacity: 0.55;
-      cursor: not-allowed;
-    }
-
-    .mensagem {
-      margin-top: 12px;
-      font-size: 14px;
-      color: #374151;
-    }
-
-    .erro {
-      color: #dc2626;
-      font-weight: 600;
     }
 
     .info-topo {
@@ -213,27 +189,26 @@
     .resumo {
       font-size: 14px;
       color: #374151;
-      font-weight: 600;
+      font-weight: 700;
     }
 
-    .placeholder {
+    .placeholder,
+    .sem-registros {
       color: #6b7280;
       font-size: 15px;
     }
 
-    .tabela-wrap {
-      overflow-x: auto;
-    }
+    .tabela-wrap { overflow-x: auto; }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 760px;
+      min-width: 1000px;
     }
 
     th, td {
       border: 1px solid #e5e7eb;
-      padding: 10px;
+      padding: 9px;
       font-size: 14px;
       text-align: left;
       vertical-align: middle;
@@ -241,174 +216,81 @@
 
     th {
       background: #f9fafb;
-      font-weight: 600;
+      font-weight: 800;
       color: #374151;
     }
 
-    .cliente-link {
+    tr.inativo { background: #fff7ed; }
+
+    .status-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 68px;
+      border-radius: 999px;
+      padding: 4px 8px;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .status-ativo { background: #dcfce7; color: #166534; }
+    .status-inativo { background: #fee2e2; color: #991b1b; }
+
+    .telefone-link-btn,
+    .link-btn {
       background: none;
       border: none;
       padding: 0;
       margin: 0;
       color: #0f766e;
-      font-size: 14px;
       font-weight: 700;
-      text-transform: uppercase;
-      cursor: pointer;
-      text-align: left;
-    }
-
-    .cliente-link:hover {
-      text-decoration: underline;
-    }
-
-    .telefone-link-btn {
-      background: none;
-      border: none;
-      padding: 0;
-      margin: 0;
-      color: #0f766e;
-      font-weight: 600;
       cursor: pointer;
       font-size: 14px;
       font-family: Arial, sans-serif;
       text-decoration: none;
     }
 
-    .telefone-link-btn:hover {
-      text-decoration: underline;
-    }
+    .telefone-link-btn:hover,
+    .link-btn:hover { text-decoration: underline; }
 
-    .sem-registros {
-      color: #6b7280;
-      font-size: 14px;
-    }
-
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(17, 24, 39, 0.55);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      z-index: 9999;
-    }
-
-    .modal-overlay.ativo {
+    .acoes-linha {
       display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
     }
 
-    .modal {
-      width: 100%;
-      max-width: 620px;
-      background: #ffffff;
-      border-radius: 12px;
-      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
-      overflow: hidden;
-    }
-
-    .modal-topo {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 16px;
-      border-bottom: 1px solid #e5e7eb;
-      background: #f9fafb;
-    }
-
-    .modal-topo h3 {
-      margin: 0;
-      font-size: 18px;
-    }
-
-    .modal-fechar {
-      width: 34px;
-      height: 34px;
-      border: none;
-      border-radius: 6px;
-      background: #e5e7eb;
-      cursor: pointer;
-      font-size: 18px;
-      font-weight: bold;
-      color: #111827;
-    }
-
-    .modal-fechar:hover {
-      opacity: 0.92;
-    }
-
-    .modal-conteudo {
-      padding: 16px;
-    }
-
-    .modal-grid {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-      margin-bottom: 16px;
-    }
-
-    .modal-card {
-      background: #f9fafb;
-      border: 1px solid #e5e7eb;
-      border-radius: 8px;
-      padding: 12px;
-    }
-
-    .modal-card-label {
-      display: block;
+    .btn-mini {
+      height: 30px;
+      border-radius: 5px;
+      padding: 0 9px;
       font-size: 12px;
-      font-weight: 700;
-      color: #6b7280;
-      margin-bottom: 6px;
-      text-transform: uppercase;
+      font-weight: 800;
     }
 
-    .modal-card-valor {
-      font-size: 14px;
-      color: #111827;
-      word-break: break-word;
-    }
-
-    .modal-acoes {
-      border: 1px solid #d1d5db;
+    .aviso-edicao {
+      display: none;
+      margin-bottom: 12px;
+      background: #fffbeb;
+      border: 1px solid #fcd34d;
+      color: #92400e;
       border-radius: 8px;
-      padding: 14px;
-      background: #f8fafc;
+      padding: 10px 12px;
+      font-size: 14px;
+      font-weight: 700;
     }
 
-    .modal-acoes h4 {
-      margin: 0 0 10px 0;
-      font-size: 15px;
-    }
+    .aviso-edicao.ativo { display: block; }
 
-    .modal-acoes p {
-      margin: 10px 0 0 0;
-      font-size: 13px;
-      color: #6b7280;
-    }
+    @media (max-width: 900px) {
+      .campo-1,
+      .campo-2,
+      .campo-3,
+      .campo-4,
+      .campo-5,
+      .campo-6,
+      .campo-8 { grid-column: span 12; }
 
-    .modal-rodape {
-      padding: 16px;
-      border-top: 1px solid #e5e7eb;
-      display: flex;
-      justify-content: flex-end;
-    }
-
-    @media (max-width: 700px) {
-      .modal-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .acoes-busca {
-        width: 100%;
-      }
-
-      .acoes-busca .btn {
-        flex: 1;
-      }
+      .linha-botoes .btn { flex: 1; }
     }
   </style>
 </head>
@@ -417,71 +299,113 @@
   <div class="layout">
     <div class="titulo-pagina">👥 Clientes do Legado</div>
 
+    <div class="box" id="boxFormulario">
+      <div class="topo-box">
+        <h2 id="tituloFormulario">Cadastrar cliente</h2>
+        <button id="btnNovoClienteTopo" class="btn btn-secondary" type="button">Novo cliente</button>
+      </div>
+
+      <div id="avisoEdicao" class="aviso-edicao">Editando cliente existente.</div>
+
+      <form id="formCliente" autocomplete="off">
+        <input type="hidden" id="clienteFavorecido" />
+
+        <div class="grid-form">
+          <div class="campo campo-2">
+            <label for="inputCodigo">Código</label>
+            <input id="inputCodigo" type="text" placeholder="Opcional" />
+          </div>
+
+          <div class="campo campo-5">
+            <label for="inputNome">Nome *</label>
+            <input id="inputNome" type="text" placeholder="Nome do cliente" required />
+          </div>
+
+          <div class="campo campo-5">
+            <label for="inputRazao">Razão</label>
+            <input id="inputRazao" type="text" placeholder="Razão / nome completo" />
+          </div>
+
+          <div class="campo campo-3">
+            <label for="inputTelefonePrincipal">Telefone</label>
+            <input id="inputTelefonePrincipal" type="text" placeholder="Telefone / WhatsApp" />
+          </div>
+
+          <div class="campo campo-5 autocomplete-wrapper">
+            <label for="inputCidade">Cidade</label>
+            <input id="inputCidade" type="text" placeholder="Digite as primeiras letras" autocomplete="off" />
+            <div id="autocompleteCidadeForm" class="autocomplete-lista"></div>
+          </div>
+
+          <div class="campo campo-2">
+            <label for="inputUf">UF</label>
+            <input id="inputUf" type="text" maxlength="2" placeholder="UF" />
+          </div>
+
+          <div class="campo campo-2">
+            <label for="inputStatus">Status</label>
+            <select id="inputStatus">
+              <option value="ativo">Ativo</option>
+              <option value="inativo">Inativo</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="linha-botoes">
+          <button id="btnSalvarCliente" class="btn btn-success" type="submit">Salvar cliente</button>
+          <button id="btnCancelarEdicao" class="btn btn-secondary" type="button">Cancelar edição</button>
+        </div>
+      </form>
+
+      <div id="mensagemForm" class="mensagem"></div>
+    </div>
+
     <div class="box">
-      <h2>Pesquisar Clientes</h2>
+      <h2>Pesquisar clientes</h2>
 
-      <div class="busca-linha">
-        <div class="campo">
+      <div class="grid-filtros">
+        <div class="campo campo-4">
           <label for="filtroNome">Nome</label>
-          <input
-            type="text"
-            id="filtroNome"
-            placeholder="Digite o nome do cliente"
-          />
+          <input id="filtroNome" type="text" placeholder="Digite o nome do cliente" />
         </div>
 
-        <div class="campo autocomplete">
+        <div class="campo campo-4 autocomplete-wrapper">
           <label for="filtroCidade">Cidade</label>
-          <input
-            type="text"
-            id="filtroCidade"
-            placeholder="Digite as primeiras letras"
-            autocomplete="off"
-          />
-          <div id="autocompleteCidade" class="autocomplete-lista"></div>
+          <input id="filtroCidade" type="text" placeholder="Digite as primeiras letras" autocomplete="off" />
+          <div id="autocompleteCidadeFiltro" class="autocomplete-lista"></div>
         </div>
 
-        <div class="campo uf">
+        <div class="campo campo-1">
           <label for="filtroUf">UF</label>
-          <input
-            type="text"
-            id="filtroUf"
-            maxlength="2"
-            placeholder="UF"
-          />
+          <input id="filtroUf" type="text" maxlength="2" placeholder="UF" />
         </div>
 
-        <div class="campo limite">
+        <div class="campo campo-2">
+          <label for="filtroStatus">Status</label>
+          <select id="filtroStatus">
+            <option value="ativos">Ativos</option>
+            <option value="inativos">Inativos</option>
+            <option value="todos">Todos</option>
+          </select>
+        </div>
+
+        <div class="campo campo-1">
           <label for="filtroLimite">Limite</label>
-          <input
-            type="number"
-            id="filtroLimite"
-            min="1"
-            max="500"
-            value="50"
-          />
-        </div>
-
-        <div class="acoes-busca">
-          <button id="btnPesquisar" class="btn btn-primary">
-            Pesquisar
-          </button>
-
-          <button id="btnLimpar" class="btn btn-secondary" type="button">
-            Limpar
-          </button>
+          <input id="filtroLimite" type="number" min="1" max="500" value="50" />
         </div>
       </div>
 
-      <div id="mensagem" class="mensagem">Aguardando pesquisa.</div>
+      <div class="linha-botoes">
+        <button id="btnPesquisar" class="btn btn-primary" type="button">Pesquisar</button>
+        <button id="btnLimpar" class="btn btn-secondary" type="button">Limpar filtros</button>
+      </div>
+
+      <div id="mensagemBusca" class="mensagem">Aguardando pesquisa.</div>
     </div>
 
     <div class="box">
       <div class="info-topo">
-        <div>
-          <h2 style="margin: 0;">Resultado</h2>
-        </div>
-
+        <h2 style="margin: 0;">Resultado</h2>
         <div id="resumo" class="resumo">Nenhum cliente carregado.</div>
       </div>
 
@@ -491,271 +415,378 @@
     </div>
   </div>
 
-  <div id="modalOverlay" class="modal-overlay">
-    <div class="modal">
-      <div class="modal-topo">
-        <h3>Cliente</h3>
-        <button id="btnFecharModalTopo" class="modal-fechar" type="button">×</button>
-      </div>
-
-      <div class="modal-conteudo">
-        <div class="modal-grid">
-          <div class="modal-card">
-            <span class="modal-card-label">Nome</span>
-            <div id="modalNome" class="modal-card-valor">-</div>
-          </div>
-
-          <div class="modal-card">
-            <span class="modal-card-label">Telefone</span>
-            <div id="modalTelefone" class="modal-card-valor">-</div>
-          </div>
-
-          <div class="modal-card">
-            <span class="modal-card-label">Cidade</span>
-            <div id="modalCidade" class="modal-card-valor">-</div>
-          </div>
-
-          <div class="modal-card">
-            <span class="modal-card-label">UF</span>
-            <div id="modalUf" class="modal-card-valor">-</div>
-          </div>
-        </div>
-
-        <div class="modal-acoes">
-          <h4>Ações</h4>
-          <button
-            id="btnHistoricoCompras"
-            type="button"
-            class="btn-acao-modal"
-          >
-            Histórico de compras do cliente
-          </button>
-          <p id="modalAcaoInfo">Ao clicar, será aberta a página de pedidos deste cliente.</p>
-        </div>
-      </div>
-
-      <div class="modal-rodape">
-        <button id="btnFecharModalRodape" class="btn btn-secondary" type="button">
-          Fechar
-        </button>
-      </div>
-    </div>
-  </div>
-
   <script>
+    const formCliente = document.getElementById('formCliente');
+    const clienteFavorecido = document.getElementById('clienteFavorecido');
+    const inputCodigo = document.getElementById('inputCodigo');
+    const inputNome = document.getElementById('inputNome');
+    const inputRazao = document.getElementById('inputRazao');
+    const inputTelefonePrincipal = document.getElementById('inputTelefonePrincipal');
+    const inputCidade = document.getElementById('inputCidade');
+    const inputUf = document.getElementById('inputUf');
+    const inputStatus = document.getElementById('inputStatus');
+    const autocompleteCidadeForm = document.getElementById('autocompleteCidadeForm');
+    const tituloFormulario = document.getElementById('tituloFormulario');
+    const avisoEdicao = document.getElementById('avisoEdicao');
+    const btnNovoClienteTopo = document.getElementById('btnNovoClienteTopo');
+    const btnSalvarCliente = document.getElementById('btnSalvarCliente');
+    const btnCancelarEdicao = document.getElementById('btnCancelarEdicao');
+    const mensagemForm = document.getElementById('mensagemForm');
+
     const filtroNome = document.getElementById('filtroNome');
     const filtroCidade = document.getElementById('filtroCidade');
     const filtroUf = document.getElementById('filtroUf');
+    const filtroStatus = document.getElementById('filtroStatus');
     const filtroLimite = document.getElementById('filtroLimite');
-    const autocompleteCidade = document.getElementById('autocompleteCidade');
+    const autocompleteCidadeFiltro = document.getElementById('autocompleteCidadeFiltro');
     const btnPesquisar = document.getElementById('btnPesquisar');
     const btnLimpar = document.getElementById('btnLimpar');
-    const mensagem = document.getElementById('mensagem');
+    const mensagemBusca = document.getElementById('mensagemBusca');
     const resumo = document.getElementById('resumo');
     const blocoTabela = document.getElementById('blocoTabela');
 
-    const modalOverlay = document.getElementById('modalOverlay');
-    const modalNome = document.getElementById('modalNome');
-    const modalTelefone = document.getElementById('modalTelefone');
-    const modalCidade = document.getElementById('modalCidade');
-    const modalUf = document.getElementById('modalUf');
-    const btnFecharModalTopo = document.getElementById('btnFecharModalTopo');
-    const btnFecharModalRodape = document.getElementById('btnFecharModalRodape');
-    const btnHistoricoCompras = document.getElementById('btnHistoricoCompras');
-    const modalAcaoInfo = document.getElementById('modalAcaoInfo');
+    let clientesCarregados = [];
 
-    let clienteSelecionadoAtual = null;
-    let sugestoesCidade = [];
-    let indiceSugestaoCidadeAtiva = -1;
-    let controladorBuscaCidade = null;
-
-    function setMensagem(texto, erro = false) {
-      mensagem.textContent = texto;
-      mensagem.className = erro ? 'mensagem erro' : 'mensagem';
+    function setMensagem(elemento, texto, tipo = '') {
+      elemento.textContent = texto || '';
+      elemento.className = `mensagem ${tipo}`.trim();
     }
 
-    function limparTabela() {
-      blocoTabela.innerHTML = '<div class="placeholder">Nenhum cliente carregado.</div>';
-      resumo.textContent = 'Nenhum cliente carregado.';
+    function escaparHtml(valor) {
+      return String(valor ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
     }
 
     function limparSomenteNumeros(valor) {
       return String(valor || '').replace(/\D/g, '');
     }
 
-    function formatarTelefoneExibicao(valor) {
-      const numeros = limparSomenteNumeros(valor);
-
-      if (!numeros) {
-        return '-';
-      }
-
-      return valor;
-    }
-
     function abrirWhatsapp(telefone) {
       let numeros = limparSomenteNumeros(telefone);
 
-      if (!numeros) {
-        return;
-      }
+      if (!numeros) return;
 
       if (numeros.length === 10 || numeros.length === 11) {
         numeros = `55${numeros}`;
       }
 
-      const appUrl = `whatsapp://send?phone=${numeros}`;
-      const webUrl = `https://wa.me/${numeros}`;
-
-      let fallbackExecutado = false;
-
-      const executarFallback = () => {
-        if (fallbackExecutado) {
-          return;
-        }
-
-        fallbackExecutado = true;
-        window.open(webUrl, '_blank');
-      };
-
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      iframe.src = appUrl;
-      document.body.appendChild(iframe);
-
-      setTimeout(() => {
-        if (document.body.contains(iframe)) {
-          document.body.removeChild(iframe);
-        }
-
-        executarFallback();
-      }, 1200);
+      window.open(`https://wa.me/${numeros}`, '_blank');
     }
 
     function criarHtmlTelefone(valor) {
-      const telefoneFormatado = formatarTelefoneExibicao(valor);
-      const telefoneSeguro = String(valor || '').replace(/'/g, "\\'");
+      const telefone = String(valor || '').trim();
 
-      if (telefoneFormatado === '-') {
-        return '-';
-      }
+      if (!telefone) return '-';
 
-      return `
-        <button
-          type="button"
-          class="telefone-link-btn"
-          onclick="abrirWhatsapp('${telefoneSeguro}')"
-          title="Abrir conversa no WhatsApp"
-        >
-          ${telefoneFormatado}
-        </button>
-      `;
+      return `<button type="button" class="telefone-link-btn" data-telefone="${escaparHtml(telefone)}" title="Abrir WhatsApp">${escaparHtml(telefone)}</button>`;
     }
 
     function obterFavorecidoCliente(cliente) {
-      return (
-        cliente?.favorecido ??
-        cliente?.Favorecido ??
-        cliente?.FAVORECIDO ??
-        cliente?.codigo ??
-        cliente?.CODIGO ??
-        ''
-      );
+      return cliente?.favorecido ?? cliente?.Favorecido ?? cliente?.FAVORECIDO ?? '';
     }
 
-    function atualizarAcaoHistorico(cliente) {
-      const favorecido = obterFavorecidoCliente(cliente);
+    function criarAutocompleteCidade({ input, ufInput, lista }) {
+      let sugestoes = [];
+      let indiceAtivo = -1;
+      let controlador = null;
 
-      if (!favorecido) {
-        btnHistoricoCompras.disabled = true;
-        modalAcaoInfo.textContent = 'Código do cliente não disponível para abrir o histórico.';
-        return;
+      function fechar() {
+        lista.classList.remove('ativo');
+        lista.innerHTML = '';
+        sugestoes = [];
+        indiceAtivo = -1;
       }
 
-      btnHistoricoCompras.disabled = false;
-      modalAcaoInfo.textContent = 'Ao clicar, será aberta a página de pedidos deste cliente.';
-    }
+      function selecionar(cidade) {
+        if (!cidade) return;
 
-    function abrirModal(cliente) {
-      clienteSelecionadoAtual = cliente || null;
+        input.value = cidade.nome || '';
+        ufInput.value = String(cidade.estado || '').toUpperCase().slice(0, 2);
+        fechar();
+      }
 
-      modalNome.textContent = cliente?.nome || '-';
-      modalCidade.textContent = cliente?.cidade || '-';
-      modalUf.textContent = cliente?.uf || '-';
+      function renderizar() {
+        if (!sugestoes.length) {
+          lista.innerHTML = '<div class="autocomplete-vazio">Nenhuma cidade encontrada.</div>';
+          lista.classList.add('ativo');
+          indiceAtivo = -1;
+          return;
+        }
 
-      const telefoneCliente = cliente?.telefonePrincipal || '';
-      const telefoneFormatado = formatarTelefoneExibicao(telefoneCliente);
-      const telefoneSeguro = String(telefoneCliente).replace(/'/g, "\\'");
-
-      if (telefoneFormatado !== '-') {
-        modalTelefone.innerHTML = `
-          <button
-            type="button"
-            class="telefone-link-btn"
-            onclick="abrirWhatsapp('${telefoneSeguro}')"
-            title="Abrir conversa no WhatsApp"
-          >
-            ${telefoneFormatado}
+        lista.innerHTML = sugestoes.map((cidade, indice) => `
+          <button type="button" class="autocomplete-item ${indice === indiceAtivo ? 'ativo' : ''}" data-indice="${indice}">
+            ${escaparHtml(cidade.nome)} - ${escaparHtml(cidade.estado)}
           </button>
-        `;
-      } else {
-        modalTelefone.textContent = '-';
+        `).join('');
+
+        lista.classList.add('ativo');
+
+        lista.querySelectorAll('.autocomplete-item').forEach((botao) => {
+          botao.addEventListener('mousedown', (event) => {
+            event.preventDefault();
+            selecionar(sugestoes[Number(botao.dataset.indice)]);
+          });
+        });
       }
 
-      atualizarAcaoHistorico(cliente);
-      modalOverlay.classList.add('ativo');
-    }
+      async function buscar() {
+        const termo = input.value.trim();
 
-    function fecharModal() {
-      modalOverlay.classList.remove('ativo');
-    }
+        if (termo.length < 3) {
+          fechar();
+          return;
+        }
 
-    function abrirHistoricoCompras() {
-      const favorecido = obterFavorecidoCliente(clienteSelecionadoAtual);
+        if (controlador) controlador.abort();
+        controlador = new AbortController();
 
-      if (!favorecido) {
-        modalAcaoInfo.textContent = 'Código do cliente não disponível para abrir o histórico.';
-        return;
+        try {
+          const response = await fetch(`/api/logistica/cidades/busca?nome=${encodeURIComponent(termo)}`, {
+            signal: controlador.signal
+          });
+          const json = await response.json();
+
+          if (!response.ok) {
+            throw new Error(json?.erro || 'Erro ao buscar cidades.');
+          }
+
+          sugestoes = Array.isArray(json) ? json : [];
+          indiceAtivo = sugestoes.length ? 0 : -1;
+          renderizar();
+        } catch (error) {
+          if (error.name === 'AbortError') return;
+          console.error('Erro ao buscar cidades:', error);
+          fechar();
+        }
       }
 
-      window.location.href = `/legado/pedidos-cliente?favorecido=${encodeURIComponent(favorecido)}`;
+      function mover(direcao) {
+        if (!sugestoes.length) return;
+
+        indiceAtivo += direcao;
+
+        if (indiceAtivo < 0) indiceAtivo = sugestoes.length - 1;
+        if (indiceAtivo >= sugestoes.length) indiceAtivo = 0;
+
+        renderizar();
+      }
+
+      input.addEventListener('input', () => {
+        ufInput.value = '';
+        buscar();
+      });
+
+      input.addEventListener('focus', () => {
+        if (input.value.trim().length >= 3) buscar();
+      });
+
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'ArrowDown') {
+          event.preventDefault();
+          mover(1);
+          return;
+        }
+
+        if (event.key === 'ArrowUp') {
+          event.preventDefault();
+          mover(-1);
+          return;
+        }
+
+        if (event.key === 'Enter' && indiceAtivo >= 0 && sugestoes[indiceAtivo]) {
+          event.preventDefault();
+          selecionar(sugestoes[indiceAtivo]);
+          return;
+        }
+
+        if (event.key === 'Escape') {
+          fechar();
+        }
+      });
+
+      input.addEventListener('blur', () => {
+        setTimeout(fechar, 120);
+      });
+
+      return { fechar };
+    }
+
+    const autocompleteForm = criarAutocompleteCidade({
+      input: inputCidade,
+      ufInput: inputUf,
+      lista: autocompleteCidadeForm
+    });
+
+    const autocompleteFiltro = criarAutocompleteCidade({
+      input: filtroCidade,
+      ufInput: filtroUf,
+      lista: autocompleteCidadeFiltro
+    });
+
+    function limparFormulario() {
+      clienteFavorecido.value = '';
+      inputCodigo.value = '';
+      inputNome.value = '';
+      inputRazao.value = '';
+      inputTelefonePrincipal.value = '';
+      inputCidade.value = '';
+      inputUf.value = '';
+      inputStatus.value = 'ativo';
+      tituloFormulario.textContent = 'Cadastrar cliente';
+      avisoEdicao.classList.remove('ativo');
+      btnSalvarCliente.textContent = 'Salvar cliente';
+      setMensagem(mensagemForm, '');
+      autocompleteForm.fechar();
+      inputNome.focus();
+    }
+
+    function preencherFormulario(cliente) {
+      clienteFavorecido.value = obterFavorecidoCliente(cliente);
+      inputCodigo.value = cliente?.codigo || '';
+      inputNome.value = cliente?.nome || '';
+      inputRazao.value = cliente?.razao || '';
+      inputTelefonePrincipal.value = cliente?.telefonePrincipal || '';
+      inputCidade.value = cliente?.cidade || '';
+      inputUf.value = String(cliente?.uf || '').toUpperCase().slice(0, 2);
+      inputStatus.value = cliente?.ativo === false ? 'inativo' : 'ativo';
+      tituloFormulario.textContent = 'Editar cliente';
+      avisoEdicao.classList.add('ativo');
+      btnSalvarCliente.textContent = 'Salvar alterações';
+      setMensagem(mensagemForm, `Editando cliente ${cliente?.nome || ''}.`, 'ok');
+      document.getElementById('boxFormulario').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      inputNome.focus();
+    }
+
+    function montarPayloadFormulario() {
+      const nome = inputNome.value.trim();
+
+      if (!nome) {
+        throw new Error('Nome do cliente é obrigatório.');
+      }
+
+      return {
+        nome,
+        razao: inputRazao.value.trim(),
+        codigo: inputCodigo.value.trim(),
+        telefonePrincipal: inputTelefonePrincipal.value.trim(),
+        cidade: inputCidade.value.trim(),
+        uf: inputUf.value.trim().toUpperCase().slice(0, 2),
+        ativo: inputStatus.value === 'ativo'
+      };
+    }
+
+    async function salvarCliente(event) {
+      event.preventDefault();
+
+      try {
+        const favorecido = clienteFavorecido.value.trim();
+        const payload = montarPayloadFormulario();
+        const editando = Boolean(favorecido);
+        const url = editando
+          ? `/api/legado/clientes/${encodeURIComponent(favorecido)}`
+          : '/api/legado/clientes';
+        const method = editando ? 'PUT' : 'POST';
+
+        btnSalvarCliente.disabled = true;
+        setMensagem(mensagemForm, editando ? 'Salvando alterações...' : 'Cadastrando cliente...');
+
+        const response = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const json = await response.json();
+
+        if (!response.ok) {
+          throw new Error(json?.erro || json?.detalhe || 'Erro ao salvar cliente.');
+        }
+
+        limparFormulario();
+        setMensagem(mensagemForm, editando ? 'Cliente alterado com sucesso.' : 'Cliente cadastrado com sucesso.', 'ok');
+        await pesquisarClientes(false);
+      } catch (error) {
+        setMensagem(mensagemForm, error.message || 'Erro ao salvar cliente.', 'erro');
+      } finally {
+        btnSalvarCliente.disabled = false;
+      }
+    }
+
+    function montarQueryString() {
+      const params = new URLSearchParams();
+      const nome = filtroNome.value.trim();
+      const cidade = filtroCidade.value.trim();
+      const uf = filtroUf.value.trim().toUpperCase().slice(0, 2);
+      const status = filtroStatus.value;
+      const limite = filtroLimite.value.trim();
+
+      if (nome) params.set('nome', nome);
+      if (cidade) params.set('cidade', cidade);
+      if (uf) params.set('uf', uf);
+      if (status) params.set('status', status);
+      if (limite) params.set('limite', limite);
+
+      return params.toString();
+    }
+
+    function limparTabela() {
+      clientesCarregados = [];
+      blocoTabela.innerHTML = '<div class="placeholder">Nenhum cliente carregado.</div>';
+      resumo.textContent = 'Nenhum cliente carregado.';
     }
 
     function renderizarTabela(clientes) {
-      if (!clientes || !clientes.length) {
+      clientesCarregados = clientes || [];
+
+      if (!clientesCarregados.length) {
         blocoTabela.innerHTML = '<div class="sem-registros">Nenhum cliente encontrado.</div>';
         resumo.textContent = '0 clientes encontrados.';
         return;
       }
 
-      resumo.textContent = `${clientes.length} cliente(s) encontrado(s).`;
+      resumo.textContent = `${clientesCarregados.length} cliente(s) encontrado(s).`;
 
       blocoTabela.innerHTML = `
         <div class="tabela-wrap">
           <table>
             <thead>
               <tr>
+                <th>Código</th>
                 <th>Nome</th>
+                <th>Razão</th>
                 <th>Telefone</th>
                 <th>Cidade</th>
                 <th>UF</th>
+                <th>Status</th>
+                <th>Ações</th>
               </tr>
             </thead>
             <tbody>
-              ${clientes.map((cliente, index) => `
-                <tr>
-                  <td>
-                    <button
-                      type="button"
-                      class="cliente-link"
-                      data-index="${index}"
-                    >
-                      ${cliente.nome || '-'}
-                    </button>
-                  </td>
+              ${clientesCarregados.map((cliente, index) => `
+                <tr class="${cliente.ativo === false ? 'inativo' : ''}">
+                  <td>${escaparHtml(cliente.codigo || obterFavorecidoCliente(cliente) || '-')}</td>
+                  <td>${escaparHtml(cliente.nome || '-')}</td>
+                  <td>${escaparHtml(cliente.razao || '-')}</td>
                   <td>${criarHtmlTelefone(cliente.telefonePrincipal)}</td>
-                  <td>${cliente.cidade || '-'}</td>
-                  <td>${cliente.uf || '-'}</td>
+                  <td>${escaparHtml(cliente.cidade || '-')}</td>
+                  <td>${escaparHtml(cliente.uf || '-')}</td>
+                  <td>
+                    <span class="status-pill ${cliente.ativo === false ? 'status-inativo' : 'status-ativo'}">
+                      ${cliente.ativo === false ? 'Inativo' : 'Ativo'}
+                    </span>
+                  </td>
+                  <td>
+                    <div class="acoes-linha">
+                      <button type="button" class="btn btn-mini btn-primary" data-acao="editar" data-index="${index}">Editar</button>
+                      <button type="button" class="btn btn-mini btn-dark" data-acao="historico" data-index="${index}">Histórico</button>
+                      ${cliente.ativo === false
+                        ? `<button type="button" class="btn btn-mini btn-success" data-acao="reativar" data-index="${index}">Reativar</button>`
+                        : `<button type="button" class="btn btn-mini btn-danger" data-acao="desativar" data-index="${index}">Desativar</button>`}
+                    </div>
+                  </td>
                 </tr>
               `).join('')}
             </tbody>
@@ -763,153 +794,30 @@
         </div>
       `;
 
-      blocoTabela.querySelectorAll('.cliente-link').forEach((botao) => {
+      blocoTabela.querySelectorAll('[data-telefone]').forEach((botao) => {
+        botao.addEventListener('click', () => abrirWhatsapp(botao.dataset.telefone));
+      });
+
+      blocoTabela.querySelectorAll('[data-acao]').forEach((botao) => {
         botao.addEventListener('click', () => {
-          const indice = Number(botao.dataset.index);
-          abrirModal(clientes[indice]);
+          const cliente = clientesCarregados[Number(botao.dataset.index)];
+          const acao = botao.dataset.acao;
+
+          if (acao === 'editar') preencherFormulario(cliente);
+          if (acao === 'historico') abrirHistorico(cliente);
+          if (acao === 'desativar') desativarCliente(cliente);
+          if (acao === 'reativar') reativarCliente(cliente);
         });
       });
     }
 
-
-    function fecharAutocompleteCidade() {
-      autocompleteCidade.classList.remove('ativo');
-      autocompleteCidade.innerHTML = '';
-      sugestoesCidade = [];
-      indiceSugestaoCidadeAtiva = -1;
-    }
-
-    function renderizarAutocompleteCidade() {
-      if (!sugestoesCidade.length) {
-        autocompleteCidade.innerHTML = '<div class="autocomplete-vazio">Nenhuma cidade encontrada.</div>';
-        autocompleteCidade.classList.add('ativo');
-        indiceSugestaoCidadeAtiva = -1;
-        return;
-      }
-
-      autocompleteCidade.innerHTML = sugestoesCidade.map((cidade, indice) => `
-        <button
-          type="button"
-          class="autocomplete-item ${indice === indiceSugestaoCidadeAtiva ? 'ativo' : ''}"
-          data-indice="${indice}"
-        >
-          ${cidade.nome} - ${cidade.estado}
-        </button>
-      `).join('');
-
-      autocompleteCidade.classList.add('ativo');
-
-      autocompleteCidade.querySelectorAll('.autocomplete-item').forEach((botao) => {
-        botao.addEventListener('mousedown', (event) => {
-          event.preventDefault();
-          const indice = Number(botao.dataset.indice);
-          selecionarCidadeAutocomplete(sugestoesCidade[indice]);
-        });
-      });
-    }
-
-    function selecionarCidadeAutocomplete(cidade) {
-      if (!cidade) {
-        return;
-      }
-
-      filtroCidade.value = cidade.nome || '';
-      filtroUf.value = String(cidade.estado || '').toUpperCase().slice(0, 2);
-      fecharAutocompleteCidade();
-    }
-
-    async function buscarSugestoesCidade() {
-      const termo = filtroCidade.value.trim();
-
-      if (termo.length < 3) {
-        fecharAutocompleteCidade();
-        return;
-      }
-
-      if (controladorBuscaCidade) {
-        controladorBuscaCidade.abort();
-      }
-
-      controladorBuscaCidade = new AbortController();
-
-      try {
-        const response = await fetch(`/api/logistica/cidades/busca?nome=${encodeURIComponent(termo)}`, {
-          signal: controladorBuscaCidade.signal
-        });
-        const json = await response.json();
-
-        if (!response.ok) {
-          throw new Error(json?.erro || 'Erro ao buscar cidades.');
-        }
-
-        sugestoesCidade = Array.isArray(json) ? json : [];
-        indiceSugestaoCidadeAtiva = sugestoesCidade.length ? 0 : -1;
-        renderizarAutocompleteCidade();
-      } catch (error) {
-        if (error.name === 'AbortError') {
-          return;
-        }
-
-        console.error('Erro ao buscar cidades:', error);
-        fecharAutocompleteCidade();
-      }
-    }
-
-    function moverSelecaoAutocompleteCidade(direcao) {
-      if (!sugestoesCidade.length) {
-        return;
-      }
-
-      indiceSugestaoCidadeAtiva += direcao;
-
-      if (indiceSugestaoCidadeAtiva < 0) {
-        indiceSugestaoCidadeAtiva = sugestoesCidade.length - 1;
-      }
-
-      if (indiceSugestaoCidadeAtiva >= sugestoesCidade.length) {
-        indiceSugestaoCidadeAtiva = 0;
-      }
-
-      renderizarAutocompleteCidade();
-    }
-
-    function montarQueryString() {
-      const params = new URLSearchParams();
-
-      const nome = filtroNome.value.trim();
-      const cidade = filtroCidade.value.trim();
-      const uf = filtroUf.value.trim().toUpperCase();
-      const limite = filtroLimite.value.trim();
-
-      if (nome) {
-        params.set('nome', nome);
-      }
-
-      if (cidade) {
-        params.set('cidade', cidade);
-      }
-
-      if (uf) {
-        params.set('uf', uf);
-      }
-
-      if (limite) {
-        params.set('limite', limite);
-      }
-
-      return params.toString();
-    }
-
-    async function pesquisarClientes() {
-      setMensagem('Pesquisando clientes...');
+    async function pesquisarClientes(mostrarMensagem = true) {
+      if (mostrarMensagem) setMensagem(mensagemBusca, 'Pesquisando clientes...');
       limparTabela();
 
       try {
         const queryString = montarQueryString();
-        const url = queryString
-          ? `/api/legado/clientes?${queryString}`
-          : '/api/legado/clientes';
-
+        const url = queryString ? `/api/legado/clientes?${queryString}` : '/api/legado/clientes';
         const response = await fetch(url);
         const json = await response.json();
 
@@ -918,18 +826,17 @@
         }
 
         const clientes = Array.isArray(json?.dados) ? json.dados : [];
-
         renderizarTabela(clientes);
 
         if (!clientes.length) {
-          setMensagem('Nenhum cliente encontrado.', true);
+          setMensagem(mensagemBusca, 'Nenhum cliente encontrado.', 'erro');
           return;
         }
 
-        setMensagem('Clientes carregados com sucesso.');
+        setMensagem(mensagemBusca, 'Clientes carregados com sucesso.', 'ok');
       } catch (error) {
         limparTabela();
-        setMensagem(error.message || 'Erro ao consultar clientes.', true);
+        setMensagem(mensagemBusca, error.message || 'Erro ao consultar clientes.', 'erro');
       }
     }
 
@@ -937,95 +844,106 @@
       filtroNome.value = '';
       filtroCidade.value = '';
       filtroUf.value = '';
+      filtroStatus.value = 'ativos';
       filtroLimite.value = '50';
-      fecharAutocompleteCidade();
-      setMensagem('Filtros limpos.');
+      autocompleteFiltro.fechar();
       limparTabela();
+      setMensagem(mensagemBusca, 'Filtros limpos.');
     }
 
-    btnPesquisar.addEventListener('click', pesquisarClientes);
-    btnLimpar.addEventListener('click', limparFiltros);
-    btnHistoricoCompras.addEventListener('click', abrirHistoricoCompras);
+    function abrirHistorico(cliente) {
+      const favorecido = obterFavorecidoCliente(cliente);
 
-    [filtroNome, filtroUf, filtroLimite].forEach((campo) => {
-      campo.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
-          pesquisarClientes();
+      if (!favorecido) {
+        setMensagem(mensagemBusca, 'Código do cliente não disponível para abrir histórico.', 'erro');
+        return;
+      }
+
+      window.open(`/legado/pedidos-cliente?favorecido=${encodeURIComponent(favorecido)}`, '_blank');
+    }
+
+    async function desativarCliente(cliente) {
+      const favorecido = obterFavorecidoCliente(cliente);
+
+      if (!favorecido) {
+        setMensagem(mensagemBusca, 'Código do cliente não disponível para desativar.', 'erro');
+        return;
+      }
+
+      if (!confirm(`Desativar o cliente ${cliente?.nome || favorecido}?`)) return;
+
+      try {
+        setMensagem(mensagemBusca, 'Desativando cliente...');
+        const response = await fetch(`/api/legado/clientes/${encodeURIComponent(favorecido)}`, { method: 'DELETE' });
+        const json = await response.json();
+
+        if (!response.ok) {
+          throw new Error(json?.erro || json?.detalhe || 'Erro ao desativar cliente.');
         }
+
+        setMensagem(mensagemBusca, 'Cliente desativado com sucesso.', 'ok');
+        await pesquisarClientes(false);
+      } catch (error) {
+        setMensagem(mensagemBusca, error.message || 'Erro ao desativar cliente.', 'erro');
+      }
+    }
+
+    async function reativarCliente(cliente) {
+      const favorecido = obterFavorecidoCliente(cliente);
+
+      if (!favorecido) {
+        setMensagem(mensagemBusca, 'Código do cliente não disponível para reativar.', 'erro');
+        return;
+      }
+
+      if (!confirm(`Reativar o cliente ${cliente?.nome || favorecido}?`)) return;
+
+      try {
+        setMensagem(mensagemBusca, 'Reativando cliente...');
+        const response = await fetch(`/api/legado/clientes/${encodeURIComponent(favorecido)}/reativar`, { method: 'PATCH' });
+        const json = await response.json();
+
+        if (!response.ok) {
+          throw new Error(json?.erro || json?.detalhe || 'Erro ao reativar cliente.');
+        }
+
+        setMensagem(mensagemBusca, 'Cliente reativado com sucesso.', 'ok');
+        await pesquisarClientes(false);
+      } catch (error) {
+        setMensagem(mensagemBusca, error.message || 'Erro ao reativar cliente.', 'erro');
+      }
+    }
+
+    formCliente.addEventListener('submit', salvarCliente);
+    btnNovoClienteTopo.addEventListener('click', limparFormulario);
+    btnCancelarEdicao.addEventListener('click', limparFormulario);
+    btnPesquisar.addEventListener('click', () => pesquisarClientes(true));
+    btnLimpar.addEventListener('click', limparFiltros);
+
+    [inputUf, filtroUf].forEach((campo) => {
+      campo.addEventListener('input', () => {
+        campo.value = campo.value.toUpperCase().slice(0, 2);
       });
     });
 
-    filtroCidade.addEventListener('input', () => {
-      filtroUf.value = '';
-      buscarSugestoesCidade();
+    [filtroNome, filtroUf, filtroLimite].forEach((campo) => {
+      campo.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') pesquisarClientes(true);
+      });
     });
 
-    filtroCidade.addEventListener('focus', () => {
-      if (filtroCidade.value.trim().length >= 3) {
-        buscarSugestoesCidade();
-      }
-    });
-
-    filtroCidade.addEventListener('keydown', (event) => {
-      if (event.key === 'ArrowDown') {
-        event.preventDefault();
-        moverSelecaoAutocompleteCidade(1);
-        return;
-      }
-
-      if (event.key === 'ArrowUp') {
-        event.preventDefault();
-        moverSelecaoAutocompleteCidade(-1);
-        return;
-      }
-
-      if (event.key === 'Enter') {
-        if (indiceSugestaoCidadeAtiva >= 0 && sugestoesCidade[indiceSugestaoCidadeAtiva]) {
-          event.preventDefault();
-          selecionarCidadeAutocomplete(sugestoesCidade[indiceSugestaoCidadeAtiva]);
-          pesquisarClientes();
-          return;
-        }
-
-        pesquisarClientes();
-      }
-
-      if (event.key === 'Escape') {
-        fecharAutocompleteCidade();
-      }
-    });
-
-    filtroCidade.addEventListener('blur', () => {
-      setTimeout(() => {
-        fecharAutocompleteCidade();
-      }, 120);
-    });
-
-    filtroUf.addEventListener('input', () => {
-      filtroUf.value = filtroUf.value.toUpperCase().slice(0, 2);
-    });
-
-    btnFecharModalTopo.addEventListener('click', fecharModal);
-    btnFecharModalRodape.addEventListener('click', fecharModal);
-
-    modalOverlay.addEventListener('click', (event) => {
-      if (event.target === modalOverlay) {
-        fecharModal();
-      }
-    });
-
-    document.addEventListener('click', (event) => {
-      if (!event.target.closest('.campo.autocomplete')) {
-        fecharAutocompleteCidade();
-      }
+    filtroStatus.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') pesquisarClientes(true);
     });
 
     document.addEventListener('keydown', (event) => {
       if (event.key === 'Escape') {
-        fecharAutocompleteCidade();
-        fecharModal();
+        autocompleteForm.fechar();
+        autocompleteFiltro.fechar();
       }
     });
+
+    pesquisarClientes(true);
   </script>
 </body>
 </html>

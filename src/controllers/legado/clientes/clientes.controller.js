@@ -114,10 +114,37 @@ async function desativarCliente(req, res) {
   }
 }
 
+async function reativarCliente(req, res) {
+  try {
+    const dado = await clientesService.reativarCliente(req.params.favorecido);
+
+    if (!dado) {
+      return res.status(404).json({
+        sucesso: false,
+        erro: 'Cliente não encontrado.'
+      });
+    }
+
+    return res.json({
+      sucesso: true,
+      mensagem: 'Cliente reativado com sucesso.',
+      dado
+    });
+  } catch (error) {
+    console.error('Erro ao reativar cliente do legado:', error);
+
+    return res.status(400).json({
+      sucesso: false,
+      erro: error.message
+    });
+  }
+}
+
 module.exports = {
   listarClientes,
   buscarCliente,
   criarCliente,
   atualizarCliente,
-  desativarCliente
+  desativarCliente,
+  reativarCliente
 };

@@ -56,6 +56,10 @@ async function put(path, body = {}, query = {}) {
   return request('PUT', path, { query, body });
 }
 
+async function patch(path, body = {}, query = {}) {
+  return request('PATCH', path, { query, body });
+}
+
 async function del(path, query = {}) {
   return request('DELETE', path, { query });
 }
@@ -64,5 +68,6 @@ module.exports = {
   get,
   post,
   put,
+  patch,
   delete: del
 };
