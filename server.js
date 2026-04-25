@@ -176,6 +176,10 @@ app.get('/kits-feirinha', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'kits-feirinha.html'));
 });
 
+app.get('/kits-feirinha-retomar', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'kits-feirinha-retomar.html'));
+});
+
 app.get('/orcamento', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'orcamento.html'));
 });

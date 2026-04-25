@@ -105,12 +105,50 @@
     .painel button:active {
       background: #086;
     }
+
+    .aviso-retomada {
+      display: none;
+      background: #fff7df;
+      border: 1px solid #e0b44c;
+      color: #4a3400;
+      padding: 10px;
+      margin: 0 auto 15px auto;
+      max-width: 680px;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+
+    .aviso-retomada strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .aviso-retomada button,
+    .aviso-retomada a {
+      display: inline-block;
+      margin-top: 8px;
+      margin-right: 8px;
+      padding: 7px 10px;
+      border: none;
+      background: #222;
+      color: #fff;
+      text-decoration: none;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .aviso-retomada ul {
+      margin: 6px 0 0 18px;
+      padding: 0;
+    }
   </style>
   <link rel="stylesheet" href="/css/theme.css" />
 </head>
 <body>
 
 <h1>🧺 Kit Feirinha – Alumínio JR</h1>
+
+<div id="aviso-retomada" class="aviso-retomada"></div>
 
 <div id="lista"></div>
 
@@ -137,6 +175,132 @@ async function apiGet(url) {
 
 function formatarMoeda(valor) {
   return Number(valor).toFixed(2).replace('.', ',');
+}
+
+function normalizarTexto(valor) {
+  return String(valor || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toUpperCase();
+}
+
+function escapeHtml(valor) {
+  return String(valor || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function deveAplicarRetomada() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('retomar') === '1';
+}
+
+function limparRetomada() {
+  sessionStorage.removeItem('kitFeirinhaItensRetomada');
+  window.location.href = '/kits-feirinha';
+}
+
+function mostrarAvisoRetomada(html) {
+  const aviso = document.getElementById('aviso-retomada');
+  aviso.innerHTML = html;
+  aviso.style.display = 'block';
+}
+
+function aplicarKitImportadoSeExistir() {
+  if (!deveAplicarRetomada()) return;
+
+  const raw = sessionStorage.getItem('kitFeirinhaItensRetomada');
+
+  if (!raw) {
+    mostrarAvisoRetomada(`
+      <strong>Nenhum relatório importado foi encontrado.</strong>
+      Cole o relatório novamente na tela de retomada.
+      <br>
+      <a href="/kits-feirinha-retomar">Voltar para colar relatório</a>
+    `);
+    return;
+  }
+
+  let dados;
+
+  try {
+    dados = JSON.parse(raw);
+  } catch (error) {
+    sessionStorage.removeItem('kitFeirinhaItensRetomada');
+    mostrarAvisoRetomada(`
+      <strong>Relatório importado inválido.</strong>
+      Cole o relatório novamente na tela de retomada.
+      <br>
+      <a href="/kits-feirinha-retomar">Voltar para colar relatório</a>
+    `);
+    return;
+  }
+
+  const itens = Array.isArray(dados.itens) ? dados.itens : [];
+
+  if (itens.length === 0) {
+    mostrarAvisoRetomada(`
+      <strong>O relatório importado não possui itens.</strong>
+      <a href="/kits-feirinha-retomar">Voltar para colar relatório</a>
+    `);
+    return;
+  }
+
+  const produtosPorNome = new Map();
+
+  produtos.forEach(produto => {
+    produtosPorNome.set(normalizarTexto(produto.nome), produto);
+  });
+
+  const naoEncontrados = [];
+  let aplicados = 0;
+
+  itens.forEach(item => {
+    const produto = produtosPorNome.get(normalizarTexto(item.nome));
+
+    if (!produto) {
+      naoEncontrados.push(item.nome);
+      return;
+    }
+
+    const id = String(produto.id);
+    const chk = document.querySelector(`.chk[data-id="${id}"]`);
+    const inputQtd = document.querySelector(`.qtd[data-id="${id}"]`);
+
+    if (!chk || !inputQtd) {
+      naoEncontrados.push(item.nome);
+      return;
+    }
+
+    const qtd = Math.max(1, Number.parseInt(item.qtd, 10) || 1);
+    chk.checked = true;
+    inputQtd.value = qtd;
+    aplicados += 1;
+  });
+
+  atualizarResumo();
+
+  let html = `
+    <strong>Kit retomado do relatório colado.</strong>
+    ${aplicados} item(ns) marcado(s) automaticamente.
+    <br>
+    <button type="button" onclick="limparRetomada()">Limpar retomada</button>
+    <a href="/kits-feirinha-retomar">Colar outro relatório</a>
+  `;
+
+  if (naoEncontrados.length > 0) {
+    html += `
+      <br><strong>Itens não encontrados no cadastro:</strong>
+      <ul>${naoEncontrados.map(nome => `<li>${escapeHtml(nome)}</li>`).join('')}</ul>
+    `;
+  }
+
+  mostrarAvisoRetomada(html);
 }
 
 async function carregarProdutos() {
@@ -204,6 +368,8 @@ async function carregarProdutos() {
 
       container.appendChild(bloco);
     });
+
+    aplicarKitImportadoSeExistir();
 
   } catch (error) {
     console.error('Erro ao carregar produtos:', error);
