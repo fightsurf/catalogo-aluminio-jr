@@ -13,7 +13,14 @@
     .menu-modulo { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
     .menu-modulo a { text-decoration:none; background:#34495e; color:#fff; padding:9px 12px; border-radius:6px; font-size:13px; }
     .menu-modulo a.ativo { background:#2ecc71; }
-    .grid-form { display:grid; grid-template-columns: 1.2fr 1fr 120px 120px 120px 120px 120px 120px 120px 140px 140px; gap:12px; align-items:end; }
+    .form-cadastro { width:100%; max-width:760px; border-collapse:collapse; margin-top:12px; }
+    .form-cadastro td { border-bottom:1px solid #edf1f5; padding:9px 10px; vertical-align:middle; }
+    .form-cadastro tr:last-child td { border-bottom:none; }
+    .form-cadastro .titulo-campo { width:220px; font-size:13px; font-weight:bold; color:#4a5568; background:#f7f9fb; }
+    .form-cadastro .campo { width:auto; }
+    .form-cadastro .acoes-form { display:flex; gap:12px; max-width:320px; }
+    .form-cadastro label { margin-bottom:0; }
+    .form-cadastro tr:hover { background:transparent; }
     .grid-filtro { display:grid; grid-template-columns: 1fr 1fr 1fr 160px 140px 140px; gap:12px; align-items:end; }
     label { display:block; font-size:13px; font-weight:bold; color:#4a5568; margin-bottom:6px; }
     input, select, button { width:100%; padding:10px 12px; border-radius:6px; border:1px solid #ccd3db; font-size:14px; box-sizing:border-box; }
@@ -36,7 +43,13 @@
     .mensagem.sucesso { color:#1e8449; display:block; }
     .mensagem.erro { color:#c0392b; display:block; }
     .observacao-disco { margin-top: 12px; font-size: 13px; color: #2c3e50; background: #f5f8fb; padding: 10px 12px; border-radius: 6px; display:none; }
-    @media (max-width: 1280px) { .grid-form,.grid-filtro { grid-template-columns:1fr; } }
+    @media (max-width: 1280px) { .grid-filtro { grid-template-columns:1fr; } }
+    @media (max-width: 760px) {
+      .form-cadastro, .form-cadastro tbody, .form-cadastro tr, .form-cadastro td { display:block; width:100%; }
+      .form-cadastro .titulo-campo { width:100%; box-sizing:border-box; border-bottom:none; }
+      .form-cadastro .campo { padding-top:0; }
+      .form-cadastro .acoes-form { max-width:none; }
+    }
   </style>
 </head>
 <body>
@@ -51,55 +64,64 @@
       </div>
 
       <input type="hidden" id="registro_id" />
-      <div class="grid-form">
-        <div>
-          <label for="insumo_id">Insumo</label>
-          <select id="insumo_id" onchange="atualizarInsumoSelecionado()"></select>
-        </div>
-        <div>
-          <label for="fornecedor_id">Fornecedor</label>
-          <select id="fornecedor_id"></select>
-        </div>
-        <div>
-          <label for="unidade_custo">Unidade custo</label>
-          <input type="text" id="unidade_custo" readonly />
-        </div>
-        <div>
-          <label for="preco_base">Preço base</label>
-          <input type="number" id="preco_base" min="0" step="0.0001" oninput="atualizarCustoFinalPreview()" />
-        </div>
-        <div>
-          <label for="impostos_valor">Impostos</label>
-          <input type="number" id="impostos_valor" min="0" step="0.0001" oninput="atualizarCustoFinalPreview()" />
-        </div>
-        <div>
-          <label for="frete_valor">Frete</label>
-          <input type="number" id="frete_valor" min="0" step="0.0001" oninput="atualizarCustoFinalPreview()" />
-        </div>
-        <div>
-          <label for="outras_despesas_valor">Outras despesas</label>
-          <input type="number" id="outras_despesas_valor" min="0" step="0.0001" oninput="atualizarCustoFinalPreview()" />
-        </div>
-        <div>
-          <label for="desconto_valor">Desconto</label>
-          <input type="number" id="desconto_valor" min="0" step="0.0001" oninput="atualizarCustoFinalPreview()" />
-        </div>
-        <div>
-          <label for="custo_final">Custo final</label>
-          <input type="text" id="custo_final" readonly />
-        </div>
-        <div>
-          <label for="ativo">Ativo</label>
-          <select id="ativo">
-            <option value="true">Sim</option>
-            <option value="false">Não</option>
-          </select>
-        </div>
-        <div style="display:flex; gap:12px;">
-          <button type="button" class="btn-salvar" onclick="salvar()">Salvar</button>
-          <button type="button" class="btn-limpar" onclick="limparFormulario()">Limpar</button>
-        </div>
-      </div>
+      <table class="form-cadastro">
+        <tbody>
+          <tr>
+            <td class="titulo-campo"><label for="insumo_id">Insumo</label></td>
+            <td class="campo"><select id="insumo_id" onchange="atualizarInsumoSelecionado()"></select></td>
+          </tr>
+          <tr>
+            <td class="titulo-campo"><label for="fornecedor_id">Fornecedor</label></td>
+            <td class="campo"><select id="fornecedor_id"></select></td>
+          </tr>
+          <tr>
+            <td class="titulo-campo"><label for="unidade_custo">Unidade custo</label></td>
+            <td class="campo"><input type="text" id="unidade_custo" readonly /></td>
+          </tr>
+          <tr>
+            <td class="titulo-campo"><label for="preco_base">Preço base</label></td>
+            <td class="campo"><input type="number" id="preco_base" min="0" step="0.0001" oninput="atualizarCustoFinalPreview()" /></td>
+          </tr>
+          <tr>
+            <td class="titulo-campo"><label for="impostos_valor">Impostos</label></td>
+            <td class="campo"><input type="number" id="impostos_valor" min="0" step="0.0001" oninput="atualizarCustoFinalPreview()" /></td>
+          </tr>
+          <tr>
+            <td class="titulo-campo"><label for="frete_valor">Frete</label></td>
+            <td class="campo"><input type="number" id="frete_valor" min="0" step="0.0001" oninput="atualizarCustoFinalPreview()" /></td>
+          </tr>
+          <tr>
+            <td class="titulo-campo"><label for="outras_despesas_valor">Outras despesas</label></td>
+            <td class="campo"><input type="number" id="outras_despesas_valor" min="0" step="0.0001" oninput="atualizarCustoFinalPreview()" /></td>
+          </tr>
+          <tr>
+            <td class="titulo-campo"><label for="desconto_valor">Desconto</label></td>
+            <td class="campo"><input type="number" id="desconto_valor" min="0" step="0.0001" oninput="atualizarCustoFinalPreview()" /></td>
+          </tr>
+          <tr>
+            <td class="titulo-campo"><label for="custo_final">Custo final</label></td>
+            <td class="campo"><input type="text" id="custo_final" readonly /></td>
+          </tr>
+          <tr>
+            <td class="titulo-campo"><label for="ativo">Ativo</label></td>
+            <td class="campo">
+              <select id="ativo">
+                <option value="true">Sim</option>
+                <option value="false">Não</option>
+              </select>
+            </td>
+          </tr>
+          <tr>
+            <td class="titulo-campo">Ações</td>
+            <td class="campo">
+              <div class="acoes-form">
+                <button type="button" class="btn-salvar" onclick="salvar()">Salvar</button>
+                <button type="button" class="btn-limpar" onclick="limparFormulario()">Limpar</button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
       <div id="discoInfo" class="observacao-disco"></div>
       <div id="mensagem" class="mensagem"></div>
     </div>
