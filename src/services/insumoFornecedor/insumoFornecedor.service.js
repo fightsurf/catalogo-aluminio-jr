@@ -333,16 +333,43 @@ async function atualizar(id, data = {}) {
 }
 
 async function inativar(id) {
-  const atual = await buscar(id);
+  const registroId = normalizarId(id, 'Registro de custo');
+  const atual = await buscar(registroId);
 
   await pool.query(`
     UPDATE insumos_fornecedores
     SET ativo = false,
         updated_at = NOW()
     WHERE id = $1
-  `, [Number(id)]);
+  `, [registroId]);
 
   return { ...atual, ativo: false };
+}
+
+async function excluir(id) {
+  const registroId = normalizarId(id, 'Registro de custo');
+  await buscar(registroId);
+
+  try {
+    const result = await pool.query(
+      'DELETE FROM insumos_fornecedores WHERE id = $1 RETURNING id',
+      [registroId]
+    );
+
+    if (result.rows.length === 0) {
+      throw new Error('Registro de custo não encontrado');
+    }
+  } catch (error) {
+    if (error.message === 'Registro de custo não encontrado') {
+      throw error;
+    }
+
+    if (error.code === '23503') {
+      throw new Error('Não é possível excluir. Este custo de insumo já está vinculado a outro módulo. Use inativar.');
+    }
+
+    throw error;
+  }
 }
 
 module.exports = {
@@ -351,5 +378,6 @@ module.exports = {
   criar,
   atualizar,
   inativar,
+  excluir,
   calcularCustoFinal
 };

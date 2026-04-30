@@ -49,10 +49,21 @@ async function inativar(req, res) {
   }
 }
 
+async function excluir(req, res) {
+  try {
+    await service.excluir(req.params.id);
+    res.json({ success: true, message: 'Registro de custo excluído com sucesso' });
+  } catch (error) {
+    const status = error.message === 'Registro de custo não encontrado' ? 404 : 400;
+    res.status(status).json({ success: false, message: error.message });
+  }
+}
+
 module.exports = {
   listar,
   buscar,
   criar,
   atualizar,
-  inativar
+  inativar,
+  excluir
 };
