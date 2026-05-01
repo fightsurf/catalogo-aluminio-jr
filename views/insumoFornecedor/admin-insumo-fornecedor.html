@@ -29,13 +29,26 @@
     .btn-salvar { background:#2ecc71; color:#fff; }
     .btn-limpar { background:#95a5a6; color:#fff; }
     .btn-buscar { background:#34495e; color:#fff; }
-    .btn-editar { background:#f39c12; color:#fff; padding:8px 10px; }
-    .btn-excluir { background:#e74c3c; color:#fff; padding:8px 10px; }
+    .btn-editar { background:#f39c12; color:#fff; }
+    .btn-excluir { background:#e74c3c; color:#fff; }
     table { width:100%; border-collapse:collapse; margin-top:16px; }
     th { background:#2c3e50; color:#fff; padding:10px; text-align:left; }
     td { padding:10px; border-bottom:1px solid #e9edf2; vertical-align:middle; }
     tr:hover { background:#f9fbfd; }
-    .acoes { display:flex; gap:8px; flex-wrap:wrap; }
+    .tabela-custos { font-size:12px; table-layout:fixed; }
+    .tabela-custos th,
+    .tabela-custos td { padding:4px 8px; height:32px; line-height:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .tabela-custos th { padding-top:7px; padding-bottom:7px; }
+    .tabela-custos .col-insumo { width:34%; }
+    .tabela-custos .col-categoria { width:16%; }
+    .tabela-custos .col-fornecedor { width:20%; }
+    .tabela-custos .col-unidade { width:6%; text-align:center; }
+    .tabela-custos .col-custo { width:9%; text-align:right; }
+    .tabela-custos .col-status { width:7%; text-align:center; }
+    .tabela-custos .col-acoes { width:88px; text-align:center; }
+    .acoes { display:flex; gap:4px; flex-wrap:nowrap; justify-content:center; align-items:center; }
+    .btn-acao { width:26px; height:24px; min-width:26px; padding:0; border-radius:5px; font-size:13px; line-height:24px; display:inline-flex; align-items:center; justify-content:center; }
+    .btn-acao span { display:block; transform:translateY(-1px); }
     .status { font-weight:bold; }
     .status-ativo { color:#1e8449; }
     .status-inativo { color:#c0392b; }
@@ -159,16 +172,16 @@
         </div>
       </div>
 
-      <table>
+      <table class="tabela-custos">
         <thead>
           <tr>
-            <th>Insumo</th>
-            <th>Categoria</th>
-            <th>Fornecedor</th>
-            <th>Unid.</th>
-            <th>Custo final</th>
-            <th>Status</th>
-            <th style="width:230px;">Ações</th>
+            <th class="col-insumo">Insumo</th>
+            <th class="col-categoria">Categoria</th>
+            <th class="col-fornecedor">Fornecedor</th>
+            <th class="col-unidade">Unid.</th>
+            <th class="col-custo">Custo final</th>
+            <th class="col-status">Status</th>
+            <th class="col-acoes">Ações</th>
           </tr>
         </thead>
         <tbody id="tbody"></tbody>
@@ -288,23 +301,30 @@
       const dados = json.data || [];
       const tbody = document.getElementById('tbody');
 
-      tbody.innerHTML = dados.map(item => `
-        <tr>
-          <td>${item.insumo}${item.eh_disco ? `<br><small>Ø ${Number(item.diametro_mm).toFixed(2).replace(/\.00$/, '')} | Esp. ${Number(item.espessura_mm).toFixed(2)} | Peso ${Number(item.peso_kg).toFixed(6)} kg</small>` : ''}</td>
-          <td>${item.categoria}</td>
-          <td>${item.fornecedor}</td>
-          <td>${item.unidade_custo}</td>
-          <td>${moeda(item.custo_final)}</td>
-          <td><span class="status ${item.ativo ? 'status-ativo' : 'status-inativo'}">${item.ativo ? 'Ativo' : 'Inativo'}</span></td>
-          <td>
-            <div class="acoes">
-              <button class="btn-editar" onclick="editar(${item.id})">Editar</button>
-              <button class="btn-limpar" onclick="inativar(${item.id})">Inativar</button>
-              <button class="btn-excluir" onclick="excluirItem(${item.id})">Excluir</button>
-            </div>
-          </td>
-        </tr>
-      `).join('') || '<tr><td colspan="7">Nenhum registro encontrado.</td></tr>';
+      tbody.innerHTML = dados.map(item => {
+        const infoDisco = item.eh_disco
+          ? ` | Ø ${Number(item.diametro_mm).toFixed(2).replace(/\.00$/, '')} mm | Esp. ${Number(item.espessura_mm).toFixed(2)} mm | Peso ${Number(item.peso_kg).toFixed(6)} kg`
+          : '';
+        const tituloInsumo = `${item.insumo}${infoDisco}`;
+
+        return `
+          <tr>
+            <td class="col-insumo" title="${tituloInsumo}">${item.insumo}</td>
+            <td class="col-categoria" title="${item.categoria || ''}">${item.categoria || ''}</td>
+            <td class="col-fornecedor" title="${item.fornecedor || ''}">${item.fornecedor || ''}</td>
+            <td class="col-unidade" title="${item.unidade_custo || ''}">${item.unidade_custo || ''}</td>
+            <td class="col-custo" title="${moeda(item.custo_final)}">${moeda(item.custo_final)}</td>
+            <td class="col-status"><span class="status ${item.ativo ? 'status-ativo' : 'status-inativo'}">${item.ativo ? 'Ativo' : 'Inativo'}</span></td>
+            <td class="col-acoes">
+              <div class="acoes">
+                <button type="button" class="btn-acao btn-editar" onclick="editar(${item.id})" title="Editar"><span>✏️</span></button>
+                <button type="button" class="btn-acao btn-limpar" onclick="inativar(${item.id})" title="Inativar"><span>🚫</span></button>
+                <button type="button" class="btn-acao btn-excluir" onclick="excluirItem(${item.id})" title="Excluir"><span>🗑️</span></button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('') || '<tr><td colspan="7">Nenhum registro encontrado.</td></tr>';
     }
 
     async function editar(id) {
