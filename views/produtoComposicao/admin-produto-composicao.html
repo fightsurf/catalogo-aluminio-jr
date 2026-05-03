@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Composição de Produtos - Alumínio JR</title>
+  <link rel="stylesheet" href="/css/theme.css" />
+  <style>
+    body { font-family: Arial, sans-serif; background:#eef2f7; margin:0; padding:24px; color:#17202a; }
+    .container { max-width:1400px; margin:0 auto; }
+    .box { background:#fff; padding:20px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,.08); margin-bottom:20px; }
+    h1,h2,h3 { margin-top:0; color:#243447; }
+    .menu-modulo { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+    .menu-modulo a { text-decoration:none; background:#34495e; color:#fff; padding:9px 12px; border-radius:6px; font-size:13px; }
+    .menu-modulo a.ativo { background:#2ecc71; }
+    label { display:block; font-size:13px; font-weight:bold; color:#4a5568; margin-bottom:6px; }
+    input, select, button { width:100%; padding:9px 10px; border-radius:6px; border:1px solid #ccd3db; font-size:14px; box-sizing:border-box; }
+    input[type="number"] { text-align:right; }
+    input[readonly] { background:#f4f7fa; }
+    button { border:none; cursor:pointer; font-weight:bold; }
+    button:disabled { opacity:.55; cursor:not-allowed; }
+    .btn-principal { background:#2ecc71; color:#fff; }
+    .btn-secundario { background:#34495e; color:#fff; }
+    .btn-limpar { background:#95a5a6; color:#fff; }
+    .btn-alerta { background:#f39c12; color:#fff; }
+    .btn-perigo { background:#e74c3c; color:#fff; }
+    .grid-topo { display:grid; grid-template-columns: 1.3fr 220px 1fr 110px 130px 120px; gap:12px; align-items:end; }
+    .duas-colunas { display:grid; grid-template-columns: 1fr 1fr; gap:18px; align-items:start; }
+    .filtros-insumos { display:grid; grid-template-columns: 1fr 1fr 1fr 120px 100px; gap:10px; align-items:end; margin-bottom:12px; }
+    .cards { display:grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap:10px; max-height:610px; overflow:auto; padding-right:4px; }
+    .card { border:1px solid #dbe3eb; border-radius:8px; padding:10px; background:#fdfefe; }
+    .card h4 { margin:0 0 6px; font-size:13px; color:#17202a; line-height:1.25; }
+    .card p { margin:3px 0; font-size:12px; color:#4a5568; }
+    .card .valor { font-weight:bold; color:#1e8449; }
+    .card button { margin-top:8px; padding:7px 8px; font-size:12px; background:#34495e; color:#fff; }
+    .composicao-vazia { color:#6c7a89; background:#f6f8fb; border:1px dashed #ccd3db; border-radius:8px; padding:14px; font-size:13px; }
+    table { width:100%; border-collapse:collapse; margin-top:10px; table-layout:fixed; }
+    th { background:#2c3e50; color:#fff; padding:7px 8px; text-align:left; font-size:12px; }
+    td { padding:6px 8px; border-bottom:1px solid #e9edf2; vertical-align:middle; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    tr:hover { background:#f9fbfd; }
+    .col-item { width:34%; }
+    .col-fornecedor { width:20%; }
+    .col-unid { width:7%; text-align:center; }
+    .col-qtde { width:12%; text-align:right; }
+    .col-custo { width:12%; text-align:right; }
+    .col-subtotal { width:12%; text-align:right; }
+    .col-acao { width:48px; text-align:center; }
+    .qtde-input { height:28px; padding:4px 6px; font-size:12px; }
+    .btn-mini { width:26px; height:24px; padding:0; border-radius:5px; display:inline-flex; align-items:center; justify-content:center; font-size:13px; }
+    .resumo { display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:14px; }
+    .resumo-card { background:#f6f8fb; border-radius:8px; padding:12px; }
+    .resumo-card span { display:block; font-size:12px; color:#566573; margin-bottom:4px; }
+    .resumo-card strong { font-size:18px; color:#17202a; }
+    .acoes { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
+    .acoes button { width:auto; min-width:140px; }
+    .mensagem { margin-top:12px; font-weight:bold; display:none; }
+    .mensagem.sucesso { color:#1e8449; display:block; }
+    .mensagem.erro { color:#c0392b; display:block; }
+    .info-produto { margin-top:10px; font-size:13px; color:#34495e; }
+    .tag-disco { display:inline-block; font-size:11px; background:#e8f4fd; color:#21618c; padding:2px 6px; border-radius:999px; margin-left:4px; }
+    .hidden { display:none !important; }
+    @media (max-width: 1150px) {
+      .grid-topo, .duas-colunas, .filtros-insumos, .resumo { grid-template-columns:1fr; }
+      .acoes button { width:100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="box">
+      <h1>Composição de Produtos</h1>
+      <div class="menu-modulo">
+        <a href="/admin-produtos">Produtos</a>
+        <a href="/admin-insumos-categorias">Categorias de insumo</a>
+        <a href="/admin-insumos">Insumos</a>
+        <a href="/admin-insumos-discos">Discos de alumínio</a>
+        <a href="/admin-insumos-fornecedores">Custos por fornecedor</a>
+        <a href="/admin-produtos-composicao" class="ativo">Composição de produtos</a>
+      </div>
+
+      <div class="grid-topo">
+        <div>
+          <label for="produto_id">Produto acabado</label>
+          <select id="produto_id" onchange="selecionarProduto()"></select>
+        </div>
+        <div>
+          <label for="composicao_id">Versão existente</label>
+          <select id="composicao_id" onchange="selecionarComposicao()"></select>
+        </div>
+        <div>
+          <label for="nome_composicao">Nome da versão</label>
+          <input type="text" id="nome_composicao" value="PADRÃO" />
+        </div>
+        <div>
+          <label for="ativo">Ativo</label>
+          <select id="ativo">
+            <option value="true">Sim</option>
+            <option value="false">Não</option>
+          </select>
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button type="button" class="btn-alerta" onclick="novaComposicao()">Nova versão</button>
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button type="button" class="btn-limpar" onclick="limparTudo()">Limpar</button>
+        </div>
+      </div>
+
+      <div id="infoProduto" class="info-produto"></div>
+      <div id="mensagem" class="mensagem"></div>
+    </div>
+
+    <div class="duas-colunas">
+      <div class="box">
+        <h2>Insumos disponíveis</h2>
+        <div class="filtros-insumos">
+          <div>
+            <label for="filtroFornecedor">Fornecedor</label>
+            <select id="filtroFornecedor"></select>
+          </div>
+          <div>
+            <label for="filtroCategoria">Categoria</label>
+            <select id="filtroCategoria"></select>
+          </div>
+          <div>
+            <label for="filtroBusca">Buscar insumo</label>
+            <input type="text" id="filtroBusca" placeholder="Nome do insumo" onkeydown="if(event.key==='Enter'){carregarInsumosDisponiveis()}" />
+          </div>
+          <div>
+            <label for="filtroTipo">Tipo</label>
+            <select id="filtroTipo">
+              <option value="">Todos</option>
+              <option value="comum">Comum</option>
+              <option value="disco">Disco</option>
+            </select>
+          </div>
+          <div>
+            <label>&nbsp;</label>
+            <button type="button" class="btn-secundario" onclick="carregarInsumosDisponiveis()">Buscar</button>
+          </div>
+        </div>
+
+        <div id="cardsInsumos" class="cards"></div>
+      </div>
+
+      <div class="box">
+        <h2>Área de custos do produto</h2>
+        <div id="composicaoVazia" class="composicao-vazia">Selecione insumos na coluna da esquerda para montar a composição.</div>
+        <table id="tabelaComposicao" class="hidden">
+          <thead>
+            <tr>
+              <th class="col-item">Insumo</th>
+              <th class="col-fornecedor">Fornecedor</th>
+              <th class="col-unid">Unid.</th>
+              <th class="col-qtde">QTDE</th>
+              <th class="col-custo">Custo un.</th>
+              <th class="col-subtotal">Subtotal</th>
+              <th class="col-acao"></th>
+            </tr>
+          </thead>
+          <tbody id="tbodyComposicao"></tbody>
+        </table>
+
+        <div class="resumo">
+          <div class="resumo-card"><span>Custo dos insumos</span><strong id="resumoCusto">R$ 0,00</strong></div>
+          <div class="resumo-card"><span>Preço de venda</span><strong id="resumoVenda">R$ 0,00</strong></div>
+          <div class="resumo-card"><span>Lucro bruto</span><strong id="resumoLucro">R$ 0,00</strong></div>
+          <div class="resumo-card"><span>Margem bruta</span><strong id="resumoMargem">0%</strong></div>
+        </div>
+
+        <div class="acoes">
+          <button type="button" class="btn-principal" onclick="salvarComposicao()">Salvar composição</button>
+          <button type="button" class="btn-perigo" onclick="excluirComposicaoAtual()">Excluir versão</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = '/api/produtos-composicoes';
+    let produtos = [];
+    let produtoAtual = null;
+    let composicoes = [];
+    let composicaoAtualId = null;
+    let itensDisponiveis = [];
+    let itensComposicao = [];
+
+    function escapeHtml(texto) {
+      return String(texto ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function moeda(valor) {
+      return Number(valor || 0).toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+
+    function numero(valor, casas = 4) {
+      return Number(valor || 0).toLocaleString('pt-BR', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: casas
+      });
+    }
+
+    function parseQuantidade(valor) {
+      if (valor === undefined || valor === null || valor === '') return 0;
+      const numero = Number(String(valor).replace(',', '.'));
+      return Number.isFinite(numero) && numero > 0 ? numero : 0;
+    }
+
+    function mostrarMensagem(texto, tipo = 'sucesso') {
+      const el = document.getElementById('mensagem');
+      el.textContent = texto;
+      el.className = `mensagem ${tipo}`;
+    }
+
+    function limparMensagem() {
+      const el = document.getElementById('mensagem');
+      el.textContent = '';
+      el.className = 'mensagem';
+    }
+
+    function obterProdutoSelecionado() {
+      const id = Number(document.getElementById('produto_id').value || 0);
+      return produtos.find(p => Number(p.id) === id) || null;
+    }
+
+    async function carregarProdutos() {
+      const resp = await fetch('/api/produtos?ativos=true');
+      const json = await resp.json();
+      if (!resp.ok || !json.success) throw new Error(json.message || 'Erro ao carregar produtos');
+
+      produtos = json.data || [];
+      document.getElementById('produto_id').innerHTML = '<option value="">Selecione</option>' + produtos
+        .map(p => `<option value="${p.id}">${escapeHtml(p.nome)} - ${moeda(p.preco)}</option>`)
+        .join('');
+    }
+
+    async function carregarFiltros() {
+      const [fornResp, catResp] = await Promise.all([
+        fetch('/api/fornecedores'),
+        fetch('/api/insumos-categorias?ativo=true')
+      ]);
+
+      const fornecedores = await fornResp.json();
+      const categoriasJson = await catResp.json();
+      const categorias = categoriasJson.data || [];
+
+      document.getElementById('filtroFornecedor').innerHTML = '<option value="">Todos</option>' + (fornecedores || [])
+        .map(f => `<option value="${f.id}">${escapeHtml(f.nome)}</option>`)
+        .join('');
+
+      document.getElementById('filtroCategoria').innerHTML = '<option value="">Todas</option>' + categorias
+        .map(c => `<option value="${c.id}">${escapeHtml(c.nome)}</option>`)
+        .join('');
+    }
+
+    async function selecionarProduto() {
+      limparMensagem();
+      produtoAtual = obterProdutoSelecionado();
+      composicaoAtualId = null;
+      itensComposicao = [];
+      renderizarComposicao();
+      atualizarResumo();
+
+      if (!produtoAtual) {
+        composicoes = [];
+        document.getElementById('composicao_id').innerHTML = '<option value="">Selecione produto</option>';
+        document.getElementById('infoProduto').textContent = '';
+        document.getElementById('nome_composicao').value = 'PADRÃO';
+        return;
+      }
+
+      document.getElementById('infoProduto').textContent = `Produto selecionado: ${produtoAtual.nome} | Preço de venda: ${moeda(produtoAtual.preco)}`;
+      await carregarComposicoesProduto(produtoAtual.id);
+    }
+
+    async function carregarComposicoesProduto(produtoId) {
+      const resp = await fetch(`${API}/produto/${produtoId}`);
+      const json = await resp.json();
+      if (!resp.ok || !json.success) throw new Error(json.message || 'Erro ao carregar composições');
+
+      composicoes = json.data.composicoes || [];
+      const select = document.getElementById('composicao_id');
+      select.innerHTML = '<option value="">Nova composição</option>' + composicoes
+        .map(c => `<option value="${c.id}">${escapeHtml(c.nome)} - ${moeda(c.custo_total)}${c.ativo ? '' : ' (inativa)'}</option>`)
+        .join('');
+
+      if (composicoes.length) {
+        select.value = composicoes[0].id;
+        await selecionarComposicao();
+      } else {
+        novaComposicao(false);
+      }
+    }
+
+    function novaComposicao(mostrar = true) {
+      composicaoAtualId = null;
+      document.getElementById('composicao_id').value = '';
+      document.getElementById('nome_composicao').value = 'PADRÃO';
+      document.getElementById('ativo').value = 'true';
+      itensComposicao = [];
+      renderizarComposicao();
+      atualizarResumo();
+      if (mostrar) mostrarMensagem('Nova composição iniciada. Adicione os insumos e salve.', 'sucesso');
+    }
+
+    async function selecionarComposicao() {
+      limparMensagem();
+      const id = document.getElementById('composicao_id').value;
+      if (!id) {
+        novaComposicao(false);
+        return;
+      }
+
+      const resp = await fetch(`${API}/${id}`);
+      const json = await resp.json();
+      if (!resp.ok || !json.success) throw new Error(json.message || 'Erro ao carregar composição');
+
+      const comp = json.data;
+      composicaoAtualId = comp.id;
+      document.getElementById('nome_composicao').value = comp.nome;
+      document.getElementById('ativo').value = String(comp.ativo);
+      itensComposicao = (comp.itens || []).map(item => ({ ...item }));
+      renderizarComposicao();
+      atualizarResumo();
+    }
+
+    async function carregarInsumosDisponiveis() {
+      const params = new URLSearchParams();
+      const fornecedor = document.getElementById('filtroFornecedor').value;
+      const categoria = document.getElementById('filtroCategoria').value;
+      const busca = document.getElementById('filtroBusca').value.trim();
+      const tipo = document.getElementById('filtroTipo').value;
+
+      if (fornecedor) params.append('fornecedor_id', fornecedor);
+      if (categoria) params.append('categoria_insumo_id', categoria);
+      if (busca) params.append('busca', busca);
+      if (tipo) params.append('tipo', tipo);
+
+      const resp = await fetch(`${API}/insumos?${params.toString()}`);
+      const json = await resp.json();
+      if (!resp.ok || !json.success) throw new Error(json.message || 'Erro ao carregar insumos');
+
+      itensDisponiveis = json.data || [];
+      renderizarInsumosDisponiveis();
+    }
+
+    function renderizarInsumosDisponiveis() {
+      const container = document.getElementById('cardsInsumos');
+      if (!itensDisponiveis.length) {
+        container.innerHTML = '<div class="composicao-vazia">Nenhum insumo encontrado com os filtros atuais.</div>';
+        return;
+      }
+
+      container.innerHTML = itensDisponiveis.map(item => {
+        const detalheDisco = item.eh_disco
+          ? `<p>Disco: ${numero(item.diametro_mm, 2)} mm x ${numero(item.espessura_mm, 2)} mm | Peso: ${numero(item.peso_kg, 6)} kg</p>`
+          : '';
+        const custoLabel = item.eh_disco
+          ? `Custo un.: ${moeda(item.custo_unitario)} | Kg: ${moeda(item.custo_final)}`
+          : `Custo un.: ${moeda(item.custo_unitario)}`;
+
+        return `
+          <div class="card" title="${escapeHtml(item.insumo)}">
+            <h4>${escapeHtml(item.insumo)}${item.eh_disco ? '<span class="tag-disco">DISCO</span>' : ''}</h4>
+            <p>Categoria: ${escapeHtml(item.categoria)}</p>
+            <p>Fornecedor: ${escapeHtml(item.fornecedor)}</p>
+            <p>Unid.: ${escapeHtml(item.unidade_custo)}</p>
+            ${detalheDisco}
+            <p class="valor">${custoLabel}</p>
+            <button type="button" onclick="adicionarItem(${item.insumo_fornecedor_id})">Adicionar</button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function adicionarItem(insumoFornecedorId) {
+      const existente = itensComposicao.find(item => Number(item.insumo_fornecedor_id) === Number(insumoFornecedorId));
+      if (existente) {
+        existente.quantidade = Number((Number(existente.quantidade || 0) + 1).toFixed(4));
+        renderizarComposicao();
+        atualizarResumo();
+        return;
+      }
+
+      const item = itensDisponiveis.find(i => Number(i.insumo_fornecedor_id) === Number(insumoFornecedorId));
+      if (!item) return;
+
+      itensComposicao.push({ ...item, quantidade: 1, subtotal: Number(item.custo_unitario || 0) });
+      renderizarComposicao();
+      atualizarResumo();
+    }
+
+    function removerItem(insumoFornecedorId) {
+      itensComposicao = itensComposicao.filter(item => Number(item.insumo_fornecedor_id) !== Number(insumoFornecedorId));
+      renderizarComposicao();
+      atualizarResumo();
+    }
+
+    function atualizarQuantidade(insumoFornecedorId, valor) {
+      const item = itensComposicao.find(i => Number(i.insumo_fornecedor_id) === Number(insumoFornecedorId));
+      if (!item) return;
+      item.quantidade = parseQuantidade(valor);
+      renderizarComposicao();
+      atualizarResumo();
+    }
+
+    function renderizarComposicao() {
+      const tbody = document.getElementById('tbodyComposicao');
+      const tabela = document.getElementById('tabelaComposicao');
+      const vazio = document.getElementById('composicaoVazia');
+
+      if (!itensComposicao.length) {
+        tbody.innerHTML = '';
+        tabela.classList.add('hidden');
+        vazio.classList.remove('hidden');
+        return;
+      }
+
+      tabela.classList.remove('hidden');
+      vazio.classList.add('hidden');
+
+      tbody.innerHTML = itensComposicao.map(item => {
+        const subtotal = Number(item.quantidade || 0) * Number(item.custo_unitario || 0);
+        return `
+          <tr>
+            <td class="col-item" title="${escapeHtml(item.insumo)}">${escapeHtml(item.insumo)}${item.eh_disco ? '<span class="tag-disco">DISCO</span>' : ''}</td>
+            <td class="col-fornecedor" title="${escapeHtml(item.fornecedor)}">${escapeHtml(item.fornecedor)}</td>
+            <td class="col-unid">${escapeHtml(item.unidade_custo)}</td>
+            <td class="col-qtde"><input class="qtde-input" type="number" min="0" step="0.0001" value="${Number(item.quantidade || 0)}" onchange="atualizarQuantidade(${item.insumo_fornecedor_id}, this.value)" /></td>
+            <td class="col-custo">${moeda(item.custo_unitario)}</td>
+            <td class="col-subtotal">${moeda(subtotal)}</td>
+            <td class="col-acao"><button type="button" class="btn-mini btn-perigo" title="Remover" onclick="removerItem(${item.insumo_fornecedor_id})">🗑️</button></td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function atualizarResumo() {
+      const custo = itensComposicao.reduce((soma, item) => soma + (Number(item.quantidade || 0) * Number(item.custo_unitario || 0)), 0);
+      const precoVenda = produtoAtual ? Number(produtoAtual.preco || 0) : 0;
+      const lucro = precoVenda - custo;
+      const margem = precoVenda > 0 ? (lucro / precoVenda) * 100 : 0;
+
+      document.getElementById('resumoCusto').textContent = moeda(custo);
+      document.getElementById('resumoVenda').textContent = moeda(precoVenda);
+      document.getElementById('resumoLucro').textContent = moeda(lucro);
+      document.getElementById('resumoMargem').textContent = `${margem.toFixed(2)}%`;
+    }
+
+    async function salvarComposicao() {
+      try {
+        limparMensagem();
+        produtoAtual = obterProdutoSelecionado();
+        if (!produtoAtual) throw new Error('Selecione o produto acabado');
+
+        const nome = document.getElementById('nome_composicao').value.trim();
+        if (!nome) throw new Error('Informe o nome da versão');
+
+        const payloadComposicao = {
+          produto_id: produtoAtual.id,
+          nome,
+          ativo: document.getElementById('ativo').value === 'true'
+        };
+
+        let compId = composicaoAtualId;
+        let resp;
+        if (compId) {
+          resp = await fetch(`${API}/${compId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payloadComposicao)
+          });
+        } else {
+          resp = await fetch(API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payloadComposicao)
+          });
+        }
+
+        let json = await resp.json();
+        if (!resp.ok || !json.success) throw new Error(json.message || 'Erro ao salvar composição');
+
+        compId = json.data.id;
+        const itensValidos = itensComposicao
+          .map(item => ({
+            insumo_fornecedor_id: item.insumo_fornecedor_id,
+            quantidade: Number(item.quantidade || 0)
+          }))
+          .filter(item => item.quantidade > 0);
+
+        resp = await fetch(`${API}/${compId}/itens`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ itens: itensValidos })
+        });
+
+        json = await resp.json();
+        if (!resp.ok || !json.success) throw new Error(json.message || 'Erro ao salvar itens');
+
+        composicaoAtualId = compId;
+        await carregarComposicoesProduto(produtoAtual.id);
+        document.getElementById('composicao_id').value = compId;
+        await selecionarComposicao();
+        mostrarMensagem('Composição salva com sucesso.', 'sucesso');
+      } catch (error) {
+        mostrarMensagem(error.message, 'erro');
+      }
+    }
+
+    async function excluirComposicaoAtual() {
+      try {
+        limparMensagem();
+        if (!composicaoAtualId) throw new Error('Nenhuma versão selecionada para excluir');
+        if (!confirm('Excluir esta versão de composição?')) return;
+
+        const resp = await fetch(`${API}/${composicaoAtualId}`, { method: 'DELETE' });
+        const json = await resp.json();
+        if (!resp.ok || !json.success) throw new Error(json.message || 'Erro ao excluir composição');
+
+        const produtoId = produtoAtual?.id;
+        novaComposicao(false);
+        if (produtoId) await carregarComposicoesProduto(produtoId);
+        mostrarMensagem('Versão excluída com sucesso.', 'sucesso');
+      } catch (error) {
+        mostrarMensagem(error.message, 'erro');
+      }
+    }
+
+    function limparTudo() {
+      document.getElementById('produto_id').value = '';
+      document.getElementById('composicao_id').innerHTML = '<option value="">Selecione produto</option>';
+      document.getElementById('nome_composicao').value = 'PADRÃO';
+      document.getElementById('ativo').value = 'true';
+      document.getElementById('infoProduto').textContent = '';
+      produtoAtual = null;
+      composicaoAtualId = null;
+      composicoes = [];
+      itensComposicao = [];
+      renderizarComposicao();
+      atualizarResumo();
+      limparMensagem();
+    }
+
+    async function inicializar() {
+      try {
+        await Promise.all([carregarProdutos(), carregarFiltros()]);
+        await carregarInsumosDisponiveis();
+        document.getElementById('composicao_id').innerHTML = '<option value="">Selecione produto</option>';
+        renderizarComposicao();
+        atualizarResumo();
+      } catch (error) {
+        mostrarMensagem(error.message, 'erro');
+      }
+    }
+
+    inicializar();
+  </script>
+</body>
+</html>
