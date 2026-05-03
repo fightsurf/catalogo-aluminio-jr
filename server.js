@@ -44,6 +44,7 @@ const insumoCategoriaRoutes = require('./src/routes/insumoCategoria/insumoCatego
 const insumoRoutes = require('./src/routes/insumo/insumo.routes');
 const insumoDiscoRoutes = require('./src/routes/insumoDisco/insumoDisco.routes');
 const insumoFornecedorRoutes = require('./src/routes/insumoFornecedor/insumoFornecedor.routes');
+const pedidoFornecedorRoutes = require('./src/routes/pedidoFornecedor/pedidoFornecedor.routes');
 const volumeRoutes = require('./src/routes/volume/volume.routes');
 const adminVolumeRoutes = require('./src/routes/volume/adminVolume.routes');
 const prestacaoContasRoutes = require('./src/routes/prestacao_contas/prestacao_contas.routes');
@@ -108,6 +109,7 @@ app.use('/api/insumos-categorias', insumoCategoriaRoutes);
 app.use('/api/insumos', insumoRoutes);
 app.use('/api/insumos-discos', insumoDiscoRoutes);
 app.use('/api/insumos-fornecedores', insumoFornecedorRoutes);
+app.use('/api/pedidos-fornecedores', pedidoFornecedorRoutes);
 app.use('/api/produtos', produtoRoutes);
 app.use('/api/transportadoras', transportadorasRoutes);
 app.use('/api/logistica', logisticaRoutes);
@@ -170,6 +172,10 @@ app.get('/admin-insumos-discos', (req, res) => {
 
 app.get('/admin-insumos-fornecedores', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'insumoFornecedor', 'admin-insumo-fornecedor.html'));
+});
+
+app.get('/admin-pedido-fornecedor', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'pedidoFornecedor', 'admin-pedido-fornecedor.html'));
 });
 
 app.get('/kits-feirinha', (req, res) => {

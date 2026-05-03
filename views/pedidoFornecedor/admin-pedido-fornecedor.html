@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pedido para Fornecedor - Alumínio JR</title>
+  <link rel="stylesheet" href="/css/theme.css" />
+  <style>
+    body { font-family: Arial, sans-serif; background:#eef2f7; margin:0; padding:24px; color:#17202a; }
+    .container { max-width:1280px; margin:0 auto; }
+    .box { background:#fff; padding:22px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,.08); margin-bottom:22px; }
+    h1,h2,h3 { margin-top:0; color:#243447; }
+    .menu-modulo { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+    .menu-modulo a { text-decoration:none; background:#34495e; color:#fff; padding:9px 12px; border-radius:6px; font-size:13px; }
+    .menu-modulo a.ativo { background:#2ecc71; }
+    .linha-topo { display:grid; grid-template-columns: 1fr 180px 160px; gap:12px; align-items:end; }
+    label { display:block; font-size:13px; font-weight:bold; color:#4a5568; margin-bottom:6px; }
+    input, select, button { width:100%; padding:9px 10px; border-radius:6px; border:1px solid #ccd3db; font-size:14px; box-sizing:border-box; }
+    input[type="number"] { text-align:right; }
+    button { border:none; cursor:pointer; font-weight:bold; }
+    button:disabled { opacity:.55; cursor:not-allowed; }
+    .btn-buscar { background:#34495e; color:#fff; }
+    .btn-limpar { background:#95a5a6; color:#fff; }
+    .btn-finalizar { background:#2ecc71; color:#fff; }
+    .btn-imprimir { background:#f39c12; color:#fff; }
+    .btn-voltar { background:#34495e; color:#fff; }
+    .acoes-topo { display:flex; gap:10px; margin-top:14px; flex-wrap:wrap; }
+    .acoes-topo button { width:auto; min-width:150px; }
+    .mensagem { margin-top:12px; font-weight:bold; display:none; }
+    .mensagem.sucesso { color:#1e8449; display:block; }
+    .mensagem.erro { color:#c0392b; display:block; }
+    .info-fornecedor { margin-top:12px; font-size:13px; color:#34495e; }
+    table { width:100%; border-collapse:collapse; margin-top:14px; }
+    th { background:#2c3e50; color:#fff; padding:8px; text-align:left; font-size:13px; }
+    td { padding:7px 8px; border-bottom:1px solid #e9edf2; vertical-align:middle; font-size:13px; }
+    tr:hover { background:#f9fbfd; }
+    .tabela-itens { table-layout:fixed; }
+    .col-insumo { width:35%; }
+    .col-categoria { width:17%; }
+    .col-unidade { width:8%; text-align:center; }
+    .col-preco { width:12%; text-align:right; }
+    .col-qtde { width:12%; text-align:right; }
+    .col-subtotal { width:12%; text-align:right; }
+    .col-info { width:4%; text-align:center; }
+    .texto-corte { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .qtde-input { height:30px; padding:5px 7px; font-size:13px; }
+    .valor { text-align:right; font-variant-numeric: tabular-nums; }
+    .total-linha { display:flex; justify-content:flex-end; gap:18px; align-items:center; margin-top:14px; font-size:18px; font-weight:bold; }
+    .resumo-cabecalho { display:flex; justify-content:space-between; gap:20px; align-items:flex-start; border-bottom:2px solid #2c3e50; padding-bottom:12px; margin-bottom:12px; }
+    .resumo-cabecalho p { margin:3px 0; font-size:14px; }
+    .resumo-total { text-align:right; font-size:20px; font-weight:bold; padding-top:12px; }
+    .resumo-observacao { margin-top:12px; font-size:12px; color:#566573; }
+    .hidden { display:none; }
+    .sem-itens { padding:16px; background:#f8f9fa; border-radius:8px; color:#566573; }
+    @media (max-width: 900px) {
+      .linha-topo { grid-template-columns:1fr; }
+      .acoes-topo button { width:100%; }
+      .tabela-itens { table-layout:auto; }
+      .col-categoria { display:none; }
+    }
+    @media print {
+      body { background:#fff; padding:0; }
+      .nao-imprimir { display:none !important; }
+      .container { max-width:none; margin:0; }
+      .box { box-shadow:none; border-radius:0; padding:0; margin:0; }
+      #boxResumo { display:block !important; }
+      th { background:#f0f0f0 !important; color:#000 !important; border-bottom:1px solid #333; }
+      td { border-bottom:1px solid #ddd; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="box nao-imprimir">
+      <h1>Pedido para Fornecedor</h1>
+      <div class="menu-modulo">
+        <a href="/admin-insumos-categorias">Categorias de insumo</a>
+        <a href="/admin-insumos">Insumos</a>
+        <a href="/admin-insumos-discos">Discos de alumínio</a>
+        <a href="/admin-insumos-fornecedores">Custos por fornecedor</a>
+        <a href="/admin-pedido-fornecedor" class="ativo">Pedido para fornecedor</a>
+      </div>
+
+      <div class="linha-topo">
+        <div>
+          <label for="fornecedor_id">Fornecedor</label>
+          <select id="fornecedor_id" onchange="carregarItensFornecedor()"></select>
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button type="button" class="btn-buscar" onclick="carregarItensFornecedor()">Carregar itens</button>
+        </div>
+        <div>
+          <label>&nbsp;</label>
+          <button type="button" class="btn-limpar" onclick="limparPedido()">Limpar</button>
+        </div>
+      </div>
+
+      <div id="infoFornecedor" class="info-fornecedor"></div>
+      <div id="mensagem" class="mensagem"></div>
+    </div>
+
+    <div id="boxItens" class="box nao-imprimir hidden">
+      <h2>Itens do fornecedor</h2>
+      <table class="tabela-itens">
+        <thead>
+          <tr>
+            <th class="col-insumo">Insumo</th>
+            <th class="col-categoria">Categoria</th>
+            <th class="col-unidade">Unid.</th>
+            <th class="col-preco">Preço base</th>
+            <th class="col-qtde">QTDE</th>
+            <th class="col-subtotal">Subtotal</th>
+            <th class="col-info">Info</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyItens"></tbody>
+      </table>
+
+      <div class="total-linha">
+        <span>Total parcial:</span>
+        <span id="totalParcial">R$ 0,00</span>
+      </div>
+
+      <div class="acoes-topo">
+        <button type="button" class="btn-finalizar" onclick="finalizarPedido()">Finalizar pedido</button>
+      </div>
+    </div>
+
+    <div id="boxResumo" class="box hidden">
+      <div class="resumo-cabecalho">
+        <div>
+          <h2>Pedido de Insumos</h2>
+          <p><strong>Fornecedor:</strong> <span id="resumoFornecedor"></span></p>
+          <p><strong>Data:</strong> <span id="resumoData"></span></p>
+        </div>
+        <div>
+          <h3>Alumínio JR</h3>
+        </div>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Insumo</th>
+            <th>Unid.</th>
+            <th class="valor">QTDE</th>
+            <th class="valor">Preço base</th>
+            <th class="valor">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyResumo"></tbody>
+      </table>
+
+      <div class="resumo-total">Total: <span id="resumoTotal">R$ 0,00</span></div>
+      <div class="resumo-observacao">Resumo gerado apenas com itens cuja quantidade é maior que zero.</div>
+
+      <div class="acoes-topo nao-imprimir">
+        <button type="button" class="btn-imprimir" onclick="window.print()">Imprimir / salvar PDF</button>
+        <button type="button" class="btn-voltar" onclick="voltarParaEdicao()">Voltar para editar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = '/api/pedidos-fornecedores';
+    let fornecedores = [];
+    let fornecedorAtual = null;
+    let itens = [];
+
+    function escapeHtml(texto) {
+      return String(texto ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function moeda(valor) {
+      return Number(valor || 0).toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+
+    function numero(valor, casas = 4) {
+      return Number(valor || 0).toLocaleString('pt-BR', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: casas
+      });
+    }
+
+    function parseQuantidade(valor) {
+      if (valor === undefined || valor === null || valor === '') return 0;
+      const numero = Number(String(valor).replace(',', '.'));
+      return Number.isFinite(numero) && numero > 0 ? numero : 0;
+    }
+
+    function mostrarMensagem(texto, tipo = 'sucesso') {
+      const el = document.getElementById('mensagem');
+      el.textContent = texto;
+      el.className = `mensagem ${tipo}`;
+    }
+
+    function limparMensagem() {
+      const el = document.getElementById('mensagem');
+      el.textContent = '';
+      el.className = 'mensagem';
+    }
+
+    async function carregarFornecedores() {
+      const resp = await fetch(`${API}/fornecedores`);
+      const json = await resp.json();
+      if (!resp.ok || !json.success) {
+        throw new Error(json.message || 'Erro ao carregar fornecedores');
+      }
+
+      fornecedores = json.data || [];
+      const select = document.getElementById('fornecedor_id');
+      select.innerHTML = '<option value="">Selecione</option>' + fornecedores
+        .map(f => `<option value="${f.id}">${escapeHtml(f.nome)} (${f.total_insumos})</option>`)
+        .join('');
+    }
+
+    async function carregarItensFornecedor() {
+      try {
+        limparMensagem();
+        document.getElementById('boxResumo').classList.add('hidden');
+
+        const fornecedorId = document.getElementById('fornecedor_id').value;
+        if (!fornecedorId) {
+          document.getElementById('boxItens').classList.add('hidden');
+          document.getElementById('infoFornecedor').textContent = '';
+          itens = [];
+          return;
+        }
+
+        const resp = await fetch(`${API}/fornecedor/${fornecedorId}/itens`);
+        const json = await resp.json();
+        if (!resp.ok || !json.success) {
+          throw new Error(json.message || 'Erro ao carregar itens do fornecedor');
+        }
+
+        fornecedorAtual = json.data.fornecedor;
+        itens = json.data.itens || [];
+
+        document.getElementById('infoFornecedor').textContent = `${fornecedorAtual.nome} — ${itens.length} insumo(s) ativo(s) encontrado(s).`;
+        renderizarItens();
+        document.getElementById('boxItens').classList.remove('hidden');
+      } catch (error) {
+        mostrarMensagem(error.message, 'erro');
+      }
+    }
+
+    function tituloItem(item) {
+      if (!item.eh_disco) return item.insumo;
+      return `${item.insumo} | Ø ${numero(item.diametro_mm, 2)} mm | Esp. ${numero(item.espessura_mm, 2)} mm | Peso ${numero(item.peso_kg, 6)} kg`;
+    }
+
+    function renderizarItens() {
+      const tbody = document.getElementById('tbodyItens');
+      if (!itens.length) {
+        tbody.innerHTML = '<tr><td colspan="7"><div class="sem-itens">Nenhum insumo ativo vinculado a este fornecedor.</div></td></tr>';
+        atualizarTotais();
+        return;
+      }
+
+      tbody.innerHTML = itens.map(item => `
+        <tr>
+          <td class="col-insumo texto-corte" title="${escapeHtml(tituloItem(item))}">${escapeHtml(item.insumo)}</td>
+          <td class="col-categoria texto-corte" title="${escapeHtml(item.categoria || '')}">${escapeHtml(item.categoria || '')}</td>
+          <td class="col-unidade">${escapeHtml(item.unidade_custo || '')}</td>
+          <td class="col-preco valor">${moeda(item.preco_base)}</td>
+          <td class="col-qtde">
+            <input class="qtde-input" type="number" min="0" step="0.0001" data-id="${item.insumo_fornecedor_id}" oninput="atualizarTotais()" />
+          </td>
+          <td class="col-subtotal valor" id="subtotal_${item.insumo_fornecedor_id}">${moeda(0)}</td>
+          <td class="col-info" title="${escapeHtml(tituloItem(item))}">${item.eh_disco ? '⚙️' : ''}</td>
+        </tr>
+      `).join('');
+
+      atualizarTotais();
+    }
+
+    function obterLinhasPedido() {
+      return itens.map(item => {
+        const input = document.querySelector(`input[data-id="${item.insumo_fornecedor_id}"]`);
+        const qtde = parseQuantidade(input ? input.value : 0);
+        const subtotal = qtde * Number(item.preco_base || 0);
+        return { ...item, qtde, subtotal };
+      });
+    }
+
+    function atualizarTotais() {
+      const linhas = obterLinhasPedido();
+      let total = 0;
+
+      linhas.forEach(linha => {
+        total += linha.subtotal;
+        const subtotalEl = document.getElementById(`subtotal_${linha.insumo_fornecedor_id}`);
+        if (subtotalEl) subtotalEl.textContent = moeda(linha.subtotal);
+      });
+
+      document.getElementById('totalParcial').textContent = moeda(total);
+    }
+
+    function finalizarPedido() {
+      limparMensagem();
+
+      if (!fornecedorAtual) {
+        mostrarMensagem('Selecione um fornecedor antes de finalizar.', 'erro');
+        return;
+      }
+
+      const linhas = obterLinhasPedido().filter(item => item.qtde > 0);
+      if (!linhas.length) {
+        mostrarMensagem('Informe quantidade maior que zero em pelo menos um item.', 'erro');
+        return;
+      }
+
+      const total = linhas.reduce((acc, item) => acc + item.subtotal, 0);
+      document.getElementById('resumoFornecedor').textContent = fornecedorAtual.nome;
+      document.getElementById('resumoData').textContent = new Date().toLocaleString('pt-BR');
+      document.getElementById('resumoTotal').textContent = moeda(total);
+
+      document.getElementById('tbodyResumo').innerHTML = linhas.map(item => `
+        <tr>
+          <td>${escapeHtml(item.insumo)}</td>
+          <td>${escapeHtml(item.unidade_custo || '')}</td>
+          <td class="valor">${numero(item.qtde, 4)}</td>
+          <td class="valor">${moeda(item.preco_base)}</td>
+          <td class="valor">${moeda(item.subtotal)}</td>
+        </tr>
+      `).join('');
+
+      document.getElementById('boxResumo').classList.remove('hidden');
+      document.getElementById('boxResumo').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function voltarParaEdicao() {
+      document.getElementById('boxItens').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function limparPedido() {
+      document.getElementById('fornecedor_id').value = '';
+      document.getElementById('infoFornecedor').textContent = '';
+      document.getElementById('boxItens').classList.add('hidden');
+      document.getElementById('boxResumo').classList.add('hidden');
+      document.getElementById('tbodyItens').innerHTML = '';
+      document.getElementById('tbodyResumo').innerHTML = '';
+      document.getElementById('totalParcial').textContent = moeda(0);
+      fornecedorAtual = null;
+      itens = [];
+      limparMensagem();
+    }
+
+    (async function init() {
+      try {
+        await carregarFornecedores();
+      } catch (error) {
+        mostrarMensagem(error.message, 'erro');
+      }
+    })();
+  </script>
+</body>
+</html>
