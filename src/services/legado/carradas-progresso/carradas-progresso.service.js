@@ -2,6 +2,7 @@ const pool = require('../../../../db/connection');
 const carradasService = require('../carradas/carradas.service');
 const pagamentosService = require('../pagamentos/pagamentos.service');
 const whatsappService = require('../../whatsapp/envio-whatsapp.service');
+const carradasStatusResumoService = require('./carradas-status-resumo.service');
 
 const FASES_BOOLEANAS = {
   EM_PRODUCAO: {
@@ -757,60 +758,7 @@ async function calcularResumoRapidoCarrada(codigoCarrada) {
 }
 
 async function buscarResumoListaCarradas(codigosParam) {
-  const codigosNormalizados = Array.isArray(codigosParam)
-    ? [...new Set(codigosParam.map((codigo) => Number.parseInt(codigo, 10)).filter((codigo) => Number.isInteger(codigo) && codigo > 0))]
-    : [];
-
-  const carradasBase = codigosNormalizados.length
-    ? codigosNormalizados.map((codigo) => ({ codigo }))
-    : await carradasService.listarCarradas();
-
-  let tabelasExistem = false;
-
-  try {
-    tabelasExistem = await tabelasModuloExistem();
-  } catch (error) {
-    tabelasExistem = false;
-  }
-
-  const carradasValidas = (Array.isArray(carradasBase) ? carradasBase : [])
-    .map((carrada) => Number.parseInt(carrada?.codigo, 10))
-    .filter((codigo) => Number.isInteger(codigo) && codigo > 0);
-
-  if (!tabelasExistem) {
-    return carradasValidas.map((codigo) => ({
-      codigoCarrada: codigo,
-      concluida: false,
-      semicompleta: false,
-      statusLinha: 'incompleta',
-      percentualConclusao: 0,
-      totalPedidos: 0,
-      totalFases: FASES_MATRIZ.length,
-      totalCelulas: 0,
-      celulasConcluidas: 0
-    })).sort((a, b) => a.codigoCarrada - b.codigoCarrada);
-  }
-
-  const itens = await mapearComConcorrencia(carradasValidas, 4, async (codigo) => {
-    try {
-      return await calcularResumoRapidoCarrada(codigo);
-    } catch (error) {
-      return {
-        codigoCarrada: codigo,
-        concluida: false,
-        semicompleta: false,
-        statusLinha: 'incompleta',
-        percentualConclusao: 0,
-        totalPedidos: 0,
-        totalFases: FASES_MATRIZ.length,
-        totalCelulas: 0,
-        celulasConcluidas: 0,
-        erro: error?.message || 'Falha ao calcular o resumo do progresso.'
-      };
-    }
-  });
-
-  return itens.sort((a, b) => a.codigoCarrada - b.codigoCarrada);
+  return carradasStatusResumoService.listarResumoListaCarradasPersistido(codigosParam);
 }
 
 async function salvarMarcacaoSilenciosaEspecial({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam, faseCodigo: faseCodigoParam, valor }) {
@@ -872,6 +820,8 @@ async function salvarFaseBooleana({ codigoCarrada: codigoCarradaParam, numeroPed
       faseCodigo,
       valor: valorBoolean
     });
+
+    await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
 
     return {
       numeroPedido,
@@ -975,6 +925,8 @@ async function salvarFaseBooleana({ codigoCarrada: codigoCarradaParam, numeroPed
       });
     }
   }
+
+  await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
 
   return {
     fase: {
@@ -1244,6 +1196,8 @@ async function enviarEtiquetaVolumes({ codigoCarrada: codigoCarradaParam, numero
     });
   }
 
+  await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
+
   return {
     pedido: {
       numero: pedido.numero,
@@ -1291,6 +1245,8 @@ async function confirmarEtiquetaVolumes({ codigoCarrada: codigoCarradaParam, num
       valor: confirmadoBoolean
     });
 
+    await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
+
     return {
       numeroPedido,
       confirmadoBoolean: Boolean(fallback?.valor_boolean),
@@ -1309,6 +1265,8 @@ async function confirmarEtiquetaVolumes({ codigoCarrada: codigoCarradaParam, num
     `,
     [codigoCarrada, numeroPedido]
   );
+
+  await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
 
   return {
     numeroPedido,
@@ -1341,6 +1299,8 @@ async function salvarLocalEntrega({ codigoCarrada: codigoCarradaParam, numeroPed
       `DELETE FROM carradas_pedidos_fases WHERE codigo_carrada = $1 AND numero_pedido = $2 AND fase_codigo = 'LOCAL_ENTREGA'`,
       [codigoCarrada, numeroPedido]
     );
+
+    await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
 
     return {
       numeroPedido,
@@ -1394,6 +1354,8 @@ async function salvarLocalEntrega({ codigoCarrada: codigoCarradaParam, numeroPed
     `DELETE FROM carradas_pedidos_fases WHERE codigo_carrada = $1 AND numero_pedido = $2 AND fase_codigo = 'LOCAL_ENTREGA'`,
     [codigoCarrada, numeroPedido]
   );
+
+  await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
 
   return {
     numeroPedido,

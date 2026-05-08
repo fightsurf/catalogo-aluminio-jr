@@ -1,5 +1,35 @@
 
 const pagamentosService = require('../../../services/legado/pagamentos/pagamentos.service');
+const carradasStatusResumoService = require('../../../services/legado/carradas-progresso/carradas-status-resumo.service');
+
+async function atualizarStatusCarradaSemQuebrar(detalhePedido, fallbackFiltros = {}) {
+  let codigoCarrada = detalhePedido?.pedido?.carradaAtual?.codigo ?? null;
+
+  if ((!codigoCarrada || Number(codigoCarrada) <= 0) && fallbackFiltros?.empresa !== undefined && fallbackFiltros?.saida !== undefined) {
+    try {
+      const detalheAtual = await pagamentosService.buscarPedidoComPagamentos({
+        empresa: fallbackFiltros.empresa,
+        saida: fallbackFiltros.saida,
+        pdv: fallbackFiltros.pdv ?? 0
+      });
+      codigoCarrada = detalheAtual?.pedido?.carradaAtual?.codigo ?? null;
+    } catch (error) {
+      codigoCarrada = null;
+    }
+  }
+
+  const codigo = Number.parseInt(codigoCarrada, 10);
+
+  if (!Number.isInteger(codigo) || codigo <= 0) {
+    return;
+  }
+
+  try {
+    await carradasStatusResumoService.recalcularStatusCarrada(codigo);
+  } catch (error) {
+    console.error(`Falha ao recalcular status da carrada ${codigo} após alteração de pagamento:`, error.message);
+  }
+}
 
 async function listarClientes(req, res) {
   try {
@@ -54,6 +84,7 @@ async function buscarPedidoComPagamentos(req, res) {
 async function criarPagamento(req, res) {
   try {
     const data = await pagamentosService.criarPagamento(req.body);
+    await atualizarStatusCarradaSemQuebrar(data, req.body || {});
     return res.status(201).json({ success: true, data });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Erro ao criar pagamento.', error: error.message });
@@ -63,6 +94,7 @@ async function criarPagamento(req, res) {
 async function atualizarPagamento(req, res) {
   try {
     const data = await pagamentosService.atualizarPagamento(req.params.codigo, req.body);
+    await atualizarStatusCarradaSemQuebrar(data, req.body || {});
     return res.status(200).json({ success: true, data });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Erro ao atualizar pagamento.', error: error.message });
@@ -72,6 +104,7 @@ async function atualizarPagamento(req, res) {
 async function excluirPagamento(req, res) {
   try {
     const data = await pagamentosService.excluirPagamento(req.params.codigo, req.query);
+    await atualizarStatusCarradaSemQuebrar(data, req.query || {});
     return res.status(200).json({ success: true, data });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Erro ao excluir pagamento.', error: error.message });

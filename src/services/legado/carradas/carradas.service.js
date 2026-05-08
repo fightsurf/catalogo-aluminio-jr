@@ -1,5 +1,6 @@
 const envioWhatsappService = require('../../whatsapp/envio-whatsapp.service');
 const legadoBridgeService = require('../legadoBridge.service');
+const carradasStatusResumoService = require('../carradas-progresso/carradas-status-resumo.service');
 
 function limparTexto(valor) {
   if (valor === undefined || valor === null) {
@@ -152,7 +153,56 @@ async function listarPedidosPorNumero(numero) {
 
 async function listarCarradas() {
   const response = await legadoBridgeService.get('/api/carradas');
-  return response.dados || [];
+  const carradas = response.dados || [];
+  const codigos = carradas
+    .map((item) => Number.parseInt(item?.codigo, 10))
+    .filter((codigo) => Number.isInteger(codigo) && codigo > 0);
+
+  let mapaStatus = new Map();
+
+  try {
+    mapaStatus = await carradasStatusResumoService.buscarMapaStatusPorCodigos(codigos);
+  } catch (error) {
+    console.error('Falha ao buscar status persistido das carradas:', error.message);
+  }
+
+  return carradas.map((carrada) => {
+    const codigo = Number.parseInt(carrada?.codigo, 10);
+    const status = mapaStatus.get(codigo);
+
+    return {
+      ...carrada,
+      progressoStatusLinha: status?.statusLinha || 'incompleta'
+    };
+  });
+}
+
+async function recalcularStatusCarradaSemQuebrar(codigoCarrada) {
+  const codigo = Number.parseInt(codigoCarrada, 10);
+
+  if (!Number.isInteger(codigo) || codigo <= 0) {
+    return;
+  }
+
+  try {
+    await carradasStatusResumoService.recalcularStatusCarrada(codigo);
+  } catch (error) {
+    console.error(`Falha ao recalcular status da carrada ${codigo}:`, error.message);
+  }
+}
+
+async function excluirStatusCarradaSemQuebrar(codigoCarrada) {
+  const codigo = Number.parseInt(codigoCarrada, 10);
+
+  if (!Number.isInteger(codigo) || codigo <= 0) {
+    return;
+  }
+
+  try {
+    await carradasStatusResumoService.excluirStatusCarrada(codigo);
+  } catch (error) {
+    console.error(`Falha ao excluir status persistido da carrada ${codigo}:`, error.message);
+  }
 }
 
 async function buscarCarrada(codigo) {
@@ -174,6 +224,7 @@ async function criarCarrada(payload) {
 
   if (carrada) {
     await enviarNotificacoesCriacao(carrada);
+    await recalcularStatusCarradaSemQuebrar(carrada.codigo);
   }
 
   return carrada;
@@ -191,6 +242,10 @@ async function atualizarCarrada(codigo, payload) {
 
   if (carradaAntes && carradaDepois) {
     await enviarNotificacoesAtualizacao(carradaAntes, carradaDepois);
+  }
+
+  if (carradaDepois) {
+    await recalcularStatusCarradaSemQuebrar(carradaDepois.codigo);
   }
 
   return carradaDepois;
@@ -214,6 +269,10 @@ async function vincularPedidoNaCarrada(codigo, payload) {
     if (pedido) {
       notificacao = await enviarNotificacaoCarrada({ tipo: 'entrada', pedido, carrada });
     }
+  }
+
+  if (carrada) {
+    await recalcularStatusCarradaSemQuebrar(carrada.codigo);
   }
 
   return { carrada, notificacao };
@@ -249,6 +308,18 @@ async function moverPedidoEntreCarradas(codigo, payload = {}) {
     await enviarNotificacaoCarrada({ tipo: 'entrada', pedido: pedidoMovido, carrada: carradaDestino });
   }
 
+  if (carradaOrigemAntes?.codigo) {
+    await recalcularStatusCarradaSemQuebrar(carradaOrigemAntes.codigo);
+  }
+
+  if (carradaOrigemDepois?.codigo && Number(carradaOrigemDepois.codigo) !== Number(carradaOrigemAntes?.codigo)) {
+    await recalcularStatusCarradaSemQuebrar(carradaOrigemDepois.codigo);
+  }
+
+  if (carradaDestino?.codigo) {
+    await recalcularStatusCarradaSemQuebrar(carradaDestino.codigo);
+  }
+
   return {
     origem: carradaOrigemDepois,
     destino: carradaDestino,
@@ -266,6 +337,8 @@ async function excluirCarrada(codigo) {
   if (carradaAntes) {
     await enviarNotificacoesExclusao(carradaAntes);
   }
+
+  await excluirStatusCarradaSemQuebrar(codigo);
 
   return response.dado || null;
 }

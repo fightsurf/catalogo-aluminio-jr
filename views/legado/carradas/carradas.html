@@ -675,50 +675,6 @@
       }
     }
 
-    function aplicarResumoProgressoNaTabela(resumoProgresso) {
-      const itens = Array.isArray(resumoProgresso) ? resumoProgresso : [];
-
-      itens.forEach((item) => {
-        const codigo = Number(item?.codigoCarrada);
-
-        if (!codigo) {
-          return;
-        }
-
-        const linha = el.tabelaCarradas.querySelector(`tr[data-codigo-row="${codigo}"]`);
-
-        if (!linha) {
-          return;
-        }
-
-        linha.classList.remove('carrada-semicompleta', 'carrada-completa');
-
-        const linhaCompleta = item?.concluida === true || item?.statusLinha === 'completa';
-        const linhaSemicompleta = item?.semicompleta === true || item?.statusLinha === 'semicompleta';
-
-        if (linhaCompleta) {
-          linha.classList.add('carrada-completa');
-        } else if (linhaSemicompleta) {
-          linha.classList.add('carrada-semicompleta');
-        }
-      });
-    }
-
-    async function carregarResumoProgressoDasCarradasEmSegundoPlano(carradas) {
-      const codigos = (Array.isArray(carradas) ? carradas : []).map((carrada) => carrada.codigo).filter(Boolean);
-
-      if (!codigos.length) {
-        return;
-      }
-
-      try {
-        const resumoProgresso = await request(`/api/legado/carradas-progresso/resumo/lista?codigos=${encodeURIComponent(codigos.join(','))}`);
-        aplicarResumoProgressoNaTabela(resumoProgresso);
-      } catch (errorResumo) {
-        console.error('Não foi possível carregar o resumo do progresso das carradas:', errorResumo);
-      }
-    }
-
     async function carregarCarradas() {
       try {
         const carradas = await request('/api/legado/carradas');
@@ -736,16 +692,9 @@
             }
 
             return Number(b.codigo || 0) - Number(a.codigo || 0);
-          }).map((carrada) => ({
-            ...carrada,
-            progressoStatusLinha: 'incompleta'
-          }));
+          });
 
         renderCarradas(carradasOrdenadas);
-
-        setTimeout(() => {
-          carregarResumoProgressoDasCarradasEmSegundoPlano(carradasOrdenadas);
-        }, 50);
       } catch (error) {
         el.tabelaCarradas.innerHTML = `<tr><td colspan="4" class="muted">${escapeHtml(error.message)}</td></tr>`;
       }
