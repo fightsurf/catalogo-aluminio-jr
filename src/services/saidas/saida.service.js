@@ -180,6 +180,11 @@ function montarWhereListagem(filtros = {}) {
     conditions.push(`(i.nome ILIKE $${values.length} OR c.nome ILIKE $${values.length} OR COALESCE(s.observacao, '') ILIKE $${values.length})`);
   }
 
+  const somenteComVencimento = String(filtros.somente_com_vencimento || '').toLowerCase();
+  if (['1', 'true', 'sim', 's'].includes(somenteComVencimento)) {
+    conditions.push('s.vencimento IS NOT NULL');
+  }
+
   return { values, conditions };
 }
 
@@ -216,12 +221,25 @@ async function listar(filtros = {}) {
     query += ` WHERE ${conditions.join(' AND ')}`;
   }
 
-  query += `
-    ORDER BY s.competencia_ano DESC,
-             s.competencia_mes DESC,
-             COALESCE(s.vencimento, s.data_saida, DATE '1900-01-01') DESC,
-             s.id DESC
-  `;
+  const ordenarPor = normalizarTexto(filtros.ordenar_por || filtros.ordenar).toLowerCase();
+  if (ordenarPor === 'vencimento_desc') {
+    query += `
+      ORDER BY COALESCE(s.vencimento, DATE '1900-01-01') DESC,
+               s.id DESC
+    `;
+  } else if (ordenarPor === 'vencimento_asc') {
+    query += `
+      ORDER BY COALESCE(s.vencimento, DATE '2999-12-31') ASC,
+               s.id ASC
+    `;
+  } else {
+    query += `
+      ORDER BY s.competencia_ano DESC,
+               s.competencia_mes DESC,
+               COALESCE(s.vencimento, s.data_saida, DATE '1900-01-01') DESC,
+               s.id DESC
+    `;
+  }
 
   const result = await pool.query(query, values);
   return result.rows;

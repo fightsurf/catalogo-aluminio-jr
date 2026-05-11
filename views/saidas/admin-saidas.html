@@ -26,6 +26,8 @@
     .btn-limpar { background:#95a5a6; color:#fff; }
     .btn-buscar { background:#34495e; color:#fff; }
     .btn-carne { background:#8e44ad; color:#fff; }
+    .btn-pagar { background:#27ae60; color:#fff; padding:8px 10px; }
+    .btn-fechar { background:#7f8c8d; color:#fff; }
     .btn-editar { background:#f39c12; color:#fff; padding:8px 10px; }
     .btn-excluir { background:#e74c3c; color:#fff; padding:8px 10px; }
     .btn-mini { background:#2980b9; color:#fff; padding:8px 10px; }
@@ -46,7 +48,17 @@
     .carne { background:#f8f2ff; border:1px solid #d7b9ff; }
     .muted { color:#667085; font-size:13px; }
     .total { font-weight:bold; text-align:right; margin-top:12px; }
-    @media (max-width:1200px) { .grid-form,.grid-form2,.grid-carne,.grid-carne2,.grid-filtro { grid-template-columns:1fr; } }
+    .boletos { background:#f4fbff; border:1px solid #b9e2f5; }
+    .grid-boletos { display:grid; grid-template-columns:170px 1fr 150px 150px; gap:12px; align-items:end; }
+    .linha-vencida { background:#fff1f0; }
+    .linha-vencida:hover { background:#ffe4e2; }
+    .linha-paga { background:#f1fbf5; }
+    .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; padding:18px; z-index:9999; }
+    .modal-backdrop.aberto { display:flex; }
+    .modal { background:#fff; width:min(560px, 100%); border-radius:10px; padding:22px; box-shadow:0 12px 35px rgba(0,0,0,.25); }
+    .modal-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .modal-acoes { display:flex; gap:10px; justify-content:flex-end; margin-top:18px; }
+    @media (max-width:1200px) { .grid-form,.grid-form2,.grid-carne,.grid-carne2,.grid-filtro,.grid-boletos,.modal-grid { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
@@ -103,6 +115,22 @@
       </table>
     </div>
 
+    <div class="box boletos">
+      <h2>Boletos / vencimentos cadastrados</h2>
+      <div class="muted">Lista todos os lançamentos com vencimento, do mais novo para o mais antigo. Use o botão Pagar para quitar uma parcela pendente sem criar outra saída.</div>
+      <div class="grid-boletos" style="margin-top:14px;">
+        <div><label for="filtroBoletoStatus">Status</label><select id="filtroBoletoStatus"><option value="">Todos</option><option value="PENDENTE">Pendente</option><option value="PAGO">Pago</option><option value="CANCELADO">Cancelado</option></select></div>
+        <div><label for="filtroBoletoBusca">Busca</label><input id="filtroBoletoBusca" placeholder="Item, categoria ou observação" /></div>
+        <div><label>&nbsp;</label><button class="btn-buscar" onclick="listarBoletos()">Atualizar</button></div>
+        <div><label>&nbsp;</label><button class="btn-limpar" onclick="limparFiltroBoletos()">Limpar</button></div>
+      </div>
+      <table>
+        <thead><tr><th>Vencimento</th><th>Status</th><th>Item</th><th>Categoria</th><th>Valor</th><th>Pagamento</th><th>Parcela</th><th>Forma</th><th>Observação</th><th style="width:190px;">Ação</th></tr></thead>
+        <tbody id="tbodyBoletos"></tbody>
+      </table>
+      <div class="total" id="totalBoletos"></div>
+    </div>
+
     <div class="box">
       <h2>Saídas lançadas</h2>
       <div class="grid-filtro">
@@ -123,11 +151,29 @@
     </div>
   </div>
 
+  <div id="modalPagar" class="modal-backdrop">
+    <div class="modal">
+      <h2>Pagar boleto</h2>
+      <div class="muted" id="pagarResumo"></div>
+      <input type="hidden" id="pagar_id" />
+      <div class="modal-grid" style="margin-top:14px;">
+        <div><label for="pagar_data_saida">Data pagamento</label><input id="pagar_data_saida" type="date" /></div>
+        <div><label for="pagar_valor">Valor pago</label><input id="pagar_valor" inputmode="decimal" placeholder="0,00" /></div>
+        <div><label for="pagar_forma_pagamento">Forma pagamento</label><select id="pagar_forma_pagamento"><option value="Pix">Pix</option><option value="Dinheiro">Dinheiro</option><option value="Cartão">Cartão</option><option value="Boleto">Boleto</option><option value="Transferência">Transferência</option><option value="Outro">Outro</option></select></div>
+      </div>
+      <div class="modal-acoes">
+        <button class="btn-fechar" onclick="fecharModalPagar()">Cancelar</button>
+        <button class="btn-pagar" onclick="confirmarPagamento()">Confirmar pagamento</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const API = '/api/saidas';
     let itens = [];
     let categorias = [];
     let pendenciasAtuais = [];
+    let boletosAtuais = [];
     let salvandoCarne = false;
     const nomesMeses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
@@ -206,6 +252,12 @@
       listar();
     }
 
+    function limparFiltroBoletos() {
+      document.getElementById('filtroBoletoStatus').value = '';
+      document.getElementById('filtroBoletoBusca').value = '';
+      listarBoletos();
+    }
+
     async function listar() {
       try {
         limparMsg();
@@ -245,7 +297,103 @@
           document.getElementById('totalLista').textContent = `Total listado: ${moeda(total)}`;
         }
         await carregarPendencias();
+        await listarBoletos();
       } catch (error) { msg(error.message, 'erro'); }
+    }
+
+    async function listarBoletos() {
+      try {
+        const params = new URLSearchParams();
+        params.append('somente_com_vencimento', 'true');
+        params.append('ordenar_por', 'vencimento_desc');
+        const status = document.getElementById('filtroBoletoStatus').value;
+        const busca = document.getElementById('filtroBoletoBusca').value.trim();
+        if (status) params.append('status', status);
+        if (busca) params.append('busca', busca);
+
+        const json = await tratar(await fetch(`${API}?${params.toString()}`));
+        boletosAtuais = json.data || [];
+        const tbody = document.getElementById('tbodyBoletos');
+        if (!boletosAtuais.length) {
+          tbody.innerHTML = '<tr><td colspan="10">Nenhum boleto/vencimento encontrado.</td></tr>';
+          document.getElementById('totalBoletos').textContent = '';
+          return;
+        }
+
+        const hojeISO = new Date().toISOString().slice(0,10);
+        tbody.innerHTML = boletosAtuais.map(item => {
+          const vencimentoISO = item.vencimento ? String(item.vencimento).slice(0,10) : '';
+          const vencido = item.status === 'PENDENTE' && vencimentoISO && vencimentoISO < hojeISO;
+          const trClass = item.status === 'PAGO' ? 'linha-paga' : (vencido ? 'linha-vencida' : '');
+          const parcela = item.numero_parcela && item.total_parcelas ? `${item.numero_parcela}/${item.total_parcelas}` : '-';
+          const acao = item.status === 'PENDENTE'
+            ? `<button class="btn-pagar" onclick="abrirModalPagar(${item.id})">Pagar</button>`
+            : `<span class="muted">${item.status === 'PAGO' ? 'Pago' : 'Sem ação'}</span>`;
+          return `
+            <tr class="${trClass}">
+              <td>${dataBR(item.vencimento)}</td>
+              <td><span class="status status-${item.status}">${item.status}</span></td>
+              <td>${escapeHtml(item.item_saida_nome)}</td>
+              <td>${escapeHtml(item.categoria_nome)}</td>
+              <td>${moeda(item.valor)}</td>
+              <td>${dataBR(item.data_saida)}</td>
+              <td>${parcela}</td>
+              <td>${escapeHtml(item.forma_pagamento || '')}</td>
+              <td>${escapeHtml(item.observacao || '')}</td>
+              <td><div class="acoes">${acao}<button class="btn-editar" onclick="editar(${item.id})">Editar</button></div></td>
+            </tr>`;
+        }).join('');
+
+        const totalAberto = boletosAtuais
+          .filter(x => x.status === 'PENDENTE')
+          .reduce((acc, x) => acc + Number(x.valor || 0), 0);
+        const totalPago = boletosAtuais
+          .filter(x => x.status === 'PAGO')
+          .reduce((acc, x) => acc + Number(x.valor || 0), 0);
+        document.getElementById('totalBoletos').textContent = `Aberto: ${moeda(totalAberto)} | Pago: ${moeda(totalPago)}`;
+      } catch (error) {
+        msg(error.message, 'erro');
+      }
+    }
+
+    function abrirModalPagar(id) {
+      const item = boletosAtuais.find(x => Number(x.id) === Number(id));
+      if (!item) return;
+      document.getElementById('pagar_id').value = item.id;
+      document.getElementById('pagar_data_saida').value = new Date().toISOString().slice(0,10);
+      document.getElementById('pagar_valor').value = String(item.valor || '').replace('.', ',');
+      document.getElementById('pagar_forma_pagamento').value = item.forma_pagamento || 'Pix';
+      document.getElementById('pagarResumo').textContent = `${item.item_saida_nome} | vencimento ${dataBR(item.vencimento)} | valor ${moeda(item.valor)}`;
+      document.getElementById('modalPagar').classList.add('aberto');
+    }
+
+    function fecharModalPagar() {
+      document.getElementById('modalPagar').classList.remove('aberto');
+      document.getElementById('pagar_id').value = '';
+    }
+
+    async function confirmarPagamento() {
+      try {
+        const id = document.getElementById('pagar_id').value;
+        const data_saida = document.getElementById('pagar_data_saida').value;
+        const valor = document.getElementById('pagar_valor').value;
+        const forma_pagamento = document.getElementById('pagar_forma_pagamento').value;
+        if (!id) throw new Error('Boleto não selecionado');
+        if (!data_saida) throw new Error('Data de pagamento é obrigatória');
+        if (!valor) throw new Error('Valor pago é obrigatório');
+
+        await tratar(await fetch(`${API}/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'PAGO', data_saida, valor, forma_pagamento })
+        }));
+
+        fecharModalPagar();
+        msg('Boleto pago com sucesso');
+        listar();
+      } catch (error) {
+        msg(error.message, 'erro');
+      }
     }
 
     async function carregarPendencias() {
