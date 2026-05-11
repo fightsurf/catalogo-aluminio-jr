@@ -46,6 +46,7 @@ const insumoDiscoRoutes = require('./src/routes/insumoDisco/insumoDisco.routes')
 const insumoFornecedorRoutes = require('./src/routes/insumoFornecedor/insumoFornecedor.routes');
 const pedidoFornecedorRoutes = require('./src/routes/pedidoFornecedor/pedidoFornecedor.routes');
 const produtoComposicaoRoutes = require('./src/routes/produtoComposicao/produtoComposicao.routes');
+const produtoResumoCustoRoutes = require('./src/routes/produtoResumoCusto/produtoResumoCusto.routes');
 const volumeRoutes = require('./src/routes/volume/volume.routes');
 const adminVolumeRoutes = require('./src/routes/volume/adminVolume.routes');
 const prestacaoContasRoutes = require('./src/routes/prestacao_contas/prestacao_contas.routes');
@@ -115,6 +116,7 @@ app.use('/api/insumos-discos', insumoDiscoRoutes);
 app.use('/api/insumos-fornecedores', insumoFornecedorRoutes);
 app.use('/api/pedidos-fornecedores', pedidoFornecedorRoutes);
 app.use('/api/produtos-composicoes', produtoComposicaoRoutes);
+app.use('/api/produtos-resumo-custos', produtoResumoCustoRoutes);
 app.use('/api/produtos', produtoRoutes);
 app.use('/api/transportadoras', transportadorasRoutes);
 app.use('/api/logistica', logisticaRoutes);
@@ -188,6 +190,10 @@ app.get('/admin-pedido-fornecedor', (req, res) => {
 
 app.get('/admin-produtos-composicao', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'produtoComposicao', 'admin-produto-composicao.html'));
+});
+
+app.get('/admin-produtos-resumo-custos', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'produtoResumoCusto', 'admin-produtos-resumo-custos.html'));
 });
 
 app.get('/kits-feirinha', (req, res) => {
@@ -302,6 +308,11 @@ botAdminService.criarIndices().catch(err =>
 const saidaSchemaService = require('./src/services/saidas/saidaSchema.service');
 saidaSchemaService.criarEstrutura().catch(err =>
   console.warn('⚠️  Estrutura de saídas (não crítico):', err.message)
+);
+
+const produtoComposicaoSchemaService = require('./src/services/produtoComposicao/produtoComposicaoSchema.service');
+produtoComposicaoSchemaService.criarEstrutura().catch(err =>
+  console.warn('⚠️  Estrutura de composição/custos dos produtos (não crítico):', err.message)
 );
 
 // =====================================================
