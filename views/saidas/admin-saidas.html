@@ -3,21 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Lançamento de Saídas - Alumínio JR</title>
+  <title>Lançar Saída - Alumínio JR</title>
   <link rel="stylesheet" href="/css/theme.css" />
   <style>
     body { font-family: Arial, sans-serif; background:#eef2f7; margin:0; padding:24px; }
-    .container { max-width:1320px; margin:0 auto; }
+    .container { max-width:1280px; margin:0 auto; }
     .box { background:#fff; padding:22px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,.08); margin-bottom:22px; }
     h1,h2 { margin-top:0; color:#243447; }
     .menu { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
     .menu a { text-decoration:none; background:#34495e; color:#fff; padding:9px 12px; border-radius:6px; font-size:13px; }
     .menu a.ativo { background:#2ecc71; }
-    .grid-form { display:grid; grid-template-columns:1.4fr 100px 100px 140px 140px 120px 125px 1.2fr 165px; gap:12px; align-items:end; }
-    .grid-form2 { display:grid; grid-template-columns:1fr; gap:12px; margin-top:12px; }
-    .grid-carne { display:grid; grid-template-columns:1.4fr 150px 150px 130px 1.2fr 165px; gap:12px; align-items:end; }
-    .grid-carne2 { display:grid; grid-template-columns:1fr; gap:12px; margin-top:12px; }
-    .grid-filtro { display:grid; grid-template-columns:100px 110px 1.1fr 1fr 1.2fr 130px 120px 120px; gap:12px; align-items:end; }
+    .grid-form { display:grid; grid-template-columns:1.5fr 95px 105px 140px 140px 120px 125px 1fr 160px; gap:12px; align-items:end; }
+    .grid-observacao { display:grid; grid-template-columns:1fr; gap:12px; margin-top:12px; }
+    .grid-filtro { display:grid; grid-template-columns:100px 110px 1.2fr 1fr 1.2fr 130px 120px 120px; gap:12px; align-items:end; }
     label { display:block; font-size:13px; font-weight:bold; color:#4a5568; margin-bottom:6px; }
     input, select, textarea, button { width:100%; padding:10px 12px; border-radius:6px; border:1px solid #ccd3db; font-size:14px; box-sizing:border-box; }
     textarea { min-height:70px; resize:vertical; }
@@ -25,13 +23,8 @@
     .btn-salvar { background:#2ecc71; color:#fff; }
     .btn-limpar { background:#95a5a6; color:#fff; }
     .btn-buscar { background:#34495e; color:#fff; }
-    .btn-carne { background:#8e44ad; color:#fff; }
-    .btn-pagar { background:#27ae60; color:#fff; padding:8px 10px; }
-    .btn-fechar { background:#7f8c8d; color:#fff; }
     .btn-editar { background:#f39c12; color:#fff; padding:8px 10px; }
     .btn-excluir { background:#e74c3c; color:#fff; padding:8px 10px; }
-    .btn-mini { background:#2980b9; color:#fff; padding:8px 10px; }
-    button:disabled { opacity:.65; cursor:not-allowed; }
     table { width:100%; border-collapse:collapse; margin-top:16px; }
     th { background:#2c3e50; color:#fff; padding:10px; text-align:left; }
     td { padding:10px; border-bottom:1px solid #e9edf2; vertical-align:middle; }
@@ -44,36 +37,27 @@
     .mensagem { margin-top:12px; font-weight:bold; display:none; }
     .mensagem.sucesso { color:#1e8449; display:block; }
     .mensagem.erro { color:#c0392b; display:block; }
-    .pendencias { background:#fff9e8; border:1px solid #f5d98b; }
-    .carne { background:#f8f2ff; border:1px solid #d7b9ff; }
     .muted { color:#667085; font-size:13px; }
     .total { font-weight:bold; text-align:right; margin-top:12px; }
-    .boletos { background:#f4fbff; border:1px solid #b9e2f5; }
-    .grid-boletos { display:grid; grid-template-columns:170px 1fr 150px 150px; gap:12px; align-items:end; }
-    .linha-vencida { background:#fff1f0; }
-    .linha-vencida:hover { background:#ffe4e2; }
-    .linha-paga { background:#f1fbf5; }
-    .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; padding:18px; z-index:9999; }
-    .modal-backdrop.aberto { display:flex; }
-    .modal { background:#fff; width:min(560px, 100%); border-radius:10px; padding:22px; box-shadow:0 12px 35px rgba(0,0,0,.25); }
-    .modal-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-    .modal-acoes { display:flex; gap:10px; justify-content:flex-end; margin-top:18px; }
-    @media (max-width:1200px) { .grid-form,.grid-form2,.grid-carne,.grid-carne2,.grid-filtro,.grid-boletos,.modal-grid { grid-template-columns:1fr; } }
+    @media (max-width:1200px) { .grid-form,.grid-filtro { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="box">
-      <h1>Lançamento de Saídas</h1>
+      <h1>Lançar saída avulsa</h1>
       <div class="menu">
         <a href="/admin-saidas-categorias">Categorias</a>
         <a href="/admin-saidas-itens">Itens de saída</a>
-        <a href="/admin-saidas" class="ativo">Lançar saídas</a>
+        <a href="/admin-saidas" class="ativo">Lançar saída</a>
+        <a href="/admin-saidas-carne">Carnê</a>
+        <a href="/admin-saidas-boletos">Boletos</a>
         <a href="/relatorio-saidas">Relatório mensal</a>
       </div>
+      <div class="muted">Use esta tela para lançar pagamento avulso ou editar uma saída existente. Carnês e boletos ficam em telas separadas.</div>
 
       <input type="hidden" id="saida_id" />
-      <div class="grid-form">
+      <div class="grid-form" style="margin-top:14px;">
         <div><label for="item_saida_id">Item de saída</label><select id="item_saida_id"></select></div>
         <div><label for="competencia_mes">Mês</label><select id="competencia_mes"></select></div>
         <div><label for="competencia_ano">Ano</label><input id="competencia_ano" type="number" min="2000" max="2100" /></div>
@@ -84,58 +68,17 @@
         <div><label for="forma_pagamento">Forma pagamento</label><select id="forma_pagamento"><option value="Pix">Pix</option><option value="Dinheiro">Dinheiro</option><option value="Cartão">Cartão</option><option value="Boleto">Boleto</option><option value="Transferência">Transferência</option><option value="Outro">Outro</option></select></div>
         <div style="display:flex; gap:10px;"><button class="btn-salvar" onclick="salvar()">Salvar</button><button class="btn-limpar" onclick="limparFormulario()">Limpar</button></div>
       </div>
-      <div class="grid-form2">
+      <div class="grid-observacao">
         <div><label for="observacao">Observação</label><textarea id="observacao" placeholder="Opcional"></textarea></div>
       </div>
       <div id="mensagem" class="mensagem"></div>
-    </div>
-
-    <div class="box carne">
-      <h2>Cadastrar carnê</h2>
-      <div class="muted">Gera parcelas mensais na própria tabela de saídas. As parcelas entram como PENDENTE, com vencimento e sem data de pagamento.</div>
-      <div class="grid-carne" style="margin-top:14px;">
-        <div><label for="carne_item_saida_id">Item de saída</label><select id="carne_item_saida_id"></select></div>
-        <div><label for="carne_primeiro_vencimento">Primeiro vencimento</label><input id="carne_primeiro_vencimento" type="date" /></div>
-        <div><label for="carne_data_limite">Data limite</label><input id="carne_data_limite" type="date" /></div>
-        <div><label for="carne_valor">Valor da parcela</label><input id="carne_valor" inputmode="decimal" placeholder="0,00" /></div>
-        <div><label for="carne_forma_pagamento">Forma pagamento</label><select id="carne_forma_pagamento"><option value="Pix">Pix</option><option value="Dinheiro">Dinheiro</option><option value="Cartão">Cartão</option><option value="Boleto">Boleto</option><option value="Transferência">Transferência</option><option value="Outro">Outro</option></select></div>
-        <div style="display:flex; gap:10px;"><button id="btnSalvarCarne" class="btn-carne" onclick="salvarCarne()">Salvar carnê</button><button class="btn-limpar" onclick="limparCarne()">Limpar</button></div>
-      </div>
-      <div class="grid-carne2">
-        <div><label for="carne_observacao">Observação do carnê</label><textarea id="carne_observacao" placeholder="Opcional. Ex: carnê da internet até dezembro"></textarea></div>
-      </div>
-    </div>
-
-    <div class="box pendencias">
-      <h2>Faltando lançar no mês selecionado</h2>
-      <div class="muted">Mostra itens recorrentes ativos que ainda não têm lançamento neste mês. O valor sugerido vem do último pagamento anterior.</div>
-      <table>
-        <thead><tr><th>Item</th><th>Categoria</th><th>Último valor pago</th><th>Último vencimento</th><th>Última competência</th><th style="width:150px;">Ação</th></tr></thead>
-        <tbody id="tbodyPendencias"></tbody>
-      </table>
-    </div>
-
-    <div class="box boletos">
-      <h2>Boletos / vencimentos cadastrados</h2>
-      <div class="muted">Lista todos os lançamentos com vencimento, do mais novo para o mais antigo. Use o botão Pagar para quitar uma parcela pendente sem criar outra saída.</div>
-      <div class="grid-boletos" style="margin-top:14px;">
-        <div><label for="filtroBoletoStatus">Status</label><select id="filtroBoletoStatus"><option value="">Todos</option><option value="PENDENTE">Pendente</option><option value="PAGO">Pago</option><option value="CANCELADO">Cancelado</option></select></div>
-        <div><label for="filtroBoletoBusca">Busca</label><input id="filtroBoletoBusca" placeholder="Item, categoria ou observação" /></div>
-        <div><label>&nbsp;</label><button class="btn-buscar" onclick="listarBoletos()">Atualizar</button></div>
-        <div><label>&nbsp;</label><button class="btn-limpar" onclick="limparFiltroBoletos()">Limpar</button></div>
-      </div>
-      <table>
-        <thead><tr><th>Vencimento</th><th>Status</th><th>Item</th><th>Categoria</th><th>Valor</th><th>Pagamento</th><th>Parcela</th><th>Forma</th><th>Observação</th><th style="width:190px;">Ação</th></tr></thead>
-        <tbody id="tbodyBoletos"></tbody>
-      </table>
-      <div class="total" id="totalBoletos"></div>
     </div>
 
     <div class="box">
       <h2>Saídas lançadas</h2>
       <div class="grid-filtro">
         <div><label for="filtroMes">Mês</label><select id="filtroMes"></select></div>
-        <div><label for="filtroAno">Ano</label><input id="filtroAno" type="number" min="2000" max="2100" /></div>
+        <div><label for="filtroAno">Ano</label><input id="filtroAno" type="number" min="2000" max="2100" placeholder="Todos" /></div>
         <div><label for="filtroItem">Item</label><select id="filtroItem"></select></div>
         <div><label for="filtroCategoria">Categoria</label><select id="filtroCategoria"></select></div>
         <div><label for="filtroBusca">Busca</label><input id="filtroBusca" placeholder="Item, categoria ou observação" /></div>
@@ -151,30 +94,10 @@
     </div>
   </div>
 
-  <div id="modalPagar" class="modal-backdrop">
-    <div class="modal">
-      <h2>Pagar boleto</h2>
-      <div class="muted" id="pagarResumo"></div>
-      <input type="hidden" id="pagar_id" />
-      <div class="modal-grid" style="margin-top:14px;">
-        <div><label for="pagar_data_saida">Data pagamento</label><input id="pagar_data_saida" type="date" /></div>
-        <div><label for="pagar_valor">Valor pago</label><input id="pagar_valor" inputmode="decimal" placeholder="0,00" /></div>
-        <div><label for="pagar_forma_pagamento">Forma pagamento</label><select id="pagar_forma_pagamento"><option value="Pix">Pix</option><option value="Dinheiro">Dinheiro</option><option value="Cartão">Cartão</option><option value="Boleto">Boleto</option><option value="Transferência">Transferência</option><option value="Outro">Outro</option></select></div>
-      </div>
-      <div class="modal-acoes">
-        <button class="btn-fechar" onclick="fecharModalPagar()">Cancelar</button>
-        <button class="btn-pagar" onclick="confirmarPagamento()">Confirmar pagamento</button>
-      </div>
-    </div>
-  </div>
-
   <script>
     const API = '/api/saidas';
     let itens = [];
     let categorias = [];
-    let pendenciasAtuais = [];
-    let boletosAtuais = [];
-    let salvandoCarne = false;
     const nomesMeses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
     function escapeHtml(v) { return String(v ?? '').replace(/[&<>'"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[c])); }
@@ -191,17 +114,12 @@
 
       const hoje = new Date();
       const hojeISO = hoje.toISOString().slice(0,10);
-      const fimAnoISO = `${hoje.getFullYear()}-12-31`;
       document.getElementById('competencia_mes').value = hoje.getMonth() + 1;
       document.getElementById('competencia_ano').value = hoje.getFullYear();
       document.getElementById('vencimento').value = hojeISO;
       document.getElementById('data_saida').value = hojeISO;
-      document.getElementById('carne_primeiro_vencimento').value = hojeISO;
-      document.getElementById('carne_data_limite').value = fimAnoISO;
-
       document.getElementById('filtroMes').value = '';
       document.getElementById('filtroAno').value = '';
-      document.getElementById('filtroAno').placeholder = 'Todos';
     }
 
     async function carregarBases() {
@@ -213,7 +131,6 @@
       categorias = categoriasJson.data || [];
       const itensOptions = '<option value="">Selecione</option>' + itens.map(i => `<option value="${i.id}">${escapeHtml(i.nome)} (${escapeHtml(i.categoria_nome)})</option>`).join('');
       document.getElementById('item_saida_id').innerHTML = itensOptions;
-      document.getElementById('carne_item_saida_id').innerHTML = itensOptions;
       document.getElementById('filtroItem').innerHTML = '<option value="">Todos</option>' + itens.map(i => `<option value="${i.id}">${escapeHtml(i.nome)}</option>`).join('');
       document.getElementById('filtroCategoria').innerHTML = '<option value="">Todas</option>' + categorias.map(c => `<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');
     }
@@ -228,18 +145,10 @@
       document.getElementById('observacao').value = '';
       document.getElementById('vencimento').value = hojeISO;
       document.getElementById('data_saida').value = hojeISO;
-      limparMsg();
-    }
-
-    function limparCarne() {
       const hoje = new Date();
-      const hojeISO = hoje.toISOString().slice(0,10);
-      document.getElementById('carne_item_saida_id').value = '';
-      document.getElementById('carne_primeiro_vencimento').value = hojeISO;
-      document.getElementById('carne_data_limite').value = `${hoje.getFullYear()}-12-31`;
-      document.getElementById('carne_valor').value = '';
-      document.getElementById('carne_forma_pagamento').value = 'Pix';
-      document.getElementById('carne_observacao').value = '';
+      document.getElementById('competencia_mes').value = hoje.getMonth() + 1;
+      document.getElementById('competencia_ano').value = hoje.getFullYear();
+      limparMsg();
     }
 
     function limparFiltros() {
@@ -250,12 +159,6 @@
       document.getElementById('filtroBusca').value = '';
       document.getElementById('filtroStatus').value = '';
       listar();
-    }
-
-    function limparFiltroBoletos() {
-      document.getElementById('filtroBoletoStatus').value = '';
-      document.getElementById('filtroBoletoBusca').value = '';
-      listarBoletos();
     }
 
     async function listar() {
@@ -274,181 +177,31 @@
         if (categoria) params.append('categoria_id', categoria);
         if (busca) params.append('busca', busca);
         if (status) params.append('status', status);
+
         const json = await tratar(await fetch(`${API}?${params.toString()}`));
         const tbody = document.getElementById('tbody');
         if (!json.data.length) {
           tbody.innerHTML = '<tr><td colspan="10">Nenhuma saída encontrada.</td></tr>';
           document.getElementById('totalLista').textContent = '';
-        } else {
-          tbody.innerHTML = json.data.map(item => `
-            <tr>
-              <td>${String(item.competencia_mes).padStart(2,'0')}/${item.competencia_ano}</td>
-              <td>${dataBR(item.vencimento)}</td>
-              <td>${dataBR(item.data_saida)}</td>
-              <td>${escapeHtml(item.item_saida_nome)}</td>
-              <td>${escapeHtml(item.categoria_nome)}</td>
-              <td>${moeda(item.valor)}</td>
-              <td><span class="status status-${item.status}">${item.status}</span></td>
-              <td>${item.numero_parcela && item.total_parcelas ? `${item.numero_parcela}/${item.total_parcelas}` : '-'}</td>
-              <td>${escapeHtml(item.observacao || '')}</td>
-              <td><div class="acoes"><button class="btn-editar" onclick="editar(${item.id})">Editar</button><button class="btn-excluir" onclick="excluirRegistro(${item.id})">Excluir</button></div></td>
-            </tr>`).join('');
-          const total = json.data.filter(x => x.status !== 'CANCELADO').reduce((acc, x) => acc + Number(x.valor || 0), 0);
-          document.getElementById('totalLista').textContent = `Total listado: ${moeda(total)}`;
-        }
-        await carregarPendencias();
-        await listarBoletos();
-      } catch (error) { msg(error.message, 'erro'); }
-    }
-
-    async function listarBoletos() {
-      try {
-        const params = new URLSearchParams();
-        params.append('somente_com_vencimento', 'true');
-        params.append('ordenar_por', 'vencimento_desc');
-        const status = document.getElementById('filtroBoletoStatus').value;
-        const busca = document.getElementById('filtroBoletoBusca').value.trim();
-        if (status) params.append('status', status);
-        if (busca) params.append('busca', busca);
-
-        const json = await tratar(await fetch(`${API}?${params.toString()}`));
-        boletosAtuais = json.data || [];
-        const tbody = document.getElementById('tbodyBoletos');
-        if (!boletosAtuais.length) {
-          tbody.innerHTML = '<tr><td colspan="10">Nenhum boleto/vencimento encontrado.</td></tr>';
-          document.getElementById('totalBoletos').textContent = '';
           return;
         }
 
-        const hojeISO = new Date().toISOString().slice(0,10);
-        tbody.innerHTML = boletosAtuais.map(item => {
-          const vencimentoISO = item.vencimento ? String(item.vencimento).slice(0,10) : '';
-          const vencido = item.status === 'PENDENTE' && vencimentoISO && vencimentoISO < hojeISO;
-          const trClass = item.status === 'PAGO' ? 'linha-paga' : (vencido ? 'linha-vencida' : '');
-          const parcela = item.numero_parcela && item.total_parcelas ? `${item.numero_parcela}/${item.total_parcelas}` : '-';
-          const acao = item.status === 'PENDENTE'
-            ? `<button class="btn-pagar" onclick="abrirModalPagar(${item.id})">Pagar</button>`
-            : `<span class="muted">${item.status === 'PAGO' ? 'Pago' : 'Sem ação'}</span>`;
-          return `
-            <tr class="${trClass}">
-              <td>${dataBR(item.vencimento)}</td>
-              <td><span class="status status-${item.status}">${item.status}</span></td>
-              <td>${escapeHtml(item.item_saida_nome)}</td>
-              <td>${escapeHtml(item.categoria_nome)}</td>
-              <td>${moeda(item.valor)}</td>
-              <td>${dataBR(item.data_saida)}</td>
-              <td>${parcela}</td>
-              <td>${escapeHtml(item.forma_pagamento || '')}</td>
-              <td>${escapeHtml(item.observacao || '')}</td>
-              <td><div class="acoes">${acao}<button class="btn-editar" onclick="editar(${item.id})">Editar</button></div></td>
-            </tr>`;
-        }).join('');
-
-        const totalAberto = boletosAtuais
-          .filter(x => x.status === 'PENDENTE')
-          .reduce((acc, x) => acc + Number(x.valor || 0), 0);
-        const totalPago = boletosAtuais
-          .filter(x => x.status === 'PAGO')
-          .reduce((acc, x) => acc + Number(x.valor || 0), 0);
-        document.getElementById('totalBoletos').textContent = `Aberto: ${moeda(totalAberto)} | Pago: ${moeda(totalPago)}`;
-      } catch (error) {
-        msg(error.message, 'erro');
-      }
-    }
-
-    function abrirModalPagar(id) {
-      const item = boletosAtuais.find(x => Number(x.id) === Number(id));
-      if (!item) return;
-      document.getElementById('pagar_id').value = item.id;
-      document.getElementById('pagar_data_saida').value = new Date().toISOString().slice(0,10);
-      document.getElementById('pagar_valor').value = String(item.valor || '').replace('.', ',');
-      document.getElementById('pagar_forma_pagamento').value = item.forma_pagamento || 'Pix';
-      document.getElementById('pagarResumo').textContent = `${item.item_saida_nome} | vencimento ${dataBR(item.vencimento)} | valor ${moeda(item.valor)}`;
-      document.getElementById('modalPagar').classList.add('aberto');
-    }
-
-    function fecharModalPagar() {
-      document.getElementById('modalPagar').classList.remove('aberto');
-      document.getElementById('pagar_id').value = '';
-    }
-
-    async function confirmarPagamento() {
-      try {
-        const id = document.getElementById('pagar_id').value;
-        const data_saida = document.getElementById('pagar_data_saida').value;
-        const valor = document.getElementById('pagar_valor').value;
-        const forma_pagamento = document.getElementById('pagar_forma_pagamento').value;
-        if (!id) throw new Error('Boleto não selecionado');
-        if (!data_saida) throw new Error('Data de pagamento é obrigatória');
-        if (!valor) throw new Error('Valor pago é obrigatório');
-
-        await tratar(await fetch(`${API}/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'PAGO', data_saida, valor, forma_pagamento })
-        }));
-
-        fecharModalPagar();
-        msg('Boleto pago com sucesso');
-        listar();
-      } catch (error) {
-        msg(error.message, 'erro');
-      }
-    }
-
-    async function carregarPendencias() {
-      const mes = document.getElementById('filtroMes').value;
-      const ano = document.getElementById('filtroAno').value;
-      const tbody = document.getElementById('tbodyPendencias');
-
-      if (!mes || !ano) {
-        pendenciasAtuais = [];
-        tbody.innerHTML = '<tr><td colspan="6">Selecione mês e ano nos filtros para ver pendências recorrentes.</td></tr>';
-        return;
-      }
-
-      const json = await tratar(await fetch(`${API}/faltantes-recorrentes?mes=${mes}&ano=${ano}`));
-      pendenciasAtuais = json.data || [];
-      if (!pendenciasAtuais.length) {
-        tbody.innerHTML = '<tr><td colspan="6">Nenhuma pendência recorrente encontrada para este mês.</td></tr>';
-        return;
-      }
-      tbody.innerHTML = pendenciasAtuais.map((item, index) => `
-        <tr>
-          <td>${escapeHtml(item.item_saida_nome)}</td>
-          <td>${escapeHtml(item.categoria_nome)}</td>
-          <td>${item.ultimo_valor_pago ? moeda(item.ultimo_valor_pago) : 'Sem histórico'}</td>
-          <td>${dataBR(item.ultimo_vencimento)}</td>
-          <td>${item.ultimo_mes_pago ? String(item.ultimo_mes_pago).padStart(2,'0') + '/' + item.ultimo_ano_pago : '-'}</td>
-          <td><button class="btn-mini" onclick="preencherPendente(${index})">Lançar</button></td>
-        </tr>`).join('');
-    }
-
-    function sugerirVencimento(mes, ano, ultimoVencimento) {
-      if (!mes || !ano || !ultimoVencimento) return '';
-      const partes = String(ultimoVencimento).slice(0,10).split('-');
-      if (partes.length !== 3) return '';
-      const diaAnterior = Number(partes[2]);
-      const ultimoDiaMes = new Date(Number(ano), Number(mes), 0).getDate();
-      const dia = Math.min(diaAnterior, ultimoDiaMes);
-      return `${ano}-${String(mes).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
-    }
-
-    function preencherPendente(index) {
-      const item = pendenciasAtuais[index];
-      if (!item) return;
-      const mes = document.getElementById('filtroMes').value;
-      const ano = document.getElementById('filtroAno').value;
-      document.getElementById('saida_id').value = '';
-      document.getElementById('item_saida_id').value = item.item_saida_id;
-      document.getElementById('competencia_mes').value = mes;
-      document.getElementById('competencia_ano').value = ano;
-      document.getElementById('vencimento').value = sugerirVencimento(mes, ano, item.ultimo_vencimento);
-      document.getElementById('data_saida').value = '';
-      document.getElementById('valor').value = item.ultimo_valor_pago ? String(item.ultimo_valor_pago).replace('.', ',') : '';
-      document.getElementById('status').value = 'PENDENTE';
-      document.getElementById('observacao').value = '';
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+        tbody.innerHTML = json.data.map(item => `
+          <tr>
+            <td>${String(item.competencia_mes).padStart(2,'0')}/${item.competencia_ano}</td>
+            <td>${dataBR(item.vencimento)}</td>
+            <td>${dataBR(item.data_saida)}</td>
+            <td>${escapeHtml(item.item_saida_nome)}</td>
+            <td>${escapeHtml(item.categoria_nome)}</td>
+            <td>${moeda(item.valor)}</td>
+            <td><span class="status status-${item.status}">${item.status}</span></td>
+            <td>${item.numero_parcela && item.total_parcelas ? `${item.numero_parcela}/${item.total_parcelas}` : '-'}</td>
+            <td>${escapeHtml(item.observacao || '')}</td>
+            <td><div class="acoes"><button class="btn-editar" onclick="editar(${item.id})">Editar</button><button class="btn-excluir" onclick="excluirRegistro(${item.id})">Excluir</button></div></td>
+          </tr>`).join('');
+        const total = json.data.filter(x => x.status !== 'CANCELADO').reduce((acc, x) => acc + Number(x.valor || 0), 0);
+        document.getElementById('totalLista').textContent = `Total listado: ${moeda(total)}`;
+      } catch (error) { msg(error.message, 'erro'); }
     }
 
     async function editar(id) {
@@ -486,53 +239,13 @@
           observacao: document.getElementById('observacao').value.trim()
         };
         if (!body.item_saida_id) throw new Error('Item de saída é obrigatório');
+        if (!body.valor) throw new Error('Valor é obrigatório');
+        if (body.status === 'PAGO' && !body.data_saida) throw new Error('Data de pagamento é obrigatória para saída paga');
         await tratar(await fetch(id ? `${API}/${id}` : API, { method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }));
         msg(id ? 'Saída atualizada com sucesso' : 'Saída lançada com sucesso');
         limparFormulario();
         listar();
       } catch (error) { msg(error.message, 'erro'); }
-    }
-
-    function obterMesAnoDeDataISO(dataISO) {
-      const partes = String(dataISO || '').split('-');
-      if (partes.length !== 3) return null;
-      return { ano: partes[0], mes: String(Number(partes[1])) };
-    }
-
-    async function salvarCarne() {
-      if (salvandoCarne) return;
-      try {
-        limparMsg();
-        const body = {
-          item_saida_id: document.getElementById('carne_item_saida_id').value,
-          primeiro_vencimento: document.getElementById('carne_primeiro_vencimento').value,
-          data_limite: document.getElementById('carne_data_limite').value,
-          valor: document.getElementById('carne_valor').value,
-          forma_pagamento: document.getElementById('carne_forma_pagamento').value,
-          observacao: document.getElementById('carne_observacao').value.trim()
-        };
-        if (!body.item_saida_id) throw new Error('Item de saída do carnê é obrigatório');
-        if (!body.primeiro_vencimento) throw new Error('Primeiro vencimento é obrigatório');
-        if (!body.data_limite) throw new Error('Data limite é obrigatória');
-        if (!body.valor) throw new Error('Valor da parcela é obrigatório');
-
-        salvandoCarne = true;
-        document.getElementById('btnSalvarCarne').disabled = true;
-        const json = await tratar(await fetch(`${API}/carne`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }));
-        const dataPrimeira = obterMesAnoDeDataISO(json.data.primeiro_vencimento || body.primeiro_vencimento);
-        if (dataPrimeira) {
-          document.getElementById('filtroMes').value = dataPrimeira.mes;
-          document.getElementById('filtroAno').value = dataPrimeira.ano;
-        }
-        msg(`Carnê criado com ${json.data.total_parcelas} parcela(s).`);
-        limparCarne();
-        listar();
-      } catch (error) {
-        msg(error.message, 'erro');
-      } finally {
-        salvandoCarne = false;
-        document.getElementById('btnSalvarCarne').disabled = false;
-      }
     }
 
     async function excluirRegistro(id) {
@@ -544,8 +257,16 @@
       } catch (error) { msg(error.message, 'erro'); }
     }
 
+    async function carregarEdicaoPelaUrl() {
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get('id');
+      if (id) await editar(id);
+    }
+
     preencherMeses();
-    carregarBases().then(listar).catch(error => msg(error.message, 'erro'));
+    carregarBases()
+      .then(async () => { await listar(); await carregarEdicaoPelaUrl(); })
+      .catch(error => msg(error.message, 'erro'));
   </script>
 </body>
 </html>

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cadastrar Carnê - Alumínio JR</title>
+  <link rel="stylesheet" href="/css/theme.css" />
+  <style>
+    body { font-family: Arial, sans-serif; background:#eef2f7; margin:0; padding:24px; }
+    .container { max-width:1180px; margin:0 auto; }
+    .box { background:#fff; padding:22px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,.08); margin-bottom:22px; }
+    h1,h2 { margin-top:0; color:#243447; }
+    .menu { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+    .menu a { text-decoration:none; background:#34495e; color:#fff; padding:9px 12px; border-radius:6px; font-size:13px; }
+    .menu a.ativo { background:#2ecc71; }
+    .grid-form { display:grid; grid-template-columns:1.6fr 150px 150px 130px 1.1fr 160px; gap:12px; align-items:end; }
+    .grid-observacao { display:grid; grid-template-columns:1fr; gap:12px; margin-top:12px; }
+    label { display:block; font-size:13px; font-weight:bold; color:#4a5568; margin-bottom:6px; }
+    input, select, textarea, button { width:100%; padding:10px 12px; border-radius:6px; border:1px solid #ccd3db; font-size:14px; box-sizing:border-box; }
+    textarea { min-height:70px; resize:vertical; }
+    button { border:none; cursor:pointer; font-weight:bold; }
+    button:disabled { opacity:.65; cursor:not-allowed; }
+    .btn-salvar { background:#8e44ad; color:#fff; }
+    .btn-limpar { background:#95a5a6; color:#fff; }
+    table { width:100%; border-collapse:collapse; margin-top:16px; }
+    th { background:#2c3e50; color:#fff; padding:10px; text-align:left; }
+    td { padding:10px; border-bottom:1px solid #e9edf2; vertical-align:middle; }
+    tr:hover { background:#f9fbfd; }
+    .status { font-weight:bold; padding:4px 8px; border-radius:999px; display:inline-block; }
+    .status-PAGO { background:#d5f5e3; color:#1e8449; }
+    .status-PENDENTE { background:#fff3cd; color:#9a6a00; }
+    .status-CANCELADO { background:#f8d7da; color:#922b21; }
+    .mensagem { margin-top:12px; font-weight:bold; display:none; }
+    .mensagem.sucesso { color:#1e8449; display:block; }
+    .mensagem.erro { color:#c0392b; display:block; }
+    .muted { color:#667085; font-size:13px; }
+    .total { font-weight:bold; text-align:right; margin-top:12px; }
+    @media (max-width:1100px) { .grid-form { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="box">
+      <h1>Cadastrar carnê</h1>
+      <div class="menu">
+        <a href="/admin-saidas-categorias">Categorias</a>
+        <a href="/admin-saidas-itens">Itens de saída</a>
+        <a href="/admin-saidas">Lançar saída</a>
+        <a href="/admin-saidas-carne" class="ativo">Carnê</a>
+        <a href="/admin-saidas-boletos">Boletos</a>
+        <a href="/relatorio-saidas">Relatório mensal</a>
+      </div>
+      <div class="muted">Esta tela gera várias parcelas mensais na tabela de saídas. As parcelas entram como PENDENTE, com vencimento preenchido e sem data de pagamento.</div>
+
+      <div class="grid-form" style="margin-top:14px;">
+        <div><label for="item_saida_id">Item de saída</label><select id="item_saida_id"></select></div>
+        <div><label for="primeiro_vencimento">Primeiro vencimento</label><input id="primeiro_vencimento" type="date" /></div>
+        <div><label for="data_limite">Data limite</label><input id="data_limite" type="date" /></div>
+        <div><label for="valor">Valor da parcela</label><input id="valor" inputmode="decimal" placeholder="0,00" /></div>
+        <div><label for="forma_pagamento">Forma pagamento</label><select id="forma_pagamento"><option value="Pix">Pix</option><option value="Dinheiro">Dinheiro</option><option value="Cartão">Cartão</option><option value="Boleto">Boleto</option><option value="Transferência">Transferência</option><option value="Outro">Outro</option></select></div>
+        <div style="display:flex; gap:10px;"><button id="btnSalvar" class="btn-salvar" onclick="salvarCarne()">Salvar carnê</button><button class="btn-limpar" onclick="limparFormulario()">Limpar</button></div>
+      </div>
+      <div class="grid-observacao">
+        <div><label for="observacao">Observação</label><textarea id="observacao" placeholder="Opcional. Ex: internet até dezembro"></textarea></div>
+      </div>
+      <div id="mensagem" class="mensagem"></div>
+    </div>
+
+    <div class="box">
+      <h2>Parcelas geradas agora</h2>
+      <table>
+        <thead><tr><th>Parcela</th><th>Vencimento</th><th>Competência</th><th>Item</th><th>Categoria</th><th>Valor</th><th>Status</th><th>Forma</th></tr></thead>
+        <tbody id="tbodyParcelas"><tr><td colspan="8">Nenhum carnê gerado nesta tela ainda.</td></tr></tbody>
+      </table>
+      <div class="total" id="totalParcelas"></div>
+    </div>
+  </div>
+
+  <script>
+    const API = '/api/saidas';
+    let salvando = false;
+
+    function escapeHtml(v) { return String(v ?? '').replace(/[&<>'"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[c])); }
+    function moeda(v) { return Number(v || 0).toLocaleString('pt-BR', { style:'currency', currency:'BRL' }); }
+    function dataBR(v) { if (!v) return ''; const d = String(v).slice(0,10).split('-'); return d.length === 3 ? `${d[2]}/${d[1]}/${d[0]}` : ''; }
+    function msg(texto, tipo='sucesso') { const el = document.getElementById('mensagem'); el.textContent = texto; el.className = `mensagem ${tipo}`; }
+    function limparMsg() { const el = document.getElementById('mensagem'); el.textContent = ''; el.className = 'mensagem'; }
+    async function tratar(res) { const json = await res.json(); if (!res.ok || json.success === false) throw new Error(json.message || 'Erro'); return json; }
+
+    async function carregarItens() {
+      const json = await tratar(await fetch('/api/saidas-itens?ativo=true'));
+      const itens = json.data || [];
+      document.getElementById('item_saida_id').innerHTML = '<option value="">Selecione</option>' + itens.map(i => `<option value="${i.id}">${escapeHtml(i.nome)} (${escapeHtml(i.categoria_nome)})</option>`).join('');
+    }
+
+    function limparFormulario() {
+      const hoje = new Date();
+      document.getElementById('item_saida_id').value = '';
+      document.getElementById('primeiro_vencimento').value = hoje.toISOString().slice(0,10);
+      document.getElementById('data_limite').value = `${hoje.getFullYear()}-12-31`;
+      document.getElementById('valor').value = '';
+      document.getElementById('forma_pagamento').value = 'Pix';
+      document.getElementById('observacao').value = '';
+      limparMsg();
+    }
+
+    function mostrarParcelas(parcelas = []) {
+      const tbody = document.getElementById('tbodyParcelas');
+      if (!parcelas.length) {
+        tbody.innerHTML = '<tr><td colspan="8">Nenhuma parcela gerada.</td></tr>';
+        document.getElementById('totalParcelas').textContent = '';
+        return;
+      }
+
+      tbody.innerHTML = parcelas.map(p => `
+        <tr>
+          <td>${p.numero_parcela && p.total_parcelas ? `${p.numero_parcela}/${p.total_parcelas}` : '-'}</td>
+          <td>${dataBR(p.vencimento)}</td>
+          <td>${String(p.competencia_mes).padStart(2,'0')}/${p.competencia_ano}</td>
+          <td>${escapeHtml(p.item_saida_nome)}</td>
+          <td>${escapeHtml(p.categoria_nome)}</td>
+          <td>${moeda(p.valor)}</td>
+          <td><span class="status status-${p.status}">${p.status}</span></td>
+          <td>${escapeHtml(p.forma_pagamento || '')}</td>
+        </tr>`).join('');
+
+      const total = parcelas.reduce((acc, p) => acc + Number(p.valor || 0), 0);
+      document.getElementById('totalParcelas').textContent = `Total gerado: ${moeda(total)}`;
+    }
+
+    async function salvarCarne() {
+      if (salvando) return;
+      try {
+        limparMsg();
+        const body = {
+          item_saida_id: document.getElementById('item_saida_id').value,
+          primeiro_vencimento: document.getElementById('primeiro_vencimento').value,
+          data_limite: document.getElementById('data_limite').value,
+          valor: document.getElementById('valor').value,
+          forma_pagamento: document.getElementById('forma_pagamento').value,
+          observacao: document.getElementById('observacao').value.trim()
+        };
+        if (!body.item_saida_id) throw new Error('Item de saída é obrigatório');
+        if (!body.primeiro_vencimento) throw new Error('Primeiro vencimento é obrigatório');
+        if (!body.data_limite) throw new Error('Data limite é obrigatória');
+        if (!body.valor) throw new Error('Valor da parcela é obrigatório');
+
+        salvando = true;
+        document.getElementById('btnSalvar').disabled = true;
+        const json = await tratar(await fetch(`${API}/carne`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body) }));
+        mostrarParcelas(json.data.parcelas || []);
+        msg(`Carnê criado com ${json.data.total_parcelas} parcela(s).`);
+        limparFormulario();
+      } catch (error) {
+        msg(error.message, 'erro');
+      } finally {
+        salvando = false;
+        document.getElementById('btnSalvar').disabled = false;
+      }
+    }
+
+    carregarItens().then(limparFormulario).catch(error => msg(error.message, 'erro'));
+  </script>
+</body>
+</html>

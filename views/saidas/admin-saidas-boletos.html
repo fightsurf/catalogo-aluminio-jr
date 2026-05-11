@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Boletos de Saída - Alumínio JR</title>
+  <link rel="stylesheet" href="/css/theme.css" />
+  <style>
+    body { font-family: Arial, sans-serif; background:#eef2f7; margin:0; padding:24px; }
+    .container { max-width:1320px; margin:0 auto; }
+    .box { background:#fff; padding:22px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,.08); margin-bottom:22px; }
+    h1,h2 { margin-top:0; color:#243447; }
+    .menu { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+    .menu a { text-decoration:none; background:#34495e; color:#fff; padding:9px 12px; border-radius:6px; font-size:13px; }
+    .menu a.ativo { background:#2ecc71; }
+    .grid-filtro { display:grid; grid-template-columns:170px 1.4fr 180px 150px 150px; gap:12px; align-items:end; }
+    label { display:block; font-size:13px; font-weight:bold; color:#4a5568; margin-bottom:6px; }
+    input, select, button { width:100%; padding:10px 12px; border-radius:6px; border:1px solid #ccd3db; font-size:14px; box-sizing:border-box; }
+    button { border:none; cursor:pointer; font-weight:bold; }
+    .btn-buscar { background:#34495e; color:#fff; }
+    .btn-limpar { background:#95a5a6; color:#fff; }
+    .btn-pagar { background:#27ae60; color:#fff; padding:8px 10px; }
+    .btn-editar { background:#f39c12; color:#fff; padding:8px 10px; }
+    .btn-fechar { background:#7f8c8d; color:#fff; }
+    table { width:100%; border-collapse:collapse; margin-top:16px; }
+    th { background:#2c3e50; color:#fff; padding:10px; text-align:left; }
+    td { padding:10px; border-bottom:1px solid #e9edf2; vertical-align:middle; }
+    tr:hover { background:#f9fbfd; }
+    .acoes { display:flex; gap:8px; flex-wrap:wrap; }
+    .status { font-weight:bold; padding:4px 8px; border-radius:999px; display:inline-block; }
+    .status-PAGO { background:#d5f5e3; color:#1e8449; }
+    .status-PENDENTE { background:#fff3cd; color:#9a6a00; }
+    .status-CANCELADO { background:#f8d7da; color:#922b21; }
+    .linha-vencida { background:#fff1f0; }
+    .linha-vencida:hover { background:#ffe4e2; }
+    .linha-paga { background:#f1fbf5; }
+    .mensagem { margin-top:12px; font-weight:bold; display:none; }
+    .mensagem.sucesso { color:#1e8449; display:block; }
+    .mensagem.erro { color:#c0392b; display:block; }
+    .muted { color:#667085; font-size:13px; }
+    .total { font-weight:bold; text-align:right; margin-top:12px; }
+    .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; padding:18px; z-index:9999; }
+    .modal-backdrop.aberto { display:flex; }
+    .modal { background:#fff; width:min(560px, 100%); border-radius:10px; padding:22px; box-shadow:0 12px 35px rgba(0,0,0,.25); }
+    .modal-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .modal-acoes { display:flex; gap:10px; justify-content:flex-end; margin-top:18px; }
+    @media (max-width:1100px) { .grid-filtro,.modal-grid { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="box">
+      <h1>Boletos / vencimentos cadastrados</h1>
+      <div class="menu">
+        <a href="/admin-saidas-categorias">Categorias</a>
+        <a href="/admin-saidas-itens">Itens de saída</a>
+        <a href="/admin-saidas">Lançar saída</a>
+        <a href="/admin-saidas-carne">Carnê</a>
+        <a href="/admin-saidas-boletos" class="ativo">Boletos</a>
+        <a href="/relatorio-saidas">Relatório mensal</a>
+      </div>
+      <div class="muted">Lista todos os lançamentos com vencimento, em ordem de vencimento decrescente. O botão Pagar atualiza a linha existente; não cria uma nova saída.</div>
+
+      <div class="grid-filtro" style="margin-top:14px;">
+        <div><label for="filtroStatus">Status</label><select id="filtroStatus"><option value="">Todos</option><option value="PENDENTE">Pendente</option><option value="PAGO">Pago</option><option value="CANCELADO">Cancelado</option></select></div>
+        <div><label for="filtroBusca">Busca</label><input id="filtroBusca" placeholder="Item, categoria ou observação" /></div>
+        <div><label for="filtroItem">Item</label><select id="filtroItem"></select></div>
+        <div><label>&nbsp;</label><button class="btn-buscar" onclick="listarBoletos()">Atualizar</button></div>
+        <div><label>&nbsp;</label><button class="btn-limpar" onclick="limparFiltros()">Limpar</button></div>
+      </div>
+      <div id="mensagem" class="mensagem"></div>
+    </div>
+
+    <div class="box">
+      <h2>Lista de boletos</h2>
+      <table>
+        <thead><tr><th>Vencimento</th><th>Status</th><th>Item</th><th>Categoria</th><th>Valor</th><th>Pagamento</th><th>Parcela</th><th>Forma</th><th>Observação</th><th style="width:210px;">Ação</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div class="total" id="totalBoletos"></div>
+    </div>
+  </div>
+
+  <div id="modalPagar" class="modal-backdrop">
+    <div class="modal">
+      <h2>Pagar boleto</h2>
+      <div class="muted" id="pagarResumo"></div>
+      <input type="hidden" id="pagar_id" />
+      <div class="modal-grid" style="margin-top:14px;">
+        <div><label for="pagar_data_saida">Data pagamento</label><input id="pagar_data_saida" type="date" /></div>
+        <div><label for="pagar_valor">Valor pago</label><input id="pagar_valor" inputmode="decimal" placeholder="0,00" /></div>
+        <div><label for="pagar_forma_pagamento">Forma pagamento</label><select id="pagar_forma_pagamento"><option value="Pix">Pix</option><option value="Dinheiro">Dinheiro</option><option value="Cartão">Cartão</option><option value="Boleto">Boleto</option><option value="Transferência">Transferência</option><option value="Outro">Outro</option></select></div>
+      </div>
+      <div class="modal-acoes">
+        <button class="btn-fechar" onclick="fecharModalPagar()">Cancelar</button>
+        <button class="btn-pagar" onclick="confirmarPagamento()">Confirmar pagamento</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API = '/api/saidas';
+    let boletosAtuais = [];
+
+    function escapeHtml(v) { return String(v ?? '').replace(/[&<>'"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[c])); }
+    function moeda(v) { return Number(v || 0).toLocaleString('pt-BR', { style:'currency', currency:'BRL' }); }
+    function dataBR(v) { if (!v) return ''; const d = String(v).slice(0,10).split('-'); return d.length === 3 ? `${d[2]}/${d[1]}/${d[0]}` : ''; }
+    function msg(texto, tipo='sucesso') { const el = document.getElementById('mensagem'); el.textContent = texto; el.className = `mensagem ${tipo}`; }
+    function limparMsg() { const el = document.getElementById('mensagem'); el.textContent = ''; el.className = 'mensagem'; }
+    async function tratar(res) { const json = await res.json(); if (!res.ok || json.success === false) throw new Error(json.message || 'Erro'); return json; }
+
+    async function carregarItens() {
+      const json = await tratar(await fetch('/api/saidas-itens?ativo=true'));
+      const itens = json.data || [];
+      document.getElementById('filtroItem').innerHTML = '<option value="">Todos</option>' + itens.map(i => `<option value="${i.id}">${escapeHtml(i.nome)}</option>`).join('');
+    }
+
+    function limparFiltros() {
+      document.getElementById('filtroStatus').value = '';
+      document.getElementById('filtroBusca').value = '';
+      document.getElementById('filtroItem').value = '';
+      listarBoletos();
+    }
+
+    async function listarBoletos() {
+      try {
+        limparMsg();
+        const params = new URLSearchParams();
+        params.append('somente_com_vencimento', 'true');
+        params.append('ordenar_por', 'vencimento_desc');
+        const status = document.getElementById('filtroStatus').value;
+        const busca = document.getElementById('filtroBusca').value.trim();
+        const item = document.getElementById('filtroItem').value;
+        if (status) params.append('status', status);
+        if (busca) params.append('busca', busca);
+        if (item) params.append('item_saida_id', item);
+
+        const json = await tratar(await fetch(`${API}?${params.toString()}`));
+        boletosAtuais = json.data || [];
+        const tbody = document.getElementById('tbody');
+        if (!boletosAtuais.length) {
+          tbody.innerHTML = '<tr><td colspan="10">Nenhum boleto/vencimento encontrado.</td></tr>';
+          document.getElementById('totalBoletos').textContent = '';
+          return;
+        }
+
+        const hojeISO = new Date().toISOString().slice(0,10);
+        tbody.innerHTML = boletosAtuais.map(item => {
+          const vencimentoISO = item.vencimento ? String(item.vencimento).slice(0,10) : '';
+          const vencido = item.status === 'PENDENTE' && vencimentoISO && vencimentoISO < hojeISO;
+          const trClass = item.status === 'PAGO' ? 'linha-paga' : (vencido ? 'linha-vencida' : '');
+          const parcela = item.numero_parcela && item.total_parcelas ? `${item.numero_parcela}/${item.total_parcelas}` : '-';
+          const acaoPagar = item.status === 'PENDENTE'
+            ? `<button class="btn-pagar" onclick="abrirModalPagar(${item.id})">Pagar</button>`
+            : `<span class="muted">${item.status === 'PAGO' ? 'Pago' : 'Sem ação'}</span>`;
+          return `
+            <tr class="${trClass}">
+              <td>${dataBR(item.vencimento)}</td>
+              <td><span class="status status-${item.status}">${item.status}</span></td>
+              <td>${escapeHtml(item.item_saida_nome)}</td>
+              <td>${escapeHtml(item.categoria_nome)}</td>
+              <td>${moeda(item.valor)}</td>
+              <td>${dataBR(item.data_saida)}</td>
+              <td>${parcela}</td>
+              <td>${escapeHtml(item.forma_pagamento || '')}</td>
+              <td>${escapeHtml(item.observacao || '')}</td>
+              <td><div class="acoes">${acaoPagar}<button class="btn-editar" onclick="editar(${item.id})">Editar</button></div></td>
+            </tr>`;
+        }).join('');
+
+        const totalAberto = boletosAtuais.filter(x => x.status === 'PENDENTE').reduce((acc, x) => acc + Number(x.valor || 0), 0);
+        const totalPago = boletosAtuais.filter(x => x.status === 'PAGO').reduce((acc, x) => acc + Number(x.valor || 0), 0);
+        const totalCancelado = boletosAtuais.filter(x => x.status === 'CANCELADO').reduce((acc, x) => acc + Number(x.valor || 0), 0);
+        document.getElementById('totalBoletos').textContent = `Aberto: ${moeda(totalAberto)} | Pago: ${moeda(totalPago)} | Cancelado: ${moeda(totalCancelado)}`;
+      } catch (error) { msg(error.message, 'erro'); }
+    }
+
+    function abrirModalPagar(id) {
+      const item = boletosAtuais.find(x => Number(x.id) === Number(id));
+      if (!item) return;
+      document.getElementById('pagar_id').value = item.id;
+      document.getElementById('pagar_data_saida').value = new Date().toISOString().slice(0,10);
+      document.getElementById('pagar_valor').value = String(item.valor || '').replace('.', ',');
+      document.getElementById('pagar_forma_pagamento').value = item.forma_pagamento || 'Pix';
+      document.getElementById('pagarResumo').textContent = `${item.item_saida_nome} | vencimento ${dataBR(item.vencimento)} | valor ${moeda(item.valor)}`;
+      document.getElementById('modalPagar').classList.add('aberto');
+    }
+
+    function fecharModalPagar() {
+      document.getElementById('modalPagar').classList.remove('aberto');
+      document.getElementById('pagar_id').value = '';
+    }
+
+    async function confirmarPagamento() {
+      try {
+        const id = document.getElementById('pagar_id').value;
+        const data_saida = document.getElementById('pagar_data_saida').value;
+        const valor = document.getElementById('pagar_valor').value;
+        const forma_pagamento = document.getElementById('pagar_forma_pagamento').value;
+        if (!id) throw new Error('Boleto não selecionado');
+        if (!data_saida) throw new Error('Data de pagamento é obrigatória');
+        if (!valor) throw new Error('Valor pago é obrigatório');
+
+        await tratar(await fetch(`${API}/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'PAGO', data_saida, valor, forma_pagamento })
+        }));
+
+        fecharModalPagar();
+        msg('Boleto pago com sucesso');
+        listarBoletos();
+      } catch (error) { msg(error.message, 'erro'); }
+    }
+
+    function editar(id) {
+      window.location.href = `/admin-saidas?id=${encodeURIComponent(id)}`;
+    }
+
+    carregarItens().then(listarBoletos).catch(error => msg(error.message, 'erro'));
+  </script>
+</body>
+</html>
