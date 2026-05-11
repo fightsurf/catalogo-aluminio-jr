@@ -49,6 +49,9 @@ const produtoComposicaoRoutes = require('./src/routes/produtoComposicao/produtoC
 const volumeRoutes = require('./src/routes/volume/volume.routes');
 const adminVolumeRoutes = require('./src/routes/volume/adminVolume.routes');
 const prestacaoContasRoutes = require('./src/routes/prestacao_contas/prestacao_contas.routes');
+const saidaCategoriaRoutes = require('./src/routes/saidas/saidaCategoria.routes');
+const saidaItemRoutes = require('./src/routes/saidas/saidaItem.routes');
+const saidaRoutes = require('./src/routes/saidas/saida.routes');
 
 const botRoutes = require('./src/routes/bot/bot.routes');
 const botAdminRoutes = require('./src/routes/bot/bot.admin.routes');
@@ -120,6 +123,9 @@ app.use('/api/fornecedores', fornecedorRoutes);
 app.use('/api/volume', volumeRoutes);
 app.use('/api/admin-volume', adminVolumeRoutes);
 app.use('/api/prestacoes', prestacaoContasRoutes);
+app.use('/api/saidas-categorias', saidaCategoriaRoutes);
+app.use('/api/saidas-itens', saidaItemRoutes);
+app.use('/api/saidas', saidaRoutes);
 app.use('/api/legado/pedidos-insercao-v2', pedidosInsercaoLegadoV2Routes);
 app.use('/legado/pedidos-insercao-v2', pedidosInsercaoLegadoV2ViewRoutes);
 app.use('/api/whatsapp', envioWhatsappRoutes);
@@ -243,6 +249,23 @@ app.get('/prestacao-contas', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'prestacao_contas', 'prestacao.html'));
 });
 
+// 🔥 SAÍDAS DE DINHEIRO
+app.get('/admin-saidas-categorias', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'saidas', 'admin-saida-categoria.html'));
+});
+
+app.get('/admin-saidas-itens', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'saidas', 'admin-saida-item.html'));
+});
+
+app.get('/admin-saidas', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'saidas', 'admin-saidas.html'));
+});
+
+app.get('/relatorio-saidas', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'saidas', 'relatorio-saidas.html'));
+});
+
 // 🔥 BOT
 app.get('/bot/contatos', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'bot-admin', 'bot-contatos.html'));
@@ -266,6 +289,11 @@ const PORT = process.env.PORT || 10000;
 const botAdminService = require('./src/services/bot/bot.admin.service');
 botAdminService.criarIndices().catch(err =>
   console.warn('⚠️  Índices bot (não crítico):', err.message)
+);
+
+const saidaSchemaService = require('./src/services/saidas/saidaSchema.service');
+saidaSchemaService.criarEstrutura().catch(err =>
+  console.warn('⚠️  Estrutura de saídas (não crítico):', err.message)
 );
 
 // =====================================================

@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lançamento de Saídas - Alumínio JR</title>
+  <link rel="stylesheet" href="/css/theme.css" />
+  <style>
+    body { font-family: Arial, sans-serif; background:#eef2f7; margin:0; padding:24px; }
+    .container { max-width:1280px; margin:0 auto; }
+    .box { background:#fff; padding:22px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,.08); margin-bottom:22px; }
+    h1,h2 { margin-top:0; color:#243447; }
+    .menu { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+    .menu a { text-decoration:none; background:#34495e; color:#fff; padding:9px 12px; border-radius:6px; font-size:13px; }
+    .menu a.ativo { background:#2ecc71; }
+    .grid-form { display:grid; grid-template-columns:1.3fr 110px 110px 140px 140px 130px 1.3fr 170px; gap:12px; align-items:end; }
+    .grid-form2 { display:grid; grid-template-columns:1.5fr 1.5fr; gap:12px; margin-top:12px; }
+    .grid-filtro { display:grid; grid-template-columns:100px 100px 1.1fr 1fr 130px 120px 120px; gap:12px; align-items:end; }
+    label { display:block; font-size:13px; font-weight:bold; color:#4a5568; margin-bottom:6px; }
+    input, select, textarea, button { width:100%; padding:10px 12px; border-radius:6px; border:1px solid #ccd3db; font-size:14px; box-sizing:border-box; }
+    textarea { min-height:70px; resize:vertical; }
+    button { border:none; cursor:pointer; font-weight:bold; }
+    .btn-salvar { background:#2ecc71; color:#fff; }
+    .btn-limpar { background:#95a5a6; color:#fff; }
+    .btn-buscar { background:#34495e; color:#fff; }
+    .btn-editar { background:#f39c12; color:#fff; padding:8px 10px; }
+    .btn-excluir { background:#e74c3c; color:#fff; padding:8px 10px; }
+    .btn-mini { background:#2980b9; color:#fff; padding:8px 10px; }
+    table { width:100%; border-collapse:collapse; margin-top:16px; }
+    th { background:#2c3e50; color:#fff; padding:10px; text-align:left; }
+    td { padding:10px; border-bottom:1px solid #e9edf2; vertical-align:middle; }
+    tr:hover { background:#f9fbfd; }
+    .acoes { display:flex; gap:8px; flex-wrap:wrap; }
+    .status { font-weight:bold; padding:4px 8px; border-radius:999px; display:inline-block; }
+    .status-PAGO { background:#d5f5e3; color:#1e8449; }
+    .status-PENDENTE { background:#fff3cd; color:#9a6a00; }
+    .status-CANCELADO { background:#f8d7da; color:#922b21; }
+    .mensagem { margin-top:12px; font-weight:bold; display:none; }
+    .mensagem.sucesso { color:#1e8449; display:block; }
+    .mensagem.erro { color:#c0392b; display:block; }
+    .pendencias { background:#fff9e8; border:1px solid #f5d98b; }
+    .muted { color:#667085; font-size:13px; }
+    .total { font-weight:bold; text-align:right; margin-top:12px; }
+    @media (max-width:1100px) { .grid-form,.grid-form2,.grid-filtro { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="box">
+      <h1>Lançamento de Saídas</h1>
+      <div class="menu">
+        <a href="/admin-saidas-categorias">Categorias</a>
+        <a href="/admin-saidas-itens">Itens de saída</a>
+        <a href="/admin-saidas" class="ativo">Lançar saídas</a>
+        <a href="/relatorio-saidas">Relatório mensal</a>
+      </div>
+
+      <input type="hidden" id="saida_id" />
+      <div class="grid-form">
+        <div><label for="item_saida_id">Item de saída</label><select id="item_saida_id"></select></div>
+        <div><label for="competencia_mes">Mês</label><select id="competencia_mes"></select></div>
+        <div><label for="competencia_ano">Ano</label><input id="competencia_ano" type="number" min="2000" max="2100" /></div>
+        <div><label for="data_saida">Data pagamento</label><input id="data_saida" type="date" /></div>
+        <div><label for="valor">Valor</label><input id="valor" inputmode="decimal" placeholder="0,00" /></div>
+        <div><label for="status">Status</label><select id="status"><option value="PAGO">Pago</option><option value="PENDENTE">Pendente</option><option value="CANCELADO">Cancelado</option></select></div>
+        <div><label for="forma_pagamento">Forma pagamento</label><select id="forma_pagamento"><option value="Pix">Pix</option><option value="Dinheiro">Dinheiro</option><option value="Cartão">Cartão</option><option value="Boleto">Boleto</option><option value="Transferência">Transferência</option><option value="Outro">Outro</option></select></div>
+        <div style="display:flex; gap:10px;"><button class="btn-salvar" onclick="salvar()">Salvar</button><button class="btn-limpar" onclick="limparFormulario()">Limpar</button></div>
+      </div>
+      <div class="grid-form2">
+        <div><label for="descricao">Descrição</label><textarea id="descricao" placeholder="Ex: Conta de energia da fábrica"></textarea></div>
+        <div><label for="observacao">Observação</label><textarea id="observacao" placeholder="Opcional"></textarea></div>
+      </div>
+      <div id="mensagem" class="mensagem"></div>
+    </div>
+
+    <div class="box pendencias">
+      <h2>Faltando lançar no mês selecionado</h2>
+      <div class="muted">Mostra itens recorrentes ativos que ainda não têm lançamento neste mês. O valor sugerido vem do último pagamento anterior.</div>
+      <table>
+        <thead><tr><th>Item</th><th>Categoria</th><th>Último valor pago</th><th>Última competência</th><th style="width:150px;">Ação</th></tr></thead>
+        <tbody id="tbodyPendencias"></tbody>
+      </table>
+    </div>
+
+    <div class="box">
+      <h2>Saídas lançadas</h2>
+      <div class="grid-filtro">
+        <div><label for="filtroMes">Mês</label><select id="filtroMes"></select></div>
+        <div><label for="filtroAno">Ano</label><input id="filtroAno" type="number" min="2000" max="2100" /></div>
+        <div><label for="filtroItem">Item</label><select id="filtroItem"></select></div>
+        <div><label for="filtroCategoria">Categoria</label><select id="filtroCategoria"></select></div>
+        <div><label for="filtroStatus">Status</label><select id="filtroStatus"><option value="">Todos</option><option value="PAGO">Pago</option><option value="PENDENTE">Pendente</option><option value="CANCELADO">Cancelado</option></select></div>
+        <div><label>&nbsp;</label><button class="btn-buscar" onclick="listar()">Buscar</button></div>
+        <div><label>&nbsp;</label><button class="btn-limpar" onclick="limparFiltros()">Limpar</button></div>
+      </div>
+      <table>
+        <thead><tr><th>Competência</th><th>Data</th><th>Item</th><th>Categoria</th><th>Valor</th><th>Status</th><th>Descrição</th><th style="width:170px;">Ações</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div class="total" id="totalLista"></div>
+    </div>
+  </div>
+
+  <script>
+    const API = '/api/saidas';
+    let itens = [];
+    let categorias = [];
+    const nomesMeses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+    function escapeHtml(v) { return String(v ?? '').replace(/[&<>'"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[c])); }
+    function moeda(v) { return Number(v || 0).toLocaleString('pt-BR', { style:'currency', currency:'BRL' }); }
+    function dataBR(v) { if (!v) return ''; const d = String(v).slice(0,10).split('-'); return d.length === 3 ? `${d[2]}/${d[1]}/${d[0]}` : ''; }
+    function msg(texto, tipo='sucesso') { const el = document.getElementById('mensagem'); el.textContent = texto; el.className = `mensagem ${tipo}`; }
+    function limparMsg() { const el = document.getElementById('mensagem'); el.textContent = ''; el.className = 'mensagem'; }
+    async function tratar(res) { const json = await res.json(); if (!res.ok || json.success === false) throw new Error(json.message || 'Erro'); return json; }
+
+    function preencherMeses() {
+      const opts = nomesMeses.map((m, i) => `<option value="${i + 1}">${m}</option>`).join('');
+      document.getElementById('competencia_mes').innerHTML = opts;
+      document.getElementById('filtroMes').innerHTML = opts;
+      const hoje = new Date();
+      document.getElementById('competencia_mes').value = hoje.getMonth() + 1;
+      document.getElementById('filtroMes').value = hoje.getMonth() + 1;
+      document.getElementById('competencia_ano').value = hoje.getFullYear();
+      document.getElementById('filtroAno').value = hoje.getFullYear();
+      document.getElementById('data_saida').value = hoje.toISOString().slice(0,10);
+    }
+
+    async function carregarBases() {
+      const [itensJson, categoriasJson] = await Promise.all([
+        tratar(await fetch('/api/saidas-itens?ativo=true')),
+        tratar(await fetch('/api/saidas-categorias?ativo=true'))
+      ]);
+      itens = itensJson.data || [];
+      categorias = categoriasJson.data || [];
+      const itensOptions = '<option value="">Selecione</option>' + itens.map(i => `<option value="${i.id}">${escapeHtml(i.nome)} (${escapeHtml(i.categoria_nome)})</option>`).join('');
+      document.getElementById('item_saida_id').innerHTML = itensOptions;
+      document.getElementById('filtroItem').innerHTML = '<option value="">Todos</option>' + itens.map(i => `<option value="${i.id}">${escapeHtml(i.nome)}</option>`).join('');
+      document.getElementById('filtroCategoria').innerHTML = '<option value="">Todas</option>' + categorias.map(c => `<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');
+    }
+
+    function limparFormulario() {
+      document.getElementById('saida_id').value = '';
+      document.getElementById('item_saida_id').value = '';
+      document.getElementById('valor').value = '';
+      document.getElementById('status').value = 'PAGO';
+      document.getElementById('forma_pagamento').value = 'Pix';
+      document.getElementById('descricao').value = '';
+      document.getElementById('observacao').value = '';
+      document.getElementById('data_saida').value = new Date().toISOString().slice(0,10);
+      limparMsg();
+    }
+
+    function limparFiltros() {
+      const hoje = new Date();
+      document.getElementById('filtroMes').value = hoje.getMonth() + 1;
+      document.getElementById('filtroAno').value = hoje.getFullYear();
+      document.getElementById('filtroItem').value = '';
+      document.getElementById('filtroCategoria').value = '';
+      document.getElementById('filtroStatus').value = '';
+      listar();
+    }
+
+    async function listar() {
+      try {
+        limparMsg();
+        const params = new URLSearchParams();
+        params.append('competencia_mes', document.getElementById('filtroMes').value);
+        params.append('competencia_ano', document.getElementById('filtroAno').value);
+        const item = document.getElementById('filtroItem').value;
+        const categoria = document.getElementById('filtroCategoria').value;
+        const status = document.getElementById('filtroStatus').value;
+        if (item) params.append('item_saida_id', item);
+        if (categoria) params.append('categoria_id', categoria);
+        if (status) params.append('status', status);
+        const json = await tratar(await fetch(`${API}?${params.toString()}`));
+        const tbody = document.getElementById('tbody');
+        if (!json.data.length) { tbody.innerHTML = '<tr><td colspan="8">Nenhuma saída encontrada.</td></tr>'; document.getElementById('totalLista').textContent = ''; }
+        else {
+          tbody.innerHTML = json.data.map(item => `
+            <tr>
+              <td>${String(item.competencia_mes).padStart(2,'0')}/${item.competencia_ano}</td>
+              <td>${dataBR(item.data_saida)}</td>
+              <td>${escapeHtml(item.item_saida_nome)}</td>
+              <td>${escapeHtml(item.categoria_nome)}</td>
+              <td>${moeda(item.valor)}</td>
+              <td><span class="status status-${item.status}">${item.status}</span></td>
+              <td>${escapeHtml(item.descricao || '')}</td>
+              <td><div class="acoes"><button class="btn-editar" onclick="editar(${item.id})">Editar</button><button class="btn-excluir" onclick="excluirRegistro(${item.id})">Excluir</button></div></td>
+            </tr>`).join('');
+          const total = json.data.filter(x => x.status !== 'CANCELADO').reduce((acc, x) => acc + Number(x.valor || 0), 0);
+          document.getElementById('totalLista').textContent = `Total listado: ${moeda(total)}`;
+        }
+        await carregarPendencias();
+      } catch (error) { msg(error.message, 'erro'); }
+    }
+
+    async function carregarPendencias() {
+      const mes = document.getElementById('filtroMes').value;
+      const ano = document.getElementById('filtroAno').value;
+      const json = await tratar(await fetch(`${API}/faltantes-recorrentes?mes=${mes}&ano=${ano}`));
+      const tbody = document.getElementById('tbodyPendencias');
+      if (!json.data.length) { tbody.innerHTML = '<tr><td colspan="5">Nenhuma pendência recorrente encontrada para este mês.</td></tr>'; return; }
+      tbody.innerHTML = json.data.map(item => `
+        <tr>
+          <td>${escapeHtml(item.item_saida_nome)}</td>
+          <td>${escapeHtml(item.categoria_nome)}</td>
+          <td>${item.ultimo_valor_pago ? moeda(item.ultimo_valor_pago) : 'Sem histórico'}</td>
+          <td>${item.ultimo_mes_pago ? String(item.ultimo_mes_pago).padStart(2,'0') + '/' + item.ultimo_ano_pago : '-'}</td>
+          <td><button class="btn-mini" onclick="preencherPendente(${item.item_saida_id}, '${escapeHtml(item.item_saida_nome)}', ${Number(item.ultimo_valor_pago || 0)})">Lançar</button></td>
+        </tr>`).join('');
+    }
+
+    function preencherPendente(itemId, nome, valorSugerido) {
+      document.getElementById('saida_id').value = '';
+      document.getElementById('item_saida_id').value = itemId;
+      document.getElementById('competencia_mes').value = document.getElementById('filtroMes').value;
+      document.getElementById('competencia_ano').value = document.getElementById('filtroAno').value;
+      document.getElementById('valor').value = valorSugerido ? String(valorSugerido).replace('.', ',') : '';
+      document.getElementById('status').value = 'PENDENTE';
+      document.getElementById('descricao').value = nome;
+      document.getElementById('data_saida').value = '';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    async function editar(id) {
+      try {
+        limparMsg();
+        const json = await tratar(await fetch(`${API}/${id}`));
+        const item = json.data;
+        document.getElementById('saida_id').value = item.id;
+        document.getElementById('item_saida_id').value = item.item_saida_id;
+        document.getElementById('competencia_mes').value = item.competencia_mes;
+        document.getElementById('competencia_ano').value = item.competencia_ano;
+        document.getElementById('data_saida').value = item.data_saida ? String(item.data_saida).slice(0,10) : '';
+        document.getElementById('valor').value = String(item.valor || '').replace('.', ',');
+        document.getElementById('forma_pagamento').value = item.forma_pagamento || 'Pix';
+        document.getElementById('status').value = item.status;
+        document.getElementById('descricao').value = item.descricao || '';
+        document.getElementById('observacao').value = item.observacao || '';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (error) { msg(error.message, 'erro'); }
+    }
+
+    async function salvar() {
+      try {
+        limparMsg();
+        const id = document.getElementById('saida_id').value;
+        const body = {
+          item_saida_id: document.getElementById('item_saida_id').value,
+          competencia_mes: document.getElementById('competencia_mes').value,
+          competencia_ano: document.getElementById('competencia_ano').value,
+          data_saida: document.getElementById('data_saida').value,
+          valor: document.getElementById('valor').value,
+          forma_pagamento: document.getElementById('forma_pagamento').value,
+          status: document.getElementById('status').value,
+          descricao: document.getElementById('descricao').value.trim(),
+          observacao: document.getElementById('observacao').value.trim()
+        };
+        if (!body.item_saida_id) throw new Error('Item de saída é obrigatório');
+        await tratar(await fetch(id ? `${API}/${id}` : API, { method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }));
+        msg(id ? 'Saída atualizada com sucesso' : 'Saída lançada com sucesso');
+        document.getElementById('filtroMes').value = body.competencia_mes;
+        document.getElementById('filtroAno').value = body.competencia_ano;
+        limparFormulario();
+        listar();
+      } catch (error) { msg(error.message, 'erro'); }
+    }
+
+    async function excluirRegistro(id) {
+      try {
+        if (!confirm('Deseja realmente excluir este lançamento?')) return;
+        await tratar(await fetch(`${API}/${id}`, { method: 'DELETE' }));
+        msg('Lançamento excluído com sucesso');
+        listar();
+      } catch (error) { msg(error.message, 'erro'); }
+    }
+
+    preencherMeses();
+    carregarBases().then(listar).catch(error => msg(error.message, 'erro'));
+  </script>
+</body>
+</html>

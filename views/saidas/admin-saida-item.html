@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Itens de Saída - Alumínio JR</title>
+  <link rel="stylesheet" href="/css/theme.css" />
+  <style>
+    body { font-family: Arial, sans-serif; background:#eef2f7; margin:0; padding:24px; }
+    .container { max-width:1220px; margin:0 auto; }
+    .box { background:#fff; padding:22px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,.08); margin-bottom:22px; }
+    h1,h2 { margin-top:0; color:#243447; }
+    .menu { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+    .menu a { text-decoration:none; background:#34495e; color:#fff; padding:9px 12px; border-radius:6px; font-size:13px; }
+    .menu a.ativo { background:#2ecc71; }
+    .grid-form { display:grid; grid-template-columns:1.4fr 1fr 150px 120px 1.2fr 180px; gap:12px; align-items:end; }
+    .grid-filtro { display:grid; grid-template-columns:1.1fr 1fr 140px 140px 120px 120px; gap:12px; align-items:end; }
+    label { display:block; font-size:13px; font-weight:bold; color:#4a5568; margin-bottom:6px; }
+    input, select, button { width:100%; padding:10px 12px; border-radius:6px; border:1px solid #ccd3db; font-size:14px; box-sizing:border-box; }
+    button { border:none; cursor:pointer; font-weight:bold; }
+    .btn-salvar { background:#2ecc71; color:#fff; }
+    .btn-limpar { background:#95a5a6; color:#fff; }
+    .btn-buscar { background:#34495e; color:#fff; }
+    .btn-editar { background:#f39c12; color:#fff; padding:8px 10px; }
+    .btn-excluir { background:#e74c3c; color:#fff; padding:8px 10px; }
+    table { width:100%; border-collapse:collapse; margin-top:16px; }
+    th { background:#2c3e50; color:#fff; padding:10px; text-align:left; }
+    td { padding:10px; border-bottom:1px solid #e9edf2; vertical-align:middle; }
+    tr:hover { background:#f9fbfd; }
+    .acoes { display:flex; gap:8px; flex-wrap:wrap; }
+    .ok { color:#1e8449; font-weight:bold; }
+    .no { color:#c0392b; font-weight:bold; }
+    .mensagem { margin-top:12px; font-weight:bold; display:none; }
+    .mensagem.sucesso { color:#1e8449; display:block; }
+    .mensagem.erro { color:#c0392b; display:block; }
+    @media (max-width:1050px) { .grid-form,.grid-filtro { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="box">
+      <h1>Itens de Saída</h1>
+      <div class="menu">
+        <a href="/admin-saidas-categorias">Categorias</a>
+        <a href="/admin-saidas-itens" class="ativo">Itens de saída</a>
+        <a href="/admin-saidas">Lançar saídas</a>
+        <a href="/relatorio-saidas">Relatório mensal</a>
+      </div>
+
+      <input type="hidden" id="item_id" />
+      <div class="grid-form">
+        <div>
+          <label for="nome">Nome do item</label>
+          <input id="nome" maxlength="180" placeholder="Energia da fábrica, DAS, Salário João..." />
+        </div>
+        <div>
+          <label for="categoria_id">Categoria</label>
+          <select id="categoria_id"></select>
+        </div>
+        <div>
+          <label for="recorrente_mensal">Recorrente mensal</label>
+          <select id="recorrente_mensal"><option value="true">Sim</option><option value="false">Não</option></select>
+        </div>
+        <div>
+          <label for="ativo">Ativo</label>
+          <select id="ativo"><option value="true">Sim</option><option value="false">Não</option></select>
+        </div>
+        <div>
+          <label for="observacao">Observação</label>
+          <input id="observacao" maxlength="500" placeholder="Opcional" />
+        </div>
+        <div style="display:flex; gap:10px;">
+          <button class="btn-salvar" onclick="salvar()">Salvar</button>
+          <button class="btn-limpar" onclick="limparFormulario()">Limpar</button>
+        </div>
+      </div>
+      <div id="mensagem" class="mensagem"></div>
+    </div>
+
+    <div class="box">
+      <h2>Lista de itens</h2>
+      <div class="grid-filtro">
+        <div><label for="filtroNome">Buscar por nome</label><input id="filtroNome" placeholder="Nome" /></div>
+        <div><label for="filtroCategoria">Categoria</label><select id="filtroCategoria"></select></div>
+        <div><label for="filtroRecorrente">Recorrente</label><select id="filtroRecorrente"><option value="">Todos</option><option value="true">Sim</option><option value="false">Não</option></select></div>
+        <div><label for="filtroAtivo">Status</label><select id="filtroAtivo"><option value="">Todos</option><option value="true">Ativos</option><option value="false">Inativos</option></select></div>
+        <div><label>&nbsp;</label><button class="btn-buscar" onclick="listar()">Buscar</button></div>
+        <div><label>&nbsp;</label><button class="btn-limpar" onclick="limparFiltros()">Limpar</button></div>
+      </div>
+
+      <table>
+        <thead><tr><th>Item</th><th>Categoria</th><th>Recorrente</th><th>Ativo</th><th>Observação</th><th style="width:180px;">Ações</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const API = '/api/saidas-itens';
+    let categorias = [];
+
+    function escapeHtml(v) { return String(v ?? '').replace(/[&<>'"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[c])); }
+    function msg(texto, tipo='sucesso') { const el = document.getElementById('mensagem'); el.textContent = texto; el.className = `mensagem ${tipo}`; }
+    function limparMsg() { const el = document.getElementById('mensagem'); el.textContent = ''; el.className = 'mensagem'; }
+    async function tratar(res) { const json = await res.json(); if (!res.ok || json.success === false) throw new Error(json.message || 'Erro'); return json; }
+
+    async function carregarCategorias() {
+      const json = await tratar(await fetch('/api/saidas-categorias?ativo=true'));
+      categorias = json.data || [];
+      const options = '<option value="">Selecione</option>' + categorias.map(c => `<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');
+      document.getElementById('categoria_id').innerHTML = options;
+      document.getElementById('filtroCategoria').innerHTML = '<option value="">Todas</option>' + categorias.map(c => `<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');
+    }
+
+    function limparFormulario() {
+      document.getElementById('item_id').value = '';
+      document.getElementById('nome').value = '';
+      document.getElementById('categoria_id').value = '';
+      document.getElementById('recorrente_mensal').value = 'true';
+      document.getElementById('ativo').value = 'true';
+      document.getElementById('observacao').value = '';
+      limparMsg();
+      document.getElementById('nome').focus();
+    }
+
+    function limparFiltros() {
+      document.getElementById('filtroNome').value = '';
+      document.getElementById('filtroCategoria').value = '';
+      document.getElementById('filtroRecorrente').value = '';
+      document.getElementById('filtroAtivo').value = '';
+      listar();
+    }
+
+    async function listar() {
+      try {
+        limparMsg();
+        const params = new URLSearchParams();
+        const nome = document.getElementById('filtroNome').value.trim();
+        const categoria = document.getElementById('filtroCategoria').value;
+        const recorrente = document.getElementById('filtroRecorrente').value;
+        const ativo = document.getElementById('filtroAtivo').value;
+        if (nome) params.append('nome', nome);
+        if (categoria) params.append('categoria_id', categoria);
+        if (recorrente !== '') params.append('recorrente_mensal', recorrente);
+        if (ativo !== '') params.append('ativo', ativo);
+        const json = await tratar(await fetch(`${API}?${params.toString()}`));
+        const tbody = document.getElementById('tbody');
+        if (!json.data.length) { tbody.innerHTML = '<tr><td colspan="6">Nenhum item encontrado.</td></tr>'; return; }
+        tbody.innerHTML = json.data.map(item => `
+          <tr>
+            <td>${escapeHtml(item.nome)}</td>
+            <td>${escapeHtml(item.categoria_nome)}</td>
+            <td><span class="${item.recorrente_mensal ? 'ok' : 'no'}">${item.recorrente_mensal ? 'Sim' : 'Não'}</span></td>
+            <td><span class="${item.ativo ? 'ok' : 'no'}">${item.ativo ? 'Sim' : 'Não'}</span></td>
+            <td>${escapeHtml(item.observacao || '')}</td>
+            <td><div class="acoes"><button class="btn-editar" onclick="editar(${item.id})">Editar</button><button class="btn-excluir" onclick="excluirRegistro(${item.id})">Excluir</button></div></td>
+          </tr>`).join('');
+      } catch (error) { msg(error.message, 'erro'); }
+    }
+
+    async function editar(id) {
+      try {
+        limparMsg();
+        const json = await tratar(await fetch(`${API}/${id}`));
+        const item = json.data;
+        document.getElementById('item_id').value = item.id;
+        document.getElementById('nome').value = item.nome || '';
+        document.getElementById('categoria_id').value = item.categoria_id;
+        document.getElementById('recorrente_mensal').value = item.recorrente_mensal ? 'true' : 'false';
+        document.getElementById('ativo').value = item.ativo ? 'true' : 'false';
+        document.getElementById('observacao').value = item.observacao || '';
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      } catch (error) { msg(error.message, 'erro'); }
+    }
+
+    async function salvar() {
+      try {
+        limparMsg();
+        const id = document.getElementById('item_id').value;
+        const body = {
+          nome: document.getElementById('nome').value.trim(),
+          categoria_id: document.getElementById('categoria_id').value,
+          recorrente_mensal: document.getElementById('recorrente_mensal').value === 'true',
+          ativo: document.getElementById('ativo').value === 'true',
+          observacao: document.getElementById('observacao').value.trim()
+        };
+        if (!body.nome) throw new Error('Nome é obrigatório');
+        if (!body.categoria_id) throw new Error('Categoria é obrigatória');
+        await tratar(await fetch(id ? `${API}/${id}` : API, { method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }));
+        msg(id ? 'Item atualizado com sucesso' : 'Item criado com sucesso');
+        limparFormulario();
+        listar();
+      } catch (error) { msg(error.message, 'erro'); }
+    }
+
+    async function excluirRegistro(id) {
+      try {
+        if (!confirm('Deseja realmente excluir este item?')) return;
+        await tratar(await fetch(`${API}/${id}`, { method: 'DELETE' }));
+        msg('Item excluído com sucesso');
+        listar();
+      } catch (error) { msg(error.message, 'erro'); }
+    }
+
+    document.getElementById('filtroNome').addEventListener('keydown', e => { if (e.key === 'Enter') listar(); });
+    carregarCategorias().then(listar).catch(error => msg(error.message, 'erro'));
+  </script>
+</body>
+</html>
