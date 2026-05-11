@@ -29,6 +29,15 @@ async function criar(req, res) {
   }
 }
 
+async function criarCarne(req, res) {
+  try {
+    const data = await service.criarCarne(req.body);
+    res.status(201).json({ success: true, data });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+}
+
 async function atualizar(req, res) {
   try {
     const data = await service.atualizar(req.params.id, req.body);
@@ -83,6 +92,7 @@ module.exports = {
   listar,
   buscar,
   criar,
+  criarCarne,
   atualizar,
   excluir,
   relatorioMensal,

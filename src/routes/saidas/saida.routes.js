@@ -5,6 +5,7 @@ const controller = require('../../controllers/saidas/saida.controller');
 router.get('/relatorio-mensal', controller.relatorioMensal);
 router.get('/faltantes-recorrentes', controller.faltantesRecorrentes);
 router.get('/comparativo-mes', controller.comparativoMes);
+router.post('/carne', controller.criarCarne);
 
 router.get('/', controller.listar);
 router.get('/:id', controller.buscar);

@@ -15,6 +15,8 @@
     .menu a.ativo { background:#2ecc71; }
     .grid-form { display:grid; grid-template-columns:1.4fr 100px 100px 140px 140px 120px 125px 1.2fr 165px; gap:12px; align-items:end; }
     .grid-form2 { display:grid; grid-template-columns:1fr; gap:12px; margin-top:12px; }
+    .grid-carne { display:grid; grid-template-columns:1.4fr 150px 150px 130px 1.2fr 165px; gap:12px; align-items:end; }
+    .grid-carne2 { display:grid; grid-template-columns:1fr; gap:12px; margin-top:12px; }
     .grid-filtro { display:grid; grid-template-columns:100px 110px 1.1fr 1fr 1.2fr 130px 120px 120px; gap:12px; align-items:end; }
     label { display:block; font-size:13px; font-weight:bold; color:#4a5568; margin-bottom:6px; }
     input, select, textarea, button { width:100%; padding:10px 12px; border-radius:6px; border:1px solid #ccd3db; font-size:14px; box-sizing:border-box; }
@@ -23,9 +25,11 @@
     .btn-salvar { background:#2ecc71; color:#fff; }
     .btn-limpar { background:#95a5a6; color:#fff; }
     .btn-buscar { background:#34495e; color:#fff; }
+    .btn-carne { background:#8e44ad; color:#fff; }
     .btn-editar { background:#f39c12; color:#fff; padding:8px 10px; }
     .btn-excluir { background:#e74c3c; color:#fff; padding:8px 10px; }
     .btn-mini { background:#2980b9; color:#fff; padding:8px 10px; }
+    button:disabled { opacity:.65; cursor:not-allowed; }
     table { width:100%; border-collapse:collapse; margin-top:16px; }
     th { background:#2c3e50; color:#fff; padding:10px; text-align:left; }
     td { padding:10px; border-bottom:1px solid #e9edf2; vertical-align:middle; }
@@ -39,9 +43,10 @@
     .mensagem.sucesso { color:#1e8449; display:block; }
     .mensagem.erro { color:#c0392b; display:block; }
     .pendencias { background:#fff9e8; border:1px solid #f5d98b; }
+    .carne { background:#f8f2ff; border:1px solid #d7b9ff; }
     .muted { color:#667085; font-size:13px; }
     .total { font-weight:bold; text-align:right; margin-top:12px; }
-    @media (max-width:1200px) { .grid-form,.grid-form2,.grid-filtro { grid-template-columns:1fr; } }
+    @media (max-width:1200px) { .grid-form,.grid-form2,.grid-carne,.grid-carne2,.grid-filtro { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
@@ -73,6 +78,22 @@
       <div id="mensagem" class="mensagem"></div>
     </div>
 
+    <div class="box carne">
+      <h2>Cadastrar carnê</h2>
+      <div class="muted">Gera parcelas mensais na própria tabela de saídas. As parcelas entram como PENDENTE, com vencimento e sem data de pagamento.</div>
+      <div class="grid-carne" style="margin-top:14px;">
+        <div><label for="carne_item_saida_id">Item de saída</label><select id="carne_item_saida_id"></select></div>
+        <div><label for="carne_primeiro_vencimento">Primeiro vencimento</label><input id="carne_primeiro_vencimento" type="date" /></div>
+        <div><label for="carne_data_limite">Data limite</label><input id="carne_data_limite" type="date" /></div>
+        <div><label for="carne_valor">Valor da parcela</label><input id="carne_valor" inputmode="decimal" placeholder="0,00" /></div>
+        <div><label for="carne_forma_pagamento">Forma pagamento</label><select id="carne_forma_pagamento"><option value="Pix">Pix</option><option value="Dinheiro">Dinheiro</option><option value="Cartão">Cartão</option><option value="Boleto">Boleto</option><option value="Transferência">Transferência</option><option value="Outro">Outro</option></select></div>
+        <div style="display:flex; gap:10px;"><button id="btnSalvarCarne" class="btn-carne" onclick="salvarCarne()">Salvar carnê</button><button class="btn-limpar" onclick="limparCarne()">Limpar</button></div>
+      </div>
+      <div class="grid-carne2">
+        <div><label for="carne_observacao">Observação do carnê</label><textarea id="carne_observacao" placeholder="Opcional. Ex: carnê da internet até dezembro"></textarea></div>
+      </div>
+    </div>
+
     <div class="box pendencias">
       <h2>Faltando lançar no mês selecionado</h2>
       <div class="muted">Mostra itens recorrentes ativos que ainda não têm lançamento neste mês. O valor sugerido vem do último pagamento anterior.</div>
@@ -95,7 +116,7 @@
         <div><label>&nbsp;</label><button class="btn-limpar" onclick="limparFiltros()">Limpar</button></div>
       </div>
       <table>
-        <thead><tr><th>Competência</th><th>Vencimento</th><th>Pagamento</th><th>Item</th><th>Categoria</th><th>Valor</th><th>Status</th><th>Observação</th><th style="width:170px;">Ações</th></tr></thead>
+        <thead><tr><th>Competência</th><th>Vencimento</th><th>Pagamento</th><th>Item</th><th>Categoria</th><th>Valor</th><th>Status</th><th>Parcela</th><th>Observação</th><th style="width:170px;">Ações</th></tr></thead>
         <tbody id="tbody"></tbody>
       </table>
       <div class="total" id="totalLista"></div>
@@ -107,6 +128,7 @@
     let itens = [];
     let categorias = [];
     let pendenciasAtuais = [];
+    let salvandoCarne = false;
     const nomesMeses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
     function escapeHtml(v) { return String(v ?? '').replace(/[&<>'"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[c])); }
@@ -123,10 +145,13 @@
 
       const hoje = new Date();
       const hojeISO = hoje.toISOString().slice(0,10);
+      const fimAnoISO = `${hoje.getFullYear()}-12-31`;
       document.getElementById('competencia_mes').value = hoje.getMonth() + 1;
       document.getElementById('competencia_ano').value = hoje.getFullYear();
       document.getElementById('vencimento').value = hojeISO;
       document.getElementById('data_saida').value = hojeISO;
+      document.getElementById('carne_primeiro_vencimento').value = hojeISO;
+      document.getElementById('carne_data_limite').value = fimAnoISO;
 
       document.getElementById('filtroMes').value = '';
       document.getElementById('filtroAno').value = '';
@@ -142,6 +167,7 @@
       categorias = categoriasJson.data || [];
       const itensOptions = '<option value="">Selecione</option>' + itens.map(i => `<option value="${i.id}">${escapeHtml(i.nome)} (${escapeHtml(i.categoria_nome)})</option>`).join('');
       document.getElementById('item_saida_id').innerHTML = itensOptions;
+      document.getElementById('carne_item_saida_id').innerHTML = itensOptions;
       document.getElementById('filtroItem').innerHTML = '<option value="">Todos</option>' + itens.map(i => `<option value="${i.id}">${escapeHtml(i.nome)}</option>`).join('');
       document.getElementById('filtroCategoria').innerHTML = '<option value="">Todas</option>' + categorias.map(c => `<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');
     }
@@ -157,6 +183,17 @@
       document.getElementById('vencimento').value = hojeISO;
       document.getElementById('data_saida').value = hojeISO;
       limparMsg();
+    }
+
+    function limparCarne() {
+      const hoje = new Date();
+      const hojeISO = hoje.toISOString().slice(0,10);
+      document.getElementById('carne_item_saida_id').value = '';
+      document.getElementById('carne_primeiro_vencimento').value = hojeISO;
+      document.getElementById('carne_data_limite').value = `${hoje.getFullYear()}-12-31`;
+      document.getElementById('carne_valor').value = '';
+      document.getElementById('carne_forma_pagamento').value = 'Pix';
+      document.getElementById('carne_observacao').value = '';
     }
 
     function limparFiltros() {
@@ -188,7 +225,7 @@
         const json = await tratar(await fetch(`${API}?${params.toString()}`));
         const tbody = document.getElementById('tbody');
         if (!json.data.length) {
-          tbody.innerHTML = '<tr><td colspan="9">Nenhuma saída encontrada.</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="10">Nenhuma saída encontrada.</td></tr>';
           document.getElementById('totalLista').textContent = '';
         } else {
           tbody.innerHTML = json.data.map(item => `
@@ -200,6 +237,7 @@
               <td>${escapeHtml(item.categoria_nome)}</td>
               <td>${moeda(item.valor)}</td>
               <td><span class="status status-${item.status}">${item.status}</span></td>
+              <td>${item.numero_parcela && item.total_parcelas ? `${item.numero_parcela}/${item.total_parcelas}` : '-'}</td>
               <td>${escapeHtml(item.observacao || '')}</td>
               <td><div class="acoes"><button class="btn-editar" onclick="editar(${item.id})">Editar</button><button class="btn-excluir" onclick="excluirRegistro(${item.id})">Excluir</button></div></td>
             </tr>`).join('');
@@ -305,6 +343,48 @@
         limparFormulario();
         listar();
       } catch (error) { msg(error.message, 'erro'); }
+    }
+
+    function obterMesAnoDeDataISO(dataISO) {
+      const partes = String(dataISO || '').split('-');
+      if (partes.length !== 3) return null;
+      return { ano: partes[0], mes: String(Number(partes[1])) };
+    }
+
+    async function salvarCarne() {
+      if (salvandoCarne) return;
+      try {
+        limparMsg();
+        const body = {
+          item_saida_id: document.getElementById('carne_item_saida_id').value,
+          primeiro_vencimento: document.getElementById('carne_primeiro_vencimento').value,
+          data_limite: document.getElementById('carne_data_limite').value,
+          valor: document.getElementById('carne_valor').value,
+          forma_pagamento: document.getElementById('carne_forma_pagamento').value,
+          observacao: document.getElementById('carne_observacao').value.trim()
+        };
+        if (!body.item_saida_id) throw new Error('Item de saída do carnê é obrigatório');
+        if (!body.primeiro_vencimento) throw new Error('Primeiro vencimento é obrigatório');
+        if (!body.data_limite) throw new Error('Data limite é obrigatória');
+        if (!body.valor) throw new Error('Valor da parcela é obrigatório');
+
+        salvandoCarne = true;
+        document.getElementById('btnSalvarCarne').disabled = true;
+        const json = await tratar(await fetch(`${API}/carne`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }));
+        const dataPrimeira = obterMesAnoDeDataISO(json.data.primeiro_vencimento || body.primeiro_vencimento);
+        if (dataPrimeira) {
+          document.getElementById('filtroMes').value = dataPrimeira.mes;
+          document.getElementById('filtroAno').value = dataPrimeira.ano;
+        }
+        msg(`Carnê criado com ${json.data.total_parcelas} parcela(s).`);
+        limparCarne();
+        listar();
+      } catch (error) {
+        msg(error.message, 'erro');
+      } finally {
+        salvandoCarne = false;
+        document.getElementById('btnSalvarCarne').disabled = false;
+      }
     }
 
     async function excluirRegistro(id) {

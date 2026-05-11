@@ -53,7 +53,80 @@ function normalizarData(value, campo = 'Data') {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
     throw new Error(`${campo} inválida. Use AAAA-MM-DD`);
   }
+
+  const [ano, mes, dia] = texto.split('-').map(Number);
+  const data = new Date(Date.UTC(ano, mes - 1, dia));
+  const dataValida = data.getUTCFullYear() === ano
+    && data.getUTCMonth() === mes - 1
+    && data.getUTCDate() === dia;
+
+  if (!dataValida) {
+    throw new Error(`${campo} inválida`);
+  }
+
   return texto;
+}
+
+function normalizarDataObrigatoria(value, campo = 'Data') {
+  const data = normalizarData(value, campo);
+  if (!data) {
+    throw new Error(`${campo} é obrigatória`);
+  }
+  return data;
+}
+
+function parseDataISO(value, campo = 'Data') {
+  const data = normalizarDataObrigatoria(value, campo);
+  const [ano, mes, dia] = data.split('-').map(Number);
+  return { data, ano, mes, dia };
+}
+
+function ultimoDiaMes(ano, mes) {
+  return new Date(Date.UTC(ano, mes, 0)).getUTCDate();
+}
+
+function formatarDataISO(ano, mes, dia) {
+  return `${ano}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
+}
+
+function compararDataISO(a, b) {
+  return String(a).localeCompare(String(b));
+}
+
+function gerarVencimentosMensais(primeiroVencimento, dataLimite) {
+  const primeiro = parseDataISO(primeiroVencimento, 'Primeiro vencimento');
+  const limite = parseDataISO(dataLimite, 'Data limite');
+
+  if (compararDataISO(primeiro.data, limite.data) > 0) {
+    throw new Error('O primeiro vencimento não pode ser maior que a data limite');
+  }
+
+  const vencimentos = [];
+  const diaBase = primeiro.dia;
+  let indice = 0;
+
+  while (indice < 240) {
+    const totalMeses = (primeiro.ano * 12) + (primeiro.mes - 1) + indice;
+    const ano = Math.floor(totalMeses / 12);
+    const mes = (totalMeses % 12) + 1;
+    const dia = Math.min(diaBase, ultimoDiaMes(ano, mes));
+    const data = formatarDataISO(ano, mes, dia);
+
+    if (compararDataISO(data, limite.data) > 0) break;
+
+    vencimentos.push({ data, ano, mes });
+    indice += 1;
+  }
+
+  if (!vencimentos.length) {
+    throw new Error('Nenhuma parcela foi gerada para o período informado');
+  }
+
+  return vencimentos;
+}
+
+function gerarLoteCarne() {
+  return `CARNE-${Date.now()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 }
 
 function mesAnterior(mes, ano) {
@@ -95,6 +168,12 @@ function montarWhereListagem(filtros = {}) {
     conditions.push(`s.status = $${values.length}`);
   }
 
+  const loteCarne = normalizarTexto(filtros.lote_carne);
+  if (loteCarne) {
+    values.push(loteCarne);
+    conditions.push(`s.lote_carne = $${values.length}`);
+  }
+
   const busca = normalizarTexto(filtros.busca);
   if (busca) {
     values.push(`%${busca}%`);
@@ -123,6 +202,9 @@ async function listar(filtros = {}) {
       s.forma_pagamento,
       s.status,
       s.observacao,
+      s.lote_carne,
+      s.numero_parcela,
+      s.total_parcelas,
       s.created_at,
       s.updated_at
     FROM saidas s
@@ -162,6 +244,9 @@ async function buscar(id) {
        s.forma_pagamento,
        s.status,
        s.observacao,
+       s.lote_carne,
+       s.numero_parcela,
+       s.total_parcelas,
        s.created_at,
        s.updated_at
      FROM saidas s
@@ -202,6 +287,73 @@ async function criar(data = {}) {
   );
 
   return buscar(result.rows[0].id);
+}
+
+async function criarCarne(data = {}) {
+  const itemSaidaId = normalizarId(data.item_saida_id, 'Item de saída');
+  const primeiroVencimento = normalizarDataObrigatoria(
+    data.primeiro_vencimento || data.vencimento_inicial,
+    'Primeiro vencimento'
+  );
+  const dataLimite = normalizarDataObrigatoria(data.data_limite, 'Data limite');
+  const valor = normalizarValor(data.valor);
+  const formaPagamento = normalizarTexto(data.forma_pagamento) || null;
+  const observacao = normalizarTexto(data.observacao) || null;
+
+  if (valor <= 0) {
+    throw new Error('Valor da parcela deve ser maior que zero');
+  }
+
+  if (!(await itemExiste(itemSaidaId))) {
+    throw new Error('Item de saída não encontrado');
+  }
+
+  const vencimentos = gerarVencimentosMensais(primeiroVencimento, dataLimite);
+  const loteCarne = gerarLoteCarne();
+  const totalParcelas = vencimentos.length;
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    for (let index = 0; index < vencimentos.length; index += 1) {
+      const parcela = vencimentos[index];
+      await client.query(
+        `INSERT INTO saidas
+           (item_saida_id, competencia_mes, competencia_ano, vencimento, data_saida, valor, forma_pagamento, status, observacao, lote_carne, numero_parcela, total_parcelas)
+         VALUES ($1, $2, $3, $4, NULL, $5, $6, 'PENDENTE', $7, $8, $9, $10)`,
+        [
+          itemSaidaId,
+          parcela.mes,
+          parcela.ano,
+          parcela.data,
+          valor,
+          formaPagamento,
+          observacao,
+          loteCarne,
+          index + 1,
+          totalParcelas
+        ]
+      );
+    }
+
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+
+  const parcelas = await listar({ lote_carne: loteCarne });
+
+  return {
+    lote_carne: loteCarne,
+    total_parcelas: totalParcelas,
+    primeiro_vencimento: vencimentos[0].data,
+    ultimo_vencimento: vencimentos[vencimentos.length - 1].data,
+    parcelas
+  };
 }
 
 async function atualizar(id, data = {}) {
@@ -431,6 +583,7 @@ module.exports = {
   listar,
   buscar,
   criar,
+  criarCarne,
   atualizar,
   excluir,
   relatorioMensal,

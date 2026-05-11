@@ -42,12 +42,24 @@ async function criarEstrutura() {
       forma_pagamento VARCHAR(60),
       status VARCHAR(20) NOT NULL DEFAULT 'PAGO' CHECK (status IN ('PAGO', 'PENDENTE', 'CANCELADO')),
       observacao TEXT,
+      lote_carne VARCHAR(80),
+      numero_parcela INTEGER,
+      total_parcelas INTEGER,
       created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW()
     );
 
     ALTER TABLE saidas
       ADD COLUMN IF NOT EXISTS vencimento DATE;
+
+    ALTER TABLE saidas
+      ADD COLUMN IF NOT EXISTS lote_carne VARCHAR(80);
+
+    ALTER TABLE saidas
+      ADD COLUMN IF NOT EXISTS numero_parcela INTEGER;
+
+    ALTER TABLE saidas
+      ADD COLUMN IF NOT EXISTS total_parcelas INTEGER;
 
     ALTER TABLE saidas
       DROP COLUMN IF EXISTS descricao;
@@ -63,6 +75,9 @@ async function criarEstrutura() {
 
     CREATE INDEX IF NOT EXISTS ix_saidas_vencimento
       ON saidas (vencimento);
+
+    CREATE INDEX IF NOT EXISTS ix_saidas_lote_carne
+      ON saidas (lote_carne);
   `);
 }
 

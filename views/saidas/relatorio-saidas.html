@@ -95,7 +95,7 @@
     <div class="box">
       <h2>Lançamentos do mês</h2>
       <table>
-        <thead><tr><th>Vencimento</th><th>Pagamento</th><th>Item</th><th>Categoria</th><th>Valor</th><th>Status</th><th>Forma</th><th>Observação</th></tr></thead>
+        <thead><tr><th>Vencimento</th><th>Pagamento</th><th>Item</th><th>Categoria</th><th>Valor</th><th>Status</th><th>Forma</th><th>Parcela</th><th>Observação</th></tr></thead>
         <tbody id="tbodyLancamentos"></tbody>
       </table>
     </div>
@@ -153,8 +153,8 @@
       }).join('') : '<tr><td colspan="7">Sem dados para comparar.</td></tr>';
 
       document.getElementById('tbodyLancamentos').innerHTML = data.lancamentos.length ? data.lancamentos.map(item => `
-        <tr><td>${dataBR(item.vencimento)}</td><td>${dataBR(item.data_saida)}</td><td>${escapeHtml(item.item_saida_nome)}</td><td>${escapeHtml(item.categoria_nome)}</td><td>${moeda(item.valor)}</td><td><span class="status status-${item.status}">${item.status}</span></td><td>${escapeHtml(item.forma_pagamento || '')}</td><td>${escapeHtml(item.observacao || '')}</td></tr>
-      `).join('') : '<tr><td colspan="8">Nenhum lançamento no mês.</td></tr>';
+        <tr><td>${dataBR(item.vencimento)}</td><td>${dataBR(item.data_saida)}</td><td>${escapeHtml(item.item_saida_nome)}</td><td>${escapeHtml(item.categoria_nome)}</td><td>${moeda(item.valor)}</td><td><span class="status status-${item.status}">${item.status}</span></td><td>${escapeHtml(item.forma_pagamento || '')}</td><td>${item.numero_parcela && item.total_parcelas ? `${item.numero_parcela}/${item.total_parcelas}` : '-'}</td><td>${escapeHtml(item.observacao || '')}</td></tr>
+      `).join('') : '<tr><td colspan="9">Nenhum lançamento no mês.</td></tr>';
     }
 
     iniciar();
