@@ -15,7 +15,7 @@
     .menu a.ativo { background:#2ecc71; }
     .grid-form { display:grid; grid-template-columns:1.3fr 110px 110px 140px 140px 130px 1.3fr 170px; gap:12px; align-items:end; }
     .grid-form2 { display:grid; grid-template-columns:1.5fr 1.5fr; gap:12px; margin-top:12px; }
-    .grid-filtro { display:grid; grid-template-columns:100px 100px 1.1fr 1fr 130px 120px 120px; gap:12px; align-items:end; }
+    .grid-filtro { display:grid; grid-template-columns:100px 110px 1.1fr 1fr 1.1fr 130px 120px 120px; gap:12px; align-items:end; }
     label { display:block; font-size:13px; font-weight:bold; color:#4a5568; margin-bottom:6px; }
     input, select, textarea, button { width:100%; padding:10px 12px; border-radius:6px; border:1px solid #ccd3db; font-size:14px; box-sizing:border-box; }
     textarea { min-height:70px; resize:vertical; }
@@ -89,6 +89,7 @@
         <div><label for="filtroAno">Ano</label><input id="filtroAno" type="number" min="2000" max="2100" /></div>
         <div><label for="filtroItem">Item</label><select id="filtroItem"></select></div>
         <div><label for="filtroCategoria">Categoria</label><select id="filtroCategoria"></select></div>
+        <div><label for="filtroBusca">Busca</label><input id="filtroBusca" placeholder="Item ou descrição" /></div>
         <div><label for="filtroStatus">Status</label><select id="filtroStatus"><option value="">Todos</option><option value="PAGO">Pago</option><option value="PENDENTE">Pendente</option><option value="CANCELADO">Cancelado</option></select></div>
         <div><label>&nbsp;</label><button class="btn-buscar" onclick="listar()">Buscar</button></div>
         <div><label>&nbsp;</label><button class="btn-limpar" onclick="limparFiltros()">Limpar</button></div>
@@ -117,13 +118,17 @@
     function preencherMeses() {
       const opts = nomesMeses.map((m, i) => `<option value="${i + 1}">${m}</option>`).join('');
       document.getElementById('competencia_mes').innerHTML = opts;
-      document.getElementById('filtroMes').innerHTML = opts;
+      document.getElementById('filtroMes').innerHTML = '<option value="">Todos</option>' + opts;
+
       const hoje = new Date();
       document.getElementById('competencia_mes').value = hoje.getMonth() + 1;
-      document.getElementById('filtroMes').value = hoje.getMonth() + 1;
       document.getElementById('competencia_ano').value = hoje.getFullYear();
-      document.getElementById('filtroAno').value = hoje.getFullYear();
       document.getElementById('data_saida').value = hoje.toISOString().slice(0,10);
+
+      // Na listagem, o padrão é mostrar tudo. Mês e ano são filtros opcionais.
+      document.getElementById('filtroMes').value = '';
+      document.getElementById('filtroAno').value = '';
+      document.getElementById('filtroAno').placeholder = 'Todos';
     }
 
     async function carregarBases() {
@@ -152,11 +157,11 @@
     }
 
     function limparFiltros() {
-      const hoje = new Date();
-      document.getElementById('filtroMes').value = hoje.getMonth() + 1;
-      document.getElementById('filtroAno').value = hoje.getFullYear();
+      document.getElementById('filtroMes').value = '';
+      document.getElementById('filtroAno').value = '';
       document.getElementById('filtroItem').value = '';
       document.getElementById('filtroCategoria').value = '';
+      document.getElementById('filtroBusca').value = '';
       document.getElementById('filtroStatus').value = '';
       listar();
     }
@@ -165,13 +170,17 @@
       try {
         limparMsg();
         const params = new URLSearchParams();
-        params.append('competencia_mes', document.getElementById('filtroMes').value);
-        params.append('competencia_ano', document.getElementById('filtroAno').value);
+        const mes = document.getElementById('filtroMes').value;
+        const ano = document.getElementById('filtroAno').value;
         const item = document.getElementById('filtroItem').value;
         const categoria = document.getElementById('filtroCategoria').value;
+        const busca = document.getElementById('filtroBusca').value.trim();
         const status = document.getElementById('filtroStatus').value;
+        if (mes) params.append('competencia_mes', mes);
+        if (ano) params.append('competencia_ano', ano);
         if (item) params.append('item_saida_id', item);
         if (categoria) params.append('categoria_id', categoria);
+        if (busca) params.append('descricao', busca);
         if (status) params.append('status', status);
         const json = await tratar(await fetch(`${API}?${params.toString()}`));
         const tbody = document.getElementById('tbody');
@@ -198,8 +207,14 @@
     async function carregarPendencias() {
       const mes = document.getElementById('filtroMes').value;
       const ano = document.getElementById('filtroAno').value;
-      const json = await tratar(await fetch(`${API}/faltantes-recorrentes?mes=${mes}&ano=${ano}`));
       const tbody = document.getElementById('tbodyPendencias');
+
+      if (!mes || !ano) {
+        tbody.innerHTML = '<tr><td colspan="5">Selecione mês e ano nos filtros para ver pendências recorrentes.</td></tr>';
+        return;
+      }
+
+      const json = await tratar(await fetch(`${API}/faltantes-recorrentes?mes=${mes}&ano=${ano}`));
       if (!json.data.length) { tbody.innerHTML = '<tr><td colspan="5">Nenhuma pendência recorrente encontrada para este mês.</td></tr>'; return; }
       tbody.innerHTML = json.data.map(item => `
         <tr>
@@ -260,8 +275,6 @@
         if (!body.item_saida_id) throw new Error('Item de saída é obrigatório');
         await tratar(await fetch(id ? `${API}/${id}` : API, { method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }));
         msg(id ? 'Saída atualizada com sucesso' : 'Saída lançada com sucesso');
-        document.getElementById('filtroMes').value = body.competencia_mes;
-        document.getElementById('filtroAno').value = body.competencia_ano;
         limparFormulario();
         listar();
       } catch (error) { msg(error.message, 'erro'); }
