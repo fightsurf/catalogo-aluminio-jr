@@ -47,11 +47,11 @@ function normalizarStatus(value) {
   return status;
 }
 
-function normalizarData(value) {
+function normalizarData(value, campo = 'Data') {
   const texto = normalizarTexto(value);
   if (!texto) return null;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
-    throw new Error('Data de saída inválida. Use AAAA-MM-DD');
+    throw new Error(`${campo} inválida. Use AAAA-MM-DD`);
   }
   return texto;
 }
@@ -95,9 +95,10 @@ function montarWhereListagem(filtros = {}) {
     conditions.push(`s.status = $${values.length}`);
   }
 
-  if (filtros.descricao) {
-    values.push(`%${normalizarTexto(filtros.descricao)}%`);
-    conditions.push(`(s.descricao ILIKE $${values.length} OR i.nome ILIKE $${values.length})`);
+  const busca = normalizarTexto(filtros.busca);
+  if (busca) {
+    values.push(`%${busca}%`);
+    conditions.push(`(i.nome ILIKE $${values.length} OR c.nome ILIKE $${values.length} OR COALESCE(s.observacao, '') ILIKE $${values.length})`);
   }
 
   return { values, conditions };
@@ -116,11 +117,11 @@ async function listar(filtros = {}) {
       c.nome AS categoria_nome,
       s.competencia_mes,
       s.competencia_ano,
+      s.vencimento,
       s.data_saida,
       s.valor,
       s.forma_pagamento,
       s.status,
-      s.descricao,
       s.observacao,
       s.created_at,
       s.updated_at
@@ -136,7 +137,7 @@ async function listar(filtros = {}) {
   query += `
     ORDER BY s.competencia_ano DESC,
              s.competencia_mes DESC,
-             COALESCE(s.data_saida, DATE '1900-01-01') DESC,
+             COALESCE(s.vencimento, s.data_saida, DATE '1900-01-01') DESC,
              s.id DESC
   `;
 
@@ -155,11 +156,11 @@ async function buscar(id) {
        c.nome AS categoria_nome,
        s.competencia_mes,
        s.competencia_ano,
+       s.vencimento,
        s.data_saida,
        s.valor,
        s.forma_pagamento,
        s.status,
-       s.descricao,
        s.observacao,
        s.created_at,
        s.updated_at
@@ -181,11 +182,11 @@ async function criar(data = {}) {
   const itemSaidaId = normalizarId(data.item_saida_id, 'Item de saída');
   const competenciaMes = normalizarMes(data.competencia_mes);
   const competenciaAno = normalizarAno(data.competencia_ano);
-  const dataSaida = normalizarData(data.data_saida);
+  const vencimento = normalizarData(data.vencimento, 'Vencimento');
+  const dataSaida = normalizarData(data.data_saida, 'Data de pagamento');
   const valor = normalizarValor(data.valor);
   const formaPagamento = normalizarTexto(data.forma_pagamento) || null;
   const status = normalizarStatus(data.status);
-  const descricao = normalizarTexto(data.descricao) || null;
   const observacao = normalizarTexto(data.observacao) || null;
 
   if (!(await itemExiste(itemSaidaId))) {
@@ -194,10 +195,10 @@ async function criar(data = {}) {
 
   const result = await pool.query(
     `INSERT INTO saidas
-       (item_saida_id, competencia_mes, competencia_ano, data_saida, valor, forma_pagamento, status, descricao, observacao)
+       (item_saida_id, competencia_mes, competencia_ano, vencimento, data_saida, valor, forma_pagamento, status, observacao)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      RETURNING id`,
-    [itemSaidaId, competenciaMes, competenciaAno, dataSaida, valor, formaPagamento, status, descricao, observacao]
+    [itemSaidaId, competenciaMes, competenciaAno, vencimento, dataSaida, valor, formaPagamento, status, observacao]
   );
 
   return buscar(result.rows[0].id);
@@ -210,11 +211,11 @@ async function atualizar(id, data = {}) {
   const itemSaidaId = data.item_saida_id !== undefined ? normalizarId(data.item_saida_id, 'Item de saída') : atual.item_saida_id;
   const competenciaMes = data.competencia_mes !== undefined ? normalizarMes(data.competencia_mes) : atual.competencia_mes;
   const competenciaAno = data.competencia_ano !== undefined ? normalizarAno(data.competencia_ano) : atual.competencia_ano;
-  const dataSaida = data.data_saida !== undefined ? normalizarData(data.data_saida) : (atual.data_saida ? String(atual.data_saida).slice(0, 10) : null);
+  const vencimento = data.vencimento !== undefined ? normalizarData(data.vencimento, 'Vencimento') : (atual.vencimento ? String(atual.vencimento).slice(0, 10) : null);
+  const dataSaida = data.data_saida !== undefined ? normalizarData(data.data_saida, 'Data de pagamento') : (atual.data_saida ? String(atual.data_saida).slice(0, 10) : null);
   const valor = data.valor !== undefined ? normalizarValor(data.valor) : Number(atual.valor);
   const formaPagamento = data.forma_pagamento !== undefined ? (normalizarTexto(data.forma_pagamento) || null) : atual.forma_pagamento;
   const status = data.status !== undefined ? normalizarStatus(data.status) : atual.status;
-  const descricao = data.descricao !== undefined ? (normalizarTexto(data.descricao) || null) : atual.descricao;
   const observacao = data.observacao !== undefined ? (normalizarTexto(data.observacao) || null) : atual.observacao;
 
   if (!(await itemExiste(itemSaidaId))) {
@@ -226,15 +227,15 @@ async function atualizar(id, data = {}) {
      SET item_saida_id = $1,
          competencia_mes = $2,
          competencia_ano = $3,
-         data_saida = $4,
-         valor = $5,
-         forma_pagamento = $6,
-         status = $7,
-         descricao = $8,
+         vencimento = $4,
+         data_saida = $5,
+         valor = $6,
+         forma_pagamento = $7,
+         status = $8,
          observacao = $9,
          updated_at = NOW()
      WHERE id = $10`,
-    [itemSaidaId, competenciaMes, competenciaAno, dataSaida, valor, formaPagamento, status, descricao, observacao, saidaId]
+    [itemSaidaId, competenciaMes, competenciaAno, vencimento, dataSaida, valor, formaPagamento, status, observacao, saidaId]
   );
 
   return buscar(saidaId);
@@ -280,11 +281,12 @@ async function faltantesRecorrentes(mes, ano) {
        ult.valor AS ultimo_valor_pago,
        ult.competencia_mes AS ultimo_mes_pago,
        ult.competencia_ano AS ultimo_ano_pago,
+       ult.vencimento AS ultimo_vencimento,
        ult.data_saida AS ultima_data_saida
      FROM saida_itens i
      JOIN saida_categorias c ON c.id = i.categoria_id
      LEFT JOIN LATERAL (
-       SELECT s2.valor, s2.competencia_mes, s2.competencia_ano, s2.data_saida
+       SELECT s2.valor, s2.competencia_mes, s2.competencia_ano, s2.vencimento, s2.data_saida
        FROM saidas s2
        WHERE s2.item_saida_id = i.id
          AND s2.status = 'PAGO'
@@ -294,7 +296,7 @@ async function faltantesRecorrentes(mes, ano) {
          )
        ORDER BY s2.competencia_ano DESC,
                 s2.competencia_mes DESC,
-                COALESCE(s2.data_saida, DATE '1900-01-01') DESC,
+                COALESCE(s2.vencimento, s2.data_saida, DATE '1900-01-01') DESC,
                 s2.id DESC
        LIMIT 1
      ) ult ON TRUE

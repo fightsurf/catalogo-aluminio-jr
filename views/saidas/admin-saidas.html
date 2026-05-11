@@ -7,15 +7,15 @@
   <link rel="stylesheet" href="/css/theme.css" />
   <style>
     body { font-family: Arial, sans-serif; background:#eef2f7; margin:0; padding:24px; }
-    .container { max-width:1280px; margin:0 auto; }
+    .container { max-width:1320px; margin:0 auto; }
     .box { background:#fff; padding:22px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,.08); margin-bottom:22px; }
     h1,h2 { margin-top:0; color:#243447; }
     .menu { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
     .menu a { text-decoration:none; background:#34495e; color:#fff; padding:9px 12px; border-radius:6px; font-size:13px; }
     .menu a.ativo { background:#2ecc71; }
-    .grid-form { display:grid; grid-template-columns:1.3fr 110px 110px 140px 140px 130px 1.3fr 170px; gap:12px; align-items:end; }
-    .grid-form2 { display:grid; grid-template-columns:1.5fr 1.5fr; gap:12px; margin-top:12px; }
-    .grid-filtro { display:grid; grid-template-columns:100px 110px 1.1fr 1fr 1.1fr 130px 120px 120px; gap:12px; align-items:end; }
+    .grid-form { display:grid; grid-template-columns:1.4fr 100px 100px 140px 140px 120px 125px 1.2fr 165px; gap:12px; align-items:end; }
+    .grid-form2 { display:grid; grid-template-columns:1fr; gap:12px; margin-top:12px; }
+    .grid-filtro { display:grid; grid-template-columns:100px 110px 1.1fr 1fr 1.2fr 130px 120px 120px; gap:12px; align-items:end; }
     label { display:block; font-size:13px; font-weight:bold; color:#4a5568; margin-bottom:6px; }
     input, select, textarea, button { width:100%; padding:10px 12px; border-radius:6px; border:1px solid #ccd3db; font-size:14px; box-sizing:border-box; }
     textarea { min-height:70px; resize:vertical; }
@@ -41,7 +41,7 @@
     .pendencias { background:#fff9e8; border:1px solid #f5d98b; }
     .muted { color:#667085; font-size:13px; }
     .total { font-weight:bold; text-align:right; margin-top:12px; }
-    @media (max-width:1100px) { .grid-form,.grid-form2,.grid-filtro { grid-template-columns:1fr; } }
+    @media (max-width:1200px) { .grid-form,.grid-form2,.grid-filtro { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
@@ -60,6 +60,7 @@
         <div><label for="item_saida_id">Item de saída</label><select id="item_saida_id"></select></div>
         <div><label for="competencia_mes">Mês</label><select id="competencia_mes"></select></div>
         <div><label for="competencia_ano">Ano</label><input id="competencia_ano" type="number" min="2000" max="2100" /></div>
+        <div><label for="vencimento">Vencimento</label><input id="vencimento" type="date" /></div>
         <div><label for="data_saida">Data pagamento</label><input id="data_saida" type="date" /></div>
         <div><label for="valor">Valor</label><input id="valor" inputmode="decimal" placeholder="0,00" /></div>
         <div><label for="status">Status</label><select id="status"><option value="PAGO">Pago</option><option value="PENDENTE">Pendente</option><option value="CANCELADO">Cancelado</option></select></div>
@@ -67,7 +68,6 @@
         <div style="display:flex; gap:10px;"><button class="btn-salvar" onclick="salvar()">Salvar</button><button class="btn-limpar" onclick="limparFormulario()">Limpar</button></div>
       </div>
       <div class="grid-form2">
-        <div><label for="descricao">Descrição</label><textarea id="descricao" placeholder="Ex: Conta de energia da fábrica"></textarea></div>
         <div><label for="observacao">Observação</label><textarea id="observacao" placeholder="Opcional"></textarea></div>
       </div>
       <div id="mensagem" class="mensagem"></div>
@@ -77,7 +77,7 @@
       <h2>Faltando lançar no mês selecionado</h2>
       <div class="muted">Mostra itens recorrentes ativos que ainda não têm lançamento neste mês. O valor sugerido vem do último pagamento anterior.</div>
       <table>
-        <thead><tr><th>Item</th><th>Categoria</th><th>Último valor pago</th><th>Última competência</th><th style="width:150px;">Ação</th></tr></thead>
+        <thead><tr><th>Item</th><th>Categoria</th><th>Último valor pago</th><th>Último vencimento</th><th>Última competência</th><th style="width:150px;">Ação</th></tr></thead>
         <tbody id="tbodyPendencias"></tbody>
       </table>
     </div>
@@ -89,13 +89,13 @@
         <div><label for="filtroAno">Ano</label><input id="filtroAno" type="number" min="2000" max="2100" /></div>
         <div><label for="filtroItem">Item</label><select id="filtroItem"></select></div>
         <div><label for="filtroCategoria">Categoria</label><select id="filtroCategoria"></select></div>
-        <div><label for="filtroBusca">Busca</label><input id="filtroBusca" placeholder="Item ou descrição" /></div>
+        <div><label for="filtroBusca">Busca</label><input id="filtroBusca" placeholder="Item, categoria ou observação" /></div>
         <div><label for="filtroStatus">Status</label><select id="filtroStatus"><option value="">Todos</option><option value="PAGO">Pago</option><option value="PENDENTE">Pendente</option><option value="CANCELADO">Cancelado</option></select></div>
         <div><label>&nbsp;</label><button class="btn-buscar" onclick="listar()">Buscar</button></div>
         <div><label>&nbsp;</label><button class="btn-limpar" onclick="limparFiltros()">Limpar</button></div>
       </div>
       <table>
-        <thead><tr><th>Competência</th><th>Data</th><th>Item</th><th>Categoria</th><th>Valor</th><th>Status</th><th>Descrição</th><th style="width:170px;">Ações</th></tr></thead>
+        <thead><tr><th>Competência</th><th>Vencimento</th><th>Pagamento</th><th>Item</th><th>Categoria</th><th>Valor</th><th>Status</th><th>Observação</th><th style="width:170px;">Ações</th></tr></thead>
         <tbody id="tbody"></tbody>
       </table>
       <div class="total" id="totalLista"></div>
@@ -106,6 +106,7 @@
     const API = '/api/saidas';
     let itens = [];
     let categorias = [];
+    let pendenciasAtuais = [];
     const nomesMeses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
     function escapeHtml(v) { return String(v ?? '').replace(/[&<>'"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[c])); }
@@ -121,11 +122,12 @@
       document.getElementById('filtroMes').innerHTML = '<option value="">Todos</option>' + opts;
 
       const hoje = new Date();
+      const hojeISO = hoje.toISOString().slice(0,10);
       document.getElementById('competencia_mes').value = hoje.getMonth() + 1;
       document.getElementById('competencia_ano').value = hoje.getFullYear();
-      document.getElementById('data_saida').value = hoje.toISOString().slice(0,10);
+      document.getElementById('vencimento').value = hojeISO;
+      document.getElementById('data_saida').value = hojeISO;
 
-      // Na listagem, o padrão é mostrar tudo. Mês e ano são filtros opcionais.
       document.getElementById('filtroMes').value = '';
       document.getElementById('filtroAno').value = '';
       document.getElementById('filtroAno').placeholder = 'Todos';
@@ -145,14 +147,15 @@
     }
 
     function limparFormulario() {
+      const hojeISO = new Date().toISOString().slice(0,10);
       document.getElementById('saida_id').value = '';
       document.getElementById('item_saida_id').value = '';
       document.getElementById('valor').value = '';
       document.getElementById('status').value = 'PAGO';
       document.getElementById('forma_pagamento').value = 'Pix';
-      document.getElementById('descricao').value = '';
       document.getElementById('observacao').value = '';
-      document.getElementById('data_saida').value = new Date().toISOString().slice(0,10);
+      document.getElementById('vencimento').value = hojeISO;
+      document.getElementById('data_saida').value = hojeISO;
       limparMsg();
     }
 
@@ -180,21 +183,24 @@
         if (ano) params.append('competencia_ano', ano);
         if (item) params.append('item_saida_id', item);
         if (categoria) params.append('categoria_id', categoria);
-        if (busca) params.append('descricao', busca);
+        if (busca) params.append('busca', busca);
         if (status) params.append('status', status);
         const json = await tratar(await fetch(`${API}?${params.toString()}`));
         const tbody = document.getElementById('tbody');
-        if (!json.data.length) { tbody.innerHTML = '<tr><td colspan="8">Nenhuma saída encontrada.</td></tr>'; document.getElementById('totalLista').textContent = ''; }
-        else {
+        if (!json.data.length) {
+          tbody.innerHTML = '<tr><td colspan="9">Nenhuma saída encontrada.</td></tr>';
+          document.getElementById('totalLista').textContent = '';
+        } else {
           tbody.innerHTML = json.data.map(item => `
             <tr>
               <td>${String(item.competencia_mes).padStart(2,'0')}/${item.competencia_ano}</td>
+              <td>${dataBR(item.vencimento)}</td>
               <td>${dataBR(item.data_saida)}</td>
               <td>${escapeHtml(item.item_saida_nome)}</td>
               <td>${escapeHtml(item.categoria_nome)}</td>
               <td>${moeda(item.valor)}</td>
               <td><span class="status status-${item.status}">${item.status}</span></td>
-              <td>${escapeHtml(item.descricao || '')}</td>
+              <td>${escapeHtml(item.observacao || '')}</td>
               <td><div class="acoes"><button class="btn-editar" onclick="editar(${item.id})">Editar</button><button class="btn-excluir" onclick="excluirRegistro(${item.id})">Excluir</button></div></td>
             </tr>`).join('');
           const total = json.data.filter(x => x.status !== 'CANCELADO').reduce((acc, x) => acc + Number(x.valor || 0), 0);
@@ -210,31 +216,52 @@
       const tbody = document.getElementById('tbodyPendencias');
 
       if (!mes || !ano) {
-        tbody.innerHTML = '<tr><td colspan="5">Selecione mês e ano nos filtros para ver pendências recorrentes.</td></tr>';
+        pendenciasAtuais = [];
+        tbody.innerHTML = '<tr><td colspan="6">Selecione mês e ano nos filtros para ver pendências recorrentes.</td></tr>';
         return;
       }
 
       const json = await tratar(await fetch(`${API}/faltantes-recorrentes?mes=${mes}&ano=${ano}`));
-      if (!json.data.length) { tbody.innerHTML = '<tr><td colspan="5">Nenhuma pendência recorrente encontrada para este mês.</td></tr>'; return; }
-      tbody.innerHTML = json.data.map(item => `
+      pendenciasAtuais = json.data || [];
+      if (!pendenciasAtuais.length) {
+        tbody.innerHTML = '<tr><td colspan="6">Nenhuma pendência recorrente encontrada para este mês.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = pendenciasAtuais.map((item, index) => `
         <tr>
           <td>${escapeHtml(item.item_saida_nome)}</td>
           <td>${escapeHtml(item.categoria_nome)}</td>
           <td>${item.ultimo_valor_pago ? moeda(item.ultimo_valor_pago) : 'Sem histórico'}</td>
+          <td>${dataBR(item.ultimo_vencimento)}</td>
           <td>${item.ultimo_mes_pago ? String(item.ultimo_mes_pago).padStart(2,'0') + '/' + item.ultimo_ano_pago : '-'}</td>
-          <td><button class="btn-mini" onclick="preencherPendente(${item.item_saida_id}, '${escapeHtml(item.item_saida_nome)}', ${Number(item.ultimo_valor_pago || 0)})">Lançar</button></td>
+          <td><button class="btn-mini" onclick="preencherPendente(${index})">Lançar</button></td>
         </tr>`).join('');
     }
 
-    function preencherPendente(itemId, nome, valorSugerido) {
+    function sugerirVencimento(mes, ano, ultimoVencimento) {
+      if (!mes || !ano || !ultimoVencimento) return '';
+      const partes = String(ultimoVencimento).slice(0,10).split('-');
+      if (partes.length !== 3) return '';
+      const diaAnterior = Number(partes[2]);
+      const ultimoDiaMes = new Date(Number(ano), Number(mes), 0).getDate();
+      const dia = Math.min(diaAnterior, ultimoDiaMes);
+      return `${ano}-${String(mes).padStart(2,'0')}-${String(dia).padStart(2,'0')}`;
+    }
+
+    function preencherPendente(index) {
+      const item = pendenciasAtuais[index];
+      if (!item) return;
+      const mes = document.getElementById('filtroMes').value;
+      const ano = document.getElementById('filtroAno').value;
       document.getElementById('saida_id').value = '';
-      document.getElementById('item_saida_id').value = itemId;
-      document.getElementById('competencia_mes').value = document.getElementById('filtroMes').value;
-      document.getElementById('competencia_ano').value = document.getElementById('filtroAno').value;
-      document.getElementById('valor').value = valorSugerido ? String(valorSugerido).replace('.', ',') : '';
-      document.getElementById('status').value = 'PENDENTE';
-      document.getElementById('descricao').value = nome;
+      document.getElementById('item_saida_id').value = item.item_saida_id;
+      document.getElementById('competencia_mes').value = mes;
+      document.getElementById('competencia_ano').value = ano;
+      document.getElementById('vencimento').value = sugerirVencimento(mes, ano, item.ultimo_vencimento);
       document.getElementById('data_saida').value = '';
+      document.getElementById('valor').value = item.ultimo_valor_pago ? String(item.ultimo_valor_pago).replace('.', ',') : '';
+      document.getElementById('status').value = 'PENDENTE';
+      document.getElementById('observacao').value = '';
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
@@ -247,11 +274,11 @@
         document.getElementById('item_saida_id').value = item.item_saida_id;
         document.getElementById('competencia_mes').value = item.competencia_mes;
         document.getElementById('competencia_ano').value = item.competencia_ano;
+        document.getElementById('vencimento').value = item.vencimento ? String(item.vencimento).slice(0,10) : '';
         document.getElementById('data_saida').value = item.data_saida ? String(item.data_saida).slice(0,10) : '';
         document.getElementById('valor').value = String(item.valor || '').replace('.', ',');
         document.getElementById('forma_pagamento').value = item.forma_pagamento || 'Pix';
         document.getElementById('status').value = item.status;
-        document.getElementById('descricao').value = item.descricao || '';
         document.getElementById('observacao').value = item.observacao || '';
         window.scrollTo({ top: 0, behavior: 'smooth' });
       } catch (error) { msg(error.message, 'erro'); }
@@ -265,11 +292,11 @@
           item_saida_id: document.getElementById('item_saida_id').value,
           competencia_mes: document.getElementById('competencia_mes').value,
           competencia_ano: document.getElementById('competencia_ano').value,
+          vencimento: document.getElementById('vencimento').value,
           data_saida: document.getElementById('data_saida').value,
           valor: document.getElementById('valor').value,
           forma_pagamento: document.getElementById('forma_pagamento').value,
           status: document.getElementById('status').value,
-          descricao: document.getElementById('descricao').value.trim(),
           observacao: document.getElementById('observacao').value.trim()
         };
         if (!body.item_saida_id) throw new Error('Item de saída é obrigatório');

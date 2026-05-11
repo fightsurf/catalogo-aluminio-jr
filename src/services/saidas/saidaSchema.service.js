@@ -36,15 +36,21 @@ async function criarEstrutura() {
       item_saida_id INTEGER NOT NULL REFERENCES saida_itens(id),
       competencia_mes INTEGER NOT NULL CHECK (competencia_mes BETWEEN 1 AND 12),
       competencia_ano INTEGER NOT NULL CHECK (competencia_ano BETWEEN 2000 AND 2100),
+      vencimento DATE,
       data_saida DATE,
       valor NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK (valor >= 0),
       forma_pagamento VARCHAR(60),
       status VARCHAR(20) NOT NULL DEFAULT 'PAGO' CHECK (status IN ('PAGO', 'PENDENTE', 'CANCELADO')),
-      descricao TEXT,
       observacao TEXT,
       created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW()
     );
+
+    ALTER TABLE saidas
+      ADD COLUMN IF NOT EXISTS vencimento DATE;
+
+    ALTER TABLE saidas
+      DROP COLUMN IF EXISTS descricao;
 
     CREATE INDEX IF NOT EXISTS ix_saidas_competencia
       ON saidas (competencia_ano, competencia_mes);
@@ -54,6 +60,9 @@ async function criarEstrutura() {
 
     CREATE INDEX IF NOT EXISTS ix_saidas_status
       ON saidas (status);
+
+    CREATE INDEX IF NOT EXISTS ix_saidas_vencimento
+      ON saidas (vencimento);
   `);
 }
 

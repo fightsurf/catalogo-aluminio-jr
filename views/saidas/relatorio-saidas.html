@@ -79,7 +79,7 @@
       <h2>Despesas recorrentes faltando no mês</h2>
       <div class="muted">São itens recorrentes ativos sem lançamento no mês selecionado.</div>
       <table>
-        <thead><tr><th>Item</th><th>Categoria</th><th>Último valor pago</th><th>Última competência</th></tr></thead>
+        <thead><tr><th>Item</th><th>Categoria</th><th>Último valor pago</th><th>Último vencimento</th><th>Última competência</th></tr></thead>
         <tbody id="tbodyFaltantes"></tbody>
       </table>
     </div>
@@ -95,7 +95,7 @@
     <div class="box">
       <h2>Lançamentos do mês</h2>
       <table>
-        <thead><tr><th>Data</th><th>Item</th><th>Categoria</th><th>Valor</th><th>Status</th><th>Forma</th><th>Descrição</th></tr></thead>
+        <thead><tr><th>Vencimento</th><th>Pagamento</th><th>Item</th><th>Categoria</th><th>Valor</th><th>Status</th><th>Forma</th><th>Observação</th></tr></thead>
         <tbody id="tbodyLancamentos"></tbody>
       </table>
     </div>
@@ -143,8 +143,8 @@
       `).join('') : '<tr><td colspan="4">Nenhuma categoria com lançamento no mês.</td></tr>';
 
       document.getElementById('tbodyFaltantes').innerHTML = data.faltantes_recorrentes.length ? data.faltantes_recorrentes.map(item => `
-        <tr><td>${escapeHtml(item.item_saida_nome)}</td><td>${escapeHtml(item.categoria_nome)}</td><td>${item.ultimo_valor_pago ? moeda(item.ultimo_valor_pago) : 'Sem histórico'}</td><td>${item.ultimo_mes_pago ? String(item.ultimo_mes_pago).padStart(2,'0') + '/' + item.ultimo_ano_pago : '-'}</td></tr>
-      `).join('') : '<tr><td colspan="4">Nenhuma despesa recorrente faltando.</td></tr>';
+        <tr><td>${escapeHtml(item.item_saida_nome)}</td><td>${escapeHtml(item.categoria_nome)}</td><td>${item.ultimo_valor_pago ? moeda(item.ultimo_valor_pago) : 'Sem histórico'}</td><td>${dataBR(item.ultimo_vencimento)}</td><td>${item.ultimo_mes_pago ? String(item.ultimo_mes_pago).padStart(2,'0') + '/' + item.ultimo_ano_pago : '-'}</td></tr>
+      `).join('') : '<tr><td colspan="5">Nenhuma despesa recorrente faltando.</td></tr>';
 
       document.getElementById('tbodyComparativo').innerHTML = data.comparativo.length ? data.comparativo.map(item => {
         const classe = item.situacao === 'SUBIU' ? 'subiu' : item.situacao === 'CAIU' ? 'caiu' : 'igual';
@@ -153,8 +153,8 @@
       }).join('') : '<tr><td colspan="7">Sem dados para comparar.</td></tr>';
 
       document.getElementById('tbodyLancamentos').innerHTML = data.lancamentos.length ? data.lancamentos.map(item => `
-        <tr><td>${dataBR(item.data_saida)}</td><td>${escapeHtml(item.item_saida_nome)}</td><td>${escapeHtml(item.categoria_nome)}</td><td>${moeda(item.valor)}</td><td><span class="status status-${item.status}">${item.status}</span></td><td>${escapeHtml(item.forma_pagamento || '')}</td><td>${escapeHtml(item.descricao || '')}</td></tr>
-      `).join('') : '<tr><td colspan="7">Nenhum lançamento no mês.</td></tr>';
+        <tr><td>${dataBR(item.vencimento)}</td><td>${dataBR(item.data_saida)}</td><td>${escapeHtml(item.item_saida_nome)}</td><td>${escapeHtml(item.categoria_nome)}</td><td>${moeda(item.valor)}</td><td><span class="status status-${item.status}">${item.status}</span></td><td>${escapeHtml(item.forma_pagamento || '')}</td><td>${escapeHtml(item.observacao || '')}</td></tr>
+      `).join('') : '<tr><td colspan="8">Nenhum lançamento no mês.</td></tr>';
     }
 
     iniciar();
