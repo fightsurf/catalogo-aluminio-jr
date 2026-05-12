@@ -12,6 +12,13 @@ function normalizarTexto(value) {
   return String(value || '').trim();
 }
 
+function parseAtivo(value) {
+  if (value === undefined || value === null || value === '') return null;
+  if (value === true || value === 'true' || value === '1' || value === 1) return true;
+  if (value === false || value === 'false' || value === '0' || value === 0) return false;
+  throw new Error('Valor de ativo inválido');
+}
+
 function normalizarQuantidade(value, campo = 'Quantidade') {
   if (value === undefined || value === null || value === '') {
     throw new Error(`${campo} inválida`);
@@ -25,25 +32,21 @@ function normalizarQuantidade(value, campo = 'Quantidade') {
   return Number(numero.toFixed(4));
 }
 
-function normalizarPrecoVenda(value) {
-  if (value === undefined || value === null || value === '') {
+function moedaNumero(value) {
+  return Number(value || 0);
+}
+
+function parsePrecoVenda(value) {
+  if (value === undefined || value === null || String(value).trim() === '') {
     throw new Error('Preço de venda inválido');
   }
 
-  const textoOriginal = String(value).trim();
-  const textoNormalizado = textoOriginal.includes(',')
-    ? textoOriginal.replace(/\./g, '').replace(',', '.')
-    : textoOriginal;
-  const numero = Number(textoNormalizado);
+  const numero = Number(String(value).trim().replace(/\./g, '').replace(',', '.'));
   if (!Number.isFinite(numero) || numero < 0) {
     throw new Error('Preço de venda inválido');
   }
 
   return Number(numero.toFixed(2));
-}
-
-function moedaNumero(value) {
-  return Number(value || 0);
 }
 
 function calcularCustoUnitario(row) {
@@ -158,55 +161,6 @@ async function obterComposicao(composicaoId) {
   return result.rows[0];
 }
 
-async function obterComposicaoPorProduto(produtoId, client = pool) {
-  const result = await client.query(`
-    SELECT
-      pc.id,
-      pc.produto_id,
-      p.nome AS produto,
-      p.preco AS preco_venda,
-      pc.nome,
-      pc.ativo,
-      pc.created_at,
-      pc.updated_at
-    FROM produtos_composicoes pc
-    JOIN produtos p ON p.id = pc.produto_id
-    WHERE pc.produto_id = $1
-    ORDER BY pc.id ASC
-    LIMIT 1
-  `, [produtoId]);
-
-  return result.rows[0] || null;
-}
-
-async function garantirComposicaoPorProduto(produtoId, client = pool) {
-  const existente = await obterComposicaoPorProduto(produtoId, client);
-  if (existente) return existente;
-
-  const insert = await client.query(`
-    INSERT INTO produtos_composicoes (produto_id, nome, ativo)
-    VALUES ($1, 'COMPOSIÇÃO ÚNICA', TRUE)
-    RETURNING id
-  `, [produtoId]);
-
-  const nova = await client.query(`
-    SELECT
-      pc.id,
-      pc.produto_id,
-      p.nome AS produto,
-      p.preco AS preco_venda,
-      pc.nome,
-      pc.ativo,
-      pc.created_at,
-      pc.updated_at
-    FROM produtos_composicoes pc
-    JOIN produtos p ON p.id = pc.produto_id
-    WHERE pc.id = $1
-  `, [insert.rows[0].id]);
-
-  return nova.rows[0];
-}
-
 async function listarInsumosDisponiveis(filtros = {}) {
   const values = [];
   const conditions = ['ifn.ativo = TRUE', 'i.ativo = TRUE'];
@@ -264,13 +218,58 @@ async function listarInsumosDisponiveis(filtros = {}) {
   return result.rows.map(mapearInsumoDisponivel);
 }
 
+async function listarPorProduto(produtoIdParam) {
+  const produtoId = normalizarId(produtoIdParam, 'Produto');
+  const produto = await obterProduto(produtoId);
+
+  const result = await pool.query(`
+    SELECT
+      pc.id,
+      pc.produto_id,
+      pc.nome,
+      pc.ativo,
+      pc.created_at,
+      pc.updated_at,
+      COUNT(pci.id)::int AS total_itens,
+      COALESCE(SUM(
+        pci.quantidade *
+        CASE
+          WHEN d.insumo_id IS NOT NULL THEN COALESCE(d.peso_kg, 0) * COALESCE(ifn.custo_final, 0)
+          ELSE COALESCE(ifn.custo_final, 0)
+        END
+      ), 0)::numeric(14,4) AS custo_total
+    FROM produtos_composicoes pc
+    LEFT JOIN produtos_composicoes_itens pci ON pci.composicao_id = pc.id
+    LEFT JOIN insumos_fornecedores ifn ON ifn.id = pci.insumo_fornecedor_id
+    LEFT JOIN insumos i ON i.id = ifn.insumo_id
+    LEFT JOIN insumos_discos d ON d.insumo_id = i.id
+    WHERE pc.produto_id = $1
+    GROUP BY pc.id
+    ORDER BY pc.nome ASC
+  `, [produtoId]);
+
+  return {
+    produto: {
+      id: Number(produto.id),
+      nome: produto.nome,
+      preco: moedaNumero(produto.preco),
+      ativo: produto.ativo
+    },
+    composicoes: result.rows.map(row => ({
+      id: Number(row.id),
+      produto_id: Number(row.produto_id),
+      nome: row.nome,
+      ativo: row.ativo,
+      total_itens: Number(row.total_itens || 0),
+      custo_total: moedaNumero(row.custo_total)
+    }))
+  };
+}
+
 async function buscar(composicaoIdParam) {
   const composicaoId = normalizarId(composicaoIdParam, 'Composição');
   const composicao = await obterComposicao(composicaoId);
-  return montarComposicao(composicao);
-}
 
-async function montarComposicao(composicao) {
   const itensResult = await pool.query(`
     SELECT
       pci.id,
@@ -299,7 +298,7 @@ async function montarComposicao(composicao) {
     LEFT JOIN insumos_discos d ON d.insumo_id = i.id
     WHERE pci.composicao_id = $1
     ORDER BY i.nome ASC, f.nome ASC
-  `, [composicao.id]);
+  `, [composicaoId]);
 
   const itens = itensResult.rows.map(mapearItem);
   const resumo = calcularResumoItens(itens, composicao.preco_venda);
@@ -309,33 +308,66 @@ async function montarComposicao(composicao) {
     produto_id: Number(composicao.produto_id),
     produto: composicao.produto,
     preco_venda: moedaNumero(composicao.preco_venda),
-    nome: composicao.nome || 'COMPOSIÇÃO ÚNICA',
+    nome: composicao.nome,
     ativo: composicao.ativo,
-    total_itens: itens.length,
     itens,
     resumo
   };
 }
 
-async function listarPorProduto(produtoIdParam) {
-  const produtoId = normalizarId(produtoIdParam, 'Produto');
-  const produto = await obterProduto(produtoId);
-  const composicao = await obterComposicaoPorProduto(produtoId);
+async function criar(data = {}) {
+  const produtoId = normalizarId(data.produto_id, 'Produto');
+  const nome = normalizarTexto(data.nome) || 'PADRÃO';
+  const ativo = data.ativo === undefined ? true : parseAtivo(data.ativo);
 
-  let composicaoDetalhada = null;
-  if (composicao) {
-    composicaoDetalhada = await montarComposicao(composicao);
+  await obterProduto(produtoId);
+
+  try {
+    const result = await pool.query(`
+      INSERT INTO produtos_composicoes (produto_id, nome, ativo)
+      VALUES ($1, $2, $3)
+      RETURNING id
+    `, [produtoId, nome, ativo]);
+
+    return buscar(result.rows[0].id);
+  } catch (error) {
+    if (error.code === '23505') {
+      throw new Error('Já existe uma composição com este nome para este produto');
+    }
+    throw error;
+  }
+}
+
+async function atualizar(composicaoIdParam, data = {}) {
+  const composicaoId = normalizarId(composicaoIdParam, 'Composição');
+  const atual = await obterComposicao(composicaoId);
+  const produtoId = data.produto_id !== undefined ? normalizarId(data.produto_id, 'Produto') : Number(atual.produto_id);
+  const nome = data.nome !== undefined ? normalizarTexto(data.nome) : atual.nome;
+  const ativo = data.ativo === undefined ? atual.ativo : parseAtivo(data.ativo);
+
+  if (!nome) {
+    throw new Error('Nome da composição é obrigatório');
   }
 
-  return {
-    produto: {
-      id: Number(produto.id),
-      nome: produto.nome,
-      preco: moedaNumero(produto.preco),
-      ativo: produto.ativo
-    },
-    composicao: composicaoDetalhada
-  };
+  await obterProduto(produtoId);
+
+  try {
+    await pool.query(`
+      UPDATE produtos_composicoes
+      SET produto_id = $1,
+          nome = $2,
+          ativo = $3,
+          updated_at = NOW()
+      WHERE id = $4
+    `, [produtoId, nome, ativo, composicaoId]);
+
+    return buscar(composicaoId);
+  } catch (error) {
+    if (error.code === '23505') {
+      throw new Error('Já existe uma composição com este nome para este produto');
+    }
+    throw error;
+  }
 }
 
 function consolidarItens(itens = []) {
@@ -343,11 +375,6 @@ function consolidarItens(itens = []) {
 
   for (const item of itens || []) {
     if (!item) continue;
-    const quantidadeRaw = item.quantidade;
-    if (quantidadeRaw === undefined || quantidadeRaw === null || quantidadeRaw === '' || Number(quantidadeRaw) <= 0) {
-      continue;
-    }
-
     const insumoFornecedorId = normalizarId(item.insumo_fornecedor_id, 'Insumo do fornecedor');
     const quantidade = normalizarQuantidade(item.quantidade);
     const anterior = mapa.get(insumoFornecedorId) || 0;
@@ -381,141 +408,14 @@ async function validarInsumosFornecedores(client, itens) {
   }
 }
 
-async function salvarItensPorProduto(produtoIdParam, itensPayload = []) {
+async function atualizarPrecoProduto(produtoIdParam, precoParam) {
   const produtoId = normalizarId(produtoIdParam, 'Produto');
-  await obterProduto(produtoId);
-
-  const itens = consolidarItens(itensPayload);
-  const client = await pool.connect();
-
-  try {
-    await client.query('BEGIN');
-    await validarInsumosFornecedores(client, itens);
-
-    const composicao = await garantirComposicaoPorProduto(produtoId, client);
-
-    await client.query('DELETE FROM produtos_composicoes_itens WHERE composicao_id = $1', [composicao.id]);
-
-    for (const item of itens) {
-      await client.query(`
-        INSERT INTO produtos_composicoes_itens (composicao_id, insumo_fornecedor_id, quantidade, ativo)
-        VALUES ($1, $2, $3, TRUE)
-      `, [composicao.id, item.insumo_fornecedor_id, item.quantidade]);
-    }
-
-    await client.query(`
-      UPDATE produtos_composicoes
-      SET nome = 'COMPOSIÇÃO ÚNICA',
-          ativo = TRUE,
-          updated_at = NOW()
-      WHERE id = $1
-    `, [composicao.id]);
-
-    await client.query('COMMIT');
-    return buscar(composicao.id);
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
-}
-
-async function salvarItens(composicaoIdParam, itensPayload = []) {
-  const composicaoId = normalizarId(composicaoIdParam, 'Composição');
-  const composicao = await obterComposicao(composicaoId);
-  return salvarItensPorProduto(composicao.produto_id, itensPayload);
-}
-
-async function limparItensPorProduto(produtoIdParam) {
-  const produtoId = normalizarId(produtoIdParam, 'Produto');
-  await obterProduto(produtoId);
-
-  const composicao = await obterComposicaoPorProduto(produtoId);
-  if (!composicao) return null;
-
-  await pool.query(`
-    DELETE FROM produtos_composicoes_itens
-    WHERE composicao_id = $1
-  `, [composicao.id]);
-
-  await pool.query(`
-    UPDATE produtos_composicoes
-    SET updated_at = NOW()
-    WHERE id = $1
-  `, [composicao.id]);
-
-  return buscar(composicao.id);
-}
-
-async function copiarComposicao(data = {}) {
-  const produtoOrigemId = normalizarId(data.produto_origem_id, 'Produto origem');
-  const produtoDestinoId = normalizarId(data.produto_destino_id, 'Produto destino');
-
-  if (produtoOrigemId === produtoDestinoId) {
-    throw new Error('Produto origem e destino não podem ser iguais');
-  }
-
-  await obterProduto(produtoOrigemId);
-  await obterProduto(produtoDestinoId);
-
-  const client = await pool.connect();
-
-  try {
-    await client.query('BEGIN');
-
-    const origem = await obterComposicaoPorProduto(produtoOrigemId, client);
-    if (!origem) {
-      throw new Error('Produto origem não possui composição cadastrada');
-    }
-
-    const itensOrigem = await client.query(`
-      SELECT insumo_fornecedor_id, quantidade
-      FROM produtos_composicoes_itens
-      WHERE composicao_id = $1
-      ORDER BY id ASC
-    `, [origem.id]);
-
-    if (itensOrigem.rows.length === 0) {
-      throw new Error('Produto origem está sem itens na composição');
-    }
-
-    const destino = await garantirComposicaoPorProduto(produtoDestinoId, client);
-
-    await client.query('DELETE FROM produtos_composicoes_itens WHERE composicao_id = $1', [destino.id]);
-
-    for (const item of itensOrigem.rows) {
-      await client.query(`
-        INSERT INTO produtos_composicoes_itens (composicao_id, insumo_fornecedor_id, quantidade, ativo)
-        VALUES ($1, $2, $3, TRUE)
-      `, [destino.id, item.insumo_fornecedor_id, item.quantidade]);
-    }
-
-    await client.query(`
-      UPDATE produtos_composicoes
-      SET nome = 'COMPOSIÇÃO ÚNICA',
-          ativo = TRUE,
-          updated_at = NOW()
-      WHERE id = $1
-    `, [destino.id]);
-
-    await client.query('COMMIT');
-    return buscar(destino.id);
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
-  }
-}
-
-async function atualizarPrecoProduto(produtoIdParam, data = {}) {
-  const produtoId = normalizarId(produtoIdParam, 'Produto');
-  const preco = normalizarPrecoVenda(data.preco);
+  const preco = parsePrecoVenda(precoParam);
 
   const result = await pool.query(`
     UPDATE produtos
-    SET preco = $1
+    SET preco = $1,
+        updated_at = NOW()
     WHERE id = $2
     RETURNING id, nome, preco, ativo
   `, [preco, produtoId]);
@@ -524,24 +424,55 @@ async function atualizarPrecoProduto(produtoIdParam, data = {}) {
     throw new Error('Produto não encontrado');
   }
 
-  return listarPorProduto(produtoId);
+  return {
+    id: Number(result.rows[0].id),
+    nome: result.rows[0].nome,
+    preco: moedaNumero(result.rows[0].preco),
+    ativo: result.rows[0].ativo
+  };
 }
 
-async function criar(data = {}) {
-  const produtoId = normalizarId(data.produto_id, 'Produto');
-  return salvarItensPorProduto(produtoId, data.itens || []);
-}
-
-async function atualizar(composicaoIdParam, data = {}) {
+async function salvarItens(composicaoIdParam, itensPayload = []) {
   const composicaoId = normalizarId(composicaoIdParam, 'Composição');
-  const composicao = await obterComposicao(composicaoId);
-  return salvarItensPorProduto(composicao.produto_id, data.itens || []);
+  await obterComposicao(composicaoId);
+
+  const itens = consolidarItens(itensPayload);
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+    await validarInsumosFornecedores(client, itens);
+
+    await client.query('DELETE FROM produtos_composicoes_itens WHERE composicao_id = $1', [composicaoId]);
+
+    for (const item of itens) {
+      await client.query(`
+        INSERT INTO produtos_composicoes_itens (composicao_id, insumo_fornecedor_id, quantidade, ativo)
+        VALUES ($1, $2, $3, TRUE)
+      `, [composicaoId, item.insumo_fornecedor_id, item.quantidade]);
+    }
+
+    await client.query(`
+      UPDATE produtos_composicoes
+      SET updated_at = NOW()
+      WHERE id = $1
+    `, [composicaoId]);
+
+    await client.query('COMMIT');
+    return buscar(composicaoId);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 async function excluir(composicaoIdParam) {
   const composicaoId = normalizarId(composicaoIdParam, 'Composição');
-  const composicao = await obterComposicao(composicaoId);
-  return limparItensPorProduto(composicao.produto_id);
+  await obterComposicao(composicaoId);
+
+  await pool.query('DELETE FROM produtos_composicoes WHERE id = $1', [composicaoId]);
 }
 
 module.exports = {
@@ -550,10 +481,7 @@ module.exports = {
   buscar,
   criar,
   atualizar,
-  salvarItens,
-  salvarItensPorProduto,
-  limparItensPorProduto,
-  copiarComposicao,
   atualizarPrecoProduto,
+  salvarItens,
   excluir
 };

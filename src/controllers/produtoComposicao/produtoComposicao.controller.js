@@ -30,45 +30,6 @@ async function buscar(req, res) {
   }
 }
 
-async function salvarItensPorProduto(req, res) {
-  try {
-    const dados = await service.salvarItensPorProduto(req.params.produtoId, req.body.itens || []);
-    res.json({ success: true, data: dados, message: 'Composição salva com sucesso' });
-  } catch (error) {
-    const status = error.message === 'Produto não encontrado' ? 404 : 400;
-    res.status(status).json({ success: false, message: error.message });
-  }
-}
-
-async function limparItensPorProduto(req, res) {
-  try {
-    const dados = await service.limparItensPorProduto(req.params.produtoId);
-    res.json({ success: true, data: dados, message: 'Composição limpa com sucesso' });
-  } catch (error) {
-    const status = error.message === 'Produto não encontrado' ? 404 : 400;
-    res.status(status).json({ success: false, message: error.message });
-  }
-}
-
-async function copiarComposicao(req, res) {
-  try {
-    const dados = await service.copiarComposicao(req.body);
-    res.json({ success: true, data: dados, message: 'Composição copiada com sucesso' });
-  } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
-  }
-}
-
-async function atualizarPrecoProduto(req, res) {
-  try {
-    const dados = await service.atualizarPrecoProduto(req.params.produtoId, req.body);
-    res.json({ success: true, data: dados, message: 'Preço de venda atualizado com sucesso' });
-  } catch (error) {
-    const status = error.message === 'Produto não encontrado' ? 404 : 400;
-    res.status(status).json({ success: false, message: error.message });
-  }
-}
-
 async function criar(req, res) {
   try {
     const dados = await service.criar(req.body);
@@ -88,6 +49,16 @@ async function atualizar(req, res) {
   }
 }
 
+async function atualizarPrecoProduto(req, res) {
+  try {
+    const dados = await service.atualizarPrecoProduto(req.params.produtoId, req.body.preco);
+    res.json({ success: true, data: dados, message: 'Preço de venda atualizado com sucesso' });
+  } catch (error) {
+    const status = error.message === 'Produto não encontrado' ? 404 : 400;
+    res.status(status).json({ success: false, message: error.message });
+  }
+}
+
 async function salvarItens(req, res) {
   try {
     const dados = await service.salvarItens(req.params.id, req.body.itens || []);
@@ -100,8 +71,8 @@ async function salvarItens(req, res) {
 
 async function excluir(req, res) {
   try {
-    const dados = await service.excluir(req.params.id);
-    res.json({ success: true, data: dados, message: 'Composição limpa com sucesso' });
+    await service.excluir(req.params.id);
+    res.json({ success: true, message: 'Composição excluída com sucesso' });
   } catch (error) {
     const status = error.message === 'Composição não encontrada' ? 404 : 400;
     res.status(status).json({ success: false, message: error.message });
@@ -112,12 +83,9 @@ module.exports = {
   listarInsumosDisponiveis,
   listarPorProduto,
   buscar,
-  salvarItensPorProduto,
-  limparItensPorProduto,
-  copiarComposicao,
-  atualizarPrecoProduto,
   criar,
   atualizar,
+  atualizarPrecoProduto,
   salvarItens,
   excluir
 };
