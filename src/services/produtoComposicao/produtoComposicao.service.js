@@ -25,6 +25,23 @@ function normalizarQuantidade(value, campo = 'Quantidade') {
   return Number(numero.toFixed(4));
 }
 
+function normalizarPrecoVenda(value) {
+  if (value === undefined || value === null || value === '') {
+    throw new Error('Preço de venda inválido');
+  }
+
+  const textoOriginal = String(value).trim();
+  const textoNormalizado = textoOriginal.includes(',')
+    ? textoOriginal.replace(/\./g, '').replace(',', '.')
+    : textoOriginal;
+  const numero = Number(textoNormalizado);
+  if (!Number.isFinite(numero) || numero < 0) {
+    throw new Error('Preço de venda inválido');
+  }
+
+  return Number(numero.toFixed(2));
+}
+
 function moedaNumero(value) {
   return Number(value || 0);
 }
@@ -492,6 +509,24 @@ async function copiarComposicao(data = {}) {
   }
 }
 
+async function atualizarPrecoProduto(produtoIdParam, data = {}) {
+  const produtoId = normalizarId(produtoIdParam, 'Produto');
+  const preco = normalizarPrecoVenda(data.preco);
+
+  const result = await pool.query(`
+    UPDATE produtos
+    SET preco = $1
+    WHERE id = $2
+    RETURNING id, nome, preco, ativo
+  `, [preco, produtoId]);
+
+  if (result.rows.length === 0) {
+    throw new Error('Produto não encontrado');
+  }
+
+  return listarPorProduto(produtoId);
+}
+
 async function criar(data = {}) {
   const produtoId = normalizarId(data.produto_id, 'Produto');
   return salvarItensPorProduto(produtoId, data.itens || []);
@@ -519,5 +554,6 @@ module.exports = {
   salvarItensPorProduto,
   limparItensPorProduto,
   copiarComposicao,
+  atualizarPrecoProduto,
   excluir
 };

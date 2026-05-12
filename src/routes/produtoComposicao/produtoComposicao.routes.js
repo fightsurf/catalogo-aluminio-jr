@@ -6,6 +6,7 @@ router.get('/insumos', controller.listarInsumosDisponiveis);
 router.post('/copiar', controller.copiarComposicao);
 router.get('/produto/:produtoId', controller.listarPorProduto);
 router.put('/produto/:produtoId/itens', controller.salvarItensPorProduto);
+router.put('/produto/:produtoId/preco', controller.atualizarPrecoProduto);
 router.delete('/produto/:produtoId/itens', controller.limparItensPorProduto);
 
 // Rotas antigas mantidas para não quebrar chamadas existentes.

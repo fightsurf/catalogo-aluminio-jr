@@ -59,6 +59,16 @@ async function copiarComposicao(req, res) {
   }
 }
 
+async function atualizarPrecoProduto(req, res) {
+  try {
+    const dados = await service.atualizarPrecoProduto(req.params.produtoId, req.body);
+    res.json({ success: true, data: dados, message: 'Preço de venda atualizado com sucesso' });
+  } catch (error) {
+    const status = error.message === 'Produto não encontrado' ? 404 : 400;
+    res.status(status).json({ success: false, message: error.message });
+  }
+}
+
 async function criar(req, res) {
   try {
     const dados = await service.criar(req.body);
@@ -105,6 +115,7 @@ module.exports = {
   salvarItensPorProduto,
   limparItensPorProduto,
   copiarComposicao,
+  atualizarPrecoProduto,
   criar,
   atualizar,
   salvarItens,
