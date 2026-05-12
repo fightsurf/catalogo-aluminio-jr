@@ -41,7 +41,47 @@ function parsePrecoVenda(value) {
     throw new Error('Preço de venda inválido');
   }
 
-  const numero = Number(String(value).trim().replace(/\./g, '').replace(',', '.'));
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value < 0) {
+      throw new Error('Preço de venda inválido');
+    }
+    return Number(value.toFixed(2));
+  }
+
+  let texto = String(value)
+    .trim()
+    .replace(/R\$/gi, '')
+    .replace(/\s/g, '')
+    .replace(/[^0-9,.-]/g, '');
+
+  if (!texto) {
+    throw new Error('Preço de venda inválido');
+  }
+
+  const ultimoPonto = texto.lastIndexOf('.');
+  const ultimaVirgula = texto.lastIndexOf(',');
+  let separadorDecimal = null;
+
+  if (ultimoPonto >= 0 && ultimaVirgula >= 0) {
+    separadorDecimal = ultimaVirgula > ultimoPonto ? ',' : '.';
+  } else {
+    const idx = Math.max(ultimoPonto, ultimaVirgula);
+    if (idx >= 0) {
+      const casas = texto.length - idx - 1;
+      separadorDecimal = casas > 0 && casas <= 2 ? texto[idx] : null;
+    }
+  }
+
+  if (separadorDecimal) {
+    const separadorMilhar = separadorDecimal === ',' ? '.' : ',';
+    texto = texto.replace(new RegExp('\\' + separadorMilhar, 'g'), '');
+    const partes = texto.split(separadorDecimal);
+    texto = partes.slice(0, -1).join('') + '.' + partes[partes.length - 1];
+  } else {
+    texto = texto.replace(/[.,]/g, '');
+  }
+
+  const numero = Number(texto);
   if (!Number.isFinite(numero) || numero < 0) {
     throw new Error('Preço de venda inválido');
   }
