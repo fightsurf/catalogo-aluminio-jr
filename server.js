@@ -208,6 +208,11 @@ app.get('/orcamento', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'orcamento.html'));
 });
 
+
+app.get('/conversor-relatorios-venda', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'vendas', 'conversor-relatorios-venda.html'));
+});
+
 app.get('/combinador', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'combinador.html'));
 });

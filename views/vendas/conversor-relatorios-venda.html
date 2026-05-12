@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Conversor de Relatórios de Venda - Alumínio JR</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #f4f6f9;
+      color: #222;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 28px auto;
+      padding: 0 18px;
+    }
+
+    .topo {
+      margin-bottom: 18px;
+    }
+
+    .topo h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+      color: #111;
+    }
+
+    .topo p {
+      margin: 0;
+      color: #555;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 18px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+    }
+
+    .card h2 {
+      margin: 0 0 14px;
+      font-size: 20px;
+      color: #111;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 430px;
+      resize: vertical;
+      border: 1px solid #cfd6df;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 14px;
+      font-family: Consolas, 'Courier New', monospace;
+      line-height: 1.45;
+      outline: none;
+      white-space: pre;
+      background: #fff;
+    }
+
+    textarea:focus {
+      border-color: #111;
+    }
+
+    .acoes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: 12px 16px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 14px;
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .btn-principal {
+      background: #111;
+      color: #fff;
+    }
+
+    .btn-kit {
+      background: #0a7;
+      color: #fff;
+    }
+
+    .btn-orcamento {
+      background: #333;
+      color: #fff;
+    }
+
+    .btn-secundario {
+      background: #e9edf2;
+      color: #111;
+    }
+
+    .btn-copiar {
+      background: #0b7a33;
+      color: #fff;
+    }
+
+    .status {
+      margin-top: 12px;
+      min-height: 22px;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+
+    .status.erro {
+      color: #c62828;
+      font-weight: bold;
+    }
+
+    .status.sucesso {
+      color: #0b7a33;
+      font-weight: bold;
+    }
+
+    .status.aviso {
+      color: #8a5a00;
+      font-weight: bold;
+    }
+
+    .resumo {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .resumo-item {
+      background: #f8fafc;
+      border: 1px solid #d9e1ea;
+      border-radius: 10px;
+      padding: 12px;
+      min-height: 74px;
+    }
+
+    .resumo-item strong {
+      display: block;
+      font-size: 11px;
+      color: #555;
+      margin-bottom: 5px;
+      text-transform: uppercase;
+    }
+
+    .resumo-item span {
+      display: block;
+      font-size: 18px;
+      color: #111;
+      font-weight: bold;
+      word-break: break-word;
+    }
+
+    .alerta {
+      background: #fff7df;
+      border: 1px solid #e0b44c;
+      border-radius: 10px;
+      color: #4a3400;
+      padding: 12px;
+      font-size: 13px;
+      line-height: 1.45;
+      margin-bottom: 14px;
+    }
+
+    .lista-erros {
+      margin: 8px 0 0 18px;
+      padding: 0;
+    }
+
+    .rodape-info {
+      margin-top: 12px;
+      font-size: 12px;
+      color: #666;
+      line-height: 1.45;
+    }
+
+    @media (max-width: 900px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      textarea {
+        min-height: 320px;
+      }
+
+      .resumo {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+  <link rel="stylesheet" href="/css/theme.css" />
+</head>
+<body>
+  <div class="container">
+    <div class="topo">
+      <h1>Conversor de Relatórios de Venda</h1>
+      <p>Cola o relatório do WhatsApp. O sistema converte Kit Feirinha para Orçamento ou Orçamento para Kit Feirinha, mantendo o formato rígido usado pelos outros módulos.</p>
+    </div>
+
+    <div class="grid">
+      <div class="card">
+        <h2>Entrada</h2>
+
+        <label for="relatorioEntrada">Relatório original</label>
+        <textarea id="relatorioEntrada" spellcheck="false" placeholder="Cole aqui o relatório no formato padrão:\n\n📦 RELATÓRIO ALUMÍNIO JR\n\n• PRODUTO | QTD: 1\n  UNIT: R$ 10,00\n  SUBTOTAL: R$ 10,00\n\nValor total: R$ 10,00"></textarea>
+
+        <div class="acoes">
+          <button class="btn-principal" id="btnAuto" type="button">Detectar e converter</button>
+          <button class="btn-orcamento" id="btnParaOrcamento" type="button">Gerar Orçamento</button>
+          <button class="btn-kit" id="btnParaKit" type="button">Gerar Kit Feirinha</button>
+          <button class="btn-secundario" id="btnLimpar" type="button">Limpar</button>
+        </div>
+
+        <div class="status" id="statusEntrada"></div>
+
+        <div class="rodape-info">
+          Detecção automática: se todos os UNIT forem iguais, considera Kit Feirinha e gera Orçamento. Se os UNIT forem diferentes, considera Orçamento e gera Kit Feirinha. Se ficar ambíguo, use os botões manuais.
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Saída</h2>
+
+        <div class="alerta">
+          A saída abaixo é montada com quebra de linha, marcador, dois espaços antes de UNIT/SUBTOTAL e linha final exatamente no padrão dos módulos de importação.
+        </div>
+
+        <div class="resumo">
+          <div class="resumo-item">
+            <strong>Conversão</strong>
+            <span id="tipoConversao">-</span>
+          </div>
+          <div class="resumo-item">
+            <strong>Total</strong>
+            <span id="totalSaida">R$ 0,00</span>
+          </div>
+          <div class="resumo-item">
+            <strong>Unidades</strong>
+            <span id="totalUnidades">0</span>
+          </div>
+        </div>
+
+        <label for="relatorioSaida">Relatório convertido</label>
+        <textarea id="relatorioSaida" readonly spellcheck="false"></textarea>
+
+        <div class="acoes">
+          <button class="btn-copiar" id="btnCopiar" type="button" disabled>Copiar relatório</button>
+        </div>
+
+        <div class="status" id="statusSaida"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let produtos = [];
+
+    const els = {
+      entrada: document.getElementById('relatorioEntrada'),
+      saida: document.getElementById('relatorioSaida'),
+      statusEntrada: document.getElementById('statusEntrada'),
+      statusSaida: document.getElementById('statusSaida'),
+      tipoConversao: document.getElementById('tipoConversao'),
+      totalSaida: document.getElementById('totalSaida'),
+      totalUnidades: document.getElementById('totalUnidades'),
+      btnAuto: document.getElementById('btnAuto'),
+      btnParaOrcamento: document.getElementById('btnParaOrcamento'),
+      btnParaKit: document.getElementById('btnParaKit'),
+      btnLimpar: document.getElementById('btnLimpar'),
+      btnCopiar: document.getElementById('btnCopiar')
+    };
+
+    async function apiGet(url) {
+      const response = await fetch(url);
+      const json = await response.json();
+
+      if (!json.success) {
+        throw new Error(json.message || 'Erro na API');
+      }
+
+      return json.data;
+    }
+
+    function formatarMoeda(valor) {
+      return Number(valor || 0).toFixed(2).replace('.', ',');
+    }
+
+    function formatarQtd(valor) {
+      const numero = Number(valor);
+
+      if (Number.isInteger(numero)) {
+        return String(numero);
+      }
+
+      return String(numero).replace('.', ',');
+    }
+
+    function parseMoeda(valor) {
+      if (valor === undefined || valor === null) return 0;
+
+      const limpo = String(valor)
+        .replace(/R\$/gi, '')
+        .replace(/\s/g, '')
+        .replace(/\./g, '')
+        .replace(',', '.');
+
+      const numero = Number(limpo);
+      return Number.isFinite(numero) ? numero : 0;
+    }
+
+    function parseQtd(valor) {
+      const numero = Number(String(valor || '0').replace(',', '.'));
+      return Number.isFinite(numero) && numero > 0 ? numero : 0;
+    }
+
+    function normalizarTexto(valor) {
+      return String(valor || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toUpperCase();
+    }
+
+    function escapeHtml(valor) {
+      return String(valor || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function setStatus(elemento, texto, tipo) {
+      elemento.innerHTML = texto || '';
+      elemento.className = 'status';
+
+      if (tipo) {
+        elemento.classList.add(tipo);
+      }
+    }
+
+    function limparResultado() {
+      els.saida.value = '';
+      els.tipoConversao.textContent = '-';
+      els.totalSaida.textContent = 'R$ 0,00';
+      els.totalUnidades.textContent = '0';
+      els.btnCopiar.disabled = true;
+      setStatus(els.statusSaida, '', '');
+    }
+
+    function obterProdutosPorNome() {
+      const mapa = new Map();
+
+      produtos.forEach(produto => {
+        mapa.set(normalizarTexto(produto.nome), produto);
+      });
+
+      return mapa;
+    }
+
+    function parseRelatorio(texto) {
+      const entrada = String(texto || '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      const regex = /^•\s*(.*?)\s*\|\s*QTD:\s*([0-9]+(?:[,.][0-9]+)?)\s*\n\s{2}UNIT:\s*R\$\s*([0-9.]+,[0-9]{2}|[0-9]+(?:[,.][0-9]{1,2})?)\s*\n\s{2}SUBTOTAL:\s*R\$\s*([0-9.]+,[0-9]{2}|[0-9]+(?:[,.][0-9]{1,2})?)/gmi;
+      const itens = [];
+      let match;
+
+      while ((match = regex.exec(entrada)) !== null) {
+        itens.push({
+          nome: match[1].trim(),
+          qtd: parseQtd(match[2]),
+          unit: parseMoeda(match[3]),
+          subtotal: parseMoeda(match[4])
+        });
+      }
+
+      const totalMatch = entrada.match(/Valor total:\s*R\$\s*([0-9.]+,[0-9]{2}|[0-9]+(?:[,.][0-9]{1,2})?)/i);
+      const totalInformado = totalMatch ? parseMoeda(totalMatch[1]) : itens.reduce((acc, item) => acc + item.subtotal, 0);
+
+      return {
+        itens,
+        totalInformado
+      };
+    }
+
+    function validarEMapearItens(itens) {
+      const produtosPorNome = obterProdutosPorNome();
+      const naoEncontrados = [];
+      const mapeados = [];
+
+      itens.forEach(item => {
+        const produto = produtosPorNome.get(normalizarTexto(item.nome));
+
+        if (!produto) {
+          naoEncontrados.push(item.nome);
+          return;
+        }
+
+        mapeados.push({
+          nome: produto.nome,
+          qtd: item.qtd,
+          produto,
+          precoReal: Number(produto.preco)
+        });
+      });
+
+      return {
+        mapeados,
+        naoEncontrados
+      };
+    }
+
+    function gerarRelatorioPadrao(itens, totalFinal) {
+      let texto = `📦 RELATÓRIO ALUMÍNIO JR\n\n`;
+
+      itens.forEach((item, index) => {
+        texto += `• ${item.nome} | QTD: ${formatarQtd(item.qtd)}\n`;
+        texto += `  UNIT: R$ ${formatarMoeda(item.unit)}\n`;
+        texto += `  SUBTOTAL: R$ ${formatarMoeda(item.subtotal)}`;
+
+        if (index < itens.length - 1) {
+          texto += `\n\n`;
+        }
+      });
+
+      texto += `\n\nValor total: R$ ${formatarMoeda(totalFinal)}`;
+      return texto;
+    }
+
+    function detectarDestino(itensOriginais) {
+      if (itensOriginais.length === 0) return 'orcamento';
+
+      const unidadesCentavos = itensOriginais.map(item => Math.round(item.unit * 100));
+      const todosUnitIguais = unidadesCentavos.every(valor => valor === unidadesCentavos[0]);
+
+      return todosUnitIguais ? 'orcamento' : 'kit';
+    }
+
+    function converterParaOrcamento(itensMapeados) {
+      const itensSaida = itensMapeados.map(item => {
+        const unit = item.precoReal;
+        const subtotal = unit * item.qtd;
+
+        return {
+          nome: item.nome,
+          qtd: item.qtd,
+          unit,
+          subtotal
+        };
+      });
+
+      const totalFinal = itensSaida.reduce((acc, item) => acc + item.subtotal, 0);
+
+      return {
+        tipo: 'Kit → Orçamento',
+        itensSaida,
+        totalFinal
+      };
+    }
+
+    function converterParaKit(itensMapeados) {
+      const totalReal = itensMapeados.reduce((acc, item) => acc + (item.precoReal * item.qtd), 0);
+      const totalUnidades = itensMapeados.reduce((acc, item) => acc + item.qtd, 0);
+      const medio = totalUnidades > 0 ? totalReal / totalUnidades : 0;
+      const medioFormatado = formatarMoeda(medio);
+      const medioArredondado = parseMoeda(medioFormatado);
+
+      const itensSaida = itensMapeados.map(item => ({
+        nome: item.nome,
+        qtd: item.qtd,
+        unit: medioArredondado,
+        subtotal: item.qtd * medioArredondado
+      }));
+
+      return {
+        tipo: 'Orçamento → Kit',
+        itensSaida,
+        totalFinal: totalReal
+      };
+    }
+
+    function gerarAvisoNaoEncontrados(naoEncontrados) {
+      if (naoEncontrados.length === 0) return '';
+
+      return `
+        <br>Produto(s) não encontrado(s) no cadastro:
+        <ul class="lista-erros">
+          ${naoEncontrados.map(nome => `<li>${escapeHtml(nome)}</li>`).join('')}
+        </ul>
+      `;
+    }
+
+    function processar(destino) {
+      limparResultado();
+
+      const texto = els.entrada.value;
+      const relatorio = parseRelatorio(texto);
+
+      if (relatorio.itens.length === 0) {
+        setStatus(els.statusEntrada, 'Nenhum item encontrado. Cole o relatório no formato padrão com linhas iniciadas por •.', 'erro');
+        return;
+      }
+
+      const itensInvalidos = relatorio.itens.filter(item => !item.nome || item.qtd <= 0);
+
+      if (itensInvalidos.length > 0) {
+        setStatus(els.statusEntrada, 'Existe item com nome vazio ou quantidade inválida.', 'erro');
+        return;
+      }
+
+      const destinoFinal = destino || detectarDestino(relatorio.itens);
+      const { mapeados, naoEncontrados } = validarEMapearItens(relatorio.itens);
+
+      if (naoEncontrados.length > 0) {
+        setStatus(els.statusEntrada, `Não foi possível converter enquanto houver produto não encontrado.${gerarAvisoNaoEncontrados(naoEncontrados)}`, 'erro');
+        return;
+      }
+
+      if (mapeados.length === 0) {
+        setStatus(els.statusEntrada, 'Nenhum item do relatório foi encontrado no cadastro de produtos.', 'erro');
+        return;
+      }
+
+      const conversao = destinoFinal === 'kit'
+        ? converterParaKit(mapeados)
+        : converterParaOrcamento(mapeados);
+
+      const totalUnidades = conversao.itensSaida.reduce((acc, item) => acc + item.qtd, 0);
+      const textoFinal = gerarRelatorioPadrao(conversao.itensSaida, conversao.totalFinal);
+
+      els.saida.value = textoFinal;
+      els.tipoConversao.textContent = conversao.tipo;
+      els.totalSaida.textContent = `R$ ${formatarMoeda(conversao.totalFinal)}`;
+      els.totalUnidades.textContent = formatarQtd(totalUnidades);
+      els.btnCopiar.disabled = false;
+
+      const avisoAuto = destino
+        ? ''
+        : ' Conversão escolhida automaticamente pelo padrão dos UNIT.';
+
+      setStatus(els.statusEntrada, `${relatorio.itens.length} item(ns) lido(s).${avisoAuto}`, 'sucesso');
+      setStatus(els.statusSaida, 'Relatório convertido. Copie e use no outro módulo.', 'sucesso');
+    }
+
+    async function copiarSaida() {
+      const texto = els.saida.value;
+
+      if (!texto.trim()) return;
+
+      try {
+        await navigator.clipboard.writeText(texto);
+        setStatus(els.statusSaida, 'Relatório copiado.', 'sucesso');
+      } catch (error) {
+        els.saida.focus();
+        els.saida.select();
+        document.execCommand('copy');
+        setStatus(els.statusSaida, 'Relatório copiado.', 'sucesso');
+      }
+    }
+
+    function limparTudo() {
+      els.entrada.value = '';
+      limparResultado();
+      setStatus(els.statusEntrada, '', '');
+    }
+
+    async function carregarProdutos() {
+      try {
+        produtos = await apiGet('/api/produtos');
+        setStatus(els.statusEntrada, 'Produtos carregados. Cole um relatório para converter.', 'sucesso');
+      } catch (error) {
+        console.error('Erro ao carregar produtos:', error);
+        setStatus(els.statusEntrada, 'Erro ao carregar produtos. Sem produtos, não dá para converter preço real/médio.', 'erro');
+        els.btnAuto.disabled = true;
+        els.btnParaOrcamento.disabled = true;
+        els.btnParaKit.disabled = true;
+      }
+    }
+
+    els.btnAuto.addEventListener('click', () => processar(null));
+    els.btnParaOrcamento.addEventListener('click', () => processar('orcamento'));
+    els.btnParaKit.addEventListener('click', () => processar('kit'));
+    els.btnLimpar.addEventListener('click', limparTudo);
+    els.btnCopiar.addEventListener('click', copiarSaida);
+
+    carregarProdutos();
+  </script>
+</body>
+</html>
