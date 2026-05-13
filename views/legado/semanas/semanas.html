@@ -440,9 +440,21 @@
 
     function formatarData(valor) {
       if (!valor) return '';
-      const data = new Date(valor);
-      if (Number.isNaN(data.getTime())) return String(valor);
-      return data.toLocaleDateString('pt-BR');
+
+      const texto = String(valor).trim();
+      const matchIso = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+      if (matchIso) {
+        return `${matchIso[3]}/${matchIso[2]}/${matchIso[1]}`;
+      }
+
+      const data = new Date(texto);
+      if (Number.isNaN(data.getTime())) return texto;
+
+      const dia = String(data.getDate()).padStart(2, '0');
+      const mes = String(data.getMonth() + 1).padStart(2, '0');
+      const ano = data.getFullYear();
+      return `${dia}/${mes}/${ano}`;
     }
 
     function formatarQuantidade(valor) {
