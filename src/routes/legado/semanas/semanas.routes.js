@@ -7,6 +7,7 @@ router.get('/carradas/disponiveis', controller.listarCarradasDisponiveis);
 router.get('/:id/resumo', controller.buscarResumoSemana);
 router.get('/:id', controller.buscarSemanaPorId);
 router.get('/', controller.listarSemanas);
+router.post('/proxima', controller.criarProximaSemana);
 router.post('/', controller.criarSemana);
 router.put('/:id', controller.atualizarSemana);
 router.delete('/:id', controller.excluirSemana);

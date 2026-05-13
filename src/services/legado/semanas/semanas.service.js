@@ -144,6 +144,224 @@ function ordenarCarradasPorDataDecrescente(carradas) {
   });
 }
 
+
+function parseDataIsoParaUtc(value, fieldName = 'data') {
+  const iso = normalizarDataIso(value);
+
+  if (!iso) {
+    throw criarErro(`${fieldName} inválida.`, 400);
+  }
+
+  const [ano, mes, dia] = iso.split('-').map(Number);
+  const data = new Date(Date.UTC(ano, mes - 1, dia));
+
+  if (
+    data.getUTCFullYear() !== ano
+    || data.getUTCMonth() !== mes - 1
+    || data.getUTCDate() !== dia
+  ) {
+    throw criarErro(`${fieldName} inválida.`, 400);
+  }
+
+  return data;
+}
+
+function formatarIsoUtc(data) {
+  return `${data.getUTCFullYear()}-${String(data.getUTCMonth() + 1).padStart(2, '0')}-${String(data.getUTCDate()).padStart(2, '0')}`;
+}
+
+function somarDiasIso(dataIso, dias) {
+  const data = parseDataIsoParaUtc(dataIso);
+  data.setUTCDate(data.getUTCDate() + dias);
+  return formatarIsoUtc(data);
+}
+
+function diaSemanaIso(dataIso) {
+  return parseDataIsoParaUtc(dataIso).getUTCDay();
+}
+
+function ehSegunda(dataIso) {
+  return diaSemanaIso(dataIso) === 1;
+}
+
+function ehDomingo(dataIso) {
+  return diaSemanaIso(dataIso) === 0;
+}
+
+function proximaSegundaIso(dataReferencia = new Date()) {
+  const data = new Date(Date.UTC(
+    dataReferencia.getFullYear(),
+    dataReferencia.getMonth(),
+    dataReferencia.getDate()
+  ));
+
+  const dia = data.getUTCDay();
+  const diasAteSegunda = dia === 0 ? 1 : 8 - dia;
+  data.setUTCDate(data.getUTCDate() + diasAteSegunda);
+  return formatarIsoUtc(data);
+}
+
+function formatarDataCurtaIso(dataIso) {
+  const data = parseDataIsoParaUtc(dataIso);
+  return `${String(data.getUTCDate()).padStart(2, '0')}/${String(data.getUTCMonth() + 1).padStart(2, '0')}/${data.getUTCFullYear()}`;
+}
+
+function formatarDataSemAnoIso(dataIso) {
+  return formatarDataCurtaIso(dataIso).slice(0, 5);
+}
+
+function gerarDescricaoIntervaloSemana(dataInicial, dataFinal) {
+  return `SEMANA ${formatarDataSemAnoIso(dataInicial)} A ${formatarDataCurtaIso(dataFinal)}`;
+}
+
+function descricaoCarradaAutomatica(dataIso) {
+  const nomes = {
+    0: 'DOMINGO',
+    1: 'SEGUNDA-FEIRA',
+    2: 'TERÇA-FEIRA',
+    3: 'QUARTA-FEIRA',
+    4: 'QUINTA-FEIRA',
+    5: 'SEXTA-FEIRA',
+    6: 'SÁBADO'
+  };
+
+  return nomes[diaSemanaIso(dataIso)] || 'CARRADA';
+}
+
+function listarDatasDaSemana(dataInicial, dataFinal) {
+  const datas = [];
+  let atual = dataInicial;
+
+  while (atual <= dataFinal) {
+    datas.push(atual);
+    atual = somarDiasIso(atual, 1);
+  }
+
+  return datas;
+}
+
+function validarSemanaSegundaADomingo(dataInicial, dataFinal) {
+  if (!ehSegunda(dataInicial)) {
+    throw criarErro('A semana automática precisa iniciar em uma segunda-feira.', 400);
+  }
+
+  if (!ehDomingo(dataFinal)) {
+    throw criarErro('A semana automática precisa terminar em um domingo.', 400);
+  }
+
+  if (listarDatasDaSemana(dataInicial, dataFinal).length !== 7) {
+    throw criarErro('A semana automática precisa ter exatamente 7 dias.', 400);
+  }
+}
+
+async function buscarUltimaSemana(client = pool) {
+  const result = await client.query(
+    `
+      SELECT id, data_inicial, data_final, descricao
+      FROM semanas
+      ORDER BY data_final DESC, id DESC
+      LIMIT 1
+    `
+  );
+
+  return result.rows[0] || null;
+}
+
+async function validarIntervaloSemanaLivre(dataInicial, dataFinal, semanaIdAtual = null, client = pool) {
+  const values = [dataInicial, dataFinal];
+  let query = `
+    SELECT id, data_inicial, data_final, descricao
+    FROM semanas
+    WHERE data_inicial = $1
+      AND data_final = $2
+  `;
+
+  if (semanaIdAtual) {
+    values.push(semanaIdAtual);
+    query += ' AND id <> $3';
+  }
+
+  query += ' LIMIT 1';
+
+  const result = await client.query(query, values);
+
+  if (result.rows.length) {
+    throw criarErro(`Já existe uma semana cadastrada para ${dataInicial} até ${dataFinal}.`, 409);
+  }
+}
+
+function agruparCarradasPorData(carradas) {
+  const mapa = new Map();
+
+  (Array.isArray(carradas) ? carradas : []).forEach((carrada) => {
+    const dataIso = normalizarDataIso(carrada?.data);
+    const codigo = Number.parseInt(carrada?.codigo, 10);
+
+    if (!dataIso || !Number.isInteger(codigo) || codigo <= 0) {
+      return;
+    }
+
+    if (!mapa.has(dataIso)) {
+      mapa.set(dataIso, []);
+    }
+
+    mapa.get(dataIso).push(carrada);
+  });
+
+  return mapa;
+}
+
+async function garantirCarradasAutomaticasDaSemana(dataInicial, dataFinal) {
+  const carradasExistentes = await carradasService.listarCarradas();
+  const carradasPorData = agruparCarradasPorData(carradasExistentes);
+  const plano = [];
+  const codigosExistentes = [];
+
+  for (const data of listarDatasDaSemana(dataInicial, dataFinal)) {
+    const encontradas = carradasPorData.get(data) || [];
+
+    if (encontradas.length > 1) {
+      const codigos = encontradas.map((item) => item.codigo).join(', ');
+      throw criarErro(`Existe mais de uma carrada cadastrada em ${data}: ${codigos}. Resolva antes de criar a semana automática.`, 409);
+    }
+
+    if (encontradas.length === 1) {
+      const codigo = Number.parseInt(encontradas[0].codigo, 10);
+      codigosExistentes.push(codigo);
+      plano.push({ data, codigo, reaproveitada: true });
+    } else {
+      plano.push({ data, descricao: descricaoCarradaAutomatica(data), criar: true });
+    }
+  }
+
+  await validarConflitoCarradas(codigosExistentes);
+
+  const codigos = [];
+
+  for (const item of plano) {
+    if (!item.criar) {
+      codigos.push(item.codigo);
+      continue;
+    }
+
+    const carradaCriada = await carradasService.criarCarrada({
+      data: item.data,
+      descricao: item.descricao,
+      pedidos: []
+    });
+
+    const codigoCriado = Number.parseInt(carradaCriada?.codigo, 10);
+
+    if (!Number.isInteger(codigoCriado) || codigoCriado <= 0) {
+      throw criarErro(`Não foi possível criar a carrada automática do dia ${item.data}.`, 500);
+    }
+
+    codigos.push(codigoCriado);
+  }
+
+  return codigos;
+}
+
 async function carregarDetalhesCarradas(codigosCarradas) {
   if (!codigosCarradas.length) {
     return [];
@@ -503,6 +721,76 @@ async function criarSemana(payload) {
   }
 }
 
+
+async function criarProximaSemana() {
+  await garantirTabelasSemana();
+
+  const ultimaSemana = await buscarUltimaSemana();
+  let dataInicial;
+
+  if (ultimaSemana) {
+    const ultimaDataFinal = normalizarDataIso(ultimaSemana.data_final);
+
+    if (!ultimaDataFinal) {
+      throw criarErro('A última semana cadastrada possui data final inválida.', 500);
+    }
+
+    if (!ehDomingo(ultimaDataFinal)) {
+      throw criarErro(`A última semana cadastrada termina em ${ultimaDataFinal}. Ajuste manualmente para terminar em um domingo antes de usar o botão automático.`, 409);
+    }
+
+    dataInicial = somarDiasIso(ultimaDataFinal, 1);
+  } else {
+    dataInicial = proximaSegundaIso(new Date());
+  }
+
+  const dataFinal = somarDiasIso(dataInicial, 6);
+  validarSemanaSegundaADomingo(dataInicial, dataFinal);
+
+  const descricao = gerarDescricaoIntervaloSemana(dataInicial, dataFinal);
+
+  await validarIntervaloSemanaLivre(dataInicial, dataFinal);
+
+  const codigosCarradas = await garantirCarradasAutomaticasDaSemana(dataInicial, dataFinal);
+
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+    await validarIntervaloSemanaLivre(dataInicial, dataFinal, null, client);
+    await validarConflitoCarradas(codigosCarradas, null, client);
+
+    const insertSemana = await client.query(
+      `
+        INSERT INTO semanas (data_inicial, data_final, descricao, created_at, updated_at)
+        VALUES ($1, $2, $3, NOW(), NOW())
+        RETURNING id, data_inicial, data_final, descricao
+      `,
+      [dataInicial, dataFinal, descricao]
+    );
+
+    const semana = insertSemana.rows[0];
+
+    for (let index = 0; index < codigosCarradas.length; index += 1) {
+      await client.query(
+        `
+          INSERT INTO semana_carradas (semana_id, codigo_carrada, ordem, created_at)
+          VALUES ($1, $2, $3, NOW())
+        `,
+        [semana.id, codigosCarradas[index], index]
+      );
+    }
+
+    await client.query('COMMIT');
+    return buscarSemanaPorId(semana.id);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function atualizarSemana(id, payload) {
   await garantirTabelasSemana();
   const semanaId = parseId(id, 'Semana');
@@ -595,6 +883,7 @@ module.exports = {
   buscarSemanaPorId,
   buscarResumoSemana,
   criarSemana,
+  criarProximaSemana,
   atualizarSemana,
   excluirSemana,
   buscarSemanaDaCarrada

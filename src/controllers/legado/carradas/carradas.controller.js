@@ -79,12 +79,10 @@ async function buscarCarrada(req, res) {
 }
 
 async function criarCarrada(req, res) {
-  try {
-    const data = await carradasService.criarCarrada(req.body);
-    return res.status(201).json({ success: true, data });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: 'Erro ao criar carrada.', error: error.message });
-  }
+  return res.status(409).json({
+    success: false,
+    message: 'A criação manual de carrada foi desativada. Crie carradas automaticamente pelo módulo de Semanas.'
+  });
 }
 
 async function atualizarCarrada(req, res) {

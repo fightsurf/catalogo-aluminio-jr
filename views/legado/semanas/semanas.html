@@ -295,9 +295,9 @@
     <div class="topbar">
       <div>
         <h1>Módulo de Semanas</h1>
-        <p class="muted">Agrupe carradas, salve semanas e gere a consolidação de itens.</p>
+        <p class="muted">Crie a próxima semana automaticamente, com as 7 carradas de segunda a domingo.</p>
       </div>
-      <button class="btn-secondary" id="btnNovo">Nova semana</button>
+      <button class="btn-primary" id="btnCriarProximaSemana">CRIAR PRÓXIMA SEMANA</button>
     </div>
 
     <div class="panel" style="margin-bottom: 16px;">
@@ -314,13 +314,9 @@
           <label for="descricaoSemana">Descrição</label>
           <input type="text" id="descricaoSemana" placeholder="Descrição da semana" maxlength="100" />
         </div>
-        <div class="field" style="min-width: 190px;">
-          <label>&nbsp;</label>
-          <button class="btn-secondary" id="btnEscolherSemana" type="button">Escolher semana</button>
-        </div>
         <div class="field" style="min-width: 180px;">
           <label>&nbsp;</label>
-          <button class="btn-primary" id="btnSalvar">Salvar semana</button>
+          <button class="btn-primary" id="btnSalvar" disabled>Atualizar semana</button>
         </div>
       </div>
     </div>
@@ -330,7 +326,7 @@
         <div class="panel-header">
           <div>
             <h2>Carradas disponíveis</h2>
-            <p class="muted">Busque por data exata, período e descrição.</p>
+            <p class="muted">Use esta área para edição/correção de semana já cadastrada.</p>
           </div>
           <button class="btn-secondary" id="btnLimparBusca">Limpar busca</button>
         </div>
@@ -406,66 +402,15 @@
   </div>
 
 
-  <div class="calendar-modal-backdrop" id="modalCalendarioSemana" aria-hidden="true">
-    <div class="calendar-modal" role="dialog" aria-modal="true" aria-labelledby="tituloCalendarioSemana">
-      <div class="calendar-modal-header">
-        <div>
-          <h2 id="tituloCalendarioSemana">Selecionar semana</h2>
-          <p class="muted">Clique em uma linha. A semana será sempre de segunda a domingo.</p>
-        </div>
-        <button class="btn-secondary" id="btnFecharCalendario" type="button">Fechar</button>
-      </div>
-
-      <div class="calendar-month-controls">
-        <button class="btn-secondary" id="btnMesAnterior" type="button">Mês anterior</button>
-        <div class="calendar-title" id="tituloMesCalendario"></div>
-        <button class="btn-secondary" id="btnMesProximo" type="button">Próximo mês</button>
-      </div>
-
-      <div style="margin-top: 14px;">
-        <div class="calendar-weekdays">
-          <div>SEG</div>
-          <div>TER</div>
-          <div>QUA</div>
-          <div>QUI</div>
-          <div>SEX</div>
-          <div>SÁB</div>
-          <div>DOM</div>
-        </div>
-        <div class="calendar-body" id="corpoCalendarioSemana"></div>
-      </div>
-
-      <div class="calendar-preview" id="previewSemanaSelecionada">
-        Nenhuma semana selecionada.
-      </div>
-      <div class="calendar-help">
-        Dias em cinza pertencem ao mês anterior ou ao próximo mês, mas entram na semana porque o objetivo é fabricar a semana inteira.
-      </div>
-    </div>
-  </div>
-
   <script>
     const estado = {
       idSemanaAtual: null,
       carradasDisponiveis: [],
-      carradasSelecionadas: [],
-      calendario: {
-        ano: new Date().getFullYear(),
-        mes: new Date().getMonth(),
-        semanaSelecionada: null
-      }
+      carradasSelecionadas: []
     };
 
     const el = {
-      btnNovo: document.getElementById('btnNovo'),
-      btnEscolherSemana: document.getElementById('btnEscolherSemana'),
-      modalCalendarioSemana: document.getElementById('modalCalendarioSemana'),
-      btnFecharCalendario: document.getElementById('btnFecharCalendario'),
-      btnMesAnterior: document.getElementById('btnMesAnterior'),
-      btnMesProximo: document.getElementById('btnMesProximo'),
-      tituloMesCalendario: document.getElementById('tituloMesCalendario'),
-      corpoCalendarioSemana: document.getElementById('corpoCalendarioSemana'),
-      previewSemanaSelecionada: document.getElementById('previewSemanaSelecionada'),
+      btnNovo: document.getElementById('btnCriarProximaSemana'),
       dataInicial: document.getElementById('dataInicial'),
       dataFinal: document.getElementById('dataFinal'),
       descricaoSemana: document.getElementById('descricaoSemana'),
@@ -504,155 +449,6 @@
       return Number(valor || 0).toLocaleString('pt-BR');
     }
 
-
-    function pad2(valor) {
-      return String(valor).padStart(2, '0');
-    }
-
-    function formatarIsoLocal(data) {
-      return `${data.getFullYear()}-${pad2(data.getMonth() + 1)}-${pad2(data.getDate())}`;
-    }
-
-    function formatarDataCurta(data) {
-      return `${pad2(data.getDate())}/${pad2(data.getMonth() + 1)}/${data.getFullYear()}`;
-    }
-
-    function copiarData(data) {
-      return new Date(data.getFullYear(), data.getMonth(), data.getDate());
-    }
-
-    function somarDias(data, dias) {
-      const novaData = copiarData(data);
-      novaData.setDate(novaData.getDate() + dias);
-      return novaData;
-    }
-
-    function inicioDaSemanaSegunda(data) {
-      const base = copiarData(data);
-      const diaSemana = base.getDay();
-      const deslocamento = diaSemana === 0 ? -6 : 1 - diaSemana;
-      base.setDate(base.getDate() + deslocamento);
-      return base;
-    }
-
-    function nomeMes(mes) {
-      const nomes = [
-        'JANEIRO', 'FEVEREIRO', 'MARÇO', 'ABRIL', 'MAIO', 'JUNHO',
-        'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'
-      ];
-      return nomes[mes] || '';
-    }
-
-    function ordinalSemana(indice) {
-      const nomes = ['PRIMEIRA', 'SEGUNDA', 'TERCEIRA', 'QUARTA', 'QUINTA', 'SEXTA'];
-      return nomes[indice - 1] || `${indice}ª`;
-    }
-
-    function gerarDescricaoSemana(inicio, fim, indiceLinhaMes) {
-      const mesmoMes = inicio.getMonth() === fim.getMonth() && inicio.getFullYear() === fim.getFullYear();
-
-      if (mesmoMes) {
-        return `${ordinalSemana(indiceLinhaMes)} SEMANA ${nomeMes(inicio.getMonth())} ${inicio.getFullYear()}`;
-      }
-
-      return `SEMANA ${formatarDataCurta(inicio).slice(0, 5)} A ${formatarDataCurta(fim)}`;
-    }
-
-    function abrirCalendarioSemana() {
-      const dataBase = el.dataInicial.value ? new Date(`${el.dataInicial.value}T00:00:00`) : new Date();
-      estado.calendario.ano = dataBase.getFullYear();
-      estado.calendario.mes = dataBase.getMonth();
-      estado.calendario.semanaSelecionada = null;
-      renderCalendarioSemana();
-      el.previewSemanaSelecionada.textContent = 'Nenhuma semana selecionada.';
-      el.modalCalendarioSemana.classList.add('is-open');
-      el.modalCalendarioSemana.setAttribute('aria-hidden', 'false');
-    }
-
-    function fecharCalendarioSemana() {
-      el.modalCalendarioSemana.classList.remove('is-open');
-      el.modalCalendarioSemana.setAttribute('aria-hidden', 'true');
-    }
-
-    function mudarMesCalendario(delta) {
-      const novaData = new Date(estado.calendario.ano, estado.calendario.mes + delta, 1);
-      estado.calendario.ano = novaData.getFullYear();
-      estado.calendario.mes = novaData.getMonth();
-      estado.calendario.semanaSelecionada = null;
-      el.previewSemanaSelecionada.textContent = 'Nenhuma semana selecionada.';
-      renderCalendarioSemana();
-    }
-
-    function renderCalendarioSemana() {
-      const ano = estado.calendario.ano;
-      const mes = estado.calendario.mes;
-      const primeiroDiaMes = new Date(ano, mes, 1);
-      const ultimoDiaMes = new Date(ano, mes + 1, 0);
-      const primeiraSegunda = inicioDaSemanaSegunda(primeiroDiaMes);
-      const hojeIso = formatarIsoLocal(new Date());
-      const semanaSelecionadaIso = estado.calendario.semanaSelecionada
-        ? formatarIsoLocal(estado.calendario.semanaSelecionada.inicio)
-        : null;
-
-      el.tituloMesCalendario.textContent = `${nomeMes(mes)} ${ano}`;
-
-      const linhas = [];
-      let inicioSemana = primeiraSegunda;
-      let indiceLinhaMes = 1;
-
-      while (inicioSemana <= ultimoDiaMes || somarDias(inicioSemana, 6).getMonth() === mes) {
-        const fimSemana = somarDias(inicioSemana, 6);
-        const inicioIso = formatarIsoLocal(inicioSemana);
-        const fimIso = formatarIsoLocal(fimSemana);
-        const descricao = gerarDescricaoSemana(inicioSemana, fimSemana, indiceLinhaMes);
-        const selecionadaClasse = semanaSelecionadaIso === inicioIso ? ' is-selected' : '';
-        const dias = [];
-
-        for (let i = 0; i < 7; i += 1) {
-          const dia = somarDias(inicioSemana, i);
-          const foraDoMes = dia.getMonth() !== mes;
-          const hojeClasse = formatarIsoLocal(dia) === hojeIso ? ' today' : '';
-          dias.push(`<div class="calendar-day${foraDoMes ? ' outside-month' : ''}${hojeClasse}">${dia.getDate()}</div>`);
-        }
-
-        linhas.push(`
-          <div class="calendar-row${selecionadaClasse}"
-               data-inicio="${inicioIso}"
-               data-fim="${fimIso}"
-               data-descricao="${escapeHtml(descricao)}">
-            ${dias.join('')}
-          </div>
-        `);
-
-        inicioSemana = somarDias(inicioSemana, 7);
-        indiceLinhaMes += 1;
-      }
-
-      el.corpoCalendarioSemana.innerHTML = linhas.join('');
-      el.corpoCalendarioSemana.querySelectorAll('.calendar-row').forEach((linha) => {
-        linha.addEventListener('click', () => selecionarSemanaCalendario(linha));
-      });
-    }
-
-    function selecionarSemanaCalendario(linha) {
-      const inicioIso = linha.dataset.inicio;
-      const fimIso = linha.dataset.fim;
-      const descricao = linha.dataset.descricao || '';
-      const inicio = new Date(`${inicioIso}T00:00:00`);
-      const fim = new Date(`${fimIso}T00:00:00`);
-
-      estado.calendario.semanaSelecionada = { inicio, fim, descricao };
-      el.dataInicial.value = inicioIso;
-      el.dataFinal.value = fimIso;
-      el.descricaoSemana.value = descricao;
-      el.buscaDataExata.value = '';
-      el.buscaDataInicial.value = inicioIso;
-      el.buscaDataFinal.value = fimIso;
-      el.previewSemanaSelecionada.textContent = `${descricao} | ${formatarDataCurta(inicio)} até ${formatarDataCurta(fim)}`;
-      renderCalendarioSemana();
-      fecharCalendarioSemana();
-      buscarCarradasDisponiveis();
-    }
 
     async function request(url, options = {}) {
       const response = await fetch(url, options);
@@ -813,8 +609,8 @@
       el.dataFinal.value = '';
       el.descricaoSemana.value = '';
       el.tituloMontagem.textContent = 'Semana em montagem';
-      el.btnSalvar.textContent = 'Salvar semana';
-      estado.calendario.semanaSelecionada = null;
+      el.btnSalvar.textContent = 'Atualizar semana';
+      el.btnSalvar.disabled = true;
       limparBusca();
       renderCarradasSelecionadas();
       window.history.replaceState({}, '', '/legado/semanas');
@@ -856,6 +652,7 @@
         estado.carradasSelecionadas = Array.isArray(semana.carradas) ? [...semana.carradas] : [];
         el.tituloMontagem.textContent = `Editando semana ${formatarData(semana.data_inicial)} a ${formatarData(semana.data_final)}`;
         el.btnSalvar.textContent = 'Atualizar semana';
+        el.btnSalvar.disabled = false;
         renderCarradasSelecionadas();
         await buscarCarradasDisponiveis();
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -865,7 +662,35 @@
       }
     }
 
+    async function criarProximaSemana() {
+      if (!confirm('Criar a próxima semana automaticamente com as 7 carradas de segunda a domingo?')) {
+        return;
+      }
+
+      el.btnNovo.disabled = true;
+      el.btnNovo.textContent = 'CRIANDO...';
+
+      try {
+        const semana = await request('/api/legado/semanas/proxima', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        window.location.href = `/legado/semanas/detalhe?id=${encodeURIComponent(semana.id)}`;
+      } catch (error) {
+        alert(error.message);
+      } finally {
+        el.btnNovo.disabled = false;
+        el.btnNovo.textContent = 'CRIAR PRÓXIMA SEMANA';
+      }
+    }
+
     async function salvarSemana() {
+      if (!estado.idSemanaAtual) {
+        alert('Para criar uma nova semana, use o botão CRIAR PRÓXIMA SEMANA. Este formulário fica para edição de semana já cadastrada.');
+        return;
+      }
+
       if (!el.dataInicial.value) {
         alert('Informe a data inicial da semana.');
         return;
@@ -925,24 +750,7 @@
     el.btnBuscarCarradas.addEventListener('click', buscarCarradasDisponiveis);
     el.btnLimparBusca.addEventListener('click', limparBusca);
     el.btnSalvar.addEventListener('click', salvarSemana);
-    el.btnNovo.addEventListener('click', () => {
-      limparFormulario();
-      abrirCalendarioSemana();
-    });
-    el.btnEscolherSemana.addEventListener('click', abrirCalendarioSemana);
-    el.btnFecharCalendario.addEventListener('click', fecharCalendarioSemana);
-    el.btnMesAnterior.addEventListener('click', () => mudarMesCalendario(-1));
-    el.btnMesProximo.addEventListener('click', () => mudarMesCalendario(1));
-    el.modalCalendarioSemana.addEventListener('click', (event) => {
-      if (event.target === el.modalCalendarioSemana) {
-        fecharCalendarioSemana();
-      }
-    });
-    document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' && el.modalCalendarioSemana.classList.contains('is-open')) {
-        fecharCalendarioSemana();
-      }
-    });
+    el.btnNovo.addEventListener('click', criarProximaSemana);
     el.btnRecarregarSemanas.addEventListener('click', carregarSemanas);
 
     [el.buscaDataExata, el.buscaDataInicial, el.buscaDataFinal, el.buscaDescricao].forEach((campo) => {

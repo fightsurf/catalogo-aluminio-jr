@@ -188,9 +188,9 @@
     <div class="topbar">
       <div>
         <h1>Módulo de Carradas</h1>
-        <p class="muted">Monte, salve e edite carradas sem apagar o restante do sistema.</p>
+        <p class="muted">A criação de carradas agora nasce pelo módulo de Semanas. Aqui você edita carradas já existentes.</p>
       </div>
-      <button class="btn-secondary" id="btnNovo">Nova carrada</button>
+      <button class="btn-primary" id="btnNovo">Criar pela semana</button>
     </div>
 
     <div class="panel" style="margin-bottom: 16px;">
@@ -722,6 +722,12 @@
     }
 
     async function salvarCarrada() {
+      if (!estado.codigoCarradaAtual) {
+        alert('A criação manual de carrada foi desativada. Crie a próxima semana no módulo de Semanas para gerar as carradas automaticamente.');
+        window.location.href = '/legado/semanas';
+        return;
+      }
+
       if (!el.dataCarrada.value) {
         alert('Informe a data da carrada.');
         return;
@@ -775,7 +781,7 @@
     el.btnBuscarData.addEventListener('click', buscarPorData);
     el.btnBuscarNumero.addEventListener('click', buscarPorNumero);
     el.btnSalvar.addEventListener('click', salvarCarrada);
-    el.btnNovo.addEventListener('click', limparFormulario);
+    el.btnNovo.addEventListener('click', () => { window.location.href = '/legado/semanas'; });
     el.btnRecarregarCarradas.addEventListener('click', carregarCarradas);
     el.buscaCliente.addEventListener('keydown', (event) => { if (event.key === 'Enter') buscarClientes(); });
     el.buscaData.addEventListener('keydown', (event) => { if (event.key === 'Enter') buscarPorData(); });

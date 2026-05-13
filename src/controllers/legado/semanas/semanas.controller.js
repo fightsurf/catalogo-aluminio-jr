@@ -64,6 +64,16 @@ async function criarSemana(req, res) {
   }
 }
 
+
+async function criarProximaSemana(req, res) {
+  try {
+    const data = await semanasService.criarProximaSemana();
+    return res.status(201).json({ success: true, data });
+  } catch (error) {
+    return responderErro(res, error, 'Erro ao criar próxima semana.');
+  }
+}
+
 async function atualizarSemana(req, res) {
   try {
     const data = await semanasService.atualizarSemana(req.params.id, req.body);
@@ -93,6 +103,7 @@ module.exports = {
   buscarSemanaPorId,
   buscarResumoSemana,
   criarSemana,
+  criarProximaSemana,
   atualizarSemana,
   excluirSemana
 };
