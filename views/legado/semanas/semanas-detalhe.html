@@ -50,6 +50,10 @@
     .btn-primary { background: var(--primary); color: #fff; }
     .btn-secondary { background: #fff; border: 1px solid var(--line); color: var(--text); }
     .btn-danger { background: var(--danger); color: #fff; }
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
     .card {
       background: var(--card);
       border: 1px solid var(--line);
@@ -117,6 +121,8 @@
         <p class="muted" id="subtitulo"></p>
       </div>
       <div class="actions">
+        <button class="btn-secondary" id="btnSemanaAnterior" disabled>Semana anterior</button>
+        <button class="btn-secondary" id="btnProximaSemana" disabled>Próxima semana</button>
         <a class="button btn-secondary" href="/legado/semanas">Voltar</a>
         <button class="btn-secondary" id="btnResumo">Resumo da semana</button>
         <button class="btn-secondary" id="btnEditar">Editar</button>
@@ -159,6 +165,20 @@
       const mes = String(data.getMonth() + 1).padStart(2, '0');
       const ano = data.getFullYear();
       return `${dia}/${mes}/${ano}`;
+    }
+
+    function obterTimestampData(valor) {
+      if (!valor) return NaN;
+
+      const texto = String(valor).trim();
+      const matchIso = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+      if (matchIso) {
+        return Date.UTC(Number(matchIso[1]), Number(matchIso[2]) - 1, Number(matchIso[3]));
+      }
+
+      const data = new Date(texto);
+      return data.getTime();
     }
 
     function formatarMoeda(valor) {
@@ -273,6 +293,63 @@
       `;
     }
 
+    async function inicializarNavegacaoSemanas(semanaAtual) {
+      const btnAnterior = document.getElementById('btnSemanaAnterior');
+      const btnProxima = document.getElementById('btnProximaSemana');
+
+      if (!btnAnterior || !btnProxima || !semanaAtual) {
+        return;
+      }
+
+      btnAnterior.disabled = true;
+      btnProxima.disabled = true;
+
+      const dataAtualTs = obterTimestampData(semanaAtual.data_inicial);
+      if (Number.isNaN(dataAtualTs)) {
+        return;
+      }
+
+      try {
+        const semanas = await request('/api/legado/semanas');
+        const lista = Array.isArray(semanas) ? semanas : [];
+
+        const ordenadas = lista
+          .map((semana) => ({
+            ...semana,
+            _dataTs: obterTimestampData(semana.data_inicial),
+            _id: Number(semana.id || 0)
+          }))
+          .filter((semana) => !Number.isNaN(semana._dataTs) && semana._id > 0)
+          .sort((a, b) => {
+            if (a._dataTs !== b._dataTs) return a._dataTs - b._dataTs;
+            return a._id - b._id;
+          });
+
+        const anterior = [...ordenadas]
+          .reverse()
+          .find((semana) => semana._dataTs < dataAtualTs);
+
+        const proxima = ordenadas
+          .find((semana) => semana._dataTs > dataAtualTs);
+
+        if (anterior?.id) {
+          btnAnterior.disabled = false;
+          btnAnterior.addEventListener('click', () => {
+            window.location.href = `/legado/semanas/detalhe?id=${encodeURIComponent(anterior.id)}`;
+          });
+        }
+
+        if (proxima?.id) {
+          btnProxima.disabled = false;
+          btnProxima.addEventListener('click', () => {
+            window.location.href = `/legado/semanas/detalhe?id=${encodeURIComponent(proxima.id)}`;
+          });
+        }
+      } catch (error) {
+        console.warn('Não foi possível carregar a navegação entre semanas:', error);
+      }
+    }
+
     async function carregar() {
       if (!id) {
         document.getElementById('conteudo').innerHTML = '<div class="card">ID da semana não informado.</div>';
@@ -282,6 +359,7 @@
       try {
         const semana = await request(`/api/legado/semanas/${id}`);
         renderSemana(semana);
+        await inicializarNavegacaoSemanas(semana);
       } catch (error) {
         document.getElementById('conteudo').innerHTML = `<div class="card">${escapeHtml(error.message)}</div>`;
       }
