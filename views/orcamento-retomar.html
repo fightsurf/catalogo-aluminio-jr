@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>Retomar Orçamento – Alumínio JR</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f4f4;
+      margin: 0;
+      padding: 15px;
+    }
+
+    .container {
+      max-width: 760px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 8px;
+    }
+
+    .subtitulo {
+      text-align: center;
+      color: #444;
+      font-size: 14px;
+      margin-bottom: 18px;
+    }
+
+    .card {
+      background: #fff;
+      border: 1px solid #ddd;
+      padding: 14px;
+      margin-bottom: 14px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+
+    label {
+      display: block;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 330px;
+      box-sizing: border-box;
+      padding: 10px;
+      font-family: Consolas, Monaco, monospace;
+      font-size: 14px;
+      resize: vertical;
+      border: 1px solid #bbb;
+      outline: none;
+      background: #fff;
+    }
+
+    textarea:focus {
+      border-color: #333;
+    }
+
+    .acoes {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    button, a.botao {
+      padding: 12px 14px;
+      font-size: 15px;
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+    }
+
+    .primario {
+      background: #333;
+      color: #fff;
+      flex: 1;
+      min-width: 190px;
+    }
+
+    .secundario {
+      background: #0a7;
+      color: #fff;
+    }
+
+    .neutro {
+      background: #ddd;
+      color: #111;
+    }
+
+    .erro {
+      display: none;
+      background: #ffe8e8;
+      border: 1px solid #cc5555;
+      color: #7a0000;
+      padding: 10px;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+
+    .ajuda {
+      font-size: 13px;
+      color: #444;
+      line-height: 1.45;
+    }
+
+    .ajuda code {
+      background: #f1f1f1;
+      padding: 2px 4px;
+    }
+
+    .preview {
+      display: none;
+      margin-top: 12px;
+      background: #f8fff8;
+      border: 1px solid #87c987;
+      padding: 10px;
+      font-size: 14px;
+    }
+
+    .preview ul {
+      margin: 8px 0 0 18px;
+      padding: 0;
+    }
+  </style>
+  <link rel="stylesheet" href="/css/theme.css" />
+</head>
+<body>
+  <div class="container">
+    <h1>📋 Retomar Orçamento</h1>
+    <div class="subtitulo">Cole aqui o relatório gerado pelo botão “Enviar Orçamento”.</div>
+
+    <div class="card">
+      <label for="relatorio">Relatório do cliente</label>
+      <textarea id="relatorio" placeholder="Cole aqui o relatório completo..."></textarea>
+
+      <div id="erro" class="erro"></div>
+      <div id="preview" class="preview"></div>
+
+      <div class="acoes">
+        <button class="primario" type="button" onclick="carregarOrcamento()">Carregar orçamento marcado</button>
+        <button class="neutro" type="button" onclick="limparTexto()">Limpar</button>
+        <a class="botao secundario" href="/orcamento">Abrir orçamento vazio</a>
+      </div>
+    </div>
+
+    <div class="card ajuda">
+      <strong>Como usar:</strong><br>
+      1. Copie o relatório recebido no WhatsApp.<br>
+      2. Cole nesta tela com <code>Ctrl + V</code>.<br>
+      3. Clique em <strong>Carregar orçamento marcado</strong>.<br>
+      4. A tela de orçamento será aberta com os produtos e quantidades já selecionados.<br>
+      <br>
+      A leitura considera apenas linhas no padrão:<br>
+      <code>• NOME DO PRODUTO | QTD: X</code>
+    </div>
+  </div>
+
+<script>
+function mostrarErro(mensagem) {
+  const erro = document.getElementById('erro');
+  erro.innerText = mensagem;
+  erro.style.display = 'block';
+}
+
+function esconderErro() {
+  const erro = document.getElementById('erro');
+  erro.innerText = '';
+  erro.style.display = 'none';
+}
+
+function normalizarNome(nome) {
+  return String(nome || '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function escapeHtml(valor) {
+  return String(valor || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function parseQuantidade(valor) {
+  const numero = Number.parseInt(String(valor || '').replace(',', '.'), 10);
+  return Number.isInteger(numero) && numero > 0 ? numero : 1;
+}
+
+function parseRelatorio(texto) {
+  const linhas = String(texto || '').split(/\r?\n/);
+  const itensPorNome = new Map();
+
+  linhas.forEach(linha => {
+    const match = linha.match(/^\s*[•\-*]?\s*(.+?)\s*\|\s*QTD\s*:\s*([0-9]+(?:[,.][0-9]+)?)/i);
+
+    if (!match) return;
+
+    const nome = normalizarNome(match[1]);
+    const qtd = parseQuantidade(match[2]);
+
+    if (!nome) return;
+
+    const chave = nome
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toUpperCase();
+
+    const existente = itensPorNome.get(chave);
+
+    if (existente) {
+      existente.qtd += qtd;
+    } else {
+      itensPorNome.set(chave, { nome, qtd });
+    }
+  });
+
+  return Array.from(itensPorNome.values());
+}
+
+function mostrarPreview(itens) {
+  const preview = document.getElementById('preview');
+  const totalQtd = itens.reduce((soma, item) => soma + Number(item.qtd || 0), 0);
+  const lista = itens
+    .slice(0, 12)
+    .map(item => `<li>${escapeHtml(item.nome)} | QTD: ${item.qtd}</li>`)
+    .join('');
+
+  const restante = itens.length > 12
+    ? `<li>... mais ${itens.length - 12} item(ns)</li>`
+    : '';
+
+  preview.innerHTML = `
+    <strong>${itens.length} produto(s) encontrado(s), ${totalQtd} item(ns) no total.</strong>
+    <ul>${lista}${restante}</ul>
+  `;
+  preview.style.display = 'block';
+}
+
+function carregarOrcamento() {
+  esconderErro();
+
+  const texto = document.getElementById('relatorio').value;
+  const itens = parseRelatorio(texto);
+
+  if (itens.length === 0) {
+    mostrarErro('Nenhum item foi encontrado. Cole o relatório completo no formato gerado pelo módulo Orçamento.');
+    return;
+  }
+
+  mostrarPreview(itens);
+
+  sessionStorage.setItem('orcamentoItensRetomada', JSON.stringify({
+    origem: 'relatorio-orcamento',
+    criadoEm: new Date().toISOString(),
+    itens
+  }));
+
+  window.location.href = '/orcamento?retomar=1';
+}
+
+function limparTexto() {
+  document.getElementById('relatorio').value = '';
+  document.getElementById('preview').style.display = 'none';
+  esconderErro();
+  sessionStorage.removeItem('orcamentoItensRetomada');
+}
+</script>
+</body>
+</html>
