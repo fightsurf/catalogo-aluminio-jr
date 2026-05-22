@@ -69,6 +69,63 @@ async function buscarItensPedido(req, res) {
   }
 }
 
+
+async function listarCarradasDisponiveis(req, res) {
+  try {
+    const { idMestre } = req.params;
+
+    if (!idMestre) {
+      return res.status(400).json({
+        success: false,
+        message: 'Informe o id do pedido.'
+      });
+    }
+
+    const data = await pedidosLegadoService.listarCarradasDisponiveis(idMestre);
+
+    return res.json({
+      success: true,
+      data
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Erro ao listar carradas disponíveis do pedido.',
+      error: error.message
+    });
+  }
+}
+
+async function alterarCarradaPedido(req, res) {
+  try {
+    const { idMestre } = req.params;
+
+    if (!idMestre) {
+      return res.status(400).json({
+        success: false,
+        message: 'Informe o id do pedido.'
+      });
+    }
+
+    const data = await pedidosLegadoService.alterarCarradaPedido(
+      idMestre,
+      req.body?.codigoCarrada ?? null
+    );
+
+    return res.json({
+      success: true,
+      message: 'Carrada do pedido atualizada com sucesso.',
+      data
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message || 'Erro ao alterar carrada do pedido.',
+      error: error.message
+    });
+  }
+}
+
 async function atualizarPedido(req, res) {
   try {
     const { idMestre } = req.params;
@@ -99,5 +156,7 @@ async function atualizarPedido(req, res) {
 module.exports = {
   pesquisarPedidos,
   buscarItensPedido,
+  listarCarradasDisponiveis,
+  alterarCarradaPedido,
   atualizarPedido
 };

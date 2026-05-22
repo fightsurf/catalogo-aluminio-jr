@@ -638,22 +638,31 @@
       return vendedoresCache;
     }
 
-    async function carregarCarradas() {
-      if (carradasCache.length) return carradasCache;
-      const json = await fetchJson('/api/legado/carradas');
-      const lista = Array.isArray(json?.data) ? json.data : [];
+    async function carregarCarradasDisponiveis() {
+      if (!pedidoCarregado?.idMestre) {
+        carradasCache = [];
+        return carradasCache;
+      }
+
+      const json = await fetchJson(`/api/legado/pedidos/${pedidoCarregado.idMestre}/carradas-disponiveis`);
+      const data = json?.data || {};
+      const lista = Array.isArray(data?.carradas) ? data.carradas : [];
+
+      if (data?.carradaAtual) {
+        pedidoCarregado.carradaAtual = data.carradaAtual;
+      }
 
       carradasCache = lista.sort((a, b) => {
         const dataA = a?.data ? new Date(a.data).getTime() : 0;
         const dataB = b?.data ? new Date(b.data).getTime() : 0;
 
-        if (dataB !== dataA) {
-          return dataB - dataA;
+        if (dataA !== dataB) {
+          return dataA - dataB;
         }
 
         const codigoA = Number(a?.codigo || 0);
         const codigoB = Number(b?.codigo || 0);
-        return codigoB - codigoA;
+        return codigoA - codigoB;
       });
 
       return carradasCache;
@@ -1101,7 +1110,7 @@
 
       try {
         setMensagem('Preparando edição...');
-        await Promise.all([carregarVendedores(), carregarCarradas()]);
+        await Promise.all([carregarVendedores(), carregarCarradasDisponiveis()]);
 
         modoEdicao = true;
         vendedorEdicao = String(pedidoCarregado?.vendedor?.favorecido || '');
@@ -1280,10 +1289,13 @@
         return;
       }
 
+      const codigoCarradaAnterior = String(pedidoCarregado?.carradaAtual?.codigo || '');
+      const codigoCarradaNova = String(codigoCarradaEdicao || '');
+      const carradaFoiAlterada = codigoCarradaAnterior !== codigoCarradaNova;
+
       const payload = {
         vendedor: Number(vendedorEdicao),
         obs: observacaoEdicao || '',
-        codigoCarrada: codigoCarradaEdicao || null,
         itens: itensEdicao.map((item) => ({
           item: Number(item.item),
           descricao: item.descricao || '',
@@ -1307,6 +1319,18 @@
         const pedidoAtualizado = json?.data || null;
         if (!pedidoAtualizado) {
           throw new Error('A API não retornou o pedido atualizado.');
+        }
+
+        if (carradaFoiAlterada) {
+          const jsonCarrada = await fetchJson(`/api/legado/pedidos/${pedidoCarregado.idMestre}/carrada`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ codigoCarrada: codigoCarradaNova || null })
+          });
+
+          if (jsonCarrada?.data?.carradaAtual !== undefined) {
+            pedidoAtualizado.carradaAtual = jsonCarrada.data.carradaAtual;
+          }
         }
 
         const totalPagoAtual = Number(pedidoCarregado?.totalPago || 0);

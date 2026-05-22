@@ -1,4 +1,5 @@
 const legadoBridgeService = require('../legadoBridge.service');
+const envioWhatsappService = require('../../whatsapp/envio-whatsapp.service');
 
 function limparTexto(valor) {
   if (typeof valor !== 'string') {
@@ -33,6 +34,91 @@ function normalizarCarrada(item) {
     data: item.data ?? item.DATA ?? null,
     descricao: item.descricao ?? item.DESCRICAO ?? ''
   };
+}
+
+
+function formatarDataParaMensagem(valor) {
+  if (!valor) {
+    return '';
+  }
+
+  const data = new Date(valor);
+
+  if (Number.isNaN(data.getTime())) {
+    return limparTexto(valor).slice(0, 10);
+  }
+
+  return data.toLocaleDateString('pt-BR', {
+    timeZone: 'America/Fortaleza'
+  });
+}
+
+function montarMensagemCarrada({ tipo, pedido, carrada }) {
+  const numeroPedido = limparTexto(pedido?.numero);
+  const nomeCliente = limparTexto(pedido?.cliente?.nome);
+  const dataCarrada = formatarDataParaMensagem(carrada?.data);
+  const descricaoCarrada = limparTexto(carrada?.descricao);
+  const acao = tipo === 'saida' ? 'saiu' : 'entrou';
+
+  return [
+    `🚚 Pedido: ${numeroPedido}`,
+    `Cliente: ${nomeCliente}`,
+    '',
+    `Seu pedido ${acao} na produção da carrada do dia ${dataCarrada}`,
+    descricaoCarrada
+  ]
+    .filter((linha, indice, linhas) => {
+      if (indice === linhas.length - 1) {
+        return Boolean(linha);
+      }
+      return true;
+    })
+    .join('\n');
+}
+
+async function enviarNotificacaoCarrada({ tipo, pedido, carrada }) {
+  const telefone = limparTexto(pedido?.cliente?.telefonePrincipal);
+
+  if (!telefone) {
+    return { enviado: false, motivo: 'sem_telefone' };
+  }
+
+  const mensagem = montarMensagemCarrada({ tipo, pedido, carrada });
+
+  try {
+    await envioWhatsappService.enviarMensagem({ telefone, mensagem });
+    return { enviado: true };
+  } catch (error) {
+    return { enviado: false, motivo: 'erro_envio', detalhe: error.message };
+  }
+}
+
+function carradasSaoDiferentes(carradaA, carradaB) {
+  return String(carradaA?.codigo || '') !== String(carradaB?.codigo || '');
+}
+
+async function enviarNotificacoesAlteracaoCarrada({ pedido, carradaAnterior, carradaAtual }) {
+  const notificacoes = [];
+
+  if (!carradasSaoDiferentes(carradaAnterior, carradaAtual)) {
+    return notificacoes;
+  }
+
+  if (carradaAnterior?.codigo) {
+    notificacoes.push({
+      tipo: 'saida',
+      resultado: await enviarNotificacaoCarrada({ tipo: 'saida', pedido, carrada: carradaAnterior })
+    });
+  }
+
+  if (carradaAtual?.codigo) {
+    notificacoes.push({
+      tipo: 'entrada',
+      resultado: await enviarNotificacaoCarrada({ tipo: 'entrada', pedido, carrada: carradaAtual })
+    });
+  }
+
+  return notificacoes;
 }
 
 function normalizarPedido(item) {
@@ -221,6 +307,50 @@ async function buscarItensPedido(idMestre) {
   };
 }
 
+
+async function listarCarradasDisponiveis(idMestre) {
+  const response = await legadoBridgeService.get(
+    `/api/legado/pedidos/${idMestre}/carradas-disponiveis`
+  );
+
+  const data = response?.data || {};
+
+  return {
+    carradaAtual: normalizarCarrada(data.carradaAtual),
+    carradas: Array.isArray(data.carradas)
+      ? data.carradas.map(normalizarCarrada).filter(Boolean)
+      : []
+  };
+}
+
+async function alterarCarradaPedido(idMestre, codigoCarrada) {
+  const response = await legadoBridgeService.put(
+    `/api/legado/pedidos/${idMestre}/carrada`,
+    { codigoCarrada: codigoCarrada || null }
+  );
+
+  const data = response?.data || {};
+  const pedido = normalizarPedido(data.pedido || {});
+  const carradaAnterior = normalizarCarrada(data.carradaAnterior);
+  const carradaAtual = normalizarCarrada(data.carradaAtual);
+
+  const notificacoes = await enviarNotificacoesAlteracaoCarrada({
+    pedido,
+    carradaAnterior,
+    carradaAtual
+  });
+
+  return {
+    pedido: {
+      ...pedido,
+      carradaAtual
+    },
+    carradaAnterior,
+    carradaAtual,
+    notificacoes
+  };
+}
+
 async function atualizarPedido(idMestre, payload = {}) {
   const response = await legadoBridgeService.put(
     `/api/legado/pedidos/${idMestre}`,
@@ -255,5 +385,7 @@ async function atualizarPedido(idMestre, payload = {}) {
 module.exports = {
   pesquisarPedidos,
   buscarItensPedido,
+  listarCarradasDisponiveis,
+  alterarCarradaPedido,
   atualizarPedido
 };
