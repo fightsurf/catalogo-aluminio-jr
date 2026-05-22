@@ -679,6 +679,21 @@
       ].join('');
     }
 
+    function formatarOpcaoCarrada(carrada) {
+      const dataFormatada = formatarData(carrada?.data);
+      const descricao = String(carrada?.descricao || '').trim();
+
+      if (dataFormatada !== '-' && descricao) {
+        return `${dataFormatada} - ${descricao}`;
+      }
+
+      if (dataFormatada !== '-') {
+        return dataFormatada;
+      }
+
+      return descricao || '-';
+    }
+
     function montarOpcoesCarrada(valorAtual) {
       const opcoes = ['<option value="">Sem carrada</option>'];
       let existeAtual = false;
@@ -690,7 +705,7 @@
         }
         opcoes.push(`
           <option value="${codigo}" ${codigo === String(valorAtual ?? '') ? 'selected' : ''}>
-            ${codigo} - ${(carrada?.descricao || formatarData(carrada?.data) || '').trim()}
+            ${formatarOpcaoCarrada(carrada)}
           </option>
         `);
       });
@@ -699,7 +714,7 @@
         const atual = pedidoCarregado.carradaAtual;
         opcoes.push(`
           <option value="${atual.codigo}" selected>
-            ${atual.codigo} - ${(atual?.descricao || formatarData(atual?.data) || '').trim()}
+            ${formatarOpcaoCarrada(atual)}
           </option>
         `);
       }
