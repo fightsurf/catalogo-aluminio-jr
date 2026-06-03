@@ -166,6 +166,12 @@
       font-size: 14px;
     }
     th { color: var(--muted); font-size: 13px; }
+    .linha-semana-corrente td {
+      background: #dbeafe;
+    }
+    .linha-semana-corrente:hover td {
+      background: #bfdbfe;
+    }
     .actions-cell { white-space: nowrap; }
     .list-panel { margin-top: 18px; }
     .field-help {
@@ -438,6 +444,35 @@
         .replace(/'/g, '&#39;');
     }
 
+    function extrairDataIso(valor) {
+      if (!valor) return '';
+
+      const texto = String(valor).trim();
+      const matchIso = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+      if (!matchIso) return '';
+
+      return `${matchIso[1]}-${matchIso[2]}-${matchIso[3]}`;
+    }
+
+    function hojeIsoLocal() {
+      const hoje = new Date();
+      const ano = hoje.getFullYear();
+      const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+      const dia = String(hoje.getDate()).padStart(2, '0');
+      return `${ano}-${mes}-${dia}`;
+    }
+
+    function semanaEhCorrente(semana) {
+      const hoje = hojeIsoLocal();
+      const inicio = extrairDataIso(semana.data_inicial);
+      const fim = extrairDataIso(semana.data_final);
+
+      if (!inicio || !fim) return false;
+
+      return inicio <= hoje && hoje <= fim;
+    }
+
     function formatarData(valor) {
       if (!valor) return '';
 
@@ -553,7 +588,7 @@
       }
 
       el.tabelaSemanas.innerHTML = semanas.map((semana) => `
-        <tr>
+        <tr class="${semanaEhCorrente(semana) ? 'linha-semana-corrente' : ''}">
           <td>${escapeHtml(formatarData(semana.data_inicial))}</td>
           <td>${escapeHtml(formatarData(semana.data_final))}</td>
           <td>${escapeHtml(semana.descricao || '-')}</td>
