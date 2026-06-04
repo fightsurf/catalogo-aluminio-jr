@@ -67,6 +67,41 @@ function normalizarData(value, campo = 'Data') {
   return texto;
 }
 
+function dataBancoParaISO(value, campo = 'Data') {
+  if (value === undefined || value === null || value === '') return null;
+
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) {
+      throw new Error(`${campo} inválida`);
+    }
+
+    return formatarDataISO(
+      value.getFullYear(),
+      value.getMonth() + 1,
+      value.getDate()
+    );
+  }
+
+  const texto = normalizarTexto(value);
+  if (!texto) return null;
+
+  const matchISO = texto.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (matchISO) {
+    return normalizarData(matchISO[1], campo);
+  }
+
+  const data = new Date(texto);
+  if (!Number.isNaN(data.getTime())) {
+    return formatarDataISO(
+      data.getFullYear(),
+      data.getMonth() + 1,
+      data.getDate()
+    );
+  }
+
+  return normalizarData(texto, campo);
+}
+
 function normalizarDataObrigatoria(value, campo = 'Data') {
   const data = normalizarData(value, campo);
   if (!data) {
@@ -473,8 +508,12 @@ async function atualizar(id, data = {}) {
   const itemSaidaId = data.item_saida_id !== undefined ? normalizarId(data.item_saida_id, 'Item de saída') : atual.item_saida_id;
   const competenciaMes = data.competencia_mes !== undefined ? normalizarMes(data.competencia_mes) : atual.competencia_mes;
   const competenciaAno = data.competencia_ano !== undefined ? normalizarAno(data.competencia_ano) : atual.competencia_ano;
-  const vencimento = data.vencimento !== undefined ? normalizarData(data.vencimento, 'Vencimento') : (atual.vencimento ? String(atual.vencimento).slice(0, 10) : null);
-  const dataSaida = data.data_saida !== undefined ? normalizarData(data.data_saida, 'Data de pagamento') : (atual.data_saida ? String(atual.data_saida).slice(0, 10) : null);
+  const vencimento = data.vencimento !== undefined
+    ? normalizarData(data.vencimento, 'Vencimento')
+    : dataBancoParaISO(atual.vencimento, 'Vencimento');
+  const dataSaida = data.data_saida !== undefined
+    ? normalizarData(data.data_saida, 'Data de pagamento')
+    : dataBancoParaISO(atual.data_saida, 'Data de pagamento');
   const valor = data.valor !== undefined ? normalizarValor(data.valor) : Number(atual.valor);
   const formaPagamento = data.forma_pagamento !== undefined ? (normalizarTexto(data.forma_pagamento) || null) : atual.forma_pagamento;
   const status = data.status !== undefined ? normalizarStatus(data.status) : atual.status;

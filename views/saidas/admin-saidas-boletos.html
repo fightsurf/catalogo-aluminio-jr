@@ -105,7 +105,26 @@
 
     function escapeHtml(v) { return String(v ?? '').replace(/[&<>'"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[c])); }
     function moeda(v) { return Number(v || 0).toLocaleString('pt-BR', { style:'currency', currency:'BRL' }); }
-    function dataBR(v) { if (!v) return ''; const d = String(v).slice(0,10).split('-'); return d.length === 3 ? `${d[2]}/${d[1]}/${d[0]}` : ''; }
+    function dataISO(v) {
+      if (!v) return '';
+      const texto = String(v);
+      const match = texto.match(/^(\d{4}-\d{2}-\d{2})/);
+      if (match) return match[1];
+      const data = new Date(v);
+      if (Number.isNaN(data.getTime())) return '';
+      const ano = data.getFullYear();
+      const mes = String(data.getMonth() + 1).padStart(2, '0');
+      const dia = String(data.getDate()).padStart(2, '0');
+      return `${ano}-${mes}-${dia}`;
+    }
+    function dataHojeISO() {
+      const data = new Date();
+      const ano = data.getFullYear();
+      const mes = String(data.getMonth() + 1).padStart(2, '0');
+      const dia = String(data.getDate()).padStart(2, '0');
+      return `${ano}-${mes}-${dia}`;
+    }
+    function dataBR(v) { const iso = dataISO(v); if (!iso) return ''; const d = iso.split('-'); return `${d[2]}/${d[1]}/${d[0]}`; }
     function msg(texto, tipo='sucesso') { const el = document.getElementById('mensagem'); el.textContent = texto; el.className = `mensagem ${tipo}`; }
     function limparMsg() { const el = document.getElementById('mensagem'); el.textContent = ''; el.className = 'mensagem'; }
     async function tratar(res) { const json = await res.json(); if (!res.ok || json.success === false) throw new Error(json.message || 'Erro'); return json; }
@@ -145,9 +164,9 @@
           return;
         }
 
-        const hojeISO = new Date().toISOString().slice(0,10);
+        const hojeISO = dataHojeISO();
         tbody.innerHTML = boletosAtuais.map(item => {
-          const vencimentoISO = item.vencimento ? String(item.vencimento).slice(0,10) : '';
+          const vencimentoISO = dataISO(item.vencimento);
           const vencido = item.status === 'PENDENTE' && vencimentoISO && vencimentoISO < hojeISO;
           const trClass = item.status === 'PAGO' ? 'linha-paga' : (vencido ? 'linha-vencida' : '');
           const parcela = item.numero_parcela && item.total_parcelas ? `${item.numero_parcela}/${item.total_parcelas}` : '-';
@@ -180,7 +199,7 @@
       const item = boletosAtuais.find(x => Number(x.id) === Number(id));
       if (!item) return;
       document.getElementById('pagar_id').value = item.id;
-      document.getElementById('pagar_data_saida').value = new Date().toISOString().slice(0,10);
+      document.getElementById('pagar_data_saida').value = dataHojeISO();
       document.getElementById('pagar_valor').value = String(item.valor || '').replace('.', ',');
       document.getElementById('pagar_forma_pagamento').value = item.forma_pagamento || 'Pix';
       document.getElementById('pagarResumo').textContent = `${item.item_saida_nome} | vencimento ${dataBR(item.vencimento)} | valor ${moeda(item.valor)}`;
