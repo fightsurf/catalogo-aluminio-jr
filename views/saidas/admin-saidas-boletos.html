@@ -55,6 +55,7 @@
         <a href="/admin-saidas-categorias">Categorias</a>
         <a href="/admin-saidas-itens">Itens de saída</a>
         <a href="/admin-saidas">Lançar saída</a>
+        <a href="/admin-saidas-consulta">Consultar/editar</a>
         <a href="/admin-saidas-carne">Carnê</a>
         <a href="/admin-saidas-boletos" class="ativo">Boletos</a>
         <a href="/relatorio-saidas">Relatório mensal</a>
@@ -214,7 +215,7 @@
     }
 
     function editar(id) {
-      window.location.href = `/admin-saidas?id=${encodeURIComponent(id)}`;
+      window.location.href = `/admin-saidas-consulta?id=${encodeURIComponent(id)}`;
     }
 
     carregarItens().then(listarBoletos).catch(error => msg(error.message, 'erro'));

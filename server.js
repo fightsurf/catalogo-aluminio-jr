@@ -277,6 +277,10 @@ app.get('/admin-saidas', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'saidas', 'admin-saidas.html'));
 });
 
+app.get('/admin-saidas-consulta', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'saidas', 'admin-saidas-consulta.html'));
+});
+
 app.get('/admin-saidas-carne', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'saidas', 'admin-saidas-carne.html'));
 });

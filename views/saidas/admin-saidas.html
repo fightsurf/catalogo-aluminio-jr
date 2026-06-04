@@ -7,39 +7,27 @@
   <link rel="stylesheet" href="/css/theme.css" />
   <style>
     body { font-family: Arial, sans-serif; background:#eef2f7; margin:0; padding:24px; }
-    .container { max-width:1280px; margin:0 auto; }
+    .container { max-width:760px; margin:0 auto; }
     .box { background:#fff; padding:22px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,.08); margin-bottom:22px; }
-    h1,h2 { margin-top:0; color:#243447; }
+    h1 { margin-top:0; color:#243447; }
     .menu { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
     .menu a { text-decoration:none; background:#34495e; color:#fff; padding:9px 12px; border-radius:6px; font-size:13px; }
     .menu a.ativo { background:#2ecc71; }
-    .grid-form { display:grid; grid-template-columns:1.5fr 95px 105px 140px 140px 120px 125px 1fr 160px; gap:12px; align-items:end; }
-    .grid-observacao { display:grid; grid-template-columns:1fr; gap:12px; margin-top:12px; }
-    .grid-filtro { display:grid; grid-template-columns:100px 110px 1.2fr 1fr 1.2fr 130px 120px 120px; gap:12px; align-items:end; }
+    .form-vertical { display:flex; flex-direction:column; gap:13px; margin-top:16px; }
     label { display:block; font-size:13px; font-weight:bold; color:#4a5568; margin-bottom:6px; }
-    input, select, textarea, button { width:100%; padding:10px 12px; border-radius:6px; border:1px solid #ccd3db; font-size:14px; box-sizing:border-box; }
-    textarea { min-height:70px; resize:vertical; }
+    input, select, textarea, button { width:100%; padding:11px 12px; border-radius:6px; border:1px solid #ccd3db; font-size:15px; box-sizing:border-box; }
+    textarea { min-height:74px; resize:vertical; }
     button { border:none; cursor:pointer; font-weight:bold; }
+    .acoes { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:4px; }
     .btn-salvar { background:#2ecc71; color:#fff; }
     .btn-limpar { background:#95a5a6; color:#fff; }
-    .btn-buscar { background:#34495e; color:#fff; }
-    .btn-editar { background:#f39c12; color:#fff; padding:8px 10px; }
-    .btn-excluir { background:#e74c3c; color:#fff; padding:8px 10px; }
-    table { width:100%; border-collapse:collapse; margin-top:16px; }
-    th { background:#2c3e50; color:#fff; padding:10px; text-align:left; }
-    td { padding:10px; border-bottom:1px solid #e9edf2; vertical-align:middle; }
-    tr:hover { background:#f9fbfd; }
-    .acoes { display:flex; gap:8px; flex-wrap:wrap; }
-    .status { font-weight:bold; padding:4px 8px; border-radius:999px; display:inline-block; }
-    .status-PAGO { background:#d5f5e3; color:#1e8449; }
-    .status-PENDENTE { background:#fff3cd; color:#9a6a00; }
-    .status-CANCELADO { background:#f8d7da; color:#922b21; }
     .mensagem { margin-top:12px; font-weight:bold; display:none; }
     .mensagem.sucesso { color:#1e8449; display:block; }
     .mensagem.erro { color:#c0392b; display:block; }
-    .muted { color:#667085; font-size:13px; }
-    .total { font-weight:bold; text-align:right; margin-top:12px; }
-    @media (max-width:1200px) { .grid-form,.grid-filtro { grid-template-columns:1fr; } }
+    .muted { color:#667085; font-size:13px; line-height:1.4; }
+    .atalho { margin-top:12px; }
+    .atalho a { color:#34495e; font-weight:bold; }
+    @media (max-width:700px) { body { padding:12px; } .acoes { grid-template-columns:1fr; } }
   </style>
 </head>
 <body>
@@ -50,47 +38,83 @@
         <a href="/admin-saidas-categorias">Categorias</a>
         <a href="/admin-saidas-itens">Itens de saída</a>
         <a href="/admin-saidas" class="ativo">Lançar saída</a>
+        <a href="/admin-saidas-consulta">Consultar/editar</a>
         <a href="/admin-saidas-carne">Carnê</a>
         <a href="/admin-saidas-boletos">Boletos</a>
         <a href="/relatorio-saidas">Relatório mensal</a>
       </div>
-      <div class="muted">Use esta tela para lançar pagamento avulso ou editar uma saída existente. Carnês e boletos ficam em telas separadas.</div>
+      <div class="muted">Tela enxuta para cadastrar uma nova saída. A consulta e edição de lançamentos ficam em tela separada.</div>
+      <div class="atalho"><a href="/admin-saidas-consulta">Ir para consulta/edição de saídas lançadas</a></div>
 
-      <input type="hidden" id="saida_id" />
-      <div class="grid-form" style="margin-top:14px;">
-        <div><label for="item_saida_id">Item de saída</label><select id="item_saida_id"></select></div>
-        <div><label for="competencia_mes">Mês</label><select id="competencia_mes"></select></div>
-        <div><label for="competencia_ano">Ano</label><input id="competencia_ano" type="number" min="2000" max="2100" /></div>
-        <div><label for="vencimento">Vencimento</label><input id="vencimento" type="date" /></div>
-        <div><label for="data_saida">Data pagamento</label><input id="data_saida" type="date" /></div>
-        <div><label for="valor">Valor</label><input id="valor" inputmode="decimal" placeholder="0,00" /></div>
-        <div><label for="status">Status</label><select id="status"><option value="PAGO">Pago</option><option value="PENDENTE">Pendente</option><option value="CANCELADO">Cancelado</option></select></div>
-        <div><label for="forma_pagamento">Forma pagamento</label><select id="forma_pagamento"><option value="Pix">Pix</option><option value="Dinheiro">Dinheiro</option><option value="Cartão">Cartão</option><option value="Boleto">Boleto</option><option value="Transferência">Transferência</option><option value="Outro">Outro</option></select></div>
-        <div style="display:flex; gap:10px;"><button class="btn-salvar" onclick="salvar()">Salvar</button><button class="btn-limpar" onclick="limparFormulario()">Limpar</button></div>
+      <div class="form-vertical">
+        <div>
+          <label for="categoria_id">Categoria da saída</label>
+          <select id="categoria_id" onchange="filtrarItensPorCategoria()"></select>
+        </div>
+
+        <div>
+          <label for="item_saida_id">Item de saída</label>
+          <select id="item_saida_id"></select>
+        </div>
+
+        <div>
+          <label for="competencia_mes">Mês de competência</label>
+          <select id="competencia_mes"></select>
+        </div>
+
+        <div>
+          <label for="competencia_ano">Ano de competência</label>
+          <input id="competencia_ano" type="number" min="2000" max="2100" />
+        </div>
+
+        <div>
+          <label for="vencimento">Vencimento</label>
+          <input id="vencimento" type="date" onchange="usarVencimentoNaCompetencia()" />
+        </div>
+
+        <div>
+          <label for="data_saida">Data pagamento</label>
+          <input id="data_saida" type="date" />
+        </div>
+
+        <div>
+          <label for="valor">Valor</label>
+          <input id="valor" inputmode="decimal" placeholder="0,00" />
+        </div>
+
+        <div>
+          <label for="forma_pagamento">Forma pagamento</label>
+          <select id="forma_pagamento">
+            <option value="Pix">Pix</option>
+            <option value="Dinheiro">Dinheiro</option>
+            <option value="Cartão">Cartão</option>
+            <option value="Boleto">Boleto</option>
+            <option value="Transferência">Transferência</option>
+            <option value="Outro">Outro</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="status">Status</label>
+          <select id="status" onchange="ajustarDataPagamentoPorStatus()">
+            <option value="PAGO">Pago</option>
+            <option value="PENDENTE">Pendente</option>
+            <option value="CANCELADO">Cancelado</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="observacao">Observação</label>
+          <textarea id="observacao" placeholder="Opcional"></textarea>
+        </div>
+
+        <div class="acoes">
+          <button class="btn-salvar" onclick="salvar()">Salvar saída</button>
+          <button class="btn-limpar" onclick="limparFormulario()">Limpar</button>
+        </div>
       </div>
-      <div class="grid-observacao">
-        <div><label for="observacao">Observação</label><textarea id="observacao" placeholder="Opcional"></textarea></div>
-      </div>
+
       <div id="mensagem" class="mensagem"></div>
-    </div>
-
-    <div class="box">
-      <h2>Saídas lançadas</h2>
-      <div class="grid-filtro">
-        <div><label for="filtroMes">Mês</label><select id="filtroMes"></select></div>
-        <div><label for="filtroAno">Ano</label><input id="filtroAno" type="number" min="2000" max="2100" placeholder="Todos" /></div>
-        <div><label for="filtroItem">Item</label><select id="filtroItem"></select></div>
-        <div><label for="filtroCategoria">Categoria</label><select id="filtroCategoria"></select></div>
-        <div><label for="filtroBusca">Busca</label><input id="filtroBusca" placeholder="Item, categoria ou observação" /></div>
-        <div><label for="filtroStatus">Status</label><select id="filtroStatus"><option value="">Todos</option><option value="PAGO">Pago</option><option value="PENDENTE">Pendente</option><option value="CANCELADO">Cancelado</option></select></div>
-        <div><label>&nbsp;</label><button class="btn-buscar" onclick="listar()">Buscar</button></div>
-        <div><label>&nbsp;</label><button class="btn-limpar" onclick="limparFiltros()">Limpar</button></div>
-      </div>
-      <table>
-        <thead><tr><th>Competência</th><th>Vencimento</th><th>Pagamento</th><th>Item</th><th>Categoria</th><th>Valor</th><th>Status</th><th>Parcela</th><th>Observação</th><th style="width:170px;">Ações</th></tr></thead>
-        <tbody id="tbody"></tbody>
-      </table>
-      <div class="total" id="totalLista"></div>
     </div>
   </div>
 
@@ -101,8 +125,6 @@
     const nomesMeses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
     function escapeHtml(v) { return String(v ?? '').replace(/[&<>'"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[c])); }
-    function moeda(v) { return Number(v || 0).toLocaleString('pt-BR', { style:'currency', currency:'BRL' }); }
-    function dataBR(v) { if (!v) return ''; const d = String(v).slice(0,10).split('-'); return d.length === 3 ? `${d[2]}/${d[1]}/${d[0]}` : ''; }
     function msg(texto, tipo='sucesso') { const el = document.getElementById('mensagem'); el.textContent = texto; el.className = `mensagem ${tipo}`; }
     function limparMsg() { const el = document.getElementById('mensagem'); el.textContent = ''; el.className = 'mensagem'; }
     async function tratar(res) { const json = await res.json(); if (!res.ok || json.success === false) throw new Error(json.message || 'Erro'); return json; }
@@ -110,16 +132,6 @@
     function preencherMeses() {
       const opts = nomesMeses.map((m, i) => `<option value="${i + 1}">${m}</option>`).join('');
       document.getElementById('competencia_mes').innerHTML = opts;
-      document.getElementById('filtroMes').innerHTML = '<option value="">Todos</option>' + opts;
-
-      const hoje = new Date();
-      const hojeISO = hoje.toISOString().slice(0,10);
-      document.getElementById('competencia_mes').value = hoje.getMonth() + 1;
-      document.getElementById('competencia_ano').value = hoje.getFullYear();
-      document.getElementById('vencimento').value = hojeISO;
-      document.getElementById('data_saida').value = hojeISO;
-      document.getElementById('filtroMes').value = '';
-      document.getElementById('filtroAno').value = '';
     }
 
     async function carregarBases() {
@@ -129,104 +141,54 @@
       ]);
       itens = itensJson.data || [];
       categorias = categoriasJson.data || [];
-      const itensOptions = '<option value="">Selecione</option>' + itens.map(i => `<option value="${i.id}">${escapeHtml(i.nome)} (${escapeHtml(i.categoria_nome)})</option>`).join('');
-      document.getElementById('item_saida_id').innerHTML = itensOptions;
-      document.getElementById('filtroItem').innerHTML = '<option value="">Todos</option>' + itens.map(i => `<option value="${i.id}">${escapeHtml(i.nome)}</option>`).join('');
-      document.getElementById('filtroCategoria').innerHTML = '<option value="">Todas</option>' + categorias.map(c => `<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');
+      document.getElementById('categoria_id').innerHTML = '<option value="">Selecione a categoria</option>' + categorias.map(c => `<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');
+      filtrarItensPorCategoria();
+    }
+
+    function filtrarItensPorCategoria() {
+      const categoriaId = document.getElementById('categoria_id').value;
+      const itensFiltrados = categoriaId ? itens.filter(i => String(i.categoria_id) === String(categoriaId)) : [];
+      document.getElementById('item_saida_id').innerHTML = '<option value="">Selecione o item</option>' + itensFiltrados.map(i => `<option value="${i.id}">${escapeHtml(i.nome)}</option>`).join('');
+    }
+
+    function usarVencimentoNaCompetencia() {
+      const vencimento = document.getElementById('vencimento').value;
+      if (!vencimento) return;
+      const [ano, mes] = vencimento.split('-');
+      document.getElementById('competencia_mes').value = Number(mes);
+      document.getElementById('competencia_ano').value = ano;
+    }
+
+    function ajustarDataPagamentoPorStatus() {
+      const status = document.getElementById('status').value;
+      const dataPagamento = document.getElementById('data_saida');
+      if (status === 'PAGO' && !dataPagamento.value) {
+        dataPagamento.value = new Date().toISOString().slice(0,10);
+      }
+      if (status !== 'PAGO') {
+        dataPagamento.value = '';
+      }
     }
 
     function limparFormulario() {
-      const hojeISO = new Date().toISOString().slice(0,10);
-      document.getElementById('saida_id').value = '';
-      document.getElementById('item_saida_id').value = '';
-      document.getElementById('valor').value = '';
-      document.getElementById('status').value = 'PAGO';
-      document.getElementById('forma_pagamento').value = 'Pix';
-      document.getElementById('observacao').value = '';
-      document.getElementById('vencimento').value = hojeISO;
-      document.getElementById('data_saida').value = hojeISO;
       const hoje = new Date();
+      const hojeISO = hoje.toISOString().slice(0,10);
+      document.getElementById('categoria_id').value = '';
+      filtrarItensPorCategoria();
       document.getElementById('competencia_mes').value = hoje.getMonth() + 1;
       document.getElementById('competencia_ano').value = hoje.getFullYear();
+      document.getElementById('vencimento').value = hojeISO;
+      document.getElementById('data_saida').value = hojeISO;
+      document.getElementById('valor').value = '';
+      document.getElementById('forma_pagamento').value = 'Pix';
+      document.getElementById('status').value = 'PAGO';
+      document.getElementById('observacao').value = '';
       limparMsg();
-    }
-
-    function limparFiltros() {
-      document.getElementById('filtroMes').value = '';
-      document.getElementById('filtroAno').value = '';
-      document.getElementById('filtroItem').value = '';
-      document.getElementById('filtroCategoria').value = '';
-      document.getElementById('filtroBusca').value = '';
-      document.getElementById('filtroStatus').value = '';
-      listar();
-    }
-
-    async function listar() {
-      try {
-        limparMsg();
-        const params = new URLSearchParams();
-        const mes = document.getElementById('filtroMes').value;
-        const ano = document.getElementById('filtroAno').value;
-        const item = document.getElementById('filtroItem').value;
-        const categoria = document.getElementById('filtroCategoria').value;
-        const busca = document.getElementById('filtroBusca').value.trim();
-        const status = document.getElementById('filtroStatus').value;
-        if (mes) params.append('competencia_mes', mes);
-        if (ano) params.append('competencia_ano', ano);
-        if (item) params.append('item_saida_id', item);
-        if (categoria) params.append('categoria_id', categoria);
-        if (busca) params.append('busca', busca);
-        if (status) params.append('status', status);
-
-        const json = await tratar(await fetch(`${API}?${params.toString()}`));
-        const tbody = document.getElementById('tbody');
-        if (!json.data.length) {
-          tbody.innerHTML = '<tr><td colspan="10">Nenhuma saída encontrada.</td></tr>';
-          document.getElementById('totalLista').textContent = '';
-          return;
-        }
-
-        tbody.innerHTML = json.data.map(item => `
-          <tr>
-            <td>${String(item.competencia_mes).padStart(2,'0')}/${item.competencia_ano}</td>
-            <td>${dataBR(item.vencimento)}</td>
-            <td>${dataBR(item.data_saida)}</td>
-            <td>${escapeHtml(item.item_saida_nome)}</td>
-            <td>${escapeHtml(item.categoria_nome)}</td>
-            <td>${moeda(item.valor)}</td>
-            <td><span class="status status-${item.status}">${item.status}</span></td>
-            <td>${item.numero_parcela && item.total_parcelas ? `${item.numero_parcela}/${item.total_parcelas}` : '-'}</td>
-            <td>${escapeHtml(item.observacao || '')}</td>
-            <td><div class="acoes"><button class="btn-editar" onclick="editar(${item.id})">Editar</button><button class="btn-excluir" onclick="excluirRegistro(${item.id})">Excluir</button></div></td>
-          </tr>`).join('');
-        const total = json.data.filter(x => x.status !== 'CANCELADO').reduce((acc, x) => acc + Number(x.valor || 0), 0);
-        document.getElementById('totalLista').textContent = `Total listado: ${moeda(total)}`;
-      } catch (error) { msg(error.message, 'erro'); }
-    }
-
-    async function editar(id) {
-      try {
-        limparMsg();
-        const json = await tratar(await fetch(`${API}/${id}`));
-        const item = json.data;
-        document.getElementById('saida_id').value = item.id;
-        document.getElementById('item_saida_id').value = item.item_saida_id;
-        document.getElementById('competencia_mes').value = item.competencia_mes;
-        document.getElementById('competencia_ano').value = item.competencia_ano;
-        document.getElementById('vencimento').value = item.vencimento ? String(item.vencimento).slice(0,10) : '';
-        document.getElementById('data_saida').value = item.data_saida ? String(item.data_saida).slice(0,10) : '';
-        document.getElementById('valor').value = String(item.valor || '').replace('.', ',');
-        document.getElementById('forma_pagamento').value = item.forma_pagamento || 'Pix';
-        document.getElementById('status').value = item.status;
-        document.getElementById('observacao').value = item.observacao || '';
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      } catch (error) { msg(error.message, 'erro'); }
     }
 
     async function salvar() {
       try {
         limparMsg();
-        const id = document.getElementById('saida_id').value;
         const body = {
           item_saida_id: document.getElementById('item_saida_id').value,
           competencia_mes: document.getElementById('competencia_mes').value,
@@ -238,34 +200,27 @@
           status: document.getElementById('status').value,
           observacao: document.getElementById('observacao').value.trim()
         };
+        if (!document.getElementById('categoria_id').value) throw new Error('Categoria é obrigatória');
         if (!body.item_saida_id) throw new Error('Item de saída é obrigatório');
         if (!body.valor) throw new Error('Valor é obrigatório');
         if (body.status === 'PAGO' && !body.data_saida) throw new Error('Data de pagamento é obrigatória para saída paga');
-        await tratar(await fetch(id ? `${API}/${id}` : API, { method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }));
-        msg(id ? 'Saída atualizada com sucesso' : 'Saída lançada com sucesso');
+        await tratar(await fetch(API, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify(body) }));
+        msg('Saída lançada com sucesso');
         limparFormulario();
-        listar();
-      } catch (error) { msg(error.message, 'erro'); }
+      } catch (error) {
+        msg(error.message, 'erro');
+      }
     }
 
-    async function excluirRegistro(id) {
-      try {
-        if (!confirm('Deseja realmente excluir este lançamento?')) return;
-        await tratar(await fetch(`${API}/${id}`, { method: 'DELETE' }));
-        msg('Lançamento excluído com sucesso');
-        listar();
-      } catch (error) { msg(error.message, 'erro'); }
-    }
-
-    async function carregarEdicaoPelaUrl() {
+    function redirecionarEdicaoAntiga() {
       const params = new URLSearchParams(window.location.search);
       const id = params.get('id');
-      if (id) await editar(id);
+      if (id) window.location.href = `/admin-saidas-consulta?id=${encodeURIComponent(id)}`;
     }
 
     preencherMeses();
     carregarBases()
-      .then(async () => { await listar(); await carregarEdicaoPelaUrl(); })
+      .then(() => { limparFormulario(); redirecionarEdicaoAntiga(); })
       .catch(error => msg(error.message, 'erro'));
   </script>
 </body>
