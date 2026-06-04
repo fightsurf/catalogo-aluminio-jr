@@ -66,6 +66,16 @@ async function relatorioMensal(req, res) {
   }
 }
 
+
+async function relatorioMediasAnuais(req, res) {
+  try {
+    const data = await service.relatorioMediasAnuais(req.query);
+    res.json({ success: true, data });
+  } catch (error) {
+    res.status(400).json({ success: false, message: error.message });
+  }
+}
+
 async function faltantesRecorrentes(req, res) {
   try {
     const mes = req.query.mes || req.query.competencia_mes;
@@ -96,6 +106,7 @@ module.exports = {
   atualizar,
   excluir,
   relatorioMensal,
+  relatorioMediasAnuais,
   faltantesRecorrentes,
   comparativoMes
 };

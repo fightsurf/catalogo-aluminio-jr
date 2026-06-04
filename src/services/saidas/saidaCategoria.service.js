@@ -23,7 +23,7 @@ async function nomeJaExiste(nome, idIgnorar = null) {
   const values = [normalizarTexto(nome)];
   let query = `
     SELECT 1
-    FROM saida_categorias
+    FROM despesa_categorias
     WHERE LOWER(TRIM(nome)) = LOWER(TRIM($1))
   `;
 
@@ -54,7 +54,7 @@ async function listar(filtros = {}) {
 
   let query = `
     SELECT id, nome, ativo, observacao, created_at, updated_at
-    FROM saida_categorias
+    FROM despesa_categorias
   `;
 
   if (conditions.length) {
@@ -70,7 +70,7 @@ async function listar(filtros = {}) {
 async function buscar(id) {
   const result = await pool.query(
     `SELECT id, nome, ativo, observacao, created_at, updated_at
-     FROM saida_categorias
+     FROM despesa_categorias
      WHERE id = $1`,
     [normalizarId(id, 'Categoria')]
   );
@@ -91,7 +91,7 @@ async function criar(data = {}) {
   if (await nomeJaExiste(nome)) throw new Error('Já existe uma categoria de saída com este nome');
 
   const result = await pool.query(
-    `INSERT INTO saida_categorias (nome, ativo, observacao)
+    `INSERT INTO despesa_categorias (nome, ativo, observacao)
      VALUES ($1, $2, $3)
      RETURNING id, nome, ativo, observacao, created_at, updated_at`,
     [nome, ativo, observacao]
@@ -112,7 +112,7 @@ async function atualizar(id, data = {}) {
   if (await nomeJaExiste(nome, categoriaId)) throw new Error('Já existe uma categoria de saída com este nome');
 
   const result = await pool.query(
-    `UPDATE saida_categorias
+    `UPDATE despesa_categorias
      SET nome = $1,
          ativo = $2,
          observacao = $3,
@@ -130,7 +130,7 @@ async function excluir(id) {
   await buscar(categoriaId);
 
   const vinculados = await pool.query(
-    'SELECT COUNT(*)::int AS total FROM saida_itens WHERE categoria_id = $1',
+    'SELECT COUNT(*)::int AS total FROM despesa_itens WHERE categoria_id = $1',
     [categoriaId]
   );
 
@@ -138,7 +138,7 @@ async function excluir(id) {
     throw new Error('Não é possível excluir. Existem itens de saída vinculados a esta categoria.');
   }
 
-  await pool.query('DELETE FROM saida_categorias WHERE id = $1', [categoriaId]);
+  await pool.query('DELETE FROM despesa_categorias WHERE id = $1', [categoriaId]);
 }
 
 module.exports = {

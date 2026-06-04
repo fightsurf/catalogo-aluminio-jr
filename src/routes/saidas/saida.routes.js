@@ -3,6 +3,7 @@ const router = express.Router();
 const controller = require('../../controllers/saidas/saida.controller');
 
 router.get('/relatorio-mensal', controller.relatorioMensal);
+router.get('/medias-anuais', controller.relatorioMediasAnuais);
 router.get('/faltantes-recorrentes', controller.faltantesRecorrentes);
 router.get('/comparativo-mes', controller.comparativoMes);
 router.post('/carne', controller.criarCarne);

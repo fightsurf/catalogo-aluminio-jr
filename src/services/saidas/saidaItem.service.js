@@ -21,7 +21,7 @@ function parseBoolean(value, campo) {
 
 async function categoriaExiste(id) {
   const result = await pool.query(
-    'SELECT id FROM saida_categorias WHERE id = $1',
+    'SELECT id FROM despesa_categorias WHERE id = $1',
     [normalizarId(id, 'Categoria')]
   );
   return result.rows.length > 0;
@@ -31,7 +31,7 @@ async function nomeJaExiste(nome, idIgnorar = null) {
   const values = [normalizarTexto(nome)];
   let query = `
     SELECT 1
-    FROM saida_itens
+    FROM despesa_itens
     WHERE LOWER(TRIM(nome)) = LOWER(TRIM($1))
   `;
 
@@ -82,8 +82,8 @@ async function listar(filtros = {}) {
       i.observacao,
       i.created_at,
       i.updated_at
-    FROM saida_itens i
-    JOIN saida_categorias c ON c.id = i.categoria_id
+    FROM despesa_itens i
+    JOIN despesa_categorias c ON c.id = i.categoria_id
   `;
 
   if (conditions.length) {
@@ -108,8 +108,8 @@ async function buscar(id) {
        i.observacao,
        i.created_at,
        i.updated_at
-     FROM saida_itens i
-     JOIN saida_categorias c ON c.id = i.categoria_id
+     FROM despesa_itens i
+     JOIN despesa_categorias c ON c.id = i.categoria_id
      WHERE i.id = $1`,
     [normalizarId(id, 'Item de saída')]
   );
@@ -133,7 +133,7 @@ async function criar(data = {}) {
   if (await nomeJaExiste(nome)) throw new Error('Já existe um item de saída com este nome');
 
   const result = await pool.query(
-    `INSERT INTO saida_itens (nome, categoria_id, recorrente_mensal, ativo, observacao)
+    `INSERT INTO despesa_itens (nome, categoria_id, recorrente_mensal, ativo, observacao)
      VALUES ($1, $2, $3, $4, $5)
      RETURNING id, nome, categoria_id, recorrente_mensal, ativo, observacao, created_at, updated_at`,
     [nome, categoriaId, recorrenteMensal, ativo, observacao]
@@ -157,7 +157,7 @@ async function atualizar(id, data = {}) {
   if (await nomeJaExiste(nome, itemId)) throw new Error('Já existe um item de saída com este nome');
 
   const result = await pool.query(
-    `UPDATE saida_itens
+    `UPDATE despesa_itens
      SET nome = $1,
          categoria_id = $2,
          recorrente_mensal = $3,
@@ -177,7 +177,7 @@ async function excluir(id) {
   await buscar(itemId);
 
   const vinculados = await pool.query(
-    'SELECT COUNT(*)::int AS total FROM saidas WHERE item_saida_id = $1',
+    'SELECT COUNT(*)::int AS total FROM despesa_lancamentos WHERE item_saida_id = $1',
     [itemId]
   );
 
@@ -185,7 +185,7 @@ async function excluir(id) {
     throw new Error('Não é possível excluir. Existem lançamentos vinculados a este item.');
   }
 
-  await pool.query('DELETE FROM saida_itens WHERE id = $1', [itemId]);
+  await pool.query('DELETE FROM despesa_itens WHERE id = $1', [itemId]);
 }
 
 module.exports = {

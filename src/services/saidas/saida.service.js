@@ -135,8 +135,93 @@ function mesAnterior(mes, ano) {
 }
 
 async function itemExiste(id) {
-  const result = await pool.query('SELECT id FROM saida_itens WHERE id = $1', [normalizarId(id, 'Item de saída')]);
+  const result = await pool.query('SELECT id FROM despesa_itens WHERE id = $1', [normalizarId(id, 'Item de saída')]);
   return result.rows.length > 0;
+}
+
+async function recalcularMediaAnual(itemSaidaId, ano, executor = pool) {
+  const itemId = normalizarId(itemSaidaId, 'Item de saída');
+  const anoReferencia = normalizarAno(ano);
+
+  await executor.query(
+    `INSERT INTO despesa_item_medias_anuais
+       (item_saida_id, ano, valor_total, qtd_meses_considerados, valor_medio, atualizado_em)
+     SELECT
+       i.id AS item_saida_id,
+       $2::int AS ano,
+       COALESCE(SUM(CASE WHEN l.status IN ('PAGO', 'PENDENTE') THEN l.valor ELSE 0 END), 0)::numeric(14,2) AS valor_total,
+       COUNT(DISTINCT CASE WHEN l.status IN ('PAGO', 'PENDENTE') THEN l.competencia_mes END)::int AS qtd_meses_considerados,
+       CASE
+         WHEN COUNT(DISTINCT CASE WHEN l.status IN ('PAGO', 'PENDENTE') THEN l.competencia_mes END) = 0 THEN 0
+         ELSE ROUND(
+           (COALESCE(SUM(CASE WHEN l.status IN ('PAGO', 'PENDENTE') THEN l.valor ELSE 0 END), 0)
+            / COUNT(DISTINCT CASE WHEN l.status IN ('PAGO', 'PENDENTE') THEN l.competencia_mes END))::numeric,
+           2
+         )
+       END::numeric(14,2) AS valor_medio,
+       NOW() AS atualizado_em
+     FROM despesa_itens i
+     LEFT JOIN despesa_lancamentos l
+       ON l.item_saida_id = i.id
+      AND l.competencia_ano = $2
+     WHERE i.id = $1
+     GROUP BY i.id
+     ON CONFLICT (item_saida_id, ano) DO UPDATE SET
+       valor_total = EXCLUDED.valor_total,
+       qtd_meses_considerados = EXCLUDED.qtd_meses_considerados,
+       valor_medio = EXCLUDED.valor_medio,
+       atualizado_em = NOW()`,
+    [itemId, anoReferencia]
+  );
+}
+
+async function recalcularMediasAnuais(pares = [], executor = pool) {
+  const mapa = new Map();
+
+  pares.forEach(par => {
+    if (!par) return;
+    const itemId = normalizarId(par.item_saida_id || par.itemSaidaId, 'Item de saída');
+    const ano = normalizarAno(par.ano || par.competencia_ano);
+    mapa.set(`${itemId}-${ano}`, { itemId, ano });
+  });
+
+  for (const par of mapa.values()) {
+    await recalcularMediaAnual(par.itemId, par.ano, executor);
+  }
+}
+
+async function recalcularTodasMediasAno(ano, executor = pool) {
+  const anoReferencia = normalizarAno(ano);
+
+  await executor.query(
+    `INSERT INTO despesa_item_medias_anuais
+       (item_saida_id, ano, valor_total, qtd_meses_considerados, valor_medio, atualizado_em)
+     SELECT
+       i.id AS item_saida_id,
+       $1::int AS ano,
+       COALESCE(SUM(CASE WHEN l.status IN ('PAGO', 'PENDENTE') THEN l.valor ELSE 0 END), 0)::numeric(14,2) AS valor_total,
+       COUNT(DISTINCT CASE WHEN l.status IN ('PAGO', 'PENDENTE') THEN l.competencia_mes END)::int AS qtd_meses_considerados,
+       CASE
+         WHEN COUNT(DISTINCT CASE WHEN l.status IN ('PAGO', 'PENDENTE') THEN l.competencia_mes END) = 0 THEN 0
+         ELSE ROUND(
+           (COALESCE(SUM(CASE WHEN l.status IN ('PAGO', 'PENDENTE') THEN l.valor ELSE 0 END), 0)
+            / COUNT(DISTINCT CASE WHEN l.status IN ('PAGO', 'PENDENTE') THEN l.competencia_mes END))::numeric,
+           2
+         )
+       END::numeric(14,2) AS valor_medio,
+       NOW() AS atualizado_em
+     FROM despesa_itens i
+     LEFT JOIN despesa_lancamentos l
+       ON l.item_saida_id = i.id
+      AND l.competencia_ano = $1
+     GROUP BY i.id
+     ON CONFLICT (item_saida_id, ano) DO UPDATE SET
+       valor_total = EXCLUDED.valor_total,
+       qtd_meses_considerados = EXCLUDED.qtd_meses_considerados,
+       valor_medio = EXCLUDED.valor_medio,
+       atualizado_em = NOW()`,
+    [anoReferencia]
+  );
 }
 
 function montarWhereListagem(filtros = {}) {
@@ -212,9 +297,9 @@ async function listar(filtros = {}) {
       s.total_parcelas,
       s.created_at,
       s.updated_at
-    FROM saidas s
-    JOIN saida_itens i ON i.id = s.item_saida_id
-    JOIN saida_categorias c ON c.id = i.categoria_id
+    FROM despesa_lancamentos s
+    JOIN despesa_itens i ON i.id = s.item_saida_id
+    JOIN despesa_categorias c ON c.id = i.categoria_id
   `;
 
   if (conditions.length) {
@@ -267,9 +352,9 @@ async function buscar(id) {
        s.total_parcelas,
        s.created_at,
        s.updated_at
-     FROM saidas s
-     JOIN saida_itens i ON i.id = s.item_saida_id
-     JOIN saida_categorias c ON c.id = i.categoria_id
+     FROM despesa_lancamentos s
+     JOIN despesa_itens i ON i.id = s.item_saida_id
+     JOIN despesa_categorias c ON c.id = i.categoria_id
      WHERE s.id = $1`,
     [normalizarId(id, 'Saída')]
   );
@@ -297,12 +382,14 @@ async function criar(data = {}) {
   }
 
   const result = await pool.query(
-    `INSERT INTO saidas
+    `INSERT INTO despesa_lancamentos
        (item_saida_id, competencia_mes, competencia_ano, vencimento, data_saida, valor, forma_pagamento, status, observacao)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      RETURNING id`,
     [itemSaidaId, competenciaMes, competenciaAno, vencimento, dataSaida, valor, formaPagamento, status, observacao]
   );
+
+  await recalcularMediaAnual(itemSaidaId, competenciaAno);
 
   return buscar(result.rows[0].id);
 }
@@ -337,7 +424,7 @@ async function criarCarne(data = {}) {
     for (let index = 0; index < vencimentos.length; index += 1) {
       const parcela = vencimentos[index];
       await client.query(
-        `INSERT INTO saidas
+        `INSERT INTO despesa_lancamentos
            (item_saida_id, competencia_mes, competencia_ano, vencimento, data_saida, valor, forma_pagamento, status, observacao, lote_carne, numero_parcela, total_parcelas)
          VALUES ($1, $2, $3, $4, NULL, $5, $6, 'PENDENTE', $7, $8, $9, $10)`,
         [
@@ -353,6 +440,11 @@ async function criarCarne(data = {}) {
           totalParcelas
         ]
       );
+    }
+
+    const anos = [...new Set(vencimentos.map(v => v.ano))];
+    for (const ano of anos) {
+      await recalcularMediaAnual(itemSaidaId, ano, client);
     }
 
     await client.query('COMMIT');
@@ -393,7 +485,7 @@ async function atualizar(id, data = {}) {
   }
 
   await pool.query(
-    `UPDATE saidas
+    `UPDATE despesa_lancamentos
      SET item_saida_id = $1,
          competencia_mes = $2,
          competencia_ano = $3,
@@ -408,13 +500,19 @@ async function atualizar(id, data = {}) {
     [itemSaidaId, competenciaMes, competenciaAno, vencimento, dataSaida, valor, formaPagamento, status, observacao, saidaId]
   );
 
+  await recalcularMediasAnuais([
+    { item_saida_id: atual.item_saida_id, ano: atual.competencia_ano },
+    { item_saida_id: itemSaidaId, ano: competenciaAno }
+  ]);
+
   return buscar(saidaId);
 }
 
 async function excluir(id) {
   const saidaId = normalizarId(id, 'Saída');
-  await buscar(saidaId);
-  await pool.query('DELETE FROM saidas WHERE id = $1', [saidaId]);
+  const atual = await buscar(saidaId);
+  await pool.query('DELETE FROM despesa_lancamentos WHERE id = $1', [saidaId]);
+  await recalcularMediaAnual(atual.item_saida_id, atual.competencia_ano);
 }
 
 async function totaisPorCategoria(mes, ano) {
@@ -425,9 +523,9 @@ async function totaisPorCategoria(mes, ano) {
        SUM(CASE WHEN s.status = 'PAGO' THEN s.valor ELSE 0 END)::numeric(14,2) AS total_pago,
        SUM(CASE WHEN s.status = 'PENDENTE' THEN s.valor ELSE 0 END)::numeric(14,2) AS total_pendente,
        SUM(CASE WHEN s.status <> 'CANCELADO' THEN s.valor ELSE 0 END)::numeric(14,2) AS total_considerado
-     FROM saidas s
-     JOIN saida_itens i ON i.id = s.item_saida_id
-     JOIN saida_categorias c ON c.id = i.categoria_id
+     FROM despesa_lancamentos s
+     JOIN despesa_itens i ON i.id = s.item_saida_id
+     JOIN despesa_categorias c ON c.id = i.categoria_id
      WHERE s.competencia_mes = $1
        AND s.competencia_ano = $2
      GROUP BY c.id, c.nome
@@ -453,11 +551,11 @@ async function faltantesRecorrentes(mes, ano) {
        ult.competencia_ano AS ultimo_ano_pago,
        ult.vencimento AS ultimo_vencimento,
        ult.data_saida AS ultima_data_saida
-     FROM saida_itens i
-     JOIN saida_categorias c ON c.id = i.categoria_id
+     FROM despesa_itens i
+     JOIN despesa_categorias c ON c.id = i.categoria_id
      LEFT JOIN LATERAL (
        SELECT s2.valor, s2.competencia_mes, s2.competencia_ano, s2.vencimento, s2.data_saida
-       FROM saidas s2
+       FROM despesa_lancamentos s2
        WHERE s2.item_saida_id = i.id
          AND s2.status = 'PAGO'
          AND (
@@ -474,7 +572,7 @@ async function faltantesRecorrentes(mes, ano) {
        AND i.recorrente_mensal = TRUE
        AND NOT EXISTS (
          SELECT 1
-         FROM saidas s
+         FROM despesa_lancamentos s
          WHERE s.item_saida_id = i.id
            AND s.competencia_mes = $1
            AND s.competencia_ano = $2
@@ -495,14 +593,14 @@ async function comparativoMes(mes, ano) {
   const result = await pool.query(
     `WITH atual AS (
        SELECT item_saida_id, SUM(valor)::numeric(14,2) AS valor_atual
-       FROM saidas
+       FROM despesa_lancamentos
        WHERE competencia_mes = $1
          AND competencia_ano = $2
          AND status <> 'CANCELADO'
        GROUP BY item_saida_id
      ), anterior AS (
        SELECT item_saida_id, SUM(valor)::numeric(14,2) AS valor_anterior
-       FROM saidas
+       FROM despesa_lancamentos
        WHERE competencia_mes = $3
          AND competencia_ano = $4
          AND status <> 'CANCELADO'
@@ -525,8 +623,8 @@ async function comparativoMes(mes, ano) {
          WHEN COALESCE(a.valor_atual, 0) < COALESCE(p.valor_anterior, 0) THEN 'CAIU'
          ELSE 'IGUAL'
        END AS situacao
-     FROM saida_itens i
-     JOIN saida_categorias c ON c.id = i.categoria_id
+     FROM despesa_itens i
+     JOIN despesa_categorias c ON c.id = i.categoria_id
      LEFT JOIN atual a ON a.item_saida_id = i.id
      LEFT JOIN anterior p ON p.item_saida_id = i.id
      WHERE COALESCE(a.valor_atual, 0) > 0
@@ -541,6 +639,84 @@ async function comparativoMes(mes, ano) {
     mes_anterior: anterior.mes,
     ano_anterior: anterior.ano
   }));
+}
+
+
+async function relatorioMediasAnuais(filtros = {}) {
+  const hoje = new Date();
+  const ano = filtros.ano ? normalizarAno(filtros.ano) : hoje.getFullYear();
+
+  await recalcularTodasMediasAno(ano);
+
+  const result = await pool.query(
+    `SELECT
+       c.id AS categoria_id,
+       c.nome AS categoria_nome,
+       c.ativo AS categoria_ativa,
+       i.id AS item_saida_id,
+       i.nome AS item_saida_nome,
+       i.ativo AS item_ativo,
+       i.recorrente_mensal,
+       COALESCE(m.valor_total, 0)::numeric(14,2) AS valor_total,
+       COALESCE(m.qtd_meses_considerados, 0)::int AS qtd_meses_considerados,
+       COALESCE(m.valor_medio, 0)::numeric(14,2) AS valor_medio,
+       m.atualizado_em
+     FROM despesa_categorias c
+     LEFT JOIN despesa_itens i ON i.categoria_id = c.id
+     LEFT JOIN despesa_item_medias_anuais m
+       ON m.item_saida_id = i.id
+      AND m.ano = $1
+     ORDER BY c.nome ASC, i.nome ASC`,
+    [ano]
+  );
+
+  const mapaCategorias = new Map();
+
+  result.rows.forEach(row => {
+    if (!mapaCategorias.has(row.categoria_id)) {
+      mapaCategorias.set(row.categoria_id, {
+        categoria_id: row.categoria_id,
+        categoria_nome: row.categoria_nome,
+        categoria_ativa: row.categoria_ativa,
+        itens: [],
+        total_categoria: 0
+      });
+    }
+
+    const categoria = mapaCategorias.get(row.categoria_id);
+
+    if (row.item_saida_id) {
+      const valorMedio = Number(row.valor_medio || 0);
+      categoria.itens.push({
+        item_saida_id: row.item_saida_id,
+        item_saida_nome: row.item_saida_nome,
+        item_ativo: row.item_ativo,
+        recorrente_mensal: row.recorrente_mensal,
+        valor_total: Number(row.valor_total || 0),
+        qtd_meses_considerados: Number(row.qtd_meses_considerados || 0),
+        valor_medio: valorMedio,
+        atualizado_em: row.atualizado_em
+      });
+      categoria.total_categoria += valorMedio;
+    }
+  });
+
+  const categorias = Array.from(mapaCategorias.values()).map(categoria => ({
+    ...categoria,
+    total_categoria: Number(categoria.total_categoria.toFixed(2))
+  }));
+
+  const totalGeral = categorias.reduce((acc, categoria) => acc + Number(categoria.total_categoria || 0), 0);
+
+  return {
+    ano,
+    categorias,
+    totais: {
+      total_geral_medio_mensal: Number(totalGeral.toFixed(2)),
+      quantidade_categorias: categorias.length,
+      quantidade_itens: categorias.reduce((acc, categoria) => acc + categoria.itens.length, 0)
+    }
+  };
 }
 
 async function relatorioMensal(filtros = {}) {
@@ -605,7 +781,10 @@ module.exports = {
   atualizar,
   excluir,
   relatorioMensal,
+  relatorioMediasAnuais,
   faltantesRecorrentes,
   comparativoMes,
+  recalcularMediaAnual,
+  recalcularTodasMediasAno,
   STATUS_VALIDOS
 };
