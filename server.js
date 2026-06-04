@@ -53,6 +53,7 @@ const prestacaoContasRoutes = require('./src/routes/prestacao_contas/prestacao_c
 const saidaCategoriaRoutes = require('./src/routes/saidas/saidaCategoria.routes');
 const saidaItemRoutes = require('./src/routes/saidas/saidaItem.routes');
 const saidaRoutes = require('./src/routes/saidas/saida.routes');
+const fechamentoMensalRoutes = require('./src/routes/fechamento-mensal/fechamento-mensal.routes');
 
 const botRoutes = require('./src/routes/bot/bot.routes');
 const botAdminRoutes = require('./src/routes/bot/bot.admin.routes');
@@ -128,6 +129,7 @@ app.use('/api/prestacoes', prestacaoContasRoutes);
 app.use('/api/saidas-categorias', saidaCategoriaRoutes);
 app.use('/api/saidas-itens', saidaItemRoutes);
 app.use('/api/saidas', saidaRoutes);
+app.use('/api/fechamento-mensal', fechamentoMensalRoutes);
 app.use('/api/legado/pedidos-insercao-v2', pedidosInsercaoLegadoV2Routes);
 app.use('/legado/pedidos-insercao-v2', pedidosInsercaoLegadoV2ViewRoutes);
 app.use('/api/whatsapp', envioWhatsappRoutes);
@@ -291,6 +293,10 @@ app.get('/admin-saidas-boletos', (req, res) => {
 
 app.get('/relatorio-saidas', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'saidas', 'relatorio-saidas.html'));
+});
+
+app.get('/fechamento-mensal', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'fechamento-mensal', 'fechamento-mensal.html'));
 });
 
 // 🔥 BOT
