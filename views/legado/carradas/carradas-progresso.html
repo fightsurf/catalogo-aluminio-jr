@@ -444,6 +444,7 @@
       <div class="topbar-actions">
         <button class="btn-secondary" id="btnVoltar">Voltar para carradas</button>
         <button class="btn-secondary" id="btnRecarregar">Recarregar</button>
+        <button class="btn-primary" id="btnEnviarWhatsappCarrada">Enviar WhatsApp da carrada</button>
       </div>
     </div>
 
@@ -580,6 +581,31 @@
     </div>
   </div>
 
+
+  <div class="modal-backdrop" id="modalWhatsappCarradaBackdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <div>
+          <h3 id="modalWhatsappCarradaTitulo">Enviar WhatsApp da carrada</h3>
+          <p class="muted" id="modalWhatsappCarradaSubtitulo"></p>
+        </div>
+        <button class="btn-secondary" data-close-modal="modalWhatsappCarradaBackdrop">Fechar</button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label for="textareaWhatsappCarradaMensagem">Mensagem personalizada</label>
+          <textarea id="textareaWhatsappCarradaMensagem" placeholder="Digite a mensagem que será enviada para cada pedido da carrada."></textarea>
+        </div>
+        <div class="feedback" id="feedbackWhatsappCarrada">O sistema enviará uma mensagem por pedido com cabeçalho automático.</div>
+        <div id="resumoWhatsappCarrada" style="display:none; margin-top:12px;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" data-close-modal="modalWhatsappCarradaBackdrop">Cancelar</button>
+        <button class="btn-primary" id="btnWhatsappCarradaEnviar">Enviar mensagens</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const CODIGO_CARRADA = new URLSearchParams(window.location.search).get('codigo');
 
@@ -612,12 +638,20 @@
     const el = {
       btnVoltar: document.getElementById('btnVoltar'),
       btnRecarregar: document.getElementById('btnRecarregar'),
+      btnEnviarWhatsappCarrada: document.getElementById('btnEnviarWhatsappCarrada'),
       tituloCarrada: document.getElementById('tituloCarrada'),
       subtituloCarrada: document.getElementById('subtituloCarrada'),
       cardsCabecalho: document.getElementById('cardsCabecalho'),
       cardsFases: document.getElementById('cardsFases'),
       tbodyMatriz: document.getElementById('tbodyMatriz'),
       modalResumoBackdrop: document.getElementById('modalResumoBackdrop'),
+      modalWhatsappCarradaBackdrop: document.getElementById('modalWhatsappCarradaBackdrop'),
+      modalWhatsappCarradaTitulo: document.getElementById('modalWhatsappCarradaTitulo'),
+      modalWhatsappCarradaSubtitulo: document.getElementById('modalWhatsappCarradaSubtitulo'),
+      textareaWhatsappCarradaMensagem: document.getElementById('textareaWhatsappCarradaMensagem'),
+      feedbackWhatsappCarrada: document.getElementById('feedbackWhatsappCarrada'),
+      resumoWhatsappCarrada: document.getElementById('resumoWhatsappCarrada'),
+      btnWhatsappCarradaEnviar: document.getElementById('btnWhatsappCarradaEnviar'),
       modalResumoTitulo: document.getElementById('modalResumoTitulo'),
       modalResumoSubtitulo: document.getElementById('modalResumoSubtitulo'),
       modalResumoBody: document.getElementById('modalResumoBody'),
@@ -1294,6 +1328,76 @@
       }
     }
 
+
+    function abrirModalWhatsappCarrada() {
+      const carrada = estado.matriz?.carrada || null;
+      el.modalWhatsappCarradaTitulo.textContent = 'Enviar WhatsApp da carrada';
+      el.modalWhatsappCarradaSubtitulo.textContent = carrada
+        ? `Carrada ${carrada.codigo} • ${formatarData(carrada.data)} • ${carrada.descricao || 'Sem descrição'}`
+        : 'Carrada';
+      el.textareaWhatsappCarradaMensagem.value = '';
+      el.resumoWhatsappCarrada.style.display = 'none';
+      el.resumoWhatsappCarrada.innerHTML = '';
+      setFeedback(el.feedbackWhatsappCarrada, 'O sistema enviará uma mensagem por pedido com cabeçalho automático.', '');
+      abrirModal(el.modalWhatsappCarradaBackdrop);
+    }
+
+    function renderResumoWhatsappCarrada(data) {
+      const itens = Array.isArray(data?.itens) ? data.itens : [];
+      const linhas = itens.map((item) => {
+        const status = item?.status === 'enviado'
+          ? 'Enviado'
+          : item?.status === 'sem_telefone'
+            ? 'Sem telefone'
+            : 'Erro';
+        const detalhe = item?.erro ? ` • ${escapeHtml(item.erro)}` : '';
+        return `<li><strong>${escapeHtml(item?.numeroPedido || '-')}</strong> • ${escapeHtml(item?.nomeCliente || '-')} • ${escapeHtml(status)}${detalhe}</li>`;
+      }).join('');
+
+      el.resumoWhatsappCarrada.innerHTML = `
+        <div class="card" style="padding:12px;">
+          <div class="pedido-title">Resumo do envio</div>
+          <div class="pedido-meta" style="font-size:12px;">
+            Total de pedidos: <strong>${escapeHtml(data?.totalPedidos || 0)}</strong> •
+            Enviados: <strong>${escapeHtml(data?.enviadosSucesso || 0)}</strong> •
+            Sem telefone: <strong>${escapeHtml(data?.semTelefone || 0)}</strong> •
+            Erros: <strong>${escapeHtml(data?.comErro || 0)}</strong>
+          </div>
+          ${linhas ? `<ul style="margin:12px 0 0 18px; padding:0;">${linhas}</ul>` : ''}
+        </div>
+      `;
+      el.resumoWhatsappCarrada.style.display = 'block';
+    }
+
+    async function enviarWhatsappCarradaModal() {
+      const mensagemPersonalizada = el.textareaWhatsappCarradaMensagem.value.trim();
+
+      if (!mensagemPersonalizada) {
+        setFeedback(el.feedbackWhatsappCarrada, 'Digite a mensagem personalizada.', 'error');
+        return;
+      }
+
+      const textoOriginal = el.btnWhatsappCarradaEnviar.textContent;
+      el.btnWhatsappCarradaEnviar.disabled = true;
+      el.btnWhatsappCarradaEnviar.textContent = 'Enviando...';
+
+      try {
+        const data = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/whatsapp/lote`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mensagemPersonalizada })
+        });
+
+        setFeedback(el.feedbackWhatsappCarrada, `Envio concluído. ${data?.enviadosSucesso || 0} pedido(s) enviado(s) com sucesso.`, 'success');
+        renderResumoWhatsappCarrada(data);
+      } catch (error) {
+        setFeedback(el.feedbackWhatsappCarrada, error.message, 'error');
+      } finally {
+        el.btnWhatsappCarradaEnviar.disabled = false;
+        el.btnWhatsappCarradaEnviar.textContent = textoOriginal;
+      }
+    }
+
     async function onClickCelula(botao) {
       const faseCodigo = botao.dataset.faseCodigo;
       const numeroPedido = botao.dataset.numeroPedido;
@@ -1339,6 +1443,8 @@
     });
 
     el.btnRecarregar.addEventListener('click', carregarMatriz);
+    el.btnEnviarWhatsappCarrada.addEventListener('click', abrirModalWhatsappCarrada);
+    el.btnWhatsappCarradaEnviar.addEventListener('click', enviarWhatsappCarradaModal);
     el.selectEtiquetas.addEventListener('change', preencherCamposEtiquetaPorSelect);
     el.btnEtiquetaEnviar.addEventListener('click', enviarEtiquetaModal);
     el.btnEtiquetaConfirmar.addEventListener('click', () => confirmarEtiquetaModal(true));

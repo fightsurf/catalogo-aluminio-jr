@@ -107,6 +107,19 @@ async function salvarLocalEntrega(req, res) {
   }
 }
 
+async function enviarWhatsappCarradaLote(req, res) {
+  try {
+    const data = await service.enviarWhatsappCarradaLote({
+      codigoCarrada: req.params.codigo,
+      mensagemPersonalizada: req.body?.mensagemPersonalizada
+    });
+
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return responderErro(res, error, 'Erro ao enviar WhatsApp da carrada.');
+  }
+}
+
 module.exports = {
   buscarResumoListaCarradas,
   buscarMatriz,
@@ -114,5 +127,6 @@ module.exports = {
   buscarDadosEtiquetaPedido,
   enviarEtiquetaVolumes,
   confirmarEtiquetaVolumes,
-  salvarLocalEntrega
+  salvarLocalEntrega,
+  enviarWhatsappCarradaLote
 };

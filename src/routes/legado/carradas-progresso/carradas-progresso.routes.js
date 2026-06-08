@@ -5,6 +5,7 @@ const router = express.Router();
 
 router.get('/resumo/lista', controller.buscarResumoListaCarradas);
 router.get('/:codigo', controller.buscarMatriz);
+router.post('/:codigo/whatsapp/lote', controller.enviarWhatsappCarradaLote);
 router.patch('/:codigo/pedidos/:numeroPedido/fases/:faseCodigo', controller.salvarFaseBooleana);
 router.get('/:codigo/pedidos/:numeroPedido/etiqueta-volumes', controller.buscarDadosEtiquetaPedido);
 router.post('/:codigo/pedidos/:numeroPedido/etiqueta-volumes', controller.enviarEtiquetaVolumes);

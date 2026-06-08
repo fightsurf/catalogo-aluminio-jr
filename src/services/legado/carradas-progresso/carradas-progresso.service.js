@@ -186,6 +186,31 @@ function normalizarTelefonePedido(detalhePagamento) {
   );
 }
 
+function normalizarTelefoneLote(pedido, detalhePagamento) {
+  return limparTexto(
+    detalhePagamento?.pedido?.cliente?.telefonePrincipal
+      || detalhePagamento?.pedido?.cliente?.telefone1
+      || pedido?.cliente?.telefonePrincipal
+      || pedido?.cliente?.telefone1
+  );
+}
+
+function montarMensagemWhatsappCarradaPedido({ pedido, carrada, mensagemPersonalizada }) {
+  const nomeCliente = limparTexto(pedido?.cliente?.nome) || '-';
+  const numeroPedido = limparTexto(pedido?.numero) || '-';
+  const dataCarrada = formatarDataBR(carrada?.data) || '-';
+  const descricaoCarrada = limparTexto(carrada?.descricao) || 'Sem descrição';
+  const mensagemLivre = limparTexto(mensagemPersonalizada);
+
+  return [
+    `Nome cliente: ${nomeCliente}`,
+    `Número pedido: ${numeroPedido}`,
+    `Carrada: ${dataCarrada} - ${descricaoCarrada}`,
+    '',
+    mensagemLivre
+  ].join('\n');
+}
+
 function encontrarPedidoNaCarrada(carrada, numeroPedido) {
   const pedido = (Array.isArray(carrada?.pedidos) ? carrada.pedidos : []).find(
     (item) => String(item?.numero) === String(numeroPedido)
@@ -1368,6 +1393,79 @@ async function salvarLocalEntrega({ codigoCarrada: codigoCarradaParam, numeroPed
   };
 }
 
+
+async function enviarWhatsappCarradaLote({ codigoCarrada: codigoCarradaParam, mensagemPersonalizada }) {
+  const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
+  const mensagemLivre = limparTexto(mensagemPersonalizada);
+
+  if (!mensagemLivre) {
+    throw criarErro('A mensagem personalizada é obrigatória.', 400);
+  }
+
+  const carrada = await buscarCarradaOuFalhar(codigoCarrada);
+  const pedidos = Array.isArray(carrada?.pedidos) ? carrada.pedidos : [];
+
+  const itens = [];
+  let enviadosSucesso = 0;
+  let semTelefone = 0;
+  let comErro = 0;
+
+  for (const pedido of pedidos) {
+    const numeroPedido = normalizarNumeroPedido(pedido?.numero);
+    const detalhePagamento = await buscarDetalhePagamentoDoPedido(pedido);
+    const resumoPedido = montarResumoPedido(pedido, detalhePagamento);
+    const telefone = normalizarTelefoneLote(pedido, detalhePagamento);
+    const mensagem = montarMensagemWhatsappCarradaPedido({
+      pedido: {
+        numero: resumoPedido.numeroPedido,
+        cliente: { nome: resumoPedido?.cliente?.nome || pedido?.cliente?.nome || '' }
+      },
+      carrada,
+      mensagemPersonalizada: mensagemLivre
+    });
+
+    if (!telefone) {
+      semTelefone += 1;
+      itens.push({
+        numeroPedido,
+        nomeCliente: resumoPedido?.cliente?.nome || pedido?.cliente?.nome || '',
+        telefone: '',
+        status: 'sem_telefone'
+      });
+      continue;
+    }
+
+    try {
+      await whatsappService.enviarMensagem({ telefone, mensagem });
+      enviadosSucesso += 1;
+      itens.push({
+        numeroPedido,
+        nomeCliente: resumoPedido?.cliente?.nome || pedido?.cliente?.nome || '',
+        telefone,
+        status: 'enviado'
+      });
+    } catch (error) {
+      comErro += 1;
+      itens.push({
+        numeroPedido,
+        nomeCliente: resumoPedido?.cliente?.nome || pedido?.cliente?.nome || '',
+        telefone,
+        status: 'erro',
+        erro: error?.message || 'Erro ao enviar WhatsApp.'
+      });
+    }
+  }
+
+  return {
+    codigoCarrada,
+    totalPedidos: pedidos.length,
+    enviadosSucesso,
+    semTelefone,
+    comErro,
+    itens
+  };
+}
+
 module.exports = {
   FASES_MATRIZ,
   buscarMatriz,
@@ -1376,5 +1474,6 @@ module.exports = {
   buscarDadosEtiquetaPedido,
   enviarEtiquetaVolumes,
   confirmarEtiquetaVolumes,
-  salvarLocalEntrega
+  salvarLocalEntrega,
+  enviarWhatsappCarradaLote
 };
