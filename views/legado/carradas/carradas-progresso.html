@@ -442,6 +442,8 @@
         <p class="muted">Procure as células que ainda não ficaram verdes e resolva o operacional.</p>
       </div>
       <div class="topbar-actions">
+        <button class="btn-secondary" id="btnCarradaAnterior" disabled>Carrada anterior</button>
+        <button class="btn-secondary" id="btnProximaCarrada" disabled>Próxima carrada</button>
         <button class="btn-secondary" id="btnVoltar">Voltar para carradas</button>
         <button class="btn-secondary" id="btnRecarregar">Recarregar</button>
         <button class="btn-primary" id="btnEnviarWhatsappCarrada">Enviar WhatsApp da carrada</button>
@@ -636,6 +638,8 @@
     };
 
     const el = {
+      btnCarradaAnterior: document.getElementById('btnCarradaAnterior'),
+      btnProximaCarrada: document.getElementById('btnProximaCarrada'),
       btnVoltar: document.getElementById('btnVoltar'),
       btnRecarregar: document.getElementById('btnRecarregar'),
       btnEnviarWhatsappCarrada: document.getElementById('btnEnviarWhatsappCarrada'),
@@ -689,6 +693,69 @@
       const date = new Date(value);
       if (Number.isNaN(date.getTime())) return String(value);
       return date.toLocaleDateString('pt-BR');
+    }
+
+    function obterTimestampData(value) {
+      if (!value) return Number.NaN;
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return Number.NaN;
+      return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+    }
+
+    async function inicializarNavegacaoCarradas(carradaAtual) {
+      if (!el.btnCarradaAnterior || !el.btnProximaCarrada || !carradaAtual) {
+        return;
+      }
+
+      el.btnCarradaAnterior.disabled = true;
+      el.btnCarradaAnterior.onclick = null;
+      el.btnCarradaAnterior.removeAttribute('title');
+      el.btnProximaCarrada.disabled = true;
+      el.btnProximaCarrada.onclick = null;
+      el.btnProximaCarrada.removeAttribute('title');
+
+      const dataAtualTs = obterTimestampData(carradaAtual.data);
+      if (Number.isNaN(dataAtualTs)) {
+        return;
+      }
+
+      try {
+        const carradas = await request('/api/legado/carradas');
+        const lista = Array.isArray(carradas) ? carradas : [];
+
+        const ordenadas = lista
+          .map((item) => ({
+            ...item,
+            _dataTs: obterTimestampData(item.data),
+            _codigo: Number(item.codigo || 0)
+          }))
+          .filter((item) => !Number.isNaN(item._dataTs))
+          .sort((a, b) => {
+            if (b._dataTs !== a._dataTs) return b._dataTs - a._dataTs;
+            return b._codigo - a._codigo;
+          });
+
+        const anterior = ordenadas.find((item) => item._dataTs < dataAtualTs);
+        const proxima = [...ordenadas].reverse().find((item) => item._dataTs > dataAtualTs);
+
+        if (anterior?.codigo) {
+          el.btnCarradaAnterior.disabled = false;
+          el.btnCarradaAnterior.title = `${formatarData(anterior.data)} • ${anterior.descricao || 'Sem descrição'}`;
+          el.btnCarradaAnterior.onclick = () => {
+            window.location.href = `/legado/carradas/progresso?codigo=${encodeURIComponent(anterior.codigo)}`;
+          };
+        }
+
+        if (proxima?.codigo) {
+          el.btnProximaCarrada.disabled = false;
+          el.btnProximaCarrada.title = `${formatarData(proxima.data)} • ${proxima.descricao || 'Sem descrição'}`;
+          el.btnProximaCarrada.onclick = () => {
+            window.location.href = `/legado/carradas/progresso?codigo=${encodeURIComponent(proxima.codigo)}`;
+          };
+        }
+      } catch (error) {
+        console.warn('Não foi possível carregar navegação entre carradas:', error);
+      }
     }
 
     function formatarDataHora(value) {
@@ -945,6 +1012,7 @@
         renderCabecalho();
         renderCardsFases();
         renderMatriz();
+        await inicializarNavegacaoCarradas(estado.matriz?.carrada);
       } catch (error) {
         el.tbodyMatriz.innerHTML = `<tr><td colspan="9" class="empty">${escapeHtml(error.message)}</td></tr>`;
       } finally {
