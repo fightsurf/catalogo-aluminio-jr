@@ -25,6 +25,35 @@ function fmtData(v) {
   return v;
 }
 
+
+function fmtMoedaRelatorio(v) {
+  return 'R$ ' + fmtMoeda(v);
+}
+
+function escapeHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function textoOuTraco(value) {
+  const texto = String(value == null ? '' : value).trim();
+  return texto ? texto : '—';
+}
+
+function dataHoraAtualBR() {
+  return new Date().toLocaleString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
+
 // ─── FEEDBACK ──────────────────────────────────────────────────
 
 function showMsg(msg, tipo) {
@@ -453,6 +482,250 @@ async function deletarPagamento(pagamentoId, btn) {
     console.error('Erro ao deletar pagamento:', e);
     showMsg('Erro ao remover pagamento: ' + e.message, 'erro');
   }
+}
+
+
+// ─── RELATÓRIO PDF DA PRESTAÇÃO ABERTA ─────────────────────────
+
+function abrirJanelaRelatorio() {
+  const janela = window.open('', '_blank');
+  if (!janela) {
+    showMsg('O navegador bloqueou a janela do relatório. Libere pop-ups para este sistema.', 'erro');
+    return null;
+  }
+
+  janela.document.open();
+  janela.document.write(`
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8" />
+      <title>Gerando relatório...</title>
+      <style>
+        body {
+          margin: 0;
+          padding: 32px;
+          font-family: Arial, sans-serif;
+          color: #24292f;
+          background: #ffffff;
+        }
+        .loading {
+          max-width: 720px;
+          margin: 80px auto;
+          padding: 24px;
+          border: 1px solid #d0d7de;
+          border-radius: 8px;
+          background: #f6f8fa;
+          text-align: center;
+        }
+        h1 { margin: 0 0 8px; font-size: 20px; }
+        p { margin: 0; color: #57606a; }
+      </style>
+    </head>
+    <body>
+      <div class="loading">
+        <h1>Gerando relatório...</h1>
+        <p>Aguarde a prestação ser carregada.</p>
+      </div>
+    </body>
+    </html>
+  `);
+  janela.document.close();
+  return janela;
+}
+
+function montarLinhasMateriais(materiais) {
+  if (!materiais || !materiais.length) {
+    return '<tr><td colspan="4" class="vazio">Nenhum material lançado.</td></tr>';
+  }
+
+  return materiais.map(item => `
+    <tr>
+      <td>${escapeHtml(textoOuTraco(item.descricao_material))}</td>
+      <td class="num">${escapeHtml(fmtPeso(item.peso_kg))}</td>
+      <td class="num">${escapeHtml(fmtMoedaRelatorio(item.preco_por_kg))}</td>
+      <td class="num">${escapeHtml(fmtMoedaRelatorio(item.total_item))}</td>
+    </tr>
+  `).join('');
+}
+
+function montarLinhasPagamentos(pagamentos) {
+  if (!pagamentos || !pagamentos.length) {
+    return '<tr><td colspan="3" class="vazio">Nenhum pagamento lançado.</td></tr>';
+  }
+
+  return pagamentos.map(pag => `
+    <tr>
+      <td>${escapeHtml(fmtData(pag.data_pagamento))}</td>
+      <td>${escapeHtml(textoOuTraco(pag.observacao))}</td>
+      <td class="num">${escapeHtml(fmtMoedaRelatorio(pag.valor))}</td>
+    </tr>
+  `).join('');
+}
+
+function montarHtmlRelatorio(resumo) {
+  const cabecalho = resumo.cabecalho || {};
+  const materiais = resumo.materiais || [];
+  const pagamentos = resumo.pagamentos || [];
+  const totais = resumo.totais || {};
+
+  const titulo = textoOuTraco(cabecalho.titulo);
+  const fornecedor = textoOuTraco(cabecalho.fornecedor_nome);
+  const dataReferencia = fmtData(cabecalho.data_referencia) || '—';
+  const status = textoOuTraco(cabecalho.status || 'Aberta');
+  const observacao = textoOuTraco(cabecalho.observacao);
+  const geradoEm = dataHoraAtualBR();
+
+  return `
+    <!DOCTYPE html>
+    <html lang="pt-BR">
+    <head>
+      <meta charset="UTF-8" />
+      <title>Prestação ${escapeHtml(titulo)} - ${escapeHtml(fornecedor)}</title>
+      <style>
+        * { box-sizing: border-box; }
+        body {
+          margin: 0;
+          padding: 24px;
+          font-family: Arial, Helvetica, sans-serif;
+          color: #24292f;
+          background: #ffffff;
+          font-size: 12px;
+          line-height: 1.35;
+        }
+        .relatorio { max-width: 980px; margin: 0 auto; }
+        .no-print { display: flex; justify-content: flex-end; gap: 8px; margin-bottom: 14px; }
+        .btn-print { padding: 7px 12px; border: 1px solid #0969da; border-radius: 6px; background: #0969da; color: #fff; font-weight: 700; cursor: pointer; }
+        .btn-close { padding: 7px 12px; border: 1px solid #d0d7de; border-radius: 6px; background: #fff; color: #24292f; font-weight: 600; cursor: pointer; }
+        .header { display: flex; justify-content: space-between; gap: 20px; border-bottom: 2px solid #24292f; padding-bottom: 12px; margin-bottom: 14px; }
+        .empresa { font-size: 18px; font-weight: 800; letter-spacing: .02em; }
+        .titulo-relatorio { margin-top: 4px; font-size: 14px; font-weight: 700; text-transform: uppercase; }
+        .gerado { text-align: right; color: #57606a; font-size: 11px; white-space: nowrap; }
+        .info-grid { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid #d0d7de; margin-bottom: 14px; }
+        .info-item { padding: 8px 10px; border-right: 1px solid #d0d7de; border-bottom: 1px solid #d0d7de; min-height: 48px; }
+        .info-item:nth-child(4n) { border-right: none; }
+        .info-item.full { grid-column: 1 / -1; border-right: none; }
+        .label { display: block; font-size: 10px; color: #57606a; text-transform: uppercase; font-weight: 700; margin-bottom: 3px; }
+        .valor { display: block; font-size: 12px; font-weight: 700; }
+        .secao { margin-top: 14px; page-break-inside: avoid; }
+        .secao h2 { margin: 0; padding: 7px 9px; background: #f6f8fa; border: 1px solid #d0d7de; border-bottom: none; font-size: 12px; text-transform: uppercase; }
+        table { width: 100%; border-collapse: collapse; font-size: 11.5px; }
+        th, td { border: 1px solid #d0d7de; padding: 6px 8px; vertical-align: top; }
+        th { background: #f6f8fa; color: #57606a; text-transform: uppercase; font-size: 10px; text-align: left; }
+        .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+        .vazio { text-align: center; color: #57606a; font-style: italic; }
+        tfoot td, tfoot th { background: #f6f8fa; font-weight: 800; }
+        .resumo-final { margin-top: 16px; margin-left: auto; width: 360px; border: 1px solid #d0d7de; }
+        .resumo-linha { display: flex; justify-content: space-between; gap: 12px; padding: 7px 10px; border-bottom: 1px solid #d0d7de; }
+        .resumo-linha:last-child { border-bottom: none; }
+        .resumo-linha.saldo { background: #f6f8fa; font-weight: 800; font-size: 13px; }
+        .assinaturas { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; margin-top: 56px; }
+        .assinatura { border-top: 1px solid #24292f; text-align: center; padding-top: 6px; font-size: 11px; color: #57606a; }
+        @page { size: A4; margin: 12mm; }
+        @media print { body { padding: 0; } .no-print { display: none !important; } .relatorio { max-width: none; } .secao { page-break-inside: avoid; } }
+        @media (max-width: 760px) { body { padding: 14px; } .header { flex-direction: column; } .gerado { text-align: left; } .info-grid { grid-template-columns: 1fr; } .info-item, .info-item:nth-child(4n) { border-right: none; } .resumo-final { width: 100%; } }
+      </style>
+    </head>
+    <body>
+      <div class="relatorio">
+        <div class="no-print">
+          <button class="btn-print" onclick="window.print()">Imprimir / Salvar PDF</button>
+          <button class="btn-close" onclick="window.close()">Fechar</button>
+        </div>
+        <div class="header">
+          <div>
+            <div class="empresa">ALUMÍNIO JR</div>
+            <div class="titulo-relatorio">Relatório de Prestação de Contas</div>
+          </div>
+          <div class="gerado">
+            <div>Prestação #${escapeHtml(cabecalho.id || '')}</div>
+            <div>Gerado em: ${escapeHtml(geradoEm)}</div>
+          </div>
+        </div>
+        <div class="info-grid">
+          <div class="info-item"><span class="label">Fornecedor</span><span class="valor">${escapeHtml(fornecedor)}</span></div>
+          <div class="info-item"><span class="label">Prestação</span><span class="valor">${escapeHtml(titulo)}</span></div>
+          <div class="info-item"><span class="label">Data referência</span><span class="valor">${escapeHtml(dataReferencia)}</span></div>
+          <div class="info-item"><span class="label">Status</span><span class="valor">${escapeHtml(status)}</span></div>
+          <div class="info-item full"><span class="label">Observação</span><span class="valor">${escapeHtml(observacao)}</span></div>
+        </div>
+        <div class="secao">
+          <h2>Materiais lançados</h2>
+          <table>
+            <thead><tr><th>Material</th><th class="num">Peso (Kg)</th><th class="num">Preço/Kg</th><th class="num">Total</th></tr></thead>
+            <tbody>${montarLinhasMateriais(materiais)}</tbody>
+            <tfoot><tr><th>Total de materiais</th><td class="num">${escapeHtml(fmtPeso(totais.peso_total))}</td><td></td><td class="num">${escapeHtml(fmtMoedaRelatorio(totais.total_material))}</td></tr></tfoot>
+          </table>
+        </div>
+        <div class="secao">
+          <h2>Pagamentos lançados</h2>
+          <table>
+            <thead><tr><th>Data</th><th>Observação</th><th class="num">Valor</th></tr></thead>
+            <tbody>${montarLinhasPagamentos(pagamentos)}</tbody>
+            <tfoot><tr><th colspan="2">Total pago</th><td class="num">${escapeHtml(fmtMoedaRelatorio(totais.total_pago))}</td></tr></tfoot>
+          </table>
+        </div>
+        <div class="resumo-final">
+          <div class="resumo-linha"><span>Total material</span><strong>${escapeHtml(fmtMoedaRelatorio(totais.total_material))}</strong></div>
+          <div class="resumo-linha"><span>Total pago</span><strong>${escapeHtml(fmtMoedaRelatorio(totais.total_pago))}</strong></div>
+          <div class="resumo-linha saldo"><span>Saldo restante</span><strong>${escapeHtml(fmtMoedaRelatorio(totais.saldo_restante))}</strong></div>
+        </div>
+        <div class="assinaturas">
+          <div class="assinatura">Alumínio JR</div>
+          <div class="assinatura">Fornecedor</div>
+        </div>
+      </div>
+      <script>
+        window.addEventListener('load', function() {
+          setTimeout(function() {
+            window.focus();
+            window.print();
+          }, 350);
+        });
+      <\/script>
+    </body>
+    </html>
+  `;
+}
+
+async function gerarRelatorioPdfPrestacao() {
+  if (!prestacaoAtualId) {
+    showMsg('Abra uma prestação antes de gerar o relatório.', 'erro');
+    return;
+  }
+
+  const janela = abrirJanelaRelatorio();
+  if (!janela) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/${prestacaoAtualId}/resumo`);
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message || 'Erro ao gerar relatório');
+
+    janela.document.open();
+    janela.document.write(montarHtmlRelatorio(json.data));
+    janela.document.close();
+  } catch (e) {
+    console.error('Erro ao gerar relatório:', e);
+    janela.document.open();
+    janela.document.write(`
+      <!DOCTYPE html>
+      <html lang="pt-BR">
+      <head><meta charset="UTF-8"><title>Erro no relatório</title></head>
+      <body style="font-family: Arial, sans-serif; padding: 32px; color: #24292f;">
+        <h1>Erro ao gerar relatório</h1>
+        <p>${escapeHtml(e.message)}</p>
+      </body>
+      </html>
+    `);
+    janela.document.close();
+    showMsg('Erro ao gerar relatório: ' + e.message, 'erro');
+  }
+}
+
+const btnRelatorioPdf = document.getElementById('btn-relatorio-pdf');
+if (btnRelatorioPdf) {
+  btnRelatorioPdf.addEventListener('click', gerarRelatorioPdfPrestacao);
 }
 
 // ─── BOTÃO WHATSAPP (PLACEHOLDER) ─────────────────────────────
