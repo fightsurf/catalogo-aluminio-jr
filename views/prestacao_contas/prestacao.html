@@ -59,12 +59,21 @@
   <section class="page-section">
     <div class="section-head">
       <h2 class="section-title grid-titulo">Prestações</h2>
-      <label class="grid-filtro-label filter-wrap">
-        <span>Fornecedor:</span>
-        <select id="filtro-fornecedor">
-          <option value="">Todos</option>
-        </select>
-      </label>
+      <div class="filters-line">
+        <label class="grid-filtro-label filter-wrap">
+          <span>Status:</span>
+          <select id="filtro-status">
+            <option value="ABERTA">Abertas</option>
+            <option value="CONCLUIDA">Concluídas</option>
+          </select>
+        </label>
+        <label class="grid-filtro-label filter-wrap">
+          <span>Fornecedor:</span>
+          <select id="filtro-fornecedor">
+            <option value="">Todos</option>
+          </select>
+        </label>
+      </div>
     </div>
     <div class="table-scroll">
       <table class="tabela-lista">
@@ -74,11 +83,12 @@
             <th>Título</th>
             <th>Data Ref.</th>
             <th>Fornecedor</th>
-            <th style="width:90px;"></th>
+            <th>Status</th>
+            <th style="width:110px;"></th>
           </tr>
         </thead>
         <tbody id="tbody-lista">
-          <tr><td colspan="5" class="msg-vazio">Carregando...</td></tr>
+          <tr><td colspan="6" class="msg-vazio">Carregando...</td></tr>
         </tbody>
       </table>
     </div>
@@ -96,11 +106,18 @@
     <!-- cabeçalho do detalhe -->
     <div class="detail-head">
       <div class="detail-head-info">
-        <h2 id="faixa-titulo" class="detail-title">PRESTAÇÃO DE CONTAS</h2>
+        <div class="detail-title-row">
+          <h2 id="faixa-titulo" class="detail-title">PRESTAÇÃO DE CONTAS</h2>
+          <span id="status-prestacao-badge" class="status-badge status-aberta">ABERTA</span>
+        </div>
         <p id="faixa-pagamentos" class="detail-sub"></p>
+        <p id="credito-info" class="credito-info" style="display:none;"></p>
       </div>
       <div class="detail-actions">
+        <button id="btn-concluir-prestacao" class="btn-concluir-prestacao" type="button">✅ Concluir</button>
+        <button id="btn-reabrir-prestacao" class="btn-reabrir-prestacao" type="button" style="display:none;">↩ Reabrir</button>
         <button id="btn-relatorio-pdf" class="btn-relatorio-pdf" type="button">📄 Relatório PDF</button>
+        <button id="btn-excluir-prestacao" class="btn-excluir-prestacao" type="button">Excluir</button>
       </div>
     </div>
 

@@ -6,6 +6,7 @@
 const API_BASE = '/api/prestacoes';
 
 let prestacaoAtualId = null;
+let prestacaoAtualResumo = null;
 let todasPrestacoes = [];
 
 // ─── FORMAT HELPERS ────────────────────────────────────────────
@@ -54,6 +55,31 @@ function dataHoraAtualBR() {
   });
 }
 
+
+function statusPrestacao(prestacao) {
+  return String((prestacao && prestacao.status) || 'ABERTA').toUpperCase();
+}
+
+function labelStatus(status) {
+  const s = String(status || 'ABERTA').toUpperCase();
+  if (s === 'CONCLUIDA') return 'CONCLUÍDA';
+  return 'ABERTA';
+}
+
+function filtroStatusAtual() {
+  const el = document.getElementById('filtro-status');
+  return el ? el.value || 'ABERTA' : 'ABERTA';
+}
+
+function isConcluida(prestacao) {
+  return statusPrestacao(prestacao) === 'CONCLUIDA';
+}
+
+function setElementDisplay(id, visible, displayValue) {
+  const el = document.getElementById(id);
+  if (el) el.style.display = visible ? (displayValue || '') : 'none';
+}
+
 // ─── FEEDBACK ──────────────────────────────────────────────────
 
 function showMsg(msg, tipo) {
@@ -69,25 +95,31 @@ function showMsg(msg, tipo) {
 
 async function carregarLista() {
   try {
-    const res = await fetch(API_BASE);
+    const status = filtroStatusAtual();
+    const res = await fetch(`${API_BASE}?status=${encodeURIComponent(status)}`);
     const json = await res.json();
     if (!json.success) throw new Error(json.message);
-    todasPrestacoes = json.data;
+    todasPrestacoes = json.data || [];
     const sel = document.getElementById('sel-prestacao');
     const anteriorId = prestacaoAtualId;
     sel.innerHTML = '<option value="">-- selecione --</option>';
-    json.data.forEach(p => {
+    todasPrestacoes.forEach(p => {
       const opt = document.createElement('option');
       opt.value = p.id;
       opt.textContent = `#${p.id} – ${p.titulo} (${fmtData(p.data_referencia)})`;
       sel.appendChild(opt);
     });
-    if (anteriorId) {
+    if (anteriorId && todasPrestacoes.some(p => String(p.id) === String(anteriorId))) {
       sel.value = anteriorId;
+    } else if (anteriorId) {
+      prestacaoAtualId = null;
+      prestacaoAtualResumo = null;
+      _mostrarEmptyState();
     }
     renderizarGrid();
   } catch (e) {
     console.error('Erro ao carregar lista:', e);
+    showMsg('Erro ao carregar prestações: ' + e.message, 'erro');
   }
 }
 
@@ -102,27 +134,30 @@ function renderizarGrid() {
   tbody.innerHTML = '';
   if (!lista.length) {
     const tr = document.createElement('tr');
-    tr.innerHTML = '<td colspan="5" class="msg-vazio">Nenhuma prestação encontrada.</td>';
+    tr.innerHTML = '<td colspan="6" class="msg-vazio">Nenhuma prestação encontrada.</td>';
     tbody.appendChild(tr);
     return;
   }
   lista.forEach(p => {
     const tr = document.createElement('tr');
+    const concluida = isConcluida(p);
     if (prestacaoAtualId && String(p.id) === String(prestacaoAtualId)) {
       tr.classList.add('linha-ativa');
     }
     tr.innerHTML = `
-      <td>${p.id}</td>
-      <td>${p.titulo}</td>
-      <td>${fmtData(p.data_referencia)}</td>
-      <td>${p.fornecedor_nome || '—'}</td>
+      <td>${escapeHtml(p.id)}</td>
+      <td>${escapeHtml(p.titulo)}</td>
+      <td>${escapeHtml(fmtData(p.data_referencia))}</td>
+      <td>${escapeHtml(p.fornecedor_nome || '—')}</td>
+      <td><span class="status-badge ${concluida ? 'status-concluida' : 'status-aberta'}">${labelStatus(p.status)}</span></td>
       <td style="text-align:center; white-space:nowrap;">
         <button class="btn-selecionar">Abrir</button>
-        <button class="btn-del btn-del-lista">✕</button>
+        ${concluida ? '' : '<button class="btn-del btn-del-lista">✕</button>'}
       </td>
     `;
     tr.querySelector('.btn-selecionar').addEventListener('click', () => selecionarPrestacao(p.id));
-    tr.querySelector('.btn-del-lista').addEventListener('click', (e) => deletarPrestacao(p.id, e.currentTarget));
+    const btnDel = tr.querySelector('.btn-del-lista');
+    if (btnDel) btnDel.addEventListener('click', (e) => deletarPrestacao(p.id, e.currentTarget));
     tbody.appendChild(tr);
   });
 }
@@ -134,6 +169,7 @@ function _mostrarPlanilha() {
 }
 
 function _mostrarEmptyState() {
+  prestacaoAtualResumo = null;
   document.getElementById('planilha-container').style.display = 'none';
   const empty = document.getElementById('empty-state');
   if (empty) empty.style.display = '';
@@ -167,7 +203,9 @@ async function carregarResumo(id) {
 // ─── RENDERIZAR PLANILHA ───────────────────────────────────────
 
 function renderizarPlanilha(resumo) {
-  const { cabecalho, materiais, pagamentos, totais } = resumo;
+  prestacaoAtualResumo = resumo;
+  const { cabecalho, materiais, pagamentos, totais, creditos_origem, creditos_destino } = resumo;
+  const concluida = isConcluida(cabecalho);
 
   // Faixa título
   const dataFmt = cabecalho ? fmtData(cabecalho.data_referencia) : '';
@@ -181,7 +219,30 @@ function renderizarPlanilha(resumo) {
     ? `PRESTAÇÃO DE CONTAS - PAGAMENTOS DA COLETA ${dataFmt}`
     : 'PAGAMENTOS';
   const subtitle = document.getElementById('prestacao-ativa-subtitle');
-  if (subtitle) subtitle.textContent = cabecalho ? `${cabecalho.titulo} – ${fmtData(cabecalho.data_referencia)}` : '';
+  if (subtitle) subtitle.textContent = cabecalho ? `${cabecalho.titulo} – ${fmtData(cabecalho.data_referencia)} – ${labelStatus(cabecalho.status)}` : '';
+
+  const badge = document.getElementById('status-prestacao-badge');
+  if (badge) {
+    badge.textContent = labelStatus(cabecalho && cabecalho.status);
+    badge.className = `status-badge ${concluida ? 'status-concluida' : 'status-aberta'}`;
+  }
+
+  setElementDisplay('btn-concluir-prestacao', !concluida);
+  setElementDisplay('btn-reabrir-prestacao', concluida);
+  setElementDisplay('btn-excluir-prestacao', !concluida);
+  setElementDisplay('form-item', !concluida, 'flex');
+  setElementDisplay('form-pagamento', !concluida, 'flex');
+
+  const creditoInfo = document.getElementById('credito-info');
+  if (creditoInfo) {
+    const creditosOrigem = creditos_origem || [];
+    const creditosDestino = creditos_destino || [];
+    const partes = [];
+    creditosOrigem.forEach(c => partes.push(`Crédito gerado: R$ ${fmtMoeda(c.valor)} (${c.status})`));
+    creditosDestino.forEach(c => partes.push(`Crédito recebido da prestação #${c.prestacao_origem_id}: R$ ${fmtMoeda(c.valor)}`));
+    creditoInfo.textContent = partes.join(' • ');
+    creditoInfo.style.display = partes.length ? '' : 'none';
+  }
 
   // Tabela materiais
   const tbodyMat = document.getElementById('tbody-materiais');
@@ -189,13 +250,14 @@ function renderizarPlanilha(resumo) {
   materiais.forEach(item => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${item.descricao_material}</td>
-      <td class="num">${fmtPeso(item.peso_kg)}</td>
-      <td class="num">${fmtMoeda(item.preco_por_kg)}</td>
-      <td class="num">${fmtMoeda(item.total_item)}</td>
-      <td style="text-align:center;"><button class="btn-del" data-id="${item.id}">✕</button></td>
+      <td>${escapeHtml(item.descricao_material)}</td>
+      <td class="num">${escapeHtml(fmtPeso(item.peso_kg))}</td>
+      <td class="num">${escapeHtml(fmtMoeda(item.preco_por_kg))}</td>
+      <td class="num">${escapeHtml(fmtMoeda(item.total_item))}</td>
+      <td style="text-align:center;">${concluida ? '' : `<button class="btn-del" data-id="${escapeHtml(item.id)}">✕</button>`}</td>
     `;
-    tr.querySelector('.btn-del').addEventListener('click', (e) => deletarItem(item.id, e.currentTarget));
+    const btnDel = tr.querySelector('.btn-del');
+    if (btnDel) btnDel.addEventListener('click', (e) => deletarItem(item.id, e.currentTarget));
     tbodyMat.appendChild(tr);
   });
   document.getElementById('total-peso').textContent = fmtPeso(totais.peso_total);
@@ -206,13 +268,15 @@ function renderizarPlanilha(resumo) {
   tbodyPag.innerHTML = '';
   pagamentos.forEach(pag => {
     const tr = document.createElement('tr');
+    const automatico = pag.credito_origem_id ? '<span class="tag-credito">crédito</span>' : '';
     tr.innerHTML = `
-      <td>${fmtData(pag.data_pagamento)}</td>
-      <td class="num">R$ ${fmtMoeda(pag.valor)}</td>
-      <td>${pag.observacao || ''}</td>
-      <td style="text-align:center;"><button class="btn-del" data-id="${pag.id}">✕</button></td>
+      <td>${escapeHtml(fmtData(pag.data_pagamento))}</td>
+      <td class="num">R$ ${escapeHtml(fmtMoeda(pag.valor))}</td>
+      <td>${escapeHtml(pag.observacao || '')} ${automatico}</td>
+      <td style="text-align:center;">${concluida ? '' : `<button class="btn-del" data-id="${escapeHtml(pag.id)}">✕</button>`}</td>
     `;
-    tr.querySelector('.btn-del').addEventListener('click', (e) => deletarPagamento(pag.id, e.currentTarget));
+    const btnDel = tr.querySelector('.btn-del');
+    if (btnDel) btnDel.addEventListener('click', (e) => deletarPagamento(pag.id, e.currentTarget));
     tbodyPag.appendChild(tr);
   });
   document.getElementById('total-pago').textContent = 'R$ ' + fmtMoeda(totais.total_pago);
@@ -250,6 +314,12 @@ async function carregarFornecedores() {
 }
 
 document.getElementById('filtro-fornecedor').addEventListener('change', renderizarGrid);
+document.getElementById('filtro-status').addEventListener('change', async () => {
+  prestacaoAtualId = null;
+  prestacaoAtualResumo = null;
+  _mostrarEmptyState();
+  await carregarLista();
+});
 
 // ─── NOVA PRESTAÇÃO – ABRIR/FECHAR FORMULÁRIO ──────────────────
 
@@ -293,10 +363,13 @@ document.getElementById('btn-confirmar-nova').addEventListener('click', async ()
     document.getElementById('nova-titulo').value = '';
     document.getElementById('nova-data').value = '';
     document.getElementById('nova-fornecedor').value = '';
+    document.getElementById('filtro-status').value = 'ABERTA';
     await carregarLista();
     document.getElementById('sel-prestacao').value = prestacaoAtualId;
     await carregarResumo(prestacaoAtualId);
-    showMsg('Prestação criada com sucesso!', 'sucesso');
+    const creditos = Array.isArray(json.data.creditos_aplicados) ? json.data.creditos_aplicados : [];
+    const extra = creditos.length ? ` Crédito anterior aplicado automaticamente: R$ ${fmtMoeda(creditos.reduce((acc, c) => acc + parseFloat(c.valor || 0), 0))}.` : '';
+    showMsg('Prestação criada com sucesso!' + extra, 'sucesso');
   } catch (e) {
     console.error('Erro ao criar prestação:', e);
     showMsg('Erro ao criar prestação: ' + e.message, 'erro');
@@ -482,6 +555,96 @@ async function deletarPagamento(pagamentoId, btn) {
     console.error('Erro ao deletar pagamento:', e);
     showMsg('Erro ao remover pagamento: ' + e.message, 'erro');
   }
+}
+
+
+// ─── CONCLUIR / REABRIR PRESTAÇÃO ──────────────────────────────
+
+async function concluirPrestacao(btn) {
+  if (!prestacaoAtualId) {
+    showMsg('Abra uma prestação antes de concluir.', 'erro');
+    return;
+  }
+  if (!btn.dataset.confirming) {
+    btn.dataset.confirming = '1';
+    const orig = btn.textContent;
+    btn.textContent = 'Confirmar conclusão?';
+    _btnTimers.set(btn, setTimeout(() => {
+      delete btn.dataset.confirming;
+      btn.textContent = orig;
+    }, 3500));
+    return;
+  }
+  clearTimeout(_btnTimers.get(btn));
+  _btnTimers.delete(btn);
+
+  try {
+    const res = await fetch(`${API_BASE}/${prestacaoAtualId}/concluir`, { method: 'PATCH' });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+
+    const credito = json.data && json.data.credito_gerado;
+    const msgCredito = credito ? ` Crédito gerado para a próxima prestação: R$ ${fmtMoeda(credito.valor)}.` : '';
+    prestacaoAtualId = null;
+    prestacaoAtualResumo = null;
+    _mostrarEmptyState();
+    await carregarLista();
+    showMsg('Prestação concluída e arquivada.' + msgCredito, 'sucesso');
+  } catch (e) {
+    console.error('Erro ao concluir prestação:', e);
+    showMsg('Erro ao concluir prestação: ' + e.message, 'erro');
+  } finally {
+    delete btn.dataset.confirming;
+    btn.textContent = '✅ Concluir';
+  }
+}
+
+async function reabrirPrestacao(btn) {
+  if (!prestacaoAtualId) {
+    showMsg('Abra uma prestação antes de reabrir.', 'erro');
+    return;
+  }
+  if (!btn.dataset.confirming) {
+    btn.dataset.confirming = '1';
+    const orig = btn.textContent;
+    btn.textContent = 'Confirmar reabertura?';
+    _btnTimers.set(btn, setTimeout(() => {
+      delete btn.dataset.confirming;
+      btn.textContent = orig;
+    }, 3500));
+    return;
+  }
+  clearTimeout(_btnTimers.get(btn));
+  _btnTimers.delete(btn);
+
+  try {
+    const res = await fetch(`${API_BASE}/${prestacaoAtualId}/reabrir`, { method: 'PATCH' });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message);
+
+    document.getElementById('filtro-status').value = 'ABERTA';
+    await carregarLista();
+    prestacaoAtualId = json.data.id;
+    document.getElementById('sel-prestacao').value = prestacaoAtualId;
+    await carregarResumo(prestacaoAtualId);
+    showMsg('Prestação reaberta.', 'sucesso');
+  } catch (e) {
+    console.error('Erro ao reabrir prestação:', e);
+    showMsg('Erro ao reabrir prestação: ' + e.message, 'erro');
+  } finally {
+    delete btn.dataset.confirming;
+    btn.textContent = '↩ Reabrir';
+  }
+}
+
+const btnConcluirPrestacao = document.getElementById('btn-concluir-prestacao');
+if (btnConcluirPrestacao) {
+  btnConcluirPrestacao.addEventListener('click', (e) => concluirPrestacao(e.currentTarget));
+}
+
+const btnReabrirPrestacao = document.getElementById('btn-reabrir-prestacao');
+if (btnReabrirPrestacao) {
+  btnReabrirPrestacao.addEventListener('click', (e) => reabrirPrestacao(e.currentTarget));
 }
 
 

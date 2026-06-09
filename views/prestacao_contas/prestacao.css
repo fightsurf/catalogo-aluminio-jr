@@ -95,6 +95,8 @@ body {
 .btn-selecionar,
 .btn-del,
 .btn-excluir-prestacao,
+.btn-concluir-prestacao,
+.btn-reabrir-prestacao,
 .btn-add,
 .tab-btn {
   font-family: var(--pc-font);
@@ -634,3 +636,94 @@ body {
   .btn-add { width: 100%; }
   .saldo-banner { padding: 10px 14px; }
 }
+
+
+/* ── Arquivamento / status ─────────────────────────────── */
+.detail-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--pc-border);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.status-aberta {
+  background: var(--pc-info-bg);
+  border-color: var(--pc-info-border);
+  color: var(--pc-primary-d);
+}
+
+.status-concluida {
+  background: var(--pc-success-bg);
+  border-color: var(--pc-success-border);
+  color: var(--pc-success);
+}
+
+.credito-info {
+  margin: 6px 0 0;
+  padding: 7px 10px;
+  border: 1px solid var(--pc-info-border);
+  border-radius: var(--pc-radius-sm);
+  background: var(--pc-info-bg);
+  color: var(--pc-primary-d);
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.tag-credito {
+  display: inline-flex;
+  margin-left: 6px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--pc-info-border);
+  background: var(--pc-info-bg);
+  color: var(--pc-primary-d);
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+  vertical-align: middle;
+}
+
+.btn-concluir-prestacao,
+.btn-reabrir-prestacao {
+  padding: 6px 14px;
+  border-radius: var(--pc-radius-sm);
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 80ms, color 80ms, border-color 80ms;
+}
+
+.btn-concluir-prestacao {
+  background: var(--pc-success);
+  color: #fff;
+  border: 1px solid var(--pc-success);
+}
+
+.btn-concluir-prestacao:hover { filter: brightness(.95); }
+.btn-concluir-prestacao:focus-visible { outline: 2px solid var(--pc-success); outline-offset: 2px; }
+
+.btn-reabrir-prestacao {
+  background: var(--pc-surface);
+  color: var(--pc-warning);
+  border: 1px solid var(--pc-warning);
+}
+
+.btn-reabrir-prestacao:hover { background: #fff8c5; }
+.btn-reabrir-prestacao:focus-visible { outline: 2px solid var(--pc-warning); outline-offset: 2px; }

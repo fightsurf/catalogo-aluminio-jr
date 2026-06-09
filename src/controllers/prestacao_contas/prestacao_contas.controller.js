@@ -6,11 +6,12 @@ class PrestacaoContasController {
 
   async listar(req, res) {
     try {
-      const data = await prestacaoContasService.listar();
+      const { status } = req.query;
+      const data = await prestacaoContasService.listar(status || 'ABERTA');
       return res.json({ success: true, data });
     } catch (error) {
       console.error('ERRO listar prestações:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return res.status(error.statusCode || 500).json({ success: false, message: error.message });
     }
   }
 
@@ -22,7 +23,7 @@ class PrestacaoContasController {
       return res.json({ success: true, data });
     } catch (error) {
       console.error('ERRO buscar prestação:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return res.status(error.statusCode || 500).json({ success: false, message: error.message });
     }
   }
 
@@ -36,7 +37,7 @@ class PrestacaoContasController {
       return res.status(201).json({ success: true, data });
     } catch (error) {
       console.error('ERRO criar prestação:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return res.status(error.statusCode || 500).json({ success: false, message: error.message });
     }
   }
 
@@ -52,7 +53,7 @@ class PrestacaoContasController {
       return res.json({ success: true, data });
     } catch (error) {
       console.error('ERRO atualizar prestação:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return res.status(error.statusCode || 500).json({ success: false, message: error.message });
     }
   }
 
@@ -63,7 +64,29 @@ class PrestacaoContasController {
       return res.json({ success: true, data: null });
     } catch (error) {
       console.error('ERRO deletar prestação:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+    }
+  }
+
+  async concluir(req, res) {
+    try {
+      const { id } = req.params;
+      const data = await prestacaoContasService.concluir(id);
+      return res.json({ success: true, data });
+    } catch (error) {
+      console.error('ERRO concluir prestação:', error);
+      return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+    }
+  }
+
+  async reabrir(req, res) {
+    try {
+      const { id } = req.params;
+      const data = await prestacaoContasService.reabrir(id);
+      return res.json({ success: true, data });
+    } catch (error) {
+      console.error('ERRO reabrir prestação:', error);
+      return res.status(error.statusCode || 500).json({ success: false, message: error.message });
     }
   }
 
@@ -80,7 +103,7 @@ class PrestacaoContasController {
       return res.status(201).json({ success: true, data });
     } catch (error) {
       console.error('ERRO criar item:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return res.status(error.statusCode || 500).json({ success: false, message: error.message });
     }
   }
 
@@ -96,7 +119,7 @@ class PrestacaoContasController {
       return res.json({ success: true, data });
     } catch (error) {
       console.error('ERRO atualizar item:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return res.status(error.statusCode || 500).json({ success: false, message: error.message });
     }
   }
 
@@ -107,7 +130,7 @@ class PrestacaoContasController {
       return res.json({ success: true, data: null });
     } catch (error) {
       console.error('ERRO deletar item:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return res.status(error.statusCode || 500).json({ success: false, message: error.message });
     }
   }
 
@@ -124,7 +147,7 @@ class PrestacaoContasController {
       return res.status(201).json({ success: true, data });
     } catch (error) {
       console.error('ERRO criar pagamento:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return res.status(error.statusCode || 500).json({ success: false, message: error.message });
     }
   }
 
@@ -135,7 +158,7 @@ class PrestacaoContasController {
       return res.json({ success: true, data: null });
     } catch (error) {
       console.error('ERRO deletar pagamento:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return res.status(error.statusCode || 500).json({ success: false, message: error.message });
     }
   }
 
@@ -148,11 +171,9 @@ class PrestacaoContasController {
       return res.json({ success: true, data });
     } catch (error) {
       console.error('ERRO gerar resumo:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      return res.status(error.statusCode || 500).json({ success: false, message: error.message });
     }
   }
-
 }
 
 module.exports = new PrestacaoContasController();
-

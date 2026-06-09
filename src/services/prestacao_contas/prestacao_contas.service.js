@@ -1,20 +1,31 @@
 const pool = require('../../../db/connection');
 
 class PrestacaoContasService {
+  constructor() {
+    this._schemaReady = null;
+  }
 
   // ─── PRESTAÇÕES ───────────────────────────────────────────────
 
-  async listar() {
+  async listar(status = 'ABERTA') {
+    await this._ensureSchema();
+    const statusNormalizado = this._normalizarStatusFiltro(status);
+
     const result = await pool.query(`
       SELECT p.*, f.nome AS fornecedor_nome
       FROM prestacoes p
       LEFT JOIN fornecedores f ON f.id = p.fornecedor_id
-      ORDER BY p.id DESC
-    `);
+      WHERE ($1::text = 'TODAS' OR COALESCE(p.status, 'ABERTA') = $1)
+      ORDER BY
+        CASE WHEN COALESCE(p.status, 'ABERTA') = 'ABERTA' THEN 0 ELSE 1 END,
+        COALESCE(p.concluida_em, p.data_referencia, NOW()) DESC,
+        p.id DESC
+    `, [statusNormalizado]);
     return result.rows;
   }
 
   async buscarPorId(id) {
+    await this._ensureSchema();
     const result = await pool.query(`
       SELECT p.*, f.nome AS fornecedor_nome
       FROM prestacoes p
@@ -25,18 +36,46 @@ class PrestacaoContasService {
   }
 
   async criar(data) {
+    await this._ensureSchema();
     const { titulo, data_referencia, fornecedor_id } = data;
-    const result = await pool.query(`
-      INSERT INTO prestacoes (titulo, data_referencia, fornecedor_id, total_material, total_pago, saldo_restante)
-      VALUES ($1, $2, $3, 0, 0, 0)
-      RETURNING *
-    `, [titulo, this._parseDate(data_referencia), fornecedor_id]);
-    const prestacao = result.rows[0];
-    await this._registrarLog(prestacao.id, 'CRIAR_PRESTACAO', `Prestação criada: ${titulo}`);
-    return prestacao;
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      const result = await client.query(`
+        INSERT INTO prestacoes (titulo, data_referencia, fornecedor_id, total_material, total_pago, saldo_restante, status)
+        VALUES ($1, $2, $3, 0, 0, 0, 'ABERTA')
+        RETURNING *
+      `, [titulo, this._parseDate(data_referencia), fornecedor_id]);
+
+      const prestacao = result.rows[0];
+      await this._registrarLog(prestacao.id, 'CRIAR_PRESTACAO', `Prestação criada: ${titulo}`, client);
+
+      const creditosAplicados = await this._aplicarCreditosPendentes(prestacao, client);
+      if (creditosAplicados.length) {
+        await this._recalcular(prestacao.id, client);
+      }
+
+      const finalRes = await client.query(`SELECT * FROM prestacoes WHERE id = $1`, [prestacao.id]);
+      await client.query('COMMIT');
+
+      return {
+        ...finalRes.rows[0],
+        creditos_aplicados: creditosAplicados
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async atualizar(id, data) {
+    await this._ensureSchema();
+    await this._assertAberta(id);
+
     const { titulo, data_referencia, fornecedor_id } = data;
     const result = await pool.query(`
       UPDATE prestacoes
@@ -44,6 +83,7 @@ class PrestacaoContasService {
       WHERE id = $4
       RETURNING *
     `, [titulo, this._parseDate(data_referencia), fornecedor_id, id]);
+
     const prestacao = result.rows[0] || null;
     if (prestacao) {
       await this._registrarLog(id, 'ATUALIZAR_PRESTACAO', `Prestação atualizada: ${titulo}`);
@@ -52,13 +92,19 @@ class PrestacaoContasService {
   }
 
   async deletar(id) {
+    await this._ensureSchema();
     const client = await pool.connect();
+
     try {
       await client.query('BEGIN');
+      await this._assertAberta(id, client);
+
+      await this._devolverCreditosConsumidosPelaPrestacao(id, client);
       await client.query(`DELETE FROM prestacao_pagamentos WHERE prestacao_id = $1`, [id]);
       await client.query(`DELETE FROM prestacao_itens WHERE prestacao_id = $1`, [id]);
       await client.query(`DELETE FROM prestacao_logs WHERE prestacao_id = $1`, [id]);
       await client.query(`DELETE FROM prestacoes WHERE id = $1`, [id]);
+
       await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
@@ -69,16 +115,151 @@ class PrestacaoContasService {
     return true;
   }
 
+  async concluir(id) {
+    await this._ensureSchema();
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+      const prestacao = await this._assertAberta(id, client);
+      await this._recalcular(id, client);
+
+      const atualizadaRes = await client.query(`
+        SELECT p.*, f.nome AS fornecedor_nome
+        FROM prestacoes p
+        LEFT JOIN fornecedores f ON f.id = p.fornecedor_id
+        WHERE p.id = $1
+        FOR UPDATE OF p
+      `, [id]);
+      const atualizada = atualizadaRes.rows[0];
+      const saldo = this._toNumber(atualizada.saldo_restante);
+      let creditoGerado = null;
+
+      if (saldo < -0.004) {
+        const valorCredito = Math.abs(saldo);
+        const creditoRes = await client.query(`
+          INSERT INTO prestacao_creditos_fornecedor
+            (fornecedor_id, prestacao_origem_id, valor, status, observacao, criado_em)
+          VALUES
+            ($1, $2, $3, 'PENDENTE', $4, NOW())
+          ON CONFLICT (prestacao_origem_id) DO UPDATE
+          SET fornecedor_id = EXCLUDED.fornecedor_id,
+              valor = EXCLUDED.valor,
+              status = 'PENDENTE',
+              prestacao_destino_id = NULL,
+              pagamento_destino_id = NULL,
+              utilizado_em = NULL,
+              cancelado_em = NULL,
+              observacao = EXCLUDED.observacao,
+              criado_em = NOW()
+          WHERE prestacao_creditos_fornecedor.status <> 'UTILIZADO'
+          RETURNING *
+        `, [
+          atualizada.fornecedor_id,
+          id,
+          valorCredito,
+          `Crédito gerado por pagamento a maior na prestação #${id}`
+        ]);
+        creditoGerado = creditoRes.rows[0] || null;
+        if (creditoGerado) {
+          await this._registrarLog(id, 'GERAR_CREDITO', `Crédito gerado para próxima prestação: R$ ${valorCredito.toFixed(2)}`, client);
+        }
+      }
+
+      const conclRes = await client.query(`
+        UPDATE prestacoes
+        SET status = 'CONCLUIDA', concluida_em = NOW()
+        WHERE id = $1
+        RETURNING *
+      `, [id]);
+
+      await this._registrarLog(id, 'CONCLUIR_PRESTACAO', 'Prestação concluída e arquivada.', client);
+      await client.query('COMMIT');
+
+      return {
+        prestacao: conclRes.rows[0],
+        credito_gerado: creditoGerado
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async reabrir(id) {
+    await this._ensureSchema();
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+      const prestacao = await this._buscarPrestacaoForUpdate(id, client);
+      if (!prestacao) {
+        const err = new Error('Prestação não encontrada');
+        err.statusCode = 404;
+        throw err;
+      }
+      if (this._statusPrestacao(prestacao) !== 'CONCLUIDA') {
+        throw new Error('Prestação não está concluída.');
+      }
+
+      const creditoRes = await client.query(`
+        SELECT *
+        FROM prestacao_creditos_fornecedor
+        WHERE prestacao_origem_id = $1
+        FOR UPDATE
+      `, [id]);
+
+      const credito = creditoRes.rows[0] || null;
+      if (credito && credito.status === 'UTILIZADO') {
+        throw new Error('Não é possível reabrir: o crédito desta prestação já foi usado em outra prestação.');
+      }
+
+      if (credito && credito.status === 'PENDENTE') {
+        await client.query(`
+          UPDATE prestacao_creditos_fornecedor
+          SET status = 'CANCELADO', cancelado_em = NOW()
+          WHERE id = $1
+        `, [credito.id]);
+        await this._registrarLog(id, 'CANCELAR_CREDITO', `Crédito pendente cancelado ao reabrir prestação: R$ ${this._toNumber(credito.valor).toFixed(2)}`, client);
+      }
+
+      const result = await client.query(`
+        UPDATE prestacoes
+        SET status = 'ABERTA', concluida_em = NULL
+        WHERE id = $1
+        RETURNING *
+      `, [id]);
+
+      await this._registrarLog(id, 'REABRIR_PRESTACAO', 'Prestação reaberta.', client);
+      await client.query('COMMIT');
+      return result.rows[0];
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   // ─── ITENS ────────────────────────────────────────────────────
 
   async criarItem(prestacao_id, data) {
+    await this._ensureSchema();
+    await this._assertAberta(prestacao_id);
+
     const { material, peso_kg, preco_por_kg } = data;
-    const total_item = parseFloat(peso_kg) * parseFloat(preco_por_kg);
+    const peso = this._validarNumeroPositivo(peso_kg, 'peso_kg');
+    const preco = this._validarNumeroNaoNegativo(preco_por_kg, 'preco_por_kg');
+    const total_item = peso * preco;
+
     const result = await pool.query(`
       INSERT INTO prestacao_itens (prestacao_id, descricao_material, peso_kg, preco_por_kg, total_item)
       VALUES ($1, $2, $3, $4, $5)
       RETURNING *
-    `, [prestacao_id, material, peso_kg, preco_por_kg, total_item]);
+    `, [prestacao_id, material, peso, preco, total_item]);
+
     const item = result.rows[0];
     await this._recalcular(prestacao_id);
     await this._registrarLog(prestacao_id, 'CRIAR_ITEM', `Item adicionado: ${material}`);
@@ -86,14 +267,21 @@ class PrestacaoContasService {
   }
 
   async atualizarItem(prestacao_id, itemId, data) {
+    await this._ensureSchema();
+    await this._assertAberta(prestacao_id);
+
     const { material, peso_kg, preco_por_kg } = data;
-    const total_item = parseFloat(peso_kg) * parseFloat(preco_por_kg);
+    const peso = this._validarNumeroPositivo(peso_kg, 'peso_kg');
+    const preco = this._validarNumeroNaoNegativo(preco_por_kg, 'preco_por_kg');
+    const total_item = peso * preco;
+
     const result = await pool.query(`
       UPDATE prestacao_itens
       SET descricao_material = $1, peso_kg = $2, preco_por_kg = $3, total_item = $4
       WHERE id = $5 AND prestacao_id = $6
       RETURNING *
-    `, [material, peso_kg, preco_por_kg, total_item, itemId, prestacao_id]);
+    `, [material, peso, preco, total_item, itemId, prestacao_id]);
+
     const item = result.rows[0] || null;
     if (item) {
       await this._recalcular(prestacao_id);
@@ -103,6 +291,9 @@ class PrestacaoContasService {
   }
 
   async deletarItem(prestacao_id, itemId) {
+    await this._ensureSchema();
+    await this._assertAberta(prestacao_id);
+
     await pool.query(`DELETE FROM prestacao_itens WHERE id = $1 AND prestacao_id = $2`, [itemId, prestacao_id]);
     await this._recalcular(prestacao_id);
     await this._registrarLog(prestacao_id, 'DELETAR_ITEM', `Item removido: id=${itemId}`);
@@ -112,28 +303,70 @@ class PrestacaoContasService {
   // ─── PAGAMENTOS ───────────────────────────────────────────────
 
   async criarPagamento(prestacao_id, data) {
+    await this._ensureSchema();
+    await this._assertAberta(prestacao_id);
+
     const { data: dataPag, valor, observacao } = data;
+    const valorNumber = this._validarNumeroPositivo(valor, 'valor');
+
     const result = await pool.query(`
       INSERT INTO prestacao_pagamentos (prestacao_id, data_pagamento, valor, observacao)
       VALUES ($1, $2, $3, $4)
       RETURNING *
-    `, [prestacao_id, this._parseDate(dataPag), valor, observacao || null]);
+    `, [prestacao_id, this._parseDate(dataPag), valorNumber, observacao || null]);
+
     const pagamento = result.rows[0];
     await this._recalcular(prestacao_id);
-    await this._registrarLog(prestacao_id, 'CRIAR_PAGAMENTO', `Pagamento registrado: R$ ${valor}`);
+    await this._registrarLog(prestacao_id, 'CRIAR_PAGAMENTO', `Pagamento registrado: R$ ${valorNumber.toFixed(2)}`);
     return pagamento;
   }
 
   async deletarPagamento(prestacao_id, pagamentoId) {
-    await pool.query(`DELETE FROM prestacao_pagamentos WHERE id = $1 AND prestacao_id = $2`, [pagamentoId, prestacao_id]);
-    await this._recalcular(prestacao_id);
-    await this._registrarLog(prestacao_id, 'DELETAR_PAGAMENTO', `Pagamento removido: id=${pagamentoId}`);
+    await this._ensureSchema();
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+      await this._assertAberta(prestacao_id, client);
+
+      const pagRes = await client.query(`
+        SELECT *
+        FROM prestacao_pagamentos
+        WHERE id = $1 AND prestacao_id = $2
+        FOR UPDATE
+      `, [pagamentoId, prestacao_id]);
+      const pagamento = pagRes.rows[0] || null;
+
+      if (pagamento && pagamento.credito_origem_id) {
+        await client.query(`
+          UPDATE prestacao_creditos_fornecedor
+          SET status = 'PENDENTE',
+              prestacao_destino_id = NULL,
+              pagamento_destino_id = NULL,
+              utilizado_em = NULL
+          WHERE id = $1 AND status = 'UTILIZADO'
+        `, [pagamento.credito_origem_id]);
+        await this._registrarLog(prestacao_id, 'DEVOLVER_CREDITO', `Crédito automático devolvido ao remover pagamento id=${pagamentoId}`, client);
+      }
+
+      await client.query(`DELETE FROM prestacao_pagamentos WHERE id = $1 AND prestacao_id = $2`, [pagamentoId, prestacao_id]);
+      await this._recalcular(prestacao_id, client);
+      await this._registrarLog(prestacao_id, 'DELETAR_PAGAMENTO', `Pagamento removido: id=${pagamentoId}`, client);
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
     return true;
   }
 
   // ─── RESUMO ───────────────────────────────────────────────────
 
   async gerarResumoPrestacao(prestacao_id) {
+    await this._ensureSchema();
+
     const cabecalhoRes = await pool.query(`
       SELECT p.*, f.nome AS fornecedor_nome
       FROM prestacoes p
@@ -150,15 +383,31 @@ class PrestacaoContasService {
       SELECT * FROM prestacao_pagamentos WHERE prestacao_id = $1 ORDER BY data_pagamento ASC, id ASC
     `, [prestacao_id]);
 
+    const creditosOrigemRes = await pool.query(`
+      SELECT *
+      FROM prestacao_creditos_fornecedor
+      WHERE prestacao_origem_id = $1
+      ORDER BY id ASC
+    `, [prestacao_id]);
+
+    const creditosDestinoRes = await pool.query(`
+      SELECT *
+      FROM prestacao_creditos_fornecedor
+      WHERE prestacao_destino_id = $1
+      ORDER BY id ASC
+    `, [prestacao_id]);
+
     const total_material = parseFloat(cabecalho ? cabecalho.total_material : 0);
     const total_pago = parseFloat(cabecalho ? cabecalho.total_pago : 0);
     const saldo_restante = parseFloat(cabecalho ? cabecalho.saldo_restante : 0);
-    const peso_total = materiaisRes.rows.reduce((acc, i) => acc + parseFloat(i.peso_kg), 0);
+    const peso_total = materiaisRes.rows.reduce((acc, i) => acc + parseFloat(i.peso_kg || 0), 0);
 
     return {
       cabecalho,
       materiais: materiaisRes.rows,
       pagamentos: pagamentosRes.rows,
+      creditos_origem: creditosOrigemRes.rows,
+      creditos_destino: creditosDestinoRes.rows,
       totais: {
         peso_total,
         total_material,
@@ -170,15 +419,105 @@ class PrestacaoContasService {
 
   // ─── HELPERS PRIVADOS ─────────────────────────────────────────
 
-  async _recalcular(prestacao_id) {
-    const itensRes = await pool.query(`
+  async _ensureSchema() {
+    if (!this._schemaReady) {
+      this._schemaReady = this._runEnsureSchema().catch((error) => {
+        this._schemaReady = null;
+        throw error;
+      });
+    }
+    return this._schemaReady;
+  }
+
+  async _runEnsureSchema() {
+    await pool.query(`ALTER TABLE prestacoes ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'ABERTA'`);
+    await pool.query(`UPDATE prestacoes SET status = 'ABERTA' WHERE status IS NULL`);
+    await pool.query(`ALTER TABLE prestacoes ALTER COLUMN status SET DEFAULT 'ABERTA'`);
+    await pool.query(`ALTER TABLE prestacoes ADD COLUMN IF NOT EXISTS concluida_em TIMESTAMP NULL`);
+    await pool.query(`ALTER TABLE prestacao_pagamentos ADD COLUMN IF NOT EXISTS credito_origem_id INTEGER NULL`);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS prestacao_creditos_fornecedor (
+        id SERIAL PRIMARY KEY,
+        fornecedor_id INTEGER NOT NULL,
+        prestacao_origem_id INTEGER NOT NULL UNIQUE,
+        prestacao_destino_id INTEGER NULL,
+        pagamento_destino_id INTEGER NULL,
+        valor NUMERIC(12,2) NOT NULL CHECK (valor > 0),
+        status VARCHAR(20) NOT NULL DEFAULT 'PENDENTE',
+        criado_em TIMESTAMP NOT NULL DEFAULT NOW(),
+        utilizado_em TIMESTAMP NULL,
+        cancelado_em TIMESTAMP NULL,
+        observacao TEXT NULL
+      )
+    `);
+
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_prestacoes_status ON prestacoes(status)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_prestacao_creditos_fornecedor_status ON prestacao_creditos_fornecedor(fornecedor_id, status)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_prestacao_pagamentos_credito_origem ON prestacao_pagamentos(credito_origem_id)`);
+  }
+
+  async _aplicarCreditosPendentes(prestacao, client = pool) {
+    const creditosRes = await client.query(`
+      SELECT *
+      FROM prestacao_creditos_fornecedor
+      WHERE fornecedor_id = $1 AND status = 'PENDENTE'
+      ORDER BY criado_em ASC, id ASC
+      FOR UPDATE
+    `, [prestacao.fornecedor_id]);
+
+    const aplicados = [];
+    for (const credito of creditosRes.rows) {
+      const valor = this._toNumber(credito.valor);
+      const obs = `Crédito transferido da prestação #${credito.prestacao_origem_id}`;
+      const pagRes = await client.query(`
+        INSERT INTO prestacao_pagamentos
+          (prestacao_id, data_pagamento, valor, observacao, credito_origem_id)
+        VALUES
+          ($1, CURRENT_DATE, $2, $3, $4)
+        RETURNING *
+      `, [prestacao.id, valor, obs, credito.id]);
+      const pagamento = pagRes.rows[0];
+
+      await client.query(`
+        UPDATE prestacao_creditos_fornecedor
+        SET status = 'UTILIZADO',
+            prestacao_destino_id = $1,
+            pagamento_destino_id = $2,
+            utilizado_em = NOW()
+        WHERE id = $3
+      `, [prestacao.id, pagamento.id, credito.id]);
+
+      await this._registrarLog(prestacao.id, 'APLICAR_CREDITO', `${obs}: R$ ${valor.toFixed(2)}`, client);
+      aplicados.push({ ...credito, pagamento_destino_id: pagamento.id });
+    }
+
+    return aplicados;
+  }
+
+  async _devolverCreditosConsumidosPelaPrestacao(prestacao_id, client = pool) {
+    await client.query(`
+      UPDATE prestacao_creditos_fornecedor c
+      SET status = 'PENDENTE',
+          prestacao_destino_id = NULL,
+          pagamento_destino_id = NULL,
+          utilizado_em = NULL
+      FROM prestacao_pagamentos p
+      WHERE p.prestacao_id = $1
+        AND p.credito_origem_id = c.id
+        AND c.status = 'UTILIZADO'
+    `, [prestacao_id]);
+  }
+
+  async _recalcular(prestacao_id, client = pool) {
+    const itensRes = await client.query(`
       SELECT COALESCE(SUM(total_item), 0) AS total_material
       FROM prestacao_itens
       WHERE prestacao_id = $1
     `, [prestacao_id]);
     const total_material = parseFloat(itensRes.rows[0].total_material);
 
-    const pagRes = await pool.query(`
+    const pagRes = await client.query(`
       SELECT COALESCE(SUM(valor), 0) AS total_pago
       FROM prestacao_pagamentos
       WHERE prestacao_id = $1
@@ -187,18 +526,74 @@ class PrestacaoContasService {
 
     const saldo_restante = total_material - total_pago;
 
-    await pool.query(`
+    await client.query(`
       UPDATE prestacoes
       SET total_material = $1, total_pago = $2, saldo_restante = $3
       WHERE id = $4
     `, [total_material, total_pago, saldo_restante, prestacao_id]);
   }
 
-  async _registrarLog(prestacao_id, tipo, descricao) {
-    await pool.query(`
+  async _registrarLog(prestacao_id, tipo, descricao, client = pool) {
+    await client.query(`
       INSERT INTO prestacao_logs (prestacao_id, tipo, descricao)
       VALUES ($1, $2, $3)
     `, [prestacao_id, tipo, descricao]);
+  }
+
+  async _buscarPrestacaoForUpdate(id, client = pool) {
+    const result = await client.query(`
+      SELECT *
+      FROM prestacoes
+      WHERE id = $1
+      FOR UPDATE
+    `, [id]);
+    return result.rows[0] || null;
+  }
+
+  async _assertAberta(id, client = pool) {
+    const prestacao = await this._buscarPrestacaoForUpdate(id, client);
+    if (!prestacao) {
+      const err = new Error('Prestação não encontrada');
+      err.statusCode = 404;
+      throw err;
+    }
+    if (this._statusPrestacao(prestacao) !== 'ABERTA') {
+      throw new Error('Prestação concluída. Reabra antes de alterar.');
+    }
+    return prestacao;
+  }
+
+  _statusPrestacao(prestacao) {
+    return String((prestacao && prestacao.status) || 'ABERTA').toUpperCase();
+  }
+
+  _normalizarStatusFiltro(status) {
+    const s = String(status || 'ABERTA').toUpperCase();
+    if (['ABERTA', 'CONCLUIDA', 'TODAS'].includes(s)) return s;
+    return 'ABERTA';
+  }
+
+  _validarNumeroPositivo(value, campo) {
+    const n = this._toNumber(value);
+    if (!Number.isFinite(n) || n <= 0) {
+      throw new Error(`${campo} deve ser maior que zero.`);
+    }
+    return n;
+  }
+
+  _validarNumeroNaoNegativo(value, campo) {
+    const n = this._toNumber(value);
+    if (!Number.isFinite(n) || n < 0) {
+      throw new Error(`${campo} não pode ser negativo.`);
+    }
+    return n;
+  }
+
+  _toNumber(value) {
+    if (typeof value === 'string') {
+      return Number(value.replace(',', '.'));
+    }
+    return Number(value || 0);
   }
 
   _parseDate(value) {
@@ -210,8 +605,6 @@ class PrestacaoContasService {
     }
     return value;
   }
-
 }
 
 module.exports = new PrestacaoContasService();
-

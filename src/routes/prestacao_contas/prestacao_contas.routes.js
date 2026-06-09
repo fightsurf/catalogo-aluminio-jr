@@ -6,11 +6,11 @@ const ctrl = require('../../controllers/prestacao_contas/prestacao_contas.contro
 router.get('/', ctrl.listar);
 router.post('/', ctrl.criar);
 router.get('/:id/resumo', ctrl.resumo);
+router.patch('/:id/concluir', ctrl.concluir);
+router.patch('/:id/reabrir', ctrl.reabrir);
 router.get('/:id', ctrl.buscarPorId);
 router.put('/:id', ctrl.atualizar);
 router.delete('/:id', ctrl.deletar);
-
-// Resumo
 
 // Itens
 router.post('/:id/itens', ctrl.criarItem);
@@ -22,4 +22,3 @@ router.post('/:id/pagamentos', ctrl.criarPagamento);
 router.delete('/:id/pagamentos/:pagamentoId', ctrl.deletarPagamento);
 
 module.exports = router;
-
