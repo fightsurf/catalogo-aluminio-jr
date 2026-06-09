@@ -10,14 +10,15 @@ class PrestacaoContasService {
   async listar(status = 'ABERTA') {
     await this._ensureSchema();
     const statusNormalizado = this._normalizarStatusFiltro(status);
+    const statusExpr = this._statusSql('p.status');
 
     const result = await pool.query(`
       SELECT p.*, f.nome AS fornecedor_nome
       FROM prestacoes p
       LEFT JOIN fornecedores f ON f.id = p.fornecedor_id
-      WHERE ($1::text = 'TODAS' OR COALESCE(p.status, 'ABERTA') = $1)
+      WHERE ($1::text = 'TODAS' OR ${statusExpr} = $1)
       ORDER BY
-        CASE WHEN COALESCE(p.status, 'ABERTA') = 'ABERTA' THEN 0 ELSE 1 END,
+        CASE WHEN ${statusExpr} = 'ABERTA' THEN 0 ELSE 1 END,
         COALESCE(p.concluida_em, p.data_referencia, NOW()) DESC,
         p.id DESC
     `, [statusNormalizado]);
@@ -431,7 +432,7 @@ class PrestacaoContasService {
 
   async _runEnsureSchema() {
     await pool.query(`ALTER TABLE prestacoes ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'ABERTA'`);
-    await pool.query(`UPDATE prestacoes SET status = 'ABERTA' WHERE status IS NULL`);
+    await pool.query(`UPDATE prestacoes SET status = 'ABERTA' WHERE status IS NULL OR TRIM(status) = ''`);
     await pool.query(`ALTER TABLE prestacoes ALTER COLUMN status SET DEFAULT 'ABERTA'`);
     await pool.query(`ALTER TABLE prestacoes ADD COLUMN IF NOT EXISTS concluida_em TIMESTAMP NULL`);
     await pool.query(`ALTER TABLE prestacao_pagamentos ADD COLUMN IF NOT EXISTS credito_origem_id INTEGER NULL`);
@@ -564,13 +565,19 @@ class PrestacaoContasService {
   }
 
   _statusPrestacao(prestacao) {
-    return String((prestacao && prestacao.status) || 'ABERTA').toUpperCase();
+    const s = String((prestacao && prestacao.status) || 'ABERTA').trim().toUpperCase();
+    return ['CONCLUIDA', 'CONCLUÍDA'].includes(s) ? 'CONCLUIDA' : 'ABERTA';
   }
 
   _normalizarStatusFiltro(status) {
-    const s = String(status || 'ABERTA').toUpperCase();
-    if (['ABERTA', 'CONCLUIDA', 'TODAS'].includes(s)) return s;
+    const s = String(status || 'ABERTA').trim().toUpperCase();
+    if (s === 'TODAS') return 'TODAS';
+    if (['CONCLUIDA', 'CONCLUÍDA'].includes(s)) return 'CONCLUIDA';
     return 'ABERTA';
+  }
+
+  _statusSql(columnExpression) {
+    return `CASE WHEN UPPER(TRIM(COALESCE(${columnExpression}::text, ''))) IN ('CONCLUIDA', 'CONCLUÍDA') THEN 'CONCLUIDA' ELSE 'ABERTA' END`;
   }
 
   _validarNumeroPositivo(value, campo) {

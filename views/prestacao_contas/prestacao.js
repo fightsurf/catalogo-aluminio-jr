@@ -891,13 +891,17 @@ if (btnRelatorioPdf) {
   btnRelatorioPdf.addEventListener('click', gerarRelatorioPdfPrestacao);
 }
 
-// ─── BOTÃO WHATSAPP (PLACEHOLDER) ─────────────────────────────
-
-document.getElementById('btn-whatsapp').addEventListener('click', () => {
-  console.log('Gerar imagem');
-});
-
 // ─── INIT ──────────────────────────────────────────────────────
 
-carregarLista();
-carregarFornecedores();
+async function inicializarPrestacaoContas() {
+  await carregarFornecedores();
+
+  // Evita que o navegador restaure automaticamente um fornecedor antigo
+  // e dê a impressão de que as prestações desapareceram.
+  const filtroFornecedor = document.getElementById('filtro-fornecedor');
+  if (filtroFornecedor) filtroFornecedor.value = '';
+
+  await carregarLista();
+}
+
+inicializarPrestacaoContas();
