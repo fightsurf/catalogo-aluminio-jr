@@ -1,5 +1,6 @@
 const pool = require('../../../../db/connection');
 const carradasService = require('../carradas/carradas.service');
+const whatsappService = require('../../whatsapp/envio-whatsapp.service');
 
 function criarErro(message, status = 400) {
   const error = new Error(message);
@@ -52,6 +53,49 @@ function normalizarDataIso(value) {
 function normalizarTexto(value) {
   const text = String(value || '').trim();
   return text ? text : null;
+}
+
+function limparTexto(value) {
+  return String(value || '').trim();
+}
+
+function formatarDataBR(value) {
+  const iso = normalizarDataIso(value);
+
+  if (!iso) {
+    return limparTexto(value);
+  }
+
+  return formatarDataCurtaIso(iso);
+}
+
+function normalizarTelefonePedido(pedido) {
+  return limparTexto(
+    pedido?.cliente?.telefonePrincipal
+      || pedido?.cliente?.telefone1
+      || pedido?.cliente?.fone1
+      || pedido?.cliente?.telefone
+      || pedido?.telefonePrincipal
+      || pedido?.telefone
+  );
+}
+
+function montarMensagemWhatsappSemanaPedido({ pedido, carrada, mensagemPersonalizada }) {
+  const nomeCliente = limparTexto(pedido?.cliente?.nome) || '-';
+  const numeroPedido = limparTexto(pedido?.numero) || '-';
+  const dataCarrada = formatarDataBR(carrada?.data) || '-';
+  const descricaoCarrada = limparTexto(carrada?.descricao) || 'Sem descrição';
+  const mensagemLivre = limparTexto(mensagemPersonalizada);
+
+  return [
+    'MENSAGEM AUTOMÁTICA DO SISTEMA ALUMÍNIO JR',
+    '',
+    `Nome cliente: ${nomeCliente}`,
+    `Número pedido: ${numeroPedido}`,
+    `Carrada: ${dataCarrada} - ${descricaoCarrada}`,
+    '',
+    mensagemLivre
+  ].join('\n');
 }
 
 function normalizarListaCarradas(carradas) {
@@ -855,6 +899,94 @@ async function excluirSemana(id) {
   return result.rows[0] || null;
 }
 
+async function enviarWhatsappSemanaLote({ semanaId: semanaIdParam, mensagemPersonalizada }) {
+  await garantirTabelasSemana();
+
+  const semanaId = parseId(semanaIdParam, 'Semana');
+  const mensagemLivre = limparTexto(mensagemPersonalizada);
+
+  if (!mensagemLivre) {
+    throw criarErro('A mensagem personalizada é obrigatória.', 400);
+  }
+
+  const semana = await buscarSemanaPorId(semanaId);
+
+  if (!semana) {
+    throw criarErro('Semana não encontrada.', 404);
+  }
+
+  const codigosCarradas = (Array.isArray(semana.carradas) ? semana.carradas : [])
+    .map((carrada) => Number.parseInt(carrada?.codigo, 10))
+    .filter((codigo) => Number.isInteger(codigo) && codigo > 0);
+
+  const carradasDetalhadas = await carregarDetalhesCarradas(codigosCarradas);
+  const itens = [];
+  let totalPedidos = 0;
+  let enviadosSucesso = 0;
+  let semTelefone = 0;
+  let comErro = 0;
+
+  for (const carrada of carradasDetalhadas) {
+    const pedidos = Array.isArray(carrada?.pedidos) ? carrada.pedidos : [];
+    totalPedidos += pedidos.length;
+
+    for (const pedido of pedidos) {
+      const numeroPedido = limparTexto(pedido?.numero) || '-';
+      const nomeCliente = limparTexto(pedido?.cliente?.nome);
+      const telefone = normalizarTelefonePedido(pedido);
+      const mensagem = montarMensagemWhatsappSemanaPedido({
+        pedido,
+        carrada,
+        mensagemPersonalizada: mensagemLivre
+      });
+
+      if (!telefone) {
+        semTelefone += 1;
+        itens.push({
+          codigoCarrada: carrada?.codigo ?? null,
+          numeroPedido,
+          nomeCliente,
+          telefone: '',
+          status: 'sem_telefone'
+        });
+        continue;
+      }
+
+      try {
+        await whatsappService.enviarMensagem({ telefone, mensagem });
+        enviadosSucesso += 1;
+        itens.push({
+          codigoCarrada: carrada?.codigo ?? null,
+          numeroPedido,
+          nomeCliente,
+          telefone,
+          status: 'enviado'
+        });
+      } catch (error) {
+        comErro += 1;
+        itens.push({
+          codigoCarrada: carrada?.codigo ?? null,
+          numeroPedido,
+          nomeCliente,
+          telefone,
+          status: 'erro',
+          erro: error?.message || 'Erro ao enviar WhatsApp.'
+        });
+      }
+    }
+  }
+
+  return {
+    semanaId,
+    totalCarradas: carradasDetalhadas.length,
+    totalPedidos,
+    enviadosSucesso,
+    semTelefone,
+    comErro,
+    itens
+  };
+}
+
 async function buscarSemanaDaCarrada(codigoCarrada) {
   const codigo = parseId(codigoCarrada, 'Carrada');
 
@@ -886,5 +1018,6 @@ module.exports = {
   criarProximaSemana,
   atualizarSemana,
   excluirSemana,
+  enviarWhatsappSemanaLote,
   buscarSemanaDaCarrada
 };

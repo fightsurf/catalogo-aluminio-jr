@@ -83,6 +83,19 @@ async function atualizarSemana(req, res) {
   }
 }
 
+async function enviarWhatsappSemanaLote(req, res) {
+  try {
+    const data = await semanasService.enviarWhatsappSemanaLote({
+      semanaId: req.params.id,
+      mensagemPersonalizada: req.body?.mensagemPersonalizada
+    });
+
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return responderErro(res, error, 'Erro ao enviar WhatsApp da semana.');
+  }
+}
+
 async function excluirSemana(req, res) {
   try {
     const data = await semanasService.excluirSemana(req.params.id);
@@ -105,5 +118,6 @@ module.exports = {
   criarSemana,
   criarProximaSemana,
   atualizarSemana,
+  enviarWhatsappSemanaLote,
   excluirSemana
 };

@@ -50,6 +50,81 @@
     .btn-primary { background: var(--primary); color: #fff; }
     .btn-secondary { background: #fff; border: 1px solid var(--line); color: var(--text); }
     .btn-danger { background: var(--danger); color: #fff; }
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 100;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      width: min(900px, 100%);
+      max-height: calc(100vh - 40px);
+      overflow: auto;
+      background: #fff;
+      border-radius: 18px;
+      box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+      border: 1px solid var(--line);
+    }
+    .modal-header,
+    .modal-body,
+    .modal-footer { padding: 18px; }
+    .modal-header {
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+    }
+    .modal-body { display: grid; gap: 16px; }
+    .modal-footer {
+      border-top: 1px solid var(--line);
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .field label {
+      font-size: 13px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .field textarea {
+      min-height: 140px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #fff;
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    .feedback {
+      font-size: 14px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #f8fafc;
+      border: 1px solid var(--line);
+    }
+    .feedback.success {
+      background: #dcfce7;
+      border-color: #86efac;
+      color: #166534;
+    }
+    .feedback.error {
+      background: #fee2e2;
+      border-color: #fca5a5;
+      color: #b91c1c;
+    }
     button:disabled {
       opacity: 0.45;
       cursor: not-allowed;
@@ -110,6 +185,9 @@
       .resumo-grid {
         grid-template-columns: 1fr;
       }
+      .modal-header {
+        flex-direction: column;
+      }
     }
   </style>
 </head>
@@ -125,6 +203,7 @@
         <button class="btn-secondary" id="btnProximaSemana" disabled>Próxima semana</button>
         <a class="button btn-secondary" href="/legado/semanas">Voltar</a>
         <button class="btn-secondary" id="btnResumo">Resumo da semana</button>
+        <button class="btn-primary" id="btnEnviarWhatsappSemana">Enviar WhatsApp da semana</button>
         <button class="btn-secondary" id="btnEditar">Editar</button>
         <button class="btn-danger" id="btnExcluir">Excluir</button>
       </div>
@@ -135,9 +214,34 @@
     </div>
   </div>
 
+  <div class="modal-backdrop" id="modalWhatsappSemanaBackdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <div>
+          <h3 id="modalWhatsappSemanaTitulo">Enviar WhatsApp da semana</h3>
+          <p class="muted" id="modalWhatsappSemanaSubtitulo"></p>
+        </div>
+        <button class="btn-secondary" data-close-modal="modalWhatsappSemanaBackdrop">Fechar</button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label for="textareaWhatsappSemanaMensagem">Mensagem personalizada</label>
+          <textarea id="textareaWhatsappSemanaMensagem" placeholder="Digite a mensagem que será enviada para cada pedido de todas as carradas da semana."></textarea>
+        </div>
+        <div class="feedback" id="feedbackWhatsappSemana">O sistema enviará uma mensagem por pedido com cabeçalho automático.</div>
+        <div id="resumoWhatsappSemana" style="display:none; margin-top:12px;"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" data-close-modal="modalWhatsappSemanaBackdrop">Cancelar</button>
+        <button class="btn-primary" id="btnWhatsappSemanaEnviar">Enviar mensagens</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const params = new URLSearchParams(window.location.search);
     const id = params.get('id');
+    let semanaAtual = null;
 
     function escapeHtml(valor) {
       return String(valor ?? '')
@@ -201,6 +305,24 @@
       }
 
       return data.data;
+    }
+
+    function setFeedback(elemento, mensagem, tipo = '') {
+      if (!elemento) return;
+      elemento.className = `feedback${tipo ? ` ${tipo}` : ''}`;
+      elemento.textContent = mensagem;
+    }
+
+    function abrirModal(backdrop) {
+      if (backdrop) {
+        backdrop.classList.add('open');
+      }
+    }
+
+    function fecharModal(backdrop) {
+      if (backdrop) {
+        backdrop.classList.remove('open');
+      }
     }
 
     function renderSemana(semana) {
@@ -350,6 +472,99 @@
       }
     }
 
+    function abrirModalWhatsappSemana() {
+      const backdrop = document.getElementById('modalWhatsappSemanaBackdrop');
+      const subtitulo = document.getElementById('modalWhatsappSemanaSubtitulo');
+      const textarea = document.getElementById('textareaWhatsappSemanaMensagem');
+      const feedback = document.getElementById('feedbackWhatsappSemana');
+      const resumo = document.getElementById('resumoWhatsappSemana');
+
+      if (subtitulo) {
+        subtitulo.textContent = semanaAtual
+          ? `${formatarData(semanaAtual.data_inicial)} até ${formatarData(semanaAtual.data_final)} • ${semanaAtual.descricao || 'Sem descrição'}`
+          : 'Semana selecionada';
+      }
+
+      if (textarea) {
+        textarea.value = '';
+      }
+
+      if (resumo) {
+        resumo.style.display = 'none';
+        resumo.innerHTML = '';
+      }
+
+      setFeedback(feedback, 'O sistema enviará uma mensagem por pedido com cabeçalho automático.', '');
+      abrirModal(backdrop);
+    }
+
+    function renderResumoWhatsappSemana(data) {
+      const resumo = document.getElementById('resumoWhatsappSemana');
+      if (!resumo) return;
+
+      const itens = Array.isArray(data?.itens) ? data.itens : [];
+      const linhas = itens.map((item) => {
+        const status = item?.status === 'enviado'
+          ? 'Enviado'
+          : item?.status === 'sem_telefone'
+            ? 'Sem telefone'
+            : 'Erro';
+        const detalhe = item?.erro ? ` • ${escapeHtml(item.erro)}` : '';
+        return `<li><strong>${escapeHtml(item?.numeroPedido || '-')}</strong> • Carrada ${escapeHtml(item?.codigoCarrada || '-')} • ${escapeHtml(item?.nomeCliente || '-')} • ${escapeHtml(status)}${detalhe}</li>`;
+      }).join('');
+
+      resumo.innerHTML = `
+        <div class="card" style="padding:12px; margin-bottom:0;">
+          <div style="font-weight:700; margin-bottom:6px;">Resumo do envio</div>
+          <div class="muted" style="font-size:12px;">
+            Carradas: <strong>${escapeHtml(data?.totalCarradas || 0)}</strong> •
+            Pedidos: <strong>${escapeHtml(data?.totalPedidos || 0)}</strong> •
+            Enviados: <strong>${escapeHtml(data?.enviadosSucesso || 0)}</strong> •
+            Sem telefone: <strong>${escapeHtml(data?.semTelefone || 0)}</strong> •
+            Erros: <strong>${escapeHtml(data?.comErro || 0)}</strong>
+          </div>
+          ${linhas ? `<ul style="margin:12px 0 0 18px; padding:0;">${linhas}</ul>` : ''}
+        </div>
+      `;
+      resumo.style.display = 'block';
+    }
+
+    async function enviarWhatsappSemanaModal() {
+      const textarea = document.getElementById('textareaWhatsappSemanaMensagem');
+      const feedback = document.getElementById('feedbackWhatsappSemana');
+      const botao = document.getElementById('btnWhatsappSemanaEnviar');
+      const mensagemPersonalizada = textarea?.value?.trim() || '';
+
+      if (!mensagemPersonalizada) {
+        setFeedback(feedback, 'Digite a mensagem personalizada.', 'error');
+        return;
+      }
+
+      const textoOriginal = botao?.textContent || 'Enviar mensagens';
+      if (botao) {
+        botao.disabled = true;
+        botao.textContent = 'Enviando...';
+      }
+
+      try {
+        const data = await request(`/api/legado/semanas/${encodeURIComponent(id)}/whatsapp/lote`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mensagemPersonalizada })
+        });
+
+        setFeedback(feedback, `Envio concluído. ${data?.enviadosSucesso || 0} pedido(s) enviado(s) com sucesso.`, 'success');
+        renderResumoWhatsappSemana(data);
+      } catch (error) {
+        setFeedback(feedback, error.message, 'error');
+      } finally {
+        if (botao) {
+          botao.disabled = false;
+          botao.textContent = textoOriginal;
+        }
+      }
+    }
+
     async function carregar() {
       if (!id) {
         document.getElementById('conteudo').innerHTML = '<div class="card">ID da semana não informado.</div>';
@@ -358,12 +573,33 @@
 
       try {
         const semana = await request(`/api/legado/semanas/${id}`);
+        semanaAtual = semana;
         renderSemana(semana);
         await inicializarNavegacaoSemanas(semana);
       } catch (error) {
         document.getElementById('conteudo').innerHTML = `<div class="card">${escapeHtml(error.message)}</div>`;
       }
     }
+
+    document.querySelectorAll('[data-close-modal]').forEach((botao) => {
+      botao.addEventListener('click', () => {
+        const target = document.getElementById(botao.dataset.closeModal);
+        if (target) {
+          fecharModal(target);
+        }
+      });
+    });
+
+    document.querySelectorAll('.modal-backdrop').forEach((backdrop) => {
+      backdrop.addEventListener('click', (event) => {
+        if (event.target === backdrop) {
+          fecharModal(backdrop);
+        }
+      });
+    });
+
+    document.getElementById('btnEnviarWhatsappSemana').addEventListener('click', abrirModalWhatsappSemana);
+    document.getElementById('btnWhatsappSemanaEnviar').addEventListener('click', enviarWhatsappSemanaModal);
 
     document.getElementById('btnResumo').addEventListener('click', () => {
       if (!id) return;
