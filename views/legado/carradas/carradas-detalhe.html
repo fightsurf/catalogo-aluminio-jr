@@ -171,6 +171,7 @@
         </div>
         <a class="button btn-secondary" href="/legado/carradas">Voltar</a>
         <button class="btn-secondary" id="btnResumoItens">Resumo de itens</button>
+        <button class="btn-secondary" id="btnProgresso">Progresso</button>
         <button class="btn-secondary" id="btnEditar">Editar</button>
         <button class="btn-danger" id="btnExcluir">Excluir</button>
       </div>
@@ -489,7 +490,11 @@
     }
 
     document.getElementById('btnResumoItens').addEventListener('click', () => {
-      window.location.href = `/legado/carradas/resumo-itens?codigo=${codigo}`;
+      window.location.href = `/legado/carradas/resumo-itens?codigo=${encodeURIComponent(codigo)}`;
+    });
+
+    document.getElementById('btnProgresso').addEventListener('click', () => {
+      window.location.href = `/legado/carradas/progresso?codigo=${encodeURIComponent(codigo)}`;
     });
 
     document.getElementById('btnEditar').addEventListener('click', () => {
