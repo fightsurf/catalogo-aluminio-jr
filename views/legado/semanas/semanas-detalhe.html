@@ -170,6 +170,11 @@
       font-size: 14px;
     }
     th { color: var(--muted); font-size: 13px; }
+    .acoes-carrada {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
     .linha-total td {
       background: #111827;
       color: #fff;
@@ -393,7 +398,10 @@
                     <td>${escapeHtml(formatarQuantidade(carrada.quantidade_itens))}</td>
                     <td>${escapeHtml(formatarMoeda(carrada.total_pedidos))}</td>
                     <td>
-                      <a class="button btn-secondary" href="/legado/carradas/detalhe?codigo=${encodeURIComponent(carrada.codigo)}">Abrir carrada</a>
+                      <div class="acoes-carrada">
+                        <a class="button btn-secondary" href="/legado/carradas/detalhe?codigo=${encodeURIComponent(carrada.codigo)}">Abrir carrada</a>
+                        <a class="button btn-secondary" href="/legado/carradas/progresso?codigo=${encodeURIComponent(carrada.codigo)}">Progresso</a>
+                      </div>
                     </td>
                   </tr>
                 `).join('')}
