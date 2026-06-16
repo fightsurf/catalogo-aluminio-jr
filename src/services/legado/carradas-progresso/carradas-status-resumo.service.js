@@ -35,6 +35,79 @@ function limparTexto(value) {
   return String(value || '').trim();
 }
 
+function normalizarSaida(value) {
+  const saida = Number.parseInt(value, 10);
+  return Number.isInteger(saida) && saida > 0 ? saida : null;
+}
+
+function criarChavePedido({ saida, numero }) {
+  const saidaNormalizada = normalizarSaida(saida);
+
+  if (saidaNormalizada !== null) {
+    return `saida:${saidaNormalizada}`;
+  }
+
+  const numeroNormalizado = limparTexto(numero);
+  return numeroNormalizado ? `numero:${numeroNormalizado}` : '';
+}
+
+function criarIndicePedidos(pedidosParam = []) {
+  const pedidos = Array.isArray(pedidosParam) ? pedidosParam : [];
+  const porSaida = new Map();
+  const porNumero = new Map();
+  const saidas = [];
+  const numeros = [];
+
+  pedidos.forEach((pedido) => {
+    const numero = limparTexto(pedido?.numero);
+    const saida = normalizarSaida(pedido?.saida);
+    const chave = criarChavePedido({ saida, numero });
+
+    if (!chave) {
+      return;
+    }
+
+    if (saida !== null) {
+      porSaida.set(saida, chave);
+      saidas.push(saida);
+    }
+
+    if (numero) {
+      porNumero.set(numero, chave);
+      numeros.push(numero);
+    }
+  });
+
+  return {
+    porSaida,
+    porNumero,
+    saidas: [...new Set(saidas)],
+    numeros: [...new Set(numeros)]
+  };
+}
+
+function obterChavePedidoNoIndice(row, indicePedidos) {
+  const saida = normalizarSaida(row?.saida);
+
+  if (saida !== null) {
+    return indicePedidos.porSaida.get(saida) || '';
+  }
+
+  const numero = limparTexto(row?.numero_pedido || row?.numero);
+  return numero ? indicePedidos.porNumero.get(numero) || '' : '';
+}
+
+function linhaMaisNovaQueAtual(novaLinha, linhaAtual) {
+  if (!linhaAtual) {
+    return true;
+  }
+
+  const novaData = new Date(novaLinha?.updated_at || novaLinha?.updatedAt || novaLinha?.created_at || novaLinha?.createdAt || 0).getTime();
+  const atualData = new Date(linhaAtual?.updated_at || linhaAtual?.updatedAt || linhaAtual?.created_at || linhaAtual?.createdAt || 0).getTime();
+
+  return novaData >= atualData;
+}
+
 async function garantirTabelaStatusResumo(client = pool) {
   await client.query(`
     CREATE TABLE IF NOT EXISTS carradas_status_resumo (
@@ -70,90 +143,151 @@ function calcularPagamentoQuitado(detalhePagamento) {
   return saldo <= 0.009;
 }
 
-async function buscarResumoBooleanosConcluidosPorCarrada(codigoCarrada) {
-  const result = await pool.query(
-    `
-      SELECT numero_pedido, fase_codigo
-      FROM carradas_pedidos_fases
-      WHERE codigo_carrada = $1
-        AND valor_boolean = TRUE
-        AND fase_codigo = ANY($2::text[])
-    `,
-    [codigoCarrada, FASES_BOOLEANAS_CODIGOS]
-  );
-
+async function buscarResumoBooleanosConcluidosDosPedidos(pedidos = []) {
+  const indicePedidos = criarIndicePedidos(pedidos);
   const mapa = new Map();
 
+  if (!indicePedidos.saidas.length && !indicePedidos.numeros.length) {
+    return mapa;
+  }
+
+  const result = await pool.query(
+    `
+      SELECT numero_pedido, saida, fase_codigo, valor_boolean, created_at, updated_at
+      FROM carradas_pedidos_fases
+      WHERE fase_codigo = ANY($3::text[])
+        AND ((saida IS NOT NULL AND saida = ANY($1::bigint[])) OR numero_pedido = ANY($2::text[]))
+      ORDER BY COALESCE(updated_at, created_at) ASC
+    `,
+    [indicePedidos.saidas, indicePedidos.numeros, FASES_BOOLEANAS_CODIGOS]
+  );
+
   result.rows.forEach((row) => {
-    const numeroPedido = String(row.numero_pedido);
+    const chavePedido = obterChavePedidoNoIndice(row, indicePedidos);
     const faseCodigo = String(row.fase_codigo || '').toUpperCase();
 
-    if (!mapa.has(numeroPedido)) {
-      mapa.set(numeroPedido, new Set());
+    if (!chavePedido || !faseCodigo) {
+      return;
     }
 
-    mapa.get(numeroPedido).add(faseCodigo);
+    if (!mapa.has(chavePedido)) {
+      mapa.set(chavePedido, new Map());
+    }
+
+    mapa.get(chavePedido).set(faseCodigo, Boolean(row.valor_boolean));
   });
 
-  return mapa;
+  const resultado = new Map();
+
+  mapa.forEach((fasesMap, chavePedido) => {
+    const concluidas = new Set();
+
+    fasesMap.forEach((valorBoolean, faseCodigo) => {
+      if (valorBoolean) {
+        concluidas.add(faseCodigo);
+      }
+    });
+
+    resultado.set(chavePedido, concluidas);
+  });
+
+  return resultado;
 }
 
-async function buscarResumoEtiquetasConfirmadasPorCarrada(codigoCarrada) {
+async function buscarResumoEtiquetasConfirmadasDosPedidos(pedidos = []) {
+  const indicePedidos = criarIndicePedidos(pedidos);
+  const mapa = new Map();
+
+  if (!indicePedidos.saidas.length && !indicePedidos.numeros.length) {
+    return new Set();
+  }
+
   const [etiquetasResult, silenciosoResult] = await Promise.all([
     pool.query(
       `
-        SELECT numero_pedido
+        SELECT numero_pedido, saida, confirmado_boolean, created_at, updated_at
         FROM carradas_pedidos_etiquetas_volumes
-        WHERE codigo_carrada = $1
-          AND confirmado_boolean = TRUE
+        WHERE (saida IS NOT NULL AND saida = ANY($1::bigint[]))
+           OR numero_pedido = ANY($2::text[])
+        ORDER BY COALESCE(updated_at, created_at) ASC
       `,
-      [codigoCarrada]
+      [indicePedidos.saidas, indicePedidos.numeros]
     ),
     pool.query(
       `
-        SELECT numero_pedido
+        SELECT numero_pedido, saida, valor_boolean AS confirmado_boolean, created_at, updated_at
         FROM carradas_pedidos_fases
-        WHERE codigo_carrada = $1
-          AND fase_codigo = 'ETIQUETA_VOLUMES'
-          AND valor_boolean = TRUE
+        WHERE fase_codigo = 'ETIQUETA_VOLUMES'
+          AND ((saida IS NOT NULL AND saida = ANY($1::bigint[])) OR numero_pedido = ANY($2::text[]))
+        ORDER BY COALESCE(updated_at, created_at) ASC
       `,
-      [codigoCarrada]
+      [indicePedidos.saidas, indicePedidos.numeros]
     )
   ]);
 
-  return new Set([
-    ...etiquetasResult.rows.map((row) => String(row.numero_pedido)),
-    ...silenciosoResult.rows.map((row) => String(row.numero_pedido))
-  ]);
+  [...etiquetasResult.rows, ...silenciosoResult.rows].forEach((row) => {
+    const chavePedido = obterChavePedidoNoIndice(row, indicePedidos);
+
+    if (!chavePedido || !linhaMaisNovaQueAtual(row, mapa.get(chavePedido))) {
+      return;
+    }
+
+    mapa.set(chavePedido, row);
+  });
+
+  return new Set(
+    [...mapa.entries()]
+      .filter(([, row]) => Boolean(row.confirmado_boolean))
+      .map(([chavePedido]) => chavePedido)
+  );
 }
 
-async function buscarResumoLocalEntregaPorCarrada(codigoCarrada) {
+async function buscarResumoLocalEntregaDosPedidos(pedidos = []) {
+  const indicePedidos = criarIndicePedidos(pedidos);
+  const mapa = new Map();
+
+  if (!indicePedidos.saidas.length && !indicePedidos.numeros.length) {
+    return new Set();
+  }
+
   const [localEntregaResult, silenciosoResult] = await Promise.all([
     pool.query(
       `
-        SELECT numero_pedido
+        SELECT numero_pedido, saida, TRUE AS concluido, created_at, updated_at
         FROM carradas_pedidos_local_entrega
-        WHERE codigo_carrada = $1
-          AND transportadora_id IS NOT NULL
+        WHERE transportadora_id IS NOT NULL
+          AND ((saida IS NOT NULL AND saida = ANY($1::bigint[])) OR numero_pedido = ANY($2::text[]))
+        ORDER BY COALESCE(updated_at, created_at) ASC
       `,
-      [codigoCarrada]
+      [indicePedidos.saidas, indicePedidos.numeros]
     ),
     pool.query(
       `
-        SELECT numero_pedido
+        SELECT numero_pedido, saida, valor_boolean AS concluido, created_at, updated_at
         FROM carradas_pedidos_fases
-        WHERE codigo_carrada = $1
-          AND fase_codigo = 'LOCAL_ENTREGA'
-          AND valor_boolean = TRUE
+        WHERE fase_codigo = 'LOCAL_ENTREGA'
+          AND ((saida IS NOT NULL AND saida = ANY($1::bigint[])) OR numero_pedido = ANY($2::text[]))
+        ORDER BY COALESCE(updated_at, created_at) ASC
       `,
-      [codigoCarrada]
+      [indicePedidos.saidas, indicePedidos.numeros]
     )
   ]);
 
-  return new Set([
-    ...localEntregaResult.rows.map((row) => String(row.numero_pedido)),
-    ...silenciosoResult.rows.map((row) => String(row.numero_pedido))
-  ]);
+  [...localEntregaResult.rows, ...silenciosoResult.rows].forEach((row) => {
+    const chavePedido = obterChavePedidoNoIndice(row, indicePedidos);
+
+    if (!chavePedido || !linhaMaisNovaQueAtual(row, mapa.get(chavePedido))) {
+      return;
+    }
+
+    mapa.set(chavePedido, row);
+  });
+
+  return new Set(
+    [...mapa.entries()]
+      .filter(([, row]) => Boolean(row.concluido))
+      .map(([chavePedido]) => chavePedido)
+  );
 }
 
 async function salvarStatusLinha(codigoCarrada, statusLinha) {
@@ -221,22 +355,23 @@ async function calcularStatusCarrada(codigoCarradaParam) {
   }
 
   const [booleanMap, etiquetasSet, localEntregaSet] = await Promise.all([
-    buscarResumoBooleanosConcluidosPorCarrada(codigoCarrada),
-    buscarResumoEtiquetasConfirmadasPorCarrada(codigoCarrada),
-    buscarResumoLocalEntregaPorCarrada(codigoCarrada)
+    buscarResumoBooleanosConcluidosDosPedidos(pedidos),
+    buscarResumoEtiquetasConfirmadasDosPedidos(pedidos),
+    buscarResumoLocalEntregaDosPedidos(pedidos)
   ]);
 
   const resumosPedidos = await Promise.all(
     pedidos.map(async (pedido) => {
       const numeroPedido = String(pedido?.numero || '');
-      const booleanSet = booleanMap.get(numeroPedido) || new Set();
+      const chavePedido = criarChavePedido({ saida: pedido?.saida, numero: numeroPedido });
+      const booleanSet = booleanMap.get(chavePedido) || new Set();
       const emProducao = booleanSet.has('EM_PRODUCAO');
       const pedidoPronto = booleanSet.has('PEDIDO_PRONTO');
       const videoFeito = booleanSet.has('VIDEO_FEITO');
       const querNotaFiscal = booleanSet.has('QUER_NOTA_FISCAL');
       const ligacaoPosVenda = booleanSet.has('LIGACAO_POS_VENDA');
-      const etiquetaConcluida = etiquetasSet.has(numeroPedido);
-      const localEntregaConcluido = localEntregaSet.has(numeroPedido);
+      const etiquetaConcluida = etiquetasSet.has(chavePedido);
+      const localEntregaConcluido = localEntregaSet.has(chavePedido);
 
       let pagamentoQuitado = false;
 
