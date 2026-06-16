@@ -169,6 +169,12 @@
     .carrada-completa td:first-child {
       border-left: 3px solid #3b82f6;
     }
+    .carrada-hoje td {
+      background: #fef9c3;
+    }
+    .carrada-hoje td:first-child {
+      border-left: 3px solid #eab308;
+    }
     .muted { color: var(--muted); }
     .selected-count { font-size: 14px; color: var(--muted); }
     @media (max-width: 980px) {
@@ -377,6 +383,70 @@
       });
     }
 
+    function obterDataISO(valor) {
+      if (!valor) return '';
+
+      if (valor instanceof Date && !Number.isNaN(valor.getTime())) {
+        const ano = valor.getFullYear();
+        const mes = String(valor.getMonth() + 1).padStart(2, '0');
+        const dia = String(valor.getDate()).padStart(2, '0');
+        return `${ano}-${mes}-${dia}`;
+      }
+
+      const texto = String(valor).trim();
+      if (!texto) return '';
+
+      const matchISO = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (matchISO) {
+        return `${matchISO[1]}-${matchISO[2]}-${matchISO[3]}`;
+      }
+
+      const matchBR = texto.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (matchBR) {
+        return `${matchBR[3]}-${matchBR[2]}-${matchBR[1]}`;
+      }
+
+      const data = new Date(texto);
+      if (Number.isNaN(data.getTime())) return '';
+
+      const ano = data.getFullYear();
+      const mes = String(data.getMonth() + 1).padStart(2, '0');
+      const dia = String(data.getDate()).padStart(2, '0');
+      return `${ano}-${mes}-${dia}`;
+    }
+
+    function obterDataHojeISO() {
+      const partes = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Fortaleza',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).formatToParts(new Date());
+
+      const valores = Object.fromEntries(partes.map((parte) => [parte.type, parte.value]));
+      return `${valores.year}-${valores.month}-${valores.day}`;
+    }
+
+    function carradaEhHoje(carrada) {
+      return obterDataISO(carrada?.data) === obterDataHojeISO();
+    }
+
+    function obterClassesLinhaCarrada(carrada) {
+      const classes = [];
+
+      if (carrada.progressoStatusLinha === 'completa') {
+        classes.push('carrada-completa');
+      } else if (carrada.progressoStatusLinha === 'semicompleta') {
+        classes.push('carrada-semicompleta');
+      }
+
+      if (carradaEhHoje(carrada)) {
+        classes.push('carrada-hoje');
+      }
+
+      return classes.join(' ');
+    }
+
     function obterTimestampOrdenacaoData(valor) {
       if (!valor) return 0;
 
@@ -557,7 +627,7 @@
       }
 
       el.tabelaCarradas.innerHTML = carradas.map((carrada) => `
-        <tr data-codigo-row="${carrada.codigo}" class="${carrada.progressoStatusLinha === 'completa' ? 'carrada-completa' : (carrada.progressoStatusLinha === 'semicompleta' ? 'carrada-semicompleta' : '')}">
+        <tr data-codigo-row="${carrada.codigo}" class="${obterClassesLinhaCarrada(carrada)}">
           <td>${carrada.codigo}</td>
           <td>${escapeHtml(formatarData(carrada.data))}</td>
           <td>${escapeHtml(carrada.descricao || '')}</td>
