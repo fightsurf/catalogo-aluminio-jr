@@ -1,9 +1,37 @@
+function numeroSeguro(valor) {
+  const numero = Number(valor);
+  return Number.isFinite(numero) ? numero : 0;
+}
+
+function textoSeguro(valor) {
+  if (valor === undefined || valor === null) {
+    return '';
+  }
+
+  return String(valor).trim();
+}
+
 function normalizarPedido(item) {
+  const total = numeroSeguro(item.total ?? item.TOTAL);
+  const totalPago = numeroSeguro(item.totalPago ?? item.total_pago ?? item.TOTAL_PAGO);
+  const saldoInformado = item.saldoRestante ?? item.saldo_restante ?? item.SALDO_RESTANTE;
+  const saldoRestante = saldoInformado === undefined || saldoInformado === null
+    ? Number((total - totalPago).toFixed(2))
+    : numeroSeguro(saldoInformado);
+
   return {
+    empresa: item.empresa ?? item.EMPRESA ?? -1,
     saida: item.saida ?? item.SAIDA ?? null,
+    pdv: item.pdv ?? item.PDV ?? 0,
     numero: item.numero ?? item.NUMERO ?? null,
     data: item.data ?? item.DATA ?? null,
-    total: Number(item.total ?? item.TOTAL ?? 0),
+    total,
+    totalPago: Number(totalPago.toFixed(2)),
+    saldoRestante: Number(saldoRestante.toFixed(2)),
+    favorecido: item.favorecido ?? item.FAVORECIDO ?? null,
+    clienteNome: textoSeguro(item.clienteNome ?? item.cliente_nome ?? item.CLIENTE_NOME),
+    clienteTelefone1: textoSeguro(item.clienteTelefone1 ?? item.cliente_telefone1 ?? item.CLIENTE_TELEFONE1),
+    clienteTelefonePrincipal: textoSeguro(item.clienteTelefonePrincipal ?? item.cliente_telefone_principal ?? item.CLIENTE_TELEFONE_PRINCIPAL),
     VendedorNome:
       item.VendedorNome ??
       item.VENDEDORNOME ??

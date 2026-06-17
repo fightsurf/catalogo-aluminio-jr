@@ -18,7 +18,7 @@
     }
 
     .container {
-      max-width: 1180px;
+      max-width: 1380px;
       margin: 0 auto;
     }
 
@@ -113,7 +113,7 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 720px;
+      min-width: 1080px;
     }
 
     thead {
@@ -151,9 +151,50 @@
       text-decoration: underline;
     }
 
-    .total-cell {
+    .total-cell,
+    .saldo-cell {
       font-weight: bold;
       white-space: nowrap;
+    }
+
+    .saldo-pendente {
+      color: #b45309;
+    }
+
+    .saldo-credito {
+      color: #047857;
+    }
+
+    .saldo-zerado {
+      color: #374151;
+    }
+
+    .acoes-linha {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      min-width: 280px;
+    }
+
+    .btn-linha {
+      padding: 7px 9px;
+      font-size: 12px;
+      border-radius: 5px;
+      background: #e5e7eb;
+      color: #111827;
+    }
+
+    .btn-linha:hover {
+      background: #d1d5db;
+    }
+
+    .btn-whatsapp-linha {
+      background: #111827;
+      color: #ffffff;
+    }
+
+    .btn-whatsapp-linha:hover {
+      background: #000000;
     }
 
     .linha-total-geral td {
@@ -209,13 +250,16 @@
             <tr>
               <th>Número</th>
               <th>Data</th>
-              <th>Total</th>
+              <th>Total do pedido</th>
+              <th>Valor pago</th>
+              <th>Restante a pagar</th>
               <th>Vendedor</th>
+              <th>Ações</th>
             </tr>
           </thead>
           <tbody id="tabelaPedidos">
             <tr>
-              <td colspan="4" class="vazio">Carregando...</td>
+              <td colspan="7" class="vazio">Carregando...</td>
             </tr>
           </tbody>
           <tfoot id="rodapePedidos"></tfoot>
@@ -231,12 +275,15 @@
     const nomeClienteFallback = params.get('cliente') || params.get('nome') || '';
 
     const ROTA_PEDIDO = '/legado/pedidos';
+    const ROTA_PAGAMENTOS = '/legado/pagamentos';
 
     const nomeClienteTexto = document.getElementById('nomeClienteTexto');
     const statusEl = document.getElementById('status');
     const tabelaPedidos = document.getElementById('tabelaPedidos');
     const rodapePedidos = document.getElementById('rodapePedidos');
     const btnVoltar = document.getElementById('btnVoltar');
+
+    let clienteAtual = null;
 
     btnVoltar.addEventListener('click', () => {
       if (document.referrer) {
@@ -253,8 +300,18 @@
     }
 
     function atualizarSubtitulo(cliente) {
+      clienteAtual = cliente || null;
       const nome = cliente?.nome || nomeClienteFallback || 'Cliente não informado';
       nomeClienteTexto.textContent = nome;
+    }
+
+    function escapeHtml(valor) {
+      return String(valor ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
     }
 
     function formatarData(data) {
@@ -305,10 +362,209 @@
       window.location.href = url.toString();
     }
 
-    function calcularTotalGeral(pedidos) {
-      return pedidos.reduce((acumulador, pedido) => {
-        return acumulador + Number(pedido.total || 0);
-      }, 0);
+    function obterFiltrosPagamento(pedido) {
+      return {
+        empresa: pedido?.empresa ?? -1,
+        saida: pedido?.saida ?? null,
+        pdv: pedido?.pdv ?? 0
+      };
+    }
+
+    function validarPedidoParaPagamentos(pedido) {
+      const filtros = obterFiltrosPagamento(pedido);
+
+      if (filtros.saida === null || filtros.saida === undefined || filtros.saida === '') {
+        throw new Error('Código interno da saída não encontrado para este pedido.');
+      }
+
+      return filtros;
+    }
+
+    function abrirPagamentos(pedido) {
+      try {
+        const filtros = validarPedidoParaPagamentos(pedido);
+        const url = new URL(ROTA_PAGAMENTOS, window.location.origin);
+        url.searchParams.set('empresa', filtros.empresa);
+        url.searchParams.set('saida', filtros.saida);
+        url.searchParams.set('pdv', filtros.pdv);
+        window.location.href = url.toString();
+      } catch (error) {
+        mostrarStatus('erro', error.message);
+      }
+    }
+
+    function normalizarTelefone(valor) {
+      return String(valor || '').replace(/\D+/g, '');
+    }
+
+    function obterTelefoneDetalhe(detalhe, pedido) {
+      return normalizarTelefone(
+        detalhe?.pedido?.cliente?.telefone1 ||
+        detalhe?.pedido?.cliente?.telefonePrincipal ||
+        pedido?.clienteTelefone1 ||
+        pedido?.clienteTelefonePrincipal
+      );
+    }
+
+    function obterNomeClienteDetalhe(detalhe, pedido) {
+      return (
+        detalhe?.pedido?.cliente?.nome ||
+        pedido?.clienteNome ||
+        clienteAtual?.nome ||
+        nomeClienteFallback ||
+        '-'
+      );
+    }
+
+    function obterResumoDetalhe(detalhe, pedido) {
+      const totalVenda = Number(detalhe?.resumo?.totalVenda ?? pedido?.total ?? 0);
+      const totalPago = Number(detalhe?.resumo?.totalPago ?? pedido?.totalPago ?? 0);
+      const saldoRestante = Number(
+        detalhe?.resumo?.saldoRestante ??
+        pedido?.saldoRestante ??
+        (totalVenda - totalPago)
+      );
+
+      return {
+        totalVenda,
+        totalPago,
+        saldoRestante: Number(saldoRestante.toFixed(2))
+      };
+    }
+
+    function obterDataPagamentoMensagem(pagamento) {
+      if (!pagamento) return '-';
+      return formatarData(pagamento.condicao === 'C' ? pagamento.dataVencimento : pagamento.dataPgto) || '-';
+    }
+
+    function montarLinhaSaldoMensagem(saldoRestante) {
+      const saldo = Number(saldoRestante || 0);
+
+      if (saldo < 0) {
+        return `Crédito do cliente: *${formatarMoeda(Math.abs(saldo))}*`;
+      }
+
+      return `Restante a pagar: *${formatarMoeda(saldo)}*`;
+    }
+
+    function montarMensagemSaldoPedido(detalhe, pedido) {
+      const resumo = obterResumoDetalhe(detalhe, pedido);
+
+      return [
+        '💰 *Resumo financeiro do pedido*',
+        `Cliente: *${obterNomeClienteDetalhe(detalhe, pedido)}*`,
+        `Número do pedido: *${detalhe?.pedido?.numero || pedido?.numero || '-'}*`,
+        '-----------------------------------------------',
+        `Valor do pedido: *${formatarMoeda(resumo.totalVenda)}*`,
+        `Valor pago: *${formatarMoeda(resumo.totalPago)}*`,
+        montarLinhaSaldoMensagem(resumo.saldoRestante)
+      ].join('\n');
+    }
+
+    function montarMensagemHistoricoPagamentos(detalhe, pedido) {
+      const resumo = obterResumoDetalhe(detalhe, pedido);
+      const pagamentos = Array.isArray(detalhe?.pagamentos) ? detalhe.pagamentos : [];
+      const linhas = [
+        '💰 *Relatório de pagamentos*',
+        `Cliente: *${obterNomeClienteDetalhe(detalhe, pedido)}*`,
+        `Número do pedido: *${detalhe?.pedido?.numero || pedido?.numero || '-'}*`,
+        '-----------------------------------------------',
+        `Valor do pedido: *${formatarMoeda(resumo.totalVenda)}*`
+      ];
+
+      if (pagamentos.length) {
+        pagamentos.forEach((pagamento) => {
+          linhas.push(`\n- ${obterDataPagamentoMensagem(pagamento)}: *${formatarMoeda(pagamento.valor)}*`);
+        });
+      } else {
+        linhas.push('\nNenhum pagamento lançado para este pedido.');
+      }
+
+      linhas.push(`\nTotal pago: *${formatarMoeda(resumo.totalPago)}*`);
+      linhas.push(`\n${montarLinhaSaldoMensagem(resumo.saldoRestante)}`);
+
+      return linhas.join('\n');
+    }
+
+    async function buscarDetalhePagamentosPedido(pedido) {
+      const filtros = validarPedidoParaPagamentos(pedido);
+      const params = new URLSearchParams({
+        empresa: String(filtros.empresa),
+        saida: String(filtros.saida),
+        pdv: String(filtros.pdv)
+      });
+
+      const response = await fetch(`/api/legado/pagamentos/pedido?${params.toString()}`);
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok || payload.success === false) {
+        throw new Error(payload.error || payload.message || 'Erro ao carregar pagamentos do pedido.');
+      }
+
+      return payload.data;
+    }
+
+    async function enviarWhatsappPedido(pedido, tipoMensagem, botao) {
+      const textoOriginal = botao ? botao.textContent : '';
+
+      try {
+        if (botao) {
+          botao.disabled = true;
+          botao.textContent = 'Enviando...';
+        }
+
+        mostrarStatus('info', 'Carregando dados financeiros do pedido...');
+        const detalhe = await buscarDetalhePagamentosPedido(pedido);
+        const telefone = obterTelefoneDetalhe(detalhe, pedido);
+
+        if (!telefone) {
+          throw new Error('Telefone 1 não encontrado no legado para este cliente.');
+        }
+
+        const mensagem = tipoMensagem === 'historico'
+          ? montarMensagemHistoricoPagamentos(detalhe, pedido)
+          : montarMensagemSaldoPedido(detalhe, pedido);
+
+        const response = await fetch('/api/whatsapp/enviar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ telefone, mensagem })
+        });
+        const payload = await response.json().catch(() => ({}));
+
+        if (!response.ok || payload.success === false) {
+          throw new Error(payload.detalhe || payload.error || 'Erro ao enviar mensagem pelo WhatsApp.');
+        }
+
+        mostrarStatus('ok', 'Mensagem enviada com sucesso pelo WhatsApp.');
+      } catch (error) {
+        mostrarStatus('erro', error.message || 'Erro ao enviar mensagem pelo WhatsApp.');
+      } finally {
+        if (botao) {
+          botao.disabled = false;
+          botao.textContent = textoOriginal;
+        }
+      }
+    }
+
+    function classeSaldo(pedido) {
+      const saldo = Number(pedido?.saldoRestante || 0);
+      if (saldo < 0) return 'saldo-credito';
+      if (saldo > 0) return 'saldo-pendente';
+      return 'saldo-zerado';
+    }
+
+    function calcularTotaisGerais(pedidos) {
+      return pedidos.reduce((totais, pedido) => {
+        totais.totalPedidos += Number(pedido.total || 0);
+        totais.totalPago += Number(pedido.totalPago || 0);
+        totais.saldoRestante += Number(pedido.saldoRestante || 0);
+        return totais;
+      }, {
+        totalPedidos: 0,
+        totalPago: 0,
+        saldoRestante: 0
+      });
     }
 
     function renderizarRodape(pedidos) {
@@ -317,13 +573,15 @@
         return;
       }
 
-      const totalGeral = calcularTotalGeral(pedidos);
+      const totais = calcularTotaisGerais(pedidos);
 
       rodapePedidos.innerHTML = `
         <tr class="linha-total-geral">
           <td colspan="2">Total geral</td>
-          <td>${formatarMoeda(totalGeral)}</td>
-          <td></td>
+          <td>${formatarMoeda(totais.totalPedidos)}</td>
+          <td>${formatarMoeda(totais.totalPago)}</td>
+          <td>${formatarMoeda(totais.saldoRestante)}</td>
+          <td colspan="2"></td>
         </tr>
       `;
     }
@@ -332,7 +590,7 @@
       if (!Array.isArray(pedidos) || pedidos.length === 0) {
         tabelaPedidos.innerHTML = `
           <tr>
-            <td colspan="4" class="vazio">Nenhum pedido encontrado para este cliente.</td>
+            <td colspan="7" class="vazio">Nenhum pedido encontrado para este cliente.</td>
           </tr>
         `;
         rodapePedidos.innerHTML = '';
@@ -344,12 +602,21 @@
         <tr data-index="${index}">
           <td>
             <a href="#" class="pedido-link" data-index="${index}">
-              ${obterNumeroPedido(pedido)}
+              ${escapeHtml(obterNumeroPedido(pedido))}
             </a>
           </td>
-          <td>${formatarData(pedido.data)}</td>
-          <td class="total-cell">${formatarMoeda(pedido.total)}</td>
-          <td>${pedido.VendedorNome || ''}</td>
+          <td>${escapeHtml(formatarData(pedido.data))}</td>
+          <td class="total-cell">${escapeHtml(formatarMoeda(pedido.total))}</td>
+          <td class="total-cell">${escapeHtml(formatarMoeda(pedido.totalPago || 0))}</td>
+          <td class="saldo-cell ${classeSaldo(pedido)}">${escapeHtml(formatarMoeda(pedido.saldoRestante || 0))}</td>
+          <td>${escapeHtml(pedido.VendedorNome || '')}</td>
+          <td>
+            <div class="acoes-linha">
+              <button type="button" class="btn-linha" data-acao="pagamentos" data-index="${index}">Pagamentos</button>
+              <button type="button" class="btn-linha btn-whatsapp-linha" data-acao="saldo" data-index="${index}">Enviar saldo</button>
+              <button type="button" class="btn-linha btn-whatsapp-linha" data-acao="historico" data-index="${index}">Enviar histórico</button>
+            </div>
+          </td>
         </tr>
       `).join('');
 
@@ -371,6 +638,23 @@
         });
       });
 
+      tabelaPedidos.querySelectorAll('[data-acao]').forEach((botao) => {
+        botao.addEventListener('click', async (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+
+          const pedido = pedidos[Number(botao.dataset.index)];
+          const acao = botao.dataset.acao;
+
+          if (acao === 'pagamentos') {
+            abrirPagamentos(pedido);
+            return;
+          }
+
+          await enviarWhatsappPedido(pedido, acao === 'historico' ? 'historico' : 'saldo', botao);
+        });
+      });
+
       mostrarStatus('ok', `${pedidos.length} pedido(s) encontrado(s).`);
     }
 
@@ -379,7 +663,7 @@
         atualizarSubtitulo(null);
         tabelaPedidos.innerHTML = `
           <tr>
-            <td colspan="4" class="vazio">Parâmetro "favorecido" não informado.</td>
+            <td colspan="7" class="vazio">Parâmetro "favorecido" não informado.</td>
           </tr>
         `;
         rodapePedidos.innerHTML = '';
@@ -402,7 +686,7 @@
         atualizarSubtitulo(null);
         tabelaPedidos.innerHTML = `
           <tr>
-            <td colspan="4" class="vazio">Erro ao carregar pedidos.</td>
+            <td colspan="7" class="vazio">Erro ao carregar pedidos.</td>
           </tr>
         `;
         rodapePedidos.innerHTML = '';
