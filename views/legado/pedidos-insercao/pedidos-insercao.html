@@ -132,6 +132,7 @@
 
         <div class="acoes-final">
           <button id="btnEnviarWhatsapp" class="whatsapp" type="button" style="display:none;">Enviar para WhatsApp</button>
+          <button id="btnEnviarPdfWhatsapp" class="whatsapp" type="button" style="display:none;">Enviar PDF WhatsApp</button>
           <button id="btnAdicionarPagamento" class="secundario" type="button" style="display:none;">Adicionar pagamento</button>
           <button id="btnImprimirRelatorio" class="impressao" type="button" style="display:none;">Imprimir relatório</button>
           <button id="btnImprimirRelatorioProducao" class="impressao" type="button" style="display:none;">Imprimir relatório para produção</button>
@@ -167,6 +168,7 @@
     const btnImprimirRelatorio = document.getElementById('btnImprimirRelatorio');
     const btnImprimirRelatorioProducao = document.getElementById('btnImprimirRelatorioProducao');
     const btnEnviarWhatsapp = document.getElementById('btnEnviarWhatsapp');
+    const btnEnviarPdfWhatsapp = document.getElementById('btnEnviarPdfWhatsapp');
     const btnAdicionarPagamento = document.getElementById('btnAdicionarPagamento');
     const resultadoSucesso = document.getElementById('resultadoSucesso');
 
@@ -306,6 +308,12 @@
 
     function obterTelefoneClienteAtual() {
       return normalizarTelefone(ultimoRelatorio?.cliente?.telefone || clienteSelecionado?.telefonePrincipal || clienteSelecionado?.telefone1 || '');
+    }
+
+
+    function obterIdPedidoAtual() {
+      const pedido = ultimoPedidoSalvo || ultimoRelatorio || null;
+      return pedido?.idMestre || pedido?.saida || pedido?.SAIDA || null;
     }
 
     function montarMensagemWhatsappPedido() {
@@ -650,8 +658,10 @@
       btnImprimirRelatorio.style.display = exibirRelatorios ? 'inline-flex' : 'none';
       btnImprimirRelatorioProducao.style.display = exibirRelatorios ? 'inline-flex' : 'none';
       btnEnviarWhatsapp.style.display = exibirRelatorios ? 'inline-flex' : 'none';
+      btnEnviarPdfWhatsapp.style.display = exibirRelatorios ? 'inline-flex' : 'none';
       btnAdicionarPagamento.style.display = exibirPagamento ? 'inline-flex' : 'none';
       btnEnviarWhatsapp.disabled = exibirRelatorios ? !obterTelefoneClienteAtual() : true;
+      btnEnviarPdfWhatsapp.disabled = btnEnviarWhatsapp.disabled || !obterIdPedidoAtual();
     }
 
     async function salvarPedido() {
@@ -774,6 +784,7 @@
         setMensagem(error.message, true);
       } finally {
         btnEnviarWhatsapp.disabled = !obterTelefoneClienteAtual();
+        btnEnviarPdfWhatsapp.disabled = btnEnviarWhatsapp.disabled || !obterIdPedidoAtual();
         btnEnviarWhatsapp.textContent = textoOriginal;
       }
     }
@@ -836,11 +847,52 @@
       }
     });
 
+
+    async function enviarPdfWhatsappPedido() {
+      if (!ultimoRelatorio?.numero && !ultimoPedidoSalvo?.numero) {
+        setMensagem('Nenhum pedido salvo disponível para envio do PDF.', true);
+        return;
+      }
+
+      const idPedido = obterIdPedidoAtual();
+      if (!idPedido) {
+        setMensagem('ID do pedido não encontrado para gerar o PDF.', true);
+        return;
+      }
+
+      const telefone = obterTelefoneClienteAtual();
+      if (!telefone) {
+        setMensagem('Telefone do cliente não encontrado.', true);
+        return;
+      }
+
+      const textoOriginal = btnEnviarPdfWhatsapp.textContent;
+
+      try {
+        btnEnviarPdfWhatsapp.disabled = true;
+        btnEnviarPdfWhatsapp.textContent = 'Enviando PDF...';
+
+        const response = await fetch(`/api/legado/pedidos/${encodeURIComponent(idPedido)}/whatsapp/pdf`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        await lerJson(response);
+        setMensagem('PDF do pedido enviado com sucesso pelo WhatsApp.');
+      } catch (error) {
+        setMensagem(error.message, true);
+      } finally {
+        btnEnviarPdfWhatsapp.disabled = !obterTelefoneClienteAtual() || !obterIdPedidoAtual();
+        btnEnviarPdfWhatsapp.textContent = textoOriginal;
+      }
+    }
+
     btnSalvarPedido.addEventListener('click', salvarPedido);
     btnNovoPedido.addEventListener('click', limparPedidoCompleto);
     btnImprimirRelatorio.addEventListener('click', () => abrirRelatorio('normal'));
     btnImprimirRelatorioProducao.addEventListener('click', abrirRelatorioProducao);
     btnEnviarWhatsapp.addEventListener('click', enviarWhatsappPedido);
+    btnEnviarPdfWhatsapp.addEventListener('click', enviarPdfWhatsappPedido);
     btnAdicionarPagamento.addEventListener('click', abrirTelaPagamentos);
 
     renderClienteSelecionado();

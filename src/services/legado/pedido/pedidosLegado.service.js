@@ -1,5 +1,6 @@
 const legadoBridgeService = require('../legadoBridge.service');
 const envioWhatsappService = require('../../whatsapp/envio-whatsapp.service');
+const pedidoPdfService = require('./pedidoPdf.service');
 
 function limparTexto(valor) {
   if (typeof valor !== 'string') {
@@ -16,6 +17,28 @@ function normalizarNumeroPedido(valor) {
 function numeroSeguro(valor, fallback = 0) {
   const numero = Number(valor);
   return Number.isFinite(numero) ? numero : fallback;
+}
+
+function normalizarTelefonePedido(pedido) {
+  return limparTexto(
+    pedido?.cliente?.telefonePrincipal
+      || pedido?.cliente?.telefone1
+      || pedido?.cliente?.fone1
+      || pedido?.telefonePrincipal
+      || pedido?.telefone
+      || ''
+  );
+}
+
+function montarNomeArquivoPedido(pedido) {
+  const numeroPedido = normalizarNumeroPedido(pedido?.numero) || String(pedido?.idMestre || 'pedido');
+  const numeroLimpo = numeroPedido.replace(/[^a-zA-Z0-9_-]+/g, '_');
+  return `Pedido_${numeroLimpo}_Aluminio_JR.pdf`;
+}
+
+function montarLegendaPdfPedido(pedido) {
+  const numeroPedido = normalizarNumeroPedido(pedido?.numero) || '-';
+  return `Pedido Alumínio JR ${numeroPedido}`;
 }
 
 function normalizarCarrada(item) {
@@ -307,6 +330,74 @@ async function buscarItensPedido(idMestre) {
   };
 }
 
+async function buscarDetalhePedido(idMestre) {
+  const response = await legadoBridgeService.get(
+    `/api/legado/pedidos/${idMestre}/detalhe`
+  );
+
+  const pedido = response.data || null;
+
+  if (!pedido) {
+    return null;
+  }
+
+  return {
+    ...normalizarPedido({
+      ...pedido,
+      carradaAtual: pedido?.carradaAtual || null
+    }),
+    itens: Array.isArray(pedido?.itens)
+      ? pedido.itens.map((item) => ({
+          saidaItem: item?.saidaItem ?? item?.SAIDAITEM ?? null,
+          sequencia: item?.sequencia ?? item?.SEQUENCIA ?? null,
+          item: item?.item ?? item?.ITEM ?? null,
+          descricao: limparTexto(item?.descricao),
+          quantidade: Number(item?.quantidade ?? 0),
+          preco: Number(item?.preco ?? 0),
+          subtotal: Number(item?.subtotal ?? item?.subtotalitem ?? 0)
+        }))
+      : []
+  };
+}
+
+async function enviarPdfWhatsappPedido(idMestre) {
+  const pedido = await buscarDetalhePedido(idMestre);
+
+  if (!pedido) {
+    throw new Error('Pedido não encontrado.');
+  }
+
+  const telefone = normalizarTelefonePedido(pedido);
+
+  if (!telefone) {
+    throw new Error('Telefone do cliente não encontrado no pedido.');
+  }
+
+  const pdfBuffer = pedidoPdfService.gerarPdfPedido(pedido);
+  const documentoBase64 = pdfBuffer.toString('base64');
+  const nomeArquivo = montarNomeArquivoPedido(pedido);
+  const legenda = montarLegendaPdfPedido(pedido);
+
+  const envio = await envioWhatsappService.enviarDocumentoPdf({
+    telefone,
+    documentoBase64,
+    nomeArquivo,
+    legenda
+  });
+
+  return {
+    success: true,
+    pedido: {
+      idMestre: pedido.idMestre,
+      numero: pedido.numero,
+      cliente: pedido.cliente,
+      total: pedido.total
+    },
+    telefone: envio.telefone,
+    nomeArquivo,
+    zapi: envio.zapi
+  };
+}
 
 async function listarCarradasDisponiveis(idMestre) {
   const response = await legadoBridgeService.get(
@@ -385,7 +476,9 @@ async function atualizarPedido(idMestre, payload = {}) {
 module.exports = {
   pesquisarPedidos,
   buscarItensPedido,
+  buscarDetalhePedido,
   listarCarradasDisponiveis,
   alterarCarradaPedido,
-  atualizarPedido
+  atualizarPedido,
+  enviarPdfWhatsappPedido
 };

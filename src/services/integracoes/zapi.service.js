@@ -260,6 +260,42 @@ async function enviarTexto({ telefone, mensagem }) {
   };
 }
 
+async function enviarDocumentoPdf({ telefone, documentoBase64, nomeArquivo, legenda }) {
+  const telefoneNormalizado = normalizarTelefone(telefone);
+  const nomeArquivoNormalizado = String(nomeArquivo || 'pedido.pdf').trim() || 'pedido.pdf';
+  const legendaNormalizada = String(legenda || '').trim();
+  const base64Limpo = String(documentoBase64 || '').trim();
+
+  validarTelefone(telefoneNormalizado);
+
+  if (!base64Limpo) {
+    throw new Error('Documento PDF em Base64 é obrigatório.');
+  }
+
+  const document = base64Limpo.startsWith('data:')
+    ? base64Limpo
+    : `data:application/pdf;base64,${base64Limpo}`;
+
+  const payload = {
+    phone: telefoneNormalizado,
+    document,
+    fileName: nomeArquivoNormalizado
+  };
+
+  if (legendaNormalizada) {
+    payload.caption = legendaNormalizada;
+  }
+
+  const resultado = await postZapi('/send-document/pdf', payload);
+
+  return {
+    ...resultado,
+    telefone: telefoneNormalizado,
+    nomeArquivo: nomeArquivoNormalizado,
+    legenda: legendaNormalizada
+  };
+}
+
 async function enviarAcao({ telefone, tipo, conteudo }) {
   const telefoneNormalizado = normalizarTelefone(telefone);
   validarTelefone(telefoneNormalizado);
@@ -280,6 +316,7 @@ module.exports = {
   normalizarTelefone,
   normalizarTipoAcao,
   enviarTexto,
+  enviarDocumentoPdf,
   enviarAcao,
   montarRequisicao,
   postZapi

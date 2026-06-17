@@ -152,11 +152,38 @@ async function atualizarPedido(req, res) {
     });
   }
 }
+async function enviarPdfWhatsappPedido(req, res) {
+  try {
+    const { idMestre } = req.params;
+
+    if (!idMestre) {
+      return res.status(400).json({
+        success: false,
+        message: 'Informe o id do pedido.'
+      });
+    }
+
+    const data = await pedidosLegadoService.enviarPdfWhatsappPedido(idMestre);
+
+    return res.json({
+      success: true,
+      message: 'PDF do pedido enviado com sucesso pelo WhatsApp.',
+      data
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message || 'Erro ao enviar PDF do pedido pelo WhatsApp.',
+      error: error.message
+    });
+  }
+}
 
 module.exports = {
   pesquisarPedidos,
   buscarItensPedido,
   listarCarradasDisponiveis,
   alterarCarradaPedido,
-  atualizarPedido
+  atualizarPedido,
+  enviarPdfWhatsappPedido
 };

@@ -369,6 +369,7 @@
         <button id="btnCancelarEdicao" class="btn btn-secondary oculto">Cancelar edição</button>
         <button id="btnSalvarAlteracoes" class="btn btn-primary oculto">Salvar alterações</button>
         <button id="btnEnviarWhatsapp" class="btn btn-whatsapp oculto">Enviar para WhatsApp</button>
+        <button id="btnEnviarPdfWhatsapp" class="btn btn-whatsapp oculto">Enviar PDF WhatsApp</button>
         <button id="btnAdicionarPagamentos" class="btn btn-primary oculto">Adicionar pagamentos</button>
         <button id="btnImprimirRelatorioProducao" class="btn btn-primary oculto">Imprimir relatório para produção</button>
         <button id="btnImprimirRelatorio" class="btn btn-primary oculto">Imprimir relatório</button>
@@ -401,6 +402,7 @@
     const btnCancelarEdicao = document.getElementById('btnCancelarEdicao');
     const btnSalvarAlteracoes = document.getElementById('btnSalvarAlteracoes');
     const btnEnviarWhatsapp = document.getElementById('btnEnviarWhatsapp');
+    const btnEnviarPdfWhatsapp = document.getElementById('btnEnviarPdfWhatsapp');
     const btnAdicionarPagamentos = document.getElementById('btnAdicionarPagamentos');
     const btnImprimirRelatorioProducao = document.getElementById('btnImprimirRelatorioProducao');
     const btnImprimirRelatorio = document.getElementById('btnImprimirRelatorio');
@@ -496,6 +498,7 @@
 
       const ocultarAcoesLeitura = !haPedido || modoEdicao;
       btnEnviarWhatsapp.classList.toggle('oculto', ocultarAcoesLeitura);
+      btnEnviarPdfWhatsapp.classList.toggle('oculto', ocultarAcoesLeitura);
       btnAdicionarPagamentos.classList.toggle('oculto', ocultarAcoesLeitura);
       btnImprimirRelatorioProducao.classList.toggle('oculto', ocultarAcoesLeitura);
       btnImprimirRelatorio.classList.toggle('oculto', ocultarAcoesLeitura);
@@ -529,6 +532,7 @@
       dadosCliente.innerHTML = '<div class="placeholder">Nenhum pedido carregado.</div>';
       atualizarVisibilidadeAcoes();
       btnEnviarWhatsapp.disabled = true;
+      btnEnviarPdfWhatsapp.disabled = true;
     }
 
     function limparItens() {
@@ -1115,6 +1119,7 @@
       renderizarItens(pedidoCarregado);
       atualizarVisibilidadeAcoes();
       btnEnviarWhatsapp.disabled = !normalizarTelefone(pedidoCarregado?.cliente?.telefonePrincipal || pedidoCarregado?.cliente?.telefone1 || '');
+      btnEnviarPdfWhatsapp.disabled = btnEnviarWhatsapp.disabled;
     }
 
     async function entrarModoEdicao() {
@@ -1444,7 +1449,47 @@
         setMensagem(error.message || 'Erro ao enviar mensagem.', true);
       } finally {
         btnEnviarWhatsapp.disabled = !normalizarTelefone(pedidoCarregado?.cliente?.telefonePrincipal || pedidoCarregado?.cliente?.telefone1 || '');
+        btnEnviarPdfWhatsapp.disabled = btnEnviarWhatsapp.disabled;
         btnEnviarWhatsapp.textContent = textoOriginal;
+      }
+    });
+
+
+    btnEnviarPdfWhatsapp.addEventListener('click', async () => {
+      if (!pedidoCarregado?.numero) {
+        setMensagem('Nenhum pedido carregado para envio do PDF.', true);
+        return;
+      }
+
+      const idPedido = pedidoCarregado?.idMestre || pedidoCarregado?.saida;
+      if (!idPedido) {
+        setMensagem('ID do pedido não encontrado para gerar o PDF.', true);
+        return;
+      }
+
+      const telefone = normalizarTelefone(pedidoCarregado?.cliente?.telefonePrincipal || pedidoCarregado?.cliente?.telefone1 || '');
+      if (!telefone) {
+        setMensagem('Telefone do cliente não encontrado.', true);
+        return;
+      }
+
+      const textoOriginal = btnEnviarPdfWhatsapp.textContent;
+
+      try {
+        btnEnviarPdfWhatsapp.disabled = true;
+        btnEnviarPdfWhatsapp.textContent = 'Enviando PDF...';
+
+        await fetchJson(`/api/legado/pedidos/${encodeURIComponent(idPedido)}/whatsapp/pdf`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        setMensagem('PDF do pedido enviado com sucesso pelo WhatsApp.');
+      } catch (error) {
+        setMensagem(error.message || 'Erro ao enviar PDF do pedido.', true);
+      } finally {
+        btnEnviarPdfWhatsapp.disabled = !normalizarTelefone(pedidoCarregado?.cliente?.telefonePrincipal || pedidoCarregado?.cliente?.telefone1 || '');
+        btnEnviarPdfWhatsapp.textContent = textoOriginal;
       }
     });
 

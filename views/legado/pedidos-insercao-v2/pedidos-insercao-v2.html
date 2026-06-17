@@ -149,6 +149,7 @@
 
         <div class="acoes-final">
           <button id="btnEnviarWhatsapp" class="whatsapp oculto" type="button">Enviar para WhatsApp</button>
+          <button id="btnEnviarPdfWhatsapp" class="whatsapp oculto" type="button">Enviar PDF WhatsApp</button>
           <button id="btnAdicionarPagamento" class="secundario oculto" type="button">Adicionar pagamento</button>
           <button id="btnImprimirRelatorio" class="secundario oculto" type="button">Imprimir relatório</button>
           <button id="btnImprimirRelatorioProducao" class="secundario oculto" type="button">Imprimir relatório para produção</button>
@@ -186,6 +187,7 @@
     const btnImprimirRelatorio = document.getElementById('btnImprimirRelatorio');
     const btnImprimirRelatorioProducao = document.getElementById('btnImprimirRelatorioProducao');
     const btnEnviarWhatsapp = document.getElementById('btnEnviarWhatsapp');
+    const btnEnviarPdfWhatsapp = document.getElementById('btnEnviarPdfWhatsapp');
     const btnAdicionarPagamento = document.getElementById('btnAdicionarPagamento');
     const btnSalvarPedido = document.getElementById('btnSalvarPedido');
     const resultadoSucesso = document.getElementById('resultadoSucesso');
@@ -334,6 +336,12 @@
 
     function obterTelefoneClienteAtual() {
       return normalizarTelefone(ultimoPedidoSalvo?.cliente?.telefone || clienteSelecionado?.telefonePrincipal || clienteSelecionado?.telefone1 || '');
+    }
+
+
+    function obterIdPedidoAtual() {
+      const pedido = ultimoPedidoSalvo || null;
+      return pedido?.idMestre || pedido?.saida || pedido?.SAIDA || null;
     }
 
     function montarMensagemWhatsappPedido() {
@@ -593,8 +601,10 @@
       btnImprimirRelatorio.classList.toggle('oculto', !exibirRelatorio);
       btnImprimirRelatorioProducao.classList.toggle('oculto', !exibirRelatorio);
       btnEnviarWhatsapp.classList.toggle('oculto', !exibirRelatorio);
+      btnEnviarPdfWhatsapp.classList.toggle('oculto', !exibirRelatorio);
       btnAdicionarPagamento.classList.toggle('oculto', !exibirPagamento);
       btnEnviarWhatsapp.disabled = exibirRelatorio ? !obterTelefoneClienteAtual() : true;
+      btnEnviarPdfWhatsapp.disabled = btnEnviarWhatsapp.disabled || !obterIdPedidoAtual();
     }
 
     async function carregarClientes() {
@@ -1158,7 +1168,48 @@ setMensagem([
         setMensagem(error.message, true);
       } finally {
         btnEnviarWhatsapp.disabled = !obterTelefoneClienteAtual();
+        btnEnviarPdfWhatsapp.disabled = btnEnviarWhatsapp.disabled || !obterIdPedidoAtual();
         btnEnviarWhatsapp.textContent = textoOriginal;
+      }
+    });
+
+
+    btnEnviarPdfWhatsapp.addEventListener('click', async () => {
+      if (!ultimoPedidoSalvo?.numero) {
+        setMensagem('Nenhum pedido salvo disponível para envio do PDF.', true);
+        return;
+      }
+
+      const idPedido = obterIdPedidoAtual();
+      if (!idPedido) {
+        setMensagem('ID do pedido não encontrado para gerar o PDF.', true);
+        return;
+      }
+
+      const telefone = obterTelefoneClienteAtual();
+      if (!telefone) {
+        setMensagem('Telefone do cliente não encontrado.', true);
+        return;
+      }
+
+      const textoOriginal = btnEnviarPdfWhatsapp.textContent;
+
+      try {
+        btnEnviarPdfWhatsapp.disabled = true;
+        btnEnviarPdfWhatsapp.textContent = 'Enviando PDF...';
+
+        const response = await fetch(`/api/legado/pedidos/${encodeURIComponent(idPedido)}/whatsapp/pdf`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+
+        await lerJson(response);
+        setMensagem('PDF do pedido enviado com sucesso pelo WhatsApp.');
+      } catch (error) {
+        setMensagem(error.message, true);
+      } finally {
+        btnEnviarPdfWhatsapp.disabled = !obterTelefoneClienteAtual() || !obterIdPedidoAtual();
+        btnEnviarPdfWhatsapp.textContent = textoOriginal;
       }
     });
 
