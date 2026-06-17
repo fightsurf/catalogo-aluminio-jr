@@ -189,6 +189,8 @@
     const btnAdicionarPagamento = document.getElementById('btnAdicionarPagamento');
     const btnSalvarPedido = document.getElementById('btnSalvarPedido');
     const resultadoSucesso = document.getElementById('resultadoSucesso');
+    const paramsPedidoInsercao = new URLSearchParams(window.location.search);
+    const carradaCodigoPreSelecionada = paramsPedidoInsercao.get('carrada_codigo') || paramsPedidoInsercao.get('carradaCodigo') || '';
 
     let clientes = [];
     let clienteSelecionado = null;
@@ -241,6 +243,19 @@
         throw new Error(json?.detalhe || json?.erro || json?.message || 'Erro na requisição.');
       }
       return json;
+    }
+
+    function escapeHtml(valor) {
+      return String(valor ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function normalizarCodigoCarrada(valor) {
+      return String(valor ?? '').trim();
     }
 
     function normalizarNome(valor) {
@@ -391,13 +406,30 @@
       return `Código ${codigo} — ${data} — ${descricao || 'Sem descrição'}`;
     }
 
-    function preencherSelectCarradas(lista) {
+    function preencherSelectCarradas(lista, codigoSelecionado = '') {
       carradasDisponiveis = Array.isArray(lista) ? lista : [];
+      const codigoNormalizado = normalizarCodigoCarrada(codigoSelecionado);
 
       carradaPedido.innerHTML = [
         '<option value="">Sem carrada</option>',
-        ...carradasDisponiveis.map((carrada) => `<option value="${carrada.codigo}">${montarRotuloCarrada(carrada)}</option>`)
+        ...carradasDisponiveis.map((carrada) => {
+          const codigo = normalizarCodigoCarrada(carrada?.codigo);
+          return `<option value="${escapeHtml(codigo)}">${escapeHtml(montarRotuloCarrada(carrada))}</option>`;
+        })
       ].join('');
+
+      if (codigoNormalizado) {
+        carradaPedido.value = codigoNormalizado;
+      }
+    }
+
+    async function buscarCarradaPorCodigo(codigo) {
+      const codigoNormalizado = normalizarCodigoCarrada(codigo);
+      if (!codigoNormalizado) return null;
+
+      const response = await fetch(`/api/legado/carradas/${encodeURIComponent(codigoNormalizado)}`);
+      const json = await lerJson(response);
+      return json?.data || json?.dado || null;
     }
 
     async function carregarCarradasParaPedido() {
@@ -417,7 +449,24 @@
           })
           .slice(0, 20);
 
-        preencherSelectCarradas(ordenadas);
+        const codigoPreSelecionado = normalizarCodigoCarrada(carradaCodigoPreSelecionada);
+        let listaFinal = ordenadas;
+
+        if (codigoPreSelecionado && !listaFinal.some((carrada) => normalizarCodigoCarrada(carrada?.codigo) === codigoPreSelecionado)) {
+          try {
+            const carradaPreSelecionada = await buscarCarradaPorCodigo(codigoPreSelecionado);
+
+            if (carradaPreSelecionada) {
+              listaFinal = [carradaPreSelecionada, ...listaFinal];
+            } else {
+              setMensagem(`Carrada ${codigoPreSelecionado} não encontrada para pré-seleção.`, true);
+            }
+          } catch (error) {
+            setMensagem(`Não foi possível pré-selecionar a carrada ${codigoPreSelecionado}: ${error.message}`, true);
+          }
+        }
+
+        preencherSelectCarradas(listaFinal, codigoPreSelecionado);
       } catch (error) {
         carradasDisponiveis = [];
         carradaPedido.innerHTML = '<option value="">Erro ao carregar carradas</option>';
