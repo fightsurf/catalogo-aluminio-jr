@@ -698,6 +698,26 @@
       return descricao || '-';
     }
 
+    function formatarResumoCarrada(carrada) {
+      if (!carrada) {
+        return 'Sem carrada';
+      }
+
+      const descricao = String(carrada?.descricao || '').trim();
+      const dataFormatada = formatarData(carrada?.data);
+      const partes = [];
+
+      if (descricao) {
+        partes.push(descricao);
+      }
+
+      if (dataFormatada !== '-') {
+        partes.push(dataFormatada);
+      }
+
+      return partes.length ? partes.join(' - ') : 'Sem carrada';
+    }
+
     function montarOpcoesCarrada(valorAtual) {
       const opcoes = ['<option value="">Sem carrada</option>'];
       let existeAtual = false;
@@ -773,7 +793,7 @@
             <div class="cliente-linha"><strong>Cidade:</strong> ${pedido?.cliente?.cidade || '-'}</div>
             <div class="cliente-linha"><strong>UF:</strong> ${pedido?.cliente?.uf || '-'}</div>
             <div class="cliente-linha"><strong>Telefone:</strong> ${telefoneHtml}</div>
-            <div class="cliente-linha"><strong>Carrada:</strong> ${pedido?.carradaAtual?.codigo ? `${pedido.carradaAtual.codigo} - ${pedido.carradaAtual.descricao || formatarData(pedido.carradaAtual.data)}` : 'Sem carrada'}</div>
+            <div class="cliente-linha"><strong>Carrada:</strong> ${formatarResumoCarrada(pedido?.carradaAtual)}</div>
           </div>
 
           <div class="cliente-dados-linha">
