@@ -114,22 +114,129 @@ function calcularQuantidadeItensPedido(pedido) {
   return itens.reduce((total, item) => total + Number(item?.quantidade || 0), 0);
 }
 
-function montarMensagemWhatsappSemanaPedido({ pedido, carrada, mensagemPersonalizada }) {
-  const nomeCliente = limparTexto(pedido?.cliente?.nome) || '-';
+function montarLinhaPedidoWhatsappSemana({ pedido, carrada }) {
   const numeroPedido = limparTexto(pedido?.numero) || '-';
   const dataCarrada = formatarDataBR(carrada?.data) || '-';
   const descricaoCarrada = limparTexto(carrada?.descricao) || 'Sem descrição';
-  const mensagemLivre = limparTexto(mensagemPersonalizada);
 
-  return [
+  return {
+    numeroPedido,
+    dataCarrada,
+    descricaoCarrada,
+    textoCarrada: `${dataCarrada} - ${descricaoCarrada}`
+  };
+}
+
+function montarMensagemWhatsappSemanaCliente({ grupo, mensagemPersonalizada }) {
+  const nomeCliente = limparTexto(grupo?.nomeCliente) || '-';
+  const pedidos = Array.isArray(grupo?.pedidos) ? grupo.pedidos : [];
+  const mensagemLivre = limparTexto(mensagemPersonalizada);
+  const linhas = [
     'MENSAGEM AUTOMÁTICA DO SISTEMA ALUMÍNIO JR',
     '',
-    `Nome cliente: ${nomeCliente}`,
-    `Número pedido: ${numeroPedido}`,
-    `Carrada: ${dataCarrada} - ${descricaoCarrada}`,
-    '',
-    mensagemLivre
-  ].join('\n');
+    `Nome cliente: ${nomeCliente}`
+  ];
+
+  if (pedidos.length === 1) {
+    const detalhe = montarLinhaPedidoWhatsappSemana(pedidos[0]);
+    linhas.push(`Número pedido: ${detalhe.numeroPedido}`);
+    linhas.push(`Carrada: ${detalhe.textoCarrada}`);
+  } else {
+    linhas.push('Pedidos da semana:');
+    pedidos.forEach((item) => {
+      const detalhe = montarLinhaPedidoWhatsappSemana(item);
+      linhas.push(`- Pedido ${detalhe.numeroPedido} | Carrada: ${detalhe.textoCarrada}`);
+    });
+  }
+
+  linhas.push('');
+  linhas.push(mensagemLivre);
+  return linhas.join('\n');
+}
+
+function normalizarTelefoneChave(telefone) {
+  const texto = limparTexto(telefone);
+  const apenasNumeros = texto.replace(/\D/g, '');
+  return apenasNumeros || texto.toLowerCase();
+}
+
+function obterChaveClienteWhatsappSemana({ pedido, telefone, carrada, indicePedido }) {
+  const favorecido = limparTexto(pedido?.cliente?.favorecido ?? pedido?.favorecido);
+  if (favorecido) {
+    return `favorecido:${favorecido}`;
+  }
+
+  const telefoneChave = normalizarTelefoneChave(telefone);
+  if (telefoneChave) {
+    return `telefone:${telefoneChave}`;
+  }
+
+  const nomeCliente = limparTexto(pedido?.cliente?.nome).toUpperCase();
+  if (nomeCliente) {
+    return `nome:${nomeCliente}`;
+  }
+
+  const numeroPedido = limparTexto(pedido?.numero);
+  const codigoCarrada = limparTexto(carrada?.codigo);
+  return `pedido:${codigoCarrada}:${indicePedido}:${numeroPedido}`;
+}
+
+function resumirGrupoWhatsappSemana(grupo, status, extra = {}) {
+  const pedidos = Array.isArray(grupo?.pedidos) ? grupo.pedidos : [];
+  const numerosPedidos = pedidos.map((item) => limparTexto(item?.pedido?.numero) || '-');
+  const codigosCarradas = pedidos.map((item) => limparTexto(item?.carrada?.codigo) || '-');
+
+  return {
+    codigoCarrada: Array.from(new Set(codigosCarradas)).join(', '),
+    codigosCarradas: Array.from(new Set(codigosCarradas)),
+    numeroPedido: numerosPedidos.join(', '),
+    numerosPedidos,
+    nomeCliente: grupo?.nomeCliente || '',
+    telefone: grupo?.telefone || '',
+    totalPedidosCliente: pedidos.length,
+    status,
+    ...extra
+  };
+}
+
+function agruparPedidosWhatsappSemana(carradasDetalhadas) {
+  const grupos = new Map();
+  let totalPedidos = 0;
+
+  for (const carrada of carradasDetalhadas) {
+    const pedidos = Array.isArray(carrada?.pedidos) ? carrada.pedidos : [];
+
+    pedidos.forEach((pedido, indicePedido) => {
+      totalPedidos += 1;
+      const telefone = normalizarTelefonePedido(pedido);
+      const nomeCliente = limparTexto(pedido?.cliente?.nome);
+      const chave = obterChaveClienteWhatsappSemana({ pedido, telefone, carrada, indicePedido });
+
+      if (!grupos.has(chave)) {
+        grupos.set(chave, {
+          chave,
+          nomeCliente,
+          telefone,
+          pedidos: []
+        });
+      }
+
+      const grupo = grupos.get(chave);
+      if (!grupo.nomeCliente && nomeCliente) {
+        grupo.nomeCliente = nomeCliente;
+      }
+      if (!grupo.telefone && telefone) {
+        grupo.telefone = telefone;
+      }
+
+      grupo.pedidos.push({ pedido, carrada });
+    });
+  }
+
+  return {
+    totalPedidos,
+    grupos: Array.from(grupos.values())
+  };
 }
 
 function normalizarListaCarradas(carradas) {
@@ -1126,59 +1233,34 @@ async function enviarWhatsappSemanaLote({ semanaId: semanaIdParam, mensagemPerso
     .filter((codigo) => Number.isInteger(codigo) && codigo > 0);
 
   const carradasDetalhadas = await carregarDetalhesCarradas(codigosCarradas);
+  const { totalPedidos, grupos } = agruparPedidosWhatsappSemana(carradasDetalhadas);
   const itens = [];
-  let totalPedidos = 0;
   let enviadosSucesso = 0;
   let semTelefone = 0;
   let comErro = 0;
 
-  for (const carrada of carradasDetalhadas) {
-    const pedidos = Array.isArray(carrada?.pedidos) ? carrada.pedidos : [];
-    totalPedidos += pedidos.length;
+  for (const grupo of grupos) {
+    const telefone = grupo.telefone;
+    const mensagem = montarMensagemWhatsappSemanaCliente({
+      grupo,
+      mensagemPersonalizada: mensagemLivre
+    });
 
-    for (const pedido of pedidos) {
-      const numeroPedido = limparTexto(pedido?.numero) || '-';
-      const nomeCliente = limparTexto(pedido?.cliente?.nome);
-      const telefone = normalizarTelefonePedido(pedido);
-      const mensagem = montarMensagemWhatsappSemanaPedido({
-        pedido,
-        carrada,
-        mensagemPersonalizada: mensagemLivre
-      });
+    if (!telefone) {
+      semTelefone += 1;
+      itens.push(resumirGrupoWhatsappSemana(grupo, 'sem_telefone'));
+      continue;
+    }
 
-      if (!telefone) {
-        semTelefone += 1;
-        itens.push({
-          codigoCarrada: carrada?.codigo ?? null,
-          numeroPedido,
-          nomeCliente,
-          telefone: '',
-          status: 'sem_telefone'
-        });
-        continue;
-      }
-
-      try {
-        await whatsappService.enviarMensagem({ telefone, mensagem });
-        enviadosSucesso += 1;
-        itens.push({
-          codigoCarrada: carrada?.codigo ?? null,
-          numeroPedido,
-          nomeCliente,
-          telefone,
-          status: 'enviado'
-        });
-      } catch (error) {
-        comErro += 1;
-        itens.push({
-          codigoCarrada: carrada?.codigo ?? null,
-          numeroPedido,
-          nomeCliente,
-          telefone,
-          status: 'erro',
-          erro: error?.message || 'Erro ao enviar WhatsApp.'
-        });
-      }
+    try {
+      await whatsappService.enviarMensagem({ telefone, mensagem });
+      enviadosSucesso += 1;
+      itens.push(resumirGrupoWhatsappSemana(grupo, 'enviado'));
+    } catch (error) {
+      comErro += 1;
+      itens.push(resumirGrupoWhatsappSemana(grupo, 'erro', {
+        erro: error?.message || 'Erro ao enviar WhatsApp.'
+      }));
     }
   }
 
@@ -1186,6 +1268,8 @@ async function enviarWhatsappSemanaLote({ semanaId: semanaIdParam, mensagemPerso
     semanaId,
     totalCarradas: carradasDetalhadas.length,
     totalPedidos,
+    totalClientes: grupos.length,
+    clientesAgrupados: grupos.filter((grupo) => Array.isArray(grupo?.pedidos) && grupo.pedidos.length > 1).length,
     enviadosSucesso,
     semTelefone,
     comErro,

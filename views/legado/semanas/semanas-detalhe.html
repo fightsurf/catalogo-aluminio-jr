@@ -246,9 +246,9 @@
       <div class="modal-body">
         <div class="field">
           <label for="textareaWhatsappSemanaMensagem">Mensagem personalizada</label>
-          <textarea id="textareaWhatsappSemanaMensagem" placeholder="Digite a mensagem que será enviada para cada pedido de todas as carradas da semana."></textarea>
+          <textarea id="textareaWhatsappSemanaMensagem" placeholder="Digite a mensagem que será enviada uma vez para cada cliente da semana."></textarea>
         </div>
-        <div class="feedback" id="feedbackWhatsappSemana">O sistema enviará uma mensagem por pedido com cabeçalho automático.</div>
+        <div class="feedback" id="feedbackWhatsappSemana">O sistema enviará apenas uma mensagem por cliente, mesmo que ele tenha mais de um pedido na semana.</div>
         <div id="resumoWhatsappSemana" style="display:none; margin-top:12px;"></div>
       </div>
       <div class="modal-footer">
@@ -546,7 +546,7 @@
         resumo.innerHTML = '';
       }
 
-      setFeedback(feedback, 'O sistema enviará uma mensagem por pedido com cabeçalho automático.', '');
+      setFeedback(feedback, 'O sistema enviará apenas uma mensagem por cliente, mesmo que ele tenha mais de um pedido na semana.', '');
       abrirModal(backdrop);
     }
 
@@ -562,7 +562,7 @@
             ? 'Sem telefone'
             : 'Erro';
         const detalhe = item?.erro ? ` • ${escapeHtml(item.erro)}` : '';
-        return `<li><strong>${escapeHtml(item?.numeroPedido || '-')}</strong> • Carrada ${escapeHtml(item?.codigoCarrada || '-')} • ${escapeHtml(item?.nomeCliente || '-')} • ${escapeHtml(status)}${detalhe}</li>`;
+        return `<li><strong>${escapeHtml(item?.nomeCliente || '-')}</strong> • Pedido(s): ${escapeHtml(item?.numeroPedido || '-')} • Carrada(s): ${escapeHtml(item?.codigoCarrada || '-')} • ${escapeHtml(status)}${detalhe}</li>`;
       }).join('');
 
       resumo.innerHTML = `
@@ -571,6 +571,7 @@
           <div class="muted" style="font-size:12px;">
             Carradas: <strong>${escapeHtml(data?.totalCarradas || 0)}</strong> •
             Pedidos: <strong>${escapeHtml(data?.totalPedidos || 0)}</strong> •
+            Clientes: <strong>${escapeHtml(data?.totalClientes || 0)}</strong> •
             Enviados: <strong>${escapeHtml(data?.enviadosSucesso || 0)}</strong> •
             Sem telefone: <strong>${escapeHtml(data?.semTelefone || 0)}</strong> •
             Erros: <strong>${escapeHtml(data?.comErro || 0)}</strong>
@@ -605,7 +606,7 @@
           body: JSON.stringify({ mensagemPersonalizada })
         });
 
-        setFeedback(feedback, `Envio concluído. ${data?.enviadosSucesso || 0} pedido(s) enviado(s) com sucesso.`, 'success');
+        setFeedback(feedback, `Envio concluído. ${data?.enviadosSucesso || 0} cliente(s) enviado(s) com sucesso.`, 'success');
         renderResumoWhatsappSemana(data);
       } catch (error) {
         setFeedback(feedback, error.message, 'error');
