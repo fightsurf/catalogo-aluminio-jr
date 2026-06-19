@@ -18,6 +18,12 @@ function abrirPaginaResumoItensCarrada(req, res) {
   );
 }
 
+function abrirPaginaResumoProducaoCarrada(req, res) {
+  return res.sendFile(
+    path.resolve(__dirname, '../../../../views/legado/carradas/carradas-resumo-producao.html')
+  );
+}
+
 function abrirPaginaProgressoCarrada(req, res) {
   return res.sendFile(
     path.resolve(__dirname, '../../../../views/legado/carradas/carradas-progresso.html')
@@ -28,5 +34,6 @@ module.exports = {
   abrirPaginaCarradas,
   abrirPaginaDetalheCarrada,
   abrirPaginaResumoItensCarrada,
+  abrirPaginaResumoProducaoCarrada,
   abrirPaginaProgressoCarrada
 };

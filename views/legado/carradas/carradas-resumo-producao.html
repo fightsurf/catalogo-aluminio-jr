@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Resumo para produção da carrada</title>
+  <style>
+    :root {
+      --bg: #f3f4f6;
+      --panel: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --line: #d1d5db;
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .page { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      margin-bottom: 18px;
+    }
+    h1 { margin: 0 0 6px; font-size: 24px; }
+    h2 { margin: 0 0 14px; font-size: 18px; }
+    .muted { color: var(--muted); }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+    button, .button {
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-secondary { background: #e5e7eb; color: var(--text); }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+      margin-bottom: 16px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th { color: var(--muted); font-size: 13px; }
+    .linha-total td {
+      background: #111827;
+      color: #fff;
+      font-weight: 700;
+      border-bottom: 0;
+    }
+    .col-indice { width: 64px; }
+    @media print {
+      body { background: #fff; }
+      .actions { display: none; }
+      .page { max-width: none; padding: 0; }
+      .card { box-shadow: none; border: 0; padding: 0; }
+    }
+    @media (max-width: 640px) {
+      .topbar { flex-direction: column; }
+      .actions { justify-content: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="topbar">
+      <div>
+        <h1 id="titulo">Resumo para produção</h1>
+        <p class="muted" id="subtitulo"></p>
+      </div>
+      <div class="actions">
+        <a class="button btn-secondary" id="linkDetalhe" href="/legado/carradas">Voltar ao detalhe</a>
+        <button class="btn-primary" id="btnImprimir">Imprimir</button>
+      </div>
+    </div>
+
+    <div id="conteudo">
+      <div class="card">Carregando resumo...</div>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const codigo = params.get('codigo');
+
+    function escapeHtml(valor) {
+      return String(valor ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatarData(valor) {
+      if (!valor) return '';
+      const data = new Date(valor);
+      if (Number.isNaN(data.getTime())) return String(valor);
+      return data.toLocaleDateString('pt-BR');
+    }
+
+    function formatarQuantidade(valor) {
+      return Number(valor || 0).toLocaleString('pt-BR');
+    }
+
+    async function request(url, options = {}) {
+      const response = await fetch(url, options);
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || data.success === false) {
+        throw new Error(data.error || data.message || 'Falha na requisição.');
+      }
+
+      return data.data;
+    }
+
+    function obterDescricaoResumo(item) {
+      return String(item.descricaoOriginal || item.descricao || '').trim();
+    }
+
+    function consolidarItensAProduzir(carrada) {
+      const pedidos = Array.isArray(carrada.pedidos) ? carrada.pedidos : [];
+      const mapa = new Map();
+      let totalAProduzir = 0;
+
+      pedidos.forEach((pedido) => {
+        const pedidoPronto = Boolean(pedido?.pedidoPronto || pedido?.pedido_pronto);
+        if (pedidoPronto) return;
+
+        const itens = Array.isArray(pedido.itens) ? pedido.itens : [];
+        itens.forEach((item) => {
+          const codigoItem = Number(item.item || 0);
+          const descricao = obterDescricaoResumo(item);
+          const chave = codigoItem > 0 ? String(codigoItem) : `SEM-CODIGO::${descricao.toUpperCase()}`;
+          const quantidade = Number(item.quantidade || 0);
+
+          totalAProduzir += quantidade;
+
+          if (!mapa.has(chave)) {
+            mapa.set(chave, { descricao, quantidade: 0 });
+          }
+
+          const atual = mapa.get(chave);
+          if (!atual.descricao && descricao) atual.descricao = descricao;
+          atual.quantidade += quantidade;
+        });
+      });
+
+      const itens = Array.from(mapa.values())
+        .filter((item) => Number(item.quantidade || 0) > 0)
+        .sort((a, b) => String(a.descricao || '').localeCompare(String(b.descricao || ''), 'pt-BR'));
+
+      return { itens, totalAProduzir };
+    }
+
+    function renderResumo(carrada) {
+      document.getElementById('titulo').textContent = `Resumo para produção da carrada ${carrada.codigo}`;
+      document.getElementById('subtitulo').textContent = `Data: ${formatarData(carrada.data)} | Descrição: ${carrada.descricao || '-'}`;
+      document.getElementById('linkDetalhe').href = `/legado/carradas/detalhe?codigo=${encodeURIComponent(carrada.codigo)}`;
+
+      const conteudo = document.getElementById('conteudo');
+      const resumo = consolidarItensAProduzir(carrada);
+
+      conteudo.innerHTML = `
+        <section class="card">
+          <h2>Itens a produzir</h2>
+          <table>
+            <thead>
+              <tr>
+                <th class="col-indice">#</th>
+                <th>Descrição</th>
+                <th>Quantidade a produzir</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${resumo.itens.length ? resumo.itens.map((item, indice) => `
+                <tr>
+                  <td>${escapeHtml(String(indice + 1))}</td>
+                  <td>${escapeHtml(item.descricao || '-')}</td>
+                  <td>${escapeHtml(formatarQuantidade(item.quantidade))}</td>
+                </tr>
+              `).join('') : '<tr><td colspan="3" class="muted">Não há itens a produzir nesta carrada.</td></tr>'}
+            </tbody>
+            <tfoot>
+              <tr class="linha-total">
+                <td></td>
+                <td>Total de peças a produzir</td>
+                <td>${escapeHtml(formatarQuantidade(resumo.totalAProduzir))}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </section>
+      `;
+    }
+
+    async function carregar() {
+      if (!codigo) {
+        document.getElementById('conteudo').innerHTML = '<div class="card">Código da carrada não informado.</div>';
+        return;
+      }
+
+      try {
+        const carrada = await request(`/api/legado/carradas/${codigo}`);
+        renderResumo(carrada);
+      } catch (error) {
+        document.getElementById('conteudo').innerHTML = `<div class="card">${escapeHtml(error.message)}</div>`;
+      }
+    }
+
+    document.getElementById('btnImprimir').addEventListener('click', () => {
+      window.print();
+    });
+
+    carregar();
+  </script>
+</body>
+</html>

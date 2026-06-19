@@ -208,6 +208,7 @@
         <button class="btn-secondary" id="btnProximaSemana" disabled>Próxima semana</button>
         <a class="button btn-secondary" href="/legado/semanas">Voltar</a>
         <button class="btn-secondary" id="btnResumo">Resumo da semana</button>
+        <button class="btn-secondary" id="btnResumoProducao">Resumo para produção</button>
         <button class="btn-primary" id="btnEnviarWhatsappSemana">Enviar WhatsApp da semana</button>
         <button class="btn-secondary" id="btnEditar">Editar</button>
         <button class="btn-danger" id="btnExcluir">Excluir</button>
@@ -359,8 +360,24 @@
               <div class="resumo-valor">${escapeHtml(formatarQuantidade(totais.quantidade_pedidos))}</div>
             </div>
             <div class="resumo-item">
+              <div class="resumo-label">Pedidos prontos</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(totais.quantidade_pedidos_prontos))}</div>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-label">Pedidos a produzir</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(totais.quantidade_pedidos_a_produzir))}</div>
+            </div>
+            <div class="resumo-item">
               <div class="resumo-label">Quantidade total de itens</div>
               <div class="resumo-valor">${escapeHtml(formatarQuantidade(totais.quantidade_itens))}</div>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-label">Itens de pedidos prontos</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(totais.quantidade_itens_prontos))}</div>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-label">Itens a produzir</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(totais.quantidade_itens_a_produzir))}</div>
             </div>
             <div class="resumo-item">
               <div class="resumo-label">Total geral dos pedidos</div>
@@ -383,7 +400,11 @@
                   <th>Data</th>
                   <th>Descrição</th>
                   <th>Pedidos</th>
-                  <th>Itens</th>
+                  <th>Pedidos prontos</th>
+                  <th>Pedidos a produzir</th>
+                  <th>Total itens</th>
+                  <th>Itens prontos</th>
+                  <th>Itens a produzir</th>
                   <th>Total dos pedidos</th>
                   <th>Ações</th>
                 </tr>
@@ -395,7 +416,11 @@
                     <td>${escapeHtml(formatarData(carrada.data))}</td>
                     <td>${escapeHtml(carrada.descricao || '-')}</td>
                     <td>${escapeHtml(formatarQuantidade(carrada.quantidade_pedidos))}</td>
+                    <td>${escapeHtml(formatarQuantidade(carrada.quantidade_pedidos_prontos))}</td>
+                    <td>${escapeHtml(formatarQuantidade(carrada.quantidade_pedidos_a_produzir))}</td>
                     <td>${escapeHtml(formatarQuantidade(carrada.quantidade_itens))}</td>
+                    <td>${escapeHtml(formatarQuantidade(carrada.quantidade_itens_prontos))}</td>
+                    <td>${escapeHtml(formatarQuantidade(carrada.quantidade_itens_a_produzir))}</td>
                     <td>${escapeHtml(formatarMoeda(carrada.total_pedidos))}</td>
                     <td>
                       <div class="acoes-carrada">
@@ -413,7 +438,11 @@
                   <td></td>
                   <td>Total geral</td>
                   <td>${escapeHtml(formatarQuantidade(totais.quantidade_pedidos))}</td>
+                  <td>${escapeHtml(formatarQuantidade(totais.quantidade_pedidos_prontos))}</td>
+                  <td>${escapeHtml(formatarQuantidade(totais.quantidade_pedidos_a_produzir))}</td>
                   <td>${escapeHtml(formatarQuantidade(totais.quantidade_itens))}</td>
+                  <td>${escapeHtml(formatarQuantidade(totais.quantidade_itens_prontos))}</td>
+                  <td>${escapeHtml(formatarQuantidade(totais.quantidade_itens_a_produzir))}</td>
                   <td>${escapeHtml(formatarMoeda(totais.total_geral_pedidos))}</td>
                   <td></td>
                 </tr>
@@ -613,6 +642,11 @@
     document.getElementById('btnResumo').addEventListener('click', () => {
       if (!id) return;
       window.location.href = `/legado/semanas/resumo?id=${encodeURIComponent(id)}`;
+    });
+
+    document.getElementById('btnResumoProducao').addEventListener('click', () => {
+      if (!id) return;
+      window.location.href = `/legado/semanas/resumo-producao?id=${encodeURIComponent(id)}`;
     });
 
     document.getElementById('btnEditar').addEventListener('click', () => {

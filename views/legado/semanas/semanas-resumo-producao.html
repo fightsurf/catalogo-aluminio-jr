@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Resumo para produção da semana</title>
+  <style>
+    :root {
+      --bg: #f3f4f6;
+      --panel: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --line: #d1d5db;
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .page { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      margin-bottom: 18px;
+    }
+    h1 { margin: 0 0 6px; font-size: 24px; }
+    h2 { margin: 0 0 14px; font-size: 18px; }
+    .muted { color: var(--muted); }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+    button, .button {
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-dark); }
+    .btn-secondary { background: #e5e7eb; color: var(--text); }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.06);
+      margin-bottom: 16px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 12px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th { color: var(--muted); font-size: 13px; }
+    .linha-total td {
+      background: #111827;
+      color: #fff;
+      font-weight: 700;
+      border-bottom: 0;
+    }
+    .col-indice { width: 64px; }
+    @media print {
+      body { background: #fff; }
+      .actions { display: none; }
+      .page { max-width: none; padding: 0; }
+      .card { box-shadow: none; border: 0; padding: 0; }
+    }
+    @media (max-width: 640px) {
+      .topbar { flex-direction: column; }
+      .actions { justify-content: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="topbar">
+      <div>
+        <h1 id="titulo">Resumo para produção</h1>
+        <p class="muted" id="subtitulo"></p>
+      </div>
+      <div class="actions">
+        <a class="button btn-secondary" id="linkDetalhe" href="/legado/semanas">Voltar ao detalhe</a>
+        <button class="btn-primary" id="btnImprimir">Imprimir</button>
+      </div>
+    </div>
+
+    <div id="conteudo">
+      <div class="card">Carregando resumo...</div>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+
+    function escapeHtml(valor) {
+      return String(valor ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatarData(valor) {
+      if (!valor) return '';
+      const texto = String(valor).trim();
+      const matchIso = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (matchIso) return `${matchIso[3]}/${matchIso[2]}/${matchIso[1]}`;
+      const data = new Date(texto);
+      if (Number.isNaN(data.getTime())) return texto;
+      return data.toLocaleDateString('pt-BR');
+    }
+
+    function formatarQuantidade(valor) {
+      return Number(valor || 0).toLocaleString('pt-BR');
+    }
+
+    async function request(url, options = {}) {
+      const response = await fetch(url, options);
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || data.success === false) {
+        throw new Error(data.error || data.message || 'Falha na requisição.');
+      }
+
+      return data.data;
+    }
+
+    function renderResumo(data) {
+      const semana = data.semana || {};
+      const itens = (Array.isArray(data.itens) ? data.itens : [])
+        .map((item) => ({
+          descricao: item.descricao || '-',
+          quantidade: Number(item.quantidade_a_produzir || 0)
+        }))
+        .filter((item) => item.quantidade > 0)
+        .sort((a, b) => String(a.descricao || '').localeCompare(String(b.descricao || ''), 'pt-BR'));
+
+      const totalAProduzir = itens.reduce((total, item) => total + Number(item.quantidade || 0), 0);
+
+      document.getElementById('titulo').textContent = 'Resumo para produção da semana';
+      document.getElementById('subtitulo').textContent = `Período: ${formatarData(semana.data_inicial)} até ${formatarData(semana.data_final)} | Descrição: ${semana.descricao || '-'}`;
+      document.getElementById('linkDetalhe').href = `/legado/semanas/detalhe?id=${encodeURIComponent(semana.id)}`;
+
+      document.getElementById('conteudo').innerHTML = `
+        <section class="card">
+          <h2>Itens a produzir</h2>
+          <table>
+            <thead>
+              <tr>
+                <th class="col-indice">#</th>
+                <th>Descrição</th>
+                <th>Quantidade a produzir</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itens.length ? itens.map((item, indice) => `
+                <tr>
+                  <td>${escapeHtml(String(indice + 1))}</td>
+                  <td>${escapeHtml(item.descricao || '-')}</td>
+                  <td>${escapeHtml(formatarQuantidade(item.quantidade))}</td>
+                </tr>
+              `).join('') : '<tr><td colspan="3" class="muted">Não há itens a produzir nesta semana.</td></tr>'}
+            </tbody>
+            <tfoot>
+              <tr class="linha-total">
+                <td></td>
+                <td>Total de peças a produzir</td>
+                <td>${escapeHtml(formatarQuantidade(totalAProduzir))}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </section>
+      `;
+    }
+
+    async function carregar() {
+      if (!id) {
+        document.getElementById('conteudo').innerHTML = '<div class="card">ID da semana não informado.</div>';
+        return;
+      }
+
+      try {
+        const data = await request(`/api/legado/semanas/${id}/resumo`);
+        renderResumo(data);
+      } catch (error) {
+        document.getElementById('conteudo').innerHTML = `<div class="card">${escapeHtml(error.message)}</div>`;
+      }
+    }
+
+    document.getElementById('btnImprimir').addEventListener('click', () => {
+      window.print();
+    });
+
+    carregar();
+  </script>
+</body>
+</html>

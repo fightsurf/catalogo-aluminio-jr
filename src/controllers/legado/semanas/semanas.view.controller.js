@@ -12,6 +12,12 @@ function abrirPaginaDetalheSemana(req, res) {
   );
 }
 
+function abrirPaginaResumoProducaoSemana(req, res) {
+  return res.sendFile(
+    path.resolve(__dirname, '../../../../views/legado/semanas/semanas-resumo-producao.html')
+  );
+}
+
 function abrirPaginaResumoSemana(req, res) {
   return res.sendFile(
     path.resolve(__dirname, '../../../../views/legado/semanas/semanas-resumo-itens.html')
@@ -21,5 +27,6 @@ function abrirPaginaResumoSemana(req, res) {
 module.exports = {
   abrirPaginaSemanas,
   abrirPaginaDetalheSemana,
+  abrirPaginaResumoProducaoSemana,
   abrirPaginaResumoSemana
 };

@@ -396,11 +396,14 @@
               <th>Data final</th>
               <th>Descrição</th>
               <th>Qtd. carradas</th>
+              <th>Total itens</th>
+              <th>Itens prontos</th>
+              <th>A produzir</th>
               <th>Ações</th>
             </tr>
           </thead>
           <tbody id="tabelaSemanas">
-            <tr><td colspan="5" class="muted">Carregando...</td></tr>
+            <tr><td colspan="8" class="muted">Carregando...</td></tr>
           </tbody>
         </table>
       </div>
@@ -583,7 +586,7 @@
 
     function renderSemanas(semanas) {
       if (!Array.isArray(semanas) || !semanas.length) {
-        el.tabelaSemanas.innerHTML = '<tr><td colspan="5" class="muted">Nenhuma semana cadastrada.</td></tr>';
+        el.tabelaSemanas.innerHTML = '<tr><td colspan="8" class="muted">Nenhuma semana cadastrada.</td></tr>';
         return;
       }
 
@@ -593,10 +596,14 @@
           <td>${escapeHtml(formatarData(semana.data_final))}</td>
           <td>${escapeHtml(semana.descricao || '-')}</td>
           <td>${escapeHtml(formatarQuantidade(semana.quantidade_carradas))}</td>
+          <td>${escapeHtml(formatarQuantidade(semana.quantidade_itens))}</td>
+          <td>${escapeHtml(formatarQuantidade(semana.quantidade_itens_prontos))}</td>
+          <td>${escapeHtml(formatarQuantidade(semana.quantidade_itens_a_produzir))}</td>
           <td class="actions-cell">
             <button class="btn-secondary" data-visualizar="${escapeHtml(semana.id)}">Abrir</button>
             <button class="btn-secondary" data-editar="${escapeHtml(semana.id)}">Editar</button>
             <button class="btn-secondary" data-resumo="${escapeHtml(semana.id)}">Resumo</button>
+            <button class="btn-secondary" data-resumo-producao="${escapeHtml(semana.id)}">Produção</button>
             <button class="btn-danger" data-excluir="${escapeHtml(semana.id)}">Excluir</button>
           </td>
         </tr>
@@ -615,6 +622,12 @@
       el.tabelaSemanas.querySelectorAll('[data-resumo]').forEach((botao) => {
         botao.addEventListener('click', () => {
           window.location.href = `/legado/semanas/resumo?id=${encodeURIComponent(botao.dataset.resumo)}`;
+        });
+      });
+
+      el.tabelaSemanas.querySelectorAll('[data-resumo-producao]').forEach((botao) => {
+        botao.addEventListener('click', () => {
+          window.location.href = `/legado/semanas/resumo-producao?id=${encodeURIComponent(botao.dataset.resumoProducao)}`;
         });
       });
 
@@ -685,7 +698,7 @@
         const semanas = await request('/api/legado/semanas');
         renderSemanas(semanas);
       } catch (error) {
-        el.tabelaSemanas.innerHTML = `<tr><td colspan="5" class="muted">${escapeHtml(error.message)}</td></tr>`;
+        el.tabelaSemanas.innerHTML = `<tr><td colspan="8" class="muted">${escapeHtml(error.message)}</td></tr>`;
       }
     }
 

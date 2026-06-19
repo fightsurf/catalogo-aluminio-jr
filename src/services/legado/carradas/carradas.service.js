@@ -41,6 +41,151 @@ async function request(path, options = {}) {
   return data;
 }
 
+
+async function mapearComConcorrencia(itens, limite, worker) {
+  const lista = Array.isArray(itens) ? itens : [];
+  const maximo = Number.isInteger(limite) && limite > 0 ? limite : 1;
+  const resultados = new Array(lista.length);
+  let indiceAtual = 0;
+
+  async function executar() {
+    while (true) {
+      const indice = indiceAtual;
+      indiceAtual += 1;
+
+      if (indice >= lista.length) {
+        return;
+      }
+
+      resultados[indice] = await worker(lista[indice], indice);
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(maximo, lista.length) }, () => executar());
+  await Promise.all(workers);
+  return resultados;
+}
+
+function calcularQuantidadeItensPedido(pedido) {
+  const itens = Array.isArray(pedido?.itens) ? pedido.itens : [];
+  return itens.reduce((total, item) => total + Number(item?.quantidade || 0), 0);
+}
+
+function montarResumoProducaoCarrada(carrada, pedidosProntosSet = new Set()) {
+  const pedidos = Array.isArray(carrada?.pedidos) ? carrada.pedidos : [];
+  const pedidosComStatus = [];
+
+  const resumo = pedidos.reduce((acc, pedido) => {
+    const quantidadeItensPedido = calcularQuantidadeItensPedido(pedido);
+    const pedidoPronto = carradasStatusResumoService.pedidoEstaPronto(pedido, pedidosProntosSet);
+
+    acc.quantidadePedidos += 1;
+    acc.quantidadeItens += quantidadeItensPedido;
+    acc.totalPedidos += Number(pedido?.total || 0);
+
+    if (pedidoPronto) {
+      acc.quantidadePedidosProntos += 1;
+      acc.quantidadeItensProntos += quantidadeItensPedido;
+    } else {
+      acc.quantidadePedidosAProduzir += 1;
+      acc.quantidadeItensAProduzir += quantidadeItensPedido;
+    }
+
+    pedidosComStatus.push({
+      ...pedido,
+      pedidoPronto,
+      quantidadeItens: quantidadeItensPedido,
+      quantidade_itens: quantidadeItensPedido
+    });
+
+    return acc;
+  }, {
+    quantidadePedidos: 0,
+    quantidadePedidosProntos: 0,
+    quantidadePedidosAProduzir: 0,
+    quantidadeItens: 0,
+    quantidadeItensProntos: 0,
+    quantidadeItensAProduzir: 0,
+    totalPedidos: 0
+  });
+
+  return {
+    resumo,
+    pedidosComStatus
+  };
+}
+
+function aplicarResumoProducaoCarrada(carrada, resumo, pedidosComStatus = null) {
+  const quantidadePedidos = Number(resumo?.quantidadePedidos || 0);
+  const quantidadePedidosProntos = Number(resumo?.quantidadePedidosProntos || 0);
+  const quantidadePedidosAProduzir = Number(resumo?.quantidadePedidosAProduzir || 0);
+  const quantidadeItens = Number(resumo?.quantidadeItens || 0);
+  const quantidadeItensProntos = Number(resumo?.quantidadeItensProntos || 0);
+  const quantidadeItensAProduzir = Number(resumo?.quantidadeItensAProduzir || 0);
+  const totalPedidos = Number(resumo?.totalPedidos || 0);
+
+  return {
+    ...carrada,
+    ...(pedidosComStatus ? { pedidos: pedidosComStatus } : {}),
+    totalPedidos: quantidadePedidos,
+    totalPedidosProntos: quantidadePedidosProntos,
+    totalPedidosAProduzir: quantidadePedidosAProduzir,
+    quantidadePedidos,
+    quantidadePedidosProntos,
+    quantidadePedidosAProduzir,
+    quantidadeItens,
+    quantidadeItensProntos,
+    quantidadeItensAProduzir,
+    valorTotalPedidos: totalPedidos,
+    quantidade_pedidos: quantidadePedidos,
+    quantidade_pedidos_prontos: quantidadePedidosProntos,
+    quantidade_pedidos_a_produzir: quantidadePedidosAProduzir,
+    quantidade_itens: quantidadeItens,
+    quantidade_itens_prontos: quantidadeItensProntos,
+    quantidade_itens_a_produzir: quantidadeItensAProduzir,
+    total_pedidos: totalPedidos,
+    resumoProducao: {
+      quantidadePedidos,
+      quantidadePedidosProntos,
+      quantidadePedidosAProduzir,
+      quantidadeItens,
+      quantidadeItensProntos,
+      quantidadeItensAProduzir,
+      totalPedidos
+    }
+  };
+}
+
+async function buscarSetPedidosProntosSemQuebrar(pedidos) {
+  try {
+    return await carradasStatusResumoService.buscarSetPedidosProntos(pedidos);
+  } catch (error) {
+    console.error('Falha ao buscar pedidos prontos:', error.message);
+    return new Set();
+  }
+}
+
+async function buscarCarradaDoLegado(codigo) {
+  const response = await legadoBridgeService.get(`/api/carradas/${codigo}`);
+  return response.dado || null;
+}
+
+async function enriquecerCarradaComResumoProducao(carrada, opcoes = {}) {
+  if (!carrada) {
+    return null;
+  }
+
+  const pedidos = Array.isArray(carrada?.pedidos) ? carrada.pedidos : [];
+  const pedidosProntosSet = opcoes.pedidosProntosSet || await buscarSetPedidosProntosSemQuebrar(pedidos);
+  const { resumo, pedidosComStatus } = montarResumoProducaoCarrada(carrada, pedidosProntosSet);
+
+  return aplicarResumoProducaoCarrada(
+    carrada,
+    resumo,
+    opcoes.incluirPedidos === false ? null : pedidosComStatus
+  );
+}
+
 function formatarDataParaMensagem(valor) {
   if (!valor) {
     return '';
@@ -151,7 +296,7 @@ async function listarPedidosPorNumero(numero) {
   return response.dados || [];
 }
 
-async function listarCarradas() {
+async function listarCarradas(opcoes = {}) {
   const response = await legadoBridgeService.get('/api/carradas');
   const carradas = response.dados || [];
   const codigos = carradas
@@ -166,14 +311,40 @@ async function listarCarradas() {
     console.error('Falha ao buscar status persistido das carradas:', error.message);
   }
 
-  return carradas.map((carrada) => {
+
+  if (opcoes.incluirResumoProducao === false) {
+    return carradas.map((carrada) => {
+      const codigo = Number.parseInt(carrada?.codigo, 10);
+      const status = mapaStatus.get(codigo);
+
+      return {
+        ...carrada,
+        progressoStatusLinha: status?.statusLinha || 'incompleta'
+      };
+    });
+  }
+
+  return mapearComConcorrencia(carradas, 6, async (carrada) => {
     const codigo = Number.parseInt(carrada?.codigo, 10);
     const status = mapaStatus.get(codigo);
 
-    return {
-      ...carrada,
-      progressoStatusLinha: status?.statusLinha || 'incompleta'
-    };
+    try {
+      const detalhe = codigo ? await buscarCarradaDoLegado(codigo) : null;
+      const carradaComResumo = await enriquecerCarradaComResumoProducao(detalhe || carrada, { incluirPedidos: false });
+
+      return {
+        ...carrada,
+        ...carradaComResumo,
+        pedidos: undefined,
+        progressoStatusLinha: status?.statusLinha || 'incompleta'
+      };
+    } catch (error) {
+      console.error(`Falha ao calcular totais da carrada ${codigo || ''}:`, error.message);
+      return {
+        ...aplicarResumoProducaoCarrada(carrada, null, null),
+        progressoStatusLinha: status?.statusLinha || 'incompleta'
+      };
+    }
   });
 }
 
@@ -206,8 +377,8 @@ async function excluirStatusCarradaSemQuebrar(codigoCarrada) {
 }
 
 async function buscarCarrada(codigo) {
-  const response = await legadoBridgeService.get(`/api/carradas/${codigo}`);
-  return response.dado || null;
+  const carrada = await buscarCarradaDoLegado(codigo);
+  return enriquecerCarradaComResumoProducao(carrada);
 }
 
 async function buscarResumoCarrada(codigo) {

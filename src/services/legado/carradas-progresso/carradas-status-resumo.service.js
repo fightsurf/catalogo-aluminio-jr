@@ -290,6 +290,29 @@ async function buscarResumoLocalEntregaDosPedidos(pedidos = []) {
   );
 }
 
+
+async function buscarSetPedidosProntos(pedidos = []) {
+  const booleanMap = await buscarResumoBooleanosConcluidosDosPedidos(pedidos);
+  const prontos = new Set();
+
+  booleanMap.forEach((fasesSet, chavePedido) => {
+    if (fasesSet?.has('PEDIDO_PRONTO')) {
+      prontos.add(chavePedido);
+    }
+  });
+
+  return prontos;
+}
+
+function pedidoEstaPronto(pedido, pedidosProntosSet) {
+  const chavePedido = criarChavePedido({
+    saida: pedido?.saida,
+    numero: pedido?.numero
+  });
+
+  return Boolean(chavePedido && pedidosProntosSet?.has(chavePedido));
+}
+
 async function salvarStatusLinha(codigoCarrada, statusLinha) {
   await garantirTabelaStatusResumo();
 
@@ -505,5 +528,7 @@ module.exports = {
   excluirStatusCarrada,
   recalcularStatusCarrada,
   buscarMapaStatusPorCodigos,
-  listarResumoListaCarradasPersistido
+  listarResumoListaCarradasPersistido,
+  buscarSetPedidosProntos,
+  pedidoEstaPronto
 };

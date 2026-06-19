@@ -242,9 +242,20 @@
       const pedidos = Array.isArray(carrada.pedidos) ? carrada.pedidos : [];
       const mapa = new Map();
       let totalItens = 0;
+      let totalItensProntos = 0;
+      let totalItensAProduzir = 0;
+      let totalPedidosProntos = 0;
+      let totalPedidosAProduzir = 0;
 
       pedidos.forEach((pedido) => {
         const itens = Array.isArray(pedido.itens) ? pedido.itens : [];
+        const pedidoPronto = Boolean(pedido?.pedidoPronto || pedido?.pedido_pronto);
+
+        if (pedidoPronto) {
+          totalPedidosProntos += 1;
+        } else {
+          totalPedidosAProduzir += 1;
+        }
 
         itens.forEach((item) => {
           const codigoItem = Number(item.item || 0);
@@ -255,12 +266,22 @@
           const quantidade = Number(item.quantidade || 0);
           totalItens += quantidade;
 
+          if (pedidoPronto) {
+            totalItensProntos += quantidade;
+          } else {
+            totalItensAProduzir += quantidade;
+          }
+
           if (!mapa.has(chave)) {
             mapa.set(chave, {
               item: codigoItem > 0 ? codigoItem : null,
               descricao: descricaoResumo,
               quantidade: 0,
-              pedidos: new Set()
+              quantidadePronta: 0,
+              quantidadeAProduzir: 0,
+              pedidos: new Set(),
+              pedidosProntos: new Set(),
+              pedidosAProduzir: new Set()
             });
           }
 
@@ -269,25 +290,47 @@
             atual.descricao = descricaoResumo;
           }
           atual.quantidade += quantidade;
+          if (pedidoPronto) {
+            atual.quantidadePronta += quantidade;
+          } else {
+            atual.quantidadeAProduzir += quantidade;
+          }
           if (pedido.numero) {
             atual.pedidos.add(String(pedido.numero));
+            if (pedidoPronto) {
+              atual.pedidosProntos.add(String(pedido.numero));
+            } else {
+              atual.pedidosAProduzir.add(String(pedido.numero));
+            }
           }
         });
       });
+
+      const ordenarNumeros = (valores) => Array.from(valores).sort((a, b) => String(a).localeCompare(String(b), 'pt-BR', { numeric: true }));
 
       const itens = Array.from(mapa.values())
         .map((item) => ({
           descricao: item.descricao,
           quantidade: item.quantidade,
+          quantidadePronta: item.quantidadePronta,
+          quantidadeAProduzir: item.quantidadeAProduzir,
           totalPedidos: item.pedidos.size,
-          numerosPedidos: Array.from(item.pedidos).sort((a, b) => String(a).localeCompare(String(b), 'pt-BR', { numeric: true })),
+          totalPedidosProntos: item.pedidosProntos.size,
+          totalPedidosAProduzir: item.pedidosAProduzir.size,
+          numerosPedidos: ordenarNumeros(item.pedidos),
+          numerosPedidosProntos: ordenarNumeros(item.pedidosProntos),
+          numerosPedidosAProduzir: ordenarNumeros(item.pedidosAProduzir),
         }))
         .sort((a, b) => String(a.descricao || '').localeCompare(String(b.descricao || ''), 'pt-BR'));
 
       return {
         itens,
         totalPedidos: pedidos.length,
+        totalPedidosProntos,
+        totalPedidosAProduzir,
         totalItens,
+        totalItensProntos,
+        totalItensAProduzir,
         totalTipos: itens.length
       };
     }
@@ -341,6 +384,14 @@
               <div class="resumo-valor">${escapeHtml(formatarQuantidade(resumo.totalItens))}</div>
             </div>
             <div class="resumo-item">
+              <div class="resumo-label">Itens de pedidos prontos</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(resumo.totalItensProntos))}</div>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-label">Itens a produzir</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(resumo.totalItensAProduzir))}</div>
+            </div>
+            <div class="resumo-item">
               <div class="resumo-label">Tipos de itens</div>
               <div class="resumo-valor">${escapeHtml(formatarQuantidade(resumo.totalTipos))}</div>
             </div>
@@ -352,6 +403,8 @@
                 <th class="col-indice">#</th>
                 <th>Descrição</th>
                 <th>Qtd. total</th>
+                <th>Qtd. pronta</th>
+                <th>Qtd. a produzir</th>
                 <th>Pedidos</th>
               </tr>
             </thead>
@@ -361,6 +414,8 @@
                   <td>${escapeHtml(String(indice + 1))}</td>
                   <td>${escapeHtml(item.descricao || '-')}</td>
                   <td>${escapeHtml(formatarQuantidade(item.quantidade))}</td>
+                  <td>${escapeHtml(formatarQuantidade(item.quantidadePronta))}</td>
+                  <td>${escapeHtml(formatarQuantidade(item.quantidadeAProduzir))}</td>
                   <td>${renderPedidosHover(item.numerosPedidos)}</td>
                 </tr>
               `).join('')}
@@ -370,6 +425,8 @@
                 <td></td>
                 <td>Total geral</td>
                 <td>${escapeHtml(formatarQuantidade(resumo.totalItens))}</td>
+                <td>${escapeHtml(formatarQuantidade(resumo.totalItensProntos))}</td>
+                <td>${escapeHtml(formatarQuantidade(resumo.totalItensAProduzir))}</td>
                 <td></td>
               </tr>
             </tfoot>

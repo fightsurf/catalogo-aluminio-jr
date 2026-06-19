@@ -80,6 +80,40 @@ function normalizarTelefonePedido(pedido) {
   );
 }
 
+
+async function mapearComConcorrencia(itens, limite, worker) {
+  const lista = Array.isArray(itens) ? itens : [];
+  const maximo = Number.isInteger(limite) && limite > 0 ? limite : 1;
+  const resultados = new Array(lista.length);
+  let indiceAtual = 0;
+
+  async function executar() {
+    while (true) {
+      const indice = indiceAtual;
+      indiceAtual += 1;
+
+      if (indice >= lista.length) {
+        return;
+      }
+
+      resultados[indice] = await worker(lista[indice], indice);
+    }
+  }
+
+  const workers = Array.from({ length: Math.min(maximo, lista.length) }, () => executar());
+  await Promise.all(workers);
+  return resultados;
+}
+
+function pedidoEstaPronto(pedido) {
+  return Boolean(pedido?.pedidoPronto || pedido?.pedido_pronto);
+}
+
+function calcularQuantidadeItensPedido(pedido) {
+  const itens = Array.isArray(pedido?.itens) ? pedido.itens : [];
+  return itens.reduce((total, item) => total + Number(item?.quantidade || 0), 0);
+}
+
 function montarMensagemWhatsappSemanaPedido({ pedido, carrada, mensagemPersonalizada }) {
   const nomeCliente = limparTexto(pedido?.cliente?.nome) || '-';
   const numeroPedido = limparTexto(pedido?.numero) || '-';
@@ -150,18 +184,29 @@ function resumirCarradaDetalhada(carrada) {
   const pedidos = Array.isArray(carrada?.pedidos) ? carrada.pedidos : [];
 
   const resumo = pedidos.reduce((acc, pedido) => {
+    const quantidadeItensPedido = calcularQuantidadeItensPedido(pedido);
+    const pronto = pedidoEstaPronto(pedido);
+
     acc.quantidadePedidos += 1;
+    acc.quantidadeItens += quantidadeItensPedido;
     acc.totalPedidos += Number(pedido?.total || 0);
 
-    const itens = Array.isArray(pedido?.itens) ? pedido.itens : [];
-    itens.forEach((item) => {
-      acc.quantidadeItens += Number(item?.quantidade || 0);
-    });
+    if (pronto) {
+      acc.quantidadePedidosProntos += 1;
+      acc.quantidadeItensProntos += quantidadeItensPedido;
+    } else {
+      acc.quantidadePedidosAProduzir += 1;
+      acc.quantidadeItensAProduzir += quantidadeItensPedido;
+    }
 
     return acc;
   }, {
     quantidadePedidos: 0,
+    quantidadePedidosProntos: 0,
+    quantidadePedidosAProduzir: 0,
     quantidadeItens: 0,
+    quantidadeItensProntos: 0,
+    quantidadeItensAProduzir: 0,
     totalPedidos: 0
   });
 
@@ -170,7 +215,11 @@ function resumirCarradaDetalhada(carrada) {
     data: carrada?.data || null,
     descricao: carrada?.descricao || '',
     quantidade_pedidos: resumo.quantidadePedidos,
+    quantidade_pedidos_prontos: resumo.quantidadePedidosProntos,
+    quantidade_pedidos_a_produzir: resumo.quantidadePedidosAProduzir,
     quantidade_itens: resumo.quantidadeItens,
+    quantidade_itens_prontos: resumo.quantidadeItensProntos,
+    quantidade_itens_a_produzir: resumo.quantidadeItensAProduzir,
     total_pedidos: resumo.totalPedidos
   };
 }
@@ -356,7 +405,7 @@ function agruparCarradasPorData(carradas) {
 }
 
 async function garantirCarradasAutomaticasDaSemana(dataInicial, dataFinal) {
-  const carradasExistentes = await carradasService.listarCarradas();
+  const carradasExistentes = await carradasService.listarCarradas({ incluirResumoProducao: false });
   const carradasPorData = agruparCarradasPorData(carradasExistentes);
   const plano = [];
   const codigosExistentes = [];
@@ -421,7 +470,11 @@ async function carregarDetalhesCarradas(codigosCarradas) {
 function consolidarResumoSemana(semana, carradasDetalhadas) {
   const mapa = new Map();
   let totalPedidos = 0;
+  let totalPedidosProntos = 0;
+  let totalPedidosAProduzir = 0;
   let totalItens = 0;
+  let totalItensProntos = 0;
+  let totalItensAProduzir = 0;
   let totalGeral = 0;
 
   carradasDetalhadas.forEach((carrada) => {
@@ -432,7 +485,14 @@ function consolidarResumoSemana(semana, carradasDetalhadas) {
 
     pedidos.forEach((pedido) => {
       const numeroPedido = pedido?.numero ? String(pedido.numero) : '';
+      const pronto = pedidoEstaPronto(pedido);
       totalGeral += Number(pedido?.total || 0);
+
+      if (pronto) {
+        totalPedidosProntos += 1;
+      } else {
+        totalPedidosAProduzir += 1;
+      }
 
       const itens = Array.isArray(pedido?.itens) ? pedido.itens : [];
       itens.forEach((item) => {
@@ -444,13 +504,22 @@ function consolidarResumoSemana(semana, carradasDetalhadas) {
         const quantidade = Number(item?.quantidade || 0);
 
         totalItens += quantidade;
+        if (pronto) {
+          totalItensProntos += quantidade;
+        } else {
+          totalItensAProduzir += quantidade;
+        }
 
         if (!mapa.has(chave)) {
           mapa.set(chave, {
             item: codigoItem > 0 ? codigoItem : null,
             descricao,
             quantidade: 0,
+            quantidadePronta: 0,
+            quantidadeAProduzir: 0,
             pedidos: new Set(),
+            pedidosProntos: new Set(),
+            pedidosAProduzir: new Set(),
             carradas: new Set()
           });
         }
@@ -460,8 +529,18 @@ function consolidarResumoSemana(semana, carradasDetalhadas) {
           atual.descricao = descricao;
         }
         atual.quantidade += quantidade;
+        if (pronto) {
+          atual.quantidadePronta += quantidade;
+        } else {
+          atual.quantidadeAProduzir += quantidade;
+        }
         if (numeroPedido) {
           atual.pedidos.add(numeroPedido);
+          if (pronto) {
+            atual.pedidosProntos.add(numeroPedido);
+          } else {
+            atual.pedidosAProduzir.add(numeroPedido);
+          }
         }
         if (codigoCarrada) {
           atual.carradas.add(codigoCarrada);
@@ -470,15 +549,23 @@ function consolidarResumoSemana(semana, carradasDetalhadas) {
     });
   });
 
+  const ordenarNumeros = (valores) => Array.from(valores).sort((a, b) => String(a).localeCompare(String(b), 'pt-BR', { numeric: true }));
+
   const itens = Array.from(mapa.values())
     .map((item) => ({
       item: item.item,
       descricao: item.descricao,
       quantidade: item.quantidade,
+      quantidade_pronta: item.quantidadePronta,
+      quantidade_a_produzir: item.quantidadeAProduzir,
       totalPedidos: item.pedidos.size,
+      totalPedidosProntos: item.pedidosProntos.size,
+      totalPedidosAProduzir: item.pedidosAProduzir.size,
       totalCarradas: item.carradas.size,
-      numerosPedidos: Array.from(item.pedidos).sort((a, b) => String(a).localeCompare(String(b), 'pt-BR', { numeric: true })),
-      codigosCarradas: Array.from(item.carradas).sort((a, b) => String(a).localeCompare(String(b), 'pt-BR', { numeric: true }))
+      numerosPedidos: ordenarNumeros(item.pedidos),
+      numerosPedidosProntos: ordenarNumeros(item.pedidosProntos),
+      numerosPedidosAProduzir: ordenarNumeros(item.pedidosAProduzir),
+      codigosCarradas: ordenarNumeros(item.carradas)
     }))
     .sort((a, b) => String(a.descricao || '').localeCompare(String(b.descricao || ''), 'pt-BR'));
 
@@ -498,7 +585,11 @@ function consolidarResumoSemana(semana, carradasDetalhadas) {
     totais: {
       quantidade_carradas: carradas.length,
       quantidade_pedidos: totalPedidos,
+      quantidade_pedidos_prontos: totalPedidosProntos,
+      quantidade_pedidos_a_produzir: totalPedidosAProduzir,
       quantidade_itens: totalItens,
+      quantidade_itens_prontos: totalItensProntos,
+      quantidade_itens_a_produzir: totalItensAProduzir,
       total_geral_pedidos: totalGeral,
       quantidade_tipos_itens: itens.length
     }
@@ -506,7 +597,7 @@ function consolidarResumoSemana(semana, carradasDetalhadas) {
 }
 
 async function validarCarradasExistentes(codigosCarradas) {
-  const carradas = await carradasService.listarCarradas();
+  const carradas = await carradasService.listarCarradas({ incluirResumoProducao: false });
   const codigosExistentes = new Set(
     carradas
       .map((carrada) => Number.parseInt(carrada?.codigo, 10))
@@ -589,7 +680,37 @@ async function listarSemanas(filtros = {}) {
   `;
 
   const result = await pool.query(query, values);
-  return result.rows;
+  const semanas = result.rows;
+
+  return mapearComConcorrencia(semanas, 3, async (semana) => {
+    try {
+      const detalhada = await buscarSemanaPorId(semana.id);
+      const totais = detalhada?.totais || {};
+
+      return {
+        ...semana,
+        quantidade_pedidos: Number(totais.quantidade_pedidos || 0),
+        quantidade_pedidos_prontos: Number(totais.quantidade_pedidos_prontos || 0),
+        quantidade_pedidos_a_produzir: Number(totais.quantidade_pedidos_a_produzir || 0),
+        quantidade_itens: Number(totais.quantidade_itens || 0),
+        quantidade_itens_prontos: Number(totais.quantidade_itens_prontos || 0),
+        quantidade_itens_a_produzir: Number(totais.quantidade_itens_a_produzir || 0),
+        total_geral_pedidos: Number(totais.total_geral_pedidos || 0)
+      };
+    } catch (error) {
+      console.error(`Falha ao calcular totais da semana ${semana.id}:`, error.message);
+      return {
+        ...semana,
+        quantidade_pedidos: 0,
+        quantidade_pedidos_prontos: 0,
+        quantidade_pedidos_a_produzir: 0,
+        quantidade_itens: 0,
+        quantidade_itens_prontos: 0,
+        quantidade_itens_a_produzir: 0,
+        total_geral_pedidos: 0
+      };
+    }
+  });
 }
 
 async function listarCarradasDisponiveis(filtros = {}) {
@@ -688,13 +809,21 @@ async function buscarSemanaPorId(id) {
   const totais = carradas.reduce((acc, carrada) => {
     acc.quantidade_carradas += 1;
     acc.quantidade_pedidos += Number(carrada.quantidade_pedidos || 0);
+    acc.quantidade_pedidos_prontos += Number(carrada.quantidade_pedidos_prontos || 0);
+    acc.quantidade_pedidos_a_produzir += Number(carrada.quantidade_pedidos_a_produzir || 0);
     acc.quantidade_itens += Number(carrada.quantidade_itens || 0);
+    acc.quantidade_itens_prontos += Number(carrada.quantidade_itens_prontos || 0);
+    acc.quantidade_itens_a_produzir += Number(carrada.quantidade_itens_a_produzir || 0);
     acc.total_geral_pedidos += Number(carrada.total_pedidos || 0);
     return acc;
   }, {
     quantidade_carradas: 0,
     quantidade_pedidos: 0,
+    quantidade_pedidos_prontos: 0,
+    quantidade_pedidos_a_produzir: 0,
     quantidade_itens: 0,
+    quantidade_itens_prontos: 0,
+    quantidade_itens_a_produzir: 0,
     total_geral_pedidos: 0
   });
 

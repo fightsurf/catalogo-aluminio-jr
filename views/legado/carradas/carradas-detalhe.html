@@ -171,6 +171,7 @@
         </div>
         <a class="button btn-secondary" href="/legado/carradas">Voltar</a>
         <button class="btn-secondary" id="btnResumoItens">Resumo de itens</button>
+        <button class="btn-secondary" id="btnResumoProducao">Resumo para produção</button>
         <button class="btn-secondary" id="btnProgresso">Progresso</button>
         <button class="btn-secondary" id="btnEditar">Editar</button>
         <button class="btn-danger" id="btnExcluir">Excluir</button>
@@ -243,21 +244,47 @@
     }
 
     function calcularResumo(carrada) {
+      const resumoBackend = carrada?.resumoProducao || {};
+
+      if (Object.keys(resumoBackend).length) {
+        return {
+          totalPedidos: resumoBackend.quantidadePedidos,
+          totalPedidosProntos: resumoBackend.quantidadePedidosProntos,
+          totalPedidosAProduzir: resumoBackend.quantidadePedidosAProduzir,
+          totalItens: resumoBackend.quantidadeItens,
+          totalItensProntos: resumoBackend.quantidadeItensProntos,
+          totalItensAProduzir: resumoBackend.quantidadeItensAProduzir,
+          totalGeral: resumoBackend.totalPedidos
+        };
+      }
+
       const pedidos = Array.isArray(carrada.pedidos) ? carrada.pedidos : [];
 
       return pedidos.reduce((acc, pedido) => {
+        const pedidoPronto = Boolean(pedido?.pedidoPronto || pedido?.pedido_pronto);
+        const itens = Array.isArray(pedido.itens) ? pedido.itens : [];
+        const quantidadePedido = itens.reduce((total, item) => total + Number(item.quantidade || 0), 0);
+
         acc.totalPedidos += 1;
+        acc.totalItens += quantidadePedido;
         acc.totalGeral += Number(pedido.total || 0);
 
-        const itens = Array.isArray(pedido.itens) ? pedido.itens : [];
-        itens.forEach((item) => {
-          acc.totalItens += Number(item.quantidade || 0);
-        });
+        if (pedidoPronto) {
+          acc.totalPedidosProntos += 1;
+          acc.totalItensProntos += quantidadePedido;
+        } else {
+          acc.totalPedidosAProduzir += 1;
+          acc.totalItensAProduzir += quantidadePedido;
+        }
 
         return acc;
       }, {
         totalPedidos: 0,
+        totalPedidosProntos: 0,
+        totalPedidosAProduzir: 0,
         totalItens: 0,
+        totalItensProntos: 0,
+        totalItensAProduzir: 0,
         totalGeral: 0
       });
     }
@@ -285,7 +312,7 @@
             <section class="card">
               <div class="pedido-header">
                 <div>
-                  <h2>Pedido ${escapeHtml(pedido.numero)}</h2>
+                  <h2>Pedido ${escapeHtml(pedido.numero)}${pedido.pedidoPronto ? ' <span style="font-size:12px; color:#166534; background:#dcfce7; padding:3px 8px; border-radius:999px;">PRONTO</span>' : ''}</h2>
                   <div class="muted">Cliente: ${escapeHtml(pedido.cliente?.nome || '-')} | Cidade: ${escapeHtml(((pedido.cliente?.cidade || '') + ((pedido.cliente?.uf || '') ? ' / ' + pedido.cliente.uf : '')).trim() || '-')} | Data: ${escapeHtml(formatarData(pedido.data))}</div>
                 </div>
                 <div class="pedido-acoes">
@@ -350,8 +377,24 @@
               <div class="resumo-valor">${escapeHtml(formatarQuantidade(resumo.totalPedidos))}</div>
             </div>
             <div class="resumo-item">
+              <div class="resumo-label">Pedidos prontos</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(resumo.totalPedidosProntos))}</div>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-label">Pedidos a produzir</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(resumo.totalPedidosAProduzir))}</div>
+            </div>
+            <div class="resumo-item">
               <div class="resumo-label">Quantidade de itens</div>
               <div class="resumo-valor">${escapeHtml(formatarQuantidade(resumo.totalItens))}</div>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-label">Itens prontos</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(resumo.totalItensProntos))}</div>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-label">Itens a produzir</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(resumo.totalItensAProduzir))}</div>
             </div>
             <div class="resumo-item">
               <div class="resumo-label">Total dos pedidos</div>
@@ -491,6 +534,10 @@
 
     document.getElementById('btnResumoItens').addEventListener('click', () => {
       window.location.href = `/legado/carradas/resumo-itens?codigo=${encodeURIComponent(codigo)}`;
+    });
+
+    document.getElementById('btnResumoProducao').addEventListener('click', () => {
+      window.location.href = `/legado/carradas/resumo-producao?codigo=${encodeURIComponent(codigo)}`;
     });
 
     document.getElementById('btnProgresso').addEventListener('click', () => {

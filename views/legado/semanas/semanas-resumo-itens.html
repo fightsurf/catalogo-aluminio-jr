@@ -317,8 +317,24 @@
               <div class="resumo-valor">${escapeHtml(formatarQuantidade(totais.quantidade_pedidos))}</div>
             </div>
             <div class="resumo-item">
+              <div class="resumo-label">Pedidos prontos</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(totais.quantidade_pedidos_prontos))}</div>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-label">Pedidos a produzir</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(totais.quantidade_pedidos_a_produzir))}</div>
+            </div>
+            <div class="resumo-item">
               <div class="resumo-label">Quantidade total de itens</div>
               <div class="resumo-valor">${escapeHtml(formatarQuantidade(totais.quantidade_itens))}</div>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-label">Itens de pedidos prontos</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(totais.quantidade_itens_prontos))}</div>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-label">Itens a produzir</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(totais.quantidade_itens_a_produzir))}</div>
             </div>
             <div class="resumo-item">
               <div class="resumo-label">Tipos de itens</div>
@@ -341,7 +357,11 @@
                   <th>Data</th>
                   <th>Descrição</th>
                   <th>Pedidos</th>
-                  <th>Itens</th>
+                  <th>Pedidos prontos</th>
+                  <th>Pedidos a produzir</th>
+                  <th>Total itens</th>
+                  <th>Itens prontos</th>
+                  <th>Itens a produzir</th>
                   <th>Total dos pedidos</th>
                   <th>Ações</th>
                 </tr>
@@ -353,7 +373,11 @@
                     <td>${escapeHtml(formatarData(carrada.data))}</td>
                     <td>${escapeHtml(carrada.descricao || '-')}</td>
                     <td>${escapeHtml(formatarQuantidade(carrada.quantidade_pedidos))}</td>
+                    <td>${escapeHtml(formatarQuantidade(carrada.quantidade_pedidos_prontos))}</td>
+                    <td>${escapeHtml(formatarQuantidade(carrada.quantidade_pedidos_a_produzir))}</td>
                     <td>${escapeHtml(formatarQuantidade(carrada.quantidade_itens))}</td>
+                    <td>${escapeHtml(formatarQuantidade(carrada.quantidade_itens_prontos))}</td>
+                    <td>${escapeHtml(formatarQuantidade(carrada.quantidade_itens_a_produzir))}</td>
                     <td>${escapeHtml(formatarMoeda(carrada.total_pedidos))}</td>
                     <td><a class="button btn-secondary" href="/legado/carradas/detalhe?codigo=${encodeURIComponent(carrada.codigo)}" target="_blank" rel="noopener noreferrer">Abrir carrada</a></td>
                   </tr>
@@ -372,6 +396,8 @@
                   <th class="col-indice">#</th>
                   <th>Descrição</th>
                   <th>Qtd. total</th>
+                  <th>Qtd. pronta</th>
+                  <th>Qtd. a produzir</th>
                   <th>Pedidos</th>
                   <th>Carradas</th>
                 </tr>
@@ -382,6 +408,8 @@
                     <td>${escapeHtml(String(indice + 1))}</td>
                     <td>${escapeHtml(item.descricao || '-')}</td>
                     <td>${escapeHtml(formatarQuantidade(item.quantidade))}</td>
+                    <td>${escapeHtml(formatarQuantidade(item.quantidade_pronta))}</td>
+                    <td>${escapeHtml(formatarQuantidade(item.quantidade_a_produzir))}</td>
                     <td>${renderPedidosHover(item.numerosPedidos || [])}</td>
                     <td>${renderCarradasHover(item.codigosCarradas || [])}</td>
                   </tr>
@@ -392,6 +420,8 @@
                   <td></td>
                   <td>Total geral</td>
                   <td>${escapeHtml(formatarQuantidade(totais.quantidade_itens))}</td>
+                  <td>${escapeHtml(formatarQuantidade(totais.quantidade_itens_prontos))}</td>
+                  <td>${escapeHtml(formatarQuantidade(totais.quantidade_itens_a_produzir))}</td>
                   <td></td>
                   <td></td>
                 </tr>
