@@ -39,7 +39,7 @@ async function listarPedidosPorNumero(req, res) {
 
 async function listarCarradas(req, res) {
   try {
-    const data = await carradasService.listarCarradas();
+    const data = await carradasService.listarCarradas(req.query || {});
     return res.status(200).json({ success: true, data });
   } catch (error) {
     return res.status(500).json({ success: false, message: 'Erro ao listar carradas.', error: error.message });

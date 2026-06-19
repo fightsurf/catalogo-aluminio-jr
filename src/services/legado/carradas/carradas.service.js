@@ -67,12 +67,36 @@ async function mapearComConcorrencia(itens, limite, worker) {
 }
 
 function calcularQuantidadeItensPedido(pedido) {
+  if (pedido && !Array.isArray(pedido.itens)) {
+    const quantidadeResumo = Number(pedido.quantidadeItens ?? pedido.quantidade_itens);
+
+    if (Number.isFinite(quantidadeResumo)) {
+      return quantidadeResumo;
+    }
+  }
+
   const itens = Array.isArray(pedido?.itens) ? pedido.itens : [];
   return itens.reduce((total, item) => total + Number(item?.quantidade || 0), 0);
 }
 
+function obterPedidosResumoCarrada(carrada) {
+  if (Array.isArray(carrada?.pedidos)) {
+    return carrada.pedidos;
+  }
+
+  if (Array.isArray(carrada?.pedidosResumo)) {
+    return carrada.pedidosResumo;
+  }
+
+  if (Array.isArray(carrada?.pedidos_resumo)) {
+    return carrada.pedidos_resumo;
+  }
+
+  return [];
+}
+
 function montarResumoProducaoCarrada(carrada, pedidosProntosSet = new Set()) {
-  const pedidos = Array.isArray(carrada?.pedidos) ? carrada.pedidos : [];
+  const pedidos = obterPedidosResumoCarrada(carrada);
   const pedidosComStatus = [];
 
   const resumo = pedidos.reduce((acc, pedido) => {
@@ -297,7 +321,20 @@ async function listarPedidosPorNumero(numero) {
 }
 
 async function listarCarradas(opcoes = {}) {
-  const response = await legadoBridgeService.get('/api/carradas');
+  const incluirResumoProducao = opcoes.incluirResumoProducao !== false;
+  let response;
+
+  if (incluirResumoProducao) {
+    try {
+      response = await legadoBridgeService.get('/api/carradas/resumo-producao-lista', { dias: opcoes.dias });
+    } catch (error) {
+      console.error('Falha ao buscar resumo otimizado das carradas. Usando listagem simples:', error.message);
+      response = await legadoBridgeService.get('/api/carradas');
+    }
+  } else {
+    response = await legadoBridgeService.get('/api/carradas');
+  }
+
   const carradas = response.dados || [];
   const codigos = carradas
     .map((item) => Number.parseInt(item?.codigo, 10))
@@ -311,8 +348,7 @@ async function listarCarradas(opcoes = {}) {
     console.error('Falha ao buscar status persistido das carradas:', error.message);
   }
 
-
-  if (opcoes.incluirResumoProducao === false) {
+  if (!incluirResumoProducao) {
     return carradas.map((carrada) => {
       const codigo = Number.parseInt(carrada?.codigo, 10);
       const status = mapaStatus.get(codigo);
@@ -324,29 +360,25 @@ async function listarCarradas(opcoes = {}) {
     });
   }
 
-  return mapearComConcorrencia(carradas, 6, async (carrada) => {
+  const todosPedidos = carradas.flatMap((carrada) => obterPedidosResumoCarrada(carrada));
+  const pedidosProntosSet = await buscarSetPedidosProntosSemQuebrar(todosPedidos);
+
+  return carradas.map((carrada) => {
     const codigo = Number.parseInt(carrada?.codigo, 10);
     const status = mapaStatus.get(codigo);
+    const { resumo } = montarResumoProducaoCarrada(carrada, pedidosProntosSet);
+    const carradaComResumo = aplicarResumoProducaoCarrada(carrada, resumo, null);
 
-    try {
-      const detalhe = codigo ? await buscarCarradaDoLegado(codigo) : null;
-      const carradaComResumo = await enriquecerCarradaComResumoProducao(detalhe || carrada, { incluirPedidos: false });
-
-      return {
-        ...carrada,
-        ...carradaComResumo,
-        pedidos: undefined,
-        progressoStatusLinha: status?.statusLinha || 'incompleta'
-      };
-    } catch (error) {
-      console.error(`Falha ao calcular totais da carrada ${codigo || ''}:`, error.message);
-      return {
-        ...aplicarResumoProducaoCarrada(carrada, null, null),
-        progressoStatusLinha: status?.statusLinha || 'incompleta'
-      };
-    }
+    return {
+      ...carradaComResumo,
+      pedidos: undefined,
+      pedidosResumo: undefined,
+      pedidos_resumo: undefined,
+      progressoStatusLinha: status?.statusLinha || 'incompleta'
+    };
   });
 }
+
 
 async function recalcularStatusCarradaSemQuebrar(codigoCarrada) {
   const codigo = Number.parseInt(codigoCarrada, 10);

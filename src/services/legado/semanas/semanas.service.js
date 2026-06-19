@@ -726,7 +726,7 @@ async function listarCarradasDisponiveis(filtros = {}) {
     throw criarErro('O período informado é inválido.', 400);
   }
 
-  const carradas = await carradasService.listarCarradas();
+  const carradas = await carradasService.listarCarradas({ incluirResumoProducao: false });
 
   const query = semanaIdExcluir
     ? 'SELECT codigo_carrada FROM semana_carradas WHERE semana_id <> $1'

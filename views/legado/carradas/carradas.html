@@ -758,7 +758,7 @@
 
     async function carregarCarradas() {
       try {
-        const carradas = await request('/api/legado/carradas');
+        const carradas = await request('/api/legado/carradas?dias=90');
         const limiteNoventaDias = obterLimiteNoventaDias();
 
         const carradasOrdenadas = (Array.isArray(carradas) ? carradas : [])
