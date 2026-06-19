@@ -172,8 +172,22 @@
     th { color: var(--muted); font-size: 13px; }
     .acoes-carrada {
       display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
+      gap: 6px;
+      flex-wrap: nowrap;
+      align-items: center;
+      white-space: nowrap;
+    }
+    .acoes-carrada .button {
+      height: 32px;
+      padding: 0 10px;
+      border-radius: 8px;
+      font-size: 12px;
+      line-height: 1;
+      white-space: nowrap;
+    }
+    .acoes-coluna {
+      min-width: 220px;
+      white-space: nowrap;
     }
     .linha-total td {
       background: #111827;
@@ -422,11 +436,11 @@
                     <td>${escapeHtml(formatarQuantidade(carrada.quantidade_itens_prontos))}</td>
                     <td>${escapeHtml(formatarQuantidade(carrada.quantidade_itens_a_produzir))}</td>
                     <td>${escapeHtml(formatarMoeda(carrada.total_pedidos))}</td>
-                    <td>
+                    <td class="acoes-coluna">
                       <div class="acoes-carrada">
-                        <a class="button btn-secondary" href="/legado/carradas/detalhe?codigo=${encodeURIComponent(carrada.codigo)}">Abrir carrada</a>
-                        <a class="button btn-secondary" href="/legado/carradas/progresso?codigo=${encodeURIComponent(carrada.codigo)}">Progresso</a>
-                        <a class="button btn-secondary" href="/legado/pedidos-insercao-v2?carrada_codigo=${encodeURIComponent(carrada.codigo)}">Inserir pedido</a>
+                        <a class="button btn-secondary" href="/legado/carradas/detalhe?codigo=${encodeURIComponent(carrada.codigo)}" title="Abrir carrada">Abrir</a>
+                        <a class="button btn-secondary" href="/legado/carradas/progresso?codigo=${encodeURIComponent(carrada.codigo)}" title="Progresso">Progresso</a>
+                        <a class="button btn-secondary" href="/legado/pedidos-insercao-v2?carrada_codigo=${encodeURIComponent(carrada.codigo)}" title="Inserir pedido">Ins. Pedido</a>
                       </div>
                     </td>
                   </tr>
