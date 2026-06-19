@@ -326,7 +326,17 @@ async function listarCarradas(opcoes = {}) {
 
   if (incluirResumoProducao) {
     try {
-      response = await legadoBridgeService.get('/api/carradas/resumo-producao-lista', { dias: opcoes.dias });
+      const query = {};
+      if (opcoes.dias) {
+        query.dias = opcoes.dias;
+      }
+      if (Array.isArray(opcoes.codigos) && opcoes.codigos.length) {
+        query.codigos = opcoes.codigos.join(',');
+      } else if (opcoes.codigos) {
+        query.codigos = opcoes.codigos;
+      }
+
+      response = await legadoBridgeService.get('/api/carradas/resumo-producao-lista', query);
     } catch (error) {
       console.error('Falha ao buscar resumo otimizado das carradas. Usando listagem simples:', error.message);
       response = await legadoBridgeService.get('/api/carradas');
@@ -415,6 +425,40 @@ async function buscarCarrada(codigo) {
 
 async function buscarResumoCarrada(codigo) {
   return buscarCarrada(codigo);
+}
+
+async function listarDetalhesCarradasPorCodigos(codigosParam = []) {
+  const codigos = [...new Set(
+    (Array.isArray(codigosParam) ? codigosParam : String(codigosParam || '').split(','))
+      .map((codigo) => Number.parseInt(codigo, 10))
+      .filter((codigo) => Number.isInteger(codigo) && codigo > 0)
+  )];
+
+  if (!codigos.length) {
+    return [];
+  }
+
+  const response = await legadoBridgeService.get('/api/carradas/detalhes-producao-lista', {
+    codigos: codigos.join(',')
+  });
+
+  const carradas = Array.isArray(response?.dados) ? response.dados : [];
+  const todosPedidos = carradas.flatMap((carrada) => Array.isArray(carrada?.pedidos) ? carrada.pedidos : []);
+  const pedidosProntosSet = await buscarSetPedidosProntosSemQuebrar(todosPedidos);
+
+  const enriquecidas = await Promise.all(
+    carradas.map((carrada) => enriquecerCarradaComResumoProducao(carrada, { pedidosProntosSet }))
+  );
+
+  const mapa = new Map(
+    enriquecidas
+      .filter(Boolean)
+      .map((carrada) => [Number.parseInt(carrada.codigo, 10), carrada])
+  );
+
+  return codigos
+    .map((codigo) => mapa.get(codigo))
+    .filter(Boolean);
 }
 
 async function criarCarrada(payload) {
@@ -555,6 +599,7 @@ module.exports = {
   listarCarradasDisponiveis,
   buscarCarrada,
   buscarResumoCarrada,
+  listarDetalhesCarradasPorCodigos,
   criarCarrada,
   atualizarCarrada,
   vincularPedidoNaCarrada,

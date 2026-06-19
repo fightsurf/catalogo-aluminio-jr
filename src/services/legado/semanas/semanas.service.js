@@ -224,6 +224,94 @@ function resumirCarradaDetalhada(carrada) {
   };
 }
 
+
+function normalizarListaCodigosCarradas(valor) {
+  const origem = Array.isArray(valor)
+    ? valor
+    : String(valor || '').split(',');
+
+  return [...new Set(
+    origem
+      .map((item) => Number.parseInt(item, 10))
+      .filter((codigo) => Number.isInteger(codigo) && codigo > 0)
+  )];
+}
+
+function obterNumero(valor) {
+  const numero = Number(valor);
+  return Number.isFinite(numero) ? numero : 0;
+}
+
+function resumirCarradaResumoProducao(carrada) {
+  return {
+    codigo: carrada?.codigo,
+    data: carrada?.data || null,
+    descricao: carrada?.descricao || '',
+    quantidade_pedidos: obterNumero(carrada?.quantidade_pedidos ?? carrada?.quantidadePedidos ?? carrada?.totalPedidos),
+    quantidade_pedidos_prontos: obterNumero(carrada?.quantidade_pedidos_prontos ?? carrada?.quantidadePedidosProntos ?? carrada?.totalPedidosProntos),
+    quantidade_pedidos_a_produzir: obterNumero(carrada?.quantidade_pedidos_a_produzir ?? carrada?.quantidadePedidosAProduzir ?? carrada?.totalPedidosAProduzir),
+    quantidade_itens: obterNumero(carrada?.quantidade_itens ?? carrada?.quantidadeItens),
+    quantidade_itens_prontos: obterNumero(carrada?.quantidade_itens_prontos ?? carrada?.quantidadeItensProntos),
+    quantidade_itens_a_produzir: obterNumero(carrada?.quantidade_itens_a_produzir ?? carrada?.quantidadeItensAProduzir),
+    total_pedidos: obterNumero(carrada?.total_pedidos ?? carrada?.valorTotalPedidos)
+  };
+}
+
+function calcularTotaisCarradasResumidas(carradas) {
+  return carradas.reduce((acc, carrada) => {
+    acc.quantidade_carradas += 1;
+    acc.quantidade_pedidos += obterNumero(carrada.quantidade_pedidos);
+    acc.quantidade_pedidos_prontos += obterNumero(carrada.quantidade_pedidos_prontos);
+    acc.quantidade_pedidos_a_produzir += obterNumero(carrada.quantidade_pedidos_a_produzir);
+    acc.quantidade_itens += obterNumero(carrada.quantidade_itens);
+    acc.quantidade_itens_prontos += obterNumero(carrada.quantidade_itens_prontos);
+    acc.quantidade_itens_a_produzir += obterNumero(carrada.quantidade_itens_a_produzir);
+    acc.total_geral_pedidos += obterNumero(carrada.total_pedidos);
+    return acc;
+  }, {
+    quantidade_carradas: 0,
+    quantidade_pedidos: 0,
+    quantidade_pedidos_prontos: 0,
+    quantidade_pedidos_a_produzir: 0,
+    quantidade_itens: 0,
+    quantidade_itens_prontos: 0,
+    quantidade_itens_a_produzir: 0,
+    total_geral_pedidos: 0
+  });
+}
+
+async function buscarMapaResumoProducaoCarradas(codigosCarradas) {
+  const codigos = normalizarListaCodigosCarradas(codigosCarradas);
+  const mapa = new Map();
+
+  if (!codigos.length) {
+    return mapa;
+  }
+
+  const carradas = await carradasService.listarCarradas({ codigos });
+
+  carradas.forEach((carrada) => {
+    const codigo = Number.parseInt(carrada?.codigo, 10);
+    if (Number.isInteger(codigo) && codigo > 0) {
+      mapa.set(codigo, resumirCarradaResumoProducao(carrada));
+    }
+  });
+
+  return mapa;
+}
+
+async function carregarResumosCarradas(codigosCarradas) {
+  const codigos = normalizarListaCodigosCarradas(codigosCarradas);
+  if (!codigos.length) {
+    return [];
+  }
+
+  const mapa = await buscarMapaResumoProducaoCarradas(codigos);
+  return codigos
+    .map((codigo) => mapa.get(codigo))
+    .filter(Boolean);
+}
+
 function ordenarCarradasPorDataDecrescente(carradas) {
   return [...carradas].sort((a, b) => {
     const dataA = normalizarDataIso(a?.data) || '';
@@ -456,12 +544,22 @@ async function garantirCarradasAutomaticasDaSemana(dataInicial, dataFinal) {
 }
 
 async function carregarDetalhesCarradas(codigosCarradas) {
-  if (!codigosCarradas.length) {
+  const codigos = normalizarListaCodigosCarradas(codigosCarradas);
+
+  if (!codigos.length) {
     return [];
   }
 
+  if (typeof carradasService.listarDetalhesCarradasPorCodigos === 'function') {
+    try {
+      return await carradasService.listarDetalhesCarradasPorCodigos(codigos);
+    } catch (error) {
+      console.error('Falha ao buscar detalhes de carradas em lote. Usando carregamento individual:', error.message);
+    }
+  }
+
   const carradas = await Promise.all(
-    codigosCarradas.map((codigoCarrada) => carradasService.buscarCarrada(codigoCarrada))
+    codigos.map((codigoCarrada) => carradasService.buscarCarrada(codigoCarrada))
   );
 
   return carradas.filter(Boolean);
@@ -671,7 +769,12 @@ async function listarSemanas(filtros = {}) {
       s.data_inicial,
       s.data_final,
       s.descricao,
-      COUNT(sc.id)::int AS quantidade_carradas
+      COUNT(sc.id)::int AS quantidade_carradas,
+      COALESCE(
+        ARRAY_AGG(sc.codigo_carrada ORDER BY sc.ordem ASC, sc.id ASC)
+          FILTER (WHERE sc.codigo_carrada IS NOT NULL),
+        ARRAY[]::int[]
+      ) AS codigos_carradas
     FROM semanas s
     LEFT JOIN semana_carradas sc ON sc.semana_id = s.id
     ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
@@ -681,35 +784,30 @@ async function listarSemanas(filtros = {}) {
 
   const result = await pool.query(query, values);
   const semanas = result.rows;
+  const todosCodigos = semanas.flatMap((semana) => normalizarListaCodigosCarradas(semana.codigos_carradas));
+  const mapaCarradas = await buscarMapaResumoProducaoCarradas(todosCodigos);
 
-  return mapearComConcorrencia(semanas, 3, async (semana) => {
-    try {
-      const detalhada = await buscarSemanaPorId(semana.id);
-      const totais = detalhada?.totais || {};
+  return semanas.map((semana) => {
+    const codigosSemana = normalizarListaCodigosCarradas(semana.codigos_carradas);
+    const carradas = codigosSemana
+      .map((codigo) => mapaCarradas.get(codigo))
+      .filter(Boolean);
+    const totais = calcularTotaisCarradasResumidas(carradas);
 
-      return {
-        ...semana,
-        quantidade_pedidos: Number(totais.quantidade_pedidos || 0),
-        quantidade_pedidos_prontos: Number(totais.quantidade_pedidos_prontos || 0),
-        quantidade_pedidos_a_produzir: Number(totais.quantidade_pedidos_a_produzir || 0),
-        quantidade_itens: Number(totais.quantidade_itens || 0),
-        quantidade_itens_prontos: Number(totais.quantidade_itens_prontos || 0),
-        quantidade_itens_a_produzir: Number(totais.quantidade_itens_a_produzir || 0),
-        total_geral_pedidos: Number(totais.total_geral_pedidos || 0)
-      };
-    } catch (error) {
-      console.error(`Falha ao calcular totais da semana ${semana.id}:`, error.message);
-      return {
-        ...semana,
-        quantidade_pedidos: 0,
-        quantidade_pedidos_prontos: 0,
-        quantidade_pedidos_a_produzir: 0,
-        quantidade_itens: 0,
-        quantidade_itens_prontos: 0,
-        quantidade_itens_a_produzir: 0,
-        total_geral_pedidos: 0
-      };
-    }
+    return {
+      id: semana.id,
+      data_inicial: semana.data_inicial,
+      data_final: semana.data_final,
+      descricao: semana.descricao,
+      quantidade_carradas: Number(semana.quantidade_carradas || totais.quantidade_carradas || 0),
+      quantidade_pedidos: Number(totais.quantidade_pedidos || 0),
+      quantidade_pedidos_prontos: Number(totais.quantidade_pedidos_prontos || 0),
+      quantidade_pedidos_a_produzir: Number(totais.quantidade_pedidos_a_produzir || 0),
+      quantidade_itens: Number(totais.quantidade_itens || 0),
+      quantidade_itens_prontos: Number(totais.quantidade_itens_prontos || 0),
+      quantidade_itens_a_produzir: Number(totais.quantidade_itens_a_produzir || 0),
+      total_geral_pedidos: Number(totais.total_geral_pedidos || 0)
+    };
   });
 }
 
@@ -799,33 +897,12 @@ async function buscarSemanaPorId(id) {
 
   const codigosCarradas = vinculosResult.rows
     .map((row) => Number.parseInt(row.codigo_carrada, 10))
-    .filter((codigo) => Number.isInteger(codigo));
+    .filter((codigo) => Number.isInteger(codigo) && codigo > 0);
 
-  const carradasDetalhadas = await carregarDetalhesCarradas(codigosCarradas);
   const carradas = ordenarCarradasPorDataDecrescente(
-    carradasDetalhadas.map((carrada) => resumirCarradaDetalhada(carrada))
+    await carregarResumosCarradas(codigosCarradas)
   );
-
-  const totais = carradas.reduce((acc, carrada) => {
-    acc.quantidade_carradas += 1;
-    acc.quantidade_pedidos += Number(carrada.quantidade_pedidos || 0);
-    acc.quantidade_pedidos_prontos += Number(carrada.quantidade_pedidos_prontos || 0);
-    acc.quantidade_pedidos_a_produzir += Number(carrada.quantidade_pedidos_a_produzir || 0);
-    acc.quantidade_itens += Number(carrada.quantidade_itens || 0);
-    acc.quantidade_itens_prontos += Number(carrada.quantidade_itens_prontos || 0);
-    acc.quantidade_itens_a_produzir += Number(carrada.quantidade_itens_a_produzir || 0);
-    acc.total_geral_pedidos += Number(carrada.total_pedidos || 0);
-    return acc;
-  }, {
-    quantidade_carradas: 0,
-    quantidade_pedidos: 0,
-    quantidade_pedidos_prontos: 0,
-    quantidade_pedidos_a_produzir: 0,
-    quantidade_itens: 0,
-    quantidade_itens_prontos: 0,
-    quantidade_itens_a_produzir: 0,
-    total_geral_pedidos: 0
-  });
+  const totais = calcularTotaisCarradasResumidas(carradas);
 
   return {
     ...semana,
