@@ -386,6 +386,11 @@
       });
     }
 
+    function formatarQuantidade(valor) {
+      const numero = Number(valor || 0);
+      return numero.toLocaleString('pt-BR');
+    }
+
     function obterDataISO(valor) {
       if (!valor) return '';
 
