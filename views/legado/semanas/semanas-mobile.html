@@ -20,8 +20,8 @@
     .lista { display: flex; flex-direction: column; gap: 10px; }
     .card { width: 100%; text-align: left; border: 1px solid #e5e7eb; border-radius: 16px; padding: 14px; background: #fff; box-shadow: 0 8px 20px rgba(0,0,0,.05); color: inherit; cursor: pointer; }
     .card:active { transform: scale(.995); }
-    .descricao { font-size: 17px; font-weight: 800; margin-bottom: 10px; line-height: 1.25; }
-    .meta { color: #4b5563; font-size: 13px; margin-bottom: 10px; }
+    .descricao { font-size: 22px; font-weight: 900; margin-bottom: 14px; line-height: 1.25; }
+    .card.semana-atual { background: #dbeafe; border-color: #93c5fd; box-shadow: 0 8px 20px rgba(37, 99, 235, .12); }
     .linha { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
     .label { color: #6b7280; font-size: 13px; }
     .valor { font-size: 26px; font-weight: 900; }
@@ -91,6 +91,28 @@
       return Number.isNaN(data.getTime()) ? String(valor) : data.toLocaleDateString('pt-BR');
     }
 
+
+    function parseDataLocal(valor) {
+      if (!valor) return null;
+      const texto = String(valor).slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
+        const [ano, mes, dia] = texto.split('-').map(Number);
+        return new Date(ano, mes - 1, dia);
+      }
+      const data = new Date(valor);
+      if (Number.isNaN(data.getTime())) return null;
+      return new Date(data.getFullYear(), data.getMonth(), data.getDate());
+    }
+
+    function isSemanaCorrente(semana) {
+      const inicio = parseDataLocal(semana.data_inicial);
+      const fim = parseDataLocal(semana.data_final);
+      if (!inicio || !fim) return false;
+      const agora = new Date();
+      const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
+      return hoje >= inicio && hoje <= fim;
+    }
+
     function renderizar() {
       const termo = busca.value.trim().toLowerCase();
       const filtradas = semanas.filter((semana) => String(semana.descricao || '').toLowerCase().includes(termo));
@@ -102,10 +124,10 @@
 
       lista.innerHTML = filtradas.map((semana) => {
         const url = `/legado/semanas/mobile/detalhe?id=${encodeURIComponent(semana.id)}`;
+        const classeAtual = isSemanaCorrente(semana) ? ' semana-atual' : '';
         return `
-          <button type="button" class="card" data-url="${escapeHtml(url)}">
+          <button type="button" class="card${classeAtual}" data-url="${escapeHtml(url)}">
             <div class="descricao">${escapeHtml(semana.descricao || 'Semana sem descrição')}</div>
-            <div class="meta">${escapeHtml(formatarData(semana.data_inicial))} até ${escapeHtml(formatarData(semana.data_final))}</div>
             <div class="linha">
               <span class="label">A produzir</span>
               <span class="valor">${escapeHtml(formatarNumero(semana.quantidade_itens_a_produzir))}</span>
