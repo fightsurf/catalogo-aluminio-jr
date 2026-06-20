@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pagamentos Mobile</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #f3f4f6; color: #111827; }
+    .page { width: 100%; max-width: 760px; margin: 0 auto; padding: 14px; }
+    .topo { position: sticky; top: 0; z-index: 5; margin: -14px -14px 14px; padding: 14px; background: #111827; color: #fff; box-shadow: 0 8px 18px rgba(0,0,0,.16); }
+    .voltar { color: #fff; text-decoration: none; font-weight: 800; display: inline-block; margin-bottom: 10px; }
+    h1 { margin: 0; font-size: 20px; }
+    h2 { margin: 0 0 10px; font-size: 17px; }
+    .sub { margin: 6px 0 0; font-size: 13px; opacity: .82; }
+    .mensagem { display: none; margin: 0 0 12px; padding: 12px; border-radius: 12px; background: #eff6ff; color: #1d4ed8; font-weight: 700; font-size: 14px; }
+    .mensagem.erro { background: #fef2f2; color: #b91c1c; }
+    .mensagem.sucesso { background: #ecfdf5; color: #047857; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 14px; box-shadow: 0 8px 20px rgba(0,0,0,.05); margin-bottom: 12px; }
+    .duas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .tres { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+    label { display: block; font-size: 13px; font-weight: 800; color: #374151; margin: 0 0 6px; }
+    input, textarea { width: 100%; min-height: 44px; border: 1px solid #d1d5db; border-radius: 12px; padding: 10px 12px; font: inherit; background: #fff; }
+    textarea { min-height: 74px; resize: vertical; }
+    button, .botao { min-height: 44px; border: 0; border-radius: 12px; padding: 10px 12px; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; font: inherit; font-weight: 900; background: #111827; color: #fff; cursor: pointer; }
+    button.sec, .botao.sec { background: #e5e7eb; color: #111827; }
+    button.danger { background: #991b1b; color: #fff; }
+    button.whats { background: #16a34a; color: #fff; }
+    button.active { outline: 3px solid #93c5fd; background: #1d4ed8; color: #fff; }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .acoes { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    .linha-acoes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+    .label { color: #6b7280; font-size: 12px; margin-bottom: 4px; }
+    .valor { font-weight: 900; font-size: 15px; overflow-wrap: anywhere; }
+    .valor.grande { font-size: 21px; }
+    .meta { color: #4b5563; font-size: 13px; margin-top: 4px; }
+    .vazio { padding: 18px; border: 1px dashed #d1d5db; border-radius: 16px; background: #fff; color: #6b7280; text-align: center; }
+    .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+    .opcao { border: 1px solid #e5e7eb; border-radius: 14px; padding: 12px; background: #fff; margin-top: 8px; }
+    .pagamento { border: 1px solid #e5e7eb; border-radius: 14px; padding: 12px; margin-top: 8px; background: #fafafa; }
+    .pill { display: inline-flex; align-items: center; border-radius: 999px; padding: 4px 8px; font-size: 12px; font-weight: 900; background: #e5e7eb; color: #374151; }
+    .pill.ok { background: #dcfce7; color: #166534; }
+    .pill.warn { background: #fef3c7; color: #92400e; }
+    .oculto { display: none !important; }
+    @media (max-width: 520px) {
+      .duas, .tres, .linha-acoes { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="topo">
+      <a id="linkVoltar" class="voltar" href="/legado/semanas/mobile">← Voltar</a>
+      <h1>Pagamentos Mobile</h1>
+      <p class="sub">CRUD compacto de pagamentos por pedido.</p>
+    </header>
+
+    <div id="mensagem" class="mensagem"></div>
+
+    <section id="areaBusca" class="card">
+      <h2>Buscar pedido</h2>
+      <div class="tabs">
+        <button type="button" class="sec active" data-modo="numero">Número</button>
+        <button type="button" class="sec" data-modo="cliente">Cliente</button>
+      </div>
+
+      <div id="buscaNumeroBox">
+        <label for="buscaNumero">Número do pedido</label>
+        <input id="buscaNumero" type="text" placeholder="Ex.: 0019023" />
+        <div style="margin-top:10px;"><button id="btnBuscarNumero" type="button">Buscar pedido</button></div>
+      </div>
+
+      <div id="buscaClienteBox" class="oculto">
+        <label for="buscaCliente">Nome do cliente</label>
+        <input id="buscaCliente" type="text" placeholder="Digite o nome" />
+        <div style="margin-top:10px;"><button id="btnBuscarCliente" type="button">Buscar cliente</button></div>
+        <div id="listaClientes"></div>
+      </div>
+    </section>
+
+    <section id="listaPedidos"></section>
+    <section id="painelPedido"></section>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const numeroInicial = params.get('numero') || '';
+    const carradaVoltar = params.get('carrada') || '';
+
+    const estado = {
+      modo: 'numero',
+      pedido: null,
+      pagamentos: [],
+      resumo: null,
+      editando: null,
+      tipo: 'V'
+    };
+
+    const el = {
+      linkVoltar: document.getElementById('linkVoltar'),
+      mensagem: document.getElementById('mensagem'),
+      buscaNumero: document.getElementById('buscaNumero'),
+      buscaCliente: document.getElementById('buscaCliente'),
+      buscaNumeroBox: document.getElementById('buscaNumeroBox'),
+      buscaClienteBox: document.getElementById('buscaClienteBox'),
+      listaClientes: document.getElementById('listaClientes'),
+      listaPedidos: document.getElementById('listaPedidos'),
+      painelPedido: document.getElementById('painelPedido')
+    };
+
+    if (carradaVoltar) {
+      el.linkVoltar.href = `/legado/carradas/mobile/detalhe?codigo=${encodeURIComponent(carradaVoltar)}`;
+      el.linkVoltar.textContent = '← Carrada';
+    }
+
+    function escapeHtml(valor) {
+      return String(valor ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function setMensagem(texto, tipo = '') {
+      el.mensagem.textContent = texto || '';
+      el.mensagem.className = `mensagem ${tipo}`.trim();
+      el.mensagem.style.display = texto ? 'block' : 'none';
+    }
+
+    async function request(url, options = {}) {
+      const response = await fetch(url, options);
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok || json.success === false) {
+        throw new Error(json.error || json.message || json.detalhe || 'Falha na requisição.');
+      }
+      return json.data;
+    }
+
+    function formatarMoeda(valor) {
+      return Number(valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    function formatarData(valor) {
+      if (!valor) return '-';
+      const texto = String(valor).slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
+        const [ano, mes, dia] = texto.split('-');
+        return `${dia}/${mes}/${ano}`;
+      }
+      const data = new Date(valor);
+      return Number.isNaN(data.getTime()) ? String(valor) : data.toLocaleDateString('pt-BR');
+    }
+
+    function dataInput(valor) {
+      if (!valor) return hojeInput();
+      const texto = String(valor).slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) return texto;
+      const data = new Date(valor);
+      if (Number.isNaN(data.getTime())) return hojeInput();
+      const ano = data.getFullYear();
+      const mes = String(data.getMonth() + 1).padStart(2, '0');
+      const dia = String(data.getDate()).padStart(2, '0');
+      return `${ano}-${mes}-${dia}`;
+    }
+
+    function hojeInput() {
+      const data = new Date();
+      const ano = data.getFullYear();
+      const mes = String(data.getMonth() + 1).padStart(2, '0');
+      const dia = String(data.getDate()).padStart(2, '0');
+      return `${ano}-${mes}-${dia}`;
+    }
+
+    function telefoneNumeros(valor) {
+      return String(valor || '').replace(/\D+/g, '');
+    }
+
+    function telefonePedido() {
+      return telefoneNumeros(estado.pedido?.cliente?.telefone1 || estado.pedido?.cliente?.telefonePrincipal || estado.pedido?.cliente?.telefone || '');
+    }
+
+    function setModo(modo) {
+      estado.modo = modo;
+      document.querySelectorAll('[data-modo]').forEach((botao) => botao.classList.toggle('active', botao.dataset.modo === modo));
+      el.buscaNumeroBox.classList.toggle('oculto', modo !== 'numero');
+      el.buscaClienteBox.classList.toggle('oculto', modo !== 'cliente');
+      setMensagem('');
+    }
+
+    function renderClientes(clientes) {
+      if (!Array.isArray(clientes) || !clientes.length) {
+        el.listaClientes.innerHTML = '<div class="vazio" style="margin-top:10px;">Nenhum cliente encontrado.</div>';
+        return;
+      }
+
+      el.listaClientes.innerHTML = clientes.map((cliente) => `
+        <div class="opcao">
+          <strong>${escapeHtml(cliente.nome || '-')}</strong>
+          <div class="meta">${escapeHtml(cliente.telefone1 || cliente.telefonePrincipal || '')}</div>
+          <div class="acoes" style="margin-top:8px;"><button type="button" data-cliente="${escapeHtml(cliente.favorecido)}">Ver pedidos</button></div>
+        </div>
+      `).join('');
+
+      el.listaClientes.querySelectorAll('[data-cliente]').forEach((botao) => {
+        botao.addEventListener('click', () => carregarPedidosPorCliente(botao.dataset.cliente));
+      });
+    }
+
+    function renderPedidos(pedidos) {
+      if (!Array.isArray(pedidos) || !pedidos.length) {
+        el.listaPedidos.innerHTML = '<div class="vazio">Nenhum pedido encontrado.</div>';
+        return;
+      }
+
+      el.listaPedidos.innerHTML = pedidos.map((pedido, index) => `
+        <article class="card">
+          <div class="duas">
+            <div><div class="label">Pedido</div><div class="valor">${escapeHtml(pedido.numero || '-')}</div></div>
+            <div><div class="label">Data</div><div class="valor">${escapeHtml(formatarData(pedido.data))}</div></div>
+            <div><div class="label">Cliente</div><div class="valor">${escapeHtml(pedido.cliente?.nome || pedido.nomeCliente || '-')}</div></div>
+            <div><div class="label">Saldo</div><div class="valor">${escapeHtml(formatarMoeda(pedido.saldoRestante || 0))}</div></div>
+          </div>
+          <div class="acoes" style="margin-top:10px;"><button type="button" data-pedido="${index}">Abrir pagamentos</button></div>
+        </article>
+      `).join('');
+
+      el.listaPedidos.querySelectorAll('[data-pedido]').forEach((botao) => {
+        botao.addEventListener('click', () => {
+          const pedido = pedidos[Number(botao.dataset.pedido)];
+          selecionarPedido(pedido);
+        });
+      });
+    }
+
+    function renderPainel() {
+      if (!estado.pedido) {
+        el.painelPedido.innerHTML = '';
+        return;
+      }
+
+      const saldo = Number(estado.resumo?.saldoRestante || 0);
+      const excedente = Number(estado.resumo?.excedente || 0);
+      const valorAberto = excedente > 0 ? excedente : saldo;
+      const telefone = telefonePedido();
+
+      el.listaPedidos.innerHTML = '';
+      el.painelPedido.innerHTML = `
+        <section class="card">
+          <h2>Pedido ${escapeHtml(estado.pedido.numero || '')}</h2>
+          <div class="duas">
+            <div><div class="label">Cliente</div><div class="valor">${escapeHtml(estado.pedido.cliente?.nome || '-')}</div></div>
+            <div><div class="label">Telefone</div><div class="valor">${escapeHtml(telefone || '-')}</div></div>
+            <div><div class="label">Valor do pedido</div><div class="valor grande">${escapeHtml(formatarMoeda(estado.resumo?.totalVenda || 0))}</div></div>
+            <div><div class="label">Total pago</div><div class="valor grande">${escapeHtml(formatarMoeda(estado.resumo?.totalPago || 0))}</div></div>
+            <div><div class="label">${excedente > 0 ? 'Crédito' : 'Restante'}</div><div class="valor grande">${escapeHtml(formatarMoeda(valorAberto))}</div></div>
+          </div>
+          <div class="linha-acoes">
+            <button type="button" class="whats" id="btnWhatsapp" ${telefone ? '' : 'disabled'}>WhatsApp</button>
+            <button type="button" class="sec" id="btnTrocarPedido">Trocar pedido</button>
+          </div>
+        </section>
+
+        <section class="card">
+          <h2>${estado.editando ? 'Editar pagamento' : 'Novo pagamento'}</h2>
+          <div class="tabs">
+            <button type="button" class="sec ${estado.tipo === 'V' ? 'active' : ''}" data-tipo="V">À vista</button>
+            <button type="button" class="sec ${estado.tipo === 'C' ? 'active' : ''}" data-tipo="C">Cheque</button>
+          </div>
+          <form id="formPagamento">
+            <label for="valorPagamento">Valor</label>
+            <input id="valorPagamento" type="text" inputmode="decimal" placeholder="0,00" value="${escapeHtml(estado.editando ? String(estado.editando.valor || '').replace('.', ',') : '')}" />
+
+            <div id="boxVista" class="${estado.tipo === 'V' ? '' : 'oculto'}" style="margin-top:10px;">
+              <label for="dataPgto">Data do pagamento</label>
+              <input id="dataPgto" type="date" value="${escapeHtml(estado.editando ? dataInput(estado.editando.dataPgto) : hojeInput())}" />
+            </div>
+
+            <div id="boxCheque" class="${estado.tipo === 'C' ? '' : 'oculto'}" style="margin-top:10px;">
+              <label for="dataVencimento">Vencimento do cheque</label>
+              <input id="dataVencimento" type="date" value="${escapeHtml(estado.editando ? dataInput(estado.editando.dataVencimento) : '')}" />
+              <label for="numeroCheque" style="margin-top:10px;">Número do cheque</label>
+              <input id="numeroCheque" type="text" maxlength="10" value="${escapeHtml(estado.editando?.numeroCheque || '')}" />
+              <label for="titularCheque" style="margin-top:10px;">Titular</label>
+              <input id="titularCheque" type="text" maxlength="100" value="${escapeHtml(estado.editando?.titularCheque || '')}" />
+            </div>
+
+            <label for="observacaoPagamento" style="margin-top:10px;">Observação</label>
+            <textarea id="observacaoPagamento" maxlength="300">${escapeHtml(estado.editando?.observacao || '')}</textarea>
+
+            <div class="linha-acoes">
+              <button type="submit">${estado.editando ? 'Salvar alteração' : 'Adicionar pagamento'}</button>
+              ${estado.editando ? '<button type="button" class="sec" id="btnCancelarEdicao">Cancelar</button>' : '<button type="button" class="sec" id="btnLimparForm">Limpar</button>'}
+            </div>
+          </form>
+        </section>
+
+        <section class="card">
+          <h2>Pagamentos lançados</h2>
+          ${estado.pagamentos.length ? estado.pagamentos.map((pagamento) => `
+            <div class="pagamento">
+              <div class="duas">
+                <div><div class="label">Tipo</div><div class="valor">${escapeHtml(pagamento.tipoLabel || (pagamento.condicao === 'C' ? 'Cheque' : 'À vista'))}</div></div>
+                <div><div class="label">Valor</div><div class="valor">${escapeHtml(formatarMoeda(pagamento.valor))}</div></div>
+                <div><div class="label">Data</div><div class="valor">${escapeHtml(formatarData(pagamento.condicao === 'C' ? pagamento.dataVencimento : pagamento.dataPgto))}</div></div>
+                <div><div class="label">Situação</div><span class="pill ${pagamento.pago === 'S' ? 'ok' : 'warn'}">${escapeHtml(pagamento.situacaoLabel || '-')}</span></div>
+              </div>
+              ${pagamento.numeroCheque || pagamento.titularCheque || pagamento.observacao ? `<div class="meta">${escapeHtml([pagamento.numeroCheque, pagamento.titularCheque, pagamento.observacao].filter(Boolean).join(' | '))}</div>` : ''}
+              <div class="linha-acoes">
+                <button type="button" class="sec" data-editar="${escapeHtml(pagamento.codigo)}">Editar</button>
+                <button type="button" class="danger" data-excluir="${escapeHtml(pagamento.codigo)}">Excluir</button>
+              </div>
+            </div>
+          `).join('') : '<div class="vazio">Nenhum pagamento lançado.</div>'}
+        </section>
+      `;
+
+      document.querySelectorAll('[data-tipo]').forEach((botao) => botao.addEventListener('click', () => {
+        estado.tipo = botao.dataset.tipo;
+        renderPainel();
+      }));
+
+      document.getElementById('formPagamento').addEventListener('submit', salvarPagamento);
+      document.getElementById('btnWhatsapp')?.addEventListener('click', enviarWhatsappPagamentos);
+      document.getElementById('btnTrocarPedido')?.addEventListener('click', limparPedido);
+      document.getElementById('btnCancelarEdicao')?.addEventListener('click', cancelarEdicao);
+      document.getElementById('btnLimparForm')?.addEventListener('click', limparFormularioNovo);
+      document.querySelectorAll('[data-editar]').forEach((botao) => botao.addEventListener('click', () => iniciarEdicao(botao.dataset.editar)));
+      document.querySelectorAll('[data-excluir]').forEach((botao) => botao.addEventListener('click', () => excluirPagamento(botao.dataset.excluir)));
+    }
+
+    function montarPayload() {
+      const payload = {
+        empresa: estado.pedido.empresa,
+        saida: estado.pedido.saida,
+        pdv: estado.pedido.pdv,
+        condicao: estado.tipo,
+        valor: document.getElementById('valorPagamento').value,
+        observacao: document.getElementById('observacaoPagamento').value
+      };
+
+      if (estado.tipo === 'C') {
+        payload.dataVencimento = document.getElementById('dataVencimento').value;
+        payload.numeroCheque = document.getElementById('numeroCheque').value;
+        payload.titularCheque = document.getElementById('titularCheque').value;
+      } else {
+        payload.dataPgto = document.getElementById('dataPgto').value;
+      }
+
+      return payload;
+    }
+
+    async function salvarPagamento(event) {
+      event.preventDefault();
+      if (!estado.pedido) return;
+
+      try {
+        setMensagem('Salvando pagamento...');
+        const payload = montarPayload();
+        let data;
+
+        if (estado.editando?.codigo) {
+          data = await request(`/api/legado/pagamentos/${encodeURIComponent(estado.editando.codigo)}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          setMensagem('Pagamento atualizado.', 'sucesso');
+        } else {
+          data = await request('/api/legado/pagamentos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          setMensagem('Pagamento criado.', 'sucesso');
+        }
+
+        aplicarDetalhe(data);
+      } catch (error) {
+        setMensagem(error.message || 'Falha ao salvar pagamento.', 'erro');
+      }
+    }
+
+    function iniciarEdicao(codigo) {
+      const pagamento = estado.pagamentos.find((item) => String(item.codigo) === String(codigo));
+      if (!pagamento) return;
+      estado.editando = pagamento;
+      estado.tipo = pagamento.condicao === 'C' ? 'C' : 'V';
+      renderPainel();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function cancelarEdicao() {
+      estado.editando = null;
+      estado.tipo = 'V';
+      renderPainel();
+    }
+
+    function limparFormularioNovo() {
+      estado.editando = null;
+      estado.tipo = 'V';
+      renderPainel();
+    }
+
+    async function excluirPagamento(codigo) {
+      if (!confirm('Excluir este pagamento?')) return;
+      try {
+        setMensagem('Excluindo pagamento...');
+        const paramsDelete = new URLSearchParams({ empresa: estado.pedido.empresa, saida: estado.pedido.saida, pdv: estado.pedido.pdv });
+        const data = await request(`/api/legado/pagamentos/${encodeURIComponent(codigo)}?${paramsDelete.toString()}`, { method: 'DELETE' });
+        setMensagem('Pagamento excluído.', 'sucesso');
+        aplicarDetalhe(data);
+      } catch (error) {
+        setMensagem(error.message || 'Falha ao excluir pagamento.', 'erro');
+      }
+    }
+
+    function montarMensagemWhatsappPagamento() {
+      const linhas = [
+        '💰 *Relatório de pagamentos*',
+        `Cliente: *${estado.pedido?.cliente?.nome || '-'}*`,
+        `Número do pedido: *${estado.pedido?.numero || '-'}*`,
+        '-----------------------------------------------',
+        `Valor do pedido: *${formatarMoeda(estado.resumo?.totalVenda || 0)}*`
+      ];
+
+      estado.pagamentos.forEach((pagamento) => {
+        const data = formatarData(pagamento.condicao === 'C' ? pagamento.dataVencimento : pagamento.dataPgto);
+        linhas.push(`\n- ${data}: *${formatarMoeda(pagamento.valor)}*`);
+      });
+
+      linhas.push(`\nTotal pago: *${formatarMoeda(estado.resumo?.totalPago || 0)}*`);
+      linhas.push(`\nRestante a pagar: *${formatarMoeda(estado.resumo?.saldoRestante || 0)}*`);
+      return linhas.join('\n');
+    }
+
+    async function enviarWhatsappPagamentos() {
+      const telefone = telefonePedido();
+      if (!telefone) {
+        setMensagem('Telefone do cliente não encontrado.', 'erro');
+        return;
+      }
+      try {
+        setMensagem('Enviando WhatsApp...');
+        await request('/api/whatsapp/enviar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ telefone, mensagem: montarMensagemWhatsappPagamento() })
+        });
+        setMensagem('WhatsApp enviado.', 'sucesso');
+      } catch (error) {
+        setMensagem(error.message || 'Falha ao enviar WhatsApp.', 'erro');
+      }
+    }
+
+    function aplicarDetalhe(data) {
+      estado.pedido = data?.pedido || null;
+      estado.pagamentos = Array.isArray(data?.pagamentos) ? data.pagamentos : [];
+      estado.resumo = data?.resumo || null;
+      estado.editando = null;
+      estado.tipo = 'V';
+      renderPainel();
+    }
+
+    async function selecionarPedido(pedido) {
+      if (!pedido) return;
+      try {
+        setMensagem('Carregando pagamentos...');
+        const paramsPedido = new URLSearchParams({ empresa: pedido.empresa, saida: pedido.saida, pdv: pedido.pdv });
+        const data = await request(`/api/legado/pagamentos/pedido?${paramsPedido.toString()}`);
+        aplicarDetalhe(data);
+        setMensagem('');
+      } catch (error) {
+        setMensagem(error.message || 'Falha ao carregar pagamentos.', 'erro');
+      }
+    }
+
+    function limparPedido() {
+      estado.pedido = null;
+      estado.pagamentos = [];
+      estado.resumo = null;
+      estado.editando = null;
+      estado.tipo = 'V';
+      el.painelPedido.innerHTML = '';
+      el.listaPedidos.innerHTML = '';
+      setMensagem('');
+    }
+
+    async function buscarPorNumero() {
+      const numero = el.buscaNumero.value.trim();
+      if (!numero) {
+        setMensagem('Digite o número do pedido.', 'erro');
+        return;
+      }
+      try {
+        limparPedido();
+        setMensagem('Buscando pedido...');
+        const pedidos = await request(`/api/legado/pagamentos/pedidos/por-numero?numero=${encodeURIComponent(numero)}`);
+        renderPedidos(pedidos);
+        if (Array.isArray(pedidos) && pedidos.length === 1) {
+          await selecionarPedido(pedidos[0]);
+        } else {
+          setMensagem('');
+        }
+      } catch (error) {
+        renderPedidos([]);
+        setMensagem(error.message || 'Falha ao buscar pedido.', 'erro');
+      }
+    }
+
+    async function buscarClientes() {
+      const nome = el.buscaCliente.value.trim();
+      if (!nome) {
+        setMensagem('Digite o nome do cliente.', 'erro');
+        return;
+      }
+      try {
+        limparPedido();
+        setMensagem('Buscando clientes...');
+        const clientes = await request(`/api/legado/pagamentos/clientes?nome=${encodeURIComponent(nome)}`);
+        renderClientes(clientes);
+        setMensagem('');
+      } catch (error) {
+        renderClientes([]);
+        setMensagem(error.message || 'Falha ao buscar clientes.', 'erro');
+      }
+    }
+
+    async function carregarPedidosPorCliente(favorecido) {
+      try {
+        limparPedido();
+        setMensagem('Carregando pedidos do cliente...');
+        const pedidos = await request(`/api/legado/pagamentos/pedidos/por-cliente/${encodeURIComponent(favorecido)}`);
+        renderPedidos(pedidos);
+        setMensagem('');
+      } catch (error) {
+        renderPedidos([]);
+        setMensagem(error.message || 'Falha ao carregar pedidos.', 'erro');
+      }
+    }
+
+    document.querySelectorAll('[data-modo]').forEach((botao) => botao.addEventListener('click', () => setModo(botao.dataset.modo)));
+    document.getElementById('btnBuscarNumero').addEventListener('click', buscarPorNumero);
+    document.getElementById('btnBuscarCliente').addEventListener('click', buscarClientes);
+    el.buscaNumero.addEventListener('keydown', (event) => { if (event.key === 'Enter') buscarPorNumero(); });
+    el.buscaCliente.addEventListener('keydown', (event) => { if (event.key === 'Enter') buscarClientes(); });
+
+    if (numeroInicial) {
+      el.buscaNumero.value = numeroInicial;
+      buscarPorNumero();
+    }
+  </script>
+</body>
+</html>

@@ -178,6 +178,7 @@
         <section class="acoes">
           <button id="btnWhatsapp" type="button" ${telefone ? '' : 'disabled'}>Enviar WhatsApp</button>
           <button id="btnPdf" type="button" ${telefone && idPedido ? '' : 'disabled'}>Enviar PDF</button>
+          <a class="botao sec" href="/legado/pagamentos/mobile?numero=${escapeHtml(encodeURIComponent(pedidoAtual?.numero || numeroPedido || ''))}${codigoCarrada ? `&carrada=${escapeHtml(encodeURIComponent(codigoCarrada))}` : ''}">Pagamentos</a>
           ${codigoCarrada ? `<a class="botao sec" href="/legado/carradas/mobile/detalhe?codigo=${escapeHtml(encodeURIComponent(codigoCarrada))}">Voltar para Carrada</a>` : ''}
         </section>
       `;

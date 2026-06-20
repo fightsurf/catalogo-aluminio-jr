@@ -876,6 +876,7 @@
         const produtos = await carregarProdutosParaImportacao();
         const naoReconhecidos = [];
         let quantidadeImportada = 0;
+        let precosAtualizados = 0;
 
         itensExtraidos.forEach((item) => {
           const produto = localizarProdutoPorNome(produtos, item.nome);
@@ -890,10 +891,17 @@
             return;
           }
 
+          const precoAtualProduto = Number(produto?.preco || 0);
+          const precoImportado = Number(item.preco || 0);
+
+          if (Number.isFinite(precoAtualProduto) && Math.abs(precoAtualProduto - precoImportado) >= 0.01) {
+            precosAtualizados += 1;
+          }
+
           adicionarItemNormalizado({
             produto,
             quantidade: quantidadeFinal,
-            preco: item.preco
+            preco: Number.isFinite(precoAtualProduto) ? precoAtualProduto : 0
           });
 
           quantidadeImportada += 1;
@@ -906,7 +914,7 @@
           throw new Error('Nenhum item do relatório foi reconhecido no cadastro do Render.');
         }
 
-        setMensagem(`Importação concluída. ${quantidadeImportada} item(ns) reconhecido(s).${naoReconhecidos.length ? ` ${naoReconhecidos.length} não reconhecido(s).` : ''}`);
+        setMensagem(`Importação concluída. ${quantidadeImportada} item(ns) reconhecido(s).${precosAtualizados ? ` ${precosAtualizados} preço(s) atualizado(s) pelo cadastro atual.` : ''}${naoReconhecidos.length ? ` ${naoReconhecidos.length} não reconhecido(s).` : ''}`);
       } catch (error) {
         setMensagem(error.message, true);
       }

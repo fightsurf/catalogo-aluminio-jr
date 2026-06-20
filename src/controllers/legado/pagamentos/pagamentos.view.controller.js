@@ -7,6 +7,13 @@ function abrirPaginaPagamentos(req, res) {
   );
 }
 
+function abrirPaginaPagamentosMobile(req, res) {
+  return res.sendFile(
+    path.resolve(__dirname, '../../../../views/legado/pagamentos/pagamentos-mobile.html')
+  );
+}
+
 module.exports = {
-  abrirPaginaPagamentos
+  abrirPaginaPagamentos,
+  abrirPaginaPagamentosMobile
 };

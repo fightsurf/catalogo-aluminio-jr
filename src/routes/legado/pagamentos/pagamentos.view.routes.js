@@ -4,6 +4,7 @@ const controller = require('../../../controllers/legado/pagamentos/pagamentos.vi
 
 const router = express.Router();
 
+router.get('/mobile', controller.abrirPaginaPagamentosMobile);
 router.get('/', controller.abrirPaginaPagamentos);
 
 module.exports = router;
