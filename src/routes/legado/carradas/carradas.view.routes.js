@@ -4,6 +4,7 @@ const controller = require('../../../controllers/legado/carradas/carradas.view.c
 const router = express.Router();
 
 router.get('/', controller.abrirPaginaCarradas);
+router.get('/mobile/detalhe', controller.abrirPaginaDetalheCarradaMobile);
 router.get('/detalhe', controller.abrirPaginaDetalheCarrada);
 router.get('/resumo-itens', controller.abrirPaginaResumoItensCarrada);
 router.get('/resumo-producao', controller.abrirPaginaResumoProducaoCarrada);

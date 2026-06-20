@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inserir Pedido Mobile</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #f3f4f6; color: #111827; }
+    .page { width: 100%; max-width: 760px; margin: 0 auto; padding: 14px; }
+    .topo { position: sticky; top: 0; z-index: 5; margin: -14px -14px 14px; padding: 14px; background: #111827; color: #fff; box-shadow: 0 8px 18px rgba(0,0,0,.16); }
+    .voltar { color: #fff; text-decoration: none; font-weight: 700; display: inline-block; margin-bottom: 10px; }
+    h1 { margin: 0; font-size: 20px; }
+    .sub { margin: 6px 0 0; font-size: 13px; opacity: .8; }
+    .mensagem { display: none; margin: 0 0 12px; padding: 12px; border-radius: 12px; background: #eff6ff; color: #1d4ed8; font-size: 14px; }
+    .mensagem.erro { background: #fef2f2; color: #b91c1c; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 14px; box-shadow: 0 8px 20px rgba(0,0,0,.05); margin-bottom: 12px; }
+    .card h2 { margin: 0 0 12px; font-size: 18px; }
+    label { display: block; color: #6b7280; font-size: 12px; font-weight: 700; margin: 10px 0 5px; }
+    input, textarea, select, button { font: inherit; }
+    input, textarea, select { width: 100%; min-height: 44px; border: 1px solid #d1d5db; border-radius: 12px; padding: 10px 12px; background: #fff; }
+    textarea { min-height: 130px; resize: vertical; }
+    button, .botao { min-height: 44px; border: 0; border-radius: 12px; padding: 10px 14px; background: #111827; color: #fff; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+    button.sec, .botao.sec { background: #e5e7eb; color: #111827; }
+    button.danger { background: #991b1b; }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+    .duas { display: grid; grid-template-columns: 1fr 110px; gap: 8px; align-items: end; }
+    .acoes { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 10px; }
+    .lista { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+    .opcao, .item { border: 1px solid #e5e7eb; border-radius: 14px; padding: 12px; background: #f9fafb; }
+    .opcao strong, .item strong { display: block; margin-bottom: 5px; }
+    .meta { color: #4b5563; font-size: 13px; }
+    .cliente-ok { padding: 12px; border-radius: 14px; background: #ecfdf5; border: 1px solid #a7f3d0; }
+    .alerta { display: none; padding: 12px; border-radius: 14px; background: #fffbeb; border: 1px solid #f59e0b; color: #92400e; margin-top: 10px; }
+    .alerta ul { margin: 8px 0 0 18px; padding: 0; }
+    .total { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px; background: #111827; color: #fff; border-radius: 14px; margin-top: 10px; }
+    .total span { font-size: 13px; opacity: .85; }
+    .total strong { font-size: 24px; }
+    .sucesso { display: none; padding: 14px; border-radius: 16px; background: #ecfdf5; border: 1px solid #6ee7b7; color: #065f46; margin-bottom: 12px; }
+    .vazio { padding: 14px; border: 1px dashed #d1d5db; border-radius: 14px; background: #fff; color: #6b7280; text-align: center; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="topo">
+      <a id="linkVoltar" class="voltar" href="/legado/semanas/mobile">← Voltar</a>
+      <h1>Inserir Pedido</h1>
+      <p id="subCarrada" class="sub">Carrada: carregando...</p>
+    </header>
+
+    <div id="mensagem" class="mensagem"></div>
+    <div id="sucesso" class="sucesso"></div>
+
+    <section class="card">
+      <h2>Cliente</h2>
+      <label for="buscaCliente">Nome do cliente</label>
+      <div class="duas">
+        <input id="buscaCliente" type="search" placeholder="Digite o nome" autocomplete="off" />
+        <button id="btnBuscarCliente" type="button">Buscar</button>
+      </div>
+      <div class="acoes">
+        <a class="botao sec" href="/legado/clientes/mobile">CRUD Cliente</a>
+      </div>
+      <div id="listaClientes" class="lista"></div>
+      <div id="clienteSelecionado" class="cliente-ok" style="margin-top:10px;">Nenhum cliente selecionado.</div>
+    </section>
+
+    <section class="card">
+      <h2>Importar por copia e cola</h2>
+      <label for="textoRelatorio">Texto do relatório</label>
+      <textarea id="textoRelatorio" placeholder="Cole aqui o relatório do orçamento / kit feirinha"></textarea>
+      <div class="duas">
+        <div>
+          <label for="multiplicadorKit">Multiplicador</label>
+          <input id="multiplicadorKit" type="number" min="1" step="1" value="1" />
+        </div>
+        <button id="btnImportar" type="button">Importar</button>
+      </div>
+      <div id="naoReconhecidos" class="alerta"></div>
+    </section>
+
+    <section class="card">
+      <h2>Produto manual</h2>
+      <label for="buscaProduto">Produto</label>
+      <input id="buscaProduto" type="search" placeholder="Digite o produto" autocomplete="off" />
+      <label for="quantidadeManual">Quantidade</label>
+      <input id="quantidadeManual" type="number" min="1" step="1" value="1" />
+      <div id="listaProdutos" class="lista"></div>
+    </section>
+
+    <section class="card">
+      <h2>Itens do pedido</h2>
+      <div id="listaItens" class="lista"></div>
+      <div class="total"><span>Total</span><strong id="totalPedido">R$ 0,00</strong></div>
+    </section>
+
+    <section class="card">
+      <h2>Fechamento</h2>
+      <label for="vendedorPedido">Vendedor</label>
+      <select id="vendedorPedido"><option value="">Carregando vendedores...</option></select>
+      <label for="volumesPedido">Volumes</label>
+      <input id="volumesPedido" type="number" min="0" step="1" value="0" />
+      <label for="obsPedido">Observação</label>
+      <textarea id="obsPedido" placeholder="Observação opcional"></textarea>
+      <div class="acoes">
+        <button id="btnSalvar" type="button">Salvar Pedido</button>
+        <button id="btnLimpar" type="button" class="sec">Limpar</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const codigoCarrada = params.get('carrada') || params.get('carrada_codigo') || params.get('carradaCodigo') || '';
+    const linkVoltar = document.getElementById('linkVoltar');
+    const subCarrada = document.getElementById('subCarrada');
+    const mensagem = document.getElementById('mensagem');
+    const sucesso = document.getElementById('sucesso');
+    const buscaCliente = document.getElementById('buscaCliente');
+    const btnBuscarCliente = document.getElementById('btnBuscarCliente');
+    const listaClientes = document.getElementById('listaClientes');
+    const clienteSelecionadoBox = document.getElementById('clienteSelecionado');
+    const textoRelatorio = document.getElementById('textoRelatorio');
+    const multiplicadorKit = document.getElementById('multiplicadorKit');
+    const btnImportar = document.getElementById('btnImportar');
+    const naoReconhecidos = document.getElementById('naoReconhecidos');
+    const buscaProduto = document.getElementById('buscaProduto');
+    const quantidadeManual = document.getElementById('quantidadeManual');
+    const listaProdutos = document.getElementById('listaProdutos');
+    const listaItens = document.getElementById('listaItens');
+    const totalPedido = document.getElementById('totalPedido');
+    const vendedorPedido = document.getElementById('vendedorPedido');
+    const volumesPedido = document.getElementById('volumesPedido');
+    const obsPedido = document.getElementById('obsPedido');
+    const btnSalvar = document.getElementById('btnSalvar');
+    const btnLimpar = document.getElementById('btnLimpar');
+
+    let carradaAtual = null;
+    let clientes = [];
+    let clienteSelecionado = null;
+    let vendedores = [];
+    let produtosEncontrados = [];
+    let itensPedido = [];
+    let cacheProdutosImportacao = null;
+    let timerBuscaProduto = null;
+    let salvando = false;
+    let ultimoPedidoSalvo = null;
+
+    if (codigoCarrada) {
+      linkVoltar.href = `/legado/carradas/mobile/detalhe?codigo=${encodeURIComponent(codigoCarrada)}`;
+      linkVoltar.textContent = '← Carrada';
+    }
+
+    function setMensagem(texto, erro = false) {
+      mensagem.style.display = texto ? 'block' : 'none';
+      mensagem.textContent = texto || '';
+      mensagem.classList.toggle('erro', erro);
+    }
+
+    async function lerJson(response) {
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(json?.detalhe || json?.erro || json?.message || 'Erro na requisição.');
+      return json;
+    }
+
+    function escapeHtml(valor) {
+      return String(valor ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function formatarMoeda(valor) {
+      const numero = Number(valor || 0);
+      return numero.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    function formatarData(valor) {
+      if (!valor) return '-';
+      const texto = String(valor).slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
+        const [ano, mes, dia] = texto.split('-');
+        return `${dia}/${mes}/${ano}`;
+      }
+      const data = new Date(valor);
+      return Number.isNaN(data.getTime()) ? String(valor) : data.toLocaleDateString('pt-BR');
+    }
+
+    function normalizarNome(valor) {
+      return String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+
+    function parseNumeroBR(valor) {
+      const limpo = String(valor || '').replace(/R\$/gi, '').replace(/\./g, '').replace(/,/g, '.').trim();
+      const numero = Number(limpo);
+      return Number.isFinite(numero) ? numero : NaN;
+    }
+
+    function telefoneNumeros(valor) {
+      return String(valor || '').replace(/\D/g, '');
+    }
+
+    function obterTelefoneClienteAtual() {
+      return telefoneNumeros(ultimoPedidoSalvo?.cliente?.telefone || clienteSelecionado?.telefonePrincipal || clienteSelecionado?.telefone1 || '');
+    }
+
+    function obterVendedorSelecionado() {
+      const favorecido = Number(vendedorPedido.value || 0);
+      return vendedores.find((vendedor) => Number(vendedor.favorecido) === favorecido) || null;
+    }
+
+    async function carregarCarrada() {
+      if (!codigoCarrada) {
+        subCarrada.textContent = 'Carrada não informada.';
+        setMensagem('Abra esta tela pelo card da carrada.', true);
+        return;
+      }
+      try {
+        const response = await fetch(`/api/legado/carradas/${encodeURIComponent(codigoCarrada)}`);
+        const json = await lerJson(response);
+        carradaAtual = json?.data || null;
+        subCarrada.textContent = `Carrada ${carradaAtual?.codigo || codigoCarrada} — ${formatarData(carradaAtual?.data)} — ${carradaAtual?.descricao || ''}`;
+      } catch (error) {
+        subCarrada.textContent = `Carrada ${codigoCarrada}`;
+        setMensagem(`Não consegui carregar detalhes da carrada: ${error.message}`, true);
+      }
+    }
+
+    async function carregarVendedores() {
+      try {
+        const response = await fetch('/api/legado/vendedores');
+        const json = await lerJson(response);
+        vendedores = Array.isArray(json?.dados) ? json.dados : [];
+        vendedorPedido.innerHTML = '<option value="">Selecione o vendedor</option>' + vendedores.map((vendedor) => `<option value="${escapeHtml(vendedor.favorecido)}">${escapeHtml(vendedor.nome || 'Sem nome')}</option>`).join('');
+      } catch (error) {
+        vendedores = [];
+        vendedorPedido.innerHTML = '<option value="">Erro ao carregar vendedores</option>';
+        setMensagem(error.message, true);
+      }
+    }
+
+    function renderClienteSelecionado() {
+      if (!clienteSelecionado) {
+        clienteSelecionadoBox.textContent = 'Nenhum cliente selecionado.';
+        return;
+      }
+      clienteSelecionadoBox.innerHTML = `
+        <strong>${escapeHtml(clienteSelecionado.nome || 'Sem nome')}</strong><br>
+        ${escapeHtml(clienteSelecionado.cidade || '-')}${clienteSelecionado.uf ? `/${escapeHtml(clienteSelecionado.uf)}` : ''}<br>
+        Telefone: ${escapeHtml(clienteSelecionado.telefonePrincipal || clienteSelecionado.telefone1 || '-')}
+      `;
+    }
+
+    function renderClientes() {
+      if (!clientes.length) {
+        listaClientes.innerHTML = '<div class="vazio">Nenhum cliente encontrado.</div>';
+        return;
+      }
+      listaClientes.innerHTML = clientes.map((cliente, index) => `
+        <div class="opcao">
+          <strong>${escapeHtml(cliente.nome || 'Sem nome')}</strong>
+          <div class="meta">${escapeHtml(cliente.cidade || '-')}${cliente.uf ? `/${escapeHtml(cliente.uf)}` : ''}</div>
+          <div class="acoes"><button type="button" class="sec" data-cliente="${index}">Selecionar</button></div>
+        </div>
+      `).join('');
+      listaClientes.querySelectorAll('[data-cliente]').forEach((botao) => {
+        botao.addEventListener('click', () => {
+          clienteSelecionado = clientes[Number(botao.dataset.cliente)] || null;
+          listaClientes.innerHTML = '';
+          renderClienteSelecionado();
+          setMensagem('');
+        });
+      });
+    }
+
+    async function buscarClientes() {
+      const termo = buscaCliente.value.trim();
+      if (termo.length < 2) {
+        setMensagem('Digite ao menos 2 letras do nome do cliente.', true);
+        return;
+      }
+      try {
+        setMensagem('Buscando cliente...');
+        const response = await fetch(`/api/legado/clientes?nome=${encodeURIComponent(termo)}&limite=20`);
+        const json = await lerJson(response);
+        clientes = Array.isArray(json?.dados) ? json.dados : [];
+        renderClientes();
+        setMensagem(clientes.length ? '' : 'Nenhum cliente encontrado.', !clientes.length);
+      } catch (error) {
+        setMensagem(error.message, true);
+      }
+    }
+
+    function adicionarItemNormalizado({ produto, quantidade, preco }) {
+      if (!produto || !produto.id) return;
+      const quantidadeNumero = Number(quantidade || 0);
+      const precoNumero = Number(preco || 0);
+      if (!Number.isFinite(quantidadeNumero) || quantidadeNumero <= 0) return;
+      const existente = itensPedido.find((item) => Number(item.produto_id) === Number(produto.id) && Number(item.preco) === precoNumero);
+      if (existente) {
+        existente.quantidade = Number(existente.quantidade) + quantidadeNumero;
+      } else {
+        itensPedido.push({ produto_id: Number(produto.id), nome: produto.nome || 'Sem nome', quantidade: quantidadeNumero, preco: precoNumero });
+      }
+    }
+
+    function calcularTotal() {
+      return itensPedido.reduce((total, item) => total + Number(item.quantidade || 0) * Number(item.preco || 0), 0);
+    }
+
+    function renderItens() {
+      if (!itensPedido.length) {
+        listaItens.innerHTML = '<div class="vazio">Nenhum item no pedido.</div>';
+      } else {
+        listaItens.innerHTML = itensPedido.map((item, index) => `
+          <div class="item">
+            <strong>${escapeHtml(item.nome)}</strong>
+            <div class="meta">Qtd: ${escapeHtml(item.quantidade)} | Unit: ${escapeHtml(formatarMoeda(item.preco))} | Subtotal: ${escapeHtml(formatarMoeda(Number(item.quantidade || 0) * Number(item.preco || 0)))}</div>
+            <div class="duas" style="grid-template-columns:1fr 1fr; margin-top:8px;">
+              <input type="number" min="1" step="1" value="${escapeHtml(item.quantidade)}" data-qtd="${index}" />
+              <button type="button" class="danger" data-remover="${index}">Remover</button>
+            </div>
+          </div>
+        `).join('');
+      }
+      totalPedido.textContent = formatarMoeda(calcularTotal());
+      listaItens.querySelectorAll('[data-remover]').forEach((botao) => botao.addEventListener('click', () => {
+        itensPedido.splice(Number(botao.dataset.remover), 1);
+        renderItens();
+      }));
+      listaItens.querySelectorAll('[data-qtd]').forEach((input) => input.addEventListener('change', () => {
+        const index = Number(input.dataset.qtd);
+        const qtd = Number(input.value || 0);
+        itensPedido[index].quantidade = qtd > 0 ? qtd : 1;
+        renderItens();
+      }));
+    }
+
+    function renderProdutos() {
+      if (!produtosEncontrados.length) {
+        listaProdutos.innerHTML = buscaProduto.value.trim().length >= 2 ? '<div class="vazio">Nenhum produto encontrado.</div>' : '';
+        return;
+      }
+      listaProdutos.innerHTML = produtosEncontrados.map((produto, index) => `
+        <div class="opcao">
+          <strong>${escapeHtml(produto.nome || 'Sem nome')}</strong>
+          <div class="meta">${escapeHtml(formatarMoeda(produto.preco || 0))}</div>
+          <div class="acoes"><button type="button" class="sec" data-produto="${index}">Adicionar</button></div>
+        </div>
+      `).join('');
+      listaProdutos.querySelectorAll('[data-produto]').forEach((botao) => botao.addEventListener('click', () => {
+        const produto = produtosEncontrados[Number(botao.dataset.produto)];
+        const quantidade = Number(quantidadeManual.value || 1);
+        adicionarItemNormalizado({ produto, quantidade: quantidade > 0 ? quantidade : 1, preco: Number(produto?.preco || 0) });
+        buscaProduto.value = '';
+        quantidadeManual.value = '1';
+        produtosEncontrados = [];
+        renderProdutos();
+        renderItens();
+      }));
+    }
+
+    async function buscarProdutos() {
+      const termo = buscaProduto.value.trim();
+      if (termo.length < 2) {
+        produtosEncontrados = [];
+        renderProdutos();
+        return;
+      }
+      try {
+        const response = await fetch(`/api/produtos?busca=${encodeURIComponent(termo)}&ativos=true`);
+        const json = await lerJson(response);
+        produtosEncontrados = (Array.isArray(json?.data) ? json.data : []).filter((produto) => Number(produto?.item_legado) > 0);
+        renderProdutos();
+      } catch (error) {
+        produtosEncontrados = [];
+        renderProdutos();
+        setMensagem(error.message, true);
+      }
+    }
+
+    function extrairItensDoRelatorio(texto) {
+      const blocos = String(texto || '').split(/\n\s*\n/g).map((parte) => parte.trim()).filter(Boolean);
+      const itens = [];
+      for (const bloco of blocos) {
+        if (!bloco.includes('QTD:') || !bloco.includes('UNIT:') || !bloco.includes('•')) continue;
+        const linhas = bloco.split('\n').map((linha) => linha.trim()).filter(Boolean);
+        const linhaPrincipal = linhas.find((linha) => linha.startsWith('•')) || '';
+        const linhaUnit = linhas.find((linha) => /UNIT:/i.test(linha)) || '';
+        const matchPrincipal = linhaPrincipal.match(/^•\s*(.*?)\s*\|\s*QTD:\s*([\d.,]+)/i);
+        const matchUnit = linhaUnit.match(/UNIT:\s*R\$\s*([\d.,]+)/i);
+        if (!matchPrincipal || !matchUnit) continue;
+        const nome = String(matchPrincipal[1] || '').trim();
+        const quantidade = parseNumeroBR(matchPrincipal[2]);
+        const preco = parseNumeroBR(matchUnit[1]);
+        if (!nome || !Number.isFinite(quantidade) || !Number.isFinite(preco)) continue;
+        itens.push({ nome, quantidade, preco });
+      }
+      return itens;
+    }
+
+    function localizarProdutoPorNome(produtos, nomeRelatorio) {
+      const alvo = normalizarNome(nomeRelatorio);
+      if (!alvo) return null;
+      return produtos.find((item) => normalizarNome(item.nome) === alvo)
+        || produtos.find((item) => normalizarNome(item.nome).includes(alvo))
+        || produtos.find((item) => alvo.includes(normalizarNome(item.nome)))
+        || null;
+    }
+
+    async function carregarProdutosParaImportacao() {
+      if (Array.isArray(cacheProdutosImportacao)) return cacheProdutosImportacao;
+      const response = await fetch('/api/produtos?ativos=true');
+      const json = await lerJson(response);
+      cacheProdutosImportacao = (Array.isArray(json?.data) ? json.data : []).filter((produto) => Number(produto?.item_legado) > 0);
+      return cacheProdutosImportacao;
+    }
+
+    function setNaoReconhecidos(lista) {
+      if (!Array.isArray(lista) || !lista.length) {
+        naoReconhecidos.style.display = 'none';
+        naoReconhecidos.innerHTML = '';
+        return;
+      }
+      naoReconhecidos.innerHTML = `<strong>Itens não reconhecidos:</strong><ul>${lista.map((item) => `<li>${escapeHtml(item.nome)} | QTD: ${escapeHtml(item.quantidade)} | UNIT: ${escapeHtml(formatarMoeda(item.preco))}</li>`).join('')}</ul>`;
+      naoReconhecidos.style.display = 'block';
+    }
+
+    async function importarRelatorio() {
+      const texto = textoRelatorio.value.trim();
+      const multiplicador = Number(multiplicadorKit.value || 1);
+      if (!texto) {
+        setMensagem('Cole o relatório antes de importar.', true);
+        return;
+      }
+      if (!Number.isInteger(multiplicador) || multiplicador <= 0) {
+        setMensagem('Informe um multiplicador inteiro maior que zero.', true);
+        return;
+      }
+      try {
+        setMensagem('Importando itens...');
+        setNaoReconhecidos([]);
+        const itensExtraidos = extrairItensDoRelatorio(texto);
+        if (!itensExtraidos.length) throw new Error('Não encontrei itens válidos no texto colado.');
+        const produtos = await carregarProdutosParaImportacao();
+        const naoEncontrados = [];
+        let importados = 0;
+        itensExtraidos.forEach((item) => {
+          const produto = localizarProdutoPorNome(produtos, item.nome);
+          const quantidadeFinal = Number(item.quantidade) * multiplicador;
+          if (!produto) {
+            naoEncontrados.push({ nome: item.nome, quantidade: quantidadeFinal, preco: item.preco });
+            return;
+          }
+          adicionarItemNormalizado({ produto, quantidade: quantidadeFinal, preco: item.preco });
+          importados += 1;
+        });
+        renderItens();
+        setNaoReconhecidos(naoEncontrados);
+        if (!importados) throw new Error('Nenhum item do relatório foi reconhecido.');
+        setMensagem(`Importação concluída: ${importados} item(ns).`);
+      } catch (error) {
+        setMensagem(error.message, true);
+      }
+    }
+
+    function montarPayload() {
+      return {
+        data: new Date().toISOString().slice(0, 10),
+        favorecido: clienteSelecionado?.favorecido,
+        obs: obsPedido.value.trim() || null,
+        vendedor: Number(vendedorPedido.value || 0) || null,
+        volumes: Number(volumesPedido.value || 0),
+        carrada_codigo: codigoCarrada ? Number(codigoCarrada) : null,
+        total: Number(calcularTotal().toFixed(2)),
+        itens: itensPedido.map((item) => ({ produto_id: item.produto_id, quantidade: Number(item.quantidade), preco: Number(Number(item.preco).toFixed(2)) }))
+      };
+    }
+
+    function montarMensagemWhatsappCarrada() {
+      if (!ultimoPedidoSalvo?.numero || !ultimoPedidoSalvo?.carrada?.codigo) return '';
+      return [
+        `📦 Pedido: ${ultimoPedidoSalvo.numero}`,
+        `Cliente: ${ultimoPedidoSalvo?.cliente?.nome || '-'}`,
+        `Seu pedido entrou na produção da carrada do dia ${formatarData(ultimoPedidoSalvo?.carrada?.data)}`,
+        `Descrição da carrada: ${ultimoPedidoSalvo?.carrada?.descricao || '-'}`
+      ].join('\n');
+    }
+
+    function montarMensagemWhatsappPedido() {
+      if (!ultimoPedidoSalvo?.numero) return '';
+      const linhas = [
+        '📦 *Pedido Alumínio JR*',
+        `Cliente: *${ultimoPedidoSalvo?.cliente?.nome || '-'}*`,
+        `Número do pedido: *${ultimoPedidoSalvo?.numero || '-'}*`,
+        `Vendedor: *${ultimoPedidoSalvo?.vendedor?.nome || '-'}*`,
+        '-----------------------------------------------'
+      ];
+      (ultimoPedidoSalvo.itens || []).forEach((item, index) => {
+        linhas.push(`- ${item.descricao || '-'}`);
+        linhas.push(`- QTD: ${Number(item.quantidade || 0)}`);
+        linhas.push(`- Preço: *${formatarMoeda(item.preco || 0)}*`);
+        linhas.push(`- Subtotal: *${formatarMoeda(item.subtotal || 0)}*`);
+        if (index < ultimoPedidoSalvo.itens.length - 1) linhas.push('');
+      });
+      if (ultimoPedidoSalvo.itens?.length) linhas.push('');
+      linhas.push(`Total do pedido: *${formatarMoeda(ultimoPedidoSalvo.total || 0)}*`);
+      if (ultimoPedidoSalvo.obs) {
+        linhas.push('');
+        linhas.push(`Observação: ${ultimoPedidoSalvo.obs}`);
+      }
+      return linhas.join('\n');
+    }
+
+    async function enviarWhatsappAutomaticoCarrada() {
+      const telefone = obterTelefoneClienteAtual();
+      const mensagemCarrada = montarMensagemWhatsappCarrada();
+      if (!telefone || !mensagemCarrada) return { enviado: false };
+      const response = await fetch('/api/whatsapp/enviar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ telefone, mensagem: mensagemCarrada })
+      });
+      await lerJson(response);
+      return { enviado: true };
+    }
+
+    async function enviarWhatsappPedidoManual() {
+      const telefone = obterTelefoneClienteAtual();
+      if (!telefone) {
+        setMensagem('Telefone do cliente não encontrado.', true);
+        return;
+      }
+      try {
+        setMensagem('Enviando WhatsApp...');
+        const response = await fetch('/api/whatsapp/enviar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ telefone, mensagem: montarMensagemWhatsappPedido() })
+        });
+        await lerJson(response);
+        setMensagem('Pedido enviado pelo WhatsApp.');
+      } catch (error) {
+        setMensagem(error.message, true);
+      }
+    }
+
+    async function enviarPdfPedido() {
+      const idPedido = ultimoPedidoSalvo?.idMestre || ultimoPedidoSalvo?.saida;
+      if (!idPedido) {
+        setMensagem('ID do pedido não encontrado para enviar PDF.', true);
+        return;
+      }
+      try {
+        setMensagem('Enviando PDF...');
+        const response = await fetch(`/api/legado/pedidos/${encodeURIComponent(idPedido)}/whatsapp/pdf`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        await lerJson(response);
+        setMensagem('PDF enviado pelo WhatsApp.');
+      } catch (error) {
+        setMensagem(error.message, true);
+      }
+    }
+
+    function renderSucesso(avisos = []) {
+      if (!ultimoPedidoSalvo) return;
+      const consultarUrl = `/legado/pedidos/mobile?numero=${encodeURIComponent(ultimoPedidoSalvo.numero)}&carrada=${encodeURIComponent(codigoCarrada)}&idMestre=${encodeURIComponent(ultimoPedidoSalvo.idMestre || ultimoPedidoSalvo.saida || '')}`;
+      sucesso.innerHTML = `
+        <strong>Pedido salvo com sucesso.</strong><br>
+        Pedido: ${escapeHtml(ultimoPedidoSalvo.numero || '-')}<br>
+        Total: ${escapeHtml(formatarMoeda(ultimoPedidoSalvo.total || 0))}
+        ${avisos.length ? `<div style="margin-top:8px;">${avisos.map((aviso) => `<div>${escapeHtml(aviso)}</div>`).join('')}</div>` : ''}
+        <div class="acoes" style="margin-top:12px;">
+          <a class="botao" href="${escapeHtml(consultarUrl)}">Consultar Pedido</a>
+          <button id="btnWhatsappPedido" type="button" class="sec">Enviar WhatsApp</button>
+          <button id="btnPdfPedido" type="button" class="sec">Enviar PDF</button>
+          <button id="btnOutroPedido" type="button" class="sec">Inserir outro nesta carrada</button>
+          ${codigoCarrada ? `<a class="botao sec" href="/legado/carradas/mobile/detalhe?codigo=${escapeHtml(encodeURIComponent(codigoCarrada))}">Voltar para carrada</a>` : ''}
+        </div>
+      `;
+      sucesso.style.display = 'block';
+      document.getElementById('btnWhatsappPedido')?.addEventListener('click', enviarWhatsappPedidoManual);
+      document.getElementById('btnPdfPedido')?.addEventListener('click', enviarPdfPedido);
+      document.getElementById('btnOutroPedido')?.addEventListener('click', limparPedido);
+    }
+
+    async function salvarPedido() {
+      if (salvando) return;
+      if (!codigoCarrada) {
+        setMensagem('Carrada obrigatória. Abra a tela pelo card da carrada.', true);
+        return;
+      }
+      if (!clienteSelecionado?.favorecido) {
+        setMensagem('Selecione um cliente antes de salvar.', true);
+        return;
+      }
+      if (!itensPedido.length) {
+        setMensagem('Adicione ao menos 1 produto ao pedido.', true);
+        return;
+      }
+      if (!vendedorPedido.value) {
+        setMensagem('Selecione um vendedor antes de salvar.', true);
+        return;
+      }
+      try {
+        salvando = true;
+        btnSalvar.disabled = true;
+        sucesso.style.display = 'none';
+        setMensagem('Salvando pedido...');
+        const itensSnapshot = itensPedido.map((item) => ({ ...item }));
+        const response = await fetch('/api/legado/pedidos-insercao-v2', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(montarPayload())
+        });
+        const json = await lerJson(response);
+        const pedido = json?.pedido || json?.data?.pedido || json?.data || json;
+        const vendedorSelecionado = obterVendedorSelecionado();
+        const carradaVinculada = json?.carradaVinculada?.sucesso ? json.carradaVinculada : null;
+        ultimoPedidoSalvo = {
+          numero: pedido?.numero || '',
+          empresa: pedido?.empresa ?? -1,
+          saida: pedido?.saida ?? pedido?.idMestre ?? null,
+          pdv: pedido?.pdv ?? 0,
+          idMestre: pedido?.idMestre ?? pedido?.saida ?? null,
+          cliente: { nome: clienteSelecionado?.nome || '-', telefone: clienteSelecionado?.telefonePrincipal || clienteSelecionado?.telefone1 || '' },
+          vendedor: { favorecido: vendedorSelecionado?.favorecido || null, nome: vendedorSelecionado?.nome || '-' },
+          carrada: carradaVinculada ? { codigo: carradaVinculada.codigo, data: carradaVinculada.data, descricao: carradaVinculada.descricao || '' } : (carradaAtual ? { codigo: carradaAtual.codigo, data: carradaAtual.data, descricao: carradaAtual.descricao || '' } : null),
+          obs: obsPedido.value.trim() || '',
+          total: Number(pedido?.total || calcularTotal()),
+          itens: itensSnapshot.map((item) => ({ descricao: item.nome, quantidade: Number(item.quantidade || 0), preco: Number(item.preco || 0), subtotal: Number((Number(item.quantidade || 0) * Number(item.preco || 0)).toFixed(2)) }))
+        };
+        const avisos = [];
+        if (json?.aviso) avisos.push(json.aviso);
+        try {
+          const envio = await enviarWhatsappAutomaticoCarrada();
+          if (envio.enviado) avisos.push('Aviso da carrada enviado pelo WhatsApp.');
+        } catch (error) {
+          avisos.push(`Pedido salvo, mas WhatsApp da carrada falhou: ${error.message}`);
+        }
+        itensPedido = [];
+        textoRelatorio.value = '';
+        multiplicadorKit.value = '1';
+        obsPedido.value = '';
+        volumesPedido.value = '0';
+        buscaProduto.value = '';
+        produtosEncontrados = [];
+        setNaoReconhecidos([]);
+        renderProdutos();
+        renderItens();
+        renderSucesso(avisos);
+        setMensagem('Pedido salvo.');
+      } catch (error) {
+        setMensagem(error.message, true);
+      } finally {
+        salvando = false;
+        btnSalvar.disabled = !!ultimoPedidoSalvo?.numero;
+      }
+    }
+
+    function limparPedido() {
+      clientes = [];
+      clienteSelecionado = null;
+      produtosEncontrados = [];
+      itensPedido = [];
+      ultimoPedidoSalvo = null;
+      buscaCliente.value = '';
+      buscaProduto.value = '';
+      quantidadeManual.value = '1';
+      textoRelatorio.value = '';
+      multiplicadorKit.value = '1';
+      obsPedido.value = '';
+      volumesPedido.value = '0';
+      listaClientes.innerHTML = '';
+      sucesso.style.display = 'none';
+      btnSalvar.disabled = false;
+      renderClienteSelecionado();
+      renderProdutos();
+      renderItens();
+      setNaoReconhecidos([]);
+      setMensagem('');
+    }
+
+    btnBuscarCliente.addEventListener('click', buscarClientes);
+    buscaCliente.addEventListener('keydown', (event) => { if (event.key === 'Enter') buscarClientes(); });
+    btnImportar.addEventListener('click', importarRelatorio);
+    buscaProduto.addEventListener('input', () => {
+      clearTimeout(timerBuscaProduto);
+      timerBuscaProduto = setTimeout(buscarProdutos, 250);
+    });
+    btnSalvar.addEventListener('click', salvarPedido);
+    btnLimpar.addEventListener('click', limparPedido);
+
+    carregarCarrada();
+    carregarVendedores();
+    renderClienteSelecionado();
+    renderItens();
+  </script>
+</body>
+</html>

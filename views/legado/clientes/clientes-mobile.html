@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Clientes Mobile</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #f3f4f6; color: #111827; }
+    .page { width: 100%; max-width: 760px; margin: 0 auto; padding: 14px; }
+    .topo { position: sticky; top: 0; z-index: 5; margin: -14px -14px 14px; padding: 14px; background: #111827; color: #fff; box-shadow: 0 8px 18px rgba(0,0,0,.16); }
+    .voltar { color: #fff; text-decoration: none; font-weight: 700; display: inline-block; margin-bottom: 10px; }
+    h1 { margin: 0; font-size: 20px; }
+    .sub { margin: 6px 0 0; font-size: 13px; opacity: .8; }
+    .mensagem { display: none; margin: 0 0 12px; padding: 12px; border-radius: 12px; background: #eff6ff; color: #1d4ed8; font-size: 14px; }
+    .mensagem.erro { background: #fef2f2; color: #b91c1c; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 14px; box-shadow: 0 8px 20px rgba(0,0,0,.05); margin-bottom: 12px; }
+    .card h2 { margin: 0 0 12px; font-size: 18px; }
+    label { display: block; color: #6b7280; font-size: 12px; font-weight: 700; margin: 10px 0 5px; }
+    input, select, button { font: inherit; }
+    input, select { width: 100%; min-height: 44px; border: 1px solid #d1d5db; border-radius: 12px; padding: 10px 12px; background: #fff; }
+    button, .botao { min-height: 44px; border: 0; border-radius: 12px; padding: 10px 14px; background: #111827; color: #fff; font-weight: 800; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; }
+    button.sec { background: #e5e7eb; color: #111827; }
+    button.danger { background: #991b1b; color: #fff; }
+    .duas { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
+    .grid2 { display: grid; grid-template-columns: 1fr 90px; gap: 8px; }
+    .acoes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+    .lista { display: flex; flex-direction: column; gap: 10px; }
+    .cliente { background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 14px; }
+    .cliente strong { display: block; margin-bottom: 6px; font-size: 16px; }
+    .meta { color: #4b5563; font-size: 13px; }
+    .vazio { padding: 14px; border: 1px dashed #d1d5db; border-radius: 14px; background: #fff; color: #6b7280; text-align: center; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="topo">
+      <a class="voltar" href="javascript:history.back()">← Voltar</a>
+      <h1>Clientes</h1>
+      <p class="sub">CRUD mobile simples de clientes.</p>
+    </header>
+
+    <div id="mensagem" class="mensagem"></div>
+
+    <section class="card">
+      <h2 id="tituloForm">Novo cliente</h2>
+      <input id="favorecido" type="hidden" />
+      <label for="nome">Nome</label>
+      <input id="nome" type="text" placeholder="Nome do cliente" />
+      <label for="telefone">Telefone</label>
+      <input id="telefone" type="tel" placeholder="Telefone" />
+      <div class="grid2">
+        <div>
+          <label for="cidade">Cidade</label>
+          <input id="cidade" type="text" placeholder="Cidade" />
+        </div>
+        <div>
+          <label for="uf">UF</label>
+          <input id="uf" type="text" maxlength="2" placeholder="UF" />
+        </div>
+      </div>
+      <label for="ativo">Status</label>
+      <select id="ativo">
+        <option value="true">Ativo</option>
+        <option value="false">Inativo</option>
+      </select>
+      <div class="acoes">
+        <button id="btnSalvar" type="button">Salvar</button>
+        <button id="btnNovo" type="button" class="sec">Novo</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Buscar cliente</h2>
+      <div class="duas">
+        <input id="busca" type="search" placeholder="Digite o nome" />
+        <button id="btnBuscar" type="button">Buscar</button>
+      </div>
+    </section>
+
+    <section id="lista" class="lista"></section>
+  </main>
+
+  <script>
+    const mensagem = document.getElementById('mensagem');
+    const tituloForm = document.getElementById('tituloForm');
+    const favorecido = document.getElementById('favorecido');
+    const nome = document.getElementById('nome');
+    const telefone = document.getElementById('telefone');
+    const cidade = document.getElementById('cidade');
+    const uf = document.getElementById('uf');
+    const ativo = document.getElementById('ativo');
+    const btnSalvar = document.getElementById('btnSalvar');
+    const btnNovo = document.getElementById('btnNovo');
+    const busca = document.getElementById('busca');
+    const btnBuscar = document.getElementById('btnBuscar');
+    const lista = document.getElementById('lista');
+    let clientes = [];
+
+    function setMensagem(texto, erro = false) {
+      mensagem.style.display = texto ? 'block' : 'none';
+      mensagem.textContent = texto || '';
+      mensagem.classList.toggle('erro', erro);
+    }
+
+    async function lerJson(response) {
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(json?.detalhe || json?.erro || json?.message || 'Erro na requisição.');
+      return json;
+    }
+
+    function escapeHtml(valor) {
+      return String(valor ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function limparFormulario() {
+      favorecido.value = '';
+      nome.value = '';
+      telefone.value = '';
+      cidade.value = '';
+      uf.value = '';
+      ativo.value = 'true';
+      tituloForm.textContent = 'Novo cliente';
+      nome.focus();
+    }
+
+    function preencherFormulario(cliente) {
+      favorecido.value = cliente?.favorecido || '';
+      nome.value = cliente?.nome || '';
+      telefone.value = cliente?.telefonePrincipal || cliente?.telefone || '';
+      cidade.value = cliente?.cidade || '';
+      uf.value = cliente?.uf || '';
+      ativo.value = cliente?.ativo === false ? 'false' : 'true';
+      tituloForm.textContent = 'Editar cliente';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function montarPayload() {
+      return {
+        nome: nome.value.trim(),
+        telefonePrincipal: telefone.value.trim(),
+        cidade: cidade.value.trim(),
+        uf: uf.value.trim().toUpperCase(),
+        ativo: ativo.value === 'true'
+      };
+    }
+
+    async function salvar() {
+      const payload = montarPayload();
+      if (!payload.nome) {
+        setMensagem('Nome do cliente é obrigatório.', true);
+        return;
+      }
+      try {
+        btnSalvar.disabled = true;
+        setMensagem('Salvando cliente...');
+        const id = favorecido.value.trim();
+        const response = await fetch(id ? `/api/legado/clientes/${encodeURIComponent(id)}` : '/api/legado/clientes', {
+          method: id ? 'PUT' : 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const json = await lerJson(response);
+        const cliente = json?.dado || null;
+        setMensagem(id ? 'Cliente atualizado.' : 'Cliente criado.');
+        if (cliente) preencherFormulario(cliente);
+        await buscarClientes(false);
+      } catch (error) {
+        setMensagem(error.message, true);
+      } finally {
+        btnSalvar.disabled = false;
+      }
+    }
+
+    async function buscarClientes(mostrarAviso = true) {
+      const termo = busca.value.trim();
+      if (termo.length < 2) {
+        if (mostrarAviso) setMensagem('Digite ao menos 2 letras para buscar.', true);
+        return;
+      }
+      try {
+        if (mostrarAviso) setMensagem('Buscando clientes...');
+        const response = await fetch(`/api/legado/clientes?nome=${encodeURIComponent(termo)}&status=todos&limite=40`);
+        const json = await lerJson(response);
+        clientes = Array.isArray(json?.dados) ? json.dados : [];
+        renderClientes();
+        if (mostrarAviso) setMensagem(clientes.length ? '' : 'Nenhum cliente encontrado.', !clientes.length);
+      } catch (error) {
+        setMensagem(error.message, true);
+      }
+    }
+
+    function renderClientes() {
+      if (!clientes.length) {
+        lista.innerHTML = '<div class="vazio">Nenhum cliente carregado.</div>';
+        return;
+      }
+      lista.innerHTML = clientes.map((cliente, index) => `
+        <article class="cliente">
+          <strong>${escapeHtml(cliente.nome || 'Sem nome')}</strong>
+          <div class="meta">Telefone: ${escapeHtml(cliente.telefonePrincipal || '-')}</div>
+          <div class="meta">Cidade/UF: ${escapeHtml(cliente.cidade || '-')}${cliente.uf ? `/${escapeHtml(cliente.uf)}` : ''}</div>
+          <div class="meta">Status: ${cliente.ativo === false ? 'Inativo' : 'Ativo'}</div>
+          <div class="acoes">
+            <button type="button" class="sec" data-editar="${index}">Editar</button>
+            ${cliente.ativo === false
+              ? `<button type="button" data-reativar="${index}">Reativar</button>`
+              : `<button type="button" class="danger" data-desativar="${index}">Desativar</button>`}
+          </div>
+        </article>
+      `).join('');
+      lista.querySelectorAll('[data-editar]').forEach((botao) => botao.addEventListener('click', () => preencherFormulario(clientes[Number(botao.dataset.editar)])));
+      lista.querySelectorAll('[data-desativar]').forEach((botao) => botao.addEventListener('click', () => desativarCliente(clientes[Number(botao.dataset.desativar)])));
+      lista.querySelectorAll('[data-reativar]').forEach((botao) => botao.addEventListener('click', () => reativarCliente(clientes[Number(botao.dataset.reativar)])));
+    }
+
+    async function desativarCliente(cliente) {
+      if (!cliente?.favorecido) return;
+      if (!confirm(`Desativar ${cliente.nome}?`)) return;
+      try {
+        setMensagem('Desativando cliente...');
+        const response = await fetch(`/api/legado/clientes/${encodeURIComponent(cliente.favorecido)}`, { method: 'DELETE' });
+        await lerJson(response);
+        setMensagem('Cliente desativado.');
+        await buscarClientes(false);
+      } catch (error) {
+        setMensagem(error.message, true);
+      }
+    }
+
+    async function reativarCliente(cliente) {
+      if (!cliente?.favorecido) return;
+      try {
+        setMensagem('Reativando cliente...');
+        const response = await fetch(`/api/legado/clientes/${encodeURIComponent(cliente.favorecido)}/reativar`, { method: 'PATCH' });
+        await lerJson(response);
+        setMensagem('Cliente reativado.');
+        await buscarClientes(false);
+      } catch (error) {
+        setMensagem(error.message, true);
+      }
+    }
+
+    btnSalvar.addEventListener('click', salvar);
+    btnNovo.addEventListener('click', limparFormulario);
+    btnBuscar.addEventListener('click', () => buscarClientes(true));
+    busca.addEventListener('keydown', (event) => { if (event.key === 'Enter') buscarClientes(true); });
+    limparFormulario();
+    lista.innerHTML = '<div class="vazio">Busque um cliente pelo nome ou cadastre um novo.</div>';
+  </script>
+</body>
+</html>

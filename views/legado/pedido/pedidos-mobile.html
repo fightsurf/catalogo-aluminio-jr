@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pedido Mobile</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #f3f4f6; color: #111827; }
+    .page { width: 100%; max-width: 760px; margin: 0 auto; padding: 14px; }
+    .topo { position: sticky; top: 0; z-index: 5; margin: -14px -14px 14px; padding: 14px; background: #111827; color: #fff; box-shadow: 0 8px 18px rgba(0,0,0,.16); }
+    .voltar { color: #fff; text-decoration: none; font-weight: 700; display: inline-block; margin-bottom: 10px; }
+    h1 { margin: 0; font-size: 20px; }
+    .sub { margin: 6px 0 0; font-size: 13px; opacity: .8; }
+    .mensagem { display: none; margin: 0 0 12px; padding: 12px; border-radius: 12px; background: #eff6ff; color: #1d4ed8; font-size: 14px; }
+    .mensagem.erro { background: #fef2f2; color: #b91c1c; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 14px; box-shadow: 0 8px 20px rgba(0,0,0,.05); margin-bottom: 12px; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .label { color: #6b7280; font-size: 12px; margin-bottom: 4px; }
+    .valor { font-weight: 800; font-size: 15px; overflow-wrap: anywhere; }
+    .total { font-size: 22px; font-weight: 900; }
+    .item { border-top: 1px solid #e5e7eb; padding: 10px 0; }
+    .item:first-child { border-top: 0; padding-top: 0; }
+    .item-desc { font-weight: 800; margin-bottom: 5px; }
+    .acoes { display: grid; grid-template-columns: 1fr; gap: 8px; }
+    .botao, button { min-height: 44px; border-radius: 12px; padding: 10px 12px; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; font-weight: 800; background: #111827; color: #fff; border: 0; cursor: pointer; font: inherit; }
+    .botao.sec, button.sec { background: #e5e7eb; color: #111827; }
+    .vazio { padding: 18px; border: 1px dashed #d1d5db; border-radius: 16px; background: #fff; color: #6b7280; text-align: center; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="topo">
+      <a id="linkVoltar" class="voltar" href="/legado/semanas/mobile">← Voltar</a>
+      <h1 id="titulo">Pedido</h1>
+      <p id="subtitulo" class="sub">Consulta mobile do pedido.</p>
+    </header>
+
+    <div id="mensagem" class="mensagem"></div>
+    <section id="conteudo"></section>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const numeroPedido = params.get('numero') || '';
+    const idMestreParam = params.get('idMestre') || '';
+    const codigoCarrada = params.get('carrada') || '';
+    const mensagem = document.getElementById('mensagem');
+    const conteudo = document.getElementById('conteudo');
+    const titulo = document.getElementById('titulo');
+    const subtitulo = document.getElementById('subtitulo');
+    const linkVoltar = document.getElementById('linkVoltar');
+    let pedidoAtual = null;
+
+    if (codigoCarrada) {
+      linkVoltar.href = `/legado/carradas/mobile/detalhe?codigo=${encodeURIComponent(codigoCarrada)}`;
+      linkVoltar.textContent = '← Carrada';
+    }
+
+    function setMensagem(texto, erro = false) {
+      mensagem.style.display = texto ? 'block' : 'none';
+      mensagem.textContent = texto || '';
+      mensagem.classList.toggle('erro', erro);
+    }
+
+    async function lerJson(response) {
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(json?.message || json?.erro || json?.detalhe || 'Erro na requisição.');
+      return json;
+    }
+
+    function escapeHtml(valor) {
+      return String(valor ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function formatarMoeda(valor) {
+      const numero = Number(valor || 0);
+      return numero.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    function formatarNumero(valor) {
+      const numero = Number(valor || 0);
+      return Number.isFinite(numero) ? numero.toLocaleString('pt-BR') : '0';
+    }
+
+    function formatarData(valor) {
+      if (!valor) return '-';
+      const texto = String(valor).slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
+        const [ano, mes, dia] = texto.split('-');
+        return `${dia}/${mes}/${ano}`;
+      }
+      const data = new Date(valor);
+      return Number.isNaN(data.getTime()) ? String(valor) : data.toLocaleDateString('pt-BR');
+    }
+
+    function telefoneNumeros(valor) {
+      return String(valor || '').replace(/\D/g, '');
+    }
+
+    function obterTelefone() {
+      return telefoneNumeros(pedidoAtual?.cliente?.telefonePrincipal || pedidoAtual?.cliente?.telefone || pedidoAtual?.telefonePrincipal || '');
+    }
+
+    function obterIdPedido() {
+      return pedidoAtual?.idMestre || pedidoAtual?.saida || pedidoAtual?.SAIDA || idMestreParam || '';
+    }
+
+    function montarMensagemWhatsappPedido() {
+      const linhas = [
+        '📦 *Pedido Alumínio JR*',
+        `Cliente: *${pedidoAtual?.cliente?.nome || '-'}*`,
+        `Número do pedido: *${pedidoAtual?.numero || '-'}*`,
+        '-----------------------------------------------'
+      ];
+
+      const itens = Array.isArray(pedidoAtual?.itens) ? pedidoAtual.itens : [];
+      itens.forEach((item, index) => {
+        linhas.push(`- ${item.descricao || '-'}`);
+        linhas.push(`- QTD: ${Number(item.quantidade || 0)}`);
+        linhas.push(`- Preço: *${formatarMoeda(item.preco || 0)}*`);
+        linhas.push(`- Subtotal: *${formatarMoeda(item.subtotal || 0)}*`);
+        if (index < itens.length - 1) linhas.push('');
+      });
+
+      if (itens.length) linhas.push('');
+      linhas.push(`Total do pedido: *${formatarMoeda(pedidoAtual?.total || 0)}*`);
+      if (pedidoAtual?.obs) {
+        linhas.push('');
+        linhas.push(`Observação: ${pedidoAtual.obs}`);
+      }
+      return linhas.join('\n');
+    }
+
+    function renderizar() {
+      titulo.textContent = `Pedido ${pedidoAtual?.numero || ''}`.trim();
+      subtitulo.textContent = pedidoAtual?.cliente?.nome || 'Consulta mobile do pedido';
+      const itens = Array.isArray(pedidoAtual?.itens) ? pedidoAtual.itens : [];
+      const totalPago = Number(pedidoAtual?.totalPago || 0);
+      const restante = Number(pedidoAtual?.saldoRestante ?? Math.max(Number(pedidoAtual?.total || 0) - totalPago, 0));
+      const carrada = pedidoAtual?.carradaAtual || null;
+      const telefone = obterTelefone();
+      const idPedido = obterIdPedido();
+
+      conteudo.innerHTML = `
+        <section class="card">
+          <div class="grid2">
+            <div><div class="label">Pedido</div><div class="valor">${escapeHtml(pedidoAtual?.numero || '-')}</div></div>
+            <div><div class="label">Data</div><div class="valor">${escapeHtml(formatarData(pedidoAtual?.data))}</div></div>
+            <div><div class="label">Cliente</div><div class="valor">${escapeHtml(pedidoAtual?.cliente?.nome || '-')}</div></div>
+            <div><div class="label">Telefone</div><div class="valor">${escapeHtml(telefone || '-')}</div></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="grid2">
+            <div><div class="label">Carrada</div><div class="valor">${escapeHtml(carrada?.codigo || codigoCarrada || '-')}</div></div>
+            <div><div class="label">Descrição</div><div class="valor">${escapeHtml(carrada?.descricao || '-')}</div></div>
+            <div><div class="label">Valor total</div><div class="valor total">${escapeHtml(formatarMoeda(pedidoAtual?.total || 0))}</div></div>
+            <div><div class="label">Valor pago</div><div class="valor total">${escapeHtml(formatarMoeda(totalPago))}</div></div>
+            <div><div class="label">Restante</div><div class="valor total">${escapeHtml(formatarMoeda(restante))}</div></div>
+          </div>
+        </section>
+
+        <section class="card">
+          <div class="label">Itens</div>
+          ${itens.length ? itens.map((item) => `
+            <div class="item">
+              <div class="item-desc">${escapeHtml(item.descricao || '-')}</div>
+              <div class="grid2">
+                <div><div class="label">Qtd</div><div class="valor">${escapeHtml(formatarNumero(item.quantidade))}</div></div>
+                <div><div class="label">Subtotal</div><div class="valor">${escapeHtml(formatarMoeda(item.subtotal || (Number(item.quantidade || 0) * Number(item.preco || 0))))}</div></div>
+              </div>
+            </div>
+          `).join('') : '<div class="vazio">Nenhum item carregado.</div>'}
+        </section>
+
+        <section class="acoes">
+          <button id="btnWhatsapp" type="button" ${telefone ? '' : 'disabled'}>Enviar WhatsApp</button>
+          <button id="btnPdf" type="button" ${telefone && idPedido ? '' : 'disabled'}>Enviar PDF</button>
+          ${codigoCarrada ? `<a class="botao sec" href="/legado/carradas/mobile/detalhe?codigo=${escapeHtml(encodeURIComponent(codigoCarrada))}">Voltar para Carrada</a>` : ''}
+        </section>
+      `;
+
+      document.getElementById('btnWhatsapp')?.addEventListener('click', enviarWhatsapp);
+      document.getElementById('btnPdf')?.addEventListener('click', enviarPdf);
+    }
+
+    async function carregar() {
+      if (!numeroPedido) {
+        conteudo.innerHTML = '<div class="vazio">Número do pedido não informado.</div>';
+        setMensagem('Número do pedido não informado.', true);
+        return;
+      }
+
+      try {
+        setMensagem('Carregando pedido...');
+        const response = await fetch(`/api/legado/pedidos?numero=${encodeURIComponent(numeroPedido)}`);
+        const json = await lerJson(response);
+        const pedidos = Array.isArray(json?.data) ? json.data : [];
+        let pedido = pedidos[0] || null;
+
+        if (idMestreParam) {
+          pedido = pedidos.find((item) => String(item.idMestre || item.saida || '') === String(idMestreParam)) || pedido;
+        }
+
+        if (!pedido) {
+          conteudo.innerHTML = '<div class="vazio">Pedido não encontrado.</div>';
+          setMensagem('Pedido não encontrado.', true);
+          return;
+        }
+
+        const idPedido = pedido.idMestre || pedido.saida || idMestreParam;
+        if (idPedido) {
+          try {
+            const itensResponse = await fetch(`/api/legado/pedidos/${encodeURIComponent(idPedido)}/itens`);
+            const itensJson = await lerJson(itensResponse);
+            const detalhe = itensJson?.data || {};
+            pedido = {
+              ...pedido,
+              carradaAtual: detalhe.carradaAtual || pedido.carradaAtual || null,
+              itens: Array.isArray(detalhe.itens) ? detalhe.itens : []
+            };
+          } catch (error) {
+            pedido = { ...pedido, itens: [] };
+          }
+        }
+
+        pedidoAtual = pedido;
+        renderizar();
+        setMensagem('');
+      } catch (error) {
+        conteudo.innerHTML = '<div class="vazio">Não foi possível carregar o pedido.</div>';
+        setMensagem(error.message, true);
+      }
+    }
+
+    async function enviarWhatsapp() {
+      const telefone = obterTelefone();
+      if (!telefone) {
+        setMensagem('Telefone do cliente não encontrado.', true);
+        return;
+      }
+      try {
+        setMensagem('Enviando WhatsApp...');
+        const response = await fetch('/api/whatsapp/enviar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ telefone, mensagem: montarMensagemWhatsappPedido() })
+        });
+        await lerJson(response);
+        setMensagem('WhatsApp enviado com sucesso.');
+      } catch (error) {
+        setMensagem(error.message, true);
+      }
+    }
+
+    async function enviarPdf() {
+      const idPedido = obterIdPedido();
+      if (!idPedido) {
+        setMensagem('ID do pedido não encontrado.', true);
+        return;
+      }
+      try {
+        setMensagem('Enviando PDF...');
+        const response = await fetch(`/api/legado/pedidos/${encodeURIComponent(idPedido)}/whatsapp/pdf`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        await lerJson(response);
+        setMensagem('PDF enviado com sucesso.');
+      } catch (error) {
+        setMensagem(error.message, true);
+      }
+    }
+
+    carregar();
+  </script>
+</body>
+</html>

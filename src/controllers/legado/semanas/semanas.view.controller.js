@@ -1,5 +1,18 @@
 const path = require('path');
 
+
+function abrirPaginaSemanasMobile(req, res) {
+  return res.sendFile(
+    path.resolve(__dirname, '../../../../views/legado/semanas/semanas-mobile.html')
+  );
+}
+
+function abrirPaginaDetalheSemanaMobile(req, res) {
+  return res.sendFile(
+    path.resolve(__dirname, '../../../../views/legado/semanas/semanas-mobile-detalhe.html')
+  );
+}
+
 function abrirPaginaSemanas(req, res) {
   return res.sendFile(
     path.resolve(__dirname, '../../../../views/legado/semanas/semanas.html')
@@ -26,6 +39,8 @@ function abrirPaginaResumoSemana(req, res) {
 
 module.exports = {
   abrirPaginaSemanas,
+  abrirPaginaSemanasMobile,
+  abrirPaginaDetalheSemanaMobile,
   abrirPaginaDetalheSemana,
   abrirPaginaResumoProducaoSemana,
   abrirPaginaResumoSemana

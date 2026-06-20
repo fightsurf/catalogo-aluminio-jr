@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Carrada Mobile</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #f3f4f6; color: #111827; }
+    .page { width: 100%; max-width: 760px; margin: 0 auto; padding: 14px; }
+    .topo { position: sticky; top: 0; z-index: 5; margin: -14px -14px 14px; padding: 14px; background: #111827; color: #fff; box-shadow: 0 8px 18px rgba(0,0,0,.16); }
+    .voltar { color: #fff; text-decoration: none; font-weight: 700; display: inline-block; margin-bottom: 10px; }
+    h1 { margin: 0; font-size: 20px; }
+    .sub { margin: 6px 0 0; font-size: 13px; opacity: .8; }
+    .mensagem { display: none; margin: 0 0 12px; padding: 12px; border-radius: 12px; background: #eff6ff; color: #1d4ed8; font-size: 14px; }
+    .mensagem.erro { background: #fef2f2; color: #b91c1c; }
+    .resumo, .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 14px; box-shadow: 0 8px 20px rgba(0,0,0,.05); }
+    .resumo { margin-bottom: 12px; }
+    .linha { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+    .label { color: #6b7280; font-size: 13px; }
+    .valor { font-weight: 900; font-size: 24px; }
+    .acoes-topo { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 12px; }
+    .lista { display: flex; flex-direction: column; gap: 10px; }
+    .pedido-numero { font-size: 16px; font-weight: 900; margin-bottom: 4px; }
+    .cliente { font-size: 16px; font-weight: 800; margin-bottom: 10px; line-height: 1.25; }
+    .meta { color: #4b5563; font-size: 13px; margin-bottom: 6px; }
+    .acoes { display: grid; grid-template-columns: 1fr; gap: 8px; margin-top: 12px; }
+    .botao { min-height: 44px; border-radius: 12px; padding: 10px 12px; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; font-weight: 800; background: #111827; color: #fff; border: 0; }
+    .botao.sec { background: #e5e7eb; color: #111827; }
+    .vazio { padding: 18px; border: 1px dashed #d1d5db; border-radius: 16px; background: #fff; color: #6b7280; text-align: center; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="topo">
+      <a id="linkVoltar" class="voltar" href="/legado/semanas/mobile">← Voltar</a>
+      <h1 id="titulo">Carrada</h1>
+      <p id="subtitulo" class="sub">Carregando carrada...</p>
+    </header>
+
+    <div id="mensagem" class="mensagem"></div>
+    <section id="resumo" class="resumo" style="display:none;"></section>
+    <section id="lista" class="lista"></section>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const codigoCarrada = params.get('codigo');
+    const semanaId = params.get('semana');
+    const mensagem = document.getElementById('mensagem');
+    const titulo = document.getElementById('titulo');
+    const subtitulo = document.getElementById('subtitulo');
+    const resumo = document.getElementById('resumo');
+    const lista = document.getElementById('lista');
+    const linkVoltar = document.getElementById('linkVoltar');
+
+    if (semanaId) {
+      linkVoltar.href = `/legado/semanas/mobile/detalhe?id=${encodeURIComponent(semanaId)}`;
+      linkVoltar.textContent = '← Semana';
+    }
+
+    function setMensagem(texto, erro = false) {
+      mensagem.style.display = texto ? 'block' : 'none';
+      mensagem.textContent = texto || '';
+      mensagem.classList.toggle('erro', erro);
+    }
+
+    async function lerJson(response) {
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(json?.message || json?.erro || json?.detalhe || 'Erro na requisição.');
+      return json;
+    }
+
+    function escapeHtml(valor) {
+      return String(valor ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function formatarNumero(valor) {
+      const numero = Number(valor || 0);
+      return Number.isFinite(numero) ? numero.toLocaleString('pt-BR') : '0';
+    }
+
+    function formatarMoeda(valor) {
+      const numero = Number(valor || 0);
+      return numero.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    function formatarData(valor) {
+      if (!valor) return '-';
+      const texto = String(valor).slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
+        const [ano, mes, dia] = texto.split('-');
+        return `${dia}/${mes}/${ano}`;
+      }
+      const data = new Date(valor);
+      return Number.isNaN(data.getTime()) ? String(valor) : data.toLocaleDateString('pt-BR');
+    }
+
+    function quantidadePedido(pedido) {
+      const resumo = Number(pedido?.quantidadeItens ?? pedido?.quantidade_itens);
+      if (Number.isFinite(resumo) && resumo > 0) return resumo;
+      const itens = Array.isArray(pedido?.itens) ? pedido.itens : [];
+      return itens.reduce((total, item) => total + Number(item?.quantidade || 0), 0);
+    }
+
+    function obterClienteNome(pedido) {
+      return pedido?.cliente?.nome || pedido?.clienteNome || pedido?.nomeCliente || '-';
+    }
+
+    function obterNumeroPedido(pedido) {
+      return pedido?.numero || pedido?.NUMERO || '-';
+    }
+
+    function renderizar(carrada) {
+      titulo.textContent = `Carrada ${carrada?.codigo || ''}`.trim();
+      subtitulo.textContent = `${formatarData(carrada?.data)} — ${carrada?.descricao || 'Sem descrição'}`;
+
+      const inserirUrl = `/legado/pedidos-insercao-mobile?carrada=${encodeURIComponent(carrada?.codigo || '')}`;
+      resumo.style.display = 'block';
+      resumo.innerHTML = `
+        <div class="linha">
+          <span class="label">A produzir</span>
+          <span class="valor">${escapeHtml(formatarNumero(carrada?.quantidade_itens_a_produzir))}</span>
+        </div>
+        <div class="meta" style="margin-top:8px;">Pedidos: ${escapeHtml(formatarNumero(carrada?.quantidade_pedidos ?? carrada?.totalPedidos))}</div>
+        <div class="acoes-topo"><a class="botao" href="${escapeHtml(inserirUrl)}">Inserir Pedido</a></div>
+      `;
+
+      const pedidos = Array.isArray(carrada?.pedidos) ? carrada.pedidos : [];
+      if (!pedidos.length) {
+        lista.innerHTML = '<div class="vazio">Nenhum pedido vinculado a esta carrada.</div>';
+        return;
+      }
+
+      lista.innerHTML = pedidos.map((pedido) => {
+        const numero = obterNumeroPedido(pedido);
+        const idMestre = pedido?.idMestre || pedido?.saida || pedido?.SAIDA || '';
+        const consultaParams = new URLSearchParams({ numero: String(numero), carrada: String(carrada?.codigo || '') });
+        if (idMestre) consultaParams.set('idMestre', String(idMestre));
+        return `
+          <article class="card">
+            <div class="pedido-numero">Pedido: ${escapeHtml(numero)}</div>
+            <div class="cliente">${escapeHtml(obterClienteNome(pedido))}</div>
+            <div class="meta">Quantidade: <strong>${escapeHtml(formatarNumero(quantidadePedido(pedido)))}</strong></div>
+            <div class="meta">Valor: <strong>${escapeHtml(formatarMoeda(pedido?.total || 0))}</strong></div>
+            <div class="acoes">
+              <a class="botao sec" href="/legado/pedidos/mobile?${escapeHtml(consultaParams.toString())}">Consultar Pedido</a>
+            </div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    async function carregar() {
+      if (!codigoCarrada) {
+        setMensagem('Código da carrada não informado.', true);
+        lista.innerHTML = '<div class="vazio">Carrada inválida.</div>';
+        return;
+      }
+
+      try {
+        setMensagem('Carregando carrada...');
+        const response = await fetch(`/api/legado/carradas/${encodeURIComponent(codigoCarrada)}`);
+        const json = await lerJson(response);
+        renderizar(json?.data || null);
+        setMensagem('');
+      } catch (error) {
+        setMensagem(error.message, true);
+        lista.innerHTML = '<div class="vazio">Não foi possível carregar a carrada.</div>';
+      }
+    }
+
+    carregar();
+  </script>
+</body>
+</html>

@@ -1,5 +1,12 @@
 const path = require('path');
 
+
+function abrirPaginaDetalheCarradaMobile(req, res) {
+  return res.sendFile(
+    path.resolve(__dirname, '../../../../views/legado/carradas/carradas-mobile-detalhe.html')
+  );
+}
+
 function abrirPaginaCarradas(req, res) {
   return res.sendFile(
     path.resolve(__dirname, '../../../../views/legado/carradas/carradas.html')
@@ -32,6 +39,7 @@ function abrirPaginaProgressoCarrada(req, res) {
 
 module.exports = {
   abrirPaginaCarradas,
+  abrirPaginaDetalheCarradaMobile,
   abrirPaginaDetalheCarrada,
   abrirPaginaResumoItensCarrada,
   abrirPaginaResumoProducaoCarrada,

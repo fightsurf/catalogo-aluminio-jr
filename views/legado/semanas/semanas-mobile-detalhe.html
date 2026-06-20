@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Carradas da Semana Mobile</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: Arial, sans-serif; background: #f3f4f6; color: #111827; }
+    .page { width: 100%; max-width: 720px; margin: 0 auto; padding: 14px; }
+    .topo { position: sticky; top: 0; z-index: 5; margin: -14px -14px 14px; padding: 14px; background: #111827; color: #fff; box-shadow: 0 8px 18px rgba(0,0,0,.16); }
+    h1 { margin: 0; font-size: 20px; }
+    .sub { margin: 6px 0 0; font-size: 13px; opacity: .8; }
+    .voltar { color: #fff; text-decoration: none; font-weight: 700; display: inline-block; margin-bottom: 10px; }
+    .mensagem { display: none; margin: 0 0 12px; padding: 12px; border-radius: 12px; background: #eff6ff; color: #1d4ed8; font-size: 14px; }
+    .mensagem.erro { background: #fef2f2; color: #b91c1c; }
+    .resumo { background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 14px; margin-bottom: 12px; }
+    .resumo .linha { display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+    .label { color: #6b7280; font-size: 13px; }
+    .valor { font-weight: 900; font-size: 24px; }
+    .lista { display: flex; flex-direction: column; gap: 10px; }
+    .card { border: 1px solid #e5e7eb; border-radius: 16px; padding: 14px; background: #fff; box-shadow: 0 8px 20px rgba(0,0,0,.05); }
+    .data { font-size: 15px; font-weight: 800; color: #111827; margin-bottom: 4px; }
+    .descricao { font-size: 17px; font-weight: 900; line-height: 1.25; margin-bottom: 12px; }
+    .acoes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+    .botao { min-height: 44px; border-radius: 12px; padding: 10px 12px; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; font-weight: 800; background: #111827; color: #fff; }
+    .botao.sec { background: #e5e7eb; color: #111827; }
+    .vazio { padding: 18px; border: 1px dashed #d1d5db; border-radius: 16px; background: #fff; color: #6b7280; text-align: center; }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="topo">
+      <a class="voltar" href="/legado/semanas/mobile">← Semanas</a>
+      <h1 id="titulo">Carradas</h1>
+      <p id="subtitulo" class="sub">Carregando semana...</p>
+    </header>
+
+    <div id="mensagem" class="mensagem"></div>
+    <section id="resumo" class="resumo" style="display:none;"></section>
+    <section id="lista" class="lista"></section>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const semanaId = params.get('id');
+    const mensagem = document.getElementById('mensagem');
+    const titulo = document.getElementById('titulo');
+    const subtitulo = document.getElementById('subtitulo');
+    const resumo = document.getElementById('resumo');
+    const lista = document.getElementById('lista');
+
+    function setMensagem(texto, erro = false) {
+      mensagem.style.display = texto ? 'block' : 'none';
+      mensagem.textContent = texto || '';
+      mensagem.classList.toggle('erro', erro);
+    }
+
+    async function lerJson(response) {
+      const json = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(json?.message || json?.erro || json?.detalhe || 'Erro na requisição.');
+      return json;
+    }
+
+    function escapeHtml(valor) {
+      return String(valor ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    function formatarNumero(valor) {
+      const numero = Number(valor || 0);
+      return Number.isFinite(numero) ? numero.toLocaleString('pt-BR') : '0';
+    }
+
+    function formatarData(valor) {
+      if (!valor) return '-';
+      const texto = String(valor).slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
+        const [ano, mes, dia] = texto.split('-');
+        return `${dia}/${mes}/${ano}`;
+      }
+      const data = new Date(valor);
+      return Number.isNaN(data.getTime()) ? String(valor) : data.toLocaleDateString('pt-BR');
+    }
+
+    function renderizar(semana) {
+      titulo.textContent = semana?.descricao || 'Carradas da semana';
+      subtitulo.textContent = `${formatarData(semana?.data_inicial)} até ${formatarData(semana?.data_final)}`;
+
+      resumo.style.display = 'block';
+      resumo.innerHTML = `
+        <div class="linha">
+          <span class="label">A produzir na semana</span>
+          <span class="valor">${escapeHtml(formatarNumero(semana?.totais?.quantidade_itens_a_produzir))}</span>
+        </div>
+      `;
+
+      const carradas = Array.isArray(semana?.carradas) ? semana.carradas : [];
+      if (!carradas.length) {
+        lista.innerHTML = '<div class="vazio">Nenhuma carrada vinculada a esta semana.</div>';
+        return;
+      }
+
+      lista.innerHTML = carradas.map((carrada) => {
+        const codigo = carrada?.codigo;
+        const abrirUrl = `/legado/carradas/mobile/detalhe?codigo=${encodeURIComponent(codigo)}&semana=${encodeURIComponent(semana?.id || '')}`;
+        const inserirUrl = `/legado/pedidos-insercao-mobile?carrada=${encodeURIComponent(codigo)}`;
+        return `
+          <article class="card">
+            <div class="data">${escapeHtml(formatarData(carrada?.data))}</div>
+            <div class="descricao">${escapeHtml(carrada?.descricao || 'Carrada sem descrição')}</div>
+            <div class="linha">
+              <span class="label">A produzir</span>
+              <span class="valor">${escapeHtml(formatarNumero(carrada?.quantidade_itens_a_produzir))}</span>
+            </div>
+            <div class="acoes">
+              <a class="botao sec" href="${escapeHtml(abrirUrl)}">Abrir</a>
+              <a class="botao" href="${escapeHtml(inserirUrl)}">Inserir Pedido</a>
+            </div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    async function carregar() {
+      if (!semanaId) {
+        setMensagem('ID da semana não informado.', true);
+        lista.innerHTML = '<div class="vazio">Semana inválida.</div>';
+        return;
+      }
+
+      try {
+        setMensagem('Carregando carradas...');
+        const response = await fetch(`/api/legado/semanas/${encodeURIComponent(semanaId)}`);
+        const json = await lerJson(response);
+        renderizar(json?.data || null);
+        setMensagem('');
+      } catch (error) {
+        setMensagem(error.message, true);
+        lista.innerHTML = '<div class="vazio">Não foi possível carregar a semana.</div>';
+      }
+    }
+
+    carregar();
+  </script>
+</body>
+</html>

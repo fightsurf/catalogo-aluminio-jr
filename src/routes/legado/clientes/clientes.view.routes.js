@@ -4,5 +4,6 @@ const clientesViewController = require('../../../controllers/legado/clientes/cli
 const router = express.Router();
 
 router.get('/', clientesViewController.abrirPaginaClientes);
+router.get('/mobile', clientesViewController.abrirPaginaClientesMobile);
 
 module.exports = router;
