@@ -849,6 +849,51 @@
       return cacheProdutosImportacao;
     }
 
+    function arredondarDinheiro(valor) {
+      const numero = Number(valor || 0);
+      if (!Number.isFinite(numero)) return 0;
+      return Math.round((numero + Number.EPSILON) * 100) / 100;
+    }
+
+    function obterPrecoAtualProduto(produto) {
+      const preco = Number(produto?.preco ?? 0);
+      return Number.isFinite(preco) ? preco : 0;
+    }
+
+    function precosImportadosIguais(itensReconhecidos) {
+      if (!Array.isArray(itensReconhecidos) || itensReconhecidos.length < 2) return false;
+
+      const produtosDistintos = new Set(
+        itensReconhecidos
+          .map((item) => Number(item?.produto?.id || 0))
+          .filter((id) => id > 0)
+      );
+
+      if (produtosDistintos.size < 2) return false;
+
+      const primeiroPreco = Number(itensReconhecidos[0]?.precoImportado || 0);
+      if (!Number.isFinite(primeiroPreco)) return false;
+
+      return itensReconhecidos.every((item) => Math.abs(Number(item?.precoImportado || 0) - primeiroPreco) < 0.01);
+    }
+
+    function calcularPrecoMedioAtualizadoKit(itensReconhecidos) {
+      const totais = itensReconhecidos.reduce((acc, item) => {
+        const quantidade = Number(item?.quantidadeFinal || 0);
+        const precoAtual = obterPrecoAtualProduto(item?.produto);
+
+        if (Number.isFinite(quantidade) && quantidade > 0) {
+          acc.quantidade += quantidade;
+          acc.valor += quantidade * precoAtual;
+        }
+
+        return acc;
+      }, { quantidade: 0, valor: 0 });
+
+      if (totais.quantidade <= 0) return 0;
+      return arredondarDinheiro(totais.valor / totais.quantidade);
+    }
+
     async function importarRelatorio() {
       const texto = textoRelatorio.value.trim();
       const multiplicador = Number(multiplicadorKit.value || 1);
@@ -875,6 +920,7 @@
 
         const produtos = await carregarProdutosParaImportacao();
         const naoReconhecidos = [];
+        const itensReconhecidos = [];
         let quantidadeImportada = 0;
         let precosAtualizados = 0;
 
@@ -891,17 +937,28 @@
             return;
           }
 
-          const precoAtualProduto = Number(produto?.preco || 0);
-          const precoImportado = Number(item.preco || 0);
+          itensReconhecidos.push({
+            produto,
+            quantidadeFinal,
+            precoImportado: Number(item.preco || 0)
+          });
+        });
 
-          if (Number.isFinite(precoAtualProduto) && Math.abs(precoAtualProduto - precoImportado) >= 0.01) {
+        const kitFeirinhaDetectado = itensReconhecidos.length === itensExtraidos.length && precosImportadosIguais(itensReconhecidos);
+        const precoMedioAtualizadoKit = kitFeirinhaDetectado ? calcularPrecoMedioAtualizadoKit(itensReconhecidos) : null;
+
+        itensReconhecidos.forEach((item) => {
+          const precoAtualProduto = obterPrecoAtualProduto(item.produto);
+          const precoFinal = kitFeirinhaDetectado ? precoMedioAtualizadoKit : precoAtualProduto;
+
+          if (Math.abs(Number(precoFinal || 0) - Number(item.precoImportado || 0)) >= 0.01) {
             precosAtualizados += 1;
           }
 
           adicionarItemNormalizado({
-            produto,
-            quantidade: quantidadeFinal,
-            preco: Number.isFinite(precoAtualProduto) ? precoAtualProduto : 0
+            produto: item.produto,
+            quantidade: item.quantidadeFinal,
+            preco: arredondarDinheiro(precoFinal)
           });
 
           quantidadeImportada += 1;
@@ -914,7 +971,11 @@
           throw new Error('Nenhum item do relatório foi reconhecido no cadastro do Render.');
         }
 
-        setMensagem(`Importação concluída. ${quantidadeImportada} item(ns) reconhecido(s).${precosAtualizados ? ` ${precosAtualizados} preço(s) atualizado(s) pelo cadastro atual.` : ''}${naoReconhecidos.length ? ` ${naoReconhecidos.length} não reconhecido(s).` : ''}`);
+        const textoKit = kitFeirinhaDetectado ? ` Kit feirinha detectado: preço médio atualizado aplicado (${formatarMoeda(precoMedioAtualizadoKit)}).` : '';
+        const textoNaoReconhecidos = naoReconhecidos.length ? ` ${naoReconhecidos.length} não reconhecido(s).` : '';
+        const textoPrecos = precosAtualizados ? ` ${precosAtualizados} preço(s) atualizado(s) pelo cadastro atual.` : '';
+
+        setMensagem(`Importação concluída. ${quantidadeImportada} item(ns) reconhecido(s).${textoKit}${textoPrecos}${textoNaoReconhecidos}`);
       } catch (error) {
         setMensagem(error.message, true);
       }

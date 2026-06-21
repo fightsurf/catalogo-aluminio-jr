@@ -423,6 +423,40 @@
       naoReconhecidos.style.display = 'block';
     }
 
+    function arredondarDinheiro(valor) {
+      const numero = Number(valor || 0);
+      if (!Number.isFinite(numero)) return 0;
+      return Math.round((numero + Number.EPSILON) * 100) / 100;
+    }
+
+    function obterPrecoAtualProduto(produto) {
+      const preco = Number(produto?.preco ?? 0);
+      return Number.isFinite(preco) ? preco : 0;
+    }
+
+    function precosImportadosIguais(itensReconhecidos) {
+      if (!Array.isArray(itensReconhecidos) || itensReconhecidos.length < 2) return false;
+      const produtosDistintos = new Set(itensReconhecidos.map((item) => Number(item?.produto?.id || 0)).filter((id) => id > 0));
+      if (produtosDistintos.size < 2) return false;
+      const primeiroPreco = Number(itensReconhecidos[0]?.precoImportado || 0);
+      if (!Number.isFinite(primeiroPreco)) return false;
+      return itensReconhecidos.every((item) => Math.abs(Number(item?.precoImportado || 0) - primeiroPreco) < 0.01);
+    }
+
+    function calcularPrecoMedioAtualizadoKit(itensReconhecidos) {
+      const totais = itensReconhecidos.reduce((acc, item) => {
+        const quantidade = Number(item?.quantidadeFinal || 0);
+        const precoAtual = obterPrecoAtualProduto(item?.produto);
+        if (Number.isFinite(quantidade) && quantidade > 0) {
+          acc.quantidade += quantidade;
+          acc.valor += quantidade * precoAtual;
+        }
+        return acc;
+      }, { quantidade: 0, valor: 0 });
+      if (totais.quantidade <= 0) return 0;
+      return arredondarDinheiro(totais.valor / totais.quantidade);
+    }
+
     async function importarRelatorio() {
       const texto = textoRelatorio.value.trim();
       const multiplicador = Number(multiplicadorKit.value || 1);
@@ -441,8 +475,10 @@
         if (!itensExtraidos.length) throw new Error('Não encontrei itens válidos no texto colado.');
         const produtos = await carregarProdutosParaImportacao();
         const naoEncontrados = [];
+        const itensReconhecidos = [];
         let importados = 0;
         let precosAtualizados = 0;
+
         itensExtraidos.forEach((item) => {
           const produto = localizarProdutoPorNome(produtos, item.nome);
           const quantidadeFinal = Number(item.quantidade) * multiplicador;
@@ -450,18 +486,29 @@
             naoEncontrados.push({ nome: item.nome, quantidade: quantidadeFinal, preco: item.preco });
             return;
           }
-          const precoAtualProduto = Number(produto?.preco || 0);
-          const precoImportado = Number(item.preco || 0);
-          if (Number.isFinite(precoAtualProduto) && Math.abs(precoAtualProduto - precoImportado) >= 0.01) {
+          itensReconhecidos.push({ produto, quantidadeFinal, precoImportado: Number(item.preco || 0) });
+        });
+
+        const kitFeirinhaDetectado = itensReconhecidos.length === itensExtraidos.length && precosImportadosIguais(itensReconhecidos);
+        const precoMedioAtualizadoKit = kitFeirinhaDetectado ? calcularPrecoMedioAtualizadoKit(itensReconhecidos) : null;
+
+        itensReconhecidos.forEach((item) => {
+          const precoAtualProduto = obterPrecoAtualProduto(item.produto);
+          const precoFinal = kitFeirinhaDetectado ? precoMedioAtualizadoKit : precoAtualProduto;
+          if (Math.abs(Number(precoFinal || 0) - Number(item.precoImportado || 0)) >= 0.01) {
             precosAtualizados += 1;
           }
-          adicionarItemNormalizado({ produto, quantidade: quantidadeFinal, preco: Number.isFinite(precoAtualProduto) ? precoAtualProduto : 0 });
+          adicionarItemNormalizado({ produto: item.produto, quantidade: item.quantidadeFinal, preco: arredondarDinheiro(precoFinal) });
           importados += 1;
         });
+
         renderItens();
         setNaoReconhecidos(naoEncontrados);
         if (!importados) throw new Error('Nenhum item do relatório foi reconhecido.');
-        setMensagem(`Importação concluída: ${importados} item(ns).${precosAtualizados ? ` ${precosAtualizados} preço(s) atualizado(s) pelo cadastro atual.` : ''}`);
+        const textoKit = kitFeirinhaDetectado ? ` Kit feirinha detectado: preço médio atualizado aplicado (${formatarMoeda(precoMedioAtualizadoKit)}).` : '';
+        const textoNaoReconhecidos = naoEncontrados.length ? ` ${naoEncontrados.length} não reconhecido(s).` : '';
+        const textoPrecos = precosAtualizados ? ` ${precosAtualizados} preço(s) atualizado(s) pelo cadastro atual.` : '';
+        setMensagem(`Importação concluída: ${importados} item(ns).${textoKit}${textoPrecos}${textoNaoReconhecidos}`);
       } catch (error) {
         setMensagem(error.message, true);
       }
