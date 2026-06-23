@@ -392,6 +392,71 @@ class ClientesCreditosService {
     };
   }
 
+  async _buscarNomeClienteSnapshot(favorecidoId) {
+    await this._ensureSchema();
+    const result = await pool.query(
+      `
+        SELECT cliente_nome_snapshot
+        FROM cliente_credito_lancamentos
+        WHERE favorecido = $1
+          AND cliente_nome_snapshot IS NOT NULL
+          AND TRIM(cliente_nome_snapshot) <> ''
+        ORDER BY id DESC
+        LIMIT 1
+      `,
+      [favorecidoId]
+    );
+
+    return this._texto(result.rows[0]?.cliente_nome_snapshot).slice(0, 200) || null;
+  }
+
+  async registrarAjusteCliente(favorecido, data = {}) {
+    await this._ensureSchema();
+    const favorecidoId = this._inteiro(favorecido, 'favorecido', { positivo: true });
+    const valor = this._valor(data.valor);
+    const natureza = this._texto(data.natureza || data.tipo).toUpperCase();
+
+    if (!['DEBITO', 'CREDITO'].includes(natureza)) {
+      throw this._erro('Natureza do ajuste inválida.');
+    }
+
+    const tipo = natureza === 'DEBITO' ? TIPOS.AJUSTE_DEBITO : TIPOS.AJUSTE_CREDITO;
+    const descricaoPadrao = natureza === 'DEBITO' ? 'Ajuste de débito no crédito do cliente' : 'Ajuste de crédito no crédito do cliente';
+    const descricao = this._texto(data.descricao).slice(0, 300) || descricaoPadrao;
+    const observacao = this._texto(data.observacao).slice(0, 500) || null;
+    const dataLancamento = this._dataISO(data.dataLancamento || data.data_lancamento, 'dataLancamento');
+    const clienteNome = this._texto(data.clienteNome || data.cliente_nome).slice(0, 200) || await this._buscarNomeClienteSnapshot(favorecidoId);
+
+    const result = await pool.query(
+      `
+        INSERT INTO cliente_credito_lancamentos (
+          favorecido,
+          cliente_nome_snapshot,
+          data_lancamento,
+          tipo,
+          descricao,
+          origem_tipo,
+          valor_debito,
+          valor_credito,
+          observacao
+        ) VALUES ($1, $2, $3, $4, $5, 'AJUSTE_MANUAL', $6, $7, $8)
+        RETURNING *
+      `,
+      [
+        favorecidoId,
+        clienteNome,
+        dataLancamento,
+        tipo,
+        descricao,
+        natureza === 'DEBITO' ? valor : 0,
+        natureza === 'CREDITO' ? valor : 0,
+        observacao
+      ]
+    );
+
+    return this._mapLancamento(result.rows[0]);
+  }
+
   async registrarPagamentoCliente(favorecido, data = {}) {
     await this._ensureSchema();
     const favorecidoId = this._inteiro(favorecido, 'favorecido', { positivo: true });

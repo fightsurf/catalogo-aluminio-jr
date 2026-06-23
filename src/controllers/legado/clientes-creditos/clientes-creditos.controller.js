@@ -20,6 +20,17 @@ async function buscarExtrato(req, res) {
   }
 }
 
+
+async function registrarAjusteCliente(req, res) {
+  try {
+    const data = await clientesCreditosService.registrarAjusteCliente(req.params.favorecido, req.body || {});
+    return res.status(201).json({ success: true, data });
+  } catch (error) {
+    console.error('Erro ao registrar ajuste de crédito do cliente:', error);
+    return res.status(error.statusCode || 500).json({ success: false, message: 'Erro ao registrar ajuste de crédito do cliente.', error: error.message });
+  }
+}
+
 async function registrarPagamentoCliente(req, res) {
   try {
     const data = await clientesCreditosService.registrarPagamentoCliente(req.params.favorecido, req.body || {});
@@ -33,5 +44,6 @@ async function registrarPagamentoCliente(req, res) {
 module.exports = {
   listarClientes,
   buscarExtrato,
+  registrarAjusteCliente,
   registrarPagamentoCliente
 };
