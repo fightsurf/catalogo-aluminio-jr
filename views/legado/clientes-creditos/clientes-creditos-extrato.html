@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Extrato do Cliente</title>
+  <style>
+    :root { --bg:#f5f6f8; --card:#fff; --line:#e5e7eb; --text:#111827; --muted:#6b7280; --primary:#111827; --success:#dcfce7; --warning:#fef3c7; --danger:#fee2e2; }
+    *{box-sizing:border-box;} body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text);} .page{max-width:1400px;margin:0 auto;padding:20px;} h1,h2,p{margin:0;} .muted{color:var(--muted);} .topbar{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px;} .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 2px 10px rgba(0,0,0,.04);margin-bottom:16px;} .grid{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:12px;} .box{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff;} .box strong{display:block;color:var(--muted);font-size:13px;margin-bottom:6px}.box .valor{font-size:24px;font-weight:800}.box.ok{background:var(--success)}.box.warn{background:var(--warning)}.box.bad{background:var(--danger)} button,.btn{border:0;border-radius:10px;padding:10px 14px;min-height:40px;font-weight:700;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}.btn-primary{background:var(--primary);color:#fff}.btn-secondary{background:#fff;color:#111827;border:1px solid var(--line)}input,textarea{width:100%;border:1px solid var(--line);border-radius:10px;min-height:40px;padding:8px 10px;font:inherit}textarea{min-height:72px;resize:vertical}.form-grid{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:10px;align-items:end}.field label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px;font-weight:700}.tabs{display:flex;gap:8px}.tabs button.active{background:#1d4ed8;color:#fff}.status{display:none;margin-bottom:12px;padding:12px;border-radius:12px;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;font-weight:700}.status.show{display:block}.status.error{border-color:#fecaca;background:#fef2f2;color:#b91c1c}.status.success{border-color:#a7f3d0;background:#ecfdf5;color:#047857}table{width:100%;border-collapse:collapse;background:#fff}th,td{border-bottom:1px solid var(--line);padding:10px;text-align:left;vertical-align:top}th{font-size:12px;color:var(--muted);text-transform:uppercase;background:#f9fafb}.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.empty{padding:20px;color:var(--muted);text-align:center}@media(max-width:900px){.grid,.form-grid{grid-template-columns:1fr}.page{padding:12px}table{font-size:13px}th:nth-child(4),td:nth-child(4){display:none}}
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="topbar">
+      <div>
+        <h1 id="titulo">Extrato do Cliente</h1>
+        <p class="muted">Extrato permanente: débitos aumentam a dívida; pagamentos reduzem.</p>
+      </div>
+      <a class="btn btn-secondary" href="/legado/clientes-creditos">Voltar</a>
+    </div>
+    <div id="status" class="status"></div>
+    <section class="panel">
+      <div class="grid">
+        <div class="box"><strong>Total baixado para crédito</strong><div id="totalDebito" class="valor">R$ 0,00</div></div>
+        <div class="box"><strong>Total pago</strong><div id="totalCredito" class="valor">R$ 0,00</div></div>
+        <div id="boxSaldo" class="box"><strong>Saldo atual</strong><div id="saldo" class="valor">R$ 0,00</div><span id="situacao" class="muted"></span></div>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="topbar" style="margin-bottom:12px;"><div><h2>Registrar pagamento</h2><p class="muted">PIX/à vista ou cheque. O pagamento entra na tabela atual do sistema e no extrato.</p></div><div class="tabs"><button id="btnVista" class="btn-secondary active" type="button">À vista</button><button id="btnCheque" class="btn-secondary" type="button">Cheque</button></div></div>
+      <form id="formPagamento">
+        <div class="form-grid">
+          <div class="field"><label for="valor">Valor</label><input id="valor" type="text" inputmode="decimal" placeholder="0,00" required /></div>
+          <div id="campoDataPgto" class="field"><label for="dataPgto">Data do pagamento</label><input id="dataPgto" type="date" required /></div>
+          <div id="campoDataVencimento" class="field" style="display:none"><label for="dataVencimento">Vencimento do cheque</label><input id="dataVencimento" type="date" /></div>
+          <div id="campoNumeroCheque" class="field" style="display:none"><label for="numeroCheque">Número do cheque</label><input id="numeroCheque" type="text" maxlength="10" /></div>
+          <div id="campoTitularCheque" class="field" style="display:none"><label for="titularCheque">Titular</label><input id="titularCheque" type="text" maxlength="100" /></div>
+          <div class="field"><label for="observacao">Observação</label><input id="observacao" type="text" maxlength="300" /></div>
+          <button class="btn-primary" type="submit">Registrar pagamento</button>
+        </div>
+      </form>
+    </section>
+    <section class="panel"><h2 style="margin-bottom:12px;">Movimentações</h2><div id="extrato"></div></section>
+  </main>
+  <script>
+    const qs = new URLSearchParams(window.location.search); const favorecido = qs.get('favorecido'); let tipo = 'V'; let dados = null;
+    const el = { titulo:document.getElementById('titulo'), status:document.getElementById('status'), totalDebito:document.getElementById('totalDebito'), totalCredito:document.getElementById('totalCredito'), saldo:document.getElementById('saldo'), situacao:document.getElementById('situacao'), boxSaldo:document.getElementById('boxSaldo'), extrato:document.getElementById('extrato'), form:document.getElementById('formPagamento'), btnVista:document.getElementById('btnVista'), btnCheque:document.getElementById('btnCheque'), valor:document.getElementById('valor'), dataPgto:document.getElementById('dataPgto'), dataVencimento:document.getElementById('dataVencimento'), numeroCheque:document.getElementById('numeroCheque'), titularCheque:document.getElementById('titularCheque'), observacao:document.getElementById('observacao') };
+    function escapeHtml(v){return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');} function moeda(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});} function dataBR(v){if(!v)return '-'; const d=new Date(v); return Number.isNaN(d.getTime())?String(v):d.toLocaleDateString('pt-BR');} function hoje(){const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;} function msg(t,c=''){el.status.textContent=t||''; el.status.className=`status ${t?'show':''} ${c}`.trim();}
+    async function request(url,opt={}){const r=await fetch(url,opt); const j=await r.json().catch(()=>({})); if(!r.ok||j.success===false) throw new Error(j.error||j.message||'Falha na requisição.'); return j.data;}
+    function setTipo(novo){tipo=novo; el.btnVista.classList.toggle('active',tipo==='V'); el.btnCheque.classList.toggle('active',tipo==='C'); document.getElementById('campoDataPgto').style.display=tipo==='V'?'block':'none'; document.getElementById('campoDataVencimento').style.display=tipo==='C'?'block':'none'; document.getElementById('campoNumeroCheque').style.display=tipo==='C'?'block':'none'; document.getElementById('campoTitularCheque').style.display=tipo==='C'?'block':'none'; el.dataPgto.required=tipo==='V'; el.dataVencimento.required=tipo==='C';}
+    function situacaoTexto(saldo){ if(saldo>0.004) return 'Cliente deve à empresa'; if(saldo<-0.004) return 'Cliente tem crédito'; return 'Cliente zerado'; }
+    function render(){ if(!dados){return;} const r=dados.resumo||{}; el.titulo.textContent=`Extrato - ${dados.clienteNome || dados.cliente_nome || favorecido}`; el.totalDebito.textContent=moeda(r.totalDebito); el.totalCredito.textContent=moeda(r.totalCredito); el.saldo.textContent=moeda(r.saldo); el.situacao.textContent=situacaoTexto(Number(r.saldo||0)); el.boxSaldo.className='box '+(Number(r.saldo||0)>0.004?'bad':Number(r.saldo||0)<-0.004?'warn':'ok'); const lanc=dados.lancamentos||[]; if(!lanc.length){el.extrato.innerHTML='<div class="empty">Nenhuma movimentação.</div>';return;} el.extrato.innerHTML=`<table><thead><tr><th>Data</th><th>Tipo</th><th>Histórico</th><th>Pedido</th><th class="num">Débito</th><th class="num">Crédito</th><th class="num">Saldo</th></tr></thead><tbody>${lanc.map(l=>`<tr><td>${escapeHtml(dataBR(l.data_lancamento))}</td><td>${escapeHtml((l.tipo||'').replaceAll('_',' '))}</td><td>${escapeHtml(l.descricao||l.observacao||'-')}</td><td>${escapeHtml(l.numero_pedido||'-')}</td><td class="num">${escapeHtml(moeda(l.valorDebito||l.valor_debito||0))}</td><td class="num">${escapeHtml(moeda(l.valorCredito||l.valor_credito||0))}</td><td class="num"><strong>${escapeHtml(moeda(l.saldo))}</strong></td></tr>`).join('')}</tbody></table>`; }
+    async function carregar(){ if(!favorecido){msg('Cliente não informado.','error');return;} try{msg('Carregando extrato...'); dados=await request(`/api/legado/clientes-creditos/${encodeURIComponent(favorecido)}/extrato`); render(); msg('');}catch(e){msg(e.message||'Falha ao carregar extrato.','error');} }
+    async function salvar(e){ e.preventDefault(); try{msg('Registrando pagamento...'); const payload={condicao:tipo,valor:el.valor.value,observacao:el.observacao.value}; if(tipo==='C'){payload.dataVencimento=el.dataVencimento.value; payload.numeroCheque=el.numeroCheque.value; payload.titularCheque=el.titularCheque.value;} else {payload.dataPgto=el.dataPgto.value;} await request(`/api/legado/clientes-creditos/${encodeURIComponent(favorecido)}/pagamentos`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); el.form.reset(); el.dataPgto.value=hoje(); setTipo('V'); msg('Pagamento registrado.','success'); await carregar();}catch(err){msg(err.message||'Falha ao registrar pagamento.','error');} }
+    el.btnVista.addEventListener('click',()=>setTipo('V')); el.btnCheque.addEventListener('click',()=>setTipo('C')); el.form.addEventListener('submit',salvar); el.dataPgto.value=hoje(); carregar();
+  </script>
+</body>
+</html>

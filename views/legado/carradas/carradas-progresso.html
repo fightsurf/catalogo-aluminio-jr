@@ -869,6 +869,9 @@
       }
 
       if (faseCodigo === 'PAGAMENTO_QUITADO') {
+        if (faseData?.baixadoParaCredito) {
+          return 'Baixa crédito';
+        }
         return faseData?.concluido ? 'Quitado' : 'Pendente';
       }
 
@@ -891,6 +894,9 @@
       }
 
       if (faseCodigo === 'PAGAMENTO_QUITADO') {
+        if (faseData?.baixadoParaCredito) {
+          return `Baixado: ${formatarMoeda(faseData?.valorBaixadoParaCredito || 0)}`;
+        }
         return `Saldo: ${formatarMoeda(faseData?.saldoRestante || 0)}`;
       }
 

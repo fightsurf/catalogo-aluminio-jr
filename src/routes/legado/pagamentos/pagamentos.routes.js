@@ -9,6 +9,7 @@ router.get('/pedidos/por-cliente/:favorecido', controller.listarPedidosPorClient
 router.get('/pedidos/por-data', controller.listarPedidosPorData);
 router.get('/pedidos/por-numero', controller.listarPedidosPorNumero);
 router.get('/pedido', controller.buscarPedidoComPagamentos);
+router.post('/baixa-credito', controller.baixarPedidoParaCredito);
 router.post('/', controller.criarPagamento);
 router.put('/:codigo', controller.atualizarPagamento);
 router.delete('/:codigo', controller.excluirPagamento);

@@ -303,6 +303,7 @@
     }
     .pill.success { background: #dcfce7; color: #166534; }
     .pill.warning { background: #fef3c7; color: #92400e; }
+    .pill.credit { background: #dbeafe; color: #1d4ed8; }
     @media (max-width: 1100px) {
       .workspace { grid-template-columns: 1fr; }
       .order-grid { grid-template-columns: 1fr; }
@@ -507,7 +508,13 @@
       });
 
       linhas.push(`\nTotal pago: *${formatarMoeda(estado.resumo.totalPago)}*`);
-      linhas.push(`\nRestante a pagar: *${formatarMoeda(estado.resumo.saldoRestante)}*`);
+      if (estado.resumo.baixadoParaCredito) {
+        linhas.push(`\nStatus: *Baixa para crédito*`);
+        linhas.push(`\nValor baixado para crédito: *${formatarMoeda(estado.resumo.valorBaixadoParaCredito || 0)}*`);
+        linhas.push('\nSaldo do pedido: *R$ 0,00*');
+      } else {
+        linhas.push(`\nRestante a pagar: *${formatarMoeda(estado.resumo.saldoRestante)}*`);
+      }
 
       return linhas.join('\n');
     }
@@ -689,7 +696,7 @@
               Vendedor: ${escapeHtml(pedido.vendedorInfo?.nome || '-')}<br>
               Valor: ${escapeHtml(formatarMoeda(pedido.total))}<br>
               Total já pago: ${escapeHtml(formatarMoeda(pedido.totalPago || 0))}<br>
-              Saldo restante: ${escapeHtml(formatarMoeda(pedido.saldoRestante || 0))}
+              Saldo restante: ${escapeHtml(formatarMoeda(pedido.saldoRestante || 0))}${pedido.baixadoParaCredito ? '<br>Status: <strong>Baixa para crédito</strong>' : ''}
             </div>
           </div>
           <div class="card-actions">
@@ -723,6 +730,10 @@
       const excedenteAviso = Number(estado.resumo.excedente || 0) > 0
         ? `<div class="status show warning" style="margin-top:12px; margin-bottom:0;">Os pagamentos ultrapassaram o total da venda em ${escapeHtml(formatarMoeda(estado.resumo.excedente))}. O sistema apenas avisa.</div>`
         : '';
+      const baixaCreditoAviso = estado.resumo.baixadoParaCredito
+        ? `<div class="status show success" style="margin-top:12px; margin-bottom:0;">Pedido com Baixa para crédito. Valor transferido para o extrato do cliente: ${escapeHtml(formatarMoeda(estado.resumo.valorBaixadoParaCredito || 0))}.</div>`
+        : '';
+      const podeBaixarCredito = !estado.resumo.baixadoParaCredito && Number(estado.resumo.saldoRestante || 0) > 0.009;
 
       el.painelPedidoSelecionado.style.display = 'block';
       el.painelPedidoSelecionado.innerHTML = `
@@ -749,8 +760,12 @@
                   <div class="value">${escapeHtml(formatarMoeda(estado.resumo.totalPago))}</div>
                 </div>
                 <div class="summary-card ${resumoClass}">
-                  <strong>${Number(estado.resumo.excedente || 0) > 0 ? 'Excedente' : 'Saldo restante'}</strong>
-                  <div class="value">${escapeHtml(formatarMoeda(Number(estado.resumo.excedente || 0) > 0 ? estado.resumo.excedente : estado.resumo.saldoRestante))}</div>
+                  <strong>${estado.resumo.baixadoParaCredito ? 'Saldo do pedido' : (Number(estado.resumo.excedente || 0) > 0 ? 'Excedente' : 'Saldo restante')}</strong>
+                  <div class="value">${escapeHtml(formatarMoeda(estado.resumo.baixadoParaCredito ? 0 : (Number(estado.resumo.excedente || 0) > 0 ? estado.resumo.excedente : estado.resumo.saldoRestante)))}</div>
+                </div>
+                <div class="summary-card ${estado.resumo.baixadoParaCredito ? 'success' : resumoClass}">
+                  <strong>Status financeiro</strong>
+                  <div class="value" style="font-size:18px;">${escapeHtml(estado.resumo.statusFinanceiroLabel || (Number(estado.resumo.saldoRestante || 0) <= 0 ? 'Quitado' : 'Pendente'))}</div>
                 </div>
               </div>
               <div class="contact-actions">
@@ -765,8 +780,13 @@
                   </svg>
                   Enviar para WhatsApp
                 </button>
+                <button type="button" id="btnBaixaCredito" class="btn-secondary" ${podeBaixarCredito ? '' : 'disabled'}>
+                  Baixa para crédito
+                </button>
+                ${estado.resumo.baixadoParaCredito ? `<a class="btn-secondary" style="text-decoration:none; display:inline-flex; align-items:center; justify-content:center;" href="/legado/clientes-creditos/extrato?favorecido=${encodeURIComponent(estado.pedidoSelecionado.favorecido || estado.pedidoSelecionado.cliente?.favorecido || '')}" target="_blank" rel="noopener noreferrer">Extrato do cliente</a>` : ''}
               </div>
               ${excedenteAviso}
+              ${baixaCreditoAviso}
             </div>
           </div>
         </section>
@@ -898,6 +918,56 @@
       if (btnEnviarWhatsappInterno) {
         btnEnviarWhatsappInterno.addEventListener('click', enviarMensagemPagamentoWhatsapp);
       }
+
+      const btnBaixaCredito = document.getElementById('btnBaixaCredito');
+      if (btnBaixaCredito) {
+        btnBaixaCredito.addEventListener('click', baixarPedidoParaCredito);
+      }
+    }
+
+
+    async function baixarPedidoParaCredito() {
+      if (!estado.pedidoSelecionado || !estado.resumo) return;
+
+      const saldo = Number(estado.resumo.saldoRestante || 0);
+      if (estado.resumo.baixadoParaCredito || saldo <= 0.009) {
+        mostrarStatus('warning', 'Este pedido não possui saldo para baixa para crédito.');
+        return;
+      }
+
+      const confirma = confirm(`Realizar Baixa para crédito?\n\nPedido: ${estado.pedidoSelecionado.numero || '-'}\nCliente: ${estado.pedidoSelecionado.cliente?.nome || '-'}\nSaldo que irá para o crédito: ${formatarMoeda(saldo)}\n\nO saldo do pedido passará a aparecer como R$ 0,00.`);
+      if (!confirma) return;
+
+      const botao = document.getElementById('btnBaixaCredito');
+      const textoOriginal = botao ? botao.textContent : '';
+
+      try {
+        if (botao) {
+          botao.disabled = true;
+          botao.textContent = 'Baixando...';
+        }
+
+        const data = await request('/api/legado/pagamentos/baixa-credito', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            empresa: estado.pedidoSelecionado.empresa,
+            saida: estado.pedidoSelecionado.saida,
+            pdv: estado.pedidoSelecionado.pdv,
+            observacao: `Baixa para crédito feita pela tela de pagamentos do pedido ${estado.pedidoSelecionado.numero || ''}`
+          })
+        });
+
+        mostrarStatus('success', 'Baixa para crédito realizada. O saldo do pedido agora aparece como R$ 0,00.');
+        aplicarDetalhePedido(data);
+      } catch (error) {
+        mostrarStatus('error', error.message || 'Falha ao realizar baixa para crédito.');
+      } finally {
+        if (botao) {
+          botao.disabled = false;
+          botao.textContent = textoOriginal;
+        }
+      }
     }
 
     function montarPayloadFormulario() {
@@ -1010,6 +1080,10 @@
           ...estado.pedidoSelecionado,
           totalPago: Number(estado.resumo?.totalPago || 0),
           saldoRestante: Number(estado.resumo?.saldoRestante || 0),
+          saldoRestanteReal: Number(estado.resumo?.saldoRestanteReal || estado.resumo?.saldoRestante || 0),
+          baixadoParaCredito: Boolean(estado.resumo?.baixadoParaCredito),
+          valorBaixadoParaCredito: Number(estado.resumo?.valorBaixadoParaCredito || 0),
+          statusFinanceiroLabel: estado.resumo?.statusFinanceiroLabel || '',
           excedente: Number(estado.resumo?.excedente || 0),
           quantidadePagamentos: Number(estado.resumo?.quantidadePagamentos || 0)
         }];

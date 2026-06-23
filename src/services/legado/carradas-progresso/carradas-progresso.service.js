@@ -675,7 +675,11 @@ function montarFasesDoPedido({ pedido, booleanRows = {}, etiquetaRow = null, loc
       concluido: pagamentoQuitado,
       tipo: 'automatico',
       totalPago: Number(detalhePagamento?.resumo?.totalPago ?? 0),
-      saldoRestante: Number(detalhePagamento?.resumo?.saldoRestante ?? 0)
+      saldoRestante: Number(detalhePagamento?.resumo?.saldoRestante ?? 0),
+      saldoRestanteReal: Number(detalhePagamento?.resumo?.saldoRestanteReal ?? detalhePagamento?.resumo?.saldoRestante ?? 0),
+      baixadoParaCredito: Boolean(detalhePagamento?.resumo?.baixadoParaCredito),
+      valorBaixadoParaCredito: Number(detalhePagamento?.resumo?.valorBaixadoParaCredito ?? 0),
+      statusFinanceiroLabel: detalhePagamento?.resumo?.statusFinanceiroLabel || ''
     },
     LIGACAO_POS_VENDA: {
       codigo: 'LIGACAO_POS_VENDA',

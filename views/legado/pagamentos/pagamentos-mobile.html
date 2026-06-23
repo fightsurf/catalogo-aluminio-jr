@@ -214,7 +214,7 @@
             <div><div class="label">Pedido</div><div class="valor">${escapeHtml(pedido.numero || '-')}</div></div>
             <div><div class="label">Data</div><div class="valor">${escapeHtml(formatarData(pedido.data))}</div></div>
             <div><div class="label">Cliente</div><div class="valor">${escapeHtml(pedido.cliente?.nome || pedido.nomeCliente || '-')}</div></div>
-            <div><div class="label">Saldo</div><div class="valor">${escapeHtml(formatarMoeda(pedido.saldoRestante || 0))}</div></div>
+            <div><div class="label">Saldo</div><div class="valor">${escapeHtml(formatarMoeda(pedido.saldoRestante || 0))}</div>${pedido.baixadoParaCredito ? '<div class="meta"><strong>Baixa para crédito</strong></div>' : ''}</div>
           </div>
           <div class="acoes" style="margin-top:10px;"><button type="button" data-pedido="${index}">Abrir pagamentos</button></div>
         </article>
@@ -238,6 +238,8 @@
       const excedente = Number(estado.resumo?.excedente || 0);
       const valorAberto = excedente > 0 ? excedente : saldo;
       const telefone = telefonePedido();
+      const baixadoParaCredito = Boolean(estado.resumo?.baixadoParaCredito);
+      const podeBaixarCredito = !baixadoParaCredito && saldo > 0.009;
 
       el.listaPedidos.innerHTML = '';
       el.painelPedido.innerHTML = `
@@ -248,11 +250,14 @@
             <div><div class="label">Telefone</div><div class="valor">${escapeHtml(telefone || '-')}</div></div>
             <div><div class="label">Valor do pedido</div><div class="valor grande">${escapeHtml(formatarMoeda(estado.resumo?.totalVenda || 0))}</div></div>
             <div><div class="label">Total pago</div><div class="valor grande">${escapeHtml(formatarMoeda(estado.resumo?.totalPago || 0))}</div></div>
-            <div><div class="label">${excedente > 0 ? 'Crédito' : 'Restante'}</div><div class="valor grande">${escapeHtml(formatarMoeda(valorAberto))}</div></div>
+            <div><div class="label">${baixadoParaCredito ? 'Saldo do pedido' : (excedente > 0 ? 'Crédito' : 'Restante')}</div><div class="valor grande">${escapeHtml(formatarMoeda(baixadoParaCredito ? 0 : valorAberto))}</div></div>
+            <div><div class="label">Status</div><div class="valor">${escapeHtml(estado.resumo?.statusFinanceiroLabel || (saldo <= 0 ? 'Quitado' : 'Pendente'))}</div></div>
           </div>
+          ${baixadoParaCredito ? `<div class="mensagem sucesso" style="display:block;margin-top:10px;">Baixa para crédito: ${escapeHtml(formatarMoeda(estado.resumo?.valorBaixadoParaCredito || 0))}</div>` : ''}
           <div class="linha-acoes">
             <button type="button" class="whats" id="btnWhatsapp" ${telefone ? '' : 'disabled'}>WhatsApp</button>
             <button type="button" class="sec" id="btnTrocarPedido">Trocar pedido</button>
+            <button type="button" class="sec" id="btnBaixaCredito" ${podeBaixarCredito ? '' : 'disabled'}>Baixa para crédito</button>
           </div>
         </section>
 
@@ -318,10 +323,39 @@
       document.getElementById('formPagamento').addEventListener('submit', salvarPagamento);
       document.getElementById('btnWhatsapp')?.addEventListener('click', enviarWhatsappPagamentos);
       document.getElementById('btnTrocarPedido')?.addEventListener('click', limparPedido);
+      document.getElementById('btnBaixaCredito')?.addEventListener('click', baixarPedidoParaCredito);
       document.getElementById('btnCancelarEdicao')?.addEventListener('click', cancelarEdicao);
       document.getElementById('btnLimparForm')?.addEventListener('click', limparFormularioNovo);
       document.querySelectorAll('[data-editar]').forEach((botao) => botao.addEventListener('click', () => iniciarEdicao(botao.dataset.editar)));
       document.querySelectorAll('[data-excluir]').forEach((botao) => botao.addEventListener('click', () => excluirPagamento(botao.dataset.excluir)));
+    }
+
+
+    async function baixarPedidoParaCredito() {
+      if (!estado.pedido || !estado.resumo) return;
+      const saldo = Number(estado.resumo?.saldoRestante || 0);
+      if (estado.resumo?.baixadoParaCredito || saldo <= 0.009) {
+        setMensagem('Este pedido não possui saldo para baixa para crédito.', 'erro');
+        return;
+      }
+      if (!confirm(`Realizar Baixa para crédito do saldo ${formatarMoeda(saldo)}?\n\nO saldo do pedido passará a aparecer como R$ 0,00.`)) return;
+      try {
+        setMensagem('Realizando baixa para crédito...');
+        const data = await request('/api/legado/pagamentos/baixa-credito', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            empresa: estado.pedido.empresa,
+            saida: estado.pedido.saida,
+            pdv: estado.pedido.pdv,
+            observacao: `Baixa para crédito feita pela tela mobile de pagamentos do pedido ${estado.pedido.numero || ''}`
+          })
+        });
+        setMensagem('Baixa para crédito realizada.', 'sucesso');
+        aplicarDetalhe(data);
+      } catch (error) {
+        setMensagem(error.message || 'Falha ao realizar baixa para crédito.', 'erro');
+      }
     }
 
     function montarPayload() {

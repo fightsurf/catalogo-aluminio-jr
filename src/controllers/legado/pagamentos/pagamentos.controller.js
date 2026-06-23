@@ -81,6 +81,17 @@ async function buscarPedidoComPagamentos(req, res) {
   }
 }
 
+
+async function baixarPedidoParaCredito(req, res) {
+  try {
+    const data = await pagamentosService.baixarPedidoParaCredito(req.body);
+    await atualizarStatusCarradaSemQuebrar(data, req.body || {});
+    return res.status(201).json({ success: true, data });
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({ success: false, message: 'Erro ao realizar baixa para crédito.', error: error.message });
+  }
+}
+
 async function criarPagamento(req, res) {
   try {
     const data = await pagamentosService.criarPagamento(req.body);
@@ -117,6 +128,7 @@ module.exports = {
   listarPedidosPorData,
   listarPedidosPorNumero,
   buscarPedidoComPagamentos,
+  baixarPedidoParaCredito,
   criarPagamento,
   atualizarPagamento,
   excluirPagamento

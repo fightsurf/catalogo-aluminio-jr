@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crédito de Clientes</title>
+  <style>
+    :root { --bg:#f5f6f8; --card:#fff; --line:#e5e7eb; --text:#111827; --muted:#6b7280; --primary:#111827; --success:#dcfce7; --warning:#fef3c7; --danger:#fee2e2; }
+    * { box-sizing:border-box; }
+    body { margin:0; font-family:Arial, Helvetica, sans-serif; background:var(--bg); color:var(--text); }
+    .page { max-width:1300px; margin:0 auto; padding:20px; }
+    .topbar { display:flex; justify-content:space-between; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:16px; }
+    h1, p { margin:0; }
+    .muted { color:var(--muted); }
+    .panel { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; box-shadow:0 2px 10px rgba(0,0,0,.04); }
+    button, .btn { border:0; border-radius:10px; padding:10px 14px; min-height:40px; font-weight:700; cursor:pointer; text-decoration:none; display:inline-flex; align-items:center; justify-content:center; }
+    .btn-primary { background:var(--primary); color:#fff; }
+    .btn-secondary { background:#fff; color:#111827; border:1px solid var(--line); }
+    input { border:1px solid var(--line); border-radius:10px; min-height:40px; padding:8px 10px; font:inherit; }
+    .status { display:none; margin-bottom:12px; padding:12px; border-radius:12px; border:1px solid #bfdbfe; background:#eff6ff; color:#1d4ed8; font-weight:700; }
+    .status.show { display:block; }
+    .status.error { border-color:#fecaca; background:#fef2f2; color:#b91c1c; }
+    .toolbar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:12px; }
+    table { width:100%; border-collapse:collapse; background:#fff; }
+    th, td { border-bottom:1px solid var(--line); padding:10px; text-align:left; vertical-align:middle; }
+    th { font-size:12px; color:var(--muted); text-transform:uppercase; background:#f9fafb; }
+    .num { text-align:right; white-space:nowrap; font-variant-numeric:tabular-nums; }
+    .pill { display:inline-flex; padding:4px 8px; border-radius:999px; font-size:12px; font-weight:800; }
+    .pill.devedor { background:var(--danger); color:#991b1b; }
+    .pill.zerado { background:var(--success); color:#166534; }
+    .pill.credito { background:var(--warning); color:#92400e; }
+    .empty { padding:20px; color:var(--muted); text-align:center; }
+    @media(max-width:760px){ .page{padding:12px;} table{font-size:13px;} th:nth-child(3),td:nth-child(3){display:none;} }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="topbar">
+      <div>
+        <h1>Crédito de Clientes</h1>
+        <p class="muted">Conta corrente permanente dos clientes que compram no crédito.</p>
+      </div>
+      <a class="btn btn-secondary" href="/legado/pagamentos">Pagamentos</a>
+    </div>
+    <div id="status" class="status"></div>
+    <section class="panel">
+      <div class="toolbar">
+        <input id="busca" type="text" placeholder="Filtrar cliente" />
+        <button id="btnAtualizar" class="btn-primary" type="button">Atualizar</button>
+      </div>
+      <div id="conteudo"></div>
+    </section>
+  </main>
+  <script>
+    const el = { status: document.getElementById('status'), conteudo: document.getElementById('conteudo'), busca: document.getElementById('busca'), btnAtualizar: document.getElementById('btnAtualizar') };
+    let clientes = [];
+    function escapeHtml(v){ return String(v ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+    function moeda(v){ return Number(v || 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
+    function status(msg,tipo=''){ el.status.textContent=msg||''; el.status.className=`status ${msg?'show':''} ${tipo}`.trim(); }
+    async function request(url){ const r=await fetch(url); const j=await r.json().catch(()=>({})); if(!r.ok||j.success===false) throw new Error(j.error||j.message||'Falha na requisição.'); return j.data; }
+    function situacaoLabel(c){ if(c.situacao==='COM_CREDITO') return 'Com crédito'; if(c.situacao==='ZERADO') return 'Zerado'; return 'Devedor'; }
+    function situacaoClass(c){ if(c.situacao==='COM_CREDITO') return 'credito'; if(c.situacao==='ZERADO') return 'zerado'; return 'devedor'; }
+    function render(){
+      const termo = el.busca.value.trim().toLowerCase();
+      const lista = clientes.filter(c => !termo || String(c.clienteNome || c.cliente_nome || '').toLowerCase().includes(termo));
+      if(!lista.length){ el.conteudo.innerHTML='<div class="empty">Nenhum cliente com movimentação de crédito.</div>'; return; }
+      el.conteudo.innerHTML = `<table><thead><tr><th>Cliente</th><th>Situação</th><th>Última movimentação</th><th class="num">Débitos</th><th class="num">Pagamentos</th><th class="num">Saldo</th><th>Ação</th></tr></thead><tbody>${lista.map(c=>`<tr><td><strong>${escapeHtml(c.clienteNome || c.cliente_nome || '-')}</strong><br><span class="muted">Código ${escapeHtml(c.favorecido)}</span></td><td><span class="pill ${situacaoClass(c)}">${escapeHtml(situacaoLabel(c))}</span></td><td>${escapeHtml(c.ultimaMovimentacao ? new Date(c.ultimaMovimentacao).toLocaleDateString('pt-BR') : '-')}</td><td class="num">${escapeHtml(moeda(c.totalDebito))}</td><td class="num">${escapeHtml(moeda(c.totalCredito))}</td><td class="num"><strong>${escapeHtml(moeda(c.saldo))}</strong></td><td><a class="btn btn-primary" href="/legado/clientes-creditos/extrato?favorecido=${encodeURIComponent(c.favorecido)}">Extrato</a></td></tr>`).join('')}</tbody></table>`;
+    }
+    async function carregar(){ try{ status('Carregando...'); clientes = await request('/api/legado/clientes-creditos'); render(); status(''); } catch(e){ status(e.message || 'Falha ao carregar.', 'error'); } }
+    el.btnAtualizar.addEventListener('click', carregar);
+    el.busca.addEventListener('input', render);
+    carregar();
+  </script>
+</body>
+</html>

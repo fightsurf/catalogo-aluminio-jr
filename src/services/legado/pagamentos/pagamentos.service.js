@@ -1,4 +1,6 @@
 
+const clientesCreditosService = require('../clientes-creditos/clientes-creditos.service');
+
 function getBridgeBaseUrl() {
   const baseUrl = String(process.env.LEGADO_BRIDGE_URL || '').trim();
 
@@ -41,23 +43,56 @@ async function listarClientes(nome) {
 
 async function listarPedidosPorCliente(favorecido) {
   const response = await request(`/api/pagamentos/pedidos/por-cliente/${encodeURIComponent(favorecido)}`);
-  return response.dados || [];
+  return clientesCreditosService.aplicarBaixasEmPedidos(response.dados || []);
 }
 
 async function listarPedidosPorData(data) {
   const response = await request(`/api/pagamentos/pedidos/por-data?data=${encodeURIComponent(data || '')}`);
-  return response.dados || [];
+  return clientesCreditosService.aplicarBaixasEmPedidos(response.dados || []);
 }
 
 async function listarPedidosPorNumero(numero) {
   const response = await request(`/api/pagamentos/pedidos/por-numero?numero=${encodeURIComponent(numero || '')}`);
-  return response.dados || [];
+  return clientesCreditosService.aplicarBaixasEmPedidos(response.dados || []);
 }
 
 async function buscarPedidoComPagamentos({ empresa = -1, saida, pdv = 0 }) {
   const params = new URLSearchParams({ empresa: String(empresa), saida: String(saida), pdv: String(pdv) });
   const response = await request(`/api/pagamentos/pedido?${params.toString()}`);
-  return response.dado || null;
+  return clientesCreditosService.aplicarBaixaEmDetalhe(response.dado || null);
+}
+
+
+async function baixarPedidoParaCredito(payload = {}) {
+  const empresa = payload.empresa ?? -1;
+  const saida = payload.saida;
+  const pdv = payload.pdv ?? 0;
+
+  const params = new URLSearchParams({ empresa: String(empresa), saida: String(saida), pdv: String(pdv) });
+  const response = await request(`/api/pagamentos/pedido?${params.toString()}`);
+  const detalhe = response.dado || null;
+
+  if (!detalhe?.pedido) {
+    throw new Error('Pedido não encontrado para baixa para crédito.');
+  }
+
+  const baixaExistente = await clientesCreditosService.buscarBaixaPedido({ empresa, saida, pdv });
+  if (baixaExistente) {
+    return clientesCreditosService.aplicarBaixaEmDetalhe(detalhe);
+  }
+
+  const saldoRestante = Number(detalhe?.resumo?.saldoRestante || 0);
+  if (!Number.isFinite(saldoRestante) || saldoRestante <= 0.009) {
+    throw new Error('Este pedido não possui saldo devedor para baixa para crédito.');
+  }
+
+  await clientesCreditosService.criarBaixaParaCredito({
+    detalhePedido: detalhe,
+    valor: saldoRestante,
+    observacao: payload.observacao || null
+  });
+
+  return clientesCreditosService.aplicarBaixaEmDetalhe(detalhe);
 }
 
 async function criarPagamento(payload) {
@@ -101,6 +136,7 @@ module.exports = {
   listarPedidosPorData,
   listarPedidosPorNumero,
   buscarPedidoComPagamentos,
+  baixarPedidoParaCredito,
   criarPagamento,
   atualizarPagamento,
   excluirPagamento
