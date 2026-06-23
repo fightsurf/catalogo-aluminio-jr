@@ -207,6 +207,7 @@ function montarMensagemWhatsappCarradaPedido({ pedido, carrada, mensagemPersonal
   const mensagemLivre = limparTexto(mensagemPersonalizada);
 
   return [
+    'MENSAGEM AUTOMÁTICA - ALUMÍNIO JR',
     `Nome cliente: ${nomeCliente}`,
     `Número pedido: ${numeroPedido}`,
     `Carrada: ${dataCarrada} - ${descricaoCarrada}`,
