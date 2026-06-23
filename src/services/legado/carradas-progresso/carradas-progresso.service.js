@@ -45,6 +45,10 @@ const FASES_BOOLEANAS = {
   LIGACAO_POS_VENDA: {
     nome: 'Ligação pós-venda',
     enviaWhatsapp: false
+  },
+  PAGAMENTO_QUITADO: {
+    nome: 'Pagamento quitado',
+    enviaWhatsapp: false
   }
 };
 
@@ -623,7 +627,9 @@ function montarFasesDoPedido({ pedido, booleanRows = {}, etiquetaRow = null, loc
   const etiquetaSilenciosa = Boolean(booleanRows.ETIQUETA_VOLUMES?.valorBoolean);
   const etiquetaConfirmada = Boolean(etiquetaRow?.confirmadoBoolean) || etiquetaSilenciosa;
   const localEntregaDefinido = Boolean(localEntregaRow?.transportadoraId) || faseLocalEntregaSilencioso;
-  const pagamentoQuitado = calcularPagamentoQuitado(detalhePagamento);
+  const pagamentoQuitadoAutomatico = calcularPagamentoQuitado(detalhePagamento);
+  const pagamentoMarcadoManual = Boolean(booleanRows.PAGAMENTO_QUITADO?.valorBoolean);
+  const pagamentoQuitado = pagamentoQuitadoAutomatico || pagamentoMarcadoManual;
 
   return {
     EM_PRODUCAO: {
@@ -674,6 +680,9 @@ function montarFasesDoPedido({ pedido, booleanRows = {}, etiquetaRow = null, loc
       codigo: 'PAGAMENTO_QUITADO',
       concluido: pagamentoQuitado,
       tipo: 'automatico',
+      marcadoManual: pagamentoMarcadoManual,
+      automaticoQuitado: pagamentoQuitadoAutomatico,
+      updatedAt: booleanRows.PAGAMENTO_QUITADO?.updatedAt || null,
       totalPago: Number(detalhePagamento?.resumo?.totalPago ?? 0),
       saldoRestante: Number(detalhePagamento?.resumo?.saldoRestante ?? 0),
       saldoRestanteReal: Number(detalhePagamento?.resumo?.saldoRestanteReal ?? detalhePagamento?.resumo?.saldoRestante ?? 0),
@@ -1021,7 +1030,7 @@ async function calcularResumoRapidoCarrada(codigoCarrada) {
     const etiquetaConcluida = etiquetasSet.has(chavePedido);
     const localEntregaConcluido = localEntregaSet.has(chavePedido) || booleanSet.has('LOCAL_ENTREGA');
     const detalhePagamento = await buscarDetalhePagamentoDoPedido(pedido);
-    const pagamentoQuitado = calcularPagamentoQuitado(detalhePagamento);
+    const pagamentoQuitado = booleanSet.has('PAGAMENTO_QUITADO') || calcularPagamentoQuitado(detalhePagamento);
 
     const concluidasSemLigacao = [
       emProducao,

@@ -271,6 +271,19 @@
       font-weight: 400;
       margin-top: 4px;
     }
+    .manual-link {
+      display: block;
+      font-size: 9px;
+      color: var(--primary);
+      text-align: center;
+      margin-top: 3px;
+      text-decoration: underline;
+      line-height: 1.2;
+      font-weight: 700;
+    }
+    .manual-link.done {
+      color: var(--success);
+    }
     .silent-link {
       display: block;
       font-size: 9px;
@@ -872,6 +885,9 @@
         if (faseData?.baixadoParaCredito) {
           return 'Baixa crédito';
         }
+        if (faseData?.marcadoManual && !faseData?.automaticoQuitado) {
+          return 'Manual';
+        }
         return faseData?.concluido ? 'Quitado' : 'Pendente';
       }
 
@@ -925,6 +941,10 @@
           const subtitulo = subtituloCelulaEspecial(fase.codigo, faseData);
           const readonly = fase.tipo === 'automatico' ? 'data-readonly="true"' : '';
 
+          const manualPagamentoLink = fase.codigo === 'PAGAMENTO_QUITADO' && !faseData.automaticoQuitado
+            ? `<a href="#" class="manual-link ${faseData.marcadoManual ? 'done' : ''}" data-pagamento-manual-numero="${escapeHtml(pedido.numero)}" title="Pintar/desmarcar pagamento sem verificar quitação">${faseData.marcadoManual ? 'desmarcar manual' : 'marcar verde'}</a>`
+            : '';
+
           const exibirSilentLink = (
             fase.codigo === 'EM_PRODUCAO'
             || fase.codigo === 'PEDIDO_PRONTO'
@@ -952,6 +972,7 @@
                 </span>
               </button>
               ${silentLink}
+              ${manualPagamentoLink}
             </td>
           `;
         }).join('');
@@ -986,6 +1007,14 @@
           } else {
             toggleBooleanoSilencioso(link.dataset.silentNumero, faseCodigo);
           }
+        });
+      });
+
+      el.tbodyMatriz.querySelectorAll('[data-pagamento-manual-numero]').forEach((link) => {
+        link.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          alternarPagamentoManual(link.dataset.pagamentoManualNumero);
         });
       });
 
@@ -1469,6 +1498,38 @@
       } finally {
         el.btnWhatsappCarradaEnviar.disabled = false;
         el.btnWhatsappCarradaEnviar.textContent = textoOriginal;
+      }
+    }
+
+    async function alternarPagamentoManual(numeroPedido) {
+      const pedido = obterPedido(numeroPedido);
+      if (!pedido) return;
+
+      const faseAtual = pedido.fases?.PAGAMENTO_QUITADO || {};
+
+      if (faseAtual.automaticoQuitado && !faseAtual.marcadoManual) {
+        return;
+      }
+
+      const novoValor = !Boolean(faseAtual.marcadoManual);
+
+      if (!novoValor) {
+        const confirma = window.confirm(`Deseja remover a marcação manual de pagamento do pedido ${numeroPedido}?`);
+        if (!confirma) {
+          return;
+        }
+      }
+
+      try {
+        await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/fases/PAGAMENTO_QUITADO`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ valor: novoValor, silencioso: true })
+        });
+
+        await carregarMatriz();
+      } catch (error) {
+        window.alert(error.message);
       }
     }
 

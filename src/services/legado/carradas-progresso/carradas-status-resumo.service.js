@@ -12,7 +12,8 @@ const FASES_BOOLEANAS_CODIGOS = [
   'VIDEO_FEITO',
   'QUER_NOTA_FISCAL',
   'LOCAL_ENTREGA',
-  'LIGACAO_POS_VENDA'
+  'LIGACAO_POS_VENDA',
+  'PAGAMENTO_QUITADO'
 ];
 
 function criarErro(message, status = 400) {
@@ -396,9 +397,9 @@ async function calcularStatusCarrada(codigoCarradaParam) {
       const etiquetaConcluida = etiquetasSet.has(chavePedido);
       const localEntregaConcluido = localEntregaSet.has(chavePedido);
 
-      let pagamentoQuitado = false;
+      let pagamentoQuitado = booleanSet.has('PAGAMENTO_QUITADO');
 
-      if (pedido?.saida) {
+      if (!pagamentoQuitado && pedido?.saida) {
         try {
           const detalhePagamento = await pagamentosService.buscarPedidoComPagamentos({
             empresa: pedido.empresa ?? -1,
