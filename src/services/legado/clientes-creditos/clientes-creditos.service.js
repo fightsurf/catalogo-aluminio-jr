@@ -44,6 +44,11 @@ class ClientesCreditosService {
       `);
 
       await pool.query(`
+        ALTER TABLE cliente_credito_lancamentos
+        ALTER COLUMN data_lancamento SET DEFAULT ((NOW() AT TIME ZONE 'America/Fortaleza')::date)
+      `);
+
+      await pool.query(`
         CREATE UNIQUE INDEX IF NOT EXISTS uq_cliente_credito_baixa_pedido
         ON cliente_credito_lancamentos (origem_empresa, origem_saida, origem_pdv)
         WHERE tipo = 'BAIXA_PARA_CREDITO' AND cancelado_em IS NULL
@@ -58,6 +63,32 @@ class ClientesCreditosService {
         CREATE INDEX IF NOT EXISTS idx_cliente_credito_origem_pedido
         ON cliente_credito_lancamentos (origem_empresa, origem_saida, origem_pdv)
       `);
+
+      await pool.query(`
+        UPDATE cliente_credito_lancamentos
+        SET
+          data_lancamento = (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/Fortaleza')::date,
+          updated_at = NOW()
+        WHERE cancelado_em IS NULL
+          AND tipo = 'BAIXA_PARA_CREDITO'
+          AND data_lancamento <> (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/Fortaleza')::date
+      `);
+
+      await pool.query(`
+        UPDATE cliente_credito_lancamentos
+        SET
+          descricao = CASE
+            WHEN COALESCE(descricao, '') NOT ILIKE '%vencimento%'
+              THEN CONCAT(COALESCE(NULLIF(TRIM(descricao), ''), 'Cheque recebido no crédito do cliente'), ' - vencimento ', TO_CHAR(data_lancamento, 'DD/MM/YYYY'))
+            ELSE descricao
+          END,
+          data_lancamento = (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/Fortaleza')::date,
+          updated_at = NOW()
+        WHERE cancelado_em IS NULL
+          AND tipo = 'PAGAMENTO_CLIENTE'
+          AND COALESCE(descricao, '') ILIKE 'Cheque recebido no crédito do cliente%'
+          AND data_lancamento > (created_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/Fortaleza')::date
+      `);
     })();
 
     return this._schemaReady;
@@ -71,6 +102,48 @@ class ClientesCreditosService {
 
   _texto(valor) {
     return String(valor ?? '').trim();
+  }
+
+  _hojeBrasil() {
+    const partes = new Intl.DateTimeFormat('pt-BR', {
+      timeZone: 'America/Fortaleza',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    }).formatToParts(new Date()).reduce((acc, parte) => {
+      acc[parte.type] = parte.value;
+      return acc;
+    }, {});
+
+    return `${partes.year}-${partes.month}-${partes.day}`;
+  }
+
+  _formatarDataISO(valor) {
+    if (!valor) {
+      return null;
+    }
+
+    if (typeof valor === 'string') {
+      const texto = valor.trim();
+      const iso = texto.match(/^(\d{4}-\d{2}-\d{2})/);
+      return iso ? iso[1] : texto;
+    }
+
+    if (valor instanceof Date && !Number.isNaN(valor.getTime())) {
+      return valor.toISOString().slice(0, 10);
+    }
+
+    return String(valor);
+  }
+
+  _formatarDataBR(valor) {
+    const iso = this._formatarDataISO(valor);
+    if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+      return iso || '-';
+    }
+
+    const [ano, mes, dia] = iso.split('-');
+    return `${dia}/${mes}/${ano}`;
   }
 
   _inteiro(valor, campo, { positivo = false } = {}) {
@@ -93,7 +166,7 @@ class ClientesCreditosService {
   _dataISO(valor, campo = 'data') {
     const texto = this._texto(valor);
     if (!texto) {
-      return new Date().toISOString().slice(0, 10);
+      return this._hojeBrasil();
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(texto)) {
       throw this._erro(`Campo inválido: ${campo}`);
@@ -113,6 +186,9 @@ class ClientesCreditosService {
     const credito = Number(row.valor_credito || 0);
     return {
       ...row,
+      data_lancamento: this._formatarDataISO(row.data_lancamento),
+      created_at: row.created_at instanceof Date ? row.created_at.toISOString() : row.created_at,
+      updated_at: row.updated_at instanceof Date ? row.updated_at.toISOString() : row.updated_at,
       valor_debito: debito,
       valor_credito: credito,
       valorDebito: debito,
@@ -274,6 +350,7 @@ class ClientesCreditosService {
     const empresa = this._inteiro(pedido.empresa ?? -1, 'empresa');
     const saida = this._inteiro(pedido.saida, 'saida', { positivo: true });
     const pdv = this._inteiro(pedido.pdv ?? 0, 'pdv');
+    const dataLancamento = this._hojeBrasil();
 
     const result = await pool.query(
       `
@@ -291,13 +368,14 @@ class ClientesCreditosService {
           valor_debito,
           valor_credito,
           observacao
-        ) VALUES ($1, $2, CURRENT_DATE, 'BAIXA_PARA_CREDITO', $3, $4, 'PEDIDO', $5, $6, $7, $8, 0, $9)
+        ) VALUES ($1, $2, $3, 'BAIXA_PARA_CREDITO', $4, $5, 'PEDIDO', $6, $7, $8, $9, 0, $10)
         ON CONFLICT DO NOTHING
         RETURNING *
       `,
       [
         favorecido,
         clienteNome,
+        dataLancamento,
         `Baixa para crédito do pedido ${numeroPedido || saida}`,
         numeroPedido,
         empresa,
@@ -345,7 +423,7 @@ class ClientesCreditosService {
         totalCredito: Number(row.total_credito || 0),
         saldo,
         situacao: saldo > 0.004 ? 'DEVEDOR' : saldo < -0.004 ? 'COM_CREDITO' : 'ZERADO',
-        ultimaMovimentacao: row.ultima_movimentacao
+        ultimaMovimentacao: this._formatarDataISO(row.ultima_movimentacao)
       };
     });
   }
@@ -475,12 +553,14 @@ class ClientesCreditosService {
     };
 
     let dataLancamento = null;
+    let descricaoLancamento = 'Pagamento recebido no crédito do cliente';
 
     if (condicao === 'C') {
       payloadBridge.dataVencimento = this._dataISO(data.dataVencimento || data.data_vencimento, 'dataVencimento');
       payloadBridge.numeroCheque = this._texto(data.numeroCheque || data.numero_cheque).slice(0, 10);
       payloadBridge.titularCheque = this._texto(data.titularCheque || data.titular_cheque).slice(0, 100);
-      dataLancamento = payloadBridge.dataVencimento;
+      dataLancamento = this._hojeBrasil();
+      descricaoLancamento = `Cheque recebido no crédito do cliente - vencimento ${this._formatarDataBR(payloadBridge.dataVencimento)}`;
     } else {
       payloadBridge.dataPgto = this._dataISO(data.dataPgto || data.data_pgto, 'dataPgto');
       dataLancamento = payloadBridge.dataPgto;
@@ -511,7 +591,7 @@ class ClientesCreditosService {
         favorecidoId,
         this._texto(cliente?.nome).slice(0, 200) || null,
         dataLancamento,
-        condicao === 'C' ? 'Cheque recebido no crédito do cliente' : 'Pagamento recebido no crédito do cliente',
+        descricaoLancamento,
         codigoPagamento ? String(codigoPagamento) : null,
         valor,
         payloadBridge.observacao || null
