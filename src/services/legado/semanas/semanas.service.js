@@ -132,7 +132,7 @@ function montarMensagemWhatsappSemanaCliente({ grupo, mensagemPersonalizada }) {
   const pedidos = Array.isArray(grupo?.pedidos) ? grupo.pedidos : [];
   const mensagemLivre = limparTexto(mensagemPersonalizada);
   const linhas = [
-    'MENSAGEM AUTOMÁTICA DO SISTEMA ALUMÍNIO JR',
+    'MENSAGEM AUTOMÁTICA - ALUMÍNIO JR',
     '',
     `Nome cliente: ${nomeCliente}`
   ];
