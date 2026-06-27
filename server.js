@@ -3,6 +3,7 @@ const http = require('http');
 const path = require('path');
 const { WebSocketServer, WebSocket } = require('ws');
 const botEvents = require('./src/services/bot/botEvents');
+const { authRoutes } = require('./src/middlewares/adminAuth.middleware');
 
 // =====================================================
 // 📦 IMPORTAÇÃO DE ROTAS MODULARES
@@ -75,12 +76,14 @@ const hubRoutes = require('./src/routes/hub/hub.routes');
 
 
 const app = express();
+app.set('trust proxy', 1);
 
 // =====================================================
 // 🔧 MIDDLEWARES
 // =====================================================
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(authRoutes);
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/prestacao_contas', express.static(path.join(__dirname, 'views', 'prestacao_contas')));
 

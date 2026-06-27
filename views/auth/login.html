@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login Administrativo - Alumínio JR</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #f3f4f6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      color: #111827;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 380px;
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 28px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+    }
+
+    h1 {
+      font-size: 22px;
+      margin: 0 0 6px;
+      text-align: center;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: #6b7280;
+      text-align: center;
+      margin: 0 0 24px;
+    }
+
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: bold;
+      margin: 14px 0 6px;
+    }
+
+    input {
+      width: 100%;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 16px;
+      outline: none;
+    }
+
+    input:focus {
+      border-color: #2563eb;
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+
+    button {
+      width: 100%;
+      margin-top: 20px;
+      border: 0;
+      border-radius: 8px;
+      background: #1f2937;
+      color: #ffffff;
+      font-size: 16px;
+      font-weight: bold;
+      padding: 12px;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+    }
+
+    .erro {
+      display: none;
+      margin-top: 14px;
+      border-radius: 8px;
+      padding: 10px;
+      background: #fee2e2;
+      color: #991b1b;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Alumínio JR</h1>
+    <p class="subtitle">Acesso administrativo</p>
+
+    <form id="loginForm">
+      <input type="hidden" id="next" name="next">
+
+      <label for="usuario">Usuário</label>
+      <input id="usuario" name="usuario" type="text" autocomplete="username" required autofocus>
+
+      <label for="senha">Senha</label>
+      <input id="senha" name="senha" type="password" autocomplete="current-password" required>
+
+      <button id="btnEntrar" type="submit">Entrar</button>
+      <div id="erro" class="erro"></div>
+    </form>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const next = params.get('next') || '/';
+    document.getElementById('next').value = next;
+
+    const form = document.getElementById('loginForm');
+    const erro = document.getElementById('erro');
+    const btnEntrar = document.getElementById('btnEntrar');
+
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      erro.style.display = 'none';
+      erro.textContent = '';
+      btnEntrar.disabled = true;
+      btnEntrar.textContent = 'Entrando...';
+
+      try {
+        const resposta = await fetch('/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            usuario: document.getElementById('usuario').value,
+            senha: document.getElementById('senha').value,
+            next,
+          }),
+        });
+
+        const dados = await resposta.json().catch(() => ({}));
+
+        if (!resposta.ok) {
+          throw new Error(dados.erro || 'Falha ao entrar.');
+        }
+
+        window.location.href = dados.redirect || next || '/';
+      } catch (e) {
+        erro.textContent = e.message || 'Falha ao entrar.';
+        erro.style.display = 'block';
+      } finally {
+        btnEntrar.disabled = false;
+        btnEntrar.textContent = 'Entrar';
+      }
+    });
+  </script>
+</body>
+</html>
