@@ -17,6 +17,23 @@ async function carregarPerformanceMensal(req, res) {
   }
 }
 
+async function listarPedidosDoDia(req, res) {
+  try {
+    const data = await service.listarPedidosDoDia({
+      data: req.query.data
+    });
+
+    return res.json({ success: true, data });
+  } catch (error) {
+    console.error('ERRO PEDIDOS DO DIA - PERFORMANCE VENDAS:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Erro ao carregar pedidos do dia.'
+    });
+  }
+}
+
 module.exports = {
-  carregarPerformanceMensal
+  carregarPerformanceMensal,
+  listarPedidosDoDia
 };

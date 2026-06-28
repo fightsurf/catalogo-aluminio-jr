@@ -13,6 +13,20 @@ async function carregarPerformanceMensal(filtros = {}) {
   };
 }
 
+async function listarPedidosDoDia(filtros = {}) {
+  const response = await legadoBridgeService.get('/api/vendas/performance-vendas/pedidos-dia', {
+    data: filtros.data
+  });
+
+  return response.dados || {
+    data: filtros.data || null,
+    total: 0,
+    quantidade_pedidos: 0,
+    pedidos: []
+  };
+}
+
 module.exports = {
-  carregarPerformanceMensal
+  carregarPerformanceMensal,
+  listarPedidosDoDia
 };
