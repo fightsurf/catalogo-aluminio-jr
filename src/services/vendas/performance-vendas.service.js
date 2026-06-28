@@ -7,7 +7,7 @@ async function carregarPerformanceMensal(filtros = {}) {
   });
 
   return response.dados || {
-    regra: 'Vendas agrupadas por SAIDAS.DATA. Pedidos cancelados são ignorados.',
+    regra: 'Vendas agrupadas pela data do pedido (SAIDAS.DATA). Pedidos cancelados (SITUACAO = C) são ignorados.',
     atual: null,
     anterior: null
   };

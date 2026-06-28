@@ -372,12 +372,16 @@
       anteriorPonto: '#ef4444'
     };
 
+    const INTERVALO_ATUALIZACAO_MS = 60000;
+
     const estado = {
       atual: null,
       anterior: null,
       pontos: [],
       segmentos: [],
-      hover: null
+      hover: null,
+      carregando: false,
+      timerAtualizacao: null
     };
 
     function formatarMoeda(valor) {
@@ -735,6 +739,9 @@
     }
 
     async function carregar() {
+      if (estado.carregando) return;
+      estado.carregando = true;
+
       const status = document.getElementById('status');
       status.className = 'status';
       status.textContent = '';
@@ -751,6 +758,8 @@
       } catch (error) {
         status.className = 'status visivel erro';
         status.textContent = error.message || 'Erro ao carregar dados.';
+      } finally {
+        estado.carregando = false;
       }
     }
 
@@ -863,6 +872,10 @@
     });
 
     carregar();
+    estado.timerAtualizacao = window.setInterval(carregar, INTERVALO_ATUALIZACAO_MS);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) carregar();
+    });
   </script>
 </body>
 </html>
