@@ -405,6 +405,13 @@
       return curto ? diasSemanaCurtos[data.getDay()] : diasSemanaCompletos[data.getDay()];
     }
 
+    function ehFimDeSemana(dataISO) {
+      const data = criarDataLocal(dataISO);
+      if (!data) return false;
+      const dia = data.getDay();
+      return dia === 0 || dia === 6;
+    }
+
     function escaparHtml(valor) {
       return String(valor ?? '')
         .replace(/&/g, '&amp;')
@@ -572,11 +579,41 @@
         const eixoYData = margem.top + plotH + 16;
         const eixoYDia = margem.top + plotH + 31;
         const rotuloData = String(item.dia).padStart(2, '0');
-        const rotuloSemana = item.atual ? diaSemana(item.atual.data, true) : (item.anterior ? diaSemana(item.anterior.data, true) : '');
+        const dataReferencia = item.atual?.data || item.anterior?.data || '';
+        const rotuloSemana = dataReferencia ? diaSemana(dataReferencia, true) : '';
+        const fimDeSemana = ehFimDeSemana(dataReferencia);
 
-        ctx.fillStyle = '#374151';
         ctx.textAlign = 'center';
         ctx.font = (plotW / Math.max(dias.length - 1, 1)) >= 24 ? '10px Arial' : '7px Arial';
+
+        if (fimDeSemana) {
+          const largura = Math.max(24, ctx.measureText(rotuloData).width + 10, ctx.measureText(rotuloSemana).width + 10);
+          const altura = 34;
+          const left = x - largura / 2;
+          const top = eixoYData - 10;
+          const raio = 5;
+
+          ctx.beginPath();
+          ctx.moveTo(left + raio, top);
+          ctx.lineTo(left + largura - raio, top);
+          ctx.quadraticCurveTo(left + largura, top, left + largura, top + raio);
+          ctx.lineTo(left + largura, top + altura - raio);
+          ctx.quadraticCurveTo(left + largura, top + altura, left + largura - raio, top + altura);
+          ctx.lineTo(left + raio, top + altura);
+          ctx.quadraticCurveTo(left, top + altura, left, top + altura - raio);
+          ctx.lineTo(left, top + raio);
+          ctx.quadraticCurveTo(left, top, left + raio, top);
+          ctx.closePath();
+          ctx.fillStyle = '#111827';
+          ctx.fill();
+
+          ctx.fillStyle = '#ffffff';
+          ctx.fillText(rotuloData, x, eixoYData);
+          ctx.fillText(rotuloSemana, x, eixoYDia);
+          return;
+        }
+
+        ctx.fillStyle = '#374151';
         ctx.fillText(rotuloData, x, eixoYData);
         ctx.fillStyle = '#6b7280';
         ctx.fillText(rotuloSemana, x, eixoYDia);
