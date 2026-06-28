@@ -5,9 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Performance de Vendas - Alumínio JR</title>
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -18,76 +16,42 @@
 
     .container {
       width: 100%;
-      max-width: 1600px;
-      margin: 0 auto;
-      padding: 12px;
+      margin: 0;
+      padding: 10px;
     }
 
     .topo {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-end;
-      gap: 16px;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
     }
 
     .topo h1 {
-      margin: 0 0 3px;
+      margin: 0;
       font-size: 22px;
       color: #111;
     }
 
-    .topo p {
-      margin: 0;
-      color: #555;
-      font-size: 12px;
-    }
-
-    .actions {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-
-    button {
-      border: 0;
-      border-radius: 8px;
-      padding: 8px 12px;
-      background: #111827;
-      color: #fff;
-      font-weight: bold;
-      cursor: pointer;
-    }
-
-    button:disabled {
-      opacity: 0.65;
-      cursor: not-allowed;
-    }
-
     .status {
-      min-height: 16px;
+      min-height: 18px;
       margin: 0 0 8px;
-      color: #555;
       font-size: 12px;
+      color: #555;
+      display: none;
     }
 
-    .dashboard {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 12px;
-      align-items: stretch;
+    .status.visivel {
+      display: block;
+    }
+
+    .status.erro {
+      color: #b91c1c;
+      font-weight: bold;
     }
 
     .card {
       background: #fff;
       border-radius: 12px;
-      padding: 12px 12px 8px;
+      padding: 12px;
       box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
-      min-height: calc(100vh - 104px);
-      max-height: 560px;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
     }
 
     .card-header {
@@ -95,36 +59,65 @@
       justify-content: space-between;
       align-items: flex-start;
       gap: 12px;
-      margin-bottom: 6px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
     }
 
-    .card h2 {
+    .card-header h2 {
       margin: 0;
       font-size: 18px;
       color: #111;
     }
 
-    .resumo {
+    .legenda {
       display: flex;
-      gap: 10px;
       flex-wrap: wrap;
-      justify-content: flex-end;
-      color: #444;
+      gap: 14px;
+      align-items: center;
+      color: #374151;
       font-size: 12px;
-      text-align: right;
     }
 
-    .resumo strong {
-      display: block;
-      color: #111;
-      font-size: 15px;
-      margin-bottom: 1px;
+    .legenda-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .legenda-linha {
+      width: 28px;
+      height: 0;
+      border-top-width: 3px;
+      border-top-style: solid;
+      position: relative;
+    }
+
+    .legenda-linha::after {
+      content: '';
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: currentColor;
+      top: -6px;
+      left: 9px;
+    }
+
+    .legenda-atual {
+      color: #1d4ed8;
+      border-top-color: #1d4ed8;
+    }
+
+    .legenda-anterior {
+      color: #93c5fd;
+      border-top-color: #93c5fd;
     }
 
     .chart-wrap {
       position: relative;
-      flex: 1;
-      min-height: 310px;
+      width: 100%;
+      min-height: 430px;
+      height: 430px;
     }
 
     canvas {
@@ -133,40 +126,78 @@
       display: block;
     }
 
-    .erro {
-      color: #b91c1c;
-      font-weight: bold;
+    .resumos {
+      margin-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
 
-    @media (max-width: 1100px) {
-      .dashboard {
-        grid-template-columns: 1fr;
+    .resumo {
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #f8fafc;
+      border-left: 6px solid #1d4ed8;
+    }
+
+    .resumo.resumo-anterior {
+      border-left-color: #93c5fd;
+    }
+
+    .resumo-titulo {
+      margin: 0 0 6px;
+      font-size: 14px;
+      font-weight: bold;
+      color: #111827;
+    }
+
+    .resumo-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      font-size: 12px;
+      color: #374151;
+    }
+
+    .resumo-grid span {
+      min-width: 160px;
+    }
+
+    .resumo-grid strong {
+      display: block;
+      font-size: 16px;
+      color: #111827;
+      margin-bottom: 2px;
+    }
+
+    @media (max-width: 900px) {
+      .chart-wrap {
+        min-height: 360px;
+        height: 360px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .container {
+        padding: 8px;
       }
 
       .card {
-        min-height: 430px;
-        max-height: none;
-      }
-    }
-
-    @media (max-width: 760px) {
-      .topo,
-      .card-header {
-        align-items: stretch;
-        flex-direction: column;
-      }
-
-      .container {
         padding: 10px;
       }
 
-      .card {
-        min-height: 470px;
+      .card-header {
+        flex-direction: column;
+        align-items: stretch;
       }
 
-      .resumo {
-        justify-content: flex-start;
-        text-align: left;
+      .chart-wrap {
+        min-height: 320px;
+        height: 320px;
+      }
+
+      .resumo-grid span {
+        min-width: 130px;
       }
     }
   </style>
@@ -174,35 +205,35 @@
 <body>
   <div class="container">
     <header class="topo">
-      <div>
-        <h1>Performance de Vendas</h1>
-        <p>Gráfico de linha. Eixo X: data da venda e dia da semana. Eixo Y: valor vendido em R$.</p>
-      </div>
-      <div class="actions">
-        <button id="btnAtualizar" type="button">Atualizar</button>
-      </div>
+      <h1>Performance de Vendas</h1>
     </header>
 
-    <p id="status" class="status">Carregando...</p>
+    <p id="status" class="status"></p>
 
-    <main class="dashboard">
+    <main>
       <section class="card">
         <div class="card-header">
-          <h2 id="tituloAtual">Mês corrente</h2>
-          <div id="resumoAtual" class="resumo"></div>
+          <h2 id="tituloGrafico">Mês corrente x mês anterior</h2>
+          <div class="legenda">
+            <span class="legenda-item"><span class="legenda-linha legenda-atual"></span> Mês atual</span>
+            <span class="legenda-item"><span class="legenda-linha legenda-anterior"></span> Mês anterior</span>
+          </div>
         </div>
-        <div class="chart-wrap">
-          <canvas id="graficoAtual" aria-label="Gráfico de linha de vendas do mês corrente"></canvas>
-        </div>
-      </section>
 
-      <section class="card">
-        <div class="card-header">
-          <h2 id="tituloAnterior">Mês anterior</h2>
-          <div id="resumoAnterior" class="resumo"></div>
-        </div>
         <div class="chart-wrap">
-          <canvas id="graficoAnterior" aria-label="Gráfico de linha de vendas do mês anterior"></canvas>
+          <canvas id="graficoVendas" aria-label="Gráfico de linha comparando vendas do mês atual e mês anterior"></canvas>
+        </div>
+
+        <div class="resumos">
+          <div class="resumo resumo-atual">
+            <div id="tituloAtual" class="resumo-titulo">Mês atual</div>
+            <div id="resumoAtual" class="resumo-grid"></div>
+          </div>
+
+          <div class="resumo resumo-anterior">
+            <div id="tituloAnterior" class="resumo-titulo">Mês anterior</div>
+            <div id="resumoAnterior" class="resumo-grid"></div>
+          </div>
         </div>
       </section>
     </main>
@@ -231,16 +262,17 @@
     });
 
     const diasSemanaCompletos = [
-      'domingo',
-      'segunda',
-      'terça',
-      'quarta',
-      'quinta',
-      'sexta',
-      'sábado'
+      'domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'
     ];
 
     const diasSemanaCurtos = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+
+    const cores = {
+      atual: '#1d4ed8',
+      atualTexto: 'rgba(29, 78, 216, 0.92)',
+      anterior: '#93c5fd',
+      anteriorTexto: 'rgba(96, 165, 250, 0.95)'
+    };
 
     const estado = {
       atual: null,
@@ -317,24 +349,93 @@
       ctx.restore();
     }
 
-    function desenharGrafico(canvas, serie) {
+    function unirSeries(atual, anterior) {
+      const mapAtual = new Map((atual?.dias || []).map((item) => [Number(item.dia), item]));
+      const mapAnterior = new Map((anterior?.dias || []).map((item) => [Number(item.dia), item]));
+      const totalDias = Math.max(
+        ...(atual?.dias || []).map((item) => Number(item.dia || 0)),
+        ...(anterior?.dias || []).map((item) => Number(item.dia || 0)),
+        0
+      );
+
+      const dias = [];
+      for (let dia = 1; dia <= totalDias; dia += 1) {
+        dias.push({
+          dia,
+          atual: mapAtual.get(dia) || null,
+          anterior: mapAnterior.get(dia) || null
+        });
+      }
+      return dias;
+    }
+
+    function desenharLinha(ctx, pontos, corLinha, corPonto, corTexto, larguraLinha, deslocamentoLabel) {
+      ctx.strokeStyle = corLinha;
+      ctx.lineWidth = larguraLinha;
+      ctx.beginPath();
+      pontos.forEach((ponto, index) => {
+        if (index === 0) ctx.moveTo(ponto.x, ponto.y);
+        else ctx.lineTo(ponto.x, ponto.y);
+      });
+      ctx.stroke();
+
+      ctx.lineWidth = 1;
+      pontos.forEach((ponto, index) => {
+        const vendeu = ponto.valor > 0;
+
+        ctx.beginPath();
+        ctx.arc(ponto.x, ponto.y, vendeu ? 4.6 : 2.5, 0, Math.PI * 2);
+        ctx.fillStyle = vendeu ? corPonto : '#d1d5db';
+        ctx.fill();
+        ctx.strokeStyle = vendeu ? '#ffffff' : '#cbd5e1';
+        ctx.stroke();
+
+        if (!vendeu) return;
+
+        const label = formatarMoedaPonto(ponto.valor);
+        const larguraLabel = medirTexto(ctx, label, '10px Arial') + 10;
+        let labelX = ponto.x;
+        let labelY = ponto.y + deslocamentoLabel;
+
+        if (index === 0) labelX = Math.max(labelX, ponto.area.left + larguraLabel / 2);
+        if (index === pontos.length - 1) labelX = Math.min(labelX, ponto.area.right - larguraLabel / 2);
+        labelY = Math.max(ponto.area.top + 10, Math.min(labelY, ponto.area.bottom - 10));
+
+        desenharTextoComFundo(ctx, label, labelX, labelY, {
+          fonte: '10px Arial',
+          fundo: corTexto,
+          cor: '#fff',
+          paddingX: 4,
+          paddingY: 3,
+          raio: 5
+        });
+      });
+    }
+
+    function desenharGrafico(canvas, atual, anterior) {
       const ctx = canvas.getContext('2d');
       const rect = canvas.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
-      const width = Math.max(420, Math.floor(rect.width));
-      const height = Math.max(300, Math.floor(rect.height));
+      const width = Math.max(820, Math.floor(rect.width));
+      const height = Math.max(420, Math.floor(rect.height));
 
       canvas.width = Math.floor(width * dpr);
       canvas.height = Math.floor(height * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, width, height);
 
-      const dados = Array.isArray(serie?.dias) ? serie.dias : [];
-      const margem = { top: 46, right: 18, bottom: 64, left: 74 };
+      const dias = unirSeries(atual, anterior);
+      const margem = { top: 44, right: 24, bottom: 72, left: 82 };
       const plotW = Math.max(1, width - margem.left - margem.right);
       const plotH = Math.max(1, height - margem.top - margem.bottom);
-      const maiorValor = Math.max(...dados.map((item) => Number(item.valor || 0)), 0);
-      const maxY = maiorValor > 0 ? maiorValor * 1.22 : 100;
+
+      const valores = [];
+      dias.forEach((item) => {
+        valores.push(Number(item.atual?.valor || 0));
+        valores.push(Number(item.anterior?.valor || 0));
+      });
+      const maiorValor = Math.max(...valores, 0);
+      const maxY = maiorValor > 0 ? maiorValor * 1.2 : 100;
 
       ctx.font = '11px Arial';
       ctx.textBaseline = 'middle';
@@ -362,78 +463,52 @@
       ctx.lineTo(width - margem.right, margem.top + plotH);
       ctx.stroke();
 
-      if (!dados.length) {
+      if (!dias.length) {
         ctx.fillStyle = '#6b7280';
         ctx.textAlign = 'center';
         ctx.fillText('Sem dados para exibir.', width / 2, height / 2);
         return;
       }
 
-      const passo = dados.length > 1 ? plotW / (dados.length - 1) : plotW;
-      const pontos = dados.map((item, index) => {
-        const valor = Number(item.valor || 0);
-        const x = dados.length > 1 ? margem.left + (index * passo) : margem.left + plotW / 2;
-        const y = margem.top + plotH - ((valor / maxY) * plotH);
-        return { item, valor, x, y };
+      const passo = dias.length > 1 ? plotW / (dias.length - 1) : plotW;
+      const area = { left: margem.left, right: width - margem.right, top: margem.top, bottom: margem.top + plotH };
+      const pontosAtual = [];
+      const pontosAnterior = [];
+
+      dias.forEach((item, index) => {
+        const x = dias.length > 1 ? margem.left + (index * passo) : margem.left + plotW / 2;
+        const valorAtual = Number(item.atual?.valor || 0);
+        const valorAnterior = Number(item.anterior?.valor || 0);
+        const yAtual = margem.top + plotH - ((valorAtual / maxY) * plotH);
+        const yAnterior = margem.top + plotH - ((valorAnterior / maxY) * plotH);
+
+        pontosAtual.push({ item, valor: valorAtual, x, y: yAtual, area });
+        pontosAnterior.push({ item, valor: valorAnterior, x, y: yAnterior, area });
       });
 
-      ctx.strokeStyle = '#2563eb';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      pontos.forEach((ponto, index) => {
-        if (index === 0) ctx.moveTo(ponto.x, ponto.y);
-        else ctx.lineTo(ponto.x, ponto.y);
-      });
-      ctx.stroke();
+      desenharLinha(ctx, pontosAnterior, cores.anterior, cores.anterior, cores.anteriorTexto, 2.3, 18);
+      desenharLinha(ctx, pontosAtual, cores.atual, '#0f172a', cores.atualTexto, 2.8, -18);
 
-      ctx.lineWidth = 1;
-      pontos.forEach((ponto, index) => {
-        const vendeu = ponto.valor > 0;
-
-        ctx.beginPath();
-        ctx.arc(ponto.x, ponto.y, vendeu ? 4.5 : 2.7, 0, Math.PI * 2);
-        ctx.fillStyle = vendeu ? '#111827' : '#d1d5db';
-        ctx.fill();
-        ctx.strokeStyle = vendeu ? '#ffffff' : '#9ca3af';
-        ctx.stroke();
-
+      pontosAtual.forEach((ponto, index) => {
         const x = ponto.x;
+        const item = ponto.item;
         const eixoYData = margem.top + plotH + 16;
         const eixoYDia = margem.top + plotH + 31;
-        const rotuloData = ponto.item.rotulo || `${String(ponto.item.dia).padStart(2, '0')}/${String(serie?.mes || '').padStart(2, '0')}`;
-        const rotuloSemana = diaSemana(ponto.item.data, true);
+        const rotuloData = String(item.dia).padStart(2, '0');
+        const rotuloSemana = item.atual ? diaSemana(item.atual.data, true) : (item.anterior ? diaSemana(item.anterior.data, true) : '');
+        const mostrar = dias.length <= 16 || index % 2 === 0 || index === dias.length - 1;
+        if (!mostrar) return;
 
         ctx.fillStyle = '#374151';
         ctx.textAlign = 'center';
-        ctx.font = passo >= 18 ? '9px Arial' : '8px Arial';
+        ctx.font = passo >= 24 ? '10px Arial' : '8px Arial';
         ctx.fillText(rotuloData, x, eixoYData);
         ctx.fillStyle = '#6b7280';
         ctx.fillText(rotuloSemana, x, eixoYDia);
-
-        if (vendeu) {
-          const label = formatarMoedaPonto(ponto.valor);
-          const larguraLabel = medirTexto(ctx, label, '10px Arial') + 10;
-          const deslocarParaBaixo = ponto.y - margem.top < 18;
-          let labelX = x;
-          let labelY = deslocarParaBaixo ? ponto.y + 18 : ponto.y - 18;
-
-          if (index === 0) labelX = Math.max(labelX, margem.left + larguraLabel / 2);
-          if (index === pontos.length - 1) labelX = Math.min(labelX, width - margem.right - larguraLabel / 2);
-          labelY = Math.max(margem.top + 10, Math.min(labelY, margem.top + plotH - 10));
-
-          desenharTextoComFundo(ctx, label, labelX, labelY, {
-            fonte: '10px Arial',
-            fundo: 'rgba(17, 24, 39, 0.90)',
-            cor: '#fff',
-            paddingX: 4,
-            paddingY: 3,
-            raio: 5
-          });
-        }
       });
 
       ctx.save();
-      ctx.translate(16, margem.top + plotH / 2);
+      ctx.translate(18, margem.top + plotH / 2);
       ctx.rotate(-Math.PI / 2);
       ctx.fillStyle = '#374151';
       ctx.textAlign = 'center';
@@ -444,7 +519,7 @@
       ctx.fillStyle = '#374151';
       ctx.textAlign = 'center';
       ctx.font = '12px Arial';
-      ctx.fillText('Data da venda / dia da semana', margem.left + plotW / 2, height - 12);
+      ctx.fillText('Dia do mês / dia da semana', margem.left + plotW / 2, height - 14);
     }
 
     function rotuloMelhorDia(melhorDia) {
@@ -466,25 +541,21 @@
       estado.atual = data.atual;
       estado.anterior = data.anterior;
 
-      document.getElementById('tituloAtual').textContent = `Mês corrente: ${data.atual.descricao}`;
+      document.getElementById('tituloAtual').textContent = `Mês atual: ${data.atual.descricao}`;
       document.getElementById('tituloAnterior').textContent = `Mês anterior: ${data.anterior.descricao}`;
 
       preencherResumo(document.getElementById('resumoAtual'), data.atual);
       preencherResumo(document.getElementById('resumoAnterior'), data.anterior);
 
-      desenharGrafico(document.getElementById('graficoAtual'), data.atual);
-      desenharGrafico(document.getElementById('graficoAnterior'), data.anterior);
+      desenharGrafico(document.getElementById('graficoVendas'), data.atual, data.anterior);
     }
 
     async function carregar() {
       const status = document.getElementById('status');
-      const botao = document.getElementById('btnAtualizar');
+      status.className = 'status';
+      status.textContent = '';
 
       try {
-        botao.disabled = true;
-        status.className = 'status';
-        status.textContent = 'Carregando vendas...';
-
         const resp = await fetch('/api/vendas/performance-vendas');
         const json = await resp.json();
 
@@ -493,21 +564,15 @@
         }
 
         renderizar(json.data);
-        status.textContent = json.data.regra || '';
       } catch (error) {
-        status.className = 'status erro';
+        status.className = 'status visivel erro';
         status.textContent = error.message || 'Erro ao carregar dados.';
-      } finally {
-        botao.disabled = false;
       }
     }
 
-    document.getElementById('btnAtualizar').addEventListener('click', carregar);
-
     window.addEventListener('resize', () => {
       if (!estado.atual || !estado.anterior) return;
-      desenharGrafico(document.getElementById('graficoAtual'), estado.atual);
-      desenharGrafico(document.getElementById('graficoAnterior'), estado.anterior);
+      desenharGrafico(document.getElementById('graficoVendas'), estado.atual, estado.anterior);
     });
 
     carregar();
