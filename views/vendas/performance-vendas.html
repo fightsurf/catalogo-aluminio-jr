@@ -369,7 +369,20 @@
       return dias;
     }
 
-    function desenharLinha(ctx, pontos, corLinha, corPonto, corTexto, larguraLinha, deslocamentoLabel) {
+    function desenharLinha(ctx, pontos, corLinha, corPonto, larguraLinha) {
+      ctx.save();
+      ctx.strokeStyle = corLinha;
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = 0.24;
+      pontos.forEach((ponto) => {
+        if (ponto.valor <= 0) return;
+        ctx.beginPath();
+        ctx.moveTo(ponto.x, ponto.area.bottom);
+        ctx.lineTo(ponto.x, ponto.y);
+        ctx.stroke();
+      });
+      ctx.restore();
+
       ctx.strokeStyle = corLinha;
       ctx.lineWidth = larguraLinha;
       ctx.beginPath();
@@ -380,35 +393,15 @@
       ctx.stroke();
 
       ctx.lineWidth = 1;
-      pontos.forEach((ponto, index) => {
+      pontos.forEach((ponto) => {
         const vendeu = ponto.valor > 0;
 
         ctx.beginPath();
-        ctx.arc(ponto.x, ponto.y, vendeu ? 4.6 : 2.5, 0, Math.PI * 2);
+        ctx.arc(ponto.x, ponto.y, vendeu ? 4.2 : 2.4, 0, Math.PI * 2);
         ctx.fillStyle = vendeu ? corPonto : '#d1d5db';
         ctx.fill();
         ctx.strokeStyle = vendeu ? '#ffffff' : '#cbd5e1';
         ctx.stroke();
-
-        if (!vendeu) return;
-
-        const label = formatarMoedaPonto(ponto.valor);
-        const larguraLabel = medirTexto(ctx, label, '10px Arial') + 10;
-        let labelX = ponto.x;
-        let labelY = ponto.y + deslocamentoLabel;
-
-        if (index === 0) labelX = Math.max(labelX, ponto.area.left + larguraLabel / 2);
-        if (index === pontos.length - 1) labelX = Math.min(labelX, ponto.area.right - larguraLabel / 2);
-        labelY = Math.max(ponto.area.top + 10, Math.min(labelY, ponto.area.bottom - 10));
-
-        desenharTextoComFundo(ctx, label, labelX, labelY, {
-          fonte: '10px Arial',
-          fundo: corTexto,
-          cor: '#fff',
-          paddingX: 4,
-          paddingY: 3,
-          raio: 5
-        });
       });
     }
 
@@ -425,7 +418,7 @@
       ctx.clearRect(0, 0, width, height);
 
       const dias = unirSeries(atual, anterior);
-      const margem = { top: 44, right: 24, bottom: 72, left: 82 };
+      const margem = { top: 28, right: 24, bottom: 72, left: 82 };
       const plotW = Math.max(1, width - margem.left - margem.right);
       const plotH = Math.max(1, height - margem.top - margem.bottom);
 
@@ -486,8 +479,8 @@
         pontosAnterior.push({ item, valor: valorAnterior, x, y: yAnterior, area });
       });
 
-      desenharLinha(ctx, pontosAnterior, cores.anterior, cores.anterior, cores.anteriorTexto, 2.3, 18);
-      desenharLinha(ctx, pontosAtual, cores.atual, '#0f172a', cores.atualTexto, 2.8, -18);
+      desenharLinha(ctx, pontosAnterior, cores.anterior, cores.anterior, 2.3);
+      desenharLinha(ctx, pontosAtual, cores.atual, '#0f172a', 2.8);
 
       pontosAtual.forEach((ponto, index) => {
         const x = ponto.x;
@@ -496,25 +489,13 @@
         const eixoYDia = margem.top + plotH + 31;
         const rotuloData = String(item.dia).padStart(2, '0');
         const rotuloSemana = item.atual ? diaSemana(item.atual.data, true) : (item.anterior ? diaSemana(item.anterior.data, true) : '');
-        const mostrar = dias.length <= 16 || index % 2 === 0 || index === dias.length - 1;
-        if (!mostrar) return;
-
         ctx.fillStyle = '#374151';
         ctx.textAlign = 'center';
-        ctx.font = passo >= 24 ? '10px Arial' : '8px Arial';
+        ctx.font = passo >= 24 ? '10px Arial' : '7px Arial';
         ctx.fillText(rotuloData, x, eixoYData);
         ctx.fillStyle = '#6b7280';
         ctx.fillText(rotuloSemana, x, eixoYDia);
       });
-
-      ctx.save();
-      ctx.translate(18, margem.top + plotH / 2);
-      ctx.rotate(-Math.PI / 2);
-      ctx.fillStyle = '#374151';
-      ctx.textAlign = 'center';
-      ctx.font = '12px Arial';
-      ctx.fillText('Valor vendido em R$', 0, 0);
-      ctx.restore();
 
       ctx.fillStyle = '#374151';
       ctx.textAlign = 'center';
