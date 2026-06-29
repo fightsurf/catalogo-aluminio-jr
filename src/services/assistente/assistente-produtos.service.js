@@ -160,11 +160,23 @@ function montarMensagem(produtos, quantidade, totalEncontrados) {
 
   const lista = produtos
     .slice(0, 3)
-    .map((produto) => `${produto.nome}${produto.precoFormatado ? ` - ${produto.precoFormatado}` : ''}`)
+    .map((produto, indice) => {
+      const partes = [`${indice + 1}. ${produto.nome}`];
+
+      if (produto.precoFormatado) {
+        partes.push(produto.precoFormatado);
+      }
+
+      if (quantidade !== null && produto.totalFormatado) {
+        partes.push(`${quantidade} unidade(s): ${produto.totalFormatado}`);
+      }
+
+      return partes.join(' - ');
+    })
     .join('; ');
 
   if (totalEncontrados > 3) {
-    return `Encontrei ${totalEncontrados} opções. Me diga o modelo ou tamanho.`;
+    return `Encontrei ${totalEncontrados} opções. Principais: ${lista}. Qual dessas?`;
   }
 
   return `Encontrei: ${lista}. Qual modelo?`;
