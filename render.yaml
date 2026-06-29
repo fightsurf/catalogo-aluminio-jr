@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://render.com/schema/render.yaml.json
+#
+# Blueprint auxiliar para declarar variáveis usadas pelo assistente Hermes.
+# ATENÇÃO: se seu serviço Render já foi criado manualmente, a Render pode não
+# aplicar este arquivo automaticamente no Deploy latest commit. Nesse caso,
+# use este arquivo apenas como referência e configure a variável no painel.
+
+services:
+  - type: web
+    name: catalogo-aluminio-jr
+    runtime: node
+    buildCommand: npm install
+    startCommand: npm start
+    autoDeployTrigger: off
+    envVars:
+      # Token que autoriza o Hermes a consultar /api/assistente/* no sistema JR.
+      # sync:false mantém o valor fora do GitHub. Preencha no painel da Render.
+      - key: ASSISTENTE_API_TOKEN
+        sync: false
