@@ -1,5 +1,5 @@
 const produtoService = require('../../services/produto/produto.service');
-const cloudflareImagesService = require('../../services/cloudflare/cloudflareImages.service');
+const cloudflareR2Service = require('../../services/cloudflare/cloudflareR2.service');
 
 async function listar(req, res) {
     try {
@@ -52,7 +52,7 @@ async function uploadFoto(req, res) {
         const produto = await produtoService.buscar(req.params.id);
         const posicao = Number.parseInt(req.params.posicao, 10);
 
-        const upload = await cloudflareImagesService.uploadImagem(req.file, {
+        const upload = await cloudflareR2Service.uploadImagem(req.file, {
             produto_id: produto.id,
             produto_nome: produto.nome,
             posicao,
@@ -66,7 +66,7 @@ async function uploadFoto(req, res) {
                 produto: produtoAtualizado,
                 posicao,
                 url: upload.url,
-                cloudflare_image_id: upload.id,
+                r2_key: upload.key || upload.id,
             },
         });
     } catch (error) {

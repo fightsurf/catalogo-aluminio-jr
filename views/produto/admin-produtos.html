@@ -503,7 +503,7 @@ async function enviarFotosSelecionadas(produtoId) {
 
   if (quantidade === 0) return;
 
-  setFotoStatus(`Enviando ${quantidade} foto(s) para o Cloudflare...`);
+  setFotoStatus(`Enviando ${quantidade} foto(s) para o Cloudflare R2...`);
 
   for (let i = 1; i <= 6; i++) {
     const input = campoArquivoFoto(i);
@@ -725,7 +725,7 @@ for (let i = 1; i <= 6; i++) {
     }
 
     atualizarPreviewFoto(i, URL.createObjectURL(arquivo));
-    setFotoStatus('Arquivo selecionado. Clique em Salvar Produto para enviar ao Cloudflare.');
+    setFotoStatus('Arquivo selecionado. Clique em Salvar Produto para enviar ao Cloudflare R2.');
   });
 }
 
