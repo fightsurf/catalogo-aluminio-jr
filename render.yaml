@@ -17,3 +17,14 @@ services:
       # sync:false mantém o valor fora do GitHub. Preencha no painel da Render.
       - key: ASSISTENTE_API_TOKEN
         sync: false
+      # Cloudflare Images - upload das fotos dos produtos.
+      # As chaves aparecem automaticamente no Blueprint; os valores secretos ficam fora do GitHub.
+      - key: CLOUDFLARE_ACCOUNT_ID
+        sync: false
+      - key: CLOUDFLARE_IMAGES_TOKEN
+        sync: false
+      - key: CLOUDFLARE_IMAGES_ACCOUNT_HASH
+        sync: false
+      - key: CLOUDFLARE_IMAGES_VARIANT
+        value: public
+

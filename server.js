@@ -349,6 +349,11 @@ produtoComposicaoSchemaService.criarEstrutura().catch(err =>
   console.warn('⚠️  Estrutura de composição/custos dos produtos (não crítico):', err.message)
 );
 
+const produtoFotosSchemaService = require('./src/services/produto/produtoFotosSchema.service');
+produtoFotosSchemaService.criarEstrutura().catch(err =>
+  console.warn('⚠️  Estrutura de fotos dos produtos (não crítico):', err.message)
+);
+
 // =====================================================
 // 🔌 WEBSOCKET – Bot Admin
 // =====================================================

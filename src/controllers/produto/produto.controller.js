@@ -1,4 +1,5 @@
 const produtoService = require('../../services/produto/produto.service');
+const cloudflareImagesService = require('../../services/cloudflare/cloudflareImages.service');
 
 async function listar(req, res) {
     try {
@@ -42,6 +43,37 @@ async function atualizar(req, res) {
     }
 }
 
+async function uploadFoto(req, res) {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ success: false, message: 'Selecione uma imagem para enviar.' });
+        }
+
+        const produto = await produtoService.buscar(req.params.id);
+        const posicao = Number.parseInt(req.params.posicao, 10);
+
+        const upload = await cloudflareImagesService.uploadImagem(req.file, {
+            produto_id: produto.id,
+            produto_nome: produto.nome,
+            posicao,
+        });
+
+        const produtoAtualizado = await produtoService.atualizarFoto(req.params.id, posicao, upload.url);
+
+        res.json({
+            success: true,
+            data: {
+                produto: produtoAtualizado,
+                posicao,
+                url: upload.url,
+                cloudflare_image_id: upload.id,
+            },
+        });
+    } catch (error) {
+        res.status(400).json({ success: false, message: error.message });
+    }
+}
+
 async function excluir(req, res) {
     try {
         await produtoService.excluir(req.params.id);
@@ -56,5 +88,6 @@ module.exports = {
     buscar,
     criar,
     atualizar,
+    uploadFoto,
     excluir
 };

@@ -68,6 +68,12 @@ input, select {
   padding: 8px;
   border: 1px solid #ccc;
   border-radius: 4px;
+  box-sizing: border-box;
+}
+
+input[type="file"] {
+  padding: 7px;
+  background: #fafafa;
 }
 
 .checkbox-area {
@@ -75,6 +81,8 @@ input, select {
   align-items: center;
   gap: 8px;
 }
+
+.checkbox-area input { width: auto; }
 
 .button-area {
   display: flex;
@@ -94,6 +102,14 @@ button {
 
 button:hover { background: #000; }
 
+button.secundario {
+  background: #666;
+}
+
+button.secundario:hover {
+  background: #444;
+}
+
 .lista-item {
   display: flex;
   justify-content: space-between;
@@ -101,17 +117,115 @@ button:hover { background: #000; }
   padding: 10px 0;
   border-bottom: 1px solid #eee;
   font-size: 14px;
+  gap: 12px;
 }
 
 .lista-acoes {
   display: flex;
   gap: 6px;
+  flex-wrap: wrap;
 }
 
 .filtro-area {
   display: flex;
   gap: 10px;
   margin-bottom: 15px;
+}
+
+.fotos-area {
+  grid-column: span 2;
+}
+
+.fotos-titulo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.fotos-ajuda {
+  color: #555;
+  font-size: 12px;
+  font-weight: normal;
+}
+
+.fotos-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.foto-slot {
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 10px;
+  background: #fafafa;
+}
+
+.foto-slot.principal {
+  border-color: #222;
+  background: #f7f7f7;
+}
+
+.foto-slot input[type="text"] {
+  margin-bottom: 7px;
+}
+
+.foto-preview {
+  margin-top: 8px;
+  width: 100%;
+  height: 90px;
+  object-fit: contain;
+  background: #fff;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  display: none;
+}
+
+.foto-status {
+  margin-top: 10px;
+  font-size: 13px;
+  color: #555;
+  min-height: 18px;
+}
+
+.produto-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.produto-thumb {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  border: 1px solid #ddd;
+  background: #fff;
+  border-radius: 4px;
+  flex: 0 0 auto;
+}
+
+.produto-linha-texto {
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .form-grid,
+  .fotos-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .fotos-area {
+    grid-column: span 1;
+  }
+
+  .lista-item,
+  .filtro-area {
+    flex-direction: column;
+    align-items: stretch;
+  }
 }
 </style>
   <link rel="stylesheet" href="/css/theme.css" />
@@ -178,9 +292,57 @@ button:hover { background: #000; }
         <input type="number" id="produtoCaixa" value="1" min="1">
       </div>
 
-      <div style="grid-column: span 2;">
-        <label>URL da Foto</label>
-        <input type="text" id="produtoFoto">
+      <div class="fotos-area">
+        <div class="fotos-titulo">
+          <label>Fotos do Produto</label>
+          <span class="fotos-ajuda">Até 6 fotos. A Foto 1 é a principal exibida pelo sistema.</span>
+        </div>
+
+        <div class="fotos-grid">
+          <div class="foto-slot principal">
+            <label>Foto 1 — Principal</label>
+            <input type="text" id="produtoFoto1" placeholder="URL da foto principal">
+            <input type="file" id="produtoFotoArquivo1" accept="image/jpeg,image/png,image/webp,image/gif">
+            <img id="produtoFotoPreview1" class="foto-preview" alt="Prévia da foto 1">
+          </div>
+
+          <div class="foto-slot">
+            <label>Foto 2</label>
+            <input type="text" id="produtoFoto2" placeholder="URL da foto 2">
+            <input type="file" id="produtoFotoArquivo2" accept="image/jpeg,image/png,image/webp,image/gif">
+            <img id="produtoFotoPreview2" class="foto-preview" alt="Prévia da foto 2">
+          </div>
+
+          <div class="foto-slot">
+            <label>Foto 3</label>
+            <input type="text" id="produtoFoto3" placeholder="URL da foto 3">
+            <input type="file" id="produtoFotoArquivo3" accept="image/jpeg,image/png,image/webp,image/gif">
+            <img id="produtoFotoPreview3" class="foto-preview" alt="Prévia da foto 3">
+          </div>
+
+          <div class="foto-slot">
+            <label>Foto 4</label>
+            <input type="text" id="produtoFoto4" placeholder="URL da foto 4">
+            <input type="file" id="produtoFotoArquivo4" accept="image/jpeg,image/png,image/webp,image/gif">
+            <img id="produtoFotoPreview4" class="foto-preview" alt="Prévia da foto 4">
+          </div>
+
+          <div class="foto-slot">
+            <label>Foto 5</label>
+            <input type="text" id="produtoFoto5" placeholder="URL da foto 5">
+            <input type="file" id="produtoFotoArquivo5" accept="image/jpeg,image/png,image/webp,image/gif">
+            <img id="produtoFotoPreview5" class="foto-preview" alt="Prévia da foto 5">
+          </div>
+
+          <div class="foto-slot">
+            <label>Foto 6</label>
+            <input type="text" id="produtoFoto6" placeholder="URL da foto 6">
+            <input type="file" id="produtoFotoArquivo6" accept="image/jpeg,image/png,image/webp,image/gif">
+            <img id="produtoFotoPreview6" class="foto-preview" alt="Prévia da foto 6">
+          </div>
+        </div>
+
+        <div id="fotoStatus" class="foto-status"></div>
       </div>
 
       <div class="checkbox-area">
@@ -188,7 +350,8 @@ button:hover { background: #000; }
         <label for="produtoAtivo">Produto Ativo</label>
       </div>
 
-      <div class="button-area">
+      <div class="button-area" style="gap: 8px;">
+        <button class="secundario" onclick="limparFormulario()">Limpar</button>
         <button onclick="salvarProduto()">Salvar Produto</button>
       </div>
 
@@ -231,8 +394,126 @@ function trocarTab(tab) {
 async function api(url, method='GET', body=null) {
   const options = { method, headers: { 'Content-Type': 'application/json' } };
   if (body) options.body = JSON.stringify(body);
+
   const r = await fetch(url, options);
-  return r.json();
+  const json = await r.json().catch(() => ({}));
+
+  if (!r.ok || json.success === false) {
+    throw new Error(json.message || json.erro || 'Erro na requisição.');
+  }
+
+  return json;
+}
+
+function setFotoStatus(texto) {
+  document.getElementById('fotoStatus').textContent = texto || '';
+}
+
+function campoFoto(posicao) {
+  return document.getElementById(`produtoFoto${posicao}`);
+}
+
+function campoArquivoFoto(posicao) {
+  return document.getElementById(`produtoFotoArquivo${posicao}`);
+}
+
+function campoPreviewFoto(posicao) {
+  return document.getElementById(`produtoFotoPreview${posicao}`);
+}
+
+function atualizarPreviewFoto(posicao, src) {
+  const preview = campoPreviewFoto(posicao);
+  const url = (src || '').trim();
+
+  if (!url) {
+    preview.removeAttribute('src');
+    preview.style.display = 'none';
+    return;
+  }
+
+  preview.src = url;
+  preview.style.display = 'block';
+}
+
+function contarFotosProduto(p) {
+  return [p.foto, p.foto_2, p.foto_3, p.foto_4, p.foto_5, p.foto_6]
+    .filter(url => url && String(url).trim()).length;
+}
+
+function getUrlFotoProduto(p, posicao) {
+  if (posicao === 1) return p.foto || '';
+  return p[`foto_${posicao}`] || '';
+}
+
+function setUrlFotoProduto(posicao, url) {
+  campoFoto(posicao).value = url || '';
+  atualizarPreviewFoto(posicao, url || '');
+}
+
+function limparArquivosSelecionados() {
+  for (let i = 1; i <= 6; i++) {
+    campoArquivoFoto(i).value = '';
+  }
+}
+
+function urlsFotosFormulario() {
+  return {
+    foto: campoFoto(1).value,
+    foto_2: campoFoto(2).value,
+    foto_3: campoFoto(3).value,
+    foto_4: campoFoto(4).value,
+    foto_5: campoFoto(5).value,
+    foto_6: campoFoto(6).value,
+  };
+}
+
+async function enviarFotoSelecionada(produtoId, posicao) {
+  const input = campoArquivoFoto(posicao);
+  const arquivo = input.files && input.files[0];
+
+  if (!arquivo) return null;
+
+  const formData = new FormData();
+  formData.append('foto', arquivo);
+
+  const r = await fetch(`/api/produtos/${produtoId}/fotos/${posicao}`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  const json = await r.json().catch(() => ({}));
+
+  if (!r.ok || json.success === false) {
+    throw new Error(json.message || `Erro ao enviar a foto ${posicao}.`);
+  }
+
+  const url = json.data && json.data.url ? json.data.url : '';
+  setUrlFotoProduto(posicao, url);
+  input.value = '';
+  return url;
+}
+
+async function enviarFotosSelecionadas(produtoId) {
+  let quantidade = 0;
+
+  for (let i = 1; i <= 6; i++) {
+    const input = campoArquivoFoto(i);
+    if (input.files && input.files[0]) quantidade++;
+  }
+
+  if (quantidade === 0) return;
+
+  setFotoStatus(`Enviando ${quantidade} foto(s) para o Cloudflare...`);
+
+  for (let i = 1; i <= 6; i++) {
+    const input = campoArquivoFoto(i);
+    if (input.files && input.files[0]) {
+      setFotoStatus(`Enviando foto ${i} de ${quantidade}...`);
+      await enviarFotoSelecionada(produtoId, i);
+    }
+  }
+
+  setFotoStatus('Fotos enviadas com sucesso.');
 }
 
 /* ================= CATEGORIAS ================= */
@@ -275,23 +556,31 @@ function editarCategoria(id) {
 }
 
 async function salvarCategoria() {
-  const nome = document.getElementById('novaCategoriaNome').value;
-  if (!nome) return;
+  try {
+    const nome = document.getElementById('novaCategoriaNome').value;
+    if (!nome) return;
 
-  if (categoriaEditando) {
-    await api(`/api/produtos-categorias/${categoriaEditando}`, 'PUT', { nome });
-  } else {
-    await api('/api/produtos-categorias', 'POST', { nome });
+    if (categoriaEditando) {
+      await api(`/api/produtos-categorias/${categoriaEditando}`, 'PUT', { nome });
+    } else {
+      await api('/api/produtos-categorias', 'POST', { nome });
+    }
+
+    categoriaEditando = null;
+    document.getElementById('novaCategoriaNome').value = '';
+    carregarCategorias();
+  } catch (error) {
+    alert(error.message);
   }
-
-  categoriaEditando = null;
-  document.getElementById('novaCategoriaNome').value = '';
-  carregarCategorias();
 }
 
 async function excluirCategoria(id) {
-  await api(`/api/produtos-categorias/${id}`, 'DELETE');
-  carregarCategorias();
+  try {
+    await api(`/api/produtos-categorias/${id}`, 'DELETE');
+    carregarCategorias();
+  } catch (error) {
+    alert(error.message);
+  }
 }
 
 /* ================= PRODUTOS ================= */
@@ -315,11 +604,21 @@ function renderProdutos() {
       (!filtroCat || p.categoria_id == filtroCat)
     )
     .forEach(p => {
+      const fotoPrincipal = p.foto && String(p.foto).trim() ? p.foto : '';
+      const fotosPreenchidas = contarFotosProduto(p);
+      const thumb = fotoPrincipal
+        ? `<img src="${fotoPrincipal}" class="produto-thumb" alt="Foto principal">`
+        : `<div class="produto-thumb"></div>`;
+
       lista.innerHTML += `
         <div class="lista-item">
-          <span>
-            ${p.nome} — R$ ${Number(p.preco).toFixed(2)} — ${p.categoria} — ${p.ativo ? 'Ativo' : 'Inativo'}
-          </span>
+          <div class="produto-info">
+            ${thumb}
+            <div class="produto-linha-texto">
+              <div>${p.nome} — R$ ${Number(p.preco).toFixed(2)} — ${p.categoria} — ${p.ativo ? 'Ativo' : 'Inativo'}</div>
+              <div style="font-size:12px;color:#666;">Fotos: ${fotosPreenchidas}/6 ${fotoPrincipal ? '— Foto 1 principal cadastrada' : '— Sem foto principal'}</div>
+            </div>
+          </div>
           <div class="lista-acoes">
             <button onclick="editarProduto(${p.id})">Editar</button>
             <button onclick="toggleAtivo(${p.id})">
@@ -333,23 +632,34 @@ function renderProdutos() {
 }
 
 async function salvarProduto() {
-  const data = {
-    nome: document.getElementById('produtoNome').value,
-    preco: Number(document.getElementById('produtoPreco').value),
-    categoria_id: Number(document.getElementById('produtoCategoria').value),
-    foto: document.getElementById('produtoFoto').value,
-    capacidade_caixa: Number(document.getElementById('produtoCaixa').value),
-    ativo: document.getElementById('produtoAtivo').checked
-  };
+  try {
+    const data = {
+      nome: document.getElementById('produtoNome').value,
+      preco: Number(document.getElementById('produtoPreco').value),
+      categoria_id: Number(document.getElementById('produtoCategoria').value),
+      ...urlsFotosFormulario(),
+      capacidade_caixa: Number(document.getElementById('produtoCaixa').value),
+      ativo: document.getElementById('produtoAtivo').checked
+    };
 
-  if (produtoEditando) {
-    await api(`/api/produtos/${produtoEditando}`, 'PUT', data);
-  } else {
-    await api('/api/produtos', 'POST', data);
+    let resposta;
+
+    if (produtoEditando) {
+      resposta = await api(`/api/produtos/${produtoEditando}`, 'PUT', data);
+    } else {
+      resposta = await api('/api/produtos', 'POST', data);
+      produtoEditando = resposta.data.id;
+    }
+
+    await enviarFotosSelecionadas(resposta.data.id);
+
+    limparFormulario();
+    await carregarProdutos();
+    setFotoStatus('Produto salvo com sucesso.');
+  } catch (error) {
+    alert(error.message);
+    setFotoStatus(error.message);
   }
-
-  limparFormulario();
-  carregarProdutos();
 }
 
 function editarProduto(id) {
@@ -359,35 +669,68 @@ function editarProduto(id) {
   document.getElementById('produtoNome').value = p.nome;
   document.getElementById('produtoPreco').value = p.preco;
   document.getElementById('produtoCategoria').value = p.categoria_id;
-  document.getElementById('produtoFoto').value = p.foto;
   document.getElementById('produtoCaixa').value = p.capacidade_caixa;
   document.getElementById('produtoAtivo').checked = p.ativo;
 
+  for (let i = 1; i <= 6; i++) {
+    setUrlFotoProduto(i, getUrlFotoProduto(p, i));
+  }
+
+  limparArquivosSelecionados();
+  setFotoStatus('Editando produto. Se selecionar arquivos, eles serão enviados ao salvar.');
   trocarTab('produtos');
 }
 
 async function toggleAtivo(id) {
-  const p = produtos.find(p => p.id === id);
-  await api(`/api/produtos/${id}`, 'PUT', { ...p, ativo: !p.ativo });
-  carregarProdutos();
+  try {
+    const p = produtos.find(p => p.id === id);
+    await api(`/api/produtos/${id}`, 'PUT', { ...p, ativo: !p.ativo });
+    carregarProdutos();
+  } catch (error) {
+    alert(error.message);
+  }
 }
 
 async function excluirProduto(id) {
-  await api(`/api/produtos/${id}`, 'DELETE');
-  carregarProdutos();
+  try {
+    await api(`/api/produtos/${id}`, 'DELETE');
+    carregarProdutos();
+  } catch (error) {
+    alert(error.message);
+  }
 }
 
 function limparFormulario() {
   produtoEditando = null;
   document.getElementById('produtoNome').value = '';
   document.getElementById('produtoPreco').value = '';
-  document.getElementById('produtoFoto').value = '';
   document.getElementById('produtoCaixa').value = 1;
   document.getElementById('produtoAtivo').checked = true;
+
+  for (let i = 1; i <= 6; i++) {
+    setUrlFotoProduto(i, '');
+    campoArquivoFoto(i).value = '';
+  }
+
+  setFotoStatus('');
 }
 
-carregarCategorias();
-carregarProdutos();
+for (let i = 1; i <= 6; i++) {
+  campoFoto(i).addEventListener('input', () => atualizarPreviewFoto(i, campoFoto(i).value));
+  campoArquivoFoto(i).addEventListener('change', () => {
+    const arquivo = campoArquivoFoto(i).files && campoArquivoFoto(i).files[0];
+    if (!arquivo) {
+      atualizarPreviewFoto(i, campoFoto(i).value);
+      return;
+    }
+
+    atualizarPreviewFoto(i, URL.createObjectURL(arquivo));
+    setFotoStatus('Arquivo selecionado. Clique em Salvar Produto para enviar ao Cloudflare.');
+  });
+}
+
+carregarCategorias().catch(error => alert(error.message));
+carregarProdutos().catch(error => alert(error.message));
 
 </script>
 
