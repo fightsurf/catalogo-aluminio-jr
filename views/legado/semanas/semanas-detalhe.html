@@ -189,6 +189,11 @@
       min-width: 220px;
       white-space: nowrap;
     }
+    .linha-carrada-hoje td,
+    thead .coluna-itens-produzir,
+    tbody .coluna-itens-produzir {
+      background: #fef9c3;
+    }
     .linha-total td {
       background: #111827;
       color: #fff;
@@ -291,6 +296,29 @@
       return `${dia}/${mes}/${ano}`;
     }
 
+    function obterDataIsoLocal(data = new Date()) {
+      const ano = data.getFullYear();
+      const mes = String(data.getMonth() + 1).padStart(2, '0');
+      const dia = String(data.getDate()).padStart(2, '0');
+      return `${ano}-${mes}-${dia}`;
+    }
+
+    function normalizarDataComparacao(valor) {
+      if (!valor) return '';
+
+      const texto = String(valor).trim();
+      const matchIso = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+      if (matchIso) {
+        return `${matchIso[1]}-${matchIso[2]}-${matchIso[3]}`;
+      }
+
+      const data = new Date(texto);
+      if (Number.isNaN(data.getTime())) return '';
+
+      return obterDataIsoLocal(data);
+    }
+
     function obterTimestampData(valor) {
       if (!valor) return NaN;
 
@@ -352,6 +380,7 @@
       const conteudo = document.getElementById('conteudo');
       const carradas = Array.isArray(semana.carradas) ? semana.carradas : [];
       const totais = semana.totais || {};
+      const hojeIso = obterDataIsoLocal();
 
       conteudo.innerHTML = `
         <section class="card">
@@ -418,14 +447,16 @@
                   <th>Pedidos a produzir</th>
                   <th>Total itens</th>
                   <th>Itens prontos</th>
-                  <th>Itens a produzir</th>
+                  <th class="coluna-itens-produzir">Itens a produzir</th>
                   <th>Total dos pedidos</th>
                   <th>Ações</th>
                 </tr>
               </thead>
               <tbody>
-                ${carradas.map((carrada) => `
-                  <tr>
+                ${carradas.map((carrada) => {
+                  const carradaHoje = normalizarDataComparacao(carrada.data) === hojeIso;
+                  return `
+                  <tr class="${carradaHoje ? 'linha-carrada-hoje' : ''}">
                     <td>${escapeHtml(carrada.codigo)}</td>
                     <td>${escapeHtml(formatarData(carrada.data))}</td>
                     <td>${escapeHtml(carrada.descricao || '-')}</td>
@@ -434,7 +465,7 @@
                     <td>${escapeHtml(formatarQuantidade(carrada.quantidade_pedidos_a_produzir))}</td>
                     <td>${escapeHtml(formatarQuantidade(carrada.quantidade_itens))}</td>
                     <td>${escapeHtml(formatarQuantidade(carrada.quantidade_itens_prontos))}</td>
-                    <td>${escapeHtml(formatarQuantidade(carrada.quantidade_itens_a_produzir))}</td>
+                    <td class="coluna-itens-produzir">${escapeHtml(formatarQuantidade(carrada.quantidade_itens_a_produzir))}</td>
                     <td>${escapeHtml(formatarMoeda(carrada.total_pedidos))}</td>
                     <td class="acoes-coluna">
                       <div class="acoes-carrada">
@@ -444,7 +475,8 @@
                       </div>
                     </td>
                   </tr>
-                `).join('')}
+                `;
+                }).join('')}
               </tbody>
               <tfoot>
                 <tr class="linha-total">
