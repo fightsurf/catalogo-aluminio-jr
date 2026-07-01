@@ -43,6 +43,7 @@ const funcionarioRoutes = require('./src/routes/funcionario/funcionario.routes')
 const fornecedorRoutes = require('./src/routes/fornecedor/fornecedor.routes');
 const produtoRoutes = require('./src/routes/produto/produto.routes');
 const assistenteProdutosRoutes = require('./src/routes/assistente/assistente-produtos.routes');
+const assistenteCatalogoRoutes = require('./src/routes/assistente/assistente-catalogo.routes');
 const produtoCategoriaRoutes = require('./src/routes/produtoCategoria/produtoCategoria.routes');
 const insumoCategoriaRoutes = require('./src/routes/insumoCategoria/insumoCategoria.routes');
 const insumoRoutes = require('./src/routes/insumo/insumo.routes');
@@ -133,6 +134,7 @@ app.use('/api/produtos-composicoes', produtoComposicaoRoutes);
 app.use('/api/produtos-resumo-custos', produtoResumoCustoRoutes);
 app.use('/api/produtos', produtoRoutes);
 app.use('/api/assistente/produtos', assistenteProdutosRoutes);
+app.use('/api/assistente/catalogo', assistenteCatalogoRoutes);
 app.use('/api/transportadoras', transportadorasRoutes);
 app.use('/api/logistica', logisticaRoutes);
 app.use('/api/funcionarios', funcionarioRoutes);
