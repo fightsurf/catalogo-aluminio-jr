@@ -7,6 +7,7 @@ router.get('/', ctrl.listar);
 router.post('/', ctrl.criar);
 router.get('/:id/resumo', ctrl.resumo);
 router.post('/:id/whatsapp/resumo', ctrl.enviarResumoWhatsapp);
+router.post('/:id/whatsapp/pdf', ctrl.enviarPdfWhatsapp);
 router.patch('/:id/concluir', ctrl.concluir);
 router.patch('/:id/reabrir', ctrl.reabrir);
 router.get('/:id', ctrl.buscarPorId);

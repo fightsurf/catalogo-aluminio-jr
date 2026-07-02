@@ -231,6 +231,7 @@ function renderizarPlanilha(resumo) {
   setElementDisplay('btn-reabrir-prestacao', concluida);
   setElementDisplay('btn-excluir-prestacao', !concluida);
   setElementDisplay('btn-whatsapp-resumo', !concluida);
+  setElementDisplay('btn-whatsapp-pdf', !concluida);
   setElementDisplay('form-item', !concluida, 'flex');
   setElementDisplay('form-pagamento', !concluida, 'flex');
 
@@ -592,6 +593,40 @@ async function enviarResumoWhatsappPrestacao(btn) {
 const btnWhatsappResumo = document.getElementById('btn-whatsapp-resumo');
 if (btnWhatsappResumo) {
   btnWhatsappResumo.addEventListener('click', (e) => enviarResumoWhatsappPrestacao(e.currentTarget));
+}
+
+// ─── ENVIAR PDF POR WHATSAPP ────────────────────────────────────
+
+async function enviarPdfWhatsappPrestacao(btn) {
+  if (!prestacaoAtualId) {
+    showMsg('Abra uma prestação antes de enviar o PDF.', 'erro');
+    return;
+  }
+
+  const textoOriginal = btn.textContent;
+  try {
+    btn.disabled = true;
+    btn.textContent = 'Enviando PDF...';
+
+    const res = await fetch(`${API_BASE}/${prestacaoAtualId}/whatsapp/pdf`, {
+      method: 'POST'
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message || 'Erro ao enviar PDF pelo WhatsApp.');
+
+    showMsg(`PDF enviado ao WhatsApp do fornecedor. Arquivo: ${json.data.nome_arquivo}`, 'sucesso');
+  } catch (e) {
+    console.error('Erro ao enviar PDF da prestação:', e);
+    showMsg('Erro ao enviar PDF: ' + e.message, 'erro');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = textoOriginal;
+  }
+}
+
+const btnWhatsappPdf = document.getElementById('btn-whatsapp-pdf');
+if (btnWhatsappPdf) {
+  btnWhatsappPdf.addEventListener('click', (e) => enviarPdfWhatsappPrestacao(e.currentTarget));
 }
 
 // ─── CONCLUIR / REABRIR PRESTAÇÃO ──────────────────────────────

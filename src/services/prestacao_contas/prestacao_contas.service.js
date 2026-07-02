@@ -1,5 +1,6 @@
 const pool = require('../../../db/connection');
 const envioWhatsappService = require('../whatsapp/envio-whatsapp.service');
+const prestacaoPdfService = require('./prestacaoPdf.service');
 
 class PrestacaoContasService {
   constructor() {
@@ -428,6 +429,69 @@ class PrestacaoContasService {
     };
   }
 
+  async enviarPdfWhatsapp(prestacao_id) {
+    await this._ensureSchema();
+    await this._recalcular(prestacao_id);
+
+    const cabecalhoRes = await pool.query(`
+      SELECT
+        p.*,
+        f.nome AS fornecedor_nome,
+        f.telefone AS fornecedor_telefone
+      FROM prestacoes p
+      LEFT JOIN fornecedores f ON f.id = p.fornecedor_id
+      WHERE p.id = $1
+    `, [prestacao_id]);
+
+    const cabecalho = cabecalhoRes.rows[0] || null;
+    if (!cabecalho) {
+      const err = new Error('Prestação não encontrada');
+      err.statusCode = 404;
+      throw err;
+    }
+
+    if (this._statusPrestacao(cabecalho) !== 'ABERTA') {
+      const err = new Error('O PDF do WhatsApp só pode ser enviado para uma prestação aberta.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    if (!String(cabecalho.fornecedor_telefone || '').trim()) {
+      const err = new Error('O fornecedor desta prestação não possui telefone cadastrado.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const resumo = await this.gerarResumoPrestacao(prestacao_id);
+    resumo.cabecalho = {
+      ...resumo.cabecalho,
+      fornecedor_telefone: cabecalho.fornecedor_telefone
+    };
+
+    const pdfBuffer = prestacaoPdfService.gerarPdfPrestacao(resumo);
+    const nomeArquivo = this._montarNomeArquivoPdf(cabecalho);
+    const legenda = `Prestação ${cabecalho.titulo || `#${cabecalho.id}`} - ${cabecalho.fornecedor_nome || 'Fornecedor'}`;
+
+    const envio = await envioWhatsappService.enviarDocumentoPdf({
+      telefone: cabecalho.fornecedor_telefone,
+      documentoBase64: pdfBuffer.toString('base64'),
+      nomeArquivo,
+      legenda
+    });
+
+    await this._registrarLog(
+      prestacao_id,
+      'ENVIAR_WHATSAPP_PDF',
+      `PDF da prestação enviado ao fornecedor: ${nomeArquivo}`
+    );
+
+    return {
+      fornecedor: cabecalho.fornecedor_nome,
+      telefone: envio.telefone,
+      nome_arquivo: nomeArquivo
+    };
+  }
+
   // ─── RESUMO ───────────────────────────────────────────────────
 
   async gerarResumoPrestacao(prestacao_id) {
@@ -693,6 +757,20 @@ class PrestacaoContasService {
       `Saldo restante: *${this._formatarMoedaBr(cabecalho.saldo_restante)}*`
     );
     return linhas.join('\n');
+  }
+
+  _montarNomeArquivoPdf(cabecalho) {
+    const partes = [cabecalho.id, cabecalho.fornecedor_nome, cabecalho.titulo]
+      .filter(Boolean)
+      .map((valor) => String(valor)
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-zA-Z0-9_-]+/g, '_')
+        .replace(/^_+|_+$/g, ''))
+      .filter(Boolean);
+
+    const base = partes.join('_').slice(0, 100) || String(cabecalho.id || 'prestacao');
+    return `Prestacao_${base}.pdf`;
   }
 
   _formatarMoedaBr(value) {

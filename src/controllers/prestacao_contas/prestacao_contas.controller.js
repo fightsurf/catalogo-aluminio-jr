@@ -182,6 +182,24 @@ class PrestacaoContasController {
     }
   }
 
+  async enviarPdfWhatsapp(req, res) {
+    try {
+      const { id } = req.params;
+      const data = await prestacaoContasService.enviarPdfWhatsapp(id);
+      return res.json({
+        success: true,
+        message: 'PDF enviado ao fornecedor pelo WhatsApp.',
+        data
+      });
+    } catch (error) {
+      console.error('ERRO enviar PDF da prestação por WhatsApp:', error);
+      return res.status(error.statusCode || 500).json({
+        success: false,
+        message: error.message || 'Erro ao enviar PDF pelo WhatsApp.'
+      });
+    }
+  }
+
   // ─── RESUMO ───────────────────────────────────────────────────
 
   async resumo(req, res) {

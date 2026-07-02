@@ -96,6 +96,7 @@ body {
 .btn-del,
 .btn-excluir-prestacao,
 .btn-whatsapp-resumo,
+.btn-whatsapp-pdf,
 .btn-concluir-prestacao,
 .btn-reabrir-prestacao,
 .btn-add,
@@ -391,7 +392,8 @@ body {
 }
 
 .btn-relatorio-pdf,
-.btn-whatsapp-resumo {
+.btn-whatsapp-resumo,
+.btn-whatsapp-pdf {
   padding: 6px 14px;
   background: var(--pc-primary);
   color: #fff;
@@ -412,6 +414,13 @@ body {
 .btn-whatsapp-resumo:hover { background: #1a7f37; }
 .btn-whatsapp-resumo:focus-visible { outline: 2px solid #1f883d; outline-offset: 2px; }
 .btn-whatsapp-resumo:disabled { opacity: .65; cursor: wait; }
+
+.btn-whatsapp-pdf {
+  background: #116329;
+}
+.btn-whatsapp-pdf:hover { background: #0d5322; }
+.btn-whatsapp-pdf:focus-visible { outline: 2px solid #116329; outline-offset: 2px; }
+.btn-whatsapp-pdf:disabled { opacity: .65; cursor: wait; }
 .btn-excluir-prestacao {
   padding: 6px 14px;
   background: var(--pc-surface);
@@ -638,7 +647,7 @@ body {
   .section-head { align-items: flex-start; flex-direction: column; }
   .detail-head { flex-direction: column; }
   .detail-actions { width: 100%; flex-wrap: wrap; }
-  .btn-relatorio-pdf, .btn-whatsapp-resumo { flex: 1; }
+  .btn-relatorio-pdf, .btn-whatsapp-resumo, .btn-whatsapp-pdf { flex: 1; }
   .filter-wrap { width: 100%; align-items: flex-start; flex-direction: column; }
   .filter-wrap select { width: 100%; }
   .add-row { flex-direction: column; }
