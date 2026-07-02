@@ -679,13 +679,19 @@ class PrestacaoContasService {
       pagamentos.forEach((pagamento, index) => {
         const observacao = String(pagamento.observacao || '').trim();
         const detalheObservacao = observacao ? ` - ${observacao}` : '';
+
+        if (index > 0) linhas.push('');
         linhas.push(
           `${index + 1}. ${this._formatarDataBr(pagamento.data_pagamento)} - *${this._formatarMoedaBr(pagamento.valor)}*${detalheObservacao}`
         );
       });
     }
 
-    linhas.push('', `Saldo restante: *${this._formatarMoedaBr(cabecalho.saldo_restante)}*`);
+    linhas.push(
+      '',
+      `Total já pago: *${this._formatarMoedaBr(cabecalho.total_pago)}*`,
+      `Saldo restante: *${this._formatarMoedaBr(cabecalho.saldo_restante)}*`
+    );
     return linhas.join('\n');
   }
 
