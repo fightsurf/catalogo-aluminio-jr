@@ -32,6 +32,9 @@ function normalizarPedido(item) {
     clienteNome: textoSeguro(item.clienteNome ?? item.cliente_nome ?? item.CLIENTE_NOME),
     clienteTelefone1: textoSeguro(item.clienteTelefone1 ?? item.cliente_telefone1 ?? item.CLIENTE_TELEFONE1),
     clienteTelefonePrincipal: textoSeguro(item.clienteTelefonePrincipal ?? item.cliente_telefone_principal ?? item.CLIENTE_TELEFONE_PRINCIPAL),
+    carradaCodigo: item.carradaCodigo ?? item.carrada_codigo ?? item.CARRADA_CODIGO ?? null,
+    carradaData: item.carradaData ?? item.carrada_data ?? item.CARRADA_DATA ?? null,
+    carradaDescricao: textoSeguro(item.carradaDescricao ?? item.carrada_descricao ?? item.CARRADA_DESCRICAO),
     VendedorNome:
       item.VendedorNome ??
       item.VENDEDORNOME ??

@@ -113,7 +113,7 @@
     table {
       width: 100%;
       border-collapse: collapse;
-      min-width: 1080px;
+      min-width: 1240px;
     }
 
     thead {
@@ -250,6 +250,7 @@
             <tr>
               <th>Número</th>
               <th>Data</th>
+              <th>Carrada</th>
               <th>Total do pedido</th>
               <th>Valor pago</th>
               <th>Restante a pagar</th>
@@ -259,7 +260,7 @@
           </thead>
           <tbody id="tabelaPedidos">
             <tr>
-              <td colspan="7" class="vazio">Carregando...</td>
+              <td colspan="8" class="vazio">Carregando...</td>
             </tr>
           </tbody>
           <tfoot id="rodapePedidos"></tfoot>
@@ -331,6 +332,14 @@
       }
 
       return dt.toLocaleDateString('pt-BR');
+    }
+
+    function formatarCarrada(pedido) {
+      const data = formatarData(pedido?.carradaData);
+      const descricao = String(pedido?.carradaDescricao || '').trim();
+
+      if (data && descricao) return `${data} - ${descricao}`;
+      return data || descricao || 'Não informada';
     }
 
     function formatarMoeda(valor) {
@@ -577,7 +586,7 @@
 
       rodapePedidos.innerHTML = `
         <tr class="linha-total-geral">
-          <td colspan="2">Total geral</td>
+          <td colspan="3">Total geral</td>
           <td>${formatarMoeda(totais.totalPedidos)}</td>
           <td>${formatarMoeda(totais.totalPago)}</td>
           <td>${formatarMoeda(totais.saldoRestante)}</td>
@@ -590,7 +599,7 @@
       if (!Array.isArray(pedidos) || pedidos.length === 0) {
         tabelaPedidos.innerHTML = `
           <tr>
-            <td colspan="7" class="vazio">Nenhum pedido encontrado para este cliente.</td>
+            <td colspan="8" class="vazio">Nenhum pedido encontrado para este cliente.</td>
           </tr>
         `;
         rodapePedidos.innerHTML = '';
@@ -606,6 +615,7 @@
             </a>
           </td>
           <td>${escapeHtml(formatarData(pedido.data))}</td>
+          <td>${escapeHtml(formatarCarrada(pedido))}</td>
           <td class="total-cell">${escapeHtml(formatarMoeda(pedido.total))}</td>
           <td class="total-cell">${escapeHtml(formatarMoeda(pedido.totalPago || 0))}</td>
           <td class="saldo-cell ${classeSaldo(pedido)}">${escapeHtml(formatarMoeda(pedido.saldoRestante || 0))}</td>
@@ -663,7 +673,7 @@
         atualizarSubtitulo(null);
         tabelaPedidos.innerHTML = `
           <tr>
-            <td colspan="7" class="vazio">Parâmetro "favorecido" não informado.</td>
+            <td colspan="8" class="vazio">Parâmetro "favorecido" não informado.</td>
           </tr>
         `;
         rodapePedidos.innerHTML = '';
@@ -686,7 +696,7 @@
         atualizarSubtitulo(null);
         tabelaPedidos.innerHTML = `
           <tr>
-            <td colspan="7" class="vazio">Erro ao carregar pedidos.</td>
+            <td colspan="8" class="vazio">Erro ao carregar pedidos.</td>
           </tr>
         `;
         rodapePedidos.innerHTML = '';
