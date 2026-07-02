@@ -1,5 +1,5 @@
 const pool = require('../../../db/connection');
-const envioWhatsappService = require('../../whatsapp/envio-whatsapp.service');
+const envioWhatsappService = require('../whatsapp/envio-whatsapp.service');
 
 class PrestacaoContasService {
   constructor() {
