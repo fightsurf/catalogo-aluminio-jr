@@ -162,6 +162,26 @@ class PrestacaoContasController {
     }
   }
 
+  // ─── WHATSAPP ─────────────────────────────────────────────────
+
+  async enviarResumoWhatsapp(req, res) {
+    try {
+      const { id } = req.params;
+      const data = await prestacaoContasService.enviarResumoWhatsapp(id);
+      return res.json({
+        success: true,
+        message: 'Resumo enviado ao fornecedor pelo WhatsApp.',
+        data
+      });
+    } catch (error) {
+      console.error('ERRO enviar resumo da prestação por WhatsApp:', error);
+      return res.status(error.statusCode || 500).json({
+        success: false,
+        message: error.message || 'Erro ao enviar resumo pelo WhatsApp.'
+      });
+    }
+  }
+
   // ─── RESUMO ───────────────────────────────────────────────────
 
   async resumo(req, res) {

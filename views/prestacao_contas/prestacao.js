@@ -230,6 +230,7 @@ function renderizarPlanilha(resumo) {
   setElementDisplay('btn-concluir-prestacao', !concluida);
   setElementDisplay('btn-reabrir-prestacao', concluida);
   setElementDisplay('btn-excluir-prestacao', !concluida);
+  setElementDisplay('btn-whatsapp-resumo', !concluida);
   setElementDisplay('form-item', !concluida, 'flex');
   setElementDisplay('form-pagamento', !concluida, 'flex');
 
@@ -557,6 +558,41 @@ async function deletarPagamento(pagamentoId, btn) {
   }
 }
 
+
+// ─── ENVIAR RESUMO POR WHATSAPP ─────────────────────────────────
+
+async function enviarResumoWhatsappPrestacao(btn) {
+  if (!prestacaoAtualId) {
+    showMsg('Abra uma prestação antes de enviar o resumo.', 'erro');
+    return;
+  }
+
+  const textoOriginal = btn.textContent;
+  try {
+    btn.disabled = true;
+    btn.textContent = 'Enviando...';
+
+    const res = await fetch(`${API_BASE}/${prestacaoAtualId}/whatsapp/resumo`, {
+      method: 'POST'
+    });
+    const json = await res.json();
+    if (!json.success) throw new Error(json.message || 'Erro ao enviar resumo pelo WhatsApp.');
+
+    const quantidade = Number(json.data && json.data.quantidade_pagamentos || 0);
+    showMsg(`Resumo enviado ao fornecedor com ${quantidade} pagamento(s).`, 'sucesso');
+  } catch (e) {
+    console.error('Erro ao enviar resumo da prestação:', e);
+    showMsg('Erro ao enviar resumo: ' + e.message, 'erro');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = textoOriginal;
+  }
+}
+
+const btnWhatsappResumo = document.getElementById('btn-whatsapp-resumo');
+if (btnWhatsappResumo) {
+  btnWhatsappResumo.addEventListener('click', (e) => enviarResumoWhatsappPrestacao(e.currentTarget));
+}
 
 // ─── CONCLUIR / REABRIR PRESTAÇÃO ──────────────────────────────
 

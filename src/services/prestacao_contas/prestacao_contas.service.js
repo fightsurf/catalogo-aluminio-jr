@@ -1,4 +1,5 @@
 const pool = require('../../../db/connection');
+const envioWhatsappService = require('../../whatsapp/envio-whatsapp.service');
 
 class PrestacaoContasService {
   constructor() {
@@ -363,6 +364,70 @@ class PrestacaoContasService {
     return true;
   }
 
+  // ─── WHATSAPP ─────────────────────────────────────────────────
+
+  async enviarResumoWhatsapp(prestacao_id) {
+    await this._ensureSchema();
+    await this._recalcular(prestacao_id);
+
+    const cabecalhoRes = await pool.query(`
+      SELECT
+        p.*,
+        f.nome AS fornecedor_nome,
+        f.telefone AS fornecedor_telefone
+      FROM prestacoes p
+      LEFT JOIN fornecedores f ON f.id = p.fornecedor_id
+      WHERE p.id = $1
+    `, [prestacao_id]);
+
+    const cabecalho = cabecalhoRes.rows[0] || null;
+    if (!cabecalho) {
+      const err = new Error('Prestação não encontrada');
+      err.statusCode = 404;
+      throw err;
+    }
+
+    if (this._statusPrestacao(cabecalho) !== 'ABERTA') {
+      const err = new Error('O resumo do WhatsApp só pode ser enviado para uma prestação aberta.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    if (!String(cabecalho.fornecedor_telefone || '').trim()) {
+      const err = new Error('O fornecedor desta prestação não possui telefone cadastrado.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const pagamentosRes = await pool.query(`
+      SELECT *
+      FROM prestacao_pagamentos
+      WHERE prestacao_id = $1
+      ORDER BY data_pagamento DESC, id DESC
+      LIMIT 5
+    `, [prestacao_id]);
+
+    const pagamentos = pagamentosRes.rows.reverse();
+    const mensagem = this._montarMensagemResumoWhatsapp(cabecalho, pagamentos);
+    const envio = await envioWhatsappService.enviarMensagem({
+      telefone: cabecalho.fornecedor_telefone,
+      mensagem
+    });
+
+    await this._registrarLog(
+      prestacao_id,
+      'ENVIAR_WHATSAPP_RESUMO',
+      `Resumo enviado ao fornecedor com ${pagamentos.length} pagamento(s).`
+    );
+
+    return {
+      fornecedor: cabecalho.fornecedor_nome,
+      telefone: envio.telefone,
+      quantidade_pagamentos: pagamentos.length,
+      mensagem
+    };
+  }
+
   // ─── RESUMO ───────────────────────────────────────────────────
 
   async gerarResumoPrestacao(prestacao_id) {
@@ -594,6 +659,57 @@ class PrestacaoContasService {
       throw new Error(`${campo} não pode ser negativo.`);
     }
     return n;
+  }
+
+  _montarMensagemResumoWhatsapp(cabecalho, pagamentos) {
+    const linhas = [
+      '*RESUMO DA PRESTAÇÃO - ALUMÍNIO JR*',
+      `Fornecedor: ${String(cabecalho.fornecedor_nome || 'Não informado').trim()}`,
+      `Prestação: ${String(cabecalho.titulo || `#${cabecalho.id}`).trim()}`,
+      `Data de referência: ${this._formatarDataBr(cabecalho.data_referencia)}`,
+      '',
+      `Valor da compra: *${this._formatarMoedaBr(cabecalho.total_material)}*`,
+      '',
+      '*Últimos pagamentos (até 5):*'
+    ];
+
+    if (!pagamentos.length) {
+      linhas.push('Nenhum pagamento registrado.');
+    } else {
+      pagamentos.forEach((pagamento, index) => {
+        const observacao = String(pagamento.observacao || '').trim();
+        const detalheObservacao = observacao ? ` - ${observacao}` : '';
+        linhas.push(
+          `${index + 1}. ${this._formatarDataBr(pagamento.data_pagamento)} - *${this._formatarMoedaBr(pagamento.valor)}*${detalheObservacao}`
+        );
+      });
+    }
+
+    linhas.push('', `Saldo restante: *${this._formatarMoedaBr(cabecalho.saldo_restante)}*`);
+    return linhas.join('\n');
+  }
+
+  _formatarMoedaBr(value) {
+    const numero = this._toNumber(value).toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    });
+    return `R$ ${numero}`;
+  }
+
+  _formatarDataBr(value) {
+    if (!value) return 'Não informada';
+
+    if (value instanceof Date && !Number.isNaN(value.getTime())) {
+      const dia = String(value.getUTCDate()).padStart(2, '0');
+      const mes = String(value.getUTCMonth() + 1).padStart(2, '0');
+      const ano = value.getUTCFullYear();
+      return `${dia}/${mes}/${ano}`;
+    }
+
+    const texto = String(value).substring(0, 10);
+    const match = texto.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return match ? `${match[3]}/${match[2]}/${match[1]}` : texto;
   }
 
   _toNumber(value) {
