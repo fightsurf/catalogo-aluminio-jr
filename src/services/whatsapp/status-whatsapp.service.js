@@ -51,12 +51,12 @@ function formatarPreco(valor) {
 }
 
 function avaliarProduto(produto) {
-  const foto3 = limparTexto(produto.foto_3);
+  const foto1 = limparTexto(produto.foto);
   const precoNumero = Number(produto.preco);
   let motivo = '';
 
-  if (!foto3) {
-    motivo = 'Produto sem foto 3.';
+  if (!foto1) {
+    motivo = 'Produto sem foto 1.';
   } else if (!Number.isFinite(precoNumero) || precoNumero <= 0) {
     motivo = 'Produto sem preço válido.';
   }
@@ -68,7 +68,7 @@ function avaliarProduto(produto) {
     preco_formatado: Number.isFinite(precoNumero) && precoNumero > 0
       ? formatarPreco(precoNumero)
       : '',
-    foto_3: foto3,
+    foto: foto1,
     categoria_id: Number(produto.categoria_id),
     categoria: produto.categoria,
     ativo: Boolean(produto.ativo),
@@ -107,7 +107,7 @@ async function listarCategorias() {
       COUNT(p.id) FILTER (WHERE p.ativo = true)::int AS total_ativos,
       COUNT(p.id) FILTER (
         WHERE p.ativo = true
-          AND NULLIF(BTRIM(p.foto_3), '') IS NOT NULL
+          AND NULLIF(BTRIM(p.foto), '') IS NOT NULL
           AND p.preco IS NOT NULL
           AND p.preco > 0
       )::int AS total_publicaveis
@@ -143,7 +143,7 @@ async function listarProdutosPorCategoria(categoriaId) {
       p.id,
       p.nome,
       p.preco,
-      p.foto_3,
+      p.foto,
       p.ativo,
       c.id AS categoria_id,
       c.nome AS categoria
@@ -178,7 +178,7 @@ async function buscarProdutoParaPublicacao(produtoId, categoriaId) {
       p.id,
       p.nome,
       p.preco,
-      p.foto_3,
+      p.foto,
       p.ativo,
       c.id AS categoria_id,
       c.nome AS categoria
@@ -226,7 +226,7 @@ async function publicarProduto({ requestId, produtoId, categoriaId }) {
     const legenda = formatarPreco(produto.preco);
 
     const resultado = await zapiService.enviarImagemStatus({
-      imagem: produto.foto_3,
+      imagem: produto.foto,
       legenda,
     });
 
@@ -240,7 +240,7 @@ async function publicarProduto({ requestId, produtoId, categoriaId }) {
         categoria: produto.categoria,
         preco: produto.preco,
         preco_formatado: legenda,
-        foto_3: produto.foto_3,
+        foto: produto.foto,
       },
       legenda,
       zapi: resultado.zapi,

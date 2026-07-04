@@ -1,0 +1,22 @@
+PATCH — STATUS DO WHATSAPP USANDO A FOTO 1
+Base analisada: render(58).zip
+
+ALTERAÇÃO
+- O módulo de publicação por categoria passa a usar a primeira foto do produto.
+- No banco, a primeira foto corresponde ao campo "foto".
+- A legenda continua contendo somente o preço.
+- Produtos ativos sem a primeira foto ou sem preço válido são ignorados.
+- A proteção administrativa e a prevenção contra publicação duplicada foram mantidas.
+
+ARQUIVOS PARA SUBSTITUIR NO GITHUB
+1. src/services/whatsapp/status-whatsapp.service.js
+2. views/whatsapp/status-whatsapp.html
+
+NÃO É NECESSÁRIO
+- Executar SQL.
+- Alterar variáveis de ambiente.
+- Alterar o projeto local.
+- Fazer novo upload das imagens para o Cloudflare.
+
+ENDEREÇO DO MÓDULO
+/whatsapp/status

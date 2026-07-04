@@ -153,7 +153,7 @@
     <div class="topbar">
       <div>
         <h1>Publicar produtos no Status</h1>
-        <p class="subtitle">Escolha uma categoria. O sistema usa a foto 3 e publica somente o preço como legenda.</p>
+        <p class="subtitle">Escolha uma categoria. O sistema usa a foto 1 e publica somente o preço como legenda.</p>
       </div>
       <div class="top-actions">
         <div id="connection" class="connection">
@@ -193,7 +193,7 @@
       </div>
 
       <p class="note">
-        Somente produtos ativos são considerados. Produtos sem foto 3 ou sem preço válido serão mostrados, mas não serão publicados.
+        Somente produtos ativos são considerados. Produtos sem foto 1 ou sem preço válido serão mostrados, mas não serão publicados.
       </p>
     </section>
 
@@ -334,9 +334,9 @@
 
       lista.innerHTML = produtos.map((produto, index) => {
         const classe = produto.publicavel ? (produto.estado || '') : 'skipped';
-        const imagem = produto.foto_3
-          ? `<img class="thumb" src="${escaparHtml(produto.foto_3)}" alt="Foto 3 de ${escaparHtml(produto.nome)}" loading="lazy" />`
-          : '<div class="thumb-placeholder">Sem foto 3</div>';
+        const imagem = produto.foto
+          ? `<img class="thumb" src="${escaparHtml(produto.foto)}" alt="Foto 1 de ${escaparHtml(produto.nome)}" loading="lazy" />`
+          : '<div class="thumb-placeholder">Sem foto 1</div>';
         const badge = produto.publicavel
           ? '<span class="badge ok">Será publicado</span>'
           : '<span class="badge skip">Ignorado</span>';
