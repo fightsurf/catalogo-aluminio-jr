@@ -241,6 +241,86 @@ async function postZapi(endpoint, payload) {
   };
 }
 
+
+async function getZapi(endpoint) {
+  const url = `${getZapiUrlBase()}${endpoint}`;
+
+  let response;
+
+  try {
+    response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Client-Token': getZapiClientToken()
+      }
+    });
+  } catch (error) {
+    throw new Error(`Falha ao conectar à Z-API (${url}): ${error.message}`);
+  }
+
+  const responseText = await response.text().catch(() => '');
+  let responseData = null;
+
+  if (responseText) {
+    try {
+      responseData = JSON.parse(responseText);
+    } catch (_) {
+      responseData = { raw: responseText };
+    }
+  }
+
+  if (!response.ok) {
+    const detalhe =
+      responseData?.error ||
+      responseData?.message ||
+      responseData?.errorDescription ||
+      responseText ||
+      'Erro ao consultar a Z-API.';
+
+    throw new Error(`Z-API respondeu ${response.status}: ${detalhe}`);
+  }
+
+  return responseData || {};
+}
+
+async function verificarConexao() {
+  const data = await getZapi('/status');
+
+  return {
+    connected: Boolean(data.connected),
+    smartphoneConnected: Boolean(data.smartphoneConnected),
+    error: data.error || ''
+  };
+}
+
+async function enviarImagemStatus({ imagem, legenda }) {
+  const imagemNormalizada = String(imagem || '').trim();
+  const legendaNormalizada = String(legenda || '').trim();
+
+  if (!imagemNormalizada) {
+    throw new Error('Imagem do Status é obrigatória.');
+  }
+
+  if (!/^data:image\/(jpeg|jpg|png|webp);base64,/i.test(imagemNormalizada)) {
+    throw new Error('Imagem do Status inválida. Use JPG, PNG ou WEBP em Base64.');
+  }
+
+  const payload = {
+    image: imagemNormalizada
+  };
+
+  if (legendaNormalizada) {
+    payload.caption = legendaNormalizada;
+  }
+
+  const resultado = await postZapi('/send-image-status', payload);
+
+  return {
+    ...resultado,
+    legenda: legendaNormalizada
+  };
+}
+
 async function enviarTexto({ telefone, mensagem }) {
   const telefoneNormalizado = normalizarTelefone(telefone);
   const mensagemNormalizada = String(mensagem || '').trim();
@@ -317,6 +397,8 @@ module.exports = {
   normalizarTipoAcao,
   enviarTexto,
   enviarDocumentoPdf,
+  enviarImagemStatus,
+  verificarConexao,
   enviarAcao,
   montarRequisicao,
   postZapi

@@ -76,6 +76,8 @@ const pedidosInsercaoLegadoV2ViewRoutes = require('./src/routes/legado/pedidos-i
 const pedidosInsercaoMobileViewRoutes = require('./src/routes/legado/pedidos-insercao-mobile/pedidos-insercao-mobile.view.routes');
 const envioWhatsappRoutes = require('./src/routes/whatsapp/envio-whatsapp.routes');
 const envioWhatsappViewRoutes = require('./src/routes/whatsapp/envio-whatsapp.view.routes');
+const statusWhatsappRoutes = require('./src/routes/whatsapp/status-whatsapp.routes');
+const statusWhatsappViewRoutes = require('./src/routes/whatsapp/status-whatsapp.view.routes');
 const hubRoutes = require('./src/routes/hub/hub.routes');
 
 
@@ -151,6 +153,8 @@ app.use('/legado/pedidos-insercao-v2', pedidosInsercaoLegadoV2ViewRoutes);
 app.use('/legado/pedidos-insercao-mobile', pedidosInsercaoMobileViewRoutes);
 app.use('/api/whatsapp', envioWhatsappRoutes);
 app.use('/whatsapp', envioWhatsappViewRoutes);
+app.use('/api/whatsapp/status', statusWhatsappRoutes);
+app.use('/whatsapp', statusWhatsappViewRoutes);
 app.use('/hub', hubRoutes);
 
 app.use('/bot', botRoutes);
