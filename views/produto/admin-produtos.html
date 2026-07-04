@@ -161,11 +161,36 @@ button.secundario:hover {
   border-radius: 6px;
   padding: 10px;
   background: #fafafa;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
 .foto-slot.principal {
   border-color: #222;
   background: #f7f7f7;
+}
+
+.foto-slot.colagem-ativa {
+  border-color: #1565c0;
+  box-shadow: 0 0 0 2px rgba(21, 101, 192, 0.18);
+  background: #f4f8ff;
+}
+
+.foto-colar-ajuda {
+  margin: 0 0 8px;
+  padding: 7px 8px;
+  border: 1px dashed #aaa;
+  border-radius: 4px;
+  background: #fff;
+  color: #555;
+  font-size: 12px;
+  line-height: 1.35;
+  cursor: pointer;
+}
+
+.foto-slot.colagem-ativa .foto-colar-ajuda {
+  border-color: #1565c0;
+  color: #0d47a1;
 }
 
 .foto-slot input[type="text"] {
@@ -295,47 +320,53 @@ button.secundario:hover {
       <div class="fotos-area">
         <div class="fotos-titulo">
           <label>Fotos do Produto</label>
-          <span class="fotos-ajuda">Até 6 fotos. A Foto 1 é a principal exibida pelo sistema.</span>
+          <span class="fotos-ajuda">Escolha um arquivo ou clique no quadro desejado e pressione Ctrl+V para colar uma imagem.</span>
         </div>
 
         <div class="fotos-grid">
-          <div class="foto-slot principal">
+          <div class="foto-slot principal" data-foto-posicao="1" tabindex="0">
             <label>Foto 1 — Principal</label>
+            <div class="foto-colar-ajuda">Clique neste quadro e pressione <strong>Ctrl+V</strong> para colar a imagem na Foto 1.</div>
             <input type="text" id="produtoFoto1" placeholder="URL da foto principal">
             <input type="file" id="produtoFotoArquivo1" accept="image/jpeg,image/png,image/webp,image/gif">
             <img id="produtoFotoPreview1" class="foto-preview" alt="Prévia da foto 1">
           </div>
 
-          <div class="foto-slot">
+          <div class="foto-slot" data-foto-posicao="2" tabindex="0">
             <label>Foto 2</label>
+            <div class="foto-colar-ajuda">Clique neste quadro e pressione <strong>Ctrl+V</strong> para colar a imagem na Foto 2.</div>
             <input type="text" id="produtoFoto2" placeholder="URL da foto 2">
             <input type="file" id="produtoFotoArquivo2" accept="image/jpeg,image/png,image/webp,image/gif">
             <img id="produtoFotoPreview2" class="foto-preview" alt="Prévia da foto 2">
           </div>
 
-          <div class="foto-slot">
+          <div class="foto-slot" data-foto-posicao="3" tabindex="0">
             <label>Foto 3</label>
+            <div class="foto-colar-ajuda">Clique neste quadro e pressione <strong>Ctrl+V</strong> para colar a imagem na Foto 3.</div>
             <input type="text" id="produtoFoto3" placeholder="URL da foto 3">
             <input type="file" id="produtoFotoArquivo3" accept="image/jpeg,image/png,image/webp,image/gif">
             <img id="produtoFotoPreview3" class="foto-preview" alt="Prévia da foto 3">
           </div>
 
-          <div class="foto-slot">
+          <div class="foto-slot" data-foto-posicao="4" tabindex="0">
             <label>Foto 4</label>
+            <div class="foto-colar-ajuda">Clique neste quadro e pressione <strong>Ctrl+V</strong> para colar a imagem na Foto 4.</div>
             <input type="text" id="produtoFoto4" placeholder="URL da foto 4">
             <input type="file" id="produtoFotoArquivo4" accept="image/jpeg,image/png,image/webp,image/gif">
             <img id="produtoFotoPreview4" class="foto-preview" alt="Prévia da foto 4">
           </div>
 
-          <div class="foto-slot">
+          <div class="foto-slot" data-foto-posicao="5" tabindex="0">
             <label>Foto 5</label>
+            <div class="foto-colar-ajuda">Clique neste quadro e pressione <strong>Ctrl+V</strong> para colar a imagem na Foto 5.</div>
             <input type="text" id="produtoFoto5" placeholder="URL da foto 5">
             <input type="file" id="produtoFotoArquivo5" accept="image/jpeg,image/png,image/webp,image/gif">
             <img id="produtoFotoPreview5" class="foto-preview" alt="Prévia da foto 5">
           </div>
 
-          <div class="foto-slot">
+          <div class="foto-slot" data-foto-posicao="6" tabindex="0">
             <label>Foto 6</label>
+            <div class="foto-colar-ajuda">Clique neste quadro e pressione <strong>Ctrl+V</strong> para colar a imagem na Foto 6.</div>
             <input type="text" id="produtoFoto6" placeholder="URL da foto 6">
             <input type="file" id="produtoFotoArquivo6" accept="image/jpeg,image/png,image/webp,image/gif">
             <img id="produtoFotoPreview6" class="foto-preview" alt="Prévia da foto 6">
@@ -377,6 +408,11 @@ let categorias = [];
 let produtos = [];
 let produtoEditando = null;
 let categoriaEditando = null;
+let fotoSlotAtivo = 1;
+const arquivosColados = {};
+const urlsPreviewTemporarias = {};
+const tiposImagemPermitidos = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+const limiteImagemBytes = 10 * 1024 * 1024;
 
 function trocarTab(tab) {
   document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -421,9 +457,17 @@ function campoPreviewFoto(posicao) {
   return document.getElementById(`produtoFotoPreview${posicao}`);
 }
 
+function liberarPreviewTemporaria(posicao) {
+  if (!urlsPreviewTemporarias[posicao]) return;
+  URL.revokeObjectURL(urlsPreviewTemporarias[posicao]);
+  delete urlsPreviewTemporarias[posicao];
+}
+
 function atualizarPreviewFoto(posicao, src) {
   const preview = campoPreviewFoto(posicao);
   const url = (src || '').trim();
+
+  liberarPreviewTemporaria(posicao);
 
   if (!url) {
     preview.removeAttribute('src');
@@ -433,6 +477,108 @@ function atualizarPreviewFoto(posicao, src) {
 
   preview.src = url;
   preview.style.display = 'block';
+}
+
+function atualizarPreviewArquivo(posicao, arquivo) {
+  const preview = campoPreviewFoto(posicao);
+  liberarPreviewTemporaria(posicao);
+
+  const urlTemporaria = URL.createObjectURL(arquivo);
+  urlsPreviewTemporarias[posicao] = urlTemporaria;
+  preview.src = urlTemporaria;
+  preview.style.display = 'block';
+}
+
+function definirFotoSlotAtivo(posicao) {
+  fotoSlotAtivo = posicao;
+
+  document.querySelectorAll('.foto-slot').forEach(slot => {
+    slot.classList.toggle('colagem-ativa', Number(slot.dataset.fotoPosicao) === posicao);
+  });
+}
+
+function arquivoPendenteFoto(posicao) {
+  if (arquivosColados[posicao]) return arquivosColados[posicao];
+
+  const input = campoArquivoFoto(posicao);
+  return input.files && input.files[0] ? input.files[0] : null;
+}
+
+function extensaoImagem(mimeType) {
+  const extensoes = {
+    'image/jpeg': 'jpg',
+    'image/png': 'png',
+    'image/webp': 'webp',
+    'image/gif': 'gif',
+  };
+
+  return extensoes[mimeType] || 'png';
+}
+
+function criarArquivoDaAreaTransferencia(blob, posicao) {
+  const extensao = extensaoImagem(blob.type);
+  const nome = `foto-colada-${posicao}-${Date.now()}.${extensao}`;
+  return new File([blob], nome, { type: blob.type, lastModified: Date.now() });
+}
+
+function registrarImagemColada(posicao, arquivo) {
+  if (!tiposImagemPermitidos.includes(arquivo.type)) {
+    throw new Error('Formato colado inválido. Use JPG, PNG, WEBP ou GIF.');
+  }
+
+  if (arquivo.size > limiteImagemBytes) {
+    throw new Error('Imagem colada muito grande. Limite: 10 MB.');
+  }
+
+  arquivosColados[posicao] = arquivo;
+  const input = campoArquivoFoto(posicao);
+  input.value = '';
+
+  try {
+    const transferencia = new DataTransfer();
+    transferencia.items.add(arquivo);
+    input.files = transferencia.files;
+  } catch (error) {
+    // Alguns navegadores não permitem preencher o input programaticamente.
+    // O arquivo continua guardado em memória e será enviado normalmente.
+  }
+
+  atualizarPreviewArquivo(posicao, arquivo);
+  definirFotoSlotAtivo(posicao);
+  setFotoStatus(`Imagem colada na Foto ${posicao}. Clique em Salvar Produto para enviar ao Cloudflare R2.`);
+}
+
+function obterImagemDaAreaTransferencia(event) {
+  const itens = event.clipboardData && event.clipboardData.items
+    ? Array.from(event.clipboardData.items)
+    : [];
+
+  const itemImagem = itens.find(item => item.kind === 'file' && item.type.startsWith('image/'));
+  return itemImagem ? itemImagem.getAsFile() : null;
+}
+
+function tratarColagemImagem(event) {
+  const blob = obterImagemDaAreaTransferencia(event);
+  if (!blob) return;
+
+  const slotAlvo = event.target.closest ? event.target.closest('.foto-slot') : null;
+  const secaoProdutosAtiva = document.getElementById('produtos').classList.contains('active');
+
+  if (!slotAlvo && !secaoProdutosAtiva) return;
+
+  const posicao = slotAlvo ? Number(slotAlvo.dataset.fotoPosicao) : fotoSlotAtivo;
+
+  if (!posicao || posicao < 1 || posicao > 6) return;
+
+  event.preventDefault();
+
+  try {
+    const arquivo = criarArquivoDaAreaTransferencia(blob, posicao);
+    registrarImagemColada(posicao, arquivo);
+  } catch (error) {
+    setFotoStatus(error.message);
+    alert(error.message);
+  }
 }
 
 function contarFotosProduto(p) {
@@ -453,6 +599,8 @@ function setUrlFotoProduto(posicao, url) {
 function limparArquivosSelecionados() {
   for (let i = 1; i <= 6; i++) {
     campoArquivoFoto(i).value = '';
+    delete arquivosColados[i];
+    liberarPreviewTemporaria(i);
   }
 }
 
@@ -469,7 +617,7 @@ function urlsFotosFormulario() {
 
 async function enviarFotoSelecionada(produtoId, posicao) {
   const input = campoArquivoFoto(posicao);
-  const arquivo = input.files && input.files[0];
+  const arquivo = arquivoPendenteFoto(posicao);
 
   if (!arquivo) return null;
 
@@ -488,8 +636,9 @@ async function enviarFotoSelecionada(produtoId, posicao) {
   }
 
   const url = json.data && json.data.url ? json.data.url : '';
-  setUrlFotoProduto(posicao, url);
+  delete arquivosColados[posicao];
   input.value = '';
+  setUrlFotoProduto(posicao, url);
   return url;
 }
 
@@ -497,18 +646,19 @@ async function enviarFotosSelecionadas(produtoId) {
   let quantidade = 0;
 
   for (let i = 1; i <= 6; i++) {
-    const input = campoArquivoFoto(i);
-    if (input.files && input.files[0]) quantidade++;
+    if (arquivoPendenteFoto(i)) quantidade++;
   }
 
   if (quantidade === 0) return;
 
   setFotoStatus(`Enviando ${quantidade} foto(s) para o Cloudflare R2...`);
 
+  let enviada = 0;
+
   for (let i = 1; i <= 6; i++) {
-    const input = campoArquivoFoto(i);
-    if (input.files && input.files[0]) {
-      setFotoStatus(`Enviando foto ${i} de ${quantidade}...`);
+    if (arquivoPendenteFoto(i)) {
+      enviada++;
+      setFotoStatus(`Enviando foto ${i} (${enviada} de ${quantidade})...`);
       await enviarFotoSelecionada(produtoId, i);
     }
   }
@@ -677,7 +827,8 @@ function editarProduto(id) {
   }
 
   limparArquivosSelecionados();
-  setFotoStatus('Editando produto. Se selecionar arquivos, eles serão enviados ao salvar.');
+  definirFotoSlotAtivo(1);
+  setFotoStatus('Editando produto. Você pode selecionar um arquivo ou colar uma imagem com Ctrl+V no quadro desejado.');
   trocarTab('produtos');
 }
 
@@ -707,27 +858,56 @@ function limparFormulario() {
   document.getElementById('produtoCaixa').value = 1;
   document.getElementById('produtoAtivo').checked = true;
 
+  limparArquivosSelecionados();
+
   for (let i = 1; i <= 6; i++) {
     setUrlFotoProduto(i, '');
-    campoArquivoFoto(i).value = '';
   }
 
+  definirFotoSlotAtivo(1);
   setFotoStatus('');
 }
 
 for (let i = 1; i <= 6; i++) {
+  const slot = document.querySelector(`.foto-slot[data-foto-posicao="${i}"]`);
+
+  slot.addEventListener('click', () => definirFotoSlotAtivo(i));
+  slot.addEventListener('focusin', () => definirFotoSlotAtivo(i));
+
   campoFoto(i).addEventListener('input', () => atualizarPreviewFoto(i, campoFoto(i).value));
   campoArquivoFoto(i).addEventListener('change', () => {
+    delete arquivosColados[i];
+
     const arquivo = campoArquivoFoto(i).files && campoArquivoFoto(i).files[0];
     if (!arquivo) {
       atualizarPreviewFoto(i, campoFoto(i).value);
       return;
     }
 
-    atualizarPreviewFoto(i, URL.createObjectURL(arquivo));
-    setFotoStatus('Arquivo selecionado. Clique em Salvar Produto para enviar ao Cloudflare R2.');
+    if (!tiposImagemPermitidos.includes(arquivo.type)) {
+      campoArquivoFoto(i).value = '';
+      const mensagem = 'Formato inválido. Use JPG, PNG, WEBP ou GIF.';
+      setFotoStatus(mensagem);
+      alert(mensagem);
+      return;
+    }
+
+    if (arquivo.size > limiteImagemBytes) {
+      campoArquivoFoto(i).value = '';
+      const mensagem = 'Imagem muito grande. Limite: 10 MB.';
+      setFotoStatus(mensagem);
+      alert(mensagem);
+      return;
+    }
+
+    atualizarPreviewArquivo(i, arquivo);
+    definirFotoSlotAtivo(i);
+    setFotoStatus(`Arquivo selecionado para a Foto ${i}. Clique em Salvar Produto para enviar ao Cloudflare R2.`);
   });
 }
+
+document.addEventListener('paste', tratarColagemImagem);
+definirFotoSlotAtivo(1);
 
 carregarCategorias().catch(error => alert(error.message));
 carregarProdutos().catch(error => alert(error.message));
