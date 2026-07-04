@@ -1,48 +1,39 @@
-PATCH - PUBLICAÇÃO DE FOTOS NO STATUS DO WHATSAPP
-Projeto-base analisado: render(54).zip
+PATCH — STATUS DO WHATSAPP POR CATEGORIA
+Base analisada: render(55).zip
 
-O QUE FOI CRIADO
-- Página para selecionar várias fotos do computador.
-- Ordenação das fotos antes do envio.
-- Legenda geral ou legenda individual.
-- Publicação sequencial com um único clique.
-- Intervalo configurável entre as fotos.
-- Verificação da conexão da Z-API.
-- Progresso, identificação de falhas e reenvio somente das falhas.
-- Proteção contra clique/requisição duplicada enquanto o servidor estiver ativo.
-- Recebimento de uma foto por vez em memória, sem Cloudflare, sem banco e sem gravação em disco.
-- Limite de 12 MB por imagem. Formatos: JPG, PNG e WEBP.
-
-ARQUIVOS ALTERADOS/CRIADOS
-.env.example
-server.js
-src/services/integracoes/zapi.service.js
-src/services/whatsapp/status-whatsapp.service.js
-src/controllers/whatsapp/status-whatsapp.controller.js
-src/controllers/whatsapp/status-whatsapp.view.controller.js
-src/routes/whatsapp/status-whatsapp.routes.js
-src/routes/whatsapp/status-whatsapp.view.routes.js
-views/whatsapp/status-whatsapp.html
+O QUE MUDA
+- Remove a seleção manual de imagens da página /whatsapp/status.
+- Carrega as categorias cadastradas no PostgreSQL.
+- Ao escolher uma categoria, lista somente os produtos ativos dela.
+- Para cada produto, usa obrigatoriamente o campo foto_3.
+- A legenda enviada ao Status contém somente o preço, no formato R$ 0,00.
+- Produtos sem foto 3 ou sem preço maior que zero são ignorados e exibidos com o motivo.
+- O backend confere novamente produto, categoria, situação, foto 3 e preço no momento do envio.
+- Mantém a verificação da conexão da Z-API e a proteção contra requisição duplicada.
+- Mantém a validação de senha/sessão administrativa em todas as rotas.
 
 COMO APLICAR
-1. Envie os arquivos do ZIP para o projeto do Render no GitHub, mantendo exatamente as pastas.
-2. Substitua os arquivos existentes quando solicitado.
-3. Faça o deploy.
-4. Acesse: https://catalogo-aluminio-jr.onrender.com/whatsapp/status
+Substitua no projeto do Render os 5 arquivos deste patch, mantendo exatamente as pastas:
 
-VARIÁVEIS DE AMBIENTE
-O módulo reutiliza as mesmas variáveis que o envio de mensagens atual já utiliza:
-- ZAPI_URL
-- ZAPI_TOKEN
+1. src/routes/whatsapp/status-whatsapp.routes.js
+2. src/controllers/whatsapp/status-whatsapp.controller.js
+3. src/services/whatsapp/status-whatsapp.service.js
+4. src/services/integracoes/zapi.service.js
+5. views/whatsapp/status-whatsapp.html
 
-Não é necessário criar variável nova se o envio atual pelo WhatsApp já funciona.
-ZAPI_URL deve terminar em /instances/ID_DA_INSTANCIA/token/TOKEN_DA_INSTANCIA.
-ZAPI_TOKEN corresponde ao Client-Token enviado no cabeçalho.
+Depois faça commit e deploy no Render.
 
-BANCO DE DADOS E PROJETO LOCAL
+ENDEREÇO
+/whatsapp/status
+
+BANCO DE DADOS
 - Nenhum SQL precisa ser executado.
-- O banco de dados não foi alterado.
-- O projeto local(52) não precisa ser alterado.
+- Nenhuma tabela nova é criada.
 
-OBSERVAÇÃO
-A página precisa permanecer aberta durante o envio porque as imagens não são armazenadas no servidor.
+ARMAZENAMENTO
+- O módulo não faz upload de imagens.
+- Não cria cópias no Cloudflare.
+- Usa diretamente a URL já cadastrada no campo foto_3 do produto.
+
+PROJETO LOCAL
+- local(53).zip não precisa ser alterado.

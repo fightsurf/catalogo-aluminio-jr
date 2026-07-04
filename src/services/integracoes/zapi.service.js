@@ -293,6 +293,23 @@ async function verificarConexao() {
   };
 }
 
+function validarImagemStatus(imagem) {
+  if (/^data:image\/(jpeg|jpg|png|webp);base64,/i.test(imagem)) {
+    return;
+  }
+
+  let url;
+  try {
+    url = new URL(imagem);
+  } catch (_) {
+    throw new Error('Imagem do Status inválida. Informe uma URL HTTPS ou uma imagem Base64.');
+  }
+
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    throw new Error('Imagem do Status inválida. A URL deve usar HTTP ou HTTPS.');
+  }
+}
+
 async function enviarImagemStatus({ imagem, legenda }) {
   const imagemNormalizada = String(imagem || '').trim();
   const legendaNormalizada = String(legenda || '').trim();
@@ -301,9 +318,7 @@ async function enviarImagemStatus({ imagem, legenda }) {
     throw new Error('Imagem do Status é obrigatória.');
   }
 
-  if (!/^data:image\/(jpeg|jpg|png|webp);base64,/i.test(imagemNormalizada)) {
-    throw new Error('Imagem do Status inválida. Use JPG, PNG ou WEBP em Base64.');
-  }
+  validarImagemStatus(imagemNormalizada);
 
   const payload = {
     image: imagemNormalizada

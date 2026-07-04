@@ -3,11 +3,7 @@ const statusWhatsappService = require('../../services/whatsapp/status-whatsapp.s
 async function verificarConexao(req, res) {
   try {
     const data = await statusWhatsappService.verificarConexao();
-
-    return res.status(200).json({
-      success: true,
-      data,
-    });
+    return res.status(200).json({ success: true, data });
   } catch (error) {
     console.error('Erro ao verificar conexão da Z-API:', error);
     return res.status(502).json({
@@ -18,36 +14,54 @@ async function verificarConexao(req, res) {
   }
 }
 
-async function publicarImagem(req, res) {
+async function listarCategorias(req, res) {
   try {
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'Selecione uma imagem para publicar.',
-      });
-    }
+    const data = await statusWhatsappService.listarCategorias();
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error('Erro ao listar categorias para o Status:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Não foi possível carregar as categorias.',
+      error: error.message,
+    });
+  }
+}
 
-    const imagemBase64 = `data:${req.file.mimetype};base64,${req.file.buffer.toString('base64')}`;
+async function listarProdutos(req, res) {
+  try {
+    const data = await statusWhatsappService.listarProdutosPorCategoria(req.query.categoriaId);
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error('Erro ao listar produtos para o Status:', error);
+    return res.status(400).json({
+      success: false,
+      message: 'Não foi possível carregar os produtos da categoria.',
+      error: error.message,
+    });
+  }
+}
 
-    const data = await statusWhatsappService.publicarImagem({
+async function publicarProduto(req, res) {
+  try {
+    const data = await statusWhatsappService.publicarProduto({
       requestId: req.body.requestId,
-      imagemBase64,
-      legenda: req.body.legenda,
-      nomeArquivo: req.file.originalname,
+      produtoId: req.body.produtoId,
+      categoriaId: req.body.categoriaId,
     });
 
     return res.status(200).json({
       success: true,
       message: data.repetida
         ? 'Publicação já processada anteriormente.'
-        : 'Imagem enviada para o Status.',
+        : 'Produto enviado para o Status.',
       data,
     });
   } catch (error) {
-    console.error('Erro ao publicar imagem no Status:', error);
+    console.error('Erro ao publicar produto no Status:', error);
     return res.status(502).json({
       success: false,
-      message: 'Erro ao publicar a imagem no Status.',
+      message: 'Erro ao publicar o produto no Status.',
       error: error.message,
     });
   }
@@ -55,5 +69,7 @@ async function publicarImagem(req, res) {
 
 module.exports = {
   verificarConexao,
-  publicarImagem,
+  listarCategorias,
+  listarProdutos,
+  publicarProduto,
 };

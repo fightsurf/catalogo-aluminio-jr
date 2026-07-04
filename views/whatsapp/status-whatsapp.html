@@ -3,20 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Publicar no Status do WhatsApp</title>
+  <title>Publicar produtos no Status do WhatsApp</title>
   <link rel="stylesheet" href="/css/theme.css" />
   <style>
     body { padding: 24px 0 48px; }
-    .page { max-width: 1080px; }
+    .page { max-width: 1120px; }
     .topbar {
       display: flex;
-      align-items: flex-start;
       justify-content: space-between;
+      align-items: flex-start;
       gap: 16px;
       margin-bottom: 16px;
     }
     h1 { margin: 0; font-size: 24px; }
     .subtitle { margin: 4px 0 0; color: var(--color-muted); }
+    .top-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
     .connection {
       display: inline-flex;
       align-items: center;
@@ -30,112 +31,120 @@
     .dot { width: 9px; height: 9px; border-radius: 50%; background: #8c959f; }
     .connection.ok .dot { background: var(--color-success); }
     .connection.error .dot { background: var(--color-danger); }
-    .toolbar {
+    .flash { display: none; margin-bottom: 12px; }
+    .flash.show { display: block; }
+    .filters {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 150px;
+      grid-template-columns: minmax(260px, 1fr) 180px auto;
       gap: 12px;
-      margin-bottom: 12px;
+      align-items: end;
     }
-    .field { min-width: 0; }
-    textarea.form-control { min-height: 72px; resize: vertical; }
     .actions {
       display: flex;
-      flex-wrap: wrap;
       gap: 8px;
-      margin-top: 12px;
+      flex-wrap: wrap;
+      margin-top: 14px;
     }
-    .dropzone {
-      border: 2px dashed var(--color-border);
-      border-radius: var(--radius);
-      background: var(--color-bg);
-      padding: 28px 16px;
-      text-align: center;
-      cursor: pointer;
-      transition: border-color 120ms, background 120ms;
-    }
-    .dropzone.dragover {
-      border-color: var(--color-primary);
-      background: #ddf4ff;
-    }
-    .dropzone strong { display: block; font-size: 16px; margin-bottom: 4px; }
-    .dropzone span { color: var(--color-muted); }
-    #seletorFotos { display: none; }
     .summary {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: center;
-      margin: 16px 0 8px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin: 16px 0;
     }
-    .summary strong { font-size: 16px; }
-    .progress-wrap { display: none; margin: 12px 0; }
+    .summary-item {
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      padding: 12px;
+      background: var(--color-surface);
+    }
+    .summary-label { color: var(--color-muted); font-size: 12px; }
+    .summary-value { display: block; font-size: 22px; font-weight: 700; margin-top: 2px; }
+    .progress-wrap { display: none; margin: 14px 0; }
     .progress-wrap.show { display: block; }
     .progress-bar {
       height: 12px;
+      border: 1px solid var(--color-border);
       background: #eaeef2;
       border-radius: 999px;
       overflow: hidden;
-      border: 1px solid var(--color-border);
     }
     .progress-fill {
-      height: 100%;
       width: 0;
+      height: 100%;
       background: var(--color-primary);
       transition: width 180ms;
     }
     .progress-text { margin-top: 6px; color: var(--color-muted); }
     .list { display: grid; gap: 10px; }
-    .item {
+    .product {
       display: grid;
-      grid-template-columns: 96px minmax(0, 1fr) auto;
+      grid-template-columns: 92px minmax(0, 1fr) auto;
       gap: 12px;
-      align-items: start;
+      align-items: center;
       padding: 10px;
       border: 1px solid var(--color-border);
       border-radius: var(--radius);
       background: var(--color-surface);
     }
-    .item.success { border-color: #4ac26b; background: #f0fff4; }
-    .item.error { border-color: #ff8182; background: #fff1f0; }
-    .item.sending { border-color: var(--color-primary); }
+    .product.sending { border-color: var(--color-primary); }
+    .product.success { border-color: #4ac26b; background: #f0fff4; }
+    .product.error { border-color: #ff8182; background: #fff1f0; }
+    .product.skipped { opacity: .72; background: #f6f8fa; }
     .thumb {
-      width: 96px;
-      height: 128px;
+      width: 92px;
+      height: 118px;
       object-fit: cover;
-      border-radius: var(--radius-sm);
       border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
       background: #fff;
     }
-    .file-name {
-      font-weight: 600;
-      overflow-wrap: anywhere;
-      margin-bottom: 7px;
+    .thumb-placeholder {
+      width: 92px;
+      height: 118px;
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 8px;
+      border: 1px dashed var(--color-border);
+      border-radius: var(--radius-sm);
+      color: var(--color-muted);
+      background: #fff;
+      font-size: 12px;
     }
-    .item textarea { min-height: 64px; resize: vertical; }
-    .item-status { margin-top: 6px; min-height: 20px; font-size: 13px; color: var(--color-muted); }
-    .item.success .item-status { color: var(--color-success); }
-    .item.error .item-status { color: var(--color-danger); }
-    .item-buttons { display: grid; gap: 6px; }
-    .item-buttons .btn { justify-content: center; min-width: 42px; }
+    .product-name { font-weight: 700; font-size: 15px; }
+    .caption-preview { margin-top: 5px; font-size: 18px; font-weight: 700; }
+    .product-meta, .product-status { margin-top: 4px; color: var(--color-muted); font-size: 13px; }
+    .product.success .product-status { color: var(--color-success); }
+    .product.error .product-status { color: var(--color-danger); }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid var(--color-border);
+      white-space: nowrap;
+      font-size: 12px;
+    }
+    .badge.ok { border-color: var(--color-success); color: var(--color-success); }
+    .badge.skip { color: var(--color-muted); }
     .empty {
-      padding: 20px;
+      padding: 24px;
       text-align: center;
       color: var(--color-muted);
       border: 1px solid var(--color-border);
       border-radius: var(--radius);
       background: var(--color-surface);
     }
-    .flash { display: none; margin-bottom: 12px; }
-    .flash.show { display: block; }
-    .note { margin-top: 12px; color: var(--color-muted); font-size: 13px; }
-    button:disabled { opacity: .55; cursor: not-allowed; }
-    @media (max-width: 700px) {
+    .note { margin: 12px 0 0; color: var(--color-muted); font-size: 13px; }
+    button:disabled, select:disabled, input:disabled { opacity: .55; cursor: not-allowed; }
+    @media (max-width: 760px) {
       body { padding-top: 12px; }
       .topbar { flex-direction: column; }
-      .toolbar { grid-template-columns: 1fr; }
-      .item { grid-template-columns: 76px minmax(0, 1fr); }
-      .thumb { width: 76px; height: 102px; }
-      .item-buttons { grid-column: 1 / -1; grid-template-columns: repeat(3, 1fr); }
+      .filters { grid-template-columns: 1fr; }
+      .summary { grid-template-columns: 1fr; }
+      .product { grid-template-columns: 76px minmax(0, 1fr); align-items: start; }
+      .thumb, .thumb-placeholder { width: 76px; height: 98px; }
+      .product > .badge { grid-column: 1 / -1; justify-self: start; }
     }
   </style>
 </head>
@@ -143,105 +152,115 @@
   <main class="page">
     <div class="topbar">
       <div>
-        <h1>Publicar fotos no Status</h1>
-        <p class="subtitle">Selecione as artes do computador e publique todas com um único clique.</p>
+        <h1>Publicar produtos no Status</h1>
+        <p class="subtitle">Escolha uma categoria. O sistema usa a foto 3 e publica somente o preço como legenda.</p>
       </div>
-      <div id="connection" class="connection">
-        <span class="dot"></span>
-        <span id="connectionText">Verificando WhatsApp...</span>
+      <div class="top-actions">
+        <div id="connection" class="connection">
+          <span class="dot"></span>
+          <span id="connectionText">Verificando WhatsApp...</span>
+        </div>
+        <a class="btn btn-outline" href="/auth/logout">Sair</a>
       </div>
     </div>
 
-    <div id="flash" class="flash"></div>
+    <div id="flash" class="flash" role="alert"></div>
 
     <section class="card">
-      <div class="toolbar">
-        <div class="field">
-          <label for="legendaGeral">Legenda geral</label>
-          <textarea id="legendaGeral" class="form-control" placeholder="Legenda opcional para aplicar às fotos."></textarea>
+      <div class="filters">
+        <div>
+          <label for="categoria">Categoria de produtos</label>
+          <select id="categoria" class="form-select">
+            <option value="">Carregando categorias...</option>
+          </select>
         </div>
-        <div class="field">
-          <label for="intervalo">Intervalo entre fotos</label>
+        <div>
+          <label for="intervalo">Intervalo entre Status</label>
           <select id="intervalo" class="form-select">
             <option value="3">3 segundos</option>
             <option value="5" selected>5 segundos</option>
             <option value="8">8 segundos</option>
             <option value="10">10 segundos</option>
+            <option value="15">15 segundos</option>
           </select>
         </div>
+        <button id="carregarBtn" type="button" class="btn btn-outline">Atualizar produtos</button>
       </div>
 
-      <div class="actions" style="margin-top:0; margin-bottom:12px;">
-        <button id="aplicarLegenda" type="button" class="btn btn-outline">Aplicar legenda a todas</button>
-        <button id="limparLegenda" type="button" class="btn btn-outline">Limpar legendas</button>
+      <div class="actions">
+        <button id="publicarBtn" type="button" class="btn btn-primary" disabled>Publicar categoria no Status</button>
+        <button id="reenviarFalhasBtn" type="button" class="btn btn-outline" hidden>Reenviar falhas</button>
       </div>
 
-      <div id="dropzone" class="dropzone" tabindex="0" role="button" aria-label="Selecionar fotos">
-        <strong>Selecionar fotos do computador</strong>
-        <span>JPG, PNG ou WEBP. Máximo de 12 MB por foto.</span>
-      </div>
-      <input id="seletorFotos" type="file" accept="image/jpeg,image/png,image/webp" multiple />
+      <p class="note">
+        Somente produtos ativos são considerados. Produtos sem foto 3 ou sem preço válido serão mostrados, mas não serão publicados.
+      </p>
+    </section>
 
-      <div class="summary">
-        <strong id="contador">0 fotos selecionadas</strong>
-        <div class="actions" style="margin:0;">
-          <button id="limparTudo" type="button" class="btn btn-outline" disabled>Limpar</button>
-          <button id="reenviarFalhas" type="button" class="btn btn-outline" hidden>Reenviar falhas</button>
-          <button id="publicar" type="button" class="btn btn-primary" disabled>Publicar no Status</button>
-        </div>
+    <section id="summary" class="summary" hidden>
+      <div class="summary-item">
+        <span class="summary-label">Produtos ativos</span>
+        <strong id="totalAtivos" class="summary-value">0</strong>
       </div>
-
-      <div id="progressWrap" class="progress-wrap">
-        <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
-        <div id="progressText" class="progress-text"></div>
+      <div class="summary-item">
+        <span class="summary-label">Prontos para publicar</span>
+        <strong id="totalPublicaveis" class="summary-value">0</strong>
       </div>
-
-      <div id="lista" class="list">
-        <div class="empty">Nenhuma foto selecionada.</div>
+      <div class="summary-item">
+        <span class="summary-label">Ignorados</span>
+        <strong id="totalIgnorados" class="summary-value">0</strong>
       </div>
+    </section>
 
-      <p class="note">As imagens passam temporariamente pela memória do servidor e não são gravadas no Cloudflare, no banco de dados nem no disco do Render. Mantenha esta página aberta até o término.</p>
+    <div id="progressWrap" class="progress-wrap">
+      <div class="progress-bar"><div id="progressFill" class="progress-fill"></div></div>
+      <div id="progressText" class="progress-text"></div>
+    </div>
+
+    <section id="lista" class="list">
+      <div class="empty">Selecione uma categoria para visualizar os produtos.</div>
     </section>
   </main>
 
   <script>
     const API_BASE = '/api/whatsapp/status';
-    const itens = [];
-    let processando = false;
-    let conexaoOk = false;
 
-    const dropzone = document.getElementById('dropzone');
-    const seletorFotos = document.getElementById('seletorFotos');
-    const lista = document.getElementById('lista');
-    const contador = document.getElementById('contador');
-    const publicarBtn = document.getElementById('publicar');
-    const limparTudoBtn = document.getElementById('limparTudo');
-    const reenviarFalhasBtn = document.getElementById('reenviarFalhas');
-    const aplicarLegendaBtn = document.getElementById('aplicarLegenda');
-    const limparLegendaBtn = document.getElementById('limparLegenda');
-    const legendaGeral = document.getElementById('legendaGeral');
+    const categoriaEl = document.getElementById('categoria');
     const intervaloEl = document.getElementById('intervalo');
+    const carregarBtn = document.getElementById('carregarBtn');
+    const publicarBtn = document.getElementById('publicarBtn');
+    const reenviarFalhasBtn = document.getElementById('reenviarFalhasBtn');
+    const connection = document.getElementById('connection');
+    const connectionText = document.getElementById('connectionText');
+    const flash = document.getElementById('flash');
+    const summary = document.getElementById('summary');
+    const totalAtivos = document.getElementById('totalAtivos');
+    const totalPublicaveis = document.getElementById('totalPublicaveis');
+    const totalIgnorados = document.getElementById('totalIgnorados');
     const progressWrap = document.getElementById('progressWrap');
     const progressFill = document.getElementById('progressFill');
     const progressText = document.getElementById('progressText');
-    const flash = document.getElementById('flash');
-    const connection = document.getElementById('connection');
-    const connectionText = document.getElementById('connectionText');
+    const lista = document.getElementById('lista');
 
-    function criarId() {
-      if (window.crypto && typeof window.crypto.randomUUID === 'function') {
-        return window.crypto.randomUUID();
-      }
-      return `status-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    }
+    let categorias = [];
+    let produtos = [];
+    let categoriaAtual = null;
+    let processando = false;
 
-    function escaparHtml(texto) {
-      return String(texto || '')
+    function escaparHtml(valor) {
+      return String(valor ?? '')
         .replaceAll('&', '&amp;')
         .replaceAll('<', '&lt;')
         .replaceAll('>', '&gt;')
         .replaceAll('"', '&quot;')
         .replaceAll("'", '&#039;');
+    }
+
+    function criarId() {
+      if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+        return window.crypto.randomUUID();
+      }
+      return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     }
 
     function mostrarFlash(tipo, mensagem) {
@@ -254,130 +273,87 @@
       flash.textContent = '';
     }
 
-    function atualizarBotoes() {
-      const temItens = itens.length > 0;
-      const temFalhas = itens.some((item) => item.estado === 'error');
-      publicarBtn.disabled = !temItens || processando;
-      limparTudoBtn.disabled = !temItens || processando;
-      aplicarLegendaBtn.disabled = !temItens || processando;
-      limparLegendaBtn.disabled = !temItens || processando;
-      seletorFotos.disabled = processando;
-      intervaloEl.disabled = processando;
-      reenviarFalhasBtn.hidden = !temFalhas;
-      reenviarFalhasBtn.disabled = processando;
-      dropzone.setAttribute('aria-disabled', processando ? 'true' : 'false');
-    }
-
-    function atualizarContador() {
-      const total = itens.length;
-      contador.textContent = `${total} ${total === 1 ? 'foto selecionada' : 'fotos selecionadas'}`;
-    }
-
-    function classeEstado(estado) {
-      return ['sending', 'success', 'error'].includes(estado) ? estado : '';
-    }
-
-    function textoEstado(item) {
-      if (item.estado === 'sending') return 'Publicando...';
-      if (item.estado === 'success') return item.repetida ? 'Já processada; não foi duplicada.' : 'Publicada com sucesso.';
-      if (item.estado === 'error') return item.erro || 'Falha na publicação.';
-      return 'Aguardando publicação.';
-    }
-
-    function renderizar() {
-      atualizarContador();
-      atualizarBotoes();
-
-      if (!itens.length) {
-        lista.innerHTML = '<div class="empty">Nenhuma foto selecionada.</div>';
-        return;
-      }
-
-      lista.innerHTML = itens.map((item, index) => `
-        <article class="item ${classeEstado(item.estado)}" data-id="${item.id}">
-          <img class="thumb" src="${item.previewUrl}" alt="Prévia de ${escaparHtml(item.file.name)}" />
-          <div>
-            <div class="file-name">${index + 1}. ${escaparHtml(item.file.name)}</div>
-            <textarea class="form-control legenda-item" data-id="${item.id}" placeholder="Legenda opcional" ${processando ? 'disabled' : ''}>${escaparHtml(item.legenda)}</textarea>
-            <div class="item-status">${escaparHtml(textoEstado(item))}</div>
-          </div>
-          <div class="item-buttons">
-            <button type="button" class="btn btn-outline mover-cima" data-id="${item.id}" title="Mover para cima" ${processando || index === 0 ? 'disabled' : ''}>↑</button>
-            <button type="button" class="btn btn-outline mover-baixo" data-id="${item.id}" title="Mover para baixo" ${processando || index === itens.length - 1 ? 'disabled' : ''}>↓</button>
-            <button type="button" class="btn btn-danger remover" data-id="${item.id}" title="Remover" ${processando ? 'disabled' : ''}>×</button>
-          </div>
-        </article>
-      `).join('');
-    }
-
-    function adicionarArquivos(fileList) {
-      if (processando) return;
-      esconderFlash();
-
-      const arquivos = Array.from(fileList || []);
-      const tiposPermitidos = new Set(['image/jpeg', 'image/png', 'image/webp']);
-      const invalidos = [];
-
-      for (const file of arquivos) {
-        if (!tiposPermitidos.has(file.type)) {
-          invalidos.push(`${file.name}: formato não permitido`);
-          continue;
-        }
-        if (file.size > 12 * 1024 * 1024) {
-          invalidos.push(`${file.name}: ultrapassa 12 MB`);
-          continue;
-        }
-
-        itens.push({
-          id: criarId(),
-          file,
-          previewUrl: URL.createObjectURL(file),
-          legenda: legendaGeral.value.trim(),
-          estado: 'pending',
-          erro: '',
-          repetida: false,
-        });
-      }
-
-      seletorFotos.value = '';
-      renderizar();
-
-      if (invalidos.length) {
-        mostrarFlash('erro', invalidos.join(' | '));
-      }
-    }
-
-    function moverItem(id, direcao) {
-      const index = itens.findIndex((item) => item.id === id);
-      const novoIndex = index + direcao;
-      if (index < 0 || novoIndex < 0 || novoIndex >= itens.length) return;
-      [itens[index], itens[novoIndex]] = [itens[novoIndex], itens[index]];
-      renderizar();
-    }
-
-    function removerItem(id) {
-      const index = itens.findIndex((item) => item.id === id);
-      if (index < 0) return;
-      URL.revokeObjectURL(itens[index].previewUrl);
-      itens.splice(index, 1);
-      renderizar();
-    }
-
-    function limparTudo() {
-      itens.forEach((item) => URL.revokeObjectURL(item.previewUrl));
-      itens.splice(0, itens.length);
-      progressWrap.classList.remove('show');
-      progressFill.style.width = '0%';
-      progressText.textContent = '';
-      reenviarFalhasBtn.hidden = true;
-      esconderFlash();
-      renderizar();
-    }
-
     async function lerJson(response) {
       const texto = await response.text();
       if (!texto) return {};
       try { return JSON.parse(texto); } catch (_) { return { message: texto }; }
+    }
+
+    function tratarSessao(response) {
+      if (response.status === 401) {
+        throw new Error('Sessão administrativa expirada. Recarregue a página e entre novamente.');
+      }
+    }
+
+    function textoEstado(produto) {
+      if (!produto.publicavel) return produto.motivo || 'Produto ignorado.';
+      if (produto.estado === 'sending') return 'Publicando...';
+      if (produto.estado === 'success') return produto.repetida ? 'Já processado; não foi duplicado.' : 'Publicado com sucesso.';
+      if (produto.estado === 'error') return produto.erro || 'Falha na publicação.';
+      return 'Aguardando publicação.';
+    }
+
+    function atualizarBotoes() {
+      const publicaveis = produtos.filter((produto) => produto.publicavel);
+      const falhas = produtos.filter((produto) => produto.estado === 'error');
+      const categoriaSelecionada = Boolean(categoriaEl.value);
+
+      publicarBtn.disabled = processando || !categoriaSelecionada || publicaveis.length === 0;
+      carregarBtn.disabled = processando || !categoriaSelecionada;
+      categoriaEl.disabled = processando;
+      intervaloEl.disabled = processando;
+      reenviarFalhasBtn.hidden = falhas.length === 0;
+      reenviarFalhasBtn.disabled = processando;
+    }
+
+    function renderizarResumo() {
+      if (!categoriaAtual) {
+        summary.hidden = true;
+        return;
+      }
+
+      summary.hidden = false;
+      totalAtivos.textContent = String(produtos.length);
+      totalPublicaveis.textContent = String(produtos.filter((produto) => produto.publicavel).length);
+      totalIgnorados.textContent = String(produtos.filter((produto) => !produto.publicavel).length);
+    }
+
+    function renderizarProdutos() {
+      atualizarBotoes();
+      renderizarResumo();
+
+      if (!categoriaEl.value) {
+        lista.innerHTML = '<div class="empty">Selecione uma categoria para visualizar os produtos.</div>';
+        return;
+      }
+
+      if (!produtos.length) {
+        lista.innerHTML = '<div class="empty">Nenhum produto ativo encontrado nesta categoria.</div>';
+        return;
+      }
+
+      lista.innerHTML = produtos.map((produto, index) => {
+        const classe = produto.publicavel ? (produto.estado || '') : 'skipped';
+        const imagem = produto.foto_3
+          ? `<img class="thumb" src="${escaparHtml(produto.foto_3)}" alt="Foto 3 de ${escaparHtml(produto.nome)}" loading="lazy" />`
+          : '<div class="thumb-placeholder">Sem foto 3</div>';
+        const badge = produto.publicavel
+          ? '<span class="badge ok">Será publicado</span>'
+          : '<span class="badge skip">Ignorado</span>';
+
+        return `
+          <article class="product ${classe}">
+            ${imagem}
+            <div>
+              <div class="product-name">${index + 1}. ${escaparHtml(produto.nome)}</div>
+              <div class="caption-preview">${escaparHtml(produto.preco_formatado || 'Preço inválido')}</div>
+              <div class="product-meta">Legenda enviada: somente o preço</div>
+              <div class="product-status">${escaparHtml(textoEstado(produto))}</div>
+            </div>
+            ${badge}
+          </article>
+        `;
+      }).join('');
     }
 
     async function verificarConexao(silencioso = false) {
@@ -389,24 +365,17 @@
           headers: { Accept: 'application/json' },
           credentials: 'same-origin',
         });
+        tratarSessao(response);
         const body = await lerJson(response);
-
-        if (response.status === 401) {
-          conexaoOk = false;
-          connection.className = 'connection error';
-          connectionText.textContent = 'Sessão expirada';
-          if (!silencioso) mostrarFlash('erro', 'Sua sessão administrativa expirou. Recarregue a página e entre novamente.');
-          return false;
-        }
 
         if (!response.ok || !body.success) {
           throw new Error(body.error || body.message || 'Falha ao consultar a conexão.');
         }
 
         const data = body.data || {};
-        conexaoOk = Boolean(data.connected && data.smartphoneConnected);
+        const conectado = Boolean(data.connected && data.smartphoneConnected);
 
-        if (conexaoOk) {
+        if (conectado) {
           connection.className = 'connection ok';
           connectionText.textContent = 'WhatsApp conectado';
           return true;
@@ -414,12 +383,9 @@
 
         connection.className = 'connection error';
         connectionText.textContent = data.connected ? 'Celular sem conexão' : 'WhatsApp desconectado';
-        if (!silencioso) {
-          mostrarFlash('erro', data.error || 'A instância da Z-API não está pronta para publicar.');
-        }
+        if (!silencioso) mostrarFlash('erro', data.error || 'A instância da Z-API não está pronta para publicar.');
         return false;
       } catch (error) {
-        conexaoOk = false;
         connection.className = 'connection error';
         connectionText.textContent = 'Erro ao verificar conexão';
         if (!silencioso) mostrarFlash('erro', error.message);
@@ -427,43 +393,119 @@
       }
     }
 
-    async function publicarItem(item) {
-      item.estado = 'sending';
-      item.erro = '';
-      renderizar();
-
-      const formData = new FormData();
-      formData.append('imagem', item.file, item.file.name);
-      formData.append('legenda', item.legenda || '');
-      formData.append('requestId', item.id);
+    async function carregarCategorias() {
+      categoriaEl.disabled = true;
+      categoriaEl.innerHTML = '<option value="">Carregando categorias...</option>';
 
       try {
-        const response = await fetch(`${API_BASE}/imagem`, {
-          method: 'POST',
-          body: formData,
-          credentials: 'same-origin',
+        const response = await fetch(`${API_BASE}/categorias`, {
           headers: { Accept: 'application/json' },
+          credentials: 'same-origin',
         });
+        tratarSessao(response);
         const body = await lerJson(response);
 
-        if (response.status === 401) {
-          throw new Error('Sessão administrativa expirada. Recarregue a página.');
+        if (!response.ok || !body.success) {
+          throw new Error(body.error || body.message || 'Erro ao carregar categorias.');
         }
+
+        categorias = Array.isArray(body.data) ? body.data : [];
+        categoriaEl.innerHTML = '<option value="">Selecione uma categoria</option>' + categorias.map((categoria) => {
+          const complemento = `${categoria.total_publicaveis} publicáveis de ${categoria.total_ativos} ativos`;
+          return `<option value="${categoria.id}">${escaparHtml(categoria.nome)} — ${complemento}</option>`;
+        }).join('');
+      } catch (error) {
+        categoriaEl.innerHTML = '<option value="">Erro ao carregar categorias</option>';
+        mostrarFlash('erro', error.message);
+      } finally {
+        categoriaEl.disabled = false;
+        atualizarBotoes();
+      }
+    }
+
+    async function carregarProdutos() {
+      const categoriaId = categoriaEl.value;
+      produtos = [];
+      categoriaAtual = null;
+      progressWrap.classList.remove('show');
+      reenviarFalhasBtn.hidden = true;
+      esconderFlash();
+      renderizarProdutos();
+
+      if (!categoriaId) return;
+
+      carregarBtn.disabled = true;
+      lista.innerHTML = '<div class="empty">Carregando produtos...</div>';
+
+      try {
+        const response = await fetch(`${API_BASE}/produtos?categoriaId=${encodeURIComponent(categoriaId)}`, {
+          headers: { Accept: 'application/json' },
+          credentials: 'same-origin',
+        });
+        tratarSessao(response);
+        const body = await lerJson(response);
+
+        if (!response.ok || !body.success) {
+          throw new Error(body.error || body.message || 'Erro ao carregar produtos.');
+        }
+
+        categoriaAtual = body.data.categoria;
+        produtos = (body.data.produtos || []).map((produto) => ({
+          ...produto,
+          estado: produto.publicavel ? 'pending' : 'skipped',
+          erro: '',
+          repetida: false,
+          requestId: '',
+        }));
+        renderizarProdutos();
+      } catch (error) {
+        produtos = [];
+        categoriaAtual = null;
+        renderizarProdutos();
+        mostrarFlash('erro', error.message);
+      } finally {
+        atualizarBotoes();
+      }
+    }
+
+    async function publicarProduto(produto, loteId) {
+      produto.estado = 'sending';
+      produto.erro = '';
+      produto.repetida = false;
+      if (!produto.requestId) produto.requestId = `${loteId}:${produto.id}`;
+      renderizarProdutos();
+
+      try {
+        const response = await fetch(`${API_BASE}/produto`, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            requestId: produto.requestId,
+            produtoId: produto.id,
+            categoriaId: categoriaAtual.id,
+          }),
+        });
+        tratarSessao(response);
+        const body = await lerJson(response);
 
         if (!response.ok || !body.success) {
           throw new Error(body.error || body.message || `Erro HTTP ${response.status}`);
         }
 
-        item.estado = 'success';
-        item.repetida = Boolean(body.data && body.data.repetida);
-        item.erro = '';
+        produto.estado = 'success';
+        produto.repetida = Boolean(body.data && body.data.repetida);
+        produto.erro = '';
         return true;
       } catch (error) {
-        item.estado = 'error';
-        item.erro = error.message || 'Falha desconhecida.';
+        produto.estado = 'error';
+        produto.erro = error.message || 'Falha desconhecida.';
         return false;
       } finally {
-        renderizar();
+        renderizarProdutos();
       }
     }
 
@@ -471,113 +513,84 @@
       return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
-    async function processar(listaParaEnviar) {
-      if (processando || !listaParaEnviar.length) return;
-      esconderFlash();
+    async function processar(listaParaEnviar, confirmar = true) {
+      if (processando || !listaParaEnviar.length || !categoriaAtual) return;
 
+      if (confirmar) {
+        const confirmou = window.confirm(
+          `Publicar ${listaParaEnviar.length} produto(s) da categoria “${categoriaAtual.nome}” no Status do WhatsApp?`
+        );
+        if (!confirmou) return;
+      }
+
+      esconderFlash();
       const conectado = await verificarConexao();
       if (!conectado) return;
 
       processando = true;
       progressWrap.classList.add('show');
+      progressFill.style.width = '0%';
       atualizarBotoes();
-      renderizar();
 
       const intervaloMs = Number(intervaloEl.value || 5) * 1000;
+      const loteId = `status-${criarId()}`;
       let sucessos = 0;
       let falhas = 0;
 
       for (let index = 0; index < listaParaEnviar.length; index += 1) {
-        const item = listaParaEnviar[index];
-        progressText.textContent = `Publicando ${index + 1} de ${listaParaEnviar.length}: ${item.file.name}`;
+        const produto = listaParaEnviar[index];
+        if (!produto.requestId) produto.requestId = `${loteId}:${produto.id}`;
+
+        progressText.textContent = `Publicando ${index + 1} de ${listaParaEnviar.length}: ${produto.nome}`;
         progressFill.style.width = `${Math.round((index / listaParaEnviar.length) * 100)}%`;
 
-        const ok = await publicarItem(item);
+        const ok = await publicarProduto(produto, loteId);
         if (ok) sucessos += 1;
         else falhas += 1;
 
         progressFill.style.width = `${Math.round(((index + 1) / listaParaEnviar.length) * 100)}%`;
 
         if (index < listaParaEnviar.length - 1) {
-          progressText.textContent = `Foto ${index + 1} de ${listaParaEnviar.length} concluída. Aguardando o próximo envio...`;
+          progressText.textContent = `Produto ${index + 1} de ${listaParaEnviar.length} concluído. Aguardando o próximo envio...`;
           await aguardar(intervaloMs);
         }
       }
 
       processando = false;
-      progressText.textContent = `Concluído: ${sucessos} publicadas e ${falhas} com falha.`;
+      progressText.textContent = `Concluído: ${sucessos} publicados e ${falhas} com falha.`;
       atualizarBotoes();
-      renderizar();
+      renderizarProdutos();
 
       if (falhas) {
         mostrarFlash('erro', `Processo concluído com ${falhas} falha(s). Use “Reenviar falhas”.`);
       } else {
-        mostrarFlash('sucesso', `Todas as ${sucessos} fotos foram enviadas para o Status.`);
+        mostrarFlash('sucesso', `Todos os ${sucessos} produtos foram enviados para o Status.`);
       }
     }
 
-    dropzone.addEventListener('click', () => {
-      if (!processando) seletorFotos.click();
-    });
-    dropzone.addEventListener('keydown', (event) => {
-      if (!processando && (event.key === 'Enter' || event.key === ' ')) {
-        event.preventDefault();
-        seletorFotos.click();
-      }
-    });
-    dropzone.addEventListener('dragover', (event) => {
-      event.preventDefault();
-      if (!processando) dropzone.classList.add('dragover');
-    });
-    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
-    dropzone.addEventListener('drop', (event) => {
-      event.preventDefault();
-      dropzone.classList.remove('dragover');
-      if (!processando) adicionarArquivos(event.dataTransfer.files);
-    });
-    seletorFotos.addEventListener('change', () => adicionarArquivos(seletorFotos.files));
-
-    lista.addEventListener('input', (event) => {
-      const textarea = event.target.closest('.legenda-item');
-      if (!textarea) return;
-      const item = itens.find((registro) => registro.id === textarea.dataset.id);
-      if (item) item.legenda = textarea.value;
-    });
-    lista.addEventListener('click', (event) => {
-      const botao = event.target.closest('button[data-id]');
-      if (!botao || processando) return;
-      const id = botao.dataset.id;
-      if (botao.classList.contains('mover-cima')) moverItem(id, -1);
-      if (botao.classList.contains('mover-baixo')) moverItem(id, 1);
-      if (botao.classList.contains('remover')) removerItem(id);
-    });
-
-    aplicarLegendaBtn.addEventListener('click', () => {
-      const texto = legendaGeral.value.trim();
-      itens.forEach((item) => { item.legenda = texto; });
-      renderizar();
-    });
-    limparLegendaBtn.addEventListener('click', () => {
-      itens.forEach((item) => { item.legenda = ''; });
-      renderizar();
-    });
-    limparTudoBtn.addEventListener('click', limparTudo);
+    categoriaEl.addEventListener('change', carregarProdutos);
+    carregarBtn.addEventListener('click', carregarProdutos);
     publicarBtn.addEventListener('click', () => {
-      const pendentes = itens.filter((item) => item.estado !== 'success');
-      processar(pendentes);
+      const publicaveis = produtos.filter((produto) => produto.publicavel);
+      publicaveis.forEach((produto) => {
+        produto.estado = 'pending';
+        produto.erro = '';
+        produto.repetida = false;
+        produto.requestId = '';
+      });
+      processar(publicaveis, true);
     });
     reenviarFalhasBtn.addEventListener('click', () => {
-      processar(itens.filter((item) => item.estado === 'error'));
+      processar(produtos.filter((produto) => produto.estado === 'error'), false);
     });
 
-    window.addEventListener('beforeunload', (event) => {
-      if (!processando) return;
-      event.preventDefault();
-      event.returnValue = '';
-    });
-
-    renderizar();
-    verificarConexao(true);
+    (async function iniciar() {
+      await Promise.all([
+        verificarConexao(true),
+        carregarCategorias(),
+      ]);
+      atualizarBotoes();
+    })();
   </script>
 </body>
 </html>
