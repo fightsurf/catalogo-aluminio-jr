@@ -14,16 +14,44 @@ const EXTENSOES_POR_MIME = {
 let clientCache = null;
 let clientCacheKey = null;
 
+function normalizarVariavelAmbiente(valor) {
+  let resultado = String(valor ?? '').trim();
+
+  // No painel do Render, aspas não são necessárias. Caso tenham sido
+  // coladas junto com o valor, elas passam a fazer parte da credencial.
+  if (
+    resultado.length >= 2
+    && ((resultado.startsWith('"') && resultado.endsWith('"'))
+      || (resultado.startsWith("'") && resultado.endsWith("'")))
+  ) {
+    resultado = resultado.slice(1, -1).trim();
+  }
+
+  return resultado;
+}
+
 function removerBarraFinal(valor) {
-  return String(valor || '').trim().replace(/\/+$/, '');
+  return normalizarVariavelAmbiente(valor).replace(/\/+$/, '');
+}
+
+function montarEndpoint(accountId, endpointConfigurado) {
+  const endpoint = removerBarraFinal(endpointConfigurado);
+  if (endpoint) return endpoint;
+
+  return `https://${accountId}.r2.cloudflarestorage.com`;
 }
 
 function getConfig() {
+  const accountId = normalizarVariavelAmbiente(
+    process.env.CLOUDFLARE_R2_ACCOUNT_ID || process.env.CLOUDFLARE_ACCOUNT_ID || ''
+  );
+
   return {
-    accountId: process.env.CLOUDFLARE_R2_ACCOUNT_ID || process.env.CLOUDFLARE_ACCOUNT_ID || '',
-    accessKeyId: process.env.CLOUDFLARE_R2_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY || '',
-    bucket: process.env.CLOUDFLARE_R2_BUCKET || '',
+    accountId,
+    endpoint: montarEndpoint(accountId, process.env.CLOUDFLARE_R2_ENDPOINT || ''),
+    accessKeyId: normalizarVariavelAmbiente(process.env.CLOUDFLARE_R2_ACCESS_KEY_ID || ''),
+    secretAccessKey: normalizarVariavelAmbiente(process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY || ''),
+    bucket: normalizarVariavelAmbiente(process.env.CLOUDFLARE_R2_BUCKET || ''),
     publicUrl: removerBarraFinal(process.env.CLOUDFLARE_R2_PUBLIC_URL || ''),
   };
 }
@@ -40,10 +68,29 @@ function validarConfiguracao(config) {
   if (faltando.length > 0) {
     throw new Error(`Cloudflare R2 nao configurado. Configure: ${faltando.join(', ')}.`);
   }
+
+  if (/^https?:\/\//i.test(config.bucket)) {
+    throw new Error('CLOUDFLARE_R2_BUCKET deve conter apenas o nome do bucket, nao uma URL.');
+  }
+
+  let endpoint;
+  try {
+    endpoint = new URL(config.endpoint);
+  } catch (_) {
+    throw new Error('CLOUDFLARE_R2_ENDPOINT invalido. Use a URL S3 exibida pelo Cloudflare R2.');
+  }
+
+  if (endpoint.protocol !== 'https:') {
+    throw new Error('CLOUDFLARE_R2_ENDPOINT deve usar HTTPS.');
+  }
+
+  if (!endpoint.hostname.endsWith('.r2.cloudflarestorage.com')) {
+    throw new Error('CLOUDFLARE_R2_ENDPOINT deve ser o endpoint S3 do Cloudflare R2.');
+  }
 }
 
 function getClient(config) {
-  const cacheKey = [config.accountId, config.accessKeyId].join('|');
+  const cacheKey = [config.endpoint, config.accessKeyId, config.secretAccessKey].join('|');
 
   if (clientCache && clientCacheKey === cacheKey) {
     return clientCache;
@@ -51,11 +98,12 @@ function getClient(config) {
 
   clientCache = new S3Client({
     region: 'auto',
-    endpoint: `https://${config.accountId}.r2.cloudflarestorage.com`,
+    endpoint: config.endpoint,
     credentials: {
       accessKeyId: config.accessKeyId,
       secretAccessKey: config.secretAccessKey,
     },
+    maxAttempts: 2,
   });
   clientCacheKey = cacheKey;
 
@@ -95,6 +143,42 @@ function montarUrlPublica(publicUrl, key) {
   return `${publicUrl}/${partes.join('/')}`;
 }
 
+function extrairCodigoErro(error) {
+  return String(error?.name || error?.Code || error?.code || '').trim();
+}
+
+function traduzirErroR2(error) {
+  const codigo = extrairCodigoErro(error);
+
+  if (codigo === 'SignatureDoesNotMatch') {
+    return new Error(
+      'Cloudflare R2 recusou a assinatura. No Render, confirme que '
+      + 'CLOUDFLARE_R2_ACCESS_KEY_ID e CLOUDFLARE_R2_SECRET_ACCESS_KEY vieram do mesmo token R2, '
+      + 'sem aspas ou espacos, e que o ACCOUNT_ID/ENDPOINT pertence a mesma conta.'
+    );
+  }
+
+  if (codigo === 'InvalidAccessKeyId' || codigo === 'Unauthorized') {
+    return new Error(
+      'Credencial do Cloudflare R2 invalida. Confira o Access Key ID ou crie um novo token R2.'
+    );
+  }
+
+  if (codigo === 'AccessDenied') {
+    return new Error(
+      'O token do Cloudflare R2 nao tem permissao de gravacao nesse bucket. Use Object Read & Write.'
+    );
+  }
+
+  if (codigo === 'NoSuchBucket') {
+    return new Error(
+      'Bucket do Cloudflare R2 nao encontrado. Confira CLOUDFLARE_R2_BUCKET e a conta do endpoint.'
+    );
+  }
+
+  return error;
+}
+
 async function uploadImagem(file, metadata = {}) {
   const config = getConfig();
   validarConfiguracao(config);
@@ -106,17 +190,33 @@ async function uploadImagem(file, metadata = {}) {
   const key = montarChaveArquivo(file, metadata);
   const client = getClient(config);
 
-  await client.send(new PutObjectCommand({
-    Bucket: config.bucket,
-    Key: key,
-    Body: file.buffer,
-    ContentType: file.mimetype || 'application/octet-stream',
-    Metadata: {
-      produto_id: String(metadata.produto_id || ''),
-      produto_nome: String(metadata.produto_nome || '').slice(0, 250),
-      posicao: String(metadata.posicao || ''),
-    },
-  }));
+  try {
+    await client.send(new PutObjectCommand({
+      Bucket: config.bucket,
+      Key: key,
+      Body: file.buffer,
+      ContentLength: Number(file.size || file.buffer.length),
+      ContentType: file.mimetype || 'application/octet-stream',
+      // Metadados assinados ficam restritos a valores ASCII simples.
+      // O nome do produto nao e necessario para recuperar ou excluir o arquivo.
+      Metadata: {
+        produto_id: normalizarParteChave(metadata.produto_id || ''),
+        posicao: normalizarParteChave(metadata.posicao || ''),
+      },
+    }));
+  } catch (error) {
+    console.error('[Cloudflare R2] Falha no upload:', {
+      codigo: extrairCodigoErro(error),
+      statusHttp: error?.$metadata?.httpStatusCode || null,
+      requestId: error?.$metadata?.requestId || null,
+      endpoint: config.endpoint,
+      bucket: config.bucket,
+      accessKeyLength: config.accessKeyId.length,
+      secretKeyLength: config.secretAccessKey.length,
+    });
+
+    throw traduzirErroR2(error);
+  }
 
   return {
     id: key,

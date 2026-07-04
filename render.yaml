@@ -21,6 +21,9 @@ services:
       # As chaves aparecem automaticamente no Blueprint; os valores secretos ficam fora do GitHub.
       - key: CLOUDFLARE_R2_ACCOUNT_ID
         sync: false
+      # Opcional: endpoint S3 completo. Necessario para buckets com jurisdicao (ex.: .eu).
+      - key: CLOUDFLARE_R2_ENDPOINT
+        sync: false
       - key: CLOUDFLARE_R2_ACCESS_KEY_ID
         sync: false
       - key: CLOUDFLARE_R2_SECRET_ACCESS_KEY
