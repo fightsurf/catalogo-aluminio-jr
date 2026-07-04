@@ -153,7 +153,7 @@
     <div class="topbar">
       <div>
         <h1>Publicar produtos no Status</h1>
-        <p class="subtitle">Escolha uma categoria. O sistema usa a foto 1 e publica somente o preço como legenda.</p>
+        <p class="subtitle">Escolha uma categoria. O sistema usa a foto 1 e publica a descrição do produto com o preço.</p>
       </div>
       <div class="top-actions">
         <div id="connection" class="connection">
@@ -193,7 +193,7 @@
       </div>
 
       <p class="note">
-        Somente produtos ativos são considerados. Produtos sem foto 1 ou sem preço válido serão mostrados, mas não serão publicados.
+        Somente produtos ativos são considerados. Produtos sem foto 1, descrição ou preço válido serão mostrados, mas não serão publicados.
       </p>
     </section>
 
@@ -346,8 +346,8 @@
             ${imagem}
             <div>
               <div class="product-name">${index + 1}. ${escaparHtml(produto.nome)}</div>
-              <div class="caption-preview">${escaparHtml(produto.preco_formatado || 'Preço inválido')}</div>
-              <div class="product-meta">Legenda enviada: somente o preço</div>
+              <div class="caption-preview">${escaparHtml(produto.nome)}<br>${escaparHtml(produto.preco_formatado || 'Preço inválido')}</div>
+              <div class="product-meta">Legenda enviada: descrição do produto + preço</div>
               <div class="product-status">${escaparHtml(textoEstado(produto))}</div>
             </div>
             ${badge}

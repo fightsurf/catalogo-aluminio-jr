@@ -1,22 +1,27 @@
-PATCH — STATUS DO WHATSAPP USANDO A FOTO 1
-Base analisada: render(58).zip
+ALTERAÇÃO: STATUS DO WHATSAPP COM DESCRIÇÃO + PREÇO
 
-ALTERAÇÃO
-- O módulo de publicação por categoria passa a usar a primeira foto do produto.
-- No banco, a primeira foto corresponde ao campo "foto".
-- A legenda continua contendo somente o preço.
-- Produtos ativos sem a primeira foto ou sem preço válido são ignorados.
-- A proteção administrativa e a prevenção contra publicação duplicada foram mantidas.
+Projeto-base analisado: render(59).zip
 
-ARQUIVOS PARA SUBSTITUIR NO GITHUB
+Arquivos para substituir no GitHub:
 1. src/services/whatsapp/status-whatsapp.service.js
 2. views/whatsapp/status-whatsapp.html
 
-NÃO É NECESSÁRIO
-- Executar SQL.
-- Alterar variáveis de ambiente.
-- Alterar o projeto local.
-- Fazer novo upload das imagens para o Cloudflare.
+NOVA LEGENDA PUBLICADA:
+Descrição/nome do produto
+R$ 89,90
 
-ENDEREÇO DO MÓDULO
-/whatsapp/status
+Exemplo:
+Panela de Pressão 4,5 Litros
+R$ 89,90
+
+REGRAS MANTIDAS:
+- usa a primeira foto do produto (campo foto);
+- seleção por categoria;
+- somente produtos ativos;
+- validação de foto, descrição e preço;
+- rotas protegidas pela autenticação administrativa;
+- envio sequencial e proteção contra duplicidade;
+- nenhuma alteração no banco de dados;
+- nenhuma nova variável de ambiente.
+
+Não é necessário executar SQL.

@@ -50,24 +50,38 @@ function formatarPreco(valor) {
     .replace(/\u00a0/g, ' ');
 }
 
+function formatarLegendaProduto(nome, preco) {
+  const descricao = limparTexto(nome);
+
+  if (!descricao) {
+    throw new Error('Produto sem descrição válida para publicação.');
+  }
+
+  return `${descricao}\n${formatarPreco(preco)}`;
+}
+
 function avaliarProduto(produto) {
   const foto1 = limparTexto(produto.foto);
+  const descricao = limparTexto(produto.nome);
   const precoNumero = Number(produto.preco);
   let motivo = '';
 
   if (!foto1) {
     motivo = 'Produto sem foto 1.';
+  } else if (!descricao) {
+    motivo = 'Produto sem descrição válida.';
   } else if (!Number.isFinite(precoNumero) || precoNumero <= 0) {
     motivo = 'Produto sem preço válido.';
   }
 
   return {
     id: Number(produto.id),
-    nome: produto.nome,
+    nome: descricao,
     preco: Number.isFinite(precoNumero) ? precoNumero : null,
     preco_formatado: Number.isFinite(precoNumero) && precoNumero > 0
       ? formatarPreco(precoNumero)
       : '',
+    legenda: !motivo ? formatarLegendaProduto(descricao, precoNumero) : '',
     foto: foto1,
     categoria_id: Number(produto.categoria_id),
     categoria: produto.categoria,
@@ -108,6 +122,7 @@ async function listarCategorias() {
       COUNT(p.id) FILTER (
         WHERE p.ativo = true
           AND NULLIF(BTRIM(p.foto), '') IS NOT NULL
+          AND NULLIF(BTRIM(p.nome), '') IS NOT NULL
           AND p.preco IS NOT NULL
           AND p.preco > 0
       )::int AS total_publicaveis
@@ -223,7 +238,7 @@ async function publicarProduto({ requestId, produtoId, categoriaId }) {
   const promessa = (async () => {
     // A conferência é feita novamente no servidor no momento exato do envio.
     const produto = await buscarProdutoParaPublicacao(idProduto, idCategoria);
-    const legenda = formatarPreco(produto.preco);
+    const legenda = formatarLegendaProduto(produto.nome, produto.preco);
 
     const resultado = await zapiService.enviarImagemStatus({
       imagem: produto.foto,
