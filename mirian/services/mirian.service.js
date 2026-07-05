@@ -1,4 +1,5 @@
 const pool = require('../../db/connection');
+const envioWhatsappService = require('../../src/services/whatsapp/envio-whatsapp.service');
 
 function criarErro(status, mensagem) {
   const error = new Error(mensagem);
@@ -28,6 +29,28 @@ function idPositivo(valor, campo = 'ID') {
   }
 
   return id;
+}
+
+
+function normalizarTelefoneWhatsapp(valor) {
+  const digitos = String(valor || '').replace(/\D+/g, '');
+
+  if (!digitos) {
+    throw criarErro(400, 'O paciente não possui telefone cadastrado.');
+  }
+
+  if (digitos.length === 10 || digitos.length === 11) {
+    return `55${digitos}`;
+  }
+
+  if (digitos.length >= 12 && digitos.length <= 15) {
+    return digitos;
+  }
+
+  throw criarErro(
+    400,
+    'O telefone do paciente é inválido. Informe o número com DDD.'
+  );
 }
 
 function normalizarDataNascimento(valor) {
@@ -333,6 +356,47 @@ async function atualizarPacienteVisitado(idInformado, visitadoInformado) {
   return resultado.rows[0];
 }
 
+
+async function enviarMensagemWhatsappPaciente(idInformado, mensagemInformada) {
+  const id = idPositivo(idInformado, 'Paciente');
+  const mensagem = textoObrigatorio(mensagemInformada, 'Mensagem', 2000);
+
+  const resultado = await pool.query(
+    `
+      SELECT id, nome, telefone
+      FROM mirian_pacientes
+      WHERE id = $1
+      LIMIT 1
+    `,
+    [id]
+  );
+
+  if (!resultado.rowCount) {
+    throw criarErro(404, 'Paciente não encontrado.');
+  }
+
+  const paciente = resultado.rows[0];
+  const telefone = normalizarTelefoneWhatsapp(paciente.telefone);
+
+  try {
+    await envioWhatsappService.enviarMensagem({
+      telefone,
+      mensagem,
+    });
+  } catch (error) {
+    console.error('[mirian][whatsapp]', error);
+    throw criarErro(502, 'Não foi possível enviar a mensagem pelo WhatsApp.');
+  }
+
+  return {
+    paciente: {
+      id: paciente.id,
+      nome: paciente.nome,
+    },
+    telefone,
+  };
+}
+
 module.exports = {
   listarSintomas,
   criarSintoma,
@@ -341,4 +405,5 @@ module.exports = {
   criarPaciente,
   listarPacientes,
   atualizarPacienteVisitado,
+  enviarMensagemWhatsappPaciente,
 };

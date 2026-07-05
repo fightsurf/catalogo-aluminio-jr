@@ -103,6 +103,28 @@ async function atualizarPacienteVisitado(req, res) {
   }
 }
 
+
+async function enviarMensagemWhatsappPaciente(req, res) {
+  try {
+    const envio = await mirianService.enviarMensagemWhatsappPaciente(
+      req.params.id,
+      req.body ? req.body.mensagem : undefined
+    );
+
+    return res.json({
+      ok: true,
+      mensagem: 'Mensagem enviada pelo WhatsApp.',
+      envio,
+    });
+  } catch (error) {
+    if (Number(error.status) === 502) {
+      return res.status(502).json({ erro: error.message });
+    }
+
+    return responderErro(res, error);
+  }
+}
+
 module.exports = {
   listarSintomas,
   criarSintoma,
@@ -111,4 +133,5 @@ module.exports = {
   criarPaciente,
   listarPacientes,
   atualizarPacienteVisitado,
+  enviarMensagemWhatsappPaciente,
 };

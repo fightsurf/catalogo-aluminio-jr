@@ -9,6 +9,16 @@ ENDEREÇOS
 API
 - /api/mirian/sintomas
 - /api/mirian/pacientes
+- POST /api/mirian/pacientes/:id/whatsapp
+
+
+WHATSAPP
+Na tela do agente, o botão Avisar abre um modal para enviar uma mensagem ao
+telefone cadastrado do paciente. O envio reutiliza a integração Z-API do sistema.
+
+Telefones brasileiros com 10 ou 11 dígitos recebem automaticamente o DDI 55.
+As variáveis ZAPI_URL e ZAPI_TOKEN já usadas pela plataforma continuam sendo
+necessárias.
 
 BANCO DE DADOS
 Este módulo usa o mesmo PostgreSQL já configurado pela variável DATABASE_URL.

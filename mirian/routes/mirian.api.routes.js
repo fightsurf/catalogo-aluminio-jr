@@ -15,4 +15,9 @@ router.patch(
   mirianController.atualizarPacienteVisitado
 );
 
+router.post(
+  '/pacientes/:id/whatsapp',
+  mirianController.enviarMensagemWhatsappPaciente
+);
+
 module.exports = router;

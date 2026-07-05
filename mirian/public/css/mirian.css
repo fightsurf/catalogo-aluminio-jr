@@ -34,7 +34,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -173,6 +174,7 @@ a {
 
 .mirian-campo input,
 .mirian-campo select,
+.mirian-campo textarea,
 .mirian-edicao-input {
   width: 100%;
   min-height: 50px;
@@ -186,6 +188,7 @@ a {
 
 .mirian-campo input:focus,
 .mirian-campo select:focus,
+.mirian-campo textarea:focus,
 .mirian-edicao-input:focus {
   border-color: var(--mirian-primaria);
   box-shadow: 0 0 0 3px rgba(24, 121, 111, 0.12);
@@ -419,11 +422,118 @@ a {
   font-size: 0.86rem;
 }
 
+
+.mirian-campo textarea {
+  min-height: 150px;
+  resize: vertical;
+  line-height: 1.45;
+}
+
+.mirian-paciente-identificacao {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
+}
+
+.mirian-botao-whatsapp,
+.mirian-botao-whatsapp-enviar {
+  background: #1f8f50;
+  color: #fff;
+}
+
+.mirian-botao-whatsapp {
+  min-height: 38px;
+  border-radius: 12px;
+  padding: 8px 11px;
+  font-size: 0.84rem;
+  line-height: 1;
+}
+
+.mirian-botao-whatsapp:hover,
+.mirian-botao-whatsapp-enviar:hover {
+  background: #187741;
+}
+
+.mirian-botao-whatsapp-enviar {
+  width: 100%;
+}
+
+body.mirian-modal-aberto {
+  overflow: hidden;
+}
+
+.mirian-modal-overlay[hidden] {
+  display: none !important;
+}
+
+.mirian-modal-overlay {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(15, 32, 30, 0.56);
+}
+
+.mirian-modal {
+  width: 100%;
+  max-height: calc(100vh - 20px);
+  overflow-y: auto;
+  border-radius: 22px 22px 0 0;
+  background: var(--mirian-superficie);
+  padding: 20px 18px 24px;
+  box-shadow: 0 -12px 40px rgba(15, 32, 30, 0.22);
+}
+
+.mirian-modal-cabecalho {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.mirian-modal-cabecalho h2 {
+  margin: 0 0 6px;
+  font-size: 1.2rem;
+}
+
+.mirian-modal-cabecalho p {
+  margin: 0;
+}
+
+.mirian-modal-fechar {
+  flex: 0 0 auto;
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 12px;
+  padding: 0;
+  background: #e8efee;
+  color: var(--mirian-texto);
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
 .mirian-escondido {
   display: none !important;
 }
 
 @media (min-width: 680px) {
+
+  .mirian-modal-overlay {
+    align-items: center;
+    padding: 22px;
+  }
+
+  .mirian-modal {
+    width: min(100%, 560px);
+    border-radius: 22px;
+    padding: 24px;
+  }
+
   .mirian-container {
     padding: 26px 22px;
   }

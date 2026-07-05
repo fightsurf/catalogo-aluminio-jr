@@ -7,12 +7,74 @@ document.addEventListener('DOMContentLoaded', () => {
   const atualizado = document.querySelector('#mirian-atualizado');
   const botaoLimpar = document.querySelector('#mirian-limpar-filtros');
 
+  const modalWhatsapp = document.querySelector('#mirian-modal-whatsapp');
+  const formularioWhatsapp = document.querySelector('#mirian-form-whatsapp');
+  const destinatarioWhatsapp = document.querySelector(
+    '#mirian-modal-whatsapp-destinatario'
+  );
+  const campoMensagemWhatsapp = document.querySelector(
+    '#mirian-whatsapp-mensagem'
+  );
+  const mensagemModalWhatsapp = document.querySelector(
+    '#mirian-modal-whatsapp-mensagem'
+  );
+  const botaoFecharWhatsapp = document.querySelector(
+    '#mirian-fechar-modal-whatsapp'
+  );
+  const botaoCancelarWhatsapp = document.querySelector(
+    '#mirian-cancelar-whatsapp'
+  );
+  const botaoEnviarWhatsapp = document.querySelector(
+    '#mirian-enviar-whatsapp'
+  );
+
   let carregando = false;
+  let enviandoWhatsapp = false;
+  let pacienteWhatsapp = null;
+
+  function abrirModalWhatsapp(paciente) {
+    pacienteWhatsapp = paciente;
+    formularioWhatsapp.reset();
+    Mirian.limparMensagem(mensagemModalWhatsapp);
+    destinatarioWhatsapp.textContent = `${paciente.nome} • ${
+      paciente.telefone || 'Telefone não informado'
+    }`;
+    modalWhatsapp.hidden = false;
+    document.body.classList.add('mirian-modal-aberto');
+
+    window.setTimeout(() => campoMensagemWhatsapp.focus(), 0);
+  }
+
+  function fecharModalWhatsapp() {
+    if (enviandoWhatsapp) return;
+
+    modalWhatsapp.hidden = true;
+    document.body.classList.remove('mirian-modal-aberto');
+    pacienteWhatsapp = null;
+    formularioWhatsapp.reset();
+    Mirian.limparMensagem(mensagemModalWhatsapp);
+  }
 
   function montarCard(paciente) {
     const card = Mirian.criarElemento('article', 'mirian-card');
     const cabecalho = Mirian.criarElemento('div', 'mirian-paciente-cabecalho');
+    const identificacao = Mirian.criarElemento(
+      'div',
+      'mirian-paciente-identificacao'
+    );
     const nome = Mirian.criarElemento('h2', '', paciente.nome);
+    const botaoAvisar = Mirian.criarElemento(
+      'button',
+      'mirian-botao-whatsapp',
+      'Avisar'
+    );
+    botaoAvisar.type = 'button';
+    botaoAvisar.setAttribute(
+      'aria-label',
+      `Enviar mensagem pelo WhatsApp para ${paciente.nome}`
+    );
+    botaoAvisar.addEventListener('click', () => abrirModalWhatsapp(paciente));
+
     const status = Mirian.criarElemento(
       'span',
       `mirian-status ${
@@ -21,7 +83,8 @@ document.addEventListener('DOMContentLoaded', () => {
       paciente.visitado ? '🟢 Visitado' : '🟡 Pendente'
     );
 
-    cabecalho.append(nome, status);
+    identificacao.append(nome, botaoAvisar);
+    cabecalho.append(identificacao, status);
 
     const dados = Mirian.criarElemento('div', 'mirian-dados');
     [
@@ -147,12 +210,74 @@ document.addEventListener('DOMContentLoaded', () => {
         'pt-BR',
         { hour: '2-digit', minute: '2-digit', second: '2-digit' }
       )}`;
-      Mirian.limparMensagem(mensagem);
+
+      if (modalWhatsapp.hidden) {
+        Mirian.limparMensagem(mensagem);
+      }
     } catch (error) {
       Mirian.mostrarMensagem(mensagem, error.message, 'erro');
     } finally {
       carregando = false;
     }
+  }
+
+  formularioWhatsapp.addEventListener('submit', async (evento) => {
+    evento.preventDefault();
+
+    if (!pacienteWhatsapp || enviandoWhatsapp) return;
+
+    const texto = campoMensagemWhatsapp.value.trim();
+
+    if (!texto) {
+      Mirian.mostrarMensagem(
+        mensagemModalWhatsapp,
+        'Digite a mensagem que será enviada.',
+        'erro'
+      );
+      campoMensagemWhatsapp.focus();
+      return;
+    }
+
+    enviandoWhatsapp = true;
+    botaoEnviarWhatsapp.disabled = true;
+    botaoCancelarWhatsapp.disabled = true;
+    botaoFecharWhatsapp.disabled = true;
+    botaoEnviarWhatsapp.textContent = 'Enviando...';
+    Mirian.limparMensagem(mensagemModalWhatsapp);
+
+    try {
+      const resposta = await Mirian.requisicao(
+        `/pacientes/${pacienteWhatsapp.id}/whatsapp`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ mensagem: texto }),
+        }
+      );
+
+      const nomePaciente = pacienteWhatsapp.nome;
+      fecharModalWhatsappForcado();
+      Mirian.mostrarMensagem(
+        mensagem,
+        resposta.mensagem || `Mensagem enviada para ${nomePaciente}.`,
+        'sucesso'
+      );
+    } catch (error) {
+      Mirian.mostrarMensagem(mensagemModalWhatsapp, error.message, 'erro');
+    } finally {
+      enviandoWhatsapp = false;
+      botaoEnviarWhatsapp.disabled = false;
+      botaoCancelarWhatsapp.disabled = false;
+      botaoFecharWhatsapp.disabled = false;
+      botaoEnviarWhatsapp.textContent = 'Enviar mensagem';
+    }
+  });
+
+  function fecharModalWhatsappForcado() {
+    modalWhatsapp.hidden = true;
+    document.body.classList.remove('mirian-modal-aberto');
+    pacienteWhatsapp = null;
+    formularioWhatsapp.reset();
+    Mirian.limparMensagem(mensagemModalWhatsapp);
   }
 
   formulario.addEventListener('submit', (evento) => {
@@ -163,6 +288,21 @@ document.addEventListener('DOMContentLoaded', () => {
   botaoLimpar.addEventListener('click', () => {
     formulario.reset();
     carregarPacientes();
+  });
+
+  botaoFecharWhatsapp.addEventListener('click', fecharModalWhatsapp);
+  botaoCancelarWhatsapp.addEventListener('click', fecharModalWhatsapp);
+
+  modalWhatsapp.addEventListener('click', (evento) => {
+    if (evento.target === modalWhatsapp) {
+      fecharModalWhatsapp();
+    }
+  });
+
+  document.addEventListener('keydown', (evento) => {
+    if (evento.key === 'Escape' && !modalWhatsapp.hidden) {
+      fecharModalWhatsapp();
+    }
   });
 
   carregarSintomas().then(carregarPacientes);

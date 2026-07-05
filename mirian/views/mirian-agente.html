@@ -58,6 +58,66 @@
     <section id="mirian-lista-pacientes" class="mirian-lista" aria-live="polite"></section>
   </main>
 
+
+  <div
+    id="mirian-modal-whatsapp"
+    class="mirian-modal-overlay"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="mirian-modal-whatsapp-titulo"
+    hidden
+  >
+    <section class="mirian-modal">
+      <div class="mirian-modal-cabecalho">
+        <div>
+          <h2 id="mirian-modal-whatsapp-titulo">Enviar aviso pelo WhatsApp</h2>
+          <p id="mirian-modal-whatsapp-destinatario" class="mirian-meta"></p>
+        </div>
+        <button
+          id="mirian-fechar-modal-whatsapp"
+          class="mirian-modal-fechar"
+          type="button"
+          aria-label="Fechar"
+        >×</button>
+      </div>
+
+      <form id="mirian-form-whatsapp" class="mirian-formulario">
+        <div class="mirian-campo">
+          <label for="mirian-whatsapp-mensagem">Mensagem</label>
+          <textarea
+            id="mirian-whatsapp-mensagem"
+            name="mensagem"
+            rows="6"
+            maxlength="2000"
+            required
+            placeholder="Digite a mensagem que será enviada ao paciente"
+          ></textarea>
+          <span class="mirian-meta">Máximo de 2.000 caracteres.</span>
+        </div>
+
+        <div
+          id="mirian-modal-whatsapp-mensagem"
+          class="mirian-mensagem"
+          role="status"
+          aria-live="polite"
+        ></div>
+
+        <div class="mirian-acoes">
+          <button
+            id="mirian-cancelar-whatsapp"
+            class="mirian-botao-secundario"
+            type="button"
+          >Cancelar</button>
+          <button
+            id="mirian-enviar-whatsapp"
+            class="mirian-botao-whatsapp-enviar"
+            type="submit"
+          >Enviar mensagem</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
   <footer class="mirian-rodape">Atualização automática a cada 10 segundos</footer>
 
   <script src="/mirian/assets/js/mirian-comum.js"></script>
