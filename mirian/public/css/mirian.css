@@ -1,0 +1,446 @@
+:root {
+  --mirian-fundo: #f4f7f6;
+  --mirian-superficie: #ffffff;
+  --mirian-texto: #1f2a2a;
+  --mirian-texto-suave: #617070;
+  --mirian-borda: #dce6e3;
+  --mirian-primaria: #18796f;
+  --mirian-primaria-escura: #105e57;
+  --mirian-sucesso: #247a45;
+  --mirian-sucesso-fundo: #e4f5e9;
+  --mirian-alerta: #8b6a12;
+  --mirian-alerta-fundo: #fff4cf;
+  --mirian-perigo: #a83c3c;
+  --mirian-perigo-fundo: #fdeaea;
+  --mirian-sombra: 0 10px 26px rgba(28, 54, 51, 0.08);
+  --mirian-raio: 18px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--mirian-fundo);
+  color: var(--mirian-texto);
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+button,
+.mirian-botao {
+  min-height: 48px;
+  border: 0;
+  border-radius: 14px;
+  padding: 12px 18px;
+  cursor: pointer;
+  font-weight: 700;
+  transition: transform 0.15s ease, opacity 0.15s ease, background 0.15s ease;
+}
+
+button:active,
+.mirian-botao:active {
+  transform: scale(0.98);
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+a {
+  color: inherit;
+}
+
+.mirian-topo {
+  background: linear-gradient(135deg, #146d65, #2c9186);
+  color: #fff;
+  padding: 24px 18px 30px;
+}
+
+.mirian-topo-conteudo,
+.mirian-container {
+  width: min(100%, 980px);
+  margin: 0 auto;
+}
+
+.mirian-topo-linha {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mirian-voltar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.16);
+  text-decoration: none;
+  font-size: 24px;
+}
+
+.mirian-topo h1 {
+  margin: 0;
+  font-size: clamp(1.45rem, 5vw, 2.1rem);
+  line-height: 1.15;
+}
+
+.mirian-topo p {
+  margin: 10px 0 0;
+  color: rgba(255, 255, 255, 0.88);
+  line-height: 1.5;
+}
+
+.mirian-container {
+  padding: 18px;
+}
+
+.mirian-card {
+  background: var(--mirian-superficie);
+  border: 1px solid var(--mirian-borda);
+  border-radius: var(--mirian-raio);
+  box-shadow: var(--mirian-sombra);
+  padding: 18px;
+}
+
+.mirian-card + .mirian-card {
+  margin-top: 14px;
+}
+
+.mirian-grade-inicio {
+  display: grid;
+  gap: 14px;
+}
+
+.mirian-link-card {
+  display: block;
+  padding: 22px;
+  border: 1px solid var(--mirian-borda);
+  border-radius: var(--mirian-raio);
+  background: var(--mirian-superficie);
+  box-shadow: var(--mirian-sombra);
+  text-decoration: none;
+}
+
+.mirian-link-card strong {
+  display: block;
+  margin-bottom: 7px;
+  font-size: 1.08rem;
+}
+
+.mirian-link-card span {
+  color: var(--mirian-texto-suave);
+  line-height: 1.45;
+}
+
+.mirian-aviso {
+  margin-bottom: 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: #e9f3f2;
+  color: #355a56;
+  line-height: 1.45;
+}
+
+.mirian-formulario {
+  display: grid;
+  gap: 16px;
+}
+
+.mirian-campo {
+  display: grid;
+  gap: 7px;
+}
+
+.mirian-campo label,
+.mirian-rotulo {
+  font-weight: 700;
+}
+
+.mirian-campo input,
+.mirian-campo select,
+.mirian-edicao-input {
+  width: 100%;
+  min-height: 50px;
+  border: 1px solid var(--mirian-borda);
+  border-radius: 14px;
+  background: #fff;
+  color: var(--mirian-texto);
+  padding: 12px 14px;
+  outline: none;
+}
+
+.mirian-campo input:focus,
+.mirian-campo select:focus,
+.mirian-edicao-input:focus {
+  border-color: var(--mirian-primaria);
+  box-shadow: 0 0 0 3px rgba(24, 121, 111, 0.12);
+}
+
+.mirian-sintomas-grade {
+  display: grid;
+  gap: 10px;
+}
+
+.mirian-check-card {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 54px;
+  border: 1px solid var(--mirian-borda);
+  border-radius: 14px;
+  padding: 12px 14px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.mirian-check-card:has(input:checked) {
+  border-color: var(--mirian-primaria);
+  background: #ebf7f5;
+}
+
+.mirian-check-card input,
+.mirian-checkbox-grande {
+  width: 22px;
+  height: 22px;
+  accent-color: var(--mirian-primaria);
+  flex: 0 0 auto;
+}
+
+.mirian-botao-primario {
+  width: 100%;
+  background: var(--mirian-primaria);
+  color: #fff;
+}
+
+.mirian-botao-primario:hover {
+  background: var(--mirian-primaria-escura);
+}
+
+.mirian-botao-secundario {
+  background: #e8efee;
+  color: var(--mirian-texto);
+}
+
+.mirian-botao-perigo {
+  background: var(--mirian-perigo-fundo);
+  color: var(--mirian-perigo);
+}
+
+.mirian-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+}
+
+.mirian-acoes > * {
+  flex: 1 1 130px;
+}
+
+.mirian-mensagem {
+  display: none;
+  margin-bottom: 14px;
+  border-radius: 14px;
+  padding: 13px 15px;
+  line-height: 1.4;
+}
+
+.mirian-mensagem.mirian-visivel {
+  display: block;
+}
+
+.mirian-mensagem-sucesso {
+  background: var(--mirian-sucesso-fundo);
+  color: var(--mirian-sucesso);
+}
+
+.mirian-mensagem-erro {
+  background: var(--mirian-perigo-fundo);
+  color: var(--mirian-perigo);
+}
+
+.mirian-filtros {
+  display: grid;
+  gap: 12px;
+}
+
+.mirian-resumo {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0 12px;
+}
+
+.mirian-chip {
+  border-radius: 999px;
+  padding: 8px 11px;
+  background: #e8efee;
+  color: var(--mirian-texto-suave);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.mirian-lista {
+  display: grid;
+  gap: 14px;
+}
+
+.mirian-paciente-cabecalho,
+.mirian-sintoma-cabecalho {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mirian-paciente-cabecalho h2,
+.mirian-sintoma-cabecalho h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.mirian-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 7px 10px;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.mirian-status-pendente {
+  background: var(--mirian-alerta-fundo);
+  color: var(--mirian-alerta);
+}
+
+.mirian-status-visitado {
+  background: var(--mirian-sucesso-fundo);
+  color: var(--mirian-sucesso);
+}
+
+.mirian-dados {
+  display: grid;
+  gap: 7px;
+  margin: 15px 0;
+  color: var(--mirian-texto-suave);
+}
+
+.mirian-dados strong {
+  color: var(--mirian-texto);
+}
+
+.mirian-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin: 12px 0 16px;
+}
+
+.mirian-tag {
+  border-radius: 999px;
+  background: #edf4f3;
+  color: #315f5a;
+  padding: 7px 10px;
+  font-size: 0.88rem;
+  font-weight: 650;
+}
+
+.mirian-visita {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  border-top: 1px solid var(--mirian-borda);
+  padding-top: 14px;
+  font-weight: 750;
+}
+
+.mirian-vazio {
+  padding: 30px 18px;
+  text-align: center;
+  color: var(--mirian-texto-suave);
+}
+
+.mirian-meta {
+  color: var(--mirian-texto-suave);
+  font-size: 0.9rem;
+}
+
+.mirian-sintoma-inativo {
+  opacity: 0.72;
+}
+
+.mirian-sintoma-linha {
+  display: grid;
+  gap: 12px;
+}
+
+.mirian-sintoma-nome {
+  font-weight: 800;
+  font-size: 1.05rem;
+}
+
+.mirian-estado {
+  display: inline-flex;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.84rem;
+  font-weight: 800;
+  background: var(--mirian-sucesso-fundo);
+  color: var(--mirian-sucesso);
+}
+
+.mirian-estado-inativo {
+  background: #ecefee;
+  color: #667270;
+}
+
+.mirian-rodape {
+  padding: 6px 18px 28px;
+  text-align: center;
+  color: var(--mirian-texto-suave);
+  font-size: 0.86rem;
+}
+
+.mirian-escondido {
+  display: none !important;
+}
+
+@media (min-width: 680px) {
+  .mirian-container {
+    padding: 26px 22px;
+  }
+
+  .mirian-grade-inicio {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .mirian-filtros {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .mirian-sintomas-grade {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .mirian-card {
+    padding: 22px;
+  }
+}

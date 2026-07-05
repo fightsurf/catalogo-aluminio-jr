@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Cadastro do Paciente | Projeto Mirian</title>
+  <link rel="stylesheet" href="/mirian/assets/css/mirian.css">
+</head>
+<body>
+  <header class="mirian-topo">
+    <div class="mirian-topo-conteudo">
+      <div class="mirian-topo-linha">
+        <a class="mirian-voltar" href="/mirian" aria-label="Voltar">‹</a>
+        <div>
+          <h1>Cadastro do Paciente</h1>
+          <p>Preencha os dados e marque os sintomas apresentados.</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="mirian-container">
+    <div class="mirian-aviso">
+      Este cadastro faz parte de uma demonstração escolar e não substitui atendimento de saúde.
+    </div>
+
+    <div id="mirian-mensagem" class="mirian-mensagem" role="status" aria-live="polite"></div>
+
+    <section class="mirian-card">
+      <form id="mirian-form-paciente" class="mirian-formulario">
+        <div class="mirian-campo">
+          <label for="mirian-nome">Nome completo</label>
+          <input id="mirian-nome" name="nome" type="text" maxlength="160" autocomplete="name" required>
+        </div>
+
+        <div class="mirian-campo">
+          <label for="mirian-telefone">Telefone</label>
+          <input id="mirian-telefone" name="telefone" type="tel" maxlength="30" inputmode="tel" autocomplete="tel" required>
+        </div>
+
+        <div class="mirian-campo">
+          <label for="mirian-cidade">Cidade</label>
+          <input id="mirian-cidade" name="cidade" type="text" maxlength="120" autocomplete="address-level2" required>
+        </div>
+
+        <div class="mirian-campo">
+          <label for="mirian-data-nascimento">Data de nascimento</label>
+          <input id="mirian-data-nascimento" name="data_nascimento" type="date" autocomplete="bday" required>
+        </div>
+
+        <div>
+          <div class="mirian-rotulo">Sintomas</div>
+          <div id="mirian-sintomas" class="mirian-sintomas-grade" style="margin-top: 9px;"></div>
+        </div>
+
+        <button class="mirian-botao-primario" type="submit">Enviar Cadastro</button>
+      </form>
+    </section>
+  </main>
+
+  <footer class="mirian-rodape">Projeto demonstrativo — sem diagnóstico médico</footer>
+
+  <script src="/mirian/assets/js/mirian-comum.js"></script>
+  <script src="/mirian/assets/js/mirian-paciente.js"></script>
+</body>
+</html>

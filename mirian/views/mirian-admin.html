@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Administração | Projeto Mirian</title>
+  <link rel="stylesheet" href="/mirian/assets/css/mirian.css">
+</head>
+<body>
+  <header class="mirian-topo">
+    <div class="mirian-topo-conteudo">
+      <div class="mirian-topo-linha">
+        <a class="mirian-voltar" href="/mirian" aria-label="Voltar">‹</a>
+        <div>
+          <h1>Administração</h1>
+          <p>Gerencie os sintomas exibidos no cadastro do paciente.</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="mirian-container">
+    <div id="mirian-mensagem" class="mirian-mensagem" role="status" aria-live="polite"></div>
+
+    <section class="mirian-card">
+      <form id="mirian-form-sintoma" class="mirian-formulario">
+        <div class="mirian-campo">
+          <label for="mirian-nome-sintoma">Nome do sintoma</label>
+          <input id="mirian-nome-sintoma" name="nome" type="text" maxlength="120" required>
+        </div>
+        <button class="mirian-botao-primario" type="submit">Adicionar</button>
+      </form>
+    </section>
+
+    <h2 style="margin: 24px 0 12px;">Lista de sintomas</h2>
+    <section id="mirian-lista-sintomas" class="mirian-lista" aria-live="polite"></section>
+  </main>
+
+  <footer class="mirian-rodape">Somente sintomas ativos aparecem para o paciente</footer>
+
+  <script src="/mirian/assets/js/mirian-comum.js"></script>
+  <script src="/mirian/assets/js/mirian-admin.js"></script>
+</body>
+</html>

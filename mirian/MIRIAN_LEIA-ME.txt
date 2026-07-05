@@ -1,0 +1,30 @@
+PROJETO MIRIAN - FEIRA DE CIÊNCIAS
+
+ENDEREÇOS
+- Início: /mirian
+- Paciente: /mirian/paciente
+- Agente: /mirian/agente
+- Administração: /mirian/admin
+
+API
+- /api/mirian/sintomas
+- /api/mirian/pacientes
+
+BANCO DE DADOS
+Este módulo usa o mesmo PostgreSQL já configurado pela variável DATABASE_URL.
+Não usa nem altera as tabelas do sistema da fábrica.
+
+Tabelas exclusivas:
+- mirian_pacientes
+- mirian_sintomas
+- mirian_paciente_sintomas
+
+Todos os índices, restrições, arquivos, rotas e serviços do módulo foram isolados
+com o nome/prefixo mirian.
+
+Na primeira inicialização, o server.js cria automaticamente as tabelas e insere
+os sintomas demonstrativos iniciais.
+
+OBSERVAÇÃO
+O projeto é apenas educacional. Não existe diagnóstico, classificação de risco
+ou recomendação médica.

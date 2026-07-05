@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agente de Saúde | Projeto Mirian</title>
+  <link rel="stylesheet" href="/mirian/assets/css/mirian.css">
+</head>
+<body>
+  <header class="mirian-topo">
+    <div class="mirian-topo-conteudo">
+      <div class="mirian-topo-linha">
+        <a class="mirian-voltar" href="/mirian" aria-label="Voltar">‹</a>
+        <div>
+          <h1>Agente de Saúde</h1>
+          <p>Consulte os cadastros e registre as visitas realizadas.</p>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="mirian-container">
+    <div id="mirian-mensagem" class="mirian-mensagem" role="status" aria-live="polite"></div>
+
+    <section class="mirian-card">
+      <form id="mirian-form-filtros" class="mirian-filtros">
+        <div class="mirian-campo">
+          <label for="mirian-filtro-nome">Nome</label>
+          <input id="mirian-filtro-nome" name="nome" type="search" maxlength="160">
+        </div>
+
+        <div class="mirian-campo">
+          <label for="mirian-filtro-telefone">Telefone</label>
+          <input id="mirian-filtro-telefone" name="telefone" type="search" maxlength="30" inputmode="tel">
+        </div>
+
+        <div class="mirian-campo">
+          <label for="mirian-filtro-cidade">Cidade</label>
+          <input id="mirian-filtro-cidade" name="cidade" type="search" maxlength="120">
+        </div>
+
+        <div class="mirian-campo">
+          <label for="mirian-filtro-sintoma">Sintoma</label>
+          <select id="mirian-filtro-sintoma" name="sintomaId">
+            <option value="">Todos os sintomas</option>
+          </select>
+        </div>
+
+        <div class="mirian-acoes">
+          <button class="mirian-botao-primario" type="submit">Pesquisar</button>
+          <button id="mirian-limpar-filtros" class="mirian-botao-secundario" type="button">Limpar</button>
+        </div>
+      </form>
+    </section>
+
+    <div id="mirian-resumo" class="mirian-resumo"></div>
+    <div id="mirian-atualizado" class="mirian-meta" style="margin-bottom: 12px;"></div>
+    <section id="mirian-lista-pacientes" class="mirian-lista" aria-live="polite"></section>
+  </main>
+
+  <footer class="mirian-rodape">Atualização automática a cada 10 segundos</footer>
+
+  <script src="/mirian/assets/js/mirian-comum.js"></script>
+  <script src="/mirian/assets/js/mirian-agente.js"></script>
+</body>
+</html>

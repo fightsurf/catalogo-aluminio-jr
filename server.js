@@ -80,6 +80,10 @@ const statusWhatsappRoutes = require('./src/routes/whatsapp/status-whatsapp.rout
 const statusWhatsappViewRoutes = require('./src/routes/whatsapp/status-whatsapp.view.routes');
 const hubRoutes = require('./src/routes/hub/hub.routes');
 
+// Projeto demonstrativo Mirian (isolado do sistema da fábrica)
+const mirianApiRoutes = require('./mirian/routes/mirian.api.routes');
+const mirianViewRoutes = require('./mirian/routes/mirian.view.routes');
+
 
 const app = express();
 app.set('trust proxy', 1);
@@ -92,6 +96,9 @@ app.use(express.urlencoded({ extended: true }));
 app.use(authRoutes);
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/prestacao_contas', express.static(path.join(__dirname, 'views', 'prestacao_contas')));
+
+// Arquivos estáticos exclusivos do Projeto Mirian
+app.use('/mirian/assets', express.static(path.join(__dirname, 'mirian', 'public')));
 
 // =====================================================
 // 📡 APIs
@@ -156,6 +163,10 @@ app.use('/whatsapp', envioWhatsappViewRoutes);
 app.use('/api/whatsapp/status', statusWhatsappRoutes);
 app.use('/whatsapp', statusWhatsappViewRoutes);
 app.use('/hub', hubRoutes);
+
+// Projeto Mirian: API e páginas isoladas pelo prefixo /mirian
+app.use('/api/mirian', mirianApiRoutes);
+app.use('/mirian', mirianViewRoutes);
 
 app.use('/bot', botRoutes);
 app.use('/bot/admin', botAdminRoutes);
@@ -358,6 +369,11 @@ produtoComposicaoSchemaService.criarEstrutura().catch(err =>
 const produtoFotosSchemaService = require('./src/services/produto/produtoFotosSchema.service');
 produtoFotosSchemaService.criarEstrutura().catch(err =>
   console.warn('⚠️  Estrutura de fotos dos produtos (não crítico):', err.message)
+);
+
+const mirianSchemaService = require('./mirian/services/mirianSchema.service');
+mirianSchemaService.criarEstrutura().catch(err =>
+  console.warn('⚠️  Estrutura do Projeto Mirian (não crítico):', err.message)
 );
 
 // =====================================================
