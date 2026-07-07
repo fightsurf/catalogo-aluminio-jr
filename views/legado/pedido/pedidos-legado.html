@@ -319,6 +319,52 @@
       color: #0369a1;
     }
 
+    .importacao-relatorio {
+      margin-bottom: 16px;
+      padding: 14px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      background: #f9fafb;
+    }
+
+    .importacao-relatorio textarea {
+      width: 100%;
+      min-height: 170px;
+      resize: vertical;
+      border: 1px solid #cfd6dd;
+      border-radius: 4px;
+      padding: 10px;
+      font-size: 14px;
+      font-family: Arial, sans-serif;
+      outline: none;
+      background: #fff;
+    }
+
+    .importacao-relatorio textarea:focus { border-color: #3b82f6; }
+
+    .linha-importacao-relatorio {
+      display: grid;
+      grid-template-columns: minmax(160px, 220px) auto auto;
+      gap: 10px;
+      align-items: end;
+      margin-top: 10px;
+    }
+
+    .caixa-alerta-importacao {
+      margin-top: 12px;
+      padding: 12px;
+      border: 1px solid #f59e0b;
+      border-radius: 6px;
+      background: #fffbeb;
+      color: #92400e;
+      font-size: 13px;
+    }
+
+    .caixa-alerta-importacao ul {
+      margin: 8px 0 0 18px;
+      padding: 0;
+    }
+
     @media (max-width: 900px) {
       .acoes-pedido {
         justify-content: flex-start;
@@ -326,6 +372,10 @@
 
       .grid-edicao-cliente {
         flex-direction: column;
+      }
+
+      .linha-importacao-relatorio {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -421,6 +471,11 @@
     let buscaProdutoTimer = null;
     let buscaProdutoRequestId = 0;
     let indiceProdutoDestacado = 0;
+    let textoRelatorioEdicao = '';
+    let multiplicadorRelatorioEdicao = '1';
+    let itensNaoReconhecidosRelatorio = [];
+    let cacheProdutosImportacao = null;
+    let importandoRelatorio = false;
 
     function setMensagem(texto, erro = false) {
       mensagem.textContent = texto;
@@ -444,6 +499,42 @@
     function numeroFixo(valor, casas = 3) {
       const atual = Number(valor || 0);
       return Number.isFinite(atual) ? atual.toFixed(casas) : (0).toFixed(casas);
+    }
+
+    function escapeHtml(valor) {
+      return String(valor ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function normalizarNome(valor) {
+      return String(valor || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function parseNumeroBR(valor) {
+      const limpo = String(valor || '')
+        .replace(/R\$/gi, '')
+        .replace(/\./g, '')
+        .replace(/,/g, '.')
+        .trim();
+
+      const valorNumerico = Number(limpo);
+      return Number.isFinite(valorNumerico) ? valorNumerico : NaN;
+    }
+
+    function arredondarDinheiro(valor) {
+      const valorNumerico = Number(valor || 0);
+      if (!Number.isFinite(valorNumerico)) return 0;
+      return Math.round((valorNumerico + Number.EPSILON) * 100) / 100;
     }
 
     function normalizarTelefone(valor) {
@@ -528,6 +619,10 @@
       codigoCarradaEdicao = '';
       observacaoEdicao = '';
       itensEdicao = [];
+      textoRelatorioEdicao = '';
+      multiplicadorRelatorioEdicao = '1';
+      itensNaoReconhecidosRelatorio = [];
+      importandoRelatorio = false;
       limparBuscaProduto();
       dadosCliente.innerHTML = '<div class="placeholder">Nenhum pedido carregado.</div>';
       atualizarVisibilidadeAcoes();
@@ -846,6 +941,248 @@
     }
 
 
+    function extrairItensDoRelatorio(texto) {
+      const blocos = String(texto || '')
+        .split(/\n\s*\n/g)
+        .map((parte) => parte.trim())
+        .filter(Boolean);
+
+      const itens = [];
+
+      for (const bloco of blocos) {
+        if (!bloco.includes('QTD:')) continue;
+        if (!bloco.includes('UNIT:')) continue;
+        if (!bloco.includes('•')) continue;
+
+        const linhas = bloco.split('\n').map((linha) => linha.trim()).filter(Boolean);
+        const linhaPrincipal = linhas.find((linha) => linha.startsWith('•')) || '';
+        const linhaUnit = linhas.find((linha) => /UNIT:/i.test(linha)) || '';
+        const matchPrincipal = linhaPrincipal.match(/^•\s*(.*?)\s*\|\s*QTD:\s*([\d.,]+)/i);
+        const matchUnit = linhaUnit.match(/UNIT:\s*R\$\s*([\d.,]+)/i);
+
+        if (!matchPrincipal || !matchUnit) continue;
+
+        const nome = String(matchPrincipal[1] || '').trim();
+        const quantidade = parseNumeroBR(matchPrincipal[2]);
+        const preco = parseNumeroBR(matchUnit[1]);
+
+        if (!nome || !Number.isFinite(quantidade) || !Number.isFinite(preco)) continue;
+        itens.push({ nome, quantidade, preco });
+      }
+
+      return itens;
+    }
+
+    function localizarProdutoPorNome(produtos, nomeRelatorio) {
+      const alvo = normalizarNome(nomeRelatorio);
+      if (!alvo) return null;
+
+      let produto = produtos.find((item) => normalizarNome(item.nome) === alvo);
+      if (produto) return produto;
+
+      produto = produtos.find((item) => normalizarNome(item.nome).includes(alvo));
+      if (produto) return produto;
+
+      produto = produtos.find((item) => alvo.includes(normalizarNome(item.nome)));
+      return produto || null;
+    }
+
+    async function carregarProdutosParaImportacao() {
+      if (Array.isArray(cacheProdutosImportacao)) {
+        return cacheProdutosImportacao;
+      }
+
+      const json = await fetchJson('/api/produtos?ativos=true');
+      const lista = Array.isArray(json?.data) ? json.data : [];
+      cacheProdutosImportacao = lista.filter((produto) => Number(produto?.item_legado || 0) > 0);
+      return cacheProdutosImportacao;
+    }
+
+    function obterPrecoAtualProduto(produto) {
+      const preco = Number(produto?.preco ?? 0);
+      return Number.isFinite(preco) ? preco : 0;
+    }
+
+    function precosImportadosIguais(itensReconhecidos) {
+      if (!Array.isArray(itensReconhecidos) || itensReconhecidos.length < 2) return false;
+
+      const produtosDistintos = new Set(
+        itensReconhecidos
+          .map((item) => Number(item?.produto?.item_legado || item?.produto?.id || 0))
+          .filter((id) => id > 0)
+      );
+
+      if (produtosDistintos.size < 2) return false;
+
+      const primeiroPreco = Number(itensReconhecidos[0]?.precoImportado || 0);
+      if (!Number.isFinite(primeiroPreco)) return false;
+
+      return itensReconhecidos.every((item) => Math.abs(Number(item?.precoImportado || 0) - primeiroPreco) < 0.01);
+    }
+
+    function calcularPrecoMedioAtualizadoKit(itensReconhecidos) {
+      const totais = itensReconhecidos.reduce((acc, item) => {
+        const quantidade = Number(item?.quantidadeFinal || 0);
+        const precoAtual = obterPrecoAtualProduto(item?.produto);
+
+        if (Number.isFinite(quantidade) && quantidade > 0) {
+          acc.quantidade += quantidade;
+          acc.valor += quantidade * precoAtual;
+        }
+
+        return acc;
+      }, { quantidade: 0, valor: 0 });
+
+      if (totais.quantidade <= 0) return 0;
+      return arredondarDinheiro(totais.valor / totais.quantidade);
+    }
+
+    function adicionarItemImportadoEdicao({ produto, quantidade, preco }) {
+      const codigoItem = Number(produto?.item_legado || 0);
+      const quantidadeNumero = Number(quantidade || 0);
+      const precoNumero = Number(preco || 0);
+
+      if (!Number.isInteger(codigoItem) || codigoItem <= 0) return false;
+      if (!Number.isFinite(quantidadeNumero) || quantidadeNumero <= 0) return false;
+      if (!Number.isFinite(precoNumero) || precoNumero < 0) return false;
+
+      const existente = itensEdicao.find((item) => (
+        Number(item?.item || 0) === codigoItem
+        && Math.abs(Number(item?.preco || 0) - precoNumero) < 0.0001
+      ));
+
+      if (existente) {
+        existente.quantidade = Number(existente.quantidade || 0) + quantidadeNumero;
+      } else {
+        itensEdicao.push({
+          item: codigoItem,
+          descricao: produto?.nome || '',
+          quantidade: quantidadeNumero,
+          preco: precoNumero
+        });
+      }
+
+      return true;
+    }
+
+    function montarHtmlItensNaoReconhecidos() {
+      if (!itensNaoReconhecidosRelatorio.length) return '';
+
+      return `
+        <div class="caixa-alerta-importacao">
+          <strong>Itens não reconhecidos no cadastro do Render:</strong>
+          <ul>
+            ${itensNaoReconhecidosRelatorio.map((item) => `
+              <li>${escapeHtml(item.nome)} | QTD: ${numero(item.quantidade)} | UNIT: ${moeda(item.preco)}</li>
+            `).join('')}
+          </ul>
+        </div>
+      `;
+    }
+
+    async function importarRelatorioEdicao() {
+      if (importandoRelatorio) return;
+
+      const texto = String(textoRelatorioEdicao || '').trim();
+      const multiplicador = Number(multiplicadorRelatorioEdicao || 1);
+
+      if (!texto) {
+        setMensagem('Cole o relatório antes de importar.', true);
+        return;
+      }
+
+      if (!Number.isInteger(multiplicador) || multiplicador <= 0) {
+        setMensagem('Informe um multiplicador inteiro maior que zero.', true);
+        return;
+      }
+
+      try {
+        importandoRelatorio = true;
+        itensNaoReconhecidosRelatorio = [];
+        renderizarItens(pedidoCarregado);
+        setMensagem('Importando itens do relatório...');
+
+        const itensExtraidos = extrairItensDoRelatorio(texto);
+        if (!itensExtraidos.length) {
+          throw new Error('Não encontrei itens válidos no texto colado.');
+        }
+
+        const produtos = await carregarProdutosParaImportacao();
+        const naoReconhecidos = [];
+        const itensReconhecidos = [];
+        let quantidadeImportada = 0;
+        let precosAtualizados = 0;
+
+        itensExtraidos.forEach((item) => {
+          const produto = localizarProdutoPorNome(produtos, item.nome);
+          const quantidadeFinal = Number(item.quantidade) * multiplicador;
+
+          if (!produto) {
+            naoReconhecidos.push({
+              nome: item.nome,
+              quantidade: quantidadeFinal,
+              preco: item.preco
+            });
+            return;
+          }
+
+          itensReconhecidos.push({
+            produto,
+            quantidadeFinal,
+            precoImportado: Number(item.preco || 0)
+          });
+        });
+
+        const kitFeirinhaDetectado = itensReconhecidos.length === itensExtraidos.length
+          && precosImportadosIguais(itensReconhecidos);
+        const precoMedioAtualizadoKit = kitFeirinhaDetectado
+          ? calcularPrecoMedioAtualizadoKit(itensReconhecidos)
+          : null;
+
+        itensReconhecidos.forEach((item) => {
+          const precoAtualProduto = obterPrecoAtualProduto(item.produto);
+          const precoFinal = kitFeirinhaDetectado ? precoMedioAtualizadoKit : precoAtualProduto;
+
+          if (Math.abs(Number(precoFinal || 0) - Number(item.precoImportado || 0)) >= 0.01) {
+            precosAtualizados += 1;
+          }
+
+          if (adicionarItemImportadoEdicao({
+            produto: item.produto,
+            quantidade: item.quantidadeFinal,
+            preco: arredondarDinheiro(precoFinal)
+          })) {
+            quantidadeImportada += 1;
+          }
+        });
+
+        itensNaoReconhecidosRelatorio = naoReconhecidos;
+
+        if (!quantidadeImportada) {
+          throw new Error('Nenhum item do relatório foi reconhecido no cadastro do Render.');
+        }
+
+        const textoKit = kitFeirinhaDetectado
+          ? ` Kit feirinha detectado: preço médio atualizado aplicado (${moeda(precoMedioAtualizadoKit)}).`
+          : '';
+        const textoNaoReconhecidos = naoReconhecidos.length
+          ? ` ${naoReconhecidos.length} não reconhecido(s).`
+          : '';
+        const textoPrecos = precosAtualizados
+          ? ` ${precosAtualizados} preço(s) atualizado(s) pelo cadastro atual.`
+          : '';
+
+        setMensagem(`Importação concluída. ${quantidadeImportada} item(ns) adicionado(s).${textoKit}${textoPrecos}${textoNaoReconhecidos}`);
+      } catch (error) {
+        setMensagem(error.message || 'Erro ao importar relatório.', true);
+      } finally {
+        importandoRelatorio = false;
+        renderizarCliente(pedidoCarregado);
+        renderizarItens(pedidoCarregado);
+      }
+    }
+
+
     function renderizarResultadosBuscaProduto() {
       const container = document.getElementById('resultadoBuscaProdutoEdicao');
       if (!container) return;
@@ -922,6 +1259,36 @@
       const btnLimpar = document.getElementById('btnLimparBuscaProdutoEdicao');
       const btnSalvarInline = document.getElementById('btnSalvarAlteracoesInline');
       const btnCancelarInline = document.getElementById('btnCancelarEdicaoInline');
+      const textareaRelatorio = document.getElementById('textareaRelatorioEdicao');
+      const inputMultiplicador = document.getElementById('inputMultiplicadorRelatorioEdicao');
+      const btnImportarRelatorio = document.getElementById('btnImportarRelatorioEdicao');
+      const btnLimparRelatorio = document.getElementById('btnLimparRelatorioEdicao');
+
+      if (textareaRelatorio) {
+        textareaRelatorio.addEventListener('input', () => {
+          textoRelatorioEdicao = textareaRelatorio.value;
+        });
+      }
+
+      if (inputMultiplicador) {
+        inputMultiplicador.addEventListener('input', () => {
+          multiplicadorRelatorioEdicao = inputMultiplicador.value;
+        });
+      }
+
+      if (btnImportarRelatorio) {
+        btnImportarRelatorio.addEventListener('click', importarRelatorioEdicao);
+      }
+
+      if (btnLimparRelatorio) {
+        btnLimparRelatorio.addEventListener('click', () => {
+          textoRelatorioEdicao = '';
+          multiplicadorRelatorioEdicao = '1';
+          itensNaoReconhecidosRelatorio = [];
+          renderizarItens(pedidoCarregado);
+          setMensagem('Área de importação limpa.');
+        });
+      }
 
       if (inputBusca) {
         inputBusca.addEventListener('input', () => {
@@ -1038,9 +1405,30 @@
           </div>
         </div>
 
+        <div class="importacao-relatorio">
+          <div class="campo-inline" style="min-width:100%;">
+            <label for="textareaRelatorioEdicao">Colar relatório do orçamento / kit feirinha</label>
+            <textarea id="textareaRelatorioEdicao" placeholder="Cole aqui o relatório completo gerado pelo sistema">${escapeHtml(textoRelatorioEdicao)}</textarea>
+          </div>
+
+          <div class="linha-importacao-relatorio">
+            <div class="campo-inline">
+              <label for="inputMultiplicadorRelatorioEdicao">Multiplicador do kit</label>
+              <input id="inputMultiplicadorRelatorioEdicao" type="number" min="1" step="1" value="${escapeHtml(multiplicadorRelatorioEdicao)}" />
+            </div>
+            <button id="btnLimparRelatorioEdicao" class="btn btn-secondary" type="button">Limpar texto</button>
+            <button id="btnImportarRelatorioEdicao" class="btn btn-primary" type="button" ${importandoRelatorio ? 'disabled' : ''}>${importandoRelatorio ? 'Importando...' : 'Importar itens'}</button>
+          </div>
+
+          <div class="texto-ajuda" style="margin-top:10px;">
+            Os itens importados serão adicionados aos itens atuais do pedido. Itens iguais, com o mesmo preço, terão as quantidades somadas. Use multiplicador 1 para pedido comum.
+          </div>
+          ${montarHtmlItensNaoReconhecidos()}
+        </div>
+
         <div class="busca-produto-linha">
           <div class="campo-busca-produto">
-            <label for="inputBuscarProdutoEdicao">Adicionar item</label>
+            <label for="inputBuscarProdutoEdicao">Adicionar item manualmente</label>
             <input id="inputBuscarProdutoEdicao" type="text" placeholder="Digite pelo menos 2 letras do produto e pressione Enter para selecionar" value="${buscaProdutoTermo.replace(/"/g, '&quot;')}" autocomplete="off" />
             <div class="texto-ajuda">A busca acontece enquanto você digita. Pressione Enter para adicionar o primeiro produto encontrado.</div>
           </div>
@@ -1164,6 +1552,10 @@
               preco: Number(item?.preco || 0)
             }))
           : [];
+        textoRelatorioEdicao = '';
+        multiplicadorRelatorioEdicao = '1';
+        itensNaoReconhecidosRelatorio = [];
+        importandoRelatorio = false;
         limparBuscaProduto();
         renderizarPedidoCompleto();
         setMensagem('Modo edição ativado.');
@@ -1179,6 +1571,10 @@
       codigoCarradaEdicao = '';
       observacaoEdicao = '';
       itensEdicao = [];
+      textoRelatorioEdicao = '';
+      multiplicadorRelatorioEdicao = '1';
+      itensNaoReconhecidosRelatorio = [];
+      importandoRelatorio = false;
       limparBuscaProduto();
       renderizarPedidoCompleto();
       setMensagem('Edição cancelada.');
@@ -1248,6 +1644,10 @@
       codigoCarradaEdicao = '';
       observacaoEdicao = '';
       itensEdicao = [];
+      textoRelatorioEdicao = '';
+      multiplicadorRelatorioEdicao = '1';
+      itensNaoReconhecidosRelatorio = [];
+      importandoRelatorio = false;
       limparBuscaProduto();
       renderizarPedidoCompleto();
     }
@@ -1408,6 +1808,10 @@
         codigoCarradaEdicao = '';
         observacaoEdicao = '';
         itensEdicao = [];
+        textoRelatorioEdicao = '';
+        multiplicadorRelatorioEdicao = '1';
+        itensNaoReconhecidosRelatorio = [];
+        importandoRelatorio = false;
         limparBuscaProduto();
         renderizarPedidoCompleto();
         setMensagem('Pedido atualizado com sucesso.');
