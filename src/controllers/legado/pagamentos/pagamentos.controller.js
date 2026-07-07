@@ -31,6 +31,19 @@ async function atualizarStatusCarradaSemQuebrar(detalhePedido, fallbackFiltros =
   }
 }
 
+async function listarPagamentosRealizados(req, res) {
+  try {
+    const data = await pagamentosService.listarPagamentosRealizados(req.query);
+    return res.status(200).json({ success: true, ...data });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Erro ao listar pagamentos realizados.',
+      error: error.message
+    });
+  }
+}
+
 async function listarClientes(req, res) {
   try {
     const data = await pagamentosService.listarClientes(req.query.nome);
@@ -123,6 +136,7 @@ async function excluirPagamento(req, res) {
 }
 
 module.exports = {
+  listarPagamentosRealizados,
   listarClientes,
   listarPedidosPorCliente,
   listarPedidosPorData,

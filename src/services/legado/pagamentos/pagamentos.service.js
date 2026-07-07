@@ -36,6 +36,27 @@ async function request(path, options = {}) {
   return data;
 }
 
+async function listarPagamentosRealizados(filtros = {}) {
+  const params = new URLSearchParams();
+
+  if (filtros.dataInicial || filtros.data_inicial) {
+    params.set('dataInicial', filtros.dataInicial || filtros.data_inicial);
+  }
+
+  if (filtros.dataFinal || filtros.data_final) {
+    params.set('dataFinal', filtros.dataFinal || filtros.data_final);
+  }
+
+  const sufixo = params.toString() ? `?${params.toString()}` : '';
+  const response = await request(`/api/pagamentos/realizados${sufixo}`);
+
+  return {
+    total: Number(response.total || 0),
+    valorTotal: Number(response.valorTotal || 0),
+    dados: Array.isArray(response.dados) ? response.dados : []
+  };
+}
+
 async function listarClientes(nome) {
   const response = await request(`/api/pagamentos/clientes?nome=${encodeURIComponent(nome || '')}`);
   return response.dados || [];
@@ -131,6 +152,7 @@ async function excluirPagamento(codigo, filtros = {}) {
 }
 
 module.exports = {
+  listarPagamentosRealizados,
   listarClientes,
   listarPedidosPorCliente,
   listarPedidosPorData,

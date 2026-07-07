@@ -7,6 +7,12 @@ function abrirPaginaPagamentos(req, res) {
   );
 }
 
+function abrirPaginaPagamentosRealizados(req, res) {
+  return res.sendFile(
+    path.resolve(__dirname, '../../../../views/legado/pagamentos/pagamentos-realizados.html')
+  );
+}
+
 function abrirPaginaPagamentosMobile(req, res) {
   return res.sendFile(
     path.resolve(__dirname, '../../../../views/legado/pagamentos/pagamentos-mobile.html')
@@ -15,5 +21,6 @@ function abrirPaginaPagamentosMobile(req, res) {
 
 module.exports = {
   abrirPaginaPagamentos,
+  abrirPaginaPagamentosRealizados,
   abrirPaginaPagamentosMobile
 };

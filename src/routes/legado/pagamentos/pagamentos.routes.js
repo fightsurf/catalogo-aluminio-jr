@@ -4,6 +4,7 @@ const controller = require('../../../controllers/legado/pagamentos/pagamentos.co
 
 const router = express.Router();
 
+router.get('/realizados', controller.listarPagamentosRealizados);
 router.get('/clientes', controller.listarClientes);
 router.get('/pedidos/por-cliente/:favorecido', controller.listarPedidosPorCliente);
 router.get('/pedidos/por-data', controller.listarPedidosPorData);
