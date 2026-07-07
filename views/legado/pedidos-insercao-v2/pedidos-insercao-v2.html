@@ -239,6 +239,33 @@
       return data.toLocaleDateString('pt-BR');
     }
 
+
+    function obterDataIsoCarrada(valor) {
+      const texto = String(valor ?? '').trim();
+      const dataIsoNoTexto = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+      if (dataIsoNoTexto) {
+        return `${dataIsoNoTexto[1]}-${dataIsoNoTexto[2]}-${dataIsoNoTexto[3]}`;
+      }
+
+      const data = new Date(valor);
+      if (Number.isNaN(data.getTime())) return '';
+
+      const partes = new Intl.DateTimeFormat('pt-BR', {
+        timeZone: 'America/Fortaleza',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).formatToParts(data);
+      const mapa = Object.fromEntries(partes.map((parte) => [parte.type, parte.value]));
+
+      return `${mapa.year}-${mapa.month}-${mapa.day}`;
+    }
+
+    function obterHojeIsoFortaleza() {
+      return obterDataIsoCarrada(new Date());
+    }
+
     async function lerJson(response) {
       const json = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -447,15 +474,19 @@
         const json = await lerJson(response);
         const dados = Array.isArray(json?.data) ? json.data : [];
 
+        const hojeIso = obterHojeIsoFortaleza();
         const ordenadas = dados
-          .slice()
-          .sort((a, b) => {
-            const dataA = a?.data ? new Date(a.data).getTime() : 0;
-            const dataB = b?.data ? new Date(b.data).getTime() : 0;
-            if (dataA !== dataB) return dataB - dataA;
-            return Number(b?.codigo || 0) - Number(a?.codigo || 0);
+          .filter((carrada) => {
+            const dataCarradaIso = obterDataIsoCarrada(carrada?.data);
+            return dataCarradaIso && dataCarradaIso >= hojeIso;
           })
-          .slice(0, 20);
+          .sort((a, b) => {
+            const dataA = obterDataIsoCarrada(a?.data);
+            const dataB = obterDataIsoCarrada(b?.data);
+
+            if (dataA !== dataB) return dataB.localeCompare(dataA);
+            return Number(b?.codigo || 0) - Number(a?.codigo || 0);
+          });
 
         const codigoPreSelecionado = normalizarCodigoCarrada(carradaCodigoPreSelecionada);
         let listaFinal = ordenadas;

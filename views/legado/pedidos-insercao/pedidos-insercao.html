@@ -227,6 +227,33 @@
       return data.toLocaleDateString('pt-BR');
     }
 
+
+    function obterDataIsoCarrada(valor) {
+      const texto = String(valor ?? '').trim();
+      const dataIsoNoTexto = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+
+      if (dataIsoNoTexto) {
+        return `${dataIsoNoTexto[1]}-${dataIsoNoTexto[2]}-${dataIsoNoTexto[3]}`;
+      }
+
+      const data = new Date(valor);
+      if (Number.isNaN(data.getTime())) return '';
+
+      const partes = new Intl.DateTimeFormat('pt-BR', {
+        timeZone: 'America/Fortaleza',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      }).formatToParts(data);
+      const mapa = Object.fromEntries(partes.map((parte) => [parte.type, parte.value]));
+
+      return `${mapa.year}-${mapa.month}-${mapa.day}`;
+    }
+
+    function obterHojeIsoFortaleza() {
+      return obterDataIsoCarrada(new Date());
+    }
+
     function obterUrlPagamentosPedido() {
       const pedido = ultimoPedidoSalvo || ultimoRelatorio || null;
       const empresa = pedido?.empresa;
@@ -425,14 +452,19 @@
         const response = await fetch('/api/legado/carradas');
         const json = await lerJson(response);
         const lista = Array.isArray(json?.data) ? json.data : [];
+        const hojeIso = obterHojeIsoFortaleza();
         carradasRecentes = lista
-          .slice()
-          .sort((a, b) => {
-            const dataA = new Date(a?.data || 0).getTime() || 0;
-            const dataB = new Date(b?.data || 0).getTime() || 0;
-            return dataB - dataA;
+          .filter((carrada) => {
+            const dataCarradaIso = obterDataIsoCarrada(carrada?.data);
+            return dataCarradaIso && dataCarradaIso >= hojeIso;
           })
-          .slice(0, 20);
+          .sort((a, b) => {
+            const dataA = obterDataIsoCarrada(a?.data);
+            const dataB = obterDataIsoCarrada(b?.data);
+
+            if (dataA !== dataB) return dataB.localeCompare(dataA);
+            return Number(b?.codigo || 0) - Number(a?.codigo || 0);
+          });
 
         carradaPedido.innerHTML = '<option value="">Nenhuma carrada</option>' + carradasRecentes.map((carrada) => `
           <option value="${carrada.codigo}">${formatarRotuloCarrada(carrada)}</option>
