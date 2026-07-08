@@ -1,4 +1,7 @@
 const API_URL = '/api/prestacoes/painel-saldos';
+const INTERVALO_ATUALIZACAO_MS = 60_000;
+
+let carregamentoEmAndamento = false;
 
 const grade = document.getElementById('grade-saldos');
 const estadoVazio = document.getElementById('estado-vazio');
@@ -123,14 +126,23 @@ function limparErro() {
   mensagem.hidden = true;
 }
 
-async function carregarPainel() {
+async function carregarPainel({ automatico = false } = {}) {
+  if (carregamentoEmAndamento) return;
+
+  carregamentoEmAndamento = true;
   limparErro();
-  btnAtualizar.disabled = true;
-  btnAtualizar.textContent = 'Atualizando...';
-  resumoPainel.textContent = 'Carregando prestações abertas...';
+
+  if (!automatico) {
+    btnAtualizar.disabled = true;
+    btnAtualizar.textContent = 'Atualizando...';
+    resumoPainel.textContent = 'Carregando prestações abertas...';
+  }
 
   try {
-    const resposta = await fetch(API_URL, { headers: { Accept: 'application/json' } });
+    const resposta = await fetch(API_URL, {
+      cache: 'no-store',
+      headers: { Accept: 'application/json' }
+    });
     const json = await resposta.json();
 
     if (!resposta.ok || !json.success) {
@@ -144,20 +156,30 @@ async function carregarPainel() {
 
     const quantidade = prestacoes.length;
     resumoPainel.textContent = quantidade === 1
-      ? '1 prestação aberta.'
-      : `${quantidade} prestações abertas.`;
+      ? '1 prestação aberta. Atualização automática a cada 60 segundos.'
+      : `${quantidade} prestações abertas. Atualização automática a cada 60 segundos.`;
   } catch (erro) {
     console.error('Erro ao carregar painel de saldos:', erro);
-    grade.innerHTML = '';
-    grade.hidden = true;
-    estadoVazio.hidden = true;
-    resumoPainel.textContent = 'Falha ao carregar os saldos.';
-    mostrarErro(`Erro ao carregar os saldos: ${erro.message}`);
+
+    if (automatico) {
+      mostrarErro(`Falha na atualização automática: ${erro.message}. Os dados exibidos foram mantidos.`);
+    } else {
+      grade.innerHTML = '';
+      grade.hidden = true;
+      estadoVazio.hidden = true;
+      resumoPainel.textContent = 'Falha ao carregar os saldos.';
+      mostrarErro(`Erro ao carregar os saldos: ${erro.message}`);
+    }
   } finally {
-    btnAtualizar.disabled = false;
-    btnAtualizar.textContent = 'Atualizar';
+    carregamentoEmAndamento = false;
+
+    if (!automatico) {
+      btnAtualizar.disabled = false;
+      btnAtualizar.textContent = 'Atualizar';
+    }
   }
 }
 
-btnAtualizar.addEventListener('click', carregarPainel);
+btnAtualizar.addEventListener('click', () => carregarPainel());
 carregarPainel();
+setInterval(() => carregarPainel({ automatico: true }), INTERVALO_ATUALIZACAO_MS);

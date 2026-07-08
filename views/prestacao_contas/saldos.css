@@ -124,7 +124,7 @@ body {
 .grade-saldos {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 340px));
-  column-gap: 2cm;
+  column-gap: 1cm;
   row-gap: 1.2cm;
   align-items: start;
   justify-content: start;
