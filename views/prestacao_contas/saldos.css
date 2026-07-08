@@ -22,7 +22,7 @@ body {
   background: var(--ps-bg);
   color: var(--ps-text);
   font-family: var(--ps-font);
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .topbar {
@@ -33,7 +33,7 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 18px;
-  padding: 14px 24px;
+  padding: 12px 14px;
   background: var(--ps-surface);
   border-bottom: 1px solid var(--ps-border);
   box-shadow: 0 1px 3px rgba(31, 35, 40, .07);
@@ -48,34 +48,34 @@ body {
 
 .topbar-icon {
   flex: 0 0 auto;
-  font-size: 26px;
+  font-size: 23px;
 }
 
 .topbar h1 {
   margin: 0;
-  font-size: 19px;
+  font-size: 16px;
   line-height: 1.25;
 }
 
 .topbar p {
   margin: 3px 0 0;
   color: var(--ps-muted);
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .topbar-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex: 0 0 auto;
 }
 
 .btn {
-  min-height: 34px;
-  padding: 7px 13px;
+  min-height: 32px;
+  padding: 6px 11px;
   border: 1px solid transparent;
   border-radius: var(--ps-radius);
-  font: 600 13px var(--ps-font);
+  font: 600 12px var(--ps-font);
   line-height: 18px;
   text-decoration: none;
   cursor: pointer;
@@ -109,12 +109,12 @@ body {
 }
 
 .pagina {
-  padding: 24px;
+  padding: 14px 12px;
 }
 
 .mensagem {
-  margin-bottom: 18px;
-  padding: 11px 14px;
+  margin-bottom: 12px;
+  padding: 9px 11px;
   border: 1px solid #ff8182;
   border-radius: var(--ps-radius);
   background: #ffebe9;
@@ -123,9 +123,9 @@ body {
 
 .grade-saldos {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 340px));
+  grid-template-columns: repeat(auto-fit, minmax(280px, 320px));
   column-gap: 1cm;
-  row-gap: 1.2cm;
+  row-gap: 0.8cm;
   align-items: start;
   justify-content: start;
 }
@@ -146,7 +146,7 @@ body {
 }
 
 .conta-planilha td {
-  padding: 10px 12px;
+  padding: 8px 10px;
   border-bottom: 1px solid var(--ps-border);
   vertical-align: top;
 }
@@ -156,7 +156,7 @@ body {
 }
 
 .linha-fornecedor td {
-  padding: 13px 14px;
+  padding: 10px 11px;
   background: #ddf4ff;
   border-bottom-color: #b6e3ff;
 }
@@ -165,7 +165,7 @@ body {
   display: block;
   margin-bottom: 2px;
   color: var(--ps-muted);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   letter-spacing: .06em;
   text-transform: uppercase;
@@ -174,14 +174,14 @@ body {
 .fornecedor-nome {
   display: block;
   overflow-wrap: anywhere;
-  font-size: 16px;
+  font-size: 15px;
   line-height: 1.25;
 }
 
 .conta-descricao {
   display: block;
   overflow-wrap: anywhere;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 650;
 }
 
@@ -189,7 +189,7 @@ body {
   display: block;
   margin-top: 3px;
   color: var(--ps-muted);
-  font-size: 11px;
+  font-size: 10px;
 }
 
 .linha-titulo-movimentos td {
@@ -197,7 +197,7 @@ body {
   padding-bottom: 8px;
   background: var(--ps-bg);
   color: var(--ps-muted);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   letter-spacing: .04em;
   text-transform: uppercase;
@@ -205,14 +205,14 @@ body {
 
 .movimento {
   display: grid;
-  grid-template-columns: 58px minmax(0, 1fr) auto;
-  gap: 8px;
+  grid-template-columns: 52px minmax(0, 1fr) auto;
+  gap: 6px;
   align-items: center;
 }
 
 .movimento-data {
   color: var(--ps-muted);
-  font-size: 11px;
+  font-size: 10px;
   white-space: nowrap;
 }
 
@@ -226,13 +226,13 @@ body {
   display: block;
   margin-bottom: 1px;
   color: var(--ps-muted);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   text-transform: uppercase;
 }
 
 .movimento-valor {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 750;
   white-space: nowrap;
 }
@@ -253,7 +253,7 @@ body {
 }
 
 .linha-saldo td {
-  padding: 13px 14px;
+  padding: 10px 11px;
   background: #fff8c5;
   border-top: 2px solid #d4a72c;
 }
@@ -266,14 +266,14 @@ body {
 }
 
 .saldo-rotulo {
-  font-size: 12px;
+  font-size: 10px;
   font-weight: 800;
   letter-spacing: .03em;
   text-transform: uppercase;
 }
 
 .saldo-valor {
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 850;
   white-space: nowrap;
 }
@@ -284,9 +284,9 @@ body {
 
 .link-abrir {
   display: inline-block;
-  margin-top: 7px;
+  margin-top: 5px;
   color: var(--ps-primary);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 700;
   text-decoration: none;
 }
@@ -319,7 +319,7 @@ body {
 
 .estado-vazio h2 {
   margin: 0 0 6px;
-  font-size: 18px;
+  font-size: 16px;
 }
 
 .estado-vazio p {
@@ -341,7 +341,7 @@ body {
   }
 
   .pagina {
-    padding: 16px;
+    padding: 12px 10px;
   }
 
   .grade-saldos {

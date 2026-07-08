@@ -100,7 +100,11 @@ class PrestacaoContasService {
         valor
       FROM ranqueados
       WHERE posicao <= 5
-      ORDER BY prestacao_id ASC, posicao ASC
+      ORDER BY
+        prestacao_id ASC,
+        movimentada_em ASC,
+        ordem_tipo ASC,
+        registro_id ASC
     `);
 
     const movimentosPorPrestacao = new Map();
