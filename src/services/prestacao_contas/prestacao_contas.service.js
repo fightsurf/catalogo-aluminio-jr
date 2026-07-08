@@ -191,6 +191,20 @@ class PrestacaoContasService {
       await client.query('BEGIN');
       await this._assertAberta(id, client);
 
+      const vinculadosRes = await client.query(`
+        SELECT COUNT(*)::integer AS total
+        FROM prestacao_pagamentos
+        WHERE prestacao_id = $1
+          AND origem_sistema = 'PEDIDO_LEGADO'
+          AND origem_pagamento_codigo IS NOT NULL
+      `, [id]);
+
+      if (Number(vinculadosRes.rows[0]?.total || 0) > 0) {
+        const err = new Error('Esta prestação possui pagamentos vinculados a pedidos. Exclua os pagamentos pela tela de pagamentos dos pedidos antes de apagar a prestação.');
+        err.statusCode = 409;
+        throw err;
+      }
+
       await this._devolverCreditosConsumidosPelaPrestacao(id, client);
       await client.query(`DELETE FROM prestacao_pagamentos WHERE prestacao_id = $1`, [id]);
       await client.query(`DELETE FROM prestacao_itens WHERE prestacao_id = $1`, [id]);
@@ -429,6 +443,12 @@ class PrestacaoContasService {
       `, [pagamentoId, prestacao_id]);
       const pagamento = pagRes.rows[0] || null;
 
+      if (pagamento && pagamento.origem_sistema === 'PEDIDO_LEGADO' && pagamento.origem_pagamento_codigo) {
+        const err = new Error('Este pagamento veio da tela de pagamentos de pedidos. Exclua-o naquela tela para manter os dois módulos sincronizados.');
+        err.statusCode = 409;
+        throw err;
+      }
+
       if (pagamento && pagamento.credito_origem_id) {
         await client.query(`
           UPDATE prestacao_creditos_fornecedor
@@ -452,6 +472,247 @@ class PrestacaoContasService {
       client.release();
     }
     return true;
+  }
+
+  async listarVinculosPagamentosPedido(codigos = []) {
+    await this._ensureSchema();
+
+    const ids = Array.from(new Set((Array.isArray(codigos) ? codigos : [])
+      .map((codigo) => Number(codigo))
+      .filter((codigo) => Number.isInteger(codigo) && codigo > 0)));
+
+    if (!ids.length) return [];
+
+    const result = await pool.query(`
+      SELECT
+        pg.id AS prestacao_pagamento_id,
+        pg.prestacao_id,
+        pg.origem_pagamento_codigo,
+        pg.origem_empresa,
+        pg.origem_saida,
+        pg.origem_pdv,
+        p.titulo AS prestacao_titulo,
+        p.status AS prestacao_status,
+        f.nome AS fornecedor_nome
+      FROM prestacao_pagamentos pg
+      INNER JOIN prestacoes p ON p.id = pg.prestacao_id
+      LEFT JOIN fornecedores f ON f.id = p.fornecedor_id
+      WHERE pg.origem_sistema = 'PEDIDO_LEGADO'
+        AND pg.origem_pagamento_codigo = ANY($1::bigint[])
+    `, [ids]);
+
+    return result.rows;
+  }
+
+  async buscarPagamentoVinculadoPedido(codigoPagamento, client = pool) {
+    await this._ensureSchema();
+    const codigo = Number(codigoPagamento);
+
+    if (!Number.isInteger(codigo) || codigo <= 0) return null;
+
+    const result = await client.query(`
+      SELECT
+        pg.*,
+        p.status AS prestacao_status,
+        p.titulo AS prestacao_titulo,
+        f.nome AS fornecedor_nome
+      FROM prestacao_pagamentos pg
+      INNER JOIN prestacoes p ON p.id = pg.prestacao_id
+      LEFT JOIN fornecedores f ON f.id = p.fornecedor_id
+      WHERE pg.origem_sistema = 'PEDIDO_LEGADO'
+        AND pg.origem_pagamento_codigo = $1
+      LIMIT 1
+    `, [codigo]);
+
+    return result.rows[0] || null;
+  }
+
+  async criarPagamentoVinculadoPedido(data = {}) {
+    await this._ensureSchema();
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+      const prestacaoId = Number(data.prestacaoId);
+      const codigoPagamento = Number(data.codigoPagamento);
+
+      if (!Number.isInteger(prestacaoId) || prestacaoId <= 0) {
+        const err = new Error('Prestação inválida para o vínculo do pagamento.');
+        err.statusCode = 400;
+        throw err;
+      }
+      if (!Number.isInteger(codigoPagamento) || codigoPagamento <= 0) {
+        const err = new Error('Código do pagamento do pedido inválido.');
+        err.statusCode = 400;
+        throw err;
+      }
+
+      await this._assertAberta(prestacaoId, client);
+      const existente = await this.buscarPagamentoVinculadoPedido(codigoPagamento, client);
+      if (existente) {
+        const err = new Error('Este pagamento já está vinculado a uma prestação.');
+        err.statusCode = 409;
+        throw err;
+      }
+
+      const valor = this._validarNumeroPositivo(data.valor, 'valor');
+      const result = await client.query(`
+        INSERT INTO prestacao_pagamentos (
+          prestacao_id,
+          data_pagamento,
+          valor,
+          observacao,
+          origem_sistema,
+          origem_pagamento_codigo,
+          origem_empresa,
+          origem_saida,
+          origem_pdv,
+          origem_atualizado_em
+        )
+        VALUES ($1, $2, $3, $4, 'PEDIDO_LEGADO', $5, $6, $7, $8, NOW())
+        RETURNING *
+      `, [
+        prestacaoId,
+        this._parseDate(data.data),
+        valor,
+        data.observacao || null,
+        codigoPagamento,
+        data.empresa ?? null,
+        data.saida ?? null,
+        data.pdv ?? null
+      ]);
+
+      await this._recalcular(prestacaoId, client);
+      await this._registrarLog(
+        prestacaoId,
+        'CRIAR_PAGAMENTO_PEDIDO',
+        `Pagamento do pedido vinculado: código ${codigoPagamento}, valor R$ ${valor.toFixed(2)}`,
+        client
+      );
+      await client.query('COMMIT');
+      return result.rows[0];
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async atualizarPagamentoVinculadoPedido(codigoPagamento, data = {}) {
+    await this._ensureSchema();
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+      const vinculo = await this.buscarPagamentoVinculadoPedido(codigoPagamento, client);
+      if (!vinculo) {
+        const err = new Error('Vínculo do pagamento com a prestação não encontrado.');
+        err.statusCode = 404;
+        throw err;
+      }
+
+      await this._assertAberta(vinculo.prestacao_id, client);
+      const valor = this._validarNumeroPositivo(data.valor, 'valor');
+      const result = await client.query(`
+        UPDATE prestacao_pagamentos
+        SET data_pagamento = $1,
+            valor = $2,
+            observacao = $3,
+            origem_empresa = $4,
+            origem_saida = $5,
+            origem_pdv = $6,
+            origem_atualizado_em = NOW()
+        WHERE id = $7
+        RETURNING *
+      `, [
+        this._parseDate(data.data),
+        valor,
+        data.observacao || null,
+        data.empresa ?? vinculo.origem_empresa,
+        data.saida ?? vinculo.origem_saida,
+        data.pdv ?? vinculo.origem_pdv,
+        vinculo.id
+      ]);
+
+      await this._recalcular(vinculo.prestacao_id, client);
+      await this._registrarLog(
+        vinculo.prestacao_id,
+        'ATUALIZAR_PAGAMENTO_PEDIDO',
+        `Pagamento do pedido atualizado: código ${codigoPagamento}, valor R$ ${valor.toFixed(2)}`,
+        client
+      );
+      await client.query('COMMIT');
+      return result.rows[0];
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async deletarPagamentoVinculadoPedido(codigoPagamento) {
+    await this._ensureSchema();
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+      const vinculo = await this.buscarPagamentoVinculadoPedido(codigoPagamento, client);
+      if (!vinculo) {
+        await client.query('COMMIT');
+        return null;
+      }
+
+      await this._assertAberta(vinculo.prestacao_id, client);
+      await client.query(`DELETE FROM prestacao_pagamentos WHERE id = $1`, [vinculo.id]);
+      await this._recalcular(vinculo.prestacao_id, client);
+      await this._registrarLog(
+        vinculo.prestacao_id,
+        'DELETAR_PAGAMENTO_PEDIDO',
+        `Pagamento do pedido removido: código ${codigoPagamento}`,
+        client
+      );
+      await client.query('COMMIT');
+      return vinculo;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  async atualizarOrigemPagamentoVinculado(codigoPagamentoAtual, data = {}) {
+    await this._ensureSchema();
+    const codigoAtual = Number(codigoPagamentoAtual);
+    const novoCodigo = Number(data.novoCodigoPagamento);
+
+    if (!Number.isInteger(codigoAtual) || codigoAtual <= 0 || !Number.isInteger(novoCodigo) || novoCodigo <= 0) {
+      const err = new Error('Código inválido ao restaurar o vínculo do pagamento.');
+      err.statusCode = 400;
+      throw err;
+    }
+
+    const result = await pool.query(`
+      UPDATE prestacao_pagamentos
+      SET origem_pagamento_codigo = $1,
+          origem_empresa = $2,
+          origem_saida = $3,
+          origem_pdv = $4,
+          origem_atualizado_em = NOW()
+      WHERE origem_sistema = 'PEDIDO_LEGADO'
+        AND origem_pagamento_codigo = $5
+      RETURNING *
+    `, [
+      novoCodigo,
+      data.empresa ?? null,
+      data.saida ?? null,
+      data.pdv ?? null,
+      codigoAtual
+    ]);
+
+    return result.rows[0] || null;
   }
 
   // ─── WHATSAPP ─────────────────────────────────────────────────
@@ -654,6 +915,12 @@ class PrestacaoContasService {
     await pool.query(`ALTER TABLE prestacoes ALTER COLUMN status SET DEFAULT 'ABERTA'`);
     await pool.query(`ALTER TABLE prestacoes ADD COLUMN IF NOT EXISTS concluida_em TIMESTAMP NULL`);
     await pool.query(`ALTER TABLE prestacao_pagamentos ADD COLUMN IF NOT EXISTS credito_origem_id INTEGER NULL`);
+    await pool.query(`ALTER TABLE prestacao_pagamentos ADD COLUMN IF NOT EXISTS origem_sistema VARCHAR(30) NULL`);
+    await pool.query(`ALTER TABLE prestacao_pagamentos ADD COLUMN IF NOT EXISTS origem_pagamento_codigo BIGINT NULL`);
+    await pool.query(`ALTER TABLE prestacao_pagamentos ADD COLUMN IF NOT EXISTS origem_empresa INTEGER NULL`);
+    await pool.query(`ALTER TABLE prestacao_pagamentos ADD COLUMN IF NOT EXISTS origem_saida BIGINT NULL`);
+    await pool.query(`ALTER TABLE prestacao_pagamentos ADD COLUMN IF NOT EXISTS origem_pdv INTEGER NULL`);
+    await pool.query(`ALTER TABLE prestacao_pagamentos ADD COLUMN IF NOT EXISTS origem_atualizado_em TIMESTAMP NULL`);
     await pool.query(`ALTER TABLE prestacao_itens ADD COLUMN IF NOT EXISTS movimentado_em TIMESTAMP NULL`);
     await pool.query(`
       UPDATE prestacao_itens i
@@ -683,6 +950,12 @@ class PrestacaoContasService {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_prestacoes_status ON prestacoes(status)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_prestacao_creditos_fornecedor_status ON prestacao_creditos_fornecedor(fornecedor_id, status)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_prestacao_pagamentos_credito_origem ON prestacao_pagamentos(credito_origem_id)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_prestacao_pagamentos_origem_pedido ON prestacao_pagamentos(origem_sistema, origem_pagamento_codigo)`);
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_prestacao_pagamentos_origem_pedido
+      ON prestacao_pagamentos(origem_pagamento_codigo)
+      WHERE origem_sistema = 'PEDIDO_LEGADO' AND origem_pagamento_codigo IS NOT NULL
+    `);
   }
 
   async _aplicarCreditosPendentes(prestacao, client = pool) {

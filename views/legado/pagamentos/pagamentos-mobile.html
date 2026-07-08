@@ -20,8 +20,12 @@
     .duas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .tres { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
     label { display: block; font-size: 13px; font-weight: 800; color: #374151; margin: 0 0 6px; }
-    input, textarea { width: 100%; min-height: 44px; border: 1px solid #d1d5db; border-radius: 12px; padding: 10px 12px; font: inherit; background: #fff; }
+    input, textarea, select { width: 100%; min-height: 44px; border: 1px solid #d1d5db; border-radius: 12px; padding: 10px 12px; font: inherit; background: #fff; }
     textarea { min-height: 74px; resize: vertical; }
+    .prestacao-vinculo-box { margin-top: 10px; border: 1px solid #d1d5db; border-radius: 12px; padding: 12px; background: #f8fafc; }
+    .checkbox-line { display: flex; align-items: flex-start; gap: 9px; margin: 0; cursor: pointer; font-size: 13px; font-weight: 900; line-height: 1.35; }
+    .checkbox-line input { width: 18px; min-height: 18px; height: 18px; margin: 0; padding: 0; flex: 0 0 auto; }
+    .vinculo-info { margin-top: 10px; padding: 10px 12px; border: 1px solid #bfdbfe; border-radius: 12px; background: #eff6ff; color: #1d4ed8; font-size: 12px; line-height: 1.45; }
     button, .botao { min-height: 44px; border: 0; border-radius: 12px; padding: 10px 12px; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; font: inherit; font-weight: 900; background: #111827; color: #fff; cursor: pointer; }
     button.sec, .botao.sec { background: #e5e7eb; color: #111827; }
     button.danger { background: #991b1b; color: #fff; }
@@ -93,7 +97,11 @@
       pagamentos: [],
       resumo: null,
       editando: null,
-      tipo: 'V'
+      tipo: 'V',
+      prestacoesAbertas: [],
+      prestacoesCarregadas: false,
+      adicionarPrestacao: false,
+      prestacaoSelecionadaId: ''
     };
 
     const el = {
@@ -165,6 +173,60 @@
       const mes = String(data.getMonth() + 1).padStart(2, '0');
       const dia = String(data.getDate()).padStart(2, '0');
       return `${ano}-${mes}-${dia}`;
+    }
+
+    function montarTextoPrestacao(prestacao) {
+      const fornecedor = String(prestacao?.fornecedor_nome || 'Fornecedor sem nome').trim();
+      const titulo = String(prestacao?.titulo || `Prestação #${prestacao?.id || ''}`).trim();
+      const data = formatarData(prestacao?.data_referencia) || 'sem data';
+      return `${fornecedor} — ${titulo} — ${data} — saldo ${formatarMoeda(prestacao?.saldo_restante || 0)}`;
+    }
+
+    function montarOpcoesPrestacoes() {
+      if (!estado.prestacoesCarregadas) return '<option value="">Marque para carregar as prestações</option>';
+      if (!estado.prestacoesAbertas.length) return '<option value="">Nenhuma prestação aberta</option>';
+
+      return '<option value="">Selecione uma prestação</option>' + estado.prestacoesAbertas.map((prestacao) => `
+        <option value="${escapeHtml(prestacao.id)}" ${String(estado.prestacaoSelecionadaId) === String(prestacao.id) ? 'selected' : ''}>
+          ${escapeHtml(montarTextoPrestacao(prestacao))}
+        </option>
+      `).join('');
+    }
+
+    function atualizarSelectPrestacoes() {
+      const select = document.getElementById('prestacaoSelecionada');
+      if (!select) return;
+      select.innerHTML = montarOpcoesPrestacoes();
+      select.disabled = !estado.prestacoesAbertas.length;
+      select.value = estado.prestacaoSelecionadaId || '';
+    }
+
+    async function carregarPrestacoesAbertas() {
+      const select = document.getElementById('prestacaoSelecionada');
+      if (select) {
+        select.disabled = true;
+        select.innerHTML = '<option value="">Carregando prestações...</option>';
+      }
+
+      try {
+        const prestacoes = await request('/api/prestacoes?status=ABERTA');
+        estado.prestacoesAbertas = Array.isArray(prestacoes) ? prestacoes : [];
+        estado.prestacoesCarregadas = true;
+        if (estado.prestacaoSelecionadaId && !estado.prestacoesAbertas.some((item) => String(item.id) === String(estado.prestacaoSelecionadaId))) {
+          estado.prestacaoSelecionadaId = '';
+        }
+        atualizarSelectPrestacoes();
+      } catch (error) {
+        estado.prestacoesAbertas = [];
+        estado.prestacoesCarregadas = false;
+        estado.adicionarPrestacao = false;
+        estado.prestacaoSelecionadaId = '';
+        document.getElementById('adicionarPrestacao')?.removeAttribute('checked');
+        const checkbox = document.getElementById('adicionarPrestacao');
+        if (checkbox) checkbox.checked = false;
+        document.getElementById('blocoPrestacao')?.classList.add('oculto');
+        setMensagem(error.message || 'Falha ao carregar as prestações abertas.', 'erro');
+      }
     }
 
     function telefoneNumeros(valor) {
@@ -288,6 +350,25 @@
             <label for="observacaoPagamento" style="margin-top:10px;">Observação</label>
             <textarea id="observacaoPagamento" maxlength="300">${escapeHtml(estado.editando?.observacao || '')}</textarea>
 
+            ${!estado.editando ? `
+              <div class="prestacao-vinculo-box">
+                <label class="checkbox-line" for="adicionarPrestacao">
+                  <input type="checkbox" id="adicionarPrestacao" ${estado.adicionarPrestacao ? 'checked' : ''} />
+                  <span>Adicionar este pagamento a uma prestação aberta de fornecedor</span>
+                </label>
+                <div id="blocoPrestacao" class="${estado.adicionarPrestacao ? '' : 'oculto'}" style="margin-top:10px;">
+                  <label for="prestacaoSelecionada">Prestação aberta</label>
+                  <select id="prestacaoSelecionada" ${estado.prestacoesAbertas.length ? '' : 'disabled'}>${montarOpcoesPrestacoes()}</select>
+                  <div class="meta" style="margin-top:7px;">Para cheque, será usada a data de vencimento.</div>
+                </div>
+              </div>
+            ` : (estado.editando?.prestacaoVinculada ? `
+              <div class="vinculo-info">
+                Vinculado à prestação <strong>${escapeHtml(estado.editando.prestacaoVinculada.prestacao_titulo || `#${estado.editando.prestacaoVinculada.prestacao_id}`)}</strong>
+                de <strong>${escapeHtml(estado.editando.prestacaoVinculada.fornecedor_nome || 'fornecedor não informado')}</strong>. A alteração será sincronizada.
+              </div>
+            ` : '')}
+
             <div class="linha-acoes">
               <button type="submit">${estado.editando ? 'Salvar alteração' : 'Adicionar pagamento'}</button>
               ${estado.editando ? '<button type="button" class="sec" id="btnCancelarEdicao">Cancelar</button>' : '<button type="button" class="sec" id="btnLimparForm">Limpar</button>'}
@@ -306,6 +387,7 @@
                 <div><div class="label">Situação</div><span class="pill ${pagamento.pago === 'S' ? 'ok' : 'warn'}">${escapeHtml(pagamento.situacaoLabel || '-')}</span></div>
               </div>
               ${pagamento.numeroCheque || pagamento.titularCheque || pagamento.observacao ? `<div class="meta">${escapeHtml([pagamento.numeroCheque, pagamento.titularCheque, pagamento.observacao].filter(Boolean).join(' | '))}</div>` : ''}
+              ${pagamento.prestacaoVinculada ? `<div class="meta" style="color:#1d4ed8; margin-top:5px;">Prestação: ${escapeHtml(pagamento.prestacaoVinculada.fornecedor_nome || '')} — ${escapeHtml(pagamento.prestacaoVinculada.prestacao_titulo || `#${pagamento.prestacaoVinculada.prestacao_id}`)}</div>` : ''}
               <div class="linha-acoes">
                 <button type="button" class="sec" data-editar="${escapeHtml(pagamento.codigo)}">Editar</button>
                 <button type="button" class="danger" data-excluir="${escapeHtml(pagamento.codigo)}">Excluir</button>
@@ -319,6 +401,24 @@
         estado.tipo = botao.dataset.tipo;
         renderPainel();
       }));
+
+      const checkboxPrestacao = document.getElementById('adicionarPrestacao');
+      checkboxPrestacao?.addEventListener('change', async () => {
+        estado.adicionarPrestacao = checkboxPrestacao.checked;
+        document.getElementById('blocoPrestacao')?.classList.toggle('oculto', !estado.adicionarPrestacao);
+
+        if (!estado.adicionarPrestacao) {
+          estado.prestacaoSelecionadaId = '';
+          return;
+        }
+
+        if (!estado.prestacoesCarregadas) await carregarPrestacoesAbertas();
+        else atualizarSelectPrestacoes();
+      });
+
+      document.getElementById('prestacaoSelecionada')?.addEventListener('change', (event) => {
+        estado.prestacaoSelecionadaId = event.target.value;
+      });
 
       document.getElementById('formPagamento').addEventListener('submit', salvarPagamento);
       document.getElementById('btnWhatsapp')?.addEventListener('click', enviarWhatsappPagamentos);
@@ -376,6 +476,13 @@
         payload.dataPgto = document.getElementById('dataPgto').value;
       }
 
+      if (!estado.editando && document.getElementById('adicionarPrestacao')?.checked) {
+        const prestacaoId = document.getElementById('prestacaoSelecionada')?.value;
+        if (!prestacaoId) throw new Error('Selecione a prestação aberta que receberá este pagamento.');
+        payload.adicionarPrestacao = true;
+        payload.prestacaoId = Number(prestacaoId);
+      }
+
       return payload;
     }
 
@@ -401,7 +508,7 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
           });
-          setMensagem('Pagamento criado.', 'sucesso');
+          setMensagem(payload.prestacaoId ? 'Pagamento criado e incluído na prestação.' : 'Pagamento criado.', 'sucesso');
         }
 
         aplicarDetalhe(data);
@@ -415,6 +522,8 @@
       if (!pagamento) return;
       estado.editando = pagamento;
       estado.tipo = pagamento.condicao === 'C' ? 'C' : 'V';
+      estado.adicionarPrestacao = false;
+      estado.prestacaoSelecionadaId = '';
       renderPainel();
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
@@ -422,12 +531,16 @@
     function cancelarEdicao() {
       estado.editando = null;
       estado.tipo = 'V';
+      estado.adicionarPrestacao = false;
+      estado.prestacaoSelecionadaId = '';
       renderPainel();
     }
 
     function limparFormularioNovo() {
       estado.editando = null;
       estado.tipo = 'V';
+      estado.adicionarPrestacao = false;
+      estado.prestacaoSelecionadaId = '';
       renderPainel();
     }
 
@@ -488,6 +601,8 @@
       estado.resumo = data?.resumo || null;
       estado.editando = null;
       estado.tipo = 'V';
+      estado.adicionarPrestacao = false;
+      estado.prestacaoSelecionadaId = '';
       renderPainel();
     }
 
@@ -510,6 +625,8 @@
       estado.resumo = null;
       estado.editando = null;
       estado.tipo = 'V';
+      estado.adicionarPrestacao = false;
+      estado.prestacaoSelecionadaId = '';
       el.painelPedido.innerHTML = '';
       el.listaPedidos.innerHTML = '';
       setMensagem('');

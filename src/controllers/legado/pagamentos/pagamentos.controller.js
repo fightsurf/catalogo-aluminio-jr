@@ -111,7 +111,7 @@ async function criarPagamento(req, res) {
     await atualizarStatusCarradaSemQuebrar(data, req.body || {});
     return res.status(201).json({ success: true, data });
   } catch (error) {
-    return res.status(500).json({ success: false, message: 'Erro ao criar pagamento.', error: error.message });
+    return res.status(error.statusCode || 500).json({ success: false, message: 'Erro ao criar pagamento.', error: error.message });
   }
 }
 
@@ -121,7 +121,7 @@ async function atualizarPagamento(req, res) {
     await atualizarStatusCarradaSemQuebrar(data, req.body || {});
     return res.status(200).json({ success: true, data });
   } catch (error) {
-    return res.status(500).json({ success: false, message: 'Erro ao atualizar pagamento.', error: error.message });
+    return res.status(error.statusCode || 500).json({ success: false, message: 'Erro ao atualizar pagamento.', error: error.message });
   }
 }
 
@@ -131,7 +131,7 @@ async function excluirPagamento(req, res) {
     await atualizarStatusCarradaSemQuebrar(data, req.query || {});
     return res.status(200).json({ success: true, data });
   } catch (error) {
-    return res.status(500).json({ success: false, message: 'Erro ao excluir pagamento.', error: error.message });
+    return res.status(error.statusCode || 500).json({ success: false, message: 'Erro ao excluir pagamento.', error: error.message });
   }
 }
 
