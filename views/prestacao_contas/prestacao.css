@@ -90,6 +90,7 @@ body {
 
 .btn-nova,
 .btn-zap,
+.btn-painel-saldos,
 .btn-criar,
 .btn-secundario,
 .btn-selecionar,
@@ -133,6 +134,21 @@ body {
 }
 .btn-zap:hover { background: var(--pc-bg); }
 .btn-zap:focus-visible { outline: 2px solid var(--pc-primary); outline-offset: 2px; }
+
+.btn-painel-saldos {
+  padding: 6px 14px;
+  background: var(--pc-surface);
+  color: var(--pc-text);
+  border: 1px solid var(--pc-border);
+  border-radius: var(--pc-radius);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 80ms, border-color 80ms;
+}
+.btn-painel-saldos:hover { background: var(--pc-bg); }
+.btn-painel-saldos:focus-visible { outline: 2px solid var(--pc-primary); outline-offset: 2px; }
 
 /* ── Feedback ──────────────────────────────────────────── */
 .msg-feedback {
@@ -639,7 +655,7 @@ body {
   }
   .topbar-title { font-size: 14px; }
   .topbar-actions { width: 100%; }
-  .btn-nova, .btn-zap { flex: 1; }
+  .btn-nova, .btn-zap, .btn-painel-saldos { flex: 1; }
   .btn-zap { display: none; }
   .page-section { margin: 10px 12px; }
   .nova-panel { margin: 10px 12px; }

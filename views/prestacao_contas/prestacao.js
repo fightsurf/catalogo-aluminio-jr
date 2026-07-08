@@ -973,6 +973,11 @@ async function inicializarPrestacaoContas() {
   if (filtroFornecedor) filtroFornecedor.value = '';
 
   await carregarLista();
+
+  const prestacaoDaUrl = new URLSearchParams(window.location.search).get('prestacao');
+  if (prestacaoDaUrl && todasPrestacoes.some((p) => String(p.id) === String(prestacaoDaUrl))) {
+    await selecionarPrestacao(prestacaoDaUrl);
+  }
 }
 
 inicializarPrestacaoContas();

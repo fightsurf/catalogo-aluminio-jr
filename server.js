@@ -298,6 +298,11 @@ app.get('/prestacao-contas', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'prestacao_contas', 'prestacao.html'));
 });
 
+
+app.get('/prestacao-contas-saldos', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'prestacao_contas', 'saldos.html'));
+});
+
 // 🔥 SAÍDAS DE DINHEIRO
 app.get('/admin-saidas-categorias', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'saidas', 'admin-saida-categoria.html'));

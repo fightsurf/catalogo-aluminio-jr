@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Saldos com Fornecedores</title>
+  <link rel="stylesheet" href="/css/theme.css" />
+  <link rel="stylesheet" href="/prestacao_contas/saldos.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-brand">
+      <span class="topbar-icon" aria-hidden="true">📋</span>
+      <div>
+        <h1>Saldos com Fornecedores</h1>
+        <p id="resumo-painel">Carregando prestações abertas...</p>
+      </div>
+    </div>
+
+    <div class="topbar-actions">
+      <a class="btn btn-secundario" href="/prestacao-contas">Abrir prestações</a>
+      <button id="btn-atualizar" class="btn btn-primario" type="button">Atualizar</button>
+    </div>
+  </header>
+
+  <main class="pagina">
+    <div id="mensagem" class="mensagem" hidden></div>
+
+    <section id="grade-saldos" class="grade-saldos" aria-live="polite"></section>
+
+    <section id="estado-vazio" class="estado-vazio" hidden>
+      <div class="estado-vazio-icone" aria-hidden="true">✓</div>
+      <h2>Nenhuma prestação aberta</h2>
+      <p>Não há saldo de prestação em aberto para exibir.</p>
+    </section>
+  </main>
+
+  <script src="/prestacao_contas/saldos.js"></script>
+</body>
+</html>

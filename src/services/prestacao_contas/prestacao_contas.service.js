@@ -27,6 +27,95 @@ class PrestacaoContasService {
     return result.rows;
   }
 
+
+  async listarPainelSaldosAbertos() {
+    await this._ensureSchema();
+    const statusExpr = this._statusSql('p.status');
+
+    const prestacoesRes = await pool.query(`
+      SELECT
+        p.id,
+        p.titulo,
+        p.data_referencia,
+        p.fornecedor_id,
+        p.total_material,
+        p.total_pago,
+        p.saldo_restante,
+        f.nome AS fornecedor_nome
+      FROM prestacoes p
+      LEFT JOIN fornecedores f ON f.id = p.fornecedor_id
+      WHERE ${statusExpr} = 'ABERTA'
+      ORDER BY
+        COALESCE(NULLIF(TRIM(f.nome), ''), 'Fornecedor sem nome') ASC,
+        p.data_referencia DESC NULLS LAST,
+        p.id DESC
+    `);
+
+    const movimentosRes = await pool.query(`
+      WITH movimentos AS (
+        SELECT
+          i.prestacao_id,
+          'MATERIAL'::text AS tipo,
+          i.id AS registro_id,
+          COALESCE(i.movimentado_em, p.data_referencia::timestamp, NOW()) AS movimentada_em,
+          COALESCE(NULLIF(TRIM(i.descricao_material), ''), 'Material') AS descricao,
+          i.total_item AS valor,
+          2 AS ordem_tipo
+        FROM prestacao_itens i
+        INNER JOIN prestacoes p ON p.id = i.prestacao_id
+        WHERE ${statusExpr} = 'ABERTA'
+
+        UNION ALL
+
+        SELECT
+          pg.prestacao_id,
+          CASE WHEN pg.credito_origem_id IS NULL THEN 'PAGAMENTO' ELSE 'CREDITO' END AS tipo,
+          pg.id AS registro_id,
+          COALESCE(pg.data_pagamento::timestamp, p.data_referencia::timestamp, NOW()) AS movimentada_em,
+          COALESCE(
+            NULLIF(TRIM(pg.observacao), ''),
+            CASE WHEN pg.credito_origem_id IS NULL THEN 'Pagamento' ELSE 'Crédito de prestação anterior' END
+          ) AS descricao,
+          pg.valor AS valor,
+          1 AS ordem_tipo
+        FROM prestacao_pagamentos pg
+        INNER JOIN prestacoes p ON p.id = pg.prestacao_id
+        WHERE ${statusExpr} = 'ABERTA'
+      ),
+      ranqueados AS (
+        SELECT
+          movimentos.*,
+          ROW_NUMBER() OVER (
+            PARTITION BY prestacao_id
+            ORDER BY movimentada_em DESC, ordem_tipo DESC, registro_id DESC
+          ) AS posicao
+        FROM movimentos
+      )
+      SELECT
+        prestacao_id,
+        tipo,
+        registro_id,
+        movimentada_em,
+        descricao,
+        valor
+      FROM ranqueados
+      WHERE posicao <= 5
+      ORDER BY prestacao_id ASC, posicao ASC
+    `);
+
+    const movimentosPorPrestacao = new Map();
+    for (const movimento of movimentosRes.rows) {
+      const chave = String(movimento.prestacao_id);
+      if (!movimentosPorPrestacao.has(chave)) movimentosPorPrestacao.set(chave, []);
+      movimentosPorPrestacao.get(chave).push(movimento);
+    }
+
+    return prestacoesRes.rows.map((prestacao) => ({
+      ...prestacao,
+      movimentacoes: movimentosPorPrestacao.get(String(prestacao.id)) || []
+    }));
+  }
+
   async buscarPorId(id) {
     await this._ensureSchema();
     const result = await pool.query(`
@@ -280,7 +369,7 @@ class PrestacaoContasService {
 
     const result = await pool.query(`
       UPDATE prestacao_itens
-      SET descricao_material = $1, peso_kg = $2, preco_por_kg = $3, total_item = $4
+      SET descricao_material = $1, peso_kg = $2, preco_por_kg = $3, total_item = $4, movimentado_em = NOW()
       WHERE id = $5 AND prestacao_id = $6
       RETURNING *
     `, [material, peso, preco, total_item, itemId, prestacao_id]);
@@ -565,6 +654,15 @@ class PrestacaoContasService {
     await pool.query(`ALTER TABLE prestacoes ALTER COLUMN status SET DEFAULT 'ABERTA'`);
     await pool.query(`ALTER TABLE prestacoes ADD COLUMN IF NOT EXISTS concluida_em TIMESTAMP NULL`);
     await pool.query(`ALTER TABLE prestacao_pagamentos ADD COLUMN IF NOT EXISTS credito_origem_id INTEGER NULL`);
+    await pool.query(`ALTER TABLE prestacao_itens ADD COLUMN IF NOT EXISTS movimentado_em TIMESTAMP NULL`);
+    await pool.query(`
+      UPDATE prestacao_itens i
+      SET movimentado_em = COALESCE(p.data_referencia::timestamp, NOW())
+      FROM prestacoes p
+      WHERE p.id = i.prestacao_id
+        AND i.movimentado_em IS NULL
+    `);
+    await pool.query(`ALTER TABLE prestacao_itens ALTER COLUMN movimentado_em SET DEFAULT NOW()`);
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS prestacao_creditos_fornecedor (

@@ -4,6 +4,7 @@ const ctrl = require('../../controllers/prestacao_contas/prestacao_contas.contro
 
 // Prestações
 router.get('/', ctrl.listar);
+router.get('/painel-saldos', ctrl.painelSaldos);
 router.post('/', ctrl.criar);
 router.get('/:id/resumo', ctrl.resumo);
 router.post('/:id/whatsapp/resumo', ctrl.enviarResumoWhatsapp);

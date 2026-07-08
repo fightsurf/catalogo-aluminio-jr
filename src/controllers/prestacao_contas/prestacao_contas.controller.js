@@ -15,6 +15,16 @@ class PrestacaoContasController {
     }
   }
 
+  async painelSaldos(req, res) {
+    try {
+      const data = await prestacaoContasService.listarPainelSaldosAbertos();
+      return res.json({ success: true, data });
+    } catch (error) {
+      console.error('ERRO carregar painel de saldos das prestações:', error);
+      return res.status(error.statusCode || 500).json({ success: false, message: error.message });
+    }
+  }
+
   async buscarPorId(req, res) {
     try {
       const { id } = req.params;
