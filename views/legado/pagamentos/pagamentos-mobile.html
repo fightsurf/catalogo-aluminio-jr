@@ -26,6 +26,13 @@
     .checkbox-line { display: flex; align-items: flex-start; gap: 9px; margin: 0; cursor: pointer; font-size: 13px; font-weight: 900; line-height: 1.35; }
     .checkbox-line input { width: 18px; min-height: 18px; height: 18px; margin: 0; padding: 0; flex: 0 0 auto; }
     .vinculo-info { margin-top: 10px; padding: 10px 12px; border: 1px solid #bfdbfe; border-radius: 12px; background: #eff6ff; color: #1d4ed8; font-size: 12px; line-height: 1.45; }
+    .whatsapp-resumo-pos-salvar { margin-top: 12px; padding: 12px; border: 1px solid #86efac; border-radius: 12px; background: #f0fdf4; }
+    .whatsapp-resumo-pos-salvar .texto { color: #166534; font-size: 13px; line-height: 1.45; margin-bottom: 10px; }
+    .whatsapp-resumo-pos-salvar button { width: 100%; background: #1f883d; color: #fff; }
+    .feedback-whatsapp-resumo { display: none; margin-top: 9px; font-size: 13px; font-weight: 800; line-height: 1.4; }
+    .feedback-whatsapp-resumo.show { display: block; }
+    .feedback-whatsapp-resumo.success { color: #166534; }
+    .feedback-whatsapp-resumo.error { color: #b91c1c; }
     button, .botao { min-height: 44px; border: 0; border-radius: 12px; padding: 10px 12px; display: inline-flex; align-items: center; justify-content: center; text-decoration: none; font: inherit; font-weight: 900; background: #111827; color: #fff; cursor: pointer; }
     button.sec, .botao.sec { background: #e5e7eb; color: #111827; }
     button.danger { background: #991b1b; color: #fff; }
@@ -101,7 +108,8 @@
       prestacoesAbertas: [],
       prestacoesCarregadas: false,
       adicionarPrestacao: false,
-      prestacaoSelecionadaId: ''
+      prestacaoSelecionadaId: '',
+      prestacaoWhatsappPosSalvamentoId: null
     };
 
     const el = {
@@ -374,6 +382,17 @@
               ${estado.editando ? '<button type="button" class="sec" id="btnCancelarEdicao">Cancelar</button>' : '<button type="button" class="sec" id="btnLimparForm">Limpar</button>'}
             </div>
           </form>
+
+          ${estado.prestacaoWhatsappPosSalvamentoId ? `
+            <div class="whatsapp-resumo-pos-salvar">
+              <div class="texto">
+                <strong>Pagamento incluído na prestação.</strong><br />
+                Envie ao fornecedor o resumo atualizado da prestação.
+              </div>
+              <button type="button" id="btnWhatsappResumoPrestacao">WhatsApp resumo</button>
+              <div id="feedbackWhatsappResumoPrestacao" class="feedback-whatsapp-resumo"></div>
+            </div>
+          ` : ''}
         </section>
 
         <section class="card">
@@ -421,6 +440,9 @@
       });
 
       document.getElementById('formPagamento').addEventListener('submit', salvarPagamento);
+      document.getElementById('btnWhatsappResumoPrestacao')?.addEventListener('click', (event) => {
+        enviarResumoWhatsappPrestacao(estado.prestacaoWhatsappPosSalvamentoId, event.currentTarget);
+      });
       document.getElementById('btnWhatsapp')?.addEventListener('click', enviarWhatsappPagamentos);
       document.getElementById('btnTrocarPedido')?.addEventListener('click', limparPedido);
       document.getElementById('btnBaixaCredito')?.addEventListener('click', baixarPedidoParaCredito);
@@ -430,6 +452,47 @@
       document.querySelectorAll('[data-excluir]').forEach((botao) => botao.addEventListener('click', () => excluirPagamento(botao.dataset.excluir)));
     }
 
+
+    async function enviarResumoWhatsappPrestacao(prestacaoId, botao) {
+      const id = Number(prestacaoId);
+      const feedback = document.getElementById('feedbackWhatsappResumoPrestacao');
+
+      if (!Number.isInteger(id) || id <= 0) {
+        if (feedback) {
+          feedback.textContent = 'Prestação vinculada não identificada.';
+          feedback.className = 'feedback-whatsapp-resumo show error';
+        }
+        return;
+      }
+
+      const textoOriginal = botao.textContent;
+      try {
+        botao.disabled = true;
+        botao.textContent = 'Enviando...';
+        if (feedback) {
+          feedback.textContent = '';
+          feedback.className = 'feedback-whatsapp-resumo';
+        }
+
+        const data = await request(`/api/prestacoes/${encodeURIComponent(id)}/whatsapp/resumo`, {
+          method: 'POST'
+        });
+
+        const quantidade = Number(data?.quantidade_pagamentos || 0);
+        if (feedback) {
+          feedback.textContent = `Resumo enviado ao fornecedor com ${quantidade} pagamento(s).`;
+          feedback.className = 'feedback-whatsapp-resumo show success';
+        }
+      } catch (error) {
+        if (feedback) {
+          feedback.textContent = `Erro ao enviar resumo: ${error.message}`;
+          feedback.className = 'feedback-whatsapp-resumo show error';
+        }
+      } finally {
+        botao.disabled = false;
+        botao.textContent = textoOriginal;
+      }
+    }
 
     async function baixarPedidoParaCredito() {
       if (!estado.pedido || !estado.resumo) return;
@@ -494,6 +557,8 @@
         setMensagem('Salvando pagamento...');
         const payload = montarPayload();
         let data;
+        let mensagemSucesso;
+        let prestacaoWhatsappId = null;
 
         if (estado.editando?.codigo) {
           data = await request(`/api/legado/pagamentos/${encodeURIComponent(estado.editando.codigo)}`, {
@@ -501,17 +566,21 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
           });
-          setMensagem('Pagamento atualizado.', 'sucesso');
+          mensagemSucesso = 'Pagamento atualizado.';
         } else {
           data = await request('/api/legado/pagamentos', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
           });
-          setMensagem(payload.prestacaoId ? 'Pagamento criado e incluído na prestação.' : 'Pagamento criado.', 'sucesso');
+          prestacaoWhatsappId = Number(payload.prestacaoId) || null;
+          mensagemSucesso = prestacaoWhatsappId
+            ? 'Pagamento criado e incluído na prestação.'
+            : 'Pagamento criado.';
         }
 
-        aplicarDetalhe(data);
+        aplicarDetalhe(data, { prestacaoWhatsappId });
+        setMensagem(mensagemSucesso, 'sucesso');
       } catch (error) {
         setMensagem(error.message || 'Falha ao salvar pagamento.', 'erro');
       }
@@ -521,6 +590,7 @@
       const pagamento = estado.pagamentos.find((item) => String(item.codigo) === String(codigo));
       if (!pagamento) return;
       estado.editando = pagamento;
+      estado.prestacaoWhatsappPosSalvamentoId = null;
       estado.tipo = pagamento.condicao === 'C' ? 'C' : 'V';
       estado.adicionarPrestacao = false;
       estado.prestacaoSelecionadaId = '';
@@ -541,6 +611,7 @@
       estado.tipo = 'V';
       estado.adicionarPrestacao = false;
       estado.prestacaoSelecionadaId = '';
+      estado.prestacaoWhatsappPosSalvamentoId = null;
       renderPainel();
     }
 
@@ -595,7 +666,9 @@
       }
     }
 
-    function aplicarDetalhe(data) {
+    function aplicarDetalhe(data, { prestacaoWhatsappId = null } = {}) {
+      const idWhatsapp = Number(prestacaoWhatsappId);
+      estado.prestacaoWhatsappPosSalvamentoId = Number.isInteger(idWhatsapp) && idWhatsapp > 0 ? idWhatsapp : null;
       estado.pedido = data?.pedido || null;
       estado.pagamentos = Array.isArray(data?.pagamentos) ? data.pagamentos : [];
       estado.resumo = data?.resumo || null;
@@ -627,6 +700,7 @@
       estado.tipo = 'V';
       estado.adicionarPrestacao = false;
       estado.prestacaoSelecionadaId = '';
+      estado.prestacaoWhatsappPosSalvamentoId = null;
       el.painelPedido.innerHTML = '';
       el.listaPedidos.innerHTML = '';
       setMensagem('');
