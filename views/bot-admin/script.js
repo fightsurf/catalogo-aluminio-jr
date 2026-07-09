@@ -354,13 +354,42 @@
 
   async function abrirConversaManual() {
     const campo = el('novo-telefone');
+    const btn = el('btn-abrir-conversa');
     const telefone = normalizarTelefone(campo?.value || '');
+
     if (!telefone) {
       alert('Digite um número de telefone válido.');
       return;
     }
 
-    await abrirConversa(telefone);
+    try {
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Abrindo...';
+      }
+
+      const res = await fetch(`${API}/conversas/abrir`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ telefone })
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.message || 'Erro ao iniciar conversa');
+      }
+
+      const telefoneAberto = normalizarTelefone(data.conversa?.telefone || telefone);
+      await abrirConversa(telefoneAberto);
+      atualizarListaSilenciosa();
+    } catch (err) {
+      alert(err.message || 'Erro ao iniciar conversa.');
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = 'Abrir';
+      }
+    }
   }
 
   async function carregarMensagens(telefone, pagina) {
@@ -418,7 +447,9 @@
   function renderMensagens(mensagens) {
     const container = el('chat-mensagens');
     if (!mensagens.length) {
-      container.innerHTML = '<p class="msg-vazia">Nenhuma mensagem encontrada para este número.</p>';
+      container.innerHTML = telefoneAtivo
+        ? '<p class="msg-vazia">Conversa iniciada. Selecione uma intenção e clique em Executar.</p>'
+        : '<p class="msg-vazia">Nenhuma mensagem encontrada para este número.</p>';
       return;
     }
 
