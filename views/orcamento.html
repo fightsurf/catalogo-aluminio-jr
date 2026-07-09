@@ -154,6 +154,7 @@
   <button onclick="enviarWhatsApp()">Enviar Orçamento</button>
 </div>
 
+<script src="/js/relatorio-aluminio-jr.js"></script>
 <script>
 let produtos = [];
 
@@ -423,19 +424,15 @@ function enviarWhatsApp() {
     return;
   }
 
-  let texto = `📦 RELATÓRIO ALUMÍNIO JR\n\n`;
-
-  itens.forEach((item, index) => {
-    texto += `• ${item.nome} | QTD: ${item.qtd}\n`;
-    texto += `  UNIT: R$ ${formatarMoeda(item.preco)}\n`;
-    texto += `  SUBTOTAL: R$ ${formatarMoeda(item.subtotal)}`;
-
-    if (index < itens.length - 1) {
-      texto += `\n\n`;
-    }
+  const texto = RelatorioAluminioJR.montarRelatorio({
+    itens: itens.map(item => ({
+      nome: item.nome,
+      qtd: item.qtd,
+      preco: item.preco,
+      subtotal: item.subtotal
+    })),
+    total
   });
-
-  texto += `\n\nValor total: R$ ${formatarMoeda(total)}`;
 
   const url = `https://wa.me/558399792085?text=${encodeURIComponent(texto)}`;
   window.open(url, '_blank');

@@ -162,6 +162,7 @@
     </div>
   </div>
 
+<script src="/js/relatorio-aluminio-jr.js"></script>
 <script>
 function mostrarErro(mensagem) {
   const erro = document.getElementById('erro');
@@ -196,34 +197,7 @@ function parseQuantidade(valor) {
 }
 
 function parseRelatorio(texto) {
-  const linhas = String(texto || '').split(/\r?\n/);
-  const itensPorNome = new Map();
-
-  linhas.forEach(linha => {
-    const match = linha.match(/^\s*[•\-*]?\s*(.+?)\s*\|\s*QTD\s*:\s*([0-9]+(?:[,.][0-9]+)?)/i);
-
-    if (!match) return;
-
-    const nome = normalizarNome(match[1]);
-    const qtd = parseQuantidade(match[2]);
-
-    if (!nome) return;
-
-    const chave = nome
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .toUpperCase();
-
-    const existente = itensPorNome.get(chave);
-
-    if (existente) {
-      existente.qtd += qtd;
-    } else {
-      itensPorNome.set(chave, { nome, qtd });
-    }
-  });
-
-  return Array.from(itensPorNome.values());
+  return RelatorioAluminioJR.extrairItens(texto);
 }
 
 function mostrarPreview(itens) {
