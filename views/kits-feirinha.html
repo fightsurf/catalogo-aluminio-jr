@@ -305,7 +305,7 @@ function aplicarKitImportadoSeExistir() {
 
 async function carregarProdutos() {
   try {
-    produtos = await apiGet('/api/produtos');
+    produtos = await apiGet('/api/produtos?ativos=true&perfil=kit-feirinha');
 
     const porCategoria = {};
 

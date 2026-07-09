@@ -3,10 +3,11 @@ const cloudflareR2Service = require('../../services/cloudflare/cloudflareR2.serv
 
 async function listar(req, res) {
     try {
-        const { busca, ativos } = req.query;
+        const { busca, ativos, perfil } = req.query;
 
         const dados = await produtoService.listar({
             busca,
+            perfil,
             apenasAtivos: ativos === 'true'
         });
 
@@ -37,6 +38,15 @@ async function criar(req, res) {
 async function atualizar(req, res) {
     try {
         const dados = await produtoService.atualizar(req.params.id, req.body);
+        res.json({ success: true, data: dados });
+    } catch (error) {
+        res.status(400).json({ success: false, message: error.message });
+    }
+}
+
+async function atualizarPerfisComerciais(req, res) {
+    try {
+        const dados = await produtoService.atualizarPerfisComerciais(req.params.id, req.body);
         res.json({ success: true, data: dados });
     } catch (error) {
         res.status(400).json({ success: false, message: error.message });
@@ -88,6 +98,7 @@ module.exports = {
     buscar,
     criar,
     atualizar,
+    atualizarPerfisComerciais,
     uploadFoto,
     excluir
 };

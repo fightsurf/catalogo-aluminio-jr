@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Perfis dos Produtos – Alumínio JR</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f4f4;
+  margin: 0;
+  padding: 20px;
+}
+
+h1 {
+  text-align: center;
+  margin: 0 0 22px;
+}
+
+.topo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.nav-links {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.nav-links a,
+button {
+  background: #222;
+  color: #fff;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  text-decoration: none;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.nav-links a.secundario,
+button.secundario {
+  background: #666;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.filtros {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(160px, 260px) minmax(150px, 220px);
+  gap: 10px;
+}
+
+input,
+select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 9px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.resumo {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: #333;
+}
+
+.badge {
+  background: #eee;
+  padding: 5px 8px;
+  border-radius: 999px;
+}
+
+.tabela-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+  min-width: 760px;
+}
+
+th,
+td {
+  border-bottom: 1px solid #eee;
+  padding: 9px 8px;
+  text-align: left;
+  font-size: 14px;
+  vertical-align: middle;
+}
+
+th {
+  background: #222;
+  color: #fff;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+tr.inativo td {
+  color: #777;
+  background: #fafafa;
+}
+
+.produto-nome {
+  font-weight: 700;
+}
+
+.produto-meta {
+  font-size: 12px;
+  color: #666;
+  margin-top: 2px;
+}
+
+.check-cell {
+  text-align: center;
+  width: 140px;
+}
+
+.check-cell input {
+  width: 22px;
+  height: 22px;
+  cursor: pointer;
+}
+
+.status {
+  min-width: 120px;
+  font-size: 12px;
+  color: #555;
+}
+
+.status.ok { color: #087a35; }
+.status.erro { color: #b00020; }
+.status.salvando { color: #875500; }
+
+.vazio,
+.erro-geral {
+  text-align: center;
+  padding: 18px;
+  color: #555;
+}
+
+.erro-geral {
+  color: #b00020;
+}
+
+.ajuda {
+  margin: 0;
+  color: #555;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+@media (max-width: 760px) {
+  body { padding: 12px; }
+  .filtros { grid-template-columns: 1fr; }
+}
+</style>
+<link rel="stylesheet" href="/css/theme.css" />
+</head>
+<body>
+
+<h1>Perfis comerciais dos produtos</h1>
+
+<div class="topo">
+  <div class="nav-links">
+    <a href="/admin-produtos">Voltar para Produtos</a>
+    <a class="secundario" href="/kits-feirinha" target="_blank">Ver Kit Feirinha</a>
+    <a class="secundario" href="/orcamento" target="_blank">Ver Orçamento</a>
+  </div>
+  <button type="button" onclick="carregarTudo()">Atualizar lista</button>
+</div>
+
+<div class="card">
+  <p class="ajuda">
+    Marque onde cada produto deve aparecer. A alteração é salva imediatamente ao clicar no checkbox.
+    Um produto pode ficar marcado nos dois perfis, em apenas um perfil, ou em nenhum.
+  </p>
+</div>
+
+<div class="card">
+  <div class="filtros">
+    <input type="text" id="busca" placeholder="Buscar produto..." oninput="renderizarTabela()">
+    <select id="filtroCategoria" onchange="renderizarTabela()"></select>
+    <select id="filtroPerfil" onchange="renderizarTabela()">
+      <option value="">Todos os perfis</option>
+      <option value="kit">Marcados em Kit Feirinha</option>
+      <option value="orcamento">Marcados em Orçamento</option>
+      <option value="ambos">Marcados nos dois</option>
+      <option value="nenhum">Sem perfil marcado</option>
+    </select>
+  </div>
+</div>
+
+<div class="card">
+  <div id="resumo" class="resumo"></div>
+</div>
+
+<div class="card tabela-wrap">
+  <table>
+    <thead>
+      <tr>
+        <th>Produto</th>
+        <th>Categoria</th>
+        <th>Preço</th>
+        <th>Status</th>
+        <th class="check-cell">Kit Feirinha</th>
+        <th class="check-cell">Orçamento</th>
+        <th>Status da alteração</th>
+      </tr>
+    </thead>
+    <tbody id="tbodyProdutos">
+      <tr><td colspan="7" class="vazio">Carregando produtos...</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+let produtos = [];
+
+async function api(url, method = 'GET', body = null) {
+  const options = {
+    method,
+    headers: { 'Content-Type': 'application/json' }
+  };
+
+  if (body) options.body = JSON.stringify(body);
+
+  const response = await fetch(url, options);
+  const json = await response.json().catch(() => ({}));
+
+  if (!response.ok || json.success === false) {
+    throw new Error(json.message || json.erro || 'Erro na requisição.');
+  }
+
+  return json;
+}
+
+function escapeHtml(valor) {
+  return String(valor ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function formatarMoeda(valor) {
+  return Number(valor || 0).toFixed(2).replace('.', ',');
+}
+
+function normalizarTexto(valor) {
+  return String(valor || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function getCategoriasOrdenadas() {
+  const categorias = new Map();
+
+  produtos.forEach((produto) => {
+    const nome = produto.categoria || 'SEM CATEGORIA';
+    categorias.set(String(produto.categoria_id || nome), nome);
+  });
+
+  return Array.from(categorias.entries())
+    .map(([id, nome]) => ({ id, nome }))
+    .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+}
+
+function montarFiltroCategorias() {
+  const select = document.getElementById('filtroCategoria');
+  const valorAtual = select.value;
+
+  select.innerHTML = '<option value="">Todas as categorias</option>' +
+    getCategoriasOrdenadas()
+      .map((categoria) => `<option value="${escapeHtml(categoria.id)}">${escapeHtml(categoria.nome)}</option>`)
+      .join('');
+
+  select.value = valorAtual;
+}
+
+function filtrarProdutos() {
+  const busca = normalizarTexto(document.getElementById('busca').value);
+  const categoria = document.getElementById('filtroCategoria').value;
+  const perfil = document.getElementById('filtroPerfil').value;
+
+  return produtos.filter((produto) => {
+    const nomeOk = !busca || normalizarTexto(produto.nome).includes(busca);
+    const categoriaId = String(produto.categoria_id || produto.categoria || 'SEM CATEGORIA');
+    const categoriaOk = !categoria || categoriaId === categoria;
+    const kit = produto.perfil_kit_feirinha === true;
+    const orcamento = produto.perfil_orcamento === true;
+
+    let perfilOk = true;
+    if (perfil === 'kit') perfilOk = kit;
+    if (perfil === 'orcamento') perfilOk = orcamento;
+    if (perfil === 'ambos') perfilOk = kit && orcamento;
+    if (perfil === 'nenhum') perfilOk = !kit && !orcamento;
+
+    return nomeOk && categoriaOk && perfilOk;
+  });
+}
+
+function atualizarResumo() {
+  const total = produtos.length;
+  const kit = produtos.filter((p) => p.perfil_kit_feirinha === true).length;
+  const orcamento = produtos.filter((p) => p.perfil_orcamento === true).length;
+  const ambos = produtos.filter((p) => p.perfil_kit_feirinha === true && p.perfil_orcamento === true).length;
+  const nenhum = produtos.filter((p) => p.perfil_kit_feirinha !== true && p.perfil_orcamento !== true).length;
+  const exibidos = filtrarProdutos().length;
+
+  document.getElementById('resumo').innerHTML = `
+    <span class="badge">Total: ${total}</span>
+    <span class="badge">Exibidos: ${exibidos}</span>
+    <span class="badge">Kit Feirinha: ${kit}</span>
+    <span class="badge">Orçamento: ${orcamento}</span>
+    <span class="badge">Nos dois: ${ambos}</span>
+    <span class="badge">Sem perfil: ${nenhum}</span>
+  `;
+}
+
+function renderizarTabela() {
+  const tbody = document.getElementById('tbodyProdutos');
+  const filtrados = filtrarProdutos();
+
+  atualizarResumo();
+
+  if (!filtrados.length) {
+    tbody.innerHTML = '<tr><td colspan="7" class="vazio">Nenhum produto encontrado.</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtrados.map((produto) => {
+    const kitChecked = produto.perfil_kit_feirinha === true ? 'checked' : '';
+    const orcamentoChecked = produto.perfil_orcamento === true ? 'checked' : '';
+    const classeLinha = produto.ativo ? '' : ' class="inativo"';
+    const categoria = produto.categoria || 'SEM CATEGORIA';
+    const status = produto.ativo ? 'Ativo' : 'Inativo';
+
+    return `
+      <tr${classeLinha} data-id="${produto.id}">
+        <td>
+          <div class="produto-nome">${escapeHtml(produto.nome)}</div>
+          <div class="produto-meta">ID ${produto.id}${produto.item_legado ? ` — ITEM legado ${produto.item_legado}` : ''}</div>
+        </td>
+        <td>${escapeHtml(categoria)}</td>
+        <td>R$ ${formatarMoeda(produto.preco)}</td>
+        <td>${status}</td>
+        <td class="check-cell">
+          <input type="checkbox" ${kitChecked}
+            onchange="atualizarPerfil(${produto.id}, 'perfil_kit_feirinha', this.checked, this)">
+        </td>
+        <td class="check-cell">
+          <input type="checkbox" ${orcamentoChecked}
+            onchange="atualizarPerfil(${produto.id}, 'perfil_orcamento', this.checked, this)">
+        </td>
+        <td><span id="status-${produto.id}" class="status"></span></td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function setStatusProduto(produtoId, texto, tipo = '') {
+  const el = document.getElementById(`status-${produtoId}`);
+  if (!el) return;
+  el.textContent = texto || '';
+  el.className = `status ${tipo}`.trim();
+}
+
+async function atualizarPerfil(produtoId, campo, valor, checkbox) {
+  const produto = produtos.find((item) => Number(item.id) === Number(produtoId));
+  if (!produto) return;
+
+  const valorAnterior = produto[campo] === true;
+  produto[campo] = valor;
+  checkbox.disabled = true;
+  setStatusProduto(produtoId, 'Salvando...', 'salvando');
+  atualizarResumo();
+
+  try {
+    const resposta = await api(`/api/produtos/${produtoId}/perfis-comerciais`, 'PATCH', {
+      [campo]: valor
+    });
+
+    Object.assign(produto, resposta.data || {});
+    checkbox.checked = produto[campo] === true;
+    setStatusProduto(produtoId, 'Salvo', 'ok');
+    atualizarResumo();
+
+    window.clearTimeout(checkbox.dataset.timerId);
+    const timerId = window.setTimeout(() => setStatusProduto(produtoId, ''), 1800);
+    checkbox.dataset.timerId = String(timerId);
+  } catch (error) {
+    produto[campo] = valorAnterior;
+    checkbox.checked = valorAnterior;
+    setStatusProduto(produtoId, error.message, 'erro');
+    atualizarResumo();
+    alert(error.message);
+  } finally {
+    checkbox.disabled = false;
+  }
+}
+
+async function carregarTudo() {
+  const tbody = document.getElementById('tbodyProdutos');
+  tbody.innerHTML = '<tr><td colspan="7" class="vazio">Carregando produtos...</td></tr>';
+
+  try {
+    const resposta = await api('/api/produtos');
+    produtos = Array.isArray(resposta.data) ? resposta.data : [];
+    montarFiltroCategorias();
+    renderizarTabela();
+  } catch (error) {
+    tbody.innerHTML = `<tr><td colspan="7" class="erro-geral">Erro ao carregar produtos: ${escapeHtml(error.message)}</td></tr>`;
+    document.getElementById('resumo').innerHTML = '';
+  }
+}
+
+carregarTudo();
+</script>
+
+</body>
+</html>

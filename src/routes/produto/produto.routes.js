@@ -34,6 +34,7 @@ router.get('/', controller.listar);
 router.get('/:id', controller.buscar);
 router.post('/', controller.criar);
 router.put('/:id', controller.atualizar);
+router.patch('/:id/perfis-comerciais', controller.atualizarPerfisComerciais);
 router.post('/:id/fotos/:posicao', upload.single('foto'), tratarErroUpload, controller.uploadFoto);
 router.delete('/:id', controller.excluir);
 

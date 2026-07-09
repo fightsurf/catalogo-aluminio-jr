@@ -202,6 +202,10 @@ app.get('/admin-produtos', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'produto', 'admin-produtos.html'));
 });
 
+app.get('/admin-produtos-perfis', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'produto', 'admin-produtos-perfis.html'));
+});
+
 app.get('/admin-insumos-categorias', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'insumoCategoria', 'admin-insumo-categoria.html'));
 });

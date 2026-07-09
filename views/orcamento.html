@@ -300,7 +300,7 @@ function aplicarOrcamentoImportadoSeExistir() {
 
 async function carregarProdutos() {
   try {
-    produtos = await apiGet('/api/produtos');
+    produtos = await apiGet('/api/produtos?ativos=true&perfil=orcamento');
 
     const porCategoria = {};
 
