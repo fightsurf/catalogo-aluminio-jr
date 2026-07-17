@@ -439,10 +439,36 @@
       return obterDataISO(carrada?.data) === obterDataHojeISO();
     }
 
+    function obterQuantidadeResumoCarrada(carrada, campoCamelCase, campoSnakeCase) {
+      const possuiCampoCamelCase = Object.prototype.hasOwnProperty.call(carrada || {}, campoCamelCase);
+      const possuiCampoSnakeCase = Object.prototype.hasOwnProperty.call(carrada || {}, campoSnakeCase);
+
+      if (!possuiCampoCamelCase && !possuiCampoSnakeCase) {
+        return null;
+      }
+
+      const valor = possuiCampoCamelCase
+        ? carrada[campoCamelCase]
+        : carrada[campoSnakeCase];
+      const numero = Number(valor ?? 0);
+
+      return Number.isFinite(numero) ? numero : null;
+    }
+
+    function carradaPossuiResumoZerado(carrada) {
+      const totalItens = obterQuantidadeResumoCarrada(carrada, 'quantidadeItens', 'quantidade_itens');
+      const itensProntos = obterQuantidadeResumoCarrada(carrada, 'quantidadeItensProntos', 'quantidade_itens_prontos');
+      const itensAProduzir = obterQuantidadeResumoCarrada(carrada, 'quantidadeItensAProduzir', 'quantidade_itens_a_produzir');
+
+      return totalItens === 0 && itensProntos === 0 && itensAProduzir === 0;
+    }
+
     function obterClassesLinhaCarrada(carrada) {
       const classes = [];
+      const considerarCompleta = carrada.progressoStatusLinha === 'completa'
+        || carradaPossuiResumoZerado(carrada);
 
-      if (carrada.progressoStatusLinha === 'completa') {
+      if (considerarCompleta) {
         classes.push('carrada-completa');
       } else if (carrada.progressoStatusLinha === 'semicompleta') {
         classes.push('carrada-semicompleta');
