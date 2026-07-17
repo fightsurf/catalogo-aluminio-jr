@@ -155,8 +155,41 @@ class ClientesCreditosService {
   }
 
   _valor(valor, campo = 'valor') {
-    const texto = this._texto(valor).replace(/\./g, '').replace(',', '.');
-    const numero = Number(texto || valor);
+    let numero;
+
+    if (typeof valor === 'number') {
+      numero = valor;
+    } else {
+      const textoOriginal = this._texto(valor)
+        .replace(/\s+/g, '')
+        .replace(/[^0-9,.-]/g, '');
+
+      if (!textoOriginal) {
+        numero = Number.NaN;
+      } else {
+        const ultimaVirgula = textoOriginal.lastIndexOf(',');
+        const ultimoPonto = textoOriginal.lastIndexOf('.');
+        let textoNormalizado = textoOriginal;
+
+        if (ultimaVirgula >= 0 && ultimoPonto >= 0) {
+          const separadorDecimal = ultimaVirgula > ultimoPonto ? ',' : '.';
+          const separadorMilhar = separadorDecimal === ',' ? '.' : ',';
+          textoNormalizado = textoOriginal
+            .split(separadorMilhar).join('')
+            .replace(separadorDecimal, '.');
+        } else if (ultimaVirgula >= 0) {
+          textoNormalizado = textoOriginal.replace(/\./g, '').replace(',', '.');
+        } else if (ultimoPonto >= 0) {
+          const partes = textoOriginal.split('.');
+          const casasFinais = partes[partes.length - 1].length;
+          const pontosComoMilhar = partes.length > 2 || casasFinais === 3;
+          textoNormalizado = pontosComoMilhar ? partes.join('') : textoOriginal;
+        }
+
+        numero = Number(textoNormalizado);
+      }
+    }
+
     if (!Number.isFinite(numero) || numero <= 0) {
       throw this._erro(`Informe um ${campo} válido.`);
     }
@@ -468,6 +501,118 @@ class ClientesCreditosService {
         situacao: saldo > 0.004 ? 'DEVEDOR' : saldo < -0.004 ? 'COM_CREDITO' : 'ZERADO'
       }
     };
+  }
+
+  async atualizarLancamento(favorecido, lancamentoId, data = {}) {
+    await this._ensureSchema();
+
+    const favorecidoId = this._inteiro(favorecido, 'favorecido', { positivo: true });
+    const id = this._inteiro(lancamentoId, 'lancamento', { positivo: true });
+    const valor = this._valor(data.valor);
+    const dataLancamento = this._dataISO(data.dataLancamento || data.data_lancamento, 'dataLancamento');
+    const descricao = this._texto(data.descricao).slice(0, 300) || null;
+    const observacao = this._texto(data.observacao).slice(0, 500) || null;
+    const client = await pool.connect();
+    let pagamentoLegadoAtualizado = false;
+    let rollbackLegado = null;
+
+    try {
+      await client.query('BEGIN');
+
+      const atualResult = await client.query(
+        `
+          SELECT *
+          FROM cliente_credito_lancamentos
+          WHERE id = $1
+            AND favorecido = $2
+            AND cancelado_em IS NULL
+          FOR UPDATE
+        `,
+        [id, favorecidoId]
+      );
+
+      const atual = atualResult.rows[0];
+      if (!atual) {
+        throw this._erro('Lançamento não encontrado.', 404);
+      }
+
+      const tiposDebito = [TIPOS.BAIXA_PARA_CREDITO, TIPOS.AJUSTE_DEBITO];
+      const tiposCredito = [TIPOS.PAGAMENTO_CLIENTE, TIPOS.AJUSTE_CREDITO, TIPOS.ESTORNO];
+
+      if (!tiposDebito.includes(atual.tipo) && !tiposCredito.includes(atual.tipo)) {
+        throw this._erro('Tipo de lançamento não pode ser alterado.');
+      }
+
+      const observacaoFinal = atual.tipo === TIPOS.PAGAMENTO_CLIENTE
+        ? this._texto(observacao).slice(0, 300) || null
+        : observacao;
+
+      if (atual.tipo === TIPOS.PAGAMENTO_CLIENTE) {
+        const codigoPagamento = this._inteiro(atual.origem_id, 'código do pagamento', { positivo: true });
+        rollbackLegado = {
+          codigoPagamento,
+          favorecido: favorecidoId,
+          valor: Number(atual.valor_credito || 0),
+          dataLancamento: this._formatarDataISO(atual.data_lancamento),
+          observacao: this._texto(atual.observacao)
+        };
+
+        await legadoBridgeService.put(`/api/pagamentos/credito-cliente/${encodeURIComponent(codigoPagamento)}`, {
+          favorecido: favorecidoId,
+          valor,
+          dataLancamento,
+          observacao: observacaoFinal
+        });
+        pagamentoLegadoAtualizado = true;
+      }
+
+      const valorDebito = tiposDebito.includes(atual.tipo) ? valor : 0;
+      const valorCredito = tiposCredito.includes(atual.tipo) ? valor : 0;
+
+      const atualizadoResult = await client.query(
+        `
+          UPDATE cliente_credito_lancamentos
+             SET data_lancamento = $1,
+                 descricao = $2,
+                 valor_debito = $3,
+                 valor_credito = $4,
+                 observacao = $5,
+                 updated_at = NOW()
+           WHERE id = $6
+             AND favorecido = $7
+             AND cancelado_em IS NULL
+          RETURNING *
+        `,
+        [dataLancamento, descricao, valorDebito, valorCredito, observacaoFinal, id, favorecidoId]
+      );
+
+      await client.query('COMMIT');
+      return this._mapLancamento(atualizadoResult.rows[0]);
+    } catch (error) {
+      try {
+        await client.query('ROLLBACK');
+      } catch (rollbackPgError) {
+        console.error('Falha ao desfazer edição do extrato no PostgreSQL:', rollbackPgError);
+      }
+
+      if (pagamentoLegadoAtualizado && rollbackLegado) {
+        try {
+          await legadoBridgeService.put(`/api/pagamentos/credito-cliente/${encodeURIComponent(rollbackLegado.codigoPagamento)}`, {
+            favorecido: rollbackLegado.favorecido,
+            valor: rollbackLegado.valor,
+            dataLancamento: rollbackLegado.dataLancamento,
+            observacao: rollbackLegado.observacao
+          });
+        } catch (rollbackLegadoError) {
+          console.error('Falha ao restaurar pagamento de crédito no Firebird:', rollbackLegadoError);
+          error.message = `${error.message} O extrato não foi alterado, mas o pagamento no sistema legado precisa ser conferido.`;
+        }
+      }
+
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async _buscarNomeClienteSnapshot(favorecidoId) {

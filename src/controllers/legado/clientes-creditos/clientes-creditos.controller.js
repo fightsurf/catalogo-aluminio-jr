@@ -41,9 +41,24 @@ async function registrarPagamentoCliente(req, res) {
   }
 }
 
+async function atualizarLancamento(req, res) {
+  try {
+    const data = await clientesCreditosService.atualizarLancamento(
+      req.params.favorecido,
+      req.params.lancamentoId,
+      req.body || {}
+    );
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error('Erro ao atualizar lançamento do extrato do cliente:', error);
+    return res.status(error.statusCode || 500).json({ success: false, message: 'Erro ao atualizar lançamento do extrato do cliente.', error: error.message });
+  }
+}
+
 module.exports = {
   listarClientes,
   buscarExtrato,
   registrarAjusteCliente,
-  registrarPagamentoCliente
+  registrarPagamentoCliente,
+  atualizarLancamento
 };

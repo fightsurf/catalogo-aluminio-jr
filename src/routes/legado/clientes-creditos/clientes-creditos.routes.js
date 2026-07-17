@@ -5,6 +5,7 @@ const router = express.Router();
 
 router.get('/', controller.listarClientes);
 router.get('/:favorecido/extrato', controller.buscarExtrato);
+router.put('/:favorecido/lancamentos/:lancamentoId', controller.atualizarLancamento);
 router.post('/:favorecido/ajustes', controller.registrarAjusteCliente);
 router.post('/:favorecido/pagamentos', controller.registrarPagamentoCliente);
 
