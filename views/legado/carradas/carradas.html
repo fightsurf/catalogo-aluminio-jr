@@ -435,8 +435,20 @@
       return `${valores.year}-${valores.month}-${valores.day}`;
     }
 
+    function obterDataOntemISO() {
+      const [ano, mes, dia] = obterDataHojeISO().split('-').map(Number);
+      const ontem = new Date(Date.UTC(ano, mes - 1, dia));
+      ontem.setUTCDate(ontem.getUTCDate() - 1);
+      return ontem.toISOString().slice(0, 10);
+    }
+
     function carradaEhHoje(carrada) {
       return obterDataISO(carrada?.data) === obterDataHojeISO();
+    }
+
+    function carradaEhAteOntem(carrada) {
+      const dataCarrada = obterDataISO(carrada?.data);
+      return Boolean(dataCarrada) && dataCarrada <= obterDataOntemISO();
     }
 
     function obterQuantidadeResumoCarrada(carrada, campoCamelCase, campoSnakeCase) {
@@ -466,7 +478,7 @@
     function obterClassesLinhaCarrada(carrada) {
       const classes = [];
       const considerarCompleta = carrada.progressoStatusLinha === 'completa'
-        || carradaPossuiResumoZerado(carrada);
+        || (carradaPossuiResumoZerado(carrada) && carradaEhAteOntem(carrada));
 
       if (considerarCompleta) {
         classes.push('carrada-completa');
