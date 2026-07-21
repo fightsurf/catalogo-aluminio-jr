@@ -1,6 +1,8 @@
 const legadoBridgeService = require('../legadoBridge.service');
 const envioWhatsappService = require('../../whatsapp/envio-whatsapp.service');
 const pedidoPdfService = require('./pedidoPdf.service');
+const prestacaoContasService = require('../../prestacao_contas/prestacao_contas.service');
+const clientesCreditosService = require('../clientes-creditos/clientes-creditos.service');
 
 function limparTexto(valor) {
   if (typeof valor !== 'string') {
@@ -473,6 +475,94 @@ async function atualizarPedido(idMestre, payload = {}) {
   };
 }
 
+
+function normalizarPedidoComItensParticao(pedido) {
+  if (!pedido) return null;
+
+  return {
+    ...normalizarPedido({
+      ...pedido,
+      carradaAtual: pedido?.carradaAtual || null
+    }),
+    itens: Array.isArray(pedido?.itens)
+      ? pedido.itens.map((item) => ({
+          saidaItem: item?.saidaItem ?? item?.SAIDAITEM ?? null,
+          sequencia: item?.sequencia ?? item?.SEQUENCIA ?? null,
+          item: item?.item ?? item?.ITEM ?? null,
+          descricao: limparTexto(item?.descricao),
+          quantidade: Number(item?.quantidade ?? 0),
+          preco: Number(item?.preco ?? 0),
+          subtotal: Number(item?.subtotal ?? item?.subtotalitem ?? 0)
+        }))
+      : []
+  };
+}
+
+async function particionarPedido(idMestre, payload = {}) {
+  const response = await legadoBridgeService.post(
+    `/api/legado/pedidos/${idMestre}/particionar`,
+    payload
+  );
+
+  const data = response?.data || {};
+  let sincronizacaoPrestacoes = null;
+  let avisoSincronizacaoPrestacoes = null;
+
+  try {
+    sincronizacaoPrestacoes = await prestacaoContasService.sincronizarParticaoPagamentosPedido({
+      pagamentos: data.pagamentos || {},
+      pedidoOriginal: data.pedidoOriginal || {},
+      pedidoNovo: data.pedidoNovo || {}
+    });
+  } catch (error) {
+    avisoSincronizacaoPrestacoes = `A divisão foi concluída, mas os vínculos com prestações precisam ser conferidos: ${error.message}`;
+    console.error(avisoSincronizacaoPrestacoes);
+  }
+
+  let sincronizacaoBaixaCredito = null;
+  let avisoSincronizacaoBaixaCredito = null;
+
+  try {
+    sincronizacaoBaixaCredito = await clientesCreditosService.sincronizarParticaoBaixaCredito({
+      pagamentos: data.pagamentos || {},
+      pedidoOriginal: data.pedidoOriginal || {},
+      pedidoNovo: data.pedidoNovo || {}
+    });
+  } catch (error) {
+    avisoSincronizacaoBaixaCredito = `A divisão foi concluída, mas a baixa para crédito precisa ser conferida: ${error.message}`;
+    console.error(avisoSincronizacaoBaixaCredito);
+  }
+
+  const originalBase = normalizarPedidoComItensParticao(data.pedidoOriginal);
+  const novoBase = normalizarPedidoComItensParticao(data.pedidoNovo);
+  const enriquecidos = await enriquecerPedidosComPagamentos(
+    [originalBase, novoBase].filter(Boolean)
+  );
+  const porSaida = new Map(
+    enriquecidos.map((pedido) => [String(pedido?.saida ?? pedido?.idMestre ?? ''), pedido])
+  );
+
+  return {
+    ...data,
+    sincronizacaoPrestacoes,
+    avisoSincronizacaoPrestacoes,
+    sincronizacaoBaixaCredito,
+    avisoSincronizacaoBaixaCredito,
+    pedidoOriginal: originalBase
+      ? {
+          ...originalBase,
+          ...(porSaida.get(String(originalBase.saida ?? originalBase.idMestre ?? '')) || {})
+        }
+      : null,
+    pedidoNovo: novoBase
+      ? {
+          ...novoBase,
+          ...(porSaida.get(String(novoBase.saida ?? novoBase.idMestre ?? '')) || {})
+        }
+      : null
+  };
+}
+
 module.exports = {
   pesquisarPedidos,
   buscarItensPedido,
@@ -480,5 +570,6 @@ module.exports = {
   listarCarradasDisponiveis,
   alterarCarradaPedido,
   atualizarPedido,
+  particionarPedido,
   enviarPdfWhatsappPedido
 };

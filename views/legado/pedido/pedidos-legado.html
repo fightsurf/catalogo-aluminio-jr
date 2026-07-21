@@ -365,6 +365,109 @@
       padding: 0;
     }
 
+
+
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      background: rgba(17, 24, 39, 0.58);
+    }
+
+    .modal-card {
+      width: min(980px, 100%);
+      max-height: 92vh;
+      overflow-y: auto;
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 18px 50px rgba(0, 0, 0, 0.24);
+      padding: 18px;
+    }
+
+    .modal-cabecalho {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    .modal-cabecalho h3 {
+      margin: 0;
+      font-size: 19px;
+    }
+
+    .btn-fechar-modal {
+      border: 0;
+      background: transparent;
+      font-size: 26px;
+      line-height: 1;
+      cursor: pointer;
+      color: #4b5563;
+    }
+
+    .particao-aviso {
+      padding: 11px 12px;
+      margin-bottom: 14px;
+      border: 1px solid #bae6fd;
+      border-radius: 6px;
+      background: #f0f9ff;
+      color: #0c4a6e;
+      font-size: 13px;
+    }
+
+    .particao-grid-resumo {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(130px, 1fr));
+      gap: 10px;
+      margin: 14px 0;
+    }
+
+    .particao-resumo-item {
+      border: 1px solid #e5e7eb;
+      border-radius: 6px;
+      padding: 10px;
+      background: #f9fafb;
+    }
+
+    .particao-resumo-item span {
+      display: block;
+      color: #6b7280;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+
+    .particao-resumo-item strong {
+      font-size: 15px;
+    }
+
+    .particao-acoes {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 16px;
+      flex-wrap: wrap;
+    }
+
+    .input-particao {
+      width: 135px;
+      min-height: 36px;
+      border: 1px solid #cfd6dd;
+      border-radius: 4px;
+      padding: 7px 9px;
+      font-size: 14px;
+    }
+
+    @media (max-width: 720px) {
+      .particao-grid-resumo {
+        grid-template-columns: repeat(2, minmax(120px, 1fr));
+      }
+    }
+
     @media (max-width: 900px) {
       .acoes-pedido {
         justify-content: flex-start;
@@ -416,6 +519,7 @@
 
       <div class="acoes-pedido">
         <button id="btnEditarPedido" class="btn btn-primary oculto">Editar pedido</button>
+        <button id="btnParticionarPedido" class="btn btn-primary oculto">Particionar pedido</button>
         <button id="btnCancelarEdicao" class="btn btn-secondary oculto">Cancelar edição</button>
         <button id="btnSalvarAlteracoes" class="btn btn-primary oculto">Salvar alterações</button>
         <button id="btnEnviarWhatsapp" class="btn btn-whatsapp oculto">Enviar para WhatsApp</button>
@@ -437,6 +541,53 @@
     </div>
   </div>
 
+
+
+  <div id="modalParticao" class="modal-overlay oculto" role="dialog" aria-modal="true" aria-labelledby="tituloModalParticao">
+    <div class="modal-card">
+      <div class="modal-cabecalho">
+        <h3 id="tituloModalParticao">Particionar pedido</h3>
+        <button id="btnFecharParticao" class="btn-fechar-modal" type="button" aria-label="Fechar">×</button>
+      </div>
+
+      <div id="particaoIdentificacao" class="cliente-linha"></div>
+      <div class="particao-aviso">
+        O pedido original continuará na carrada atual. Os itens informados abaixo formarão um novo pedido. Os pagamentos quitarão primeiro o pedido original; a sobra será transferida para o novo.
+      </div>
+
+      <div class="campo-inline" style="max-width: 520px; margin-bottom: 14px;">
+        <label for="selectCarradaParticao">Carrada do novo pedido</label>
+        <select id="selectCarradaParticao"></select>
+      </div>
+
+      <div class="tabela-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Item</th>
+              <th class="right">Quantidade atual</th>
+              <th class="right">Preço</th>
+              <th class="right">Passar para o novo pedido</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyParticaoItens"></tbody>
+        </table>
+      </div>
+
+      <div class="particao-grid-resumo">
+        <div class="particao-resumo-item"><span>Pedido original</span><strong id="particaoTotalOriginal">R$ 0,00</strong></div>
+        <div class="particao-resumo-item"><span>Novo pedido</span><strong id="particaoTotalNovo">R$ 0,00</strong></div>
+        <div class="particao-resumo-item"><span>Pago no original</span><strong id="particaoPagoOriginal">R$ 0,00</strong></div>
+        <div class="particao-resumo-item"><span>Pago no novo</span><strong id="particaoPagoNovo">R$ 0,00</strong></div>
+      </div>
+
+      <div class="particao-acoes">
+        <button id="btnCancelarParticao" class="btn btn-secondary" type="button">Cancelar</button>
+        <button id="btnConfirmarParticao" class="btn btn-primary" type="button">Criar novo pedido</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const numeroPedidoInput = document.getElementById('numeroPedido');
     const clientePedidoInput = document.getElementById('clientePedido');
@@ -449,6 +600,7 @@
     const blocoItens = document.getElementById('blocoItens');
 
     const btnEditarPedido = document.getElementById('btnEditarPedido');
+    const btnParticionarPedido = document.getElementById('btnParticionarPedido');
     const btnCancelarEdicao = document.getElementById('btnCancelarEdicao');
     const btnSalvarAlteracoes = document.getElementById('btnSalvarAlteracoes');
     const btnEnviarWhatsapp = document.getElementById('btnEnviarWhatsapp');
@@ -456,6 +608,17 @@
     const btnAdicionarPagamentos = document.getElementById('btnAdicionarPagamentos');
     const btnImprimirRelatorioProducao = document.getElementById('btnImprimirRelatorioProducao');
     const btnImprimirRelatorio = document.getElementById('btnImprimirRelatorio');
+    const modalParticao = document.getElementById('modalParticao');
+    const btnFecharParticao = document.getElementById('btnFecharParticao');
+    const btnCancelarParticao = document.getElementById('btnCancelarParticao');
+    const btnConfirmarParticao = document.getElementById('btnConfirmarParticao');
+    const selectCarradaParticao = document.getElementById('selectCarradaParticao');
+    const tbodyParticaoItens = document.getElementById('tbodyParticaoItens');
+    const particaoIdentificacao = document.getElementById('particaoIdentificacao');
+    const particaoTotalOriginal = document.getElementById('particaoTotalOriginal');
+    const particaoTotalNovo = document.getElementById('particaoTotalNovo');
+    const particaoPagoOriginal = document.getElementById('particaoPagoOriginal');
+    const particaoPagoNovo = document.getElementById('particaoPagoNovo');
 
     let pedidoCarregado = null;
     let pedidosEncontrados = [];
@@ -476,6 +639,7 @@
     let itensNaoReconhecidosRelatorio = [];
     let cacheProdutosImportacao = null;
     let importandoRelatorio = false;
+    let particaoEmAndamento = false;
 
     function setMensagem(texto, erro = false) {
       mensagem.textContent = texto;
@@ -584,6 +748,7 @@
     function atualizarVisibilidadeAcoes() {
       const haPedido = !!pedidoCarregado;
       btnEditarPedido.classList.toggle('oculto', !haPedido || modoEdicao);
+      btnParticionarPedido.classList.toggle('oculto', !haPedido || modoEdicao);
       btnCancelarEdicao.classList.add('oculto');
       btnSalvarAlteracoes.classList.add('oculto');
 
@@ -1482,6 +1647,188 @@
       anexarEventosItensEdicao();
     }
 
+
+
+    function obterLinhasParticao() {
+      return Array.from(tbodyParticaoItens.querySelectorAll('.input-particao')).map((input) => ({
+        saidaItem: Number(input.dataset.saidaItem || 0),
+        quantidade: Number(input.value || 0),
+        quantidadeDisponivel: Number(input.dataset.quantidadeDisponivel || 0),
+        preco: Number(input.dataset.preco || 0)
+      }));
+    }
+
+    function atualizarResumoParticao() {
+      const linhas = obterLinhasParticao();
+      const totalNovo = linhas.reduce((acc, linha) => (
+        acc + (linha.quantidade > 0 ? linha.quantidade * linha.preco : 0)
+      ), 0);
+      const totalOriginal = linhas.reduce((acc, linha) => (
+        acc + Math.max(linha.quantidadeDisponivel - Math.max(linha.quantidade, 0), 0) * linha.preco
+      ), 0);
+      const totalPago = Number(pedidoCarregado?.totalPago || 0);
+      const pagoOriginal = Math.min(totalPago, totalOriginal);
+      const pagoNovo = Math.max(totalPago - pagoOriginal, 0);
+
+      particaoTotalOriginal.textContent = moeda(totalOriginal);
+      particaoTotalNovo.textContent = moeda(totalNovo);
+      particaoPagoOriginal.textContent = moeda(pagoOriginal);
+      particaoPagoNovo.textContent = moeda(pagoNovo);
+    }
+
+    function montarOpcoesCarradaParticao() {
+      const codigoAtual = String(pedidoCarregado?.carradaAtual?.codigo || '');
+      const disponiveis = carradasCache.filter((carrada) => String(carrada?.codigo || '') !== codigoAtual);
+
+      return [
+        '<option value="">Selecione a nova carrada...</option>',
+        ...disponiveis.map((carrada) => `
+          <option value="${carrada?.codigo ?? ''}">${formatarOpcaoCarrada(carrada)}</option>
+        `)
+      ].join('');
+    }
+
+    async function abrirModalParticao() {
+      if (!pedidoCarregado?.idMestre || particaoEmAndamento) {
+        return;
+      }
+
+      try {
+        setMensagem('Preparando divisão do pedido...');
+        await carregarCarradasDisponiveis();
+
+        particaoIdentificacao.innerHTML = `<strong>Pedido ${escapeHtml(pedidoCarregado.numero || '-')}</strong> · ${escapeHtml(pedidoCarregado?.cliente?.nome || '-')}`;
+        selectCarradaParticao.innerHTML = montarOpcoesCarradaParticao();
+        tbodyParticaoItens.innerHTML = (pedidoCarregado.itens || []).map((item) => `
+          <tr>
+            <td>${escapeHtml(item?.descricao || '-')}</td>
+            <td class="right">${numero(item?.quantidade || 0)}</td>
+            <td class="right">${moeda(item?.preco || 0)}</td>
+            <td class="right">
+              <input
+                class="input-particao"
+                type="number"
+                min="0"
+                max="${Number(item?.quantidade || 0)}"
+                step="0.001"
+                value="0"
+                data-saida-item="${Number(item?.saidaItem || 0)}"
+                data-quantidade-disponivel="${Number(item?.quantidade || 0)}"
+                data-preco="${Number(item?.preco || 0)}"
+              />
+            </td>
+          </tr>
+        `).join('');
+
+        tbodyParticaoItens.querySelectorAll('.input-particao').forEach((input) => {
+          input.addEventListener('input', atualizarResumoParticao);
+        });
+
+        atualizarResumoParticao();
+        modalParticao.classList.remove('oculto');
+        document.body.style.overflow = 'hidden';
+        setMensagem('Escolha os itens e a carrada do novo pedido.');
+      } catch (error) {
+        setMensagem(error.message || 'Erro ao preparar divisão do pedido.', true);
+      }
+    }
+
+    function fecharModalParticao(forcar = false) {
+      if (particaoEmAndamento && !forcar) return;
+      modalParticao.classList.add('oculto');
+      document.body.style.overflow = '';
+      tbodyParticaoItens.innerHTML = '';
+      selectCarradaParticao.innerHTML = '';
+    }
+
+    async function confirmarParticaoPedido() {
+      if (!pedidoCarregado?.idMestre || particaoEmAndamento) return;
+
+      const codigoCarrada = Number(selectCarradaParticao.value || 0);
+      if (!Number.isInteger(codigoCarrada) || codigoCarrada <= 0) {
+        setMensagem('Selecione a carrada do novo pedido.', true);
+        return;
+      }
+
+      const linhas = obterLinhasParticao();
+      const invalidas = linhas.filter((linha) => (
+        linha.quantidade < 0 || linha.quantidade > linha.quantidadeDisponivel + 0.000001
+      ));
+      if (invalidas.length) {
+        setMensagem('Existe uma quantidade inválida na divisão.', true);
+        return;
+      }
+
+      const itens = linhas
+        .filter((linha) => linha.quantidade > 0)
+        .map((linha) => ({
+          saidaItem: linha.saidaItem,
+          quantidade: linha.quantidade
+        }));
+
+      if (!itens.length) {
+        setMensagem('Informe ao menos uma quantidade para o novo pedido.', true);
+        return;
+      }
+
+      const quantidadeTotalAtual = linhas.reduce((acc, linha) => acc + linha.quantidadeDisponivel, 0);
+      const quantidadeTotalMovida = linhas.reduce((acc, linha) => acc + Math.max(linha.quantidade, 0), 0);
+      if (quantidadeTotalMovida >= quantidadeTotalAtual - 0.000001) {
+        setMensagem('O pedido original precisa permanecer com ao menos um item.', true);
+        return;
+      }
+
+      const textoOriginal = btnConfirmarParticao.textContent;
+      try {
+        particaoEmAndamento = true;
+        btnConfirmarParticao.disabled = true;
+        btnCancelarParticao.disabled = true;
+        btnFecharParticao.disabled = true;
+        btnConfirmarParticao.textContent = 'Criando...';
+
+        const json = await fetchJson(`/api/legado/pedidos/${pedidoCarregado.idMestre}/particionar`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ codigoCarrada, itens })
+        });
+
+        const original = json?.data?.pedidoOriginal;
+        const novo = json?.data?.pedidoNovo;
+        if (!original || !novo) {
+          throw new Error('A API não retornou os dois pedidos após a divisão.');
+        }
+
+        pedidoCarregado = original;
+        pedidosEncontrados = [original, novo];
+        modoEdicao = false;
+        fecharModalParticao(true);
+        renderizarResultados(pedidosEncontrados);
+        renderizarPedidoCompleto();
+
+        const pagamentos = json?.data?.pagamentos || {};
+        const avisos = [
+          json?.data?.avisoSincronizacaoPrestacoes,
+          json?.data?.avisoSincronizacaoBaixaCredito
+        ].filter(Boolean);
+        const textoResultado = `Pedido dividido. Original ${original.numero}: ${moeda(original.total)}. Novo ${novo.numero}: ${moeda(novo.total)}. Total pago no novo pedido: ${moeda(novo.totalPago || pagamentos.totalNovo || 0)}.`;
+        setMensagem(
+          avisos.length ? `${textoResultado} ${avisos.join(' ')}` : textoResultado,
+          avisos.length > 0
+        );
+      } catch (error) {
+        setMensagem(error.message || 'Erro ao dividir o pedido.', true);
+      } finally {
+        particaoEmAndamento = false;
+        btnConfirmarParticao.disabled = false;
+        btnCancelarParticao.disabled = false;
+        btnFecharParticao.disabled = false;
+        btnConfirmarParticao.textContent = textoOriginal;
+        if (!modalParticao.classList.contains('oculto') && pedidoCarregado) {
+          atualizarResumoParticao();
+        }
+      }
+    }
+
     function renderizarResultados(pedidos) {
       if (!Array.isArray(pedidos) || !pedidos.length) {
         limparResultados();
@@ -1825,6 +2172,13 @@
 
     btnPesquisar.addEventListener('click', () => pesquisarPedidos());
     btnEditarPedido.addEventListener('click', entrarModoEdicao);
+    btnParticionarPedido.addEventListener('click', abrirModalParticao);
+    btnFecharParticao.addEventListener('click', fecharModalParticao);
+    btnCancelarParticao.addEventListener('click', fecharModalParticao);
+    btnConfirmarParticao.addEventListener('click', confirmarParticaoPedido);
+    modalParticao.addEventListener('click', (event) => {
+      if (event.target === modalParticao) fecharModalParticao();
+    });
     btnCancelarEdicao.addEventListener('click', sairModoEdicao);
     btnSalvarAlteracoes.addEventListener('click', salvarAlteracoesPedido);
 
@@ -1914,6 +2268,12 @@
       } finally {
         btnEnviarPdfWhatsapp.disabled = !normalizarTelefone(pedidoCarregado?.cliente?.telefonePrincipal || pedidoCarregado?.cliente?.telefone1 || '');
         btnEnviarPdfWhatsapp.textContent = textoOriginal;
+      }
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !modalParticao.classList.contains('oculto')) {
+        fecharModalParticao();
       }
     });
 

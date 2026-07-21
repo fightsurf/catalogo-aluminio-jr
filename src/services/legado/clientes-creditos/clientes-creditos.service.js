@@ -431,6 +431,151 @@ class ClientesCreditosService {
     throw this._erro('Não foi possível registrar a baixa para crédito.');
   }
 
+
+  async sincronizarParticaoBaixaCredito({ pedidoOriginal = {}, pedidoNovo = {}, pagamentos = {} } = {}) {
+    await this._ensureSchema();
+
+    const empresaOriginal = Number(pedidoOriginal?.empresa ?? -1);
+    const saidaOriginal = Number(pedidoOriginal?.saida ?? pedidoOriginal?.idMestre ?? 0);
+    const pdvOriginal = Number(pedidoOriginal?.pdv ?? 0);
+
+    if (!Number.isInteger(saidaOriginal) || saidaOriginal <= 0) {
+      return { encontrada: false };
+    }
+
+    const baixa = await this.buscarBaixaPedido({
+      empresa: empresaOriginal,
+      saida: saidaOriginal,
+      pdv: pdvOriginal
+    });
+
+    if (!baixa) {
+      return { encontrada: false };
+    }
+
+    const valorBaixa = Number(baixa.valor_debito || 0);
+    const totalOriginal = Number(pedidoOriginal?.total || 0);
+    const pagoOriginal = Number(pagamentos?.totalOriginal || 0);
+    const saldoOriginal = Math.max(Number((totalOriginal - pagoOriginal).toFixed(2)), 0);
+    const valorOriginal = Math.min(valorBaixa, saldoOriginal);
+    const valorNovo = Math.max(Number((valorBaixa - valorOriginal).toFixed(2)), 0);
+    const empresaNovo = Number(pedidoNovo?.empresa ?? empresaOriginal);
+    const saidaNovo = Number(pedidoNovo?.saida ?? pedidoNovo?.idMestre ?? 0);
+    const pdvNovo = Number(pedidoNovo?.pdv ?? pdvOriginal);
+    const numeroOriginal = this._texto(pedidoOriginal?.numero).slice(0, 50) || null;
+    const numeroNovo = this._texto(pedidoNovo?.numero).slice(0, 50) || null;
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      if (valorOriginal > 0.004 && valorNovo > 0.004) {
+        await client.query(
+          `
+            UPDATE cliente_credito_lancamentos
+               SET numero_pedido = $1,
+                   descricao = $2,
+                   valor_debito = $3,
+                   updated_at = NOW()
+             WHERE id = $4
+          `,
+          [
+            numeroOriginal,
+            `Baixa para crédito do pedido ${numeroOriginal || saidaOriginal}`,
+            valorOriginal,
+            baixa.id
+          ]
+        );
+
+        await client.query(
+          `
+            INSERT INTO cliente_credito_lancamentos (
+              favorecido,
+              cliente_nome_snapshot,
+              data_lancamento,
+              tipo,
+              descricao,
+              numero_pedido,
+              origem_tipo,
+              origem_empresa,
+              origem_saida,
+              origem_pdv,
+              origem_id,
+              valor_debito,
+              valor_credito,
+              observacao
+            ) VALUES ($1, $2, $3, 'BAIXA_PARA_CREDITO', $4, $5, 'PEDIDO', $6, $7, $8, $9, $10, 0, $11)
+          `,
+          [
+            baixa.favorecido,
+            baixa.cliente_nome_snapshot,
+            baixa.data_lancamento,
+            `Baixa para crédito do pedido ${numeroNovo || saidaNovo}`,
+            numeroNovo,
+            empresaNovo,
+            saidaNovo,
+            pdvNovo,
+            baixa.origem_id,
+            valorNovo,
+            baixa.observacao
+          ]
+        );
+      } else if (valorNovo > 0.004) {
+        await client.query(
+          `
+            UPDATE cliente_credito_lancamentos
+               SET numero_pedido = $1,
+                   descricao = $2,
+                   origem_empresa = $3,
+                   origem_saida = $4,
+                   origem_pdv = $5,
+                   valor_debito = $6,
+                   updated_at = NOW()
+             WHERE id = $7
+          `,
+          [
+            numeroNovo,
+            `Baixa para crédito do pedido ${numeroNovo || saidaNovo}`,
+            empresaNovo,
+            saidaNovo,
+            pdvNovo,
+            valorNovo,
+            baixa.id
+          ]
+        );
+      } else {
+        await client.query(
+          `
+            UPDATE cliente_credito_lancamentos
+               SET numero_pedido = $1,
+                   descricao = $2,
+                   valor_debito = $3,
+                   updated_at = NOW()
+             WHERE id = $4
+          `,
+          [
+            numeroOriginal,
+            `Baixa para crédito do pedido ${numeroOriginal || saidaOriginal}`,
+            valorOriginal,
+            baixa.id
+          ]
+        );
+      }
+
+      await client.query('COMMIT');
+      return {
+        encontrada: true,
+        valorOriginal: Number(valorOriginal.toFixed(2)),
+        valorNovo: Number(valorNovo.toFixed(2))
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async listarClientes() {
     await this._ensureSchema();
     const result = await pool.query(`

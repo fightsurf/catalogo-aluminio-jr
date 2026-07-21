@@ -719,6 +719,157 @@ class PrestacaoContasService {
     return result.rows[0] || null;
   }
 
+
+  async sincronizarParticaoPagamentosPedido({ pagamentos = {}, pedidoOriginal = {}, pedidoNovo = {} } = {}) {
+    await this._ensureSchema();
+
+    const movidos = Array.isArray(pagamentos?.movidos) ? pagamentos.movidos : [];
+    const divididos = Array.isArray(pagamentos?.divididos) ? pagamentos.divididos : [];
+
+    if (!movidos.length && !divididos.length) {
+      return { atualizados: 0, divididos: 0, prestacoesRecalculadas: 0 };
+    }
+
+    const client = await pool.connect();
+    const prestacoesAfetadas = new Set();
+    let atualizados = 0;
+    let quantidadeDivididos = 0;
+
+    try {
+      await client.query('BEGIN');
+
+      for (const movimento of movidos) {
+        const codigo = Number(movimento?.codigo);
+        if (!Number.isInteger(codigo) || codigo <= 0) continue;
+
+        const result = await client.query(
+          `
+            UPDATE prestacao_pagamentos
+               SET origem_empresa = $1,
+                   origem_saida = $2,
+                   origem_pdv = $3,
+                   origem_atualizado_em = NOW()
+             WHERE origem_sistema = 'PEDIDO_LEGADO'
+               AND origem_pagamento_codigo = $4
+            RETURNING prestacao_id
+          `,
+          [
+            pedidoNovo?.empresa ?? null,
+            pedidoNovo?.saida ?? pedidoNovo?.idMestre ?? null,
+            pedidoNovo?.pdv ?? null,
+            codigo
+          ]
+        );
+
+        result.rows.forEach((row) => prestacoesAfetadas.add(Number(row.prestacao_id)));
+        atualizados += result.rowCount || 0;
+      }
+
+      for (const divisao of divididos) {
+        const codigoOriginal = Number(divisao?.codigoOriginal);
+        const codigoNovo = Number(divisao?.codigoNovo);
+        const valorOriginal = Number(divisao?.valorOriginal);
+        const valorNovo = Number(divisao?.valorNovo);
+        const observacaoOriginal = String(divisao?.observacaoOriginal || '').trim();
+        const observacaoNovo = String(divisao?.observacaoNovo || '').trim();
+
+        if (
+          !Number.isInteger(codigoOriginal) || codigoOriginal <= 0
+          || !Number.isInteger(codigoNovo) || codigoNovo <= 0
+          || !Number.isFinite(valorOriginal) || valorOriginal <= 0
+          || !Number.isFinite(valorNovo) || valorNovo <= 0
+        ) {
+          continue;
+        }
+
+        const atualResult = await client.query(
+          `
+            SELECT *
+            FROM prestacao_pagamentos
+            WHERE origem_sistema = 'PEDIDO_LEGADO'
+              AND origem_pagamento_codigo = $1
+            FOR UPDATE
+          `,
+          [codigoOriginal]
+        );
+
+        const atual = atualResult.rows[0];
+        if (!atual) continue;
+
+        await client.query(
+          `
+            UPDATE prestacao_pagamentos
+               SET valor = $1,
+                   observacao = $2,
+                   origem_empresa = $3,
+                   origem_saida = $4,
+                   origem_pdv = $5,
+                   origem_atualizado_em = NOW()
+             WHERE id = $6
+          `,
+          [
+            valorOriginal,
+            observacaoOriginal || atual.observacao,
+            pedidoOriginal?.empresa ?? atual.origem_empresa,
+            pedidoOriginal?.saida ?? pedidoOriginal?.idMestre ?? atual.origem_saida,
+            pedidoOriginal?.pdv ?? atual.origem_pdv,
+            atual.id
+          ]
+        );
+
+        await client.query(
+          `
+            INSERT INTO prestacao_pagamentos (
+              prestacao_id,
+              data_pagamento,
+              valor,
+              observacao,
+              credito_origem_id,
+              origem_sistema,
+              origem_pagamento_codigo,
+              origem_empresa,
+              origem_saida,
+              origem_pdv,
+              origem_atualizado_em
+            ) VALUES ($1, $2, $3, $4, $5, 'PEDIDO_LEGADO', $6, $7, $8, $9, NOW())
+          `,
+          [
+            atual.prestacao_id,
+            atual.data_pagamento,
+            valorNovo,
+            observacaoNovo || atual.observacao,
+            atual.credito_origem_id,
+            codigoNovo,
+            pedidoNovo?.empresa ?? null,
+            pedidoNovo?.saida ?? pedidoNovo?.idMestre ?? null,
+            pedidoNovo?.pdv ?? null
+          ]
+        );
+
+        prestacoesAfetadas.add(Number(atual.prestacao_id));
+        quantidadeDivididos += 1;
+      }
+
+      for (const prestacaoId of prestacoesAfetadas) {
+        if (Number.isInteger(prestacaoId) && prestacaoId > 0) {
+          await this._recalcular(prestacaoId, client);
+        }
+      }
+
+      await client.query('COMMIT');
+      return {
+        atualizados,
+        divididos: quantidadeDivididos,
+        prestacoesRecalculadas: prestacoesAfetadas.size
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   // ─── WHATSAPP ─────────────────────────────────────────────────
 
   async enviarResumoWhatsapp(prestacao_id) {

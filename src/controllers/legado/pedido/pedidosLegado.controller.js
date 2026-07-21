@@ -179,11 +179,40 @@ async function enviarPdfWhatsappPedido(req, res) {
   }
 }
 
+
+async function particionarPedido(req, res) {
+  try {
+    const { idMestre } = req.params;
+
+    if (!idMestre) {
+      return res.status(400).json({
+        success: false,
+        message: 'Informe o id do pedido.'
+      });
+    }
+
+    const data = await pedidosLegadoService.particionarPedido(idMestre, req.body || {});
+
+    return res.json({
+      success: true,
+      message: 'Pedido particionado com sucesso.',
+      data
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message || 'Erro ao particionar pedido.',
+      error: error.message
+    });
+  }
+}
+
 module.exports = {
   pesquisarPedidos,
   buscarItensPedido,
   listarCarradasDisponiveis,
   alterarCarradaPedido,
   atualizarPedido,
+  particionarPedido,
   enviarPdfWhatsappPedido
 };
