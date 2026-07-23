@@ -531,6 +531,7 @@ async function listarCarradasDisponiveis(codigo, dias = 120) {
 }
 
 async function moverPedidoEntreCarradas(codigo, payload = {}) {
+  const enviarWhatsapp = payload?.enviarWhatsapp !== false;
   const carradaOrigemAntes = await buscarCarrada(codigo);
 
   const response = await request(`/api/carradas/${codigo}/pedidos/mover`, {
@@ -547,11 +548,11 @@ async function moverPedidoEntreCarradas(codigo, payload = {}) {
     ? carradaOrigemAntes.pedidos.find((item) => limparTexto(item?.numero) === limparTexto(payload?.numero))
     : null;
 
-  if (pedidoAntes && carradaOrigemAntes) {
+  if (enviarWhatsapp && pedidoAntes && carradaOrigemAntes) {
     await enviarNotificacaoCarrada({ tipo: 'saida', pedido: pedidoAntes, carrada: carradaOrigemAntes });
   }
 
-  if (pedidoMovido && carradaDestino) {
+  if (enviarWhatsapp && pedidoMovido && carradaDestino) {
     await enviarNotificacaoCarrada({ tipo: 'entrada', pedido: pedidoMovido, carrada: carradaDestino });
   }
 

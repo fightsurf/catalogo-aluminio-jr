@@ -144,6 +144,21 @@
       background: #fff;
       margin-bottom: 8px;
     }
+    .mover-carrada-box .opcao-sem-whatsapp {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text);
+      font-size: 13px;
+      margin: 0 0 10px;
+      cursor: pointer;
+    }
+    .mover-carrada-box .opcao-sem-whatsapp input {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      flex: 0 0 auto;
+    }
     .mover-carrada-acoes {
       display: flex;
       justify-content: flex-end;
@@ -224,11 +239,11 @@
       return request(`/api/legado/carradas/${codigo}/carradas-disponiveis?dias=120`);
     }
 
-    async function moverPedido(numero, codigoDestino) {
+    async function moverPedido(numero, codigoDestino, enviarWhatsapp = true) {
       return request(`/api/legado/carradas/${codigo}/pedidos/mover`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ numero, codigoDestino })
+        body: JSON.stringify({ numero, codigoDestino, enviarWhatsapp })
       });
     }
 
@@ -322,6 +337,10 @@
                     <select id="select-${escapeHtml(pedido.numero)}" data-numero="${escapeHtml(pedido.numero)}">
                       <option value="">Carregando...</option>
                     </select>
+                    <label class="opcao-sem-whatsapp" for="sem-whatsapp-${escapeHtml(pedido.numero)}">
+                      <input type="checkbox" id="sem-whatsapp-${escapeHtml(pedido.numero)}" data-numero="${escapeHtml(pedido.numero)}" />
+                      <span>Não enviar mensagem no WhatsApp ao cliente</span>
+                    </label>
                     <div class="mover-carrada-acoes">
                       <button class="btn-secondary btn-cancelar-mover" data-numero="${escapeHtml(pedido.numero)}">Cancelar</button>
                       <button class="btn-primary btn-salvar-mover" data-numero="${escapeHtml(pedido.numero)}">Salvar</button>
@@ -415,12 +434,14 @@
           const numero = botao.dataset.numero;
           const box = document.getElementById(`mover-${numero}`);
           const select = document.getElementById(`select-${numero}`);
+          const checkboxSemWhatsapp = document.getElementById(`sem-whatsapp-${numero}`);
           if (!box || !select) return;
 
           select.innerHTML = `<option value="">Selecione uma carrada</option>` + opcoes.map((carrada) => (`
             <option value="${String(carrada.codigo)}">${escapeHtml(montarLabelCarrada(carrada))}</option>
           `)).join('');
 
+          if (checkboxSemWhatsapp) checkboxSemWhatsapp.checked = false;
           box.classList.add('ativo');
         });
       });
@@ -429,6 +450,8 @@
         botao.addEventListener('click', () => {
           const numero = botao.dataset.numero;
           const box = document.getElementById(`mover-${numero}`);
+          const checkboxSemWhatsapp = document.getElementById(`sem-whatsapp-${numero}`);
+          if (checkboxSemWhatsapp) checkboxSemWhatsapp.checked = false;
           if (box) box.classList.remove('ativo');
         });
       });
@@ -438,6 +461,7 @@
           const numero = botao.dataset.numero;
           const select = document.getElementById(`select-${numero}`);
           const box = document.getElementById(`mover-${numero}`);
+          const checkboxSemWhatsapp = document.getElementById(`sem-whatsapp-${numero}`);
 
           if (!select?.value) {
             alert('Selecione uma carrada de destino.');
@@ -445,10 +469,11 @@
           }
 
           const codigoDestino = Number(select.value);
+          const enviarWhatsapp = !checkboxSemWhatsapp?.checked;
           botao.disabled = true;
 
           try {
-            await moverPedido(numero, codigoDestino);
+            await moverPedido(numero, codigoDestino, enviarWhatsapp);
             if (box) box.classList.remove('ativo');
             window.location.reload();
           } catch (error) {
