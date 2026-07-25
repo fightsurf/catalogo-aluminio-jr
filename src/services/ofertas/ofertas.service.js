@@ -18,6 +18,33 @@ function inteiroPositivo(valor, nome) {
   return numero;
 }
 
+function corHex(valor, nome) {
+  const texto = String(valor || '').trim();
+  if (!/^#[0-9a-fA-F]{6}$/.test(texto)) throw new Error(`${nome} inválida.`);
+  return texto.toUpperCase();
+}
+
+function normalizarTemaArte(payload = {}) {
+  const temas = new Set([...Object.keys(arteOfertaService.TEMAS || {}), 'personalizado']);
+  const tema = String(payload.tema_arte || 'claro').trim().toLowerCase();
+  if (!temas.has(tema)) throw new Error('Tema da arte inválido.');
+
+  if (tema !== 'personalizado') {
+    return { tema_arte: tema, cores_arte: {} };
+  }
+
+  const cores = payload.cores_arte && typeof payload.cores_arte === 'object' ? payload.cores_arte : {};
+  return {
+    tema_arte: 'personalizado',
+    cores_arte: {
+      fundoInicio: corHex(cores.fundoInicio, 'Cor inicial do fundo'),
+      fundoFim: corHex(cores.fundoFim, 'Cor final do fundo'),
+      destaque: corHex(cores.destaque, 'Cor de destaque'),
+      texto: corHex(cores.texto, 'Cor do texto'),
+    },
+  };
+}
+
 function codigoOferta() {
   const data = new Date().toISOString().slice(0,10).replace(/-/g,'');
   return `OF-${data}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
@@ -32,6 +59,8 @@ function normalizarOferta(row, itens=[]) {
     total_itens: Number(row.total_itens),
     visualizacoes: Number(row.visualizacoes || 0),
     cliques_whatsapp: Number(row.cliques_whatsapp || 0),
+    tema_arte: row.tema_arte || 'claro',
+    cores_arte: row.cores_arte && typeof row.cores_arte === 'object' ? row.cores_arte : {},
     itens: itens.map(i => ({ ...i, id:Number(i.id), produto_id:i.produto_id?Number(i.produto_id):null, quantidade:Number(i.quantidade), preco_unitario:Number(i.preco_unitario), preco_medio:Number(i.preco_medio) })),
   };
 }
@@ -87,11 +116,12 @@ async function criar(payload) {
   const titulo = String(payload.titulo || 'Kit Feirinha Especial').trim().slice(0,160) || 'Kit Feirinha Especial';
   const expiraEm = payload.expira_em ? new Date(payload.expira_em) : null;
   if (expiraEm && Number.isNaN(expiraEm.getTime())) throw new Error('Data de expiração inválida.');
+  const { tema_arte, cores_arte } = normalizarTemaArte(payload);
 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const ofertaResult = await client.query(`INSERT INTO ofertas (codigo,titulo,total,preco_medio,total_itens,expira_em,prompt_cenario) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`, [codigoOferta(),titulo,total,precoMedio,totalItens,expiraEm,payload.prompt_cenario || null]);
+    const ofertaResult = await client.query(`INSERT INTO ofertas (codigo,titulo,total,preco_medio,total_itens,expira_em,prompt_cenario,tema_arte,cores_arte) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb) RETURNING *`, [codigoOferta(),titulo,total,precoMedio,totalItens,expiraEm,payload.prompt_cenario || null,tema_arte,JSON.stringify(cores_arte)]);
     const oferta = ofertaResult.rows[0];
     for (const item of itens) {
       await client.query(`INSERT INTO ofertas_itens (oferta_id,produto_id,nome,quantidade,preco_unitario,preco_medio,foto_url) VALUES ($1,$2,$3,$4,$5,$6,$7)`, [oferta.id,item.produto_id,item.nome,item.quantidade,item.preco_unitario,precoMedio,item.foto_url]);
@@ -129,7 +159,7 @@ async function publicar(id, baseUrl) {
 
 async function duplicar(id) {
   const original = await buscarPorId(id);
-  return criar({ titulo:`${original.titulo} - cópia`, itens:original.itens.map(i=>({produto_id:i.produto_id,quantidade:i.quantidade})), prompt_cenario:original.prompt_cenario, expira_em:original.expira_em });
+  return criar({ titulo:`${original.titulo} - cópia`, itens:original.itens.map(i=>({produto_id:i.produto_id,quantidade:i.quantidade})), prompt_cenario:original.prompt_cenario, expira_em:original.expira_em, tema_arte:original.tema_arte, cores_arte:original.cores_arte });
 }
 
 async function registrarClique(codigo) {

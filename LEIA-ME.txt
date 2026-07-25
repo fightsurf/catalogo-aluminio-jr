@@ -1,36 +1,29 @@
-CORRECAO REVISADA DO CLOUDFLARE R2 - PROJETO render(56)
+PATCH — TEMAS PERSONALIZÁVEIS DA CENTRAL DE OFERTAS
 
-A analise confirmou que o patch anterior nao estava aplicado no projeto atual.
+Substitua no projeto Render os arquivos mantendo as mesmas pastas:
 
-Substitua no projeto do Render:
+- src/services/ofertas/arteOferta.service.js
+- src/services/ofertas/ofertas.service.js
+- src/services/ofertas/ofertasSchema.service.js
+- views/ofertas/central-ofertas.html
 
-1. src/services/cloudflare/cloudflareR2.service.js
-2. .env.example
-3. render.yaml
+O arquivo abaixo é uma migração opcional para execução manual:
 
-O que foi corrigido:
-- remove espacos e aspas acidentais das variaveis de ambiente;
-- aceita CLOUDFLARE_R2_ENDPOINT opcional;
-- impede URL no campo CLOUDFLARE_R2_BUCKET;
-- remove o nome do produto dos metadados assinados;
-- mantem apenas metadados ASCII simples;
-- inclui ContentLength no PutObject;
-- melhora o log e a mensagem dos erros do R2;
-- recria o cliente se a chave secreta for alterada.
+- db/sql/20260725_central_ofertas_temas.sql
 
-DEPOIS DE SUBIR AO GITHUB
+A aplicação já executa automaticamente os ALTER TABLE necessários ao abrir a Central de Ofertas, portanto a migração manual normalmente não é necessária.
 
-1. Faca novo deploy no Render.
-2. Teste o upload sem alterar as variaveis atuais.
-3. Se ainda aparecer SignatureDoesNotMatch, revise no Render:
+O que foi adicionado:
 
-CLOUDFLARE_R2_ACCOUNT_ID
-CLOUDFLARE_R2_ACCESS_KEY_ID
-CLOUDFLARE_R2_SECRET_ACCESS_KEY
-CLOUDFLARE_R2_BUCKET
-CLOUDFLARE_R2_PUBLIC_URL
+- Claro premium como tema padrão;
+- Branco comercial;
+- Escuro premium;
+- Azul elegante;
+- Verde sofisticado;
+- Tema personalizado com quatro cores;
+- ajuste automático de cartões, sombras, textos e botões conforme a luminosidade do fundo;
+- persistência do tema em cada oferta;
+- duplicação preservando tema e cores;
+- compatibilidade com ofertas antigas, que passam a usar Claro premium.
 
-CLOUDFLARE_R2_ENDPOINT pode ficar vazio para bucket comum.
-
-ACCESS_KEY_ID e SECRET_ACCESS_KEY precisam pertencer ao mesmo token R2.
-Nao coloque aspas. O bucket deve conter somente o nome, nao uma URL.
+Este patch pressupõe que o patch Sharp V2 já esteja aplicado. Ele não altera /kits-feirinha.

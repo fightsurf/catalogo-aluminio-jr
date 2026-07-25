@@ -17,6 +17,8 @@ async function criarEstrutura() {
       imagem_url TEXT,
       r2_key TEXT,
       prompt_cenario TEXT,
+      tema_arte VARCHAR(24) NOT NULL DEFAULT 'claro',
+      cores_arte JSONB NOT NULL DEFAULT '{}'::jsonb,
       expira_em TIMESTAMPTZ,
       publicado_em TIMESTAMPTZ,
       visualizacoes INTEGER NOT NULL DEFAULT 0,
@@ -24,6 +26,9 @@ async function criarEstrutura() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+
+    ALTER TABLE ofertas ADD COLUMN IF NOT EXISTS tema_arte VARCHAR(24) NOT NULL DEFAULT 'claro';
+    ALTER TABLE ofertas ADD COLUMN IF NOT EXISTS cores_arte JSONB NOT NULL DEFAULT '{}'::jsonb;
 
     CREATE TABLE IF NOT EXISTS ofertas_itens (
       id BIGSERIAL PRIMARY KEY,
