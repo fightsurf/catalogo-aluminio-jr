@@ -1,13 +1,12 @@
 const fs = require('fs');
-const path = require('path');
 
 function getApiKey() {
   return String(process.env.OPENAI_API_KEY || '').trim();
 }
 
 function getModel() {
-  // A arte integral usa imagens de referência. O modelo mini não oferece
-  // a mesma fidelidade de entrada; por isso há uma variável separada.
+  // Variável separada porque a arte completa usa edição com várias imagens
+  // de entrada e exige um modelo com boa fidelidade visual.
   return String(process.env.OPENAI_IMAGE_MODEL_FULL_ART || 'gpt-image-1').trim();
 }
 
@@ -26,8 +25,12 @@ function isRetryableStatus(status) {
   return status === 408 || status === 409 || status === 429 || status >= 500;
 }
 
-function referenciaVisualPadrao() {
-  return path.resolve(__dirname, '../../../public/assets/ofertas/referencia-kit-top.jpg');
+function normalizarReferencias(referencias) {
+  return (Array.isArray(referencias) ? referencias : []).filter((referencia) => {
+    if (referencia?.buffer && Buffer.isBuffer(referencia.buffer)) return true;
+    if (referencia?.caminho && fs.existsSync(referencia.caminho)) return true;
+    return false;
+  });
 }
 
 async function executarEdicao({ prompt, referencias = [] }) {
@@ -35,6 +38,11 @@ async function executarEdicao({ prompt, referencias = [] }) {
   const timeout = setTimeout(() => controller.abort(), 180000);
 
   try {
+    const arquivos = normalizarReferencias(referencias);
+    if (!arquivos.length) {
+      throw new Error('Nenhuma foto real de produto foi preparada para a arte.');
+    }
+
     const form = new FormData();
     form.append('model', getModel());
     form.append('prompt', prompt);
@@ -44,19 +52,11 @@ async function executarEdicao({ prompt, referencias = [] }) {
     form.append('output_format', 'jpeg');
     form.append('input_fidelity', 'high');
 
-    const arquivos = [];
-    const visual = referenciaVisualPadrao();
-    if (fs.existsSync(visual)) {
-      arquivos.push({ buffer: fs.readFileSync(visual), nome: 'referencia-visual.jpg', tipo: 'image/jpeg' });
-    }
-    for (const referencia of referencias) {
-      if (referencia?.buffer) arquivos.push(referencia);
-    }
-
-    if (!arquivos.length) throw new Error('Nenhuma imagem de referência foi preparada para a arte.');
-
-    arquivos.forEach((arquivo) => {
-      form.append('image[]', new Blob([arquivo.buffer], { type: arquivo.tipo || 'image/png' }), arquivo.nome || 'referencia.png');
+    arquivos.forEach((arquivo, indice) => {
+      const buffer = arquivo.buffer || fs.readFileSync(arquivo.caminho);
+      const tipo = arquivo.tipo || 'image/jpeg';
+      const nome = arquivo.nome || `produto-${String(indice + 1).padStart(2, '0')}.jpg`;
+      form.append('image[]', new Blob([buffer], { type: tipo }), nome);
     });
 
     const response = await fetch('https://api.openai.com/v1/images/edits', {
