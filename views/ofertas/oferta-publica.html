@@ -1,16 +1,135 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Oferta Alumínio JR</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Oferta Alumínio JR</title>
 <style>
-*{box-sizing:border-box}body{margin:0;background:#f3f4f6;font-family:Arial,sans-serif;color:#111827}.box{max-width:650px;margin:auto;background:#fff;min-height:100vh}.conteudo{padding:22px}.codigo{color:#6b7280;font-size:13px}.cabecalho{text-align:center;padding-bottom:12px;border-bottom:1px solid #eee}.cabecalho h1{margin:7px 0 3px}.cabecalho p{margin:0;color:#6b7280}.medio{margin:20px 0;padding:20px;background:#111827;border:3px solid #d4a017;border-radius:17px;text-align:center;color:#fff}.medio span{display:block;font-size:14px;font-weight:800;letter-spacing:.04em}.medio strong{display:block;margin-top:6px;font-size:42px;color:#fbbf24}.relatorio{margin-top:18px}.item{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:13px 0;border-bottom:1px solid #e5e7eb}.item b{display:block}.item small{color:#6b7280}.qtd-item{font-weight:900;font-size:18px;color:#9a3412}.total-kit{display:flex;justify-content:space-between;gap:12px;margin:15px 0;padding:12px 0;border-top:1px solid #ddd;color:#6b7280;font-size:14px}.total-kit strong{color:#374151}.quantidade-label{display:block;text-align:center;font-weight:800;margin-top:18px}.quantidade{display:flex;justify-content:center;align-items:center;gap:18px;margin:14px}.quantidade button{width:46px;height:46px;border:0;border-radius:50%;font-size:24px;background:#e5e7eb}.quantidade input{width:90px;text-align:center;font-size:22px;padding:9px;border:1px solid #ccc;border-radius:10px}.pedido-total{text-align:center;color:#6b7280;font-size:14px;margin:8px 0 15px}.whats{display:block;width:100%;border:0;border-radius:14px;background:#16a34a;color:#fff;font-size:19px;font-weight:900;padding:17px}.expirada{padding:30px;text-align:center;color:#b91c1c}@media(max-width:420px){.medio strong{font-size:36px}.conteudo{padding:17px}}
+*{box-sizing:border-box}
+:root{--verde:#16a34a;--verde-escuro:#15803d;--texto:#111827;--muted:#6b7280;--borda:#e5e7eb;--fundo:#f3f4f6;--dourado:#d4a017}
+html,body{height:100%}
+body{margin:0;background:var(--fundo);font-family:Arial,sans-serif;color:var(--texto);overflow:hidden}
+button,input{font:inherit}
+.box{width:100%;max-width:650px;height:100dvh;margin:auto;background:#fff;overflow:hidden}
+.conteudo{height:100%;display:flex;flex-direction:column;gap:10px;padding:12px 14px max(12px,env(safe-area-inset-bottom))}
+.medio{flex:0 0 auto;padding:12px 14px;background:linear-gradient(135deg,#fffaf0,#f4e4bd);border:2px solid var(--dourado);border-radius:15px;text-align:center;color:#4b3310;box-shadow:0 3px 12px rgba(148,103,25,.12)}
+.medio span{display:block;font-size:12px;font-weight:900;letter-spacing:.05em}
+.medio strong{display:block;margin-top:3px;font-size:34px;line-height:1;color:#8a5a10}
+.relatorio{min-height:0;flex:1;display:flex;flex-direction:column;border:1px solid var(--borda);border-radius:14px;background:#fff;overflow:hidden}
+.relatorio h2{flex:0 0 auto;margin:0;padding:10px 12px 8px;font-size:15px;border-bottom:1px solid var(--borda)}
+.lista-itens{min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 12px;scrollbar-width:thin}
+.item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:start;padding:9px 0;border-bottom:1px solid var(--borda)}
+.item:last-child{border-bottom:0}
+.item b{display:block;font-size:13px;line-height:1.2;text-transform:uppercase}
+.item small{display:block;margin-top:3px;color:var(--muted);font-size:11px;line-height:1.25}
+.qtd-item{white-space:nowrap;font-weight:900;font-size:13px;color:#9a3412}
+.total-kit{flex:0 0 auto;display:flex;justify-content:space-between;gap:10px;padding:9px 12px;border-top:1px solid var(--borda);background:#fafafa;font-size:13px}
+.total-kit strong{font-size:15px}
+.acoes{flex:0 0 auto;display:grid;grid-template-columns:auto 138px;gap:8px 10px;align-items:center}
+.quantidade-label{font-size:13px;font-weight:900}
+.quantidade{display:grid;grid-template-columns:38px 1fr 38px;align-items:center;border:1px solid #d1d5db;border-radius:11px;overflow:hidden;height:42px}
+.quantidade button{height:100%;border:0;background:#f3f4f6;font-size:21px;font-weight:800;color:#374151}
+.quantidade button:active{background:#e5e7eb}
+.quantidade input{min-width:0;width:100%;height:100%;border:0;border-left:1px solid #e5e7eb;border-right:1px solid #e5e7eb;text-align:center;font-size:18px;font-weight:900;outline:none;-moz-appearance:textfield}
+.quantidade input::-webkit-outer-spin-button,.quantidade input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.pedido-total{grid-column:1/-1;text-align:center;color:#374151;font-size:13px;font-weight:800;min-height:16px}
+.whats{grid-column:1/-1;width:100%;border:0;border-radius:12px;background:var(--verde);color:#fff;font-size:16px;font-weight:900;padding:14px 12px;box-shadow:0 4px 10px rgba(22,163,74,.22)}
+.whats:active{background:var(--verde-escuro)}
+.expirada{height:100%;display:flex;flex-direction:column;justify-content:center;padding:30px;text-align:center;color:#b91c1c}
+.expirada h1{font-size:24px;margin:0 0 8px}
+.expirada p{margin:0}
+@media(min-width:500px){.conteudo{padding:18px;gap:12px}.medio{padding:15px}.medio strong{font-size:40px}.item{padding:11px 0}.item b{font-size:14px}.item small{font-size:12px}}
+@media(max-height:650px){.conteudo{gap:7px;padding-top:8px}.medio{padding:9px 12px}.medio strong{font-size:29px}.relatorio h2{padding:7px 10px}.item{padding:6px 0}.acoes{gap:5px 8px}.quantidade{height:38px}.whats{padding:11px}}
 </style>
 </head>
 <body><main class="box" id="app">Carregando...</main>
 <script>
-const app=document.querySelector('#app');const codigo=decodeURIComponent(location.pathname.split('/').pop());let oferta;const brl=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});const escapeHtml=v=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-async function carregar(){const r=await fetch('/api/ofertas/publica/'+encodeURIComponent(codigo));const d=await r.json();if(!r.ok)throw new Error(d.message);oferta=d.data;const expirada=oferta.expira_em&&new Date(oferta.expira_em)<new Date();if(expirada){app.innerHTML='<div class="expirada"><h1>Oferta encerrada</h1><p>Esta oferta não está mais disponível.</p></div>';return}app.innerHTML=`<div class="conteudo"><header class="cabecalho"><div class="codigo">${escapeHtml(oferta.codigo)}</div><h1>${escapeHtml(oferta.titulo)}</h1><p>Relatório de 1 kit</p></header><section class="medio"><span>PREÇO MÉDIO DO KIT</span><strong>${brl(oferta.preco_medio)}</strong><small>média por peça considerando todos os itens do kit</small></section><section class="relatorio"><h3>Itens e quantidades</h3>${oferta.itens.map(i=>`<div class="item"><div><b>${escapeHtml(i.nome)}</b><small>Preço unitário de referência: ${brl(i.preco_unitario)}</small></div><span class="qtd-item">${i.quantidade} un.</span></div>`).join('')}</section><div class="total-kit"><span>Valor total de 1 kit</span><strong>${brl(oferta.total)}</strong></div><label class="quantidade-label">Quantidade de kits</label><div class="quantidade"><button type="button" onclick="mudar(-1)">−</button><input id="q" type="number" min="1" value="1" inputmode="numeric" onchange="recalcular()" oninput="recalcular()"><button type="button" onclick="mudar(1)">+</button></div><div id="totalPedido" class="pedido-total"></div><button class="whats" type="button" onclick="enviar()">ENVIAR PARA WHATSAPP</button></div>`;recalcular()}
-function mudar(n){const q=document.querySelector('#q');q.value=Math.max(1,Number(q.value||1)+n);recalcular()}function recalcular(){const q=document.querySelector('#q');const totalPedido=document.querySelector('#totalPedido');const n=Math.max(1,Number(q.value||1));q.value=n;totalPedido.textContent='Total do pedido: '+brl(oferta.total*n)}
-async function enviar(){const q=document.querySelector('#q');const n=Math.max(1,Number(q.value||1));await fetch(`/api/ofertas/publica/${encodeURIComponent(codigo)}/clique`,{method:'POST'}).catch(()=>{});const itens=oferta.itens.map(i=>`- ${i.nome} | Quantidade por kit: ${i.quantidade}`).join('\n');const texto=`Olá, George.\n\nQuero fazer um pedido desta oferta.\n\nOferta: ${oferta.codigo}\nKit: ${oferta.titulo}\n\nItens de cada kit:\n${itens}\n\nPreço médio do kit: ${brl(oferta.preco_medio)}\nValor de 1 kit: ${brl(oferta.total)}\nQuantidade de kits: ${n}\nTotal do pedido: ${brl(oferta.total*n)}`;location.href='https://wa.me/558399792085?text='+encodeURIComponent(texto)}
+const app=document.querySelector('#app');
+const codigo=decodeURIComponent(location.pathname.split('/').pop());
+let oferta;
+const brl=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const escapeHtml=v=>String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+const inteiroPositivo=v=>Math.max(1,Math.floor(Number(v)||1));
+
+async function carregar(){
+  const r=await fetch('/api/ofertas/publica/'+encodeURIComponent(codigo));
+  const d=await r.json();
+  if(!r.ok)throw new Error(d.message);
+  oferta=d.data;
+  const expirada=oferta.expira_em&&new Date(oferta.expira_em)<new Date();
+  if(expirada){
+    app.innerHTML='<div class="expirada"><h1>Oferta encerrada</h1><p>Esta oferta não está mais disponível.</p></div>';
+    return;
+  }
+
+  app.innerHTML=`<div class="conteudo">
+    <section class="medio">
+      <span>PREÇO MÉDIO DO KIT</span>
+      <strong>${brl(oferta.preco_medio)}</strong>
+    </section>
+
+    <section class="relatorio">
+      <h2>Itens do kit</h2>
+      <div class="lista-itens">
+        ${oferta.itens.map(i=>`<div class="item">
+          <div>
+            <b>${escapeHtml(i.nome)}</b>
+            <small>UNIT: ${brl(i.preco_unitario)} · SUBTOTAL: ${brl(Number(i.preco_unitario)*Number(i.quantidade))}</small>
+          </div>
+          <span class="qtd-item">QTD: ${i.quantidade}</span>
+        </div>`).join('')}
+      </div>
+      <div class="total-kit"><span>Valor total</span><strong>${brl(oferta.total)}</strong></div>
+    </section>
+
+    <section class="acoes">
+      <label class="quantidade-label" for="q">Quantidade de kits</label>
+      <div class="quantidade">
+        <button type="button" onclick="mudar(-1)" aria-label="Diminuir quantidade">−</button>
+        <input id="q" type="number" min="1" value="1" inputmode="numeric" onchange="recalcular()" oninput="recalcular()">
+        <button type="button" onclick="mudar(1)" aria-label="Aumentar quantidade">+</button>
+      </div>
+      <div id="totalPedido" class="pedido-total"></div>
+      <button class="whats" type="button" onclick="enviar()">ENVIAR PRA WHATSAPP</button>
+    </section>
+  </div>`;
+  recalcular();
+}
+
+function mudar(delta){
+  const q=document.querySelector('#q');
+  q.value=inteiroPositivo(q.value)+delta;
+  if(Number(q.value)<1)q.value=1;
+  recalcular();
+}
+
+function recalcular(){
+  const q=document.querySelector('#q');
+  const totalPedido=document.querySelector('#totalPedido');
+  const quantidadeKits=inteiroPositivo(q.value);
+  q.value=quantidadeKits;
+  totalPedido.textContent='Total do pedido: '+brl(Number(oferta.total)*quantidadeKits);
+}
+
+function montarRelatorioWhatsApp(quantidadeKits){
+  const itens=oferta.itens.map(item=>{
+    const quantidade=Number(item.quantidade)*quantidadeKits;
+    const unitario=Number(item.preco_unitario);
+    const subtotal=unitario*quantidade;
+    return `• ${String(item.nome||'').toUpperCase()} | QTD: ${quantidade}\n  UNIT: ${brl(unitario)}\n  SUBTOTAL: ${brl(subtotal)}`;
+  });
+  const totalItens=oferta.itens.reduce((soma,item)=>soma+(Number(item.quantidade)*quantidadeKits),0);
+  const total=Number(oferta.total)*quantidadeKits;
+  return `📦 RELATÓRIO ALUMÍNIO JR - ${totalItens} ITENS ESCOLHIDOS\n\n${itens.join('\n\n')}\n\nValor total: ${brl(total)}`;
+}
+
+async function enviar(){
+  const q=document.querySelector('#q');
+  const quantidadeKits=inteiroPositivo(q.value);
+  await fetch(`/api/ofertas/publica/${encodeURIComponent(codigo)}/clique`,{method:'POST'}).catch(()=>{});
+  const texto=montarRelatorioWhatsApp(quantidadeKits);
+  location.href='https://wa.me/558399792085?text='+encodeURIComponent(texto);
+}
+
 carregar().catch(e=>app.innerHTML='<div class="expirada"><h1>Oferta indisponível</h1><p>'+escapeHtml(e.message)+'</p></div>');
 </script></body></html>
