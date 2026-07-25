@@ -1,0 +1,21 @@
+ARQUIVOS DO PATCH - CENTRAL DE OFERTAS
+
+.env.example
+CENTRAL_OFERTAS_LEIA-ME.md
+MANIFESTO.txt
+db/sql/20260725_central_ofertas.sql
+package.json
+render.yaml
+server.js
+src/controllers/ofertas/ofertas.controller.js
+src/routes/ofertas/ofertas.routes.js
+src/routes/ofertas/ofertas.view.routes.js
+src/services/cloudflare/cloudflareR2.service.js
+src/services/ofertas/arteOferta.service.js
+src/services/ofertas/ofertas.service.js
+src/services/ofertas/ofertasSchema.service.js
+src/services/ofertas/openaiImagem.service.js
+views/ofertas/central-ofertas.html
+views/ofertas/oferta-publica.html
+
+A página views/kits-feirinha.html não faz parte deste patch e não foi modificada.

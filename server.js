@@ -79,6 +79,8 @@ const envioWhatsappViewRoutes = require('./src/routes/whatsapp/envio-whatsapp.vi
 const statusWhatsappRoutes = require('./src/routes/whatsapp/status-whatsapp.routes');
 const statusWhatsappViewRoutes = require('./src/routes/whatsapp/status-whatsapp.view.routes');
 const hubRoutes = require('./src/routes/hub/hub.routes');
+const ofertasRoutes = require('./src/routes/ofertas/ofertas.routes');
+const ofertasViewRoutes = require('./src/routes/ofertas/ofertas.view.routes');
 
 // Projeto demonstrativo Mirian (isolado do sistema da fábrica)
 const mirianApiRoutes = require('./mirian/routes/mirian.api.routes');
@@ -163,6 +165,8 @@ app.use('/whatsapp', envioWhatsappViewRoutes);
 app.use('/api/whatsapp/status', statusWhatsappRoutes);
 app.use('/whatsapp', statusWhatsappViewRoutes);
 app.use('/hub', hubRoutes);
+app.use('/api/ofertas', ofertasRoutes);
+app.use('/', ofertasViewRoutes);
 
 // Projeto Mirian: API e páginas isoladas pelo prefixo /mirian
 app.use('/api/mirian', mirianApiRoutes);

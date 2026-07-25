@@ -227,7 +227,33 @@ async function uploadImagem(file, metadata = {}) {
   };
 }
 
+
+async function uploadBuffer(buffer, options = {}) {
+  const config = getConfig();
+  validarConfiguracao(config);
+  if (!Buffer.isBuffer(buffer) || buffer.length === 0) throw new Error('Buffer vazio para upload no R2.');
+
+  const pasta = normalizarParteChave(options.pasta || 'arquivos');
+  const nomeInformado = String(options.nome || `arquivo-${Date.now()}`).trim();
+  const ext = path.extname(nomeInformado).replace(/^\./, '').toLowerCase() || 'bin';
+  const base = normalizarParteChave(path.basename(nomeInformado, path.extname(nomeInformado)));
+  const key = `${pasta}/${base}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${ext}`;
+  const client = getClient(config);
+
+  await client.send(new PutObjectCommand({
+    Bucket: config.bucket,
+    Key: key,
+    Body: buffer,
+    ContentLength: buffer.length,
+    ContentType: options.contentType || 'application/octet-stream',
+    Metadata: Object.fromEntries(Object.entries(options.metadata || {}).map(([k,v]) => [normalizarParteChave(k), normalizarParteChave(v)])),
+  }));
+
+  return { id:key, key, url:montarUrlPublica(config.publicUrl,key) };
+}
+
 module.exports = {
   uploadImagem,
+  uploadBuffer,
   MAX_UPLOAD_SIZE_MB,
 };

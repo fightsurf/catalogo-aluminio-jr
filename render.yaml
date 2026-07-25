@@ -33,3 +33,13 @@ services:
       - key: CLOUDFLARE_R2_PUBLIC_URL
         value: https://pub-51cb4ace3dfb43a4ac45a4b7c399904d.r2.dev
 
+
+      # Central de Ofertas - cenário gerado por IA
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: OPENAI_IMAGE_MODEL
+        value: gpt-image-1-mini
+      - key: OPENAI_IMAGE_QUALITY
+        value: medium
+      - key: APP_PUBLIC_URL
+        value: https://catalogo-aluminio-jr.onrender.com
