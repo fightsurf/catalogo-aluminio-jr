@@ -1,9 +1,18 @@
 const sharp = require('sharp');
-const openaiImagemService = require('./openaiImagem.service');
 
 const WIDTH = 1080;
 const HEIGHT = 1920;
 const MAX_ITENS = 12;
+
+const PALETA = {
+  fundo: '#080808',
+  fundo2: '#17120a',
+  dourado: '#D7A928',
+  douradoClaro: '#F4D56A',
+  branco: '#FFFFFF',
+  cinza: '#D8D8D8',
+  cinzaEscuro: '#252525',
+};
 
 function moeda(valor) {
   return Number(valor || 0).toLocaleString('pt-BR', {
@@ -12,14 +21,39 @@ function moeda(valor) {
   });
 }
 
-function nomeArquivoSeguro(valor) {
-  return String(valor || 'produto')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-zA-Z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 55)
-    .toLowerCase() || 'produto';
+function escaparXml(valor) {
+  return String(valor ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function quebrarTexto(texto, maxCaracteres, maxLinhas = 2) {
+  const palavras = String(texto || '').trim().split(/\s+/).filter(Boolean);
+  const linhas = [];
+  let linha = '';
+
+  for (const palavra of palavras) {
+    const teste = linha ? `${linha} ${palavra}` : palavra;
+    if (teste.length <= maxCaracteres || !linha) {
+      linha = teste;
+      continue;
+    }
+    linhas.push(linha);
+    linha = palavra;
+    if (linhas.length >= maxLinhas - 1) break;
+  }
+
+  if (linha && linhas.length < maxLinhas) linhas.push(linha);
+
+  const consumido = linhas.join(' ').split(/\s+/).length;
+  if (consumido < palavras.length && linhas.length) {
+    linhas[linhas.length - 1] = `${linhas[linhas.length - 1].replace(/[.,;:!?-]*$/, '')}…`;
+  }
+
+  return linhas;
 }
 
 async function baixarImagem(url) {
@@ -29,130 +63,143 @@ async function baixarImagem(url) {
   return Buffer.from(await response.arrayBuffer());
 }
 
-async function prepararFotoProduto(item, indice) {
+async function prepararFoto(item, largura, altura) {
   const original = await baixarImagem(item.foto_url);
-  const buffer = await sharp(original)
-    .rotate()
-    .resize(1024, 1024, {
+
+  // Mantém a fotografia real do produto. O trim remove somente bordas uniformes,
+  // sem tentar redesenhar, recortar por IA ou alterar o produto.
+  let pipeline = sharp(original).rotate();
+  try {
+    pipeline = pipeline.trim({ background: '#ffffff', threshold: 18 });
+  } catch (_) {
+    // Algumas imagens não permitem trim; nesse caso usamos a foto original.
+  }
+
+  return pipeline
+    .resize(largura, altura, {
       fit: 'contain',
-      background: { r: 255, g: 255, b: 255, alpha: 1 },
+      position: 'centre',
+      background: { r: 255, g: 255, b: 255, alpha: 0 },
       withoutEnlargement: true,
     })
-    .jpeg({ quality: 94, mozjpeg: true })
+    .modulate({ brightness: 1.03, saturation: 1.02 })
+    .sharpen({ sigma: 0.7 })
+    .png()
     .toBuffer();
-
-  return {
-    buffer,
-    nome: `${String(indice + 1).padStart(2, '0')}-${nomeArquivoSeguro(item.nome)}.jpg`,
-    tipo: 'image/jpeg',
-  };
 }
 
-async function prepararReferencias(itens) {
-  const referencias = [];
-  const falhas = [];
-
-  for (let indice = 0; indice < itens.length; indice += 1) {
-    const item = itens[indice];
-    try {
-      referencias.push(await prepararFotoProduto(item, indice));
-    } catch (error) {
-      falhas.push(`${item.nome}: ${error.message}`);
-    }
-  }
-
-  if (falhas.length) {
-    throw new Error(`Não foi possível preparar todas as fotos reais dos produtos. ${falhas.join(' | ')}`);
-  }
-
-  return referencias;
+function layoutGrade(total) {
+  if (total <= 1) return { colunas: 1, linhas: 1 };
+  if (total <= 4) return { colunas: 2, linhas: 2 };
+  if (total <= 6) return { colunas: 2, linhas: 3 };
+  if (total <= 9) return { colunas: 3, linhas: 3 };
+  return { colunas: 3, linhas: 4 };
 }
 
-function montarPrompt(oferta) {
-  const produtos = oferta.itens.map((item, indice) => {
-    const numero = indice + 1;
-    return [
-      `PRODUTO ${numero}`,
-      `- A imagem de entrada nº ${numero} é a fotografia real deste produto.`,
-      `- Nome exato para a lista: ${item.nome}`,
-      `- Categoria: ${item.categoria || item.categoria_nome || 'utensílio de alumínio'}`,
-      `- Quantidade no kit: ${item.quantidade}`,
-      '- Regra visual: conservar o mesmo corpo, tampa, alças, pegadores, acabamento, proporções e características reconhecíveis da fotografia.',
-    ].join('\n');
-  }).join('\n\n');
+function fundoSvg() {
+  return Buffer.from(`
+  <svg width="${WIDTH}" height="${HEIGHT}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="${PALETA.fundo}"/>
+        <stop offset="0.55" stop-color="#111111"/>
+        <stop offset="1" stop-color="${PALETA.fundo2}"/>
+      </linearGradient>
+      <radialGradient id="glow" cx="50%" cy="42%" r="55%">
+        <stop offset="0" stop-color="#A97712" stop-opacity="0.24"/>
+        <stop offset="1" stop-color="#A97712" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#8D6510"/>
+        <stop offset="0.5" stop-color="${PALETA.douradoClaro}"/>
+        <stop offset="1" stop-color="#A87815"/>
+      </linearGradient>
+      <filter id="blur"><feGaussianBlur stdDeviation="34"/></filter>
+    </defs>
+    <rect width="1080" height="1920" fill="url(#bg)"/>
+    <ellipse cx="540" cy="820" rx="500" ry="620" fill="url(#glow)"/>
+    <circle cx="90" cy="260" r="145" fill="#B88B23" opacity="0.07" filter="url(#blur)"/>
+    <circle cx="960" cy="1450" r="190" fill="#B88B23" opacity="0.06" filter="url(#blur)"/>
+    <rect x="0" y="0" width="1080" height="16" fill="url(#gold)"/>
+    <rect x="54" y="42" width="972" height="2" fill="#E6C052" opacity="0.45"/>
+    <rect x="54" y="1778" width="972" height="2" fill="#E6C052" opacity="0.45"/>
+  </svg>`);
+}
 
-  const orientacaoExtra = String(oferta.prompt_cenario || '').trim();
+function cabecalhoSvg(oferta) {
+  const titulo = quebrarTexto(oferta.titulo || 'Kit Feirinha Especial', 25, 2);
+  const tituloSvg = titulo.map((linha, i) =>
+    `<text x="540" y="${132 + (i * 68)}" text-anchor="middle" font-family="Arial, sans-serif" font-size="62" font-weight="900" fill="${PALETA.branco}">${escaparXml(linha.toUpperCase())}</text>`
+  ).join('');
 
-  return `PAPEL
-Você é um diretor de arte especializado em publicidade comercial brasileira para atacado e varejo de utensílios domésticos.
+  const ySub = titulo.length > 1 ? 290 : 222;
 
-OBJETIVO
-Crie uma única arte publicitária vertical completa para Status do WhatsApp, em português do Brasil, proporção 9:16. A arte deve vender o kit descrito abaixo e utilizar SOMENTE as fotografias reais dos produtos fornecidas como imagens de entrada.
+  return Buffer.from(`
+  <svg width="1080" height="360" xmlns="http://www.w3.org/2000/svg">
+    <text x="540" y="78" text-anchor="middle" font-family="Arial, sans-serif" font-size="25" font-weight="700" letter-spacing="7" fill="${PALETA.douradoClaro}">ALUMÍNIO JR</text>
+    ${tituloSvg}
+    <rect x="356" y="${ySub}" width="368" height="54" rx="27" fill="${PALETA.dourado}"/>
+    <text x="540" y="${ySub + 37}" text-anchor="middle" font-family="Arial, sans-serif" font-size="29" font-weight="900" fill="#0A0A0A">${Number(oferta.total_itens || 0)} PEÇAS NO KIT</text>
+  </svg>`);
+}
 
-REGRA MAIS IMPORTANTE: FIDELIDADE DOS PRODUTOS
-- Cada imagem de entrada representa um produto comercial real e diferente.
-- Preserve visualmente cada produto. Não redesenhe, não estilize, não substitua e não invente modelos de panelas.
-- Não altere corpo, diâmetro aparente, altura, tampa, alças, pegadores, bordas, acabamento, cor ou proporções.
-- Não misture características de um produto com outro.
-- Não acrescente peças inexistentes e não elimine produtos.
-- Você pode remover apenas o fundo original das fotos, ajustar escala, perspectiva, sombra e iluminação para integrar os produtos ao anúncio.
-- Os produtos precisam continuar reconhecíveis como os mesmos produtos das fotografias de entrada.
-- Se houver conflito entre beleza e fidelidade, priorize a fidelidade.
+function cardSvg(item, largura, altura) {
+  const nome = quebrarTexto(item.nome, largura >= 430 ? 25 : 18, 2);
+  const linhas = nome.map((linha, i) =>
+    `<text x="${largura / 2}" y="${altura - 61 + (i * 26)}" text-anchor="middle" font-family="Arial, sans-serif" font-size="${largura >= 430 ? 24 : 20}" font-weight="700" fill="#FFFFFF">${escaparXml(linha)}</text>`
+  ).join('');
 
-IMAGENS DE ENTRADA E IDENTIFICAÇÃO
-As imagens foram enviadas na mesma ordem da lista abaixo. A imagem nº 1 corresponde ao PRODUTO 1, a imagem nº 2 ao PRODUTO 2, e assim por diante.
+  return Buffer.from(`
+  <svg width="${largura}" height="${altura}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#242424"/>
+        <stop offset="1" stop-color="#101010"/>
+      </linearGradient>
+      <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+        <feDropShadow dx="0" dy="14" stdDeviation="13" flood-color="#000000" flood-opacity="0.66"/>
+      </filter>
+      <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#F1D26A"/>
+        <stop offset="0.5" stop-color="#5E4511"/>
+        <stop offset="1" stop-color="#D6A92E"/>
+      </linearGradient>
+    </defs>
+    <rect x="10" y="10" width="${largura - 20}" height="${altura - 20}" rx="28" fill="url(#card)" stroke="url(#rim)" stroke-width="2" filter="url(#shadow)"/>
+    <rect x="${largura - 88}" y="24" width="64" height="46" rx="23" fill="#D7A928"/>
+    <text x="${largura - 56}" y="56" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="900" fill="#0A0A0A">${Number(item.quantidade || 0)}x</text>
+    <rect x="27" y="${altura - 102}" width="${largura - 54}" height="78" rx="18" fill="#050505" fill-opacity="0.80"/>
+    ${linhas}
+  </svg>`);
+}
 
-${produtos}
+function precoSvg(oferta) {
+  return Buffer.from(`
+  <svg width="1080" height="420" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="goldPrice" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#F5D86A"/>
+        <stop offset="0.45" stop-color="#C99419"/>
+        <stop offset="1" stop-color="#8A6110"/>
+      </linearGradient>
+      <filter id="shadow"><feDropShadow dx="0" dy="12" stdDeviation="10" flood-color="#000" flood-opacity="0.65"/></filter>
+    </defs>
+    <rect x="70" y="20" width="940" height="250" rx="36" fill="#0E0E0E" stroke="#D7A928" stroke-width="3" filter="url(#shadow)"/>
+    <text x="540" y="77" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="800" letter-spacing="2" fill="#FFFFFF">PREÇO MÉDIO DO KIT</text>
+    <text x="540" y="184" text-anchor="middle" font-family="Arial, sans-serif" font-size="82" font-weight="900" fill="url(#goldPrice)">R$ ${moeda(oferta.preco_medio)}</text>
+    <text x="540" y="237" text-anchor="middle" font-family="Arial, sans-serif" font-size="25" font-weight="700" fill="#D8D8D8">Valor total: R$ ${moeda(oferta.total)}</text>
 
-DIREÇÃO VISUAL
-- Crie um layout comercial original; não use nenhuma imagem externa como referência.
-- Fundo predominantemente preto, com detalhes dourados e textos brancos.
-- Aparência premium, limpa, moderna e apropriada para uma loja de utensílios de alumínio.
-- Produtos agrupados no centro como fotografia de catálogo, com iluminação comercial e sombras realistas.
-- Não use cartões brancos, molduras de catálogo, interface de aplicativo, pessoas, mãos, cozinhas completas ou cenários que escondam os produtos.
-- Alto contraste e leitura fácil em tela de celular.
+    <rect x="126" y="302" width="828" height="70" rx="35" fill="#D7A928"/>
+    <text x="540" y="348" text-anchor="middle" font-family="Arial, sans-serif" font-size="31" font-weight="900" fill="#080808">CLIQUE NO LINK ABAIXO</text>
+  </svg>`);
+}
 
-HIERARQUIA OBRIGATÓRIA
-1. Título principal.
-2. Fotografias reais e reconhecíveis dos produtos.
-3. Quantidade total de peças.
-4. PREÇO MÉDIO DO KIT como principal destaque financeiro.
-5. Lista dos produtos com quantidades.
-6. Valor total do kit com destaque menor.
-7. Chamada para ação e contatos.
-
-TÍTULO PRINCIPAL
-${oferta.titulo}
-
-TEXTOS E NÚMEROS OBRIGATÓRIOS
-- ${oferta.total_itens} PEÇAS
-- PREÇO MÉDIO DO KIT: R$ ${moeda(oferta.preco_medio)}
-- VALOR TOTAL DO KIT: R$ ${moeda(oferta.total)}
-
-LISTA OBRIGATÓRIA DOS PRODUTOS
-${oferta.itens.map((item) => `- ${item.quantidade}x ${item.nome}`).join('\n')}
-
-CONTATOS OBRIGATÓRIOS
-- Telefone: (83) 9.9979.2085
-- Instagram: @aluminiojrpb
-- George
-
-CHAMADA OBRIGATÓRIA
-CLIQUE NO LINK ABAIXO
-
-REGRAS DE TEXTO
-- Copie exatamente nomes, quantidades e valores fornecidos.
-- Não crie promoções, descontos, parcelas, porcentagens, marcas ou frases adicionais.
-- Revise ortografia, acentos e números antes de finalizar.
-- Não repita informações.
-
-REGRAS NEGATIVAS FINAIS
-- Não inventar panelas.
-- Não transformar os produtos em ilustrações, pinturas ou renderizações genéricas.
-- Não trocar tampas ou alças.
-- Não fundir dois produtos em um.
-- Não mostrar a folha de referência, nomes de arquivos ou instruções deste prompt.
-- Não adicionar logotipos ou dados que não foram fornecidos.${orientacaoExtra ? `\n\nPREFERÊNCIA ADICIONAL DO ADMINISTRADOR\n${orientacaoExtra}` : ''}`;
+function rodapeSvg() {
+  return Buffer.from(`
+  <svg width="1080" height="130" xmlns="http://www.w3.org/2000/svg">
+    <text x="540" y="42" text-anchor="middle" font-family="Arial, sans-serif" font-size="27" font-weight="800" fill="#FFFFFF">(83) 9.9979.2085  •  @aluminiojrpb</text>
+    <text x="540" y="84" text-anchor="middle" font-family="Arial, sans-serif" font-size="25" font-weight="700" fill="#E9C95E">George</text>
+  </svg>`);
 }
 
 async function gerarArte(oferta) {
@@ -163,16 +210,62 @@ async function gerarArte(oferta) {
     throw new Error(`A arte aceita no máximo ${MAX_ITENS} produtos diferentes.`);
   }
 
-  const referencias = await prepararReferencias(oferta.itens);
-  const imagemGerada = await openaiImagemService.gerarArteCompleta({
-    prompt: montarPrompt(oferta),
-    referencias,
-  });
+  const total = oferta.itens.length;
+  const { colunas, linhas } = layoutGrade(total);
+  const margemX = 52;
+  const gap = colunas === 3 ? 18 : 24;
+  const areaTopo = 340;
+  const areaProdutosAltura = linhas === 4 ? 1020 : 980;
+  const cardLargura = Math.floor((WIDTH - (margemX * 2) - (gap * (colunas - 1))) / colunas);
+  const cardAltura = Math.floor((areaProdutosAltura - (gap * (linhas - 1))) / linhas);
+  const fotoLargura = cardLargura - 46;
+  const fotoAltura = cardAltura - 120;
 
-  // Apenas normaliza a dimensão final. Não recorta nem cola produtos ou textos.
-  return sharp(imagemGerada)
-    .resize(WIDTH, HEIGHT, { fit: 'cover', position: 'centre' })
-    .jpeg({ quality: 93, mozjpeg: true })
+  const composites = [
+    { input: fundoSvg(), left: 0, top: 0 },
+    { input: cabecalhoSvg(oferta), left: 0, top: 36 },
+  ];
+
+  const falhas = [];
+  for (let indice = 0; indice < total; indice += 1) {
+    const item = oferta.itens[indice];
+    const coluna = indice % colunas;
+    const linha = Math.floor(indice / colunas);
+    const left = margemX + coluna * (cardLargura + gap);
+    const top = areaTopo + linha * (cardAltura + gap);
+
+    try {
+      const foto = await prepararFoto(item, fotoLargura, fotoAltura);
+      composites.push({ input: cardSvg(item, cardLargura, cardAltura), left, top });
+      composites.push({
+        input: foto,
+        left: left + Math.floor((cardLargura - fotoLargura) / 2),
+        top: top + 24,
+      });
+    } catch (error) {
+      falhas.push(`${item.nome}: ${error.message}`);
+    }
+  }
+
+  if (falhas.length) {
+    throw new Error(`Não foi possível preparar todas as fotos reais dos produtos. ${falhas.join(' | ')}`);
+  }
+
+  const produtosFim = areaTopo + areaProdutosAltura;
+  composites.push({ input: precoSvg(oferta), left: 0, top: Math.min(produtosFim + 22, 1375) });
+  composites.push({ input: rodapeSvg(), left: 0, top: 1785 });
+
+  return sharp({
+    create: {
+      width: WIDTH,
+      height: HEIGHT,
+      channels: 4,
+      background: { r: 8, g: 8, b: 8, alpha: 1 },
+    },
+  })
+    .composite(composites)
+    .flatten({ background: PALETA.fundo })
+    .jpeg({ quality: 94, mozjpeg: true, chromaSubsampling: '4:4:4' })
     .toBuffer();
 }
 
