@@ -1,17 +1,244 @@
 <!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Central de Ofertas</title><style>
-:root{font-family:Arial,sans-serif;color:#172033;background:#f3f4f6}*{box-sizing:border-box}body{margin:0}.topo{background:#111827;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center}.topo h1{margin:0;font-size:22px}.layout{max-width:1320px;margin:22px auto;padding:0 16px;display:grid;grid-template-columns:1.5fr 1fr;gap:20px}.painel{background:#fff;border-radius:18px;padding:20px;box-shadow:0 6px 25px #0001}.passos{display:flex;gap:8px;margin-bottom:18px}.passo{padding:8px 14px;border-radius:999px;background:#e5e7eb;font-weight:700}.passo.ativo{background:#f97316;color:white}.campo{margin-bottom:14px}.campo label{display:block;font-weight:700;margin-bottom:6px}.campo input,.campo textarea{width:100%;padding:11px;border:1px solid #d1d5db;border-radius:10px}.categorias h3{background:#fff7ed;padding:10px;border-radius:10px}.produto{display:grid;grid-template-columns:28px 64px 1fr 80px;align-items:center;gap:10px;padding:9px;border-bottom:1px solid #eee}.produto img{width:60px;height:60px;object-fit:contain}.produto input[type=number]{width:72px;padding:8px}.resumo{position:sticky;top:16px}.valor{font-size:30px;font-weight:900;color:#c2410c}.botoes{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}button{border:0;border-radius:11px;padding:13px 18px;font-weight:800;cursor:pointer;background:#ea580c;color:#fff}button.sec{background:#374151}button:disabled{opacity:.45;cursor:not-allowed}.preview{width:100%;max-height:620px;object-fit:contain;background:#eee;border-radius:14px;margin-top:12px}.oculto{display:none}.historico{max-width:1320px;margin:0 auto 40px;padding:0 16px}.oferta{background:#fff;margin:10px 0;padding:14px;border-radius:12px;display:flex;justify-content:space-between;gap:15px;align-items:center}.status{font-size:12px;padding:5px 9px;border-radius:99px;background:#e5e7eb}@media(max-width:850px){.layout{grid-template-columns:1fr}.resumo{position:static}.produto{grid-template-columns:25px 55px 1fr 70px}}
-</style></head><body><header class="topo"><h1>Central de Ofertas — Kit Feirinha</h1><a href="/whatsapp/status" style="color:#fff">Status atual</a></header><main class="layout"><section class="painel"><div class="passos"><span class="passo ativo">1. Montar kit</span><span class="passo">2. Gerar arte</span><span class="passo">3. Publicar</span></div><div class="campo"><label>Título da oferta</label><input id="titulo" value="Kit Feirinha Especial"></div><div class="campo"><label>Expiração (opcional)</label><input id="expira" type="datetime-local"></div><div class="campo"><label>Cenário desejado</label><textarea id="prompt" rows="3" placeholder="Ex.: cozinha moderna, bancada de madeira e luz quente"></textarea></div><div id="lista">Carregando produtos...</div></section><aside class="painel resumo"><h2>Resumo</h2><p id="qtd">0 itens</p><div class="valor" id="total">R$ 0,00</div><p id="medio">Médio por item: R$ 0,00</p><div class="botoes"><button id="criar" onclick="criarOferta()">Criar oferta e gerar arte</button></div><div id="resultado" class="oculto"><img id="preview" class="preview"><p><b id="codigo"></b></p><div class="botoes"><button class="sec" onclick="gerarNovamente()">Gerar novamente</button><button onclick="publicar()">Publicar no Status</button></div><p id="mensagem"></p></div></aside></main><section class="historico"><h2>Ofertas recentes</h2><div id="historico"></div></section><script>
-let produtos=[],ofertaAtual=null;const brl=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-async function api(url,opt={}){const r=await fetch(url,{headers:{'Content-Type':'application/json',...(opt.headers||{})},...opt});const d=await r.json();if(!r.ok||!d.success)throw new Error(d.message||'Erro');return d.data}
-async function iniciar(){produtos=await api('/api/ofertas/produtos');renderProdutos();atualizar();carregarHistorico()}
-function renderProdutos(){const grupos={};produtos.forEach(p=>(grupos[p.categoria||'SEM CATEGORIA']??=[]).push(p));const box=document.querySelector('#lista');box.innerHTML='<div class="categorias">'+Object.entries(grupos).map(([cat,ps])=>`<h3>${cat}</h3>${ps.map(p=>`<label class="produto"><input type="checkbox" class="chk" data-id="${p.id}" onchange="atualizar()"><img src="${p.foto||''}" onerror="this.style.visibility='hidden'"><span><b>${p.nome}</b><br>${brl(p.preco)}</span><input type="number" class="qtdp" data-id="${p.id}" min="1" value="1" onchange="atualizar()"></label>`).join('')}`).join('')+'</div>'}
-function selecionados(){return [...document.querySelectorAll('.chk:checked')].map(c=>({produto_id:Number(c.dataset.id),quantidade:Number(document.querySelector(`.qtdp[data-id="${c.dataset.id}"]`).value||1)}))}
-function atualizar(){let total=0,n=0;selecionados().forEach(i=>{const p=produtos.find(x=>x.id==i.produto_id);total+=Number(p.preco)*i.quantidade;n+=i.quantidade});qtd.textContent=`${n} itens`;document.querySelector('#total').textContent=brl(total);medio.textContent=`Médio por item: ${brl(n?total/n:0)}`}
-async function criarOferta(){try{criar.disabled=true;mensagemTexto('Criando oferta e gerando cenário...');ofertaAtual=await api('/api/ofertas',{method:'POST',body:JSON.stringify({titulo:titulo.value,itens:selecionados(),expira_em:expira.value||null,prompt_cenario:prompt.value||null})});await gerarNovamente()}catch(e){alert(e.message)}finally{criar.disabled=false}}
-async function gerarNovamente(){try{mensagemTexto('Gerando arte. Não feche esta página.');ofertaAtual=await api(`/api/ofertas/${ofertaAtual.id}/gerar-arte`,{method:'POST'});preview.src=ofertaAtual.imagem_url+'?v='+Date.now();codigo.textContent=ofertaAtual.codigo;resultado.classList.remove('oculto');mensagemTexto('Arte pronta para conferência.');carregarHistorico()}catch(e){mensagemTexto(e.message)}}
-async function publicar(){try{mensagemTexto('Publicando no Status...');const r=await api(`/api/ofertas/${ofertaAtual.id}/publicar`,{method:'POST'});mensagemTexto('Publicado. Link: '+r.link);carregarHistorico()}catch(e){mensagemTexto(e.message)}}
-function mensagemTexto(t){document.querySelector('#mensagem').textContent=t}
-async function carregarHistorico(){try{const lista=await api('/api/ofertas');historico.innerHTML=lista.map(o=>`<div class="oferta"><div><b>${o.codigo} — ${o.titulo}</b><br>${brl(o.total)} · ${o.visualizacoes} visualizações · ${o.cliques_whatsapp} cliques</div><div><span class="status">${o.status}</span> <button class="sec" onclick="duplicar(${o.id})">Duplicar</button></div></div>`).join('')||'<p>Nenhuma oferta criada.</p>'}catch(e){historico.textContent=e.message}}
-async function duplicar(id){try{ofertaAtual=await api(`/api/ofertas/${id}/duplicar`,{method:'POST'});alert('Oferta duplicada: '+ofertaAtual.codigo);carregarHistorico()}catch(e){alert(e.message)}}
-iniciar().catch(e=>lista.textContent=e.message);
+:root{font-family:Arial,sans-serif;color:#172033;background:#f3f4f6}*{box-sizing:border-box}body{margin:0}.topo{background:#111827;color:#fff;padding:18px 24px;display:flex;justify-content:space-between;align-items:center}.topo h1{margin:0;font-size:22px}.layout{max-width:1320px;margin:22px auto;padding:0 16px;display:grid;grid-template-columns:1.5fr 1fr;gap:20px}.painel{background:#fff;border-radius:18px;padding:20px;box-shadow:0 6px 25px #0001}.passos{display:flex;gap:8px;margin-bottom:18px}.passo{padding:8px 14px;border-radius:999px;background:#e5e7eb;font-weight:700}.passo.ativo{background:#f97316;color:white}.campo{margin-bottom:14px}.campo label{display:block;font-weight:700;margin-bottom:6px}.campo input,.campo textarea{width:100%;padding:11px;border:1px solid #d1d5db;border-radius:10px}.categorias h3{background:#fff7ed;padding:10px;border-radius:10px}.produto{display:grid;grid-template-columns:28px 64px 1fr 80px;align-items:center;gap:10px;padding:9px;border-bottom:1px solid #eee}.produto img{width:60px;height:60px;object-fit:contain}.produto input[type=number]{width:72px;padding:8px}.resumo{position:sticky;top:16px}.valor{font-size:30px;font-weight:900;color:#c2410c}.botoes{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}button{border:0;border-radius:11px;padding:13px 18px;font-weight:800;cursor:pointer;background:#ea580c;color:#fff}button.sec{background:#374151}button:disabled{opacity:.45;cursor:not-allowed}.preview{width:100%;max-height:620px;object-fit:contain;background:#eee;border-radius:14px;margin-top:12px}.oculto{display:none}.aviso{margin-top:14px;padding:12px;border-radius:10px;background:#f3f4f6;color:#374151;min-height:44px;white-space:pre-wrap}.aviso.erro{background:#fee2e2;color:#991b1b}.aviso.sucesso{background:#dcfce7;color:#166534}.girando{display:inline-block;width:16px;height:16px;border:3px solid #fed7aa;border-top-color:#ea580c;border-radius:50%;animation:girar .8s linear infinite;vertical-align:-3px;margin-right:7px}@keyframes girar{to{transform:rotate(360deg)}}.historico{max-width:1320px;margin:0 auto 40px;padding:0 16px}.oferta{background:#fff;margin:10px 0;padding:14px;border-radius:12px;display:flex;justify-content:space-between;gap:15px;align-items:center}.status{font-size:12px;padding:5px 9px;border-radius:99px;background:#e5e7eb}@media(max-width:850px){.layout{grid-template-columns:1fr}.resumo{position:static}.produto{grid-template-columns:25px 55px 1fr 70px}}
+</style></head><body><header class="topo"><h1>Central de Ofertas — Kit Feirinha</h1><a href="/whatsapp/status" style="color:#fff">Status atual</a></header><main class="layout"><section class="painel"><div class="passos"><span class="passo ativo">1. Montar kit</span><span class="passo">2. Gerar arte</span><span class="passo">3. Publicar</span></div><div class="campo"><label>Título da oferta</label><input id="titulo" value="Kit Feirinha Especial"></div><div class="campo"><label>Expiração (opcional)</label><input id="expira" type="datetime-local"></div><div class="campo"><label>Cenário desejado</label><textarea id="prompt" rows="3" placeholder="Ex.: cozinha moderna, bancada de madeira e luz quente"></textarea></div><div id="lista">Carregando produtos...</div></section><aside class="painel resumo"><h2>Resumo</h2><p id="qtd">0 itens</p><div class="valor" id="total">R$ 0,00</div><p id="medio">Médio por item: R$ 0,00</p><div class="botoes"><button id="criar" type="button">Criar oferta e gerar arte</button></div><div id="aviso" class="aviso">Selecione os produtos e informe as quantidades.</div><div id="resultado" class="oculto"><img id="preview" class="preview"><p><b id="codigo"></b></p><div class="botoes"><button id="regerar" class="sec" type="button">Gerar novamente</button><button id="publicar" type="button">Publicar no Status</button></div></div></aside></main><section class="historico"><h2>Ofertas recentes</h2><div id="historico"></div></section><script>
+'use strict';
+
+let produtos = [];
+let ofertaAtual = null;
+
+const el = {
+  lista: document.querySelector('#lista'),
+  titulo: document.querySelector('#titulo'),
+  expira: document.querySelector('#expira'),
+  prompt: document.querySelector('#prompt'),
+  qtd: document.querySelector('#qtd'),
+  total: document.querySelector('#total'),
+  medio: document.querySelector('#medio'),
+  criar: document.querySelector('#criar'),
+  aviso: document.querySelector('#aviso'),
+  resultado: document.querySelector('#resultado'),
+  preview: document.querySelector('#preview'),
+  codigo: document.querySelector('#codigo'),
+  regerar: document.querySelector('#regerar'),
+  publicar: document.querySelector('#publicar'),
+  historico: document.querySelector('#historico'),
+};
+
+const brl = (n) => Number(n || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+function mostrarAviso(texto, tipo = 'normal', carregando = false) {
+  el.aviso.className = `aviso${tipo === 'erro' ? ' erro' : tipo === 'sucesso' ? ' sucesso' : ''}`;
+  el.aviso.innerHTML = `${carregando ? '<span class="girando"></span>' : ''}${String(texto || '')}`;
+}
+
+async function api(url, opt = {}) {
+  const response = await fetch(url, {
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', ...(opt.headers || {}) },
+    ...opt,
+  });
+
+  const texto = await response.text();
+  let data = {};
+  try { data = texto ? JSON.parse(texto) : {}; }
+  catch (_) {
+    throw new Error(`O servidor respondeu em formato inesperado (${response.status}). Atualize a página e tente novamente.`);
+  }
+
+  if (response.status === 401) {
+    window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
+    throw new Error('Sua sessão expirou. Redirecionando para o login.');
+  }
+
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || data.erro || `Erro HTTP ${response.status}`);
+  }
+
+  return data.data;
+}
+
+async function iniciar() {
+  try {
+    mostrarAviso('Carregando produtos...', 'normal', true);
+    produtos = await api('/api/ofertas/produtos');
+    renderProdutos();
+    atualizar();
+    await carregarHistorico();
+    mostrarAviso('Selecione os produtos e informe as quantidades.');
+  } catch (error) {
+    el.lista.textContent = 'Não foi possível carregar os produtos.';
+    mostrarAviso(error.message, 'erro');
+    console.error(error);
+  }
+}
+
+function renderProdutos() {
+  const grupos = {};
+  produtos.forEach((produto) => {
+    const categoria = produto.categoria || 'SEM CATEGORIA';
+    (grupos[categoria] ??= []).push(produto);
+  });
+
+  el.lista.innerHTML = '<div class="categorias">' + Object.entries(grupos).map(([categoria, itens]) =>
+    `<h3>${categoria}</h3>${itens.map((produto) => `
+      <label class="produto">
+        <input type="checkbox" class="chk" data-id="${produto.id}">
+        <img src="${produto.foto || ''}" alt="" onerror="this.style.visibility='hidden'">
+        <span><b>${produto.nome}</b><br>${brl(produto.preco)}</span>
+        <input type="number" class="qtdp" data-id="${produto.id}" min="1" step="1" value="1" aria-label="Quantidade de ${produto.nome}">
+      </label>`).join('')}`
+  ).join('') + '</div>';
+
+  el.lista.addEventListener('change', atualizar);
+  el.lista.addEventListener('input', atualizar);
+}
+
+function selecionados() {
+  return [...document.querySelectorAll('.chk:checked')].map((checkbox) => {
+    const quantidade = document.querySelector(`.qtdp[data-id="${checkbox.dataset.id}"]`);
+    return {
+      produto_id: Number(checkbox.dataset.id),
+      quantidade: Math.max(1, Number.parseInt(quantidade?.value || '1', 10)),
+    };
+  });
+}
+
+function atualizar() {
+  let total = 0;
+  let quantidadeTotal = 0;
+
+  selecionados().forEach((item) => {
+    const produto = produtos.find((p) => Number(p.id) === item.produto_id);
+    if (!produto) return;
+    total += Number(produto.preco) * item.quantidade;
+    quantidadeTotal += item.quantidade;
+  });
+
+  el.qtd.textContent = `${quantidadeTotal} ${quantidadeTotal === 1 ? 'item' : 'itens'}`;
+  el.total.textContent = brl(total);
+  el.medio.textContent = `Médio por item: ${brl(quantidadeTotal ? total / quantidadeTotal : 0)}`;
+}
+
+function bloquear(bloqueado, textoBotao) {
+  el.criar.disabled = bloqueado;
+  el.regerar.disabled = bloqueado;
+  el.publicar.disabled = bloqueado;
+  el.criar.textContent = textoBotao || 'Criar oferta e gerar arte';
+}
+
+async function criarOferta() {
+  const itens = selecionados();
+  if (!itens.length) {
+    mostrarAviso('Selecione ao menos um produto antes de criar a oferta.', 'erro');
+    return;
+  }
+
+  try {
+    bloquear(true, 'Criando oferta...');
+    mostrarAviso('Criando a oferta no banco de dados...', 'normal', true);
+
+    ofertaAtual = await api('/api/ofertas', {
+      method: 'POST',
+      body: JSON.stringify({
+        titulo: el.titulo.value,
+        itens,
+        expira_em: el.expira.value || null,
+        prompt_cenario: el.prompt.value || null,
+      }),
+    });
+
+    el.codigo.textContent = ofertaAtual.codigo;
+    el.resultado.classList.remove('oculto');
+    mostrarAviso(`Oferta ${ofertaAtual.codigo} criada. Gerando a arte; esta etapa pode demorar.`, 'normal', true);
+    el.criar.textContent = 'Gerando arte...';
+    await gerarArte();
+  } catch (error) {
+    mostrarAviso(error.message, 'erro');
+    console.error(error);
+  } finally {
+    bloquear(false);
+  }
+}
+
+async function gerarArte() {
+  if (!ofertaAtual?.id) {
+    mostrarAviso('Crie uma oferta antes de gerar a arte.', 'erro');
+    return;
+  }
+
+  try {
+    bloquear(true, 'Gerando arte...');
+    mostrarAviso('Gerando o cenário e montando os produtos. Não feche esta página.', 'normal', true);
+    ofertaAtual = await api(`/api/ofertas/${ofertaAtual.id}/gerar-arte`, { method: 'POST' });
+
+    if (!ofertaAtual.imagem_url) throw new Error('A arte foi processada, mas o servidor não retornou a URL da imagem.');
+
+    el.preview.src = `${ofertaAtual.imagem_url}?v=${Date.now()}`;
+    el.codigo.textContent = ofertaAtual.codigo;
+    el.resultado.classList.remove('oculto');
+    mostrarAviso('Arte pronta para conferência.', 'sucesso');
+    await carregarHistorico();
+  } catch (error) {
+    mostrarAviso(`A oferta foi criada, mas a arte não foi gerada: ${error.message}`, 'erro');
+    console.error(error);
+  } finally {
+    bloquear(false);
+  }
+}
+
+async function publicarOferta() {
+  if (!ofertaAtual?.id) {
+    mostrarAviso('Nenhuma oferta está selecionada para publicação.', 'erro');
+    return;
+  }
+
+  try {
+    bloquear(true);
+    mostrarAviso('Publicando a imagem no Status...', 'normal', true);
+    const resultado = await api(`/api/ofertas/${ofertaAtual.id}/publicar`, { method: 'POST' });
+    mostrarAviso(`Publicado com sucesso. Link público: ${resultado.link}`, 'sucesso');
+    await carregarHistorico();
+  } catch (error) {
+    mostrarAviso(error.message, 'erro');
+    console.error(error);
+  } finally {
+    bloquear(false);
+  }
+}
+
+async function carregarHistorico() {
+  try {
+    const lista = await api('/api/ofertas');
+    el.historico.innerHTML = lista.map((oferta) => `
+      <div class="oferta">
+        <div><b>${oferta.codigo} — ${oferta.titulo}</b><br>${brl(oferta.total)} · ${oferta.visualizacoes} visualizações · ${oferta.cliques_whatsapp} cliques</div>
+        <div><span class="status">${oferta.status}</span> <button class="sec duplicar" type="button" data-id="${oferta.id}">Duplicar</button></div>
+      </div>`).join('') || '<p>Nenhuma oferta criada.</p>';
+  } catch (error) {
+    el.historico.textContent = error.message;
+  }
+}
+
+async function duplicar(id) {
+  try {
+    mostrarAviso('Duplicando oferta...', 'normal', true);
+    ofertaAtual = await api(`/api/ofertas/${id}/duplicar`, { method: 'POST' });
+    el.codigo.textContent = ofertaAtual.codigo;
+    el.resultado.classList.remove('oculto');
+    mostrarAviso(`Oferta duplicada: ${ofertaAtual.codigo}. Clique em “Gerar novamente” para criar a arte.`, 'sucesso');
+    await carregarHistorico();
+  } catch (error) {
+    mostrarAviso(error.message, 'erro');
+  }
+}
+
+el.criar.addEventListener('click', criarOferta);
+el.regerar.addEventListener('click', gerarArte);
+el.publicar.addEventListener('click', publicarOferta);
+el.historico.addEventListener('click', (event) => {
+  const botao = event.target.closest('.duplicar');
+  if (botao) duplicar(Number(botao.dataset.id));
+});
+
+iniciar();
 </script></body></html>
