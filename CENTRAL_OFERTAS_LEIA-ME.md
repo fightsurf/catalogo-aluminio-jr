@@ -33,3 +33,19 @@ Sem `OPENAI_API_KEY`, o sistema usa um fundo gráfico local para permitir testes
 5. Entre em `/central-ofertas`.
 
 A estrutura do banco também é criada automaticamente no primeiro uso. O SQL está em `db/sql/20260725_central_ofertas.sql` para execução manual opcional.
+
+## Refinamento — arte integral pela IA
+
+A arte agora é criada integralmente pela IA, usando duas referências: o estilo do cartaz e uma prancha temporária com as fotos reais dos produtos. O Sharp é usado somente para preparar a referência e normalizar a dimensão final; ele não recorta nem cola produtos sobre a arte.
+
+Variáveis recomendadas:
+
+```env
+OPENAI_IMAGE_MODEL_FULL_ART=gpt-image-1
+OPENAI_IMAGE_QUALITY=medium
+OPENAI_IMAGE_MAX_RETRIES=3
+```
+
+O modelo `gpt-image-1-mini` não é recomendado para este fluxo de alta fidelidade com imagens de entrada.
+
+A legenda enviada ao Status contém somente o link público da oferta. A página pública não exibe a arte e destaca o preço médio, mantendo o valor total em tamanho menor.

@@ -120,7 +120,8 @@ async function publicar(id, baseUrl) {
   const oferta = await buscarPorId(id);
   if (!oferta.imagem_url) throw new Error('Gere a arte antes de publicar.');
   const link = `${basePublica(baseUrl)}/ofertas/${encodeURIComponent(oferta.codigo)}`;
-  const legenda = `🛒 ${oferta.titulo}\n\nValor do kit: R$ ${oferta.total.toLocaleString('pt-BR',{minimumFractionDigits:2})}\nVeja todos os itens e peça pelo link:\n${link}`;
+  // A arte já contém a chamada "CLIQUE NO LINK ABAIXO". No Status, a legenda deve conter somente o link público.
+  const legenda = link;
   const envio = await zapiService.enviarImagemStatus({ imagem:oferta.imagem_url, legenda });
   await pool.query(`UPDATE ofertas SET status='publicada',publicado_em=NOW(),updated_at=NOW() WHERE id=$1`, [id]);
   return { oferta:await buscarPorId(id), link, legenda, zapi:envio.zapi };

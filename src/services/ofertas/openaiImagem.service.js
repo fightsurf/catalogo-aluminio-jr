@@ -1,9 +1,14 @@
+const fs = require('fs');
+const path = require('path');
+
 function getApiKey() {
   return String(process.env.OPENAI_API_KEY || '').trim();
 }
 
 function getModel() {
-  return String(process.env.OPENAI_IMAGE_MODEL || 'gpt-image-1-mini').trim();
+  // A arte integral usa imagens de referência. O modelo mini não oferece
+  // a mesma fidelidade de entrada; por isso há uma variável separada.
+  return String(process.env.OPENAI_IMAGE_MODEL_FULL_ART || 'gpt-image-1').trim();
 }
 
 function getQuality() {
@@ -11,38 +16,54 @@ function getQuality() {
 }
 
 function getMaxRetries() {
-  const value = Number(process.env.OPENAI_IMAGE_MAX_RETRIES || 3);
-  return Number.isFinite(value) ? Math.max(0, Math.min(5, Math.floor(value))) : 3;
+  const value = Number.parseInt(process.env.OPENAI_IMAGE_MAX_RETRIES || '3', 10);
+  return Number.isInteger(value) && value >= 0 ? Math.min(value, 5) : 3;
 }
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 function isRetryableStatus(status) {
   return status === 408 || status === 409 || status === 429 || status >= 500;
 }
 
-async function executarGeracao(prompt) {
+function referenciaVisualPadrao() {
+  return path.resolve(__dirname, '../../../public/assets/ofertas/referencia-kit-top.jpg');
+}
+
+async function executarEdicao({ prompt, referencias = [] }) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 120000);
+  const timeout = setTimeout(() => controller.abort(), 180000);
 
   try {
-    const response = await fetch('https://api.openai.com/v1/images/generations', {
+    const form = new FormData();
+    form.append('model', getModel());
+    form.append('prompt', prompt);
+    form.append('size', '1024x1536');
+    form.append('quality', getQuality());
+    form.append('background', 'opaque');
+    form.append('output_format', 'jpeg');
+    form.append('input_fidelity', 'high');
+
+    const arquivos = [];
+    const visual = referenciaVisualPadrao();
+    if (fs.existsSync(visual)) {
+      arquivos.push({ buffer: fs.readFileSync(visual), nome: 'referencia-visual.jpg', tipo: 'image/jpeg' });
+    }
+    for (const referencia of referencias) {
+      if (referencia?.buffer) arquivos.push(referencia);
+    }
+
+    if (!arquivos.length) throw new Error('Nenhuma imagem de referência foi preparada para a arte.');
+
+    arquivos.forEach((arquivo) => {
+      form.append('image[]', new Blob([arquivo.buffer], { type: arquivo.tipo || 'image/png' }), arquivo.nome || 'referencia.png');
+    });
+
+    const response = await fetch('https://api.openai.com/v1/images/edits', {
       method: 'POST',
-      headers: {
-        Authorization: `Bearer ${getApiKey()}`,
-        'Content-Type': 'application/json',
-      },
+      headers: { Authorization: `Bearer ${getApiKey()}` },
       signal: controller.signal,
-      body: JSON.stringify({
-        model: getModel(),
-        prompt,
-        size: '1024x1536',
-        quality: getQuality(),
-        background: 'opaque',
-        output_format: 'png',
-      }),
+      body: form,
     });
 
     const texto = await response.text();
@@ -50,7 +71,7 @@ async function executarGeracao(prompt) {
     try { data = texto ? JSON.parse(texto) : {}; } catch (_) { data = { raw: texto }; }
 
     if (!response.ok) {
-      const detalhe = data?.error?.message || data?.message || texto || 'Falha ao gerar cenário.';
+      const detalhe = data?.error?.message || data?.message || texto || 'Falha ao gerar a arte.';
       const requestId = response.headers.get('x-request-id') || data?.error?.request_id || '';
       const erro = new Error(`OpenAI Images respondeu ${response.status}: ${detalhe}${requestId ? ` (request ID: ${requestId})` : ''}`);
       erro.status = response.status;
@@ -60,7 +81,7 @@ async function executarGeracao(prompt) {
 
     const base64 = data?.data?.[0]?.b64_json;
     if (!base64) {
-      const erro = new Error('A OpenAI não retornou a imagem em Base64.');
+      const erro = new Error('A OpenAI não retornou a arte em Base64.');
       erro.status = 502;
       throw erro;
     }
@@ -71,41 +92,26 @@ async function executarGeracao(prompt) {
   }
 }
 
-async function gerarCenarioVertical(prompt) {
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    console.warn('[Ofertas] OPENAI_API_KEY ausente. Usando fundo local.');
-    return null;
-  }
+async function gerarArteCompleta({ prompt, referencias = [] }) {
+  if (!getApiKey()) throw new Error('OPENAI_API_KEY não configurada.');
 
   const maxRetries = getMaxRetries();
   let ultimoErro;
 
   for (let tentativa = 0; tentativa <= maxRetries; tentativa += 1) {
     try {
-      return await executarGeracao(prompt);
+      return await executarEdicao({ prompt, referencias });
     } catch (error) {
       ultimoErro = error;
       const retryable = error?.name === 'AbortError' || isRetryableStatus(Number(error?.status || 0));
       const ultimaTentativa = tentativa >= maxRetries;
-
-      console.warn(`[Ofertas] Falha na OpenAI Images (tentativa ${tentativa + 1}/${maxRetries + 1}):`, error.message);
-
+      console.warn(`[Ofertas] Falha ao gerar arte integral (tentativa ${tentativa + 1}/${maxRetries + 1}):`, error.message);
       if (!retryable || ultimaTentativa) break;
-      const esperaMs = Math.min(15000, 2000 * (2 ** tentativa));
-      await sleep(esperaMs);
+      await sleep(Math.min(15000, 2000 * (2 ** tentativa)));
     }
   }
 
-  // A arte não deve falhar por indisponibilidade temporária da OpenAI.
-  // O serviço de composição detecta null e usa um fundo local seguro.
-  console.error('[Ofertas] OpenAI indisponível após as tentativas. Usando fundo local:', ultimoErro?.message);
-
-  if (String(process.env.OPENAI_IMAGE_STRICT || '').toLowerCase() === 'true') {
-    throw ultimoErro;
-  }
-
-  return null;
+  throw ultimoErro || new Error('Não foi possível gerar a arte integral pela IA.');
 }
 
-module.exports = { gerarCenarioVertical };
+module.exports = { gerarArteCompleta };
