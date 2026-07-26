@@ -2,7 +2,7 @@ const sharp = require('sharp');
 
 const WIDTH = 1080;
 const HEIGHT = 1920;
-const MAX_ITENS = 12;
+const MAX_ITENS = 12; // quantidade máxima de peças visíveis na arte
 
 const TEMAS = {
   claro: {
@@ -263,8 +263,6 @@ function cardSvg(item, largura, altura, p) {
       </linearGradient>
     </defs>
     <rect x="10" y="10" width="${largura - 20}" height="${altura - 20}" rx="28" fill="url(#card)" stroke="url(#rim)" stroke-width="2" filter="url(#shadow)"/>
-    <rect x="${largura - 88}" y="24" width="64" height="46" rx="23" fill="${p.destaque}"/>
-    <text x="${largura - 56}" y="56" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" font-weight="900" fill="${p.botaoTexto}">${Number(item.quantidade || 0)}x</text>
     <rect x="27" y="${altura - 102}" width="${largura - 54}" height="78" rx="18" fill="${p.faixaNome}" fill-opacity="${p.faixaNomeOpacidade}"/>
     ${linhas}
   </svg>`);
@@ -302,12 +300,19 @@ async function gerarArte(oferta) {
   if (!Array.isArray(oferta.itens) || oferta.itens.length === 0) {
     throw new Error('A oferta não possui itens.');
   }
-  if (oferta.itens.length > MAX_ITENS) {
-    throw new Error(`A arte aceita no máximo ${MAX_ITENS} produtos diferentes.`);
+  const itensExpandidos = oferta.itens.flatMap(item =>
+    Array.from({ length: Math.max(0, Number.parseInt(item.quantidade, 10) || 0) }, () => ({
+      ...item,
+      quantidade: 1,
+    }))
+  );
+
+  if (itensExpandidos.length > MAX_ITENS) {
+    throw new Error(`A arte aceita no máximo ${MAX_ITENS} peças no total.`);
   }
 
   const paleta = resolverPaleta(oferta);
-  const total = oferta.itens.length;
+  const total = itensExpandidos.length;
   const { colunas, linhas } = layoutGrade(total);
   const margemX = 52;
   const gap = colunas === 3 ? 18 : 24;
@@ -325,7 +330,7 @@ async function gerarArte(oferta) {
 
   const falhas = [];
   for (let indice = 0; indice < total; indice += 1) {
-    const item = oferta.itens[indice];
+    const item = itensExpandidos[indice];
     const coluna = indice % colunas;
     const linha = Math.floor(indice / colunas);
     const left = margemX + coluna * (cardLargura + gap);

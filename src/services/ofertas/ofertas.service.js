@@ -99,7 +99,6 @@ async function criar(payload) {
   await schemaService.criarEstrutura();
   const itensEntrada = Array.isArray(payload.itens) ? payload.itens : [];
   if (!itensEntrada.length) throw new Error('Selecione ao menos um produto.');
-  if (itensEntrada.length > arteOfertaService.MAX_ITENS) throw new Error(`Selecione no máximo ${arteOfertaService.MAX_ITENS} produtos diferentes.`);
 
   const produtos = await produtoService.listar({ perfil:'kit-feirinha', apenasAtivos:true });
   const mapa = new Map(produtos.map(p => [String(p.id), p]));
@@ -111,6 +110,9 @@ async function criar(payload) {
     return { produto_id:Number(produto.id), nome:produto.nome, quantidade, preco_unitario:preco, foto_url:produto.foto || produto.fotos?.find(Boolean) || null };
   });
   const totalItens = itens.reduce((s,i)=>s+i.quantidade,0);
+  if (totalItens > arteOfertaService.MAX_ITENS) {
+    throw new Error(`Selecione no máximo ${arteOfertaService.MAX_ITENS} peças no total para a arte.`);
+  }
   const total = itens.reduce((s,i)=>s+i.preco_unitario*i.quantidade,0);
   const precoMedio = total/totalItens;
   const titulo = String(payload.titulo || 'Kit Feirinha Especial').trim().slice(0,160) || 'Kit Feirinha Especial';

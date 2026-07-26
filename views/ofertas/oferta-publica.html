@@ -74,7 +74,7 @@ async function carregar(){
         ${oferta.itens.map(i=>`<div class="item">
           <div>
             <b>${escapeHtml(i.nome)}</b>
-            <small>UNIT: ${brl(i.preco_unitario)} · SUBTOTAL: ${brl(Number(i.preco_unitario)*Number(i.quantidade))}</small>
+            <small>UNIT: ${brl(oferta.preco_medio)} · SUBTOTAL: ${brl(Number(oferta.preco_medio)*Number(i.quantidade))}</small>
           </div>
           <span class="qtd-item">QTD: ${i.quantidade}</span>
         </div>`).join('')}
