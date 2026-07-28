@@ -112,9 +112,10 @@ function recalcular(){
 }
 
 function montarRelatorioWhatsApp(quantidadeKits){
+  const precoMedio=Number(oferta.preco_medio);
   const itens=oferta.itens.map(item=>{
     const quantidade=Number(item.quantidade)*quantidadeKits;
-    const unitario=Number(item.preco_unitario);
+    const unitario=precoMedio;
     const subtotal=unitario*quantidade;
     return `• ${String(item.nome||'').toUpperCase()} | QTD: ${quantidade}\n  UNIT: ${brl(unitario)}\n  SUBTOTAL: ${brl(subtotal)}`;
   });
