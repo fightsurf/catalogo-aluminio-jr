@@ -749,13 +749,19 @@
     function rotuloMelhorDia(melhorDia) {
       if (!melhorDia) return '-';
       const semana = diaSemana(melhorDia.data, false);
-      return semana ? `${melhorDia.rotulo} (${semana})` : melhorDia.rotulo;
+      const data = semana ? `${melhorDia.rotulo} (${semana})` : melhorDia.rotulo;
+      return `${data} — ${formatarMoeda(melhorDia.valor)}`;
     }
 
-    function preencherResumo(elemento, serie) {
+    function preencherResumo(elemento, serie, exibirTotalHoje = false) {
       const melhorDia = serie?.melhor_dia || null;
+      const totalHoje = exibirTotalHoje
+        ? `<span><strong>${formatarMoeda(serie?.total_vendido_hoje)}</strong>Total vendido hoje</span>`
+        : '';
+
       elemento.innerHTML = `
         <span><strong>${formatarMoeda(serie?.total)}</strong>Total vendido</span>
+        ${totalHoje}
         <span><strong>${Number(serie?.quantidade_pedidos || 0)}</strong>Pedidos</span>
         <span><strong>${rotuloMelhorDia(melhorDia)}</strong>Melhor dia</span>
       `;
@@ -769,7 +775,7 @@
       document.getElementById('tituloAtual').textContent = `Mês atual: ${data.atual.descricao}`;
       document.getElementById('tituloAnterior').textContent = `Mês anterior: ${data.anterior.descricao}`;
 
-      preencherResumo(document.getElementById('resumoAtual'), data.atual);
+      preencherResumo(document.getElementById('resumoAtual'), data.atual, true);
       preencherResumo(document.getElementById('resumoAnterior'), data.anterior);
 
       desenharGrafico(document.getElementById('graficoVendas'), data.atual, data.anterior);
