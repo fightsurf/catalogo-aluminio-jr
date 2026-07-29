@@ -233,6 +233,14 @@
     .pedido-link:hover {
       text-decoration: underline;
     }
+    .cliente-link {
+      color: inherit;
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .cliente-link:hover {
+      text-decoration: underline;
+    }
     .pedido-meta {
       font-size: 10px;
       color: var(--muted);
@@ -977,12 +985,17 @@
           `;
         }).join('');
 
+        const nomeCliente = escapeHtml(pedido.cliente?.nome || '-');
+        const nomeClienteHtml = pedido.cliente?.favorecido
+          ? `<a class="cliente-link" href="/legado/pedidos-cliente?favorecido=${encodeURIComponent(pedido.cliente.favorecido)}" target="_blank" rel="noopener noreferrer">${nomeCliente}</a>`
+          : nomeCliente;
+
         return `
           <tr>
             <td class="sticky-col">
               <div class="pedido-title"><a class="pedido-link" href="/legado/pedidos?numero=${encodeURIComponent(pedido.numero)}" target="_blank" rel="noopener noreferrer">Pedido ${escapeHtml(pedido.numero)}</a></div>
               <div class="pedido-meta">
-                ${escapeHtml(pedido.cliente?.nome || '-')}<br>
+                ${nomeClienteHtml}<br>
                 ${pedido.cliente?.cidade ? escapeHtml(pedido.cliente.cidade) + (pedido.cliente?.uf ? ' - ' + escapeHtml(pedido.cliente.uf) : '') + '<br>' : ''}
                 Data: ${escapeHtml(formatarData(pedido.data) || '-')}<br>
                 Valor: ${escapeHtml(formatarMoeda(pedido.total))}
