@@ -3,6 +3,7 @@ const envioWhatsappService = require('../../whatsapp/envio-whatsapp.service');
 const pedidoPdfService = require('./pedidoPdf.service');
 const prestacaoContasService = require('../../prestacao_contas/prestacao_contas.service');
 const clientesCreditosService = require('../clientes-creditos/clientes-creditos.service');
+const volumeService = require('../../volume/volume.service');
 
 function limparTexto(valor) {
   if (typeof valor !== 'string') {
@@ -158,6 +159,7 @@ function normalizarPedido(item) {
     saida: item.saida ?? item.SAIDA ?? item.idMestre ?? item.IDMESTRE ?? item.idmestre ?? null,
     pdv: item.pdv ?? item.PDV ?? 0,
     obs: item.obs ?? item.OBS ?? '',
+    volumes: Number(item.volumes ?? item.VOLUMES ?? 0),
     carradaAtual: normalizarCarrada(item.carradaAtual ?? item.CARRADA_ATUAL ?? null),
     vendedor: {
       favorecido:
@@ -444,6 +446,44 @@ async function alterarCarradaPedido(idMestre, codigoCarrada) {
   };
 }
 
+async function calcularESalvarVolumesPedido(idMestre) {
+  const pedido = await buscarDetalhePedido(idMestre);
+
+  if (!pedido) {
+    throw new Error('Pedido não encontrado.');
+  }
+
+  if (!Array.isArray(pedido.itens) || !pedido.itens.length) {
+    throw new Error('O pedido não possui itens para calcular volumes.');
+  }
+
+  const calculo = await volumeService.calcular({
+    itens: pedido.itens.map((item) => ({
+      item: item.item,
+      nome: item.descricao,
+      quantidade: Number(item.quantidade || 0)
+    }))
+  });
+
+  const response = await legadoBridgeService.put(
+    `/api/legado/pedidos/${idMestre}/volumes`,
+    { volumes: calculo.total_volumes }
+  );
+
+  const salvo = response?.data || {};
+  const volumes = Number(salvo?.volumes ?? calculo.total_volumes ?? 0);
+
+  return {
+    idMestre: salvo?.idMestre ?? pedido.idMestre,
+    saida: salvo?.saida ?? pedido.saida,
+    numero: salvo?.numero ?? pedido.numero,
+    volumes,
+    totalVolumes: volumes,
+    itens: calculo.itens
+  };
+}
+
+
 async function atualizarPedido(idMestre, payload = {}) {
   const response = await legadoBridgeService.put(
     `/api/legado/pedidos/${idMestre}`,
@@ -569,6 +609,7 @@ module.exports = {
   buscarDetalhePedido,
   listarCarradasDisponiveis,
   alterarCarradaPedido,
+  calcularESalvarVolumesPedido,
   atualizarPedido,
   particionarPedido,
   enviarPdfWhatsappPedido

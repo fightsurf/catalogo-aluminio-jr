@@ -48,6 +48,9 @@
     .footer-pedido { margin-top: 18px; display: flex; flex-direction: column; gap: 12px; align-items: stretch; }
     .footer-pedido-top { display: grid; grid-template-columns: 10cm 1fr 180px; gap: 12px; align-items: end; }
     .footer-pedido-bottom { display: grid; grid-template-columns: 1fr 140px; gap: 12px; align-items: end; }
+    .volume-acoes { display: grid; grid-template-columns: minmax(80px, 1fr) auto; gap: 8px; align-items: stretch; }
+    .volume-acoes button { white-space: nowrap; }
+    .volume-acoes input[readonly] { background: #f9fafb; }
     .footer-pedido textarea { width: 10cm; min-width: 10cm; max-width: 10cm; min-height: 2cm; height: 2cm; resize: vertical; }
     .total-box { background: #111827; color: #fff; border-radius: 10px; padding: 16px; }
     .total-box small { display: block; opacity: 0.8; margin-bottom: 6px; }
@@ -125,7 +128,10 @@
             </div>
             <div>
               <label class="rotulo-pequeno" for="volumesPedido">Volumes</label>
-              <input id="volumesPedido" class="campo" type="number" min="0" step="1" value="0" />
+              <div class="volume-acoes">
+                <input id="volumesPedido" class="campo" type="number" min="0" step="1" value="0" readonly />
+                <button id="btnCalcularVolumes" class="secundario" type="button">Calcular volumes</button>
+              </div>
             </div>
           </div>
         </div>
@@ -162,6 +168,7 @@
     const vendedorPedido = document.getElementById('vendedorPedido');
     const carradaPedido = document.getElementById('carradaPedido');
     const volumesPedido = document.getElementById('volumesPedido');
+    const btnCalcularVolumes = document.getElementById('btnCalcularVolumes');
     const totalPedido = document.getElementById('totalPedido');
     const btnNovoPedido = document.getElementById('btnNovoPedido');
     const btnSalvarPedido = document.getElementById('btnSalvarPedido');
@@ -631,6 +638,44 @@
       atualizarTotal();
     }
 
+    async function calcularVolumesPedido() {
+      if (!itensPedido.length) {
+        setMensagem('Adicione ao menos 1 produto antes de calcular os volumes.', true);
+        return;
+      }
+
+      const textoOriginal = btnCalcularVolumes.textContent;
+
+      try {
+        btnCalcularVolumes.disabled = true;
+        btnCalcularVolumes.textContent = 'Calculando...';
+        setMensagem('Calculando a quantidade de volumes...');
+
+        const response = await fetch('/api/volume/calcular', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            itens: itensPedido.map((item) => ({
+              produto_id: Number(item.produto_id),
+              nome: item.nome || '',
+              quantidade: Number(item.quantidade || 0)
+            }))
+          })
+        });
+
+        const json = await lerJson(response);
+        const volumes = Number(json?.total_volumes || 0);
+        volumesPedido.value = String(volumes);
+        setMensagem(`Quantidade de volumes calculada: ${volumes}. O valor será salvo junto com o pedido.`);
+      } catch (error) {
+        setMensagem(error.message || 'Erro ao calcular a quantidade de volumes.', true);
+      } finally {
+        btnCalcularVolumes.disabled = false;
+        btnCalcularVolumes.textContent = textoOriginal;
+      }
+    }
+
+
     function montarPayload() {
       return {
         data: new Date().toISOString().slice(0, 10),
@@ -739,7 +784,7 @@
           <strong>Pedido gravado com sucesso.</strong><br>
           Número: ${pedido?.numero || '-'}<br>
           Saída: ${pedido?.saida || '-'}<br>
-          Total: ${formatarMoeda(pedido?.total || calcularTotal())}${json?.carrada ? `<br>Carrada: ${formatarRotuloCarrada(json.carrada)}` : ''}
+          Total: ${formatarMoeda(pedido?.total || calcularTotal())}<br>Volumes: ${Number(pedido?.volumes ?? volumesPedido.value ?? 0)}${json?.carrada ? `<br>Carrada: ${formatarRotuloCarrada(json.carrada)}` : ''}
         `;
         resultadoSucesso.style.display = 'block';
         setMensagem('Pedido salvo com sucesso.');
@@ -919,6 +964,7 @@
       }
     }
 
+    btnCalcularVolumes.addEventListener('click', calcularVolumesPedido);
     btnSalvarPedido.addEventListener('click', salvarPedido);
     btnNovoPedido.addEventListener('click', limparPedidoCompleto);
     btnImprimirRelatorio.addEventListener('click', () => abrirRelatorio('normal'));

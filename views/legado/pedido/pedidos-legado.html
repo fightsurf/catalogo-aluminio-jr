@@ -519,6 +519,7 @@
 
       <div class="acoes-pedido">
         <button id="btnEditarPedido" class="btn btn-primary oculto">Editar pedido</button>
+        <button id="btnCalcularVolumes" class="btn btn-primary oculto">Calcular volumes</button>
         <button id="btnParticionarPedido" class="btn btn-primary oculto">Particionar pedido</button>
         <button id="btnCancelarEdicao" class="btn btn-secondary oculto">Cancelar edição</button>
         <button id="btnSalvarAlteracoes" class="btn btn-primary oculto">Salvar alterações</button>
@@ -600,6 +601,7 @@
     const blocoItens = document.getElementById('blocoItens');
 
     const btnEditarPedido = document.getElementById('btnEditarPedido');
+    const btnCalcularVolumes = document.getElementById('btnCalcularVolumes');
     const btnParticionarPedido = document.getElementById('btnParticionarPedido');
     const btnCancelarEdicao = document.getElementById('btnCancelarEdicao');
     const btnSalvarAlteracoes = document.getElementById('btnSalvarAlteracoes');
@@ -748,6 +750,7 @@
     function atualizarVisibilidadeAcoes() {
       const haPedido = !!pedidoCarregado;
       btnEditarPedido.classList.toggle('oculto', !haPedido || modoEdicao);
+      btnCalcularVolumes.classList.toggle('oculto', !haPedido || modoEdicao);
       btnParticionarPedido.classList.toggle('oculto', !haPedido || modoEdicao);
       btnCancelarEdicao.classList.add('oculto');
       btnSalvarAlteracoes.classList.add('oculto');
@@ -1060,6 +1063,7 @@
             <div class="cliente-linha"><strong>Total:</strong> ${moeda(pedido?.total || 0)}</div>
             <div class="cliente-linha"><strong>Total pago:</strong> ${moeda(pedido?.totalPago || 0)}</div>
             <div class="cliente-linha"><strong>Saldo restante:</strong> ${moeda(pedido?.saldoRestante || 0)}</div>
+            <div class="cliente-linha"><strong>Quantidade de volumes:</strong> ${Number(pedido?.volumes || 0)}</div>
           </div>
 
           <div class="cliente-linha"><strong>Observação:</strong> ${pedido?.obs ? pedido.obs : '-'}</div>
@@ -1840,7 +1844,7 @@
         <div class="resultado-item" data-index="${index}">
           <div class="resultado-principal">Pedido ${pedido?.numero || '-'} · ${pedido?.cliente?.nome || '-'}</div>
           <div class="resultado-secundario">Data: ${formatarData(pedido?.data)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)}</div>
-          <div class="resultado-secundario">Total pago: ${moeda(pedido?.totalPago || 0)} · Restante a pagar: ${moeda(pedido?.saldoRestante || 0)}</div>
+          <div class="resultado-secundario">Total pago: ${moeda(pedido?.totalPago || 0)} · Restante a pagar: ${moeda(pedido?.saldoRestante || 0)} · Volumes: ${Number(pedido?.volumes || 0)}</div>
         </div>
       `).join('');
 
@@ -1864,7 +1868,7 @@
         <div class="resultado-item ativo" data-index="${index}">
           <div class="resultado-principal">Pedido ${pedido?.numero || '-'} · ${pedido?.cliente?.nome || '-'}</div>
           <div class="resultado-secundario">Data: ${formatarData(pedido?.data)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)}</div>
-          <div class="resultado-secundario">Total pago: ${moeda(pedido?.totalPago || 0)} · Restante a pagar: ${moeda(pedido?.saldoRestante || 0)}</div>
+          <div class="resultado-secundario">Total pago: ${moeda(pedido?.totalPago || 0)} · Restante a pagar: ${moeda(pedido?.saldoRestante || 0)} · Volumes: ${Number(pedido?.volumes || 0)}</div>
         </div>
       `).join('');
     }
@@ -1876,6 +1880,42 @@
       btnEnviarWhatsapp.disabled = !normalizarTelefone(pedidoCarregado?.cliente?.telefonePrincipal || pedidoCarregado?.cliente?.telefone1 || '');
       btnEnviarPdfWhatsapp.disabled = btnEnviarWhatsapp.disabled;
     }
+
+    async function calcularVolumesPedido() {
+      if (!pedidoCarregado?.idMestre) {
+        setMensagem('Nenhum pedido carregado para calcular volumes.', true);
+        return;
+      }
+
+      const textoOriginal = btnCalcularVolumes.textContent;
+
+      try {
+        btnCalcularVolumes.disabled = true;
+        btnCalcularVolumes.textContent = 'Calculando...';
+        setMensagem('Calculando a quantidade de volumes...');
+
+        const json = await fetchJson(`/api/legado/pedidos/${pedidoCarregado.idMestre}/calcular-volumes`, {
+          method: 'POST'
+        });
+
+        const volumes = Number(json?.data?.volumes ?? json?.data?.totalVolumes ?? 0);
+        pedidoCarregado.volumes = volumes;
+        pedidosEncontrados = pedidosEncontrados.map((pedido) => (
+          String(pedido?.idMestre || '') === String(pedidoCarregado?.idMestre || '')
+            ? { ...pedido, volumes }
+            : pedido
+        ));
+
+        renderizarPedidoCompleto();
+        setMensagem(`Quantidade de volumes calculada e salva: ${volumes}.`);
+      } catch (error) {
+        setMensagem(error.message || 'Erro ao calcular a quantidade de volumes.', true);
+      } finally {
+        btnCalcularVolumes.disabled = false;
+        btnCalcularVolumes.textContent = textoOriginal;
+      }
+    }
+
 
     async function entrarModoEdicao() {
       if (!pedidoCarregado) {
@@ -1977,6 +2017,7 @@
         vendedor: pedidoBase?.vendedor || {},
         obs: pedidoBase?.obs || '',
         total: Number(pedidoBase?.total || 0),
+        volumes: Number(pedidoBase?.volumes || 0),
         totalPago: Number(pedidoBase?.totalPago || 0),
         saldoRestante: Number(pedidoBase?.saldoRestante || 0),
         empresa: pedidoBase?.empresa ?? -1,
@@ -2172,6 +2213,7 @@
 
     btnPesquisar.addEventListener('click', () => pesquisarPedidos());
     btnEditarPedido.addEventListener('click', entrarModoEdicao);
+    btnCalcularVolumes.addEventListener('click', calcularVolumesPedido);
     btnParticionarPedido.addEventListener('click', abrirModalParticao);
     btnFecharParticao.addEventListener('click', fecharModalParticao);
     btnCancelarParticao.addEventListener('click', fecharModalParticao);

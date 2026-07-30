@@ -126,6 +126,34 @@ async function alterarCarradaPedido(req, res) {
   }
 }
 
+async function calcularVolumesPedido(req, res) {
+  try {
+    const { idMestre } = req.params;
+
+    if (!idMestre) {
+      return res.status(400).json({
+        success: false,
+        message: 'Informe o id do pedido.'
+      });
+    }
+
+    const data = await pedidosLegadoService.calcularESalvarVolumesPedido(idMestre);
+
+    return res.json({
+      success: true,
+      message: 'Quantidade de volumes calculada e salva com sucesso.',
+      data
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message || 'Erro ao calcular a quantidade de volumes.',
+      error: error.message
+    });
+  }
+}
+
+
 async function atualizarPedido(req, res) {
   try {
     const { idMestre } = req.params;
@@ -212,6 +240,7 @@ module.exports = {
   buscarItensPedido,
   listarCarradasDisponiveis,
   alterarCarradaPedido,
+  calcularVolumesPedido,
   atualizarPedido,
   particionarPedido,
   enviarPdfWhatsappPedido

@@ -45,15 +45,50 @@ function extrairItens(texto) {
 // ===============================
 // BUSCA PRODUTO
 // ===============================
-async function buscarProduto(nome) {
+async function buscarProduto(item = {}) {
+  const produtoId = Number(item?.produto_id ?? item?.produtoId ?? 0);
+  const itemLegado = Number(item?.item ?? item?.item_legado ?? item?.itemLegado ?? 0);
+  const nome = String(item?.nome ?? item?.descricao ?? '').trim();
+
+  if (Number.isInteger(produtoId) && produtoId > 0) {
+    const result = await pool.query(
+      `
+        SELECT id, nome, capacidade_caixa, item_legado
+        FROM produtos
+        WHERE id = $1
+        LIMIT 1
+      `,
+      [produtoId]
+    );
+
+    if (result.rows[0]) return result.rows[0];
+  }
+
+  if (Number.isInteger(itemLegado) && itemLegado > 0) {
+    const result = await pool.query(
+      `
+        SELECT id, nome, capacidade_caixa, item_legado
+        FROM produtos
+        WHERE item_legado = $1
+        LIMIT 1
+      `,
+      [itemLegado]
+    );
+
+    if (result.rows[0]) return result.rows[0];
+  }
+
+  if (!nome) return null;
+
   const result = await pool.query(
     `
-    SELECT nome, capacidade_caixa
-    FROM produtos
-    WHERE nome ILIKE $1
-    LIMIT 1
+      SELECT id, nome, capacidade_caixa, item_legado
+      FROM produtos
+      WHERE nome ILIKE $1
+      ORDER BY CASE WHEN LOWER(nome) = LOWER($2) THEN 0 ELSE 1 END, nome
+      LIMIT 1
     `,
-    [`%${nome}%`]
+    [`%${nome}%`, nome]
   );
 
   return result.rows[0] || null;
@@ -81,10 +116,10 @@ async function calcular({ texto, itens, multiplicador = 1 }) {
   let somaVolumes = 0;
 
   for (const item of listaItens) {
-    const produto = await buscarProduto(item.nome);
+    const produto = await buscarProduto(item);
 
     if (!produto) {
-      naoEncontrados.push(item.nome);
+      naoEncontrados.push(item.nome || item.descricao || `ITEM ${item.item || item.item_legado || '?'}`);
       continue;
     }
 
