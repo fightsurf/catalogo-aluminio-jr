@@ -8,7 +8,8 @@ async function listar(req,res){ try { res.json({success:true,data:await ofertasS
 async function criar(req,res){ try { res.status(201).json({success:true,data:await ofertasService.criar(req.body)}); } catch(e){ erro(res,e); } }
 async function gerarArte(req,res){ try { res.json({success:true,data:await ofertasService.gerarArte(req.params.id)}); } catch(e){ erro(res,e,502); } }
 async function publicar(req,res){ try { const base=`${req.protocol}://${req.get('host')}`; res.json({success:true,data:await ofertasService.publicar(req.params.id,base)}); } catch(e){ erro(res,e,502); } }
+async function enviarWhatsapp(req,res){ try { const base=`${req.protocol}://${req.get('host')}`; res.json({success:true,data:await ofertasService.enviarWhatsapp(req.params.id,req.body?.telefone,base)}); } catch(e){ const status=/não informado|inválido|Gere a arte/i.test(e.message)?400:502; erro(res,e,status); } }
 async function duplicar(req,res){ try { res.status(201).json({success:true,data:await ofertasService.duplicar(req.params.id)}); } catch(e){ erro(res,e); } }
 async function publica(req,res){ try { res.json({success:true,data:await ofertasService.buscarPorCodigo(req.params.codigo,true)}); } catch(e){ erro(res,e,404); } }
 async function clique(req,res){ try { res.json({success:true,data:await ofertasService.registrarClique(req.params.codigo)}); } catch(e){ erro(res,e,404); } }
-module.exports={produtos,listar,criar,gerarArte,publicar,duplicar,publica,clique};
+module.exports={produtos,listar,criar,gerarArte,publicar,enviarWhatsapp,duplicar,publica,clique};

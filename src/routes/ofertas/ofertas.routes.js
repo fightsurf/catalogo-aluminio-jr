@@ -9,5 +9,6 @@ router.get('/', requireAuth, controller.listar);
 router.post('/', requireAuth, controller.criar);
 router.post('/:id/gerar-arte', requireAuth, controller.gerarArte);
 router.post('/:id/publicar', requireAuth, controller.publicar);
+router.post('/:id/enviar-whatsapp', requireAuth, controller.enviarWhatsapp);
 router.post('/:id/duplicar', requireAuth, controller.duplicar);
 module.exports = router;
