@@ -624,6 +624,7 @@
 
     let pedidoCarregado = null;
     let pedidosEncontrados = [];
+    let calculoVolumesItens = [];
     let vendedoresCache = [];
     let carradasCache = [];
     let itensEdicao = [];
@@ -782,6 +783,7 @@
 
     function limparCliente() {
       pedidoCarregado = null;
+      calculoVolumesItens = [];
       modoEdicao = false;
       vendedorEdicao = '';
       codigoCarradaEdicao = '';
@@ -1515,6 +1517,18 @@
       renderizarResultadosBuscaProduto();
     }
 
+    function formatarVolumeCalculadoItem(valor) {
+      if (typeof valor === 'number' && Number.isFinite(valor)) {
+        return valor.toLocaleString('pt-BR', {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2
+        });
+      }
+
+      const texto = String(valor ?? '').trim();
+      return texto || '-';
+    }
+
     function renderizarItens(pedido) {
       if (!pedido) {
         blocoItens.innerHTML = '<div class="sem-itens">Nenhum item carregado.</div>';
@@ -1528,6 +1542,7 @@
           return;
         }
 
+        const exibirCalculoVolumes = Array.isArray(calculoVolumesItens) && calculoVolumesItens.length > 0;
         const totalQuantidade = itens.reduce((acc, item) => acc + Number(item.quantidade || 0), 0);
         const totalSubtotal = itens.reduce((acc, item) => acc + Number(item.subtotal || 0), 0);
 
@@ -1541,27 +1556,47 @@
                   <th class="right">Quantidade</th>
                   <th class="right">Preço</th>
                   <th class="right">Subtotal</th>
+                  ${exibirCalculoVolumes ? `
+                    <th class="right">Capacidade da caixa</th>
+                    <th class="right">Volumes do item</th>
+                  ` : ''}
                 </tr>
               </thead>
               <tbody>
-                ${itens.map((item) => `
-                  <tr>
-                    <td>${item.item || '-'}</td>
-                    <td>${item.descricao || '-'}</td>
-                    <td class="right">${numero(item.quantidade)}</td>
-                    <td class="right">${moeda(item.preco)}</td>
-                    <td class="right">${moeda(item.subtotal)}</td>
-                  </tr>
-                `).join('')}
+                ${itens.map((item, index) => {
+                  const calculoItem = calculoVolumesItens[index] || null;
+                  return `
+                    <tr>
+                      <td>${item.item || '-'}</td>
+                      <td>${item.descricao || '-'}</td>
+                      <td class="right">${numero(item.quantidade)}</td>
+                      <td class="right">${moeda(item.preco)}</td>
+                      <td class="right">${moeda(item.subtotal)}</td>
+                      ${exibirCalculoVolumes ? `
+                        <td class="right">${calculoItem ? numero(calculoItem.capacidade_caixa) : '-'}</td>
+                        <td class="right"><strong>${calculoItem ? formatarVolumeCalculadoItem(calculoItem.volumes) : '-'}</strong></td>
+                      ` : ''}
+                    </tr>
+                  `;
+                }).join('')}
                 <tr style="background:#000; color:#fff; font-weight:bold;">
                   <td colspan="2">Total</td>
                   <td class="right">${numero(totalQuantidade)}</td>
                   <td></td>
                   <td class="right">${moeda(totalSubtotal)}</td>
+                  ${exibirCalculoVolumes ? `
+                    <td></td>
+                    <td class="right">${Number(pedido?.volumes || 0)}</td>
+                  ` : ''}
                 </tr>
               </tbody>
             </table>
           </div>
+          ${exibirCalculoVolumes ? `
+            <div class="texto-ajuda" style="margin-top:10px;">
+              Os volumes de cada item são exibidos com duas casas decimais. O total do pedido é a soma dos itens arredondada para cima.
+            </div>
+          ` : ''}
         `;
         return;
       }
@@ -1803,6 +1838,7 @@
         }
 
         pedidoCarregado = original;
+        calculoVolumesItens = [];
         pedidosEncontrados = [original, novo];
         modoEdicao = false;
         fecharModalParticao(true);
@@ -1899,6 +1935,7 @@
         });
 
         const volumes = Number(json?.data?.volumes ?? json?.data?.totalVolumes ?? 0);
+        calculoVolumesItens = Array.isArray(json?.data?.itens) ? json.data.itens : [];
         pedidoCarregado.volumes = volumes;
         pedidosEncontrados = pedidosEncontrados.map((pedido) => (
           String(pedido?.idMestre || '') === String(pedidoCarregado?.idMestre || '')
@@ -1907,7 +1944,7 @@
         ));
 
         renderizarPedidoCompleto();
-        setMensagem(`Quantidade de volumes calculada e salva: ${volumes}.`);
+        setMensagem(`Quantidade de volumes calculada e salva: ${volumes}. O detalhamento por item foi exibido na tabela.`);
       } catch (error) {
         setMensagem(error.message || 'Erro ao calcular a quantidade de volumes.', true);
       } finally {
@@ -1928,6 +1965,7 @@
         await Promise.all([carregarVendedores(), carregarCarradasDisponiveis()]);
 
         modoEdicao = true;
+        calculoVolumesItens = [];
         vendedorEdicao = String(pedidoCarregado?.vendedor?.favorecido || '');
         codigoCarradaEdicao = String(pedidoCarregado?.carradaAtual?.codigo || '');
         observacaoEdicao = pedidoCarregado?.obs || '';
@@ -2009,6 +2047,7 @@
     async function carregarPedidoSelecionado(pedidoBase) {
       const jsonItens = await fetchJson(`/api/legado/pedidos/${pedidoBase.idMestre}/itens`);
 
+      calculoVolumesItens = [];
       pedidoCarregado = {
         idMestre: pedidoBase?.idMestre || null,
         numero: pedidoBase?.numero || '',
@@ -2163,6 +2202,7 @@
 
         const totalPagoAtual = Number(pedidoCarregado?.totalPago || 0);
 
+        calculoVolumesItens = [];
         pedidoCarregado = {
           ...pedidoCarregado,
           ...pedidoAtualizado,
