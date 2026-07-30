@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Publicar produtos no Status do WhatsApp</title>
+  <title>Enviar produtos pelo WhatsApp</title>
   <link rel="stylesheet" href="/css/theme.css" />
   <style>
     body { padding: 24px 0 48px; }
@@ -35,7 +35,7 @@
     .flash.show { display: block; }
     .filters {
       display: grid;
-      grid-template-columns: minmax(260px, 1fr) 180px auto;
+      grid-template-columns: minmax(220px, .9fr) minmax(250px, 1fr) 180px auto;
       gap: 12px;
       align-items: end;
     }
@@ -152,8 +152,8 @@
   <main class="page">
     <div class="topbar">
       <div>
-        <h1>Publicar produtos no Status</h1>
-        <p class="subtitle">Escolha uma categoria. O sistema usa a foto 1 e publica a descrição do produto com o preço.</p>
+        <h1>Enviar produtos pelo WhatsApp</h1>
+        <p class="subtitle">Escolha uma categoria e informe o número destinatário. O sistema envia a foto 1, a descrição e o preço de cada produto.</p>
       </div>
       <div class="top-actions">
         <div id="connection" class="connection">
@@ -175,7 +175,11 @@
           </select>
         </div>
         <div>
-          <label for="intervalo">Intervalo entre Status</label>
+          <label for="telefone">Número do WhatsApp</label>
+          <input id="telefone" class="form-control" type="tel" inputmode="numeric" autocomplete="tel" placeholder="Ex.: 5583999999999" />
+        </div>
+        <div>
+          <label for="intervalo">Intervalo entre envios</label>
           <select id="intervalo" class="form-select">
             <option value="3">3 segundos</option>
             <option value="5" selected>5 segundos</option>
@@ -188,12 +192,12 @@
       </div>
 
       <div class="actions">
-        <button id="publicarBtn" type="button" class="btn btn-primary" disabled>Publicar categoria no Status</button>
+        <button id="publicarBtn" type="button" class="btn btn-primary" disabled>Enviar categoria para o WhatsApp</button>
         <button id="reenviarFalhasBtn" type="button" class="btn btn-outline" hidden>Reenviar falhas</button>
       </div>
 
       <p class="note">
-        Somente produtos ativos são considerados. Produtos sem foto 1, descrição ou preço válido serão mostrados, mas não serão publicados.
+        Informe o número com DDI e DDD. Somente produtos ativos são considerados; produtos sem foto 1, descrição ou preço válido serão mostrados, mas não serão enviados.
       </p>
     </section>
 
@@ -203,7 +207,7 @@
         <strong id="totalAtivos" class="summary-value">0</strong>
       </div>
       <div class="summary-item">
-        <span class="summary-label">Prontos para publicar</span>
+        <span class="summary-label">Prontos para enviar</span>
         <strong id="totalPublicaveis" class="summary-value">0</strong>
       </div>
       <div class="summary-item">
@@ -226,6 +230,7 @@
     const API_BASE = '/api/whatsapp/status';
 
     const categoriaEl = document.getElementById('categoria');
+    const telefoneEl = document.getElementById('telefone');
     const intervaloEl = document.getElementById('intervalo');
     const carregarBtn = document.getElementById('carregarBtn');
     const publicarBtn = document.getElementById('publicarBtn');
@@ -263,6 +268,10 @@
       return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     }
 
+    function normalizarTelefone(valor) {
+      return String(valor || '').replace(/\D+/g, '');
+    }
+
     function mostrarFlash(tipo, mensagem) {
       flash.className = `flash show ${tipo === 'erro' ? 'flash-error' : 'flash-success'}`;
       flash.textContent = mensagem;
@@ -287,20 +296,22 @@
 
     function textoEstado(produto) {
       if (!produto.publicavel) return produto.motivo || 'Produto ignorado.';
-      if (produto.estado === 'sending') return 'Publicando...';
-      if (produto.estado === 'success') return produto.repetida ? 'Já processado; não foi duplicado.' : 'Publicado com sucesso.';
-      if (produto.estado === 'error') return produto.erro || 'Falha na publicação.';
-      return 'Aguardando publicação.';
+      if (produto.estado === 'sending') return 'Enviando...';
+      if (produto.estado === 'success') return produto.repetida ? 'Já processado; não foi duplicado.' : 'Enviado com sucesso.';
+      if (produto.estado === 'error') return produto.erro || 'Falha no envio.';
+      return 'Aguardando envio.';
     }
 
     function atualizarBotoes() {
       const publicaveis = produtos.filter((produto) => produto.publicavel);
       const falhas = produtos.filter((produto) => produto.estado === 'error');
       const categoriaSelecionada = Boolean(categoriaEl.value);
+      const telefoneValido = normalizarTelefone(telefoneEl.value).length >= 10;
 
-      publicarBtn.disabled = processando || !categoriaSelecionada || publicaveis.length === 0;
+      publicarBtn.disabled = processando || !categoriaSelecionada || !telefoneValido || publicaveis.length === 0;
       carregarBtn.disabled = processando || !categoriaSelecionada;
       categoriaEl.disabled = processando;
+      telefoneEl.disabled = processando;
       intervaloEl.disabled = processando;
       reenviarFalhasBtn.hidden = falhas.length === 0;
       reenviarFalhasBtn.disabled = processando;
@@ -338,7 +349,7 @@
           ? `<img class="thumb" src="${escaparHtml(produto.foto)}" alt="Foto 1 de ${escaparHtml(produto.nome)}" loading="lazy" />`
           : '<div class="thumb-placeholder">Sem foto 1</div>';
         const badge = produto.publicavel
-          ? '<span class="badge ok">Será publicado</span>'
+          ? '<span class="badge ok">Será enviado</span>'
           : '<span class="badge skip">Ignorado</span>';
 
         return `
@@ -347,7 +358,7 @@
             <div>
               <div class="product-name">${index + 1}. ${escaparHtml(produto.nome)}</div>
               <div class="caption-preview">${escaparHtml(produto.nome)}<br>${escaparHtml(produto.preco_formatado || 'Preço inválido')}</div>
-              <div class="product-meta">Legenda enviada: descrição do produto + preço</div>
+              <div class="product-meta">Mensagem enviada: descrição do produto + preço</div>
               <div class="product-status">${escaparHtml(textoEstado(produto))}</div>
             </div>
             ${badge}
@@ -383,7 +394,7 @@
 
         connection.className = 'connection error';
         connectionText.textContent = data.connected ? 'Celular sem conexão' : 'WhatsApp desconectado';
-        if (!silencioso) mostrarFlash('erro', data.error || 'A instância da Z-API não está pronta para publicar.');
+        if (!silencioso) mostrarFlash('erro', data.error || 'A instância da Z-API não está pronta para enviar mensagens.');
         return false;
       } catch (error) {
         connection.className = 'connection error';
@@ -411,7 +422,7 @@
 
         categorias = Array.isArray(body.data) ? body.data : [];
         categoriaEl.innerHTML = '<option value="">Selecione uma categoria</option>' + categorias.map((categoria) => {
-          const complemento = `${categoria.total_publicaveis} publicáveis de ${categoria.total_ativos} ativos`;
+          const complemento = `${categoria.total_publicaveis} prontos de ${categoria.total_ativos} ativos`;
           return `<option value="${categoria.id}">${escaparHtml(categoria.nome)} — ${complemento}</option>`;
         }).join('');
       } catch (error) {
@@ -468,7 +479,7 @@
       }
     }
 
-    async function publicarProduto(produto, loteId) {
+    async function enviarProduto(produto, loteId, telefone) {
       produto.estado = 'sending';
       produto.erro = '';
       produto.repetida = false;
@@ -487,6 +498,7 @@
             requestId: produto.requestId,
             produtoId: produto.id,
             categoriaId: categoriaAtual.id,
+            telefone,
           }),
         });
         tratarSessao(response);
@@ -516,9 +528,17 @@
     async function processar(listaParaEnviar, confirmar = true) {
       if (processando || !listaParaEnviar.length || !categoriaAtual) return;
 
+      const telefone = normalizarTelefone(telefoneEl.value);
+      if (telefone.length < 10) {
+        mostrarFlash('erro', 'Informe o número do WhatsApp com DDI e DDD.');
+        telefoneEl.focus();
+        return;
+      }
+      telefoneEl.value = telefone;
+
       if (confirmar) {
         const confirmou = window.confirm(
-          `Publicar ${listaParaEnviar.length} produto(s) da categoria “${categoriaAtual.nome}” no Status do WhatsApp?`
+          `Enviar ${listaParaEnviar.length} produto(s) da categoria “${categoriaAtual.nome}” para o WhatsApp ${telefone}?`
         );
         if (!confirmou) return;
       }
@@ -533,7 +553,7 @@
       atualizarBotoes();
 
       const intervaloMs = Number(intervaloEl.value || 5) * 1000;
-      const loteId = `status-${criarId()}`;
+      const loteId = `whatsapp-${criarId()}`;
       let sucessos = 0;
       let falhas = 0;
 
@@ -541,10 +561,10 @@
         const produto = listaParaEnviar[index];
         if (!produto.requestId) produto.requestId = `${loteId}:${produto.id}`;
 
-        progressText.textContent = `Publicando ${index + 1} de ${listaParaEnviar.length}: ${produto.nome}`;
+        progressText.textContent = `Enviando ${index + 1} de ${listaParaEnviar.length}: ${produto.nome}`;
         progressFill.style.width = `${Math.round((index / listaParaEnviar.length) * 100)}%`;
 
-        const ok = await publicarProduto(produto, loteId);
+        const ok = await enviarProduto(produto, loteId, telefone);
         if (ok) sucessos += 1;
         else falhas += 1;
 
@@ -557,18 +577,19 @@
       }
 
       processando = false;
-      progressText.textContent = `Concluído: ${sucessos} publicados e ${falhas} com falha.`;
+      progressText.textContent = `Concluído: ${sucessos} enviados e ${falhas} com falha.`;
       atualizarBotoes();
       renderizarProdutos();
 
       if (falhas) {
         mostrarFlash('erro', `Processo concluído com ${falhas} falha(s). Use “Reenviar falhas”.`);
       } else {
-        mostrarFlash('sucesso', `Todos os ${sucessos} produtos foram enviados para o Status.`);
+        mostrarFlash('sucesso', `Todos os ${sucessos} produtos foram enviados para o WhatsApp ${telefone}.`);
       }
     }
 
     categoriaEl.addEventListener('change', carregarProdutos);
+    telefoneEl.addEventListener('input', atualizarBotoes);
     carregarBtn.addEventListener('click', carregarProdutos);
     publicarBtn.addEventListener('click', () => {
       const publicaveis = produtos.filter((produto) => produto.publicavel);

@@ -19,7 +19,7 @@ async function listarCategorias(req, res) {
     const data = await statusWhatsappService.listarCategorias();
     return res.status(200).json({ success: true, data });
   } catch (error) {
-    console.error('Erro ao listar categorias para o Status:', error);
+    console.error('Erro ao listar categorias para envio no WhatsApp:', error);
     return res.status(500).json({
       success: false,
       message: 'Não foi possível carregar as categorias.',
@@ -33,7 +33,7 @@ async function listarProdutos(req, res) {
     const data = await statusWhatsappService.listarProdutosPorCategoria(req.query.categoriaId);
     return res.status(200).json({ success: true, data });
   } catch (error) {
-    console.error('Erro ao listar produtos para o Status:', error);
+    console.error('Erro ao listar produtos para envio no WhatsApp:', error);
     return res.status(400).json({
       success: false,
       message: 'Não foi possível carregar os produtos da categoria.',
@@ -42,26 +42,27 @@ async function listarProdutos(req, res) {
   }
 }
 
-async function publicarProduto(req, res) {
+async function enviarProduto(req, res) {
   try {
-    const data = await statusWhatsappService.publicarProduto({
+    const data = await statusWhatsappService.enviarProduto({
       requestId: req.body.requestId,
       produtoId: req.body.produtoId,
       categoriaId: req.body.categoriaId,
+      telefone: req.body.telefone,
     });
 
     return res.status(200).json({
       success: true,
       message: data.repetida
-        ? 'Publicação já processada anteriormente.'
-        : 'Produto enviado para o Status.',
+        ? 'Envio já processado anteriormente.'
+        : 'Produto enviado para o WhatsApp.',
       data,
     });
   } catch (error) {
-    console.error('Erro ao publicar produto no Status:', error);
+    console.error('Erro ao enviar produto pelo WhatsApp:', error);
     return res.status(502).json({
       success: false,
-      message: 'Erro ao publicar o produto no Status.',
+      message: 'Erro ao enviar o produto pelo WhatsApp.',
       error: error.message,
     });
   }
@@ -71,5 +72,5 @@ module.exports = {
   verificarConexao,
   listarCategorias,
   listarProdutos,
-  publicarProduto,
+  enviarProduto,
 };

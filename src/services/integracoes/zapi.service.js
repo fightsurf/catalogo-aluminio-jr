@@ -293,7 +293,7 @@ async function verificarConexao() {
   };
 }
 
-function validarImagemStatus(imagem) {
+function validarImagem(imagem) {
   if (/^data:image\/(jpeg|jpg|png|webp);base64,/i.test(imagem)) {
     return;
   }
@@ -302,12 +302,43 @@ function validarImagemStatus(imagem) {
   try {
     url = new URL(imagem);
   } catch (_) {
-    throw new Error('Imagem do Status inválida. Informe uma URL HTTPS ou uma imagem Base64.');
+    throw new Error('Imagem inválida. Informe uma URL HTTP/HTTPS ou uma imagem Base64.');
   }
 
   if (!['http:', 'https:'].includes(url.protocol)) {
-    throw new Error('Imagem do Status inválida. A URL deve usar HTTP ou HTTPS.');
+    throw new Error('Imagem inválida. A URL deve usar HTTP ou HTTPS.');
   }
+}
+
+async function enviarImagem({ telefone, imagem, legenda }) {
+  const telefoneNormalizado = normalizarTelefone(telefone);
+  const imagemNormalizada = String(imagem || '').trim();
+  const legendaNormalizada = String(legenda || '').trim();
+
+  validarTelefone(telefoneNormalizado);
+
+  if (!imagemNormalizada) {
+    throw new Error('Imagem é obrigatória.');
+  }
+
+  validarImagem(imagemNormalizada);
+
+  const payload = {
+    phone: telefoneNormalizado,
+    image: imagemNormalizada
+  };
+
+  if (legendaNormalizada) {
+    payload.caption = legendaNormalizada;
+  }
+
+  const resultado = await postZapi('/send-image', payload);
+
+  return {
+    ...resultado,
+    telefone: telefoneNormalizado,
+    legenda: legendaNormalizada
+  };
 }
 
 async function enviarImagemStatus({ imagem, legenda }) {
@@ -318,7 +349,7 @@ async function enviarImagemStatus({ imagem, legenda }) {
     throw new Error('Imagem do Status é obrigatória.');
   }
 
-  validarImagemStatus(imagemNormalizada);
+  validarImagem(imagemNormalizada);
 
   const payload = {
     image: imagemNormalizada
@@ -412,6 +443,7 @@ module.exports = {
   normalizarTipoAcao,
   enviarTexto,
   enviarDocumentoPdf,
+  enviarImagem,
   enviarImagemStatus,
   verificarConexao,
   enviarAcao,

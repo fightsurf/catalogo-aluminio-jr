@@ -23,21 +23,35 @@ function normalizarRequestId(valor) {
   const requestId = limparTexto(valor);
 
   if (!requestId) {
-    throw new Error('Identificador da publicação não informado.');
+    throw new Error('Identificador do envio não informado.');
   }
 
   if (requestId.length > 120 || !/^[a-zA-Z0-9._:-]+$/.test(requestId)) {
-    throw new Error('Identificador da publicação inválido.');
+    throw new Error('Identificador do envio inválido.');
   }
 
   return requestId;
+}
+
+function normalizarTelefoneDestino(valor) {
+  const telefone = zapiService.normalizarTelefone(valor);
+
+  if (!telefone) {
+    throw new Error('Número do WhatsApp não informado.');
+  }
+
+  if (telefone.length < 10) {
+    throw new Error('Número do WhatsApp inválido. Informe com DDI e DDD.');
+  }
+
+  return telefone;
 }
 
 function formatarPreco(valor) {
   const numero = Number(valor);
 
   if (!Number.isFinite(numero) || numero <= 0) {
-    throw new Error('Produto sem preço válido para publicação.');
+    throw new Error('Produto sem preço válido para envio.');
   }
 
   return numero
@@ -54,7 +68,7 @@ function formatarLegendaProduto(nome, preco) {
   const descricao = limparTexto(nome);
 
   if (!descricao) {
-    throw new Error('Produto sem descrição válida para publicação.');
+    throw new Error('Produto sem descrição válida para envio.');
   }
 
   return `${descricao}\n${formatarPreco(preco)}`;
@@ -185,7 +199,7 @@ async function listarProdutosPorCategoria(categoriaId) {
   };
 }
 
-async function buscarProdutoParaPublicacao(produtoId, categoriaId) {
+async function buscarProdutoParaEnvio(produtoId, categoriaId) {
   await produtoFotosSchemaService.criarEstrutura();
 
   const result = await pool.query(`
@@ -221,12 +235,14 @@ async function buscarProdutoParaPublicacao(produtoId, categoriaId) {
   return produto;
 }
 
-async function publicarProduto({ requestId, produtoId, categoriaId }) {
+async function enviarProduto({ requestId, produtoId, categoriaId, telefone }) {
   const idRequisicao = normalizarRequestId(requestId);
   const idProduto = normalizarId(produtoId, 'Produto');
   const idCategoria = normalizarId(categoriaId, 'Categoria');
+  const telefoneDestino = normalizarTelefoneDestino(telefone);
+  const chaveRequisicao = `${idRequisicao}:${telefoneDestino}`;
 
-  const requisicaoExistente = requisicoesEmAndamento.get(idRequisicao);
+  const requisicaoExistente = requisicoesEmAndamento.get(chaveRequisicao);
   if (requisicaoExistente) {
     const resultadoExistente = await requisicaoExistente;
     return {
@@ -237,10 +253,11 @@ async function publicarProduto({ requestId, produtoId, categoriaId }) {
 
   const promessa = (async () => {
     // A conferência é feita novamente no servidor no momento exato do envio.
-    const produto = await buscarProdutoParaPublicacao(idProduto, idCategoria);
+    const produto = await buscarProdutoParaEnvio(idProduto, idCategoria);
     const legenda = formatarLegendaProduto(produto.nome, produto.preco);
 
-    const resultado = await zapiService.enviarImagemStatus({
+    const resultado = await zapiService.enviarImagem({
+      telefone: telefoneDestino,
       imagem: produto.foto,
       legenda,
     });
@@ -248,6 +265,7 @@ async function publicarProduto({ requestId, produtoId, categoriaId }) {
     return {
       success: true,
       requestId: idRequisicao,
+      telefone: telefoneDestino,
       produto: {
         id: produto.id,
         nome: produto.nome,
@@ -263,14 +281,14 @@ async function publicarProduto({ requestId, produtoId, categoriaId }) {
     };
   })();
 
-  requisicoesEmAndamento.set(idRequisicao, promessa);
+  requisicoesEmAndamento.set(chaveRequisicao, promessa);
 
   try {
     const resultado = await promessa;
-    removerDoCacheDepois(idRequisicao);
+    removerDoCacheDepois(chaveRequisicao);
     return resultado;
   } catch (error) {
-    requisicoesEmAndamento.delete(idRequisicao);
+    requisicoesEmAndamento.delete(chaveRequisicao);
     throw error;
   }
 }
@@ -279,5 +297,5 @@ module.exports = {
   verificarConexao,
   listarCategorias,
   listarProdutosPorCategoria,
-  publicarProduto,
+  enviarProduto,
 };
