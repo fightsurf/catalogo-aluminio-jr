@@ -153,7 +153,7 @@
     <div class="topbar">
       <div>
         <h1>Enviar produtos pelo WhatsApp</h1>
-        <p class="subtitle">Escolha uma categoria e informe o número destinatário. O sistema envia a foto 1, a descrição e o preço de cada produto.</p>
+        <p class="subtitle">Escolha uma categoria e envie os produtos para o WhatsApp de um cliente ou publique-os no Status do WhatsApp.</p>
       </div>
       <div class="top-actions">
         <div id="connection" class="connection">
@@ -175,7 +175,7 @@
           </select>
         </div>
         <div>
-          <label for="telefone">Número do WhatsApp</label>
+          <label for="telefone">Número do cliente (envio direto)</label>
           <input id="telefone" class="form-control" type="tel" inputmode="numeric" autocomplete="tel" placeholder="Ex.: 5583999999999" />
         </div>
         <div>
@@ -192,12 +192,13 @@
       </div>
 
       <div class="actions">
-        <button id="publicarBtn" type="button" class="btn btn-primary" disabled>Enviar categoria para o WhatsApp</button>
+        <button id="enviarClienteBtn" type="button" class="btn btn-primary" disabled>Enviar categoria para o WhatsApp do cliente</button>
+        <button id="publicarStatusBtn" type="button" class="btn btn-outline" disabled>Publicar categoria no Status do WhatsApp</button>
         <button id="reenviarFalhasBtn" type="button" class="btn btn-outline" hidden>Reenviar falhas</button>
       </div>
 
       <p class="note">
-        Informe o número com DDI e DDD. Somente produtos ativos são considerados; produtos sem foto 1, descrição ou preço válido serão mostrados, mas não serão enviados.
+        Para o envio ao cliente, informe o número com DDI e DDD. A publicação no Status não usa número. Somente produtos ativos são considerados; produtos sem foto 1, descrição ou preço válido serão mostrados, mas não serão enviados.
       </p>
     </section>
 
@@ -233,7 +234,8 @@
     const telefoneEl = document.getElementById('telefone');
     const intervaloEl = document.getElementById('intervalo');
     const carregarBtn = document.getElementById('carregarBtn');
-    const publicarBtn = document.getElementById('publicarBtn');
+    const enviarClienteBtn = document.getElementById('enviarClienteBtn');
+    const publicarStatusBtn = document.getElementById('publicarStatusBtn');
     const reenviarFalhasBtn = document.getElementById('reenviarFalhasBtn');
     const connection = document.getElementById('connection');
     const connectionText = document.getElementById('connectionText');
@@ -251,6 +253,7 @@
     let produtos = [];
     let categoriaAtual = null;
     let processando = false;
+    let ultimoDestino = '';
 
     function escaparHtml(valor) {
       return String(valor ?? '')
@@ -271,6 +274,7 @@
     function normalizarTelefone(valor) {
       return String(valor || '').replace(/\D+/g, '');
     }
+
 
     function mostrarFlash(tipo, mensagem) {
       flash.className = `flash show ${tipo === 'erro' ? 'flash-error' : 'flash-success'}`;
@@ -296,8 +300,13 @@
 
     function textoEstado(produto) {
       if (!produto.publicavel) return produto.motivo || 'Produto ignorado.';
-      if (produto.estado === 'sending') return 'Enviando...';
-      if (produto.estado === 'success') return produto.repetida ? 'Já processado; não foi duplicado.' : 'Enviado com sucesso.';
+      if (produto.estado === 'sending') {
+        return produto.destino === 'status' ? 'Publicando no Status...' : 'Enviando ao cliente...';
+      }
+      if (produto.estado === 'success') {
+        if (produto.repetida) return 'Já processado; não foi duplicado.';
+        return produto.destino === 'status' ? 'Publicado no Status com sucesso.' : 'Enviado ao cliente com sucesso.';
+      }
       if (produto.estado === 'error') return produto.erro || 'Falha no envio.';
       return 'Aguardando envio.';
     }
@@ -307,14 +316,19 @@
       const falhas = produtos.filter((produto) => produto.estado === 'error');
       const categoriaSelecionada = Boolean(categoriaEl.value);
       const telefoneValido = normalizarTelefone(telefoneEl.value).length >= 10;
+      const semProdutos = publicaveis.length === 0;
 
-      publicarBtn.disabled = processando || !categoriaSelecionada || !telefoneValido || publicaveis.length === 0;
+      enviarClienteBtn.disabled = processando || !categoriaSelecionada || !telefoneValido || semProdutos;
+      publicarStatusBtn.disabled = processando || !categoriaSelecionada || semProdutos;
       carregarBtn.disabled = processando || !categoriaSelecionada;
       categoriaEl.disabled = processando;
       telefoneEl.disabled = processando;
       intervaloEl.disabled = processando;
-      reenviarFalhasBtn.hidden = falhas.length === 0;
+      reenviarFalhasBtn.hidden = falhas.length === 0 || !ultimoDestino;
       reenviarFalhasBtn.disabled = processando;
+      reenviarFalhasBtn.textContent = ultimoDestino === 'status'
+        ? 'Reenviar falhas para o Status'
+        : 'Reenviar falhas para o cliente';
     }
 
     function renderizarResumo() {
@@ -349,7 +363,7 @@
           ? `<img class="thumb" src="${escaparHtml(produto.foto)}" alt="Foto 1 de ${escaparHtml(produto.nome)}" loading="lazy" />`
           : '<div class="thumb-placeholder">Sem foto 1</div>';
         const badge = produto.publicavel
-          ? '<span class="badge ok">Será enviado</span>'
+          ? '<span class="badge ok">Pronto para envio</span>'
           : '<span class="badge skip">Ignorado</span>';
 
         return `
@@ -358,7 +372,7 @@
             <div>
               <div class="product-name">${index + 1}. ${escaparHtml(produto.nome)}</div>
               <div class="caption-preview">${escaparHtml(produto.nome)}<br>${escaparHtml(produto.preco_formatado || 'Preço inválido')}</div>
-              <div class="product-meta">Mensagem enviada: descrição do produto + preço</div>
+              <div class="product-meta">Conteúdo: foto 1, descrição do produto e preço</div>
               <div class="product-status">${escaparHtml(textoEstado(produto))}</div>
             </div>
             ${badge}
@@ -438,6 +452,7 @@
       const categoriaId = categoriaEl.value;
       produtos = [];
       categoriaAtual = null;
+      ultimoDestino = '';
       progressWrap.classList.remove('show');
       reenviarFalhasBtn.hidden = true;
       esconderFlash();
@@ -464,6 +479,7 @@
         produtos = (body.data.produtos || []).map((produto) => ({
           ...produto,
           estado: produto.publicavel ? 'pending' : 'skipped',
+          destino: '',
           erro: '',
           repetida: false,
           requestId: '',
@@ -479,27 +495,32 @@
       }
     }
 
-    async function enviarProduto(produto, loteId, telefone) {
+    async function enviarProduto(produto, loteId, destino, telefone) {
       produto.estado = 'sending';
+      produto.destino = destino;
       produto.erro = '';
       produto.repetida = false;
       if (!produto.requestId) produto.requestId = `${loteId}:${produto.id}`;
       renderizarProdutos();
 
+      const endpoint = destino === 'status' ? 'produto-status' : 'produto';
+      const payload = {
+        requestId: produto.requestId,
+        produtoId: produto.id,
+        categoriaId: categoriaAtual.id,
+      };
+
+      if (destino === 'cliente') payload.telefone = telefone;
+
       try {
-        const response = await fetch(`${API_BASE}/produto`, {
+        const response = await fetch(`${API_BASE}/${endpoint}`, {
           method: 'POST',
           credentials: 'same-origin',
           headers: {
             Accept: 'application/json',
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            requestId: produto.requestId,
-            produtoId: produto.id,
-            categoriaId: categoriaAtual.id,
-            telefone,
-          }),
+          body: JSON.stringify(payload),
         });
         tratarSessao(response);
         const body = await lerJson(response);
@@ -525,20 +546,26 @@
       return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
-    async function processar(listaParaEnviar, confirmar = true) {
+    async function processar(listaParaEnviar, destino, confirmar = true) {
       if (processando || !listaParaEnviar.length || !categoriaAtual) return;
 
-      const telefone = normalizarTelefone(telefoneEl.value);
-      if (telefone.length < 10) {
-        mostrarFlash('erro', 'Informe o número do WhatsApp com DDI e DDD.');
-        telefoneEl.focus();
-        return;
+      let telefone = '';
+      if (destino === 'cliente') {
+        telefone = normalizarTelefone(telefoneEl.value);
+        if (telefone.length < 10) {
+          mostrarFlash('erro', 'Informe o número do WhatsApp com DDI e DDD.');
+          telefoneEl.focus();
+          return;
+        }
+        telefoneEl.value = telefone;
       }
-      telefoneEl.value = telefone;
 
       if (confirmar) {
+        const destinoConfirmacao = destino === 'status'
+          ? 'no Status do WhatsApp'
+          : `para o WhatsApp ${telefone}`;
         const confirmou = window.confirm(
-          `Enviar ${listaParaEnviar.length} produto(s) da categoria “${categoriaAtual.nome}” para o WhatsApp ${telefone}?`
+          `Enviar ${listaParaEnviar.length} produto(s) da categoria “${categoriaAtual.nome}” ${destinoConfirmacao}?`
         );
         if (!confirmou) return;
       }
@@ -548,23 +575,26 @@
       if (!conectado) return;
 
       processando = true;
+      ultimoDestino = destino;
       progressWrap.classList.add('show');
       progressFill.style.width = '0%';
       atualizarBotoes();
 
       const intervaloMs = Number(intervaloEl.value || 5) * 1000;
-      const loteId = `whatsapp-${criarId()}`;
+      const loteId = `${destino}-${criarId()}`;
       let sucessos = 0;
       let falhas = 0;
 
       for (let index = 0; index < listaParaEnviar.length; index += 1) {
         const produto = listaParaEnviar[index];
+        produto.destino = destino;
         if (!produto.requestId) produto.requestId = `${loteId}:${produto.id}`;
 
-        progressText.textContent = `Enviando ${index + 1} de ${listaParaEnviar.length}: ${produto.nome}`;
+        const verbo = destino === 'status' ? 'Publicando' : 'Enviando';
+        progressText.textContent = `${verbo} ${index + 1} de ${listaParaEnviar.length}: ${produto.nome}`;
         progressFill.style.width = `${Math.round((index / listaParaEnviar.length) * 100)}%`;
 
-        const ok = await enviarProduto(produto, loteId, telefone);
+        const ok = await enviarProduto(produto, loteId, destino, telefone);
         if (ok) sucessos += 1;
         else falhas += 1;
 
@@ -582,27 +612,33 @@
       renderizarProdutos();
 
       if (falhas) {
-        mostrarFlash('erro', `Processo concluído com ${falhas} falha(s). Use “Reenviar falhas”.`);
+        mostrarFlash('erro', `Processo concluído com ${falhas} falha(s). Use o botão de reenvio.`);
+      } else if (destino === 'status') {
+        mostrarFlash('sucesso', `Todos os ${sucessos} produtos foram publicados no Status do WhatsApp.`);
       } else {
         mostrarFlash('sucesso', `Todos os ${sucessos} produtos foram enviados para o WhatsApp ${telefone}.`);
       }
     }
 
-    categoriaEl.addEventListener('change', carregarProdutos);
-    telefoneEl.addEventListener('input', atualizarBotoes);
-    carregarBtn.addEventListener('click', carregarProdutos);
-    publicarBtn.addEventListener('click', () => {
+    function prepararNovoEnvio(destino) {
       const publicaveis = produtos.filter((produto) => produto.publicavel);
       publicaveis.forEach((produto) => {
         produto.estado = 'pending';
+        produto.destino = destino;
         produto.erro = '';
         produto.repetida = false;
         produto.requestId = '';
       });
-      processar(publicaveis, true);
-    });
+      processar(publicaveis, destino, true);
+    }
+
+    categoriaEl.addEventListener('change', carregarProdutos);
+    telefoneEl.addEventListener('input', atualizarBotoes);
+    carregarBtn.addEventListener('click', carregarProdutos);
+    enviarClienteBtn.addEventListener('click', () => prepararNovoEnvio('cliente'));
+    publicarStatusBtn.addEventListener('click', () => prepararNovoEnvio('status'));
     reenviarFalhasBtn.addEventListener('click', () => {
-      processar(produtos.filter((produto) => produto.estado === 'error'), false);
+      processar(produtos.filter((produto) => produto.estado === 'error'), ultimoDestino, false);
     });
 
     (async function iniciar() {

@@ -8,5 +8,6 @@ router.get('/conexao', requireAuth, controller.verificarConexao);
 router.get('/categorias', requireAuth, controller.listarCategorias);
 router.get('/produtos', requireAuth, controller.listarProdutos);
 router.post('/produto', requireAuth, controller.enviarProduto);
+router.post('/produto-status', requireAuth, controller.publicarProdutoNoStatus);
 
 module.exports = router;

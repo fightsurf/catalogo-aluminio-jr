@@ -293,9 +293,65 @@ async function enviarProduto({ requestId, produtoId, categoriaId, telefone }) {
   }
 }
 
+async function publicarProdutoNoStatus({ requestId, produtoId, categoriaId }) {
+  const idRequisicao = normalizarRequestId(requestId);
+  const idProduto = normalizarId(produtoId, 'Produto');
+  const idCategoria = normalizarId(categoriaId, 'Categoria');
+  const chaveRequisicao = `${idRequisicao}:status`;
+
+  const requisicaoExistente = requisicoesEmAndamento.get(chaveRequisicao);
+  if (requisicaoExistente) {
+    const resultadoExistente = await requisicaoExistente;
+    return {
+      ...resultadoExistente,
+      repetida: true,
+    };
+  }
+
+  const promessa = (async () => {
+    const produto = await buscarProdutoParaEnvio(idProduto, idCategoria);
+    const legenda = formatarLegendaProduto(produto.nome, produto.preco);
+
+    const resultado = await zapiService.enviarImagemStatus({
+      imagem: produto.foto,
+      legenda,
+    });
+
+    return {
+      success: true,
+      requestId: idRequisicao,
+      destino: 'status',
+      produto: {
+        id: produto.id,
+        nome: produto.nome,
+        categoria_id: produto.categoria_id,
+        categoria: produto.categoria,
+        preco: produto.preco,
+        preco_formatado: produto.preco_formatado,
+        foto: produto.foto,
+      },
+      legenda,
+      zapi: resultado.zapi,
+      repetida: false,
+    };
+  })();
+
+  requisicoesEmAndamento.set(chaveRequisicao, promessa);
+
+  try {
+    const resultado = await promessa;
+    removerDoCacheDepois(chaveRequisicao);
+    return resultado;
+  } catch (error) {
+    requisicoesEmAndamento.delete(chaveRequisicao);
+    throw error;
+  }
+}
+
 module.exports = {
   verificarConexao,
   listarCategorias,
   listarProdutosPorCategoria,
   enviarProduto,
+  publicarProdutoNoStatus,
 };

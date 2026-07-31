@@ -68,9 +68,35 @@ async function enviarProduto(req, res) {
   }
 }
 
+async function publicarProdutoNoStatus(req, res) {
+  try {
+    const data = await statusWhatsappService.publicarProdutoNoStatus({
+      requestId: req.body.requestId,
+      produtoId: req.body.produtoId,
+      categoriaId: req.body.categoriaId,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: data.repetida
+        ? 'Publicação no Status já processada anteriormente.'
+        : 'Produto publicado no Status do WhatsApp.',
+      data,
+    });
+  } catch (error) {
+    console.error('Erro ao publicar produto no Status do WhatsApp:', error);
+    return res.status(502).json({
+      success: false,
+      message: 'Erro ao publicar o produto no Status do WhatsApp.',
+      error: error.message,
+    });
+  }
+}
+
 module.exports = {
   verificarConexao,
   listarCategorias,
   listarProdutos,
   enviarProduto,
+  publicarProdutoNoStatus,
 };
