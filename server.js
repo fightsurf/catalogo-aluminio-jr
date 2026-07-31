@@ -3,7 +3,7 @@ const http = require('http');
 const path = require('path');
 const { WebSocketServer, WebSocket } = require('ws');
 const botEvents = require('./src/services/bot/botEvents');
-const { authRoutes } = require('./src/middlewares/adminAuth.middleware');
+const { authRoutes, requireAuth } = require('./src/middlewares/adminAuth.middleware');
 
 // =====================================================
 // 📦 IMPORTAÇÃO DE ROTAS MODULARES
@@ -44,6 +44,7 @@ const fornecedorRoutes = require('./src/routes/fornecedor/fornecedor.routes');
 const produtoRoutes = require('./src/routes/produto/produto.routes');
 const assistenteProdutosRoutes = require('./src/routes/assistente/assistente-produtos.routes');
 const assistenteCatalogoRoutes = require('./src/routes/assistente/assistente-catalogo.routes');
+const assistentePedidosRoutes = require('./src/routes/assistente-pedidos/assistente-pedidos.routes');
 const produtoCategoriaRoutes = require('./src/routes/produtoCategoria/produtoCategoria.routes');
 const insumoCategoriaRoutes = require('./src/routes/insumoCategoria/insumoCategoria.routes');
 const insumoRoutes = require('./src/routes/insumo/insumo.routes');
@@ -146,6 +147,7 @@ app.use('/api/produtos-resumo-custos', produtoResumoCustoRoutes);
 app.use('/api/produtos', produtoRoutes);
 app.use('/api/assistente/produtos', assistenteProdutosRoutes);
 app.use('/api/assistente/catalogo', assistenteCatalogoRoutes);
+app.use('/api/assistente-pedidos', assistentePedidosRoutes);
 app.use('/api/transportadoras', transportadorasRoutes);
 app.use('/api/logistica', logisticaRoutes);
 app.use('/api/funcionarios', funcionarioRoutes);
@@ -252,6 +254,14 @@ app.get('/orcamento', (req, res) => {
 
 app.get('/orcamento-retomar', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'orcamento-retomar.html'));
+});
+
+app.get('/pedido/:token', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'assistente-pedidos', 'wizard.html'));
+});
+
+app.get('/admin-assistente-pedidos', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'assistente-pedidos', 'admin.html'));
 });
 
 
@@ -382,6 +392,11 @@ produtoComposicaoSchemaService.criarEstrutura().catch(err =>
 const produtoFotosSchemaService = require('./src/services/produto/produtoFotosSchema.service');
 produtoFotosSchemaService.criarEstrutura().catch(err =>
   console.warn('⚠️  Estrutura de fotos dos produtos (não crítico):', err.message)
+);
+
+const assistentePedidosService = require('./src/services/assistente-pedidos/assistente-pedidos.service');
+assistentePedidosService.criarEstrutura().catch(err =>
+  console.warn('⚠️  Estrutura do assistente de pedidos (não crítico):', err.message)
 );
 
 const mirianSchemaService = require('./mirian/services/mirianSchema.service');
