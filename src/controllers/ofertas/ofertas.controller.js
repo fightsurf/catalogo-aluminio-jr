@@ -1,15 +1,127 @@
 const produtoService = require('../../services/produto/produto.service');
 const ofertasService = require('../../services/ofertas/ofertas.service');
 
-function erro(res, error, status=400) { return res.status(status).json({ success:false, message:error.message }); }
+function erro(res, error, status = 400) {
+  return res.status(status).json({ success: false, message: error.message });
+}
 
-async function produtos(req,res){ try { res.json({success:true,data:await produtoService.listar({perfil:'kit-feirinha',apenasAtivos:true})}); } catch(e){ erro(res,e,500); } }
-async function listar(req,res){ try { res.json({success:true,data:await ofertasService.listar()}); } catch(e){ erro(res,e,500); } }
-async function criar(req,res){ try { res.status(201).json({success:true,data:await ofertasService.criar(req.body)}); } catch(e){ erro(res,e); } }
-async function gerarArte(req,res){ try { res.json({success:true,data:await ofertasService.gerarArte(req.params.id)}); } catch(e){ erro(res,e,502); } }
-async function publicar(req,res){ try { const base=`${req.protocol}://${req.get('host')}`; res.json({success:true,data:await ofertasService.publicar(req.params.id,base)}); } catch(e){ erro(res,e,502); } }
-async function enviarWhatsapp(req,res){ try { const base=`${req.protocol}://${req.get('host')}`; res.json({success:true,data:await ofertasService.enviarWhatsapp(req.params.id,req.body?.telefone,base)}); } catch(e){ const status=/não informado|inválido|Gere a arte/i.test(e.message)?400:502; erro(res,e,status); } }
-async function duplicar(req,res){ try { res.status(201).json({success:true,data:await ofertasService.duplicar(req.params.id)}); } catch(e){ erro(res,e); } }
-async function publica(req,res){ try { res.json({success:true,data:await ofertasService.buscarPorCodigo(req.params.codigo,true)}); } catch(e){ erro(res,e,404); } }
-async function clique(req,res){ try { res.json({success:true,data:await ofertasService.registrarClique(req.params.codigo)}); } catch(e){ erro(res,e,404); } }
-module.exports={produtos,listar,criar,gerarArte,publicar,enviarWhatsapp,duplicar,publica,clique};
+async function produtos(req, res) {
+  try {
+    res.json({ success: true, data: await produtoService.listar({ perfil: 'kit-feirinha', apenasAtivos: true }) });
+  } catch (error) {
+    erro(res, error, 500);
+  }
+}
+
+async function listar(req, res) {
+  try {
+    res.json({ success: true, data: await ofertasService.listar() });
+  } catch (error) {
+    erro(res, error, 500);
+  }
+}
+
+async function criar(req, res) {
+  try {
+    res.status(201).json({ success: true, data: await ofertasService.criar(req.body) });
+  } catch (error) {
+    erro(res, error);
+  }
+}
+
+async function gerarArte(req, res) {
+  try {
+    res.json({ success: true, data: await ofertasService.gerarArte(req.params.id) });
+  } catch (error) {
+    erro(res, error, 422);
+  }
+}
+
+async function imagemArte(req, res) {
+  try {
+    const { buffer } = await ofertasService.gerarArteBuffer(req.params.id);
+    res.set({
+      'Content-Type': 'image/jpeg',
+      'Content-Length': String(buffer.length),
+      'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+      Pragma: 'no-cache',
+      Expires: '0',
+      'X-Content-Type-Options': 'nosniff',
+    });
+    res.send(buffer);
+  } catch (error) {
+    const status = /não encontrada/i.test(error.message) ? 404 : 422;
+    erro(res, error, status);
+  }
+}
+
+async function publicar(req, res) {
+  try {
+    const base = `${req.protocol}://${req.get('host')}`;
+    res.json({ success: true, data: await ofertasService.publicar(req.params.id, base) });
+  } catch (error) {
+    erro(res, error, 502);
+  }
+}
+
+async function enviarWhatsapp(req, res) {
+  try {
+    const base = `${req.protocol}://${req.get('host')}`;
+    res.json({
+      success: true,
+      data: await ofertasService.enviarWhatsapp(req.params.id, req.body?.telefone, base),
+    });
+  } catch (error) {
+    const status = /não informado|inválido|não pode ser recriada/i.test(error.message) ? 400 : 502;
+    erro(res, error, status);
+  }
+}
+
+async function duplicar(req, res) {
+  try {
+    res.status(201).json({ success: true, data: await ofertasService.duplicar(req.params.id) });
+  } catch (error) {
+    erro(res, error);
+  }
+}
+
+async function limparArtesR2(req, res) {
+  try {
+    if (req.body?.confirmacao !== 'LIMPAR_ARTES_OFERTAS') {
+      return erro(res, new Error('Confirmação de limpeza inválida.'), 400);
+    }
+    return res.json({ success: true, data: await ofertasService.limparArtesR2() });
+  } catch (error) {
+    return erro(res, error, 502);
+  }
+}
+
+async function publica(req, res) {
+  try {
+    res.json({ success: true, data: await ofertasService.buscarPorCodigo(req.params.codigo, true) });
+  } catch (error) {
+    erro(res, error, 404);
+  }
+}
+
+async function clique(req, res) {
+  try {
+    res.json({ success: true, data: await ofertasService.registrarClique(req.params.codigo) });
+  } catch (error) {
+    erro(res, error, 404);
+  }
+}
+
+module.exports = {
+  produtos,
+  listar,
+  criar,
+  gerarArte,
+  imagemArte,
+  publicar,
+  enviarWhatsapp,
+  duplicar,
+  limparArtesR2,
+  publica,
+  clique,
+};

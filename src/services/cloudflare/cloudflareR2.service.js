@@ -1,6 +1,11 @@
 const crypto = require('crypto');
 const path = require('path');
-const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const {
+  S3Client,
+  PutObjectCommand,
+  ListObjectsV2Command,
+  DeleteObjectsCommand,
+} = require('@aws-sdk/client-s3');
 
 const MAX_UPLOAD_SIZE_MB = 10;
 
@@ -252,8 +257,71 @@ async function uploadBuffer(buffer, options = {}) {
   return { id:key, key, url:montarUrlPublica(config.publicUrl,key) };
 }
 
+
+async function limparPrefixo(prefixoInformado) {
+  const prefixo = String(prefixoInformado || '').trim().replace(/^\/+/, '');
+
+  // Esta função existe para a limpeza das artes geradas pela Central de Ofertas.
+  // Não permita um prefixo amplo para evitar qualquer risco às fotos dos produtos.
+  if (prefixo !== 'ofertas/') {
+    throw new Error('Prefixo de limpeza não autorizado. Somente ofertas/ pode ser removido.');
+  }
+
+  const config = getConfig();
+  validarConfiguracao(config);
+  const client = getClient(config);
+  let objetosExcluidos = 0;
+  let lotes = 0;
+
+  // Sempre consulta a primeira página novamente depois de cada exclusão.
+  // Assim, a remoção dos objetos não invalida nem desloca um token de paginação.
+  while (true) {
+    let pagina;
+    try {
+      pagina = await client.send(new ListObjectsV2Command({
+        Bucket: config.bucket,
+        Prefix: prefixo,
+        MaxKeys: 1000,
+      }));
+    } catch (error) {
+      throw traduzirErroR2(error);
+    }
+
+    const objetos = (pagina.Contents || [])
+      .map(item => item?.Key)
+      .filter(key => typeof key === 'string' && key.startsWith(prefixo))
+      .map(Key => ({ Key }));
+
+    if (objetos.length === 0) break;
+
+    try {
+      const resultado = await client.send(new DeleteObjectsCommand({
+        Bucket: config.bucket,
+        Delete: { Objects: objetos, Quiet: true },
+      }));
+
+      if (Array.isArray(resultado.Errors) && resultado.Errors.length > 0) {
+        const chaves = resultado.Errors.map(item => item.Key).filter(Boolean).slice(0, 5).join(', ');
+        throw new Error(`O R2 não conseguiu excluir alguns arquivos: ${chaves || 'chaves não informadas'}.`);
+      }
+    } catch (error) {
+      throw traduzirErroR2(error);
+    }
+
+    objetosExcluidos += objetos.length;
+    lotes += 1;
+  }
+
+  return {
+    prefixo,
+    objetos_excluidos: objetosExcluidos,
+    lotes,
+  };
+}
+
 module.exports = {
   uploadImagem,
   uploadBuffer,
+  limparPrefixo,
   MAX_UPLOAD_SIZE_MB,
 };

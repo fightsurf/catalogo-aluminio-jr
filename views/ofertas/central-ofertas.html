@@ -5,80 +5,619 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Central de Ofertas</title>
 <style>
-:root{font-family:Arial,sans-serif;color:#172033;background:#f3f4f6}*{box-sizing:border-box}body{margin:0}.topo{background:#111827;color:#fff;padding:16px 24px;display:flex;justify-content:space-between;align-items:center}.topo h1{margin:0;font-size:22px}.topo a{color:#fff}.layout{max-width:1400px;margin:18px auto;padding:0 16px;display:grid;grid-template-columns:minmax(0,1.55fr) minmax(340px,.8fr);gap:18px;align-items:start}.painel{background:#fff;border-radius:18px;padding:18px;box-shadow:0 6px 25px #0001}.passos{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}.passo{padding:7px 12px;border-radius:999px;background:#e5e7eb;font-weight:700;font-size:14px}.passo.ativo{background:#f97316;color:#fff}.config-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:12px}.campo{margin-bottom:12px}.campo label{display:block;font-weight:700;margin-bottom:6px}.campo input,.campo textarea,.campo select{width:100%;padding:10px;border:1px solid #d1d5db;border-radius:10px;background:#fff}.campo textarea{resize:vertical}.temas{display:grid;grid-template-columns:repeat(5,minmax(100px,1fr));gap:8px}.tema-opcao{border:2px solid #e5e7eb;border-radius:12px;padding:7px;background:#fff;cursor:pointer;text-align:left;color:#172033}.tema-opcao.ativo{border-color:#ea580c;box-shadow:0 0 0 3px #ffedd5}.tema-amostra{height:32px;border-radius:8px;margin-bottom:6px;border:1px solid #0002}.tema-opcao b{font-size:12px}.seletor-categoria{display:grid;grid-template-columns:240px 1fr;gap:14px;align-items:start;margin-top:14px}.lista-categorias{height:310px;border:1px solid #d1d5db;border-radius:12px;padding:6px;background:#f9fafb;font-weight:700}.area-produtos{min-width:0}.categoria-titulo{display:flex;justify-content:space-between;gap:10px;align-items:center;background:#fff7ed;padding:10px 12px;border-radius:10px;margin:0 0 6px}.categoria-titulo h3{margin:0}.contador-filtro{color:#6b7280;font-size:13px}.lista-produtos{max-height:440px;overflow:auto;border:1px solid #e5e7eb;border-radius:12px}.produto{display:grid;grid-template-columns:28px 62px minmax(0,1fr) 76px;align-items:center;gap:9px;padding:9px;border-bottom:1px solid #eee;cursor:pointer}.produto:last-child{border-bottom:0}.produto:hover{background:#fffaf5}.produto img{width:58px;height:58px;object-fit:contain;background:#fff;border-radius:8px}.produto span{min-width:0}.produto b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.produto input[type=number]{width:70px;padding:8px}.resumo{position:sticky;top:12px;max-height:calc(100vh - 24px);display:flex;flex-direction:column}.resumo h2{margin:0 0 10px}.selecionados-vazio{padding:20px;text-align:center;color:#6b7280;background:#f9fafb;border-radius:12px}.selecionados-lista{overflow:auto;max-height:43vh;border:1px solid #e5e7eb;border-radius:12px}.selecionado{display:grid;grid-template-columns:54px minmax(0,1fr) auto;gap:9px;align-items:center;padding:8px;border-bottom:1px solid #eee}.selecionado:last-child{border-bottom:0}.selecionado img{width:50px;height:50px;object-fit:contain;background:#fff;border-radius:8px}.selecionado b{display:block;font-size:13px;line-height:1.25}.selecionado small{color:#6b7280}.selecionado .qtd-mini{font-weight:900;color:#c2410c;background:#ffedd5;padding:5px 7px;border-radius:999px}.bloco-resumo{margin-top:12px;padding:13px;background:#fff7ed;border-radius:12px}.linha-resumo{display:flex;justify-content:space-between;gap:10px;margin-bottom:6px}.valor{font-size:28px;font-weight:900;color:#c2410c}.botoes{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}button{border:0;border-radius:11px;padding:12px 16px;font-weight:800;cursor:pointer;background:#ea580c;color:#fff}button.sec{background:#374151}button:disabled{opacity:.45;cursor:not-allowed}.preview{width:100%;max-height:340px;object-fit:contain;background:#eee;border-radius:14px;margin-top:10px}.oculto{display:none!important}.aviso{margin-top:12px;padding:11px;border-radius:10px;background:#f3f4f6;color:#374151;min-height:42px;white-space:pre-wrap}.aviso.erro{background:#fee2e2;color:#991b1b}.aviso.sucesso{background:#dcfce7;color:#166534}.girando{display:inline-block;width:16px;height:16px;border:3px solid #fed7aa;border-top-color:#ea580c;border-radius:50%;animation:girar .8s linear infinite;vertical-align:-3px;margin-right:7px}@keyframes girar{to{transform:rotate(360deg)}}.historico{max-width:1400px;margin:0 auto 40px;padding:0 16px}.oferta{background:#fff;margin:10px 0;padding:14px;border-radius:12px;display:flex;justify-content:space-between;gap:15px;align-items:center}.status{font-size:12px;padding:5px 9px;border-radius:99px;background:#e5e7eb}.envio-whatsapp{margin-top:12px;padding:12px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px}.envio-whatsapp input{width:100%;margin-top:6px;padding:10px;border:1px solid #86efac;border-radius:10px;background:#fff}.envio-whatsapp small{display:block;margin-top:6px;color:#4b5563}.botao-whatsapp{background:#15803d}@media(max-width:1050px){.layout{grid-template-columns:1fr}.resumo{position:static;max-height:none}.selecionados-lista{max-height:360px}.temas{grid-template-columns:repeat(3,1fr)}}@media(max-width:720px){.config-grid,.seletor-categoria{grid-template-columns:1fr}.lista-categorias{height:140px}.temas{grid-template-columns:repeat(2,1fr)}.produto{grid-template-columns:25px 52px minmax(0,1fr) 68px}.topo{padding:14px 16px}.topo h1{font-size:18px}}
+:root{font-family:Arial,sans-serif;color:#172033;background:#f3f4f6;--laranja:#ea580c;--laranja-claro:#fff7ed;--verde:#15803d;--azul:#1d4ed8;--cinza:#374151;--borda:#e5e7eb;--perigo:#b91c1c}*{box-sizing:border-box}body{margin:0}.topo{background:#111827;color:#fff;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;gap:16px}.topo h1{margin:0;font-size:22px}.topo a{color:#fff}.layout{max-width:1400px;margin:18px auto;padding:0 16px;display:grid;grid-template-columns:minmax(0,1.55fr) minmax(360px,.75fr);gap:18px;align-items:start}.lateral{display:grid;gap:18px;position:sticky;top:16px}.painel{background:#fff;border-radius:18px;padding:18px;box-shadow:0 6px 25px #0001}.painel h2,.painel h3{margin-top:0}.passos{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}.passo{padding:7px 12px;border-radius:999px;background:#e5e7eb;font-weight:700;font-size:14px}.passo.ativo{background:var(--laranja);color:#fff}.config-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:12px}.campo{margin-bottom:12px}.campo label{display:block;font-weight:700;margin-bottom:6px}.campo input,.campo textarea,.campo select{width:100%;padding:10px;border:1px solid #d1d5db;border-radius:10px;background:#fff}.campo textarea{resize:vertical}.temas{display:grid;grid-template-columns:repeat(5,minmax(100px,1fr));gap:8px}.tema-opcao{border:2px solid #e5e7eb;border-radius:12px;padding:7px;background:#fff;cursor:pointer;text-align:left;color:#172033}.tema-opcao.ativo{border-color:var(--laranja);box-shadow:0 0 0 3px #ffedd5}.tema-amostra{height:32px;border-radius:8px;margin-bottom:6px;border:1px solid #0002}.tema-opcao b{font-size:12px}.seletor-categoria{display:grid;grid-template-columns:240px 1fr;gap:14px;align-items:start;margin-top:14px}.lista-categorias{height:310px;border:1px solid #d1d5db;border-radius:12px;padding:6px;background:#f9fafb;font-weight:700}.area-produtos{min-width:0}.categoria-titulo{display:flex;justify-content:space-between;gap:10px;align-items:center;background:var(--laranja-claro);padding:10px 12px;border-radius:10px;margin:0 0 6px}.categoria-titulo h3{margin:0}.contador-filtro{color:#6b7280;font-size:13px}.lista-produtos{max-height:440px;overflow:auto;border:1px solid var(--borda);border-radius:12px}.produto{display:grid;grid-template-columns:28px 62px minmax(0,1fr) 76px;align-items:center;gap:9px;padding:9px;border-bottom:1px solid #eee;cursor:pointer}.produto:last-child{border-bottom:0}.produto:hover{background:#fffaf5}.produto img{width:58px;height:58px;object-fit:contain;background:#fff;border-radius:8px}.produto span{min-width:0}.produto b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.produto input[type=number]{width:70px;padding:8px}.selecionados-vazio{padding:20px;text-align:center;color:#6b7280;background:#f9fafb;border-radius:12px}.selecionados-lista{overflow:auto;max-height:260px;border:1px solid var(--borda);border-radius:12px}.selecionado{display:grid;grid-template-columns:54px minmax(0,1fr) auto;gap:9px;align-items:center;padding:8px;border-bottom:1px solid #eee}.selecionado:last-child{border-bottom:0}.selecionado img{width:50px;height:50px;object-fit:contain;background:#fff;border-radius:8px}.selecionado b{display:block;font-size:13px;line-height:1.25}.selecionado small{color:#6b7280}.qtd-mini{font-weight:900;color:#c2410c;background:#ffedd5;padding:5px 7px;border-radius:999px}.bloco-resumo{margin-top:12px;padding:13px;background:var(--laranja-claro);border-radius:12px}.linha-resumo{display:flex;justify-content:space-between;gap:10px;margin-bottom:6px}.valor{font-size:28px;font-weight:900;color:#c2410c}.botoes{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}button{border:0;border-radius:11px;padding:11px 14px;font-weight:800;cursor:pointer;background:var(--laranja);color:#fff}button.sec{background:var(--cinza)}button.azul{background:var(--azul)}button.verde{background:var(--verde)}button.perigo{background:var(--perigo)}button:disabled{opacity:.45;cursor:not-allowed}.botao-principal{width:100%;padding:14px 16px}.aviso{margin-top:12px;padding:11px;border-radius:10px;background:#f3f4f6;color:#374151;min-height:42px;white-space:pre-wrap}.aviso.erro{background:#fee2e2;color:#991b1b}.aviso.sucesso{background:#dcfce7;color:#166534}.girando{display:inline-block;width:16px;height:16px;border:3px solid #fed7aa;border-top-color:var(--laranja);border-radius:50%;animation:girar .8s linear infinite;vertical-align:-3px;margin-right:7px}@keyframes girar{to{transform:rotate(360deg)}}.oculto{display:none!important}.arte-topo{display:flex;justify-content:space-between;gap:12px;align-items:start}.arte-topo h2{margin-bottom:4px}.codigo{font-size:13px;color:#6b7280}.nota-dinamica{margin:10px 0;padding:10px;border-radius:10px;background:#eff6ff;color:#1e40af;font-size:13px;line-height:1.4}.preview-caixa{min-height:240px;display:grid;place-items:center;background:#f3f4f6;border:1px solid var(--borda);border-radius:14px;overflow:hidden}.preview{display:block;width:100%;max-height:470px;object-fit:contain}.preview-vazio{padding:32px;color:#6b7280;text-align:center}.grupo-acoes{margin-top:14px;padding-top:14px;border-top:1px solid var(--borda)}.grupo-acoes h3{font-size:15px;margin:0 0 9px}.envio-linha{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.envio-linha input{min-width:0;padding:10px;border:1px solid #86efac;border-radius:10px;background:#fff}.ajuda{display:block;margin-top:6px;color:#6b7280;font-size:12px}.historico{max-width:1400px;margin:0 auto 40px;padding:0 16px}.historico-cabecalho{display:flex;justify-content:space-between;gap:14px;align-items:center;margin-bottom:10px}.historico-cabecalho h2{margin:0}.manutencao{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.manutencao small{color:#6b7280;max-width:420px}.oferta{background:#fff;margin:10px 0;padding:14px;border-radius:12px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:15px;align-items:center;box-shadow:0 2px 10px #0000000b}.oferta-info b{display:block;margin-bottom:5px}.oferta-meta{color:#4b5563;font-size:13px;line-height:1.55}.oferta-problema{color:#b91c1c;font-size:12px;margin-top:5px}.oferta-acoes{display:flex;gap:7px;align-items:center;justify-content:flex-end;flex-wrap:wrap}.status{font-size:12px;padding:5px 9px;border-radius:99px;background:#e5e7eb}.status.publicada{background:#dcfce7;color:#166534}.vazio-historico{padding:24px;background:#fff;border-radius:12px;color:#6b7280;text-align:center}@media(max-width:1050px){.layout{grid-template-columns:1fr}.lateral{position:static}.selecionados-lista{max-height:360px}.temas{grid-template-columns:repeat(3,1fr)}}@media(max-width:720px){.config-grid,.seletor-categoria,.oferta{grid-template-columns:1fr}.lista-categorias{height:140px}.temas{grid-template-columns:repeat(2,1fr)}.produto{grid-template-columns:25px 52px minmax(0,1fr) 68px}.topo{padding:14px 16px}.topo h1{font-size:18px}.historico-cabecalho{align-items:flex-start;flex-direction:column}.oferta-acoes{justify-content:flex-start}.envio-linha{grid-template-columns:1fr}.envio-linha button{width:100%}}
 </style>
 </head>
 <body>
-<header class="topo"><h1>Central de Ofertas — Kit Feirinha</h1><a href="/whatsapp/status">Status atual</a></header>
+<header class="topo">
+  <h1>Central de Ofertas — Kit Feirinha</h1>
+  <a href="/whatsapp/status">Envio por categoria</a>
+</header>
+
 <main class="layout">
-<section class="painel">
-<div class="passos"><span class="passo ativo">1. Montar kit</span><span class="passo">2. Compor arte</span><span class="passo">3. Publicar</span></div>
-<div class="config-grid">
-  <div class="campo"><label>Título da oferta</label><input id="titulo" value="Kit Feirinha Especial"></div>
-  <div class="campo"><label>Expiração (opcional)</label><input id="expira" type="datetime-local"></div>
-</div>
-<div class="campo"><label>Tema da arte</label>
-  <div id="temas" class="temas">
-    <button class="tema-opcao ativo" type="button" data-tema="claro"><span class="tema-amostra" style="display:block;background:linear-gradient(135deg,#fffdf7,#e9d8b7)"></span><b>Claro premium</b></button>
-    <button class="tema-opcao" type="button" data-tema="branco"><span class="tema-amostra" style="display:block;background:linear-gradient(135deg,#fff,#e9edf2)"></span><b>Branco comercial</b></button>
-    <button class="tema-opcao" type="button" data-tema="escuro"><span class="tema-amostra" style="display:block;background:linear-gradient(135deg,#080808,#17120a)"></span><b>Escuro premium</b></button>
-    <button class="tema-opcao" type="button" data-tema="azul"><span class="tema-amostra" style="display:block;background:linear-gradient(135deg,#f1f8fc,#bfd8e8)"></span><b>Azul elegante</b></button>
-    <button class="tema-opcao" type="button" data-tema="verde"><span class="tema-amostra" style="display:block;background:linear-gradient(135deg,#f4f8f1,#c9d9bd)"></span><b>Verde sofisticado</b></button>
-  </div>
-</div>
-<div class="campo"><label>Observação interna (opcional)</label><textarea id="prompt" rows="2" placeholder="Esta observação fica salva na oferta; não altera a composição da arte."></textarea></div>
-<div class="seletor-categoria">
-  <div class="campo" style="margin:0"><label for="filtroCategoria">Categorias</label><select id="filtroCategoria" class="lista-categorias" size="10" aria-label="Selecione uma categoria"></select></div>
-  <div class="area-produtos">
-    <div class="categoria-titulo"><h3 id="categoriaAtual">Categoria</h3><span id="contadorFiltro" class="contador-filtro"></span></div>
-    <div id="lista" class="lista-produtos">Carregando produtos...</div>
-  </div>
-</div>
-</section>
-<aside class="painel resumo">
-<h2>Itens selecionados</h2>
-<div id="selecionadosPainel" class="selecionados-vazio">Nenhum item selecionado.</div>
-<div class="bloco-resumo">
-  <div class="linha-resumo"><span>Quantidade de peças</span><b id="qtd">0 itens</b></div>
-  <div class="linha-resumo"><span>Preço médio do kit</span><b id="medio">R$ 0,00</b></div>
-  <div class="linha-resumo" style="align-items:end"><span>Valor total</span><div class="valor" id="total">R$ 0,00</div></div>
-</div>
-<div class="botoes"><button id="criar" type="button">Criar oferta e gerar arte</button></div>
-<div id="aviso" class="aviso">Selecione uma categoria e monte o kit.</div>
-<div id="resultado" class="oculto"><img id="preview" class="preview" alt="Prévia da arte"><p><b id="codigo"></b></p><div class="envio-whatsapp"><label for="telefoneWhatsapp"><b>Número do WhatsApp</b></label><input id="telefoneWhatsapp" type="tel" inputmode="numeric" autocomplete="tel" placeholder="Ex.: 5583999999999" maxlength="20"><small>Informe o número com DDI e DDD. Exemplo: 55 + DDD + número.</small></div><div class="botoes"><button id="regerar" class="sec" type="button">Gerar novamente</button><button id="publicar" type="button">Publicar no Status</button><button id="enviarWhatsapp" class="botao-whatsapp" type="button">Enviar para WhatsApp</button></div></div>
-</aside>
+  <section class="painel">
+    <div class="passos">
+      <span class="passo ativo">1. Montar kit</span>
+      <span class="passo">2. Visualizar arte</span>
+      <span class="passo">3. Publicar ou enviar</span>
+    </div>
+
+    <div class="config-grid">
+      <div class="campo">
+        <label for="titulo">Título da oferta</label>
+        <input id="titulo" value="Kit Feirinha Especial">
+      </div>
+      <div class="campo">
+        <label for="expira">Expiração (opcional)</label>
+        <input id="expira" type="datetime-local">
+      </div>
+    </div>
+
+    <div class="campo">
+      <label>Tema da arte</label>
+      <div id="temas" class="temas">
+        <button class="tema-opcao ativo" type="button" data-tema="claro"><span class="tema-amostra" style="display:block;background:linear-gradient(135deg,#fffdf7,#e9d8b7)"></span><b>Claro premium</b></button>
+        <button class="tema-opcao" type="button" data-tema="branco"><span class="tema-amostra" style="display:block;background:linear-gradient(135deg,#fff,#e9edf2)"></span><b>Branco comercial</b></button>
+        <button class="tema-opcao" type="button" data-tema="escuro"><span class="tema-amostra" style="display:block;background:linear-gradient(135deg,#080808,#17120a)"></span><b>Escuro premium</b></button>
+        <button class="tema-opcao" type="button" data-tema="azul"><span class="tema-amostra" style="display:block;background:linear-gradient(135deg,#f1f8fc,#bfd8e8)"></span><b>Azul elegante</b></button>
+        <button class="tema-opcao" type="button" data-tema="verde"><span class="tema-amostra" style="display:block;background:linear-gradient(135deg,#f4f8f1,#c9d9bd)"></span><b>Verde sofisticado</b></button>
+      </div>
+    </div>
+
+    <div class="campo">
+      <label for="prompt">Observação interna (opcional)</label>
+      <textarea id="prompt" rows="2" placeholder="Esta observação fica salva na oferta; não altera a composição da arte."></textarea>
+    </div>
+
+    <div class="seletor-categoria">
+      <div class="campo" style="margin:0">
+        <label for="filtroCategoria">Categorias</label>
+        <select id="filtroCategoria" class="lista-categorias" size="10" aria-label="Selecione uma categoria"></select>
+      </div>
+      <div class="area-produtos">
+        <div class="categoria-titulo">
+          <h3 id="categoriaAtual">Categoria</h3>
+          <span id="contadorFiltro" class="contador-filtro"></span>
+        </div>
+        <div id="lista" class="lista-produtos">Carregando produtos...</div>
+      </div>
+    </div>
+  </section>
+
+  <aside class="lateral" id="colunaLateral">
+    <section class="painel">
+      <h2>Resumo do kit</h2>
+      <div id="selecionadosPainel" class="selecionados-vazio">Nenhum item selecionado.</div>
+      <div class="bloco-resumo">
+        <div class="linha-resumo"><span>Quantidade de peças</span><b id="qtd">0 itens</b></div>
+        <div class="linha-resumo"><span>Preço médio do kit</span><b id="medio">R$ 0,00</b></div>
+        <div class="linha-resumo" style="align-items:end"><span>Valor total</span><div class="valor" id="total">R$ 0,00</div></div>
+      </div>
+      <div class="botoes">
+        <button id="criar" class="botao-principal" type="button">Criar oferta e visualizar</button>
+      </div>
+      <div id="aviso" class="aviso">Selecione uma categoria e monte o kit.</div>
+    </section>
+
+    <section id="resultado" class="painel oculto">
+      <div class="arte-topo">
+        <div>
+          <h2>Arte da oferta</h2>
+          <div id="codigo" class="codigo"></div>
+        </div>
+        <span id="statusAtual" class="status"></span>
+      </div>
+      <div class="nota-dinamica">A imagem não é armazenada. Cada prévia, publicação ou envio é recriado com nomes, fotos e preços atuais.</div>
+      <div class="preview-caixa">
+        <div id="previewVazio" class="preview-vazio">Clique em “Atualizar prévia” para montar a arte.</div>
+        <img id="preview" class="preview oculto" alt="Prévia da arte recriada">
+      </div>
+
+      <div class="grupo-acoes">
+        <h3>Visualização</h3>
+        <button id="regerar" class="azul" type="button">Atualizar prévia</button>
+      </div>
+
+      <div class="grupo-acoes">
+        <h3>Publicação</h3>
+        <button id="publicar" type="button">Publicar no Status</button>
+      </div>
+
+      <div class="grupo-acoes">
+        <h3>Envio direto</h3>
+        <div class="envio-linha">
+          <input id="telefoneWhatsapp" type="tel" inputmode="numeric" autocomplete="tel" placeholder="Ex.: 5583999999999" maxlength="20" aria-label="Número do WhatsApp">
+          <button id="enviarWhatsapp" class="verde" type="button">Enviar para WhatsApp</button>
+        </div>
+        <small class="ajuda">Informe DDI, DDD e número. A arte será recriada no momento do envio.</small>
+      </div>
+    </section>
+  </aside>
 </main>
-<section class="historico"><h2>Ofertas recentes</h2><div id="historico"></div></section>
+
+<section class="historico">
+  <div class="historico-cabecalho">
+    <h2>Ofertas recentes</h2>
+    <div class="manutencao">
+      <small>Limpeza única das artes antigas. Somente a pasta <b>ofertas/</b> do R2 será apagada; fotos de produtos não serão tocadas.</small>
+      <button id="limparR2" class="perigo" type="button">Limpar artes antigas do R2</button>
+    </div>
+  </div>
+  <div id="historico"></div>
+</section>
+
 <script>
 'use strict';
-let produtos=[];let ofertaAtual=null;let temaArte='claro';let categoriaSelecionada='';
-const el={lista:document.querySelector('#lista'),titulo:document.querySelector('#titulo'),expira:document.querySelector('#expira'),prompt:document.querySelector('#prompt'),qtd:document.querySelector('#qtd'),total:document.querySelector('#total'),medio:document.querySelector('#medio'),criar:document.querySelector('#criar'),aviso:document.querySelector('#aviso'),resultado:document.querySelector('#resultado'),preview:document.querySelector('#preview'),codigo:document.querySelector('#codigo'),regerar:document.querySelector('#regerar'),publicar:document.querySelector('#publicar'),telefoneWhatsapp:document.querySelector('#telefoneWhatsapp'),enviarWhatsapp:document.querySelector('#enviarWhatsapp'),historico:document.querySelector('#historico'),filtroCategoria:document.querySelector('#filtroCategoria'),contadorFiltro:document.querySelector('#contadorFiltro'),categoriaAtual:document.querySelector('#categoriaAtual'),selecionadosPainel:document.querySelector('#selecionadosPainel'),temas:document.querySelector('#temas')};
-const temasConfig={claro:{nome:'Claro premium'},branco:{nome:'Branco comercial'},escuro:{nome:'Escuro premium'},azul:{nome:'Azul elegante'},verde:{nome:'Verde sofisticado'}};
-const brl=valor=>Number(valor||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-const escapeHtml=valor=>String(valor??'').replace(/[&<>'"]/g,caractere=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[caractere]));
-function escolherTema(tema){temaArte=temasConfig[tema]?tema:'claro';document.querySelectorAll('.tema-opcao').forEach(botao=>botao.classList.toggle('ativo',botao.dataset.tema===temaArte))}
-function mostrarAviso(texto,tipo='normal',carregando=false){el.aviso.className=`aviso${tipo==='erro'?' erro':tipo==='sucesso'?' sucesso':''}`;el.aviso.innerHTML=`${carregando?'<span class="girando"></span>':''}${escapeHtml(texto)}`}
-async function api(url,opt={}){const response=await fetch(url,{credentials:'same-origin',headers:{'Content-Type':'application/json',...(opt.headers||{})},...opt});const texto=await response.text();let data={};try{data=texto?JSON.parse(texto):{}}catch(_){throw new Error(`O servidor respondeu em formato inesperado (${response.status}).`)}if(response.status===401){location.href=`/login?next=${encodeURIComponent(location.pathname)}`;throw new Error('Sua sessão expirou.')}if(!response.ok||!data.success)throw new Error(data.message||data.erro||`Erro HTTP ${response.status}`);return data.data}
-function categorias(){return[...new Set(produtos.map(p=>String(p.categoria||'SEM CATEGORIA').trim()))].sort((a,b)=>a.localeCompare(b,'pt-BR'))}
-function prepararCategorias(){const lista=categorias();el.filtroCategoria.innerHTML=lista.map(c=>`<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join('');categoriaSelecionada=lista[0]||'';el.filtroCategoria.value=categoriaSelecionada}
-function produtoSelecionado(id){return document.querySelector(`.chk[data-id="${id}"]`)?.checked||false}
-function quantidadeProduto(id){const input=document.querySelector(`.qtdp[data-id="${id}"]`);return Math.max(1,Number.parseInt(input?.value||'1',10))}
-function estadoAtual(){const estado=new Map();document.querySelectorAll('.chk').forEach(chk=>{estado.set(Number(chk.dataset.id),{marcado:chk.checked,quantidade:quantidadeProduto(chk.dataset.id)})});return estado}
-function renderProdutos(){const estado=estadoAtual();const itens=produtos.filter(p=>String(p.categoria||'SEM CATEGORIA').trim()===categoriaSelecionada);el.categoriaAtual.textContent=categoriaSelecionada||'Sem categorias';el.contadorFiltro.textContent=`${itens.length} ${itens.length===1?'produto':'produtos'}`;el.lista.innerHTML=itens.length?itens.map(produto=>{const salvo=estado.get(Number(produto.id));const marcado=salvo?.marcado||selecoesGlobais.has(Number(produto.id));const quantidade=salvo?.quantidade||selecoesGlobais.get(Number(produto.id))?.quantidade||1;return`<label class="produto"><input type="checkbox" class="chk" data-id="${produto.id}" ${marcado?'checked':''}><img src="${escapeHtml(produto.foto||'')}" alt="" onerror="this.style.visibility='hidden'"><span><b title="${escapeHtml(produto.nome)}">${escapeHtml(produto.nome)}</b>${brl(produto.preco)}</span><input type="number" class="qtdp" data-id="${produto.id}" min="1" step="1" value="${quantidade}" aria-label="Quantidade de ${escapeHtml(produto.nome)}"></label>`}).join(''):'<div class="selecionados-vazio">Nenhum produto nesta categoria.</div>';el.lista.querySelectorAll('.chk,.qtdp').forEach(campo=>{campo.addEventListener('change',sincronizarSelecoes);campo.addEventListener('input',sincronizarSelecoes)})}
-const selecoesGlobais=new Map();
-function sincronizarSelecoes(){document.querySelectorAll('.chk').forEach(chk=>{const id=Number(chk.dataset.id);if(chk.checked)selecoesGlobais.set(id,{produto_id:id,quantidade:quantidadeProduto(id)});else selecoesGlobais.delete(id)});atualizar()}
-function selecionados(){return[...selecoesGlobais.values()]}
-function atualizar(){let total=0;let quantidadeTotal=0;const itens=selecionados().map(item=>{const produto=produtos.find(p=>Number(p.id)===item.produto_id);if(!produto)return null;const subtotal=Number(produto.preco)*item.quantidade;total+=subtotal;quantidadeTotal+=item.quantidade;return{...item,produto,subtotal}}).filter(Boolean);el.qtd.textContent=`${quantidadeTotal} ${quantidadeTotal===1?'item':'itens'}`;el.total.textContent=brl(total);el.medio.textContent=brl(quantidadeTotal?total/quantidadeTotal:0);if(!itens.length){el.selecionadosPainel.className='selecionados-vazio';el.selecionadosPainel.textContent='Nenhum item selecionado.';return}el.selecionadosPainel.className='selecionados-lista';el.selecionadosPainel.innerHTML=itens.map(({produto,quantidade,subtotal})=>`<div class="selecionado"><img src="${escapeHtml(produto.foto||'')}" alt="" onerror="this.style.visibility='hidden'"><div><b>${escapeHtml(produto.nome)}</b><small>${brl(produto.preco)} · subtotal ${brl(subtotal)}</small></div><span class="qtd-mini">x${quantidade}</span></div>`).join('')}
-function bloquear(bloqueado,textoBotao){el.criar.disabled=bloqueado;el.regerar.disabled=bloqueado;el.publicar.disabled=bloqueado;el.enviarWhatsapp.disabled=bloqueado;el.criar.textContent=textoBotao||'Criar oferta e gerar arte'}
-async function iniciar(){try{mostrarAviso('Carregando produtos...','normal',true);produtos=await api('/api/ofertas/produtos');prepararCategorias();renderProdutos();atualizar();await carregarHistorico();mostrarAviso('Escolha uma categoria, selecione os produtos e acompanhe o kit ao lado.')}catch(error){el.lista.textContent='Não foi possível carregar os produtos.';mostrarAviso(error.message,'erro');console.error(error)}}
-async function criarOferta(){const itens=selecionados();if(!itens.length){mostrarAviso('Selecione ao menos um produto antes de criar a oferta.','erro');return}try{bloquear(true,'Criando oferta...');mostrarAviso('Criando a oferta no banco de dados...','normal',true);ofertaAtual=await api('/api/ofertas',{method:'POST',body:JSON.stringify({titulo:el.titulo.value,itens,expira_em:el.expira.value||null,prompt_cenario:el.prompt.value||null,tema_arte:temaArte,cores_arte:{}})});el.codigo.textContent=ofertaAtual.codigo;el.resultado.classList.remove('oculto');mostrarAviso(`Oferta ${ofertaAtual.codigo} criada. Gerando a arte com as fotos reais dos produtos.`,'normal',true);el.criar.textContent='Gerando arte...';await gerarArte()}catch(error){mostrarAviso(error.message,'erro');console.error(error)}finally{bloquear(false)}}
-async function gerarArte(){if(!ofertaAtual?.id){mostrarAviso('Crie uma oferta antes de gerar a arte.','erro');return}try{bloquear(true,'Gerando arte...');mostrarAviso('Compondo a arte. Não feche esta página.','normal',true);ofertaAtual=await api(`/api/ofertas/${ofertaAtual.id}/gerar-arte`,{method:'POST'});if(!ofertaAtual.imagem_url)throw new Error('O servidor não retornou a URL da arte.');el.preview.src=`${ofertaAtual.imagem_url}?v=${Date.now()}`;el.codigo.textContent=ofertaAtual.codigo;el.resultado.classList.remove('oculto');mostrarAviso('Arte pronta para conferência.','sucesso');await carregarHistorico()}catch(error){mostrarAviso(`A oferta foi criada, mas a arte não foi gerada: ${error.message}`,'erro');console.error(error)}finally{bloquear(false)}}
-async function publicarOferta(){if(!ofertaAtual?.id){mostrarAviso('Nenhuma oferta está selecionada para publicação.','erro');return}try{bloquear(true);mostrarAviso('Publicando no Status...','normal',true);const resultado=await api(`/api/ofertas/${ofertaAtual.id}/publicar`,{method:'POST'});mostrarAviso(`Publicado com sucesso. Link público: ${resultado.link}`,'sucesso');await carregarHistorico()}catch(error){mostrarAviso(error.message,'erro');console.error(error)}finally{bloquear(false)}}
-function normalizarTelefone(valor){return String(valor||'').replace(/\D+/g,'')}
-async function enviarOfertaWhatsapp(){if(!ofertaAtual?.id){mostrarAviso('Nenhuma oferta está selecionada para envio.','erro');return}const telefone=normalizarTelefone(el.telefoneWhatsapp.value);if(telefone.length<10){mostrarAviso('Informe um número válido com DDI e DDD.','erro');el.telefoneWhatsapp.focus();return}try{bloquear(true);mostrarAviso('Enviando a arte para o WhatsApp informado...','normal',true);const resultado=await api(`/api/ofertas/${ofertaAtual.id}/enviar-whatsapp`,{method:'POST',body:JSON.stringify({telefone})});el.telefoneWhatsapp.value=resultado.telefone||telefone;mostrarAviso(`Arte enviada com sucesso para ${resultado.telefone}. Link público: ${resultado.link}`,'sucesso')}catch(error){mostrarAviso(error.message,'erro');console.error(error)}finally{bloquear(false)}}
-async function carregarHistorico(){try{const lista=await api('/api/ofertas');el.historico.innerHTML=lista.map(oferta=>`<div class="oferta"><div><b>${escapeHtml(oferta.codigo)} — ${escapeHtml(oferta.titulo)}</b><br>${brl(oferta.total)} · médio ${brl(oferta.preco_medio)} · tema ${escapeHtml(temasConfig[oferta.tema_arte]?.nome||oferta.tema_arte||'Claro premium')} · ${oferta.visualizacoes} visualizações · ${oferta.cliques_whatsapp} cliques</div><div><span class="status">${escapeHtml(oferta.status)}</span> <button class="sec duplicar" type="button" data-id="${oferta.id}">Duplicar</button></div></div>`).join('')||'<p>Nenhuma oferta criada.</p>'}catch(error){el.historico.textContent=error.message}}
-async function duplicar(id){try{mostrarAviso('Duplicando oferta...','normal',true);ofertaAtual=await api(`/api/ofertas/${id}/duplicar`,{method:'POST'});el.codigo.textContent=ofertaAtual.codigo;el.resultado.classList.remove('oculto');mostrarAviso(`Oferta duplicada: ${ofertaAtual.codigo}. Clique em “Gerar novamente”.`,'sucesso');await carregarHistorico()}catch(error){mostrarAviso(error.message,'erro')}}
-el.temas.addEventListener('click',event=>{const botao=event.target.closest('.tema-opcao');if(botao)escolherTema(botao.dataset.tema)});el.filtroCategoria.addEventListener('change',()=>{categoriaSelecionada=el.filtroCategoria.value;renderProdutos();atualizar()});el.criar.addEventListener('click',criarOferta);el.regerar.addEventListener('click',gerarArte);el.publicar.addEventListener('click',publicarOferta);el.enviarWhatsapp.addEventListener('click',enviarOfertaWhatsapp);el.historico.addEventListener('click',event=>{const botao=event.target.closest('.duplicar');if(botao)duplicar(Number(botao.dataset.id))});escolherTema('claro');iniciar();
+
+let produtos = [];
+let ofertaAtual = null;
+let temaArte = 'claro';
+let categoriaSelecionada = '';
+let urlPreviewAtual = null;
+let ofertasHistorico = new Map();
+const selecoesGlobais = new Map();
+
+const el = {
+  lista: document.querySelector('#lista'),
+  titulo: document.querySelector('#titulo'),
+  expira: document.querySelector('#expira'),
+  prompt: document.querySelector('#prompt'),
+  qtd: document.querySelector('#qtd'),
+  total: document.querySelector('#total'),
+  medio: document.querySelector('#medio'),
+  criar: document.querySelector('#criar'),
+  aviso: document.querySelector('#aviso'),
+  resultado: document.querySelector('#resultado'),
+  preview: document.querySelector('#preview'),
+  previewVazio: document.querySelector('#previewVazio'),
+  codigo: document.querySelector('#codigo'),
+  statusAtual: document.querySelector('#statusAtual'),
+  regerar: document.querySelector('#regerar'),
+  publicar: document.querySelector('#publicar'),
+  telefoneWhatsapp: document.querySelector('#telefoneWhatsapp'),
+  enviarWhatsapp: document.querySelector('#enviarWhatsapp'),
+  historico: document.querySelector('#historico'),
+  filtroCategoria: document.querySelector('#filtroCategoria'),
+  contadorFiltro: document.querySelector('#contadorFiltro'),
+  categoriaAtual: document.querySelector('#categoriaAtual'),
+  selecionadosPainel: document.querySelector('#selecionadosPainel'),
+  temas: document.querySelector('#temas'),
+  limparR2: document.querySelector('#limparR2'),
+  colunaLateral: document.querySelector('#colunaLateral'),
+};
+
+const temasConfig = {
+  claro: { nome: 'Claro premium' },
+  branco: { nome: 'Branco comercial' },
+  escuro: { nome: 'Escuro premium' },
+  azul: { nome: 'Azul elegante' },
+  verde: { nome: 'Verde sofisticado' },
+};
+
+const brl = valor => Number(valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const escapeHtml = valor => String(valor ?? '').replace(/[&<>'"]/g, caractere => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;',
+}[caractere]));
+
+function escolherTema(tema) {
+  temaArte = temasConfig[tema] ? tema : 'claro';
+  document.querySelectorAll('.tema-opcao').forEach(botao => {
+    botao.classList.toggle('ativo', botao.dataset.tema === temaArte);
+  });
+}
+
+function mostrarAviso(texto, tipo = 'normal', carregando = false) {
+  el.aviso.className = `aviso${tipo === 'erro' ? ' erro' : tipo === 'sucesso' ? ' sucesso' : ''}`;
+  el.aviso.innerHTML = `${carregando ? '<span class="girando"></span>' : ''}${escapeHtml(texto)}`;
+}
+
+async function api(url, opt = {}) {
+  const response = await fetch(url, {
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', ...(opt.headers || {}) },
+    ...opt,
+  });
+  const texto = await response.text();
+  let data = {};
+  try {
+    data = texto ? JSON.parse(texto) : {};
+  } catch (_) {
+    throw new Error(`O servidor respondeu em formato inesperado (${response.status}).`);
+  }
+  if (response.status === 401) {
+    location.href = `/login?next=${encodeURIComponent(location.pathname)}`;
+    throw new Error('Sua sessão expirou.');
+  }
+  if (!response.ok || !data.success) {
+    throw new Error(data.message || data.erro || `Erro HTTP ${response.status}`);
+  }
+  return data.data;
+}
+
+async function buscarArteBlob(ofertaId) {
+  const response = await fetch(`/api/ofertas/${ofertaId}/arte.jpg?v=${Date.now()}`, {
+    credentials: 'same-origin',
+    cache: 'no-store',
+  });
+
+  if (response.status === 401) {
+    location.href = `/login?next=${encodeURIComponent(location.pathname)}`;
+    throw new Error('Sua sessão expirou.');
+  }
+
+  if (!response.ok) {
+    const texto = await response.text();
+    let mensagem = `Não foi possível recriar a arte (${response.status}).`;
+    try {
+      mensagem = JSON.parse(texto).message || mensagem;
+    } catch (_) {
+      // Mantém a mensagem padrão quando a resposta não é JSON.
+    }
+    throw new Error(mensagem);
+  }
+
+  return response.blob();
+}
+
+function categorias() {
+  return [...new Set(produtos.map(produto => String(produto.categoria || 'SEM CATEGORIA').trim()))]
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+}
+
+function prepararCategorias() {
+  const lista = categorias();
+  el.filtroCategoria.innerHTML = lista
+    .map(categoria => `<option value="${escapeHtml(categoria)}">${escapeHtml(categoria)}</option>`)
+    .join('');
+  categoriaSelecionada = lista[0] || '';
+  el.filtroCategoria.value = categoriaSelecionada;
+}
+
+function quantidadeProduto(id) {
+  const input = document.querySelector(`.qtdp[data-id="${id}"]`);
+  return Math.max(1, Number.parseInt(input?.value || '1', 10));
+}
+
+function estadoAtual() {
+  const estado = new Map();
+  document.querySelectorAll('.chk').forEach(chk => {
+    estado.set(Number(chk.dataset.id), {
+      marcado: chk.checked,
+      quantidade: quantidadeProduto(chk.dataset.id),
+    });
+  });
+  return estado;
+}
+
+function renderProdutos() {
+  const estado = estadoAtual();
+  const itens = produtos.filter(produto => String(produto.categoria || 'SEM CATEGORIA').trim() === categoriaSelecionada);
+  el.categoriaAtual.textContent = categoriaSelecionada || 'Sem categorias';
+  el.contadorFiltro.textContent = `${itens.length} ${itens.length === 1 ? 'produto' : 'produtos'}`;
+  el.lista.innerHTML = itens.length ? itens.map(produto => {
+    const salvo = estado.get(Number(produto.id));
+    const marcado = salvo?.marcado || selecoesGlobais.has(Number(produto.id));
+    const quantidade = salvo?.quantidade || selecoesGlobais.get(Number(produto.id))?.quantidade || 1;
+    return `<label class="produto">
+      <input type="checkbox" class="chk" data-id="${produto.id}" ${marcado ? 'checked' : ''}>
+      <img src="${escapeHtml(produto.foto || '')}" alt="" onerror="this.style.visibility='hidden'">
+      <span><b title="${escapeHtml(produto.nome)}">${escapeHtml(produto.nome)}</b>${brl(produto.preco)}</span>
+      <input type="number" class="qtdp" data-id="${produto.id}" min="1" step="1" value="${quantidade}" aria-label="Quantidade de ${escapeHtml(produto.nome)}">
+    </label>`;
+  }).join('') : '<div class="selecionados-vazio">Nenhum produto nesta categoria.</div>';
+
+  el.lista.querySelectorAll('.chk,.qtdp').forEach(campo => {
+    campo.addEventListener('change', sincronizarSelecoes);
+    campo.addEventListener('input', sincronizarSelecoes);
+  });
+}
+
+function sincronizarSelecoes() {
+  document.querySelectorAll('.chk').forEach(chk => {
+    const id = Number(chk.dataset.id);
+    if (chk.checked) {
+      selecoesGlobais.set(id, { produto_id: id, quantidade: quantidadeProduto(id) });
+    } else {
+      selecoesGlobais.delete(id);
+    }
+  });
+  atualizarResumoSelecao();
+}
+
+function selecionados() {
+  return [...selecoesGlobais.values()];
+}
+
+function atualizarResumoSelecao() {
+  let total = 0;
+  let quantidadeTotal = 0;
+  const itens = selecionados().map(item => {
+    const produto = produtos.find(produtoAtual => Number(produtoAtual.id) === item.produto_id);
+    if (!produto) return null;
+    const subtotal = Number(produto.preco) * item.quantidade;
+    total += subtotal;
+    quantidadeTotal += item.quantidade;
+    return { ...item, produto, subtotal };
+  }).filter(Boolean);
+
+  el.qtd.textContent = `${quantidadeTotal} ${quantidadeTotal === 1 ? 'item' : 'itens'}`;
+  el.total.textContent = brl(total);
+  el.medio.textContent = brl(quantidadeTotal ? total / quantidadeTotal : 0);
+
+  if (!itens.length) {
+    el.selecionadosPainel.className = 'selecionados-vazio';
+    el.selecionadosPainel.textContent = 'Nenhum item selecionado.';
+    return;
+  }
+
+  el.selecionadosPainel.className = 'selecionados-lista';
+  el.selecionadosPainel.innerHTML = itens.map(({ produto, quantidade, subtotal }) => `
+    <div class="selecionado">
+      <img src="${escapeHtml(produto.foto || '')}" alt="" onerror="this.style.visibility='hidden'">
+      <div><b>${escapeHtml(produto.nome)}</b><small>${brl(produto.preco)} · subtotal ${brl(subtotal)}</small></div>
+      <span class="qtd-mini">x${quantidade}</span>
+    </div>`).join('');
+}
+
+function bloquear(bloqueado, textoBotao) {
+  [el.criar, el.regerar, el.publicar, el.enviarWhatsapp, el.limparR2]
+    .filter(Boolean)
+    .forEach(botao => { botao.disabled = bloqueado; });
+  el.criar.textContent = textoBotao || 'Criar oferta e visualizar';
+}
+
+function classeStatus(status) {
+  return status === 'publicada' ? 'status publicada' : 'status';
+}
+
+function atualizarPainelOferta(oferta) {
+  ofertaAtual = oferta;
+  el.codigo.textContent = oferta.codigo;
+  el.statusAtual.textContent = oferta.status || 'rascunho';
+  el.statusAtual.className = classeStatus(oferta.status);
+  el.resultado.classList.remove('oculto');
+}
+
+function limparPreview() {
+  if (urlPreviewAtual) {
+    URL.revokeObjectURL(urlPreviewAtual);
+    urlPreviewAtual = null;
+  }
+  el.preview.removeAttribute('src');
+  el.preview.classList.add('oculto');
+  el.previewVazio.classList.remove('oculto');
+}
+
+async function atualizarPreview() {
+  if (!ofertaAtual?.id) {
+    mostrarAviso('Selecione ou crie uma oferta antes de visualizar a arte.', 'erro');
+    return;
+  }
+
+  try {
+    bloquear(true);
+    mostrarAviso('Recriando a arte com os dados e preços atuais...', 'normal', true);
+    const blob = await buscarArteBlob(ofertaAtual.id);
+    limparPreview();
+    urlPreviewAtual = URL.createObjectURL(blob);
+    el.preview.src = urlPreviewAtual;
+    el.preview.classList.remove('oculto');
+    el.previewVazio.classList.add('oculto');
+    mostrarAviso('Prévia atualizada. Nenhum arquivo foi salvo no R2.', 'sucesso');
+  } catch (error) {
+    limparPreview();
+    mostrarAviso(error.message, 'erro');
+    console.error(error);
+  } finally {
+    bloquear(false);
+  }
+}
+
+async function iniciar() {
+  try {
+    mostrarAviso('Carregando produtos...', 'normal', true);
+    produtos = await api('/api/ofertas/produtos');
+    prepararCategorias();
+    renderProdutos();
+    atualizarResumoSelecao();
+    await carregarHistorico();
+    mostrarAviso('Escolha uma categoria, selecione os produtos e acompanhe o kit ao lado.');
+  } catch (error) {
+    el.lista.textContent = 'Não foi possível carregar os produtos.';
+    mostrarAviso(error.message, 'erro');
+    console.error(error);
+  }
+}
+
+async function criarOferta() {
+  const itens = selecionados();
+  if (!itens.length) {
+    mostrarAviso('Selecione ao menos um produto antes de criar a oferta.', 'erro');
+    return;
+  }
+
+  try {
+    bloquear(true, 'Criando oferta...');
+    mostrarAviso('Salvando a receita da oferta...', 'normal', true);
+    const oferta = await api('/api/ofertas', {
+      method: 'POST',
+      body: JSON.stringify({
+        titulo: el.titulo.value,
+        itens,
+        expira_em: el.expira.value || null,
+        prompt_cenario: el.prompt.value || null,
+        tema_arte: temaArte,
+        cores_arte: {},
+      }),
+    });
+    atualizarPainelOferta(oferta);
+    limparPreview();
+    await carregarHistorico();
+  } catch (error) {
+    mostrarAviso(error.message, 'erro');
+    console.error(error);
+    bloquear(false);
+    return;
+  }
+
+  bloquear(false);
+  await atualizarPreview();
+}
+
+async function publicarOferta() {
+  if (!ofertaAtual?.id) {
+    mostrarAviso('Nenhuma oferta está selecionada para publicação.', 'erro');
+    return;
+  }
+
+  try {
+    bloquear(true);
+    mostrarAviso('Recriando a arte e publicando no Status...', 'normal', true);
+    const resultado = await api(`/api/ofertas/${ofertaAtual.id}/publicar`, { method: 'POST' });
+    atualizarPainelOferta(resultado.oferta);
+    mostrarAviso(`Publicado com sucesso. Link público: ${resultado.link}`, 'sucesso');
+    await carregarHistorico();
+  } catch (error) {
+    mostrarAviso(error.message, 'erro');
+    console.error(error);
+  } finally {
+    bloquear(false);
+  }
+}
+
+function normalizarTelefone(valor) {
+  return String(valor || '').replace(/\D+/g, '');
+}
+
+async function enviarOfertaWhatsapp() {
+  if (!ofertaAtual?.id) {
+    mostrarAviso('Nenhuma oferta está selecionada para envio.', 'erro');
+    return;
+  }
+
+  const telefone = normalizarTelefone(el.telefoneWhatsapp.value);
+  if (telefone.length < 10) {
+    mostrarAviso('Informe um número válido com DDI e DDD.', 'erro');
+    el.telefoneWhatsapp.focus();
+    return;
+  }
+
+  try {
+    bloquear(true);
+    mostrarAviso('Recriando a arte e enviando para o WhatsApp informado...', 'normal', true);
+    const resultado = await api(`/api/ofertas/${ofertaAtual.id}/enviar-whatsapp`, {
+      method: 'POST',
+      body: JSON.stringify({ telefone }),
+    });
+    el.telefoneWhatsapp.value = resultado.telefone || telefone;
+    atualizarPainelOferta(resultado.oferta);
+    mostrarAviso(`Arte enviada com sucesso para ${resultado.telefone}. Link público: ${resultado.link}`, 'sucesso');
+  } catch (error) {
+    mostrarAviso(error.message, 'erro');
+    console.error(error);
+  } finally {
+    bloquear(false);
+  }
+}
+
+function problemaOferta(oferta) {
+  if (oferta.disponivel !== false) return '';
+  return `<div class="oferta-problema">${escapeHtml((oferta.problemas || []).join(' '))}</div>`;
+}
+
+async function carregarHistorico() {
+  try {
+    const lista = await api('/api/ofertas');
+    ofertasHistorico = new Map(lista.map(oferta => [Number(oferta.id), oferta]));
+    el.historico.innerHTML = lista.length ? lista.map(oferta => `
+      <article class="oferta">
+        <div class="oferta-info">
+          <b>${escapeHtml(oferta.codigo)} — ${escapeHtml(oferta.titulo)}</b>
+          <div class="oferta-meta">
+            ${brl(oferta.total)} · médio ${brl(oferta.preco_medio)} · ${oferta.total_itens} peças<br>
+            tema ${escapeHtml(temasConfig[oferta.tema_arte]?.nome || oferta.tema_arte || 'Claro premium')} ·
+            ${oferta.visualizacoes} visualizações · ${oferta.cliques_whatsapp} cliques
+          </div>
+          ${problemaOferta(oferta)}
+        </div>
+        <div class="oferta-acoes">
+          <span class="${classeStatus(oferta.status)}">${escapeHtml(oferta.status)}</span>
+          <button class="azul visualizar" type="button" data-id="${oferta.id}" ${oferta.disponivel === false ? 'disabled' : ''}>Visualizar arte</button>
+          <button class="sec duplicar" type="button" data-id="${oferta.id}" ${oferta.disponivel === false ? 'disabled' : ''}>Duplicar</button>
+        </div>
+      </article>`).join('') : '<div class="vazio-historico">Nenhuma oferta criada.</div>';
+  } catch (error) {
+    el.historico.textContent = error.message;
+  }
+}
+
+async function visualizarOferta(id) {
+  const oferta = ofertasHistorico.get(Number(id));
+  if (!oferta) {
+    mostrarAviso('Oferta não encontrada no histórico carregado.', 'erro');
+    return;
+  }
+  atualizarPainelOferta(oferta);
+  limparPreview();
+  el.colunaLateral.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  await atualizarPreview();
+}
+
+async function duplicar(id) {
+  try {
+    bloquear(true);
+    mostrarAviso('Duplicando a receita da oferta...', 'normal', true);
+    const oferta = await api(`/api/ofertas/${id}/duplicar`, { method: 'POST' });
+    atualizarPainelOferta(oferta);
+    limparPreview();
+    await carregarHistorico();
+  } catch (error) {
+    mostrarAviso(error.message, 'erro');
+    bloquear(false);
+    return;
+  }
+  bloquear(false);
+  await atualizarPreview();
+}
+
+async function limparArtesR2() {
+  const confirmado = window.confirm(
+    'Excluir definitivamente todas as imagens antigas da pasta ofertas/ no R2?\n\nAs fotos dos produtos serão preservadas.'
+  );
+  if (!confirmado) return;
+
+  try {
+    bloquear(true);
+    mostrarAviso('Limpando somente as artes antigas da pasta ofertas/ no R2...', 'normal', true);
+    const resultado = await api('/api/ofertas/manutencao/limpar-artes-r2', {
+      method: 'POST',
+      body: JSON.stringify({ confirmacao: 'LIMPAR_ARTES_OFERTAS' }),
+    });
+    mostrarAviso(
+      `Limpeza concluída: ${resultado.objetos_excluidos} arquivo(s) removido(s) do R2 e ${resultado.referencias_limpas} referência(s) limpa(s) no banco.`,
+      'sucesso'
+    );
+    await carregarHistorico();
+  } catch (error) {
+    mostrarAviso(error.message, 'erro');
+    console.error(error);
+  } finally {
+    bloquear(false);
+  }
+}
+
+el.temas.addEventListener('click', event => {
+  const botao = event.target.closest('.tema-opcao');
+  if (botao) escolherTema(botao.dataset.tema);
+});
+
+el.filtroCategoria.addEventListener('change', () => {
+  categoriaSelecionada = el.filtroCategoria.value;
+  renderProdutos();
+  atualizarResumoSelecao();
+});
+
+el.criar.addEventListener('click', criarOferta);
+el.regerar.addEventListener('click', atualizarPreview);
+el.publicar.addEventListener('click', publicarOferta);
+el.enviarWhatsapp.addEventListener('click', enviarOfertaWhatsapp);
+el.limparR2.addEventListener('click', limparArtesR2);
+el.historico.addEventListener('click', event => {
+  const visualizar = event.target.closest('.visualizar');
+  if (visualizar) {
+    visualizarOferta(Number(visualizar.dataset.id));
+    return;
+  }
+  const botaoDuplicar = event.target.closest('.duplicar');
+  if (botaoDuplicar) duplicar(Number(botaoDuplicar.dataset.id));
+});
+
+window.addEventListener('beforeunload', () => {
+  if (urlPreviewAtual) URL.revokeObjectURL(urlPreviewAtual);
+});
+
+escolherTema('claro');
+iniciar();
 </script>
 </body>
 </html>

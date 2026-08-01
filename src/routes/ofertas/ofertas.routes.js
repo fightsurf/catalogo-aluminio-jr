@@ -1,14 +1,19 @@
 const express = require('express');
 const controller = require('../../controllers/ofertas/ofertas.controller');
 const { requireAuth } = require('../../middlewares/adminAuth.middleware');
+
 const router = express.Router();
+
 router.get('/publica/:codigo', controller.publica);
 router.post('/publica/:codigo/clique', controller.clique);
 router.get('/produtos', requireAuth, controller.produtos);
 router.get('/', requireAuth, controller.listar);
 router.post('/', requireAuth, controller.criar);
+router.post('/manutencao/limpar-artes-r2', requireAuth, controller.limparArtesR2);
+router.get('/:id/arte.jpg', requireAuth, controller.imagemArte);
 router.post('/:id/gerar-arte', requireAuth, controller.gerarArte);
 router.post('/:id/publicar', requireAuth, controller.publicar);
 router.post('/:id/enviar-whatsapp', requireAuth, controller.enviarWhatsapp);
 router.post('/:id/duplicar', requireAuth, controller.duplicar);
+
 module.exports = router;

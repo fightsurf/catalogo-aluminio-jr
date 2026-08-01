@@ -46,53 +46,156 @@ function normalizarTemaArte(payload = {}) {
 }
 
 function codigoOferta() {
-  const data = new Date().toISOString().slice(0,10).replace(/-/g,'');
+  const data = new Date().toISOString().slice(0, 10).replace(/-/g, '');
   return `OF-${data}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
 }
 
-function normalizarOferta(row, itens=[]) {
+function normalizarLinhaOferta(row) {
+  const { imagem_url: _imagemUrl, r2_key: _r2Key, ...dados } = row;
   return {
-    ...row,
+    ...dados,
     id: Number(row.id),
-    total: Number(row.total),
-    preco_medio: Number(row.preco_medio),
-    total_itens: Number(row.total_itens),
+    total: Number(row.total || 0),
+    preco_medio: Number(row.preco_medio || 0),
+    total_itens: Number(row.total_itens || 0),
     visualizacoes: Number(row.visualizacoes || 0),
     cliques_whatsapp: Number(row.cliques_whatsapp || 0),
     tema_arte: row.tema_arte || 'claro',
     cores_arte: row.cores_arte && typeof row.cores_arte === 'object' ? row.cores_arte : {},
-    itens: itens.map(i => ({ ...i, id:Number(i.id), produto_id:i.produto_id?Number(i.produto_id):null, quantidade:Number(i.quantidade), preco_unitario:Number(i.preco_unitario), preco_medio:Number(i.preco_medio) })),
+    arte_dinamica: true,
+    imagem_armazenada: false,
+  };
+}
+
+function normalizarItemReceita(item) {
+  return {
+    ...item,
+    id: Number(item.id),
+    oferta_id: Number(item.oferta_id),
+    produto_id: item.produto_id ? Number(item.produto_id) : null,
+    quantidade: Number(item.quantidade),
+    preco_unitario: Number(item.preco_unitario || 0),
+    preco_medio: Number(item.preco_medio || 0),
   };
 }
 
 async function obterItens(ofertaId) {
   const result = await pool.query('SELECT * FROM ofertas_itens WHERE oferta_id = $1 ORDER BY id ASC', [ofertaId]);
-  return result.rows;
+  return result.rows.map(normalizarItemReceita);
 }
 
-async function buscarPorId(id) {
+async function carregarMapaProdutosAtuais() {
+  const produtos = await produtoService.listar({});
+  return new Map(produtos.map(produto => [String(produto.id), produto]));
+}
+
+function fotoAtualProduto(produto) {
+  return produto.foto || produto.fotos?.find(Boolean) || null;
+}
+
+function materializarOfertaAtual(row, receita, mapaProdutos, permitirIndisponiveis = false) {
+  const problemas = [];
+
+  const itens = receita.map(item => {
+    const produto = mapaProdutos.get(String(item.produto_id));
+
+    if (!produto) {
+      problemas.push(`O produto ${item.produto_id || item.nome || 'sem identificação'} não existe mais no cadastro.`);
+      return item;
+    }
+
+    if (produto.ativo !== true) {
+      problemas.push(`${produto.nome} está inativo.`);
+    }
+
+    if (produto.perfil_kit_feirinha !== true) {
+      problemas.push(`${produto.nome} não está mais habilitado para Kit Feirinha.`);
+    }
+
+    const preco = Number(produto.preco);
+    if (!Number.isFinite(preco) || preco <= 0) {
+      problemas.push(`${produto.nome} está sem preço atual válido.`);
+    }
+
+    const foto = fotoAtualProduto(produto);
+    if (!foto) {
+      problemas.push(`${produto.nome} está sem foto atual.`);
+    }
+
+    return {
+      ...item,
+      nome: produto.nome,
+      preco_unitario: Number.isFinite(preco) ? preco : 0,
+      foto_url: foto,
+      produto_ativo: produto.ativo === true,
+      produto_kit_feirinha: produto.perfil_kit_feirinha === true,
+    };
+  });
+
+  if (problemas.length && !permitirIndisponiveis) {
+    throw new Error(`A oferta não pode ser recriada com os dados atuais. ${problemas.join(' ')}`);
+  }
+
+  const totalItens = itens.reduce((soma, item) => soma + Number(item.quantidade || 0), 0);
+  const total = itens.reduce((soma, item) => soma + (Number(item.preco_unitario || 0) * Number(item.quantidade || 0)), 0);
+  const precoMedio = totalItens > 0 ? total / totalItens : 0;
+  const oferta = normalizarLinhaOferta({
+    ...row,
+    total,
+    preco_medio: precoMedio,
+    total_itens: totalItens,
+  });
+
+  return {
+    ...oferta,
+    itens: itens.map(item => ({ ...item, preco_medio: precoMedio })),
+    disponivel: problemas.length === 0,
+    problemas,
+    dados_produtos: 'atuais',
+    arte_url: `/api/ofertas/${Number(row.id)}/arte.jpg`,
+  };
+}
+
+async function buscarBasePorId(id) {
   await schemaService.criarEstrutura();
   const result = await pool.query('SELECT * FROM ofertas WHERE id = $1', [id]);
   if (!result.rows.length) throw new Error('Oferta não encontrada.');
-  return normalizarOferta(result.rows[0], await obterItens(id));
+  return { row: result.rows[0], receita: await obterItens(id) };
 }
 
-async function buscarPorCodigo(codigo, registrarVisualizacao=false) {
+async function buscarPorId(id, opcoes = {}) {
+  const { row, receita } = await buscarBasePorId(id);
+  const mapaProdutos = opcoes.mapaProdutos || await carregarMapaProdutosAtuais();
+  return materializarOfertaAtual(row, receita, mapaProdutos, opcoes.permitirIndisponiveis === true);
+}
+
+async function buscarPorCodigo(codigo, registrarVisualizacao = false) {
   await schemaService.criarEstrutura();
   const result = await pool.query('SELECT * FROM ofertas WHERE codigo = $1', [codigo]);
   if (!result.rows.length) throw new Error('Oferta não encontrada.');
+
   let row = result.rows[0];
   if (registrarVisualizacao) {
-    const atualizado = await pool.query('UPDATE ofertas SET visualizacoes = visualizacoes + 1 WHERE id = $1 RETURNING *', [row.id]);
+    const atualizado = await pool.query(
+      'UPDATE ofertas SET visualizacoes = visualizacoes + 1 WHERE id = $1 RETURNING *',
+      [row.id]
+    );
     row = atualizado.rows[0];
   }
-  return normalizarOferta(row, await obterItens(row.id));
+
+  const mapaProdutos = await carregarMapaProdutosAtuais();
+  return materializarOfertaAtual(row, await obterItens(row.id), mapaProdutos, false);
 }
 
 async function listar() {
   await schemaService.criarEstrutura();
   const result = await pool.query('SELECT * FROM ofertas ORDER BY created_at DESC LIMIT 100');
-  return Promise.all(result.rows.map(async row => normalizarOferta(row, await obterItens(row.id))));
+  const mapaProdutos = await carregarMapaProdutosAtuais();
+
+  return Promise.all(result.rows.map(async row => {
+    const receita = await obterItens(row.id);
+    return materializarOfertaAtual(row, receita, mapaProdutos, true);
+  }));
 }
 
 async function criar(payload) {
@@ -100,22 +203,34 @@ async function criar(payload) {
   const itensEntrada = Array.isArray(payload.itens) ? payload.itens : [];
   if (!itensEntrada.length) throw new Error('Selecione ao menos um produto.');
 
-  const produtos = await produtoService.listar({ perfil:'kit-feirinha', apenasAtivos:true });
-  const mapa = new Map(produtos.map(p => [String(p.id), p]));
+  const produtos = await produtoService.listar({ perfil: 'kit-feirinha', apenasAtivos: true });
+  const mapa = new Map(produtos.map(produto => [String(produto.id), produto]));
   const itens = itensEntrada.map(item => {
     const produto = mapa.get(String(item.produto_id));
     if (!produto) throw new Error(`Produto ${item.produto_id} não está disponível para Kit Feirinha.`);
+
     const quantidade = inteiroPositivo(item.quantidade, 'Quantidade');
     const preco = numeroPositivo(produto.preco, 'Preço');
-    return { produto_id:Number(produto.id), nome:produto.nome, quantidade, preco_unitario:preco, foto_url:produto.foto || produto.fotos?.find(Boolean) || null };
+    const foto = fotoAtualProduto(produto);
+    if (!foto) throw new Error(`${produto.nome} está sem foto cadastrada.`);
+
+    return {
+      produto_id: Number(produto.id),
+      nome: produto.nome,
+      quantidade,
+      preco_unitario: preco,
+      foto_url: foto,
+    };
   });
-  const totalItens = itens.reduce((s,i)=>s+i.quantidade,0);
+
+  const totalItens = itens.reduce((soma, item) => soma + item.quantidade, 0);
   if (totalItens > arteOfertaService.MAX_ITENS) {
     throw new Error(`Selecione no máximo ${arteOfertaService.MAX_ITENS} peças no total para a arte.`);
   }
-  const total = itens.reduce((s,i)=>s+i.preco_unitario*i.quantidade,0);
-  const precoMedio = total/totalItens;
-  const titulo = String(payload.titulo || 'Kit Feirinha Especial').trim().slice(0,160) || 'Kit Feirinha Especial';
+
+  const total = itens.reduce((soma, item) => soma + (item.preco_unitario * item.quantidade), 0);
+  const precoMedio = total / totalItens;
+  const titulo = String(payload.titulo || 'Kit Feirinha Especial').trim().slice(0, 160) || 'Kit Feirinha Especial';
   const expiraEm = payload.expira_em ? new Date(payload.expira_em) : null;
   if (expiraEm && Number.isNaN(expiraEm.getTime())) throw new Error('Data de expiração inválida.');
   const { tema_arte, cores_arte } = normalizarTemaArte(payload);
@@ -123,29 +238,57 @@ async function criar(payload) {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const ofertaResult = await client.query(`INSERT INTO ofertas (codigo,titulo,total,preco_medio,total_itens,expira_em,prompt_cenario,tema_arte,cores_arte) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb) RETURNING *`, [codigoOferta(),titulo,total,precoMedio,totalItens,expiraEm,payload.prompt_cenario || null,tema_arte,JSON.stringify(cores_arte)]);
+    const ofertaResult = await client.query(
+      `INSERT INTO ofertas
+        (codigo,titulo,total,preco_medio,total_itens,expira_em,prompt_cenario,tema_arte,cores_arte,imagem_url,r2_key)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,NULL,NULL)
+       RETURNING *`,
+      [
+        codigoOferta(), titulo, total, precoMedio, totalItens, expiraEm,
+        payload.prompt_cenario || null, tema_arte, JSON.stringify(cores_arte),
+      ]
+    );
     const oferta = ofertaResult.rows[0];
+
     for (const item of itens) {
-      await client.query(`INSERT INTO ofertas_itens (oferta_id,produto_id,nome,quantidade,preco_unitario,preco_medio,foto_url) VALUES ($1,$2,$3,$4,$5,$6,$7)`, [oferta.id,item.produto_id,item.nome,item.quantidade,item.preco_unitario,precoMedio,item.foto_url]);
+      await client.query(
+        `INSERT INTO ofertas_itens
+          (oferta_id,produto_id,nome,quantidade,preco_unitario,preco_medio,foto_url)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [oferta.id, item.produto_id, item.nome, item.quantidade, item.preco_unitario, precoMedio, item.foto_url]
+      );
     }
+
     await client.query('COMMIT');
     return buscarPorId(oferta.id);
-  } catch (error) { await client.query('ROLLBACK'); throw error; }
-  finally { client.release(); }
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function gerarArteBuffer(id) {
+  const oferta = await buscarPorId(id);
+  const buffer = await arteOfertaService.gerarArte(oferta);
+  return { oferta, buffer };
 }
 
 async function gerarArte(id) {
   const oferta = await buscarPorId(id);
-  const buffer = await arteOfertaService.gerarArte(oferta);
-  const upload = await cloudflareR2Service.uploadBuffer(buffer, {
-    pasta:'ofertas', nome:`${oferta.codigo}.jpg`, contentType:'image/jpeg', metadata:{ oferta_id:String(oferta.id), codigo:oferta.codigo }
-  });
-  await pool.query(`UPDATE ofertas SET imagem_url=$1,r2_key=$2,status='arte_pronta',updated_at=NOW() WHERE id=$3`, [upload.url,upload.key,oferta.id]);
-  return buscarPorId(id);
+  return {
+    ...oferta,
+    arte_url: `/api/ofertas/${oferta.id}/arte.jpg`,
+  };
+}
+
+function imagemBase64(buffer) {
+  return `data:image/jpeg;base64,${buffer.toString('base64')}`;
 }
 
 function basePublica(baseUrl) {
-  return String(process.env.APP_PUBLIC_URL || baseUrl || '').replace(/\/+$/,'');
+  return String(process.env.APP_PUBLIC_URL || baseUrl || '').replace(/\/+$/, '');
 }
 
 function normalizarTelefoneDestino(valor) {
@@ -156,29 +299,36 @@ function normalizarTelefoneDestino(valor) {
 }
 
 async function publicar(id, baseUrl) {
-  const oferta = await buscarPorId(id);
-  if (!oferta.imagem_url) throw new Error('Gere a arte antes de publicar.');
+  const { oferta, buffer } = await gerarArteBuffer(id);
   const link = `${basePublica(baseUrl)}/ofertas/${encodeURIComponent(oferta.codigo)}`;
-  // A arte já contém a chamada "CLIQUE NO LINK ABAIXO". No Status, a legenda deve conter somente o link público.
   const legenda = link;
-  const envio = await zapiService.enviarImagemStatus({ imagem:oferta.imagem_url, legenda });
-  await pool.query(`UPDATE ofertas SET status='publicada',publicado_em=NOW(),updated_at=NOW() WHERE id=$1`, [id]);
-  return { oferta:await buscarPorId(id), link, legenda, zapi:envio.zapi };
+  const envio = await zapiService.enviarImagemStatus({ imagem: imagemBase64(buffer), legenda });
+
+  await pool.query(
+    `UPDATE ofertas
+     SET status='publicada', publicado_em=NOW(), imagem_url=NULL, r2_key=NULL, updated_at=NOW()
+     WHERE id=$1`,
+    [id]
+  );
+
+  return { oferta: await buscarPorId(id), link, legenda, zapi: envio.zapi };
 }
 
 async function enviarWhatsapp(id, telefone, baseUrl) {
-  const oferta = await buscarPorId(id);
-  if (!oferta.imagem_url) throw new Error('Gere a arte antes de enviar pelo WhatsApp.');
-
   const telefoneDestino = normalizarTelefoneDestino(telefone);
+  const { oferta, buffer } = await gerarArteBuffer(id);
   const link = `${basePublica(baseUrl)}/ofertas/${encodeURIComponent(oferta.codigo)}`;
-  // A arte já orienta o cliente a clicar no link abaixo; a legenda contém somente o link da oferta.
   const legenda = link;
   const envio = await zapiService.enviarImagem({
     telefone: telefoneDestino,
-    imagem: oferta.imagem_url,
+    imagem: imagemBase64(buffer),
     legenda,
   });
+
+  await pool.query(
+    'UPDATE ofertas SET imagem_url=NULL, r2_key=NULL, updated_at=NOW() WHERE id=$1',
+    [id]
+  );
 
   return {
     oferta,
@@ -191,13 +341,51 @@ async function enviarWhatsapp(id, telefone, baseUrl) {
 
 async function duplicar(id) {
   const original = await buscarPorId(id);
-  return criar({ titulo:`${original.titulo} - cópia`, itens:original.itens.map(i=>({produto_id:i.produto_id,quantidade:i.quantidade})), prompt_cenario:original.prompt_cenario, expira_em:original.expira_em, tema_arte:original.tema_arte, cores_arte:original.cores_arte });
+  return criar({
+    titulo: `${original.titulo} - cópia`,
+    itens: original.itens.map(item => ({ produto_id: item.produto_id, quantidade: item.quantidade })),
+    prompt_cenario: original.prompt_cenario,
+    expira_em: original.expira_em,
+    tema_arte: original.tema_arte,
+    cores_arte: original.cores_arte,
+  });
+}
+
+async function limparArtesR2() {
+  await schemaService.criarEstrutura();
+  const limpeza = await cloudflareR2Service.limparPrefixo('ofertas/');
+  const atualizado = await pool.query(`
+    UPDATE ofertas
+    SET imagem_url=NULL,
+        r2_key=NULL,
+        status=CASE WHEN status='arte_pronta' THEN 'rascunho' ELSE status END,
+        updated_at=NOW()
+    WHERE imagem_url IS NOT NULL OR r2_key IS NOT NULL OR status='arte_pronta'
+  `);
+
+  return {
+    ...limpeza,
+    referencias_limpas: atualizado.rowCount,
+    aviso: 'Somente objetos do prefixo ofertas/ foram removidos. As fotos dos produtos foram preservadas.',
+  };
 }
 
 async function registrarClique(codigo) {
   await schemaService.criarEstrutura();
   await pool.query('UPDATE ofertas SET cliques_whatsapp=cliques_whatsapp+1 WHERE codigo=$1', [codigo]);
-  return { ok:true };
+  return { ok: true };
 }
 
-module.exports = { listar, criar, buscarPorId, buscarPorCodigo, gerarArte, publicar, enviarWhatsapp, duplicar, registrarClique };
+module.exports = {
+  listar,
+  criar,
+  buscarPorId,
+  buscarPorCodigo,
+  gerarArte,
+  gerarArteBuffer,
+  publicar,
+  enviarWhatsapp,
+  duplicar,
+  limparArtesR2,
+  registrarClique,
+};
