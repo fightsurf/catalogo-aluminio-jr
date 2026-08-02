@@ -186,6 +186,13 @@ async function listarProdutos(perfil) {
   return produtoService.listar({ perfil: perfilNormalizado, apenasAtivos: true });
 }
 
+function ehFimDeSemana(dataEmIso) {
+  const [ano, mes, dia] = String(dataEmIso || '').split('-').map(Number);
+  if (!ano || !mes || !dia) return false;
+  const diaDaSemana = new Date(Date.UTC(ano, mes - 1, dia, 12)).getUTCDay();
+  return diaDaSemana === 0 || diaDaSemana === 6;
+}
+
 async function listarDatasDisponiveis(quantidadePedido) {
   const quantidade = numero(quantidadePedido, 'quantidade');
   if (quantidade <= 0) throw new Error('O pedido precisa ter ao menos um item.');
@@ -228,7 +235,13 @@ async function listarDatasDisponiveis(quantidadePedido) {
         disponivel: livre >= quantidade
       };
     })
-    .filter((item) => item.codigo && item.data && new Date(`${item.data}T00:00:00`) >= hoje && item.disponivel)
+    .filter((item) =>
+      item.codigo &&
+      item.data &&
+      !ehFimDeSemana(item.data) &&
+      new Date(`${item.data}T00:00:00`) >= hoje &&
+      item.disponivel
+    )
     .sort((a, b) => a.data.localeCompare(b.data));
 }
 
