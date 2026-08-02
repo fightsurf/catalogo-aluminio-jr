@@ -84,13 +84,15 @@ function montarMensagemCarrada({ tipo, pedido, carrada }) {
   const nomeCliente = limparTexto(pedido?.cliente?.nome);
   const dataCarrada = formatarDataParaMensagem(carrada?.data);
   const descricaoCarrada = limparTexto(carrada?.descricao);
-  const acao = tipo === 'saida' ? 'saiu' : 'entrou';
+  const textoMovimentacao = tipo === 'saida'
+    ? `O pedido saiu da carrada do dia ${dataCarrada}`
+    : `Seu pedido entrou na produção da carrada do dia ${dataCarrada}`;
 
   return [
     `🚚 Pedido: ${numeroPedido}`,
     `Cliente: ${nomeCliente}`,
     '',
-    `Seu pedido ${acao} na produção da carrada do dia ${dataCarrada}`,
+    textoMovimentacao,
     descricaoCarrada
   ]
     .filter((linha, indice, linhas) => {

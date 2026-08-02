@@ -899,6 +899,37 @@
       return linhas.join('\n');
     }
 
+    function montarMensagemWhatsappCarrada(pedido) {
+      if (!pedido?.numero || !pedido?.carradaAtual?.codigo) {
+        return '';
+      }
+
+      return [
+        `📦 Pedido: ${pedido.numero}`,
+        `Cliente: ${pedido?.cliente?.nome || '-'}`,
+        `Seu pedido entrou na produção da carrada do dia ${formatarData(pedido?.carradaAtual?.data)}`,
+        `Descrição da carrada: ${pedido?.carradaAtual?.descricao || '-'}`
+      ].join('\n');
+    }
+
+    async function enviarWhatsappCarradaAutomatico(pedido) {
+      const telefone = normalizarTelefone(pedido?.cliente?.telefonePrincipal || pedido?.cliente?.telefone1 || '');
+      if (!telefone) {
+        throw new Error('Telefone do cliente não encontrado.');
+      }
+
+      const mensagemCarrada = montarMensagemWhatsappCarrada(pedido);
+      if (!mensagemCarrada) {
+        throw new Error('Dados da carrada do novo pedido não encontrados.');
+      }
+
+      await fetchJson('/api/whatsapp/enviar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ telefone, mensagem: mensagemCarrada })
+      });
+    }
+
     function obterWhatsappHref(pedido) {
       const telefone = normalizarTelefone(pedido?.cliente?.telefonePrincipal || pedido?.cliente?.telefone1 || '');
       if (!telefone) return '#';
@@ -1817,7 +1848,19 @@
         renderizarResultados(pedidosEncontrados);
         renderizarPedidoCompleto();
         marcarResultadoAtivo(1);
-        setMensagem(`Pedido ${pedidoOrigemVisual.numero} copiado para o novo pedido ${novo.numero}, na carrada ${formatarResumoCarrada(novo.carradaAtual)}.`);
+
+        const mensagens = [
+          `Pedido ${pedidoOrigemVisual.numero} copiado para o novo pedido ${novo.numero}, na carrada ${formatarResumoCarrada(novo.carradaAtual)}.`
+        ];
+
+        try {
+          await enviarWhatsappCarradaAutomatico(novo);
+          mensagens.push(`Aviso de carrada enviado pelo WhatsApp para ${novo?.cliente?.nome || 'o cliente'}.`);
+        } catch (error) {
+          mensagens.push(`Pedido copiado, mas o aviso de carrada no WhatsApp falhou: ${error.message}`);
+        }
+
+        setMensagem(mensagens.join(' '));
       } catch (error) {
         setMensagem(error.message || 'Erro ao copiar o pedido.', true);
       } finally {
