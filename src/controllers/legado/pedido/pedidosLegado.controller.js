@@ -235,6 +235,33 @@ async function particionarPedido(req, res) {
   }
 }
 
+async function copiarPedido(req, res) {
+  try {
+    const { idMestre } = req.params;
+
+    if (!idMestre) {
+      return res.status(400).json({
+        success: false,
+        message: 'Informe o id do pedido.'
+      });
+    }
+
+    const data = await pedidosLegadoService.copiarPedido(idMestre, req.body || {});
+
+    return res.json({
+      success: true,
+      message: 'Pedido copiado com sucesso.',
+      data
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message || 'Erro ao copiar pedido.',
+      error: error.message
+    });
+  }
+}
+
 module.exports = {
   pesquisarPedidos,
   buscarItensPedido,
@@ -242,6 +269,7 @@ module.exports = {
   alterarCarradaPedido,
   calcularVolumesPedido,
   atualizarPedido,
+  copiarPedido,
   particionarPedido,
   enviarPdfWhatsappPedido
 };

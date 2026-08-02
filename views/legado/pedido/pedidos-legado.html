@@ -520,6 +520,7 @@
       <div class="acoes-pedido">
         <button id="btnEditarPedido" class="btn btn-primary oculto">Editar pedido</button>
         <button id="btnCalcularVolumes" class="btn btn-primary oculto">Calcular volumes</button>
+        <button id="btnCopiarPedido" class="btn btn-primary oculto">Copiar pedido</button>
         <button id="btnParticionarPedido" class="btn btn-primary oculto">Particionar pedido</button>
         <button id="btnCancelarEdicao" class="btn btn-secondary oculto">Cancelar edição</button>
         <button id="btnSalvarAlteracoes" class="btn btn-primary oculto">Salvar alterações</button>
@@ -539,6 +540,38 @@
 
     <div class="box">
       <div id="blocoItens" class="sem-itens">Nenhum item carregado.</div>
+    </div>
+  </div>
+
+
+
+  <div id="modalCopia" class="modal-overlay oculto" role="dialog" aria-modal="true" aria-labelledby="tituloModalCopia">
+    <div class="modal-card" style="width:min(650px, 100%);">
+      <div class="modal-cabecalho">
+        <h3 id="tituloModalCopia">Copiar pedido</h3>
+        <button id="btnFecharCopia" class="btn-fechar-modal" type="button" aria-label="Fechar">×</button>
+      </div>
+
+      <div id="copiaIdentificacao" class="cliente-linha"></div>
+      <div class="particao-aviso">
+        Será criado um novo pedido com data de hoje, novo número, mesmo cliente, vendedor, observação, itens, quantidades e preços. Pagamentos, volumes e progresso não serão copiados.
+      </div>
+
+      <div class="campo-inline" style="max-width: 520px; margin-bottom: 14px;">
+        <label for="selectCarradaCopia">Carrada do novo pedido</label>
+        <select id="selectCarradaCopia"></select>
+      </div>
+
+      <div class="particao-grid-resumo" style="grid-template-columns:repeat(3, minmax(130px, 1fr));">
+        <div class="particao-resumo-item"><span>Pedido de origem</span><strong id="copiaNumeroOrigem">-</strong></div>
+        <div class="particao-resumo-item"><span>Quantidade de itens</span><strong id="copiaQuantidadeItens">0</strong></div>
+        <div class="particao-resumo-item"><span>Total copiado</span><strong id="copiaTotalPedido">R$ 0,00</strong></div>
+      </div>
+
+      <div class="particao-acoes">
+        <button id="btnCancelarCopia" class="btn btn-secondary" type="button">Cancelar</button>
+        <button id="btnConfirmarCopia" class="btn btn-primary" type="button">Criar cópia</button>
+      </div>
     </div>
   </div>
 
@@ -602,6 +635,7 @@
 
     const btnEditarPedido = document.getElementById('btnEditarPedido');
     const btnCalcularVolumes = document.getElementById('btnCalcularVolumes');
+    const btnCopiarPedido = document.getElementById('btnCopiarPedido');
     const btnParticionarPedido = document.getElementById('btnParticionarPedido');
     const btnCancelarEdicao = document.getElementById('btnCancelarEdicao');
     const btnSalvarAlteracoes = document.getElementById('btnSalvarAlteracoes');
@@ -610,6 +644,15 @@
     const btnAdicionarPagamentos = document.getElementById('btnAdicionarPagamentos');
     const btnImprimirRelatorioProducao = document.getElementById('btnImprimirRelatorioProducao');
     const btnImprimirRelatorio = document.getElementById('btnImprimirRelatorio');
+    const modalCopia = document.getElementById('modalCopia');
+    const btnFecharCopia = document.getElementById('btnFecharCopia');
+    const btnCancelarCopia = document.getElementById('btnCancelarCopia');
+    const btnConfirmarCopia = document.getElementById('btnConfirmarCopia');
+    const selectCarradaCopia = document.getElementById('selectCarradaCopia');
+    const copiaIdentificacao = document.getElementById('copiaIdentificacao');
+    const copiaNumeroOrigem = document.getElementById('copiaNumeroOrigem');
+    const copiaQuantidadeItens = document.getElementById('copiaQuantidadeItens');
+    const copiaTotalPedido = document.getElementById('copiaTotalPedido');
     const modalParticao = document.getElementById('modalParticao');
     const btnFecharParticao = document.getElementById('btnFecharParticao');
     const btnCancelarParticao = document.getElementById('btnCancelarParticao');
@@ -642,6 +685,7 @@
     let itensNaoReconhecidosRelatorio = [];
     let cacheProdutosImportacao = null;
     let importandoRelatorio = false;
+    let copiaEmAndamento = false;
     let particaoEmAndamento = false;
 
     function setMensagem(texto, erro = false) {
@@ -752,6 +796,7 @@
       const haPedido = !!pedidoCarregado;
       btnEditarPedido.classList.toggle('oculto', !haPedido || modoEdicao);
       btnCalcularVolumes.classList.toggle('oculto', !haPedido || modoEdicao);
+      btnCopiarPedido.classList.toggle('oculto', !haPedido || modoEdicao);
       btnParticionarPedido.classList.toggle('oculto', !haPedido || modoEdicao);
       btnCancelarEdicao.classList.add('oculto');
       btnSalvarAlteracoes.classList.add('oculto');
@@ -1688,6 +1733,102 @@
 
 
 
+    function montarOpcoesCarradaCopia() {
+      const codigoAtual = String(pedidoCarregado?.carradaAtual?.codigo || '');
+      const disponiveis = carradasCache.filter((carrada) => String(carrada?.codigo || '') !== codigoAtual);
+
+      return [
+        '<option value="">Selecione a nova carrada...</option>',
+        ...disponiveis.map((carrada) => `
+          <option value="${carrada?.codigo ?? ''}">${formatarOpcaoCarrada(carrada)}</option>
+        `)
+      ].join('');
+    }
+
+    async function abrirModalCopia() {
+      if (!pedidoCarregado?.idMestre || copiaEmAndamento) {
+        return;
+      }
+
+      try {
+        setMensagem('Preparando cópia do pedido...');
+        await carregarCarradasDisponiveis();
+
+        const quantidadeItens = (pedidoCarregado.itens || []).reduce(
+          (acc, item) => acc + Number(item?.quantidade || 0),
+          0
+        );
+
+        copiaIdentificacao.innerHTML = `<strong>Pedido ${escapeHtml(pedidoCarregado.numero || '-')}</strong> · ${escapeHtml(pedidoCarregado?.cliente?.nome || '-')}`;
+        copiaNumeroOrigem.textContent = pedidoCarregado.numero || '-';
+        copiaQuantidadeItens.textContent = numero(quantidadeItens);
+        copiaTotalPedido.textContent = moeda(pedidoCarregado.total || 0);
+        selectCarradaCopia.innerHTML = montarOpcoesCarradaCopia();
+        modalCopia.classList.remove('oculto');
+        document.body.style.overflow = 'hidden';
+        setMensagem('Selecione a carrada do novo pedido.');
+      } catch (error) {
+        setMensagem(error.message || 'Erro ao preparar cópia do pedido.', true);
+      }
+    }
+
+    function fecharModalCopia(forcar = false) {
+      if (copiaEmAndamento && !forcar) return;
+      modalCopia.classList.add('oculto');
+      document.body.style.overflow = '';
+      selectCarradaCopia.innerHTML = '';
+    }
+
+    async function confirmarCopiaPedido() {
+      if (!pedidoCarregado?.idMestre || copiaEmAndamento) return;
+
+      const codigoCarrada = Number(selectCarradaCopia.value || 0);
+      if (!Number.isInteger(codigoCarrada) || codigoCarrada <= 0) {
+        setMensagem('Selecione a carrada do novo pedido.', true);
+        return;
+      }
+
+      const pedidoOrigemVisual = pedidoCarregado;
+      const textoOriginal = btnConfirmarCopia.textContent;
+
+      try {
+        copiaEmAndamento = true;
+        btnConfirmarCopia.disabled = true;
+        btnCancelarCopia.disabled = true;
+        btnFecharCopia.disabled = true;
+        btnConfirmarCopia.textContent = 'Criando...';
+
+        const json = await fetchJson(`/api/legado/pedidos/${pedidoCarregado.idMestre}/copiar`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ codigoCarrada })
+        });
+
+        const novo = json?.data?.pedidoNovo;
+        if (!novo) {
+          throw new Error('A API não retornou o novo pedido copiado.');
+        }
+
+        pedidoCarregado = novo;
+        calculoVolumesItens = [];
+        pedidosEncontrados = [pedidoOrigemVisual, novo];
+        modoEdicao = false;
+        fecharModalCopia(true);
+        renderizarResultados(pedidosEncontrados);
+        renderizarPedidoCompleto();
+        marcarResultadoAtivo(1);
+        setMensagem(`Pedido ${pedidoOrigemVisual.numero} copiado para o novo pedido ${novo.numero}, na carrada ${formatarResumoCarrada(novo.carradaAtual)}.`);
+      } catch (error) {
+        setMensagem(error.message || 'Erro ao copiar o pedido.', true);
+      } finally {
+        copiaEmAndamento = false;
+        btnConfirmarCopia.disabled = false;
+        btnCancelarCopia.disabled = false;
+        btnFecharCopia.disabled = false;
+        btnConfirmarCopia.textContent = textoOriginal;
+      }
+    }
+
     function obterLinhasParticao() {
       return Array.from(tbodyParticaoItens.querySelectorAll('.input-particao')).map((input) => ({
         saidaItem: Number(input.dataset.saidaItem || 0),
@@ -2254,6 +2395,13 @@
     btnPesquisar.addEventListener('click', () => pesquisarPedidos());
     btnEditarPedido.addEventListener('click', entrarModoEdicao);
     btnCalcularVolumes.addEventListener('click', calcularVolumesPedido);
+    btnCopiarPedido.addEventListener('click', abrirModalCopia);
+    btnFecharCopia.addEventListener('click', fecharModalCopia);
+    btnCancelarCopia.addEventListener('click', fecharModalCopia);
+    btnConfirmarCopia.addEventListener('click', confirmarCopiaPedido);
+    modalCopia.addEventListener('click', (event) => {
+      if (event.target === modalCopia) fecharModalCopia();
+    });
     btnParticionarPedido.addEventListener('click', abrirModalParticao);
     btnFecharParticao.addEventListener('click', fecharModalParticao);
     btnCancelarParticao.addEventListener('click', fecharModalParticao);
@@ -2354,6 +2502,11 @@
     });
 
     document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !modalCopia.classList.contains('oculto')) {
+        fecharModalCopia();
+        return;
+      }
+
       if (event.key === 'Escape' && !modalParticao.classList.contains('oculto')) {
         fecharModalParticao();
       }

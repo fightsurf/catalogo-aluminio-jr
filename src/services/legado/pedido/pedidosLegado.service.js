@@ -515,6 +515,31 @@ async function atualizarPedido(idMestre, payload = {}) {
   };
 }
 
+async function copiarPedido(idMestre, payload = {}) {
+  const response = await legadoBridgeService.post(
+    `/api/legado/pedidos/${idMestre}/copiar`,
+    payload
+  );
+
+  const data = response?.data || {};
+  const pedidoNovo = normalizarPedidoComItensParticao(data.pedidoNovo);
+
+  if (!pedidoNovo) {
+    throw new Error('A API local não retornou o novo pedido copiado.');
+  }
+
+  return {
+    ...data,
+    pedidoNovo: {
+      ...pedidoNovo,
+      totalPago: 0,
+      saldoRestante: Number(pedidoNovo.total || 0),
+      volumes: 0
+    },
+    carradaDestino: normalizarCarrada(data.carradaDestino)
+  };
+}
+
 
 function normalizarPedidoComItensParticao(pedido) {
   if (!pedido) return null;
@@ -611,6 +636,7 @@ module.exports = {
   alterarCarradaPedido,
   calcularESalvarVolumesPedido,
   atualizarPedido,
+  copiarPedido,
   particionarPedido,
   enviarPdfWhatsappPedido
 };
