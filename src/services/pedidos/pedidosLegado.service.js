@@ -1155,90 +1155,6 @@ async function redistribuirPagamentosParticao(tx, originalAntes, originalDepois,
   };
 }
 
-async function copiarPedido(idMestre, payload = {}) {
-  const id = normalizarInteiroPositivo(idMestre, 'idMestre');
-  const codigoCarrada = normalizarInteiroPositivo(payload?.codigoCarrada, 'codigoCarrada');
-
-  return firebirdService.withTransaction(async (tx) => {
-    const original = await buscarDadosParticaoPedido(tx, id);
-
-    if (!original) {
-      throw new Error('Pedido não encontrado.');
-    }
-
-    if (textoOuVazio(original.situacao).toUpperCase() === 'C') {
-      throw new Error('Pedido cancelado não pode ser copiado.');
-    }
-
-    const carradaDestino = await buscarCarradaPorCodigo(codigoCarrada, tx);
-
-    if (!carradaDestino) {
-      throw new Error('Carrada selecionada não encontrada.');
-    }
-
-    const carradaAtual = await buscarCarradaAtualDoPedido(original.numero, tx);
-
-    if (Number(carradaAtual?.codigo || 0) === Number(codigoCarrada)) {
-      throw new Error('Selecione uma carrada diferente da carrada atual.');
-    }
-
-    const itensOriginais = await buscarItensPedido(id, tx);
-
-    if (!itensOriginais.length) {
-      throw new Error('O pedido não possui itens para copiar.');
-    }
-
-    const itensCopiados = itensOriginais.map((item) => ({
-      item: Number(item.item),
-      descricao: item.descricao || null,
-      quantidade: arredondarNumero(item.quantidade),
-      preco: arredondarNumero(item.preco, 3),
-      subtotalitem: arredondarNumero(Number(item.quantidade || 0) * Number(item.preco || 0))
-    }));
-    const totalNovo = arredondarNumero(
-      itensCopiados.reduce((acc, item) => acc + Number(item.subtotalitem || 0), 0)
-    );
-    const novaSaida = await gerarIdGlobal(tx);
-    const novoNumero = await gerarNumeroPedido(
-      tx,
-      original.tipomovimento,
-      original.empresa,
-      original.pdv
-    );
-    const novoPedido = {
-      empresa: original.empresa,
-      saida: novaSaida,
-      pdv: original.pdv,
-      numero: novoNumero,
-      data: obterDataAtualFortaleza(),
-      favorecido: original.favorecido,
-      vendedor: original.vendedor,
-      total: totalNovo,
-      volumes: 0
-    };
-
-    await inserirSaidaParticionada(tx, original, novoPedido);
-
-    for (let index = 0; index < itensCopiados.length; index += 1) {
-      await inserirItemPedido(tx, novoPedido, itensCopiados[index], index + 1);
-    }
-
-    await substituirCarradaDoPedido(tx, novoPedido, codigoCarrada);
-
-    const pedidoNovoCriado = await buscarDetalheEdicaoPedido(novaSaida, tx);
-
-    return {
-      pedidoNovo: pedidoNovoCriado,
-      pedidoOrigem: {
-        idMestre: original.saida,
-        saida: original.saida,
-        numero: original.numero
-      },
-      carradaDestino
-    };
-  });
-}
-
 async function particionarPedido(idMestre, payload = {}) {
   const id = normalizarInteiroPositivo(idMestre, 'idMestre');
   const codigoCarrada = normalizarInteiroPositivo(payload?.codigoCarrada, 'codigoCarrada');
@@ -1407,6 +1323,5 @@ module.exports = {
   alterarCarradaPedido,
   atualizarVolumesPedido,
   atualizarPedido,
-  copiarPedido,
   particionarPedido
 };
