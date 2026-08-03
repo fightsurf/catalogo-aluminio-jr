@@ -672,6 +672,7 @@
     let carradasCache = [];
     let itensEdicao = [];
     let modoEdicao = false;
+    let dataVendaEdicao = '';
     let vendedorEdicao = '';
     let codigoCarradaEdicao = '';
     let observacaoEdicao = '';
@@ -762,11 +763,30 @@
       return telefone;
     }
 
-    function formatarData(valor) {
-      if (!valor) return '-';
+    function formatarDataParaInput(valor) {
+      if (!valor) return '';
+
+      const texto = String(valor).trim();
+      const correspondenciaIso = /^(\d{4})-(\d{2})-(\d{2})/.exec(texto);
+      if (correspondenciaIso) {
+        return `${correspondenciaIso[1]}-${correspondenciaIso[2]}-${correspondenciaIso[3]}`;
+      }
+
       const data = new Date(valor);
-      if (Number.isNaN(data.getTime())) return valor;
-      return data.toLocaleDateString('pt-BR');
+      if (Number.isNaN(data.getTime())) return '';
+
+      const ano = data.getFullYear();
+      const mes = String(data.getMonth() + 1).padStart(2, '0');
+      const dia = String(data.getDate()).padStart(2, '0');
+      return `${ano}-${mes}-${dia}`;
+    }
+
+    function formatarData(valor) {
+      const dataIso = formatarDataParaInput(valor);
+      if (!dataIso) return valor || '-';
+
+      const [ano, mes, dia] = dataIso.split('-');
+      return `${dia}/${mes}/${ano}`;
     }
 
     function calcularSubtotalItem(item) {
@@ -830,6 +850,7 @@
       pedidoCarregado = null;
       calculoVolumesItens = [];
       modoEdicao = false;
+      dataVendaEdicao = '';
       vendedorEdicao = '';
       codigoCarradaEdicao = '';
       observacaoEdicao = '';
@@ -1088,9 +1109,16 @@
     }
 
     function anexarEventosClienteEdicao() {
+      const inputDataVenda = document.getElementById('inputDataVendaEdicao');
       const selectVendedor = document.getElementById('selectVendedorEdicao');
       const selectCarrada = document.getElementById('selectCarradaEdicao');
       const textareaObs = document.getElementById('textareaObservacaoEdicao');
+
+      if (inputDataVenda) {
+        inputDataVenda.addEventListener('change', () => {
+          dataVendaEdicao = inputDataVenda.value;
+        });
+      }
 
       if (selectVendedor) {
         selectVendedor.addEventListener('change', () => {
@@ -1117,7 +1145,7 @@
         return;
       }
 
-      const dataFormatada = pedido?.data ? new Date(pedido.data).toLocaleDateString('pt-BR') : '-';
+      const dataFormatada = formatarData(pedido?.data);
       const telefoneHtml = normalizarTelefone(pedido?.cliente?.telefonePrincipal || pedido?.cliente?.telefone1 || '')
         ? `<a class="telefone-link" href="${obterWhatsappHref(pedido)}" target="_blank" rel="noopener noreferrer">${formatarTelefoneExibicao(pedido?.cliente?.telefonePrincipal || pedido?.cliente?.telefone1 || '')}</a>`
         : 'Telefone não encontrado.';
@@ -1153,7 +1181,7 @@
         <div class="cabecalho-box">
           <div>
             <div class="cliente-nome">${pedido?.cliente?.nome || '-'}</div>
-            <div class="linha-info-edicao">Número: ${pedido?.numero || '-'} · Data: ${dataFormatada}</div>
+            <div class="linha-info-edicao">Número: ${pedido?.numero || '-'}</div>
           </div>
           <div class="tag-status">Modo edição</div>
         </div>
@@ -1167,6 +1195,11 @@
         </div>
 
         <div class="grid-edicao-cliente">
+          <div class="campo-inline">
+            <label for="inputDataVendaEdicao">Data da venda</label>
+            <input id="inputDataVendaEdicao" type="date" value="${escapeHtml(dataVendaEdicao)}" />
+          </div>
+
           <div class="campo-inline">
             <label for="selectVendedorEdicao">Vendedor</label>
             <select id="selectVendedorEdicao">${montarOpcoesVendedor(vendedorEdicao)}</select>
@@ -2150,6 +2183,7 @@
 
         modoEdicao = true;
         calculoVolumesItens = [];
+        dataVendaEdicao = formatarDataParaInput(pedidoCarregado?.data);
         vendedorEdicao = String(pedidoCarregado?.vendedor?.favorecido || '');
         codigoCarradaEdicao = String(pedidoCarregado?.carradaAtual?.codigo || '');
         observacaoEdicao = pedidoCarregado?.obs || '';
@@ -2176,6 +2210,7 @@
     function sairModoEdicao() {
       if (!pedidoCarregado) return;
       modoEdicao = false;
+      dataVendaEdicao = '';
       vendedorEdicao = '';
       codigoCarradaEdicao = '';
       observacaoEdicao = '';
@@ -2251,6 +2286,7 @@
       };
 
       modoEdicao = false;
+      dataVendaEdicao = '';
       vendedorEdicao = '';
       codigoCarradaEdicao = '';
       observacaoEdicao = '';
@@ -2330,6 +2366,11 @@
         return;
       }
 
+      if (!dataVendaEdicao) {
+        setMensagem('Informe a data da venda para salvar.', true);
+        return;
+      }
+
       if (!vendedorEdicao) {
         setMensagem('Selecione um vendedor para salvar.', true);
         return;
@@ -2345,6 +2386,7 @@
       const carradaFoiAlterada = codigoCarradaAnterior !== codigoCarradaNova;
 
       const payload = {
+        data: dataVendaEdicao,
         vendedor: Number(vendedorEdicao),
         obs: observacaoEdicao || '',
         itens: itensEdicao.map((item) => ({
@@ -2407,6 +2449,7 @@
           String(pedido?.idMestre || '') === String(pedidoCarregado?.idMestre || '')
             ? {
                 ...pedido,
+                data: pedidoCarregado.data,
                 vendedor: pedidoCarregado.vendedor,
                 obs: pedidoCarregado.obs,
                 total: pedidoCarregado.total,
@@ -2416,6 +2459,7 @@
         ));
 
         modoEdicao = false;
+        dataVendaEdicao = '';
         vendedorEdicao = '';
         codigoCarradaEdicao = '';
         observacaoEdicao = '';
