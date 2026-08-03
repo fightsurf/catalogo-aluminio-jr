@@ -64,6 +64,18 @@
       margin-bottom: 16px;
     }
     .muted { color: var(--muted); }
+    .pedido-link,
+    .cliente-link {
+      color: inherit;
+      text-decoration: none;
+    }
+    .cliente-link {
+      font-weight: 700;
+    }
+    .pedido-link:hover,
+    .cliente-link:hover {
+      text-decoration: underline;
+    }
     .pedido-header {
       display: flex;
       justify-content: space-between;
@@ -322,13 +334,21 @@
         ${pedidos.map((pedido) => {
           const itens = Array.isArray(pedido.itens) ? pedido.itens : [];
           const quantidadePedido = itens.reduce((total, item) => total + Number(item.quantidade || 0), 0);
+          const numeroPedido = String(pedido.numero ?? '').trim();
+          const numeroPedidoHtml = numeroPedido
+            ? `<a class="pedido-link" href="/legado/pedidos?numero=${encodeURIComponent(numeroPedido)}" target="_blank" rel="noopener noreferrer">Pedido ${escapeHtml(numeroPedido)}</a>`
+            : 'Pedido -';
+          const nomeCliente = escapeHtml(pedido.cliente?.nome || '-');
+          const nomeClienteHtml = pedido.cliente?.favorecido
+            ? `<a class="cliente-link" href="/legado/pedidos-cliente?favorecido=${encodeURIComponent(pedido.cliente.favorecido)}" target="_blank" rel="noopener noreferrer">${nomeCliente}</a>`
+            : nomeCliente;
 
           return `
             <section class="card">
               <div class="pedido-header">
                 <div>
-                  <h2>Pedido ${escapeHtml(pedido.numero)}${pedido.pedidoPronto ? ' <span style="font-size:12px; color:#166534; background:#dcfce7; padding:3px 8px; border-radius:999px;">PRONTO</span>' : ''}</h2>
-                  <div class="muted">Cliente: ${escapeHtml(pedido.cliente?.nome || '-')} | Cidade: ${escapeHtml(((pedido.cliente?.cidade || '') + ((pedido.cliente?.uf || '') ? ' / ' + pedido.cliente.uf : '')).trim() || '-')} | Data: ${escapeHtml(formatarData(pedido.data))}</div>
+                  <h2>${numeroPedidoHtml}${pedido.pedidoPronto ? ' <span style="font-size:12px; color:#166534; background:#dcfce7; padding:3px 8px; border-radius:999px;">PRONTO</span>' : ''}</h2>
+                  <div class="muted">Cliente: ${nomeClienteHtml} | Cidade: ${escapeHtml(((pedido.cliente?.cidade || '') + ((pedido.cliente?.uf || '') ? ' / ' + pedido.cliente.uf : '')).trim() || '-')} | Data: ${escapeHtml(formatarData(pedido.data))}</div>
                 </div>
                 <div class="pedido-acoes">
                   <button class="btn-secondary btn-mudar-carrada" data-numero="${escapeHtml(pedido.numero)}">Mudar de carrada</button>
