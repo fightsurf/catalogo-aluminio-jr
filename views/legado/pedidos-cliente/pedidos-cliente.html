@@ -68,6 +68,21 @@
       font-size: 14px;
     }
 
+    .btn-primario {
+      background: #2563eb;
+      color: #ffffff;
+      font-weight: 700;
+    }
+
+    .btn-primario:hover:not(:disabled) {
+      background: #1d4ed8;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.55;
+    }
+
     .btn-secundario {
       background: #e5e7eb;
       color: #111827;
@@ -139,6 +154,26 @@
 
     tbody tr:hover {
       background: #f3f4f6;
+    }
+
+    tbody tr.selecionado {
+      background: #eff6ff;
+    }
+
+    .col-selecao,
+    .celula-selecao {
+      width: 52px;
+      text-align: center;
+      padding-left: 8px;
+      padding-right: 8px;
+    }
+
+    .pedido-checkbox,
+    #selecionarTodos {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+      accent-color: #2563eb;
     }
 
     .pedido-link {
@@ -215,6 +250,115 @@
       padding: 30px 12px;
     }
 
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: rgba(17, 24, 39, 0.65);
+    }
+
+    .modal-overlay.aberto {
+      display: flex;
+    }
+
+    .modal {
+      width: min(980px, 100%);
+      max-height: calc(100vh - 40px);
+      overflow: auto;
+      background: #ffffff;
+      border-radius: 12px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
+    }
+
+    .modal-topo {
+      position: sticky;
+      top: 0;
+      z-index: 2;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      padding: 18px 20px;
+      background: #ffffff;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    .modal-titulo {
+      margin: 0;
+      font-size: 21px;
+    }
+
+    .btn-fechar-modal {
+      min-width: 40px;
+      padding: 8px 10px;
+      background: #e5e7eb;
+      color: #111827;
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .modal-conteudo {
+      padding: 20px;
+    }
+
+    .resumo-cards {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .resumo-card {
+      padding: 16px;
+      border: 1px solid #dbe3ee;
+      border-radius: 10px;
+      background: #f8fafc;
+    }
+
+    .resumo-card-label {
+      display: block;
+      margin-bottom: 8px;
+      color: #64748b;
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+    }
+
+    .resumo-card-valor {
+      font-size: 23px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .modal-tabela-wrap {
+      overflow-x: auto;
+      border: 1px solid #e5e7eb;
+      border-radius: 8px;
+    }
+
+    .modal-tabela {
+      min-width: 680px;
+    }
+
+    .modal-tabela tbody tr {
+      cursor: default;
+    }
+
+    .modal-rodape {
+      display: flex;
+      justify-content: flex-end;
+      padding: 16px 20px;
+      border-top: 1px solid #e5e7eb;
+    }
+
+    body.modal-aberto {
+      overflow: hidden;
+    }
+
     @media (max-width: 700px) {
       body {
         padding: 14px;
@@ -222,6 +366,18 @@
 
       .titulo {
         font-size: 20px;
+      }
+
+      .acoes {
+        width: 100%;
+      }
+
+      .acoes button {
+        flex: 1;
+      }
+
+      .resumo-cards {
+        grid-template-columns: 1fr;
       }
     }
   </style>
@@ -238,6 +394,9 @@
         </div>
 
         <div class="acoes">
+          <button type="button" class="btn-primario" id="btnResumoSelecionados" disabled>
+            Resumo dos selecionados
+          </button>
           <button type="button" class="btn-secundario" id="btnVoltar">Voltar</button>
         </div>
       </div>
@@ -248,6 +407,9 @@
         <table>
           <thead>
             <tr>
+              <th class="col-selecao">
+                <input type="checkbox" id="selecionarTodos" aria-label="Selecionar todos os pedidos" disabled />
+              </th>
               <th>Número</th>
               <th>Data</th>
               <th>Carrada</th>
@@ -260,11 +422,56 @@
           </thead>
           <tbody id="tabelaPedidos">
             <tr>
-              <td colspan="8" class="vazio">Carregando...</td>
+              <td colspan="9" class="vazio">Carregando...</td>
             </tr>
           </tbody>
           <tfoot id="rodapePedidos"></tfoot>
         </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modalResumo" role="dialog" aria-modal="true" aria-labelledby="modalResumoTitulo">
+    <div class="modal">
+      <div class="modal-topo">
+        <h2 class="modal-titulo" id="modalResumoTitulo">Resumo dos pedidos selecionados</h2>
+        <button type="button" class="btn-fechar-modal" id="btnFecharModalTopo" aria-label="Fechar resumo">&times;</button>
+      </div>
+
+      <div class="modal-conteudo">
+        <div class="resumo-cards">
+          <div class="resumo-card">
+            <span class="resumo-card-label">Somatório dos pedidos</span>
+            <strong class="resumo-card-valor" id="resumoTotalPedidos">R$ 0,00</strong>
+          </div>
+          <div class="resumo-card">
+            <span class="resumo-card-label">Total pago</span>
+            <strong class="resumo-card-valor" id="resumoTotalPago">R$ 0,00</strong>
+          </div>
+          <div class="resumo-card">
+            <span class="resumo-card-label">Total restante</span>
+            <strong class="resumo-card-valor" id="resumoTotalRestante">R$ 0,00</strong>
+          </div>
+        </div>
+
+        <div class="modal-tabela-wrap">
+          <table class="modal-tabela">
+            <thead>
+              <tr>
+                <th>Pedido</th>
+                <th>Data</th>
+                <th>Total</th>
+                <th>Pago</th>
+                <th>Restante</th>
+              </tr>
+            </thead>
+            <tbody id="tabelaResumoSelecionados"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="modal-rodape">
+        <button type="button" class="btn-secundario" id="btnFecharModalRodape">Fechar</button>
       </div>
     </div>
   </div>
@@ -283,8 +490,18 @@
     const tabelaPedidos = document.getElementById('tabelaPedidos');
     const rodapePedidos = document.getElementById('rodapePedidos');
     const btnVoltar = document.getElementById('btnVoltar');
+    const btnResumoSelecionados = document.getElementById('btnResumoSelecionados');
+    const selecionarTodos = document.getElementById('selecionarTodos');
+    const modalResumo = document.getElementById('modalResumo');
+    const btnFecharModalTopo = document.getElementById('btnFecharModalTopo');
+    const btnFecharModalRodape = document.getElementById('btnFecharModalRodape');
+    const resumoTotalPedidos = document.getElementById('resumoTotalPedidos');
+    const resumoTotalPago = document.getElementById('resumoTotalPago');
+    const resumoTotalRestante = document.getElementById('resumoTotalRestante');
+    const tabelaResumoSelecionados = document.getElementById('tabelaResumoSelecionados');
 
     let clienteAtual = null;
+    let pedidosAtuais = [];
 
     btnVoltar.addEventListener('click', () => {
       if (document.referrer) {
@@ -293,6 +510,26 @@
       }
 
       window.location.href = '/legado/clientes';
+    });
+
+    function fecharModalResumo() {
+      modalResumo.classList.remove('aberto');
+      document.body.classList.remove('modal-aberto');
+    }
+
+    btnFecharModalTopo.addEventListener('click', fecharModalResumo);
+    btnFecharModalRodape.addEventListener('click', fecharModalResumo);
+
+    modalResumo.addEventListener('click', (event) => {
+      if (event.target === modalResumo) {
+        fecharModalResumo();
+      }
+    });
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && modalResumo.classList.contains('aberto')) {
+        fecharModalResumo();
+      }
     });
 
     function mostrarStatus(tipo, mensagem) {
@@ -556,6 +793,76 @@
       }
     }
 
+    function obterCheckboxesPedidos() {
+      return Array.from(tabelaPedidos.querySelectorAll('.pedido-checkbox'));
+    }
+
+    function obterPedidosSelecionados() {
+      return obterCheckboxesPedidos()
+        .filter((checkbox) => checkbox.checked)
+        .map((checkbox) => pedidosAtuais[Number(checkbox.dataset.index)])
+        .filter(Boolean);
+    }
+
+    function atualizarEstadoSelecao() {
+      const checkboxes = obterCheckboxesPedidos();
+      const selecionados = checkboxes.filter((checkbox) => checkbox.checked);
+
+      btnResumoSelecionados.disabled = selecionados.length === 0;
+      btnResumoSelecionados.textContent = selecionados.length
+        ? `Resumo dos selecionados (${selecionados.length})`
+        : 'Resumo dos selecionados';
+
+      selecionarTodos.disabled = checkboxes.length === 0;
+      selecionarTodos.checked = checkboxes.length > 0 && selecionados.length === checkboxes.length;
+      selecionarTodos.indeterminate = selecionados.length > 0 && selecionados.length < checkboxes.length;
+
+      checkboxes.forEach((checkbox) => {
+        const linha = checkbox.closest('tr');
+        if (linha) {
+          linha.classList.toggle('selecionado', checkbox.checked);
+        }
+      });
+    }
+
+    function abrirResumoSelecionados() {
+      const selecionados = obterPedidosSelecionados();
+
+      if (selecionados.length === 0) {
+        mostrarStatus('erro', 'Selecione pelo menos um pedido.');
+        return;
+      }
+
+      const totais = calcularTotaisGerais(selecionados);
+      resumoTotalPedidos.textContent = formatarMoeda(totais.totalPedidos);
+      resumoTotalPago.textContent = formatarMoeda(totais.totalPago);
+      resumoTotalRestante.textContent = formatarMoeda(totais.saldoRestante);
+      resumoTotalRestante.className = `resumo-card-valor ${totais.saldoRestante < 0 ? 'saldo-credito' : totais.saldoRestante > 0 ? 'saldo-pendente' : 'saldo-zerado'}`;
+
+      tabelaResumoSelecionados.innerHTML = selecionados.map((pedido) => `
+        <tr>
+          <td><strong>${escapeHtml(obterNumeroPedido(pedido))}</strong></td>
+          <td>${escapeHtml(formatarData(pedido.data))}</td>
+          <td class="total-cell">${escapeHtml(formatarMoeda(pedido.total))}</td>
+          <td class="total-cell">${escapeHtml(formatarMoeda(pedido.totalPago || 0))}</td>
+          <td class="saldo-cell ${classeSaldo(pedido)}">${escapeHtml(formatarMoeda(pedido.saldoRestante || 0))}</td>
+        </tr>
+      `).join('');
+
+      document.body.classList.add('modal-aberto');
+      modalResumo.classList.add('aberto');
+      btnFecharModalTopo.focus();
+    }
+
+    btnResumoSelecionados.addEventListener('click', abrirResumoSelecionados);
+
+    selecionarTodos.addEventListener('change', () => {
+      obterCheckboxesPedidos().forEach((checkbox) => {
+        checkbox.checked = selecionarTodos.checked;
+      });
+      atualizarEstadoSelecao();
+    });
+
     function classeSaldo(pedido) {
       const saldo = Number(pedido?.saldoRestante || 0);
       if (saldo < 0) return 'saldo-credito';
@@ -586,6 +893,7 @@
 
       rodapePedidos.innerHTML = `
         <tr class="linha-total-geral">
+          <td></td>
           <td colspan="3">Total geral</td>
           <td>${formatarMoeda(totais.totalPedidos)}</td>
           <td>${formatarMoeda(totais.totalPago)}</td>
@@ -596,19 +904,32 @@
     }
 
     function renderizarTabela(pedidos) {
-      if (!Array.isArray(pedidos) || pedidos.length === 0) {
+      pedidosAtuais = Array.isArray(pedidos) ? pedidos : [];
+      selecionarTodos.checked = false;
+      selecionarTodos.indeterminate = false;
+
+      if (pedidosAtuais.length === 0) {
         tabelaPedidos.innerHTML = `
           <tr>
-            <td colspan="8" class="vazio">Nenhum pedido encontrado para este cliente.</td>
+            <td colspan="9" class="vazio">Nenhum pedido encontrado para este cliente.</td>
           </tr>
         `;
         rodapePedidos.innerHTML = '';
+        atualizarEstadoSelecao();
         mostrarStatus('ok', 'Consulta concluída.');
         return;
       }
 
-      tabelaPedidos.innerHTML = pedidos.map((pedido, index) => `
+      tabelaPedidos.innerHTML = pedidosAtuais.map((pedido, index) => `
         <tr data-index="${index}">
+          <td class="celula-selecao">
+            <input
+              type="checkbox"
+              class="pedido-checkbox"
+              data-index="${index}"
+              aria-label="Selecionar pedido ${escapeHtml(obterNumeroPedido(pedido))}"
+            />
+          </td>
           <td>
             <a href="#" class="pedido-link" data-index="${index}">
               ${escapeHtml(obterNumeroPedido(pedido))}
@@ -630,12 +951,22 @@
         </tr>
       `).join('');
 
-      renderizarRodape(pedidos);
+      renderizarRodape(pedidosAtuais);
 
       tabelaPedidos.querySelectorAll('tr[data-index]').forEach((row) => {
         row.addEventListener('click', () => {
-          const pedido = pedidos[Number(row.dataset.index)];
+          const pedido = pedidosAtuais[Number(row.dataset.index)];
           abrirPedido(pedido);
+        });
+      });
+
+      tabelaPedidos.querySelectorAll('.pedido-checkbox').forEach((checkbox) => {
+        checkbox.addEventListener('click', (event) => {
+          event.stopPropagation();
+        });
+
+        checkbox.addEventListener('change', () => {
+          atualizarEstadoSelecao();
         });
       });
 
@@ -643,7 +974,7 @@
         link.addEventListener('click', (event) => {
           event.preventDefault();
           event.stopPropagation();
-          const pedido = pedidos[Number(link.dataset.index)];
+          const pedido = pedidosAtuais[Number(link.dataset.index)];
           abrirPedido(pedido);
         });
       });
@@ -653,7 +984,7 @@
           event.preventDefault();
           event.stopPropagation();
 
-          const pedido = pedidos[Number(botao.dataset.index)];
+          const pedido = pedidosAtuais[Number(botao.dataset.index)];
           const acao = botao.dataset.acao;
 
           if (acao === 'pagamentos') {
@@ -665,7 +996,8 @@
         });
       });
 
-      mostrarStatus('ok', `${pedidos.length} pedido(s) encontrado(s).`);
+      atualizarEstadoSelecao();
+      mostrarStatus('ok', `${pedidosAtuais.length} pedido(s) encontrado(s).`);
     }
 
     async function carregarPedidos() {
@@ -673,10 +1005,12 @@
         atualizarSubtitulo(null);
         tabelaPedidos.innerHTML = `
           <tr>
-            <td colspan="8" class="vazio">Parâmetro "favorecido" não informado.</td>
+            <td colspan="9" class="vazio">Parâmetro "favorecido" não informado.</td>
           </tr>
         `;
         rodapePedidos.innerHTML = '';
+        pedidosAtuais = [];
+        atualizarEstadoSelecao();
         mostrarStatus('erro', 'Parâmetro "favorecido" não informado na URL.');
         return;
       }
@@ -696,10 +1030,12 @@
         atualizarSubtitulo(null);
         tabelaPedidos.innerHTML = `
           <tr>
-            <td colspan="8" class="vazio">Erro ao carregar pedidos.</td>
+            <td colspan="9" class="vazio">Erro ao carregar pedidos.</td>
           </tr>
         `;
         rodapePedidos.innerHTML = '';
+        pedidosAtuais = [];
+        atualizarEstadoSelecao();
         mostrarStatus('erro', `Erro: ${error.message}`);
       }
     }
