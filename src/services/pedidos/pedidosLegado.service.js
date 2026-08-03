@@ -76,6 +76,30 @@ function normalizarCodigoCarrada(valor) {
   return normalizarInteiroPositivo(valor, 'codigoCarrada');
 }
 
+function normalizarDataVenda(valor, nomeCampo = 'data') {
+  const texto = textoOuVazio(valor);
+  const correspondencia = /^(\d{4})-(\d{2})-(\d{2})$/.exec(texto);
+
+  if (!correspondencia) {
+    throw new Error(`Campo inválido: ${nomeCampo} deve estar em YYYY-MM-DD`);
+  }
+
+  const ano = Number(correspondencia[1]);
+  const mes = Number(correspondencia[2]);
+  const dia = Number(correspondencia[3]);
+  const dataValidacao = new Date(Date.UTC(ano, mes - 1, dia));
+
+  if (
+    dataValidacao.getUTCFullYear() !== ano ||
+    dataValidacao.getUTCMonth() !== mes - 1 ||
+    dataValidacao.getUTCDate() !== dia
+  ) {
+    throw new Error(`Campo inválido: ${nomeCampo}`);
+  }
+
+  return texto;
+}
+
 function normalizeCst(value) {
   if (!value) return '000';
   const text = String(value).trim();
@@ -607,6 +631,8 @@ async function atualizarPedido(idMestre, payload = {}) {
   const id = normalizarInteiroPositivo(idMestre, 'idMestre');
   const vendedor = normalizarInteiroPositivo(payload?.vendedor, 'vendedor');
   const obs = textoOuVazio(payload?.obs) || null;
+  const deveAtualizarData = Object.prototype.hasOwnProperty.call(payload || {}, 'data');
+  const dataVenda = deveAtualizarData ? normalizarDataVenda(payload?.data, 'data') : null;
   const deveAtualizarCarrada = Object.prototype.hasOwnProperty.call(payload || {}, 'codigoCarrada');
   const codigoCarrada = deveAtualizarCarrada ? normalizarCodigoCarrada(payload?.codigoCarrada) : null;
   const itens = normalizarItensEdicao(payload?.itens);
@@ -627,24 +653,30 @@ async function atualizarPedido(idMestre, payload = {}) {
       throw new Error('Pedido cancelado não pode ser alterado.');
     }
 
+    const camposAtualizacao = [];
+    const parametrosAtualizacao = [];
+
+    if (deveAtualizarData) {
+      camposAtualizacao.push('DATA = ?');
+      parametrosAtualizacao.push(dataVenda);
+    }
+
+    camposAtualizacao.push(
+      'VENDEDOR = ?',
+      'OBS = ?',
+      'TOTAL = ?',
+      'TOTALITENS = ?',
+      'TOTALITENS123 = ?'
+    );
+    parametrosAtualizacao.push(vendedor, obs, total, total, total, id);
+
     await tx.query(
       `
         UPDATE SAIDAS
-        SET VENDEDOR = ?,
-            OBS = ?,
-            TOTAL = ?,
-            TOTALITENS = ?,
-            TOTALITENS123 = ?
+        SET ${camposAtualizacao.join(',\n            ')}
         WHERE SAIDA = ?
       `,
-      [
-        vendedor,
-        obs,
-        total,
-        total,
-        total,
-        id
-      ]
+      parametrosAtualizacao
     );
 
     await tx.query(`DELETE FROM SAIDASITENS WHERE SAIDA = ?`, [id]);
@@ -703,6 +735,40 @@ function obterDataAtualFortaleza() {
   }, {});
 
   return `${partes.year}-${partes.month}-${partes.day}`;
+}
+
+function formatarDataPedidoParaObservacao(valor) {
+  if (!valor) {
+    return '';
+  }
+
+  const texto = String(valor).trim();
+  const dataIso = /^(\d{4})-(\d{2})-(\d{2})/.exec(texto);
+
+  if (dataIso) {
+    return `${dataIso[3]}/${dataIso[2]}/${dataIso[1]}`;
+  }
+
+  const data = valor instanceof Date ? valor : new Date(valor);
+  if (Number.isNaN(data.getTime())) {
+    return texto;
+  }
+
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Fortaleza',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  }).format(data);
+}
+
+function montarObservacaoPedidoParticionado(observacaoAtual, numeroPedidoOrigem, dataPedidoOrigem) {
+  const observacao = textoOuVazio(observacaoAtual);
+  const numero = textoOuVazio(numeroPedidoOrigem);
+  const data = formatarDataPedidoParaObservacao(dataPedidoOrigem);
+  const anotacao = `Pedido particionado originalmente vindo do pedido número ${numero} do dia ${data}.`;
+
+  return observacao ? `${observacao}\n${anotacao}` : anotacao;
 }
 
 async function gerarNumeroPedido(tx, tipoMovimento, empresa, pdv) {
@@ -803,7 +869,9 @@ async function inserirSaidaParticionada(tx, original, novoPedido) {
       novoPedido.numero,
       novoPedido.data,
       original.favorecido,
-      original.obs || null,
+      Object.prototype.hasOwnProperty.call(novoPedido, 'obs')
+        ? (novoPedido.obs || null)
+        : (original.obs || null),
       original.vendedor,
       0,
       novoPedido.total,
@@ -1155,6 +1223,90 @@ async function redistribuirPagamentosParticao(tx, originalAntes, originalDepois,
   };
 }
 
+async function copiarPedido(idMestre, payload = {}) {
+  const id = normalizarInteiroPositivo(idMestre, 'idMestre');
+  const codigoCarrada = normalizarInteiroPositivo(payload?.codigoCarrada, 'codigoCarrada');
+
+  return firebirdService.withTransaction(async (tx) => {
+    const original = await buscarDadosParticaoPedido(tx, id);
+
+    if (!original) {
+      throw new Error('Pedido não encontrado.');
+    }
+
+    if (textoOuVazio(original.situacao).toUpperCase() === 'C') {
+      throw new Error('Pedido cancelado não pode ser copiado.');
+    }
+
+    const carradaDestino = await buscarCarradaPorCodigo(codigoCarrada, tx);
+
+    if (!carradaDestino) {
+      throw new Error('Carrada selecionada não encontrada.');
+    }
+
+    const carradaAtual = await buscarCarradaAtualDoPedido(original.numero, tx);
+
+    if (Number(carradaAtual?.codigo || 0) === Number(codigoCarrada)) {
+      throw new Error('Selecione uma carrada diferente da carrada atual.');
+    }
+
+    const itensOriginais = await buscarItensPedido(id, tx);
+
+    if (!itensOriginais.length) {
+      throw new Error('O pedido não possui itens para copiar.');
+    }
+
+    const itensCopiados = itensOriginais.map((item) => ({
+      item: Number(item.item),
+      descricao: item.descricao || null,
+      quantidade: arredondarNumero(item.quantidade),
+      preco: arredondarNumero(item.preco, 3),
+      subtotalitem: arredondarNumero(Number(item.quantidade || 0) * Number(item.preco || 0))
+    }));
+    const totalNovo = arredondarNumero(
+      itensCopiados.reduce((acc, item) => acc + Number(item.subtotalitem || 0), 0)
+    );
+    const novaSaida = await gerarIdGlobal(tx);
+    const novoNumero = await gerarNumeroPedido(
+      tx,
+      original.tipomovimento,
+      original.empresa,
+      original.pdv
+    );
+    const novoPedido = {
+      empresa: original.empresa,
+      saida: novaSaida,
+      pdv: original.pdv,
+      numero: novoNumero,
+      data: obterDataAtualFortaleza(),
+      favorecido: original.favorecido,
+      vendedor: original.vendedor,
+      total: totalNovo,
+      volumes: 0
+    };
+
+    await inserirSaidaParticionada(tx, original, novoPedido);
+
+    for (let index = 0; index < itensCopiados.length; index += 1) {
+      await inserirItemPedido(tx, novoPedido, itensCopiados[index], index + 1);
+    }
+
+    await substituirCarradaDoPedido(tx, novoPedido, codigoCarrada);
+
+    const pedidoNovoCriado = await buscarDetalheEdicaoPedido(novaSaida, tx);
+
+    return {
+      pedidoNovo: pedidoNovoCriado,
+      pedidoOrigem: {
+        idMestre: original.saida,
+        saida: original.saida,
+        numero: original.numero
+      },
+      carradaDestino
+    };
+  });
+}
+
 async function particionarPedido(idMestre, payload = {}) {
   const id = normalizarInteiroPositivo(idMestre, 'idMestre');
   const codigoCarrada = normalizarInteiroPositivo(payload?.codigoCarrada, 'codigoCarrada');
@@ -1272,9 +1424,14 @@ async function particionarPedido(idMestre, payload = {}) {
       saida: novaSaida,
       pdv: original.pdv,
       numero: novoNumero,
-      data: obterDataAtualFortaleza(),
+      data: original.data,
       favorecido: original.favorecido,
       vendedor: original.vendedor,
+      obs: montarObservacaoPedidoParticionado(
+        original.obs,
+        original.numero,
+        original.data
+      ),
       total: totalNovo,
       volumes: 0
     };
@@ -1323,5 +1480,6 @@ module.exports = {
   alterarCarradaPedido,
   atualizarVolumesPedido,
   atualizarPedido,
+  copiarPedido,
   particionarPedido
 };
