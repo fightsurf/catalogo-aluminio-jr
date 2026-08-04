@@ -1156,7 +1156,7 @@
       }
 
       try {
-        const data = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/fases/${encodeURIComponent(faseCodigo)}`, {
+        await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/fases/${encodeURIComponent(faseCodigo)}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ valor: novoValor })
@@ -1181,9 +1181,6 @@
         renderCardsFases();
         renderMatriz();
 
-        if (novoValor && (faseCodigo === 'EM_PRODUCAO' || faseCodigo === 'PEDIDO_PRONTO')) {
-          abrirResumoPedido(faseInfo?.nome || 'Resumo do pedido', data.resumoPedido, data.notificacao || null);
-        }
       } catch (error) {
         window.alert(error.message);
       }
