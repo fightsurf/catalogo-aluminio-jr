@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Enviar relatório com fotos</title>
+  <style>
+    :root {
+      --bg: #f3f4f6;
+      --card: #ffffff;
+      --text: #111827;
+      --muted: #6b7280;
+      --line: #d1d5db;
+      --primary: #111827;
+      --primary-text: #ffffff;
+      --success: #047857;
+      --success-bg: #ecfdf5;
+      --warning: #92400e;
+      --warning-bg: #fffbeb;
+      --danger: #b91c1c;
+      --danger-bg: #fef2f2;
+      --info: #1d4ed8;
+      --info-bg: #eff6ff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .page {
+      width: min(1100px, 100%);
+      margin: 0 auto;
+      padding: 22px 14px 48px;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 28px;
+    }
+
+    .subtitle {
+      margin: 0 0 20px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 18px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    .grid-two {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 180px;
+      gap: 14px;
+      align-items: end;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 13px;
+      font-weight: 700;
+      color: #374151;
+    }
+
+    input,
+    textarea,
+    button {
+      font: inherit;
+    }
+
+    input,
+    textarea {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      color: var(--text);
+      padding: 11px 12px;
+    }
+
+    input { height: 44px; }
+
+    textarea {
+      min-height: 310px;
+      resize: vertical;
+      line-height: 1.42;
+      font-family: Consolas, Monaco, monospace;
+      font-size: 13px;
+    }
+
+    input:focus,
+    textarea:focus {
+      outline: 2px solid #93c5fd;
+      border-color: #3b82f6;
+    }
+
+    .hint {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .client-search-wrap { position: relative; }
+
+    .client-results {
+      display: none;
+      position: absolute;
+      z-index: 20;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      max-height: 280px;
+      overflow: auto;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: 0 12px 28px rgba(0, 0, 0, 0.14);
+    }
+
+    .client-results.show { display: block; }
+
+    .client-option {
+      width: 100%;
+      height: auto;
+      border: 0;
+      border-bottom: 1px solid #f0f0f0;
+      border-radius: 0;
+      background: #fff;
+      color: var(--text);
+      text-align: left;
+      padding: 11px 12px;
+      cursor: pointer;
+    }
+
+    .client-option:hover { background: #f9fafb; }
+    .client-option:last-child { border-bottom: 0; }
+    .client-option strong { display: block; margin-bottom: 3px; }
+    .client-option span { color: var(--muted); font-size: 12px; }
+
+    .selected-client {
+      display: none;
+      margin-top: 10px;
+      border: 1px solid #a7f3d0;
+      background: var(--success-bg);
+      color: var(--success);
+      border-radius: 10px;
+      padding: 10px 12px;
+      line-height: 1.4;
+    }
+
+    .selected-client.show { display: block; }
+
+    .actions {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    button {
+      min-height: 44px;
+      border: 0;
+      border-radius: 10px;
+      padding: 10px 16px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: var(--primary-text);
+    }
+
+    .btn-secondary {
+      background: #fff;
+      color: var(--text);
+      border: 1px solid var(--line);
+    }
+
+    .btn-success {
+      background: #047857;
+      color: #fff;
+    }
+
+    .status {
+      display: none;
+      margin-bottom: 16px;
+      border-radius: 10px;
+      padding: 11px 13px;
+      line-height: 1.45;
+      white-space: pre-wrap;
+    }
+
+    .status.show { display: block; }
+    .status.info { color: var(--info); background: var(--info-bg); border: 1px solid #bfdbfe; }
+    .status.success { color: var(--success); background: var(--success-bg); border: 1px solid #a7f3d0; }
+    .status.warning { color: var(--warning); background: var(--warning-bg); border: 1px solid #fde68a; }
+    .status.error { color: var(--danger); background: var(--danger-bg); border: 1px solid #fecaca; }
+
+    .preview-section { display: none; }
+    .preview-section.show { display: block; }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .summary-box {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 11px;
+      background: #fafafa;
+    }
+
+    .summary-box span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+
+    .summary-box strong { font-size: 17px; }
+
+    .items {
+      display: grid;
+      gap: 10px;
+    }
+
+    .item-card {
+      display: grid;
+      grid-template-columns: 84px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px;
+      background: #fff;
+    }
+
+    .item-card.invalid {
+      border-color: #fca5a5;
+      background: var(--danger-bg);
+    }
+
+    .item-card img {
+      width: 84px;
+      height: 84px;
+      object-fit: cover;
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: #f3f4f6;
+    }
+
+    .image-placeholder {
+      width: 84px;
+      height: 84px;
+      display: grid;
+      place-items: center;
+      border: 1px dashed #ef4444;
+      border-radius: 9px;
+      color: var(--danger);
+      font-size: 11px;
+      text-align: center;
+      padding: 6px;
+    }
+
+    .item-info strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .item-info div {
+      color: #4b5563;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .item-problem {
+      margin-top: 6px;
+      color: var(--danger) !important;
+      font-weight: 700;
+    }
+
+    .item-subtotal {
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    .item-subtotal span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      margin-bottom: 4px;
+    }
+
+    .progress-wrap {
+      display: none;
+      margin-top: 14px;
+    }
+
+    .progress-wrap.show { display: block; }
+
+    .progress-track {
+      height: 14px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #e5e7eb;
+    }
+
+    .progress-bar {
+      width: 0;
+      height: 100%;
+      background: #047857;
+      transition: width 0.2s ease;
+    }
+
+    .progress-text {
+      margin-top: 7px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 760px) {
+      .grid-two,
+      .summary-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .item-card {
+        grid-template-columns: 70px minmax(0, 1fr);
+      }
+
+      .item-card img,
+      .image-placeholder {
+        width: 70px;
+        height: 70px;
+      }
+
+      .item-subtotal {
+        grid-column: 2;
+        text-align: left;
+      }
+
+      .actions {
+        flex-direction: column;
+      }
+
+      .actions button { width: 100%; }
+    }
+  </style>
+  <link rel="stylesheet" href="/css/theme.css" />
+</head>
+<body>
+  <main class="page">
+    <h1>Enviar relatório com fotos</h1>
+    <p class="subtitle">Cole o relatório gerado no Kit Feirinha ou no Orçamento. O sistema localiza o cliente, aplica o multiplicador e envia uma foto com os dados de cada produto.</p>
+
+    <div id="status" class="status"></div>
+
+    <section class="card">
+      <div class="grid-two">
+        <div class="field client-search-wrap">
+          <label for="clienteBusca">Cliente</label>
+          <input id="clienteBusca" type="text" placeholder="Digite o nome, razão ou código do cliente" autocomplete="off" />
+          <div id="clienteResultados" class="client-results"></div>
+          <div id="clienteSelecionado" class="selected-client"></div>
+          <div class="hint">Digite pelo menos 2 caracteres e selecione um cliente da lista.</div>
+        </div>
+
+        <div class="field">
+          <label for="multiplicador">Multiplicador</label>
+          <input id="multiplicador" type="number" min="1" max="999" step="1" value="1" />
+          <div class="hint">Multiplica quantidades, subtotais e total.</div>
+        </div>
+      </div>
+
+      <div class="field" style="margin-top: 14px;">
+        <label for="relatorio">Relatório</label>
+        <textarea id="relatorio" placeholder="Cole aqui o relatório recebido pelo WhatsApp..."></textarea>
+      </div>
+
+      <div class="actions">
+        <button id="btnAnalisar" type="button" class="btn-primary">Analisar relatório</button>
+        <button id="btnLimpar" type="button" class="btn-secondary">Limpar</button>
+      </div>
+    </section>
+
+    <section id="previewSection" class="card preview-section">
+      <div class="summary-grid">
+        <div class="summary-box">
+          <span>Produtos</span>
+          <strong id="resumoProdutos">0</strong>
+        </div>
+        <div class="summary-box">
+          <span>Quantidade final</span>
+          <strong id="resumoQuantidade">0</strong>
+        </div>
+        <div class="summary-box">
+          <span>Multiplicador</span>
+          <strong id="resumoMultiplicador">1x</strong>
+        </div>
+        <div class="summary-box">
+          <span>Valor total</span>
+          <strong id="resumoTotal">R$ 0,00</strong>
+        </div>
+      </div>
+
+      <div id="itensPreview" class="items"></div>
+
+      <div class="actions">
+        <button id="btnEnviar" type="button" class="btn-success" disabled>Enviar fotos para o cliente</button>
+      </div>
+
+      <div id="progressWrap" class="progress-wrap">
+        <div class="progress-track">
+          <div id="progressBar" class="progress-bar"></div>
+        </div>
+        <div id="progressText" class="progress-text"></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const clienteBuscaEl = document.getElementById('clienteBusca');
+    const clienteResultadosEl = document.getElementById('clienteResultados');
+    const clienteSelecionadoEl = document.getElementById('clienteSelecionado');
+    const multiplicadorEl = document.getElementById('multiplicador');
+    const relatorioEl = document.getElementById('relatorio');
+    const statusEl = document.getElementById('status');
+    const btnAnalisar = document.getElementById('btnAnalisar');
+    const btnLimpar = document.getElementById('btnLimpar');
+    const btnEnviar = document.getElementById('btnEnviar');
+    const previewSection = document.getElementById('previewSection');
+    const itensPreviewEl = document.getElementById('itensPreview');
+    const progressWrap = document.getElementById('progressWrap');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+
+    let clienteSelecionado = null;
+    let analiseAtual = null;
+    let buscaTimer = null;
+    let enviando = false;
+
+    function escapeHtml(valor) {
+      return String(valor || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function formatarMoeda(valor) {
+      return Number(valor || 0).toLocaleString('pt-BR', {
+        style: 'currency',
+        currency: 'BRL'
+      });
+    }
+
+    function formatarQuantidade(valor) {
+      const numero = Number(valor || 0);
+      return numero.toLocaleString('pt-BR', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 4
+      });
+    }
+
+    function normalizarTelefone(valor) {
+      const digitos = String(valor || '').replace(/\D+/g, '');
+      if (digitos.startsWith('55') && digitos.length >= 12) return digitos;
+      if (digitos.length === 10 || digitos.length === 11) return `55${digitos}`;
+      return digitos;
+    }
+
+    function mostrarStatus(tipo, mensagem) {
+      statusEl.className = `status show ${tipo}`;
+      statusEl.textContent = mensagem;
+      statusEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function limparStatus() {
+      statusEl.className = 'status';
+      statusEl.textContent = '';
+    }
+
+    async function apiJson(url, opcoes = {}) {
+      const response = await fetch(url, {
+        ...opcoes,
+        headers: {
+          Accept: 'application/json',
+          ...(opcoes.body ? { 'Content-Type': 'application/json' } : {}),
+          ...(opcoes.headers || {})
+        }
+      });
+
+      const contentType = response.headers.get('content-type') || '';
+      const data = contentType.includes('application/json')
+        ? await response.json()
+        : null;
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
+          throw new Error('Sessão administrativa expirada.');
+        }
+
+        throw new Error(data?.message || data?.erro || data?.detalhe || 'Erro na requisição.');
+      }
+
+      return data;
+    }
+
+    function fecharResultados() {
+      clienteResultadosEl.classList.remove('show');
+      clienteResultadosEl.innerHTML = '';
+    }
+
+    function selecionarCliente(cliente) {
+      clienteSelecionado = cliente;
+      clienteBuscaEl.value = cliente.nome || cliente.razao || '';
+      clienteSelecionadoEl.innerHTML = `
+        <strong>${escapeHtml(cliente.nome || cliente.razao || 'Cliente')}</strong><br>
+        Código: ${escapeHtml(cliente.codigo || cliente.favorecido || '')}<br>
+        WhatsApp: ${escapeHtml(cliente.telefonePrincipal || 'Sem telefone')}
+      `;
+      clienteSelecionadoEl.classList.add('show');
+      fecharResultados();
+      atualizarBotaoEnviar();
+    }
+
+    function renderizarClientes(clientes) {
+      if (!clientes.length) {
+        clienteResultadosEl.innerHTML = '<div style="padding: 12px; color: #6b7280;">Nenhum cliente encontrado.</div>';
+        clienteResultadosEl.classList.add('show');
+        return;
+      }
+
+      clienteResultadosEl.innerHTML = clientes.map((cliente, index) => `
+        <button type="button" class="client-option" data-index="${index}">
+          <strong>${escapeHtml(cliente.nome || cliente.razao || 'Cliente')}</strong>
+          <span>${escapeHtml(cliente.cidade || '')}${cliente.uf ? `/${escapeHtml(cliente.uf)}` : ''} · ${escapeHtml(cliente.telefonePrincipal || 'Sem telefone')}</span>
+        </button>
+      `).join('');
+
+      clienteResultadosEl.querySelectorAll('.client-option').forEach((botao) => {
+        botao.addEventListener('click', () => selecionarCliente(clientes[Number(botao.dataset.index)]));
+      });
+
+      clienteResultadosEl.classList.add('show');
+    }
+
+    async function buscarClientes() {
+      const termo = clienteBuscaEl.value.trim();
+
+      if (termo.length < 2) {
+        fecharResultados();
+        return;
+      }
+
+      try {
+        const data = await apiJson(`/api/legado/clientes?nome=${encodeURIComponent(termo)}&limite=20`);
+        renderizarClientes(Array.isArray(data?.dados) ? data.dados : []);
+      } catch (error) {
+        mostrarStatus('error', error.message);
+      }
+    }
+
+    clienteBuscaEl.addEventListener('input', () => {
+      clienteSelecionado = null;
+      clienteSelecionadoEl.classList.remove('show');
+      analiseAtual = null;
+      atualizarBotaoEnviar();
+      clearTimeout(buscaTimer);
+      buscaTimer = setTimeout(buscarClientes, 350);
+    });
+
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest('.client-search-wrap')) {
+        fecharResultados();
+      }
+    });
+
+    function renderizarAnalise(analise) {
+      document.getElementById('resumoProdutos').textContent = analise.quantidadeProdutos;
+      document.getElementById('resumoQuantidade').textContent = formatarQuantidade(analise.quantidadeTotalFinal);
+      document.getElementById('resumoMultiplicador').textContent = `${analise.multiplicador}x`;
+      document.getElementById('resumoTotal').textContent = formatarMoeda(analise.totalFinal);
+
+      itensPreviewEl.innerHTML = analise.itens.map((item) => `
+        <article class="item-card ${item.pronto ? '' : 'invalid'}">
+          ${item.foto
+            ? `<img src="${escapeHtml(item.foto)}" alt="${escapeHtml(item.descricao)}" />`
+            : '<div class="image-placeholder">SEM FOTO</div>'}
+          <div class="item-info">
+            <strong>${item.ordem}. ${escapeHtml(item.descricao)}</strong>
+            <div>Quantidade: ${formatarQuantidade(item.quantidadeOriginal)} × ${analise.multiplicador} = <strong>${formatarQuantidade(item.quantidadeFinal)}</strong></div>
+            <div>Valor unitário: ${formatarMoeda(item.unitario)}</div>
+            ${item.problema ? `<div class="item-problem">${escapeHtml(item.problema)}</div>` : ''}
+          </div>
+          <div class="item-subtotal">
+            <span>SUBTOTAL FINAL</span>
+            <strong>${formatarMoeda(item.subtotalFinal)}</strong>
+          </div>
+        </article>
+      `).join('');
+
+      previewSection.classList.add('show');
+      previewSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      atualizarBotaoEnviar();
+
+      if (analise.prontoParaEnvio) {
+        mostrarStatus('success', `${analise.quantidadeProdutos} produtos validados. O lote está pronto para envio.`);
+      } else {
+        const problemas = analise.pendencias
+          .map(item => `${item.ordem}. ${item.nome}: ${item.problema}`)
+          .join('\n');
+        mostrarStatus('warning', `O envio foi bloqueado. Corrija as pendências abaixo:\n${problemas}`);
+      }
+    }
+
+    function atualizarBotaoEnviar() {
+      const possuiTelefone = Boolean(normalizarTelefone(clienteSelecionado?.telefonePrincipal));
+      btnEnviar.disabled = enviando || !clienteSelecionado || !possuiTelefone || !analiseAtual?.prontoParaEnvio;
+    }
+
+    function invalidarAnalise() {
+      if (enviando || !analiseAtual) return;
+
+      analiseAtual = null;
+      itensPreviewEl.innerHTML = '';
+      previewSection.classList.remove('show');
+      progressWrap.classList.remove('show');
+      atualizarBotaoEnviar();
+    }
+
+    relatorioEl.addEventListener('input', invalidarAnalise);
+    multiplicadorEl.addEventListener('input', invalidarAnalise);
+
+    async function analisarRelatorio() {
+      limparStatus();
+
+      if (!clienteSelecionado) {
+        mostrarStatus('error', 'Selecione o cliente antes de analisar o relatório.');
+        clienteBuscaEl.focus();
+        return;
+      }
+
+      if (!normalizarTelefone(clienteSelecionado.telefonePrincipal)) {
+        mostrarStatus('error', 'O cliente selecionado está sem telefone cadastrado.');
+        return;
+      }
+
+      const relatorio = relatorioEl.value.trim();
+      const multiplicador = Number.parseInt(multiplicadorEl.value, 10);
+
+      if (!relatorio) {
+        mostrarStatus('error', 'Cole o relatório.');
+        relatorioEl.focus();
+        return;
+      }
+
+      btnAnalisar.disabled = true;
+      btnAnalisar.textContent = 'Analisando...';
+
+      try {
+        const response = await apiJson('/api/whatsapp/relatorio-fotos/analisar', {
+          method: 'POST',
+          body: JSON.stringify({ relatorio, multiplicador })
+        });
+
+        analiseAtual = response.data;
+        renderizarAnalise(analiseAtual);
+      } catch (error) {
+        analiseAtual = null;
+        previewSection.classList.remove('show');
+        atualizarBotaoEnviar();
+        mostrarStatus('error', error.message);
+      } finally {
+        btnAnalisar.disabled = false;
+        btnAnalisar.textContent = 'Analisar relatório';
+      }
+    }
+
+    function atualizarProgresso(concluidos, total, texto) {
+      const percentual = total > 0 ? Math.round((concluidos / total) * 100) : 0;
+      progressBar.style.width = `${percentual}%`;
+      progressText.textContent = texto;
+    }
+
+    function aguardar(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function obterTelefoneAtualizado() {
+      const response = await apiJson(`/api/legado/clientes/${encodeURIComponent(clienteSelecionado.favorecido)}`);
+      const cliente = response?.dado;
+      const telefone = normalizarTelefone(cliente?.telefonePrincipal);
+
+      if (!telefone) {
+        throw new Error('O cliente está sem telefone cadastrado ou o telefone é inválido.');
+      }
+
+      clienteSelecionado = cliente;
+      return telefone;
+    }
+
+    async function enviarLote() {
+      if (enviando || !analiseAtual?.prontoParaEnvio || !clienteSelecionado) return;
+
+      const confirmar = window.confirm(
+        `Enviar ${analiseAtual.quantidadeProdutos} fotos para ${clienteSelecionado.nome || clienteSelecionado.razao}?`
+      );
+
+      if (!confirmar) return;
+
+      enviando = true;
+      atualizarBotaoEnviar();
+      btnAnalisar.disabled = true;
+      btnLimpar.disabled = true;
+      progressWrap.classList.add('show');
+      atualizarProgresso(0, analiseAtual.quantidadeProdutos, 'Localizando o telefone atualizado do cliente...');
+      mostrarStatus('info', 'Envio iniciado. Não feche esta tela até a conclusão.');
+
+      let enviados = 0;
+
+      try {
+        const telefone = await obterTelefoneAtualizado();
+
+        for (let index = 0; index < analiseAtual.itens.length; index += 1) {
+          const item = analiseAtual.itens[index];
+          atualizarProgresso(
+            enviados,
+            analiseAtual.quantidadeProdutos,
+            `Enviando item ${index + 1} de ${analiseAtual.quantidadeProdutos}: ${item.descricao}`
+          );
+
+          await apiJson('/api/whatsapp/relatorio-fotos/enviar-item', {
+            method: 'POST',
+            body: JSON.stringify({
+              telefone,
+              produtoId: item.produtoId,
+              quantidade: item.quantidadeFinal,
+              unitario: item.unitario,
+              subtotal: item.subtotalFinal,
+              indice: index + 1,
+              totalItens: analiseAtual.quantidadeProdutos
+            })
+          });
+
+          enviados += 1;
+          atualizarProgresso(
+            enviados,
+            analiseAtual.quantidadeProdutos,
+            `Item ${enviados} de ${analiseAtual.quantidadeProdutos} enviado.`
+          );
+
+          if (index < analiseAtual.itens.length - 1) {
+            await aguardar(900);
+          }
+        }
+
+        atualizarProgresso(
+          analiseAtual.quantidadeProdutos,
+          analiseAtual.quantidadeProdutos,
+          'Todos os produtos foram enviados. Enviando o resumo final...'
+        );
+
+        await apiJson('/api/whatsapp/relatorio-fotos/finalizar', {
+          method: 'POST',
+          body: JSON.stringify({
+            telefone,
+            total: analiseAtual.totalFinal,
+            quantidadeProdutos: analiseAtual.quantidadeProdutos,
+            multiplicador: analiseAtual.multiplicador
+          })
+        });
+
+        atualizarProgresso(
+          analiseAtual.quantidadeProdutos,
+          analiseAtual.quantidadeProdutos,
+          'Todos os itens e o resumo final foram enviados.'
+        );
+        mostrarStatus('success', `Envio concluído. ${analiseAtual.quantidadeProdutos} produtos enviados para ${clienteSelecionado.nome || clienteSelecionado.razao}.`);
+      } catch (error) {
+        const todosProdutosEnviados = enviados === analiseAtual.quantidadeProdutos;
+        const mensagemErro = todosProdutosEnviados
+          ? `As ${analiseAtual.quantidadeProdutos} fotos foram enviadas, mas o resumo final falhou.\nMotivo: ${error.message}`
+          : `O envio parou após ${enviados} de ${analiseAtual.quantidadeProdutos} produtos.\nMotivo: ${error.message}\nRevise antes de tentar novamente para não duplicar os itens já enviados.`;
+
+        mostrarStatus('error', mensagemErro);
+        atualizarProgresso(
+          enviados,
+          analiseAtual.quantidadeProdutos,
+          todosProdutosEnviados
+            ? 'Fotos concluídas; falha apenas no resumo final.'
+            : `Envio interrompido no item ${enviados + 1}.`
+        );
+      } finally {
+        enviando = false;
+        btnAnalisar.disabled = false;
+        btnLimpar.disabled = false;
+        atualizarBotaoEnviar();
+      }
+    }
+
+    function limparTudo() {
+      if (enviando) return;
+
+      clienteSelecionado = null;
+      analiseAtual = null;
+      clienteBuscaEl.value = '';
+      clienteSelecionadoEl.classList.remove('show');
+      multiplicadorEl.value = '1';
+      relatorioEl.value = '';
+      itensPreviewEl.innerHTML = '';
+      previewSection.classList.remove('show');
+      progressWrap.classList.remove('show');
+      progressBar.style.width = '0';
+      progressText.textContent = '';
+      fecharResultados();
+      limparStatus();
+      atualizarBotaoEnviar();
+      clienteBuscaEl.focus();
+    }
+
+    btnAnalisar.addEventListener('click', analisarRelatorio);
+    btnEnviar.addEventListener('click', enviarLote);
+    btnLimpar.addEventListener('click', limparTudo);
+  </script>
+</body>
+</html>
