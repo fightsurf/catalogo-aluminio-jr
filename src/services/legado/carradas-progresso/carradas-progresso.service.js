@@ -1646,6 +1646,52 @@ async function salvarLocalEntrega({ codigoCarrada: codigoCarradaParam, numeroPed
     faseCodigo: 'LOCAL_ENTREGA'
   });
 
+  const detalhePagamento = await buscarDetalhePagamentoDoPedido(pedido);
+  const telefone = normalizarTelefoneLote(pedido, detalhePagamento);
+  const mensagem = [
+    'MENSAGEM AUTOMÁTICA - ALUMÍNIO JR',
+    `📦 Pedido nº ${numeroPedido}`,
+    '',
+    `Transportadora / excursão definida: ${transportadora.nome || '-'}`
+  ].join('\n');
+
+  let notificacao = null;
+
+  try {
+    const envio = await whatsappService.enviarMensagem({ telefone, mensagem });
+    notificacao = {
+      success: true,
+      telefone: envio.telefone,
+      mensagem,
+      response: envio
+    };
+    await registrarNotificacao({
+      faseCodigo: 'LOCAL_ENTREGA',
+      codigoCarrada,
+      numeroPedido,
+      telefone: envio.telefone,
+      mensagem,
+      statusEnvio: 'sucesso',
+      respostaApi: envio.zapi || envio
+    });
+  } catch (error) {
+    notificacao = {
+      success: false,
+      telefone,
+      mensagem,
+      error: error.message
+    };
+    await registrarNotificacao({
+      faseCodigo: 'LOCAL_ENTREGA',
+      codigoCarrada,
+      numeroPedido,
+      telefone,
+      mensagem,
+      statusEnvio: 'erro',
+      respostaApi: { error: error.message }
+    });
+  }
+
   await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
 
   return {
@@ -1655,7 +1701,8 @@ async function salvarLocalEntrega({ codigoCarrada: codigoCarradaParam, numeroPed
     transportadoraNome: transportadora.nome || '',
     transportadoraTelefone: transportadora.telefone || '',
     agenciaCidade: result.rows[0].agencia_cidade || '',
-    updatedAt: result.rows[0].updated_at || null
+    updatedAt: result.rows[0].updated_at || null,
+    notificacao
   };
 }
 

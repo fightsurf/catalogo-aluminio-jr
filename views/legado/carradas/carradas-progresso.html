@@ -1348,7 +1348,7 @@
       if (!numeroPedido) return;
 
       try {
-        await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/local-entrega`, {
+        const data = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/local-entrega`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1359,6 +1359,10 @@
 
         fecharModal(el.modalLocalEntregaBackdrop);
         await carregarMatriz();
+
+        if (transportadoraId && data?.notificacao?.success === false) {
+          window.alert(`Transportadora salva, mas houve falha no WhatsApp: ${data.notificacao.error || 'Erro desconhecido.'}`);
+        }
       } catch (error) {
         setFeedback(el.feedbackLocalEntrega, error.message, 'error');
       }
