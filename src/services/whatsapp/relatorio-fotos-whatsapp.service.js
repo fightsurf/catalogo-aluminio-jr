@@ -336,7 +336,6 @@ async function enviarItem(payload = {}) {
   }
 
   const legenda = [
-    'MENSAGEM AUTOMÁTICA - ALUMÍNIO JR',
     `📦 Item ${indice} de ${totalItens}`,
     '',
     produto.nome,
@@ -372,7 +371,6 @@ async function finalizarEnvio(payload = {}) {
   const multiplicador = normalizarMultiplicador(payload.multiplicador);
 
   const mensagem = [
-    'MENSAGEM AUTOMÁTICA - ALUMÍNIO JR',
     '✅ Relatório com fotos concluído',
     '',
     `Produtos enviados: ${quantidadeProdutos}`,
