@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Central de Ofertas</title>
 <style>
-:root{font-family:Arial,sans-serif;color:#172033;background:#f3f4f6;--laranja:#ea580c;--laranja-claro:#fff7ed;--verde:#15803d;--azul:#1d4ed8;--cinza:#374151;--borda:#e5e7eb;--perigo:#b91c1c}*{box-sizing:border-box}body{margin:0}.topo{background:#111827;color:#fff;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;gap:16px}.topo h1{margin:0;font-size:22px}.topo a{color:#fff}.layout{max-width:1400px;margin:18px auto;padding:0 16px;display:grid;grid-template-columns:minmax(0,1.55fr) minmax(360px,.75fr);gap:18px;align-items:start}.lateral{display:grid;gap:18px;position:sticky;top:16px}.painel{background:#fff;border-radius:18px;padding:18px;box-shadow:0 6px 25px #0001}.painel h2,.painel h3{margin-top:0}.passos{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}.passo{padding:7px 12px;border-radius:999px;background:#e5e7eb;font-weight:700;font-size:14px}.passo.ativo{background:var(--laranja);color:#fff}.config-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:12px}.campo{margin-bottom:12px}.campo label{display:block;font-weight:700;margin-bottom:6px}.campo input,.campo textarea,.campo select{width:100%;padding:10px;border:1px solid #d1d5db;border-radius:10px;background:#fff}.campo textarea{resize:vertical}.temas{display:grid;grid-template-columns:repeat(5,minmax(100px,1fr));gap:8px}.tema-opcao{border:2px solid #e5e7eb;border-radius:12px;padding:7px;background:#fff;cursor:pointer;text-align:left;color:#172033}.tema-opcao.ativo{border-color:var(--laranja);box-shadow:0 0 0 3px #ffedd5}.tema-amostra{height:32px;border-radius:8px;margin-bottom:6px;border:1px solid #0002}.tema-opcao b{font-size:12px}.seletor-categoria{display:grid;grid-template-columns:240px 1fr;gap:14px;align-items:start;margin-top:14px}.lista-categorias{height:310px;border:1px solid #d1d5db;border-radius:12px;padding:6px;background:#f9fafb;font-weight:700}.area-produtos{min-width:0}.categoria-titulo{display:flex;justify-content:space-between;gap:10px;align-items:center;background:var(--laranja-claro);padding:10px 12px;border-radius:10px;margin:0 0 6px}.categoria-titulo h3{margin:0}.contador-filtro{color:#6b7280;font-size:13px}.lista-produtos{max-height:440px;overflow:auto;border:1px solid var(--borda);border-radius:12px}.produto{display:grid;grid-template-columns:28px 62px minmax(0,1fr) 76px;align-items:center;gap:9px;padding:9px;border-bottom:1px solid #eee;cursor:pointer}.produto:last-child{border-bottom:0}.produto:hover{background:#fffaf5}.produto img{width:58px;height:58px;object-fit:contain;background:#fff;border-radius:8px}.produto span{min-width:0}.produto b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.produto input[type=number]{width:70px;padding:8px}.selecionados-vazio{padding:20px;text-align:center;color:#6b7280;background:#f9fafb;border-radius:12px}.selecionados-lista{overflow:auto;max-height:260px;border:1px solid var(--borda);border-radius:12px}.selecionado{display:grid;grid-template-columns:54px minmax(0,1fr) auto;gap:9px;align-items:center;padding:8px;border-bottom:1px solid #eee}.selecionado:last-child{border-bottom:0}.selecionado img{width:50px;height:50px;object-fit:contain;background:#fff;border-radius:8px}.selecionado b{display:block;font-size:13px;line-height:1.25}.selecionado small{color:#6b7280}.qtd-mini{font-weight:900;color:#c2410c;background:#ffedd5;padding:5px 7px;border-radius:999px}.bloco-resumo{margin-top:12px;padding:13px;background:var(--laranja-claro);border-radius:12px}.linha-resumo{display:flex;justify-content:space-between;gap:10px;margin-bottom:6px}.valor{font-size:28px;font-weight:900;color:#c2410c}.botoes{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}button{border:0;border-radius:11px;padding:11px 14px;font-weight:800;cursor:pointer;background:var(--laranja);color:#fff}button.sec{background:var(--cinza)}button.azul{background:var(--azul)}button.verde{background:var(--verde)}button.perigo{background:var(--perigo)}button:disabled{opacity:.45;cursor:not-allowed}.botao-principal{width:100%;padding:14px 16px}.aviso{margin-top:12px;padding:11px;border-radius:10px;background:#f3f4f6;color:#374151;min-height:42px;white-space:pre-wrap}.aviso.erro{background:#fee2e2;color:#991b1b}.aviso.sucesso{background:#dcfce7;color:#166534}.girando{display:inline-block;width:16px;height:16px;border:3px solid #fed7aa;border-top-color:var(--laranja);border-radius:50%;animation:girar .8s linear infinite;vertical-align:-3px;margin-right:7px}@keyframes girar{to{transform:rotate(360deg)}}.oculto{display:none!important}.arte-topo{display:flex;justify-content:space-between;gap:12px;align-items:start}.arte-topo h2{margin-bottom:4px}.codigo{font-size:13px;color:#6b7280}.nota-dinamica{margin:10px 0;padding:10px;border-radius:10px;background:#eff6ff;color:#1e40af;font-size:13px;line-height:1.4}.preview-caixa{min-height:240px;display:grid;place-items:center;background:#f3f4f6;border:1px solid var(--borda);border-radius:14px;overflow:hidden}.preview{display:block;width:100%;max-height:470px;object-fit:contain}.preview-vazio{padding:32px;color:#6b7280;text-align:center}.grupo-acoes{margin-top:14px;padding-top:14px;border-top:1px solid var(--borda)}.grupo-acoes h3{font-size:15px;margin:0 0 9px}.envio-linha{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.envio-linha input{min-width:0;padding:10px;border:1px solid #86efac;border-radius:10px;background:#fff}.ajuda{display:block;margin-top:6px;color:#6b7280;font-size:12px}.historico{max-width:1400px;margin:0 auto 40px;padding:0 16px}.historico-cabecalho{display:flex;justify-content:space-between;gap:14px;align-items:center;margin-bottom:10px}.historico-cabecalho h2{margin:0}.manutencao{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.manutencao small{color:#6b7280;max-width:420px}.oferta{background:#fff;margin:10px 0;padding:14px;border-radius:12px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:15px;align-items:center;box-shadow:0 2px 10px #0000000b}.oferta-info b{display:block;margin-bottom:5px}.oferta-meta{color:#4b5563;font-size:13px;line-height:1.55}.oferta-problema{color:#b91c1c;font-size:12px;margin-top:5px}.oferta-acoes{display:flex;gap:7px;align-items:center;justify-content:flex-end;flex-wrap:wrap}.status{font-size:12px;padding:5px 9px;border-radius:99px;background:#e5e7eb}.status.publicada{background:#dcfce7;color:#166534}.vazio-historico{padding:24px;background:#fff;border-radius:12px;color:#6b7280;text-align:center}@media(max-width:1050px){.layout{grid-template-columns:1fr}.lateral{position:static}.selecionados-lista{max-height:360px}.temas{grid-template-columns:repeat(3,1fr)}}@media(max-width:720px){.config-grid,.seletor-categoria,.oferta{grid-template-columns:1fr}.lista-categorias{height:140px}.temas{grid-template-columns:repeat(2,1fr)}.produto{grid-template-columns:25px 52px minmax(0,1fr) 68px}.topo{padding:14px 16px}.topo h1{font-size:18px}.historico-cabecalho{align-items:flex-start;flex-direction:column}.oferta-acoes{justify-content:flex-start}.envio-linha{grid-template-columns:1fr}.envio-linha button{width:100%}}
+:root{font-family:Arial,sans-serif;color:#172033;background:#f3f4f6;--laranja:#ea580c;--laranja-claro:#fff7ed;--verde:#15803d;--azul:#1d4ed8;--cinza:#374151;--borda:#e5e7eb;--perigo:#b91c1c}*{box-sizing:border-box}body{margin:0}.topo{background:#111827;color:#fff;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;gap:16px}.topo h1{margin:0;font-size:22px}.topo a{color:#fff}.layout{max-width:1400px;margin:18px auto;padding:0 16px;display:grid;grid-template-columns:minmax(0,1.55fr) minmax(360px,.75fr);gap:18px;align-items:start}.lateral{display:grid;gap:18px;position:sticky;top:16px}.painel{background:#fff;border-radius:18px;padding:18px;box-shadow:0 6px 25px #0001}.painel h2,.painel h3{margin-top:0}.passos{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}.passo{padding:7px 12px;border-radius:999px;background:#e5e7eb;font-weight:700;font-size:14px}.passo.ativo{background:var(--laranja);color:#fff}.config-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:12px}.campo{margin-bottom:12px}.campo label{display:block;font-weight:700;margin-bottom:6px}.campo input,.campo textarea,.campo select{width:100%;padding:10px;border:1px solid #d1d5db;border-radius:10px;background:#fff}.campo textarea{resize:vertical}.temas{display:grid;grid-template-columns:repeat(5,minmax(100px,1fr));gap:8px}.tema-opcao{border:2px solid #e5e7eb;border-radius:12px;padding:7px;background:#fff;cursor:pointer;text-align:left;color:#172033}.tema-opcao.ativo{border-color:var(--laranja);box-shadow:0 0 0 3px #ffedd5}.tema-amostra{height:32px;border-radius:8px;margin-bottom:6px;border:1px solid #0002}.tema-opcao b{font-size:12px}.seletor-categoria{display:grid;grid-template-columns:240px 1fr;gap:14px;align-items:start;margin-top:14px}.lista-categorias{height:310px;border:1px solid #d1d5db;border-radius:12px;padding:6px;background:#f9fafb;font-weight:700}.area-produtos{min-width:0}.categoria-titulo{display:flex;justify-content:space-between;gap:10px;align-items:center;background:var(--laranja-claro);padding:10px 12px;border-radius:10px;margin:0 0 6px}.categoria-titulo h3{margin:0}.contador-filtro{color:#6b7280;font-size:13px}.lista-produtos{max-height:440px;overflow:auto;border:1px solid var(--borda);border-radius:12px}.produto{display:grid;grid-template-columns:28px 62px minmax(0,1fr) 76px;align-items:center;gap:9px;padding:9px;border-bottom:1px solid #eee;cursor:pointer}.produto:last-child{border-bottom:0}.produto:hover{background:#fffaf5}.produto img{width:58px;height:58px;object-fit:contain;background:#fff;border-radius:8px}.produto span{min-width:0}.produto b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.produto input[type=number]{width:70px;padding:8px}.selecionados-vazio{padding:20px;text-align:center;color:#6b7280;background:#f9fafb;border-radius:12px}.selecionados-lista{overflow:auto;max-height:260px;border:1px solid var(--borda);border-radius:12px}.selecionado{display:grid;grid-template-columns:54px minmax(0,1fr) auto;gap:9px;align-items:center;padding:8px;border-bottom:1px solid #eee}.selecionado:last-child{border-bottom:0}.selecionado img{width:50px;height:50px;object-fit:contain;background:#fff;border-radius:8px}.selecionado b{display:block;font-size:13px;line-height:1.25}.selecionado small{color:#6b7280}.qtd-mini{font-weight:900;color:#c2410c;background:#ffedd5;padding:5px 7px;border-radius:999px}.bloco-resumo{margin-top:12px;padding:13px;background:var(--laranja-claro);border-radius:12px}.linha-resumo{display:flex;justify-content:space-between;gap:10px;margin-bottom:6px}.valor{font-size:28px;font-weight:900;color:#c2410c}.botoes{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}button{border:0;border-radius:11px;padding:11px 14px;font-weight:800;cursor:pointer;background:var(--laranja);color:#fff}button.sec{background:var(--cinza)}button.azul{background:var(--azul)}button.verde{background:var(--verde)}button.perigo{background:var(--perigo)}button:disabled{opacity:.45;cursor:not-allowed}.botao-principal{width:100%;padding:14px 16px}.aviso{margin-top:12px;padding:11px;border-radius:10px;background:#f3f4f6;color:#374151;min-height:42px;white-space:pre-wrap}.aviso.erro{background:#fee2e2;color:#991b1b}.aviso.sucesso{background:#dcfce7;color:#166534}.girando{display:inline-block;width:16px;height:16px;border:3px solid #fed7aa;border-top-color:var(--laranja);border-radius:50%;animation:girar .8s linear infinite;vertical-align:-3px;margin-right:7px}@keyframes girar{to{transform:rotate(360deg)}}.oculto{display:none!important}.arte-topo{display:flex;justify-content:space-between;gap:12px;align-items:start}.arte-topo h2{margin-bottom:4px}.codigo{font-size:13px;color:#6b7280}.nota-dinamica{margin:10px 0;padding:10px;border-radius:10px;background:#eff6ff;color:#1e40af;font-size:13px;line-height:1.4}.preview-caixa{min-height:240px;display:grid;place-items:center;background:#f3f4f6;border:1px solid var(--borda);border-radius:14px;overflow:hidden}.preview{display:block;width:100%;max-height:470px;object-fit:contain}.preview-vazio{padding:32px;color:#6b7280;text-align:center}.grupo-acoes{margin-top:14px;padding-top:14px;border-top:1px solid var(--borda)}.grupo-acoes h3{font-size:15px;margin:0 0 9px}.envio-linha{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.envio-linha input{min-width:0;padding:10px;border:1px solid #86efac;border-radius:10px;background:#fff}.ajuda{display:block;margin-top:6px;color:#6b7280;font-size:12px}.historico{max-width:1400px;margin:0 auto 40px;padding:0 16px}.historico-cabecalho{display:flex;justify-content:space-between;gap:14px;align-items:center;margin-bottom:10px}.historico-cabecalho h2{margin:0}.manutencao{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.manutencao small{color:#6b7280;max-width:420px}.oferta{background:#fff;margin:10px 0;padding:14px;border-radius:12px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:15px;align-items:center;box-shadow:0 2px 10px #0000000b}.oferta-info b{display:block;margin-bottom:5px}.oferta-meta{color:#4b5563;font-size:13px;line-height:1.55}.oferta-problema{color:#b91c1c;font-size:12px;margin-top:5px}.oferta-acoes{display:flex;gap:7px;align-items:center;justify-content:flex-end;flex-wrap:wrap}.status{font-size:12px;padding:5px 9px;border-radius:99px;background:#e5e7eb}.status.publicada{background:#dcfce7;color:#166534}.vazio-historico{padding:24px;background:#fff;border-radius:12px;color:#6b7280;text-align:center}.pesquisa-ofertas{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin:14px 0}.pesquisa-ofertas .campo{margin:0;min-width:220px}.pesquisa-ofertas input{width:100%;padding:10px;border:1px solid #d1d5db;border-radius:10px}.nome-oferta{display:inline-block;border:0;background:none;color:#1d4ed8;padding:0;font:inherit;font-weight:800;text-align:left;cursor:pointer}.nome-oferta:hover{text-decoration:underline}.modal-fundo{position:fixed;inset:0;background:#0009;display:grid;place-items:center;padding:16px;z-index:1000}.modal-caixa{width:min(760px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:16px;padding:20px;box-shadow:0 20px 60px #0005}.modal-topo{display:flex;justify-content:space-between;gap:12px;align-items:start}.modal-topo h2{margin:0 0 5px}.modal-fechar{background:#374151;padding:8px 11px}.modal-itens{margin:16px 0;border:1px solid var(--borda);border-radius:12px;overflow:hidden}.modal-item{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px;border-bottom:1px solid var(--borda)}.modal-item:last-child{border-bottom:0}.modal-item img{width:60px;height:60px;object-fit:contain;background:#fff;border-radius:8px}.modal-item small{display:block;color:#6b7280;margin-top:3px}.modal-resumo{background:var(--laranja-claro);border-radius:11px;padding:12px;margin-bottom:14px}.modal-acoes{display:grid;gap:12px}.modal-acoes .envio-linha{margin-top:6px}@media(max-width:1050px){.layout{grid-template-columns:1fr}.lateral{position:static}.selecionados-lista{max-height:360px}.temas{grid-template-columns:repeat(3,1fr)}}@media(max-width:720px){.config-grid,.seletor-categoria,.oferta{grid-template-columns:1fr}.lista-categorias{height:140px}.temas{grid-template-columns:repeat(2,1fr)}.produto{grid-template-columns:25px 52px minmax(0,1fr) 68px}.topo{padding:14px 16px}.topo h1{font-size:18px}.historico-cabecalho{align-items:flex-start;flex-direction:column}.oferta-acoes{justify-content:flex-start}.envio-linha{grid-template-columns:1fr}.envio-linha button{width:100%}}
 </style>
 </head>
 <body>
@@ -123,8 +123,40 @@
       <button id="limparR2" class="perigo" type="button">Limpar artes antigas do R2</button>
     </div>
   </div>
+  <div class="pesquisa-ofertas">
+    <div class="campo">
+      <label for="pesquisaPrecoMedio">Pesquisar pelo preço médio do kit</label>
+      <input id="pesquisaPrecoMedio" type="text" inputmode="decimal" placeholder="Ex.: 25,90">
+    </div>
+    <button id="pesquisarPrecoMedio" class="azul" type="button">Pesquisar kit</button>
+    <button id="limparPesquisa" class="sec oculto" type="button">Mostrar recentes</button>
+  </div>
   <div id="historico"></div>
 </section>
+
+<div id="modalOferta" class="modal-fundo oculto" role="dialog" aria-modal="true" aria-labelledby="modalOfertaTitulo">
+  <div class="modal-caixa">
+    <div class="modal-topo">
+      <div>
+        <h2 id="modalOfertaTitulo">Detalhes do kit</h2>
+        <div id="modalOfertaCodigo" class="codigo"></div>
+      </div>
+      <button id="fecharModalOferta" class="modal-fechar" type="button" aria-label="Fechar">Fechar</button>
+    </div>
+    <div id="modalOfertaItens" class="modal-itens"></div>
+    <div id="modalOfertaResumo" class="modal-resumo"></div>
+    <div class="modal-acoes">
+      <div>
+        <b>Reenviar para cliente</b>
+        <div class="envio-linha">
+          <input id="modalTelefoneWhatsapp" type="tel" inputmode="numeric" autocomplete="tel" placeholder="Ex.: 5583999999999" maxlength="20" aria-label="Número do WhatsApp do cliente">
+          <button id="modalEnviarWhatsapp" class="verde" type="button">Reenviar para cliente</button>
+        </div>
+      </div>
+      <button id="modalPublicarStatus" type="button">Postar novamente no Status do WhatsApp</button>
+    </div>
+  </div>
+</div>
 
 <script>
 'use strict';
@@ -135,6 +167,7 @@ let temaArte = 'claro';
 let categoriaSelecionada = '';
 let urlPreviewAtual = null;
 let ofertasHistorico = new Map();
+let ofertaModalAtual = null;
 const selecoesGlobais = new Map();
 
 const el = {
@@ -164,6 +197,18 @@ const el = {
   temas: document.querySelector('#temas'),
   limparR2: document.querySelector('#limparR2'),
   colunaLateral: document.querySelector('#colunaLateral'),
+  pesquisaPrecoMedio: document.querySelector('#pesquisaPrecoMedio'),
+  pesquisarPrecoMedio: document.querySelector('#pesquisarPrecoMedio'),
+  limparPesquisa: document.querySelector('#limparPesquisa'),
+  modalOferta: document.querySelector('#modalOferta'),
+  modalOfertaTitulo: document.querySelector('#modalOfertaTitulo'),
+  modalOfertaCodigo: document.querySelector('#modalOfertaCodigo'),
+  modalOfertaItens: document.querySelector('#modalOfertaItens'),
+  modalOfertaResumo: document.querySelector('#modalOfertaResumo'),
+  fecharModalOferta: document.querySelector('#fecharModalOferta'),
+  modalTelefoneWhatsapp: document.querySelector('#modalTelefoneWhatsapp'),
+  modalEnviarWhatsapp: document.querySelector('#modalEnviarWhatsapp'),
+  modalPublicarStatus: document.querySelector('#modalPublicarStatus'),
 };
 
 const temasConfig = {
@@ -505,14 +550,15 @@ function problemaOferta(oferta) {
   return `<div class="oferta-problema">${escapeHtml((oferta.problemas || []).join(' '))}</div>`;
 }
 
-async function carregarHistorico() {
+async function carregarHistorico(precoMedio = '') {
   try {
-    const lista = await api('/api/ofertas');
+    const parametro = precoMedio ? `?preco_medio=${encodeURIComponent(precoMedio)}` : '';
+    const lista = await api(`/api/ofertas${parametro}`);
     ofertasHistorico = new Map(lista.map(oferta => [Number(oferta.id), oferta]));
     el.historico.innerHTML = lista.length ? lista.map(oferta => `
       <article class="oferta">
         <div class="oferta-info">
-          <b>${escapeHtml(oferta.codigo)} — ${escapeHtml(oferta.titulo)}</b>
+          <button class="nome-oferta abrir-oferta" type="button" data-id="${oferta.id}">${escapeHtml(oferta.codigo)} — ${escapeHtml(oferta.titulo)}</button>
           <div class="oferta-meta">
             ${brl(oferta.total)} · médio ${brl(oferta.preco_medio)} · ${oferta.total_itens} peças<br>
             tema ${escapeHtml(temasConfig[oferta.tema_arte]?.nome || oferta.tema_arte || 'Claro premium')} ·
@@ -525,10 +571,95 @@ async function carregarHistorico() {
           <button class="azul visualizar" type="button" data-id="${oferta.id}" ${oferta.disponivel === false ? 'disabled' : ''}>Visualizar arte</button>
           <button class="sec duplicar" type="button" data-id="${oferta.id}" ${oferta.disponivel === false ? 'disabled' : ''}>Duplicar</button>
         </div>
-      </article>`).join('') : '<div class="vazio-historico">Nenhuma oferta criada.</div>';
+      </article>`).join('') : `<div class="vazio-historico">${precoMedio ? `Nenhum kit encontrado com preço médio de ${brl(String(precoMedio).replace(',', '.'))}.` : 'Nenhuma oferta criada.'}</div>`;
   } catch (error) {
     el.historico.textContent = error.message;
   }
+}
+
+function abrirModalOferta(id) {
+  const oferta = ofertasHistorico.get(Number(id));
+  if (!oferta) {
+    mostrarAviso('Oferta não encontrada no histórico carregado.', 'erro');
+    return;
+  }
+
+  ofertaModalAtual = oferta;
+  el.modalOfertaTitulo.textContent = oferta.titulo || 'Detalhes do kit';
+  el.modalOfertaCodigo.textContent = oferta.codigo || '';
+  el.modalOfertaItens.innerHTML = (oferta.itens || []).map(item => `
+    <div class="modal-item">
+      <img src="${escapeHtml(item.foto_url || '')}" alt="" onerror="this.style.visibility='hidden'">
+      <div><b>${escapeHtml(item.nome)}</b><small>${item.quantidade} × ${brl(item.preco_unitario)}</small></div>
+      <b>${brl(Number(item.quantidade) * Number(item.preco_unitario))}</b>
+    </div>`).join('') || '<div class="selecionados-vazio">Nenhum item encontrado.</div>';
+  el.modalOfertaResumo.innerHTML = `<b>${oferta.total_itens} peças</b> · preço médio ${brl(oferta.preco_medio)} · total ${brl(oferta.total)}`;
+  el.modalTelefoneWhatsapp.value = '';
+  el.modalOferta.classList.remove('oculto');
+  document.body.style.overflow = 'hidden';
+}
+
+function fecharModalOferta() {
+  el.modalOferta.classList.add('oculto');
+  document.body.style.overflow = '';
+  ofertaModalAtual = null;
+}
+
+async function reenviarOfertaModal() {
+  if (!ofertaModalAtual?.id) return;
+  const telefone = normalizarTelefone(el.modalTelefoneWhatsapp.value);
+  if (telefone.length < 10) {
+    alert('Informe um número válido com DDI e DDD.');
+    el.modalTelefoneWhatsapp.focus();
+    return;
+  }
+
+  try {
+    el.modalEnviarWhatsapp.disabled = true;
+    const resultado = await api(`/api/ofertas/${ofertaModalAtual.id}/enviar-whatsapp`, {
+      method: 'POST', body: JSON.stringify({ telefone }),
+    });
+    el.modalTelefoneWhatsapp.value = resultado.telefone || telefone;
+    alert(`Kit reenviado com sucesso para ${resultado.telefone}.`);
+  } catch (error) {
+    alert(error.message);
+  } finally {
+    el.modalEnviarWhatsapp.disabled = false;
+  }
+}
+
+async function republicarOfertaModal() {
+  if (!ofertaModalAtual?.id) return;
+  try {
+    el.modalPublicarStatus.disabled = true;
+    const resultado = await api(`/api/ofertas/${ofertaModalAtual.id}/publicar`, { method: 'POST' });
+    ofertaModalAtual = resultado.oferta;
+    ofertasHistorico.set(Number(resultado.oferta.id), resultado.oferta);
+    alert('Kit publicado novamente no Status do WhatsApp.');
+    await carregarHistorico(el.pesquisaPrecoMedio.value.trim());
+  } catch (error) {
+    alert(error.message);
+  } finally {
+    el.modalPublicarStatus.disabled = false;
+  }
+}
+
+async function pesquisarPorPrecoMedio() {
+  const valor = el.pesquisaPrecoMedio.value.trim();
+  const numero = Number(valor.replace(',', '.'));
+  if (!Number.isFinite(numero) || numero <= 0) {
+    mostrarAviso('Informe um preço médio válido para pesquisar.', 'erro');
+    el.pesquisaPrecoMedio.focus();
+    return;
+  }
+  el.limparPesquisa.classList.remove('oculto');
+  await carregarHistorico(valor);
+}
+
+async function limparPesquisaHistorico() {
+  el.pesquisaPrecoMedio.value = '';
+  el.limparPesquisa.classList.add('oculto');
+  await carregarHistorico();
 }
 
 async function visualizarOferta(id) {
@@ -602,7 +733,20 @@ el.regerar.addEventListener('click', atualizarPreview);
 el.publicar.addEventListener('click', publicarOferta);
 el.enviarWhatsapp.addEventListener('click', enviarOfertaWhatsapp);
 el.limparR2.addEventListener('click', limparArtesR2);
+el.pesquisarPrecoMedio.addEventListener('click', pesquisarPorPrecoMedio);
+el.limparPesquisa.addEventListener('click', limparPesquisaHistorico);
+el.pesquisaPrecoMedio.addEventListener('keydown', event => { if (event.key === 'Enter') pesquisarPorPrecoMedio(); });
+el.fecharModalOferta.addEventListener('click', fecharModalOferta);
+el.modalEnviarWhatsapp.addEventListener('click', reenviarOfertaModal);
+el.modalPublicarStatus.addEventListener('click', republicarOfertaModal);
+el.modalOferta.addEventListener('click', event => { if (event.target === el.modalOferta) fecharModalOferta(); });
+document.addEventListener('keydown', event => { if (event.key === 'Escape' && !el.modalOferta.classList.contains('oculto')) fecharModalOferta(); });
 el.historico.addEventListener('click', event => {
+  const abrirOferta = event.target.closest('.abrir-oferta');
+  if (abrirOferta) {
+    abrirModalOferta(Number(abrirOferta.dataset.id));
+    return;
+  }
   const visualizar = event.target.closest('.visualizar');
   if (visualizar) {
     visualizarOferta(Number(visualizar.dataset.id));

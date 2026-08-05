@@ -187,9 +187,23 @@ async function buscarPorCodigo(codigo, registrarVisualizacao = false) {
   return materializarOfertaAtual(row, await obterItens(row.id), mapaProdutos, false);
 }
 
-async function listar() {
+async function listar(filtros = {}) {
   await schemaService.criarEstrutura();
-  const result = await pool.query('SELECT * FROM ofertas ORDER BY created_at DESC LIMIT 100');
+
+  const precoMedioInformado = String(filtros.preco_medio ?? '').trim();
+  let result;
+  if (precoMedioInformado) {
+    const precoMedio = numeroPositivo(precoMedioInformado.replace(',', '.'), 'Preço médio');
+    result = await pool.query(
+      `SELECT * FROM ofertas
+       WHERE ABS(preco_medio - $1::numeric) < 0.005
+       ORDER BY created_at DESC
+       LIMIT 100`,
+      [precoMedio]
+    );
+  } else {
+    result = await pool.query('SELECT * FROM ofertas ORDER BY created_at DESC LIMIT 100');
+  }
   const mapaProdutos = await carregarMapaProdutosAtuais();
 
   return Promise.all(result.rows.map(async row => {
