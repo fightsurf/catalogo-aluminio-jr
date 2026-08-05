@@ -1616,6 +1616,80 @@
       }
     }
 
+    function recalcularTotaisFasesLocalmente() {
+      if (!estado.matriz?.pedidos || !estado.matriz?.totaisFases) {
+        return;
+      }
+
+      const fasesMeta = estado.matriz.fases || FASES;
+      fasesMeta.forEach((fase) => {
+        if (estado.matriz.totaisFases[fase.codigo]) {
+          estado.matriz.totaisFases[fase.codigo].concluidos = estado.matriz.pedidos.filter(
+            (pedido) => Boolean(pedido.fases?.[fase.codigo]?.concluido)
+          ).length;
+        }
+      });
+    }
+
+    function obterCelulaQuantidadeVolumes(numeroPedido) {
+      return Array.from(el.tbodyMatriz.querySelectorAll('[data-volume-edit-numero]')).find(
+        (celula) => String(celula.dataset.volumeEditNumero) === String(numeroPedido)
+      ) || null;
+    }
+
+    function atualizarCelulaQuantidadeVolumes(numeroPedido) {
+      const celula = obterCelulaQuantidadeVolumes(numeroPedido);
+      const pedido = obterPedido(numeroPedido);
+
+      if (!celula || !pedido) {
+        return;
+      }
+
+      const faseData = pedido.fases?.QTDE_VOLUMES || { concluido: false };
+      const classesVolume = [
+        'cell-button',
+        'special',
+        'volume-cell',
+        faseData.concluido ? 'done' : '',
+        !faseData.concluido && faseData.calculadoAutomaticamente ? 'calculated' : ''
+      ].filter(Boolean).join(' ');
+
+      celula.className = classesVolume;
+      delete celula.dataset.editando;
+      celula.setAttribute('role', 'button');
+      celula.setAttribute('tabindex', '0');
+      celula.setAttribute('title', 'Clique para informar ou corrigir a quantidade de volumes');
+      celula.innerHTML = `
+        <span>
+          ${escapeHtml(tituloCelulaEspecial('QTDE_VOLUMES', faseData))}
+          <span class="subtext">${escapeHtml(subtituloCelulaEspecial('QTDE_VOLUMES', faseData))}</span>
+        </span>
+      `;
+    }
+
+    function aplicarQuantidadeVolumesNoEstado(numeroPedido, data) {
+      const pedido = obterPedido(numeroPedido);
+      if (!pedido) {
+        return;
+      }
+
+      pedido.fases = pedido.fases || {};
+      const faseAtual = pedido.fases.QTDE_VOLUMES || {};
+      pedido.fases.QTDE_VOLUMES = {
+        ...faseAtual,
+        codigo: 'QTDE_VOLUMES',
+        tipo: 'volumes',
+        quantidade: Number(data?.quantidade ?? 0),
+        concluido: Boolean(data?.concluido),
+        calculadoAutomaticamente: Boolean(data?.calculadoAutomaticamente),
+        updatedAt: data?.updatedAt || faseAtual.updatedAt || null
+      };
+
+      recalcularTotaisFasesLocalmente();
+      renderCardsFases();
+      atualizarCelulaQuantidadeVolumes(numeroPedido);
+    }
+
     function iniciarEdicaoQuantidadeVolumes(celula) {
       if (!celula || celula.dataset.editando === 'true') {
         return;
@@ -1643,7 +1717,7 @@
       const cancelar = () => {
         if (finalizado) return;
         finalizado = true;
-        renderMatriz();
+        atualizarCelulaQuantidadeVolumes(numeroPedido);
       };
 
       const salvar = async () => {
@@ -1667,15 +1741,15 @@
         input.disabled = true;
 
         try {
-          await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/quantidade-volumes`, {
+          const data = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/quantidade-volumes`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ quantidade: Number.parseInt(valor, 10) })
           });
-          await carregarMatriz();
+          aplicarQuantidadeVolumesNoEstado(numeroPedido, data);
         } catch (error) {
           window.alert(error.message);
-          renderMatriz();
+          atualizarCelulaQuantidadeVolumes(numeroPedido);
         }
       };
 
@@ -1706,12 +1780,13 @@
       link.textContent = 'calculando...';
 
       try {
-        await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/quantidade-volumes/calcular`, {
+        const data = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/quantidade-volumes/calcular`, {
           method: 'POST'
         });
-        await carregarMatriz();
+        aplicarQuantidadeVolumesNoEstado(numeroPedido, data);
       } catch (error) {
         window.alert(error.message);
+      } finally {
         link.classList.remove('busy');
         link.textContent = textoOriginal;
       }
