@@ -33,6 +33,33 @@ async function buscarMatriz(req, res) {
   }
 }
 
+async function calcularQuantidadeVolumesPedido(req, res) {
+  try {
+    const data = await service.calcularQuantidadeVolumesPedido({
+      codigoCarrada: req.params.codigo,
+      numeroPedido: req.params.numeroPedido
+    });
+
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return responderErro(res, error, 'Erro ao calcular a quantidade de volumes.');
+  }
+}
+
+async function salvarQuantidadeVolumesManual(req, res) {
+  try {
+    const data = await service.salvarQuantidadeVolumesManual({
+      codigoCarrada: req.params.codigo,
+      numeroPedido: req.params.numeroPedido,
+      quantidade: req.body?.quantidade
+    });
+
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return responderErro(res, error, 'Erro ao salvar a quantidade de volumes.');
+  }
+}
+
 async function salvarFaseBooleana(req, res) {
   try {
     const data = await service.salvarFaseBooleana({
@@ -123,6 +150,8 @@ async function enviarWhatsappCarradaLote(req, res) {
 module.exports = {
   buscarResumoListaCarradas,
   buscarMatriz,
+  calcularQuantidadeVolumesPedido,
+  salvarQuantidadeVolumesManual,
   salvarFaseBooleana,
   buscarDadosEtiquetaPedido,
   enviarEtiquetaVolumes,

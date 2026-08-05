@@ -9,6 +9,7 @@ const STATUS_VALIDOS = new Set([STATUS_INCOMPLETA, STATUS_SEMICOMPLETA, STATUS_C
 const FASES_BOOLEANAS_CODIGOS = [
   'EM_PRODUCAO',
   'PEDIDO_PRONTO',
+  'QTDE_VOLUMES',
   'VIDEO_FEITO',
   'QUER_NOTA_FISCAL',
   'LOCAL_ENTREGA',
@@ -391,6 +392,7 @@ async function calcularStatusCarrada(codigoCarradaParam) {
       const booleanSet = booleanMap.get(chavePedido) || new Set();
       const emProducao = booleanSet.has('EM_PRODUCAO');
       const pedidoPronto = booleanSet.has('PEDIDO_PRONTO');
+      const qtdeVolumesConfirmada = booleanSet.has('QTDE_VOLUMES');
       const videoFeito = booleanSet.has('VIDEO_FEITO');
       const querNotaFiscal = booleanSet.has('QUER_NOTA_FISCAL');
       const ligacaoPosVenda = booleanSet.has('LIGACAO_POS_VENDA');
@@ -415,6 +417,7 @@ async function calcularStatusCarrada(codigoCarradaParam) {
       const concluidasSemLigacao = [
         emProducao,
         pedidoPronto,
+        qtdeVolumesConfirmada,
         etiquetaConcluida,
         videoFeito,
         querNotaFiscal,

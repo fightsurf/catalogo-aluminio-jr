@@ -3,6 +3,8 @@ const carradasService = require('../carradas/carradas.service');
 const pagamentosService = require('../pagamentos/pagamentos.service');
 const whatsappService = require('../../whatsapp/envio-whatsapp.service');
 const carradasStatusResumoService = require('./carradas-status-resumo.service');
+const legadoBridgeService = require('../legadoBridge.service');
+const pedidosLegadoService = require('../pedido/pedidosLegado.service');
 
 const FASES_BOOLEANAS = {
   EM_PRODUCAO: {
@@ -28,6 +30,10 @@ const FASES_BOOLEANAS = {
       '',
       `Seu pedido ficou pronto em ${data}.`
     ].join('\n')
+  },
+  QTDE_VOLUMES: {
+    nome: 'Quantidade de volumes',
+    enviaWhatsapp: false
   },
   VIDEO_FEITO: {
     nome: 'Vídeo feito',
@@ -55,6 +61,7 @@ const FASES_BOOLEANAS = {
 const FASES_MATRIZ = [
   { codigo: 'EM_PRODUCAO', nome: 'Em produção', tipo: 'boolean' },
   { codigo: 'PEDIDO_PRONTO', nome: 'Pedido pronto', tipo: 'boolean' },
+  { codigo: 'QTDE_VOLUMES', nome: 'Qtde Vols', tipo: 'volumes' },
   { codigo: 'ETIQUETA_VOLUMES', nome: 'Etiqueta volumes', tipo: 'especial' },
   { codigo: 'VIDEO_FEITO', nome: 'Vídeo feito', tipo: 'boolean' },
   { codigo: 'QUER_NOTA_FISCAL', nome: 'Quer nota fiscal', tipo: 'boolean' },
@@ -137,6 +144,22 @@ function normalizarBoolean(value) {
   }
 
   throw criarErro('Valor booleano inválido.', 400);
+}
+
+function normalizarQuantidadeVolumes(value) {
+  const texto = String(value ?? '').trim();
+
+  if (!/^\d+$/.test(texto)) {
+    throw criarErro('Informe uma quantidade de volumes inteira e não negativa.', 400);
+  }
+
+  const quantidade = Number.parseInt(texto, 10);
+
+  if (!Number.isSafeInteger(quantidade) || quantidade < 0) {
+    throw criarErro('Informe uma quantidade de volumes inteira e não negativa.', 400);
+  }
+
+  return quantidade;
 }
 
 function formatarMoeda(value) {
@@ -621,6 +644,12 @@ async function buscarLocalEntregaRowsDosPedidos(pedidos = []) {
 function montarFasesDoPedido({ pedido, booleanRows = {}, etiquetaRow = null, localEntregaRow = null, detalhePagamento = null }) {
   const faseEmProducao = Boolean(booleanRows.EM_PRODUCAO?.valorBoolean);
   const fasePedidoPronto = Boolean(booleanRows.PEDIDO_PRONTO?.valorBoolean);
+  const faseQtdeVolumes = Boolean(booleanRows.QTDE_VOLUMES?.valorBoolean);
+  const quantidadeVolumesBruta = Number(pedido?.qtdeVolume ?? pedido?.volumes ?? 0);
+  const quantidadeVolumes = Number.isFinite(quantidadeVolumesBruta) && quantidadeVolumesBruta >= 0
+    ? Math.trunc(quantidadeVolumesBruta)
+    : 0;
+  const qtdeVolumesCalculada = Boolean(booleanRows.QTDE_VOLUMES) || quantidadeVolumes > 0;
   const faseVideoFeito = Boolean(booleanRows.VIDEO_FEITO?.valorBoolean);
   const faseQuerNotaFiscal = Boolean(booleanRows.QUER_NOTA_FISCAL?.valorBoolean);
   const faseLocalEntregaSilencioso = Boolean(booleanRows.LOCAL_ENTREGA?.valorBoolean);
@@ -644,6 +673,14 @@ function montarFasesDoPedido({ pedido, booleanRows = {}, etiquetaRow = null, loc
       concluido: fasePedidoPronto,
       tipo: 'boolean',
       updatedAt: booleanRows.PEDIDO_PRONTO?.updatedAt || null
+    },
+    QTDE_VOLUMES: {
+      codigo: 'QTDE_VOLUMES',
+      concluido: faseQtdeVolumes,
+      tipo: 'volumes',
+      quantidade: quantidadeVolumes,
+      calculadoAutomaticamente: !faseQtdeVolumes && qtdeVolumesCalculada,
+      updatedAt: booleanRows.QTDE_VOLUMES?.updatedAt || null
     },
     ETIQUETA_VOLUMES: {
       codigo: 'ETIQUETA_VOLUMES',
@@ -762,6 +799,15 @@ async function buscarMatriz(codigoCarradaParam) {
     };
     return acc;
   }, {});
+
+  const fasesSemLigacao = FASES_MATRIZ.filter((fase) => fase.codigo !== 'LIGACAO_POS_VENDA');
+  const semicompleta = linhas.length > 0 && linhas.every((linha) => (
+    fasesSemLigacao.every((fase) => Boolean(linha?.fases?.[fase.codigo]?.concluido))
+  ));
+  const concluida = semicompleta && linhas.every((linha) => Boolean(linha?.fases?.LIGACAO_POS_VENDA?.concluido));
+  const statusLinha = concluida ? 'completa' : (semicompleta ? 'semicompleta' : 'incompleta');
+
+  await carradasStatusResumoService.salvarStatusLinha(codigoCarrada, statusLinha);
 
   return {
     carrada: {
@@ -1025,6 +1071,7 @@ async function calcularResumoRapidoCarrada(codigoCarrada) {
     const booleanSet = booleanMap.get(chavePedido) || new Set();
     const emProducao = booleanSet.has('EM_PRODUCAO');
     const pedidoPronto = booleanSet.has('PEDIDO_PRONTO');
+    const qtdeVolumesConfirmada = booleanSet.has('QTDE_VOLUMES');
     const videoFeito = booleanSet.has('VIDEO_FEITO');
     const querNotaFiscal = booleanSet.has('QUER_NOTA_FISCAL');
     const ligacaoPosVenda = booleanSet.has('LIGACAO_POS_VENDA');
@@ -1033,19 +1080,22 @@ async function calcularResumoRapidoCarrada(codigoCarrada) {
     const detalhePagamento = await buscarDetalhePagamentoDoPedido(pedido);
     const pagamentoQuitado = booleanSet.has('PAGAMENTO_QUITADO') || calcularPagamentoQuitado(detalhePagamento);
 
-    const concluidasSemLigacao = [
+    const fasesSemLigacao = [
       emProducao,
       pedidoPronto,
+      qtdeVolumesConfirmada,
       etiquetaConcluida,
       videoFeito,
       querNotaFiscal,
       localEntregaConcluido,
       pagamentoQuitado
-    ].filter(Boolean).length;
+    ];
+    const concluidasSemLigacao = fasesSemLigacao.filter(Boolean).length;
+    const semLigacaoConcluido = fasesSemLigacao.every(Boolean);
 
     return {
-      semLigacaoConcluido: concluidasSemLigacao === 7,
-      completo: concluidasSemLigacao === 7 && ligacaoPosVenda,
+      semLigacaoConcluido,
+      completo: semLigacaoConcluido && ligacaoPosVenda,
       totalConcluido: concluidasSemLigacao + (ligacaoPosVenda ? 1 : 0)
     };
   });
@@ -1094,6 +1144,88 @@ async function salvarMarcacaoSilenciosaEspecial({ codigoCarrada: codigoCarradaPa
     faseCodigo,
     valorBoolean
   });
+}
+
+async function calcularQuantidadeVolumesPedido({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam }) {
+  await garantirTabelasModulo();
+
+  const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
+  const numeroPedido = normalizarNumeroPedido(numeroPedidoParam);
+  const carrada = await carradasService.buscarResumoCarrada(codigoCarrada);
+
+  if (!carrada) {
+    throw criarErro('Carrada não encontrada.', 404);
+  }
+
+  const pedido = encontrarPedidoNaCarrada(carrada, numeroPedido);
+  const identificadores = obterIdentificadoresPedido(pedido, numeroPedido);
+
+  if (!identificadores.saida) {
+    throw criarErro('O pedido não possui identificador para calcular os volumes.', 400);
+  }
+
+  const calculo = await pedidosLegadoService.calcularESalvarVolumesPedido(identificadores.saida);
+  const marcado = await sincronizarFaseBooleanaPorPedido({
+    codigoCarrada,
+    numeroPedido,
+    saida: identificadores.saida,
+    faseCodigo: 'QTDE_VOLUMES',
+    valorBoolean: false
+  });
+
+  await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
+
+  return {
+    numeroPedido,
+    quantidade: Number(calculo?.volumes ?? calculo?.totalVolumes ?? 0),
+    concluido: false,
+    calculadoAutomaticamente: true,
+    updatedAt: marcado?.updated_at || null,
+    itens: Array.isArray(calculo?.itens) ? calculo.itens : []
+  };
+}
+
+async function salvarQuantidadeVolumesManual({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam, quantidade: quantidadeParam }) {
+  await garantirTabelasModulo();
+
+  const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
+  const numeroPedido = normalizarNumeroPedido(numeroPedidoParam);
+  const quantidade = normalizarQuantidadeVolumes(quantidadeParam);
+  const carrada = await carradasService.buscarResumoCarrada(codigoCarrada);
+
+  if (!carrada) {
+    throw criarErro('Carrada não encontrada.', 404);
+  }
+
+  const pedido = encontrarPedidoNaCarrada(carrada, numeroPedido);
+  const identificadores = obterIdentificadoresPedido(pedido, numeroPedido);
+
+  if (!identificadores.saida) {
+    throw criarErro('O pedido não possui identificador para salvar os volumes.', 400);
+  }
+
+  const response = await legadoBridgeService.put(
+    `/api/legado/pedidos/${identificadores.saida}/volumes`,
+    { volumes: quantidade }
+  );
+  const salvo = response?.data || {};
+  const marcado = await sincronizarFaseBooleanaPorPedido({
+    codigoCarrada,
+    numeroPedido,
+    saida: identificadores.saida,
+    faseCodigo: 'QTDE_VOLUMES',
+    valorBoolean: true
+  });
+
+  await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
+
+  return {
+    numeroPedido,
+    quantidade: Number(salvo?.volumes ?? quantidade),
+    concluido: true,
+    calculadoAutomaticamente: false,
+    updatedAt: marcado?.updated_at || null
+  };
 }
 
 async function salvarFaseBooleana({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam, faseCodigo: faseCodigoParam, valor, silencioso }) {
@@ -1783,6 +1915,8 @@ module.exports = {
   FASES_MATRIZ,
   buscarMatriz,
   buscarResumoListaCarradas,
+  calcularQuantidadeVolumesPedido,
+  salvarQuantidadeVolumesManual,
   salvarFaseBooleana,
   buscarDadosEtiquetaPedido,
   enviarEtiquetaVolumes,

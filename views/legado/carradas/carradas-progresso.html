@@ -17,6 +17,9 @@
       --success-bg: #dcfce7;
       --warning-bg: #fff7ed;
       --warning-border: #fdba74;
+      --calculated-bg: #fef3c7;
+      --calculated-border: #f59e0b;
+      --calculated-text: #92400e;
       --danger: #991b1b;
       --shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
     }
@@ -161,6 +164,10 @@
       background: var(--success-bg);
       border-color: #86efac;
     }
+    .legend-color.calculated {
+      background: var(--calculated-bg);
+      border-color: var(--calculated-border);
+    }
     .table-wrap {
       overflow: auto;
       border: 1px solid var(--line);
@@ -206,8 +213,8 @@
       left: 0;
       z-index: 4;
       background: #fff;
-      min-width: 220px;
-      max-width: 220px;
+      min-width: 165px;
+      max-width: 165px;
       text-align: left;
     }
     th.sticky-col {
@@ -266,6 +273,27 @@
       border-color: #86efac;
       color: var(--success);
     }
+    .cell-button.calculated {
+      background: var(--calculated-bg);
+      border-color: var(--calculated-border);
+      color: var(--calculated-text);
+    }
+    .volume-cell {
+      cursor: pointer;
+    }
+    .volume-input {
+      width: 100%;
+      min-width: 0;
+      height: 30px;
+      border: 1px solid var(--primary);
+      border-radius: 8px;
+      padding: 4px 6px;
+      text-align: center;
+      font-size: 15px;
+      font-weight: 700;
+      background: #fff;
+      color: var(--text);
+    }
     .cell-button.readonly {
       cursor: default;
     }
@@ -291,6 +319,11 @@
     }
     .manual-link.done {
       color: var(--success);
+    }
+    .volume-calc-link.busy {
+      pointer-events: none;
+      opacity: 0.55;
+      text-decoration: none;
     }
     .silent-link {
       display: block;
@@ -481,6 +514,7 @@
       <div class="header-grid" id="cardsCabecalho"></div>
       <div class="legend">
         <div class="legend-item"><span class="legend-color success"></span> Verde = fase concluída</div>
+        <div class="legend-item"><span class="legend-color calculated"></span> Amarelo = volumes calculados, aguardando confirmação</div>
         <div class="legend-item"><span class="legend-color"></span> Branco = pendência operacional</div>
       </div>
     </section>
@@ -509,6 +543,7 @@
               <th class="sticky-col">Pedido</th>
               <th title="Em produção">Prod.</th>
               <th title="Pedido pronto">Prt.</th>
+              <th title="Quantidade de volumes">Qtde<br>Vols</th>
               <th title="Etiqueta volumes">Etq.</th>
               <th title="Vídeo feito">Vídeo</th>
               <th title="Quer nota fiscal">NF</th>
@@ -518,7 +553,7 @@
             </tr>
           </thead>
           <tbody id="tbodyMatriz">
-            <tr><td colspan="9" class="loading">Carregando progresso da carrada...</td></tr>
+            <tr><td colspan="10" class="loading">Carregando progresso da carrada...</td></tr>
           </tbody>
         </table>
       </div>
@@ -635,6 +670,7 @@
     const FASES = [
       { codigo: 'EM_PRODUCAO', nome: 'Em produção', tipo: 'boolean' },
       { codigo: 'PEDIDO_PRONTO', nome: 'Pedido pronto', tipo: 'boolean' },
+      { codigo: 'QTDE_VOLUMES', nome: 'Qtde Vols', tipo: 'volumes' },
       { codigo: 'ETIQUETA_VOLUMES', nome: 'Etiqueta volumes', tipo: 'especial' },
       { codigo: 'VIDEO_FEITO', nome: 'Vídeo feito', tipo: 'boolean' },
       { codigo: 'QUER_NOTA_FISCAL', nome: 'Quer nota fiscal', tipo: 'boolean' },
@@ -872,6 +908,12 @@
     }
 
     function tituloCelulaEspecial(faseCodigo, faseData) {
+      if (faseCodigo === 'QTDE_VOLUMES') {
+        const quantidade = Number(faseData?.quantidade ?? 0);
+        const possuiValor = Boolean(faseData?.concluido) || Boolean(faseData?.calculadoAutomaticamente) || quantidade > 0;
+        return possuiValor ? String(quantidade) : 'Informar';
+      }
+
       if (faseCodigo === 'ETIQUETA_VOLUMES') {
         if (faseData?.concluido) {
           return faseData.apelido || 'Confirmado';
@@ -903,6 +945,16 @@
     }
 
     function subtituloCelulaEspecial(faseCodigo, faseData) {
+      if (faseCodigo === 'QTDE_VOLUMES') {
+        if (faseData?.concluido) {
+          return 'Confirmado';
+        }
+        if (faseData?.calculadoAutomaticamente) {
+          return 'Calculado';
+        }
+        return 'Clique para digitar';
+      }
+
       if (faseCodigo === 'ETIQUETA_VOLUMES') {
         if (faseData?.confirmadoEm) {
           return `Confirmado em ${formatarDataHora(faseData.confirmadoEm)}`;
@@ -931,13 +983,44 @@
       const pedidos = estado.matriz?.pedidos || [];
 
       if (!pedidos.length) {
-        el.tbodyMatriz.innerHTML = '<tr><td colspan="9" class="empty">Nenhum pedido encontrado nesta carrada.</td></tr>';
+        el.tbodyMatriz.innerHTML = '<tr><td colspan="10" class="empty">Nenhum pedido encontrado nesta carrada.</td></tr>';
         return;
       }
 
       el.tbodyMatriz.innerHTML = pedidos.map((pedido) => {
         const fasesHtml = FASES.map((fase) => {
           const faseData = pedido.fases?.[fase.codigo] || { concluido: false };
+
+          if (fase.codigo === 'QTDE_VOLUMES') {
+            const classesVolume = [
+              'cell-button',
+              'special',
+              'volume-cell',
+              faseData.concluido ? 'done' : '',
+              !faseData.concluido && faseData.calculadoAutomaticamente ? 'calculated' : ''
+            ].filter(Boolean).join(' ');
+            const tituloVolume = tituloCelulaEspecial(fase.codigo, faseData);
+            const subtituloVolume = subtituloCelulaEspecial(fase.codigo, faseData);
+
+            return `
+              <td>
+                <div
+                  class="${classesVolume}"
+                  data-volume-edit-numero="${escapeHtml(pedido.numero)}"
+                  role="button"
+                  tabindex="0"
+                  title="Clique para informar ou corrigir a quantidade de volumes"
+                >
+                  <span>
+                    ${escapeHtml(tituloVolume)}
+                    <span class="subtext">${escapeHtml(subtituloVolume)}</span>
+                  </span>
+                </div>
+                <a href="#" class="manual-link volume-calc-link" data-calcular-volumes-numero="${escapeHtml(pedido.numero)}" title="Calcular automaticamente a quantidade de volumes">calcular automático</a>
+              </td>
+            `;
+          }
+
           const classes = [
             'cell-button',
             faseData.concluido ? 'done' : '',
@@ -1006,6 +1089,24 @@
         `;
       }).join('');
 
+      el.tbodyMatriz.querySelectorAll('[data-volume-edit-numero]').forEach((celula) => {
+        celula.addEventListener('click', () => iniciarEdicaoQuantidadeVolumes(celula));
+        celula.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            iniciarEdicaoQuantidadeVolumes(celula);
+          }
+        });
+      });
+
+      el.tbodyMatriz.querySelectorAll('[data-calcular-volumes-numero]').forEach((link) => {
+        link.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          calcularQuantidadeVolumesAutomaticamente(link);
+        });
+      });
+
       el.tbodyMatriz.querySelectorAll('[data-fase-codigo]').forEach((botao) => {
         botao.addEventListener('click', () => onClickCelula(botao));
       });
@@ -1048,12 +1149,12 @@
 
     async function carregarMatriz() {
       if (!CODIGO_CARRADA) {
-        el.tbodyMatriz.innerHTML = '<tr><td colspan="9" class="empty">Código da carrada não informado.</td></tr>';
+        el.tbodyMatriz.innerHTML = '<tr><td colspan="10" class="empty">Código da carrada não informado.</td></tr>';
         return;
       }
 
       estado.carregando = true;
-      el.tbodyMatriz.innerHTML = '<tr><td colspan="9" class="loading">Carregando progresso da carrada...</td></tr>';
+      el.tbodyMatriz.innerHTML = '<tr><td colspan="10" class="loading">Carregando progresso da carrada...</td></tr>';
 
       try {
         estado.matriz = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}`);
@@ -1062,7 +1163,7 @@
         renderMatriz();
         await inicializarNavegacaoCarradas(estado.matriz?.carrada);
       } catch (error) {
-        el.tbodyMatriz.innerHTML = `<tr><td colspan="9" class="empty">${escapeHtml(error.message)}</td></tr>`;
+        el.tbodyMatriz.innerHTML = `<tr><td colspan="10" class="empty">${escapeHtml(error.message)}</td></tr>`;
       } finally {
         estado.carregando = false;
       }
@@ -1512,6 +1613,107 @@
       } finally {
         el.btnWhatsappCarradaEnviar.disabled = false;
         el.btnWhatsappCarradaEnviar.textContent = textoOriginal;
+      }
+    }
+
+    function iniciarEdicaoQuantidadeVolumes(celula) {
+      if (!celula || celula.dataset.editando === 'true') {
+        return;
+      }
+
+      const numeroPedido = celula.dataset.volumeEditNumero;
+      const pedido = obterPedido(numeroPedido);
+      const faseAtual = pedido?.fases?.QTDE_VOLUMES || {};
+      const quantidadeAtual = Number(faseAtual?.quantidade ?? 0);
+      const possuiValor = Boolean(faseAtual?.concluido)
+        || Boolean(faseAtual?.calculadoAutomaticamente)
+        || quantidadeAtual > 0;
+
+      celula.dataset.editando = 'true';
+      celula.innerHTML = `<input class="volume-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" value="${possuiValor ? escapeHtml(Math.trunc(quantidadeAtual)) : ''}" aria-label="Quantidade de volumes do pedido ${escapeHtml(numeroPedido)}">`;
+
+      const input = celula.querySelector('.volume-input');
+      if (!input) {
+        renderMatriz();
+        return;
+      }
+
+      let finalizado = false;
+
+      const cancelar = () => {
+        if (finalizado) return;
+        finalizado = true;
+        renderMatriz();
+      };
+
+      const salvar = async () => {
+        if (finalizado) return;
+
+        const valor = input.value.trim();
+
+        if (!valor) {
+          cancelar();
+          return;
+        }
+
+        if (!/^\d+$/.test(valor)) {
+          window.alert('Informe uma quantidade de volumes inteira e não negativa.');
+          input.focus();
+          input.select();
+          return;
+        }
+
+        finalizado = true;
+        input.disabled = true;
+
+        try {
+          await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/quantidade-volumes`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ quantidade: Number.parseInt(valor, 10) })
+          });
+          await carregarMatriz();
+        } catch (error) {
+          window.alert(error.message);
+          renderMatriz();
+        }
+      };
+
+      input.addEventListener('click', (event) => event.stopPropagation());
+      input.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          salvar();
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          cancelar();
+        }
+      });
+      input.addEventListener('blur', salvar);
+
+      input.focus();
+      input.select();
+    }
+
+    async function calcularQuantidadeVolumesAutomaticamente(link) {
+      if (!link || link.classList.contains('busy')) {
+        return;
+      }
+
+      const numeroPedido = link.dataset.calcularVolumesNumero;
+      const textoOriginal = link.textContent;
+      link.classList.add('busy');
+      link.textContent = 'calculando...';
+
+      try {
+        await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/quantidade-volumes/calcular`, {
+          method: 'POST'
+        });
+        await carregarMatriz();
+      } catch (error) {
+        window.alert(error.message);
+        link.classList.remove('busy');
+        link.textContent = textoOriginal;
       }
     }
 
