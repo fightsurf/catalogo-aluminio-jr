@@ -281,6 +281,10 @@
     .volume-cell {
       cursor: pointer;
     }
+    .volume-display[hidden],
+    .volume-input[hidden] {
+      display: none !important;
+    }
     .volume-input {
       width: 100%;
       min-width: 0;
@@ -1011,10 +1015,19 @@
                   tabindex="0"
                   title="Clique para informar ou corrigir a quantidade de volumes"
                 >
-                  <span>
-                    ${escapeHtml(tituloVolume)}
-                    <span class="subtext">${escapeHtml(subtituloVolume)}</span>
+                  <span class="volume-display">
+                    <span class="volume-value">${escapeHtml(tituloVolume)}</span>
+                    <span class="subtext volume-status">${escapeHtml(subtituloVolume)}</span>
                   </span>
+                  <input
+                    class="volume-input"
+                    type="text"
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    maxlength="6"
+                    aria-label="Quantidade de volumes do pedido ${escapeHtml(pedido.numero)}"
+                    hidden
+                  >
                 </div>
                 <a href="#" class="manual-link volume-calc-link" data-calcular-volumes-numero="${escapeHtml(pedido.numero)}" title="Calcular automaticamente a quantidade de volumes">calcular automático</a>
               </td>
@@ -1646,25 +1659,34 @@
       }
 
       const faseData = pedido.fases?.QTDE_VOLUMES || { concluido: false };
-      const classesVolume = [
-        'cell-button',
-        'special',
-        'volume-cell',
-        faseData.concluido ? 'done' : '',
-        !faseData.concluido && faseData.calculadoAutomaticamente ? 'calculated' : ''
-      ].filter(Boolean).join(' ');
+      const display = celula.querySelector('.volume-display');
+      const valor = celula.querySelector('.volume-value');
+      const status = celula.querySelector('.volume-status');
+      const input = celula.querySelector('.volume-input');
 
-      celula.className = classesVolume;
+      celula.classList.toggle('done', Boolean(faseData.concluido));
+      celula.classList.toggle(
+        'calculated',
+        !faseData.concluido && Boolean(faseData.calculadoAutomaticamente)
+      );
       delete celula.dataset.editando;
       celula.setAttribute('role', 'button');
       celula.setAttribute('tabindex', '0');
       celula.setAttribute('title', 'Clique para informar ou corrigir a quantidade de volumes');
-      celula.innerHTML = `
-        <span>
-          ${escapeHtml(tituloCelulaEspecial('QTDE_VOLUMES', faseData))}
-          <span class="subtext">${escapeHtml(subtituloCelulaEspecial('QTDE_VOLUMES', faseData))}</span>
-        </span>
-      `;
+
+      if (valor) {
+        valor.textContent = tituloCelulaEspecial('QTDE_VOLUMES', faseData);
+      }
+      if (status) {
+        status.textContent = subtituloCelulaEspecial('QTDE_VOLUMES', faseData);
+      }
+      if (display) {
+        display.hidden = false;
+      }
+      if (input) {
+        input.hidden = true;
+        input.disabled = false;
+      }
     }
 
     function aplicarQuantidadeVolumesNoEstado(numeroPedido, data) {
@@ -1702,15 +1724,20 @@
       const possuiValor = Boolean(faseAtual?.concluido)
         || Boolean(faseAtual?.calculadoAutomaticamente)
         || quantidadeAtual > 0;
-
-      celula.dataset.editando = 'true';
-      celula.innerHTML = `<input class="volume-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" value="${possuiValor ? escapeHtml(Math.trunc(quantidadeAtual)) : ''}" aria-label="Quantidade de volumes do pedido ${escapeHtml(numeroPedido)}">`;
-
+      const display = celula.querySelector('.volume-display');
       const input = celula.querySelector('.volume-input');
+
       if (!input) {
-        renderMatriz();
         return;
       }
+
+      celula.dataset.editando = 'true';
+      if (display) {
+        display.hidden = true;
+      }
+      input.value = possuiValor ? String(Math.trunc(quantidadeAtual)) : '';
+      input.hidden = false;
+      input.disabled = false;
 
       let finalizado = false;
 
@@ -1723,14 +1750,14 @@
       const salvar = async () => {
         if (finalizado) return;
 
-        const valor = input.value.trim();
+        const valorDigitado = input.value.trim();
 
-        if (!valor) {
+        if (!valorDigitado) {
           cancelar();
           return;
         }
 
-        if (!/^\d+$/.test(valor)) {
+        if (!/^\d+$/.test(valorDigitado)) {
           window.alert('Informe uma quantidade de volumes inteira e não negativa.');
           input.focus();
           input.select();
@@ -1744,7 +1771,7 @@
           const data = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/quantidade-volumes`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ quantidade: Number.parseInt(valor, 10) })
+            body: JSON.stringify({ quantidade: Number.parseInt(valorDigitado, 10) })
           });
           aplicarQuantidadeVolumesNoEstado(numeroPedido, data);
         } catch (error) {
@@ -1753,8 +1780,8 @@
         }
       };
 
-      input.addEventListener('click', (event) => event.stopPropagation());
-      input.addEventListener('keydown', (event) => {
+      input.onclick = (event) => event.stopPropagation();
+      input.onkeydown = (event) => {
         if (event.key === 'Enter') {
           event.preventDefault();
           salvar();
@@ -1762,8 +1789,8 @@
           event.preventDefault();
           cancelar();
         }
-      });
-      input.addEventListener('blur', salvar);
+      };
+      input.onblur = salvar;
 
       input.focus();
       input.select();
