@@ -525,6 +525,7 @@
         <button id="btnCancelarEdicao" class="btn btn-secondary oculto">Cancelar edição</button>
         <button id="btnSalvarAlteracoes" class="btn btn-primary oculto">Salvar alterações</button>
         <button id="btnEnviarWhatsapp" class="btn btn-whatsapp oculto">Enviar para WhatsApp</button>
+        <button id="btnEnviarFotosWhatsapp" class="btn btn-whatsapp oculto">Enviar pedido com fotos</button>
         <button id="btnEnviarPdfWhatsapp" class="btn btn-whatsapp oculto">Enviar PDF WhatsApp</button>
         <button id="btnAdicionarPagamentos" class="btn btn-primary oculto">Adicionar pagamentos</button>
         <button id="btnImprimirRelatorioProducao" class="btn btn-primary oculto">Imprimir relatório para produção</button>
@@ -640,6 +641,7 @@
     const btnCancelarEdicao = document.getElementById('btnCancelarEdicao');
     const btnSalvarAlteracoes = document.getElementById('btnSalvarAlteracoes');
     const btnEnviarWhatsapp = document.getElementById('btnEnviarWhatsapp');
+    const btnEnviarFotosWhatsapp = document.getElementById('btnEnviarFotosWhatsapp');
     const btnEnviarPdfWhatsapp = document.getElementById('btnEnviarPdfWhatsapp');
     const btnAdicionarPagamentos = document.getElementById('btnAdicionarPagamentos');
     const btnImprimirRelatorioProducao = document.getElementById('btnImprimirRelatorioProducao');
@@ -688,6 +690,7 @@
     let importandoRelatorio = false;
     let copiaEmAndamento = false;
     let particaoEmAndamento = false;
+    let envioFotosEmAndamento = false;
 
     function setMensagem(texto, erro = false) {
       mensagem.textContent = texto;
@@ -823,6 +826,7 @@
 
       const ocultarAcoesLeitura = !haPedido || modoEdicao;
       btnEnviarWhatsapp.classList.toggle('oculto', ocultarAcoesLeitura);
+      btnEnviarFotosWhatsapp.classList.toggle('oculto', ocultarAcoesLeitura);
       btnEnviarPdfWhatsapp.classList.toggle('oculto', ocultarAcoesLeitura);
       btnAdicionarPagamentos.classList.toggle('oculto', ocultarAcoesLeitura);
       btnImprimirRelatorioProducao.classList.toggle('oculto', ocultarAcoesLeitura);
@@ -863,6 +867,7 @@
       dadosCliente.innerHTML = '<div class="placeholder">Nenhum pedido carregado.</div>';
       atualizarVisibilidadeAcoes();
       btnEnviarWhatsapp.disabled = true;
+      btnEnviarFotosWhatsapp.disabled = true;
       btnEnviarPdfWhatsapp.disabled = true;
     }
 
@@ -918,6 +923,64 @@
       }
 
       return linhas.join('\n');
+    }
+
+    function numeroParaRelatorioFotos(valor) {
+      const numeroAtual = Number(valor || 0);
+      if (!Number.isFinite(numeroAtual)) return '0';
+      return String(numeroAtual).replace('.', ',');
+    }
+
+    function montarRelatorioFotosPedido(pedido) {
+      const itens = Array.isArray(pedido?.itens) ? pedido.itens : [];
+
+      if (!itens.length) {
+        throw new Error('O pedido não possui itens para envio com fotos.');
+      }
+
+      const linhas = [
+        `📦 RELATÓRIO ALUMÍNIO JR - ${itens.length} ITENS ESCOLHIDOS`,
+        ''
+      ];
+
+      itens.forEach((item) => {
+        const quantidade = Number(item?.quantidade || 0);
+        const unitario = Number(item?.preco || 0);
+        const subtotalInformado = Number(item?.subtotal);
+        const subtotal = Number.isFinite(subtotalInformado)
+          ? subtotalInformado
+          : quantidade * unitario;
+
+        linhas.push(`• ${item?.descricao || '-'} | QTD: ${numeroParaRelatorioFotos(quantidade)}`);
+        linhas.push(`UNIT: R$ ${numeroParaRelatorioFotos(unitario)}`);
+        linhas.push(`SUBTOTAL: R$ ${numeroParaRelatorioFotos(subtotal)}`);
+        linhas.push('');
+      });
+
+      const totalInformado = Number(pedido?.total);
+      const totalCalculado = itens.reduce((total, item) => {
+        const subtotal = Number(item?.subtotal);
+        return total + (Number.isFinite(subtotal)
+          ? subtotal
+          : Number(item?.quantidade || 0) * Number(item?.preco || 0));
+      }, 0);
+      const totalPedido = Number.isFinite(totalInformado) ? totalInformado : totalCalculado;
+
+      linhas.push(`Valor total: R$ ${numeroParaRelatorioFotos(totalPedido)}`);
+      return linhas.join('\n');
+    }
+
+    function aguardarEnvioFotos(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    function montarMensagemPendenciasFotos(analise) {
+      const pendencias = Array.isArray(analise?.pendencias) ? analise.pendencias : [];
+      if (!pendencias.length) return 'Há produtos sem foto ou sem correspondência no cadastro.';
+
+      return pendencias
+        .map(item => `${item?.ordem || '-'}. ${item?.nome || 'Produto'}: ${item?.problema || 'pendência não identificada'}`)
+        .join(' | ');
     }
 
     function montarMensagemWhatsappCarrada(pedido) {
@@ -2130,8 +2193,11 @@
       renderizarCliente(pedidoCarregado);
       renderizarItens(pedidoCarregado);
       atualizarVisibilidadeAcoes();
-      btnEnviarWhatsapp.disabled = !normalizarTelefone(pedidoCarregado?.cliente?.telefonePrincipal || pedidoCarregado?.cliente?.telefone1 || '');
-      btnEnviarPdfWhatsapp.disabled = btnEnviarWhatsapp.disabled;
+      const semTelefone = !normalizarTelefone(pedidoCarregado?.cliente?.telefonePrincipal || pedidoCarregado?.cliente?.telefone1 || '');
+      const semItens = !Array.isArray(pedidoCarregado?.itens) || !pedidoCarregado.itens.length;
+      btnEnviarWhatsapp.disabled = semTelefone;
+      btnEnviarFotosWhatsapp.disabled = semTelefone || semItens || envioFotosEmAndamento;
+      btnEnviarPdfWhatsapp.disabled = semTelefone;
     }
 
     async function calcularVolumesPedido() {
@@ -2546,6 +2612,122 @@
         btnEnviarWhatsapp.disabled = !normalizarTelefone(pedidoCarregado?.cliente?.telefonePrincipal || pedidoCarregado?.cliente?.telefone1 || '');
         btnEnviarPdfWhatsapp.disabled = btnEnviarWhatsapp.disabled;
         btnEnviarWhatsapp.textContent = textoOriginal;
+      }
+    });
+
+
+    btnEnviarFotosWhatsapp.addEventListener('click', async () => {
+      if (envioFotosEmAndamento) return;
+
+      const pedidoEmEnvio = pedidoCarregado;
+
+      if (!pedidoEmEnvio?.numero) {
+        setMensagem('Nenhum pedido carregado para envio com fotos.', true);
+        return;
+      }
+
+      const itensPedido = Array.isArray(pedidoEmEnvio?.itens) ? pedidoEmEnvio.itens : [];
+      if (!itensPedido.length) {
+        setMensagem('O pedido não possui itens para envio com fotos.', true);
+        return;
+      }
+
+      const telefone = normalizarTelefone(pedidoEmEnvio?.cliente?.telefonePrincipal || pedidoEmEnvio?.cliente?.telefone1 || '');
+      if (!telefone) {
+        setMensagem('Telefone do cliente não encontrado.', true);
+        return;
+      }
+
+      const textoOriginal = btnEnviarFotosWhatsapp.textContent;
+      let enviados = 0;
+      let totalItens = itensPedido.length;
+
+      try {
+        envioFotosEmAndamento = true;
+        btnEnviarFotosWhatsapp.disabled = true;
+        btnEnviarFotosWhatsapp.textContent = 'Validando fotos...';
+        setMensagem('Localizando as fotos dos produtos do pedido...');
+
+        const relatorio = montarRelatorioFotosPedido(pedidoEmEnvio);
+        const respostaAnalise = await fetchJson('/api/whatsapp/relatorio-fotos/analisar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ relatorio, multiplicador: 1 })
+        });
+
+        const analise = respostaAnalise?.data;
+        totalItens = Number(analise?.quantidadeProdutos || 0);
+
+        if (!analise?.prontoParaEnvio) {
+          throw new Error(`O envio foi bloqueado. ${montarMensagemPendenciasFotos(analise)}`);
+        }
+
+        const nomeCliente = pedidoEmEnvio?.cliente?.nome || 'o cliente';
+        const confirmar = window.confirm(
+          `Enviar o pedido ${pedidoEmEnvio.numero} com ${totalItens} fotos para ${nomeCliente}?`
+        );
+
+        if (!confirmar) {
+          setMensagem('Envio do pedido com fotos cancelado.');
+          return;
+        }
+
+        for (let index = 0; index < analise.itens.length; index += 1) {
+          const item = analise.itens[index];
+          btnEnviarFotosWhatsapp.textContent = `Enviando ${index + 1}/${totalItens}...`;
+          setMensagem(`Enviando foto ${index + 1} de ${totalItens}: ${item.descricao}`);
+
+          await fetchJson('/api/whatsapp/relatorio-fotos/enviar-item', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              telefone,
+              produtoId: item.produtoId,
+              quantidade: item.quantidadeFinal,
+              unitario: item.unitario,
+              subtotal: item.subtotalFinal,
+              indice: index + 1,
+              totalItens
+            })
+          });
+
+          enviados += 1;
+
+          if (index < analise.itens.length - 1) {
+            await aguardarEnvioFotos(900);
+          }
+        }
+
+        btnEnviarFotosWhatsapp.textContent = 'Enviando resumo...';
+        setMensagem('Todas as fotos foram enviadas. Enviando o resumo final...');
+
+        await fetchJson('/api/whatsapp/relatorio-fotos/finalizar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            telefone,
+            total: analise.totalFinal,
+            quantidadeProdutos: totalItens,
+            multiplicador: 1
+          })
+        });
+
+        setMensagem(`Pedido ${pedidoEmEnvio.numero} enviado com sucesso. ${totalItens} produtos com fotos foram enviados para ${nomeCliente}.`);
+      } catch (error) {
+        const todasFotosEnviadas = totalItens > 0 && enviados === totalItens;
+        const mensagemErro = enviados > 0
+          ? (todasFotosEnviadas
+            ? `As ${totalItens} fotos foram enviadas, mas o resumo final falhou. Motivo: ${error.message}`
+            : `O envio parou após ${enviados} de ${totalItens} produtos. Motivo: ${error.message} Revise antes de tentar novamente para não duplicar os itens já enviados.`)
+          : (error.message || 'Erro ao enviar o pedido com fotos.');
+
+        setMensagem(mensagemErro, true);
+      } finally {
+        envioFotosEmAndamento = false;
+        btnEnviarFotosWhatsapp.textContent = textoOriginal;
+        const semTelefone = !normalizarTelefone(pedidoCarregado?.cliente?.telefonePrincipal || pedidoCarregado?.cliente?.telefone1 || '');
+        const semItens = !Array.isArray(pedidoCarregado?.itens) || !pedidoCarregado.itens.length;
+        btnEnviarFotosWhatsapp.disabled = semTelefone || semItens;
       }
     });
 
