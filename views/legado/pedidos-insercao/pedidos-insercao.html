@@ -60,6 +60,8 @@
     .rotulo-pequeno { font-size: 12px; color: #6b7280; margin-bottom: 6px; display: block; }
     .telefone-link { color: #111827; font-weight: 600; text-decoration: underline; }
     .telefone-link:hover { color: #000; }
+    .link-carrada-progresso { color: #065f46; font-weight: 700; text-decoration: underline; }
+    .link-carrada-progresso:hover { color: #064e3b; }
     .telefone-vazio { color: #6b7280; }
     @media (max-width: 1120px) {
       .grid { grid-template-columns: 1fr; }
@@ -208,6 +210,15 @@
       const numero = Number(valor);
       if (!Number.isFinite(numero)) return 'R$ 0,00';
       return numero.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    function escapeHtml(valor) {
+      return String(valor ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
     }
 
     function formatarData(dataValor) {
@@ -452,6 +463,18 @@
       const data = formatarData(carrada?.data);
       const descricao = carrada?.descricao || 'Sem descrição';
       return `Código ${codigo} — ${data} — ${descricao}`;
+    }
+
+    function montarLinkProgressoCarrada(carrada) {
+      const rotulo = escapeHtml(formatarRotuloCarrada(carrada));
+      const codigo = String(carrada?.codigo ?? '').trim();
+
+      if (!codigo) {
+        return rotulo;
+      }
+
+      const url = `/legado/carradas/progresso?codigo=${encodeURIComponent(codigo)}`;
+      return `<a class="link-carrada-progresso" href="${url}" target="_blank" rel="noopener noreferrer">${rotulo}</a>`;
     }
 
     async function carregarCarradas() {
@@ -784,7 +807,7 @@
           <strong>Pedido gravado com sucesso.</strong><br>
           Número: ${pedido?.numero || '-'}<br>
           Saída: ${pedido?.saida || '-'}<br>
-          Total: ${formatarMoeda(pedido?.total || calcularTotal())}<br>Volumes: ${Number(pedido?.volumes ?? volumesPedido.value ?? 0)}${json?.carrada ? `<br>Carrada: ${formatarRotuloCarrada(json.carrada)}` : ''}
+          Total: ${formatarMoeda(pedido?.total || calcularTotal())}<br>Volumes: ${Number(pedido?.volumes ?? volumesPedido.value ?? 0)}${json?.carrada ? `<br>Carrada: ${montarLinkProgressoCarrada(json.carrada)}` : ''}
         `;
         resultadoSucesso.style.display = 'block';
         setMensagem('Pedido salvo com sucesso.');

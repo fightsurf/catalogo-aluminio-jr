@@ -191,6 +191,14 @@
 
     .telefone-link:hover { color: #000; }
 
+    .link-carrada-progresso {
+      color: #111827;
+      font-weight: 600;
+      text-decoration: underline;
+    }
+
+    .link-carrada-progresso:hover { color: #000; }
+
     .bloco-resumo-edicao {
       display: flex;
       justify-content: space-between;
@@ -1143,6 +1151,18 @@
       return partes.length ? partes.join(' - ') : 'Sem carrada';
     }
 
+    function montarLinkProgressoCarrada(carrada) {
+      const rotulo = escapeHtml(formatarResumoCarrada(carrada));
+      const codigo = String(carrada?.codigo ?? '').trim();
+
+      if (!codigo) {
+        return rotulo;
+      }
+
+      const url = `/legado/carradas/progresso?codigo=${encodeURIComponent(codigo)}`;
+      return `<a class="link-carrada-progresso" href="${url}" target="_blank" rel="noopener noreferrer">${rotulo}</a>`;
+    }
+
     function montarOpcoesCarrada(valorAtual) {
       const opcoes = ['<option value="">Sem carrada</option>'];
       let existeAtual = false;
@@ -1225,7 +1245,7 @@
             <div class="cliente-linha"><strong>Cidade:</strong> ${pedido?.cliente?.cidade || '-'}</div>
             <div class="cliente-linha"><strong>UF:</strong> ${pedido?.cliente?.uf || '-'}</div>
             <div class="cliente-linha"><strong>Telefone:</strong> ${telefoneHtml}</div>
-            <div class="cliente-linha"><strong>Carrada:</strong> ${formatarResumoCarrada(pedido?.carradaAtual)}</div>
+            <div class="cliente-linha"><strong>Carrada:</strong> ${montarLinkProgressoCarrada(pedido?.carradaAtual)}</div>
           </div>
 
           <div class="cliente-dados-linha">

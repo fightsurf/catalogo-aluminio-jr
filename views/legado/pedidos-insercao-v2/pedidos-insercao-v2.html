@@ -52,6 +52,8 @@
     .whatsapp { background: #111827; color: #fff; }
     .telefone-link { color: #111827; font-weight: 600; text-decoration: underline; }
     .telefone-link:hover { color: #000; }
+    .link-carrada-progresso { color: #065f46; font-weight: 700; text-decoration: underline; }
+    .link-carrada-progresso:hover { color: #064e3b; }
     .telefone-vazio { color: #6b7280; }
     .oculto { display: none !important; }
     .resultado-sucesso { margin-top: 16px; padding: 14px; border-radius: 10px; background: #ecfdf5; border: 1px solid #6ee7b7; color: #065f46; display: none; }
@@ -446,6 +448,18 @@
       const data = formatarData(carrada?.data);
       const descricao = (carrada?.descricao || '').trim();
       return `Código ${codigo} — ${data} — ${descricao || 'Sem descrição'}`;
+    }
+
+    function montarLinkProgressoCarrada(carrada) {
+      const rotulo = escapeHtml(montarRotuloCarrada(carrada));
+      const codigo = normalizarCodigoCarrada(carrada?.codigo);
+
+      if (!codigo) {
+        return rotulo;
+      }
+
+      const url = `/legado/carradas/progresso?codigo=${encodeURIComponent(codigo)}`;
+      return `<a class="link-carrada-progresso" href="${url}" target="_blank" rel="noopener noreferrer">${rotulo}</a>`;
     }
 
     function preencherSelectCarradas(lista, codigoSelecionado = '') {
@@ -1160,7 +1174,7 @@ resultadoSucesso.innerHTML = `
   <strong>Pedido gravado com sucesso.</strong><br>
   Número: ${pedido?.numero || '-'}<br>
   Saída: ${pedido?.saida || '-'}<br>
-  Total: ${formatarMoeda(pedido?.total || calcularTotal())}<br>Volumes: ${Number(pedido?.volumes ?? volumesPedido.value ?? 0)}${ultimoPedidoSalvo.carrada ? `<br>Carrada: ${montarRotuloCarrada(ultimoPedidoSalvo.carrada)}` : ''}
+  Total: ${formatarMoeda(pedido?.total || calcularTotal())}<br>Volumes: ${Number(pedido?.volumes ?? volumesPedido.value ?? 0)}${ultimoPedidoSalvo.carrada ? `<br>Carrada: ${montarLinkProgressoCarrada(ultimoPedidoSalvo.carrada)}` : ''}
 `;
 resultadoSucesso.style.display = 'block';
 atualizarBotoesAcao();
