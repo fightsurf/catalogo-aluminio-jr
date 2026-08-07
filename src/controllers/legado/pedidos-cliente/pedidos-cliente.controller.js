@@ -28,6 +28,35 @@ async function listarPedidosPorCliente(req, res) {
   }
 }
 
+
+async function enviarResumoImagemWhatsapp(req, res) {
+  try {
+    const { favorecido } = req.params;
+
+    if (!favorecido || Number.isNaN(Number(favorecido))) {
+      return res.status(400).json({
+        sucesso: false,
+        mensagem: 'Parâmetro "favorecido" inválido.'
+      });
+    }
+
+    const resultado = await pedidosClienteService.enviarResumoImagemWhatsapp(req.body || {});
+
+    return res.json({
+      sucesso: true,
+      mensagem: 'Imagem do resumo enviada com sucesso pelo WhatsApp.',
+      dados: resultado
+    });
+  } catch (error) {
+    return res.status(500).json({
+      sucesso: false,
+      mensagem: 'Erro ao enviar imagem do resumo pelo WhatsApp.',
+      detalhe: error.message
+    });
+  }
+}
+
 module.exports = {
-  listarPedidosPorCliente
+  listarPedidosPorCliente,
+  enviarResumoImagemWhatsapp
 };

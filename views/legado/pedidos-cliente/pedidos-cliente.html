@@ -351,8 +351,20 @@
     .modal-rodape {
       display: flex;
       justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
       padding: 16px 20px;
       border-top: 1px solid #e5e7eb;
+    }
+
+    .btn-whatsapp-resumo {
+      background: #15803d;
+      color: #ffffff;
+      font-weight: 700;
+    }
+
+    .btn-whatsapp-resumo:hover:not(:disabled) {
+      background: #166534;
     }
 
     body.modal-aberto {
@@ -378,6 +390,10 @@
 
       .resumo-cards {
         grid-template-columns: 1fr;
+      }
+
+      .modal-rodape button {
+        flex: 1 1 100%;
       }
     }
   </style>
@@ -471,6 +487,9 @@
       </div>
 
       <div class="modal-rodape">
+        <button type="button" class="btn-whatsapp-resumo" id="btnEnviarResumoWhatsapp">
+          Enviar imagem pelo WhatsApp
+        </button>
         <button type="button" class="btn-secundario" id="btnFecharModalRodape">Fechar</button>
       </div>
     </div>
@@ -495,6 +514,7 @@
     const modalResumo = document.getElementById('modalResumo');
     const btnFecharModalTopo = document.getElementById('btnFecharModalTopo');
     const btnFecharModalRodape = document.getElementById('btnFecharModalRodape');
+    const btnEnviarResumoWhatsapp = document.getElementById('btnEnviarResumoWhatsapp');
     const resumoTotalPedidos = document.getElementById('resumoTotalPedidos');
     const resumoTotalPago = document.getElementById('resumoTotalPago');
     const resumoTotalRestante = document.getElementById('resumoTotalRestante');
@@ -803,6 +823,84 @@
         .map((checkbox) => pedidosAtuais[Number(checkbox.dataset.index)])
         .filter(Boolean);
     }
+
+    async function obterTelefoneResumoSelecionados(selecionados) {
+      const telefonePedido = selecionados
+        .map((pedido) => normalizarTelefone(
+          pedido?.clienteTelefone1 || pedido?.clienteTelefonePrincipal
+        ))
+        .find(Boolean);
+
+      if (telefonePedido) {
+        return telefonePedido;
+      }
+
+      const primeiroPedido = selecionados[0];
+      if (!primeiroPedido) return '';
+
+      const detalhe = await buscarDetalhePagamentosPedido(primeiroPedido);
+      return obterTelefoneDetalhe(detalhe, primeiroPedido);
+    }
+
+    async function enviarResumoImagemWhatsapp() {
+      const selecionados = obterPedidosSelecionados();
+
+      if (selecionados.length === 0) {
+        mostrarStatus('erro', 'Selecione pelo menos um pedido.');
+        return;
+      }
+
+      const textoOriginal = btnEnviarResumoWhatsapp.textContent;
+
+      try {
+        btnEnviarResumoWhatsapp.disabled = true;
+        btnEnviarResumoWhatsapp.textContent = 'Gerando e enviando...';
+        mostrarStatus('info', 'Gerando a imagem do resumo e enviando pelo WhatsApp...');
+
+        const telefone = await obterTelefoneResumoSelecionados(selecionados);
+        if (!telefone) {
+          throw new Error('Telefone 1 não encontrado no legado para este cliente.');
+        }
+
+        const response = await fetch(
+          `/api/legado/pedidos-cliente/${encodeURIComponent(favorecido)}/whatsapp/resumo-imagem`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              telefone,
+              clienteNome: clienteAtual?.nome || nomeClienteFallback || 'Cliente',
+              pedidos: selecionados.map((pedido) => ({
+                numero: obterNumeroPedido(pedido),
+                data: pedido.data,
+                total: Number(pedido.total || 0),
+                totalPago: Number(pedido.totalPago || 0),
+                saldoRestante: Number(pedido.saldoRestante || 0)
+              }))
+            })
+          }
+        );
+
+        const payload = await response.json().catch(() => ({}));
+
+        if (!response.ok || payload.sucesso === false) {
+          throw new Error(
+            payload.detalhe ||
+            payload.mensagem ||
+            'Erro ao enviar a imagem do resumo pelo WhatsApp.'
+          );
+        }
+
+        mostrarStatus('ok', 'Imagem do resumo enviada com sucesso pelo WhatsApp.');
+      } catch (error) {
+        mostrarStatus('erro', error.message || 'Erro ao enviar a imagem do resumo pelo WhatsApp.');
+      } finally {
+        btnEnviarResumoWhatsapp.disabled = false;
+        btnEnviarResumoWhatsapp.textContent = textoOriginal;
+      }
+    }
+
+    btnEnviarResumoWhatsapp.addEventListener('click', enviarResumoImagemWhatsapp);
 
     function atualizarEstadoSelecao() {
       const checkboxes = obterCheckboxesPedidos();
