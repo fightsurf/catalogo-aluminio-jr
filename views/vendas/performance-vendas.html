@@ -758,10 +758,14 @@
       const totalHoje = exibirTotalHoje
         ? `<span><strong>${formatarMoeda(serie?.total_vendido_hoje)}</strong>Total vendido hoje</span>`
         : '';
+      const mediaAteHoje = exibirTotalHoje
+        ? `<span><strong>${formatarMoeda(serie?.media_venda_dia_ate_hoje)}</strong>Média venda/dia até hoje</span>`
+        : '';
 
       elemento.innerHTML = `
         <span><strong>${formatarMoeda(serie?.total)}</strong>Total vendido</span>
         ${totalHoje}
+        ${mediaAteHoje}
         <span><strong>${Number(serie?.quantidade_pedidos || 0)}</strong>Pedidos</span>
         <span><strong>${rotuloMelhorDia(melhorDia)}</strong>Melhor dia</span>
       `;
