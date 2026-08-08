@@ -193,6 +193,31 @@ function dataHojeFortalezaBR() {
   }).format(new Date());
 }
 
+function normalizarDataExpedicao(value) {
+  const texto = limparTexto(value);
+
+  if (!texto) {
+    return '';
+  }
+
+  if (!/^\d{2}\/\d{2}\/\d{4}$/.test(texto)) {
+    throw criarErro('Informe a data de expedição no formato DD/MM/AAAA.', 400);
+  }
+
+  const [dia, mes, ano] = texto.split('/').map(Number);
+  const data = new Date(ano, mes - 1, dia);
+
+  if (
+    data.getFullYear() !== ano
+    || data.getMonth() !== mes - 1
+    || data.getDate() !== dia
+  ) {
+    throw criarErro('Informe uma data de expedição válida.', 400);
+  }
+
+  return `${String(dia).padStart(2, '0')}/${String(mes).padStart(2, '0')}/${String(ano).padStart(4, '0')}`;
+}
+
 function formatarDataHoraBR(value) {
   if (!value) {
     return '';
@@ -1247,10 +1272,10 @@ async function salvarQuantidadeVolumesManual({ codigoCarrada: codigoCarradaParam
   };
 }
 
-async function salvarDataExpedicao({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam, valor }) {
+async function salvarDataExpedicao({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam, dataExpedicao: dataExpedicaoParam }) {
   const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
   const numeroPedido = normalizarNumeroPedido(numeroPedidoParam);
-  const marcar = normalizarBoolean(valor);
+  const dataExpedicao = normalizarDataExpedicao(dataExpedicaoParam);
   const carrada = await carradasService.buscarResumoCarrada(codigoCarrada);
 
   if (!carrada) {
@@ -1264,19 +1289,67 @@ async function salvarDataExpedicao({ codigoCarrada: codigoCarradaParam, numeroPe
     throw criarErro('O pedido não possui identificador para salvar a data de expedição.', 400);
   }
 
-  const dataExpedicao = marcar ? dataHojeFortalezaBR() : null;
   const response = await legadoBridgeService.put(
     `/api/carradas/${encodeURIComponent(codigoCarrada)}/pedidos/${encodeURIComponent(numeroPedido)}/data-expedicao`,
-    { dataExpedicao }
+    { dataExpedicao: dataExpedicao || null }
   );
   const salvo = response?.dado || response?.data || {};
+  const dataSalva = limparTexto(salvo?.dataExpedicao || dataExpedicao);
+  let notificacao = null;
+
+  if (dataSalva) {
+    const detalhePagamento = await buscarDetalhePagamentoDoPedido(pedido);
+    const telefone = normalizarTelefoneLote(pedido, detalhePagamento);
+    const mensagem = [
+      'MENSAGEM AUTOMÁTICA - ALUMÍNIO JR',
+      `📦 Pedido nº ${numeroPedido}`,
+      '',
+      `Seu pedido foi expedido em ${dataSalva}.`
+    ].join('\n');
+
+    try {
+      const envio = await whatsappService.enviarMensagem({ telefone, mensagem });
+      notificacao = {
+        success: true,
+        telefone: envio.telefone,
+        mensagem,
+        response: envio
+      };
+      await registrarNotificacao({
+        faseCodigo: 'DATA_EXPEDICAO',
+        codigoCarrada,
+        numeroPedido,
+        telefone: envio.telefone,
+        mensagem,
+        statusEnvio: 'sucesso',
+        respostaApi: envio.zapi || envio
+      });
+    } catch (error) {
+      notificacao = {
+        success: false,
+        telefone,
+        mensagem,
+        error: error.message
+      };
+      await registrarNotificacao({
+        faseCodigo: 'DATA_EXPEDICAO',
+        codigoCarrada,
+        numeroPedido,
+        telefone,
+        mensagem,
+        statusEnvio: 'erro',
+        respostaApi: { error: error.message }
+      });
+    }
+  }
 
   await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
 
   return {
     numeroPedido,
-    concluido: Boolean(salvo?.dataExpedicao || dataExpedicao),
-    dataExpedicao: limparTexto(salvo?.dataExpedicao || dataExpedicao)
+    concluido: Boolean(dataSalva),
+    dataExpedicao: dataSalva,
+    notificacao
   };
 }
 

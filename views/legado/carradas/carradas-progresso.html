@@ -282,7 +282,9 @@
       cursor: pointer;
     }
     .volume-display[hidden],
-    .volume-input[hidden] {
+    .volume-input[hidden],
+    .expedicao-display[hidden],
+    .expedicao-input[hidden] {
       display: none !important;
     }
     .volume-input {
@@ -297,6 +299,27 @@
       font-weight: 700;
       background: #fff;
       color: var(--text);
+    }
+    .expedicao-input {
+      width: 100%;
+      min-width: 0;
+      height: 30px;
+      border: 1px solid var(--primary);
+      border-radius: 8px;
+      padding: 4px 2px;
+      text-align: center;
+      font-size: 11px;
+      font-weight: 700;
+      background: #fff;
+      color: var(--text);
+    }
+    .expedicao-cell {
+      cursor: pointer;
+    }
+    .expedicao-today-link.busy {
+      pointer-events: none;
+      opacity: 0.55;
+      text-decoration: none;
     }
     .cell-button.readonly {
       cursor: default;
@@ -948,7 +971,7 @@
       }
 
       if (faseCodigo === 'DATA_EXPEDICAO') {
-        return faseData?.dataExpedicao || 'Marcar';
+        return faseData?.dataExpedicao || 'Informar';
       }
 
       return faseData?.concluido ? '✓' : '';
@@ -1044,18 +1067,33 @@
             const classesExpedicao = [
               'cell-button',
               'special',
+              'expedicao-cell',
               faseData.concluido ? 'done' : ''
             ].filter(Boolean).join(' ');
 
             return `
               <td>
-                <button
+                <div
                   class="${classesExpedicao}"
                   data-expedicao-numero="${escapeHtml(pedido.numero)}"
-                  title="${faseData.concluido ? 'Clique para apagar a data de expedição' : 'Clique para gravar a data de expedição de hoje'}"
+                  role="button"
+                  tabindex="0"
+                  title="Clique para informar ou corrigir a data de expedição"
                 >
-                  <span class="expedicao-value">${escapeHtml(tituloCelulaEspecial(fase.codigo, faseData))}</span>
-                </button>
+                  <span class="expedicao-display">
+                    <span class="expedicao-value">${escapeHtml(tituloCelulaEspecial(fase.codigo, faseData))}</span>
+                  </span>
+                  <input
+                    class="expedicao-input"
+                    type="text"
+                    inputmode="numeric"
+                    maxlength="10"
+                    placeholder="DD/MM/AAAA"
+                    aria-label="Data de expedição do pedido ${escapeHtml(pedido.numero)}"
+                    hidden
+                  >
+                </div>
+                <a href="#" class="manual-link expedicao-today-link" data-expedicao-hoje-numero="${escapeHtml(pedido.numero)}" title="Preencher e salvar com a data de hoje">hoje</a>
               </td>
             `;
           }
@@ -1146,8 +1184,28 @@
         });
       });
 
-      el.tbodyMatriz.querySelectorAll('[data-expedicao-numero]').forEach((botao) => {
-        botao.addEventListener('click', () => alternarDataExpedicao(botao.dataset.expedicaoNumero));
+      el.tbodyMatriz.querySelectorAll('[data-expedicao-numero]').forEach((celula) => {
+        celula.addEventListener('click', () => iniciarEdicaoDataExpedicao(celula));
+        celula.addEventListener('keydown', (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            iniciarEdicaoDataExpedicao(celula);
+          }
+        });
+      });
+
+      el.tbodyMatriz.querySelectorAll('[data-expedicao-hoje-numero]').forEach((link) => {
+        link.addEventListener('mousedown', () => {
+          const celula = obterCelulaDataExpedicao(link.dataset.expedicaoHojeNumero);
+          if (celula?.dataset.editando === 'true') {
+            celula.dataset.ignorarBlurHoje = 'true';
+          }
+        });
+        link.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          salvarDataExpedicaoHoje(link);
+        });
       });
 
       el.tbodyMatriz.querySelectorAll('[data-fase-codigo]').forEach((botao) => {
@@ -1855,6 +1913,37 @@
       ) || null;
     }
 
+    function aplicarMascaraDataExpedicao(valor) {
+      const digitos = String(valor || '').replace(/\D/g, '').slice(0, 8);
+      if (digitos.length <= 2) return digitos;
+      if (digitos.length <= 4) return `${digitos.slice(0, 2)}/${digitos.slice(2)}`;
+      return `${digitos.slice(0, 2)}/${digitos.slice(2, 4)}/${digitos.slice(4)}`;
+    }
+
+    function dataExpedicaoValida(valor) {
+      const texto = String(valor || '').trim();
+      const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(texto);
+      if (!match) return false;
+
+      const dia = Number(match[1]);
+      const mes = Number(match[2]);
+      const ano = Number(match[3]);
+      const data = new Date(ano, mes - 1, dia);
+
+      return data.getFullYear() === ano
+        && data.getMonth() === mes - 1
+        && data.getDate() === dia;
+    }
+
+    function dataHojeBR() {
+      return new Intl.DateTimeFormat('pt-BR', {
+        timeZone: 'America/Fortaleza',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      }).format(new Date());
+    }
+
     function atualizarCelulaDataExpedicao(numeroPedido) {
       const celula = obterCelulaDataExpedicao(numeroPedido);
       const pedido = obterPedido(numeroPedido);
@@ -1864,16 +1953,25 @@
       }
 
       const faseData = pedido.fases?.DATA_EXPEDICAO || { concluido: false, dataExpedicao: '' };
+      const display = celula.querySelector('.expedicao-display');
       const valor = celula.querySelector('.expedicao-value');
+      const input = celula.querySelector('.expedicao-input');
 
       celula.classList.toggle('done', Boolean(faseData.concluido));
-      celula.disabled = false;
-      celula.title = faseData.concluido
-        ? 'Clique para apagar a data de expedição'
-        : 'Clique para gravar a data de expedição de hoje';
+      delete celula.dataset.editando;
+      celula.setAttribute('role', 'button');
+      celula.setAttribute('tabindex', '0');
+      celula.setAttribute('title', 'Clique para informar ou corrigir a data de expedição');
 
       if (valor) {
         valor.textContent = tituloCelulaEspecial('DATA_EXPEDICAO', faseData);
+      }
+      if (display) {
+        display.hidden = false;
+      }
+      if (input) {
+        input.hidden = true;
+        input.disabled = false;
       }
     }
 
@@ -1897,44 +1995,145 @@
       atualizarCelulaDataExpedicao(numeroPedido);
     }
 
-    async function alternarDataExpedicao(numeroPedido) {
-      const pedido = obterPedido(numeroPedido);
-
-      if (!pedido) {
+    function avisarResultadoWhatsappExpedicao(notificacao) {
+      if (!notificacao) {
         return;
       }
 
-      const faseAtual = pedido.fases?.DATA_EXPEDICAO || { concluido: false, dataExpedicao: '' };
-      const novoValor = !Boolean(faseAtual.concluido);
+      if (notificacao.success) {
+        return;
+      }
 
-      if (!novoValor) {
-        const confirma = window.confirm(`Deseja apagar a data de expedição do pedido ${numeroPedido}?`);
-        if (!confirma) {
+      window.alert(`Data de expedição salva, mas houve falha no WhatsApp: ${notificacao.error || 'Erro desconhecido.'}`);
+    }
+
+    async function enviarDataExpedicao(numeroPedido, dataExpedicao) {
+      const data = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/data-expedicao`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dataExpedicao })
+      });
+
+      aplicarDataExpedicaoNoEstado(numeroPedido, data);
+      avisarResultadoWhatsappExpedicao(data?.notificacao);
+      return data;
+    }
+
+    function iniciarEdicaoDataExpedicao(celula) {
+      if (!celula || celula.dataset.editando === 'true') {
+        return;
+      }
+
+      const numeroPedido = celula.dataset.expedicaoNumero;
+      const pedido = obterPedido(numeroPedido);
+      const faseAtual = pedido?.fases?.DATA_EXPEDICAO || {};
+      const valorAnterior = String(faseAtual?.dataExpedicao || '').trim();
+      const display = celula.querySelector('.expedicao-display');
+      const input = celula.querySelector('.expedicao-input');
+
+      if (!input) {
+        return;
+      }
+
+      celula.dataset.editando = 'true';
+      if (display) {
+        display.hidden = true;
+      }
+      input.value = valorAnterior;
+      input.hidden = false;
+      input.disabled = false;
+
+      let finalizado = false;
+
+      const cancelar = () => {
+        if (finalizado) return;
+        finalizado = true;
+        atualizarCelulaDataExpedicao(numeroPedido);
+      };
+
+      const salvar = async () => {
+        if (finalizado) return;
+
+        const valorDigitado = input.value.trim();
+
+        if (valorDigitado && !dataExpedicaoValida(valorDigitado)) {
+          window.alert('Informe uma data válida no formato DD/MM/AAAA.');
+          input.focus();
+          input.select();
           return;
         }
-      }
 
-      const celula = obterCelulaDataExpedicao(numeroPedido);
-      if (celula?.disabled) {
+        if (valorDigitado === valorAnterior) {
+          cancelar();
+          return;
+        }
+
+        finalizado = true;
+        input.disabled = true;
+
+        try {
+          await enviarDataExpedicao(numeroPedido, valorDigitado);
+        } catch (error) {
+          window.alert(error.message);
+          atualizarCelulaDataExpedicao(numeroPedido);
+        }
+      };
+
+      input.onclick = (event) => event.stopPropagation();
+      input.oninput = () => {
+        const posicaoFinal = input.selectionStart === input.value.length;
+        input.value = aplicarMascaraDataExpedicao(input.value);
+        if (posicaoFinal) {
+          input.setSelectionRange(input.value.length, input.value.length);
+        }
+      };
+      input.onkeydown = (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          salvar();
+        } else if (event.key === 'Escape') {
+          event.preventDefault();
+          cancelar();
+        }
+      };
+      input.onblur = () => {
+        if (celula.dataset.ignorarBlurHoje === 'true') {
+          delete celula.dataset.ignorarBlurHoje;
+          cancelar();
+          return;
+        }
+        salvar();
+      };
+
+      input.focus();
+      input.select();
+    }
+
+    async function salvarDataExpedicaoHoje(link) {
+      if (!link || link.classList.contains('busy')) {
         return;
       }
-      if (celula) {
-        celula.disabled = true;
+
+      const numeroPedido = link.dataset.expedicaoHojeNumero;
+      const pedido = obterPedido(numeroPedido);
+      const dataHoje = dataHojeBR();
+      const dataAtual = String(pedido?.fases?.DATA_EXPEDICAO?.dataExpedicao || '').trim();
+
+      if (dataAtual === dataHoje) {
+        return;
       }
 
-      try {
-        const data = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/data-expedicao`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ valor: novoValor })
-        });
+      const textoOriginal = link.textContent;
+      link.classList.add('busy');
+      link.textContent = 'salvando...';
 
-        aplicarDataExpedicaoNoEstado(numeroPedido, data);
+      try {
+        await enviarDataExpedicao(numeroPedido, dataHoje);
       } catch (error) {
-        if (celula) {
-          celula.disabled = false;
-        }
         window.alert(error.message);
+      } finally {
+        link.classList.remove('busy');
+        link.textContent = textoOriginal;
       }
     }
 
