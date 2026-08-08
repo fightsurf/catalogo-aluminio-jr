@@ -74,6 +74,8 @@ const performanceVendasApiRoutes = require('./src/routes/vendas/performance-vend
 const performanceVendasViewRoutes = require('./src/routes/vendas/performance-vendas.view.routes');
 const performanceExpedicaoApiRoutes = require('./src/routes/vendas/performance-expedicao.routes');
 const performanceExpedicaoViewRoutes = require('./src/routes/vendas/performance-expedicao.view.routes');
+const sqlTerminalApiRoutes = require('./src/routes/admin/sql-terminal.routes');
+const sqlTerminalViewRoutes = require('./src/routes/admin/sql-terminal.view.routes');
 const pedidosInsercaoLegadoV2Routes = require('./src/routes/legado/pedidos-insercao-v2/pedidos-insercao-v2.routes');
 const pedidosInsercaoLegadoV2ViewRoutes = require('./src/routes/legado/pedidos-insercao-v2/pedidos-insercao-v2.view.routes');
 const pedidosInsercaoMobileViewRoutes = require('./src/routes/legado/pedidos-insercao-mobile/pedidos-insercao-mobile.view.routes');
@@ -140,6 +142,8 @@ app.use('/api/vendas', performanceExpedicaoApiRoutes);
 app.use('/vendas', relatorioAcrescimoViewRoutes);
 app.use('/vendas', performanceVendasViewRoutes);
 app.use('/vendas', performanceExpedicaoViewRoutes);
+app.use('/api/admin/sql-terminal', requireAuth, sqlTerminalApiRoutes);
+app.use('/admin/sql-terminal', requireAuth, sqlTerminalViewRoutes);
 
 app.use('/bot/autonomia', botAutonomiaRoutes);
 app.use('/api/produtos-categorias', produtoCategoriaRoutes);
