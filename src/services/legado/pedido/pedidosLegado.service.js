@@ -154,6 +154,7 @@ function normalizarPedido(item) {
     idMestre: item.idMestre ?? item.IDMESTRE ?? item.idmestre ?? null,
     numero: item.numero ?? item.NUMERO ?? null,
     data: item.data ?? item.DATA ?? null,
+    dataExpedicao: item.dataExpedicao ?? item.DATA_EXPEDICAO ?? item.data_expedicao ?? item.CAMPO01 ?? item.campo01 ?? null,
     total: Number(item.total ?? item.TOTAL ?? 0),
     totalPago: Number(item.totalPago ?? item.TOTAL_PAGO ?? 0),
     saldoRestante: Number(item.saldoRestante ?? item.SALDO_RESTANTE ?? 0),

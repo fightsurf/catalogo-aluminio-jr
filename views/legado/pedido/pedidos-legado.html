@@ -800,6 +800,18 @@
       return `${dia}/${mes}/${ano}`;
     }
 
+    function formatarDataExpedicao(valor) {
+      const texto = String(valor || '').trim();
+      if (!texto) return '-';
+
+      const correspondenciaBr = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(texto);
+      if (correspondenciaBr) {
+        return `${correspondenciaBr[1]}/${correspondenciaBr[2]}/${correspondenciaBr[3]}`;
+      }
+
+      return formatarData(texto);
+    }
+
     function calcularSubtotalItem(item) {
       return Number(item?.quantidade || 0) * Number(item?.preco || 0);
     }
@@ -1236,6 +1248,7 @@
       if (!modoEdicao) {
         dadosCliente.innerHTML = `
           <div class="cliente-linha"><strong>Data:</strong> ${dataFormatada}</div>
+          <div class="cliente-linha"><strong>Data de expedição:</strong> ${formatarDataExpedicao(pedido?.dataExpedicao)}</div>
           <div class="cliente-linha"><strong>Número:</strong> ${pedido?.numero || '-'}</div>
           <div class="cliente-linha"><strong>Vendedor:</strong> ${pedido?.vendedor?.nome || '-'}</div>
 
@@ -1273,6 +1286,7 @@
           <div class="cliente-linha"><strong>Cidade:</strong> ${pedido?.cliente?.cidade || '-'}</div>
           <div class="cliente-linha"><strong>UF:</strong> ${pedido?.cliente?.uf || '-'}</div>
           <div class="cliente-linha"><strong>Telefone:</strong> ${telefoneHtml}</div>
+          <div class="cliente-linha"><strong>Data de expedição:</strong> ${formatarDataExpedicao(pedido?.dataExpedicao)}</div>
           <div class="cliente-linha"><strong>Total pago:</strong> ${moeda(pedido?.totalPago || 0)}</div>
           <div class="cliente-linha"><strong>Saldo restante:</strong> ${moeda(Math.max(totalPedidoAtual() - Number(pedido?.totalPago || 0), 0))}</div>
         </div>
@@ -2179,7 +2193,7 @@
       resultadoLista.innerHTML = pedidos.map((pedido, index) => `
         <div class="resultado-item" data-index="${index}">
           <div class="resultado-principal">Pedido ${pedido?.numero || '-'} · ${pedido?.cliente?.nome || '-'}</div>
-          <div class="resultado-secundario">Data: ${formatarData(pedido?.data)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)}</div>
+          <div class="resultado-secundario">Data: ${formatarData(pedido?.data)} · Expedição: ${formatarDataExpedicao(pedido?.dataExpedicao)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)}</div>
           <div class="resultado-secundario">Total pago: ${moeda(pedido?.totalPago || 0)} · Restante a pagar: ${moeda(pedido?.saldoRestante || 0)} · Volumes: ${Number(pedido?.volumes || 0)}</div>
         </div>
       `).join('');
@@ -2203,7 +2217,7 @@
       resultadoLista.innerHTML = pedidosEncontrados.map((pedido, index) => `
         <div class="resultado-item ativo" data-index="${index}">
           <div class="resultado-principal">Pedido ${pedido?.numero || '-'} · ${pedido?.cliente?.nome || '-'}</div>
-          <div class="resultado-secundario">Data: ${formatarData(pedido?.data)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)}</div>
+          <div class="resultado-secundario">Data: ${formatarData(pedido?.data)} · Expedição: ${formatarDataExpedicao(pedido?.dataExpedicao)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)}</div>
           <div class="resultado-secundario">Total pago: ${moeda(pedido?.totalPago || 0)} · Restante a pagar: ${moeda(pedido?.saldoRestante || 0)} · Volumes: ${Number(pedido?.volumes || 0)}</div>
         </div>
       `).join('');
