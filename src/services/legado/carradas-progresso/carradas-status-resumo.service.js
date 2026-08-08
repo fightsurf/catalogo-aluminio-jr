@@ -398,6 +398,7 @@ async function calcularStatusCarrada(codigoCarradaParam) {
       const ligacaoPosVenda = booleanSet.has('LIGACAO_POS_VENDA');
       const etiquetaConcluida = etiquetasSet.has(chavePedido);
       const localEntregaConcluido = localEntregaSet.has(chavePedido);
+      const dataExpedicaoConcluida = Boolean(limparTexto(pedido?.dataExpedicao));
 
       let pagamentoQuitado = booleanSet.has('PAGAMENTO_QUITADO');
 
@@ -422,7 +423,8 @@ async function calcularStatusCarrada(codigoCarradaParam) {
         videoFeito,
         querNotaFiscal,
         localEntregaConcluido,
-        pagamentoQuitado
+        pagamentoQuitado,
+        dataExpedicaoConcluida
       ].every(Boolean);
 
       return {

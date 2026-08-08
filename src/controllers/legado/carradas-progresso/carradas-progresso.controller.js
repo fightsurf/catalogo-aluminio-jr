@@ -60,6 +60,20 @@ async function salvarQuantidadeVolumesManual(req, res) {
   }
 }
 
+async function salvarDataExpedicao(req, res) {
+  try {
+    const data = await service.salvarDataExpedicao({
+      codigoCarrada: req.params.codigo,
+      numeroPedido: req.params.numeroPedido,
+      valor: req.body?.valor
+    });
+
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return responderErro(res, error, 'Erro ao salvar a data de expedição.');
+  }
+}
+
 async function salvarFaseBooleana(req, res) {
   try {
     const data = await service.salvarFaseBooleana({
@@ -152,6 +166,7 @@ module.exports = {
   buscarMatriz,
   calcularQuantidadeVolumesPedido,
   salvarQuantidadeVolumesManual,
+  salvarDataExpedicao,
   salvarFaseBooleana,
   buscarDadosEtiquetaPedido,
   enviarEtiquetaVolumes,

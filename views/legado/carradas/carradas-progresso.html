@@ -204,8 +204,8 @@
     }
     th:not(.sticky-col),
     td:not(.sticky-col) {
-      min-width: 82px;
-      max-width: 82px;
+      min-width: 73.8px;
+      max-width: 73.8px;
     }
     th.sticky-col,
     td.sticky-col {
@@ -553,11 +553,12 @@
               <th title="Quer nota fiscal">NF</th>
               <th title="Local de entrega">Ent.</th>
               <th title="Pagamento quitado">Pgto</th>
+              <th title="Data de expedição">Dt<br>Exp.</th>
               <th title="Ligação pós-venda">Pós</th>
             </tr>
           </thead>
           <tbody id="tbodyMatriz">
-            <tr><td colspan="10" class="loading">Carregando progresso da carrada...</td></tr>
+            <tr><td colspan="11" class="loading">Carregando progresso da carrada...</td></tr>
           </tbody>
         </table>
       </div>
@@ -680,6 +681,7 @@
       { codigo: 'QUER_NOTA_FISCAL', nome: 'Quer nota fiscal', tipo: 'boolean' },
       { codigo: 'LOCAL_ENTREGA', nome: 'Local de entrega', tipo: 'especial' },
       { codigo: 'PAGAMENTO_QUITADO', nome: 'Pagamento quitado', tipo: 'automatico' },
+      { codigo: 'DATA_EXPEDICAO', nome: 'Data de expedição', tipo: 'expedicao' },
       { codigo: 'LIGACAO_POS_VENDA', nome: 'Ligação pós-venda', tipo: 'boolean' }
     ];
 
@@ -945,6 +947,10 @@
         return faseData?.concluido ? 'Quitado' : 'Pendente';
       }
 
+      if (faseCodigo === 'DATA_EXPEDICAO') {
+        return faseData?.dataExpedicao || 'Marcar';
+      }
+
       return faseData?.concluido ? '✓' : '';
     }
 
@@ -987,7 +993,7 @@
       const pedidos = estado.matriz?.pedidos || [];
 
       if (!pedidos.length) {
-        el.tbodyMatriz.innerHTML = '<tr><td colspan="10" class="empty">Nenhum pedido encontrado nesta carrada.</td></tr>';
+        el.tbodyMatriz.innerHTML = '<tr><td colspan="11" class="empty">Nenhum pedido encontrado nesta carrada.</td></tr>';
         return;
       }
 
@@ -1030,6 +1036,26 @@
                   >
                 </div>
                 <a href="#" class="manual-link volume-calc-link" data-calcular-volumes-numero="${escapeHtml(pedido.numero)}" title="Calcular automaticamente a quantidade de volumes">calcular automático</a>
+              </td>
+            `;
+          }
+
+          if (fase.codigo === 'DATA_EXPEDICAO') {
+            const classesExpedicao = [
+              'cell-button',
+              'special',
+              faseData.concluido ? 'done' : ''
+            ].filter(Boolean).join(' ');
+
+            return `
+              <td>
+                <button
+                  class="${classesExpedicao}"
+                  data-expedicao-numero="${escapeHtml(pedido.numero)}"
+                  title="${faseData.concluido ? 'Clique para apagar a data de expedição' : 'Clique para gravar a data de expedição de hoje'}"
+                >
+                  <span class="expedicao-value">${escapeHtml(tituloCelulaEspecial(fase.codigo, faseData))}</span>
+                </button>
               </td>
             `;
           }
@@ -1120,6 +1146,10 @@
         });
       });
 
+      el.tbodyMatriz.querySelectorAll('[data-expedicao-numero]').forEach((botao) => {
+        botao.addEventListener('click', () => alternarDataExpedicao(botao.dataset.expedicaoNumero));
+      });
+
       el.tbodyMatriz.querySelectorAll('[data-fase-codigo]').forEach((botao) => {
         botao.addEventListener('click', () => onClickCelula(botao));
       });
@@ -1162,12 +1192,12 @@
 
     async function carregarMatriz() {
       if (!CODIGO_CARRADA) {
-        el.tbodyMatriz.innerHTML = '<tr><td colspan="10" class="empty">Código da carrada não informado.</td></tr>';
+        el.tbodyMatriz.innerHTML = '<tr><td colspan="11" class="empty">Código da carrada não informado.</td></tr>';
         return;
       }
 
       estado.carregando = true;
-      el.tbodyMatriz.innerHTML = '<tr><td colspan="10" class="loading">Carregando progresso da carrada...</td></tr>';
+      el.tbodyMatriz.innerHTML = '<tr><td colspan="11" class="loading">Carregando progresso da carrada...</td></tr>';
 
       try {
         estado.matriz = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}`);
@@ -1176,7 +1206,7 @@
         renderMatriz();
         await inicializarNavegacaoCarradas(estado.matriz?.carrada);
       } catch (error) {
-        el.tbodyMatriz.innerHTML = `<tr><td colspan="10" class="empty">${escapeHtml(error.message)}</td></tr>`;
+        el.tbodyMatriz.innerHTML = `<tr><td colspan="11" class="empty">${escapeHtml(error.message)}</td></tr>`;
       } finally {
         estado.carregando = false;
       }
@@ -1816,6 +1846,95 @@
       } finally {
         link.classList.remove('busy');
         link.textContent = textoOriginal;
+      }
+    }
+
+    function obterCelulaDataExpedicao(numeroPedido) {
+      return Array.from(el.tbodyMatriz.querySelectorAll('[data-expedicao-numero]')).find(
+        (celula) => String(celula.dataset.expedicaoNumero) === String(numeroPedido)
+      ) || null;
+    }
+
+    function atualizarCelulaDataExpedicao(numeroPedido) {
+      const celula = obterCelulaDataExpedicao(numeroPedido);
+      const pedido = obterPedido(numeroPedido);
+
+      if (!celula || !pedido) {
+        return;
+      }
+
+      const faseData = pedido.fases?.DATA_EXPEDICAO || { concluido: false, dataExpedicao: '' };
+      const valor = celula.querySelector('.expedicao-value');
+
+      celula.classList.toggle('done', Boolean(faseData.concluido));
+      celula.disabled = false;
+      celula.title = faseData.concluido
+        ? 'Clique para apagar a data de expedição'
+        : 'Clique para gravar a data de expedição de hoje';
+
+      if (valor) {
+        valor.textContent = tituloCelulaEspecial('DATA_EXPEDICAO', faseData);
+      }
+    }
+
+    function aplicarDataExpedicaoNoEstado(numeroPedido, data) {
+      const pedido = obterPedido(numeroPedido);
+
+      if (!pedido) {
+        return;
+      }
+
+      pedido.fases = pedido.fases || {};
+      pedido.fases.DATA_EXPEDICAO = {
+        codigo: 'DATA_EXPEDICAO',
+        tipo: 'expedicao',
+        concluido: Boolean(data?.concluido),
+        dataExpedicao: data?.dataExpedicao || ''
+      };
+
+      recalcularTotaisFasesLocalmente();
+      renderCardsFases();
+      atualizarCelulaDataExpedicao(numeroPedido);
+    }
+
+    async function alternarDataExpedicao(numeroPedido) {
+      const pedido = obterPedido(numeroPedido);
+
+      if (!pedido) {
+        return;
+      }
+
+      const faseAtual = pedido.fases?.DATA_EXPEDICAO || { concluido: false, dataExpedicao: '' };
+      const novoValor = !Boolean(faseAtual.concluido);
+
+      if (!novoValor) {
+        const confirma = window.confirm(`Deseja apagar a data de expedição do pedido ${numeroPedido}?`);
+        if (!confirma) {
+          return;
+        }
+      }
+
+      const celula = obterCelulaDataExpedicao(numeroPedido);
+      if (celula?.disabled) {
+        return;
+      }
+      if (celula) {
+        celula.disabled = true;
+      }
+
+      try {
+        const data = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/data-expedicao`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ valor: novoValor })
+        });
+
+        aplicarDataExpedicaoNoEstado(numeroPedido, data);
+      } catch (error) {
+        if (celula) {
+          celula.disabled = false;
+        }
+        window.alert(error.message);
       }
     }
 

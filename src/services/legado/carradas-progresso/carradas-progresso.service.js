@@ -67,6 +67,7 @@ const FASES_MATRIZ = [
   { codigo: 'QUER_NOTA_FISCAL', nome: 'Quer nota fiscal', tipo: 'boolean' },
   { codigo: 'LOCAL_ENTREGA', nome: 'Local de entrega', tipo: 'especial' },
   { codigo: 'PAGAMENTO_QUITADO', nome: 'Pagamento quitado', tipo: 'automatico' },
+  { codigo: 'DATA_EXPEDICAO', nome: 'Data de expedição', tipo: 'expedicao' },
   { codigo: 'LIGACAO_POS_VENDA', nome: 'Ligação pós-venda', tipo: 'boolean' }
 ];
 
@@ -181,6 +182,15 @@ function formatarDataBR(value) {
   }
 
   return date.toLocaleDateString('pt-BR');
+}
+
+function dataHojeFortalezaBR() {
+  return new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Fortaleza',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  }).format(new Date());
 }
 
 function formatarDataHoraBR(value) {
@@ -660,6 +670,7 @@ function montarFasesDoPedido({ pedido, booleanRows = {}, etiquetaRow = null, loc
   const pagamentoQuitadoAutomatico = calcularPagamentoQuitado(detalhePagamento);
   const pagamentoMarcadoManual = Boolean(booleanRows.PAGAMENTO_QUITADO?.valorBoolean);
   const pagamentoQuitado = pagamentoQuitadoAutomatico || pagamentoMarcadoManual;
+  const dataExpedicao = limparTexto(pedido?.dataExpedicao);
 
   return {
     EM_PRODUCAO: {
@@ -727,6 +738,12 @@ function montarFasesDoPedido({ pedido, booleanRows = {}, etiquetaRow = null, loc
       baixadoParaCredito: Boolean(detalhePagamento?.resumo?.baixadoParaCredito),
       valorBaixadoParaCredito: Number(detalhePagamento?.resumo?.valorBaixadoParaCredito ?? 0),
       statusFinanceiroLabel: detalhePagamento?.resumo?.statusFinanceiroLabel || ''
+    },
+    DATA_EXPEDICAO: {
+      codigo: 'DATA_EXPEDICAO',
+      concluido: Boolean(dataExpedicao),
+      tipo: 'expedicao',
+      dataExpedicao
     },
     LIGACAO_POS_VENDA: {
       codigo: 'LIGACAO_POS_VENDA',
@@ -1079,6 +1096,7 @@ async function calcularResumoRapidoCarrada(codigoCarrada) {
     const localEntregaConcluido = localEntregaSet.has(chavePedido) || booleanSet.has('LOCAL_ENTREGA');
     const detalhePagamento = await buscarDetalhePagamentoDoPedido(pedido);
     const pagamentoQuitado = booleanSet.has('PAGAMENTO_QUITADO') || calcularPagamentoQuitado(detalhePagamento);
+    const dataExpedicaoConcluida = Boolean(limparTexto(pedido?.dataExpedicao));
 
     const fasesSemLigacao = [
       emProducao,
@@ -1088,7 +1106,8 @@ async function calcularResumoRapidoCarrada(codigoCarrada) {
       videoFeito,
       querNotaFiscal,
       localEntregaConcluido,
-      pagamentoQuitado
+      pagamentoQuitado,
+      dataExpedicaoConcluida
     ];
     const concluidasSemLigacao = fasesSemLigacao.filter(Boolean).length;
     const semLigacaoConcluido = fasesSemLigacao.every(Boolean);
@@ -1225,6 +1244,39 @@ async function salvarQuantidadeVolumesManual({ codigoCarrada: codigoCarradaParam
     concluido: true,
     calculadoAutomaticamente: false,
     updatedAt: marcado?.updated_at || null
+  };
+}
+
+async function salvarDataExpedicao({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam, valor }) {
+  const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
+  const numeroPedido = normalizarNumeroPedido(numeroPedidoParam);
+  const marcar = normalizarBoolean(valor);
+  const carrada = await carradasService.buscarResumoCarrada(codigoCarrada);
+
+  if (!carrada) {
+    throw criarErro('Carrada não encontrada.', 404);
+  }
+
+  const pedido = encontrarPedidoNaCarrada(carrada, numeroPedido);
+  const identificadores = obterIdentificadoresPedido(pedido, numeroPedido);
+
+  if (!identificadores.saida) {
+    throw criarErro('O pedido não possui identificador para salvar a data de expedição.', 400);
+  }
+
+  const dataExpedicao = marcar ? dataHojeFortalezaBR() : null;
+  const response = await legadoBridgeService.put(
+    `/api/carradas/${encodeURIComponent(codigoCarrada)}/pedidos/${encodeURIComponent(numeroPedido)}/data-expedicao`,
+    { dataExpedicao }
+  );
+  const salvo = response?.dado || response?.data || {};
+
+  await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
+
+  return {
+    numeroPedido,
+    concluido: Boolean(salvo?.dataExpedicao || dataExpedicao),
+    dataExpedicao: limparTexto(salvo?.dataExpedicao || dataExpedicao)
   };
 }
 
@@ -1917,6 +1969,7 @@ module.exports = {
   buscarResumoListaCarradas,
   calcularQuantidadeVolumesPedido,
   salvarQuantidadeVolumesManual,
+  salvarDataExpedicao,
   salvarFaseBooleana,
   buscarDadosEtiquetaPedido,
   enviarEtiquetaVolumes,
