@@ -1,14 +1,7 @@
 const service = require('../../services/vendas/performance-expedicao.service');
 
-function impedirCache(res) {
-  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
-  res.set('Pragma', 'no-cache');
-  res.set('Expires', '0');
-}
-
 async function carregarPerformanceMensal(req, res) {
   try {
-    impedirCache(res);
     const data = await service.carregarPerformanceMensal({
       mes: req.query.mes,
       ano: req.query.ano
@@ -26,7 +19,6 @@ async function carregarPerformanceMensal(req, res) {
 
 async function listarPedidosDoDia(req, res) {
   try {
-    impedirCache(res);
     const data = await service.listarPedidosDoDia({ data: req.query.data });
     return res.json({ success: true, data });
   } catch (error) {
@@ -40,7 +32,6 @@ async function listarPedidosDoDia(req, res) {
 
 async function listarPedidosSemExpedicao120Dias(req, res) {
   try {
-    impedirCache(res);
     const data = await service.listarPedidosSemExpedicao120Dias();
     return res.json({ success: true, data });
   } catch (error) {
