@@ -418,6 +418,20 @@
       color: #4b5563;
     }
 
+    .relatorio-whatsapp-texto {
+      margin: 0;
+      padding: 16px;
+      min-height: 220px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      background: #f9fafb;
+      color: #111827;
+      font: 14px/1.5 Arial, sans-serif;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      user-select: text;
+    }
+
     .particao-aviso {
       padding: 11px 12px;
       margin-bottom: 14px;
@@ -534,6 +548,7 @@
         <button id="btnCancelarEdicao" class="btn btn-secondary oculto">Cancelar edição</button>
         <button id="btnSalvarAlteracoes" class="btn btn-primary oculto">Salvar alterações</button>
         <button id="btnEnviarWhatsapp" class="btn btn-whatsapp oculto">Enviar para WhatsApp</button>
+        <button id="btnExibirRelatorioWhatsapp" class="btn btn-whatsapp oculto">Exibir relatório WhatsApp</button>
         <button id="btnEnviarFotosWhatsapp" class="btn btn-whatsapp oculto">Enviar pedido com fotos</button>
         <button id="btnEnviarPdfWhatsapp" class="btn btn-whatsapp oculto">Enviar PDF WhatsApp</button>
         <button id="btnAdicionarPagamentos" class="btn btn-primary oculto">Adicionar pagamentos</button>
@@ -633,6 +648,22 @@
   </div>
 
 
+  <div id="modalRelatorioWhatsapp" class="modal-overlay oculto" role="dialog" aria-modal="true" aria-labelledby="tituloModalRelatorioWhatsapp">
+    <div class="modal-card" style="width:min(720px, 100%);">
+      <div class="modal-cabecalho">
+        <h3 id="tituloModalRelatorioWhatsapp">Relatório WhatsApp</h3>
+        <button id="btnFecharRelatorioWhatsapp" class="btn-fechar-modal" type="button" aria-label="Fechar">×</button>
+      </div>
+
+      <pre id="relatorioWhatsappTexto" class="relatorio-whatsapp-texto"></pre>
+
+      <div class="particao-acoes">
+        <button id="btnFecharRelatorioWhatsappRodape" class="btn btn-secondary" type="button">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+
   <div id="modalCancelamento" class="modal-overlay oculto" role="dialog" aria-modal="true" aria-labelledby="tituloModalCancelamento">
     <div class="modal-card" style="width:min(650px, 100%);">
       <div class="modal-cabecalho">
@@ -657,6 +688,7 @@
     </div>
   </div>
 
+  <script src="/js/relatorio-aluminio-jr.js"></script>
   <script>
     const numeroPedidoInput = document.getElementById('numeroPedido');
     const clientePedidoInput = document.getElementById('clientePedido');
@@ -676,6 +708,7 @@
     const btnCancelarEdicao = document.getElementById('btnCancelarEdicao');
     const btnSalvarAlteracoes = document.getElementById('btnSalvarAlteracoes');
     const btnEnviarWhatsapp = document.getElementById('btnEnviarWhatsapp');
+    const btnExibirRelatorioWhatsapp = document.getElementById('btnExibirRelatorioWhatsapp');
     const btnEnviarFotosWhatsapp = document.getElementById('btnEnviarFotosWhatsapp');
     const btnEnviarPdfWhatsapp = document.getElementById('btnEnviarPdfWhatsapp');
     const btnAdicionarPagamentos = document.getElementById('btnAdicionarPagamentos');
@@ -701,6 +734,10 @@
     const particaoTotalNovo = document.getElementById('particaoTotalNovo');
     const particaoPagoOriginal = document.getElementById('particaoPagoOriginal');
     const particaoPagoNovo = document.getElementById('particaoPagoNovo');
+    const modalRelatorioWhatsapp = document.getElementById('modalRelatorioWhatsapp');
+    const btnFecharRelatorioWhatsapp = document.getElementById('btnFecharRelatorioWhatsapp');
+    const btnFecharRelatorioWhatsappRodape = document.getElementById('btnFecharRelatorioWhatsappRodape');
+    const relatorioWhatsappTexto = document.getElementById('relatorioWhatsappTexto');
     const modalCancelamento = document.getElementById('modalCancelamento');
     const btnFecharCancelamento = document.getElementById('btnFecharCancelamento');
     const btnVoltarCancelamento = document.getElementById('btnVoltarCancelamento');
@@ -882,6 +919,7 @@
 
       const ocultarAcoesLeitura = !haPedido || modoEdicao || pedidoCancelado;
       btnEnviarWhatsapp.classList.toggle('oculto', ocultarAcoesLeitura);
+      btnExibirRelatorioWhatsapp.classList.toggle('oculto', ocultarAcoesLeitura);
       btnEnviarFotosWhatsapp.classList.toggle('oculto', ocultarAcoesLeitura);
       btnEnviarPdfWhatsapp.classList.toggle('oculto', ocultarAcoesLeitura);
       btnAdicionarPagamentos.classList.toggle('oculto', ocultarAcoesLeitura);
@@ -923,6 +961,7 @@
       dadosCliente.innerHTML = '<div class="placeholder">Nenhum pedido carregado.</div>';
       atualizarVisibilidadeAcoes();
       btnEnviarWhatsapp.disabled = true;
+      btnExibirRelatorioWhatsapp.disabled = true;
       btnEnviarFotosWhatsapp.disabled = true;
       btnEnviarPdfWhatsapp.disabled = true;
     }
@@ -2226,6 +2265,62 @@
     }
 
 
+    function montarRelatorioWhatsappPedido(pedido) {
+      if (!window.RelatorioAluminioJR?.montarRelatorio) {
+        throw new Error('Gerador do relatório de WhatsApp não foi carregado.');
+      }
+
+      const itens = Array.isArray(pedido?.itens) ? pedido.itens : [];
+      if (!itens.length) {
+        throw new Error('O pedido não possui itens para montar o relatório.');
+      }
+
+      const itensRelatorio = itens.map((item) => {
+        const qtd = Number(item?.quantidade || 0);
+        const preco = Number(item?.preco || 0);
+        const subtotalInformado = Number(item?.subtotal);
+
+        return {
+          nome: String(item?.descricao || item?.nome || '').trim(),
+          qtd,
+          preco,
+          subtotal: Number.isFinite(subtotalInformado) ? subtotalInformado : qtd * preco
+        };
+      });
+
+      const totalInformado = Number(pedido?.total);
+      const total = Number.isFinite(totalInformado)
+        ? totalInformado
+        : itensRelatorio.reduce((acc, item) => acc + Number(item.subtotal || 0), 0);
+
+      return window.RelatorioAluminioJR.montarRelatorio({
+        itens: itensRelatorio,
+        total
+      });
+    }
+
+    function abrirModalRelatorioWhatsapp() {
+      if (!pedidoCarregado) {
+        setMensagem('Nenhum pedido carregado para gerar o relatório.', true);
+        return;
+      }
+
+      try {
+        relatorioWhatsappTexto.textContent = montarRelatorioWhatsappPedido(pedidoCarregado);
+        modalRelatorioWhatsapp.classList.remove('oculto');
+        document.body.style.overflow = 'hidden';
+      } catch (error) {
+        setMensagem(error.message || 'Erro ao montar relatório de WhatsApp.', true);
+      }
+    }
+
+    function fecharModalRelatorioWhatsapp() {
+      modalRelatorioWhatsapp.classList.add('oculto');
+      document.body.style.overflow = '';
+      relatorioWhatsappTexto.textContent = '';
+    }
+
+
     function abrirModalCancelamento() {
       if (!pedidoCarregado?.idMestre || cancelamentoEmAndamento) return;
       if (String(pedidoCarregado?.situacao || '').trim().toUpperCase() === 'C') {
@@ -2346,6 +2441,7 @@
       const semTelefone = !normalizarTelefone(pedidoCarregado?.cliente?.telefonePrincipal || pedidoCarregado?.cliente?.telefone1 || '');
       const semItens = !Array.isArray(pedidoCarregado?.itens) || !pedidoCarregado.itens.length;
       btnEnviarWhatsapp.disabled = semTelefone;
+      btnExibirRelatorioWhatsapp.disabled = semItens;
       btnEnviarFotosWhatsapp.disabled = semTelefone || semItens || envioFotosEmAndamento;
       btnEnviarPdfWhatsapp.disabled = semTelefone;
     }
@@ -2699,6 +2795,12 @@
     btnEditarPedido.addEventListener('click', entrarModoEdicao);
     btnCalcularVolumes.addEventListener('click', calcularVolumesPedido);
     btnCopiarPedido.addEventListener('click', abrirModalCopia);
+    btnExibirRelatorioWhatsapp.addEventListener('click', abrirModalRelatorioWhatsapp);
+    btnFecharRelatorioWhatsapp.addEventListener('click', fecharModalRelatorioWhatsapp);
+    btnFecharRelatorioWhatsappRodape.addEventListener('click', fecharModalRelatorioWhatsapp);
+    modalRelatorioWhatsapp.addEventListener('click', (event) => {
+      if (event.target === modalRelatorioWhatsapp) fecharModalRelatorioWhatsapp();
+    });
     btnCancelarPedido.addEventListener('click', abrirModalCancelamento);
     btnFecharCancelamento.addEventListener('click', fecharModalCancelamento);
     btnVoltarCancelamento.addEventListener('click', fecharModalCancelamento);
@@ -2928,6 +3030,11 @@
     });
 
     document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !modalRelatorioWhatsapp.classList.contains('oculto')) {
+        fecharModalRelatorioWhatsapp();
+        return;
+      }
+
       if (event.key === 'Escape' && !modalCopia.classList.contains('oculto')) {
         fecharModalCopia();
         return;
