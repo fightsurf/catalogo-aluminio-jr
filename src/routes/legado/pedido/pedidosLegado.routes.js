@@ -9,6 +9,7 @@ router.post('/pedidos/:idMestre/whatsapp/pdf', controller.enviarPdfWhatsappPedid
 router.post('/pedidos/:idMestre/calcular-volumes', controller.calcularVolumesPedido);
 router.post('/pedidos/:idMestre/copiar', controller.copiarPedido);
 router.post('/pedidos/:idMestre/particionar', controller.particionarPedido);
+router.post('/pedidos/:idMestre/cancelar', controller.cancelarPedido);
 router.put('/pedidos/:idMestre/carrada', controller.alterarCarradaPedido);
 router.put('/pedidos/:idMestre', controller.atualizarPedido);
 

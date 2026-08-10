@@ -530,6 +530,7 @@
         <button id="btnCalcularVolumes" class="btn btn-primary oculto">Calcular volumes</button>
         <button id="btnCopiarPedido" class="btn btn-primary oculto">Copiar pedido</button>
         <button id="btnParticionarPedido" class="btn btn-primary oculto">Particionar pedido</button>
+        <button id="btnCancelarPedido" class="btn btn-danger oculto">Cancelar pedido</button>
         <button id="btnCancelarEdicao" class="btn btn-secondary oculto">Cancelar edição</button>
         <button id="btnSalvarAlteracoes" class="btn btn-primary oculto">Salvar alterações</button>
         <button id="btnEnviarWhatsapp" class="btn btn-whatsapp oculto">Enviar para WhatsApp</button>
@@ -631,6 +632,31 @@
     </div>
   </div>
 
+
+  <div id="modalCancelamento" class="modal-overlay oculto" role="dialog" aria-modal="true" aria-labelledby="tituloModalCancelamento">
+    <div class="modal-card" style="width:min(650px, 100%);">
+      <div class="modal-cabecalho">
+        <h3 id="tituloModalCancelamento">Cancelar pedido</h3>
+        <button id="btnFecharCancelamento" class="btn-fechar-modal" type="button" aria-label="Fechar">×</button>
+      </div>
+
+      <div id="cancelamentoIdentificacao" class="cliente-linha"></div>
+      <div class="particao-aviso" style="border-color:#fecaca; background:#fef2f2; color:#991b1b;">
+        O pedido será marcado como cancelado no banco do legado. Os itens também serão cancelados, as comissões serão removidas e os lançamentos do pedido serão cancelados pela procedure do legado.
+      </div>
+
+      <div class="campo-inline" style="max-width:100%; margin-top:14px;">
+        <label for="motivoCancelamento">Motivo do cancelamento</label>
+        <textarea id="motivoCancelamento" maxlength="250" rows="4" placeholder="Informe o motivo do cancelamento"></textarea>
+      </div>
+
+      <div class="particao-acoes">
+        <button id="btnVoltarCancelamento" class="btn btn-secondary" type="button">Voltar</button>
+        <button id="btnConfirmarCancelamento" class="btn btn-danger" type="button">Confirmar cancelamento</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const numeroPedidoInput = document.getElementById('numeroPedido');
     const clientePedidoInput = document.getElementById('clientePedido');
@@ -646,6 +672,7 @@
     const btnCalcularVolumes = document.getElementById('btnCalcularVolumes');
     const btnCopiarPedido = document.getElementById('btnCopiarPedido');
     const btnParticionarPedido = document.getElementById('btnParticionarPedido');
+    const btnCancelarPedido = document.getElementById('btnCancelarPedido');
     const btnCancelarEdicao = document.getElementById('btnCancelarEdicao');
     const btnSalvarAlteracoes = document.getElementById('btnSalvarAlteracoes');
     const btnEnviarWhatsapp = document.getElementById('btnEnviarWhatsapp');
@@ -674,6 +701,12 @@
     const particaoTotalNovo = document.getElementById('particaoTotalNovo');
     const particaoPagoOriginal = document.getElementById('particaoPagoOriginal');
     const particaoPagoNovo = document.getElementById('particaoPagoNovo');
+    const modalCancelamento = document.getElementById('modalCancelamento');
+    const btnFecharCancelamento = document.getElementById('btnFecharCancelamento');
+    const btnVoltarCancelamento = document.getElementById('btnVoltarCancelamento');
+    const btnConfirmarCancelamento = document.getElementById('btnConfirmarCancelamento');
+    const cancelamentoIdentificacao = document.getElementById('cancelamentoIdentificacao');
+    const motivoCancelamento = document.getElementById('motivoCancelamento');
 
     let pedidoCarregado = null;
     let pedidosEncontrados = [];
@@ -698,6 +731,7 @@
     let importandoRelatorio = false;
     let copiaEmAndamento = false;
     let particaoEmAndamento = false;
+    let cancelamentoEmAndamento = false;
     let envioFotosEmAndamento = false;
 
     function setMensagem(texto, erro = false) {
@@ -837,14 +871,16 @@
 
     function atualizarVisibilidadeAcoes() {
       const haPedido = !!pedidoCarregado;
-      btnEditarPedido.classList.toggle('oculto', !haPedido || modoEdicao);
-      btnCalcularVolumes.classList.toggle('oculto', !haPedido || modoEdicao);
-      btnCopiarPedido.classList.toggle('oculto', !haPedido || modoEdicao);
-      btnParticionarPedido.classList.toggle('oculto', !haPedido || modoEdicao);
+      const pedidoCancelado = String(pedidoCarregado?.situacao || '').trim().toUpperCase() === 'C';
+      btnEditarPedido.classList.toggle('oculto', !haPedido || modoEdicao || pedidoCancelado);
+      btnCalcularVolumes.classList.toggle('oculto', !haPedido || modoEdicao || pedidoCancelado);
+      btnCopiarPedido.classList.toggle('oculto', !haPedido || modoEdicao || pedidoCancelado);
+      btnParticionarPedido.classList.toggle('oculto', !haPedido || modoEdicao || pedidoCancelado);
+      btnCancelarPedido.classList.toggle('oculto', !haPedido || modoEdicao || pedidoCancelado);
       btnCancelarEdicao.classList.add('oculto');
       btnSalvarAlteracoes.classList.add('oculto');
 
-      const ocultarAcoesLeitura = !haPedido || modoEdicao;
+      const ocultarAcoesLeitura = !haPedido || modoEdicao || pedidoCancelado;
       btnEnviarWhatsapp.classList.toggle('oculto', ocultarAcoesLeitura);
       btnEnviarFotosWhatsapp.classList.toggle('oculto', ocultarAcoesLeitura);
       btnEnviarPdfWhatsapp.classList.toggle('oculto', ocultarAcoesLeitura);
@@ -1246,7 +1282,13 @@
         : 'Telefone não encontrado.';
 
       if (!modoEdicao) {
+        const pedidoCancelado = String(pedido?.situacao || '').trim().toUpperCase() === 'C';
+        const avisoCancelado = pedidoCancelado
+          ? `<div class="particao-aviso" style="border-color:#fecaca; background:#fef2f2; color:#991b1b; margin-bottom:14px;"><strong>PEDIDO CANCELADO</strong>${pedido?.dataCancelamento ? ` em ${formatarData(pedido.dataCancelamento)}` : ''}${pedido?.motivoCancelamento ? `<br>Motivo: ${escapeHtml(pedido.motivoCancelamento)}` : ''}</div>`
+          : '';
+
         dadosCliente.innerHTML = `
+          ${avisoCancelado}
           <div class="cliente-linha"><strong>Data:</strong> ${dataFormatada}</div>
           <div class="cliente-linha"><strong>Data de expedição:</strong> ${formatarDataExpedicao(pedido?.dataExpedicao)}</div>
           <div class="cliente-linha"><strong>Número:</strong> ${pedido?.numero || '-'}</div>
@@ -2183,6 +2225,80 @@
       }
     }
 
+
+    function abrirModalCancelamento() {
+      if (!pedidoCarregado?.idMestre || cancelamentoEmAndamento) return;
+      if (String(pedidoCarregado?.situacao || '').trim().toUpperCase() === 'C') {
+        setMensagem('Este pedido já está cancelado.', true);
+        return;
+      }
+
+      cancelamentoIdentificacao.innerHTML = `<strong>Pedido ${escapeHtml(pedidoCarregado.numero || '-')}</strong> · ${escapeHtml(pedidoCarregado?.cliente?.nome || '-')}`;
+      motivoCancelamento.value = '';
+      modalCancelamento.classList.remove('oculto');
+      document.body.style.overflow = 'hidden';
+      setTimeout(() => motivoCancelamento.focus(), 0);
+    }
+
+    function fecharModalCancelamento(forcar = false) {
+      if (cancelamentoEmAndamento && !forcar) return;
+      modalCancelamento.classList.add('oculto');
+      document.body.style.overflow = '';
+      motivoCancelamento.value = '';
+    }
+
+    async function confirmarCancelamentoPedido() {
+      if (!pedidoCarregado?.idMestre || cancelamentoEmAndamento) return;
+
+      const motivo = String(motivoCancelamento.value || '').trim();
+      if (!motivo) {
+        setMensagem('Informe o motivo do cancelamento.', true);
+        motivoCancelamento.focus();
+        return;
+      }
+
+      const textoOriginal = btnConfirmarCancelamento.textContent;
+      try {
+        cancelamentoEmAndamento = true;
+        btnConfirmarCancelamento.disabled = true;
+        btnVoltarCancelamento.disabled = true;
+        btnFecharCancelamento.disabled = true;
+        btnConfirmarCancelamento.textContent = 'Cancelando...';
+        setMensagem(`Cancelando o pedido ${pedidoCarregado.numero || ''}...`);
+
+        const json = await fetchJson(`/api/legado/pedidos/${pedidoCarregado.idMestre}/cancelar`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ motivo })
+        });
+
+        const cancelado = json?.data;
+        if (!cancelado) throw new Error('A API não retornou o pedido cancelado.');
+
+        pedidoCarregado = cancelado;
+        pedidosEncontrados = pedidosEncontrados.map((pedido) => (
+          Number(pedido?.idMestre) === Number(cancelado?.idMestre) ? cancelado : pedido
+        ));
+        if (!pedidosEncontrados.some((pedido) => Number(pedido?.idMestre) === Number(cancelado?.idMestre))) {
+          pedidosEncontrados = [cancelado];
+        }
+
+        modoEdicao = false;
+        fecharModalCancelamento(true);
+        renderizarResultados(pedidosEncontrados);
+        renderizarPedidoCompleto();
+        setMensagem(`Pedido ${cancelado.numero || ''} cancelado com sucesso.`);
+      } catch (error) {
+        setMensagem(error.message || 'Erro ao cancelar pedido.', true);
+      } finally {
+        cancelamentoEmAndamento = false;
+        btnConfirmarCancelamento.disabled = false;
+        btnVoltarCancelamento.disabled = false;
+        btnFecharCancelamento.disabled = false;
+        btnConfirmarCancelamento.textContent = textoOriginal;
+      }
+    }
+
     function renderizarResultados(pedidos) {
       if (!Array.isArray(pedidos) || !pedidos.length) {
         limparResultados();
@@ -2192,7 +2308,7 @@
       resultadosBusca.classList.remove('oculto');
       resultadoLista.innerHTML = pedidos.map((pedido, index) => `
         <div class="resultado-item" data-index="${index}">
-          <div class="resultado-principal">Pedido ${pedido?.numero || '-'} · ${pedido?.cliente?.nome || '-'}</div>
+          <div class="resultado-principal">Pedido ${pedido?.numero || '-'} · ${pedido?.cliente?.nome || '-'}${String(pedido?.situacao || '').trim().toUpperCase() === 'C' ? ' · CANCELADO' : ''}</div>
           <div class="resultado-secundario">Data: ${formatarData(pedido?.data)} · Expedição: ${formatarDataExpedicao(pedido?.dataExpedicao)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)}</div>
           <div class="resultado-secundario">Total pago: ${moeda(pedido?.totalPago || 0)} · Restante a pagar: ${moeda(pedido?.saldoRestante || 0)} · Volumes: ${Number(pedido?.volumes || 0)}</div>
         </div>
@@ -2216,7 +2332,7 @@
       pedidosEncontrados = pedidosEncontrados.filter((_, index) => index === Number(indexAtivo));
       resultadoLista.innerHTML = pedidosEncontrados.map((pedido, index) => `
         <div class="resultado-item ativo" data-index="${index}">
-          <div class="resultado-principal">Pedido ${pedido?.numero || '-'} · ${pedido?.cliente?.nome || '-'}</div>
+          <div class="resultado-principal">Pedido ${pedido?.numero || '-'} · ${pedido?.cliente?.nome || '-'}${String(pedido?.situacao || '').trim().toUpperCase() === 'C' ? ' · CANCELADO' : ''}</div>
           <div class="resultado-secundario">Data: ${formatarData(pedido?.data)} · Expedição: ${formatarDataExpedicao(pedido?.dataExpedicao)} · Cidade: ${pedido?.cliente?.cidade || '-'} / ${pedido?.cliente?.uf || '-'} · Total: ${moeda(pedido?.total || 0)}</div>
           <div class="resultado-secundario">Total pago: ${moeda(pedido?.totalPago || 0)} · Restante a pagar: ${moeda(pedido?.saldoRestante || 0)} · Volumes: ${Number(pedido?.volumes || 0)}</div>
         </div>
@@ -2583,6 +2699,13 @@
     btnEditarPedido.addEventListener('click', entrarModoEdicao);
     btnCalcularVolumes.addEventListener('click', calcularVolumesPedido);
     btnCopiarPedido.addEventListener('click', abrirModalCopia);
+    btnCancelarPedido.addEventListener('click', abrirModalCancelamento);
+    btnFecharCancelamento.addEventListener('click', fecharModalCancelamento);
+    btnVoltarCancelamento.addEventListener('click', fecharModalCancelamento);
+    btnConfirmarCancelamento.addEventListener('click', confirmarCancelamentoPedido);
+    modalCancelamento.addEventListener('click', (event) => {
+      if (event.target === modalCancelamento) fecharModalCancelamento();
+    });
     btnFecharCopia.addEventListener('click', fecharModalCopia);
     btnCancelarCopia.addEventListener('click', fecharModalCopia);
     btnConfirmarCopia.addEventListener('click', confirmarCopiaPedido);
@@ -2812,6 +2935,11 @@
 
       if (event.key === 'Escape' && !modalParticao.classList.contains('oculto')) {
         fecharModalParticao();
+        return;
+      }
+
+      if (event.key === 'Escape' && !modalCancelamento.classList.contains('oculto')) {
+        fecharModalCancelamento();
       }
     });
 

@@ -162,6 +162,10 @@ function normalizarPedido(item) {
     saida: item.saida ?? item.SAIDA ?? item.idMestre ?? item.IDMESTRE ?? item.idmestre ?? null,
     pdv: item.pdv ?? item.PDV ?? 0,
     obs: item.obs ?? item.OBS ?? '',
+    situacao: item.situacao ?? item.SITUACAO ?? '',
+    motivoCancelamento: item.motivoCancelamento ?? item.MOTIVOCANCELAMENTO ?? item.motivocancelamento ?? '',
+    funcCancelamento: item.funcCancelamento ?? item.FUNCCANCELAMENTO ?? item.funccancelamento ?? null,
+    dataCancelamento: item.dataCancelamento ?? item.DATACANCELAMENTO ?? item.datacancelamento ?? null,
     volumes: Number(item.volumes ?? item.VOLUMES ?? 0),
     carradaAtual: normalizarCarrada(item.carradaAtual ?? item.CARRADA_ATUAL ?? null),
     vendedor: {
@@ -518,6 +522,18 @@ async function atualizarPedido(idMestre, payload = {}) {
   };
 }
 
+
+async function cancelarPedido(idMestre, payload = {}) {
+  const response = await legadoBridgeService.post(
+    `/api/legado/pedidos/${idMestre}/cancelar`,
+    { motivo: limparTexto(payload?.motivo) }
+  );
+
+  const pedido = normalizarPedido(response?.data || {});
+  const [pedidoEnriquecido] = await enriquecerPedidosComPagamentos([pedido]);
+  return pedidoEnriquecido || pedido;
+}
+
 async function copiarPedido(idMestre, payload = {}) {
   const response = await legadoBridgeService.post(
     `/api/legado/pedidos/${idMestre}/copiar`,
@@ -639,6 +655,7 @@ module.exports = {
   alterarCarradaPedido,
   calcularESalvarVolumesPedido,
   atualizarPedido,
+  cancelarPedido,
   copiarPedido,
   particionarPedido,
   enviarPdfWhatsappPedido

@@ -180,6 +180,34 @@ async function atualizarPedido(req, res) {
     });
   }
 }
+
+async function cancelarPedido(req, res) {
+  try {
+    const { idMestre } = req.params;
+
+    if (!idMestre) {
+      return res.status(400).json({
+        success: false,
+        message: 'Informe o id do pedido.'
+      });
+    }
+
+    const data = await pedidosLegadoService.cancelarPedido(idMestre, req.body || {});
+
+    return res.json({
+      success: true,
+      message: 'Pedido cancelado com sucesso.',
+      data
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message || 'Erro ao cancelar pedido.',
+      error: error.message
+    });
+  }
+}
+
 async function enviarPdfWhatsappPedido(req, res) {
   try {
     const { idMestre } = req.params;
@@ -269,6 +297,7 @@ module.exports = {
   alterarCarradaPedido,
   calcularVolumesPedido,
   atualizarPedido,
+  cancelarPedido,
   copiarPedido,
   particionarPedido,
   enviarPdfWhatsappPedido
