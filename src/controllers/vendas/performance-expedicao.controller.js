@@ -30,9 +30,9 @@ async function listarPedidosDoDia(req, res) {
   }
 }
 
-async function listarPedidosSemExpedicao120Dias(req, res) {
+async function listarPedidosSemExpedicaoSemanas(req, res) {
   try {
-    const data = await service.listarPedidosSemExpedicao120Dias();
+    const data = await service.listarPedidosSemExpedicaoSemanas();
     return res.json({ success: true, data });
   } catch (error) {
     console.error('ERRO PEDIDOS SEM DATA DE EXPEDIÇÃO:', error);
@@ -46,5 +46,5 @@ async function listarPedidosSemExpedicao120Dias(req, res) {
 module.exports = {
   carregarPerformanceMensal,
   listarPedidosDoDia,
-  listarPedidosSemExpedicao120Dias
+  listarPedidosSemExpedicaoSemanas
 };
