@@ -849,7 +849,7 @@
       const quantidade = Number(resumo?.quantidade_pedidos || 0);
       const inicio = formatarDataBR(resumo?.data_inicial);
       const fim = formatarDataBR(resumo?.data_final);
-      detalhe.textContent = `${quantidade} pedido(s) — vendas de ${inicio} a ${fim}. Clique para visualizar.`;
+      detalhe.textContent = `${quantidade} pedido(s) — carradas de ${inicio} a ${fim}. Clique para visualizar.`;
     }
 
     function renderizar(data) {
@@ -956,7 +956,7 @@
 
     function renderizarPedidosSemExpedicao(data) {
       const pedidos = Array.isArray(data?.pedidos) ? data.pedidos : [];
-      document.getElementById('modalResumo').textContent = `${pedidos.length} pedido(s) sem data de expedição - total ${formatarMoeda(data?.total || 0)} - vendas de ${formatarDataBR(data?.data_inicial)} a ${formatarDataBR(data?.data_final)}`;
+      document.getElementById('modalResumo').textContent = `${pedidos.length} pedido(s) sem data de expedição - total ${formatarMoeda(data?.total || 0)} - carradas de ${formatarDataBR(data?.data_inicial)} a ${formatarDataBR(data?.data_final)}`;
 
       if (!pedidos.length) {
         document.getElementById('modalCorpo').innerHTML = '<p class="vazio">Nenhum pedido sem data de expedição nesse período.</p>';
@@ -973,6 +973,7 @@
         return `
           <tr>
             <td><a class="link-pedido" href="${link}" target="_blank" rel="noopener">${numero}</a></td>
+            <td>${formatarDataBR(pedido.data_carrada)}</td>
             <td>${formatarDataBR(pedido.data)}</td>
             <td>${cliente}${cidade ? `<br><small>${escaparHtml(cidade)}</small>` : ''}</td>
             <td>${vendedor}</td>
@@ -987,6 +988,7 @@
             <thead>
               <tr>
                 <th>Pedido</th>
+                <th>Data carrada</th>
                 <th>Data venda</th>
                 <th>Cliente</th>
                 <th>Vendedor</th>
