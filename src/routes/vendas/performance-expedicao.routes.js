@@ -6,7 +6,5 @@ const router = express.Router();
 router.get('/performance-expedicao', controller.carregarPerformanceMensal);
 router.get('/performance-expedicao/pedidos-dia', controller.listarPedidosDoDia);
 router.get('/performance-expedicao/sem-data-expedicao-semanas', controller.listarPedidosSemExpedicaoSemanas);
-// Compatibilidade temporária com versões anteriores da página.
-router.get('/performance-expedicao/sem-data-expedicao-120-dias', controller.listarPedidosSemExpedicaoSemanas);
 
 module.exports = router;

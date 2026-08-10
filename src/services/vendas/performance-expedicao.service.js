@@ -10,7 +10,10 @@ async function carregarPerformanceMensal(filtros = {}) {
     regra: 'Pedidos agrupados pela data de expedição (SAIDAS.CAMPO01). Pedidos cancelados são ignorados.',
     atual: null,
     anterior: null,
-    sem_data_expedicao_semanas: null
+    sem_data_expedicao_semanas: {
+      semana_passada: null,
+      semana_corrente: null
+    }
   };
 }
 
@@ -27,17 +30,15 @@ async function listarPedidosDoDia(filtros = {}) {
   };
 }
 
-async function listarPedidosSemExpedicaoSemanas() {
-  const response = await legadoBridgeService.get('/api/vendas/performance-expedicao/sem-data-expedicao-semanas');
+async function listarPedidosSemExpedicaoSemanas(filtros = {}) {
+  const response = await legadoBridgeService.get('/api/vendas/performance-expedicao/sem-data-expedicao-semanas', {
+    periodo: filtros.periodo
+  });
 
   return response.dados || {
-    periodo: 'semana_passada_e_corrente',
+    periodo: filtros.periodo || null,
     data_inicial: null,
     data_final: null,
-    semana_passada_inicio: null,
-    semana_passada_fim: null,
-    semana_corrente_inicio: null,
-    semana_corrente_fim: null,
     total: 0,
     quantidade_pedidos: 0,
     pedidos: []

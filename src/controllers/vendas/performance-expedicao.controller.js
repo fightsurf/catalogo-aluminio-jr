@@ -32,7 +32,7 @@ async function listarPedidosDoDia(req, res) {
 
 async function listarPedidosSemExpedicaoSemanas(req, res) {
   try {
-    const data = await service.listarPedidosSemExpedicaoSemanas();
+    const data = await service.listarPedidosSemExpedicaoSemanas({ periodo: req.query.periodo });
     return res.json({ success: true, data });
   } catch (error) {
     console.error('ERRO PEDIDOS SEM DATA DE EXPEDIÇÃO:', error);
