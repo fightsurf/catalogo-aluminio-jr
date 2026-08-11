@@ -661,6 +661,7 @@
         <div class="feedback" id="feedbackLocalEntrega">Defina a transportadora. O campo agência - cidade é opcional.</div>
       </div>
       <div class="modal-footer">
+        <button class="btn-secondary" id="btnLocalEntregaPerguntar">Perguntar ao cliente</button>
         <button class="btn-danger" id="btnLocalEntregaRemover">Remover</button>
         <button class="btn-primary" id="btnLocalEntregaSalvar">Salvar local de entrega</button>
       </div>
@@ -760,6 +761,7 @@
       modalLocalEntregaSubtitulo: document.getElementById('modalLocalEntregaSubtitulo'),
       selectTransportadora: document.getElementById('selectTransportadora'),
       inputAgenciaCidade: document.getElementById('inputAgenciaCidade'),
+      btnLocalEntregaPerguntar: document.getElementById('btnLocalEntregaPerguntar'),
       feedbackLocalEntrega: document.getElementById('feedbackLocalEntrega'),
       btnLocalEntregaSalvar: document.getElementById('btnLocalEntregaSalvar'),
       btnLocalEntregaRemover: document.getElementById('btnLocalEntregaRemover')
@@ -1545,6 +1547,38 @@
       }
     }
 
+    async function perguntarRepeticaoLocalEntregaModal() {
+      const numeroPedido = estado.localEntregaModal.pedidoNumero;
+      if (!numeroPedido) return;
+
+      const botao = el.btnLocalEntregaPerguntar;
+      const textoOriginal = botao.textContent;
+      botao.disabled = true;
+      botao.textContent = 'Enviando...';
+
+      try {
+        const data = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/local-entrega/perguntar-repeticao`, {
+          method: 'POST'
+        });
+
+        const anterior = data?.pedidoAnterior || {};
+        const local = data?.localEntregaAnterior || {};
+        const resumo = `Pedido anterior ${anterior.numero || '-'}: ${local.transportadoraNome || '-'}${local.agenciaCidade ? ` • ${local.agenciaCidade}` : ''}`;
+
+        if (data?.notificacao?.success === false) {
+          setFeedback(el.feedbackLocalEntrega, `${resumo}. Falha ao enviar WhatsApp: ${data.notificacao.error || 'Erro desconhecido.'}`, 'error');
+          return;
+        }
+
+        setFeedback(el.feedbackLocalEntrega, `${resumo}. Pergunta enviada ao cliente pelo WhatsApp.`, 'success');
+      } catch (error) {
+        setFeedback(el.feedbackLocalEntrega, error.message, 'error');
+      } finally {
+        botao.disabled = false;
+        botao.textContent = textoOriginal;
+      }
+    }
+
     async function salvarLocalEntregaModal(transportadoraId) {
       const numeroPedido = estado.localEntregaModal.pedidoNumero;
       if (!numeroPedido) return;
@@ -2220,6 +2254,7 @@
     el.btnEtiquetaEnviar.addEventListener('click', enviarEtiquetaModal);
     el.btnEtiquetaConfirmar.addEventListener('click', () => confirmarEtiquetaModal(true));
     el.btnEtiquetaDesconfirmar.addEventListener('click', () => confirmarEtiquetaModal(false));
+    el.btnLocalEntregaPerguntar.addEventListener('click', perguntarRepeticaoLocalEntregaModal);
     el.btnLocalEntregaSalvar.addEventListener('click', () => salvarLocalEntregaModal(el.selectTransportadora.value));
     el.btnLocalEntregaRemover.addEventListener('click', () => salvarLocalEntregaModal(''));
 

@@ -1822,6 +1822,147 @@ async function confirmarEtiquetaVolumes({ codigoCarrada: codigoCarradaParam, num
   };
 }
 
+async function buscarPedidoImediatamenteAnteriorDoCliente(pedidoAtual) {
+  const favorecido = Number.parseInt(pedidoAtual?.cliente?.favorecido, 10);
+
+  if (!Number.isInteger(favorecido) || favorecido <= 0) {
+    throw criarErro('Não foi possível identificar o cliente deste pedido.', 400);
+  }
+
+  const response = await legadoBridgeService.get(`/api/pedidos-cliente/${favorecido}`);
+  const pedidos = Array.isArray(response?.dados) ? response.dados : [];
+  const saidaAtual = normalizarSaida(pedidoAtual?.saida);
+  const numeroAtual = limparTexto(pedidoAtual?.numero);
+
+  const indiceAtual = pedidos.findIndex((item) => {
+    const saida = normalizarSaida(item?.saida);
+    if (saidaAtual !== null && saida !== null) {
+      return saida === saidaAtual;
+    }
+    return limparTexto(item?.numero) === numeroAtual;
+  });
+
+  if (indiceAtual < 0) {
+    throw criarErro('O pedido atual não foi localizado no histórico do cliente.', 404);
+  }
+
+  const pedidoAnterior = pedidos[indiceAtual + 1] || null;
+
+  if (!pedidoAnterior) {
+    throw criarErro('Este cliente não possui pedido anterior ao pedido atual.', 404);
+  }
+
+  return pedidoAnterior;
+}
+
+async function buscarLocalEntregaDoPedido(pedido) {
+  const mapa = await buscarLocalEntregaRowsDosPedidos([pedido]);
+  const chave = criarChavePedido({
+    saida: pedido?.saida,
+    numero: pedido?.numero
+  });
+
+  return chave ? mapa.get(chave) || null : null;
+}
+
+async function perguntarRepeticaoLocalEntrega({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam }) {
+  await garantirTabelasModulo();
+
+  const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
+  const numeroPedido = normalizarNumeroPedido(numeroPedidoParam);
+  const carrada = await carradasService.buscarResumoCarrada(codigoCarrada);
+
+  if (!carrada) {
+    throw criarErro('Carrada não encontrada.', 404);
+  }
+
+  const pedidoAtual = encontrarPedidoNaCarrada(carrada, numeroPedido);
+  const pedidoAnterior = await buscarPedidoImediatamenteAnteriorDoCliente(pedidoAtual);
+  const localEntregaAnterior = await buscarLocalEntregaDoPedido(pedidoAnterior);
+
+  if (!localEntregaAnterior?.transportadoraId) {
+    throw criarErro(
+      `O pedido imediatamente anterior (${limparTexto(pedidoAnterior?.numero) || '-'}) não possui local de entrega registrado.`,
+      404
+    );
+  }
+
+  const detalhePagamento = await buscarDetalhePagamentoDoPedido(pedidoAtual);
+  const telefone = normalizarTelefoneLote(pedidoAtual, detalhePagamento);
+
+  if (!telefone) {
+    throw criarErro('O cliente não possui telefone de WhatsApp cadastrado.', 400);
+  }
+
+  const numeroPedidoAnterior = limparTexto(pedidoAnterior?.numero) || '-';
+  const transportadoraNome = limparTexto(localEntregaAnterior?.transportadoraNome) || '-';
+  const agenciaCidade = limparTexto(localEntregaAnterior?.agenciaCidade);
+  const mensagem = [
+    'MENSAGEM AUTOMÁTICA - ALUMÍNIO JR',
+    `📦 Pedido nº ${numeroPedido}`,
+    '',
+    `No seu pedido anterior nº ${numeroPedidoAnterior}, o local de entrega foi:`,
+    `Transportadora / excursão: ${transportadoraNome}`,
+    `Agência / cidade: ${agenciaCidade || 'não informada'}`,
+    '',
+    'Podemos repetir estes mesmos dados de entrega neste pedido?'
+  ].join('\n');
+
+  let notificacao;
+
+  try {
+    const envio = await whatsappService.enviarMensagem({ telefone, mensagem });
+    notificacao = {
+      success: true,
+      telefone: envio.telefone,
+      mensagem,
+      response: envio
+    };
+
+    await registrarNotificacao({
+      faseCodigo: 'LOCAL_ENTREGA',
+      codigoCarrada,
+      numeroPedido,
+      telefone: envio.telefone,
+      mensagem,
+      statusEnvio: 'sucesso',
+      respostaApi: envio.zapi || envio
+    });
+  } catch (error) {
+    notificacao = {
+      success: false,
+      telefone,
+      mensagem,
+      error: error.message
+    };
+
+    await registrarNotificacao({
+      faseCodigo: 'LOCAL_ENTREGA',
+      codigoCarrada,
+      numeroPedido,
+      telefone,
+      mensagem,
+      statusEnvio: 'erro',
+      respostaApi: { error: error.message }
+    });
+  }
+
+  return {
+    numeroPedido,
+    pedidoAnterior: {
+      numero: numeroPedidoAnterior,
+      saida: normalizarSaida(pedidoAnterior?.saida),
+      data: pedidoAnterior?.data || null
+    },
+    localEntregaAnterior: {
+      transportadoraId: localEntregaAnterior.transportadoraId,
+      transportadoraNome,
+      agenciaCidade
+    },
+    notificacao
+  };
+}
+
 async function salvarLocalEntrega({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam, transportadoraId, agenciaCidade }) {
   await garantirTabelasModulo();
 
@@ -2048,5 +2189,6 @@ module.exports = {
   enviarEtiquetaVolumes,
   confirmarEtiquetaVolumes,
   salvarLocalEntrega,
+  perguntarRepeticaoLocalEntrega,
   enviarWhatsappCarradaLote
 };

@@ -148,6 +148,19 @@ async function salvarLocalEntrega(req, res) {
   }
 }
 
+async function perguntarRepeticaoLocalEntrega(req, res) {
+  try {
+    const data = await service.perguntarRepeticaoLocalEntrega({
+      codigoCarrada: req.params.codigo,
+      numeroPedido: req.params.numeroPedido
+    });
+
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return responderErro(res, error, 'Erro ao perguntar o local de entrega ao cliente.');
+  }
+}
+
 async function enviarWhatsappCarradaLote(req, res) {
   try {
     const data = await service.enviarWhatsappCarradaLote({
@@ -172,5 +185,6 @@ module.exports = {
   enviarEtiquetaVolumes,
   confirmarEtiquetaVolumes,
   salvarLocalEntrega,
+  perguntarRepeticaoLocalEntrega,
   enviarWhatsappCarradaLote
 };

@@ -14,5 +14,6 @@ router.get('/:codigo/pedidos/:numeroPedido/etiqueta-volumes', controller.buscarD
 router.post('/:codigo/pedidos/:numeroPedido/etiqueta-volumes', controller.enviarEtiquetaVolumes);
 router.patch('/:codigo/pedidos/:numeroPedido/etiqueta-volumes/confirmacao', controller.confirmarEtiquetaVolumes);
 router.put('/:codigo/pedidos/:numeroPedido/local-entrega', controller.salvarLocalEntrega);
+router.post('/:codigo/pedidos/:numeroPedido/local-entrega/perguntar-repeticao', controller.perguntarRepeticaoLocalEntrega);
 
 module.exports = router;
