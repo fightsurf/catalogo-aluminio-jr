@@ -1822,7 +1822,7 @@ async function confirmarEtiquetaVolumes({ codigoCarrada: codigoCarradaParam, num
   };
 }
 
-async function buscarPedidoImediatamenteAnteriorDoCliente(pedidoAtual) {
+async function buscarPedidoAnteriorComLocalEntregaValido(pedidoAtual) {
   const favorecido = Number.parseInt(pedidoAtual?.cliente?.favorecido, 10);
 
   if (!Number.isInteger(favorecido) || favorecido <= 0) {
@@ -1846,23 +1846,30 @@ async function buscarPedidoImediatamenteAnteriorDoCliente(pedidoAtual) {
     throw criarErro('O pedido atual não foi localizado no histórico do cliente.', 404);
   }
 
-  const pedidoAnterior = pedidos[indiceAtual + 1] || null;
+  const pedidosAnteriores = pedidos.slice(indiceAtual + 1);
 
-  if (!pedidoAnterior) {
+  if (!pedidosAnteriores.length) {
     throw criarErro('Este cliente não possui pedido anterior ao pedido atual.', 404);
   }
 
-  return pedidoAnterior;
-}
+  // Carrega os locais de entrega de todos os pedidos anteriores de uma só vez e
+  // percorre o histórico do mais recente para o mais antigo. Assim, pedidos sem
+  // LOCAL DE ENTREGA não bloqueiam a busca pelo último registro aproveitável.
+  const locaisEntrega = await buscarLocalEntregaRowsDosPedidos(pedidosAnteriores);
 
-async function buscarLocalEntregaDoPedido(pedido) {
-  const mapa = await buscarLocalEntregaRowsDosPedidos([pedido]);
-  const chave = criarChavePedido({
-    saida: pedido?.saida,
-    numero: pedido?.numero
-  });
+  for (const pedidoAnterior of pedidosAnteriores) {
+    const chave = criarChavePedido({
+      saida: pedidoAnterior?.saida,
+      numero: pedidoAnterior?.numero
+    });
+    const localEntrega = chave ? locaisEntrega.get(chave) || null : null;
 
-  return chave ? mapa.get(chave) || null : null;
+    if (localEntrega?.transportadoraId) {
+      return { pedidoAnterior, localEntrega };
+    }
+  }
+
+  throw criarErro('Nenhum pedido anterior deste cliente possui local de entrega registrado.', 404);
 }
 
 async function perguntarRepeticaoLocalEntrega({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam }) {
@@ -1877,15 +1884,7 @@ async function perguntarRepeticaoLocalEntrega({ codigoCarrada: codigoCarradaPara
   }
 
   const pedidoAtual = encontrarPedidoNaCarrada(carrada, numeroPedido);
-  const pedidoAnterior = await buscarPedidoImediatamenteAnteriorDoCliente(pedidoAtual);
-  const localEntregaAnterior = await buscarLocalEntregaDoPedido(pedidoAnterior);
-
-  if (!localEntregaAnterior?.transportadoraId) {
-    throw criarErro(
-      `O pedido imediatamente anterior (${limparTexto(pedidoAnterior?.numero) || '-'}) não possui local de entrega registrado.`,
-      404
-    );
-  }
+  const { pedidoAnterior, localEntrega: localEntregaAnterior } = await buscarPedidoAnteriorComLocalEntregaValido(pedidoAtual);
 
   const detalhePagamento = await buscarDetalhePagamentoDoPedido(pedidoAtual);
   const telefone = normalizarTelefoneLote(pedidoAtual, detalhePagamento);
