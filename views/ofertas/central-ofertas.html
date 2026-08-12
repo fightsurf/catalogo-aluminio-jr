@@ -51,8 +51,8 @@
 
     <div class="seletor-categoria">
       <div class="campo" style="margin:0">
-        <label for="filtroCategoria">Categorias por preço</label>
-        <select id="filtroCategoria" class="lista-categorias" size="6" aria-label="Selecione uma faixa de preço"></select>
+        <label for="filtroCategoria">Categorias</label>
+        <select id="filtroCategoria" class="lista-categorias" size="10" aria-label="Selecione uma categoria"></select>
       </div>
       <div class="area-produtos">
         <div class="categoria-titulo">
@@ -76,7 +76,7 @@
       <div class="botoes">
         <button id="criar" class="botao-principal" type="button">Criar oferta e visualizar</button>
       </div>
-      <div id="aviso" class="aviso">Selecione uma faixa de preço e monte o kit.</div>
+      <div id="aviso" class="aviso">Selecione uma categoria e monte o kit.</div>
     </section>
 
     <section id="resultado" class="painel oculto">
@@ -284,6 +284,12 @@ async function buscarArteBlob(ofertaId) {
   return response.blob();
 }
 
+function categorias() {
+  return [...new Set(produtos.map(produto => String(produto.categoria || 'SEM CATEGORIA').trim()))]
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+}
+
+const PREFIXO_FAIXA_PRECO = '__FAIXA_PRECO__:';
 const faixasPreco = [
   { id: '14-15', label: 'Itens de R$ 14 - R$ 15', minimo: 14, maximo: 15, maximoInclusivo: true },
   { id: '13-14', label: 'Itens de R$ 13 - R$ 14', minimo: 13, maximo: 14 },
@@ -293,23 +299,29 @@ const faixasPreco = [
   { id: '9-10', label: 'Itens de R$ 9 - R$ 10', minimo: 9, maximo: 10 },
 ];
 
-function faixaPrecoAtual() {
-  return faixasPreco.find(faixa => faixa.id === categoriaSelecionada) || null;
+function faixaPrecoSelecionada() {
+  if (!categoriaSelecionada.startsWith(PREFIXO_FAIXA_PRECO)) return null;
+  const id = categoriaSelecionada.slice(PREFIXO_FAIXA_PRECO.length);
+  return faixasPreco.find(faixa => faixa.id === id) || null;
 }
 
 function produtoNaFaixa(produto, faixa) {
   const preco = Number(produto.preco);
   if (!Number.isFinite(preco) || !faixa) return false;
-  const dentroDoMinimo = preco >= faixa.minimo;
-  const dentroDoMaximo = faixa.maximoInclusivo ? preco <= faixa.maximo : preco < faixa.maximo;
-  return dentroDoMinimo && dentroDoMaximo;
+  return preco >= faixa.minimo && (faixa.maximoInclusivo ? preco <= faixa.maximo : preco < faixa.maximo);
 }
 
 function prepararCategorias() {
-  el.filtroCategoria.innerHTML = faixasPreco
-    .map(faixa => `<option value="${faixa.id}">${escapeHtml(faixa.label)}</option>`)
+  const lista = categorias();
+  const categoriasBanco = lista
+    .map(categoria => `<option value="${escapeHtml(categoria)}">${escapeHtml(categoria)}</option>`)
     .join('');
-  categoriaSelecionada = faixasPreco[0]?.id || '';
+  const categoriasFaixaPreco = faixasPreco
+    .map(faixa => `<option value="${PREFIXO_FAIXA_PRECO}${faixa.id}">${escapeHtml(faixa.label)}</option>`)
+    .join('');
+
+  el.filtroCategoria.innerHTML = categoriasBanco + categoriasFaixaPreco;
+  categoriaSelecionada = lista[0] || (faixasPreco[0] ? `${PREFIXO_FAIXA_PRECO}${faixasPreco[0].id}` : '');
   el.filtroCategoria.value = categoriaSelecionada;
 }
 
@@ -331,9 +343,11 @@ function estadoAtual() {
 
 function renderProdutos() {
   const estado = estadoAtual();
-  const faixa = faixaPrecoAtual();
-  const itens = produtos.filter(produto => produtoNaFaixa(produto, faixa));
-  el.categoriaAtual.textContent = faixa?.label || 'Faixa de preço';
+  const faixa = faixaPrecoSelecionada();
+  const itens = faixa
+    ? produtos.filter(produto => produtoNaFaixa(produto, faixa))
+    : produtos.filter(produto => String(produto.categoria || 'SEM CATEGORIA').trim() === categoriaSelecionada);
+  el.categoriaAtual.textContent = faixa?.label || categoriaSelecionada || 'Sem categorias';
   el.contadorFiltro.textContent = `${itens.length} ${itens.length === 1 ? 'produto' : 'produtos'}`;
   el.lista.innerHTML = itens.length ? itens.map(produto => {
     const salvo = estado.get(Number(produto.id));
@@ -462,7 +476,7 @@ async function iniciar() {
     renderProdutos();
     atualizarResumoSelecao();
     await carregarHistorico();
-    mostrarAviso('Escolha uma faixa de preço, selecione os produtos e acompanhe o kit ao lado.');
+    mostrarAviso('Escolha uma categoria, selecione os produtos e acompanhe o kit ao lado.');
   } catch (error) {
     el.lista.textContent = 'Não foi possível carregar os produtos.';
     mostrarAviso(error.message, 'erro');
