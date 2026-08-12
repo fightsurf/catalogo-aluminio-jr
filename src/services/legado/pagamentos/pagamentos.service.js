@@ -263,6 +263,15 @@ async function baixarPedidoParaCredito(payload = {}) {
   return enriquecerVinculosPrestacao(await clientesCreditosService.aplicarBaixaEmDetalhe(detalhe));
 }
 
+async function distribuirPagamento(payload = {}) {
+  const response = await request('/api/pagamentos/distribuir', {
+    method: 'POST',
+    body: JSON.stringify(payload || {})
+  });
+
+  return response.dado || null;
+}
+
 async function criarPagamento(payload = {}) {
   const { payloadLegado, prestacaoId } = separarPayloadPrestacao(payload);
   const response = await request('/api/pagamentos', {
@@ -413,6 +422,7 @@ module.exports = {
   listarPedidosPorNumero,
   buscarPedidoComPagamentos,
   baixarPedidoParaCredito,
+  distribuirPagamento,
   criarPagamento,
   atualizarPagamento,
   excluirPagamento

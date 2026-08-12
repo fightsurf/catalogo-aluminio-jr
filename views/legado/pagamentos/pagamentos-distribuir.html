@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Distribuir pagamento entre pedidos</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      --bg: #f5f6f8;
+      --card: #fff;
+      --text: #111827;
+      --muted: #6b7280;
+      --line: #d1d5db;
+      --primary: #111827;
+      --success: #047857;
+      --success-bg: #ecfdf5;
+      --danger: #b91c1c;
+      --danger-bg: #fef2f2;
+      --warning: #9a3412;
+      --warning-bg: #fff7ed;
+      --blue-bg: #eff6ff;
+    }
+    body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: var(--bg); color: var(--text); }
+    button, input, textarea { font: inherit; }
+    button { cursor: pointer; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .page { max-width: 1450px; margin: 0 auto; padding: 20px; }
+    .topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; }
+    h1, h2, h3, p { margin: 0; }
+    .muted { color: var(--muted); }
+    .panel { background: var(--card); border: 1px solid #e5e7eb; border-radius: 14px; padding: 16px; margin-bottom: 16px; box-shadow: 0 2px 10px rgba(0,0,0,.04); }
+    .panel-head { display: flex; justify-content: space-between; align-items: end; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+    .fields { display: flex; gap: 10px; flex-wrap: wrap; align-items: end; }
+    .field { display: flex; flex-direction: column; gap: 6px; min-width: 180px; }
+    .field.grow { flex: 1 1 330px; }
+    label { font-size: 13px; color: var(--muted); font-weight: 700; }
+    input, textarea { width: 100%; border: 1px solid var(--line); border-radius: 9px; background: #fff; padding: 10px 12px; }
+    input { height: 42px; }
+    textarea { min-height: 72px; resize: vertical; }
+    .btn { height: 42px; border: 0; border-radius: 9px; padding: 0 15px; font-weight: 700; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-secondary { background: #fff; border: 1px solid var(--line); color: var(--text); }
+    .btn-small { height: 32px; padding: 0 10px; font-size: 13px; }
+    .status { display: none; padding: 12px 14px; border-radius: 10px; margin-bottom: 16px; font-weight: 700; }
+    .status.show { display: block; }
+    .status.info { background: var(--blue-bg); color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .status.error { background: var(--danger-bg); color: var(--danger); border: 1px solid #fecaca; }
+    .status.success { background: var(--success-bg); color: var(--success); border: 1px solid #a7f3d0; }
+    .results { display: grid; gap: 8px; margin-top: 12px; }
+    .result { border: 1px solid var(--line); border-radius: 10px; padding: 11px 13px; display: flex; justify-content: space-between; align-items: center; gap: 12px; background: #fff; }
+    .result-title { font-weight: 700; }
+    .result-meta { color: var(--muted); font-size: 13px; margin-top: 3px; }
+    .cliente-box { display: none; background: var(--blue-bg); border: 1px solid #bfdbfe; border-radius: 11px; padding: 12px 14px; margin-bottom: 14px; }
+    .cliente-box.show { display: block; }
+    .cliente-box strong { font-size: 18px; }
+    .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin: 8px 0 12px; }
+    .table-wrap { overflow-x: auto; border: 1px solid #e5e7eb; border-radius: 11px; }
+    table { width: 100%; border-collapse: collapse; min-width: 1040px; background: #fff; }
+    th, td { border-bottom: 1px solid #e5e7eb; padding: 10px 9px; text-align: left; vertical-align: middle; font-size: 14px; }
+    th { background: #f9fafb; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .02em; }
+    tr:last-child td { border-bottom: 0; }
+    tr.selected { background: #f0fdf4; }
+    .money { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .center { text-align: center; }
+    .order-buttons { display: inline-flex; gap: 4px; }
+    .order-buttons button { width: 31px; height: 29px; padding: 0; border-radius: 7px; border: 1px solid var(--line); background: #fff; font-weight: 800; }
+    .summary { display: grid; grid-template-columns: repeat(4, minmax(180px, 1fr)); gap: 10px; margin-top: 14px; }
+    .summary-card { border: 1px solid var(--line); border-radius: 10px; padding: 11px 13px; background: #fff; }
+    .summary-card span { display: block; color: var(--muted); font-size: 12px; font-weight: 700; margin-bottom: 5px; }
+    .summary-card strong { font-size: 21px; }
+    .summary-card.highlight { background: var(--success-bg); border-color: #a7f3d0; }
+    .summary-card.warn { background: var(--warning-bg); border-color: #fdba74; }
+    .actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; margin-top: 16px; }
+    .empty { padding: 18px; text-align: center; color: var(--muted); }
+    .hint { margin-top: 8px; font-size: 13px; color: var(--muted); line-height: 1.45; }
+    .preview-value { font-weight: 700; }
+    .preview-partial { color: var(--warning); font-weight: 700; }
+    .preview-quitado { color: var(--success); font-weight: 700; }
+    @media (max-width: 800px) {
+      .page { padding: 12px; }
+      .summary { grid-template-columns: 1fr 1fr; }
+      .field { min-width: 100%; }
+      .fields .btn { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <div class="topbar">
+      <div>
+        <h1>Distribuir pagamento entre pedidos</h1>
+        <p class="muted" style="margin-top:5px;">Localize o cliente, selecione os pedidos e veja a distribuição antes de confirmar.</p>
+      </div>
+      <button class="btn btn-secondary" type="button" onclick="window.location.href='/legado/pagamentos'">Voltar para pagamentos</button>
+    </div>
+
+    <div id="status" class="status"></div>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>1. Localizar cliente</h2>
+          <p class="muted" style="margin-top:4px;">Pode buscar pelo nome do cliente ou pelo número de qualquer pedido dele.</p>
+        </div>
+      </div>
+
+      <div class="fields">
+        <div class="field grow">
+          <label for="buscaCliente">Nome do cliente</label>
+          <input id="buscaCliente" type="text" placeholder="Digite parte do nome" autocomplete="off" />
+        </div>
+        <button id="btnBuscarCliente" class="btn btn-primary" type="button">Buscar cliente</button>
+        <div class="field grow">
+          <label for="buscaPedido">Número do pedido</label>
+          <input id="buscaPedido" type="text" placeholder="Ex.: 0019163" autocomplete="off" />
+        </div>
+        <button id="btnBuscarPedido" class="btn btn-primary" type="button">Buscar pedido</button>
+      </div>
+      <div id="resultadosBusca" class="results"></div>
+    </section>
+
+    <section id="painelPedidos" class="panel" style="display:none;">
+      <div class="panel-head">
+        <div>
+          <h2>2. Pedidos em aberto</h2>
+          <p class="muted" style="margin-top:4px;">A ordem abaixo é a ordem em que o valor será distribuído.</p>
+        </div>
+      </div>
+
+      <div id="clienteSelecionado" class="cliente-box"></div>
+
+      <div class="toolbar">
+        <div>
+          <button id="btnSelecionarTodos" class="btn btn-secondary btn-small" type="button">Selecionar todos</button>
+          <button id="btnLimparSelecao" class="btn btn-secondary btn-small" type="button">Limpar seleção</button>
+        </div>
+        <span id="contadorPedidos" class="muted"></span>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="center">Sel.</th>
+              <th class="center">Ordem</th>
+              <th>Pedido</th>
+              <th>Data</th>
+              <th class="money">Total</th>
+              <th class="money">Já pago</th>
+              <th class="money">Saldo atual</th>
+              <th class="money">Aplicar</th>
+              <th class="money">Saldo após</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyPedidos"></tbody>
+        </table>
+      </div>
+      <p class="hint">Use as setas para mudar qual pedido será quitado primeiro. Pedidos já quitados ou baixados para crédito não aparecem.</p>
+    </section>
+
+    <section id="painelPagamento" class="panel" style="display:none;">
+      <div class="panel-head">
+        <div>
+          <h2>3. Pagamento recebido</h2>
+          <p class="muted" style="margin-top:4px;">O valor será aplicado integralmente seguindo a ordem dos pedidos selecionados.</p>
+        </div>
+      </div>
+
+      <div class="fields">
+        <div class="field">
+          <label for="valorPagamento">Valor recebido</label>
+          <input id="valorPagamento" type="text" inputmode="decimal" placeholder="0,00" />
+        </div>
+        <div class="field">
+          <label for="dataPagamento">Data do pagamento</label>
+          <input id="dataPagamento" type="date" />
+        </div>
+        <div class="field grow">
+          <label for="observacao">Observação</label>
+          <input id="observacao" type="text" maxlength="300" placeholder="Opcional" />
+        </div>
+      </div>
+
+      <div class="summary">
+        <div class="summary-card">
+          <span>Pedidos selecionados</span>
+          <strong id="sumQtd">0</strong>
+        </div>
+        <div class="summary-card">
+          <span>Saldo selecionado</span>
+          <strong id="sumSaldo">R$ 0,00</strong>
+        </div>
+        <div class="summary-card highlight">
+          <span>Valor a distribuir</span>
+          <strong id="sumDistribuir">R$ 0,00</strong>
+        </div>
+        <div id="cardRestante" class="summary-card">
+          <span>Não distribuído</span>
+          <strong id="sumRestante">R$ 0,00</strong>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="btnConfirmar" class="btn btn-primary" type="button" disabled>Confirmar pagamento</button>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const estado = {
+      cliente: null,
+      pedidos: [],
+      selecionados: new Set(),
+      ordem: []
+    };
+
+    const el = (id) => document.getElementById(id);
+
+    function moeda(valor) {
+      return Number(valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+    }
+
+    function numero(valor) {
+      if (typeof valor === 'number') return Number.isFinite(valor) ? valor : 0;
+      const texto = String(valor || '').trim().replace(/\s/g, '').replace(/R\$/gi, '');
+      if (!texto) return 0;
+      if (texto.includes(',') && texto.includes('.')) return Number(texto.replace(/\./g, '').replace(',', '.')) || 0;
+      if (texto.includes(',')) return Number(texto.replace(',', '.')) || 0;
+      return Number(texto) || 0;
+    }
+
+    function dataBR(valor) {
+      if (!valor) return '-';
+      const iso = String(valor).slice(0, 10);
+      const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      return m ? `${m[3]}/${m[2]}/${m[1]}` : iso;
+    }
+
+    function hojeLocal() {
+      const d = new Date();
+      const ano = d.getFullYear();
+      const mes = String(d.getMonth() + 1).padStart(2, '0');
+      const dia = String(d.getDate()).padStart(2, '0');
+      return `${ano}-${mes}-${dia}`;
+    }
+
+    function chavePedido(p) {
+      return `${p.empresa ?? -1}|${p.saida}|${p.pdv ?? 0}`;
+    }
+
+    function status(texto, tipo = 'info') {
+      const box = el('status');
+      box.textContent = texto || '';
+      box.className = `status ${texto ? 'show' : ''} ${tipo}`;
+      if (texto) window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    async function api(url, options = {}) {
+      const resp = await fetch(url, {
+        ...options,
+        headers: { 'Content-Type': 'application/json', ...(options.headers || {}) }
+      });
+      const data = await resp.json().catch(() => ({}));
+      if (!resp.ok) throw new Error(data.error || data.message || 'Falha na operação.');
+      return data;
+    }
+
+    function mostrarResultados(items, tipo) {
+      const box = el('resultadosBusca');
+      if (!items.length) {
+        box.innerHTML = '<div class="empty">Nenhum resultado encontrado.</div>';
+        return;
+      }
+
+      box.innerHTML = items.map((item, idx) => {
+        if (tipo === 'cliente') {
+          const local = [item.cidade, item.uf].filter(Boolean).join(' / ');
+          return `<div class="result">
+            <div><div class="result-title">${esc(item.nome || 'Cliente')}</div><div class="result-meta">${esc(local || `Código ${item.favorecido}`)}</div></div>
+            <button class="btn btn-secondary btn-small" data-escolher-cliente="${idx}">Selecionar</button>
+          </div>`;
+        }
+
+        const cliente = item.cliente || {};
+        return `<div class="result">
+          <div><div class="result-title">Pedido ${esc(item.numero || '-')} — ${esc(cliente.nome || 'Cliente')}</div><div class="result-meta">${dataBR(item.data)} · Saldo ${moeda(item.saldoRestante)}</div></div>
+          <button class="btn btn-secondary btn-small" data-escolher-pedido="${idx}">Abrir cliente</button>
+        </div>`;
+      }).join('');
+
+      box.querySelectorAll('[data-escolher-cliente]').forEach(btn => {
+        btn.addEventListener('click', () => selecionarCliente(items[Number(btn.dataset.escolherCliente)]));
+      });
+      box.querySelectorAll('[data-escolher-pedido]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const pedido = items[Number(btn.dataset.escolherPedido)];
+          selecionarCliente({
+            favorecido: pedido.favorecido ?? pedido.cliente?.favorecido,
+            nome: pedido.cliente?.nome || '',
+            cidade: pedido.cliente?.cidade || '',
+            uf: pedido.cliente?.uf || ''
+          });
+        });
+      });
+    }
+
+    function esc(valor) {
+      return String(valor ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    async function buscarCliente() {
+      const nome = el('buscaCliente').value.trim();
+      if (!nome) return status('Digite parte do nome do cliente.', 'error');
+      status('Buscando cliente...', 'info');
+      try {
+        const r = await api(`/api/legado/pagamentos/clientes?nome=${encodeURIComponent(nome)}`);
+        status('', 'info');
+        mostrarResultados(Array.isArray(r.data) ? r.data : [], 'cliente');
+      } catch (e) { status(e.message, 'error'); }
+    }
+
+    async function buscarPedido() {
+      const pedido = el('buscaPedido').value.trim();
+      if (!pedido) return status('Digite o número do pedido.', 'error');
+      status('Buscando pedido...', 'info');
+      try {
+        const r = await api(`/api/legado/pagamentos/pedidos/por-numero?numero=${encodeURIComponent(pedido)}`);
+        status('', 'info');
+        mostrarResultados(Array.isArray(r.data) ? r.data : [], 'pedido');
+      } catch (e) { status(e.message, 'error'); }
+    }
+
+    async function selecionarCliente(cliente) {
+      const favorecido = Number(cliente?.favorecido);
+      if (!Number.isInteger(favorecido) || favorecido <= 0) return status('Cliente inválido.', 'error');
+
+      estado.cliente = { ...cliente, favorecido };
+      estado.selecionados.clear();
+      estado.ordem = [];
+      el('resultadosBusca').innerHTML = '';
+      status('Carregando pedidos em aberto...', 'info');
+
+      try {
+        const r = await api(`/api/legado/pagamentos/pedidos/por-cliente/${favorecido}`);
+        const todos = Array.isArray(r.data) ? r.data : [];
+        estado.pedidos = todos
+          .filter(p => Number(p.saldoRestante || 0) > 0.009 && !p.baixadoParaCredito)
+          .sort((a, b) => {
+            const da = String(a.data || '').slice(0, 10);
+            const db = String(b.data || '').slice(0, 10);
+            if (da !== db) return da.localeCompare(db);
+            return Number(a.saida || 0) - Number(b.saida || 0);
+          });
+        estado.ordem = estado.pedidos.map(chavePedido);
+        status('', 'info');
+        renderCliente();
+        renderPedidos();
+        el('painelPedidos').style.display = 'block';
+        el('painelPagamento').style.display = 'block';
+        if (!estado.pedidos.length) status('Este cliente não possui pedidos com saldo em aberto.', 'success');
+      } catch (e) { status(e.message, 'error'); }
+    }
+
+    function renderCliente() {
+      const c = estado.cliente || {};
+      const local = [c.cidade, c.uf].filter(Boolean).join(' / ');
+      const box = el('clienteSelecionado');
+      box.className = 'cliente-box show';
+      box.innerHTML = `<strong>${esc(c.nome || 'Cliente')}</strong><div class="muted" style="margin-top:4px;">Código ${esc(c.favorecido)}${local ? ` · ${esc(local)}` : ''}</div>`;
+    }
+
+    function pedidosOrdenados() {
+      const mapa = new Map(estado.pedidos.map(p => [chavePedido(p), p]));
+      return estado.ordem.map(k => mapa.get(k)).filter(Boolean);
+    }
+
+    function calcularPreview() {
+      const valor = Number(numero(el('valorPagamento').value).toFixed(2));
+      let restante = valor;
+      const preview = new Map();
+
+      pedidosOrdenados().forEach(p => {
+        const k = chavePedido(p);
+        if (!estado.selecionados.has(k)) {
+          preview.set(k, { aplicar: 0, saldoApos: Number(p.saldoRestante || 0) });
+          return;
+        }
+        const saldo = Number(p.saldoRestante || 0);
+        const aplicar = Number(Math.min(Math.max(restante, 0), saldo).toFixed(2));
+        restante = Number((restante - aplicar).toFixed(2));
+        preview.set(k, { aplicar, saldoApos: Number((saldo - aplicar).toFixed(2)) });
+      });
+
+      return { valor, restante: Math.max(0, Number(restante.toFixed(2))), preview };
+    }
+
+    function renderPedidos() {
+      const lista = pedidosOrdenados();
+      const calc = calcularPreview();
+      const tbody = el('tbodyPedidos');
+
+      if (!lista.length) {
+        tbody.innerHTML = '<tr><td colspan="9" class="empty">Nenhum pedido em aberto.</td></tr>';
+        atualizarResumo(calc);
+        return;
+      }
+
+      tbody.innerHTML = lista.map((p, idx) => {
+        const k = chavePedido(p);
+        const sel = estado.selecionados.has(k);
+        const prev = calc.preview.get(k) || { aplicar: 0, saldoApos: Number(p.saldoRestante || 0) };
+        let classeSaldo = '';
+        if (sel && prev.aplicar > 0 && prev.saldoApos <= .009) classeSaldo = 'preview-quitado';
+        else if (sel && prev.aplicar > 0) classeSaldo = 'preview-partial';
+        return `<tr class="${sel ? 'selected' : ''}">
+          <td class="center"><input type="checkbox" data-check="${esc(k)}" ${sel ? 'checked' : ''} /></td>
+          <td class="center"><span class="order-buttons"><button type="button" data-up="${esc(k)}" ${idx === 0 ? 'disabled' : ''}>↑</button><button type="button" data-down="${esc(k)}" ${idx === lista.length - 1 ? 'disabled' : ''}>↓</button></span></td>
+          <td><strong>${esc(p.numero || '-')}</strong></td>
+          <td>${dataBR(p.data)}</td>
+          <td class="money">${moeda(p.total)}</td>
+          <td class="money">${moeda(p.totalPago)}</td>
+          <td class="money">${moeda(p.saldoRestante)}</td>
+          <td class="money preview-value">${sel ? moeda(prev.aplicar) : '-'}</td>
+          <td class="money ${classeSaldo}">${sel ? moeda(prev.saldoApos) : '-'}</td>
+        </tr>`;
+      }).join('');
+
+      tbody.querySelectorAll('[data-check]').forEach(input => {
+        input.addEventListener('change', () => {
+          const k = input.dataset.check;
+          if (input.checked) estado.selecionados.add(k); else estado.selecionados.delete(k);
+          renderPedidos();
+        });
+      });
+      tbody.querySelectorAll('[data-up]').forEach(btn => btn.addEventListener('click', () => mover(btn.dataset.up, -1)));
+      tbody.querySelectorAll('[data-down]').forEach(btn => btn.addEventListener('click', () => mover(btn.dataset.down, 1)));
+      atualizarResumo(calc);
+    }
+
+    function mover(k, delta) {
+      const i = estado.ordem.indexOf(k);
+      const j = i + delta;
+      if (i < 0 || j < 0 || j >= estado.ordem.length) return;
+      [estado.ordem[i], estado.ordem[j]] = [estado.ordem[j], estado.ordem[i]];
+      renderPedidos();
+    }
+
+    function atualizarResumo(calc = calcularPreview()) {
+      const selecionados = pedidosOrdenados().filter(p => estado.selecionados.has(chavePedido(p)));
+      const saldo = Number(selecionados.reduce((t, p) => t + Number(p.saldoRestante || 0), 0).toFixed(2));
+      el('sumQtd').textContent = selecionados.length;
+      el('sumSaldo').textContent = moeda(saldo);
+      el('sumDistribuir').textContent = moeda(calc.valor);
+      el('sumRestante').textContent = moeda(calc.restante);
+      el('contadorPedidos').textContent = `${selecionados.length} de ${estado.pedidos.length} pedido(s) selecionado(s)`;
+
+      const excede = calc.valor - saldo > .009;
+      const valido = selecionados.length > 0 && calc.valor > 0 && !excede && calc.restante <= .009 && !!el('dataPagamento').value;
+      el('btnConfirmar').disabled = !valido;
+      el('cardRestante').className = `summary-card ${excede || calc.restante > .009 ? 'warn' : ''}`;
+      if (excede) el('sumRestante').textContent = `Excede ${moeda(calc.valor - saldo)}`;
+    }
+
+    async function confirmar() {
+      const selecionados = pedidosOrdenados().filter(p => estado.selecionados.has(chavePedido(p)));
+      const calc = calcularPreview();
+      const saldo = Number(selecionados.reduce((t, p) => t + Number(p.saldoRestante || 0), 0).toFixed(2));
+      if (!selecionados.length) return status('Selecione ao menos um pedido.', 'error');
+      if (calc.valor <= 0) return status('Informe o valor recebido.', 'error');
+      if (calc.valor - saldo > .009) return status('O valor recebido é maior que o saldo dos pedidos selecionados.', 'error');
+      if (calc.restante > .009) return status('Não foi possível distribuir todo o valor informado.', 'error');
+
+      const resumo = selecionados.map(p => {
+        const prev = calc.preview.get(chavePedido(p));
+        return `Pedido ${p.numero}: ${moeda(prev?.aplicar || 0)}`;
+      }).filter(t => !t.endsWith('R$ 0,00')).join('\n');
+
+      if (!window.confirm(`Confirmar pagamento de ${moeda(calc.valor)}?\n\n${resumo}`)) return;
+
+      const btn = el('btnConfirmar');
+      btn.disabled = true;
+      btn.textContent = 'Salvando...';
+      status('Gravando a distribuição do pagamento...', 'info');
+
+      try {
+        const payload = {
+          favorecido: estado.cliente.favorecido,
+          valor: calc.valor,
+          dataPgto: el('dataPagamento').value,
+          observacao: el('observacao').value.trim(),
+          pedidos: selecionados.map(p => ({ empresa: p.empresa ?? -1, saida: p.saida, pdv: p.pdv ?? 0 }))
+        };
+        const r = await api('/api/legado/pagamentos/distribuir', { method: 'POST', body: JSON.stringify(payload) });
+        const aplicacoes = Array.isArray(r.data?.aplicacoes) ? r.data.aplicacoes : [];
+        const texto = aplicacoes.map(a => `Pedido ${a.numero}: ${moeda(a.valorAplicado)}`).join(' | ');
+        status(`Pagamento distribuído com sucesso. ${texto}`, 'success');
+        el('valorPagamento').value = '';
+        el('observacao').value = '';
+        await selecionarCliente(estado.cliente);
+        status(`Pagamento distribuído com sucesso. ${texto}`, 'success');
+      } catch (e) {
+        status(e.message, 'error');
+      } finally {
+        btn.textContent = 'Confirmar pagamento';
+        atualizarResumo();
+      }
+    }
+
+    el('dataPagamento').value = hojeLocal();
+    el('btnBuscarCliente').addEventListener('click', buscarCliente);
+    el('btnBuscarPedido').addEventListener('click', buscarPedido);
+    el('buscaCliente').addEventListener('keydown', e => { if (e.key === 'Enter') buscarCliente(); });
+    el('buscaPedido').addEventListener('keydown', e => { if (e.key === 'Enter') buscarPedido(); });
+    el('valorPagamento').addEventListener('input', renderPedidos);
+    el('dataPagamento').addEventListener('change', atualizarResumo);
+    el('btnConfirmar').addEventListener('click', confirmar);
+    el('btnSelecionarTodos').addEventListener('click', () => {
+      estado.pedidos.forEach(p => estado.selecionados.add(chavePedido(p)));
+      renderPedidos();
+    });
+    el('btnLimparSelecao').addEventListener('click', () => {
+      estado.selecionados.clear();
+      renderPedidos();
+    });
+  </script>
+</body>
+</html>

@@ -105,6 +105,29 @@ async function baixarPedidoParaCredito(req, res) {
   }
 }
 
+async function distribuirPagamento(req, res) {
+  try {
+    const data = await pagamentosService.distribuirPagamento(req.body);
+
+    const aplicacoes = Array.isArray(data?.aplicacoes) ? data.aplicacoes : [];
+    for (const aplicacao of aplicacoes) {
+      await atualizarStatusCarradaSemQuebrar(null, {
+        empresa: aplicacao.empresa,
+        saida: aplicacao.saida,
+        pdv: aplicacao.pdv
+      });
+    }
+
+    return res.status(201).json({ success: true, data });
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: 'Erro ao distribuir pagamento entre pedidos.',
+      error: error.message
+    });
+  }
+}
+
 async function criarPagamento(req, res) {
   try {
     const data = await pagamentosService.criarPagamento(req.body);
@@ -143,6 +166,7 @@ module.exports = {
   listarPedidosPorNumero,
   buscarPedidoComPagamentos,
   baixarPedidoParaCredito,
+  distribuirPagamento,
   criarPagamento,
   atualizarPagamento,
   excluirPagamento

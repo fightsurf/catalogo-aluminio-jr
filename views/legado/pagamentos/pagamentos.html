@@ -389,9 +389,14 @@
         <h1>Pagamentos do Cliente</h1>
         <p class="muted">Escolha o pedido e faça o CRUD completo dos pagamentos.</p>
       </div>
-      <button class="btn-secondary" type="button" onclick="window.location.href='/legado/pagamentos/realizados'">
-        Pagamentos realizados
-      </button>
+      <div style="display:flex; gap:8px; flex-wrap:wrap;">
+        <button class="btn-primary" type="button" onclick="window.location.href='/legado/pagamentos/distribuir'">
+          Distribuir pagamento
+        </button>
+        <button class="btn-secondary" type="button" onclick="window.location.href='/legado/pagamentos/realizados'">
+          Pagamentos realizados
+        </button>
+      </div>
     </div>
 
     <div id="status" class="status"></div>
