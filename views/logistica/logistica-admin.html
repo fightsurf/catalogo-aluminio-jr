@@ -21,6 +21,21 @@ button { padding:6px 12px; border:none; border-radius:4px; cursor:pointer; }
 .section-header { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
 .section-header strong { display:block; }
 .btn-secondary { background:#6c757d; color:white; }
+.autocomplete-wrapper { position:relative; }
+.autocomplete-lista {
+  position:absolute; top:calc(100% - 6px); left:0; right:0;
+  background:#fff; border:1px solid #d1d5db; border-radius:6px;
+  box-shadow:0 8px 20px rgba(0,0,0,0.12); max-height:220px; overflow-y:auto;
+  z-index:100; display:none;
+}
+.autocomplete-lista.ativo { display:block; }
+.autocomplete-item {
+  width:100%; border:0; background:#fff; padding:9px 10px; text-align:left;
+  cursor:pointer; display:block; color:#111;
+}
+.autocomplete-item:hover, .autocomplete-item.ativo { background:#eef2f7; }
+.autocomplete-vazio { padding:9px 10px; color:#6c757d; font-size:14px; }
+.cidade-uf-grid { display:grid; grid-template-columns:1fr 72px; gap:8px; }
 
 .modal-overlay {
   position:fixed;
@@ -56,6 +71,15 @@ button { padding:6px 12px; border:none; border-radius:4px; cursor:pointer; }
 <h3>Transportadoras</h3>
 <input id="novo-nome" placeholder="Nome">
 <input id="novo-telefone" placeholder="Telefone">
+<input id="novo-telefone-principal" placeholder="Telefone principal">
+<div class="cidade-uf-grid">
+  <div class="autocomplete-wrapper">
+    <input id="novo-cidade" placeholder="Cidade - digite as primeiras letras" autocomplete="off">
+    <input id="novo-cidade-id" type="hidden">
+    <div id="novo-cidade-autocomplete" class="autocomplete-lista"></div>
+  </div>
+  <input id="novo-cidade-uf" placeholder="UF" maxlength="2" readonly>
+</div>
 <textarea id="novo-observacao" placeholder="Observação"></textarea>
 <button class="btn-primary" onclick="criarTransportadora()">Criar</button>
 <div class="divider"></div>
@@ -101,19 +125,33 @@ let cidadesVinculadasCarregadas = [];
 async function criarTransportadora() {
   const nome = document.getElementById('novo-nome').value.trim();
   const telefone = document.getElementById('novo-telefone').value.trim();
+  const telefone_principal = document.getElementById('novo-telefone-principal').value.trim();
+  const cidadeTexto = document.getElementById('novo-cidade').value.trim();
+  const cidade_id = document.getElementById('novo-cidade-id').value || null;
   const observacao = document.getElementById('novo-observacao').value.trim();
 
   if (!nome) return alert('Nome é obrigatório');
+  if (cidadeTexto && !cidade_id) return alert('Selecione a cidade na lista de sugestões ou deixe o campo em branco.');
 
-  await fetch(API_TRANSPORTADORAS, {
+  const response = await fetch(API_TRANSPORTADORAS, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nome, telefone, observacao })
+    body: JSON.stringify({ nome, telefone, telefone_principal, cidade_id, observacao })
   });
+
+  if (!response.ok) {
+    const erro = await response.json().catch(() => ({}));
+    return alert(erro.error || 'Erro ao criar transportadora');
+  }
 
   document.getElementById('novo-nome').value = '';
   document.getElementById('novo-telefone').value = '';
+  document.getElementById('novo-telefone-principal').value = '';
+  document.getElementById('novo-cidade').value = '';
+  document.getElementById('novo-cidade-id').value = '';
+  document.getElementById('novo-cidade-uf').value = '';
   document.getElementById('novo-observacao').value = '';
+  fecharAutocompleteCidade(document.getElementById('novo-cidade-autocomplete'));
 
   carregarTransportadoras();
 }
@@ -161,11 +199,27 @@ function renderDetalhes() {
     <strong>${transportadoraSelecionada.nome}</strong>
     <div class="divider"></div>
     <input id="edit-nome" value="${transportadoraSelecionada.nome}">
-    <input id="edit-telefone" value="${transportadoraSelecionada.telefone || ''}">
+    <input id="edit-telefone" value="${transportadoraSelecionada.telefone || ''}" placeholder="Telefone">
+    <input id="edit-telefone-principal" value="${transportadoraSelecionada.telefone_principal || ''}" placeholder="Telefone principal">
+    <div class="cidade-uf-grid">
+      <div class="autocomplete-wrapper">
+        <input id="edit-cidade" value="${transportadoraSelecionada.cidade_nome || ''}" placeholder="Cidade - digite as primeiras letras" autocomplete="off">
+        <input id="edit-cidade-id" type="hidden" value="${transportadoraSelecionada.cidade_id || ''}">
+        <div id="edit-cidade-autocomplete" class="autocomplete-lista"></div>
+      </div>
+      <input id="edit-cidade-uf" value="${transportadoraSelecionada.cidade_estado || ''}" placeholder="UF" maxlength="2" readonly>
+    </div>
     <textarea id="edit-observacao">${transportadoraSelecionada.observacao || ''}</textarea>
     <button class="btn-edit" onclick="salvarEdicao()">Salvar</button>
     <button class="btn-danger" onclick="excluirTransportadora()">Excluir</button>
   `;
+
+  configurarAutocompleteCidade({
+    inputId: 'edit-cidade',
+    cidadeIdId: 'edit-cidade-id',
+    ufId: 'edit-cidade-uf',
+    listaId: 'edit-cidade-autocomplete'
+  });
 }
 
 // =============================
@@ -174,13 +228,24 @@ async function salvarEdicao() {
 
   const nome = document.getElementById('edit-nome').value.trim();
   const telefone = document.getElementById('edit-telefone').value.trim();
+  const telefone_principal = document.getElementById('edit-telefone-principal').value.trim();
+  const cidadeTexto = document.getElementById('edit-cidade').value.trim();
+  const cidade_id = document.getElementById('edit-cidade-id').value || null;
   const observacao = document.getElementById('edit-observacao').value.trim();
 
-  await fetch(`${API_TRANSPORTADORAS}/${transportadoraSelecionada.id}`, {
+  if (!nome) return alert('Nome é obrigatório');
+  if (cidadeTexto && !cidade_id) return alert('Selecione a cidade na lista de sugestões ou deixe o campo em branco.');
+
+  const response = await fetch(`${API_TRANSPORTADORAS}/${transportadoraSelecionada.id}`, {
     method:'PUT',
     headers:{ 'Content-Type':'application/json' },
-    body: JSON.stringify({ nome, telefone, observacao })
+    body: JSON.stringify({ nome, telefone, telefone_principal, cidade_id, observacao })
   });
+
+  if (!response.ok) {
+    const erro = await response.json().catch(() => ({}));
+    return alert(erro.error || 'Erro ao atualizar transportadora');
+  }
 
   transportadoraSelecionada = null;
   cidadesVinculadasCarregadas = [];
@@ -374,6 +439,123 @@ async function removerCidade(codigo_ibge) {
 
   carregarCidades();
 }
+
+// =============================
+// AUTOCOMPLETE DA CIDADE DA TRANSPORTADORA
+// Reaproveita a mesma API usada no cadastro de clientes.
+// =============================
+function fecharAutocompleteCidade(lista) {
+  if (!lista) return;
+  lista.classList.remove('ativo');
+  lista.innerHTML = '';
+}
+
+function configurarAutocompleteCidade({ inputId, cidadeIdId, ufId, listaId }) {
+  const input = document.getElementById(inputId);
+  const cidadeId = document.getElementById(cidadeIdId);
+  const uf = document.getElementById(ufId);
+  const lista = document.getElementById(listaId);
+
+  if (!input || !cidadeId || !uf || !lista || input.dataset.autocompleteConfigurado === '1') return;
+  input.dataset.autocompleteConfigurado = '1';
+
+  let sugestoes = [];
+  let indiceAtivo = -1;
+  let controlador = null;
+
+  function selecionar(cidade) {
+    if (!cidade) return;
+    input.value = cidade.nome || '';
+    cidadeId.value = cidade.id || '';
+    uf.value = String(cidade.estado || '').toUpperCase().slice(0, 2);
+    fecharAutocompleteCidade(lista);
+  }
+
+  function renderizar() {
+    if (!sugestoes.length) {
+      lista.innerHTML = '<div class="autocomplete-vazio">Nenhuma cidade encontrada.</div>';
+      lista.classList.add('ativo');
+      return;
+    }
+
+    lista.innerHTML = sugestoes.map((cidade, indice) => `
+      <button type="button" class="autocomplete-item ${indice === indiceAtivo ? 'ativo' : ''}" data-indice="${indice}">
+        ${cidade.nome} - ${cidade.estado}
+      </button>
+    `).join('');
+    lista.classList.add('ativo');
+
+    lista.querySelectorAll('.autocomplete-item').forEach((botao) => {
+      botao.addEventListener('mousedown', (event) => {
+        event.preventDefault();
+        selecionar(sugestoes[Number(botao.dataset.indice)]);
+      });
+    });
+  }
+
+  async function buscar() {
+    const termo = input.value.trim();
+    if (termo.length < 3) {
+      fecharAutocompleteCidade(lista);
+      return;
+    }
+
+    if (controlador) controlador.abort();
+    controlador = new AbortController();
+
+    try {
+      const response = await fetch(`/api/logistica/cidades/busca?nome=${encodeURIComponent(termo)}`, {
+        signal: controlador.signal
+      });
+      const dados = await response.json();
+      if (!response.ok) throw new Error('Erro ao buscar cidades');
+
+      sugestoes = Array.isArray(dados) ? dados : [];
+      indiceAtivo = sugestoes.length ? 0 : -1;
+      renderizar();
+    } catch (error) {
+      if (error.name === 'AbortError') return;
+      console.error('Erro ao buscar cidades:', error);
+      fecharAutocompleteCidade(lista);
+    }
+  }
+
+  function mover(direcao) {
+    if (!sugestoes.length) return;
+    indiceAtivo += direcao;
+    if (indiceAtivo < 0) indiceAtivo = sugestoes.length - 1;
+    if (indiceAtivo >= sugestoes.length) indiceAtivo = 0;
+    renderizar();
+  }
+
+  input.addEventListener('input', () => {
+    cidadeId.value = '';
+    uf.value = '';
+    buscar();
+  });
+
+  input.addEventListener('focus', () => {
+    if (input.value.trim().length >= 3) buscar();
+  });
+
+  input.addEventListener('keydown', (event) => {
+    if (event.key === 'ArrowDown') { event.preventDefault(); mover(1); return; }
+    if (event.key === 'ArrowUp') { event.preventDefault(); mover(-1); return; }
+    if (event.key === 'Enter' && indiceAtivo >= 0) { event.preventDefault(); selecionar(sugestoes[indiceAtivo]); return; }
+    if (event.key === 'Escape') fecharAutocompleteCidade(lista);
+  });
+
+  input.addEventListener('blur', () => {
+    setTimeout(() => fecharAutocompleteCidade(lista), 120);
+  });
+}
+
+configurarAutocompleteCidade({
+  inputId: 'novo-cidade',
+  cidadeIdId: 'novo-cidade-id',
+  ufId: 'novo-cidade-uf',
+  listaId: 'novo-cidade-autocomplete'
+});
 
 carregarTransportadoras();
 </script>
