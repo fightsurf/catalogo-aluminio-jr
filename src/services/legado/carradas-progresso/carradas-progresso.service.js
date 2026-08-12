@@ -5,6 +5,7 @@ const whatsappService = require('../../whatsapp/envio-whatsapp.service');
 const carradasStatusResumoService = require('./carradas-status-resumo.service');
 const legadoBridgeService = require('../legadoBridge.service');
 const pedidosLegadoService = require('../pedido/pedidosLegado.service');
+const agenciasRecebimentoService = require('../../logistica/agenciaRecebimentoService');
 
 const FASES_BOOLEANAS = {
   EM_PRODUCAO: {
@@ -107,6 +108,8 @@ async function garantirTabelasModulo(client = pool) {
       500
     );
   }
+
+  await agenciasRecebimentoService.garantirEstruturaAgencias(client);
 
   if (!estruturaRedespachoPromise) {
     estruturaRedespachoPromise = (async () => {
@@ -661,16 +664,23 @@ async function buscarLocalEntregaRowsDosPedidos(pedidos = []) {
         le.saida,
         le.transportadora_id,
         le.redespacho_transportadora_id,
+        le.agencia_recebimento_codigo,
         le.agencia_cidade,
         le.created_at,
         le.updated_at,
         t.nome AS transportadora_nome,
         t.telefone_principal AS transportadora_telefone_principal,
         r.nome AS redespacho_transportadora_nome,
-        r.telefone_principal AS redespacho_transportadora_telefone_principal
+        r.telefone_principal AS redespacho_transportadora_telefone_principal,
+        a.nome AS agencia_recebimento_nome,
+        a.cidade_id AS agencia_recebimento_cidade_id,
+        ac.nome AS agencia_recebimento_cidade_nome,
+        ac.estado AS agencia_recebimento_cidade_estado
       FROM carradas_pedidos_local_entrega le
       INNER JOIN transportadoras t ON t.id = le.transportadora_id
       LEFT JOIN transportadoras r ON r.id = le.redespacho_transportadora_id
+      LEFT JOIN agencias_recebimento a ON a.codigo = le.agencia_recebimento_codigo
+      LEFT JOIN cidades ac ON ac.id = a.cidade_id
       WHERE (le.saida IS NOT NULL AND le.saida = ANY($1::bigint[]))
          OR le.numero_pedido = ANY($2::text[])
       ORDER BY COALESCE(le.updated_at, le.created_at) ASC, le.codigo_carrada ASC
@@ -695,7 +705,12 @@ async function buscarLocalEntregaRowsDosPedidos(pedidos = []) {
       redespachoTransportadoraId: row.redespacho_transportadora_id || null,
       redespachoTransportadoraNome: row.redespacho_transportadora_nome || '',
       redespachoTransportadoraTelefonePrincipal: row.redespacho_transportadora_telefone_principal || '',
-      agenciaCidade: row.agencia_cidade || '',
+      agenciaRecebimentoCodigo: row.agencia_recebimento_codigo || null,
+      agenciaRecebimentoNome: row.agencia_recebimento_nome || row.agencia_cidade || '',
+      agenciaRecebimentoCidadeId: row.agencia_recebimento_cidade_id || null,
+      agenciaRecebimentoCidadeNome: row.agencia_recebimento_cidade_nome || '',
+      agenciaRecebimentoCidadeUf: row.agencia_recebimento_cidade_estado || '',
+      agenciaCidade: row.agencia_cidade || row.agencia_recebimento_nome || '',
       createdAt: row.created_at,
       updatedAt: row.updated_at
     });
@@ -776,7 +791,12 @@ function montarFasesDoPedido({ pedido, booleanRows = {}, etiquetaRow = null, loc
       transportadoraNome: localEntregaRow?.transportadoraNome || '',
       redespachoTransportadoraId: localEntregaRow?.redespachoTransportadoraId || null,
       redespachoTransportadoraNome: localEntregaRow?.redespachoTransportadoraNome || '',
-      agenciaCidade: localEntregaRow?.agenciaCidade || '',
+      agenciaRecebimentoCodigo: localEntregaRow?.agenciaRecebimentoCodigo || null,
+      agenciaRecebimentoNome: localEntregaRow?.agenciaRecebimentoNome || localEntregaRow?.agenciaCidade || '',
+      agenciaRecebimentoCidadeId: localEntregaRow?.agenciaRecebimentoCidadeId || null,
+      agenciaRecebimentoCidadeNome: localEntregaRow?.agenciaRecebimentoCidadeNome || '',
+      agenciaRecebimentoCidadeUf: localEntregaRow?.agenciaRecebimentoCidadeUf || '',
+      agenciaCidade: localEntregaRow?.agenciaCidade || localEntregaRow?.agenciaRecebimentoNome || '',
       marcadoSilencioso: faseLocalEntregaSilencioso,
       updatedAt: localEntregaRow?.updatedAt || booleanRows.LOCAL_ENTREGA?.updatedAt || null
     },
@@ -1414,6 +1434,8 @@ async function salvarFaseBooleana({ codigoCarrada: codigoCarradaParam, numeroPed
       concluido: Boolean(marcado?.valor_boolean),
       transportadoraId: null,
       transportadoraNome: '',
+      agenciaRecebimentoCodigo: null,
+      agenciaRecebimentoNome: '',
       agenciaCidade: '',
       updatedAt: marcado?.updated_at || null
     };
@@ -1926,7 +1948,13 @@ async function perguntarRepeticaoLocalEntrega({ codigoCarrada: codigoCarradaPara
   const numeroPedidoAnterior = limparTexto(pedidoAnterior?.numero) || '-';
   const transportadoraNome = limparTexto(localEntregaAnterior?.transportadoraNome) || '-';
   const redespachoTransportadoraNome = limparTexto(localEntregaAnterior?.redespachoTransportadoraNome);
-  const agenciaCidade = limparTexto(localEntregaAnterior?.agenciaCidade);
+  const agenciaRecebimentoNome = limparTexto(localEntregaAnterior?.agenciaRecebimentoNome || localEntregaAnterior?.agenciaCidade);
+  const agenciaRecebimentoCidadeNome = limparTexto(localEntregaAnterior?.agenciaRecebimentoCidadeNome);
+  const agenciaRecebimentoCidadeUf = limparTexto(localEntregaAnterior?.agenciaRecebimentoCidadeUf).toUpperCase();
+  const agenciaLocalizacao = agenciaRecebimentoCidadeNome
+    ? `${agenciaRecebimentoCidadeNome}${agenciaRecebimentoCidadeUf ? ` / ${agenciaRecebimentoCidadeUf}` : ''}`
+    : '';
+  const agenciaDescricao = [agenciaRecebimentoNome, agenciaLocalizacao].filter(Boolean).join(' - ');
   const mensagem = [
     'MENSAGEM AUTOMÁTICA - ALUMÍNIO JR',
     `📦 Pedido nº ${numeroPedido}`,
@@ -1934,7 +1962,7 @@ async function perguntarRepeticaoLocalEntrega({ codigoCarrada: codigoCarradaPara
     `No seu pedido anterior nº ${numeroPedidoAnterior}, o local de entrega foi:`,
     `Transportadora / excursão: ${transportadoraNome}`,
     `Redespacho: ${redespachoTransportadoraNome || 'não informado'}`,
-    `Agência / cidade: ${agenciaCidade || 'não informada'}`,
+    `Agência de recebimento: ${agenciaDescricao || 'não informada'}`,
     '',
     'Podemos repetir estes mesmos dados de entrega neste pedido?'
   ].join('\n');
@@ -1990,7 +2018,11 @@ async function perguntarRepeticaoLocalEntrega({ codigoCarrada: codigoCarradaPara
       transportadoraNome,
       redespachoTransportadoraId: localEntregaAnterior.redespachoTransportadoraId || null,
       redespachoTransportadoraNome,
-      agenciaCidade
+      agenciaRecebimentoCodigo: localEntregaAnterior.agenciaRecebimentoCodigo || null,
+      agenciaRecebimentoNome,
+      agenciaRecebimentoCidadeNome,
+      agenciaRecebimentoCidadeUf,
+      agenciaCidade: localEntregaAnterior.agenciaCidade || agenciaRecebimentoNome
     },
     notificacao
   };
@@ -2085,7 +2117,7 @@ async function salvarLocalEntrega({
   numeroPedido: numeroPedidoParam,
   transportadoraId,
   redespachoTransportadoraId,
-  agenciaCidade
+  agenciaRecebimentoCodigo
 }) {
   await garantirTabelasModulo();
 
@@ -2121,6 +2153,10 @@ async function salvarLocalEntrega({
       transportadoraNome: '',
       redespachoTransportadoraId: null,
       redespachoTransportadoraNome: '',
+      agenciaRecebimentoCodigo: null,
+      agenciaRecebimentoNome: '',
+      agenciaRecebimentoCidadeNome: '',
+      agenciaRecebimentoCidadeUf: '',
       agenciaCidade: ''
     };
   }
@@ -2157,7 +2193,39 @@ async function salvarLocalEntrega({
     throw criarErro('Transportadora de redespacho não encontrada.', 404);
   }
 
-  const agenciaCidadeNormalizada = limparTexto(agenciaCidade) || null;
+  let agenciaRecebimentoCodigoInt = null;
+  let agenciaRecebimento = null;
+  if (agenciaRecebimentoCodigo !== null && agenciaRecebimentoCodigo !== undefined && agenciaRecebimentoCodigo !== '') {
+    agenciaRecebimentoCodigoInt = Number.parseInt(agenciaRecebimentoCodigo, 10);
+    if (!Number.isInteger(agenciaRecebimentoCodigoInt) || agenciaRecebimentoCodigoInt <= 0) {
+      throw criarErro('Agência de Recebimento inválida.', 400);
+    }
+
+    const agenciaResult = await pool.query(
+      `
+        SELECT
+          a.codigo,
+          a.nome,
+          a.cidade_id,
+          c.nome AS cidade_nome,
+          c.estado AS cidade_estado
+        FROM agencias_recebimento a
+        LEFT JOIN cidades c ON c.id = a.cidade_id
+        WHERE a.codigo = $1
+        LIMIT 1
+      `,
+      [agenciaRecebimentoCodigoInt]
+    );
+    agenciaRecebimento = agenciaResult.rows[0] || null;
+
+    if (!agenciaRecebimento) {
+      throw criarErro('Agência de Recebimento não encontrada.', 404);
+    }
+  }
+
+  // Mantém o texto legado preenchido com o nome da agência para compatibilidade
+  // com rotinas antigas. A associação nova é feita pelo código da entidade.
+  const agenciaCidadeNormalizada = agenciaRecebimento?.nome || null;
   const localAnteriorResult = await pool.query(
     `
       SELECT transportadora_id, redespacho_transportadora_id
@@ -2179,16 +2247,18 @@ async function salvarLocalEntrega({
         saida,
         transportadora_id,
         redespacho_transportadora_id,
+        agencia_recebimento_codigo,
         agencia_cidade
-      ) VALUES ($1, $2, $3, $4, $5, $6)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7)
       ON CONFLICT (codigo_carrada, numero_pedido)
       DO UPDATE SET
         saida = EXCLUDED.saida,
         transportadora_id = EXCLUDED.transportadora_id,
         redespacho_transportadora_id = EXCLUDED.redespacho_transportadora_id,
+        agencia_recebimento_codigo = EXCLUDED.agencia_recebimento_codigo,
         agencia_cidade = EXCLUDED.agencia_cidade,
         updated_at = NOW()
-      RETURNING codigo_carrada, numero_pedido, saida, transportadora_id, redespacho_transportadora_id, agencia_cidade, updated_at
+      RETURNING codigo_carrada, numero_pedido, saida, transportadora_id, redespacho_transportadora_id, agencia_recebimento_codigo, agencia_cidade, updated_at
     `,
     [
       codigoCarrada,
@@ -2196,6 +2266,7 @@ async function salvarLocalEntrega({
       identificadores.saida,
       transportadoraIdInt,
       redespachoTransportadoraIdInt,
+      agenciaRecebimentoCodigoInt,
       agenciaCidadeNormalizada
     ]
   );
@@ -2270,7 +2341,12 @@ async function salvarLocalEntrega({
     redespachoTransportadoraId: result.rows[0].redespacho_transportadora_id || null,
     redespachoTransportadoraNome: redespachoTransportadora?.nome || '',
     redespachoTransportadoraTelefonePrincipal: redespachoTransportadora?.telefone_principal || '',
-    agenciaCidade: result.rows[0].agencia_cidade || '',
+    agenciaRecebimentoCodigo: result.rows[0].agencia_recebimento_codigo || null,
+    agenciaRecebimentoNome: agenciaRecebimento?.nome || result.rows[0].agencia_cidade || '',
+    agenciaRecebimentoCidadeId: agenciaRecebimento?.cidade_id || null,
+    agenciaRecebimentoCidadeNome: agenciaRecebimento?.cidade_nome || '',
+    agenciaRecebimentoCidadeUf: agenciaRecebimento?.cidade_estado || '',
+    agenciaCidade: result.rows[0].agencia_cidade || agenciaRecebimento?.nome || '',
     updatedAt: result.rows[0].updated_at || null,
     notificacao: notificacaoCliente,
     notificacaoCliente,

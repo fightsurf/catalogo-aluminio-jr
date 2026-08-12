@@ -666,11 +666,11 @@
             <select id="selectRedespachoTransportadora"></select>
           </div>
           <div class="field">
-            <label for="inputAgenciaCidade">Agência - cidade</label>
-            <input type="text" id="inputAgenciaCidade" maxlength="150" placeholder="Opcional" />
+            <label for="selectAgenciaRecebimento">Agência de recebimento</label>
+            <select id="selectAgenciaRecebimento"></select>
           </div>
         </div>
-        <div class="feedback" id="feedbackLocalEntrega">Defina a transportadora. Redespacho e agência - cidade são opcionais.</div>
+        <div class="feedback" id="feedbackLocalEntrega">Defina a transportadora. Redespacho e Agência de Recebimento são opcionais.</div>
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" id="btnLocalEntregaPerguntar">Perguntar ao cliente</button>
@@ -748,6 +748,7 @@
       matriz: null,
       pedidoModalAtual: null,
       transportadoras: null,
+      agenciasRecebimento: null,
       etiquetaModal: {
         pedidoNumero: null,
         payload: null
@@ -800,7 +801,7 @@
       modalLocalEntregaSubtitulo: document.getElementById('modalLocalEntregaSubtitulo'),
       selectTransportadora: document.getElementById('selectTransportadora'),
       selectRedespachoTransportadora: document.getElementById('selectRedespachoTransportadora'),
-      inputAgenciaCidade: document.getElementById('inputAgenciaCidade'),
+      selectAgenciaRecebimento: document.getElementById('selectAgenciaRecebimento'),
       btnLocalEntregaPerguntar: document.getElementById('btnLocalEntregaPerguntar'),
       feedbackLocalEntrega: document.getElementById('feedbackLocalEntrega'),
       btnLocalEntregaSalvar: document.getElementById('btnLocalEntregaSalvar'),
@@ -1050,8 +1051,12 @@
         if (faseData?.redespachoTransportadoraNome) {
           partes.push(`Redesp.: ${faseData.redespachoTransportadoraNome}`);
         }
-        if (faseData?.agenciaCidade) {
-          partes.push(faseData.agenciaCidade);
+        if (faseData?.agenciaRecebimentoNome || faseData?.agenciaCidade) {
+          const nomeAgencia = faseData.agenciaRecebimentoNome || faseData.agenciaCidade;
+          const cidadeAgencia = faseData.agenciaRecebimentoCidadeNome
+            ? `${faseData.agenciaRecebimentoCidadeNome}${faseData.agenciaRecebimentoCidadeUf ? `/${faseData.agenciaRecebimentoCidadeUf}` : ''}`
+            : '';
+          partes.push(`Ag.: ${nomeAgencia}${cidadeAgencia ? ` - ${cidadeAgencia}` : ''}`);
         }
         return partes.join(' • ') || 'Redespacho / agência opcionais';
       }
@@ -1567,6 +1572,24 @@
       return estado.transportadoras;
     }
 
+    async function carregarAgenciasRecebimento() {
+      if (Array.isArray(estado.agenciasRecebimento)) {
+        return estado.agenciasRecebimento;
+      }
+
+      const agencias = await request('/api/agencias-recebimento');
+      estado.agenciasRecebimento = Array.isArray(agencias) ? agencias : [];
+      return estado.agenciasRecebimento;
+    }
+
+    function formatarAgenciaRecebimento(agencia) {
+      if (!agencia) return '';
+      const cidade = agencia.cidade_nome
+        ? `${agencia.cidade_nome}${agencia.cidade_estado ? ` / ${agencia.cidade_estado}` : ''}`
+        : '';
+      return `${agencia.nome || ''}${cidade ? ` — ${cidade}` : ''}`;
+    }
+
     function obterTransportadoraPorId(id) {
       const alvo = String(id || '');
       return (estado.transportadoras || []).find((item) => String(item.id) === alvo) || null;
@@ -1581,7 +1604,10 @@
       if (!pedido) return;
 
       try {
-        const transportadoras = await carregarTransportadoras();
+        const [transportadoras, agenciasRecebimento] = await Promise.all([
+          carregarTransportadoras(),
+          carregarAgenciasRecebimento()
+        ]);
         estado.localEntregaModal = {
           pedidoNumero: numeroPedido,
           payload: pedido.fases?.LOCAL_ENTREGA || null,
@@ -1596,12 +1622,17 @@
           .join('');
         el.selectTransportadora.innerHTML = optionsTransportadoras;
         el.selectRedespachoTransportadora.innerHTML = optionsTransportadoras;
+        el.selectAgenciaRecebimento.innerHTML = ['<option value="">Selecione (opcional)</option>']
+          .concat(agenciasRecebimento.map((item) => `<option value="${escapeHtml(item.codigo)}">${escapeHtml(formatarAgenciaRecebimento(item))}</option>`))
+          .join('');
 
         el.selectTransportadora.value = pedido?.fases?.LOCAL_ENTREGA?.transportadoraId ? String(pedido.fases.LOCAL_ENTREGA.transportadoraId) : '';
         el.selectRedespachoTransportadora.value = pedido?.fases?.LOCAL_ENTREGA?.redespachoTransportadoraId
           ? String(pedido.fases.LOCAL_ENTREGA.redespachoTransportadoraId)
           : '';
-        el.inputAgenciaCidade.value = pedido?.fases?.LOCAL_ENTREGA?.agenciaCidade || '';
+        el.selectAgenciaRecebimento.value = pedido?.fases?.LOCAL_ENTREGA?.agenciaRecebimentoCodigo
+          ? String(pedido.fases.LOCAL_ENTREGA.agenciaRecebimentoCodigo)
+          : '';
 
         if (pedido?.fases?.LOCAL_ENTREGA?.concluido) {
           const detalhes = [
@@ -1609,11 +1640,13 @@
             pedido.fases.LOCAL_ENTREGA.redespachoTransportadoraNome
               ? `Redespacho: ${pedido.fases.LOCAL_ENTREGA.redespachoTransportadoraNome}`
               : '',
-            pedido.fases.LOCAL_ENTREGA.agenciaCidade || ''
+            pedido.fases.LOCAL_ENTREGA.agenciaRecebimentoNome
+              ? `Agência: ${pedido.fases.LOCAL_ENTREGA.agenciaRecebimentoNome}${pedido.fases.LOCAL_ENTREGA.agenciaRecebimentoCidadeNome ? ` - ${pedido.fases.LOCAL_ENTREGA.agenciaRecebimentoCidadeNome}${pedido.fases.LOCAL_ENTREGA.agenciaRecebimentoCidadeUf ? ` / ${pedido.fases.LOCAL_ENTREGA.agenciaRecebimentoCidadeUf}` : ''}` : ''}`
+              : (pedido.fases.LOCAL_ENTREGA.agenciaCidade ? `Agência: ${pedido.fases.LOCAL_ENTREGA.agenciaCidade}` : '')
           ].filter(Boolean);
           setFeedback(el.feedbackLocalEntrega, detalhes.join(' • '), 'success');
         } else {
-          setFeedback(el.feedbackLocalEntrega, 'Defina a transportadora. Redespacho e agência - cidade são opcionais.', '');
+          setFeedback(el.feedbackLocalEntrega, 'Defina a transportadora. Redespacho e Agência de Recebimento são opcionais.', '');
         }
 
         abrirModal(el.modalLocalEntregaBackdrop);
@@ -1641,7 +1674,9 @@
         const partes = [
           `Pedido anterior ${anterior.numero || '-'}: ${local.transportadoraNome || '-'}`,
           local.redespachoTransportadoraNome ? `Redespacho: ${local.redespachoTransportadoraNome}` : '',
-          local.agenciaCidade || ''
+          local.agenciaRecebimentoNome
+            ? `Agência: ${local.agenciaRecebimentoNome}${local.agenciaRecebimentoCidadeNome ? ` - ${local.agenciaRecebimentoCidadeNome}${local.agenciaRecebimentoCidadeUf ? ` / ${local.agenciaRecebimentoCidadeUf}` : ''}` : ''}`
+            : (local.agenciaCidade ? `Agência: ${local.agenciaCidade}` : '')
         ].filter(Boolean);
         const resumo = partes.join(' • ');
 
@@ -1804,7 +1839,7 @@
       const payload = {
         transportadoraId: remover ? '' : el.selectTransportadora.value,
         redespachoTransportadoraId: remover ? '' : el.selectRedespachoTransportadora.value,
-        agenciaCidade: remover ? '' : el.inputAgenciaCidade.value.trim()
+        agenciaRecebimentoCodigo: remover ? '' : el.selectAgenciaRecebimento.value
       };
 
       if (payload.transportadoraId && solicitarTelefonesPrincipaisPendentes(payload)) {

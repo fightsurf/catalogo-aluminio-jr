@@ -37,6 +37,7 @@ const botAutonomiaService = require('./src/services/bot/botAutonomia.services');
 const botAutonomiaRoutes = require('./src/routes/bot/botAutonomia.routes');
 
 const transportadorasRoutes = require('./src/routes/logistica/transportadorasRoutes');
+const agenciasRecebimentoRoutes = require('./src/routes/logistica/agenciasRecebimentoRoutes');
 const logisticaRoutes = require('./src/routes/logistica/logisticaRoutes');
 
 const funcionarioRoutes = require('./src/routes/funcionario/funcionario.routes');
@@ -159,6 +160,7 @@ app.use('/api/assistente/produtos', assistenteProdutosRoutes);
 app.use('/api/assistente/catalogo', assistenteCatalogoRoutes);
 app.use('/api/assistente-pedidos', assistentePedidosRoutes);
 app.use('/api/transportadoras', transportadorasRoutes);
+app.use('/api/agencias-recebimento', agenciasRecebimentoRoutes);
 app.use('/api/logistica', logisticaRoutes);
 app.use('/api/funcionarios', funcionarioRoutes);
 app.use('/api/fornecedores', fornecedorRoutes);
@@ -289,6 +291,10 @@ app.get('/combinador', (req, res) => {
 
 app.get('/admin-logistica', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'logistica', 'logistica-admin.html'));
+});
+
+app.get('/admin-logistica/agencias', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'logistica', 'agencias-admin.html'));
 });
 
 app.get('/logistica-estado', (req, res) => {

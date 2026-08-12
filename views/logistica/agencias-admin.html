@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agências de Recebimento - Alumínio JR</title>
+<style>
+body { font-family:Arial,sans-serif; background:#f4f6f9; margin:0; padding:20px; color:#1f2937; }
+.topo { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
+.topo h2 { margin:0; }
+.topo-acoes { display:flex; gap:8px; flex-wrap:wrap; }
+.layout { display:grid; grid-template-columns:minmax(300px,420px) 1fr; gap:20px; align-items:start; }
+.box { background:#fff; padding:16px; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,.1); }
+input { width:100%; box-sizing:border-box; padding:8px; margin-bottom:9px; border:1px solid #cbd5e1; border-radius:5px; }
+input[readonly] { background:#f1f5f9; color:#475569; }
+button, .btn-link { display:inline-block; padding:8px 12px; border:0; border-radius:5px; cursor:pointer; text-decoration:none; font-size:14px; }
+.btn-primary { background:#007bff; color:#fff; }
+.btn-secondary { background:#6c757d; color:#fff; }
+.btn-danger { background:#dc3545; color:#fff; }
+.btn-edit { background:#17a2b8; color:#fff; }
+.cidade-uf-grid { display:grid; grid-template-columns:1fr 76px; gap:8px; }
+.autocomplete-wrapper { position:relative; }
+.autocomplete-lista { position:absolute; top:calc(100% - 7px); left:0; right:0; background:#fff; border:1px solid #d1d5db; border-radius:6px; box-shadow:0 8px 20px rgba(0,0,0,.12); max-height:230px; overflow:auto; z-index:50; display:none; }
+.autocomplete-lista.ativo { display:block; }
+.autocomplete-item { width:100%; margin:0; border:0; border-radius:0; background:#fff; color:#111827; padding:9px 10px; text-align:left; }
+.autocomplete-item:hover, .autocomplete-item.ativo { background:#eef2f7; }
+.autocomplete-vazio { padding:9px 10px; color:#64748b; font-size:14px; }
+.agencia-item { padding:10px; border-radius:6px; cursor:pointer; margin-bottom:6px; border:1px solid #e5e7eb; }
+.agencia-item:hover { background:#f8fafc; }
+.agencia-item.active { background:#007bff; color:#fff; border-color:#007bff; }
+.agencia-item small { display:block; margin-top:3px; opacity:.85; }
+.divider { height:1px; background:#e5e7eb; margin:13px 0; }
+.acoes { display:flex; gap:8px; flex-wrap:wrap; }
+.muted { color:#64748b; font-size:13px; }
+.aviso { background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; padding:10px; border-radius:6px; margin-bottom:12px; font-size:13px; }
+@media (max-width:800px) { .layout { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="topo">
+  <h2>🏢 Agências de Recebimento</h2>
+  <div class="topo-acoes">
+    <a class="btn-link btn-secondary" href="/admin-logistica">Transportadoras</a>
+  </div>
+</div>
+
+<div class="layout">
+  <div class="box">
+    <h3>Nova agência</h3>
+    <div class="muted">O código é gerado automaticamente.</div>
+    <div class="divider"></div>
+    <input id="novo-nome" placeholder="Nome da agência">
+    <div class="cidade-uf-grid">
+      <div class="autocomplete-wrapper">
+        <input id="novo-cidade" placeholder="Cidade - digite as primeiras letras" autocomplete="off">
+        <input id="novo-cidade-id" type="hidden">
+        <div id="novo-cidade-autocomplete" class="autocomplete-lista"></div>
+      </div>
+      <input id="novo-cidade-uf" placeholder="UF" maxlength="2" readonly>
+    </div>
+    <button class="btn-primary" type="button" onclick="criarAgencia()">Criar agência</button>
+    <div class="divider"></div>
+    <h3>Agências cadastradas</h3>
+    <div id="lista"></div>
+  </div>
+
+  <div class="box">
+    <h3>Cadastro</h3>
+    <div id="detalhes"><small>Selecione uma agência.</small></div>
+  </div>
+</div>
+
+<script>
+const API_AGENCIAS = '/api/agencias-recebimento';
+let agenciaSelecionada = null;
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+async function lerErro(response, fallback) {
+  const dados = await response.json().catch(() => ({}));
+  return dados.error || fallback;
+}
+
+async function carregarAgencias() {
+  const response = await fetch(API_AGENCIAS, { cache:'no-store' });
+  if (!response.ok) return alert(await lerErro(response, 'Erro ao carregar agências.'));
+
+  const agencias = await response.json();
+  const lista = document.getElementById('lista');
+  lista.innerHTML = '';
+
+  if (!agencias.length) {
+    lista.innerHTML = '<small>Nenhuma agência cadastrada.</small>';
+    return;
+  }
+
+  agencias.forEach(agencia => {
+    const item = document.createElement('div');
+    item.className = 'agencia-item';
+    if (String(agenciaSelecionada?.codigo || '') === String(agencia.codigo)) item.classList.add('active');
+    const cidade = agencia.cidade_nome ? `${agencia.cidade_nome} / ${agencia.cidade_estado || ''}` : 'Cidade ainda não informada';
+    item.innerHTML = `<strong>${escapeHtml(agencia.codigo)} - ${escapeHtml(agencia.nome)}</strong><small>${escapeHtml(cidade)}</small>`;
+    item.onclick = () => selecionarAgencia(agencia);
+    lista.appendChild(item);
+  });
+}
+
+function selecionarAgencia(agencia) {
+  agenciaSelecionada = agencia;
+  carregarAgencias();
+  renderDetalhes();
+}
+
+function renderDetalhes() {
+  const detalhes = document.getElementById('detalhes');
+  if (!agenciaSelecionada) {
+    detalhes.innerHTML = '<small>Selecione uma agência.</small>';
+    return;
+  }
+
+  const avisoCidade = agenciaSelecionada.cidade_id ? '' : '<div class="aviso">Este cadastro veio do histórico antigo e ainda não possui Cidade/UF. Selecione a cidade antes de salvar uma edição.</div>';
+  detalhes.innerHTML = `
+    ${avisoCidade}
+    <label>Código</label>
+    <input value="${escapeHtml(agenciaSelecionada.codigo)}" readonly>
+    <label>Nome</label>
+    <input id="edit-nome" value="${escapeHtml(agenciaSelecionada.nome || '')}" placeholder="Nome da agência">
+    <label>Cidade / UF</label>
+    <div class="cidade-uf-grid">
+      <div class="autocomplete-wrapper">
+        <input id="edit-cidade" value="${escapeHtml(agenciaSelecionada.cidade_nome || '')}" placeholder="Cidade - digite as primeiras letras" autocomplete="off">
+        <input id="edit-cidade-id" type="hidden" value="${escapeHtml(agenciaSelecionada.cidade_id || '')}">
+        <div id="edit-cidade-autocomplete" class="autocomplete-lista"></div>
+      </div>
+      <input id="edit-cidade-uf" value="${escapeHtml(agenciaSelecionada.cidade_estado || '')}" placeholder="UF" maxlength="2" readonly>
+    </div>
+    <div class="acoes">
+      <button class="btn-edit" type="button" onclick="salvarEdicao()">Salvar</button>
+      <button class="btn-danger" type="button" onclick="excluirAgencia()">Excluir</button>
+    </div>
+  `;
+
+  configurarAutocompleteCidade({ inputId:'edit-cidade', cidadeIdId:'edit-cidade-id', ufId:'edit-cidade-uf', listaId:'edit-cidade-autocomplete' });
+}
+
+async function criarAgencia() {
+  const nome = document.getElementById('novo-nome').value.trim();
+  const cidadeTexto = document.getElementById('novo-cidade').value.trim();
+  const cidade_id = document.getElementById('novo-cidade-id').value;
+
+  if (!nome) return alert('Nome é obrigatório.');
+  if (!cidadeTexto || !cidade_id) return alert('Selecione a Cidade/UF na lista de sugestões.');
+
+  const response = await fetch(API_AGENCIAS, {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json' },
+    body:JSON.stringify({ nome, cidade_id })
+  });
+  if (!response.ok) return alert(await lerErro(response, 'Erro ao criar agência.'));
+
+  document.getElementById('novo-nome').value = '';
+  document.getElementById('novo-cidade').value = '';
+  document.getElementById('novo-cidade-id').value = '';
+  document.getElementById('novo-cidade-uf').value = '';
+  fecharAutocompleteCidade(document.getElementById('novo-cidade-autocomplete'));
+  await carregarAgencias();
+}
+
+async function salvarEdicao() {
+  if (!agenciaSelecionada) return;
+  const nome = document.getElementById('edit-nome').value.trim();
+  const cidadeTexto = document.getElementById('edit-cidade').value.trim();
+  const cidade_id = document.getElementById('edit-cidade-id').value;
+
+  if (!nome) return alert('Nome é obrigatório.');
+  if (!cidadeTexto || !cidade_id) return alert('Selecione a Cidade/UF na lista de sugestões.');
+
+  const response = await fetch(`${API_AGENCIAS}/${encodeURIComponent(agenciaSelecionada.codigo)}`, {
+    method:'PUT',
+    headers:{ 'Content-Type':'application/json' },
+    body:JSON.stringify({ nome, cidade_id })
+  });
+  if (!response.ok) return alert(await lerErro(response, 'Erro ao atualizar agência.'));
+
+  agenciaSelecionada = await response.json();
+  renderDetalhes();
+  await carregarAgencias();
+}
+
+async function excluirAgencia() {
+  if (!agenciaSelecionada) return;
+  if (!confirm(`Excluir a agência ${agenciaSelecionada.nome}?`)) return;
+
+  const response = await fetch(`${API_AGENCIAS}/${encodeURIComponent(agenciaSelecionada.codigo)}`, { method:'DELETE' });
+  if (!response.ok) return alert(await lerErro(response, 'Erro ao excluir agência.'));
+
+  agenciaSelecionada = null;
+  renderDetalhes();
+  await carregarAgencias();
+}
+
+function fecharAutocompleteCidade(lista) {
+  if (!lista) return;
+  lista.classList.remove('ativo');
+  lista.innerHTML = '';
+}
+
+function configurarAutocompleteCidade({ inputId, cidadeIdId, ufId, listaId }) {
+  const input = document.getElementById(inputId);
+  const cidadeId = document.getElementById(cidadeIdId);
+  const uf = document.getElementById(ufId);
+  const lista = document.getElementById(listaId);
+  if (!input || !cidadeId || !uf || !lista || input.dataset.autocompleteConfigurado === '1') return;
+
+  input.dataset.autocompleteConfigurado = '1';
+  let timer = null;
+  let sugestoes = [];
+  let indiceAtivo = -1;
+
+  function selecionar(cidade) {
+    input.value = cidade.nome || '';
+    cidadeId.value = cidade.id || '';
+    uf.value = String(cidade.estado || '').toUpperCase().slice(0, 2);
+    fecharAutocompleteCidade(lista);
+  }
+
+  function renderizar() {
+    if (!sugestoes.length) {
+      lista.innerHTML = '<div class="autocomplete-vazio">Nenhuma cidade encontrada.</div>';
+      lista.classList.add('ativo');
+      return;
+    }
+
+    lista.innerHTML = sugestoes.map((cidade, indice) => `
+      <button type="button" class="autocomplete-item ${indice === indiceAtivo ? 'ativo' : ''}" data-indice="${indice}">
+        ${escapeHtml(cidade.nome)} - ${escapeHtml(cidade.estado)}
+      </button>
+    `).join('');
+    lista.classList.add('ativo');
+
+    lista.querySelectorAll('[data-indice]').forEach(botao => {
+      botao.addEventListener('mousedown', event => {
+        event.preventDefault();
+        selecionar(sugestoes[Number(botao.dataset.indice)]);
+      });
+    });
+  }
+
+  async function buscar() {
+    const termo = input.value.trim();
+    if (termo.length < 2) {
+      sugestoes = [];
+      fecharAutocompleteCidade(lista);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/logistica/cidades/busca?nome=${encodeURIComponent(termo)}`, { cache:'no-store' });
+      if (!response.ok) throw new Error('Erro ao buscar cidades.');
+      sugestoes = await response.json();
+      indiceAtivo = -1;
+      renderizar();
+    } catch (error) {
+      lista.innerHTML = `<div class="autocomplete-vazio">${escapeHtml(error.message)}</div>`;
+      lista.classList.add('ativo');
+    }
+  }
+
+  input.addEventListener('input', () => {
+    cidadeId.value = '';
+    uf.value = '';
+    clearTimeout(timer);
+    timer = setTimeout(buscar, 250);
+  });
+
+  input.addEventListener('keydown', event => {
+    if (!lista.classList.contains('ativo') || !sugestoes.length) return;
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      indiceAtivo = Math.min(indiceAtivo + 1, sugestoes.length - 1);
+      renderizar();
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      indiceAtivo = Math.max(indiceAtivo - 1, 0);
+      renderizar();
+    } else if (event.key === 'Enter' && indiceAtivo >= 0) {
+      event.preventDefault();
+      selecionar(sugestoes[indiceAtivo]);
+    } else if (event.key === 'Escape') {
+      fecharAutocompleteCidade(lista);
+    }
+  });
+
+  input.addEventListener('blur', () => setTimeout(() => fecharAutocompleteCidade(lista), 150));
+}
+
+configurarAutocompleteCidade({ inputId:'novo-cidade', cidadeIdId:'novo-cidade-id', ufId:'novo-cidade-uf', listaId:'novo-cidade-autocomplete' });
+carregarAgencias();
+</script>
+</body>
+</html>
