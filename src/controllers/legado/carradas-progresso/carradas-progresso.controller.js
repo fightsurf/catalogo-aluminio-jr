@@ -139,6 +139,7 @@ async function salvarLocalEntrega(req, res) {
       codigoCarrada: req.params.codigo,
       numeroPedido: req.params.numeroPedido,
       transportadoraId: req.body?.transportadoraId,
+      redespachoTransportadoraId: req.body?.redespachoTransportadoraId,
       agenciaCidade: req.body?.agenciaCidade
     });
 

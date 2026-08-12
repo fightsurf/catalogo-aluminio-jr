@@ -416,10 +416,16 @@
       gap: 10px;
       flex-wrap: wrap;
     }
-    .grid-2 {
+    .grid-2,
+    .grid-3 {
       display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 12px;
+    }
+    .grid-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .grid-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
     .field {
       display: flex;
@@ -496,7 +502,8 @@
     @media (max-width: 1100px) {
       .header-grid,
       .status-cards,
-      .grid-2 {
+      .grid-2,
+      .grid-3 {
         grid-template-columns: 1fr 1fr;
       }
     }
@@ -506,7 +513,8 @@
       }
       .header-grid,
       .status-cards,
-      .grid-2 {
+      .grid-2,
+      .grid-3 {
         grid-template-columns: 1fr;
       }
       .modal-header {
@@ -648,22 +656,48 @@
         <button class="btn-secondary" data-close-modal="modalLocalEntregaBackdrop">Fechar</button>
       </div>
       <div class="modal-body">
-        <div class="grid-2">
+        <div class="grid-3">
           <div class="field">
             <label for="selectTransportadora">Transportadora</label>
             <select id="selectTransportadora"></select>
+          </div>
+          <div class="field">
+            <label for="selectRedespachoTransportadora">Redespacho</label>
+            <select id="selectRedespachoTransportadora"></select>
           </div>
           <div class="field">
             <label for="inputAgenciaCidade">Agência - cidade</label>
             <input type="text" id="inputAgenciaCidade" maxlength="150" placeholder="Opcional" />
           </div>
         </div>
-        <div class="feedback" id="feedbackLocalEntrega">Defina a transportadora. O campo agência - cidade é opcional.</div>
+        <div class="feedback" id="feedbackLocalEntrega">Defina a transportadora. Redespacho e agência - cidade são opcionais.</div>
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" id="btnLocalEntregaPerguntar">Perguntar ao cliente</button>
         <button class="btn-danger" id="btnLocalEntregaRemover">Remover</button>
         <button class="btn-primary" id="btnLocalEntregaSalvar">Salvar local de entrega</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modalTelefonePrincipalTransportadoraBackdrop">
+    <div class="modal" style="width:min(520px,100%)">
+      <div class="modal-header">
+        <div>
+          <h3>Telefone principal da transportadora</h3>
+          <p class="muted" id="modalTelefonePrincipalTransportadoraSubtitulo"></p>
+        </div>
+        <button class="btn-secondary" data-close-modal="modalTelefonePrincipalTransportadoraBackdrop">Fechar</button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label for="inputTelefonePrincipalTransportadora">Telefone Principal</label>
+          <input type="text" id="inputTelefonePrincipalTransportadora" maxlength="40" placeholder="Ex.: 5583999999999" autocomplete="tel" />
+        </div>
+        <div class="feedback error" id="feedbackTelefonePrincipalTransportadora">Esta transportadora precisa de Telefone Principal para receber o aviso no WhatsApp.</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" id="btnTelefonePrincipalTransportadoraSalvar">Salvar telefone e continuar</button>
       </div>
     </div>
   </div>
@@ -720,7 +754,12 @@
       },
       localEntregaModal: {
         pedidoNumero: null,
-        payload: null
+        payload: null,
+        salvarPendente: null,
+        telefonesPendentes: []
+      },
+      telefonePrincipalTransportadoraModal: {
+        alvo: null
       }
     };
 
@@ -760,11 +799,17 @@
       modalLocalEntregaTitulo: document.getElementById('modalLocalEntregaTitulo'),
       modalLocalEntregaSubtitulo: document.getElementById('modalLocalEntregaSubtitulo'),
       selectTransportadora: document.getElementById('selectTransportadora'),
+      selectRedespachoTransportadora: document.getElementById('selectRedespachoTransportadora'),
       inputAgenciaCidade: document.getElementById('inputAgenciaCidade'),
       btnLocalEntregaPerguntar: document.getElementById('btnLocalEntregaPerguntar'),
       feedbackLocalEntrega: document.getElementById('feedbackLocalEntrega'),
       btnLocalEntregaSalvar: document.getElementById('btnLocalEntregaSalvar'),
-      btnLocalEntregaRemover: document.getElementById('btnLocalEntregaRemover')
+      btnLocalEntregaRemover: document.getElementById('btnLocalEntregaRemover'),
+      modalTelefonePrincipalTransportadoraBackdrop: document.getElementById('modalTelefonePrincipalTransportadoraBackdrop'),
+      modalTelefonePrincipalTransportadoraSubtitulo: document.getElementById('modalTelefonePrincipalTransportadoraSubtitulo'),
+      inputTelefonePrincipalTransportadora: document.getElementById('inputTelefonePrincipalTransportadora'),
+      feedbackTelefonePrincipalTransportadora: document.getElementById('feedbackTelefonePrincipalTransportadora'),
+      btnTelefonePrincipalTransportadoraSalvar: document.getElementById('btnTelefonePrincipalTransportadoraSalvar')
     };
 
     function escapeHtml(value) {
@@ -1001,7 +1046,14 @@
       }
 
       if (faseCodigo === 'LOCAL_ENTREGA') {
-        return faseData?.agenciaCidade || 'Agência - cidade opcional';
+        const partes = [];
+        if (faseData?.redespachoTransportadoraNome) {
+          partes.push(`Redesp.: ${faseData.redespachoTransportadoraNome}`);
+        }
+        if (faseData?.agenciaCidade) {
+          partes.push(faseData.agenciaCidade);
+        }
+        return partes.join(' • ') || 'Redespacho / agência opcionais';
       }
 
       if (faseCodigo === 'PAGAMENTO_QUITADO') {
@@ -1515,6 +1567,15 @@
       return estado.transportadoras;
     }
 
+    function obterTransportadoraPorId(id) {
+      const alvo = String(id || '');
+      return (estado.transportadoras || []).find((item) => String(item.id) === alvo) || null;
+    }
+
+    function possuiTelefonePrincipalTransportadora(transportadora) {
+      return Boolean(String(transportadora?.telefone_principal || '').trim());
+    }
+
     async function abrirModalLocalEntrega(numeroPedido) {
       const pedido = obterPedido(numeroPedido);
       if (!pedido) return;
@@ -1523,22 +1584,36 @@
         const transportadoras = await carregarTransportadoras();
         estado.localEntregaModal = {
           pedidoNumero: numeroPedido,
-          payload: pedido.fases?.LOCAL_ENTREGA || null
+          payload: pedido.fases?.LOCAL_ENTREGA || null,
+          salvarPendente: null,
+          telefonesPendentes: []
         };
 
         el.modalLocalEntregaTitulo.textContent = `Local de entrega • Pedido ${numeroPedido}`;
         el.modalLocalEntregaSubtitulo.textContent = `${pedido?.cliente?.nome || '-'} • ${formatarMoeda(pedido?.total || 0)}`;
-        el.selectTransportadora.innerHTML = ['<option value="">Selecione</option>']
+        const optionsTransportadoras = ['<option value="">Selecione</option>']
           .concat(transportadoras.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.nome)}</option>`))
           .join('');
+        el.selectTransportadora.innerHTML = optionsTransportadoras;
+        el.selectRedespachoTransportadora.innerHTML = optionsTransportadoras;
 
         el.selectTransportadora.value = pedido?.fases?.LOCAL_ENTREGA?.transportadoraId ? String(pedido.fases.LOCAL_ENTREGA.transportadoraId) : '';
+        el.selectRedespachoTransportadora.value = pedido?.fases?.LOCAL_ENTREGA?.redespachoTransportadoraId
+          ? String(pedido.fases.LOCAL_ENTREGA.redespachoTransportadoraId)
+          : '';
         el.inputAgenciaCidade.value = pedido?.fases?.LOCAL_ENTREGA?.agenciaCidade || '';
 
         if (pedido?.fases?.LOCAL_ENTREGA?.concluido) {
-          setFeedback(el.feedbackLocalEntrega, `Transportadora atual: ${pedido.fases.LOCAL_ENTREGA.transportadoraNome || '-'}${pedido.fases.LOCAL_ENTREGA.agenciaCidade ? ` • ${pedido.fases.LOCAL_ENTREGA.agenciaCidade}` : ''}`, 'success');
+          const detalhes = [
+            `Transportadora atual: ${pedido.fases.LOCAL_ENTREGA.transportadoraNome || '-'}`,
+            pedido.fases.LOCAL_ENTREGA.redespachoTransportadoraNome
+              ? `Redespacho: ${pedido.fases.LOCAL_ENTREGA.redespachoTransportadoraNome}`
+              : '',
+            pedido.fases.LOCAL_ENTREGA.agenciaCidade || ''
+          ].filter(Boolean);
+          setFeedback(el.feedbackLocalEntrega, detalhes.join(' • '), 'success');
         } else {
-          setFeedback(el.feedbackLocalEntrega, 'Defina a transportadora. O campo agência - cidade é opcional.', '');
+          setFeedback(el.feedbackLocalEntrega, 'Defina a transportadora. Redespacho e agência - cidade são opcionais.', '');
         }
 
         abrirModal(el.modalLocalEntregaBackdrop);
@@ -1563,7 +1638,12 @@
 
         const anterior = data?.pedidoAnterior || {};
         const local = data?.localEntregaAnterior || {};
-        const resumo = `Pedido anterior ${anterior.numero || '-'}: ${local.transportadoraNome || '-'}${local.agenciaCidade ? ` • ${local.agenciaCidade}` : ''}`;
+        const partes = [
+          `Pedido anterior ${anterior.numero || '-'}: ${local.transportadoraNome || '-'}`,
+          local.redespachoTransportadoraNome ? `Redespacho: ${local.redespachoTransportadoraNome}` : '',
+          local.agenciaCidade || ''
+        ].filter(Boolean);
+        const resumo = partes.join(' • ');
 
         if (data?.notificacao?.success === false) {
           setFeedback(el.feedbackLocalEntrega, `${resumo}. Falha ao enviar WhatsApp: ${data.notificacao.error || 'Erro desconhecido.'}`, 'error');
@@ -1579,29 +1659,159 @@
       }
     }
 
-    async function salvarLocalEntregaModal(transportadoraId) {
+    function abrirProximoTelefonePrincipalPendente() {
+      const alvo = estado.localEntregaModal.telefonesPendentes.shift() || null;
+      estado.telefonePrincipalTransportadoraModal.alvo = alvo;
+
+      if (!alvo) {
+        fecharModal(el.modalTelefonePrincipalTransportadoraBackdrop);
+        const payload = estado.localEntregaModal.salvarPendente;
+        estado.localEntregaModal.salvarPendente = null;
+        if (payload) {
+          executarSalvarLocalEntrega(payload);
+        }
+        return;
+      }
+
+      const transportadora = obterTransportadoraPorId(alvo.id);
+      el.modalTelefonePrincipalTransportadoraSubtitulo.textContent = `${alvo.papel}: ${transportadora?.nome || '-'}`;
+      el.inputTelefonePrincipalTransportadora.value = '';
+      setFeedback(
+        el.feedbackTelefonePrincipalTransportadora,
+        `${transportadora?.nome || 'A transportadora'} não possui Telefone Principal cadastrado. Informe o número para continuar.`,
+        'error'
+      );
+      abrirModal(el.modalTelefonePrincipalTransportadoraBackdrop);
+      setTimeout(() => el.inputTelefonePrincipalTransportadora.focus(), 0);
+    }
+
+    function solicitarTelefonesPrincipaisPendentes(payload) {
+      const candidatos = [
+        { id: payload.transportadoraId, papel: 'Transportadora principal' },
+        { id: payload.redespachoTransportadoraId, papel: 'Redespacho' }
+      ].filter((item) => item.id);
+      const vistos = new Set();
+      const pendentes = [];
+
+      candidatos.forEach((item) => {
+        const chave = String(item.id);
+        if (vistos.has(chave)) return;
+        vistos.add(chave);
+        const transportadora = obterTransportadoraPorId(item.id);
+        if (transportadora && !possuiTelefonePrincipalTransportadora(transportadora)) {
+          pendentes.push(item);
+        }
+      });
+
+      if (!pendentes.length) {
+        return false;
+      }
+
+      estado.localEntregaModal.salvarPendente = payload;
+      estado.localEntregaModal.telefonesPendentes = pendentes;
+      abrirProximoTelefonePrincipalPendente();
+      return true;
+    }
+
+    async function salvarTelefonePrincipalTransportadoraModal() {
+      const alvo = estado.telefonePrincipalTransportadoraModal.alvo;
+      const telefonePrincipal = el.inputTelefonePrincipalTransportadora.value.trim();
+
+      if (!alvo) return;
+      if (!telefonePrincipal) {
+        setFeedback(el.feedbackTelefonePrincipalTransportadora, 'Informe o Telefone Principal da transportadora.', 'error');
+        return;
+      }
+
+      const botao = el.btnTelefonePrincipalTransportadoraSalvar;
+      const textoOriginal = botao.textContent;
+      botao.disabled = true;
+      botao.textContent = 'Salvando...';
+
+      try {
+        const atualizada = await request(`/api/transportadoras/${encodeURIComponent(alvo.id)}/telefone-principal`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ telefonePrincipal })
+        });
+
+        const indice = (estado.transportadoras || []).findIndex((item) => String(item.id) === String(alvo.id));
+        if (indice !== -1) {
+          estado.transportadoras[indice] = {
+            ...estado.transportadoras[indice],
+            ...atualizada,
+            telefone_principal: atualizada?.telefone_principal || telefonePrincipal
+          };
+        }
+
+        fecharModal(el.modalTelefonePrincipalTransportadoraBackdrop);
+        abrirProximoTelefonePrincipalPendente();
+      } catch (error) {
+        setFeedback(el.feedbackTelefonePrincipalTransportadora, error.message, 'error');
+      } finally {
+        botao.disabled = false;
+        botao.textContent = textoOriginal;
+      }
+    }
+
+    async function executarSalvarLocalEntrega(payload) {
       const numeroPedido = estado.localEntregaModal.pedidoNumero;
       if (!numeroPedido) return;
+
+      const botao = el.btnLocalEntregaSalvar;
+      const textoOriginal = botao.textContent;
+      botao.disabled = true;
+      botao.textContent = 'Salvando...';
 
       try {
         const data = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/local-entrega`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            transportadoraId,
-            agenciaCidade: el.inputAgenciaCidade.value.trim()
-          })
+          body: JSON.stringify(payload)
         });
 
         fecharModal(el.modalLocalEntregaBackdrop);
         await carregarMatriz();
 
-        if (transportadoraId && data?.notificacao?.success === false) {
-          window.alert(`Transportadora salva, mas houve falha no WhatsApp: ${data.notificacao.error || 'Erro desconhecido.'}`);
+        if (payload.transportadoraId) {
+          const falhas = [];
+          if (data?.notificacaoCliente?.success === false) {
+            falhas.push(`cliente: ${data.notificacaoCliente.error || 'erro desconhecido'}`);
+          }
+          if (data?.notificacaoTransportadora?.success === false) {
+            falhas.push(`transportadora principal: ${data.notificacaoTransportadora.error || 'erro desconhecido'}`);
+          }
+          if (data?.notificacaoRedespacho?.success === false) {
+            falhas.push(`redespacho: ${data.notificacaoRedespacho.error || 'erro desconhecido'}`);
+          }
+
+          if (falhas.length) {
+            window.alert(`Local de entrega salvo, mas houve falha em WhatsApp:\n- ${falhas.join('\n- ')}`);
+          }
         }
       } catch (error) {
         setFeedback(el.feedbackLocalEntrega, error.message, 'error');
+      } finally {
+        botao.disabled = false;
+        botao.textContent = textoOriginal;
       }
+    }
+
+    async function salvarLocalEntregaModal(remover = false) {
+      const numeroPedido = estado.localEntregaModal.pedidoNumero;
+      if (!numeroPedido) return;
+
+      const payload = {
+        transportadoraId: remover ? '' : el.selectTransportadora.value,
+        redespachoTransportadoraId: remover ? '' : el.selectRedespachoTransportadora.value,
+        agenciaCidade: remover ? '' : el.inputAgenciaCidade.value.trim()
+      };
+
+      if (payload.transportadoraId && solicitarTelefonesPrincipaisPendentes(payload)) {
+        return;
+      }
+
+      await executarSalvarLocalEntrega(payload);
     }
 
     async function toggleEtiquetaSilencioso(numeroPedido) {
@@ -2255,8 +2465,15 @@
     el.btnEtiquetaConfirmar.addEventListener('click', () => confirmarEtiquetaModal(true));
     el.btnEtiquetaDesconfirmar.addEventListener('click', () => confirmarEtiquetaModal(false));
     el.btnLocalEntregaPerguntar.addEventListener('click', perguntarRepeticaoLocalEntregaModal);
-    el.btnLocalEntregaSalvar.addEventListener('click', () => salvarLocalEntregaModal(el.selectTransportadora.value));
-    el.btnLocalEntregaRemover.addEventListener('click', () => salvarLocalEntregaModal(''));
+    el.btnLocalEntregaSalvar.addEventListener('click', () => salvarLocalEntregaModal(false));
+    el.btnLocalEntregaRemover.addEventListener('click', () => salvarLocalEntregaModal(true));
+    el.btnTelefonePrincipalTransportadoraSalvar.addEventListener('click', salvarTelefonePrincipalTransportadoraModal);
+    el.inputTelefonePrincipalTransportadora.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        salvarTelefonePrincipalTransportadoraModal();
+      }
+    });
 
     if (!CODIGO_CARRADA) {
       window.alert('Código da carrada não informado.');

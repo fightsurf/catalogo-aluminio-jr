@@ -35,6 +35,24 @@ async function atualizar(req, res) {
   }
 }
 
+
+async function atualizarTelefonePrincipal(req, res) {
+  const { id } = req.params;
+
+  try {
+    const atualizada = await service.atualizarTelefonePrincipal(id, req.body?.telefonePrincipal);
+
+    if (!atualizada) {
+      return res.status(404).json({ error: 'Transportadora não encontrada' });
+    }
+
+    return res.json(atualizada);
+  } catch (error) {
+    const status = Number(error?.statusCode || 500);
+    return res.status(status).json({ error: error.message || 'Erro ao atualizar Telefone Principal' });
+  }
+}
+
 async function deletar(req, res) {
   const { id } = req.params;
 
@@ -50,5 +68,6 @@ module.exports = {
   listar,
   criar,
   atualizar,
+  atualizarTelefonePrincipal,
   deletar
 };

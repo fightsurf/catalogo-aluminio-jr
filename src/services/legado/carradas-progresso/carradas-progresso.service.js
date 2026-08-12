@@ -71,6 +71,8 @@ const FASES_MATRIZ = [
   { codigo: 'LIGACAO_POS_VENDA', nome: 'Ligação pós-venda', tipo: 'boolean' }
 ];
 
+let estruturaRedespachoPromise = null;
+
 function criarErro(message, status = 400) {
   const error = new Error(message);
   error.statusCode = status;
@@ -105,6 +107,25 @@ async function garantirTabelasModulo(client = pool) {
       500
     );
   }
+
+  if (!estruturaRedespachoPromise) {
+    estruturaRedespachoPromise = (async () => {
+      await client.query(`
+        ALTER TABLE carradas_pedidos_local_entrega
+        ADD COLUMN IF NOT EXISTS redespacho_transportadora_id BIGINT REFERENCES transportadoras(id) ON DELETE SET NULL
+      `);
+
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_carradas_pedidos_local_entrega_redespacho
+        ON carradas_pedidos_local_entrega(redespacho_transportadora_id)
+      `);
+    })().catch((error) => {
+      estruturaRedespachoPromise = null;
+      throw error;
+    });
+  }
+
+  await estruturaRedespachoPromise;
 }
 
 function limparTexto(value) {
@@ -639,13 +660,17 @@ async function buscarLocalEntregaRowsDosPedidos(pedidos = []) {
         le.numero_pedido,
         le.saida,
         le.transportadora_id,
+        le.redespacho_transportadora_id,
         le.agencia_cidade,
         le.created_at,
         le.updated_at,
         t.nome AS transportadora_nome,
-        t.telefone AS transportadora_telefone
+        t.telefone_principal AS transportadora_telefone_principal,
+        r.nome AS redespacho_transportadora_nome,
+        r.telefone_principal AS redespacho_transportadora_telefone_principal
       FROM carradas_pedidos_local_entrega le
       INNER JOIN transportadoras t ON t.id = le.transportadora_id
+      LEFT JOIN transportadoras r ON r.id = le.redespacho_transportadora_id
       WHERE (le.saida IS NOT NULL AND le.saida = ANY($1::bigint[]))
          OR le.numero_pedido = ANY($2::text[])
       ORDER BY COALESCE(le.updated_at, le.created_at) ASC, le.codigo_carrada ASC
@@ -665,9 +690,12 @@ async function buscarLocalEntregaRowsDosPedidos(pedidos = []) {
       numeroPedido: row.numero_pedido,
       saida: row.saida,
       transportadoraId: row.transportadora_id,
-      agenciaCidade: row.agencia_cidade || '',
       transportadoraNome: row.transportadora_nome || '',
-      transportadoraTelefone: row.transportadora_telefone || '',
+      transportadoraTelefonePrincipal: row.transportadora_telefone_principal || '',
+      redespachoTransportadoraId: row.redespacho_transportadora_id || null,
+      redespachoTransportadoraNome: row.redespacho_transportadora_nome || '',
+      redespachoTransportadoraTelefonePrincipal: row.redespacho_transportadora_telefone_principal || '',
+      agenciaCidade: row.agencia_cidade || '',
       createdAt: row.created_at,
       updatedAt: row.updated_at
     });
@@ -746,6 +774,8 @@ function montarFasesDoPedido({ pedido, booleanRows = {}, etiquetaRow = null, loc
       tipo: 'especial',
       transportadoraId: localEntregaRow?.transportadoraId || null,
       transportadoraNome: localEntregaRow?.transportadoraNome || '',
+      redespachoTransportadoraId: localEntregaRow?.redespachoTransportadoraId || null,
+      redespachoTransportadoraNome: localEntregaRow?.redespachoTransportadoraNome || '',
       agenciaCidade: localEntregaRow?.agenciaCidade || '',
       marcadoSilencioso: faseLocalEntregaSilencioso,
       updatedAt: localEntregaRow?.updatedAt || booleanRows.LOCAL_ENTREGA?.updatedAt || null
@@ -1895,6 +1925,7 @@ async function perguntarRepeticaoLocalEntrega({ codigoCarrada: codigoCarradaPara
 
   const numeroPedidoAnterior = limparTexto(pedidoAnterior?.numero) || '-';
   const transportadoraNome = limparTexto(localEntregaAnterior?.transportadoraNome) || '-';
+  const redespachoTransportadoraNome = limparTexto(localEntregaAnterior?.redespachoTransportadoraNome);
   const agenciaCidade = limparTexto(localEntregaAnterior?.agenciaCidade);
   const mensagem = [
     'MENSAGEM AUTOMÁTICA - ALUMÍNIO JR',
@@ -1902,6 +1933,7 @@ async function perguntarRepeticaoLocalEntrega({ codigoCarrada: codigoCarradaPara
     '',
     `No seu pedido anterior nº ${numeroPedidoAnterior}, o local de entrega foi:`,
     `Transportadora / excursão: ${transportadoraNome}`,
+    `Redespacho: ${redespachoTransportadoraNome || 'não informado'}`,
     `Agência / cidade: ${agenciaCidade || 'não informada'}`,
     '',
     'Podemos repetir estes mesmos dados de entrega neste pedido?'
@@ -1956,13 +1988,105 @@ async function perguntarRepeticaoLocalEntrega({ codigoCarrada: codigoCarradaPara
     localEntregaAnterior: {
       transportadoraId: localEntregaAnterior.transportadoraId,
       transportadoraNome,
+      redespachoTransportadoraId: localEntregaAnterior.redespachoTransportadoraId || null,
+      redespachoTransportadoraNome,
       agenciaCidade
     },
     notificacao
   };
 }
 
-async function salvarLocalEntrega({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam, transportadoraId, agenciaCidade }) {
+async function enviarNotificacaoLocalEntrega({ codigoCarrada, numeroPedido, telefone, mensagem, telefoneObrigatorioMensagem }) {
+  const telefoneNormalizado = limparTexto(telefone);
+
+  if (!telefoneNormalizado) {
+    const error = telefoneObrigatorioMensagem || 'Telefone não cadastrado.';
+    await registrarNotificacao({
+      faseCodigo: 'LOCAL_ENTREGA',
+      codigoCarrada,
+      numeroPedido,
+      telefone: '',
+      mensagem,
+      statusEnvio: 'erro',
+      respostaApi: { error }
+    });
+
+    return {
+      success: false,
+      telefone: '',
+      mensagem,
+      error,
+      telefonePendente: true
+    };
+  }
+
+  try {
+    const envio = await whatsappService.enviarMensagem({ telefone: telefoneNormalizado, mensagem });
+    await registrarNotificacao({
+      faseCodigo: 'LOCAL_ENTREGA',
+      codigoCarrada,
+      numeroPedido,
+      telefone: envio.telefone,
+      mensagem,
+      statusEnvio: 'sucesso',
+      respostaApi: envio.zapi || envio
+    });
+
+    return {
+      success: true,
+      telefone: envio.telefone,
+      mensagem,
+      response: envio
+    };
+  } catch (error) {
+    await registrarNotificacao({
+      faseCodigo: 'LOCAL_ENTREGA',
+      codigoCarrada,
+      numeroPedido,
+      telefone: telefoneNormalizado,
+      mensagem,
+      statusEnvio: 'erro',
+      respostaApi: { error: error.message }
+    });
+
+    return {
+      success: false,
+      telefone: telefoneNormalizado,
+      mensagem,
+      error: error.message
+    };
+  }
+}
+
+function montarMensagemTransportadoraLocalEntrega({ pedido, numeroPedido, transportadoraNome, redespacho = false }) {
+  const nomeCliente = limparTexto(pedido?.cliente?.nome) || '-';
+  const quantidadeVolumesBruta = Number(pedido?.qtdeVolume ?? pedido?.volumes ?? 0);
+  const quantidadeVolumes = Number.isFinite(quantidadeVolumesBruta) && quantidadeVolumesBruta >= 0
+    ? Math.trunc(quantidadeVolumesBruta)
+    : 0;
+  const nomeMaiusculo = (limparTexto(transportadoraNome) || '-').toLocaleUpperCase('pt-BR');
+  const fraseFinal = redespacho
+    ? `Foi definida a transportadora / excursão ${nomeMaiusculo} como REDESPACHO para o envio deste pedido.`
+    : `Foi definida a transportadora / excursão ${nomeMaiusculo} para o envio deste pedido.`;
+
+  return [
+    'MENSAGEM AUTOMÁTICA - ALUMÍNIO JR',
+    '',
+    `Cliente: ${nomeCliente}`,
+    `Pedido: ${numeroPedido}`,
+    `Previsão qtde volume: ${quantidadeVolumes}`,
+    '',
+    fraseFinal
+  ].join('\n');
+}
+
+async function salvarLocalEntrega({
+  codigoCarrada: codigoCarradaParam,
+  numeroPedido: numeroPedidoParam,
+  transportadoraId,
+  redespachoTransportadoraId,
+  agenciaCidade
+}) {
   await garantirTabelasModulo();
 
   const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
@@ -1972,6 +2096,7 @@ async function salvarLocalEntrega({ codigoCarrada: codigoCarradaParam, numeroPed
   if (!carrada) {
     throw criarErro('Carrada não encontrada.', 404);
   }
+
   const pedido = encontrarPedidoNaCarrada(carrada, numeroPedido);
   const identificadores = obterIdentificadoresPedido(pedido, numeroPedido);
 
@@ -1994,6 +2119,8 @@ async function salvarLocalEntrega({ codigoCarrada: codigoCarradaParam, numeroPed
       concluido: false,
       transportadoraId: null,
       transportadoraNome: '',
+      redespachoTransportadoraId: null,
+      redespachoTransportadoraNome: '',
       agenciaCidade: ''
     };
   }
@@ -2004,18 +2131,45 @@ async function salvarLocalEntrega({ codigoCarrada: codigoCarradaParam, numeroPed
     throw criarErro('Transportadora inválida.', 400);
   }
 
-  const transportadoraResult = await pool.query(
-    `SELECT id, nome, telefone FROM transportadoras WHERE id = $1`,
-    [transportadoraIdInt]
-  );
+  let redespachoTransportadoraIdInt = null;
+  if (redespachoTransportadoraId !== null && redespachoTransportadoraId !== undefined && redespachoTransportadoraId !== '') {
+    redespachoTransportadoraIdInt = Number.parseInt(redespachoTransportadoraId, 10);
+    if (!Number.isInteger(redespachoTransportadoraIdInt) || redespachoTransportadoraIdInt <= 0) {
+      throw criarErro('Transportadora de redespacho inválida.', 400);
+    }
+  }
 
-  const transportadora = transportadoraResult.rows[0];
+  const idsTransportadoras = [transportadoraIdInt, redespachoTransportadoraIdInt].filter(Boolean);
+  const transportadorasResult = await pool.query(
+    `SELECT id, nome, telefone_principal FROM transportadoras WHERE id = ANY($1::bigint[])`,
+    [idsTransportadoras]
+  );
+  const transportadorasPorId = new Map(transportadorasResult.rows.map((item) => [Number(item.id), item]));
+  const transportadora = transportadorasPorId.get(transportadoraIdInt);
+  const redespachoTransportadora = redespachoTransportadoraIdInt
+    ? transportadorasPorId.get(redespachoTransportadoraIdInt)
+    : null;
 
   if (!transportadora) {
     throw criarErro('Transportadora não encontrada.', 404);
   }
+  if (redespachoTransportadoraIdInt && !redespachoTransportadora) {
+    throw criarErro('Transportadora de redespacho não encontrada.', 404);
+  }
 
   const agenciaCidadeNormalizada = limparTexto(agenciaCidade) || null;
+  const localAnteriorResult = await pool.query(
+    `
+      SELECT transportadora_id, redespacho_transportadora_id
+      FROM carradas_pedidos_local_entrega
+      WHERE codigo_carrada = $1 AND numero_pedido = $2
+      LIMIT 1
+    `,
+    [codigoCarrada, numeroPedido]
+  );
+  const localAnterior = localAnteriorResult.rows[0] || null;
+  const transportadoraFoiDefinidaAgora = Number(localAnterior?.transportadora_id || 0) !== transportadoraIdInt;
+  const redespachoFoiDefinidoAgora = Number(localAnterior?.redespacho_transportadora_id || 0) !== Number(redespachoTransportadoraIdInt || 0);
 
   const result = await pool.query(
     `
@@ -2024,17 +2178,26 @@ async function salvarLocalEntrega({ codigoCarrada: codigoCarradaParam, numeroPed
         numero_pedido,
         saida,
         transportadora_id,
+        redespacho_transportadora_id,
         agencia_cidade
-      ) VALUES ($1, $2, $3, $4, $5)
+      ) VALUES ($1, $2, $3, $4, $5, $6)
       ON CONFLICT (codigo_carrada, numero_pedido)
       DO UPDATE SET
         saida = EXCLUDED.saida,
         transportadora_id = EXCLUDED.transportadora_id,
+        redespacho_transportadora_id = EXCLUDED.redespacho_transportadora_id,
         agencia_cidade = EXCLUDED.agencia_cidade,
         updated_at = NOW()
-      RETURNING codigo_carrada, numero_pedido, saida, transportadora_id, agencia_cidade, updated_at
+      RETURNING codigo_carrada, numero_pedido, saida, transportadora_id, redespacho_transportadora_id, agencia_cidade, updated_at
     `,
-    [codigoCarrada, numeroPedido, identificadores.saida, transportadoraIdInt, agenciaCidadeNormalizada]
+    [
+      codigoCarrada,
+      numeroPedido,
+      identificadores.saida,
+      transportadoraIdInt,
+      redespachoTransportadoraIdInt,
+      agenciaCidadeNormalizada
+    ]
   );
 
   await excluirFaseBooleanaPorPedido({
@@ -2043,49 +2206,56 @@ async function salvarLocalEntrega({ codigoCarrada: codigoCarradaParam, numeroPed
     faseCodigo: 'LOCAL_ENTREGA'
   });
 
+  // O cliente continua usando exatamente o mesmo telefone já utilizado pelo módulo.
+  // telefone_principal abaixo é exclusivo da entidade TRANSPORTADORA.
   const detalhePagamento = await buscarDetalhePagamentoDoPedido(pedido);
-  const telefone = normalizarTelefoneLote(pedido, detalhePagamento);
-  const mensagem = [
+  const telefoneCliente = normalizarTelefoneLote(pedido, detalhePagamento);
+  const mensagemCliente = [
     'MENSAGEM AUTOMÁTICA - ALUMÍNIO JR',
     `📦 Pedido nº ${numeroPedido}`,
     '',
     `Transportadora / excursão definida: ${transportadora.nome || '-'}`
   ].join('\n');
 
-  let notificacao = null;
+  const notificacaoCliente = await enviarNotificacaoLocalEntrega({
+    codigoCarrada,
+    numeroPedido,
+    telefone: telefoneCliente,
+    mensagem: mensagemCliente,
+    telefoneObrigatorioMensagem: 'O cliente não possui telefone de WhatsApp cadastrado.'
+  });
 
-  try {
-    const envio = await whatsappService.enviarMensagem({ telefone, mensagem });
-    notificacao = {
-      success: true,
-      telefone: envio.telefone,
-      mensagem,
-      response: envio
-    };
-    await registrarNotificacao({
-      faseCodigo: 'LOCAL_ENTREGA',
-      codigoCarrada,
+  let notificacaoTransportadora = null;
+  if (transportadoraFoiDefinidaAgora) {
+    const mensagemTransportadora = montarMensagemTransportadoraLocalEntrega({
+      pedido,
       numeroPedido,
-      telefone: envio.telefone,
-      mensagem,
-      statusEnvio: 'sucesso',
-      respostaApi: envio.zapi || envio
+      transportadoraNome: transportadora.nome,
+      redespacho: false
     });
-  } catch (error) {
-    notificacao = {
-      success: false,
-      telefone,
-      mensagem,
-      error: error.message
-    };
-    await registrarNotificacao({
-      faseCodigo: 'LOCAL_ENTREGA',
+    notificacaoTransportadora = await enviarNotificacaoLocalEntrega({
       codigoCarrada,
       numeroPedido,
-      telefone,
-      mensagem,
-      statusEnvio: 'erro',
-      respostaApi: { error: error.message }
+      telefone: transportadora.telefone_principal,
+      mensagem: mensagemTransportadora,
+      telefoneObrigatorioMensagem: 'A transportadora não possui Telefone Principal cadastrado.'
+    });
+  }
+
+  let notificacaoRedespacho = null;
+  if (redespachoTransportadora && redespachoFoiDefinidoAgora) {
+    const mensagemRedespacho = montarMensagemTransportadoraLocalEntrega({
+      pedido,
+      numeroPedido,
+      transportadoraNome: redespachoTransportadora.nome,
+      redespacho: true
+    });
+    notificacaoRedespacho = await enviarNotificacaoLocalEntrega({
+      codigoCarrada,
+      numeroPedido,
+      telefone: redespachoTransportadora.telefone_principal,
+      mensagem: mensagemRedespacho,
+      telefoneObrigatorioMensagem: 'A transportadora de redespacho não possui Telefone Principal cadastrado.'
     });
   }
 
@@ -2096,13 +2266,18 @@ async function salvarLocalEntrega({ codigoCarrada: codigoCarradaParam, numeroPed
     concluido: true,
     transportadoraId: result.rows[0].transportadora_id,
     transportadoraNome: transportadora.nome || '',
-    transportadoraTelefone: transportadora.telefone || '',
+    transportadoraTelefonePrincipal: transportadora.telefone_principal || '',
+    redespachoTransportadoraId: result.rows[0].redespacho_transportadora_id || null,
+    redespachoTransportadoraNome: redespachoTransportadora?.nome || '',
+    redespachoTransportadoraTelefonePrincipal: redespachoTransportadora?.telefone_principal || '',
     agenciaCidade: result.rows[0].agencia_cidade || '',
     updatedAt: result.rows[0].updated_at || null,
-    notificacao
+    notificacao: notificacaoCliente,
+    notificacaoCliente,
+    notificacaoTransportadora,
+    notificacaoRedespacho
   };
 }
-
 
 async function enviarWhatsappCarradaLote({ codigoCarrada: codigoCarradaParam, mensagemPersonalizada }) {
   const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);

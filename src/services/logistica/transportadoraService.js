@@ -146,6 +146,34 @@ async function atualizarTransportadora(id, dados) {
   return atualizado.rows[0];
 }
 
+
+// ==========================================
+// ATUALIZAR APENAS O TELEFONE PRINCIPAL
+// ==========================================
+async function atualizarTelefonePrincipal(id, telefonePrincipal) {
+  await garantirEstruturaTransportadoras();
+
+  const telefone = String(telefonePrincipal || '').trim();
+
+  if (!telefone) {
+    const error = new Error('Telefone Principal é obrigatório.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const result = await pool.query(
+    `
+    UPDATE transportadoras
+    SET telefone_principal = $1
+    WHERE id = $2
+    RETURNING id, nome, telefone, telefone_principal, observacao, cidade_id;
+    `,
+    [telefone, id]
+  );
+
+  return result.rows[0] || null;
+}
+
 // ==========================================
 // DELETAR TRANSPORTADORA
 // ==========================================
@@ -162,5 +190,6 @@ module.exports = {
   listarTransportadoras,
   criarTransportadora,
   atualizarTransportadora,
+  atualizarTelefonePrincipal,
   deletarTransportadora
 };
