@@ -2092,6 +2092,7 @@ async function enviarNotificacaoLocalEntrega({ codigoCarrada, numeroPedido, tele
 
 function montarMensagemTransportadoraLocalEntrega({ pedido, numeroPedido, transportadoraNome, redespacho = false }) {
   const nomeCliente = limparTexto(pedido?.cliente?.nome) || '-';
+  const cidadeCliente = limparTexto(pedido?.cliente?.cidade) || '-';
   const quantidadeVolumesBruta = Number(pedido?.qtdeVolume ?? pedido?.volumes ?? 0);
   const quantidadeVolumes = Number.isFinite(quantidadeVolumesBruta) && quantidadeVolumesBruta >= 0
     ? Math.trunc(quantidadeVolumesBruta)
@@ -2105,6 +2106,7 @@ function montarMensagemTransportadoraLocalEntrega({ pedido, numeroPedido, transp
     'MENSAGEM AUTOMÁTICA - ALUMÍNIO JR',
     '',
     `Cliente: ${nomeCliente}`,
+    `Cidade do cliente: ${cidadeCliente}`,
     `Pedido: ${numeroPedido}`,
     `Previsão qtde volume: ${quantidadeVolumes}`,
     '',
@@ -2321,12 +2323,32 @@ async function salvarLocalEntrega({
   // telefone_principal abaixo é exclusivo da entidade TRANSPORTADORA.
   const detalhePagamento = await buscarDetalhePagamentoDoPedido(pedido);
   const telefoneCliente = normalizarTelefoneLote(pedido, detalhePagamento);
-  const mensagemCliente = [
+  const clienteDetalhePagamento = detalhePagamento?.pedido?.cliente || {};
+  const pedidoComVolumesEDadosCliente = {
+    ...pedidoComVolumes,
+    cliente: {
+      ...(pedidoComVolumes?.cliente || {}),
+      nome: clienteDetalhePagamento.nome || pedidoComVolumes?.cliente?.nome || '',
+      cidade: clienteDetalhePagamento.cidade || pedidoComVolumes?.cliente?.cidade || ''
+    }
+  };
+
+  const linhasMensagemCliente = [
     'MENSAGEM AUTOMÁTICA - ALUMÍNIO JR',
     `📦 Pedido nº ${numeroPedido}`,
     '',
     `Transportadora / excursão definida: ${transportadora.nome || '-'}`
-  ].join('\n');
+  ];
+
+  if (agenciaRecebimento) {
+    linhasMensagemCliente.push(`Agência de recebimento: ${agenciaRecebimento.nome || '-'}`);
+  }
+
+  if (redespachoTransportadora) {
+    linhasMensagemCliente.push(`Redespacho: ${redespachoTransportadora.nome || '-'}`);
+  }
+
+  const mensagemCliente = linhasMensagemCliente.join('\n');
 
   const notificacaoCliente = await enviarNotificacaoLocalEntrega({
     codigoCarrada,
@@ -2339,7 +2361,7 @@ async function salvarLocalEntrega({
   let notificacaoTransportadora = null;
   if (transportadoraFoiDefinidaAgora) {
     const mensagemTransportadora = montarMensagemTransportadoraLocalEntrega({
-      pedido: pedidoComVolumes,
+      pedido: pedidoComVolumesEDadosCliente,
       numeroPedido,
       transportadoraNome: transportadora.nome,
       redespacho: false
@@ -2356,7 +2378,7 @@ async function salvarLocalEntrega({
   let notificacaoRedespacho = null;
   if (redespachoTransportadora && redespachoFoiDefinidoAgora) {
     const mensagemRedespacho = montarMensagemTransportadoraLocalEntrega({
-      pedido: pedidoComVolumes,
+      pedido: pedidoComVolumesEDadosCliente,
       numeroPedido,
       transportadoraNome: redespachoTransportadora.nome,
       redespacho: true
