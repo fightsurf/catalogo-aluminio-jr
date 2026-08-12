@@ -218,8 +218,77 @@ function criarIndiceProdutos(produtos) {
   return indice;
 }
 
-function localizarProduto(nomeRelatorio, produtos, indiceProdutos) {
-  const chave = normalizarNome(nomeRelatorio);
+function criarIndiceProdutosPorItemLegado(produtos) {
+  const indice = new Map();
+
+  produtos.forEach((produto) => {
+    const itemLegado = Number.parseInt(produto?.item_legado, 10);
+    if (!Number.isInteger(itemLegado) || itemLegado <= 0) return;
+
+    if (!indice.has(itemLegado)) {
+      indice.set(itemLegado, []);
+    }
+
+    indice.get(itemLegado).push(produto);
+  });
+
+  return indice;
+}
+
+function normalizarItemLegadoRelatorio(valor) {
+  const itemLegado = Number.parseInt(valor, 10);
+  return Number.isInteger(itemLegado) && itemLegado > 0 ? itemLegado : null;
+}
+
+function extrairItensPedido(itensPedido, totalPedido) {
+  const itens = (Array.isArray(itensPedido) ? itensPedido : [])
+    .map((item) => {
+      const quantidade = Number(item?.quantidade || 0);
+      const unitario = Number(item?.preco ?? item?.unitario ?? 0);
+      const subtotalInformado = Number(item?.subtotal ?? item?.subtotalitem);
+      const subtotal = Number.isFinite(subtotalInformado)
+        ? subtotalInformado
+        : quantidade * unitario;
+
+      return {
+        itemLegado: normalizarItemLegadoRelatorio(item?.item ?? item?.item_legado ?? item?.itemLegado),
+        nome: limparTexto(item?.descricao ?? item?.nome),
+        quantidade: Number.isFinite(quantidade) ? quantidade : 0,
+        unitario: Number.isFinite(unitario) ? unitario : 0,
+        subtotal: Number.isFinite(subtotal) ? subtotal : 0
+      };
+    })
+    .filter(item => item.nome && item.quantidade > 0);
+
+  if (!itens.length) {
+    throw new Error('O pedido não possui itens válidos para envio com fotos.');
+  }
+
+  const totalInformado = Number(totalPedido);
+  const totalCalculado = arredondar(
+    itens.reduce((total, item) => total + Number(item.subtotal || 0), 0),
+    2
+  );
+
+  return {
+    itens,
+    total: Number.isFinite(totalInformado) ? arredondar(totalInformado, 2) : totalCalculado
+  };
+}
+
+function localizarProduto(itemRelatorio, produtos, indiceProdutos, indiceItemLegado) {
+  const itemLegado = normalizarItemLegadoRelatorio(itemRelatorio?.itemLegado);
+
+  if (itemLegado) {
+    const vinculados = indiceItemLegado.get(itemLegado) || [];
+    if (vinculados.length === 1) {
+      return vinculados[0];
+    }
+  }
+
+  const chave = normalizarNome(itemRelatorio?.nome);
+  if (!chave) return null;
+
   const exatos = indiceProdutos.get(chave) || [];
 
   if (exatos.length === 1) {
@@ -234,14 +303,17 @@ function localizarProduto(nomeRelatorio, produtos, indiceProdutos) {
   return aproximados.length === 1 ? aproximados[0] : null;
 }
 
-async function analisarRelatorio({ relatorio, multiplicador }) {
+async function analisarRelatorio({ relatorio, multiplicador, itensPedido, totalPedido }) {
   const multiplicadorNormalizado = normalizarMultiplicador(multiplicador);
-  const relatorioExtraido = extrairRelatorio(relatorio);
+  const relatorioExtraido = Array.isArray(itensPedido) && itensPedido.length
+    ? extrairItensPedido(itensPedido, totalPedido)
+    : extrairRelatorio(relatorio);
   const produtos = await produtoService.listar({ apenasAtivos: true });
   const indiceProdutos = criarIndiceProdutos(produtos);
+  const indiceItemLegado = criarIndiceProdutosPorItemLegado(produtos);
 
   const itens = relatorioExtraido.itens.map((item, index) => {
-    const produto = localizarProduto(item.nome, produtos, indiceProdutos);
+    const produto = localizarProduto(item, produtos, indiceProdutos, indiceItemLegado);
     const foto = selecionarFoto(produto);
     const quantidadeFinal = arredondar(item.quantidade * multiplicadorNormalizado, 4);
     const subtotalFinal = arredondar(item.subtotal * multiplicadorNormalizado, 2);

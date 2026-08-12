@@ -2927,7 +2927,18 @@
         const respostaAnalise = await fetchJson('/api/whatsapp/relatorio-fotos/analisar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ relatorio, multiplicador: 1 })
+          body: JSON.stringify({
+            relatorio,
+            multiplicador: 1,
+            totalPedido: pedidoEmEnvio?.total,
+            itensPedido: itensPedido.map((item) => ({
+              item: item?.item,
+              descricao: item?.descricao,
+              quantidade: item?.quantidade,
+              preco: item?.preco,
+              subtotal: item?.subtotal
+            }))
+          })
         });
 
         const analise = respostaAnalise?.data;
