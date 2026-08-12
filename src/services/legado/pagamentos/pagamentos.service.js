@@ -263,13 +263,114 @@ async function baixarPedidoParaCredito(payload = {}) {
   return enriquecerVinculosPrestacao(await clientesCreditosService.aplicarBaixaEmDetalhe(detalhe));
 }
 
+function montarObservacaoDistribuicaoPrestacao(data, aplicacao) {
+  const numeroPedido = String(aplicacao?.numero || aplicacao?.saida || '').trim() || '-';
+  const nomeCliente = String(data?.cliente?.nome || '').trim() || 'Cliente não identificado';
+  const observacaoOriginal = String(data?.observacao || '').trim();
+  const partes = [`Pagamento distribuído do pedido ${numeroPedido} - ${nomeCliente}`];
+
+  if (observacaoOriginal) {
+    partes.push(observacaoOriginal);
+  }
+
+  return partes.join(' | ').slice(0, 500);
+}
+
+async function desfazerDistribuicaoLegado(aplicacoes = []) {
+  const falhas = [];
+
+  for (const aplicacao of [...aplicacoes].reverse()) {
+    const codigo = Number(aplicacao?.codigo);
+    if (!Number.isInteger(codigo) || codigo <= 0) {
+      falhas.push(`pedido ${aplicacao?.numero || aplicacao?.saida || '-'}`);
+      continue;
+    }
+
+    try {
+      await excluirPagamentoLegado(codigo, {
+        empresa: aplicacao.empresa,
+        saida: aplicacao.saida,
+        pdv: aplicacao.pdv
+      });
+    } catch (error) {
+      console.error(`Falha ao desfazer pagamento distribuído ${codigo}:`, error);
+      falhas.push(`código ${codigo}`);
+    }
+  }
+
+  return falhas;
+}
+
 async function distribuirPagamento(payload = {}) {
+  const { payloadLegado, prestacaoId } = separarPayloadPrestacao(payload);
+
+  let prestacao = null;
+  if (prestacaoId) {
+    prestacao = await prestacaoContasService.buscarPorId(prestacaoId);
+    if (!prestacao) {
+      throw criarErro('Prestação de fornecedor não encontrada.', 404);
+    }
+
+    const status = String(prestacao.status || 'ABERTA').trim().toUpperCase();
+    if (status !== 'ABERTA') {
+      throw criarErro('A prestação selecionada não está aberta para receber pagamentos.', 409);
+    }
+  }
+
   const response = await request('/api/pagamentos/distribuir', {
     method: 'POST',
-    body: JSON.stringify(payload || {})
+    body: JSON.stringify(payloadLegado || {})
   });
 
-  return response.dado || null;
+  const data = response.dado || null;
+  if (!prestacaoId || !data) {
+    return data;
+  }
+
+  const aplicacoes = Array.isArray(data.aplicacoes) ? data.aplicacoes : [];
+  const pagamentosVinculo = aplicacoes
+    .filter((aplicacao) => Number(aplicacao?.valorAplicado || 0) > 0.009)
+    .map((aplicacao) => ({
+      codigoPagamento: Number(aplicacao.codigo),
+      empresa: aplicacao.empresa,
+      saida: aplicacao.saida,
+      pdv: aplicacao.pdv,
+      data: data.dataPgto,
+      valor: Number(aplicacao.valorAplicado || 0),
+      observacao: montarObservacaoDistribuicaoPrestacao(data, aplicacao)
+    }));
+
+  const codigosInvalidos = pagamentosVinculo.some((item) => !Number.isInteger(item.codigoPagamento) || item.codigoPagamento <= 0);
+  if (!pagamentosVinculo.length || codigosInvalidos) {
+    const falhasRollback = await desfazerDistribuicaoLegado(aplicacoes);
+    const error = criarErro('O pagamento foi distribuído, mas os códigos dos lançamentos não puderam ser identificados para o vínculo com a prestação.', 500);
+    if (falhasRollback.length) {
+      error.message += ` Também não foi possível desfazer automaticamente: ${falhasRollback.join(', ')}.`;
+    }
+    throw error;
+  }
+
+  try {
+    const vinculos = await prestacaoContasService.criarPagamentosVinculadosDistribuicao(prestacaoId, pagamentosVinculo);
+    return {
+      ...data,
+      prestacaoVinculada: {
+        id: Number(prestacao.id),
+        titulo: prestacao.titulo || '',
+        fornecedorNome: prestacao.fornecedor_nome || '',
+        valorTotal: Number(data.valorRecebido || 0),
+        quantidadeLancamentos: vinculos.length
+      }
+    };
+  } catch (error) {
+    const falhasRollback = await desfazerDistribuicaoLegado(aplicacoes);
+    if (falhasRollback.length) {
+      error.message = `${error.message} O vínculo com a prestação não foi gravado, mas parte da distribuição não pôde ser desfeita automaticamente (${falhasRollback.join(', ')}). Verifique os pedidos antes de tentar novamente.`;
+    } else {
+      error.message = `${error.message} A distribuição dos pedidos foi desfeita automaticamente.`;
+    }
+    throw error;
+  }
 }
 
 async function criarPagamento(payload = {}) {

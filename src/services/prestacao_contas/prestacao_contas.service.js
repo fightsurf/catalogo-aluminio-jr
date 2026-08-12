@@ -603,6 +603,118 @@ class PrestacaoContasService {
     }
   }
 
+  async criarPagamentosVinculadosDistribuicao(prestacaoId, pagamentos = []) {
+    await this._ensureSchema();
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+      const idPrestacao = Number(prestacaoId);
+
+      if (!Number.isInteger(idPrestacao) || idPrestacao <= 0) {
+        const err = new Error('Prestação inválida para o vínculo do pagamento distribuído.');
+        err.statusCode = 400;
+        throw err;
+      }
+
+      if (!Array.isArray(pagamentos) || !pagamentos.length) {
+        const err = new Error('Nenhum pagamento distribuído foi informado para vincular à prestação.');
+        err.statusCode = 400;
+        throw err;
+      }
+
+      await this._assertAberta(idPrestacao, client);
+
+      const normalizados = pagamentos.map((item, indice) => {
+        const codigoPagamento = Number(item?.codigoPagamento);
+        if (!Number.isInteger(codigoPagamento) || codigoPagamento <= 0) {
+          const err = new Error(`Código inválido no pagamento distribuído ${indice + 1}.`);
+          err.statusCode = 400;
+          throw err;
+        }
+
+        return {
+          codigoPagamento,
+          valor: this._validarNumeroPositivo(item?.valor, `valor do pagamento ${indice + 1}`),
+          data: this._parseDate(item?.data),
+          observacao: item?.observacao || null,
+          empresa: item?.empresa ?? null,
+          saida: item?.saida ?? null,
+          pdv: item?.pdv ?? null
+        };
+      });
+
+      const codigos = normalizados.map((item) => item.codigoPagamento);
+      if (new Set(codigos).size !== codigos.length) {
+        const err = new Error('Há código de pagamento repetido na distribuição.');
+        err.statusCode = 400;
+        throw err;
+      }
+
+      const existentes = await client.query(`
+        SELECT origem_pagamento_codigo
+        FROM prestacao_pagamentos
+        WHERE origem_sistema = 'PEDIDO_LEGADO'
+          AND origem_pagamento_codigo = ANY($1::bigint[])
+      `, [codigos]);
+
+      if (existentes.rows.length) {
+        const err = new Error('Um dos pagamentos distribuídos já está vinculado a uma prestação.');
+        err.statusCode = 409;
+        throw err;
+      }
+
+      const criados = [];
+      let valorTotal = 0;
+
+      for (const item of normalizados) {
+        const result = await client.query(`
+          INSERT INTO prestacao_pagamentos (
+            prestacao_id,
+            data_pagamento,
+            valor,
+            observacao,
+            origem_sistema,
+            origem_pagamento_codigo,
+            origem_empresa,
+            origem_saida,
+            origem_pdv,
+            origem_atualizado_em
+          )
+          VALUES ($1, $2, $3, $4, 'PEDIDO_LEGADO', $5, $6, $7, $8, NOW())
+          RETURNING *
+        `, [
+          idPrestacao,
+          item.data,
+          item.valor,
+          item.observacao,
+          item.codigoPagamento,
+          item.empresa,
+          item.saida,
+          item.pdv
+        ]);
+
+        valorTotal += item.valor;
+        criados.push(result.rows[0]);
+      }
+
+      await this._recalcular(idPrestacao, client);
+      await this._registrarLog(
+        idPrestacao,
+        'CRIAR_PAGAMENTO_DISTRIBUIDO',
+        `Pagamento distribuído vinculado: ${criados.length} lançamento(s), total R$ ${valorTotal.toFixed(2)}`,
+        client
+      );
+      await client.query('COMMIT');
+      return criados;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
   async atualizarPagamentoVinculadoPedido(codigoPagamento, data = {}) {
     await this._ensureSchema();
     const client = await pool.connect();

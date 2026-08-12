@@ -22,7 +22,7 @@
       --blue-bg: #eff6ff;
     }
     body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: var(--bg); color: var(--text); }
-    button, input, textarea { font: inherit; }
+    button, input, textarea, select { font: inherit; }
     button { cursor: pointer; }
     button:disabled { opacity: .5; cursor: not-allowed; }
     .page { max-width: 1450px; margin: 0 auto; padding: 20px; }
@@ -35,8 +35,8 @@
     .field { display: flex; flex-direction: column; gap: 6px; min-width: 180px; }
     .field.grow { flex: 1 1 330px; }
     label { font-size: 13px; color: var(--muted); font-weight: 700; }
-    input, textarea { width: 100%; border: 1px solid var(--line); border-radius: 9px; background: #fff; padding: 10px 12px; }
-    input { height: 42px; }
+    input, textarea, select { width: 100%; border: 1px solid var(--line); border-radius: 9px; background: #fff; padding: 10px 12px; }
+    input, select { height: 42px; }
     textarea { min-height: 72px; resize: vertical; }
     .btn { height: 42px; border: 0; border-radius: 9px; padding: 0 15px; font-weight: 700; }
     .btn-primary { background: var(--primary); color: #fff; }
@@ -77,6 +77,10 @@
     .preview-value { font-weight: 700; }
     .preview-partial { color: var(--warning); font-weight: 700; }
     .preview-quitado { color: var(--success); font-weight: 700; }
+    .prestacao-box { margin-top: 14px; border: 1px solid #bfdbfe; background: var(--blue-bg); border-radius: 11px; padding: 12px 14px; }
+    .checkbox-line { display: flex; align-items: center; gap: 9px; color: var(--text); cursor: pointer; }
+    .checkbox-line input { width: 18px; height: 18px; margin: 0; flex: 0 0 auto; }
+    .prestacao-detail { margin-top: 12px; max-width: 900px; }
     @media (max-width: 800px) {
       .page { padding: 12px; }
       .summary { grid-template-columns: 1fr 1fr; }
@@ -182,6 +186,24 @@
         </div>
       </div>
 
+      <div class="prestacao-box">
+        <label class="checkbox-line" for="adicionarPrestacao">
+          <input type="checkbox" id="adicionarPrestacao" />
+          <span>Adicionar este pagamento a uma prestação aberta de fornecedor</span>
+        </label>
+        <div id="blocoPrestacao" class="prestacao-detail" style="display:none;">
+          <div class="field" style="min-width:0;">
+            <label for="prestacaoSelecionada">Prestação aberta</label>
+            <select id="prestacaoSelecionada" disabled>
+              <option value="">Marque a opção para carregar as prestações</option>
+            </select>
+          </div>
+          <p class="hint">
+            O total recebido será lançado na prestação pelos mesmos valores aplicados a cada pedido. A soma na prestação será exatamente o valor recebido, sem duplicação.
+          </p>
+        </div>
+      </div>
+
       <div class="summary">
         <div class="summary-card">
           <span>Pedidos selecionados</span>
@@ -212,7 +234,11 @@
       cliente: null,
       pedidos: [],
       selecionados: new Set(),
-      ordem: []
+      ordem: [],
+      prestacoesAbertas: [],
+      prestacoesCarregadas: false,
+      adicionarPrestacao: false,
+      prestacaoSelecionadaId: ''
     };
 
     const el = (id) => document.getElementById(id);
@@ -264,6 +290,67 @@
       const data = await resp.json().catch(() => ({}));
       if (!resp.ok) throw new Error(data.error || data.message || 'Falha na operação.');
       return data;
+    }
+
+    function textoPrestacao(prestacao) {
+      const fornecedor = String(prestacao?.fornecedor_nome || 'Fornecedor sem nome').trim();
+      const titulo = String(prestacao?.titulo || `Prestação #${prestacao?.id || ''}`).trim();
+      const data = dataBR(prestacao?.data_referencia);
+      const saldo = moeda(prestacao?.saldo_restante || 0);
+      return `${fornecedor} — ${titulo} — ${data} — saldo ${saldo}`;
+    }
+
+    function atualizarSelectPrestacoes() {
+      const select = el('prestacaoSelecionada');
+      if (!select) return;
+
+      if (!estado.prestacoesCarregadas) {
+        select.innerHTML = '<option value="">Marque a opção para carregar as prestações</option>';
+        select.disabled = true;
+        return;
+      }
+
+      if (!estado.prestacoesAbertas.length) {
+        select.innerHTML = '<option value="">Nenhuma prestação aberta encontrada</option>';
+        select.disabled = true;
+        return;
+      }
+
+      select.innerHTML = '<option value="">Selecione uma prestação</option>' + estado.prestacoesAbertas.map(prestacao =>
+        `<option value="${esc(prestacao.id)}">${esc(textoPrestacao(prestacao))}</option>`
+      ).join('');
+      select.disabled = false;
+      select.value = estado.prestacaoSelecionadaId || '';
+    }
+
+    async function carregarPrestacoesAbertas() {
+      const select = el('prestacaoSelecionada');
+      if (select) {
+        select.disabled = true;
+        select.innerHTML = '<option value="">Carregando prestações abertas...</option>';
+      }
+
+      try {
+        const r = await api('/api/prestacoes?status=ABERTA');
+        estado.prestacoesAbertas = Array.isArray(r.data) ? r.data : [];
+        estado.prestacoesCarregadas = true;
+        if (estado.prestacaoSelecionadaId && !estado.prestacoesAbertas.some(p => String(p.id) === String(estado.prestacaoSelecionadaId))) {
+          estado.prestacaoSelecionadaId = '';
+        }
+        atualizarSelectPrestacoes();
+        atualizarResumo();
+      } catch (e) {
+        estado.prestacoesAbertas = [];
+        estado.prestacoesCarregadas = false;
+        estado.adicionarPrestacao = false;
+        estado.prestacaoSelecionadaId = '';
+        const checkbox = el('adicionarPrestacao');
+        const bloco = el('blocoPrestacao');
+        if (checkbox) checkbox.checked = false;
+        if (bloco) bloco.style.display = 'none';
+        atualizarSelectPrestacoes();
+        status(e.message || 'Falha ao carregar as prestações abertas.', 'error');
+      }
     }
 
     function mostrarResultados(items, tipo) {
@@ -343,6 +430,13 @@
       estado.cliente = { ...cliente, favorecido };
       estado.selecionados.clear();
       estado.ordem = [];
+      estado.adicionarPrestacao = false;
+      estado.prestacaoSelecionadaId = '';
+      const checkboxPrestacao = el('adicionarPrestacao');
+      const blocoPrestacao = el('blocoPrestacao');
+      if (checkboxPrestacao) checkboxPrestacao.checked = false;
+      if (blocoPrestacao) blocoPrestacao.style.display = 'none';
+      atualizarSelectPrestacoes();
       el('resultadosBusca').innerHTML = '';
       status('Carregando pedidos em aberto...', 'info');
 
@@ -461,7 +555,8 @@
       el('contadorPedidos').textContent = `${selecionados.length} de ${estado.pedidos.length} pedido(s) selecionado(s)`;
 
       const excede = calc.valor - saldo > .009;
-      const valido = selecionados.length > 0 && calc.valor > 0 && !excede && calc.restante <= .009 && !!el('dataPagamento').value;
+      const prestacaoValida = !estado.adicionarPrestacao || !!estado.prestacaoSelecionadaId;
+      const valido = selecionados.length > 0 && calc.valor > 0 && !excede && calc.restante <= .009 && !!el('dataPagamento').value && prestacaoValida;
       el('btnConfirmar').disabled = !valido;
       el('cardRestante').className = `summary-card ${excede || calc.restante > .009 ? 'warn' : ''}`;
       if (excede) el('sumRestante').textContent = `Excede ${moeda(calc.valor - saldo)}`;
@@ -475,13 +570,19 @@
       if (calc.valor <= 0) return status('Informe o valor recebido.', 'error');
       if (calc.valor - saldo > .009) return status('O valor recebido é maior que o saldo dos pedidos selecionados.', 'error');
       if (calc.restante > .009) return status('Não foi possível distribuir todo o valor informado.', 'error');
+      if (estado.adicionarPrestacao && !estado.prestacaoSelecionadaId) return status('Selecione a prestação aberta que receberá este pagamento.', 'error');
 
       const resumo = selecionados.map(p => {
         const prev = calc.preview.get(chavePedido(p));
         return `Pedido ${p.numero}: ${moeda(prev?.aplicar || 0)}`;
       }).filter(t => !t.endsWith('R$ 0,00')).join('\n');
 
-      if (!window.confirm(`Confirmar pagamento de ${moeda(calc.valor)}?\n\n${resumo}`)) return;
+      const prestacaoEscolhida = estado.adicionarPrestacao
+        ? estado.prestacoesAbertas.find(p => String(p.id) === String(estado.prestacaoSelecionadaId))
+        : null;
+      const linhaPrestacao = prestacaoEscolhida ? `\n\nPrestação: ${textoPrestacao(prestacaoEscolhida)}` : '';
+
+      if (!window.confirm(`Confirmar pagamento de ${moeda(calc.valor)}?\n\n${resumo}${linhaPrestacao}`)) return;
 
       const btn = el('btnConfirmar');
       btn.disabled = true;
@@ -496,14 +597,22 @@
           observacao: el('observacao').value.trim(),
           pedidos: selecionados.map(p => ({ empresa: p.empresa ?? -1, saida: p.saida, pdv: p.pdv ?? 0 }))
         };
+        if (estado.adicionarPrestacao) {
+          payload.adicionarPrestacao = true;
+          payload.prestacaoId = Number(estado.prestacaoSelecionadaId);
+        }
         const r = await api('/api/legado/pagamentos/distribuir', { method: 'POST', body: JSON.stringify(payload) });
         const aplicacoes = Array.isArray(r.data?.aplicacoes) ? r.data.aplicacoes : [];
         const texto = aplicacoes.map(a => `Pedido ${a.numero}: ${moeda(a.valorAplicado)}`).join(' | ');
-        status(`Pagamento distribuído com sucesso. ${texto}`, 'success');
+        const prestacaoInfo = r.data?.prestacaoVinculada;
+        const complementoPrestacao = prestacaoInfo
+          ? ` Vinculado à prestação ${prestacaoInfo.titulo || `#${prestacaoInfo.id}`} de ${prestacaoInfo.fornecedorNome || 'fornecedor'}.`
+          : '';
+        status(`Pagamento distribuído com sucesso. ${texto}.${complementoPrestacao}`, 'success');
         el('valorPagamento').value = '';
         el('observacao').value = '';
         await selecionarCliente(estado.cliente);
-        status(`Pagamento distribuído com sucesso. ${texto}`, 'success');
+        status(`Pagamento distribuído com sucesso. ${texto}.${complementoPrestacao}`, 'success');
       } catch (e) {
         status(e.message, 'error');
       } finally {
@@ -520,6 +629,23 @@
     el('valorPagamento').addEventListener('input', renderPedidos);
     el('dataPagamento').addEventListener('change', atualizarResumo);
     el('btnConfirmar').addEventListener('click', confirmar);
+    el('adicionarPrestacao').addEventListener('change', async (e) => {
+      estado.adicionarPrestacao = e.target.checked;
+      el('blocoPrestacao').style.display = estado.adicionarPrestacao ? '' : 'none';
+      if (!estado.adicionarPrestacao) {
+        estado.prestacaoSelecionadaId = '';
+        atualizarSelectPrestacoes();
+        atualizarResumo();
+        return;
+      }
+      if (!estado.prestacoesCarregadas) await carregarPrestacoesAbertas();
+      else atualizarSelectPrestacoes();
+      atualizarResumo();
+    });
+    el('prestacaoSelecionada').addEventListener('change', (e) => {
+      estado.prestacaoSelecionadaId = e.target.value;
+      atualizarResumo();
+    });
     el('btnSelecionarTodos').addEventListener('click', () => {
       estado.pedidos.forEach(p => estado.selecionados.add(chavePedido(p)));
       renderPedidos();
