@@ -276,6 +276,119 @@ function montarObservacaoDistribuicaoPrestacao(data, aplicacao) {
   return partes.join(' | ').slice(0, 500);
 }
 
+function chavePedidoDistribuicao(item = {}) {
+  return `${Number(item.empresa ?? -1)}|${Number(item.saida)}|${Number(item.pdv ?? 0)}`;
+}
+
+function dataCalendario(valor) {
+  if (!valor) return '';
+  if (valor instanceof Date && !Number.isNaN(valor.getTime())) {
+    return valor.toISOString().slice(0, 10);
+  }
+
+  const texto = String(valor).trim();
+  const iso = texto.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (iso) return iso[1];
+
+  const br = texto.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (br) return `${br[3]}-${br[2]}-${br[1]}`;
+
+  const data = new Date(texto);
+  return Number.isNaN(data.getTime()) ? '' : data.toISOString().slice(0, 10);
+}
+
+async function capturarCodigosAntesDistribuicao(pedidos = []) {
+  const mapa = new Map();
+
+  for (const pedido of Array.isArray(pedidos) ? pedidos : []) {
+    const chave = chavePedidoDistribuicao(pedido);
+    try {
+      const detalhe = await buscarDetalheLegado({
+        empresa: pedido.empresa ?? -1,
+        saida: pedido.saida,
+        pdv: pedido.pdv ?? 0
+      });
+      const codigos = new Set(
+        (Array.isArray(detalhe?.pagamentos) ? detalhe.pagamentos : [])
+          .map((pagamento) => Number(pagamento.codigo))
+          .filter((codigo) => Number.isInteger(codigo) && codigo > 0)
+      );
+      mapa.set(chave, codigos);
+    } catch (error) {
+      // A captura é uma proteção adicional. O fluxo principal continua usando
+      // o código devolvido pelo Firebird via RETURNING.
+      console.error(`Não foi possível capturar os pagamentos anteriores do pedido ${pedido?.saida}:`, error);
+      mapa.set(chave, null);
+    }
+  }
+
+  return mapa;
+}
+
+function pagamentoCorrespondeAplicacao(pagamento, data, aplicacao) {
+  const codigo = Number(pagamento?.codigo);
+  if (!Number.isInteger(codigo) || codigo <= 0) return false;
+
+  if (String(pagamento?.condicao || '').trim().toUpperCase() !== 'V') return false;
+  if (String(pagamento?.pago || '').trim().toUpperCase() !== 'S') return false;
+
+  const valorPagamento = Number(pagamento?.valor || 0);
+  const valorAplicado = Number(aplicacao?.valorAplicado || 0);
+  if (!Number.isFinite(valorPagamento) || Math.abs(valorPagamento - valorAplicado) > 0.009) return false;
+
+  const dataEsperada = dataCalendario(data?.dataPgto);
+  const dataPagamento = dataCalendario(pagamento?.dataPgto);
+  if (dataEsperada && dataPagamento !== dataEsperada) return false;
+
+  const observacaoEsperada = String(data?.observacao || '').trim();
+  const observacaoPagamento = String(pagamento?.observacao || '').trim();
+  if (observacaoEsperada !== observacaoPagamento) return false;
+
+  return true;
+}
+
+async function recuperarCodigosDistribuicao(data, codigosAntes = new Map()) {
+  const aplicacoes = Array.isArray(data?.aplicacoes)
+    ? data.aplicacoes.map((item) => ({ ...item }))
+    : [];
+  const usados = new Set(
+    aplicacoes
+      .map((item) => Number(item.codigo))
+      .filter((codigo) => Number.isInteger(codigo) && codigo > 0)
+  );
+
+  for (const aplicacao of aplicacoes) {
+    const atual = Number(aplicacao.codigo);
+    if (Number.isInteger(atual) && atual > 0) continue;
+
+    const detalhe = await buscarDetalheLegado({
+      empresa: aplicacao.empresa ?? -1,
+      saida: aplicacao.saida,
+      pdv: aplicacao.pdv ?? 0
+    });
+    const chave = chavePedidoDistribuicao(aplicacao);
+    const anteriores = codigosAntes.get(chave);
+
+    const candidatos = (Array.isArray(detalhe?.pagamentos) ? detalhe.pagamentos : [])
+      .filter((pagamento) => pagamentoCorrespondeAplicacao(pagamento, data, aplicacao))
+      .filter((pagamento) => {
+        const codigo = Number(pagamento.codigo);
+        if (usados.has(codigo)) return false;
+        // Quando foi possível tirar a fotografia anterior do pedido, somente um
+        // código novo pode representar o pagamento que acabou de ser distribuído.
+        return !(anteriores instanceof Set) || !anteriores.has(codigo);
+      })
+      .sort((a, b) => Number(b.codigo) - Number(a.codigo));
+
+    if (candidatos.length) {
+      aplicacao.codigo = Number(candidatos[0].codigo);
+      usados.add(aplicacao.codigo);
+    }
+  }
+
+  return aplicacoes;
+}
+
 async function desfazerDistribuicaoLegado(aplicacoes = []) {
   const falhas = [];
 
@@ -317,6 +430,10 @@ async function distribuirPagamento(payload = {}) {
     }
   }
 
+  const codigosAntes = prestacaoId
+    ? await capturarCodigosAntesDistribuicao(payloadLegado?.pedidos)
+    : new Map();
+
   const response = await request('/api/pagamentos/distribuir', {
     method: 'POST',
     body: JSON.stringify(payloadLegado || {})
@@ -327,7 +444,8 @@ async function distribuirPagamento(payload = {}) {
     return data;
   }
 
-  const aplicacoes = Array.isArray(data.aplicacoes) ? data.aplicacoes : [];
+  const aplicacoes = await recuperarCodigosDistribuicao(data, codigosAntes);
+  data.aplicacoes = aplicacoes;
   const pagamentosVinculo = aplicacoes
     .filter((aplicacao) => Number(aplicacao?.valorAplicado || 0) > 0.009)
     .map((aplicacao) => ({
