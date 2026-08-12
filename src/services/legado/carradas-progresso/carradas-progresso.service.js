@@ -2223,6 +2223,46 @@ async function salvarLocalEntrega({
     }
   }
 
+  // Antes de concluir o local de entrega, garante que o pedido tenha a quantidade
+  // de volumes calculada. Reaproveita exatamente a mesma rotina acionada pelo link
+  // "CALCULAR AUTOMÁTICO" da coluna Qtde Vols.
+  const quantidadeVolumesAtualBruta = Number(pedido?.qtdeVolume ?? pedido?.volumes ?? 0);
+  const quantidadeVolumesAtual = Number.isFinite(quantidadeVolumesAtualBruta) && quantidadeVolumesAtualBruta > 0
+    ? Math.trunc(quantidadeVolumesAtualBruta)
+    : 0;
+
+  let quantidadeVolumes = quantidadeVolumesAtual;
+  let volumesCalculadosAutomaticamente = false;
+
+  if (quantidadeVolumes <= 0) {
+    const calculoVolumes = await calcularQuantidadeVolumesPedido({
+      codigoCarrada,
+      numeroPedido
+    });
+
+    const quantidadeCalculadaBruta = Number(calculoVolumes?.quantidade ?? 0);
+    quantidadeVolumes = Number.isFinite(quantidadeCalculadaBruta) && quantidadeCalculadaBruta > 0
+      ? Math.trunc(quantidadeCalculadaBruta)
+      : 0;
+
+    if (quantidadeVolumes <= 0) {
+      throw criarErro(
+        'O cálculo automático não encontrou uma quantidade válida de volumes. O local de entrega não foi salvo.',
+        400
+      );
+    }
+
+    volumesCalculadosAutomaticamente = true;
+  }
+
+  // Usa a quantidade confirmada/calculada também nas mensagens enviadas nesta
+  // mesma requisição, evitando que o objeto carregado antes do cálculo mantenha 0.
+  const pedidoComVolumes = {
+    ...pedido,
+    qtdeVolume: quantidadeVolumes,
+    volumes: quantidadeVolumes
+  };
+
   // Mantém o texto legado preenchido com o nome da agência para compatibilidade
   // com rotinas antigas. A associação nova é feita pelo código da entidade.
   const agenciaCidadeNormalizada = agenciaRecebimento?.nome || null;
@@ -2299,7 +2339,7 @@ async function salvarLocalEntrega({
   let notificacaoTransportadora = null;
   if (transportadoraFoiDefinidaAgora) {
     const mensagemTransportadora = montarMensagemTransportadoraLocalEntrega({
-      pedido,
+      pedido: pedidoComVolumes,
       numeroPedido,
       transportadoraNome: transportadora.nome,
       redespacho: false
@@ -2316,7 +2356,7 @@ async function salvarLocalEntrega({
   let notificacaoRedespacho = null;
   if (redespachoTransportadora && redespachoFoiDefinidoAgora) {
     const mensagemRedespacho = montarMensagemTransportadoraLocalEntrega({
-      pedido,
+      pedido: pedidoComVolumes,
       numeroPedido,
       transportadoraNome: redespachoTransportadora.nome,
       redespacho: true
@@ -2348,6 +2388,8 @@ async function salvarLocalEntrega({
     agenciaRecebimentoCidadeUf: agenciaRecebimento?.cidade_estado || '',
     agenciaCidade: result.rows[0].agencia_cidade || agenciaRecebimento?.nome || '',
     updatedAt: result.rows[0].updated_at || null,
+    quantidadeVolumes,
+    volumesCalculadosAutomaticamente,
     notificacao: notificacaoCliente,
     notificacaoCliente,
     notificacaoTransportadora,
