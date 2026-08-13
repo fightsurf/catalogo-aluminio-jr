@@ -1819,6 +1819,9 @@
           if (data?.notificacaoRedespacho?.success === false) {
             falhas.push(`redespacho: ${data.notificacaoRedespacho.error || 'erro desconhecido'}`);
           }
+          if (data?.notificacaoAgencia?.success === false) {
+            falhas.push(`agência de recebimento: ${data.notificacaoAgencia.error || 'erro desconhecido'}`);
+          }
 
           if (falhas.length) {
             window.alert(`Local de entrega salvo, mas houve falha em WhatsApp:\n- ${falhas.join('\n- ')}`);

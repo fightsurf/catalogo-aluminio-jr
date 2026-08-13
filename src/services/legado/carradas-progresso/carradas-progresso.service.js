@@ -2090,27 +2090,22 @@ async function enviarNotificacaoLocalEntrega({ codigoCarrada, numeroPedido, tele
   }
 }
 
-function montarMensagemTransportadoraLocalEntrega({ pedido, numeroPedido, transportadoraNome, redespacho = false }) {
+function montarMensagemDestinoLocalEntrega({ pedido, numeroPedido, carrada }) {
   const nomeCliente = limparTexto(pedido?.cliente?.nome) || '-';
-  const cidadeCliente = limparTexto(pedido?.cliente?.cidade) || '-';
   const quantidadeVolumesBruta = Number(pedido?.qtdeVolume ?? pedido?.volumes ?? 0);
   const quantidadeVolumes = Number.isFinite(quantidadeVolumesBruta) && quantidadeVolumesBruta >= 0
     ? Math.trunc(quantidadeVolumesBruta)
     : 0;
-  const nomeMaiusculo = (limparTexto(transportadoraNome) || '-').toLocaleUpperCase('pt-BR');
-  const fraseFinal = redespacho
-    ? `Foi definida a transportadora / excursão ${nomeMaiusculo} como REDESPACHO para o envio deste pedido.`
-    : `Foi definida a transportadora / excursão ${nomeMaiusculo} para o envio deste pedido.`;
+  const dataCarrada = formatarDataBR(carrada?.data) || '-';
+  const descricaoCarrada = limparTexto(carrada?.descricao) || '-';
 
   return [
     'MENSAGEM AUTOMÁTICA - ALUMÍNIO JR',
+    `${dataCarrada} - ${descricaoCarrada}`,
+    `Nome cliente: ${nomeCliente}`,
+    `Número pedido: ${numeroPedido}`,
     '',
-    `Cliente: ${nomeCliente}`,
-    `Cidade do cliente: ${cidadeCliente}`,
-    `Pedido: ${numeroPedido}`,
-    `Previsão qtde volume: ${quantidadeVolumes}`,
-    '',
-    fraseFinal
+    `Previsão qtde volume: ${quantidadeVolumes}`
   ].join('\n');
 }
 
@@ -2208,6 +2203,7 @@ async function salvarLocalEntrega({
         SELECT
           a.codigo,
           a.nome,
+          a.telefone,
           a.cidade_id,
           c.nome AS cidade_nome,
           c.estado AS cidade_estado
@@ -2270,7 +2266,7 @@ async function salvarLocalEntrega({
   const agenciaCidadeNormalizada = agenciaRecebimento?.nome || null;
   const localAnteriorResult = await pool.query(
     `
-      SELECT transportadora_id, redespacho_transportadora_id
+      SELECT transportadora_id, redespacho_transportadora_id, agencia_recebimento_codigo
       FROM carradas_pedidos_local_entrega
       WHERE codigo_carrada = $1 AND numero_pedido = $2
       LIMIT 1
@@ -2280,6 +2276,7 @@ async function salvarLocalEntrega({
   const localAnterior = localAnteriorResult.rows[0] || null;
   const transportadoraFoiDefinidaAgora = Number(localAnterior?.transportadora_id || 0) !== transportadoraIdInt;
   const redespachoFoiDefinidoAgora = Number(localAnterior?.redespacho_transportadora_id || 0) !== Number(redespachoTransportadoraIdInt || 0);
+  const agenciaFoiDefinidaAgora = Number(localAnterior?.agencia_recebimento_codigo || 0) !== Number(agenciaRecebimentoCodigoInt || 0);
 
   const result = await pool.query(
     `
@@ -2333,20 +2330,24 @@ async function salvarLocalEntrega({
     }
   };
 
+  const dataCarrada = formatarDataBR(carrada?.data) || '-';
+  const descricaoCarrada = limparTexto(carrada?.descricao) || '-';
   const linhasMensagemCliente = [
     'MENSAGEM AUTOMÁTICA - ALUMÍNIO JR',
-    `📦 Pedido nº ${numeroPedido}`,
-    '',
-    `Transportadora / excursão definida: ${transportadora.nome || '-'}`
+    `Número pedido: ${numeroPedido}`,
+    `${dataCarrada} - ${descricaoCarrada}`,
+    `Transportadora / Excursão: ${transportadora.nome || '-'}`
   ];
+
+  if (redespachoTransportadora) {
+    linhasMensagemCliente.push(`Redespacho: ${redespachoTransportadora.nome || '-'}`);
+  }
 
   if (agenciaRecebimento) {
     linhasMensagemCliente.push(`Agência de recebimento: ${agenciaRecebimento.nome || '-'}`);
   }
 
-  if (redespachoTransportadora) {
-    linhasMensagemCliente.push(`Redespacho: ${redespachoTransportadora.nome || '-'}`);
-  }
+  linhasMensagemCliente.push('', `Previsão de volumes: ${quantidadeVolumes}`);
 
   const mensagemCliente = linhasMensagemCliente.join('\n');
 
@@ -2360,11 +2361,10 @@ async function salvarLocalEntrega({
 
   let notificacaoTransportadora = null;
   if (transportadoraFoiDefinidaAgora) {
-    const mensagemTransportadora = montarMensagemTransportadoraLocalEntrega({
+    const mensagemTransportadora = montarMensagemDestinoLocalEntrega({
       pedido: pedidoComVolumesEDadosCliente,
       numeroPedido,
-      transportadoraNome: transportadora.nome,
-      redespacho: false
+      carrada
     });
     notificacaoTransportadora = await enviarNotificacaoLocalEntrega({
       codigoCarrada,
@@ -2377,11 +2377,10 @@ async function salvarLocalEntrega({
 
   let notificacaoRedespacho = null;
   if (redespachoTransportadora && redespachoFoiDefinidoAgora) {
-    const mensagemRedespacho = montarMensagemTransportadoraLocalEntrega({
+    const mensagemRedespacho = montarMensagemDestinoLocalEntrega({
       pedido: pedidoComVolumesEDadosCliente,
       numeroPedido,
-      transportadoraNome: redespachoTransportadora.nome,
-      redespacho: true
+      carrada
     });
     notificacaoRedespacho = await enviarNotificacaoLocalEntrega({
       codigoCarrada,
@@ -2389,6 +2388,22 @@ async function salvarLocalEntrega({
       telefone: redespachoTransportadora.telefone_principal,
       mensagem: mensagemRedespacho,
       telefoneObrigatorioMensagem: 'A transportadora de redespacho não possui Telefone Principal cadastrado.'
+    });
+  }
+
+  let notificacaoAgencia = null;
+  if (agenciaRecebimento && agenciaFoiDefinidaAgora) {
+    const mensagemAgencia = montarMensagemDestinoLocalEntrega({
+      pedido: pedidoComVolumesEDadosCliente,
+      numeroPedido,
+      carrada
+    });
+    notificacaoAgencia = await enviarNotificacaoLocalEntrega({
+      codigoCarrada,
+      numeroPedido,
+      telefone: agenciaRecebimento.telefone,
+      mensagem: mensagemAgencia,
+      telefoneObrigatorioMensagem: 'A Agência de Recebimento não possui telefone cadastrado.'
     });
   }
 
@@ -2405,6 +2420,7 @@ async function salvarLocalEntrega({
     redespachoTransportadoraTelefonePrincipal: redespachoTransportadora?.telefone_principal || '',
     agenciaRecebimentoCodigo: result.rows[0].agencia_recebimento_codigo || null,
     agenciaRecebimentoNome: agenciaRecebimento?.nome || result.rows[0].agencia_cidade || '',
+    agenciaRecebimentoTelefone: agenciaRecebimento?.telefone || '',
     agenciaRecebimentoCidadeId: agenciaRecebimento?.cidade_id || null,
     agenciaRecebimentoCidadeNome: agenciaRecebimento?.cidade_nome || '',
     agenciaRecebimentoCidadeUf: agenciaRecebimento?.cidade_estado || '',
@@ -2415,7 +2431,8 @@ async function salvarLocalEntrega({
     notificacao: notificacaoCliente,
     notificacaoCliente,
     notificacaoTransportadora,
-    notificacaoRedespacho
+    notificacaoRedespacho,
+    notificacaoAgencia
   };
 }
 
