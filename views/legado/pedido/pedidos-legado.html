@@ -1039,9 +1039,16 @@
       const pendencias = Array.isArray(analise?.pendencias) ? analise.pendencias : [];
       if (!pendencias.length) return 'Há produtos sem foto ou sem correspondência no cadastro.';
 
-      return pendencias
-        .map(item => `${item?.ordem || '-'}. ${item?.nome || 'Produto'}: ${item?.problema || 'pendência não identificada'}`)
-        .join(' | ');
+      return `Corrija ${pendencias.length === 1 ? 'esta pendência' : 'estas pendências'}:\n${pendencias
+        .map((item) => {
+          const itemLegado = Number.parseInt(item?.itemLegado, 10);
+          const codigo = Number.isInteger(itemLegado) && itemLegado > 0
+            ? `ITEM ${itemLegado} - `
+            : '';
+
+          return `${item?.ordem || '-'}. ${codigo}${item?.nome || 'Produto'}\nMotivo: ${item?.problema || 'pendência não identificada'}`;
+        })
+        .join('\n\n')}`;
     }
 
     function montarMensagemWhatsappCarrada(pedido) {

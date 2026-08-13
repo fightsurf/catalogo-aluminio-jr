@@ -281,18 +281,40 @@ function localizarProduto(itemRelatorio, produtos, indiceProdutos, indiceItemLeg
 
   if (itemLegado) {
     const vinculados = indiceItemLegado.get(itemLegado) || [];
+
     if (vinculados.length === 1) {
-      return vinculados[0];
+      return { produto: vinculados[0], problema: '' };
+    }
+
+    if (vinculados.length > 1) {
+      return {
+        produto: null,
+        problema: `O ITEM ${itemLegado} está associado a mais de um produto no PostgreSQL.`
+      };
     }
   }
 
   const chave = normalizarNome(itemRelatorio?.nome);
-  if (!chave) return null;
+  if (!chave) {
+    return {
+      produto: null,
+      problema: itemLegado
+        ? `O ITEM ${itemLegado} não possui correspondência no PostgreSQL e o item está sem descrição para busca alternativa.`
+        : 'O item está sem código legado e sem descrição para localizar o produto.'
+    };
+  }
 
   const exatos = indiceProdutos.get(chave) || [];
 
   if (exatos.length === 1) {
-    return exatos[0];
+    return { produto: exatos[0], problema: '' };
+  }
+
+  if (exatos.length > 1) {
+    return {
+      produto: null,
+      problema: `Há ${exatos.length} produtos com a mesma descrição no PostgreSQL; não foi possível escolher uma correspondência com segurança.`
+    };
   }
 
   const aproximados = produtos.filter((produto) => {
@@ -300,7 +322,23 @@ function localizarProduto(itemRelatorio, produtos, indiceProdutos, indiceItemLeg
     return chaveProduto && (chaveProduto.includes(chave) || chave.includes(chaveProduto));
   });
 
-  return aproximados.length === 1 ? aproximados[0] : null;
+  if (aproximados.length === 1) {
+    return { produto: aproximados[0], problema: '' };
+  }
+
+  if (aproximados.length > 1) {
+    return {
+      produto: null,
+      problema: `Foram encontradas ${aproximados.length} correspondências aproximadas pela descrição; não foi possível escolher uma com segurança.`
+    };
+  }
+
+  return {
+    produto: null,
+    problema: itemLegado
+      ? `O ITEM ${itemLegado} não possui correspondência no cadastro de produtos do PostgreSQL.`
+      : 'Produto não localizado no cadastro do PostgreSQL.'
+  };
 }
 
 async function analisarRelatorio({ relatorio, multiplicador, itensPedido, totalPedido }) {
@@ -308,25 +346,25 @@ async function analisarRelatorio({ relatorio, multiplicador, itensPedido, totalP
   const relatorioExtraido = Array.isArray(itensPedido) && itensPedido.length
     ? extrairItensPedido(itensPedido, totalPedido)
     : extrairRelatorio(relatorio);
-  const produtos = await produtoService.listar({ apenasAtivos: true });
+  const produtos = await produtoService.listar();
   const indiceProdutos = criarIndiceProdutos(produtos);
   const indiceItemLegado = criarIndiceProdutosPorItemLegado(produtos);
 
   const itens = relatorioExtraido.itens.map((item, index) => {
-    const produto = localizarProduto(item, produtos, indiceProdutos, indiceItemLegado);
+    const localizacao = localizarProduto(item, produtos, indiceProdutos, indiceItemLegado);
+    const produto = localizacao.produto;
     const foto = selecionarFoto(produto);
     const quantidadeFinal = arredondar(item.quantidade * multiplicadorNormalizado, 4);
     const subtotalFinal = arredondar(item.subtotal * multiplicadorNormalizado, 2);
-    let problema = '';
+    let problema = localizacao.problema || '';
 
-    if (!produto) {
-      problema = 'Produto não localizado no cadastro do PostgreSQL.';
-    } else if (!foto) {
-      problema = 'Produto localizado, mas está sem foto cadastrada.';
+    if (produto && !foto) {
+      problema = 'Produto localizado, mas está sem foto válida cadastrada.';
     }
 
     return {
       ordem: index + 1,
+      itemLegado: normalizarItemLegadoRelatorio(item?.itemLegado),
       nomeRelatorio: item.nome,
       produtoId: produto?.id || null,
       descricao: produto?.nome || item.nome,
@@ -361,6 +399,7 @@ async function analisarRelatorio({ relatorio, multiplicador, itensPedido, totalP
     prontoParaEnvio: pendencias.length === 0,
     pendencias: pendencias.map(item => ({
       ordem: item.ordem,
+      itemLegado: item.itemLegado,
       nome: item.nomeRelatorio,
       problema: item.problema
     })),
