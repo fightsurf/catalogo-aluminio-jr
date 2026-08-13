@@ -208,6 +208,38 @@ function formatarDataBR(value) {
   return date.toLocaleDateString('pt-BR');
 }
 
+function formatarTelefoneExibicao(value) {
+  const telefoneOriginal = limparTexto(value);
+
+  if (!telefoneOriginal) {
+    return '';
+  }
+
+  let digitos = telefoneOriginal.replace(/\D/g, '');
+
+  // O telefone usado pelo WhatsApp pode estar armazenado com DDI 55.
+  // No texto da mensagem exibimos apenas DDD + número no padrão brasileiro.
+  if ((digitos.length === 12 || digitos.length === 13) && digitos.startsWith('55')) {
+    digitos = digitos.slice(2);
+  }
+
+  if (digitos.length === 11) {
+    return `(${digitos.slice(0, 2)}) ${digitos.slice(2, 7)}-${digitos.slice(7)}`;
+  }
+
+  if (digitos.length === 10) {
+    return `(${digitos.slice(0, 2)}) ${digitos.slice(2, 6)}-${digitos.slice(6)}`;
+  }
+
+  return telefoneOriginal;
+}
+
+function montarNomeComTelefone(nome, telefone) {
+  const nomeNormalizado = limparTexto(nome) || '-';
+  const telefoneFormatado = formatarTelefoneExibicao(telefone);
+  return telefoneFormatado ? `${nomeNormalizado} - ${telefoneFormatado}` : nomeNormalizado;
+}
+
 function dataHojeFortalezaBR() {
   return new Intl.DateTimeFormat('pt-BR', {
     timeZone: 'America/Fortaleza',
@@ -2090,8 +2122,9 @@ async function enviarNotificacaoLocalEntrega({ codigoCarrada, numeroPedido, tele
   }
 }
 
-function montarMensagemDestinoLocalEntrega({ pedido, numeroPedido, carrada }) {
+function montarMensagemDestinoLocalEntrega({ pedido, numeroPedido, carrada, telefoneCliente }) {
   const nomeCliente = limparTexto(pedido?.cliente?.nome) || '-';
+  const cidadeCliente = limparTexto(pedido?.cliente?.cidade) || '-';
   const quantidadeVolumesBruta = Number(pedido?.qtdeVolume ?? pedido?.volumes ?? 0);
   const quantidadeVolumes = Number.isFinite(quantidadeVolumesBruta) && quantidadeVolumesBruta >= 0
     ? Math.trunc(quantidadeVolumesBruta)
@@ -2102,7 +2135,9 @@ function montarMensagemDestinoLocalEntrega({ pedido, numeroPedido, carrada }) {
   return [
     'MENSAGEM AUTOMÁTICA - ALUMÍNIO JR',
     `${dataCarrada} - ${descricaoCarrada}`,
-    `Nome cliente: ${nomeCliente}`,
+    '',
+    `Nome cliente: ${montarNomeComTelefone(nomeCliente, telefoneCliente)}`,
+    `Cidade cliente: ${cidadeCliente}`,
     `Número pedido: ${numeroPedido}`,
     '',
     `Previsão qtde volume: ${quantidadeVolumes}`
@@ -2330,21 +2365,24 @@ async function salvarLocalEntrega({
     }
   };
 
+  const nomeCliente = limparTexto(pedidoComVolumesEDadosCliente?.cliente?.nome) || '-';
   const dataCarrada = formatarDataBR(carrada?.data) || '-';
   const descricaoCarrada = limparTexto(carrada?.descricao) || '-';
   const linhasMensagemCliente = [
     'MENSAGEM AUTOMÁTICA - ALUMÍNIO JR',
-    `Número pedido: ${numeroPedido}`,
     `${dataCarrada} - ${descricaoCarrada}`,
-    `Transportadora / Excursão: ${transportadora.nome || '-'}`
+    '',
+    `Nome cliente: ${nomeCliente}`,
+    `Número pedido: ${numeroPedido}`,
+    `Transportadora / Excursão: ${montarNomeComTelefone(transportadora.nome, transportadora.telefone_principal)}`
   ];
 
   if (redespachoTransportadora) {
-    linhasMensagemCliente.push(`Redespacho: ${redespachoTransportadora.nome || '-'}`);
+    linhasMensagemCliente.push(`Redespacho: ${montarNomeComTelefone(redespachoTransportadora.nome, redespachoTransportadora.telefone_principal)}`);
   }
 
   if (agenciaRecebimento) {
-    linhasMensagemCliente.push(`Agência de recebimento: ${agenciaRecebimento.nome || '-'}`);
+    linhasMensagemCliente.push(`Agência de recebimento: ${montarNomeComTelefone(agenciaRecebimento.nome, agenciaRecebimento.telefone)}`);
   }
 
   linhasMensagemCliente.push('', `Previsão de volumes: ${quantidadeVolumes}`);
@@ -2364,7 +2402,8 @@ async function salvarLocalEntrega({
     const mensagemTransportadora = montarMensagemDestinoLocalEntrega({
       pedido: pedidoComVolumesEDadosCliente,
       numeroPedido,
-      carrada
+      carrada,
+      telefoneCliente
     });
     notificacaoTransportadora = await enviarNotificacaoLocalEntrega({
       codigoCarrada,
@@ -2380,7 +2419,8 @@ async function salvarLocalEntrega({
     const mensagemRedespacho = montarMensagemDestinoLocalEntrega({
       pedido: pedidoComVolumesEDadosCliente,
       numeroPedido,
-      carrada
+      carrada,
+      telefoneCliente
     });
     notificacaoRedespacho = await enviarNotificacaoLocalEntrega({
       codigoCarrada,
@@ -2396,7 +2436,8 @@ async function salvarLocalEntrega({
     const mensagemAgencia = montarMensagemDestinoLocalEntrega({
       pedido: pedidoComVolumesEDadosCliente,
       numeroPedido,
-      carrada
+      carrada,
+      telefoneCliente
     });
     notificacaoAgencia = await enviarNotificacaoLocalEntrega({
       codigoCarrada,
