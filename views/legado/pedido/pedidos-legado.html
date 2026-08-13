@@ -1035,9 +1035,65 @@
       return new Promise(resolve => setTimeout(resolve, ms));
     }
 
+    function extrairAnaliseFotos(resposta) {
+      const candidatos = [
+        resposta?.data?.data,
+        resposta?.data,
+        resposta?.dados,
+        resposta?.resultado,
+        resposta
+      ];
+
+      return candidatos.find((candidato) => {
+        if (!candidato || typeof candidato !== 'object') return false;
+
+        return Object.prototype.hasOwnProperty.call(candidato, 'prontoParaEnvio')
+          || Array.isArray(candidato?.pendencias)
+          || Array.isArray(candidato?.itens);
+      }) || null;
+    }
+
+    function obterPendenciasFotos(analise) {
+      const pendenciasInformadas = Array.isArray(analise?.pendencias)
+        ? analise.pendencias.filter(Boolean)
+        : [];
+
+      if (pendenciasInformadas.length) {
+        return pendenciasInformadas;
+      }
+
+      const itens = Array.isArray(analise?.itens) ? analise.itens : [];
+
+      return itens
+        .filter((item) => item?.pronto === false || item?.encontrado === false || item?.possuiFoto === false || !item?.produtoId || !item?.foto)
+        .map((item, index) => {
+          let problema = String(item?.problema || '').trim();
+
+          if (!problema) {
+            if (item?.encontrado === false || !item?.produtoId) {
+              problema = 'Produto não localizado no cadastro do PostgreSQL.';
+            } else if (item?.possuiFoto === false || !item?.foto) {
+              problema = 'Produto localizado, mas está sem foto válida cadastrada.';
+            } else {
+              problema = 'Pendência não identificada pela API.';
+            }
+          }
+
+          return {
+            ordem: item?.ordem || index + 1,
+            itemLegado: item?.itemLegado ?? item?.item ?? null,
+            nome: item?.nomeRelatorio || item?.descricao || item?.nome || 'Produto',
+            problema
+          };
+        });
+    }
+
     function montarMensagemPendenciasFotos(analise) {
-      const pendencias = Array.isArray(analise?.pendencias) ? analise.pendencias : [];
-      if (!pendencias.length) return 'Há produtos sem foto ou sem correspondência no cadastro.';
+      const pendencias = obterPendenciasFotos(analise);
+
+      if (!pendencias.length) {
+        return 'A API bloqueou o envio, mas não informou qual produto possui pendência. A resposta da análise está incompleta.';
+      }
 
       return `Corrija ${pendencias.length === 1 ? 'esta pendência' : 'estas pendências'}:\n${pendencias
         .map((item) => {
@@ -2948,10 +3004,15 @@
           })
         });
 
-        const analise = respostaAnalise?.data;
-        totalItens = Number(analise?.quantidadeProdutos || 0);
+        const analise = extrairAnaliseFotos(respostaAnalise);
 
-        if (!analise?.prontoParaEnvio) {
+        if (!analise) {
+          throw new Error('A API de análise das fotos retornou uma resposta em formato inesperado. Não foi possível validar os produtos do pedido.');
+        }
+
+        totalItens = Number(analise?.quantidadeProdutos || analise?.itens?.length || 0);
+
+        if (analise?.prontoParaEnvio !== true) {
           throw new Error(`O envio foi bloqueado. ${montarMensagemPendenciasFotos(analise)}`);
         }
 
