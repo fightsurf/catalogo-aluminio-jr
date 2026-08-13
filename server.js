@@ -178,7 +178,7 @@ app.use('/api/whatsapp', envioWhatsappRoutes);
 app.use('/whatsapp', envioWhatsappViewRoutes);
 app.use('/api/whatsapp/status', statusWhatsappRoutes);
 app.use('/whatsapp', statusWhatsappViewRoutes);
-app.use('/api/whatsapp/relatorio-fotos', requireAuth, relatorioFotosWhatsappRoutes);
+app.use('/api/whatsapp/relatorio-fotos', relatorioFotosWhatsappRoutes);
 app.use('/whatsapp', requireAuth, relatorioFotosWhatsappViewRoutes);
 app.use('/hub', hubRoutes);
 app.use('/api/ofertas', ofertasRoutes);
