@@ -50,6 +50,7 @@ button, .btn-link { display:inline-block; padding:8px 12px; border:0; border-rad
     <div class="muted">O código é gerado automaticamente.</div>
     <div class="divider"></div>
     <input id="novo-nome" placeholder="Nome da agência">
+    <input id="novo-telefone" type="tel" maxlength="40" autocomplete="tel" placeholder="Telefone">
     <div class="cidade-uf-grid">
       <div class="autocomplete-wrapper">
         <input id="novo-cidade" placeholder="Cidade - digite as primeiras letras" autocomplete="off">
@@ -106,7 +107,9 @@ async function carregarAgencias() {
     item.className = 'agencia-item';
     if (String(agenciaSelecionada?.codigo || '') === String(agencia.codigo)) item.classList.add('active');
     const cidade = agencia.cidade_nome ? `${agencia.cidade_nome} / ${agencia.cidade_estado || ''}` : 'Cidade ainda não informada';
-    item.innerHTML = `<strong>${escapeHtml(agencia.codigo)} - ${escapeHtml(agencia.nome)}</strong><small>${escapeHtml(cidade)}</small>`;
+    const telefone = String(agencia.telefone || '').trim();
+    const complemento = telefone ? `${cidade} • ${telefone}` : cidade;
+    item.innerHTML = `<strong>${escapeHtml(agencia.codigo)} - ${escapeHtml(agencia.nome)}</strong><small>${escapeHtml(complemento)}</small>`;
     item.onclick = () => selecionarAgencia(agencia);
     lista.appendChild(item);
   });
@@ -132,6 +135,8 @@ function renderDetalhes() {
     <input value="${escapeHtml(agenciaSelecionada.codigo)}" readonly>
     <label>Nome</label>
     <input id="edit-nome" value="${escapeHtml(agenciaSelecionada.nome || '')}" placeholder="Nome da agência">
+    <label>Telefone</label>
+    <input id="edit-telefone" type="tel" maxlength="40" autocomplete="tel" value="${escapeHtml(agenciaSelecionada.telefone || '')}" placeholder="Telefone">
     <label>Cidade / UF</label>
     <div class="cidade-uf-grid">
       <div class="autocomplete-wrapper">
@@ -152,6 +157,7 @@ function renderDetalhes() {
 
 async function criarAgencia() {
   const nome = document.getElementById('novo-nome').value.trim();
+  const telefone = document.getElementById('novo-telefone').value.trim();
   const cidadeTexto = document.getElementById('novo-cidade').value.trim();
   const cidade_id = document.getElementById('novo-cidade-id').value;
 
@@ -161,11 +167,12 @@ async function criarAgencia() {
   const response = await fetch(API_AGENCIAS, {
     method:'POST',
     headers:{ 'Content-Type':'application/json' },
-    body:JSON.stringify({ nome, cidade_id })
+    body:JSON.stringify({ nome, telefone, cidade_id })
   });
   if (!response.ok) return alert(await lerErro(response, 'Erro ao criar agência.'));
 
   document.getElementById('novo-nome').value = '';
+  document.getElementById('novo-telefone').value = '';
   document.getElementById('novo-cidade').value = '';
   document.getElementById('novo-cidade-id').value = '';
   document.getElementById('novo-cidade-uf').value = '';
@@ -176,6 +183,7 @@ async function criarAgencia() {
 async function salvarEdicao() {
   if (!agenciaSelecionada) return;
   const nome = document.getElementById('edit-nome').value.trim();
+  const telefone = document.getElementById('edit-telefone').value.trim();
   const cidadeTexto = document.getElementById('edit-cidade').value.trim();
   const cidade_id = document.getElementById('edit-cidade-id').value;
 
@@ -185,7 +193,7 @@ async function salvarEdicao() {
   const response = await fetch(`${API_AGENCIAS}/${encodeURIComponent(agenciaSelecionada.codigo)}`, {
     method:'PUT',
     headers:{ 'Content-Type':'application/json' },
-    body:JSON.stringify({ nome, cidade_id })
+    body:JSON.stringify({ nome, telefone, cidade_id })
   });
   if (!response.ok) return alert(await lerErro(response, 'Erro ao atualizar agência.'));
 

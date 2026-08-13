@@ -42,10 +42,16 @@ async function garantirEstruturaAgencias(client = pool) {
         CREATE TABLE IF NOT EXISTS agencias_recebimento (
           codigo BIGSERIAL PRIMARY KEY,
           nome TEXT NOT NULL,
+          telefone TEXT,
           cidade_id BIGINT REFERENCES cidades(id) ON DELETE SET NULL,
           created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
+      `);
+
+      await client.query(`
+        ALTER TABLE agencias_recebimento
+        ADD COLUMN IF NOT EXISTS telefone TEXT
       `);
 
       await client.query(`
@@ -156,6 +162,7 @@ async function listarAgencias() {
     SELECT
       a.codigo,
       a.nome,
+      a.telefone,
       a.cidade_id,
       c.nome AS cidade_nome,
       c.estado AS cidade_estado,
@@ -178,6 +185,7 @@ async function buscarAgenciaPorCodigo(codigoParam) {
       SELECT
         a.codigo,
         a.nome,
+        a.telefone,
         a.cidade_id,
         c.nome AS cidade_nome,
         c.estado AS cidade_estado,
@@ -198,6 +206,7 @@ async function criarAgencia(dados = {}) {
   await garantirEstruturaAgencias();
 
   const nome = limparTexto(dados.nome);
+  const telefone = limparTexto(dados.telefone);
   const cidadeId = normalizarCidadeId(dados.cidade_id, { obrigatoria: true });
 
   if (!nome) {
@@ -209,11 +218,11 @@ async function criarAgencia(dados = {}) {
 
   const result = await pool.query(
     `
-      INSERT INTO agencias_recebimento (nome, cidade_id)
-      VALUES ($1, $2)
+      INSERT INTO agencias_recebimento (nome, telefone, cidade_id)
+      VALUES ($1, $2, $3)
       RETURNING codigo
     `,
-    [nome, cidadeId]
+    [nome, telefone || null, cidadeId]
   );
 
   return buscarAgenciaPorCodigo(result.rows[0].codigo);
@@ -224,6 +233,7 @@ async function atualizarAgencia(codigoParam, dados = {}) {
 
   const codigo = normalizarCodigo(codigoParam);
   const nome = limparTexto(dados.nome);
+  const telefone = limparTexto(dados.telefone);
   const cidadeId = normalizarCidadeId(dados.cidade_id, { obrigatoria: true });
 
   if (!nome) {
@@ -237,12 +247,13 @@ async function atualizarAgencia(codigoParam, dados = {}) {
     `
       UPDATE agencias_recebimento
       SET nome = $1,
-          cidade_id = $2,
+          telefone = $2,
+          cidade_id = $3,
           updated_at = NOW()
-      WHERE codigo = $3
+      WHERE codigo = $4
       RETURNING codigo
     `,
-    [nome, cidadeId, codigo]
+    [nome, telefone || null, cidadeId, codigo]
   );
 
   if (!result.rows[0]) {
