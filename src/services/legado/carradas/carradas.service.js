@@ -367,7 +367,8 @@ async function listarCarradas(opcoes = {}) {
 
       return {
         ...carrada,
-        progressoStatusLinha: status?.statusLinha || 'incompleta'
+        progressoStatusLinha: status?.statusLinha || 'incompleta',
+        vendasBloqueadas: Boolean(status?.vendasBloqueadas)
       };
     });
   }
@@ -386,7 +387,8 @@ async function listarCarradas(opcoes = {}) {
       pedidos: undefined,
       pedidosResumo: undefined,
       pedidos_resumo: undefined,
-      progressoStatusLinha: status?.statusLinha || 'incompleta'
+      progressoStatusLinha: status?.statusLinha || 'incompleta',
+      vendasBloqueadas: Boolean(status?.vendasBloqueadas)
     };
   });
 }
@@ -422,7 +424,52 @@ async function excluirStatusCarradaSemQuebrar(codigoCarrada) {
 
 async function buscarCarrada(codigo) {
   const carrada = await buscarCarradaDoLegado(codigo);
-  return enriquecerCarradaComResumoProducao(carrada);
+  const enriquecida = await enriquecerCarradaComResumoProducao(carrada);
+
+  if (!enriquecida) {
+    return null;
+  }
+
+  const codigoNormalizado = Number.parseInt(enriquecida?.codigo ?? codigo, 10);
+  let status = null;
+
+  try {
+    const mapaStatus = await carradasStatusResumoService.buscarMapaStatusPorCodigos([codigoNormalizado]);
+    status = mapaStatus.get(codigoNormalizado) || null;
+  } catch (error) {
+    console.error(`Falha ao buscar bloqueio de vendas da carrada ${codigoNormalizado}:`, error.message);
+  }
+
+  return {
+    ...enriquecida,
+    progressoStatusLinha: status?.statusLinha || 'incompleta',
+    vendasBloqueadas: Boolean(status?.vendasBloqueadas)
+  };
+}
+
+async function atualizarBloqueioVendas(codigo, bloqueado) {
+  const codigoNormalizado = Number.parseInt(codigo, 10);
+
+  if (!Number.isInteger(codigoNormalizado) || codigoNormalizado <= 0) {
+    const error = new Error('Código da carrada inválido.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const carrada = await buscarCarradaDoLegado(codigoNormalizado);
+
+  if (!carrada) {
+    const error = new Error('Carrada não encontrada.');
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const status = await carradasStatusResumoService.salvarVendasBloqueadas(codigoNormalizado, bloqueado);
+
+  return {
+    codigo: codigoNormalizado,
+    vendasBloqueadas: Boolean(status?.vendasBloqueadas)
+  };
 }
 
 async function buscarResumoCarrada(codigo) {
@@ -602,6 +649,7 @@ module.exports = {
   listarCarradasDisponiveis,
   buscarCarrada,
   buscarResumoCarrada,
+  atualizarBloqueioVendas,
   listarDetalhesCarradasPorCodigos,
   criarCarrada,
   atualizarCarrada,

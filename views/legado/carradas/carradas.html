@@ -175,6 +175,26 @@
     .carrada-hoje td:first-child {
       border-left: 3px solid #eab308;
     }
+    .bloqueio-vendas {
+      border: 0;
+      background: transparent;
+      padding: 0 2px;
+      margin-left: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      line-height: 1;
+      vertical-align: middle;
+      opacity: 0.28;
+    }
+    .bloqueio-vendas:hover,
+    .bloqueio-vendas:focus-visible,
+    .bloqueio-vendas.ativo {
+      opacity: 1;
+    }
+    .bloqueio-vendas:disabled {
+      cursor: wait;
+      opacity: 0.5;
+    }
     .muted { color: var(--muted); }
     .selected-count { font-size: 14px; color: var(--muted); }
     @media (max-width: 980px) {
@@ -676,7 +696,17 @@
         <tr data-codigo-row="${carrada.codigo}" class="${obterClassesLinhaCarrada(carrada)}">
           <td>${carrada.codigo}</td>
           <td>${escapeHtml(formatarData(carrada.data))}</td>
-          <td>${escapeHtml(carrada.descricao || '')}</td>
+          <td>
+            ${escapeHtml(carrada.descricao || '')}
+            <button
+              type="button"
+              class="bloqueio-vendas${carrada.vendasBloqueadas ? ' ativo' : ''}"
+              data-bloqueio-vendas="${carrada.codigo}"
+              data-bloqueado="${carrada.vendasBloqueadas ? 'true' : 'false'}"
+              title="${carrada.vendasBloqueadas ? 'Dia fechado para novas vendas. Clique para liberar.' : 'Clique para fechar este dia para novas vendas.'}"
+              aria-label="${carrada.vendasBloqueadas ? 'Liberar novas vendas nesta carrada' : 'Fechar esta carrada para novas vendas'}"
+            >❌</button>
+          </td>
           <td>${escapeHtml(formatarQuantidade(carrada.quantidadeItens ?? carrada.quantidade_itens))}</td>
           <td>${escapeHtml(formatarQuantidade(carrada.quantidadeItensProntos ?? carrada.quantidade_itens_prontos))}</td>
           <td>${escapeHtml(formatarQuantidade(carrada.quantidadeItensAProduzir ?? carrada.quantidade_itens_a_produzir))}</td>
@@ -688,6 +718,26 @@
           </td>
         </tr>
       `).join('');
+
+      el.tabelaCarradas.querySelectorAll('[data-bloqueio-vendas]').forEach((botao) => {
+        botao.addEventListener('click', async () => {
+          const codigo = botao.dataset.bloqueioVendas;
+          const bloqueadoAtual = botao.dataset.bloqueado === 'true';
+          botao.disabled = true;
+
+          try {
+            await request(`/api/legado/carradas/${encodeURIComponent(codigo)}/bloqueio-vendas`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ bloqueado: !bloqueadoAtual })
+            });
+            await carregarCarradas();
+          } catch (error) {
+            botao.disabled = false;
+            alert(error.message);
+          }
+        });
+      });
 
       el.tabelaCarradas.querySelectorAll('[data-visualizar]').forEach((botao) => {
         botao.addEventListener('click', () => {

@@ -6,6 +6,8 @@ const STATUS_INCOMPLETA = 'incompleta';
 const STATUS_SEMICOMPLETA = 'semicompleta';
 const STATUS_COMPLETA = 'completa';
 const STATUS_VALIDOS = new Set([STATUS_INCOMPLETA, STATUS_SEMICOMPLETA, STATUS_COMPLETA]);
+let tabelaStatusResumoGarantida = false;
+
 const FASES_BOOLEANAS_CODIGOS = [
   'EM_PRODUCAO',
   'PEDIDO_PRONTO',
@@ -111,13 +113,27 @@ function linhaMaisNovaQueAtual(novaLinha, linhaAtual) {
 }
 
 async function garantirTabelaStatusResumo(client = pool) {
+  if (client === pool && tabelaStatusResumoGarantida) {
+    return;
+  }
+
   await client.query(`
     CREATE TABLE IF NOT EXISTS carradas_status_resumo (
       codigo_carrada INTEGER PRIMARY KEY,
       status_linha VARCHAR(20) NOT NULL CHECK (status_linha IN ('incompleta', 'semicompleta', 'completa')),
+      vendas_bloqueadas BOOLEAN NOT NULL DEFAULT FALSE,
       updated_at TIMESTAMP NOT NULL DEFAULT NOW()
     )
   `);
+
+  await client.query(`
+    ALTER TABLE carradas_status_resumo
+    ADD COLUMN IF NOT EXISTS vendas_bloqueadas BOOLEAN NOT NULL DEFAULT FALSE
+  `);
+
+  if (client === pool) {
+    tabelaStatusResumoGarantida = true;
+  }
 }
 
 async function tabelasProgressoExistem(client = pool) {
@@ -341,6 +357,30 @@ async function salvarStatusLinha(codigoCarrada, statusLinha) {
   return result.rows[0] || null;
 }
 
+async function salvarVendasBloqueadas(codigoCarrada, bloqueadoParam) {
+  await garantirTabelaStatusResumo();
+
+  const codigo = parseCodigoCarrada(codigoCarrada);
+  const bloqueado = bloqueadoParam === true
+    || bloqueadoParam === 1
+    || String(bloqueadoParam || '').trim().toLowerCase() === 'true';
+
+  const result = await pool.query(
+    `
+      INSERT INTO carradas_status_resumo (codigo_carrada, status_linha, vendas_bloqueadas, updated_at)
+      VALUES ($1, $2, $3, NOW())
+      ON CONFLICT (codigo_carrada)
+      DO UPDATE SET
+        vendas_bloqueadas = EXCLUDED.vendas_bloqueadas,
+        updated_at = NOW()
+      RETURNING codigo_carrada, status_linha, vendas_bloqueadas, updated_at
+    `,
+    [codigo, STATUS_INCOMPLETA, bloqueado]
+  );
+
+  return criarResumoPadrao(codigo, result.rows[0] || null);
+}
+
 async function excluirStatusCarrada(codigoCarrada) {
   await garantirTabelaStatusResumo();
   const codigo = parseCodigoCarrada(codigoCarrada);
@@ -469,6 +509,7 @@ function criarResumoPadrao(codigoCarrada, row = null) {
     concluida: statusLinha === STATUS_COMPLETA,
     semicompleta: statusLinha === STATUS_SEMICOMPLETA,
     statusLinha,
+    vendasBloqueadas: Boolean(row?.vendas_bloqueadas),
     updatedAt: row?.updated_at || null
   };
 }
@@ -490,7 +531,7 @@ async function buscarMapaStatusPorCodigos(codigosParam = []) {
 
   const result = await pool.query(
     `
-      SELECT codigo_carrada, status_linha, updated_at
+      SELECT codigo_carrada, status_linha, vendas_bloqueadas, updated_at
       FROM carradas_status_resumo
       WHERE codigo_carrada = ANY($1::int[])
     `,
@@ -531,6 +572,7 @@ module.exports = {
   STATUS_COMPLETA,
   garantirTabelaStatusResumo,
   salvarStatusLinha,
+  salvarVendasBloqueadas,
   excluirStatusCarrada,
   recalcularStatusCarrada,
   buscarMapaStatusPorCodigos,

@@ -78,6 +78,20 @@ async function buscarCarrada(req, res) {
   }
 }
 
+async function atualizarBloqueioVendas(req, res) {
+  try {
+    const data = await carradasService.atualizarBloqueioVendas(req.params.codigo, req.body?.bloqueado);
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    const status = Number(error?.statusCode || 500);
+    return res.status(status).json({
+      success: false,
+      message: error?.message || 'Erro ao atualizar bloqueio de vendas da carrada.',
+      error: error?.message || 'Erro ao atualizar bloqueio de vendas da carrada.'
+    });
+  }
+}
+
 async function criarCarrada(req, res) {
   return res.status(409).json({
     success: false,
@@ -121,6 +135,7 @@ module.exports = {
   listarCarradas,
   listarCarradasDisponiveis,
   buscarCarrada,
+  atualizarBloqueioVendas,
   criarCarrada,
   atualizarCarrada,
   moverPedidoEntreCarradas,

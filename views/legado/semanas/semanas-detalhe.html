@@ -170,6 +170,26 @@
       font-size: 14px;
     }
     th { color: var(--muted); font-size: 13px; }
+    .bloqueio-vendas {
+      border: 0;
+      background: transparent;
+      padding: 0 2px;
+      margin-left: 4px;
+      cursor: pointer;
+      font-size: 12px;
+      line-height: 1;
+      vertical-align: middle;
+      opacity: 0.28;
+    }
+    .bloqueio-vendas:hover,
+    .bloqueio-vendas:focus-visible,
+    .bloqueio-vendas.ativo {
+      opacity: 1;
+    }
+    .bloqueio-vendas:disabled {
+      cursor: wait;
+      opacity: 0.5;
+    }
     .acoes-carrada {
       display: flex;
       gap: 6px;
@@ -459,7 +479,17 @@
                   <tr class="${carradaHoje ? 'linha-carrada-hoje' : ''}">
                     <td>${escapeHtml(carrada.codigo)}</td>
                     <td>${escapeHtml(formatarData(carrada.data))}</td>
-                    <td>${escapeHtml(carrada.descricao || '-')}</td>
+                    <td>
+                      ${escapeHtml(carrada.descricao || '-')}
+                      <button
+                        type="button"
+                        class="bloqueio-vendas${carrada.vendasBloqueadas ? ' ativo' : ''}"
+                        data-bloqueio-vendas="${carrada.codigo}"
+                        data-bloqueado="${carrada.vendasBloqueadas ? 'true' : 'false'}"
+                        title="${carrada.vendasBloqueadas ? 'Dia fechado para novas vendas. Clique para liberar.' : 'Clique para fechar este dia para novas vendas.'}"
+                        aria-label="${carrada.vendasBloqueadas ? 'Liberar novas vendas nesta carrada' : 'Fechar esta carrada para novas vendas'}"
+                      >❌</button>
+                    </td>
                     <td>${escapeHtml(formatarQuantidade(carrada.quantidade_pedidos))}</td>
                     <td>${escapeHtml(formatarQuantidade(carrada.quantidade_pedidos_prontos))}</td>
                     <td>${escapeHtml(formatarQuantidade(carrada.quantidade_pedidos_a_produzir))}</td>
@@ -497,6 +527,31 @@
           ` : '<div class="muted" style="padding-top: 12px;">Nenhuma carrada vinculada nesta semana.</div>'}
         </section>
       `;
+
+      conteudo.querySelectorAll('[data-bloqueio-vendas]').forEach((botao) => {
+        botao.addEventListener('click', async () => {
+          const codigo = botao.dataset.bloqueioVendas;
+          const bloqueadoAtual = botao.dataset.bloqueado === 'true';
+          botao.disabled = true;
+
+          try {
+            const atualizado = await request(`/api/legado/carradas/${encodeURIComponent(codigo)}/bloqueio-vendas`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ bloqueado: !bloqueadoAtual })
+            });
+
+            const carrada = carradas.find((item) => String(item.codigo) === String(codigo));
+            if (carrada) {
+              carrada.vendasBloqueadas = Boolean(atualizado?.vendasBloqueadas);
+            }
+            renderSemana(semana);
+          } catch (error) {
+            botao.disabled = false;
+            alert(error.message);
+          }
+        });
+      });
     }
 
     async function inicializarNavegacaoSemanas(semanaAtual) {
