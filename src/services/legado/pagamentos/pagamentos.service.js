@@ -266,7 +266,7 @@ async function baixarPedidoParaCredito(payload = {}) {
 function montarObservacaoDistribuicaoPrestacao(data, aplicacao) {
   const numeroPedido = String(aplicacao?.numero || aplicacao?.saida || '').trim() || '-';
   const nomeCliente = String(data?.cliente?.nome || '').trim() || 'Cliente não identificado';
-  const observacaoOriginal = String(data?.observacao || '').trim();
+  const observacaoOriginal = String(aplicacao?.observacao ?? data?.observacao ?? '').trim();
   const partes = [`Pagamento distribuído do pedido ${numeroPedido} - ${nomeCliente}`];
 
   if (observacaoOriginal) {
@@ -340,7 +340,7 @@ function pagamentoCorrespondeAplicacao(pagamento, data, aplicacao) {
   const dataPagamento = dataCalendario(pagamento?.dataPgto);
   if (dataEsperada && dataPagamento !== dataEsperada) return false;
 
-  const observacaoEsperada = String(data?.observacao || '').trim();
+  const observacaoEsperada = String(aplicacao?.observacao ?? data?.observacao ?? '').trim();
   const observacaoPagamento = String(pagamento?.observacao || '').trim();
   if (observacaoEsperada !== observacaoPagamento) return false;
 
