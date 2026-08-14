@@ -63,12 +63,22 @@ label {
   display: block;
 }
 
-input, select {
+input, select, textarea {
   width: 100%;
   padding: 8px;
   border: 1px solid #ccc;
   border-radius: 4px;
   box-sizing: border-box;
+}
+
+textarea {
+  min-height: 90px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.campo-observacao {
+  grid-column: span 2;
 }
 
 input[type="file"] {
@@ -242,7 +252,8 @@ button.secundario:hover {
     grid-template-columns: 1fr;
   }
 
-  .fotos-area {
+  .fotos-area,
+  .campo-observacao {
     grid-column: span 1;
   }
 
@@ -293,7 +304,7 @@ button.secundario:hover {
 
 <div id="produtos" class="section">
 
-  <div class="card">
+  <div class="card" id="produtoFormCard">
     <h3>Novo / Editar Produto</h3>
 
     <div class="form-grid">
@@ -316,6 +327,11 @@ button.secundario:hover {
       <div>
         <label>Capacidade por Caixa</label>
         <input type="number" id="produtoCaixa" value="1" min="1">
+      </div>
+
+      <div class="campo-observacao">
+        <label>Observação</label>
+        <textarea id="produtoObservacao" placeholder="Observações sobre o produto"></textarea>
       </div>
 
       <div class="fotos-area">
@@ -790,6 +806,7 @@ async function salvarProduto() {
       categoria_id: Number(document.getElementById('produtoCategoria').value),
       ...urlsFotosFormulario(),
       capacidade_caixa: Number(document.getElementById('produtoCaixa').value),
+      observacao: document.getElementById('produtoObservacao').value.trim(),
       ativo: document.getElementById('produtoAtivo').checked
     };
 
@@ -821,6 +838,7 @@ function editarProduto(id) {
   document.getElementById('produtoPreco').value = p.preco;
   document.getElementById('produtoCategoria').value = p.categoria_id;
   document.getElementById('produtoCaixa').value = p.capacidade_caixa;
+  document.getElementById('produtoObservacao').value = p.observacao || '';
   document.getElementById('produtoAtivo').checked = p.ativo;
 
   for (let i = 1; i <= 6; i++) {
@@ -831,6 +849,11 @@ function editarProduto(id) {
   definirFotoSlotAtivo(1);
   setFotoStatus('Editando produto. Você pode selecionar um arquivo ou colar uma imagem com Ctrl+V no quadro desejado.');
   trocarTab('produtos');
+
+  document.getElementById('produtoFormCard').scrollIntoView({
+    behavior: 'smooth',
+    block: 'start'
+  });
 }
 
 async function toggleAtivo(id) {
@@ -857,6 +880,7 @@ function limparFormulario() {
   document.getElementById('produtoNome').value = '';
   document.getElementById('produtoPreco').value = '';
   document.getElementById('produtoCaixa').value = 1;
+  document.getElementById('produtoObservacao').value = '';
   document.getElementById('produtoAtivo').checked = true;
 
   limparArquivosSelecionados();

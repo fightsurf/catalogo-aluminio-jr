@@ -13,6 +13,7 @@ async function criarEstrutura() {
         ADD COLUMN IF NOT EXISTS foto_4 TEXT,
         ADD COLUMN IF NOT EXISTS foto_5 TEXT,
         ADD COLUMN IF NOT EXISTS foto_6 TEXT,
+        ADD COLUMN IF NOT EXISTS observacao TEXT,
         ADD COLUMN IF NOT EXISTS perfil_kit_feirinha BOOLEAN DEFAULT TRUE,
         ADD COLUMN IF NOT EXISTS perfil_orcamento BOOLEAN DEFAULT TRUE
     `);

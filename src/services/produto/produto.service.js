@@ -30,6 +30,12 @@ function normalizarFoto(valor) {
   return texto || null;
 }
 
+function normalizarObservacao(valor) {
+  if (valor === undefined || valor === null) return null;
+  const texto = String(valor).trim();
+  return texto || null;
+}
+
 function normalizarBooleano(valor, nomeCampo) {
   if (typeof valor === 'boolean') return valor;
 
@@ -122,6 +128,7 @@ async function listar(filtros = {}) {
       p.nome,
       p.preco,${camposFotosSelect('p')},
       p.capacidade_caixa,
+      p.observacao,
       p.ativo,
       p.item_legado,
       p.perfil_kit_feirinha,
@@ -171,6 +178,7 @@ async function buscar(id) {
       p.nome,
       p.preco,${camposFotosSelect('p')},
       p.capacidade_caixa,
+      p.observacao,
       p.ativo,
       p.item_legado,
       p.perfil_kit_feirinha,
@@ -204,14 +212,15 @@ async function criar(data) {
     foto_5,
     foto_6,
     capacidade_caixa,
+    observacao,
     ativo,
   } = data;
   const itemLegado = normalizarItemLegado(data?.item_legado);
 
   const result = await pool.query(`
     INSERT INTO produtos
-    (nome, preco, categoria_id, foto, foto_2, foto_3, foto_4, foto_5, foto_6, capacidade_caixa, ativo, item_legado)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+    (nome, preco, categoria_id, foto, foto_2, foto_3, foto_4, foto_5, foto_6, capacidade_caixa, observacao, ativo, item_legado)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
     RETURNING *
   `, [
     nome,
@@ -224,6 +233,7 @@ async function criar(data) {
     normalizarFoto(foto_5),
     normalizarFoto(foto_6),
     capacidade_caixa || 1,
+    normalizarObservacao(observacao),
     ativo !== false,
     itemLegado,
   ]);
@@ -245,6 +255,7 @@ async function atualizar(id, data) {
     foto_5,
     foto_6,
     capacidade_caixa,
+    observacao,
     ativo,
   } = data;
 
@@ -260,9 +271,10 @@ async function atualizar(id, data) {
       foto_5 = $8,
       foto_6 = $9,
       capacidade_caixa = $10,
-      ativo = $11,
+      observacao = $11,
+      ativo = $12,
       updated_at = NOW()
-    WHERE id = $12
+    WHERE id = $13
     RETURNING *
   `, [
     nome,
@@ -275,6 +287,7 @@ async function atualizar(id, data) {
     normalizarFoto(foto_5),
     normalizarFoto(foto_6),
     capacidade_caixa || 1,
+    normalizarObservacao(observacao),
     ativo !== false,
     id,
   ]);
