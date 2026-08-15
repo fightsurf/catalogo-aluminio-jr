@@ -199,8 +199,7 @@ class PrestacaoContasService {
         SELECT COUNT(*)::integer AS total
         FROM prestacao_pagamentos
         WHERE prestacao_id = $1
-          AND origem_sistema = 'PEDIDO_LEGADO'
-          AND origem_pagamento_codigo IS NOT NULL
+          AND origem_sistema LIKE 'PEDIDO_LEGADO%'
       `, [id]);
 
       if (Number(vinculadosRes.rows[0]?.total || 0) > 0) {
@@ -447,7 +446,7 @@ class PrestacaoContasService {
       `, [pagamentoId, prestacao_id]);
       const pagamento = pagRes.rows[0] || null;
 
-      if (pagamento && pagamento.origem_sistema === 'PEDIDO_LEGADO' && pagamento.origem_pagamento_codigo) {
+      if (pagamento && String(pagamento.origem_sistema || '').startsWith('PEDIDO_LEGADO')) {
         const err = new Error('Este pagamento veio da tela de pagamentos de pedidos. Exclua-o naquela tela para manter os dois módulos sincronizados.');
         err.statusCode = 409;
         throw err;
@@ -503,6 +502,24 @@ class PrestacaoContasService {
       LEFT JOIN fornecedores f ON f.id = p.fornecedor_id
       WHERE pg.origem_sistema = 'PEDIDO_LEGADO'
         AND pg.origem_pagamento_codigo = ANY($1::bigint[])
+
+      UNION ALL
+
+      SELECT
+        pg.id AS prestacao_pagamento_id,
+        pg.prestacao_id,
+        o.origem_pagamento_codigo,
+        o.origem_empresa,
+        o.origem_saida,
+        o.origem_pdv,
+        p.titulo AS prestacao_titulo,
+        p.status AS prestacao_status,
+        f.nome AS fornecedor_nome
+      FROM prestacao_pagamento_origens o
+      INNER JOIN prestacao_pagamentos pg ON pg.id = o.prestacao_pagamento_id
+      INNER JOIN prestacoes p ON p.id = pg.prestacao_id
+      LEFT JOIN fornecedores f ON f.id = p.fornecedor_id
+      WHERE o.origem_pagamento_codigo = ANY($1::bigint[])
     `, [ids]);
 
     return result.rows;
@@ -519,12 +536,22 @@ class PrestacaoContasService {
         pg.*,
         p.status AS prestacao_status,
         p.titulo AS prestacao_titulo,
-        f.nome AS fornecedor_nome
+        f.nome AS fornecedor_nome,
+        o.id AS origem_mapeamento_id,
+        COALESCE(o.origem_pagamento_codigo, pg.origem_pagamento_codigo) AS vinculo_origem_pagamento_codigo,
+        COALESCE(o.origem_empresa, pg.origem_empresa) AS vinculo_origem_empresa,
+        COALESCE(o.origem_saida, pg.origem_saida) AS vinculo_origem_saida,
+        COALESCE(o.origem_pdv, pg.origem_pdv) AS vinculo_origem_pdv
       FROM prestacao_pagamentos pg
       INNER JOIN prestacoes p ON p.id = pg.prestacao_id
       LEFT JOIN fornecedores f ON f.id = p.fornecedor_id
-      WHERE pg.origem_sistema = 'PEDIDO_LEGADO'
+      LEFT JOIN prestacao_pagamento_origens o
+        ON o.prestacao_pagamento_id = pg.id
+       AND o.origem_pagamento_codigo = $1
+      WHERE (
+        pg.origem_sistema = 'PEDIDO_LEGADO'
         AND pg.origem_pagamento_codigo = $1
+      ) OR o.id IS NOT NULL
       LIMIT 1
     `, [codigo]);
 
@@ -656,6 +683,12 @@ class PrestacaoContasService {
         FROM prestacao_pagamentos
         WHERE origem_sistema = 'PEDIDO_LEGADO'
           AND origem_pagamento_codigo = ANY($1::bigint[])
+
+        UNION ALL
+
+        SELECT origem_pagamento_codigo
+        FROM prestacao_pagamento_origens
+        WHERE origem_pagamento_codigo = ANY($1::bigint[])
       `, [codigos]);
 
       if (existentes.rows.length) {
@@ -664,49 +697,66 @@ class PrestacaoContasService {
         throw err;
       }
 
-      const criados = [];
-      let valorTotal = 0;
+      const valorTotal = Number(
+        normalizados.reduce((total, item) => total + item.valor, 0).toFixed(2)
+      );
+      const primeiro = normalizados[0];
+
+      // Na prestação existe somente um pagamento: o valor original do comprovante.
+      // A divisão entre pedidos fica guardada em uma tabela técnica de origens,
+      // sem quebrar o valor que o fornecedor enxerga.
+      const pagamentoRes = await client.query(`
+        INSERT INTO prestacao_pagamentos (
+          prestacao_id,
+          data_pagamento,
+          valor,
+          observacao,
+          origem_sistema,
+          origem_pagamento_codigo,
+          origem_empresa,
+          origem_saida,
+          origem_pdv,
+          origem_atualizado_em
+        )
+        VALUES ($1, $2, $3, $4, 'PEDIDO_LEGADO_DISTRIBUICAO', NULL, NULL, NULL, NULL, NOW())
+        RETURNING *
+      `, [
+        idPrestacao,
+        primeiro.data,
+        valorTotal,
+        primeiro.observacao
+      ]);
+
+      const pagamentoPrestacao = pagamentoRes.rows[0];
 
       for (const item of normalizados) {
-        const result = await client.query(`
-          INSERT INTO prestacao_pagamentos (
-            prestacao_id,
-            data_pagamento,
-            valor,
-            observacao,
-            origem_sistema,
+        await client.query(`
+          INSERT INTO prestacao_pagamento_origens (
+            prestacao_pagamento_id,
             origem_pagamento_codigo,
             origem_empresa,
             origem_saida,
             origem_pdv,
-            origem_atualizado_em
-          )
-          VALUES ($1, $2, $3, $4, 'PEDIDO_LEGADO', $5, $6, $7, $8, NOW())
-          RETURNING *
+            atualizado_em
+          ) VALUES ($1, $2, $3, $4, $5, NOW())
         `, [
-          idPrestacao,
-          item.data,
-          item.valor,
-          item.observacao,
+          pagamentoPrestacao.id,
           item.codigoPagamento,
           item.empresa,
           item.saida,
           item.pdv
         ]);
-
-        valorTotal += item.valor;
-        criados.push(result.rows[0]);
       }
 
       await this._recalcular(idPrestacao, client);
       await this._registrarLog(
         idPrestacao,
         'CRIAR_PAGAMENTO_DISTRIBUIDO',
-        `Pagamento distribuído vinculado: ${criados.length} lançamento(s), total R$ ${valorTotal.toFixed(2)}`,
+        `Pagamento único vinculado: R$ ${valorTotal.toFixed(2)} distribuído internamente entre ${normalizados.length} pedido(s)`,
         client
       );
       await client.query('COMMIT');
-      return criados;
+      return [pagamentoPrestacao];
     } catch (error) {
       await client.query('ROLLBACK');
       throw error;
@@ -729,6 +779,32 @@ class PrestacaoContasService {
       }
 
       await this._assertAberta(vinculo.prestacao_id, client);
+
+      if (vinculo.origem_mapeamento_id) {
+        await client.query(`
+          UPDATE prestacao_pagamento_origens
+          SET origem_empresa = $1,
+              origem_saida = $2,
+              origem_pdv = $3,
+              atualizado_em = NOW()
+          WHERE id = $4
+        `, [
+          data.empresa ?? vinculo.vinculo_origem_empresa ?? null,
+          data.saida ?? vinculo.vinculo_origem_saida ?? null,
+          data.pdv ?? vinculo.vinculo_origem_pdv ?? null,
+          vinculo.origem_mapeamento_id
+        ]);
+
+        await this._registrarLog(
+          vinculo.prestacao_id,
+          'ATUALIZAR_ORIGEM_PAGAMENTO_DISTRIBUIDO',
+          `Origem interna atualizada: código ${codigoPagamento}. O valor original da prestação foi mantido.`,
+          client
+        );
+        await client.query('COMMIT');
+        return vinculo;
+      }
+
       const valor = this._validarNumeroPositivo(data.valor, 'valor');
       const result = await client.query(`
         UPDATE prestacao_pagamentos
@@ -781,6 +857,38 @@ class PrestacaoContasService {
       }
 
       await this._assertAberta(vinculo.prestacao_id, client);
+
+      if (vinculo.origem_mapeamento_id) {
+        await client.query(`DELETE FROM prestacao_pagamento_origens WHERE id = $1`, [vinculo.origem_mapeamento_id]);
+        const restantes = await client.query(`
+          SELECT COUNT(*)::int AS quantidade
+          FROM prestacao_pagamento_origens
+          WHERE prestacao_pagamento_id = $1
+        `, [vinculo.id]);
+        const quantidadeRestante = Number(restantes.rows[0]?.quantidade || 0);
+
+        if (quantidadeRestante === 0) {
+          await client.query(`DELETE FROM prestacao_pagamentos WHERE id = $1`, [vinculo.id]);
+          await this._recalcular(vinculo.prestacao_id, client);
+          await this._registrarLog(
+            vinculo.prestacao_id,
+            'DELETAR_PAGAMENTO_DISTRIBUIDO',
+            `Pagamento original removido da prestação após exclusão da última origem: código ${codigoPagamento}`,
+            client
+          );
+        } else {
+          await this._registrarLog(
+            vinculo.prestacao_id,
+            'DELETAR_ORIGEM_PAGAMENTO_DISTRIBUIDO',
+            `Origem interna removida: código ${codigoPagamento}. O valor original da prestação foi mantido.`,
+            client
+          );
+        }
+
+        await client.query('COMMIT');
+        return vinculo;
+      }
+
       await client.query(`DELETE FROM prestacao_pagamentos WHERE id = $1`, [vinculo.id]);
       await this._recalcular(vinculo.prestacao_id, client);
       await this._registrarLog(
@@ -808,6 +916,27 @@ class PrestacaoContasService {
       const err = new Error('Código inválido ao restaurar o vínculo do pagamento.');
       err.statusCode = 400;
       throw err;
+    }
+
+    const mapeado = await pool.query(`
+      UPDATE prestacao_pagamento_origens
+      SET origem_pagamento_codigo = $1,
+          origem_empresa = $2,
+          origem_saida = $3,
+          origem_pdv = $4,
+          atualizado_em = NOW()
+      WHERE origem_pagamento_codigo = $5
+      RETURNING *
+    `, [
+      novoCodigo,
+      data.empresa ?? null,
+      data.saida ?? null,
+      data.pdv ?? null,
+      codigoAtual
+    ]);
+
+    if (mapeado.rows[0]) {
+      return mapeado.rows[0];
     }
 
     const result = await pool.query(`
@@ -854,7 +983,7 @@ class PrestacaoContasService {
         const codigo = Number(movimento?.codigo);
         if (!Number.isInteger(codigo) || codigo <= 0) continue;
 
-        const result = await client.query(
+        const direto = await client.query(
           `
             UPDATE prestacao_pagamentos
                SET origem_empresa = $1,
@@ -873,8 +1002,34 @@ class PrestacaoContasService {
           ]
         );
 
-        result.rows.forEach((row) => prestacoesAfetadas.add(Number(row.prestacao_id)));
-        atualizados += result.rowCount || 0;
+        direto.rows.forEach((row) => prestacoesAfetadas.add(Number(row.prestacao_id)));
+        atualizados += direto.rowCount || 0;
+
+        const mapeado = await client.query(
+          `
+            WITH alterados AS (
+              UPDATE prestacao_pagamento_origens
+                 SET origem_empresa = $1,
+                     origem_saida = $2,
+                     origem_pdv = $3,
+                     atualizado_em = NOW()
+               WHERE origem_pagamento_codigo = $4
+              RETURNING prestacao_pagamento_id
+            )
+            SELECT pg.prestacao_id
+            FROM alterados a
+            INNER JOIN prestacao_pagamentos pg ON pg.id = a.prestacao_pagamento_id
+          `,
+          [
+            pedidoNovo?.empresa ?? null,
+            pedidoNovo?.saida ?? pedidoNovo?.idMestre ?? null,
+            pedidoNovo?.pdv ?? null,
+            codigo
+          ]
+        );
+
+        mapeado.rows.forEach((row) => prestacoesAfetadas.add(Number(row.prestacao_id)));
+        atualizados += mapeado.rowCount || 0;
       }
 
       for (const divisao of divididos) {
@@ -882,8 +1037,6 @@ class PrestacaoContasService {
         const codigoNovo = Number(divisao?.codigoNovo);
         const valorOriginal = Number(divisao?.valorOriginal);
         const valorNovo = Number(divisao?.valorNovo);
-        const observacaoOriginal = String(divisao?.observacaoOriginal || '').trim();
-        const observacaoNovo = String(divisao?.observacaoNovo || '').trim();
 
         if (
           !Number.isInteger(codigoOriginal) || codigoOriginal <= 0
@@ -894,6 +1047,57 @@ class PrestacaoContasService {
           continue;
         }
 
+        // Se o pagamento já fazia parte de uma distribuição, apenas acrescenta
+        // a nova origem técnica. O valor do comprovante na prestação não muda.
+        const mapaAtualRes = await client.query(`
+          SELECT o.*, pg.prestacao_id
+          FROM prestacao_pagamento_origens o
+          INNER JOIN prestacao_pagamentos pg ON pg.id = o.prestacao_pagamento_id
+          WHERE o.origem_pagamento_codigo = $1
+          FOR UPDATE OF o, pg
+        `, [codigoOriginal]);
+        const mapaAtual = mapaAtualRes.rows[0] || null;
+
+        if (mapaAtual) {
+          await client.query(`
+            UPDATE prestacao_pagamento_origens
+            SET origem_empresa = $1,
+                origem_saida = $2,
+                origem_pdv = $3,
+                atualizado_em = NOW()
+            WHERE id = $4
+          `, [
+            pedidoOriginal?.empresa ?? mapaAtual.origem_empresa,
+            pedidoOriginal?.saida ?? pedidoOriginal?.idMestre ?? mapaAtual.origem_saida,
+            pedidoOriginal?.pdv ?? mapaAtual.origem_pdv,
+            mapaAtual.id
+          ]);
+
+          await client.query(`
+            INSERT INTO prestacao_pagamento_origens (
+              prestacao_pagamento_id,
+              origem_pagamento_codigo,
+              origem_empresa,
+              origem_saida,
+              origem_pdv,
+              atualizado_em
+            ) VALUES ($1, $2, $3, $4, $5, NOW())
+          `, [
+            mapaAtual.prestacao_pagamento_id,
+            codigoNovo,
+            pedidoNovo?.empresa ?? null,
+            pedidoNovo?.saida ?? pedidoNovo?.idMestre ?? null,
+            pedidoNovo?.pdv ?? null
+          ]);
+
+          prestacoesAfetadas.add(Number(mapaAtual.prestacao_id));
+          quantidadeDivididos += 1;
+          continue;
+        }
+
+        // Pagamento simples que acabou de ser dividido pela partição do pedido:
+        // converte o vínculo para múltiplas origens, mas mantém uma única linha
+        // e o valor original do comprovante na prestação do fornecedor.
         const atualResult = await client.query(
           `
             SELECT *
@@ -908,60 +1112,46 @@ class PrestacaoContasService {
         const atual = atualResult.rows[0];
         if (!atual) continue;
 
-        await client.query(
-          `
-            UPDATE prestacao_pagamentos
-               SET valor = $1,
-                   observacao = $2,
-                   origem_empresa = $3,
-                   origem_saida = $4,
-                   origem_pdv = $5,
-                   origem_atualizado_em = NOW()
-             WHERE id = $6
-          `,
-          [
-            valorOriginal,
-            observacaoOriginal || atual.observacao,
-            pedidoOriginal?.empresa ?? atual.origem_empresa,
-            pedidoOriginal?.saida ?? pedidoOriginal?.idMestre ?? atual.origem_saida,
-            pedidoOriginal?.pdv ?? atual.origem_pdv,
-            atual.id
-          ]
-        );
+        await client.query(`
+          UPDATE prestacao_pagamentos
+          SET origem_sistema = 'PEDIDO_LEGADO_DISTRIBUICAO',
+              origem_pagamento_codigo = NULL,
+              origem_empresa = NULL,
+              origem_saida = NULL,
+              origem_pdv = NULL,
+              origem_atualizado_em = NOW()
+          WHERE id = $1
+        `, [atual.id]);
 
-        await client.query(
-          `
-            INSERT INTO prestacao_pagamentos (
-              prestacao_id,
-              data_pagamento,
-              valor,
-              observacao,
-              credito_origem_id,
-              origem_sistema,
-              origem_pagamento_codigo,
-              origem_empresa,
-              origem_saida,
-              origem_pdv,
-              origem_atualizado_em
-            ) VALUES ($1, $2, $3, $4, $5, 'PEDIDO_LEGADO', $6, $7, $8, $9, NOW())
-          `,
-          [
-            atual.prestacao_id,
-            atual.data_pagamento,
-            valorNovo,
-            observacaoNovo || atual.observacao,
-            atual.credito_origem_id,
-            codigoNovo,
-            pedidoNovo?.empresa ?? null,
-            pedidoNovo?.saida ?? pedidoNovo?.idMestre ?? null,
-            pedidoNovo?.pdv ?? null
-          ]
-        );
+        await client.query(`
+          INSERT INTO prestacao_pagamento_origens (
+            prestacao_pagamento_id,
+            origem_pagamento_codigo,
+            origem_empresa,
+            origem_saida,
+            origem_pdv,
+            atualizado_em
+          ) VALUES
+            ($1, $2, $3, $4, $5, NOW()),
+            ($1, $6, $7, $8, $9, NOW())
+        `, [
+          atual.id,
+          codigoOriginal,
+          pedidoOriginal?.empresa ?? atual.origem_empresa,
+          pedidoOriginal?.saida ?? pedidoOriginal?.idMestre ?? atual.origem_saida,
+          pedidoOriginal?.pdv ?? atual.origem_pdv,
+          codigoNovo,
+          pedidoNovo?.empresa ?? null,
+          pedidoNovo?.saida ?? pedidoNovo?.idMestre ?? null,
+          pedidoNovo?.pdv ?? null
+        ]);
 
         prestacoesAfetadas.add(Number(atual.prestacao_id));
         quantidadeDivididos += 1;
       }
 
+      // O valor da prestação não é fracionado. O recálculo apenas confirma os
+      // totais após eventuais conversões de vínculo.
       for (const prestacaoId of prestacoesAfetadas) {
         if (Number.isInteger(prestacaoId) && prestacaoId > 0) {
           await this._recalcular(prestacaoId, client);
@@ -981,8 +1171,6 @@ class PrestacaoContasService {
       client.release();
     }
   }
-
-  // ─── WHATSAPP ─────────────────────────────────────────────────
 
   async enviarResumoWhatsapp(prestacao_id) {
     await this._ensureSchema();
@@ -1199,6 +1387,19 @@ class PrestacaoContasService {
     await pool.query(`ALTER TABLE prestacao_itens ALTER COLUMN movimentado_em SET DEFAULT NOW()`);
 
     await pool.query(`
+      CREATE TABLE IF NOT EXISTS prestacao_pagamento_origens (
+        id SERIAL PRIMARY KEY,
+        prestacao_pagamento_id INTEGER NOT NULL REFERENCES prestacao_pagamentos(id) ON DELETE CASCADE,
+        origem_pagamento_codigo BIGINT NOT NULL UNIQUE,
+        origem_empresa INTEGER NULL,
+        origem_saida BIGINT NULL,
+        origem_pdv INTEGER NULL,
+        criado_em TIMESTAMP NOT NULL DEFAULT NOW(),
+        atualizado_em TIMESTAMP NOT NULL DEFAULT NOW()
+      )
+    `);
+
+    await pool.query(`
       CREATE TABLE IF NOT EXISTS prestacao_creditos_fornecedor (
         id SERIAL PRIMARY KEY,
         fornecedor_id INTEGER NOT NULL,
@@ -1218,6 +1419,7 @@ class PrestacaoContasService {
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_prestacao_creditos_fornecedor_status ON prestacao_creditos_fornecedor(fornecedor_id, status)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_prestacao_pagamentos_credito_origem ON prestacao_pagamentos(credito_origem_id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_prestacao_pagamentos_origem_pedido ON prestacao_pagamentos(origem_sistema, origem_pagamento_codigo)`);
+    await pool.query(`CREATE INDEX IF NOT EXISTS idx_prestacao_pagamento_origens_pagamento ON prestacao_pagamento_origens(prestacao_pagamento_id)`);
     await pool.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS uq_prestacao_pagamentos_origem_pedido
       ON prestacao_pagamentos(origem_pagamento_codigo)

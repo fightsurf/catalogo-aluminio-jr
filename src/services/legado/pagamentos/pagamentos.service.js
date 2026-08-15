@@ -263,11 +263,18 @@ async function baixarPedidoParaCredito(payload = {}) {
   return enriquecerVinculosPrestacao(await clientesCreditosService.aplicarBaixaEmDetalhe(detalhe));
 }
 
-function montarObservacaoDistribuicaoPrestacao(data, aplicacao) {
-  const numeroPedido = String(aplicacao?.numero || aplicacao?.saida || '').trim() || '-';
+function montarObservacaoDistribuicaoPrestacao(data, aplicacoes = []) {
   const nomeCliente = String(data?.cliente?.nome || '').trim() || 'Cliente não identificado';
-  const observacaoOriginal = String(aplicacao?.observacao ?? data?.observacao ?? '').trim();
-  const partes = [`Pagamento distribuído do pedido ${numeroPedido} - ${nomeCliente}`];
+  const pedidos = Array.from(new Set(
+    (Array.isArray(aplicacoes) ? aplicacoes : [])
+      .map((aplicacao) => String(aplicacao?.numero || aplicacao?.saida || '').trim())
+      .filter(Boolean)
+  ));
+  const observacaoOriginal = String(data?.observacao || '').trim();
+  const referenciaPedidos = pedidos.length
+    ? `Pedidos ${pedidos.join(', ')}`
+    : 'Pedidos distribuídos';
+  const partes = [`Pagamento de ${nomeCliente} - ${referenciaPedidos}`];
 
   if (observacaoOriginal) {
     partes.push(observacaoOriginal);
@@ -446,6 +453,7 @@ async function distribuirPagamento(payload = {}) {
 
   const aplicacoes = await recuperarCodigosDistribuicao(data, codigosAntes);
   data.aplicacoes = aplicacoes;
+  const observacaoPrestacao = montarObservacaoDistribuicaoPrestacao(data, aplicacoes);
   const pagamentosVinculo = aplicacoes
     .filter((aplicacao) => Number(aplicacao?.valorAplicado || 0) > 0.009)
     .map((aplicacao) => ({
@@ -453,9 +461,10 @@ async function distribuirPagamento(payload = {}) {
       empresa: aplicacao.empresa,
       saida: aplicacao.saida,
       pdv: aplicacao.pdv,
+      numero: aplicacao.numero,
       data: data.dataPgto,
       valor: Number(aplicacao.valorAplicado || 0),
-      observacao: montarObservacaoDistribuicaoPrestacao(data, aplicacao)
+      observacao: observacaoPrestacao
     }));
 
   const codigosInvalidos = pagamentosVinculo.some((item) => !Number.isInteger(item.codigoPagamento) || item.codigoPagamento <= 0);
@@ -477,7 +486,8 @@ async function distribuirPagamento(payload = {}) {
         titulo: prestacao.titulo || '',
         fornecedorNome: prestacao.fornecedor_nome || '',
         valorTotal: Number(data.valorRecebido || 0),
-        quantidadeLancamentos: vinculos.length
+        quantidadeLancamentos: 1,
+        quantidadeVinculosTecnicos: pagamentosVinculo.length
       }
     };
   } catch (error) {
@@ -591,9 +601,9 @@ async function excluirPagamento(codigo, filtros = {}) {
 
   const detalheAnterior = vinculo
     ? await buscarDetalheLegado({
-        empresa: filtros.empresa ?? vinculo.origem_empresa ?? -1,
-        saida: filtros.saida ?? vinculo.origem_saida,
-        pdv: filtros.pdv ?? vinculo.origem_pdv ?? 0
+        empresa: filtros.empresa ?? vinculo.vinculo_origem_empresa ?? vinculo.origem_empresa ?? -1,
+        saida: filtros.saida ?? vinculo.vinculo_origem_saida ?? vinculo.origem_saida,
+        pdv: filtros.pdv ?? vinculo.vinculo_origem_pdv ?? vinculo.origem_pdv ?? 0
       })
     : null;
   const pagamentoAnterior = vinculo ? localizarPagamento(detalheAnterior, codigo) : null;
