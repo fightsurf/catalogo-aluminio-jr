@@ -535,7 +535,7 @@ function montarResumoPedido(pedido, detalhePagamento = null) {
       nome: clientePagamento.nome || pedido?.cliente?.nome || '',
       cidade: clientePagamento.cidade || pedido?.cliente?.cidade || '',
       uf: clientePagamento.uf || pedido?.cliente?.uf || '',
-      telefonePrincipal: clientePagamento.telefonePrincipal || clientePagamento.telefone1 || ''
+      telefonePrincipal: clientePagamento.telefonePrincipal || clientePagamento.telefone1 || pedido?.cliente?.telefonePrincipal || ''
     },
     valorPedido: Number(detalhePagamento?.pedido?.total ?? pedido?.total ?? 0),
     totalPago: Number(resumoPagamento.totalPago ?? 0),
@@ -907,7 +907,8 @@ async function buscarMatriz(codigoCarradaParam) {
         favorecido: pedido?.cliente?.favorecido ?? null,
         nome: pedido?.cliente?.nome || '',
         cidade: pedido?.cliente?.cidade || '',
-        uf: pedido?.cliente?.uf || ''
+        uf: pedido?.cliente?.uf || '',
+        telefonePrincipal: resumoPedido?.cliente?.telefonePrincipal || pedido?.cliente?.telefonePrincipal || ''
       },
       resumoPedido,
       fases

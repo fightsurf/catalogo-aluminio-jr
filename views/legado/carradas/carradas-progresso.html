@@ -1051,7 +1051,7 @@
 
     function abrirWhatsappCliente(numeroPedido) {
       const pedido = obterPedido(numeroPedido);
-      const telefoneOriginal = pedido?.cliente?.telefonePrincipal || '';
+      const telefoneOriginal = pedido?.cliente?.telefonePrincipal || pedido?.resumoPedido?.cliente?.telefonePrincipal || '';
       const telefone = normalizarTelefoneWhatsappCliente(telefoneOriginal);
       const telefoneFormatado = formatarTelefoneCliente(telefoneOriginal);
       const nomeCliente = pedido?.cliente?.nome || 'Cliente';
@@ -1374,7 +1374,7 @@
         const nomeClienteHtml = pedido.cliente?.favorecido
           ? `<a class="cliente-link" href="/legado/pedidos-cliente?favorecido=${encodeURIComponent(pedido.cliente.favorecido)}" target="_blank" rel="noopener noreferrer">${nomeCliente}</a>`
           : nomeCliente;
-        const telefoneCliente = pedido.cliente?.telefonePrincipal || '';
+        const telefoneCliente = pedido.cliente?.telefonePrincipal || pedido.resumoPedido?.cliente?.telefonePrincipal || '';
         const telefoneClienteFormatado = formatarTelefoneCliente(telefoneCliente);
         const telefoneClienteHtml = telefoneClienteFormatado
           ? `<button type="button" class="telefone-cliente-btn" data-whatsapp-cliente-numero="${escapeHtml(pedido.numero)}" aria-label="Enviar WhatsApp para ${nomeCliente}" title="${escapeHtml(telefoneClienteFormatado)}">📞<span class="telefone-cliente-hint">${escapeHtml(telefoneClienteFormatado)}</span></button>`
