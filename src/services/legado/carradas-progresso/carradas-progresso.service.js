@@ -1629,55 +1629,53 @@ function quebrarTextoEtiqueta(value, maxCaracteres = 42, maxLinhas = 3) {
   return linhas;
 }
 
-function montarSvgEtiquetaImpressao(dados, numeroVolume = 1) {
-  const largura = 1240;
-  const altura = 1754;
+function montarSvgEtiquetaImpressao(dados) {
+  const largura = 1754;
+  const altura = 1240;
   const nome = escaparXmlEtiqueta(dados.clienteNome || '-');
   const telefone = escaparXmlEtiqueta(dados.clienteTelefone || '-');
   const cidade = escaparXmlEtiqueta([dados.clienteCidade, dados.clienteUf].filter(Boolean).join(' - ') || '-');
   const pedido = escaparXmlEtiqueta(dados.numeroPedido || '-');
   const transportadora = escaparXmlEtiqueta(dados.transportadoraNome || 'NÃO INFORMADA');
-  const observacoes = quebrarTextoEtiqueta(dados.transportadoraObservacao, 48, 3);
-  const totalVolumes = Number(dados.quantidadeVolumes || 0);
+  const observacoes = quebrarTextoEtiqueta(dados.transportadoraObservacao, 62, 2);
 
   const obsSvg = observacoes.length
-    ? observacoes.map((linha, i) => `<text x="620" y="${1110 + i * 54}" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="42" font-weight="700">${escaparXmlEtiqueta(linha)}</text>`).join('')
+    ? observacoes.map((linha, i) => `<text x="877" y="750" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="38" font-weight="700" transform="translate(0 ${i * 44})">${escaparXmlEtiqueta(linha)}</text>`).join('')
     : '';
 
   return `
     <svg width="${largura}" height="${altura}" viewBox="0 0 ${largura} ${altura}" xmlns="http://www.w3.org/2000/svg">
-      <rect width="1240" height="1754" fill="#ffffff"/>
-      <rect x="34" y="34" width="1172" height="1686" fill="none" stroke="#111111" stroke-width="5"/>
+      <rect width="1754" height="1240" fill="#ffffff"/>
+      <rect x="34" y="34" width="1686" height="1172" fill="none" stroke="#111111" stroke-width="5"/>
 
-      <text x="620" y="118" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="48" font-weight="800">PANELAS DE PRESSÃO ALUMÍNIO JR</text>
-      <text x="620" y="176" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="42" font-weight="700">(83) 9.9979-2085</text>
-      <line x1="70" y1="215" x2="1170" y2="215" stroke="#111" stroke-width="3"/>
+      <text x="877" y="105" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="54" font-weight="800">PANELAS DE PRESSÃO ALUMÍNIO JR</text>
+      <text x="877" y="165" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="44" font-weight="700">(83) 9.9979-2085</text>
+      <line x1="70" y1="205" x2="1684" y2="205" stroke="#111" stroke-width="3"/>
 
-      <text x="85" y="322" font-family="Arial,Helvetica,sans-serif" font-size="46" font-weight="700">CLIENTE:</text>
-      <text x="320" y="322" font-family="Arial,Helvetica,sans-serif" font-size="46" font-weight="800">${nome}</text>
+      <text x="90" y="300" font-family="Arial,Helvetica,sans-serif" font-size="48" font-weight="700">CLIENTE:</text>
+      <text x="330" y="300" font-family="Arial,Helvetica,sans-serif" font-size="48" font-weight="800">${nome}</text>
 
-      <text x="85" y="405" font-family="Arial,Helvetica,sans-serif" font-size="42" font-weight="700">TELEFONE:</text>
-      <text x="345" y="405" font-family="Arial,Helvetica,sans-serif" font-size="42" font-weight="700">${telefone}</text>
+      <text x="90" y="380" font-family="Arial,Helvetica,sans-serif" font-size="44" font-weight="700">TELEFONE:</text>
+      <text x="365" y="380" font-family="Arial,Helvetica,sans-serif" font-size="44" font-weight="700">${telefone}</text>
 
-      <text x="85" y="488" font-family="Arial,Helvetica,sans-serif" font-size="42" font-weight="700">CIDADE:</text>
-      <text x="290" y="488" font-family="Arial,Helvetica,sans-serif" font-size="42" font-weight="700">${cidade}</text>
+      <text x="90" y="460" font-family="Arial,Helvetica,sans-serif" font-size="44" font-weight="700">CIDADE:</text>
+      <text x="305" y="460" font-family="Arial,Helvetica,sans-serif" font-size="44" font-weight="700">${cidade}</text>
 
-      <rect x="70" y="548" width="1100" height="176" rx="8" fill="#fff" stroke="#111" stroke-width="4"/>
-      <text x="100" y="625" font-family="Arial,Helvetica,sans-serif" font-size="48" font-weight="900">PEDIDO ${pedido}</text>
-      <text x="100" y="690" font-family="Arial,Helvetica,sans-serif" font-size="52" font-weight="900">VOLUME ${numeroVolume} DE ${totalVolumes}</text>
-
-      <text x="620" y="830" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="42" font-weight="700">EXCURSÃO / TRANSPORTADORA</text>
-      <text x="620" y="914" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="58" font-weight="900">${transportadora}</text>
+      <text x="877" y="555" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="42" font-weight="700">EXCURSÃO / TRANSPORTADORA</text>
+      <text x="877" y="635" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="62" font-weight="900">${transportadora}</text>
       ${obsSvg}
 
-      <rect x="70" y="1280" width="1100" height="360" rx="10" fill="#fff" stroke="#111" stroke-width="7"/>
-      <text x="620" y="1518" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="190" font-weight="900">FRÁGIL</text>
+      <rect x="70" y="830" width="1614" height="110" rx="8" fill="#fff" stroke="#111" stroke-width="4"/>
+      <text x="877" y="902" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="52" font-weight="900">PEDIDO ${pedido}</text>
+
+      <rect x="70" y="975" width="1614" height="180" rx="10" fill="#fff" stroke="#111" stroke-width="7"/>
+      <text x="877" y="1100" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="128" font-weight="900">FRÁGIL</text>
     </svg>
   `;
 }
 
-async function gerarImagemEtiquetaImpressao(dados, numeroVolume = 1) {
-  const svg = montarSvgEtiquetaImpressao(dados, numeroVolume);
+async function gerarImagemEtiquetaImpressao(dados) {
+  const svg = montarSvgEtiquetaImpressao(dados);
   return sharp(Buffer.from(svg)).png({ compressionLevel: 9 }).toBuffer();
 }
 
@@ -1723,7 +1721,7 @@ async function montarDadosEtiquetaImpressao({ codigoCarrada: codigoCarradaParam,
 
 async function buscarDadosEtiquetaImpressao(params) {
   const dados = await montarDadosEtiquetaImpressao(params);
-  const imagem = await gerarImagemEtiquetaImpressao(dados, 1);
+  const imagem = await gerarImagemEtiquetaImpressao(dados);
 
   return {
     ...dados,
@@ -1734,7 +1732,7 @@ async function buscarDadosEtiquetaImpressao(params) {
 
 async function enviarEtiquetaImpressaoWhatsapp(params) {
   const dados = await montarDadosEtiquetaImpressao(params);
-  const imagem = await gerarImagemEtiquetaImpressao(dados, 1);
+  const imagem = await gerarImagemEtiquetaImpressao(dados);
   const imagemDataUrl = `data:image/png;base64,${imagem.toString('base64')}`;
   const legenda = [
     `📦 Pedido nº ${dados.numeroPedido}`,
