@@ -1914,8 +1914,7 @@
             <div class="linha"><b>CLIENTE:</b> <span>${nome}</span></div>
             <div class="linha"><b>TELEFONE:</b> <span>${telefone}</span></div>
             <div class="linha"><b>CIDADE:</b> <span>${cidade}</span></div>
-            <div class="transportadora-titulo">EXCURSÃO / TRANSPORTADORA</div>
-            <div class="transportadora">${transportadora}</div>
+            <div class="linha linha-transportadora"><b>EXCURSÃO / TRANSPORTADORA:</b> <span>${transportadora}</span></div>
             ${observacao ? `<div class="observacao">${observacao}</div>` : ''}
             <div class="pedido-box">
               <div>PEDIDO ${pedido}</div>
@@ -1937,13 +1936,13 @@
         .marca { font-size: 7.7mm; font-weight: 900; }
         .fone-jr { font-size: 6.5mm; font-weight: 700; margin-top: 2mm; }
         main { flex:1; display:flex; flex-direction:column; padding-top: 5mm; }
-        .linha { font-size: 6.8mm; font-weight: 700; margin-bottom: 3.5mm; }
+        .linha { font-size: 7.4mm; font-weight: 700; margin-bottom: 3.5mm; }
         .linha b { font-weight: 900; }
         .pedido-box { border: 1mm solid #111; padding: 2.5mm 5mm; font-size: 8mm; font-weight: 900; line-height:1.12; margin: 5mm 0 4mm; text-align:center; }
         .volume-pedido { font-size: 6.5mm; margin-top: 1.5mm; }
-        .transportadora-titulo { text-align:center; font-size: 6mm; font-weight: 800; margin-top: 2mm; }
-        .transportadora { text-align:center; font-size: 8.5mm; font-weight: 900; margin-top: 2mm; }
-        .observacao { text-align:center; font-size: 5.8mm; font-weight: 800; line-height:1.2; margin-top: 2mm; white-space:pre-wrap; }
+        .linha-transportadora { margin-top: 1mm; }
+        .linha-transportadora span { font-weight: 800; }
+        .observacao { text-align:left; font-size: 5.8mm; font-weight: 800; line-height:1.2; margin-top: 0; margin-bottom: 2mm; padding-left: 0; white-space:pre-wrap; }
         .fragil { margin-top:auto; border: 1.5mm solid #111; min-height: 34mm; display:flex; align-items:center; justify-content:center; font-size: 23mm; font-weight: 900; letter-spacing: .5mm; }
       </style></head><body>${paginas}<script>window.onload=()=>{window.focus();window.print();}<\/script></body></html>`);
       janela.document.close();

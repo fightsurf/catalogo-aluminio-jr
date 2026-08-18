@@ -1640,7 +1640,7 @@ function montarSvgEtiquetaImpressao(dados) {
   const observacoes = quebrarTextoEtiqueta(dados.transportadoraObservacao, 62, 2);
 
   const obsSvg = observacoes.length
-    ? observacoes.map((linha, i) => `<text x="877" y="750" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="38" font-weight="700" transform="translate(0 ${i * 44})">${escaparXmlEtiqueta(linha)}</text>`).join('')
+    ? observacoes.map((linha, i) => `<text x="90" y="625" font-family="Arial,Helvetica,sans-serif" font-size="38" font-weight="700" transform="translate(0 ${i * 44})">${escaparXmlEtiqueta(linha)}</text>`).join('')
     : '';
 
   return `
@@ -1652,17 +1652,17 @@ function montarSvgEtiquetaImpressao(dados) {
       <text x="877" y="165" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="44" font-weight="700">(83) 9.9979-2085</text>
       <line x1="70" y1="205" x2="1684" y2="205" stroke="#111" stroke-width="3"/>
 
-      <text x="90" y="300" font-family="Arial,Helvetica,sans-serif" font-size="48" font-weight="700">CLIENTE:</text>
-      <text x="330" y="300" font-family="Arial,Helvetica,sans-serif" font-size="48" font-weight="800">${nome}</text>
+      <text x="90" y="300" font-family="Arial,Helvetica,sans-serif" font-size="52" font-weight="700">CLIENTE:</text>
+      <text x="350" y="300" font-family="Arial,Helvetica,sans-serif" font-size="52" font-weight="800">${nome}</text>
 
-      <text x="90" y="380" font-family="Arial,Helvetica,sans-serif" font-size="44" font-weight="700">TELEFONE:</text>
-      <text x="365" y="380" font-family="Arial,Helvetica,sans-serif" font-size="44" font-weight="700">${telefone}</text>
+      <text x="90" y="385" font-family="Arial,Helvetica,sans-serif" font-size="50" font-weight="700">TELEFONE:</text>
+      <text x="395" y="385" font-family="Arial,Helvetica,sans-serif" font-size="50" font-weight="700">${telefone}</text>
 
-      <text x="90" y="460" font-family="Arial,Helvetica,sans-serif" font-size="44" font-weight="700">CIDADE:</text>
-      <text x="305" y="460" font-family="Arial,Helvetica,sans-serif" font-size="44" font-weight="700">${cidade}</text>
+      <text x="90" y="470" font-family="Arial,Helvetica,sans-serif" font-size="50" font-weight="700">CIDADE:</text>
+      <text x="335" y="470" font-family="Arial,Helvetica,sans-serif" font-size="50" font-weight="700">${cidade}</text>
 
-      <text x="877" y="555" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="42" font-weight="700">EXCURSÃO / TRANSPORTADORA</text>
-      <text x="877" y="635" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="62" font-weight="900">${transportadora}</text>
+      <text x="90" y="555" font-family="Arial,Helvetica,sans-serif" font-size="50" font-weight="700">EXCURSÃO / TRANSPORTADORA:</text>
+      <text x="820" y="555" font-family="Arial,Helvetica,sans-serif" font-size="50" font-weight="800">${transportadora}</text>
       ${obsSvg}
 
       <rect x="70" y="830" width="1614" height="110" rx="8" fill="#fff" stroke="#111" stroke-width="4"/>
