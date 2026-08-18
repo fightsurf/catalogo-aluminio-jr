@@ -90,6 +90,32 @@ async function salvarFaseBooleana(req, res) {
   }
 }
 
+async function buscarDadosEtiquetaImpressao(req, res) {
+  try {
+    const data = await service.buscarDadosEtiquetaImpressao({
+      codigoCarrada: req.params.codigo,
+      numeroPedido: req.params.numeroPedido
+    });
+
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return responderErro(res, error, 'Erro ao montar a etiqueta de impressão.');
+  }
+}
+
+async function enviarEtiquetaImpressaoWhatsapp(req, res) {
+  try {
+    const data = await service.enviarEtiquetaImpressaoWhatsapp({
+      codigoCarrada: req.params.codigo,
+      numeroPedido: req.params.numeroPedido
+    });
+
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return responderErro(res, error, 'Erro ao enviar a imagem da etiqueta pelo WhatsApp.');
+  }
+}
+
 async function buscarDadosEtiquetaPedido(req, res) {
   try {
     const data = await service.buscarDadosEtiquetaPedido({
@@ -196,6 +222,8 @@ module.exports = {
   salvarDataExpedicao,
   salvarFaseBooleana,
   buscarDadosEtiquetaPedido,
+  buscarDadosEtiquetaImpressao,
+  enviarEtiquetaImpressaoWhatsapp,
   enviarEtiquetaVolumes,
   confirmarEtiquetaVolumes,
   salvarLocalEntrega,

@@ -228,6 +228,64 @@
       margin-bottom: 3px;
       line-height: 1.2;
     }
+
+    .pedido-title-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 3px;
+    }
+    .pedido-title-row .pedido-title { margin-bottom: 0; }
+    .btn-impressora-pedido {
+      width: 28px;
+      height: 28px;
+      min-height: 28px;
+      padding: 0;
+      border-radius: 7px;
+      background: #fff;
+      border: 1px solid var(--line);
+      font-size: 16px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      flex: 0 0 auto;
+    }
+    .btn-impressora-pedido:hover { background: #f3f4f6; }
+    .etiqueta-preview-wrap {
+      display: grid;
+      grid-template-columns: minmax(280px, 1fr) 260px;
+      gap: 16px;
+      align-items: start;
+    }
+    .etiqueta-preview-card {
+      background: #eef0f3;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      display: flex;
+      justify-content: center;
+      overflow: auto;
+    }
+    .etiqueta-preview-card img {
+      display: block;
+      width: min(100%, 620px);
+      height: auto;
+      background: #fff;
+      box-shadow: 0 5px 18px rgba(15, 23, 42, 0.12);
+    }
+    .etiqueta-dados-card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      background: #fff;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    .etiqueta-dados-card strong { color: #111827; }
+    @media (max-width: 860px) {
+      .etiqueta-preview-wrap { grid-template-columns: 1fr; }
+    }
     .pedido-meta {
       font-size: 10px;
       color: var(--muted);
@@ -533,6 +591,36 @@
     </div>
   </div>
 
+
+  <div class="modal-backdrop" id="modalEtiquetaImpressaoBackdrop">
+    <div class="modal" style="max-width: 980px;">
+      <div class="modal-header">
+        <div>
+          <h3 id="modalEtiquetaImpressaoTitulo">Etiqueta de impressão</h3>
+          <p class="muted" id="modalEtiquetaImpressaoSubtitulo"></p>
+        </div>
+        <button class="btn-secondary" data-close-modal="modalEtiquetaImpressaoBackdrop">Fechar</button>
+      </div>
+      <div class="modal-body">
+        <div class="etiqueta-preview-wrap">
+          <div class="etiqueta-preview-card">
+            <img id="imgEtiquetaImpressao" alt="Pré-visualização da etiqueta A4" />
+          </div>
+          <div>
+            <div class="etiqueta-dados-card" id="dadosEtiquetaImpressao"></div>
+            <div class="feedback" id="feedbackEtiquetaImpressao" style="margin-top:12px;">Confira os dados antes de enviar ao cliente.</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="btnEtiquetaImpressaoDesconfirmar">Desmarcar confirmação</button>
+        <button class="btn-success" id="btnEtiquetaImpressaoConfirmar">Marcar confirmado</button>
+        <button class="btn-secondary" id="btnEtiquetaImpressaoImprimir">Imprimir etiquetas</button>
+        <button class="btn-primary" id="btnEtiquetaImpressaoEnviar">Enviar imagem ao cliente</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-backdrop" id="modalLocalEntregaBackdrop">
     <div class="modal">
       <div class="modal-header">
@@ -585,6 +673,10 @@
         pedidoNumero: null,
         payload: null
       },
+      etiquetaImpressaoModal: {
+        pedidoNumero: null,
+        payload: null
+      },
       localEntregaModal: {
         pedidoNumero: null,
         payload: null
@@ -613,6 +705,16 @@
       btnEtiquetaEnviar: document.getElementById('btnEtiquetaEnviar'),
       btnEtiquetaConfirmar: document.getElementById('btnEtiquetaConfirmar'),
       btnEtiquetaDesconfirmar: document.getElementById('btnEtiquetaDesconfirmar'),
+      modalEtiquetaImpressaoBackdrop: document.getElementById('modalEtiquetaImpressaoBackdrop'),
+      modalEtiquetaImpressaoTitulo: document.getElementById('modalEtiquetaImpressaoTitulo'),
+      modalEtiquetaImpressaoSubtitulo: document.getElementById('modalEtiquetaImpressaoSubtitulo'),
+      imgEtiquetaImpressao: document.getElementById('imgEtiquetaImpressao'),
+      dadosEtiquetaImpressao: document.getElementById('dadosEtiquetaImpressao'),
+      feedbackEtiquetaImpressao: document.getElementById('feedbackEtiquetaImpressao'),
+      btnEtiquetaImpressaoEnviar: document.getElementById('btnEtiquetaImpressaoEnviar'),
+      btnEtiquetaImpressaoImprimir: document.getElementById('btnEtiquetaImpressaoImprimir'),
+      btnEtiquetaImpressaoConfirmar: document.getElementById('btnEtiquetaImpressaoConfirmar'),
+      btnEtiquetaImpressaoDesconfirmar: document.getElementById('btnEtiquetaImpressaoDesconfirmar'),
       modalLocalEntregaBackdrop: document.getElementById('modalLocalEntregaBackdrop'),
       modalLocalEntregaTitulo: document.getElementById('modalLocalEntregaTitulo'),
       modalLocalEntregaSubtitulo: document.getElementById('modalLocalEntregaSubtitulo'),
@@ -821,7 +923,16 @@
         return `
           <tr>
             <td class="sticky-col">
-              <div class="pedido-title">Pedido ${escapeHtml(pedido.numero)}</div>
+              <div class="pedido-title-row">
+                <div class="pedido-title">Pedido ${escapeHtml(pedido.numero)}</div>
+                <button
+                  type="button"
+                  class="btn-impressora-pedido"
+                  data-imprimir-pedido="${escapeHtml(pedido.numero)}"
+                  title="Montar etiqueta A4 deste pedido"
+                  aria-label="Montar etiqueta A4 do pedido ${escapeHtml(pedido.numero)}"
+                >🖨️</button>
+              </div>
               <div class="pedido-meta">
                 ${escapeHtml(pedido.cliente?.nome || '-')}<br>
                 Data: ${escapeHtml(formatarData(pedido.data) || '-')}<br>
@@ -832,6 +943,14 @@
           </tr>
         `;
       }).join('');
+
+      el.tbodyMatriz.querySelectorAll('[data-imprimir-pedido]').forEach((botao) => {
+        botao.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          abrirModalEtiquetaImpressao(botao.dataset.imprimirPedido);
+        });
+      });
 
       el.tbodyMatriz.querySelectorAll('[data-fase-codigo]').forEach((botao) => {
         botao.addEventListener('click', () => onClickCelula(botao));
@@ -1005,6 +1124,147 @@
       } catch (error) {
         window.alert(error.message);
       }
+    }
+
+
+    function montarDadosEtiquetaImpressaoHtml(payload) {
+      return `
+        <div><strong>Pedido:</strong> ${escapeHtml(payload?.numeroPedido || '-')}</div>
+        <div><strong>Cliente:</strong> ${escapeHtml(payload?.clienteNome || '-')}</div>
+        <div><strong>Telefone:</strong> ${escapeHtml(payload?.clienteTelefone || '-')}</div>
+        <div><strong>Cidade:</strong> ${escapeHtml([payload?.clienteCidade, payload?.clienteUf].filter(Boolean).join(' - ') || '-')}</div>
+        <div><strong>Volumes:</strong> ${escapeHtml(payload?.quantidadeVolumes || 0)} folha(s) A4</div>
+        <div><strong>Transportadora:</strong> ${escapeHtml(payload?.transportadoraNome || 'NÃO INFORMADA')}</div>
+        <div><strong>Observação:</strong> ${escapeHtml(payload?.transportadoraObservacao || 'Sem observação')}</div>
+      `;
+    }
+
+    async function abrirModalEtiquetaImpressao(numeroPedido) {
+      try {
+        setFeedback(el.feedbackEtiquetaImpressao, 'Montando a etiqueta...', '');
+        const payload = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/etiqueta-impressao`);
+        estado.etiquetaImpressaoModal = { pedidoNumero: numeroPedido, payload };
+
+        el.modalEtiquetaImpressaoTitulo.textContent = `Etiqueta A4 • Pedido ${numeroPedido}`;
+        el.modalEtiquetaImpressaoSubtitulo.textContent = `${payload.clienteNome || '-'} • ${payload.quantidadeVolumes} volume(s)`;
+        el.imgEtiquetaImpressao.src = payload.imagemDataUrl;
+        el.dadosEtiquetaImpressao.innerHTML = montarDadosEtiquetaImpressaoHtml(payload);
+        setFeedback(el.feedbackEtiquetaImpressao, 'Confira os dados. A imagem enviada ao cliente será esta prévia do volume 1.', '');
+        abrirModal(el.modalEtiquetaImpressaoBackdrop);
+      } catch (error) {
+        window.alert(error.message);
+      }
+    }
+
+    async function enviarEtiquetaImpressaoWhatsapp() {
+      const numeroPedido = estado.etiquetaImpressaoModal.pedidoNumero;
+      if (!numeroPedido) return;
+
+      el.btnEtiquetaImpressaoEnviar.disabled = true;
+      setFeedback(el.feedbackEtiquetaImpressao, 'Enviando a imagem ao cliente...', '');
+
+      try {
+        const data = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/etiqueta-impressao/whatsapp`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+
+        const notificacao = data?.notificacao;
+        if (notificacao?.success) {
+          setFeedback(el.feedbackEtiquetaImpressao, `Imagem enviada com sucesso para ${notificacao.telefone || '-'}.`, 'success');
+        } else {
+          setFeedback(el.feedbackEtiquetaImpressao, `Falha ao enviar WhatsApp: ${notificacao?.error || 'Erro desconhecido.'}`, 'error');
+        }
+      } catch (error) {
+        setFeedback(el.feedbackEtiquetaImpressao, error.message, 'error');
+      } finally {
+        el.btnEtiquetaImpressaoEnviar.disabled = false;
+      }
+    }
+
+    async function confirmarEtiquetaImpressao(confirmado) {
+      const numeroPedido = estado.etiquetaImpressaoModal.pedidoNumero;
+      if (!numeroPedido) return;
+
+      try {
+        await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/etiqueta-volumes/confirmacao`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ confirmado })
+        });
+
+        setFeedback(el.feedbackEtiquetaImpressao, confirmado ? 'Etiqueta marcada como confirmada.' : 'Confirmação removida.', confirmado ? 'success' : '');
+        await carregarMatriz();
+      } catch (error) {
+        setFeedback(el.feedbackEtiquetaImpressao, error.message, 'error');
+      }
+    }
+
+    function imprimirEtiquetasA4() {
+      const payload = estado.etiquetaImpressaoModal.payload;
+      if (!payload) return;
+
+      const total = Number(payload.quantidadeVolumes || 0);
+      if (!Number.isInteger(total) || total <= 0) {
+        setFeedback(el.feedbackEtiquetaImpressao, 'Quantidade de volumes inválida para impressão.', 'error');
+        return;
+      }
+
+      const janela = window.open('', '_blank');
+      if (!janela) {
+        setFeedback(el.feedbackEtiquetaImpressao, 'O navegador bloqueou a janela de impressão. Libere pop-ups e tente novamente.', 'error');
+        return;
+      }
+
+      const nome = escapeHtml(payload.clienteNome || '-');
+      const telefone = escapeHtml(payload.clienteTelefone || '-');
+      const cidade = escapeHtml([payload.clienteCidade, payload.clienteUf].filter(Boolean).join(' - ') || '-');
+      const pedido = escapeHtml(payload.numeroPedido || '-');
+      const transportadora = escapeHtml(payload.transportadoraNome || 'NÃO INFORMADA');
+      const observacao = escapeHtml(payload.transportadoraObservacao || '');
+
+      const paginas = Array.from({ length: total }, (_, indice) => `
+        <section class="a4">
+          <div class="folha">
+            <header>
+              <div class="marca">PANELAS DE PRESSÃO ALUMÍNIO JR</div>
+              <div class="fone-jr">(83) 9.9979-2085</div>
+            </header>
+            <main>
+              <div class="linha"><b>CLIENTE:</b> <span>${nome}</span></div>
+              <div class="linha"><b>TELEFONE:</b> <span>${telefone}</span></div>
+              <div class="linha"><b>CIDADE:</b> <span>${cidade}</span></div>
+              <div class="pedido-box"><div>PEDIDO ${pedido}</div><div>VOLUME ${indice + 1} DE ${total}</div></div>
+              <div class="transportadora-titulo">EXCURSÃO / TRANSPORTADORA</div>
+              <div class="transportadora">${transportadora}</div>
+              ${observacao ? `<div class="observacao">${observacao}</div>` : ''}
+              <div class="fragil">FRÁGIL</div>
+            </main>
+          </div>
+        </section>
+      `).join('');
+
+      janela.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Etiquetas pedido ${pedido}</title><style>
+        @page { size: A4 portrait; margin: 0; }
+        * { box-sizing: border-box; }
+        html, body { margin: 0; padding: 0; font-family: Arial, Helvetica, sans-serif; color: #111; }
+        .a4 { width: 210mm; height: 297mm; page-break-after: always; padding: 6mm; background:#fff; }
+        .a4:last-child { page-break-after: auto; }
+        .folha { height: 100%; border: 1.2mm solid #111; padding: 8mm; display:flex; flex-direction:column; }
+        header { text-align:center; border-bottom: .7mm solid #111; padding-bottom: 5mm; }
+        .marca { font-size: 7.7mm; font-weight: 900; }
+        .fone-jr { font-size: 6.5mm; font-weight: 700; margin-top: 2mm; }
+        main { flex:1; display:flex; flex-direction:column; padding-top: 10mm; }
+        .linha { font-size: 7.1mm; font-weight: 700; margin-bottom: 6mm; }
+        .linha b { font-weight: 900; }
+        .pedido-box { border: 1mm solid #111; padding: 5mm; font-size: 8.2mm; font-weight: 900; line-height:1.35; margin: 3mm 0 11mm; }
+        .transportadora-titulo { text-align:center; font-size: 6.5mm; font-weight: 800; margin-top: 3mm; }
+        .transportadora { text-align:center; font-size: 9mm; font-weight: 900; margin-top: 5mm; }
+        .observacao { text-align:center; font-size: 6.6mm; font-weight: 800; line-height:1.3; margin-top: 6mm; white-space:pre-wrap; }
+        .fragil { margin-top:auto; border: 1.5mm solid #111; min-height: 62mm; display:flex; align-items:center; justify-content:center; font-size: 30mm; font-weight: 900; letter-spacing: .5mm; }
+      </style></head><body>${paginas}<script>window.onload=()=>{window.focus();window.print();}<\/script></body></html>`);
+      janela.document.close();
     }
 
     function popularSelectEtiquetas(payload) {
@@ -1240,7 +1500,13 @@
       window.alert('Código da carrada não informado.');
       window.location.href = '/legado/carradas';
     } else {
-      carregarMatriz();
+  
+    el.btnEtiquetaImpressaoEnviar.addEventListener('click', enviarEtiquetaImpressaoWhatsapp);
+    el.btnEtiquetaImpressaoImprimir.addEventListener('click', imprimirEtiquetasA4);
+    el.btnEtiquetaImpressaoConfirmar.addEventListener('click', () => confirmarEtiquetaImpressao(true));
+    el.btnEtiquetaImpressaoDesconfirmar.addEventListener('click', () => confirmarEtiquetaImpressao(false));
+
+    carregarMatriz();
     }
   </script>
 </body>

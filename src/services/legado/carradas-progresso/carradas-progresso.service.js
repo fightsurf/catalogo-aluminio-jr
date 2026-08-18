@@ -1,4 +1,5 @@
 const pool = require('../../../../db/connection');
+const sharp = require('sharp');
 const carradasService = require('../carradas/carradas.service');
 const pagamentosService = require('../pagamentos/pagamentos.service');
 const whatsappService = require('../../whatsapp/envio-whatsapp.service');
@@ -702,6 +703,7 @@ async function buscarLocalEntregaRowsDosPedidos(pedidos = []) {
         le.updated_at,
         t.nome AS transportadora_nome,
         t.telefone_principal AS transportadora_telefone_principal,
+        t.observacao AS transportadora_observacao,
         r.nome AS redespacho_transportadora_nome,
         r.telefone_principal AS redespacho_transportadora_telefone_principal,
         a.nome AS agencia_recebimento_nome,
@@ -734,6 +736,7 @@ async function buscarLocalEntregaRowsDosPedidos(pedidos = []) {
       transportadoraId: row.transportadora_id,
       transportadoraNome: row.transportadora_nome || '',
       transportadoraTelefonePrincipal: row.transportadora_telefone_principal || '',
+      transportadoraObservacao: row.transportadora_observacao || '',
       redespachoTransportadoraId: row.redespacho_transportadora_id || null,
       redespachoTransportadoraNome: row.redespacho_transportadora_nome || '',
       redespachoTransportadoraTelefonePrincipal: row.redespacho_transportadora_telefone_principal || '',
@@ -821,6 +824,7 @@ function montarFasesDoPedido({ pedido, booleanRows = {}, etiquetaRow = null, loc
       tipo: 'especial',
       transportadoraId: localEntregaRow?.transportadoraId || null,
       transportadoraNome: localEntregaRow?.transportadoraNome || '',
+      transportadoraObservacao: localEntregaRow?.transportadoraObservacao || '',
       redespachoTransportadoraId: localEntregaRow?.redespachoTransportadoraId || null,
       redespachoTransportadoraNome: localEntregaRow?.redespachoTransportadoraNome || '',
       agenciaRecebimentoCodigo: localEntregaRow?.agenciaRecebimentoCodigo || null,
@@ -1584,6 +1588,205 @@ async function listarEtiquetasDoCliente(favorecido) {
     createdAt: row.created_at || null,
     updatedAt: row.updated_at || null
   }));
+}
+
+
+function escaparXmlEtiqueta(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
+}
+
+function quebrarTextoEtiqueta(value, maxCaracteres = 42, maxLinhas = 3) {
+  const texto = limparTexto(value);
+  if (!texto) return [];
+
+  const palavras = texto.split(/\s+/);
+  const linhas = [];
+  let atual = '';
+
+  for (const palavra of palavras) {
+    const tentativa = atual ? `${atual} ${palavra}` : palavra;
+    if (tentativa.length <= maxCaracteres) {
+      atual = tentativa;
+      continue;
+    }
+
+    if (atual) linhas.push(atual);
+    atual = palavra;
+
+    if (linhas.length >= maxLinhas - 1) break;
+  }
+
+  if (atual && linhas.length < maxLinhas) linhas.push(atual);
+  if (linhas.length === maxLinhas && palavras.join(' ').length > linhas.join(' ').length) {
+    linhas[maxLinhas - 1] = `${linhas[maxLinhas - 1].slice(0, Math.max(0, maxCaracteres - 1))}…`;
+  }
+
+  return linhas;
+}
+
+function montarSvgEtiquetaImpressao(dados, numeroVolume = 1) {
+  const largura = 1240;
+  const altura = 1754;
+  const nome = escaparXmlEtiqueta(dados.clienteNome || '-');
+  const telefone = escaparXmlEtiqueta(dados.clienteTelefone || '-');
+  const cidade = escaparXmlEtiqueta([dados.clienteCidade, dados.clienteUf].filter(Boolean).join(' - ') || '-');
+  const pedido = escaparXmlEtiqueta(dados.numeroPedido || '-');
+  const transportadora = escaparXmlEtiqueta(dados.transportadoraNome || 'NÃO INFORMADA');
+  const observacoes = quebrarTextoEtiqueta(dados.transportadoraObservacao, 48, 3);
+  const totalVolumes = Number(dados.quantidadeVolumes || 0);
+
+  const obsSvg = observacoes.length
+    ? observacoes.map((linha, i) => `<text x="620" y="${1110 + i * 54}" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="42" font-weight="700">${escaparXmlEtiqueta(linha)}</text>`).join('')
+    : '';
+
+  return `
+    <svg width="${largura}" height="${altura}" viewBox="0 0 ${largura} ${altura}" xmlns="http://www.w3.org/2000/svg">
+      <rect width="1240" height="1754" fill="#ffffff"/>
+      <rect x="34" y="34" width="1172" height="1686" fill="none" stroke="#111111" stroke-width="5"/>
+
+      <text x="620" y="118" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="48" font-weight="800">PANELAS DE PRESSÃO ALUMÍNIO JR</text>
+      <text x="620" y="176" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="42" font-weight="700">(83) 9.9979-2085</text>
+      <line x1="70" y1="215" x2="1170" y2="215" stroke="#111" stroke-width="3"/>
+
+      <text x="85" y="322" font-family="Arial,Helvetica,sans-serif" font-size="46" font-weight="700">CLIENTE:</text>
+      <text x="320" y="322" font-family="Arial,Helvetica,sans-serif" font-size="46" font-weight="800">${nome}</text>
+
+      <text x="85" y="405" font-family="Arial,Helvetica,sans-serif" font-size="42" font-weight="700">TELEFONE:</text>
+      <text x="345" y="405" font-family="Arial,Helvetica,sans-serif" font-size="42" font-weight="700">${telefone}</text>
+
+      <text x="85" y="488" font-family="Arial,Helvetica,sans-serif" font-size="42" font-weight="700">CIDADE:</text>
+      <text x="290" y="488" font-family="Arial,Helvetica,sans-serif" font-size="42" font-weight="700">${cidade}</text>
+
+      <rect x="70" y="548" width="1100" height="176" rx="8" fill="#fff" stroke="#111" stroke-width="4"/>
+      <text x="100" y="625" font-family="Arial,Helvetica,sans-serif" font-size="48" font-weight="900">PEDIDO ${pedido}</text>
+      <text x="100" y="690" font-family="Arial,Helvetica,sans-serif" font-size="52" font-weight="900">VOLUME ${numeroVolume} DE ${totalVolumes}</text>
+
+      <text x="620" y="830" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="42" font-weight="700">EXCURSÃO / TRANSPORTADORA</text>
+      <text x="620" y="914" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="58" font-weight="900">${transportadora}</text>
+      ${obsSvg}
+
+      <rect x="70" y="1280" width="1100" height="360" rx="10" fill="#fff" stroke="#111" stroke-width="7"/>
+      <text x="620" y="1518" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="190" font-weight="900">FRÁGIL</text>
+    </svg>
+  `;
+}
+
+async function gerarImagemEtiquetaImpressao(dados, numeroVolume = 1) {
+  const svg = montarSvgEtiquetaImpressao(dados, numeroVolume);
+  return sharp(Buffer.from(svg)).png({ compressionLevel: 9 }).toBuffer();
+}
+
+async function montarDadosEtiquetaImpressao({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam }) {
+  await garantirTabelasModulo();
+
+  const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
+  const numeroPedido = normalizarNumeroPedido(numeroPedidoParam);
+  const carrada = await carradasService.buscarResumoCarrada(codigoCarrada);
+
+  if (!carrada) throw criarErro('Carrada não encontrada.', 404);
+
+  const pedido = encontrarPedidoNaCarrada(carrada, numeroPedido);
+  const quantidadeVolumesBruta = Number(pedido?.qtdeVolume ?? pedido?.volumes ?? 0);
+  const quantidadeVolumes = Number.isFinite(quantidadeVolumesBruta) && quantidadeVolumesBruta > 0
+    ? Math.trunc(quantidadeVolumesBruta)
+    : 0;
+
+  if (quantidadeVolumes <= 0) {
+    throw criarErro('Faltou quantidade de volumes. Calcule ou informe a quantidade antes de montar as etiquetas.', 400);
+  }
+
+  const detalhePagamento = await buscarDetalhePagamentoDoPedido(pedido);
+  const resumoPedido = montarResumoPedido(pedido, detalhePagamento);
+  const locaisEntrega = await buscarLocalEntregaRowsDosPedidos([pedido]);
+  const chavePedido = criarChavePedido({ saida: pedido.saida, numero: numeroPedido });
+  const localEntrega = locaisEntrega.get(chavePedido) || null;
+
+  return {
+    codigoCarrada,
+    numeroPedido,
+    saida: pedido.saida ?? null,
+    clienteNome: pedido?.cliente?.nome || resumoPedido?.cliente?.nome || '',
+    clienteTelefone: formatarTelefoneExibicao(resumoPedido?.cliente?.telefonePrincipal || pedido?.cliente?.telefonePrincipal || ''),
+    clienteCidade: pedido?.cliente?.cidade || '',
+    clienteUf: pedido?.cliente?.uf || '',
+    quantidadeVolumes,
+    transportadoraNome: localEntrega?.transportadoraNome || '',
+    transportadoraObservacao: localEntrega?.transportadoraObservacao || '',
+    telefoneWhatsapp: normalizarTelefonePedido(detalhePagamento)
+  };
+}
+
+async function buscarDadosEtiquetaImpressao(params) {
+  const dados = await montarDadosEtiquetaImpressao(params);
+  const imagem = await gerarImagemEtiquetaImpressao(dados, 1);
+
+  return {
+    ...dados,
+    telefoneWhatsapp: undefined,
+    imagemDataUrl: `data:image/png;base64,${imagem.toString('base64')}`
+  };
+}
+
+async function enviarEtiquetaImpressaoWhatsapp(params) {
+  const dados = await montarDadosEtiquetaImpressao(params);
+  const imagem = await gerarImagemEtiquetaImpressao(dados, 1);
+  const imagemDataUrl = `data:image/png;base64,${imagem.toString('base64')}`;
+  const legenda = [
+    `📦 Pedido nº ${dados.numeroPedido}`,
+    '',
+    'Confirma se os dados desta etiqueta estão corretos para imprimirmos e colarmos nas caixas?',
+    `Serão ${dados.quantidadeVolumes} volume(s).`
+  ].join('\n');
+
+  let notificacao;
+  try {
+    const envio = await whatsappService.enviarImagem({
+      telefone: dados.telefoneWhatsapp,
+      imagem: imagemDataUrl,
+      legenda
+    });
+
+    notificacao = {
+      success: true,
+      telefone: envio.telefone,
+      legenda,
+      response: envio
+    };
+
+    await registrarNotificacao({
+      faseCodigo: 'ETIQUETA_VOLUMES',
+      codigoCarrada: dados.codigoCarrada,
+      numeroPedido: dados.numeroPedido,
+      telefone: envio.telefone,
+      mensagem: legenda,
+      statusEnvio: 'sucesso',
+      respostaApi: envio.zapi || envio
+    });
+  } catch (error) {
+    notificacao = {
+      success: false,
+      telefone: dados.telefoneWhatsapp,
+      legenda,
+      error: error.message
+    };
+
+    await registrarNotificacao({
+      faseCodigo: 'ETIQUETA_VOLUMES',
+      codigoCarrada: dados.codigoCarrada,
+      numeroPedido: dados.numeroPedido,
+      telefone: dados.telefoneWhatsapp,
+      mensagem: legenda,
+      statusEnvio: 'erro',
+      respostaApi: { error: error.message }
+    });
+  }
+
+  return { notificacao };
 }
 
 async function buscarDadosEtiquetaPedido({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam }) {
@@ -2630,6 +2833,8 @@ module.exports = {
   salvarDataExpedicao,
   salvarFaseBooleana,
   buscarDadosEtiquetaPedido,
+  buscarDadosEtiquetaImpressao,
+  enviarEtiquetaImpressaoWhatsapp,
   enviarEtiquetaVolumes,
   confirmarEtiquetaVolumes,
   salvarLocalEntrega,

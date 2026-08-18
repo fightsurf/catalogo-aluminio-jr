@@ -11,6 +11,17 @@ async function enviarMensagem({ telefone, mensagem }) {
   };
 }
 
+async function enviarImagem({ telefone, imagem, legenda }) {
+  const resultado = await zapiService.enviarImagem({ telefone, imagem, legenda });
+
+  return {
+    success: true,
+    telefone: resultado.telefone,
+    legenda: resultado.legenda,
+    zapi: resultado.zapi
+  };
+}
+
 async function enviarDocumentoPdf({ telefone, documentoBase64, nomeArquivo, legenda }) {
   const resultado = await zapiService.enviarDocumentoPdf({
     telefone,
@@ -30,6 +41,7 @@ async function enviarDocumentoPdf({ telefone, documentoBase64, nomeArquivo, lege
 
 module.exports = {
   enviarMensagem,
+  enviarImagem,
   enviarDocumentoPdf,
   normalizarTelefone: zapiService.normalizarTelefone
 };
