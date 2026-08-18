@@ -227,6 +227,61 @@
     tr:hover td.sticky-col {
       background: #fcfcfd;
     }
+    .historico-entregas {
+      margin-top: 12px;
+    }
+    .historico-entregas-acoes {
+      display: flex;
+      justify-content: flex-start;
+      margin-top: 12px;
+    }
+    .historico-entregas-wrap {
+      margin-top: 10px;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+    }
+    .historico-entregas-wrap[hidden] {
+      display: none !important;
+    }
+    .historico-entregas-table {
+      width: 100%;
+      min-width: 620px;
+      border-collapse: collapse;
+      border-spacing: 0;
+    }
+    .historico-entregas-table th,
+    .historico-entregas-table td {
+      position: static;
+      min-width: 0 !important;
+      max-width: none !important;
+      padding: 7px 9px;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      white-space: nowrap;
+      font-size: 11px;
+      line-height: 1.25;
+    }
+    .historico-entregas-table th {
+      background: #f8fafc;
+      color: #334155;
+      font-weight: 700;
+      z-index: auto;
+    }
+    .historico-entregas-table tr:last-child td {
+      border-bottom: 0;
+    }
+    .historico-entregas-table th:last-child,
+    .historico-entregas-table td:last-child {
+      border-right: 0;
+    }
+    .historico-entregas-vazio {
+      padding: 10px;
+      color: var(--muted);
+      font-size: 12px;
+    }
     .pedido-title {
       font-weight: 700;
       font-size: 13px;
@@ -719,6 +774,25 @@
           </div>
         </div>
         <div class="feedback" id="feedbackLocalEntrega">Defina a transportadora. Redespacho e Agência de Recebimento são opcionais.</div>
+        <div class="historico-entregas">
+          <div class="historico-entregas-acoes">
+            <button class="btn-secondary" id="btnLocalEntregaHistorico" type="button">EXIBIR ÚLTIMA ENTREGA</button>
+          </div>
+          <div class="historico-entregas-wrap" id="historicoLocalEntregaWrap" hidden>
+            <table class="historico-entregas-table">
+              <thead>
+                <tr>
+                  <th>Data carrada</th>
+                  <th>Excursão</th>
+                  <th>Redespacho</th>
+                  <th>Agência</th>
+                </tr>
+              </thead>
+              <tbody id="historicoLocalEntregaBody"></tbody>
+            </table>
+            <div class="historico-entregas-vazio" id="historicoLocalEntregaVazio" hidden>Nenhuma entrega anterior encontrada.</div>
+          </div>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" id="btnLocalEntregaPerguntar">Perguntar ao cliente</button>
@@ -884,6 +958,10 @@
       selectRedespachoTransportadora: document.getElementById('selectRedespachoTransportadora'),
       selectAgenciaRecebimento: document.getElementById('selectAgenciaRecebimento'),
       btnLocalEntregaPerguntar: document.getElementById('btnLocalEntregaPerguntar'),
+      btnLocalEntregaHistorico: document.getElementById('btnLocalEntregaHistorico'),
+      historicoLocalEntregaWrap: document.getElementById('historicoLocalEntregaWrap'),
+      historicoLocalEntregaBody: document.getElementById('historicoLocalEntregaBody'),
+      historicoLocalEntregaVazio: document.getElementById('historicoLocalEntregaVazio'),
       feedbackLocalEntrega: document.getElementById('feedbackLocalEntrega'),
       btnLocalEntregaSalvar: document.getElementById('btnLocalEntregaSalvar'),
       btnLocalEntregaRemover: document.getElementById('btnLocalEntregaRemover'),
@@ -1828,9 +1906,48 @@
           setFeedback(el.feedbackLocalEntrega, 'Defina a transportadora. Redespacho e Agência de Recebimento são opcionais.', '');
         }
 
+        el.historicoLocalEntregaWrap.hidden = true;
+        el.historicoLocalEntregaBody.innerHTML = '';
+        el.historicoLocalEntregaVazio.hidden = true;
+        el.btnLocalEntregaHistorico.disabled = false;
+        el.btnLocalEntregaHistorico.textContent = 'EXIBIR ÚLTIMA ENTREGA';
+
         abrirModal(el.modalLocalEntregaBackdrop);
       } catch (error) {
         window.alert(error.message);
+      }
+    }
+
+    async function exibirHistoricoLocalEntregaModal() {
+      const numeroPedido = estado.localEntregaModal.pedidoNumero;
+      if (!numeroPedido) return;
+
+      const botao = el.btnLocalEntregaHistorico;
+      const textoOriginal = 'EXIBIR ÚLTIMA ENTREGA';
+      botao.disabled = true;
+      botao.textContent = 'CARREGANDO...';
+
+      try {
+        const historico = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/local-entrega/historico`);
+        const entregas = Array.isArray(historico) ? historico : [];
+
+        el.historicoLocalEntregaBody.innerHTML = entregas.map((item) => `
+          <tr>
+            <td>${escapeHtml(formatarData(item.carradaData) || '—')}</td>
+            <td>${escapeHtml(item.transportadoraNome || '—')}</td>
+            <td>${escapeHtml(item.redespachoTransportadoraNome || '—')}</td>
+            <td>${escapeHtml(item.agenciaRecebimentoNome || '—')}</td>
+          </tr>
+        `).join('');
+
+        el.historicoLocalEntregaVazio.hidden = entregas.length > 0;
+        el.historicoLocalEntregaWrap.hidden = false;
+      } catch (error) {
+        el.historicoLocalEntregaWrap.hidden = true;
+        setFeedback(el.feedbackLocalEntrega, error.message, 'error');
+      } finally {
+        botao.disabled = false;
+        botao.textContent = textoOriginal;
       }
     }
 
@@ -2683,6 +2800,7 @@
     el.btnEtiquetaConfirmar.addEventListener('click', () => confirmarEtiquetaModal(true));
     el.btnEtiquetaDesconfirmar.addEventListener('click', () => confirmarEtiquetaModal(false));
     el.btnLocalEntregaPerguntar.addEventListener('click', perguntarRepeticaoLocalEntregaModal);
+    el.btnLocalEntregaHistorico.addEventListener('click', exibirHistoricoLocalEntregaModal);
     el.btnLocalEntregaSalvar.addEventListener('click', () => salvarLocalEntregaModal(false));
     el.btnLocalEntregaRemover.addEventListener('click', () => salvarLocalEntregaModal(true));
     el.btnTelefonePrincipalTransportadoraSalvar.addEventListener('click', salvarTelefonePrincipalTransportadoraModal);

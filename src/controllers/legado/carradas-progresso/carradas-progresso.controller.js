@@ -149,6 +149,19 @@ async function salvarLocalEntrega(req, res) {
   }
 }
 
+async function buscarHistoricoLocalEntrega(req, res) {
+  try {
+    const data = await service.buscarHistoricoLocalEntrega({
+      codigoCarrada: req.params.codigo,
+      numeroPedido: req.params.numeroPedido
+    });
+
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return responderErro(res, error, 'Erro ao buscar o histórico de locais de entrega.');
+  }
+}
+
 async function perguntarRepeticaoLocalEntrega(req, res) {
   try {
     const data = await service.perguntarRepeticaoLocalEntrega({
@@ -186,6 +199,7 @@ module.exports = {
   enviarEtiquetaVolumes,
   confirmarEtiquetaVolumes,
   salvarLocalEntrega,
+  buscarHistoricoLocalEntrega,
   perguntarRepeticaoLocalEntrega,
   enviarWhatsappCarradaLote
 };

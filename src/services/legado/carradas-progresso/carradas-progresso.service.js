@@ -1957,6 +1957,77 @@ async function buscarPedidoAnteriorComLocalEntregaValido(pedidoAtual) {
   throw criarErro('Nenhum pedido anterior deste cliente possui local de entrega registrado.', 404);
 }
 
+async function buscarHistoricoLocalEntrega({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam }) {
+  await garantirTabelasModulo();
+
+  const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
+  const numeroPedido = normalizarNumeroPedido(numeroPedidoParam);
+  const carrada = await carradasService.buscarResumoCarrada(codigoCarrada);
+
+  if (!carrada) {
+    throw criarErro('Carrada não encontrada.', 404);
+  }
+
+  const pedidoAtual = encontrarPedidoNaCarrada(carrada, numeroPedido);
+  const favorecido = Number.parseInt(pedidoAtual?.cliente?.favorecido, 10);
+
+  if (!Number.isInteger(favorecido) || favorecido <= 0) {
+    throw criarErro('Não foi possível identificar o cliente deste pedido.', 400);
+  }
+
+  const response = await legadoBridgeService.get(`/api/pedidos-cliente/${favorecido}`);
+  const pedidos = Array.isArray(response?.dados) ? response.dados : [];
+  const saidaAtual = normalizarSaida(pedidoAtual?.saida);
+  const numeroAtual = limparTexto(pedidoAtual?.numero);
+
+  const indiceAtual = pedidos.findIndex((item) => {
+    const saida = normalizarSaida(item?.saida);
+    if (saidaAtual !== null && saida !== null) {
+      return saida === saidaAtual;
+    }
+    return limparTexto(item?.numero) === numeroAtual;
+  });
+
+  if (indiceAtual < 0) {
+    throw criarErro('O pedido atual não foi localizado no histórico do cliente.', 404);
+  }
+
+  const pedidosAnteriores = pedidos.slice(indiceAtual + 1);
+  if (!pedidosAnteriores.length) {
+    return [];
+  }
+
+  const locaisEntrega = await buscarLocalEntregaRowsDosPedidos(pedidosAnteriores);
+  const historico = [];
+
+  for (const pedidoAnterior of pedidosAnteriores) {
+    const chave = criarChavePedido({
+      saida: pedidoAnterior?.saida,
+      numero: pedidoAnterior?.numero
+    });
+    const localEntrega = chave ? locaisEntrega.get(chave) || null : null;
+
+    if (!localEntrega?.transportadoraId) {
+      continue;
+    }
+
+    historico.push({
+      numeroPedido: limparTexto(pedidoAnterior?.numero),
+      saida: normalizarSaida(pedidoAnterior?.saida),
+      carradaData: pedidoAnterior?.carradaData || pedidoAnterior?.carrada_data || null,
+      transportadoraNome: limparTexto(localEntrega.transportadoraNome),
+      redespachoTransportadoraNome: limparTexto(localEntrega.redespachoTransportadoraNome),
+      agenciaRecebimentoNome: limparTexto(localEntrega.agenciaRecebimentoNome || localEntrega.agenciaCidade)
+    });
+
+    if (historico.length >= 5) {
+      break;
+    }
+  }
+
+  return historico;
+}
+
 async function perguntarRepeticaoLocalEntrega({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam }) {
   await garantirTabelasModulo();
 
@@ -2562,6 +2633,7 @@ module.exports = {
   enviarEtiquetaVolumes,
   confirmarEtiquetaVolumes,
   salvarLocalEntrega,
+  buscarHistoricoLocalEntrega,
   perguntarRepeticaoLocalEntrega,
   enviarWhatsappCarradaLote
 };
