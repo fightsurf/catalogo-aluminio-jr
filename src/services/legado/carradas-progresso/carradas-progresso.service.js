@@ -1666,7 +1666,8 @@ function montarSvgEtiquetaImpressao(dados) {
       ${obsSvg}
 
       <rect x="70" y="830" width="1614" height="110" rx="8" fill="#fff" stroke="#111" stroke-width="4"/>
-      <text x="877" y="902" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="52" font-weight="900">PEDIDO ${pedido}</text>
+      <text x="877" y="875" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="48" font-weight="900">PEDIDO ${pedido}</text>
+      ${dados.quantidadeVolumesConfirmada ? `<text x="877" y="925" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="38" font-weight="900">VOLUME 1 DE ${dados.quantidadeVolumes}</text>` : ''}
 
       <rect x="70" y="975" width="1614" height="180" rx="10" fill="#fff" stroke="#111" stroke-width="7"/>
       <text x="877" y="1100" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="128" font-weight="900">FRÁGIL</text>
@@ -1700,9 +1701,13 @@ async function montarDadosEtiquetaImpressao({ codigoCarrada: codigoCarradaParam,
 
   const detalhePagamento = await buscarDetalhePagamentoDoPedido(pedido);
   const resumoPedido = montarResumoPedido(pedido, detalhePagamento);
-  const locaisEntrega = await buscarLocalEntregaRowsDosPedidos([pedido]);
+  const [locaisEntrega, booleanRowsMap] = await Promise.all([
+    buscarLocalEntregaRowsDosPedidos([pedido]),
+    buscarBooleanRowsDosPedidos([pedido])
+  ]);
   const chavePedido = criarChavePedido({ saida: pedido.saida, numero: numeroPedido });
   const localEntrega = locaisEntrega.get(chavePedido) || null;
+  const quantidadeVolumesConfirmada = Boolean(booleanRowsMap.get(chavePedido)?.QTDE_VOLUMES?.valorBoolean);
 
   return {
     codigoCarrada,
@@ -1713,6 +1718,7 @@ async function montarDadosEtiquetaImpressao({ codigoCarrada: codigoCarradaParam,
     clienteCidade: pedido?.cliente?.cidade || '',
     clienteUf: pedido?.cliente?.uf || '',
     quantidadeVolumes,
+    quantidadeVolumesConfirmada,
     transportadoraNome: localEntrega?.transportadoraNome || '',
     transportadoraObservacao: localEntrega?.transportadoraObservacao || '',
     telefoneWhatsapp: normalizarTelefonePedido(detalhePagamento)

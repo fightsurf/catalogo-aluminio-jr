@@ -1917,7 +1917,10 @@
             <div class="transportadora-titulo">EXCURSÃO / TRANSPORTADORA</div>
             <div class="transportadora">${transportadora}</div>
             ${observacao ? `<div class="observacao">${observacao}</div>` : ''}
-            <div class="pedido-box"><div>PEDIDO ${pedido}</div></div>
+            <div class="pedido-box">
+              <div>PEDIDO ${pedido}</div>
+              ${payload.quantidadeVolumesConfirmada ? `<div class="volume-pedido">VOLUME ${indice + 1} DE ${total}</div>` : ''}
+            </div>
             <div class="fragil">FRÁGIL</div>
           </main>
         </div></section>
@@ -1936,7 +1939,8 @@
         main { flex:1; display:flex; flex-direction:column; padding-top: 5mm; }
         .linha { font-size: 6.8mm; font-weight: 700; margin-bottom: 3.5mm; }
         .linha b { font-weight: 900; }
-        .pedido-box { border: 1mm solid #111; padding: 3mm 5mm; font-size: 8mm; font-weight: 900; line-height:1.2; margin: 5mm 0 4mm; text-align:center; }
+        .pedido-box { border: 1mm solid #111; padding: 2.5mm 5mm; font-size: 8mm; font-weight: 900; line-height:1.12; margin: 5mm 0 4mm; text-align:center; }
+        .volume-pedido { font-size: 6.5mm; margin-top: 1.5mm; }
         .transportadora-titulo { text-align:center; font-size: 6mm; font-weight: 800; margin-top: 2mm; }
         .transportadora { text-align:center; font-size: 8.5mm; font-weight: 900; margin-top: 2mm; }
         .observacao { text-align:center; font-size: 5.8mm; font-weight: 800; line-height:1.2; margin-top: 2mm; white-space:pre-wrap; }
