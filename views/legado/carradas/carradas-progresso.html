@@ -248,6 +248,54 @@
     .cliente-link:hover {
       text-decoration: underline;
     }
+    .cliente-contato {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      max-width: 100%;
+    }
+    .telefone-cliente-btn {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border: 0;
+      background: transparent;
+      padding: 0;
+      width: 18px;
+      height: 18px;
+      min-width: 18px;
+      font-size: 12px;
+      line-height: 1;
+      cursor: pointer;
+      vertical-align: middle;
+    }
+    .telefone-cliente-btn:hover {
+      transform: scale(1.08);
+    }
+    .telefone-cliente-hint {
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 7px);
+      transform: translateX(-50%);
+      z-index: 30;
+      display: none;
+      width: max-content;
+      max-width: 220px;
+      padding: 6px 8px;
+      border-radius: 7px;
+      background: #111827;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.2;
+      white-space: nowrap;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.22);
+    }
+    .telefone-cliente-btn:hover .telefone-cliente-hint,
+    .telefone-cliente-btn:focus-visible .telefone-cliente-hint {
+      display: block;
+    }
     .pedido-meta {
       font-size: 10px;
       color: var(--muted);
@@ -703,6 +751,29 @@
   </div>
 
 
+  <div class="modal-backdrop" id="modalWhatsappClienteBackdrop">
+    <div class="modal" style="width:min(560px,100%)">
+      <div class="modal-header">
+        <div>
+          <h3>Enviar WhatsApp ao cliente</h3>
+          <p class="muted" id="modalWhatsappClienteSubtitulo"></p>
+        </div>
+        <button class="btn-secondary" data-close-modal="modalWhatsappClienteBackdrop">Fechar</button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label for="textareaWhatsappClienteMensagem">Mensagem</label>
+          <textarea id="textareaWhatsappClienteMensagem" placeholder="Digite a mensagem para o cliente."></textarea>
+        </div>
+        <div class="feedback" id="feedbackWhatsappCliente">Digite a mensagem e clique em Enviar WhatsApp.</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" data-close-modal="modalWhatsappClienteBackdrop">Cancelar</button>
+        <button class="btn-primary" id="btnWhatsappClienteEnviar">Enviar WhatsApp</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-backdrop" id="modalWhatsappCarradaBackdrop">
     <div class="modal">
       <div class="modal-header">
@@ -761,6 +832,11 @@
       },
       telefonePrincipalTransportadoraModal: {
         alvo: null
+      },
+      whatsappClienteModal: {
+        numeroPedido: null,
+        nomeCliente: '',
+        telefone: ''
       }
     };
 
@@ -776,6 +852,11 @@
       cardsFases: document.getElementById('cardsFases'),
       tbodyMatriz: document.getElementById('tbodyMatriz'),
       modalResumoBackdrop: document.getElementById('modalResumoBackdrop'),
+      modalWhatsappClienteBackdrop: document.getElementById('modalWhatsappClienteBackdrop'),
+      modalWhatsappClienteSubtitulo: document.getElementById('modalWhatsappClienteSubtitulo'),
+      textareaWhatsappClienteMensagem: document.getElementById('textareaWhatsappClienteMensagem'),
+      feedbackWhatsappCliente: document.getElementById('feedbackWhatsappCliente'),
+      btnWhatsappClienteEnviar: document.getElementById('btnWhatsappClienteEnviar'),
       modalWhatsappCarradaBackdrop: document.getElementById('modalWhatsappCarradaBackdrop'),
       modalWhatsappCarradaTitulo: document.getElementById('modalWhatsappCarradaTitulo'),
       modalWhatsappCarradaSubtitulo: document.getElementById('modalWhatsappCarradaSubtitulo'),
@@ -820,6 +901,32 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+    }
+
+    function normalizarTelefoneWhatsappCliente(value) {
+      let digitos = String(value || '').replace(/\D+/g, '');
+
+      if (!digitos) return '';
+      if (digitos.startsWith('55') && (digitos.length === 12 || digitos.length === 13)) return digitos;
+      if (digitos.length === 10 || digitos.length === 11) return `55${digitos}`;
+      return digitos;
+    }
+
+    function formatarTelefoneCliente(value) {
+      const telefoneWhatsapp = normalizarTelefoneWhatsappCliente(value);
+      if (!telefoneWhatsapp) return '';
+
+      const nacional = telefoneWhatsapp.startsWith('55') ? telefoneWhatsapp.slice(2) : telefoneWhatsapp;
+
+      if (nacional.length === 11) {
+        return `+55 (${nacional.slice(0, 2)}) ${nacional.slice(2, 3)}.${nacional.slice(3, 7)}-${nacional.slice(7)}`;
+      }
+
+      if (nacional.length === 10) {
+        return `+55 (${nacional.slice(0, 2)}) ${nacional.slice(2, 6)}-${nacional.slice(6)}`;
+      }
+
+      return telefoneWhatsapp.startsWith('55') ? `+${telefoneWhatsapp}` : telefoneWhatsapp;
     }
 
     function formatarData(value) {
@@ -940,6 +1047,65 @@
     function setFeedback(element, message, type = '') {
       element.textContent = message;
       element.className = `feedback${type ? ` ${type}` : ''}`;
+    }
+
+    function abrirWhatsappCliente(numeroPedido) {
+      const pedido = obterPedido(numeroPedido);
+      const telefoneOriginal = pedido?.cliente?.telefonePrincipal || '';
+      const telefone = normalizarTelefoneWhatsappCliente(telefoneOriginal);
+      const telefoneFormatado = formatarTelefoneCliente(telefoneOriginal);
+      const nomeCliente = pedido?.cliente?.nome || 'Cliente';
+
+      if (!telefone) {
+        window.alert('Este cliente não possui telefone principal cadastrado.');
+        return;
+      }
+
+      estado.whatsappClienteModal = {
+        numeroPedido: pedido?.numero || null,
+        nomeCliente,
+        telefone
+      };
+
+      el.modalWhatsappClienteSubtitulo.textContent = `${nomeCliente} • ${telefoneFormatado || telefone}`;
+      el.textareaWhatsappClienteMensagem.value = '';
+      setFeedback(el.feedbackWhatsappCliente, 'Digite a mensagem e clique em Enviar WhatsApp.');
+      el.btnWhatsappClienteEnviar.disabled = false;
+      abrirModal(el.modalWhatsappClienteBackdrop);
+      setTimeout(() => el.textareaWhatsappClienteMensagem.focus(), 0);
+    }
+
+    async function enviarWhatsappClienteModal() {
+      const telefone = estado.whatsappClienteModal?.telefone || '';
+      const mensagem = el.textareaWhatsappClienteMensagem.value.trim();
+
+      if (!telefone) {
+        setFeedback(el.feedbackWhatsappCliente, 'Telefone do cliente não encontrado.', 'error');
+        return;
+      }
+
+      if (!mensagem) {
+        setFeedback(el.feedbackWhatsappCliente, 'Digite a mensagem que será enviada.', 'error');
+        el.textareaWhatsappClienteMensagem.focus();
+        return;
+      }
+
+      const botao = el.btnWhatsappClienteEnviar;
+      botao.disabled = true;
+      setFeedback(el.feedbackWhatsappCliente, 'Enviando mensagem...');
+
+      try {
+        await request('/api/whatsapp/enviar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ telefone, mensagem })
+        });
+
+        setFeedback(el.feedbackWhatsappCliente, 'Mensagem enviada com sucesso.', 'success');
+      } catch (error) {
+        setFeedback(el.feedbackWhatsappCliente, error.message || 'Não foi possível enviar a mensagem.', 'error');
+        botao.disabled = false;
+      }
     }
 
     function renderCabecalho() {
@@ -1208,13 +1374,18 @@
         const nomeClienteHtml = pedido.cliente?.favorecido
           ? `<a class="cliente-link" href="/legado/pedidos-cliente?favorecido=${encodeURIComponent(pedido.cliente.favorecido)}" target="_blank" rel="noopener noreferrer">${nomeCliente}</a>`
           : nomeCliente;
+        const telefoneCliente = pedido.cliente?.telefonePrincipal || '';
+        const telefoneClienteFormatado = formatarTelefoneCliente(telefoneCliente);
+        const telefoneClienteHtml = telefoneClienteFormatado
+          ? `<button type="button" class="telefone-cliente-btn" data-whatsapp-cliente-numero="${escapeHtml(pedido.numero)}" aria-label="Enviar WhatsApp para ${nomeCliente}" title="${escapeHtml(telefoneClienteFormatado)}">📞<span class="telefone-cliente-hint">${escapeHtml(telefoneClienteFormatado)}</span></button>`
+          : '';
 
         return `
           <tr>
             <td class="sticky-col">
               <div class="pedido-title"><a class="pedido-link" href="/legado/pedidos?numero=${encodeURIComponent(pedido.numero)}" target="_blank" rel="noopener noreferrer">Pedido ${escapeHtml(pedido.numero)}</a></div>
               <div class="pedido-meta">
-                ${nomeClienteHtml}<br>
+                <span class="cliente-contato">${nomeClienteHtml}${telefoneClienteHtml}</span><br>
                 ${pedido.cliente?.cidade ? escapeHtml(pedido.cliente.cidade) + (pedido.cliente?.uf ? ' - ' + escapeHtml(pedido.cliente.uf) : '') + '<br>' : ''}
                 Data: ${escapeHtml(formatarData(pedido.data) || '-')}<br>
                 Valor: ${escapeHtml(formatarMoeda(pedido.total))}
@@ -1224,6 +1395,14 @@
           </tr>
         `;
       }).join('');
+
+      el.tbodyMatriz.querySelectorAll('[data-whatsapp-cliente-numero]').forEach((botao) => {
+        botao.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          abrirWhatsappCliente(botao.dataset.whatsappClienteNumero);
+        });
+      });
 
       el.tbodyMatriz.querySelectorAll('[data-volume-edit-numero]').forEach((celula) => {
         celula.addEventListener('click', () => iniciarEdicaoQuantidadeVolumes(celula));
@@ -2497,6 +2676,7 @@
 
     el.btnRecarregar.addEventListener('click', carregarMatriz);
     el.btnEnviarWhatsappCarrada.addEventListener('click', abrirModalWhatsappCarrada);
+    el.btnWhatsappClienteEnviar.addEventListener('click', enviarWhatsappClienteModal);
     el.btnWhatsappCarradaEnviar.addEventListener('click', enviarWhatsappCarradaModal);
     el.selectEtiquetas.addEventListener('change', preencherCamposEtiquetaPorSelect);
     el.btnEtiquetaEnviar.addEventListener('click', enviarEtiquetaModal);
@@ -2506,6 +2686,12 @@
     el.btnLocalEntregaSalvar.addEventListener('click', () => salvarLocalEntregaModal(false));
     el.btnLocalEntregaRemover.addEventListener('click', () => salvarLocalEntregaModal(true));
     el.btnTelefonePrincipalTransportadoraSalvar.addEventListener('click', salvarTelefonePrincipalTransportadoraModal);
+    el.textareaWhatsappClienteMensagem.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+        event.preventDefault();
+        enviarWhatsappClienteModal();
+      }
+    });
     el.inputTelefonePrincipalTransportadora.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
