@@ -1827,6 +1827,8 @@
         <div><strong>Volumes:</strong> ${escapeHtml(payload?.quantidadeVolumes || 0)} folha(s) A4</div>
         <div><strong>Transportadora:</strong> ${escapeHtml(payload?.transportadoraNome || 'NÃO INFORMADA')}</div>
         <div><strong>Observação:</strong> ${escapeHtml(payload?.transportadoraObservacao || 'Sem observação')}</div>
+        ${payload?.redespachoTransportadoraNome ? `<div><strong>Redespacho:</strong> ${escapeHtml(payload.redespachoTransportadoraNome)}</div>` : ''}
+        ${payload?.agenciaRecebimentoNome ? `<div><strong>Agência:</strong> ${escapeHtml(payload.agenciaRecebimentoNome)}</div>` : ''}
       `;
     }
 
@@ -1907,6 +1909,8 @@
       const pedido = escapeHtml(payload.numeroPedido || '-');
       const transportadora = escapeHtml(payload.transportadoraNome || 'NÃO INFORMADA');
       const observacao = escapeHtml(payload.transportadoraObservacao || '');
+      const redespacho = escapeHtml(payload.redespachoTransportadoraNome || '');
+      const agencia = escapeHtml(payload.agenciaRecebimentoNome || '');
       const paginas = Array.from({ length: total }, (_, indice) => `
         <section class="a4"><div class="folha">
           <header><div class="marca">PANELAS DE PRESSÃO ALUMÍNIO JR</div><div class="fone-jr">(83) 9.9979-2085</div></header>
@@ -1916,6 +1920,8 @@
             <div class="linha"><b>CIDADE:</b> <span>${cidade}</span></div>
             <div class="linha linha-transportadora"><b>EXCURSÃO / TRANSPORTADORA:</b> <span>${transportadora}</span></div>
             ${observacao ? `<div class="observacao">${observacao}</div>` : ''}
+            ${redespacho ? `<div class="linha-logistica-secundaria"><b>REDESPACHO:</b> <span>${redespacho}</span></div>` : ''}
+            ${agencia ? `<div class="linha-logistica-secundaria"><b>AGÊNCIA:</b> <span>${agencia}</span></div>` : ''}
             <div class="pedido-box">
               <div>PEDIDO ${pedido}</div>
               ${payload.quantidadeVolumesConfirmada ? `<div class="volume-pedido">VOLUME ${indice + 1} DE ${total}</div>` : ''}
@@ -1944,6 +1950,8 @@
         .linha-transportadora b { flex:0 0 auto; }
         .linha-transportadora span { font-weight: 800; min-width:0; }
         .observacao { text-align:left; font-size: 5.8mm; font-weight: 800; line-height:1.2; margin-top: 0; margin-bottom: 2mm; padding-left: 0; white-space:pre-wrap; }
+        .linha-logistica-secundaria { font-size: 5.8mm; font-weight: 800; line-height:1.15; margin-bottom: 1.5mm; }
+        .linha-logistica-secundaria b { font-weight: 900; }
         .fragil { margin-top:auto; border: 1.5mm solid #111; min-height: 34mm; display:flex; align-items:center; justify-content:center; font-size: 23mm; font-weight: 900; letter-spacing: .5mm; }
       </style></head><body>${paginas}<script>window.onload=()=>{window.focus();window.print();}<\/script></body></html>`);
       janela.document.close();

@@ -1637,11 +1637,18 @@ function montarSvgEtiquetaImpressao(dados) {
   const cidade = escaparXmlEtiqueta([dados.clienteCidade, dados.clienteUf].filter(Boolean).join(' - ') || '-');
   const pedido = escaparXmlEtiqueta(dados.numeroPedido || '-');
   const transportadora = escaparXmlEtiqueta(dados.transportadoraNome || 'NÃO INFORMADA');
+  const redespacho = escaparXmlEtiqueta(dados.redespachoTransportadoraNome || '');
+  const agencia = escaparXmlEtiqueta(dados.agenciaRecebimentoNome || '');
   const observacoes = quebrarTextoEtiqueta(dados.transportadoraObservacao, 62, 2);
 
   const obsSvg = observacoes.length
     ? observacoes.map((linha, i) => `<text x="90" y="625" font-family="Arial,Helvetica,sans-serif" font-size="38" font-weight="700" transform="translate(0 ${i * 44})">${escaparXmlEtiqueta(linha)}</text>`).join('')
     : '';
+  const yLogisticaInicial = observacoes.length ? 625 + (observacoes.length * 44) + 28 : 625;
+  const linhasLogisticaSvg = [
+    redespacho ? `<text x="90" y="${yLogisticaInicial}" font-family="Arial,Helvetica,sans-serif" font-size="36"><tspan font-weight="900">REDESPACHO:</tspan><tspan dx="14" font-weight="800">${redespacho}</tspan></text>` : '',
+    agencia ? `<text x="90" y="${yLogisticaInicial + (redespacho ? 48 : 0)}" font-family="Arial,Helvetica,sans-serif" font-size="36"><tspan font-weight="900">AGÊNCIA:</tspan><tspan dx="14" font-weight="800">${agencia}</tspan></text>` : ''
+  ].filter(Boolean).join('');
 
   return `
     <svg width="${largura}" height="${altura}" viewBox="0 0 ${largura} ${altura}" xmlns="http://www.w3.org/2000/svg">
@@ -1665,6 +1672,7 @@ function montarSvgEtiquetaImpressao(dados) {
         <tspan font-weight="900">EXCURSÃO / TRANSPORTADORA:</tspan><tspan dx="18" font-weight="800">${transportadora}</tspan>
       </text>
       ${obsSvg}
+      ${linhasLogisticaSvg}
 
       <rect x="70" y="830" width="1614" height="110" rx="8" fill="#fff" stroke="#111" stroke-width="4"/>
       <text x="877" y="875" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="48" font-weight="900">PEDIDO ${pedido}</text>
@@ -1722,6 +1730,8 @@ async function montarDadosEtiquetaImpressao({ codigoCarrada: codigoCarradaParam,
     quantidadeVolumesConfirmada,
     transportadoraNome: localEntrega?.transportadoraNome || '',
     transportadoraObservacao: localEntrega?.transportadoraObservacao || '',
+    redespachoTransportadoraNome: localEntrega?.redespachoTransportadoraNome || '',
+    agenciaRecebimentoNome: localEntrega?.agenciaRecebimentoNome || localEntrega?.agenciaCidade || '',
     telefoneWhatsapp: normalizarTelefonePedido(detalhePagamento)
   };
 }
@@ -2405,6 +2415,8 @@ async function enviarNotificacaoLocalEntrega({ codigoCarrada, numeroPedido, tele
 function montarMensagemDestinoLocalEntrega({ pedido, numeroPedido, carrada, telefoneCliente }) {
   const nomeCliente = limparTexto(pedido?.cliente?.nome) || '-';
   const cidadeCliente = limparTexto(pedido?.cliente?.cidade) || '-';
+  const ufCliente = limparTexto(pedido?.cliente?.uf).toUpperCase();
+  const cidadeUfCliente = `${cidadeCliente}${ufCliente ? ` / ${ufCliente}` : ''}`;
   const quantidadeVolumesBruta = Number(pedido?.qtdeVolume ?? pedido?.volumes ?? 0);
   const quantidadeVolumes = Number.isFinite(quantidadeVolumesBruta) && quantidadeVolumesBruta >= 0
     ? Math.trunc(quantidadeVolumesBruta)
@@ -2417,7 +2429,7 @@ function montarMensagemDestinoLocalEntrega({ pedido, numeroPedido, carrada, tele
     `${dataCarrada} - ${descricaoCarrada}`,
     '',
     `Nome cliente: ${montarNomeComTelefone(nomeCliente, telefoneCliente)}`,
-    `Cidade cliente: ${cidadeCliente}`,
+    `Cidade cliente: ${cidadeUfCliente}`,
     `Número pedido: ${numeroPedido}`,
     '',
     `Previsão qtde volume: ${quantidadeVolumes}`
@@ -2641,7 +2653,8 @@ async function salvarLocalEntrega({
     cliente: {
       ...(pedidoComVolumes?.cliente || {}),
       nome: clienteDetalhePagamento.nome || pedidoComVolumes?.cliente?.nome || '',
-      cidade: clienteDetalhePagamento.cidade || pedidoComVolumes?.cliente?.cidade || ''
+      cidade: clienteDetalhePagamento.cidade || pedidoComVolumes?.cliente?.cidade || '',
+      uf: clienteDetalhePagamento.uf || pedidoComVolumes?.cliente?.uf || ''
     }
   };
 
