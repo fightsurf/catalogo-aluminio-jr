@@ -1629,6 +1629,63 @@ function quebrarTextoEtiqueta(value, maxCaracteres = 42, maxLinhas = 3) {
   return linhas;
 }
 
+function quebrarTextoEtiquetaPorLimites(value, limites = [42], maxLinhas = limites.length) {
+  const texto = limparTexto(value);
+  if (!texto) return [];
+
+  const palavras = texto.split(/\s+/).filter(Boolean);
+  const linhas = [];
+  let atual = '';
+  let indiceLimite = 0;
+
+  const limiteAtual = () => {
+    const limite = Number(limites[Math.min(indiceLimite, limites.length - 1)] || 42);
+    return Number.isFinite(limite) && limite > 0 ? Math.trunc(limite) : 42;
+  };
+
+  while (palavras.length && linhas.length < maxLinhas) {
+    const limite = limiteAtual();
+    let palavra = palavras[0];
+
+    if (!atual && palavra.length > limite) {
+      atual = palavra.slice(0, limite);
+      palavras[0] = palavra.slice(limite);
+      linhas.push(atual);
+      atual = '';
+      indiceLimite += 1;
+      continue;
+    }
+
+    const tentativa = atual ? `${atual} ${palavra}` : palavra;
+    if (tentativa.length <= limite) {
+      atual = tentativa;
+      palavras.shift();
+      continue;
+    }
+
+    if (atual) {
+      linhas.push(atual);
+      atual = '';
+      indiceLimite += 1;
+      continue;
+    }
+  }
+
+  if (atual && linhas.length < maxLinhas) {
+    linhas.push(atual);
+    atual = '';
+  }
+
+  if ((palavras.length || atual) && linhas.length) {
+    const ultimoIndice = linhas.length - 1;
+    const limite = Number(limites[Math.min(ultimoIndice, limites.length - 1)] || 42);
+    const base = linhas[ultimoIndice].replace(/…$/, '');
+    linhas[ultimoIndice] = `${base.slice(0, Math.max(1, limite - 1)).trimEnd()}…`;
+  }
+
+  return linhas;
+}
+
 function montarSvgEtiquetaImpressao(dados) {
   const largura = 1754;
   const altura = 1240;
@@ -1636,19 +1693,97 @@ function montarSvgEtiquetaImpressao(dados) {
   const telefone = escaparXmlEtiqueta(dados.clienteTelefone || '-');
   const cidade = escaparXmlEtiqueta([dados.clienteCidade, dados.clienteUf].filter(Boolean).join(' - ') || '-');
   const pedido = escaparXmlEtiqueta(dados.numeroPedido || '-');
-  const transportadora = escaparXmlEtiqueta(dados.transportadoraNome || 'NÃO INFORMADA');
-  const redespacho = escaparXmlEtiqueta(dados.redespachoTransportadoraNome || '');
-  const agencia = escaparXmlEtiqueta(dados.agenciaRecebimentoNome || '');
-  const observacoes = quebrarTextoEtiqueta(dados.transportadoraObservacao, 62, 2);
 
-  const obsSvg = observacoes.length
-    ? observacoes.map((linha, i) => `<text x="90" y="625" font-family="Arial,Helvetica,sans-serif" font-size="38" font-weight="700" transform="translate(0 ${i * 44})">${escaparXmlEtiqueta(linha)}</text>`).join('')
-    : '';
-  const yLogisticaInicial = observacoes.length ? 625 + (observacoes.length * 44) + 28 : 625;
-  const linhasLogisticaSvg = [
-    redespacho ? `<text x="90" y="${yLogisticaInicial}" font-family="Arial,Helvetica,sans-serif" font-size="36"><tspan font-weight="900">REDESPACHO:</tspan><tspan dx="14" font-weight="800">${redespacho}</tspan></text>` : '',
-    agencia ? `<text x="90" y="${yLogisticaInicial + (redespacho ? 48 : 0)}" font-family="Arial,Helvetica,sans-serif" font-size="36"><tspan font-weight="900">AGÊNCIA:</tspan><tspan dx="14" font-weight="800">${agencia}</tspan></text>` : ''
-  ].filter(Boolean).join('');
+  // O bloco de logística possui altura reservada entre y=555 e y=810.
+  // Cada campo é quebrado explicitamente em linhas SVG. Assim, uma linha longa
+  // aumenta a altura do bloco e a próxima informação sempre começa abaixo dela.
+  const transportadoraLinhas = quebrarTextoEtiquetaPorLimites(
+    dados.transportadoraNome || 'NÃO INFORMADA',
+    [28, 66, 66],
+    3
+  );
+  const observacaoLinhas = quebrarTextoEtiquetaPorLimites(
+    dados.transportadoraObservacao,
+    [72, 72],
+    2
+  );
+  const redespachoLinhas = quebrarTextoEtiquetaPorLimites(
+    dados.redespachoTransportadoraNome,
+    [58, 76],
+    2
+  );
+  const agenciaLinhas = quebrarTextoEtiquetaPorLimites(
+    dados.agenciaRecebimentoNome,
+    [64, 80],
+    2
+  );
+
+  const grupos = [
+    { tipo: 'transportadora', linhas: transportadoraLinhas },
+    { tipo: 'observacao', linhas: observacaoLinhas },
+    { tipo: 'redespacho', linhas: redespachoLinhas },
+    { tipo: 'agencia', linhas: agenciaLinhas }
+  ].filter((grupo) => grupo.linhas.length);
+
+  const totalLinhas = grupos.reduce((total, grupo) => total + grupo.linhas.length, 0);
+  const yInicialLogistica = 555;
+  const yLimiteLogistica = 810;
+  const espacamentoGrupo = 8;
+  const totalEspacamentosGrupo = Math.max(0, grupos.length - 1) * espacamentoGrupo;
+  const intervalos = Math.max(1, totalLinhas - 1);
+  const alturaLinha = totalLinhas <= 1
+    ? 48
+    : Math.max(28, Math.min(48, Math.floor((yLimiteLogistica - yInicialLogistica - totalEspacamentosGrupo) / intervalos)));
+  const fonteTransportadora = Math.max(28, Math.min(46, Math.floor(alturaLinha * 0.96)));
+  const fonteDetalhe = Math.max(25, Math.min(38, Math.floor(alturaLinha * 0.82)));
+
+  let yAtual = yInicialLogistica;
+  const partesLogistica = [];
+
+  grupos.forEach((grupo, indiceGrupo) => {
+    grupo.linhas.forEach((linha, indiceLinha) => {
+      const texto = escaparXmlEtiqueta(linha);
+
+      if (grupo.tipo === 'transportadora') {
+        if (indiceLinha === 0) {
+          partesLogistica.push(
+            `<text x="90" y="${yAtual}" font-family="Arial,Helvetica,sans-serif" font-size="${fonteTransportadora}">` +
+              `<tspan font-weight="900">EXCURSÃO / TRANSPORTADORA:</tspan>` +
+              `<tspan dx="18" font-weight="800">${texto}</tspan>` +
+            `</text>`
+          );
+        } else {
+          partesLogistica.push(
+            `<text x="90" y="${yAtual}" font-family="Arial,Helvetica,sans-serif" font-size="${fonteTransportadora}" font-weight="800">${texto}</text>`
+          );
+        }
+      } else if (grupo.tipo === 'observacao') {
+        partesLogistica.push(
+          `<text x="90" y="${yAtual}" font-family="Arial,Helvetica,sans-serif" font-size="${fonteDetalhe}" font-weight="700">${texto}</text>`
+        );
+      } else {
+        const rotulo = grupo.tipo === 'redespacho' ? 'REDESPACHO:' : 'AGÊNCIA:';
+        if (indiceLinha === 0) {
+          partesLogistica.push(
+            `<text x="90" y="${yAtual}" font-family="Arial,Helvetica,sans-serif" font-size="${fonteDetalhe}">` +
+              `<tspan font-weight="900">${rotulo}</tspan>` +
+              `<tspan dx="14" font-weight="800">${texto}</tspan>` +
+            `</text>`
+          );
+        } else {
+          partesLogistica.push(
+            `<text x="90" y="${yAtual}" font-family="Arial,Helvetica,sans-serif" font-size="${fonteDetalhe}" font-weight="800">${texto}</text>`
+          );
+        }
+      }
+
+      yAtual += alturaLinha;
+    });
+
+    if (indiceGrupo < grupos.length - 1) yAtual += espacamentoGrupo;
+  });
+
+  const logisticaSvg = partesLogistica.join('');
 
   return `
     <svg width="${largura}" height="${altura}" viewBox="0 0 ${largura} ${altura}" xmlns="http://www.w3.org/2000/svg">
@@ -1668,11 +1803,7 @@ function montarSvgEtiquetaImpressao(dados) {
       <text x="90" y="470" font-family="Arial,Helvetica,sans-serif" font-size="50" font-weight="700">CIDADE:</text>
       <text x="335" y="470" font-family="Arial,Helvetica,sans-serif" font-size="50" font-weight="700">${cidade}</text>
 
-      <text x="90" y="555" font-family="Arial,Helvetica,sans-serif" font-size="46">
-        <tspan font-weight="900">EXCURSÃO / TRANSPORTADORA:</tspan><tspan dx="18" font-weight="800">${transportadora}</tspan>
-      </text>
-      ${obsSvg}
-      ${linhasLogisticaSvg}
+      ${logisticaSvg}
 
       <rect x="70" y="830" width="1614" height="110" rx="8" fill="#fff" stroke="#111" stroke-width="4"/>
       <text x="877" y="875" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="48" font-weight="900">PEDIDO ${pedido}</text>
