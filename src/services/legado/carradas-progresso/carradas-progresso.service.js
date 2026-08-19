@@ -1751,11 +1751,14 @@ async function enviarEtiquetaImpressaoWhatsapp(params) {
   const dados = await montarDadosEtiquetaImpressao(params);
   const imagem = await gerarImagemEtiquetaImpressao(dados);
   const imagemDataUrl = `data:image/png;base64,${imagem.toString('base64')}`;
+  const textoVolumes = dados.quantidadeVolumesConfirmada
+    ? `Serão ${dados.quantidadeVolumes} volume(s).`
+    : `PREVISÃO DE VOLUMES: ${dados.quantidadeVolumes} volume(s).`;
   const legenda = [
     `📦 Pedido nº ${dados.numeroPedido}`,
     '',
     'Confirma se os dados desta etiqueta estão corretos para imprimirmos e colarmos nas caixas?',
-    `Serão ${dados.quantidadeVolumes} volume(s).`
+    textoVolumes
   ].join('\n');
 
   let notificacao;
