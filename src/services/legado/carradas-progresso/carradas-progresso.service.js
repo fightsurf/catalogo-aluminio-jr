@@ -1661,8 +1661,9 @@ function montarSvgEtiquetaImpressao(dados) {
       <text x="90" y="470" font-family="Arial,Helvetica,sans-serif" font-size="50" font-weight="700">CIDADE:</text>
       <text x="335" y="470" font-family="Arial,Helvetica,sans-serif" font-size="50" font-weight="700">${cidade}</text>
 
-      <text x="90" y="555" font-family="Arial,Helvetica,sans-serif" font-size="50" font-weight="700">EXCURSÃO / TRANSPORTADORA:</text>
-      <text x="820" y="555" font-family="Arial,Helvetica,sans-serif" font-size="50" font-weight="800">${transportadora}</text>
+      <text x="90" y="555" font-family="Arial,Helvetica,sans-serif" font-size="46">
+        <tspan font-weight="900">EXCURSÃO / TRANSPORTADORA:</tspan><tspan dx="18" font-weight="800">${transportadora}</tspan>
+      </text>
       ${obsSvg}
 
       <rect x="70" y="830" width="1614" height="110" rx="8" fill="#fff" stroke="#111" stroke-width="4"/>
