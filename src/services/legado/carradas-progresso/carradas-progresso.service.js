@@ -12,14 +12,26 @@ const FASES_BOOLEANAS = {
   EM_PRODUCAO: {
     nome: 'Em produção',
     enviaWhatsapp: true,
-    construirMensagem: ({ numeroPedido, nomeCliente, valorPedido, data }) => [
-      `📦 Pedido nº ${numeroPedido}`,
-      '',
-      `Cliente: ${nomeCliente}`,
-      `Valor do pedido: ${formatarMoeda(valorPedido)}`,
-      '',
-      `Seu pedido entrou em produção em ${data}.`
-    ].join('\n')
+    construirMensagem: ({ numeroPedido, nomeCliente, valorPedido, data, dataCarrada, descricaoCarrada }) => {
+      const descricaoPrevisao = limparTexto(descricaoCarrada)
+        .replace(/\bcarrada\b/gi, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+      const previsao = [limparTexto(dataCarrada), descricaoPrevisao]
+        .filter(Boolean)
+        .join(' - ');
+
+      return [
+        `📦 Pedido nº ${numeroPedido}`,
+        '',
+        `Cliente: ${nomeCliente}`,
+        `Valor do pedido: ${formatarMoeda(valorPedido)}`,
+        '',
+        `Seu pedido entrou em produção em ${data}.`,
+        '',
+        `PEDIDO PRONTO EM (PREVISÃO): ${previsao}`
+      ].join('\n');
+    }
   },
   PEDIDO_PRONTO: {
     nome: 'Pedido pronto',
@@ -1515,7 +1527,9 @@ async function salvarFaseBooleana({ codigoCarrada: codigoCarradaParam, numeroPed
       numeroPedido,
       nomeCliente: resumoPedido?.cliente?.nome || 'Cliente',
       valorPedido: resumoPedido?.valorPedido || pedido?.total || 0,
-      data: formatarDataBR(new Date())
+      data: formatarDataBR(new Date()),
+      dataCarrada: formatarDataBR(carrada?.data),
+      descricaoCarrada: carrada?.descricao || ''
     });
 
     try {
