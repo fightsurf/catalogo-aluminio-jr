@@ -83,6 +83,31 @@
       flex-wrap: wrap;
       margin-bottom: 12px;
     }
+    .pedido-titulo {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin: 0 0 4px;
+    }
+    .pedido-status-card {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      min-height: 24px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #dcfce7;
+      color: #166534;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+    .pedido-status-card.pendente {
+      background: #fef3c7;
+      color: #92400e;
+    }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -270,6 +295,50 @@
       return data.data;
     }
 
+    function criarMapaProgressoPedidos(matriz) {
+      const pedidos = Array.isArray(matriz?.pedidos) ? matriz.pedidos : [];
+      return new Map(pedidos.map((pedido) => [String(pedido?.numero ?? '').trim(), pedido]));
+    }
+
+    function montarCardsStatusPedido(pedido, progressoPedido) {
+      const fases = progressoPedido?.fases || {};
+      const fasePronto = fases.PEDIDO_PRONTO;
+      const faseExpedicao = fases.DATA_EXPEDICAO;
+      const fasePagamento = fases.PAGAMENTO_QUITADO;
+
+      const pedidoPronto = fasePronto
+        ? Boolean(fasePronto.concluido)
+        : Boolean(pedido?.pedidoPronto || pedido?.pedido_pronto);
+
+      const dataExpedicao = String(
+        faseExpedicao?.dataExpedicao
+          || pedido?.dataExpedicao
+          || pedido?.data_expedicao
+          || ''
+      ).trim();
+
+      const cards = [];
+
+      if (pedidoPronto) {
+        cards.push('<span class="pedido-status-card">✅ PRONTO</span>');
+      }
+
+      if (dataExpedicao) {
+        cards.push(`<span class="pedido-status-card">🚚 EXPEDIÇÃO ${escapeHtml(formatarData(dataExpedicao))}</span>`);
+      }
+
+      if (fasePagamento) {
+        if (fasePagamento.concluido) {
+          cards.push('<span class="pedido-status-card">💰 QUITADO</span>');
+        } else {
+          const saldoRestante = Number(fasePagamento.saldoRestante ?? 0);
+          cards.push(`<span class="pedido-status-card pendente">💰 FALTA PAGAR ${escapeHtml(formatarMoeda(Math.max(saldoRestante, 0)))}</span>`);
+        }
+      }
+
+      return cards.join('');
+    }
+
     function calcularResumo(carrada) {
       const resumoBackend = carrada?.resumoProducao || {};
 
@@ -316,7 +385,8 @@
       });
     }
 
-    function renderCarrada(carrada) {
+    function renderCarrada(carrada, matrizProgresso = null) {
+      const progressoPorPedido = criarMapaProgressoPedidos(matrizProgresso);
       document.getElementById('titulo').textContent = `Carrada ${carrada.codigo}`;
       document.getElementById('subtitulo').textContent = `Data: ${formatarData(carrada.data)} | Descrição: ${carrada.descricao || '-'}`;
 
@@ -342,12 +412,14 @@
           const nomeClienteHtml = pedido.cliente?.favorecido
             ? `<a class="cliente-link" href="/legado/pedidos-cliente?favorecido=${encodeURIComponent(pedido.cliente.favorecido)}" target="_blank" rel="noopener noreferrer">${nomeCliente}</a>`
             : nomeCliente;
+          const progressoPedido = progressoPorPedido.get(numeroPedido) || null;
+          const cardsStatus = montarCardsStatusPedido(pedido, progressoPedido);
 
           return `
             <section class="card">
               <div class="pedido-header">
                 <div>
-                  <h2>${numeroPedidoHtml}${pedido.pedidoPronto ? ' <span style="font-size:12px; color:#166534; background:#dcfce7; padding:3px 8px; border-radius:999px;">PRONTO</span>' : ''}</h2>
+                  <h2 class="pedido-titulo">${numeroPedidoHtml}${cardsStatus}</h2>
                   <div class="muted">Cliente: ${nomeClienteHtml} | Cidade: ${escapeHtml(((pedido.cliente?.cidade || '') + ((pedido.cliente?.uf || '') ? ' / ' + pedido.cliente.uf : '')).trim() || '-')} | Data: ${escapeHtml(formatarData(pedido.data))}</div>
                 </div>
                 <div class="pedido-acoes">
@@ -567,7 +639,13 @@
 
       try {
         const carrada = await request(`/api/legado/carradas/${codigo}`);
-        renderCarrada(carrada);
+        const matrizProgresso = await request(`/api/legado/carradas-progresso/${encodeURIComponent(codigo)}`)
+          .catch((error) => {
+            console.error('Não foi possível carregar os indicadores do progresso da carrada:', error);
+            return null;
+          });
+
+        renderCarrada(carrada, matrizProgresso);
         await inicializarNavegacaoCarradas(carrada);
         if (Array.isArray(carrada?.pedidos) && carrada.pedidos.length) {
           await inicializarMoverCarrada();
