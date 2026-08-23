@@ -312,6 +312,64 @@ function normalizarTelefoneDestino(valor) {
   return telefone;
 }
 
+// Os comandos do n8n usam exatamente o identificador recebido da Z-API.
+// Quando o WhatsApp entrega um LID (ex.: 123456789@lid), ele precisa chegar
+// intacto ao campo `phone` da Z-API. Telefones comuns continuam passando pela
+// normalização já existente, sem alterar o comportamento dos demais módulos.
+function normalizarIdentificadorWhatsapp(valor) {
+  const identificador = String(valor || '').trim();
+
+  if (!identificador) {
+    throw new Error('Número do WhatsApp não informado.');
+  }
+
+  if (/^\d+@lid$/i.test(identificador)) {
+    return identificador;
+  }
+
+  return normalizarTelefoneDestino(identificador);
+}
+
+async function enviarTextoPorIdentificadorWhatsapp(identificador, mensagem) {
+  const destino = normalizarIdentificadorWhatsapp(identificador);
+  const texto = String(mensagem || '').trim();
+
+  if (!texto) {
+    throw new Error('Mensagem é obrigatória.');
+  }
+
+  return zapiService.postZapi('/send-text', {
+    phone: destino,
+    message: texto,
+  });
+}
+
+async function enviarOfertaPorIdentificadorWhatsapp(id, identificador, baseUrl) {
+  const destino = normalizarIdentificadorWhatsapp(identificador);
+  const { oferta, buffer } = await gerarArteBuffer(id);
+  const link = `${basePublica(baseUrl)}/ofertas/${encodeURIComponent(oferta.codigo)}`;
+  const legenda = link;
+
+  const envio = await zapiService.postZapi('/send-image', {
+    phone: destino,
+    image: imagemBase64(buffer),
+    caption: legenda,
+  });
+
+  await pool.query(
+    'UPDATE ofertas SET imagem_url=NULL, r2_key=NULL, updated_at=NOW() WHERE id=$1',
+    [id]
+  );
+
+  return {
+    oferta,
+    telefone: destino,
+    link,
+    legenda,
+    zapi: envio.zapi,
+  };
+}
+
 async function publicar(id, baseUrl) {
   const { oferta, buffer } = await gerarArteBuffer(id);
   const link = `${basePublica(baseUrl)}/ofertas/${encodeURIComponent(oferta.codigo)}`;
@@ -425,13 +483,13 @@ async function listarIdsKitsPorPeriodo(periodo) {
 }
 
 async function enviarKitsPorPeriodo(periodo, telefone, baseUrl) {
-  const telefoneDestino = normalizarTelefoneDestino(telefone);
+  const telefoneDestino = normalizarIdentificadorWhatsapp(telefone);
   const consulta = await listarIdsKitsPorPeriodo(periodo);
   const rotuloPeriodo = consulta.periodo === 'ontem' ? 'ontem' : 'hoje';
 
   if (!consulta.ofertas.length) {
     const mensagem = `Nenhum kit foi criado ${rotuloPeriodo} na Central de Ofertas.`;
-    await zapiService.enviarTexto({ telefone: telefoneDestino, mensagem });
+    await enviarTextoPorIdentificadorWhatsapp(telefoneDestino, mensagem);
     return {
       periodo: consulta.periodo,
       telefone: telefoneDestino,
@@ -447,7 +505,7 @@ async function enviarKitsPorPeriodo(periodo, telefone, baseUrl) {
 
   for (const item of consulta.ofertas) {
     try {
-      const resultado = await enviarWhatsapp(item.id, telefoneDestino, baseUrl);
+      const resultado = await enviarOfertaPorIdentificadorWhatsapp(item.id, telefoneDestino, baseUrl);
       enviados.push({
         id: item.id,
         codigo: item.codigo,
@@ -470,7 +528,7 @@ async function enviarKitsPorPeriodo(periodo, telefone, baseUrl) {
       : `Não foi possível enviar os ${consulta.ofertas.length} kit(s) criados ${rotuloPeriodo}.`;
 
     try {
-      await zapiService.enviarTexto({ telefone: telefoneDestino, mensagem });
+      await enviarTextoPorIdentificadorWhatsapp(telefoneDestino, mensagem);
     } catch (_) {
       // A resposta HTTP ainda informa as falhas mesmo se o aviso por texto não puder ser enviado.
     }
