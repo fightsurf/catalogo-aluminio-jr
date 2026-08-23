@@ -390,6 +390,102 @@ async function registrarClique(codigo) {
   return { ok: true };
 }
 
+
+function normalizarPeriodoKits(valor) {
+  const periodo = String(valor || '').trim().toLowerCase();
+  if (!['hoje', 'ontem'].includes(periodo)) {
+    throw new Error('Período inválido. Use hoje ou ontem.');
+  }
+  return periodo;
+}
+
+async function listarIdsKitsPorPeriodo(periodo) {
+  await schemaService.criarEstrutura();
+  const periodoNormalizado = normalizarPeriodoKits(periodo);
+  const diasAtras = periodoNormalizado === 'ontem' ? 1 : 0;
+
+  const result = await pool.query(
+    `SELECT id, codigo, titulo, created_at
+       FROM ofertas
+      WHERE (created_at AT TIME ZONE 'America/Fortaleza')::date =
+            ((NOW() AT TIME ZONE 'America/Fortaleza')::date - $1::integer)
+      ORDER BY created_at ASC, id ASC`,
+    [diasAtras]
+  );
+
+  return {
+    periodo: periodoNormalizado,
+    ofertas: result.rows.map(row => ({
+      id: Number(row.id),
+      codigo: row.codigo,
+      titulo: row.titulo,
+      created_at: row.created_at,
+    })),
+  };
+}
+
+async function enviarKitsPorPeriodo(periodo, telefone, baseUrl) {
+  const telefoneDestino = normalizarTelefoneDestino(telefone);
+  const consulta = await listarIdsKitsPorPeriodo(periodo);
+  const rotuloPeriodo = consulta.periodo === 'ontem' ? 'ontem' : 'hoje';
+
+  if (!consulta.ofertas.length) {
+    const mensagem = `Nenhum kit foi criado ${rotuloPeriodo} na Central de Ofertas.`;
+    await zapiService.enviarTexto({ telefone: telefoneDestino, mensagem });
+    return {
+      periodo: consulta.periodo,
+      telefone: telefoneDestino,
+      encontrados: 0,
+      enviados: 0,
+      falhas: [],
+      mensagem,
+    };
+  }
+
+  const enviados = [];
+  const falhas = [];
+
+  for (const item of consulta.ofertas) {
+    try {
+      const resultado = await enviarWhatsapp(item.id, telefoneDestino, baseUrl);
+      enviados.push({
+        id: item.id,
+        codigo: item.codigo,
+        titulo: item.titulo,
+        link: resultado.link,
+      });
+    } catch (error) {
+      falhas.push({
+        id: item.id,
+        codigo: item.codigo,
+        titulo: item.titulo,
+        erro: error.message,
+      });
+    }
+  }
+
+  if (falhas.length) {
+    const mensagem = enviados.length
+      ? `Foram enviados ${enviados.length} de ${consulta.ofertas.length} kit(s) de ${rotuloPeriodo}. ${falhas.length} não puderam ser enviados.`
+      : `Não foi possível enviar os ${consulta.ofertas.length} kit(s) criados ${rotuloPeriodo}.`;
+
+    try {
+      await zapiService.enviarTexto({ telefone: telefoneDestino, mensagem });
+    } catch (_) {
+      // A resposta HTTP ainda informa as falhas mesmo se o aviso por texto não puder ser enviado.
+    }
+  }
+
+  return {
+    periodo: consulta.periodo,
+    telefone: telefoneDestino,
+    encontrados: consulta.ofertas.length,
+    enviados: enviados.length,
+    itens_enviados: enviados,
+    falhas,
+  };
+}
+
 module.exports = {
   listar,
   criar,
@@ -402,4 +498,6 @@ module.exports = {
   duplicar,
   limparArtesR2,
   registrarClique,
+  listarIdsKitsPorPeriodo,
+  enviarKitsPorPeriodo,
 };

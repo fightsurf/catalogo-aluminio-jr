@@ -77,6 +77,20 @@ async function enviarWhatsapp(req, res) {
   }
 }
 
+
+async function enviarKitsComandoWhatsapp(req, res) {
+  try {
+    const base = `${req.protocol}://${req.get('host')}`;
+    res.json({
+      success: true,
+      data: await ofertasService.enviarKitsPorPeriodo(req.body?.periodo, req.body?.telefone, base),
+    });
+  } catch (error) {
+    const status = /período inválido|não informado|inválido/i.test(error.message) ? 400 : 502;
+    erro(res, error, status);
+  }
+}
+
 async function duplicar(req, res) {
   try {
     res.status(201).json({ success: true, data: await ofertasService.duplicar(req.params.id) });
@@ -120,6 +134,7 @@ module.exports = {
   imagemArte,
   publicar,
   enviarWhatsapp,
+  enviarKitsComandoWhatsapp,
   duplicar,
   limparArtesR2,
   publica,

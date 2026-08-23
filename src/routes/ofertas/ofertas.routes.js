@@ -1,10 +1,12 @@
 const express = require('express');
 const controller = require('../../controllers/ofertas/ofertas.controller');
 const { requireAuth } = require('../../middlewares/adminAuth.middleware');
+const n8nAuth = require('../../middlewares/n8nAuth.middleware');
 
 const router = express.Router();
 
 router.get('/publica/:codigo', controller.publica);
+router.post('/integracao/kits-whatsapp', n8nAuth, controller.enviarKitsComandoWhatsapp);
 router.post('/publica/:codigo/clique', controller.clique);
 router.get('/produtos', requireAuth, controller.produtos);
 router.get('/', requireAuth, controller.listar);
