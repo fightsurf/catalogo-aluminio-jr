@@ -457,6 +457,17 @@ function normalizarPeriodoKits(valor) {
   return periodo;
 }
 
+function montarMensagemResumoKits(rotuloPeriodo, quantidade) {
+  const periodo = String(rotuloPeriodo || '').trim().toLowerCase() === 'ontem' ? 'Ontem' : 'Hoje';
+  const total = Number(quantidade || 0);
+
+  if (total === 1) {
+    return `${periodo} foi criado 1 kit.`;
+  }
+
+  return `${periodo} foram criados ${total} kits.`;
+}
+
 async function listarIdsKitsPorPeriodo(periodo) {
   await schemaService.criarEstrutura();
   const periodoNormalizado = normalizarPeriodoKits(periodo);
@@ -502,6 +513,9 @@ async function enviarKitsPorPeriodo(periodo, telefone, baseUrl) {
 
   const enviados = [];
   const falhas = [];
+  const mensagemResumo = montarMensagemResumoKits(rotuloPeriodo, consulta.ofertas.length);
+
+  await enviarTextoPorIdentificadorWhatsapp(telefoneDestino, mensagemResumo);
 
   for (const item of consulta.ofertas) {
     try {
