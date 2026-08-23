@@ -375,7 +375,7 @@
 <body>
   <main class="page">
     <h1>Enviar relatório com fotos</h1>
-    <p class="subtitle">Cole o relatório gerado no Kit Feirinha ou no Orçamento. O sistema localiza o cliente, aplica o multiplicador e envia uma foto com os dados de cada produto.</p>
+    <p class="subtitle">Cole o relatório gerado no Kit Feirinha ou no Orçamento. Você pode enviar as fotos para um cliente cadastrado ou diretamente para um número de WhatsApp informado.</p>
 
     <div id="status" class="status"></div>
 
@@ -394,6 +394,12 @@
           <input id="multiplicador" type="number" min="1" max="999" step="1" value="1" />
           <div class="hint">Multiplica quantidades, subtotais e total.</div>
         </div>
+      </div>
+
+      <div class="field" style="margin-top: 14px;">
+        <label for="telefoneManual">WhatsApp avulso</label>
+        <input id="telefoneManual" type="tel" inputmode="tel" placeholder="Ex.: (83) 99999-9999" autocomplete="tel" />
+        <div class="hint">Use este campo quando o destinatário não estiver cadastrado. O envio para cliente cadastrado continua disponível normalmente.</div>
       </div>
 
       <div class="field" style="margin-top: 14px;">
@@ -431,6 +437,7 @@
 
       <div class="actions">
         <button id="btnEnviar" type="button" class="btn-success" disabled>Enviar fotos para o cliente</button>
+        <button id="btnEnviarTelefone" type="button" class="btn-primary" disabled>Enviar fotos para o WhatsApp informado</button>
       </div>
 
       <div id="progressWrap" class="progress-wrap">
@@ -447,11 +454,13 @@
     const clienteResultadosEl = document.getElementById('clienteResultados');
     const clienteSelecionadoEl = document.getElementById('clienteSelecionado');
     const multiplicadorEl = document.getElementById('multiplicador');
+    const telefoneManualEl = document.getElementById('telefoneManual');
     const relatorioEl = document.getElementById('relatorio');
     const statusEl = document.getElementById('status');
     const btnAnalisar = document.getElementById('btnAnalisar');
     const btnLimpar = document.getElementById('btnLimpar');
     const btnEnviar = document.getElementById('btnEnviar');
+    const btnEnviarTelefone = document.getElementById('btnEnviarTelefone');
     const previewSection = document.getElementById('previewSection');
     const itensPreviewEl = document.getElementById('itensPreview');
     const progressWrap = document.getElementById('progressWrap');
@@ -491,6 +500,7 @@
       const digitos = String(valor || '').replace(/\D+/g, '');
       if (digitos.startsWith('55') && digitos.length >= 12) return digitos;
       if (digitos.length === 10 || digitos.length === 11) return `55${digitos}`;
+      if (digitos.length < 10) return '';
       return digitos;
     }
 
@@ -641,8 +651,11 @@
     }
 
     function atualizarBotaoEnviar() {
-      const possuiTelefone = Boolean(normalizarTelefone(clienteSelecionado?.telefonePrincipal));
-      btnEnviar.disabled = enviando || !clienteSelecionado || !possuiTelefone || !analiseAtual?.prontoParaEnvio;
+      const possuiTelefoneCliente = Boolean(normalizarTelefone(clienteSelecionado?.telefonePrincipal));
+      const possuiTelefoneManual = Boolean(normalizarTelefone(telefoneManualEl.value));
+
+      btnEnviar.disabled = enviando || !clienteSelecionado || !possuiTelefoneCliente || !analiseAtual?.prontoParaEnvio;
+      btnEnviarTelefone.disabled = enviando || !possuiTelefoneManual || !analiseAtual?.prontoParaEnvio;
     }
 
     function invalidarAnalise() {
@@ -657,18 +670,23 @@
 
     relatorioEl.addEventListener('input', invalidarAnalise);
     multiplicadorEl.addEventListener('input', invalidarAnalise);
+    telefoneManualEl.addEventListener('input', atualizarBotaoEnviar);
 
     async function analisarRelatorio() {
       limparStatus();
 
-      if (!clienteSelecionado) {
-        mostrarStatus('error', 'Selecione o cliente antes de analisar o relatório.');
-        clienteBuscaEl.focus();
-        return;
-      }
+      const possuiTelefoneCliente = Boolean(
+        clienteSelecionado && normalizarTelefone(clienteSelecionado.telefonePrincipal)
+      );
+      const possuiTelefoneManual = Boolean(normalizarTelefone(telefoneManualEl.value));
 
-      if (!normalizarTelefone(clienteSelecionado.telefonePrincipal)) {
-        mostrarStatus('error', 'O cliente selecionado está sem telefone cadastrado.');
+      if (!possuiTelefoneCliente && !possuiTelefoneManual) {
+        mostrarStatus('error', 'Selecione um cliente com telefone cadastrado ou informe um número de WhatsApp avulso.');
+        if (clienteSelecionado) {
+          telefoneManualEl.focus();
+        } else {
+          clienteBuscaEl.focus();
+        }
         return;
       }
 
@@ -726,11 +744,29 @@
       return telefone;
     }
 
-    async function enviarLote() {
-      if (enviando || !analiseAtual?.prontoParaEnvio || !clienteSelecionado) return;
+    async function enviarLote(destino = 'cliente') {
+      if (enviando || !analiseAtual?.prontoParaEnvio) return;
+
+      const enviarParaCliente = destino === 'cliente';
+      const telefoneManual = normalizarTelefone(telefoneManualEl.value);
+
+      if (enviarParaCliente && !clienteSelecionado) {
+        mostrarStatus('error', 'Selecione um cliente para realizar este envio.');
+        return;
+      }
+
+      if (!enviarParaCliente && !telefoneManual) {
+        mostrarStatus('error', 'Informe um número de WhatsApp válido.');
+        telefoneManualEl.focus();
+        return;
+      }
+
+      const destinatario = enviarParaCliente
+        ? (clienteSelecionado.nome || clienteSelecionado.razao || 'cliente selecionado')
+        : telefoneManualEl.value.trim();
 
       const confirmar = window.confirm(
-        `Enviar ${analiseAtual.quantidadeProdutos} fotos para ${clienteSelecionado.nome || clienteSelecionado.razao}?`
+        `Enviar ${analiseAtual.quantidadeProdutos} fotos para ${destinatario}?`
       );
 
       if (!confirmar) return;
@@ -740,13 +776,21 @@
       btnAnalisar.disabled = true;
       btnLimpar.disabled = true;
       progressWrap.classList.add('show');
-      atualizarProgresso(0, analiseAtual.quantidadeProdutos, 'Localizando o telefone atualizado do cliente...');
+      atualizarProgresso(
+        0,
+        analiseAtual.quantidadeProdutos,
+        enviarParaCliente
+          ? 'Localizando o telefone atualizado do cliente...'
+          : 'Preparando envio para o WhatsApp informado...'
+      );
       mostrarStatus('info', 'Envio iniciado. Não feche esta tela até a conclusão.');
 
       let enviados = 0;
 
       try {
-        const telefone = await obterTelefoneAtualizado();
+        const telefone = enviarParaCliente
+          ? await obterTelefoneAtualizado()
+          : telefoneManual;
 
         for (let index = 0; index < analiseAtual.itens.length; index += 1) {
           const item = analiseAtual.itens[index];
@@ -802,7 +846,10 @@
           analiseAtual.quantidadeProdutos,
           'Todos os itens e o resumo final foram enviados.'
         );
-        mostrarStatus('success', `Envio concluído. ${analiseAtual.quantidadeProdutos} produtos enviados para ${clienteSelecionado.nome || clienteSelecionado.razao}.`);
+        mostrarStatus(
+          'success',
+          `Envio concluído. ${analiseAtual.quantidadeProdutos} produtos enviados para ${destinatario}.`
+        );
       } catch (error) {
         const todosProdutosEnviados = enviados === analiseAtual.quantidadeProdutos;
         const mensagemErro = todosProdutosEnviados
@@ -824,7 +871,6 @@
         atualizarBotaoEnviar();
       }
     }
-
     function limparTudo() {
       if (enviando) return;
 
@@ -833,6 +879,7 @@
       clienteBuscaEl.value = '';
       clienteSelecionadoEl.classList.remove('show');
       multiplicadorEl.value = '1';
+      telefoneManualEl.value = '';
       relatorioEl.value = '';
       itensPreviewEl.innerHTML = '';
       previewSection.classList.remove('show');
@@ -846,7 +893,8 @@
     }
 
     btnAnalisar.addEventListener('click', analisarRelatorio);
-    btnEnviar.addEventListener('click', enviarLote);
+    btnEnviar.addEventListener('click', () => enviarLote('cliente'));
+    btnEnviarTelefone.addEventListener('click', () => enviarLote('telefone'));
     btnLimpar.addEventListener('click', limparTudo);
   </script>
 </body>
