@@ -359,6 +359,82 @@ body {
 }
 .btn-del:hover { background: var(--pc-danger-bg); color: var(--pc-danger); border-color: var(--pc-danger-border); }
 
+.col-acoes-material {
+  width: 150px;
+  text-align: center !important;
+}
+.material-actions-cell {
+  text-align: center !important;
+  white-space: nowrap;
+}
+.material-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.material-actions .btn-del {
+  margin-left: 0;
+}
+.btn-edit-item,
+.btn-save-item,
+.btn-cancel-item {
+  padding: 4px 9px;
+  border-radius: var(--pc-radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-edit-item {
+  background: var(--pc-surface);
+  color: var(--pc-primary);
+  border: 1px solid var(--pc-primary);
+}
+.btn-edit-item:hover { background: var(--pc-info-bg); }
+.btn-save-item {
+  background: var(--pc-primary);
+  color: #fff;
+  border: 1px solid var(--pc-primary);
+}
+.btn-save-item:hover { background: var(--pc-primary-d); }
+.btn-cancel-item {
+  background: var(--pc-surface);
+  color: var(--pc-muted);
+  border: 1px solid var(--pc-border);
+}
+.btn-cancel-item:hover {
+  background: var(--pc-bg);
+  color: var(--pc-text);
+}
+.btn-save-item:disabled,
+.btn-cancel-item:disabled {
+  opacity: .65;
+  cursor: wait;
+}
+.linha-material-editando td { vertical-align: middle; }
+.material-edit-input {
+  width: 100%;
+  min-width: 110px;
+  box-sizing: border-box;
+  padding: 6px 8px;
+  border: 1px solid var(--pc-border);
+  border-radius: var(--pc-radius-sm);
+  background: var(--pc-surface);
+  color: var(--pc-text);
+  font: inherit;
+}
+.material-edit-input:focus {
+  border-color: var(--pc-primary);
+  outline: 2px solid rgba(9, 105, 218, .15);
+  outline-offset: 0;
+}
+.material-edit-num {
+  min-width: 95px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Empty state ───────────────────────────────────────── */
 .empty-state {
   margin: 0 auto 24px;

@@ -258,8 +258,18 @@ function renderizarPlanilha(resumo) {
       <td class="num">${escapeHtml(fmtPeso(item.peso_kg))}</td>
       <td class="num">${escapeHtml(fmtMoeda(item.preco_por_kg))}</td>
       <td class="num">${escapeHtml(fmtMoeda(item.total_item))}</td>
-      <td style="text-align:center;">${concluida ? '' : `<button class="btn-del" data-id="${escapeHtml(item.id)}">✕</button>`}</td>
+      <td class="material-actions-cell">
+        ${concluida ? '' : `
+          <div class="material-actions">
+            <button class="btn-edit-item" type="button" data-id="${escapeHtml(item.id)}">Alterar</button>
+            <button class="btn-del" type="button" data-id="${escapeHtml(item.id)}" title="Excluir">✕</button>
+          </div>
+        `}
+      </td>
     `;
+    const btnEditar = tr.querySelector('.btn-edit-item');
+    if (btnEditar) btnEditar.addEventListener('click', () => abrirEdicaoItem(item, tr));
+
     const btnDel = tr.querySelector('.btn-del');
     if (btnDel) btnDel.addEventListener('click', (e) => deletarItem(item.id, e.currentTarget));
     tbodyMat.appendChild(tr);
@@ -523,6 +533,115 @@ document.getElementById('btn-add-item').addEventListener('click', async () => {
     showMsg('Erro ao adicionar item: ' + e.message, 'erro');
   }
 });
+
+// ─── ALTERAR ITEM / PESAGEM ───────────────────────────────────
+
+function abrirEdicaoItem(item, tr) {
+  if (!prestacaoAtualId) {
+    showMsg('Selecione uma prestação primeiro.', 'erro');
+    return;
+  }
+
+  if (prestacaoAtualResumo && isConcluida(prestacaoAtualResumo.cabecalho)) {
+    showMsg('Prestação concluída não pode ser alterada.', 'erro');
+    return;
+  }
+
+  tr.classList.add('linha-material-editando');
+  tr.innerHTML = `
+    <td>
+      <input class="material-edit-input material-edit-material" type="text"
+             value="${escapeHtml(item.descricao_material)}" aria-label="Material" />
+    </td>
+    <td>
+      <input class="material-edit-input material-edit-num material-edit-peso" type="number"
+             step="0.001" min="0.001" value="${escapeHtml(item.peso_kg)}" aria-label="Peso em Kg" />
+    </td>
+    <td>
+      <input class="material-edit-input material-edit-num material-edit-preco" type="number"
+             step="0.01" min="0" value="${escapeHtml(item.preco_por_kg)}" aria-label="Preço por Kg" />
+    </td>
+    <td class="num">${escapeHtml(fmtMoeda(item.total_item))}</td>
+    <td class="material-actions-cell">
+      <div class="material-actions material-actions-edit">
+        <button class="btn-save-item" type="button">Salvar</button>
+        <button class="btn-cancel-item" type="button">Cancelar</button>
+      </div>
+    </td>
+  `;
+
+  const inputMaterial = tr.querySelector('.material-edit-material');
+  const inputPeso = tr.querySelector('.material-edit-peso');
+  const inputPreco = tr.querySelector('.material-edit-preco');
+  const btnSalvar = tr.querySelector('.btn-save-item');
+  const btnCancelar = tr.querySelector('.btn-cancel-item');
+
+  if (inputMaterial) {
+    inputMaterial.focus();
+    inputMaterial.select();
+  }
+
+  if (btnCancelar) {
+    btnCancelar.addEventListener('click', () => carregarResumo(prestacaoAtualId));
+  }
+
+  if (btnSalvar) {
+    btnSalvar.addEventListener('click', async () => {
+      const material = inputMaterial.value.trim();
+      const peso_kg = inputPeso.value;
+      const preco_por_kg = inputPreco.value;
+
+      if (!material) {
+        showMsg('Informe o material.', 'erro');
+        inputMaterial.focus();
+        return;
+      }
+      if (peso_kg === '' || !Number.isFinite(Number(peso_kg)) || Number(peso_kg) <= 0) {
+        showMsg('Informe um peso maior que zero.', 'erro');
+        inputPeso.focus();
+        return;
+      }
+      if (preco_por_kg === '' || !Number.isFinite(Number(preco_por_kg)) || Number(preco_por_kg) < 0) {
+        showMsg('Informe um preço por Kg válido.', 'erro');
+        inputPreco.focus();
+        return;
+      }
+
+      const textoOriginal = btnSalvar.textContent;
+      btnSalvar.disabled = true;
+      if (btnCancelar) btnCancelar.disabled = true;
+      btnSalvar.textContent = 'Salvando...';
+
+      try {
+        const res = await fetch(`${API_BASE}/${prestacaoAtualId}/itens/${item.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ material, peso_kg, preco_por_kg })
+        });
+        const json = await res.json();
+        if (!json.success) throw new Error(json.message || 'Não foi possível alterar o item.');
+
+        await carregarResumo(prestacaoAtualId);
+        await carregarLista();
+        showMsg('Material/pesagem alterado com sucesso!', 'sucesso');
+      } catch (e) {
+        console.error('Erro ao alterar item:', e);
+        showMsg('Erro ao alterar item: ' + e.message, 'erro');
+        btnSalvar.disabled = false;
+        if (btnCancelar) btnCancelar.disabled = false;
+        btnSalvar.textContent = textoOriginal;
+      }
+    });
+  }
+
+  [inputMaterial, inputPeso, inputPreco].forEach(input => {
+    if (!input) return;
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && btnCancelar) btnCancelar.click();
+      if (e.key === 'Enter' && btnSalvar) btnSalvar.click();
+    });
+  });
+}
 
 // ─── DELETAR ITEM ──────────────────────────────────────────────
 
