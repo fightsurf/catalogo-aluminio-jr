@@ -229,11 +229,13 @@ function renderizarPlanilha(resumo) {
 
   setElementDisplay('btn-concluir-prestacao', !concluida);
   setElementDisplay('btn-reabrir-prestacao', concluida);
+  setElementDisplay('btn-alterar-prestacao', !concluida);
   setElementDisplay('btn-excluir-prestacao', !concluida);
   setElementDisplay('btn-whatsapp-resumo', !concluida);
   setElementDisplay('btn-whatsapp-pdf', !concluida);
   setElementDisplay('form-item', !concluida, 'flex');
   setElementDisplay('form-pagamento', !concluida, 'flex');
+  setElementDisplay('form-editar-prestacao', false);
 
   const creditoInfo = document.getElementById('credito-info');
   if (creditoInfo) {
@@ -299,6 +301,18 @@ async function carregarFornecedores() {
       opt.textContent = f.nome;
       sel.appendChild(opt);
     });
+    const editar = document.getElementById('editar-fornecedor');
+    if (editar) {
+      const editarAnterior = editar.value;
+      editar.innerHTML = '<option value="">-- selecione --</option>';
+      lista.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.id;
+        opt.textContent = f.nome;
+        editar.appendChild(opt);
+      });
+      if (editarAnterior) editar.value = editarAnterior;
+    }
     // Also populate the grid filter
     const filtro = document.getElementById('filtro-fornecedor');
     const filtroAnterior = filtro.value;
@@ -338,6 +352,91 @@ document.getElementById('btn-cancelar-nova').addEventListener('click', () => {
   document.getElementById('nova-data').value = '';
   document.getElementById('nova-fornecedor').value = '';
 });
+
+// ─── ALTERAR PRESTAÇÃO ─────────────────────────────────────────
+
+function fecharEdicaoPrestacao() {
+  const form = document.getElementById('form-editar-prestacao');
+  if (form) form.style.display = 'none';
+}
+
+function abrirEdicaoPrestacao() {
+  if (!prestacaoAtualId || !prestacaoAtualResumo || !prestacaoAtualResumo.cabecalho) {
+    showMsg('Abra uma prestação antes de alterar.', 'erro');
+    return;
+  }
+
+  const cabecalho = prestacaoAtualResumo.cabecalho;
+  if (isConcluida(cabecalho)) {
+    showMsg('Prestação concluída não pode ser alterada.', 'erro');
+    return;
+  }
+
+  document.getElementById('editar-titulo').value = cabecalho.titulo || '';
+  document.getElementById('editar-data').value = cabecalho.data_referencia
+    ? String(cabecalho.data_referencia).substring(0, 10)
+    : '';
+  document.getElementById('editar-fornecedor').value = cabecalho.fornecedor_id || '';
+
+  const form = document.getElementById('form-editar-prestacao');
+  form.style.display = 'flex';
+  document.getElementById('editar-titulo').focus();
+}
+
+const btnAlterarPrestacao = document.getElementById('btn-alterar-prestacao');
+if (btnAlterarPrestacao) {
+  btnAlterarPrestacao.addEventListener('click', abrirEdicaoPrestacao);
+}
+
+const btnCancelarAlteracaoPrestacao = document.getElementById('btn-cancelar-alteracao-prestacao');
+if (btnCancelarAlteracaoPrestacao) {
+  btnCancelarAlteracaoPrestacao.addEventListener('click', fecharEdicaoPrestacao);
+}
+
+const btnSalvarAlteracaoPrestacao = document.getElementById('btn-salvar-alteracao-prestacao');
+if (btnSalvarAlteracaoPrestacao) {
+  btnSalvarAlteracaoPrestacao.addEventListener('click', async () => {
+    if (!prestacaoAtualId) {
+      showMsg('Abra uma prestação antes de alterar.', 'erro');
+      return;
+    }
+
+    const titulo = document.getElementById('editar-titulo').value.trim();
+    const data_referencia = document.getElementById('editar-data').value;
+    const fornecedor_id = document.getElementById('editar-fornecedor').value;
+
+    if (!titulo || !data_referencia || !fornecedor_id) {
+      showMsg('Preencha título, data de referência e fornecedor.', 'erro');
+      return;
+    }
+
+    const btn = btnSalvarAlteracaoPrestacao;
+    const textoOriginal = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Salvando...';
+
+    try {
+      const res = await fetch(`${API_BASE}/${prestacaoAtualId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ titulo, data_referencia, fornecedor_id })
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.message);
+
+      fecharEdicaoPrestacao();
+      await carregarLista();
+      await carregarResumo(prestacaoAtualId);
+      showMsg('Informações da prestação alteradas com sucesso!', 'sucesso');
+    } catch (e) {
+      console.error('Erro ao alterar prestação:', e);
+      showMsg('Erro ao alterar prestação: ' + e.message, 'erro');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = textoOriginal;
+    }
+  });
+}
 
 document.getElementById('btn-confirmar-nova').addEventListener('click', async () => {
   const titulo = document.getElementById('nova-titulo').value.trim();

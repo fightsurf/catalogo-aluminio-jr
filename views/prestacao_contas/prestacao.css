@@ -95,6 +95,7 @@ body {
 .btn-secundario,
 .btn-selecionar,
 .btn-del,
+.btn-alterar-prestacao,
 .btn-excluir-prestacao,
 .btn-whatsapp-resumo,
 .btn-whatsapp-pdf,
@@ -437,6 +438,21 @@ body {
 .btn-whatsapp-pdf:hover { background: #0d5322; }
 .btn-whatsapp-pdf:focus-visible { outline: 2px solid #116329; outline-offset: 2px; }
 .btn-whatsapp-pdf:disabled { opacity: .65; cursor: wait; }
+.btn-alterar-prestacao {
+  padding: 6px 14px;
+  background: var(--pc-surface);
+  color: var(--pc-primary);
+  border: 1px solid var(--pc-primary);
+  border-radius: var(--pc-radius);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 80ms, color 80ms, border-color 80ms;
+}
+.btn-alterar-prestacao:hover { background: var(--pc-info-bg); }
+.btn-alterar-prestacao:focus-visible { outline: 2px solid var(--pc-primary); outline-offset: 2px; }
 .btn-excluir-prestacao {
   padding: 6px 14px;
   background: var(--pc-surface);
@@ -452,6 +468,17 @@ body {
 }
 .btn-excluir-prestacao:hover { background: var(--pc-danger-bg); border-color: var(--pc-danger); }
 .btn-excluir-prestacao:focus-visible { outline: 2px solid var(--pc-danger); outline-offset: 2px; }
+
+.editar-prestacao-panel {
+  margin: 0 20px 16px;
+  padding: 14px 16px;
+  background: var(--pc-bg);
+  border: 1px solid var(--pc-border);
+  border-radius: var(--pc-radius);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
 
 /* ── Tabs ──────────────────────────────────────────────── */
 .tab-bar {

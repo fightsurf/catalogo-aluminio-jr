@@ -117,7 +117,32 @@
         <button id="btn-reabrir-prestacao" class="btn-reabrir-prestacao" type="button" style="display:none;">↩ Reabrir</button>
         <button id="btn-whatsapp-resumo" class="btn-whatsapp-resumo" type="button">WhatsApp resumo</button>
         <button id="btn-whatsapp-pdf" class="btn-whatsapp-pdf" type="button">📎 WhatsApp PDF</button>
+        <button id="btn-alterar-prestacao" class="btn-alterar-prestacao" type="button">Alterar</button>
         <button id="btn-excluir-prestacao" class="btn-excluir-prestacao" type="button">Excluir</button>
+      </div>
+    </div>
+
+    <!-- formulário alterar prestação -->
+    <div id="form-editar-prestacao" class="editar-prestacao-panel" style="display:none;">
+      <div class="nova-grid">
+        <label class="nova-field">
+          <span>Título</span>
+          <input type="text" id="editar-titulo" />
+        </label>
+        <label class="nova-field">
+          <span>Data de Referência</span>
+          <input type="date" id="editar-data" />
+        </label>
+        <label class="nova-field">
+          <span>Fornecedor</span>
+          <select id="editar-fornecedor">
+            <option value="">-- selecione --</option>
+          </select>
+        </label>
+      </div>
+      <div class="nova-footer">
+        <button id="btn-salvar-alteracao-prestacao" class="btn-criar" type="button">Salvar alterações</button>
+        <button id="btn-cancelar-alteracao-prestacao" class="btn-secundario" type="button">Cancelar</button>
       </div>
     </div>
 
