@@ -785,24 +785,45 @@
       <div class="modal-body">
         <div class="grid-2">
           <div class="field">
-            <label for="selectEtiquetas">Texto salvo do cliente</label>
+            <label for="selectEtiquetas">Perfil salvo do cliente</label>
             <select id="selectEtiquetas"></select>
           </div>
           <div class="field">
-            <label for="inputEtiquetaApelido">Apelido</label>
+            <label for="inputEtiquetaApelido">Apelido do perfil</label>
             <input type="text" id="inputEtiquetaApelido" maxlength="100" placeholder="Ex.: Loja Campina" />
           </div>
         </div>
-        <div class="field">
-          <label for="textareaEtiquetaTexto">Texto da etiqueta</label>
-          <textarea id="textareaEtiquetaTexto" placeholder="Digite os dizeres que serão impressos nas caixas."></textarea>
+        <div class="grid-2">
+          <div class="field">
+            <label for="inputEtiquetaNome">Nome na etiqueta</label>
+            <input type="text" id="inputEtiquetaNome" maxlength="180" />
+          </div>
+          <div class="field">
+            <label for="inputEtiquetaTelefone">Telefone na etiqueta</label>
+            <input type="text" id="inputEtiquetaTelefone" maxlength="40" />
+          </div>
         </div>
-        <div class="feedback" id="feedbackEtiqueta">Selecione um texto salvo ou crie um novo.</div>
+        <div class="grid-2">
+          <div class="field">
+            <label for="inputEtiquetaCidade">Cidade na etiqueta</label>
+            <input type="text" id="inputEtiquetaCidade" maxlength="140" />
+          </div>
+          <div class="field">
+            <label for="inputEtiquetaUf">UF</label>
+            <input type="text" id="inputEtiquetaUf" maxlength="2" style="text-transform:uppercase" />
+          </div>
+        </div>
+        <div class="field">
+          <label for="textareaEtiquetaTexto">Dizeres adicionais da etiqueta de volumes</label>
+          <textarea id="textareaEtiquetaTexto" placeholder="Opcional. Mantém os dizeres específicos usados nas caixas."></textarea>
+        </div>
+        <div class="feedback" id="feedbackEtiqueta">Selecione um perfil salvo ou crie um novo. O perfil escolhido será usado pela impressora deste pedido.</div>
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" id="btnEtiquetaDesconfirmar">Desmarcar confirmação</button>
         <button class="btn-success" id="btnEtiquetaConfirmar">Marcar confirmado</button>
-        <button class="btn-primary" id="btnEtiquetaEnviar">Enviar ao cliente para confirmar</button>
+        <button class="btn-secondary" id="btnEtiquetaSalvar">Salvar / usar perfil</button>
+        <button class="btn-primary" id="btnEtiquetaEnviar">Salvar e enviar imagem ao cliente</button>
       </div>
     </div>
   </div>
@@ -1038,8 +1059,13 @@
       modalEtiquetaSubtitulo: document.getElementById('modalEtiquetaSubtitulo'),
       selectEtiquetas: document.getElementById('selectEtiquetas'),
       inputEtiquetaApelido: document.getElementById('inputEtiquetaApelido'),
+      inputEtiquetaNome: document.getElementById('inputEtiquetaNome'),
+      inputEtiquetaTelefone: document.getElementById('inputEtiquetaTelefone'),
+      inputEtiquetaCidade: document.getElementById('inputEtiquetaCidade'),
+      inputEtiquetaUf: document.getElementById('inputEtiquetaUf'),
       textareaEtiquetaTexto: document.getElementById('textareaEtiquetaTexto'),
       feedbackEtiqueta: document.getElementById('feedbackEtiqueta'),
+      btnEtiquetaSalvar: document.getElementById('btnEtiquetaSalvar'),
       btnEtiquetaEnviar: document.getElementById('btnEtiquetaEnviar'),
       btnEtiquetaConfirmar: document.getElementById('btnEtiquetaConfirmar'),
       btnEtiquetaDesconfirmar: document.getElementById('btnEtiquetaDesconfirmar'),
@@ -1961,8 +1987,8 @@
     function popularSelectEtiquetas(payload) {
       const etiquetas = Array.isArray(payload?.etiquetas) ? payload.etiquetas : [];
       const atual = payload?.atual || null;
-      const options = ['<option value="__novo__">Novo texto</option>']
-        .concat(etiquetas.map((etiqueta) => `<option value="${escapeHtml(etiqueta.id)}">${escapeHtml(etiqueta.apelido || `Texto ${etiqueta.id}`)}</option>`));
+      const options = ['<option value="__novo__">Novo perfil</option>']
+        .concat(etiquetas.map((etiqueta) => `<option value="${escapeHtml(etiqueta.id)}">${escapeHtml(etiqueta.apelido || `Perfil ${etiqueta.id}`)}</option>`));
       el.selectEtiquetas.innerHTML = options.join('');
 
       if (atual?.etiquetaClienteId) {
@@ -1984,9 +2010,19 @@
       if (valor === '__novo__') {
         if (payload?.atual?.etiquetaClienteId) {
           el.inputEtiquetaApelido.value = '';
+          const cadastro = payload?.pedido?.etiquetaCadastro || payload?.pedido?.cliente || {};
+          el.inputEtiquetaNome.value = cadastro.nomeImpressao || cadastro.nome || '';
+          el.inputEtiquetaTelefone.value = cadastro.telefoneImpressao || cadastro.telefonePrincipal || '';
+          el.inputEtiquetaCidade.value = cadastro.cidadeImpressao || cadastro.cidade || '';
+          el.inputEtiquetaUf.value = cadastro.ufImpressao || cadastro.uf || '';
           el.textareaEtiquetaTexto.value = '';
         } else {
           el.inputEtiquetaApelido.value = payload?.atual?.apelido || '';
+          const cadastro = payload?.pedido?.etiquetaCadastro || payload?.pedido?.cliente || {};
+          el.inputEtiquetaNome.value = payload?.atual?.nomeImpressao || cadastro.nomeImpressao || cadastro.nome || '';
+          el.inputEtiquetaTelefone.value = payload?.atual?.telefoneImpressao || cadastro.telefoneImpressao || cadastro.telefonePrincipal || '';
+          el.inputEtiquetaCidade.value = payload?.atual?.cidadeImpressao || cadastro.cidadeImpressao || cadastro.cidade || '';
+          el.inputEtiquetaUf.value = payload?.atual?.ufImpressao || cadastro.ufImpressao || cadastro.uf || '';
           el.textareaEtiquetaTexto.value = payload?.atual?.textoSnapshot || '';
         }
         return;
@@ -1994,8 +2030,13 @@
 
       const etiqueta = etiquetas.find((item) => String(item.id) === String(valor));
       if (!etiqueta) return;
-      el.inputEtiquetaApelido.value = etiqueta.apelido || '';
-      el.textareaEtiquetaTexto.value = etiqueta.textoEtiqueta || '';
+      const atualMesmoPerfil = String(payload?.atual?.etiquetaClienteId || '') === String(valor) ? payload.atual : null;
+      el.inputEtiquetaApelido.value = etiqueta.apelido || atualMesmoPerfil?.apelido || '';
+      el.inputEtiquetaNome.value = atualMesmoPerfil?.nomeImpressao || etiqueta.nomeImpressao || '';
+      el.inputEtiquetaTelefone.value = atualMesmoPerfil?.telefoneImpressao || etiqueta.telefoneImpressao || '';
+      el.inputEtiquetaCidade.value = atualMesmoPerfil?.cidadeImpressao || etiqueta.cidadeImpressao || '';
+      el.inputEtiquetaUf.value = atualMesmoPerfil?.ufImpressao || etiqueta.ufImpressao || '';
+      el.textareaEtiquetaTexto.value = atualMesmoPerfil?.textoSnapshot || etiqueta.textoEtiqueta || '';
     }
 
     async function abrirModalEtiqueta(numeroPedido) {
@@ -2003,7 +2044,7 @@
         const payload = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/etiqueta-volumes`);
         estado.etiquetaModal = { pedidoNumero: numeroPedido, payload };
         const pedido = obterPedido(numeroPedido);
-        el.modalEtiquetaTitulo.textContent = `Etiqueta volumes • Pedido ${numeroPedido}`;
+        el.modalEtiquetaTitulo.textContent = `Gerenciador de etiquetas • Pedido ${numeroPedido}`;
         el.modalEtiquetaSubtitulo.textContent = `${pedido?.cliente?.nome || payload?.pedido?.cliente?.nome || '-'} • ${formatarMoeda(pedido?.total || payload?.pedido?.total || 0)}`;
         popularSelectEtiquetas(payload);
 
@@ -2012,7 +2053,7 @@
         } else if (payload?.atual?.enviadoEm) {
           setFeedback(el.feedbackEtiqueta, `Texto enviado em ${formatarDataHora(payload.atual.enviadoEm)}. Ainda aguardando confirmação.`, '');
         } else {
-          setFeedback(el.feedbackEtiqueta, 'Selecione um texto salvo ou crie um novo.', '');
+          setFeedback(el.feedbackEtiqueta, 'Selecione um perfil salvo ou crie um novo. O perfil escolhido será usado pela impressora deste pedido.', '');
         }
 
         abrirModal(el.modalEtiquetaBackdrop);
@@ -2021,34 +2062,56 @@
       }
     }
 
+    function montarPayloadPerfilEtiqueta() {
+      const isNovo = el.selectEtiquetas.value === '__novo__';
+      return {
+        ...(isNovo ? {} : { etiquetaClienteId: Number(el.selectEtiquetas.value) }),
+        apelido: el.inputEtiquetaApelido.value.trim(),
+        nomeImpressao: el.inputEtiquetaNome.value.trim(),
+        telefoneImpressao: el.inputEtiquetaTelefone.value.trim(),
+        cidadeImpressao: el.inputEtiquetaCidade.value.trim(),
+        ufImpressao: el.inputEtiquetaUf.value.trim().toUpperCase(),
+        textoEtiqueta: el.textareaEtiquetaTexto.value.trim()
+      };
+    }
+
+    async function salvarPerfilEtiquetaModal({ silencioso = false } = {}) {
+      const numeroPedido = estado.etiquetaModal.pedidoNumero;
+      if (!numeroPedido) return null;
+
+      const data = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/etiqueta-perfil`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(montarPayloadPerfilEtiqueta())
+      });
+
+      estado.etiquetaModal.payload = data;
+      popularSelectEtiquetas(data);
+      if (!silencioso) setFeedback(el.feedbackEtiqueta, 'Perfil salvo e vinculado a este pedido. A impressora já usará estes dados.', 'success');
+      await carregarMatriz();
+      return data;
+    }
+
     async function enviarEtiquetaModal() {
       const numeroPedido = estado.etiquetaModal.pedidoNumero;
       if (!numeroPedido) return;
 
-      const isNovo = el.selectEtiquetas.value === '__novo__';
-      const payload = isNovo
-        ? {
-            apelido: el.inputEtiquetaApelido.value.trim(),
-            textoEtiqueta: el.textareaEtiquetaTexto.value.trim()
-          }
-        : {
-            etiquetaClienteId: Number(el.selectEtiquetas.value)
-          };
-
       try {
-        const data = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/etiqueta-volumes`, {
+        await salvarPerfilEtiquetaModal({ silencioso: true });
+        const data = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/etiqueta-impressao/whatsapp`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
+          body: JSON.stringify({})
         });
-
         const notificacao = data.notificacao;
         if (notificacao?.success) {
-          setFeedback(el.feedbackEtiqueta, `Texto enviado com sucesso para ${notificacao.telefone || '-'}.`, 'success');
+          setFeedback(el.feedbackEtiqueta, `Imagem da etiqueta enviada com sucesso para ${notificacao.telefone || '-'}.`, 'success');
         } else {
           setFeedback(el.feedbackEtiqueta, `Falha ao enviar WhatsApp: ${notificacao?.error || 'Erro desconhecido.'}`, 'error');
         }
-
+        const atualizado = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/etiqueta-volumes`);
+        estado.etiquetaModal.payload = atualizado;
+        popularSelectEtiquetas(atualizado);
         await carregarMatriz();
       } catch (error) {
         setFeedback(el.feedbackEtiqueta, error.message, 'error');
@@ -3050,6 +3113,7 @@
     el.btnWhatsappClienteEnviar.addEventListener('click', enviarWhatsappClienteModal);
     el.btnWhatsappCarradaEnviar.addEventListener('click', enviarWhatsappCarradaModal);
     el.selectEtiquetas.addEventListener('change', preencherCamposEtiquetaPorSelect);
+    el.btnEtiquetaSalvar.addEventListener('click', () => salvarPerfilEtiquetaModal().catch((error) => setFeedback(el.feedbackEtiqueta, error.message, 'error')));
     el.btnEtiquetaEnviar.addEventListener('click', enviarEtiquetaModal);
     el.btnEtiquetaConfirmar.addEventListener('click', () => confirmarEtiquetaModal(true));
     el.btnEtiquetaDesconfirmar.addEventListener('click', () => confirmarEtiquetaModal(false));

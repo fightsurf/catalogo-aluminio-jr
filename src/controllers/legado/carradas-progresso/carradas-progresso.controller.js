@@ -129,6 +129,25 @@ async function buscarDadosEtiquetaPedido(req, res) {
   }
 }
 
+async function salvarPerfilEtiquetaPedido(req, res) {
+  try {
+    const data = await service.salvarPerfilEtiquetaPedido({
+      codigoCarrada: req.params.codigo,
+      numeroPedido: req.params.numeroPedido,
+      etiquetaClienteId: req.body?.etiquetaClienteId,
+      apelido: req.body?.apelido,
+      textoEtiqueta: req.body?.textoEtiqueta,
+      nomeImpressao: req.body?.nomeImpressao,
+      telefoneImpressao: req.body?.telefoneImpressao,
+      cidadeImpressao: req.body?.cidadeImpressao,
+      ufImpressao: req.body?.ufImpressao
+    });
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return responderErro(res, error, 'Erro ao salvar o perfil da etiqueta.');
+  }
+}
+
 async function enviarEtiquetaVolumes(req, res) {
   try {
     const data = await service.enviarEtiquetaVolumes({
@@ -224,6 +243,7 @@ module.exports = {
   buscarDadosEtiquetaPedido,
   buscarDadosEtiquetaImpressao,
   enviarEtiquetaImpressaoWhatsapp,
+  salvarPerfilEtiquetaPedido,
   enviarEtiquetaVolumes,
   confirmarEtiquetaVolumes,
   salvarLocalEntrega,

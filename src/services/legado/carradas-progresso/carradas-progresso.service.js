@@ -86,6 +86,7 @@ const FASES_MATRIZ = [
 ];
 
 let estruturaRedespachoPromise = null;
+let estruturaPerfisEtiquetaPromise = null;
 
 function criarErro(message, status = 400) {
   const error = new Error(message);
@@ -142,6 +143,31 @@ async function garantirTabelasModulo(client = pool) {
   }
 
   await estruturaRedespachoPromise;
+
+  if (!estruturaPerfisEtiquetaPromise) {
+    estruturaPerfisEtiquetaPromise = (async () => {
+      await client.query(`
+        ALTER TABLE clientes_etiquetas_volumes
+          ADD COLUMN IF NOT EXISTS nome_impressao VARCHAR(180),
+          ADD COLUMN IF NOT EXISTS telefone_impressao VARCHAR(40),
+          ADD COLUMN IF NOT EXISTS cidade_impressao VARCHAR(140),
+          ADD COLUMN IF NOT EXISTS uf_impressao VARCHAR(2)
+      `);
+
+      await client.query(`
+        ALTER TABLE carradas_pedidos_etiquetas_volumes
+          ADD COLUMN IF NOT EXISTS nome_snapshot VARCHAR(180),
+          ADD COLUMN IF NOT EXISTS telefone_snapshot VARCHAR(40),
+          ADD COLUMN IF NOT EXISTS cidade_snapshot VARCHAR(140),
+          ADD COLUMN IF NOT EXISTS uf_snapshot VARCHAR(2)
+      `);
+    })().catch((error) => {
+      estruturaPerfisEtiquetaPromise = null;
+      throw error;
+    });
+  }
+
+  await estruturaPerfisEtiquetaPromise;
 }
 
 function limparTexto(value) {
@@ -655,6 +681,14 @@ async function buscarEtiquetasRowsDosPedidos(pedidos = []) {
         c.favorecido,
         c.apelido,
         c.texto_etiqueta,
+        c.nome_impressao,
+        c.telefone_impressao,
+        c.cidade_impressao,
+        c.uf_impressao,
+        p.nome_snapshot,
+        p.telefone_snapshot,
+        p.cidade_snapshot,
+        p.uf_snapshot,
         c.ativo
       FROM carradas_pedidos_etiquetas_volumes p
       INNER JOIN clientes_etiquetas_volumes c ON c.id = p.etiqueta_cliente_id
@@ -1585,7 +1619,7 @@ async function salvarFaseBooleana({ codigoCarrada: codigoCarradaParam, numeroPed
 async function listarEtiquetasDoCliente(favorecido) {
   const result = await pool.query(
     `
-      SELECT id, favorecido, apelido, texto_etiqueta, ativo, created_at, updated_at
+      SELECT id, favorecido, apelido, texto_etiqueta, nome_impressao, telefone_impressao, cidade_impressao, uf_impressao, ativo, created_at, updated_at
       FROM clientes_etiquetas_volumes
       WHERE favorecido = $1
       ORDER BY ativo DESC, LOWER(apelido), id DESC
@@ -1598,6 +1632,10 @@ async function listarEtiquetasDoCliente(favorecido) {
     favorecido: row.favorecido,
     apelido: row.apelido || '',
     textoEtiqueta: row.texto_etiqueta || '',
+    nomeImpressao: row.nome_impressao || '',
+    telefoneImpressao: row.telefone_impressao || '',
+    cidadeImpressao: row.cidade_impressao || '',
+    ufImpressao: row.uf_impressao || '',
     ativo: Boolean(row.ativo),
     createdAt: row.created_at || null,
     updatedAt: row.updated_at || null
@@ -1863,14 +1901,35 @@ async function montarDadosEtiquetaImpressao({ codigoCarrada: codigoCarradaParam,
   const localEntrega = locaisEntrega.get(chavePedido) || null;
   const quantidadeVolumesConfirmada = Boolean(booleanRowsMap.get(chavePedido)?.QTDE_VOLUMES?.valorBoolean);
 
+  const perfilResult = await pool.query(
+    `
+      SELECT
+        p.etiqueta_cliente_id, p.nome_snapshot, p.telefone_snapshot, p.cidade_snapshot, p.uf_snapshot,
+        c.apelido, c.nome_impressao, c.telefone_impressao, c.cidade_impressao, c.uf_impressao
+      FROM carradas_pedidos_etiquetas_volumes p
+      LEFT JOIN clientes_etiquetas_volumes c ON c.id = p.etiqueta_cliente_id
+      WHERE ${montarCondicaoPedidoPorSaidaOuNumero('p')}
+      ORDER BY COALESCE(p.updated_at, p.created_at) DESC, p.codigo_carrada DESC
+      LIMIT 1
+    `,
+    [pedido.saida ?? null, numeroPedido]
+  );
+  const perfil = perfilResult.rows[0] || null;
+  const nomePerfil = limparTexto(perfil?.nome_snapshot || perfil?.nome_impressao);
+  const telefonePerfil = limparTexto(perfil?.telefone_snapshot || perfil?.telefone_impressao);
+  const cidadePerfil = limparTexto(perfil?.cidade_snapshot || perfil?.cidade_impressao);
+  const ufPerfil = limparTexto(perfil?.uf_snapshot || perfil?.uf_impressao).toUpperCase();
+
   return {
     codigoCarrada,
     numeroPedido,
     saida: pedido.saida ?? null,
-    clienteNome: pedido?.cliente?.nome || resumoPedido?.cliente?.nome || '',
-    clienteTelefone: formatarTelefoneExibicao(resumoPedido?.cliente?.telefonePrincipal || pedido?.cliente?.telefonePrincipal || ''),
-    clienteCidade: pedido?.cliente?.cidade || '',
-    clienteUf: pedido?.cliente?.uf || '',
+    clienteNome: nomePerfil || pedido?.cliente?.nome || resumoPedido?.cliente?.nome || '',
+    clienteTelefone: formatarTelefoneExibicao(telefonePerfil || resumoPedido?.cliente?.telefonePrincipal || pedido?.cliente?.telefonePrincipal || ''),
+    clienteCidade: cidadePerfil || pedido?.cliente?.cidade || '',
+    clienteUf: ufPerfil || pedido?.cliente?.uf || '',
+    perfilEtiquetaId: perfil?.etiqueta_cliente_id || null,
+    perfilEtiquetaApelido: perfil?.apelido || '',
     quantidadeVolumes,
     quantidadeVolumesConfirmada,
     transportadoraNome: localEntrega?.transportadoraNome || '',
@@ -1930,6 +1989,12 @@ async function enviarEtiquetaImpressaoWhatsapp(params) {
       statusEnvio: 'sucesso',
       respostaApi: envio.zapi || envio
     });
+
+    await pool.query(`
+      UPDATE carradas_pedidos_etiquetas_volumes
+      SET enviado_em = NOW(), confirmado_boolean = FALSE, confirmado_em = NULL, updated_at = NOW()
+      WHERE codigo_carrada = $1 AND numero_pedido = $2
+    `, [dados.codigoCarrada, dados.numeroPedido]);
   } catch (error) {
     notificacao = {
       success: false,
@@ -1980,7 +2045,15 @@ async function buscarDadosEtiquetaPedido({ codigoCarrada: codigoCarradaParam, nu
         p.created_at,
         p.updated_at,
         c.apelido,
-        c.texto_etiqueta
+        c.texto_etiqueta,
+        c.nome_impressao,
+        c.telefone_impressao,
+        c.cidade_impressao,
+        c.uf_impressao,
+        p.nome_snapshot,
+        p.telefone_snapshot,
+        p.cidade_snapshot,
+        p.uf_snapshot
       FROM carradas_pedidos_etiquetas_volumes p
       LEFT JOIN clientes_etiquetas_volumes c ON c.id = p.etiqueta_cliente_id
       WHERE ${montarCondicaoPedidoPorSaidaOuNumero('p')}
@@ -1996,6 +2069,10 @@ async function buscarDadosEtiquetaPedido({ codigoCarrada: codigoCarradaParam, nu
         apelido: atualResult.rows[0].apelido || '',
         textoSnapshot: atualResult.rows[0].texto_snapshot || '',
         textoEtiqueta: atualResult.rows[0].texto_etiqueta || '',
+        nomeImpressao: atualResult.rows[0].nome_snapshot || atualResult.rows[0].nome_impressao || '',
+        telefoneImpressao: atualResult.rows[0].telefone_snapshot || atualResult.rows[0].telefone_impressao || '',
+        cidadeImpressao: atualResult.rows[0].cidade_snapshot || atualResult.rows[0].cidade_impressao || '',
+        ufImpressao: atualResult.rows[0].uf_snapshot || atualResult.rows[0].uf_impressao || '',
         confirmadoBoolean: Boolean(atualResult.rows[0].confirmado_boolean),
         enviadoEm: atualResult.rows[0].enviado_em || null,
         confirmadoEm: atualResult.rows[0].confirmado_em || null,
@@ -2008,12 +2085,82 @@ async function buscarDadosEtiquetaPedido({ codigoCarrada: codigoCarradaParam, nu
     pedido: {
       numero: pedido.numero,
       cliente: pedido.cliente || {},
+      etiquetaCadastro: {
+        nomeImpressao: pedido?.cliente?.nome || '',
+        telefoneImpressao: pedido?.cliente?.telefonePrincipal || '',
+        cidadeImpressao: pedido?.cliente?.cidade || '',
+        ufImpressao: pedido?.cliente?.uf || ''
+      },
       data: pedido.data || null,
       total: Number(pedido.total ?? 0)
     },
     etiquetas: etiquetasCliente,
     atual
   };
+}
+
+async function salvarPerfilEtiquetaPedido({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam, etiquetaClienteId, apelido, textoEtiqueta, nomeImpressao, telefoneImpressao, cidadeImpressao, ufImpressao }) {
+  await garantirTabelasModulo();
+
+  const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
+  const numeroPedido = normalizarNumeroPedido(numeroPedidoParam);
+  const carrada = await carradasService.buscarResumoCarrada(codigoCarrada);
+  if (!carrada) throw criarErro('Carrada não encontrada.', 404);
+
+  const pedido = encontrarPedidoNaCarrada(carrada, numeroPedido);
+  const identificadores = obterIdentificadoresPedido(pedido, numeroPedido);
+  const favorecido = pedido?.cliente?.favorecido;
+  if (!favorecido) throw criarErro('Cliente do pedido não encontrado.', 400);
+
+  const apelidoNormalizado = limparTexto(apelido);
+  const nomeNormalizado = limparTexto(nomeImpressao);
+  const telefoneNormalizado = limparTexto(telefoneImpressao);
+  const cidadeNormalizada = limparTexto(cidadeImpressao);
+  const ufNormalizada = limparTexto(ufImpressao).toUpperCase().slice(0, 2);
+  const textoNormalizado = limparTexto(textoEtiqueta);
+
+  if (!apelidoNormalizado) throw criarErro('Informe um apelido para o perfil da etiqueta.', 400);
+  if (!nomeNormalizado) throw criarErro('Informe o nome que deve aparecer na etiqueta.', 400);
+  if (!cidadeNormalizada) throw criarErro('Informe a cidade que deve aparecer na etiqueta.', 400);
+
+  let perfil;
+  if (etiquetaClienteId) {
+    const existente = await pool.query('SELECT id, favorecido FROM clientes_etiquetas_volumes WHERE id = $1', [Number(etiquetaClienteId)]);
+    if (!existente.rows[0]) throw criarErro('Perfil de etiqueta não encontrado.', 404);
+    if (Number(existente.rows[0].favorecido) !== Number(favorecido)) throw criarErro('Este perfil não pertence ao cliente do pedido.', 400);
+    const result = await pool.query(`
+      UPDATE clientes_etiquetas_volumes
+      SET apelido = $2, texto_etiqueta = $3, nome_impressao = $4, telefone_impressao = $5,
+          cidade_impressao = $6, uf_impressao = $7, ativo = TRUE, updated_at = NOW()
+      WHERE id = $1
+      RETURNING id, favorecido, apelido, texto_etiqueta, nome_impressao, telefone_impressao, cidade_impressao, uf_impressao
+    `, [Number(etiquetaClienteId), apelidoNormalizado, textoNormalizado, nomeNormalizado, telefoneNormalizado, cidadeNormalizada, ufNormalizada]);
+    perfil = result.rows[0];
+  } else {
+    const result = await pool.query(`
+      INSERT INTO clientes_etiquetas_volumes
+        (favorecido, apelido, texto_etiqueta, nome_impressao, telefone_impressao, cidade_impressao, uf_impressao, ativo)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,TRUE)
+      RETURNING id, favorecido, apelido, texto_etiqueta, nome_impressao, telefone_impressao, cidade_impressao, uf_impressao
+    `, [favorecido, apelidoNormalizado, textoNormalizado, nomeNormalizado, telefoneNormalizado, cidadeNormalizada, ufNormalizada]);
+    perfil = result.rows[0];
+  }
+
+  await pool.query(`
+    INSERT INTO carradas_pedidos_etiquetas_volumes
+      (codigo_carrada, numero_pedido, saida, etiqueta_cliente_id, texto_snapshot, nome_snapshot, telefone_snapshot, cidade_snapshot, uf_snapshot, confirmado_boolean, enviado_em, confirmado_em)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,FALSE,NULL,NULL)
+    ON CONFLICT (codigo_carrada, numero_pedido) DO UPDATE SET
+      saida = EXCLUDED.saida, etiqueta_cliente_id = EXCLUDED.etiqueta_cliente_id,
+      texto_snapshot = EXCLUDED.texto_snapshot, nome_snapshot = EXCLUDED.nome_snapshot,
+      telefone_snapshot = EXCLUDED.telefone_snapshot, cidade_snapshot = EXCLUDED.cidade_snapshot,
+      uf_snapshot = EXCLUDED.uf_snapshot, confirmado_boolean = FALSE, enviado_em = NULL,
+      confirmado_em = NULL, updated_at = NOW()
+  `, [codigoCarrada, numeroPedido, identificadores.saida, perfil.id, textoNormalizado, nomeNormalizado, telefoneNormalizado, cidadeNormalizada, ufNormalizada]);
+
+  await excluirFaseBooleanaPorPedido({ saida: identificadores.saida, numeroPedido, faseCodigo: 'ETIQUETA_VOLUMES' });
+  await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
+  return buscarDadosEtiquetaPedido({ codigoCarrada, numeroPedido });
 }
 
 async function resolverEtiquetaCliente({ favorecido, etiquetaClienteId, apelido, textoEtiqueta }) {
@@ -3001,6 +3148,7 @@ module.exports = {
   buscarDadosEtiquetaPedido,
   buscarDadosEtiquetaImpressao,
   enviarEtiquetaImpressaoWhatsapp,
+  salvarPerfilEtiquetaPedido,
   enviarEtiquetaVolumes,
   confirmarEtiquetaVolumes,
   salvarLocalEntrega,
