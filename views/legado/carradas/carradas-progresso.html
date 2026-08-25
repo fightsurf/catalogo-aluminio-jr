@@ -406,8 +406,14 @@
       line-height: 1.55;
     }
     .etiqueta-dados-card strong { color: #111827; }
+    .etiqueta-gerenciador-layout { display:grid; grid-template-columns:minmax(0, 1fr) minmax(360px, .95fr); gap:18px; align-items:start; }
+    .etiqueta-gerenciador-preview { position:sticky; top:0; border:1px solid #d1d5db; border-radius:12px; padding:12px; background:#f8fafc; }
+    .etiqueta-gerenciador-preview h4 { margin:0 0 8px; font-size:14px; }
+    .etiqueta-gerenciador-preview img { display:block; width:100%; height:auto; background:#fff; border:1px solid #d1d5db; border-radius:8px; }
+    .etiqueta-preview-status { margin-top:8px; font-size:12px; color:#6b7280; }
     @media (max-width: 860px) {
-      .etiqueta-preview-wrap { grid-template-columns: 1fr; }
+      .etiqueta-preview-wrap, .etiqueta-gerenciador-layout { grid-template-columns: 1fr; }
+      .etiqueta-gerenciador-preview { position:static; }
     }
     .pedido-meta {
       font-size: 10px;
@@ -783,6 +789,8 @@
         <button class="btn-secondary" data-close-modal="modalEtiquetaBackdrop">Fechar</button>
       </div>
       <div class="modal-body">
+        <div class="etiqueta-gerenciador-layout">
+          <div>
         <div class="grid-2">
           <div class="field">
             <label for="selectEtiquetas">Perfil salvo do cliente</label>
@@ -818,6 +826,13 @@
           <textarea id="textareaEtiquetaTexto" placeholder="Opcional. Mantém os dizeres específicos usados nas caixas."></textarea>
         </div>
         <div class="feedback" id="feedbackEtiqueta">Selecione um perfil salvo ou crie um novo. O perfil escolhido será usado pela impressora deste pedido.</div>
+          </div>
+          <div class="etiqueta-gerenciador-preview">
+            <h4>Prévia da etiqueta</h4>
+            <img id="imgEtiquetaGerenciadorPreview" alt="Prévia da etiqueta enquanto os dados são editados" />
+            <div class="etiqueta-preview-status" id="statusEtiquetaGerenciadorPreview">A prévia será atualizada automaticamente.</div>
+          </div>
+        </div>
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" id="btnEtiquetaDesconfirmar">Desmarcar confirmação</button>
@@ -1065,6 +1080,8 @@
       inputEtiquetaUf: document.getElementById('inputEtiquetaUf'),
       textareaEtiquetaTexto: document.getElementById('textareaEtiquetaTexto'),
       feedbackEtiqueta: document.getElementById('feedbackEtiqueta'),
+      imgEtiquetaGerenciadorPreview: document.getElementById('imgEtiquetaGerenciadorPreview'),
+      statusEtiquetaGerenciadorPreview: document.getElementById('statusEtiquetaGerenciadorPreview'),
       btnEtiquetaSalvar: document.getElementById('btnEtiquetaSalvar'),
       btnEtiquetaEnviar: document.getElementById('btnEtiquetaEnviar'),
       btnEtiquetaConfirmar: document.getElementById('btnEtiquetaConfirmar'),
@@ -1984,6 +2001,40 @@
       janela.document.close();
     }
 
+    let timerPreviewEtiqueta = null;
+    let sequenciaPreviewEtiqueta = 0;
+
+    function agendarPreviewEtiqueta() {
+      clearTimeout(timerPreviewEtiqueta);
+      timerPreviewEtiqueta = setTimeout(() => atualizarPreviewEtiqueta(), 220);
+    }
+
+    async function atualizarPreviewEtiqueta() {
+      const numeroPedido = estado.etiquetaModal.pedidoNumero;
+      if (!numeroPedido || !el.imgEtiquetaGerenciadorPreview) return;
+
+      const sequencia = ++sequenciaPreviewEtiqueta;
+      el.statusEtiquetaGerenciadorPreview.textContent = 'Atualizando prévia...';
+      try {
+        const data = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/etiqueta-impressao/preview`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nomeImpressao: el.inputEtiquetaNome.value.trim(),
+            telefoneImpressao: el.inputEtiquetaTelefone.value.trim(),
+            cidadeImpressao: el.inputEtiquetaCidade.value.trim(),
+            ufImpressao: el.inputEtiquetaUf.value.trim().toUpperCase()
+          })
+        });
+        if (sequencia !== sequenciaPreviewEtiqueta) return;
+        el.imgEtiquetaGerenciadorPreview.src = data.imagemDataUrl;
+        el.statusEtiquetaGerenciadorPreview.textContent = 'Prévia atualizada. É esta composição que será usada na impressão.';
+      } catch (error) {
+        if (sequencia !== sequenciaPreviewEtiqueta) return;
+        el.statusEtiquetaGerenciadorPreview.textContent = `Não foi possível montar a prévia: ${error.message}`;
+      }
+    }
+
     function popularSelectEtiquetas(payload) {
       const etiquetas = Array.isArray(payload?.etiquetas) ? payload.etiquetas : [];
       const atual = payload?.atual || null;
@@ -2016,6 +2067,7 @@
           el.inputEtiquetaCidade.value = cadastro.cidadeImpressao || cadastro.cidade || '';
           el.inputEtiquetaUf.value = cadastro.ufImpressao || cadastro.uf || '';
           el.textareaEtiquetaTexto.value = '';
+          agendarPreviewEtiqueta();
         } else {
           el.inputEtiquetaApelido.value = payload?.atual?.apelido || '';
           const cadastro = payload?.pedido?.etiquetaCadastro || payload?.pedido?.cliente || {};
@@ -2024,6 +2076,7 @@
           el.inputEtiquetaCidade.value = payload?.atual?.cidadeImpressao || cadastro.cidadeImpressao || cadastro.cidade || '';
           el.inputEtiquetaUf.value = payload?.atual?.ufImpressao || cadastro.ufImpressao || cadastro.uf || '';
           el.textareaEtiquetaTexto.value = payload?.atual?.textoSnapshot || '';
+          agendarPreviewEtiqueta();
         }
         return;
       }
@@ -2037,6 +2090,7 @@
       el.inputEtiquetaCidade.value = atualMesmoPerfil?.cidadeImpressao || etiqueta.cidadeImpressao || '';
       el.inputEtiquetaUf.value = atualMesmoPerfil?.ufImpressao || etiqueta.ufImpressao || '';
       el.textareaEtiquetaTexto.value = atualMesmoPerfil?.textoSnapshot || etiqueta.textoEtiqueta || '';
+      agendarPreviewEtiqueta();
     }
 
     async function abrirModalEtiqueta(numeroPedido) {
@@ -3113,6 +3167,7 @@
     el.btnWhatsappClienteEnviar.addEventListener('click', enviarWhatsappClienteModal);
     el.btnWhatsappCarradaEnviar.addEventListener('click', enviarWhatsappCarradaModal);
     el.selectEtiquetas.addEventListener('change', preencherCamposEtiquetaPorSelect);
+    [el.inputEtiquetaNome, el.inputEtiquetaTelefone, el.inputEtiquetaCidade, el.inputEtiquetaUf].forEach((campo) => campo.addEventListener('input', agendarPreviewEtiqueta));
     el.btnEtiquetaSalvar.addEventListener('click', () => salvarPerfilEtiquetaModal().catch((error) => setFeedback(el.feedbackEtiqueta, error.message, 'error')));
     el.btnEtiquetaEnviar.addEventListener('click', enviarEtiquetaModal);
     el.btnEtiquetaConfirmar.addEventListener('click', () => confirmarEtiquetaModal(true));

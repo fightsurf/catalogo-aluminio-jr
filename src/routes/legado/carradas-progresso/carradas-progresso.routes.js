@@ -11,6 +11,7 @@ router.put('/:codigo/pedidos/:numeroPedido/quantidade-volumes', controller.salva
 router.patch('/:codigo/pedidos/:numeroPedido/data-expedicao', controller.salvarDataExpedicao);
 router.patch('/:codigo/pedidos/:numeroPedido/fases/:faseCodigo', controller.salvarFaseBooleana);
 router.get('/:codigo/pedidos/:numeroPedido/etiqueta-impressao', controller.buscarDadosEtiquetaImpressao);
+router.post('/:codigo/pedidos/:numeroPedido/etiqueta-impressao/preview', controller.gerarPreviewEtiquetaImpressao);
 router.post('/:codigo/pedidos/:numeroPedido/etiqueta-impressao/whatsapp', controller.enviarEtiquetaImpressaoWhatsapp);
 router.put('/:codigo/pedidos/:numeroPedido/etiqueta-perfil', controller.salvarPerfilEtiquetaPedido);
 router.get('/:codigo/pedidos/:numeroPedido/etiqueta-volumes', controller.buscarDadosEtiquetaPedido);

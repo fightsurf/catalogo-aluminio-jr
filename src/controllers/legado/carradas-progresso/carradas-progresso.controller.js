@@ -103,6 +103,22 @@ async function buscarDadosEtiquetaImpressao(req, res) {
   }
 }
 
+async function gerarPreviewEtiquetaImpressao(req, res) {
+  try {
+    const data = await service.gerarPreviewEtiquetaImpressao({
+      codigoCarrada: req.params.codigo,
+      numeroPedido: req.params.numeroPedido,
+      nomeImpressao: req.body?.nomeImpressao,
+      telefoneImpressao: req.body?.telefoneImpressao,
+      cidadeImpressao: req.body?.cidadeImpressao,
+      ufImpressao: req.body?.ufImpressao
+    });
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return responderErro(res, error, 'Erro ao gerar a prévia da etiqueta.');
+  }
+}
+
 async function enviarEtiquetaImpressaoWhatsapp(req, res) {
   try {
     const data = await service.enviarEtiquetaImpressaoWhatsapp({
@@ -242,6 +258,7 @@ module.exports = {
   salvarFaseBooleana,
   buscarDadosEtiquetaPedido,
   buscarDadosEtiquetaImpressao,
+  gerarPreviewEtiquetaImpressao,
   enviarEtiquetaImpressaoWhatsapp,
   salvarPerfilEtiquetaPedido,
   enviarEtiquetaVolumes,

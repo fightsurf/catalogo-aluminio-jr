@@ -1872,7 +1872,7 @@ async function gerarImagemEtiquetaImpressao(dados) {
   return sharp(Buffer.from(svg)).png({ compressionLevel: 9 }).toBuffer();
 }
 
-async function montarDadosEtiquetaImpressao({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam }) {
+async function montarDadosEtiquetaImpressao({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam, permitirSemVolumes = false }) {
   await garantirTabelasModulo();
 
   const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
@@ -1887,7 +1887,7 @@ async function montarDadosEtiquetaImpressao({ codigoCarrada: codigoCarradaParam,
     ? Math.trunc(quantidadeVolumesBruta)
     : 0;
 
-  if (quantidadeVolumes <= 0) {
+  if (quantidadeVolumes <= 0 && !permitirSemVolumes) {
     throw criarErro('Faltou quantidade de volumes. Calcule ou informe a quantidade antes de montar as etiquetas.', 400);
   }
 
@@ -1930,8 +1930,8 @@ async function montarDadosEtiquetaImpressao({ codigoCarrada: codigoCarradaParam,
     clienteUf: ufPerfil || pedido?.cliente?.uf || '',
     perfilEtiquetaId: perfil?.etiqueta_cliente_id || null,
     perfilEtiquetaApelido: perfil?.apelido || '',
-    quantidadeVolumes,
-    quantidadeVolumesConfirmada,
+    quantidadeVolumes: quantidadeVolumes > 0 ? quantidadeVolumes : 1,
+    quantidadeVolumesConfirmada: quantidadeVolumes > 0 ? quantidadeVolumesConfirmada : false,
     transportadoraNome: localEntrega?.transportadoraNome || '',
     transportadoraObservacao: localEntrega?.transportadoraObservacao || '',
     redespachoTransportadoraNome: localEntrega?.redespachoTransportadoraNome || '',
@@ -1949,6 +1949,19 @@ async function buscarDadosEtiquetaImpressao(params) {
     telefoneWhatsapp: undefined,
     imagemDataUrl: `data:image/png;base64,${imagem.toString('base64')}`
   };
+}
+
+async function gerarPreviewEtiquetaImpressao(params) {
+  const dadosBase = await montarDadosEtiquetaImpressao({ ...params, permitirSemVolumes: true });
+  const dados = {
+    ...dadosBase,
+    clienteNome: limparTexto(params?.nomeImpressao) || dadosBase.clienteNome,
+    clienteTelefone: formatarTelefoneExibicao(limparTexto(params?.telefoneImpressao) || dadosBase.clienteTelefone),
+    clienteCidade: limparTexto(params?.cidadeImpressao) || dadosBase.clienteCidade,
+    clienteUf: (limparTexto(params?.ufImpressao) || dadosBase.clienteUf || '').toUpperCase()
+  };
+  const imagem = await gerarImagemEtiquetaImpressao(dados);
+  return { imagemDataUrl: `data:image/png;base64,${imagem.toString('base64')}` };
 }
 
 async function enviarEtiquetaImpressaoWhatsapp(params) {
@@ -3147,6 +3160,7 @@ module.exports = {
   salvarFaseBooleana,
   buscarDadosEtiquetaPedido,
   buscarDadosEtiquetaImpressao,
+  gerarPreviewEtiquetaImpressao,
   enviarEtiquetaImpressaoWhatsapp,
   salvarPerfilEtiquetaPedido,
   enviarEtiquetaVolumes,
