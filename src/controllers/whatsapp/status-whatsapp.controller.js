@@ -76,18 +76,24 @@ async function publicarProdutoNoStatus(req, res) {
       categoriaId: req.body.categoriaId,
     });
 
+    const mensagens = {
+      publicado: data.repetida
+        ? 'Publicação no WhatsApp e Instagram já processada anteriormente.'
+        : 'Produto publicado no Status do WhatsApp e no Story do Instagram.',
+      parcial: 'Produto publicado em apenas um dos canais. O canal com falha pode ser reenviado sem duplicar o que já deu certo.',
+      erro: 'Não foi possível publicar o produto no WhatsApp nem no Instagram.',
+    };
+
     return res.status(200).json({
       success: true,
-      message: data.repetida
-        ? 'Publicação no Status já processada anteriormente.'
-        : 'Produto publicado no Status do WhatsApp.',
+      message: mensagens[data.status_geral] || 'Processamento de publicação concluído.',
       data,
     });
   } catch (error) {
-    console.error('Erro ao publicar produto no Status do WhatsApp:', error);
+    console.error('Erro ao publicar produto no Status do WhatsApp/Instagram:', error);
     return res.status(502).json({
       success: false,
-      message: 'Erro ao publicar o produto no Status do WhatsApp.',
+      message: 'Erro ao processar a publicação do produto no WhatsApp/Instagram.',
       error: error.message,
     });
   }

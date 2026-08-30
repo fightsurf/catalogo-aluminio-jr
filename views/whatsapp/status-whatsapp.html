@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Enviar produtos pelo WhatsApp</title>
+  <title>Publicar produtos no WhatsApp e Instagram</title>
   <link rel="stylesheet" href="/css/theme.css" />
   <style>
     body { padding: 24px 0 48px; }
@@ -89,6 +89,7 @@
     .product.sending { border-color: var(--color-primary); }
     .product.success { border-color: #4ac26b; background: #f0fff4; }
     .product.error { border-color: #ff8182; background: #fff1f0; }
+    .product.partial { border-color: #d4a017; background: #fffbea; }
     .product.skipped { opacity: .72; background: #f6f8fa; }
     .thumb {
       width: 92px;
@@ -116,6 +117,7 @@
     .product-meta, .product-status { margin-top: 4px; color: var(--color-muted); font-size: 13px; }
     .product.success .product-status { color: var(--color-success); }
     .product.error .product-status { color: var(--color-danger); }
+    .product.partial .product-status { color: #8a6300; }
     .badge {
       display: inline-flex;
       align-items: center;
@@ -152,8 +154,8 @@
   <main class="page">
     <div class="topbar">
       <div>
-        <h1>Enviar produtos pelo WhatsApp</h1>
-        <p class="subtitle">Escolha uma categoria e envie os produtos para o WhatsApp de um cliente ou publique-os no Status do WhatsApp.</p>
+        <h1>Publicar produtos no WhatsApp e Instagram</h1>
+        <p class="subtitle">Escolha uma categoria e envie os produtos para o WhatsApp de um cliente ou publique-os no Status do WhatsApp e nos Stories do Instagram.</p>
       </div>
       <div class="top-actions">
         <div id="connection" class="connection">
@@ -193,12 +195,12 @@
 
       <div class="actions">
         <button id="enviarClienteBtn" type="button" class="btn btn-primary" disabled>Enviar categoria para o WhatsApp do cliente</button>
-        <button id="publicarStatusBtn" type="button" class="btn btn-outline" disabled>Publicar categoria no Status do WhatsApp</button>
+        <button id="publicarStatusBtn" type="button" class="btn btn-outline" disabled>Publicar categoria no WhatsApp + Instagram</button>
         <button id="reenviarFalhasBtn" type="button" class="btn btn-outline" hidden>Reenviar falhas</button>
       </div>
 
       <p class="note">
-        Para o envio ao cliente, informe o número com DDI e DDD. A publicação no Status não usa número. Somente produtos ativos são considerados; produtos sem foto 1, descrição ou preço válido serão mostrados, mas não serão enviados.
+        Para o envio ao cliente, informe o número com DDI e DDD. A publicação da categoria envia cada produto ao Status do WhatsApp e também ao Story do Instagram. No Instagram, nome e preço são inseridos na própria arte. Somente produtos ativos são considerados; produtos sem foto 1, descrição ou preço válido serão mostrados, mas não serão enviados.
       </p>
     </section>
 
@@ -298,22 +300,37 @@
       }
     }
 
+    function resumoCanal(canal, rotulo) {
+      if (!canal) return `${rotulo}: aguardando`;
+      if (canal.status === 'publicado') {
+        return `${rotulo}: publicado${canal.repetida ? ' (já processado)' : ''}`;
+      }
+      if (canal.status === 'erro') return `${rotulo}: ${canal.erro || 'falhou'}`;
+      return `${rotulo}: ${canal.status || 'aguardando'}`;
+    }
+
     function textoEstado(produto) {
       if (!produto.publicavel) return produto.motivo || 'Produto ignorado.';
       if (produto.estado === 'sending') {
-        return produto.destino === 'status' ? 'Publicando no Status...' : 'Enviando ao cliente...';
+        return produto.destino === 'status'
+          ? 'Publicando no WhatsApp e Instagram...'
+          : 'Enviando ao cliente...';
+      }
+      if (produto.destino === 'status' && produto.canais) {
+        return `${resumoCanal(produto.canais.whatsapp, 'WhatsApp')} · ${resumoCanal(produto.canais.instagram, 'Instagram')}`;
       }
       if (produto.estado === 'success') {
         if (produto.repetida) return 'Já processado; não foi duplicado.';
-        return produto.destino === 'status' ? 'Publicado no Status com sucesso.' : 'Enviado ao cliente com sucesso.';
+        return 'Enviado ao cliente com sucesso.';
       }
+      if (produto.estado === 'partial') return produto.erro || 'Publicado parcialmente.';
       if (produto.estado === 'error') return produto.erro || 'Falha no envio.';
       return 'Aguardando envio.';
     }
 
     function atualizarBotoes() {
       const publicaveis = produtos.filter((produto) => produto.publicavel);
-      const falhas = produtos.filter((produto) => produto.estado === 'error');
+      const falhas = produtos.filter((produto) => ['error', 'partial'].includes(produto.estado));
       const categoriaSelecionada = Boolean(categoriaEl.value);
       const telefoneValido = normalizarTelefone(telefoneEl.value).length >= 10;
       const semProdutos = publicaveis.length === 0;
@@ -327,7 +344,7 @@
       reenviarFalhasBtn.hidden = falhas.length === 0 || !ultimoDestino;
       reenviarFalhasBtn.disabled = processando;
       reenviarFalhasBtn.textContent = ultimoDestino === 'status'
-        ? 'Reenviar falhas para o Status'
+        ? 'Reenviar falhas WhatsApp/Instagram'
         : 'Reenviar falhas para o cliente';
     }
 
@@ -483,6 +500,7 @@
           erro: '',
           repetida: false,
           requestId: '',
+          canais: null,
         }));
         renderizarProdutos();
       } catch (error) {
@@ -529,9 +547,29 @@
           throw new Error(body.error || body.message || `Erro HTTP ${response.status}`);
         }
 
-        produto.estado = 'success';
-        produto.repetida = Boolean(body.data && body.data.repetida);
+        const data = body.data || {};
+        produto.repetida = Boolean(data.repetida);
         produto.erro = '';
+
+        if (destino === 'status') {
+          produto.canais = data.canais || null;
+          const whatsappOk = produto.canais?.whatsapp?.status === 'publicado';
+          const instagramOk = produto.canais?.instagram?.status === 'publicado';
+
+          if (whatsappOk && instagramOk) {
+            produto.estado = 'success';
+            return true;
+          }
+
+          const erros = [];
+          if (!whatsappOk) erros.push(`WhatsApp: ${produto.canais?.whatsapp?.erro || 'falhou'}`);
+          if (!instagramOk) erros.push(`Instagram: ${produto.canais?.instagram?.erro || 'falhou'}`);
+          produto.erro = erros.join(' · ');
+          produto.estado = (whatsappOk || instagramOk) ? 'partial' : 'error';
+          return false;
+        }
+
+        produto.estado = 'success';
         return true;
       } catch (error) {
         produto.estado = 'error';
@@ -562,7 +600,7 @@
 
       if (confirmar) {
         const destinoConfirmacao = destino === 'status'
-          ? 'no Status do WhatsApp'
+          ? 'no Status do WhatsApp e nos Stories do Instagram'
           : `para o WhatsApp ${telefone}`;
         const confirmou = window.confirm(
           `Enviar ${listaParaEnviar.length} produto(s) da categoria “${categoriaAtual.nome}” ${destinoConfirmacao}?`
@@ -590,7 +628,7 @@
         produto.destino = destino;
         if (!produto.requestId) produto.requestId = `${loteId}:${produto.id}`;
 
-        const verbo = destino === 'status' ? 'Publicando' : 'Enviando';
+        const verbo = destino === 'status' ? 'Publicando no WhatsApp + Instagram' : 'Enviando';
         progressText.textContent = `${verbo} ${index + 1} de ${listaParaEnviar.length}: ${produto.nome}`;
         progressFill.style.width = `${Math.round((index / listaParaEnviar.length) * 100)}%`;
 
@@ -614,7 +652,7 @@
       if (falhas) {
         mostrarFlash('erro', `Processo concluído com ${falhas} falha(s). Use o botão de reenvio.`);
       } else if (destino === 'status') {
-        mostrarFlash('sucesso', `Todos os ${sucessos} produtos foram publicados no Status do WhatsApp.`);
+        mostrarFlash('sucesso', `Todos os ${sucessos} produtos foram publicados no Status do WhatsApp e nos Stories do Instagram.`);
       } else {
         mostrarFlash('sucesso', `Todos os ${sucessos} produtos foram enviados para o WhatsApp ${telefone}.`);
       }
@@ -628,6 +666,7 @@
         produto.erro = '';
         produto.repetida = false;
         produto.requestId = '';
+        produto.canais = null;
       });
       processar(publicaveis, destino, true);
     }
@@ -638,7 +677,7 @@
     enviarClienteBtn.addEventListener('click', () => prepararNovoEnvio('cliente'));
     publicarStatusBtn.addEventListener('click', () => prepararNovoEnvio('status'));
     reenviarFalhasBtn.addEventListener('click', () => {
-      processar(produtos.filter((produto) => produto.estado === 'error'), ultimoDestino, false);
+      processar(produtos.filter((produto) => ['error', 'partial'].includes(produto.estado)), ultimoDestino, false);
     });
 
     (async function iniciar() {
