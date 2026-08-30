@@ -463,16 +463,16 @@ async function salvarResultadoPublicacao(id, whatsapp, instagram) {
 
   await pool.query(
     `UPDATE ofertas
-     SET status=CASE WHEN $2 THEN 'publicada' ELSE status END,
-         publicado_em=CASE WHEN $3='publicado' THEN NOW() ELSE publicado_em END,
-         whatsapp_status=$3,
-         whatsapp_publicado_em=CASE WHEN $3='publicado' THEN NOW() ELSE whatsapp_publicado_em END,
-         whatsapp_erro=$4,
-         instagram_status=$5,
-         instagram_publicado_em=CASE WHEN $5='publicado' THEN NOW() ELSE instagram_publicado_em END,
-         instagram_media_id=COALESCE($6, instagram_media_id),
-         instagram_container_id=COALESCE($7, instagram_container_id),
-         instagram_erro=$8,
+     SET status=CASE WHEN $2::boolean THEN 'publicada' ELSE status END,
+         publicado_em=CASE WHEN $3::varchar(24)='publicado' THEN NOW() ELSE publicado_em END,
+         whatsapp_status=$3::varchar(24),
+         whatsapp_publicado_em=CASE WHEN $3::varchar(24)='publicado' THEN NOW() ELSE whatsapp_publicado_em END,
+         whatsapp_erro=$4::text,
+         instagram_status=$5::varchar(24),
+         instagram_publicado_em=CASE WHEN $5::varchar(24)='publicado' THEN NOW() ELSE instagram_publicado_em END,
+         instagram_media_id=COALESCE($6::text, instagram_media_id),
+         instagram_container_id=COALESCE($7::text, instagram_container_id),
+         instagram_erro=$8::text,
          imagem_url=NULL,
          r2_key=NULL,
          updated_at=NOW()
