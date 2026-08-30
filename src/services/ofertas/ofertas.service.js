@@ -5,6 +5,7 @@ const schemaService = require('./ofertasSchema.service');
 const arteOfertaService = require('./arteOferta.service');
 const cloudflareR2Service = require('../cloudflare/cloudflareR2.service');
 const zapiService = require('../integracoes/zapi.service');
+const instagramService = require('../integracoes/instagram.service');
 
 function numeroPositivo(valor, nome) {
   const numero = Number(valor);
@@ -62,6 +63,14 @@ function normalizarLinhaOferta(row) {
     cliques_whatsapp: Number(row.cliques_whatsapp || 0),
     tema_arte: row.tema_arte || 'claro',
     cores_arte: row.cores_arte && typeof row.cores_arte === 'object' ? row.cores_arte : {},
+    whatsapp_status: row.whatsapp_status || (row.status === 'publicada' ? 'publicado' : 'nao_publicado'),
+    whatsapp_publicado_em: row.whatsapp_publicado_em || row.publicado_em || null,
+    whatsapp_erro: row.whatsapp_erro || null,
+    instagram_status: row.instagram_status || 'nao_publicado',
+    instagram_publicado_em: row.instagram_publicado_em || null,
+    instagram_media_id: row.instagram_media_id || null,
+    instagram_container_id: row.instagram_container_id || null,
+    instagram_erro: row.instagram_erro || null,
     arte_dinamica: true,
     imagem_armazenada: false,
   };
@@ -370,20 +379,158 @@ async function enviarOfertaPorIdentificadorWhatsapp(id, identificador, baseUrl) 
   };
 }
 
+function limitarErroPublicacao(error) {
+  const mensagem = String(error?.message || error || 'Erro não informado.').trim();
+  return mensagem.slice(0, 2000);
+}
+
+async function publicarStoryInstagram(oferta, buffer) {
+  const diagnostico = instagramService.diagnosticarConfiguracao();
+  if (!diagnostico.configurado) {
+    return {
+      status: 'nao_configurado',
+      configurado: false,
+      faltando: diagnostico.faltando,
+      erro: `Configure no Render: ${diagnostico.faltando.join(', ')}.`,
+    };
+  }
+
+  let arquivoTemporario = null;
+  let limpezaTemporaria = null;
+
+  try {
+    arquivoTemporario = await cloudflareR2Service.uploadBuffer(buffer, {
+      pasta: 'ofertas',
+      nome: `instagram-story-${oferta.codigo}.jpg`,
+      contentType: 'image/jpeg',
+      metadata: {
+        oferta_id: oferta.id,
+        codigo: oferta.codigo,
+        destino: 'instagram-story',
+      },
+    });
+
+    const resultado = await instagramService.publicarStoryImagem({
+      imageUrl: arquivoTemporario.url,
+    });
+
+    return {
+      ...resultado,
+      configurado: true,
+      imagem_temporaria: arquivoTemporario.url,
+    };
+  } finally {
+    if (arquivoTemporario?.key) {
+      try {
+        await cloudflareR2Service.excluirObjeto(arquivoTemporario.key);
+        limpezaTemporaria = { excluido: true, key: arquivoTemporario.key };
+      } catch (error) {
+        limpezaTemporaria = { excluido: false, key: arquivoTemporario.key, erro: limitarErroPublicacao(error) };
+        console.error('[Central de Ofertas] Não foi possível remover a arte temporária do Instagram:', limpezaTemporaria.erro);
+      }
+    }
+
+    if (limpezaTemporaria && limpezaTemporaria.excluido === false) {
+      // A falha de limpeza não invalida uma publicação que a Meta já concluiu.
+      console.warn('[Central de Ofertas] Arte temporária preservada no R2 para limpeza posterior:', limpezaTemporaria.key);
+    }
+  }
+}
+
+function normalizarResultadoCanal(settled, canal) {
+  if (settled.status === 'fulfilled') {
+    const valor = settled.value || {};
+    return {
+      canal,
+      ...valor,
+      status: valor.status || 'publicado',
+    };
+  }
+
+  return {
+    canal,
+    status: 'erro',
+    erro: limitarErroPublicacao(settled.reason),
+  };
+}
+
+async function salvarResultadoPublicacao(id, whatsapp, instagram) {
+  const algumPublicado = whatsapp.status === 'publicado' || instagram.status === 'publicado';
+  const whatsappErro = whatsapp.status === 'erro' ? whatsapp.erro : null;
+  const instagramErro = ['erro', 'nao_configurado'].includes(instagram.status)
+    ? (instagram.erro || null)
+    : null;
+
+  await pool.query(
+    `UPDATE ofertas
+     SET status=CASE WHEN $2 THEN 'publicada' ELSE status END,
+         publicado_em=CASE WHEN $3='publicado' THEN NOW() ELSE publicado_em END,
+         whatsapp_status=$3,
+         whatsapp_publicado_em=CASE WHEN $3='publicado' THEN NOW() ELSE whatsapp_publicado_em END,
+         whatsapp_erro=$4,
+         instagram_status=$5,
+         instagram_publicado_em=CASE WHEN $5='publicado' THEN NOW() ELSE instagram_publicado_em END,
+         instagram_media_id=COALESCE($6, instagram_media_id),
+         instagram_container_id=COALESCE($7, instagram_container_id),
+         instagram_erro=$8,
+         imagem_url=NULL,
+         r2_key=NULL,
+         updated_at=NOW()
+     WHERE id=$1`,
+    [
+      id,
+      algumPublicado,
+      whatsapp.status,
+      whatsappErro,
+      instagram.status,
+      instagram.media_id || null,
+      instagram.container_id || null,
+      instagramErro,
+    ]
+  );
+}
+
 async function publicar(id, baseUrl) {
   const { oferta, buffer } = await gerarArteBuffer(id);
   const link = `${basePublica(baseUrl)}/ofertas/${encodeURIComponent(oferta.codigo)}`;
   const legenda = link;
-  const envio = await zapiService.enviarImagemStatus({ imagem: imagemBase64(buffer), legenda });
 
-  await pool.query(
-    `UPDATE ofertas
-     SET status='publicada', publicado_em=NOW(), imagem_url=NULL, r2_key=NULL, updated_at=NOW()
-     WHERE id=$1`,
-    [id]
-  );
+  // Os dois canais usam exatamente o mesmo buffer gerado nesta chamada.
+  // Uma falha em um canal não cancela o outro.
+  const resultados = await Promise.allSettled([
+    zapiService.enviarImagemStatus({ imagem: imagemBase64(buffer), legenda }),
+    publicarStoryInstagram(oferta, buffer),
+  ]);
 
-  return { oferta: await buscarPorId(id), link, legenda, zapi: envio.zapi };
+  const whatsapp = normalizarResultadoCanal(resultados[0], 'whatsapp');
+  const instagram = normalizarResultadoCanal(resultados[1], 'instagram');
+
+  if (whatsapp.status === 'publicado') {
+    whatsapp.zapi = resultados[0].value?.zapi || null;
+  }
+
+  await salvarResultadoPublicacao(id, whatsapp, instagram);
+
+  const algumPublicado = whatsapp.status === 'publicado' || instagram.status === 'publicado';
+  if (!algumPublicado) {
+    const detalhes = [
+      `WhatsApp: ${whatsapp.erro || whatsapp.status}`,
+      `Instagram: ${instagram.erro || instagram.status}`,
+    ].join(' | ');
+    throw new Error(`Não foi possível publicar a oferta. ${detalhes}`);
+  }
+
+  return {
+    oferta: await buscarPorId(id),
+    link,
+    legenda,
+    publicacao_completa: whatsapp.status === 'publicado' && instagram.status === 'publicado',
+    publicacao_parcial: !(whatsapp.status === 'publicado' && instagram.status === 'publicado'),
+    canais: { whatsapp, instagram },
+    // Mantido por compatibilidade com telas/integrações que já liam resultado.zapi.
+    zapi: whatsapp.zapi || null,
+    instagram: instagram.status === 'publicado' ? instagram : null,
+  };
 }
 
 async function enviarWhatsapp(id, telefone, baseUrl) {

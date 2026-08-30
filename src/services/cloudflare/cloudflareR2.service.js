@@ -5,6 +5,7 @@ const {
   PutObjectCommand,
   ListObjectsV2Command,
   DeleteObjectsCommand,
+  DeleteObjectCommand,
 } = require('@aws-sdk/client-s3');
 
 const MAX_UPLOAD_SIZE_MB = 10;
@@ -258,6 +259,31 @@ async function uploadBuffer(buffer, options = {}) {
 }
 
 
+async function excluirObjeto(keyInformada) {
+  const key = String(keyInformada || '').trim().replace(/^\/+/, '');
+
+  // Exclusão unitária usada apenas para arquivos temporários da Central de Ofertas.
+  // Mantém a proteção para nunca remover fotos de produtos por engano.
+  if (!key.startsWith('ofertas/')) {
+    throw new Error('Chave de exclusão não autorizada. Somente objetos de ofertas/ podem ser removidos.');
+  }
+
+  const config = getConfig();
+  validarConfiguracao(config);
+  const client = getClient(config);
+
+  try {
+    await client.send(new DeleteObjectCommand({
+      Bucket: config.bucket,
+      Key: key,
+    }));
+  } catch (error) {
+    throw traduzirErroR2(error);
+  }
+
+  return { key, excluido: true };
+}
+
 async function limparPrefixo(prefixoInformado) {
   const prefixo = String(prefixoInformado || '').trim().replace(/^\/+/, '');
 
@@ -322,6 +348,7 @@ async function limparPrefixo(prefixoInformado) {
 module.exports = {
   uploadImagem,
   uploadBuffer,
+  excluirObjeto,
   limparPrefixo,
   MAX_UPLOAD_SIZE_MB,
 };

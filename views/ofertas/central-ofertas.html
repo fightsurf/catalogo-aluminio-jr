@@ -100,7 +100,7 @@
 
       <div class="grupo-acoes">
         <h3>Publicação</h3>
-        <button id="publicar" type="button">Publicar no Status</button>
+        <button id="publicar" type="button">Publicar WhatsApp + Instagram</button>
       </div>
 
       <div class="grupo-acoes">
@@ -153,7 +153,7 @@
           <button id="modalEnviarWhatsapp" class="verde" type="button">Reenviar para cliente</button>
         </div>
       </div>
-      <button id="modalPublicarStatus" type="button">Postar novamente no Status do WhatsApp</button>
+      <button id="modalPublicarStatus" type="button">Publicar novamente no WhatsApp + Instagram</button>
     </div>
   </div>
 </div>
@@ -519,6 +519,44 @@ async function criarOferta() {
   await atualizarPreview();
 }
 
+function rotuloStatusCanal(status) {
+  const mapa = {
+    publicado: 'publicado',
+    erro: 'falhou',
+    nao_configurado: 'não configurado',
+    nao_publicado: 'não publicado',
+  };
+  return mapa[String(status || '')] || String(status || 'não publicado').replaceAll('_', ' ');
+}
+
+function resumoCanaisOferta(oferta) {
+  return `WhatsApp: ${rotuloStatusCanal(oferta?.whatsapp_status)} · Instagram: ${rotuloStatusCanal(oferta?.instagram_status)}`;
+}
+
+function resumoResultadoPublicacao(resultado, incluirLink = true) {
+  const whatsapp = resultado?.canais?.whatsapp || {};
+  const instagram = resultado?.canais?.instagram || {};
+  const waOk = whatsapp.status === 'publicado';
+  const igOk = instagram.status === 'publicado';
+  const link = incluirLink && resultado?.link ? ` Link público: ${resultado.link}` : '';
+
+  if (waOk && igOk) {
+    return { tipo: 'sucesso', texto: `Publicado no Status do WhatsApp e no Story do Instagram.${link}` };
+  }
+
+  if (waOk) {
+    const detalhe = instagram.erro || rotuloStatusCanal(instagram.status);
+    return { tipo: 'normal', texto: `WhatsApp publicado. Instagram: ${detalhe}.${link}` };
+  }
+
+  if (igOk) {
+    const detalhe = whatsapp.erro || rotuloStatusCanal(whatsapp.status);
+    return { tipo: 'normal', texto: `Instagram publicado. WhatsApp: ${detalhe}.${link}` };
+  }
+
+  return { tipo: 'erro', texto: 'A publicação não foi concluída em nenhum canal.' };
+}
+
 async function publicarOferta() {
   if (!ofertaAtual?.id) {
     mostrarAviso('Nenhuma oferta está selecionada para publicação.', 'erro');
@@ -527,10 +565,11 @@ async function publicarOferta() {
 
   try {
     bloquear(true);
-    mostrarAviso('Recriando a arte e publicando no Status...', 'normal', true);
+    mostrarAviso('Recriando a arte e publicando no WhatsApp e no Instagram...', 'normal', true);
     const resultado = await api(`/api/ofertas/${ofertaAtual.id}/publicar`, { method: 'POST' });
     atualizarPainelOferta(resultado.oferta);
-    mostrarAviso(`Publicado com sucesso. Link público: ${resultado.link}`, 'sucesso');
+    const resumo = resumoResultadoPublicacao(resultado);
+    mostrarAviso(resumo.texto, resumo.tipo);
     await carregarHistorico();
   } catch (error) {
     mostrarAviso(error.message, 'erro');
@@ -592,7 +631,8 @@ async function carregarHistorico(precoMedio = '') {
           <div class="oferta-meta">
             ${brl(oferta.total)} · médio ${brl(oferta.preco_medio)} · ${oferta.total_itens} peças<br>
             tema ${escapeHtml(temasConfig[oferta.tema_arte]?.nome || oferta.tema_arte || 'Claro premium')} ·
-            ${oferta.visualizacoes} visualizações · ${oferta.cliques_whatsapp} cliques
+            ${oferta.visualizacoes} visualizações · ${oferta.cliques_whatsapp} cliques<br>
+            ${escapeHtml(resumoCanaisOferta(oferta))}
           </div>
           ${problemaOferta(oferta)}
         </div>
@@ -623,7 +663,7 @@ function abrirModalOferta(id) {
       <div><b>${escapeHtml(item.nome)}</b><small>${item.quantidade} × ${brl(item.preco_unitario)}</small></div>
       <b>${brl(Number(item.quantidade) * Number(item.preco_unitario))}</b>
     </div>`).join('') || '<div class="selecionados-vazio">Nenhum item encontrado.</div>';
-  el.modalOfertaResumo.innerHTML = `<b>${oferta.total_itens} peças</b> · preço médio ${brl(oferta.preco_medio)} · total ${brl(oferta.total)}`;
+  el.modalOfertaResumo.innerHTML = `<b>${oferta.total_itens} peças</b> · preço médio ${brl(oferta.preco_medio)} · total ${brl(oferta.total)}<br><small>${escapeHtml(resumoCanaisOferta(oferta))}</small>`;
   el.modalTelefoneWhatsapp.value = '';
   el.modalOferta.classList.remove('oculto');
   document.body.style.overflow = 'hidden';
@@ -665,7 +705,8 @@ async function republicarOfertaModal() {
     const resultado = await api(`/api/ofertas/${ofertaModalAtual.id}/publicar`, { method: 'POST' });
     ofertaModalAtual = resultado.oferta;
     ofertasHistorico.set(Number(resultado.oferta.id), resultado.oferta);
-    alert('Kit publicado novamente no Status do WhatsApp.');
+    const resumo = resumoResultadoPublicacao(resultado, false);
+    alert(resumo.texto);
     await carregarHistorico(el.pesquisaPrecoMedio.value.trim());
   } catch (error) {
     alert(error.message);
