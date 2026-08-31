@@ -25,6 +25,12 @@ function abrirPaginaResumoItensCarrada(req, res) {
   );
 }
 
+function abrirPaginaResumoSelecionadoCarradas(req, res) {
+  return res.sendFile(
+    path.resolve(__dirname, '../../../../views/legado/carradas/carradas-resumo-selecionado.html')
+  );
+}
+
 function abrirPaginaResumoProducaoCarrada(req, res) {
   return res.sendFile(
     path.resolve(__dirname, '../../../../views/legado/carradas/carradas-resumo-producao.html')
@@ -42,6 +48,7 @@ module.exports = {
   abrirPaginaDetalheCarradaMobile,
   abrirPaginaDetalheCarrada,
   abrirPaginaResumoItensCarrada,
+  abrirPaginaResumoSelecionadoCarradas,
   abrirPaginaResumoProducaoCarrada,
   abrirPaginaProgressoCarrada
 };

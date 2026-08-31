@@ -197,6 +197,11 @@
     }
     .muted { color: var(--muted); }
     .selected-count { font-size: 14px; color: var(--muted); }
+    .resumo-selection-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .resumo-selection-count { font-size: 14px; color: var(--muted); font-weight: 700; }
+    .col-selecao-resumo { width: 44px; text-align: center; }
+    .col-selecao-resumo input { width: 18px; height: 18px; cursor: pointer; }
+    .carrada-selecionada-resumo td { box-shadow: inset 0 0 0 9999px rgba(17, 24, 39, 0.045); }
     @media (max-width: 980px) {
       .layout { grid-template-columns: 1fr; }
       .compact-card {
@@ -315,12 +320,18 @@
           <h2>Carradas salvas</h2>
           <p class="muted">Abra, edite ou exclua uma carrada já gravada.</p>
         </div>
-        <button class="btn-secondary" id="btnRecarregarCarradas">Recarregar</button>
+        <div class="resumo-selection-actions">
+          <span class="resumo-selection-count" id="contadorCarradasResumo">0 carrada(s) selecionada(s)</span>
+          <button class="btn-secondary" id="btnLimparSelecaoResumo" disabled>Limpar seleção</button>
+          <button class="btn-primary" id="btnGerarResumoSelecionado" disabled>Gerar resumo selecionado</button>
+          <button class="btn-secondary" id="btnRecarregarCarradas">Recarregar</button>
+        </div>
       </div>
       <div style="overflow:auto;">
         <table>
           <thead>
             <tr>
+              <th class="col-selecao-resumo"><input type="checkbox" id="checkTodasCarradasResumo" title="Selecionar todas as carradas exibidas" /></th>
               <th>Código</th>
               <th>Data</th>
               <th>Descrição</th>
@@ -331,7 +342,7 @@
             </tr>
           </thead>
           <tbody id="tabelaCarradas">
-            <tr><td colspan="7" class="muted">Carregando...</td></tr>
+            <tr><td colspan="8" class="muted">Carregando...</td></tr>
           </tbody>
         </table>
       </div>
@@ -345,7 +356,8 @@
       pedidosDisponiveis: [],
       pedidosSelecionados: [],
       clientesCarregados: [],
-      clienteSelecionado: null
+      clienteSelecionado: null,
+      carradasResumoSelecionadas: new Set()
     };
 
     const el = {
@@ -367,6 +379,10 @@
       btnBuscarNumero: document.getElementById('btnBuscarNumero'),
       buscaNumero: document.getElementById('buscaNumero'),
       btnRecarregarCarradas: document.getElementById('btnRecarregarCarradas'),
+      contadorCarradasResumo: document.getElementById('contadorCarradasResumo'),
+      btnLimparSelecaoResumo: document.getElementById('btnLimparSelecaoResumo'),
+      btnGerarResumoSelecionado: document.getElementById('btnGerarResumoSelecionado'),
+      checkTodasCarradasResumo: document.getElementById('checkTodasCarradasResumo'),
       areaBuscaCliente: document.getElementById('areaBuscaCliente'),
       areaBuscaData: document.getElementById('areaBuscaData'),
       areaBuscaNumero: document.getElementById('areaBuscaNumero')
@@ -686,14 +702,53 @@
       });
     }
 
+    function atualizarSelecaoResumoUI() {
+      const total = estado.carradasResumoSelecionadas.size;
+      el.contadorCarradasResumo.textContent = `${total} carrada(s) selecionada(s)`;
+      el.btnLimparSelecaoResumo.disabled = total === 0;
+      el.btnGerarResumoSelecionado.disabled = total === 0;
+
+      const checkboxes = Array.from(el.tabelaCarradas.querySelectorAll('[data-selecionar-resumo]'));
+      const selecionadosVisiveis = checkboxes.filter((checkbox) => estado.carradasResumoSelecionadas.has(String(checkbox.dataset.selecionarResumo)));
+
+      checkboxes.forEach((checkbox) => {
+        const selecionado = estado.carradasResumoSelecionadas.has(String(checkbox.dataset.selecionarResumo));
+        checkbox.checked = selecionado;
+        checkbox.closest('tr')?.classList.toggle('carrada-selecionada-resumo', selecionado);
+      });
+
+      if (el.checkTodasCarradasResumo) {
+        el.checkTodasCarradasResumo.checked = checkboxes.length > 0 && selecionadosVisiveis.length === checkboxes.length;
+        el.checkTodasCarradasResumo.indeterminate = selecionadosVisiveis.length > 0 && selecionadosVisiveis.length < checkboxes.length;
+      }
+    }
+
+    function abrirResumoCarradasSelecionadas() {
+      const codigos = Array.from(estado.carradasResumoSelecionadas)
+        .map((codigo) => Number.parseInt(codigo, 10))
+        .filter((codigo) => Number.isInteger(codigo) && codigo > 0)
+        .sort((a, b) => a - b);
+
+      if (!codigos.length) {
+        alert('Selecione pelo menos uma carrada.');
+        return;
+      }
+
+      window.location.href = `/legado/carradas/resumo-selecionado?codigos=${encodeURIComponent(codigos.join(','))}`;
+    }
+
     function renderCarradas(carradas) {
       if (!carradas.length) {
-        el.tabelaCarradas.innerHTML = '<tr><td colspan="7" class="muted">Nenhuma carrada encontrada.</td></tr>';
+        el.tabelaCarradas.innerHTML = '<tr><td colspan="8" class="muted">Nenhuma carrada encontrada.</td></tr>';
+        atualizarSelecaoResumoUI();
         return;
       }
 
       el.tabelaCarradas.innerHTML = carradas.map((carrada) => `
-        <tr data-codigo-row="${carrada.codigo}" class="${obterClassesLinhaCarrada(carrada)}">
+        <tr data-codigo-row="${carrada.codigo}" class="${obterClassesLinhaCarrada(carrada)}${estado.carradasResumoSelecionadas.has(String(carrada.codigo)) ? ' carrada-selecionada-resumo' : ''}">
+          <td class="col-selecao-resumo">
+            <input type="checkbox" data-selecionar-resumo="${carrada.codigo}" ${estado.carradasResumoSelecionadas.has(String(carrada.codigo)) ? 'checked' : ''} title="Selecionar esta carrada para o resumo" />
+          </td>
           <td>${carrada.codigo}</td>
           <td>${escapeHtml(formatarData(carrada.data))}</td>
           <td>
@@ -718,6 +773,23 @@
           </td>
         </tr>
       `).join('');
+
+      el.tabelaCarradas.querySelectorAll('[data-selecionar-resumo]').forEach((checkbox) => {
+        checkbox.addEventListener('change', () => {
+          const codigo = String(checkbox.dataset.selecionarResumo || '');
+          if (!codigo) return;
+
+          if (checkbox.checked) {
+            estado.carradasResumoSelecionadas.add(codigo);
+          } else {
+            estado.carradasResumoSelecionadas.delete(codigo);
+          }
+
+          atualizarSelecaoResumoUI();
+        });
+      });
+
+      atualizarSelecaoResumoUI();
 
       el.tabelaCarradas.querySelectorAll('[data-bloqueio-vendas]').forEach((botao) => {
         botao.addEventListener('click', async () => {
@@ -951,6 +1023,30 @@
     el.btnBuscarNumero.addEventListener('click', buscarPorNumero);
     el.btnSalvar.addEventListener('click', salvarCarrada);
     el.btnNovo.addEventListener('click', () => { window.location.href = '/legado/semanas'; });
+    el.btnGerarResumoSelecionado.addEventListener('click', abrirResumoCarradasSelecionadas);
+
+    el.btnLimparSelecaoResumo.addEventListener('click', () => {
+      estado.carradasResumoSelecionadas.clear();
+      atualizarSelecaoResumoUI();
+    });
+
+    el.checkTodasCarradasResumo.addEventListener('change', () => {
+      const checkboxes = Array.from(el.tabelaCarradas.querySelectorAll('[data-selecionar-resumo]'));
+
+      checkboxes.forEach((checkbox) => {
+        const codigo = String(checkbox.dataset.selecionarResumo || '');
+        if (!codigo) return;
+
+        if (el.checkTodasCarradasResumo.checked) {
+          estado.carradasResumoSelecionadas.add(codigo);
+        } else {
+          estado.carradasResumoSelecionadas.delete(codigo);
+        }
+      });
+
+      atualizarSelecaoResumoUI();
+    });
+
     el.btnRecarregarCarradas.addEventListener('click', carregarCarradas);
     el.buscaCliente.addEventListener('keydown', (event) => { if (event.key === 'Enter') buscarClientes(); });
     el.buscaData.addEventListener('keydown', (event) => { if (event.key === 'Enter') buscarPorData(); });

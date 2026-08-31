@@ -46,6 +46,28 @@ async function listarCarradas(req, res) {
   }
 }
 
+async function buscarResumoCarradasSelecionadas(req, res) {
+  try {
+    const codigos = String(req.query?.codigos || '').trim();
+
+    if (!codigos) {
+      return res.status(400).json({
+        success: false,
+        message: 'Selecione pelo menos uma carrada para gerar o resumo.'
+      });
+    }
+
+    const data = await carradasService.buscarResumoCarradasSelecionadas(codigos);
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: 'Erro ao gerar resumo das carradas selecionadas.',
+      error: error.message
+    });
+  }
+}
+
 async function listarCarradasDisponiveis(req, res) {
   try {
     const data = await carradasService.listarCarradasDisponiveis(req.params.codigo, req.query.dias);
@@ -133,6 +155,7 @@ module.exports = {
   listarPedidosPorData,
   listarPedidosPorNumero,
   listarCarradas,
+  buscarResumoCarradasSelecionadas,
   listarCarradasDisponiveis,
   buscarCarrada,
   atualizarBloqueioVendas,

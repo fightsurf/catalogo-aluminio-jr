@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Resumo de Itens das Carradas Selecionadas</title>
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --card: #ffffff;
+      --text: #111827;
+      --muted: #6b7280;
+      --line: #e5e7eb;
+      --primary: #111827;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    .page {
+      max-width: 1250px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    button, a.button {
+      height: 42px;
+      padding: 0 16px;
+      border-radius: 10px;
+      border: 0;
+      cursor: pointer;
+      font-weight: 700;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-secondary { background: #fff; border: 1px solid var(--line); color: var(--text); }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .muted { color: var(--muted); }
+    .resumo-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(180px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .resumo-item {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      background: #fff;
+    }
+    .resumo-label {
+      color: var(--muted);
+      font-size: 13px;
+      margin-bottom: 6px;
+    }
+    .resumo-valor {
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .carradas-selecionadas {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 10px;
+      margin-top: 10px;
+    }
+    .carrada-chip {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      background: #f9fafb;
+    }
+    .carrada-chip strong { display: block; margin-bottom: 4px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      background: #fff;
+    }
+    th, td {
+      padding: 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      font-size: 14px;
+      vertical-align: middle;
+    }
+    th { color: var(--muted); font-size: 13px; }
+    .linha-total td {
+      background: #111827;
+      color: #fff;
+      font-weight: 700;
+      border-bottom: 0;
+    }
+    .col-indice { width: 64px; }
+    .hover-lista {
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 28px;
+      cursor: default;
+    }
+    .hover-lista__numero {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 24px;
+      padding: 2px 6px;
+      border-radius: 999px;
+    }
+    .hover-lista__tooltip {
+      position: absolute;
+      left: 50%;
+      top: calc(100% - 2px);
+      transform: translateX(-50%);
+      min-width: 220px;
+      max-width: 360px;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #111827;
+      color: #fff;
+      font-size: 12px;
+      line-height: 1.45;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transition: opacity 0.15s ease, visibility 0.15s ease;
+      z-index: 20;
+      white-space: normal;
+    }
+    .hover-lista:hover .hover-lista__tooltip,
+    .hover-lista:focus-within .hover-lista__tooltip,
+    .hover-lista__tooltip:hover {
+      opacity: 1;
+      visibility: visible;
+      pointer-events: auto;
+    }
+    .hover-lista__titulo {
+      display: block;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .hover-lista__links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .hover-lista__link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+      text-decoration: none;
+      font-weight: 700;
+    }
+    .hover-lista__link:hover { background: rgba(255, 255, 255, 0.22); }
+    @media print {
+      body { background: #fff; }
+      .actions { display: none; }
+      .page { max-width: none; padding: 0; }
+      .card { border: 0; padding: 0; }
+      .hover-lista__tooltip { display: none; }
+    }
+    @media (max-width: 900px) {
+      .resumo-grid { grid-template-columns: repeat(2, minmax(180px, 1fr)); }
+    }
+    @media (max-width: 640px) {
+      .resumo-grid { grid-template-columns: 1fr; }
+      .hover-lista__tooltip {
+        left: auto;
+        right: 0;
+        transform: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="topbar">
+      <div>
+        <h1>Resumo de itens para produção</h1>
+        <p class="muted" id="subtitulo">Carradas selecionadas</p>
+      </div>
+      <div class="actions">
+        <a class="button btn-secondary" href="/legado/carradas">Voltar às carradas</a>
+        <button class="btn-primary" id="btnImprimir">Imprimir</button>
+      </div>
+    </div>
+
+    <div id="conteudo">
+      <div class="card">Carregando resumo...</div>
+    </div>
+  </div>
+
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const codigos = String(params.get('codigos') || '')
+      .split(',')
+      .map((codigo) => Number.parseInt(codigo, 10))
+      .filter((codigo) => Number.isInteger(codigo) && codigo > 0);
+
+    function escapeHtml(valor) {
+      return String(valor ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function formatarData(valor) {
+      if (!valor) return '-';
+
+      const texto = String(valor).trim();
+      const matchIso = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (matchIso) {
+        return `${matchIso[3]}/${matchIso[2]}/${matchIso[1]}`;
+      }
+
+      const data = new Date(texto);
+      if (Number.isNaN(data.getTime())) return texto;
+      return data.toLocaleDateString('pt-BR');
+    }
+
+    function formatarQuantidade(valor) {
+      return Number(valor || 0).toLocaleString('pt-BR');
+    }
+
+    async function request(url) {
+      const response = await fetch(url);
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok || data.success === false) {
+        throw new Error(data.error || data.message || 'Falha na requisição.');
+      }
+
+      return data.data;
+    }
+
+    function renderHoverLista(valores, tipo) {
+      const lista = Array.isArray(valores) ? valores : [];
+      const total = lista.length;
+      const ehPedido = tipo === 'pedido';
+      const titulo = ehPedido
+        ? (total === 1 ? 'Pedido:' : 'Pedidos:')
+        : (total === 1 ? 'Carrada:' : 'Carradas:');
+
+      const links = lista.map((valor) => {
+        const texto = String(valor || '').trim();
+        const href = ehPedido
+          ? `/legado/pedidos?numero=${encodeURIComponent(texto)}`
+          : `/legado/carradas/detalhe?codigo=${encodeURIComponent(texto)}`;
+
+        return `<a class="hover-lista__link" href="${href}" target="_blank" rel="noopener noreferrer">${escapeHtml(texto)}</a>`;
+      }).join('');
+
+      return `
+        <span class="hover-lista" tabindex="0">
+          <span class="hover-lista__numero">${escapeHtml(formatarQuantidade(total))}</span>
+          <span class="hover-lista__tooltip">
+            <span class="hover-lista__titulo">${escapeHtml(titulo)}</span>
+            <span class="hover-lista__links">${links}</span>
+          </span>
+        </span>
+      `;
+    }
+
+    function renderResumo(data) {
+      const carradas = Array.isArray(data?.carradas) ? data.carradas : [];
+      const itens = Array.isArray(data?.itens) ? data.itens : [];
+      const totais = data?.totais || {};
+
+      const datas = carradas.map((carrada) => formatarData(carrada.data));
+      document.getElementById('subtitulo').textContent = datas.length
+        ? `Dias selecionados: ${datas.join(', ')}`
+        : 'Nenhuma carrada selecionada';
+
+      const conteudo = document.getElementById('conteudo');
+
+      if (!carradas.length) {
+        conteudo.innerHTML = '<div class="card">Nenhuma carrada encontrada para a seleção informada.</div>';
+        return;
+      }
+
+      conteudo.innerHTML = `
+        <section class="card">
+          <div class="resumo-grid">
+            <div class="resumo-item">
+              <div class="resumo-label">Carradas selecionadas</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(totais.quantidadeCarradas))}</div>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-label">Quantidade de pedidos</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(totais.quantidadePedidos))}</div>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-label">Pedidos prontos</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(totais.quantidadePedidosProntos))}</div>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-label">Pedidos a produzir</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(totais.quantidadePedidosAProduzir))}</div>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-label">Quantidade total de itens</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(totais.quantidadeItens))}</div>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-label">Itens de pedidos prontos</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(totais.quantidadeItensProntos))}</div>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-label">Itens a produzir</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(totais.quantidadeItensAProduzir))}</div>
+            </div>
+            <div class="resumo-item">
+              <div class="resumo-label">Tipos de itens</div>
+              <div class="resumo-valor">${escapeHtml(formatarQuantidade(totais.quantidadeTiposItens))}</div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card">
+          <strong>Dias/carradas incluídos no resumo</strong>
+          <div class="carradas-selecionadas">
+            ${carradas.map((carrada) => `
+              <div class="carrada-chip">
+                <strong>${escapeHtml(formatarData(carrada.data))} — Carrada ${escapeHtml(carrada.codigo)}</strong>
+                <span class="muted">${escapeHtml(carrada.descricao || '-')}</span>
+              </div>
+            `).join('')}
+          </div>
+        </section>
+
+        <section class="card">
+          ${itens.length ? `
+            <table>
+              <thead>
+                <tr>
+                  <th class="col-indice">#</th>
+                  <th>Descrição</th>
+                  <th>Qtd. total</th>
+                  <th>Qtd. pronta</th>
+                  <th>Qtd. a produzir</th>
+                  <th>Pedidos</th>
+                  <th>Carradas</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itens.map((item, indice) => `
+                  <tr>
+                    <td>${escapeHtml(String(indice + 1))}</td>
+                    <td>${escapeHtml(item.descricao || '-')}</td>
+                    <td>${escapeHtml(formatarQuantidade(item.quantidade))}</td>
+                    <td>${escapeHtml(formatarQuantidade(item.quantidadePronta))}</td>
+                    <td>${escapeHtml(formatarQuantidade(item.quantidadeAProduzir))}</td>
+                    <td>${renderHoverLista(item.numerosPedidos, 'pedido')}</td>
+                    <td>${renderHoverLista(item.codigosCarradas, 'carrada')}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+              <tfoot>
+                <tr class="linha-total">
+                  <td></td>
+                  <td>Total geral</td>
+                  <td>${escapeHtml(formatarQuantidade(totais.quantidadeItens))}</td>
+                  <td>${escapeHtml(formatarQuantidade(totais.quantidadeItensProntos))}</td>
+                  <td>${escapeHtml(formatarQuantidade(totais.quantidadeItensAProduzir))}</td>
+                  <td></td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          ` : '<div class="muted">Nenhum item encontrado nas carradas selecionadas.</div>'}
+        </section>
+      `;
+    }
+
+    async function carregar() {
+      const conteudo = document.getElementById('conteudo');
+
+      if (!codigos.length) {
+        conteudo.innerHTML = '<div class="card">Selecione pelo menos uma carrada para gerar o resumo.</div>';
+        return;
+      }
+
+      try {
+        const data = await request(`/api/legado/carradas/resumo-selecionado?codigos=${encodeURIComponent(codigos.join(','))}`);
+        renderResumo(data);
+      } catch (error) {
+        conteudo.innerHTML = `<div class="card">${escapeHtml(error.message)}</div>`;
+      }
+    }
+
+    document.getElementById('btnImprimir').addEventListener('click', () => window.print());
+    carregar();
+  </script>
+</body>
+</html>

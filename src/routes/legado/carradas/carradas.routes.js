@@ -8,6 +8,7 @@ router.get('/pedidos/por-cliente/:favorecido', controller.listarPedidosPorClient
 router.get('/pedidos/por-data', controller.listarPedidosPorData);
 router.get('/pedidos/por-numero', controller.listarPedidosPorNumero);
 router.get('/', controller.listarCarradas);
+router.get('/resumo-selecionado', controller.buscarResumoCarradasSelecionadas);
 router.get('/:codigo/carradas-disponiveis', controller.listarCarradasDisponiveis);
 router.put('/:codigo/bloqueio-vendas', controller.atualizarBloqueioVendas);
 router.get('/:codigo', controller.buscarCarrada);

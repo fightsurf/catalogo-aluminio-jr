@@ -510,6 +510,150 @@ async function listarDetalhesCarradasPorCodigos(codigosParam = []) {
     .filter(Boolean);
 }
 
+function consolidarResumoCarradasSelecionadas(carradasDetalhadas = []) {
+  const carradas = Array.isArray(carradasDetalhadas) ? carradasDetalhadas : [];
+  const mapaItens = new Map();
+  let totalPedidos = 0;
+  let totalPedidosProntos = 0;
+  let totalPedidosAProduzir = 0;
+  let totalItens = 0;
+  let totalItensProntos = 0;
+  let totalItensAProduzir = 0;
+
+  carradas.forEach((carrada) => {
+    const codigoCarrada = carrada?.codigo ? String(carrada.codigo) : '';
+    const pedidos = Array.isArray(carrada?.pedidos) ? carrada.pedidos : [];
+
+    totalPedidos += pedidos.length;
+
+    pedidos.forEach((pedido) => {
+      const numeroPedido = pedido?.numero ? String(pedido.numero) : '';
+      const pedidoPronto = Boolean(pedido?.pedidoPronto || pedido?.pedido_pronto);
+
+      if (pedidoPronto) {
+        totalPedidosProntos += 1;
+      } else {
+        totalPedidosAProduzir += 1;
+      }
+
+      const itens = Array.isArray(pedido?.itens) ? pedido.itens : [];
+
+      itens.forEach((item) => {
+        const codigoItem = Number(item?.item || 0);
+        const descricao = String(item?.descricaoOriginal || item?.descricao || '').trim();
+        const chave = codigoItem > 0
+          ? String(codigoItem)
+          : `SEM-CODIGO::${descricao.toUpperCase()}`;
+        const quantidade = Number(item?.quantidade || 0);
+
+        totalItens += quantidade;
+        if (pedidoPronto) {
+          totalItensProntos += quantidade;
+        } else {
+          totalItensAProduzir += quantidade;
+        }
+
+        if (!mapaItens.has(chave)) {
+          mapaItens.set(chave, {
+            item: codigoItem > 0 ? codigoItem : null,
+            descricao,
+            quantidade: 0,
+            quantidadePronta: 0,
+            quantidadeAProduzir: 0,
+            pedidos: new Set(),
+            pedidosProntos: new Set(),
+            pedidosAProduzir: new Set(),
+            carradas: new Set()
+          });
+        }
+
+        const atual = mapaItens.get(chave);
+        if (!atual.descricao && descricao) {
+          atual.descricao = descricao;
+        }
+
+        atual.quantidade += quantidade;
+        if (pedidoPronto) {
+          atual.quantidadePronta += quantidade;
+        } else {
+          atual.quantidadeAProduzir += quantidade;
+        }
+
+        if (numeroPedido) {
+          atual.pedidos.add(numeroPedido);
+          if (pedidoPronto) {
+            atual.pedidosProntos.add(numeroPedido);
+          } else {
+            atual.pedidosAProduzir.add(numeroPedido);
+          }
+        }
+
+        if (codigoCarrada) {
+          atual.carradas.add(codigoCarrada);
+        }
+      });
+    });
+  });
+
+  const ordenarNumeros = (valores) => Array.from(valores)
+    .sort((a, b) => String(a).localeCompare(String(b), 'pt-BR', { numeric: true }));
+
+  const itens = Array.from(mapaItens.values())
+    .map((item) => ({
+      item: item.item,
+      descricao: item.descricao,
+      quantidade: item.quantidade,
+      quantidadePronta: item.quantidadePronta,
+      quantidadeAProduzir: item.quantidadeAProduzir,
+      totalPedidos: item.pedidos.size,
+      totalPedidosProntos: item.pedidosProntos.size,
+      totalPedidosAProduzir: item.pedidosAProduzir.size,
+      totalCarradas: item.carradas.size,
+      numerosPedidos: ordenarNumeros(item.pedidos),
+      numerosPedidosProntos: ordenarNumeros(item.pedidosProntos),
+      numerosPedidosAProduzir: ordenarNumeros(item.pedidosAProduzir),
+      codigosCarradas: ordenarNumeros(item.carradas)
+    }))
+    .sort((a, b) => String(a.descricao || '').localeCompare(String(b.descricao || ''), 'pt-BR'));
+
+  const carradasResumo = carradas
+    .map((carrada) => ({
+      codigo: carrada?.codigo ?? null,
+      data: carrada?.data ?? null,
+      descricao: carrada?.descricao || '',
+      totalPedidos: Array.isArray(carrada?.pedidos) ? carrada.pedidos.length : 0,
+      quantidadeItens: Number(carrada?.quantidadeItens ?? carrada?.quantidade_itens ?? 0),
+      quantidadeItensProntos: Number(carrada?.quantidadeItensProntos ?? carrada?.quantidade_itens_prontos ?? 0),
+      quantidadeItensAProduzir: Number(carrada?.quantidadeItensAProduzir ?? carrada?.quantidade_itens_a_produzir ?? 0)
+    }))
+    .sort((a, b) => {
+      const dataA = new Date(a.data || 0).getTime();
+      const dataB = new Date(b.data || 0).getTime();
+      if (dataA !== dataB) return dataA - dataB;
+      return Number(a.codigo || 0) - Number(b.codigo || 0);
+    });
+
+  return {
+    carradas: carradasResumo,
+    itens,
+    totais: {
+      quantidadeCarradas: carradasResumo.length,
+      quantidadePedidos: totalPedidos,
+      quantidadePedidosProntos: totalPedidosProntos,
+      quantidadePedidosAProduzir: totalPedidosAProduzir,
+      quantidadeItens: totalItens,
+      quantidadeItensProntos: totalItensProntos,
+      quantidadeItensAProduzir: totalItensAProduzir,
+      quantidadeTiposItens: itens.length
+    }
+  };
+}
+
+async function buscarResumoCarradasSelecionadas(codigosParam = []) {
+  const carradas = await listarDetalhesCarradasPorCodigos(codigosParam);
+  return consolidarResumoCarradasSelecionadas(carradas);
+}
+
 async function criarCarrada(payload) {
   const response = await request('/api/carradas', {
     method: 'POST',
@@ -649,6 +793,7 @@ module.exports = {
   listarCarradasDisponiveis,
   buscarCarrada,
   buscarResumoCarrada,
+  buscarResumoCarradasSelecionadas,
   atualizarBloqueioVendas,
   listarDetalhesCarradasPorCodigos,
   criarCarrada,
