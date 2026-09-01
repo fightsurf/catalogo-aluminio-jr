@@ -29,6 +29,14 @@ async function criarEstrutura() {
       instagram_media_id VARCHAR(80),
       instagram_container_id VARCHAR(80),
       instagram_erro TEXT,
+      facebook_story_status VARCHAR(24) NOT NULL DEFAULT 'nao_publicado',
+      facebook_story_publicado_em TIMESTAMPTZ,
+      facebook_story_post_id VARCHAR(100),
+      facebook_story_erro TEXT,
+      facebook_feed_status VARCHAR(24) NOT NULL DEFAULT 'nao_publicado',
+      facebook_feed_publicado_em TIMESTAMPTZ,
+      facebook_feed_post_id VARCHAR(100),
+      facebook_feed_erro TEXT,
       visualizacoes INTEGER NOT NULL DEFAULT 0,
       cliques_whatsapp INTEGER NOT NULL DEFAULT 0,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -45,6 +53,14 @@ async function criarEstrutura() {
     ALTER TABLE ofertas ADD COLUMN IF NOT EXISTS instagram_media_id VARCHAR(80);
     ALTER TABLE ofertas ADD COLUMN IF NOT EXISTS instagram_container_id VARCHAR(80);
     ALTER TABLE ofertas ADD COLUMN IF NOT EXISTS instagram_erro TEXT;
+    ALTER TABLE ofertas ADD COLUMN IF NOT EXISTS facebook_story_status VARCHAR(24) NOT NULL DEFAULT 'nao_publicado';
+    ALTER TABLE ofertas ADD COLUMN IF NOT EXISTS facebook_story_publicado_em TIMESTAMPTZ;
+    ALTER TABLE ofertas ADD COLUMN IF NOT EXISTS facebook_story_post_id VARCHAR(100);
+    ALTER TABLE ofertas ADD COLUMN IF NOT EXISTS facebook_story_erro TEXT;
+    ALTER TABLE ofertas ADD COLUMN IF NOT EXISTS facebook_feed_status VARCHAR(24) NOT NULL DEFAULT 'nao_publicado';
+    ALTER TABLE ofertas ADD COLUMN IF NOT EXISTS facebook_feed_publicado_em TIMESTAMPTZ;
+    ALTER TABLE ofertas ADD COLUMN IF NOT EXISTS facebook_feed_post_id VARCHAR(100);
+    ALTER TABLE ofertas ADD COLUMN IF NOT EXISTS facebook_feed_erro TEXT;
 
     UPDATE ofertas
     SET whatsapp_status = 'publicado',

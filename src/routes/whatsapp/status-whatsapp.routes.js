@@ -9,5 +9,6 @@ router.get('/categorias', requireAuth, controller.listarCategorias);
 router.get('/produtos', requireAuth, controller.listarProdutos);
 router.post('/produto', requireAuth, controller.enviarProduto);
 router.post('/produto-status', requireAuth, controller.publicarProdutoNoStatus);
+router.post('/categoria-facebook', requireAuth, controller.publicarCategoriaFacebook);
 
 module.exports = router;

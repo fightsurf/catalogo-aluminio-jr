@@ -2,6 +2,7 @@ const pool = require('../../../db/connection');
 const produtoFotosSchemaService = require('../produto/produtoFotosSchema.service');
 const zapiService = require('../integracoes/zapi.service');
 const instagramService = require('../integracoes/instagram.service');
+const facebookService = require('../integracoes/facebook.service');
 const cloudflareR2Service = require('../cloudflare/cloudflareR2.service');
 const sharp = require('sharp');
 
@@ -464,6 +465,183 @@ async function publicarProdutoInstagram(produto, requestId) {
   }
 }
 
+
+async function gerarArteFeedFacebook(produto) {
+  const fotoBuffer = await baixarImagemPublica(produto.foto);
+  const largura = 1080;
+  const altura = 1350;
+  const margem = 58;
+  const topoImagem = 56;
+  const larguraImagem = largura - (margem * 2);
+  const alturaImagem = 900;
+
+  const fotoTratada = await sharp(fotoBuffer, { animated: false })
+    .rotate()
+    .resize({
+      width: larguraImagem,
+      height: alturaImagem,
+      fit: 'contain',
+      background: { r: 255, g: 255, b: 255, alpha: 1 },
+      withoutEnlargement: false,
+    })
+    .jpeg({ quality: 92, mozjpeg: true })
+    .toBuffer();
+
+  const linhasNome = quebrarTexto(produto.nome, 31, 3);
+  const inicioNome = 1010;
+  const espacamento = 52;
+  const nomeSvg = linhasNome.map((linha, index) => (
+    `<text x="540" y="${inicioNome + (index * espacamento)}" text-anchor="middle" `
+      + 'font-family="Arial, Helvetica, sans-serif" font-size="42" font-weight="700" fill="#111827">'
+      + `${escaparSvg(linha)}</text>`
+  )).join('');
+  const yPreco = inicioNome + (linhasNome.length * espacamento) + 62;
+
+  const overlay = Buffer.from(`
+    <svg width="${largura}" height="${altura}" xmlns="http://www.w3.org/2000/svg">
+      <rect width="1080" height="1350" fill="#ffffff"/>
+      <rect x="36" y="36" width="1008" height="930" rx="28" fill="#ffffff" stroke="#e5e7eb" stroke-width="3"/>
+      ${nomeSvg}
+      <text x="540" y="${yPreco}" text-anchor="middle"
+        font-family="Arial, Helvetica, sans-serif" font-size="72" font-weight="800" fill="#111827">${escaparSvg(produto.preco_formatado)}</text>
+      <text x="540" y="1310" text-anchor="middle"
+        font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700" letter-spacing="2" fill="#6b7280">ALUMÍNIO JR</text>
+    </svg>
+  `);
+
+  return sharp({
+    create: {
+      width: largura,
+      height: altura,
+      channels: 3,
+      background: '#ffffff',
+    },
+  })
+    .composite([
+      { input: overlay, left: 0, top: 0 },
+      { input: fotoTratada, left: margem, top: topoImagem },
+    ])
+    .jpeg({ quality: 92, mozjpeg: true })
+    .toBuffer();
+}
+
+async function publicarProdutoFacebookStory(produto, requestId) {
+  const diagnostico = facebookService.diagnosticarConfiguracao();
+  if (!diagnostico.configurado) {
+    throw new Error(`Facebook não configurado. Configure: ${diagnostico.faltando.join(', ')}.`);
+  }
+
+  let temporario = null;
+  try {
+    const buffer = await gerarArteStoryInstagram(produto);
+    temporario = await cloudflareR2Service.uploadBuffer(buffer, {
+      pasta: 'ofertas',
+      nome: `status-facebook-story-produto-${produto.id}-${requestId}.jpg`,
+      contentType: 'image/jpeg',
+      metadata: {
+        produto_id: produto.id,
+        destino: 'status-facebook-story',
+      },
+    });
+    return await facebookService.publicarStoryImagem({ imageUrl: temporario.url });
+  } finally {
+    if (temporario?.key) {
+      try {
+        await cloudflareR2Service.excluirObjeto(temporario.key);
+      } catch (error) {
+        console.error('[Status/Facebook] Falha ao excluir imagem temporária do Story:', limitarErroPublicacao(error));
+      }
+    }
+  }
+}
+
+function montarTextoCategoriaFacebook(categoria, produtos, indiceGrupo, totalGrupos) {
+  const cabecalhoGrupo = totalGrupos > 1 ? ` — ${indiceGrupo + 1}/${totalGrupos}` : '';
+  return [
+    `OFERTAS — ${categoria.nome}${cabecalhoGrupo}`,
+    '',
+    ...produtos.map(produto => `• ${produto.nome} — ${produto.preco_formatado}`),
+    '',
+    'Alumínio JR',
+  ].join('\n');
+}
+
+async function publicarGrupoCategoriaFacebook(categoria, produtos, indiceGrupo, totalGrupos, requestId) {
+  const temporarios = [];
+  try {
+    for (const produto of produtos) {
+      const buffer = await gerarArteFeedFacebook(produto);
+      const temporario = await cloudflareR2Service.uploadBuffer(buffer, {
+        pasta: 'ofertas',
+        nome: `facebook-carrossel-${categoria.id}-${produto.id}-${requestId}.jpg`,
+        contentType: 'image/jpeg',
+        metadata: {
+          categoria_id: categoria.id,
+          produto_id: produto.id,
+          destino: 'facebook-feed-carrossel',
+        },
+      });
+      temporarios.push(temporario);
+    }
+
+    const mensagem = montarTextoCategoriaFacebook(categoria, produtos, indiceGrupo, totalGrupos);
+    const resultado = await facebookService.publicarFeedCarrossel({
+      imageUrls: temporarios.map(item => item.url),
+      message: mensagem,
+    });
+    return { ...resultado, mensagem, produtos: produtos.map(p => p.id) };
+  } finally {
+    for (const temporario of temporarios) {
+      try {
+        await cloudflareR2Service.excluirObjeto(temporario.key);
+      } catch (error) {
+        console.error('[Status/Facebook] Falha ao excluir imagem temporária do carrossel:', limitarErroPublicacao(error));
+      }
+    }
+  }
+}
+
+async function publicarCategoriaFacebook({ requestId, categoriaId }) {
+  const idRequisicao = normalizarRequestId(requestId);
+  const idCategoria = normalizarId(categoriaId, 'Categoria');
+  const chave = `${idRequisicao}:facebook-feed-categoria:${idCategoria}`;
+
+  return executarCanalIdempotente(chave, async () => {
+    const diagnostico = facebookService.diagnosticarConfiguracao();
+    if (!diagnostico.configurado) {
+      throw new Error(`Facebook não configurado. Configure: ${diagnostico.faltando.join(', ')}.`);
+    }
+
+    const dados = await listarProdutosPorCategoria(idCategoria);
+    const publicaveis = dados.produtos.filter(produto => produto.publicavel);
+    if (!publicaveis.length) throw new Error('A categoria não possui produtos publicáveis no Facebook.');
+
+    const limite = facebookService.MAX_FOTOS_CARROSSEL || 10;
+    const grupos = [];
+    for (let i = 0; i < publicaveis.length; i += limite) grupos.push(publicaveis.slice(i, i + limite));
+
+    const posts = [];
+    for (let i = 0; i < grupos.length; i += 1) {
+      posts.push(await publicarGrupoCategoriaFacebook(
+        dados.categoria,
+        grupos[i],
+        i,
+        grupos.length,
+        idRequisicao
+      ));
+    }
+
+    return {
+      success: true,
+      status: 'publicado',
+      categoria: dados.categoria,
+      total_produtos: publicaveis.length,
+      total_posts: posts.length,
+      posts,
+    };
+  });
+}
+
 async function executarCanalIdempotente(chave, executar) {
   const existente = requisicoesEmAndamento.get(chave);
   if (existente) {
@@ -510,10 +688,9 @@ async function publicarProdutoNoStatus({ requestId, produtoId, categoriaId }) {
   const produto = await buscarProdutoParaEnvio(idProduto, idCategoria);
   const legenda = formatarLegendaProduto(produto.nome, produto.preco);
 
-  // Cada canal possui sua própria chave de idempotência. Se WhatsApp publicar e
-  // Instagram falhar (ou o inverso), o reenvio reaproveita o sucesso e tenta
-  // novamente somente o canal que falhou, sem duplicar a publicação anterior.
-  const [whatsappSettled, instagramSettled] = await Promise.allSettled([
+  // Cada Story/canal possui idempotência independente. Reenviar uma falha não
+  // duplica os canais que já deram certo enquanto a chave estiver no cache.
+  const [whatsappSettled, instagramSettled, facebookStorySettled] = await Promise.allSettled([
     executarCanalIdempotente(`${idRequisicao}:status:whatsapp`, async () => {
       const resultado = await zapiService.enviarImagemStatus({
         imagem: produto.foto,
@@ -530,15 +707,24 @@ async function publicarProdutoNoStatus({ requestId, produtoId, categoriaId }) {
         api_version: resultado.api_version,
       };
     }),
+    executarCanalIdempotente(`${idRequisicao}:status:facebook-story`, async () => {
+      const resultado = await publicarProdutoFacebookStory(produto, idRequisicao);
+      return {
+        post_id: resultado.post_id,
+        photo_id: resultado.photo_id,
+        api_version: resultado.api_version,
+      };
+    }),
   ]);
 
   const whatsapp = resultadoCanal(whatsappSettled, 'whatsapp');
   const instagram = resultadoCanal(instagramSettled, 'instagram');
-  const whatsappOk = whatsapp.status === 'publicado';
-  const instagramOk = instagram.status === 'publicado';
-  const statusGeral = whatsappOk && instagramOk
+  const facebookStory = resultadoCanal(facebookStorySettled, 'facebook_story');
+  const canaisLista = [whatsapp, instagram, facebookStory];
+  const publicados = canaisLista.filter(canal => canal.status === 'publicado').length;
+  const statusGeral = publicados === canaisLista.length
     ? 'publicado'
-    : (whatsappOk || instagramOk ? 'parcial' : 'erro');
+    : (publicados > 0 ? 'parcial' : 'erro');
 
   return {
     success: statusGeral === 'publicado',
@@ -555,10 +741,9 @@ async function publicarProdutoNoStatus({ requestId, produtoId, categoriaId }) {
       foto: produto.foto,
     },
     legenda,
-    canais: { whatsapp, instagram },
-    // Compatibilidade com consumidores antigos que eventualmente leiam data.zapi.
+    canais: { whatsapp, instagram, facebook_story: facebookStory },
     zapi: whatsapp.zapi || null,
-    repetida: Boolean(whatsapp.repetida && instagram.repetida),
+    repetida: Boolean(whatsapp.repetida && instagram.repetida && facebookStory.repetida),
   };
 }
 
@@ -568,4 +753,5 @@ module.exports = {
   listarProdutosPorCategoria,
   enviarProduto,
   publicarProdutoNoStatus,
+  publicarCategoriaFacebook,
 };

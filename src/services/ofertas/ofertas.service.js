@@ -6,6 +6,7 @@ const arteOfertaService = require('./arteOferta.service');
 const cloudflareR2Service = require('../cloudflare/cloudflareR2.service');
 const zapiService = require('../integracoes/zapi.service');
 const instagramService = require('../integracoes/instagram.service');
+const facebookService = require('../integracoes/facebook.service');
 
 function numeroPositivo(valor, nome) {
   const numero = Number(valor);
@@ -71,6 +72,14 @@ function normalizarLinhaOferta(row) {
     instagram_media_id: row.instagram_media_id || null,
     instagram_container_id: row.instagram_container_id || null,
     instagram_erro: row.instagram_erro || null,
+    facebook_story_status: row.facebook_story_status || 'nao_publicado',
+    facebook_story_publicado_em: row.facebook_story_publicado_em || null,
+    facebook_story_post_id: row.facebook_story_post_id || null,
+    facebook_story_erro: row.facebook_story_erro || null,
+    facebook_feed_status: row.facebook_feed_status || 'nao_publicado',
+    facebook_feed_publicado_em: row.facebook_feed_publicado_em || null,
+    facebook_feed_post_id: row.facebook_feed_post_id || null,
+    facebook_feed_erro: row.facebook_feed_erro || null,
     arte_dinamica: true,
     imagem_armazenada: false,
   };
@@ -437,6 +446,88 @@ async function publicarStoryInstagram(oferta, buffer) {
   }
 }
 
+function formatarMoeda(valor) {
+  return Number(valor || 0).toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).replace(/\u00a0/g, ' ');
+}
+
+function montarTextoFacebookOferta(oferta, link) {
+  const precoMedio = formatarMoeda(oferta.preco_medio);
+  const linhasItens = (oferta.itens || []).map((item) => {
+    const quantidade = Number(item.quantidade || 0);
+    return `• ${quantidade}x ${item.nome} — preço médio ${precoMedio} por peça`;
+  });
+
+  return [
+    oferta.titulo || 'Oferta Alumínio JR',
+    '',
+    `PREÇO MÉDIO POR PEÇA: ${precoMedio}`,
+    '',
+    'ITENS DO KIT:',
+    ...linhasItens,
+    '',
+    `Total do kit: ${formatarMoeda(oferta.total)}`,
+    `Quantidade de peças: ${Number(oferta.total_itens || 0)}`,
+    '',
+    link,
+  ].join('\n');
+}
+
+async function publicarFacebookComArte(oferta, buffer, destino, publicar) {
+  const diagnostico = facebookService.diagnosticarConfiguracao();
+  if (!diagnostico.configurado) {
+    return {
+      status: 'nao_configurado',
+      configurado: false,
+      faltando: diagnostico.faltando,
+      erro: `Configure no Render: ${diagnostico.faltando.join(', ')}.`,
+    };
+  }
+
+  let temporario = null;
+  try {
+    temporario = await cloudflareR2Service.uploadBuffer(buffer, {
+      pasta: 'ofertas',
+      nome: `facebook-${destino}-${oferta.codigo}.jpg`,
+      contentType: 'image/jpeg',
+      metadata: {
+        oferta_id: oferta.id,
+        codigo: oferta.codigo,
+        destino: `facebook-${destino}`,
+      },
+    });
+
+    const resultado = await publicar(temporario.url);
+    return { ...resultado, configurado: true, imagem_temporaria: temporario.url };
+  } finally {
+    if (temporario?.key) {
+      try {
+        await cloudflareR2Service.excluirObjeto(temporario.key);
+      } catch (error) {
+        console.error(`[Central de Ofertas] Falha ao excluir arte temporária do Facebook (${destino}):`, limitarErroPublicacao(error));
+      }
+    }
+  }
+}
+
+async function publicarStoryFacebook(oferta, buffer) {
+  return publicarFacebookComArte(oferta, buffer, 'story', imageUrl => (
+    facebookService.publicarStoryImagem({ imageUrl })
+  ));
+}
+
+async function publicarFeedFacebook(oferta, buffer, link) {
+  const mensagem = montarTextoFacebookOferta(oferta, link);
+  const resultado = await publicarFacebookComArte(oferta, buffer, 'feed', imageUrl => (
+    facebookService.publicarFeedImagem({ imageUrl, message: mensagem })
+  ));
+  return { ...resultado, mensagem };
+}
+
 function normalizarResultadoCanal(settled, canal) {
   if (settled.status === 'fulfilled') {
     const valor = settled.value || {};
@@ -454,17 +545,21 @@ function normalizarResultadoCanal(settled, canal) {
   };
 }
 
-async function salvarResultadoPublicacao(id, whatsapp, instagram) {
-  const algumPublicado = whatsapp.status === 'publicado' || instagram.status === 'publicado';
-  const whatsappErro = whatsapp.status === 'erro' ? whatsapp.erro : null;
-  const instagramErro = ['erro', 'nao_configurado'].includes(instagram.status)
-    ? (instagram.erro || null)
-    : null;
+function canalPublicado(canal) {
+  return canal?.status === 'publicado';
+}
+
+function erroCanal(canal) {
+  return ['erro', 'nao_configurado'].includes(canal?.status) ? (canal.erro || null) : null;
+}
+
+async function salvarResultadoPublicacao(id, whatsapp, instagram, facebookStory, facebookFeed) {
+  const algumPublicado = [whatsapp, instagram, facebookStory, facebookFeed].some(canalPublicado);
 
   await pool.query(
     `UPDATE ofertas
      SET status=CASE WHEN $2::boolean THEN 'publicada' ELSE status END,
-         publicado_em=CASE WHEN $3::varchar(24)='publicado' THEN NOW() ELSE publicado_em END,
+         publicado_em=CASE WHEN $2::boolean THEN COALESCE(publicado_em, NOW()) ELSE publicado_em END,
          whatsapp_status=$3::varchar(24),
          whatsapp_publicado_em=CASE WHEN $3::varchar(24)='publicado' THEN NOW() ELSE whatsapp_publicado_em END,
          whatsapp_erro=$4::text,
@@ -473,6 +568,14 @@ async function salvarResultadoPublicacao(id, whatsapp, instagram) {
          instagram_media_id=COALESCE($6::text, instagram_media_id),
          instagram_container_id=COALESCE($7::text, instagram_container_id),
          instagram_erro=$8::text,
+         facebook_story_status=$9::varchar(24),
+         facebook_story_publicado_em=CASE WHEN $9::varchar(24)='publicado' THEN NOW() ELSE facebook_story_publicado_em END,
+         facebook_story_post_id=COALESCE($10::text, facebook_story_post_id),
+         facebook_story_erro=$11::text,
+         facebook_feed_status=$12::varchar(24),
+         facebook_feed_publicado_em=CASE WHEN $12::varchar(24)='publicado' THEN NOW() ELSE facebook_feed_publicado_em END,
+         facebook_feed_post_id=COALESCE($13::text, facebook_feed_post_id),
+         facebook_feed_erro=$14::text,
          imagem_url=NULL,
          r2_key=NULL,
          updated_at=NOW()
@@ -481,11 +584,17 @@ async function salvarResultadoPublicacao(id, whatsapp, instagram) {
       id,
       algumPublicado,
       whatsapp.status,
-      whatsappErro,
+      whatsapp.status === 'erro' ? whatsapp.erro : null,
       instagram.status,
       instagram.media_id || null,
       instagram.container_id || null,
-      instagramErro,
+      erroCanal(instagram),
+      facebookStory.status,
+      facebookStory.post_id || null,
+      erroCanal(facebookStory),
+      facebookFeed.status,
+      facebookFeed.post_id || null,
+      erroCanal(facebookFeed),
     ]
   );
 }
@@ -495,27 +604,35 @@ async function publicar(id, baseUrl) {
   const link = `${basePublica(baseUrl)}/ofertas/${encodeURIComponent(oferta.codigo)}`;
   const legenda = link;
 
-  // Os dois canais usam exatamente o mesmo buffer gerado nesta chamada.
-  // Uma falha em um canal não cancela o outro.
+  // Uma única arte é gerada. Os quatro destinos são independentes: uma falha
+  // não cancela os canais que já conseguiram publicar.
   const resultados = await Promise.allSettled([
     zapiService.enviarImagemStatus({ imagem: imagemBase64(buffer), legenda }),
     publicarStoryInstagram(oferta, buffer),
+    publicarStoryFacebook(oferta, buffer),
+    publicarFeedFacebook(oferta, buffer, link),
   ]);
 
   const whatsapp = normalizarResultadoCanal(resultados[0], 'whatsapp');
   const instagram = normalizarResultadoCanal(resultados[1], 'instagram');
+  const facebookStory = normalizarResultadoCanal(resultados[2], 'facebook_story');
+  const facebookFeed = normalizarResultadoCanal(resultados[3], 'facebook_feed');
 
-  if (whatsapp.status === 'publicado') {
-    whatsapp.zapi = resultados[0].value?.zapi || null;
-  }
+  if (canalPublicado(whatsapp)) whatsapp.zapi = resultados[0].value?.zapi || null;
 
-  await salvarResultadoPublicacao(id, whatsapp, instagram);
+  await salvarResultadoPublicacao(id, whatsapp, instagram, facebookStory, facebookFeed);
 
-  const algumPublicado = whatsapp.status === 'publicado' || instagram.status === 'publicado';
+  const canais = { whatsapp, instagram, facebook_story: facebookStory, facebook_feed: facebookFeed };
+  const listaCanais = Object.values(canais);
+  const algumPublicado = listaCanais.some(canalPublicado);
+  const publicacaoCompleta = listaCanais.every(canalPublicado);
+
   if (!algumPublicado) {
     const detalhes = [
       `WhatsApp: ${whatsapp.erro || whatsapp.status}`,
       `Instagram: ${instagram.erro || instagram.status}`,
+      `Facebook Story: ${facebookStory.erro || facebookStory.status}`,
+      `Facebook Feed: ${facebookFeed.erro || facebookFeed.status}`,
     ].join(' | ');
     throw new Error(`Não foi possível publicar a oferta. ${detalhes}`);
   }
@@ -524,12 +641,13 @@ async function publicar(id, baseUrl) {
     oferta: await buscarPorId(id),
     link,
     legenda,
-    publicacao_completa: whatsapp.status === 'publicado' && instagram.status === 'publicado',
-    publicacao_parcial: !(whatsapp.status === 'publicado' && instagram.status === 'publicado'),
-    canais: { whatsapp, instagram },
-    // Mantido por compatibilidade com telas/integrações que já liam resultado.zapi.
+    publicacao_completa: publicacaoCompleta,
+    publicacao_parcial: !publicacaoCompleta,
+    canais,
     zapi: whatsapp.zapi || null,
-    instagram: instagram.status === 'publicado' ? instagram : null,
+    instagram: canalPublicado(instagram) ? instagram : null,
+    facebook_story: canalPublicado(facebookStory) ? facebookStory : null,
+    facebook_feed: canalPublicado(facebookFeed) ? facebookFeed : null,
   };
 }
 

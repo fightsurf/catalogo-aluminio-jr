@@ -78,10 +78,10 @@ async function publicarProdutoNoStatus(req, res) {
 
     const mensagens = {
       publicado: data.repetida
-        ? 'Publicação no WhatsApp e Instagram já processada anteriormente.'
-        : 'Produto publicado no Status do WhatsApp e no Story do Instagram.',
+        ? 'Publicação nos Stories do WhatsApp, Instagram e Facebook já processada anteriormente.'
+        : 'Produto publicado no Status do WhatsApp e nos Stories do Instagram e Facebook.',
       parcial: 'Produto publicado em apenas um dos canais. O canal com falha pode ser reenviado sem duplicar o que já deu certo.',
-      erro: 'Não foi possível publicar o produto no WhatsApp nem no Instagram.',
+      erro: 'Não foi possível publicar o produto no WhatsApp, Instagram nem Facebook Story.',
     };
 
     return res.status(200).json({
@@ -90,10 +90,34 @@ async function publicarProdutoNoStatus(req, res) {
       data,
     });
   } catch (error) {
-    console.error('Erro ao publicar produto no Status do WhatsApp/Instagram:', error);
+    console.error('Erro ao publicar produto no WhatsApp/Instagram/Facebook Story:', error);
     return res.status(502).json({
       success: false,
-      message: 'Erro ao processar a publicação do produto no WhatsApp/Instagram.',
+      message: 'Erro ao processar a publicação do produto no WhatsApp/Instagram/Facebook.',
+      error: error.message,
+    });
+  }
+}
+
+async function publicarCategoriaFacebook(req, res) {
+  try {
+    const data = await statusWhatsappService.publicarCategoriaFacebook({
+      requestId: req.body.requestId,
+      categoriaId: req.body.categoriaId,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: data.repetida
+        ? 'Carrossel da categoria já publicado anteriormente no Facebook.'
+        : 'Categoria publicada em carrossel no feed do Facebook.',
+      data,
+    });
+  } catch (error) {
+    console.error('Erro ao publicar categoria no feed do Facebook:', error);
+    return res.status(502).json({
+      success: false,
+      message: 'Erro ao publicar a categoria no feed do Facebook.',
       error: error.message,
     });
   }
@@ -105,4 +129,5 @@ module.exports = {
   listarProdutos,
   enviarProduto,
   publicarProdutoNoStatus,
+  publicarCategoriaFacebook,
 };

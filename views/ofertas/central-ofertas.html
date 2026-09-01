@@ -100,7 +100,7 @@
 
       <div class="grupo-acoes">
         <h3>Publicação</h3>
-        <button id="publicar" type="button">Publicar WhatsApp + Instagram</button>
+        <button id="publicar" type="button">Publicar WhatsApp + Instagram + Facebook</button>
       </div>
 
       <div class="grupo-acoes">
@@ -530,31 +530,25 @@ function rotuloStatusCanal(status) {
 }
 
 function resumoCanaisOferta(oferta) {
-  return `WhatsApp: ${rotuloStatusCanal(oferta?.whatsapp_status)} · Instagram: ${rotuloStatusCanal(oferta?.instagram_status)}`;
+  return `WhatsApp: ${rotuloStatusCanal(oferta?.whatsapp_status)} · Instagram: ${rotuloStatusCanal(oferta?.instagram_status)} · Facebook Story: ${rotuloStatusCanal(oferta?.facebook_story_status)} · Facebook Feed: ${rotuloStatusCanal(oferta?.facebook_feed_status)}`;
 }
 
 function resumoResultadoPublicacao(resultado, incluirLink = true) {
-  const whatsapp = resultado?.canais?.whatsapp || {};
-  const instagram = resultado?.canais?.instagram || {};
-  const waOk = whatsapp.status === 'publicado';
-  const igOk = instagram.status === 'publicado';
+  const definicoes = [
+    ['whatsapp', 'WhatsApp'],
+    ['instagram', 'Instagram'],
+    ['facebook_story', 'Facebook Story'],
+    ['facebook_feed', 'Facebook Feed'],
+  ];
+  const partes = definicoes.map(([chave, rotulo]) => {
+    const canal = resultado?.canais?.[chave] || {};
+    if (canal.status === 'publicado') return `${rotulo}: publicado`;
+    return `${rotulo}: ${canal.erro || rotuloStatusCanal(canal.status)}`;
+  });
+  const publicados = definicoes.filter(([chave]) => resultado?.canais?.[chave]?.status === 'publicado').length;
   const link = incluirLink && resultado?.link ? ` Link público: ${resultado.link}` : '';
-
-  if (waOk && igOk) {
-    return { tipo: 'sucesso', texto: `Publicado no Status do WhatsApp e no Story do Instagram.${link}` };
-  }
-
-  if (waOk) {
-    const detalhe = instagram.erro || rotuloStatusCanal(instagram.status);
-    return { tipo: 'normal', texto: `WhatsApp publicado. Instagram: ${detalhe}.${link}` };
-  }
-
-  if (igOk) {
-    const detalhe = whatsapp.erro || rotuloStatusCanal(whatsapp.status);
-    return { tipo: 'normal', texto: `Instagram publicado. WhatsApp: ${detalhe}.${link}` };
-  }
-
-  return { tipo: 'erro', texto: 'A publicação não foi concluída em nenhum canal.' };
+  const tipo = publicados === definicoes.length ? 'sucesso' : (publicados > 0 ? 'normal' : 'erro');
+  return { tipo, texto: `${partes.join(' · ')}.${link}` };
 }
 
 async function publicarOferta() {
@@ -565,7 +559,7 @@ async function publicarOferta() {
 
   try {
     bloquear(true);
-    mostrarAviso('Recriando a arte e publicando no WhatsApp e no Instagram...', 'normal', true);
+    mostrarAviso('Recriando a arte e publicando no WhatsApp, Instagram e Facebook...', 'normal', true);
     const resultado = await api(`/api/ofertas/${ofertaAtual.id}/publicar`, { method: 'POST' });
     atualizarPainelOferta(resultado.oferta);
     const resumo = resumoResultadoPublicacao(resultado);

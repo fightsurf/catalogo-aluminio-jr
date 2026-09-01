@@ -195,12 +195,12 @@
 
       <div class="actions">
         <button id="enviarClienteBtn" type="button" class="btn btn-primary" disabled>Enviar categoria para o WhatsApp do cliente</button>
-        <button id="publicarStatusBtn" type="button" class="btn btn-outline" disabled>Publicar categoria no WhatsApp + Instagram</button>
+        <button id="publicarStatusBtn" type="button" class="btn btn-outline" disabled>Publicar categoria no WhatsApp + Instagram + Facebook</button>
         <button id="reenviarFalhasBtn" type="button" class="btn btn-outline" hidden>Reenviar falhas</button>
       </div>
 
       <p class="note">
-        Para o envio ao cliente, informe o número com DDI e DDD. A publicação da categoria envia cada produto ao Status do WhatsApp e também ao Story do Instagram. No Instagram, nome e preço são inseridos na própria arte. Somente produtos ativos são considerados; produtos sem foto 1, descrição ou preço válido serão mostrados, mas não serão enviados.
+        Para o envio ao cliente, informe o número com DDI e DDD. A publicação da categoria envia cada produto ao Status do WhatsApp, ao Story do Instagram e ao Story do Facebook. Ao final, todos os itens publicáveis da categoria também são agrupados em um carrossel no feed da página Alumínio JR no Facebook. Se houver mais de 10 itens, o sistema divide automaticamente em mais de um carrossel. Nome e preço são inseridos nas artes. Somente produtos ativos são considerados; produtos sem foto 1, descrição ou preço válido serão mostrados, mas não serão enviados.
       </p>
     </section>
 
@@ -256,6 +256,8 @@
     let categoriaAtual = null;
     let processando = false;
     let ultimoDestino = '';
+    let facebookFeedCategoria = null;
+    let facebookFeedRequestId = '';
 
     function escaparHtml(valor) {
       return String(valor ?? '')
@@ -313,11 +315,11 @@
       if (!produto.publicavel) return produto.motivo || 'Produto ignorado.';
       if (produto.estado === 'sending') {
         return produto.destino === 'status'
-          ? 'Publicando no WhatsApp e Instagram...'
+          ? 'Publicando no WhatsApp, Instagram e Facebook Story...'
           : 'Enviando ao cliente...';
       }
       if (produto.destino === 'status' && produto.canais) {
-        return `${resumoCanal(produto.canais.whatsapp, 'WhatsApp')} · ${resumoCanal(produto.canais.instagram, 'Instagram')}`;
+        return `${resumoCanal(produto.canais.whatsapp, 'WhatsApp')} · ${resumoCanal(produto.canais.instagram, 'Instagram')} · ${resumoCanal(produto.canais.facebook_story, 'Facebook Story')}`;
       }
       if (produto.estado === 'success') {
         if (produto.repetida) return 'Já processado; não foi duplicado.';
@@ -331,6 +333,9 @@
     function atualizarBotoes() {
       const publicaveis = produtos.filter((produto) => produto.publicavel);
       const falhas = produtos.filter((produto) => ['error', 'partial'].includes(produto.estado));
+      const falhaFeedFacebook = ultimoDestino === 'status'
+        && facebookFeedCategoria
+        && facebookFeedCategoria.status !== 'publicado';
       const categoriaSelecionada = Boolean(categoriaEl.value);
       const telefoneValido = normalizarTelefone(telefoneEl.value).length >= 10;
       const semProdutos = publicaveis.length === 0;
@@ -341,10 +346,10 @@
       categoriaEl.disabled = processando;
       telefoneEl.disabled = processando;
       intervaloEl.disabled = processando;
-      reenviarFalhasBtn.hidden = falhas.length === 0 || !ultimoDestino;
+      reenviarFalhasBtn.hidden = (falhas.length === 0 && !falhaFeedFacebook) || !ultimoDestino;
       reenviarFalhasBtn.disabled = processando;
       reenviarFalhasBtn.textContent = ultimoDestino === 'status'
-        ? 'Reenviar falhas WhatsApp/Instagram'
+        ? 'Reenviar falhas dos canais'
         : 'Reenviar falhas para o cliente';
     }
 
@@ -470,6 +475,8 @@
       produtos = [];
       categoriaAtual = null;
       ultimoDestino = '';
+      facebookFeedCategoria = null;
+      facebookFeedRequestId = '';
       progressWrap.classList.remove('show');
       reenviarFalhasBtn.hidden = true;
       esconderFlash();
@@ -555,8 +562,9 @@
           produto.canais = data.canais || null;
           const whatsappOk = produto.canais?.whatsapp?.status === 'publicado';
           const instagramOk = produto.canais?.instagram?.status === 'publicado';
+          const facebookStoryOk = produto.canais?.facebook_story?.status === 'publicado';
 
-          if (whatsappOk && instagramOk) {
+          if (whatsappOk && instagramOk && facebookStoryOk) {
             produto.estado = 'success';
             return true;
           }
@@ -564,8 +572,9 @@
           const erros = [];
           if (!whatsappOk) erros.push(`WhatsApp: ${produto.canais?.whatsapp?.erro || 'falhou'}`);
           if (!instagramOk) erros.push(`Instagram: ${produto.canais?.instagram?.erro || 'falhou'}`);
+          if (!facebookStoryOk) erros.push(`Facebook Story: ${produto.canais?.facebook_story?.erro || 'falhou'}`);
           produto.erro = erros.join(' · ');
-          produto.estado = (whatsappOk || instagramOk) ? 'partial' : 'error';
+          produto.estado = (whatsappOk || instagramOk || facebookStoryOk) ? 'partial' : 'error';
           return false;
         }
 
@@ -580,12 +589,39 @@
       }
     }
 
+    async function publicarCarrosselCategoriaFacebook() {
+      if (!categoriaAtual) throw new Error('Categoria não selecionada.');
+      if (!facebookFeedRequestId) facebookFeedRequestId = `facebook-feed-${criarId()}`;
+
+      const response = await fetch(`${API_BASE}/categoria-facebook`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          requestId: facebookFeedRequestId,
+          categoriaId: categoriaAtual.id,
+        }),
+      });
+      tratarSessao(response);
+      const body = await lerJson(response);
+      if (!response.ok || !body.success) {
+        throw new Error(body.error || body.message || `Erro HTTP ${response.status}`);
+      }
+      return body.data || {};
+    }
+
     function aguardar(ms) {
       return new Promise((resolve) => setTimeout(resolve, ms));
     }
 
     async function processar(listaParaEnviar, destino, confirmar = true) {
-      if (processando || !listaParaEnviar.length || !categoriaAtual) return;
+      const precisaRepetirFeed = destino === 'status'
+        && facebookFeedCategoria
+        && facebookFeedCategoria.status !== 'publicado';
+      if (processando || (!listaParaEnviar.length && !precisaRepetirFeed) || !categoriaAtual) return;
 
       let telefone = '';
       if (destino === 'cliente') {
@@ -600,7 +636,7 @@
 
       if (confirmar) {
         const destinoConfirmacao = destino === 'status'
-          ? 'no Status do WhatsApp e nos Stories do Instagram'
+          ? 'no Status do WhatsApp, nos Stories do Instagram/Facebook e em carrossel no feed do Facebook'
           : `para o WhatsApp ${telefone}`;
         const confirmou = window.confirm(
           `Enviar ${listaParaEnviar.length} produto(s) da categoria “${categoriaAtual.nome}” ${destinoConfirmacao}?`
@@ -609,8 +645,14 @@
       }
 
       esconderFlash();
-      const conectado = await verificarConexao();
-      if (!conectado) return;
+      if (destino === 'cliente') {
+        const conectado = await verificarConexao();
+        if (!conectado) return;
+      } else {
+        // A publicação social é independente: WhatsApp desconectado não deve
+        // impedir Instagram/Facebook. Atualiza apenas o indicador da conexão.
+        await verificarConexao(true);
+      }
 
       processando = true;
       ultimoDestino = destino;
@@ -628,15 +670,15 @@
         produto.destino = destino;
         if (!produto.requestId) produto.requestId = `${loteId}:${produto.id}`;
 
-        const verbo = destino === 'status' ? 'Publicando no WhatsApp + Instagram' : 'Enviando';
+        const verbo = destino === 'status' ? 'Publicando WhatsApp + Instagram + Facebook Story' : 'Enviando';
         progressText.textContent = `${verbo} ${index + 1} de ${listaParaEnviar.length}: ${produto.nome}`;
-        progressFill.style.width = `${Math.round((index / listaParaEnviar.length) * 100)}%`;
+        progressFill.style.width = `${Math.round((index / Math.max(1, listaParaEnviar.length)) * 90)}%`;
 
         const ok = await enviarProduto(produto, loteId, destino, telefone);
         if (ok) sucessos += 1;
         else falhas += 1;
 
-        progressFill.style.width = `${Math.round(((index + 1) / listaParaEnviar.length) * 100)}%`;
+        progressFill.style.width = `${Math.round(((index + 1) / Math.max(1, listaParaEnviar.length)) * 90)}%`;
 
         if (index < listaParaEnviar.length - 1) {
           progressText.textContent = `Produto ${index + 1} de ${listaParaEnviar.length} concluído. Aguardando o próximo envio...`;
@@ -644,15 +686,39 @@
         }
       }
 
+      let feedFalhou = false;
+      if (destino === 'status' && facebookFeedCategoria?.status !== 'publicado') {
+        try {
+          progressText.textContent = `Publicando a categoria “${categoriaAtual.nome}” em carrossel no feed do Facebook...`;
+          progressFill.style.width = '94%';
+          facebookFeedCategoria = await publicarCarrosselCategoriaFacebook();
+          facebookFeedCategoria.status = facebookFeedCategoria.status || 'publicado';
+        } catch (error) {
+          facebookFeedCategoria = { status: 'erro', erro: error.message || 'Falha no carrossel do Facebook.' };
+          feedFalhou = true;
+        }
+      }
+
       processando = false;
-      progressText.textContent = `Concluído: ${sucessos} enviados e ${falhas} com falha.`;
+      progressFill.style.width = '100%';
+      const totalFalhas = falhas + (feedFalhou ? 1 : 0);
+      progressText.textContent = totalFalhas
+        ? `Concluído com ${totalFalhas} falha(s).`
+        : `Concluído: ${sucessos} produto(s) e Facebook Feed publicados.`;
       atualizarBotoes();
       renderizarProdutos();
 
-      if (falhas) {
-        mostrarFlash('erro', `Processo concluído com ${falhas} falha(s). Use o botão de reenvio.`);
+      if (totalFalhas) {
+        const detalheFeed = feedFalhou ? ` Facebook Feed: ${facebookFeedCategoria.erro}` : '';
+        mostrarFlash('erro', `Processo concluído com ${totalFalhas} falha(s).${detalheFeed} Use o botão de reenvio.`);
       } else if (destino === 'status') {
-        mostrarFlash('sucesso', `Todos os ${sucessos} produtos foram publicados no Status do WhatsApp e nos Stories do Instagram.`);
+        const posts = Number(facebookFeedCategoria?.total_posts || 1);
+        const carrosselTexto = posts > 1 ? `${posts} carrosséis` : '1 carrossel';
+        if (listaParaEnviar.length === 0) {
+          mostrarFlash('sucesso', `O feed do Facebook foi reenviado com sucesso em ${carrosselTexto}, sem duplicar os Stories já publicados.`);
+        } else {
+          mostrarFlash('sucesso', `Todos os ${sucessos} produtos foram publicados nos Stories do WhatsApp, Instagram e Facebook; a categoria também foi publicada no feed do Facebook em ${carrosselTexto}.`);
+        }
       } else {
         mostrarFlash('sucesso', `Todos os ${sucessos} produtos foram enviados para o WhatsApp ${telefone}.`);
       }
@@ -660,6 +726,10 @@
 
     function prepararNovoEnvio(destino) {
       const publicaveis = produtos.filter((produto) => produto.publicavel);
+      if (destino === 'status') {
+        facebookFeedCategoria = null;
+        facebookFeedRequestId = `facebook-feed-${criarId()}`;
+      }
       publicaveis.forEach((produto) => {
         produto.estado = 'pending';
         produto.destino = destino;
