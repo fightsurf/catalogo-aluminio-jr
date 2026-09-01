@@ -25,6 +25,8 @@ const semanasLegadoRoutes = require('./src/routes/legado/semanas/semanas.routes'
 const semanasLegadoViewRoutes = require('./src/routes/legado/semanas/semanas.view.routes');
 const pagamentosLegadoRoutes = require('./src/routes/legado/pagamentos/pagamentos.routes');
 const pagamentosLegadoViewRoutes = require('./src/routes/legado/pagamentos/pagamentos.view.routes');
+const chequesLegadoRoutes = require('./src/routes/legado/cheques/cheques.routes');
+const chequesLegadoViewRoutes = require('./src/routes/legado/cheques/cheques.view.routes');
 const clientesCreditosLegadoRoutes = require('./src/routes/legado/clientes-creditos/clientes-creditos.routes');
 const clientesCreditosLegadoViewRoutes = require('./src/routes/legado/clientes-creditos/clientes-creditos.view.routes');
 const vendedoresLegadoRoutes = require('./src/routes/legado/vendedores/vendedores.routes');
@@ -130,6 +132,8 @@ app.use('/api/legado/semanas', semanasLegadoRoutes);
 app.use('/legado/semanas', semanasLegadoViewRoutes);
 app.use('/api/legado/pagamentos', pagamentosLegadoRoutes);
 app.use('/legado/pagamentos', pagamentosLegadoViewRoutes);
+app.use('/api/legado/cheques', chequesLegadoRoutes);
+app.use('/legado/cheques', chequesLegadoViewRoutes);
 app.use('/api/legado/clientes-creditos', clientesCreditosLegadoRoutes);
 app.use('/legado/clientes-creditos', clientesCreditosLegadoViewRoutes);
 app.use('/api/legado/vendedores', vendedoresLegadoRoutes);
