@@ -4,6 +4,8 @@ const DEFAULT_API_VERSION = 'v25.0';
 const DEFAULT_PAGE_ID = '654187744727490';
 const MAX_FOTOS_CARROSSEL = 10;
 
+let pageTokenCache = null;
+
 function normalizarValor(valor) {
   let texto = String(valor ?? '').trim();
   if (
@@ -46,12 +48,17 @@ function getConfig() {
       || DEFAULT_API_VERSION
     ),
     pageId: normalizarValor(process.env.FACEBOOK_PAGE_ID || DEFAULT_PAGE_ID),
-    // O mesmo System User Token validado para o Instagram pode publicar na Página,
-    // desde que o ativo Página esteja atribuído e pages_manage_posts esteja no token.
-    accessToken: normalizarValor(
-      process.env.FACEBOOK_ACCESS_TOKEN
+
+    // Opcional: se houver um Page Access Token explícito, usa diretamente.
+    pageAccessToken: normalizarValor(process.env.FACEBOOK_PAGE_ACCESS_TOKEN || ''),
+
+    // Token estável do System User (aluminiojr bot). É usado para obter o
+    // Page Access Token; NÃO é usado diretamente para postar na Página.
+    sourceAccessToken: normalizarValor(
+      process.env.FACEBOOK_SYSTEM_USER_ACCESS_TOKEN
       || process.env.META_ACCESS_TOKEN
       || process.env.INSTAGRAM_ACCESS_TOKEN
+      || process.env.FACEBOOK_ACCESS_TOKEN
       || ''
     ),
   };
@@ -61,13 +68,16 @@ function diagnosticarConfiguracao() {
   const config = getConfig();
   const faltando = [];
   if (!config.pageId) faltando.push('FACEBOOK_PAGE_ID');
-  if (!config.accessToken) faltando.push('FACEBOOK_ACCESS_TOKEN ou INSTAGRAM_ACCESS_TOKEN');
+  if (!config.pageAccessToken && !config.sourceAccessToken) {
+    faltando.push('FACEBOOK_PAGE_ACCESS_TOKEN ou INSTAGRAM_ACCESS_TOKEN');
+  }
   return {
     configurado: faltando.length === 0,
     faltando,
     page_id: config.pageId,
     api_version: config.apiVersion,
     graph_base_url: config.baseUrl,
+    token_mode: config.pageAccessToken ? 'page_token_direto' : 'page_token_automatico',
   };
 }
 
@@ -100,6 +110,71 @@ async function lerResposta(response) {
 function montarEndpoint(config, recurso) {
   const parte = String(recurso || '').replace(/^\/+/, '');
   return `${config.baseUrl}/${config.apiVersion}/${parte}`;
+}
+
+async function getGraph(config, recurso, accessToken, parametros = {}) {
+  const url = new URL(montarEndpoint(config, recurso));
+  Object.entries(parametros).forEach(([chave, valor]) => {
+    if (valor !== undefined && valor !== null && String(valor) !== '') {
+      url.searchParams.set(chave, String(valor));
+    }
+  });
+  url.searchParams.set('access_token', accessToken);
+
+  let response;
+  try {
+    response = await fetch(url, { method: 'GET' });
+  } catch (error) {
+    throw new Error(`Falha ao conectar à API do Facebook/Meta: ${error.message}`);
+  }
+  return lerResposta(response);
+}
+
+async function obterPageAccessToken(config) {
+  if (config.pageAccessToken) return config.pageAccessToken;
+
+  const chaveCache = `${config.pageId}:${config.sourceAccessToken}`;
+  if (pageTokenCache?.chave === chaveCache && pageTokenCache?.token) {
+    return pageTokenCache.token;
+  }
+
+  let data;
+  try {
+    data = await getGraph(
+      config,
+      config.pageId,
+      config.sourceAccessToken,
+      { fields: 'id,name,access_token' }
+    );
+  } catch (error) {
+    throw new Error(
+      `Não foi possível obter o Page Access Token da Página Alumínio JR usando o token do bot. `
+      + `${error.message}`
+    );
+  }
+
+  const pageToken = normalizarValor(data?.access_token || '');
+  if (!pageToken) {
+    throw new Error(
+      'A Meta reconheceu a Página, mas não retornou um Page Access Token. '
+      + 'Confirme que o usuário do sistema possui acesso total à Página e as permissões '
+      + 'pages_show_list, pages_read_engagement, pages_manage_posts e business_management. '
+      + 'Como alternativa, configure FACEBOOK_PAGE_ACCESS_TOKEN no Render.'
+    );
+  }
+
+  if (data?.id && String(data.id) !== String(config.pageId)) {
+    throw new Error(`A Meta retornou uma Página diferente da configurada (${data.id}).`);
+  }
+
+  pageTokenCache = { chave: chaveCache, token: pageToken };
+  return pageToken;
+}
+
+async function prepararConfigPublicacao() {
+  const config = validarConfiguracao(getConfig());
+  const pageAccessToken = await obterPageAccessToken(config);
+  return { ...config, accessToken: pageAccessToken };
 }
 
 function adicionarParametro(body, chave, valor) {
@@ -150,7 +225,7 @@ async function uploadFotoNaoPublicada(config, imageUrl) {
 }
 
 async function publicarStoryImagem({ imageUrl }) {
-  const config = validarConfiguracao(getConfig());
+  const config = await prepararConfigPublicacao();
   const photoId = await uploadFotoNaoPublicada(config, imageUrl);
   const data = await postGraph(config, `${config.pageId}/photo_stories`, { photo_id: photoId });
   if (data.success !== true && !data.post_id) {
@@ -167,7 +242,7 @@ async function publicarStoryImagem({ imageUrl }) {
 }
 
 async function publicarFeedImagem({ imageUrl, message = '' }) {
-  const config = validarConfiguracao(getConfig());
+  const config = await prepararConfigPublicacao();
   const data = await postGraph(config, `${config.pageId}/photos`, {
     url: validarImageUrl(imageUrl),
     caption: String(message || '').trim(),
@@ -185,7 +260,7 @@ async function publicarFeedImagem({ imageUrl, message = '' }) {
 }
 
 async function publicarFeedCarrossel({ imageUrls, message = '' }) {
-  const config = validarConfiguracao(getConfig());
+  const config = await prepararConfigPublicacao();
   const urls = (Array.isArray(imageUrls) ? imageUrls : [])
     .map(validarImageUrl)
     .filter(Boolean);
@@ -194,7 +269,23 @@ async function publicarFeedCarrossel({ imageUrls, message = '' }) {
   if (urls.length > MAX_FOTOS_CARROSSEL) {
     throw new Error(`O carrossel do Facebook aceita no máximo ${MAX_FOTOS_CARROSSEL} fotos por publicação.`);
   }
-  if (urls.length === 1) return publicarFeedImagem({ imageUrl: urls[0], message });
+  if (urls.length === 1) {
+    const data = await postGraph(config, `${config.pageId}/photos`, {
+      url: urls[0],
+      caption: String(message || '').trim(),
+      published: 'true',
+    });
+    if (!data.id && !data.post_id) throw new Error('A Meta não retornou o ID da publicação no Facebook.');
+    return {
+      success: true,
+      status: 'publicado',
+      photo_id: data.id ? String(data.id) : null,
+      post_id: data.post_id ? String(data.post_id) : (data.id ? String(data.id) : null),
+      total_fotos: 1,
+      api_version: config.apiVersion,
+      page_id: config.pageId,
+    };
+  }
 
   const photoIds = [];
   for (const url of urls) photoIds.push(await uploadFotoNaoPublicada(config, url));
