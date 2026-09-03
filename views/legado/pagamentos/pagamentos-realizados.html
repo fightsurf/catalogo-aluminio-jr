@@ -293,7 +293,7 @@
       <div class="panel-header">
         <div>
           <h2>Filtros</h2>
-          <p class="muted">Deixe as datas vazias para mostrar todo o histórico.</p>
+          <p class="muted">Use qualquer campo isoladamente ou combine vários filtros.</p>
         </div>
       </div>
 
@@ -309,12 +309,27 @@
         </div>
 
         <div class="field field-grow">
-          <label for="buscaTexto">Cliente ou número do pedido</label>
-          <input id="buscaTexto" type="search" placeholder="Digite para filtrar a planilha" />
+          <label for="cliente">Cliente</label>
+          <input id="cliente" type="search" placeholder="Nome ou parte do nome" autocomplete="off" />
+        </div>
+
+        <div class="field">
+          <label for="valorInicial">Valor inicial</label>
+          <input id="valorInicial" type="text" inputmode="decimal" placeholder="R$ 0,00" />
+        </div>
+
+        <div class="field">
+          <label for="valorFinal">Valor final</label>
+          <input id="valorFinal" type="text" inputmode="decimal" placeholder="R$ 0,00" />
+        </div>
+
+        <div class="field">
+          <label for="buscaTexto">Número do pedido</label>
+          <input id="buscaTexto" type="search" placeholder="Filtro rápido na planilha" autocomplete="off" />
         </div>
 
         <div class="actions">
-          <button class="btn-primary" type="button" id="btnFiltrar">Filtrar datas</button>
+          <button class="btn-primary" type="button" id="btnFiltrar">Pesquisar</button>
           <button class="btn-secondary" type="button" id="btnLimpar">Limpar filtros</button>
         </div>
       </div>
@@ -366,6 +381,9 @@
       status: document.getElementById('status'),
       dataInicial: document.getElementById('dataInicial'),
       dataFinal: document.getElementById('dataFinal'),
+      cliente: document.getElementById('cliente'),
+      valorInicial: document.getElementById('valorInicial'),
+      valorFinal: document.getElementById('valorFinal'),
       buscaTexto: document.getElementById('buscaTexto'),
       btnFiltrar: document.getElementById('btnFiltrar'),
       btnLimpar: document.getElementById('btnLimpar'),
@@ -442,9 +460,39 @@
 
       return estado.pagamentos.filter((pagamento) => {
         const numero = normalizarTexto(pagamento.numeroPedido);
-        const cliente = normalizarTexto(pagamento.nomeCliente);
-        return numero.includes(termo) || cliente.includes(termo);
+        return numero.includes(termo);
       });
+    }
+
+    function converterValorMonetario(valor) {
+      const textoOriginal = String(valor ?? '')
+        .trim()
+        .replace(/\s+/g, '')
+        .replace(/[^0-9,.-]/g, '');
+
+      if (!textoOriginal) return null;
+
+      const ultimaVirgula = textoOriginal.lastIndexOf(',');
+      const ultimoPonto = textoOriginal.lastIndexOf('.');
+      let textoNormalizado = textoOriginal;
+
+      if (ultimaVirgula >= 0 && ultimoPonto >= 0) {
+        const separadorDecimal = ultimaVirgula > ultimoPonto ? ',' : '.';
+        const separadorMilhar = separadorDecimal === ',' ? '.' : ',';
+        textoNormalizado = textoOriginal
+          .split(separadorMilhar).join('')
+          .replace(separadorDecimal, '.');
+      } else if (ultimaVirgula >= 0) {
+        textoNormalizado = textoOriginal.replace(/\./g, '').replace(',', '.');
+      } else if (ultimoPonto >= 0) {
+        const partes = textoOriginal.split('.');
+        const casasFinais = partes[partes.length - 1].length;
+        const pontosComoMilhar = partes.length > 2 || casasFinais === 3;
+        textoNormalizado = pontosComoMilhar ? partes.join('') : textoOriginal;
+      }
+
+      const numero = Number(textoNormalizado);
+      return Number.isFinite(numero) && numero >= 0 ? numero : Number.NaN;
     }
 
     function renderizar() {
@@ -477,9 +525,31 @@
 
       const dataInicial = elementos.dataInicial.value;
       const dataFinal = elementos.dataFinal.value;
+      const cliente = elementos.cliente.value.trim();
+      const valorInicialTexto = elementos.valorInicial.value.trim();
+      const valorFinalTexto = elementos.valorFinal.value.trim();
+      const valorInicial = converterValorMonetario(valorInicialTexto);
+      const valorFinal = converterValorMonetario(valorFinalTexto);
 
       if (dataInicial && dataFinal && dataInicial > dataFinal) {
         mostrarStatus('error', 'A data inicial não pode ser maior que a data final.');
+        return;
+      }
+
+      if (Number.isNaN(valorInicial)) {
+        mostrarStatus('error', 'Informe um valor inicial válido.');
+        elementos.valorInicial.focus();
+        return;
+      }
+
+      if (Number.isNaN(valorFinal)) {
+        mostrarStatus('error', 'Informe um valor final válido.');
+        elementos.valorFinal.focus();
+        return;
+      }
+
+      if (valorInicial !== null && valorFinal !== null && valorInicial > valorFinal) {
+        mostrarStatus('error', 'O valor inicial não pode ser maior que o valor final.');
         return;
       }
 
@@ -490,6 +560,9 @@
         const params = new URLSearchParams();
         if (dataInicial) params.set('dataInicial', dataInicial);
         if (dataFinal) params.set('dataFinal', dataFinal);
+        if (cliente) params.set('cliente', cliente);
+        if (valorInicialTexto) params.set('valorInicial', valorInicialTexto);
+        if (valorFinalTexto) params.set('valorFinal', valorFinalTexto);
 
         const sufixo = params.toString() ? `?${params.toString()}` : '';
         const response = await fetch(`/api/legado/pagamentos/realizados${sufixo}`);
@@ -520,11 +593,29 @@
     elementos.btnLimpar.addEventListener('click', () => {
       elementos.dataInicial.value = '';
       elementos.dataFinal.value = '';
+      elementos.cliente.value = '';
+      elementos.valorInicial.value = '';
+      elementos.valorFinal.value = '';
       elementos.buscaTexto.value = '';
       carregarPagamentos();
     });
 
     elementos.buscaTexto.addEventListener('input', renderizar);
+
+    [
+      elementos.dataInicial,
+      elementos.dataFinal,
+      elementos.cliente,
+      elementos.valorInicial,
+      elementos.valorFinal
+    ].forEach((campo) => {
+      campo.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          carregarPagamentos();
+        }
+      });
+    });
 
     carregarPagamentos();
   </script>

@@ -166,13 +166,19 @@ async function excluirPagamentoLegado(codigo, filtros = {}) {
 async function listarPagamentosRealizados(filtros = {}) {
   const params = new URLSearchParams();
 
-  if (filtros.dataInicial || filtros.data_inicial) {
-    params.set('dataInicial', filtros.dataInicial || filtros.data_inicial);
-  }
+  const filtrosPermitidos = {
+    dataInicial: filtros.dataInicial || filtros.data_inicial,
+    dataFinal: filtros.dataFinal || filtros.data_final,
+    cliente: filtros.cliente || filtros.nomeCliente || filtros.nome_cliente,
+    valorInicial: filtros.valorInicial ?? filtros.valor_inicial,
+    valorFinal: filtros.valorFinal ?? filtros.valor_final
+  };
 
-  if (filtros.dataFinal || filtros.data_final) {
-    params.set('dataFinal', filtros.dataFinal || filtros.data_final);
-  }
+  Object.entries(filtrosPermitidos).forEach(([chave, valor]) => {
+    if (valor !== undefined && valor !== null && String(valor).trim() !== '') {
+      params.set(chave, String(valor).trim());
+    }
+  });
 
   const sufixo = params.toString() ? `?${params.toString()}` : '';
   const response = await request(`/api/pagamentos/realizados${sufixo}`);
