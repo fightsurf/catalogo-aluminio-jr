@@ -157,7 +157,17 @@
         return;
       }
 
-      corpo.innerHTML = pedidos.map((pedido) => {
+      const ordenados = [...pedidos].sort((a, b) => {
+        const porExpedicao = String(b.data_expedicao || '').localeCompare(String(a.data_expedicao || ''));
+        if (porExpedicao !== 0) return porExpedicao;
+
+        const porCarrada = String(b.data_carrada || '').localeCompare(String(a.data_carrada || ''));
+        if (porCarrada !== 0) return porCarrada;
+
+        return String(b.numero || '').localeCompare(String(a.numero || ''), 'pt-BR', { numeric: true });
+      });
+
+      corpo.innerHTML = ordenados.map((pedido) => {
         const numero = escapeHtml(pedido.numero || '-');
         const href = `/legado/pedidos?numero=${encodeURIComponent(pedido.numero || '')}`;
 
