@@ -1,4 +1,5 @@
 const legadoBridgeService = require('../legado/legadoBridge.service');
+const clientesCreditosService = require('../legado/clientes-creditos/clientes-creditos.service');
 
 async function carregarPerformanceMensal(filtros = {}) {
   const response = await legadoBridgeService.get('/api/vendas/performance-expedicao', {
@@ -47,12 +48,32 @@ async function listarPedidosSemExpedicaoSemanas(filtros = {}) {
 
 async function listarExpedidosPagamentoPendente() {
   const response = await legadoBridgeService.get('/api/vendas/expedidos-pendentes');
-
-  return response.dados || {
+  const dados = response.dados || {
     periodo: { data_inicial: null, data_final: null, meses: 6 },
     quantidade_pedidos: 0,
     total_pendente: 0,
     pedidos: []
+  };
+
+  const pedidos = Array.isArray(dados.pedidos) ? dados.pedidos : [];
+  if (!pedidos.length) {
+    return dados;
+  }
+
+  // A Baixa para crédito é registrada no PostgreSQL do Render, e não no
+  // Firebird legado. Consultamos todas as chaves de pedido em lote para não
+  // transformar o auto-refresh da tela em consultas individuais por pedido.
+  const chavesBaixadas = await clientesCreditosService.listarChavesPedidosComBaixaParaCredito(pedidos);
+  const pedidosFiltrados = pedidos.filter((pedido) => {
+    const chave = `${Number(pedido?.empresa ?? -1)}:${Number(pedido?.saida)}:${Number(pedido?.pdv ?? 0)}`;
+    return !chavesBaixadas.has(chave);
+  });
+
+  return {
+    ...dados,
+    quantidade_pedidos: pedidosFiltrados.length,
+    total_pendente: Number(pedidosFiltrados.reduce((total, pedido) => total + Number(pedido?.valor || 0), 0).toFixed(2)),
+    pedidos: pedidosFiltrados
   };
 }
 

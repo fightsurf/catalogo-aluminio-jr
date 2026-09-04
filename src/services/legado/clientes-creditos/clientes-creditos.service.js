@@ -261,6 +261,74 @@ class ClientesCreditosService {
     };
   }
 
+  async listarChavesPedidosComBaixaParaCredito(pedidos = [], client = pool) {
+    await this._ensureSchema();
+
+    const chaves = [];
+    const vistas = new Set();
+
+    for (const pedido of Array.isArray(pedidos) ? pedidos : []) {
+      const empresa = Number(pedido?.empresa ?? -1);
+      const saida = Number(pedido?.saida);
+      const pdv = Number(pedido?.pdv ?? 0);
+
+      if (!Number.isInteger(empresa) || !Number.isInteger(saida) || saida <= 0 || !Number.isInteger(pdv)) {
+        continue;
+      }
+
+      const chave = `${empresa}:${saida}:${pdv}`;
+      if (vistas.has(chave)) {
+        continue;
+      }
+
+      vistas.add(chave);
+      chaves.push({ empresa, saida, pdv, chave });
+    }
+
+    if (!chaves.length) {
+      return new Set();
+    }
+
+    const encontradas = new Set();
+    const TAMANHO_LOTE = 400;
+
+    for (let inicio = 0; inicio < chaves.length; inicio += TAMANHO_LOTE) {
+      const lote = chaves.slice(inicio, inicio + TAMANHO_LOTE);
+      const parametros = [];
+      const valoresSql = lote.map((item, indice) => {
+        const base = indice * 3;
+        parametros.push(item.empresa, item.saida, item.pdv);
+        return `($${base + 1}::integer, $${base + 2}::bigint, $${base + 3}::integer)`;
+      }).join(', ');
+
+      const result = await client.query(
+        `
+          WITH pedidos(empresa, saida, pdv) AS (
+            VALUES ${valoresSql}
+          )
+          SELECT DISTINCT
+            lanc.origem_empresa AS empresa,
+            lanc.origem_saida AS saida,
+            lanc.origem_pdv AS pdv
+          FROM pedidos
+          INNER JOIN cliente_credito_lancamentos lanc
+            ON lanc.origem_empresa = pedidos.empresa
+           AND lanc.origem_saida = pedidos.saida
+           AND lanc.origem_pdv = pedidos.pdv
+          WHERE lanc.tipo = 'BAIXA_PARA_CREDITO'
+            AND lanc.cancelado_em IS NULL
+        `,
+        parametros
+      );
+
+      for (const row of result.rows) {
+        encontradas.add(`${Number(row.empresa)}:${Number(row.saida)}:${Number(row.pdv)}`);
+      }
+    }
+
+    return encontradas;
+  }
+
   async buscarBaixaPedido({ empresa = -1, saida, pdv = 0 }, client = pool) {
     await this._ensureSchema();
     if (saida === undefined || saida === null || saida === '') {
