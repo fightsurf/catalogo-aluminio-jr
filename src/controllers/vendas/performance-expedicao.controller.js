@@ -43,8 +43,22 @@ async function listarPedidosSemExpedicaoSemanas(req, res) {
   }
 }
 
+async function listarExpedidosPagamentoPendente(req, res) {
+  try {
+    const data = await service.listarExpedidosPagamentoPendente();
+    return res.json({ success: true, data });
+  } catch (error) {
+    console.error('ERRO EXPEDIDOS COM PAGAMENTO PENDENTE:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Erro ao carregar expedidos com pagamento pendente.'
+    });
+  }
+}
+
 module.exports = {
   carregarPerformanceMensal,
   listarPedidosDoDia,
-  listarPedidosSemExpedicaoSemanas
+  listarPedidosSemExpedicaoSemanas,
+  listarExpedidosPagamentoPendente
 };

@@ -6,6 +6,13 @@ function abrirPaginaPerformanceExpedicao(req, res) {
   );
 }
 
+function abrirPaginaExpedidosPendentes(req, res) {
+  return res.sendFile(
+    path.join(__dirname, '../../../views/vendas/expedidos-pendentes.html')
+  );
+}
+
 module.exports = {
-  abrirPaginaPerformanceExpedicao
+  abrirPaginaPerformanceExpedicao,
+  abrirPaginaExpedidosPendentes
 };

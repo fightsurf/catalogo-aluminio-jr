@@ -45,8 +45,20 @@ async function listarPedidosSemExpedicaoSemanas(filtros = {}) {
   };
 }
 
+async function listarExpedidosPagamentoPendente() {
+  const response = await legadoBridgeService.get('/api/vendas/expedidos-pendentes');
+
+  return response.dados || {
+    periodo: { data_inicial: null, data_final: null, meses: 6 },
+    quantidade_pedidos: 0,
+    total_pendente: 0,
+    pedidos: []
+  };
+}
+
 module.exports = {
   carregarPerformanceMensal,
   listarPedidosDoDia,
-  listarPedidosSemExpedicaoSemanas
+  listarPedidosSemExpedicaoSemanas,
+  listarExpedidosPagamentoPendente
 };
