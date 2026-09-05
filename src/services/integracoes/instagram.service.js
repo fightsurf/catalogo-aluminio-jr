@@ -320,10 +320,15 @@ async function obterStatusContainer(config, containerId) {
 async function aguardarContainer(config, containerId) {
   let ultimo = null;
 
-  // Meta recomenda consultar uma vez por minuto, no máximo por cinco minutos.
-  // O primeiro GET também espera um minuto para não criar uma rajada logo após POST /media.
+  // Mantém o comportamento que já era estável no Status Zap: a primeira
+  // conferência acontece imediatamente após a criação do container.
+  // Se a Meta ainda estiver processando, as novas consultas respeitam o
+  // intervalo conservador (mínimo de 60 s) e o máximo de cinco tentativas.
   for (let tentativa = 1; tentativa <= config.pollAttempts; tentativa += 1) {
-    await aguardar(config.pollIntervalMs);
+    if (tentativa > 1) {
+      await aguardar(config.pollIntervalMs);
+    }
+
     ultimo = await obterStatusContainer(config, containerId);
     const statusCode = String(ultimo?.status_code || '').trim().toUpperCase();
 
@@ -366,8 +371,10 @@ async function publicarStoryImagem({ imageUrl }) {
   const quota = await verificarLimiteAntesDePublicar(config);
   const containerId = await criarContainerStoryImagem(config, imageUrl);
 
-  // Para imagem estática, o fluxo normal da API é criar o container e publicar.
-  // Evitamos um GET de status por produto; o polling conservador fica reservado a vídeo.
+  // Não publicar a imagem antes de a Meta declarar o container pronto.
+  // A retirada desta espera causou os erros 9007/2207027 (Media ID is not
+  // available) e 24/2207006 em parte dos produtos do Status Zap.
+  const processamento = await aguardarContainer(config, containerId);
   const mediaId = await publicarContainer(config, containerId);
 
   return {
@@ -375,7 +382,7 @@ async function publicarStoryImagem({ imageUrl }) {
     status: 'publicado',
     media_id: mediaId,
     container_id: containerId,
-    processamento_status: 'NAO_CONSULTADO',
+    processamento_status: processamento?.status_code || null,
     api_version: config.apiVersion,
     publishing_quota: quota,
   };
