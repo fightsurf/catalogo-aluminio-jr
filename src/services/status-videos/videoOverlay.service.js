@@ -13,6 +13,12 @@ const FPS_SAIDA = 30;
 const DURACAO_MINIMA_SEGUNDOS = 3;
 const DURACAO_MAXIMA_SEGUNDOS = 60;
 
+// A Z-API rejeita Status de vídeo acima de 10 MB. Trabalhamos com margem
+// para não depender da interpretação decimal/binária do limite do provedor.
+const WHATSAPP_LIMITE_SEGURO_BYTES = 9_500_000;
+const WHATSAPP_ALVO_BYTES = 8_800_000;
+const WHATSAPP_AUDIO_BITRATE = 64_000;
+
 const BASE_LARGURA = 1080;
 const BASE_ALTURA = 1920;
 const ESCALA_X = LARGURA / BASE_LARGURA;
@@ -160,6 +166,95 @@ async function obterDuracaoSegundos(caminhoVideo) {
   return Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]);
 }
 
+
+async function tamanhoArquivoBytes(caminho) {
+  const stat = await fs.stat(caminho);
+  return Number(stat.size || 0);
+}
+
+function bitrateWhatsappKbps(duracaoSegundos, fator = 1) {
+  const duracao = Math.max(1, Number(duracaoSegundos || 0));
+  // Reserva 2% para container/metadata. O áudio entra separado na conta.
+  const totalBitsDisponiveis = WHATSAPP_ALVO_BYTES * 8 * 0.98;
+  const videoBps = Math.floor((totalBitsDisponiveis / duracao - WHATSAPP_AUDIO_BITRATE) * fator);
+  // Limites práticos para 720x1280. Vídeos curtos não precisam de bitrate enorme.
+  return Math.max(250, Math.min(3200, Math.floor(videoBps / 1000)));
+}
+
+async function gerarVideoWhatsapp({ caminhoEntrada, duracaoSegundos }) {
+  if (!caminhoEntrada) throw new Error('Vídeo de entrada do WhatsApp não informado.');
+
+  const tamanhoEntrada = await tamanhoArquivoBytes(caminhoEntrada);
+  if (tamanhoEntrada <= WHATSAPP_LIMITE_SEGURO_BYTES) {
+    return {
+      caminho: caminhoEntrada,
+      temporario: false,
+      recomprimido: false,
+      tamanho_bytes: tamanhoEntrada,
+      limite_seguro_bytes: WHATSAPP_LIMITE_SEGURO_BYTES,
+    };
+  }
+
+  let fator = 1;
+  let ultimaSaida = null;
+
+  for (let tentativa = 1; tentativa <= 3; tentativa += 1) {
+    const saida = path.join(os.tmpdir(), `status-video-whatsapp-${Date.now()}-${crypto.randomBytes(6).toString('hex')}.mp4`);
+    ultimaSaida = saida;
+    const bitrateK = bitrateWhatsappKbps(duracaoSegundos, fator);
+
+    await executarFfmpeg([
+      '-y',
+      '-threads', '1',
+      '-i', caminhoEntrada,
+      '-map', '0:v:0',
+      '-map', '0:a?',
+      '-map_metadata', '-1',
+      '-c:v', 'libx264',
+      '-preset', 'ultrafast',
+      '-tune', 'zerolatency',
+      '-threads', '1',
+      '-refs', '1',
+      '-bf', '0',
+      '-b:v', `${bitrateK}k`,
+      '-maxrate', `${bitrateK}k`,
+      '-bufsize', `${bitrateK * 2}k`,
+      '-pix_fmt', 'yuv420p',
+      '-profile:v', 'high',
+      '-level', '4.0',
+      '-c:a', 'aac',
+      '-b:a', '64k',
+      '-ar', '44100',
+      '-movflags', '+faststart',
+      '-shortest',
+      saida,
+    ]);
+
+    const tamanho = await tamanhoArquivoBytes(saida);
+    if (tamanho <= WHATSAPP_LIMITE_SEGURO_BYTES) {
+      return {
+        caminho: saida,
+        temporario: true,
+        recomprimido: true,
+        tamanho_bytes: tamanho,
+        tamanho_original_bytes: tamanhoEntrada,
+        bitrate_video_kbps: bitrateK,
+        limite_seguro_bytes: WHATSAPP_LIMITE_SEGURO_BYTES,
+      };
+    }
+
+    await fs.unlink(saida).catch(() => {});
+    ultimaSaida = null;
+
+    // Ajuste proporcional usando o tamanho realmente obtido, com folga adicional.
+    const proporcao = WHATSAPP_ALVO_BYTES / Math.max(1, tamanho);
+    fator = Math.max(0.35, fator * proporcao * 0.92);
+  }
+
+  if (ultimaSaida) await fs.unlink(ultimaSaida).catch(() => {});
+  throw new Error('Não foi possível reduzir o vídeo para o limite seguro do WhatsApp Status.');
+}
+
 async function gerarVideoFinal({ caminhoEntrada, precoMedio, valorTotal, quantidadeItens }) {
   if (!caminhoEntrada) throw new Error('Vídeo de entrada não informado.');
 
@@ -226,9 +321,13 @@ async function gerarVideoFinal({ caminhoEntrada, precoMedio, valorTotal, quantid
 
 module.exports = {
   gerarVideoFinal,
+  gerarVideoWhatsapp,
+  tamanhoArquivoBytes,
   DURACAO_MINIMA_SEGUNDOS,
   DURACAO_MAXIMA_SEGUNDOS,
   LARGURA,
   ALTURA,
   FPS_SAIDA,
+  WHATSAPP_LIMITE_SEGURO_BYTES,
+  WHATSAPP_ALVO_BYTES,
 };

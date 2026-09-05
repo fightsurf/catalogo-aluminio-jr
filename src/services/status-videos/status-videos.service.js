@@ -202,10 +202,15 @@ function logMemoria(etapa, requestId) {
   console.log('[Status Vídeos] memória', { request_id: requestId, etapa, ...memoriaNode() });
 }
 
+function mb(bytes) {
+  return Math.round((Number(bytes || 0) / 1024 / 1024) * 100) / 100;
+}
+
 async function publicar({ arquivo, requestId, itens: itensBrutos }) {
   if (!arquivo?.path) throw new Error('Selecione o vídeo antes de publicar.');
 
   let videoFinal = null;
+  let videoWhatsapp = null;
 
   try {
     const idRequisicao = normalizarRequestId(requestId);
@@ -222,6 +227,15 @@ async function publicar({ arquivo, requestId, itens: itensBrutos }) {
     });
     logMemoria('depois_ffmpeg', idRequisicao);
 
+    const tamanhoOriginalBytes = Number(arquivo.size || 0) || await videoOverlayService.tamanhoArquivoBytes(arquivo.path);
+    const tamanhoFinalBytes = await videoOverlayService.tamanhoArquivoBytes(videoFinal.caminho);
+    console.log('[Status Vídeos] tamanhos', {
+      request_id: idRequisicao,
+      original_mb: mb(tamanhoOriginalBytes),
+      processado_mb: mb(tamanhoFinalBytes),
+      whatsapp_limite_seguro_mb: mb(videoOverlayService.WHATSAPP_LIMITE_SEGURO_BYTES),
+    });
+
     const r2 = await cloudflareR2Service.uploadArquivoLocal(videoFinal.caminho, {
       pasta: 'status-videos',
       nome: `status-video-${idRequisicao}.mp4`,
@@ -236,8 +250,35 @@ async function publicar({ arquivo, requestId, itens: itensBrutos }) {
     // por polling, não há necessidade de concentrar cinco uploads/processamentos ao mesmo
     // tempo dentro da mesma instância do Render.
     const whatsapp = await executarCanalSeguro(`${idRequisicao}:whatsapp-status`, 'whatsapp', async () => {
-      const r = await zapiService.enviarVideoStatus({ video: r2.url });
-      return { zapi: r.zapi || null };
+      videoWhatsapp = await videoOverlayService.gerarVideoWhatsapp({
+        caminhoEntrada: videoFinal.caminho,
+        duracaoSegundos: videoFinal.duracao_segundos,
+      });
+
+      let urlWhatsapp = r2.url;
+      if (videoWhatsapp.temporario) {
+        const r2Whatsapp = await cloudflareR2Service.uploadArquivoLocal(videoWhatsapp.caminho, {
+          pasta: 'status-videos',
+          nome: `status-video-${idRequisicao}-whatsapp.mp4`,
+          contentType: 'video/mp4',
+          metadata: { request_id: idRequisicao, destino: 'whatsapp-status' },
+        });
+        urlWhatsapp = r2Whatsapp.url;
+      }
+
+      console.log('[Status Vídeos] WhatsApp', {
+        request_id: idRequisicao,
+        recomprimido: videoWhatsapp.recomprimido,
+        tamanho_mb: mb(videoWhatsapp.tamanho_bytes),
+        bitrate_video_kbps: videoWhatsapp.bitrate_video_kbps || null,
+      });
+
+      const r = await zapiService.enviarVideoStatus({ video: urlWhatsapp });
+      return {
+        zapi: r.zapi || null,
+        recomprimido: videoWhatsapp.recomprimido,
+        tamanho_mb: mb(videoWhatsapp.tamanho_bytes),
+      };
     });
 
     const instagram = await executarCanalSeguro(`${idRequisicao}:instagram-story`, 'instagram_story', async () => {
@@ -309,6 +350,11 @@ async function publicar({ arquivo, requestId, itens: itensBrutos }) {
         largura: videoFinal.largura,
         altura: videoFinal.altura,
         fps: videoFinal.fps,
+        tamanho_original_mb: mb(tamanhoOriginalBytes),
+        tamanho_processado_mb: mb(tamanhoFinalBytes),
+        tamanho_whatsapp_mb: videoWhatsapp ? mb(videoWhatsapp.tamanho_bytes) : null,
+        whatsapp_recomprimido: Boolean(videoWhatsapp?.recomprimido),
+        whatsapp_limite_seguro_mb: mb(videoOverlayService.WHATSAPP_LIMITE_SEGURO_BYTES),
       },
       resumo,
       itens,
@@ -317,6 +363,7 @@ async function publicar({ arquivo, requestId, itens: itensBrutos }) {
     };
   } finally {
     await fs.unlink(arquivo.path).catch(() => {});
+    if (videoWhatsapp?.temporario && videoWhatsapp?.caminho) await fs.unlink(videoWhatsapp.caminho).catch(() => {});
     if (videoFinal?.caminho) await fs.unlink(videoFinal.caminho).catch(() => {});
   }
 }
@@ -416,6 +463,8 @@ function diagnostico() {
       fps_saida: videoOverlayService.FPS_SAIDA,
       processamento_assincrono: true,
       fila_unica_ffmpeg: true,
+      whatsapp_limite_seguro_mb: mb(videoOverlayService.WHATSAPP_LIMITE_SEGURO_BYTES),
+      whatsapp_recompressao_automatica: true,
     },
   };
 }

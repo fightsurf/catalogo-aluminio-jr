@@ -208,9 +208,13 @@
       renderCategorias(); renderProdutos();
       const y = bd?.data?.youtube;
       const formato = bd?.data?.video?.formato_saida || 'vertical';
+      const limiteWhatsapp = Number(bd?.data?.video?.whatsapp_limite_seguro_mb || 0);
+      const infoWhatsapp = limiteWhatsapp
+        ? ` · WhatsApp será ajustado automaticamente para até ${limiteWhatsapp.toFixed(1)} MB.`
+        : '';
       els.diagnostico.innerHTML = y?.configurado
-        ? `<strong>YouTube Shorts:</strong> configurado · vídeo final ${esc(formato)} · processamento econômico em memória.`
-        : `<strong>YouTube Shorts:</strong> faltando ${esc((y?.faltando || []).join(', ') || 'configuração')}. WhatsApp/Instagram/Facebook continuarão independentes.`;
+        ? `<strong>YouTube Shorts:</strong> configurado · vídeo final ${esc(formato)} · processamento econômico em memória${esc(infoWhatsapp)}`
+        : `<strong>YouTube Shorts:</strong> faltando ${esc((y?.faltando || []).join(', ') || 'configuração')}. WhatsApp/Instagram/Facebook continuarão independentes${esc(infoWhatsapp)}`;
     } catch (e) {
       els.produtos.innerHTML = `<p style="color:#a11">${esc(e.message)}</p>`;
       els.diagnostico.textContent = 'Falha ao verificar integrações.';
@@ -222,7 +226,11 @@
       whatsapp:'WhatsApp Status', instagram_story:'Instagram Story', facebook_story:'Facebook Story', facebook_feed:'Facebook Feed', youtube_shorts:'YouTube Shorts'
     };
     const canais = data.canais || {};
-    els.resultado.innerHTML = `<strong>Resultado: ${esc(data.status_geral || '-')}</strong>` + Object.entries(nomes).map(([chave,nome]) => {
+    const v = data.video || {};
+    const tamanhos = Number.isFinite(Number(v.tamanho_original_mb))
+      ? `<div class="metadados" style="margin:8px 0">Vídeo: original ${Number(v.tamanho_original_mb).toFixed(2)} MB · após FFmpeg ${Number(v.tamanho_processado_mb || 0).toFixed(2)} MB${v.tamanho_whatsapp_mb !== null && v.tamanho_whatsapp_mb !== undefined ? ` · WhatsApp ${Number(v.tamanho_whatsapp_mb).toFixed(2)} MB${v.whatsapp_recomprimido ? ' (ajustado)' : ''}` : ''}</div>`
+      : '';
+    els.resultado.innerHTML = `<strong>Resultado: ${esc(data.status_geral || '-')}</strong>${tamanhos}` + Object.entries(nomes).map(([chave,nome]) => {
       const c = canais[chave] || {}; const ok = c.status === 'publicado';
       const link = chave === 'youtube_shorts' && c.url ? ` · <a target="_blank" rel="noopener" href="${esc(c.url)}">abrir</a>` : '';
       return `<div class="canal"><div>${nome}${c.erro ? `<div class="detalhe-erro">${esc(c.erro)}</div>`:''}</div><div class="${ok?'status-ok':'status-erro'}">${ok?'publicado':'erro'}${link}</div></div>`;
