@@ -77,6 +77,8 @@ const performanceVendasApiRoutes = require('./src/routes/vendas/performance-vend
 const performanceVendasViewRoutes = require('./src/routes/vendas/performance-vendas.view.routes');
 const performanceExpedicaoApiRoutes = require('./src/routes/vendas/performance-expedicao.routes');
 const performanceExpedicaoViewRoutes = require('./src/routes/vendas/performance-expedicao.view.routes');
+const termometroVendasApiRoutes = require('./src/routes/vendas/termometro-vendas.routes');
+const termometroVendasViewRoutes = require('./src/routes/vendas/termometro-vendas.view.routes');
 const sqlTerminalApiRoutes = require('./src/routes/admin/sql-terminal.routes');
 const sqlTerminalViewRoutes = require('./src/routes/admin/sql-terminal.view.routes');
 const pedidosInsercaoLegadoV2Routes = require('./src/routes/legado/pedidos-insercao-v2/pedidos-insercao-v2.routes');
@@ -144,9 +146,11 @@ app.use('/legado/pedidos-relatorio', pedidosRelatorioViewRoutes);
 app.use('/api/vendas', relatorioAcrescimoApiRoutes);
 app.use('/api/vendas', performanceVendasApiRoutes);
 app.use('/api/vendas', performanceExpedicaoApiRoutes);
+app.use('/api/vendas', termometroVendasApiRoutes);
 app.use('/vendas', relatorioAcrescimoViewRoutes);
 app.use('/vendas', performanceVendasViewRoutes);
 app.use('/vendas', performanceExpedicaoViewRoutes);
+app.use('/vendas', termometroVendasViewRoutes);
 app.use('/api/admin/sql-terminal', requireAuth, sqlTerminalApiRoutes);
 app.use('/admin/sql-terminal', requireAuth, sqlTerminalViewRoutes);
 

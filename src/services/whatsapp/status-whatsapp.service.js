@@ -5,6 +5,7 @@ const instagramService = require('../integracoes/instagram.service');
 const facebookService = require('../integracoes/facebook.service');
 const cloudflareR2Service = require('../cloudflare/cloudflareR2.service');
 const sharp = require('sharp');
+const termometroAparicoesService = require('../termometro/termometroAparicoes.service');
 
 const requisicoesEmAndamento = new Map();
 const TEMPO_CACHE_MS = 30 * 60 * 1000;
@@ -725,6 +726,19 @@ async function publicarProdutoNoStatus({ requestId, produtoId, categoriaId }) {
   const statusGeral = publicados === canaisLista.length
     ? 'publicado'
     : (publicados > 0 ? 'parcial' : 'erro');
+
+  if (publicados > 0) {
+    try {
+      await termometroAparicoesService.registrarStatusZap({
+        requestId: idRequisicao,
+        produto,
+        canais: { whatsapp, instagram, facebook_story: facebookStory },
+      });
+    } catch (error) {
+      // A publicação social não pode falhar por causa do contador do Termômetro.
+      console.error('Erro ao registrar aparição do Status Zap no Termômetro:', error);
+    }
+  }
 
   return {
     success: statusGeral === 'publicado',

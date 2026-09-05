@@ -7,6 +7,7 @@ const cloudflareR2Service = require('../cloudflare/cloudflareR2.service');
 const zapiService = require('../integracoes/zapi.service');
 const instagramService = require('../integracoes/instagram.service');
 const facebookService = require('../integracoes/facebook.service');
+const termometroAparicoesService = require('../termometro/termometroAparicoes.service');
 
 function numeroPositivo(valor, nome) {
   const numero = Number(valor);
@@ -600,6 +601,16 @@ async function salvarResultadoPublicacao(id, whatsapp, instagram, facebookStory,
 }
 
 async function publicar(id, baseUrl) {
+  // Prepara o contador antes de alterar o status da oferta. Isso evita que a
+  // primeira publicação após o patch seja confundida com o backfill histórico.
+  let termometroPreparado = false;
+  try {
+    await termometroAparicoesService.prepararEstrutura();
+    termometroPreparado = true;
+  } catch (error) {
+    console.error('Erro ao preparar o Termômetro antes da publicação da oferta:', error);
+  }
+
   const { oferta, buffer } = await gerarArteBuffer(id);
   const link = `${basePublica(baseUrl)}/ofertas/${encodeURIComponent(oferta.codigo)}`;
   const legenda = link;
@@ -626,6 +637,20 @@ async function publicar(id, baseUrl) {
   const listaCanais = Object.values(canais);
   const algumPublicado = listaCanais.some(canalPublicado);
   const publicacaoCompleta = listaCanais.every(canalPublicado);
+
+  if (algumPublicado && termometroPreparado) {
+    try {
+      const chavePublicacao = `oferta:${id}:${Date.now()}:${crypto.randomBytes(4).toString('hex')}`;
+      await termometroAparicoesService.registrarCentralOfertas({
+        chavePublicacao,
+        oferta,
+        canais,
+      });
+    } catch (error) {
+      // Não derrubar uma publicação que já foi feita nas redes por falha no contador.
+      console.error('Erro ao registrar aparições da Central de Ofertas no Termômetro:', error);
+    }
+  }
 
   if (!algumPublicado) {
     const detalhes = [
