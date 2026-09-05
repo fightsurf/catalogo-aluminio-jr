@@ -1,3 +1,5 @@
+const metaRateLimitService = require('./meta-rate-limit.service');
+
 const DEFAULT_GRAPH_BASE_URL = 'https://graph.facebook.com';
 const DEFAULT_API_VERSION = 'v25.0';
 // Página oficial Alumínio JR. Pode ser sobrescrita no Render por FACEBOOK_PAGE_ID.
@@ -5,6 +7,7 @@ const DEFAULT_PAGE_ID = '654187744727490';
 const MAX_FOTOS_CARROSSEL = 10;
 
 let pageTokenCache = null;
+let pageTokenPromise = null;
 
 function normalizarValor(valor) {
   let texto = String(valor ?? '').trim();
@@ -78,6 +81,7 @@ function diagnosticarConfiguracao() {
     api_version: config.apiVersion,
     graph_base_url: config.baseUrl,
     token_mode: config.pageAccessToken ? 'page_token_direto' : 'page_token_automatico',
+    meta_rate_limit: metaRateLimitService.estado(),
   };
 }
 
@@ -97,13 +101,29 @@ function mensagemErroMeta(data, texto, status) {
   return `Facebook/Meta respondeu ${status}${codigo}${subcodigo}: ${detalhe}`;
 }
 
-async function lerResposta(response) {
+async function lerResposta(response, origem = 'facebook') {
+  const telemetria = metaRateLimitService.registrarResposta({ response, origem });
   const texto = await response.text().catch(() => '');
   let data = null;
   if (texto) {
     try { data = JSON.parse(texto); } catch (_) { data = { raw: texto }; }
   }
-  if (!response.ok || data?.error) throw new Error(mensagemErroMeta(data, texto, response.status));
+  if (!response.ok || data?.error) {
+    const metaErro = metaRateLimitService.registrarErro({ response, data, telemetria, origem });
+    const mensagemBase = mensagemErroMeta(data, texto, response.status);
+    const mensagem = metaErro.rate_limited
+      ? `${mensagemBase}. Meta temporariamente limitada; novas chamadas Meta foram suspensas automaticamente.`
+      : mensagemBase;
+    const error = new Error(mensagem);
+    Object.assign(error, {
+      meta_rate_limited: metaErro.rate_limited,
+      meta_code: metaErro.codigo,
+      meta_subcode: metaErro.subcodigo,
+      fbtrace_id: metaErro.fbtrace_id,
+      retry_after_seconds: metaErro.retry_after_seconds,
+    });
+    throw error;
+  }
   return data || {};
 }
 
@@ -112,7 +132,8 @@ function montarEndpoint(config, recurso) {
   return `${config.baseUrl}/${config.apiVersion}/${parte}`;
 }
 
-async function getGraph(config, recurso, accessToken, parametros = {}) {
+async function getGraph(config, recurso, accessToken, parametros = {}, origem = 'facebook') {
+  metaRateLimitService.verificarDisponibilidade(origem);
   const url = new URL(montarEndpoint(config, recurso));
   Object.entries(parametros).forEach(([chave, valor]) => {
     if (valor !== undefined && valor !== null && String(valor) !== '') {
@@ -127,7 +148,7 @@ async function getGraph(config, recurso, accessToken, parametros = {}) {
   } catch (error) {
     throw new Error(`Falha ao conectar à API do Facebook/Meta: ${error.message}`);
   }
-  return lerResposta(response);
+  return lerResposta(response, origem);
 }
 
 async function obterPageAccessToken(config) {
@@ -137,38 +158,51 @@ async function obterPageAccessToken(config) {
   if (pageTokenCache?.chave === chaveCache && pageTokenCache?.token) {
     return pageTokenCache.token;
   }
+  if (pageTokenPromise?.chave === chaveCache && pageTokenPromise?.promessa) {
+    return pageTokenPromise.promessa;
+  }
 
-  let data;
+  const promessa = (async () => {
+    let data;
+    try {
+      data = await getGraph(
+        config,
+        config.pageId,
+        config.sourceAccessToken,
+        { fields: 'id,name,access_token' },
+        'facebook_page_access_token'
+      );
+    } catch (error) {
+      throw new Error(
+        `Não foi possível obter o Page Access Token da Página Alumínio JR usando o token do bot. `
+        + `${error.message}`
+      );
+    }
+
+    const pageToken = normalizarValor(data?.access_token || '');
+    if (!pageToken) {
+      throw new Error(
+        'A Meta reconheceu a Página, mas não retornou um Page Access Token. '
+        + 'Confirme que o usuário do sistema possui acesso total à Página e as permissões '
+        + 'pages_show_list, pages_read_engagement, pages_manage_posts e business_management. '
+        + 'Como alternativa, configure FACEBOOK_PAGE_ACCESS_TOKEN no Render.'
+      );
+    }
+
+    if (data?.id && String(data.id) !== String(config.pageId)) {
+      throw new Error(`A Meta retornou uma Página diferente da configurada (${data.id}).`);
+    }
+
+    pageTokenCache = { chave: chaveCache, token: pageToken };
+    return pageToken;
+  })();
+
+  pageTokenPromise = { chave: chaveCache, promessa };
   try {
-    data = await getGraph(
-      config,
-      config.pageId,
-      config.sourceAccessToken,
-      { fields: 'id,name,access_token' }
-    );
-  } catch (error) {
-    throw new Error(
-      `Não foi possível obter o Page Access Token da Página Alumínio JR usando o token do bot. `
-      + `${error.message}`
-    );
+    return await promessa;
+  } finally {
+    if (pageTokenPromise?.promessa === promessa) pageTokenPromise = null;
   }
-
-  const pageToken = normalizarValor(data?.access_token || '');
-  if (!pageToken) {
-    throw new Error(
-      'A Meta reconheceu a Página, mas não retornou um Page Access Token. '
-      + 'Confirme que o usuário do sistema possui acesso total à Página e as permissões '
-      + 'pages_show_list, pages_read_engagement, pages_manage_posts e business_management. '
-      + 'Como alternativa, configure FACEBOOK_PAGE_ACCESS_TOKEN no Render.'
-    );
-  }
-
-  if (data?.id && String(data.id) !== String(config.pageId)) {
-    throw new Error(`A Meta retornou uma Página diferente da configurada (${data.id}).`);
-  }
-
-  pageTokenCache = { chave: chaveCache, token: pageToken };
-  return pageToken;
 }
 
 async function prepararConfigPublicacao() {
@@ -189,7 +223,8 @@ function adicionarParametro(body, chave, valor) {
   body.set(chave, String(valor));
 }
 
-async function postGraph(config, recurso, parametros = {}) {
+async function postGraph(config, recurso, parametros = {}, origem = 'facebook') {
+  metaRateLimitService.verificarDisponibilidade(origem);
   const body = new URLSearchParams();
   Object.entries(parametros).forEach(([chave, valor]) => adicionarParametro(body, chave, valor));
   body.set('access_token', config.accessToken);
@@ -204,7 +239,7 @@ async function postGraph(config, recurso, parametros = {}) {
   } catch (error) {
     throw new Error(`Falha ao conectar à API do Facebook/Meta: ${error.message}`);
   }
-  return lerResposta(response);
+  return lerResposta(response, origem);
 }
 
 function validarVideoUrl(videoUrl) {
@@ -215,7 +250,8 @@ function validarVideoUrl(videoUrl) {
   return url;
 }
 
-async function postUploadUrl(uploadUrl, accessToken, videoUrl) {
+async function postUploadUrl(uploadUrl, accessToken, videoUrl, origem = 'facebook_story_video_upload') {
+  metaRateLimitService.verificarDisponibilidade(origem);
   let response;
   try {
     response = await fetch(uploadUrl, {
@@ -228,7 +264,7 @@ async function postUploadUrl(uploadUrl, accessToken, videoUrl) {
   } catch (error) {
     throw new Error(`Falha ao enviar o vídeo para o Facebook: ${error.message}`);
   }
-  return lerResposta(response);
+  return lerResposta(response, origem);
 }
 
 function validarImageUrl(imageUrl) {
@@ -243,7 +279,7 @@ async function uploadFotoNaoPublicada(config, imageUrl) {
   const data = await postGraph(config, `${config.pageId}/photos`, {
     url: validarImageUrl(imageUrl),
     published: 'false',
-  });
+  }, 'facebook_upload_foto_nao_publicada');
   if (!data.id) throw new Error('A Meta não retornou o ID da foto enviada ao Facebook.');
   return String(data.id);
 }
@@ -251,7 +287,7 @@ async function uploadFotoNaoPublicada(config, imageUrl) {
 async function publicarStoryImagem({ imageUrl }) {
   const config = await prepararConfigPublicacao();
   const photoId = await uploadFotoNaoPublicada(config, imageUrl);
-  const data = await postGraph(config, `${config.pageId}/photo_stories`, { photo_id: photoId });
+  const data = await postGraph(config, `${config.pageId}/photo_stories`, { photo_id: photoId }, 'facebook_story_imagem');
   if (data.success !== true && !data.post_id) {
     throw new Error('A Meta não confirmou a publicação do Story do Facebook.');
   }
@@ -271,7 +307,7 @@ async function publicarFeedImagem({ imageUrl, message = '' }) {
     url: validarImageUrl(imageUrl),
     caption: String(message || '').trim(),
     published: 'true',
-  });
+  }, 'facebook_feed_imagem');
   if (!data.id && !data.post_id) throw new Error('A Meta não retornou o ID da publicação no Facebook.');
   return {
     success: true,
@@ -287,7 +323,7 @@ async function publicarStoryVideo({ videoUrl }) {
   const config = await prepararConfigPublicacao();
   const inicio = await postGraph(config, `${config.pageId}/video_stories`, {
     upload_phase: 'start',
-  });
+  }, 'facebook_story_video_start');
 
   const videoId = String(inicio?.video_id || '').trim();
   const uploadUrl = String(inicio?.upload_url || '').trim();
@@ -295,13 +331,13 @@ async function publicarStoryVideo({ videoUrl }) {
     throw new Error('A Meta não retornou video_id/upload_url para o Story do Facebook.');
   }
 
-  await postUploadUrl(uploadUrl, config.accessToken, videoUrl);
+  await postUploadUrl(uploadUrl, config.accessToken, videoUrl, 'facebook_story_video_upload');
 
   const fim = await postGraph(config, `${config.pageId}/video_stories`, {
     upload_phase: 'finish',
     video_id: videoId,
     video_state: 'PUBLISHED',
-  });
+  }, 'facebook_story_video_finish');
 
   if (fim.success !== true && !fim.post_id) {
     throw new Error('A Meta não confirmou a publicação do Story em vídeo no Facebook.');
@@ -324,7 +360,7 @@ async function publicarFeedVideo({ videoUrl, message = '', title = '' }) {
     description: String(message || '').trim(),
     title: String(title || '').trim(),
     published: 'true',
-  });
+  }, 'facebook_feed_video');
 
   if (!data.id) throw new Error('A Meta não retornou o ID do vídeo publicado no feed do Facebook.');
 
@@ -353,7 +389,7 @@ async function publicarFeedCarrossel({ imageUrls, message = '' }) {
       url: urls[0],
       caption: String(message || '').trim(),
       published: 'true',
-    });
+    }, 'facebook_feed_carrossel_imagem_unica');
     if (!data.id && !data.post_id) throw new Error('A Meta não retornou o ID da publicação no Facebook.');
     return {
       success: true,
@@ -372,7 +408,7 @@ async function publicarFeedCarrossel({ imageUrls, message = '' }) {
   const data = await postGraph(config, `${config.pageId}/feed`, {
     message: String(message || '').trim(),
     attached_media: photoIds.map(id => ({ media_fbid: id })),
-  });
+  }, 'facebook_feed_carrossel');
   if (!data.id) throw new Error('A Meta não retornou o ID do carrossel publicado no Facebook.');
 
   return {
