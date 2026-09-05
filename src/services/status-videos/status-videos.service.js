@@ -9,7 +9,10 @@ const youtubeService = require('../integracoes/youtube.service');
 const termometroAparicoesService = require('../termometro/termometroAparicoes.service');
 
 const requisicoesEmAndamento = new Map();
+const publicacoes = new Map();
 const TEMPO_CACHE_MS = 30 * 60 * 1000;
+const TEMPO_PUBLICACAO_MS = 2 * 60 * 60 * 1000;
+let filaProcessamento = Promise.resolve();
 
 function texto(valor) {
   return String(valor ?? '').trim();
@@ -180,11 +183,23 @@ function limitarErro(error) {
   return mensagem.length > 900 ? `${mensagem.slice(0, 897)}...` : mensagem;
 }
 
-function resultadoCanal(settled, canal) {
-  if (settled.status === 'fulfilled') {
-    return { canal, status: 'publicado', ...settled.value };
+async function executarCanalSeguro(chave, canal, executar) {
+  try {
+    const resultado = await executarCanalIdempotente(chave, executar);
+    return { canal, status: 'publicado', ...resultado };
+  } catch (error) {
+    return { canal, status: 'erro', erro: limitarErro(error), repetida: false };
   }
-  return { canal, status: 'erro', erro: limitarErro(settled.reason), repetida: false };
+}
+
+function memoriaNode() {
+  const uso = process.memoryUsage();
+  const mb = valor => Math.round((Number(valor || 0) / 1024 / 1024) * 10) / 10;
+  return { rss_mb: mb(uso.rss), heap_mb: mb(uso.heapUsed), external_mb: mb(uso.external) };
+}
+
+function logMemoria(etapa, requestId) {
+  console.log('[Status Vídeos] memória', { request_id: requestId, etapa, ...memoriaNode() });
 }
 
 async function publicar({ arquivo, requestId, itens: itensBrutos }) {
@@ -198,12 +213,14 @@ async function publicar({ arquivo, requestId, itens: itensBrutos }) {
     const itens = await carregarItensSelecionados(itensInformados);
     const resumo = calcularResumo(itens);
 
+    logMemoria('antes_ffmpeg', idRequisicao);
     videoFinal = await videoOverlayService.gerarVideoFinal({
       caminhoEntrada: arquivo.path,
       precoMedio: resumo.preco_medio,
       valorTotal: resumo.valor_total,
       quantidadeItens: resumo.quantidade_itens,
     });
+    logMemoria('depois_ffmpeg', idRequisicao);
 
     const r2 = await cloudflareR2Service.uploadArquivoLocal(videoFinal.caminho, {
       pasta: 'status-videos',
@@ -215,48 +232,48 @@ async function publicar({ arquivo, requestId, itens: itensBrutos }) {
     const textoFacebook = montarTextoFacebook(itens, resumo);
     const youtube = montarYoutube(itens, resumo);
 
-    const resultados = await Promise.allSettled([
-      executarCanalIdempotente(`${idRequisicao}:whatsapp-status`, async () => {
-        const r = await zapiService.enviarVideoStatus({ video: r2.url });
-        return { zapi: r.zapi || null };
-      }),
-      executarCanalIdempotente(`${idRequisicao}:instagram-story`, async () => {
-        const r = await instagramService.publicarStoryVideo({ videoUrl: r2.url });
-        return {
-          media_id: r.media_id,
-          container_id: r.container_id,
-          processamento_status: r.processamento_status,
-          api_version: r.api_version,
-        };
-      }),
-      executarCanalIdempotente(`${idRequisicao}:facebook-story`, async () => {
-        const r = await facebookService.publicarStoryVideo({ videoUrl: r2.url });
-        return { post_id: r.post_id, video_id: r.video_id, api_version: r.api_version };
-      }),
-      executarCanalIdempotente(`${idRequisicao}:facebook-feed`, async () => {
-        const r = await facebookService.publicarFeedVideo({
-          videoUrl: r2.url,
-          message: textoFacebook,
-          title: `Kit Alumínio JR — ${resumo.quantidade_itens} ${resumo.quantidade_itens === 1 ? 'item' : 'itens'}`,
-        });
-        return { post_id: r.post_id, video_id: r.video_id, api_version: r.api_version };
-      }),
-      executarCanalIdempotente(`${idRequisicao}:youtube-shorts`, async () => {
-        const r = await youtubeService.publicarShort({
-          caminho: videoFinal.caminho,
-          titulo: youtube.titulo,
-          descricao: youtube.descricao,
-          tags: youtube.tags,
-        });
-        return { video_id: r.video_id, url: r.url, privacy_status: r.privacy_status };
-      }),
-    ]);
+    // Os canais são executados um de cada vez. Como o frontend agora acompanha o job
+    // por polling, não há necessidade de concentrar cinco uploads/processamentos ao mesmo
+    // tempo dentro da mesma instância do Render.
+    const whatsapp = await executarCanalSeguro(`${idRequisicao}:whatsapp-status`, 'whatsapp', async () => {
+      const r = await zapiService.enviarVideoStatus({ video: r2.url });
+      return { zapi: r.zapi || null };
+    });
 
-    const whatsapp = resultadoCanal(resultados[0], 'whatsapp');
-    const instagram = resultadoCanal(resultados[1], 'instagram_story');
-    const facebookStory = resultadoCanal(resultados[2], 'facebook_story');
-    const facebookFeed = resultadoCanal(resultados[3], 'facebook_feed');
-    const youtubeShorts = resultadoCanal(resultados[4], 'youtube_shorts');
+    const instagram = await executarCanalSeguro(`${idRequisicao}:instagram-story`, 'instagram_story', async () => {
+      const r = await instagramService.publicarStoryVideo({ videoUrl: r2.url });
+      return {
+        media_id: r.media_id,
+        container_id: r.container_id,
+        processamento_status: r.processamento_status,
+        api_version: r.api_version,
+      };
+    });
+
+    const facebookStory = await executarCanalSeguro(`${idRequisicao}:facebook-story`, 'facebook_story', async () => {
+      const r = await facebookService.publicarStoryVideo({ videoUrl: r2.url });
+      return { post_id: r.post_id, video_id: r.video_id, api_version: r.api_version };
+    });
+
+    const facebookFeed = await executarCanalSeguro(`${idRequisicao}:facebook-feed`, 'facebook_feed', async () => {
+      const r = await facebookService.publicarFeedVideo({
+        videoUrl: r2.url,
+        message: textoFacebook,
+        title: `Kit Alumínio JR — ${resumo.quantidade_itens} ${resumo.quantidade_itens === 1 ? 'item' : 'itens'}`,
+      });
+      return { post_id: r.post_id, video_id: r.video_id, api_version: r.api_version };
+    });
+
+    const youtubeShorts = await executarCanalSeguro(`${idRequisicao}:youtube-shorts`, 'youtube_shorts', async () => {
+      const r = await youtubeService.publicarShort({
+        caminho: videoFinal.caminho,
+        titulo: youtube.titulo,
+        descricao: youtube.descricao,
+        tags: youtube.tags,
+      });
+      return { video_id: r.video_id, url: r.url, privacy_status: r.privacy_status };
+    });
+
     const canais = {
       whatsapp,
       instagram_story: instagram,
@@ -281,6 +298,7 @@ async function publicar({ arquivo, requestId, itens: itensBrutos }) {
       }
     }
 
+    logMemoria('fim_publicacao', idRequisicao);
     return {
       success: statusGeral === 'publicado',
       status_geral: statusGeral,
@@ -290,6 +308,7 @@ async function publicar({ arquivo, requestId, itens: itensBrutos }) {
         duracao_segundos: videoFinal.duracao_segundos,
         largura: videoFinal.largura,
         altura: videoFinal.altura,
+        fps: videoFinal.fps,
       },
       resumo,
       itens,
@@ -302,6 +321,89 @@ async function publicar({ arquivo, requestId, itens: itensBrutos }) {
   }
 }
 
+function enfileirar(executar) {
+  const execucao = filaProcessamento.catch(() => {}).then(executar);
+  filaProcessamento = execucao.catch(() => {});
+  return execucao;
+}
+
+function agendarLimpezaPublicacao(requestId) {
+  const timer = setTimeout(() => publicacoes.delete(requestId), TEMPO_PUBLICACAO_MS);
+  if (typeof timer.unref === 'function') timer.unref();
+}
+
+function serializarPublicacao(job) {
+  if (!job) return null;
+  return {
+    request_id: job.request_id,
+    status: job.status,
+    criado_em: job.criado_em,
+    atualizado_em: job.atualizado_em,
+    resultado: job.resultado || null,
+    erro: job.erro || null,
+  };
+}
+
+async function iniciarPublicacao({ arquivo, requestId, itens }) {
+  if (!arquivo?.path) throw new Error('Selecione o vídeo antes de publicar.');
+
+  const idRequisicao = normalizarRequestId(requestId);
+  const itensNormalizados = parseItens(itens);
+  const existente = publicacoes.get(idRequisicao);
+
+  if (existente && ['aguardando', 'processando'].includes(existente.status)) {
+    // O navegador pode repetir a requisição se perder a resposta HTTP. Não guardamos
+    // uma segunda cópia do mesmo vídeo nem iniciamos outro FFmpeg.
+    await fs.unlink(arquivo.path).catch(() => {});
+    return serializarPublicacao(existente);
+  }
+
+  const agora = new Date().toISOString();
+  const job = {
+    request_id: idRequisicao,
+    status: 'aguardando',
+    criado_em: agora,
+    atualizado_em: agora,
+    resultado: null,
+    erro: null,
+  };
+  publicacoes.set(idRequisicao, job);
+
+  enfileirar(async () => {
+    job.status = 'processando';
+    job.atualizado_em = new Date().toISOString();
+    try {
+      const resultado = await publicar({
+        arquivo,
+        requestId: idRequisicao,
+        itens: itensNormalizados,
+      });
+      job.status = 'concluido';
+      job.resultado = resultado;
+      job.erro = null;
+    } catch (error) {
+      job.status = 'erro';
+      job.resultado = null;
+      job.erro = limitarErro(error);
+      // Em caso de falha anterior ao bloco finally de publicar, garante limpeza.
+      await fs.unlink(arquivo.path).catch(() => {});
+      console.error('[Status Vídeos] Job falhou:', { request_id: idRequisicao, erro: job.erro });
+    } finally {
+      job.atualizado_em = new Date().toISOString();
+      agendarLimpezaPublicacao(idRequisicao);
+    }
+  }).catch(error => {
+    console.error('[Status Vídeos] Falha inesperada na fila:', error);
+  });
+
+  return serializarPublicacao(job);
+}
+
+function obterPublicacao(requestId) {
+  const idRequisicao = normalizarRequestId(requestId);
+  return serializarPublicacao(publicacoes.get(idRequisicao));
+}
+
 function diagnostico() {
   return {
     youtube: youtubeService.diagnosticarConfiguracao(),
@@ -311,11 +413,16 @@ function diagnostico() {
       duracao_minima_segundos: videoOverlayService.DURACAO_MINIMA_SEGUNDOS,
       duracao_maxima_segundos: videoOverlayService.DURACAO_MAXIMA_SEGUNDOS,
       formato_saida: `${videoOverlayService.LARGURA}x${videoOverlayService.ALTURA}`,
+      fps_saida: videoOverlayService.FPS_SAIDA,
+      processamento_assincrono: true,
+      fila_unica_ffmpeg: true,
     },
   };
 }
 
 module.exports = {
+  iniciarPublicacao,
+  obterPublicacao,
   publicar,
   diagnostico,
 };

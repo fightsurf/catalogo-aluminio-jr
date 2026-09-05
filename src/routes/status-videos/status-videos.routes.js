@@ -7,6 +7,7 @@ const { requireAuth } = require('../../middlewares/adminAuth.middleware');
 const router = express.Router();
 const MAX_VIDEO_BYTES = 250 * 1024 * 1024;
 
+// Multer grava diretamente em disco temporário. Nunca usa memoryStorage para vídeo.
 const upload = multer({
   dest: os.tmpdir(),
   limits: { fileSize: MAX_VIDEO_BYTES, files: 1, fields: 10 },
@@ -28,6 +29,7 @@ function uploadVideo(req, res, next) {
 }
 
 router.get('/diagnostico', requireAuth, controller.diagnostico);
+router.get('/publicacoes/:requestId', requireAuth, controller.statusPublicacao);
 router.post('/publicar', requireAuth, uploadVideo, controller.publicar);
 
 module.exports = router;

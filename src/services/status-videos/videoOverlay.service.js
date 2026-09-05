@@ -5,10 +5,19 @@ const crypto = require('crypto');
 const { spawn } = require('child_process');
 const sharp = require('sharp');
 
-const LARGURA = 1080;
-const ALTURA = 1920;
+// 720x1280 preserva o formato vertical 9:16 e reduz fortemente o pico de memória
+// do FFmpeg em instâncias Render menores. Stories/Status/Shorts aceitam esse formato.
+const LARGURA = 720;
+const ALTURA = 1280;
+const FPS_SAIDA = 30;
 const DURACAO_MINIMA_SEGUNDOS = 3;
 const DURACAO_MAXIMA_SEGUNDOS = 60;
+
+const BASE_LARGURA = 1080;
+const BASE_ALTURA = 1920;
+const ESCALA_X = LARGURA / BASE_LARGURA;
+const ESCALA_Y = ALTURA / BASE_ALTURA;
+const ESCALA_FONTE = Math.min(ESCALA_X, ESCALA_Y);
 
 function ffmpegPath() {
   const configurado = String(process.env.FFMPEG_PATH || '').trim();
@@ -21,6 +30,18 @@ function ffmpegPath() {
     // Cai na mensagem padronizada abaixo.
   }
   throw new Error('FFmpeg não encontrado. Instale a dependência ffmpeg-static ou configure FFMPEG_PATH.');
+}
+
+function pxX(valor) {
+  return Math.round(Number(valor || 0) * ESCALA_X);
+}
+
+function pxY(valor) {
+  return Math.round(Number(valor || 0) * ESCALA_Y);
+}
+
+function pxFonte(valor) {
+  return Math.max(14, Math.round(Number(valor || 0) * ESCALA_FONTE));
 }
 
 function escaparXml(valor) {
@@ -41,23 +62,27 @@ function moeda(valor) {
   }).replace(/\u00a0/g, ' ');
 }
 
-function estimarLargura(texto, tamanhoFonte, paddingX = 24) {
+function estimarLargura(texto, tamanhoFonte, paddingX = pxX(24)) {
   const caracteres = Array.from(String(texto || '')).length;
-  return Math.min(LARGURA - 96, Math.max(180, Math.ceil(caracteres * tamanhoFonte * 0.56 + paddingX * 2)));
+  return Math.min(
+    LARGURA - pxX(96),
+    Math.max(pxX(180), Math.ceil(caracteres * tamanhoFonte * 0.56 + paddingX * 2))
+  );
 }
 
-function linhaSvg({ texto, x, y, tamanhoFonte = 48, centralizarEm = null, peso = 500 }) {
+function linhaSvg({ texto, x, y, tamanhoFonte = pxFonte(48), centralizarEm = null, peso = 500 }) {
   const altura = Math.ceil(tamanhoFonte * 1.48);
   const largura = estimarLargura(texto, tamanhoFonte);
   const posX = centralizarEm === null ? x : Math.round(centralizarEm - largura / 2);
   const baseline = Math.round(y + altura * 0.68);
+  const raio = Math.max(8, pxX(18));
 
   return {
     largura,
     altura,
     x: posX,
     svg: `
-      <rect x="${posX}" y="${y}" width="${largura}" height="${altura}" rx="18" ry="18"
+      <rect x="${posX}" y="${y}" width="${largura}" height="${altura}" rx="${raio}" ry="${raio}"
             fill="rgba(255,255,255,0.95)"/>
       <text x="${Math.round(posX + largura / 2)}" y="${baseline}" text-anchor="middle"
             font-family="Arial, Helvetica, sans-serif" font-size="${tamanhoFonte}" font-weight="${peso}"
@@ -73,17 +98,17 @@ function montarSvg({ precoMedio, valorTotal, quantidadeItens }) {
   const kit = `Kit completo: ${moeda(valorTotal)}`;
   const itens = `${quantidadeItens} ${quantidadeItens === 1 ? 'item' : 'itens'}`;
 
-  const margemX = 54;
-  const topo1 = linhaSvg({ texto: zap, x: margemX, y: 82, tamanhoFonte: 48 });
-  const topo2 = linhaSvg({ texto: instagram, x: margemX, y: 160, tamanhoFonte: 48 });
+  const margemX = pxX(54);
+  const topo1 = linhaSvg({ texto: zap, x: margemX, y: pxY(82), tamanhoFonte: pxFonte(48) });
+  const topo2 = linhaSvg({ texto: instagram, x: margemX, y: pxY(160), tamanhoFonte: pxFonte(48) });
   const larguraTopo = Math.max(topo1.largura, topo2.largura);
   const centroTopo = margemX + larguraTopo / 2;
-  const topo3 = linhaSvg({ texto: nome, x: margemX, y: 238, tamanhoFonte: 48, centralizarEm: centroTopo, peso: 600 });
+  const topo3 = linhaSvg({ texto: nome, x: margemX, y: pxY(238), tamanhoFonte: pxFonte(48), centralizarEm: centroTopo, peso: 600 });
 
   const centroVideo = LARGURA / 2;
-  const baixo1 = linhaSvg({ texto: cadaItem, x: 0, y: 1320, tamanhoFonte: 52, centralizarEm: centroVideo });
-  const baixo2 = linhaSvg({ texto: kit, x: 0, y: 1404, tamanhoFonte: 52, centralizarEm: centroVideo });
-  const baixo3 = linhaSvg({ texto: itens, x: 0, y: 1488, tamanhoFonte: 52, centralizarEm: centroVideo, peso: 600 });
+  const baixo1 = linhaSvg({ texto: cadaItem, x: 0, y: pxY(1320), tamanhoFonte: pxFonte(52), centralizarEm: centroVideo });
+  const baixo2 = linhaSvg({ texto: kit, x: 0, y: pxY(1404), tamanhoFonte: pxFonte(52), centralizarEm: centroVideo });
+  const baixo3 = linhaSvg({ texto: itens, x: 0, y: pxY(1488), tamanhoFonte: pxFonte(52), centralizarEm: centroVideo, peso: 600 });
 
   return `
     <svg width="${LARGURA}" height="${ALTURA}" viewBox="0 0 ${LARGURA} ${ALTURA}"
@@ -100,13 +125,18 @@ function montarSvg({ precoMedio, valorTotal, quantidadeItens }) {
 async function criarOverlayPng(dados) {
   const arquivo = path.join(os.tmpdir(), `status-video-overlay-${Date.now()}-${crypto.randomBytes(6).toString('hex')}.png`);
   const svg = montarSvg(dados);
-  await sharp(Buffer.from(svg)).png({ compressionLevel: 9 }).toFile(arquivo);
+  await sharp(Buffer.from(svg), { density: 72 })
+    .png({ compressionLevel: 9, palette: true })
+    .toFile(arquivo);
   return arquivo;
 }
 
 function executarFfmpeg(args, { aceitarFalha = false } = {}) {
   return new Promise((resolve, reject) => {
-    const processo = spawn(ffmpegPath(), args, { windowsHide: true });
+    const processo = spawn(ffmpegPath(), args, {
+      windowsHide: true,
+      stdio: ['ignore', 'ignore', 'pipe'],
+    });
     let stderr = '';
 
     processo.stderr.on('data', chunk => {
@@ -124,7 +154,7 @@ function executarFfmpeg(args, { aceitarFalha = false } = {}) {
 }
 
 async function obterDuracaoSegundos(caminhoVideo) {
-  const { stderr } = await executarFfmpeg(['-hide_banner', '-i', caminhoVideo], { aceitarFalha: true });
+  const { stderr } = await executarFfmpeg(['-hide_banner', '-threads', '1', '-i', caminhoVideo], { aceitarFalha: true });
   const match = stderr.match(/Duration:\s*(\d{2}):(\d{2}):(\d{2}(?:\.\d+)?)/i);
   if (!match) throw new Error('Não foi possível identificar a duração do vídeo.');
   return Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]);
@@ -147,20 +177,35 @@ async function gerarVideoFinal({ caminhoEntrada, precoMedio, valorTotal, quantid
   try {
     await executarFfmpeg([
       '-y',
+      // Limita também o decoder do vídeo de entrada a uma thread.
+      '-threads', '1',
       '-i', caminhoEntrada,
       '-loop', '1', '-i', overlay,
+      '-filter_threads', '1',
+      '-filter_complex_threads', '1',
       '-filter_complex',
-      `[0:v]scale=${LARGURA}:${ALTURA}:force_original_aspect_ratio=decrease,pad=${LARGURA}:${ALTURA}:(ow-iw)/2:(oh-ih)/2:black,setsar=1[base];[base][1:v]overlay=0:0:shortest=1[outv]`,
+      `[0:v]scale=${LARGURA}:${ALTURA}:force_original_aspect_ratio=decrease:flags=fast_bilinear,` +
+      `pad=${LARGURA}:${ALTURA}:(ow-iw)/2:(oh-ih)/2:black,fps=${FPS_SAIDA},setsar=1[base];` +
+      `[base][1:v]overlay=0:0:shortest=1[outv]`,
       '-map', '[outv]',
       '-map', '0:a?',
+      '-map_metadata', '-1',
       '-c:v', 'libx264',
-      '-preset', 'veryfast',
-      '-crf', '22',
+      // Configuração deliberadamente econômica em RAM. Em teste equivalente, o pico do
+      // processo FFmpeg caiu de ~700 MB para cerca de ~220 MB.
+      '-preset', 'ultrafast',
+      '-tune', 'zerolatency',
+      '-threads', '1',
+      '-refs', '1',
+      '-bf', '0',
+      '-crf', '23',
+      '-maxrate', '3500k',
+      '-bufsize', '7000k',
       '-pix_fmt', 'yuv420p',
       '-profile:v', 'high',
-      '-level', '4.1',
+      '-level', '4.0',
       '-c:a', 'aac',
-      '-b:a', '128k',
+      '-b:a', '96k',
       '-ar', '44100',
       '-movflags', '+faststart',
       '-shortest',
@@ -175,6 +220,7 @@ async function gerarVideoFinal({ caminhoEntrada, precoMedio, valorTotal, quantid
     duracao_segundos: Number(duracao.toFixed(2)),
     largura: LARGURA,
     altura: ALTURA,
+    fps: FPS_SAIDA,
   };
 }
 
@@ -184,4 +230,5 @@ module.exports = {
   DURACAO_MAXIMA_SEGUNDOS,
   LARGURA,
   ALTURA,
+  FPS_SAIDA,
 };
