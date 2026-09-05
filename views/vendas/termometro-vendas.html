@@ -33,16 +33,15 @@
       font-family: Arial, Helvetica, sans-serif;
     }
 
-    .wrap { max-width: 1600px; margin: 0 auto; padding: 22px; }
+    .wrap { max-width: 1900px; margin: 0 auto; padding: 10px 12px 18px; }
     .top {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
       gap: 18px;
-      margin-bottom: 18px;
+      margin-bottom: 8px;
     }
-    h1 { margin: 0 0 6px; font-size: 28px; }
-    .subtitle { margin: 0; color: var(--muted); line-height: 1.45; }
+    h1 { margin: 0; font-size: 22px; line-height: 1.1; }
 
     .controls {
       display: flex;
@@ -56,7 +55,8 @@
       border: 1px solid var(--line);
       border-radius: 10px;
       background: #fff;
-      padding: 10px 12px;
+      padding: 7px 9px;
+      font-size: 12px;
     }
     button { cursor: pointer; }
     button.primary { background: var(--dark); color: white; border-color: var(--dark); }
@@ -75,41 +75,42 @@
     .cards {
       display: grid;
       grid-template-columns: repeat(6, minmax(150px, 1fr));
-      gap: 12px;
-      margin-bottom: 16px;
+      gap: 8px;
+      margin-bottom: 8px;
     }
     .card {
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 15px;
+      border-radius: 10px;
+      padding: 8px 10px;
       box-shadow: var(--shadow);
     }
-    .card .label { color: var(--muted); font-size: 12px; margin-bottom: 7px; }
-    .card .value { font-size: 27px; font-weight: 800; }
-    .card .hint { color: var(--muted); font-size: 11px; margin-top: 5px; line-height: 1.35; }
+    .card .label { color: var(--muted); font-size: 10px; margin-bottom: 3px; }
+    .card .value { font-size: 21px; line-height: 1; font-weight: 800; }
+    .card .hint { color: var(--muted); font-size: 9px; margin-top: 3px; line-height: 1.2; }
 
     .toolbar {
       display: flex;
       justify-content: space-between;
       align-items: center;
       gap: 10px;
-      margin-bottom: 10px;
+      margin-bottom: 6px;
       flex-wrap: wrap;
     }
-    .filters { display: flex; gap: 6px; flex-wrap: wrap; }
+    .filters { display: flex; gap: 4px; flex-wrap: wrap; }
+    .toolbar button, .toolbar input { font-size: 11px; padding: 6px 8px; }
     .filter-btn.active { background: var(--dark); color: #fff; border-color: var(--dark); }
-    #busca { min-width: 280px; }
+    #busca { min-width: 250px; }
 
     .panel {
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 14px;
+      border-radius: 10px;
       box-shadow: var(--shadow);
       overflow: hidden;
     }
-    .table-scroll { overflow: auto; max-height: calc(100vh - 360px); }
-    table { width: 100%; border-collapse: collapse; min-width: 1180px; }
+    .table-scroll { overflow: visible; max-height: none; }
+    table { width: 100%; border-collapse: collapse; table-layout: auto; }
     th, td { padding: 11px 12px; border-bottom: 1px solid #edf0f3; text-align: left; vertical-align: middle; }
     th {
       position: sticky;
@@ -144,41 +145,13 @@
     .status-desc { margin-top: 4px; color: var(--muted); font-size: 11px; max-width: 290px; line-height: 1.3; }
     .dash { color: #98a2b3; }
 
-    .rules {
-      margin-top: 14px;
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 10px;
-    }
-    .rule {
-      background: #fff;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 12px;
-      color: #475467;
-      font-size: 12px;
-      line-height: 1.45;
-    }
-    .rule strong { color: var(--text); display: block; margin-bottom: 4px; }
-
-    details {
-      margin-top: 14px;
-      background: #fff;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 12px 14px;
-    }
-    details summary { cursor: pointer; font-weight: 700; }
-    .unlinked { margin: 10px 0 0; padding-left: 18px; color: #475467; font-size: 12px; }
-
     @media (max-width: 1100px) {
       .cards { grid-template-columns: repeat(3, 1fr); }
-      .rules { grid-template-columns: 1fr; }
       .top { flex-direction: column; }
       .controls { justify-content: flex-start; }
     }
     @media (max-width: 650px) {
-      .wrap { padding: 12px; }
+      .wrap { padding: 8px; }
       .cards { grid-template-columns: repeat(2, 1fr); }
       #busca { min-width: 100%; width: 100%; }
     }
@@ -189,7 +162,6 @@
     <div class="top">
       <div>
         <h1>Termômetro de Vendas</h1>
-        <p class="subtitle">Cruzamento mensal entre aparições no Status Zap / Central de Ofertas e as quantidades realmente vendidas no Firebird.</p>
       </div>
       <div class="controls">
         <select id="mes"></select>
@@ -243,16 +215,6 @@
       </div>
     </section>
 
-    <section class="rules">
-      <div class="rule"><strong>Como conta aparição</strong><span id="regraAparicoes">—</span></div>
-      <div class="rule"><strong>Como conta venda</strong><span id="regraVendas">—</span></div>
-      <div class="rule"><strong>Como cruza</strong><span id="regraCruzamento">—</span></div>
-    </section>
-
-    <details id="detalhesSemVinculo" hidden>
-      <summary>Itens vendidos no Firebird sem vínculo com produto do catálogo: <span id="qtdSemVinculo">0</span></summary>
-      <ul id="listaSemVinculo" class="unlinked"></ul>
-    </details>
   </main>
 
   <script>
@@ -269,16 +231,11 @@
       cEsquecidos: document.getElementById('cEsquecidos'),
       cOportunidades: document.getElementById('cOportunidades'),
       cSemAparicao: document.getElementById('cSemAparicao'),
-      regraAparicoes: document.getElementById('regraAparicoes'),
-      regraVendas: document.getElementById('regraVendas'),
-      regraCruzamento: document.getElementById('regraCruzamento'),
-      detalhesSemVinculo: document.getElementById('detalhesSemVinculo'),
-      qtdSemVinculo: document.getElementById('qtdSemVinculo'),
-      listaSemVinculo: document.getElementById('listaSemVinculo'),
     };
 
     let dados = null;
     let filtroAtual = 'todos';
+    const AUTOREFRESH_MS = 60 * 1000;
 
     function escapar(valor) {
       return String(valor ?? '')
@@ -333,22 +290,6 @@
       els.cSemAparicao.textContent = numeroFlex(t.produtos_sem_aparicao);
     }
 
-    function renderRegras() {
-      const regra = dados?.regra || {};
-      els.regraAparicoes.textContent = regra.aparicoes || '—';
-      els.regraVendas.textContent = regra.vendas || '—';
-      els.regraCruzamento.textContent = regra.cruzamento || '—';
-    }
-
-    function renderSemVinculo() {
-      const itens = Array.isArray(dados?.itens_firebird_sem_vinculo) ? dados.itens_firebird_sem_vinculo : [];
-      els.detalhesSemVinculo.hidden = itens.length === 0;
-      els.qtdSemVinculo.textContent = String(dados?.totais?.itens_firebird_sem_vinculo || itens.length);
-      els.listaSemVinculo.innerHTML = itens.map((item) => (
-        `<li>ITEM ${escapar(item.item)} — ${escapar(item.descricao || 'sem descrição')} — ${numeroFlex(item.quantidade)} peça(s)</li>`
-      )).join('');
-    }
-
     function itensFiltrados() {
       const termo = els.busca.value.trim().toLocaleLowerCase('pt-BR');
       return (dados?.itens || []).filter((item) => {
@@ -398,11 +339,13 @@
       }).join('');
     }
 
-    async function carregar() {
+    async function carregar({ silencioso = false } = {}) {
       esconderAviso();
-      els.atualizar.disabled = true;
-      els.atualizar.textContent = 'Carregando...';
-      els.tbody.innerHTML = '<tr><td colspan="8">Carregando Termômetro...</td></tr>';
+      if (!silencioso) {
+        els.atualizar.disabled = true;
+        els.atualizar.textContent = 'Carregando...';
+        els.tbody.innerHTML = '<tr><td colspan="8">Carregando Termômetro...</td></tr>';
+      }
 
       try {
         const qs = new URLSearchParams({ mes: els.mes.value, ano: els.ano.value });
@@ -416,16 +359,18 @@
         }
         dados = body.data;
         renderCards();
-        renderRegras();
-        renderSemVinculo();
         renderTabela();
       } catch (error) {
-        dados = null;
         mostrarErro(error.message || 'Erro ao carregar o Termômetro de Vendas.');
-        els.tbody.innerHTML = '<tr><td colspan="8">Falha ao carregar os dados.</td></tr>';
+        if (!silencioso) {
+          dados = null;
+          els.tbody.innerHTML = '<tr><td colspan="8">Falha ao carregar os dados.</td></tr>';
+        }
       } finally {
-        els.atualizar.disabled = false;
-        els.atualizar.textContent = 'Atualizar';
+        if (!silencioso) {
+          els.atualizar.disabled = false;
+          els.atualizar.textContent = 'Atualizar';
+        }
       }
     }
 
@@ -445,6 +390,11 @@
 
     iniciarPeriodo();
     carregar();
+
+    // Atualização automática sem limpar a tabela nem interromper o uso da tela.
+    setInterval(() => {
+      if (document.visibilityState === 'visible') carregar({ silencioso: true });
+    }, AUTOREFRESH_MS);
   </script>
 </body>
 </html>
