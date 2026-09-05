@@ -98,8 +98,10 @@
       flex-wrap: wrap;
     }
     .filters { display: flex; gap: 4px; flex-wrap: wrap; }
-    .toolbar button, .toolbar input { font-size: 11px; padding: 6px 8px; }
+    .toolbar button, .toolbar input, .toolbar select { font-size: 11px; padding: 6px 8px; }
     .filter-btn.active { background: var(--dark); color: #fff; border-color: var(--dark); }
+    .table-tools { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    #categoriaFiltro { min-width: 210px; max-width: 320px; }
     #busca { min-width: 250px; }
 
     .panel {
@@ -123,6 +125,10 @@
       letter-spacing: .02em;
     }
     td.num, th.num { text-align: right; }
+    th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+    th.sortable:hover { background: #eef2f6; color: var(--dark); }
+    .sort-mark { display: inline-block; min-width: 12px; margin-left: 4px; color: #98a2b3; font-size: 10px; }
+    th.sortable.active-sort .sort-mark { color: var(--dark); }
     tbody tr:hover { background: #fafcff; }
     .produto { font-weight: 700; }
     .categoria { font-size: 11px; color: var(--muted); margin-top: 3px; }
@@ -153,7 +159,8 @@
     @media (max-width: 650px) {
       .wrap { padding: 8px; }
       .cards { grid-template-columns: repeat(2, 1fr); }
-      #busca { min-width: 100%; width: 100%; }
+      .table-tools { width: 100%; }
+      #categoriaFiltro, #busca { min-width: 100%; width: 100%; max-width: none; }
     }
   </style>
 </head>
@@ -190,7 +197,12 @@
         <button class="filter-btn" data-filter="nao_divulgado" type="button">Não divulgados</button>
         <button class="filter-btn" data-filter="sem_vinculo" type="button">Sem vínculo</button>
       </div>
-      <input id="busca" type="search" placeholder="Buscar produto, categoria ou ITEM...">
+      <div class="table-tools">
+        <select id="categoriaFiltro" aria-label="Filtrar por categoria">
+          <option value="">Todas as categorias</option>
+        </select>
+        <input id="busca" type="search" placeholder="Buscar produto ou categoria...">
+      </div>
     </div>
 
     <section class="panel">
@@ -198,19 +210,18 @@
         <table>
           <thead>
             <tr>
-              <th>Produto</th>
-              <th class="num">ITEM</th>
-              <th class="num">Status Zap</th>
-              <th class="num">Central de Ofertas</th>
-              <th class="num">Status Vídeos</th>
-              <th class="num">Aparições</th>
-              <th class="num">Vendas</th>
-              <th class="num">Venda / aparição</th>
-              <th>Situação</th>
+              <th class="sortable" data-sort="produto">Produto <span class="sort-mark">↕</span></th>
+              <th class="num sortable" data-sort="status_aparicoes">Status Zap <span class="sort-mark">↕</span></th>
+              <th class="num sortable" data-sort="ofertas_aparicoes">Central de Ofertas <span class="sort-mark">↕</span></th>
+              <th class="num sortable" data-sort="videos_aparicoes">Status Vídeos <span class="sort-mark">↕</span></th>
+              <th class="num sortable" data-sort="aparicoes">Aparições <span class="sort-mark">↕</span></th>
+              <th class="num sortable" data-sort="vendas">Vendas <span class="sort-mark">↕</span></th>
+              <th class="num sortable" data-sort="vendas_por_aparicao">Venda / aparição <span class="sort-mark">↕</span></th>
+              <th class="sortable" data-sort="classificacao_rotulo">Situação <span class="sort-mark">↕</span></th>
             </tr>
           </thead>
           <tbody id="tbody">
-            <tr><td colspan="9">Carregando...</td></tr>
+            <tr><td colspan="8">Carregando...</td></tr>
           </tbody>
         </table>
       </div>
@@ -226,6 +237,7 @@
       notice: document.getElementById('notice'),
       tbody: document.getElementById('tbody'),
       busca: document.getElementById('busca'),
+      categoriaFiltro: document.getElementById('categoriaFiltro'),
       cAparicoes: document.getElementById('cAparicoes'),
       cPublicacoes: document.getElementById('cPublicacoes'),
       cVendas: document.getElementById('cVendas'),
@@ -236,6 +248,7 @@
 
     let dados = null;
     let filtroAtual = 'todos';
+    let ordenacao = { campo: null, direcao: 'asc' };
     const AUTOREFRESH_MS = 60 * 1000;
 
     function escapar(valor) {
@@ -281,45 +294,108 @@
       els.notice.textContent = '';
     }
 
+    function itensDaCategoria() {
+      const categoria = els.categoriaFiltro.value;
+      if (!categoria) return dados?.itens || [];
+      return (dados?.itens || []).filter((item) => String(item.categoria || '') === categoria);
+    }
+
     function renderCards() {
-      const t = dados?.totais || {};
-      els.cAparicoes.textContent = numeroFlex(t.aparicoes);
-      els.cPublicacoes.textContent = numeroFlex(t.publicacoes);
-      els.cVendas.textContent = numeroFlex(t.vendas_mapeadas);
-      els.cEsquecidos.textContent = numeroFlex(t.produtos_vendendo_sem_divulgacao);
-      els.cOportunidades.textContent = numeroFlex(t.oportunidades);
-      els.cSemAparicao.textContent = numeroFlex(t.produtos_sem_aparicao);
+      const itens = itensDaCategoria();
+      const aparicoes = itens.reduce((total, item) => total + Number(item.aparicoes || 0), 0);
+      const publicacoes = itens.reduce((total, item) => total + Number(item.publicacoes || 0), 0);
+      const vendas = itens.reduce((total, item) => total + Number(item.vendas || 0), 0);
+
+      els.cAparicoes.textContent = numeroFlex(aparicoes);
+      els.cPublicacoes.textContent = numeroFlex(publicacoes);
+      els.cVendas.textContent = numeroFlex(vendas);
+      els.cEsquecidos.textContent = numeroFlex(itens.filter((item) => item.classificacao === 'esquecido').length);
+      els.cOportunidades.textContent = numeroFlex(itens.filter((item) => item.classificacao === 'oportunidade').length);
+      els.cSemAparicao.textContent = numeroFlex(itens.filter((item) => Number(item.aparicoes || 0) === 0).length);
+    }
+
+    function preencherCategorias() {
+      const selecionada = els.categoriaFiltro.value;
+      const categorias = [...new Set((dados?.itens || [])
+        .map((item) => String(item.categoria || '').trim())
+        .filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+      els.categoriaFiltro.innerHTML = [
+        '<option value="">Todas as categorias</option>',
+        ...categorias.map((categoria) => `<option value="${escapar(categoria)}">${escapar(categoria)}</option>`)
+      ].join('');
+
+      if (categorias.includes(selecionada)) {
+        els.categoriaFiltro.value = selecionada;
+      }
+    }
+
+    function compararItens(a, b) {
+      if (!ordenacao.campo) return 0;
+
+      const campo = ordenacao.campo;
+      const direcao = ordenacao.direcao === 'desc' ? -1 : 1;
+      let valorA = a[campo];
+      let valorB = b[campo];
+
+      if (campo === 'produto' || campo === 'classificacao_rotulo') {
+        return String(valorA || '').localeCompare(String(valorB || ''), 'pt-BR', { sensitivity: 'base' }) * direcao;
+      }
+
+      const aNulo = valorA === null || valorA === undefined || valorA === '';
+      const bNulo = valorB === null || valorB === undefined || valorB === '';
+      if (aNulo && bNulo) return 0;
+      if (aNulo) return 1;
+      if (bNulo) return -1;
+
+      valorA = Number(valorA);
+      valorB = Number(valorB);
+      return (valorA - valorB) * direcao;
+    }
+
+    function atualizarCabecalhosOrdenacao() {
+      document.querySelectorAll('th.sortable').forEach((th) => {
+        const ativo = th.dataset.sort === ordenacao.campo;
+        th.classList.toggle('active-sort', ativo);
+        const marca = th.querySelector('.sort-mark');
+        if (marca) marca.textContent = ativo ? (ordenacao.direcao === 'asc' ? '▲' : '▼') : '↕';
+        th.setAttribute('aria-sort', ativo ? (ordenacao.direcao === 'asc' ? 'ascending' : 'descending') : 'none');
+      });
     }
 
     function itensFiltrados() {
       const termo = els.busca.value.trim().toLocaleLowerCase('pt-BR');
-      return (dados?.itens || []).filter((item) => {
-        if (filtroAtual !== 'todos' && item.classificacao !== filtroAtual) return false;
-        if (!termo) return true;
-        return [item.produto, item.categoria, item.item_legado]
-          .some((valor) => String(valor ?? '').toLocaleLowerCase('pt-BR').includes(termo));
-      });
+      return itensDaCategoria()
+        .filter((item) => {
+          if (filtroAtual !== 'todos' && item.classificacao !== filtroAtual) return false;
+          if (!termo) return true;
+          return [item.produto, item.categoria]
+            .some((valor) => String(valor ?? '').toLocaleLowerCase('pt-BR').includes(termo));
+        })
+        .map((item, indice) => ({ item, indice }))
+        .sort((a, b) => compararItens(a.item, b.item) || a.indice - b.indice)
+        .map(({ item }) => item);
     }
 
     function renderTabela() {
       const itens = itensFiltrados();
       if (!itens.length) {
-        els.tbody.innerHTML = '<tr><td colspan="9">Nenhum produto encontrado com o filtro atual.</td></tr>';
+        els.tbody.innerHTML = '<tr><td colspan="8">Nenhum produto encontrado com o filtro atual.</td></tr>';
         return;
       }
 
+      atualizarCabecalhosOrdenacao();
       els.tbody.innerHTML = itens.map((item) => {
         const vendaPorAparicao = item.vendas_por_aparicao === null || item.vendas_por_aparicao === undefined
           ? '<span class="dash">—</span>'
           : numero(item.vendas_por_aparicao, 2);
-        const itemLegado = item.item_legado || '<span class="dash">—</span>';
         return `
           <tr>
             <td>
               <div class="produto">${escapar(item.produto)}</div>
               <div class="categoria">${escapar(item.categoria || 'Sem categoria')}</div>
             </td>
-            <td class="num">${itemLegado}</td>
             <td class="num">
               <div class="source-main">${numeroFlex(item.status_aparicoes)}</div>
               <div class="source-sub">${numeroFlex(item.status_publicacoes)} publicação(ões)</div>
@@ -349,7 +425,7 @@
       if (!silencioso) {
         els.atualizar.disabled = true;
         els.atualizar.textContent = 'Carregando...';
-        els.tbody.innerHTML = '<tr><td colspan="9">Carregando Termômetro...</td></tr>';
+        els.tbody.innerHTML = '<tr><td colspan="8">Carregando Termômetro...</td></tr>';
       }
 
       try {
@@ -363,13 +439,14 @@
           throw new Error(body.message || `Erro HTTP ${response.status}`);
         }
         dados = body.data;
+        preencherCategorias();
         renderCards();
         renderTabela();
       } catch (error) {
         mostrarErro(error.message || 'Erro ao carregar o Termômetro de Vendas.');
         if (!silencioso) {
           dados = null;
-          els.tbody.innerHTML = '<tr><td colspan="9">Falha ao carregar os dados.</td></tr>';
+          els.tbody.innerHTML = '<tr><td colspan="8">Falha ao carregar os dados.</td></tr>';
         }
       } finally {
         if (!silencioso) {
@@ -384,6 +461,23 @@
         document.querySelectorAll('.filter-btn').forEach((outro) => outro.classList.remove('active'));
         botao.classList.add('active');
         filtroAtual = botao.dataset.filter || 'todos';
+        renderTabela();
+      });
+    });
+
+    els.categoriaFiltro.addEventListener('change', () => {
+      renderCards();
+      renderTabela();
+    });
+
+    document.querySelectorAll('th.sortable').forEach((th) => {
+      th.addEventListener('click', () => {
+        const campo = th.dataset.sort;
+        if (ordenacao.campo === campo) {
+          ordenacao.direcao = ordenacao.direcao === 'asc' ? 'desc' : 'asc';
+        } else {
+          ordenacao = { campo, direcao: campo === 'produto' || campo === 'classificacao_rotulo' ? 'asc' : 'desc' };
+        }
         renderTabela();
       });
     });
