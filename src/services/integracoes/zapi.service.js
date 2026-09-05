@@ -367,6 +367,32 @@ async function enviarImagemStatus({ imagem, legenda }) {
   };
 }
 
+async function enviarVideoStatus({ video, legenda }) {
+  const videoNormalizado = String(video || '').trim();
+  const legendaNormalizada = String(legenda || '').trim();
+
+  if (!videoNormalizado) {
+    throw new Error('Vídeo do Status é obrigatório.');
+  }
+
+  let url;
+  try {
+    url = new URL(videoNormalizado);
+  } catch (_) {
+    throw new Error('Vídeo inválido. Informe uma URL HTTP/HTTPS pública.');
+  }
+
+  if (!['http:', 'https:'].includes(url.protocol)) {
+    throw new Error('Vídeo inválido. A URL deve usar HTTP ou HTTPS.');
+  }
+
+  const payload = { video: videoNormalizado };
+  if (legendaNormalizada) payload.caption = legendaNormalizada;
+
+  const resultado = await postZapi('/send-video-status', payload);
+  return { ...resultado, legenda: legendaNormalizada };
+}
+
 async function enviarTexto({ telefone, mensagem }) {
   const telefoneNormalizado = normalizarTelefone(telefone);
   const mensagemNormalizada = String(mensagem || '').trim();
@@ -445,6 +471,7 @@ module.exports = {
   enviarDocumentoPdf,
   enviarImagem,
   enviarImagemStatus,
+  enviarVideoStatus,
   verificarConexao,
   enviarAcao,
   montarRequisicao,

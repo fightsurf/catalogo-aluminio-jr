@@ -43,3 +43,15 @@ services:
         value: medium
       - key: APP_PUBLIC_URL
         value: https://catalogo-aluminio-jr.onrender.com
+      # Status Vídeos / YouTube Shorts
+      - key: YOUTUBE_CLIENT_ID
+        sync: false
+      - key: YOUTUBE_CLIENT_SECRET
+        sync: false
+      - key: YOUTUBE_REFRESH_TOKEN
+        sync: false
+      - key: YOUTUBE_PRIVACY_STATUS
+        value: public
+      - key: YOUTUBE_CATEGORY_ID
+        value: "22"
+

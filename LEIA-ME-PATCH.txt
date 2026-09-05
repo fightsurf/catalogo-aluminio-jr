@@ -1,0 +1,106 @@
+PATCH STATUS VÍDEOS — ALUMÍNIO JR
+Data: 05/09/2026
+Base usada: render(20260905-163543).zip
+Projeto Local: sem alterações.
+
+OBJETIVO
+Criar o novo módulo /status-videos, usando um vídeo escolhido localmente e os produtos marcados pelo usuário. O vídeo só é enviado ao servidor quando o botão de publicação é acionado.
+
+FLUXO
+1. Escolher o vídeo do celular/computador.
+2. Prévia local no navegador, sem upload.
+3. Filtrar produtos por categoria e/ou busca.
+4. Marcar via checkbox quais produtos aparecem no vídeo e informar quantidades.
+5. O sistema calcula:
+   - Cada item = preço médio ponderado pelas quantidades.
+   - Kit completo = soma dos preços atuais x quantidades.
+   - X itens = soma das quantidades.
+6. Sharp gera a camada gráfica; FFmpeg aplica a camada e normaliza o vídeo para 1080x1920.
+7. O vídeo final é publicado de forma independente em:
+   - WhatsApp Status
+   - Instagram Story
+   - Facebook Story
+   - Facebook Feed
+   - YouTube Shorts
+8. Havendo ao menos um canal publicado, os itens entram no Termômetro de Vendas com origem status_videos e quantidade informada.
+
+TEXTO SOBRE O VÍDEO
+Superior esquerdo:
+  ZAP: 83.9.9979-2085
+  Instagram: @aluminiojrpb
+  George
+
+Inferior centralizado:
+  Cada item: R$ X,XX
+  Kit completo: R$ X,XX
+  X itens
+
+Cada linha recebe fundo branco arredondado e texto escuro para manter contraste.
+
+FACEBOOK FEED
+A descrição escrita lista TODOS os produtos selecionados e suas quantidades, além do preço médio, total e contatos. Isso mantém os nomes pesquisáveis/indexáveis no texto da publicação.
+
+YOUTUBE SHORTS
+O projeto atual enviado em 05/09/2026 não contém o uploader antigo do YouTube. Este patch inclui um uploader direto no Node via YouTube Data API v3 + OAuth refresh token.
+
+Variáveis principais:
+  YOUTUBE_CLIENT_ID
+  YOUTUBE_CLIENT_SECRET
+  YOUTUBE_REFRESH_TOKEN
+
+Também são reconhecidos, como compatibilidade:
+  YOUTUBE_OAUTH_CLIENT_ID / GOOGLE_CLIENT_ID
+  YOUTUBE_OAUTH_CLIENT_SECRET / GOOGLE_CLIENT_SECRET
+  YOUTUBE_OAUTH_REFRESH_TOKEN / GOOGLE_REFRESH_TOKEN
+
+O refresh token precisa ter autorização de upload do canal (scope youtube.upload).
+Variáveis opcionais:
+  YOUTUBE_PRIVACY_STATUS=public
+  YOUTUBE_CATEGORY_ID=22
+
+NÃO envie essas credenciais por chat. Configure-as diretamente no Render.
+
+FFMPEG
+Foi adicionada a dependência npm:
+  ffmpeg-static
+
+O Render instalará a dependência no npm install. Opcionalmente, se o servidor já possuir FFmpeg, pode configurar:
+  FFMPEG_PATH=/caminho/do/ffmpeg
+
+VÍDEO
+- Saída: MP4 H.264 + AAC, 1080x1920, yuv420p, faststart.
+- Duração aceita neste módulo: 3 a 60 segundos, para usar o mesmo vídeo nos Stories e demais canais.
+- Upload máximo: 250 MB.
+- O arquivo original fica em /tmp e é apagado após o processamento.
+- O vídeo final local também é apagado; a cópia pública permanece no Cloudflare R2 para as redes que precisam buscar a mídia por URL.
+
+BANCO DE DADOS
+NÃO há SQL novo e NÃO é necessário alterar o banco.
+A tabela termometro_aparicoes já aceita a nova origem status_videos. A restrição única existente evita duplicar o contador para o mesmo request_id/produto.
+
+TERMÔMETRO DE VENDAS
+A tela existente passa a exibir a coluna "Status Vídeos". A quantidade marcada no módulo entra como quantidade de aparições do produto.
+
+IDEMPOTÊNCIA
+Durante a mesma execução do servidor, cada destino é cacheado por request_id por 30 minutos. Em uma tentativa de reenvio após falha parcial, os canais já concluídos não são executados novamente nesse período. O Termômetro também possui proteção persistente por chave única no PostgreSQL.
+
+APLICAÇÃO DO PATCH
+Copie o conteúdo deste ZIP por cima da raiz do projeto Render/GitHub, preservando as pastas.
+Depois faça commit/deploy normalmente.
+Não há nada para aplicar no projeto Local.
+
+TESTE
+1. Faça o deploy.
+2. Abra:
+   https://catalogo-aluminio-jr.onrender.com/status-videos
+3. Confirme o diagnóstico do YouTube na tela.
+4. Escolha um vídeo curto (3–60s).
+5. Marque alguns produtos e quantidades.
+6. Confirme a prévia dos valores.
+7. Clique em "Gerar vídeo final e publicar".
+8. A tela exibirá o resultado separado dos 5 destinos.
+
+VALIDAÇÕES FEITAS NA GERAÇÃO DO PATCH
+- Sintaxe Node validada para todos os JS alterados/novos.
+- JavaScript da nova tela validado.
+- Teste real local do pipeline Sharp + FFmpeg com vídeo sintético: saída 1080x1920, H.264/AAC e camada de texto renderizada corretamente.

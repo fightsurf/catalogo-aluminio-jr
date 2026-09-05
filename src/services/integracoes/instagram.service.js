@@ -173,14 +173,33 @@ async function criarContainerStoryImagem(config, imageUrl) {
   return String(data.id);
 }
 
+async function criarContainerStoryVideo(config, videoUrl) {
+  const url = String(videoUrl || '').trim();
+  if (!/^https:\/\//i.test(url)) {
+    throw new Error('O vídeo do Story precisa estar disponível em uma URL pública HTTPS.');
+  }
+
+  const data = await postGraph(config, `${config.igUserId}/media`, {
+    video_url: url,
+    media_type: 'STORIES',
+  });
+
+  if (!data.id) {
+    throw new Error('A Meta não retornou o ID do container do Story em vídeo.');
+  }
+
+  return String(data.id);
+}
+
 async function obterStatusContainer(config, containerId) {
   return getGraph(config, containerId, { fields: 'status_code,status' });
 }
 
-async function aguardarContainer(config, containerId) {
+async function aguardarContainer(config, containerId, pollAttempts = config.pollAttempts) {
   let ultimo = null;
+  const tentativasMaximas = inteiroPositivo(pollAttempts, config.pollAttempts);
 
-  for (let tentativa = 1; tentativa <= config.pollAttempts; tentativa += 1) {
+  for (let tentativa = 1; tentativa <= tentativasMaximas; tentativa += 1) {
     ultimo = await obterStatusContainer(config, containerId);
     const statusCode = String(ultimo?.status_code || '').trim().toUpperCase();
 
@@ -190,7 +209,7 @@ async function aguardarContainer(config, containerId) {
       throw new Error(`A Meta não conseguiu processar o Story: ${ultimo?.status || statusCode}.`);
     }
 
-    if (tentativa < config.pollAttempts) {
+    if (tentativa < tentativasMaximas) {
       await aguardar(config.pollIntervalMs);
     }
   }
@@ -227,7 +246,26 @@ async function publicarStoryImagem({ imageUrl }) {
   };
 }
 
+async function publicarStoryVideo({ videoUrl }) {
+  const config = validarConfiguracao(getConfig());
+  const containerId = await criarContainerStoryVideo(config, videoUrl);
+  // Vídeos podem demorar mais que imagens para a Meta terminar o processamento.
+  const tentativasVideo = Math.max(config.pollAttempts, 40);
+  const processamento = await aguardarContainer(config, containerId, tentativasVideo);
+  const mediaId = await publicarContainer(config, containerId);
+
+  return {
+    success: true,
+    status: 'publicado',
+    media_id: mediaId,
+    container_id: containerId,
+    processamento_status: processamento?.status_code || null,
+    api_version: config.apiVersion,
+  };
+}
+
 module.exports = {
   diagnosticarConfiguracao,
   publicarStoryImagem,
+  publicarStoryVideo,
 };

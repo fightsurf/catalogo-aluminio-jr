@@ -207,6 +207,30 @@ async function postGraph(config, recurso, parametros = {}) {
   return lerResposta(response);
 }
 
+function validarVideoUrl(videoUrl) {
+  const url = String(videoUrl || '').trim();
+  if (!/^https:\/\//i.test(url)) {
+    throw new Error('O vídeo do Facebook precisa estar disponível em uma URL pública HTTPS.');
+  }
+  return url;
+}
+
+async function postUploadUrl(uploadUrl, accessToken, videoUrl) {
+  let response;
+  try {
+    response = await fetch(uploadUrl, {
+      method: 'POST',
+      headers: {
+        Authorization: `OAuth ${accessToken}`,
+        file_url: validarVideoUrl(videoUrl),
+      },
+    });
+  } catch (error) {
+    throw new Error(`Falha ao enviar o vídeo para o Facebook: ${error.message}`);
+  }
+  return lerResposta(response);
+}
+
 function validarImageUrl(imageUrl) {
   const url = String(imageUrl || '').trim();
   if (!/^https:\/\//i.test(url)) {
@@ -254,6 +278,61 @@ async function publicarFeedImagem({ imageUrl, message = '' }) {
     status: 'publicado',
     photo_id: data.id ? String(data.id) : null,
     post_id: data.post_id ? String(data.post_id) : (data.id ? String(data.id) : null),
+    api_version: config.apiVersion,
+    page_id: config.pageId,
+  };
+}
+
+async function publicarStoryVideo({ videoUrl }) {
+  const config = await prepararConfigPublicacao();
+  const inicio = await postGraph(config, `${config.pageId}/video_stories`, {
+    upload_phase: 'start',
+  });
+
+  const videoId = String(inicio?.video_id || '').trim();
+  const uploadUrl = String(inicio?.upload_url || '').trim();
+  if (!videoId || !uploadUrl) {
+    throw new Error('A Meta não retornou video_id/upload_url para o Story do Facebook.');
+  }
+
+  await postUploadUrl(uploadUrl, config.accessToken, videoUrl);
+
+  const fim = await postGraph(config, `${config.pageId}/video_stories`, {
+    upload_phase: 'finish',
+    video_id: videoId,
+    video_state: 'PUBLISHED',
+  });
+
+  if (fim.success !== true && !fim.post_id) {
+    throw new Error('A Meta não confirmou a publicação do Story em vídeo no Facebook.');
+  }
+
+  return {
+    success: true,
+    status: 'publicado',
+    video_id: videoId,
+    post_id: fim.post_id ? String(fim.post_id) : null,
+    api_version: config.apiVersion,
+    page_id: config.pageId,
+  };
+}
+
+async function publicarFeedVideo({ videoUrl, message = '', title = '' }) {
+  const config = await prepararConfigPublicacao();
+  const data = await postGraph(config, `${config.pageId}/videos`, {
+    file_url: validarVideoUrl(videoUrl),
+    description: String(message || '').trim(),
+    title: String(title || '').trim(),
+    published: 'true',
+  });
+
+  if (!data.id) throw new Error('A Meta não retornou o ID do vídeo publicado no feed do Facebook.');
+
+  return {
+    success: true,
+    status: 'publicado',
+    video_id: String(data.id),
+    post_id: data.post_id ? String(data.post_id) : String(data.id),
     api_version: config.apiVersion,
     page_id: config.pageId,
   };
@@ -311,6 +390,8 @@ module.exports = {
   MAX_FOTOS_CARROSSEL,
   diagnosticarConfiguracao,
   publicarStoryImagem,
+  publicarStoryVideo,
   publicarFeedImagem,
+  publicarFeedVideo,
   publicarFeedCarrossel,
 };

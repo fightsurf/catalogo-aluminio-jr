@@ -107,9 +107,41 @@ async function registrarCentralOfertas({ chavePublicacao, oferta, canais }) {
   return inseridos;
 }
 
+async function registrarStatusVideos({ requestId, itens, canais }) {
+  const chave = texto(requestId);
+  if (!chave || !Array.isArray(itens) || !itens.length) return 0;
+
+  const publicados = canaisPublicados(canais);
+  if (!publicados.length) return 0;
+
+  let inseridos = 0;
+  for (const item of itens) {
+    const produtoId = Number(item?.produto_id || item?.id);
+    if (!Number.isInteger(produtoId) || produtoId <= 0) continue;
+
+    const inseriu = await inserirAparicao({
+      produtoId,
+      origem: 'status_videos',
+      origemChave: chave,
+      quantidade: inteiroPositivo(item.quantidade),
+      detalhes: {
+        produto_nome: item.nome || null,
+        categoria_id: item.categoria_id || null,
+        categoria: item.categoria || null,
+        canais_publicados: publicados
+      }
+    });
+
+    if (inseriu) inseridos += 1;
+  }
+
+  return inseridos;
+}
+
 module.exports = {
   prepararEstrutura,
   inserirAparicao,
   registrarStatusZap,
-  registrarCentralOfertas
+  registrarCentralOfertas,
+  registrarStatusVideos
 };

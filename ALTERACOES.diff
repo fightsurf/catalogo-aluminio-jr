@@ -1,0 +1,1542 @@
+diff -ruN '--exclude=node_modules' original/.env.example render/.env.example
+--- original/.env.example	2026-09-05 16:36:12.962712895 +0000
++++ render/.env.example	2026-09-05 16:46:08.949093706 +0000
+@@ -3,3 +3,16 @@
+ # Token usado exclusivamente pelo Hermes para consultar APIs seguras do assistente.
+ # Configure o mesmo valor no projeto Hermes. Não coloque o valor real no GitHub.
+ ASSISTENTE_API_TOKEN=
++
++# Status Vídeos / YouTube Shorts
++# Use as credenciais OAuth já autorizadas para o canal da Alumínio JR.
++YOUTUBE_CLIENT_ID=
++YOUTUBE_CLIENT_SECRET=
++YOUTUBE_REFRESH_TOKEN=
++YOUTUBE_PRIVACY_STATUS=public
++YOUTUBE_CATEGORY_ID=22
++
++# Opcional: caminho de um FFmpeg instalado no servidor.
++# Se vazio, o sistema usa a dependência ffmpeg-static.
++FFMPEG_PATH=
++
+diff -ruN '--exclude=node_modules' original/package.json render/package.json
+--- original/package.json	2026-09-05 16:36:12.965481616 +0000
++++ render/package.json	2026-09-05 16:46:08.948705011 +0000
+@@ -13,6 +13,7 @@
+     "ws": "^8.19.0",
+     "multer": "^2.0.1",
+     "@aws-sdk/client-s3": "^3.614.0",
+-    "sharp": "^0.34.3"
++    "sharp": "^0.34.3",
++    "ffmpeg-static": "^5.2.0"
+   }
+ }
+diff -ruN '--exclude=node_modules' original/render.yaml render/render.yaml
+--- original/render.yaml	2026-09-05 16:36:12.965623368 +0000
++++ render/render.yaml	2026-09-05 16:46:08.949170475 +0000
+@@ -43,3 +43,15 @@
+         value: medium
+       - key: APP_PUBLIC_URL
+         value: https://catalogo-aluminio-jr.onrender.com
++      # Status Vídeos / YouTube Shorts
++      - key: YOUTUBE_CLIENT_ID
++        sync: false
++      - key: YOUTUBE_CLIENT_SECRET
++        sync: false
++      - key: YOUTUBE_REFRESH_TOKEN
++        sync: false
++      - key: YOUTUBE_PRIVACY_STATUS
++        value: public
++      - key: YOUTUBE_CATEGORY_ID
++        value: "22"
++
+diff -ruN '--exclude=node_modules' original/server.js render/server.js
+--- original/server.js	2026-09-05 16:36:12.965798039 +0000
++++ render/server.js	2026-09-05 16:44:34.821340239 +0000
+@@ -93,6 +93,8 @@
+ const hubRoutes = require('./src/routes/hub/hub.routes');
+ const ofertasRoutes = require('./src/routes/ofertas/ofertas.routes');
+ const ofertasViewRoutes = require('./src/routes/ofertas/ofertas.view.routes');
++const statusVideosRoutes = require('./src/routes/status-videos/status-videos.routes');
++const statusVideosViewRoutes = require('./src/routes/status-videos/status-videos.view.routes');
+ 
+ // Projeto demonstrativo Mirian (isolado do sistema da fábrica)
+ const mirianApiRoutes = require('./mirian/routes/mirian.api.routes');
+@@ -191,6 +193,8 @@
+ app.use('/hub', hubRoutes);
+ app.use('/api/ofertas', ofertasRoutes);
+ app.use('/', ofertasViewRoutes);
++app.use('/api/status-videos', statusVideosRoutes);
++app.use('/status-videos', statusVideosViewRoutes);
+ 
+ // Projeto Mirian: API e páginas isoladas pelo prefixo /mirian
+ app.use('/api/mirian', mirianApiRoutes);
+diff -ruN '--exclude=node_modules' original/src/controllers/status-videos/status-videos.controller.js render/src/controllers/status-videos/status-videos.controller.js
+--- original/src/controllers/status-videos/status-videos.controller.js	1970-01-01 00:00:00.000000000 +0000
++++ render/src/controllers/status-videos/status-videos.controller.js	2026-09-05 16:43:27.913403785 +0000
+@@ -0,0 +1,28 @@
++const statusVideosService = require('../../services/status-videos/status-videos.service');
++
++async function diagnostico(req, res) {
++  try {
++    return res.json({ success: true, data: statusVideosService.diagnostico() });
++  } catch (error) {
++    return res.status(500).json({ success: false, message: error.message });
++  }
++}
++
++async function publicar(req, res) {
++  try {
++    const data = await statusVideosService.publicar({
++      arquivo: req.file,
++      requestId: req.body?.request_id,
++      itens: req.body?.itens,
++    });
++    return res.status(data.status_geral === 'erro' ? 502 : 200).json({ success: data.success, data });
++  } catch (error) {
++    console.error('[Status Vídeos] Erro na publicação:', error);
++    return res.status(400).json({ success: false, message: error.message || 'Falha ao publicar o vídeo.' });
++  }
++}
++
++module.exports = {
++  diagnostico,
++  publicar,
++};
+diff -ruN '--exclude=node_modules' original/src/controllers/status-videos/status-videos.view.controller.js render/src/controllers/status-videos/status-videos.view.controller.js
+--- original/src/controllers/status-videos/status-videos.view.controller.js	1970-01-01 00:00:00.000000000 +0000
++++ render/src/controllers/status-videos/status-videos.view.controller.js	2026-09-05 16:43:27.921403860 +0000
+@@ -0,0 +1,7 @@
++const path = require('path');
++
++function abrirPagina(req, res) {
++  return res.sendFile(path.resolve(__dirname, '../../../views/status-videos/status-videos.html'));
++}
++
++module.exports = { abrirPagina };
+diff -ruN '--exclude=node_modules' original/src/routes/status-videos/status-videos.routes.js render/src/routes/status-videos/status-videos.routes.js
+--- original/src/routes/status-videos/status-videos.routes.js	1970-01-01 00:00:00.000000000 +0000
++++ render/src/routes/status-videos/status-videos.routes.js	2026-09-05 16:43:27.929403935 +0000
+@@ -0,0 +1,33 @@
++const express = require('express');
++const multer = require('multer');
++const os = require('os');
++const controller = require('../../controllers/status-videos/status-videos.controller');
++const { requireAuth } = require('../../middlewares/adminAuth.middleware');
++
++const router = express.Router();
++const MAX_VIDEO_BYTES = 250 * 1024 * 1024;
++
++const upload = multer({
++  dest: os.tmpdir(),
++  limits: { fileSize: MAX_VIDEO_BYTES, files: 1, fields: 10 },
++  fileFilter: (req, file, cb) => {
++    const mime = String(file.mimetype || '').toLowerCase();
++    if (!mime.startsWith('video/')) return cb(new Error('Selecione um arquivo de vídeo válido.'));
++    cb(null, true);
++  },
++});
++
++function uploadVideo(req, res, next) {
++  upload.single('video')(req, res, error => {
++    if (!error) return next();
++    if (error instanceof multer.MulterError && error.code === 'LIMIT_FILE_SIZE') {
++      return res.status(400).json({ success: false, message: 'Vídeo muito grande. Limite: 250 MB.' });
++    }
++    return res.status(400).json({ success: false, message: error.message || 'Falha ao receber o vídeo.' });
++  });
++}
++
++router.get('/diagnostico', requireAuth, controller.diagnostico);
++router.post('/publicar', requireAuth, uploadVideo, controller.publicar);
++
++module.exports = router;
+diff -ruN '--exclude=node_modules' original/src/routes/status-videos/status-videos.view.routes.js render/src/routes/status-videos/status-videos.view.routes.js
+--- original/src/routes/status-videos/status-videos.view.routes.js	1970-01-01 00:00:00.000000000 +0000
++++ render/src/routes/status-videos/status-videos.view.routes.js	2026-09-05 16:43:27.941404047 +0000
+@@ -0,0 +1,7 @@
++const express = require('express');
++const controller = require('../../controllers/status-videos/status-videos.view.controller');
++const { requireAuth } = require('../../middlewares/adminAuth.middleware');
++
++const router = express.Router();
++router.get('/', requireAuth, controller.abrirPagina);
++module.exports = router;
+diff -ruN '--exclude=node_modules' original/src/services/cloudflare/cloudflareR2.service.js render/src/services/cloudflare/cloudflareR2.service.js
+--- original/src/services/cloudflare/cloudflareR2.service.js	2026-09-05 16:36:13.002403222 +0000
++++ render/src/services/cloudflare/cloudflareR2.service.js	2026-09-05 16:41:50.036972615 +0000
+@@ -1,5 +1,7 @@
+ const crypto = require('crypto');
+ const path = require('path');
++const fs = require('fs');
++const fsp = require('fs/promises');
+ const {
+   S3Client,
+   PutObjectCommand,
+@@ -259,6 +261,36 @@
+ }
+ 
+ 
++async function uploadArquivoLocal(caminhoArquivo, options = {}) {
++  const config = getConfig();
++  validarConfiguracao(config);
++
++  const caminho = String(caminhoArquivo || '').trim();
++  if (!caminho) throw new Error('Caminho do arquivo para upload no R2 não informado.');
++
++  const stat = await fsp.stat(caminho);
++  if (!stat.isFile() || stat.size <= 0) throw new Error('Arquivo local vazio ou inválido para upload no R2.');
++
++  const pasta = normalizarParteChave(options.pasta || 'arquivos');
++  const nomeInformado = String(options.nome || path.basename(caminho) || `arquivo-${Date.now()}`).trim();
++  const ext = path.extname(nomeInformado).replace(/^\./, '').toLowerCase() || path.extname(caminho).replace(/^\./, '').toLowerCase() || 'bin';
++  const base = normalizarParteChave(path.basename(nomeInformado, path.extname(nomeInformado)));
++  const key = `${pasta}/${base}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${ext}`;
++  const client = getClient(config);
++
++  await client.send(new PutObjectCommand({
++    Bucket: config.bucket,
++    Key: key,
++    Body: fs.createReadStream(caminho),
++    ContentLength: stat.size,
++    ContentType: options.contentType || 'application/octet-stream',
++    Metadata: Object.fromEntries(Object.entries(options.metadata || {}).map(([k,v]) => [normalizarParteChave(k), normalizarParteChave(v)])),
++  }));
++
++  return { id: key, key, url: montarUrlPublica(config.publicUrl, key), tamanho: stat.size };
++}
++
++
+ async function excluirObjeto(keyInformada) {
+   const key = String(keyInformada || '').trim().replace(/^\/+/, '');
+ 
+@@ -348,6 +380,7 @@
+ module.exports = {
+   uploadImagem,
+   uploadBuffer,
++  uploadArquivoLocal,
+   excluirObjeto,
+   limparPrefixo,
+   MAX_UPLOAD_SIZE_MB,
+diff -ruN '--exclude=node_modules' original/src/services/integracoes/facebook.service.js render/src/services/integracoes/facebook.service.js
+--- original/src/services/integracoes/facebook.service.js	2026-09-05 16:36:13.004137272 +0000
++++ render/src/services/integracoes/facebook.service.js	2026-09-05 16:42:23.560427490 +0000
+@@ -207,6 +207,30 @@
+   return lerResposta(response);
+ }
+ 
++function validarVideoUrl(videoUrl) {
++  const url = String(videoUrl || '').trim();
++  if (!/^https:\/\//i.test(url)) {
++    throw new Error('O vídeo do Facebook precisa estar disponível em uma URL pública HTTPS.');
++  }
++  return url;
++}
++
++async function postUploadUrl(uploadUrl, accessToken, videoUrl) {
++  let response;
++  try {
++    response = await fetch(uploadUrl, {
++      method: 'POST',
++      headers: {
++        Authorization: `OAuth ${accessToken}`,
++        file_url: validarVideoUrl(videoUrl),
++      },
++    });
++  } catch (error) {
++    throw new Error(`Falha ao enviar o vídeo para o Facebook: ${error.message}`);
++  }
++  return lerResposta(response);
++}
++
+ function validarImageUrl(imageUrl) {
+   const url = String(imageUrl || '').trim();
+   if (!/^https:\/\//i.test(url)) {
+@@ -259,6 +283,61 @@
+   };
+ }
+ 
++async function publicarStoryVideo({ videoUrl }) {
++  const config = await prepararConfigPublicacao();
++  const inicio = await postGraph(config, `${config.pageId}/video_stories`, {
++    upload_phase: 'start',
++  });
++
++  const videoId = String(inicio?.video_id || '').trim();
++  const uploadUrl = String(inicio?.upload_url || '').trim();
++  if (!videoId || !uploadUrl) {
++    throw new Error('A Meta não retornou video_id/upload_url para o Story do Facebook.');
++  }
++
++  await postUploadUrl(uploadUrl, config.accessToken, videoUrl);
++
++  const fim = await postGraph(config, `${config.pageId}/video_stories`, {
++    upload_phase: 'finish',
++    video_id: videoId,
++    video_state: 'PUBLISHED',
++  });
++
++  if (fim.success !== true && !fim.post_id) {
++    throw new Error('A Meta não confirmou a publicação do Story em vídeo no Facebook.');
++  }
++
++  return {
++    success: true,
++    status: 'publicado',
++    video_id: videoId,
++    post_id: fim.post_id ? String(fim.post_id) : null,
++    api_version: config.apiVersion,
++    page_id: config.pageId,
++  };
++}
++
++async function publicarFeedVideo({ videoUrl, message = '', title = '' }) {
++  const config = await prepararConfigPublicacao();
++  const data = await postGraph(config, `${config.pageId}/videos`, {
++    file_url: validarVideoUrl(videoUrl),
++    description: String(message || '').trim(),
++    title: String(title || '').trim(),
++    published: 'true',
++  });
++
++  if (!data.id) throw new Error('A Meta não retornou o ID do vídeo publicado no feed do Facebook.');
++
++  return {
++    success: true,
++    status: 'publicado',
++    video_id: String(data.id),
++    post_id: data.post_id ? String(data.post_id) : String(data.id),
++    api_version: config.apiVersion,
++    page_id: config.pageId,
++  };
++}
++
+ async function publicarFeedCarrossel({ imageUrls, message = '' }) {
+   const config = await prepararConfigPublicacao();
+   const urls = (Array.isArray(imageUrls) ? imageUrls : [])
+@@ -311,6 +390,8 @@
+   MAX_FOTOS_CARROSSEL,
+   diagnosticarConfiguracao,
+   publicarStoryImagem,
++  publicarStoryVideo,
+   publicarFeedImagem,
++  publicarFeedVideo,
+   publicarFeedCarrossel,
+ };
+diff -ruN '--exclude=node_modules' original/src/services/integracoes/instagram.service.js render/src/services/integracoes/instagram.service.js
+--- original/src/services/integracoes/instagram.service.js	2026-09-05 16:36:13.004304038 +0000
++++ render/src/services/integracoes/instagram.service.js	2026-09-05 16:50:21.467272739 +0000
+@@ -173,14 +173,33 @@
+   return String(data.id);
+ }
+ 
++async function criarContainerStoryVideo(config, videoUrl) {
++  const url = String(videoUrl || '').trim();
++  if (!/^https:\/\//i.test(url)) {
++    throw new Error('O vídeo do Story precisa estar disponível em uma URL pública HTTPS.');
++  }
++
++  const data = await postGraph(config, `${config.igUserId}/media`, {
++    video_url: url,
++    media_type: 'STORIES',
++  });
++
++  if (!data.id) {
++    throw new Error('A Meta não retornou o ID do container do Story em vídeo.');
++  }
++
++  return String(data.id);
++}
++
+ async function obterStatusContainer(config, containerId) {
+   return getGraph(config, containerId, { fields: 'status_code,status' });
+ }
+ 
+-async function aguardarContainer(config, containerId) {
++async function aguardarContainer(config, containerId, pollAttempts = config.pollAttempts) {
+   let ultimo = null;
++  const tentativasMaximas = inteiroPositivo(pollAttempts, config.pollAttempts);
+ 
+-  for (let tentativa = 1; tentativa <= config.pollAttempts; tentativa += 1) {
++  for (let tentativa = 1; tentativa <= tentativasMaximas; tentativa += 1) {
+     ultimo = await obterStatusContainer(config, containerId);
+     const statusCode = String(ultimo?.status_code || '').trim().toUpperCase();
+ 
+@@ -190,7 +209,7 @@
+       throw new Error(`A Meta não conseguiu processar o Story: ${ultimo?.status || statusCode}.`);
+     }
+ 
+-    if (tentativa < config.pollAttempts) {
++    if (tentativa < tentativasMaximas) {
+       await aguardar(config.pollIntervalMs);
+     }
+   }
+@@ -227,7 +246,26 @@
+   };
+ }
+ 
++async function publicarStoryVideo({ videoUrl }) {
++  const config = validarConfiguracao(getConfig());
++  const containerId = await criarContainerStoryVideo(config, videoUrl);
++  // Vídeos podem demorar mais que imagens para a Meta terminar o processamento.
++  const tentativasVideo = Math.max(config.pollAttempts, 40);
++  const processamento = await aguardarContainer(config, containerId, tentativasVideo);
++  const mediaId = await publicarContainer(config, containerId);
++
++  return {
++    success: true,
++    status: 'publicado',
++    media_id: mediaId,
++    container_id: containerId,
++    processamento_status: processamento?.status_code || null,
++    api_version: config.apiVersion,
++  };
++}
++
+ module.exports = {
+   diagnosticarConfiguracao,
+   publicarStoryImagem,
++  publicarStoryVideo,
+ };
+diff -ruN '--exclude=node_modules' original/src/services/integracoes/youtube.service.js render/src/services/integracoes/youtube.service.js
+--- original/src/services/integracoes/youtube.service.js	1970-01-01 00:00:00.000000000 +0000
++++ render/src/services/integracoes/youtube.service.js	2026-09-05 16:46:08.948987517 +0000
+@@ -0,0 +1,170 @@
++const fs = require('fs');
++const fsp = require('fs/promises');
++const https = require('https');
++
++const TOKEN_URL = 'https://oauth2.googleapis.com/token';
++const UPLOAD_URL = 'https://www.googleapis.com/upload/youtube/v3/videos';
++
++function valor(valor) {
++  let texto = String(valor ?? '').trim();
++  if (texto.length >= 2 && ((texto.startsWith('"') && texto.endsWith('"')) || (texto.startsWith("'") && texto.endsWith("'")))) {
++    texto = texto.slice(1, -1).trim();
++  }
++  return texto;
++}
++
++function getConfig() {
++  return {
++    clientId: valor(process.env.YOUTUBE_CLIENT_ID || process.env.YOUTUBE_OAUTH_CLIENT_ID || process.env.GOOGLE_CLIENT_ID || ''),
++    clientSecret: valor(process.env.YOUTUBE_CLIENT_SECRET || process.env.YOUTUBE_OAUTH_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET || ''),
++    refreshToken: valor(process.env.YOUTUBE_REFRESH_TOKEN || process.env.YOUTUBE_OAUTH_REFRESH_TOKEN || process.env.GOOGLE_REFRESH_TOKEN || ''),
++    privacyStatus: valor(process.env.YOUTUBE_PRIVACY_STATUS || 'public').toLowerCase(),
++    categoryId: valor(process.env.YOUTUBE_CATEGORY_ID || '22'),
++  };
++}
++
++function diagnosticarConfiguracao() {
++  const config = getConfig();
++  const faltando = [];
++  if (!config.clientId) faltando.push('YOUTUBE_CLIENT_ID');
++  if (!config.clientSecret) faltando.push('YOUTUBE_CLIENT_SECRET');
++  if (!config.refreshToken) faltando.push('YOUTUBE_REFRESH_TOKEN');
++  return { configurado: faltando.length === 0, faltando, privacy_status: config.privacyStatus };
++}
++
++function validarConfig(config) {
++  const diag = diagnosticarConfiguracao();
++  if (!diag.configurado) throw new Error(`YouTube não configurado. Configure: ${diag.faltando.join(', ')}.`);
++  if (!['public', 'private', 'unlisted'].includes(config.privacyStatus)) {
++    throw new Error('YOUTUBE_PRIVACY_STATUS inválido. Use public, private ou unlisted.');
++  }
++  return config;
++}
++
++async function lerJson(response, contexto) {
++  const texto = await response.text().catch(() => '');
++  let data = {};
++  if (texto) {
++    try { data = JSON.parse(texto); } catch (_) { data = { raw: texto }; }
++  }
++  if (!response.ok) {
++    const detalhe = data?.error?.message || data?.error_description || data?.message || texto || 'erro não informado';
++    throw new Error(`${contexto} respondeu ${response.status}: ${detalhe}`);
++  }
++  return data;
++}
++
++async function obterAccessToken(config) {
++  const body = new URLSearchParams({
++    client_id: config.clientId,
++    client_secret: config.clientSecret,
++    refresh_token: config.refreshToken,
++    grant_type: 'refresh_token',
++  });
++
++  const response = await fetch(TOKEN_URL, {
++    method: 'POST',
++    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
++    body,
++  });
++  const data = await lerJson(response, 'OAuth do Google');
++  if (!data.access_token) throw new Error('OAuth do Google não retornou access_token.');
++  return String(data.access_token);
++}
++
++async function iniciarUpload({ accessToken, metadata, tamanho }) {
++  const url = new URL(UPLOAD_URL);
++  url.searchParams.set('uploadType', 'resumable');
++  url.searchParams.set('part', 'snippet,status');
++
++  const response = await fetch(url, {
++    method: 'POST',
++    headers: {
++      Authorization: `Bearer ${accessToken}`,
++      'Content-Type': 'application/json; charset=UTF-8',
++      'X-Upload-Content-Length': String(tamanho),
++      'X-Upload-Content-Type': 'video/mp4',
++    },
++    body: JSON.stringify(metadata),
++  });
++
++  if (!response.ok) await lerJson(response, 'YouTube Data API');
++  const location = response.headers.get('location');
++  if (!location) throw new Error('YouTube não retornou a URL da sessão de upload.');
++  return location;
++}
++
++function enviarArquivo({ uploadUrl, accessToken, caminho, tamanho }) {
++  return new Promise((resolve, reject) => {
++    const url = new URL(uploadUrl);
++    const req = https.request({
++      protocol: url.protocol,
++      hostname: url.hostname,
++      port: url.port || 443,
++      path: `${url.pathname}${url.search}`,
++      method: 'PUT',
++      headers: {
++        Authorization: `Bearer ${accessToken}`,
++        'Content-Type': 'video/mp4',
++        'Content-Length': tamanho,
++      },
++    }, res => {
++      let texto = '';
++      res.setEncoding('utf8');
++      res.on('data', chunk => { texto += chunk; });
++      res.on('end', () => {
++        let data = {};
++        if (texto) {
++          try { data = JSON.parse(texto); } catch (_) { data = { raw: texto }; }
++        }
++        if (res.statusCode < 200 || res.statusCode >= 300) {
++          const detalhe = data?.error?.message || texto || 'erro não informado';
++          return reject(new Error(`YouTube upload respondeu ${res.statusCode}: ${detalhe}`));
++        }
++        return resolve(data);
++      });
++    });
++
++    req.on('error', error => reject(new Error(`Falha no upload para o YouTube: ${error.message}`)));
++    const stream = fs.createReadStream(caminho);
++    stream.on('error', error => req.destroy(error));
++    stream.pipe(req);
++  });
++}
++
++async function publicarShort({ caminho, titulo, descricao, tags = [] }) {
++  const config = validarConfig(getConfig());
++  const stat = await fsp.stat(caminho);
++  if (!stat.isFile() || stat.size <= 0) throw new Error('Arquivo final do YouTube inválido.');
++
++  const accessToken = await obterAccessToken(config);
++  const metadata = {
++    snippet: {
++      title: String(titulo || 'Alumínio JR #Shorts').slice(0, 100),
++      description: String(descricao || '').slice(0, 5000),
++      categoryId: config.categoryId,
++      tags: Array.from(new Set(['Shorts', 'Alumínio JR', ...tags.map(String)])).slice(0, 30),
++    },
++    status: {
++      privacyStatus: config.privacyStatus,
++      selfDeclaredMadeForKids: false,
++    },
++  };
++
++  const uploadUrl = await iniciarUpload({ accessToken, metadata, tamanho: stat.size });
++  const data = await enviarArquivo({ uploadUrl, accessToken, caminho, tamanho: stat.size });
++  if (!data.id) throw new Error('YouTube não retornou o ID do vídeo publicado.');
++
++  return {
++    success: true,
++    status: 'publicado',
++    video_id: String(data.id),
++    url: `https://www.youtube.com/shorts/${data.id}`,
++    privacy_status: data?.status?.privacyStatus || config.privacyStatus,
++  };
++}
++
++module.exports = {
++  diagnosticarConfiguracao,
++  publicarShort,
++};
+diff -ruN '--exclude=node_modules' original/src/services/integracoes/zapi.service.js render/src/services/integracoes/zapi.service.js
+--- original/src/services/integracoes/zapi.service.js	2026-09-05 16:36:13.004451367 +0000
++++ render/src/services/integracoes/zapi.service.js	2026-09-05 16:42:00.340769670 +0000
+@@ -367,6 +367,32 @@
+   };
+ }
+ 
++async function enviarVideoStatus({ video, legenda }) {
++  const videoNormalizado = String(video || '').trim();
++  const legendaNormalizada = String(legenda || '').trim();
++
++  if (!videoNormalizado) {
++    throw new Error('Vídeo do Status é obrigatório.');
++  }
++
++  let url;
++  try {
++    url = new URL(videoNormalizado);
++  } catch (_) {
++    throw new Error('Vídeo inválido. Informe uma URL HTTP/HTTPS pública.');
++  }
++
++  if (!['http:', 'https:'].includes(url.protocol)) {
++    throw new Error('Vídeo inválido. A URL deve usar HTTP ou HTTPS.');
++  }
++
++  const payload = { video: videoNormalizado };
++  if (legendaNormalizada) payload.caption = legendaNormalizada;
++
++  const resultado = await postZapi('/send-video-status', payload);
++  return { ...resultado, legenda: legendaNormalizada };
++}
++
+ async function enviarTexto({ telefone, mensagem }) {
+   const telefoneNormalizado = normalizarTelefone(telefone);
+   const mensagemNormalizada = String(mensagem || '').trim();
+@@ -445,6 +471,7 @@
+   enviarDocumentoPdf,
+   enviarImagem,
+   enviarImagemStatus,
++  enviarVideoStatus,
+   verificarConexao,
+   enviarAcao,
+   montarRequisicao,
+diff -ruN '--exclude=node_modules' original/src/services/status-videos/status-videos.service.js render/src/services/status-videos/status-videos.service.js
+--- original/src/services/status-videos/status-videos.service.js	1970-01-01 00:00:00.000000000 +0000
++++ render/src/services/status-videos/status-videos.service.js	2026-09-05 16:53:32.277268612 +0000
+@@ -0,0 +1,321 @@
++const fs = require('fs/promises');
++const pool = require('../../../db/connection');
++const videoOverlayService = require('./videoOverlay.service');
++const cloudflareR2Service = require('../cloudflare/cloudflareR2.service');
++const zapiService = require('../integracoes/zapi.service');
++const instagramService = require('../integracoes/instagram.service');
++const facebookService = require('../integracoes/facebook.service');
++const youtubeService = require('../integracoes/youtube.service');
++const termometroAparicoesService = require('../termometro/termometroAparicoes.service');
++
++const requisicoesEmAndamento = new Map();
++const TEMPO_CACHE_MS = 30 * 60 * 1000;
++
++function texto(valor) {
++  return String(valor ?? '').trim();
++}
++
++function normalizarRequestId(valor) {
++  const requestId = texto(valor);
++  if (!requestId) throw new Error('Identificador da publicação não informado.');
++  if (requestId.length > 120 || !/^[a-zA-Z0-9._:-]+$/.test(requestId)) {
++    throw new Error('Identificador da publicação inválido.');
++  }
++  return requestId;
++}
++
++function normalizarQuantidade(valor) {
++  const quantidade = Number.parseInt(valor, 10);
++  if (!Number.isInteger(quantidade) || quantidade <= 0 || quantidade > 99) {
++    throw new Error('Quantidade inválida. Use um valor entre 1 e 99.');
++  }
++  return quantidade;
++}
++
++function parseItens(valor) {
++  let lista = valor;
++  if (typeof valor === 'string') {
++    try { lista = JSON.parse(valor); } catch (_) { throw new Error('Lista de itens inválida.'); }
++  }
++  if (!Array.isArray(lista) || !lista.length) throw new Error('Selecione pelo menos um item do vídeo.');
++
++  const mapa = new Map();
++  for (const item of lista) {
++    const produtoId = Number.parseInt(item?.produto_id ?? item?.id, 10);
++    if (!Number.isInteger(produtoId) || produtoId <= 0) throw new Error('Há um produto inválido na seleção.');
++    const quantidade = normalizarQuantidade(item?.quantidade ?? 1);
++    const acumulada = (mapa.get(produtoId) || 0) + quantidade;
++    if (acumulada > 99) throw new Error('A quantidade máxima por produto é 99.');
++    mapa.set(produtoId, acumulada);
++  }
++
++  return Array.from(mapa.entries()).map(([produto_id, quantidade]) => ({ produto_id, quantidade }));
++}
++
++function moeda(valor) {
++  return Number(valor || 0).toLocaleString('pt-BR', {
++    style: 'currency',
++    currency: 'BRL',
++    minimumFractionDigits: 2,
++    maximumFractionDigits: 2,
++  }).replace(/\u00a0/g, ' ');
++}
++
++async function carregarItensSelecionados(itensInformados) {
++  const ids = itensInformados.map(item => item.produto_id);
++  const result = await pool.query(`
++    SELECT
++      p.id,
++      p.nome,
++      p.preco,
++      p.ativo,
++      p.item_legado,
++      c.id AS categoria_id,
++      c.nome AS categoria
++    FROM produtos p
++    LEFT JOIN produtos_categorias c ON c.id = p.categoria_id
++    WHERE p.id = ANY($1::bigint[])
++  `, [ids]);
++
++  const porId = new Map(result.rows.map(row => [Number(row.id), row]));
++  return itensInformados.map(item => {
++    const produto = porId.get(item.produto_id);
++    if (!produto) throw new Error(`Produto ${item.produto_id} não encontrado.`);
++    if (produto.ativo !== true) throw new Error(`O produto “${produto.nome}” está inativo.`);
++
++    const preco = Number(produto.preco);
++    if (!Number.isFinite(preco) || preco <= 0) throw new Error(`O produto “${produto.nome}” está sem preço válido.`);
++
++    return {
++      produto_id: Number(produto.id),
++      nome: texto(produto.nome),
++      preco,
++      quantidade: item.quantidade,
++      categoria_id: produto.categoria_id ? Number(produto.categoria_id) : null,
++      categoria: produto.categoria || '',
++      item_legado: produto.item_legado ? Number(produto.item_legado) : null,
++    };
++  });
++}
++
++function calcularResumo(itens) {
++  const quantidadeItens = itens.reduce((soma, item) => soma + Number(item.quantidade || 0), 0);
++  const valorTotal = itens.reduce((soma, item) => soma + Number(item.preco || 0) * Number(item.quantidade || 0), 0);
++  const precoMedio = quantidadeItens > 0 ? valorTotal / quantidadeItens : 0;
++  return {
++    quantidade_itens: quantidadeItens,
++    valor_total: Number(valorTotal.toFixed(2)),
++    preco_medio: Number(precoMedio.toFixed(2)),
++  };
++}
++
++function montarTextoFacebook(itens, resumo) {
++  const linhasItens = itens.map(item => (
++    `• ${item.quantidade}x ${item.nome} — ${moeda(resumo.preco_medio)} cada`
++  ));
++
++  return [
++    'KIT ALUMÍNIO JR',
++    '',
++    ...linhasItens,
++    '',
++    `Cada item: ${moeda(resumo.preco_medio)}`,
++    `Kit completo: ${moeda(resumo.valor_total)}`,
++    `${resumo.quantidade_itens} ${resumo.quantidade_itens === 1 ? 'item' : 'itens'}`,
++    '',
++    'ZAP: 83.9.9979-2085',
++    'Instagram: @aluminiojrpb',
++    'George',
++  ].join('\n');
++}
++
++function montarYoutube(itens, resumo) {
++  const rotuloItens = resumo.quantidade_itens === 1 ? 'item' : 'itens';
++  const titulo = `Kit Alumínio JR — ${resumo.quantidade_itens} ${rotuloItens} por ${moeda(resumo.valor_total)} #Shorts`;
++  const descricao = [
++    `Cada item: ${moeda(resumo.preco_medio)}`,
++    `Kit completo: ${moeda(resumo.valor_total)}`,
++    '',
++    'Itens:',
++    ...itens.map(item => `• ${item.quantidade}x ${item.nome}`),
++    '',
++    'ZAP: 83.9.9979-2085',
++    'Instagram: @aluminiojrpb',
++    '#Shorts #AluminioJR',
++  ].join('\n');
++
++  return {
++    titulo,
++    descricao,
++    tags: itens.map(item => item.nome).slice(0, 20),
++  };
++}
++
++function removerDoCacheDepois(chave) {
++  const timer = setTimeout(() => requisicoesEmAndamento.delete(chave), TEMPO_CACHE_MS);
++  if (typeof timer.unref === 'function') timer.unref();
++}
++
++async function executarCanalIdempotente(chave, executar) {
++  const existente = requisicoesEmAndamento.get(chave);
++  if (existente) {
++    const resultado = await existente;
++    return { ...resultado, repetida: true };
++  }
++
++  const promessa = Promise.resolve().then(executar);
++  requisicoesEmAndamento.set(chave, promessa);
++  try {
++    const resultado = await promessa;
++    removerDoCacheDepois(chave);
++    return { ...resultado, repetida: false };
++  } catch (error) {
++    requisicoesEmAndamento.delete(chave);
++    throw error;
++  }
++}
++
++function limitarErro(error) {
++  const mensagem = texto(error?.message || error || 'Erro não informado.');
++  return mensagem.length > 900 ? `${mensagem.slice(0, 897)}...` : mensagem;
++}
++
++function resultadoCanal(settled, canal) {
++  if (settled.status === 'fulfilled') {
++    return { canal, status: 'publicado', ...settled.value };
++  }
++  return { canal, status: 'erro', erro: limitarErro(settled.reason), repetida: false };
++}
++
++async function publicar({ arquivo, requestId, itens: itensBrutos }) {
++  if (!arquivo?.path) throw new Error('Selecione o vídeo antes de publicar.');
++
++  let videoFinal = null;
++
++  try {
++    const idRequisicao = normalizarRequestId(requestId);
++    const itensInformados = parseItens(itensBrutos);
++    const itens = await carregarItensSelecionados(itensInformados);
++    const resumo = calcularResumo(itens);
++
++    videoFinal = await videoOverlayService.gerarVideoFinal({
++      caminhoEntrada: arquivo.path,
++      precoMedio: resumo.preco_medio,
++      valorTotal: resumo.valor_total,
++      quantidadeItens: resumo.quantidade_itens,
++    });
++
++    const r2 = await cloudflareR2Service.uploadArquivoLocal(videoFinal.caminho, {
++      pasta: 'status-videos',
++      nome: `status-video-${idRequisicao}.mp4`,
++      contentType: 'video/mp4',
++      metadata: { request_id: idRequisicao },
++    });
++
++    const textoFacebook = montarTextoFacebook(itens, resumo);
++    const youtube = montarYoutube(itens, resumo);
++
++    const resultados = await Promise.allSettled([
++      executarCanalIdempotente(`${idRequisicao}:whatsapp-status`, async () => {
++        const r = await zapiService.enviarVideoStatus({ video: r2.url });
++        return { zapi: r.zapi || null };
++      }),
++      executarCanalIdempotente(`${idRequisicao}:instagram-story`, async () => {
++        const r = await instagramService.publicarStoryVideo({ videoUrl: r2.url });
++        return {
++          media_id: r.media_id,
++          container_id: r.container_id,
++          processamento_status: r.processamento_status,
++          api_version: r.api_version,
++        };
++      }),
++      executarCanalIdempotente(`${idRequisicao}:facebook-story`, async () => {
++        const r = await facebookService.publicarStoryVideo({ videoUrl: r2.url });
++        return { post_id: r.post_id, video_id: r.video_id, api_version: r.api_version };
++      }),
++      executarCanalIdempotente(`${idRequisicao}:facebook-feed`, async () => {
++        const r = await facebookService.publicarFeedVideo({
++          videoUrl: r2.url,
++          message: textoFacebook,
++          title: `Kit Alumínio JR — ${resumo.quantidade_itens} ${resumo.quantidade_itens === 1 ? 'item' : 'itens'}`,
++        });
++        return { post_id: r.post_id, video_id: r.video_id, api_version: r.api_version };
++      }),
++      executarCanalIdempotente(`${idRequisicao}:youtube-shorts`, async () => {
++        const r = await youtubeService.publicarShort({
++          caminho: videoFinal.caminho,
++          titulo: youtube.titulo,
++          descricao: youtube.descricao,
++          tags: youtube.tags,
++        });
++        return { video_id: r.video_id, url: r.url, privacy_status: r.privacy_status };
++      }),
++    ]);
++
++    const whatsapp = resultadoCanal(resultados[0], 'whatsapp');
++    const instagram = resultadoCanal(resultados[1], 'instagram_story');
++    const facebookStory = resultadoCanal(resultados[2], 'facebook_story');
++    const facebookFeed = resultadoCanal(resultados[3], 'facebook_feed');
++    const youtubeShorts = resultadoCanal(resultados[4], 'youtube_shorts');
++    const canais = {
++      whatsapp,
++      instagram_story: instagram,
++      facebook_story: facebookStory,
++      facebook_feed: facebookFeed,
++      youtube_shorts: youtubeShorts,
++    };
++
++    const publicados = Object.values(canais).filter(canal => canal.status === 'publicado').length;
++    const totalCanais = Object.keys(canais).length;
++    const statusGeral = publicados === totalCanais ? 'publicado' : (publicados > 0 ? 'parcial' : 'erro');
++
++    if (publicados > 0) {
++      try {
++        await termometroAparicoesService.registrarStatusVideos({
++          requestId: idRequisicao,
++          itens,
++          canais,
++        });
++      } catch (error) {
++        console.error('[Status Vídeos] Falha ao registrar aparições no Termômetro:', error);
++      }
++    }
++
++    return {
++      success: statusGeral === 'publicado',
++      status_geral: statusGeral,
++      request_id: idRequisicao,
++      video_url: r2.url,
++      video: {
++        duracao_segundos: videoFinal.duracao_segundos,
++        largura: videoFinal.largura,
++        altura: videoFinal.altura,
++      },
++      resumo,
++      itens,
++      facebook_texto: textoFacebook,
++      canais,
++    };
++  } finally {
++    await fs.unlink(arquivo.path).catch(() => {});
++    if (videoFinal?.caminho) await fs.unlink(videoFinal.caminho).catch(() => {});
++  }
++}
++
++function diagnostico() {
++  return {
++    youtube: youtubeService.diagnosticarConfiguracao(),
++    instagram: instagramService.diagnosticarConfiguracao(),
++    facebook: facebookService.diagnosticarConfiguracao(),
++    video: {
++      duracao_minima_segundos: videoOverlayService.DURACAO_MINIMA_SEGUNDOS,
++      duracao_maxima_segundos: videoOverlayService.DURACAO_MAXIMA_SEGUNDOS,
++      formato_saida: `${videoOverlayService.LARGURA}x${videoOverlayService.ALTURA}`,
++    },
++  };
++}
++
++module.exports = {
++  publicar,
++  diagnostico,
++};
+diff -ruN '--exclude=node_modules' original/src/services/status-videos/videoOverlay.service.js render/src/services/status-videos/videoOverlay.service.js
+--- original/src/services/status-videos/videoOverlay.service.js	1970-01-01 00:00:00.000000000 +0000
++++ render/src/services/status-videos/videoOverlay.service.js	2026-09-05 16:53:41.457244816 +0000
+@@ -0,0 +1,187 @@
++const fs = require('fs/promises');
++const os = require('os');
++const path = require('path');
++const crypto = require('crypto');
++const { spawn } = require('child_process');
++const sharp = require('sharp');
++
++const LARGURA = 1080;
++const ALTURA = 1920;
++const DURACAO_MINIMA_SEGUNDOS = 3;
++const DURACAO_MAXIMA_SEGUNDOS = 60;
++
++function ffmpegPath() {
++  const configurado = String(process.env.FFMPEG_PATH || '').trim();
++  if (configurado) return configurado;
++
++  try {
++    const binario = require('ffmpeg-static');
++    if (binario) return binario;
++  } catch (_) {
++    // Cai na mensagem padronizada abaixo.
++  }
++  throw new Error('FFmpeg não encontrado. Instale a dependência ffmpeg-static ou configure FFMPEG_PATH.');
++}
++
++function escaparXml(valor) {
++  return String(valor ?? '')
++    .replace(/&/g, '&amp;')
++    .replace(/</g, '&lt;')
++    .replace(/>/g, '&gt;')
++    .replace(/"/g, '&quot;')
++    .replace(/'/g, '&apos;');
++}
++
++function moeda(valor) {
++  return Number(valor || 0).toLocaleString('pt-BR', {
++    style: 'currency',
++    currency: 'BRL',
++    minimumFractionDigits: 2,
++    maximumFractionDigits: 2,
++  }).replace(/\u00a0/g, ' ');
++}
++
++function estimarLargura(texto, tamanhoFonte, paddingX = 24) {
++  const caracteres = Array.from(String(texto || '')).length;
++  return Math.min(LARGURA - 96, Math.max(180, Math.ceil(caracteres * tamanhoFonte * 0.56 + paddingX * 2)));
++}
++
++function linhaSvg({ texto, x, y, tamanhoFonte = 48, centralizarEm = null, peso = 500 }) {
++  const altura = Math.ceil(tamanhoFonte * 1.48);
++  const largura = estimarLargura(texto, tamanhoFonte);
++  const posX = centralizarEm === null ? x : Math.round(centralizarEm - largura / 2);
++  const baseline = Math.round(y + altura * 0.68);
++
++  return {
++    largura,
++    altura,
++    x: posX,
++    svg: `
++      <rect x="${posX}" y="${y}" width="${largura}" height="${altura}" rx="18" ry="18"
++            fill="rgba(255,255,255,0.95)"/>
++      <text x="${Math.round(posX + largura / 2)}" y="${baseline}" text-anchor="middle"
++            font-family="Arial, Helvetica, sans-serif" font-size="${tamanhoFonte}" font-weight="${peso}"
++            fill="#111111">${escaparXml(texto)}</text>`
++  };
++}
++
++function montarSvg({ precoMedio, valorTotal, quantidadeItens }) {
++  const zap = 'ZAP: 83.9.9979-2085';
++  const instagram = 'Instagram: @aluminiojrpb';
++  const nome = 'George';
++  const cadaItem = `Cada item: ${moeda(precoMedio)}`;
++  const kit = `Kit completo: ${moeda(valorTotal)}`;
++  const itens = `${quantidadeItens} ${quantidadeItens === 1 ? 'item' : 'itens'}`;
++
++  const margemX = 54;
++  const topo1 = linhaSvg({ texto: zap, x: margemX, y: 82, tamanhoFonte: 48 });
++  const topo2 = linhaSvg({ texto: instagram, x: margemX, y: 160, tamanhoFonte: 48 });
++  const larguraTopo = Math.max(topo1.largura, topo2.largura);
++  const centroTopo = margemX + larguraTopo / 2;
++  const topo3 = linhaSvg({ texto: nome, x: margemX, y: 238, tamanhoFonte: 48, centralizarEm: centroTopo, peso: 600 });
++
++  const centroVideo = LARGURA / 2;
++  const baixo1 = linhaSvg({ texto: cadaItem, x: 0, y: 1320, tamanhoFonte: 52, centralizarEm: centroVideo });
++  const baixo2 = linhaSvg({ texto: kit, x: 0, y: 1404, tamanhoFonte: 52, centralizarEm: centroVideo });
++  const baixo3 = linhaSvg({ texto: itens, x: 0, y: 1488, tamanhoFonte: 52, centralizarEm: centroVideo, peso: 600 });
++
++  return `
++    <svg width="${LARGURA}" height="${ALTURA}" viewBox="0 0 ${LARGURA} ${ALTURA}"
++         xmlns="http://www.w3.org/2000/svg">
++      ${topo1.svg}
++      ${topo2.svg}
++      ${topo3.svg}
++      ${baixo1.svg}
++      ${baixo2.svg}
++      ${baixo3.svg}
++    </svg>`;
++}
++
++async function criarOverlayPng(dados) {
++  const arquivo = path.join(os.tmpdir(), `status-video-overlay-${Date.now()}-${crypto.randomBytes(6).toString('hex')}.png`);
++  const svg = montarSvg(dados);
++  await sharp(Buffer.from(svg)).png({ compressionLevel: 9 }).toFile(arquivo);
++  return arquivo;
++}
++
++function executarFfmpeg(args, { aceitarFalha = false } = {}) {
++  return new Promise((resolve, reject) => {
++    const processo = spawn(ffmpegPath(), args, { windowsHide: true });
++    let stderr = '';
++
++    processo.stderr.on('data', chunk => {
++      stderr += chunk.toString();
++      if (stderr.length > 40000) stderr = stderr.slice(-40000);
++    });
++
++    processo.on('error', error => reject(new Error(`Não foi possível executar FFmpeg: ${error.message}`)));
++    processo.on('close', codigo => {
++      if (codigo === 0 || aceitarFalha) return resolve({ codigo, stderr });
++      const detalhe = stderr.split('\n').slice(-12).join('\n').trim();
++      return reject(new Error(`FFmpeg não conseguiu processar o vídeo.${detalhe ? ` ${detalhe}` : ''}`));
++    });
++  });
++}
++
++async function obterDuracaoSegundos(caminhoVideo) {
++  const { stderr } = await executarFfmpeg(['-hide_banner', '-i', caminhoVideo], { aceitarFalha: true });
++  const match = stderr.match(/Duration:\s*(\d{2}):(\d{2}):(\d{2}(?:\.\d+)?)/i);
++  if (!match) throw new Error('Não foi possível identificar a duração do vídeo.');
++  return Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3]);
++}
++
++async function gerarVideoFinal({ caminhoEntrada, precoMedio, valorTotal, quantidadeItens }) {
++  if (!caminhoEntrada) throw new Error('Vídeo de entrada não informado.');
++
++  const duracao = await obterDuracaoSegundos(caminhoEntrada);
++  if (duracao < DURACAO_MINIMA_SEGUNDOS) {
++    throw new Error(`O vídeo precisa ter pelo menos ${DURACAO_MINIMA_SEGUNDOS} segundos para publicação nos Stories.`);
++  }
++  if (duracao > DURACAO_MAXIMA_SEGUNDOS + 0.2) {
++    throw new Error(`O vídeo tem ${duracao.toFixed(1)}s. Para publicar nos Stories do Instagram e Facebook, use no máximo ${DURACAO_MAXIMA_SEGUNDOS}s.`);
++  }
++
++  const overlay = await criarOverlayPng({ precoMedio, valorTotal, quantidadeItens });
++  const saida = path.join(os.tmpdir(), `status-video-final-${Date.now()}-${crypto.randomBytes(6).toString('hex')}.mp4`);
++
++  try {
++    await executarFfmpeg([
++      '-y',
++      '-i', caminhoEntrada,
++      '-loop', '1', '-i', overlay,
++      '-filter_complex',
++      `[0:v]scale=${LARGURA}:${ALTURA}:force_original_aspect_ratio=decrease,pad=${LARGURA}:${ALTURA}:(ow-iw)/2:(oh-ih)/2:black,setsar=1[base];[base][1:v]overlay=0:0:shortest=1[outv]`,
++      '-map', '[outv]',
++      '-map', '0:a?',
++      '-c:v', 'libx264',
++      '-preset', 'veryfast',
++      '-crf', '22',
++      '-pix_fmt', 'yuv420p',
++      '-profile:v', 'high',
++      '-level', '4.1',
++      '-c:a', 'aac',
++      '-b:a', '128k',
++      '-ar', '44100',
++      '-movflags', '+faststart',
++      '-shortest',
++      saida,
++    ]);
++  } finally {
++    await fs.unlink(overlay).catch(() => {});
++  }
++
++  return {
++    caminho: saida,
++    duracao_segundos: Number(duracao.toFixed(2)),
++    largura: LARGURA,
++    altura: ALTURA,
++  };
++}
++
++module.exports = {
++  gerarVideoFinal,
++  DURACAO_MINIMA_SEGUNDOS,
++  DURACAO_MAXIMA_SEGUNDOS,
++  LARGURA,
++  ALTURA,
++};
+diff -ruN '--exclude=node_modules' original/src/services/termometro/termometro-vendas.service.js render/src/services/termometro/termometro-vendas.service.js
+--- original/src/services/termometro/termometro-vendas.service.js	2026-09-05 16:36:13.014109653 +0000
++++ render/src/services/termometro/termometro-vendas.service.js	2026-09-05 16:45:51.013715610 +0000
+@@ -85,7 +85,7 @@
+     return {
+       codigo: 'esquecido',
+       rotulo: 'VENDENDO SEM DIVULGAÇÃO',
+-      descricao: 'Tem venda no mês, mas não apareceu no Status Zap nem na Central de Ofertas.',
++      descricao: 'Tem venda no mês, mas não apareceu no Status Zap, na Central de Ofertas nem no Status Vídeos.',
+       prioridade: 10
+     };
+   }
+@@ -183,6 +183,8 @@
+       COALESCE(SUM(quantidade) FILTER (WHERE origem = 'status_zap'), 0)::int AS status_aparicoes,
+       COUNT(*) FILTER (WHERE origem = 'central_ofertas')::int AS ofertas_publicacoes,
+       COALESCE(SUM(quantidade) FILTER (WHERE origem = 'central_ofertas'), 0)::int AS ofertas_aparicoes,
++      COUNT(*) FILTER (WHERE origem = 'status_videos')::int AS videos_publicacoes,
++      COALESCE(SUM(quantidade) FILTER (WHERE origem = 'status_videos'), 0)::int AS videos_aparicoes,
+       MAX(publicado_em) AS ultima_aparicao
+     FROM termometro_aparicoes
+     WHERE publicado_em >= $1::timestamptz
+@@ -197,6 +199,8 @@
+     status_aparicoes: Number(row.status_aparicoes || 0),
+     ofertas_publicacoes: Number(row.ofertas_publicacoes || 0),
+     ofertas_aparicoes: Number(row.ofertas_aparicoes || 0),
++    videos_publicacoes: Number(row.videos_publicacoes || 0),
++    videos_aparicoes: Number(row.videos_aparicoes || 0),
+     ultima_aparicao: row.ultima_aparicao || null
+   }]));
+ }
+@@ -244,6 +248,8 @@
+       status_aparicoes: 0,
+       ofertas_publicacoes: 0,
+       ofertas_aparicoes: 0,
++      videos_publicacoes: 0,
++      videos_aparicoes: 0,
+       ultima_aparicao: null
+     };
+     const venda = produto.item_legado
+@@ -315,7 +321,7 @@
+       data_inicial: `${ano}-${String(mes).padStart(2, '0')}-01`
+     },
+     regra: {
+-      aparicoes: 'Status Zap: 1 aparição por produto publicado. Central de Ofertas: cada produto do kit é contabilizado; quando o kit contém mais de uma unidade do mesmo produto, a quantidade entra no contador de aparições. Reenvio idempotente do Status Zap não duplica o contador.',
++      aparicoes: 'Status Zap: 1 aparição por produto publicado. Central de Ofertas: cada produto do kit é contabilizado pela quantidade. Status Vídeos: os itens marcados no vídeo entram pela quantidade informada. Reenvios idempotentes não duplicam o contador.',
+       vendas: vendasLegado.regra,
+       cruzamento: 'O vínculo é feito por produtos.item_legado = SAIDASITENS.ITEM.'
+     },
+diff -ruN '--exclude=node_modules' original/src/services/termometro/termometroAparicoes.service.js render/src/services/termometro/termometroAparicoes.service.js
+--- original/src/services/termometro/termometroAparicoes.service.js	2026-09-05 16:36:13.014258240 +0000
++++ render/src/services/termometro/termometroAparicoes.service.js	2026-09-05 16:42:34.235575447 +0000
+@@ -107,9 +107,41 @@
+   return inseridos;
+ }
+ 
++async function registrarStatusVideos({ requestId, itens, canais }) {
++  const chave = texto(requestId);
++  if (!chave || !Array.isArray(itens) || !itens.length) return 0;
++
++  const publicados = canaisPublicados(canais);
++  if (!publicados.length) return 0;
++
++  let inseridos = 0;
++  for (const item of itens) {
++    const produtoId = Number(item?.produto_id || item?.id);
++    if (!Number.isInteger(produtoId) || produtoId <= 0) continue;
++
++    const inseriu = await inserirAparicao({
++      produtoId,
++      origem: 'status_videos',
++      origemChave: chave,
++      quantidade: inteiroPositivo(item.quantidade),
++      detalhes: {
++        produto_nome: item.nome || null,
++        categoria_id: item.categoria_id || null,
++        categoria: item.categoria || null,
++        canais_publicados: publicados
++      }
++    });
++
++    if (inseriu) inseridos += 1;
++  }
++
++  return inseridos;
++}
++
+ module.exports = {
+   prepararEstrutura,
+   inserirAparicao,
+   registrarStatusZap,
+-  registrarCentralOfertas
++  registrarCentralOfertas,
++  registrarStatusVideos
+ };
+diff -ruN '--exclude=node_modules' original/views/status-videos/status-videos.html render/views/status-videos/status-videos.html
+--- original/views/status-videos/status-videos.html	1970-01-01 00:00:00.000000000 +0000
++++ render/views/status-videos/status-videos.html	2026-09-05 16:44:27.317827234 +0000
+@@ -0,0 +1,244 @@
++<!DOCTYPE html>
++<html lang="pt-BR">
++<head>
++<meta charset="UTF-8">
++<meta name="viewport" content="width=device-width, initial-scale=1.0">
++<title>Status Vídeos — Alumínio JR</title>
++<style>
++  :root{font-family:Arial,sans-serif;color:#17202a;background:#eef1f4}*{box-sizing:border-box}body{margin:0}.app{max-width:1180px;margin:0 auto;padding:18px}.topo{display:flex;justify-content:space-between;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:14px}.topo h1{margin:0;font-size:25px}.topo p{margin:5px 0 0;color:#61707f;font-size:13px}.topo a{color:#23384f;text-decoration:none;font-weight:700}.grid{display:grid;grid-template-columns:minmax(310px,420px) minmax(0,1fr);gap:16px}.painel{background:white;border:1px solid #d8dee5;border-radius:14px;padding:15px;box-shadow:0 2px 10px rgba(24,39,55,.05)}.painel h2{font-size:17px;margin:0 0 12px}.arquivo{display:block;border:2px dashed #9ca9b6;border-radius:12px;padding:16px;text-align:center;cursor:pointer;background:#f8fafb;font-weight:700}.arquivo:hover{background:#f2f5f7}.arquivo input{display:none}.arquivo small{display:block;font-weight:400;color:#6b7884;margin-top:5px}.preview-wrap{margin-top:14px;background:#111;border-radius:14px;overflow:hidden;position:relative;aspect-ratio:9/16;max-height:660px;margin-left:auto;margin-right:auto}.preview-wrap video{display:block;width:100%;height:100%;object-fit:contain;background:#000}.preview-vazio{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#cdd3d8;text-align:center;padding:20px}.overlay{position:absolute;inset:0;pointer-events:none;color:#111}.grupo-topo{position:absolute;left:5%;top:4.2%;display:flex;flex-direction:column;align-items:flex-start;gap:.55%;font-size:clamp(12px,2.2vw,20px)}.grupo-topo .nome{align-self:center;font-weight:700}.grupo-baixo{position:absolute;left:50%;top:68.7%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;gap:.55%;white-space:nowrap;font-size:clamp(13px,2.35vw,21px)}.bolha{background:rgba(255,255,255,.95);padding:.32em .55em;border-radius:.45em;box-shadow:0 1px 3px rgba(0,0,0,.12)}.metadados{margin-top:10px;font-size:12px;color:#5b6875;min-height:18px}.aviso{display:none;margin-top:10px;padding:10px 12px;border-radius:9px;font-size:13px}.aviso.show{display:block}.aviso.erro{background:#ffe9e9;color:#8a1717}.aviso.ok{background:#e8f7ed;color:#176033}.filtros{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}.cat-btn{border:1px solid #bac4ce;background:#fff;padding:7px 10px;border-radius:999px;cursor:pointer;font-size:12px}.cat-btn.active{background:#172b40;color:white;border-color:#172b40}.busca{width:100%;padding:10px 11px;border:1px solid #c6cfd8;border-radius:9px;margin-bottom:10px}.produtos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;max-height:540px;overflow:auto;padding-right:3px}.produto{border:1px solid #d6dde4;border-radius:10px;padding:9px;background:#fff;display:grid;grid-template-columns:58px minmax(0,1fr);gap:8px;align-items:center}.produto.selecionado{border-color:#1f6e46;background:#f3fbf6}.produto img{width:58px;height:58px;object-fit:contain;background:#f5f6f7;border-radius:7px}.produto-info{min-width:0}.produto-nome{font-size:12px;font-weight:700;line-height:1.2;margin-bottom:4px}.produto-preco{font-size:12px;color:#5e6872}.produto-controles{display:flex;gap:6px;align-items:center;margin-top:5px}.produto-controles input[type=checkbox]{width:18px;height:18px}.qtd{width:58px;padding:5px;border:1px solid #c8d0d8;border-radius:6px;text-align:center}.resumo{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0}.resumo-card{background:#f3f6f8;border-radius:9px;padding:9px;text-align:center}.resumo-card span{display:block;font-size:11px;color:#64717d}.resumo-card strong{display:block;margin-top:3px;font-size:15px}.selecionados{font-size:12px;color:#53606c;margin:8px 0;max-height:70px;overflow:auto}.publicar{width:100%;border:0;border-radius:10px;background:#111f2e;color:white;padding:13px;font-size:15px;font-weight:700;cursor:pointer}.publicar:disabled{opacity:.5;cursor:not-allowed}.resultado{margin-top:12px;border-top:1px solid #e0e5ea;padding-top:12px}.resultado[hidden]{display:none}.canal{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid #edf0f2;padding:8px 0;font-size:13px}.status-ok{color:#19713f;font-weight:700}.status-erro{color:#a82323;font-weight:700}.detalhe-erro{font-size:11px;color:#8c3a3a;margin-top:2px}.diag{font-size:12px;color:#667582;margin-bottom:10px}.diag strong{color:#243342}.processando{margin-top:10px;background:#fff8d9;color:#6e5811;border-radius:9px;padding:10px;font-size:13px;display:none}.processando.show{display:block}@media(max-width:820px){.grid{grid-template-columns:1fr}.preview-wrap{max-height:620px;width:min(100%,350px)}.produtos{grid-template-columns:repeat(2,minmax(0,1fr));max-height:none}}@media(max-width:460px){.app{padding:10px}.produtos{grid-template-columns:1fr}.resumo{grid-template-columns:1fr 1fr}.resumo-card:last-child{grid-column:1/3}.topo h1{font-size:21px}}
++</style>
++</head>
++<body>
++<main class="app">
++  <header class="topo">
++    <div><h1>Status Vídeos</h1><p>Vídeo final para WhatsApp Status, Instagram Story, Facebook Story + Feed e YouTube Shorts.</p></div>
++    <div><a href="/whatsapp/status">← Status Zap</a></div>
++  </header>
++
++  <div class="grid">
++    <section class="painel">
++      <h2>1. Selecione o vídeo local</h2>
++      <label class="arquivo">
++        Escolher vídeo
++        <small id="arquivoNome">MP4/MOV do celular · ainda não será enviado</small>
++        <input id="videoInput" type="file" accept="video/*">
++      </label>
++      <div class="preview-wrap">
++        <video id="videoPreview" controls playsinline preload="metadata"></video>
++        <div id="previewVazio" class="preview-vazio">A prévia aparece aqui usando somente o arquivo local.</div>
++        <div class="overlay">
++          <div class="grupo-topo">
++            <div class="bolha">ZAP: 83.9.9979-2085</div>
++            <div class="bolha">Instagram: @aluminiojrpb</div>
++            <div class="bolha nome">George</div>
++          </div>
++          <div class="grupo-baixo">
++            <div class="bolha" id="ovMedio">Cada item: R$ 0,00</div>
++            <div class="bolha" id="ovTotal">Kit completo: R$ 0,00</div>
++            <div class="bolha" id="ovQtd">0 itens</div>
++          </div>
++        </div>
++      </div>
++      <div id="videoMeta" class="metadados"></div>
++      <div id="videoAviso" class="aviso erro"></div>
++    </section>
++
++    <section class="painel">
++      <h2>2. Marque os itens que aparecem no vídeo</h2>
++      <div id="diagnostico" class="diag">Verificando integrações...</div>
++      <div id="categorias" class="filtros"></div>
++      <input id="busca" class="busca" type="search" placeholder="Buscar produto...">
++      <div id="produtos" class="produtos"><p>Carregando produtos...</p></div>
++
++      <div class="resumo">
++        <div class="resumo-card"><span>Cada item</span><strong id="rMedio">R$ 0,00</strong></div>
++        <div class="resumo-card"><span>Kit completo</span><strong id="rTotal">R$ 0,00</strong></div>
++        <div class="resumo-card"><span>Quantidade</span><strong id="rQtd">0 itens</strong></div>
++      </div>
++      <div id="selecionados" class="selecionados">Nenhum item selecionado.</div>
++      <button id="publicarBtn" class="publicar" type="button" disabled>Gerar vídeo final e publicar</button>
++      <div id="processando" class="processando">Processando o vídeo com FFmpeg e publicando nos 5 destinos...</div>
++      <div id="resultado" class="resultado" hidden></div>
++    </section>
++  </div>
++</main>
++<script>
++(() => {
++  const MAX_MB = 250;
++  const MIN_SEG = 3;
++  const MAX_SEG = 60;
++  const els = Object.fromEntries([
++    'videoInput','videoPreview','previewVazio','arquivoNome','videoMeta','videoAviso','categorias','busca','produtos',
++    'ovMedio','ovTotal','ovQtd','rMedio','rTotal','rQtd','selecionados','publicarBtn','processando','resultado','diagnostico'
++  ].map(id => [id, document.getElementById(id)]));
++
++  let produtos = [];
++  let categoriaAtual = '';
++  let arquivo = null;
++  let objectUrl = '';
++  let duracao = 0;
++  let requestId = '';
++  const selecao = new Map();
++
++  const esc = valor => String(valor ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
++  const brl = valor => Number(valor || 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
++  const criarId = () => `sv-${Date.now()}-${Math.random().toString(36).slice(2,10)}`;
++  const invalidarRequest = () => { requestId = ''; els.resultado.hidden = true; };
++
++  function resumo() {
++    const itens = [...selecao.values()];
++    const quantidade = itens.reduce((s,x) => s + x.quantidade, 0);
++    const total = itens.reduce((s,x) => s + x.quantidade * Number(x.produto.preco || 0), 0);
++    const medio = quantidade ? total / quantidade : 0;
++    return { itens, quantidade, total, medio };
++  }
++
++  function atualizarResumo() {
++    const r = resumo();
++    els.rMedio.textContent = brl(r.medio);
++    els.rTotal.textContent = brl(r.total);
++    els.rQtd.textContent = `${r.quantidade} ${r.quantidade === 1 ? 'item' : 'itens'}`;
++    els.ovMedio.textContent = `Cada item: ${brl(r.medio)}`;
++    els.ovTotal.textContent = `Kit completo: ${brl(r.total)}`;
++    els.ovQtd.textContent = `${r.quantidade} ${r.quantidade === 1 ? 'item' : 'itens'}`;
++    els.selecionados.textContent = r.itens.length
++      ? r.itens.map(x => `${x.quantidade}x ${x.produto.nome}`).join(' · ')
++      : 'Nenhum item selecionado.';
++    validarPublicacao();
++  }
++
++  function validarPublicacao() {
++    const r = resumo();
++    const videoOk = arquivo && duracao >= MIN_SEG && duracao <= MAX_SEG + .2 && arquivo.size <= MAX_MB * 1024 * 1024;
++    els.publicarBtn.disabled = !(videoOk && r.quantidade > 0) || els.processando.classList.contains('show');
++  }
++
++  function mostrarAvisoVideo(msg = '') {
++    els.videoAviso.textContent = msg;
++    els.videoAviso.classList.toggle('show', Boolean(msg));
++  }
++
++  function carregarArquivo(file) {
++    if (objectUrl) URL.revokeObjectURL(objectUrl);
++    arquivo = file || null; duracao = 0; invalidarRequest(); mostrarAvisoVideo('');
++    if (!arquivo) {
++      els.videoPreview.removeAttribute('src'); els.previewVazio.style.display = 'flex';
++      els.arquivoNome.textContent = 'MP4/MOV do celular · ainda não será enviado';
++      els.videoMeta.textContent = ''; validarPublicacao(); return;
++    }
++    if (!String(arquivo.type || '').startsWith('video/')) { mostrarAvisoVideo('Selecione um arquivo de vídeo válido.'); arquivo = null; validarPublicacao(); return; }
++    const mb = arquivo.size / 1024 / 1024;
++    if (mb > MAX_MB) mostrarAvisoVideo(`Vídeo muito grande: ${mb.toFixed(1)} MB. Limite: ${MAX_MB} MB.`);
++    objectUrl = URL.createObjectURL(arquivo);
++    els.videoPreview.src = objectUrl; els.previewVazio.style.display = 'none';
++    els.arquivoNome.textContent = arquivo.name;
++    els.videoMeta.textContent = `${mb.toFixed(1)} MB · prévia local, sem upload`;
++  }
++
++  els.videoInput.addEventListener('change', () => carregarArquivo(els.videoInput.files?.[0] || null));
++  els.videoPreview.addEventListener('loadedmetadata', () => {
++    duracao = Number(els.videoPreview.duration || 0);
++    const mb = arquivo ? arquivo.size / 1024 / 1024 : 0;
++    els.videoMeta.textContent = `${duracao.toFixed(1)}s · ${mb.toFixed(1)} MB · prévia local, sem upload`;
++    if (duracao < MIN_SEG) mostrarAvisoVideo(`O vídeo precisa ter pelo menos ${MIN_SEG} segundos.`);
++    else if (duracao > MAX_SEG + .2) mostrarAvisoVideo(`O vídeo tem ${duracao.toFixed(1)}s. Para Stories do Instagram/Facebook, o limite deste módulo é ${MAX_SEG}s.`);
++    else if (mb <= MAX_MB) mostrarAvisoVideo('');
++    validarPublicacao();
++  });
++
++  function renderCategorias() {
++    const mapa = new Map(produtos.filter(p => p.categoria_id).map(p => [String(p.categoria_id), p.categoria || 'Sem nome']));
++    const cats = [...mapa.entries()].sort((a,b) => a[1].localeCompare(b[1],'pt-BR'));
++    els.categorias.innerHTML = `<button class="cat-btn active" data-cat="">Todas</button>` + cats.map(([id,nome]) => `<button class="cat-btn" data-cat="${esc(id)}">${esc(nome)}</button>`).join('');
++    els.categorias.querySelectorAll('.cat-btn').forEach(btn => btn.addEventListener('click', () => {
++      categoriaAtual = btn.dataset.cat || '';
++      els.categorias.querySelectorAll('.cat-btn').forEach(x => x.classList.toggle('active', x === btn));
++      renderProdutos();
++    }));
++  }
++
++  function renderProdutos() {
++    const termo = els.busca.value.trim().toLocaleLowerCase('pt-BR');
++    const lista = produtos.filter(p => (!categoriaAtual || String(p.categoria_id) === categoriaAtual) && (!termo || String(p.nome || '').toLocaleLowerCase('pt-BR').includes(termo)));
++    els.produtos.innerHTML = lista.length ? lista.map(p => {
++      const sel = selecao.get(Number(p.id)); const q = sel?.quantidade || 1;
++      return `<article class="produto ${sel ? 'selecionado':''}" data-id="${p.id}">
++        <img src="${esc(p.foto || '/placeholder.png')}" alt="">
++        <div class="produto-info"><div class="produto-nome">${esc(p.nome)}</div><div class="produto-preco">${brl(p.preco)}</div>
++          <div class="produto-controles"><input class="check" type="checkbox" ${sel?'checked':''} aria-label="Selecionar ${esc(p.nome)}"><span>Qtd.</span><input class="qtd" type="number" min="1" max="99" value="${q}" ${sel?'':'disabled'}></div>
++        </div></article>`;
++    }).join('') : '<p>Nenhum produto encontrado.</p>';
++
++    els.produtos.querySelectorAll('.produto').forEach(card => {
++      const id = Number(card.dataset.id); const p = produtos.find(x => Number(x.id) === id);
++      const check = card.querySelector('.check'); const qtd = card.querySelector('.qtd');
++      check.addEventListener('change', () => {
++        if (check.checked) selecao.set(id,{produto:p,quantidade:Math.max(1,Number(qtd.value)||1)}); else selecao.delete(id);
++        qtd.disabled = !check.checked; card.classList.toggle('selecionado',check.checked); invalidarRequest(); atualizarResumo();
++      });
++      qtd.addEventListener('change', () => {
++        let q = Math.max(1, Math.min(99, Number.parseInt(qtd.value,10)||1)); qtd.value = q;
++        if (check.checked) selecao.set(id,{produto:p,quantidade:q}); invalidarRequest(); atualizarResumo();
++      });
++    });
++  }
++
++  els.busca.addEventListener('input', renderProdutos);
++
++  async function carregarDados() {
++    try {
++      const [rp, rd] = await Promise.all([
++        fetch('/api/produtos?ativos=true',{credentials:'same-origin'}),
++        fetch('/api/status-videos/diagnostico',{credentials:'same-origin'})
++      ]);
++      const bp = await rp.json(); const bd = await rd.json().catch(()=>({}));
++      if (!rp.ok || bp.success === false) throw new Error(bp.message || 'Falha ao carregar produtos.');
++      produtos = (bp.data || []).filter(p => Number(p.preco) > 0);
++      renderCategorias(); renderProdutos();
++      const y = bd?.data?.youtube;
++      els.diagnostico.innerHTML = y?.configurado
++        ? '<strong>YouTube Shorts:</strong> configurado · vídeo final 1080×1920 · limite 60s para os Stories.'
++        : `<strong>YouTube Shorts:</strong> faltando ${esc((y?.faltando || []).join(', ') || 'configuração')}. WhatsApp/Instagram/Facebook continuarão independentes.`;
++    } catch (e) {
++      els.produtos.innerHTML = `<p style="color:#a11">${esc(e.message)}</p>`;
++      els.diagnostico.textContent = 'Falha ao verificar integrações.';
++    }
++  }
++
++  function renderResultado(data) {
++    const nomes = {
++      whatsapp:'WhatsApp Status', instagram_story:'Instagram Story', facebook_story:'Facebook Story', facebook_feed:'Facebook Feed', youtube_shorts:'YouTube Shorts'
++    };
++    const canais = data.canais || {};
++    els.resultado.innerHTML = `<strong>Resultado: ${esc(data.status_geral || '-')}</strong>` + Object.entries(nomes).map(([chave,nome]) => {
++      const c = canais[chave] || {}; const ok = c.status === 'publicado';
++      const link = chave === 'youtube_shorts' && c.url ? ` · <a target="_blank" rel="noopener" href="${esc(c.url)}">abrir</a>` : '';
++      return `<div class="canal"><div>${nome}${c.erro ? `<div class="detalhe-erro">${esc(c.erro)}</div>`:''}</div><div class="${ok?'status-ok':'status-erro'}">${ok?'publicado':'erro'}${link}</div></div>`;
++    }).join('');
++    els.resultado.hidden = false;
++  }
++
++  els.publicarBtn.addEventListener('click', async () => {
++    const r = resumo();
++    if (!arquivo || !r.quantidade) return;
++    if (!requestId) requestId = criarId();
++    const itens = r.itens.map(x => ({produto_id:Number(x.produto.id),quantidade:x.quantidade}));
++    const form = new FormData(); form.append('video',arquivo,arquivo.name); form.append('request_id',requestId); form.append('itens',JSON.stringify(itens));
++    els.processando.classList.add('show'); els.publicarBtn.disabled = true; els.resultado.hidden = true;
++    try {
++      const response = await fetch('/api/status-videos/publicar',{method:'POST',body:form,credentials:'same-origin'});
++      const body = await response.json().catch(()=>({}));
++      if (body.data) { renderResultado(body.data); }
++      else if (!response.ok || body.success === false) throw new Error(body.message || `Erro HTTP ${response.status}`);
++    } catch(e) {
++      els.resultado.innerHTML = `<div class="aviso erro show">${esc(e.message || 'Falha ao publicar.')}</div>`; els.resultado.hidden = false;
++    } finally {
++      els.processando.classList.remove('show'); validarPublicacao();
++    }
++  });
++
++  atualizarResumo(); carregarDados();
++})();
++</script>
++</body>
++</html>
+diff -ruN '--exclude=node_modules' original/views/vendas/termometro-vendas.html render/views/vendas/termometro-vendas.html
+--- original/views/vendas/termometro-vendas.html	2026-09-05 16:36:13.041174602 +0000
++++ render/views/vendas/termometro-vendas.html	2026-09-05 16:50:53.039788548 +0000
+@@ -173,7 +173,7 @@
+     <div id="notice" class="notice"></div>
+ 
+     <section class="cards">
+-      <div class="card"><div class="label">Aparições</div><div class="value" id="cAparicoes">—</div><div class="hint">Unidades expostas nos dois módulos</div></div>
++      <div class="card"><div class="label">Aparições</div><div class="value" id="cAparicoes">—</div><div class="hint">Unidades expostas nos módulos de divulgação</div></div>
+       <div class="card"><div class="label">Publicações</div><div class="value" id="cPublicacoes">—</div><div class="hint">Eventos de publicação por produto</div></div>
+       <div class="card"><div class="label">Vendas mapeadas</div><div class="value" id="cVendas">—</div><div class="hint">Peças vendidas no mês</div></div>
+       <div class="card"><div class="label">Vendendo sem divulgação</div><div class="value" id="cEsquecidos">—</div><div class="hint">Produtos que merecem atenção</div></div>
+@@ -202,6 +202,7 @@
+               <th class="num">ITEM</th>
+               <th class="num">Status Zap</th>
+               <th class="num">Central de Ofertas</th>
++              <th class="num">Status Vídeos</th>
+               <th class="num">Aparições</th>
+               <th class="num">Vendas</th>
+               <th class="num">Venda / aparição</th>
+@@ -209,7 +210,7 @@
+             </tr>
+           </thead>
+           <tbody id="tbody">
+-            <tr><td colspan="8">Carregando...</td></tr>
++            <tr><td colspan="9">Carregando...</td></tr>
+           </tbody>
+         </table>
+       </div>
+@@ -303,7 +304,7 @@
+     function renderTabela() {
+       const itens = itensFiltrados();
+       if (!itens.length) {
+-        els.tbody.innerHTML = '<tr><td colspan="8">Nenhum produto encontrado com o filtro atual.</td></tr>';
++        els.tbody.innerHTML = '<tr><td colspan="9">Nenhum produto encontrado com o filtro atual.</td></tr>';
+         return;
+       }
+ 
+@@ -327,6 +328,10 @@
+               <div class="source-main">${numeroFlex(item.ofertas_aparicoes)}</div>
+               <div class="source-sub">${numeroFlex(item.ofertas_publicacoes)} publicação(ões)</div>
+             </td>
++            <td class="num">
++              <div class="source-main">${numeroFlex(item.videos_aparicoes)}</div>
++              <div class="source-sub">${numeroFlex(item.videos_publicacoes)} publicação(ões)</div>
++            </td>
+             <td class="num"><strong>${numeroFlex(item.aparicoes)}</strong></td>
+             <td class="num"><strong>${numeroFlex(item.vendas)}</strong></td>
+             <td class="num">${vendaPorAparicao}</td>
+@@ -344,7 +349,7 @@
+       if (!silencioso) {
+         els.atualizar.disabled = true;
+         els.atualizar.textContent = 'Carregando...';
+-        els.tbody.innerHTML = '<tr><td colspan="8">Carregando Termômetro...</td></tr>';
++        els.tbody.innerHTML = '<tr><td colspan="9">Carregando Termômetro...</td></tr>';
+       }
+ 
+       try {
+@@ -364,7 +369,7 @@
+         mostrarErro(error.message || 'Erro ao carregar o Termômetro de Vendas.');
+         if (!silencioso) {
+           dados = null;
+-          els.tbody.innerHTML = '<tr><td colspan="8">Falha ao carregar os dados.</td></tr>';
++          els.tbody.innerHTML = '<tr><td colspan="9">Falha ao carregar os dados.</td></tr>';
+         }
+       } finally {
+         if (!silencioso) {

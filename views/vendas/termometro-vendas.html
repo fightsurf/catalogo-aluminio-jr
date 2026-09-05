@@ -173,7 +173,7 @@
     <div id="notice" class="notice"></div>
 
     <section class="cards">
-      <div class="card"><div class="label">Aparições</div><div class="value" id="cAparicoes">—</div><div class="hint">Unidades expostas nos dois módulos</div></div>
+      <div class="card"><div class="label">Aparições</div><div class="value" id="cAparicoes">—</div><div class="hint">Unidades expostas nos módulos de divulgação</div></div>
       <div class="card"><div class="label">Publicações</div><div class="value" id="cPublicacoes">—</div><div class="hint">Eventos de publicação por produto</div></div>
       <div class="card"><div class="label">Vendas mapeadas</div><div class="value" id="cVendas">—</div><div class="hint">Peças vendidas no mês</div></div>
       <div class="card"><div class="label">Vendendo sem divulgação</div><div class="value" id="cEsquecidos">—</div><div class="hint">Produtos que merecem atenção</div></div>
@@ -202,6 +202,7 @@
               <th class="num">ITEM</th>
               <th class="num">Status Zap</th>
               <th class="num">Central de Ofertas</th>
+              <th class="num">Status Vídeos</th>
               <th class="num">Aparições</th>
               <th class="num">Vendas</th>
               <th class="num">Venda / aparição</th>
@@ -209,7 +210,7 @@
             </tr>
           </thead>
           <tbody id="tbody">
-            <tr><td colspan="8">Carregando...</td></tr>
+            <tr><td colspan="9">Carregando...</td></tr>
           </tbody>
         </table>
       </div>
@@ -303,7 +304,7 @@
     function renderTabela() {
       const itens = itensFiltrados();
       if (!itens.length) {
-        els.tbody.innerHTML = '<tr><td colspan="8">Nenhum produto encontrado com o filtro atual.</td></tr>';
+        els.tbody.innerHTML = '<tr><td colspan="9">Nenhum produto encontrado com o filtro atual.</td></tr>';
         return;
       }
 
@@ -327,6 +328,10 @@
               <div class="source-main">${numeroFlex(item.ofertas_aparicoes)}</div>
               <div class="source-sub">${numeroFlex(item.ofertas_publicacoes)} publicação(ões)</div>
             </td>
+            <td class="num">
+              <div class="source-main">${numeroFlex(item.videos_aparicoes)}</div>
+              <div class="source-sub">${numeroFlex(item.videos_publicacoes)} publicação(ões)</div>
+            </td>
             <td class="num"><strong>${numeroFlex(item.aparicoes)}</strong></td>
             <td class="num"><strong>${numeroFlex(item.vendas)}</strong></td>
             <td class="num">${vendaPorAparicao}</td>
@@ -344,7 +349,7 @@
       if (!silencioso) {
         els.atualizar.disabled = true;
         els.atualizar.textContent = 'Carregando...';
-        els.tbody.innerHTML = '<tr><td colspan="8">Carregando Termômetro...</td></tr>';
+        els.tbody.innerHTML = '<tr><td colspan="9">Carregando Termômetro...</td></tr>';
       }
 
       try {
@@ -364,7 +369,7 @@
         mostrarErro(error.message || 'Erro ao carregar o Termômetro de Vendas.');
         if (!silencioso) {
           dados = null;
-          els.tbody.innerHTML = '<tr><td colspan="8">Falha ao carregar os dados.</td></tr>';
+          els.tbody.innerHTML = '<tr><td colspan="9">Falha ao carregar os dados.</td></tr>';
         }
       } finally {
         if (!silencioso) {

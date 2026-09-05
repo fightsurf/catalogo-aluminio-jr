@@ -1,5 +1,7 @@
 const crypto = require('crypto');
 const path = require('path');
+const fs = require('fs');
+const fsp = require('fs/promises');
 const {
   S3Client,
   PutObjectCommand,
@@ -259,6 +261,36 @@ async function uploadBuffer(buffer, options = {}) {
 }
 
 
+async function uploadArquivoLocal(caminhoArquivo, options = {}) {
+  const config = getConfig();
+  validarConfiguracao(config);
+
+  const caminho = String(caminhoArquivo || '').trim();
+  if (!caminho) throw new Error('Caminho do arquivo para upload no R2 não informado.');
+
+  const stat = await fsp.stat(caminho);
+  if (!stat.isFile() || stat.size <= 0) throw new Error('Arquivo local vazio ou inválido para upload no R2.');
+
+  const pasta = normalizarParteChave(options.pasta || 'arquivos');
+  const nomeInformado = String(options.nome || path.basename(caminho) || `arquivo-${Date.now()}`).trim();
+  const ext = path.extname(nomeInformado).replace(/^\./, '').toLowerCase() || path.extname(caminho).replace(/^\./, '').toLowerCase() || 'bin';
+  const base = normalizarParteChave(path.basename(nomeInformado, path.extname(nomeInformado)));
+  const key = `${pasta}/${base}-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${ext}`;
+  const client = getClient(config);
+
+  await client.send(new PutObjectCommand({
+    Bucket: config.bucket,
+    Key: key,
+    Body: fs.createReadStream(caminho),
+    ContentLength: stat.size,
+    ContentType: options.contentType || 'application/octet-stream',
+    Metadata: Object.fromEntries(Object.entries(options.metadata || {}).map(([k,v]) => [normalizarParteChave(k), normalizarParteChave(v)])),
+  }));
+
+  return { id: key, key, url: montarUrlPublica(config.publicUrl, key), tamanho: stat.size };
+}
+
+
 async function excluirObjeto(keyInformada) {
   const key = String(keyInformada || '').trim().replace(/^\/+/, '');
 
@@ -348,6 +380,7 @@ async function limparPrefixo(prefixoInformado) {
 module.exports = {
   uploadImagem,
   uploadBuffer,
+  uploadArquivoLocal,
   excluirObjeto,
   limparPrefixo,
   MAX_UPLOAD_SIZE_MB,

@@ -85,7 +85,7 @@ function classificarProduto(item, referencias) {
     return {
       codigo: 'esquecido',
       rotulo: 'VENDENDO SEM DIVULGAÇÃO',
-      descricao: 'Tem venda no mês, mas não apareceu no Status Zap nem na Central de Ofertas.',
+      descricao: 'Tem venda no mês, mas não apareceu no Status Zap, na Central de Ofertas nem no Status Vídeos.',
       prioridade: 10
     };
   }
@@ -183,6 +183,8 @@ async function carregarAparicoes(periodo) {
       COALESCE(SUM(quantidade) FILTER (WHERE origem = 'status_zap'), 0)::int AS status_aparicoes,
       COUNT(*) FILTER (WHERE origem = 'central_ofertas')::int AS ofertas_publicacoes,
       COALESCE(SUM(quantidade) FILTER (WHERE origem = 'central_ofertas'), 0)::int AS ofertas_aparicoes,
+      COUNT(*) FILTER (WHERE origem = 'status_videos')::int AS videos_publicacoes,
+      COALESCE(SUM(quantidade) FILTER (WHERE origem = 'status_videos'), 0)::int AS videos_aparicoes,
       MAX(publicado_em) AS ultima_aparicao
     FROM termometro_aparicoes
     WHERE publicado_em >= $1::timestamptz
@@ -197,6 +199,8 @@ async function carregarAparicoes(periodo) {
     status_aparicoes: Number(row.status_aparicoes || 0),
     ofertas_publicacoes: Number(row.ofertas_publicacoes || 0),
     ofertas_aparicoes: Number(row.ofertas_aparicoes || 0),
+    videos_publicacoes: Number(row.videos_publicacoes || 0),
+    videos_aparicoes: Number(row.videos_aparicoes || 0),
     ultima_aparicao: row.ultima_aparicao || null
   }]));
 }
@@ -244,6 +248,8 @@ async function carregarTermometro(filtros = {}) {
       status_aparicoes: 0,
       ofertas_publicacoes: 0,
       ofertas_aparicoes: 0,
+      videos_publicacoes: 0,
+      videos_aparicoes: 0,
       ultima_aparicao: null
     };
     const venda = produto.item_legado
@@ -315,7 +321,7 @@ async function carregarTermometro(filtros = {}) {
       data_inicial: `${ano}-${String(mes).padStart(2, '0')}-01`
     },
     regra: {
-      aparicoes: 'Status Zap: 1 aparição por produto publicado. Central de Ofertas: cada produto do kit é contabilizado; quando o kit contém mais de uma unidade do mesmo produto, a quantidade entra no contador de aparições. Reenvio idempotente do Status Zap não duplica o contador.',
+      aparicoes: 'Status Zap: 1 aparição por produto publicado. Central de Ofertas: cada produto do kit é contabilizado pela quantidade. Status Vídeos: os itens marcados no vídeo entram pela quantidade informada. Reenvios idempotentes não duplicam o contador.',
       vendas: vendasLegado.regra,
       cruzamento: 'O vínculo é feito por produtos.item_legado = SAIDASITENS.ITEM.'
     },
