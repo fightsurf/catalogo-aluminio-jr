@@ -118,17 +118,18 @@ function montarTextoFacebook(itens, resumo) {
   ));
 
   return [
+    'Ligue agora e faça o seu pedido: (83) 9.9979-2085 (Whatsapp).',
+    'George',
+    '',
     'KIT ALUMÍNIO JR',
     '',
-    ...linhasItens,
+    linhasItens.join('\n\n'),
     '',
-    `Cada item: ${moeda(resumo.preco_medio)}`,
+    `CADA ITEM: ${moeda(resumo.preco_medio)}`,
     `Kit completo: ${moeda(resumo.valor_total)}`,
     `${resumo.quantidade_itens} ${resumo.quantidade_itens === 1 ? 'item' : 'itens'}`,
     '',
-    'ZAP: 83.9.9979-2085',
     'Instagram: @aluminiojrpb',
-    'George',
   ].join('\n');
 }
 
@@ -136,13 +137,15 @@ function montarYoutube(itens, resumo) {
   const rotuloItens = resumo.quantidade_itens === 1 ? 'item' : 'itens';
   const titulo = `Kit Alumínio JR — ${resumo.quantidade_itens} ${rotuloItens} por ${moeda(resumo.valor_total)} #Shorts`;
   const descricao = [
-    `Cada item: ${moeda(resumo.preco_medio)}`,
+    'Ligue agora e faça o seu pedido: (83) 9.9979-2085 (Whatsapp).',
+    'George',
+    '',
+    `CADA ITEM: ${moeda(resumo.preco_medio)}`,
     `Kit completo: ${moeda(resumo.valor_total)}`,
     '',
     'Itens:',
-    ...itens.map(item => `• ${item.quantidade}x ${item.nome}`),
+    itens.map(item => `• ${item.quantidade}x ${item.nome}`).join('\n\n'),
     '',
-    'ZAP: 83.9.9979-2085',
     'Instagram: @aluminiojrpb',
     '#Shorts #AluminioJR',
   ].join('\n');

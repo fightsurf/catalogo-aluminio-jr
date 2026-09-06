@@ -460,16 +460,19 @@ function montarTextoFacebookOferta(oferta, link) {
   const precoMedio = formatarMoeda(oferta.preco_medio);
   const linhasItens = (oferta.itens || []).map((item) => {
     const quantidade = Number(item.quantidade || 0);
-    return `• ${quantidade}x ${item.nome} — preço médio ${precoMedio} por peça`;
+    return `• ${quantidade}x ${item.nome} — ${precoMedio} cada`;
   });
 
   return [
+    'Ligue agora e faça o seu pedido: (83) 9.9979-2085 (Whatsapp).',
+    'George',
+    '',
     oferta.titulo || 'Oferta Alumínio JR',
     '',
-    `PREÇO MÉDIO POR PEÇA: ${precoMedio}`,
+    `CADA ITEM: ${precoMedio}`,
     '',
     'ITENS DO KIT:',
-    ...linhasItens,
+    linhasItens.join('\n\n'),
     '',
     `Total do kit: ${formatarMoeda(oferta.total)}`,
     `Quantidade de peças: ${Number(oferta.total_itens || 0)}`,
