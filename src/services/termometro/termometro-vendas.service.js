@@ -36,6 +36,23 @@ function normalizarAno(valor, fallback) {
   return ano;
 }
 
+function normalizarProdutoId(valor) {
+  const produtoId = Number.parseInt(valor, 10);
+  if (!Number.isInteger(produtoId) || produtoId <= 0) {
+    throw new Error('Produto inválido.');
+  }
+  return produtoId;
+}
+
+function normalizarQuantidadeMeses(valor, fallback = 12) {
+  const bruto = valor === undefined || valor === null || valor === '' ? fallback : valor;
+  const meses = Number.parseInt(bruto, 10);
+  if (!Number.isInteger(meses) || meses < 1 || meses > 36) {
+    throw new Error('Quantidade de meses inválida. Informe um valor entre 1 e 36.');
+  }
+  return meses;
+}
+
 function periodoMes(mes, ano) {
   const proximoMes = mes === 12 ? 1 : mes + 1;
   const proximoAno = mes === 12 ? ano + 1 : ano;
@@ -228,6 +245,156 @@ async function carregarVendasLegado(mes, ano) {
   };
 }
 
+function montarMesesHistorico(mesFinal, anoFinal, quantidade) {
+  const meses = [];
+  const dataFinal = new Date(Date.UTC(anoFinal, mesFinal - 1, 1));
+
+  for (let deslocamento = quantidade - 1; deslocamento >= 0; deslocamento -= 1) {
+    const data = new Date(Date.UTC(
+      dataFinal.getUTCFullYear(),
+      dataFinal.getUTCMonth() - deslocamento,
+      1
+    ));
+    const ano = data.getUTCFullYear();
+    const mes = data.getUTCMonth() + 1;
+    meses.push({
+      ano,
+      mes,
+      chave: `${ano}-${String(mes).padStart(2, '0')}`,
+      rotulo: new Intl.DateTimeFormat('pt-BR', { month: 'short', year: '2-digit', timeZone: 'UTC' })
+        .format(data)
+        .replace('.', '')
+    });
+  }
+
+  return meses;
+}
+
+async function carregarProdutoHistorico(produtoId) {
+  const result = await pool.query(`
+    SELECT
+      p.id,
+      p.nome,
+      p.preco,
+      p.item_legado,
+      c.nome AS categoria
+    FROM produtos p
+    LEFT JOIN produtos_categorias c ON c.id = p.categoria_id
+    WHERE p.id = $1
+    LIMIT 1
+  `, [produtoId]);
+
+  if (!result.rows.length) {
+    throw new Error('Produto não encontrado.');
+  }
+
+  const row = result.rows[0];
+  return {
+    id: Number(row.id),
+    nome: row.nome || '',
+    preco: numero(row.preco, 2),
+    item_legado: row.item_legado ? Number(row.item_legado) : null,
+    categoria: row.categoria || ''
+  };
+}
+
+async function carregarAparicoesHistorico(produtoId, meses) {
+  await schemaService.criarEstrutura();
+
+  const primeiro = meses[0];
+  const ultimo = meses[meses.length - 1];
+  const proximoMes = ultimo.mes === 12 ? 1 : ultimo.mes + 1;
+  const proximoAno = ultimo.mes === 12 ? ultimo.ano + 1 : ultimo.ano;
+  const inicio = `${primeiro.ano}-${String(primeiro.mes).padStart(2, '0')}-01T00:00:00-03:00`;
+  const fim = `${proximoAno}-${String(proximoMes).padStart(2, '0')}-01T00:00:00-03:00`;
+
+  const result = await pool.query(`
+    SELECT
+      EXTRACT(YEAR FROM publicado_em AT TIME ZONE 'America/Fortaleza')::int AS ano,
+      EXTRACT(MONTH FROM publicado_em AT TIME ZONE 'America/Fortaleza')::int AS mes,
+      COUNT(*)::int AS publicacoes,
+      COALESCE(SUM(quantidade), 0)::int AS aparicoes
+    FROM termometro_aparicoes
+    WHERE produto_id = $1
+      AND publicado_em >= $2::timestamptz
+      AND publicado_em < $3::timestamptz
+    GROUP BY 1, 2
+    ORDER BY 1, 2
+  `, [produtoId, inicio, fim]);
+
+  return new Map(result.rows.map((row) => [
+    `${Number(row.ano)}-${String(Number(row.mes)).padStart(2, '0')}`,
+    {
+      publicacoes: Number(row.publicacoes || 0),
+      aparicoes: Number(row.aparicoes || 0)
+    }
+  ]));
+}
+
+async function carregarHistoricoProduto(filtros = {}) {
+  const hoje = hojeFortaleza();
+  const produtoId = normalizarProdutoId(filtros.produtoId);
+  const mes = normalizarMes(filtros.mes, hoje.mes);
+  const ano = normalizarAno(filtros.ano, hoje.ano);
+  const quantidadeMeses = normalizarQuantidadeMeses(filtros.meses, 12);
+  const meses = montarMesesHistorico(mes, ano, quantidadeMeses);
+  const produto = await carregarProdutoHistorico(produtoId);
+
+  const [aparicoes, vendasResponse] = await Promise.all([
+    carregarAparicoesHistorico(produtoId, meses),
+    produto.item_legado
+      ? legadoBridgeService.get('/api/vendas/termometro-vendas/historico-item', {
+          item: produto.item_legado,
+          mes,
+          ano,
+          meses: quantidadeMeses
+        })
+      : Promise.resolve({ dados: { meses: [] } })
+  ]);
+
+  const vendasRows = Array.isArray(vendasResponse?.dados?.meses) ? vendasResponse.dados.meses : [];
+  const vendas = new Map(vendasRows.map((row) => [
+    `${Number(row.ano)}-${String(Number(row.mes)).padStart(2, '0')}`,
+    row
+  ]));
+
+  const historico = meses.map((periodo) => {
+    const exposicao = aparicoes.get(periodo.chave) || { publicacoes: 0, aparicoes: 0 };
+    const venda = vendas.get(periodo.chave) || {};
+    const quantidadeVendida = numero(venda.quantidade, 3);
+    const precoMedio = Number(venda.preco_medio || 0) > 0 ? numero(venda.preco_medio, 2) : null;
+    const precoMin = Number(venda.preco_min || 0) > 0 ? numero(venda.preco_min, 2) : null;
+    const precoMax = Number(venda.preco_max || 0) > 0 ? numero(venda.preco_max, 2) : null;
+
+    return {
+      ...periodo,
+      publicacoes: Number(exposicao.publicacoes || 0),
+      aparicoes: Number(exposicao.aparicoes || 0),
+      vendas: quantidadeVendida,
+      pedidos: Number(venda.quantidade_pedidos || 0),
+      valor_vendido: numero(venda.valor_total, 2),
+      preco_medio: precoMedio,
+      preco_min: precoMin,
+      preco_max: precoMax,
+      vendas_por_aparicao: exposicao.aparicoes > 0
+        ? numero(quantidadeVendida / Number(exposicao.aparicoes), 3)
+        : null
+    };
+  });
+
+  return {
+    produto: {
+      produto_id: produto.id,
+      produto: produto.nome,
+      categoria: produto.categoria,
+      item_legado: produto.item_legado,
+      preco_atual: produto.preco
+    },
+    periodo: { mes, ano, meses: quantidadeMeses },
+    historico
+  };
+}
+
 async function carregarTermometro(filtros = {}) {
   const hoje = hojeFortaleza();
   const mes = normalizarMes(filtros.mes, hoje.mes);
@@ -345,5 +512,6 @@ async function carregarTermometro(filtros = {}) {
 }
 
 module.exports = {
-  carregarTermometro
+  carregarTermometro,
+  carregarHistoricoProduto
 };
