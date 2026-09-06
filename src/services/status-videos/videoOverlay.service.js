@@ -11,7 +11,8 @@ const LARGURA = 720;
 const ALTURA = 1280;
 const FPS_SAIDA = 30;
 const DURACAO_MINIMA_SEGUNDOS = 3;
-const DURACAO_MAXIMA_SEGUNDOS = 60;
+const DURACAO_MAXIMA_SEGUNDOS = 55;
+const TOPO_DESLOCAMENTO_BASE_Y = 54;
 
 // A Z-API rejeita Status de vídeo acima de 10 MB. Trabalhamos com margem
 // para não depender da interpretação decimal/binária do limite do provedor.
@@ -105,11 +106,13 @@ function montarSvg({ precoMedio, valorTotal, quantidadeItens }) {
   const itens = `${quantidadeItens} ${quantidadeItens === 1 ? 'item' : 'itens'}`;
 
   const margemX = pxX(54);
-  const topo1 = linhaSvg({ texto: zap, x: margemX, y: pxY(82), tamanhoFonte: pxFonte(48) });
-  const topo2 = linhaSvg({ texto: instagram, x: margemX, y: pxY(160), tamanhoFonte: pxFonte(48) });
+  // Desce discretamente o bloco superior para não colidir com a foto/ícone do perfil
+  // exibido pelas redes sociais na área superior do Story/Status.
+  const topo1 = linhaSvg({ texto: zap, x: margemX, y: pxY(82 + TOPO_DESLOCAMENTO_BASE_Y), tamanhoFonte: pxFonte(48) });
+  const topo2 = linhaSvg({ texto: instagram, x: margemX, y: pxY(160 + TOPO_DESLOCAMENTO_BASE_Y), tamanhoFonte: pxFonte(48) });
   const larguraTopo = Math.max(topo1.largura, topo2.largura);
   const centroTopo = margemX + larguraTopo / 2;
-  const topo3 = linhaSvg({ texto: nome, x: margemX, y: pxY(238), tamanhoFonte: pxFonte(48), centralizarEm: centroTopo, peso: 600 });
+  const topo3 = linhaSvg({ texto: nome, x: margemX, y: pxY(238 + TOPO_DESLOCAMENTO_BASE_Y), tamanhoFonte: pxFonte(48), centralizarEm: centroTopo, peso: 600 });
 
   const centroVideo = LARGURA / 2;
   const baixo1 = linhaSvg({ texto: cadaItem, x: 0, y: pxY(1320), tamanhoFonte: pxFonte(52), centralizarEm: centroVideo });
@@ -262,9 +265,8 @@ async function gerarVideoFinal({ caminhoEntrada, precoMedio, valorTotal, quantid
   if (duracao < DURACAO_MINIMA_SEGUNDOS) {
     throw new Error(`O vídeo precisa ter pelo menos ${DURACAO_MINIMA_SEGUNDOS} segundos para publicação nos Stories.`);
   }
-  if (duracao > DURACAO_MAXIMA_SEGUNDOS + 0.2) {
-    throw new Error(`O vídeo tem ${duracao.toFixed(1)}s. Para publicar nos Stories do Instagram e Facebook, use no máximo ${DURACAO_MAXIMA_SEGUNDOS}s.`);
-  }
+  const duracaoSaida = Math.min(duracao, DURACAO_MAXIMA_SEGUNDOS);
+  const cortadoAutomaticamente = duracao > DURACAO_MAXIMA_SEGUNDOS + 0.05;
 
   const overlay = await criarOverlayPng({ precoMedio, valorTotal, quantidadeItens });
   const saida = path.join(os.tmpdir(), `status-video-final-${Date.now()}-${crypto.randomBytes(6).toString('hex')}.mp4`);
@@ -303,6 +305,9 @@ async function gerarVideoFinal({ caminhoEntrada, precoMedio, valorTotal, quantid
       '-b:a', '96k',
       '-ar', '44100',
       '-movflags', '+faststart',
+      // Se o bruto ultrapassar 55 s, o próprio FFmpeg encerra a saída em 55 s.
+      // Vídeos menores mantêm integralmente a duração original.
+      '-t', duracaoSaida.toFixed(3),
       '-shortest',
       saida,
     ]);
@@ -312,7 +317,9 @@ async function gerarVideoFinal({ caminhoEntrada, precoMedio, valorTotal, quantid
 
   return {
     caminho: saida,
-    duracao_segundos: Number(duracao.toFixed(2)),
+    duracao_segundos: Number(duracaoSaida.toFixed(2)),
+    duracao_original_segundos: Number(duracao.toFixed(2)),
+    cortado_automaticamente: cortadoAutomaticamente,
     largura: LARGURA,
     altura: ALTURA,
     fps: FPS_SAIDA,
