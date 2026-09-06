@@ -12,7 +12,7 @@ const ALTURA = 1280;
 const FPS_SAIDA = 30;
 const DURACAO_MINIMA_SEGUNDOS = 3;
 const DURACAO_MAXIMA_SEGUNDOS = 55;
-const TOPO_DESLOCAMENTO_BASE_Y = 54;
+const TOPO_DESLOCAMENTO_BASE_Y = 96;
 
 // A Z-API rejeita Status de vídeo acima de 10 MB. Trabalhamos com margem
 // para não depender da interpretação decimal/binária do limite do provedor.
@@ -106,7 +106,7 @@ function montarSvg({ precoMedio, valorTotal, quantidadeItens }) {
   const itens = `${quantidadeItens} ${quantidadeItens === 1 ? 'item' : 'itens'}`;
 
   const margemX = pxX(54);
-  // Desce discretamente o bloco superior para não colidir com a foto/ícone do perfil
+  // Desce o bloco superior para não colidir com a foto/ícone do perfil
   // exibido pelas redes sociais na área superior do Story/Status.
   const topo1 = linhaSvg({ texto: zap, x: margemX, y: pxY(82 + TOPO_DESLOCAMENTO_BASE_Y), tamanhoFonte: pxFonte(48) });
   const topo2 = linhaSvg({ texto: instagram, x: margemX, y: pxY(160 + TOPO_DESLOCAMENTO_BASE_Y), tamanhoFonte: pxFonte(48) });
@@ -229,6 +229,9 @@ async function gerarVideoWhatsapp({ caminhoEntrada, duracaoSegundos }) {
       '-b:a', '64k',
       '-ar', '44100',
       '-movflags', '+faststart',
+      // Se o bruto ultrapassar 55 s, o próprio FFmpeg encerra a saída em 55 s.
+      // Vídeos menores mantêm integralmente a duração original.
+      '-t', duracaoSaida.toFixed(3),
       '-shortest',
       saida,
     ]);
