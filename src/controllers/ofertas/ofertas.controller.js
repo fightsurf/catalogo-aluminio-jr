@@ -58,7 +58,7 @@ async function imagemArte(req, res) {
 async function publicar(req, res) {
   try {
     const base = `${req.protocol}://${req.get('host')}`;
-    res.json({ success: true, data: await ofertasService.publicar(req.params.id, base) });
+    res.json({ success: true, data: await ofertasService.publicar(req.params.id, base, req.body?.confirmacao) });
   } catch (error) {
     erro(res, error, 502);
   }

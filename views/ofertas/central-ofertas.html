@@ -6,6 +6,16 @@
 <title>Central de Ofertas</title>
 <style>
 :root{font-family:Arial,sans-serif;color:#172033;background:#f3f4f6;--laranja:#ea580c;--laranja-claro:#fff7ed;--verde:#15803d;--azul:#1d4ed8;--cinza:#374151;--borda:#e5e7eb;--perigo:#b91c1c}*{box-sizing:border-box}body{margin:0}.topo{background:#111827;color:#fff;padding:16px 24px;display:flex;justify-content:space-between;align-items:center;gap:16px}.topo h1{margin:0;font-size:22px}.topo a{color:#fff}.layout{max-width:1400px;margin:18px auto;padding:0 16px;display:grid;grid-template-columns:minmax(0,1.55fr) minmax(360px,.75fr);gap:18px;align-items:start}.lateral{display:grid;gap:18px;position:sticky;top:16px}.painel{background:#fff;border-radius:18px;padding:18px;box-shadow:0 6px 25px #0001}.painel h2,.painel h3{margin-top:0}.passos{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}.passo{padding:7px 12px;border-radius:999px;background:#e5e7eb;font-weight:700;font-size:14px}.passo.ativo{background:var(--laranja);color:#fff}.config-grid{display:grid;grid-template-columns:1.2fr .8fr;gap:12px}.campo{margin-bottom:12px}.campo label{display:block;font-weight:700;margin-bottom:6px}.campo input,.campo textarea,.campo select{width:100%;padding:10px;border:1px solid #d1d5db;border-radius:10px;background:#fff}.campo textarea{resize:vertical}.temas{display:grid;grid-template-columns:repeat(5,minmax(100px,1fr));gap:8px}.tema-opcao{border:2px solid #e5e7eb;border-radius:12px;padding:7px;background:#fff;cursor:pointer;text-align:left;color:#172033}.tema-opcao.ativo{border-color:var(--laranja);box-shadow:0 0 0 3px #ffedd5}.tema-amostra{height:32px;border-radius:8px;margin-bottom:6px;border:1px solid #0002}.tema-opcao b{font-size:12px}.seletor-categoria{display:grid;grid-template-columns:240px 1fr;gap:14px;align-items:start;margin-top:14px}.lista-categorias{height:310px;border:1px solid #d1d5db;border-radius:12px;padding:6px;background:#f9fafb;font-weight:700}.area-produtos{min-width:0}.categoria-titulo{display:flex;justify-content:space-between;gap:10px;align-items:center;background:var(--laranja-claro);padding:10px 12px;border-radius:10px;margin:0 0 6px}.categoria-titulo h3{margin:0}.contador-filtro{color:#6b7280;font-size:13px}.lista-produtos{max-height:440px;overflow:auto;border:1px solid var(--borda);border-radius:12px}.produto{display:grid;grid-template-columns:28px 62px minmax(0,1fr) 76px;align-items:center;gap:9px;padding:9px;border-bottom:1px solid #eee;cursor:pointer}.produto:last-child{border-bottom:0}.produto:hover{background:#fffaf5}.produto img{width:58px;height:58px;object-fit:contain;background:#fff;border-radius:8px}.produto span{min-width:0}.produto b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.produto input[type=number]{width:70px;padding:8px}.selecionados-vazio{padding:20px;text-align:center;color:#6b7280;background:#f9fafb;border-radius:12px}.selecionados-lista{overflow:auto;max-height:260px;border:1px solid var(--borda);border-radius:12px}.selecionado{display:grid;grid-template-columns:54px minmax(0,1fr) auto;gap:9px;align-items:center;padding:8px;border-bottom:1px solid #eee}.selecionado:last-child{border-bottom:0}.selecionado img{width:50px;height:50px;object-fit:contain;background:#fff;border-radius:8px}.selecionado b{display:block;font-size:13px;line-height:1.25}.selecionado small{color:#6b7280}.qtd-mini{font-weight:900;color:#c2410c;background:#ffedd5;padding:5px 7px;border-radius:999px}.bloco-resumo{margin-top:12px;padding:13px;background:var(--laranja-claro);border-radius:12px}.linha-resumo{display:flex;justify-content:space-between;gap:10px;margin-bottom:6px}.valor{font-size:28px;font-weight:900;color:#c2410c}.botoes{display:flex;gap:9px;flex-wrap:wrap;margin-top:12px}button{border:0;border-radius:11px;padding:11px 14px;font-weight:800;cursor:pointer;background:var(--laranja);color:#fff}button.sec{background:var(--cinza)}button.azul{background:var(--azul)}button.verde{background:var(--verde)}button.perigo{background:var(--perigo)}button:disabled{opacity:.45;cursor:not-allowed}.botao-principal{width:100%;padding:14px 16px}.aviso{margin-top:12px;padding:11px;border-radius:10px;background:#f3f4f6;color:#374151;min-height:42px;white-space:pre-wrap}.aviso.erro{background:#fee2e2;color:#991b1b}.aviso.sucesso{background:#dcfce7;color:#166534}.girando{display:inline-block;width:16px;height:16px;border:3px solid #fed7aa;border-top-color:var(--laranja);border-radius:50%;animation:girar .8s linear infinite;vertical-align:-3px;margin-right:7px}@keyframes girar{to{transform:rotate(360deg)}}.oculto{display:none!important}.arte-topo{display:flex;justify-content:space-between;gap:12px;align-items:start}.arte-topo h2{margin-bottom:4px}.codigo{font-size:13px;color:#6b7280}.nota-dinamica{margin:10px 0;padding:10px;border-radius:10px;background:#eff6ff;color:#1e40af;font-size:13px;line-height:1.4}.preview-caixa{min-height:240px;display:grid;place-items:center;background:#f3f4f6;border:1px solid var(--borda);border-radius:14px;overflow:hidden}.preview{display:block;width:100%;max-height:470px;object-fit:contain}.preview-vazio{padding:32px;color:#6b7280;text-align:center}.grupo-acoes{margin-top:14px;padding-top:14px;border-top:1px solid var(--borda)}.grupo-acoes h3{font-size:15px;margin:0 0 9px}.envio-linha{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}.envio-linha input{min-width:0;padding:10px;border:1px solid #86efac;border-radius:10px;background:#fff}.ajuda{display:block;margin-top:6px;color:#6b7280;font-size:12px}.historico{max-width:1400px;margin:0 auto 40px;padding:0 16px}.historico-cabecalho{display:flex;justify-content:space-between;gap:14px;align-items:center;margin-bottom:10px}.historico-cabecalho h2{margin:0}.manutencao{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.manutencao small{color:#6b7280;max-width:420px}.oferta{background:#fff;margin:10px 0;padding:14px;border-radius:12px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:15px;align-items:center;box-shadow:0 2px 10px #0000000b}.oferta-info b{display:block;margin-bottom:5px}.oferta-meta{color:#4b5563;font-size:13px;line-height:1.55}.oferta-problema{color:#b91c1c;font-size:12px;margin-top:5px}.oferta-acoes{display:flex;gap:7px;align-items:center;justify-content:flex-end;flex-wrap:wrap}.status{font-size:12px;padding:5px 9px;border-radius:99px;background:#e5e7eb}.status.publicada{background:#dcfce7;color:#166534}.vazio-historico{padding:24px;background:#fff;border-radius:12px;color:#6b7280;text-align:center}.pesquisa-ofertas{display:flex;gap:8px;align-items:end;flex-wrap:wrap;margin:14px 0}.pesquisa-ofertas .campo{margin:0;min-width:220px}.pesquisa-ofertas input{width:100%;padding:10px;border:1px solid #d1d5db;border-radius:10px}.nome-oferta{display:inline-block;border:0;background:none;color:#1d4ed8;padding:0;font:inherit;font-weight:800;text-align:left;cursor:pointer}.nome-oferta:hover{text-decoration:underline}.modal-fundo{position:fixed;inset:0;background:#0009;display:grid;place-items:center;padding:16px;z-index:1000}.modal-caixa{width:min(760px,100%);max-height:92vh;overflow:auto;background:#fff;border-radius:16px;padding:20px;box-shadow:0 20px 60px #0005}.modal-topo{display:flex;justify-content:space-between;gap:12px;align-items:start}.modal-topo h2{margin:0 0 5px}.modal-fechar{background:#374151;padding:8px 11px}.modal-itens{margin:16px 0;border:1px solid var(--borda);border-radius:12px;overflow:hidden}.modal-item{display:grid;grid-template-columns:64px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px;border-bottom:1px solid var(--borda)}.modal-item:last-child{border-bottom:0}.modal-item img{width:60px;height:60px;object-fit:contain;background:#fff;border-radius:8px}.modal-item small{display:block;color:#6b7280;margin-top:3px}.modal-resumo{background:var(--laranja-claro);border-radius:11px;padding:12px;margin-bottom:14px}.modal-acoes{display:grid;gap:12px}.modal-acoes .envio-linha{margin-top:6px}@media(max-width:1050px){.layout{grid-template-columns:1fr}.lateral{position:static}.selecionados-lista{max-height:360px}.temas{grid-template-columns:repeat(3,1fr)}}@media(max-width:720px){.config-grid,.seletor-categoria,.oferta{grid-template-columns:1fr}.lista-categorias{height:140px}.temas{grid-template-columns:repeat(2,1fr)}.produto{grid-template-columns:25px 52px minmax(0,1fr) 68px}.topo{padding:14px 16px}.topo h1{font-size:18px}.historico-cabecalho{align-items:flex-start;flex-direction:column}.oferta-acoes{justify-content:flex-start}.envio-linha{grid-template-columns:1fr}.envio-linha button{width:100%}}
+
+#compararKit{border:0;border-radius:16px;padding:22px;width:min(920px,95vw);max-height:90vh;color:#172033}
+#compararKit::backdrop{background:#0009}
+#compararKit table{width:100%;border-collapse:collapse;margin:16px 0}
+#compararKit th,#compararKit td{padding:12px;border:1px solid #e5e7eb;text-align:right}
+#compararKit th:first-child,#compararKit td:first-child{text-align:left}
+#compararKit thead{background:#f3f4f6}
+#compararKit .diferente{background:#fff7ed;color:#9a3412;font-weight:bold}
+#compararKit select{max-width:100%;padding:10px;margin-top:8px}
+#compararKit .rolagem{overflow:auto}
 </style>
 </head>
 <body>
@@ -158,6 +168,17 @@
   </div>
 </div>
 
+<dialog id="compararKit" aria-labelledby="compararTitulo">
+  <h2 id="compararTitulo">Este kit já foi publicado</h2>
+  <p>Mesmos produtos e quantidades. Confira os valores antes de publicar.</p>
+  <label>Publicação anterior <select id="compararAnterior"></select></label>
+  <p id="compararNota"></p>
+  <div class="rolagem" id="compararTabela"></div>
+  <div class="botoes">
+    <button type="button" class="sec" id="compararCancelar">Cancelar e revisar</button>
+    <button type="button" id="compararConfirmar">Publicar mesmo assim</button>
+  </div>
+</dialog>
 <script>
 'use strict';
 
@@ -551,6 +572,69 @@ function resumoResultadoPublicacao(resultado, incluirLink = true) {
   return { tipo, texto: `${partes.join(' · ')}.${link}` };
 }
 
+function confirmarKitRepetido(comparacao) {
+  return new Promise(resolve => {
+    const dialog = document.querySelector('#compararKit');
+    const select = document.querySelector('#compararAnterior');
+    const data = valor => new Date(valor).toLocaleString('pt-BR', { timeZone: 'America/Fortaleza' });
+    select.innerHTML = comparacao.anteriores.map((h, i) =>
+      `<option value="${i}">${escapeHtml(data(h.publicado_em))} — ${escapeHtml(h.dados.codigo)}</option>`).join('');
+    const agrupar = itens => {
+      const mapa = new Map();
+      for (const item of itens) {
+        const id = String(item.produto_id);
+        const grupo = mapa.get(id) || { nome: item.nome, quantidade: 0, total: 0 };
+        grupo.quantidade += Number(item.quantidade);
+        grupo.total += Number(item.quantidade) * Number(item.preco_unitario);
+        mapa.set(id, grupo);
+      }
+      return mapa;
+    };
+    const desenhar = () => {
+      const anterior = comparacao.anteriores[Number(select.value)];
+      const antigos = agrupar(anterior.dados.itens);
+      const atuais = agrupar(comparacao.atual.itens);
+      const celulas = (antes, agora) => `<td>${brl(antes)}</td><td class="${Math.abs(antes - agora) >= 0.005 ? 'diferente' : ''}">${brl(agora)}</td>`;
+      document.querySelector('#compararNota').textContent = anterior.legado
+        ? 'Registro antigo: os valores anteriores são os salvos na criação do kit; podem diferir dos publicados.'
+        : 'Valores anteriores registrados na publicação. Datas no horário de Brasília.';
+      document.querySelector('#compararTabela').innerHTML = `<table>
+        <thead><tr><th>Item / quantidade</th><th>${escapeHtml(data(anterior.publicado_em))}<br>Publicado</th><th>${escapeHtml(data(new Date()))}<br>Kit atual — a publicar</th></tr></thead>
+        <tbody>${[...atuais].map(([id, item]) => `<tr><td>${escapeHtml(item.nome)} × ${item.quantidade}</td>${celulas(antigos.get(id)?.total || 0, item.total)}</tr>`).join('')}</tbody>
+        <tfoot><tr><th>Total do kit</th>${celulas(anterior.dados.total, comparacao.atual.total)}</tr>
+        <tr><th>Cada item (média)</th>${celulas(anterior.dados.preco_medio, comparacao.atual.preco_medio)}</tr></tfoot></table>
+        <small>Valores por linha incluem a quantidade do produto.</small>`;
+    };
+    const concluir = valor => { dialog.close(); resolve(valor); };
+    select.onchange = desenhar;
+    document.querySelector('#compararCancelar').onclick = () => concluir(false);
+    document.querySelector('#compararConfirmar').onclick = () => concluir(true);
+    dialog.oncancel = event => { event.preventDefault(); concluir(false); };
+    desenhar();
+    dialog.showModal();
+    document.querySelector('#compararCancelar').focus();
+  });
+}
+
+let publicacaoEmAndamento = false;
+async function publicarComComparacao(id) {
+  if (publicacaoEmAndamento) throw new Error('Já existe uma publicação em andamento.');
+  publicacaoEmAndamento = true;
+  try {
+    let confirmacao;
+    while (true) {
+      const resultado = await api(`/api/ofertas/${id}/publicar`, {
+        method: 'POST', body: JSON.stringify({ confirmacao }),
+      });
+      if (!resultado.requer_confirmacao) return resultado;
+      if (!await confirmarKitRepetido(resultado)) return null;
+      confirmacao = resultado.confirmacao;
+    }
+  } finally {
+    publicacaoEmAndamento = false;
+  }
+}
+
 async function publicarOferta() {
   if (!ofertaAtual?.id) {
     mostrarAviso('Nenhuma oferta está selecionada para publicação.', 'erro');
@@ -559,8 +643,9 @@ async function publicarOferta() {
 
   try {
     bloquear(true);
-    mostrarAviso('Recriando a arte e publicando no WhatsApp, Instagram e Facebook...', 'normal', true);
-    const resultado = await api(`/api/ofertas/${ofertaAtual.id}/publicar`, { method: 'POST' });
+    mostrarAviso('Verificando kits anteriores e preparando a publicação...', 'normal', true);
+    const resultado = await publicarComComparacao(ofertaAtual.id);
+    if (!resultado) { mostrarAviso('Publicação cancelada. Revise o kit.'); return; }
     atualizarPainelOferta(resultado.oferta);
     const resumo = resumoResultadoPublicacao(resultado);
     mostrarAviso(resumo.texto, resumo.tipo);
@@ -696,7 +781,8 @@ async function republicarOfertaModal() {
   if (!ofertaModalAtual?.id) return;
   try {
     el.modalPublicarStatus.disabled = true;
-    const resultado = await api(`/api/ofertas/${ofertaModalAtual.id}/publicar`, { method: 'POST' });
+    const resultado = await publicarComComparacao(ofertaModalAtual.id);
+    if (!resultado) return;
     ofertaModalAtual = resultado.oferta;
     ofertasHistorico.set(Number(resultado.oferta.id), resultado.oferta);
     const resumo = resumoResultadoPublicacao(resultado, false);

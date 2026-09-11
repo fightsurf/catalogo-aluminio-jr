@@ -1,3 +1,4 @@
+const comparacaoService = require('./ofertasComparacao.service');
 const crypto = require('crypto');
 const pool = require('../../../db/connection');
 const produtoService = require('../produto/produto.service');
@@ -603,7 +604,11 @@ async function salvarResultadoPublicacao(id, whatsapp, instagram, facebookStory,
   );
 }
 
-async function publicar(id, baseUrl) {
+async function publicar(id, baseUrl, confirmacao) {
+  const oferta = await buscarPorId(id);
+  const comparacao = await comparacaoService.verificar(oferta, confirmacao);
+  if (comparacao) return comparacao;
+
   // Prepara o contador antes de alterar o status da oferta. Isso evita que a
   // primeira publicação após o patch seja confundida com o backfill histórico.
   let termometroPreparado = false;
@@ -614,7 +619,7 @@ async function publicar(id, baseUrl) {
     console.error('Erro ao preparar o Termômetro antes da publicação da oferta:', error);
   }
 
-  const { oferta, buffer } = await gerarArteBuffer(id);
+  const buffer = await arteOfertaService.gerarArte(oferta);
   const link = `${basePublica(baseUrl)}/ofertas/${encodeURIComponent(oferta.codigo)}`;
   const legenda = link;
 
@@ -634,6 +639,9 @@ async function publicar(id, baseUrl) {
 
   if (canalPublicado(whatsapp)) whatsapp.zapi = resultados[0].value?.zapi || null;
 
+  if ([whatsapp, instagram, facebookStory, facebookFeed].some(canalPublicado)) {
+    await comparacaoService.registrar(oferta);
+  }
   await salvarResultadoPublicacao(id, whatsapp, instagram, facebookStory, facebookFeed);
 
   const canais = { whatsapp, instagram, facebook_story: facebookStory, facebook_feed: facebookFeed };

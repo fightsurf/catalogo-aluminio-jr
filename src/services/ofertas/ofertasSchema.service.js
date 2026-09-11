@@ -81,6 +81,38 @@ async function criarEstrutura() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
 
+    CREATE TABLE IF NOT EXISTS ofertas_publicacoes_historico (
+      id BIGSERIAL PRIMARY KEY,
+      oferta_id BIGINT NOT NULL,
+      assinatura JSONB NOT NULL,
+      publicado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      dados JSONB NOT NULL,
+      legado BOOLEAN NOT NULL DEFAULT FALSE
+    );
+    CREATE INDEX IF NOT EXISTS idx_ofertas_publicacoes_assinatura
+      ON ofertas_publicacoes_historico (assinatura, publicado_em DESC);
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_ofertas_publicacoes_legado
+      ON ofertas_publicacoes_historico (oferta_id) WHERE legado;
+
+    -- Os registros antigos têm preços da criação, não da publicação.
+    INSERT INTO ofertas_publicacoes_historico (oferta_id, assinatura, publicado_em, dados, legado)
+    SELECT o.id, a.assinatura, COALESCE(o.publicado_em, o.whatsapp_publicado_em,
+      o.instagram_publicado_em, o.facebook_story_publicado_em, o.facebook_feed_publicado_em),
+      jsonb_build_object('id', o.id, 'codigo', o.codigo, 'itens', a.itens,
+        'total', o.total, 'preco_medio', o.preco_medio, 'total_itens', o.total_itens), TRUE
+    FROM ofertas o
+    CROSS JOIN LATERAL (
+      SELECT jsonb_agg(jsonb_build_array(g.produto_id::text, g.quantidade) ORDER BY g.produto_id) assinatura,
+        (SELECT jsonb_agg(to_jsonb(i) ORDER BY i.id) FROM ofertas_itens i WHERE i.oferta_id=o.id) itens
+      FROM (SELECT produto_id, SUM(quantidade) quantidade FROM ofertas_itens
+            WHERE oferta_id=o.id GROUP BY produto_id) g
+    ) a
+    WHERE COALESCE(o.publicado_em, o.whatsapp_publicado_em, o.instagram_publicado_em,
+        o.facebook_story_publicado_em, o.facebook_feed_publicado_em) IS NOT NULL
+      AND a.assinatura IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM ofertas_publicacoes_historico h WHERE h.oferta_id=o.id)
+    ON CONFLICT DO NOTHING;
+
     CREATE INDEX IF NOT EXISTS idx_ofertas_status ON ofertas(status);
     CREATE INDEX IF NOT EXISTS idx_ofertas_created_at ON ofertas(created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_ofertas_itens_oferta ON ofertas_itens(oferta_id);
