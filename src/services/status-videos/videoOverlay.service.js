@@ -229,9 +229,9 @@ async function gerarVideoWhatsapp({ caminhoEntrada, duracaoSegundos }) {
       '-b:a', '64k',
       '-ar', '44100',
       '-movflags', '+faststart',
-      // Se o bruto ultrapassar 55 s, o próprio FFmpeg encerra a saída em 55 s.
-      // Vídeos menores mantêm integralmente a duração original.
-      '-t', duracaoSaida.toFixed(3),
+      // O vídeo recebido aqui já é o vídeo final editado (e, quando necessário,
+      // já foi cortado para 55 s). A recompressão do WhatsApp deve apenas reduzir
+      // o tamanho do arquivo, sem tentar recalcular/cortar sua duração.
       '-shortest',
       saida,
     ]);
