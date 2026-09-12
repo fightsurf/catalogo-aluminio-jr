@@ -19,6 +19,43 @@
       margin-bottom: 20px;
     }
 
+
+    /* ===== FILTRO DE CATEGORIA (MOBILE FIRST) ===== */
+    .filtro-categoria {
+      position: sticky;
+      top: 0;
+      z-index: 900;
+      margin: 0 auto 14px auto;
+      padding: 10px;
+      background: rgba(244, 244, 244, 0.97);
+      border-bottom: 1px solid #ddd;
+    }
+
+    .filtro-categoria label {
+      display: block;
+      margin-bottom: 5px;
+      color: #333;
+      font-size: 13px;
+      font-weight: bold;
+    }
+
+    .filtro-categoria select {
+      width: 100%;
+      min-height: 46px;
+      box-sizing: border-box;
+      padding: 10px 12px;
+      border: 1px solid #aaa;
+      border-radius: 8px;
+      background: #fff;
+      color: #222;
+      font-size: 16px;
+    }
+
+    .filtro-categoria select:focus {
+      outline: 2px solid #555;
+      outline-offset: 1px;
+    }
+
     .categoria {
       margin-bottom: 25px;
     }
@@ -243,6 +280,13 @@
 
 <div id="aviso-retomada" class="aviso-retomada"></div>
 
+<div class="filtro-categoria">
+  <label for="filtroCategoria">Categoria</label>
+  <select id="filtroCategoria" onchange="aplicarFiltroCategoria()" disabled>
+    <option value="">Carregando categorias...</option>
+  </select>
+</div>
+
 <div id="lista"></div>
 
 <div class="painel">
@@ -408,6 +452,43 @@ function aplicarOrcamentoImportadoSeExistir() {
   mostrarAvisoRetomada(html);
 }
 
+
+function configurarFiltroCategorias(categorias) {
+  const select = document.getElementById('filtroCategoria');
+  if (!select) return;
+
+  const valorAtual = select.value;
+  select.innerHTML = '';
+
+  const opcaoTodas = document.createElement('option');
+  opcaoTodas.value = '';
+  opcaoTodas.textContent = 'TODAS AS CATEGORIAS';
+  select.appendChild(opcaoTodas);
+
+  categorias.forEach(categoria => {
+    const opcao = document.createElement('option');
+    opcao.value = categoria;
+    opcao.textContent = categoria;
+    select.appendChild(opcao);
+  });
+
+  if (categorias.includes(valorAtual)) {
+    select.value = valorAtual;
+  }
+
+  select.disabled = categorias.length === 0;
+  aplicarFiltroCategoria();
+}
+
+function aplicarFiltroCategoria() {
+  const select = document.getElementById('filtroCategoria');
+  const categoriaSelecionada = select ? select.value : '';
+
+  document.querySelectorAll('#lista .categoria').forEach(bloco => {
+    bloco.hidden = Boolean(categoriaSelecionada) && bloco.dataset.categoria !== categoriaSelecionada;
+  });
+}
+
 async function carregarProdutos() {
   try {
     produtos = await apiGet('/api/produtos?ativos=true&perfil=orcamento');
@@ -436,6 +517,7 @@ async function carregarProdutos() {
 
       const bloco = document.createElement('div');
       bloco.className = 'categoria';
+      bloco.dataset.categoria = cat;
       bloco.innerHTML = `<h2>${cat}</h2>`;
 
       porCategoria[cat].forEach(p => {
@@ -472,6 +554,8 @@ async function carregarProdutos() {
 
       container.appendChild(bloco);
     });
+
+    configurarFiltroCategorias(categoriasOrdenadas);
 
     aplicarOrcamentoImportadoSeExistir();
 
