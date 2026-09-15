@@ -721,10 +721,6 @@
         <button class="btn-secondary" id="btnProximaCarrada" disabled>Próxima carrada</button>
         <button class="btn-secondary" id="btnVoltar">Voltar para carradas</button>
         <button class="btn-secondary" id="btnRecarregar">Recarregar</button>
-        <label class="whatsapp-carrada-filtro" for="checkboxIgnorarPedidosProntos" title="Quando marcado, pedidos com a fase Pedido pronto concluída não receberão esta mensagem.">
-          <input type="checkbox" id="checkboxIgnorarPedidosProntos">
-          <span>Não enviar para pedidos prontos</span>
-        </label>
         <button class="btn-primary" id="btnEnviarWhatsappCarrada">Enviar WhatsApp da carrada</button>
       </div>
     </div>
@@ -1009,6 +1005,10 @@
           <label for="textareaWhatsappCarradaMensagem">Mensagem personalizada</label>
           <textarea id="textareaWhatsappCarradaMensagem" placeholder="Digite a mensagem que será enviada para cada pedido da carrada."></textarea>
         </div>
+        <label class="whatsapp-carrada-filtro" for="checkboxIgnorarPedidosProntos" title="Quando marcado, pedidos com a fase Pedido pronto concluída não receberão esta mensagem.">
+          <input type="checkbox" id="checkboxIgnorarPedidosProntos">
+          <span>Não enviar para pedidos prontos</span>
+        </label>
         <div class="feedback" id="feedbackWhatsappCarrada">O sistema enviará uma mensagem por pedido com cabeçalho automático.</div>
         <div id="resumoWhatsappCarrada" style="display:none; margin-top:12px;"></div>
       </div>
@@ -2628,14 +2628,14 @@
         ? `Carrada ${carrada.codigo} • ${formatarData(carrada.data)} • ${carrada.descricao || 'Sem descrição'}`
         : 'Carrada';
       el.textareaWhatsappCarradaMensagem.value = '';
+      if (el.checkboxIgnorarPedidosProntos) {
+        el.checkboxIgnorarPedidosProntos.checked = false;
+      }
       el.resumoWhatsappCarrada.style.display = 'none';
       el.resumoWhatsappCarrada.innerHTML = '';
-      const ignorarPedidosProntos = Boolean(el.checkboxIgnorarPedidosProntos?.checked);
       setFeedback(
         el.feedbackWhatsappCarrada,
-        ignorarPedidosProntos
-          ? 'Pedidos já marcados como Pedido pronto serão ignorados neste envio.'
-          : 'O sistema enviará uma mensagem por pedido com cabeçalho automático.',
+        'O sistema enviará uma mensagem por pedido com cabeçalho automático.',
         ''
       );
       abrirModal(el.modalWhatsappCarradaBackdrop);
@@ -3205,6 +3205,15 @@
     el.btnEnviarWhatsappCarrada.addEventListener('click', abrirModalWhatsappCarrada);
     el.btnWhatsappClienteEnviar.addEventListener('click', enviarWhatsappClienteModal);
     el.btnWhatsappCarradaEnviar.addEventListener('click', enviarWhatsappCarradaModal);
+    el.checkboxIgnorarPedidosProntos?.addEventListener('change', () => {
+      setFeedback(
+        el.feedbackWhatsappCarrada,
+        el.checkboxIgnorarPedidosProntos.checked
+          ? 'Pedidos já marcados como Pedido pronto serão ignorados neste envio.'
+          : 'O sistema enviará uma mensagem por pedido com cabeçalho automático.',
+        ''
+      );
+    });
     el.selectEtiquetas.addEventListener('change', preencherCamposEtiquetaPorSelect);
     [el.inputEtiquetaNome, el.inputEtiquetaTelefone, el.inputEtiquetaCidade, el.inputEtiquetaUf].forEach((campo) => campo.addEventListener('input', agendarPreviewEtiqueta));
     el.btnEtiquetaSalvar.addEventListener('click', () => salvarPerfilEtiquetaModal().catch((error) => setFeedback(el.feedbackEtiqueta, error.message, 'error')));
