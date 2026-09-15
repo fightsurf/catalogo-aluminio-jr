@@ -572,6 +572,25 @@
       align-items: flex-start;
       gap: 16px;
     }
+    .whatsapp-carrada-filtro {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 38px;
+      padding: 0 4px;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      user-select: none;
+    }
+    .whatsapp-carrada-filtro input {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
     .modal-body {
       display: grid;
       gap: 16px;
@@ -702,6 +721,10 @@
         <button class="btn-secondary" id="btnProximaCarrada" disabled>Próxima carrada</button>
         <button class="btn-secondary" id="btnVoltar">Voltar para carradas</button>
         <button class="btn-secondary" id="btnRecarregar">Recarregar</button>
+        <label class="whatsapp-carrada-filtro" for="checkboxIgnorarPedidosProntos" title="Quando marcado, pedidos com a fase Pedido pronto concluída não receberão esta mensagem.">
+          <input type="checkbox" id="checkboxIgnorarPedidosProntos">
+          <span>Não enviar para pedidos prontos</span>
+        </label>
         <button class="btn-primary" id="btnEnviarWhatsappCarrada">Enviar WhatsApp da carrada</button>
       </div>
     </div>
@@ -1047,6 +1070,7 @@
       btnProximaCarrada: document.getElementById('btnProximaCarrada'),
       btnVoltar: document.getElementById('btnVoltar'),
       btnRecarregar: document.getElementById('btnRecarregar'),
+      checkboxIgnorarPedidosProntos: document.getElementById('checkboxIgnorarPedidosProntos'),
       btnEnviarWhatsappCarrada: document.getElementById('btnEnviarWhatsappCarrada'),
       tituloCarrada: document.getElementById('tituloCarrada'),
       subtituloCarrada: document.getElementById('subtituloCarrada'),
@@ -2606,7 +2630,14 @@
       el.textareaWhatsappCarradaMensagem.value = '';
       el.resumoWhatsappCarrada.style.display = 'none';
       el.resumoWhatsappCarrada.innerHTML = '';
-      setFeedback(el.feedbackWhatsappCarrada, 'O sistema enviará uma mensagem por pedido com cabeçalho automático.', '');
+      const ignorarPedidosProntos = Boolean(el.checkboxIgnorarPedidosProntos?.checked);
+      setFeedback(
+        el.feedbackWhatsappCarrada,
+        ignorarPedidosProntos
+          ? 'Pedidos já marcados como Pedido pronto serão ignorados neste envio.'
+          : 'O sistema enviará uma mensagem por pedido com cabeçalho automático.',
+        ''
+      );
       abrirModal(el.modalWhatsappCarradaBackdrop);
     }
 
@@ -2617,7 +2648,9 @@
           ? 'Enviado'
           : item?.status === 'sem_telefone'
             ? 'Sem telefone'
-            : 'Erro';
+            : item?.status === 'ignorado_pedido_pronto'
+              ? 'Ignorado: pedido pronto'
+              : 'Erro';
         const detalhe = item?.erro ? ` • ${escapeHtml(item.erro)}` : '';
         return `<li><strong>${escapeHtml(item?.numeroPedido || '-')}</strong> • ${escapeHtml(item?.nomeCliente || '-')} • ${escapeHtml(status)}${detalhe}</li>`;
       }).join('');
@@ -2627,6 +2660,7 @@
           <div class="pedido-title">Resumo do envio</div>
           <div class="pedido-meta" style="font-size:12px;">
             Total de pedidos: <strong>${escapeHtml(data?.totalPedidos || 0)}</strong> •
+            Ignorados por estarem prontos: <strong>${escapeHtml(data?.ignoradosPedidoPronto || 0)}</strong> •
             Enviados: <strong>${escapeHtml(data?.enviadosSucesso || 0)}</strong> •
             Sem telefone: <strong>${escapeHtml(data?.semTelefone || 0)}</strong> •
             Erros: <strong>${escapeHtml(data?.comErro || 0)}</strong>
@@ -2639,6 +2673,7 @@
 
     async function enviarWhatsappCarradaModal() {
       const mensagemPersonalizada = el.textareaWhatsappCarradaMensagem.value.trim();
+      const ignorarPedidosProntos = Boolean(el.checkboxIgnorarPedidosProntos?.checked);
 
       if (!mensagemPersonalizada) {
         setFeedback(el.feedbackWhatsappCarrada, 'Digite a mensagem personalizada.', 'error');
@@ -2653,10 +2688,14 @@
         const data = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/whatsapp/lote`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mensagemPersonalizada })
+          body: JSON.stringify({ mensagemPersonalizada, ignorarPedidosProntos })
         });
 
-        setFeedback(el.feedbackWhatsappCarrada, `Envio concluído. ${data?.enviadosSucesso || 0} pedido(s) enviado(s) com sucesso.`, 'success');
+        const ignorados = Number(data?.ignoradosPedidoPronto || 0);
+        const complementoIgnorados = ignorados > 0
+          ? ` ${ignorados} pedido(s) pronto(s) ignorado(s).`
+          : '';
+        setFeedback(el.feedbackWhatsappCarrada, `Envio concluído. ${data?.enviadosSucesso || 0} pedido(s) enviado(s) com sucesso.${complementoIgnorados}`, 'success');
         renderResumoWhatsappCarrada(data);
       } catch (error) {
         setFeedback(el.feedbackWhatsappCarrada, error.message, 'error');

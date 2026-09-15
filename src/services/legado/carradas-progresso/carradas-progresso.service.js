@@ -3078,9 +3078,13 @@ async function salvarLocalEntrega({
   };
 }
 
-async function enviarWhatsappCarradaLote({ codigoCarrada: codigoCarradaParam, mensagemPersonalizada }) {
+async function enviarWhatsappCarradaLote({ codigoCarrada: codigoCarradaParam, mensagemPersonalizada, ignorarPedidosProntos = false }) {
   const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
   const mensagemLivre = limparTexto(mensagemPersonalizada);
+  const deveIgnorarPedidosProntos = ignorarPedidosProntos === true
+    || ignorarPedidosProntos === 1
+    || ignorarPedidosProntos === '1'
+    || String(ignorarPedidosProntos).toLowerCase() === 'true';
 
   if (!mensagemLivre) {
     throw criarErro('A mensagem personalizada é obrigatória.', 400);
@@ -3088,14 +3092,34 @@ async function enviarWhatsappCarradaLote({ codigoCarrada: codigoCarradaParam, me
 
   const carrada = await buscarCarradaOuFalhar(codigoCarrada);
   const pedidos = Array.isArray(carrada?.pedidos) ? carrada.pedidos : [];
+  let booleanRowsMap = new Map();
+
+  if (deveIgnorarPedidosProntos && pedidos.length) {
+    await garantirTabelasModulo();
+    booleanRowsMap = await buscarBooleanRowsDosPedidos(pedidos);
+  }
 
   const itens = [];
   let enviadosSucesso = 0;
   let semTelefone = 0;
   let comErro = 0;
+  let ignoradosPedidoPronto = 0;
 
   for (const pedido of pedidos) {
     const numeroPedido = normalizarNumeroPedido(pedido?.numero);
+    const chavePedido = criarChavePedido({ saida: pedido?.saida, numero: numeroPedido });
+    const pedidoPronto = Boolean(booleanRowsMap.get(chavePedido)?.PEDIDO_PRONTO?.valorBoolean);
+
+    if (deveIgnorarPedidosProntos && pedidoPronto) {
+      ignoradosPedidoPronto += 1;
+      itens.push({
+        numeroPedido,
+        nomeCliente: pedido?.cliente?.nome || '',
+        telefone: '',
+        status: 'ignorado_pedido_pronto'
+      });
+      continue;
+    }
     const detalhePagamento = await buscarDetalhePagamentoDoPedido(pedido);
     const resumoPedido = montarResumoPedido(pedido, detalhePagamento);
     const telefone = normalizarTelefoneLote(pedido, detalhePagamento);
@@ -3143,6 +3167,8 @@ async function enviarWhatsappCarradaLote({ codigoCarrada: codigoCarradaParam, me
   return {
     codigoCarrada,
     totalPedidos: pedidos.length,
+    pedidosConsiderados: pedidos.length - ignoradosPedidoPronto,
+    ignoradosPedidoPronto,
     enviadosSucesso,
     semTelefone,
     comErro,

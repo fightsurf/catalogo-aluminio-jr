@@ -240,7 +240,8 @@ async function enviarWhatsappCarradaLote(req, res) {
   try {
     const data = await service.enviarWhatsappCarradaLote({
       codigoCarrada: req.params.codigo,
-      mensagemPersonalizada: req.body?.mensagemPersonalizada
+      mensagemPersonalizada: req.body?.mensagemPersonalizada,
+      ignorarPedidosProntos: req.body?.ignorarPedidosProntos
     });
 
     return res.status(200).json({ success: true, data });
