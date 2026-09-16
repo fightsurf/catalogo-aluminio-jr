@@ -659,6 +659,69 @@
     .summary-items th {
       background: #f8fafc;
     }
+    .romaneio-modal {
+      width: min(1320px, 100%);
+    }
+    .romaneio-resumo {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .romaneio-resumo strong {
+      color: var(--text);
+    }
+    .romaneio-table-wrap {
+      overflow: auto;
+      max-height: calc(100vh - 250px);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+    .romaneio-table {
+      min-width: 1080px;
+    }
+    .romaneio-table th,
+    .romaneio-table td {
+      position: static;
+      min-width: 0 !important;
+      max-width: none !important;
+      text-align: left;
+      white-space: normal;
+      vertical-align: top;
+      padding: 10px 9px;
+      font-size: 12px;
+    }
+    .romaneio-table thead th {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      background: #f8fafc;
+    }
+    .romaneio-table .romaneio-cidade-grupo td {
+      background: #e2e8f0;
+      color: #0f172a;
+      font-size: 13px;
+      font-weight: 800;
+      border-top: 3px solid #94a3b8;
+    }
+    .romaneio-table .romaneio-agencia-grupo td {
+      background: #f1f5f9;
+      color: #334155;
+      font-size: 12px;
+      font-weight: 800;
+    }
+    .romaneio-sem-dado {
+      color: #b45309;
+      font-weight: 700;
+    }
+    .romaneio-table .col-cidade-agencia { width: 17%; }
+    .romaneio-table .col-agencia { width: 20%; }
+    .romaneio-table .col-cliente { width: 23%; }
+    .romaneio-table .col-pedido { width: 10%; }
+    .romaneio-table .col-excursao { width: 17%; }
+    .romaneio-table .col-cidade-cliente { width: 13%; }
     .message-box {
       white-space: pre-wrap;
       border: 1px solid var(--line);
@@ -721,6 +784,7 @@
         <button class="btn-secondary" id="btnProximaCarrada" disabled>Próxima carrada</button>
         <button class="btn-secondary" id="btnVoltar">Voltar para carradas</button>
         <button class="btn-secondary" id="btnRecarregar">Recarregar</button>
+        <button class="btn-secondary" id="btnRomaneioEntrega">Romaneio de entrega</button>
         <button class="btn-primary" id="btnEnviarWhatsappCarrada">Enviar WhatsApp da carrada</button>
       </div>
     </div>
@@ -780,6 +844,39 @@
         </table>
       </div>
     </section>
+  </div>
+
+  <div class="modal-backdrop" id="modalRomaneioEntregaBackdrop">
+    <div class="modal romaneio-modal">
+      <div class="modal-header">
+        <div>
+          <h3>Romaneio de entrega do motorista</h3>
+          <p class="muted" id="modalRomaneioEntregaSubtitulo">Pedidos agrupados por cidade e agência de entrega.</p>
+        </div>
+        <button class="btn-secondary" data-close-modal="modalRomaneioEntregaBackdrop">Fechar</button>
+      </div>
+      <div class="modal-body">
+        <div class="romaneio-resumo" id="romaneioEntregaResumo"></div>
+        <div class="romaneio-table-wrap">
+          <table class="romaneio-table">
+            <thead>
+              <tr>
+                <th class="col-cidade-agencia">Cidade da agência de entrega</th>
+                <th class="col-agencia">Agência da entrega</th>
+                <th class="col-cliente">Cliente</th>
+                <th class="col-pedido">Nº do pedido</th>
+                <th class="col-excursao">Excursão / Transportadora</th>
+                <th class="col-cidade-cliente">Cidade do cliente</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyRomaneioEntrega"></tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" data-close-modal="modalRomaneioEntregaBackdrop">Fechar</button>
+      </div>
+    </div>
   </div>
 
   <div class="modal-backdrop" id="modalResumoBackdrop">
@@ -1070,6 +1167,7 @@
       btnProximaCarrada: document.getElementById('btnProximaCarrada'),
       btnVoltar: document.getElementById('btnVoltar'),
       btnRecarregar: document.getElementById('btnRecarregar'),
+      btnRomaneioEntrega: document.getElementById('btnRomaneioEntrega'),
       checkboxIgnorarPedidosProntos: document.getElementById('checkboxIgnorarPedidosProntos'),
       btnEnviarWhatsappCarrada: document.getElementById('btnEnviarWhatsappCarrada'),
       tituloCarrada: document.getElementById('tituloCarrada'),
@@ -1077,6 +1175,10 @@
       cardsCabecalho: document.getElementById('cardsCabecalho'),
       cardsFases: document.getElementById('cardsFases'),
       tbodyMatriz: document.getElementById('tbodyMatriz'),
+      modalRomaneioEntregaBackdrop: document.getElementById('modalRomaneioEntregaBackdrop'),
+      modalRomaneioEntregaSubtitulo: document.getElementById('modalRomaneioEntregaSubtitulo'),
+      romaneioEntregaResumo: document.getElementById('romaneioEntregaResumo'),
+      tbodyRomaneioEntrega: document.getElementById('tbodyRomaneioEntrega'),
       modalResumoBackdrop: document.getElementById('modalResumoBackdrop'),
       modalWhatsappClienteBackdrop: document.getElementById('modalWhatsappClienteBackdrop'),
       modalWhatsappClienteSubtitulo: document.getElementById('modalWhatsappClienteSubtitulo'),
@@ -1829,6 +1931,134 @@
           </div>
         </div>
       `;
+    }
+
+    function compararTextoRomaneio(a, b) {
+      const textoA = String(a || '').trim();
+      const textoB = String(b || '').trim();
+
+      if (!textoA && !textoB) return 0;
+      if (!textoA) return 1;
+      if (!textoB) return -1;
+
+      return textoA.localeCompare(textoB, 'pt-BR', {
+        sensitivity: 'base',
+        numeric: true
+      });
+    }
+
+    function montarCidadeUfRomaneio(cidade, uf) {
+      const cidadeLimpa = String(cidade || '').trim();
+      const ufLimpa = String(uf || '').trim().toUpperCase();
+      if (!cidadeLimpa) return '';
+      return ufLimpa ? `${cidadeLimpa} / ${ufLimpa}` : cidadeLimpa;
+    }
+
+    function construirLinhasRomaneioEntrega() {
+      const pedidos = Array.isArray(estado.matriz?.pedidos) ? estado.matriz.pedidos : [];
+
+      return pedidos.map((pedido) => {
+        const localEntrega = pedido?.fases?.LOCAL_ENTREGA || {};
+        const cidadeAgencia = montarCidadeUfRomaneio(
+          localEntrega.agenciaRecebimentoCidadeNome,
+          localEntrega.agenciaRecebimentoCidadeUf
+        );
+        const agencia = String(localEntrega.agenciaRecebimentoNome || localEntrega.agenciaCidade || '').trim();
+
+        return {
+          cidadeAgencia,
+          agencia,
+          cliente: String(pedido?.cliente?.nome || '').trim(),
+          numeroPedido: String(pedido?.numero || '').trim(),
+          excursao: String(localEntrega.transportadoraNome || '').trim(),
+          cidadeCliente: montarCidadeUfRomaneio(pedido?.cliente?.cidade, pedido?.cliente?.uf)
+        };
+      }).sort((a, b) => (
+        compararTextoRomaneio(a.cidadeAgencia, b.cidadeAgencia)
+        || compararTextoRomaneio(a.agencia, b.agencia)
+        || compararTextoRomaneio(a.cliente, b.cliente)
+        || compararTextoRomaneio(a.numeroPedido, b.numeroPedido)
+        || compararTextoRomaneio(a.excursao, b.excursao)
+        || compararTextoRomaneio(a.cidadeCliente, b.cidadeCliente)
+      ));
+    }
+
+    function valorRomaneioHtml(value, rotuloVazio = 'NÃO INFORMADO') {
+      const texto = String(value || '').trim();
+      return texto
+        ? escapeHtml(texto)
+        : `<span class="romaneio-sem-dado">${escapeHtml(rotuloVazio)}</span>`;
+    }
+
+    function abrirRomaneioEntrega() {
+      const linhas = construirLinhasRomaneioEntrega();
+      const carrada = estado.matriz?.carrada || {};
+      const cidades = new Set(linhas.map((item) => item.cidadeAgencia).filter(Boolean));
+      const agencias = new Set(linhas
+        .filter((item) => item.agencia)
+        .map((item) => `${item.cidadeAgencia}||${item.agencia}`));
+      const semAgencia = linhas.filter((item) => !item.agencia || !item.cidadeAgencia).length;
+
+      el.modalRomaneioEntregaSubtitulo.textContent = [
+        `Carrada ${carrada.codigo || CODIGO_CARRADA}`,
+        carrada.data ? formatarData(carrada.data) : '',
+        carrada.descricao || ''
+      ].filter(Boolean).join(' • ');
+
+      el.romaneioEntregaResumo.innerHTML = [
+        `<span><strong>${linhas.length}</strong> pedido(s)</span>`,
+        `<span><strong>${cidades.size}</strong> cidade(s) de agência</span>`,
+        `<span><strong>${agencias.size}</strong> agência(s)</span>`,
+        semAgencia ? `<span class="romaneio-sem-dado"><strong>${semAgencia}</strong> pedido(s) com agência ou cidade da agência incompleta</span>` : ''
+      ].filter(Boolean).join('<span>•</span>');
+
+      if (!linhas.length) {
+        el.tbodyRomaneioEntrega.innerHTML = '<tr><td colspan="6" class="empty">Nenhum pedido encontrado nesta carrada.</td></tr>';
+        abrirModal(el.modalRomaneioEntregaBackdrop);
+        return;
+      }
+
+      let cidadeAnterior = null;
+      let agenciaAnterior = null;
+      const html = [];
+
+      linhas.forEach((linha) => {
+        const chaveCidade = linha.cidadeAgencia || '__SEM_CIDADE__';
+        const chaveAgencia = linha.agencia || '__SEM_AGENCIA__';
+
+        if (chaveCidade !== cidadeAnterior) {
+          cidadeAnterior = chaveCidade;
+          agenciaAnterior = null;
+          html.push(`
+            <tr class="romaneio-cidade-grupo">
+              <td colspan="6">CIDADE DA AGÊNCIA: ${valorRomaneioHtml(linha.cidadeAgencia, 'CIDADE NÃO INFORMADA')}</td>
+            </tr>
+          `);
+        }
+
+        if (chaveAgencia !== agenciaAnterior) {
+          agenciaAnterior = chaveAgencia;
+          html.push(`
+            <tr class="romaneio-agencia-grupo">
+              <td colspan="6">AGÊNCIA: ${valorRomaneioHtml(linha.agencia, 'AGÊNCIA NÃO INFORMADA')}</td>
+            </tr>
+          `);
+        }
+
+        html.push(`
+          <tr>
+            <td>${valorRomaneioHtml(linha.cidadeAgencia, '—')}</td>
+            <td>${valorRomaneioHtml(linha.agencia, '—')}</td>
+            <td><strong>${valorRomaneioHtml(linha.cliente, '—')}</strong></td>
+            <td>${valorRomaneioHtml(linha.numeroPedido, '—')}</td>
+            <td>${valorRomaneioHtml(linha.excursao, '—')}</td>
+            <td>${valorRomaneioHtml(linha.cidadeCliente, '—')}</td>
+          </tr>
+        `);
+      });
+
+      el.tbodyRomaneioEntrega.innerHTML = html.join('');
+      abrirModal(el.modalRomaneioEntregaBackdrop);
     }
 
     function abrirResumoPedido(titulo, resumoPedido, notificacao = null) {
@@ -3202,6 +3432,7 @@
     });
 
     el.btnRecarregar.addEventListener('click', carregarMatriz);
+    el.btnRomaneioEntrega.addEventListener('click', abrirRomaneioEntrega);
     el.btnEnviarWhatsappCarrada.addEventListener('click', abrirModalWhatsappCarrada);
     el.btnWhatsappClienteEnviar.addEventListener('click', enviarWhatsappClienteModal);
     el.btnWhatsappCarradaEnviar.addEventListener('click', enviarWhatsappCarradaModal);
