@@ -2720,7 +2720,7 @@ async function enviarNotificacaoLocalEntrega({ codigoCarrada, numeroPedido, tele
   }
 }
 
-function montarMensagemDestinoLocalEntrega({ pedido, numeroPedido, carrada, telefoneCliente }) {
+function montarMensagemDestinoLocalEntrega({ pedido, numeroPedido, carrada, telefoneCliente, transportadoraNome = '' }) {
   const nomeCliente = limparTexto(pedido?.cliente?.nome) || '-';
   const cidadeCliente = limparTexto(pedido?.cliente?.cidade) || '-';
   const ufCliente = limparTexto(pedido?.cliente?.uf).toUpperCase();
@@ -2732,16 +2732,23 @@ function montarMensagemDestinoLocalEntrega({ pedido, numeroPedido, carrada, tele
   const dataCarrada = formatarDataBR(carrada?.data) || '-';
   const descricaoCarrada = limparTexto(carrada?.descricao) || '-';
 
-  return [
+  const linhas = [
     'MENSAGEM AUTOMÁTICA - ALUMÍNIO JR',
     `${dataCarrada} - ${descricaoCarrada}`,
     '',
     `Nome cliente: ${montarNomeComTelefone(nomeCliente, telefoneCliente)}`,
     `Cidade cliente: ${cidadeUfCliente}`,
-    `Número pedido: ${numeroPedido}`,
-    '',
-    `Previsão qtde volume: ${quantidadeVolumes}`
-  ].join('\n');
+    `Número pedido: ${numeroPedido}`
+  ];
+
+  const transportadoraNomeNormalizado = limparTexto(transportadoraNome);
+  if (transportadoraNomeNormalizado) {
+    linhas.push(`Excursão / Transportadora: ${transportadoraNomeNormalizado}`);
+  }
+
+  linhas.push('', `Previsão qtde volume: ${quantidadeVolumes}`);
+
+  return linhas.join('\n');
 }
 
 async function salvarLocalEntrega({
@@ -3038,7 +3045,8 @@ async function salvarLocalEntrega({
       pedido: pedidoComVolumesEDadosCliente,
       numeroPedido,
       carrada,
-      telefoneCliente
+      telefoneCliente,
+      transportadoraNome: transportadora.nome
     });
     notificacaoAgencia = await enviarNotificacaoLocalEntrega({
       codigoCarrada,
