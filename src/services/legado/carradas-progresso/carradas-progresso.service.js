@@ -963,6 +963,20 @@ async function buscarMatriz(codigoCarradaParam) {
       resumoPedido,
       fases
     };
+  }).sort((a, b) => {
+    const nomeA = limparTexto(a?.cliente?.nome);
+    const nomeB = limparTexto(b?.cliente?.nome);
+
+    if (!nomeA && !nomeB) {
+      return String(a?.numero || '').localeCompare(String(b?.numero || ''), 'pt-BR', { numeric: true });
+    }
+    if (!nomeA) return 1;
+    if (!nomeB) return -1;
+
+    const comparacaoNome = nomeA.localeCompare(nomeB, 'pt-BR', { sensitivity: 'base' });
+    if (comparacaoNome !== 0) return comparacaoNome;
+
+    return String(a?.numero || '').localeCompare(String(b?.numero || ''), 'pt-BR', { numeric: true });
   });
 
   const totaisFases = FASES_MATRIZ.reduce((acc, fase) => {
