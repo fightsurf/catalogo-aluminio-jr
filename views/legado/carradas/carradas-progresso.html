@@ -722,6 +722,30 @@
     .romaneio-table .col-pedido { width: 10%; }
     .romaneio-table .col-excursao { width: 17%; }
     .romaneio-table .col-cidade-cliente { width: 13%; }
+
+    .romaneio-whatsapp {
+      margin-top: 18px;
+      border-top: 1px solid #d7dee8;
+      padding-top: 16px;
+    }
+    .romaneio-whatsapp h4 {
+      margin: 0 0 4px;
+      font-size: 16px;
+    }
+    .romaneio-whatsapp textarea {
+      width: 100%;
+      min-height: 280px;
+      resize: vertical;
+      box-sizing: border-box;
+      margin-top: 10px;
+      padding: 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      background: #f8fafc;
+      color: #111827;
+      font: 14px/1.45 Consolas, Monaco, 'Courier New', monospace;
+      white-space: pre-wrap;
+    }
     .message-box {
       white-space: pre-wrap;
       border: 1px solid var(--line);
@@ -872,8 +896,15 @@
             <tbody id="tbodyRomaneioEntrega"></tbody>
           </table>
         </div>
+        <div class="romaneio-whatsapp">
+          <h4>Texto para WhatsApp</h4>
+          <p class="muted">Mantém a mesma ordem do romaneio. Você pode copiar o texto ou baixar um arquivo TXT.</p>
+          <textarea id="textareaRomaneioWhatsapp" readonly spellcheck="false"></textarea>
+        </div>
       </div>
       <div class="modal-footer">
+        <button class="btn-secondary" id="btnBaixarRomaneioTxt">Baixar TXT</button>
+        <button class="btn-primary" id="btnCopiarRomaneioWhatsapp">Copiar para WhatsApp</button>
         <button class="btn-secondary" data-close-modal="modalRomaneioEntregaBackdrop">Fechar</button>
       </div>
     </div>
@@ -1179,6 +1210,9 @@
       modalRomaneioEntregaSubtitulo: document.getElementById('modalRomaneioEntregaSubtitulo'),
       romaneioEntregaResumo: document.getElementById('romaneioEntregaResumo'),
       tbodyRomaneioEntrega: document.getElementById('tbodyRomaneioEntrega'),
+      textareaRomaneioWhatsapp: document.getElementById('textareaRomaneioWhatsapp'),
+      btnCopiarRomaneioWhatsapp: document.getElementById('btnCopiarRomaneioWhatsapp'),
+      btnBaixarRomaneioTxt: document.getElementById('btnBaixarRomaneioTxt'),
       modalResumoBackdrop: document.getElementById('modalResumoBackdrop'),
       modalWhatsappClienteBackdrop: document.getElementById('modalWhatsappClienteBackdrop'),
       modalWhatsappClienteSubtitulo: document.getElementById('modalWhatsappClienteSubtitulo'),
@@ -1965,13 +1999,23 @@
         );
         const agencia = String(localEntrega.agenciaRecebimentoNome || localEntrega.agenciaCidade || '').trim();
 
+        const etiquetaVolumes = pedido?.fases?.ETIQUETA_VOLUMES || {};
+        const quantidadeVolumes = pedido?.fases?.QTDE_VOLUMES || {};
+        const quantidade = Number(quantidadeVolumes.quantidade ?? 0);
+        const quantidadeInformada = Boolean(quantidadeVolumes.concluido)
+          || Boolean(quantidadeVolumes.calculadoAutomaticamente)
+          || quantidade > 0;
+        const cliente = String(pedido?.cliente?.nome || '').trim();
+
         return {
           cidadeAgencia,
           agencia,
-          cliente: String(pedido?.cliente?.nome || '').trim(),
+          cliente,
+          nomeCaixas: String(etiquetaVolumes.apelido || cliente).trim(),
           numeroPedido: String(pedido?.numero || '').trim(),
           excursao: String(localEntrega.transportadoraNome || '').trim(),
-          cidadeCliente: montarCidadeUfRomaneio(pedido?.cliente?.cidade, pedido?.cliente?.uf)
+          cidadeCliente: montarCidadeUfRomaneio(pedido?.cliente?.cidade, pedido?.cliente?.uf),
+          quantidadeVolumes: quantidadeInformada ? Math.max(0, Math.trunc(quantidade)) : null
         };
       }).sort((a, b) => (
         compararTextoRomaneio(a.cidadeAgencia, b.cidadeAgencia)
@@ -1988,6 +2032,91 @@
       return texto
         ? escapeHtml(texto)
         : `<span class="romaneio-sem-dado">${escapeHtml(rotuloVazio)}</span>`;
+    }
+
+    function textoRomaneioWhatsappValor(value, fallback = 'NÃO INFORMADO') {
+      const texto = String(value ?? '').trim();
+      return texto || fallback;
+    }
+
+    function formatarCargaRomaneioWhatsapp(quantidade) {
+      if (quantidade === null || quantidade === undefined || quantidade === '' || !Number.isFinite(Number(quantidade))) {
+        return 'NÃO INFORMADA';
+      }
+
+      const total = Math.max(0, Math.trunc(Number(quantidade)));
+      const numero = String(total).padStart(3, '0');
+      return `${numero} ${total === 1 ? 'CAIXA' : 'CAIXAS'}`;
+    }
+
+    function formatarDestinoRomaneioWhatsapp(linha) {
+      const agencia = String(linha?.agencia || '').trim();
+      const cidadeAgencia = String(linha?.cidadeAgencia || '').trim();
+
+      if (agencia && cidadeAgencia) {
+        return `${agencia} - ${cidadeAgencia}`;
+      }
+      return agencia || cidadeAgencia || 'NÃO INFORMADO';
+    }
+
+    function construirTextoRomaneioWhatsapp(linhas = construirLinhasRomaneioEntrega()) {
+      if (!Array.isArray(linhas) || !linhas.length) {
+        return '';
+      }
+
+      const separador = '////////////////////////////////////////';
+
+      return linhas.map((linha) => [
+        `*NOME NAS CAIXAS:* ${textoRomaneioWhatsappValor(linha.nomeCaixas)}`,
+        `*CARGA:* ${formatarCargaRomaneioWhatsapp(linha.quantidadeVolumes)}`,
+        `*EXCURSÃO:* ${textoRomaneioWhatsappValor(linha.excursao)}`,
+        `*CIDADE:* ${textoRomaneioWhatsappValor(linha.cidadeCliente)}`,
+        `*ENTREGAR NO:* ${formatarDestinoRomaneioWhatsapp(linha)}`
+      ].join('\n')).join(`\n${separador}\n`);
+    }
+
+    async function copiarRomaneioWhatsapp() {
+      const texto = String(el.textareaRomaneioWhatsapp?.value || '');
+      if (!texto) {
+        window.alert('Não há pedidos no romaneio para copiar.');
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(texto);
+      } catch (_) {
+        el.textareaRomaneioWhatsapp.focus();
+        el.textareaRomaneioWhatsapp.select();
+        const copiado = document.execCommand('copy');
+        if (!copiado) {
+          window.alert('Não foi possível copiar automaticamente. Selecione o texto e copie manualmente.');
+          return;
+        }
+      }
+
+      const textoOriginal = el.btnCopiarRomaneioWhatsapp.textContent;
+      el.btnCopiarRomaneioWhatsapp.textContent = 'Copiado';
+      window.setTimeout(() => {
+        el.btnCopiarRomaneioWhatsapp.textContent = textoOriginal;
+      }, 1600);
+    }
+
+    function baixarRomaneioTxt() {
+      const texto = String(el.textareaRomaneioWhatsapp?.value || '');
+      if (!texto) {
+        window.alert('Não há pedidos no romaneio para gerar o TXT.');
+        return;
+      }
+
+      const blob = new Blob([texto], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `romaneio-carrada-${CODIGO_CARRADA}.txt`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
     }
 
     function abrirRomaneioEntrega() {
@@ -2011,6 +2140,10 @@
         `<span><strong>${agencias.size}</strong> agência(s)</span>`,
         semAgencia ? `<span class="romaneio-sem-dado"><strong>${semAgencia}</strong> pedido(s) com agência ou cidade da agência incompleta</span>` : ''
       ].filter(Boolean).join('<span>•</span>');
+
+      if (el.textareaRomaneioWhatsapp) {
+        el.textareaRomaneioWhatsapp.value = construirTextoRomaneioWhatsapp(linhas);
+      }
 
       if (!linhas.length) {
         el.tbodyRomaneioEntrega.innerHTML = '<tr><td colspan="6" class="empty">Nenhum pedido encontrado nesta carrada.</td></tr>';
@@ -3433,6 +3566,8 @@
 
     el.btnRecarregar.addEventListener('click', carregarMatriz);
     el.btnRomaneioEntrega.addEventListener('click', abrirRomaneioEntrega);
+    el.btnCopiarRomaneioWhatsapp?.addEventListener('click', copiarRomaneioWhatsapp);
+    el.btnBaixarRomaneioTxt?.addEventListener('click', baixarRomaneioTxt);
     el.btnEnviarWhatsappCarrada.addEventListener('click', abrirModalWhatsappCarrada);
     el.btnWhatsappClienteEnviar.addEventListener('click', enviarWhatsappClienteModal);
     el.btnWhatsappCarradaEnviar.addEventListener('click', enviarWhatsappCarradaModal);
