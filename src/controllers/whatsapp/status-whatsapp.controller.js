@@ -71,11 +71,11 @@ async function enviarProduto(req, res) {
 
 async function publicarProdutoNoStatus(req, res) {
   try {
-    if (req.body.tipoMidia === 'video') {
+    if (['video','foto_video'].includes(req.body.tipoMidia)) {
       const produtoId = Number(req.body.produtoId), categoriaId = Number(req.body.categoriaId);
       if (!Number.isSafeInteger(produtoId) || produtoId <= 0 || !Number.isSafeInteger(categoriaId) || categoriaId <= 0) throw new Error('Produto/categoria inválidos.');
-      const produto = await statusWhatsappService.buscarProdutoParaEnvio(produtoId, categoriaId, 'video');
-      const data = await videos.iniciar({requestId:req.body.requestId,produto});
+      const produto = await statusWhatsappService.buscarProdutoParaEnvio(produtoId, categoriaId, req.body.tipoMidia);
+      const data = await videos.iniciar({requestId:req.body.requestId,produto,tipoMidia:req.body.tipoMidia});
       return res.status(data.status === 'concluido' ? 200 : 202).json({success:true,data});
     }
     if (req.body.tipoMidia && req.body.tipoMidia !== 'foto') throw new Error('Tipo de mídia inválido.');

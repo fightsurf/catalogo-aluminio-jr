@@ -85,8 +85,8 @@ function avaliarProduto(produto, tipoMidia = 'foto') {
   const precoNumero = Number(produto.preco);
   let motivo = '';
 
-  if (tipoMidia === 'video' ? !limparTexto(produto.video_url) : !foto1) {
-    motivo = tipoMidia === 'video' ? 'Produto sem vídeo cadastrado.' : 'Produto sem foto 1.';
+  if (tipoMidia === 'foto_video' ? (!foto1 && !limparTexto(produto.video_url)) : tipoMidia === 'video' ? !limparTexto(produto.video_url) : !foto1) {
+    motivo = tipoMidia === 'foto_video' ? 'Produto sem foto e sem vídeo.' : tipoMidia === 'video' ? 'Produto sem vídeo cadastrado.' : 'Produto sem foto 1.';
   } else if (!descricao) {
     motivo = 'Produto sem descrição válida.';
   } else if (!Number.isFinite(precoNumero) || precoNumero <= 0) {
@@ -769,6 +769,8 @@ async function publicarProdutoNoStatus({ requestId, produtoId, categoriaId }) {
 }
 
 module.exports = {
+  publicarProdutoInstagram,
+  publicarProdutoFacebookStory,
   buscarProdutoParaEnvio,
   verificarConexao,
   listarCategorias,

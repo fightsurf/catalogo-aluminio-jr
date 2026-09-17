@@ -27,17 +27,20 @@ function resumo(job) {
   for(const canal of CANAIS) {
     const partes = (job.partes || []).map(p=>({ numero:p.numero, ...p.canais[canal] }));
     const publicados = partes.filter(p=>p.status==='publicado').length;
-    const falha = partes.find(p=>['erro','incerto'].includes(p.status));
+    const foto = job.fotos?.[canal];
+    const fotoOk = !foto || foto.status === 'publicado';
+    const falha = (foto && !fotoOk ? foto : null) || partes.find(p=>['erro','incerto'].includes(p.status));
     canais[canal] = {
-      status: partes.length && publicados===partes.length ? 'publicado' : publicados ? 'parcial' : 'erro',
+      status: (partes.length || foto) && publicados===partes.length && fotoOk ? 'publicado' : (publicados || foto?.status==='publicado') ? 'parcial' : 'erro',
+      foto: foto || null,
       partes_publicadas:publicados,total_partes:partes.length,partes,
       erro:falha?.erro || job.erro || (publicados<partes.length ? 'Há partes pendentes.' : '')
     };
   }
   const completos = CANAIS.filter(c=>canais[c].status==='publicado').length;
-  const algum = CANAIS.some(c=>canais[c].partes_publicadas>0);
+  const algum = CANAIS.some(c=>canais[c].partes_publicadas>0 || canais[c].foto?.status==='publicado');
   return {
-    requestId:job.requestId, produto:job.produto, tipoMidia:'video',
+    requestId:job.requestId, produto:job.produto, tipoMidia:job.tipoMidia || 'video',
     status:job.status, progresso:job.progresso || '', erro:job.erro || '',
     status_geral:completos===3?'publicado':algum?'parcial':'erro',
     canais, total_partes:job.partes?.length || 0, duracao_original:job.duracao_original,
@@ -57,11 +60,12 @@ function agendar(id) {
   ativos.add(id);
   fila = fila.catch(()=>{}).then(()=>processar(id)).catch(e=>console.error('[Status vídeo]', e.message)).finally(()=>ativos.delete(id));
 }
-async function iniciar({requestId,produto}) {
+async function iniciar({requestId,produto,tipoMidia='video'}) {
   await estrutura();const id=validarId(requestId);
-  const job={ requestId:id,produto,status:'processando',progresso:'Vídeo na fila de preparação.',partes:[] };
+  const job={ requestId:id,produto,tipoMidia,fotos:tipoMidia==='foto_video' && produto.publicavel_foto ? Object.fromEntries(CANAIS.map(c=>[c,{status:'pendente'}])) : null,status:'processando',progresso:'Vídeo na fila de preparação.',partes:[] };
   await pool.query('INSERT INTO status_produto_video_jobs (request_id,produto_id,dados) VALUES ($1,$2,$3::jsonb) ON CONFLICT DO NOTHING',[id,produto.id,JSON.stringify(job)]);
   const atual=await ler(id);
+  if ((atual.tipoMidia || 'video')!==tipoMidia) throw new Error('Identificador já usado por outro modo de publicação.');
   if (Number(atual.produto.id)!==Number(produto.id) || Number(atual.produto.categoria_id)!==Number(produto.categoria_id)) throw new Error('Identificador já usado por outro produto/categoria.');
   if (atual.status!=='concluido') {
     await pool.query(`UPDATE status_produto_video_jobs SET dados=jsonb_set(dados,'{status}','"processando"'::jsonb), updated_at=NOW() WHERE request_id=$1 AND dados->>'status'='erro'`,[id]);
@@ -85,8 +89,9 @@ async function processar(id) {
     for(const p of job.partes) for(const canal of CANAIS) if(p.canais[canal].status==='enviando') {
       p.canais[canal]={status:'incerto',erro:'O servidor reiniciou durante o envio. Confira esta parte na rede antes de iniciar outra publicação.'};
     }
+    for(const canal of CANAIS) if(job.fotos?.[canal]?.status==='enviando') job.fotos[canal]={status:'incerto',erro:'Envio da foto interrompido sem confirmação. Confira a rede antes de publicar novamente.'};
     job.status='processando';job.erro='';await salvar(job,db);
-    const precisaArquivo=!job.partes.length || job.partes.some(p=>!p.url);
+    const precisaArquivo=Boolean(job.produto.video_url) && (!job.partes.length || job.partes.some(p=>!p.url));
     if(precisaArquivo) {
       job.progresso='Baixando e analisando o vídeo completo.';await salvar(job,db);
       contexto=await media.preparar(job.produto);
@@ -110,6 +115,26 @@ async function processar(id) {
     // A ordem é sequencial em cada canal. Uma falha pausa aquele canal antes
     // da parte seguinte; as outras redes ainda recebem a sequência completa.
     for(const canal of CANAIS) {
+      if (job.fotos?.[canal] && job.fotos[canal].status !== 'publicado') {
+        if (job.fotos[canal].status === 'incerto') continue;
+        job.progresso=`${canal}: publicando a foto antes do vídeo.`;
+        job.fotos[canal]={status:'enviando'};await salvar(job,db);
+        try {
+          const fotos=require('./status-whatsapp.service');
+          let resultado;
+          if(canal==='whatsapp') resultado=await zap.enviarImagemStatus({imagem:job.produto.foto,legenda:`${job.produto.nome}\n${job.produto.preco_formatado}`});
+          else if(canal==='instagram') resultado=await fotos.publicarProdutoInstagram(job.produto,`${id}-foto`);
+          else resultado=await fotos.publicarProdutoFacebookStory(job.produto,`${id}-foto`);
+          job.fotos[canal]={status:'publicado',resultado};
+        }catch(e){
+          const incerto=/falha ao conectar|fetch failed|ECONN|socket|aborted/i.test(String(e.message||e));
+          job.fotos[canal]={status:incerto?'incerto':'erro',erro:mensagemErro(e)};
+          await salvar(job,db);continue;
+        }
+        await salvar(job,db);
+        try { await termometro.registrarStatusZap({requestId:`video:${id}`,produto:job.produto,canais:{[canal]:{status:'publicado'}}}); }
+        catch(e){console.error('[Status foto/vídeo] Contador:',e.message);}
+      }
       for(const p of job.partes) {
         if(p.canais[canal].status==='publicado')continue;
         if(p.canais[canal].status==='incerto')break;
@@ -132,9 +157,9 @@ async function processar(id) {
         }catch(e){console.error('[Status vídeo] Contador de aparições:',e.message);}
       }
     }
-    const completo=job.partes.every(p=>CANAIS.every(c=>p.canais[c].status==='publicado'));
+    const completo=(!job.fotos || CANAIS.every(c=>job.fotos[c].status==='publicado')) && job.partes.every(p=>CANAIS.every(c=>p.canais[c].status==='publicado'));
     job.status=completo?'concluido':'erro';
-    job.progresso=completo?`Vídeo completo publicado: ${job.partes.length} parte(s) em cada rede.`:'Publicação com falhas. O reenvio retoma as partes pendentes.';
+    job.progresso=completo?`Publicação concluída: ${job.fotos ? 'foto e ' : ''}${job.partes.length} parte(s) de vídeo em cada rede.`:'Publicação com falhas. O reenvio retoma as partes pendentes.';
     await salvar(job,db);
   }catch(e){
     if(job){job.status='erro';job.erro=mensagemErro(e);job.progresso=job.erro;await salvar(job,db).catch(()=>{});}
