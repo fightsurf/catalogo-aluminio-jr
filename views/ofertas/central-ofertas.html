@@ -119,6 +119,12 @@
       </div>
 
       <div class="grupo-acoes">
+        <h3>Relatório WhatsApp</h3>
+        <button id="gerarRelatorioWhatsapp" class="verde" type="button">Gerar relatório WhatsApp</button>
+        <small class="ajuda">Gera o mesmo relatório usado no módulo Kit Feirinha, com os produtos e quantidades deste kit.</small>
+      </div>
+
+      <div class="grupo-acoes">
         <h3>Envio direto</h3>
         <div class="envio-linha">
           <input id="telefoneWhatsapp" type="tel" inputmode="numeric" autocomplete="tel" placeholder="Ex.: 5583999999999" maxlength="20" aria-label="Número do WhatsApp">
@@ -194,6 +200,30 @@
         </div>
       </div>
       <button id="modalPublicarStatus" type="button">Publicar novamente no WhatsApp + Instagram</button>
+      <button id="modalGerarRelatorioWhatsapp" class="verde" type="button">Gerar relatório WhatsApp</button>
+    </div>
+  </div>
+</div>
+
+<div id="modalRelatorioGerado" class="modal-fundo oculto" role="dialog" aria-modal="true" aria-labelledby="modalRelatorioGeradoTitulo">
+  <div class="modal-caixa">
+    <div class="modal-topo">
+      <div>
+        <h2 id="modalRelatorioGeradoTitulo">Relatório WhatsApp</h2>
+        <div id="modalRelatorioGeradoCodigo" class="codigo"></div>
+      </div>
+      <button id="fecharRelatorioGerado" class="modal-fechar" type="button" aria-label="Fechar">Fechar</button>
+    </div>
+
+    <div class="campo" style="margin-top:16px">
+      <label for="textoRelatorioGerado">Relatório do Kit Feirinha</label>
+      <textarea id="textoRelatorioGerado" class="modal-importar-texto" readonly></textarea>
+      <p class="modal-importar-ajuda">O texto segue o mesmo formato gerado em Kit Feirinha. Você pode copiar ou abrir diretamente no WhatsApp.</p>
+    </div>
+
+    <div class="botoes">
+      <button id="copiarRelatorioGerado" class="azul" type="button">Copiar relatório</button>
+      <button id="abrirWhatsappRelatorioGerado" class="verde" type="button">Abrir no WhatsApp</button>
     </div>
   </div>
 </div>
@@ -261,6 +291,14 @@ const el = {
   modalTelefoneWhatsapp: document.querySelector('#modalTelefoneWhatsapp'),
   modalEnviarWhatsapp: document.querySelector('#modalEnviarWhatsapp'),
   modalPublicarStatus: document.querySelector('#modalPublicarStatus'),
+  gerarRelatorioWhatsapp: document.querySelector('#gerarRelatorioWhatsapp'),
+  modalGerarRelatorioWhatsapp: document.querySelector('#modalGerarRelatorioWhatsapp'),
+  modalRelatorioGerado: document.querySelector('#modalRelatorioGerado'),
+  modalRelatorioGeradoCodigo: document.querySelector('#modalRelatorioGeradoCodigo'),
+  textoRelatorioGerado: document.querySelector('#textoRelatorioGerado'),
+  fecharRelatorioGerado: document.querySelector('#fecharRelatorioGerado'),
+  copiarRelatorioGerado: document.querySelector('#copiarRelatorioGerado'),
+  abrirWhatsappRelatorioGerado: document.querySelector('#abrirWhatsappRelatorioGerado'),
   abrirImportarRelatorio: document.querySelector('#abrirImportarRelatorio'),
   modalImportarRelatorio: document.querySelector('#modalImportarRelatorio'),
   fecharImportarRelatorio: document.querySelector('#fecharImportarRelatorio'),
@@ -588,8 +626,100 @@ function importarRelatorioWhatsapp() {
   );
 }
 
+const NUMERO_RELATORIO_WHATSAPP = '558399792085';
+
+function montarRelatorioWhatsappOferta(oferta) {
+  if (!window.RelatorioAluminioJR?.montarRelatorio) {
+    throw new Error('O gerador de relatório WhatsApp não foi carregado.');
+  }
+
+  const itensOferta = Array.isArray(oferta?.itens) ? oferta.itens : [];
+  if (!itensOferta.length) {
+    throw new Error('Este kit não possui itens para gerar o relatório.');
+  }
+
+  const totalItens = itensOferta.reduce((soma, item) => soma + Number(item.quantidade || 0), 0);
+  if (totalItens <= 0) {
+    throw new Error('Este kit não possui quantidades válidas para gerar o relatório.');
+  }
+
+  const totalCalculado = itensOferta.reduce(
+    (soma, item) => soma + (Number(item.preco_unitario || 0) * Number(item.quantidade || 0)),
+    0
+  );
+  const total = Number.isFinite(Number(oferta?.total)) && Number(oferta.total) > 0
+    ? Number(oferta.total)
+    : totalCalculado;
+
+  // O Kit Feirinha usa o preço médio arredondado a 2 casas como UNIT de todos os itens.
+  const precoMedio = Number((total / totalItens).toFixed(2));
+  const itensRelatorio = itensOferta.map(item => ({
+    nome: item.nome,
+    qtd: Number(item.quantidade || 0),
+    preco: precoMedio,
+    subtotal: Number(item.quantidade || 0) * precoMedio,
+  }));
+
+  return RelatorioAluminioJR.montarRelatorio({
+    itens: itensRelatorio,
+    total,
+  });
+}
+
+function abrirRelatorioWhatsappOferta(oferta) {
+  try {
+    const texto = montarRelatorioWhatsappOferta(oferta);
+    el.textoRelatorioGerado.value = texto;
+    el.modalRelatorioGeradoCodigo.textContent = oferta?.codigo || '';
+    el.modalRelatorioGerado.classList.remove('oculto');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => el.textoRelatorioGerado.focus(), 0);
+  } catch (error) {
+    mostrarAviso(error.message, 'erro');
+  }
+}
+
+function fecharRelatorioWhatsappOferta() {
+  el.modalRelatorioGerado.classList.add('oculto');
+  el.textoRelatorioGerado.value = '';
+  el.modalRelatorioGeradoCodigo.textContent = '';
+
+  if (el.modalOferta.classList.contains('oculto')) {
+    document.body.style.overflow = '';
+  }
+}
+
+async function copiarRelatorioWhatsapp() {
+  const texto = el.textoRelatorioGerado.value;
+  if (!texto) return;
+
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(texto);
+    } else {
+      el.textoRelatorioGerado.focus();
+      el.textoRelatorioGerado.select();
+      document.execCommand('copy');
+    }
+    const original = el.copiarRelatorioGerado.textContent;
+    el.copiarRelatorioGerado.textContent = 'Relatório copiado';
+    setTimeout(() => { el.copiarRelatorioGerado.textContent = original; }, 1400);
+  } catch (_) {
+    el.textoRelatorioGerado.focus();
+    el.textoRelatorioGerado.select();
+    alert('Não foi possível copiar automaticamente. O relatório ficou selecionado para você copiar.');
+  }
+}
+
+function abrirRelatorioNoWhatsapp() {
+  const texto = el.textoRelatorioGerado.value;
+  if (!texto) return;
+  const url = `https://wa.me/${NUMERO_RELATORIO_WHATSAPP}?text=${encodeURIComponent(texto)}`;
+  window.open(url, '_blank', 'noopener');
+}
+
 function bloquear(bloqueado, textoBotao) {
-  [el.criar, el.regerar, el.publicar, el.enviarWhatsapp, el.limparR2]
+  [el.criar, el.regerar, el.publicar, el.enviarWhatsapp, el.gerarRelatorioWhatsapp, el.limparR2]
     .filter(Boolean)
     .forEach(botao => { botao.disabled = bloqueado; });
   el.criar.textContent = textoBotao || 'Criar oferta e visualizar';
@@ -1041,6 +1171,13 @@ el.filtroCategoria.addEventListener('change', () => {
 el.criar.addEventListener('click', criarOferta);
 el.regerar.addEventListener('click', atualizarPreview);
 el.publicar.addEventListener('click', publicarOferta);
+el.gerarRelatorioWhatsapp.addEventListener('click', () => {
+  if (!ofertaAtual) {
+    mostrarAviso('Crie ou selecione uma oferta antes de gerar o relatório.', 'erro');
+    return;
+  }
+  abrirRelatorioWhatsappOferta(ofertaAtual);
+});
 el.enviarWhatsapp.addEventListener('click', enviarOfertaWhatsapp);
 el.limparR2.addEventListener('click', limparArtesR2);
 el.pesquisarPrecoMedio.addEventListener('click', pesquisarPorPrecoMedio);
@@ -1049,9 +1186,20 @@ el.pesquisaPrecoMedio.addEventListener('keydown', event => { if (event.key === '
 el.fecharModalOferta.addEventListener('click', fecharModalOferta);
 el.modalEnviarWhatsapp.addEventListener('click', reenviarOfertaModal);
 el.modalPublicarStatus.addEventListener('click', republicarOfertaModal);
+el.modalGerarRelatorioWhatsapp.addEventListener('click', () => {
+  if (ofertaModalAtual) abrirRelatorioWhatsappOferta(ofertaModalAtual);
+});
+el.fecharRelatorioGerado.addEventListener('click', fecharRelatorioWhatsappOferta);
+el.copiarRelatorioGerado.addEventListener('click', copiarRelatorioWhatsapp);
+el.abrirWhatsappRelatorioGerado.addEventListener('click', abrirRelatorioNoWhatsapp);
+el.modalRelatorioGerado.addEventListener('click', event => { if (event.target === el.modalRelatorioGerado) fecharRelatorioWhatsappOferta(); });
 el.modalOferta.addEventListener('click', event => { if (event.target === el.modalOferta) fecharModalOferta(); });
 document.addEventListener('keydown', event => {
   if (event.key !== 'Escape') return;
+  if (!el.modalRelatorioGerado.classList.contains('oculto')) {
+    fecharRelatorioWhatsappOferta();
+    return;
+  }
   if (!el.modalImportarRelatorio.classList.contains('oculto')) {
     fecharImportarRelatorio();
     return;
