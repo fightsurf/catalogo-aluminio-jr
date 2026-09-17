@@ -193,6 +193,14 @@
         <button id="carregarBtn" type="button" class="btn btn-outline">Atualizar produtos</button>
       </div>
 
+      <div style="margin-top:14px;max-width:400px">
+        <label for="tipoMidia">Conteúdo para Status e Stories</label>
+        <select id="tipoMidia" class="form-select">
+          <option value="foto">Fotos dos produtos (padrão atual)</option>
+          <option value="video">Vídeos cadastrados nos produtos</option>
+        </select>
+        <p class="note">Vídeos: nome e preço em todas as partes, até 55 segundos por parte. O vídeo inteiro será publicado em sequência nas três redes. O carrossel do feed e o envio ao cliente continuam disponíveis no modo Fotos.</p>
+      </div>
       <div class="actions">
         <button id="enviarClienteBtn" type="button" class="btn btn-primary" disabled>Enviar categoria para o WhatsApp do cliente</button>
         <button id="publicarStatusBtn" type="button" class="btn btn-outline" disabled>Publicar categoria no WhatsApp + Instagram + Facebook</button>
@@ -200,7 +208,7 @@
       </div>
 
       <p class="note">
-        Para o envio ao cliente, informe o número com DDI e DDD. A publicação da categoria envia cada produto ao Status do WhatsApp, ao Story do Instagram e ao Story do Facebook. Ao final, todos os itens publicáveis da categoria também são agrupados em um carrossel no feed da página Alumínio JR no Facebook. Se houver mais de 10 itens, o sistema divide automaticamente em mais de um carrossel. Nome e preço são inseridos nas artes. Somente produtos ativos são considerados; produtos sem foto 1, descrição ou preço válido serão mostrados, mas não serão enviados.
+        No modo Fotos, para o envio ao cliente, informe o número com DDI e DDD. A publicação da categoria envia cada produto ao Status do WhatsApp, ao Story do Instagram e ao Story do Facebook. Ao final, todos os itens publicáveis da categoria também são agrupados em um carrossel no feed da página Alumínio JR no Facebook. Se houver mais de 10 itens, o sistema divide automaticamente em mais de um carrossel. Nome e preço são inseridos nas artes. Somente produtos ativos são considerados; produtos sem foto 1, descrição ou preço válido serão mostrados, mas não serão enviados.
       </p>
     </section>
 
@@ -231,6 +239,7 @@
 
   <script>
     const API_BASE = '/api/whatsapp/status';
+    const tipoMidiaEl = document.getElementById('tipoMidia');
 
     const categoriaEl = document.getElementById('categoria');
     const telefoneEl = document.getElementById('telefone');
@@ -305,8 +314,9 @@
     function resumoCanal(canal, rotulo) {
       if (!canal) return `${rotulo}: aguardando`;
       if (canal.status === 'publicado') {
-        return `${rotulo}: publicado${canal.repetida ? ' (já processado)' : ''}`;
+        return `${rotulo}: publicado${canal.total_partes ? ` (${canal.partes_publicadas}/${canal.total_partes} partes)` : ''}${canal.repetida ? ' (já processado)' : ''}`;
       }
+      if (canal.total_partes && canal.status !== 'publicado') return `${rotulo}: ${canal.partes_publicadas}/${canal.total_partes} partes — ${canal.erro || 'pendente'}`;
       if (canal.status === 'erro') return `${rotulo}: ${canal.erro || 'falhou'}`;
       return `${rotulo}: ${canal.status || 'aguardando'}`;
     }
@@ -315,7 +325,7 @@
       if (!produto.publicavel) return produto.motivo || 'Produto ignorado.';
       if (produto.estado === 'sending') {
         return produto.destino === 'status'
-          ? 'Publicando no WhatsApp, Instagram e Facebook Story...'
+          ? (produto.progressoVideo || 'Publicando no WhatsApp, Instagram e Facebook Story...')
           : 'Enviando ao cliente...';
       }
       if (produto.destino === 'status' && produto.canais) {
@@ -340,12 +350,14 @@
       const telefoneValido = normalizarTelefone(telefoneEl.value).length >= 10;
       const semProdutos = publicaveis.length === 0;
 
-      enviarClienteBtn.disabled = processando || !categoriaSelecionada || !telefoneValido || semProdutos;
+      enviarClienteBtn.disabled = tipoMidiaEl.value === 'video' || processando || !categoriaSelecionada || !telefoneValido || semProdutos;
       publicarStatusBtn.disabled = processando || !categoriaSelecionada || semProdutos;
       carregarBtn.disabled = processando || !categoriaSelecionada;
       categoriaEl.disabled = processando;
       telefoneEl.disabled = processando;
       intervaloEl.disabled = processando;
+      tipoMidiaEl.disabled = processando;
+      publicarStatusBtn.textContent = tipoMidiaEl.value === 'video' ? 'Publicar vídeos no WhatsApp + Instagram + Facebook Stories' : 'Publicar categoria no WhatsApp + Instagram + Facebook';
       reenviarFalhasBtn.hidden = (falhas.length === 0 && !falhaFeedFacebook) || !ultimoDestino;
       reenviarFalhasBtn.disabled = processando;
       reenviarFalhasBtn.textContent = ultimoDestino === 'status'
@@ -381,7 +393,9 @@
 
       lista.innerHTML = produtos.map((produto, index) => {
         const classe = produto.publicavel ? (produto.estado || '') : 'skipped';
-        const imagem = produto.foto
+        const imagem = tipoMidiaEl.value === 'video' && produto.video_url
+          ? `<video class="thumb" style="width:110px;height:150px;object-fit:contain" src="${escaparHtml(produto.video_url)}" controls playsinline preload="none"></video>`
+          : produto.foto
           ? `<img class="thumb" src="${escaparHtml(produto.foto)}" alt="Foto 1 de ${escaparHtml(produto.nome)}" loading="lazy" />`
           : '<div class="thumb-placeholder">Sem foto 1</div>';
         const badge = produto.publicavel
@@ -394,7 +408,7 @@
             <div>
               <div class="product-name">${index + 1}. ${escaparHtml(produto.nome)}</div>
               <div class="caption-preview">${escaparHtml(produto.nome)}<br>${escaparHtml(produto.preco_formatado || 'Preço inválido')}</div>
-              <div class="product-meta">Conteúdo: foto 1, descrição do produto e preço</div>
+              <div class="product-meta">Conteúdo: ${tipoMidiaEl.value === 'video' ? 'vídeo completo em partes, nome e preço' : 'foto 1, descrição do produto e preço'}</div>
               <div class="product-status">${escaparHtml(textoEstado(produto))}</div>
             </div>
             ${badge}
@@ -458,7 +472,7 @@
 
         categorias = Array.isArray(body.data) ? body.data : [];
         categoriaEl.innerHTML = '<option value="">Selecione uma categoria</option>' + categorias.map((categoria) => {
-          const complemento = `${categoria.total_publicaveis} prontos de ${categoria.total_ativos} ativos`;
+          const complemento = `${categoria.total_publicaveis} com foto · ${categoria.total_videos || 0} com vídeo · ${categoria.total_ativos} ativos`;
           return `<option value="${categoria.id}">${escaparHtml(categoria.nome)} — ${complemento}</option>`;
         }).join('');
       } catch (error) {
@@ -509,6 +523,8 @@
           requestId: '',
           canais: null,
         }));
+        aplicarTipoMidia();
+        restaurarEnvioVideo();
         renderizarProdutos();
       } catch (error) {
         produtos = [];
@@ -536,6 +552,8 @@
       };
 
       if (destino === 'cliente') payload.telefone = telefone;
+      if (destino === 'status') payload.tipoMidia = tipoMidiaEl.value;
+      if (payload.tipoMidia === 'video') guardarEnvioVideo(produto);
 
       try {
         const response = await fetch(`${API_BASE}/${endpoint}`, {
@@ -554,7 +572,8 @@
           throw new Error(body.error || body.message || `Erro HTTP ${response.status}`);
         }
 
-        const data = body.data || {};
+        let data = body.data || {};
+        if (payload.tipoMidia === 'video') data = await acompanharVideo(data, produto);
         produto.repetida = Boolean(data.repetida);
         produto.erro = '';
 
@@ -574,7 +593,7 @@
           if (!instagramOk) erros.push(`Instagram: ${produto.canais?.instagram?.erro || 'falhou'}`);
           if (!facebookStoryOk) erros.push(`Facebook Story: ${produto.canais?.facebook_story?.erro || 'falhou'}`);
           produto.erro = erros.join(' · ');
-          produto.estado = (whatsappOk || instagramOk || facebookStoryOk) ? 'partial' : 'error';
+          produto.estado = (whatsappOk || instagramOk || facebookStoryOk || Object.values(produto.canais || {}).some(c => c.partes_publicadas > 0)) ? 'partial' : 'error';
           return false;
         }
 
@@ -636,7 +655,7 @@
 
       if (confirmar) {
         const destinoConfirmacao = destino === 'status'
-          ? 'no Status do WhatsApp, nos Stories do Instagram/Facebook e em carrossel no feed do Facebook'
+          ? (tipoMidiaEl.value === 'video' ? 'como vídeos completos em partes no Status do WhatsApp e Stories do Instagram/Facebook' : 'no Status do WhatsApp, nos Stories do Instagram/Facebook e em carrossel no feed do Facebook')
           : `para o WhatsApp ${telefone}`;
         const confirmou = window.confirm(
           `Enviar ${listaParaEnviar.length} produto(s) da categoria “${categoriaAtual.nome}” ${destinoConfirmacao}?`
@@ -662,6 +681,14 @@
 
       const intervaloMs = Number(intervaloEl.value || 5) * 1000;
       const loteId = `${destino}-${criarId()}`;
+      if (destino === 'status' && tipoMidiaEl.value === 'video') {
+        // Guarda também os produtos ainda não iniciados para retomar a categoria
+        // inteira depois de fechar/reabrir a página.
+        for (const produto of listaParaEnviar) {
+          if (!produto.requestId) produto.requestId = `${loteId}:${produto.id}`;
+          guardarEnvioVideo(produto);
+        }
+      }
       let sucessos = 0;
       let falhas = 0;
 
@@ -687,7 +714,7 @@
       }
 
       let feedFalhou = false;
-      if (destino === 'status' && facebookFeedCategoria?.status !== 'publicado') {
+      if (destino === 'status' && tipoMidiaEl.value === 'foto' && facebookFeedCategoria?.status !== 'publicado') {
         try {
           progressText.textContent = `Publicando a categoria “${categoriaAtual.nome}” em carrossel no feed do Facebook...`;
           progressFill.style.width = '94%';
@@ -704,13 +731,15 @@
       const totalFalhas = falhas + (feedFalhou ? 1 : 0);
       progressText.textContent = totalFalhas
         ? `Concluído com ${totalFalhas} falha(s).`
-        : `Concluído: ${sucessos} produto(s) e Facebook Feed publicados.`;
+        : (tipoMidiaEl.value === 'video' ? `Concluído: vídeos de ${sucessos} produto(s) publicados.` : `Concluído: ${sucessos} produto(s) e Facebook Feed publicados.`);
       atualizarBotoes();
       renderizarProdutos();
 
       if (totalFalhas) {
         const detalheFeed = feedFalhou ? ` Facebook Feed: ${facebookFeedCategoria.erro}` : '';
         mostrarFlash('erro', `Processo concluído com ${totalFalhas} falha(s).${detalheFeed} Use o botão de reenvio.`);
+      } else if (destino === 'status' && tipoMidiaEl.value === 'video') {
+        mostrarFlash('sucesso', `Os vídeos completos de ${sucessos} produto(s) foram publicados em partes no WhatsApp, Instagram e Facebook Stories.`);
       } else if (destino === 'status') {
         const posts = Number(facebookFeedCategoria?.total_posts || 1);
         const carrosselTexto = posts > 1 ? `${posts} carrosséis` : '1 carrossel';
@@ -725,6 +754,11 @@
     }
 
     function prepararNovoEnvio(destino) {
+      if (processando) return;
+      if (tipoMidiaEl.value === 'video' && destino === 'status') {
+        if (!window.confirm('Iniciar uma NOVA publicação dos vídeos desta categoria? Para retomar o último envio sem repetir partes confirmadas, cancele e use Reenviar falhas.')) return;
+        try { localStorage.removeItem(chaveEnvioVideo()); } catch (_) {}
+      }
       const publicaveis = produtos.filter((produto) => produto.publicavel);
       if (destino === 'status') {
         facebookFeedCategoria = null;
@@ -738,8 +772,62 @@
         produto.requestId = '';
         produto.canais = null;
       });
-      processar(publicaveis, destino, true);
+      processar(publicaveis, destino, tipoMidiaEl.value !== 'video');
     }
+
+
+    function chaveEnvioVideo() { return `status-zap-videos:${categoriaEl.value}`; }
+    function guardarEnvioVideo(produto) {
+      try {
+        const dados = JSON.parse(localStorage.getItem(chaveEnvioVideo()) || '{}');
+        dados[produto.id] = produto.requestId;
+        localStorage.setItem(chaveEnvioVideo(), JSON.stringify(dados));
+      } catch (_) {}
+    }
+    function restaurarEnvioVideo() {
+      if (tipoMidiaEl.value !== 'video') return;
+      try {
+        const dados = JSON.parse(localStorage.getItem(chaveEnvioVideo()) || '{}');
+        for (const p of produtos) if (p.publicavel && dados[p.id]) {
+          p.requestId = dados[p.id]; p.estado = 'error'; p.destino = 'status';
+          p.erro = 'Há um envio anterior. Use Reenviar falhas para consultar e retomar sem repetir partes confirmadas.';
+          ultimoDestino = 'status';
+        }
+      } catch (_) {}
+    }
+    function aplicarTipoMidia() {
+      const video = tipoMidiaEl.value === 'video';
+      for (const p of produtos) {
+        p.publicavel = video ? p.publicavel_video : p.publicavel_foto;
+        p.motivo = p.publicavel ? '' : (!p.nome || !(Number(p.preco)>0) ? 'Produto sem nome/preço válido.' : video ? 'Produto sem vídeo cadastrado.' : 'Produto sem foto 1.');
+        p.estado = p.publicavel ? 'pending' : 'skipped';
+        p.canais = null; p.requestId = ''; p.erro = ''; p.progressoVideo = '';
+      }
+      facebookFeedCategoria = null; ultimoDestino = '';
+    }
+    async function acompanharVideo(data, produto) {
+      let falhasConsulta = 0;
+      while (data.status === 'processando') {
+        produto.progressoVideo = data.progresso || 'Vídeo na fila de processamento...';
+        produto.canais = data.canais;
+        renderizarProdutos();
+        await aguardar(2500);
+        try {
+          const response = await fetch(`${API_BASE}/video-publicacao/${encodeURIComponent(produto.requestId)}`, {credentials:'same-origin',headers:{Accept:'application/json'}});
+          tratarSessao(response);
+          const body = await lerJson(response);
+          if (!response.ok || !body.success) throw new Error(body.error || 'Falha ao consultar o progresso.');
+          data = body.data; falhasConsulta = 0;
+        } catch (error) {
+          if (++falhasConsulta >= 5) throw new Error('A consulta do progresso falhou. O envio pode continuar no servidor. Use Reenviar falhas para retomar a consulta.');
+        }
+      }
+      produto.progressoVideo = data.progresso || '';
+      return data;
+    }
+    tipoMidiaEl.addEventListener('change', () => {
+      aplicarTipoMidia(); restaurarEnvioVideo(); renderizarProdutos();
+    });
 
     categoriaEl.addEventListener('change', carregarProdutos);
     telefoneEl.addEventListener('input', atualizarBotoes);

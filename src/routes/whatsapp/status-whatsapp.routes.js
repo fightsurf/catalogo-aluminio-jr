@@ -8,6 +8,7 @@ router.get('/conexao', requireAuth, controller.verificarConexao);
 router.get('/categorias', requireAuth, controller.listarCategorias);
 router.get('/produtos', requireAuth, controller.listarProdutos);
 router.post('/produto', requireAuth, controller.enviarProduto);
+router.get('/video-publicacao/:requestId', requireAuth, controller.consultarVideo);
 router.post('/produto-status', requireAuth, controller.publicarProdutoNoStatus);
 router.post('/categoria-facebook', requireAuth, controller.publicarCategoriaFacebook);
 

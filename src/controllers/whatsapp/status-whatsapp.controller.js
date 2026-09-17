@@ -1,3 +1,4 @@
+const videos = require('../../services/whatsapp/statusProdutoVideo.service');
 const statusWhatsappService = require('../../services/whatsapp/status-whatsapp.service');
 
 async function verificarConexao(req, res) {
@@ -70,6 +71,14 @@ async function enviarProduto(req, res) {
 
 async function publicarProdutoNoStatus(req, res) {
   try {
+    if (req.body.tipoMidia === 'video') {
+      const produtoId = Number(req.body.produtoId), categoriaId = Number(req.body.categoriaId);
+      if (!Number.isSafeInteger(produtoId) || produtoId <= 0 || !Number.isSafeInteger(categoriaId) || categoriaId <= 0) throw new Error('Produto/categoria inválidos.');
+      const produto = await statusWhatsappService.buscarProdutoParaEnvio(produtoId, categoriaId, 'video');
+      const data = await videos.iniciar({requestId:req.body.requestId,produto});
+      return res.status(data.status === 'concluido' ? 200 : 202).json({success:true,data});
+    }
+    if (req.body.tipoMidia && req.body.tipoMidia !== 'foto') throw new Error('Tipo de mídia inválido.');
     const data = await statusWhatsappService.publicarProdutoNoStatus({
       requestId: req.body.requestId,
       produtoId: req.body.produtoId,
@@ -131,3 +140,9 @@ module.exports = {
   publicarProdutoNoStatus,
   publicarCategoriaFacebook,
 };
+
+async function consultarVideo(req,res) {
+  try { res.json({success:true,data:await videos.consultar(req.params.requestId)}); }
+  catch(error){res.status(400).json({success:false,error:error.message});}
+}
+module.exports.consultarVideo = consultarVideo;

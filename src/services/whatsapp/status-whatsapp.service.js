@@ -79,14 +79,14 @@ function formatarLegendaProduto(nome, preco) {
   return `${descricao}\n${formatarPreco(preco)}`;
 }
 
-function avaliarProduto(produto) {
+function avaliarProduto(produto, tipoMidia = 'foto') {
   const foto1 = limparTexto(produto.foto);
   const descricao = limparTexto(produto.nome);
   const precoNumero = Number(produto.preco);
   let motivo = '';
 
-  if (!foto1) {
-    motivo = 'Produto sem foto 1.';
+  if (tipoMidia === 'video' ? !limparTexto(produto.video_url) : !foto1) {
+    motivo = tipoMidia === 'video' ? 'Produto sem vídeo cadastrado.' : 'Produto sem foto 1.';
   } else if (!descricao) {
     motivo = 'Produto sem descrição válida.';
   } else if (!Number.isFinite(precoNumero) || precoNumero <= 0) {
@@ -102,6 +102,9 @@ function avaliarProduto(produto) {
       : '',
     legenda: !motivo ? formatarLegendaProduto(descricao, precoNumero) : '',
     foto: foto1,
+    video_url: limparTexto(produto.video_url),
+    publicavel_foto: Boolean(foto1 && descricao && Number.isFinite(precoNumero) && precoNumero > 0),
+    publicavel_video: Boolean(limparTexto(produto.video_url) && descricao && Number.isFinite(precoNumero) && precoNumero > 0),
     categoria_id: Number(produto.categoria_id),
     categoria: produto.categoria,
     ativo: Boolean(produto.ativo),
@@ -144,9 +147,10 @@ async function listarCategorias() {
           AND NULLIF(BTRIM(p.nome), '') IS NOT NULL
           AND p.preco IS NOT NULL
           AND p.preco > 0
-      )::int AS total_publicaveis
+      )::int AS total_publicaveis,
+      COUNT(p.id) FILTER (WHERE p.ativo=true AND NULLIF(BTRIM(p.video_url),'') IS NOT NULL AND NULLIF(BTRIM(p.nome),'') IS NOT NULL AND p.preco>0)::int AS total_videos
     FROM produtos_categorias c
-    LEFT JOIN produtos p ON p.categoria_id = c.id
+    LEFT JOIN produtos p ON (p.categoria_id = c.id OR EXISTS (SELECT 1 FROM produto_categoria_vinculos v WHERE v.produto_id=p.id AND v.categoria_id=c.id))
     GROUP BY c.id, c.nome
     ORDER BY c.nome ASC
   `);
@@ -156,6 +160,7 @@ async function listarCategorias() {
     nome: categoria.nome,
     total_ativos: Number(categoria.total_ativos || 0),
     total_publicaveis: Number(categoria.total_publicaveis || 0),
+    total_videos: Number(categoria.total_videos || 0),
   }));
 }
 
@@ -178,12 +183,13 @@ async function listarProdutosPorCategoria(categoriaId) {
       p.nome,
       p.preco,
       p.foto,
+      p.video_url,
       p.ativo,
       c.id AS categoria_id,
       c.nome AS categoria
     FROM produtos p
-    INNER JOIN produtos_categorias c ON c.id = p.categoria_id
-    WHERE p.categoria_id = $1
+    INNER JOIN produtos_categorias c ON c.id = $1
+    WHERE (p.categoria_id = $1 OR EXISTS (SELECT 1 FROM produto_categoria_vinculos v WHERE v.produto_id=p.id AND v.categoria_id=$1))
       AND p.ativo = true
     ORDER BY p.nome ASC
   `, [idCategoria]);
@@ -204,7 +210,7 @@ async function listarProdutosPorCategoria(categoriaId) {
   };
 }
 
-async function buscarProdutoParaEnvio(produtoId, categoriaId) {
+async function buscarProdutoParaEnvio(produtoId, categoriaId, tipoMidia = 'foto') {
   await produtoFotosSchemaService.criarEstrutura();
 
   const result = await pool.query(`
@@ -213,13 +219,14 @@ async function buscarProdutoParaEnvio(produtoId, categoriaId) {
       p.nome,
       p.preco,
       p.foto,
+      p.video_url,
       p.ativo,
       c.id AS categoria_id,
       c.nome AS categoria
     FROM produtos p
-    INNER JOIN produtos_categorias c ON c.id = p.categoria_id
+    INNER JOIN produtos_categorias c ON c.id = $2
     WHERE p.id = $1
-      AND p.categoria_id = $2
+      AND (p.categoria_id = $2 OR EXISTS (SELECT 1 FROM produto_categoria_vinculos v WHERE v.produto_id=p.id AND v.categoria_id=$2))
     LIMIT 1
   `, [produtoId, categoriaId]);
 
@@ -227,7 +234,7 @@ async function buscarProdutoParaEnvio(produtoId, categoriaId) {
     throw new Error('Produto não encontrado na categoria selecionada.');
   }
 
-  const produto = avaliarProduto(result.rows[0]);
+  const produto = avaliarProduto(result.rows[0], tipoMidia);
 
   if (!produto.ativo) {
     throw new Error('Produto inativo.');
@@ -762,6 +769,7 @@ async function publicarProdutoNoStatus({ requestId, produtoId, categoriaId }) {
 }
 
 module.exports = {
+  buscarProdutoParaEnvio,
   verificarConexao,
   listarCategorias,
   listarProdutosPorCategoria,
