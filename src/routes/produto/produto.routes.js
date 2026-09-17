@@ -30,6 +30,16 @@ function tratarErroUpload(err, req, res, next) {
   return res.status(400).json({ success: false, message: err.message || 'Erro no upload da imagem.' });
 }
 
+const uploadVideo = multer({
+  storage: multer.memoryStorage(), limits: { fileSize: 50 * 1024 * 1024, files: 1 },
+  fileFilter(req, file, cb) {
+    cb(['video/mp4', 'video/webm', 'video/quicktime'].includes(file.mimetype) ? null : new Error('Use vídeo MP4, WEBM ou MOV.'), true);
+  }
+});
+router.post('/:id/video', uploadVideo.single('video'), (err, req, res, next) => {
+  if (!err) return next();
+  res.status(400).json({ success: false, message: err.code === 'LIMIT_FILE_SIZE' ? 'Vídeo muito grande. Limite: 50 MB.' : err.message });
+}, controller.uploadVideo);
 router.get('/', controller.listar);
 router.get('/:id', controller.buscar);
 router.post('/', controller.criar);

@@ -490,7 +490,9 @@ function aplicarFiltroCategoria() {
   const categoriaSelecionada = select ? select.value : '';
 
   document.querySelectorAll('#lista .categoria').forEach(bloco => {
-    bloco.hidden = Boolean(categoriaSelecionada) && bloco.dataset.categoria !== categoriaSelecionada;
+    const linhas = Array.from(bloco.querySelectorAll('.produto'));
+    linhas.forEach(linha => { linha.hidden = Boolean(categoriaSelecionada) && !JSON.parse(linha.dataset.categorias || '[]').includes(categoriaSelecionada); linha.style.display = linha.hidden ? 'none' : ''; });
+    bloco.hidden = linhas.every(linha => linha.hidden);
   });
 }
 
@@ -538,6 +540,7 @@ async function carregarProdutos() {
 
         const div = document.createElement('div');
         div.className = 'produto';
+        div.dataset.categorias = JSON.stringify(p.categorias?.length ? p.categorias.map(c => c.nome) : [p.categoria || 'SEM CATEGORIA']);
 
         div.innerHTML = `
           <input type="checkbox" class="chk" data-id="${p.id}" onchange="atualizarResumo()">
@@ -561,7 +564,7 @@ async function carregarProdutos() {
       container.appendChild(bloco);
     });
 
-    configurarFiltroCategorias(categoriasOrdenadas);
+    configurarFiltroCategorias([...new Set(produtos.flatMap(p => p.categorias?.length ? p.categorias.map(c => c.nome) : [p.categoria || 'SEM CATEGORIA']))].sort((a,b) => a.localeCompare(b, 'pt-BR')));
 
     aplicarKitImportadoSeExistir();
 

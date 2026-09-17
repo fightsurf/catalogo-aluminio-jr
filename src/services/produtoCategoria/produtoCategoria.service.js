@@ -55,9 +55,10 @@ async function atualizar(id, data) {
 }
 
 async function excluir(id) {
+  await require('../produto/produtoFotosSchema.service').criarEstrutura();
 
   const vinculos = await pool.query(
-    'SELECT COUNT(*) FROM produtos WHERE categoria_id = $1',
+    'SELECT COUNT(*) FROM produtos p WHERE categoria_id = $1 OR EXISTS (SELECT 1 FROM produto_categoria_vinculos v WHERE v.produto_id = p.id AND v.categoria_id = $1)',
     [id]
   );
 

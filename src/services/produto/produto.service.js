@@ -92,6 +92,10 @@ function normalizarPosicaoFoto(posicao) {
 
 function camposFotosSelect(alias = 'p') {
   return `
+      ${alias}.video_url,
+      COALESCE((SELECT json_agg(json_build_object('id', cat.id, 'nome', cat.nome) ORDER BY cat.nome)
+        FROM produtos_categorias cat WHERE cat.id = ${alias}.categoria_id OR EXISTS
+        (SELECT 1 FROM produto_categoria_vinculos v WHERE v.produto_id = ${alias}.id AND v.categoria_id = cat.id)), '[]'::json) AS categorias,
       ${alias}.foto,
       ${alias}.foto_2,
       ${alias}.foto_3,
@@ -116,6 +120,7 @@ function anexarArrayFotos(produto) {
   return {
     ...produto,
     fotos: montarArrayFotos(produto),
+    categoria_ids: (produto.categorias || []).map(c => Number(c.id)),
   };
 }
 
@@ -201,6 +206,13 @@ async function buscar(id) {
 async function criar(data) {
   await produtoFotosSchemaService.criarEstrutura();
 
+  const ids = normalizarCategorias(data.categoria_ids);
+  const video = normalizarVideo(data.video_url);
+  if (ids !== null) data = { ...data, categoria_id: ids.includes(Number(data.categoria_id)) ? Number(data.categoria_id) : (ids[0] || null) };
+  const client = await pool.connect();
+  let produtoId;
+  try {
+  await client.query('BEGIN');
   const {
     nome,
     preco,
@@ -217,7 +229,7 @@ async function criar(data) {
   } = data;
   const itemLegado = normalizarItemLegado(data?.item_legado);
 
-  const result = await pool.query(`
+  const result = await client.query(`
     INSERT INTO produtos
     (nome, preco, categoria_id, foto, foto_2, foto_3, foto_4, foto_5, foto_6, capacidade_caixa, observacao, ativo, item_legado)
     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
@@ -238,12 +250,30 @@ async function criar(data) {
     itemLegado,
   ]);
 
-  return anexarArrayFotos(result.rows[0]);
+  produtoId = result.rows[0].id;
+  if (ids !== null) {
+    await client.query('DELETE FROM produto_categoria_vinculos WHERE produto_id = $1', [produtoId]);
+    await client.query('INSERT INTO produto_categoria_vinculos (produto_id, categoria_id) SELECT $1, unnest($2::int[])', [produtoId, ids]);
+  }
+  if (data.video_url !== undefined) await client.query('UPDATE produtos SET video_url = $1 WHERE id = $2', [video, produtoId]);
+  await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally { client.release(); }
+  return buscar(produtoId);
 }
 
 async function atualizar(id, data) {
   await produtoFotosSchemaService.criarEstrutura();
 
+  const ids = normalizarCategorias(data.categoria_ids);
+  const video = normalizarVideo(data.video_url);
+  if (ids !== null) data = { ...data, categoria_id: ids.includes(Number(data.categoria_id)) ? Number(data.categoria_id) : (ids[0] || null) };
+  const client = await pool.connect();
+  let produtoId;
+  try {
+  await client.query('BEGIN');
   const {
     nome,
     preco,
@@ -259,7 +289,7 @@ async function atualizar(id, data) {
     ativo,
   } = data;
 
-  const result = await pool.query(`
+  const result = await client.query(`
     UPDATE produtos SET
       nome = $1,
       preco = $2,
@@ -296,7 +326,18 @@ async function atualizar(id, data) {
     throw new Error('Produto não encontrado');
   }
 
-  return anexarArrayFotos(result.rows[0]);
+  produtoId = result.rows[0].id;
+  if (ids !== null) {
+    await client.query('DELETE FROM produto_categoria_vinculos WHERE produto_id = $1', [produtoId]);
+    await client.query('INSERT INTO produto_categoria_vinculos (produto_id, categoria_id) SELECT $1, unnest($2::int[])', [produtoId, ids]);
+  }
+  if (data.video_url !== undefined) await client.query('UPDATE produtos SET video_url = $1 WHERE id = $2', [video, produtoId]);
+  await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally { client.release(); }
+  return buscar(produtoId);
 }
 
 async function atualizarFoto(id, posicao, url) {
@@ -516,3 +557,26 @@ module.exports = {
   buscarPorItemLegado,
   excluir
 };
+
+function normalizarCategorias(valor) {
+  if (valor === undefined) return null;
+  if (!Array.isArray(valor) || valor.some(id => !Number.isSafeInteger(Number(id)) || Number(id) <= 0)) throw new Error('Categorias inválidas.');
+  const ids = [...new Set(valor.map(Number))];
+  if (!ids.length) throw new Error('Selecione pelo menos uma categoria.');
+  return ids;
+}
+function normalizarVideo(valor) {
+  if (valor == null || String(valor).trim() === '') return null;
+  const texto = String(valor).trim();
+  let url;
+  try { url = new URL(texto); } catch (_) { throw new Error('URL do vídeo inválida.'); }
+  if (!['https:', 'http:'].includes(url.protocol)) throw new Error('Use uma URL HTTP ou HTTPS para o vídeo.');
+  return texto;
+}
+async function atualizarVideo(id, url) {
+  await produtoFotosSchemaService.criarEstrutura();
+  const result = await pool.query('UPDATE produtos SET video_url = $1, updated_at = NOW() WHERE id = $2 RETURNING id', [normalizarVideo(url), id]);
+  if (!result.rows.length) throw new Error('Produto não encontrado');
+  return buscar(id);
+}
+module.exports.atualizarVideo = atualizarVideo;

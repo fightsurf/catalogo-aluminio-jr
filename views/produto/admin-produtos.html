@@ -320,8 +320,8 @@ button.secundario:hover {
       </div>
 
       <div>
-        <label>Categoria</label>
-        <select id="produtoCategoria"></select>
+        <label>Categorias</label>
+        <div id="produtoCategoria" style="max-height:160px;overflow:auto;border:1px solid #ccc;padding:8px"></div>
       </div>
 
       <div>
@@ -390,6 +390,17 @@ button.secundario:hover {
           </div>
         </div>
 
+        <div class="fotos-grid" style="margin-top:12px">
+          <div class="foto-slot" id="videoSlot" tabindex="0">
+            <label>Vídeo do produto</label>
+            <div class="foto-colar-ajuda">Clique aqui e pressione <strong>Ctrl+V</strong> para colar um arquivo de vídeo.</div>
+            <input type="text" id="produtoVideo" placeholder="URL direta do vídeo">
+            <input type="file" id="produtoVideoArquivo" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov">
+            <small>MP4, WEBM ou MOV · Até 50 MB. Se o navegador não disponibilizar o vídeo para colar, use Escolher arquivo.</small>
+            <video id="produtoVideoPreview" controls playsinline preload="metadata" style="display:none;width:100%;max-height:240px;margin-top:8px"></video>
+            <button type="button" onclick="limparVideo();setFotoStatus('Vídeo removido do formulário. Salve o produto para confirmar.');">Remover vídeo</button>
+          </div>
+        </div>
         <div id="fotoStatus" class="foto-status"></div>
       </div>
 
@@ -707,11 +718,17 @@ async function carregarCategorias() {
   const select = document.getElementById('produtoCategoria');
   const filtro = document.getElementById('filtroCategoria');
 
+  const selecionadasAntes = categoriasSelecionadas();
   select.innerHTML = '';
   filtro.innerHTML = '<option value="">Todas Categorias</option>';
 
   categorias.forEach(c => {
-    select.innerHTML += `<option value="${c.id}">${c.nome}</option>`;
+    const label = document.createElement('label');
+    label.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px';
+    const check = document.createElement('input');
+    check.type = 'checkbox'; check.value = c.id; check.style.width = 'auto';
+    check.checked = selecionadasAntes.includes(Number(c.id));
+    label.append(check, document.createTextNode(c.nome)); select.appendChild(label);
     filtro.innerHTML += `<option value="${c.id}">${c.nome}</option>`;
   });
 }
@@ -768,7 +785,7 @@ function renderProdutos() {
   produtos
     .filter(p =>
       (!busca || p.nome.toLowerCase().includes(busca)) &&
-      (!filtroCat || p.categoria_id == filtroCat)
+      (!filtroCat || p.categoria_id == filtroCat || (p.categoria_ids || []).includes(Number(filtroCat)))
     )
     .forEach(p => {
       const fotoPrincipal = p.foto && String(p.foto).trim() ? p.foto : '';
@@ -782,7 +799,7 @@ function renderProdutos() {
           <div class="produto-info">
             ${thumb}
             <div class="produto-linha-texto">
-              <div>${p.nome} — R$ ${Number(p.preco).toFixed(2)} — ${p.categoria} — ${p.ativo ? 'Ativo' : 'Inativo'}</div>
+              <div>${p.nome} — R$ ${Number(p.preco).toFixed(2)} — ${(p.categorias || []).map(c => c.nome).join(', ') || p.categoria || ''} — ${p.ativo ? 'Ativo' : 'Inativo'}</div>
               <div style="font-size:12px;color:#666;">Fotos: ${fotosPreenchidas}/6 ${fotoPrincipal ? '— Foto 1 principal cadastrada' : '— Sem foto principal'}</div>
             </div>
           </div>
@@ -799,11 +816,16 @@ function renderProdutos() {
 }
 
 async function salvarProduto() {
+  if (salvandoProduto) return;
+  salvandoProduto = true;
   try {
+    if (!categoriasSelecionadas().length) throw new Error("Selecione pelo menos uma categoria.");
     const data = {
       nome: document.getElementById('produtoNome').value,
       preco: Number(document.getElementById('produtoPreco').value),
-      categoria_id: Number(document.getElementById('produtoCategoria').value),
+      categoria_ids: categoriasSelecionadas(),
+      categoria_id: categoriaPrincipalAtual,
+      video_url: document.getElementById('produtoVideo').value.trim(),
       ...urlsFotosFormulario(),
       capacidade_caixa: Number(document.getElementById('produtoCaixa').value),
       observacao: document.getElementById('produtoObservacao').value.trim(),
@@ -820,6 +842,7 @@ async function salvarProduto() {
     }
 
     await enviarFotosSelecionadas(resposta.data.id);
+    await enviarVideoSelecionado(resposta.data.id);
 
     limparFormulario();
     await carregarProdutos();
@@ -827,7 +850,7 @@ async function salvarProduto() {
   } catch (error) {
     alert(error.message);
     setFotoStatus(error.message);
-  }
+  } finally { salvandoProduto = false; }
 }
 
 function editarProduto(id) {
@@ -836,7 +859,9 @@ function editarProduto(id) {
 
   document.getElementById('produtoNome').value = p.nome;
   document.getElementById('produtoPreco').value = p.preco;
-  document.getElementById('produtoCategoria').value = p.categoria_id;
+  categoriaPrincipalAtual = Number(p.categoria_id);
+  marcarCategorias(p.categoria_ids?.length ? p.categoria_ids : [p.categoria_id]);
+  limparVideo(p.video_url || '');
   document.getElementById('produtoCaixa').value = p.capacidade_caixa;
   document.getElementById('produtoObservacao').value = p.observacao || '';
   document.getElementById('produtoAtivo').checked = p.ativo;
@@ -876,6 +901,7 @@ async function excluirProduto(id) {
 }
 
 function limparFormulario() {
+  marcarCategorias([]); categoriaPrincipalAtual = null; limparVideo();
   produtoEditando = null;
   document.getElementById('produtoNome').value = '';
   document.getElementById('produtoPreco').value = '';
@@ -930,6 +956,59 @@ for (let i = 1; i <= 6; i++) {
     setFotoStatus(`Arquivo selecionado para a Foto ${i}. Clique em Salvar Produto para enviar ao Cloudflare R2.`);
   });
 }
+
+
+let categoriaPrincipalAtual = null;
+let salvandoProduto = false;
+let videoPendente = null;
+let videoObjectUrl = null;
+function categoriasSelecionadas() { return Array.from(document.querySelectorAll('#produtoCategoria input:checked')).map(el => Number(el.value)); }
+function marcarCategorias(ids) { document.querySelectorAll('#produtoCategoria input').forEach(el => { el.checked = ids.map(Number).includes(Number(el.value)); }); }
+function previewVideo(src) {
+  const el = document.getElementById('produtoVideoPreview');
+  el.pause();
+  if (videoObjectUrl) { URL.revokeObjectURL(videoObjectUrl); videoObjectUrl = null; }
+  if (src instanceof Blob) { videoObjectUrl = URL.createObjectURL(src); src = videoObjectUrl; }
+  if (src) el.src = src; else el.removeAttribute('src');
+  el.style.display = src ? 'block' : 'none'; el.load();
+}
+function limparVideo(url = '') {
+  videoPendente = null; document.getElementById('produtoVideoArquivo').value = '';
+  document.getElementById('produtoVideo').value = url; previewVideo(url);
+}
+function selecionarVideo(file) {
+  if (!file) return;
+  if (!['video/mp4','video/webm','video/quicktime'].includes(file.type)) throw new Error('Use vídeo MP4, WEBM ou MOV.');
+  if (!file.size || file.size > 50 * 1024 * 1024) throw new Error('O vídeo deve ter até 50 MB e não pode estar vazio.');
+  videoPendente = file; previewVideo(file);
+  setFotoStatus('Vídeo selecionado. Clique em Salvar Produto para enviar.');
+}
+async function enviarVideoSelecionado(id) {
+  if (!videoPendente) return;
+  setFotoStatus('Enviando vídeo...');
+  const form = new FormData(); form.append('video', videoPendente);
+  const response = await fetch(`/api/produtos/${id}/video`, { method: 'POST', body: form });
+  const json = await response.json();
+  if (!response.ok || !json.success) throw new Error(json.message || 'Falha ao enviar o vídeo. Clique em Salvar Produto para tentar novamente.');
+  limparVideo(json.data.url);
+}
+document.getElementById('produtoVideoArquivo').addEventListener('change', e => {
+  try { selecionarVideo(e.target.files[0]); } catch(error) { e.target.value = ''; setFotoStatus(error.message); alert(error.message); }
+});
+document.getElementById('produtoVideo').addEventListener('input', e => {
+  videoPendente = null; document.getElementById('produtoVideoArquivo').value = ''; previewVideo(e.target.value.trim());
+});
+const videoSlot = document.getElementById('videoSlot');
+videoSlot.addEventListener('focusin', () => definirFotoSlotAtivo(0));
+videoSlot.addEventListener('click', () => { definirFotoSlotAtivo(0); videoSlot.classList.add('colagem-ativa'); });
+document.addEventListener('paste', e => {
+  if (fotoSlotAtivo !== 0 || !document.getElementById('produtos').classList.contains('active')) return;
+  const files = Array.from(e.clipboardData?.files || []);
+  const file = files.find(f => f.type.startsWith('video/'));
+  if (!file) return;
+  e.preventDefault(); e.stopPropagation();
+  try { selecionarVideo(file); } catch(error) { setFotoStatus(error.message); alert(error.message); }
+});
 
 document.addEventListener('paste', tratarColagemImagem);
 definirFotoSlotAtivo(1);

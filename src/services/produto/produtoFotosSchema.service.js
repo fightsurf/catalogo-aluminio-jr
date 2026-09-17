@@ -8,6 +8,7 @@ async function criarEstrutura() {
   schemaReady = (async () => {
     await pool.query(`
       ALTER TABLE produtos
+        ADD COLUMN IF NOT EXISTS video_url TEXT,
         ADD COLUMN IF NOT EXISTS foto_2 TEXT,
         ADD COLUMN IF NOT EXISTS foto_3 TEXT,
         ADD COLUMN IF NOT EXISTS foto_4 TEXT,
@@ -16,6 +17,16 @@ async function criarEstrutura() {
         ADD COLUMN IF NOT EXISTS observacao TEXT,
         ADD COLUMN IF NOT EXISTS perfil_kit_feirinha BOOLEAN DEFAULT TRUE,
         ADD COLUMN IF NOT EXISTS perfil_orcamento BOOLEAN DEFAULT TRUE
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS produto_categoria_vinculos (
+        produto_id INTEGER NOT NULL REFERENCES produtos(id) ON DELETE CASCADE,
+        categoria_id INTEGER NOT NULL REFERENCES produtos_categorias(id),
+        PRIMARY KEY (produto_id, categoria_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_produto_categoria_vinculos_categoria
+        ON produto_categoria_vinculos(categoria_id);
     `);
 
     await pool.query(`
