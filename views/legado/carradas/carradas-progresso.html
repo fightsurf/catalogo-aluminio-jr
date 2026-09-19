@@ -2597,12 +2597,21 @@
       return estado.agenciasRecebimento;
     }
 
+    function formatarNomeCidadeUf(item) {
+      if (!item) return '';
+      const nome = String(item.nome || '').trim();
+      const cidade = String(item.cidade_nome || '').trim();
+      const uf = String(item.cidade_estado || '').trim().toUpperCase();
+      const localizacao = [cidade, uf].filter(Boolean).join(' / ');
+      return [nome, localizacao].filter(Boolean).join(' - ');
+    }
+
+    function formatarTransportadora(transportadora) {
+      return formatarNomeCidadeUf(transportadora);
+    }
+
     function formatarAgenciaRecebimento(agencia) {
-      if (!agencia) return '';
-      const cidade = agencia.cidade_nome
-        ? `${agencia.cidade_nome}${agencia.cidade_estado ? ` / ${agencia.cidade_estado}` : ''}`
-        : '';
-      return `${agencia.nome || ''}${cidade ? ` — ${cidade}` : ''}`;
+      return formatarNomeCidadeUf(agencia);
     }
 
     function obterTransportadoraPorId(id) {
@@ -2633,7 +2642,7 @@
         el.modalLocalEntregaTitulo.textContent = `Local de entrega • Pedido ${numeroPedido}`;
         el.modalLocalEntregaSubtitulo.textContent = `${pedido?.cliente?.nome || '-'} • ${formatarMoeda(pedido?.total || 0)}`;
         const optionsTransportadoras = ['<option value="">Selecione</option>']
-          .concat(transportadoras.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.nome)}</option>`))
+          .concat(transportadoras.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(formatarTransportadora(item))}</option>`))
           .join('');
         el.selectTransportadora.innerHTML = optionsTransportadoras;
         el.selectRedespachoTransportadora.innerHTML = optionsTransportadoras;
