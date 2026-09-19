@@ -14,6 +14,7 @@ router.get('/:codigo/pedidos/:numeroPedido/etiqueta-impressao', controller.busca
 router.post('/:codigo/pedidos/:numeroPedido/etiqueta-impressao/preview', controller.gerarPreviewEtiquetaImpressao);
 router.post('/:codigo/pedidos/:numeroPedido/etiqueta-impressao/whatsapp', controller.enviarEtiquetaImpressaoWhatsapp);
 router.put('/:codigo/pedidos/:numeroPedido/etiqueta-perfil', controller.salvarPerfilEtiquetaPedido);
+router.delete('/:codigo/pedidos/:numeroPedido/etiqueta-perfil/:etiquetaClienteId', controller.excluirPerfilEtiquetaPedido);
 router.get('/:codigo/pedidos/:numeroPedido/etiqueta-volumes', controller.buscarDadosEtiquetaPedido);
 router.post('/:codigo/pedidos/:numeroPedido/etiqueta-volumes', controller.enviarEtiquetaVolumes);
 router.patch('/:codigo/pedidos/:numeroPedido/etiqueta-volumes/confirmacao', controller.confirmarEtiquetaVolumes);

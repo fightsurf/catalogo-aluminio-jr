@@ -845,6 +845,7 @@ function montarFasesDoPedido({ pedido, booleanRows = {}, etiquetaRow = null, loc
     ETIQUETA_VOLUMES: {
       codigo: 'ETIQUETA_VOLUMES',
       concluido: etiquetaConfirmada,
+      confirmadoPeloCliente: Boolean(etiquetaRow?.confirmadoBoolean),
       tipo: 'especial',
       etiquetaClienteId: etiquetaRow?.etiquetaClienteId || null,
       apelido: etiquetaRow?.apelido || '',
@@ -1636,7 +1637,8 @@ async function listarEtiquetasDoCliente(favorecido) {
       SELECT id, favorecido, apelido, texto_etiqueta, nome_impressao, telefone_impressao, cidade_impressao, uf_impressao, ativo, created_at, updated_at
       FROM clientes_etiquetas_volumes
       WHERE favorecido = $1
-      ORDER BY ativo DESC, LOWER(apelido), id DESC
+        AND ativo = TRUE
+      ORDER BY LOWER(apelido), id DESC
     `,
     [favorecido]
   );
@@ -2148,7 +2150,9 @@ async function salvarPerfilEtiquetaPedido({ codigoCarrada: codigoCarradaParam, n
 
   if (!apelidoNormalizado) throw criarErro('Informe um apelido para o perfil da etiqueta.', 400);
   if (!nomeNormalizado) throw criarErro('Informe o nome que deve aparecer na etiqueta.', 400);
+  if (!telefoneNormalizado) throw criarErro('Informe o telefone que deve aparecer na etiqueta.', 400);
   if (!cidadeNormalizada) throw criarErro('Informe a cidade que deve aparecer na etiqueta.', 400);
+  if (ufNormalizada.length !== 2) throw criarErro('Informe uma UF válida com 2 letras.', 400);
 
   let perfil;
   if (etiquetaClienteId) {
@@ -2186,6 +2190,52 @@ async function salvarPerfilEtiquetaPedido({ codigoCarrada: codigoCarradaParam, n
   `, [codigoCarrada, numeroPedido, identificadores.saida, perfil.id, textoNormalizado, nomeNormalizado, telefoneNormalizado, cidadeNormalizada, ufNormalizada]);
 
   await excluirFaseBooleanaPorPedido({ saida: identificadores.saida, numeroPedido, faseCodigo: 'ETIQUETA_VOLUMES' });
+  await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
+  return buscarDadosEtiquetaPedido({ codigoCarrada, numeroPedido });
+}
+
+async function excluirPerfilEtiquetaPedido({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam, etiquetaClienteId }) {
+  await garantirTabelasModulo();
+
+  const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
+  const numeroPedido = normalizarNumeroPedido(numeroPedidoParam);
+  const perfilId = Number(etiquetaClienteId);
+  if (!Number.isInteger(perfilId) || perfilId <= 0) throw criarErro('Perfil de etiqueta inválido.', 400);
+
+  const carrada = await carradasService.buscarResumoCarrada(codigoCarrada);
+  if (!carrada) throw criarErro('Carrada não encontrada.', 404);
+
+  const pedido = encontrarPedidoNaCarrada(carrada, numeroPedido);
+  const identificadores = obterIdentificadoresPedido(pedido, numeroPedido);
+  const favorecido = pedido?.cliente?.favorecido;
+  if (!favorecido) throw criarErro('Cliente do pedido não encontrado.', 400);
+
+  const existente = await pool.query(
+    'SELECT id, favorecido, apelido, ativo FROM clientes_etiquetas_volumes WHERE id = $1',
+    [perfilId]
+  );
+  const perfil = existente.rows[0];
+  if (!perfil) throw criarErro('Perfil de etiqueta não encontrado.', 404);
+  if (Number(perfil.favorecido) !== Number(favorecido)) throw criarErro('Este perfil não pertence ao cliente do pedido.', 400);
+
+  await pool.query(`
+    UPDATE clientes_etiquetas_volumes
+    SET ativo = FALSE, updated_at = NOW()
+    WHERE id = $1
+  `, [perfilId]);
+
+  await pool.query(`
+    DELETE FROM carradas_pedidos_etiquetas_volumes
+    WHERE ${montarCondicaoPedidoPorSaidaOuNumero()}
+      AND etiqueta_cliente_id = $3
+  `, [identificadores.saida, numeroPedido, perfilId]);
+
+  await excluirFaseBooleanaPorPedido({
+    saida: identificadores.saida,
+    numeroPedido,
+    faseCodigo: 'ETIQUETA_VOLUMES'
+  });
+
   await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
   return buscarDadosEtiquetaPedido({ codigoCarrada, numeroPedido });
 }
@@ -3211,6 +3261,7 @@ module.exports = {
   gerarPreviewEtiquetaImpressao,
   enviarEtiquetaImpressaoWhatsapp,
   salvarPerfilEtiquetaPedido,
+  excluirPerfilEtiquetaPedido,
   enviarEtiquetaVolumes,
   confirmarEtiquetaVolumes,
   salvarLocalEntrega,

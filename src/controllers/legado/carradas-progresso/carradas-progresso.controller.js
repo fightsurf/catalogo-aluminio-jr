@@ -164,6 +164,19 @@ async function salvarPerfilEtiquetaPedido(req, res) {
   }
 }
 
+async function excluirPerfilEtiquetaPedido(req, res) {
+  try {
+    const data = await service.excluirPerfilEtiquetaPedido({
+      codigoCarrada: req.params.codigo,
+      numeroPedido: req.params.numeroPedido,
+      etiquetaClienteId: req.params.etiquetaClienteId
+    });
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return responderErro(res, error, 'Erro ao excluir o perfil da etiqueta.');
+  }
+}
+
 async function enviarEtiquetaVolumes(req, res) {
   try {
     const data = await service.enviarEtiquetaVolumes({
@@ -262,6 +275,7 @@ module.exports = {
   gerarPreviewEtiquetaImpressao,
   enviarEtiquetaImpressaoWhatsapp,
   salvarPerfilEtiquetaPedido,
+  excluirPerfilEtiquetaPedido,
   enviarEtiquetaVolumes,
   confirmarEtiquetaVolumes,
   salvarLocalEntrega,

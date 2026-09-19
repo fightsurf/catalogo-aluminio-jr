@@ -374,7 +374,12 @@
       justify-content: center;
       flex: 0 0 auto;
     }
-    .btn-impressora-pedido:hover { background: #f3f4f6; }
+    .btn-impressora-pedido:hover:not(:disabled) { background: #f3f4f6; }
+    .btn-impressora-pedido:disabled {
+      opacity: 0.35;
+      filter: grayscale(1);
+      background: #f8fafc;
+    }
     .etiqueta-preview-wrap {
       display: grid;
       grid-template-columns: minmax(280px, 1fr) 260px;
@@ -982,6 +987,7 @@
         </div>
       </div>
       <div class="modal-footer">
+        <button class="btn-danger" id="btnEtiquetaExcluir">Excluir perfil</button>
         <button class="btn-secondary" id="btnEtiquetaDesconfirmar">Desmarcar confirmação</button>
         <button class="btn-success" id="btnEtiquetaConfirmar">Marcar confirmado</button>
         <button class="btn-secondary" id="btnEtiquetaSalvar">Salvar / usar perfil</button>
@@ -1243,6 +1249,7 @@
       imgEtiquetaGerenciadorPreview: document.getElementById('imgEtiquetaGerenciadorPreview'),
       statusEtiquetaGerenciadorPreview: document.getElementById('statusEtiquetaGerenciadorPreview'),
       btnEtiquetaSalvar: document.getElementById('btnEtiquetaSalvar'),
+      btnEtiquetaExcluir: document.getElementById('btnEtiquetaExcluir'),
       btnEtiquetaEnviar: document.getElementById('btnEtiquetaEnviar'),
       btnEtiquetaConfirmar: document.getElementById('btnEtiquetaConfirmar'),
       btnEtiquetaDesconfirmar: document.getElementById('btnEtiquetaDesconfirmar'),
@@ -1762,16 +1769,25 @@
         const telefoneClienteHtml = telefoneClienteFormatado
           ? `<button type="button" class="telefone-cliente-btn" data-whatsapp-cliente-numero="${escapeHtml(pedido.numero)}" aria-label="Enviar WhatsApp para ${nomeCliente}" title="${escapeHtml(telefoneClienteFormatado)}">📞<span class="telefone-cliente-hint">${escapeHtml(telefoneClienteFormatado)}</span></button>`
           : '';
+        const etiquetaConfirmadaPeloCliente = Boolean(pedido.fases?.ETIQUETA_VOLUMES?.confirmadoPeloCliente);
+        const impressoraClienteHtml = `
+          <button
+            type="button"
+            class="btn-impressora-pedido"
+            data-imprimir-pedido="${escapeHtml(pedido.numero)}"
+            title="${etiquetaConfirmadaPeloCliente ? 'Imprimir etiqueta A4 deste pedido' : 'Aguardando confirmação da etiqueta pelo cliente'}"
+            aria-label="${etiquetaConfirmadaPeloCliente ? 'Imprimir etiqueta A4' : 'Impressão desabilitada até a confirmação da etiqueta'} do pedido ${escapeHtml(pedido.numero)}"
+            ${etiquetaConfirmadaPeloCliente ? '' : 'disabled'}
+          >🖨️</button>`;
 
         return `
           <tr>
             <td class="sticky-col">
               <div class="pedido-title-row">
                 <div class="pedido-title"><a class="pedido-link" href="/legado/pedidos?numero=${encodeURIComponent(pedido.numero)}" target="_blank" rel="noopener noreferrer">Pedido ${escapeHtml(pedido.numero)}</a></div>
-                <button type="button" class="btn-impressora-pedido" data-imprimir-pedido="${escapeHtml(pedido.numero)}" title="Montar etiqueta A4 deste pedido" aria-label="Montar etiqueta A4 do pedido ${escapeHtml(pedido.numero)}">🖨️</button>
               </div>
               <div class="pedido-meta">
-                <span class="cliente-contato">${nomeClienteHtml}${telefoneClienteHtml}</span><br>
+                <span class="cliente-contato">${nomeClienteHtml}${telefoneClienteHtml}${impressoraClienteHtml}</span><br>
                 ${pedido.cliente?.cidade ? escapeHtml(pedido.cliente.cidade) + (pedido.cliente?.uf ? ' - ' + escapeHtml(pedido.cliente.uf) : '') + '<br>' : ''}
                 Data: ${escapeHtml(formatarData(pedido.data) || '-')}<br>
                 Valor: ${escapeHtml(formatarMoeda(pedido.total))}
@@ -2422,6 +2438,52 @@
       }
     }
 
+    function mensagemValidacaoPerfilEtiqueta() {
+      if (!el.inputEtiquetaApelido.value.trim()) return 'Informe o apelido do perfil.';
+      if (!el.inputEtiquetaNome.value.trim()) return 'Informe o nome que deve aparecer na etiqueta.';
+      if (!el.inputEtiquetaTelefone.value.trim()) return 'Informe o telefone que deve aparecer na etiqueta.';
+      if (!el.inputEtiquetaCidade.value.trim()) return 'Informe a cidade que deve aparecer na etiqueta.';
+      const uf = el.inputEtiquetaUf.value.trim().toUpperCase();
+      if (!uf) return 'Informe a UF da etiqueta.';
+      if (uf.length !== 2) return 'A UF deve ter 2 letras.';
+      return '';
+    }
+
+    function perfilSelecionadoEVinculadoAoPedido() {
+      const valor = String(el.selectEtiquetas.value || '');
+      if (!valor || valor === '__novo__') return false;
+      const atualId = estado.etiquetaModal.payload?.atual?.etiquetaClienteId;
+      return String(atualId || '') === valor;
+    }
+
+    function atualizarEstadoBotoesEtiqueta() {
+      const erroValidacao = mensagemValidacaoPerfilEtiqueta();
+      const perfilSelecionado = Boolean(el.selectEtiquetas.value && el.selectEtiquetas.value !== '__novo__');
+      const perfilVinculado = perfilSelecionadoEVinculadoAoPedido();
+      const confirmado = Boolean(estado.etiquetaModal.payload?.atual?.confirmadoBoolean);
+
+      el.btnEtiquetaSalvar.disabled = Boolean(erroValidacao);
+      el.btnEtiquetaEnviar.disabled = Boolean(erroValidacao);
+      el.btnEtiquetaExcluir.disabled = !perfilSelecionado;
+      el.btnEtiquetaConfirmar.disabled = !perfilSelecionado;
+      el.btnEtiquetaDesconfirmar.disabled = !perfilVinculado || !confirmado;
+    }
+
+    function validarPerfilEtiqueta({ exibirAlert = true } = {}) {
+      const mensagem = mensagemValidacaoPerfilEtiqueta();
+      if (!mensagem) return true;
+      setFeedback(el.feedbackEtiqueta, mensagem, 'error');
+      if (exibirAlert) window.alert(mensagem);
+      atualizarEstadoBotoesEtiqueta();
+      return false;
+    }
+
+    function alertarErroEtiqueta(error) {
+      const mensagem = error?.message || 'Erro ao processar a etiqueta.';
+      setFeedback(el.feedbackEtiqueta, mensagem, 'error');
+      window.alert(mensagem);
+    }
+
     function popularSelectEtiquetas(payload) {
       const etiquetas = Array.isArray(payload?.etiquetas) ? payload.etiquetas : [];
       const atual = payload?.atual || null;
@@ -2429,11 +2491,9 @@
         .concat(etiquetas.map((etiqueta) => `<option value="${escapeHtml(etiqueta.id)}">${escapeHtml(etiqueta.apelido || `Perfil ${etiqueta.id}`)}</option>`));
       el.selectEtiquetas.innerHTML = options.join('');
 
-      if (atual?.etiquetaClienteId) {
-        el.selectEtiquetas.value = String(atual.etiquetaClienteId);
-      } else {
-        el.selectEtiquetas.value = '__novo__';
-      }
+      const atualDisponivel = atual?.etiquetaClienteId
+        && etiquetas.some((etiqueta) => String(etiqueta.id) === String(atual.etiquetaClienteId));
+      el.selectEtiquetas.value = atualDisponivel ? String(atual.etiquetaClienteId) : '__novo__';
 
       preencherCamposEtiquetaPorSelect();
     }
@@ -2455,6 +2515,7 @@
           el.inputEtiquetaUf.value = cadastro.ufImpressao || cadastro.uf || '';
           el.textareaEtiquetaTexto.value = '';
           agendarPreviewEtiqueta();
+          atualizarEstadoBotoesEtiqueta();
         } else {
           el.inputEtiquetaApelido.value = payload?.atual?.apelido || '';
           const cadastro = payload?.pedido?.etiquetaCadastro || payload?.pedido?.cliente || {};
@@ -2464,6 +2525,7 @@
           el.inputEtiquetaUf.value = payload?.atual?.ufImpressao || cadastro.ufImpressao || cadastro.uf || '';
           el.textareaEtiquetaTexto.value = payload?.atual?.textoSnapshot || '';
           agendarPreviewEtiqueta();
+          atualizarEstadoBotoesEtiqueta();
         }
         return;
       }
@@ -2478,6 +2540,7 @@
       el.inputEtiquetaUf.value = atualMesmoPerfil?.ufImpressao || etiqueta.ufImpressao || '';
       el.textareaEtiquetaTexto.value = atualMesmoPerfil?.textoSnapshot || etiqueta.textoEtiqueta || '';
       agendarPreviewEtiqueta();
+      atualizarEstadoBotoesEtiqueta();
     }
 
     async function abrirModalEtiqueta(numeroPedido) {
@@ -2497,6 +2560,7 @@
           setFeedback(el.feedbackEtiqueta, 'Selecione um perfil salvo ou crie um novo. O perfil escolhido será usado pela impressora deste pedido.', '');
         }
 
+        atualizarEstadoBotoesEtiqueta();
         abrirModal(el.modalEtiquetaBackdrop);
       } catch (error) {
         window.alert(error.message);
@@ -2519,6 +2583,7 @@
     async function salvarPerfilEtiquetaModal({ silencioso = false } = {}) {
       const numeroPedido = estado.etiquetaModal.pedidoNumero;
       if (!numeroPedido) return null;
+      if (!validarPerfilEtiqueta()) return null;
 
       const data = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/etiqueta-perfil`, {
         method: 'PUT',
@@ -2533,12 +2598,39 @@
       return data;
     }
 
+    async function excluirPerfilEtiquetaModal() {
+      const numeroPedido = estado.etiquetaModal.pedidoNumero;
+      const etiquetaClienteId = Number(el.selectEtiquetas.value);
+      if (!numeroPedido || !Number.isInteger(etiquetaClienteId) || etiquetaClienteId <= 0) {
+        window.alert('Selecione um perfil salvo para excluir.');
+        return;
+      }
+
+      const etiquetas = Array.isArray(estado.etiquetaModal.payload?.etiquetas) ? estado.etiquetaModal.payload.etiquetas : [];
+      const perfil = etiquetas.find((item) => Number(item.id) === etiquetaClienteId);
+      const nomePerfil = perfil?.apelido || `Perfil ${etiquetaClienteId}`;
+      if (!window.confirm(`Excluir o perfil de etiqueta "${nomePerfil}"?`)) return;
+
+      try {
+        const data = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/etiqueta-perfil/${encodeURIComponent(etiquetaClienteId)}`, {
+          method: 'DELETE'
+        });
+        estado.etiquetaModal.payload = data;
+        popularSelectEtiquetas(data);
+        setFeedback(el.feedbackEtiqueta, `Perfil "${nomePerfil}" excluído.`, 'success');
+        await carregarMatriz();
+      } catch (error) {
+        alertarErroEtiqueta(error);
+      }
+    }
+
     async function enviarEtiquetaModal() {
       const numeroPedido = estado.etiquetaModal.pedidoNumero;
       if (!numeroPedido) return;
 
       try {
-        await salvarPerfilEtiquetaModal({ silencioso: true });
+        const salvo = await salvarPerfilEtiquetaModal({ silencioso: true });
+        if (!salvo) return;
         const data = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/etiqueta-impressao/whatsapp`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2548,14 +2640,16 @@
         if (notificacao?.success) {
           setFeedback(el.feedbackEtiqueta, `Imagem da etiqueta enviada com sucesso para ${notificacao.telefone || '-'}.`, 'success');
         } else {
-          setFeedback(el.feedbackEtiqueta, `Falha ao enviar WhatsApp: ${notificacao?.error || 'Erro desconhecido.'}`, 'error');
+          const mensagemErro = `Falha ao enviar WhatsApp: ${notificacao?.error || 'Erro desconhecido.'}`;
+          setFeedback(el.feedbackEtiqueta, mensagemErro, 'error');
+          window.alert(mensagemErro);
         }
         const atualizado = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/etiqueta-volumes`);
         estado.etiquetaModal.payload = atualizado;
         popularSelectEtiquetas(atualizado);
         await carregarMatriz();
       } catch (error) {
-        setFeedback(el.feedbackEtiqueta, error.message, 'error');
+        alertarErroEtiqueta(error);
       }
     }
 
@@ -2563,7 +2657,25 @@
       const numeroPedido = estado.etiquetaModal.pedidoNumero;
       if (!numeroPedido) return;
 
+      const perfilSelecionado = Boolean(el.selectEtiquetas.value && el.selectEtiquetas.value !== '__novo__');
+      if (!perfilSelecionado) {
+        const mensagem = 'Selecione um perfil salvo antes de marcar a confirmação.';
+        window.alert(mensagem);
+        setFeedback(el.feedbackEtiqueta, mensagem, 'error');
+        return;
+      }
+
       try {
+        if (confirmado) {
+          const salvo = await salvarPerfilEtiquetaModal({ silencioso: true });
+          if (!salvo) return;
+        } else if (!perfilSelecionadoEVinculadoAoPedido()) {
+          const mensagem = 'O perfil selecionado ainda não está vinculado a este pedido.';
+          window.alert(mensagem);
+          setFeedback(el.feedbackEtiqueta, mensagem, 'error');
+          return;
+        }
+
         await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/etiqueta-volumes/confirmacao`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -2573,7 +2685,7 @@
         fecharModal(el.modalEtiquetaBackdrop);
         await carregarMatriz();
       } catch (error) {
-        setFeedback(el.feedbackEtiqueta, error.message, 'error');
+        alertarErroEtiqueta(error);
       }
     }
 
@@ -3590,8 +3702,14 @@
       );
     });
     el.selectEtiquetas.addEventListener('change', preencherCamposEtiquetaPorSelect);
-    [el.inputEtiquetaNome, el.inputEtiquetaTelefone, el.inputEtiquetaCidade, el.inputEtiquetaUf].forEach((campo) => campo.addEventListener('input', agendarPreviewEtiqueta));
-    el.btnEtiquetaSalvar.addEventListener('click', () => salvarPerfilEtiquetaModal().catch((error) => setFeedback(el.feedbackEtiqueta, error.message, 'error')));
+    [el.inputEtiquetaApelido, el.inputEtiquetaNome, el.inputEtiquetaTelefone, el.inputEtiquetaCidade, el.inputEtiquetaUf, el.textareaEtiquetaTexto].forEach((campo) => {
+      campo.addEventListener('input', () => {
+        atualizarEstadoBotoesEtiqueta();
+        if (campo !== el.inputEtiquetaApelido && campo !== el.textareaEtiquetaTexto) agendarPreviewEtiqueta();
+      });
+    });
+    el.btnEtiquetaSalvar.addEventListener('click', () => salvarPerfilEtiquetaModal().catch(alertarErroEtiqueta));
+    el.btnEtiquetaExcluir.addEventListener('click', excluirPerfilEtiquetaModal);
     el.btnEtiquetaEnviar.addEventListener('click', enviarEtiquetaModal);
     el.btnEtiquetaConfirmar.addEventListener('click', () => confirmarEtiquetaModal(true));
     el.btnEtiquetaDesconfirmar.addEventListener('click', () => confirmarEtiquetaModal(false));

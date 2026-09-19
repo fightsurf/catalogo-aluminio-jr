@@ -25,10 +25,13 @@ button, .btn-link { display:inline-block; padding:8px 12px; border:0; border-rad
 .autocomplete-item { width:100%; margin:0; border:0; border-radius:0; background:#fff; color:#111827; padding:9px 10px; text-align:left; }
 .autocomplete-item:hover, .autocomplete-item.ativo { background:#eef2f7; }
 .autocomplete-vazio { padding:9px 10px; color:#64748b; font-size:14px; }
-.agencia-item { padding:10px; border-radius:6px; cursor:pointer; margin-bottom:6px; border:1px solid #e5e7eb; }
+.agencia-item { padding:8px 10px; border-radius:6px; cursor:pointer; margin-bottom:6px; border:1px solid #e5e7eb; display:flex; align-items:center; gap:10px; }
 .agencia-item:hover { background:#f8fafc; }
 .agencia-item.active { background:#007bff; color:#fff; border-color:#007bff; }
 .agencia-item small { display:block; margin-top:3px; opacity:.85; }
+.agencia-item-conteudo { flex:1; min-width:0; }
+.btn-excluir-agencia-lista { flex:0 0 auto; padding:7px 10px; font-size:13px; }
+.agencia-item.active .btn-excluir-agencia-lista { border:1px solid rgba(255,255,255,.7); }
 .divider { height:1px; background:#e5e7eb; margin:13px 0; }
 .acoes { display:flex; gap:8px; flex-wrap:wrap; }
 .muted { color:#64748b; font-size:13px; }
@@ -109,8 +112,19 @@ async function carregarAgencias() {
     const cidade = agencia.cidade_nome ? `${agencia.cidade_nome} / ${agencia.cidade_estado || ''}` : 'Cidade ainda não informada';
     const telefone = String(agencia.telefone || '').trim();
     const complemento = telefone ? `${cidade} • ${telefone}` : cidade;
-    item.innerHTML = `<strong>${escapeHtml(agencia.codigo)} - ${escapeHtml(agencia.nome)}</strong><small>${escapeHtml(complemento)}</small>`;
+    item.innerHTML = `
+      <div class="agencia-item-conteudo">
+        <strong>${escapeHtml(agencia.codigo)} - ${escapeHtml(agencia.nome)}</strong>
+        <small>${escapeHtml(complemento)}</small>
+      </div>
+      <button class="btn-danger btn-excluir-agencia-lista" type="button" title="Excluir esta agência">Excluir</button>
+    `;
     item.onclick = () => selecionarAgencia(agencia);
+    item.querySelector('.btn-excluir-agencia-lista').addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      excluirAgenciaDireta(agencia);
+    });
     lista.appendChild(item);
   });
 }
@@ -202,16 +216,23 @@ async function salvarEdicao() {
   await carregarAgencias();
 }
 
-async function excluirAgencia() {
-  if (!agenciaSelecionada) return;
-  if (!confirm(`Excluir a agência ${agenciaSelecionada.nome}?`)) return;
+async function excluirAgenciaDireta(agencia) {
+  if (!agencia?.codigo) return;
+  if (!confirm(`Tem certeza que deseja excluir a agência ${agencia.nome}?`)) return;
 
-  const response = await fetch(`${API_AGENCIAS}/${encodeURIComponent(agenciaSelecionada.codigo)}`, { method:'DELETE' });
+  const response = await fetch(`${API_AGENCIAS}/${encodeURIComponent(agencia.codigo)}`, { method:'DELETE' });
   if (!response.ok) return alert(await lerErro(response, 'Erro ao excluir agência.'));
 
-  agenciaSelecionada = null;
-  renderDetalhes();
+  if (String(agenciaSelecionada?.codigo || '') === String(agencia.codigo)) {
+    agenciaSelecionada = null;
+    renderDetalhes();
+  }
   await carregarAgencias();
+}
+
+async function excluirAgencia() {
+  if (!agenciaSelecionada) return;
+  await excluirAgenciaDireta(agenciaSelecionada);
 }
 
 function fecharAutocompleteCidade(lista) {
