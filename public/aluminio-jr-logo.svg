@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+<rect width="1024" height="1024" rx="160" fill="#142b3c"/>
+<path d="M210 228h604" stroke="#d5e4eb" stroke-width="16"/>
+<text x="512" y="370" text-anchor="middle" font-family="DejaVu Sans,sans-serif" font-size="76" font-weight="700" fill="#d5e4eb">ALUMÍNIO</text>
+<text x="492" y="725" text-anchor="middle" font-family="DejaVu Sans,sans-serif" font-size="365" font-weight="700" fill="#ffffff">JR</text>
+<path d="M210 797h604" stroke="#51c4b8" stroke-width="16"/>
+</svg>
