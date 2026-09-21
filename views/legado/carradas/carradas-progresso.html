@@ -799,6 +799,12 @@
         flex-direction: column;
       }
     }
+    .etiqueta-cidade-busca { position:relative; }
+    .etiqueta-cidade-busca input { width:100%; box-sizing:border-box; }
+    .etiqueta-cidade-lista { position:absolute; top:100%; left:0; right:0; max-height:220px; overflow-y:auto; z-index:20; background:#fff; border:1px solid #cbd5e1; border-radius:6px; box-shadow:0 4px 12px #0002; }
+    .etiqueta-cidade-lista button { display:block; width:100%; border:0; border-radius:0; text-align:left; padding:10px; background:#fff; color:#172033; cursor:pointer; }
+    .etiqueta-cidade-lista button:hover, .etiqueta-cidade-lista button[aria-selected="true"] { background:#e2e8f0; }
+    #inputEtiquetaUf[readonly] { background:#f1f5f9; color:#475569; }
   </style>
 </head>
 <body>
@@ -966,11 +972,15 @@
         <div class="grid-2">
           <div class="field">
             <label for="inputEtiquetaCidade">Cidade na etiqueta</label>
-            <input type="text" id="inputEtiquetaCidade" maxlength="140" />
+            <div id="etiquetaCidadeBusca" class="etiqueta-cidade-busca">
+              <input type="text" id="inputEtiquetaCidade" maxlength="140" autocomplete="off" placeholder="Digite pelo menos 2 letras" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="listaEtiquetaCidades" />
+              <div id="listaEtiquetaCidades" class="etiqueta-cidade-lista" role="listbox" aria-label="Cidades" hidden></div>
+              <small id="statusEtiquetaCidade" role="status"></small>
+            </div>
           </div>
           <div class="field">
             <label for="inputEtiquetaUf">UF</label>
-            <input type="text" id="inputEtiquetaUf" maxlength="2" style="text-transform:uppercase" />
+            <input type="text" id="inputEtiquetaUf" maxlength="2" readonly title="Preenchida ao selecionar a cidade" style="text-transform:uppercase" />
           </div>
         </div>
         <div class="field">
@@ -1427,6 +1437,7 @@
     }
 
     function fecharModal(backdrop) {
+      if (backdrop.id === 'modalEtiquetaBackdrop') fecharBuscaCidadeEtiqueta();
       backdrop.classList.remove('open');
     }
 
@@ -2404,6 +2415,94 @@
       janela.document.close();
     }
 
+    let timerCidadeEtiqueta = null;
+    let sequenciaCidadeEtiqueta = 0;
+    let cidadesEtiqueta = [];
+    let indiceCidadeEtiqueta = -1;
+
+    function fecharBuscaCidadeEtiqueta() {
+      clearTimeout(timerCidadeEtiqueta);
+      sequenciaCidadeEtiqueta++;
+      cidadesEtiqueta = [];
+      indiceCidadeEtiqueta = -1;
+      document.getElementById('listaEtiquetaCidades').hidden = true;
+      document.getElementById('listaEtiquetaCidades').replaceChildren();
+      document.getElementById('statusEtiquetaCidade').textContent = '';
+      el.inputEtiquetaCidade.setAttribute('aria-expanded', 'false');
+      el.inputEtiquetaCidade.removeAttribute('aria-activedescendant');
+    }
+
+    function selecionarCidadeEtiqueta(indice) {
+      const cidade = cidadesEtiqueta[indice];
+      if (!cidade) return;
+      el.inputEtiquetaCidade.value = cidade.nome;
+      el.inputEtiquetaUf.value = cidade.estado.trim().toUpperCase();
+      fecharBuscaCidadeEtiqueta();
+      atualizarEstadoBotoesEtiqueta();
+      agendarPreviewEtiqueta();
+      el.inputEtiquetaCidade.focus();
+    }
+
+    function buscarCidadeEtiqueta() {
+      fecharBuscaCidadeEtiqueta();
+      el.inputEtiquetaUf.value = '';
+      atualizarEstadoBotoesEtiqueta();
+      agendarPreviewEtiqueta();
+      const termo = el.inputEtiquetaCidade.value.trim();
+      if (termo.length < 2) return;
+      const sequencia = sequenciaCidadeEtiqueta;
+      const status = document.getElementById('statusEtiquetaCidade');
+      status.textContent = 'Buscando cidades...';
+      timerCidadeEtiqueta = setTimeout(async () => {
+        try {
+          const dados = await request(`/api/logistica/cidades/busca-id?nome=${encodeURIComponent(termo)}`);
+          if (sequencia !== sequenciaCidadeEtiqueta) return;
+          if (!Array.isArray(dados)) throw new Error('Resposta inválida');
+          cidadesEtiqueta = dados.filter(c => typeof c.nome === 'string' && typeof c.estado === 'string' && /^[a-z]{2}$/i.test(c.estado.trim()));
+          const lista = document.getElementById('listaEtiquetaCidades');
+          lista.replaceChildren();
+          cidadesEtiqueta.forEach((cidade, indice) => {
+            const botao = document.createElement('button');
+            botao.type = 'button';
+            botao.id = `etiqueta-cidade-opcao-${indice}`;
+            botao.setAttribute('role', 'option');
+            botao.setAttribute('aria-selected', 'false');
+            botao.tabIndex = -1;
+            botao.textContent = `${cidade.nome} - ${cidade.estado.trim().toUpperCase()}`;
+            botao.addEventListener('mousedown', event => event.preventDefault());
+            botao.addEventListener('click', () => selecionarCidadeEtiqueta(indice));
+            lista.appendChild(botao);
+          });
+          lista.hidden = !cidadesEtiqueta.length;
+          el.inputEtiquetaCidade.setAttribute('aria-expanded', String(cidadesEtiqueta.length > 0));
+          status.textContent = cidadesEtiqueta.length ? 'Selecione a cidade e a UF na lista.' : 'Nenhuma cidade encontrada.';
+        } catch (error) {
+          if (sequencia !== sequenciaCidadeEtiqueta) return;
+          status.textContent = 'Não foi possível buscar cidades. Digite novamente para tentar.';
+        }
+      }, 250);
+    }
+
+    function navegarCidadesEtiqueta(event) {
+      if (event.key === 'Escape') {
+        fecharBuscaCidadeEtiqueta();
+        return;
+      }
+      if (!cidadesEtiqueta.length) return;
+      if (event.key === 'Enter' && indiceCidadeEtiqueta >= 0) {
+        event.preventDefault();
+        selecionarCidadeEtiqueta(indiceCidadeEtiqueta);
+      } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        indiceCidadeEtiqueta = (indiceCidadeEtiqueta + (event.key === 'ArrowDown' ? 1 : (indiceCidadeEtiqueta < 0 ? 0 : -1)) + cidadesEtiqueta.length) % cidadesEtiqueta.length;
+        const opcoes = document.getElementById('listaEtiquetaCidades').children;
+        Array.from(opcoes).forEach((opcao, i) => opcao.setAttribute('aria-selected', String(i === indiceCidadeEtiqueta)));
+        const ativa = opcoes[indiceCidadeEtiqueta];
+        el.inputEtiquetaCidade.setAttribute('aria-activedescendant', ativa.id);
+        ativa.scrollIntoView({ block: 'nearest' });
+      }
+    }
+
     let timerPreviewEtiqueta = null;
     let sequenciaPreviewEtiqueta = 0;
 
@@ -2444,7 +2543,7 @@
       if (!el.inputEtiquetaTelefone.value.trim()) return 'Informe o telefone que deve aparecer na etiqueta.';
       if (!el.inputEtiquetaCidade.value.trim()) return 'Informe a cidade que deve aparecer na etiqueta.';
       const uf = el.inputEtiquetaUf.value.trim().toUpperCase();
-      if (!uf) return 'Informe a UF da etiqueta.';
+      if (!uf) return 'Selecione a cidade na lista para preencher a UF automaticamente.';
       if (uf.length !== 2) return 'A UF deve ter 2 letras.';
       return '';
     }
@@ -2499,6 +2598,7 @@
     }
 
     function preencherCamposEtiquetaPorSelect() {
+      fecharBuscaCidadeEtiqueta();
       const payload = estado.etiquetaModal.payload;
       if (!payload) return;
 
@@ -3700,6 +3800,14 @@
           : 'O sistema enviará uma mensagem por pedido com cabeçalho automático.',
         ''
       );
+    });
+    el.inputEtiquetaCidade.addEventListener('input', buscarCidadeEtiqueta);
+    el.inputEtiquetaCidade.addEventListener('keydown', navegarCidadesEtiqueta);
+    document.addEventListener('click', event => {
+      if (!document.getElementById('etiquetaCidadeBusca').contains(event.target)) fecharBuscaCidadeEtiqueta();
+    });
+    document.getElementById('etiquetaCidadeBusca').addEventListener('focusout', event => {
+      if (!event.currentTarget.contains(event.relatedTarget)) fecharBuscaCidadeEtiqueta();
     });
     el.selectEtiquetas.addEventListener('change', preencherCamposEtiquetaPorSelect);
     [el.inputEtiquetaApelido, el.inputEtiquetaNome, el.inputEtiquetaTelefone, el.inputEtiquetaCidade, el.inputEtiquetaUf, el.textareaEtiquetaTexto].forEach((campo) => {
