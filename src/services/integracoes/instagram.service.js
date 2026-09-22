@@ -7,6 +7,8 @@ const DEFAULT_POLL_ATTEMPTS = 5;
 const MIN_POLL_INTERVAL_MS = 60 * 1000;
 const MAX_POLL_ATTEMPTS = 5;
 const DEFAULT_QUOTA_CACHE_MS = 5 * 60 * 1000;
+const DEFAULT_PUBLISH_STABILIZATION_MS = 3 * 1000;
+const DEFAULT_MEDIA_NOT_READY_RETRY_DELAYS_MS = [5 * 1000, 10 * 1000, 20 * 1000];
 
 let quotaCache = null;
 let quotaPromise = null;
@@ -69,6 +71,10 @@ function getConfig() {
     pollIntervalMs: Math.max(pollIntervalInformado, MIN_POLL_INTERVAL_MS),
     pollAttempts: Math.min(pollAttemptsInformado, MAX_POLL_ATTEMPTS),
     quotaCacheMs: inteiroPositivo(process.env.INSTAGRAM_QUOTA_CACHE_MS, DEFAULT_QUOTA_CACHE_MS),
+    publishStabilizationMs: inteiroPositivo(
+      process.env.INSTAGRAM_PUBLISH_STABILIZATION_MS,
+      DEFAULT_PUBLISH_STABILIZATION_MS
+    ),
   };
 }
 
@@ -86,6 +92,7 @@ function diagnosticarConfiguracao() {
     graph_base_url: config.baseUrl,
     poll_interval_ms: config.pollIntervalMs,
     poll_attempts: config.pollAttempts,
+    publish_stabilization_ms: config.publishStabilizationMs,
     meta_rate_limit: metaRateLimitService.estado(),
   };
 }
@@ -366,6 +373,62 @@ async function publicarContainer(config, containerId) {
   return String(data.id);
 }
 
+function erroMidiaAindaNaoDisponivel(error) {
+  return Number(error?.meta_code) === 9007
+    && Number(error?.meta_subcode) === 2207027;
+}
+
+async function publicarContainerComRetentativa(config, containerId) {
+  const atrasos = DEFAULT_MEDIA_NOT_READY_RETRY_DELAYS_MS;
+  let ultimoErro = null;
+
+  // Mesmo com status_code=FINISHED, a infraestrutura da Meta pode levar alguns
+  // segundos para disponibilizar o container no endpoint /media_publish.
+  await aguardar(config.publishStabilizationMs);
+
+  for (let tentativa = 0; tentativa <= atrasos.length; tentativa += 1) {
+    try {
+      const mediaId = await publicarContainer(config, containerId);
+      return { mediaId, jaPublicado: false };
+    } catch (error) {
+      ultimoErro = error;
+      if (!erroMidiaAindaNaoDisponivel(error) || tentativa >= atrasos.length) {
+        throw error;
+      }
+
+      let statusAtual = null;
+      try {
+        statusAtual = await obterStatusContainer(config, containerId);
+      } catch (statusError) {
+        console.warn('[Instagram] falha ao consultar container após 9007/2207027:', statusError.message);
+      }
+
+      const statusCode = String(statusAtual?.status_code || '').trim().toUpperCase();
+      if (['ERROR', 'EXPIRED'].includes(statusCode)) {
+        throw new Error(`A Meta não conseguiu processar o Story: ${statusAtual?.status || statusCode}.`);
+      }
+
+      // Se a Meta já mudou o container para PUBLISHED, não repetimos o POST.
+      if (statusCode === 'PUBLISHED') {
+        registrarPublicacaoNaQuotaCache();
+        return { mediaId: null, jaPublicado: true };
+      }
+
+      const atraso = atrasos[tentativa];
+      console.warn('[Instagram] 9007/2207027; repetindo media_publish com o mesmo container', {
+        container_id: containerId,
+        proxima_tentativa: tentativa + 2,
+        aguardar_ms: atraso,
+        status_code: statusCode || null,
+        fbtrace_id: error?.fbtrace_id || null,
+      });
+      await aguardar(atraso);
+    }
+  }
+
+  throw ultimoErro;
+}
+
 async function publicarStoryImagem({ imageUrl }) {
   const config = validarConfiguracao(getConfig());
   const quota = await verificarLimiteAntesDePublicar(config);
@@ -375,14 +438,14 @@ async function publicarStoryImagem({ imageUrl }) {
   // A retirada desta espera causou os erros 9007/2207027 (Media ID is not
   // available) e 24/2207006 em parte dos produtos do Status Zap.
   const processamento = await aguardarContainer(config, containerId);
-  const mediaId = await publicarContainer(config, containerId);
+  const publicacao = await publicarContainerComRetentativa(config, containerId);
 
   return {
     success: true,
     status: 'publicado',
-    media_id: mediaId,
+    media_id: publicacao.mediaId,
     container_id: containerId,
-    processamento_status: processamento?.status_code || null,
+    processamento_status: publicacao.jaPublicado ? 'PUBLISHED' : (processamento?.status_code || null),
     api_version: config.apiVersion,
     publishing_quota: quota,
   };
@@ -393,14 +456,14 @@ async function publicarStoryVideo({ videoUrl }) {
   const quota = await verificarLimiteAntesDePublicar(config);
   const containerId = await criarContainerStoryVideo(config, videoUrl);
   const processamento = await aguardarContainer(config, containerId);
-  const mediaId = await publicarContainer(config, containerId);
+  const publicacao = await publicarContainerComRetentativa(config, containerId);
 
   return {
     success: true,
     status: 'publicado',
-    media_id: mediaId,
+    media_id: publicacao.mediaId,
     container_id: containerId,
-    processamento_status: processamento?.status_code || null,
+    processamento_status: publicacao.jaPublicado ? 'PUBLISHED' : (processamento?.status_code || null),
     api_version: config.apiVersion,
     publishing_quota: quota,
   };
