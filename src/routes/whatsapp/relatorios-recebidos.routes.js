@@ -5,10 +5,10 @@ const { requireAuth } = require('../../middlewares/adminAuth.middleware');
 
 const router = express.Router();
 
-// Recebimento automático vindo exclusivamente do n8n.
-router.post('/', n8nAuth, controller.salvar);
+// O n8n envia a mensagem recebida; o backend decide se é relatório.
+router.post('/capturar', n8nAuth, controller.capturar);
 
-// Consulta e exclusão somente para usuário administrativo autenticado.
+// Consulta e exclusão apenas para usuário administrativo autenticado.
 router.get('/', requireAuth, controller.listar);
 router.delete('/:id', requireAuth, controller.excluir);
 

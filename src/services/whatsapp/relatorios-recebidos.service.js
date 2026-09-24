@@ -12,13 +12,17 @@ async function criarEstrutura() {
         telefone VARCHAR(120) NOT NULL,
         relatorio TEXT NOT NULL,
         recebido_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      );
+      )
+    `);
 
+    await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_whatsapp_relatorios_telefone
-        ON whatsapp_relatorios (telefone);
+      ON whatsapp_relatorios (telefone)
+    `);
 
+    await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_whatsapp_relatorios_recebido_em
-        ON whatsapp_relatorios (recebido_em DESC);
+      ON whatsapp_relatorios (recebido_em DESC)
     `);
   })().catch((error) => {
     estruturaPronta = null;
@@ -32,19 +36,44 @@ function limparTexto(valor) {
   return String(valor ?? '').trim();
 }
 
-async function salvar({ telefone, relatorio }) {
-  await criarEstrutura();
+function normalizarParaComparacao(valor) {
+  return limparTexto(valor)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toUpperCase();
+}
 
+function ehRelatorioAluminioJR(mensagem) {
+  const original = limparTexto(mensagem);
+  if (!original) return false;
+
+  const normalizada = normalizarParaComparacao(original);
+
+  return normalizada.includes('RELATORIO ALUMINIO JR') &&
+    /\|\s*QTD\s*:/i.test(original);
+}
+
+async function capturar({ telefone, mensagem, relatorio, fromMe, tipo }) {
+  const texto = limparTexto(mensagem || relatorio);
   const telefoneLimpo = limparTexto(telefone);
-  const relatorioLimpo = limparTexto(relatorio);
 
-  if (!telefoneLimpo) {
-    throw new Error('Telefone é obrigatório.');
+  if (fromMe === true || String(fromMe).toLowerCase() === 'true') {
+    return { salvo: false, motivo: 'mensagem_enviada_por_mim' };
   }
 
-  if (!relatorioLimpo) {
-    throw new Error('Relatório é obrigatório.');
+  if (tipo && String(tipo).toLowerCase() !== 'texto') {
+    return { salvo: false, motivo: 'nao_texto' };
   }
+
+  if (!telefoneLimpo || !texto) {
+    return { salvo: false, motivo: 'dados_incompletos' };
+  }
+
+  if (!ehRelatorioAluminioJR(texto)) {
+    return { salvo: false, motivo: 'nao_e_relatorio' };
+  }
+
+  await criarEstrutura();
 
   const result = await pool.query(
     `
@@ -52,10 +81,10 @@ async function salvar({ telefone, relatorio }) {
       VALUES ($1, $2)
       RETURNING id, telefone, relatorio, recebido_em
     `,
-    [telefoneLimpo, relatorioLimpo]
+    [telefoneLimpo, texto]
   );
 
-  return result.rows[0];
+  return { salvo: true, registro: result.rows[0] };
 }
 
 async function listar({ telefone } = {}) {
@@ -106,7 +135,8 @@ async function excluir(id) {
 
 module.exports = {
   criarEstrutura,
-  salvar,
+  ehRelatorioAluminioJR,
+  capturar,
   listar,
   excluir
 };

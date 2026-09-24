@@ -1,14 +1,17 @@
 const service = require('../../services/whatsapp/relatorios-recebidos.service');
 
-async function salvar(req, res) {
+async function capturar(req, res) {
   try {
-    const registro = await service.salvar(req.body || {});
-    return res.status(201).json({ success: true, data: registro });
+    const resultado = await service.capturar(req.body || {});
+    return res.status(resultado.salvo ? 201 : 200).json({
+      success: true,
+      ...resultado
+    });
   } catch (error) {
-    console.error('Erro ao salvar relatório WhatsApp:', error);
-    return res.status(400).json({
+    console.error('Erro ao capturar relatório WhatsApp:', error);
+    return res.status(500).json({
       success: false,
-      message: error.message || 'Não foi possível salvar o relatório.'
+      message: error.message || 'Não foi possível processar a mensagem.'
     });
   }
 }
@@ -48,7 +51,7 @@ async function excluir(req, res) {
 }
 
 module.exports = {
-  salvar,
+  capturar,
   listar,
   excluir
 };
