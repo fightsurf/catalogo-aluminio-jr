@@ -206,6 +206,7 @@
     const resultadoSucesso = document.getElementById('resultadoSucesso');
     const paramsPedidoInsercao = new URLSearchParams(window.location.search);
     const carradaCodigoPreSelecionada = paramsPedidoInsercao.get('carrada_codigo') || paramsPedidoInsercao.get('carradaCodigo') || '';
+    const relatorioWhatsappId = paramsPedidoInsercao.get('relatorio_whatsapp_id') || '';
 
     let clientes = [];
     let clienteSelecionado = null;
@@ -286,6 +287,37 @@
         throw new Error(json?.detalhe || json?.erro || json?.message || 'Erro na requisição.');
       }
       return json;
+    }
+
+    async function carregarRelatorioWhatsappRecebido() {
+      if (!relatorioWhatsappId) return;
+
+      try {
+        setMensagem('Carregando relatório recebido pelo WhatsApp...');
+        const response = await fetch(`/api/whatsapp/relatorios/${encodeURIComponent(relatorioWhatsappId)}`, {
+          headers: { Accept: 'application/json' },
+          cache: 'no-store'
+        });
+        const json = await lerJson(response);
+        const registro = json?.data || null;
+
+        if (!registro?.relatorio) {
+          throw new Error('Relatório recebido não encontrado.');
+        }
+
+        textoRelatorio.value = registro.relatorio;
+
+        if (registro.cliente?.favorecido) {
+          clienteSelecionado = registro.cliente;
+          renderClienteSelecionado();
+          buscaCliente.value = registro.cliente.nome || '';
+          setMensagem('Relatório carregado e cliente identificado. Confira os dados e clique em Importar relatório.');
+        } else {
+          setMensagem(`Relatório carregado. O telefone ${registro.telefone || ''} não foi localizado no cadastro de clientes.`, true);
+        }
+      } catch (error) {
+        setMensagem(error.message || 'Não foi possível carregar o relatório recebido.', true);
+      }
     }
 
     function escapeHtml(valor) {
@@ -1648,6 +1680,7 @@ setMensagem([
     renderClienteSelecionado();
     renderItensPedido();
     atualizarBotoesAcao();
+    carregarRelatorioWhatsappRecebido();
   </script>
 </body>
 </html>

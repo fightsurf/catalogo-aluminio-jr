@@ -29,6 +29,22 @@ async function listar(req, res) {
   }
 }
 
+async function obter(req, res) {
+  try {
+    const registro = await service.buscarPorId(req.params.id);
+    if (!registro) {
+      return res.status(404).json({ success: false, message: 'Relatório não encontrado.' });
+    }
+    return res.json({ success: true, data: registro });
+  } catch (error) {
+    console.error('Erro ao consultar relatório WhatsApp:', error);
+    return res.status(400).json({
+      success: false,
+      message: error.message || 'Não foi possível consultar o relatório.'
+    });
+  }
+}
+
 async function excluir(req, res) {
   try {
     const removido = await service.excluir(req.params.id);
@@ -53,5 +69,6 @@ async function excluir(req, res) {
 module.exports = {
   capturar,
   listar,
+  obter,
   excluir
 };

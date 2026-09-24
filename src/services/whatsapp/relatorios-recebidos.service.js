@@ -1,6 +1,9 @@
 const pool = require('../../../db/connection');
+const clientesLegadoService = require('../legado/clientes/clientes.service');
 
 let estruturaPronta = null;
+const cacheClientes = new Map();
+const CLIENTE_CACHE_MS = 30000;
 
 async function criarEstrutura() {
   if (estruturaPronta) return estruturaPronta;
@@ -36,6 +39,14 @@ function limparTexto(valor) {
   return String(valor ?? '').trim();
 }
 
+function normalizarTelefone(valor) {
+  let telefone = limparTexto(valor).replace(/\D+/g, '');
+  if (telefone.startsWith('55') && (telefone.length === 12 || telefone.length === 13)) {
+    telefone = telefone.slice(2);
+  }
+  return telefone;
+}
+
 function normalizarParaComparacao(valor) {
   return limparTexto(valor)
     .normalize('NFD')
@@ -51,6 +62,52 @@ function ehRelatorioAluminioJR(mensagem) {
 
   return normalizada.includes('RELATORIO ALUMINIO JR') &&
     /\|\s*QTD\s*:/i.test(original);
+}
+
+async function buscarClientePorTelefone(telefone) {
+  const telefoneNormalizado = normalizarTelefone(telefone);
+  if (!telefoneNormalizado) return null;
+
+  const agora = Date.now();
+  const cache = cacheClientes.get(telefoneNormalizado);
+  if (cache && cache.expiraEm > agora) {
+    return cache.cliente;
+  }
+
+  try {
+    const clientes = await clientesLegadoService.listarClientes({
+      telefone: telefoneNormalizado,
+      status: 'todos',
+      limite: 5
+    });
+
+    const cliente = Array.isArray(clientes) && clientes.length ? clientes[0] : null;
+    cacheClientes.set(telefoneNormalizado, { cliente, expiraEm: agora + CLIENTE_CACHE_MS });
+    return cliente;
+  } catch (error) {
+    console.error(`Erro ao identificar cliente pelo telefone ${telefoneNormalizado}:`, error.message);
+    return null;
+  }
+}
+
+async function enriquecerComClientes(registros) {
+  const cache = new Map();
+
+  for (const registro of registros) {
+    const chave = normalizarTelefone(registro.telefone);
+    if (!chave) {
+      registro.cliente = null;
+      continue;
+    }
+
+    if (!cache.has(chave)) {
+      cache.set(chave, await buscarClientePorTelefone(chave));
+    }
+
+    registro.cliente = cache.get(chave) || null;
+  }
+
+  return registros;
 }
 
 async function capturar({ telefone, mensagem, relatorio, fromMe, tipo }) {
@@ -110,7 +167,30 @@ async function listar({ telefone } = {}) {
     params
   );
 
-  return result.rows;
+  return enriquecerComClientes(result.rows);
+}
+
+async function buscarPorId(id) {
+  await criarEstrutura();
+
+  const numeroId = Number(id);
+  if (!Number.isInteger(numeroId) || numeroId <= 0) {
+    throw new Error('Registro inválido.');
+  }
+
+  const result = await pool.query(
+    `
+      SELECT id, telefone, relatorio, recebido_em
+      FROM whatsapp_relatorios
+      WHERE id = $1
+      LIMIT 1
+    `,
+    [numeroId]
+  );
+
+  if (!result.rows[0]) return null;
+  const [registro] = await enriquecerComClientes([result.rows[0]]);
+  return registro;
 }
 
 async function excluir(id) {
@@ -138,5 +218,6 @@ module.exports = {
   ehRelatorioAluminioJR,
   capturar,
   listar,
+  buscarPorId,
   excluir
 };

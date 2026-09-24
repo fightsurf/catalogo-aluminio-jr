@@ -6,140 +6,49 @@
   <title>Relatórios WhatsApp - Alumínio JR</title>
   <style>
     * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      font-family: Arial, Helvetica, sans-serif;
-      background: #f4f5f7;
-      color: #1f2937;
-    }
-    .pagina {
-      width: min(980px, calc(100% - 24px));
-      margin: 24px auto 48px;
-    }
-    .topo {
-      background: #fff;
-      border: 1px solid #e5e7eb;
-      border-radius: 14px;
-      padding: 18px;
-      margin-bottom: 14px;
-    }
-    h1 { margin: 0 0 6px; font-size: 24px; }
-    .subtitulo { margin: 0; color: #6b7280; font-size: 14px; }
-    .busca {
-      display: grid;
-      grid-template-columns: 1fr auto auto;
-      gap: 8px;
-      margin-top: 16px;
-    }
-    input, button {
-      min-height: 44px;
-      border-radius: 9px;
-      font-size: 15px;
-    }
-    input {
-      width: 100%;
-      border: 1px solid #cbd5e1;
-      padding: 0 12px;
-    }
-    button {
-      border: 0;
-      padding: 0 16px;
-      cursor: pointer;
-      font-weight: 700;
-    }
-    .btn-buscar { background: #111827; color: #fff; }
-    .btn-limpar { background: #e5e7eb; color: #111827; }
-    .lista { display: grid; gap: 10px; }
-    .registro {
-      background: #fff;
-      border: 1px solid #e5e7eb;
-      border-radius: 12px;
-      padding: 14px;
-    }
-    .registro-topo {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 12px;
-    }
-    .telefone { font-size: 18px; font-weight: 800; word-break: break-word; }
-    .data { margin-top: 4px; color: #6b7280; font-size: 13px; }
-    .preview {
-      margin: 12px 0;
-      padding: 10px;
-      background: #f8fafc;
-      border-radius: 8px;
-      color: #475569;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      max-height: 92px;
-      overflow: hidden;
-      font-size: 13px;
-      line-height: 1.35;
-    }
-    .acoes { display: flex; gap: 8px; flex-wrap: wrap; }
-    .btn-ver { background: #111827; color: white; }
-    .btn-excluir { background: #fee2e2; color: #991b1b; }
-    .vazio, .carregando, .erro {
-      padding: 26px;
-      text-align: center;
-      background: #fff;
-      border: 1px solid #e5e7eb;
-      border-radius: 12px;
-      color: #6b7280;
-    }
-    .erro { color: #991b1b; background: #fff7f7; }
-    .modal-fundo {
-      position: fixed;
-      inset: 0;
-      background: rgba(15, 23, 42, .65);
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
-      z-index: 1000;
-    }
-    .modal-fundo.aberto { display: flex; }
-    .modal {
-      width: min(760px, 100%);
-      max-height: 90vh;
-      display: flex;
-      flex-direction: column;
-      background: #fff;
-      border-radius: 14px;
-      overflow: hidden;
-    }
-    .modal-topo {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 10px;
-      padding: 14px 16px;
-      border-bottom: 1px solid #e5e7eb;
-    }
-    .modal-titulo { font-weight: 800; }
-    .btn-fechar {
-      min-height: 36px;
-      background: #e5e7eb;
-      color: #111827;
-      padding: 0 12px;
-    }
-    .relatorio-completo {
-      margin: 0;
-      padding: 18px;
-      overflow: auto;
-      white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      font-family: Arial, Helvetica, sans-serif;
-      font-size: 14px;
-      line-height: 1.45;
-    }
-    @media (max-width: 620px) {
-      .pagina { margin-top: 12px; }
-      h1 { font-size: 21px; }
-      .busca { grid-template-columns: 1fr; }
-      .busca button { width: 100%; }
-      .registro-topo { display: block; }
+    body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: #f4f5f7; color: #1f2937; }
+    .pagina { width: min(1050px, calc(100% - 24px)); margin: 24px auto 48px; }
+    .topo,.registro { background:#fff; border:1px solid #e5e7eb; border-radius:14px; }
+    .topo { padding:18px; margin-bottom:14px; }
+    h1 { margin:0 0 6px; font-size:24px; }
+    .subtitulo { margin:0; color:#6b7280; font-size:14px; }
+    .busca { display:grid; grid-template-columns:1fr auto auto; gap:8px; margin-top:16px; }
+    input,button { min-height:44px; border-radius:9px; font-size:15px; }
+    input { width:100%; border:1px solid #cbd5e1; padding:0 12px; }
+    button { border:0; padding:0 14px; cursor:pointer; font-weight:700; }
+    .btn-buscar,.btn-ver,.btn-pedido { background:#111827; color:#fff; }
+    .btn-limpar,.btn-copiar,.btn-fechar { background:#e5e7eb; color:#111827; }
+    .btn-excluir { background:#fee2e2; color:#991b1b; }
+    .lista { display:grid; gap:10px; }
+    .registro { padding:14px; }
+    .registro-topo { display:flex; justify-content:space-between; gap:14px; align-items:flex-start; }
+    .telefone { font-size:18px; font-weight:800; word-break:break-word; }
+    .data { margin-top:4px; color:#6b7280; font-size:13px; }
+    .cliente { margin-top:8px; padding:10px 12px; border-radius:9px; background:#ecfdf5; border:1px solid #a7f3d0; }
+    .cliente strong { display:block; margin-bottom:3px; }
+    .cliente small { color:#475569; }
+    .cliente-nao { margin-top:8px; color:#6b7280; font-size:13px; }
+    .preview { margin:12px 0; padding:10px; background:#f8fafc; border-radius:8px; color:#475569; white-space:pre-wrap; overflow-wrap:anywhere; max-height:92px; overflow:hidden; font-size:13px; line-height:1.35; }
+    .acoes { display:flex; gap:8px; flex-wrap:wrap; }
+    .vazio,.carregando,.erro { padding:26px; text-align:center; background:#fff; border:1px solid #e5e7eb; border-radius:12px; color:#6b7280; }
+    .erro { color:#991b1b; background:#fff7f7; }
+    .modal-fundo { position:fixed; inset:0; background:rgba(15,23,42,.65); display:none; align-items:center; justify-content:center; padding:16px; z-index:1000; }
+    .modal-fundo.aberto { display:flex; }
+    .modal { width:min(780px,100%); max-height:90vh; display:flex; flex-direction:column; background:#fff; border-radius:14px; overflow:hidden; }
+    .modal-topo { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 16px; border-bottom:1px solid #e5e7eb; }
+    .modal-titulo { font-weight:800; }
+    .modal-acoes { display:flex; gap:8px; flex-wrap:wrap; }
+    .relatorio-completo { margin:0; padding:18px; overflow:auto; white-space:pre-wrap; overflow-wrap:anywhere; font-family:Arial,Helvetica,sans-serif; font-size:14px; line-height:1.45; }
+    @media (max-width:680px) {
+      .pagina { margin-top:12px; }
+      h1 { font-size:21px; }
+      .busca { grid-template-columns:1fr; }
+      .busca button { width:100%; }
+      .registro-topo { display:block; }
+      .acoes button { flex:1 1 46%; }
+      .modal-topo { align-items:flex-start; flex-direction:column; }
+      .modal-acoes { width:100%; }
+      .modal-acoes button { flex:1; }
     }
   </style>
 </head>
@@ -147,25 +56,24 @@
   <main class="pagina">
     <section class="topo">
       <h1>Relatórios recebidos pelo WhatsApp</h1>
-      <p class="subtitulo">Histórico dos relatórios armazenados pela plataforma.</p>
-
+      <p class="subtitulo">A lista é atualizada automaticamente.</p>
       <div class="busca">
         <input id="telefoneBusca" type="search" inputmode="tel" placeholder="Pesquisar pelo número do WhatsApp" autocomplete="off" />
         <button id="btnBuscar" class="btn-buscar" type="button">Pesquisar</button>
         <button id="btnLimpar" class="btn-limpar" type="button">Limpar</button>
       </div>
     </section>
-
-    <section id="lista" class="lista">
-      <div class="carregando">Carregando...</div>
-    </section>
+    <section id="lista" class="lista"><div class="carregando">Carregando...</div></section>
   </main>
 
   <div id="modalFundo" class="modal-fundo" role="dialog" aria-modal="true" aria-labelledby="modalTitulo">
     <div class="modal">
       <div class="modal-topo">
         <div id="modalTitulo" class="modal-titulo">Relatório</div>
-        <button id="btnFecharModal" class="btn-fechar" type="button">Fechar</button>
+        <div class="modal-acoes">
+          <button id="btnCopiarModal" class="btn-copiar" type="button">Copiar relatório</button>
+          <button id="btnFecharModal" class="btn-fechar" type="button">Fechar</button>
+        </div>
       </div>
       <pre id="relatorioCompleto" class="relatorio-completo"></pre>
     </div>
@@ -179,32 +87,34 @@
     const modalFundo = document.getElementById('modalFundo');
     const modalTitulo = document.getElementById('modalTitulo');
     const relatorioCompleto = document.getElementById('relatorioCompleto');
+    const btnCopiarModal = document.getElementById('btnCopiarModal');
     const btnFecharModal = document.getElementById('btnFecharModal');
 
     let registrosAtuais = [];
+    let relatorioModalAtual = '';
+    let telefoneFiltroAplicado = '';
+    let carregandoEmAndamento = false;
 
     function escapeHtml(valor) {
-      return String(valor ?? '')
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#039;');
+      return String(valor ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
     }
 
     function formatarData(valor) {
       const data = new Date(valor);
       if (Number.isNaN(data.getTime())) return '-';
-      return new Intl.DateTimeFormat('pt-BR', {
-        dateStyle: 'short',
-        timeStyle: 'short'
-      }).format(data);
+      return new Intl.DateTimeFormat('pt-BR',{ dateStyle:'short', timeStyle:'short' }).format(data);
     }
 
     function previewRelatorio(texto) {
-      const limite = 350;
       const valor = String(texto || '');
-      return valor.length > limite ? `${valor.slice(0, limite)}…` : valor;
+      return valor.length > 350 ? `${valor.slice(0,350)}…` : valor;
+    }
+
+    function clienteHtml(cliente) {
+      if (!cliente) return '<div class="cliente-nao">Telefone não localizado no cadastro de clientes.</div>';
+      const local = [cliente.cidade, cliente.uf].filter(Boolean).join(' / ');
+      const detalhes = [cliente.codigo ? `Código: ${cliente.codigo}` : '', local].filter(Boolean).join(' · ');
+      return `<div class="cliente"><strong>${escapeHtml(cliente.nome || cliente.razao || 'Cliente cadastrado')}</strong><small>${escapeHtml(detalhes || cliente.telefonePrincipal || '')}</small></div>`;
     }
 
     function renderizar() {
@@ -219,109 +129,118 @@
             <div>
               <div class="telefone">${escapeHtml(item.telefone)}</div>
               <div class="data">Recebido em ${escapeHtml(formatarData(item.recebido_em))}</div>
+              ${clienteHtml(item.cliente)}
             </div>
           </div>
           <div class="preview">${escapeHtml(previewRelatorio(item.relatorio))}</div>
           <div class="acoes">
             <button class="btn-ver" type="button" data-acao="ver" data-id="${item.id}">Ver relatório</button>
+            <button class="btn-copiar" type="button" data-acao="copiar" data-id="${item.id}">Copiar relatório</button>
+            <button class="btn-pedido" type="button" data-acao="pedido" data-id="${item.id}">Inserir pedido</button>
             <button class="btn-excluir" type="button" data-acao="excluir" data-id="${item.id}">Excluir</button>
           </div>
         </article>
       `).join('');
     }
 
-    async function carregar() {
-      lista.innerHTML = '<div class="carregando">Carregando...</div>';
-      const telefone = telefoneBusca.value.trim();
-      const query = telefone ? `?telefone=${encodeURIComponent(telefone)}` : '';
+    async function carregar({ silencioso = false } = {}) {
+      if (carregandoEmAndamento) return;
+      carregandoEmAndamento = true;
+      if (!silencioso) lista.innerHTML = '<div class="carregando">Carregando...</div>';
 
+      const query = telefoneFiltroAplicado ? `?telefone=${encodeURIComponent(telefoneFiltroAplicado)}` : '';
       try {
-        const response = await fetch(`/api/whatsapp/relatorios${query}`, {
-          headers: { Accept: 'application/json' }
-        });
-
+        const response = await fetch(`/api/whatsapp/relatorios${query}`, { headers:{ Accept:'application/json' }, cache:'no-store' });
         if (response.status === 401) {
           window.location.href = `/login?next=${encodeURIComponent(window.location.pathname)}`;
           return;
         }
-
         const json = await response.json();
-        if (!response.ok || !json.success) {
-          throw new Error(json.message || 'Erro ao carregar relatórios.');
-        }
-
+        if (!response.ok || !json.success) throw new Error(json.message || 'Erro ao carregar relatórios.');
         registrosAtuais = Array.isArray(json.data) ? json.data : [];
         renderizar();
       } catch (error) {
-        lista.innerHTML = `<div class="erro">${escapeHtml(error.message)}</div>`;
+        if (!silencioso) lista.innerHTML = `<div class="erro">${escapeHtml(error.message)}</div>`;
+      } finally {
+        carregandoEmAndamento = false;
       }
     }
 
-    function abrirRelatorio(id) {
-      const item = registrosAtuais.find((registro) => Number(registro.id) === Number(id));
-      if (!item) return;
+    function obterRegistro(id) { return registrosAtuais.find((r) => Number(r.id) === Number(id)); }
 
-      modalTitulo.textContent = `${item.telefone} · ${formatarData(item.recebido_em)}`;
-      relatorioCompleto.textContent = item.relatorio || '';
+    function abrirRelatorio(id) {
+      const item = obterRegistro(id);
+      if (!item) return;
+      modalTitulo.textContent = `${item.cliente?.nome || item.telefone} · ${formatarData(item.recebido_em)}`;
+      relatorioModalAtual = item.relatorio || '';
+      relatorioCompleto.textContent = relatorioModalAtual;
       modalFundo.classList.add('aberto');
     }
 
-    function fecharModal() {
-      modalFundo.classList.remove('aberto');
+    function fecharModal() { modalFundo.classList.remove('aberto'); }
+
+    async function copiarTexto(texto, botao) {
+      const conteudo = String(texto || '');
+      if (!conteudo) return;
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(conteudo);
+        } else {
+          const area = document.createElement('textarea');
+          area.value = conteudo;
+          area.style.position = 'fixed';
+          area.style.opacity = '0';
+          document.body.appendChild(area);
+          area.select();
+          document.execCommand('copy');
+          area.remove();
+        }
+        const original = botao.textContent;
+        botao.textContent = 'Copiado!';
+        setTimeout(() => { botao.textContent = original; }, 1200);
+      } catch (_) {
+        window.alert('Não foi possível copiar o relatório.');
+      }
+    }
+
+    function abrirInsercaoPedido(id) {
+      const url = `/legado/pedidos-insercao-v2?relatorio_whatsapp_id=${encodeURIComponent(id)}`;
+      window.location.href = url;
     }
 
     async function excluirRelatorio(id) {
-      const item = registrosAtuais.find((registro) => Number(registro.id) === Number(id));
+      const item = obterRegistro(id);
       if (!item) return;
-
-      const confirmou = window.confirm(
-        `Tem certeza que deseja excluir este relatório recebido de ${item.telefone}?\n\nA exclusão é definitiva.`
-      );
-      if (!confirmou) return;
-
+      if (!window.confirm(`Tem certeza que deseja excluir este relatório recebido de ${item.telefone}?\n\nA exclusão é definitiva.`)) return;
       try {
-        const response = await fetch(`/api/whatsapp/relatorios/${encodeURIComponent(id)}`, {
-          method: 'DELETE',
-          headers: { Accept: 'application/json' }
-        });
+        const response = await fetch(`/api/whatsapp/relatorios/${encodeURIComponent(id)}`, { method:'DELETE', headers:{ Accept:'application/json' } });
         const json = await response.json();
-
-        if (!response.ok || !json.success) {
-          throw new Error(json.message || 'Não foi possível excluir o relatório.');
-        }
-
-        registrosAtuais = registrosAtuais.filter((registro) => Number(registro.id) !== Number(id));
+        if (!response.ok || !json.success) throw new Error(json.message || 'Não foi possível excluir o relatório.');
+        registrosAtuais = registrosAtuais.filter((r) => Number(r.id) !== Number(id));
         renderizar();
-      } catch (error) {
-        window.alert(error.message);
-      }
+      } catch (error) { window.alert(error.message); }
     }
 
     lista.addEventListener('click', (event) => {
       const botao = event.target.closest('button[data-acao]');
       if (!botao) return;
-
+      const item = obterRegistro(botao.dataset.id);
       if (botao.dataset.acao === 'ver') abrirRelatorio(botao.dataset.id);
+      if (botao.dataset.acao === 'copiar' && item) copiarTexto(item.relatorio, botao);
+      if (botao.dataset.acao === 'pedido') abrirInsercaoPedido(botao.dataset.id);
       if (botao.dataset.acao === 'excluir') excluirRelatorio(botao.dataset.id);
     });
 
-    btnBuscar.addEventListener('click', carregar);
-    btnLimpar.addEventListener('click', () => {
-      telefoneBusca.value = '';
-      carregar();
-    });
-    telefoneBusca.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') carregar();
-    });
+    btnBuscar.addEventListener('click', () => { telefoneFiltroAplicado = telefoneBusca.value.trim(); carregar(); });
+    btnLimpar.addEventListener('click', () => { telefoneBusca.value = ''; telefoneFiltroAplicado = ''; carregar(); });
+    telefoneBusca.addEventListener('keydown', (event) => { if (event.key === 'Enter') { telefoneFiltroAplicado = telefoneBusca.value.trim(); carregar(); } });
+    btnCopiarModal.addEventListener('click', () => copiarTexto(relatorioModalAtual, btnCopiarModal));
     btnFecharModal.addEventListener('click', fecharModal);
-    modalFundo.addEventListener('click', (event) => {
-      if (event.target === modalFundo) fecharModal();
-    });
-    document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape') fecharModal();
-    });
+    modalFundo.addEventListener('click', (event) => { if (event.target === modalFundo) fecharModal(); });
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape') fecharModal(); });
 
     carregar();
+    setInterval(() => { if (!document.hidden) carregar({ silencioso:true }); }, 5000);
   </script>
 </body>
 </html>
