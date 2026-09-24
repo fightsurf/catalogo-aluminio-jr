@@ -90,6 +90,8 @@ const statusWhatsappRoutes = require('./src/routes/whatsapp/status-whatsapp.rout
 const statusWhatsappViewRoutes = require('./src/routes/whatsapp/status-whatsapp.view.routes');
 const relatorioFotosWhatsappRoutes = require('./src/routes/whatsapp/relatorio-fotos-whatsapp.routes');
 const relatorioFotosWhatsappViewRoutes = require('./src/routes/whatsapp/relatorio-fotos-whatsapp.view.routes');
+const relatoriosWhatsappRoutes = require('./src/routes/whatsapp/relatorios-recebidos.routes');
+const relatoriosWhatsappViewRoutes = require('./src/routes/whatsapp/relatorios-recebidos.view.routes');
 const hubRoutes = require('./src/routes/hub/hub.routes');
 const ofertasRoutes = require('./src/routes/ofertas/ofertas.routes');
 const ofertasViewRoutes = require('./src/routes/ofertas/ofertas.view.routes');
@@ -190,6 +192,8 @@ app.use('/api/whatsapp/status', statusWhatsappRoutes);
 app.use('/whatsapp', statusWhatsappViewRoutes);
 app.use('/api/whatsapp/relatorio-fotos', relatorioFotosWhatsappRoutes);
 app.use('/whatsapp', requireAuth, relatorioFotosWhatsappViewRoutes);
+app.use('/api/whatsapp/relatorios', relatoriosWhatsappRoutes);
+app.use('/whatsapp', requireAuth, relatoriosWhatsappViewRoutes);
 app.use('/hub', hubRoutes);
 app.use('/api/ofertas', ofertasRoutes);
 app.use('/', ofertasViewRoutes);
