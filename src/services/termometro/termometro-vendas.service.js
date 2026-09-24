@@ -14,7 +14,8 @@ function hojeFortaleza() {
   const mapa = Object.fromEntries(partes.map((parte) => [parte.type, parte.value]));
   return {
     ano: Number(mapa.year),
-    mes: Number(mapa.month)
+    mes: Number(mapa.month),
+    dia: Number(mapa.day)
   };
 }
 
@@ -62,6 +63,32 @@ function periodoMes(mes, ano) {
     inicio: `${ano}-${String(mes).padStart(2, '0')}-01T00:00:00-03:00`,
     fim: `${proximoAno}-${String(proximoMes).padStart(2, '0')}-01T00:00:00-03:00`
   };
+}
+
+function mesAnterior(mes, ano) {
+  if (mes === 1) return { mes: 12, ano: ano - 1 };
+  return { mes: mes - 1, ano };
+}
+
+function diasNoMes(mes, ano) {
+  return new Date(ano, mes, 0).getDate();
+}
+
+function compararMesAno(aMes, aAno, bMes, bAno) {
+  return (aAno * 12 + aMes) - (bAno * 12 + bMes);
+}
+
+function diasConsiderados(mes, ano, hoje) {
+  const comparacao = compararMesAno(mes, ano, hoje.mes, hoje.ano);
+  if (comparacao < 0) return diasNoMes(mes, ano);
+  if (comparacao === 0) return Math.max(1, Math.min(hoje.dia, diasNoMes(mes, ano)));
+  return 0;
+}
+
+function somarMapa(mapa, campo) {
+  let total = 0;
+  for (const item of mapa.values()) total += Number(item?.[campo] || 0);
+  return numero(total, 3);
 }
 
 function numero(valor, casas = null) {
@@ -399,16 +426,26 @@ async function carregarTermometro(filtros = {}) {
   const hoje = hojeFortaleza();
   const mes = normalizarMes(filtros.mes, hoje.mes);
   const ano = normalizarAno(filtros.ano, hoje.ano);
-  const periodo = periodoMes(mes, ano);
+  const anterior = mesAnterior(mes, ano);
+  const periodoAtual = periodoMes(mes, ano);
+  const periodoAnterior = periodoMes(anterior.mes, anterior.ano);
 
-  const [produtos, aparicoes, vendasLegado] = await Promise.all([
+  const [
+    produtos,
+    aparicoesAtual,
+    aparicoesAnterior,
+    vendasAtual,
+    vendasAnterior
+  ] = await Promise.all([
     carregarProdutosAtivos(),
-    carregarAparicoes(periodo),
-    carregarVendasLegado(mes, ano)
+    carregarAparicoes(periodoAtual),
+    carregarAparicoes(periodoAnterior),
+    carregarVendasLegado(mes, ano),
+    carregarVendasLegado(anterior.mes, anterior.ano)
   ]);
 
-  const itensBase = produtos.map((produto) => {
-    const exposicao = aparicoes.get(produto.id) || {
+  const itens = produtos.map((produto) => {
+    const exposicaoAtual = aparicoesAtual.get(produto.id) || {
       publicacoes: 0,
       aparicoes: 0,
       status_publicacoes: 0,
@@ -419,15 +456,29 @@ async function carregarTermometro(filtros = {}) {
       videos_aparicoes: 0,
       ultima_aparicao: null
     };
-    const venda = produto.item_legado
-      ? vendasLegado.mapa.get(Number(produto.item_legado))
+    const exposicaoAnterior = aparicoesAnterior.get(produto.id) || {
+      publicacoes: 0,
+      aparicoes: 0,
+      status_publicacoes: 0,
+      status_aparicoes: 0,
+      ofertas_publicacoes: 0,
+      ofertas_aparicoes: 0,
+      videos_publicacoes: 0,
+      videos_aparicoes: 0,
+      ultima_aparicao: null
+    };
+
+    const vendaAtual = produto.item_legado
+      ? vendasAtual.mapa.get(Number(produto.item_legado))
+      : null;
+    const vendaAnterior = produto.item_legado
+      ? vendasAnterior.mapa.get(Number(produto.item_legado))
       : null;
 
-    const vendas = numero(venda?.quantidade, 3);
-    const valorVendido = numero(venda?.valor_total, 2);
-    const vendasPorAparicao = exposicao.aparicoes > 0
-      ? numero(vendas / exposicao.aparicoes, 3)
-      : null;
+    const quantidadeAtual = numero(vendaAtual?.quantidade, 3);
+    const quantidadeAnterior = numero(vendaAnterior?.quantidade, 3);
+    const aparicoesMesAtual = Number(exposicaoAtual.aparicoes || 0);
+    const aparicoesMesAnterior = Number(exposicaoAnterior.aparicoes || 0);
 
     return {
       produto_id: produto.id,
@@ -435,78 +486,83 @@ async function carregarTermometro(filtros = {}) {
       categoria: produto.categoria,
       item_legado: produto.item_legado,
       preco_atual: produto.preco,
-      ...exposicao,
-      vendas,
-      valor_vendido: valorVendido,
-      pedidos: Number(venda?.quantidade_pedidos || 0),
-      vendas_por_aparicao: vendasPorAparicao
+
+      // Campos principais do novo comparativo.
+      vendas_atual: quantidadeAtual,
+      vendas_anterior: quantidadeAnterior,
+      aparicoes_atual: aparicoesMesAtual,
+      aparicoes_anterior: aparicoesMesAnterior,
+      vendas_por_aparicao: aparicoesMesAtual > 0
+        ? numero(quantidadeAtual / aparicoesMesAtual, 3)
+        : null,
+
+      // Mantidos para compatibilidade com histórico/consumidores existentes.
+      vendas: quantidadeAtual,
+      aparicoes: aparicoesMesAtual,
+      publicacoes: Number(exposicaoAtual.publicacoes || 0),
+      status_publicacoes: Number(exposicaoAtual.status_publicacoes || 0),
+      status_aparicoes: Number(exposicaoAtual.status_aparicoes || 0),
+      ofertas_publicacoes: Number(exposicaoAtual.ofertas_publicacoes || 0),
+      ofertas_aparicoes: Number(exposicaoAtual.ofertas_aparicoes || 0),
+      videos_publicacoes: Number(exposicaoAtual.videos_publicacoes || 0),
+      videos_aparicoes: Number(exposicaoAtual.videos_aparicoes || 0),
+      ultima_aparicao: exposicaoAtual.ultima_aparicao || null,
+      valor_vendido: numero(vendaAtual?.valor_total, 2),
+      pedidos: Number(vendaAtual?.quantidade_pedidos || 0)
     };
-  });
+  }).sort((a, b) => (
+    Number(b.vendas_atual || 0) - Number(a.vendas_atual || 0)
+    || Number(b.aparicoes_atual || 0) - Number(a.aparicoes_atual || 0)
+    || a.produto.localeCompare(b.produto, 'pt-BR')
+  ));
 
-  const referencias = {
-    mediana_aparicoes: numero(mediana(itensBase.map((item) => item.aparicoes)), 3),
-    mediana_vendas: numero(mediana(itensBase.map((item) => item.vendas)), 3)
-  };
+  // Os cards são gerais: usam todos os itens vendidos no Firebird e todas as
+  // aparições registradas no Termômetro, independentemente do filtro da tabela.
+  const totalVendasAtual = numero(vendasAtual.totais?.quantidade_vendida, 3);
+  const totalVendasAnterior = numero(vendasAnterior.totais?.quantidade_vendida, 3);
+  const totalAparicoesAtual = somarMapa(aparicoesAtual, 'aparicoes');
+  const totalAparicoesAnterior = somarMapa(aparicoesAnterior, 'aparicoes');
 
-  const itens = itensBase
-    .map((item) => {
-      const classificacao = classificarProduto(item, referencias);
-      return {
-        ...item,
-        classificacao: classificacao.codigo,
-        classificacao_rotulo: classificacao.rotulo,
-        classificacao_descricao: classificacao.descricao,
-        prioridade: classificacao.prioridade
-      };
-    })
-    .sort((a, b) => (
-      a.prioridade - b.prioridade
-      || a.aparicoes - b.aparicoes
-      || b.vendas - a.vendas
-      || a.produto.localeCompare(b.produto, 'pt-BR')
-    ));
-
-  const produtosComItemLegado = new Set(
-    produtos.filter((produto) => produto.item_legado).map((produto) => Number(produto.item_legado))
-  );
-  const itensVendaSemVinculo = vendasLegado.itens
-    .filter((item) => !produtosComItemLegado.has(Number(item.item)))
-    .map((item) => ({
-      item: Number(item.item),
-      descricao: item.descricao || '',
-      quantidade: numero(item.quantidade, 3)
-    }));
-
-  const totalAparicoes = itens.reduce((total, item) => total + Number(item.aparicoes || 0), 0);
-  const totalPublicacoes = itens.reduce((total, item) => total + Number(item.publicacoes || 0), 0);
-  const totalVendasMapeadas = itens.reduce((total, item) => total + Number(item.vendas || 0), 0);
+  const diasAtual = diasConsiderados(mes, ano, hoje);
+  const diasAnterior = diasConsiderados(anterior.mes, anterior.ano, hoje);
 
   return {
     periodo: {
       mes,
       ano,
-      data_inicial: `${ano}-${String(mes).padStart(2, '0')}-01`
+      data_inicial: `${ano}-${String(mes).padStart(2, '0')}-01`,
+      dias_considerados: diasAtual
+    },
+    periodo_anterior: {
+      mes: anterior.mes,
+      ano: anterior.ano,
+      data_inicial: `${anterior.ano}-${String(anterior.mes).padStart(2, '0')}-01`,
+      dias_considerados: diasAnterior
     },
     regra: {
       aparicoes: 'Status Zap: 1 aparição por produto publicado. Central de Ofertas: cada produto do kit é contabilizado pela quantidade. Status Vídeos: os itens marcados no vídeo entram pela quantidade informada. Reenvios idempotentes não duplicam o contador.',
-      vendas: vendasLegado.regra,
-      cruzamento: 'O vínculo é feito por produtos.item_legado = SAIDASITENS.ITEM.'
+      vendas: vendasAtual.regra,
+      cruzamento: 'Na tabela por produto, o vínculo é feito por produtos.item_legado = SAIDASITENS.ITEM.'
     },
-    referencias,
+    comparativo: {
+      vendas: {
+        atual: totalVendasAtual,
+        anterior: totalVendasAnterior,
+        media_diaria_atual: diasAtual > 0 ? numero(totalVendasAtual / diasAtual, 2) : 0,
+        media_diaria_anterior: diasAnterior > 0 ? numero(totalVendasAnterior / diasAnterior, 2) : 0
+      },
+      aparicoes: {
+        atual: totalAparicoesAtual,
+        anterior: totalAparicoesAnterior,
+        media_diaria_atual: diasAtual > 0 ? numero(totalAparicoesAtual / diasAtual, 2) : 0,
+        media_diaria_anterior: diasAnterior > 0 ? numero(totalAparicoesAnterior / diasAnterior, 2) : 0
+      }
+    },
     totais: {
-      produtos_ativos: itens.length,
-      produtos_com_item_legado: itens.filter((item) => item.item_legado).length,
-      produtos_sem_item_legado: itens.filter((item) => !item.item_legado).length,
-      publicacoes: totalPublicacoes,
-      aparicoes: totalAparicoes,
-      vendas_mapeadas: numero(totalVendasMapeadas, 3),
-      produtos_sem_aparicao: itens.filter((item) => item.aparicoes === 0).length,
-      produtos_vendendo_sem_divulgacao: itens.filter((item) => item.classificacao === 'esquecido').length,
-      oportunidades: itens.filter((item) => item.classificacao === 'oportunidade').length,
-      baixa_resposta: itens.filter((item) => item.classificacao === 'baixa_resposta').length,
-      itens_firebird_sem_vinculo: itensVendaSemVinculo.length
+      vendas_mapeadas: numero(itens.reduce((t, item) => t + Number(item.vendas_atual || 0), 0), 3),
+      aparicoes_mapeadas: numero(itens.reduce((t, item) => t + Number(item.aparicoes_atual || 0), 0), 3),
+      produtos_ativos: itens.length
     },
-    itens_firebird_sem_vinculo: itensVendaSemVinculo.slice(0, 50),
     itens
   };
 }

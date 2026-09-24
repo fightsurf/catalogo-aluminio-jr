@@ -74,7 +74,7 @@
 
     .cards {
       display: grid;
-      grid-template-columns: repeat(6, minmax(150px, 1fr));
+      grid-template-columns: repeat(4, minmax(190px, 1fr));
       gap: 8px;
       margin-bottom: 8px;
     }
@@ -85,13 +85,18 @@
       padding: 8px 10px;
       box-shadow: var(--shadow);
     }
-    .card .label { color: var(--muted); font-size: 10px; margin-bottom: 3px; }
-    .card .value { font-size: 21px; line-height: 1; font-weight: 800; }
-    .card .hint { color: var(--muted); font-size: 9px; margin-top: 3px; line-height: 1.2; }
+    .card .label { color: var(--text); font-size: 12px; font-weight: 800; margin-bottom: 8px; }
+    .compare-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 4px 0; }
+    .compare-row + .compare-row { border-top: 1px solid #eef2f6; margin-top: 3px; padding-top: 7px; }
+    .period-label { color: var(--muted); font-size: 10px; line-height: 1.2; }
+    .compare-value { font-size: 22px; line-height: 1; font-weight: 800; white-space: nowrap; }
+    .compare-value.current { color: var(--blue); }
+    .compare-value.previous { color: var(--red); }
+    .card .hint { color: var(--muted); font-size: 9px; margin-top: 6px; line-height: 1.2; }
 
     .toolbar {
       display: flex;
-      justify-content: space-between;
+      justify-content: flex-end;
       align-items: center;
       gap: 10px;
       margin-bottom: 6px;
@@ -260,7 +265,7 @@
 
 
     @media (max-width: 1100px) {
-      .cards { grid-template-columns: repeat(3, 1fr); }
+      .cards { grid-template-columns: repeat(2, 1fr); }
       .top { flex-direction: column; }
       .controls { justify-content: flex-start; }
     }
@@ -298,23 +303,33 @@
     <div id="notice" class="notice"></div>
 
     <section class="cards">
-      <div class="card"><div class="label">Aparições</div><div class="value" id="cAparicoes">—</div><div class="hint">Unidades expostas nos módulos de divulgação</div></div>
-      <div class="card"><div class="label">Publicações</div><div class="value" id="cPublicacoes">—</div><div class="hint">Eventos de publicação por produto</div></div>
-      <div class="card"><div class="label">Vendas mapeadas</div><div class="value" id="cVendas">—</div><div class="hint">Peças vendidas no mês</div></div>
-      <div class="card"><div class="label">Vendendo sem divulgação</div><div class="value" id="cEsquecidos">—</div><div class="hint">Produtos que merecem atenção</div></div>
-      <div class="card"><div class="label">Oportunidades</div><div class="value" id="cOportunidades">—</div><div class="hint">Venda forte com exposição baixa/moderada</div></div>
-      <div class="card"><div class="label">Sem aparição</div><div class="value" id="cSemAparicao">—</div><div class="hint">Produtos ativos ainda não divulgados no mês</div></div>
+      <div class="card">
+        <div class="label">Vendas gerais</div>
+        <div class="compare-row"><span class="period-label" id="cVendasAtualPeriodo">Mês atual</span><span class="compare-value current" id="cVendasAtual">—</span></div>
+        <div class="compare-row"><span class="period-label" id="cVendasAnteriorPeriodo">Mês passado</span><span class="compare-value previous" id="cVendasAnterior">—</span></div>
+        <div class="hint">Quantidade total de peças vendidas</div>
+      </div>
+      <div class="card">
+        <div class="label">Aparições gerais</div>
+        <div class="compare-row"><span class="period-label" id="cAparicoesAtualPeriodo">Mês atual</span><span class="compare-value current" id="cAparicoesAtual">—</span></div>
+        <div class="compare-row"><span class="period-label" id="cAparicoesAnteriorPeriodo">Mês passado</span><span class="compare-value previous" id="cAparicoesAnterior">—</span></div>
+        <div class="hint">Total de aparições registradas nos módulos</div>
+      </div>
+      <div class="card">
+        <div class="label">Média diária de vendas</div>
+        <div class="compare-row"><span class="period-label" id="cMediaVendasAtualPeriodo">Mês atual</span><span class="compare-value current" id="cMediaVendasAtual">—</span></div>
+        <div class="compare-row"><span class="period-label" id="cMediaVendasAnteriorPeriodo">Mês passado</span><span class="compare-value previous" id="cMediaVendasAnterior">—</span></div>
+        <div class="hint">Peças vendidas por dia do período</div>
+      </div>
+      <div class="card">
+        <div class="label">Média diária de aparições</div>
+        <div class="compare-row"><span class="period-label" id="cMediaAparicoesAtualPeriodo">Mês atual</span><span class="compare-value current" id="cMediaAparicoesAtual">—</span></div>
+        <div class="compare-row"><span class="period-label" id="cMediaAparicoesAnteriorPeriodo">Mês passado</span><span class="compare-value previous" id="cMediaAparicoesAnterior">—</span></div>
+        <div class="hint">Aparições por dia do período</div>
+      </div>
     </section>
 
     <div class="toolbar">
-      <div class="filters">
-        <button class="filter-btn active" data-filter="todos" type="button">Todos</button>
-        <button class="filter-btn" data-filter="esquecido" type="button">Vendendo sem divulgação</button>
-        <button class="filter-btn" data-filter="oportunidade" type="button">Oportunidades</button>
-        <button class="filter-btn" data-filter="baixa_resposta" type="button">Baixa resposta</button>
-        <button class="filter-btn" data-filter="nao_divulgado" type="button">Não divulgados</button>
-        <button class="filter-btn" data-filter="sem_vinculo" type="button">Sem vínculo</button>
-      </div>
       <div class="table-tools">
         <select id="categoriaFiltro" aria-label="Filtrar por categoria">
           <option value="">Todas as categorias</option>
@@ -329,17 +344,15 @@
           <thead>
             <tr>
               <th class="sortable" data-sort="produto">Produto <span class="sort-mark">↕</span></th>
-              <th class="num sortable" data-sort="status_aparicoes">Status Zap <span class="sort-mark">↕</span></th>
-              <th class="num sortable" data-sort="ofertas_aparicoes">Central de Ofertas <span class="sort-mark">↕</span></th>
-              <th class="num sortable" data-sort="videos_aparicoes">Status Vídeos <span class="sort-mark">↕</span></th>
-              <th class="num sortable" data-sort="aparicoes">Aparições <span class="sort-mark">↕</span></th>
-              <th class="num sortable" data-sort="vendas">Vendas <span class="sort-mark">↕</span></th>
-              <th class="num sortable" data-sort="vendas_por_aparicao">Venda / aparição <span class="sort-mark">↕</span></th>
-              <th class="sortable" data-sort="classificacao_rotulo">Situação <span class="sort-mark">↕</span></th>
+              <th class="num sortable" data-sort="vendas_atual"><span id="thVendasAtual">Vendas — mês atual</span> <span class="sort-mark">↕</span></th>
+              <th class="num sortable" data-sort="vendas_anterior"><span id="thVendasAnterior">Vendas — mês passado</span> <span class="sort-mark">↕</span></th>
+              <th class="num sortable" data-sort="aparicoes_atual"><span id="thAparicoesAtual">Aparições — mês atual</span> <span class="sort-mark">↕</span></th>
+              <th class="num sortable" data-sort="aparicoes_anterior"><span id="thAparicoesAnterior">Aparições — mês passado</span> <span class="sort-mark">↕</span></th>
+              <th class="num sortable" data-sort="vendas_por_aparicao"><span id="thVendasPorAparicao">Vendas / aparição</span> <span class="sort-mark">↕</span></th>
             </tr>
           </thead>
           <tbody id="tbody">
-            <tr><td colspan="8">Carregando...</td></tr>
+            <tr><td colspan="6">Carregando...</td></tr>
           </tbody>
         </table>
       </div>
@@ -372,12 +385,27 @@
       tbody: document.getElementById('tbody'),
       busca: document.getElementById('busca'),
       categoriaFiltro: document.getElementById('categoriaFiltro'),
-      cAparicoes: document.getElementById('cAparicoes'),
-      cPublicacoes: document.getElementById('cPublicacoes'),
-      cVendas: document.getElementById('cVendas'),
-      cEsquecidos: document.getElementById('cEsquecidos'),
-      cOportunidades: document.getElementById('cOportunidades'),
-      cSemAparicao: document.getElementById('cSemAparicao'),
+      cVendasAtual: document.getElementById('cVendasAtual'),
+      cVendasAnterior: document.getElementById('cVendasAnterior'),
+      cAparicoesAtual: document.getElementById('cAparicoesAtual'),
+      cAparicoesAnterior: document.getElementById('cAparicoesAnterior'),
+      cMediaVendasAtual: document.getElementById('cMediaVendasAtual'),
+      cMediaVendasAnterior: document.getElementById('cMediaVendasAnterior'),
+      cMediaAparicoesAtual: document.getElementById('cMediaAparicoesAtual'),
+      cMediaAparicoesAnterior: document.getElementById('cMediaAparicoesAnterior'),
+      cVendasAtualPeriodo: document.getElementById('cVendasAtualPeriodo'),
+      cVendasAnteriorPeriodo: document.getElementById('cVendasAnteriorPeriodo'),
+      cAparicoesAtualPeriodo: document.getElementById('cAparicoesAtualPeriodo'),
+      cAparicoesAnteriorPeriodo: document.getElementById('cAparicoesAnteriorPeriodo'),
+      cMediaVendasAtualPeriodo: document.getElementById('cMediaVendasAtualPeriodo'),
+      cMediaVendasAnteriorPeriodo: document.getElementById('cMediaVendasAnteriorPeriodo'),
+      cMediaAparicoesAtualPeriodo: document.getElementById('cMediaAparicoesAtualPeriodo'),
+      cMediaAparicoesAnteriorPeriodo: document.getElementById('cMediaAparicoesAnteriorPeriodo'),
+      thVendasAtual: document.getElementById('thVendasAtual'),
+      thVendasAnterior: document.getElementById('thVendasAnterior'),
+      thAparicoesAtual: document.getElementById('thAparicoesAtual'),
+      thAparicoesAnterior: document.getElementById('thAparicoesAnterior'),
+      thVendasPorAparicao: document.getElementById('thVendasPorAparicao'),
       historicoBackdrop: document.getElementById('historicoBackdrop'),
       historicoFechar: document.getElementById('historicoFechar'),
       historicoTitulo: document.getElementById('historicoTitulo'),
@@ -387,8 +415,7 @@
     };
 
     let dados = null;
-    let filtroAtual = 'todos';
-    let ordenacao = { campo: null, direcao: 'asc' };
+    let ordenacao = { campo: 'vendas_atual', direcao: 'desc' };
     let historicoAtual = null;
     const historicoCache = new Map();
     const AUTOREFRESH_MS = 60 * 1000;
@@ -426,6 +453,13 @@
       });
     }
 
+    function rotuloPeriodo(periodo) {
+      if (!periodo?.mes || !periodo?.ano) return '';
+      const data = new Date(Number(periodo.ano), Number(periodo.mes) - 1, 1);
+      const nome = new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(data);
+      return `${nome.charAt(0).toUpperCase()}${nome.slice(1)}/${periodo.ano}`;
+    }
+
     function iniciarPeriodo() {
       const agora = new Date();
       const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
@@ -453,17 +487,31 @@
     }
 
     function renderCards() {
-      const itens = itensDaCategoria();
-      const aparicoes = itens.reduce((total, item) => total + Number(item.aparicoes || 0), 0);
-      const publicacoes = itens.reduce((total, item) => total + Number(item.publicacoes || 0), 0);
-      const vendas = itens.reduce((total, item) => total + Number(item.vendas || 0), 0);
+      const comp = dados?.comparativo || {};
+      const vendas = comp.vendas || {};
+      const aparicoes = comp.aparicoes || {};
+      const atual = rotuloPeriodo(dados?.periodo);
+      const anterior = rotuloPeriodo(dados?.periodo_anterior);
 
-      els.cAparicoes.textContent = numeroFlex(aparicoes);
-      els.cPublicacoes.textContent = numeroFlex(publicacoes);
-      els.cVendas.textContent = numeroFlex(vendas);
-      els.cEsquecidos.textContent = numeroFlex(itens.filter((item) => item.classificacao === 'esquecido').length);
-      els.cOportunidades.textContent = numeroFlex(itens.filter((item) => item.classificacao === 'oportunidade').length);
-      els.cSemAparicao.textContent = numeroFlex(itens.filter((item) => Number(item.aparicoes || 0) === 0).length);
+      els.cVendasAtual.textContent = numeroFlex(vendas.atual);
+      els.cVendasAnterior.textContent = numeroFlex(vendas.anterior);
+      els.cAparicoesAtual.textContent = numeroFlex(aparicoes.atual);
+      els.cAparicoesAnterior.textContent = numeroFlex(aparicoes.anterior);
+      els.cMediaVendasAtual.textContent = numero(vendas.media_diaria_atual, 2);
+      els.cMediaVendasAnterior.textContent = numero(vendas.media_diaria_anterior, 2);
+      els.cMediaAparicoesAtual.textContent = numero(aparicoes.media_diaria_atual, 2);
+      els.cMediaAparicoesAnterior.textContent = numero(aparicoes.media_diaria_anterior, 2);
+
+      [els.cVendasAtualPeriodo, els.cAparicoesAtualPeriodo, els.cMediaVendasAtualPeriodo, els.cMediaAparicoesAtualPeriodo]
+        .forEach((el) => { el.textContent = atual; });
+      [els.cVendasAnteriorPeriodo, els.cAparicoesAnteriorPeriodo, els.cMediaVendasAnteriorPeriodo, els.cMediaAparicoesAnteriorPeriodo]
+        .forEach((el) => { el.textContent = anterior; });
+
+      els.thVendasAtual.textContent = `Vendas — ${atual}`;
+      els.thVendasAnterior.textContent = `Vendas — ${anterior}`;
+      els.thAparicoesAtual.textContent = `Aparições — ${atual}`;
+      els.thAparicoesAnterior.textContent = `Aparições — ${anterior}`;
+      els.thVendasPorAparicao.textContent = `Vendas / aparição — ${atual}`;
     }
 
     function preencherCategorias() {
@@ -491,7 +539,7 @@
       let valorA = a[campo];
       let valorB = b[campo];
 
-      if (campo === 'produto' || campo === 'classificacao_rotulo') {
+      if (campo === 'produto') {
         return String(valorA || '').localeCompare(String(valorB || ''), 'pt-BR', { sensitivity: 'base' }) * direcao;
       }
 
@@ -520,7 +568,6 @@
       const termo = els.busca.value.trim().toLocaleLowerCase('pt-BR');
       return itensDaCategoria()
         .filter((item) => {
-          if (filtroAtual !== 'todos' && item.classificacao !== filtroAtual) return false;
           if (!termo) return true;
           return [item.produto, item.categoria]
             .some((valor) => String(valor ?? '').toLocaleLowerCase('pt-BR').includes(termo));
@@ -533,7 +580,7 @@
     function renderTabela() {
       const itens = itensFiltrados();
       if (!itens.length) {
-        els.tbody.innerHTML = '<tr><td colspan="8">Nenhum produto encontrado com o filtro atual.</td></tr>';
+        els.tbody.innerHTML = '<tr><td colspan="6">Nenhum produto encontrado com o filtro atual.</td></tr>';
         return;
       }
 
@@ -546,28 +593,13 @@
           <tr>
             <td>
               <button class="produto-link" type="button" data-produto-id="${Number(item.produto_id)}" title="Abrir histórico mensal">${escapar(item.produto)}</button>
-              <div class="preco-atual">${moeda(item.preco_atual)}</div>
               <div class="categoria">${escapar(item.categoria || 'Sem categoria')}</div>
             </td>
-            <td class="num">
-              <div class="source-main">${numeroFlex(item.status_aparicoes)}</div>
-              <div class="source-sub">${numeroFlex(item.status_publicacoes)} publicação(ões)</div>
-            </td>
-            <td class="num">
-              <div class="source-main">${numeroFlex(item.ofertas_aparicoes)}</div>
-              <div class="source-sub">${numeroFlex(item.ofertas_publicacoes)} publicação(ões)</div>
-            </td>
-            <td class="num">
-              <div class="source-main">${numeroFlex(item.videos_aparicoes)}</div>
-              <div class="source-sub">${numeroFlex(item.videos_publicacoes)} publicação(ões)</div>
-            </td>
-            <td class="num"><strong>${numeroFlex(item.aparicoes)}</strong></td>
-            <td class="num"><strong>${numeroFlex(item.vendas)}</strong></td>
+            <td class="num"><strong>${numeroFlex(item.vendas_atual)}</strong></td>
+            <td class="num">${numeroFlex(item.vendas_anterior)}</td>
+            <td class="num"><strong>${numeroFlex(item.aparicoes_atual)}</strong></td>
+            <td class="num">${numeroFlex(item.aparicoes_anterior)}</td>
             <td class="num">${vendaPorAparicao}</td>
-            <td>
-              <span class="badge ${escapar(item.classificacao)}">${escapar(item.classificacao_rotulo)}</span>
-              <div class="status-desc">${escapar(item.classificacao_descricao)}</div>
-            </td>
           </tr>
         `;
       }).join('');
@@ -848,7 +880,7 @@
       if (!silencioso) {
         els.atualizar.disabled = true;
         els.atualizar.textContent = 'Carregando...';
-        els.tbody.innerHTML = '<tr><td colspan="8">Carregando Termômetro...</td></tr>';
+        els.tbody.innerHTML = '<tr><td colspan="6">Carregando Termômetro...</td></tr>';
       }
 
       try {
@@ -869,7 +901,7 @@
         mostrarErro(error.message || 'Erro ao carregar o Termômetro de Vendas.');
         if (!silencioso) {
           dados = null;
-          els.tbody.innerHTML = '<tr><td colspan="8">Falha ao carregar os dados.</td></tr>';
+          els.tbody.innerHTML = '<tr><td colspan="6">Falha ao carregar os dados.</td></tr>';
         }
       } finally {
         if (!silencioso) {
@@ -879,19 +911,7 @@
       }
     }
 
-    document.querySelectorAll('.filter-btn').forEach((botao) => {
-      botao.addEventListener('click', () => {
-        document.querySelectorAll('.filter-btn').forEach((outro) => outro.classList.remove('active'));
-        botao.classList.add('active');
-        filtroAtual = botao.dataset.filter || 'todos';
-        renderTabela();
-      });
-    });
-
-    els.categoriaFiltro.addEventListener('change', () => {
-      renderCards();
-      renderTabela();
-    });
+    els.categoriaFiltro.addEventListener('change', renderTabela);
 
     document.querySelectorAll('th.sortable').forEach((th) => {
       th.addEventListener('click', () => {
@@ -899,7 +919,7 @@
         if (ordenacao.campo === campo) {
           ordenacao.direcao = ordenacao.direcao === 'asc' ? 'desc' : 'asc';
         } else {
-          ordenacao = { campo, direcao: campo === 'produto' || campo === 'classificacao_rotulo' ? 'asc' : 'desc' };
+          ordenacao = { campo, direcao: campo === 'produto' ? 'asc' : 'desc' };
         }
         renderTabela();
       });
