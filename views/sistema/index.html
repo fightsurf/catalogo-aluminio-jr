@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Alumínio JR — Central do Sistema</title>
+  <link rel="stylesheet" href="/css/system-launcher.css">
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
+  <script src="/js/system-launcher.js" defer></script>
+</head>
+<body>
+  <main class="desktop" id="desktop">
+    <header class="topbar">
+      <div>
+        <strong>Alumínio JR</strong>
+        <span>Central do Sistema</span>
+      </div>
+      <div class="top-actions">
+        <button class="icon-button" id="refreshButton" title="Atualizar aplicativos" aria-label="Atualizar aplicativos"><i data-lucide="refresh-cw"></i></button>
+        <a class="icon-button" href="/auth/logout" title="Sair" aria-label="Sair"><i data-lucide="log-out"></i></a>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div>
+        <p class="eyebrow">ÁREA DE TRABALHO</p>
+        <h1>O que você quer abrir?</h1>
+        <p id="summaryText">Carregando aplicativos…</p>
+      </div>
+      <label class="desktop-search">
+        <i data-lucide="search"></i>
+        <input id="desktopSearch" type="search" placeholder="Pesquisar aplicativo, área ou função" autocomplete="off">
+      </label>
+    </section>
+
+    <section class="desktop-section" id="favoritesSection" hidden>
+      <div class="section-heading"><h2>Favoritos</h2></div>
+      <div class="app-grid" id="favoritesGrid"></div>
+    </section>
+
+    <section class="desktop-section" id="recentsSection" hidden>
+      <div class="section-heading"><h2>Recentes</h2></div>
+      <div class="app-grid compact" id="recentsGrid"></div>
+    </section>
+
+    <section class="desktop-section">
+      <div class="section-heading">
+        <h2>Aplicativos</h2>
+        <span id="filterLabel">Todos</span>
+      </div>
+      <div class="category-chips" id="categoryChips"></div>
+      <div class="app-grid" id="appsGrid"></div>
+      <div class="empty-state" id="emptyState" hidden>
+        <i data-lucide="search-x"></i>
+        <strong>Nenhum aplicativo encontrado</strong>
+        <span>Tente outro termo ou categoria.</span>
+      </div>
+    </section>
+  </main>
+
+  <aside class="start-menu" id="startMenu" aria-hidden="true">
+    <div class="start-head">
+      <div>
+        <strong>Alumínio JR</strong>
+        <span>Aplicativos</span>
+      </div>
+      <button class="icon-button" id="closeStart" aria-label="Fechar"><i data-lucide="x"></i></button>
+    </div>
+    <label class="start-search">
+      <i data-lucide="search"></i>
+      <input id="startSearch" type="search" placeholder="Digite para pesquisar" autocomplete="off">
+    </label>
+    <div class="start-categories" id="startCategories"></div>
+    <div class="start-results" id="startResults"></div>
+  </aside>
+  <div class="scrim" id="scrim"></div>
+
+  <footer class="taskbar">
+    <button class="start-button" id="startButton" aria-expanded="false">
+      <span class="brand-mark">JR</span>
+      <span>Iniciar</span>
+    </button>
+    <button class="task-search" id="taskSearchButton"><i data-lucide="search"></i><span>Pesquisar</span></button>
+    <div class="taskbar-spacer"></div>
+    <div class="clock" id="clock"></div>
+  </footer>
+</body>
+</html>
