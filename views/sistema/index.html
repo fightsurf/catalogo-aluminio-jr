@@ -9,80 +9,60 @@
   <script src="/js/system-launcher.js" defer></script>
 </head>
 <body>
-  <main class="desktop" id="desktop">
+  <main class="shell">
     <header class="topbar">
-      <div>
-        <strong>Alumínio JR</strong>
-        <span>Central do Sistema</span>
-      </div>
+      <div class="brand"><span class="brand-mark">JR</span><div><strong>Alumínio JR</strong><span>Central do Sistema</span></div></div>
       <div class="top-actions">
-        <button class="icon-button" id="refreshButton" title="Atualizar aplicativos" aria-label="Atualizar aplicativos"><i data-lucide="refresh-cw"></i></button>
-        <a class="icon-button" href="/auth/logout" title="Sair" aria-label="Sair"><i data-lucide="log-out"></i></a>
+        <button class="btn secondary" id="manageButton"><i data-lucide="layout-dashboard"></i><span>Organizar</span></button>
+        <button class="icon-button" id="refreshButton" title="Atualizar"><i data-lucide="refresh-cw"></i></button>
+        <a class="icon-button" href="/auth/logout" title="Sair"><i data-lucide="log-out"></i></a>
       </div>
     </header>
 
     <section class="hero">
-      <div>
-        <p class="eyebrow">ÁREA DE TRABALHO</p>
-        <h1>O que você quer abrir?</h1>
-        <p id="summaryText">Carregando aplicativos…</p>
-      </div>
-      <label class="desktop-search">
-        <i data-lucide="search"></i>
-        <input id="desktopSearch" type="search" placeholder="Pesquisar aplicativo, área ou função" autocomplete="off">
-      </label>
+      <div><p class="eyebrow">ÁREA DE TRABALHO</p><h1 id="pageTitle">Aplicativos</h1><p id="summaryText">Carregando…</p></div>
+      <label class="search"><i data-lucide="search"></i><input id="searchInput" type="search" placeholder="Pesquisar aplicativo, categoria ou função" autocomplete="off"></label>
     </section>
 
-    <section class="desktop-section" id="favoritesSection" hidden>
-      <div class="section-heading"><h2>Favoritos</h2></div>
-      <div class="app-grid" id="favoritesGrid"></div>
+    <section id="favoritesSection" class="section" hidden>
+      <div class="section-head"><h2>Favoritos</h2></div><div id="favoritesGrid" class="apps-grid"></div>
     </section>
 
-    <section class="desktop-section" id="recentsSection" hidden>
-      <div class="section-heading"><h2>Recentes</h2></div>
-      <div class="app-grid compact" id="recentsGrid"></div>
+    <section id="categoriesSection" class="section">
+      <div class="section-head"><h2>Categorias</h2><span id="categoryCount"></span></div>
+      <div id="categoryGrid" class="category-grid"></div>
     </section>
 
-    <section class="desktop-section">
-      <div class="section-heading">
-        <h2>Aplicativos</h2>
-        <span id="filterLabel">Todos</span>
-      </div>
-      <div class="category-chips" id="categoryChips"></div>
-      <div class="app-grid" id="appsGrid"></div>
-      <div class="empty-state" id="emptyState" hidden>
-        <i data-lucide="search-x"></i>
-        <strong>Nenhum aplicativo encontrado</strong>
-        <span>Tente outro termo ou categoria.</span>
-      </div>
+    <section id="appsSection" class="section" hidden>
+      <div class="section-head"><div class="back-row"><button class="icon-button" id="backButton"><i data-lucide="arrow-left"></i></button><h2 id="activeCategoryTitle"></h2></div><span id="appCount"></span></div>
+      <div id="appsGrid" class="apps-grid"></div>
+      <div id="emptyState" class="empty" hidden><i data-lucide="search-x"></i><strong>Nenhum aplicativo encontrado</strong></div>
     </section>
   </main>
 
-  <aside class="start-menu" id="startMenu" aria-hidden="true">
-    <div class="start-head">
-      <div>
-        <strong>Alumínio JR</strong>
-        <span>Aplicativos</span>
-      </div>
-      <button class="icon-button" id="closeStart" aria-label="Fechar"><i data-lucide="x"></i></button>
+  <aside class="manager" id="manager" aria-hidden="true">
+    <div class="manager-head"><div><strong>Organizar aplicativos</strong><span>Arraste um aplicativo para outra categoria. As alterações ficam salvas no servidor.</span></div><button class="icon-button" id="closeManager"><i data-lucide="x"></i></button></div>
+    <div class="manager-toolbar">
+      <label class="search"><i data-lucide="search"></i><input id="managerSearch" type="search" placeholder="Pesquisar aplicativo"></label>
+      <div class="legend"><span><i class="dot principal"></i> Principal</span><span><i class="dot secundario"></i> Secundário</span><span><i class="dot oculto"></i> Oculto</span></div>
     </div>
-    <label class="start-search">
-      <i data-lucide="search"></i>
-      <input id="startSearch" type="search" placeholder="Digite para pesquisar" autocomplete="off">
-    </label>
-    <div class="start-categories" id="startCategories"></div>
-    <div class="start-results" id="startResults"></div>
+    <div id="managerBoard" class="manager-board"></div>
   </aside>
-  <div class="scrim" id="scrim"></div>
+  <div id="scrim" class="scrim"></div>
 
-  <footer class="taskbar">
-    <button class="start-button" id="startButton" aria-expanded="false">
-      <span class="brand-mark">JR</span>
-      <span>Iniciar</span>
-    </button>
-    <button class="task-search" id="taskSearchButton"><i data-lucide="search"></i><span>Pesquisar</span></button>
-    <div class="taskbar-spacer"></div>
-    <div class="clock" id="clock"></div>
-  </footer>
+  <dialog id="editDialog" class="edit-dialog">
+    <form method="dialog" id="editForm">
+      <div class="dialog-head"><div><strong>Editar aplicativo</strong><span id="editRoute"></span></div><button type="button" class="icon-button" id="closeEdit"><i data-lucide="x"></i></button></div>
+      <input type="hidden" id="editRota">
+      <label>Nome<input id="editNome" maxlength="160" required></label>
+      <label>Categoria<input id="editCategoria" maxlength="100" list="categoryOptions" required></label>
+      <datalist id="categoryOptions"></datalist>
+      <label>Visibilidade<select id="editVisibilidade"><option value="principal">Principal</option><option value="secundario">Secundário</option><option value="oculto">Oculto</option></select></label>
+      <label class="check"><input id="editFavorito" type="checkbox"> Mostrar em Favoritos</label>
+      <div class="dialog-actions"><button type="button" class="btn ghost" id="resetButton">Restaurar padrão</button><span class="grow"></span><button type="button" class="btn secondary" id="cancelEdit">Cancelar</button><button type="submit" class="btn primary">Salvar</button></div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" hidden></div>
 </body>
 </html>
