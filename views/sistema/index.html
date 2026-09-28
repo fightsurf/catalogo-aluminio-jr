@@ -13,6 +13,7 @@
     <header class="topbar">
       <div class="brand"><span class="brand-mark">JR</span><div><strong>Alumínio JR</strong><span>Central do Sistema</span></div></div>
       <div class="top-actions">
+        <button class="btn secondary" id="categoriesButton"><i data-lucide="folders"></i><span>Categorias</span></button>
         <button class="btn secondary" id="manageButton"><i data-lucide="layout-dashboard"></i><span>Organizar</span></button>
         <button class="icon-button" id="refreshButton" title="Atualizar"><i data-lucide="refresh-cw"></i></button>
         <a class="icon-button" href="/auth/logout" title="Sair"><i data-lucide="log-out"></i></a>
@@ -60,6 +61,26 @@
       <label>Visibilidade<select id="editVisibilidade"><option value="principal">Principal</option><option value="secundario">Secundário</option><option value="oculto">Oculto</option></select></label>
       <label class="check"><input id="editFavorito" type="checkbox"> Mostrar em Favoritos</label>
       <div class="dialog-actions"><button type="button" class="btn ghost" id="resetButton">Restaurar padrão</button><span class="grow"></span><button type="button" class="btn secondary" id="cancelEdit">Cancelar</button><button type="submit" class="btn primary">Salvar</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="categoriesDialog" class="categories-dialog">
+    <div class="dialog-head categories-dialog-head"><div><strong>Gerenciar categorias</strong><span>Crie, renomeie, escolha o ícone e organize a ordem.</span></div><button type="button" class="icon-button" id="closeCategories"><i data-lucide="x"></i></button></div>
+    <form id="newCategoryForm" class="new-category-form">
+      <label>Nova categoria<input id="newCategoryName" maxlength="100" placeholder="Ex.: Compras" required></label>
+      <label>Ícone<select id="newCategoryIcon"></select></label>
+      <button type="submit" class="btn primary"><i data-lucide="plus"></i>Criar</button>
+    </form>
+    <div id="categoriesList" class="categories-list"></div>
+  </dialog>
+
+  <dialog id="categoryEditDialog" class="edit-dialog">
+    <form method="dialog" id="categoryEditForm">
+      <div class="dialog-head"><div><strong>Editar categoria</strong><span id="categoryEditOriginal"></span></div><button type="button" class="icon-button" id="closeCategoryEdit"><i data-lucide="x"></i></button></div>
+      <input type="hidden" id="categoryOriginalName">
+      <label>Nome<input id="categoryEditName" maxlength="100" required></label>
+      <label>Ícone<select id="categoryEditIcon"></select></label>
+      <div class="dialog-actions"><button type="button" class="btn danger ghost" id="deleteCategoryButton"><i data-lucide="trash-2"></i>Excluir</button><span class="grow"></span><button type="button" class="btn secondary" id="cancelCategoryEdit">Cancelar</button><button type="submit" class="btn primary">Salvar</button></div>
     </form>
   </dialog>
 

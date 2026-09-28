@@ -16,4 +16,25 @@ router.delete('/api/apps/config', requireAuth, async (req,res) => {
   try { res.json({ok:true, app:await sistemaAplicativos.resetConfig(req.body?.rota)}); }
   catch(err){ console.error('[sistema] erro ao restaurar configuração:',err); res.status(500).json({erro:'Não foi possível restaurar.'}); }
 });
+
+router.get('/api/categorias', requireAuth, async (req,res) => {
+  try { res.set('Cache-Control','no-store'); res.json({categorias:await sistemaAplicativos.getCategories()}); }
+  catch(err){ console.error('[sistema] erro ao listar categorias:',err); res.status(500).json({erro:'Não foi possível listar as categorias.'}); }
+});
+router.post('/api/categorias', requireAuth, async (req,res) => {
+  try { res.status(201).json({ok:true,categoria:await sistemaAplicativos.createCategory(req.body || {})}); }
+  catch(err){ console.error('[sistema] erro ao criar categoria:',err); res.status(err.status||500).json({erro:err.message||'Não foi possível criar a categoria.'}); }
+});
+router.put('/api/categorias/:nome', requireAuth, async (req,res) => {
+  try { res.json({ok:true,categoria:await sistemaAplicativos.updateCategory(req.params.nome,req.body || {})}); }
+  catch(err){ console.error('[sistema] erro ao alterar categoria:',err); res.status(err.status||500).json({erro:err.message||'Não foi possível alterar a categoria.'}); }
+});
+router.delete('/api/categorias/:nome', requireAuth, async (req,res) => {
+  try { res.json(await sistemaAplicativos.deleteCategory(req.params.nome)); }
+  catch(err){ console.error('[sistema] erro ao excluir categoria:',err); res.status(err.status||500).json({erro:err.message||'Não foi possível excluir a categoria.'}); }
+});
+router.put('/api/categorias-ordem', requireAuth, async (req,res) => {
+  try { res.json({ok:true,categorias:await sistemaAplicativos.reorderCategories(req.body?.nomes || [])}); }
+  catch(err){ console.error('[sistema] erro ao ordenar categorias:',err); res.status(err.status||500).json({erro:err.message||'Não foi possível ordenar as categorias.'}); }
+});
 module.exports = router;

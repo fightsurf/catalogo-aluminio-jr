@@ -70,6 +70,15 @@ async function ensureSchema() {
     )
   `);
   await pool.query(`CREATE INDEX IF NOT EXISTS idx_sistema_apps_categoria ON sistema_aplicativos_config(categoria)`);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sistema_categorias_config (
+      nome VARCHAR(100) PRIMARY KEY,
+      icone VARCHAR(80),
+      ordem INTEGER,
+      atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await pool.query(`CREATE INDEX IF NOT EXISTS idx_sistema_categorias_ordem ON sistema_categorias_config(ordem)`);
   schemaReady = true;
 }
 
@@ -164,10 +173,119 @@ async function getCatalog() {
     return { ...app, nome:(cfg.nome || app.nome).trim(), categoria, icone: app.icone || defaultIcon(categoria), visibilidade:cfg.visibilidade || 'principal', favorito:Boolean(cfg.favorito), ordem:cfg.ordem, personalizado:true, atualizadoEm:cfg.atualizado_em };
   }).sort((a,b) => (a.ordem ?? 999999)-(b.ordem ?? 999999) || a.nome.localeCompare(b.nome,'pt-BR'));
 }
+async function getCategories(appsInput = null) {
+  await ensureSchema();
+  const apps = appsInput || await getCatalog();
+  const counts = new Map();
+  for (const app of apps) counts.set(app.categoria, (counts.get(app.categoria) || 0) + 1);
+  const { rows } = await pool.query(`SELECT nome,icone,ordem,atualizado_em FROM sistema_categorias_config`);
+  const configs = new Map(rows.map(r => [r.nome, r]));
+  const names = new Set([...counts.keys(), ...configs.keys()]);
+  return [...names].map(nome => {
+    const cfg = configs.get(nome);
+    return {
+      nome,
+      icone: cfg?.icone || defaultIcon(nome),
+      ordem: Number.isInteger(cfg?.ordem) ? cfg.ordem : null,
+      quantidade: counts.get(nome) || 0,
+      personalizada: Boolean(cfg),
+      atualizadoEm: cfg?.atualizado_em || null,
+    };
+  }).sort((a,b) => (a.ordem ?? 999999) - (b.ordem ?? 999999) || a.nome.localeCompare(b.nome,'pt-BR'));
+}
 async function getSummary() {
   const apps = await getCatalog();
-  const categorias = [...new Set(apps.filter(a => a.visibilidade !== 'oculto').map(a => a.categoria))].sort((a,b) => a.localeCompare(b,'pt-BR'));
-  return { atualizadoEm:new Date().toISOString(), total:apps.length, visiveis:apps.filter(a=>a.visibilidade!=='oculto').length, categorias, apps };
+  const categoriasDetalhes = await getCategories(apps);
+  return {
+    atualizadoEm:new Date().toISOString(),
+    total:apps.length,
+    visiveis:apps.filter(a=>a.visibilidade!=='oculto').length,
+    categorias:categoriasDetalhes.map(c=>c.nome),
+    categoriasDetalhes,
+    apps
+  };
+}
+function cleanCategoryName(value) {
+  return String(value || '').trim().replace(/\s+/g,' ').slice(0,100);
+}
+function cleanIcon(value) {
+  return String(value || '').trim().replace(/[^a-z0-9-]/gi,'').slice(0,80) || 'folder';
+}
+async function createCategory(payload = {}) {
+  await ensureSchema();
+  const nome = cleanCategoryName(payload.nome);
+  if (!nome) throw Object.assign(new Error('Informe o nome da categoria.'), { status:400 });
+  const existing = (await getCategories()).find(c => c.nome.toLocaleLowerCase('pt-BR') === nome.toLocaleLowerCase('pt-BR'));
+  if (existing) throw Object.assign(new Error('Já existe uma categoria com esse nome.'), { status:409 });
+  const icone = cleanIcon(payload.icone);
+  const { rows:[maxRow] } = await pool.query(`SELECT COALESCE(MAX(ordem),-1) AS max FROM sistema_categorias_config`);
+  const ordem = Number(maxRow?.max ?? -1) + 1;
+  await pool.query(`INSERT INTO sistema_categorias_config (nome,icone,ordem,atualizado_em) VALUES ($1,$2,$3,NOW())`,[nome,icone,ordem]);
+  return (await getCategories()).find(c => c.nome === nome);
+}
+async function updateCategory(nomeAtualInput, payload = {}) {
+  await ensureSchema();
+  const nomeAtual = cleanCategoryName(nomeAtualInput);
+  const categorias = await getCategories();
+  const atual = categorias.find(c => c.nome === nomeAtual);
+  if (!atual) throw Object.assign(new Error('Categoria não encontrada.'), { status:404 });
+  const novoNome = cleanCategoryName(payload.nome ?? nomeAtual);
+  if (!novoNome) throw Object.assign(new Error('Informe o nome da categoria.'), { status:400 });
+  const conflito = categorias.find(c => c.nome !== nomeAtual && c.nome.toLocaleLowerCase('pt-BR') === novoNome.toLocaleLowerCase('pt-BR'));
+  if (conflito) throw Object.assign(new Error('Já existe uma categoria com esse nome.'), { status:409 });
+  const icone = cleanIcon(payload.icone || atual.icone);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const ordem = atual.ordem;
+    await client.query(`
+      INSERT INTO sistema_categorias_config (nome,icone,ordem,atualizado_em) VALUES ($1,$2,$3,NOW())
+      ON CONFLICT (nome) DO UPDATE SET icone=EXCLUDED.icone,ordem=EXCLUDED.ordem,atualizado_em=NOW()
+    `,[novoNome,icone,ordem]);
+    if (novoNome !== nomeAtual) {
+      const apps = await getCatalog();
+      for (const app of apps.filter(a => a.categoria === nomeAtual)) {
+        await client.query(`
+          INSERT INTO sistema_aplicativos_config (rota,nome,categoria,visibilidade,favorito,ordem,atualizado_em)
+          VALUES ($1,$2,$3,$4,$5,$6,NOW())
+          ON CONFLICT (rota) DO UPDATE SET nome=EXCLUDED.nome,categoria=EXCLUDED.categoria,visibilidade=EXCLUDED.visibilidade,favorito=EXCLUDED.favorito,ordem=EXCLUDED.ordem,atualizado_em=NOW()
+        `,[app.rota,app.nome,novoNome,app.visibilidade,app.favorito,app.ordem]);
+      }
+      await client.query(`DELETE FROM sistema_categorias_config WHERE nome=$1`,[nomeAtual]);
+    }
+    await client.query('COMMIT');
+  } catch (err) { await client.query('ROLLBACK'); throw err; } finally { client.release(); }
+  return (await getCategories()).find(c => c.nome === novoNome);
+}
+async function deleteCategory(nomeInput) {
+  await ensureSchema();
+  const nome = cleanCategoryName(nomeInput);
+  const apps = await getCatalog();
+  const quantidade = apps.filter(a => a.categoria === nome).length;
+  if (quantidade) throw Object.assign(new Error(`Mova os ${quantidade} aplicativo(s) desta categoria antes de excluí-la.`), { status:409 });
+  const result = await pool.query(`DELETE FROM sistema_categorias_config WHERE nome=$1`,[nome]);
+  if (!result.rowCount) throw Object.assign(new Error('Categoria não encontrada ou é uma categoria automática ainda em uso.'), { status:404 });
+  return { ok:true };
+}
+async function reorderCategories(nomes = []) {
+  await ensureSchema();
+  if (!Array.isArray(nomes) || !nomes.length) throw Object.assign(new Error('Informe a ordem das categorias.'), { status:400 });
+  const categories = await getCategories();
+  const byName = new Map(categories.map(c => [c.nome,c]));
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    let ordem=0;
+    for (const nomeRaw of nomes) {
+      const nome=cleanCategoryName(nomeRaw), cat=byName.get(nome); if(!cat) continue;
+      await client.query(`
+        INSERT INTO sistema_categorias_config (nome,icone,ordem,atualizado_em) VALUES ($1,$2,$3,NOW())
+        ON CONFLICT (nome) DO UPDATE SET icone=COALESCE(sistema_categorias_config.icone,EXCLUDED.icone),ordem=EXCLUDED.ordem,atualizado_em=NOW()
+      `,[nome,cat.icone || defaultIcon(nome),ordem++]);
+    }
+    await client.query('COMMIT');
+  } catch(err) { await client.query('ROLLBACK'); throw err; } finally { client.release(); }
+  return getCategories();
 }
 async function saveConfig(payload = {}) {
   await ensureSchema();
@@ -192,4 +310,4 @@ async function resetConfig(rotaInput) {
   await pool.query(`DELETE FROM sistema_aplicativos_config WHERE rota=$1`,[rota]);
   return baseApp(rota);
 }
-module.exports = { getCatalog, getSummary, saveConfig, resetConfig, ensureSchema };
+module.exports = { getCatalog, getSummary, getCategories, createCategory, updateCategory, deleteCategory, reorderCategories, saveConfig, resetConfig, ensureSchema };
