@@ -27,7 +27,7 @@
     if(manager){ el.draggable=true; el.dataset.route=app.rota; }
     el.innerHTML=`<span class="app-icon">${icon(app.icone)}</span><span class="app-copy"><strong>${esc(app.nome)}</strong><span>${esc(app.descricao)}</span>${manager?`<small>${esc(app.rota)}</small>`:''}</span>${app.favorito?`<span class="fav">${icon('star')}</span>`:''}${manager?`<button class="edit-btn" title="Editar">${icon('pencil')}</button>`:''}`;
     if(manager){
-      el.addEventListener('dragstart',e=>{ state.draggingRoute=app.rota; e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',app.rota); el.classList.add('dragging'); });
+      el.addEventListener('dragstart',e=>{ if(state.managerQuery.trim()){ e.preventDefault(); toast('Limpe a pesquisa antes de reorganizar os cards.',true); return; } state.draggingRoute=app.rota; e.dataTransfer.effectAllowed='move'; e.dataTransfer.setData('text/plain',app.rota); el.classList.add('dragging'); });
       el.addEventListener('dragend',()=>{ state.draggingRoute=null; el.classList.remove('dragging'); document.querySelectorAll('.drop-active').forEach(x=>x.classList.remove('drop-active')); });
       el.querySelector('.edit-btn').addEventListener('click',e=>{e.stopPropagation();openEdit(app);});
       el.addEventListener('dblclick',()=>openEdit(app));
@@ -60,6 +60,23 @@
   function selectCategory(category){ state.selectedCategory=category; $('categoriesSection').hidden=true; $('favoritesSection').hidden=true; $('appsSection').hidden=false; $('activeCategoryTitle').textContent=category; const apps=visibleApps().filter(a=>a.categoria===category&&matches(a,state.query)); $('appCount').textContent=`${apps.length} aplicativos`; $('appsGrid').innerHTML=''; apps.forEach(a=>$('appsGrid').appendChild(appCard(a))); $('emptyState').hidden=!!apps.length; refreshIcons(); }
   function render(){ state.query.trim()?renderSearch():(state.selectedCategory?selectCategory(state.selectedCategory):renderHome()); }
 
+  function dragAfterElement(container, y){
+    const cards=[...container.querySelectorAll('.manager-app:not(.dragging)')];
+    return cards.reduce((closest,card)=>{
+      const box=card.getBoundingClientRect();
+      const offset=y-box.top-box.height/2;
+      return offset<0 && offset>closest.offset ? {offset,element:card} : closest;
+    },{offset:Number.NEGATIVE_INFINITY,element:null}).element;
+  }
+
+  async function saveAppOrder(category, drop){
+    const rotas=[...drop.querySelectorAll('.manager-app')].map(el=>el.dataset.route).filter(Boolean);
+    const r=await fetch('/sistema/api/apps/ordem',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify({categoria:category,rotas})});
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(data.erro||'Erro ao salvar a posição dos aplicativos.');
+    return data.apps||[];
+  }
+
   function renderManager(){
     const board=$('managerBoard'); board.innerHTML='';
     const categories=orderedCategoryNames(true);
@@ -69,9 +86,31 @@
       const lane=document.createElement('section'); lane.className='manager-lane'; lane.dataset.category=category;
       lane.innerHTML=`<div class="lane-head"><strong>${esc(category)}</strong><span>${apps.length}</span></div><div class="lane-drop"></div>`;
       const drop=lane.querySelector('.lane-drop'); apps.forEach(a=>drop.appendChild(appCard(a,true)));
-      ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault(); drop.classList.add('drop-active');}));
+      drop.addEventListener('dragenter',e=>{e.preventDefault();drop.classList.add('drop-active');});
+      drop.addEventListener('dragover',e=>{
+        e.preventDefault();
+        if(state.managerQuery.trim())return;
+        drop.classList.add('drop-active');
+        const route=state.draggingRoute;
+        const dragging=route ? board.querySelector(`.manager-app[data-route="${CSS.escape(route)}"]`) : null;
+        if(!dragging)return;
+        const after=dragAfterElement(drop,e.clientY);
+        if(after)drop.insertBefore(dragging,after); else drop.appendChild(dragging);
+      });
       drop.addEventListener('dragleave',e=>{ if(!drop.contains(e.relatedTarget)) drop.classList.remove('drop-active'); });
-      drop.addEventListener('drop',async e=>{ e.preventDefault(); drop.classList.remove('drop-active'); const route=e.dataTransfer.getData('text/plain')||state.draggingRoute; const app=state.apps.find(a=>a.rota===route); if(app&&app.categoria!==category){ const old=app.categoria; app.categoria=category; renderManager(); try{await saveApp(app); await loadApps(false); toast(`Movido de ${old} para ${category}.`);}catch(err){app.categoria=old;renderManager();toast(err.message,true);} } });
+      drop.addEventListener('drop',async e=>{
+        e.preventDefault(); drop.classList.remove('drop-active');
+        if(state.managerQuery.trim())return;
+        const route=e.dataTransfer.getData('text/plain')||state.draggingRoute;
+        const app=state.apps.find(a=>a.rota===route); if(!app)return;
+        const oldCategory=app.categoria;
+        try{
+          if(oldCategory!==category){ app.categoria=category; await saveApp(app); }
+          await saveAppOrder(category,drop);
+          await loadApps(false);
+          toast(oldCategory===category?'Posição do card salva.':`Movido para ${category} e posição salva.`);
+        }catch(err){ app.categoria=oldCategory; await loadApps(false); toast(err.message,true); }
+      });
       board.appendChild(lane);
     }); refreshIcons();
   }

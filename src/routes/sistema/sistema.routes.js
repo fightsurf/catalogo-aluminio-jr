@@ -12,6 +12,10 @@ router.put('/api/apps/config', requireAuth, async (req,res) => {
   try { res.json({ok:true, app:await sistemaAplicativos.saveConfig(req.body || {})}); }
   catch(err){ console.error('[sistema] erro ao salvar configuração:',err); res.status(err.status||500).json({erro:err.message||'Não foi possível salvar.'}); }
 });
+router.put('/api/apps/ordem', requireAuth, async (req,res) => {
+  try { res.json({ok:true, apps:await sistemaAplicativos.reorderApps(req.body?.categoria, req.body?.rotas || [])}); }
+  catch(err){ console.error('[sistema] erro ao ordenar aplicativos:',err); res.status(err.status||500).json({erro:err.message||'Não foi possível salvar a ordem dos aplicativos.'}); }
+});
 router.delete('/api/apps/config', requireAuth, async (req,res) => {
   try { res.json({ok:true, app:await sistemaAplicativos.resetConfig(req.body?.rota)}); }
   catch(err){ console.error('[sistema] erro ao restaurar configuração:',err); res.status(500).json({erro:'Não foi possível restaurar.'}); }

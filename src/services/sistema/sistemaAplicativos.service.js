@@ -304,10 +304,44 @@ async function saveConfig(payload = {}) {
   `,[rota,nome,categoria,visibilidade,favorito,ordem]);
   return (await getCatalog()).find(a => a.rota === rota);
 }
+async function reorderApps(categoriaInput, rotasInput = []) {
+  await ensureSchema();
+  const categoria = cleanCategoryName(categoriaInput);
+  if (!categoria) throw Object.assign(new Error('Informe a categoria.'), { status:400 });
+  if (!Array.isArray(rotasInput)) throw Object.assign(new Error('Informe a ordem dos aplicativos.'), { status:400 });
+
+  const catalog = await getCatalog();
+  const appsCategoria = catalog.filter(app => app.categoria === categoria);
+  const allowed = new Map(appsCategoria.map(app => [app.rota, app]));
+  const rotas = [];
+  const seen = new Set();
+  for (const raw of rotasInput) {
+    const rota = normalizeRoute(raw);
+    if (!allowed.has(rota) || seen.has(rota)) continue;
+    seen.add(rota); rotas.push(rota);
+  }
+  for (const app of appsCategoria) if (!seen.has(app.rota)) rotas.push(app.rota);
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (let index = 0; index < rotas.length; index++) {
+      const app = allowed.get(rotas[index]);
+      const ordem = (index + 1) * 10;
+      await client.query(`
+        INSERT INTO sistema_aplicativos_config (rota,nome,categoria,visibilidade,favorito,ordem,atualizado_em)
+        VALUES ($1,$2,$3,$4,$5,$6,NOW())
+        ON CONFLICT (rota) DO UPDATE SET nome=EXCLUDED.nome,categoria=EXCLUDED.categoria,visibilidade=EXCLUDED.visibilidade,favorito=EXCLUDED.favorito,ordem=EXCLUDED.ordem,atualizado_em=NOW()
+      `,[app.rota,app.nome,app.categoria,app.visibilidade,app.favorito,ordem]);
+    }
+    await client.query('COMMIT');
+  } catch (err) { await client.query('ROLLBACK'); throw err; } finally { client.release(); }
+  return (await getCatalog()).filter(app => app.categoria === categoria);
+}
 async function resetConfig(rotaInput) {
   await ensureSchema();
   const rota = normalizeRoute(rotaInput);
   await pool.query(`DELETE FROM sistema_aplicativos_config WHERE rota=$1`,[rota]);
   return baseApp(rota);
 }
-module.exports = { getCatalog, getSummary, getCategories, createCategory, updateCategory, deleteCategory, reorderCategories, saveConfig, resetConfig, ensureSchema };
+module.exports = { getCatalog, getSummary, getCategories, createCategory, updateCategory, deleteCategory, reorderCategories, reorderApps, saveConfig, resetConfig, ensureSchema };
