@@ -147,6 +147,36 @@
       font-weight: bold;
     }
 
+    .cabecalho-ordenavel {
+      padding: 0;
+    }
+
+    .btn-ordenar-coluna {
+      width: 100%;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font: inherit;
+      font-weight: bold;
+      text-align: left;
+      padding: 12px 14px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .btn-ordenar-coluna:hover,
+    .btn-ordenar-coluna:focus-visible {
+      background: #eef2f7;
+      outline: none;
+    }
+
+    .sort-indicador {
+      display: inline-block;
+      min-width: 14px;
+      margin-left: 4px;
+      color: #2563eb;
+    }
+
     tbody tr {
       cursor: pointer;
       transition: background 0.15s ease;
@@ -426,13 +456,13 @@
               <th class="col-selecao">
                 <input type="checkbox" id="selecionarTodos" aria-label="Selecionar todos os pedidos" disabled />
               </th>
-              <th>Número</th>
-              <th>Data</th>
-              <th>Carrada</th>
-              <th>Total do pedido</th>
-              <th>Valor pago</th>
-              <th>Restante a pagar</th>
-              <th>Vendedor</th>
+              <th class="cabecalho-ordenavel"><button type="button" class="btn-ordenar-coluna" data-sort="numero">Número <span class="sort-indicador" aria-hidden="true"></span></button></th>
+              <th class="cabecalho-ordenavel"><button type="button" class="btn-ordenar-coluna" data-sort="data">Data <span class="sort-indicador" aria-hidden="true"></span></button></th>
+              <th class="cabecalho-ordenavel"><button type="button" class="btn-ordenar-coluna" data-sort="carrada">Carrada <span class="sort-indicador" aria-hidden="true"></span></button></th>
+              <th class="cabecalho-ordenavel"><button type="button" class="btn-ordenar-coluna" data-sort="total">Total do pedido <span class="sort-indicador" aria-hidden="true"></span></button></th>
+              <th class="cabecalho-ordenavel"><button type="button" class="btn-ordenar-coluna" data-sort="totalPago">Valor pago <span class="sort-indicador" aria-hidden="true"></span></button></th>
+              <th class="cabecalho-ordenavel"><button type="button" class="btn-ordenar-coluna" data-sort="saldoRestante">Restante a pagar <span class="sort-indicador" aria-hidden="true"></span></button></th>
+              <th class="cabecalho-ordenavel"><button type="button" class="btn-ordenar-coluna" data-sort="vendedor">Vendedor <span class="sort-indicador" aria-hidden="true"></span></button></th>
               <th>Ações</th>
             </tr>
           </thead>
@@ -522,6 +552,14 @@
 
     let clienteAtual = null;
     let pedidosAtuais = [];
+    const estadoOrdenacao = {
+      coluna: 'carrada',
+      direcao: 'desc'
+    };
+    const comparadorTexto = new Intl.Collator('pt-BR', {
+      sensitivity: 'base',
+      numeric: true
+    });
 
     btnVoltar.addEventListener('click', () => {
       if (document.referrer) {
@@ -604,6 +642,126 @@
       return numero.toLocaleString('pt-BR', {
         style: 'currency',
         currency: 'BRL'
+      });
+    }
+
+
+    function obterTimestampOrdenacao(valor) {
+      if (!valor) return null;
+
+      const texto = String(valor).trim();
+      const iso = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+      if (iso) {
+        return Date.UTC(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+      }
+
+      const data = new Date(valor);
+      return Number.isNaN(data.getTime()) ? null : data.getTime();
+    }
+
+    function obterChavePedido(pedido) {
+      return [
+        pedido?.empresa ?? '',
+        pedido?.saida ?? '',
+        pedido?.pdv ?? '',
+        pedido?.numero ?? '',
+        pedido?.data ?? ''
+      ].join('|');
+    }
+
+    function obterValorOrdenacao(pedido, coluna) {
+      switch (coluna) {
+        case 'numero':
+          return obterNumeroPedido(pedido);
+        case 'data':
+          return obterTimestampOrdenacao(pedido?.data);
+        case 'carrada':
+          return obterTimestampOrdenacao(pedido?.carradaData);
+        case 'total':
+          return Number(pedido?.total || 0);
+        case 'totalPago':
+          return Number(pedido?.totalPago || 0);
+        case 'saldoRestante':
+          return Number(pedido?.saldoRestante || 0);
+        case 'vendedor':
+          return String(pedido?.VendedorNome || '').trim();
+        default:
+          return '';
+      }
+    }
+
+    function compararValoresOrdenacao(valorA, valorB) {
+      const vazioA = valorA === null || valorA === undefined || valorA === '';
+      const vazioB = valorB === null || valorB === undefined || valorB === '';
+
+      if (vazioA && vazioB) return 0;
+      if (vazioA) return 1;
+      if (vazioB) return -1;
+
+      if (typeof valorA === 'number' && typeof valorB === 'number') {
+        return valorA - valorB;
+      }
+
+      return comparadorTexto.compare(String(valorA), String(valorB));
+    }
+
+    function ordenarPedidos(pedidos) {
+      const lista = Array.isArray(pedidos) ? [...pedidos] : [];
+      const { coluna, direcao } = estadoOrdenacao;
+      const fator = direcao === 'desc' ? -1 : 1;
+
+      return lista.sort((pedidoA, pedidoB) => {
+        const valorA = obterValorOrdenacao(pedidoA, coluna);
+        const valorB = obterValorOrdenacao(pedidoB, coluna);
+        const vazioA = valorA === null || valorA === undefined || valorA === '';
+        const vazioB = valorB === null || valorB === undefined || valorB === '';
+
+        // Valores vazios (principalmente pedidos sem carrada) ficam sempre no fim.
+        if (vazioA && vazioB) return 0;
+        if (vazioA) return 1;
+        if (vazioB) return -1;
+
+        let resultado = compararValoresOrdenacao(valorA, valorB) * fator;
+
+        if (resultado === 0 && coluna === 'carrada') {
+          resultado = comparadorTexto.compare(
+            String(pedidoA?.carradaDescricao || ''),
+            String(pedidoB?.carradaDescricao || '')
+          ) * fator;
+        }
+
+        if (resultado === 0) {
+          const dataA = obterTimestampOrdenacao(pedidoA?.data);
+          const dataB = obterTimestampOrdenacao(pedidoB?.data);
+          if (dataA !== null && dataB !== null && dataA !== dataB) {
+            resultado = dataB - dataA;
+          }
+        }
+
+        if (resultado === 0) {
+          resultado = comparadorTexto.compare(obterNumeroPedido(pedidoB), obterNumeroPedido(pedidoA));
+        }
+
+        return resultado;
+      });
+    }
+
+    function atualizarCabecalhosOrdenacao() {
+      document.querySelectorAll('.btn-ordenar-coluna').forEach((botao) => {
+        const ativo = botao.dataset.sort === estadoOrdenacao.coluna;
+        const indicador = botao.querySelector('.sort-indicador');
+        const direcaoTexto = estadoOrdenacao.direcao === 'asc' ? 'crescente' : 'decrescente';
+
+        if (indicador) {
+          indicador.textContent = ativo
+            ? (estadoOrdenacao.direcao === 'asc' ? '▲' : '▼')
+            : '';
+        }
+
+        botao.setAttribute('aria-sort', ativo ? direcaoTexto : 'none');
+        botao.title = ativo
+          ? `Ordenado de forma ${direcaoTexto}. Clique para inverter.`
+          : 'Clique para ordenar por esta coluna.';
       });
     }
 
@@ -1001,10 +1159,11 @@
       `;
     }
 
-    function renderizarTabela(pedidos) {
-      pedidosAtuais = Array.isArray(pedidos) ? pedidos : [];
+    function renderizarTabela(pedidos, chavesSelecionadas = new Set()) {
+      pedidosAtuais = ordenarPedidos(pedidos);
       selecionarTodos.checked = false;
       selecionarTodos.indeterminate = false;
+      atualizarCabecalhosOrdenacao();
 
       if (pedidosAtuais.length === 0) {
         tabelaPedidos.innerHTML = `
@@ -1026,6 +1185,7 @@
               class="pedido-checkbox"
               data-index="${index}"
               aria-label="Selecionar pedido ${escapeHtml(obterNumeroPedido(pedido))}"
+              ${chavesSelecionadas.has(obterChavePedido(pedido)) ? 'checked' : ''}
             />
           </td>
           <td>
@@ -1097,6 +1257,26 @@
       atualizarEstadoSelecao();
       mostrarStatus('ok', `${pedidosAtuais.length} pedido(s) encontrado(s).`);
     }
+
+    document.querySelectorAll('.btn-ordenar-coluna').forEach((botao) => {
+      botao.addEventListener('click', () => {
+        const coluna = botao.dataset.sort;
+        if (!coluna) return;
+
+        const chavesSelecionadas = new Set(
+          obterPedidosSelecionados().map(obterChavePedido)
+        );
+
+        if (estadoOrdenacao.coluna === coluna) {
+          estadoOrdenacao.direcao = estadoOrdenacao.direcao === 'asc' ? 'desc' : 'asc';
+        } else {
+          estadoOrdenacao.coluna = coluna;
+          estadoOrdenacao.direcao = 'asc';
+        }
+
+        renderizarTabela(pedidosAtuais, chavesSelecionadas);
+      });
+    });
 
     async function carregarPedidos() {
       if (!favorecido) {
