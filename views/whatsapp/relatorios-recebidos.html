@@ -99,6 +99,20 @@
       return String(valor ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
     }
 
+    function formatarTelefone(valor) {
+      const digitos = String(valor || '').replace(/\D/g, '');
+      if (!digitos) return '-';
+
+      const numero = digitos.startsWith('55') ? digitos.slice(2) : digitos;
+      if (numero.length === 10) {
+        return `+55 (${numero.slice(0,2)}) ${numero.slice(2,6)}-${numero.slice(6)}`;
+      }
+      if (numero.length === 11) {
+        return `+55 (${numero.slice(0,2)}) ${numero.slice(2,7)}-${numero.slice(7)}`;
+      }
+      return String(valor || '');
+    }
+
     function formatarData(valor) {
       const data = new Date(valor);
       if (Number.isNaN(data.getTime())) return '-';
@@ -127,7 +141,7 @@
         <article class="registro" data-id="${item.id}">
           <div class="registro-topo">
             <div>
-              <div class="telefone">${escapeHtml(item.telefone)}</div>
+              <div class="telefone">${escapeHtml(formatarTelefone(item.telefone))}</div>
               <div class="data">Recebido em ${escapeHtml(formatarData(item.recebido_em))}</div>
               ${clienteHtml(item.cliente)}
             </div>
@@ -171,7 +185,7 @@
     function abrirRelatorio(id) {
       const item = obterRegistro(id);
       if (!item) return;
-      modalTitulo.textContent = `${item.cliente?.nome || item.telefone} · ${formatarData(item.recebido_em)}`;
+      modalTitulo.textContent = `${item.cliente?.nome || formatarTelefone(item.telefone)} · ${formatarData(item.recebido_em)}`;
       relatorioModalAtual = item.relatorio || '';
       relatorioCompleto.textContent = relatorioModalAtual;
       modalFundo.classList.add('aberto');
@@ -211,7 +225,7 @@
     async function excluirRelatorio(id) {
       const item = obterRegistro(id);
       if (!item) return;
-      if (!window.confirm(`Tem certeza que deseja excluir este relatório recebido de ${item.telefone}?\n\nA exclusão é definitiva.`)) return;
+      if (!window.confirm(`Tem certeza que deseja excluir este relatório recebido de ${formatarTelefone(item.telefone)}?\n\nA exclusão é definitiva.`)) return;
       try {
         const response = await fetch(`/api/whatsapp/relatorios/${encodeURIComponent(id)}`, { method:'DELETE', headers:{ Accept:'application/json' } });
         const json = await response.json();
