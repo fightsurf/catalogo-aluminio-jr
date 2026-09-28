@@ -1,5 +1,6 @@
 const sharp = require('sharp');
 const zapiService = require('../../integracoes/zapi.service');
+const clientesCreditosService = require('../clientes-creditos/clientes-creditos.service');
 
 function numeroSeguro(valor) {
   const numero = Number(valor);
@@ -88,9 +89,12 @@ async function listarPedidosPorCliente(favorecido) {
   const dadosOriginais = Array.isArray(payload?.dados) ? payload.dados : [];
   const clienteOriginal = payload?.cliente || null;
 
+  const pedidosNormalizados = dadosOriginais.map(normalizarPedido);
+  const pedidosComBaixaCredito = await clientesCreditosService.aplicarBaixasEmPedidos(pedidosNormalizados);
+
   return {
     cliente: normalizarCliente(clienteOriginal, favorecido),
-    dados: dadosOriginais.map(normalizarPedido)
+    dados: pedidosComBaixaCredito
   };
 }
 
