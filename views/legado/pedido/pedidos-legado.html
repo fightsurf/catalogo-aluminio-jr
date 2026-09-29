@@ -2304,8 +2304,11 @@
         throw new Error('O pedido não possui itens para montar o relatório.');
       }
 
+      const kitFeirinha = detectarTipoRelatorioPedido(pedido) === 'kit-feirinha';
+
       const itensRelatorio = itens.map((item) => {
-        const qtd = Number(item?.quantidade || 0);
+        const qtdOriginal = Number(item?.quantidade || 0);
+        const qtd = kitFeirinha ? 1 : qtdOriginal;
         const preco = Number(item?.preco || 0);
         const subtotalInformado = Number(item?.subtotal);
 
@@ -2313,14 +2316,18 @@
           nome: String(item?.descricao || item?.nome || '').trim(),
           qtd,
           preco,
-          subtotal: Number.isFinite(subtotalInformado) ? subtotalInformado : qtd * preco
+          subtotal: kitFeirinha
+            ? qtd * preco
+            : (Number.isFinite(subtotalInformado) ? subtotalInformado : qtd * preco)
         };
       });
 
       const totalInformado = Number(pedido?.total);
-      const total = Number.isFinite(totalInformado)
-        ? totalInformado
-        : itensRelatorio.reduce((acc, item) => acc + Number(item.subtotal || 0), 0);
+      const total = kitFeirinha
+        ? itensRelatorio.reduce((acc, item) => acc + Number(item.subtotal || 0), 0)
+        : (Number.isFinite(totalInformado)
+          ? totalInformado
+          : itensRelatorio.reduce((acc, item) => acc + Number(item.subtotal || 0), 0));
 
       return window.RelatorioAluminioJR.montarRelatorio({
         itens: itensRelatorio,
