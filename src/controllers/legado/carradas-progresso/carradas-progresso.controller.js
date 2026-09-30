@@ -74,6 +74,19 @@ async function salvarDataExpedicao(req, res) {
   }
 }
 
+async function buscarHistoricoPosVenda(req, res) {
+  try {
+    const data = await service.buscarHistoricoPosVenda({
+      codigoCarrada: req.params.codigo,
+      numeroPedido: req.params.numeroPedido
+    });
+
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return responderErro(res, error, 'Erro ao carregar o histórico de pós-venda do cliente.');
+  }
+}
+
 async function salvarFaseBooleana(req, res) {
   try {
     const data = await service.salvarFaseBooleana({
@@ -269,6 +282,7 @@ module.exports = {
   calcularQuantidadeVolumesPedido,
   salvarQuantidadeVolumesManual,
   salvarDataExpedicao,
+  buscarHistoricoPosVenda,
   salvarFaseBooleana,
   buscarDadosEtiquetaPedido,
   buscarDadosEtiquetaImpressao,

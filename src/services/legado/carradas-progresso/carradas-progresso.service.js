@@ -2497,6 +2497,69 @@ async function confirmarEtiquetaVolumes({ codigoCarrada: codigoCarradaParam, num
   };
 }
 
+async function buscarHistoricoPosVenda({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam }) {
+  const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
+  const numeroPedido = normalizarNumeroPedido(numeroPedidoParam);
+  const carrada = await carradasService.buscarResumoCarrada(codigoCarrada);
+
+  if (!carrada) {
+    throw criarErro('Carrada não encontrada.', 404);
+  }
+
+  const pedidoAtual = encontrarPedidoNaCarrada(carrada, numeroPedido);
+  const favorecido = Number.parseInt(pedidoAtual?.cliente?.favorecido, 10);
+
+  if (!Number.isInteger(favorecido) || favorecido <= 0) {
+    throw criarErro('Não foi possível identificar o cliente deste pedido.', 400);
+  }
+
+  const response = await legadoBridgeService.get(`/api/pedidos-cliente/${favorecido}`);
+  const pedidos = Array.isArray(response?.dados) ? response.dados : [];
+  const saidaAtual = normalizarSaida(pedidoAtual?.saida);
+
+  const timestampPedido = (pedido) => {
+    const valor = pedido?.carradaData || pedido?.carrada_data || pedido?.data || pedido?.DATA || null;
+    const ts = valor ? new Date(valor).getTime() : 0;
+    return Number.isFinite(ts) ? ts : 0;
+  };
+
+  const ultimosPedidos = pedidos
+    .slice()
+    .sort((a, b) => timestampPedido(b) - timestampPedido(a))
+    .slice(0, 10)
+    .map((pedido) => {
+      const saida = normalizarSaida(pedido?.saida);
+      const numero = limparTexto(pedido?.numero);
+      const pedidoAtualBoolean = saidaAtual !== null && saida !== null
+        ? saida === saidaAtual
+        : numero === numeroPedido;
+
+      return {
+        numero,
+        saida,
+        data: pedido?.data || null,
+        carradaCodigo: pedido?.carradaCodigo ?? pedido?.carrada_codigo ?? null,
+        carradaData: pedido?.carradaData ?? pedido?.carrada_data ?? null,
+        carradaDescricao: limparTexto(pedido?.carradaDescricao ?? pedido?.carrada_descricao),
+        total: Number(pedido?.total ?? 0),
+        atual: pedidoAtualBoolean
+      };
+    });
+
+  return {
+    cliente: {
+      favorecido,
+      nome: pedidoAtual?.cliente?.nome || response?.cliente?.nome || '',
+      cidade: pedidoAtual?.cliente?.cidade || '',
+      uf: pedidoAtual?.cliente?.uf || '',
+      telefonePrincipal: pedidoAtual?.cliente?.telefonePrincipal || ''
+    },
+    numeroPedidoAtual: numeroPedido,
+    totalPedidosEncontrados: pedidos.length,
+    pedidos: ultimosPedidos
+  };
+}
+
 async function buscarPedidoAnteriorComLocalEntregaValido(pedidoAtual) {
   const favorecido = Number.parseInt(pedidoAtual?.cliente?.favorecido, 10);
 
@@ -3255,6 +3318,7 @@ module.exports = {
   calcularQuantidadeVolumesPedido,
   salvarQuantidadeVolumesManual,
   salvarDataExpedicao,
+  buscarHistoricoPosVenda,
   salvarFaseBooleana,
   buscarDadosEtiquetaPedido,
   buscarDadosEtiquetaImpressao,

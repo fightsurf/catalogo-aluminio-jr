@@ -537,6 +537,65 @@
       color: var(--text);
       text-decoration: underline;
     }
+    .pos-venda-resumo {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .pos-venda-resumo-card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      background: #f8fafc;
+    }
+    .pos-venda-resumo-card span {
+      display: block;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+    .pos-venda-resumo-card strong {
+      font-size: 14px;
+    }
+    .pos-venda-historico-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+    }
+    .pos-venda-historico-table {
+      width: 100%;
+      min-width: 620px;
+      border-collapse: collapse;
+      border-spacing: 0;
+    }
+    .pos-venda-historico-table th,
+    .pos-venda-historico-table td {
+      position: static;
+      min-width: 0 !important;
+      max-width: none !important;
+      padding: 9px 10px;
+      text-align: left;
+      white-space: nowrap;
+      font-size: 12px;
+    }
+    .pos-venda-historico-table th {
+      background: #f8fafc;
+    }
+    .pos-venda-historico-table tr.pos-venda-atual td {
+      background: #ecfdf5;
+      font-weight: 700;
+    }
+    .pos-venda-status-concluido {
+      padding: 10px 12px;
+      border: 1px solid #86efac;
+      border-radius: 10px;
+      background: var(--success-bg);
+      color: var(--success);
+      font-weight: 700;
+      font-size: 13px;
+    }
     .loading,
     .empty {
       padding: 30px;
@@ -781,7 +840,8 @@
       .header-grid,
       .status-cards,
       .grid-2,
-      .grid-3 {
+      .grid-3,
+      .pos-venda-resumo {
         grid-template-columns: 1fr 1fr;
       }
     }
@@ -792,7 +852,8 @@
       .header-grid,
       .status-cards,
       .grid-2,
-      .grid-3 {
+      .grid-3,
+      .pos-venda-resumo {
         grid-template-columns: 1fr;
       }
       .modal-header {
@@ -933,6 +994,44 @@
       <div class="modal-body" id="modalResumoBody"></div>
       <div class="modal-footer">
         <button class="btn-secondary" data-close-modal="modalResumoBackdrop">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modalPosVendaBackdrop">
+    <div class="modal">
+      <div class="modal-header">
+        <div>
+          <h3 id="modalPosVendaTitulo">Pós-venda</h3>
+          <p class="muted" id="modalPosVendaSubtitulo"></p>
+        </div>
+        <button class="btn-secondary" data-close-modal="modalPosVendaBackdrop">Fechar</button>
+      </div>
+      <div class="modal-body">
+        <div class="pos-venda-resumo" id="posVendaResumo"></div>
+        <div>
+          <strong>Últimos pedidos do cliente</strong>
+          <p class="muted">Os pedidos mais recentes aparecem primeiro. O pedido desta linha fica destacado.</p>
+        </div>
+        <div class="pos-venda-historico-wrap">
+          <table class="pos-venda-historico-table">
+            <thead>
+              <tr>
+                <th>Pedido</th>
+                <th>Data do pedido</th>
+                <th>Data da carrada</th>
+                <th>Carrada</th>
+                <th>Valor</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyPosVendaHistorico"></tbody>
+          </table>
+        </div>
+        <div id="feedbackPosVenda"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" data-close-modal="modalPosVendaBackdrop">Fechar</button>
+        <button class="btn-success" id="btnConfirmarPosVenda">Confirmar pós-venda concluído</button>
       </div>
     </div>
   </div>
@@ -1183,6 +1282,7 @@
       carregando: false,
       matriz: null,
       pedidoModalAtual: null,
+      posVendaModal: { pedidoNumero: null, carregando: false },
       transportadoras: null,
       agenciasRecebimento: null,
       etiquetaModal: {
@@ -1245,6 +1345,13 @@
       modalResumoTitulo: document.getElementById('modalResumoTitulo'),
       modalResumoSubtitulo: document.getElementById('modalResumoSubtitulo'),
       modalResumoBody: document.getElementById('modalResumoBody'),
+      modalPosVendaBackdrop: document.getElementById('modalPosVendaBackdrop'),
+      modalPosVendaTitulo: document.getElementById('modalPosVendaTitulo'),
+      modalPosVendaSubtitulo: document.getElementById('modalPosVendaSubtitulo'),
+      posVendaResumo: document.getElementById('posVendaResumo'),
+      tbodyPosVendaHistorico: document.getElementById('tbodyPosVendaHistorico'),
+      feedbackPosVenda: document.getElementById('feedbackPosVenda'),
+      btnConfirmarPosVenda: document.getElementById('btnConfirmarPosVenda'),
       modalEtiquetaBackdrop: document.getElementById('modalEtiquetaBackdrop'),
       modalEtiquetaTitulo: document.getElementById('modalEtiquetaTitulo'),
       modalEtiquetaSubtitulo: document.getElementById('modalEtiquetaSubtitulo'),
@@ -2219,6 +2326,106 @@
 
       el.tbodyRomaneioEntrega.innerHTML = html.join('');
       abrirModal(el.modalRomaneioEntregaBackdrop);
+    }
+
+    function montarResumoPosVenda(payload) {
+      const cliente = payload?.cliente || {};
+      const telefone = formatarTelefoneCliente(cliente.telefonePrincipal || '') || 'Não informado';
+      const cidade = [cliente.cidade, cliente.uf].filter(Boolean).join(' - ') || 'Não informada';
+      const totalPedidos = Number(payload?.totalPedidosEncontrados || 0);
+
+      el.modalPosVendaTitulo.textContent = 'Pós-venda do cliente';
+      el.modalPosVendaSubtitulo.textContent = `${cliente.nome || '-'} • Pedido ${payload?.numeroPedidoAtual || '-'}`;
+      el.posVendaResumo.innerHTML = `
+        <div class="pos-venda-resumo-card"><span>Cliente</span><strong>${escapeHtml(cliente.nome || '-')}</strong></div>
+        <div class="pos-venda-resumo-card"><span>Cidade</span><strong>${escapeHtml(cidade)}</strong></div>
+        <div class="pos-venda-resumo-card"><span>Telefone</span><strong>${escapeHtml(telefone)}</strong></div>
+        <div class="pos-venda-resumo-card"><span>Compras encontradas</span><strong>${escapeHtml(totalPedidos)}</strong></div>
+      `;
+
+      const pedidos = Array.isArray(payload?.pedidos) ? payload.pedidos : [];
+      if (!pedidos.length) {
+        el.tbodyPosVendaHistorico.innerHTML = '<tr><td colspan="5" class="empty">Nenhum pedido encontrado para este cliente.</td></tr>';
+        return;
+      }
+
+      el.tbodyPosVendaHistorico.innerHTML = pedidos.map((pedido) => `
+        <tr class="${pedido.atual ? 'pos-venda-atual' : ''}">
+          <td>${escapeHtml(pedido.numero || '-')} ${pedido.atual ? '<span class="muted">(atual)</span>' : ''}</td>
+          <td>${escapeHtml(formatarData(pedido.data) || '-')}</td>
+          <td>${escapeHtml(formatarData(pedido.carradaData) || '-')}</td>
+          <td>${escapeHtml(pedido.carradaDescricao || pedido.carradaCodigo || '-')}</td>
+          <td>${escapeHtml(formatarMoeda(pedido.total || 0))}</td>
+        </tr>
+      `).join('');
+    }
+
+    async function abrirModalPosVenda(numeroPedido) {
+      const pedido = obterPedido(numeroPedido);
+      if (!pedido) return;
+
+      estado.posVendaModal.pedidoNumero = String(numeroPedido);
+      estado.posVendaModal.carregando = true;
+      el.modalPosVendaTitulo.textContent = 'Pós-venda do cliente';
+      el.modalPosVendaSubtitulo.textContent = `${pedido.cliente?.nome || '-'} • Pedido ${numeroPedido}`;
+      el.posVendaResumo.innerHTML = '';
+      el.tbodyPosVendaHistorico.innerHTML = '<tr><td colspan="5" class="loading">Carregando histórico do cliente...</td></tr>';
+      el.feedbackPosVenda.innerHTML = '';
+
+      const concluido = Boolean(pedido.fases?.LIGACAO_POS_VENDA?.concluido);
+      el.btnConfirmarPosVenda.disabled = concluido;
+      el.btnConfirmarPosVenda.textContent = concluido ? 'Pós-venda já concluído' : 'Confirmar pós-venda concluído';
+      if (concluido) {
+        el.feedbackPosVenda.innerHTML = '<div class="pos-venda-status-concluido">✓ Pós-venda já marcado como concluído para este pedido.</div>';
+      }
+
+      abrirModal(el.modalPosVendaBackdrop);
+
+      try {
+        const payload = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/pos-venda/historico`);
+        montarResumoPosVenda(payload);
+      } catch (error) {
+        el.tbodyPosVendaHistorico.innerHTML = `<tr><td colspan="5" class="empty">${escapeHtml(error.message)}</td></tr>`;
+      } finally {
+        estado.posVendaModal.carregando = false;
+      }
+    }
+
+    async function confirmarPosVendaConcluido() {
+      const numeroPedido = estado.posVendaModal.pedidoNumero;
+      if (!numeroPedido) return;
+
+      const pedido = obterPedido(numeroPedido);
+      if (!pedido || pedido.fases?.LIGACAO_POS_VENDA?.concluido) return;
+
+      const textoOriginal = el.btnConfirmarPosVenda.textContent;
+      el.btnConfirmarPosVenda.disabled = true;
+      el.btnConfirmarPosVenda.textContent = 'Salvando...';
+
+      try {
+        await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/fases/LIGACAO_POS_VENDA`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ valor: true, silencioso: true })
+        });
+
+        pedido.fases.LIGACAO_POS_VENDA.concluido = true;
+        pedido.fases.LIGACAO_POS_VENDA.updatedAt = new Date().toISOString();
+        if (estado.matriz?.totaisFases?.LIGACAO_POS_VENDA) {
+          estado.matriz.totaisFases.LIGACAO_POS_VENDA.concluidos = estado.matriz.pedidos.filter(
+            (item) => Boolean(item.fases?.LIGACAO_POS_VENDA?.concluido)
+          ).length;
+        }
+
+        el.btnConfirmarPosVenda.textContent = 'Pós-venda já concluído';
+        el.feedbackPosVenda.innerHTML = '<div class="pos-venda-status-concluido">✓ Pós-venda concluído e salvo.</div>';
+        renderCardsFases();
+        renderMatriz();
+      } catch (error) {
+        el.btnConfirmarPosVenda.disabled = false;
+        el.btnConfirmarPosVenda.textContent = textoOriginal;
+        el.feedbackPosVenda.innerHTML = `<div class="feedback error">${escapeHtml(error.message)}</div>`;
+      }
     }
 
     function abrirResumoPedido(titulo, resumoPedido, notificacao = null) {
@@ -3751,6 +3958,11 @@
         return;
       }
 
+      if (faseCodigo === 'LIGACAO_POS_VENDA') {
+        await abrirModalPosVenda(numeroPedido);
+        return;
+      }
+
       if (faseCodigo === 'ETIQUETA_VOLUMES') {
         await abrirModalEtiqueta(numeroPedido);
         return;
@@ -3792,6 +4004,7 @@
     el.btnEnviarWhatsappCarrada.addEventListener('click', abrirModalWhatsappCarrada);
     el.btnWhatsappClienteEnviar.addEventListener('click', enviarWhatsappClienteModal);
     el.btnWhatsappCarradaEnviar.addEventListener('click', enviarWhatsappCarradaModal);
+    el.btnConfirmarPosVenda.addEventListener('click', confirmarPosVendaConcluido);
     el.checkboxIgnorarPedidosProntos?.addEventListener('change', () => {
       setFeedback(
         el.feedbackWhatsappCarrada,
