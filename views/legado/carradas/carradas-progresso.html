@@ -1031,6 +1031,7 @@
       </div>
       <div class="modal-footer">
         <button class="btn-secondary" data-close-modal="modalPosVendaBackdrop">Fechar</button>
+        <button class="btn-danger" id="btnDesmarcarPosVenda">Desmarcar pós-venda</button>
         <button class="btn-success" id="btnConfirmarPosVenda">Confirmar pós-venda concluído</button>
       </div>
     </div>
@@ -1352,6 +1353,7 @@
       tbodyPosVendaHistorico: document.getElementById('tbodyPosVendaHistorico'),
       feedbackPosVenda: document.getElementById('feedbackPosVenda'),
       btnConfirmarPosVenda: document.getElementById('btnConfirmarPosVenda'),
+      btnDesmarcarPosVenda: document.getElementById('btnDesmarcarPosVenda'),
       modalEtiquetaBackdrop: document.getElementById('modalEtiquetaBackdrop'),
       modalEtiquetaTitulo: document.getElementById('modalEtiquetaTitulo'),
       modalEtiquetaSubtitulo: document.getElementById('modalEtiquetaSubtitulo'),
@@ -2375,6 +2377,7 @@
       const concluido = Boolean(pedido.fases?.LIGACAO_POS_VENDA?.concluido);
       el.btnConfirmarPosVenda.disabled = concluido;
       el.btnConfirmarPosVenda.textContent = concluido ? 'Pós-venda já concluído' : 'Confirmar pós-venda concluído';
+      el.btnDesmarcarPosVenda.disabled = !concluido;
       if (concluido) {
         el.feedbackPosVenda.innerHTML = '<div class="pos-venda-status-concluido">✓ Pós-venda já marcado como concluído para este pedido.</div>';
       }
@@ -2418,12 +2421,57 @@
         }
 
         el.btnConfirmarPosVenda.textContent = 'Pós-venda já concluído';
+        el.btnDesmarcarPosVenda.disabled = false;
         el.feedbackPosVenda.innerHTML = '<div class="pos-venda-status-concluido">✓ Pós-venda concluído e salvo.</div>';
         renderCardsFases();
         renderMatriz();
       } catch (error) {
         el.btnConfirmarPosVenda.disabled = false;
         el.btnConfirmarPosVenda.textContent = textoOriginal;
+        el.feedbackPosVenda.innerHTML = `<div class="feedback error">${escapeHtml(error.message)}</div>`;
+      }
+    }
+
+    async function desmarcarPosVenda() {
+      const numeroPedido = estado.posVendaModal.pedidoNumero;
+      if (!numeroPedido) return;
+
+      const pedido = obterPedido(numeroPedido);
+      if (!pedido || !pedido.fases?.LIGACAO_POS_VENDA?.concluido) return;
+
+      if (!window.confirm('Deseja realmente desmarcar o pós-venda deste pedido?')) return;
+
+      const textoOriginal = el.btnDesmarcarPosVenda.textContent;
+      el.btnDesmarcarPosVenda.disabled = true;
+      el.btnConfirmarPosVenda.disabled = true;
+      el.btnDesmarcarPosVenda.textContent = 'Desmarcando...';
+
+      try {
+        await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/fases/LIGACAO_POS_VENDA`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ valor: false, silencioso: true })
+        });
+
+        pedido.fases.LIGACAO_POS_VENDA.concluido = false;
+        pedido.fases.LIGACAO_POS_VENDA.updatedAt = new Date().toISOString();
+        if (estado.matriz?.totaisFases?.LIGACAO_POS_VENDA) {
+          estado.matriz.totaisFases.LIGACAO_POS_VENDA.concluidos = estado.matriz.pedidos.filter(
+            (item) => Boolean(item.fases?.LIGACAO_POS_VENDA?.concluido)
+          ).length;
+        }
+
+        el.btnDesmarcarPosVenda.textContent = 'Desmarcar pós-venda';
+        el.btnDesmarcarPosVenda.disabled = true;
+        el.btnConfirmarPosVenda.textContent = 'Confirmar pós-venda concluído';
+        el.btnConfirmarPosVenda.disabled = false;
+        el.feedbackPosVenda.innerHTML = '<div class="feedback">Pós-venda desmarcado.</div>';
+        renderCardsFases();
+        renderMatriz();
+      } catch (error) {
+        el.btnDesmarcarPosVenda.disabled = false;
+        el.btnConfirmarPosVenda.disabled = true;
+        el.btnDesmarcarPosVenda.textContent = textoOriginal;
         el.feedbackPosVenda.innerHTML = `<div class="feedback error">${escapeHtml(error.message)}</div>`;
       }
     }
@@ -4005,6 +4053,7 @@
     el.btnWhatsappClienteEnviar.addEventListener('click', enviarWhatsappClienteModal);
     el.btnWhatsappCarradaEnviar.addEventListener('click', enviarWhatsappCarradaModal);
     el.btnConfirmarPosVenda.addEventListener('click', confirmarPosVendaConcluido);
+    el.btnDesmarcarPosVenda.addEventListener('click', desmarcarPosVenda);
     el.checkboxIgnorarPedidosProntos?.addEventListener('change', () => {
       setFeedback(
         el.feedbackWhatsappCarrada,
