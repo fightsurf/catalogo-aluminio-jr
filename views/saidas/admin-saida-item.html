@@ -3,20 +3,25 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Itens de Saída - Alumínio JR</title>
+  <title>Estrutura de Custos - Alumínio JR</title>
   <link rel="stylesheet" href="/css/theme.css" />
   <style>
-    body { font-family: Arial, sans-serif; background:#eef2f7; margin:0; padding:24px; }
-    .container { max-width:1220px; margin:0 auto; }
+    body { font-family:Arial,sans-serif; background:#eef2f7; margin:0; padding:24px; color:#243447; }
+    .container { max-width:1360px; margin:0 auto; }
     .box { background:#fff; padding:22px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,.08); margin-bottom:22px; }
-    h1,h2 { margin-top:0; color:#243447; }
-    .menu { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
+    h1,h2 { margin-top:0; }
+    .subtitulo { color:#667085; margin-top:-8px; margin-bottom:18px; }
+    .menu { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:18px; }
     .menu a { text-decoration:none; background:#34495e; color:#fff; padding:9px 12px; border-radius:6px; font-size:13px; }
     .menu a.ativo { background:#2ecc71; }
-    .grid-form { display:grid; grid-template-columns:1.4fr 1fr 150px 120px 1.2fr 180px; gap:12px; align-items:end; }
-    .grid-filtro { display:grid; grid-template-columns:1.1fr 1fr 140px 140px 120px 120px; gap:12px; align-items:end; }
+    .cards { display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin-bottom:22px; }
+    .card { background:#fff; border-radius:10px; padding:16px; box-shadow:0 4px 12px rgba(0,0,0,.07); border-left:5px solid #34495e; }
+    .card small { display:block; color:#667085; font-weight:bold; margin-bottom:6px; }
+    .card strong { font-size:22px; }
+    .grid-form { display:grid; grid-template-columns:1.25fr 1fr 1fr 170px 130px 1.2fr 190px; gap:12px; align-items:end; }
+    .grid-filtro { display:grid; grid-template-columns:1.2fr 1fr 1fr 150px 120px 120px; gap:12px; align-items:end; }
     label { display:block; font-size:13px; font-weight:bold; color:#4a5568; margin-bottom:6px; }
-    input, select, button { width:100%; padding:10px 12px; border-radius:6px; border:1px solid #ccd3db; font-size:14px; box-sizing:border-box; }
+    input,select,button { width:100%; padding:10px 12px; border-radius:6px; border:1px solid #ccd3db; font-size:14px; box-sizing:border-box; }
     button { border:none; cursor:pointer; font-weight:bold; }
     .btn-salvar { background:#2ecc71; color:#fff; }
     .btn-limpar { background:#95a5a6; color:#fff; }
@@ -26,187 +31,138 @@
     table { width:100%; border-collapse:collapse; margin-top:16px; }
     th { background:#2c3e50; color:#fff; padding:10px; text-align:left; }
     td { padding:10px; border-bottom:1px solid #e9edf2; vertical-align:middle; }
-    tr:hover { background:#f9fbfd; }
+    tr:hover:not(.grupo) { background:#f9fbfd; }
+    .grupo td { background:#edf2f7; font-weight:bold; border-top:2px solid #d9e1e8; }
     .acoes { display:flex; gap:8px; flex-wrap:wrap; }
     .ok { color:#1e8449; font-weight:bold; }
     .no { color:#c0392b; font-weight:bold; }
+    .tag { display:inline-block; padding:4px 8px; border-radius:999px; font-size:12px; font-weight:bold; background:#edf2f7; }
+    .valor { text-align:right; font-weight:bold; white-space:nowrap; }
     .mensagem { margin-top:12px; font-weight:bold; display:none; }
     .mensagem.sucesso { color:#1e8449; display:block; }
     .mensagem.erro { color:#c0392b; display:block; }
-    @media (max-width:1050px) { .grid-form,.grid-filtro { grid-template-columns:1fr; } }
+    .aviso { background:#fff8e1; border:1px solid #f2d98c; padding:10px 12px; border-radius:6px; font-size:13px; margin-top:12px; }
+    @media (max-width:1100px) { .cards { grid-template-columns:1fr 1fr; } .grid-form,.grid-filtro { grid-template-columns:1fr; } }
+    @media (max-width:650px) { body { padding:12px; } .cards { grid-template-columns:1fr; } .box { padding:16px; overflow-x:auto; } }
   </style>
 </head>
 <body>
-  <div class="container">
-    <div class="box">
-      <h1>Itens de Saída</h1>
-      <div class="menu">
-        <a href="/admin-saidas-categorias">Categorias</a>
-        <a href="/admin-saidas-itens" class="ativo">Itens de saída</a>
-        <a href="/admin-saidas">Lançar saída</a>
-        <a href="/admin-saidas-consulta">Consultar/editar</a>
-        <a href="/admin-saidas-carne">Carnê</a>
-        <a href="/admin-saidas-boletos">Boletos</a>
-        <a href="/relatorio-saidas">Relatório mensal</a>
-      </div>
-
-      <input type="hidden" id="item_id" />
-      <div class="grid-form">
-        <div>
-          <label for="nome">Nome do item</label>
-          <input id="nome" maxlength="180" placeholder="Energia da fábrica, DAS, Salário João..." />
-        </div>
-        <div>
-          <label for="categoria_id">Categoria</label>
-          <select id="categoria_id"></select>
-        </div>
-        <div>
-          <label for="recorrente_mensal">Recorrente mensal</label>
-          <select id="recorrente_mensal"><option value="true">Sim</option><option value="false">Não</option></select>
-        </div>
-        <div>
-          <label for="ativo">Ativo</label>
-          <select id="ativo"><option value="true">Sim</option><option value="false">Não</option></select>
-        </div>
-        <div>
-          <label for="observacao">Observação</label>
-          <input id="observacao" maxlength="500" placeholder="Opcional" />
-        </div>
-        <div style="display:flex; gap:10px;">
-          <button class="btn-salvar" onclick="salvar()">Salvar</button>
-          <button class="btn-limpar" onclick="limparFormulario()">Limpar</button>
-        </div>
-      </div>
-      <div id="mensagem" class="mensagem"></div>
+<div class="container">
+  <div class="box">
+    <h1>Estrutura de Custos da Fábrica</h1>
+    <div class="subtitulo">Cadastro estrutural dos custos, despesas e impostos. Matéria-prima fica fora deste módulo.</div>
+    <div class="menu">
+      <a href="/admin-saidas-categorias">Categorias de custos</a>
+      <a href="/admin-saidas-itens" class="ativo">Estrutura de custos</a>
+      <a href="/admin-saidas">Lançamentos mensais</a>
+      <a href="/admin-saidas-consulta">Consultar lançamentos</a>
+      <a href="/relatorio-saidas">Relatório mensal</a>
     </div>
-
-    <div class="box">
-      <h2>Lista de itens</h2>
-      <div class="grid-filtro">
-        <div><label for="filtroNome">Buscar por nome</label><input id="filtroNome" placeholder="Nome" /></div>
-        <div><label for="filtroCategoria">Categoria</label><select id="filtroCategoria"></select></div>
-        <div><label for="filtroRecorrente">Recorrente</label><select id="filtroRecorrente"><option value="">Todos</option><option value="true">Sim</option><option value="false">Não</option></select></div>
-        <div><label for="filtroAtivo">Status</label><select id="filtroAtivo"><option value="">Todos</option><option value="true">Ativos</option><option value="false">Inativos</option></select></div>
-        <div><label>&nbsp;</label><button class="btn-buscar" onclick="listar()">Buscar</button></div>
-        <div><label>&nbsp;</label><button class="btn-limpar" onclick="limparFiltros()">Limpar</button></div>
-      </div>
-
-      <table>
-        <thead><tr><th>Item</th><th>Categoria</th><th>Recorrente</th><th>Ativo</th><th>Observação</th><th style="width:180px;">Ações</th></tr></thead>
-        <tbody id="tbody"></tbody>
-      </table>
-    </div>
+    <div class="aviso">Nesta primeira etapa, os valores são mensais e manuais. A folha de salários será ligada ao Firebird em uma etapa própria, usando o último salário calculado de cada funcionário.</div>
   </div>
 
-  <script>
-    const API = '/api/saidas-itens';
-    let categorias = [];
+  <div class="cards">
+    <div class="card"><small>Custos fixos</small><strong id="totalFixo">R$ 0,00</strong></div>
+    <div class="card"><small>Custos variáveis</small><strong id="totalVariavel">R$ 0,00</strong></div>
+    <div class="card"><small>Despesas</small><strong id="totalDespesa">R$ 0,00</strong></div>
+    <div class="card"><small>Impostos</small><strong id="totalImposto">R$ 0,00</strong></div>
+    <div class="card"><small>Total mensal cadastrado</small><strong id="totalGeral">R$ 0,00</strong></div>
+  </div>
 
-    function escapeHtml(v) { return String(v ?? '').replace(/[&<>'"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[c])); }
-    function msg(texto, tipo='sucesso') { const el = document.getElementById('mensagem'); el.textContent = texto; el.className = `mensagem ${tipo}`; }
-    function limparMsg() { const el = document.getElementById('mensagem'); el.textContent = ''; el.className = 'mensagem'; }
-    async function tratar(res) { const json = await res.json(); if (!res.ok || json.success === false) throw new Error(json.message || 'Erro'); return json; }
+  <div class="box">
+    <h2>Cadastrar / editar item</h2>
+    <input type="hidden" id="item_id" />
+    <div class="grid-form">
+      <div><label for="nome">Nome da despesa/custo</label><input id="nome" maxlength="180" placeholder="Ex.: Simples Nacional, Aluguel, Energia elétrica" /></div>
+      <div><label for="categoria_id">Categoria</label><select id="categoria_id"></select></div>
+      <div><label for="classificacao">Classificação</label><select id="classificacao"><option value="CUSTO_FIXO">Custo fixo</option><option value="CUSTO_VARIAVEL">Custo variável</option><option value="DESPESA">Despesa</option><option value="IMPOSTO">Imposto</option></select></div>
+      <div><label for="valor_mensal">Valor mensal (R$)</label><input id="valor_mensal" inputmode="decimal" placeholder="0,00" /></div>
+      <div><label for="ativo">Ativo</label><select id="ativo"><option value="true">Sim</option><option value="false">Não</option></select></div>
+      <div><label for="observacao">Observação</label><input id="observacao" maxlength="500" placeholder="Opcional" /></div>
+      <div style="display:flex;gap:10px;"><button class="btn-salvar" onclick="salvar()">Salvar</button><button class="btn-limpar" onclick="limparFormulario()">Limpar</button></div>
+    </div>
+    <div id="mensagem" class="mensagem"></div>
+  </div>
 
-    async function carregarCategorias() {
-      const json = await tratar(await fetch('/api/saidas-categorias?ativo=true'));
-      categorias = json.data || [];
-      const options = '<option value="">Selecione</option>' + categorias.map(c => `<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');
-      document.getElementById('categoria_id').innerHTML = options;
-      document.getElementById('filtroCategoria').innerHTML = '<option value="">Todas</option>' + categorias.map(c => `<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');
-    }
+  <div class="box">
+    <h2>Custos cadastrados</h2>
+    <div class="grid-filtro">
+      <div><label for="filtroNome">Buscar por nome</label><input id="filtroNome" placeholder="Nome" /></div>
+      <div><label for="filtroCategoria">Categoria</label><select id="filtroCategoria"></select></div>
+      <div><label for="filtroClassificacao">Classificação</label><select id="filtroClassificacao"><option value="">Todas</option><option value="CUSTO_FIXO">Custo fixo</option><option value="CUSTO_VARIAVEL">Custo variável</option><option value="DESPESA">Despesa</option><option value="IMPOSTO">Imposto</option></select></div>
+      <div><label for="filtroAtivo">Status</label><select id="filtroAtivo"><option value="">Todos</option><option value="true">Ativos</option><option value="false">Inativos</option></select></div>
+      <div><label>&nbsp;</label><button class="btn-buscar" onclick="listar()">Buscar</button></div>
+      <div><label>&nbsp;</label><button class="btn-limpar" onclick="limparFiltros()">Limpar</button></div>
+    </div>
 
-    function limparFormulario() {
-      document.getElementById('item_id').value = '';
-      document.getElementById('nome').value = '';
-      document.getElementById('categoria_id').value = '';
-      document.getElementById('recorrente_mensal').value = 'true';
-      document.getElementById('ativo').value = 'true';
-      document.getElementById('observacao').value = '';
-      limparMsg();
-      document.getElementById('nome').focus();
-    }
+    <table>
+      <thead><tr><th>Item</th><th>Classificação</th><th style="width:150px;text-align:right;">Valor mensal</th><th style="width:90px;">Ativo</th><th>Observação</th><th style="width:180px;">Ações</th></tr></thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+</div>
+<script>
+  const API = '/api/saidas-itens';
+  let categorias = [];
 
-    function limparFiltros() {
-      document.getElementById('filtroNome').value = '';
-      document.getElementById('filtroCategoria').value = '';
-      document.getElementById('filtroRecorrente').value = '';
-      document.getElementById('filtroAtivo').value = '';
-      listar();
-    }
+  function escapeHtml(v){return String(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));}
+  function moeda(v){return Number(v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});}
+  function msg(texto,tipo='sucesso'){const el=document.getElementById('mensagem');el.textContent=texto;el.className=`mensagem ${tipo}`;}
+  function limparMsg(){const el=document.getElementById('mensagem');el.textContent='';el.className='mensagem';}
+  async function tratar(res){const json=await res.json();if(!res.ok||json.success===false)throw new Error(json.message||'Erro');return json;}
+  function classificacaoLabel(v){return {CUSTO_FIXO:'Custo fixo',CUSTO_VARIAVEL:'Custo variável',DESPESA:'Despesa',IMPOSTO:'Imposto'}[v]||v;}
+  function lerValor(){const raw=document.getElementById('valor_mensal').value.trim().replace(/\./g,'').replace(',','.');const n=Number(raw||0);if(!Number.isFinite(n)||n<0)throw new Error('Valor mensal inválido');return n;}
 
-    async function listar() {
-      try {
-        limparMsg();
-        const params = new URLSearchParams();
-        const nome = document.getElementById('filtroNome').value.trim();
-        const categoria = document.getElementById('filtroCategoria').value;
-        const recorrente = document.getElementById('filtroRecorrente').value;
-        const ativo = document.getElementById('filtroAtivo').value;
-        if (nome) params.append('nome', nome);
-        if (categoria) params.append('categoria_id', categoria);
-        if (recorrente !== '') params.append('recorrente_mensal', recorrente);
-        if (ativo !== '') params.append('ativo', ativo);
-        const json = await tratar(await fetch(`${API}?${params.toString()}`));
-        const tbody = document.getElementById('tbody');
-        if (!json.data.length) { tbody.innerHTML = '<tr><td colspan="6">Nenhum item encontrado.</td></tr>'; return; }
-        tbody.innerHTML = json.data.map(item => `
-          <tr>
-            <td>${escapeHtml(item.nome)}</td>
-            <td>${escapeHtml(item.categoria_nome)}</td>
-            <td><span class="${item.recorrente_mensal ? 'ok' : 'no'}">${item.recorrente_mensal ? 'Sim' : 'Não'}</span></td>
-            <td><span class="${item.ativo ? 'ok' : 'no'}">${item.ativo ? 'Sim' : 'Não'}</span></td>
-            <td>${escapeHtml(item.observacao || '')}</td>
-            <td><div class="acoes"><button class="btn-editar" onclick="editar(${item.id})">Editar</button><button class="btn-excluir" onclick="excluirRegistro(${item.id})">Excluir</button></div></td>
-          </tr>`).join('');
-      } catch (error) { msg(error.message, 'erro'); }
-    }
+  async function carregarCategorias(){
+    const json=await tratar(await fetch('/api/saidas-categorias?ativo=true'));
+    categorias=json.data||[];
+    const options='<option value="">Selecione</option>'+categorias.map(c=>`<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');
+    document.getElementById('categoria_id').innerHTML=options;
+    document.getElementById('filtroCategoria').innerHTML='<option value="">Todas</option>'+categorias.map(c=>`<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');
+  }
 
-    async function editar(id) {
-      try {
-        limparMsg();
-        const json = await tratar(await fetch(`${API}/${id}`));
-        const item = json.data;
-        document.getElementById('item_id').value = item.id;
-        document.getElementById('nome').value = item.nome || '';
-        document.getElementById('categoria_id').value = item.categoria_id;
-        document.getElementById('recorrente_mensal').value = item.recorrente_mensal ? 'true' : 'false';
-        document.getElementById('ativo').value = item.ativo ? 'true' : 'false';
-        document.getElementById('observacao').value = item.observacao || '';
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-      } catch (error) { msg(error.message, 'erro'); }
-    }
+  function limparFormulario(){
+    document.getElementById('item_id').value=''; document.getElementById('nome').value=''; document.getElementById('categoria_id').value='';
+    document.getElementById('classificacao').value='CUSTO_FIXO'; document.getElementById('valor_mensal').value=''; document.getElementById('ativo').value='true'; document.getElementById('observacao').value='';
+    limparMsg(); document.getElementById('nome').focus();
+  }
+  function limparFiltros(){document.getElementById('filtroNome').value='';document.getElementById('filtroCategoria').value='';document.getElementById('filtroClassificacao').value='';document.getElementById('filtroAtivo').value='';listar();}
 
-    async function salvar() {
-      try {
-        limparMsg();
-        const id = document.getElementById('item_id').value;
-        const body = {
-          nome: document.getElementById('nome').value.trim(),
-          categoria_id: document.getElementById('categoria_id').value,
-          recorrente_mensal: document.getElementById('recorrente_mensal').value === 'true',
-          ativo: document.getElementById('ativo').value === 'true',
-          observacao: document.getElementById('observacao').value.trim()
-        };
-        if (!body.nome) throw new Error('Nome é obrigatório');
-        if (!body.categoria_id) throw new Error('Categoria é obrigatória');
-        await tratar(await fetch(id ? `${API}/${id}` : API, { method: id ? 'PUT' : 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }));
-        msg(id ? 'Item atualizado com sucesso' : 'Item criado com sucesso');
-        limparFormulario();
-        listar();
-      } catch (error) { msg(error.message, 'erro'); }
-    }
+  async function atualizarCards(){
+    const json=await tratar(await fetch(`${API}?ativo=true`));
+    const t={CUSTO_FIXO:0,CUSTO_VARIAVEL:0,DESPESA:0,IMPOSTO:0};
+    (json.data||[]).forEach(i=>t[i.classificacao]=(t[i.classificacao]||0)+Number(i.valor_mensal||0));
+    document.getElementById('totalFixo').textContent=moeda(t.CUSTO_FIXO); document.getElementById('totalVariavel').textContent=moeda(t.CUSTO_VARIAVEL);
+    document.getElementById('totalDespesa').textContent=moeda(t.DESPESA); document.getElementById('totalImposto').textContent=moeda(t.IMPOSTO);
+    document.getElementById('totalGeral').textContent=moeda(t.CUSTO_FIXO+t.CUSTO_VARIAVEL+t.DESPESA+t.IMPOSTO);
+  }
 
-    async function excluirRegistro(id) {
-      try {
-        if (!confirm('Deseja realmente excluir este item?')) return;
-        await tratar(await fetch(`${API}/${id}`, { method: 'DELETE' }));
-        msg('Item excluído com sucesso');
-        listar();
-      } catch (error) { msg(error.message, 'erro'); }
-    }
+  async function listar(){
+    try{
+      limparMsg(); const params=new URLSearchParams(); const nome=document.getElementById('filtroNome').value.trim(); const categoria=document.getElementById('filtroCategoria').value; const classificacao=document.getElementById('filtroClassificacao').value; const ativo=document.getElementById('filtroAtivo').value;
+      if(nome)params.append('nome',nome);if(categoria)params.append('categoria_id',categoria);if(classificacao)params.append('classificacao',classificacao);if(ativo!=='')params.append('ativo',ativo);
+      const json=await tratar(await fetch(`${API}?${params.toString()}`)); const tbody=document.getElementById('tbody'); const itens=json.data||[];
+      if(!itens.length){tbody.innerHTML='<tr><td colspan="6">Nenhum item encontrado.</td></tr>';await atualizarCards();return;}
+      let html='',catAtual=null,subtotal=0;
+      itens.forEach((item,idx)=>{
+        if(catAtual!==item.categoria_nome){ if(catAtual!==null) html+=`<tr class="grupo"><td colspan="2">Subtotal ${escapeHtml(catAtual)}</td><td class="valor">${moeda(subtotal)}</td><td colspan="3"></td></tr>`; catAtual=item.categoria_nome; subtotal=0; html+=`<tr class="grupo"><td colspan="6">${escapeHtml(catAtual)}</td></tr>`; }
+        subtotal+=item.ativo?Number(item.valor_mensal||0):0;
+        html+=`<tr><td>${escapeHtml(item.nome)}</td><td><span class="tag">${escapeHtml(classificacaoLabel(item.classificacao))}</span></td><td class="valor">${moeda(item.valor_mensal)}</td><td><span class="${item.ativo?'ok':'no'}">${item.ativo?'Sim':'Não'}</span></td><td>${escapeHtml(item.observacao||'')}</td><td><div class="acoes"><button class="btn-editar" onclick="editar(${item.id})">Editar</button><button class="btn-excluir" onclick="excluirRegistro(${item.id})">Excluir</button></div></td></tr>`;
+        if(idx===itens.length-1) html+=`<tr class="grupo"><td colspan="2">Subtotal ${escapeHtml(catAtual)}</td><td class="valor">${moeda(subtotal)}</td><td colspan="3"></td></tr>`;
+      });
+      tbody.innerHTML=html; await atualizarCards();
+    }catch(error){msg(error.message,'erro');}
+  }
 
-    document.getElementById('filtroNome').addEventListener('keydown', e => { if (e.key === 'Enter') listar(); });
-    carregarCategorias().then(listar).catch(error => msg(error.message, 'erro'));
-  </script>
+  async function editar(id){try{limparMsg();const json=await tratar(await fetch(`${API}/${id}`));const item=json.data;document.getElementById('item_id').value=item.id;document.getElementById('nome').value=item.nome||'';document.getElementById('categoria_id').value=item.categoria_id;document.getElementById('classificacao').value=item.classificacao||'DESPESA';document.getElementById('valor_mensal').value=Number(item.valor_mensal||0).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});document.getElementById('ativo').value=item.ativo?'true':'false';document.getElementById('observacao').value=item.observacao||'';window.scrollTo({top:0,behavior:'smooth'});}catch(error){msg(error.message,'erro');}}
+
+  async function salvar(){
+    try{limparMsg();const id=document.getElementById('item_id').value;const body={nome:document.getElementById('nome').value.trim(),categoria_id:document.getElementById('categoria_id').value,classificacao:document.getElementById('classificacao').value,valor_mensal:lerValor(),origem_valor:'MANUAL',recorrente_mensal:true,ativo:document.getElementById('ativo').value==='true',observacao:document.getElementById('observacao').value.trim()};if(!body.nome)throw new Error('Nome é obrigatório');if(!body.categoria_id)throw new Error('Categoria é obrigatória');await tratar(await fetch(id?`${API}/${id}`:API,{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}));msg(id?'Item atualizado com sucesso':'Item criado com sucesso');limparFormulario();await listar();}catch(error){msg(error.message,'erro');}
+  }
+  async function excluirRegistro(id){try{if(!confirm('Deseja realmente excluir este item?'))return;await tratar(await fetch(`${API}/${id}`,{method:'DELETE'}));msg('Item excluído com sucesso');await listar();}catch(error){msg(error.message,'erro');}}
+
+  document.getElementById('filtroNome').addEventListener('keydown',e=>{if(e.key==='Enter')listar();});
+  carregarCategorias().then(listar).catch(error=>msg(error.message,'erro'));
+</script>
 </body>
 </html>

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Categorias de Saída - Alumínio JR</title>
+  <title>Categorias de Custos - Alumínio JR</title>
   <link rel="stylesheet" href="/css/theme.css" />
   <style>
     body { font-family: Arial, sans-serif; background:#eef2f7; margin:0; padding:24px; }
@@ -41,12 +41,12 @@
 <body>
   <div class="container">
     <div class="box">
-      <h1>Categorias de Saída</h1>
+      <h1>Categorias de Custos</h1>
       <div class="menu">
-        <a href="/admin-saidas-categorias" class="ativo">Categorias</a>
-        <a href="/admin-saidas-itens">Itens de saída</a>
-        <a href="/admin-saidas">Lançar saída</a>
-        <a href="/admin-saidas-consulta">Consultar/editar</a>
+        <a href="/admin-saidas-categorias" class="ativo">Categorias de custos</a>
+        <a href="/admin-saidas-itens">Estrutura de custos</a>
+        <a href="/admin-saidas">Lançamentos mensais</a>
+        <a href="/admin-saidas-consulta">Consultar lançamentos</a>
         <a href="/admin-saidas-carne">Carnê</a>
         <a href="/admin-saidas-boletos">Boletos</a>
         <a href="/relatorio-saidas">Relatório mensal</a>
@@ -56,7 +56,7 @@
       <div class="grid-form">
         <div>
           <label for="nome">Nome</label>
-          <input id="nome" maxlength="160" placeholder="Energia, Salário, Imposto, Retirada pessoal..." />
+          <input id="nome" maxlength="160" placeholder="Impostos, Funcionários, Energia, Administrativo..." />
         </div>
         <div>
           <label for="ativo">Ativa</label>
@@ -75,7 +75,7 @@
     </div>
 
     <div class="box">
-      <h2>Lista de categorias</h2>
+      <h2>Lista de categorias de custos</h2>
       <div class="grid-filtro">
         <div>
           <label for="filtroNome">Buscar por nome</label>
