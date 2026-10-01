@@ -1421,7 +1421,7 @@ async function salvarQuantidadeVolumesManual({ codigoCarrada: codigoCarradaParam
   };
 }
 
-async function salvarDataExpedicao({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam, dataExpedicao: dataExpedicaoParam }) {
+async function salvarDataExpedicao({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam, dataExpedicao: dataExpedicaoParam, silencioso = false }) {
   const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
   const numeroPedido = normalizarNumeroPedido(numeroPedidoParam);
   const dataExpedicao = normalizarDataExpedicao(dataExpedicaoParam);
@@ -1446,7 +1446,7 @@ async function salvarDataExpedicao({ codigoCarrada: codigoCarradaParam, numeroPe
   const dataSalva = limparTexto(salvo?.dataExpedicao || dataExpedicao);
   let notificacao = null;
 
-  if (dataSalva) {
+  if (dataSalva && !silencioso) {
     const detalhePagamento = await buscarDetalhePagamentoDoPedido(pedido);
     const telefone = normalizarTelefoneLote(pedido, detalhePagamento);
     const mensagem = [

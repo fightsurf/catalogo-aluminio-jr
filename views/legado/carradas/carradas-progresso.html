@@ -489,10 +489,23 @@
     .expedicao-cell {
       cursor: pointer;
     }
-    .expedicao-today-link.busy {
+    .expedicao-today-link.busy,
+    .expedicao-carrada-link.busy {
       pointer-events: none;
       opacity: 0.55;
       text-decoration: none;
+    }
+    .expedicao-links {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-top: 3px;
+    }
+    .expedicao-links .manual-link {
+      display: inline-block;
+      margin-top: 0;
     }
     .cell-button.readonly {
       cursor: default;
@@ -1832,7 +1845,10 @@
                     hidden
                   >
                 </div>
-                <a href="#" class="manual-link expedicao-today-link" data-expedicao-hoje-numero="${escapeHtml(pedido.numero)}" title="Preencher e salvar com a data de hoje">hoje</a>
+                <div class="expedicao-links">
+                  <a href="#" class="manual-link expedicao-today-link" data-expedicao-hoje-numero="${escapeHtml(pedido.numero)}" title="Preencher e salvar com a data de hoje e enviar mensagem ao cliente">Hoje</a>
+                  <a href="#" class="manual-link expedicao-carrada-link" data-expedicao-carrada-numero="${escapeHtml(pedido.numero)}" title="Preencher com a data da carrada sem enviar mensagem ao cliente">Data da carrada (Não envia msg)</a>
+                </div>
               </td>
             `;
           }
@@ -1976,13 +1992,27 @@
         link.addEventListener('mousedown', () => {
           const celula = obterCelulaDataExpedicao(link.dataset.expedicaoHojeNumero);
           if (celula?.dataset.editando === 'true') {
-            celula.dataset.ignorarBlurHoje = 'true';
+            celula.dataset.ignorarBlurExpedicao = 'true';
           }
         });
         link.addEventListener('click', (event) => {
           event.preventDefault();
           event.stopPropagation();
           salvarDataExpedicaoHoje(link);
+        });
+      });
+
+      el.tbodyMatriz.querySelectorAll('[data-expedicao-carrada-numero]').forEach((link) => {
+        link.addEventListener('mousedown', () => {
+          const celula = obterCelulaDataExpedicao(link.dataset.expedicaoCarradaNumero);
+          if (celula?.dataset.editando === 'true') {
+            celula.dataset.ignorarBlurExpedicao = 'true';
+          }
+        });
+        link.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          salvarDataExpedicaoCarradaSemMensagem(link);
         });
       });
 
@@ -3848,15 +3878,18 @@
       window.alert(`Data de expedição salva, mas houve falha no WhatsApp: ${notificacao.error || 'Erro desconhecido.'}`);
     }
 
-    async function enviarDataExpedicao(numeroPedido, dataExpedicao) {
+    async function enviarDataExpedicao(numeroPedido, dataExpedicao, opcoes = {}) {
+      const silencioso = opcoes?.silencioso === true;
       const data = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/data-expedicao`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dataExpedicao })
+        body: JSON.stringify({ dataExpedicao, silencioso })
       });
 
       aplicarDataExpedicaoNoEstado(numeroPedido, data);
-      avisarResultadoWhatsappExpedicao(data?.notificacao);
+      if (!silencioso) {
+        avisarResultadoWhatsappExpedicao(data?.notificacao);
+      }
       return data;
     }
 
@@ -3938,8 +3971,8 @@
         }
       };
       input.onblur = () => {
-        if (celula.dataset.ignorarBlurHoje === 'true') {
-          delete celula.dataset.ignorarBlurHoje;
+        if (celula.dataset.ignorarBlurExpedicao === 'true') {
+          delete celula.dataset.ignorarBlurExpedicao;
           cancelar();
           return;
         }
@@ -3970,6 +4003,61 @@
 
       try {
         await enviarDataExpedicao(numeroPedido, dataHoje);
+      } catch (error) {
+        window.alert(error.message);
+      } finally {
+        link.classList.remove('busy');
+        link.textContent = textoOriginal;
+      }
+    }
+
+
+    function dataCarradaBR() {
+      const valor = estado.matriz?.carrada?.data;
+      if (!valor) return '';
+
+      const texto = String(valor).trim();
+      const matchIso = /^(\d{4})-(\d{2})-(\d{2})/.exec(texto);
+      if (matchIso) {
+        return `${matchIso[3]}/${matchIso[2]}/${matchIso[1]}`;
+      }
+
+      const data = new Date(valor);
+      if (Number.isNaN(data.getTime())) return '';
+
+      return new Intl.DateTimeFormat('pt-BR', {
+        timeZone: 'America/Fortaleza',
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      }).format(data);
+    }
+
+    async function salvarDataExpedicaoCarradaSemMensagem(link) {
+      if (!link || link.classList.contains('busy')) {
+        return;
+      }
+
+      const numeroPedido = link.dataset.expedicaoCarradaNumero;
+      const pedido = obterPedido(numeroPedido);
+      const dataCarrada = dataCarradaBR();
+
+      if (!dataCarrada || !dataExpedicaoValida(dataCarrada)) {
+        window.alert('Não foi possível identificar uma data válida para esta carrada.');
+        return;
+      }
+
+      const dataAtual = String(pedido?.fases?.DATA_EXPEDICAO?.dataExpedicao || '').trim();
+      if (dataAtual === dataCarrada) {
+        return;
+      }
+
+      const textoOriginal = link.textContent;
+      link.classList.add('busy');
+      link.textContent = 'salvando...';
+
+      try {
+        await enviarDataExpedicao(numeroPedido, dataCarrada, { silencioso: true });
       } catch (error) {
         window.alert(error.message);
       } finally {

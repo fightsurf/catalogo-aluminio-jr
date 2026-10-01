@@ -65,7 +65,8 @@ async function salvarDataExpedicao(req, res) {
     const data = await service.salvarDataExpedicao({
       codigoCarrada: req.params.codigo,
       numeroPedido: req.params.numeroPedido,
-      dataExpedicao: req.body?.dataExpedicao
+      dataExpedicao: req.body?.dataExpedicao,
+      silencioso: req.body?.silencioso === true || req.body?.silencioso === 'true'
     });
 
     return res.status(200).json({ success: true, data });
