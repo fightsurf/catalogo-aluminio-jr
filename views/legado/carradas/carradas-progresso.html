@@ -1848,6 +1848,11 @@
             ? `<a href="#" class="manual-link ${faseData.marcadoManual ? 'done' : ''}" data-pagamento-manual-numero="${escapeHtml(pedido.numero)}" title="Pintar/desmarcar pagamento sem verificar quitação">${faseData.marcadoManual ? 'desmarcar manual' : 'marcar verde'}</a>`
             : '';
 
+          const favorecidoCliente = pedido.cliente?.favorecido || pedido.resumoPedido?.cliente?.favorecido || '';
+          const extratoCreditoLink = fase.codigo === 'PAGAMENTO_QUITADO' && faseData.baixadoParaCredito && favorecidoCliente
+            ? `<a href="/legado/clientes-creditos/extrato?favorecido=${encodeURIComponent(favorecidoCliente)}" class="manual-link done" target="_blank" rel="noopener noreferrer" title="Abrir extrato de crédito deste cliente em uma nova aba">ver extrato</a>`
+            : '';
+
           const exibirSilentLink = (
             fase.codigo === 'EM_PRODUCAO'
             || fase.codigo === 'PEDIDO_PRONTO'
@@ -1876,6 +1881,7 @@
               </button>
               ${silentLink}
               ${manualPagamentoLink}
+              ${extratoCreditoLink}
             </td>
           `;
         }).join('');
