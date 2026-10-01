@@ -3,6 +3,7 @@ const router = express.Router();
 const controller = require('../../controllers/saidas/saidaItem.controller');
 
 router.get('/', controller.listar);
+router.get('/salarios/firebird', controller.salarios);
 router.get('/:id', controller.buscar);
 router.post('/', controller.criar);
 router.put('/:id', controller.atualizar);

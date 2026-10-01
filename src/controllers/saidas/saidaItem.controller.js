@@ -1,3 +1,4 @@
+const salariosService = require('../../services/saidas/salariosCustos.service');
 const service = require('../../services/saidas/saidaItem.service');
 
 async function listar(req, res) {
@@ -48,10 +49,21 @@ async function excluir(req, res) {
   }
 }
 
+async function salarios(req, res) {
+  try {
+    const data = await salariosService.obterSalarios();
+    res.json({ success: true, data });
+  } catch (error) {
+    console.error('ERRO CONSULTAR SALÁRIOS PARA CUSTOS:', error);
+    res.status(502).json({ success: false, message: error.message });
+  }
+}
+
 module.exports = {
   listar,
   buscar,
   criar,
   atualizar,
-  excluir
+  excluir,
+  salarios
 };
