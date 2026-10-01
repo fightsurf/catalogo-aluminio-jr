@@ -5,7 +5,7 @@ async function listar(req, res) {
     const data = await service.listar(req.query);
     res.json({ success: true, data });
   } catch (error) {
-    console.error('ERRO LISTAR ITENS DE SAÍDA:', error);
+    console.error('ERRO LISTAR ITENS DE CUSTO:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 }
@@ -15,7 +15,7 @@ async function buscar(req, res) {
     const data = await service.buscar(req.params.id);
     res.json({ success: true, data });
   } catch (error) {
-    const status = error.message === 'Item de saída não encontrado' ? 404 : 400;
+    const status = error.message === 'Item de custo não encontrado' ? 404 : 400;
     res.status(status).json({ success: false, message: error.message });
   }
 }
@@ -34,7 +34,7 @@ async function atualizar(req, res) {
     const data = await service.atualizar(req.params.id, req.body);
     res.json({ success: true, data });
   } catch (error) {
-    const status = error.message === 'Item de saída não encontrado' ? 404 : 400;
+    const status = error.message === 'Item de custo não encontrado' ? 404 : 400;
     res.status(status).json({ success: false, message: error.message });
   }
 }
@@ -42,7 +42,7 @@ async function atualizar(req, res) {
 async function excluir(req, res) {
   try {
     await service.excluir(req.params.id);
-    res.json({ success: true, message: 'Item de saída removido com sucesso' });
+    res.json({ success: true, message: 'Item de custo removido com sucesso' });
   } catch (error) {
     res.status(400).json({ success: false, message: error.message });
   }

@@ -24,31 +24,32 @@ async function criarTabelasDespesas() {
       nome VARCHAR(180) NOT NULL,
       categoria_id INTEGER NOT NULL REFERENCES despesa_categorias(id),
       recorrente_mensal BOOLEAN NOT NULL DEFAULT TRUE,
-      classificacao VARCHAR(20) NOT NULL DEFAULT 'DESPESA'
-        CHECK (classificacao IN ('CUSTO_FIXO', 'CUSTO_VARIAVEL', 'DESPESA', 'IMPOSTO')),
-      valor_mensal NUMERIC(14,2) NOT NULL DEFAULT 0 CHECK (valor_mensal >= 0),
-      origem_valor VARCHAR(20) NOT NULL DEFAULT 'MANUAL'
-        CHECK (origem_valor IN ('MANUAL', 'FIREBIRD')),
       ativo BOOLEAN NOT NULL DEFAULT TRUE,
       observacao TEXT,
       created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT NOW()
     );
 
-    ALTER TABLE despesa_itens
-      ADD COLUMN IF NOT EXISTS classificacao VARCHAR(20) NOT NULL DEFAULT 'DESPESA';
-
-    ALTER TABLE despesa_itens
-      ADD COLUMN IF NOT EXISTS valor_mensal NUMERIC(14,2) NOT NULL DEFAULT 0;
-
-    ALTER TABLE despesa_itens
-      ADD COLUMN IF NOT EXISTS origem_valor VARCHAR(20) NOT NULL DEFAULT 'MANUAL';
-
     CREATE UNIQUE INDEX IF NOT EXISTS ux_despesa_itens_nome_lower
       ON despesa_itens (LOWER(TRIM(nome)));
 
     CREATE INDEX IF NOT EXISTS ix_despesa_itens_categoria_id
       ON despesa_itens (categoria_id);
+
+    ALTER TABLE despesa_itens
+      ADD COLUMN IF NOT EXISTS classificacao VARCHAR(30) NOT NULL DEFAULT 'DESPESA';
+
+    ALTER TABLE despesa_itens
+      ADD COLUMN IF NOT EXISTS forma_calculo VARCHAR(30) NOT NULL DEFAULT 'VALOR_MENSAL';
+
+    ALTER TABLE despesa_itens
+      ADD COLUMN IF NOT EXISTS valor_mensal NUMERIC(14,2) NOT NULL DEFAULT 0;
+
+    ALTER TABLE despesa_itens
+      ADD COLUMN IF NOT EXISTS origem_valor VARCHAR(30) NOT NULL DEFAULT 'MANUAL';
+
+    CREATE INDEX IF NOT EXISTS ix_despesa_itens_classificacao
+      ON despesa_itens (classificacao);
 
     CREATE TABLE IF NOT EXISTS despesa_lancamentos (
       id SERIAL PRIMARY KEY,
