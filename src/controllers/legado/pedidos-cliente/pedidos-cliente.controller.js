@@ -29,6 +29,33 @@ async function listarPedidosPorCliente(req, res) {
 }
 
 
+async function buscarPerfilCompras(req, res) {
+  try {
+    const { favorecido } = req.params;
+
+    if (!favorecido || Number.isNaN(Number(favorecido))) {
+      return res.status(400).json({
+        sucesso: false,
+        mensagem: 'Parâmetro "favorecido" inválido.'
+      });
+    }
+
+    const dados = await pedidosClienteService.buscarPerfilCompras(Number(favorecido));
+
+    return res.json({
+      sucesso: true,
+      dados
+    });
+  } catch (error) {
+    return res.status(500).json({
+      sucesso: false,
+      mensagem: 'Erro ao carregar o perfil de compras do cliente.',
+      detalhe: error.message
+    });
+  }
+}
+
+
 async function enviarResumoImagemWhatsapp(req, res) {
   try {
     const { favorecido } = req.params;
@@ -58,5 +85,6 @@ async function enviarResumoImagemWhatsapp(req, res) {
 
 module.exports = {
   listarPedidosPorCliente,
+  buscarPerfilCompras,
   enviarResumoImagemWhatsapp
 };

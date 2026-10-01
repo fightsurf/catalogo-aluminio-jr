@@ -1,6 +1,7 @@
 const sharp = require('sharp');
 const zapiService = require('../../integracoes/zapi.service');
 const clientesCreditosService = require('../clientes-creditos/clientes-creditos.service');
+const legadoBridgeService = require('../legadoBridge.service');
 
 function numeroSeguro(valor) {
   const numero = Number(valor);
@@ -96,6 +97,15 @@ async function listarPedidosPorCliente(favorecido) {
     cliente: normalizarCliente(clienteOriginal, favorecido),
     dados: pedidosComBaixaCredito
   };
+}
+
+
+async function buscarPerfilCompras(favorecido) {
+  const response = await legadoBridgeService.get(
+    `/api/pedidos-cliente/${encodeURIComponent(favorecido)}/perfil-compras`
+  );
+
+  return response?.dados || null;
 }
 
 
@@ -260,5 +270,6 @@ async function enviarResumoImagemWhatsapp(payload = {}) {
 
 module.exports = {
   listarPedidosPorCliente,
+  buscarPerfilCompras,
   enviarResumoImagemWhatsapp
 };

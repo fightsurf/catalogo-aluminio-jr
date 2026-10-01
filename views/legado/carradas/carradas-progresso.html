@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Progresso da carrada</title>
+  <link rel="stylesheet" href="/css/perfil-compras.css" />
   <style>
     :root {
       --bg: #f5f6f8;
@@ -1009,6 +1010,7 @@
       </div>
       <div class="modal-body">
         <div class="pos-venda-resumo" id="posVendaResumo"></div>
+        <div id="posVendaPerfilCompras"></div>
         <div>
           <strong>Últimos pedidos do cliente</strong>
           <p class="muted">Os pedidos mais recentes aparecem primeiro. O pedido desta linha fica destacado.</p>
@@ -1263,6 +1265,7 @@
     </div>
   </div>
 
+  <script src="/js/perfil-compras-chart.js"></script>
   <script>
     const CODIGO_CARRADA = new URLSearchParams(window.location.search).get('codigo');
 
@@ -1350,6 +1353,7 @@
       modalPosVendaTitulo: document.getElementById('modalPosVendaTitulo'),
       modalPosVendaSubtitulo: document.getElementById('modalPosVendaSubtitulo'),
       posVendaResumo: document.getElementById('posVendaResumo'),
+      posVendaPerfilCompras: document.getElementById('posVendaPerfilCompras'),
       tbodyPosVendaHistorico: document.getElementById('tbodyPosVendaHistorico'),
       feedbackPosVenda: document.getElementById('feedbackPosVenda'),
       btnConfirmarPosVenda: document.getElementById('btnConfirmarPosVenda'),
@@ -2351,6 +2355,8 @@
         <div class="pos-venda-resumo-card"><span>Compras encontradas</span><strong>${escapeHtml(totalPedidos)}</strong></div>
       `;
 
+      PerfilComprasChart.render(el.posVendaPerfilCompras, payload?.perfilCompras || {});
+
       const pedidos = Array.isArray(payload?.pedidos) ? payload.pedidos : [];
       if (!pedidos.length) {
         el.tbodyPosVendaHistorico.innerHTML = '<tr><td colspan="5" class="empty">Nenhum pedido encontrado para este cliente.</td></tr>';
@@ -2377,6 +2383,7 @@
       el.modalPosVendaTitulo.textContent = 'Pós-venda do cliente';
       el.modalPosVendaSubtitulo.textContent = `${pedido.cliente?.nome || '-'} • Pedido ${numeroPedido}`;
       el.posVendaResumo.innerHTML = '';
+      PerfilComprasChart.loading(el.posVendaPerfilCompras, 'Carregando perfil de compras...');
       el.tbodyPosVendaHistorico.innerHTML = '<tr><td colspan="5" class="loading">Carregando histórico do cliente...</td></tr>';
       el.feedbackPosVenda.innerHTML = '';
 
@@ -2394,6 +2401,7 @@
         const payload = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/pos-venda/historico`);
         montarResumoPosVenda(payload);
       } catch (error) {
+        PerfilComprasChart.erro(el.posVendaPerfilCompras, error.message);
         el.tbodyPosVendaHistorico.innerHTML = `<tr><td colspan="5" class="empty">${escapeHtml(error.message)}</td></tr>`;
       } finally {
         estado.posVendaModal.carregando = false;

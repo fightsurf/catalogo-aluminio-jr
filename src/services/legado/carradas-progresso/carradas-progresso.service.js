@@ -6,6 +6,7 @@ const whatsappService = require('../../whatsapp/envio-whatsapp.service');
 const carradasStatusResumoService = require('./carradas-status-resumo.service');
 const legadoBridgeService = require('../legadoBridge.service');
 const pedidosLegadoService = require('../pedido/pedidosLegado.service');
+const pedidosClienteService = require('../pedidos-cliente/pedidos-cliente.service');
 const agenciasRecebimentoService = require('../../logistica/agenciaRecebimentoService');
 
 const FASES_BOOLEANAS = {
@@ -2513,7 +2514,10 @@ async function buscarHistoricoPosVenda({ codigoCarrada: codigoCarradaParam, nume
     throw criarErro('Não foi possível identificar o cliente deste pedido.', 400);
   }
 
-  const response = await legadoBridgeService.get(`/api/pedidos-cliente/${favorecido}`);
+  const [response, perfilCompras] = await Promise.all([
+    legadoBridgeService.get(`/api/pedidos-cliente/${favorecido}`),
+    pedidosClienteService.buscarPerfilCompras(favorecido)
+  ]);
   const pedidos = Array.isArray(response?.dados) ? response.dados : [];
   const saidaAtual = normalizarSaida(pedidoAtual?.saida);
 
@@ -2556,7 +2560,8 @@ async function buscarHistoricoPosVenda({ codigoCarrada: codigoCarradaParam, nume
     },
     numeroPedidoAtual: numeroPedido,
     totalPedidosEncontrados: pedidos.length,
-    pedidos: ultimosPedidos
+    pedidos: ultimosPedidos,
+    perfilCompras
   };
 }
 

@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Inserção de pedido no legado V2</title>
+  <link rel="stylesheet" href="/css/perfil-compras.css" />
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; font-family: Arial, sans-serif; background: #f3f4f6; color: #111827; }
@@ -25,6 +26,7 @@
     .linha-busca { text-align: left; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; cursor: pointer; }
     .linha-busca:hover { background: #eff6ff; border-color: #bfdbfe; }
     .selecionado { margin-top: 12px; padding: 12px; border-radius: 10px; background: #ecfdf5; border: 1px solid #a7f3d0; }
+    .acao-cliente { margin-top: 10px; width: 100%; }
     .busca-wrap { position: relative; }
     .dropdown { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #fff; border: 1px solid #d1d5db; border-radius: 12px; box-shadow: 0 12px 24px rgba(0,0,0,0.08); max-height: 280px; overflow-y: auto; z-index: 20; display: none; }
     .dropdown-item { padding: 12px 14px; border-bottom: 1px solid #e5e7eb; cursor: pointer; }
@@ -91,6 +93,7 @@
         </div>
         <div id="listaClientes" class="lista-busca"></div>
         <div id="clienteSelecionado" class="selecionado">Nenhum cliente selecionado.</div>
+        <button id="btnPerfilCompras" class="secundario acao-cliente oculto" type="button">Perfil de compras</button>
       </section>
 
       <section class="card">
@@ -173,6 +176,25 @@
     </div>
   </div>
 
+  <div class="perfil-compras-modal-backdrop" id="modalPerfilComprasBackdrop" aria-hidden="true">
+    <div class="perfil-compras-modal" role="dialog" aria-modal="true" aria-labelledby="modalPerfilComprasTitulo">
+      <div class="perfil-compras-modal-header">
+        <div>
+          <h3 id="modalPerfilComprasTitulo">Perfil de compras</h3>
+          <p id="modalPerfilComprasSubtitulo"></p>
+        </div>
+        <button type="button" class="perfil-compras-fechar" data-fechar-perfil-compras>Fechar</button>
+      </div>
+      <div class="perfil-compras-modal-body">
+        <div id="perfilComprasConteudo"></div>
+      </div>
+      <div class="perfil-compras-modal-footer">
+        <button type="button" class="perfil-compras-fechar" data-fechar-perfil-compras>Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/perfil-compras-chart.js"></script>
   <script>
     const mensagem = document.getElementById('mensagem');
     const buscaCliente = document.getElementById('buscaCliente');
@@ -180,6 +202,11 @@
     const btnLimparCliente = document.getElementById('btnLimparCliente');
     const listaClientes = document.getElementById('listaClientes');
     const clienteSelecionadoBox = document.getElementById('clienteSelecionado');
+    const btnPerfilCompras = document.getElementById('btnPerfilCompras');
+    const modalPerfilComprasBackdrop = document.getElementById('modalPerfilComprasBackdrop');
+    const modalPerfilComprasTitulo = document.getElementById('modalPerfilComprasTitulo');
+    const modalPerfilComprasSubtitulo = document.getElementById('modalPerfilComprasSubtitulo');
+    const perfilComprasConteudo = document.getElementById('perfilComprasConteudo');
 
     const textoRelatorio = document.getElementById('textoRelatorio');
     const multiplicadorKit = document.getElementById('multiplicadorKit');
@@ -583,8 +610,11 @@
     function renderClienteSelecionado() {
       if (!clienteSelecionado) {
         clienteSelecionadoBox.textContent = 'Nenhum cliente selecionado.';
+        btnPerfilCompras.classList.add('oculto');
         return;
       }
+
+      btnPerfilCompras.classList.remove('oculto');
 
       const telefone = normalizarTelefone(clienteSelecionado.telefonePrincipal || clienteSelecionado.telefone1 || '');
       const telefoneHtml = telefone
@@ -599,6 +629,39 @@
       `;
     }
 
+    function fecharPerfilCompras() {
+      modalPerfilComprasBackdrop.classList.remove('open');
+      modalPerfilComprasBackdrop.setAttribute('aria-hidden', 'true');
+    }
+
+    async function abrirPerfilCompras() {
+      const favorecido = Number(clienteSelecionado?.favorecido || 0);
+      if (!favorecido) {
+        setMensagem('Selecione um cliente antes de consultar o perfil de compras.', true);
+        return;
+      }
+
+      modalPerfilComprasTitulo.textContent = 'Perfil de compras';
+      modalPerfilComprasSubtitulo.textContent = `${clienteSelecionado?.nome || 'Cliente'} • código ${favorecido}`;
+      PerfilComprasChart.loading(perfilComprasConteudo, 'Consultando todo o histórico de compras do cliente...');
+      modalPerfilComprasBackdrop.classList.add('open');
+      modalPerfilComprasBackdrop.setAttribute('aria-hidden', 'false');
+
+      try {
+        const response = await fetch(`/api/legado/pedidos-cliente/${encodeURIComponent(favorecido)}/perfil-compras`, {
+          headers: { Accept: 'application/json' }
+        });
+        const json = await response.json().catch(() => ({}));
+
+        if (!response.ok || json?.sucesso === false) {
+          throw new Error(json?.detalhe || json?.mensagem || 'Erro ao carregar o perfil de compras.');
+        }
+
+        PerfilComprasChart.render(perfilComprasConteudo, json?.dados || {});
+      } catch (error) {
+        PerfilComprasChart.erro(perfilComprasConteudo, error.message || 'Erro ao carregar o perfil de compras.');
+      }
+    }
 
 
     function montarRotuloCarrada(carrada) {
@@ -1390,6 +1453,17 @@ setMensagem([
       focarBuscaProduto();
       setMensagem('');
     }
+
+    btnPerfilCompras.addEventListener('click', abrirPerfilCompras);
+    document.querySelectorAll('[data-fechar-perfil-compras]').forEach((botao) => {
+      botao.addEventListener('click', fecharPerfilCompras);
+    });
+    modalPerfilComprasBackdrop.addEventListener('click', (event) => {
+      if (event.target === modalPerfilComprasBackdrop) fecharPerfilCompras();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape') fecharPerfilCompras();
+    });
 
     btnBuscarCliente.addEventListener('click', carregarClientes);
     btnLimparCliente.addEventListener('click', () => {

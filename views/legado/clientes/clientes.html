@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Clientes do Legado - Alumínio JR</title>
+  <link rel="stylesheet" href="/css/perfil-compras.css" />
 
   <style>
     * { box-sizing: border-box; }
@@ -415,6 +416,25 @@
     </div>
   </div>
 
+  <div class="perfil-compras-modal-backdrop" id="modalPerfilComprasBackdrop" aria-hidden="true">
+    <div class="perfil-compras-modal" role="dialog" aria-modal="true" aria-labelledby="modalPerfilComprasTitulo">
+      <div class="perfil-compras-modal-header">
+        <div>
+          <h3 id="modalPerfilComprasTitulo">Perfil de compras</h3>
+          <p id="modalPerfilComprasSubtitulo"></p>
+        </div>
+        <button type="button" class="perfil-compras-fechar" data-fechar-perfil-compras>Fechar</button>
+      </div>
+      <div class="perfil-compras-modal-body">
+        <div id="perfilComprasConteudo"></div>
+      </div>
+      <div class="perfil-compras-modal-footer">
+        <button type="button" class="perfil-compras-fechar" data-fechar-perfil-compras>Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/perfil-compras-chart.js"></script>
   <script>
     const formCliente = document.getElementById('formCliente');
     const clienteFavorecido = document.getElementById('clienteFavorecido');
@@ -444,6 +464,10 @@
     const mensagemBusca = document.getElementById('mensagemBusca');
     const resumo = document.getElementById('resumo');
     const blocoTabela = document.getElementById('blocoTabela');
+    const modalPerfilComprasBackdrop = document.getElementById('modalPerfilComprasBackdrop');
+    const modalPerfilComprasTitulo = document.getElementById('modalPerfilComprasTitulo');
+    const modalPerfilComprasSubtitulo = document.getElementById('modalPerfilComprasSubtitulo');
+    const perfilComprasConteudo = document.getElementById('perfilComprasConteudo');
 
     let clientesCarregados = [];
 
@@ -782,6 +806,7 @@
                     <div class="acoes-linha">
                       <button type="button" class="btn btn-mini btn-primary" data-acao="editar" data-index="${index}">Editar</button>
                       <button type="button" class="btn btn-mini btn-dark" data-acao="historico" data-index="${index}">Histórico</button>
+                      <button type="button" class="btn btn-mini btn-warning" data-acao="perfil-compras" data-index="${index}">Perfil de compras</button>
                       ${cliente.ativo === false
                         ? `<button type="button" class="btn btn-mini btn-success" data-acao="reativar" data-index="${index}">Reativar</button>`
                         : `<button type="button" class="btn btn-mini btn-danger" data-acao="desativar" data-index="${index}">Desativar</button>`}
@@ -805,6 +830,7 @@
 
           if (acao === 'editar') preencherFormulario(cliente);
           if (acao === 'historico') abrirHistorico(cliente);
+          if (acao === 'perfil-compras') abrirPerfilCompras(cliente);
           if (acao === 'desativar') desativarCliente(cliente);
           if (acao === 'reativar') reativarCliente(cliente);
         });
@@ -849,6 +875,41 @@
       autocompleteFiltro.fechar();
       limparTabela();
       setMensagem(mensagemBusca, 'Filtros limpos.');
+    }
+
+    function fecharPerfilCompras() {
+      modalPerfilComprasBackdrop.classList.remove('open');
+      modalPerfilComprasBackdrop.setAttribute('aria-hidden', 'true');
+    }
+
+    async function abrirPerfilCompras(cliente) {
+      const favorecido = obterFavorecidoCliente(cliente);
+
+      if (!favorecido) {
+        setMensagem(mensagemBusca, 'Código do cliente não disponível para consultar o perfil de compras.', 'erro');
+        return;
+      }
+
+      modalPerfilComprasTitulo.textContent = 'Perfil de compras';
+      modalPerfilComprasSubtitulo.textContent = `${cliente?.nome || 'Cliente'} • código ${favorecido}`;
+      PerfilComprasChart.loading(perfilComprasConteudo, 'Consultando todo o histórico de compras do cliente...');
+      modalPerfilComprasBackdrop.classList.add('open');
+      modalPerfilComprasBackdrop.setAttribute('aria-hidden', 'false');
+
+      try {
+        const response = await fetch(`/api/legado/pedidos-cliente/${encodeURIComponent(favorecido)}/perfil-compras`, {
+          headers: { Accept: 'application/json' }
+        });
+        const json = await response.json().catch(() => ({}));
+
+        if (!response.ok || json?.sucesso === false) {
+          throw new Error(json?.detalhe || json?.mensagem || 'Erro ao carregar o perfil de compras.');
+        }
+
+        PerfilComprasChart.render(perfilComprasConteudo, json?.dados || {});
+      } catch (error) {
+        PerfilComprasChart.erro(perfilComprasConteudo, error.message || 'Erro ao carregar o perfil de compras.');
+      }
     }
 
     function abrirHistorico(cliente) {
@@ -914,6 +975,14 @@
       }
     }
 
+    document.querySelectorAll('[data-fechar-perfil-compras]').forEach((botao) => {
+      botao.addEventListener('click', fecharPerfilCompras);
+    });
+
+    modalPerfilComprasBackdrop.addEventListener('click', (event) => {
+      if (event.target === modalPerfilComprasBackdrop) fecharPerfilCompras();
+    });
+
     formCliente.addEventListener('submit', salvarCliente);
     btnNovoClienteTopo.addEventListener('click', limparFormulario);
     btnCancelarEdicao.addEventListener('click', limparFormulario);
@@ -940,6 +1009,7 @@
       if (event.key === 'Escape') {
         autocompleteForm.fechar();
         autocompleteFiltro.fechar();
+        fecharPerfilCompras();
       }
     });
 

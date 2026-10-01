@@ -1,0 +1,284 @@
+.perfil-compras-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, 0.55);
+  z-index: 1000;
+}
+
+.perfil-compras-modal-backdrop.open {
+  display: flex;
+}
+
+.perfil-compras-modal {
+  width: min(920px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: hidden;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 22px 70px rgba(15, 23, 42, 0.28);
+  display: flex;
+  flex-direction: column;
+}
+
+.perfil-compras-modal-header,
+.perfil-compras-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.perfil-compras-modal-footer {
+  border-top: 1px solid #e5e7eb;
+  border-bottom: 0;
+  justify-content: flex-end;
+}
+
+.perfil-compras-modal-header h3 {
+  margin: 0;
+  font-size: 19px;
+}
+
+.perfil-compras-modal-header p {
+  margin: 4px 0 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.perfil-compras-modal-body {
+  padding: 18px;
+  overflow: auto;
+}
+
+.perfil-compras-fechar {
+  border: 0;
+  border-radius: 9px;
+  padding: 10px 14px;
+  cursor: pointer;
+  background: #e5e7eb;
+  color: #111827;
+  font-weight: 800;
+}
+
+.perfil-compras-secao {
+  margin-top: 16px;
+  border: 1px solid #dbe3ee;
+  border-radius: 14px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.perfil-compras-titulo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.perfil-compras-titulo strong {
+  display: block;
+  font-size: 15px;
+}
+
+.perfil-compras-titulo span {
+  display: block;
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 12px;
+}
+
+.perfil-compras-destaque {
+  padding: 13px 15px;
+  border-radius: 12px;
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  margin-bottom: 12px;
+}
+
+.perfil-compras-destaque span {
+  display: block;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+
+.perfil-compras-destaque strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 17px;
+  color: #0f172a;
+}
+
+.perfil-compras-destaque small {
+  display: block;
+  margin-top: 4px;
+  color: #475569;
+  font-size: 12px;
+}
+
+.perfil-compras-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  margin-bottom: 14px;
+}
+
+.perfil-compras-kpi {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #f8fafc;
+  padding: 10px 12px;
+}
+
+.perfil-compras-kpi span {
+  display: block;
+  color: #64748b;
+  font-size: 10px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.perfil-compras-kpi strong {
+  display: block;
+  margin-top: 4px;
+  color: #111827;
+  font-size: 16px;
+}
+
+.perfil-compras-grid {
+  display: grid;
+  grid-template-columns: minmax(230px, 320px) minmax(0, 1fr);
+  gap: 18px;
+  align-items: center;
+}
+
+.perfil-compras-grafico-area {
+  min-height: 280px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.perfil-compras-svg {
+  width: min(100%, 280px);
+  height: auto;
+  overflow: visible;
+}
+
+.perfil-compras-svg path,
+.perfil-compras-svg circle {
+  transition: opacity .15s ease, transform .15s ease;
+  transform-origin: 110px 110px;
+  cursor: pointer;
+  outline: none;
+}
+
+.perfil-compras-svg .perfil-fatia-inativa {
+  opacity: .36;
+}
+
+.perfil-compras-svg .perfil-fatia-ativa {
+  opacity: 1;
+  transform: scale(1.025);
+}
+
+.perfil-compras-detalhe {
+  min-height: 38px;
+  text-align: center;
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.perfil-compras-detalhe strong {
+  color: #111827;
+}
+
+.perfil-compras-legenda {
+  display: grid;
+  gap: 7px;
+}
+
+.perfil-compras-legenda-item {
+  width: 100%;
+  border: 1px solid #e5e7eb;
+  border-radius: 9px;
+  background: #ffffff;
+  padding: 9px 10px;
+  display: grid;
+  grid-template-columns: 12px minmax(0, 1fr) auto;
+  gap: 9px;
+  align-items: center;
+  text-align: left;
+  cursor: pointer;
+}
+
+.perfil-compras-legenda-item:hover,
+.perfil-compras-legenda-item.ativo {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.perfil-compras-cor {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.perfil-compras-legenda-nome {
+  min-width: 0;
+  color: #111827;
+  font-size: 12px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.perfil-compras-legenda-valor {
+  white-space: nowrap;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.perfil-compras-loading,
+.perfil-compras-vazio,
+.perfil-compras-erro {
+  padding: 34px 16px;
+  text-align: center;
+  border: 1px dashed #cbd5e1;
+  border-radius: 12px;
+  color: #64748b;
+  background: #f8fafc;
+}
+
+.perfil-compras-erro {
+  color: #b91c1c;
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+@media (max-width: 720px) {
+  .perfil-compras-grid,
+  .perfil-compras-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .perfil-compras-modal-backdrop {
+    padding: 8px;
+  }
+
+  .perfil-compras-modal {
+    max-height: calc(100vh - 16px);
+  }
+}
