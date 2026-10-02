@@ -1,10 +1,13 @@
 const service = require('../../services/funcionario/funcionario.service');
 
+function statusErro(error) {
+  return /obrigat|inválid|invalido|máximo|maximo/i.test(String(error?.message || '')) ? 400 : 500;
+}
+
 async function listar(req, res) {
   try {
     const { nome, ativo } = req.query;
-    const data = await service.listar(nome, ativo);
-    return res.json(data);
+    return res.json(await service.listar(nome, ativo));
   } catch (error) {
     return res.status(500).json({ error: error.message });
   }
@@ -12,63 +15,50 @@ async function listar(req, res) {
 
 async function buscarPorId(req, res) {
   try {
-    const { id } = req.params;
-    const data = await service.buscarPorId(id);
-    if (!data) {
-      return res.status(404).json({ error: 'Funcionário não encontrado' });
-    }
-    return res.json(data);
+    return res.json(await service.buscarPorId(req.params.id));
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    const status = /não encontrado/i.test(error.message) ? 404 : statusErro(error);
+    return res.status(status).json({ error: error.message });
   }
 }
 
 async function criar(req, res) {
   try {
-    const { nome, telefone, data_nascimento } = req.body;
-
-    if (!nome || !telefone || !data_nascimento) {
-      return res.status(400).json({ error: 'Nome, telefone e data de nascimento são obrigatórios' });
-    }
-
-    const data = await service.criar(nome, telefone, data_nascimento);
-    return res.status(201).json(data);
+    const { nome, cargo, custohora } = req.body || {};
+    if (!String(nome || '').trim()) return res.status(400).json({ error: 'Nome é obrigatório.' });
+    return res.status(201).json(await service.criar(nome, cargo, custohora));
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    return res.status(statusErro(error)).json({ error: error.message });
   }
 }
 
 async function atualizar(req, res) {
   try {
-    const { id } = req.params;
-    const { nome, telefone, data_nascimento } = req.body;
-
-    const data = await service.atualizar(id, nome, telefone, data_nascimento);
-
-    if (!data) {
-      return res.status(404).json({ error: 'Funcionário não encontrado' });
-    }
-
-    return res.json(data);
+    const { nome, cargo, custohora, ativo } = req.body || {};
+    if (!String(nome || '').trim()) return res.status(400).json({ error: 'Nome é obrigatório.' });
+    return res.json(await service.atualizar(req.params.id, nome, cargo, custohora, ativo));
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    const status = /não encontrado/i.test(error.message) ? 404 : statusErro(error);
+    return res.status(status).json({ error: error.message });
+  }
+}
+
+async function alterarStatus(req, res) {
+  try {
+    return res.json(await service.alterarStatus(req.params.id, req.body?.ativo));
+  } catch (error) {
+    const status = /não encontrado/i.test(error.message) ? 404 : statusErro(error);
+    return res.status(status).json({ error: error.message });
   }
 }
 
 async function remover(req, res) {
   try {
-    const { id } = req.params;
-    await service.remover(id);
-    return res.json({ message: 'Funcionário desativado com sucesso' });
+    return res.json(await service.remover(req.params.id));
   } catch (error) {
-    return res.status(500).json({ error: error.message });
+    const status = /não encontrado/i.test(error.message) ? 404 : statusErro(error);
+    return res.status(status).json({ error: error.message });
   }
 }
 
-module.exports = {
-  listar,
-  buscarPorId,
-  criar,
-  atualizar,
-  remover
-};
+module.exports = { listar, buscarPorId, criar, atualizar, alterarStatus, remover };

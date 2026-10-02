@@ -1,110 +1,264 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Admin Funcionários</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Funcionários - Firebird</title>
+  <link rel="stylesheet" href="/css/theme.css">
   <style>
-    body { font-family: Arial; padding: 30px; background: #f4f6f9; }
-    h2 { margin-bottom: 10px; }
-    input, button { padding: 8px; margin: 5px 0; }
-    table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-    th { background: #eee; }
-    .inativo { color: red; }
+    body { font-family: Arial, sans-serif; margin: 0; background: #f4f6f9; color: #222; }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 22px; }
+    .cabecalho { display:flex; justify-content:space-between; align-items:flex-start; gap:16px; margin-bottom:18px; }
+    h1 { margin:0 0 5px; font-size:26px; }
+    .sub { color:#666; font-size:14px; }
+    .card { background:#fff; border:1px solid #ddd; border-radius:10px; padding:18px; margin-bottom:18px; box-shadow:0 1px 3px rgba(0,0,0,.05); }
+    .grid { display:grid; grid-template-columns: minmax(280px,2fr) minmax(120px,1fr) minmax(140px,1fr) auto; gap:12px; align-items:end; }
+    label { display:block; font-size:12px; font-weight:bold; margin-bottom:5px; color:#555; }
+    input, select, button { font:inherit; }
+    input, select { box-sizing:border-box; width:100%; padding:10px; border:1px solid #bbb; border-radius:6px; background:#fff; }
+    button { border:0; border-radius:6px; padding:10px 14px; cursor:pointer; }
+    .primario { background:#111; color:#fff; }
+    .secundario { background:#e9ecef; color:#222; }
+    .perigo { background:#f8d7da; color:#842029; }
+    .sucesso { background:#d1e7dd; color:#0f5132; }
+    .acoes-form { display:flex; gap:8px; white-space:nowrap; }
+    .filtros { display:grid; grid-template-columns: minmax(220px,1fr) 180px auto; gap:10px; align-items:end; }
+    .tabela-wrap { overflow:auto; }
+    table { width:100%; border-collapse:collapse; min-width:780px; }
+    th, td { padding:10px 9px; border-bottom:1px solid #e5e5e5; text-align:left; }
+    th { background:#f7f7f7; font-size:12px; text-transform:uppercase; color:#555; position:sticky; top:0; }
+    tr.inativo td { color:#888; background:#fafafa; }
+    .badge { display:inline-block; border-radius:999px; padding:3px 8px; font-size:12px; font-weight:bold; }
+    .badge.on { background:#d1e7dd; color:#0f5132; }
+    .badge.off { background:#f8d7da; color:#842029; }
+    .acoes { display:flex; flex-wrap:wrap; gap:6px; }
+    .acoes button { padding:6px 9px; font-size:12px; }
+    .msg { display:none; padding:10px 12px; border-radius:6px; margin-bottom:12px; }
+    .msg.ok { display:block; background:#d1e7dd; color:#0f5132; }
+    .msg.erro { display:block; background:#f8d7da; color:#842029; }
+    .contador { color:#666; font-size:13px; margin:8px 0 0; }
+    @media (max-width: 760px) {
+      .wrap { padding:12px; }
+      .grid, .filtros { grid-template-columns:1fr; }
+      .cabecalho { display:block; }
+      .acoes-form { margin-top:4px; }
+    }
   </style>
-  <link rel="stylesheet" href="/css/theme.css" />
 </head>
 <body>
+<div class="wrap">
+  <div class="cabecalho">
+    <div>
+      <h1>Funcionários</h1>
+      <div class="sub">Cadastro ligado diretamente à tabela FUNCIONARIOS do Firebird.</div>
+    </div>
+  </div>
 
-<h2>Cadastro de Funcionários</h2>
+  <div id="mensagem" class="msg"></div>
 
-<form id="formFuncionario">
-  <input type="text" id="nome" placeholder="Nome" required><br>
-  <input type="text" id="telefone" placeholder="Telefone" required><br>
-  <input type="date" id="data_nascimento" required><br>
-  <button type="submit">Salvar</button>
-</form>
+  <div class="card">
+    <h3 id="tituloForm" style="margin-top:0">Novo funcionário</h3>
+    <form id="formFuncionario">
+      <input type="hidden" id="funcionarioId">
+      <div class="grid">
+        <div>
+          <label for="nome">Nome</label>
+          <input id="nome" maxlength="250" required autocomplete="off">
+        </div>
+        <div>
+          <label for="cargo">Código do cargo</label>
+          <input id="cargo" type="number" min="1" step="1" placeholder="Opcional">
+        </div>
+        <div>
+          <label for="custohora">Custo/hora</label>
+          <input id="custohora" type="number" min="0" step="0.01" placeholder="Opcional">
+        </div>
+        <div class="acoes-form">
+          <button type="submit" class="primario" id="btnSalvar">Salvar</button>
+          <button type="button" class="secundario" id="btnCancelar" style="display:none">Cancelar</button>
+        </div>
+      </div>
+    </form>
+  </div>
 
-<h2>Lista de Funcionários</h2>
+  <div class="card">
+    <div class="filtros">
+      <div>
+        <label for="buscaNome">Buscar por nome</label>
+        <input id="buscaNome" placeholder="Digite parte do nome">
+      </div>
+      <div>
+        <label for="filtroAtivo">Status</label>
+        <select id="filtroAtivo">
+          <option value="true" selected>Ativos</option>
+          <option value="">Todos</option>
+          <option value="false">Inativos</option>
+        </select>
+      </div>
+      <button type="button" class="secundario" id="btnFiltrar">Filtrar</button>
+    </div>
+    <div id="contador" class="contador"></div>
+  </div>
 
-<input type="text" id="buscaNome" placeholder="Buscar por nome">
-<select id="filtroAtivo">
-  <option value="">Todos</option>
-  <option value="true">Ativos</option>
-  <option value="false">Inativos</option>
-</select>
-<button onclick="carregar()">Filtrar</button>
-
-<table>
-  <thead>
-    <tr>
-      <th>ID</th>
-      <th>Nome</th>
-      <th>Telefone</th>
-      <th>Data Nascimento</th>
-      <th>Status</th>
-      <th>Ações</th>
-    </tr>
-  </thead>
-  <tbody id="tabela"></tbody>
-</table>
+  <div class="card tabela-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Funcionário</th>
+          <th>Código</th>
+          <th>Nome</th>
+          <th>Cargo</th>
+          <th>Custo/hora</th>
+          <th>Status</th>
+          <th>Ações</th>
+        </tr>
+      </thead>
+      <tbody id="tabela"></tbody>
+    </table>
+  </div>
+</div>
 
 <script>
+let funcionarios = [];
+const $ = (id) => document.getElementById(id);
+
+function mostrarMensagem(texto, tipo = 'ok') {
+  const el = $('mensagem');
+  el.textContent = texto;
+  el.className = `msg ${tipo}`;
+  clearTimeout(mostrarMensagem.timer);
+  mostrarMensagem.timer = setTimeout(() => { el.className = 'msg'; }, 5000);
+}
+
+async function lerJson(res) {
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || data.erro || `Erro HTTP ${res.status}`);
+  return data;
+}
+
+function moeda(valor) {
+  if (valor === null || valor === undefined || valor === '') return '—';
+  return Number(valor).toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
+}
+
+function escapeHtml(valor) {
+  return String(valor ?? '')
+    .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
+    .replaceAll('"','&quot;').replaceAll("'",'&#039;');
+}
+
 async function carregar() {
-  const nome = document.getElementById('buscaNome').value;
-  const ativo = document.getElementById('filtroAtivo').value;
+  try {
+    const params = new URLSearchParams();
+    const nome = $('buscaNome').value.trim();
+    const ativo = $('filtroAtivo').value;
+    if (nome) params.set('nome', nome);
+    if (ativo !== '') params.set('ativo', ativo);
 
-  let url = '/api/funcionarios?';
+    const data = await lerJson(await fetch(`/api/funcionarios?${params.toString()}`));
+    funcionarios = Array.isArray(data) ? data : [];
+    renderizar();
+  } catch (e) {
+    mostrarMensagem(e.message, 'erro');
+  }
+}
 
-  if (nome) url += `nome=${nome}&`;
-  if (ativo) url += `ativo=${ativo}`;
-
-  const res = await fetch(url);
-  const data = await res.json();
-
-  const tbody = document.getElementById('tabela');
+function renderizar() {
+  const tbody = $('tabela');
   tbody.innerHTML = '';
+  $('contador').textContent = `${funcionarios.length} funcionário(s) encontrado(s).`;
 
-  data.forEach(f => {
-    tbody.innerHTML += `
-      <tr class="${f.ativo ? '' : 'inativo'}">
-        <td>${f.id}</td>
-        <td>${f.nome}</td>
-        <td>${f.telefone}</td>
-        <td>${f.data_nascimento}</td>
-        <td>${f.ativo ? 'Ativo' : 'Inativo'}</td>
-        <td>
-          ${f.ativo ? `<button onclick="desativar(${f.id})">Desativar</button>` : ''}
-        </td>
-      </tr>
-    `;
-  });
+  if (!funcionarios.length) {
+    tbody.innerHTML = '<tr><td colspan="7">Nenhum funcionário encontrado.</td></tr>';
+    return;
+  }
+
+  for (const f of funcionarios) {
+    const tr = document.createElement('tr');
+    if (!f.ativo) tr.className = 'inativo';
+    tr.innerHTML = `
+      <td>${escapeHtml(f.funcionario)}</td>
+      <td>${escapeHtml(f.codigo)}</td>
+      <td>${escapeHtml(f.nome)}</td>
+      <td>${f.cargo == null ? '—' : escapeHtml(f.cargo)}</td>
+      <td>${moeda(f.custohora)}</td>
+      <td><span class="badge ${f.ativo ? 'on' : 'off'}">${f.ativo ? 'Ativo' : 'Inativo'}</span></td>
+      <td>
+        <div class="acoes">
+          <button class="secundario" onclick="editar(${Number(f.funcionario)})">Editar</button>
+          ${f.ativo
+            ? `<button class="perigo" onclick="alterarStatus(${Number(f.funcionario)}, false)">Desativar</button>`
+            : `<button class="sucesso" onclick="alterarStatus(${Number(f.funcionario)}, true)">Ativar</button>`}
+        </div>
+      </td>`;
+    tbody.appendChild(tr);
+  }
 }
 
-async function desativar(id) {
-  await fetch(`/api/funcionarios/${id}`, { method: 'DELETE' });
-  carregar();
+function editar(id) {
+  const f = funcionarios.find(x => Number(x.funcionario) === Number(id));
+  if (!f) return;
+  $('funcionarioId').value = f.funcionario;
+  $('nome').value = f.nome || '';
+  $('cargo').value = f.cargo ?? '';
+  $('custohora').value = f.custohora ?? '';
+  $('tituloForm').textContent = `Editar funcionário ${f.codigo || f.funcionario}`;
+  $('btnSalvar').textContent = 'Salvar alterações';
+  $('btnCancelar').style.display = '';
+  $('nome').focus();
+  window.scrollTo({ top:0, behavior:'smooth' });
 }
 
-document.getElementById('formFuncionario').addEventListener('submit', async (e) => {
+function cancelarEdicao() {
+  $('formFuncionario').reset();
+  $('funcionarioId').value = '';
+  $('tituloForm').textContent = 'Novo funcionário';
+  $('btnSalvar').textContent = 'Salvar';
+  $('btnCancelar').style.display = 'none';
+}
+
+async function alterarStatus(id, ativo) {
+  const verbo = ativo ? 'ativar' : 'desativar';
+  if (!confirm(`Confirma ${verbo} este funcionário?`)) return;
+  try {
+    await lerJson(await fetch(`/api/funcionarios/${id}/status`, {
+      method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ativo })
+    }));
+    mostrarMensagem(`Funcionário ${ativo ? 'ativado' : 'desativado'} com sucesso.`);
+    await carregar();
+  } catch (e) { mostrarMensagem(e.message, 'erro'); }
+}
+
+$('formFuncionario').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const id = $('funcionarioId').value;
+  const atual = funcionarios.find(x => String(x.funcionario) === String(id));
+  const payload = {
+    nome: $('nome').value.trim(),
+    cargo: $('cargo').value === '' ? null : Number($('cargo').value),
+    custohora: $('custohora').value === '' ? null : Number($('custohora').value),
+    ativo: atual ? Boolean(atual.ativo) : true
+  };
 
-  const nome = document.getElementById('nome').value;
-  const telefone = document.getElementById('telefone').value;
-  const data_nascimento = document.getElementById('data_nascimento').value;
-
-  await fetch('/api/funcionarios', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ nome, telefone, data_nascimento })
-  });
-
-  e.target.reset();
-  carregar();
+  try {
+    const res = await fetch(id ? `/api/funcionarios/${id}` : '/api/funcionarios', {
+      method: id ? 'PUT' : 'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(payload)
+    });
+    const salvo = await lerJson(res);
+    mostrarMensagem(id ? 'Funcionário atualizado com sucesso.' : `Funcionário criado com código ${salvo.codigo}.`);
+    cancelarEdicao();
+    await carregar();
+  } catch (e) { mostrarMensagem(e.message, 'erro'); }
 });
+
+$('btnCancelar').addEventListener('click', cancelarEdicao);
+$('btnFiltrar').addEventListener('click', carregar);
+$('buscaNome').addEventListener('keydown', (e) => { if (e.key === 'Enter') carregar(); });
+$('filtroAtivo').addEventListener('change', carregar);
 
 carregar();
 </script>
-
 </body>
 </html>
