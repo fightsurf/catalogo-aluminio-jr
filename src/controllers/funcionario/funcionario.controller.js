@@ -24,9 +24,9 @@ async function buscarPorId(req, res) {
 
 async function criar(req, res) {
   try {
-    const { nome, cargo, custohora } = req.body || {};
+    const { nome } = req.body || {};
     if (!String(nome || '').trim()) return res.status(400).json({ error: 'Nome é obrigatório.' });
-    return res.status(201).json(await service.criar(nome, cargo, custohora));
+    return res.status(201).json(await service.criar(nome));
   } catch (error) {
     return res.status(statusErro(error)).json({ error: error.message });
   }
@@ -34,9 +34,9 @@ async function criar(req, res) {
 
 async function atualizar(req, res) {
   try {
-    const { nome, cargo, custohora, ativo } = req.body || {};
+    const { nome, ativo } = req.body || {};
     if (!String(nome || '').trim()) return res.status(400).json({ error: 'Nome é obrigatório.' });
-    return res.json(await service.atualizar(req.params.id, nome, cargo, custohora, ativo));
+    return res.json(await service.atualizar(req.params.id, nome, ativo));
   } catch (error) {
     const status = /não encontrado/i.test(error.message) ? 404 : statusErro(error);
     return res.status(status).json({ error: error.message });

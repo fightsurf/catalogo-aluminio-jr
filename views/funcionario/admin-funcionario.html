@@ -12,7 +12,7 @@
     h1 { margin:0 0 5px; font-size:26px; }
     .sub { color:#666; font-size:14px; }
     .card { background:#fff; border:1px solid #ddd; border-radius:10px; padding:18px; margin-bottom:18px; box-shadow:0 1px 3px rgba(0,0,0,.05); }
-    .grid { display:grid; grid-template-columns: minmax(280px,2fr) minmax(120px,1fr) minmax(140px,1fr) auto; gap:12px; align-items:end; }
+    .grid { display:grid; grid-template-columns: minmax(280px,1fr) auto; gap:12px; align-items:end; }
     label { display:block; font-size:12px; font-weight:bold; margin-bottom:5px; color:#555; }
     input, select, button { font:inherit; }
     input, select { box-sizing:border-box; width:100%; padding:10px; border:1px solid #bbb; border-radius:6px; background:#fff; }
@@ -65,14 +65,6 @@
           <label for="nome">Nome</label>
           <input id="nome" maxlength="250" required autocomplete="off">
         </div>
-        <div>
-          <label for="cargo">Código do cargo</label>
-          <input id="cargo" type="number" min="1" step="1" placeholder="Opcional">
-        </div>
-        <div>
-          <label for="custohora">Custo/hora</label>
-          <input id="custohora" type="number" min="0" step="0.01" placeholder="Opcional">
-        </div>
         <div class="acoes-form">
           <button type="submit" class="primario" id="btnSalvar">Salvar</button>
           <button type="button" class="secundario" id="btnCancelar" style="display:none">Cancelar</button>
@@ -107,8 +99,6 @@
           <th>Funcionário</th>
           <th>Código</th>
           <th>Nome</th>
-          <th>Cargo</th>
-          <th>Custo/hora</th>
           <th>Status</th>
           <th>Ações</th>
         </tr>
@@ -136,10 +126,6 @@ async function lerJson(res) {
   return data;
 }
 
-function moeda(valor) {
-  if (valor === null || valor === undefined || valor === '') return '—';
-  return Number(valor).toLocaleString('pt-BR', { style:'currency', currency:'BRL' });
-}
 
 function escapeHtml(valor) {
   return String(valor ?? '')
@@ -169,7 +155,7 @@ function renderizar() {
   $('contador').textContent = `${funcionarios.length} funcionário(s) encontrado(s).`;
 
   if (!funcionarios.length) {
-    tbody.innerHTML = '<tr><td colspan="7">Nenhum funcionário encontrado.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5">Nenhum funcionário encontrado.</td></tr>';
     return;
   }
 
@@ -180,8 +166,6 @@ function renderizar() {
       <td>${escapeHtml(f.funcionario)}</td>
       <td>${escapeHtml(f.codigo)}</td>
       <td>${escapeHtml(f.nome)}</td>
-      <td>${f.cargo == null ? '—' : escapeHtml(f.cargo)}</td>
-      <td>${moeda(f.custohora)}</td>
       <td><span class="badge ${f.ativo ? 'on' : 'off'}">${f.ativo ? 'Ativo' : 'Inativo'}</span></td>
       <td>
         <div class="acoes">
@@ -200,8 +184,6 @@ function editar(id) {
   if (!f) return;
   $('funcionarioId').value = f.funcionario;
   $('nome').value = f.nome || '';
-  $('cargo').value = f.cargo ?? '';
-  $('custohora').value = f.custohora ?? '';
   $('tituloForm').textContent = `Editar funcionário ${f.codigo || f.funcionario}`;
   $('btnSalvar').textContent = 'Salvar alterações';
   $('btnCancelar').style.display = '';
@@ -235,8 +217,6 @@ $('formFuncionario').addEventListener('submit', async (e) => {
   const atual = funcionarios.find(x => String(x.funcionario) === String(id));
   const payload = {
     nome: $('nome').value.trim(),
-    cargo: $('cargo').value === '' ? null : Number($('cargo').value),
-    custohora: $('custohora').value === '' ? null : Number($('custohora').value),
     ativo: atual ? Boolean(atual.ativo) : true
   };
 
