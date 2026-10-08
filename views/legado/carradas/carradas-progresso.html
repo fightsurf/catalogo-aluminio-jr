@@ -1665,6 +1665,9 @@
 
     function renderCardsFases() {
       const totais = estado.matriz?.totaisFases || {};
+      const totalItens = (estado.matriz?.pedidos || []).reduce(
+        (soma, pedido) => soma + (Number(pedido.quantidadeItens) || 0), 0
+      );
 
       el.cardsFases.innerHTML = FASES.map((fase) => {
         const total = totais[fase.codigo] || { concluidos: 0, total: 0 };
@@ -1674,7 +1677,12 @@
             <strong>${escapeHtml(`${total.concluidos}/${total.total}`)}</strong>
           </div>
         `;
-      }).join('');
+      }).join('') + `
+        <div class="status-card">
+          <span class="muted">Total de itens da carrada</span>
+          <strong>${escapeHtml(totalItens.toLocaleString('pt-BR'))}</strong>
+        </div>
+      `;
     }
 
     function tituloCelulaEspecial(faseCodigo, faseData) {
