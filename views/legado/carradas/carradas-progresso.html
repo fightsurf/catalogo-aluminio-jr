@@ -1933,10 +1933,10 @@
                 <div class="pedido-title"><a class="pedido-link" href="/legado/pedidos?numero=${encodeURIComponent(pedido.numero)}" target="_blank" rel="noopener noreferrer">Pedido ${escapeHtml(pedido.numero)}</a></div>
               </div>
               <div class="pedido-meta">
-                <span class="cliente-contato">${nomeClienteHtml}${telefoneClienteHtml}${impressoraClienteHtml}</span><br>
+                <span class="cliente-contato"><strong>${nomeClienteHtml}</strong>${telefoneClienteHtml}${impressoraClienteHtml}</span><br>
                 ${pedido.cliente?.cidade ? escapeHtml(pedido.cliente.cidade) + (pedido.cliente?.uf ? ' - ' + escapeHtml(pedido.cliente.uf) : '') + '<br>' : ''}
                 Data: ${escapeHtml(formatarData(pedido.data) || '-')}<br>
-                Valor: ${escapeHtml(formatarMoeda(pedido.total))}<br>
+                <strong>Valor: ${escapeHtml(formatarMoeda(pedido.total))}</strong><br><br>
                 Vendedor: ${escapeHtml(pedido.vendedor?.nome || '-')}<br>
                 Qtde Itens: ${escapeHtml(pedido.quantidadeItens ?? 0)}
               </div>
