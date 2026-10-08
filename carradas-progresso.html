@@ -936,7 +936,9 @@
               <div class="pedido-meta">
                 ${escapeHtml(pedido.cliente?.nome || '-')}<br>
                 Data: ${escapeHtml(formatarData(pedido.data) || '-')}<br>
-                Valor: ${escapeHtml(formatarMoeda(pedido.total))}
+                Valor: ${escapeHtml(formatarMoeda(pedido.total))}<br>
+                Vendedor: ${escapeHtml(pedido.vendedor?.nome || '-')}<br>
+                Qtde Itens: ${escapeHtml(pedido.quantidadeItens ?? 0)}
               </div>
             </td>
             ${fasesHtml}
