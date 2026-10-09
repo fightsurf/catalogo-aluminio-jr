@@ -66,45 +66,69 @@ function ehRelatorioAluminioJR(mensagem) {
 
 async function buscarClientePorTelefone(telefone) {
   const telefoneNormalizado = normalizarTelefone(telefone);
-  if (!telefoneNormalizado) return null;
+  if (!telefoneNormalizado) {
+    return { cliente: null, status: 'telefone_invalido' };
+  }
 
   const agora = Date.now();
   const cache = cacheClientes.get(telefoneNormalizado);
   if (cache && cache.expiraEm > agora) {
-    return cache.cliente;
+    return { cliente: cache.cliente, status: 'localizado' };
   }
 
-  try {
-    const clientes = await clientesLegadoService.listarClientes({
-      telefone: telefoneNormalizado,
-      status: 'todos',
-      limite: 5
-    });
+  // Prioriza a versão com DDI: funciona também em APIs locais que ainda
+  // não receberam o patch anterior, pois procuram o valor integral em FONE1.
+  // Se necessário, tenta DDD + telefone (sem DDI) em uma segunda consulta.
+  const variantes = [...new Set([
+    (telefoneNormalizado.length === 10 || telefoneNormalizado.length === 11)
+      ? `55${telefoneNormalizado}`
+      : '',
+    telefoneNormalizado
+  ].filter(Boolean))];
 
-    const cliente = Array.isArray(clientes) && clientes.length ? clientes[0] : null;
-    cacheClientes.set(telefoneNormalizado, { cliente, expiraEm: agora + CLIENTE_CACHE_MS });
-    return cliente;
+  try {
+    for (const variante of variantes) {
+      const clientes = await clientesLegadoService.listarClientes({
+        telefone: variante,
+        status: 'todos',
+        limite: 5
+      });
+
+      if (Array.isArray(clientes) && clientes.length) {
+        const cliente = clientes[0];
+        cacheClientes.set(telefoneNormalizado, {
+          cliente,
+          expiraEm: agora + CLIENTE_CACHE_MS
+        });
+        return { cliente, status: 'localizado' };
+      }
+    }
+
+    // Não guardar resultados vazios em cache: cadastros corrigidos passam a
+    // aparecer na próxima atualização automática da página.
+    return { cliente: null, status: 'nao_localizado' };
   } catch (error) {
-    console.error(`Erro ao identificar cliente pelo telefone ${telefoneNormalizado}:`, error.message);
-    return null;
+    // Falha de ponte/Firebird NÃO equivale a telefone não cadastrado.
+    console.error('Erro ao identificar cliente no legado:', {
+      telefoneFinal: telefoneNormalizado.slice(-4),
+      mensagem: error.message
+    });
+    return { cliente: null, status: 'erro_consulta' };
   }
 }
 
 async function enriquecerComClientes(registros) {
-  const cache = new Map();
+  const consultas = new Map();
 
   for (const registro of registros) {
     const chave = normalizarTelefone(registro.telefone);
-    if (!chave) {
-      registro.cliente = null;
-      continue;
+    if (!consultas.has(chave)) {
+      consultas.set(chave, await buscarClientePorTelefone(chave));
     }
 
-    if (!cache.has(chave)) {
-      cache.set(chave, await buscarClientePorTelefone(chave));
-    }
-
-    registro.cliente = cache.get(chave) || null;
+    const resultado = consultas.get(chave);
+    registro.cliente = resultado.cliente;
+    registro.clienteConsultaStatus = resultado.status;
   }
 
   return registros;

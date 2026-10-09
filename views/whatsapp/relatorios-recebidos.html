@@ -143,7 +143,9 @@
             <div>
               <div class="telefone">${escapeHtml(formatarTelefone(item.telefone))}</div>
               <div class="data">Recebido em ${escapeHtml(formatarData(item.recebido_em))}</div>
-              ${clienteHtml(item.cliente)}
+              ${item.clienteConsultaStatus === 'erro_consulta'
+                ? '<div class="cliente-nao" style="color:#991b1b">Erro ao consultar o cadastro de clientes (API local/Firebird). Verifique os logs do Render e da API local.</div>'
+                : clienteHtml(item.cliente)}
             </div>
           </div>
           <div class="preview">${escapeHtml(previewRelatorio(item.relatorio))}</div>
