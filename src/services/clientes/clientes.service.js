@@ -120,35 +120,6 @@ async function buscarClientePorId(favorecido, executor = firebirdService) {
   return mapearCliente(rows[0]);
 }
 
-// Equivalências usadas apenas na pesquisa; os dados gravados não são alterados.
-const ACENTOS_PESQUISA = [
-  ['ÁÀÂÃÄÅ', 'A'],
-  ['ÉÈÊË', 'E'],
-  ['ÍÌÎÏ', 'I'],
-  ['ÓÒÔÕÖ', 'O'],
-  ['ÚÙÛÜ', 'U'],
-  ['Ç', 'C'],
-  ['Ñ', 'N'],
-  ['Ý', 'Y']
-];
-
-function normalizarPesquisa(valor) {
-  return limparTexto(valor)
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toUpperCase();
-}
-
-function expressaoPesquisaSemAcentos(campo) {
-  let expressao = `UPPER(COALESCE(${campo}, ''))`;
-  for (const [acentuados, simples] of ACENTOS_PESQUISA) {
-    for (const acento of acentuados) {
-      expressao = `REPLACE(${expressao}, '${acento}', '${simples}')`;
-    }
-  }
-  return expressao;
-}
-
 async function listarClientes(filtros = {}) {
   const nome = limparTexto(filtros.nome);
   const cidade = limparTexto(filtros.cidade);
@@ -185,17 +156,16 @@ async function listarClientes(filtros = {}) {
 
   if (nome) {
     sql += ` AND (
-      ${expressaoPesquisaSemAcentos('F.NOME')} LIKE ?
-      OR ${expressaoPesquisaSemAcentos('F.RAZAO')} LIKE ?
-      OR ${expressaoPesquisaSemAcentos('F.CODIGO')} LIKE ?
+      UPPER(COALESCE(F.NOME, '')) LIKE ?
+      OR UPPER(COALESCE(F.RAZAO, '')) LIKE ?
+      OR UPPER(COALESCE(F.CODIGO, '')) LIKE ?
     )`;
-    const termo = `%${normalizarPesquisa(nome)}%`;
-    params.push(termo, termo, termo);
+    params.push(`%${nome.toUpperCase()}%`, `%${nome.toUpperCase()}%`, `%${nome.toUpperCase()}%`);
   }
 
   if (cidade) {
-    sql += ` AND ${expressaoPesquisaSemAcentos('F.CIDADE')} LIKE ?`;
-    params.push(`%${normalizarPesquisa(cidade)}%`);
+    sql += ` AND UPPER(COALESCE(F.CIDADE, '')) LIKE ?`;
+    params.push(`%${cidade.toUpperCase()}%`);
   }
 
   if (uf) {
@@ -218,7 +188,13 @@ async function listarClientes(filtros = {}) {
       '.', '')
     `;
 
-    const candidatos = [...new Set([telefone, telefoneLocal].filter(Boolean))];
+    // Telefones podem estar gravados com ou sem o DDI 55 no Firebird.
+    // O Render envia normalmente apenas DDD + número: consultar as duas variantes.
+    const candidatos = [...new Set([
+      telefone,
+      telefoneLocal,
+      (telefoneLocal.length === 10 || telefoneLocal.length === 11) ? `55${telefoneLocal}` : ''
+    ].filter(Boolean))];
     const placeholders = candidatos.map(() => '?').join(', ');
 
     sql += ` AND ${telefoneExpr} IN (${placeholders})`;
