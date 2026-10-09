@@ -76,15 +76,22 @@ async function buscarClientePorTelefone(telefone) {
     return { cliente: cache.cliente, status: 'localizado' };
   }
 
-  // Prioriza a versão com DDI: funciona também em APIs locais que ainda
-  // não receberam o patch anterior, pois procuram o valor integral em FONE1.
-  // Se necessário, tenta DDD + telefone (sem DDI) em uma segunda consulta.
-  const variantes = [...new Set([
-    (telefoneNormalizado.length === 10 || telefoneNormalizado.length === 11)
-      ? `55${telefoneNormalizado}`
-      : '',
-    telefoneNormalizado
-  ].filter(Boolean))];
+  // 1) Primeiro procura o número como foi recebido (com e sem DDI).
+  // 2) Caso não exista, considera a migração brasileira para celular de 9 dígitos:
+  //    +55 (84) 9665-7527 -> +55 (84) 99665-7527.
+  //    A conversão só é tentada para número nacional de 10 dígitos,
+  //    cujo assinante de 8 dígitos começa por 9 (não altera telefones fixos).
+  // Nunca modifica o número original armazenado com o relatório.
+  const numerosNacionais = [telefoneNormalizado];
+  if (telefoneNormalizado.length === 10 && telefoneNormalizado[2] === '9') {
+    numerosNacionais.push(
+      `${telefoneNormalizado.slice(0, 2)}9${telefoneNormalizado.slice(2)}`
+    );
+  }
+
+  const variantes = [...new Set(numerosNacionais.flatMap((numero) => [
+    `55${numero}`, numero
+  ]))];
 
   try {
     for (const variante of variantes) {
