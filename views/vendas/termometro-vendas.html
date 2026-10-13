@@ -20,30 +20,30 @@
   button.primary { background:#162c48; color:#fff; border-color:#162c48; }
   .message { margin:15px 0 0; padding:12px 14px; border:1px solid #bfd4ff; border-radius:10px; background:#ecf3ff; color:#244478; font-size:13px; }
   .message.error { border-color:#fecaca; background:#fef2f2; color:#991b1b; }
-  .summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:22px 0 19px; }
-  .summary-card { border-radius:13px; padding:16px; border:1px solid var(--line); background:var(--panel); }
+  .summary { display:grid; grid-template-columns:repeat(3,minmax(0,240px)); gap:10px; margin:20px 0 18px; }
+  .summary-card { border-radius:13px; padding:12px; border:1px solid var(--line); background:var(--panel); }
   .summary-card.current { border-color:#adc8f7; background:#f8fbff; }
-  .summary-card h2 { margin:0 0 12px; font-size:14px; text-transform:capitalize; }
+  .summary-card h2 { margin:0 0 10px; font-size:13px; text-transform:capitalize; }
   .summary-cols { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
-  .total { font-size:clamp(20px,3vw,29px); font-weight:800; font-variant-numeric:tabular-nums; }
+  .total { font-size:clamp(19px,2vw,24px); font-weight:800; font-variant-numeric:tabular-nums; }
   .sum-label { font-size:11px; color:var(--muted); line-height:1.6; }
   .panel-toolbar { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin:0 0 12px; }
   .panel-toolbar h2 { margin:0; font-size:18px; }
   .muted { color:var(--muted); }
-  .cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
-  .product-card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px; box-shadow:0 2px 10px #0f172a06; min-width:0; }
-  .product-title { margin:0; font-size:17px; font-weight:750; line-height:1.35; overflow-wrap:anywhere; }
+  .cards { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+  .product-card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:13px; box-shadow:0 2px 10px #0f172a06; min-width:0; }
+  .product-title { margin:0; font-size:15px; font-weight:750; line-height:1.35; overflow-wrap:anywhere; }
   .product-sub { color:var(--muted); font-size:12px; margin:4px 0 12px; }
   .metric { margin-top:16px; }
   .metric + .metric { border-top:1px solid #edf1f6; padding-top:16px; }
   .metric-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:9px; }
   .metric-head strong { font-size:13px; }
   .metric-head span { font-size:11px; color:var(--muted); }
-  .bar-chart { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+  .bar-chart { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
   .bar-col { min-width:0; text-align:center; }
   .bar-value { font-size:14px; font-weight:800; font-variant-numeric:tabular-nums; margin:0 0 6px; }
   .bar-track { height:108px; background:linear-gradient(to top, #f0f4fa 1px,transparent 1px) 0 0/100% 25%; display:flex; align-items:flex-end; justify-content:center; border-bottom:1px solid #cbd5e1; }
-  .bar { width:min(60%,65px); min-height:0; background:var(--blue); border-radius:5px 5px 0 0; transition:height .2s ease-out; }
+  .bar { width:min(58%,45px); min-height:0; background:var(--blue); border-radius:5px 5px 0 0; transition:height .2s ease-out; }
   .bar.ads { background:var(--violet); }
   .bar-month { display:block; margin-top:7px; color:var(--muted); font-size:11px; text-transform:capitalize; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
   .empty { background:white; border:1px dashed #aebace; border-radius:14px; padding:36px; text-align:center; color:var(--muted); }
@@ -70,8 +70,10 @@
   .config-row .reorder button { padding:5px 7px; }
   .dialog-footer { display:flex; gap:8px; justify-content:flex-end; align-items:center; border-top:1px solid var(--line); padding:13px 21px; }
   .dialog-footer .count { font-size:12px; color:var(--muted); margin-right:auto; }
-  @media(max-width:820px) { .cards {grid-template-columns:1fr;} .summary {gap:7px;} .summary-card {padding:12px 9px;} .summary-cols {flex-direction:column; gap:4px;} .total {font-size:22px;} }
-  @media(max-width:480px) { .page {padding:15px 10px 30px;} .top {display:block;} .actions {margin-top:14px;} .actions button {flex:1;} .summary-card h2 {font-size:12px;} .product-card {padding:13px;} .config-row .minor {display:none;} .dialog-body {padding:0 13px 12px;} .dialog-head,.dialog-footer {padding-left:13px;padding-right:13px;} }
+  @media(max-width:1200px) { .cards {grid-template-columns:repeat(3,minmax(0,1fr));} }
+  @media(max-width:900px) { .cards {grid-template-columns:repeat(2,minmax(0,1fr));} }
+  @media(max-width:620px) { .cards {grid-template-columns:minmax(0,380px);} .summary {grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px;} .summary-card {padding:12px 9px;} .summary-cols {flex-direction:column; gap:4px;} .total {font-size:22px;} }
+  @media(max-width:480px) { .page {padding:15px 10px 30px;} .top {display:block;} .actions {margin-top:14px;} .actions button {flex:1;} .summary-card h2 {font-size:12px;} .config-row .minor {display:none;} .dialog-body {padding:0 13px 12px;} .dialog-head,.dialog-footer {padding-left:13px;padding-right:13px;} }
 </style>
 </head>
 <body>
@@ -79,7 +81,7 @@
   <div class="top">
     <div>
       <h1>Termômetro de Vendas</h1>
-      <p class="lead">Quantidade vendida pela data da carrada · Divulgações por publicação · Mês anterior, atual e seguinte</p>
+      <p class="lead">Quantidade vendida pela data da carrada · Divulgações por publicação · Mês anterior, atual e seguinte · Atualização a cada 30 segundos</p>
     </div>
     <div class="actions">
       <button id="reload" type="button">↻ Atualizar</button>
@@ -285,7 +287,7 @@ elem('availableList').addEventListener('change', acaoConfig);
 elem('closeDialog').addEventListener('click', fecharConfiguracao);
 elem('cancelSettings').addEventListener('click', fecharConfiguracao);
 elem('saveSettings').addEventListener('click', salvarConfiguracao);
-setInterval(atualizar, 180000);
+setInterval(atualizar, 30000);
 atualizar();
 </script>
 </body>
