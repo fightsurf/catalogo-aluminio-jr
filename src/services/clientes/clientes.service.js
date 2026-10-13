@@ -8,6 +8,37 @@ function limparTexto(valor) {
   return valor.trim();
 }
 
+// O Firebird legado pode utilizar charset diferente de UTF8. Normalizamos
+// ambos os lados da pesquisa sem depender de COLLATE/ALTER no banco.
+const ACENTOS_PESQUISA = [
+  ['á', 'a'], ['à', 'a'], ['â', 'a'], ['ã', 'a'], ['ä', 'a'],
+  ['Á', 'A'], ['À', 'A'], ['Â', 'A'], ['Ã', 'A'], ['Ä', 'A'],
+  ['é', 'e'], ['è', 'e'], ['ê', 'e'], ['ë', 'e'],
+  ['É', 'E'], ['È', 'E'], ['Ê', 'E'], ['Ë', 'E'],
+  ['í', 'i'], ['ì', 'i'], ['î', 'i'], ['ï', 'i'],
+  ['Í', 'I'], ['Ì', 'I'], ['Î', 'I'], ['Ï', 'I'],
+  ['ó', 'o'], ['ò', 'o'], ['ô', 'o'], ['õ', 'o'], ['ö', 'o'],
+  ['Ó', 'O'], ['Ò', 'O'], ['Ô', 'O'], ['Õ', 'O'], ['Ö', 'O'],
+  ['ú', 'u'], ['ù', 'u'], ['û', 'u'], ['ü', 'u'],
+  ['Ú', 'U'], ['Ù', 'U'], ['Û', 'U'], ['Ü', 'U'],
+  ['ç', 'c'], ['Ç', 'C'], ['ñ', 'n'], ['Ñ', 'N'],
+  ['ý', 'y'], ['ÿ', 'y'], ['Ý', 'Y']
+];
+
+function textoPesquisaSemAcentos(valor) {
+  return limparTexto(valor).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase();
+}
+
+function expressaoSqlSemAcentos(campo) {
+  const semAcentos = ACENTOS_PESQUISA.reduce(
+    (expr, [acentuado, simples]) => `REPLACE(${expr}, '${acentuado}', '${simples}')`,
+    `COALESCE(${campo}, '')`
+  );
+  // UPPER no final também funciona quando o charset do legado não
+  // converte corretamente caracteres acentuados para maiúsculas.
+  return `UPPER(${semAcentos})`;
+}
+
 function textoPayload(payload, chavePrincipal, chaveAlternativa = null) {
   if (payload[chavePrincipal] !== undefined) {
     return limparTexto(payload[chavePrincipal]);
@@ -156,16 +187,17 @@ async function listarClientes(filtros = {}) {
 
   if (nome) {
     sql += ` AND (
-      UPPER(COALESCE(F.NOME, '')) LIKE ?
-      OR UPPER(COALESCE(F.RAZAO, '')) LIKE ?
-      OR UPPER(COALESCE(F.CODIGO, '')) LIKE ?
+      ${expressaoSqlSemAcentos('F.NOME')} LIKE ?
+      OR ${expressaoSqlSemAcentos('F.RAZAO')} LIKE ?
+      OR ${expressaoSqlSemAcentos('F.CODIGO')} LIKE ?
     )`;
-    params.push(`%${nome.toUpperCase()}%`, `%${nome.toUpperCase()}%`, `%${nome.toUpperCase()}%`);
+    const nomeBusca = `%${textoPesquisaSemAcentos(nome)}%`;
+    params.push(nomeBusca, nomeBusca, nomeBusca);
   }
 
   if (cidade) {
-    sql += ` AND UPPER(COALESCE(F.CIDADE, '')) LIKE ?`;
-    params.push(`%${cidade.toUpperCase()}%`);
+    sql += ` AND ${expressaoSqlSemAcentos('F.CIDADE')} LIKE ?`;
+    params.push(`%${textoPesquisaSemAcentos(cidade)}%`);
   }
 
   if (uf) {
@@ -188,13 +220,7 @@ async function listarClientes(filtros = {}) {
       '.', '')
     `;
 
-    // Telefones podem estar gravados com ou sem o DDI 55 no Firebird.
-    // O Render envia normalmente apenas DDD + número: consultar as duas variantes.
-    const candidatos = [...new Set([
-      telefone,
-      telefoneLocal,
-      (telefoneLocal.length === 10 || telefoneLocal.length === 11) ? `55${telefoneLocal}` : ''
-    ].filter(Boolean))];
+    const candidatos = [...new Set([telefone, telefoneLocal].filter(Boolean))];
     const placeholders = candidatos.map(() => '?').join(', ');
 
     sql += ` AND ${telefoneExpr} IN (${placeholders})`;
