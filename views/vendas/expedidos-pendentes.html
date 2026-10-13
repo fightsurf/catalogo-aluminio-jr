@@ -77,6 +77,13 @@
       font-weight: 700;
     }
     .pedido-link:hover { text-decoration: underline; }
+    .valor-link {
+      color: #0751ab;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      font-weight: 700;
+    }
+    .valor-link:hover { color: #003978; }
     .vazio {
       padding: 14px 7px;
       color: #666;
@@ -170,12 +177,22 @@
       corpo.innerHTML = ordenados.map((pedido) => {
         const numero = escapeHtml(pedido.numero || '-');
         const href = `/legado/pedidos?numero=${encodeURIComponent(pedido.numero || '')}`;
+        // A tela de pagamentos identifica o pedido pela chave completa de SAIDAS.
+        // Usar apenas o número pode resultar em mais de um pedido na busca.
+        const paramsPagamentos = new URLSearchParams({
+          empresa: String(pedido.empresa ?? -1),
+          saida: String(pedido.saida ?? ''),
+          pdv: String(pedido.pdv ?? 0)
+        });
+        const hrefPagamentos = pedido.saida
+          ? `/legado/pagamentos?${paramsPagamentos.toString()}`
+          : `/legado/pagamentos?numero=${encodeURIComponent(pedido.numero || '')}`;
 
         return `
           <tr>
             <td><a class="pedido-link" href="${href}" target="_blank" rel="noopener noreferrer">${numero}</a></td>
             <td>${escapeHtml(pedido.cliente_nome || '-')}</td>
-            <td>${escapeHtml(formatarMoeda(pedido.valor))}</td>
+            <td><a class="valor-link" href="${escapeHtml(hrefPagamentos)}" target="_blank" rel="noopener noreferrer" title="Abrir pagamentos do pedido ${numero}">${escapeHtml(formatarMoeda(pedido.valor))}</a></td>
             <td>${escapeHtml(formatarData(pedido.data_expedicao))}</td>
             <td>${escapeHtml(formatarData(pedido.data_carrada))}</td>
           </tr>
