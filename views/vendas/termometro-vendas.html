@@ -1,963 +1,292 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Termômetro de Vendas</title>
-  <style>
-    :root {
-      --bg: #f4f6f8;
-      --panel: #ffffff;
-      --line: #dfe4ea;
-      --text: #17212b;
-      --muted: #667085;
-      --dark: #111827;
-      --blue: #1d4ed8;
-      --green: #166534;
-      --green-bg: #dcfce7;
-      --orange: #9a3412;
-      --orange-bg: #ffedd5;
-      --red: #991b1b;
-      --red-bg: #fee2e2;
-      --purple: #6b21a8;
-      --purple-bg: #f3e8ff;
-      --gray-bg: #eef2f6;
-      --shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
-    }
-
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      background: var(--bg);
-      color: var(--text);
-      font-family: Arial, Helvetica, sans-serif;
-    }
-
-    .wrap { max-width: 1900px; margin: 0 auto; padding: 10px 12px 18px; }
-    .top {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 18px;
-      margin-bottom: 8px;
-    }
-    h1 { margin: 0; font-size: 22px; line-height: 1.1; }
-
-    .controls {
-      display: flex;
-      gap: 8px;
-      align-items: center;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
-    select, input, button {
-      font: inherit;
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      background: #fff;
-      padding: 7px 9px;
-      font-size: 12px;
-    }
-    button { cursor: pointer; }
-    button.primary { background: var(--dark); color: white; border-color: var(--dark); }
-
-    .notice {
-      display: none;
-      margin-bottom: 16px;
-      padding: 12px 14px;
-      border-radius: 10px;
-      border: 1px solid var(--line);
-      background: #fff;
-    }
-    .notice.error { display: block; color: var(--red); border-color: #fecaca; background: #fff7f7; }
-    .notice.info { display: block; color: #1e3a8a; border-color: #bfdbfe; background: #eff6ff; }
-
-    .cards {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(190px, 1fr));
-      gap: 8px;
-      margin-bottom: 8px;
-    }
-    .card {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      padding: 8px 10px;
-      box-shadow: var(--shadow);
-    }
-    .card .label { color: var(--text); font-size: 12px; font-weight: 800; margin-bottom: 8px; }
-    .compare-row { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 4px 0; }
-    .compare-row + .compare-row { border-top: 1px solid #eef2f6; margin-top: 3px; padding-top: 7px; }
-    .period-label { color: var(--muted); font-size: 10px; line-height: 1.2; }
-    .compare-value { font-size: 22px; line-height: 1; font-weight: 800; white-space: nowrap; }
-    .compare-value.current { color: var(--blue); }
-    .compare-value.previous { color: var(--red); }
-    .card .hint { color: var(--muted); font-size: 9px; margin-top: 6px; line-height: 1.2; }
-
-    .toolbar {
-      display: flex;
-      justify-content: flex-end;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 6px;
-      flex-wrap: wrap;
-    }
-    .filters { display: flex; gap: 4px; flex-wrap: wrap; }
-    .toolbar button, .toolbar input, .toolbar select { font-size: 11px; padding: 6px 8px; }
-    .filter-btn.active { background: var(--dark); color: #fff; border-color: var(--dark); }
-    .table-tools { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-    #categoriaFiltro { min-width: 210px; max-width: 320px; }
-    #busca { min-width: 250px; }
-
-    .panel {
-      background: var(--panel);
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-    .table-scroll { overflow: visible; max-height: none; }
-    table { width: 100%; border-collapse: collapse; table-layout: auto; }
-    th, td { padding: 11px 12px; border-bottom: 1px solid #edf0f3; text-align: left; vertical-align: middle; }
-    th {
-      position: sticky;
-      top: 0;
-      z-index: 2;
-      background: #f8fafc;
-      color: #475467;
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: .02em;
-    }
-    td.num, th.num { text-align: right; }
-    th.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
-    th.sortable:hover { background: #eef2f6; color: var(--dark); }
-    .sort-mark { display: inline-block; min-width: 12px; margin-left: 4px; color: #98a2b3; font-size: 10px; }
-    th.sortable.active-sort .sort-mark { color: var(--dark); }
-    tbody tr:hover { background: #fafcff; }
-    .produto { font-weight: 700; }
-    .categoria { font-size: 11px; color: var(--muted); margin-top: 3px; }
-    .source-main { font-weight: 700; }
-    .source-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
-    .badge {
-      display: inline-block;
-      padding: 5px 8px;
-      border-radius: 999px;
-      font-size: 11px;
-      font-weight: 800;
-      white-space: nowrap;
-    }
-    .badge.esquecido { color: var(--purple); background: var(--purple-bg); }
-    .badge.oportunidade { color: var(--green); background: var(--green-bg); }
-    .badge.baixa_resposta { color: var(--red); background: var(--red-bg); }
-    .badge.forte { color: #065f46; background: #d1fae5; }
-    .badge.nao_divulgado { color: var(--orange); background: var(--orange-bg); }
-    .badge.observar, .badge.sem_vinculo { color: #475467; background: var(--gray-bg); }
-    .status-desc { margin-top: 4px; color: var(--muted); font-size: 11px; max-width: 290px; line-height: 1.3; }
-    .dash { color: #98a2b3; }
-    .produto-link {
-      border: 0;
-      padding: 0;
-      background: transparent;
-      border-radius: 0;
-      color: var(--blue);
-      font-weight: 800;
-      text-align: left;
-      cursor: pointer;
-    }
-    .produto-link:hover { text-decoration: underline; }
-    .preco-atual {
-      margin-top: 3px;
-      color: #0f766e;
-      font-size: 12px;
-      font-weight: 800;
-    }
-
-    .modal-backdrop {
-      position: fixed;
-      inset: 0;
-      z-index: 1000;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      padding: 18px;
-      background: rgba(15, 23, 42, .58);
-    }
-    .modal-backdrop.open { display: flex; }
-    .history-modal {
-      width: min(1180px, 96vw);
-      max-height: 94vh;
-      overflow: auto;
-      background: #fff;
-      border-radius: 16px;
-      box-shadow: 0 24px 70px rgba(15, 23, 42, .25);
-    }
-    .history-head {
-      position: sticky;
-      top: 0;
-      z-index: 3;
-      display: flex;
-      justify-content: space-between;
-      gap: 16px;
-      align-items: flex-start;
-      padding: 16px 18px 12px;
-      border-bottom: 1px solid var(--line);
-      background: #fff;
-    }
-    .history-title { margin: 0; font-size: 20px; line-height: 1.2; }
-    .history-subtitle { margin-top: 5px; color: var(--muted); font-size: 12px; }
-    .history-current-price { margin-top: 5px; color: #0f766e; font-size: 14px; font-weight: 800; }
-    .history-close {
-      width: 34px;
-      height: 34px;
-      padding: 0;
-      border-radius: 50%;
-      font-size: 20px;
-      line-height: 1;
-      flex: 0 0 auto;
-    }
-    .history-body { padding: 14px 18px 18px; }
-    .history-loading, .history-error {
-      padding: 32px 12px;
-      text-align: center;
-      color: var(--muted);
-      font-size: 13px;
-    }
-    .history-error { color: var(--red); }
-    .history-summary {
-      display: grid;
-      grid-template-columns: repeat(4, minmax(130px, 1fr));
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-    .history-kpi {
-      border: 1px solid var(--line);
-      border-radius: 10px;
-      padding: 9px 10px;
-      background: #f8fafc;
-    }
-    .history-kpi .k-label { color: var(--muted); font-size: 10px; }
-    .history-kpi .k-value { margin-top: 3px; font-size: 18px; font-weight: 800; }
-    .chart-grid {
-      display: grid;
-      grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
-      gap: 12px;
-    }
-    .chart-card {
-      min-width: 0;
-      border: 1px solid var(--line);
-      border-radius: 12px;
-      padding: 11px 12px 8px;
-      background: #fff;
-    }
-    .chart-title { font-size: 13px; font-weight: 800; }
-    .chart-caption { margin-top: 2px; color: var(--muted); font-size: 10px; }
-    .chart-wrap { position: relative; width: 100%; height: 330px; margin-top: 8px; }
-    .chart-wrap.price { height: 330px; }
-    .chart-wrap canvas { width: 100%; height: 100%; display: block; }
-    .chart-legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 7px; color: #475467; font-size: 10px; }
-    .legend-item { display: inline-flex; align-items: center; gap: 5px; }
-    .legend-box, .legend-line { display: inline-block; width: 14px; height: 8px; border-radius: 2px; background: #111827; }
-    .legend-box.aparicoes { background: #93c5fd; }
-    .legend-line { height: 3px; border-radius: 999px; background: #0f766e; }
-    .legend-line.current { background: transparent; border-top: 2px dashed #64748b; height: 0; }
-    .history-note { margin-top: 9px; color: var(--muted); font-size: 10px; line-height: 1.35; }
-
-
-    @media (max-width: 1100px) {
-      .cards { grid-template-columns: repeat(2, 1fr); }
-      .top { flex-direction: column; }
-      .controls { justify-content: flex-start; }
-    }
-    @media (max-width: 900px) {
-      .chart-grid { grid-template-columns: 1fr; }
-      .history-summary { grid-template-columns: repeat(2, 1fr); }
-    }
-    @media (max-width: 650px) {
-      .wrap { padding: 8px; }
-      .cards { grid-template-columns: repeat(2, 1fr); }
-      .table-tools { width: 100%; }
-      #categoriaFiltro, #busca { min-width: 100%; width: 100%; max-width: none; }
-      .modal-backdrop { padding: 6px; }
-      .history-modal { width: 100%; max-height: 98vh; border-radius: 12px; }
-      .history-head { padding: 12px; }
-      .history-body { padding: 10px 12px 14px; }
-      .history-summary { grid-template-columns: repeat(2, 1fr); }
-      .chart-wrap, .chart-wrap.price { height: 285px; }
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Termômetro de Vendas — Alumínio JR</title>
+<style>
+  :root { color-scheme: light; --bg:#f4f6f9; --line:#e2e8f0; --ink:#1b293b; --muted:#657387; --blue:#2455b9; --violet:#7c3aed; --panel:white; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif; color:var(--ink); background:var(--bg); }
+  .page { max-width:1500px; margin:auto; padding:20px 18px 45px; }
+  .top { display:flex; justify-content:space-between; align-items:start; gap:12px; flex-wrap:wrap; }
+  h1 { font-size:clamp(22px,3vw,30px); margin:0 0 5px; letter-spacing:-.5px; }
+  p.lead { margin:0; color:var(--muted); font-size:13px; }
+  .actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  button, select, input { font:inherit; font-size:13px; border:1px solid #cbd5e1; border-radius:9px; padding:10px 11px; background:#fff; color:var(--ink); }
+  button { cursor:pointer; font-weight:650; }
+  button:hover:not(:disabled) { border-color:var(--blue); }
+  button:disabled { opacity:.55; cursor:wait; }
+  button.primary { background:#162c48; color:#fff; border-color:#162c48; }
+  .message { margin:15px 0 0; padding:12px 14px; border:1px solid #bfd4ff; border-radius:10px; background:#ecf3ff; color:#244478; font-size:13px; }
+  .message.error { border-color:#fecaca; background:#fef2f2; color:#991b1b; }
+  .summary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:22px 0 19px; }
+  .summary-card { border-radius:13px; padding:16px; border:1px solid var(--line); background:var(--panel); }
+  .summary-card.current { border-color:#adc8f7; background:#f8fbff; }
+  .summary-card h2 { margin:0 0 12px; font-size:14px; text-transform:capitalize; }
+  .summary-cols { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .total { font-size:clamp(20px,3vw,29px); font-weight:800; font-variant-numeric:tabular-nums; }
+  .sum-label { font-size:11px; color:var(--muted); line-height:1.6; }
+  .panel-toolbar { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin:0 0 12px; }
+  .panel-toolbar h2 { margin:0; font-size:18px; }
+  .muted { color:var(--muted); }
+  .cards { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+  .product-card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px; box-shadow:0 2px 10px #0f172a06; min-width:0; }
+  .product-title { margin:0; font-size:17px; font-weight:750; line-height:1.35; overflow-wrap:anywhere; }
+  .product-sub { color:var(--muted); font-size:12px; margin:4px 0 12px; }
+  .metric { margin-top:16px; }
+  .metric + .metric { border-top:1px solid #edf1f6; padding-top:16px; }
+  .metric-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:9px; }
+  .metric-head strong { font-size:13px; }
+  .metric-head span { font-size:11px; color:var(--muted); }
+  .bar-chart { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; }
+  .bar-col { min-width:0; text-align:center; }
+  .bar-value { font-size:14px; font-weight:800; font-variant-numeric:tabular-nums; margin:0 0 6px; }
+  .bar-track { height:108px; background:linear-gradient(to top, #f0f4fa 1px,transparent 1px) 0 0/100% 25%; display:flex; align-items:flex-end; justify-content:center; border-bottom:1px solid #cbd5e1; }
+  .bar { width:min(60%,65px); min-height:0; background:var(--blue); border-radius:5px 5px 0 0; transition:height .2s ease-out; }
+  .bar.ads { background:var(--violet); }
+  .bar-month { display:block; margin-top:7px; color:var(--muted); font-size:11px; text-transform:capitalize; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+  .empty { background:white; border:1px dashed #aebace; border-radius:14px; padding:36px; text-align:center; color:var(--muted); }
+  .empty strong { color:var(--ink); display:block; margin-bottom:8px; }
+  .warn { color:#9a3412; font-size:12px; margin:10px 0 0; }
+  .footer { color:var(--muted); font-size:12px; line-height:1.6; margin-top:22px; }
+  dialog { border:1px solid var(--line); border-radius:16px; padding:0; width:min(760px,calc(100vw - 26px)); max-height:90vh; box-shadow:0 25px 80px #14203438; }
+  dialog::backdrop { background:#14203488; }
+  .dialog-head { display:flex; justify-content:space-between; align-items:start; gap:10px; padding:19px 21px 12px; }
+  .dialog-head h2 { margin:0; font-size:21px; }
+  .dialog-head p { margin:5px 0 0; font-size:12px; color:var(--muted); }
+  .dialog-body { padding:0 21px 16px; overflow:auto; max-height:calc(90vh - 195px); }
+  .search-row { display:flex; align-items:center; gap:8px; margin:6px 0 15px; }
+  .search-row input { min-width:0; flex:1; }
+  .config-heading { margin:14px 0 8px; font-weight:700; font-size:14px; }
+  .selected-list, .option-list { display:grid; gap:7px; }
+  .config-row { display:flex; align-items:center; gap:10px; background:#f8fafc; border:1px solid var(--line); border-radius:10px; padding:8px 10px; font-size:13px; min-width:0; }
+  .config-row .name { flex:1; overflow-wrap:anywhere; }
+  .config-row .minor { font-size:11px; color:var(--muted); }
+  .config-row button { padding:5px 10px; }
+  .config-row input[type=checkbox] { width:17px; height:17px; margin:0; flex-shrink:0; accent-color:var(--blue); }
+  .config-row.selected { background:#edf5ff; border-color:#c4dbff; }
+  .config-row .reorder { display:flex; gap:3px; }
+  .config-row .reorder button { padding:5px 7px; }
+  .dialog-footer { display:flex; gap:8px; justify-content:flex-end; align-items:center; border-top:1px solid var(--line); padding:13px 21px; }
+  .dialog-footer .count { font-size:12px; color:var(--muted); margin-right:auto; }
+  @media(max-width:820px) { .cards {grid-template-columns:1fr;} .summary {gap:7px;} .summary-card {padding:12px 9px;} .summary-cols {flex-direction:column; gap:4px;} .total {font-size:22px;} }
+  @media(max-width:480px) { .page {padding:15px 10px 30px;} .top {display:block;} .actions {margin-top:14px;} .actions button {flex:1;} .summary-card h2 {font-size:12px;} .product-card {padding:13px;} .config-row .minor {display:none;} .dialog-body {padding:0 13px 12px;} .dialog-head,.dialog-footer {padding-left:13px;padding-right:13px;} }
+</style>
 </head>
 <body>
-  <main class="wrap">
-    <div class="top">
-      <div>
-        <h1>Termômetro de Vendas</h1>
-      </div>
-      <div class="controls">
-        <select id="mes"></select>
-        <select id="ano"></select>
-        <button id="atualizar" class="primary" type="button">Atualizar</button>
-      </div>
+<main class="page">
+  <div class="top">
+    <div>
+      <h1>Termômetro de Vendas</h1>
+      <p class="lead">Quantidade vendida pela data da carrada · Divulgações por publicação · Mês anterior, atual e seguinte</p>
     </div>
-
-    <div id="notice" class="notice"></div>
-
-    <section class="cards">
-      <div class="card">
-        <div class="label">Vendas gerais</div>
-        <div class="compare-row"><span class="period-label" id="cVendasAtualPeriodo">Mês atual</span><span class="compare-value current" id="cVendasAtual">—</span></div>
-        <div class="compare-row"><span class="period-label" id="cVendasAnteriorPeriodo">Mês passado</span><span class="compare-value previous" id="cVendasAnterior">—</span></div>
-        <div class="hint">Quantidade total de peças vendidas</div>
-      </div>
-      <div class="card">
-        <div class="label">Aparições gerais</div>
-        <div class="compare-row"><span class="period-label" id="cAparicoesAtualPeriodo">Mês atual</span><span class="compare-value current" id="cAparicoesAtual">—</span></div>
-        <div class="compare-row"><span class="period-label" id="cAparicoesAnteriorPeriodo">Mês passado</span><span class="compare-value previous" id="cAparicoesAnterior">—</span></div>
-        <div class="hint">Total de aparições registradas nos módulos</div>
-      </div>
-      <div class="card">
-        <div class="label">Média diária de vendas</div>
-        <div class="compare-row"><span class="period-label" id="cMediaVendasAtualPeriodo">Mês atual</span><span class="compare-value current" id="cMediaVendasAtual">—</span></div>
-        <div class="compare-row"><span class="period-label" id="cMediaVendasAnteriorPeriodo">Mês passado</span><span class="compare-value previous" id="cMediaVendasAnterior">—</span></div>
-        <div class="hint">Peças vendidas por dia do período</div>
-      </div>
-      <div class="card">
-        <div class="label">Média diária de aparições</div>
-        <div class="compare-row"><span class="period-label" id="cMediaAparicoesAtualPeriodo">Mês atual</span><span class="compare-value current" id="cMediaAparicoesAtual">—</span></div>
-        <div class="compare-row"><span class="period-label" id="cMediaAparicoesAnteriorPeriodo">Mês passado</span><span class="compare-value previous" id="cMediaAparicoesAnterior">—</span></div>
-        <div class="hint">Aparições por dia do período</div>
-      </div>
-    </section>
-
-    <div class="toolbar">
-      <div class="table-tools">
-        <select id="categoriaFiltro" aria-label="Filtrar por categoria">
-          <option value="">Todas as categorias</option>
-        </select>
-        <input id="busca" type="search" placeholder="Buscar produto ou categoria...">
-      </div>
+    <div class="actions">
+      <button id="reload" type="button">↻ Atualizar</button>
+      <button id="settings" class="primary" type="button">⚙ Configurar produtos</button>
     </div>
+  </div>
+  <div id="message" class="message" role="status">Carregando o painel…</div>
+  <section id="summary" class="summary" aria-label="Resumo mensal"></section>
+  <div class="panel-toolbar">
+    <h2 id="panelTitle">Produtos monitorados</h2>
+    <label class="muted" for="sort">Ordenar: <select id="sort">
+      <option value="config">Minha ordem</option>
+      <option value="most">Mais vendidos no mês atual</option>
+      <option value="least">Menos vendidos no mês atual</option>
+      <option value="name">Nome (A–Z)</option>
+    </select></label>
+  </div>
+  <section id="cards" class="cards" aria-label="Gráficos por produto"></section>
+  <p class="footer">As vendas incluem todo o mês da carrada, mesmo que a data esteja no futuro. As divulgações contam apenas publicações registradas pelos módulos Central de Ofertas, Status Zap e Status Vídeo, uma vez por produto e publicação, independentemente da rede de destino ou quantidade no kit. Pedidos cancelados são desconsiderados. Os dados de divulgação anteriores à implantação do registro podem ser incompletos.</p>
+</main>
 
-    <section class="panel">
-      <div class="table-scroll">
-        <table>
-          <thead>
-            <tr>
-              <th class="sortable" data-sort="produto">Produto <span class="sort-mark">↕</span></th>
-              <th class="num sortable" data-sort="vendas_atual"><span id="thVendasAtual">Vendas — mês atual</span> <span class="sort-mark">↕</span></th>
-              <th class="num sortable" data-sort="vendas_anterior"><span id="thVendasAnterior">Vendas — mês passado</span> <span class="sort-mark">↕</span></th>
-              <th class="num sortable" data-sort="aparicoes_atual"><span id="thAparicoesAtual">Aparições — mês atual</span> <span class="sort-mark">↕</span></th>
-              <th class="num sortable" data-sort="aparicoes_anterior"><span id="thAparicoesAnterior">Aparições — mês passado</span> <span class="sort-mark">↕</span></th>
-              <th class="num sortable" data-sort="vendas_por_aparicao"><span id="thVendasPorAparicao">Vendas / aparição</span> <span class="sort-mark">↕</span></th>
-            </tr>
-          </thead>
-          <tbody id="tbody">
-            <tr><td colspan="6">Carregando...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+<dialog id="configDialog" aria-labelledby="configTitle">
+  <div class="dialog-head">
+    <div><h2 id="configTitle">Configurar produtos</h2><p>Escolha quais produtos acompanhar. A seleção é salva para todos os dispositivos.</p></div>
+    <button type="button" id="closeDialog" aria-label="Fechar">✕</button>
+  </div>
+  <div class="dialog-body">
+    <div class="search-row"><input type="search" id="productSearch" autocomplete="off" placeholder="Buscar produto por nome ou código (sem acentos)"></div>
+    <div class="config-heading" id="selectedTitle">Selecionados</div>
+    <div class="selected-list" id="selectedList"></div>
+    <div class="config-heading">Adicionar produtos</div>
+    <div class="option-list" id="availableList"></div>
+    <p class="muted" id="moreResults" style="font-size:12px"></p>
+  </div>
+  <div class="dialog-footer">
+    <span class="count" id="selectedCount">0 selecionados</span>
+    <button type="button" id="cancelSettings">Cancelar</button>
+    <button type="button" id="saveSettings" class="primary">Salvar seleção</button>
+  </div>
+</dialog>
+<script>
+'use strict';
+const urlBase = '/api/vendas/termometro-vendas';
+const elem = (id) => document.getElementById(id);
+const number = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 });
+let painel = null;
+let catalogo = [];
+let selecionados = [];
+let carregando = false;
 
-    <div id="historicoBackdrop" class="modal-backdrop" aria-hidden="true">
-      <section class="history-modal" role="dialog" aria-modal="true" aria-labelledby="historicoTitulo">
-        <div class="history-head">
-          <div>
-            <h2 id="historicoTitulo" class="history-title">Histórico mensal do produto</h2>
-            <div id="historicoSubtitulo" class="history-subtitle"></div>
-            <div id="historicoPrecoAtual" class="history-current-price"></div>
-          </div>
-          <button id="historicoFechar" class="history-close" type="button" aria-label="Fechar histórico">×</button>
-        </div>
-        <div class="history-body">
-          <div id="historicoConteudo" class="history-loading">Carregando histórico...</div>
-        </div>
-      </section>
-    </div>
-
-  </main>
-
-  <script>
-    const els = {
-      mes: document.getElementById('mes'),
-      ano: document.getElementById('ano'),
-      atualizar: document.getElementById('atualizar'),
-      notice: document.getElementById('notice'),
-      tbody: document.getElementById('tbody'),
-      busca: document.getElementById('busca'),
-      categoriaFiltro: document.getElementById('categoriaFiltro'),
-      cVendasAtual: document.getElementById('cVendasAtual'),
-      cVendasAnterior: document.getElementById('cVendasAnterior'),
-      cAparicoesAtual: document.getElementById('cAparicoesAtual'),
-      cAparicoesAnterior: document.getElementById('cAparicoesAnterior'),
-      cMediaVendasAtual: document.getElementById('cMediaVendasAtual'),
-      cMediaVendasAnterior: document.getElementById('cMediaVendasAnterior'),
-      cMediaAparicoesAtual: document.getElementById('cMediaAparicoesAtual'),
-      cMediaAparicoesAnterior: document.getElementById('cMediaAparicoesAnterior'),
-      cVendasAtualPeriodo: document.getElementById('cVendasAtualPeriodo'),
-      cVendasAnteriorPeriodo: document.getElementById('cVendasAnteriorPeriodo'),
-      cAparicoesAtualPeriodo: document.getElementById('cAparicoesAtualPeriodo'),
-      cAparicoesAnteriorPeriodo: document.getElementById('cAparicoesAnteriorPeriodo'),
-      cMediaVendasAtualPeriodo: document.getElementById('cMediaVendasAtualPeriodo'),
-      cMediaVendasAnteriorPeriodo: document.getElementById('cMediaVendasAnteriorPeriodo'),
-      cMediaAparicoesAtualPeriodo: document.getElementById('cMediaAparicoesAtualPeriodo'),
-      cMediaAparicoesAnteriorPeriodo: document.getElementById('cMediaAparicoesAnteriorPeriodo'),
-      thVendasAtual: document.getElementById('thVendasAtual'),
-      thVendasAnterior: document.getElementById('thVendasAnterior'),
-      thAparicoesAtual: document.getElementById('thAparicoesAtual'),
-      thAparicoesAnterior: document.getElementById('thAparicoesAnterior'),
-      thVendasPorAparicao: document.getElementById('thVendasPorAparicao'),
-      historicoBackdrop: document.getElementById('historicoBackdrop'),
-      historicoFechar: document.getElementById('historicoFechar'),
-      historicoTitulo: document.getElementById('historicoTitulo'),
-      historicoSubtitulo: document.getElementById('historicoSubtitulo'),
-      historicoPrecoAtual: document.getElementById('historicoPrecoAtual'),
-      historicoConteudo: document.getElementById('historicoConteudo'),
-    };
-
-    let dados = null;
-    let ordenacao = { campo: 'vendas_atual', direcao: 'desc' };
-    let historicoAtual = null;
-    const historicoCache = new Map();
-    const AUTOREFRESH_MS = 60 * 1000;
-
-    function escapar(valor) {
-      return String(valor ?? '')
-        .replaceAll('&', '&amp;')
-        .replaceAll('<', '&lt;')
-        .replaceAll('>', '&gt;')
-        .replaceAll('"', '&quot;')
-        .replaceAll("'", '&#039;');
-    }
-
-    function numero(valor, casas = 0) {
-      const n = Number(valor || 0);
-      return n.toLocaleString('pt-BR', {
-        minimumFractionDigits: casas,
-        maximumFractionDigits: casas,
-      });
-    }
-
-    function numeroFlex(valor) {
-      const n = Number(valor || 0);
-      const casas = Math.abs(n - Math.round(n)) > 0.0001 ? 2 : 0;
-      return numero(n, casas);
-    }
-
-    function moeda(valor) {
-      const n = Number(valor || 0);
-      return n.toLocaleString('pt-BR', {
-        style: 'currency',
-        currency: 'BRL',
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
-    }
-
-    function rotuloPeriodo(periodo) {
-      if (!periodo?.mes || !periodo?.ano) return '';
-      const data = new Date(Number(periodo.ano), Number(periodo.mes) - 1, 1);
-      const nome = new Intl.DateTimeFormat('pt-BR', { month: 'long' }).format(data);
-      return `${nome.charAt(0).toUpperCase()}${nome.slice(1)}/${periodo.ano}`;
-    }
-
-    function iniciarPeriodo() {
-      const agora = new Date();
-      const meses = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-      els.mes.innerHTML = meses.map((nome, i) => `<option value="${i + 1}">${nome}</option>`).join('');
-      els.ano.innerHTML = Array.from({ length: 5 }, (_, i) => agora.getFullYear() - 3 + i)
-        .map((ano) => `<option value="${ano}">${ano}</option>`).join('');
-      els.mes.value = String(agora.getMonth() + 1);
-      els.ano.value = String(agora.getFullYear());
-    }
-
-    function mostrarErro(mensagem) {
-      els.notice.className = 'notice error';
-      els.notice.textContent = mensagem;
-    }
-
-    function esconderAviso() {
-      els.notice.className = 'notice';
-      els.notice.textContent = '';
-    }
-
-    function itensDaCategoria() {
-      const categoria = els.categoriaFiltro.value;
-      if (!categoria) return dados?.itens || [];
-      return (dados?.itens || []).filter((item) => String(item.categoria || '') === categoria);
-    }
-
-    function renderCards() {
-      const comp = dados?.comparativo || {};
-      const vendas = comp.vendas || {};
-      const aparicoes = comp.aparicoes || {};
-      const atual = rotuloPeriodo(dados?.periodo);
-      const anterior = rotuloPeriodo(dados?.periodo_anterior);
-
-      els.cVendasAtual.textContent = numeroFlex(vendas.atual);
-      els.cVendasAnterior.textContent = numeroFlex(vendas.anterior);
-      els.cAparicoesAtual.textContent = numeroFlex(aparicoes.atual);
-      els.cAparicoesAnterior.textContent = numeroFlex(aparicoes.anterior);
-      els.cMediaVendasAtual.textContent = numero(vendas.media_diaria_atual, 2);
-      els.cMediaVendasAnterior.textContent = numero(vendas.media_diaria_anterior, 2);
-      els.cMediaAparicoesAtual.textContent = numero(aparicoes.media_diaria_atual, 2);
-      els.cMediaAparicoesAnterior.textContent = numero(aparicoes.media_diaria_anterior, 2);
-
-      [els.cVendasAtualPeriodo, els.cAparicoesAtualPeriodo, els.cMediaVendasAtualPeriodo, els.cMediaAparicoesAtualPeriodo]
-        .forEach((el) => { el.textContent = atual; });
-      [els.cVendasAnteriorPeriodo, els.cAparicoesAnteriorPeriodo, els.cMediaVendasAnteriorPeriodo, els.cMediaAparicoesAnteriorPeriodo]
-        .forEach((el) => { el.textContent = anterior; });
-
-      els.thVendasAtual.textContent = `Vendas — ${atual}`;
-      els.thVendasAnterior.textContent = `Vendas — ${anterior}`;
-      els.thAparicoesAtual.textContent = `Aparições — ${atual}`;
-      els.thAparicoesAnterior.textContent = `Aparições — ${anterior}`;
-      els.thVendasPorAparicao.textContent = `Vendas / aparição — ${atual}`;
-    }
-
-    function preencherCategorias() {
-      const selecionada = els.categoriaFiltro.value;
-      const categorias = [...new Set((dados?.itens || [])
-        .map((item) => String(item.categoria || '').trim())
-        .filter(Boolean))]
-        .sort((a, b) => a.localeCompare(b, 'pt-BR'));
-
-      els.categoriaFiltro.innerHTML = [
-        '<option value="">Todas as categorias</option>',
-        ...categorias.map((categoria) => `<option value="${escapar(categoria)}">${escapar(categoria)}</option>`)
-      ].join('');
-
-      if (categorias.includes(selecionada)) {
-        els.categoriaFiltro.value = selecionada;
-      }
-    }
-
-    function compararItens(a, b) {
-      if (!ordenacao.campo) return 0;
-
-      const campo = ordenacao.campo;
-      const direcao = ordenacao.direcao === 'desc' ? -1 : 1;
-      let valorA = a[campo];
-      let valorB = b[campo];
-
-      if (campo === 'produto') {
-        return String(valorA || '').localeCompare(String(valorB || ''), 'pt-BR', { sensitivity: 'base' }) * direcao;
-      }
-
-      const aNulo = valorA === null || valorA === undefined || valorA === '';
-      const bNulo = valorB === null || valorB === undefined || valorB === '';
-      if (aNulo && bNulo) return 0;
-      if (aNulo) return 1;
-      if (bNulo) return -1;
-
-      valorA = Number(valorA);
-      valorB = Number(valorB);
-      return (valorA - valorB) * direcao;
-    }
-
-    function atualizarCabecalhosOrdenacao() {
-      document.querySelectorAll('th.sortable').forEach((th) => {
-        const ativo = th.dataset.sort === ordenacao.campo;
-        th.classList.toggle('active-sort', ativo);
-        const marca = th.querySelector('.sort-mark');
-        if (marca) marca.textContent = ativo ? (ordenacao.direcao === 'asc' ? '▲' : '▼') : '↕';
-        th.setAttribute('aria-sort', ativo ? (ordenacao.direcao === 'asc' ? 'ascending' : 'descending') : 'none');
-      });
-    }
-
-    function itensFiltrados() {
-      const termo = els.busca.value.trim().toLocaleLowerCase('pt-BR');
-      return itensDaCategoria()
-        .filter((item) => {
-          if (!termo) return true;
-          return [item.produto, item.categoria]
-            .some((valor) => String(valor ?? '').toLocaleLowerCase('pt-BR').includes(termo));
-        })
-        .map((item, indice) => ({ item, indice }))
-        .sort((a, b) => compararItens(a.item, b.item) || a.indice - b.indice)
-        .map(({ item }) => item);
-    }
-
-    function renderTabela() {
-      const itens = itensFiltrados();
-      if (!itens.length) {
-        els.tbody.innerHTML = '<tr><td colspan="6">Nenhum produto encontrado com o filtro atual.</td></tr>';
-        return;
-      }
-
-      atualizarCabecalhosOrdenacao();
-      els.tbody.innerHTML = itens.map((item) => {
-        const vendaPorAparicao = item.vendas_por_aparicao === null || item.vendas_por_aparicao === undefined
-          ? '<span class="dash">—</span>'
-          : numero(item.vendas_por_aparicao, 2);
-        return `
-          <tr>
-            <td>
-              <button class="produto-link" type="button" data-produto-id="${Number(item.produto_id)}" title="Abrir histórico mensal">${escapar(item.produto)}</button>
-              <div class="categoria">${escapar(item.categoria || 'Sem categoria')}</div>
-            </td>
-            <td class="num"><strong>${numeroFlex(item.vendas_atual)}</strong></td>
-            <td class="num">${numeroFlex(item.vendas_anterior)}</td>
-            <td class="num"><strong>${numeroFlex(item.aparicoes_atual)}</strong></td>
-            <td class="num">${numeroFlex(item.aparicoes_anterior)}</td>
-            <td class="num">${vendaPorAparicao}</td>
-          </tr>
-        `;
-      }).join('');
-    }
-
-    function configurarCanvas(canvas) {
-      const rect = canvas.getBoundingClientRect();
-      const dpr = Math.max(1, window.devicePixelRatio || 1);
-      const largura = Math.max(320, Math.round(rect.width));
-      const altura = Math.max(220, Math.round(rect.height));
-      canvas.width = Math.round(largura * dpr);
-      canvas.height = Math.round(altura * dpr);
-      const ctx = canvas.getContext('2d');
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      return { ctx, largura, altura };
-    }
-
-    function desenharTextoVazio(ctx, largura, altura, texto) {
-      ctx.clearRect(0, 0, largura, altura);
-      ctx.fillStyle = '#667085';
-      ctx.font = '12px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(texto, largura / 2, altura / 2);
-    }
-
-    function desenharGraficoVendasAparicoes(canvas, historico) {
-      if (!canvas) return;
-      const { ctx, largura, altura } = configurarCanvas(canvas);
-      const margem = { top: 18, right: 18, bottom: 42, left: 48 };
-      const plotW = largura - margem.left - margem.right;
-      const plotH = altura - margem.top - margem.bottom;
-      const maxValor = Math.max(1, ...historico.flatMap((m) => [Number(m.vendas || 0), Number(m.aparicoes || 0)]));
-      const maxEixo = Math.ceil(maxValor * 1.12);
-
-      ctx.clearRect(0, 0, largura, altura);
-      ctx.font = '10px Arial';
-      ctx.textBaseline = 'middle';
-
-      for (let i = 0; i <= 4; i += 1) {
-        const y = margem.top + (plotH * i / 4);
-        const valor = maxEixo * (1 - i / 4);
-        ctx.strokeStyle = '#e5e7eb';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(margem.left, y);
-        ctx.lineTo(largura - margem.right, y);
-        ctx.stroke();
-        ctx.fillStyle = '#667085';
-        ctx.textAlign = 'right';
-        ctx.fillText(numeroFlex(valor), margem.left - 7, y);
-      }
-
-      const grupoW = plotW / Math.max(1, historico.length);
-      const barW = Math.max(5, Math.min(18, grupoW * 0.28));
-
-      historico.forEach((m, i) => {
-        const centro = margem.left + grupoW * i + grupoW / 2;
-        const vendasH = plotH * Number(m.vendas || 0) / maxEixo;
-        const aparicoesH = plotH * Number(m.aparicoes || 0) / maxEixo;
-        const baseY = margem.top + plotH;
-
-        ctx.fillStyle = '#111827';
-        ctx.fillRect(centro - barW - 2, baseY - vendasH, barW, vendasH);
-        ctx.fillStyle = '#93c5fd';
-        ctx.fillRect(centro + 2, baseY - aparicoesH, barW, aparicoesH);
-
-        ctx.save();
-        ctx.translate(centro, altura - 17);
-        ctx.rotate(-0.45);
-        ctx.fillStyle = '#667085';
-        ctx.textAlign = 'right';
-        ctx.fillText(String(m.rotulo || ''), 0, 0);
-        ctx.restore();
-      });
-    }
-
-    function desenharGraficoPreco(canvas, historico, precoAtual) {
-      if (!canvas) return;
-      const { ctx, largura, altura } = configurarCanvas(canvas);
-      const valores = historico
-        .map((m) => Number(m.preco_medio))
-        .filter((v) => Number.isFinite(v) && v > 0);
-      const atual = Number(precoAtual || 0);
-      const todos = [...valores, ...(atual > 0 ? [atual] : [])];
-
-      if (!todos.length) {
-        desenharTextoVazio(ctx, largura, altura, 'Sem histórico de preço disponível.');
-        return;
-      }
-
-      let minimo = Math.min(...todos);
-      let maximo = Math.max(...todos);
-      if (Math.abs(maximo - minimo) < 0.01) {
-        minimo = Math.max(0, minimo * 0.9);
-        maximo = maximo * 1.1 || 1;
-      } else {
-        const folga = (maximo - minimo) * 0.15;
-        minimo = Math.max(0, minimo - folga);
-        maximo += folga;
-      }
-
-      const margem = { top: 18, right: 18, bottom: 42, left: 64 };
-      const plotW = largura - margem.left - margem.right;
-      const plotH = altura - margem.top - margem.bottom;
-      const yDe = (valor) => margem.top + plotH - ((valor - minimo) / (maximo - minimo)) * plotH;
-
-      ctx.clearRect(0, 0, largura, altura);
-      ctx.font = '10px Arial';
-      ctx.textBaseline = 'middle';
-
-      for (let i = 0; i <= 4; i += 1) {
-        const y = margem.top + (plotH * i / 4);
-        const valor = maximo - (maximo - minimo) * i / 4;
-        ctx.strokeStyle = '#e5e7eb';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.moveTo(margem.left, y);
-        ctx.lineTo(largura - margem.right, y);
-        ctx.stroke();
-        ctx.fillStyle = '#667085';
-        ctx.textAlign = 'right';
-        ctx.fillText(moeda(valor), margem.left - 7, y);
-      }
-
-      if (atual > 0) {
-        const yAtual = yDe(atual);
-        ctx.save();
-        ctx.setLineDash([6, 5]);
-        ctx.strokeStyle = '#64748b';
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(margem.left, yAtual);
-        ctx.lineTo(largura - margem.right, yAtual);
-        ctx.stroke();
-        ctx.restore();
-      }
-
-      const pontos = historico.map((m, i) => {
-        const x = historico.length === 1
-          ? margem.left + plotW / 2
-          : margem.left + (plotW * i / (historico.length - 1));
-        const valor = Number(m.preco_medio);
-        return { x, valor: Number.isFinite(valor) && valor > 0 ? valor : null, rotulo: m.rotulo };
-      });
-
-      ctx.strokeStyle = '#0f766e';
-      ctx.lineWidth = 2.5;
-      ctx.beginPath();
-      let iniciou = false;
-      pontos.forEach((ponto) => {
-        if (ponto.valor === null) {
-          iniciou = false;
-          return;
-        }
-        const y = yDe(ponto.valor);
-        if (!iniciou) {
-          ctx.moveTo(ponto.x, y);
-          iniciou = true;
-        } else {
-          ctx.lineTo(ponto.x, y);
-        }
-      });
-      ctx.stroke();
-
-      pontos.forEach((ponto) => {
-        if (ponto.valor === null) return;
-        const y = yDe(ponto.valor);
-        ctx.fillStyle = '#0f766e';
-        ctx.beginPath();
-        ctx.arc(ponto.x, y, 3.5, 0, Math.PI * 2);
-        ctx.fill();
-      });
-
-      pontos.forEach((ponto) => {
-        ctx.save();
-        ctx.translate(ponto.x, altura - 17);
-        ctx.rotate(-0.45);
-        ctx.fillStyle = '#667085';
-        ctx.textAlign = 'right';
-        ctx.fillText(String(ponto.rotulo || ''), 0, 0);
-        ctx.restore();
-      });
-    }
-
-    function renderizarHistoricoGrafico(data) {
-      historicoAtual = data;
-      const produto = data?.produto || {};
-      const historico = Array.isArray(data?.historico) ? data.historico : [];
-      const totalVendas = historico.reduce((t, m) => t + Number(m.vendas || 0), 0);
-      const totalAparicoes = historico.reduce((t, m) => t + Number(m.aparicoes || 0), 0);
-      const mesesComPreco = historico.filter((m) => Number(m.preco_medio || 0) > 0);
-      const ultimoPreco = mesesComPreco.length ? mesesComPreco[mesesComPreco.length - 1].preco_medio : null;
-
-      els.historicoTitulo.textContent = produto.produto || 'Histórico mensal do produto';
-      els.historicoSubtitulo.textContent = `${produto.categoria || 'Sem categoria'} · últimos ${Number(data?.periodo?.meses || 12)} meses até ${String(data?.periodo?.mes || '').padStart(2, '0')}/${data?.periodo?.ano || ''}`;
-      els.historicoPrecoAtual.textContent = `Preço atual de venda: ${moeda(produto.preco_atual)}`;
-
-      els.historicoConteudo.className = '';
-      els.historicoConteudo.innerHTML = `
-        <div class="history-summary">
-          <div class="history-kpi"><div class="k-label">Vendas no período</div><div class="k-value">${numeroFlex(totalVendas)}</div></div>
-          <div class="history-kpi"><div class="k-label">Aparições no período</div><div class="k-value">${numeroFlex(totalAparicoes)}</div></div>
-          <div class="history-kpi"><div class="k-label">Preço atual</div><div class="k-value">${moeda(produto.preco_atual)}</div></div>
-          <div class="history-kpi"><div class="k-label">Último preço médio vendido</div><div class="k-value">${ultimoPreco ? moeda(ultimoPreco) : '—'}</div></div>
-        </div>
-        <div class="chart-grid">
-          <div class="chart-card">
-            <div class="chart-title">Vendas x aparições</div>
-            <div class="chart-caption">Comparação mês a mês entre quantidade vendida e exposição do produto.</div>
-            <div class="chart-wrap"><canvas id="historicoVendasChart"></canvas></div>
-            <div class="chart-legend">
-              <span class="legend-item"><span class="legend-box"></span>Vendas</span>
-              <span class="legend-item"><span class="legend-box aparicoes"></span>Aparições</span>
-            </div>
-          </div>
-          <div class="chart-card">
-            <div class="chart-title">Evolução do preço</div>
-            <div class="chart-caption">Preço médio efetivamente praticado nas vendas do Firebird.</div>
-            <div class="chart-wrap price"><canvas id="historicoPrecoChart"></canvas></div>
-            <div class="chart-legend">
-              <span class="legend-item"><span class="legend-line"></span>Preço médio vendido</span>
-              <span class="legend-item"><span class="legend-line current"></span>Preço atual</span>
-            </div>
-          </div>
-        </div>
-        <div class="history-note">Meses sem venda ficam sem ponto de preço. O preço médio é calculado com os preços efetivamente registrados nos itens vendidos.</div>
-      `;
-
-      requestAnimationFrame(() => {
-        desenharGraficoVendasAparicoes(document.getElementById('historicoVendasChart'), historico);
-        desenharGraficoPreco(document.getElementById('historicoPrecoChart'), historico, produto.preco_atual);
-      });
-    }
-
-    function fecharHistorico() {
-      els.historicoBackdrop.classList.remove('open');
-      els.historicoBackdrop.setAttribute('aria-hidden', 'true');
-      historicoAtual = null;
-    }
-
-    async function abrirHistorico(produtoId) {
-      const itemTabela = (dados?.itens || []).find((item) => Number(item.produto_id) === Number(produtoId));
-      els.historicoTitulo.textContent = itemTabela?.produto || 'Histórico mensal do produto';
-      els.historicoSubtitulo.textContent = itemTabela?.categoria || '';
-      els.historicoPrecoAtual.textContent = itemTabela ? `Preço atual de venda: ${moeda(itemTabela.preco_atual)}` : '';
-      els.historicoConteudo.className = 'history-loading';
-      els.historicoConteudo.textContent = 'Carregando histórico...';
-      els.historicoBackdrop.classList.add('open');
-      els.historicoBackdrop.setAttribute('aria-hidden', 'false');
-
-      const cacheKey = `${produtoId}|${els.mes.value}|${els.ano.value}|12`;
-      if (historicoCache.has(cacheKey)) {
-        renderizarHistoricoGrafico(historicoCache.get(cacheKey));
-        return;
-      }
-
-      try {
-        const qs = new URLSearchParams({ mes: els.mes.value, ano: els.ano.value, meses: '12' });
-        const response = await fetch(`/api/vendas/termometro-vendas/historico-produto/${encodeURIComponent(produtoId)}?${qs.toString()}`, {
-          headers: { Accept: 'application/json' },
-          credentials: 'same-origin',
-        });
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok || !body.success) {
-          throw new Error(body.message || `Erro HTTP ${response.status}`);
-        }
-        historicoCache.set(cacheKey, body.data);
-        renderizarHistoricoGrafico(body.data);
-      } catch (error) {
-        els.historicoConteudo.className = 'history-error';
-        els.historicoConteudo.textContent = error.message || 'Erro ao carregar o histórico do produto.';
-      }
-    }
-
-    async function carregar({ silencioso = false } = {}) {
-      esconderAviso();
-      if (!silencioso) {
-        els.atualizar.disabled = true;
-        els.atualizar.textContent = 'Carregando...';
-        els.tbody.innerHTML = '<tr><td colspan="6">Carregando Termômetro...</td></tr>';
-      }
-
-      try {
-        const qs = new URLSearchParams({ mes: els.mes.value, ano: els.ano.value });
-        const response = await fetch(`/api/vendas/termometro-vendas?${qs.toString()}`, {
-          headers: { Accept: 'application/json' },
-          credentials: 'same-origin',
-        });
-        const body = await response.json().catch(() => ({}));
-        if (!response.ok || !body.success) {
-          throw new Error(body.message || `Erro HTTP ${response.status}`);
-        }
-        dados = body.data;
-        preencherCategorias();
-        renderCards();
-        renderTabela();
-      } catch (error) {
-        mostrarErro(error.message || 'Erro ao carregar o Termômetro de Vendas.');
-        if (!silencioso) {
-          dados = null;
-          els.tbody.innerHTML = '<tr><td colspan="6">Falha ao carregar os dados.</td></tr>';
-        }
-      } finally {
-        if (!silencioso) {
-          els.atualizar.disabled = false;
-          els.atualizar.textContent = 'Atualizar';
-        }
-      }
-    }
-
-    els.categoriaFiltro.addEventListener('change', renderTabela);
-
-    document.querySelectorAll('th.sortable').forEach((th) => {
-      th.addEventListener('click', () => {
-        const campo = th.dataset.sort;
-        if (ordenacao.campo === campo) {
-          ordenacao.direcao = ordenacao.direcao === 'asc' ? 'desc' : 'asc';
-        } else {
-          ordenacao = { campo, direcao: campo === 'produto' ? 'asc' : 'desc' };
-        }
-        renderTabela();
-      });
+function escapar(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function normalizar(texto) {
+  return String(texto ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
+}
+function aviso(mensagem, tipo = 'info') {
+  const el = elem('message');
+  el.textContent = mensagem;
+  el.className = 'message' + (tipo === 'error' ? ' error' : '');
+  el.hidden = !mensagem;
+}
+async function consultar(path, opts) {
+  const resp = await fetch(urlBase + path, { credentials:'same-origin', cache:'no-store', ...opts });
+  const payload = await resp.json().catch(() => ({}));
+  if (!resp.ok || !payload.success) throw new Error(payload.message || `Falha HTTP ${resp.status}`);
+  return payload.data;
+}
+function barras(itens, chave) {
+  const maior = Math.max(0, ...itens.map((m) => Number(m[chave]) || 0));
+  const cor = chave === 'vendas' ? '' : ' ads';
+  return `<div class="bar-chart">${itens.map((m, i) => {
+    const qtd = m[chave];
+    const valor = qtd === null ? '—' : number.format(qtd);
+    const altura = qtd === null || Number(qtd) <= 0 ? 0 : Math.max(3, Number(qtd) / maior * 100);
+    const mes = painel.meses[i].rotulo.split(' ')[0];
+    return `<div class="bar-col" title="${escapar(painel.meses[i].rotulo)}: ${escapar(valor)}">
+      <div class="bar-value">${escapar(valor)}</div>
+      <div class="bar-track"><div class="bar${cor}" style="height:${altura.toFixed(2)}%"></div></div>
+      <span class="bar-month">${escapar(mes)}</span>
+    </div>`;
+  }).join('')}</div>`;
+}
+function cartao(p) {
+  const vinculo = p.item_legado ? `Código legado ${p.item_legado}` : 'Sem vínculo com item do Firebird';
+  return `<article class="product-card">
+    <h3 class="product-title">${escapar(p.nome)}</h3>
+    <div class="product-sub">${escapar(vinculo)}</div>
+    <div class="metric"><div class="metric-head"><strong>Unidades vendidas</strong><span>Por data da carrada</span></div>${barras(p.meses,'vendas')}</div>
+    <div class="metric"><div class="metric-head"><strong>Divulgações</strong><span>Uma por publicação</span></div>${barras(p.meses,'divulgacoes')}</div>
+    ${p.item_legado ? '' : '<p class="warn">Vincule o produto ao item legado para exibir suas vendas.</p>'}
+  </article>`;
+}
+function renderizar() {
+  if (!painel) return;
+  const meses = painel.meses;
+  elem('summary').innerHTML = painel.totais.map((m,i) => `<div class="summary-card${i===1?' current':''}">
+    <h2>${escapar(m.rotulo)}</h2>
+    <div class="summary-cols"><div><div class="total">${number.format(m.vendas)}</div><div class="sum-label">unidades vendidas</div></div>
+    <div><div class="total">${number.format(m.divulgacoes)}</div><div class="sum-label">divulgações</div></div></div>
+  </div>`).join('');
+  const produtos = [...painel.itens];
+  const sort = elem('sort').value;
+  const vendas = (p) => Number(p.meses[1]?.vendas || 0);
+  if (sort === 'most') produtos.sort((a,b) => vendas(b)-vendas(a) || a.ordem-b.ordem);
+  if (sort === 'least') produtos.sort((a,b) => vendas(a)-vendas(b) || a.ordem-b.ordem);
+  if (sort === 'name') produtos.sort((a,b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  elem('panelTitle').textContent = `Produtos monitorados (${produtos.length})`;
+  elem('cards').innerHTML = produtos.length ? produtos.map(cartao).join('') : `<div class="empty" style="grid-column:1/-1"><strong>Nenhum produto selecionado</strong>Abra “Configurar produtos” para escolher os itens que deseja acompanhar.</div>`;
+}
+async function atualizar() {
+  if (carregando || elem('configDialog').open) return;
+  carregando = true;
+  elem('reload').disabled = true;
+  try {
+    const dados = await consultar('/painel');
+    painel = dados;
+    aviso('');
+    renderizar();
+  } catch (erro) {
+    console.error(erro);
+    aviso('Falha ao carregar o Termômetro: ' + erro.message, 'error');
+  } finally {
+    carregando = false;
+    elem('reload').disabled = false;
+  }
+}
+function linhaProduto(p, selecionado, indice) {
+  const naoVinculado = !p.item_legado ? '<span class="minor">Sem vínculo legado</span>' : `<span class="minor">Item ${p.item_legado}</span>`;
+  return `<div class="config-row${selecionado?' selected':''}">
+    <input type="checkbox" data-toggle="${p.id}" ${selecionado?'checked':''} aria-label="Monitorar ${escapar(p.nome)}">
+    <span class="name">${escapar(p.nome)}</span>${naoVinculado}
+    ${selecionado ? `<div class="reorder"><button type="button" data-move="${p.id}" data-dir="-1" ${indice===0?'disabled':''} title="Subir">↑</button><button type="button" data-move="${p.id}" data-dir="1" ${indice===selecionados.length-1?'disabled':''} title="Descer">↓</button></div>` : ''}
+  </div>`;
+}
+function renderizarConfiguracao() {
+  const mapa = new Map(catalogo.map((p) => [p.id,p]));
+  const termo = normalizar(elem('productSearch').value.trim());
+  const listaSelecionados = selecionados.map((id,index) => mapa.get(id) ? linhaProduto(mapa.get(id),true,index) : '').filter(Boolean);
+  elem('selectedList').innerHTML = listaSelecionados.join('') || '<p class="muted" style="font-size:12px">Nenhum produto selecionado.</p>';
+  elem('selectedTitle').textContent = `Selecionados (${selecionados.length}) — use ↑ ↓ para definir a ordem`;
+  elem('selectedCount').textContent = `${selecionados.length} selecionado(s)`;
+  const escolhidos = new Set(selecionados);
+  const disponiveis = catalogo.filter((p) => !escolhidos.has(p.id) && (normalizar(p.nome).includes(termo) || String(p.item_legado||'').includes(termo) || String(p.id).includes(termo)));
+  elem('availableList').innerHTML = disponiveis.slice(0,120).map((p) => linhaProduto(p,false)).join('') || '<p class="muted" style="font-size:12px">Nenhum produto encontrado.</p>';
+  elem('moreResults').textContent = disponiveis.length > 120 ? `Mostrando 120 de ${disponiveis.length}. Digite parte do nome para localizar outros.` : '';
+}
+async function abrirConfiguracao() {
+  elem('settings').disabled = true;
+  try {
+    const dados = await consultar('/configuracao');
+    catalogo = dados.produtos;
+    selecionados = [...dados.selecionados];
+    elem('productSearch').value = '';
+    renderizarConfiguracao();
+    elem('configDialog').showModal();
+    elem('productSearch').focus();
+  } catch (erro) {
+    aviso('Não foi possível abrir a configuração: ' + erro.message, 'error');
+  } finally { elem('settings').disabled = false; }
+}
+function fecharConfiguracao() { elem('configDialog').close(); }
+async function salvarConfiguracao() {
+  const button = elem('saveSettings');
+  button.disabled = true;
+  try {
+    await consultar('/configuracao', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({selecionados})
     });
-
-    els.tbody.addEventListener('click', (event) => {
-      const botao = event.target.closest('.produto-link');
-      if (!botao) return;
-      abrirHistorico(Number(botao.dataset.produtoId));
-    });
-
-    els.historicoFechar.addEventListener('click', fecharHistorico);
-    els.historicoBackdrop.addEventListener('click', (event) => {
-      if (event.target === els.historicoBackdrop) fecharHistorico();
-    });
-    document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' && els.historicoBackdrop.classList.contains('open')) fecharHistorico();
-    });
-    window.addEventListener('resize', () => {
-      if (!historicoAtual || !els.historicoBackdrop.classList.contains('open')) return;
-      requestAnimationFrame(() => {
-        desenharGraficoVendasAparicoes(document.getElementById('historicoVendasChart'), historicoAtual.historico || []);
-        desenharGraficoPreco(document.getElementById('historicoPrecoChart'), historicoAtual.historico || [], historicoAtual.produto?.preco_atual);
-      });
-    });
-
-    els.busca.addEventListener('input', renderTabela);
-    els.atualizar.addEventListener('click', carregar);
-    els.mes.addEventListener('change', carregar);
-    els.ano.addEventListener('change', carregar);
-
-    iniciarPeriodo();
-    carregar();
-
-    // Atualização automática sem limpar a tabela nem interromper o uso da tela.
-    setInterval(() => {
-      if (document.visibilityState === 'visible') carregar({ silencioso: true });
-    }, AUTOREFRESH_MS);
-  </script>
+    fecharConfiguracao();
+    await atualizar();
+  } catch (erro) {
+    console.error(erro);
+    window.alert('Não foi possível salvar: ' + erro.message);
+  } finally { button.disabled = false; }
+}
+function acaoConfig(evento) {
+  const checkbox = evento.target.closest('[data-toggle]');
+  if (checkbox) {
+    const id = Number(checkbox.dataset.toggle);
+    if (checkbox.checked && !selecionados.includes(id)) selecionados.push(id);
+    if (!checkbox.checked) selecionados = selecionados.filter((s) => s!==id);
+    renderizarConfiguracao();
+    return;
+  }
+  const botao = evento.target.closest('button[data-move]');
+  if (botao) {
+    const i = selecionados.indexOf(Number(botao.dataset.move));
+    const j = i + Number(botao.dataset.dir);
+    if (i>=0 && j>=0 && j<selecionados.length) {
+      [selecionados[i],selecionados[j]]=[selecionados[j],selecionados[i]];
+      renderizarConfiguracao();
+    }
+  }
+}
+elem('settings').addEventListener('click', abrirConfiguracao);
+elem('reload').addEventListener('click', atualizar);
+elem('sort').addEventListener('change', renderizar);
+elem('productSearch').addEventListener('input', renderizarConfiguracao);
+elem('selectedList').addEventListener('click', acaoConfig);
+elem('selectedList').addEventListener('change', acaoConfig);
+elem('availableList').addEventListener('change', acaoConfig);
+elem('closeDialog').addEventListener('click', fecharConfiguracao);
+elem('cancelSettings').addEventListener('click', fecharConfiguracao);
+elem('saveSettings').addEventListener('click', salvarConfiguracao);
+setInterval(atualizar, 180000);
+atualizar();
+</script>
 </body>
 </html>
