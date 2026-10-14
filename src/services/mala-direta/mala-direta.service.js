@@ -69,14 +69,23 @@ async function preparar() {
   })().catch(e=>{preparing=null;throw e;});
   return preparing;
 }
+// A seleção de produtos é exclusiva do catálogo PostgreSQL (Render).
+// Firebird é usado somente para o histórico de compras pelo item_legado.
 async function produtos(busca='') {
-  const q=await bridge.get('/api/mala-direta/produtos',{busca:String(busca).slice(0,80)});
-  const lista=q.dados||[];
-  const legados=lista.map(x=>Number(x.item)).filter(Number.isSafeInteger);
-  const pg=legados.length ? await pool.query(`SELECT id, item_legado, nome, foto, foto_2, foto_3, foto_4, foto_5, foto_6 FROM produtos WHERE item_legado=ANY($1::bigint[])`,[legados]):{rows:[]};
-  const fotos=new Map(pg.rows.map(x=>[Number(x.item_legado),x]));
-  return lista.map(i=>{const m=fotos.get(Number(i.item));return {item:Number(i.item),nome:i.descricao||'',produtoId:m?.id?Number(m.id):null,
-    fotos:m?[m.foto,m.foto_2,m.foto_3,m.foto_4,m.foto_5,m.foto_6].filter(Boolean):[]};});
+  const termo = String(busca || '').trim().slice(0,80);
+  const query = `
+    SELECT id, nome, item_legado, ativo, foto, foto_2, foto_3, foto_4, foto_5, foto_6
+      FROM produtos
+     WHERE ($1::text = '' OR nome ILIKE '%' || $1 || '%')
+     ORDER BY nome ASC, id ASC`;
+  const pg = await pool.query(query,[termo]);
+  return pg.rows.map(p => ({
+    produtoId: Number(p.id),
+    item: p.item_legado == null ? null : Number(p.item_legado),
+    nome: p.nome || '',
+    ativo: p.ativo !== false,
+    fotos: [p.foto,p.foto_2,p.foto_3,p.foto_4,p.foto_5,p.foto_6].filter(Boolean)
+  }));
 }
 async function compradores(item,meses) {
   const q=await bridge.get('/api/mala-direta/compradores/'+id(item),{meses:meses||0});
@@ -90,7 +99,7 @@ async function compradores(item,meses) {
 async function primeiraCompra(item) { return (await bridge.get('/api/mala-direta/primeira-compra/'+id(item))).dados; }
 async function criar(dados, origem) {
   await preparar();
-  const codigo=id(dados.item), meses=Number(dados.meses||0), intervalo=Number(dados.intervaloSegundos);
+  const codigo=id(dados.item), produtoId=id(dados.produtoId), meses=Number(dados.meses||0), intervalo=Number(dados.intervaloSegundos);
   if(!Number.isInteger(meses)||meses<0||meses>600||(meses%6!==0)) bad('Período inválido.');
   if(!Number.isInteger(intervalo)||intervalo<5||intervalo>3600) bad('Intervalo de 5 a 3600 segundos.');
   const mensagem=String(dados.mensagem||'').trim();
@@ -100,8 +109,8 @@ async function criar(dados, origem) {
   if(!Array.isArray(selecionados)||!selecionados.length||selecionados.length>2000) bad('Selecione de 1 a 2000 clientes.');
   const ids=selecionados.map(x=>id(x.favorecido));
   if(new Set(ids).size!==ids.length) bad('Clientes repetidos.');
-  const produto=await pool.query('SELECT id, nome, item_legado FROM produtos WHERE item_legado=$1 ORDER BY id LIMIT 1',[codigo]);
-  if(!produto.rows.length) bad('Produto sem vínculo com catálogo Render: vincule o item legado para contabilização no Termômetro.');
+  const produto=await pool.query('SELECT id, nome, item_legado FROM produtos WHERE id=$1 AND item_legado=$2',[produtoId,codigo]);
+  if(!produto.rows.length) bad('O produto selecionado não possui vínculo válido entre o catálogo Render e o Firebird. Atualize a página e confira o item legado.');
   const base=await compradores(codigo,meses);
   const permitidos=new Map(base.map(x=>[Number(x.favorecido),x]));
   const linhas=selecionados.map(s=>{
