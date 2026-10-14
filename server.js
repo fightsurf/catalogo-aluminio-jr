@@ -84,6 +84,8 @@ const sqlTerminalViewRoutes = require('./src/routes/admin/sql-terminal.view.rout
 const pedidosInsercaoLegadoV2Routes = require('./src/routes/legado/pedidos-insercao-v2/pedidos-insercao-v2.routes');
 const pedidosInsercaoLegadoV2ViewRoutes = require('./src/routes/legado/pedidos-insercao-v2/pedidos-insercao-v2.view.routes');
 const pedidosInsercaoMobileViewRoutes = require('./src/routes/legado/pedidos-insercao-mobile/pedidos-insercao-mobile.view.routes');
+const malaDiretaRoutes = require('./src/routes/mala-direta/mala-direta.routes');
+const malaDiretaService = require('./src/services/mala-direta/mala-direta.service');
 const envioWhatsappRoutes = require('./src/routes/whatsapp/envio-whatsapp.routes');
 const envioWhatsappViewRoutes = require('./src/routes/whatsapp/envio-whatsapp.view.routes');
 const statusWhatsappRoutes = require('./src/routes/whatsapp/status-whatsapp.routes');
@@ -110,6 +112,7 @@ app.set('trust proxy', 1);
 // =====================================================
 // 🔧 MIDDLEWARES
 // =====================================================
+app.use('/api/whatsapp/mala-direta', express.json({ limit: '4mb' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(authRoutes);
@@ -188,6 +191,8 @@ app.use('/api/legado/pedidos-insercao-v2', pedidosInsercaoLegadoV2Routes);
 app.use('/legado/pedidos-insercao-v2', pedidosInsercaoLegadoV2ViewRoutes);
 app.use('/legado/pedidos-insercao-mobile', pedidosInsercaoMobileViewRoutes);
 app.use('/api/whatsapp', envioWhatsappRoutes);
+app.use('/api/whatsapp/mala-direta', malaDiretaRoutes);
+app.get('/whatsapp/mala-direta', requireAuth, (req,res)=>res.sendFile(path.join(__dirname,'views/whatsapp/mala-direta.html')));
 app.use('/whatsapp', envioWhatsappViewRoutes);
 app.use('/api/whatsapp/status', statusWhatsappRoutes);
 app.use('/whatsapp', statusWhatsappViewRoutes);
@@ -482,3 +487,6 @@ botEvents.on('nova_mensagem', ({ telefone }) => {
 server.listen(PORT, () => {
   console.log('🟢 Catálogo Alumínio JR rodando na porta', PORT);
 });
+
+// Mala Direta: fila persistente; nenhum disparo começa sem campanha aprovada.
+malaDiretaService.iniciarTrabalhador();

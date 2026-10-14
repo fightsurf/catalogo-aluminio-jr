@@ -14,6 +14,7 @@ const OVERRIDES = {
   '/orcamento': { nome: 'Montar Pedido', categoria: 'Vendas', icone: 'shopping-cart', descricao: 'Montagem de orçamento e pedido pelo catálogo.' },
   '/kits-feirinha': { nome: 'Kit Feirinha', categoria: 'Vendas', icone: 'package', descricao: 'Montagem dos kits para lojas de preço único.' },
   '/central-ofertas': { nome: 'Central de Ofertas', categoria: 'Marketing', icone: 'megaphone', descricao: 'Montagem e publicação de ofertas.' },
+  '/whatsapp/mala-direta': { nome: 'Mala Direta', categoria: 'Marketing', icone: 'send', descricao: 'Divulgação de produtos para compradores autorizados via WhatsApp.' },
   '/whatsapp/status': { nome: 'Status WhatsApp', categoria: 'Marketing', icone: 'message-circle', descricao: 'Publicação de fotos e vídeos nos status e redes.' },
   '/status-videos': { nome: 'Status Vídeos', categoria: 'Marketing', icone: 'video', descricao: 'Geração e publicação de vídeos promocionais.' },
   '/whatsapp/relatorios-recebidos': { nome: 'Relatórios WhatsApp Recebidos', categoria: 'WhatsApp', icone: 'inbox', descricao: 'Relatórios recebidos dos clientes pelo WhatsApp.' },

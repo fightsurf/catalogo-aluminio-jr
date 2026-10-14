@@ -1,0 +1,17 @@
+'use strict';
+const router=require('express').Router();
+const path=require('path');
+const {requireAuth}=require('../../middlewares/adminAuth.middleware');
+const svc=require('../../services/mala-direta/mala-direta.service');
+router.use(requireAuth);
+const handler=(fn)=>async(req,res)=>{try{res.json({sucesso:true,dados:await fn(req)});}catch(e){console.error('[mala-direta/api]',e.message);res.status(e.status||500).json({sucesso:false,mensagem:e.status?e.message:'Falha no módulo Mala Direta.',detalhe:e.message});}};
+router.get('/produtos',handler(req=>svc.produtos(req.query.busca)));
+router.get('/primeira-compra/:item',handler(req=>svc.primeiraCompra(req.params.item)));
+router.get('/compradores/:item',handler(req=>svc.compradores(req.params.item,req.query.meses)));
+router.get('/campanhas',handler(()=>svc.listar()));
+router.get('/campanhas/:id',handler(req=>svc.detalhe(req.params.id)));
+router.post('/campanhas',handler(req=>svc.criar(req.body||{},`${req.protocol}://${req.get('host')}`)));
+router.post('/campanhas/:id/:acao',handler(req=>svc.mudarStatus(req.params.id,req.params.acao)));
+router.post('/bloqueios',handler(req=>svc.bloquear(req.body?.telefone,req.body?.motivo)));
+router.post('/teste',handler(req=>svc.enviarTeste(req.body?.telefone,req.body?.imagem,req.body?.mensagem,`${req.protocol}://${req.get('host')}`)));
+module.exports=router;

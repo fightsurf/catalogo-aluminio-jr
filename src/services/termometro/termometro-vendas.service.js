@@ -229,6 +229,8 @@ async function carregarAparicoes(periodo) {
       COALESCE(SUM(quantidade) FILTER (WHERE origem = 'central_ofertas'), 0)::int AS ofertas_aparicoes,
       COUNT(*) FILTER (WHERE origem = 'status_videos')::int AS videos_publicacoes,
       COALESCE(SUM(quantidade) FILTER (WHERE origem = 'status_videos'), 0)::int AS videos_aparicoes,
+      COUNT(*) FILTER (WHERE origem = 'mala_direta')::int AS mala_direta_publicacoes,
+      COALESCE(SUM(quantidade) FILTER (WHERE origem = 'mala_direta'), 0)::int AS mala_direta_aparicoes,
       MAX(publicado_em) AS ultima_aparicao
     FROM termometro_aparicoes
     WHERE publicado_em >= $1::timestamptz
@@ -245,6 +247,8 @@ async function carregarAparicoes(periodo) {
     ofertas_aparicoes: Number(row.ofertas_aparicoes || 0),
     videos_publicacoes: Number(row.videos_publicacoes || 0),
     videos_aparicoes: Number(row.videos_aparicoes || 0),
+    mala_direta_publicacoes: Number(row.mala_direta_publicacoes || 0),
+    mala_direta_aparicoes: Number(row.mala_direta_aparicoes || 0),
     ultima_aparicao: row.ultima_aparicao || null
   }]));
 }
@@ -454,6 +458,8 @@ async function carregarTermometro(filtros = {}) {
       ofertas_aparicoes: 0,
       videos_publicacoes: 0,
       videos_aparicoes: 0,
+      mala_direta_publicacoes: 0,
+      mala_direta_aparicoes: 0,
       ultima_aparicao: null
     };
     const exposicaoAnterior = aparicoesAnterior.get(produto.id) || {
@@ -465,6 +471,8 @@ async function carregarTermometro(filtros = {}) {
       ofertas_aparicoes: 0,
       videos_publicacoes: 0,
       videos_aparicoes: 0,
+      mala_direta_publicacoes: 0,
+      mala_direta_aparicoes: 0,
       ultima_aparicao: null
     };
 
@@ -506,6 +514,8 @@ async function carregarTermometro(filtros = {}) {
       ofertas_aparicoes: Number(exposicaoAtual.ofertas_aparicoes || 0),
       videos_publicacoes: Number(exposicaoAtual.videos_publicacoes || 0),
       videos_aparicoes: Number(exposicaoAtual.videos_aparicoes || 0),
+      mala_direta_publicacoes: Number(exposicaoAtual.mala_direta_publicacoes || 0),
+      mala_direta_aparicoes: Number(exposicaoAtual.mala_direta_aparicoes || 0),
       ultima_aparicao: exposicaoAtual.ultima_aparicao || null,
       valor_vendido: numero(vendaAtual?.valor_total, 2),
       pedidos: Number(vendaAtual?.quantidade_pedidos || 0)
@@ -540,7 +550,7 @@ async function carregarTermometro(filtros = {}) {
       dias_considerados: diasAnterior
     },
     regra: {
-      aparicoes: 'Status Zap: 1 aparição por produto publicado. Central de Ofertas: cada produto do kit é contabilizado pela quantidade. Status Vídeos: os itens marcados no vídeo entram pela quantidade informada. Reenvios idempotentes não duplicam o contador.',
+      aparicoes: 'Status Zap: 1 aparição por produto publicado. Central de Ofertas: cada produto do kit é contabilizado pela quantidade. Status Vídeos: os itens marcados no vídeo entram pela quantidade informada. Mala Direta: 1 aparição por campanha com pelo menos um envio aceito pela Z-API. Reenvios idempotentes não duplicam o contador.',
       vendas: vendasAtual.regra,
       cruzamento: 'Na tabela por produto, o vínculo é feito por produtos.item_legado = SAIDASITENS.ITEM.'
     },
