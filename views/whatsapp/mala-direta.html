@@ -1,10 +1,23 @@
 <!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Mala Direta • Alumínio JR</title>
 <style>
 :root{font-family:system-ui,-apple-system,Arial,sans-serif;color:#17212f;background:#f1f4f8}*{box-sizing:border-box}body{margin:0}.wrap{max-width:1260px;margin:0 auto;padding:16px}h1{font-size:1.45rem}h2{font-size:1.08rem;margin:0 0 14px}.card{background:white;border:1px solid #dce2e8;border-radius:12px;padding:18px;margin:16px 0;box-shadow:0 2px 6px #13213a09}.muted{color:#687789;font-size:.9rem}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}.field{display:flex;flex-direction:column;gap:6px}label{font-weight:600;font-size:.94rem}input,select,textarea{border:1px solid #adb9c8;border-radius:7px;padding:10px;font:inherit;width:100%;background:white}input[type=checkbox]{width:18px;height:18px;cursor:pointer}button{border:0;border-radius:7px;padding:10px 13px;background:#1454a3;color:#fff;font:inherit;cursor:pointer}button.secondary{background:#e7edf4;color:#192a3b}button.danger{background:#8a2424}button:disabled{opacity:.45;cursor:not-allowed}.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.tablewrap{overflow:auto;max-height:460px}table{border-collapse:collapse;width:100%;white-space:nowrap;font-size:.93rem}th,td{padding:9px;border-bottom:1px solid #edf0f4;text-align:left}thead th{position:sticky;top:0;background:#f4f7fb}textarea{min-height:110px}.notice{padding:10px;border-left:3px solid #d28c13;background:#fff8e5;margin:12px 0}.preview{display:flex;gap:15px;flex-wrap:wrap;align-items:flex-start}.preview img{max-height:220px;max-width:250px;object-fit:contain;border-radius:8px}.preview p{white-space:pre-wrap;overflow-wrap:anywhere;flex:1;min-width:180px}.modal{position:fixed;inset:0;background:#0b1525aa;display:none;align-items:center;justify-content:center;padding:15px;z-index:20}.modal.active{display:flex}.modal .dialog{max-width:750px;background:white;padding:20px;max-height:85vh;overflow:auto;border-radius:12px;width:100%}.pie{width:220px;height:220px;border-radius:50%;margin:20px auto}.small{font-size:.83rem}.pill{font-size:.75rem;border-radius:6px;background:#e5edf6;padding:3px 7px}.ok{color:#16633c}.error{color:#a72a2a}a{color:#1454a3}.bottom{position:sticky;bottom:0;background:#f1f4f8;padding:8px 0;border-top:1px solid #dfe4e9}@media(max-width:600px){.wrap{padding:10px}.card{padding:12px}td,th{padding:7px 5px}}
+
+/* Mesmo padrão visual de escolha por imagem/nome/preço da Central de Ofertas, com seleção única. */
+.produtos-cabecalho{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:16px 0 8px;flex-wrap:wrap}
+.lista-produtos-mala{max-height:450px;overflow:auto;border:1px solid #dce2e8;border-radius:12px;background:#fff}
+.produto-opcao{display:grid;grid-template-columns:24px 62px minmax(0,1fr);gap:12px;align-items:center;width:100%;border:0;border-bottom:1px solid #e9edf2;border-radius:0;padding:9px 12px;background:#fff;color:#17212f;text-align:left;cursor:pointer}
+.produto-opcao:last-child{border-bottom:0}.produto-opcao:hover{background:#f5f9ff}.produto-opcao.ativo{background:#e7f2ff;box-shadow:inset 4px 0 #1454a3}.produto-opcao:focus-visible{outline:3px solid #1454a3;outline-offset:-3px}
+.produto-opcao .marcador{width:19px;height:19px;border:2px solid #98a8ba;border-radius:50%;display:inline-grid;place-items:center}.produto-opcao.ativo .marcador{border-color:#1454a3}.produto-opcao.ativo .marcador:after{content:'';width:9px;height:9px;border-radius:50%;background:#1454a3}
+.produto-opcao img,.produto-escolhido img{width:58px;height:58px;object-fit:contain;border-radius:8px;background:#f3f5f7}
+.produto-opcao .produto-nome{font-weight:700;display:block;white-space:normal;overflow-wrap:anywhere}
+.produto-opcao .produto-preco{font-weight:700;display:block;color:#166534;margin-top:4px}.produto-opcao .produto-legado{display:block;font-size:.78rem;color:#687789;margin-top:3px}
+.produto-escolhido{display:flex;align-items:center;gap:10px;min-height:68px;border:1px solid #dce2e8;border-radius:9px;padding:6px 10px;background:#f6f9fd}.produto-escolhido b{display:block;color:#17212f}.produto-escolhido span{display:block;font-size:.85rem;margin-top:3px}
+.produtos-vazio{padding:20px;text-align:center;color:#687789}
+@media(max-width:600px){.produto-opcao{grid-template-columns:20px 52px minmax(0,1fr);gap:8px;padding:8px}.produto-opcao img{width:50px;height:50px}}
 </style></head><body><main class="wrap">
 <h1>Mala Direta — Alumínio JR</h1><p class="muted">Selecione compradores de um produto e envie uma imagem com legenda pela Z-API. Somente clientes com autorização para promoções.</p>
 <div id="status" role="status" aria-live="polite"></div>
-<section class="card"><h2>1. Produto e histórico</h2><div class="grid"><div class="field"><label for="busca">Pesquisar produto do catálogo Render</label><input id="busca" placeholder="Digite o nome do produto" autocomplete="off"></div><div class="field"><label for="produto">Selecionar produto</label><select id="produto"><option value="">Produtos cadastrados no Render</option></select></div><div class="field"><label for="periodo">Período de compras</label><select id="periodo"><option value="0">Todas as compras realizadas</option></select></div></div><p class="muted" id="infoProd"></p><button id="consultar">Consultar compradores</button></section>
+<section class="card"><h2>1. Produto e histórico</h2><div class="grid"><div class="field"><label for="busca">Pesquisar produto do catálogo Render</label><input id="busca" placeholder="Digite o nome do produto" autocomplete="off"></div><div class="field"><label>Produto selecionado</label><input type="hidden" id="produto" value=""><div id="produtoSelecionado" class="produto-escolhido muted" aria-live="polite">Nenhum produto selecionado.</div></div><div class="field"><label for="periodo">Período de compras</label><select id="periodo"><option value="0">Todas as compras realizadas</option></select></div></div><div class="produtos-cabecalho"><strong>Produtos do catálogo Render</strong><span id="contadorProdutos" class="muted">Carregando...</span></div><div id="listaProdutos" class="lista-produtos-mala" role="radiogroup" aria-label="Escolha um produto do catálogo"></div><p class="muted" id="infoProd"></p><button id="consultar">Consultar compradores</button></section>
 <section class="card"><div class="row" style="justify-content:space-between"><h2>2. Selecionar clientes</h2><span id="resumo" class="muted">Consulte um produto.</span></div><p class="muted">A quantidade e a última compra são referentes ao produto selecionado. O perfil de compras é consultado somente ao clicar no botão.</p><div class="row"><button class="secondary" id="selecionarTodos">Marcar clientes com telefone válido</button><button class="secondary" id="limpar">Limpar seleção</button></div><div class="tablewrap"><table><thead><tr><th>Selecionar</th><th>Cliente</th><th>Telefone</th><th>Unidades</th><th>Pedidos</th><th>Última compra</th><th>Perfil</th></tr></thead><tbody id="compradores"></tbody></table></div><p class="muted" id="contagem">0 selecionados</p></section>
 <section class="card"><h2>3. Imagem e mensagem</h2><div class="grid"><div class="field"><label for="fotoSistema">Foto cadastrada do produto</label><select id="fotoSistema"><option value="">Selecione uma foto ou envie outra</option></select></div><div class="field"><label for="upload">Ou enviar uma nova foto</label><input id="upload" type="file" accept="image/jpeg,image/png,image/webp"><span class="muted">O navegador comprime a imagem antes do envio.</span></div><div class="field"><label for="intervalo">Intervalo entre destinatários</label><select id="intervalo"><option value="10">10 segundos</option><option selected value="15">15 segundos</option><option value="20">20 segundos</option><option value="30">30 segundos</option><option value="60">60 segundos</option><option value="120">120 segundos</option><option value="300">300 segundos</option></select></div></div><div class="field" style="margin-top:12px"><label for="mensagem">Mensagem de texto (legenda da imagem)</label><textarea id="mensagem" maxlength="3000" placeholder="Oferta... Para não receber promoções, responda SAIR."></textarea></div><div class="notice">A compra anterior não comprova consentimento para publicidade. Inclua apenas clientes que autorizaram receber promoções. Respeite pedidos de saída e bloqueie o telefone no histórico.</div><div class="row"><label class="row"><input type="checkbox" id="consentimento"> Confirmo que os clientes marcados autorizaram mensagens promocionais.</label></div><h2 style="margin-top:20px">Prévia</h2><div class="preview"><img id="previewFoto" alt="Prévia da foto" hidden><p id="previewTexto" class="muted">Escreva a mensagem.</p></div><div class="grid" style="margin-top:20px"><div class="field"><label for="numeroTeste">Número próprio para teste (DDI + DDD)</label><input id="numeroTeste" placeholder="5583999999999"><button class="secondary" id="teste">Enviar teste</button></div></div></section>
 <section class="card bottom"><div class="row"><button id="enviar">Iniciar Mala Direta</button><span class="muted" id="enviarResumo">Nenhum destinatário selecionado</span></div></section>
@@ -22,10 +35,55 @@ function el(tag,txt,cls){const n=document.createElement(tag);if(txt!==undefined)
 async function get(url,init){const r=await fetch(url,init);const j=await r.json();if(!r.ok||j.sucesso===false)throw Error(j.mensagem||j.detalhe||j.erro||`HTTP ${r.status}`);return j.dados;}
 async function post(url,obj){return get(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(obj)});}
 const produto=()=>produtos.find(p=>String(p.produtoId)===$('produto').value);
-async function carregarProdutos(){try{const busca=$('busca').value.trim();produtos=await get(api+'/produtos?busca='+encodeURIComponent(busca));const sel=$('produto'),anterior=sel.value;sel.replaceChildren(new Option(produtos.length?'Selecione um produto':'Nenhum produto encontrado',''));for(const p of produtos)sel.add(new Option(`${p.nome} (Render #${p.produtoId}${p.item ? ' • Firebird '+p.item : ' • sem vínculo Firebird'})`,p.produtoId));if(produtos.some(p=>String(p.produtoId)===anterior))sel.value=anterior;atualizarProduto();}catch(e){msg(e.message,true);}}
+const brl=v=>Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+const precoProduto=p=>p?.preco!==null&&p?.preco!==undefined&&Number.isFinite(Number(p.preco))?brl(p.preco):'Preço não informado';
+function mostrarImagem(img,url){
+  if(!url){img.style.visibility='hidden';return;}
+  img.src=url;
+  img.onerror=()=>{img.style.visibility='hidden';};
+}
+function renderProdutos(){
+  const lista=$('listaProdutos');lista.replaceChildren();
+  $('contadorProdutos').textContent=`${produtos.length} produto${produtos.length===1?'':'s'}`;
+  const escolhido=produto(),resumo=$('produtoSelecionado');resumo.replaceChildren();
+  if(escolhido){
+    const foto=el('img');foto.alt='';mostrarImagem(foto,escolhido.fotos?.[0]);
+    const detalhes=el('div');detalhes.append(el('b',escolhido.nome),el('span',precoProduto(escolhido)));
+    resumo.append(foto,detalhes);resumo.classList.remove('muted');
+  }else{resumo.append(el('span','Nenhum produto selecionado.'));resumo.classList.add('muted');}
+  if(!produtos.length){lista.append(el('div','Nenhum produto encontrado.','produtos-vazio'));return;}
+  for(const p of produtos){
+    const ativo=String(p.produtoId)===$('produto').value;
+    const btn=el('button',undefined,'produto-opcao'+(ativo?' ativo':''));btn.type='button';btn.setAttribute('role','radio');btn.setAttribute('aria-checked',String(ativo));btn.setAttribute('aria-label',`${p.nome}, ${precoProduto(p)}`);
+    const marcador=el('span',undefined,'marcador');marcador.setAttribute('aria-hidden','true');
+    const foto=el('img');foto.alt='';foto.loading='lazy';mostrarImagem(foto,p.fotos?.[0]);
+    const details=el('div');details.append(el('span',p.nome,'produto-nome'),el('span',precoProduto(p),'produto-preco'));
+    if(!p.item)details.append(el('span','Sem vínculo com o Firebird','produto-legado'));
+    btn.append(marcador,foto,details);
+    btn.onclick=()=>{if($('produto').value===String(p.produtoId))return;$('produto').value=String(p.produtoId);atualizarProduto();};
+    lista.append(btn);
+  }
+}
+
+async function carregarProdutos(){
+  try{
+    const busca=$('busca').value.trim();
+    const anteriores=produtos;
+    const resultado=await get(api+'/produtos?busca='+encodeURIComponent(busca));
+    // Descarta respostas atrasadas quando o usuário já alterou a pesquisa.
+    if(busca!==$('busca').value.trim())return;
+    produtos=resultado;
+    const selecionado=$('produto').value;
+    // O mesmo produto só permanece selecionado quando aparece no resultado atual.
+    if(!produtos.some(p=>String(p.produtoId)===selecionado)){
+      $('produto').value='';
+      atualizarProduto();
+    }else{renderProdutos();}
+  }catch(e){msg('Não foi possível carregar produtos: '+e.message,true);}
+}
 let timer; $('busca').addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(carregarProdutos,350)});
-function atualizarProduto(){imagemUpload='';$('upload').value='';const p=produto();const fotos=$('fotoSistema');fotos.replaceChildren(new Option('Selecione uma foto ou envie outra',''));(p?.fotos||[]).forEach((f,i)=>fotos.add(new Option('Foto '+(i+1),f)));$('infoProd').textContent=p?(p.item ? `Catálogo Render #${p.produtoId} • item Firebird ${p.item}` : `Catálogo Render #${p.produtoId} • sem item legado vinculado: configure o vínculo no cadastro de produtos antes de consultar compradores`):'';clientes=[];ultimaConsulta=0;renderClientes();fotoPreview();periodos();}
-$('produto').onchange=atualizarProduto;
+function atualizarProduto(){renderProdutos();imagemUpload='';$('upload').value='';const p=produto();const fotos=$('fotoSistema');fotos.replaceChildren(new Option('Selecione uma foto ou envie outra',''));(p?.fotos||[]).forEach((f,i)=>fotos.add(new Option('Foto '+(i+1),f)));$('infoProd').textContent=p?(p.item ? `Catálogo Render #${p.produtoId} • item Firebird ${p.item}` : `Catálogo Render #${p.produtoId} • sem item legado vinculado: configure o vínculo no cadastro de produtos antes de consultar compradores`):'';clientes=[];ultimaConsulta=0;renderClientes();fotoPreview();periodos();}
+
 async function periodos(){const p=produto(),select=$('periodo');select.replaceChildren(new Option('Todas as compras realizadas','0'));if(!p||!p.item)return;try{const primeira=await get(api+'/primeira-compra/'+p.item);if(p!==produto())return;const diferenca=primeira?Math.max(6,Math.ceil((Date.now()-new Date(primeira).getTime())/(1000*60*60*24*30.4375)/6)*6):60;for(let m=6;m<=Math.min(diferenca,600);m+=6){const anos=Math.floor(m/12),metade=m%12===6;let label=`Últimos ${m} meses`;if(anos)label+=` (${anos} ${anos===1?'ano':'anos'}${metade?' e 6 meses':''})`;select.add(new Option(label,String(m)));}}catch(e){msg('Não foi possível determinar o histórico: '+e.message,true);}}
 async function consultar(){const p=produto();if(!p)return msg('Selecione um produto.',true);if(!p.item)return msg('Este produto não tem item legado associado ao Firebird. Vincule-o no cadastro de produtos do Render.',true);clientes=[];renderClientes();msg('Consultando compradores...');try{clientes=(await get(`${api}/compradores/${p.item}?meses=${$('periodo').value}`)).map(c=>({...c,marcado:false}));ultimaConsulta=p.produtoId;renderClientes();msg(`${clientes.length} clientes encontrados.`);}catch(e){msg(e.message,true);}}
 $('consultar').onclick=consultar;

@@ -74,7 +74,7 @@ async function preparar() {
 async function produtos(busca='') {
   const termo = String(busca || '').trim().slice(0,80);
   const query = `
-    SELECT id, nome, item_legado, ativo, foto, foto_2, foto_3, foto_4, foto_5, foto_6
+    SELECT id, nome, preco, item_legado, ativo, foto, foto_2, foto_3, foto_4, foto_5, foto_6
       FROM produtos
      WHERE ($1::text = '' OR nome ILIKE '%' || $1 || '%')
      ORDER BY nome ASC, id ASC`;
@@ -83,6 +83,7 @@ async function produtos(busca='') {
     produtoId: Number(p.id),
     item: p.item_legado == null ? null : Number(p.item_legado),
     nome: p.nome || '',
+    preco: p.preco == null ? null : Number(p.preco),
     ativo: p.ativo !== false,
     fotos: [p.foto,p.foto_2,p.foto_3,p.foto_4,p.foto_5,p.foto_6].filter(Boolean)
   }));
