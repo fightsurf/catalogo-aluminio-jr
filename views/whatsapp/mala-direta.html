@@ -27,12 +27,12 @@
 <script>
 'use strict';
 const $=id=>document.getElementById(id);const api='/api/whatsapp/mala-direta';
-let produtos=[], clientes=[], imagemUpload='',ultimaConsulta=0;
+let produtos=[], clientes=[], imagemUpload='',ultimaConsulta=0,consultaSeq=0;
 const selected=()=>clientes.filter(c=>c.marcado);const norm=s=>String(s||'').replace(/\D/g,'');
 const date=v=>{if(!v)return '-';const d=new Date(v);return Number.isNaN(d.getTime())?'-':d.toLocaleDateString('pt-BR',{timeZone:'UTC'});};
 function msg(s,erro=false){$('status').textContent=s||'';$('status').className=erro?'error':'ok';}
 function el(tag,txt,cls){const n=document.createElement(tag);if(txt!==undefined)n.textContent=txt;if(cls)n.className=cls;return n;}
-async function get(url,init){const r=await fetch(url,init);const j=await r.json();if(!r.ok||j.sucesso===false)throw Error(j.mensagem||j.detalhe||j.erro||`HTTP ${r.status}`);return j.dados;}
+async function get(url,init){const r=await fetch(url,init);const j=await r.json();if(!r.ok||j.sucesso===false)throw Error(j.detalhe||j.mensagem||j.erro||`HTTP ${r.status}`);return j.dados;}
 async function post(url,obj){return get(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(obj)});}
 const produto=()=>produtos.find(p=>String(p.produtoId)===$('produto').value);
 const brl=v=>Number(v).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
@@ -82,12 +82,38 @@ async function carregarProdutos(){
   }catch(e){msg('Não foi possível carregar produtos: '+e.message,true);}
 }
 let timer; $('busca').addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(carregarProdutos,350)});
-function atualizarProduto(){renderProdutos();imagemUpload='';$('upload').value='';const p=produto();const fotos=$('fotoSistema');fotos.replaceChildren(new Option('Selecione uma foto ou envie outra',''));(p?.fotos||[]).forEach((f,i)=>fotos.add(new Option('Foto '+(i+1),f)));$('infoProd').textContent=p?(p.item ? `Catálogo Render #${p.produtoId} • item Firebird ${p.item}` : `Catálogo Render #${p.produtoId} • sem item legado vinculado: configure o vínculo no cadastro de produtos antes de consultar compradores`):'';clientes=[];ultimaConsulta=0;renderClientes();fotoPreview();periodos();}
+function atualizarProduto(){consultaSeq++;$('consultar').disabled=false;renderProdutos();imagemUpload='';$('upload').value='';const p=produto();const fotos=$('fotoSistema');fotos.replaceChildren(new Option('Selecione uma foto ou envie outra',''));(p?.fotos||[]).forEach((f,i)=>fotos.add(new Option('Foto '+(i+1),f)));$('infoProd').textContent=p?(p.item ? `Catálogo Render #${p.produtoId} • item Firebird ${p.item}` : `Catálogo Render #${p.produtoId} • sem item legado vinculado: configure o vínculo no cadastro de produtos antes de consultar compradores`):'';clientes=[];ultimaConsulta=0;renderClientes();fotoPreview();periodos();}
 
 async function periodos(){const p=produto(),select=$('periodo');select.replaceChildren(new Option('Todas as compras realizadas','0'));if(!p||!p.item)return;try{const primeira=await get(api+'/primeira-compra/'+p.item);if(p!==produto())return;const diferenca=primeira?Math.max(6,Math.ceil((Date.now()-new Date(primeira).getTime())/(1000*60*60*24*30.4375)/6)*6):60;for(let m=6;m<=Math.min(diferenca,600);m+=6){const anos=Math.floor(m/12),metade=m%12===6;let label=`Últimos ${m} meses`;if(anos)label+=` (${anos} ${anos===1?'ano':'anos'}${metade?' e 6 meses':''})`;select.add(new Option(label,String(m)));}}catch(e){msg('Não foi possível determinar o histórico: '+e.message,true);}}
-async function consultar(){const p=produto();if(!p)return msg('Selecione um produto.',true);if(!p.item)return msg('Este produto não tem item legado associado ao Firebird. Vincule-o no cadastro de produtos do Render.',true);clientes=[];renderClientes();msg('Consultando compradores...');try{clientes=(await get(`${api}/compradores/${p.item}?meses=${$('periodo').value}`)).map(c=>({...c,marcado:false}));ultimaConsulta=p.produtoId;renderClientes();msg(`${clientes.length} clientes encontrados.`);}catch(e){msg(e.message,true);}}
+async function consultar(){
+  const p=produto(),periodo=$('periodo').value;
+  const sequencia=++consultaSeq;
+  clientes=[];ultimaConsulta=0;renderClientes();
+  if(!p){msg('Selecione um produto.',true);return;}
+  if(!p.item){msg('Este produto não tem item legado associado ao Firebird. Vincule-o no cadastro de produtos do Render.',true);return;}
+  $('consultar').disabled=true;
+  $('resumo').textContent='Carregando compradores...';
+  msg(`Consultando compras do produto ${p.nome} — ${$('periodo').selectedOptions[0]?.textContent||'período selecionado'}...`);
+  try{
+    const resultado=await get(`${api}/compradores/${p.item}?meses=${encodeURIComponent(periodo)}`);
+    // A consulta ao Firebird pode demorar. Nunca exibir uma resposta de produto/período anterior.
+    if(sequencia!==consultaSeq||produto()?.produtoId!==p.produtoId||$('periodo').value!==periodo)return;
+    if(!Array.isArray(resultado))throw Error('A consulta de compradores retornou um formato inesperado.');
+    clientes=resultado.map(c=>({...c,marcado:false}));
+    ultimaConsulta=p.produtoId;
+    renderClientes();
+    msg(clientes.length?`${clientes.length} clientes encontrados.`:'Nenhuma compra encontrada para este produto no período selecionado.');
+  }catch(e){
+    if(sequencia!==consultaSeq)return;
+    $('resumo').textContent='Erro na consulta de compradores';
+    msg('Não foi possível consultar os compradores: '+e.message,true);
+  }finally{
+    if(sequencia===consultaSeq)$('consultar').disabled=false;
+  }
+}
 $('consultar').onclick=consultar;
-$('periodo').onchange=()=>{clientes=[];ultimaConsulta=0;renderClientes();msg('Período alterado. Consulte novamente os compradores.');};
+// Mudar o período deve iniciar a consulta, não apenas limpar os resultados.
+$('periodo').onchange=consultar;
 function renderClientes(){const body=$('compradores');body.replaceChildren();for(const c of clientes){const tr=el('tr');const cell=()=>{const td=el('td');tr.append(td);return td;};const cb=el('input');cb.type='checkbox';cb.checked=c.marcado;cb.disabled=!c.telefoneNormalizado||c.bloqueado;cb.onchange=()=>{c.marcado=cb.checked;contagem();};cell().append(cb);cell().textContent=c.nome||'(sem nome)';const tel=cell();tel.textContent=c.telefone||'-';if(!c.telefoneNormalizado)tel.append(el('span',' Inválido','error'));if(c.bloqueado)tel.append(el('span',' Bloqueado','error'));cell().textContent=Number(c.quantidade||0).toLocaleString('pt-BR');cell().textContent=String(c.pedidos);cell().textContent=date(c.ultimaCompra);const perfil=el('button','Perfil de compras','secondary');perfil.onclick=()=>abrirPerfil(c);cell().append(perfil);body.append(tr);} $('resumo').textContent=`${clientes.length} compradores`;contagem();}
 function contagem(){const qtd=selected().length;$('contagem').textContent=`${qtd} selecionados`;$('enviarResumo').textContent=`${qtd} destinatários selecionados`;}
 $('selecionarTodos').onclick=()=>{clientes.forEach(c=>{c.marcado=Boolean(c.telefoneNormalizado&&!c.bloqueado)});renderClientes();};
