@@ -6,38 +6,43 @@
 main{max-width:780px;margin:36px auto;padding:0 16px}h1{font-size:25px;margin:0 0 6px}p{color:#5a6270}
 .card{border:1px solid #e4e6ed;border-radius:14px;padding:22px;background:white;box-shadow:0 3px 16px #00000008}
 label{font-weight:700;display:block;margin-top:15px;margin-bottom:5px}
-select,textarea{font:inherit;border:1px solid #c8ced7;border-radius:8px;width:100%;padding:10px;background:white}
+select,textarea,input[type="tel"]{font:inherit;border:1px solid #c8ced7;border-radius:8px;width:100%;padding:10px;background:white}
 textarea{height:120px;resize:vertical}button{font:inherit;font-weight:bold;border:0;border-radius:9px;padding:12px 18px;cursor:pointer;background:#1e293b;color:white}
 button.secondary{background:#eff2f7;color:#26313f}button:disabled{opacity:.5;cursor:wait}
 .row{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}audio{width:100%}
 #status{padding:12px;background:#f3f5f9;border-radius:8px;white-space:pre-wrap;font-size:14px}
 small{color:#64748b} .alert{color:#a32020}
 </style></head><body><main><h1>ElevenLabs — testes do Assistente JR</h1>
-<p>Teste gratuito: texto → voz pela ElevenAPI → reprodução ou envio para o número de teste pela Z-API.</p>
+<p>Texto → voz pela ElevenAPI → reprodução ou envio manual para um WhatsApp pela Z-API.</p>
 <section class="card">
 <div id="status">Verificando configuração...</div>
 <label for="voice">Voz disponível na conta</label><select id="voice"><option value="">Carregando vozes...</option></select>
-<small>Se a voz não estiver disponível no plano Free, a API informará. Ao contratar o Starter, a voz clonada aparecerá aqui ou poderá ser configurada pelo ID.</small>
+<small>Selecione uma das vozes disponíveis na sua conta ElevenLabs, incluindo as vozes clonadas.</small>
 <label for="texto">Texto de teste (<span id="contador">0</span>/1000)</label>
 <textarea id="texto" maxlength="1000">Olá! Aqui é o Assistente JR, da Alumínio JR. Estamos testando nosso novo atendimento por áudio no WhatsApp.</textarea>
-<div class="row"><button id="gerar">Gerar e ouvir áudio</button><button class="secondary" id="enviar">Enviar somente para meu WhatsApp de teste</button></div>
+<label for="telefone">WhatsApp de destino</label>
+<input id="telefone" type="tel" inputmode="tel" autocomplete="tel" maxlength="30" placeholder="Ex.: 5583999999999 (55 + DDD + número)" aria-describedby="ajudaTelefone">
+<small id="ajudaTelefone">Informe o número que receberá o áudio. Se deixar vazio, será usado o telefone de teste configurado no Render.</small>
+<div class="row"><button id="gerar">Gerar e ouvir áudio</button><button class="secondary" id="enviar">Enviar áudio pelo WhatsApp</button></div>
 <audio id="player" controls hidden></audio><p id="resultado" role="status"></p>
-<small>O envio está bloqueado para todos os telefones, exceto ELEVENLABS_TEST_PHONE configurado no servidor. Cada geração consome créditos. Nenhuma resposta automática é ativada.</small>
+<small>O envio é manual e exige confirmação. Uma prévia recente é reutilizada sem gerar outro áudio (validade: 10 minutos). O uso da ElevenLabs pode consumir créditos. Nenhuma resposta automática é ativada.</small>
 </section></main>
 <script>
 (() => {
   const $ = id => document.getElementById(id);
-  let audioUrl;
+  let audioUrl, previewId = "";
   const api = '/api/whatsapp/elevenlabs-jr';
-  $('texto').addEventListener('input',()=>{$('contador').textContent=$('texto').value.length});
+  function invalidarPreview(){ previewId=''; $('player').hidden=true; }
+  $('texto').addEventListener('input',()=>{$('contador').textContent=$('texto').value.length;invalidarPreview();});
+  $('voice').addEventListener('change',invalidarPreview);
   $('texto').dispatchEvent(new Event('input'));
   function alerta(texto,erro=false){$('resultado').textContent=texto;$('resultado').className=erro?'alert':'';}
   async function readJson(r){ const data=await r.json();if(!r.ok)throw Error(data.erro||`HTTP ${r.status}`);return data; }
   async function start(){
     try {
       const r=await fetch(api+'/config');const c=await readJson(r);
-      $('status').textContent = `ElevenAPI: ${c.elevenlabs?'Chave configurada':'Falta ELEVENLABS_API_KEY'} | WhatsApp de teste: ${c.telefoneTeste?'configurado':'falta ELEVENLABS_TEST_PHONE'} | Modelo: ${c.modelo}`;
-      $('enviar').disabled=!c.elevenlabs||!c.telefoneTeste;
+      $('status').textContent = `ElevenAPI: ${c.elevenlabs?'Chave configurada':'Falta ELEVENLABS_API_KEY'} | WhatsApp padrão: ${c.telefoneTeste?'configurado':'não configurado'} | Modelo: ${c.modelo}`;
+      $('enviar').disabled=!c.elevenlabs;
       $('gerar').disabled=!c.elevenlabs;
       if(!c.elevenlabs)return;
       const voices=await readJson(await fetch(api+'/vozes'));
@@ -50,16 +55,26 @@ small{color:#64748b} .alert{color:#a32020}
   async function executar(tipo){
     $('gerar').disabled=true;$('enviar').disabled=true;alerta('Processando...');
     const data={texto:$('texto').value,voz:$('voice').value};
+    if (tipo==='whatsapp') { data.telefone=$('telefone').value.trim(); if(previewId) data.previewId=previewId; }
     try {
       const r=await fetch(api+(tipo==='audio'?'/gerar':'/enviar-teste'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
       if(tipo==='audio') {
         if(!r.ok){await readJson(r);return;}
+        previewId=r.headers.get('X-Preview-Id') || '';
         if(audioUrl)URL.revokeObjectURL(audioUrl);
         audioUrl=URL.createObjectURL(await r.blob());$('player').src=audioUrl;$('player').hidden=false;alerta('Áudio gerado. Clique em reproduzir.');
-      } else {const response=await readJson(r);alerta(`Aceito pela Z-API para número final ${response.telefoneFinal}. ID: ${response.idMensagem||'não retornado'}. Entrega não confirmada.`);}
+      } else {const response=await readJson(r);alerta(`Aceito pela Z-API para o WhatsApp final ${response.telefoneFinal}. ID: ${response.idMensagem||'não retornado'}. Entrega não confirmada.`);}
     } catch(e){alerta(e.message,true);} finally {$('gerar').disabled=false;$('enviar').disabled=false;}
   }
-  $('gerar').onclick=()=>executar('audio');$('enviar').onclick=()=>{if(confirm('Gerar áudio e enviar UMA mensagem ao seu número autorizado de teste?'))executar('whatsapp');};
+  $('gerar').onclick=()=>executar('audio');
+  $('enviar').onclick=()=>{
+    const numero=$('telefone').value.trim();
+    if (!numero && !$('status').textContent.includes('WhatsApp padrão: configurado')) {
+      alerta('Informe o WhatsApp de destino com DDD.',true);return;
+    }
+    const destino=numero || 'número padrão de teste';
+    if (confirm(`Enviar UM áudio pelo WhatsApp para ${destino}?\n${previewId?'O áudio já ouvido será reutilizado.':'Uma nova geração de áudio consumirá créditos.'}`)) executar('whatsapp');
+  };
   start();
 })();
 </script></body></html>

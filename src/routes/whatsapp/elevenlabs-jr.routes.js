@@ -26,12 +26,14 @@ router.get('/vozes', async(req,res) => { try{res.json({vozes:await service.lista
 router.post('/gerar', origemValida, limitar, async(req,res) => {
   try {
     const audio = await service.gerarAudio(req.body || {});
+    const previewId = service.salvarPreview(audio, req.adminUser);
+    res.set('X-Preview-Id', previewId);
     res.set('Cache-Control','no-store');
     res.type('audio/mpeg').send(audio.bytes);
   } catch(e) {erro(res,e);}
 });
 router.post('/enviar-teste', origemValida, limitar, async(req,res) => {
-  try { res.json(await service.enviarTeste(req.body || {})); }
+  try { res.json(req.body?.previewId ? await service.enviarPreview(req.body, req.adminUser) : await service.enviarTeste(req.body || {})); }
   catch(e) {erro(res,e);}
 });
 module.exports = router;

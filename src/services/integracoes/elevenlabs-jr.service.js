@@ -3,10 +3,14 @@
 // Adaptador isolado: ElevenLabs Text-to-Speech -> MP3 -> Z-API.
 // Todos os segredos permanecem SOMENTE no servidor Render.
 const zapi = require('./zapi.service');
+const { randomUUID } = require('crypto');
 const BASE = 'https://api.elevenlabs.io/v1';
 const MODEL = 'eleven_flash_v2_5'; // Suporta português e reduz consumo/latência.
 const MAX_TEXT = 1000;
 const MAX_AUDIO = 5 * 1024 * 1024;
+const PREVIEW_TTL_MS = 10 * 60 * 1000;
+const MAX_PREVIEWS = 8;
+const previews = new Map();
 
 function configurar() {
   return {
@@ -15,12 +19,44 @@ function configurar() {
     vozPadrao: String(process.env.ELEVENLABS_VOICE_ID || '').trim(),
     modelo: MODEL,
     limiteCaracteres: MAX_TEXT,
-    somenteTeste: true
+    somenteTeste: false
   };
 }
 function telefonePermitido() {
   const tel = zapi.normalizarTelefone(process.env.ELEVENLABS_TEST_PHONE || '');
   return /^55\d{10,11}$/.test(tel) ? tel : '';
+}
+function validarDestino(telefone) {
+  const entrada = String(telefone == null ? '' : telefone).trim();
+  if (entrada && !/^[+()\d\s.-]{10,30}$/.test(entrada)) {
+    const e = new Error('Telefone inválido. Informe DDD e número, com ou sem 55.'); e.status=400; throw e;
+  }
+  let digitos = zapi.normalizarTelefone(entrada);
+  if (!digitos) digitos = telefonePermitido(); // Compatibilidade com o teste anterior
+  else if (/^\d{10,11}$/.test(digitos)) digitos = `55${digitos}`;
+  if (!/^55[1-9]\d{9,10}$/.test(digitos)) {
+    const e = new Error('Informe um número brasileiro válido: 55 + DDD + telefone.'); e.status=400; throw e;
+  }
+  return digitos;
+}
+function limparPreviews() {
+  const agora = Date.now();
+  for (const [id, item] of previews) if (item.expira <= agora) previews.delete(id);
+  while (previews.size >= MAX_PREVIEWS) previews.delete(previews.keys().next().value);
+}
+function salvarPreview(audio, usuario) {
+  limparPreviews();
+  const id = randomUUID();
+  previews.set(id, {audio, usuario: String(usuario || ''), expira:Date.now()+PREVIEW_TTL_MS});
+  return id;
+}
+function obterPreview(id, usuario) {
+  limparPreviews();
+  const item = previews.get(String(id || ''));
+  if (!item || item.usuario !== String(usuario || '')) {
+    const e = new Error('Prévia não encontrada ou expirada. Gere o áudio novamente.'); e.status=410; throw e;
+  }
+  return item.audio;
 }
 function chave() {
   const value = String(process.env.ELEVENLABS_API_KEY || '').trim();
@@ -88,15 +124,25 @@ async function gerarAudio({ texto, voz }) {
   }
   return { bytes, voz: vozId, caracteres: msg.length, formato:'audio/mpeg' };
 }
-async function enviarTeste({texto, voz}) {
-  const phone = telefonePermitido();
-  if (!phone) { const e = new Error('Configure ELEVENLABS_TEST_PHONE com seu próprio WhatsApp (55 + DDD + número).'); e.status=503; throw e; }
-  const audio = await gerarAudio({texto,voz});
+async function enviarAudio(audio, telefone) {
+  const phone = validarDestino(telefone);
   const enviado = await zapi.postZapi('/send-audio', {
     phone, audio: `data:audio/mpeg;base64,${audio.bytes.toString('base64')}`
   });
-  // Aceito na fila da Z-API não significa entregue/lido no WhatsApp.
+  // Aceito pela Z-API não significa que o WhatsApp entregou a mensagem.
   return { aceitoPelaZapi: true, idMensagem: enviado.zapi?.messageId || enviado.zapi?.id || null,
     telefoneFinal: phone.slice(-4), voz: audio.voz, caracteres: audio.caracteres };
 }
-module.exports = { configurar, listarVozes, gerarAudio, enviarTeste };
+async function enviarTeste({texto, voz, telefone}) {
+  // Mantém o comportamento anterior: envia mesmo sem gerar uma prévia.
+  if (!telefone && !telefonePermitido()) {
+    const e = new Error('Informe o WhatsApp de destino ou configure ELEVENLABS_TEST_PHONE.'); e.status=400; throw e;
+  }
+  const audio = await gerarAudio({texto,voz});
+  return enviarAudio(audio, telefone);
+}
+async function enviarPreview({previewId, telefone}, usuario) {
+  const audio = obterPreview(previewId, usuario);
+  return enviarAudio(audio, telefone);
+}
+module.exports = { configurar, listarVozes, gerarAudio, enviarTeste, salvarPreview, enviarPreview };
