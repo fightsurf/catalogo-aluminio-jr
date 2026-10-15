@@ -3,6 +3,7 @@ const pool = require('../../../db/connection');
 const bridge = require('../legado/legadoBridge.service');
 const zapi = require('../integracoes/zapi.service');
 const aparicoes = require('../termometro/termometroAparicoes.service');
+const eleven = require('../integracoes/elevenlabs-jr.service');
 
 let preparing;
 function bad(msg) { const err = new Error(msg); err.status = 400; throw err; }
@@ -61,6 +62,16 @@ async function preparar() {
         CHECK(status IN ('pendente','enviando','enviado','erro','incerto','bloqueado'))
       );
       ALTER TABLE mala_direta_destinatarios ADD COLUMN IF NOT EXISTS iniciado_envio_em TIMESTAMPTZ;
+      -- As campanhas por carrada/semana não exigem item legado do produto anunciado.
+      ALTER TABLE mala_direta_campanhas ALTER COLUMN item_legado DROP NOT NULL;
+      ALTER TABLE mala_direta_campanhas ADD COLUMN IF NOT EXISTS tipo_publico VARCHAR(12) NOT NULL DEFAULT 'periodo';
+      ALTER TABLE mala_direta_campanhas ADD COLUMN IF NOT EXISTS referencia_publico INTEGER;
+      ALTER TABLE mala_direta_campanhas ADD COLUMN IF NOT EXISTS audio_texto TEXT;
+      ALTER TABLE mala_direta_campanhas ADD COLUMN IF NOT EXISTS audio_mp3 BYTEA;
+      ALTER TABLE mala_direta_campanhas ADD COLUMN IF NOT EXISTS audio_voz VARCHAR(100);
+      ALTER TABLE mala_direta_campanhas ADD COLUMN IF NOT EXISTS audio_modelo VARCHAR(100);
+      ALTER TABLE mala_direta_destinatarios ADD COLUMN IF NOT EXISTS imagem_aceita_em TIMESTAMPTZ;
+      ALTER TABLE mala_direta_destinatarios ADD COLUMN IF NOT EXISTS audio_aceito_em TIMESTAMPTZ;
       CREATE INDEX IF NOT EXISTS idx_mala_direta_fila ON mala_direta_destinatarios (campanha_id,id) WHERE status='pendente';
       CREATE TABLE IF NOT EXISTS mala_direta_bloqueios (
         telefone VARCHAR(20) PRIMARY KEY,
@@ -92,29 +103,67 @@ async function produtos(busca='') {
 }
 async function compradores(item,meses) {
   const q=await bridge.get('/api/mala-direta/compradores/'+id(item),{meses:meses||0});
-  const lista=q.dados||[];
+  return aplicarBloqueios(q.dados||[]);
+}
+async function carradas() {
+  return (await bridge.get('/api/mala-direta/carradas')).dados || [];
+}
+async function semanas() {
+  const r=await pool.query(`SELECT id,data_inicial,data_final,descricao
+    FROM semanas ORDER BY data_inicial DESC,id DESC`);
+  return r.rows;
+}
+function criterioValido(dados) {
+  const tipo=String(dados.tipoPublico||'periodo');
+  if (!['periodo','carrada','semana'].includes(tipo)) bad('Escolha período, carrada ou semana.');
+  const referencia=tipo==='periodo'?null:id(dados.referenciaPublico);
+  const meses=tipo==='periodo'?Number(dados.meses):0;
+  if (tipo==='periodo'&&(!Number.isInteger(meses)||meses<0||meses>600||meses%6)) bad('Período inválido.');
+  return {tipo,referencia,meses};
+}
+async function compradoresPorCriterio(dados) {
+  const {tipo,referencia,meses}=criterioValido(dados);
+  if(tipo==='periodo') return compradores(id(dados.item),meses);
+  let codigos=[];
+  if(tipo==='carrada') {
+    const r=await bridge.get('/api/mala-direta/carradas');
+    if(!(r.dados||[]).some(c=>Number(c.codigo)===referencia)) bad('Carrada não encontrada.');
+    codigos=[referencia];
+  } else {
+    const r=await pool.query('SELECT codigo_carrada FROM semana_carradas WHERE semana_id=$1 ORDER BY ordem,id',[referencia]);
+    const existe=await pool.query('SELECT 1 FROM semanas WHERE id=$1',[referencia]);
+    if(!existe.rowCount) bad('Semana não encontrada.');
+    codigos=r.rows.map(c=>Number(c.codigo_carrada));
+  }
+  if(!codigos.length) return [];
+  const r=await bridge.post('/api/mala-direta/compradores-carradas',{codigos});
+  return aplicarBloqueios(r.dados||[]);
+}
+async function aplicarBloqueios(lista) {
   await preparar();
   const tels=lista.map(c=>telefone(c.telefone)).filter(Boolean);
   const bloqueados=tels.length?await pool.query('SELECT telefone FROM mala_direta_bloqueios WHERE telefone=ANY($1::varchar[])',[tels]):{rows:[]};
   const bloqueio=new Set(bloqueados.rows.map(r=>r.telefone));
-  return lista.map(c=>({...c,telefoneNormalizado:telefone(c.telefone), bloqueado:bloqueio.has(telefone(c.telefone))}));
+  return lista.map(c=>({...c,telefoneNormalizado:telefone(c.telefone),bloqueado:bloqueio.has(telefone(c.telefone))}));
 }
 async function primeiraCompra(item) { return (await bridge.get('/api/mala-direta/primeira-compra/'+id(item))).dados; }
-async function criar(dados, origem) {
+async function criar(dados, origem,usuario) {
   await preparar();
-  const codigo=id(dados.item), produtoId=id(dados.produtoId), meses=Number(dados.meses||0), intervalo=Number(dados.intervaloSegundos);
-  if(!Number.isInteger(meses)||meses<0||meses>600||(meses%6!==0)) bad('Período inválido.');
+  const produtoId=id(dados.produtoId), criterio=criterioValido(dados), intervalo=Number(dados.intervaloSegundos);
+  const {tipo,referencia,meses}=criterio;
   if(!Number.isInteger(intervalo)||intervalo<5||intervalo>3600) bad('Intervalo de 5 a 3600 segundos.');
   const mensagem=String(dados.mensagem||'').trim();
   if(!mensagem||mensagem.length>3000) bad('Informe texto de até 3000 caracteres.');
-  if(dados.confirmouConsentimento!==true) bad('Confirme que os destinatários autorizaram mensagens promocionais.');
+  if(dados.confirmouConsentimento!==true) bad('Confirme a autorização dos destinatários antes de iniciar a campanha.');
   const selecionados=dados.destinatarios;
   if(!Array.isArray(selecionados)||!selecionados.length||selecionados.length>2000) bad('Selecione de 1 a 2000 clientes.');
   const ids=selecionados.map(x=>id(x.favorecido));
   if(new Set(ids).size!==ids.length) bad('Clientes repetidos.');
-  const produto=await pool.query('SELECT id, nome, item_legado FROM produtos WHERE id=$1 AND item_legado=$2',[produtoId,codigo]);
-  if(!produto.rows.length) bad('O produto selecionado não possui vínculo válido entre o catálogo Render e o Firebird. Atualize a página e confira o item legado.');
-  const base=await compradores(codigo,meses);
+  const produto=await pool.query('SELECT id, nome, item_legado FROM produtos WHERE id=$1',[produtoId]);
+  if(!produto.rows.length) bad('Produto não encontrado no catálogo Render.');
+  const codigo=produto.rows[0].item_legado==null?null:Number(produto.rows[0].item_legado);
+  if(tipo==='periodo'&&!codigo) bad('Vincule o item legado para consultar compradores por período.');
+  const base=await compradoresPorCriterio({tipoPublico:tipo,referenciaPublico:referencia,meses,item:codigo});
   const permitidos=new Map(base.map(x=>[Number(x.favorecido),x]));
   const linhas=selecionados.map(s=>{
     const c=permitidos.get(Number(s.favorecido));
@@ -123,11 +172,25 @@ async function criar(dados, origem) {
   });
   if(new Set(linhas.map(x=>x.fone)).size!==linhas.length) bad('Existem clientes selecionados com o mesmo telefone; resolva duplicidades antes de enviar.');
   const imagem=urlFoto(dados.imagem,origem);
+  const audioTexto=String(dados.audioTexto||'').trim();
+  let audio=null;
+  if(audioTexto) {
+    if(audioTexto.length>1000) bad('O texto para áudio deve ter até 1000 caracteres.');
+    // Usa exatamente a prévia ouvida, sem descontar créditos novamente.
+    if(!dados.audioPreviewId) bad('Gere e escute o áudio na configuração ElevenLabs antes de iniciar.');
+    audio=eleven.obterPreview(dados.audioPreviewId,usuario);
+    if(!audio?.bytes?.length||audio.bytes.length>5*1024*1024) bad('Áudio inválido ou grande demais.');
+    if(audioTexto!==audio.texto) bad('O texto do áudio foi alterado. Gere outra prévia.');
+  }
   const client=await pool.connect();
   try {
     await client.query('BEGIN');
-    const camp=await client.query(`INSERT INTO mala_direta_campanhas (produto_id,item_legado,produto_nome,meses,mensagem,imagem,intervalo_segundos)
-      VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id`,[produto.rows[0].id,codigo,produto.rows[0].nome,meses,mensagem,imagem,intervalo]);
+    const camp=await client.query(`INSERT INTO mala_direta_campanhas
+      (produto_id,item_legado,produto_nome,meses,mensagem,imagem,intervalo_segundos,
+        tipo_publico,referencia_publico,audio_texto,audio_mp3,audio_voz,audio_modelo)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id`,
+      [produto.rows[0].id,codigo,produto.rows[0].nome,meses,mensagem,imagem,intervalo,
+        tipo,referencia,audioTexto||null,audio?.bytes||null,audio?.voz||null,audio?.modelo||null]);
     const cid=camp.rows[0].id;
     for(const r of linhas) await client.query(`INSERT INTO mala_direta_destinatarios (campanha_id,favorecido,nome,telefone)
       VALUES ($1,$2,$3,$4)`,[cid,r.id,r.nome,r.fone]);
@@ -138,7 +201,7 @@ async function criar(dados, origem) {
 }
 async function listar() {
   await preparar();
-  const r=await pool.query(`SELECT c.id,c.produto_nome,c.item_legado,c.status,c.criada_em,c.intervalo_segundos,
+  const r=await pool.query(`SELECT c.id,c.produto_nome,c.item_legado,c.tipo_publico,c.referencia_publico,c.audio_mp3 IS NOT NULL AS com_audio,c.status,c.criada_em,c.intervalo_segundos,
     COUNT(d.id)::int total,
     COUNT(d.id) FILTER (WHERE d.status='enviado')::int enviados,
     COUNT(d.id) FILTER (WHERE d.status='pendente')::int pendentes,
@@ -149,9 +212,9 @@ async function listar() {
 }
 async function detalhe(cid) {
   await preparar();
-  const c=await pool.query('SELECT id,produto_nome,status,intervalo_segundos,criada_em,concluida_em FROM mala_direta_campanhas WHERE id=$1',[id(cid)]);
+  const c=await pool.query('SELECT id,produto_nome,status,tipo_publico,referencia_publico, audio_mp3 IS NOT NULL AS com_audio, intervalo_segundos,criada_em,concluida_em FROM mala_direta_campanhas WHERE id=$1',[id(cid)]);
   if(!c.rows.length) bad('Campanha não encontrada.');
-  const d=await pool.query('SELECT favorecido,nome,telefone,status,iniciado_envio_em,enviado_em,erro FROM mala_direta_destinatarios WHERE campanha_id=$1 ORDER BY id',[cid]);
+  const d=await pool.query('SELECT favorecido,nome,telefone,status,iniciado_envio_em,enviado_em,imagem_aceita_em,audio_aceito_em,erro FROM mala_direta_destinatarios WHERE campanha_id=$1 ORDER BY id',[cid]);
   return {campanha:c.rows[0],destinatarios:d.rows};
 }
 async function mudarStatus(cid, acao) {
@@ -187,7 +250,7 @@ async function processarProximo() {
   // a confirmação de envio e a inserção da aparição no Termômetro.
   const pendentesContagem = await pool.query(`
     SELECT c.id, c.produto_id, c.produto_nome FROM mala_direta_campanhas c
-    WHERE EXISTS (SELECT 1 FROM mala_direta_destinatarios d WHERE d.campanha_id=c.id AND d.status='enviado')
+    WHERE EXISTS (SELECT 1 FROM mala_direta_destinatarios d WHERE d.campanha_id=c.id AND (d.status='enviado' OR d.imagem_aceita_em IS NOT NULL))
       AND NOT EXISTS (SELECT 1 FROM termometro_aparicoes t WHERE t.produto_id=c.produto_id
         AND t.origem='mala_direta' AND t.origem_chave='campanha:' || c.id::text)
     ORDER BY c.id DESC LIMIT 10
@@ -208,7 +271,7 @@ async function processarProximo() {
       WHERE c.status='ativa' AND NOT EXISTS
         (SELECT 1 FROM mala_direta_destinatarios d WHERE d.campanha_id=c.id AND d.status IN ('pendente','enviando'))`);
     const r=await client.query(`
-      SELECT d.id,d.campanha_id,d.telefone,c.produto_id,c.produto_nome,c.mensagem,c.imagem,c.intervalo_segundos
+      SELECT d.id,d.campanha_id,d.telefone,c.produto_id,c.produto_nome,c.mensagem,c.imagem,c.intervalo_segundos,c.audio_mp3
       FROM mala_direta_destinatarios d JOIN mala_direta_campanhas c ON c.id=d.campanha_id
       WHERE d.status='pendente' AND c.status='ativa' AND c.proximo_envio_em<=NOW()
         AND NOT EXISTS(SELECT 1 FROM mala_direta_destinatarios v WHERE v.campanha_id=c.id AND v.status='enviando')
@@ -227,20 +290,36 @@ async function processarProximo() {
     if(blocked.rowCount) return;
   } catch(e) {await client.query('ROLLBACK').catch(()=>{});throw e;} finally {client.release();}
   let resultado, erro;
-  try { resultado=await zapi.enviarImagem({telefone:trabalho.telefone,imagem:trabalho.imagem,legenda:trabalho.mensagem}); }
-  catch(e){erro=e;}
-  // Falha HTTP ou de rede não garante ausência de entrega; não tentar de novo automaticamente.
+  try {
+    resultado=await zapi.enviarImagem({telefone:trabalho.telefone,imagem:trabalho.imagem,legenda:trabalho.mensagem});
+    // Gravar confirmação da imagem ANTES de tentar enviar o áudio; nunca repetir envio incerto.
+    await pool.query(`UPDATE mala_direta_destinatarios SET imagem_aceita_em=NOW(),
+      retorno_zapi=$2::jsonb,atualizado_em=NOW() WHERE id=$1 AND status='enviando'`,
+      [trabalho.id,JSON.stringify(resultado.zapi||{})]);
+    try {
+      await aparicoes.inserirAparicao({produtoId:trabalho.produto_id,origem:'mala_direta',
+        origemChave:'campanha:'+trabalho.campanha_id,origemId:trabalho.campanha_id,
+        quantidade:1,detalhes:{produto_nome:trabalho.produto_nome}});
+    } catch (e) {
+      // A recuperação idempotente fará a contagem: falha do Termômetro não cancela o áudio.
+      console.error('[mala-direta] Contagem de aparição adiada:',e.message);
+    }
+    if(trabalho.audio_mp3) {
+      const bytes=Buffer.isBuffer(trabalho.audio_mp3)?trabalho.audio_mp3:Buffer.from(trabalho.audio_mp3);
+      await zapi.postZapi('/send-audio',{
+        phone:trabalho.telefone,audio:'data:audio/mpeg;base64,'+bytes.toString('base64')
+      });
+      await pool.query(`UPDATE mala_direta_destinatarios SET audio_aceito_em=NOW(),atualizado_em=NOW()
+        WHERE id=$1 AND status='enviando'`,[trabalho.id]);
+    }
+  }catch(e){erro=e;}
+  // Rede/Z-API podem ter aceitado uma das mensagens. Não reenviar automaticamente.
   const status=erro?'incerto':'enviado';
   try {
-    await pool.query(`UPDATE mala_direta_destinatarios SET status=$2, enviado_em=CASE WHEN $2='enviado' THEN NOW() ELSE NULL END,
-      atualizado_em=NOW(), erro=$3, retorno_zapi=$4::jsonb WHERE id=$1 AND status='enviando'`,
-    [trabalho.id,status,erro?String(erro.message).slice(0,900):null,resultado?JSON.stringify(resultado.zapi||{}):null]);
-    // O próximo horário foi definido no início da tentativa. Não adicionar outro
-    // intervalo depois da resposta HTTP da Z-API (isso ampliava a espera).
-    if(!erro) {
-      await aparicoes.inserirAparicao({produtoId:trabalho.produto_id,origem:'mala_direta',origemChave:'campanha:'+trabalho.campanha_id,
-        origemId:trabalho.campanha_id,quantidade:1,detalhes:{produto_nome:trabalho.produto_nome}});
-    }
+    await pool.query(`UPDATE mala_direta_destinatarios SET status=$2,
+      enviado_em=CASE WHEN $2='enviado' THEN NOW() ELSE NULL END,
+      atualizado_em=NOW(),erro=$3 WHERE id=$1 AND status='enviando'`,
+      [trabalho.id,status,erro?String(erro.message).slice(0,900):null]);
   } catch(e) {console.error('[mala-direta] Persistência pós-envio:',e.message);}
   await pool.query(`UPDATE mala_direta_campanhas c SET status='concluida',concluida_em=NOW()
     WHERE c.id=$1 AND c.status='ativa'
@@ -271,4 +350,4 @@ function iniciarTrabalhador() {
   const t=setTimeout(executar,1000);
   t.unref?.();
 }
-module.exports={produtos,compradores,primeiraCompra,criar,listar,detalhe,mudarStatus,bloquear,enviarTeste,iniciarTrabalhador};
+module.exports={produtos,compradores,compradoresPorCriterio,carradas,semanas,primeiraCompra,criar,listar,detalhe,mudarStatus,bloquear,enviarTeste,iniciarTrabalhador};

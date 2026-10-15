@@ -15,20 +15,46 @@
 .produtos-vazio{padding:20px;text-align:center;color:#687789}
 .telefone-acoes{display:inline-flex;align-items:center;gap:3px;margin-left:6px;vertical-align:middle}.telefone-acao{display:inline-grid;place-items:center;width:31px;height:31px;padding:3px;border-radius:6px;border:1px solid #dce2e8;background:#f5f8fc;color:#1754a3;text-decoration:none;font-size:1rem;cursor:pointer}.telefone-acao:hover{background:#e3effb}.telefone-acao:focus-visible{outline:2px solid #1454a3;outline-offset:2px}
 @media(max-width:600px){.produto-opcao{grid-template-columns:20px 52px minmax(0,1fr);gap:8px;padding:8px}.produto-opcao img{width:50px;height:50px}}
+.modal .dialog audio{width:100%;margin-top:10px}.modo-filtro{padding:10px;background:#f5f8fc;border-radius:8px;margin-bottom:10px}.modo-filtro select:disabled{background:#e9edf2;color:#84909c}.grupo-filtros{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin:12px 0}.grupo-filtros .field{min-width:0}.small-button{font-size:.83rem;padding:7px 10px}
 </style></head><body><main class="wrap">
-<h1>Mala Direta — Alumínio JR</h1><p class="muted">Selecione compradores de um produto e envie uma imagem com legenda pela Z-API. Somente clientes com autorização para promoções.</p>
+<h1>Mala Direta — Alumínio JR</h1><p class="muted">Escolha um produto, um grupo de destinatários e envie a divulgação pelo WhatsApp.</p>
 <div id="status" role="status" aria-live="polite"></div>
-<section class="card"><h2>1. Produto e histórico</h2><div class="grid"><div class="field"><label for="busca">Pesquisar produto do catálogo Render</label><input id="busca" placeholder="Digite o nome do produto" autocomplete="off"></div><div class="field"><label>Produto selecionado</label><input type="hidden" id="produto" value=""><div id="produtoSelecionado" class="produto-escolhido muted" aria-live="polite">Nenhum produto selecionado.</div></div><div class="field"><label for="periodo">Período de compras</label><select id="periodo"><option value="0">Todas as compras realizadas</option></select></div></div><div class="produtos-cabecalho"><strong>Produtos do catálogo Render</strong><span id="contadorProdutos" class="muted">Carregando...</span></div><div id="listaProdutos" class="lista-produtos-mala" role="radiogroup" aria-label="Escolha um produto do catálogo"></div><p class="muted" id="infoProd"></p><button id="consultar">Consultar compradores</button></section>
-<section class="card"><div class="row" style="justify-content:space-between"><h2>2. Selecionar clientes</h2><span id="resumo" class="muted">Consulte um produto.</span></div><p class="muted">A quantidade e a última compra são referentes ao produto selecionado. O perfil de compras é consultado somente ao clicar no botão.</p><div class="row"><button class="secondary" id="selecionarTodos">Marcar clientes com telefone válido</button><button class="secondary" id="limpar">Limpar seleção</button></div><div class="tablewrap"><table><thead><tr><th>Selecionar</th><th>Cliente</th><th>Cidade</th><th>Telefone</th><th>Unidades</th><th>Pedidos</th><th>Última compra</th><th>Perfil</th></tr></thead><tbody id="compradores"></tbody></table></div><p class="muted" id="contagem">0 selecionados</p></section>
-<section class="card"><h2>3. Imagem e mensagem</h2><div class="grid"><div class="field"><label for="fotoSistema">Foto cadastrada do produto</label><select id="fotoSistema"><option value="">Selecione uma foto ou envie outra</option></select></div><div class="field"><label for="upload">Ou enviar uma nova foto</label><input id="upload" type="file" accept="image/jpeg,image/png,image/webp"><span class="muted">O navegador comprime a imagem antes do envio.</span></div><div class="field"><label for="intervalo">Intervalo mínimo entre inícios dos envios</label><select id="intervalo"><option value="10">10 segundos</option><option selected value="15">15 segundos</option><option value="20">20 segundos</option><option value="30">30 segundos</option><option value="60">60 segundos</option><option value="120">120 segundos</option><option value="300">300 segundos</option></select><span class="muted small">Contado desde o início do envio anterior. A Z-API ou o WhatsApp podem demorar mais para concluir a entrega.</span></div></div><div class="field" style="margin-top:12px"><label for="mensagem">Mensagem de texto (legenda da imagem)</label><textarea id="mensagem" maxlength="3000" placeholder="Oferta... Para não receber promoções, responda SAIR."></textarea></div><div class="notice">A compra anterior não comprova consentimento para publicidade. Inclua apenas clientes que autorizaram receber promoções. Respeite pedidos de saída e bloqueie o telefone no histórico.</div><div class="row"><label class="row"><input type="checkbox" id="consentimento"> Confirmo que os clientes marcados autorizaram mensagens promocionais.</label></div><h2 style="margin-top:20px">Prévia</h2><div class="preview"><img id="previewFoto" alt="Prévia da foto" hidden><p id="previewTexto" class="muted">Escreva a mensagem.</p></div><div class="grid" style="margin-top:20px"><div class="field"><label for="numeroTeste">Número próprio para teste (DDI + DDD)</label><input id="numeroTeste" placeholder="5583999999999"><button class="secondary" id="teste">Enviar teste</button></div></div></section>
+<section class="card"><h2>1. Escolha do produto</h2>
+<div class="grid"><div class="field"><label for="busca">Pesquisar produto do catálogo Render</label><input id="busca" placeholder="Digite o nome do produto" autocomplete="off"></div>
+<div class="field"><label>Produto selecionado</label><input type="hidden" id="produto" value=""><div id="produtoSelecionado" class="produto-escolhido muted" aria-live="polite">Nenhum produto selecionado.</div></div></div>
+<div class="produtos-cabecalho"><strong>Produtos do catálogo Render</strong><span id="contadorProdutos" class="muted">Carregando...</span></div>
+<div id="listaProdutos" class="lista-produtos-mala" role="radiogroup" aria-label="Escolha um produto do catálogo"></div><p class="muted" id="infoProd"></p></section>
+<section class="card"><div class="row" style="justify-content:space-between"><h2>2. Seleção dos destinatários</h2><span id="resumo" class="muted">Escolha um critério.</span></div>
+<p class="muted">Escolha um único critério. Ao selecionar um deles, os outros dois ficam desabilitados. Carrada e semana incluem todos os clientes com pedidos válidos, independentemente do produto escolhido.</p>
+<div class="grupo-filtros">
+<div class="field"><label for="periodo">Período de compras do produto</label><select id="periodo"><option value="">Escolha um período</option><option value="0">Todas as compras realizadas</option></select></div>
+<div class="field"><label for="carrada">Carrada</label><select id="carrada"><option value="">Escolha uma carrada</option></select></div>
+<div class="field"><label for="semana">Semana</label><select id="semana"><option value="">Escolha uma semana</option></select></div>
+</div>
+<div class="row modo-filtro"><button type="button" class="secondary" id="limparFiltro">Limpar filtro e liberar os três seletores</button><button type="button" id="consultar" class="secondary">Consultar clientes</button><span id="criterioAtivo" class="muted">Nenhum critério escolhido</span></div>
+<div class="row"><button class="secondary" id="selecionarTodos">Marcar clientes com telefone válido</button><button class="secondary" id="limpar">Limpar seleção</button></div>
+<div class="tablewrap"><table><thead><tr><th>Selecionar</th><th>Cliente</th><th>Cidade</th><th>Telefone</th><th>Unidades</th><th>Pedidos</th><th>Última compra</th><th>Perfil</th></tr></thead><tbody id="compradores"></tbody></table></div>
+<p class="muted" id="contagem">0 selecionados</p></section>
+<section class="card"><h2>3. Imagem e mensagem</h2><div class="grid"><div class="field"><label for="fotoSistema">Foto cadastrada do produto</label><select id="fotoSistema"><option value="">Selecione uma foto ou envie outra</option></select></div><div class="field"><label for="upload">Ou enviar uma nova foto</label><input id="upload" type="file" accept="image/jpeg,image/png,image/webp"><span class="muted">O navegador comprime a imagem antes do envio.</span></div><div class="field"><label for="intervalo">Intervalo mínimo entre inícios dos envios</label><select id="intervalo"><option value="10">10 segundos</option><option selected value="15">15 segundos</option><option value="20">20 segundos</option><option value="30">30 segundos</option><option value="60">60 segundos</option><option value="120">120 segundos</option><option value="300">300 segundos</option></select><span class="muted small">Contado desde o início do envio anterior. A Z-API ou o WhatsApp podem demorar mais para concluir a entrega.</span></div></div><div class="field" style="margin-top:12px"><label for="mensagem">Mensagem de texto (legenda da imagem)</label><textarea id="mensagem" maxlength="3000" placeholder="Oferta... Para não receber promoções, responda SAIR."></textarea></div><div class="field" style="margin-top:12px"><label for="audioTexto">Mensagem de áudio (texto a ser falado pela ElevenLabs, opcional)</label><textarea id="audioTexto" maxlength="1000" placeholder="Digite a fala que será enviada como áudio após a foto e a legenda."></textarea><div class="row"><button type="button" class="secondary" id="abrirEleven">⚙️ Configurar ElevenLabs e ouvir áudio</button><span class="muted" id="audioResumo">Nenhum áudio preparado.</span></div></div><h2 style="margin-top:20px">Prévia</h2><div class="preview"><img id="previewFoto" alt="Prévia da foto" hidden><p id="previewTexto" class="muted">Escreva a mensagem.</p></div><div class="grid" style="margin-top:20px"><div class="field"><label for="numeroTeste">Número próprio para teste (DDI + DDD)</label><input id="numeroTeste" placeholder="5583999999999"><button class="secondary" id="teste">Enviar teste</button></div></div></section>
 <section class="card bottom"><div class="row"><button id="enviar">Iniciar Mala Direta</button><span class="muted" id="enviarResumo">Nenhum destinatário selecionado</span></div></section>
 <section class="card"><div class="row" style="justify-content:space-between"><h2>Campanhas e relatórios</h2><button class="secondary" id="atualizar">Atualizar</button></div><div class="tablewrap"><table><thead><tr><th>Campanha</th><th>Produto</th><th>Status</th><th>Enviados</th><th>Pendentes</th><th>Problemas</th><th>Ações</th></tr></thead><tbody id="campanhas"></tbody></table></div></section>
 </main>
 <div class="modal" id="modal"><div class="dialog"><div class="row" style="justify-content:space-between"><h2 id="modalTitulo">Perfil de compras</h2><button class="secondary" id="fechar">Fechar</button></div><div id="modalCorpo"></div></div></div>
+<div class="modal" id="modalEleven" role="dialog" aria-modal="true" aria-labelledby="elevenTitulo"><div class="dialog">
+<div class="row" style="justify-content:space-between"><h2 id="elevenTitulo">Configurações ElevenLabs</h2><button type="button" class="secondary" id="fecharEleven">Fechar</button></div>
+<p class="muted">Sua voz clonada e o modelo são os mesmos da tela de testes do Assistente JR. Gere a prévia uma vez: o áudio será reutilizado na campanha. A prévia deve ser usada em até 10 minutos; depois disso, gere novamente.</p>
+<div class="field"><label for="elevenVoz">Voz</label><select id="elevenVoz"><option value="">Carregando vozes...</option></select></div>
+<div class="field"><label for="elevenVozManual">Voice ID (opcional, substitui a seleção)</label><input id="elevenVozManual" placeholder="Cole o identificador da sua voz clonada"></div>
+<div class="field"><label for="elevenModelo">Modelo ElevenLabs</label><select id="elevenModelo"><option value="">Carregando modelos...</option></select></div>
+<div class="row" style="margin-top:12px"><button type="button" class="secondary" id="atualizarEleven">Atualizar vozes e modelos</button><button type="button" id="gerarEleven">Gerar e ouvir prévia</button></div>
+<audio id="elevenPlayer" controls hidden></audio><p class="muted" id="elevenStatus" aria-live="polite"></p>
+<div class="row"><button type="button" class="secondary" id="testeEleven">Enviar este áudio para número de teste</button></div>
+</div></div>
 <script>
 'use strict';
 const $=id=>document.getElementById(id);const api='/api/whatsapp/mala-direta';
-let produtos=[], clientes=[], imagemUpload='',ultimaConsulta=0,consultaSeq=0;
+let produtos=[], clientes=[], imagemUpload='',ultimaConsulta='',consultaSeq=0;
+let audioPreviewId='',audioPreviewTexto='',audioObjectUrl='',elevenCarregado=false;
 const selected=()=>clientes.filter(c=>c.marcado);const norm=s=>String(s||'').replace(/\D/g,'');
 const date=v=>{if(!v)return '-';const d=new Date(v);return Number.isNaN(d.getTime())?'-':d.toLocaleDateString('pt-BR',{timeZone:'UTC'});};
 function msg(s,erro=false){$('status').textContent=s||'';$('status').className=erro?'error':'ok';}
@@ -83,38 +109,77 @@ async function carregarProdutos(){
   }catch(e){msg('Não foi possível carregar produtos: '+e.message,true);}
 }
 let timer; $('busca').addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(carregarProdutos,350)});
-function atualizarProduto(){consultaSeq++;$('consultar').disabled=false;renderProdutos();imagemUpload='';$('upload').value='';const p=produto();const fotos=$('fotoSistema');fotos.replaceChildren(new Option('Selecione uma foto ou envie outra',''));(p?.fotos||[]).forEach((f,i)=>fotos.add(new Option('Foto '+(i+1),f)));$('infoProd').textContent=p?(p.item ? `Catálogo Render #${p.produtoId} • item Firebird ${p.item}` : `Catálogo Render #${p.produtoId} • sem item legado vinculado: configure o vínculo no cadastro de produtos antes de consultar compradores`):'';clientes=[];ultimaConsulta=0;renderClientes();fotoPreview();periodos();}
-
-async function periodos(){const p=produto(),select=$('periodo');select.replaceChildren(new Option('Todas as compras realizadas','0'));if(!p||!p.item)return;try{const primeira=await get(api+'/primeira-compra/'+p.item);if(p!==produto())return;const diferenca=primeira?Math.max(6,Math.ceil((Date.now()-new Date(primeira).getTime())/(1000*60*60*24*30.4375)/6)*6):60;for(let m=6;m<=Math.min(diferenca,600);m+=6){const anos=Math.floor(m/12),metade=m%12===6;let label=`Últimos ${m} meses`;if(anos)label+=` (${anos} ${anos===1?'ano':'anos'}${metade?' e 6 meses':''})`;select.add(new Option(label,String(m)));}}catch(e){msg('Não foi possível determinar o histórico: '+e.message,true);}}
-async function consultar(){
-  const p=produto(),periodo=$('periodo').value;
-  const sequencia=++consultaSeq;
-  clientes=[];ultimaConsulta=0;renderClientes();
-  if(!p){msg('Selecione um produto.',true);return;}
-  if(!p.item){msg('Este produto não tem item legado associado ao Firebird. Vincule-o no cadastro de produtos do Render.',true);return;}
-  $('consultar').disabled=true;
-  $('resumo').textContent='Carregando compradores...';
-  msg(`Consultando compras do produto ${p.nome} — ${$('periodo').selectedOptions[0]?.textContent||'período selecionado'}...`);
+function chaveConsulta(){const c=criterio();return c?`${produto()?.produtoId||0}:${c.tipo}:${c.referencia??c.meses}`:'';}
+function criterio(){
+  if($('periodo').value!=='')return {tipo:'periodo',meses:Number($('periodo').value)};
+  if($('carrada').value!=='')return {tipo:'carrada',referencia:Number($('carrada').value)};
+  if($('semana').value!=='')return {tipo:'semana',referencia:Number($('semana').value)};
+  return null;
+}
+function atualizarBloqueios(){
+  const c=criterio();
+  $('periodo').disabled=Boolean(c&&c.tipo!=='periodo');
+  $('carrada').disabled=Boolean(c&&c.tipo!=='carrada');
+  $('semana').disabled=Boolean(c&&c.tipo!=='semana');
+  $('criterioAtivo').textContent=c?`Critério ativo: ${c.tipo==='periodo'?'Período de compras':c.tipo==='carrada'?'Carrada':'Semana'}`:'Nenhum critério escolhido';
+}
+function resetClientes(){consultaSeq++;clientes=[];ultimaConsulta='';renderClientes();}
+function atualizarProduto(){
+  resetClientes();renderProdutos();imagemUpload='';$('upload').value='';
+  const p=produto(),fotos=$('fotoSistema');fotos.replaceChildren(new Option('Selecione uma foto ou envie outra',''));
+  (p?.fotos||[]).forEach((f,i)=>fotos.add(new Option('Foto '+(i+1),f)));
+  $('infoProd').textContent=p?(p.item?`Catálogo Render #${p.produtoId} • item Firebird ${p.item}`:`Catálogo Render #${p.produtoId} • sem vínculo Firebird (ainda pode selecionar clientes por carrada ou semana)`):'';
+  fotoPreview();
+  if(criterio()?.tipo==='periodo')periodos().then(()=>{if(p===produto()&&criterio()?.tipo==='periodo')consultar();});
+  else {periodos();if(criterio())consultar();}
+}
+async function periodos(){
+  const p=produto(),select=$('periodo'),anterior=select.value;
+  select.replaceChildren(new Option('Escolha um período',''),new Option('Todas as compras realizadas','0'));
+  if(!p?.item){atualizarBloqueios();return;}
   try{
-    const resultado=await get(`${api}/compradores/${p.item}?meses=${encodeURIComponent(periodo)}`);
-    // A consulta ao Firebird pode demorar. Nunca exibir uma resposta de produto/período anterior.
-    if(sequencia!==consultaSeq||produto()?.produtoId!==p.produtoId||$('periodo').value!==periodo)return;
-    if(!Array.isArray(resultado))throw Error('A consulta de compradores retornou um formato inesperado.');
-    clientes=resultado.map(c=>({...c,marcado:false}));
-    ultimaConsulta=p.produtoId;
-    renderClientes();
-    msg(clientes.length?`${clientes.length} clientes encontrados.`:'Nenhuma compra encontrada para este produto no período selecionado.');
-  }catch(e){
-    if(sequencia!==consultaSeq)return;
-    $('resumo').textContent='Erro na consulta de compradores';
-    msg('Não foi possível consultar os compradores: '+e.message,true);
-  }finally{
-    if(sequencia===consultaSeq)$('consultar').disabled=false;
-  }
+    const primeira=await get(api+'/primeira-compra/'+p.item);
+    if(p!==produto())return;
+    const diferenca=primeira?Math.max(6,Math.ceil((Date.now()-new Date(primeira).getTime())/(1000*60*60*24*30.4375)/6)*6):60;
+    for(let m=6;m<=Math.min(diferenca,600);m+=6){const anos=Math.floor(m/12),metade=m%12===6;let label=`Últimos ${m} meses`;if(anos)label+=` (${anos} ${anos===1?'ano':'anos'}${metade?' e 6 meses':''})`;select.add(new Option(label,String(m)));}
+    if([...select.options].some(x=>x.value===anterior))select.value=anterior;
+    atualizarBloqueios();
+  }catch(e){msg('Não foi possível determinar o histórico: '+e.message,true);}
+}
+async function carregarFiltros(){
+  const preencher=(id,itens,rotulo)=>{const select=$(id);select.replaceChildren(new Option('Escolha '+rotulo,''));itens.forEach(x=>select.add(new Option(x.label,String(x.value))));};
+  try{
+    const [cs,ss]=await Promise.all([get(api+'/carradas'),get(api+'/semanas')]);
+    preencher('carrada',(cs||[]).map(c=>({value:c.codigo,label:`Carrada ${c.codigo} • ${date(c.data)}${c.descricao?' — '+c.descricao:''}`})),'uma carrada');
+    preencher('semana',(ss||[]).map(w=>({value:w.id,label:`Semana ${w.id} • ${date(w.data_inicial)} a ${date(w.data_final)}${w.descricao?' — '+w.descricao:''}`})),'uma semana');
+    atualizarBloqueios();
+  }catch(e){msg('Não foi possível listar carradas e semanas: '+e.message,true);}
+}
+async function consultar(){
+  const p=produto(),c=criterio();const seq=++consultaSeq;
+  clientes=[];ultimaConsulta='';renderClientes();
+  if(!c){msg('Escolha período, carrada ou semana.',true);return;}
+  if(c.tipo==='periodo'&&!p){msg('Escolha o produto antes de consultar o período de compras.',true);return;}
+  if(c.tipo==='periodo'&&!p.item){msg('O produto precisa de vínculo com o Firebird para consultar seu histórico.',true);return;}
+  $('consultar').disabled=true;$('resumo').textContent='Carregando clientes...';
+  const chave=chaveConsulta();msg('Consultando clientes do critério selecionado...');
+  try{
+    const dados=await post(api+'/destinatarios',{tipoPublico:c.tipo,referenciaPublico:c.referencia,meses:c.meses,item:p?.item});
+    if(seq!==consultaSeq||chave!==chaveConsulta())return;
+    if(!Array.isArray(dados))throw Error('A consulta retornou dados inesperados.');
+    clientes=dados.map(x=>({...x,marcado:false}));ultimaConsulta=chave;renderClientes();
+    msg(clientes.length?`${clientes.length} clientes encontrados.`:'Nenhum cliente encontrado neste critério.');
+  }catch(e){if(seq!==consultaSeq)return;$('resumo').textContent='Erro na consulta';msg('Não foi possível carregar clientes: '+e.message,true);}
+  finally{if(seq===consultaSeq)$('consultar').disabled=false;}
 }
 $('consultar').onclick=consultar;
-// Mudar o período deve iniciar a consulta, não apenas limpar os resultados.
-$('periodo').onchange=consultar;
+for(const idFiltro of ['periodo','carrada','semana']){
+  $(idFiltro).onchange=()=>{atualizarBloqueios();consultar();};
+}
+$('limparFiltro').onclick=()=>{
+  $('periodo').value='';$('carrada').value='';$('semana').value='';
+  atualizarBloqueios();resetClientes();msg('Filtro liberado. Escolha um dos três critérios.');
+};
 async function copiarTelefone(numero){
   try{
     if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(numero);}
@@ -132,7 +197,7 @@ function acoesTelefone(c,alvo){
   const whatsapp=el('a','💬','telefone-acao');whatsapp.href='https://wa.me/'+numero;whatsapp.target='_blank';whatsapp.rel='noopener noreferrer';whatsapp.title='Abrir conversa no WhatsApp com '+numero;whatsapp.setAttribute('aria-label',whatsapp.title);
   acoes.append(copiar,whatsapp);alvo.append(acoes);
 }
-function renderClientes(){const body=$('compradores');body.replaceChildren();for(const c of clientes){const tr=el('tr');const cell=()=>{const td=el('td');tr.append(td);return td;};const cb=el('input');cb.type='checkbox';cb.checked=c.marcado;cb.disabled=!c.telefoneNormalizado||c.bloqueado;cb.onchange=()=>{c.marcado=cb.checked;contagem();};cell().append(cb);cell().textContent=c.nome||'(sem nome)';cell().textContent=c.cidade||'-';const tel=cell();tel.append(document.createTextNode(c.telefone||'-'));acoesTelefone(c,tel);if(!c.telefoneNormalizado)tel.append(el('span',' Inválido','error'));if(c.bloqueado)tel.append(el('span',' Bloqueado','error'));cell().textContent=Number(c.quantidade||0).toLocaleString('pt-BR');cell().textContent=String(c.pedidos);cell().textContent=date(c.ultimaCompra);const perfil=el('button','Perfil de compras','secondary');perfil.onclick=()=>abrirPerfil(c);cell().append(perfil);body.append(tr);} $('resumo').textContent=`${clientes.length} compradores`;contagem();}
+function renderClientes(){const body=$('compradores');body.replaceChildren();for(const c of clientes){const tr=el('tr');const cell=()=>{const td=el('td');tr.append(td);return td;};const cb=el('input');cb.type='checkbox';cb.checked=c.marcado;cb.disabled=!c.telefoneNormalizado||c.bloqueado;cb.onchange=()=>{c.marcado=cb.checked;contagem();};cell().append(cb);cell().textContent=c.nome||'(sem nome)';cell().textContent=c.cidade||'-';const tel=cell();tel.append(document.createTextNode(c.telefone||'-'));acoesTelefone(c,tel);if(!c.telefoneNormalizado)tel.append(el('span',' Inválido','error'));if(c.bloqueado)tel.append(el('span',' Bloqueado','error'));cell().textContent=Number(c.quantidade||0).toLocaleString('pt-BR');cell().textContent=String(c.pedidos);cell().textContent=date(c.ultimaCompra);const perfil=el('button','Perfil de compras','secondary');perfil.onclick=()=>abrirPerfil(c);cell().append(perfil);body.append(tr);} $('resumo').textContent=`${clientes.length} clientes`;contagem();}
 function contagem(){const qtd=selected().length;$('contagem').textContent=`${qtd} selecionados`;$('enviarResumo').textContent=`${qtd} destinatários selecionados`;}
 $('selecionarTodos').onclick=()=>{clientes.forEach(c=>{c.marcado=Boolean(c.telefoneNormalizado&&!c.bloqueado)});renderClientes();};
 $('limpar').onclick=()=>{clientes.forEach(c=>c.marcado=false);renderClientes();};
@@ -145,12 +210,93 @@ function fotoPreview(){const img=$('previewFoto');const v=imagemAtual();if(!v){i
 $('fotoSistema').onchange=()=>{imagemUpload='';$('upload').value='';fotoPreview()};
 $('upload').onchange=async()=>{const file=$('upload').files[0];if(!file)return;try{if(!/^image\/(jpeg|png|webp)$/.test(file.type)||file.size>12*1024*1024)throw Error('Use JPG, PNG ou WEBP com até 12 MB.');const bmp=await createImageBitmap(file);const escala=Math.min(1,1280/Math.max(bmp.width,bmp.height));const canvas=document.createElement('canvas');canvas.width=Math.round(bmp.width*escala);canvas.height=Math.round(bmp.height*escala);canvas.getContext('2d').drawImage(bmp,0,0,canvas.width,canvas.height);bmp.close?.();imagemUpload=canvas.toDataURL('image/jpeg',.76);if(imagemUpload.length>2700000)throw Error('Imagem muito grande mesmo após compressão.');$('fotoSistema').value='';fotoPreview();}catch(e){imagemUpload='';$('upload').value='';msg(e.message,true);}};
 $('mensagem').oninput=()=>{$('previewTexto').textContent=$('mensagem').value||'Escreva a mensagem.';};
+function descartarAudio(){
+  audioPreviewId='';audioPreviewTexto='';$('audioResumo').textContent='Nenhum áudio preparado.';
+  if(audioObjectUrl)URL.revokeObjectURL(audioObjectUrl);
+  audioObjectUrl='';$('elevenPlayer').removeAttribute('src');$('elevenPlayer').hidden=true;
+}
+$('audioTexto').addEventListener('input',descartarAudio);
+$('elevenVoz').onchange=descartarAudio;$('elevenVozManual').oninput=descartarAudio;$('elevenModelo').onchange=descartarAudio;
+async function getEleven(url){const response=await fetch(url,{cache:'no-store'});const d=await response.json();if(!response.ok)throw Error(d.erro||d.mensagem||`HTTP ${response.status}`);return d;}
+async function carregarEleven(){
+  $('elevenStatus').textContent='Carregando vozes e modelos...';
+  try{
+    const base='/api/whatsapp/elevenlabs-jr';
+    const [c,v,m]=await Promise.all([getEleven(base+'/config'),getEleven(base+'/vozes'),getEleven(base+'/modelos')]);
+    const anteriorV=$('elevenVoz').value,anteriorM=$('elevenModelo').value;
+    $('elevenVoz').replaceChildren(new Option('Selecione uma voz',''));
+    for(const x of v.vozes||[])$('elevenVoz').add(new Option(`${x.name} (${x.category||x.voice_type||'voz'})`,x.voice_id));
+    $('elevenModelo').replaceChildren();
+    for(const x of m.modelos||[])$('elevenModelo').add(new Option(x.name,x.model_id));
+    if([...$('elevenVoz').options].some(x=>x.value===(anteriorV||c.vozPadrao)))$('elevenVoz').value=anteriorV||c.vozPadrao;
+    if([...$('elevenModelo').options].some(x=>x.value===(anteriorM||c.modelo)))$('elevenModelo').value=anteriorM||c.modelo;
+    $('elevenStatus').textContent=`${(v.vozes||[]).length} vozes disponíveis.`;
+    elevenCarregado=true;
+  }catch(e){$('elevenStatus').textContent='Falha na ElevenLabs: '+e.message;}
+}
+$('abrirEleven').onclick=()=>{$('modalEleven').classList.add('active');if(!elevenCarregado)carregarEleven();};
+$('fecharEleven').onclick=()=>{$('modalEleven').classList.remove('active');};
+$('modalEleven').onclick=e=>{if(e.target===$('modalEleven'))$('fecharEleven').click();};
+$('atualizarEleven').onclick=()=>{descartarAudio();carregarEleven();};
+$('gerarEleven').onclick=async()=>{
+  const texto=$('audioTexto').value.trim();
+  if(!texto)return $('elevenStatus').textContent='Digite o texto do áudio na seção 3.';
+  try{
+    $('gerarEleven').disabled=true;$('elevenStatus').textContent='Gerando áudio na ElevenLabs...';descartarAudio();
+    const response=await fetch('/api/whatsapp/elevenlabs-jr/gerar',{
+      method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+        texto,voz:$('elevenVozManual').value.trim()||$('elevenVoz').value,modelo:$('elevenModelo').value
+      })
+    });
+    if(!response.ok){const j=await response.json().catch(()=>({}));throw Error(j.erro||`HTTP ${response.status}`);}
+    const blob=await response.blob(),id=response.headers.get('X-Preview-Id');
+    if(!id)throw Error('A ElevenLabs não retornou o identificador da prévia.');
+    audioPreviewId=id;audioPreviewTexto=texto;
+    audioObjectUrl=URL.createObjectURL(blob);$('elevenPlayer').src=audioObjectUrl;$('elevenPlayer').hidden=false;
+    $('audioResumo').textContent='Áudio preparado e pronto para envio.';
+    $('elevenStatus').textContent='Prévia gerada. Escute antes de iniciar a campanha.';
+  }catch(e){$('elevenStatus').textContent='Erro: '+e.message;descartarAudio();}
+  finally{$('gerarEleven').disabled=false;}
+};
+$('testeEleven').onclick=async()=>{
+  if(!audioPreviewId)return $('elevenStatus').textContent='Gere primeiro uma prévia.';
+  const tel=$('numeroTeste').value.trim();if(!tel)return $('elevenStatus').textContent='Informe o número de teste na seção 3.';
+  if(!confirm('Enviar este áudio para o número de teste informado?'))return;
+  try{
+    $('testeEleven').disabled=true;
+    const r=await fetch('/api/whatsapp/elevenlabs-jr/enviar-teste',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({previewId:audioPreviewId,telefone:tel})});
+    const data=await r.json();if(!r.ok)throw Error(data.erro||`HTTP ${r.status}`);
+    $('elevenStatus').textContent='Áudio aceito pela Z-API para o número de teste.';
+  }catch(e){$('elevenStatus').textContent='Erro de teste: '+e.message;}
+  finally{$('testeEleven').disabled=false;}
+};
 $('teste').onclick=async()=>{if(!imagemAtual()||!$('mensagem').value.trim())return msg('Preencha a foto e a mensagem.',true);if(!confirm('Enviar um teste real por WhatsApp para o número informado?'))return;try{$('teste').disabled=true;await post(api+'/teste',{telefone:$('numeroTeste').value,imagem:imagemAtual(),mensagem:$('mensagem').value});msg('Teste solicitado à Z-API.');}catch(e){msg(e.message,true);}finally{$('teste').disabled=false;}};
-$('enviar').onclick=async()=>{const p=produto();if(!p||p.produtoId!==ultimaConsulta)return msg('Consulte os compradores do produto antes de enviar.',true);if(!p.item)return msg('Vincule o item legado ao produto no cadastro Render antes de enviar.',true);const dest=selected();if(!dest.length)return msg('Selecione pelo menos um cliente.',true);if(!$('consentimento').checked)return msg('Confirme a autorização dos destinatários.',true);if(!imagemAtual()||!$('mensagem').value.trim())return msg('Preencha imagem e mensagem.',true);const periodo=Number($('periodo').value);if(!confirm(`INICIAR ENVIO REAL para ${dest.length} clientes? Intervalo: ${$('intervalo').value} segundos. Produto: ${p.nome}.`))return;
-  try{$('enviar').disabled=true;const c=await post(api+'/campanhas',{item:p.item,produtoId:p.produtoId,meses:periodo,destinatarios:dest.map(x=>({favorecido:x.favorecido,autorizado:true})),imagem:imagemAtual(),mensagem:$('mensagem').value,intervaloSegundos:Number($('intervalo').value),confirmouConsentimento:true});msg(`Campanha ${c.id} iniciada, ${c.total} destinatários. O envio continuará no servidor.`);await carregarCampanhas();}catch(e){msg(e.message,true);}finally{$('enviar').disabled=false;}};
-async function carregarCampanhas(){try{const campanhas=await get(api+'/campanhas');$('campanhas').replaceChildren();for(const c of campanhas){const tr=el('tr');function td(value){const cel=el('td',String(value));tr.append(cel);return cel;}td(c.id);td(c.produto_nome);td(c.status);td(`${c.enviados}/${c.total}`);td(c.pendentes);td(c.problemas);const a=td('');const detalhe=el('button','Relatório','secondary');detalhe.onclick=()=>verRelatorio(c.id);a.append(detalhe);if(c.status==='ativa'||c.status==='pausada'){const cmd=c.status==='ativa'?'pausar':'retomar';const b=el('button',cmd==='pausar'?'Pausar':'Retomar','secondary');b.style.marginLeft='5px';b.onclick=async()=>{try{await post(`${api}/campanhas/${c.id}/${cmd}`,{});await carregarCampanhas();}catch(e){msg(e.message,true)}};a.append(b);} $('campanhas').append(tr);}}catch(e){msg(e.message,true);}}
-async function verRelatorio(cid){abrirModal('Campanha '+cid);try{const d=await get(api+'/campanhas/'+cid);const box=$('modalCorpo');box.replaceChildren(el('p',`Status: ${d.campanha.status}`));const table=el('table'),head=el('tr');for(const t of ['Cliente','Telefone','Situação','Início do envio','Intervalo real','Aceite Z-API','Erro','Bloquear'])head.append(el('th',t));table.append(head);let inicioAnterior=null;for(const x of d.destinatarios){const tr=el('tr');const inicio=x.iniciado_envio_em?new Date(x.iniciado_envio_em).getTime():null;const intervaloReal=Number.isFinite(inicio)&&inicioAnterior!==null?((inicio-inicioAnterior)/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})+' s':'-';if(Number.isFinite(inicio))inicioAnterior=inicio;for(const v of [x.nome,x.telefone,x.status,dataHora(x.iniciado_envio_em),intervaloReal,dataHora(x.enviado_em),x.erro||'-'])tr.append(el('td',v));const cell=el('td'),bloq=el('button','Bloquear','danger');bloq.onclick=async()=>{if(!confirm('Bloquear este telefone de futuras promoções?'))return;try{await post(api+'/bloqueios',{telefone:x.telefone,motivo:'Solicitação do cliente'});bloq.disabled=true;bloq.textContent='Bloqueado';}catch(e){msg(e.message,true)}};cell.append(bloq);tr.append(cell);table.append(tr);}const wrap=el('div',undefined,'tablewrap');wrap.append(table);box.append(wrap);}catch(e){$('modalCorpo').textContent=e.message;}}
+$('enviar').onclick=async()=>{
+  const p=produto(),c=criterio();
+  if(!p)return msg('Selecione o produto anunciado.',true);
+  if(!c||chaveConsulta()!==ultimaConsulta)return msg('Consulte os clientes do critério atual antes de enviar.',true);
+  if(c.tipo==='periodo'&&!p.item)return msg('Vincule o item legado do produto para filtrar por período.',true);
+  const dest=selected();if(!dest.length)return msg('Selecione pelo menos um cliente.',true);
+  if(!imagemAtual()||!$('mensagem').value.trim())return msg('Preencha imagem e legenda.',true);
+  const fala=$('audioTexto').value.trim();
+  if(fala&&(!audioPreviewId||audioPreviewTexto!==fala))return msg('Abra as configurações ElevenLabs e gere o áudio antes de enviar.',true);
+  if(!confirm(`INICIAR ENVIO REAL para ${dest.length} clientes? Critério: ${c.tipo}. Intervalo mínimo: ${$('intervalo').value} segundos. Produto: ${p.nome}. ${fala?'Será enviada a imagem e, em seguida, a mensagem de áudio.':''}
+Confirma que estes destinatários autorizaram receber mensagens promocionais?`))return;
+  try{
+    $('enviar').disabled=true;
+    const r=await post(api+'/campanhas',{
+      item:p.item||null,produtoId:p.produtoId,tipoPublico:c.tipo,referenciaPublico:c.referencia||null,
+      meses:c.meses??0,destinatarios:dest.map(x=>({favorecido:x.favorecido,autorizado:true})),
+      imagem:imagemAtual(),mensagem:$('mensagem').value,intervaloSegundos:Number($('intervalo').value),
+      confirmouConsentimento:true,audioTexto:fala,audioPreviewId
+    });
+    msg(`Campanha ${r.id} iniciada com ${r.total} destinatários. O envio continuará no servidor.`);
+    await carregarCampanhas();
+  }catch(e){msg(e.message,true);}finally{$('enviar').disabled=false;}
+};
+async function carregarCampanhas(){try{const campanhas=await get(api+'/campanhas');$('campanhas').replaceChildren();for(const c of campanhas){const tr=el('tr');function td(value){const cel=el('td',String(value));tr.append(cel);return cel;}td(c.id);td(c.produto_nome+(c.com_audio?' 🔊':''));td(c.status);td(`${c.enviados}/${c.total}`);td(c.pendentes);td(c.problemas);const a=td('');const detalhe=el('button','Relatório','secondary');detalhe.onclick=()=>verRelatorio(c.id);a.append(detalhe);if(c.status==='ativa'||c.status==='pausada'){const cmd=c.status==='ativa'?'pausar':'retomar';const b=el('button',cmd==='pausar'?'Pausar':'Retomar','secondary');b.style.marginLeft='5px';b.onclick=async()=>{try{await post(`${api}/campanhas/${c.id}/${cmd}`,{});await carregarCampanhas();}catch(e){msg(e.message,true)}};a.append(b);} $('campanhas').append(tr);}}catch(e){msg(e.message,true);}}
+async function verRelatorio(cid){abrirModal('Campanha '+cid);try{const d=await get(api+'/campanhas/'+cid);const box=$('modalCorpo');box.replaceChildren(el('p',`Status: ${d.campanha.status}`));const table=el('table'),head=el('tr');for(const t of ['Cliente','Telefone','Situação','Início do envio','Intervalo real','Imagem aceita','Áudio aceito','Concluído','Erro','Bloquear'])head.append(el('th',t));table.append(head);let inicioAnterior=null;for(const x of d.destinatarios){const tr=el('tr');const inicio=x.iniciado_envio_em?new Date(x.iniciado_envio_em).getTime():null;const intervaloReal=Number.isFinite(inicio)&&inicioAnterior!==null?((inicio-inicioAnterior)/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})+' s':'-';if(Number.isFinite(inicio))inicioAnterior=inicio;for(const v of [x.nome,x.telefone,x.status,dataHora(x.iniciado_envio_em),intervaloReal,dataHora(x.imagem_aceita_em),dataHora(x.audio_aceito_em),dataHora(x.enviado_em),x.erro||'-'])tr.append(el('td',v));const cell=el('td'),bloq=el('button','Bloquear','danger');bloq.onclick=async()=>{if(!confirm('Bloquear este telefone de futuras promoções?'))return;try{await post(api+'/bloqueios',{telefone:x.telefone,motivo:'Solicitação do cliente'});bloq.disabled=true;bloq.textContent='Bloqueado';}catch(e){msg(e.message,true)}};cell.append(bloq);tr.append(cell);table.append(tr);}const wrap=el('div',undefined,'tablewrap');wrap.append(table);box.append(wrap);}catch(e){$('modalCorpo').textContent=e.message;}}
 $('atualizar').onclick=carregarCampanhas;
-(async()=>{await carregarProdutos();await carregarCampanhas();})();
+(async()=>{await Promise.all([carregarProdutos(),carregarFiltros(),carregarCampanhas()]);})();
 setInterval(()=>{if(!document.hidden)carregarCampanhas();},30000);
 </script></body></html>

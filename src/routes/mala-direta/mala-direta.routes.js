@@ -12,11 +12,14 @@ const handler=(etapa,fn)=>async(req,res)=>{try{res.json({sucesso:true,dados:awai
     detalhe:e.message, etapa});
 }};
 router.get('/produtos',handler('consulta de produtos (catálogo PostgreSQL Render)',req=>svc.produtos(req.query.busca)));
+router.get('/carradas',handler('carradas (Firebird)',()=>svc.carradas()));
+router.get('/semanas',handler('semanas (PostgreSQL)',()=>svc.semanas()));
+router.post('/destinatarios',handler('clientes pelo critério escolhido',req=>svc.compradoresPorCriterio(req.body||{})));
 router.get('/primeira-compra/:item',handler('consulta da primeira compra (Firebird)',req=>svc.primeiraCompra(req.params.item)));
 router.get('/compradores/:item',handler('consulta de compradores (Firebird / bloqueios PostgreSQL)',req=>svc.compradores(req.params.item,req.query.meses)));
 router.get('/campanhas',handler('histórico de campanhas (PostgreSQL)',()=>svc.listar()));
 router.get('/campanhas/:id',handler('relatório de campanha (PostgreSQL)',req=>svc.detalhe(req.params.id)));
-router.post('/campanhas',handler('criação de campanha',req=>svc.criar(req.body||{},`${req.protocol}://${req.get('host')}`)));
+router.post('/campanhas',handler('criação de campanha',req=>svc.criar(req.body||{},`${req.protocol}://${req.get('host')}`,req.adminUser)));
 router.post('/campanhas/:id/:acao',handler('alteração de campanha',req=>svc.mudarStatus(req.params.id,req.params.acao)));
 router.post('/bloqueios',handler('bloqueio de telefone',req=>svc.bloquear(req.body?.telefone,req.body?.motivo)));
 router.post('/teste',handler('envio de teste',req=>svc.enviarTeste(req.body?.telefone,req.body?.imagem,req.body?.mensagem,`${req.protocol}://${req.get('host')}`)));

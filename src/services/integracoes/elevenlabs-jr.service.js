@@ -163,7 +163,7 @@ async function gerarAudio({ texto, voz, modelo }) {
   if (!bytes.length || bytes.length > MAX_AUDIO) {
     const e=new Error('A ElevenLabs retornou um áudio vazio ou grande demais.'); e.status=502; throw e;
   }
-  return { bytes, voz: vozId, modelo: modeloId, caracteres: msg.length, formato:'audio/mpeg' };
+  return { bytes, voz: vozId, modelo: modeloId, caracteres: msg.length, texto: msg, formato:'audio/mpeg' };
 }
 async function enviarAudio(audio, telefone) {
   const phone = validarDestino(telefone);
@@ -186,4 +186,4 @@ async function enviarPreview({previewId, telefone}, usuario) {
   const audio = obterPreview(previewId, usuario);
   return enviarAudio(audio, telefone);
 }
-module.exports = { configurar, listarVozes, listarModelos, gerarAudio, enviarTeste, salvarPreview, enviarPreview };
+module.exports = { configurar, listarVozes, listarModelos, gerarAudio, enviarTeste, salvarPreview, obterPreview, enviarPreview };
