@@ -90,7 +90,7 @@ test('CRUD e tokens aleatórios, não inferíveis da porcentagem',async()=>{
   assert.equal(JSON.stringify(publicos).includes('preco_base_centavos'),false);
   const kit=await service.construirPedido(p1.token,'kit-feirinha',[{id:1,qtd:10}]);
   assert.equal(kit.totalBase,40000);assert.equal(kit.totalVenda,44000);assert.equal(kit.totalComissao,4000);
-  assert.ok(!kit.relatorioComissao.includes('Comissão unitária: R$ 40,00'));assert.match(kit.relatorioComissao,/COMISSÃO TOTAL PREVISTA: R\$ 40,00/);
+  assert.ok(!kit.relatorioComissao.includes('Comissão unitária: R$ 40,00'));assert.match(kit.relatorioComissao,/COMISSÃO TOTAL: R\$ 40,00/);
   const alterado=await service.atualizarAdmin(p1.id,{nome:'Perfil Fixo',tipo:'fixo',valor:5,telefone_vendedor:'5583999999999',ativo:true});
   assert.equal(alterado.token,p1.token);assert.equal((await service.listarProdutos(p1.token,'catalogo')).produtos[0].preco,45);
   const novoToken=await service.regenerarToken(p1.id);
@@ -109,7 +109,7 @@ test('envia apenas quatro mensagens (duas por destino) e não duplica ao repetir
   assert.equal(sends.length,1);
   assert.equal(deliveries.length,4);assert.equal(zapiCalls.length,4);
   assert.match(sends[0].relatorio_pedido,/Valor total: R\$ 105,08/);
-  assert.match(sends[0].relatorio_comissao,/COMISSÃO TOTAL PREVISTA: R\$ 9,55/);
+  assert.match(sends[0].relatorio_comissao,/COMISSÃO TOTAL: R\$ 9,55/);
   const segundo=await service.enviar(perfil.token,dados);
   assert.equal(segundo.concluido,true);assert.equal(zapiCalls.length,4);
   await assert.rejects(service.enviar(perfil.token,{...dados,itens:[{id:1,qtd:3}]}),/outros itens/);
@@ -124,11 +124,26 @@ test('não repete automaticamente um envio incerto e preserva a comissão do kit
   assert.equal(primeiro.concluido,false);
   const registro=sends.at(-1);
   assert.equal(registro.comissao_centavos,1500);
-  assert.match(registro.relatorio_comissao,/COMISSÃO TOTAL PREVISTA: R\$ 15,00/);
+  assert.match(registro.relatorio_comissao,/COMISSÃO TOTAL: R\$ 15,00/);
   const chamadas=zapiCalls.length;
   falharUmDestino=null;
   const retry=await service.enviar(perfil.token,dados);
   assert.equal(retry.concluido,false);
   assert.equal(zapiCalls.length,chamadas,'timeout não deve causar mensagem repetida');
   assert.ok(retry.entregas.some(e=>e.situacao==='incerto'));
+});
+
+
+test('relatório da comissão separa itens por linha vazia e não inclui rodapé', async()=>{
+  const p=await service.criarAdmin({nome:'Perfil Relatório',tipo:'percentual',valor:10,telefone_vendedor:'5583999999911'});
+  for (const modulo of ['orcamento','kit-feirinha']) {
+    const pedido=await service.construirPedido(p.token,modulo,[{id:1,qtd:1},{id:2,qtd:1}]);
+    const relatorio=pedido.relatorioComissao;
+    assert.match(relatorio, /💼 COMISSÃO PREVISTA - (ORÇAMENTO|KIT FEIRINHA)/);
+    assert.match(relatorio, /Perfil: Perfil Relatório\n\n• Panela/);
+    assert.match(relatorio, /Comissão do item: R\$ 4,00\n\n• Cafeteira/);
+    assert.match(relatorio, /Comissão do item: R\$ 1,55\n\nCOMISSÃO TOTAL: R\$ 5,55$/);
+    assert.ok(!relatorio.includes('Valor sujeito à confirmação'));
+    assert.ok(!relatorio.includes('COMISSÃO TOTAL PREVISTA'));
+  }
 });

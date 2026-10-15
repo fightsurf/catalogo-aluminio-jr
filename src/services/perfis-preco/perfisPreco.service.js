@@ -149,13 +149,13 @@ function montarRelatorio(itens, total, modulo) {
 }
 function montarComissao(itens, total, modulo, perfilNome) {
   const linhas = [`💼 COMISSÃO PREVISTA - ${modulo === 'orcamento' ? 'ORÇAMENTO' : 'KIT FEIRINHA'}`,`Perfil: ${perfilNome}`, ''];
-  for (const p of itens) {
+  itens.forEach((p, i) => {
+    if (i > 0) linhas.push(''); // Uma linha em branco entre os produtos.
     linhas.push(`• ${p.nome} | QTD: ${p.qtd}`);
     linhas.push(`  Comissão unitária: R$ ${moeda(p.preco_venda_centavos - p.preco_base_centavos)}`);
     linhas.push(`  Comissão do item: R$ ${moeda(p.comissao_centavos)}`);
-  }
-  linhas.push('', `COMISSÃO TOTAL PREVISTA: R$ ${moeda(total)}`,
-    'Valor sujeito à confirmação do pedido; cancelamentos e devoluções podem alterar a comissão.');
+  });
+  linhas.push('', `COMISSÃO TOTAL: R$ ${moeda(total)}`);
   return linhas.join('\n');
 }
 function validarItens(recebidos) {
