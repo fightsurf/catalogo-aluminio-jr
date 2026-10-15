@@ -308,6 +308,7 @@
 </div>
 
 <script src="/js/relatorio-aluminio-jr.js"></script>
+<script src="/js/perfis-preco.js"></script>
 <script>
 let produtos = [];
 
@@ -351,12 +352,12 @@ function deveAplicarRetomada() {
 
 function limparRetomada() {
   sessionStorage.removeItem('orcamentoItensRetomada');
-  window.location.href = '/orcamento';
+  window.location.href = PrecosVendedor.token === null ? '/orcamento' : PrecosVendedor.link('/orcamento');
 }
 
 function mostrarAvisoRetomada(html) {
   const aviso = document.getElementById('aviso-retomada');
-  aviso.innerHTML = html;
+  aviso.innerHTML = PrecosVendedor.ajustarRetomada(html, '/orcamento-retomar');
   aviso.style.display = 'block';
 }
 
@@ -493,7 +494,7 @@ function aplicarFiltroCategoria() {
 
 async function carregarProdutos() {
   try {
-    produtos = await apiGet('/api/produtos?ativos=true&perfil=orcamento');
+    produtos = PrecosVendedor.token === null ? await apiGet('/api/produtos?ativos=true&perfil=orcamento') : await PrecosVendedor.produtos('orcamento');
 
     const porCategoria = {};
 
@@ -565,7 +566,7 @@ async function carregarProdutos() {
   } catch (error) {
     console.error('Erro ao carregar produtos:', error);
     document.getElementById('lista').innerHTML =
-      '<p style="color:red;text-align:center;">Erro ao carregar produtos.</p>';
+      PrecosVendedor.token === null ? '<p style="color:red;text-align:center;">Erro ao carregar produtos.</p>' : '<p style="color:red;text-align:center;">Não foi possível carregar os produtos. Verifique seu link.</p>';
   }
 }
 
@@ -592,6 +593,7 @@ function atualizarResumo() {
 }
 
 function enviarWhatsApp() {
+  if (PrecosVendedor.token !== null) return PrecosVendedor.enviar('orcamento');
   let total = 0;
   let itens = [];
 

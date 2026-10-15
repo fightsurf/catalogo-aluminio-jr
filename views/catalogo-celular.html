@@ -255,6 +255,7 @@
   </div>
 </div>
 
+<script src="/js/perfis-preco.js"></script>
 <script>
   let produtos = [];
 
@@ -310,7 +311,7 @@
 
   async function carregarCatalogo() {
     try {
-      produtos = await apiGet('/api/produtos');
+      produtos = PrecosVendedor.token === null ? await apiGet('/api/produtos') : await PrecosVendedor.produtos('catalogo');
 
       const porCategoria = {};
 
@@ -376,7 +377,7 @@
     } catch (error) {
       console.error('Erro ao carregar catálogo:', error);
       document.getElementById('catalogo').innerHTML =
-        '<p style="color:red;text-align:center;">Erro ao carregar produtos.</p>';
+        PrecosVendedor.token === null ? '<p style="color:red;text-align:center;">Erro ao carregar produtos.</p>' : '<p style="color:red;text-align:center;">Não foi possível carregar este catálogo. Verifique seu link.</p>';
     }
   }
 

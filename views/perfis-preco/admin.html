@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Perfis de preços • Alumínio JR</title>
+<style>
+:root{font-family:system-ui,Arial,sans-serif;color:#18202a;background:#f4f6f9}
+*{box-sizing:border-box}body{margin:0;padding:20px}main{max-width:1100px;margin:0 auto}
+h1{margin-bottom:4px;font-size:26px}h2{font-size:19px;margin-top:0}.muted{color:#596774}.card{background:white;padding:18px;border-radius:12px;margin:16px 0;box-shadow:0 2px 10px #0001}
+form{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;align-items:end}label{display:flex;flex-direction:column;gap:5px;font-weight:600;font-size:13px}input,select{padding:10px;border:1px solid #aeb8c5;border-radius:7px;font:inherit;min-width:0}
+button{font:inherit;border:0;border-radius:7px;padding:10px 14px;background:#184a82;color:white;cursor:pointer}button.secondary{background:#e7edf5;color:#17263d}button.danger{background:#852e2e}button:disabled{opacity:.5;cursor:wait}
+.flex{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.perfil{border:1px solid #d8dde5;border-radius:10px;padding:15px;margin-bottom:12px}.perfil.inativo{opacity:.65}.perfil h3{margin:0 0 8px}.links{display:grid;grid-template-columns:1fr;gap:8px;margin:12px 0}.link{display:flex;align-items:center;gap:8px;min-width:0}.link input{flex:1;min-width:0;font-size:12px}.link button{white-space:nowrap}
+.ok{color:#0b6e39}.erro{color:#ae2323}.tag{font-size:12px;font-weight:700;color:#566675}table{border-collapse:collapse;width:100%;font-size:13px}td,th{padding:9px;border-bottom:1px solid #e2e7ed;text-align:left}th{background:#f7f9fc}.scroll{overflow:auto}.status{font-size:12px}
+@media(max-width:760px){form{grid-template-columns:1fr 1fr}body{padding:10px}}@media(max-width:440px){form{grid-template-columns:1fr}.link{flex-wrap:wrap}}
+</style>
+</head>
+<body><main>
+<h1>Perfis de preços</h1>
+<p class="muted">Alumínio JR • Links fixos para Catálogo, Kit Feirinha e Orçamento. Sem cadastro de vendedores. Acréscimos calculados no servidor.</p>
+<div class="card"><h2>Novo perfil</h2>
+<form id="novo">
+<label>Identificação<input name="nome" placeholder="Ex.: Perfil 10" maxlength="120" required></label>
+<label>Tipo de acréscimo<select name="tipo"><option value="percentual">Percentual (%)</option><option value="fixo">Valor fixo por unidade (R$)</option></select></label>
+<label>Acréscimo<input name="valor" type="number" min="0" step="0.01" placeholder="10,00" required></label>
+<label>WhatsApp do perfil (DDD + número)<input name="telefone_vendedor" type="tel" placeholder="5583999999999" required></label>
+<button type="submit">Criar perfil e links</button>
+</form><p id="msg" role="status"></p></div>
+<div class="card"><h2>Perfis e links</h2><div id="perfis" aria-live="polite">Carregando…</div></div>
+<div class="card"><div class="flex" style="justify-content:space-between"><h2>Últimos envios e comissões previstas</h2><button class="secondary" onclick="carregarHistorico()">Atualizar</button></div><div id="historico" class="scroll">Carregando…</div></div>
+<p class="muted">A comissão é prevista ao enviar o relatório. Confirmação de pedidos e pagamentos não é automática nesta etapa. Uma entrega “incerta” exige conferência no WhatsApp/Z-API antes de qualquer novo envio. Regenerar um link invalida os três links antigos.</p>
+</main>
+<script>
+const esc = v => String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const brl = n => Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+let perfis=[];
+async function api(url,opt){
+  const r=await fetch(url,{credentials:'same-origin',headers:{'Content-Type':'application/json'},...opt});
+  if(r.status===401) {location.href='/login?next='+encodeURIComponent(location.pathname);throw new Error('Faça login.');}
+  const body=await r.json().catch(()=>({}));
+  if(!r.ok||!body.success) throw new Error(body.message||body.erro||'Erro ao salvar.');
+  return body.data;
+}
+function urls(token) {return ['catalogo-celular','kits-feirinha','orcamento'].map(p=>({titulo:{'catalogo-celular':'Catálogo','kits-feirinha':'Kit Feirinha','orcamento':'Orçamento'}[p],link:location.origin+'/'+p+'?perfil_venda='+encodeURIComponent(token)}));}
+function pintarPerfis(){
+  const el=document.getElementById('perfis');
+  if(!perfis.length){el.textContent='Nenhum perfil criado.';return;}
+  el.innerHTML=perfis.map((p,i)=>`<div class="perfil ${p.ativo?'':'inativo'}" data-indice="${i}">
+    <div class="flex" style="justify-content:space-between"><h3>${esc(p.nome)} <span class="tag">#${esc(p.id)} • ${p.ativo?'ATIVO':'DESATIVADO'}</span></h3>
+    <span>${p.tipo==='percentual'?esc(p.valor)+'%':brl(p.valor)+' por unidade'}</span></div>
+    <div class="links">${urls(p.token).map(u=>`<div class="link"><span class="tag" style="min-width:80px">${u.titulo}</span><input readonly value="${esc(u.link)}" aria-label="Link de ${u.titulo}"><button class="secondary" onclick="copiar(this)">Copiar</button></div>`).join('')}</div>
+    <details><summary>Editar perfil e telefone</summary><form class="editar" onsubmit="editar(event,${i})">
+      <label>Nome<input name="nome" value="${esc(p.nome)}" required></label>
+      <label>Tipo<select name="tipo"><option value="percentual" ${p.tipo==='percentual'?'selected':''}>Percentual</option><option value="fixo" ${p.tipo==='fixo'?'selected':''}>Fixo</option></select></label>
+      <label>Acréscimo<input name="valor" type="number" min="0" step="0.01" value="${esc(p.valor)}" required></label>
+      <label>WhatsApp<input name="telefone_vendedor" type="tel" value="${esc(p.telefone_vendedor)}" required></label>
+      <label style="flex-direction:row;align-items:center"><input name="ativo" type="checkbox" ${p.ativo?'checked':''}> Perfil ativo</label>
+      <button type="submit">Salvar</button><button type="button" class="danger" onclick="regenerar(${i})">Regenerar token</button>
+    </form></details></div>`).join('');
+}
+async function copiar(btn){const input=btn.parentNode.querySelector('input');try{await navigator.clipboard.writeText(input.value);const t=btn.textContent;btn.textContent='Copiado';setTimeout(()=>btn.textContent=t,1500);}catch(e){input.select();document.execCommand('copy');alert('Link copiado.');}}
+async function carregarPerfis(){try{perfis=await api('/api/perfis-preco/admin');pintarPerfis();}catch(e){document.getElementById('perfis').textContent=e.message;}}
+document.getElementById('novo').addEventListener('submit',async(e)=>{
+  e.preventDefault();const b=e.submitter;b.disabled=true;const d=Object.fromEntries(new FormData(e.currentTarget));
+  const msg=document.getElementById('msg');try{await api('/api/perfis-preco/admin',{method:'POST',body:JSON.stringify(d)});msg.textContent='Perfil criado. Os três links estão abaixo.';msg.className='ok';e.currentTarget.reset();await carregarPerfis();}
+  catch(err){msg.textContent=err.message;msg.className='erro';}finally{b.disabled=false;}
+});
+async function editar(e,i){e.preventDefault();const dados=Object.fromEntries(new FormData(e.currentTarget));dados.ativo=e.currentTarget.elements.ativo.checked;try{await api('/api/perfis-preco/admin/'+perfis[i].id,{method:'PUT',body:JSON.stringify(dados)});await carregarPerfis();alert('Perfil atualizado. Os links continuam os mesmos.');}catch(err){alert(err.message);}}
+async function regenerar(i){if(!confirm('Regenerar os links do perfil '+perfis[i].nome+'? Os três links antigos deixarão de funcionar.'))return;try{await api('/api/perfis-preco/admin/'+perfis[i].id+'/regenerar-token',{method:'POST',body:'{}'});await carregarPerfis();}catch(err){alert(err.message);}}
+async function carregarHistorico(){
+  const el=document.getElementById('historico');
+  try{const rows=await api('/api/perfis-preco/admin/envios');
+    if(!rows.length){el.textContent='Nenhum envio registrado.';return;}
+    el.innerHTML='<table><thead><tr><th>Pedido</th><th>Data</th><th>Perfil</th><th>Módulo</th><th>Total</th><th>Comissão prevista</th><th>WhatsApp</th></tr></thead><tbody>'+rows.map(r=>`<tr><td>#${esc(r.id)}</td><td>${new Date(r.criado_em).toLocaleString('pt-BR')}</td><td>${esc(r.perfil)}</td><td>${esc(r.modulo)}</td><td>${brl(r.preco_venda)}</td><td>${brl(r.comissao)}</td><td class="status">${r.entregas.map(d=>esc(d.telefone)+' / '+(d.ordem===1?'pedido':'comissão')+': '+esc(d.situacao)).join('<br>')}</td></tr>`).join('')+'</tbody></table>';
+  }catch(e){el.textContent=e.message;}
+}
+carregarPerfis();carregarHistorico();
+</script></body></html>

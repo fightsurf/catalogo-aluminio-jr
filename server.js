@@ -100,6 +100,7 @@ const ofertasViewRoutes = require('./src/routes/ofertas/ofertas.view.routes');
 const statusVideosRoutes = require('./src/routes/status-videos/status-videos.routes');
 const statusVideosViewRoutes = require('./src/routes/status-videos/status-videos.view.routes');
 const sistemaRoutes = require('./src/routes/sistema/sistema.routes');
+const perfisPrecoRoutes = require('./src/routes/perfis-preco/perfisPreco.routes');
 
 // Projeto demonstrativo Mirian (isolado do sistema da fábrica)
 const mirianApiRoutes = require('./mirian/routes/mirian.api.routes');
@@ -172,6 +173,7 @@ app.use('/api/pedidos-fornecedores', pedidoFornecedorRoutes);
 app.use('/api/produtos-composicoes', produtoComposicaoRoutes);
 app.use('/api/produtos-resumo-custos', produtoResumoCustoRoutes);
 app.use('/api/produtos', produtoRoutes);
+app.use('/api/perfis-preco', perfisPrecoRoutes);
 app.use('/api/assistente/produtos', assistenteProdutosRoutes);
 app.use('/api/assistente/catalogo', assistenteCatalogoRoutes);
 app.use('/api/assistente-pedidos', assistentePedidosRoutes);
@@ -234,11 +236,16 @@ app.get('/', (req, res) => {
 });
 
 app.get('/catalogo-celular', (req, res) => {
+  if (Object.prototype.hasOwnProperty.call(req.query, 'perfil_venda')) res.set('Referrer-Policy', 'no-referrer');
   res.sendFile(path.join(__dirname, 'views', 'catalogo-celular.html'));
 });
 
 app.get('/admin-1234', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'admin.html'));
+});
+
+app.get('/admin-perfis-precos', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'perfis-preco', 'admin.html'));
 });
 
 app.get('/admin-produtos', (req, res) => {
@@ -278,18 +285,22 @@ app.get('/admin-produtos-resumo-custos', (req, res) => {
 });
 
 app.get('/kits-feirinha', (req, res) => {
+  if (Object.prototype.hasOwnProperty.call(req.query, 'perfil_venda')) res.set('Referrer-Policy', 'no-referrer');
   res.sendFile(path.join(__dirname, 'views', 'kits-feirinha.html'));
 });
 
 app.get('/kits-feirinha-retomar', (req, res) => {
+  if (Object.prototype.hasOwnProperty.call(req.query, 'perfil_venda')) res.set('Referrer-Policy', 'no-referrer');
   res.sendFile(path.join(__dirname, 'views', 'kits-feirinha-retomar.html'));
 });
 
 app.get('/orcamento', (req, res) => {
+  if (Object.prototype.hasOwnProperty.call(req.query, 'perfil_venda')) res.set('Referrer-Policy', 'no-referrer');
   res.sendFile(path.join(__dirname, 'views', 'orcamento.html'));
 });
 
 app.get('/orcamento-retomar', (req, res) => {
+  if (Object.prototype.hasOwnProperty.call(req.query, 'perfil_venda')) res.set('Referrer-Policy', 'no-referrer');
   res.sendFile(path.join(__dirname, 'views', 'orcamento-retomar.html'));
 });
 

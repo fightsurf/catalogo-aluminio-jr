@@ -313,6 +313,7 @@
 </div>
 
 <script src="/js/relatorio-aluminio-jr.js"></script>
+<script src="/js/perfis-preco.js"></script>
 <script>
 let produtos = [];
 
@@ -356,12 +357,12 @@ function deveAplicarRetomada() {
 
 function limparRetomada() {
   sessionStorage.removeItem('kitFeirinhaItensRetomada');
-  window.location.href = '/kits-feirinha';
+  window.location.href = PrecosVendedor.token === null ? '/kits-feirinha' : PrecosVendedor.link('/kits-feirinha');
 }
 
 function mostrarAvisoRetomada(html) {
   const aviso = document.getElementById('aviso-retomada');
-  aviso.innerHTML = html;
+  aviso.innerHTML = PrecosVendedor.ajustarRetomada(html, '/kits-feirinha-retomar');
   aviso.style.display = 'block';
 }
 
@@ -498,7 +499,7 @@ function aplicarFiltroCategoria() {
 
 async function carregarProdutos() {
   try {
-    produtos = await apiGet('/api/produtos?ativos=true&perfil=kit-feirinha');
+    produtos = PrecosVendedor.token === null ? await apiGet('/api/produtos?ativos=true&perfil=kit-feirinha') : await PrecosVendedor.produtos('kit-feirinha');
 
     const porCategoria = {};
 
@@ -571,7 +572,7 @@ async function carregarProdutos() {
   } catch (error) {
     console.error('Erro ao carregar produtos:', error);
     document.getElementById('lista').innerHTML =
-      '<p style="color:red;text-align:center;">Erro ao carregar produtos.</p>';
+      PrecosVendedor.token === null ? '<p style="color:red;text-align:center;">Erro ao carregar produtos.</p>' : '<p style="color:red;text-align:center;">Não foi possível carregar os produtos. Verifique seu link.</p>';
   }
 }
 
@@ -603,6 +604,7 @@ function atualizarResumo() {
 }
 
 function enviarWhatsApp() {
+  if (PrecosVendedor.token !== null) return PrecosVendedor.enviar('kit-feirinha');
   let selecionados = [];
   let total = 0;
   let totalItens = 0;

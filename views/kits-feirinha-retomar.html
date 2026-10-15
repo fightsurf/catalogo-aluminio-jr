@@ -235,7 +235,9 @@ function carregarKit() {
     itens
   }));
 
-  window.location.href = '/kits-feirinha?retomar=1';
+  const origem = new URLSearchParams(location.search);
+  const perfil = origem.get('perfil_venda');
+  window.location.href = '/kits-feirinha?retomar=1' + (perfil !== null ? '&perfil_venda=' + encodeURIComponent(perfil) : '');
 }
 
 function limparTexto() {
@@ -244,6 +246,8 @@ function limparTexto() {
   esconderErro();
   sessionStorage.removeItem('kitFeirinhaItensRetomada');
 }
+  const perfilRetomada = new URLSearchParams(location.search).get('perfil_venda');
+  if (perfilRetomada !== null) document.querySelector('a.botao.secundario').href = '/kits-feirinha?perfil_venda=' + encodeURIComponent(perfilRetomada);
 </script>
 </body>
 </html>

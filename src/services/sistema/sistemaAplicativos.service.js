@@ -42,6 +42,7 @@ const OVERRIDES = {
   '/logistica-estado': { nome: 'Logística por Estado', categoria: 'Logística', icone: 'map', descricao: 'Consulta logística organizada por estado.' },
   '/frete': { nome: 'Frete', categoria: 'Logística', icone: 'truck', descricao: 'Ferramenta de apoio ao cálculo e consulta de fretes.' },
   '/admin-produtos': { nome: 'Produtos', categoria: 'Cadastros', icone: 'package-search', descricao: 'Cadastro e manutenção dos produtos.' },
+  '/admin-perfis-precos': { nome: 'Perfis de Preços', categoria: 'Vendas', icone: 'badge-percent', descricao: 'Links comerciais e comissões por perfil.' },
   '/admin-produtos-perfis': { nome: 'Perfis de Produtos', categoria: 'Cadastros', icone: 'tags', descricao: 'Perfis comerciais e classificações de produtos.' },
   '/admin-fornecedores': { nome: 'Fornecedores', categoria: 'Cadastros', icone: 'factory', descricao: 'Cadastro de fornecedores.' },
   '/admin-funcionarios': { nome: 'Funcionários', categoria: 'Cadastros', icone: 'contact', descricao: 'Cadastro de funcionários.' },
