@@ -54,11 +54,13 @@ async function preparar() {
         status VARCHAR(24) NOT NULL DEFAULT 'pendente',
         enviado_em TIMESTAMPTZ,
         atualizado_em TIMESTAMPTZ,
+        iniciado_envio_em TIMESTAMPTZ,
         erro TEXT,
         retorno_zapi JSONB,
         UNIQUE (campanha_id, favorecido),
         CHECK(status IN ('pendente','enviando','enviado','erro','incerto','bloqueado'))
       );
+      ALTER TABLE mala_direta_destinatarios ADD COLUMN IF NOT EXISTS iniciado_envio_em TIMESTAMPTZ;
       CREATE INDEX IF NOT EXISTS idx_mala_direta_fila ON mala_direta_destinatarios (campanha_id,id) WHERE status='pendente';
       CREATE TABLE IF NOT EXISTS mala_direta_bloqueios (
         telefone VARCHAR(20) PRIMARY KEY,
@@ -149,7 +151,7 @@ async function detalhe(cid) {
   await preparar();
   const c=await pool.query('SELECT id,produto_nome,status,intervalo_segundos,criada_em,concluida_em FROM mala_direta_campanhas WHERE id=$1',[id(cid)]);
   if(!c.rows.length) bad('Campanha não encontrada.');
-  const d=await pool.query('SELECT favorecido,nome,telefone,status,enviado_em,erro FROM mala_direta_destinatarios WHERE campanha_id=$1 ORDER BY id',[cid]);
+  const d=await pool.query('SELECT favorecido,nome,telefone,status,iniciado_envio_em,enviado_em,erro FROM mala_direta_destinatarios WHERE campanha_id=$1 ORDER BY id',[cid]);
   return {campanha:c.rows[0],destinatarios:d.rows};
 }
 async function mudarStatus(cid, acao) {
@@ -217,7 +219,7 @@ async function processarProximo() {
     if(blocked.rowCount) {
       await client.query(`UPDATE mala_direta_destinatarios SET status='bloqueado',atualizado_em=NOW() WHERE id=$1`,[trabalho.id]);
     } else {
-      await client.query(`UPDATE mala_direta_destinatarios SET status='enviando',atualizado_em=NOW() WHERE id=$1`,[trabalho.id]);
+      await client.query(`UPDATE mala_direta_destinatarios SET status='enviando',iniciado_envio_em=NOW(),atualizado_em=NOW() WHERE id=$1`,[trabalho.id]);
       await client.query(`UPDATE mala_direta_campanhas SET iniciada_em=COALESCE(iniciada_em,NOW()),
         proximo_envio_em=NOW()+($2::integer * INTERVAL '1 second') WHERE id=$1`,[trabalho.campanha_id,trabalho.intervalo_segundos]);
     }
@@ -233,9 +235,8 @@ async function processarProximo() {
     await pool.query(`UPDATE mala_direta_destinatarios SET status=$2, enviado_em=CASE WHEN $2='enviado' THEN NOW() ELSE NULL END,
       atualizado_em=NOW(), erro=$3, retorno_zapi=$4::jsonb WHERE id=$1 AND status='enviando'`,
     [trabalho.id,status,erro?String(erro.message).slice(0,900):null,resultado?JSON.stringify(resultado.zapi||{}):null]);
-    // Respeita o intervalo integral após a resposta da Z-API.
-    await pool.query(`UPDATE mala_direta_campanhas SET proximo_envio_em=GREATEST(proximo_envio_em, NOW()+($2::int*INTERVAL '1 second')) WHERE id=$1`,
-      [trabalho.campanha_id,trabalho.intervalo_segundos]);
+    // O próximo horário foi definido no início da tentativa. Não adicionar outro
+    // intervalo depois da resposta HTTP da Z-API (isso ampliava a espera).
     if(!erro) {
       await aparicoes.inserirAparicao({produtoId:trabalho.produto_id,origem:'mala_direta',origemChave:'campanha:'+trabalho.campanha_id,
         origemId:trabalho.campanha_id,quantidade:1,detalhes:{produto_nome:trabalho.produto_nome}});
@@ -245,12 +246,29 @@ async function processarProximo() {
     WHERE c.id=$1 AND c.status='ativa'
     AND NOT EXISTS (SELECT 1 FROM mala_direta_destinatarios d WHERE d.campanha_id=c.id AND d.status IN ('pendente','enviando'))`,[trabalho.campanha_id]).catch(e=>console.error('[mala-direta]',e.message));
 }
-let ocupado=false;
+let trabalhadorIniciado=false;
 function iniciarTrabalhador() {
-  const t=setInterval(async()=>{
-    if(ocupado) return;ocupado=true;
-    try {await processarProximo();}catch(e){console.error('[mala-direta/worker]',e.message);}finally{ocupado=false;}
-  },5000);
+  if(trabalhadorIniciado) return;
+  trabalhadorIniciado=true;
+  async function executar() {
+    let espera=5000;
+    try {
+      // Nunca sobrepor execuções: só agenda o próximo ciclo após o atual terminar.
+      await processarProximo();
+      const fila=await pool.query(`SELECT EXISTS (
+        SELECT 1 FROM mala_direta_campanhas c
+        WHERE c.status='ativa' AND EXISTS (
+          SELECT 1 FROM mala_direta_destinatarios d
+          WHERE d.campanha_id=c.id AND d.status IN ('pendente','enviando')
+        )
+      ) AS ha_fila`);
+      // Com fila ativa, varredura a cada segundo (antes era 5 segundos).
+      // Fora de campanha, mantém 5 segundos para não sobrecarregar o banco.
+      if(fila.rows[0]?.ha_fila) espera=1000;
+    } catch(e) { console.error('[mala-direta/worker]',e.message); }
+    finally { const t=setTimeout(executar,espera);t.unref?.(); }
+  }
+  const t=setTimeout(executar,1000);
   t.unref?.();
 }
 module.exports={produtos,compradores,primeiraCompra,criar,listar,detalhe,mudarStatus,bloquear,enviarTeste,iniciarTrabalhador};
