@@ -35,4 +35,5 @@ router.get('/admin/envios', wrap(async(req,res)=>res.json({success:true,data:awa
 router.post('/admin', wrap(async(req,res)=>res.status(201).json({success:true,data:await service.criarAdmin(req.body)})));
 router.put('/admin/:id', wrap(async(req,res)=>res.json({success:true,data:await service.atualizarAdmin(req.params.id,req.body)})));
 router.post('/admin/:id/regenerar-token', wrap(async(req,res)=>res.json({success:true,data:await service.regenerarToken(req.params.id)})));
+router.delete('/admin/:id', wrap(async(req,res)=>res.json({success:true,data:await service.excluirAdmin(req.params.id)})));
 module.exports = router;

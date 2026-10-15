@@ -43,3 +43,6 @@ CREATE TABLE IF NOT EXISTS perfis_preco_entregas (
   concluido_em TIMESTAMPTZ,
   UNIQUE (envio_id, telefone, ordem)
 );
+
+-- Permite excluir perfis sem apagar registros financeiros anteriores.
+ALTER TABLE perfis_preco_vendedor ADD COLUMN IF NOT EXISTS excluido_em TIMESTAMPTZ;

@@ -41,6 +41,55 @@ async function api(url,opt){
   return body.data;
 }
 function urls(token) {return ['catalogo-celular','kits-feirinha','orcamento'].map(p=>({titulo:{'catalogo-celular':'Catálogo','kits-feirinha':'Kit Feirinha','orcamento':'Orçamento'}[p],link:location.origin+'/'+p+'?perfil_venda='+encodeURIComponent(token)}));}
+// Texto único para compartilhar as três páginas personalizadas sem expor o percentual na URL.
+function textoTresLinks(token){
+  const enderecos = urls(token);
+  return [
+    'ALUMINIO JR PB',
+    '',
+    'Se for urgente, ligue.',
+    '',
+    'Catálogo: '+enderecos[0].link,
+    '',
+    'Forme seu kit feirinha: '+enderecos[1].link,
+    '',
+    'Monte seu pedido: '+enderecos[2].link
+  ].join('\n');
+}
+async function escreverClipboard(texto){
+  if (navigator.clipboard && window.isSecureContext) {
+    try{await navigator.clipboard.writeText(texto);return;}
+    catch(_){/* Navegador sem permissão: tenta o método de compatibilidade. */}
+  }
+  const area=document.createElement('textarea');
+  area.value=texto;
+  area.setAttribute('readonly','');
+  area.style.position='fixed';area.style.left='-9999px';
+  document.body.appendChild(area);area.select();
+  try{if(!document.execCommand('copy'))throw new Error('Não foi possível copiar automaticamente.');}
+  finally{area.remove();}
+}
+async function copiarTres(i,botao){
+  const perfil=perfis[i];
+  if(!perfil||!perfil.ativo)return alert('Ative o perfil para compartilhar links válidos.');
+  botao.disabled=true;
+  try{
+    await escreverClipboard(textoTresLinks(perfil.token));
+    botao.textContent='Texto copiado!';
+    setTimeout(()=>{if(botao.isConnected)botao.textContent='Copiar os 3 links';},1800);
+  }catch(e){alert('Não foi possível copiar os links: '+e.message);}
+  finally{botao.disabled=false;}
+}
+async function excluirPerfil(i,botao){
+  const perfil=perfis[i];
+  if(!perfil)return;
+  if(!confirm('Excluir o perfil "'+perfil.nome+'"? Os três links deixarão de funcionar imediatamente. Os pedidos e comissões anteriores continuarão no histórico.'))return;
+  botao.disabled=true;
+  try{
+    await api('/api/perfis-preco/admin/'+perfil.id,{method:'DELETE'});
+    await Promise.all([carregarPerfis(),carregarHistorico()]);
+  }catch(e){alert('Não foi possível excluir o perfil: '+e.message);botao.disabled=false;}
+}
 function pintarPerfis(){
   const el=document.getElementById('perfis');
   if(!perfis.length){el.textContent='Nenhum perfil criado.';return;}
@@ -48,6 +97,8 @@ function pintarPerfis(){
     <div class="flex" style="justify-content:space-between"><h3>${esc(p.nome)} <span class="tag">#${esc(p.id)} • ${p.ativo?'ATIVO':'DESATIVADO'}</span></h3>
     <span>${p.tipo==='percentual'?esc(p.valor)+'%':brl(p.valor)+' por unidade'}</span></div>
     <div class="links">${urls(p.token).map(u=>`<div class="link"><span class="tag" style="min-width:80px">${u.titulo}</span><input readonly value="${esc(u.link)}" aria-label="Link de ${u.titulo}"><button class="secondary" onclick="copiar(this)">Copiar</button></div>`).join('')}</div>
+    <div class="flex"><button type="button" onclick="copiarTres(${i},this)" ${p.ativo?'':'disabled title="Ative o perfil para compartilhar links"'}>Copiar os 3 links</button>
+    <button type="button" class="danger" onclick="excluirPerfil(${i},this)">Excluir perfil</button></div>
     <details><summary>Editar perfil e telefone</summary><form class="editar" onsubmit="editar(event,${i})">
       <label>Nome<input name="nome" value="${esc(p.nome)}" required></label>
       <label>Tipo<select name="tipo"><option value="percentual" ${p.tipo==='percentual'?'selected':''}>Percentual</option><option value="fixo" ${p.tipo==='fixo'?'selected':''}>Fixo</option></select></label>

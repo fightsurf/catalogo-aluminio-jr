@@ -65,7 +65,7 @@ function publicoAdmin(row) {
 }
 async function listarAdmin() {
   await preparar();
-  const {rows} = await pool.query(`SELECT ${CAMPOS} FROM perfis_preco_vendedor ORDER BY id DESC`);
+  const {rows} = await pool.query(`SELECT ${CAMPOS} FROM perfis_preco_vendedor WHERE excluido_em IS NULL ORDER BY id DESC`);
   return rows.map(publicoAdmin);
 }
 async function criarAdmin(body) {
@@ -82,7 +82,7 @@ async function atualizarAdmin(id, body) {
   const d = dadosValidos(body, true);
   await preparar();
   const {rows} = await pool.query(`UPDATE perfis_preco_vendedor SET nome=$2,tipo=$3,valor=$4,
-    telefone_vendedor=$5,ativo=$6,atualizado_em=NOW() WHERE id=$1 RETURNING ${CAMPOS}`,
+    telefone_vendedor=$5,ativo=$6,atualizado_em=NOW() WHERE id=$1 AND excluido_em IS NULL RETURNING ${CAMPOS}`,
   [id,d.nome,d.tipo,d.valor,d.telefone_vendedor,d.ativo]);
   if (!rows.length) throw new Error('Perfil não encontrado.');
   return publicoAdmin(rows[0]);
@@ -91,17 +91,33 @@ async function regenerarToken(id) {
   await preparar();
   const token = crypto.randomBytes(32).toString('base64url');
   const {rows} = await pool.query(`UPDATE perfis_preco_vendedor SET token_hash=$2,token_criptografado=$3,
-    atualizado_em=NOW() WHERE id=$1 RETURNING ${CAMPOS}`,
+    atualizado_em=NOW() WHERE id=$1 AND excluido_em IS NULL RETURNING ${CAMPOS}`,
   [id,hash(token),criptografar(token)]);
   if (!rows.length) throw new Error('Perfil não encontrado.');
   return publicoAdmin(rows[0]);
+}
+async function excluirAdmin(id) {
+  const perfilId = Number(id);
+  if (!Number.isSafeInteger(perfilId) || perfilId < 1) {
+    const erro = new Error('Identificação de perfil inválida.'); erro.status = 400; throw erro;
+  }
+  await preparar();
+  // Exclusão lógica: invalida os três links, remove o perfil do painel,
+  // mas preserva o histórico financeiro e a integridade das chaves estrangeiras.
+  const {rows} = await pool.query(`UPDATE perfis_preco_vendedor
+    SET ativo=FALSE, excluido_em=NOW(), atualizado_em=NOW()
+    WHERE id=$1 AND excluido_em IS NULL RETURNING id,nome`, [perfilId]);
+  if (!rows.length) {
+    const erro = new Error('Perfil não encontrado ou já excluído.'); erro.status = 404; throw erro;
+  }
+  return {id:rows[0].id, nome:rows[0].nome, excluido:true};
 }
 async function localizar(token) {
   if (!TOKEN_RE.test(String(token || ''))) {
     const e = new Error('Link de perfil inválido.'); e.status = 404; throw e;
   }
   await preparar();
-  const {rows} = await pool.query('SELECT id,nome,tipo,valor,telefone_vendedor,ativo FROM perfis_preco_vendedor WHERE token_hash=$1', [hash(token)]);
+  const {rows} = await pool.query('SELECT id,nome,tipo,valor,telefone_vendedor,ativo FROM perfis_preco_vendedor WHERE token_hash=$1 AND excluido_em IS NULL', [hash(token)]);
   if (!rows.length || !rows[0].ativo) {
     const e = new Error('Link inexistente ou desativado. Solicite um novo link à fábrica.'); e.status = 404; throw e;
   }
@@ -291,5 +307,5 @@ async function historico() {
   return rows.map(r => ({...r, preco_venda: Number(r.preco_venda_centavos)/100,
     comissao: Number(r.comissao_centavos)/100}));
 }
-module.exports = {preparar,listarAdmin,criarAdmin,atualizarAdmin,regenerarToken,localizar,
+module.exports = {preparar,listarAdmin,criarAdmin,atualizarAdmin,regenerarToken,excluirAdmin,localizar,
   listarProdutos,enviar,historico,precoAjustadoCentavos,construirPedido};

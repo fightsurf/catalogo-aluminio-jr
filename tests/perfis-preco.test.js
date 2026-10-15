@@ -18,15 +18,19 @@ function sql(q, v=[]) {
     profiles.set(id,p);return {rows:[p]};
   }
   if (q.includes('FROM perfis_preco_vendedor WHERE token_hash')) {
-    const p=[...profiles.values()].find(x=>x.token_hash===v[0]);return {rows:p?[p]:[]};
+    const p=[...profiles.values()].find(x=>x.token_hash===v[0]&&!x.excluido_em);return {rows:p?[p]:[]};
   }
-  if (q.includes('FROM perfis_preco_vendedor ORDER BY')) return {rows:[...profiles.values()]};
+  if (q.includes('FROM perfis_preco_vendedor WHERE excluido_em IS NULL ORDER BY')) return {rows:[...profiles.values()].filter(x=>!x.excluido_em)};
   if (q.includes('UPDATE perfis_preco_vendedor SET nome')) {
-    const p=profiles.get(Number(v[0]));if(!p)return {rows:[]};
+    const p=profiles.get(Number(v[0]));if(!p||p.excluido_em)return {rows:[]};
     Object.assign(p,{nome:v[1],tipo:v[2],valor:v[3],telefone_vendedor:v[4],ativo:v[5]});return {rows:[p]};
   }
   if (q.includes('UPDATE perfis_preco_vendedor SET token_hash')) {
-    const p=profiles.get(Number(v[0]));Object.assign(p,{token_hash:v[1],token_criptografado:v[2]});return {rows:[p]};
+    const p=profiles.get(Number(v[0]));if(!p||p.excluido_em)return {rows:[]};Object.assign(p,{token_hash:v[1],token_criptografado:v[2]});return {rows:[p]};
+  }
+  if (q.includes('UPDATE perfis_preco_vendedor') && q.includes('excluido_em=NOW()')) {
+    const p=profiles.get(Number(v[0]));if(!p||p.excluido_em)return {rows:[]};
+    p.ativo=false;p.excluido_em=new Date().toISOString();return {rows:[{id:p.id,nome:p.nome}]};
   }
   if (q.includes('SELECT id,fingerprint FROM perfis_preco_envios')) {
     const s=sends.find(x=>x.perfil_id===Number(v[0])&&x.chave_cliente===v[1]);return {rows:s?[s]:[]};
@@ -146,4 +150,29 @@ test('relatório da comissão separa itens por linha vazia e não inclui rodapé
     assert.ok(!relatorio.includes('Valor sujeito à confirmação'));
     assert.ok(!relatorio.includes('COMISSÃO TOTAL PREVISTA'));
   }
+});
+
+
+test('exclusão lógica desativa links sem apagar pedidos, histórico nem perfis de outros usuários', async()=>{
+  const perfil=await service.criarAdmin({nome:'Excluir teste',tipo:'percentual',valor:12,telefone_vendedor:'5583999999912'});
+  const outro=await service.criarAdmin({nome:'Manter teste',tipo:'fixo',valor:3,telefone_vendedor:'5583999999913'});
+  const chave='b2b2b2b2-1234-4abc-8def-123456789abc';
+  await service.enviar(perfil.token,{modulo:'orcamento',chave,itens:[{id:1,qtd:1}]});
+  const enviosAntes=sends.filter(x=>x.perfil_id===Number(perfil.id)).length;
+  assert.equal(enviosAntes,1);
+  const excluido=await service.excluirAdmin(String(perfil.id));
+  assert.equal(excluido.excluido,true);
+  assert.equal((await service.listarAdmin()).some(x=>x.id===perfil.id),false);
+  assert.equal((await service.listarAdmin()).some(x=>x.id===outro.id),true);
+  assert.equal(sends.filter(x=>x.perfil_id===Number(perfil.id)).length,enviosAntes);
+  await assert.rejects(service.localizar(perfil.token),/inexistente|desativado/);
+  await assert.rejects(service.listarProdutos(perfil.token,'orcamento'),/inexistente|desativado/);
+  await assert.rejects(service.excluirAdmin(perfil.id),/já excluído/);
+  await assert.rejects(service.regenerarToken(perfil.id),/não encontrado/);
+  assert.equal((await service.listarProdutos(outro.token,'orcamento')).produtos[0].preco,43);
+});
+
+test('rejeita identificadores inválidos em excluir perfil', async()=>{
+  await assert.rejects(service.excluirAdmin('0'),/inválida/);
+  await assert.rejects(service.excluirAdmin('nao-e-um-id'),/inválida/);
 });
