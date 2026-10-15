@@ -87,6 +87,7 @@ const pedidosInsercaoMobileViewRoutes = require('./src/routes/legado/pedidos-ins
 const malaDiretaRoutes = require('./src/routes/mala-direta/mala-direta.routes');
 const malaDiretaService = require('./src/services/mala-direta/mala-direta.service');
 const envioWhatsappRoutes = require('./src/routes/whatsapp/envio-whatsapp.routes');
+const elevenlabsJrRoutes = require('./src/routes/whatsapp/elevenlabs-jr.routes');
 const envioWhatsappViewRoutes = require('./src/routes/whatsapp/envio-whatsapp.view.routes');
 const statusWhatsappRoutes = require('./src/routes/whatsapp/status-whatsapp.routes');
 const statusWhatsappViewRoutes = require('./src/routes/whatsapp/status-whatsapp.view.routes');
@@ -193,6 +194,9 @@ app.use('/api/legado/pedidos-insercao-v2', pedidosInsercaoLegadoV2Routes);
 app.use('/legado/pedidos-insercao-v2', pedidosInsercaoLegadoV2ViewRoutes);
 app.use('/legado/pedidos-insercao-mobile', pedidosInsercaoMobileViewRoutes);
 app.use('/api/whatsapp', envioWhatsappRoutes);
+// Integração de teste: somente administrador autenticado, sem webhooks públicos.
+app.use('/api/whatsapp/elevenlabs-jr', requireAuth, elevenlabsJrRoutes);
+app.get('/whatsapp/elevenlabs-jr', requireAuth, (req,res) => res.sendFile(path.join(__dirname, 'views/whatsapp/elevenlabs-jr.html')));
 app.use('/api/whatsapp/mala-direta', malaDiretaRoutes);
 app.get('/whatsapp/mala-direta', requireAuth, (req,res)=>res.sendFile(path.join(__dirname,'views/whatsapp/mala-direta.html')));
 app.use('/whatsapp', envioWhatsappViewRoutes);

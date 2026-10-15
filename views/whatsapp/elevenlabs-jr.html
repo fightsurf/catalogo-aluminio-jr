@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Teste ElevenLabs · Alumínio JR</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f5f6f8;color:#1f2937;font:15px/1.5 Arial,sans-serif}
+main{max-width:780px;margin:36px auto;padding:0 16px}h1{font-size:25px;margin:0 0 6px}p{color:#5a6270}
+.card{border:1px solid #e4e6ed;border-radius:14px;padding:22px;background:white;box-shadow:0 3px 16px #00000008}
+label{font-weight:700;display:block;margin-top:15px;margin-bottom:5px}
+select,textarea{font:inherit;border:1px solid #c8ced7;border-radius:8px;width:100%;padding:10px;background:white}
+textarea{height:120px;resize:vertical}button{font:inherit;font-weight:bold;border:0;border-radius:9px;padding:12px 18px;cursor:pointer;background:#1e293b;color:white}
+button.secondary{background:#eff2f7;color:#26313f}button:disabled{opacity:.5;cursor:wait}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}audio{width:100%}
+#status{padding:12px;background:#f3f5f9;border-radius:8px;white-space:pre-wrap;font-size:14px}
+small{color:#64748b} .alert{color:#a32020}
+</style></head><body><main><h1>ElevenLabs — testes do Assistente JR</h1>
+<p>Teste gratuito: texto → voz pela ElevenAPI → reprodução ou envio para o número de teste pela Z-API.</p>
+<section class="card">
+<div id="status">Verificando configuração...</div>
+<label for="voice">Voz disponível na conta</label><select id="voice"><option value="">Carregando vozes...</option></select>
+<small>Se a voz não estiver disponível no plano Free, a API informará. Ao contratar o Starter, a voz clonada aparecerá aqui ou poderá ser configurada pelo ID.</small>
+<label for="texto">Texto de teste (<span id="contador">0</span>/1000)</label>
+<textarea id="texto" maxlength="1000">Olá! Aqui é o Assistente JR, da Alumínio JR. Estamos testando nosso novo atendimento por áudio no WhatsApp.</textarea>
+<div class="row"><button id="gerar">Gerar e ouvir áudio</button><button class="secondary" id="enviar">Enviar somente para meu WhatsApp de teste</button></div>
+<audio id="player" controls hidden></audio><p id="resultado" role="status"></p>
+<small>O envio está bloqueado para todos os telefones, exceto ELEVENLABS_TEST_PHONE configurado no servidor. Cada geração consome créditos. Nenhuma resposta automática é ativada.</small>
+</section></main>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  let audioUrl;
+  const api = '/api/whatsapp/elevenlabs-jr';
+  $('texto').addEventListener('input',()=>{$('contador').textContent=$('texto').value.length});
+  $('texto').dispatchEvent(new Event('input'));
+  function alerta(texto,erro=false){$('resultado').textContent=texto;$('resultado').className=erro?'alert':'';}
+  async function readJson(r){ const data=await r.json();if(!r.ok)throw Error(data.erro||`HTTP ${r.status}`);return data; }
+  async function start(){
+    try {
+      const r=await fetch(api+'/config');const c=await readJson(r);
+      $('status').textContent = `ElevenAPI: ${c.elevenlabs?'Chave configurada':'Falta ELEVENLABS_API_KEY'} | WhatsApp de teste: ${c.telefoneTeste?'configurado':'falta ELEVENLABS_TEST_PHONE'} | Modelo: ${c.modelo}`;
+      $('enviar').disabled=!c.elevenlabs||!c.telefoneTeste;
+      $('gerar').disabled=!c.elevenlabs;
+      if(!c.elevenlabs)return;
+      const voices=await readJson(await fetch(api+'/vozes'));
+      $('voice').replaceChildren();
+      for (const v of voices.vozes) {const opt=new Option(`${v.name} (${v.category||'voz'})`,v.voice_id);$('voice').add(opt);}
+      if(c.vozPadrao) {if(![...$('voice').options].some(o=>o.value===c.vozPadrao))$('voice').add(new Option('Voz configurada pelo ID',c.vozPadrao));$('voice').value=c.vozPadrao;}
+      if(!$('voice').options.length)alerta('Sua conta não retornou vozes disponíveis na API. Configure uma voz permitida no painel ElevenLabs.',true);
+    } catch(e){$('status').textContent=`Falha na configuração: ${e.message}`;}
+  }
+  async function executar(tipo){
+    $('gerar').disabled=true;$('enviar').disabled=true;alerta('Processando...');
+    const data={texto:$('texto').value,voz:$('voice').value};
+    try {
+      const r=await fetch(api+(tipo==='audio'?'/gerar':'/enviar-teste'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+      if(tipo==='audio') {
+        if(!r.ok){await readJson(r);return;}
+        if(audioUrl)URL.revokeObjectURL(audioUrl);
+        audioUrl=URL.createObjectURL(await r.blob());$('player').src=audioUrl;$('player').hidden=false;alerta('Áudio gerado. Clique em reproduzir.');
+      } else {const response=await readJson(r);alerta(`Aceito pela Z-API para número final ${response.telefoneFinal}. ID: ${response.idMensagem||'não retornado'}. Entrega não confirmada.`);}
+    } catch(e){alerta(e.message,true);} finally {$('gerar').disabled=false;$('enviar').disabled=false;}
+  }
+  $('gerar').onclick=()=>executar('audio');$('enviar').onclick=()=>{if(confirm('Gerar áudio e enviar UMA mensagem ao seu número autorizado de teste?'))executar('whatsapp');};
+  start();
+})();
+</script></body></html>
