@@ -23,6 +23,7 @@ function limitar(req,res,next) {
 function erro(res,e) { res.status(e.status || 500).json({erro: e.message || 'Falha ao chamar integração de voz.'}); }
 router.get('/config', (req,res) => res.json(service.configurar()));
 router.get('/vozes', async(req,res) => { try{res.json({vozes:await service.listarVozes()});} catch(e){erro(res,e);} });
+router.get('/modelos', async(req,res) => { try{res.json({modelos:await service.listarModelos()});} catch(e){erro(res,e);} });
 router.post('/gerar', origemValida, limitar, async(req,res) => {
   try {
     const audio = await service.gerarAudio(req.body || {});

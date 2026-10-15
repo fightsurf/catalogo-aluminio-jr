@@ -4,8 +4,15 @@
 // Todos os segredos permanecem SOMENTE no servidor Render.
 const zapi = require('./zapi.service');
 const { randomUUID } = require('crypto');
-const BASE = 'https://api.elevenlabs.io/v1';
-const MODEL = 'eleven_flash_v2_5'; // Suporta português e reduz consumo/latência.
+const BASE = 'https://api.elevenlabs.io';
+const DEFAULT_MODEL = 'eleven_v4';
+// Lista estrita dos modelos de síntese suportados por esta tela.
+const MODELS = [
+  { model_id: 'eleven_v4', name: 'Eleven v4 — qualidade (recomendado)' },
+  { model_id: 'eleven_v4_turbo', name: 'Eleven v4 Turbo — rápido' },
+  { model_id: 'eleven_multilingual_v2', name: 'Multilingual v2 — estável' },
+  { model_id: 'eleven_flash_v2_5', name: 'Flash v2.5 — econômico' }
+];
 const MAX_TEXT = 1000;
 const MAX_AUDIO = 5 * 1024 * 1024;
 const PREVIEW_TTL_MS = 10 * 60 * 1000;
@@ -17,7 +24,7 @@ function configurar() {
     elevenlabs: Boolean(String(process.env.ELEVENLABS_API_KEY || '').trim()),
     telefoneTeste: Boolean(telefonePermitido()),
     vozPadrao: String(process.env.ELEVENLABS_VOICE_ID || '').trim(),
-    modelo: MODEL,
+    modelo: DEFAULT_MODEL,
     limiteCaracteres: MAX_TEXT,
     somenteTeste: false
   };
@@ -99,22 +106,56 @@ async function requestEleven(path, options={}) {
   return response;
 }
 async function listarVozes() {
-  const response = await requestEleven('/voices');
-  const data = await response.json();
-  return (Array.isArray(data.voices) ? data.voices : []).map(v => ({
-    voice_id: v.voice_id,
-    name: v.name || 'Voz',
-    category: v.category || '',
-    labels: v.labels || {}
-  }));
+  // O endpoint antigo /v1/voices não é confiável para listar clonagens recentes.
+  // /v2/voices traz as vozes pessoais e compartilhadas e exige paginação.
+  const voices = new Map();
+  let cursor = '';
+  const tokens = new Set();
+  for (let page = 0; page < 20; page++) {
+    const query = new URLSearchParams({page_size:'100'});
+    if (cursor) query.set('next_page_token', cursor);
+    const response = await requestEleven(`/v2/voices?${query}`);
+    const data = await response.json();
+    for (const v of Array.isArray(data.voices) ? data.voices : []) {
+      if (!v.voice_id || voices.has(v.voice_id)) continue;
+      voices.set(v.voice_id, {
+        voice_id: v.voice_id,
+        name: v.name || 'Voz',
+        category: v.category || '',
+        labels: v.labels || {},
+        voice_type: v.voice_type || '',
+        fine_tuning_state: v.fine_tuning?.state || v.fine_tuning_state || ''
+      });
+    }
+    if (!data.has_more || !data.next_page_token || tokens.has(data.next_page_token)) break;
+    cursor = data.next_page_token;
+    tokens.add(cursor);
+  }
+  const isMine = v => ['cloned','professional','generated'].includes(v.category) || ['personal','workspace'].includes(v.voice_type);
+  return [...voices.values()].sort((a,b) => Number(isMine(b))-Number(isMine(a)) || a.name.localeCompare(b.name,'pt-BR'));
 }
-async function gerarAudio({ texto, voz }) {
+async function listarModelos() {
+  // Exibe apenas modelos que a ElevenLabs declara disponíveis para esta conta.
+  const response = await requestEleven('/v1/models');
+  const data = await response.json();
+  const disponíveis = new Set((Array.isArray(data) ? data : []).filter(m => m.can_do_text_to_speech).map(m => m.model_id));
+  return MODELS.filter(m => disponíveis.has(m.model_id));
+}
+function escolherModelo(modelo) {
+  const id = String(modelo || DEFAULT_MODEL).trim();
+  if (!MODELS.some(m => m.model_id === id)) {
+    const e = new Error('Modelo de voz não permitido. Atualize a página e selecione um modelo válido.'); e.status=400; throw e;
+  }
+  return id;
+}
+async function gerarAudio({ texto, voz, modelo }) {
   const msg = validarTexto(texto);
   const vozId = escolherVoz(voz);
-  const response = await requestEleven(`/text-to-speech/${encodeURIComponent(vozId)}?output_format=mp3_44100_128`, {
+  const modeloId = escolherModelo(modelo);
+  const response = await requestEleven(`/v1/text-to-speech/${encodeURIComponent(vozId)}?output_format=mp3_44100_128`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Accept':'audio/mpeg' },
-    body: JSON.stringify({ text: msg, model_id: MODEL })
+    body: JSON.stringify({ text: msg, model_id: modeloId })
   });
   const declared = Number(response.headers.get('content-length') || 0);
   if (declared > MAX_AUDIO) { const e=new Error('O áudio retornado excedeu o limite de teste.'); e.status=413; throw e; }
@@ -122,7 +163,7 @@ async function gerarAudio({ texto, voz }) {
   if (!bytes.length || bytes.length > MAX_AUDIO) {
     const e=new Error('A ElevenLabs retornou um áudio vazio ou grande demais.'); e.status=502; throw e;
   }
-  return { bytes, voz: vozId, caracteres: msg.length, formato:'audio/mpeg' };
+  return { bytes, voz: vozId, modelo: modeloId, caracteres: msg.length, formato:'audio/mpeg' };
 }
 async function enviarAudio(audio, telefone) {
   const phone = validarDestino(telefone);
@@ -131,18 +172,18 @@ async function enviarAudio(audio, telefone) {
   });
   // Aceito pela Z-API não significa que o WhatsApp entregou a mensagem.
   return { aceitoPelaZapi: true, idMensagem: enviado.zapi?.messageId || enviado.zapi?.id || null,
-    telefoneFinal: phone.slice(-4), voz: audio.voz, caracteres: audio.caracteres };
+    telefoneFinal: phone.slice(-4), voz: audio.voz, modelo: audio.modelo, caracteres: audio.caracteres };
 }
-async function enviarTeste({texto, voz, telefone}) {
+async function enviarTeste({texto, voz, modelo, telefone}) {
   // Mantém o comportamento anterior: envia mesmo sem gerar uma prévia.
   if (!telefone && !telefonePermitido()) {
     const e = new Error('Informe o WhatsApp de destino ou configure ELEVENLABS_TEST_PHONE.'); e.status=400; throw e;
   }
-  const audio = await gerarAudio({texto,voz});
+  const audio = await gerarAudio({texto,voz,modelo});
   return enviarAudio(audio, telefone);
 }
 async function enviarPreview({previewId, telefone}, usuario) {
   const audio = obterPreview(previewId, usuario);
   return enviarAudio(audio, telefone);
 }
-module.exports = { configurar, listarVozes, gerarAudio, enviarTeste, salvarPreview, enviarPreview };
+module.exports = { configurar, listarVozes, listarModelos, gerarAudio, enviarTeste, salvarPreview, enviarPreview };
