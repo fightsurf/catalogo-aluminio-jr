@@ -235,7 +235,7 @@
     }
 
     function obterDescricaoResumo(item) {
-      return String(item.descricaoOriginal || '').trim();
+      return String(item.descricaoPostgres || item.descricaoOriginal || item.descricao || '').trim();
     }
 
     function consolidarItens(carrada) {

@@ -704,7 +704,7 @@ function consolidarResumoSemana(semana, carradasDetalhadas) {
       const itens = Array.isArray(pedido?.itens) ? pedido.itens : [];
       itens.forEach((item) => {
         const codigoItem = Number(item?.item || 0);
-        const descricao = String(item?.descricaoOriginal || item?.descricao || '').trim();
+        const descricao = String(item?.descricaoPostgres || item?.descricaoOriginal || item?.descricao || '').trim();
         const chave = codigoItem > 0
           ? String(codigoItem)
           : `SEM-CODIGO::${descricao.toUpperCase()}`;

@@ -1,6 +1,7 @@
 const envioWhatsappService = require('../../whatsapp/envio-whatsapp.service');
 const legadoBridgeService = require('../legadoBridge.service');
 const carradasStatusResumoService = require('../carradas-progresso/carradas-status-resumo.service');
+const produtosNomesResumoService = require('../produtos-nomes-resumo.service');
 
 function limparTexto(valor) {
   if (valor === undefined || valor === null) {
@@ -440,8 +441,10 @@ async function buscarCarrada(codigo) {
     console.error(`Falha ao buscar bloqueio de vendas da carrada ${codigoNormalizado}:`, error.message);
   }
 
+  const [carradaComNomes] = await produtosNomesResumoService.aplicarNomesPostgresEmCarradas([enriquecida]);
+
   return {
-    ...enriquecida,
+    ...carradaComNomes,
     progressoStatusLinha: status?.statusLinha || 'incompleta',
     vendasBloqueadas: Boolean(status?.vendasBloqueadas)
   };
@@ -499,9 +502,12 @@ async function listarDetalhesCarradasPorCodigos(codigosParam = []) {
     carradas.map((carrada) => enriquecerCarradaComResumoProducao(carrada, { pedidosProntosSet }))
   );
 
+  const enriquecidasComNomes = await produtosNomesResumoService.aplicarNomesPostgresEmCarradas(
+    enriquecidas.filter(Boolean)
+  );
+
   const mapa = new Map(
-    enriquecidas
-      .filter(Boolean)
+    enriquecidasComNomes
       .map((carrada) => [Number.parseInt(carrada.codigo, 10), carrada])
   );
 
@@ -540,7 +546,7 @@ function consolidarResumoCarradasSelecionadas(carradasDetalhadas = []) {
 
       itens.forEach((item) => {
         const codigoItem = Number(item?.item || 0);
-        const descricao = String(item?.descricaoOriginal || item?.descricao || '').trim();
+        const descricao = String(item?.descricaoPostgres || item?.descricaoOriginal || item?.descricao || '').trim();
         const chave = codigoItem > 0
           ? String(codigoItem)
           : `SEM-CODIGO::${descricao.toUpperCase()}`;
