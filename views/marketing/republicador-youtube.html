@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Republicador YouTube — Alumínio JR</title>
+<style>
+:root{font-family:system-ui,-apple-system,Arial,sans-serif;color:#192437;background:#f1f4f9}
+*{box-sizing:border-box}body{margin:0}header{background:#182a45;color:white;padding:18px 4vw}
+header h1{margin:0;font-size:1.45rem}header p{margin:5px 0 0;color:#d8e2f1}
+main{max-width:1250px;margin:auto;padding:20px 16px}h2{font-size:1.15rem;margin:0 0 12px}
+.toolbar{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
+input{padding:10px;border:1px solid #cad4e2;border-radius:7px;min-width:180px;flex:1;font-size:1rem}
+button{border:0;border-radius:7px;padding:10px 13px;font:inherit;font-weight:600;cursor:pointer;background:#dfe7f2;color:#182a45}
+button.primary{background:#1972cc;color:white}button.danger{background:#18834e;color:white}
+button:hover{filter:brightness(.94)}button:disabled{opacity:.5;cursor:wait}
+section{margin-bottom:26px;background:white;padding:16px;border:1px solid #e0e6ed;border-radius:11px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+.video{border:1px solid #e0e6ee;border-radius:10px;overflow:hidden;background:#fff;display:flex;flex-direction:column}
+.video img{width:100%;aspect-ratio:16/9;object-fit:cover;background:#e5ebf1}
+.video .info{padding:12px;display:flex;flex:1;flex-direction:column;gap:8px}
+.video strong{font-size:14px;line-height:1.35;min-height:36px}.info small{color:#606e7f}
+.actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:auto}.actions button{font-size:12px;flex:1}
+.notice{border-left:4px solid #788ba7;background:#f1f5fb;padding:9px 12px;margin:9px 0;font-size:13px}
+.muted{color:#5b6879}.job{border-bottom:1px solid #e6ebf1;padding:11px 0;font-size:14px}
+.job strong{display:block;margin-bottom:5px}.job .state{font-weight:700}
+.status{display:inline-block;background:#e4e9f1;padding:4px 7px;border-radius:6px;margin:4px 4px 4px 0;font-size:12px}
+.status.ok{background:#d8f4e4;color:#0c5c34}.status.fail{background:#fce0df;color:#a92222}
+.error{color:#a92222;white-space:pre-wrap;overflow-wrap:anywhere}
+#msg{min-height:16px;font-size:14px}#mais{margin-top:16px}
+a{color:#216bb5}#recentes{max-height:450px;overflow:auto}
+@media(max-width:550px){main{padding:10px}section{padding:12px}.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.video .info{padding:8px}.video strong{font-size:12px}.actions{flex-direction:column}.actions button{font-size:12px}.toolbar input{width:100%;flex:1 0 100%}}
+</style></head><body>
+<header><h1>Republicador de vídeos do YouTube</h1><p>Alumínio JR · Marketing · WhatsApp Status + Instagram Stories + Facebook Feed</p></header>
+<main>
+<section>
+ <h2>Vídeos do nosso canal</h2>
+ <div class="toolbar"><input id="busca" placeholder="Pesquisar nos vídeos carregados" aria-label="Pesquisar">
+  <button id="atualizar">Atualizar lista</button><button id="diagnosticar">Verificar integrações</button></div>
+ <div class="notice">“Testar download” não publica nada: baixa o vídeo, envia temporariamente ao R2 e exclui depois. “Publicar” envia às três redes. Vídeos acima de 55 segundos são divididos automaticamente para Stories/Status.</div>
+ <p class="muted" id="canal">Carregando vídeos…</p><p id="msg" aria-live="polite"></p>
+ <div class="grid" id="videos"></div>
+ <button id="mais" hidden>Carregar mais vídeos</button>
+</section>
+<section><h2>Andamento e histórico</h2><div id="recentes"><p class="muted">Carregando histórico…</p></div></section>
+</main>
+<script>
+(() => {
+'use strict';
+const root='/marketing/republicador-youtube';
+const $=id=>document.getElementById(id);
+const escape=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const enc=encodeURIComponent;
+let videos=[], next=null, ocupados=new Set(), polling=null;
+async function req(url,opts={}) {
+  const res=await fetch(root+url,{credentials:'same-origin',headers:{'Content-Type':'application/json'},...opts});
+  if (res.status===401){location.href='/login?next='+enc(location.pathname);throw Error('Faça login.');}
+  let data;try{data=await res.json();}catch{throw Error('Resposta inválida do servidor.');}
+  if(!res.ok||!data.success)throw Error(data.message||'Não foi possível executar a operação.');
+  return data.data;
+}
+function mensagem(s,erro=false){$('msg').className=erro?'error':'muted';$('msg').textContent=s;}
+function renderVideos(){
+ const termo=$('busca').value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+ const itens=videos.filter(v=>v.titulo.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes(termo));
+ $('videos').innerHTML=itens.map(v=>`<article class="video"><a target="_blank" rel="noopener noreferrer" href="${escape(v.url)}"><img loading="lazy" src="${escape(v.miniatura)}" alt=""></a>
+ <div class="info"><strong>${escape(v.titulo)}</strong><small>${new Date(v.data).toLocaleDateString('pt-BR')}${v.duracao_iso?' · '+escape(v.duracao_iso):''}</small>
+ <div class="actions"><button data-id="${escape(v.id)}" data-modo="teste">Testar download</button><button class="danger" data-id="${escape(v.id)}" data-modo="publicar">Publicar nas 3 redes</button></div></div></article>`).join('') || '<p>Nenhum vídeo encontrado nesta seleção.</p>';
+ $('videos').querySelectorAll('button[data-id]').forEach(b=>b.addEventListener('click',()=>criarJob(b.dataset.id,b.dataset.modo)));
+}
+async function carregar(limpar=false){
+ $('atualizar').disabled=true;
+ try{
+  const pagina=limpar?'':next;const data=await req('/api/videos'+(pagina?'?pagina='+enc(pagina):''));
+  if(limpar)videos=[];
+  const ids=new Set(videos.map(v=>v.id));data.videos.forEach(v=>{if(!ids.has(v.id))videos.push(v);});
+  next=data.proxima_pagina;$('mais').hidden=!next;
+  $('canal').textContent=`Canal: ${data.canal} · ${videos.length} vídeos carregados${next?' (há mais páginas)':''}`;
+  renderVideos();mensagem('');
+ }catch(e){mensagem(e.message,true);$('canal').textContent='Falha ao consultar o canal';}
+ finally{$('atualizar').disabled=false;}
+}
+async function criarJob(id,modo){
+ if(ocupados.has(id))return;
+ if(modo==='publicar'&&!confirm('Publicar este vídeo no WhatsApp Status, Instagram Stories e Facebook Feed?'))return;
+ ocupados.add(id);renderVideos();
+ try{
+  const job=await req('/api/jobs',{method:'POST',body:JSON.stringify({video_id:id,modo,
+    request_id:crypto.randomUUID(),confirmar:modo==='publicar'?'PUBLICAR_NAS_TRES_REDES':''})});
+  mensagem('Operação '+job.id+' iniciada. Acompanhe abaixo.');
+  await atualizarHistorico();
+ }catch(e){mensagem(e.message,true);}
+ finally{ocupados.delete(id);renderVideos();}
+}
+function canalStatus(nome,x){if(!x)return '';
+ const suffix=x.partes?` (${Object.values(x.partes).filter(p=>p.status==='publicado').length} partes aceitas)` : '';
+ const cl=x.status==='publicado'?'ok':x.status==='erro'?'fail':'';
+ return `<span class="status ${cl}">${escape(nome)}: ${escape(x.status)}${escape(suffix)}</span>`;
+}
+function renderJobs(items){
+ $('recentes').innerHTML=items.map(j=>`<div class="job"><strong>${escape(j.titulo)}</strong>
+ <span class="state">${escape(j.estado)} · ${escape(j.etapa)}</span><div>
+ ${canalStatus('WhatsApp',j.canais.whatsapp_status)}${canalStatus('Instagram',j.canais.instagram_story)}${canalStatus('Facebook',j.canais.facebook_feed)}</div>
+ ${j.erro?`<div class="error">${escape(j.erro)}</div>`:''}
+ <small class="muted">${new Date(j.criado_em).toLocaleString('pt-BR')} · ${escape(j.modo)} · ${j.possui_arquivo_temporario?'Arquivo temporário no R2':'Sem arquivo armazenado'}</small>
+ ${['parcial','erro','interrompido'].includes(j.estado)&&j.modo==='publicar'?` <button data-retry="${escape(j.id)}">Repetir pendentes</button>`:''}</div>`).join('') || '<p class="muted">Nenhuma publicação registrada.</p>';
+ $('recentes').querySelectorAll('[data-retry]').forEach(b=>b.addEventListener('click',async()=>{
+  if(!confirm('Repetir somente os canais/trechos que ainda não foram aceitos? Verifique antes se houve publicação nas redes durante a falha.'))return;
+  try{await req('/api/jobs/'+enc(b.dataset.retry)+'/repetir',{method:'POST',body:JSON.stringify({confirmar:'REPETIR_APENAS_PENDENTES'})});await atualizarHistorico();}catch(e){alert(e.message);}
+ }));
+}
+async function atualizarHistorico(){try{const x=await req('/api/jobs');renderJobs(x);}catch(e){$('recentes').textContent=e.message;}}
+$('atualizar').onclick=()=>carregar(true);
+$('mais').onclick=()=>carregar(false);
+$('busca').oninput=renderVideos;
+$('diagnosticar').onclick=async()=>{try{const data=await req('/api/diagnostico');alert(JSON.stringify(data,null,2));}catch(e){alert(e.message);}};
+carregar(true);atualizarHistorico();polling=setInterval(atualizarHistorico,5000);
+})();
+</script></body></html>

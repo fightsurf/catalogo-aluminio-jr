@@ -100,6 +100,7 @@ const ofertasRoutes = require('./src/routes/ofertas/ofertas.routes');
 const ofertasViewRoutes = require('./src/routes/ofertas/ofertas.view.routes');
 const statusVideosRoutes = require('./src/routes/status-videos/status-videos.routes');
 const statusVideosViewRoutes = require('./src/routes/status-videos/status-videos.view.routes');
+const republicadorYoutubeRoutes = require('./src/routes/marketing/republicador-youtube.routes');
 const sistemaRoutes = require('./src/routes/sistema/sistema.routes');
 const perfisPrecoRoutes = require('./src/routes/perfis-preco/perfisPreco.routes');
 
@@ -211,6 +212,9 @@ app.use('/api/ofertas', ofertasRoutes);
 app.use('/', ofertasViewRoutes);
 app.use('/api/status-videos', statusVideosRoutes);
 app.use('/status-videos', statusVideosViewRoutes);
+// Republicador YouTube: somente administrador. Os publicadores existentes permanecem inalterados.
+app.get('/marketing/republicador-youtube', requireAuth, (_req, res) => res.sendFile(path.join(__dirname, 'views/marketing/republicador-youtube.html')));
+app.use('/marketing/republicador-youtube', republicadorYoutubeRoutes);
 app.use('/sistema', sistemaRoutes);
 
 // Projeto Mirian: API e páginas isoladas pelo prefixo /mirian
@@ -505,3 +509,5 @@ server.listen(PORT, () => {
 
 // Mala Direta: fila persistente; nenhum disparo começa sem campanha aprovada.
 malaDiretaService.iniciarTrabalhador();
+// Histórico e limpeza exclusiva do republicador; inicialização não bloqueia as outras rotas.
+require('./src/services/marketing/republicador-youtube.service').inicializar();

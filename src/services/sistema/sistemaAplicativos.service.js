@@ -17,6 +17,7 @@ const OVERRIDES = {
   '/whatsapp/mala-direta': { nome: 'Mala Direta', categoria: 'Marketing', icone: 'send', descricao: 'Divulgação de produtos para compradores autorizados via WhatsApp.' },
   '/whatsapp/status': { nome: 'Status WhatsApp', categoria: 'Marketing', icone: 'message-circle', descricao: 'Publicação de fotos e vídeos nos status e redes.' },
   '/status-videos': { nome: 'Status Vídeos', categoria: 'Marketing', icone: 'video', descricao: 'Geração e publicação de vídeos promocionais.' },
+  '/marketing/republicador-youtube': { nome: 'Republicador YouTube', categoria: 'Marketing', icone: 'video', descricao: 'Republique vídeos do canal nos Status, Stories e Feed do Facebook.' },
   '/whatsapp/relatorios-recebidos': { nome: 'Relatórios WhatsApp Recebidos', categoria: 'WhatsApp', icone: 'inbox', descricao: 'Relatórios recebidos dos clientes pelo WhatsApp.' },
   '/whatsapp/relatorio-fotos': { nome: 'Relatório de Fotos WhatsApp', categoria: 'WhatsApp', icone: 'image', descricao: 'Consulta e organização de relatórios de fotos.' },
   '/whatsapp/enviar': { nome: 'Enviar WhatsApp', categoria: 'WhatsApp', icone: 'send', descricao: 'Envio manual de mensagens pelo WhatsApp.' },
