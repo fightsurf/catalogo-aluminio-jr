@@ -162,29 +162,70 @@ async function duracao(caminho) {
   return t;
 }
 
+function detalheFalhaDownloader(erro, stderrCapturado, stdoutCapturado, expirou) {
+  if (expirou) return 'Tempo limite de 6 minutos para o download excedido.';
+  // youtube-dl-exec pode retornar somente o comando e code=1 em error.message.
+  // Capturamos stderr do processo para descobrir a causa real.
+  const saidas = [stderrCapturado, erro?.stderr, stdoutCapturado, erro?.stdout]
+    .filter(v => typeof v === 'string' && v.trim())
+    .join('\n');
+  const linhas = saidas.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+  const relevantes = linhas.filter(x => /\b(?:ERROR|WARNING)\b|sign in|bot|403|429|challenge|JS runtime|format|unavailable|unable|denied|forbidden|certificate|network|timeout|extractor/i.test(x));
+  const trecho = (relevantes.length ? relevantes.slice(-4) : linhas.slice(-3)).join(' | ');
+  // Não guardar URLs temporárias de mídia assinadas em histórico ou nos logs.
+  const seguro = trecho.replace(/https?:\/\/\S+/gi, '[URL]').slice(-1100);
+  if (seguro) return seguro;
+  return String(erro?.shortMessage || erro?.message || 'Processo encerrado sem diagnóstico').slice(-380);
+}
+
 async function baixarVideo(id, pasta) {
-  // npm install youtube-dl-exec instala yt-dlp em node_modules; no shell/URL arbitrária.
+  // Mantém a biblioteca já instalada e usa somente URLs dos vídeos do canal validado.
   let youtubeDl;
   try { youtubeDl = require('youtube-dl-exec'); }
-  catch (_) { throw new Error('Instale a dependência youtube-dl-exec com npm install.'); }
+  catch (_) { throw new Error('A dependência youtube-dl-exec não está instalada no Render.'); }
   const base = path.join(pasta,'original.%(ext)s');
   const flags = {
     output: base, format: 'bv*[ext=mp4]+ba[ext=m4a]/b[ext=mp4]/best',
     mergeOutputFormat: 'mp4', ffmpegLocation: ffmpegPath(),
-    noPlaylist: true, noMtime: true, noWarnings: true, noProgress: true,
+    noPlaylist: true, noMtime: true, noProgress: true,
     maxFilesize: '250M', socketTimeout: 30, retries: 2,
   };
+
+  // Desde 2026, o yt-dlp exige um runtime JS para vários vídeos do YouTube.
+  // O Render já executa Node: aproveita-o sem instalar Deno ou modificar o
+  // ambiente utilizado pelos publicadores existentes. Node >=22 para EJS.
+  const majorNode = Number(process.versions.node.split('.')[0]);
+  if (majorNode >= 22) flags.jsRuntimes = `node:${process.execPath}`;
+
   let child;
+  let stderr = '';
+  let stdout = '';
+  let expirou = false;
   try {
     child = youtubeDl.exec(`https://www.youtube.com/watch?v=${validarVideoId(id)}`, flags);
-    const timer = setTimeout(() => { try { child.kill('SIGKILL'); } catch (_) {} }, 360000);
+    // Lê o stderr antes de aguardar, inclusive se execa não o incluir na exceção.
+    child.stderr?.on('data', parte => { stderr = (stderr + String(parte)).slice(-9000); });
+    child.stdout?.on('data', parte => { stdout = (stdout + String(parte)).slice(-3500); });
+    const timer = setTimeout(() => {
+      expirou = true;
+      try { child.kill('SIGKILL'); } catch (_) {}
+    }, 360000);
     try { await child; } finally { clearTimeout(timer); }
   } catch (e) {
-    throw new Error(`yt-dlp não conseguiu baixar o vídeo: ${erroCurto(e)}. O YouTube pode exigir atualização do yt-dlp ou bloquear a origem.`);
+    const detalhe = detalheFalhaDownloader(e, stderr, stdout, expirou);
+    // Não repetir o comando inteiro (que omite a informação que interessa).
+    console.error('[Republicador YouTube] yt-dlp falhou:', { video_id: id,
+      node: process.version, detalhe: detalhe.slice(0, 1100) });
+    const sugestao = /sign in|bot|\b403\b|\b429\b|forbidden/i.test(detalhe)
+      ? ' O YouTube pode estar bloqueando downloads originados do IP do Render; uma atualização do yt-dlp pode não resolver.'
+      : /JS runtime|challenge|signature|nsig/i.test(detalhe)
+        ? ' Confira se o Render está usando Node 22+ e uma versão atual do yt-dlp.'
+        : ' Confira o log acima; se o binário estiver antigo, reinstale ou atualize o yt-dlp no build.';
+    throw new Error(`yt-dlp falhou: ${detalhe}.${sugestao}`);
   }
   const arquivos = await fsp.readdir(pasta);
   const nome = arquivos.find(x => /^original\.mp4$/.test(x));
-  if (!nome) throw new Error('O downloader não produziu um MP4 válido.');
+  if (!nome) throw new Error('O downloader finalizou sem gerar original.mp4. Confira os formatos disponíveis e o log do yt-dlp.');
   const caminho = path.join(pasta,nome);
   const st = await fsp.stat(caminho);
   if (st.size === 0 || st.size > MAX_BYTES) throw new Error('Vídeo vazio ou maior que 250 MB.');
