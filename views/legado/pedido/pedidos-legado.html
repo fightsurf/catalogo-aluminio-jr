@@ -418,6 +418,18 @@
       color: #4b5563;
     }
 
+    .copia-relatorio-opcoes {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .copia-relatorio-opcoes .btn {
+      width: 100%;
+      text-align: center;
+    }
+
     .particao-aviso {
       padding: 11px 12px;
       margin-bottom: 14px;
@@ -658,6 +670,26 @@
     </div>
   </div>
 
+  <div id="modalCopiaRelatorioWhatsapp" class="modal-overlay oculto" role="dialog" aria-modal="true" aria-labelledby="tituloModalCopiaRelatorioWhatsapp">
+    <div class="modal-card" style="width:min(520px, 100%);">
+      <div class="modal-cabecalho">
+        <h3 id="tituloModalCopiaRelatorioWhatsapp">Copiar relatório — Kit Feirinha</h3>
+        <button id="btnFecharCopiaRelatorio" class="btn-fechar-modal" type="button" aria-label="Fechar">×</button>
+      </div>
+
+      <div id="copiaRelatorioIdentificacao" class="cliente-linha"></div>
+      <div class="particao-aviso">
+        Como deseja copiar as quantidades dos produtos? A escolha altera somente o texto copiado, sem modificar o pedido.
+      </div>
+
+      <div class="copia-relatorio-opcoes">
+        <button id="btnManterQuantidadesRelatorio" class="btn btn-primary" type="button">Manter quantidades do pedido</button>
+        <button id="btnIgualarQuantidadesRelatorio" class="btn btn-whatsapp" type="button">Igualar todas as quantidades a 1</button>
+        <button id="btnCancelarCopiaRelatorio" class="btn btn-secondary" type="button">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/js/relatorio-aluminio-jr.js"></script>
   <script>
     const numeroPedidoInput = document.getElementById('numeroPedido');
@@ -679,6 +711,12 @@
     const btnSalvarAlteracoes = document.getElementById('btnSalvarAlteracoes');
     const btnEnviarWhatsapp = document.getElementById('btnEnviarWhatsapp');
     const btnCopiarRelatorioWhatsapp = document.getElementById('btnCopiarRelatorioWhatsapp');
+    const modalCopiaRelatorioWhatsapp = document.getElementById('modalCopiaRelatorioWhatsapp');
+    const copiaRelatorioIdentificacao = document.getElementById('copiaRelatorioIdentificacao');
+    const btnFecharCopiaRelatorio = document.getElementById('btnFecharCopiaRelatorio');
+    const btnManterQuantidadesRelatorio = document.getElementById('btnManterQuantidadesRelatorio');
+    const btnIgualarQuantidadesRelatorio = document.getElementById('btnIgualarQuantidadesRelatorio');
+    const btnCancelarCopiaRelatorio = document.getElementById('btnCancelarCopiaRelatorio');
     const btnEnviarFotosWhatsapp = document.getElementById('btnEnviarFotosWhatsapp');
     const btnEnviarPdfWhatsapp = document.getElementById('btnEnviarPdfWhatsapp');
     const btnAdicionarPagamentos = document.getElementById('btnAdicionarPagamentos');
@@ -733,6 +771,8 @@
     let cacheProdutosImportacao = null;
     let importandoRelatorio = false;
     let copiaEmAndamento = false;
+    let copiaRelatorioEmAndamento = false;
+    let pedidoAguardandoCopiaRelatorio = null;
     let particaoEmAndamento = false;
     let cancelamentoEmAndamento = false;
     let envioFotosEmAndamento = false;
@@ -2294,7 +2334,7 @@
     }
 
 
-    function montarRelatorioWhatsappPedido(pedido) {
+    function montarRelatorioWhatsappPedido(pedido, igualarQuantidadesKit = false) {
       if (!window.RelatorioAluminioJR?.montarRelatorio) {
         throw new Error('Gerador do relatório de WhatsApp não foi carregado.');
       }
@@ -2305,10 +2345,11 @@
       }
 
       const kitFeirinha = detectarTipoRelatorioPedido(pedido) === 'kit-feirinha';
+      const usarQuantidadeUm = kitFeirinha && igualarQuantidadesKit;
 
       const itensRelatorio = itens.map((item) => {
         const qtdOriginal = Number(item?.quantidade || 0);
-        const qtd = kitFeirinha ? 1 : qtdOriginal;
+        const qtd = usarQuantidadeUm ? 1 : qtdOriginal;
         const preco = Number(item?.preco || 0);
         const subtotalInformado = Number(item?.subtotal);
 
@@ -2316,14 +2357,14 @@
           nome: String(item?.descricao || item?.nome || '').trim(),
           qtd,
           preco,
-          subtotal: kitFeirinha
+          subtotal: usarQuantidadeUm
             ? qtd * preco
             : (Number.isFinite(subtotalInformado) ? subtotalInformado : qtd * preco)
         };
       });
 
       const totalInformado = Number(pedido?.total);
-      const total = kitFeirinha
+      const total = usarQuantidadeUm
         ? itensRelatorio.reduce((acc, item) => acc + Number(item.subtotal || 0), 0)
         : (Number.isFinite(totalInformado)
           ? totalInformado
@@ -2381,30 +2422,74 @@
       }
     }
 
-    async function copiarRelatorioWhatsappPedido() {
+    function abrirCopiaRelatorioWhatsapp() {
       if (!pedidoCarregado) {
         setMensagem('Nenhum pedido carregado para gerar o relatório.', true);
         return;
       }
+      if (copiaRelatorioEmAndamento) return;
+
+      // Pedido normal continua copiando diretamente, sem abrir a janela.
+      if (detectarTipoRelatorioPedido(pedidoCarregado) !== 'kit-feirinha') {
+        copiarRelatorioWhatsappPedido(false);
+        return;
+      }
+
+      pedidoAguardandoCopiaRelatorio = pedidoCarregado;
+      copiaRelatorioIdentificacao.textContent = `Pedido ${pedidoCarregado.numero || '-'} · ${pedidoCarregado?.cliente?.nome || '-'}`;
+      modalCopiaRelatorioWhatsapp.classList.remove('oculto');
+      document.body.style.overflow = 'hidden';
+      btnManterQuantidadesRelatorio.focus();
+    }
+
+    function fecharCopiaRelatorioWhatsapp() {
+      modalCopiaRelatorioWhatsapp.classList.add('oculto');
+      document.body.style.overflow = '';
+      pedidoAguardandoCopiaRelatorio = null;
+    }
+
+    function escolherQuantidadesRelatorio(igualarQuantidadesKit) {
+      if (modalCopiaRelatorioWhatsapp.classList.contains('oculto')) return;
+      // Evita copiar outro pedido caso a seleção tenha mudado com o modal aberto.
+      const pedidoValido = pedidoAguardandoCopiaRelatorio === pedidoCarregado;
+      fecharCopiaRelatorioWhatsapp();
+      if (!pedidoValido) {
+        setMensagem('O pedido selecionado mudou. Clique em Copiar relatório WhatsApp novamente.', true);
+        return;
+      }
+      copiarRelatorioWhatsappPedido(igualarQuantidadesKit);
+    }
+
+    async function copiarRelatorioWhatsappPedido(igualarQuantidadesKit = false) {
+      if (!pedidoCarregado) {
+        setMensagem('Nenhum pedido carregado para gerar o relatório.', true);
+        return;
+      }
+      if (copiaRelatorioEmAndamento) return;
 
       const textoOriginal = btnCopiarRelatorioWhatsapp.textContent;
+      const pedido = pedidoCarregado;
 
       try {
+        copiaRelatorioEmAndamento = true;
         btnCopiarRelatorioWhatsapp.disabled = true;
         btnCopiarRelatorioWhatsapp.textContent = 'Copiando...';
 
-        const tipo = detectarTipoRelatorioPedido(pedidoCarregado);
-        const relatorio = montarRelatorioWhatsappPedido(pedidoCarregado);
+        const tipo = detectarTipoRelatorioPedido(pedido);
+        const relatorio = montarRelatorioWhatsappPedido(pedido, igualarQuantidadesKit);
         await copiarTextoAreaTransferencia(relatorio);
 
         setMensagem(
           tipo === 'kit-feirinha'
-            ? 'Relatório do Kit Feirinha copiado para a área de transferência.'
+            ? (igualarQuantidadesKit
+              ? 'Relatório do Kit Feirinha copiado com todas as quantidades iguais a 1.'
+              : 'Relatório do Kit Feirinha copiado com as quantidades originais do pedido.')
             : 'Relatório de Orçamento copiado para a área de transferência.'
         );
       } catch (error) {
         setMensagem(error.message || 'Erro ao copiar relatório de WhatsApp.', true);
       } finally {
+        copiaRelatorioEmAndamento = false;
         const semItens = !Array.isArray(pedidoCarregado?.itens) || !pedidoCarregado.itens.length;
         btnCopiarRelatorioWhatsapp.disabled = semItens;
         btnCopiarRelatorioWhatsapp.textContent = textoOriginal;
@@ -2886,7 +2971,14 @@
     btnEditarPedido.addEventListener('click', entrarModoEdicao);
     btnCalcularVolumes.addEventListener('click', calcularVolumesPedido);
     btnCopiarPedido.addEventListener('click', abrirModalCopia);
-    btnCopiarRelatorioWhatsapp.addEventListener('click', copiarRelatorioWhatsappPedido);
+    btnCopiarRelatorioWhatsapp.addEventListener('click', abrirCopiaRelatorioWhatsapp);
+    btnManterQuantidadesRelatorio.addEventListener('click', () => escolherQuantidadesRelatorio(false));
+    btnIgualarQuantidadesRelatorio.addEventListener('click', () => escolherQuantidadesRelatorio(true));
+    btnFecharCopiaRelatorio.addEventListener('click', fecharCopiaRelatorioWhatsapp);
+    btnCancelarCopiaRelatorio.addEventListener('click', fecharCopiaRelatorioWhatsapp);
+    modalCopiaRelatorioWhatsapp.addEventListener('click', (event) => {
+      if (event.target === modalCopiaRelatorioWhatsapp) fecharCopiaRelatorioWhatsapp();
+    });
     btnCancelarPedido.addEventListener('click', abrirModalCancelamento);
     btnFecharCancelamento.addEventListener('click', fecharModalCancelamento);
     btnVoltarCancelamento.addEventListener('click', fecharModalCancelamento);
@@ -3132,6 +3224,11 @@
     });
 
     document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !modalCopiaRelatorioWhatsapp.classList.contains('oculto')) {
+        fecharCopiaRelatorioWhatsapp();
+        return;
+      }
+
       if (event.key === 'Escape' && !modalCopia.classList.contains('oculto')) {
         fecharModalCopia();
         return;
