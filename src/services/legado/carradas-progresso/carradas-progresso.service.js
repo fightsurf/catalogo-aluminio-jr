@@ -957,6 +957,7 @@ async function buscarMatriz(codigoCarradaParam) {
       total: Number(pedido.total ?? 0),
       vendedor: { nome: limparTexto(pedido?.vendedor?.nome) },
       quantidadeItens: resumoPedido.quantidadeItens,
+      observacaoPedido: limparTexto(pedido?.observacaoPedido),
       cliente: {
         favorecido: pedido?.cliente?.favorecido ?? null,
         nome: pedido?.cliente?.nome || '',

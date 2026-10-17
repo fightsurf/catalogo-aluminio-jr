@@ -426,6 +426,11 @@
       color: var(--muted);
       line-height: 1.45;
     }
+    .pedido-observacao {
+      margin-top: 2px;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
     .cell-button {
       width: 100%;
       min-height: 40px;
@@ -1914,6 +1919,7 @@
           `;
         }).join('');
 
+        const observacaoPedido = String(pedido.observacaoPedido || '').trim();
         const nomeCliente = escapeHtml(pedido.cliente?.nome || '-');
         const nomeClienteHtml = pedido.cliente?.favorecido
           ? `<a class="cliente-link" href="/legado/pedidos-cliente?favorecido=${encodeURIComponent(pedido.cliente.favorecido)}" target="_blank" rel="noopener noreferrer">${nomeCliente}</a>`
@@ -1947,6 +1953,7 @@
                 <strong>Valor: ${escapeHtml(formatarMoeda(pedido.total))}</strong><br><br>
                 Vendedor: ${escapeHtml(pedido.vendedor?.nome || '-')}<br>
                 Qtde Itens: ${escapeHtml(pedido.quantidadeItens ?? 0)}
+                ${observacaoPedido ? `<div class="pedido-observacao"><strong>Observação:</strong> ${escapeHtml(observacaoPedido)}</div>` : ''}
               </div>
             </td>
             ${fasesHtml}
