@@ -104,15 +104,22 @@
 
         <div class="linha-importacao">
           <div>
+            <label class="rotulo-pequeno" for="tipoRelatorio">Tipo de relatório</label>
+            <select id="tipoRelatorio" class="campo">
+              <option value="automatico">Detectar automaticamente</option>
+              <option value="orcamento">Orçamento (mínimo: preço do cadastro)</option>
+              <option value="kit-feirinha">Kit Feirinha (mínimo: média do cadastro)</option>
+            </select>
+          </div>
+          <div>
             <label class="rotulo-pequeno" for="multiplicadorKit">Multiplicador do kit</label>
             <input id="multiplicadorKit" class="campo" type="number" min="1" step="1" value="1" />
           </div>
-          <div></div>
           <button id="btnImportarRelatorio" type="button">Importar itens</button>
         </div>
 
         <div class="caixa-explicativa">
-          Use multiplicador <strong>1</strong> para orçamento comum. Em kit feirinha, se o relatório vier com <strong>QTD: 1</strong>, informe aqui a quantidade de kits. Ex.: multiplicador 50 faz cada item entrar com quantidade 50.
+          Preço mínimo: no <strong>Orçamento</strong>, o preço atual de cada produto no PostgreSQL; no <strong>Kit Feirinha</strong>, a média ponderada atual do kit. Preços abaixo do mínimo são corrigidos e avisados; preços acima são mantidos para vendas com comissão. A detecção do tipo é automática por padrão. Se um orçamento tiver preços iguais, selecione <strong>Orçamento</strong>. Para vários kits, informe o multiplicador.
         </div>
 
         <div id="caixaNaoReconhecidos" class="caixa-alerta"></div>
@@ -209,6 +216,7 @@
     const perfilComprasConteudo = document.getElementById('perfilComprasConteudo');
 
     const textoRelatorio = document.getElementById('textoRelatorio');
+    const tipoRelatorio = document.getElementById('tipoRelatorio');
     const multiplicadorKit = document.getElementById('multiplicadorKit');
     const btnImportarRelatorio = document.getElementById('btnImportarRelatorio');
     const caixaNaoReconhecidos = document.getElementById('caixaNaoReconhecidos');
@@ -242,10 +250,10 @@
     let produtosEncontrados = [];
     let indiceProdutoAtivo = -1;
     let itensPedido = [];
+    let sequenciaGrupoKit = 0;
     let timerBuscaProduto = null;
     let salvando = false;
     let envioFotosEmAndamento = false;
-    let cacheProdutosImportacao = null;
     let carradasDisponiveis = [];
 
     function setMensagem(texto, erro = false) {
@@ -389,9 +397,9 @@
       }
 
       caixaNaoReconhecidos.innerHTML = `
-        <strong>Itens não reconhecidos no cadastro do Render:</strong>
+        <strong>Itens não identificados de maneira única no cadastro do Render:</strong>
         <ul>
-          ${lista.map((item) => `<li>${item.nome} | QTD: ${item.quantidade} | UNIT: ${formatarMoeda(item.preco)}</li>`).join('')}
+          ${lista.map((item) => `<li>${escapeHtml(item.nome)} | QTD: ${item.quantidade} | UNIT: ${formatarMoeda(item.preco)}</li>`).join('')}
         </ul>
       `;
       caixaNaoReconhecidos.style.display = 'block';
@@ -961,32 +969,46 @@
       buscaProduto.focus();
     }
 
-    function adicionarItemNormalizado({ produto, quantidade, preco }) {
+    function adicionarItemNormalizado({ produto, quantidade, preco, precoMinimo = null, grupoKit = null }) {
       if (!produto || !produto.id) return;
 
       const quantidadeNumero = Number(quantidade || 0);
-      const precoNumero = Number(preco || 0);
+      const precoNumero = arredondarDinheiro(preco);
+      const minimo = precoMinimo === null ? obterPrecoAtualProduto(produto) : arredondarDinheiro(precoMinimo);
 
-      const existente = itensPedido.find((item) => Number(item.produto_id) === Number(produto.id) && Number(item.preco) === precoNumero);
+      // Não misturar um item comum com um kit ao mesclar linhas de mesmo produto e preço.
+      const existente = itensPedido.find((item) =>
+        Number(item.produto_id) === Number(produto.id) &&
+        Number(item.preco) === precoNumero &&
+        (item.grupoKit || null) === grupoKit
+      );
 
       if (existente) {
         existente.quantidade = Number(existente.quantidade) + quantidadeNumero;
+        existente.precoMinimo = Math.max(Number(existente.precoMinimo || 0), minimo);
       } else {
         itensPedido.push({
           produto_id: Number(produto.id),
           item_legado: Number(produto?.item_legado || 0) || null,
           nome: produto.nome || 'Sem nome',
           quantidade: quantidadeNumero,
-          preco: precoNumero
+          preco: precoNumero,
+          precoMinimo: minimo,
+          grupoKit
         });
       }
     }
 
     function adicionarProdutoAoPedido(produto) {
-      adicionarItemNormalizado({ produto, quantidade: 1, preco: Number(produto?.preco || 0) });
-      renderItensPedido();
-      focarBuscaProduto();
-      setMensagem('');
+      try {
+        const preco = obterPrecoAtualProduto(produto);
+        adicionarItemNormalizado({ produto, quantidade: 1, preco, precoMinimo: preco });
+        renderItensPedido();
+        focarBuscaProduto();
+        setMensagem('');
+      } catch (error) {
+        setMensagem(error.message, true);
+      }
     }
 
     function calcularSubtotal(item) {
@@ -1022,9 +1044,9 @@
           <tbody>
             ${itensPedido.map((item, index) => `
               <tr>
-                <td>${item.nome}</td>
+                <td>${escapeHtml(item.nome)}</td>
                 <td class="valor"><input type="number" min="0.01" step="1" value="${item.quantidade}" data-campo="quantidade" data-index="${index}"></td>
-                <td class="valor"><input type="number" min="0" step="0.01" value="${Number(item.preco).toFixed(2)}" data-campo="preco" data-index="${index}"></td>
+                <td class="valor"><input type="number" min="${Number(item.precoMinimo || 0).toFixed(2)}" step="0.01" value="${Number(item.preco).toFixed(2)}" data-campo="preco" data-index="${index}"></td>
                 <td class="valor">${formatarMoeda(calcularSubtotal(item))}</td>
                 <td class="valor"><button type="button" class="secundario" data-remover="${index}">Remover</button></td>
               </tr>
@@ -1049,7 +1071,13 @@
           }
 
           if (campo === 'preco') {
-            itensPedido[index].preco = valor >= 0 ? valor : 0;
+            const minimo = Number(itensPedido[index]?.precoMinimo || 0);
+            if (arredondarDinheiro(valor) < minimo) {
+              itensPedido[index].preco = minimo;
+              setMensagem(`ATENÇÃO: ${itensPedido[index].nome} estava abaixo do preço mínimo (${formatarMoeda(minimo)}). O valor foi corrigido.`, true);
+            } else {
+              itensPedido[index].preco = arredondarDinheiro(valor);
+            }
           }
 
           renderItensPedido();
@@ -1104,26 +1132,27 @@
       const alvo = normalizarNome(nomeRelatorio);
       if (!alvo) return null;
 
-      let produto = produtos.find((item) => normalizarNome(item.nome) === alvo);
-      if (produto) return produto;
+      // Nunca escolher arbitrariamente um dos vários produtos com nome igual ou parecido.
+      const exatos = produtos.filter((item) => normalizarNome(item.nome) === alvo);
+      if (exatos.length === 1) return exatos[0];
+      if (exatos.length > 1) return null;
 
-      produto = produtos.find((item) => normalizarNome(item.nome).includes(alvo));
-      if (produto) return produto;
-
-      produto = produtos.find((item) => alvo.includes(normalizarNome(item.nome)));
-      return produto || null;
+      const semelhantes = produtos.filter((item) => {
+        const nome = normalizarNome(item.nome);
+        return nome.length >= 5 && (nome.includes(alvo) || alvo.includes(nome));
+      });
+      return semelhantes.length === 1 ? semelhantes[0] : null;
     }
 
     async function carregarProdutosParaImportacao() {
-      if (Array.isArray(cacheProdutosImportacao)) {
-        return cacheProdutosImportacao;
-      }
-
-      const response = await fetch('/api/produtos?ativos=true');
+      // Não reusar os preços de uma importação anterior: podem ter sido alterados no cadastro.
+      const response = await fetch('/api/produtos?ativos=true', { cache: 'no-store' });
       const json = await lerJson(response);
       const lista = Array.isArray(json?.data) ? json.data : [];
-      cacheProdutosImportacao = lista.filter((produto) => Number(produto?.item_legado) > 0);
-      return cacheProdutosImportacao;
+      if (!lista.length) {
+        throw new Error('Não foi possível obter os produtos e preços atuais do PostgreSQL. Nenhum item foi importado.');
+      }
+      return lista.filter((produto) => Number(produto?.item_legado) > 0);
     }
 
     function arredondarDinheiro(valor) {
@@ -1133,25 +1162,22 @@
     }
 
     function obterPrecoAtualProduto(produto) {
-      const preco = Number(produto?.preco ?? 0);
-      return Number.isFinite(preco) ? preco : 0;
+      const valor = produto?.preco;
+      const preco = valor === null || valor === undefined || String(valor).trim() === ''
+        ? NaN : Number(valor);
+      if (!Number.isFinite(preco) || preco <= 0) {
+        throw new Error(`Produto "${produto?.nome || '-'}" sem preço válido no cadastro do PostgreSQL. Nenhum item foi importado.`);
+      }
+      return arredondarDinheiro(preco);
     }
 
-    function precosImportadosIguais(itensReconhecidos) {
-      if (!Array.isArray(itensReconhecidos) || itensReconhecidos.length < 2) return false;
-
-      const produtosDistintos = new Set(
-        itensReconhecidos
-          .map((item) => Number(item?.produto?.id || 0))
-          .filter((id) => id > 0)
-      );
-
-      if (produtosDistintos.size < 2) return false;
-
-      const primeiroPreco = Number(itensReconhecidos[0]?.precoImportado || 0);
+    function precosImportadosIguais(itensExtraidos) {
+      if (!Array.isArray(itensExtraidos) || itensExtraidos.length < 2) return false;
+      const nomesDistintos = new Set(itensExtraidos.map((item) => normalizarNome(item?.nome)).filter(Boolean));
+      if (nomesDistintos.size < 2) return false;
+      const primeiroPreco = Number(itensExtraidos[0]?.preco);
       if (!Number.isFinite(primeiroPreco)) return false;
-
-      return itensReconhecidos.every((item) => Math.abs(Number(item?.precoImportado || 0) - primeiroPreco) < 0.01);
+      return itensExtraidos.every((item) => Math.abs(Number(item?.preco) - primeiroPreco) < 0.01);
     }
 
     function calcularPrecoMedioAtualizadoKit(itensReconhecidos) {
@@ -1174,23 +1200,22 @@
     async function importarRelatorio() {
       const texto = textoRelatorio.value.trim();
       const multiplicador = Number(multiplicadorKit.value || 1);
+      const modo = tipoRelatorio.value;
 
       if (!texto) {
         setMensagem('Cole o relatório antes de importar.', true);
         return;
       }
-
       if (!Number.isInteger(multiplicador) || multiplicador <= 0) {
         setMensagem('Informe um multiplicador inteiro maior que zero.', true);
         return;
       }
 
       try {
-        setMensagem('Importando itens do relatório...');
+        btnImportarRelatorio.disabled = true;
+        setMensagem('Conferindo os preços atuais no PostgreSQL...');
         setNaoReconhecidos([]);
-
         const itensExtraidos = extrairItensDoRelatorio(texto);
-
         if (!itensExtraidos.length) {
           throw new Error('Não encontrei itens válidos no texto colado.');
         }
@@ -1198,63 +1223,84 @@
         const produtos = await carregarProdutosParaImportacao();
         const naoReconhecidos = [];
         const itensReconhecidos = [];
-        let quantidadeImportada = 0;
-        let precosAtualizados = 0;
-
         itensExtraidos.forEach((item) => {
           const produto = localizarProdutoPorNome(produtos, item.nome);
           const quantidadeFinal = Number(item.quantidade) * multiplicador;
-
+          if (!Number.isFinite(quantidadeFinal) || quantidadeFinal <= 0) {
+            throw new Error(`Quantidade inválida para "${item.nome}".`);
+          }
           if (!produto) {
-            naoReconhecidos.push({
-              nome: item.nome,
-              quantidade: quantidadeFinal,
-              preco: item.preco
-            });
+            naoReconhecidos.push({ nome: item.nome, quantidade: quantidadeFinal, preco: item.preco });
             return;
           }
-
           itensReconhecidos.push({
             produto,
             quantidadeFinal,
-            precoImportado: Number(item.preco || 0)
+            precoImportado: Number(item.preco)
           });
         });
 
-        const kitFeirinhaDetectado = itensReconhecidos.length === itensExtraidos.length && precosImportadosIguais(itensReconhecidos);
-        const precoMedioAtualizadoKit = kitFeirinhaDetectado ? calcularPrecoMedioAtualizadoKit(itensReconhecidos) : null;
+        const precosUniformes = precosImportadosIguais(itensExtraidos);
+        const kitFeirinhaDetectado = modo === 'kit-feirinha' || (modo === 'automatico' && precosUniformes);
+        // Sem todos os itens, a média do kit estaria incorreta. Não gerar pedido parcial.
+        if (kitFeirinhaDetectado && naoReconhecidos.length) {
+          setNaoReconhecidos(naoReconhecidos);
+          throw new Error('Não foi possível conferir o preço médio do Kit Feirinha: há itens sem identificação única no cadastro. Corrija os nomes ou escolha Orçamento se não for um kit.');
+        }
+        if (!itensReconhecidos.length) {
+          setNaoReconhecidos(naoReconhecidos);
+          throw new Error('Nenhum item do relatório foi reconhecido com segurança no cadastro do Render.');
+        }
 
-        itensReconhecidos.forEach((item) => {
-          const precoAtualProduto = obterPrecoAtualProduto(item.produto);
-          const precoFinal = kitFeirinhaDetectado ? precoMedioAtualizadoKit : precoAtualProduto;
-
-          if (Math.abs(Number(precoFinal || 0) - Number(item.precoImportado || 0)) >= 0.01) {
-            precosAtualizados += 1;
+        // No kit, a referência é o preço médio do kit inteiro, não o preço individual.
+        // Em orçamento, cada item utiliza seu próprio preço do cadastro como mínimo.
+        const precoMedioAtualizadoKit = kitFeirinhaDetectado
+          ? calcularPrecoMedioAtualizadoKit(itensReconhecidos) : null;
+        const grupoKit = kitFeirinhaDetectado ? `kit-${++sequenciaGrupoKit}` : null;
+        const novosItens = itensReconhecidos.map((item) => {
+          const precoMinimo = kitFeirinhaDetectado
+            ? precoMedioAtualizadoKit : obterPrecoAtualProduto(item.produto);
+          if (!Number.isFinite(item.precoImportado) || item.precoImportado <= 0) {
+            throw new Error(`Preço inválido no relatório para "${item.produto.nome}". Nenhum item foi importado.`);
           }
-
-          adicionarItemNormalizado({
+          return {
             produto: item.produto,
             quantidade: item.quantidadeFinal,
-            preco: arredondarDinheiro(precoFinal)
-          });
-
-          quantidadeImportada += 1;
+            precoImportado: arredondarDinheiro(item.precoImportado),
+            precoMinimo,
+            grupoKit,
+            preco: Math.max(arredondarDinheiro(item.precoImportado), precoMinimo)
+          };
         });
+        const precosCorrigidos = novosItens.filter((item) => item.precoImportado < item.precoMinimo);
+        const precosAcima = novosItens.filter((item) => item.precoImportado > item.precoMinimo);
 
+        novosItens.forEach((item) => {
+          adicionarItemNormalizado({
+            produto: item.produto,
+            quantidade: item.quantidade,
+            preco: item.preco,
+            precoMinimo: item.precoMinimo,
+            grupoKit: item.grupoKit
+          });
+        });
         renderItensPedido();
         setNaoReconhecidos(naoReconhecidos);
 
-        if (!quantidadeImportada) {
-          throw new Error('Nenhum item do relatório foi reconhecido no cadastro do Render.');
-        }
-
-        const textoKit = kitFeirinhaDetectado ? ` Kit feirinha detectado: preço médio atualizado aplicado (${formatarMoeda(precoMedioAtualizadoKit)}).` : '';
-        const textoNaoReconhecidos = naoReconhecidos.length ? ` ${naoReconhecidos.length} não reconhecido(s).` : '';
-        const textoPrecos = precosAtualizados ? ` ${precosAtualizados} preço(s) atualizado(s) pelo cadastro atual.` : '';
-
-        setMensagem(`Importação concluída. ${quantidadeImportada} item(ns) reconhecido(s).${textoKit}${textoPrecos}${textoNaoReconhecidos}`);
+        const textoKit = kitFeirinhaDetectado
+          ? ` Kit Feirinha: preço mínimo médio ${formatarMoeda(precoMedioAtualizadoKit)}.`
+          : ' Orçamento: mínimos individuais consultados no PostgreSQL.';
+        const textoNaoReconhecidos = naoReconhecidos.length ? ` ${naoReconhecidos.length} não identificado(s) com segurança.` : '';
+        const resumoCorrecoes = precosCorrigidos.length
+          ? ` ATENÇÃO: ${precosCorrigidos.length} item(ns) com preço ABAIXO do mínimo foram corrigidos automaticamente: ` +
+            precosCorrigidos.map((item) => `${item.produto.nome} (${formatarMoeda(item.precoImportado)} → ${formatarMoeda(item.preco)})`).join('; ') + '.'
+          : ' Nenhum preço abaixo do mínimo.';
+        setMensagem(`Importação concluída: ${novosItens.length} item(ns).${textoKit}${resumoCorrecoes} ` +
+          `${precosAcima.length} preço(s) acima do cadastro mantido(s).${textoNaoReconhecidos}`, precosCorrigidos.length > 0 || naoReconhecidos.length > 0);
       } catch (error) {
         setMensagem(error.message, true);
+      } finally {
+        btnImportarRelatorio.disabled = false;
       }
     }
 
@@ -1296,6 +1342,45 @@
     }
 
 
+    async function conferirPrecosMinimosAntesDeSalvar() {
+      const produtosAtuais = await carregarProdutosParaImportacao();
+      const porId = new Map(produtosAtuais.map((produto) => [Number(produto.id), produto]));
+      const precosPorItem = new Map();
+      for (const item of itensPedido) {
+        const produto = porId.get(Number(item.produto_id));
+        if (!produto) {
+          throw new Error(`Não foi possível conferir o preço atual de "${item.nome}". O pedido não foi gravado.`);
+        }
+        precosPorItem.set(item, obterPrecoAtualProduto(produto));
+      }
+
+      // Manter a média de cada importação de kit separada. Quantidades alteradas
+      // manualmente são consideradas ao recalcular o mínimo do kit no salvamento.
+      const grupos = new Map();
+      for (const item of itensPedido) {
+        if (!item.grupoKit) continue;
+        const grupo = grupos.get(item.grupoKit) || { soma: 0, quantidade: 0 };
+        grupo.quantidade += Number(item.quantidade);
+        grupo.soma += Number(item.quantidade) * precosPorItem.get(item);
+        grupos.set(item.grupoKit, grupo);
+      }
+
+      const corrigidos = [];
+      for (const item of itensPedido) {
+        const grupo = item.grupoKit ? grupos.get(item.grupoKit) : null;
+        const minimo = grupo ? arredondarDinheiro(grupo.soma / grupo.quantidade) : precosPorItem.get(item);
+        if (!Number.isFinite(minimo) || minimo <= 0) {
+          throw new Error(`Preço mínimo inválido para "${item.nome}". O pedido não foi gravado.`);
+        }
+        item.precoMinimo = minimo;
+        if (!Number.isFinite(item.preco) || arredondarDinheiro(item.preco) < minimo) {
+          corrigidos.push(`${item.nome}: ${formatarMoeda(item.preco)} → ${formatarMoeda(minimo)}`);
+          item.preco = minimo;
+        }
+      }
+      return corrigidos;
+    }
+
     function montarPayload() {
       return {
         data: new Date().toISOString().slice(0, 10),
@@ -1335,6 +1420,14 @@
         salvando = true;
         btnSalvarPedido.disabled = true;
         resultadoSucesso.style.display = 'none';
+        setMensagem('Conferindo preços mínimos atuais antes de salvar...');
+        const corrigidos = await conferirPrecosMinimosAntesDeSalvar();
+        if (corrigidos.length) {
+          renderItensPedido();
+          setMensagem('ATENÇÃO: preços inferiores ao cadastro foram atualizados antes da gravação: ' +
+            corrigidos.join('; ') + '. Confira o novo total e clique novamente em Salvar pedido.', true);
+          return;
+        }
         setMensagem('Salvando pedido...');
 
         const response = await fetch('/api/legado/pedidos-insercao-v2', {
@@ -1412,6 +1505,7 @@ atualizarBotoesAcao();
 
 itensPedido = [];
 textoRelatorio.value = '';
+tipoRelatorio.value = 'automatico';
 multiplicadorKit.value = '1';
 obsPedido.value = '';
 volumesPedido.value = '0';
@@ -1440,6 +1534,7 @@ setMensagem([
       listaClientes.innerHTML = '';
       renderClienteSelecionado();
       textoRelatorio.value = '';
+      tipoRelatorio.value = 'automatico';
       multiplicadorKit.value = '1';
       obsPedido.value = '';
       volumesPedido.value = '0';
