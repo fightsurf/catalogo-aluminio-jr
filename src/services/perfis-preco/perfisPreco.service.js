@@ -168,7 +168,7 @@ function montarComissao(itens, total, modulo, perfilNome) {
   itens.forEach((p, i) => {
     if (i > 0) linhas.push(''); // Uma linha em branco entre os produtos.
     linhas.push(`• ${p.nome} | QTD: ${p.qtd}`);
-    linhas.push(`  Comissão unitária: R$ ${moeda(p.preco_venda_centavos - p.preco_base_centavos)}`);
+    linhas.push(`  Comissão unitária: R$ ${moeda(p.comissao_centavos / p.qtd)}`);
     linhas.push(`  Comissão do item: R$ ${moeda(p.comissao_centavos)}`);
   });
   linhas.push('', `COMISSÃO TOTAL: R$ ${moeda(total)}`);
@@ -196,7 +196,12 @@ async function construirPedido(token, modulo, recebidos) {
     const p = porId.get(item.id);
     if (!p) throw new Error('Produto indisponível neste módulo. Atualize a página.');
     const base = emCentavos(p.preco), venda = precoAjustadoCentavos(p.preco,perfil);
-    const comissao = (venda - base) * item.qtd;
+    // Percentual de comissão incide sobre o preço FINAL de venda por unidade.
+    // Perfil fixo conserva a comissão como acréscimo fixo por unidade.
+    const comissaoUnit = perfil.tipo === 'percentual'
+      ? Math.round(venda * Number(perfil.valor) / 100)
+      : venda - base;
+    const comissao = comissaoUnit * item.qtd;
     totalBase += base * item.qtd;
     totalVenda += venda * item.qtd;
     totalComissao += comissao;
