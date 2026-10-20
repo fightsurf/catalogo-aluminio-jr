@@ -1939,7 +1939,7 @@
         <label class="carrada-lote-item">
           <input type="checkbox" data-carrada-lote-numero value="${escapeHtml(pedido.numero)}" />
           <strong>Pedido ${escapeHtml(pedido.numero)}</strong>
-          <span>${escapeHtml(pedido.cliente?.nome || pedido.resumoPedido?.cliente?.nome || '-')}</span>
+          <span>${escapeHtml(pedido.cliente?.nome || pedido.resumoPedido?.cliente?.nome || '-')}${pedido.cliente?.cidade ? ` — ${escapeHtml([pedido.cliente.cidade, pedido.cliente?.uf].filter(Boolean).join(' / '))}` : ''}</span>
         </label>
       `).join('');
       el.checkboxCarradaLoteTodos.checked = false;
