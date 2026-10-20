@@ -361,19 +361,17 @@
     }
     .pedido-title-row { flex-wrap: wrap; }
     .pedido-title-row .pedido-title { margin-bottom: 0; }
-    .btn-carrada-pedido {
-      font-size: 11px;
-      font-weight: 700;
-      line-height: 1.1;
-      border: 1px solid #94a3b8;
-      background: #f1f5f9;
-      color: #1e293b;
-      padding: 5px 7px;
-      border-radius: 6px;
+    .link-carrada-pedido {
+      font-size: 12px;
+      line-height: 1.2;
+      color: #1d4ed8;
+      text-decoration: underline;
+      text-underline-offset: 2px;
       cursor: pointer;
     }
-    .btn-carrada-pedido:hover { background: #e2e8f0; }
-    .btn-carrada-pedido:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+    .link-carrada-pedido:hover { color: #1e40af; }
+    .link-carrada-pedido:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+    #feedbackMudarCarrada:empty { display: none; }
     .carrada-modal-dados { line-height: 1.65; font-size: 14px; }
     .carrada-modal-dados strong { color: #0f172a; }
     .carrada-modal-dados .carrada-atual { margin-top: 8px; }
@@ -991,16 +989,12 @@
       <div class="modal-body">
         <div id="mudarCarradaDadosPedido" class="summary-box carrada-modal-dados"></div>
         <div class="field">
-          <label for="inputBuscaCarradaDestino">Buscar carrada por código, data ou descrição</label>
-          <input id="inputBuscaCarradaDestino" type="search" placeholder="Pesquisar carrada..." autocomplete="off">
-        </div>
-        <div class="field">
           <label for="selectCarradaDestino">Nova carrada</label>
           <select id="selectCarradaDestino" required>
             <option value="">Carregando carradas...</option>
           </select>
         </div>
-        <div class="feedback" id="feedbackMudarCarrada" role="status" aria-live="polite">Escolha a nova carrada para transferir o pedido. Nenhuma mensagem será enviada pelo WhatsApp.</div>
+        <div class="feedback" id="feedbackMudarCarrada" role="status" aria-live="polite"></div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn-secondary" id="btnCancelarMudarCarrada" data-close-modal="modalMudarCarradaBackdrop">Cancelar</button>
@@ -1396,7 +1390,6 @@
       modalMudarCarradaBackdrop: document.getElementById('modalMudarCarradaBackdrop'),
       modalMudarCarradaTitulo: document.getElementById('modalMudarCarradaTitulo'),
       mudarCarradaDadosPedido: document.getElementById('mudarCarradaDadosPedido'),
-      inputBuscaCarradaDestino: document.getElementById('inputBuscaCarradaDestino'),
       selectCarradaDestino: document.getElementById('selectCarradaDestino'),
       feedbackMudarCarrada: document.getElementById('feedbackMudarCarrada'),
       btnSalvarMudarCarrada: document.getElementById('btnSalvarMudarCarrada'),
@@ -1638,10 +1631,6 @@
       element.className = `feedback${type ? ` ${type}` : ''}`;
     }
 
-    function textoBuscaCarrada(valor) {
-      return String(valor ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-    }
-
     function rotuloCarradaDestino(carrada) {
       return `Carrada ${carrada.codigo} • ${formatarData(carrada.data) || 'Sem data'} • ${carrada.descricao || 'Sem descrição'}`;
     }
@@ -1656,21 +1645,14 @@
     }
 
     function preencherCarradasDestino() {
-      const filtro = textoBuscaCarrada(el.inputBuscaCarradaDestino.value.trim());
       const selecionada = el.selectCarradaDestino.value;
-      const carradas = estado.mudarCarrada.carradas.filter((carrada) =>
-        !filtro || textoBuscaCarrada(rotuloCarradaDestino(carrada)).includes(filtro)
-      );
+      const carradas = estado.mudarCarrada.carradas;
       el.selectCarradaDestino.innerHTML = '<option value="">Selecione a carrada de destino</option>'
         + carradas.map((carrada) => `<option value="${escapeHtml(carrada.codigo)}">${escapeHtml(rotuloCarradaDestino(carrada))}</option>`).join('');
       if (carradas.some((carrada) => String(carrada.codigo) === String(selecionada))) {
         el.selectCarradaDestino.value = selecionada;
       }
-      if (!carradas.length) {
-        setFeedback(el.feedbackMudarCarrada, 'Nenhuma carrada encontrada para essa busca.', 'error');
-      } else {
-        setFeedback(el.feedbackMudarCarrada, 'Escolha a carrada de destino e clique em Salvar. A alteração não envia WhatsApp.');
-      }
+      setFeedback(el.feedbackMudarCarrada, carradas.length ? '' : 'Nenhuma carrada de destino disponível.', carradas.length ? '' : 'error');
       atualizarBotaoSalvarCarrada();
     }
 
@@ -1682,14 +1664,6 @@
       estado.mudarCarrada.carregando = true;
       estado.mudarCarrada.carradas = [];
       el.modalMudarCarradaTitulo.textContent = `Alterar carrada — pedido ${pedido.numero}`;
-      const itens = Array.isArray(pedido.resumoPedido?.itens) ? pedido.resumoPedido.itens : [];
-      const itensHtml = itens.length ? `
-        <details style="margin-top:8px">
-          <summary style="cursor:pointer;font-weight:700">Ver produtos do pedido (${itens.length})</summary>
-          <div style="max-height:150px;overflow-y:auto;margin-top:6px">
-            ${itens.map((item) => `<div>${escapeHtml(item.descricao || item.descricaoOriginal || item.item || 'Produto')} — ${escapeHtml(item.quantidade ?? 0)} un.</div>`).join('')}
-          </div>
-        </details>` : '';
       el.mudarCarradaDadosPedido.innerHTML = `
         <div><strong>Pedido:</strong> ${escapeHtml(pedido.numero)}</div>
         <div><strong>Cliente:</strong> ${escapeHtml(pedido.cliente?.nome || '-')}</div>
@@ -1698,10 +1672,8 @@
         <div><strong>Valor:</strong> ${escapeHtml(formatarMoeda(pedido.total))}</div>
         <div><strong>Quantidade de itens:</strong> ${escapeHtml(pedido.quantidadeItens ?? 0)}</div>
         ${pedido.observacaoPedido ? `<div><strong>Observação:</strong> ${escapeHtml(pedido.observacaoPedido)}</div>` : ''}
-        ${itensHtml}
         <div class="carrada-atual"><strong>Carrada atual:</strong> ${escapeHtml(rotuloCarradaDestino(estado.matriz?.carrada || { codigo: CODIGO_CARRADA }))}</div>
       `;
-      el.inputBuscaCarradaDestino.value = '';
       el.selectCarradaDestino.innerHTML = '<option value="">Carregando carradas...</option>';
       setFeedback(el.feedbackMudarCarrada, 'Carregando carradas disponíveis...');
       atualizarBotaoSalvarCarrada();
@@ -2121,7 +2093,7 @@
             <td class="sticky-col">
               <div class="pedido-title-row">
                 <div class="pedido-title"><a class="pedido-link" href="/legado/pedidos?numero=${encodeURIComponent(pedido.numero)}" target="_blank" rel="noopener noreferrer">Pedido ${escapeHtml(pedido.numero)}</a></div>
-                <button type="button" class="btn-carrada-pedido" data-mudar-carrada-numero="${escapeHtml(pedido.numero)}" title="Alterar a carrada deste pedido">Carrada</button>
+                <a href="#modalMudarCarradaBackdrop" class="link-carrada-pedido" data-mudar-carrada-numero="${escapeHtml(pedido.numero)}" aria-haspopup="dialog" aria-controls="modalMudarCarradaBackdrop" title="Alterar a carrada deste pedido">Carrada</a>
               </div>
               <div class="pedido-meta">
                 <span class="cliente-contato"><strong>${nomeClienteHtml}</strong>${telefoneClienteHtml}${impressoraClienteHtml}</span><br>
@@ -2138,11 +2110,11 @@
         `;
       }).join('');
 
-      el.tbodyMatriz.querySelectorAll('[data-mudar-carrada-numero]').forEach((botao) => {
-        botao.addEventListener('click', (event) => {
+      el.tbodyMatriz.querySelectorAll('[data-mudar-carrada-numero]').forEach((link) => {
+        link.addEventListener('click', (event) => {
           event.preventDefault();
           event.stopPropagation();
-          abrirModalMudarCarrada(botao.dataset.mudarCarradaNumero);
+          abrirModalMudarCarrada(link.dataset.mudarCarradaNumero);
         });
       });
 
@@ -4350,7 +4322,6 @@
     });
 
     el.btnSalvarMudarCarrada.addEventListener('click', salvarMudarCarrada);
-    el.inputBuscaCarradaDestino.addEventListener('input', preencherCarradasDestino);
     el.selectCarradaDestino.addEventListener('change', atualizarBotaoSalvarCarrada);
     el.btnRecarregar.addEventListener('click', carregarMatriz);
     el.btnRomaneioEntrega.addEventListener('click', abrirRomaneioEntrega);
