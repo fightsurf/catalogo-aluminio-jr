@@ -202,6 +202,110 @@
       gap: 8px;
       flex-wrap: wrap;
     }
+
+    /* Transferência de vários pedidos: modal compacto com rolagem só na lista. */
+    .carrada-lote-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 1100;
+      padding: 12px;
+      background: rgba(15, 23, 42, .55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+    .carrada-lote-backdrop.aberto { display: flex; }
+    .carrada-lote-modal {
+      width: min(650px, 100%);
+      max-height: calc(100dvh - 24px);
+      background: #fff;
+      color: var(--text);
+      border-radius: 12px;
+      box-shadow: 0 20px 50px rgba(0,0,0,.24);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .carrada-lote-cabecalho, .carrada-lote-rodape {
+      flex: 0 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 10px 12px;
+    }
+    .carrada-lote-cabecalho { border-bottom: 1px solid var(--line); }
+    .carrada-lote-rodape { border-top: 1px solid var(--line); justify-content: flex-end; }
+    .carrada-lote-cabecalho h2 { font-size: 16px; margin: 0 0 4px; }
+    .carrada-lote-cabecalho .muted { margin: 0; font-size: 11px; }
+    .carrada-lote-corpo {
+      min-height: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      padding: 10px 12px;
+    }
+    .carrada-lote-lista {
+      min-height: 60px;
+      max-height: 38dvh;
+      overflow-y: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overscroll-behavior: contain;
+    }
+    .carrada-lote-item {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 9px 11px;
+      border-bottom: 1px solid var(--line);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .carrada-lote-item:last-child { border-bottom: 0; }
+    .carrada-lote-item:hover { background: #f8fafc; }
+    .carrada-lote-item strong { min-width: 86px; flex: 0 0 auto; }
+    .carrada-lote-item input, .carrada-lote-todos input, .carrada-lote-sem-whatsapp input {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      flex: 0 0 auto;
+      accent-color: #1d4ed8;
+    }
+    .carrada-lote-todos, .carrada-lote-sem-whatsapp {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+    .carrada-lote-todos { font-weight: 700; }
+    .carrada-lote-campo label { display: block; font-size: 12px; margin-bottom: 4px; }
+    .carrada-lote-campo select {
+      width: 100%;
+      height: 36px;
+      padding: 6px 9px;
+      font-size: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+    .carrada-lote-cabecalho button, .carrada-lote-rodape button {
+      height: 34px;
+      padding: 0 12px;
+      border-radius: 8px;
+      font-size: 12px;
+    }
+    .carrada-lote-feedback { white-space: pre-wrap; font-size: 12px; line-height: 1.4; }
+    .carrada-lote-feedback:empty { display: none; }
+    .carrada-lote-feedback.erro { color: #991b1b; }
+    #btnMudarCarradaLote:disabled, .carrada-lote-backdrop button:disabled { cursor: not-allowed; opacity: .55; }
+    @media (max-width: 540px) {
+      .carrada-lote-item { flex-wrap: wrap; gap: 6px 9px; }
+      .carrada-lote-item span { flex: 1 1 145px; }
+      .carrada-lote-cabecalho h2 { font-size: 14px; }
+    }
     @media (max-width: 700px) {
       .resumo-grid {
         grid-template-columns: 1fr;
@@ -225,6 +329,7 @@
         <button class="btn-secondary" id="btnResumoItens">Resumo de itens</button>
         <button class="btn-secondary" id="btnResumoProducao">Resumo para produção</button>
         <button class="btn-secondary" id="btnProgresso">Progresso</button>
+        <button class="btn-primary" id="btnMudarCarradaLote" type="button" disabled>Modificar carrada dos pedidos</button>
         <button class="btn-secondary" id="btnEditar">Editar</button>
         <button class="btn-danger" id="btnExcluir">Excluir</button>
       </div>
@@ -235,9 +340,63 @@
     </div>
   </div>
 
+  <div class="carrada-lote-backdrop" id="modalMudarCarradaLoteBackdrop" aria-hidden="true">
+    <div class="carrada-lote-modal" role="dialog" aria-modal="true" aria-labelledby="modalMudarCarradaLoteTitulo">
+      <div class="carrada-lote-cabecalho">
+        <div>
+          <h2 id="modalMudarCarradaLoteTitulo">Modificar carrada dos pedidos</h2>
+          <p class="muted" id="subtituloMudarCarradaLote">Selecione os pedidos da carrada atual.</p>
+        </div>
+        <button class="btn-secondary" type="button" id="btnFecharMudarCarradaLote">Fechar</button>
+      </div>
+      <div class="carrada-lote-corpo">
+        <label class="carrada-lote-todos" for="checkboxCarradaLoteTodos">
+          <input type="checkbox" id="checkboxCarradaLoteTodos" /> Selecionar todos os pedidos
+        </label>
+        <div class="carrada-lote-lista" id="listaCarradaLotePedidos" aria-label="Pedidos da carrada atual"></div>
+        <div class="muted" id="contadorCarradaLote" aria-live="polite" style="font-size:12px">0 pedidos selecionados</div>
+        <div class="carrada-lote-campo">
+          <label for="selectCarradaLoteDestino">Nova carrada</label>
+          <select id="selectCarradaLoteDestino" required>
+            <option value="">Selecione a carrada de destino</option>
+          </select>
+        </div>
+        <label class="carrada-lote-sem-whatsapp" for="checkboxCarradaLoteNaoEnviarWhatsapp">
+          <input type="checkbox" id="checkboxCarradaLoteNaoEnviarWhatsapp" />
+          <span>Não enviar mensagem aos clientes (WhatsApp)</span>
+        </label>
+        <div class="carrada-lote-feedback" id="feedbackMudarCarradaLote" role="status" aria-live="polite"></div>
+      </div>
+      <div class="carrada-lote-rodape">
+        <button class="btn-secondary" type="button" id="btnCancelarMudarCarradaLote">Cancelar</button>
+        <button class="btn-primary" type="button" id="btnSalvarMudarCarradaLote" disabled>Salvar</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const params = new URLSearchParams(window.location.search);
     const codigo = params.get('codigo');
+    const estadoMudarCarradaLote = {
+      carrada: null,
+      carregando: false,
+      salvando: false,
+      abertura: 0
+    };
+    const elMudarCarradaLote = {
+      botao: document.getElementById('btnMudarCarradaLote'),
+      backdrop: document.getElementById('modalMudarCarradaLoteBackdrop'),
+      subtitulo: document.getElementById('subtituloMudarCarradaLote'),
+      lista: document.getElementById('listaCarradaLotePedidos'),
+      todos: document.getElementById('checkboxCarradaLoteTodos'),
+      contador: document.getElementById('contadorCarradaLote'),
+      destino: document.getElementById('selectCarradaLoteDestino'),
+      semWhatsapp: document.getElementById('checkboxCarradaLoteNaoEnviarWhatsapp'),
+      feedback: document.getElementById('feedbackMudarCarradaLote'),
+      salvar: document.getElementById('btnSalvarMudarCarradaLote'),
+      cancelar: document.getElementById('btnCancelarMudarCarradaLote'),
+      fechar: document.getElementById('btnFecharMudarCarradaLote')
+    };
 
     function escapeHtml(valor) {
       return String(valor ?? '')
@@ -517,6 +676,144 @@
     }
 
 
+    function feedbackMudarCarradaLote(mensagem, erro = false) {
+      elMudarCarradaLote.feedback.textContent = mensagem;
+      elMudarCarradaLote.feedback.classList.toggle('erro', erro);
+    }
+
+    function pedidosSelecionadosCarradaLote() {
+      return Array.from(elMudarCarradaLote.lista.querySelectorAll('input[data-carrada-lote-numero]:checked'))
+        .map((input) => input.value);
+    }
+
+    function atualizarSelecaoCarradaLote() {
+      const inputs = Array.from(elMudarCarradaLote.lista.querySelectorAll('input[data-carrada-lote-numero]'));
+      const selecionados = inputs.filter((input) => input.checked).length;
+      elMudarCarradaLote.todos.checked = inputs.length > 0 && selecionados === inputs.length;
+      elMudarCarradaLote.todos.indeterminate = selecionados > 0 && selecionados < inputs.length;
+      elMudarCarradaLote.todos.disabled = estadoMudarCarradaLote.salvando || !inputs.length;
+      elMudarCarradaLote.contador.textContent = `${selecionados} de ${inputs.length} pedido(s) selecionado(s)`;
+      const codigoDestino = Number(elMudarCarradaLote.destino.value);
+      elMudarCarradaLote.salvar.disabled = estadoMudarCarradaLote.salvando
+        || estadoMudarCarradaLote.carregando
+        || !selecionados
+        || !Number.isInteger(codigoDestino)
+        || codigoDestino <= 0
+        || String(codigoDestino) === String(codigo);
+    }
+
+    function fecharModalMudarCarradaLote() {
+      if (estadoMudarCarradaLote.salvando) return;
+      estadoMudarCarradaLote.abertura += 1;
+      elMudarCarradaLote.backdrop.classList.remove('aberto');
+      elMudarCarradaLote.backdrop.setAttribute('aria-hidden', 'true');
+      elMudarCarradaLote.botao.focus();
+    }
+
+    async function abrirModalMudarCarradaLote() {
+      if (estadoMudarCarradaLote.salvando || !estadoMudarCarradaLote.carrada) return;
+      const carrada = estadoMudarCarradaLote.carrada;
+      const pedidos = Array.isArray(carrada.pedidos) ? carrada.pedidos : [];
+      if (!pedidos.length) return;
+
+      const abertura = ++estadoMudarCarradaLote.abertura;
+      estadoMudarCarradaLote.carregando = true;
+      elMudarCarradaLote.subtitulo.textContent = `Carrada ${carrada.codigo} • ${formatarData(carrada.data) || 'Sem data'} • ${carrada.descricao || 'Sem descrição'}`;
+      elMudarCarradaLote.semWhatsapp.checked = false;
+      elMudarCarradaLote.lista.innerHTML = pedidos.map((pedido) => `
+        <label class="carrada-lote-item">
+          <input type="checkbox" data-carrada-lote-numero value="${escapeHtml(pedido.numero)}" />
+          <strong>Pedido ${escapeHtml(pedido.numero)}</strong>
+          <span>${escapeHtml(pedido.cliente?.nome || '-')}${pedido.cliente?.cidade ? ` — ${escapeHtml([pedido.cliente.cidade, pedido.cliente?.uf].filter(Boolean).join(' / '))}` : ''}</span>
+        </label>
+      `).join('');
+      elMudarCarradaLote.todos.checked = false;
+      elMudarCarradaLote.destino.innerHTML = '<option value="">Carregando carradas...</option>';
+      feedbackMudarCarradaLote('Carregando carradas disponíveis...');
+      atualizarSelecaoCarradaLote();
+      elMudarCarradaLote.backdrop.classList.add('aberto');
+      elMudarCarradaLote.backdrop.setAttribute('aria-hidden', 'false');
+      elMudarCarradaLote.fechar.focus();
+
+      try {
+        // O mesmo período da transferência em lote da tela de Progresso.
+        const disponiveis = await request(`/api/legado/carradas/${encodeURIComponent(codigo)}/carradas-disponiveis?dias=36500`);
+        if (abertura !== estadoMudarCarradaLote.abertura) return;
+        const carradas = (Array.isArray(disponiveis) ? disponiveis : [])
+          .filter((item) => Number.isInteger(Number(item?.codigo))
+            && Number(item.codigo) > 0 && String(item.codigo) !== String(codigo))
+          .sort((a, b) => new Date(b.data || 0).getTime() - new Date(a.data || 0).getTime()
+            || Number(b.codigo) - Number(a.codigo));
+        elMudarCarradaLote.destino.innerHTML = '<option value="">Selecione a carrada de destino</option>'
+          + carradas.map((item) => `<option value="${escapeHtml(item.codigo)}">${escapeHtml(`Carrada ${item.codigo} • ${formatarData(item.data) || 'Sem data'} • ${item.descricao || 'Sem descrição'}`)}</option>`).join('');
+        feedbackMudarCarradaLote(carradas.length ? '' : 'Nenhuma carrada de destino disponível.', !carradas.length);
+      } catch (error) {
+        if (abertura !== estadoMudarCarradaLote.abertura) return;
+        elMudarCarradaLote.destino.innerHTML = '<option value="">Não foi possível carregar as carradas</option>';
+        feedbackMudarCarradaLote(error.message || 'Erro ao listar as carradas.', true);
+      } finally {
+        if (abertura === estadoMudarCarradaLote.abertura) {
+          estadoMudarCarradaLote.carregando = false;
+          atualizarSelecaoCarradaLote();
+        }
+      }
+    }
+
+    async function salvarMudarCarradaLote() {
+      const numeros = pedidosSelecionadosCarradaLote();
+      const codigoDestino = Number(elMudarCarradaLote.destino.value);
+      if (estadoMudarCarradaLote.salvando || estadoMudarCarradaLote.carregando || !numeros.length) return;
+      if (!Number.isInteger(codigoDestino) || codigoDestino <= 0 || String(codigoDestino) === String(codigo)) {
+        feedbackMudarCarradaLote('Selecione uma carrada de destino diferente da atual.', true);
+        return;
+      }
+
+      const enviarWhatsapp = !elMudarCarradaLote.semWhatsapp.checked;
+      estadoMudarCarradaLote.salvando = true;
+      elMudarCarradaLote.cancelar.disabled = true;
+      elMudarCarradaLote.fechar.disabled = true;
+      elMudarCarradaLote.destino.disabled = true;
+      elMudarCarradaLote.semWhatsapp.disabled = true;
+      elMudarCarradaLote.lista.querySelectorAll('input').forEach((input) => { input.disabled = true; });
+      atualizarSelecaoCarradaLote();
+      const falhas = [];
+      let transferidos = 0;
+      try {
+        // Transferir sequencialmente evita reprocessamento de pedidos já concluídos.
+        for (let indice = 0; indice < numeros.length; indice += 1) {
+          const numero = numeros[indice];
+          feedbackMudarCarradaLote(`Transferindo ${indice + 1} de ${numeros.length}: pedido ${numero}${enviarWhatsapp ? ' (WhatsApp habilitado)' : ' (sem WhatsApp)'}...`);
+          try {
+            await moverPedido(numero, codigoDestino, enviarWhatsapp);
+            transferidos += 1;
+          } catch (error) {
+            falhas.push(`Pedido ${numero}: ${error.message || 'Falha desconhecida'}`);
+          }
+        }
+        if (!falhas.length) {
+          window.location.reload();
+          return;
+        }
+        const detalhes = falhas.slice(0, 10).join('\n');
+        const complemento = falhas.length > 10 ? `\n... e mais ${falhas.length - 10} falha(s).` : '';
+        if (transferidos) {
+          window.alert(`${transferidos} pedido(s) transferido(s); ${falhas.length} falha(s).\n${detalhes}${complemento}\nA carrada será recarregada. Confira os pedidos restantes antes de tentar novamente.`);
+          window.location.reload();
+          return;
+        }
+        feedbackMudarCarradaLote(`Nenhum pedido foi confirmado como transferido. ${falhas.join(' | ')}. Recarregue a página antes de tentar novamente.`, true);
+      } finally {
+        estadoMudarCarradaLote.salvando = false;
+        elMudarCarradaLote.cancelar.disabled = false;
+        elMudarCarradaLote.fechar.disabled = false;
+        elMudarCarradaLote.destino.disabled = false;
+        elMudarCarradaLote.semWhatsapp.disabled = false;
+        elMudarCarradaLote.lista.querySelectorAll('input').forEach((input) => { input.disabled = false; });
+        atualizarSelecaoCarradaLote();
+      }
+    }
+
+
     async function inicializarMoverCarrada() {
       const carradasDisponiveis = await carregarCarradasDisponiveis();
       const opcoes = Array.isArray(carradasDisponiveis) ? carradasDisponiveis : [];
@@ -646,6 +943,8 @@
           });
 
         renderCarrada(carrada, matrizProgresso);
+        estadoMudarCarradaLote.carrada = carrada;
+        elMudarCarradaLote.botao.disabled = !(Array.isArray(carrada?.pedidos) && carrada.pedidos.length);
         await inicializarNavegacaoCarradas(carrada);
         if (Array.isArray(carrada?.pedidos) && carrada.pedidos.length) {
           await inicializarMoverCarrada();
@@ -681,6 +980,27 @@
         window.location.href = '/legado/carradas';
       } catch (error) {
         alert(error.message);
+      }
+    });
+
+    elMudarCarradaLote.botao.addEventListener('click', abrirModalMudarCarradaLote);
+    elMudarCarradaLote.salvar.addEventListener('click', salvarMudarCarradaLote);
+    elMudarCarradaLote.cancelar.addEventListener('click', fecharModalMudarCarradaLote);
+    elMudarCarradaLote.fechar.addEventListener('click', fecharModalMudarCarradaLote);
+    elMudarCarradaLote.destino.addEventListener('change', atualizarSelecaoCarradaLote);
+    elMudarCarradaLote.lista.addEventListener('change', atualizarSelecaoCarradaLote);
+    elMudarCarradaLote.todos.addEventListener('change', () => {
+      elMudarCarradaLote.lista.querySelectorAll('input[data-carrada-lote-numero]').forEach((input) => {
+        input.checked = elMudarCarradaLote.todos.checked;
+      });
+      atualizarSelecaoCarradaLote();
+    });
+    elMudarCarradaLote.backdrop.addEventListener('click', (event) => {
+      if (event.target === elMudarCarradaLote.backdrop) fecharModalMudarCarradaLote();
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && elMudarCarradaLote.backdrop.classList.contains('aberto')) {
+        fecharModalMudarCarradaLote();
       }
     });
 
