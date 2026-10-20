@@ -376,6 +376,60 @@
     .carrada-modal-dados strong { color: #0f172a; }
     .carrada-modal-dados .carrada-atual { margin-top: 8px; }
     .carrada-modal-dados .carrada-atual strong { color: #1d4ed8; }
+    /* Apenas o modal de troca de carrada: compacto, sem afetar outros modais. */
+    #modalMudarCarradaBackdrop { padding: 12px; }
+    #modalMudarCarradaBackdrop .modal {
+      width: min(510px, 100%);
+      max-height: calc(100vh - 24px);
+      max-height: calc(100dvh - 24px);
+      border-radius: 12px;
+    }
+    #modalMudarCarradaBackdrop .modal-header,
+    #modalMudarCarradaBackdrop .modal-body,
+    #modalMudarCarradaBackdrop .modal-footer { padding: 10px 12px; }
+    #modalMudarCarradaBackdrop .modal-header { gap: 8px; align-items: center; }
+    #modalMudarCarradaBackdrop .modal-header h3 { font-size: 16px; line-height: 1.25; }
+    #modalMudarCarradaBackdrop .modal-header .muted { font-size: 11px; margin-top: 2px; }
+    #modalMudarCarradaBackdrop .modal-body { gap: 9px; }
+    #modalMudarCarradaBackdrop .summary-box { padding: 8px 10px; border-radius: 8px; }
+    #modalMudarCarradaBackdrop .carrada-modal-dados { font-size: 12px; line-height: 1.35; overflow-wrap: anywhere; }
+    #modalMudarCarradaBackdrop .carrada-modal-dados > div + div { margin-top: 2px; }
+    #modalMudarCarradaBackdrop .carrada-modal-dados .carrada-atual {
+      margin-top: 5px;
+      padding-top: 5px;
+      border-top: 1px solid var(--line);
+    }
+    #modalMudarCarradaBackdrop .field { gap: 4px; }
+    #modalMudarCarradaBackdrop .field select {
+      width: 100%;
+      min-width: 0;
+      padding: 7px 9px;
+      border-radius: 8px;
+      font-size: 12px;
+    }
+    #modalMudarCarradaBackdrop button { height: 34px; padding: 0 12px; border-radius: 8px; font-size: 12px; }
+    #modalMudarCarradaBackdrop .feedback { font-size: 12px; padding: 7px 9px; border-radius: 8px; }
+    .carrada-notificacao-opcao {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 3px 0;
+      font-size: 12px;
+      line-height: 1.3;
+      cursor: pointer;
+      user-select: none;
+    }
+    .carrada-notificacao-opcao input {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      accent-color: #1d4ed8;
+      cursor: pointer;
+      flex: 0 0 auto;
+    }
+    @media (max-width: 720px) {
+      #modalMudarCarradaBackdrop .modal-header { flex-direction: row; }
+    }
     .btn-impressora-pedido {
       width: 28px;
       height: 28px;
@@ -994,6 +1048,10 @@
             <option value="">Carregando carradas...</option>
           </select>
         </div>
+        <label class="carrada-notificacao-opcao" for="checkboxCarradaNaoEnviarWhatsapp">
+          <input type="checkbox" id="checkboxCarradaNaoEnviarWhatsapp" />
+          <span>Não enviar mensagem ao cliente (WhatsApp)</span>
+        </label>
         <div class="feedback" id="feedbackMudarCarrada" role="status" aria-live="polite"></div>
       </div>
       <div class="modal-footer">
@@ -1391,6 +1449,7 @@
       modalMudarCarradaTitulo: document.getElementById('modalMudarCarradaTitulo'),
       mudarCarradaDadosPedido: document.getElementById('mudarCarradaDadosPedido'),
       selectCarradaDestino: document.getElementById('selectCarradaDestino'),
+      checkboxCarradaNaoEnviarWhatsapp: document.getElementById('checkboxCarradaNaoEnviarWhatsapp'),
       feedbackMudarCarrada: document.getElementById('feedbackMudarCarrada'),
       btnSalvarMudarCarrada: document.getElementById('btnSalvarMudarCarrada'),
       btnCancelarMudarCarrada: document.getElementById('btnCancelarMudarCarrada'),
@@ -1618,6 +1677,8 @@
     }
 
     function fecharModal(backdrop) {
+      // Durante a transferência, impedir fechamento que pareça um cancelamento.
+      if (backdrop.id === 'modalMudarCarradaBackdrop' && estado.mudarCarrada.salvando) return;
       if (backdrop.id === 'modalEtiquetaBackdrop') fecharBuscaCidadeEtiqueta();
       backdrop.classList.remove('open');
     }
@@ -1663,6 +1724,8 @@
       estado.mudarCarrada.numero = String(pedido.numero);
       estado.mudarCarrada.carregando = true;
       estado.mudarCarrada.carradas = [];
+      // Cada abertura volta ao padrão: enviar WhatsApp ao cliente.
+      el.checkboxCarradaNaoEnviarWhatsapp.checked = false;
       el.modalMudarCarradaTitulo.textContent = `Alterar carrada — pedido ${pedido.numero}`;
       el.mudarCarradaDadosPedido.innerHTML = `
         <div><strong>Pedido:</strong> ${escapeHtml(pedido.numero)}</div>
@@ -1707,16 +1770,22 @@
         setFeedback(el.feedbackMudarCarrada, 'Selecione uma carrada de destino diferente da atual.', 'error');
         return;
       }
+      // Congela a preferência antes de iniciar a chamada para evitar mudanças durante o envio.
+      const enviarWhatsapp = !el.checkboxCarradaNaoEnviarWhatsapp.checked;
       estado.mudarCarrada.salvando = true;
       el.btnCancelarMudarCarrada.disabled = true;
+      el.checkboxCarradaNaoEnviarWhatsapp.disabled = true;
+      el.selectCarradaDestino.disabled = true;
       atualizarBotaoSalvarCarrada();
-      setFeedback(el.feedbackMudarCarrada, 'Transferindo pedido...');
+      setFeedback(el.feedbackMudarCarrada, enviarWhatsapp
+        ? 'Transferindo pedido e solicitando envio das mensagens ao cliente...'
+        : 'Transferindo pedido sem enviar WhatsApp...');
 
       try {
         await request(`/api/legado/carradas/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/mover`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ numero, codigoDestino, enviarWhatsapp: false })
+          body: JSON.stringify({ numero, codigoDestino, enviarWhatsapp })
         });
         // Recarrega a carrada de origem, sem navegar para o destino.
         window.location.reload();
@@ -1725,6 +1794,8 @@
       } finally {
         estado.mudarCarrada.salvando = false;
         el.btnCancelarMudarCarrada.disabled = false;
+        el.checkboxCarradaNaoEnviarWhatsapp.disabled = false;
+        el.selectCarradaDestino.disabled = false;
         atualizarBotaoSalvarCarrada();
       }
     }
