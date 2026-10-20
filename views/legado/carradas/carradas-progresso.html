@@ -427,6 +427,62 @@
       cursor: pointer;
       flex: 0 0 auto;
     }
+    /* Transferência em lote: lista rolável dentro do modal, sem rolagem na janela inteira. */
+    #modalMudarCarradaLoteBackdrop { padding: 12px; }
+    #modalMudarCarradaLoteBackdrop .modal {
+      width: min(650px, 100%);
+      max-height: calc(100dvh - 24px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-radius: 12px;
+    }
+    #modalMudarCarradaLoteBackdrop .modal-header,
+    #modalMudarCarradaLoteBackdrop .modal-footer { padding: 10px 12px; flex-shrink: 0; }
+    #modalMudarCarradaLoteBackdrop .modal-header { flex-direction: row; align-items: center; }
+    #modalMudarCarradaLoteBackdrop .modal-header h3 { font-size: 16px; }
+    #modalMudarCarradaLoteBackdrop .modal-header .muted { font-size: 11px; margin-top: 3px; }
+    #modalMudarCarradaLoteBackdrop .modal-body {
+      min-height: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      padding: 10px 12px;
+    }
+    .carrada-lote-lista {
+      overflow-y: auto;
+      min-height: 60px;
+      max-height: 38dvh;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overscroll-behavior: contain;
+    }
+    .carrada-lote-item {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      padding: 9px 11px;
+      border-bottom: 1px solid var(--line);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .carrada-lote-item:last-child { border-bottom: 0; }
+    .carrada-lote-item:hover { background: #f8fafc; }
+    .carrada-lote-item input, .carrada-lote-todos input {
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      flex: 0 0 auto;
+      accent-color: #1d4ed8;
+    }
+    .carrada-lote-item strong { display: inline-block; min-width: 86px; }
+    .carrada-lote-todos { display: flex; align-items: center; gap: 9px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    #modalMudarCarradaLoteBackdrop .field { gap: 4px; }
+    #modalMudarCarradaLoteBackdrop .field select { width: 100%; padding: 7px 9px; font-size: 12px; border-radius: 8px; }
+    #modalMudarCarradaLoteBackdrop button { height: 34px; padding: 0 12px; border-radius: 8px; font-size: 12px; }
+    #modalMudarCarradaLoteBackdrop .feedback { padding: 7px 9px; font-size: 12px; border-radius: 8px; }
+    #feedbackMudarCarradaLote:empty { display: none; }
     @media (max-width: 720px) {
       #modalMudarCarradaBackdrop .modal-header { flex-direction: row; }
     }
@@ -969,6 +1025,7 @@
         <button class="btn-secondary" id="btnProximaCarrada" disabled>Próxima carrada</button>
         <button class="btn-secondary" id="btnVoltar">Voltar para carradas</button>
         <button class="btn-secondary" id="btnRecarregar">Recarregar</button>
+        <button class="btn-primary" id="btnMudarCarradaLote" type="button" disabled>Modificar carrada dos pedidos</button>
         <button class="btn-secondary" id="btnRomaneioEntrega">Romaneio de entrega</button>
         <button class="btn-primary" id="btnEnviarWhatsappCarrada">Enviar WhatsApp da carrada</button>
       </div>
@@ -1057,6 +1114,40 @@
       <div class="modal-footer">
         <button type="button" class="btn-secondary" id="btnCancelarMudarCarrada" data-close-modal="modalMudarCarradaBackdrop">Cancelar</button>
         <button type="button" class="btn-primary" id="btnSalvarMudarCarrada" disabled>Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modalMudarCarradaLoteBackdrop">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalMudarCarradaLoteTitulo">
+      <div class="modal-header">
+        <div>
+          <h3 id="modalMudarCarradaLoteTitulo">Modificar carrada dos pedidos</h3>
+          <p class="muted" id="subtituloMudarCarradaLote">Selecione os pedidos da carrada atual.</p>
+        </div>
+        <button class="btn-secondary" type="button" data-close-modal="modalMudarCarradaLoteBackdrop">Fechar</button>
+      </div>
+      <div class="modal-body">
+        <label class="carrada-lote-todos" for="checkboxCarradaLoteTodos">
+          <input type="checkbox" id="checkboxCarradaLoteTodos" /> Selecionar todos os pedidos
+        </label>
+        <div class="carrada-lote-lista" id="listaCarradaLotePedidos" aria-label="Pedidos da carrada atual"></div>
+        <div class="muted" id="contadorCarradaLote" aria-live="polite" style="font-size:12px">0 pedidos selecionados</div>
+        <div class="field">
+          <label for="selectCarradaLoteDestino">Nova carrada</label>
+          <select id="selectCarradaLoteDestino" required>
+            <option value="">Selecione a carrada de destino</option>
+          </select>
+        </div>
+        <label class="carrada-notificacao-opcao" for="checkboxCarradaLoteNaoEnviarWhatsapp">
+          <input type="checkbox" id="checkboxCarradaLoteNaoEnviarWhatsapp" />
+          <span>Não enviar mensagem aos clientes (WhatsApp)</span>
+        </label>
+        <div class="feedback" id="feedbackMudarCarradaLote" role="status" aria-live="polite"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" id="btnCancelarMudarCarradaLote" data-close-modal="modalMudarCarradaLoteBackdrop">Cancelar</button>
+        <button type="button" class="btn-primary" id="btnSalvarMudarCarradaLote" disabled>Salvar</button>
       </div>
     </div>
   </div>
@@ -1405,6 +1496,7 @@
       matriz: null,
       pedidoModalAtual: null,
       mudarCarrada: { numero: null, salvando: false, carregando: false, carradas: [] },
+      mudarCarradaLote: { salvando: false, carregando: false, carradas: [], abertura: 0 },
       posVendaModal: { pedidoNumero: null, carregando: false },
       transportadoras: null,
       agenciasRecebimento: null,
@@ -1437,6 +1529,7 @@
       btnProximaCarrada: document.getElementById('btnProximaCarrada'),
       btnVoltar: document.getElementById('btnVoltar'),
       btnRecarregar: document.getElementById('btnRecarregar'),
+      btnMudarCarradaLote: document.getElementById('btnMudarCarradaLote'),
       btnRomaneioEntrega: document.getElementById('btnRomaneioEntrega'),
       checkboxIgnorarPedidosProntos: document.getElementById('checkboxIgnorarPedidosProntos'),
       btnEnviarWhatsappCarrada: document.getElementById('btnEnviarWhatsappCarrada'),
@@ -1453,6 +1546,16 @@
       feedbackMudarCarrada: document.getElementById('feedbackMudarCarrada'),
       btnSalvarMudarCarrada: document.getElementById('btnSalvarMudarCarrada'),
       btnCancelarMudarCarrada: document.getElementById('btnCancelarMudarCarrada'),
+      modalMudarCarradaLoteBackdrop: document.getElementById('modalMudarCarradaLoteBackdrop'),
+      subtituloMudarCarradaLote: document.getElementById('subtituloMudarCarradaLote'),
+      checkboxCarradaLoteTodos: document.getElementById('checkboxCarradaLoteTodos'),
+      listaCarradaLotePedidos: document.getElementById('listaCarradaLotePedidos'),
+      contadorCarradaLote: document.getElementById('contadorCarradaLote'),
+      selectCarradaLoteDestino: document.getElementById('selectCarradaLoteDestino'),
+      checkboxCarradaLoteNaoEnviarWhatsapp: document.getElementById('checkboxCarradaLoteNaoEnviarWhatsapp'),
+      feedbackMudarCarradaLote: document.getElementById('feedbackMudarCarradaLote'),
+      btnSalvarMudarCarradaLote: document.getElementById('btnSalvarMudarCarradaLote'),
+      btnCancelarMudarCarradaLote: document.getElementById('btnCancelarMudarCarradaLote'),
       modalRomaneioEntregaBackdrop: document.getElementById('modalRomaneioEntregaBackdrop'),
       modalRomaneioEntregaSubtitulo: document.getElementById('modalRomaneioEntregaSubtitulo'),
       romaneioEntregaResumo: document.getElementById('romaneioEntregaResumo'),
@@ -1679,6 +1782,7 @@
     function fecharModal(backdrop) {
       // Durante a transferência, impedir fechamento que pareça um cancelamento.
       if (backdrop.id === 'modalMudarCarradaBackdrop' && estado.mudarCarrada.salvando) return;
+      if (backdrop.id === 'modalMudarCarradaLoteBackdrop' && estado.mudarCarradaLote.salvando) return;
       if (backdrop.id === 'modalEtiquetaBackdrop') fecharBuscaCidadeEtiqueta();
       backdrop.classList.remove('open');
     }
@@ -1797,6 +1901,131 @@
         el.checkboxCarradaNaoEnviarWhatsapp.disabled = false;
         el.selectCarradaDestino.disabled = false;
         atualizarBotaoSalvarCarrada();
+      }
+    }
+
+    function pedidosSelecionadosCarradaLote() {
+      return Array.from(el.listaCarradaLotePedidos.querySelectorAll('input[data-carrada-lote-numero]:checked'))
+        .map((input) => input.value);
+    }
+
+    function atualizarSelecaoCarradaLote() {
+      const todos = Array.from(el.listaCarradaLotePedidos.querySelectorAll('input[data-carrada-lote-numero]'));
+      const selecionados = todos.filter((input) => input.checked).length;
+      el.checkboxCarradaLoteTodos.checked = todos.length > 0 && selecionados === todos.length;
+      el.checkboxCarradaLoteTodos.indeterminate = selecionados > 0 && selecionados < todos.length;
+      el.checkboxCarradaLoteTodos.disabled = estado.mudarCarradaLote.salvando || !todos.length;
+      el.contadorCarradaLote.textContent = `${selecionados} de ${todos.length} pedido(s) selecionado(s)`;
+      const codigo = Number(el.selectCarradaLoteDestino.value);
+      el.btnSalvarMudarCarradaLote.disabled = estado.mudarCarradaLote.salvando
+        || estado.mudarCarradaLote.carregando
+        || !selecionados
+        || !Number.isInteger(codigo)
+        || codigo <= 0
+        || String(codigo) === String(CODIGO_CARRADA);
+    }
+
+    async function abrirModalMudarCarradaLote() {
+      if (estado.mudarCarradaLote.salvando || estado.carregando) return;
+      const pedidos = Array.isArray(estado.matriz?.pedidos) ? estado.matriz.pedidos : [];
+      if (!pedidos.length) return;
+
+      const abertura = ++estado.mudarCarradaLote.abertura;
+      estado.mudarCarradaLote.carregando = true;
+      estado.mudarCarradaLote.carradas = [];
+      el.subtituloMudarCarradaLote.textContent = rotuloCarradaDestino(estado.matriz?.carrada || { codigo: CODIGO_CARRADA });
+      el.checkboxCarradaLoteNaoEnviarWhatsapp.checked = false;
+      el.listaCarradaLotePedidos.innerHTML = pedidos.map((pedido) => `
+        <label class="carrada-lote-item">
+          <input type="checkbox" data-carrada-lote-numero value="${escapeHtml(pedido.numero)}" />
+          <strong>Pedido ${escapeHtml(pedido.numero)}</strong>
+          <span>${escapeHtml(pedido.cliente?.nome || pedido.resumoPedido?.cliente?.nome || '-')}</span>
+        </label>
+      `).join('');
+      el.checkboxCarradaLoteTodos.checked = false;
+      el.selectCarradaLoteDestino.innerHTML = '<option value="">Carregando carradas...</option>';
+      setFeedback(el.feedbackMudarCarradaLote, 'Carregando carradas disponíveis...');
+      atualizarSelecaoCarradaLote();
+      abrirModal(el.modalMudarCarradaLoteBackdrop);
+
+      try {
+        const dados = await request(`/api/legado/carradas/${encodeURIComponent(CODIGO_CARRADA)}/carradas-disponiveis?dias=36500`);
+        if (abertura !== estado.mudarCarradaLote.abertura) return;
+        const carradas = (Array.isArray(dados) ? dados : [])
+          .filter((carrada) => Number.isInteger(Number(carrada?.codigo))
+            && Number(carrada.codigo) > 0 && String(carrada.codigo) !== String(CODIGO_CARRADA))
+          .sort((a, b) => new Date(b.data || 0).getTime() - new Date(a.data || 0).getTime()
+            || Number(b.codigo) - Number(a.codigo));
+        estado.mudarCarradaLote.carradas = carradas;
+        el.selectCarradaLoteDestino.innerHTML = '<option value="">Selecione a carrada de destino</option>'
+          + carradas.map((carrada) => `<option value="${escapeHtml(carrada.codigo)}">${escapeHtml(rotuloCarradaDestino(carrada))}</option>`).join('');
+        setFeedback(el.feedbackMudarCarradaLote, carradas.length ? '' : 'Nenhuma carrada de destino disponível.', carradas.length ? '' : 'error');
+      } catch (error) {
+        if (abertura !== estado.mudarCarradaLote.abertura) return;
+        el.selectCarradaLoteDestino.innerHTML = '<option value="">Não foi possível carregar as carradas</option>';
+        setFeedback(el.feedbackMudarCarradaLote, error.message || 'Erro ao listar as carradas.', 'error');
+      } finally {
+        if (abertura === estado.mudarCarradaLote.abertura) {
+          estado.mudarCarradaLote.carregando = false;
+          atualizarSelecaoCarradaLote();
+        }
+      }
+    }
+
+    async function salvarMudarCarradaLote() {
+      const numeros = pedidosSelecionadosCarradaLote();
+      const codigoDestino = Number(el.selectCarradaLoteDestino.value);
+      if (estado.mudarCarradaLote.salvando || estado.mudarCarradaLote.carregando || !numeros.length) return;
+      if (!Number.isInteger(codigoDestino) || codigoDestino <= 0 || String(codigoDestino) === String(CODIGO_CARRADA)) {
+        setFeedback(el.feedbackMudarCarradaLote, 'Selecione uma carrada de destino diferente da atual.', 'error');
+        return;
+      }
+      const enviarWhatsapp = !el.checkboxCarradaLoteNaoEnviarWhatsapp.checked;
+      estado.mudarCarradaLote.salvando = true;
+      el.btnCancelarMudarCarradaLote.disabled = true;
+      el.selectCarradaLoteDestino.disabled = true;
+      el.checkboxCarradaLoteNaoEnviarWhatsapp.disabled = true;
+      el.listaCarradaLotePedidos.querySelectorAll('input').forEach((input) => { input.disabled = true; });
+      atualizarSelecaoCarradaLote();
+      const falhas = [];
+      let transferidos = 0;
+      try {
+        // Usa a mesma API da transferência individual. Uma falha não faz reenvio automático
+        // nem repete uma transferência já concluída; após o lote, a origem é recarregada.
+        for (let indice = 0; indice < numeros.length; indice += 1) {
+          const numero = numeros[indice];
+          setFeedback(el.feedbackMudarCarradaLote,
+            `Transferindo ${indice + 1} de ${numeros.length}: pedido ${numero}${enviarWhatsapp ? ' (WhatsApp habilitado)' : ' (sem WhatsApp)'}...`);
+          try {
+            await request(`/api/legado/carradas/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/mover`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ numero, codigoDestino, enviarWhatsapp })
+            });
+            transferidos += 1;
+          } catch (error) {
+            falhas.push(`Pedido ${numero}: ${error.message || 'Falha desconhecida'}`);
+          }
+        }
+        if (!falhas.length) {
+          window.location.reload();
+          return;
+        }
+        const detalhes = falhas.slice(0, 10).join('\n');
+        const complemento = falhas.length > 10 ? `\n... e mais ${falhas.length - 10} falha(s).` : '';
+        if (transferidos) {
+          window.alert(`${transferidos} pedido(s) transferido(s); ${falhas.length} falha(s).\n${detalhes}${complemento}\nA carrada será recarregada. Confira os pedidos restantes antes de tentar novamente.`);
+          window.location.reload();
+          return;
+        }
+        setFeedback(el.feedbackMudarCarradaLote, `Nenhum pedido foi confirmado como transferido. ${falhas.join(' | ')}. Recarregue a página antes de tentar novamente.`, 'error');
+      } finally {
+        estado.mudarCarradaLote.salvando = false;
+        el.btnCancelarMudarCarradaLote.disabled = false;
+        el.selectCarradaLoteDestino.disabled = false;
+        el.checkboxCarradaLoteNaoEnviarWhatsapp.disabled = false;
+        el.listaCarradaLotePedidos.querySelectorAll('input').forEach((input) => { input.disabled = false; });
+        atualizarSelecaoCarradaLote();
       }
     }
 
@@ -2308,10 +2537,12 @@
       }
 
       estado.carregando = true;
+      el.btnMudarCarradaLote.disabled = true;
       el.tbodyMatriz.innerHTML = '<tr><td colspan="11" class="loading">Carregando progresso da carrada...</td></tr>';
 
       try {
         estado.matriz = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}`);
+        el.btnMudarCarradaLote.disabled = !(Array.isArray(estado.matriz?.pedidos) && estado.matriz.pedidos.length);
         renderCabecalho();
         renderCardsFases();
         renderMatriz();
@@ -4393,6 +4624,16 @@
     });
 
     el.btnSalvarMudarCarrada.addEventListener('click', salvarMudarCarrada);
+    el.btnMudarCarradaLote.addEventListener('click', abrirModalMudarCarradaLote);
+    el.btnSalvarMudarCarradaLote.addEventListener('click', salvarMudarCarradaLote);
+    el.selectCarradaLoteDestino.addEventListener('change', atualizarSelecaoCarradaLote);
+    el.listaCarradaLotePedidos.addEventListener('change', atualizarSelecaoCarradaLote);
+    el.checkboxCarradaLoteTodos.addEventListener('change', () => {
+      el.listaCarradaLotePedidos.querySelectorAll('input[data-carrada-lote-numero]').forEach((input) => {
+        input.checked = el.checkboxCarradaLoteTodos.checked;
+      });
+      atualizarSelecaoCarradaLote();
+    });
     el.selectCarradaDestino.addEventListener('change', atualizarBotaoSalvarCarrada);
     el.btnRecarregar.addEventListener('click', carregarMatriz);
     el.btnRomaneioEntrega.addEventListener('click', abrirRomaneioEntrega);
