@@ -119,7 +119,7 @@
         </div>
 
         <div class="caixa-explicativa">
-          Preço mínimo: no <strong>Orçamento</strong>, o preço atual de cada produto no PostgreSQL; no <strong>Kit Feirinha</strong>, a média ponderada atual do kit. Preços abaixo do mínimo são corrigidos e avisados; preços acima são mantidos para vendas com comissão. A detecção do tipo é automática por padrão. Se um orçamento tiver preços iguais, selecione <strong>Orçamento</strong>. Para vários kits, informe o multiplicador.
+          Na <strong>importação do WhatsApp</strong>, o preço do cadastro (Orçamento) ou a média ponderada (Kit Feirinha) é o mínimo: valores menores são corrigidos com aviso e valores maiores são preservados para vendas com comissão. <strong>Edições manuais na tabela</strong> podem ficar abaixo desse mínimo, mas exigem confirmação antes de salvar. A detecção do tipo é automática por padrão. Se um orçamento tiver preços iguais, selecione <strong>Orçamento</strong>. Para vários kits, informe o multiplicador.
         </div>
 
         <div id="caixaNaoReconhecidos" class="caixa-alerta"></div>
@@ -980,7 +980,8 @@
       const existente = itensPedido.find((item) =>
         Number(item.produto_id) === Number(produto.id) &&
         Number(item.preco) === precoNumero &&
-        (item.grupoKit || null) === grupoKit
+        (item.grupoKit || null) === grupoKit &&
+        !item.precoEditadoManualmente
       );
 
       if (existente) {
@@ -994,7 +995,8 @@
           quantidade: quantidadeNumero,
           preco: precoNumero,
           precoMinimo: minimo,
-          grupoKit
+          grupoKit,
+          precoEditadoManualmente: false
         });
       }
     }
@@ -1046,7 +1048,12 @@
               <tr>
                 <td>${escapeHtml(item.nome)}</td>
                 <td class="valor"><input type="number" min="0.01" step="1" value="${item.quantidade}" data-campo="quantidade" data-index="${index}"></td>
-                <td class="valor"><input type="number" min="${Number(item.precoMinimo || 0).toFixed(2)}" step="0.01" value="${Number(item.preco).toFixed(2)}" data-campo="preco" data-index="${index}"></td>
+                <td class="valor">
+                  <input type="number" min="0.01" step="0.01" value="${Number(item.preco).toFixed(2)}" data-campo="preco" data-index="${index}">
+                  ${item.precoEditadoManualmente && Number(item.preco) < Number(item.precoMinimo)
+                    ? `<small style="display:block; font-size:11px; color:#a33;">Manual: abaixo do cadastro (${formatarMoeda(item.precoMinimo)})</small>`
+                    : ''}
+                </td>
                 <td class="valor">${formatarMoeda(calcularSubtotal(item))}</td>
                 <td class="valor"><button type="button" class="secundario" data-remover="${index}">Remover</button></td>
               </tr>
@@ -1071,12 +1078,24 @@
           }
 
           if (campo === 'preco') {
-            const minimo = Number(itensPedido[index]?.precoMinimo || 0);
-            if (arredondarDinheiro(valor) < minimo) {
-              itensPedido[index].preco = minimo;
-              setMensagem(`ATENÇÃO: ${itensPedido[index].nome} estava abaixo do preço mínimo (${formatarMoeda(minimo)}). O valor foi corrigido.`, true);
+            const precoManual = arredondarDinheiro(valor);
+            if (precoManual <= 0) {
+              setMensagem('Informe um preço manual maior que zero.', true);
+              renderItensPedido();
+              return;
+            }
+
+            // A trava do preço mínimo atua na IMPORTAÇÃO, não na edição intencional.
+            // Marcar a exceção para que a conferência antes de salvar não a reverta.
+            if (precoManual !== Number(itensPedido[index].preco)) {
+              itensPedido[index].precoEditadoManualmente = true;
+            }
+            itensPedido[index].preco = precoManual;
+            const minimo = Number(itensPedido[index].precoMinimo || 0);
+            if (precoManual < minimo) {
+              setMensagem(`ATENÇÃO: ${itensPedido[index].nome} foi alterado manualmente para ${formatarMoeda(precoManual)}, abaixo do preço de referência (${formatarMoeda(minimo)}). Será solicitada confirmação ao salvar.`, true);
             } else {
-              itensPedido[index].preco = arredondarDinheiro(valor);
+              setMensagem('');
             }
           }
 
@@ -1366,6 +1385,7 @@
       }
 
       const corrigidos = [];
+      const abaixoDoMinimoManuais = [];
       for (const item of itensPedido) {
         const grupo = item.grupoKit ? grupos.get(item.grupoKit) : null;
         const minimo = grupo ? arredondarDinheiro(grupo.soma / grupo.quantidade) : precosPorItem.get(item);
@@ -1373,12 +1393,22 @@
           throw new Error(`Preço mínimo inválido para "${item.nome}". O pedido não foi gravado.`);
         }
         item.precoMinimo = minimo;
-        if (!Number.isFinite(item.preco) || arredondarDinheiro(item.preco) < minimo) {
-          corrigidos.push(`${item.nome}: ${formatarMoeda(item.preco)} → ${formatarMoeda(minimo)}`);
-          item.preco = minimo;
+        const preco = arredondarDinheiro(item.preco);
+        if (!Number.isFinite(preco) || preco <= 0) {
+          throw new Error(`Preço inválido para "${item.nome}". Informe um valor maior que zero.`);
+        }
+        if (preco < minimo) {
+          if (item.precoEditadoManualmente) {
+            // Exceção explícita, confirmada pelo operador antes da gravação.
+            abaixoDoMinimoManuais.push(`${item.nome}: ${formatarMoeda(preco)} (referência ${formatarMoeda(minimo)})`);
+          } else {
+            // Preço de relatório não pode ficar abaixo do mínimo, nem se o cadastro mudar.
+            corrigidos.push(`${item.nome}: ${formatarMoeda(preco)} → ${formatarMoeda(minimo)}`);
+            item.preco = minimo;
+          }
         }
       }
-      return corrigidos;
+      return { corrigidos, abaixoDoMinimoManuais };
     }
 
     function montarPayload() {
@@ -1421,12 +1451,23 @@
         btnSalvarPedido.disabled = true;
         resultadoSucesso.style.display = 'none';
         setMensagem('Conferindo preços mínimos atuais antes de salvar...');
-        const corrigidos = await conferirPrecosMinimosAntesDeSalvar();
+        const { corrigidos, abaixoDoMinimoManuais } = await conferirPrecosMinimosAntesDeSalvar();
         if (corrigidos.length) {
           renderItensPedido();
-          setMensagem('ATENÇÃO: preços inferiores ao cadastro foram atualizados antes da gravação: ' +
+          setMensagem('ATENÇÃO: preços importados inferiores ao cadastro foram atualizados antes da gravação: ' +
             corrigidos.join('; ') + '. Confira o novo total e clique novamente em Salvar pedido.', true);
           return;
+        }
+        if (abaixoDoMinimoManuais.length) {
+          const confirmado = window.confirm(
+            'Os preços abaixo da referência foram alterados MANUALMENTE:\n\n' +
+            abaixoDoMinimoManuais.join('\n') +
+            '\n\nDeseja gravar o pedido com esses preços menores?'
+          );
+          if (!confirmado) {
+            setMensagem('Gravação cancelada. Os preços manuais foram preservados para revisão.', true);
+            return;
+          }
         }
         setMensagem('Salvando pedido...');
 
