@@ -359,7 +359,25 @@
       gap: 6px;
       margin-bottom: 3px;
     }
+    .pedido-title-row { flex-wrap: wrap; }
     .pedido-title-row .pedido-title { margin-bottom: 0; }
+    .btn-carrada-pedido {
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.1;
+      border: 1px solid #94a3b8;
+      background: #f1f5f9;
+      color: #1e293b;
+      padding: 5px 7px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .btn-carrada-pedido:hover { background: #e2e8f0; }
+    .btn-carrada-pedido:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+    .carrada-modal-dados { line-height: 1.65; font-size: 14px; }
+    .carrada-modal-dados strong { color: #0f172a; }
+    .carrada-modal-dados .carrada-atual { margin-top: 8px; }
+    .carrada-modal-dados .carrada-atual strong { color: #1d4ed8; }
     .btn-impressora-pedido {
       width: 28px;
       height: 28px;
@@ -961,6 +979,36 @@
     </section>
   </div>
 
+  <div class="modal-backdrop" id="modalMudarCarradaBackdrop">
+    <div class="modal" style="width:min(580px,100%)" role="dialog" aria-modal="true" aria-labelledby="modalMudarCarradaTitulo">
+      <div class="modal-header">
+        <div>
+          <h3 id="modalMudarCarradaTitulo">Alterar carrada do pedido</h3>
+          <p class="muted">Transfira o pedido para outra carrada sem alterar seus dados.</p>
+        </div>
+        <button class="btn-secondary" type="button" data-close-modal="modalMudarCarradaBackdrop">Fechar</button>
+      </div>
+      <div class="modal-body">
+        <div id="mudarCarradaDadosPedido" class="summary-box carrada-modal-dados"></div>
+        <div class="field">
+          <label for="inputBuscaCarradaDestino">Buscar carrada por código, data ou descrição</label>
+          <input id="inputBuscaCarradaDestino" type="search" placeholder="Pesquisar carrada..." autocomplete="off">
+        </div>
+        <div class="field">
+          <label for="selectCarradaDestino">Nova carrada</label>
+          <select id="selectCarradaDestino" required>
+            <option value="">Carregando carradas...</option>
+          </select>
+        </div>
+        <div class="feedback" id="feedbackMudarCarrada" role="status" aria-live="polite">Escolha a nova carrada para transferir o pedido. Nenhuma mensagem será enviada pelo WhatsApp.</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" id="btnCancelarMudarCarrada" data-close-modal="modalMudarCarradaBackdrop">Cancelar</button>
+        <button type="button" class="btn-primary" id="btnSalvarMudarCarrada" disabled>Salvar</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-backdrop" id="modalRomaneioEntregaBackdrop">
     <div class="modal romaneio-modal">
       <div class="modal-header">
@@ -1304,6 +1352,7 @@
       carregando: false,
       matriz: null,
       pedidoModalAtual: null,
+      mudarCarrada: { numero: null, salvando: false, carregando: false, carradas: [] },
       posVendaModal: { pedidoNumero: null, carregando: false },
       transportadoras: null,
       agenciasRecebimento: null,
@@ -1344,6 +1393,14 @@
       cardsCabecalho: document.getElementById('cardsCabecalho'),
       cardsFases: document.getElementById('cardsFases'),
       tbodyMatriz: document.getElementById('tbodyMatriz'),
+      modalMudarCarradaBackdrop: document.getElementById('modalMudarCarradaBackdrop'),
+      modalMudarCarradaTitulo: document.getElementById('modalMudarCarradaTitulo'),
+      mudarCarradaDadosPedido: document.getElementById('mudarCarradaDadosPedido'),
+      inputBuscaCarradaDestino: document.getElementById('inputBuscaCarradaDestino'),
+      selectCarradaDestino: document.getElementById('selectCarradaDestino'),
+      feedbackMudarCarrada: document.getElementById('feedbackMudarCarrada'),
+      btnSalvarMudarCarrada: document.getElementById('btnSalvarMudarCarrada'),
+      btnCancelarMudarCarrada: document.getElementById('btnCancelarMudarCarrada'),
       modalRomaneioEntregaBackdrop: document.getElementById('modalRomaneioEntregaBackdrop'),
       modalRomaneioEntregaSubtitulo: document.getElementById('modalRomaneioEntregaSubtitulo'),
       romaneioEntregaResumo: document.getElementById('romaneioEntregaResumo'),
@@ -1579,6 +1636,125 @@
     function setFeedback(element, message, type = '') {
       element.textContent = message;
       element.className = `feedback${type ? ` ${type}` : ''}`;
+    }
+
+    function textoBuscaCarrada(valor) {
+      return String(valor ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    }
+
+    function rotuloCarradaDestino(carrada) {
+      return `Carrada ${carrada.codigo} • ${formatarData(carrada.data) || 'Sem data'} • ${carrada.descricao || 'Sem descrição'}`;
+    }
+
+    function atualizarBotaoSalvarCarrada() {
+      const codigo = Number(el.selectCarradaDestino.value);
+      el.btnSalvarMudarCarrada.disabled = estado.mudarCarrada.salvando
+        || estado.mudarCarrada.carregando
+        || !Number.isInteger(codigo)
+        || codigo <= 0
+        || String(codigo) === String(CODIGO_CARRADA);
+    }
+
+    function preencherCarradasDestino() {
+      const filtro = textoBuscaCarrada(el.inputBuscaCarradaDestino.value.trim());
+      const selecionada = el.selectCarradaDestino.value;
+      const carradas = estado.mudarCarrada.carradas.filter((carrada) =>
+        !filtro || textoBuscaCarrada(rotuloCarradaDestino(carrada)).includes(filtro)
+      );
+      el.selectCarradaDestino.innerHTML = '<option value="">Selecione a carrada de destino</option>'
+        + carradas.map((carrada) => `<option value="${escapeHtml(carrada.codigo)}">${escapeHtml(rotuloCarradaDestino(carrada))}</option>`).join('');
+      if (carradas.some((carrada) => String(carrada.codigo) === String(selecionada))) {
+        el.selectCarradaDestino.value = selecionada;
+      }
+      if (!carradas.length) {
+        setFeedback(el.feedbackMudarCarrada, 'Nenhuma carrada encontrada para essa busca.', 'error');
+      } else {
+        setFeedback(el.feedbackMudarCarrada, 'Escolha a carrada de destino e clique em Salvar. A alteração não envia WhatsApp.');
+      }
+      atualizarBotaoSalvarCarrada();
+    }
+
+    async function abrirModalMudarCarrada(numeroPedido) {
+      const pedido = obterPedido(numeroPedido);
+      if (!pedido || estado.mudarCarrada.salvando) return;
+
+      estado.mudarCarrada.numero = String(pedido.numero);
+      estado.mudarCarrada.carregando = true;
+      estado.mudarCarrada.carradas = [];
+      el.modalMudarCarradaTitulo.textContent = `Alterar carrada — pedido ${pedido.numero}`;
+      const itens = Array.isArray(pedido.resumoPedido?.itens) ? pedido.resumoPedido.itens : [];
+      const itensHtml = itens.length ? `
+        <details style="margin-top:8px">
+          <summary style="cursor:pointer;font-weight:700">Ver produtos do pedido (${itens.length})</summary>
+          <div style="max-height:150px;overflow-y:auto;margin-top:6px">
+            ${itens.map((item) => `<div>${escapeHtml(item.descricao || item.descricaoOriginal || item.item || 'Produto')} — ${escapeHtml(item.quantidade ?? 0)} un.</div>`).join('')}
+          </div>
+        </details>` : '';
+      el.mudarCarradaDadosPedido.innerHTML = `
+        <div><strong>Pedido:</strong> ${escapeHtml(pedido.numero)}</div>
+        <div><strong>Cliente:</strong> ${escapeHtml(pedido.cliente?.nome || '-')}</div>
+        <div><strong>Cidade:</strong> ${escapeHtml([pedido.cliente?.cidade, pedido.cliente?.uf].filter(Boolean).join(' / ') || '-')}</div>
+        <div><strong>Data:</strong> ${escapeHtml(formatarData(pedido.data) || '-')}</div>
+        <div><strong>Valor:</strong> ${escapeHtml(formatarMoeda(pedido.total))}</div>
+        <div><strong>Quantidade de itens:</strong> ${escapeHtml(pedido.quantidadeItens ?? 0)}</div>
+        ${pedido.observacaoPedido ? `<div><strong>Observação:</strong> ${escapeHtml(pedido.observacaoPedido)}</div>` : ''}
+        ${itensHtml}
+        <div class="carrada-atual"><strong>Carrada atual:</strong> ${escapeHtml(rotuloCarradaDestino(estado.matriz?.carrada || { codigo: CODIGO_CARRADA }))}</div>
+      `;
+      el.inputBuscaCarradaDestino.value = '';
+      el.selectCarradaDestino.innerHTML = '<option value="">Carregando carradas...</option>';
+      setFeedback(el.feedbackMudarCarrada, 'Carregando carradas disponíveis...');
+      atualizarBotaoSalvarCarrada();
+      abrirModal(el.modalMudarCarradaBackdrop);
+
+      try {
+        // Listagem completa, inclusive carradas antigas e futuras; não altera status de pedidos.
+        const dados = await request(`/api/legado/carradas/${encodeURIComponent(CODIGO_CARRADA)}/carradas-disponiveis?dias=36500`);
+        if (estado.mudarCarrada.numero !== String(pedido.numero)) return;
+        estado.mudarCarrada.carradas = (Array.isArray(dados) ? dados : [])
+          .filter((carrada) => Number.isInteger(Number(carrada?.codigo)) && Number(carrada.codigo) > 0 && String(carrada.codigo) !== String(CODIGO_CARRADA))
+          .sort((a, b) => {
+            const datas = new Date(b.data || 0).getTime() - new Date(a.data || 0).getTime();
+            return datas || Number(b.codigo) - Number(a.codigo);
+          });
+        preencherCarradasDestino();
+      } catch (error) {
+        el.selectCarradaDestino.innerHTML = '<option value="">Não foi possível carregar as carradas</option>';
+        setFeedback(el.feedbackMudarCarrada, error.message || 'Erro ao listar as carradas.', 'error');
+      } finally {
+        estado.mudarCarrada.carregando = false;
+        atualizarBotaoSalvarCarrada();
+      }
+    }
+
+    async function salvarMudarCarrada() {
+      const numero = estado.mudarCarrada.numero;
+      const codigoDestino = Number(el.selectCarradaDestino.value);
+      if (!numero || estado.mudarCarrada.salvando || estado.mudarCarrada.carregando) return;
+      if (!Number.isInteger(codigoDestino) || codigoDestino <= 0 || String(codigoDestino) === String(CODIGO_CARRADA)) {
+        setFeedback(el.feedbackMudarCarrada, 'Selecione uma carrada de destino diferente da atual.', 'error');
+        return;
+      }
+      estado.mudarCarrada.salvando = true;
+      el.btnCancelarMudarCarrada.disabled = true;
+      atualizarBotaoSalvarCarrada();
+      setFeedback(el.feedbackMudarCarrada, 'Transferindo pedido...');
+
+      try {
+        await request(`/api/legado/carradas/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/mover`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ numero, codigoDestino, enviarWhatsapp: false })
+        });
+        // Recarrega a carrada de origem, sem navegar para o destino.
+        window.location.reload();
+      } catch (error) {
+        setFeedback(el.feedbackMudarCarrada, error.message || 'Não foi possível alterar a carrada.', 'error');
+      } finally {
+        estado.mudarCarrada.salvando = false;
+        el.btnCancelarMudarCarrada.disabled = false;
+        atualizarBotaoSalvarCarrada();
+      }
     }
 
     function abrirWhatsappCliente(numeroPedido) {
@@ -1945,6 +2121,7 @@
             <td class="sticky-col">
               <div class="pedido-title-row">
                 <div class="pedido-title"><a class="pedido-link" href="/legado/pedidos?numero=${encodeURIComponent(pedido.numero)}" target="_blank" rel="noopener noreferrer">Pedido ${escapeHtml(pedido.numero)}</a></div>
+                <button type="button" class="btn-carrada-pedido" data-mudar-carrada-numero="${escapeHtml(pedido.numero)}" title="Alterar a carrada deste pedido">Carrada</button>
               </div>
               <div class="pedido-meta">
                 <span class="cliente-contato"><strong>${nomeClienteHtml}</strong>${telefoneClienteHtml}${impressoraClienteHtml}</span><br>
@@ -1960,6 +2137,14 @@
           </tr>
         `;
       }).join('');
+
+      el.tbodyMatriz.querySelectorAll('[data-mudar-carrada-numero]').forEach((botao) => {
+        botao.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          abrirModalMudarCarrada(botao.dataset.mudarCarradaNumero);
+        });
+      });
 
       el.tbodyMatriz.querySelectorAll('[data-imprimir-pedido]').forEach((botao) => {
         botao.addEventListener('click', (event) => {
@@ -4164,6 +4349,9 @@
       window.location.href = '/legado/carradas';
     });
 
+    el.btnSalvarMudarCarrada.addEventListener('click', salvarMudarCarrada);
+    el.inputBuscaCarradaDestino.addEventListener('input', preencherCarradasDestino);
+    el.selectCarradaDestino.addEventListener('change', atualizarBotaoSalvarCarrada);
     el.btnRecarregar.addEventListener('click', carregarMatriz);
     el.btnRomaneioEntrega.addEventListener('click', abrirRomaneioEntrega);
     el.btnCopiarRomaneioWhatsapp?.addEventListener('click', copiarRomaneioWhatsapp);
