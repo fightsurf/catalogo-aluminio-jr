@@ -1652,10 +1652,107 @@ async function salvarFaseBooleana({ codigoCarrada: codigoCarradaParam, numeroPed
 }
 
 /**
- * Envio da NF pelo lote: somente registra a fase verde após a Z-API aceitar
- * a mensagem. A trava no PostgreSQL impede dois disparos simultâneos para o
- * mesmo pedido, mesmo em instâncias diferentes do Render.
+ * Envio do aviso de produção em lote: marcar verde somente depois da Z-API.
+ * A trava no PostgreSQL impede disparos simultâneos do lote para o mesmo pedido.
  */
+async function enviarInicioProducaoPedido({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam }) {
+  await garantirTabelasModulo();
+  const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
+  const numeroPedido = normalizarNumeroPedido(numeroPedidoParam);
+  const chaveTrava = `entrada-producao:${numeroPedido}`;
+  const conexao = await pool.connect();
+  let possuiTrava = false;
+
+  try {
+    const trava = await conexao.query(
+      'SELECT pg_try_advisory_lock($1::integer, hashtext($2::text)) AS adquirido',
+      [20261021, chaveTrava]
+    );
+    possuiTrava = trava.rows[0]?.adquirido === true;
+    if (!possuiTrava) throw criarErro(`Já existe um envio de entrada em produção em andamento para o pedido ${numeroPedido}.`, 409);
+
+    const carrada = await carradasService.buscarResumoCarrada(codigoCarrada);
+    if (!carrada) throw criarErro('Carrada não encontrada.', 404);
+    const pedido = encontrarPedidoNaCarrada(carrada, numeroPedido);
+    const { saida } = obterIdentificadoresPedido(pedido, numeroPedido);
+    const anterior = await buscarUltimaFaseBooleanaPorPedido({ saida, numeroPedido, faseCodigo: 'EM_PRODUCAO' });
+    if (anterior?.valor_boolean === true) {
+      return { numeroPedido, enviado: false, jaConcluido: true };
+    }
+
+    const detalhePagamento = await buscarDetalhePagamentoDoPedido(pedido);
+    const telefone = normalizarTelefoneLote(pedido, detalhePagamento);
+    if (!telefone) throw criarErro(`Pedido ${numeroPedido}: cliente sem telefone cadastrado.`, 400);
+    const resumoPedido = montarResumoPedido(pedido, detalhePagamento);
+    const mensagem = FASES_BOOLEANAS.EM_PRODUCAO.construirMensagem({
+      numeroPedido,
+      nomeCliente: resumoPedido?.cliente?.nome || 'Cliente',
+      valorPedido: resumoPedido?.valorPedido || pedido?.total || 0,
+      data: formatarDataBR(new Date()),
+      dataCarrada: formatarDataBR(carrada?.data),
+      descricaoCarrada: carrada?.descricao || ''
+    });
+
+    let envio;
+    try {
+      envio = await whatsappService.enviarMensagem({ telefone, mensagem });
+    } catch (error) {
+      try {
+        await registrarNotificacao({
+          faseCodigo: 'EM_PRODUCAO', codigoCarrada, numeroPedido,
+          telefone, mensagem, statusEnvio: 'erro', respostaApi: { error: error.message }
+        });
+      } catch (erroRegistro) {
+        console.warn('Não foi possível registrar falha do WhatsApp produção:', erroRegistro.message);
+      }
+      throw error;
+    }
+
+    // A partir daqui, a Z-API já aceitou a mensagem. Não reenviar automaticamente
+    // em caso de falha do banco, pois o cliente pode receber mensagem duplicada.
+    let marcado;
+    try {
+      marcado = await sincronizarFaseBooleanaPorPedido({
+        codigoCarrada, numeroPedido, saida, faseCodigo: 'EM_PRODUCAO', valorBoolean: true
+      });
+    } catch (error) {
+      throw criarErro(`O WhatsApp aceitou a mensagem do pedido ${numeroPedido}, mas houve erro ao marcar a produção em verde. Verifique antes de tentar novamente. ${error.message}`, 500);
+    }
+
+    try {
+      await registrarNotificacao({
+        faseCodigo: 'EM_PRODUCAO', codigoCarrada, numeroPedido,
+        telefone: envio.telefone, mensagem, statusEnvio: 'sucesso', respostaApi: envio.zapi || envio
+      });
+    } catch (error) {
+      console.warn('produção enviada e marcada, mas não foi possível registrar a notificação:', error.message);
+    }
+    try {
+      await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
+    } catch (error) {
+      console.warn('produção enviada e marcada, mas não foi possível atualizar o status da carrada:', error.message);
+    }
+
+    return {
+      numeroPedido, enviado: true, jaConcluido: false,
+      telefone: envio.telefone,
+      fase: { codigo: 'EM_PRODUCAO', concluido: Boolean(marcado?.valor_boolean), updatedAt: marcado?.updated_at || null }
+    };
+  } finally {
+    let descartarConexao = false;
+    if (possuiTrava) {
+      try {
+        await conexao.query('SELECT pg_advisory_unlock($1::integer, hashtext($2::text))', [20261021, chaveTrava]);
+      } catch (error) {
+        console.error('Falha ao liberar trava de envio de entrada em produção:', error.message);
+        // Evita devolver uma conexão ainda travada para o pool.
+        descartarConexao = true;
+      }
+    }
+    conexao.release(descartarConexao);
+  }
+}
+
 async function enviarNotaFiscalPedido({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam }) {
   await garantirTabelasModulo();
   const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
@@ -3449,6 +3546,7 @@ module.exports = {
   buscarHistoricoPosVenda,
   salvarFaseBooleana,
   enviarNotaFiscalPedido,
+  enviarInicioProducaoPedido,
   buscarDadosEtiquetaPedido,
   buscarDadosEtiquetaImpressao,
   gerarPreviewEtiquetaImpressao,

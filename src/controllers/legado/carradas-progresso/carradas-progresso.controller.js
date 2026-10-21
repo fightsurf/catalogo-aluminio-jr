@@ -104,6 +104,18 @@ async function salvarFaseBooleana(req, res) {
   }
 }
 
+async function enviarInicioProducaoPedido(req, res) {
+  try {
+    const data = await service.enviarInicioProducaoPedido({
+      codigoCarrada: req.params.codigo,
+      numeroPedido: req.params.numeroPedido
+    });
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return responderErro(res, error, 'Erro ao enviar aviso de início de produção do pedido.');
+  }
+}
+
 async function enviarNotaFiscalPedido(req, res) {
   try {
     const data = await service.enviarNotaFiscalPedido({
@@ -299,6 +311,7 @@ module.exports = {
   buscarHistoricoPosVenda,
   salvarFaseBooleana,
   enviarNotaFiscalPedido,
+  enviarInicioProducaoPedido,
   buscarDadosEtiquetaPedido,
   buscarDadosEtiquetaImpressao,
   gerarPreviewEtiquetaImpressao,
