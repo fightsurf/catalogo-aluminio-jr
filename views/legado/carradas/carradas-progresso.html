@@ -483,6 +483,37 @@
     #modalMudarCarradaLoteBackdrop button { height: 34px; padding: 0 12px; border-radius: 8px; font-size: 12px; }
     #modalMudarCarradaLoteBackdrop .feedback { padding: 7px 9px; font-size: 12px; border-radius: 8px; }
     #feedbackMudarCarradaLote:empty { display: none; }
+    /* Modal de nota fiscal: mesma lista rolável da alteração de carradas. */
+    #modalNotaFiscalLoteBackdrop { padding: 12px; }
+    #modalNotaFiscalLoteBackdrop .modal {
+      width: min(650px, 100%);
+      max-height: calc(100dvh - 24px);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border-radius: 12px;
+    }
+    #modalNotaFiscalLoteBackdrop .modal-header,
+    #modalNotaFiscalLoteBackdrop .modal-footer { padding: 10px 12px; flex-shrink: 0; }
+    #modalNotaFiscalLoteBackdrop .modal-body {
+      min-height: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      padding: 10px 12px;
+    }
+    #modalNotaFiscalLoteBackdrop button { height: 34px; padding: 0 12px; border-radius: 8px; font-size: 12px; }
+    #modalNotaFiscalLoteBackdrop .feedback { padding: 7px 9px; font-size: 12px; border-radius: 8px; }
+    #feedbackNotaFiscalLote:empty { display: none; }
+    .nf-lote-pedido { flex: 1 1 auto; min-width: 0; }
+    .nf-lote-status { display: block; color: #64748b; font-size: 11px; margin-top: 3px; }
+    .nf-lote-concluido { background: #dcfce7; }
+    .nf-lote-concluido:hover { background: #bbf7d0; }
+    .nf-lote-concluido .nf-lote-status { color: #166534; font-weight: 600; }
+    .nf-lote-erro { background: #fff1f2; }
+    .nf-lote-erro .nf-lote-status { color: #b91c1c; }
+
     @media (max-width: 720px) {
       #modalMudarCarradaBackdrop .modal-header { flex-direction: row; }
     }
@@ -1026,6 +1057,7 @@
         <button class="btn-secondary" id="btnVoltar">Voltar para carradas</button>
         <button class="btn-secondary" id="btnRecarregar">Recarregar</button>
         <button class="btn-primary" id="btnMudarCarradaLote" type="button" disabled>Modificar carrada dos pedidos</button>
+        <button class="btn-primary" id="btnNotaFiscalLote" type="button" disabled>Enviar nota fiscal da carrada</button>
         <button class="btn-secondary" id="btnRomaneioEntrega">Romaneio de entrega</button>
         <button class="btn-primary" id="btnEnviarWhatsappCarrada">Enviar WhatsApp da carrada</button>
       </div>
@@ -1148,6 +1180,31 @@
       <div class="modal-footer">
         <button type="button" class="btn-secondary" id="btnCancelarMudarCarradaLote" data-close-modal="modalMudarCarradaLoteBackdrop">Cancelar</button>
         <button type="button" class="btn-primary" id="btnSalvarMudarCarradaLote" disabled>Salvar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="modalNotaFiscalLoteBackdrop">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalNotaFiscalLoteTitulo">
+      <div class="modal-header">
+        <div>
+          <h3 id="modalNotaFiscalLoteTitulo">Enviar nota fiscal da carrada</h3>
+          <p class="muted" id="subtituloNotaFiscalLote">Selecione os pedidos que receberão a mensagem no WhatsApp.</p>
+        </div>
+        <button type="button" class="btn-secondary" data-close-modal="modalNotaFiscalLoteBackdrop">Fechar</button>
+      </div>
+      <div class="modal-body">
+        <label class="carrada-lote-todos" for="checkboxNotaFiscalLoteTodos">
+          <input type="checkbox" id="checkboxNotaFiscalLoteTodos" /> Selecionar todos os pedidos pendentes
+        </label>
+        <div class="carrada-lote-lista" id="listaNotaFiscalLotePedidos" aria-label="Pedidos para envio da nota fiscal"></div>
+        <div class="muted" id="contadorNotaFiscalLote" aria-live="polite" style="font-size:12px">0 pedidos selecionados</div>
+        <div class="muted" style="font-size:12px">A mensagem será a mesma do botão NF individual. Pedidos já marcados em verde não serão reenviados.</div>
+        <div class="feedback" id="feedbackNotaFiscalLote" role="status" aria-live="polite"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" id="btnCancelarNotaFiscalLote" data-close-modal="modalNotaFiscalLoteBackdrop">Fechar</button>
+        <button type="button" class="btn-primary" id="btnEnviarNotaFiscalLote" disabled>Enviar nota fiscal aos selecionados</button>
       </div>
     </div>
   </div>
@@ -1497,6 +1554,7 @@
       pedidoModalAtual: null,
       mudarCarrada: { numero: null, salvando: false, carregando: false, carradas: [] },
       mudarCarradaLote: { salvando: false, carregando: false, carradas: [], abertura: 0 },
+      notaFiscalLote: { enviando: false },
       posVendaModal: { pedidoNumero: null, carregando: false },
       transportadoras: null,
       agenciasRecebimento: null,
@@ -1530,6 +1588,7 @@
       btnVoltar: document.getElementById('btnVoltar'),
       btnRecarregar: document.getElementById('btnRecarregar'),
       btnMudarCarradaLote: document.getElementById('btnMudarCarradaLote'),
+      btnNotaFiscalLote: document.getElementById('btnNotaFiscalLote'),
       btnRomaneioEntrega: document.getElementById('btnRomaneioEntrega'),
       checkboxIgnorarPedidosProntos: document.getElementById('checkboxIgnorarPedidosProntos'),
       btnEnviarWhatsappCarrada: document.getElementById('btnEnviarWhatsappCarrada'),
@@ -1556,6 +1615,14 @@
       feedbackMudarCarradaLote: document.getElementById('feedbackMudarCarradaLote'),
       btnSalvarMudarCarradaLote: document.getElementById('btnSalvarMudarCarradaLote'),
       btnCancelarMudarCarradaLote: document.getElementById('btnCancelarMudarCarradaLote'),
+      modalNotaFiscalLoteBackdrop: document.getElementById('modalNotaFiscalLoteBackdrop'),
+      subtituloNotaFiscalLote: document.getElementById('subtituloNotaFiscalLote'),
+      checkboxNotaFiscalLoteTodos: document.getElementById('checkboxNotaFiscalLoteTodos'),
+      listaNotaFiscalLotePedidos: document.getElementById('listaNotaFiscalLotePedidos'),
+      contadorNotaFiscalLote: document.getElementById('contadorNotaFiscalLote'),
+      feedbackNotaFiscalLote: document.getElementById('feedbackNotaFiscalLote'),
+      btnEnviarNotaFiscalLote: document.getElementById('btnEnviarNotaFiscalLote'),
+      btnCancelarNotaFiscalLote: document.getElementById('btnCancelarNotaFiscalLote'),
       modalRomaneioEntregaBackdrop: document.getElementById('modalRomaneioEntregaBackdrop'),
       modalRomaneioEntregaSubtitulo: document.getElementById('modalRomaneioEntregaSubtitulo'),
       romaneioEntregaResumo: document.getElementById('romaneioEntregaResumo'),
@@ -1783,6 +1850,7 @@
       // Durante a transferência, impedir fechamento que pareça um cancelamento.
       if (backdrop.id === 'modalMudarCarradaBackdrop' && estado.mudarCarrada.salvando) return;
       if (backdrop.id === 'modalMudarCarradaLoteBackdrop' && estado.mudarCarradaLote.salvando) return;
+      if (backdrop.id === 'modalNotaFiscalLoteBackdrop' && estado.notaFiscalLote.enviando) return;
       if (backdrop.id === 'modalEtiquetaBackdrop') fecharBuscaCidadeEtiqueta();
       backdrop.classList.remove('open');
     }
@@ -2026,6 +2094,114 @@
         el.checkboxCarradaLoteNaoEnviarWhatsapp.disabled = false;
         el.listaCarradaLotePedidos.querySelectorAll('input').forEach((input) => { input.disabled = false; });
         atualizarSelecaoCarradaLote();
+      }
+    }
+
+    function pedidosSelecionadosNotaFiscalLote() {
+      return Array.from(el.listaNotaFiscalLotePedidos.querySelectorAll('input[data-nf-lote-numero]:checked:not(:disabled)'))
+        .map((input) => input.value);
+    }
+
+    function atualizarSelecaoNotaFiscalLote() {
+      const selecionaveis = Array.from(el.listaNotaFiscalLotePedidos.querySelectorAll('input[data-nf-lote-numero]:not(:disabled)'));
+      const selecionados = selecionaveis.filter((input) => input.checked).length;
+      const total = el.listaNotaFiscalLotePedidos.querySelectorAll('input[data-nf-lote-numero]').length;
+      const concluidos = total - selecionaveis.length;
+      el.checkboxNotaFiscalLoteTodos.checked = selecionaveis.length > 0 && selecionados === selecionaveis.length;
+      el.checkboxNotaFiscalLoteTodos.indeterminate = selecionados > 0 && selecionados < selecionaveis.length;
+      el.checkboxNotaFiscalLoteTodos.disabled = estado.notaFiscalLote.enviando || selecionaveis.length === 0;
+      el.contadorNotaFiscalLote.textContent = `${selecionados} selecionado(s) • ${concluidos} com NF verde • ${selecionaveis.length} pendente(s)`;
+      el.btnEnviarNotaFiscalLote.disabled = estado.notaFiscalLote.enviando || selecionados === 0;
+    }
+
+    function abrirModalNotaFiscalLote() {
+      if (estado.carregando || estado.notaFiscalLote.enviando) return;
+      const pedidos = Array.isArray(estado.matriz?.pedidos) ? estado.matriz.pedidos : [];
+      if (!pedidos.length) return;
+      el.subtituloNotaFiscalLote.textContent = rotuloCarradaDestino(estado.matriz?.carrada || { codigo: CODIGO_CARRADA });
+      el.listaNotaFiscalLotePedidos.innerHTML = pedidos.map((pedido) => {
+        const concluido = Boolean(pedido.fases?.QUER_NOTA_FISCAL?.concluido);
+        const cidade = [pedido.cliente?.cidade, pedido.cliente?.uf].filter(Boolean).join(' / ');
+        return `
+          <label class="carrada-lote-item ${concluido ? 'nf-lote-concluido' : ''}" data-nf-item-numero="${escapeHtml(pedido.numero)}">
+            <input type="checkbox" data-nf-lote-numero value="${escapeHtml(pedido.numero)}" ${concluido ? 'checked disabled' : ''} />
+            <div class="nf-lote-pedido">
+              <strong>Pedido ${escapeHtml(pedido.numero)}</strong>
+              <span>${escapeHtml(pedido.cliente?.nome || pedido.resumoPedido?.cliente?.nome || '-')}${cidade ? ` — ${escapeHtml(cidade)}` : ''}</span>
+              <span class="nf-lote-status">${concluido ? 'NF já marcada — não reenviar' : 'Pendente de envio'}</span>
+            </div>
+          </label>`;
+      }).join('');
+      el.checkboxNotaFiscalLoteTodos.checked = false;
+      setFeedback(el.feedbackNotaFiscalLote, 'Selecione os pedidos e clique em Enviar nota fiscal aos selecionados.');
+      atualizarSelecaoNotaFiscalLote();
+      abrirModal(el.modalNotaFiscalLoteBackdrop);
+    }
+
+    async function enviarNotaFiscalLote() {
+      if (estado.notaFiscalLote.enviando) return;
+      const numeros = pedidosSelecionadosNotaFiscalLote();
+      if (!numeros.length) return;
+      if (!window.confirm(`Enviar a mensagem de nota fiscal pelo WhatsApp para ${numeros.length} pedido(s) selecionado(s)?`)) return;
+
+      estado.notaFiscalLote.enviando = true;
+      el.btnCancelarNotaFiscalLote.disabled = true;
+      el.modalNotaFiscalLoteBackdrop.querySelectorAll('[data-close-modal]').forEach((btn) => { btn.disabled = true; });
+      el.listaNotaFiscalLotePedidos.querySelectorAll('input').forEach((input) => { input.disabled = true; });
+      el.checkboxNotaFiscalLoteTodos.disabled = true;
+      el.btnEnviarNotaFiscalLote.disabled = true;
+      let enviados = 0;
+      let jaMarcados = 0;
+      const falhas = [];
+      try {
+        for (let indice = 0; indice < numeros.length; indice += 1) {
+          const numero = numeros[indice];
+          const linha = Array.from(el.listaNotaFiscalLotePedidos.querySelectorAll('[data-nf-item-numero]'))
+            .find((item) => item.dataset.nfItemNumero === String(numero));
+          const status = linha?.querySelector('.nf-lote-status');
+          setFeedback(el.feedbackNotaFiscalLote, `Enviando ${indice + 1} de ${numeros.length}: pedido ${numero}...`);
+          if (status) status.textContent = 'Enviando mensagem...';
+          try {
+            const resultado = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numero)}/nota-fiscal/enviar`, {
+              method: 'POST'
+            });
+            if (resultado?.enviado === true) enviados += 1;
+            else if (resultado?.jaConcluido === true) jaMarcados += 1;
+            else throw new Error('O servidor não confirmou o envio nem a conclusão da NF.');
+            const pedido = obterPedido(numero);
+            if (pedido?.fases?.QUER_NOTA_FISCAL) pedido.fases.QUER_NOTA_FISCAL.concluido = true;
+            if (linha) {
+              linha.classList.remove('nf-lote-erro');
+              linha.classList.add('nf-lote-concluido');
+              const input = linha.querySelector('input[data-nf-lote-numero]');
+              if (input) { input.checked = true; input.dataset.nfConcluido = 'true'; }
+            }
+            if (status) status.textContent = resultado?.enviado ? 'WhatsApp aceito pela Z-API • NF marcada' : 'NF já marcada — não reenviado';
+            if (estado.matriz?.totaisFases?.QUER_NOTA_FISCAL) {
+              estado.matriz.totaisFases.QUER_NOTA_FISCAL.concluidos = estado.matriz.pedidos.filter(
+                (item) => Boolean(item.fases?.QUER_NOTA_FISCAL?.concluido)
+              ).length;
+            }
+            renderCardsFases();
+            renderMatriz();
+          } catch (error) {
+            const motivo = error.message || 'Falha desconhecida';
+            falhas.push(`Pedido ${numero}: ${motivo}`);
+            if (linha) linha.classList.add('nf-lote-erro');
+            if (status) status.textContent = `Falha: ${motivo}`;
+          }
+        }
+        const resumo = `${enviados} enviado(s), ${jaMarcados} já marcado(s) e ${falhas.length} falha(s).`;
+        const detalhes = falhas.length ? ` Pedidos com falha: ${falhas.slice(0, 5).join(' | ')}${falhas.length > 5 ? ` (mais ${falhas.length - 5})` : ''}.` : '';
+        setFeedback(el.feedbackNotaFiscalLote, `${resumo}${detalhes}${falhas.length ? ' Confira o status antes de tentar novamente.' : ''}`, falhas.length ? 'error' : 'success');
+      } finally {
+        estado.notaFiscalLote.enviando = false;
+        el.btnCancelarNotaFiscalLote.disabled = false;
+        el.modalNotaFiscalLoteBackdrop.querySelectorAll('[data-close-modal]').forEach((btn) => { btn.disabled = false; });
+        el.listaNotaFiscalLotePedidos.querySelectorAll('input[data-nf-lote-numero]').forEach((input) => {
+          input.disabled = input.dataset.nfConcluido === 'true' || Boolean(obterPedido(input.value)?.fases?.QUER_NOTA_FISCAL?.concluido);
+        });
+        atualizarSelecaoNotaFiscalLote();
       }
     }
 
@@ -2548,11 +2724,13 @@
 
       estado.carregando = true;
       el.btnMudarCarradaLote.disabled = true;
+      el.btnNotaFiscalLote.disabled = true;
       el.tbodyMatriz.innerHTML = '<tr><td colspan="11" class="loading">Carregando progresso da carrada...</td></tr>';
 
       try {
         estado.matriz = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}`);
         el.btnMudarCarradaLote.disabled = !(Array.isArray(estado.matriz?.pedidos) && estado.matriz.pedidos.length);
+        el.btnNotaFiscalLote.disabled = el.btnMudarCarradaLote.disabled;
         renderCabecalho();
         renderCardsFases();
         renderMatriz();
@@ -4635,6 +4813,15 @@
 
     el.btnSalvarMudarCarrada.addEventListener('click', salvarMudarCarrada);
     el.btnMudarCarradaLote.addEventListener('click', abrirModalMudarCarradaLote);
+    el.btnNotaFiscalLote.addEventListener('click', abrirModalNotaFiscalLote);
+    el.btnEnviarNotaFiscalLote.addEventListener('click', enviarNotaFiscalLote);
+    el.listaNotaFiscalLotePedidos.addEventListener('change', atualizarSelecaoNotaFiscalLote);
+    el.checkboxNotaFiscalLoteTodos.addEventListener('change', () => {
+      el.listaNotaFiscalLotePedidos.querySelectorAll('input[data-nf-lote-numero]:not(:disabled)').forEach((input) => {
+        input.checked = el.checkboxNotaFiscalLoteTodos.checked;
+      });
+      atualizarSelecaoNotaFiscalLote();
+    });
     el.btnSalvarMudarCarradaLote.addEventListener('click', salvarMudarCarradaLote);
     el.selectCarradaLoteDestino.addEventListener('change', atualizarSelecaoCarradaLote);
     el.listaCarradaLotePedidos.addEventListener('change', atualizarSelecaoCarradaLote);

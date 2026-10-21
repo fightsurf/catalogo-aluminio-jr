@@ -104,6 +104,18 @@ async function salvarFaseBooleana(req, res) {
   }
 }
 
+async function enviarNotaFiscalPedido(req, res) {
+  try {
+    const data = await service.enviarNotaFiscalPedido({
+      codigoCarrada: req.params.codigo,
+      numeroPedido: req.params.numeroPedido
+    });
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return responderErro(res, error, 'Erro ao enviar mensagem de nota fiscal do pedido.');
+  }
+}
+
 async function buscarDadosEtiquetaImpressao(req, res) {
   try {
     const data = await service.buscarDadosEtiquetaImpressao({
@@ -286,6 +298,7 @@ module.exports = {
   salvarDataExpedicao,
   buscarHistoricoPosVenda,
   salvarFaseBooleana,
+  enviarNotaFiscalPedido,
   buscarDadosEtiquetaPedido,
   buscarDadosEtiquetaImpressao,
   gerarPreviewEtiquetaImpressao,
