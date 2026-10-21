@@ -1,13 +1,98 @@
 const pool = require('../../../../db/connection');
+const { randomUUID } = require('crypto');
 const sharp = require('sharp');
 const carradasService = require('../carradas/carradas.service');
 const pagamentosService = require('../pagamentos/pagamentos.service');
 const whatsappService = require('../../whatsapp/envio-whatsapp.service');
+const elevenLabsService = require('../../integracoes/elevenlabs-jr.service');
 const carradasStatusResumoService = require('./carradas-status-resumo.service');
 const legadoBridgeService = require('../legadoBridge.service');
 const pedidosLegadoService = require('../pedido/pedidosLegado.service');
 const pedidosClienteService = require('../pedidos-cliente/pedidos-cliente.service');
 const agenciasRecebimentoService = require('../../logistica/agenciaRecebimentoService');
+
+// A mesma frase é usada nos envios individuais e em lote.
+// Cache curto em memória: uma carrada inteira não consome um TTS para cada pedido.
+const TEXTO_AUDIO_PRODUCAO = 'Seu pedido entrou em produção.';
+// ID fixo da clonagem profissional autorizada. Não usa a voz padrão do Render.
+const VOZ_PROFISSIONAL_PRODUCAO = '5bWAokzY7SiNTznJ6VLk';
+const MODELO_AUDIO_PRODUCAO = 'eleven_v4';
+const CACHE_AUDIO_PRODUCAO_MS = 15 * 60 * 1000;
+let cacheAudioProducao = null;
+let geracaoAudioProducao = null;
+
+async function obterAudioProducao() {
+  // Nunca aceita voz padrão, outra voz por ambiente ou fallback automático.
+  const voz = VOZ_PROFISSIONAL_PRODUCAO;
+  const chaveCache = `${voz}:${MODELO_AUDIO_PRODUCAO}:${TEXTO_AUDIO_PRODUCAO}`;
+  if (cacheAudioProducao?.chave === chaveCache && cacheAudioProducao.expira > Date.now()) {
+    return cacheAudioProducao.audio;
+  }
+  if (geracaoAudioProducao?.chave === chaveCache) return geracaoAudioProducao.promessa;
+  const promessa = (async () => {
+    // Consulta a própria ElevenLabs ANTES de qualquer mensagem WhatsApp.
+    // Exige categoria profissional e clonagem fina pronta para o v4.
+    await elevenLabsService.validarVozProfissional(voz, MODELO_AUDIO_PRODUCAO);
+    return elevenLabsService.gerarAudio({
+      texto: TEXTO_AUDIO_PRODUCAO,
+      voz,
+      modelo: MODELO_AUDIO_PRODUCAO
+    });
+  })().then((audio) => {
+    cacheAudioProducao = { chave: chaveCache, audio, expira: Date.now() + CACHE_AUDIO_PRODUCAO_MS };
+    return audio;
+  }).finally(() => {
+    if (geracaoAudioProducao?.promessa === promessa) geracaoAudioProducao = null;
+  });
+  geracaoAudioProducao = { chave: chaveCache, promessa };
+  return promessa;
+}
+
+// Um único MP3 por acionamento do envio em lote, identificado por token opaco.
+// O conteúdo não é exposto ao navegador; todas as solicitações usam os mesmos bytes.
+const AUDIOS_LOTE_TTL_MS = 90 * 60 * 1000;
+const MAX_AUDIOS_LOTE = 12;
+const audiosProducaoLote = new Map();
+
+function limparAudiosProducaoLote() {
+  const agora = Date.now();
+  for (const [id, item] of audiosProducaoLote) {
+    if (item.expira <= agora) audiosProducaoLote.delete(id);
+  }
+  while (audiosProducaoLote.size > MAX_AUDIOS_LOTE) {
+    audiosProducaoLote.delete(audiosProducaoLote.keys().next().value);
+  }
+}
+
+async function prepararAudioProducaoLote({ codigoCarrada: codigoParam, texto }) {
+  const codigoCarrada = parseCodigoCarrada(codigoParam);
+  const frase = String(texto == null ? '' : texto).trim();
+  if (!frase || frase.length > 1000) {
+    throw criarErro('Informe a frase do áudio (até 1.000 caracteres).', 400);
+  }
+  // Sem fallback: deve ser a clonagem PROFISSIONAL cadastrada neste projeto.
+  await elevenLabsService.validarVozProfissional(VOZ_PROFISSIONAL_PRODUCAO, MODELO_AUDIO_PRODUCAO);
+  const audio = await elevenLabsService.gerarAudio({
+    texto: frase, voz: VOZ_PROFISSIONAL_PRODUCAO, modelo: MODELO_AUDIO_PRODUCAO
+  });
+  limparAudiosProducaoLote();
+  const audioToken = randomUUID();
+  audiosProducaoLote.set(audioToken, {
+    codigoCarrada, audio, expira: Date.now() + AUDIOS_LOTE_TTL_MS
+  });
+  limparAudiosProducaoLote();
+  return { audioToken, caracteres: frase.length, voz: VOZ_PROFISSIONAL_PRODUCAO, modelo: MODELO_AUDIO_PRODUCAO };
+}
+
+function obterAudioPreparadoProducaoLote(audioToken, codigoCarrada) {
+  limparAudiosProducaoLote();
+  const item = audiosProducaoLote.get(String(audioToken || ''));
+  if (!item) throw criarErro('O áudio do lote expirou ou o Render foi reiniciado. Nenhuma mensagem deste pedido foi enviada.', 410);
+  if (Number(item.codigoCarrada) !== Number(codigoCarrada)) {
+    throw criarErro('Áudio preparado para outra carrada. Envio bloqueado.', 403);
+  }
+  return item.audio;
+}
 
 const FASES_BOOLEANAS = {
   EM_PRODUCAO: {
@@ -1529,6 +1614,18 @@ async function salvarFaseBooleana({ codigoCarrada: codigoCarradaParam, numeroPed
   const faseCodigo = limparTexto(faseCodigoParam).toUpperCase();
   const valorBoolean = normalizarBoolean(valor);
 
+  // O botão individual usa a MESMA rotina do envio em lote.
+  // A opção silenciosa continua marcando/desmarcando sem mandar WhatsApp.
+  if (faseCodigo === 'EM_PRODUCAO' && valorBoolean && !silencioso) {
+    const resultado = await enviarInicioProducaoPedido({ codigoCarrada, numeroPedido });
+    return {
+      fase: resultado.fase || { codigo: 'EM_PRODUCAO', concluido: true },
+      notificacao: { success: resultado.enviado === true, jaConcluido: resultado.jaConcluido === true },
+      audio: resultado.audio || null,
+      jaConcluido: resultado.jaConcluido === true
+    };
+  }
+
   if (faseCodigo === 'ETIQUETA_VOLUMES' && silencioso) {
     return confirmarEtiquetaVolumes({
       codigoCarrada,
@@ -1655,7 +1752,7 @@ async function salvarFaseBooleana({ codigoCarrada: codigoCarradaParam, numeroPed
  * Envio do aviso de produção em lote: marcar verde somente depois da Z-API.
  * A trava no PostgreSQL impede disparos simultâneos do lote para o mesmo pedido.
  */
-async function enviarInicioProducaoPedido({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam }) {
+async function enviarInicioProducaoPedido({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam, audioLoteToken = null }) {
   await garantirTabelasModulo();
   const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
   const numeroPedido = normalizarNumeroPedido(numeroPedidoParam);
@@ -1693,6 +1790,19 @@ async function enviarInicioProducaoPedido({ codigoCarrada: codigoCarradaParam, n
       descricaoCarrada: carrada?.descricao || ''
     });
 
+    // Gera o áudio antes do primeiro envio: uma falha na ElevenLabs
+    // não pode deixar o cliente com o texto enviado e a produção pendente.
+    // A voz será enviada DEPOIS do aviso escrito.
+    let audioGerado;
+    try {
+      // No lote, não chama TTS novamente: recupera o MESMO arquivo gerado uma vez.
+      audioGerado = audioLoteToken
+        ? obterAudioPreparadoProducaoLote(audioLoteToken, codigoCarrada)
+        : await obterAudioProducao();
+    } catch (error) {
+      throw criarErro(`Não foi possível gerar o áudio com a voz clonada. Nenhuma mensagem foi enviada: ${error.message}`, error.statusCode || 502);
+    }
+
     let envio;
     try {
       envio = await whatsappService.enviarMensagem({ telefone, mensagem });
@@ -1727,6 +1837,37 @@ async function enviarInicioProducaoPedido({ codigoCarrada: codigoCarradaParam, n
     } catch (error) {
       console.warn('produção enviada e marcada, mas não foi possível registrar a notificação:', error.message);
     }
+
+    // O quadrinho verde indica entrada em produção, não confirmação de áudio.
+    // Se a Z-API falhar SOMENTE no áudio, não reenviamos o texto automaticamente.
+    let audio = { success: false, texto: audioGerado.texto };
+    try {
+      const resultadoAudio = await elevenLabsService.enviarAudio(audioGerado, telefone);
+      audio = { success: true, texto: audioGerado.texto, idMensagem: resultadoAudio.idMensagem || null };
+      try {
+        await registrarNotificacao({
+          faseCodigo: 'EM_PRODUCAO', codigoCarrada, numeroPedido,
+          telefone: envio.telefone, mensagem: audioGerado.texto,
+          statusEnvio: 'sucesso',
+          respostaApi: { tipo: 'audio_entrada_producao', idMensagem: resultadoAudio.idMensagem || null }
+        });
+      } catch (erroRegistro) {
+        console.warn('Áudio enviado, mas não foi possível registrar a notificação:', erroRegistro.message);
+      }
+    } catch (erroAudio) {
+      audio = { success: false, texto: audioGerado.texto, erro: erroAudio.message };
+      try {
+        await registrarNotificacao({
+          faseCodigo: 'EM_PRODUCAO', codigoCarrada, numeroPedido,
+          telefone: envio.telefone, mensagem: audioGerado.texto,
+          statusEnvio: 'erro',
+          respostaApi: { tipo: 'audio_entrada_producao', erro: erroAudio.message }
+        });
+      } catch (erroRegistro) {
+        console.warn('Falha do áudio não pôde ser registrada:', erroRegistro.message);
+      }
+    }
+
     try {
       await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
     } catch (error) {
@@ -1736,6 +1877,7 @@ async function enviarInicioProducaoPedido({ codigoCarrada: codigoCarradaParam, n
     return {
       numeroPedido, enviado: true, jaConcluido: false,
       telefone: envio.telefone,
+      audio,
       fase: { codigo: 'EM_PRODUCAO', concluido: Boolean(marcado?.valor_boolean), updatedAt: marcado?.updated_at || null }
     };
   } finally {
@@ -3547,6 +3689,7 @@ module.exports = {
   salvarFaseBooleana,
   enviarNotaFiscalPedido,
   enviarInicioProducaoPedido,
+  prepararAudioProducaoLote,
   buscarDadosEtiquetaPedido,
   buscarDadosEtiquetaImpressao,
   gerarPreviewEtiquetaImpressao,

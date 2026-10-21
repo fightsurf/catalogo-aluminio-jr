@@ -148,6 +148,24 @@ function escolherModelo(modelo) {
   }
   return id;
 }
+// Verifica a voz antes de enviar notificações de produção em lote/individual.
+// Nunca troque automaticamente para uma voz de biblioteca em caso de erro.
+async function validarVozProfissional(voz, modelo) {
+  const vozId = escolherVoz(voz);
+  const modeloId = escolherModelo(modelo);
+  const response = await requestEleven(`/v1/voices/${encodeURIComponent(vozId)}`);
+  const dados = await response.json();
+  if (dados?.voice_id !== vozId || dados?.category !== 'professional') {
+    const e = new Error('O ID da voz não corresponde a uma clonagem profissional autorizada na ElevenLabs. Envio bloqueado.');
+    e.status = 503; throw e;
+  }
+  const estado = dados?.fine_tuning?.state?.[modeloId];
+  if (estado !== 'fine_tuned') {
+    const e = new Error(`Clonagem profissional indisponível no modelo ${modeloId}: treinamento não confirmado pela ElevenLabs (estado: ${estado || 'não informado'}). Envio bloqueado.`);
+    e.status = 503; throw e;
+  }
+  return { voice_id: vozId, category: 'professional', model_id: modeloId };
+}
 async function gerarAudio({ texto, voz, modelo }) {
   const msg = validarTexto(texto);
   const vozId = escolherVoz(voz);
@@ -186,4 +204,4 @@ async function enviarPreview({previewId, telefone}, usuario) {
   const audio = obterPreview(previewId, usuario);
   return enviarAudio(audio, telefone);
 }
-module.exports = { configurar, listarVozes, listarModelos, gerarAudio, enviarTeste, salvarPreview, obterPreview, enviarPreview };
+module.exports = { configurar, listarVozes, listarModelos, validarVozProfissional, gerarAudio, enviarAudio, enviarTeste, salvarPreview, obterPreview, enviarPreview };

@@ -519,6 +519,22 @@
       gap: 9px;
       padding: 10px 12px;
     }
+    #modalProducaoLoteBackdrop .audio-lote-editor {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      padding: 10px;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 9px;
+    }
+    #modalProducaoLoteBackdrop .audio-lote-editor label { font-size: 12px; font-weight: 700; }
+    #modalProducaoLoteBackdrop .audio-lote-editor textarea {
+      width: 100%; min-height: 70px; max-height: 130px; resize: vertical;
+      border-radius: 8px; border: 1px solid #94a3b8; padding: 8px 10px;
+      background: white; font-size: 13px;
+    }
     #modalNotaFiscalLoteBackdrop button,
     #modalProducaoLoteBackdrop button { height: 34px; padding: 0 12px; border-radius: 8px; font-size: 12px; }
     #modalNotaFiscalLoteBackdrop .feedback,
@@ -1221,7 +1237,12 @@
         </label>
         <div class="carrada-lote-lista" id="listaProducaoLotePedidos" aria-label="Pedidos para aviso de entrada em produção"></div>
         <div class="muted" id="contadorProducaoLote" aria-live="polite" style="font-size:12px">0 pedidos selecionados</div>
-        <div class="muted" style="font-size:12px">A mensagem será igual à da célula Prod. individual. Pedidos já verdes não receberão o aviso novamente.</div>
+        <section class="audio-lote-editor" aria-labelledby="tituloAudioProducaoLote">
+          <label id="tituloAudioProducaoLote" for="memoAudioProducaoLote">Mensagem de áudio — voz profissional clonada</label>
+          <textarea id="memoAudioProducaoLote" rows="3" maxlength="1000" spellcheck="true">Seu pedido entrou em produção.</textarea>
+          <div class="muted" style="font-size:11px">O texto será gerado uma única vez no ElevenLabs e o mesmo áudio será enviado a todos os pedidos selecionados.</div>
+        </section>
+        <div class="muted" style="font-size:12px">O aviso escrito permanece igual ao da célula Prod. individual. Pedidos já verdes não receberão o aviso novamente.</div>
         <div class="feedback" id="feedbackProducaoLote" role="status" aria-live="polite"></div>
       </div>
       <div class="modal-footer">
@@ -1670,6 +1691,7 @@
       checkboxProducaoLoteTodos: document.getElementById('checkboxProducaoLoteTodos'),
       listaProducaoLotePedidos: document.getElementById('listaProducaoLotePedidos'),
       contadorProducaoLote: document.getElementById('contadorProducaoLote'),
+      memoAudioProducaoLote: document.getElementById('memoAudioProducaoLote'),
       feedbackProducaoLote: document.getElementById('feedbackProducaoLote'),
       btnEnviarProducaoLote: document.getElementById('btnEnviarProducaoLote'),
       btnCancelarProducaoLote: document.getElementById('btnCancelarProducaoLote'),
@@ -2299,7 +2321,8 @@
           </label>`;
       }).join('');
       el.checkboxProducaoLoteTodos.checked = false;
-      setFeedback(el.feedbackProducaoLote, 'Selecione os pedidos e clique em Enviar aviso aos selecionados.');
+      el.memoAudioProducaoLote.value = 'Seu pedido entrou em produção.';
+      setFeedback(el.feedbackProducaoLote, 'Selecione os pedidos, revise o texto do áudio e clique em Enviar aviso aos selecionados.');
       atualizarSelecaoProducaoLote();
       abrirModal(el.modalProducaoLoteBackdrop);
     }
@@ -2308,18 +2331,34 @@
       if (estado.producaoLote.enviando) return;
       const numeros = pedidosSelecionadosProducaoLote();
       if (!numeros.length) return;
-      if (!window.confirm(`Enviar o aviso de entrada em produção pelo WhatsApp para ${numeros.length} pedido(s) selecionado(s)?`)) return;
+      const fraseAudio = String(el.memoAudioProducaoLote.value || '').trim();
+      if (!fraseAudio || fraseAudio.length > 1000) {
+        setFeedback(el.feedbackProducaoLote, 'Preencha a mensagem de áudio (até 1.000 caracteres).', 'error');
+        el.memoAudioProducaoLote.focus();
+        return;
+      }
+      if (!window.confirm(`Gerar UM áudio com sua voz profissional e enviá-lo, junto ao aviso escrito, para ${numeros.length} pedido(s) selecionado(s)?`)) return;
 
       estado.producaoLote.enviando = true;
       el.btnCancelarProducaoLote.disabled = true;
       el.modalProducaoLoteBackdrop.querySelectorAll('[data-close-modal]').forEach((btn) => { btn.disabled = true; });
       el.listaProducaoLotePedidos.querySelectorAll('input').forEach((input) => { input.disabled = true; });
       el.checkboxProducaoLoteTodos.disabled = true;
+      el.memoAudioProducaoLote.disabled = true;
       el.btnEnviarProducaoLote.disabled = true;
       let enviados = 0;
       let jaMarcados = 0;
       const falhas = [];
+      const falhasAudio = [];
       try {
+        setFeedback(el.feedbackProducaoLote, 'Gerando uma única mensagem de áudio com sua voz profissional...');
+        const preparo = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/producao/audio/preparar`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ texto: fraseAudio })
+        });
+        if (!preparo?.audioToken) throw new Error('A geração do áudio não retornou um identificador válido. Nenhum pedido foi enviado.');
+        const audioLoteToken = preparo.audioToken;
         for (let indice = 0; indice < numeros.length; indice += 1) {
           const numero = numeros[indice];
           const linha = Array.from(el.listaProducaoLotePedidos.querySelectorAll('[data-producao-item-numero]'))
@@ -2329,10 +2368,16 @@
           if (status) status.textContent = 'Enviando mensagem...';
           try {
             const resultado = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numero)}/producao/enviar`, {
-              method: 'POST'
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ audioLoteToken })
             });
-            if (resultado?.enviado === true) enviados += 1;
-            else if (resultado?.jaConcluido === true) jaMarcados += 1;
+            if (resultado?.enviado === true) {
+              enviados += 1;
+              if (resultado?.audio?.success === false) {
+                falhasAudio.push(`Pedido ${numero}: ${resultado.audio.erro || 'áudio não enviado'}`);
+              }
+            } else if (resultado?.jaConcluido === true) jaMarcados += 1;
             else throw new Error('O servidor não confirmou o envio nem a conclusão da produção.');
             const pedido = obterPedido(numero);
             if (pedido?.fases?.EM_PRODUCAO) pedido.fases.EM_PRODUCAO.concluido = true;
@@ -2342,7 +2387,9 @@
               const input = linha.querySelector('input[data-producao-lote-numero]');
               if (input) { input.checked = true; input.dataset.producaoConcluido = 'true'; }
             }
-            if (status) status.textContent = resultado?.enviado ? 'WhatsApp aceito pela Z-API • produção marcada' : 'Produção já marcada — não reenviado';
+            if (status) status.textContent = resultado?.enviado
+              ? (resultado?.audio?.success === false ? 'Texto enviado e produção verde • FALHA NO ÁUDIO' : 'Texto e áudio aceitos pela Z-API • produção verde')
+              : 'Produção já marcada — não reenviado';
             if (estado.matriz?.totaisFases?.EM_PRODUCAO) {
               estado.matriz.totaisFases.EM_PRODUCAO.concluidos = estado.matriz.pedidos.filter(
                 (item) => Boolean(item.fases?.EM_PRODUCAO?.concluido)
@@ -2359,10 +2406,16 @@
         }
         const resumo = `${enviados} enviado(s), ${jaMarcados} já marcado(s) e ${falhas.length} falha(s).`;
         const detalhes = falhas.length ? ` Pedidos com falha: ${falhas.slice(0, 5).join(' | ')}${falhas.length > 5 ? ` (mais ${falhas.length - 5})` : ''}.` : '';
-        setFeedback(el.feedbackProducaoLote, `${resumo}${detalhes}${falhas.length ? ' Confira o status antes de tentar novamente.' : ''}`, falhas.length ? 'error' : 'success');
+        const avisoAudio = falhasAudio.length
+          ? ` ATENÇÃO: o aviso escrito foi enviado, mas o áudio falhou em ${falhasAudio.length} pedido(s): ${falhasAudio.slice(0, 5).join(' | ')}. Não reenvie o texto automaticamente.`
+          : '';
+        setFeedback(el.feedbackProducaoLote, `${resumo} Áudio gerado uma única vez para este lote.${detalhes}${falhas.length ? ' Confira o status antes de tentar novamente.' : ''}${avisoAudio}`, falhas.length || falhasAudio.length ? 'error' : 'success');
+      } catch (erroPreparo) {
+        setFeedback(el.feedbackProducaoLote, `Lote interrompido: ${erroPreparo.message}. Se o problema ocorreu na geração do áudio, nenhum pedido foi enviado.`, 'error');
       } finally {
         estado.producaoLote.enviando = false;
         el.btnCancelarProducaoLote.disabled = false;
+        el.memoAudioProducaoLote.disabled = false;
         el.modalProducaoLoteBackdrop.querySelectorAll('[data-close-modal]').forEach((btn) => { btn.disabled = false; });
         el.listaProducaoLotePedidos.querySelectorAll('input[data-producao-lote-numero]').forEach((input) => {
           input.disabled = input.dataset.producaoConcluido === 'true' || Boolean(obterPedido(input.value)?.fases?.EM_PRODUCAO?.concluido);
@@ -3375,11 +3428,15 @@
       }
 
       try {
-        await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/fases/${encodeURIComponent(faseCodigo)}`, {
+        const resultadoFase = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/fases/${encodeURIComponent(faseCodigo)}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ valor: novoValor })
         });
+
+        if (faseCodigo === 'EM_PRODUCAO' && novoValor && resultadoFase?.audio?.success === false) {
+          window.alert(`O aviso escrito foi enviado e a produção ficou verde, mas o áudio não foi enviado: ${resultadoFase.audio.erro || 'falha desconhecida'}. Não reenvie o aviso escrito sem conferir.`);
+        }
 
         if (estado.matriz?.pedidos) {
           const idx = estado.matriz.pedidos.findIndex((p) => String(p.numero) === String(numeroPedido));

@@ -104,11 +104,24 @@ async function salvarFaseBooleana(req, res) {
   }
 }
 
+async function prepararAudioProducaoLote(req, res) {
+  try {
+    const data = await service.prepararAudioProducaoLote({
+      codigoCarrada: req.params.codigo,
+      texto: req.body?.texto
+    });
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return responderErro(res, error, 'Erro ao preparar áudio para a carrada.');
+  }
+}
+
 async function enviarInicioProducaoPedido(req, res) {
   try {
     const data = await service.enviarInicioProducaoPedido({
       codigoCarrada: req.params.codigo,
-      numeroPedido: req.params.numeroPedido
+      numeroPedido: req.params.numeroPedido,
+      audioLoteToken: req.body?.audioLoteToken || null
     });
     return res.status(200).json({ success: true, data });
   } catch (error) {
@@ -312,6 +325,7 @@ module.exports = {
   salvarFaseBooleana,
   enviarNotaFiscalPedido,
   enviarInicioProducaoPedido,
+  prepararAudioProducaoLote,
   buscarDadosEtiquetaPedido,
   buscarDadosEtiquetaImpressao,
   gerarPreviewEtiquetaImpressao,
