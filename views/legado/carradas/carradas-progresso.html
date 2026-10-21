@@ -3509,7 +3509,7 @@
         const data = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/etiqueta-impressao/whatsapp`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({})
+          body: JSON.stringify({ mensagemResumida: true })
         });
         const notificacao = data.notificacao;
         if (notificacao?.success) {

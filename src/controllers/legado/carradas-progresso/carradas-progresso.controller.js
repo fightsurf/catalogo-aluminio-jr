@@ -137,7 +137,8 @@ async function enviarEtiquetaImpressaoWhatsapp(req, res) {
   try {
     const data = await service.enviarEtiquetaImpressaoWhatsapp({
       codigoCarrada: req.params.codigo,
-      numeroPedido: req.params.numeroPedido
+      numeroPedido: req.params.numeroPedido,
+      mensagemResumida: req.body?.mensagemResumida === true
     });
 
     return res.status(200).json({ success: true, data });

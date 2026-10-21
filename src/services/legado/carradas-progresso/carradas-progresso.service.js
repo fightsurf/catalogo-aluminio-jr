@@ -1945,6 +1945,8 @@ async function montarDadosEtiquetaImpressao({ codigoCarrada: codigoCarradaParam,
     numeroPedido,
     saida: pedido.saida ?? null,
     clienteNome: nomePerfil || pedido?.cliente?.nome || resumoPedido?.cliente?.nome || '',
+    nomeClientePedido: limparTexto(pedido?.cliente?.nome || resumoPedido?.cliente?.nome),
+    observacaoPedido: limparTexto(pedido?.observacaoPedido),
     clienteTelefone: formatarTelefoneExibicao(telefonePerfil || resumoPedido?.cliente?.telefonePrincipal || pedido?.cliente?.telefonePrincipal || ''),
     clienteCidade: cidadePerfil || pedido?.cliente?.cidade || '',
     clienteUf: ufPerfil || pedido?.cliente?.uf || '',
@@ -1991,12 +1993,19 @@ async function enviarEtiquetaImpressaoWhatsapp(params) {
   const textoVolumes = dados.quantidadeVolumesConfirmada
     ? `Serão ${dados.quantidadeVolumes} volume(s).`
     : `PREVISÃO DE VOLUMES: ${dados.quantidadeVolumes} volume(s).`;
-  const legenda = [
-    `📦 Pedido nº ${dados.numeroPedido}`,
-    '',
-    'Confirma se os dados desta etiqueta estão corretos para imprimirmos e colarmos nas caixas?',
-    textoVolumes
-  ].join('\n');
+  // Apenas o botão "Salvar e enviar imagem ao cliente" usa a mensagem resumida.
+  // Outros envios da etiqueta mantêm a legenda de confirmação já existente.
+  const legenda = params?.mensagemResumida === true
+    ? [
+        `Pedido nº ${dados.numeroPedido} - Cliente: ${dados.nomeClientePedido || '-'}`,
+        ...(dados.observacaoPedido ? ['', `Observação: ${dados.observacaoPedido}`] : [])
+      ].join('\n')
+    : [
+        `📦 Pedido nº ${dados.numeroPedido}`,
+        '',
+        'Confirma se os dados desta etiqueta estão corretos para imprimirmos e colarmos nas caixas?',
+        textoVolumes
+      ].join('\n');
 
   let notificacao;
   try {
