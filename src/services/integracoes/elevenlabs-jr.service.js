@@ -160,8 +160,13 @@ async function validarVozProfissional(voz, modelo) {
     e.status = 503; throw e;
   }
   const estado = dados?.fine_tuning?.state?.[modeloId];
-  if (estado !== 'fine_tuned') {
-    const e = new Error(`Clonagem profissional indisponível no modelo ${modeloId}: treinamento não confirmado pela ElevenLabs (estado: ${estado || 'não informado'}). Envio bloqueado.`);
+  // O GET /v1/voices pode omitir um estado por modelo. Isso é AUSÊNCIA DE
+  // INFORMAÇÃO, não prova de que a voz está indisponível. Nesse caso, deixa
+  // a tentativa de síntese decidir: se a ElevenLabs rejeitar a voz/modelo,
+  // requestEleven devolve o erro real e o lote ainda não terá sido enviado.
+  // Estados explícitos de treinamento incompleto continuam bloqueados.
+  if (typeof estado === 'string' && estado.trim() && estado !== 'fine_tuned') {
+    const e = new Error(`Sua voz profissional ainda não está pronta no modelo ${modeloId} (estado: ${estado}). Confira em ElevenLabs > Minhas vozes > Eleven v4. Nenhuma mensagem foi enviada.`);
     e.status = 503; throw e;
   }
   return { voice_id: vozId, category: 'professional', model_id: modeloId };
