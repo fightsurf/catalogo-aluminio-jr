@@ -935,6 +935,20 @@ async function buscarMatriz(codigoCarradaParam) {
   );
   const pagamentoMap = new Map(pagamentoEntries);
 
+  // Soma os saldos individuais já calculados pelo módulo de pagamentos.
+  // Não compensa pedidos em aberto com pagamentos excedentes de outros pedidos.
+  // Se uma consulta falhar, não apresenta um total incompleto como se fosse definitivo.
+  let saldoReceberCentavos = 0;
+  let saldosIndisponiveis = 0;
+  pedidos.forEach((pedido) => {
+    const saldo = pagamentoMap.get(String(pedido.numero))?.resumo?.saldoRestante;
+    if (saldo === undefined || saldo === null || saldo === '' || !Number.isFinite(Number(saldo))) {
+      saldosIndisponiveis += 1;
+      return;
+    }
+    saldoReceberCentavos += Math.max(0, Math.round(Number(saldo) * 100));
+  });
+
   const linhas = pedidos.map((pedido) => {
     const numeroPedido = String(pedido.numero);
     const chavePedido = criarChavePedido({ saida: pedido.saida, numero: numeroPedido });
@@ -1010,7 +1024,9 @@ async function buscarMatriz(codigoCarradaParam) {
       descricao: carrada.descricao || '',
       totalPedidos: linhas.length,
       totalItens: linhas.reduce((acc, linha) => acc + Number(linha?.resumoPedido?.quantidadeItens || 0), 0),
-      totalValorPedidos: linhas.reduce((acc, linha) => acc + Number(linha?.total || 0), 0)
+      totalValorPedidos: linhas.reduce((acc, linha) => acc + Number(linha?.total || 0), 0),
+      totalSaldoReceber: saldosIndisponiveis ? null : saldoReceberCentavos / 100,
+      saldosIndisponiveis
     },
     fases: FASES_MATRIZ,
     pedidos: linhas,

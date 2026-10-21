@@ -110,7 +110,7 @@
     }
     .header-grid {
       display: grid;
-      grid-template-columns: repeat(4, minmax(180px, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
       gap: 12px;
       margin-top: 14px;
     }
@@ -2105,13 +2105,23 @@
         { titulo: 'Código', valor: carrada.codigo },
         { titulo: 'Data', valor: formatarData(carrada.data) || '-' },
         { titulo: 'Pedidos', valor: carrada.totalPedidos },
-        { titulo: 'Valor total', valor: formatarMoeda(carrada.totalValorPedidos) }
+        { titulo: 'Valor total', valor: formatarMoeda(carrada.totalValorPedidos) },
+        {
+          titulo: 'Saldo a receber',
+          valor: carrada.totalSaldoReceber == null
+            ? 'Indisponível'
+            : formatarMoeda(carrada.totalSaldoReceber),
+          observacao: carrada.totalSaldoReceber == null
+            ? `${Number(carrada.saldosIndisponiveis) || 0} pedido(s) sem saldo consultado`
+            : ''
+        }
       ];
 
       el.cardsCabecalho.innerHTML = cards.map((card) => `
         <div class="card">
           <span class="muted">${escapeHtml(card.titulo)}</span>
           <strong>${escapeHtml(card.valor)}</strong>
+          ${card.observacao ? `<small class="muted">${escapeHtml(card.observacao)}</small>` : ''}
         </div>
       `).join('');
     }
