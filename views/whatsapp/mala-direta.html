@@ -2,28 +2,37 @@
 <style>
 :root{font-family:system-ui,-apple-system,Arial,sans-serif;color:#17212f;background:#f1f4f8}*{box-sizing:border-box}body{margin:0}.wrap{max-width:1260px;margin:0 auto;padding:16px}h1{font-size:1.45rem}h2{font-size:1.08rem;margin:0 0 14px}.card{background:white;border:1px solid #dce2e8;border-radius:12px;padding:18px;margin:16px 0;box-shadow:0 2px 6px #13213a09}.muted{color:#687789;font-size:.9rem}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}.field{display:flex;flex-direction:column;gap:6px}label{font-weight:600;font-size:.94rem}input,select,textarea{border:1px solid #adb9c8;border-radius:7px;padding:10px;font:inherit;width:100%;background:white}input[type=checkbox]{width:18px;height:18px;cursor:pointer}button{border:0;border-radius:7px;padding:10px 13px;background:#1454a3;color:#fff;font:inherit;cursor:pointer}button.secondary{background:#e7edf4;color:#192a3b}button.danger{background:#8a2424}button:disabled{opacity:.45;cursor:not-allowed}.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.tablewrap{overflow:auto;max-height:460px}table{border-collapse:collapse;width:100%;white-space:nowrap;font-size:.93rem}th,td{padding:9px;border-bottom:1px solid #edf0f4;text-align:left}thead th{position:sticky;top:0;background:#f4f7fb}textarea{min-height:110px}.notice{padding:10px;border-left:3px solid #d28c13;background:#fff8e5;margin:12px 0}.preview{display:flex;gap:15px;flex-wrap:wrap;align-items:flex-start}.preview img{max-height:220px;max-width:250px;object-fit:contain;border-radius:8px}.preview p{white-space:pre-wrap;overflow-wrap:anywhere;flex:1;min-width:180px}.modal{position:fixed;inset:0;background:#0b1525aa;display:none;align-items:center;justify-content:center;padding:15px;z-index:20}.modal.active{display:flex}.modal .dialog{max-width:750px;background:white;padding:20px;max-height:85vh;overflow:auto;border-radius:12px;width:100%}.pie{width:220px;height:220px;border-radius:50%;margin:20px auto}.small{font-size:.83rem}.pill{font-size:.75rem;border-radius:6px;background:#e5edf6;padding:3px 7px}.ok{color:#16633c}.error{color:#a72a2a}a{color:#1454a3}.bottom{position:sticky;bottom:0;background:#f1f4f8;padding:8px 0;border-top:1px solid #dfe4e9}@media(max-width:600px){.wrap{padding:10px}.card{padding:12px}td,th{padding:7px 5px}}
 
-/* Mesmo padrão visual de escolha por imagem/nome/preço da Central de Ofertas, com seleção única. */
-.produtos-cabecalho{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:16px 0 8px;flex-wrap:wrap}
-.lista-produtos-mala{max-height:450px;overflow:auto;border:1px solid #dce2e8;border-radius:12px;background:#fff}
-.produto-opcao{display:grid;grid-template-columns:24px 62px minmax(0,1fr);gap:12px;align-items:center;width:100%;border:0;border-bottom:1px solid #e9edf2;border-radius:0;padding:9px 12px;background:#fff;color:#17212f;text-align:left;cursor:pointer}
-.produto-opcao:last-child{border-bottom:0}.produto-opcao:hover{background:#f5f9ff}.produto-opcao.ativo{background:#e7f2ff;box-shadow:inset 4px 0 #1454a3}.produto-opcao:focus-visible{outline:3px solid #1454a3;outline-offset:-3px}
-.produto-opcao .marcador{width:19px;height:19px;border:2px solid #98a8ba;border-radius:50%;display:inline-grid;place-items:center}.produto-opcao.ativo .marcador{border-color:#1454a3}.produto-opcao.ativo .marcador:after{content:'';width:9px;height:9px;border-radius:50%;background:#1454a3}
-.produto-opcao img,.produto-escolhido img{width:58px;height:58px;object-fit:contain;border-radius:8px;background:#f3f5f7}
-.produto-opcao .produto-nome{font-weight:700;display:block;white-space:normal;overflow-wrap:anywhere}
-.produto-opcao .produto-preco{font-weight:700;display:block;color:#166534;margin-top:4px}.produto-opcao .produto-legado{display:block;font-size:.78rem;color:#687789;margin-top:3px}
-.produto-escolhido{display:flex;align-items:center;gap:10px;min-height:68px;border:1px solid #dce2e8;border-radius:9px;padding:6px 10px;background:#f6f9fd}.produto-escolhido b{display:block;color:#17212f}.produto-escolhido span{display:block;font-size:.85rem;margin-top:3px}
-.produtos-vazio{padding:20px;text-align:center;color:#687789}
+/* Dropdown compacto: categoria nativa + produto com miniatura e nome. */
+.mala-produto-filtros{grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
+.produto-select-field{position:relative;min-width:0}
+.produto-select{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:46px;padding:5px 10px;border:1px solid #adb9c8;border-radius:7px;background:#fff;color:#17212f;text-align:left;font:inherit}
+.produto-select:hover{background:#f8fbff}.produto-select:focus-visible,.produto-opcao:focus-visible{outline:2px solid #1454a3;outline-offset:2px}
+.produto-select[aria-expanded="true"]{border-color:#1454a3}
+.produto-select-conteudo{display:flex;align-items:center;gap:10px;min-width:0;flex:1}
+.produto-select-nome{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.produto-select-seta{flex:none;font-size:12px;color:#526477}
+.produto-thumb{width:40px;height:40px;object-fit:contain;background:#f3f5f7;border-radius:6px;flex:none}
+.produto-sem-foto{display:grid;place-items:center;font-size:10px;text-align:center;color:#778391}
+.produto-menu{position:absolute;z-index:15;top:calc(100% + 3px);left:0;right:0;max-height:320px;overflow:auto;border:1px solid #b7c5d5;border-radius:8px;background:white;box-shadow:0 9px 24px #1b2d4b22}
+.produto-menu[hidden]{display:none}
+.produto-opcao{display:flex;align-items:center;gap:10px;width:100%;padding:6px 10px;border:0;border-bottom:1px solid #e9edf2;border-radius:0;background:white;color:#17212f;text-align:left;font:inherit;cursor:pointer}
+.produto-opcao:last-child{border-bottom:0}.produto-opcao:hover,.produto-opcao:focus{background:#f0f6ff}.produto-opcao.ativo{background:#e7f2ff;font-weight:650}
+.produto-opcao .produto-nome{display:block;min-width:0;overflow-wrap:anywhere}
+.produtos-vazio{padding:14px;color:#687789;font-size:.9rem}
+@media(max-width:600px){.mala-produto-filtros{grid-template-columns:1fr}}
 .telefone-acoes{display:inline-flex;align-items:center;gap:3px;margin-left:6px;vertical-align:middle}.telefone-acao{display:inline-grid;place-items:center;width:31px;height:31px;padding:3px;border-radius:6px;border:1px solid #dce2e8;background:#f5f8fc;color:#1754a3;text-decoration:none;font-size:1rem;cursor:pointer}.telefone-acao:hover{background:#e3effb}.telefone-acao:focus-visible{outline:2px solid #1454a3;outline-offset:2px}
-@media(max-width:600px){.produto-opcao{grid-template-columns:20px 52px minmax(0,1fr);gap:8px;padding:8px}.produto-opcao img{width:50px;height:50px}}
 .modal .dialog audio{width:100%;margin-top:10px}.modo-filtro{padding:10px;background:#f5f8fc;border-radius:8px;margin-bottom:10px}.modo-filtro select:disabled{background:#e9edf2;color:#84909c}.grupo-filtros{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin:12px 0}.grupo-filtros .field{min-width:0}.small-button{font-size:.83rem;padding:7px 10px}
 </style></head><body><main class="wrap">
 <h1>Mala Direta — Alumínio JR</h1><p class="muted">Escolha um produto, um grupo de destinatários e envie a divulgação pelo WhatsApp.</p>
 <div id="status" role="status" aria-live="polite"></div>
 <section class="card"><h2>1. Escolha do produto</h2>
-<div class="grid"><div class="field"><label for="busca">Pesquisar produto do catálogo Render</label><input id="busca" placeholder="Digite o nome do produto" autocomplete="off"></div>
-<div class="field"><label>Produto selecionado</label><input type="hidden" id="produto" value=""><div id="produtoSelecionado" class="produto-escolhido muted" aria-live="polite">Nenhum produto selecionado.</div></div></div>
-<div class="produtos-cabecalho"><strong>Produtos do catálogo Render</strong><span id="contadorProdutos" class="muted">Carregando...</span></div>
-<div id="listaProdutos" class="lista-produtos-mala" role="radiogroup" aria-label="Escolha um produto do catálogo"></div><p class="muted" id="infoProd"></p></section>
+<div class="grid mala-produto-filtros">
+<div class="field"><label for="categoriaProduto">Categoria do produto</label><select id="categoriaProduto"><option value="">Todas as categorias</option></select></div>
+<div class="field produto-select-field"><label id="produtoLabel" for="produtoSelect">Produto</label>
+<input type="hidden" id="produto" value="">
+<button type="button" id="produtoSelect" class="produto-select" role="combobox" aria-labelledby="produtoLabel produtoSelectConteudo" aria-expanded="false" aria-controls="listaProdutos" aria-haspopup="listbox"><span id="produtoSelectConteudo" class="produto-select-conteudo"><span class="produto-select-nome">Selecione um produto</span></span><span class="produto-select-seta" aria-hidden="true">▼</span></button>
+<div id="listaProdutos" class="produto-menu" role="listbox" aria-label="Produtos com foto" hidden></div></div>
+</div></section>
 <section class="card"><div class="row" style="justify-content:space-between"><h2>2. Seleção dos destinatários</h2><span id="resumo" class="muted">Escolha um critério.</span></div>
 <p class="muted">Escolha um único critério. Ao selecionar um deles, os outros dois ficam desabilitados. Carrada e semana incluem todos os clientes com pedidos válidos, independentemente do produto escolhido.</p>
 <div class="grupo-filtros">
@@ -69,46 +78,111 @@ function mostrarImagem(img,url){
   img.src=url;
   img.onerror=()=>{img.style.visibility='hidden';};
 }
+function categoriasProduto(p){return Array.isArray(p.categorias)?p.categorias:[];}
+function produtosFiltrados(){
+  const categoria=$('categoriaProduto').value;
+  if(!categoria)return produtos;
+  if(categoria==='sem-categoria')return produtos.filter(p=>!categoriasProduto(p).length);
+  return produtos.filter(p=>categoriasProduto(p).some(c=>String(c.id)===categoria));
+}
+function miniaturaProduto(p){
+  const foto=p?.fotos?.[0];
+  if(!foto)return el('span','Sem foto','produto-thumb produto-sem-foto');
+  const img=el('img',undefined,'produto-thumb');img.alt='';img.loading='lazy';mostrarImagem(img,foto);
+  return img;
+}
+function fecharProdutos(){
+  $('listaProdutos').hidden=true;
+  $('produtoSelect').setAttribute('aria-expanded','false');
+  $('produtoSelect').removeAttribute('aria-activedescendant');
+}
+function abrirProdutos(focar=false){
+  const menu=$('listaProdutos');
+  if(!menu.childElementCount)return;
+  menu.hidden=false;$('produtoSelect').setAttribute('aria-expanded','true');
+  if(focar){
+    const selecionado=menu.querySelector('[aria-selected="true"]');
+    (selecionado||menu.querySelector('[role="option"]'))?.focus();
+  }
+}
 function renderProdutos(){
   const lista=$('listaProdutos');lista.replaceChildren();
-  $('contadorProdutos').textContent=`${produtos.length} produto${produtos.length===1?'':'s'}`;
-  const escolhido=produto(),resumo=$('produtoSelecionado');resumo.replaceChildren();
+  const escolhido=produto(),conteudo=$('produtoSelectConteudo');conteudo.replaceChildren();
   if(escolhido){
-    const foto=el('img');foto.alt='';mostrarImagem(foto,escolhido.fotos?.[0]);
-    const detalhes=el('div');detalhes.append(el('b',escolhido.nome),el('span',precoProduto(escolhido)));
-    resumo.append(foto,detalhes);resumo.classList.remove('muted');
-  }else{resumo.append(el('span','Nenhum produto selecionado.'));resumo.classList.add('muted');}
-  if(!produtos.length){lista.append(el('div','Nenhum produto encontrado.','produtos-vazio'));return;}
-  for(const p of produtos){
+    conteudo.append(miniaturaProduto(escolhido),el('span',escolhido.nome,'produto-select-nome'));
+  }else{
+    conteudo.append(el('span','Selecione um produto','produto-select-nome muted'));
+  }
+  const visiveis=produtosFiltrados();
+  if(!visiveis.length){lista.append(el('div','Nenhum produto nesta categoria.','produtos-vazio'));fecharProdutos();return;}
+  for(const p of visiveis){
     const ativo=String(p.produtoId)===$('produto').value;
-    const btn=el('button',undefined,'produto-opcao'+(ativo?' ativo':''));btn.type='button';btn.setAttribute('role','radio');btn.setAttribute('aria-checked',String(ativo));btn.setAttribute('aria-label',`${p.nome}, ${precoProduto(p)}`);
-    const marcador=el('span',undefined,'marcador');marcador.setAttribute('aria-hidden','true');
-    const foto=el('img');foto.alt='';foto.loading='lazy';mostrarImagem(foto,p.fotos?.[0]);
-    const details=el('div');details.append(el('span',p.nome,'produto-nome'),el('span',precoProduto(p),'produto-preco'));
-    if(!p.item)details.append(el('span','Sem vínculo com o Firebird','produto-legado'));
-    btn.append(marcador,foto,details);
-    btn.onclick=()=>{if($('produto').value===String(p.produtoId))return;$('produto').value=String(p.produtoId);atualizarProduto();};
+    const btn=el('button',undefined,'produto-opcao'+(ativo?' ativo':''));btn.type='button';
+    btn.id='produtoOpcao'+p.produtoId;btn.setAttribute('role','option');btn.setAttribute('aria-selected',String(ativo));
+    btn.setAttribute('aria-label',p.nome);
+    btn.append(miniaturaProduto(p),el('span',p.nome,'produto-nome'));
+    btn.onclick=()=>{
+      fecharProdutos();$('produtoSelect').focus();
+      if($('produto').value===String(p.produtoId))return;
+      $('produto').value=String(p.produtoId);atualizarProduto();
+    };
+    btn.onkeydown=e=>{
+      const opcoes=Array.from(lista.querySelectorAll('[role="option"]'));
+      const index=opcoes.indexOf(btn);
+      if(e.key==='ArrowDown'||e.key==='ArrowUp'){
+        e.preventDefault();opcoes[(index+(e.key==='ArrowDown'?1:-1)+opcoes.length)%opcoes.length].focus();
+      }else if(e.key==='Home'||e.key==='End'){
+        e.preventDefault();opcoes[e.key==='Home'?0:opcoes.length-1].focus();
+      }else if(e.key==='Escape'){
+        e.preventDefault();fecharProdutos();$('produtoSelect').focus();
+      }else if(e.key==='Tab'){fecharProdutos();}
+    };
     lista.append(btn);
   }
 }
-
+function carregarCategorias(){
+  const select=$('categoriaProduto');const anterior=select.value;
+  const categorias=new Map();let semCategoria=false;
+  for(const p of produtos){
+    const tags=categoriasProduto(p);
+    if(!tags.length)semCategoria=true;
+    for(const c of tags){if(c?.id!=null)categorias.set(String(c.id),String(c.nome||'Categoria '+c.id));}
+  }
+  select.replaceChildren(new Option('Todas as categorias',''));
+  [...categorias].sort((a,b)=>a[1].localeCompare(b[1],'pt-BR',{sensitivity:'base'}))
+    .forEach(([id,nome])=>select.add(new Option(nome,id)));
+  if(semCategoria)select.add(new Option('Sem categoria','sem-categoria'));
+  if([...select.options].some(o=>o.value===anterior))select.value=anterior;
+}
 async function carregarProdutos(){
   try{
-    const busca=$('busca').value.trim();
-    const anteriores=produtos;
-    const resultado=await get(api+'/produtos?busca='+encodeURIComponent(busca));
-    // Descarta respostas atrasadas quando o usuário já alterou a pesquisa.
-    if(busca!==$('busca').value.trim())return;
+    // Carrega uma vez o catálogo inteiro: a categoria é filtrada na interface.
+    const resultado=await get(api+'/produtos');
+    if(!Array.isArray(resultado))throw Error('Lista de produtos inválida.');
     produtos=resultado;
-    const selecionado=$('produto').value;
-    // O mesmo produto só permanece selecionado quando aparece no resultado atual.
-    if(!produtos.some(p=>String(p.produtoId)===selecionado)){
-      $('produto').value='';
-      atualizarProduto();
+    carregarCategorias();
+    if(!produtos.some(p=>String(p.produtoId)===$('produto').value)){
+      $('produto').value='';atualizarProduto();
     }else{renderProdutos();}
   }catch(e){msg('Não foi possível carregar produtos: '+e.message,true);}
 }
-let timer; $('busca').addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(carregarProdutos,350)});
+$('categoriaProduto').onchange=()=>{
+  fecharProdutos();
+  if($('produto').value&&!produtosFiltrados().some(p=>String(p.produtoId)===$('produto').value)){
+    $('produto').value='';atualizarProduto();
+  }else renderProdutos();
+};
+$('produtoSelect').onclick=()=>{
+  if($('listaProdutos').hidden)abrirProdutos();else fecharProdutos();
+};
+$('produtoSelect').onkeydown=e=>{
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'||e.key==='Enter'||e.key===' '){
+    e.preventDefault();abrirProdutos(true);
+  }else if(e.key==='Escape'){fecharProdutos();}
+};
+document.addEventListener('pointerdown',e=>{
+  if(!e.target.closest('.produto-select-field'))fecharProdutos();
+});
 function chaveConsulta(){const c=criterio();return c?`${produto()?.produtoId||0}:${c.tipo}:${c.referencia??c.meses}`:'';}
 function criterio(){
   if($('periodo').value!=='')return {tipo:'periodo',meses:Number($('periodo').value)};
@@ -128,7 +202,6 @@ function atualizarProduto(){
   resetClientes();renderProdutos();imagemUpload='';$('upload').value='';
   const p=produto(),fotos=$('fotoSistema');fotos.replaceChildren(new Option('Selecione uma foto ou envie outra',''));
   (p?.fotos||[]).forEach((f,i)=>fotos.add(new Option('Foto '+(i+1),f)));
-  $('infoProd').textContent=p?(p.item?`Catálogo Render #${p.produtoId} • item Firebird ${p.item}`:`Catálogo Render #${p.produtoId} • sem vínculo Firebird (ainda pode selecionar clientes por carrada ou semana)`):'';
   fotoPreview();
   if(criterio()?.tipo==='periodo')periodos().then(()=>{if(p===produto()&&criterio()?.tipo==='periodo')consultar();});
   else {periodos();if(criterio())consultar();}

@@ -4,6 +4,7 @@ const bridge = require('../legado/legadoBridge.service');
 const zapi = require('../integracoes/zapi.service');
 const aparicoes = require('../termometro/termometroAparicoes.service');
 const eleven = require('../integracoes/elevenlabs-jr.service');
+const produtoFotosSchema = require('../produto/produtoFotosSchema.service');
 
 let preparing;
 function bad(msg) { const err = new Error(msg); err.status = 400; throw err; }
@@ -85,12 +86,22 @@ async function preparar() {
 // A seleção de produtos é exclusiva do catálogo PostgreSQL (Render).
 // Firebird é usado somente para o histórico de compras pelo item_legado.
 async function produtos(busca='') {
+  await produtoFotosSchema.criarEstrutura();
   const termo = String(busca || '').trim().slice(0,80);
   const query = `
-    SELECT id, nome, preco, item_legado, ativo, foto, foto_2, foto_3, foto_4, foto_5, foto_6
-      FROM produtos
-     WHERE ($1::text = '' OR nome ILIKE '%' || $1 || '%')
-     ORDER BY nome ASC, id ASC`;
+    SELECT p.id, p.nome, p.preco, p.item_legado, p.ativo,
+           p.foto, p.foto_2, p.foto_3, p.foto_4, p.foto_5, p.foto_6,
+           COALESCE((
+             SELECT json_agg(json_build_object('id', c.id, 'nome', c.nome) ORDER BY c.nome)
+             FROM produtos_categorias c
+             WHERE c.id = p.categoria_id OR EXISTS (
+               SELECT 1 FROM produto_categoria_vinculos v
+               WHERE v.produto_id = p.id AND v.categoria_id = c.id
+             )
+           ), '[]'::json) AS categorias
+      FROM produtos p
+     WHERE ($1::text = '' OR p.nome ILIKE '%' || $1 || '%')
+     ORDER BY p.nome ASC, p.id ASC`;
   const pg = await pool.query(query,[termo]);
   return pg.rows.map(p => ({
     produtoId: Number(p.id),
@@ -98,6 +109,7 @@ async function produtos(busca='') {
     nome: p.nome || '',
     preco: p.preco == null ? null : Number(p.preco),
     ativo: p.ativo !== false,
+    categorias: p.categorias || [],
     fotos: [p.foto,p.foto_2,p.foto_3,p.foto_4,p.foto_5,p.foto_6].filter(Boolean)
   }));
 }
