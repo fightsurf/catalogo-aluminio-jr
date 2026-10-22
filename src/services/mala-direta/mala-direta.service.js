@@ -118,7 +118,19 @@ async function compradores(item,meses) {
   return aplicarBloqueios(q.dados||[]);
 }
 async function carradas() {
-  return (await bridge.get('/api/mala-direta/carradas')).dados || [];
+  // Mesma origem, status persistido e resumo de produção da tela /legado/carradas.
+  // O filtro de destinatários continua usando somente o código selecionado.
+  const carradasService = require('../legado/carradas/carradas.service');
+  const lista = await carradasService.listarCarradas();
+  return lista.map(c => ({
+    codigo: c.codigo,
+    data: c.data,
+    descricao: c.descricao,
+    progressoStatusLinha: c.progressoStatusLinha,
+    quantidadeItens: c.quantidadeItens,
+    quantidadeItensProntos: c.quantidadeItensProntos,
+    quantidadeItensAProduzir: c.quantidadeItensAProduzir
+  }));
 }
 async function semanas() {
   const r=await pool.query(`SELECT id,data_inicial,data_final,descricao

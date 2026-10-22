@@ -22,6 +22,26 @@
 @media(max-width:600px){.mala-produto-filtros{grid-template-columns:1fr}}
 .telefone-acoes{display:inline-flex;align-items:center;gap:3px;margin-left:6px;vertical-align:middle}.telefone-acao{display:inline-grid;place-items:center;width:31px;height:31px;padding:3px;border-radius:6px;border:1px solid #dce2e8;background:#f5f8fc;color:#1754a3;text-decoration:none;font-size:1rem;cursor:pointer}.telefone-acao:hover{background:#e3effb}.telefone-acao:focus-visible{outline:2px solid #1454a3;outline-offset:2px}
 .modal .dialog audio{width:100%;margin-top:10px}.modo-filtro{padding:10px;background:#f5f8fc;border-radius:8px;margin-bottom:10px}.modo-filtro select:disabled{background:#e9edf2;color:#84909c}.grupo-filtros{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px;margin:12px 0}.grupo-filtros .field{min-width:0}.small-button{font-size:.83rem;padding:7px 10px}
+/* Seletor visual de carradas: mesmas cores da tabela /legado/carradas. */
+.carrada-native{display:none}
+.carrada-select-wrapper{position:relative;min-width:0}
+.carrada-select{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:43px;border:1px solid #adb9c8;border-radius:7px;padding:10px;background:#fff;color:#17212f;text-align:left;font:inherit}
+.carrada-select-texto{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.carrada-select-seta{flex:none;font-size:12px;color:#526477}
+.carrada-select:focus-visible,.carrada-opcao:focus-visible{outline:2px solid #1454a3;outline-offset:2px}
+.carrada-select[aria-expanded="true"]{border-color:#1454a3}
+.carrada-select:disabled{background:#e9edf2;color:#84909c;cursor:not-allowed}
+.carrada-opcoes{position:absolute;z-index:16;top:calc(100% + 3px);left:0;right:0;max-height:350px;overflow-y:auto;background:#fff;border:1px solid #b7c5d5;border-radius:7px;box-shadow:0 9px 24px #1b2d4b22}
+.carrada-opcoes[hidden]{display:none}
+.carrada-opcao{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid #e9edf2;border-radius:0;padding:10px 11px;background:#fff;color:#17212f;font:inherit;cursor:pointer}
+.carrada-opcao:last-child{border-bottom:0}
+.carrada-opcao:hover,.carrada-opcao:focus{filter:brightness(.96)}
+.carrada-opcao.ativo{font-weight:700;box-shadow:inset 0 0 0 2px #1454a3}
+.carrada-opcao.carrada-semicompleta,.carrada-select.carrada-semicompleta{background:#dcfce7;border-left:3px solid #22c55e}
+.carrada-opcao.carrada-completa,.carrada-select.carrada-completa{background:#dbeafe;border-left:3px solid #3b82f6}
+.carrada-opcao.carrada-hoje,.carrada-select.carrada-hoje{background:#fef9c3;border-left:3px solid #eab308}
+.abrir-progresso{display:inline-flex;align-items:center;gap:5px;align-self:flex-start;font-size:.88rem;text-decoration:underline;margin-top:2px}
+.abrir-progresso[aria-disabled="true"]{color:#84909c;text-decoration:none;cursor:not-allowed;pointer-events:none}
 </style></head><body><main class="wrap">
 <h1>Mala Direta — Alumínio JR</h1><p class="muted">Escolha um produto, um grupo de destinatários e envie a divulgação pelo WhatsApp.</p>
 <div id="status" role="status" aria-live="polite"></div>
@@ -37,7 +57,14 @@
 <p class="muted">Escolha um único critério. Ao selecionar um deles, os outros dois ficam desabilitados. Carrada e semana incluem todos os clientes com pedidos válidos, independentemente do produto escolhido.</p>
 <div class="grupo-filtros">
 <div class="field"><label for="periodo">Período de compras do produto</label><select id="periodo"><option value="">Escolha um período</option><option value="0">Todas as compras realizadas</option></select></div>
-<div class="field"><label for="carrada">Carrada</label><select id="carrada"><option value="">Escolha uma carrada</option></select></div>
+<div class="field"><label id="carradaLabel" for="carradaSelect">Carrada</label>
+<select id="carrada" class="carrada-native" tabindex="-1" aria-hidden="true"><option value="">Escolha uma carrada</option></select>
+<div class="carrada-select-wrapper">
+<button type="button" id="carradaSelect" class="carrada-select" role="combobox" aria-labelledby="carradaLabel carradaSelectTexto" aria-haspopup="listbox" aria-expanded="false" aria-controls="listaCarradas"><span id="carradaSelectTexto" class="carrada-select-texto">Escolha uma carrada</span><span class="carrada-select-seta" aria-hidden="true">▼</span></button>
+<div id="listaCarradas" class="carrada-opcoes" role="listbox" aria-label="Carradas por situação" hidden></div>
+</div>
+<a id="abrirProgresso" class="abrir-progresso" target="_blank" rel="noopener noreferrer" aria-disabled="true" tabindex="-1">Abrir progresso ↗</a>
+</div>
 <div class="field"><label for="semana">Semana</label><select id="semana"><option value="">Escolha uma semana</option></select></div>
 </div>
 <div class="row modo-filtro"><button type="button" class="secondary" id="limparFiltro">Limpar filtro e liberar os três seletores</button><button type="button" id="consultar" class="secondary">Consultar clientes</button><span id="criterioAtivo" class="muted">Nenhum critério escolhido</span></div>
@@ -63,6 +90,7 @@
 'use strict';
 const $=id=>document.getElementById(id);const api='/api/whatsapp/mala-direta';
 let produtos=[], clientes=[], imagemUpload='',ultimaConsulta='',consultaSeq=0;
+let carradasMeta=[];
 let audioPreviewId='',audioPreviewTexto='',audioObjectUrl='',elevenCarregado=false;
 const selected=()=>clientes.filter(c=>c.marcado);const norm=s=>String(s||'').replace(/\D/g,'');
 const date=v=>{if(!v)return '-';const d=new Date(v);return Number.isNaN(d.getTime())?'-':d.toLocaleDateString('pt-BR',{timeZone:'UTC'});};
@@ -190,10 +218,116 @@ function criterio(){
   if($('semana').value!=='')return {tipo:'semana',referencia:Number($('semana').value)};
   return null;
 }
+// A cor segue a regra de obterClassesLinhaCarrada() da tela original de carradas.
+function dataCarradaISO(valor){
+  if(!valor)return '';
+  const texto=String(valor).trim();
+  const iso=texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(iso)return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  const br=texto.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if(br)return `${br[3]}-${br[2]}-${br[1]}`;
+  const d=new Date(valor);
+  if(Number.isNaN(d.getTime()))return '';
+  const partes=new Intl.DateTimeFormat('en-CA',{timeZone:'America/Fortaleza',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(d);
+  const p=Object.fromEntries(partes.map(x=>[x.type,x.value]));
+  return `${p.year}-${p.month}-${p.day}`;
+}
+function hojeCarradaISO(){
+  const p=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'America/Fortaleza',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()).map(x=>[x.type,x.value]));
+  return `${p.year}-${p.month}-${p.day}`;
+}
+function resumoCarradaZerado(c){
+  const campos=[['quantidadeItens','quantidade_itens'],['quantidadeItensProntos','quantidade_itens_prontos'],['quantidadeItensAProduzir','quantidade_itens_a_produzir']];
+  return campos.every(([camel,snake])=>{
+    if(!Object.prototype.hasOwnProperty.call(c,camel)&&!Object.prototype.hasOwnProperty.call(c,snake))return false;
+    const n=Number(c[Object.prototype.hasOwnProperty.call(c,camel)?camel:snake]??0);
+    return Number.isFinite(n)&&n===0;
+  });
+}
+function classeCarrada(c,hoje=hojeCarradaISO()){
+  const data=dataCarradaISO(c.data);
+  // Hoje sempre prevalece, mesmo que a carrada esteja completa.
+  if(data&&data===hoje)return 'carrada-hoje';
+  // Repete a exceção do resumo zerado para ontem ou qualquer data anterior.
+  if(c.progressoStatusLinha==='completa'||(data&&data<hoje&&resumoCarradaZerado(c)))return 'carrada-completa';
+  if(c.progressoStatusLinha==='semicompleta')return 'carrada-semicompleta';
+  return '';
+}
+function fecharCarradas(){
+  $('listaCarradas').hidden=true;
+  $('carradaSelect').setAttribute('aria-expanded','false');
+}
+function abrirCarradas(focar=false){
+  if($('carrada').disabled||!$('listaCarradas').childElementCount)return;
+  $('listaCarradas').hidden=false;
+  $('carradaSelect').setAttribute('aria-expanded','true');
+  if(focar){
+    ($('listaCarradas').querySelector('[aria-selected="true"]')||$('listaCarradas').querySelector('[role="option"]'))?.focus();
+  }
+}
+function atualizarSeletorCarradas(){
+  const codigo=$('carrada').value;
+  const c=carradasMeta.find(x=>String(x.codigo)===codigo);
+  const botao=$('carradaSelect');
+  botao.disabled=$('carrada').disabled;
+  botao.className='carrada-select'+(c?' '+classeCarrada(c):'');
+  $('carradaSelectTexto').textContent=$('carrada').selectedOptions[0]?.textContent||'Escolha uma carrada';
+  const link=$('abrirProgresso');
+  if(codigo&&c&&Number.isSafeInteger(Number(codigo))&&Number(codigo)>0){
+    link.href='/legado/carradas/progresso?codigo='+encodeURIComponent(codigo);
+    link.setAttribute('aria-disabled','false');link.tabIndex=0;
+  }else{
+    link.removeAttribute('href');link.setAttribute('aria-disabled','true');link.tabIndex=-1;
+  }
+  $('listaCarradas').querySelectorAll('[role="option"]').forEach(op=>{
+    const ativo=op.dataset.codigo===codigo;
+    op.classList.toggle('ativo',ativo);
+    op.setAttribute('aria-selected',String(ativo));
+  });
+  if(botao.disabled)fecharCarradas();
+}
+function renderCarradasSeletor(){
+  const menu=$('listaCarradas');menu.replaceChildren();
+  const opcoes=[{codigo:'',descricao:'Escolha uma carrada'},...carradasMeta];
+  const hoje=hojeCarradaISO();
+  for(const c of opcoes){
+    const codigo=String(c.codigo),texto=codigo?`Carrada ${c.codigo} • ${date(c.data)}${c.descricao?' — '+c.descricao:''}`:'Escolha uma carrada';
+    const op=el('button',texto,'carrada-opcao'+(codigo?' '+classeCarrada(c,hoje):''));
+    op.type='button';op.setAttribute('role','option');op.dataset.codigo=codigo;
+    op.setAttribute('aria-selected',String($('carrada').value===codigo));
+    op.onclick=()=>{
+      $('carrada').value=codigo;fecharCarradas();
+      atualizarSeletorCarradas();$('carrada').dispatchEvent(new Event('change',{bubbles:true}));
+      $('carradaSelect').focus();
+    };
+    menu.append(op);
+  }
+  atualizarSeletorCarradas();
+}
+$('carradaSelect').onclick=()=>{
+  if($('listaCarradas').hidden)abrirCarradas();else fecharCarradas();
+};
+$('carradaSelect').onkeydown=e=>{
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'||e.key==='Enter'||e.key===' '){e.preventDefault();abrirCarradas(true);}
+  else if(e.key==='Escape')fecharCarradas();
+};
+$('listaCarradas').onkeydown=e=>{
+  const opcoes=[...$('listaCarradas').querySelectorAll('[role="option"]')];
+  const i=opcoes.indexOf(document.activeElement);
+  if(e.key==='Escape'){e.preventDefault();fecharCarradas();$('carradaSelect').focus();}
+  else if(['ArrowDown','ArrowUp','Home','End'].includes(e.key)){
+    e.preventDefault();const j=e.key==='Home'?0:e.key==='End'?opcoes.length-1:e.key==='ArrowDown'?Math.min(i+1,opcoes.length-1):Math.max(i-1,0);
+    opcoes[j]?.focus();
+  }else if(e.key==='Tab')fecharCarradas();
+};
+document.addEventListener('pointerdown',e=>{
+  if(!e.target.closest('.carrada-select-wrapper'))fecharCarradas();
+});
 function atualizarBloqueios(){
   const c=criterio();
   $('periodo').disabled=Boolean(c&&c.tipo!=='periodo');
   $('carrada').disabled=Boolean(c&&c.tipo!=='carrada');
+  atualizarSeletorCarradas();
   $('semana').disabled=Boolean(c&&c.tipo!=='semana');
   $('criterioAtivo').textContent=c?`Critério ativo: ${c.tipo==='periodo'?'Período de compras':c.tipo==='carrada'?'Carrada':'Semana'}`:'Nenhum critério escolhido';
 }
@@ -223,7 +357,9 @@ async function carregarFiltros(){
   const preencher=(id,itens,rotulo)=>{const select=$(id);select.replaceChildren(new Option('Escolha '+rotulo,''));itens.forEach(x=>select.add(new Option(x.label,String(x.value))));};
   try{
     const [cs,ss]=await Promise.all([get(api+'/carradas'),get(api+'/semanas')]);
-    preencher('carrada',(cs||[]).map(c=>({value:c.codigo,label:`Carrada ${c.codigo} • ${date(c.data)}${c.descricao?' — '+c.descricao:''}`})),'uma carrada');
+    carradasMeta=Array.isArray(cs)?cs:[];
+    preencher('carrada',carradasMeta.map(c=>({value:c.codigo,label:`Carrada ${c.codigo} • ${date(c.data)}${c.descricao?' — '+c.descricao:''}`})),'uma carrada');
+    renderCarradasSeletor();
     preencher('semana',(ss||[]).map(w=>({value:w.id,label:`Semana ${w.id} • ${date(w.data_inicial)} a ${date(w.data_final)}${w.descricao?' — '+w.descricao:''}`})),'uma semana');
     atualizarBloqueios();
   }catch(e){msg('Não foi possível listar carradas e semanas: '+e.message,true);}
