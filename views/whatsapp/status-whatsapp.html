@@ -35,10 +35,43 @@
     .flash.show { display: block; }
     .filters {
       display: grid;
-      grid-template-columns: minmax(220px, .9fr) minmax(250px, 1fr) 180px auto;
+      grid-template-columns: minmax(160px, .9fr) minmax(190px, 1fr) minmax(215px, 1.1fr) 145px auto;
       gap: 12px;
       align-items: end;
     }
+    .client-search-wrap { position: relative; min-width: 0; }
+    .client-results {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      z-index: 30;
+      max-height: 270px;
+      overflow-y: auto;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-sm);
+      background: var(--color-surface);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, .15);
+    }
+    .client-results[hidden] { display: none; }
+    .client-option {
+      display: block;
+      width: 100%;
+      padding: 10px 12px;
+      border: 0;
+      border-bottom: 1px solid var(--color-border);
+      background: transparent;
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+    .client-option:hover, .client-option:focus { background: #eaf4ff; outline: none; }
+    .client-option:last-child { border-bottom: 0; }
+    .client-option strong, .client-option small { display: block; }
+    .client-option small { color: var(--color-muted); margin-top: 3px; }
+    .client-feedback { font-size: 12px; color: var(--color-muted); margin-top: 5px; min-height: 15px; }
+    .client-feedback.selected { color: #16803d; font-weight: 600; }
+    .client-feedback.warning { color: #a14d00; }
     .actions {
       display: flex;
       gap: 8px;
@@ -139,6 +172,9 @@
     }
     .note { margin: 12px 0 0; color: var(--color-muted); font-size: 13px; }
     button:disabled, select:disabled, input:disabled { opacity: .55; cursor: not-allowed; }
+    @media (max-width: 1050px) and (min-width: 761px) {
+      .filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
     @media (max-width: 760px) {
       body { padding-top: 12px; }
       .topbar { flex-direction: column; }
@@ -177,8 +213,15 @@
           </select>
         </div>
         <div>
-          <label for="telefone">Número do cliente (envio direto)</label>
+          <label for="telefone">Número WhatsApp avulso</label>
           <input id="telefone" class="form-control" type="tel" inputmode="numeric" autocomplete="tel" placeholder="Ex.: 5583999999999" />
+        </div>
+        <div class="client-search-wrap" id="clienteBuscaWrap">
+          <label for="clienteBusca">Ou buscar cliente cadastrado</label>
+          <input id="clienteBusca" class="form-control" type="text" autocomplete="off"
+            placeholder="Digite as primeiras letras do nome" aria-controls="clienteResultados" aria-expanded="false" />
+          <div id="clienteResultados" class="client-results" hidden></div>
+          <div id="clienteAviso" class="client-feedback" aria-live="polite"></div>
         </div>
         <div>
           <label for="intervalo">Intervalo entre envios</label>
@@ -209,7 +252,7 @@
       </div>
 
       <p class="note">
-        No modo Fotos, para o envio ao cliente, informe o número com DDI e DDD. A publicação da categoria envia cada produto ao Status do WhatsApp, ao Story do Instagram e ao Story do Facebook. Ao final, todos os itens publicáveis da categoria também são agrupados em um carrossel no feed da página Alumínio JR no Facebook. Se houver mais de 10 itens, o sistema divide automaticamente em mais de um carrossel. Nome e preço são inseridos nas artes. Somente produtos ativos são considerados; produtos sem foto 1, descrição ou preço válido serão mostrados, mas não serão enviados.
+        No modo Fotos, para o envio ao cliente, informe um WhatsApp avulso com DDI e DDD ou pesquise e selecione um cliente cadastrado (com telefone). A publicação da categoria envia cada produto ao Status do WhatsApp, ao Story do Instagram e ao Story do Facebook. Ao final, todos os itens publicáveis da categoria também são agrupados em um carrossel no feed da página Alumínio JR no Facebook. Se houver mais de 10 itens, o sistema divide automaticamente em mais de um carrossel. Nome e preço são inseridos nas artes. Somente produtos ativos são considerados; produtos sem foto 1, descrição ou preço válido serão mostrados, mas não serão enviados.
       </p>
     </section>
 
@@ -244,6 +287,10 @@
 
     const categoriaEl = document.getElementById('categoria');
     const telefoneEl = document.getElementById('telefone');
+    const clienteBuscaEl = document.getElementById('clienteBusca');
+    const clienteBuscaWrap = document.getElementById('clienteBuscaWrap');
+    const clienteResultadosEl = document.getElementById('clienteResultados');
+    const clienteAvisoEl = document.getElementById('clienteAviso');
     const intervaloEl = document.getElementById('intervalo');
     const carregarBtn = document.getElementById('carregarBtn');
     const enviarClienteBtn = document.getElementById('enviarClienteBtn');
@@ -266,6 +313,11 @@
     let categoriaAtual = null;
     let processando = false;
     let ultimoDestino = '';
+    let ultimoTelefoneCliente = '';
+    let clienteSelecionado = null;
+    let clientesEncontrados = [];
+    let buscaClientesTimer = null;
+    let buscaClientesSequencia = 0;
     let facebookFeedCategoria = null;
     let facebookFeedRequestId = '';
 
@@ -289,6 +341,93 @@
       return String(valor || '').replace(/\D+/g, '');
     }
 
+
+    // Telefones do Firebird podem vir sem DDI. Não completar números sem DDD.
+    function telefoneCadastrado(valor) {
+      const numero = normalizarTelefone(valor);
+      if (/^55\d{10,11}$/.test(numero)) return numero;
+      if (/^\d{10,11}$/.test(numero)) return `55${numero}`;
+      return '';
+    }
+
+    function telefoneDestinoAtual() {
+      return clienteSelecionado
+        ? telefoneCadastrado(clienteSelecionado.telefonePrincipal)
+        : normalizarTelefone(telefoneEl.value);
+    }
+
+    function fecharResultadosClientes() {
+      clienteResultadosEl.hidden = true;
+      clienteBuscaEl.setAttribute('aria-expanded', 'false');
+    }
+
+    function mensagemCliente(texto, tipo = '') {
+      clienteAvisoEl.textContent = texto;
+      clienteAvisoEl.className = `client-feedback${tipo ? ` ${tipo}` : ''}`;
+    }
+
+    function limparBuscaPendente() {
+      clearTimeout(buscaClientesTimer);
+      buscaClientesSequencia += 1; // Desconsidera respostas antigas após trocar destinatário.
+      clientesEncontrados = [];
+      fecharResultadosClientes();
+    }
+
+    function selecionarCliente(cliente) {
+      limparBuscaPendente();
+      clienteSelecionado = cliente;
+      clienteBuscaEl.value = cliente.nome || cliente.razao || '';
+      telefoneEl.value = ''; // Número avulso e cliente cadastrado são alternativas.
+      const numero = telefoneCadastrado(cliente.telefonePrincipal);
+      if (numero) {
+        mensagemCliente(`${cliente.nome || cliente.razao} — WhatsApp ${numero}`, 'selected');
+      } else {
+        mensagemCliente('Cliente sem WhatsApp válido cadastrado. Digite um número avulso.', 'warning');
+      }
+      atualizarBotoes();
+    }
+
+    function renderizarBuscaClientes(lista) {
+      clientesEncontrados = lista;
+      if (!lista.length) {
+        fecharResultadosClientes();
+        mensagemCliente('Nenhum cliente encontrado.');
+        return;
+      }
+      clienteResultadosEl.innerHTML = lista.map((cliente, index) => {
+        const telefone = telefoneCadastrado(cliente.telefonePrincipal);
+        const cidade = [cliente.cidade, cliente.uf].filter(Boolean).join('/');
+        return `<button class="client-option" type="button" data-cliente-index="${index}">
+          <strong>${escaparHtml(cliente.nome || cliente.razao || 'Cliente')}</strong>
+          <small>${escaparHtml(cidade || 'Cidade não informada')} · ${escaparHtml(telefone || 'Sem WhatsApp válido')}</small>
+        </button>`;
+      }).join('');
+      clienteResultadosEl.hidden = false;
+      clienteBuscaEl.setAttribute('aria-expanded', 'true');
+      mensagemCliente(`${lista.length} cliente(s) encontrado(s). Selecione um na lista.`);
+      clienteResultadosEl.querySelectorAll('[data-cliente-index]').forEach((botao) => {
+        botao.addEventListener('click', () => selecionarCliente(lista[Number(botao.dataset.clienteIndex)]));
+      });
+    }
+
+    async function buscarClientes(termo, sequencia) {
+      try {
+        const resposta = await fetch(`/api/legado/clientes?nome=${encodeURIComponent(termo)}&limite=20`, {
+          credentials: 'same-origin', headers: { Accept: 'application/json' },
+        });
+        tratarSessao(resposta);
+        const dados = await lerJson(resposta);
+        if (!resposta.ok || dados.sucesso === false) {
+          throw new Error(dados.erro || dados.message || 'Falha na busca de clientes.');
+        }
+        if (sequencia !== buscaClientesSequencia || processando) return;
+        renderizarBuscaClientes(Array.isArray(dados.dados) ? dados.dados : []);
+      } catch (erro) {
+        if (sequencia !== buscaClientesSequencia || processando) return;
+        fecharResultadosClientes();
+        mensagemCliente(erro.message || 'Falha ao consultar clientes.', 'warning');
+      }
+    }
 
     function mostrarFlash(tipo, mensagem) {
       flash.className = `flash show ${tipo === 'erro' ? 'flash-error' : 'flash-success'}`;
@@ -349,7 +488,7 @@
         && facebookFeedCategoria
         && facebookFeedCategoria.status !== 'publicado';
       const categoriaSelecionada = Boolean(categoriaEl.value);
-      const telefoneValido = normalizarTelefone(telefoneEl.value).length >= 10;
+      const telefoneValido = telefoneDestinoAtual().length >= 10;
       const semProdutos = publicaveis.length === 0;
 
       enviarClienteBtn.disabled = tipoMidiaEl.value !== 'foto' || processando || !categoriaSelecionada || !telefoneValido || semProdutos;
@@ -357,6 +496,8 @@
       carregarBtn.disabled = processando || !categoriaSelecionada;
       categoriaEl.disabled = processando;
       telefoneEl.disabled = processando;
+      clienteBuscaEl.disabled = processando;
+      if (processando) fecharResultadosClientes();
       intervaloEl.disabled = processando;
       tipoMidiaEl.disabled = processando;
       publicarStatusBtn.textContent = tipoMidiaEl.value !== 'foto' ? (tipoMidiaEl.value === 'foto_video' ? 'Publicar fotos e vídeos no WhatsApp + Instagram + Facebook Stories' : 'Publicar vídeos no WhatsApp + Instagram + Facebook Stories') : 'Publicar categoria no WhatsApp + Instagram + Facebook';
@@ -645,20 +786,24 @@
       if (processando || (!listaParaEnviar.length && !precisaRepetirFeed) || !categoriaAtual) return;
 
       let telefone = '';
+      let nomeDestinatario = '';
       if (destino === 'cliente') {
-        telefone = normalizarTelefone(telefoneEl.value);
+        // Nas tentativas de reenvio, preserva o destino do lote anterior.
+        telefone = confirmar ? telefoneDestinoAtual() : ultimoTelefoneCliente;
+        nomeDestinatario = confirmar && clienteSelecionado
+          ? (clienteSelecionado.nome || clienteSelecionado.razao || '') : '';
         if (telefone.length < 10) {
-          mostrarFlash('erro', 'Informe o número do WhatsApp com DDI e DDD.');
-          telefoneEl.focus();
+          mostrarFlash('erro', 'Informe o WhatsApp avulso com DDI e DDD ou selecione um cliente com telefone cadastrado.');
+          (clienteSelecionado ? clienteBuscaEl : telefoneEl).focus();
           return;
         }
-        telefoneEl.value = telefone;
+        if (confirmar && !clienteSelecionado) telefoneEl.value = telefone;
       }
 
       if (confirmar) {
         const destinoConfirmacao = destino === 'status'
           ? (tipoMidiaEl.value !== 'foto' ? 'no Status do WhatsApp e Stories do Instagram/Facebook, seguindo o modo selecionado' : 'no Status do WhatsApp, nos Stories do Instagram/Facebook e em carrossel no feed do Facebook')
-          : `para o WhatsApp ${telefone}`;
+          : `para ${nomeDestinatario ? `o cliente ${nomeDestinatario} (${telefone})` : `o WhatsApp ${telefone}`}`;
         const confirmou = window.confirm(
           `Enviar ${listaParaEnviar.length} produto(s) da categoria “${categoriaAtual.nome}” ${destinoConfirmacao}?`
         );
@@ -675,6 +820,7 @@
         await verificarConexao(true);
       }
 
+      if (destino === 'cliente' && confirmar) ultimoTelefoneCliente = telefone;
       processando = true;
       ultimoDestino = destino;
       progressWrap.classList.add('show');
@@ -832,7 +978,46 @@
     });
 
     categoriaEl.addEventListener('change', carregarProdutos);
-    telefoneEl.addEventListener('input', atualizarBotoes);
+    telefoneEl.addEventListener('input', () => {
+      if (clienteSelecionado || clienteBuscaEl.value) {
+        limparBuscaPendente();
+        clienteSelecionado = null;
+        clienteBuscaEl.value = '';
+        mensagemCliente('');
+      }
+      atualizarBotoes();
+    });
+    clienteBuscaEl.addEventListener('input', () => {
+      limparBuscaPendente();
+      clienteSelecionado = null;
+      if (clienteBuscaEl.value.trim()) telefoneEl.value = '';
+      const termo = clienteBuscaEl.value.trim();
+      atualizarBotoes();
+      if (termo.length < 2) {
+        mensagemCliente(termo ? 'Digite pelo menos 2 letras.' : '');
+        return;
+      }
+      mensagemCliente('Procurando clientes...');
+      const sequencia = buscaClientesSequencia;
+      buscaClientesTimer = setTimeout(() => buscarClientes(termo, sequencia), 300);
+    });
+    clienteBuscaEl.addEventListener('keydown', (evento) => {
+      if (evento.key === 'Escape') { fecharResultadosClientes(); return; }
+      if (evento.key === 'ArrowDown' && !clienteResultadosEl.hidden) {
+        evento.preventDefault();
+        clienteResultadosEl.querySelector('button')?.focus();
+      }
+      if (evento.key === 'Enter' && !clienteResultadosEl.hidden && clientesEncontrados.length === 1) {
+        evento.preventDefault();
+        selecionarCliente(clientesEncontrados[0]);
+      }
+    });
+    clienteResultadosEl.addEventListener('keydown', (evento) => {
+      if (evento.key === 'Escape') { fecharResultadosClientes(); clienteBuscaEl.focus(); }
+    });
+    document.addEventListener('click', (evento) => {
+      if (!clienteBuscaWrap.contains(evento.target)) fecharResultadosClientes();
+    });
     carregarBtn.addEventListener('click', carregarProdutos);
     enviarClienteBtn.addEventListener('click', () => prepararNovoEnvio('cliente'));
     publicarStatusBtn.addEventListener('click', () => prepararNovoEnvio('status'));
