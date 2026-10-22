@@ -152,6 +152,14 @@
       margin-top: 8px;
       font-size: 24px;
     }
+    .status-card.completed {
+      background: var(--success-bg);
+      border-color: #86efac;
+      color: var(--success);
+    }
+    .status-card.completed .muted {
+      color: var(--success);
+    }
     .legend {
       display: flex;
       gap: 16px;
@@ -2529,8 +2537,9 @@
 
       el.cardsFases.innerHTML = FASES.map((fase) => {
         const total = totais[fase.codigo] || { concluidos: 0, total: 0 };
+        const concluida = Number(total.total) > 0 && Number(total.concluidos) === Number(total.total);
         return `
-          <div class="status-card">
+          <div class="status-card${concluida ? ' completed' : ''}">
             <span class="muted">${escapeHtml(fase.nome)}</span>
             <strong>${escapeHtml(`${total.concluidos}/${total.total}`)}</strong>
           </div>
