@@ -171,6 +171,23 @@ async function aplicarBloqueios(lista) {
   return lista.map(c=>({...c,telefoneNormalizado:telefone(c.telefone),bloqueado:bloqueio.has(telefone(c.telefone))}));
 }
 async function primeiraCompra(item) { return (await bridge.get('/api/mala-direta/primeira-compra/'+id(item))).dados; }
+// Prepara o áudio antes de iniciar qualquer envio (teste ou campanha).
+// O ID de prévia é temporário, pertence ao administrador e não pode trocar de origem.
+function audioSelecionado(dados,usuario){
+  const texto=String(dados.audioTexto||'').trim();
+  const fonte=String(dados.audioOrigem||((texto||dados.audioPreviewId)?'elevenlabs':'nenhum'));
+  if(!['nenhum','gravacao','elevenlabs'].includes(fonte))bad('Fonte de áudio inválida.');
+  if(fonte==='nenhum')return {audio:null,texto:null};
+  if(!dados.audioPreviewId)bad('Prepare o áudio selecionado antes de enviar.');
+  const audio=eleven.obterPreview(dados.audioPreviewId,usuario);
+  if(!audio?.bytes?.length||audio.bytes.length>5*1024*1024)bad('Áudio inválido ou grande demais.');
+  if(fonte==='gravacao'){
+    if(audio.origem!=='gravacao'||texto)bad('A gravação selecionada não corresponde à prévia.');
+    return {audio,texto:null};
+  }
+  if(audio.origem==='gravacao'||!texto||texto.length>1000||texto!==audio.texto)bad('O texto ou a prévia da ElevenLabs não confere. Gere novamente.');
+  return {audio,texto};
+}
 async function criar(dados, origem,usuario) {
   await preparar();
   const produtoId=id(dados.produtoId), criterio=criterioValido(dados), intervalo=Number(dados.intervaloSegundos);
@@ -196,16 +213,8 @@ async function criar(dados, origem,usuario) {
   });
   if(new Set(linhas.map(x=>x.fone)).size!==linhas.length) bad('Existem clientes selecionados com o mesmo telefone; resolva duplicidades antes de enviar.');
   const imagem=urlFoto(dados.imagem,origem);
-  const audioTexto=String(dados.audioTexto||'').trim();
-  let audio=null;
-  if(audioTexto) {
-    if(audioTexto.length>1000) bad('O texto para áudio deve ter até 1000 caracteres.');
-    // Usa exatamente a prévia ouvida, sem descontar créditos novamente.
-    if(!dados.audioPreviewId) bad('Gere e escute o áudio na configuração ElevenLabs antes de iniciar.');
-    audio=eleven.obterPreview(dados.audioPreviewId,usuario);
-    if(!audio?.bytes?.length||audio.bytes.length>5*1024*1024) bad('Áudio inválido ou grande demais.');
-    if(audioTexto!==audio.texto) bad('O texto do áudio foi alterado. Gere outra prévia.');
-  }
+  const preparado=audioSelecionado(dados,usuario);
+  const audio=preparado.audio, audioTexto=preparado.texto;
   const client=await pool.connect();
   try {
     await client.query('BEGIN');
@@ -259,12 +268,19 @@ async function bloquear(fone, motivo) {
     WHERE telefone=$1 AND status='pendente'`,[n]);
   return {telefone:n};
 }
-async function enviarTeste(fone, img, mensagem, origem) {
-  const n=telefone(fone);if(!n) bad('Telefone de teste inválido.');
-  const m=String(mensagem||'').trim();if(!m||m.length>3000) bad('Mensagem inválida.');
-  const imagem=urlFoto(img,origem);
+async function enviarTeste(dados,origem,usuario) {
+  const n=telefone(dados.telefone);if(!n)bad('Telefone de teste inválido.');
+  const m=String(dados.mensagem||'').trim();if(!m||m.length>3000)bad('Mensagem inválida.');
+  const imagem=urlFoto(dados.imagem,origem);
+  // Validar inclusive a validade do áudio ANTES de disparar a foto.
+  const {audio}=audioSelecionado(dados,usuario);
   await zapi.enviarImagem({telefone:n,imagem,legenda:m});
-  return {telefone:n};
+  if(audio){
+    try{
+      await zapi.postZapi('/send-audio',{phone:n,audio:'data:audio/mpeg;base64,'+audio.bytes.toString('base64')});
+    }catch(e){const falha=new Error('Foto aceita pela Z-API, mas houve falha no envio do áudio. Confira o WhatsApp antes de repetir: '+e.message);falha.status=502;throw falha;}
+  }
+  return {telefone:n,imagemAceita:true,audioAceito:!!audio};
 }
 // Claim persistente: jamais reenvia automaticamente um destino já marcado 'enviando'.
 // Se o processo morrer durante a chamada, ele passa a 'incerto' e requer verificação manual.

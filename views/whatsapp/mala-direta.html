@@ -42,6 +42,17 @@
 .carrada-opcao.carrada-hoje,.carrada-select.carrada-hoje{background:#fef9c3;border-left:3px solid #eab308}
 .abrir-progresso{display:inline-flex;align-items:center;gap:5px;align-self:flex-start;font-size:.88rem;text-decoration:underline;margin-top:2px}
 .abrir-progresso[aria-disabled="true"]{color:#84909c;text-decoration:none;cursor:not-allowed;pointer-events:none}
+
+/* Painel de gravação e prévia da campanha. */
+.gravador-controles{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:12px 0}
+.gravador-status{font-size:.88rem;color:#506277}
+.gravador-player{width:100%;max-width:600px;margin:5px 0 12px}
+.gravador-aviso{font-size:.85rem;color:#69778a;margin:5px 0}
+.gravando-indicador{color:#b32020;font-weight:700}
+.audio-fonte{max-width:460px}
+.previa-teste-botoes{display:flex;gap:9px;flex-wrap:wrap;align-items:end}
+.previa-teste-botoes .field{flex:1;min-width:200px}
+.previa-audio{width:100%;max-width:600px;margin-top:7px}
 </style></head><body><main class="wrap">
 <h1>Mala Direta — Alumínio JR</h1><p class="muted">Escolha um produto, um grupo de destinatários e envie a divulgação pelo WhatsApp.</p>
 <div id="status" role="status" aria-live="polite"></div>
@@ -71,7 +82,44 @@
 <div class="row"><button class="secondary" id="selecionarTodos">Marcar clientes com telefone válido</button><button class="secondary" id="limpar">Limpar seleção</button></div>
 <div class="tablewrap"><table><thead><tr><th>Selecionar</th><th>Cliente</th><th>Cidade</th><th>Telefone</th><th>Unidades</th><th>Pedidos</th><th>Última compra</th><th>Perfil</th></tr></thead><tbody id="compradores"></tbody></table></div>
 <p class="muted" id="contagem">0 selecionados</p></section>
-<section class="card"><h2>3. Imagem e mensagem</h2><div class="grid"><div class="field"><label for="fotoSistema">Foto cadastrada do produto</label><select id="fotoSistema"><option value="">Selecione uma foto ou envie outra</option></select></div><div class="field"><label for="upload">Ou enviar uma nova foto</label><input id="upload" type="file" accept="image/jpeg,image/png,image/webp"><span class="muted">O navegador comprime a imagem antes do envio.</span></div><div class="field"><label for="intervalo">Intervalo mínimo entre inícios dos envios</label><select id="intervalo"><option value="10">10 segundos</option><option selected value="15">15 segundos</option><option value="20">20 segundos</option><option value="30">30 segundos</option><option value="60">60 segundos</option><option value="120">120 segundos</option><option value="300">300 segundos</option></select><span class="muted small">Contado desde o início do envio anterior. A Z-API ou o WhatsApp podem demorar mais para concluir a entrega.</span></div></div><div class="field" style="margin-top:12px"><label for="mensagem">Mensagem de texto (legenda da imagem)</label><textarea id="mensagem" maxlength="3000" placeholder="Oferta... Para não receber promoções, responda SAIR."></textarea></div><div class="field" style="margin-top:12px"><label for="audioTexto">Mensagem de áudio (texto a ser falado pela ElevenLabs, opcional)</label><textarea id="audioTexto" maxlength="1000" placeholder="Digite a fala que será enviada como áudio após a foto e a legenda."></textarea><div class="row"><button type="button" class="secondary" id="abrirEleven">⚙️ Configurar ElevenLabs e ouvir áudio</button><span class="muted" id="audioResumo">Nenhum áudio preparado.</span></div></div><h2 style="margin-top:20px">Prévia</h2><div class="preview"><img id="previewFoto" alt="Prévia da foto" hidden><p id="previewTexto" class="muted">Escreva a mensagem.</p></div><div class="grid" style="margin-top:20px"><div class="field"><label for="numeroTeste">Número próprio para teste (DDI + DDD)</label><input id="numeroTeste" placeholder="5583999999999"><button class="secondary" id="teste">Enviar teste</button></div></div></section>
+<section class="card"><h2>3. Imagem e mensagem</h2>
+<div class="grid">
+  <div class="field"><label for="fotoSistema">Foto cadastrada do produto</label><select id="fotoSistema"><option value="">Selecione uma foto ou envie outra</option></select></div>
+  <div class="field"><label for="upload">Ou enviar uma nova foto</label><input id="upload" type="file" accept="image/jpeg,image/png,image/webp"><span class="muted">O navegador comprime a imagem antes do envio.</span></div>
+</div>
+<div class="field" style="margin-top:12px"><label for="mensagem">Mensagem de texto (legenda da imagem)</label><textarea id="mensagem" maxlength="3000" placeholder="Oferta... Para não receber promoções, responda SAIR."></textarea></div>
+</section>
+<section class="card"><h2>4. Mensagem de áudio</h2>
+<div class="field">
+  <label>Gravação pelo microfone do computador</label>
+  <p class="gravador-aviso">Grave uma única mensagem (até 3 minutos) e reutilize o mesmo áudio para todos os contatos. Autorize o microfone quando solicitado.</p>
+  <div class="gravador-controles">
+    <button type="button" id="iniciarGravacao">🎙️ Iniciar gravação</button>
+    <button type="button" class="danger" id="pararGravacao" disabled>■ Parar</button>
+    <button type="button" class="secondary" id="excluirGravacao" disabled>Excluir / regravar</button>
+    <span id="gravacaoStatus" class="gravador-status" role="status" aria-live="polite">Nenhuma gravação.</span>
+  </div>
+  <audio id="gravacaoPlayer" class="gravador-player" controls hidden preload="metadata"></audio>
+</div>
+<div class="field" style="margin-top:14px">
+  <label for="audioTexto">Mensagem de áudio (texto a ser falado pela ElevenLabs, opcional)</label>
+  <textarea id="audioTexto" maxlength="1000" placeholder="Digite o texto para a ElevenLabs (alternativa à gravação pelo microfone)."></textarea>
+  <div class="row"><button type="button" class="secondary" id="abrirEleven">⚙️ Configurar ElevenLabs e ouvir áudio</button><span class="muted" id="audioResumo">Nenhum áudio ElevenLabs preparado.</span></div>
+</div>
+<div class="field" style="margin-top:14px">
+  <label for="fonteAudio">Áudio que será enviado</label>
+  <select class="audio-fonte" id="fonteAudio"><option value="nenhum">Sem áudio (somente foto e legenda)</option><option value="gravacao">Gravação do microfone</option><option value="elevenlabs">Voz da ElevenLabs</option></select>
+  <span class="muted small">Escolha somente uma fonte; a campanha envia uma foto com legenda e, se selecionado, um áudio em seguida.</span>
+</div>
+</section>
+<section class="card"><h2>5. Prévia e teste individual</h2>
+<div class="preview"><img id="previewFoto" alt="Prévia da foto" hidden><p id="previewTexto" class="muted">Escreva a mensagem.</p></div>
+<p id="previewAudioResumo" class="muted" style="margin:13px 0 3px">Sem mensagem de áudio.</p>
+<audio id="previewAudioPlayer" class="previa-audio" controls hidden preload="metadata"></audio>
+<div class="grid" style="margin-top:16px"><div class="field"><label for="intervalo">Intervalo mínimo entre inícios dos envios (campanha)</label><select id="intervalo"><option value="10">10 segundos</option><option selected value="15">15 segundos</option><option value="20">20 segundos</option><option value="30">30 segundos</option><option value="60">60 segundos</option><option value="120">120 segundos</option><option value="300">300 segundos</option></select><span class="muted small">A Z-API ou o WhatsApp podem demorar mais para concluir a entrega.</span></div></div>
+<div class="previa-teste-botoes" style="margin-top:15px"><div class="field"><label for="numeroTeste">WhatsApp para teste (55 + DDD + número)</label><input id="numeroTeste" inputmode="tel" placeholder="5583999999999"></div><button type="button" class="secondary" id="teste">Enviar prévia ao número informado</button><button type="button" id="testeFabrica">Enviar para WhatsApp da fábrica (5583999792085)</button></div>
+<p class="muted small">O teste envia de verdade a foto, a legenda e o áudio selecionado, sem iniciar campanha ou alterar a seleção dos clientes.</p>
+</section>
 <section class="card bottom"><div class="row"><button id="enviar">Iniciar Mala Direta</button><span class="muted" id="enviarResumo">Nenhum destinatário selecionado</span></div></section>
 <section class="card"><div class="row" style="justify-content:space-between"><h2>Campanhas e relatórios</h2><button class="secondary" id="atualizar">Atualizar</button></div><div class="tablewrap"><table><thead><tr><th>Campanha</th><th>Produto</th><th>Status</th><th>Enviados</th><th>Pendentes</th><th>Problemas</th><th>Ações</th></tr></thead><tbody id="campanhas"></tbody></table></div></section>
 </main>
@@ -84,7 +132,7 @@
 <div class="field"><label for="elevenModelo">Modelo ElevenLabs</label><select id="elevenModelo"><option value="">Carregando modelos...</option></select></div>
 <div class="row" style="margin-top:12px"><button type="button" class="secondary" id="atualizarEleven">Atualizar vozes e modelos</button><button type="button" id="gerarEleven">Gerar e ouvir prévia</button></div>
 <audio id="elevenPlayer" controls hidden></audio><p class="muted" id="elevenStatus" aria-live="polite"></p>
-<div class="row"><button type="button" class="secondary" id="testeEleven">Enviar este áudio para número de teste</button></div>
+<p class="muted small">Para testar a mensagem completa (foto, legenda e áudio), utilize o Painel 5.</p>
 </div></div>
 <script>
 'use strict';
@@ -92,6 +140,10 @@ const $=id=>document.getElementById(id);const api='/api/whatsapp/mala-direta';
 let produtos=[], clientes=[], imagemUpload='',ultimaConsulta='',consultaSeq=0;
 let carradasMeta=[];
 let audioPreviewId='',audioPreviewTexto='',audioObjectUrl='',elevenCarregado=false;
+let gravacaoStream=null,gravacaoRecorder=null,gravacaoPartes=[],gravacaoBlob=null;
+let gravacaoObjectUrl='',gravacaoPreviewId='',gravacaoSubidaEm=0,gravacaoInicio=0,gravacaoRelogio=null;
+let gravacaoUploadPendente=null,gravacaoVersao=0;
+const NUMERO_FABRICA='5583999792085';
 const selected=()=>clientes.filter(c=>c.marcado);const norm=s=>String(s||'').replace(/\D/g,'');
 const date=v=>{if(!v)return '-';const d=new Date(v);return Number.isNaN(d.getTime())?'-':d.toLocaleDateString('pt-BR',{timeZone:'UTC'});};
 function msg(s,erro=false){$('status').textContent=s||'';$('status').className=erro?'error':'ok';}
@@ -419,12 +471,136 @@ function fotoPreview(){const img=$('previewFoto');const v=imagemAtual();if(!v){i
 $('fotoSistema').onchange=()=>{imagemUpload='';$('upload').value='';fotoPreview()};
 $('upload').onchange=async()=>{const file=$('upload').files[0];if(!file)return;try{if(!/^image\/(jpeg|png|webp)$/.test(file.type)||file.size>12*1024*1024)throw Error('Use JPG, PNG ou WEBP com até 12 MB.');const bmp=await createImageBitmap(file);const escala=Math.min(1,1280/Math.max(bmp.width,bmp.height));const canvas=document.createElement('canvas');canvas.width=Math.round(bmp.width*escala);canvas.height=Math.round(bmp.height*escala);canvas.getContext('2d').drawImage(bmp,0,0,canvas.width,canvas.height);bmp.close?.();imagemUpload=canvas.toDataURL('image/jpeg',.76);if(imagemUpload.length>2700000)throw Error('Imagem muito grande mesmo após compressão.');$('fotoSistema').value='';fotoPreview();}catch(e){imagemUpload='';$('upload').value='';msg(e.message,true);}};
 $('mensagem').oninput=()=>{$('previewTexto').textContent=$('mensagem').value||'Escreva a mensagem.';};
+
+function atualizarPreviewAudio(){
+  const fonte=$('fonteAudio').value;
+  const player=$('previewAudioPlayer');
+  const info=$('previewAudioResumo');
+  let url='',texto='Sem mensagem de áudio.';
+  if(fonte==='gravacao'){
+    url=gravacaoObjectUrl;
+    texto=gravacaoBlob?'Áudio do microfone selecionado.':'Grave a mensagem antes de enviar.';
+  }else if(fonte==='elevenlabs'){
+    url=audioObjectUrl;
+    texto=audioPreviewId&&audioPreviewTexto===$('audioTexto').value.trim()
+      ?'Áudio ElevenLabs selecionado.':'Gere a prévia na ElevenLabs antes de enviar.';
+  }
+  if(url){if(player.src!==url)player.src=url;player.hidden=false;}
+  else{player.pause();player.removeAttribute('src');player.load();player.hidden=true;}
+  info.textContent=texto;
+}
+$('fonteAudio').onchange=atualizarPreviewAudio;
+function limparGravacao(){
+  gravacaoVersao++;
+  if(gravacaoRecorder)gravacaoRecorder.onstop=null;
+  if(gravacaoRecorder?.state==='recording')gravacaoRecorder.stop();
+  gravacaoStream?.getTracks().forEach(t=>t.stop());gravacaoStream=null;
+  gravacaoBlob=null;gravacaoPreviewId='';gravacaoSubidaEm=0;gravacaoUploadPendente=null;gravacaoPartes=[];
+  if(gravacaoObjectUrl)URL.revokeObjectURL(gravacaoObjectUrl);
+  gravacaoObjectUrl='';
+  $('gravacaoPlayer').pause();$('gravacaoPlayer').removeAttribute('src');$('gravacaoPlayer').hidden=true;
+  $('excluirGravacao').disabled=true;
+  $('gravacaoStatus').textContent='Nenhuma gravação.';
+  if($('fonteAudio').value==='gravacao')$('fonteAudio').value='nenhum';
+  atualizarPreviewAudio();
+}
+function atualizarEstadoGravacao(grava){
+  $('iniciarGravacao').disabled=grava;
+  $('pararGravacao').disabled=!grava;
+  $('excluirGravacao').disabled=grava||!gravacaoBlob;
+}
+function pararRelogio(){if(gravacaoRelogio){clearInterval(gravacaoRelogio);gravacaoRelogio=null;}}
+function pararMicrofone(){
+  if(gravacaoRecorder?.state==='recording')gravacaoRecorder.stop();
+  pararRelogio();
+  gravacaoStream?.getTracks().forEach(t=>t.stop());gravacaoStream=null;
+  atualizarEstadoGravacao(false);
+}
+$('iniciarGravacao').onclick=async()=>{
+  if(!navigator.mediaDevices?.getUserMedia||typeof MediaRecorder==='undefined')return msg('Seu navegador não oferece gravação de microfone. Use Chrome ou Edge atualizado em HTTPS.',true);
+  try{
+    limparGravacao();
+    const versao=gravacaoVersao;
+    gravacaoStream=await navigator.mediaDevices.getUserMedia({audio:true});
+    if(versao!==gravacaoVersao){gravacaoStream.getTracks().forEach(t=>t.stop());return;}
+    // O MediaRecorder usa o formato nativo do navegador; o Render converte para MP3.
+    const tipos=['audio/webm;codecs=opus','audio/mp4','audio/ogg;codecs=opus','audio/webm'];
+    const mimeType=tipos.find(t=>MediaRecorder.isTypeSupported(t));
+    gravacaoRecorder=new MediaRecorder(gravacaoStream,mimeType?{mimeType}:undefined);
+    gravacaoPartes=[];
+    gravacaoRecorder.ondataavailable=e=>{if(e.data?.size)gravacaoPartes.push(e.data);};
+    gravacaoRecorder.onerror=e=>{msg('Falha na gravação: '+(e.error?.message||'erro no microfone'),true);pararMicrofone();};
+    const recorderAtual=gravacaoRecorder;
+    gravacaoRecorder.onstop=async()=>{
+      if(versao!==gravacaoVersao)return;
+      pararRelogio();gravacaoStream?.getTracks().forEach(t=>t.stop());gravacaoStream=null;
+      atualizarEstadoGravacao(false);
+      const partes=gravacaoPartes;gravacaoPartes=[];
+      const blob=new Blob(partes,{type:recorderAtual.mimeType||mimeType||'audio/webm'});
+      if(!blob.size){$('gravacaoStatus').textContent='Gravação vazia. Tente novamente.';return;}
+      if(blob.size>6*1024*1024){$('gravacaoStatus').textContent='Áudio muito grande. Grave até 3 minutos.';return;}
+      gravacaoBlob=blob;
+      gravacaoObjectUrl=URL.createObjectURL(blob);
+      $('gravacaoPlayer').src=gravacaoObjectUrl;$('gravacaoPlayer').hidden=false;
+      $('excluirGravacao').disabled=false;
+      $('fonteAudio').value='gravacao';atualizarPreviewAudio();
+      try{await prepararGravacao();}catch(e){if(versao===gravacaoVersao){$('gravacaoStatus').textContent='Gravado, mas não preparado para envio: '+e.message;msg(e.message,true);}}
+    };
+    gravacaoRecorder.start(1000);gravacaoInicio=Date.now();
+    $('fonteAudio').value='gravacao';atualizarPreviewAudio();
+    atualizarEstadoGravacao(true);
+    gravacaoRelogio=setInterval(()=>{
+      const decorrido=Math.floor((Date.now()-gravacaoInicio)/1000);
+      $('gravacaoStatus').textContent='🔴 Gravando... '+Math.floor(decorrido/60)+':'+String(decorrido%60).padStart(2,'0');
+      if(decorrido>=180)pararMicrofone();
+    },500);
+    $('gravacaoStatus').textContent='🔴 Gravando... 0:00';
+  }catch(e){pararMicrofone();msg('Não foi possível acessar o microfone: '+e.message,true);$('gravacaoStatus').textContent='Microfone não disponível.';}
+};
+$('pararGravacao').onclick=pararMicrofone;
+$('excluirGravacao').onclick=limparGravacao;
+async function prepararGravacao(forcar=false){
+  if(!gravacaoBlob)throw Error('Grave a mensagem antes de continuar.');
+  if(gravacaoUploadPendente)return gravacaoUploadPendente;
+  if(!forcar&&gravacaoPreviewId&&Date.now()-gravacaoSubidaEm<8*60*1000)return gravacaoPreviewId;
+  const blob=gravacaoBlob;
+  gravacaoUploadPendente=(async()=>{
+    const form=new FormData();form.append('audio',blob,'gravacao.'+(blob.type.includes('mp4')?'m4a':blob.type.includes('ogg')?'ogg':'webm'));
+    $('gravacaoStatus').textContent='Preparando gravação em MP3...';
+    const response=await fetch(api+'/audio-gravado',{method:'POST',body:form});
+    if(!response.ok){const data=await response.json().catch(()=>({}));throw Error(data.detalhe||data.mensagem||`HTTP ${response.status}`);}
+    const id=response.headers.get('X-Preview-Id');
+    if(!id)throw Error('O servidor não retornou a identificação do áudio.');
+    const mp3=await response.blob();
+    // Evita que uma resposta antiga substitua uma gravação nova.
+    if(blob!==gravacaoBlob)throw Error('Gravação substituída antes do preparo.');
+    gravacaoPreviewId=id;gravacaoSubidaEm=Date.now();
+    if(gravacaoObjectUrl)URL.revokeObjectURL(gravacaoObjectUrl);
+    gravacaoObjectUrl=URL.createObjectURL(mp3);
+    $('gravacaoPlayer').src=gravacaoObjectUrl;
+    $('gravacaoStatus').textContent='Gravação em MP3 pronta para teste e campanha.';
+    atualizarPreviewAudio();
+    return id;
+  })();
+  try{return await gravacaoUploadPendente;}finally{gravacaoUploadPendente=null;}
+}
+async function audioParaEnvio(){
+  const fonte=$('fonteAudio').value;
+  if(fonte==='gravacao')return {audioOrigem:'gravacao',audioPreviewId:await prepararGravacao(true),audioTexto:''};
+  if(fonte==='elevenlabs'){
+    const fala=$('audioTexto').value.trim();
+    if(!fala||!audioPreviewId||audioPreviewTexto!==fala)throw Error('Gere e ouça a prévia ElevenLabs antes de enviar.');
+    return {audioOrigem:'elevenlabs',audioPreviewId,audioTexto:fala};
+  }
+  return {audioOrigem:'nenhum',audioPreviewId:'',audioTexto:''};
+}
+
 function descartarAudio(){
   audioPreviewId='';audioPreviewTexto='';$('audioResumo').textContent='Nenhum áudio preparado.';
   if(audioObjectUrl)URL.revokeObjectURL(audioObjectUrl);
-  audioObjectUrl='';$('elevenPlayer').removeAttribute('src');$('elevenPlayer').hidden=true;
+  audioObjectUrl='';$('elevenPlayer').removeAttribute('src');$('elevenPlayer').hidden=true;atualizarPreviewAudio();
 }
-$('audioTexto').addEventListener('input',descartarAudio);
+$('audioTexto').addEventListener('input',()=>{descartarAudio();if($('audioTexto').value.trim())$('fonteAudio').value='elevenlabs';else if($('fonteAudio').value==='elevenlabs')$('fonteAudio').value='nenhum';atualizarPreviewAudio();});
 $('elevenVoz').onchange=descartarAudio;$('elevenVozManual').oninput=descartarAudio;$('elevenModelo').onchange=descartarAudio;
 async function getEleven(url){const response=await fetch(url,{cache:'no-store'});const d=await response.json();if(!response.ok)throw Error(d.erro||d.mensagem||`HTTP ${response.status}`);return d;}
 async function carregarEleven(){
@@ -449,7 +625,7 @@ $('modalEleven').onclick=e=>{if(e.target===$('modalEleven'))$('fecharEleven').cl
 $('atualizarEleven').onclick=()=>{descartarAudio();carregarEleven();};
 $('gerarEleven').onclick=async()=>{
   const texto=$('audioTexto').value.trim();
-  if(!texto)return $('elevenStatus').textContent='Digite o texto do áudio na seção 3.';
+  if(!texto)return $('elevenStatus').textContent='Digite o texto do áudio no painel 4.';
   try{
     $('gerarEleven').disabled=true;$('elevenStatus').textContent='Gerando áudio na ElevenLabs...';descartarAudio();
     const response=await fetch('/api/whatsapp/elevenlabs-jr/gerar',{
@@ -462,24 +638,27 @@ $('gerarEleven').onclick=async()=>{
     if(!id)throw Error('A ElevenLabs não retornou o identificador da prévia.');
     audioPreviewId=id;audioPreviewTexto=texto;
     audioObjectUrl=URL.createObjectURL(blob);$('elevenPlayer').src=audioObjectUrl;$('elevenPlayer').hidden=false;
-    $('audioResumo').textContent='Áudio preparado e pronto para envio.';
+    $('audioResumo').textContent='Áudio ElevenLabs preparado e pronto para envio.';
+    $('fonteAudio').value='elevenlabs';atualizarPreviewAudio();
     $('elevenStatus').textContent='Prévia gerada. Escute antes de iniciar a campanha.';
   }catch(e){$('elevenStatus').textContent='Erro: '+e.message;descartarAudio();}
   finally{$('gerarEleven').disabled=false;}
 };
-$('testeEleven').onclick=async()=>{
-  if(!audioPreviewId)return $('elevenStatus').textContent='Gere primeiro uma prévia.';
-  const tel=$('numeroTeste').value.trim();if(!tel)return $('elevenStatus').textContent='Informe o número de teste na seção 3.';
-  if(!confirm('Enviar este áudio para o número de teste informado?'))return;
+async function enviarPreviaTeste(numero){
+  if(!imagemAtual()||!$('mensagem').value.trim())return msg('Selecione a foto e preencha a legenda.',true);
+  const tel=norm(numero);
+  if(!/^55\d{10,11}$/.test(tel))return msg('Informe um WhatsApp válido (55 + DDD + número).',true);
+  if(!confirm(`Enviar teste REAL para ${tel} com foto, legenda e o áudio selecionado?`))return;
   try{
-    $('testeEleven').disabled=true;
-    const r=await fetch('/api/whatsapp/elevenlabs-jr/enviar-teste',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({previewId:audioPreviewId,telefone:tel})});
-    const data=await r.json();if(!r.ok)throw Error(data.erro||`HTTP ${r.status}`);
-    $('elevenStatus').textContent='Áudio aceito pela Z-API para o número de teste.';
-  }catch(e){$('elevenStatus').textContent='Erro de teste: '+e.message;}
-  finally{$('testeEleven').disabled=false;}
-};
-$('teste').onclick=async()=>{if(!imagemAtual()||!$('mensagem').value.trim())return msg('Preencha a foto e a mensagem.',true);if(!confirm('Enviar um teste real por WhatsApp para o número informado?'))return;try{$('teste').disabled=true;await post(api+'/teste',{telefone:$('numeroTeste').value,imagem:imagemAtual(),mensagem:$('mensagem').value});msg('Teste solicitado à Z-API.');}catch(e){msg(e.message,true);}finally{$('teste').disabled=false;}};
+    $('teste').disabled=true;$('testeFabrica').disabled=true;
+    const audio=await audioParaEnvio();
+    await post(api+'/teste',{telefone:tel,imagem:imagemAtual(),mensagem:$('mensagem').value,...audio});
+    msg(`Prévia aceita pela Z-API para ${tel} (foto e áudio selecionado).`);
+  }catch(e){msg('Falha no teste: '+e.message,true);}
+  finally{$('teste').disabled=false;$('testeFabrica').disabled=false;}
+}
+$('teste').onclick=()=>enviarPreviaTeste($('numeroTeste').value);
+$('testeFabrica').onclick=()=>enviarPreviaTeste(NUMERO_FABRICA);
 $('enviar').onclick=async()=>{
   const p=produto(),c=criterio();
   if(!p)return msg('Selecione o produto anunciado.',true);
@@ -487,9 +666,8 @@ $('enviar').onclick=async()=>{
   if(c.tipo==='periodo'&&!p.item)return msg('Vincule o item legado do produto para filtrar por período.',true);
   const dest=selected();if(!dest.length)return msg('Selecione pelo menos um cliente.',true);
   if(!imagemAtual()||!$('mensagem').value.trim())return msg('Preencha imagem e legenda.',true);
-  const fala=$('audioTexto').value.trim();
-  if(fala&&(!audioPreviewId||audioPreviewTexto!==fala))return msg('Abra as configurações ElevenLabs e gere o áudio antes de enviar.',true);
-  if(!confirm(`INICIAR ENVIO REAL para ${dest.length} clientes? Critério: ${c.tipo}. Intervalo mínimo: ${$('intervalo').value} segundos. Produto: ${p.nome}. ${fala?'Será enviada a imagem e, em seguida, a mensagem de áudio.':''}
+  let audio;try{audio=await audioParaEnvio();}catch(e){return msg(e.message,true);}
+  if(!confirm(`INICIAR ENVIO REAL para ${dest.length} clientes? Critério: ${c.tipo}. Intervalo mínimo: ${$('intervalo').value} segundos. Produto: ${p.nome}. ${audio.audioOrigem!=='nenhum'?'Será enviada a imagem e, em seguida, a mensagem de áudio.':''}
 Confirma que estes destinatários autorizaram receber mensagens promocionais?`))return;
   try{
     $('enviar').disabled=true;
@@ -497,7 +675,7 @@ Confirma que estes destinatários autorizaram receber mensagens promocionais?`))
       item:p.item||null,produtoId:p.produtoId,tipoPublico:c.tipo,referenciaPublico:c.referencia||null,
       meses:c.meses??0,destinatarios:dest.map(x=>({favorecido:x.favorecido,autorizado:true})),
       imagem:imagemAtual(),mensagem:$('mensagem').value,intervaloSegundos:Number($('intervalo').value),
-      confirmouConsentimento:true,audioTexto:fala,audioPreviewId
+      confirmouConsentimento:true,...audio
     });
     msg(`Campanha ${r.id} iniciada com ${r.total} destinatários. O envio continuará no servidor.`);
     await carregarCampanhas();
