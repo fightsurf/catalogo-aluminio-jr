@@ -30,13 +30,13 @@ async function obterAudioProducao() {
   }
   if (geracaoAudioProducao?.chave === chaveCache) return geracaoAudioProducao.promessa;
   const promessa = (async () => {
-    // Consulta a própria ElevenLabs ANTES de qualquer mensagem WhatsApp.
-    // Exige categoria profissional e clonagem fina pronta para o v4.
-    await elevenLabsService.validarVozProfissional(voz, MODELO_AUDIO_PRODUCAO);
+    // Consulta a ElevenLabs ANTES de enviar WhatsApp.
+    // Mesma voz profissional; usa v4 quando pronto, senão outro modelo pronto.
+    const escolha = await elevenLabsService.selecionarModeloVozProfissional(voz);
     return elevenLabsService.gerarAudio({
       texto: TEXTO_AUDIO_PRODUCAO,
       voz,
-      modelo: MODELO_AUDIO_PRODUCAO
+      modelo: escolha.model_id
     });
   })().then((audio) => {
     cacheAudioProducao = { chave: chaveCache, audio, expira: Date.now() + CACHE_AUDIO_PRODUCAO_MS };
@@ -70,10 +70,11 @@ async function prepararAudioProducaoLote({ codigoCarrada: codigoParam, texto }) 
   if (!frase || frase.length > 1000) {
     throw criarErro('Informe a frase do áudio (até 1.000 caracteres).', 400);
   }
-  // Sem fallback: deve ser a clonagem PROFISSIONAL cadastrada neste projeto.
-  await elevenLabsService.validarVozProfissional(VOZ_PROFISSIONAL_PRODUCAO, MODELO_AUDIO_PRODUCAO);
+  // A voz é sempre a clonagem profissional cadastrada; somente o modelo
+  // pode mudar, caso o v4 ainda esteja na fila e o v2 já esteja pronto.
+  const escolha = await elevenLabsService.selecionarModeloVozProfissional(VOZ_PROFISSIONAL_PRODUCAO);
   const audio = await elevenLabsService.gerarAudio({
-    texto: frase, voz: VOZ_PROFISSIONAL_PRODUCAO, modelo: MODELO_AUDIO_PRODUCAO
+    texto: frase, voz: VOZ_PROFISSIONAL_PRODUCAO, modelo: escolha.model_id
   });
   limparAudiosProducaoLote();
   const audioToken = randomUUID();
@@ -81,7 +82,7 @@ async function prepararAudioProducaoLote({ codigoCarrada: codigoParam, texto }) 
     codigoCarrada, audio, expira: Date.now() + AUDIOS_LOTE_TTL_MS
   });
   limparAudiosProducaoLote();
-  return { audioToken, caracteres: frase.length, voz: VOZ_PROFISSIONAL_PRODUCAO, modelo: MODELO_AUDIO_PRODUCAO };
+  return { audioToken, caracteres: frase.length, voz: VOZ_PROFISSIONAL_PRODUCAO, modelo: audio.modelo };
 }
 
 function obterAudioPreparadoProducaoLote(audioToken, codigoCarrada) {

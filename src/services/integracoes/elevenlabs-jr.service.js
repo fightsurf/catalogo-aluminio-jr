@@ -171,6 +171,34 @@ async function validarVozProfissional(voz, modelo) {
   }
   return { voice_id: vozId, category: 'professional', model_id: modeloId };
 }
+// Seleciona SOMENTE um modelo pronto para a MESMA clonagem profissional.
+// O Eleven v4 pode estar em fila enquanto Multilingual v2 já está liberado.
+// Se a API omitir o status de um modelo, permitimos uma única tentativa de
+// síntese nesse modelo; a ElevenLabs decide se ele está disponível.
+async function selecionarModeloVozProfissional(voz) {
+  const vozId = escolherVoz(voz);
+  const response = await requestEleven(`/v1/voices/${encodeURIComponent(vozId)}`);
+  const dados = await response.json();
+  if (dados?.voice_id !== vozId || dados?.category !== 'professional') {
+    const e = new Error('O ID da voz não corresponde à sua clonagem profissional na ElevenLabs. Envio bloqueado.');
+    e.status = 503; throw e;
+  }
+  const estados = dados?.fine_tuning?.state || {};
+  const modelos = ['eleven_v4', 'eleven_multilingual_v2', 'eleven_flash_v2_5'];
+  // Primeiro usamos o melhor modelo com treinamento explicitamente concluído.
+  const pronto = modelos.find(modelo => estados[modelo] === 'fine_tuned');
+  if (pronto) return { voice_id: vozId, category: 'professional', model_id: pronto };
+
+  // Alguns retornos do GET da voz omitem o estado, mesmo com o modelo pronto.
+  // Modelos com estado queued/failed/etc. NÃO devem ser tentados.
+  const semStatus = modelos.find(modelo => !String(estados[modelo] || '').trim());
+  if (semStatus) return { voice_id: vozId, category: 'professional', model_id: semStatus };
+
+  const situacao = modelos.map(modelo => `${modelo}: ${estados[modelo]}`).join('; ');
+  const e = new Error(`Sua voz profissional ainda não está pronta nos modelos disponíveis (${situacao}). Nenhum WhatsApp foi enviado.`);
+  e.status = 503; throw e;
+}
+
 async function gerarAudio({ texto, voz, modelo }) {
   const msg = validarTexto(texto);
   const vozId = escolherVoz(voz);
@@ -209,4 +237,4 @@ async function enviarPreview({previewId, telefone}, usuario) {
   const audio = obterPreview(previewId, usuario);
   return enviarAudio(audio, telefone);
 }
-module.exports = { configurar, listarVozes, listarModelos, validarVozProfissional, gerarAudio, enviarAudio, enviarTeste, salvarPreview, obterPreview, enviarPreview };
+module.exports = { configurar, listarVozes, listarModelos, validarVozProfissional, selecionarModeloVozProfissional, gerarAudio, enviarAudio, enviarTeste, salvarPreview, obterPreview, enviarPreview };
