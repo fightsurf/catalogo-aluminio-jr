@@ -4,6 +4,7 @@ const path = require('path');
 const { WebSocketServer, WebSocket } = require('ws');
 const botEvents = require('./src/services/bot/botEvents');
 const { authRoutes, requireAuth } = require('./src/middlewares/adminAuth.middleware');
+const avnUsuarioRoutes = require('./src/routes/avn/avn-usuario.routes');
 
 // =====================================================
 // 📦 IMPORTAÇÃO DE ROTAS MODULARES
@@ -119,6 +120,9 @@ app.use('/api/whatsapp/mala-direta', express.json({ limit: '4mb' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(authRoutes);
+// AVN: aplicativo pessoal de avaliação física (acesso administrativo obrigatório)
+app.use('/api/avn/usuarios', requireAuth, avnUsuarioRoutes);
+app.get('/avn/usuarios', requireAuth, (_req, res) => res.sendFile(path.join(__dirname, 'views/avn/usuarios.html')));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/prestacao_contas', express.static(path.join(__dirname, 'views', 'prestacao_contas')));
 
@@ -503,9 +507,20 @@ botEvents.on('nova_mensagem', ({ telefone }) => {
     );
 });
 
-server.listen(PORT, () => {
-  console.log('🟢 Catálogo Alumínio JR rodando na porta', PORT);
-});
+// Migração AVN idempotente: executada antes de disponibilizar a API.
+const avnMigration = require('./src/services/avn/avn-migration.service');
+(async () => {
+  try {
+    await avnMigration();
+    server.listen(PORT, () => {
+      console.log('🟢 Catálogo Alumínio JR rodando na porta', PORT);
+    });
+  } catch (err) {
+    console.error('[AVN] Falha na migração inicial; servidor não iniciado:', err);
+    process.exitCode = 1;
+    process.exit(1);
+  }
+})();
 
 // Mala Direta: fila persistente; nenhum disparo começa sem campanha aprovada.
 malaDiretaService.iniciarTrabalhador();
