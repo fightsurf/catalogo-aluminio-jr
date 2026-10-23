@@ -193,13 +193,19 @@ function montarRequisicao(tipoAcao, telefone, conteudo) {
   }
 }
 
-async function postZapi(endpoint, payload) {
+async function postZapi(endpoint, payload, options = {}) {
   const url = `${getZapiUrlBase()}${endpoint}`;
 
   let response;
+  // Timeout opt-in: evitar uma requisição indefinida travando campanhas.
+  // Um timeout é resultado incerto, nunca autorização para reenvio.
+  const timeoutMs = Number(options.timeoutMs);
+  const signal = Number.isFinite(timeoutMs) && timeoutMs >= 1000
+    ? AbortSignal.timeout(timeoutMs) : undefined;
 
   try {
     response = await fetch(url, {
+      signal,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -211,7 +217,13 @@ async function postZapi(endpoint, payload) {
     throw new Error(`Falha ao conectar à Z-API (${url}): ${error.message}`);
   }
 
-  const responseText = await response.text().catch(() => '');
+  let responseText = '';
+  try { responseText = await response.text(); }
+  catch (error) {
+    // Se o limite ocorreu durante a leitura da resposta, a aceitação
+    // também é desconhecida. Não registrar sucesso por engano.
+    if (signal?.aborted) throw new Error(`Tempo de espera da Z-API esgotado (${timeoutMs} ms); confirmar o envio antes de repetir.`);
+  }
 
   let responseData = null;
   if (responseText) {
@@ -310,7 +322,7 @@ function validarImagem(imagem) {
   }
 }
 
-async function enviarImagem({ telefone, imagem, legenda }) {
+async function enviarImagem({ telefone, imagem, legenda }, options = {}) {
   const telefoneNormalizado = normalizarTelefone(telefone);
   const imagemNormalizada = String(imagem || '').trim();
   const legendaNormalizada = String(legenda || '').trim();
@@ -332,7 +344,7 @@ async function enviarImagem({ telefone, imagem, legenda }) {
     payload.caption = legendaNormalizada;
   }
 
-  const resultado = await postZapi('/send-image', payload);
+  const resultado = await postZapi('/send-image', payload, options);
 
   return {
     ...resultado,

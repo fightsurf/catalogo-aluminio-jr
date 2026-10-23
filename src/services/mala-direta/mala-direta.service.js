@@ -2,7 +2,6 @@
 const pool = require('../../../db/connection');
 const bridge = require('../legado/legadoBridge.service');
 const zapi = require('../integracoes/zapi.service');
-const aparicoes = require('../termometro/termometroAparicoes.service');
 const eleven = require('../integracoes/elevenlabs-jr.service');
 const produtoFotosSchema = require('../produto/produtoFotosSchema.service');
 
@@ -274,10 +273,10 @@ async function enviarTeste(dados,origem,usuario) {
   const imagem=urlFoto(dados.imagem,origem);
   // Validar inclusive a validade do áudio ANTES de disparar a foto.
   const {audio}=audioSelecionado(dados,usuario);
-  await zapi.enviarImagem({telefone:n,imagem,legenda:m});
+  await zapi.enviarImagem({telefone:n,imagem,legenda:m},{timeoutMs:60000});
   if(audio){
     try{
-      await zapi.postZapi('/send-audio',{phone:n,audio:'data:audio/mpeg;base64,'+audio.bytes.toString('base64')});
+      await zapi.postZapi('/send-audio',{phone:n,audio:'data:audio/mpeg;base64,'+audio.bytes.toString('base64')},{timeoutMs:60000});
     }catch(e){const falha=new Error('Foto aceita pela Z-API, mas houve falha no envio do áudio. Confira o WhatsApp antes de repetir: '+e.message);falha.status=502;throw falha;}
   }
   return {telefone:n,imagemAceita:true,audioAceito:!!audio};
@@ -286,26 +285,28 @@ async function enviarTeste(dados,origem,usuario) {
 // Se o processo morrer durante a chamada, ele passa a 'incerto' e requer verificação manual.
 async function processarProximo() {
   await preparar();
-  // Recupera contagem de campanha já enviada, mesmo se o processo parou entre
-  // a confirmação de envio e a inserção da aparição no Termômetro.
-  const pendentesContagem = await pool.query(`
-    SELECT c.id, c.produto_id, c.produto_nome FROM mala_direta_campanhas c
-    WHERE EXISTS (SELECT 1 FROM mala_direta_destinatarios d WHERE d.campanha_id=c.id AND (d.status='enviado' OR d.imagem_aceita_em IS NOT NULL))
-      AND NOT EXISTS (SELECT 1 FROM termometro_aparicoes t WHERE t.produto_id=c.produto_id
-        AND t.origem='mala_direta' AND t.origem_chave='campanha:' || c.id::text)
-    ORDER BY c.id DESC LIMIT 10
-  `).catch(e=>{ if(e.code==='42P01') return {rows:[]}; throw e; });
-  for (const c of pendentesContagem.rows) {
-    await aparicoes.inserirAparicao({produtoId:c.produto_id,origem:'mala_direta',origemChave:'campanha:'+c.id,
-      origemId:c.id, quantidade:1,detalhes:{produto_nome:c.produto_nome}});
-  }
+  // O envio é independente do Termômetro de Vendas. Nunca esperar a
+  // contagem de aparições no caminho crítico da fila de WhatsApp.
   const client=await pool.connect(); let trabalho;
   try {
     await client.query('BEGIN');
     const trava=await client.query('SELECT pg_try_advisory_xact_lock(74912014) AS ok');
     if(!trava.rows[0].ok){await client.query('COMMIT');return;}
-    await client.query(`UPDATE mala_direta_destinatarios SET status='incerto',erro='Envio interrompido: verificar manualmente antes de qualquer novo disparo',atualizado_em=NOW()
-      WHERE status='enviando' AND atualizado_em < NOW()-INTERVAL '3 minutes'`);
+    // Ao recuperar uma execução interrompida, respeitar confirmações já
+    // persistidas. Uma imagem aceita, sem áudio na campanha, já conclui
+    // o envio solicitado à Z-API. Áudio configurado exige aceite do áudio.
+    // Em qualquer outro caso manter 'incerto', sem reenvio automático.
+    await client.query(`UPDATE mala_direta_destinatarios AS d SET
+      status=CASE WHEN d.imagem_aceita_em IS NOT NULL AND (c.audio_mp3 IS NULL OR d.audio_aceito_em IS NOT NULL)
+        THEN 'enviado' ELSE 'incerto' END,
+      enviado_em=CASE WHEN d.imagem_aceita_em IS NOT NULL AND (c.audio_mp3 IS NULL OR d.audio_aceito_em IS NOT NULL)
+        THEN COALESCE(d.enviado_em,d.audio_aceito_em,d.imagem_aceita_em) ELSE NULL END,
+      erro=CASE WHEN d.imagem_aceita_em IS NOT NULL AND (c.audio_mp3 IS NULL OR d.audio_aceito_em IS NOT NULL)
+        THEN NULL ELSE 'Envio interrompido: verificar manualmente antes de qualquer novo disparo' END,
+      atualizado_em=NOW()
+      FROM mala_direta_campanhas AS c
+      WHERE d.campanha_id=c.id AND d.status='enviando'
+        AND d.atualizado_em < NOW()-INTERVAL '3 minutes'`);
     // Finaliza campanhas sem pendências (inclusive últimas linhas bloqueadas).
     await client.query(`UPDATE mala_direta_campanhas c SET status='concluida',concluida_em=NOW()
       WHERE c.status='ativa' AND NOT EXISTS
@@ -331,24 +332,19 @@ async function processarProximo() {
   } catch(e) {await client.query('ROLLBACK').catch(()=>{});throw e;} finally {client.release();}
   let resultado, erro;
   try {
-    resultado=await zapi.enviarImagem({telefone:trabalho.telefone,imagem:trabalho.imagem,legenda:trabalho.mensagem});
+    resultado=await zapi.enviarImagem({telefone:trabalho.telefone,imagem:trabalho.imagem,legenda:trabalho.mensagem},{timeoutMs:60000});
     // Gravar confirmação da imagem ANTES de tentar enviar o áudio; nunca repetir envio incerto.
     await pool.query(`UPDATE mala_direta_destinatarios SET imagem_aceita_em=NOW(),
       retorno_zapi=$2::jsonb,atualizado_em=NOW() WHERE id=$1 AND status='enviando'`,
-      [trabalho.id,JSON.stringify(resultado.zapi||{})]);
-    try {
-      await aparicoes.inserirAparicao({produtoId:trabalho.produto_id,origem:'mala_direta',
-        origemChave:'campanha:'+trabalho.campanha_id,origemId:trabalho.campanha_id,
-        quantidade:1,detalhes:{produto_nome:trabalho.produto_nome}});
-    } catch (e) {
-      // A recuperação idempotente fará a contagem: falha do Termômetro não cancela o áudio.
-      console.error('[mala-direta] Contagem de aparição adiada:',e.message);
-    }
+      [trabalho.id,JSON.stringify(resultado?.zapi||resultado||{})]);
+    // Não realizar consultas/DDL de outros módulos entre o aceite da
+    // Z-API e a conclusão do destinatário. A contagem idempotente roda
+    // em processo separado e não bloqueia o envio do restante da lista.
     if(trabalho.audio_mp3) {
       const bytes=Buffer.isBuffer(trabalho.audio_mp3)?trabalho.audio_mp3:Buffer.from(trabalho.audio_mp3);
       await zapi.postZapi('/send-audio',{
         phone:trabalho.telefone,audio:'data:audio/mpeg;base64,'+bytes.toString('base64')
-      });
+      },{timeoutMs:60000});
       await pool.query(`UPDATE mala_direta_destinatarios SET audio_aceito_em=NOW(),atualizado_em=NOW()
         WHERE id=$1 AND status='enviando'`,[trabalho.id]);
     }
@@ -364,6 +360,37 @@ async function processarProximo() {
   await pool.query(`UPDATE mala_direta_campanhas c SET status='concluida',concluida_em=NOW()
     WHERE c.id=$1 AND c.status='ativa'
     AND NOT EXISTS (SELECT 1 FROM mala_direta_destinatarios d WHERE d.campanha_id=c.id AND d.status IN ('pendente','enviando'))`,[trabalho.campanha_id]).catch(e=>console.error('[mala-direta]',e.message));
+}
+// Sincronização desacoplada, idempotente e limitada: uma campanha conta
+// uma única aparição depois do primeiro aceite da imagem. Falhas ou
+// lentidão do Termômetro não impedem a próxima mensagem de WhatsApp.
+async function sincronizarAparicoes() {
+  const query = `
+    WITH recentes AS (
+      SELECT c.id, c.produto_id, c.produto_nome,
+        MIN(COALESCE(d.imagem_aceita_em,d.enviado_em)) AS primeiro_aceite
+      FROM mala_direta_campanhas c
+      JOIN mala_direta_destinatarios d ON d.campanha_id=c.id
+      WHERE (d.imagem_aceita_em IS NOT NULL OR d.status='enviado')
+        AND NOT EXISTS (
+          SELECT 1 FROM termometro_aparicoes t
+          WHERE t.produto_id=c.produto_id AND t.origem='mala_direta'
+            AND t.origem_chave='campanha:'||c.id::text
+        )
+      GROUP BY c.id, c.produto_id, c.produto_nome
+      ORDER BY c.id DESC LIMIT 100
+    )
+    INSERT INTO termometro_aparicoes
+      (produto_id,origem,origem_chave,origem_id,quantidade,publicado_em,detalhes)
+    SELECT r.produto_id, 'mala_direta', 'campanha:'||r.id::text,
+      r.id, 1, COALESCE(r.primeiro_aceite,NOW()),
+      jsonb_build_object('produto_nome',r.produto_nome)
+    FROM recentes r
+    ON CONFLICT (origem,origem_chave,produto_id) DO NOTHING
+  `;
+  // Um timeout no banco vale só para esta consulta; não ocupa a fila
+  // principal nem impede novos envios quando o Termômetro estiver lento.
+  await pool.query({text:query,query_timeout:15000});
 }
 let trabalhadorIniciado=false;
 function iniciarTrabalhador() {
@@ -381,13 +408,20 @@ function iniciarTrabalhador() {
           WHERE d.campanha_id=c.id AND d.status IN ('pendente','enviando')
         )
       ) AS ha_fila`);
-      // Com fila ativa, varredura a cada segundo (antes era 5 segundos).
-      // Fora de campanha, mantém 5 segundos para não sobrecarregar o banco.
       if(fila.rows[0]?.ha_fila) espera=1000;
     } catch(e) { console.error('[mala-direta/worker]',e.message); }
     finally { const t=setTimeout(executar,espera);t.unref?.(); }
   }
-  const t=setTimeout(executar,1000);
+  // Processo independente: não bloquear a fila esperando a preparação,
+  // backfill ou locks da estrutura do Termômetro de Vendas.
+  async function executarTermometro() {
+    try { await sincronizarAparicoes(); }
+    catch(e) { console.error('[mala-direta/termometro] Sincronização adiada:',e.message); }
+    finally { const t=setTimeout(executarTermometro,60000);t.unref?.(); }
+  }
+  let t=setTimeout(executar,1000);
+  t.unref?.();
+  t=setTimeout(executarTermometro,12000);
   t.unref?.();
 }
 module.exports={produtos,compradores,compradoresPorCriterio,carradas,semanas,primeiraCompra,criar,listar,detalhe,mudarStatus,bloquear,enviarTeste,iniciarTrabalhador};
