@@ -4,159 +4,24 @@ const sharp = require('sharp');
 const carradasService = require('../carradas/carradas.service');
 const pagamentosService = require('../pagamentos/pagamentos.service');
 const whatsappService = require('../../whatsapp/envio-whatsapp.service');
-const elevenLabsService = require('../../integracoes/elevenlabs-jr.service');
+const notificacoesConfig = require('./progresso-notificacoes-config.service');
 const carradasStatusResumoService = require('./carradas-status-resumo.service');
 const legadoBridgeService = require('../legadoBridge.service');
 const pedidosLegadoService = require('../pedido/pedidosLegado.service');
 const pedidosClienteService = require('../pedidos-cliente/pedidos-cliente.service');
 const agenciasRecebimentoService = require('../../logistica/agenciaRecebimentoService');
 
-// A mesma frase é usada nos envios individuais e em lote.
-// Cache curto em memória: uma carrada inteira não consome um TTS para cada pedido.
-const TEXTO_AUDIO_PRODUCAO = 'Seu pedido entrou em produção.';
-// ID fixo da clonagem profissional autorizada. Não usa a voz padrão do Render.
-const VOZ_PROFISSIONAL_PRODUCAO = '5bWAokzY7SiNTznJ6VLk';
-const MODELO_AUDIO_PRODUCAO = 'eleven_v4';
-const CACHE_AUDIO_PRODUCAO_MS = 15 * 60 * 1000;
-let cacheAudioProducao = null;
-let geracaoAudioProducao = null;
-
-async function obterAudioProducao() {
-  // Nunca aceita voz padrão, outra voz por ambiente ou fallback automático.
-  const voz = VOZ_PROFISSIONAL_PRODUCAO;
-  const chaveCache = `${voz}:${MODELO_AUDIO_PRODUCAO}:${TEXTO_AUDIO_PRODUCAO}`;
-  if (cacheAudioProducao?.chave === chaveCache && cacheAudioProducao.expira > Date.now()) {
-    return cacheAudioProducao.audio;
-  }
-  if (geracaoAudioProducao?.chave === chaveCache) return geracaoAudioProducao.promessa;
-  const promessa = (async () => {
-    // Consulta a ElevenLabs ANTES de enviar WhatsApp.
-    // Mesma voz profissional; usa v4 quando pronto, senão outro modelo pronto.
-    const escolha = await elevenLabsService.selecionarModeloVozProfissional(voz);
-    return elevenLabsService.gerarAudio({
-      texto: TEXTO_AUDIO_PRODUCAO,
-      voz,
-      modelo: escolha.model_id
-    });
-  })().then((audio) => {
-    cacheAudioProducao = { chave: chaveCache, audio, expira: Date.now() + CACHE_AUDIO_PRODUCAO_MS };
-    return audio;
-  }).finally(() => {
-    if (geracaoAudioProducao?.promessa === promessa) geracaoAudioProducao = null;
-  });
-  geracaoAudioProducao = { chave: chaveCache, promessa };
-  return promessa;
-}
-
-// Um único MP3 por acionamento do envio em lote, identificado por token opaco.
-// O conteúdo não é exposto ao navegador; todas as solicitações usam os mesmos bytes.
-const AUDIOS_LOTE_TTL_MS = 90 * 60 * 1000;
-const MAX_AUDIOS_LOTE = 12;
-const audiosProducaoLote = new Map();
-
-function limparAudiosProducaoLote() {
-  const agora = Date.now();
-  for (const [id, item] of audiosProducaoLote) {
-    if (item.expira <= agora) audiosProducaoLote.delete(id);
-  }
-  while (audiosProducaoLote.size > MAX_AUDIOS_LOTE) {
-    audiosProducaoLote.delete(audiosProducaoLote.keys().next().value);
-  }
-}
-
-async function prepararAudioProducaoLote({ codigoCarrada: codigoParam, texto }) {
-  const codigoCarrada = parseCodigoCarrada(codigoParam);
-  const frase = String(texto == null ? '' : texto).trim();
-  if (!frase || frase.length > 1000) {
-    throw criarErro('Informe a frase do áudio (até 1.000 caracteres).', 400);
-  }
-  // A voz é sempre a clonagem profissional cadastrada; somente o modelo
-  // pode mudar, caso o v4 ainda esteja na fila e o v2 já esteja pronto.
-  const escolha = await elevenLabsService.selecionarModeloVozProfissional(VOZ_PROFISSIONAL_PRODUCAO);
-  const audio = await elevenLabsService.gerarAudio({
-    texto: frase, voz: VOZ_PROFISSIONAL_PRODUCAO, modelo: escolha.model_id
-  });
-  limparAudiosProducaoLote();
-  const audioToken = randomUUID();
-  audiosProducaoLote.set(audioToken, {
-    codigoCarrada, audio, expira: Date.now() + AUDIOS_LOTE_TTL_MS
-  });
-  limparAudiosProducaoLote();
-  return { audioToken, caracteres: frase.length, voz: VOZ_PROFISSIONAL_PRODUCAO, modelo: audio.modelo };
-}
-
-function obterAudioPreparadoProducaoLote(audioToken, codigoCarrada) {
-  limparAudiosProducaoLote();
-  const item = audiosProducaoLote.get(String(audioToken || ''));
-  if (!item) throw criarErro('O áudio do lote expirou ou o Render foi reiniciado. Nenhuma mensagem deste pedido foi enviada.', 410);
-  if (Number(item.codigoCarrada) !== Number(codigoCarrada)) {
-    throw criarErro('Áudio preparado para outra carrada. Envio bloqueado.', 403);
-  }
-  return item.audio;
-}
-
+// Os textos e áudios do progresso são carregados do PostgreSQL/R2.
+// Nunca gerar TTS no clique de fase ou no envio em lote.
 const FASES_BOOLEANAS = {
-  EM_PRODUCAO: {
-    nome: 'Em produção',
-    enviaWhatsapp: true,
-    construirMensagem: ({ numeroPedido, nomeCliente, valorPedido, data, dataCarrada, descricaoCarrada }) => {
-      const descricaoPrevisao = limparTexto(descricaoCarrada)
-        .replace(/\bcarrada\b/gi, '')
-        .replace(/\s+/g, ' ')
-        .trim();
-      const previsao = [limparTexto(dataCarrada), descricaoPrevisao]
-        .filter(Boolean)
-        .join(' - ');
-
-      return [
-        `📦 Pedido nº ${numeroPedido}`,
-        '',
-        `Cliente: ${nomeCliente}`,
-        `Valor do pedido: ${formatarMoeda(valorPedido)}`,
-        '',
-        `Seu pedido entrou em produção em ${data}.`,
-        '',
-        `PEDIDO PRONTO EM (PREVISÃO): ${previsao}`
-      ].join('\n');
-    }
-  },
-  PEDIDO_PRONTO: {
-    nome: 'Pedido pronto',
-    enviaWhatsapp: true,
-    construirMensagem: ({ numeroPedido, nomeCliente, valorPedido, data }) => [
-      `📦 Pedido nº ${numeroPedido}`,
-      '',
-      `Cliente: ${nomeCliente}`,
-      `Valor do pedido: ${formatarMoeda(valorPedido)}`,
-      '',
-      `Seu pedido ficou pronto em ${data}.`
-    ].join('\n')
-  },
-  QTDE_VOLUMES: {
-    nome: 'Quantidade de volumes',
-    enviaWhatsapp: false
-  },
-  VIDEO_FEITO: {
-    nome: 'Vídeo feito',
-    enviaWhatsapp: false
-  },
-  QUER_NOTA_FISCAL: {
-    nome: 'Quer nota fiscal',
-    enviaWhatsapp: true,
-    construirMensagem: () => 'Vai precisar de Nota Fiscal? Preciso calcular os impostos para acrescentar se for querer.'
-  },
-  LOCAL_ENTREGA: {
-    nome: 'Local de entrega',
-    enviaWhatsapp: false
-  },
-  LIGACAO_POS_VENDA: {
-    nome: 'Ligação pós-venda',
-    enviaWhatsapp: false
-  },
-  PAGAMENTO_QUITADO: {
-    nome: 'Pagamento quitado',
-    enviaWhatsapp: false
-  }
+  EM_PRODUCAO: { nome:'Em produção' },
+  PEDIDO_PRONTO: { nome:'Pedido pronto' },
+  QTDE_VOLUMES: { nome:'Quantidade de volumes' },
+  VIDEO_FEITO: { nome:'Vídeo feito' },
+  QUER_NOTA_FISCAL: { nome:'Quer nota fiscal' },
+  LOCAL_ENTREGA: { nome:'Local de entrega' },
+  LIGACAO_POS_VENDA: { nome:'Ligação pós-venda' },
+  PAGAMENTO_QUITADO: { nome:'Pagamento quitado' }
 };
 
 const FASES_MATRIZ = [
@@ -699,6 +564,53 @@ async function registrarNotificacao(payload) {
       payload?.respostaApi ? payload.respostaApi : null
     ]
   );
+}
+
+// Substituições são feitas SOMENTE no servidor e somente para variáveis conhecidas.
+function montarVariaveisNotificacao({faseCodigo, codigoCarrada, numeroPedido, carrada, pedido, resumoPedido, extras={}}) {
+  const descricao = limparTexto(carrada?.descricao);
+  const descricaoPrevisao = descricao.replace(/\bcarrada\b/gi,'').replace(/\s+/g,' ').trim();
+  const dataCarrada = formatarDataBR(carrada?.data);
+  const previsao = [dataCarrada,descricaoPrevisao].filter(Boolean).join(' - ');
+  return {
+    cliente: resumoPedido?.cliente?.nome || pedido?.cliente?.nome || 'Cliente',
+    pedido:numeroPedido,
+    carrada:codigoCarrada,
+    fase:FASES_MATRIZ.find(f=>f.codigo===faseCodigo)?.nome || faseCodigo,
+    data:dataHojeFortalezaBR(),
+    data_carrada:dataCarrada,
+    descricao_carrada:descricao,
+    previsao,
+    valor_pedido:formatarMoeda(resumoPedido?.valorPedido??pedido?.total??0),
+    quantidade_itens:resumoPedido?.quantidadeItens??calcularQuantidadeItens(pedido?.itens),
+    volumes:pedido?.fases?.QTDE_VOLUMES?.quantidade??'',
+    vendedor:pedido?.vendedor?.nome||'',
+    cidade:resumoPedido?.cliente?.cidade||pedido?.cliente?.cidade||'',
+    empresa:'Alumínio JR',
+    data_expedicao:'',
+    etiqueta_texto:'',
+    detalhes_entrega:'',
+    pedido_anterior:'',transportadora_anterior:'',redespacho_anterior:'',agencia_anterior:'',
+    ...extras
+  };
+}
+async function enviarAvisoFaseConfigurado({faseCodigo,codigoCarrada,numeroPedido,carrada,pedido,detalhePagamento=null,telefone=null,extras={}}) {
+  const resumoPedido=montarResumoPedido(pedido,detalhePagamento);
+  const context=montarVariaveisNotificacao({faseCodigo,codigoCarrada,numeroPedido,carrada,pedido,resumoPedido,extras});
+  const destino=telefone===null?normalizarTelefoneLote(pedido,detalhePagamento):telefone;
+  const envios=await notificacoesConfig.enviar({codigo:faseCodigo,telefone:destino,contexto:context,
+    registro:async({tipo,mensagem,sucesso,resposta,telefone:tel})=>registrarNotificacao({
+      faseCodigo,codigoCarrada,numeroPedido,telefone:tel,mensagem,
+      statusEnvio:sucesso?'sucesso':'erro',respostaApi:{tipo,...(resposta||{})}
+    })
+  });
+  const falha=envios.texto?.success===false?envios.texto:envios.audio?.success===false?envios.audio:null;
+  return {
+    notificacao:envios.texto?{success:envios.texto.success,telefone:destino,error:envios.texto.error||null}:null,
+    audio:envios.audio?{success:envios.audio.success,erro:envios.audio.error||null,idMensagem:envios.audio.idMensagem||null}:null,
+    falha:falha?.error||null,
+    enviado:Boolean(envios.texto?.success||envios.audio?.success)
+  };
 }
 
 async function buscarBooleanRowsDosPedidos(pedidos = []) {
@@ -1502,6 +1414,7 @@ async function salvarQuantidadeVolumesManual({ codigoCarrada: codigoCarradaParam
     throw criarErro('O pedido não possui identificador para salvar os volumes.', 400);
   }
 
+  const anteriorFase=await buscarUltimaFaseBooleanaPorPedido({saida:identificadores.saida,numeroPedido,faseCodigo:'QTDE_VOLUMES'});
   const response = await legadoBridgeService.put(
     `/api/legado/pedidos/${identificadores.saida}/volumes`,
     { volumes: quantidade }
@@ -1515,6 +1428,12 @@ async function salvarQuantidadeVolumesManual({ codigoCarrada: codigoCarradaParam
     valorBoolean: true
   });
 
+  let aviso=null;
+  if(!anteriorFase?.valor_boolean){
+    const detalhePagamento=await buscarDetalhePagamentoDoPedido(pedido);
+    aviso=await enviarAvisoFaseConfigurado({faseCodigo:'QTDE_VOLUMES',codigoCarrada,numeroPedido,carrada,pedido,detalhePagamento,
+      extras:{volumes:Number(salvo?.volumes??quantidade)}});
+  }
   await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
 
   return {
@@ -1522,6 +1441,8 @@ async function salvarQuantidadeVolumesManual({ codigoCarrada: codigoCarradaParam
     quantidade: Number(salvo?.volumes ?? quantidade),
     concluido: true,
     calculadoAutomaticamente: false,
+    notificacao:aviso?.notificacao||null,
+    audio:aviso?.audio||null,
     updatedAt: marcado?.updated_at || null
   };
 }
@@ -1551,50 +1472,13 @@ async function salvarDataExpedicao({ codigoCarrada: codigoCarradaParam, numeroPe
   const dataSalva = limparTexto(salvo?.dataExpedicao || dataExpedicao);
   let notificacao = null;
 
-  if (dataSalva && !silencioso) {
-    const detalhePagamento = await buscarDetalhePagamentoDoPedido(pedido);
-    const telefone = normalizarTelefoneLote(pedido, detalhePagamento);
-    const mensagem = [
-      'MENSAGEM AUTOMÁTICA - ALUMÍNIO JR',
-      `📦 Pedido nº ${numeroPedido}`,
-      '',
-      `Seu pedido foi expedido em ${dataSalva}.`
-    ].join('\n');
-
-    try {
-      const envio = await whatsappService.enviarMensagem({ telefone, mensagem });
-      notificacao = {
-        success: true,
-        telefone: envio.telefone,
-        mensagem,
-        response: envio
-      };
-      await registrarNotificacao({
-        faseCodigo: 'DATA_EXPEDICAO',
-        codigoCarrada,
-        numeroPedido,
-        telefone: envio.telefone,
-        mensagem,
-        statusEnvio: 'sucesso',
-        respostaApi: envio.zapi || envio
-      });
-    } catch (error) {
-      notificacao = {
-        success: false,
-        telefone,
-        mensagem,
-        error: error.message
-      };
-      await registrarNotificacao({
-        faseCodigo: 'DATA_EXPEDICAO',
-        codigoCarrada,
-        numeroPedido,
-        telefone,
-        mensagem,
-        statusEnvio: 'erro',
-        respostaApi: { error: error.message }
-      });
-    }
+  let audio = null;
+  if(dataSalva && !silencioso){
+    const detalhePagamento=await buscarDetalhePagamentoDoPedido(pedido);
+    const aviso=await enviarAvisoFaseConfigurado({faseCodigo:'DATA_EXPEDICAO',codigoCarrada,numeroPedido,
+      carrada,pedido,detalhePagamento,extras:{data_expedicao:dataSalva}});
+    notificacao=aviso.notificacao;
+    audio=aviso.audio;
   }
 
   await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
@@ -1603,11 +1487,12 @@ async function salvarDataExpedicao({ codigoCarrada: codigoCarradaParam, numeroPe
     numeroPedido,
     concluido: Boolean(dataSalva),
     dataExpedicao: dataSalva,
-    notificacao
+    notificacao,
+    audio
   };
 }
 
-async function salvarFaseBooleana({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam, faseCodigo: faseCodigoParam, valor, silencioso }) {
+async function salvarFaseBooleana({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam, faseCodigo: faseCodigoParam, valor, silencioso, _sobTrava = false }) {
   await garantirTabelasModulo();
 
   const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
@@ -1615,13 +1500,30 @@ async function salvarFaseBooleana({ codigoCarrada: codigoCarradaParam, numeroPed
   const faseCodigo = limparTexto(faseCodigoParam).toUpperCase();
   const valorBoolean = normalizarBoolean(valor);
 
+  // Serializa os cliques normais para evitar dois envios na mesma fase/pedido.
+  if (valorBoolean && !silencioso && !_sobTrava && !['EM_PRODUCAO','QUER_NOTA_FISCAL'].includes(faseCodigo)) {
+    const c=await pool.connect();let travado=false;
+    const chave=`fase:${faseCodigo}:${numeroPedido}`;
+    try {
+      const row=await c.query('SELECT pg_try_advisory_lock($1::integer,hashtext($2::text)) AS ok',[20261021,chave]);
+      travado=row.rows[0]?.ok===true;
+      if(!travado)throw criarErro('Atualização desta fase já está em andamento. Aguarde a conclusão.',409);
+      return await salvarFaseBooleana({codigoCarrada:codigoCarrada,numeroPedido,faseCodigo,valor,silencioso,_sobTrava:true});
+    } finally {
+      let descartar=false;
+      if(travado)try{await c.query('SELECT pg_advisory_unlock($1::integer,hashtext($2::text))',[20261021,chave]);}
+      catch(e){descartar=true;console.error('Trava de fase não liberada:',e.message)}
+      c.release(descartar);
+    }
+  }
+
   // O botão individual usa a MESMA rotina do envio em lote.
   // A opção silenciosa continua marcando/desmarcando sem mandar WhatsApp.
-  if (faseCodigo === 'EM_PRODUCAO' && valorBoolean && !silencioso) {
-    const resultado = await enviarInicioProducaoPedido({ codigoCarrada, numeroPedido });
+  if (['EM_PRODUCAO','QUER_NOTA_FISCAL'].includes(faseCodigo) && valorBoolean && !silencioso) {
+    const resultado = await concluirFaseComAviso({ codigoCarrada, numeroPedido, faseCodigo });
     return {
-      fase: resultado.fase || { codigo: 'EM_PRODUCAO', concluido: true },
-      notificacao: { success: resultado.enviado === true, jaConcluido: resultado.jaConcluido === true },
+      fase: resultado.fase || { codigo: faseCodigo, concluido: true },
+      notificacao: resultado.notificacao || (resultado.erroNotificacao ? { success:false,error:resultado.erroNotificacao } : null),
       audio: resultado.audio || null,
       jaConcluido: resultado.jaConcluido === true
     };
@@ -1688,51 +1590,13 @@ async function salvarFaseBooleana({ codigoCarrada: codigoCarradaParam, numeroPed
 
   let notificacao = null;
 
-  if (valorBoolean && !valorAnterior && FASES_BOOLEANAS[faseCodigo].enviaWhatsapp && !silencioso) {
-    const telefone = normalizarTelefonePedido(detalhePagamento);
-    const mensagem = FASES_BOOLEANAS[faseCodigo].construirMensagem({
-      numeroPedido,
-      nomeCliente: resumoPedido?.cliente?.nome || 'Cliente',
-      valorPedido: resumoPedido?.valorPedido || pedido?.total || 0,
-      data: formatarDataBR(new Date()),
-      dataCarrada: formatarDataBR(carrada?.data),
-      descricaoCarrada: carrada?.descricao || ''
+  let audio = null;
+  if (valorBoolean && !valorAnterior && !silencioso) {
+    const resultado = await enviarAvisoFaseConfigurado({
+      faseCodigo,codigoCarrada,numeroPedido,carrada,pedido,detalhePagamento
     });
-
-    try {
-      const envio = await whatsappService.enviarMensagem({ telefone, mensagem });
-      notificacao = {
-        success: true,
-        telefone: envio.telefone,
-        mensagem,
-        response: envio
-      };
-      await registrarNotificacao({
-        faseCodigo,
-        codigoCarrada,
-        numeroPedido,
-        telefone: envio.telefone,
-        mensagem,
-        statusEnvio: 'sucesso',
-        respostaApi: envio.zapi || envio
-      });
-    } catch (error) {
-      notificacao = {
-        success: false,
-        telefone,
-        mensagem,
-        error: error.message
-      };
-      await registrarNotificacao({
-        faseCodigo,
-        codigoCarrada,
-        numeroPedido,
-        telefone,
-        mensagem,
-        statusEnvio: 'erro',
-        respostaApi: { error: error.message }
-      });
-    }
+    notificacao=resultado.notificacao;
+    audio=resultado.audio;
   }
 
   await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
@@ -1745,245 +1609,56 @@ async function salvarFaseBooleana({ codigoCarrada: codigoCarradaParam, numeroPed
       updatedAt: marcado?.updated_at || null
     },
     resumoPedido,
-    notificacao
+    notificacao,
+    audio
   };
 }
 
-/**
- * Envio do aviso de produção em lote: marcar verde somente depois da Z-API.
- * A trava no PostgreSQL impede disparos simultâneos do lote para o mesmo pedido.
- */
-async function enviarInicioProducaoPedido({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam, audioLoteToken = null }) {
+// A trava do PostgreSQL impede envio duplicado individual e em lote.
+// Marcação silenciosa é tratada separadamente, sem chegar a esta rotina.
+async function concluirFaseComAviso({codigoCarrada:codigoParam,numeroPedido:pedidoParam,faseCodigo}) {
   await garantirTabelasModulo();
-  const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
-  const numeroPedido = normalizarNumeroPedido(numeroPedidoParam);
-  const chaveTrava = `entrada-producao:${numeroPedido}`;
-  const conexao = await pool.connect();
-  let possuiTrava = false;
-
+  const codigoCarrada=parseCodigoCarrada(codigoParam);
+  const numeroPedido=normalizarNumeroPedido(pedidoParam);
+  const conexao=await pool.connect();
+  let travado=false;
   try {
-    const trava = await conexao.query(
-      'SELECT pg_try_advisory_lock($1::integer, hashtext($2::text)) AS adquirido',
-      [20261021, chaveTrava]
-    );
-    possuiTrava = trava.rows[0]?.adquirido === true;
-    if (!possuiTrava) throw criarErro(`Já existe um envio de entrada em produção em andamento para o pedido ${numeroPedido}.`, 409);
-
-    const carrada = await carradasService.buscarResumoCarrada(codigoCarrada);
-    if (!carrada) throw criarErro('Carrada não encontrada.', 404);
-    const pedido = encontrarPedidoNaCarrada(carrada, numeroPedido);
-    const { saida } = obterIdentificadoresPedido(pedido, numeroPedido);
-    const anterior = await buscarUltimaFaseBooleanaPorPedido({ saida, numeroPedido, faseCodigo: 'EM_PRODUCAO' });
-    if (anterior?.valor_boolean === true) {
-      return { numeroPedido, enviado: false, jaConcluido: true };
-    }
-
-    const detalhePagamento = await buscarDetalhePagamentoDoPedido(pedido);
-    const telefone = normalizarTelefoneLote(pedido, detalhePagamento);
-    if (!telefone) throw criarErro(`Pedido ${numeroPedido}: cliente sem telefone cadastrado.`, 400);
-    const resumoPedido = montarResumoPedido(pedido, detalhePagamento);
-    const mensagem = FASES_BOOLEANAS.EM_PRODUCAO.construirMensagem({
-      numeroPedido,
-      nomeCliente: resumoPedido?.cliente?.nome || 'Cliente',
-      valorPedido: resumoPedido?.valorPedido || pedido?.total || 0,
-      data: formatarDataBR(new Date()),
-      dataCarrada: formatarDataBR(carrada?.data),
-      descricaoCarrada: carrada?.descricao || ''
-    });
-
-    // Gera o áudio antes do primeiro envio: uma falha na ElevenLabs
-    // não pode deixar o cliente com o texto enviado e a produção pendente.
-    // A voz será enviada DEPOIS do aviso escrito.
-    let audioGerado;
-    try {
-      // No lote, não chama TTS novamente: recupera o MESMO arquivo gerado uma vez.
-      audioGerado = audioLoteToken
-        ? obterAudioPreparadoProducaoLote(audioLoteToken, codigoCarrada)
-        : await obterAudioProducao();
-    } catch (error) {
-      throw criarErro(`Não foi possível gerar o áudio com a voz clonada. Nenhuma mensagem foi enviada: ${error.message}`, error.statusCode || 502);
-    }
-
-    let envio;
-    try {
-      envio = await whatsappService.enviarMensagem({ telefone, mensagem });
-    } catch (error) {
-      try {
-        await registrarNotificacao({
-          faseCodigo: 'EM_PRODUCAO', codigoCarrada, numeroPedido,
-          telefone, mensagem, statusEnvio: 'erro', respostaApi: { error: error.message }
-        });
-      } catch (erroRegistro) {
-        console.warn('Não foi possível registrar falha do WhatsApp produção:', erroRegistro.message);
-      }
-      throw error;
-    }
-
-    // A partir daqui, a Z-API já aceitou a mensagem. Não reenviar automaticamente
-    // em caso de falha do banco, pois o cliente pode receber mensagem duplicada.
-    let marcado;
-    try {
-      marcado = await sincronizarFaseBooleanaPorPedido({
-        codigoCarrada, numeroPedido, saida, faseCodigo: 'EM_PRODUCAO', valorBoolean: true
-      });
-    } catch (error) {
-      throw criarErro(`O WhatsApp aceitou a mensagem do pedido ${numeroPedido}, mas houve erro ao marcar a produção em verde. Verifique antes de tentar novamente. ${error.message}`, 500);
-    }
-
-    try {
-      await registrarNotificacao({
-        faseCodigo: 'EM_PRODUCAO', codigoCarrada, numeroPedido,
-        telefone: envio.telefone, mensagem, statusEnvio: 'sucesso', respostaApi: envio.zapi || envio
-      });
-    } catch (error) {
-      console.warn('produção enviada e marcada, mas não foi possível registrar a notificação:', error.message);
-    }
-
-    // O quadrinho verde indica entrada em produção, não confirmação de áudio.
-    // Se a Z-API falhar SOMENTE no áudio, não reenviamos o texto automaticamente.
-    let audio = { success: false, texto: audioGerado.texto };
-    try {
-      const resultadoAudio = await elevenLabsService.enviarAudio(audioGerado, telefone);
-      audio = { success: true, texto: audioGerado.texto, idMensagem: resultadoAudio.idMensagem || null };
-      try {
-        await registrarNotificacao({
-          faseCodigo: 'EM_PRODUCAO', codigoCarrada, numeroPedido,
-          telefone: envio.telefone, mensagem: audioGerado.texto,
-          statusEnvio: 'sucesso',
-          respostaApi: { tipo: 'audio_entrada_producao', idMensagem: resultadoAudio.idMensagem || null }
-        });
-      } catch (erroRegistro) {
-        console.warn('Áudio enviado, mas não foi possível registrar a notificação:', erroRegistro.message);
-      }
-    } catch (erroAudio) {
-      audio = { success: false, texto: audioGerado.texto, erro: erroAudio.message };
-      try {
-        await registrarNotificacao({
-          faseCodigo: 'EM_PRODUCAO', codigoCarrada, numeroPedido,
-          telefone: envio.telefone, mensagem: audioGerado.texto,
-          statusEnvio: 'erro',
-          respostaApi: { tipo: 'audio_entrada_producao', erro: erroAudio.message }
-        });
-      } catch (erroRegistro) {
-        console.warn('Falha do áudio não pôde ser registrada:', erroRegistro.message);
-      }
-    }
-
-    try {
-      await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
-    } catch (error) {
-      console.warn('produção enviada e marcada, mas não foi possível atualizar o status da carrada:', error.message);
-    }
-
-    return {
-      numeroPedido, enviado: true, jaConcluido: false,
-      telefone: envio.telefone,
-      audio,
-      fase: { codigo: 'EM_PRODUCAO', concluido: Boolean(marcado?.valor_boolean), updatedAt: marcado?.updated_at || null }
-    };
-  } finally {
-    let descartarConexao = false;
-    if (possuiTrava) {
-      try {
-        await conexao.query('SELECT pg_advisory_unlock($1::integer, hashtext($2::text))', [20261021, chaveTrava]);
-      } catch (error) {
-        console.error('Falha ao liberar trava de envio de entrada em produção:', error.message);
-        // Evita devolver uma conexão ainda travada para o pool.
-        descartarConexao = true;
-      }
-    }
-    conexao.release(descartarConexao);
+    const trava=await conexao.query('SELECT pg_try_advisory_lock($1::integer,hashtext($2::text)) AS ok',
+      [20261021,`fase:${faseCodigo}:${numeroPedido}`]);
+    travado=trava.rows[0]?.ok===true;
+    if(!travado)throw criarErro(`Envio em andamento para o pedido ${numeroPedido}.`,409);
+    const carrada=await carradasService.buscarResumoCarrada(codigoCarrada);
+    if(!carrada)throw criarErro('Carrada não encontrada.',404);
+    const pedido=encontrarPedidoNaCarrada(carrada,numeroPedido);
+    const {saida}=obterIdentificadoresPedido(pedido,numeroPedido);
+    const anterior=await buscarUltimaFaseBooleanaPorPedido({saida,numeroPedido,faseCodigo});
+    if(anterior?.valor_boolean===true)return {numeroPedido,enviado:false,jaConcluido:true,
+      fase:{codigo:faseCodigo,concluido:true,updatedAt:anterior.updated_at}};
+    // Marca uma vez antes de transmitir, para nunca reenviar após falha parcial da Z-API.
+    const marcado=await sincronizarFaseBooleanaPorPedido({codigoCarrada,numeroPedido,saida,faseCodigo,valorBoolean:true});
+    const detalhePagamento=await buscarDetalhePagamentoDoPedido(pedido);
+    let aviso={notificacao:null,audio:null,enviado:false};
+    try {aviso=await enviarAvisoFaseConfigurado({faseCodigo,codigoCarrada,numeroPedido,carrada,pedido,detalhePagamento});}
+    catch(e){console.error('[Progresso] Fase concluída, falha ao preparar configuração:',e.message);
+      aviso.falha=e.message;}
+    try{await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada)}
+    catch(e){console.warn('Não foi possível atualizar resumo da carrada:',e.message)}
+    return {numeroPedido,enviado:true,jaConcluido:false,
+      notificacao:aviso.notificacao,audio:aviso.audio,erroNotificacao:aviso.falha||null,
+      fase:{codigo:faseCodigo,concluido:true,updatedAt:marcado?.updated_at||null}};
+  }finally{
+    let descartar=false;
+    if(travado)try{await conexao.query('SELECT pg_advisory_unlock($1::integer,hashtext($2::text))',
+      [20261021,`fase:${faseCodigo}:${numeroPedido}`]);}
+    catch(e){descartar=true;console.error('Falha ao liberar trava de fase:',e.message)}
+    conexao.release(descartar);
   }
 }
-
-async function enviarNotaFiscalPedido({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam }) {
-  await garantirTabelasModulo();
-  const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
-  const numeroPedido = normalizarNumeroPedido(numeroPedidoParam);
-  const chaveTrava = `nota-fiscal:${numeroPedido}`;
-  const conexao = await pool.connect();
-  let possuiTrava = false;
-
-  try {
-    const trava = await conexao.query(
-      'SELECT pg_try_advisory_lock($1::integer, hashtext($2::text)) AS adquirido',
-      [20261021, chaveTrava]
-    );
-    possuiTrava = trava.rows[0]?.adquirido === true;
-    if (!possuiTrava) throw criarErro(`Já existe um envio de nota fiscal em andamento para o pedido ${numeroPedido}.`, 409);
-
-    const carrada = await carradasService.buscarResumoCarrada(codigoCarrada);
-    if (!carrada) throw criarErro('Carrada não encontrada.', 404);
-    const pedido = encontrarPedidoNaCarrada(carrada, numeroPedido);
-    const { saida } = obterIdentificadoresPedido(pedido, numeroPedido);
-    const anterior = await buscarUltimaFaseBooleanaPorPedido({ saida, numeroPedido, faseCodigo: 'QUER_NOTA_FISCAL' });
-    if (anterior?.valor_boolean === true) {
-      return { numeroPedido, enviado: false, jaConcluido: true };
-    }
-
-    const detalhePagamento = await buscarDetalhePagamentoDoPedido(pedido);
-    const telefone = normalizarTelefoneLote(pedido, detalhePagamento);
-    if (!telefone) throw criarErro(`Pedido ${numeroPedido}: cliente sem telefone cadastrado.`, 400);
-    const mensagem = FASES_BOOLEANAS.QUER_NOTA_FISCAL.construirMensagem();
-
-    let envio;
-    try {
-      envio = await whatsappService.enviarMensagem({ telefone, mensagem });
-    } catch (error) {
-      try {
-        await registrarNotificacao({
-          faseCodigo: 'QUER_NOTA_FISCAL', codigoCarrada, numeroPedido,
-          telefone, mensagem, statusEnvio: 'erro', respostaApi: { error: error.message }
-        });
-      } catch (erroRegistro) {
-        console.warn('Não foi possível registrar falha do WhatsApp NF:', erroRegistro.message);
-      }
-      throw error;
-    }
-
-    // A partir daqui, a Z-API já aceitou a mensagem. Não reenviar automaticamente
-    // em caso de falha do banco, pois o cliente pode receber mensagem duplicada.
-    let marcado;
-    try {
-      marcado = await sincronizarFaseBooleanaPorPedido({
-        codigoCarrada, numeroPedido, saida, faseCodigo: 'QUER_NOTA_FISCAL', valorBoolean: true
-      });
-    } catch (error) {
-      throw criarErro(`O WhatsApp aceitou a mensagem do pedido ${numeroPedido}, mas houve erro ao marcar a NF em verde. Verifique antes de tentar novamente. ${error.message}`, 500);
-    }
-
-    try {
-      await registrarNotificacao({
-        faseCodigo: 'QUER_NOTA_FISCAL', codigoCarrada, numeroPedido,
-        telefone: envio.telefone, mensagem, statusEnvio: 'sucesso', respostaApi: envio.zapi || envio
-      });
-    } catch (error) {
-      console.warn('NF enviada e marcada, mas não foi possível registrar a notificação:', error.message);
-    }
-    try {
-      await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
-    } catch (error) {
-      console.warn('NF enviada e marcada, mas não foi possível atualizar o status da carrada:', error.message);
-    }
-
-    return {
-      numeroPedido, enviado: true, jaConcluido: false,
-      telefone: envio.telefone,
-      fase: { codigo: 'QUER_NOTA_FISCAL', concluido: Boolean(marcado?.valor_boolean), updatedAt: marcado?.updated_at || null }
-    };
-  } finally {
-    let descartarConexao = false;
-    if (possuiTrava) {
-      try {
-        await conexao.query('SELECT pg_advisory_unlock($1::integer, hashtext($2::text))', [20261021, chaveTrava]);
-      } catch (error) {
-        console.error('Falha ao liberar trava de envio de nota fiscal:', error.message);
-        // Evita devolver uma conexão ainda travada para o pool.
-        descartarConexao = true;
-      }
-    }
-    conexao.release(descartarConexao);
-  }
+async function enviarInicioProducaoPedido({codigoCarrada,numeroPedido}) {
+  return concluirFaseComAviso({codigoCarrada,numeroPedido,faseCodigo:'EM_PRODUCAO'});
+}
+async function enviarNotaFiscalPedido({codigoCarrada,numeroPedido}) {
+  return concluirFaseComAviso({codigoCarrada,numeroPedido,faseCodigo:'QUER_NOTA_FISCAL'});
 }
 
 async function listarEtiquetasDoCliente(favorecido) {
@@ -2726,52 +2401,12 @@ async function enviarEtiquetaVolumes({ codigoCarrada: codigoCarradaParam, numero
 
   const detalhePagamento = await buscarDetalhePagamentoDoPedido(pedido);
   const telefone = normalizarTelefonePedido(detalhePagamento);
-  const mensagem = [
-    `📦 Pedido nº ${numeroPedido}`,
-    '',
-    `Cliente: ${pedido?.cliente?.nome || 'Cliente'}`,
-    '',
-    'Confirma os dizeres abaixo para a etiqueta de volumes deste pedido?',
-    '',
-    textoSnapshot
-  ].join('\n');
-
-  let notificacao = null;
-
-  try {
-    const envio = await whatsappService.enviarMensagem({ telefone, mensagem });
-    notificacao = {
-      success: true,
-      telefone: envio.telefone,
-      mensagem,
-      response: envio
-    };
-    await registrarNotificacao({
-      faseCodigo: 'ETIQUETA_VOLUMES',
-      codigoCarrada,
-      numeroPedido,
-      telefone: envio.telefone,
-      mensagem,
-      statusEnvio: 'sucesso',
-      respostaApi: envio.zapi || envio
-    });
-  } catch (error) {
-    notificacao = {
-      success: false,
-      telefone,
-      mensagem,
-      error: error.message
-    };
-    await registrarNotificacao({
-      faseCodigo: 'ETIQUETA_VOLUMES',
-      codigoCarrada,
-      numeroPedido,
-      telefone,
-      mensagem,
-      statusEnvio: 'erro',
-      respostaApi: { error: error.message }
-    });
-  }
+  const avisoEtiqueta = await enviarAvisoFaseConfigurado({
+    faseCodigo:'ETIQUETA_VOLUMES',codigoCarrada,numeroPedido,carrada,pedido,detalhePagamento,
+    extras:{etiqueta_texto:textoSnapshot}
+  });
+  const notificacao=avisoEtiqueta.notificacao;
+  const audio=avisoEtiqueta.audio;
 
   await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
 
@@ -2790,7 +2425,8 @@ async function enviarEtiquetaVolumes({ codigoCarrada: codigoCarradaParam, numero
       enviadoEm: new Date().toISOString(),
       confirmadoEm: null
     },
-    notificacao
+    notificacao,
+    audio
   };
 }
 
@@ -3080,57 +2716,14 @@ async function perguntarRepeticaoLocalEntrega({ codigoCarrada: codigoCarradaPara
     ? `${agenciaRecebimentoCidadeNome}${agenciaRecebimentoCidadeUf ? ` / ${agenciaRecebimentoCidadeUf}` : ''}`
     : '';
   const agenciaDescricao = [agenciaRecebimentoNome, agenciaLocalizacao].filter(Boolean).join(' - ');
-  const mensagem = [
-    'MENSAGEM AUTOMÁTICA - ALUMÍNIO JR',
-    `📦 Pedido nº ${numeroPedido}`,
-    '',
-    `No seu pedido anterior nº ${numeroPedidoAnterior}, o local de entrega foi:`,
-    `Transportadora / excursão: ${transportadoraNome}`,
-    `Redespacho: ${redespachoTransportadoraNome || 'não informado'}`,
-    `Agência de recebimento: ${agenciaDescricao || 'não informada'}`,
-    '',
-    'Podemos repetir estes mesmos dados de entrega neste pedido?'
-  ].join('\n');
-
-  let notificacao;
-
-  try {
-    const envio = await whatsappService.enviarMensagem({ telefone, mensagem });
-    notificacao = {
-      success: true,
-      telefone: envio.telefone,
-      mensagem,
-      response: envio
-    };
-
-    await registrarNotificacao({
-      faseCodigo: 'LOCAL_ENTREGA',
-      codigoCarrada,
-      numeroPedido,
-      telefone: envio.telefone,
-      mensagem,
-      statusEnvio: 'sucesso',
-      respostaApi: envio.zapi || envio
-    });
-  } catch (error) {
-    notificacao = {
-      success: false,
-      telefone,
-      mensagem,
-      error: error.message
-    };
-
-    await registrarNotificacao({
-      faseCodigo: 'LOCAL_ENTREGA',
-      codigoCarrada,
-      numeroPedido,
-      telefone,
-      mensagem,
-      statusEnvio: 'erro',
-      respostaApi: { error: error.message }
-    });
-  }
-
+  const avisoRepeticao = await enviarAvisoFaseConfigurado({
+    faseCodigo:'LOCAL_ENTREGA_REPETICAO',codigoCarrada,numeroPedido,carrada,pedido:pedidoAtual,
+    detalhePagamento,telefone,
+    extras:{pedido_anterior:numeroPedidoAnterior,transportadora_anterior:transportadoraNome,
+      redespacho_anterior:redespachoTransportadoraNome||'não informado',
+      agencia_anterior:agenciaDescricao||'não informada'}
+  });
+  const notificacao=avisoRepeticao.notificacao;
   return {
     numeroPedido,
     pedidoAnterior: {
@@ -3215,35 +2808,21 @@ async function enviarNotificacaoLocalEntrega({ codigoCarrada, numeroPedido, tele
   }
 }
 
-function montarMensagemDestinoLocalEntrega({ pedido, numeroPedido, carrada, telefoneCliente, transportadoraNome = '' }) {
-  const nomeCliente = limparTexto(pedido?.cliente?.nome) || '-';
-  const cidadeCliente = limparTexto(pedido?.cliente?.cidade) || '-';
-  const ufCliente = limparTexto(pedido?.cliente?.uf).toUpperCase();
-  const cidadeUfCliente = `${cidadeCliente}${ufCliente ? ` / ${ufCliente}` : ''}`;
-  const quantidadeVolumesBruta = Number(pedido?.qtdeVolume ?? pedido?.volumes ?? 0);
-  const quantidadeVolumes = Number.isFinite(quantidadeVolumesBruta) && quantidadeVolumesBruta >= 0
-    ? Math.trunc(quantidadeVolumesBruta)
-    : 0;
-  const dataCarrada = formatarDataBR(carrada?.data) || '-';
-  const descricaoCarrada = limparTexto(carrada?.descricao) || '-';
-
-  const linhas = [
-    'MENSAGEM AUTOMÁTICA - ALUMÍNIO JR',
-    `${dataCarrada} - ${descricaoCarrada}`,
-    '',
-    `Nome cliente: ${montarNomeComTelefone(nomeCliente, telefoneCliente)}`,
-    `Cidade cliente: ${cidadeUfCliente}`,
-    `Número pedido: ${numeroPedido}`
-  ];
-
-  const transportadoraNomeNormalizado = limparTexto(transportadoraNome);
-  if (transportadoraNomeNormalizado) {
-    linhas.push(`Excursão / Transportadora: ${transportadoraNomeNormalizado}`);
-  }
-
-  linhas.push('', `Previsão qtde volume: ${quantidadeVolumes}`);
-
-  return linhas.join('\n');
+function montarMensagemDestinoLocalEntrega({ pedido, numeroPedido, carrada, telefoneCliente, transportadoraNome = '', textoModelo }) {
+  const nomeCliente=limparTexto(pedido?.cliente?.nome)||'-';
+  const cidade=limparTexto(pedido?.cliente?.cidade)||'-';
+  const uf=limparTexto(pedido?.cliente?.uf).toUpperCase();
+  const v=Number(pedido?.qtdeVolume??pedido?.volumes??0);
+  const volumes=Number.isFinite(v)&&v>=0?Math.trunc(v):0;
+  return notificacoesConfig.renderizar(textoModelo,{
+    cliente_telefone:montarNomeComTelefone(nomeCliente,telefoneCliente),
+    cidade_uf:`${cidade}${uf?' / '+uf:''}`,
+    pedido:numeroPedido,
+    data_carrada:formatarDataBR(carrada?.data)||'-',
+    descricao_carrada:limparTexto(carrada?.descricao)||'-',
+    linha_transportadora:limparTexto(transportadoraNome)?`\nExcursão / Transportadora: ${limparTexto(transportadoraNome)}`:'',
+    volumes
+  });
 }
 
 async function salvarLocalEntrega({
@@ -3471,42 +3050,26 @@ async function salvarLocalEntrega({
   const nomeCliente = limparTexto(pedidoComVolumesEDadosCliente?.cliente?.nome) || '-';
   const dataCarrada = formatarDataBR(carrada?.data) || '-';
   const descricaoCarrada = limparTexto(carrada?.descricao) || '-';
-  const linhasMensagemCliente = [
-    'MENSAGEM AUTOMÁTICA - ALUMÍNIO JR',
-    `${dataCarrada} - ${descricaoCarrada}`,
-    '',
-    `Nome cliente: ${nomeCliente}`,
-    `Número pedido: ${numeroPedido}`,
-    `Transportadora / Excursão: ${montarNomeComTelefone(transportadora.nome, transportadora.telefone_principal)}`
+  const detalhesEntrega=[
+    `Transportadora / Excursão: ${montarNomeComTelefone(transportadora.nome,transportadora.telefone_principal)}`
   ];
-
-  if (redespachoTransportadora) {
-    linhasMensagemCliente.push(`Redespacho: ${montarNomeComTelefone(redespachoTransportadora.nome, redespachoTransportadora.telefone_principal)}`);
-  }
-
-  if (agenciaRecebimento) {
-    linhasMensagemCliente.push(`Agência de recebimento: ${montarNomeComTelefone(agenciaRecebimento.nome, agenciaRecebimento.telefone)}`);
-  }
-
-  linhasMensagemCliente.push('', `Previsão de volumes: ${quantidadeVolumes}`);
-
-  const mensagemCliente = linhasMensagemCliente.join('\n');
-
-  const notificacaoCliente = await enviarNotificacaoLocalEntrega({
-    codigoCarrada,
-    numeroPedido,
-    telefone: telefoneCliente,
-    mensagem: mensagemCliente,
-    telefoneObrigatorioMensagem: 'O cliente não possui telefone de WhatsApp cadastrado.'
+  if(redespachoTransportadora)detalhesEntrega.push(`Redespacho: ${montarNomeComTelefone(redespachoTransportadora.nome,redespachoTransportadora.telefone_principal)}`);
+  if(agenciaRecebimento)detalhesEntrega.push(`Agência de recebimento: ${montarNomeComTelefone(agenciaRecebimento.nome,agenciaRecebimento.telefone)}`);
+  const avisoLocalEntrega=await enviarAvisoFaseConfigurado({
+    faseCodigo:'LOCAL_ENTREGA',codigoCarrada,numeroPedido,carrada,pedido:pedidoComVolumesEDadosCliente,
+    telefone:telefoneCliente,
+    extras:{detalhes_entrega:detalhesEntrega.join('\n'),volumes:quantidadeVolumes}
   });
-
+  const notificacaoCliente=avisoLocalEntrega.notificacao;
+  const configLogistica=await notificacoesConfig.carregar('LOCAL_ENTREGA_LOGISTICA');
   let notificacaoTransportadora = null;
-  if (transportadoraFoiDefinidaAgora) {
+  if (transportadoraFoiDefinidaAgora && configLogistica.enviarTexto) {
     const mensagemTransportadora = montarMensagemDestinoLocalEntrega({
       pedido: pedidoComVolumesEDadosCliente,
       numeroPedido,
       carrada,
-      telefoneCliente
+      telefoneCliente,
+      textoModelo:configLogistica.f.texto
     });
     notificacaoTransportadora = await enviarNotificacaoLocalEntrega({
       codigoCarrada,
@@ -3518,12 +3081,13 @@ async function salvarLocalEntrega({
   }
 
   let notificacaoRedespacho = null;
-  if (redespachoTransportadora && redespachoFoiDefinidoAgora) {
+  if (redespachoTransportadora && redespachoFoiDefinidoAgora && configLogistica.enviarTexto) {
     const mensagemRedespacho = montarMensagemDestinoLocalEntrega({
       pedido: pedidoComVolumesEDadosCliente,
       numeroPedido,
       carrada,
-      telefoneCliente
+      telefoneCliente,
+      textoModelo:configLogistica.f.texto
     });
     notificacaoRedespacho = await enviarNotificacaoLocalEntrega({
       codigoCarrada,
@@ -3535,13 +3099,14 @@ async function salvarLocalEntrega({
   }
 
   let notificacaoAgencia = null;
-  if (agenciaRecebimento && agenciaFoiDefinidaAgora) {
+  if (agenciaRecebimento && agenciaFoiDefinidaAgora && configLogistica.enviarTexto) {
     const mensagemAgencia = montarMensagemDestinoLocalEntrega({
       pedido: pedidoComVolumesEDadosCliente,
       numeroPedido,
       carrada,
       telefoneCliente,
-      transportadoraNome: transportadora.nome
+      transportadoraNome: transportadora.nome,
+      textoModelo:configLogistica.f.texto
     });
     notificacaoAgencia = await enviarNotificacaoLocalEntrega({
       codigoCarrada,
@@ -3574,6 +3139,7 @@ async function salvarLocalEntrega({
     quantidadeVolumes,
     volumesCalculadosAutomaticamente,
     notificacao: notificacaoCliente,
+    audio:avisoLocalEntrega.audio,
     notificacaoCliente,
     notificacaoTransportadora,
     notificacaoRedespacho,
@@ -3690,7 +3256,6 @@ module.exports = {
   salvarFaseBooleana,
   enviarNotaFiscalPedido,
   enviarInicioProducaoPedido,
-  prepararAudioProducaoLote,
   buscarDadosEtiquetaPedido,
   buscarDadosEtiquetaImpressao,
   gerarPreviewEtiquetaImpressao,

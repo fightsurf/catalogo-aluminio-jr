@@ -1085,6 +1085,31 @@
     .etiqueta-cidade-lista button { display:block; width:100%; border:0; border-radius:0; text-align:left; padding:10px; background:#fff; color:#172033; cursor:pointer; }
     .etiqueta-cidade-lista button:hover, .etiqueta-cidade-lista button[aria-selected="true"] { background:#e2e8f0; }
     #inputEtiquetaUf[readonly] { background:#f1f5f9; color:#475569; }
+
+    /* Configurações de texto e áudio do progresso */
+    .config-progresso-modal { width:min(94vw,820px); max-width:820px; max-height:92vh; overflow:hidden; }
+    .config-progresso-modal .modal-body { max-height:67vh; overflow-y:auto; }
+    .cfg-abas { display:flex; gap:8px; margin-bottom:16px; }
+    .cfg-abas button { flex:1; }
+    .cfg-abas button.active { background:#1d4ed8; color:white; border-color:#1d4ed8; }
+    .cfg-dois-controles { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+    .cfg-toggle { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 12px; border:1px solid #cbd5e1; border-radius:9px; font-weight:600; margin-bottom:12px; }
+    .cfg-toggle input[type=checkbox] { width:19px; height:19px; accent-color:#15803d; flex:none; }
+    .cfg-toggle-label { color:#64748b; font-size:11px; }
+    .cfg-silent { font-size:12px; margin:4px 0 14px; }
+    .cfg-individual { border-color:#93c5fd; background:#eff6ff; }
+    #modalConfigProgressoBackdrop .field { margin:8px 0 12px; }
+    #modalConfigProgressoBackdrop select,#modalConfigProgressoBackdrop textarea { box-sizing:border-box; width:100%; max-width:100%; }
+    #modalConfigProgressoBackdrop textarea { resize:vertical; min-height:90px; }
+    .cfg-variaveis { display:flex; gap:10px; align-items:end; flex-wrap:wrap; }
+    .cfg-variaveis .field { flex:1; min-width:210px; }
+    .cfg-preview { white-space:pre-wrap; overflow-wrap:anywhere; background:#f1f5f9; border:1px solid #cbd5e1; border-radius:8px; padding:12px; font-family:inherit; }
+    .cfg-audio-salvo,.cfg-audio-metodo { border:1px solid #dbe3ec; border-radius:10px; padding:13px; margin:12px 0; }
+    .cfg-audio-metodo h4 { margin:0 0 8px; }
+    #cfgAudioPlayer { display:block; width:100%; margin:10px 0; }
+    #cfgAudioPlayer[hidden] { display:none; }
+    .cfg-acoes { display:flex; gap:8px; flex-wrap:wrap; }
+    @media(max-width:620px){.cfg-dois-controles { grid-template-columns:1fr; }.config-progresso-modal .modal-body {max-height:64vh;} }
   </style>
 </head>
 <body>
@@ -1099,6 +1124,7 @@
         <button class="btn-secondary" id="btnProximaCarrada" disabled>Próxima carrada</button>
         <button class="btn-secondary" id="btnVoltar">Voltar para carradas</button>
         <button class="btn-secondary" id="btnRecarregar">Recarregar</button>
+        <button class="btn-secondary" id="btnConfigProgresso" type="button">⚙ Configurações</button>
         <button class="btn-primary" id="btnMudarCarradaLote" type="button" disabled>Modificar carrada dos pedidos</button>
         <button class="btn-secondary" id="btnRomaneioEntrega">Romaneio de entrega</button>
         <div class="mensagens-lote-acoes" role="group" aria-label="Mensagens em lote aos clientes">
@@ -1245,10 +1271,9 @@
         </label>
         <div class="carrada-lote-lista" id="listaProducaoLotePedidos" aria-label="Pedidos para aviso de entrada em produção"></div>
         <div class="muted" id="contadorProducaoLote" aria-live="polite" style="font-size:12px">0 pedidos selecionados</div>
-        <section class="audio-lote-editor" aria-labelledby="tituloAudioProducaoLote">
-          <label id="tituloAudioProducaoLote" for="memoAudioProducaoLote">Mensagem de áudio — voz profissional clonada</label>
-          <textarea id="memoAudioProducaoLote" rows="3" maxlength="1000" spellcheck="true">Seu pedido entrou em produção.</textarea>
-          <div class="muted" style="font-size:11px">O texto será gerado uma única vez no ElevenLabs e o mesmo áudio será enviado a todos os pedidos selecionados.</div>
+        <section class="audio-lote-editor">
+          <p class="muted">O texto e o áudio serão lidos de <strong>Configurações → Texto / Áudio → Em produção</strong>. Nenhum áudio será gerado durante o lote.</p>
+          <textarea id="memoAudioProducaoLote" hidden aria-hidden="true"></textarea>
         </section>
         <div class="muted" style="font-size:12px">O aviso escrito permanece igual ao da célula Prod. individual. Pedidos já verdes não receberão o aviso novamente.</div>
         <div class="feedback" id="feedbackProducaoLote" role="status" aria-live="polite"></div>
@@ -1607,7 +1632,69 @@
     </div>
   </div>
 
+
+  <!-- Configurações globais da tela de progresso (PostgreSQL + áudio persistente R2). -->
+  <div class="modal-backdrop" id="modalConfigProgressoBackdrop">
+    <div class="modal config-progresso-modal" role="dialog" aria-modal="true" aria-labelledby="cfgTitulo">
+      <div class="modal-header">
+        <div><h3 id="cfgTitulo">Configurações da tela de progresso</h3>
+          <p class="muted">Configurações permanentes, válidas para todas as carradas.</p></div>
+        <button type="button" class="btn-secondary" data-config-close>Fechar</button>
+      </div>
+      <div class="modal-body">
+        <div class="cfg-abas" role="tablist" aria-label="Tipo de notificação">
+          <button class="btn-secondary active" id="cfgAbaAudio" type="button" role="tab" aria-selected="true">Áudio</button>
+          <button class="btn-secondary" id="cfgAbaTexto" type="button" role="tab" aria-selected="false">Texto</button>
+        </div>
+        <div class="cfg-dois-controles">
+          <label class="cfg-toggle"><span>Envio de áudio — geral</span><input type="checkbox" id="cfgGeralAudio"> <span class="cfg-toggle-label">ON/OFF</span></label>
+          <label class="cfg-toggle"><span>Envio de texto — geral</span><input type="checkbox" id="cfgGeralTexto"> <span class="cfg-toggle-label">ON/OFF</span></label>
+        </div>
+        <p class="muted cfg-silent">O link abaixo dos quadrinhos continua marcando a fase sem enviar texto ou áudio, independentemente destes seletores.</p>
+        <div class="field"><label for="cfgFase">Fase operacional</label><select id="cfgFase"></select></div>
+        <section id="cfgPainelTexto" hidden>
+          <label class="cfg-toggle cfg-individual"><span>Enviar texto ao concluir esta fase</span> <input type="checkbox" id="cfgFaseTexto"> <span class="cfg-toggle-label">ON/OFF</span></label>
+          <div class="field"><label for="cfgTexto">Mensagem editável da fase</label>
+            <textarea id="cfgTexto" rows="8" maxlength="5000" spellcheck="true"></textarea></div>
+          <div class="cfg-variaveis"><div class="field"><label for="cfgVariavel">Inserir informação dinâmica</label><select id="cfgVariavel"></select></div>
+            <button type="button" class="btn-secondary" id="cfgInserirVariavel">Inserir</button></div>
+          <button type="button" class="btn-secondary" id="cfgBtnPrevia">Visualizar prévia</button>
+          <pre id="cfgPreviewTexto" class="cfg-preview" hidden></pre>
+          <p class="muted">A prévia usa dados fictícios. Na entrega, as variáveis serão substituídas no servidor por dados do pedido.</p>
+        </section>
+        <section id="cfgPainelAudio">
+          <label class="cfg-toggle cfg-individual"><span>Enviar áudio ao concluir esta fase</span> <input type="checkbox" id="cfgFaseAudio"> <span class="cfg-toggle-label">ON/OFF</span></label>
+          <div class="cfg-audio-salvo">
+            <strong>Áudio da fase</strong><p id="cfgAudioInfo" class="muted">Nenhum áudio cadastrado.</p>
+            <audio id="cfgAudioPlayer" controls preload="none" hidden></audio>
+            <button type="button" class="btn-secondary" id="cfgExcluirAudio" disabled>Desvincular áudio</button>
+          </div>
+          <div class="cfg-audio-metodo">
+            <h4>Gerar áudio pelo ElevenLabs</h4>
+            <div class="cfg-dois-controles"><div class="field"><label for="cfgVoz">Voz disponível na conta</label><select id="cfgVoz"></select></div>
+              <div class="field"><label for="cfgModelo">Modelo</label><select id="cfgModelo"></select></div></div>
+            <div class="field"><label for="cfgFala">Texto que será transformado em áudio</label><textarea id="cfgFala" rows="3" maxlength="1000"></textarea></div>
+            <button type="button" class="btn-primary" id="cfgGerar">Gerar e salvar áudio</button>
+            <p class="muted">A geração é feita uma única vez. A voz escolhida será registrada e o MP3 ficará no Cloudflare R2.</p>
+          </div>
+          <div class="cfg-audio-metodo">
+            <h4>Gravar com o microfone</h4>
+            <div class="cfg-acoes"><button type="button" class="btn-secondary" id="cfgGravar">Iniciar gravação</button>
+              <button type="button" class="btn-primary" id="cfgSalvarGravacao" disabled>Salvar gravação</button></div>
+            <p id="cfgGravacaoAviso" class="muted"></p><p class="muted">Grave e ouça antes de salvar. O sistema converte a gravação para MP3 e a armazena permanentemente (máx. 5 MB).</p>
+          </div>
+        </section>
+        <div id="cfgFeedback" class="feedback" role="status" aria-live="polite"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn-secondary" data-config-close>Fechar</button>
+        <button type="button" class="btn-primary" id="cfgSalvar">Salvar mensagem e seletores da fase</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/js/perfil-compras-chart.js"></script>
+  <script src="/js/progresso-configuracoes.js" defer></script>
   <script>
     const CODIGO_CARRADA = new URLSearchParams(window.location.search).get('codigo');
 
@@ -2329,8 +2416,8 @@
           </label>`;
       }).join('');
       el.checkboxProducaoLoteTodos.checked = false;
-      el.memoAudioProducaoLote.value = 'Seu pedido entrou em produção.';
-      setFeedback(el.feedbackProducaoLote, 'Selecione os pedidos, revise o texto do áudio e clique em Enviar aviso aos selecionados.');
+      el.memoAudioProducaoLote.value = '';
+      setFeedback(el.feedbackProducaoLote, 'Selecione os pedidos e envie usando os textos e áudios previamente salvos em Configurações.');
       atualizarSelecaoProducaoLote();
       abrirModal(el.modalProducaoLoteBackdrop);
     }
@@ -2339,13 +2426,7 @@
       if (estado.producaoLote.enviando) return;
       const numeros = pedidosSelecionadosProducaoLote();
       if (!numeros.length) return;
-      const fraseAudio = String(el.memoAudioProducaoLote.value || '').trim();
-      if (!fraseAudio || fraseAudio.length > 1000) {
-        setFeedback(el.feedbackProducaoLote, 'Preencha a mensagem de áudio (até 1.000 caracteres).', 'error');
-        el.memoAudioProducaoLote.focus();
-        return;
-      }
-      if (!window.confirm(`Gerar UM áudio com sua voz profissional e enviá-lo, junto ao aviso escrito, para ${numeros.length} pedido(s) selecionado(s)?`)) return;
+      if (!window.confirm(`Marcar produção e enviar as notificações configuradas aos ${numeros.length} pedidos selecionados?`)) return;
 
       estado.producaoLote.enviando = true;
       el.btnCancelarProducaoLote.disabled = true;
@@ -2359,14 +2440,7 @@
       const falhas = [];
       const falhasAudio = [];
       try {
-        setFeedback(el.feedbackProducaoLote, 'Gerando uma única mensagem de áudio com sua voz profissional...');
-        const preparo = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/producao/audio/preparar`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ texto: fraseAudio })
-        });
-        if (!preparo?.audioToken) throw new Error('A geração do áudio não retornou um identificador válido. Nenhum pedido foi enviado.');
-        const audioLoteToken = preparo.audioToken;
+        setFeedback(el.feedbackProducaoLote, 'Usando as mensagens e os áudios permanentes salvos em Configurações...');
         for (let indice = 0; indice < numeros.length; indice += 1) {
           const numero = numeros[indice];
           const linha = Array.from(el.listaProducaoLotePedidos.querySelectorAll('[data-producao-item-numero]'))
@@ -2378,7 +2452,7 @@
             const resultado = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numero)}/producao/enviar`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ audioLoteToken })
+              body: JSON.stringify({})
             });
             if (resultado?.enviado === true) {
               enviados += 1;
@@ -2396,7 +2470,7 @@
               if (input) { input.checked = true; input.dataset.producaoConcluido = 'true'; }
             }
             if (status) status.textContent = resultado?.enviado
-              ? (resultado?.audio?.success === false ? 'Texto enviado e produção verde • FALHA NO ÁUDIO' : 'Texto e áudio aceitos pela Z-API • produção verde')
+              ? (resultado?.audio?.success === false ? 'Fase verde • FALHA NO ÁUDIO' : 'Fase concluída • notificações conforme configuração')
               : 'Produção já marcada — não reenviado';
             if (estado.matriz?.totaisFases?.EM_PRODUCAO) {
               estado.matriz.totaisFases.EM_PRODUCAO.concluidos = estado.matriz.pedidos.filter(
@@ -2415,11 +2489,11 @@
         const resumo = `${enviados} enviado(s), ${jaMarcados} já marcado(s) e ${falhas.length} falha(s).`;
         const detalhes = falhas.length ? ` Pedidos com falha: ${falhas.slice(0, 5).join(' | ')}${falhas.length > 5 ? ` (mais ${falhas.length - 5})` : ''}.` : '';
         const avisoAudio = falhasAudio.length
-          ? ` ATENÇÃO: o aviso escrito foi enviado, mas o áudio falhou em ${falhasAudio.length} pedido(s): ${falhasAudio.slice(0, 5).join(' | ')}. Não reenvie o texto automaticamente.`
+          ? ` ATENÇÃO: o áudio falhou em ${falhasAudio.length} pedido(s): ${falhasAudio.slice(0, 5).join(' | ')}. Não reenvie o texto automaticamente.`
           : '';
-        setFeedback(el.feedbackProducaoLote, `${resumo} Áudio gerado uma única vez para este lote.${detalhes}${falhas.length ? ' Confira o status antes de tentar novamente.' : ''}${avisoAudio}`, falhas.length || falhasAudio.length ? 'error' : 'success');
+        setFeedback(el.feedbackProducaoLote, `${resumo} Notificações aplicadas conforme as configurações salvas.${detalhes}${falhas.length ? ' Confira o status antes de tentar novamente.' : ''}${avisoAudio}`, falhas.length || falhasAudio.length ? 'error' : 'success');
       } catch (erroPreparo) {
-        setFeedback(el.feedbackProducaoLote, `Lote interrompido: ${erroPreparo.message}. Se o problema ocorreu na geração do áudio, nenhum pedido foi enviado.`, 'error');
+        setFeedback(el.feedbackProducaoLote, `Lote interrompido: ${erroPreparo.message}. Confira os pedidos antes de repetir.`, 'error');
       } finally {
         estado.producaoLote.enviando = false;
         el.btnCancelarProducaoLote.disabled = false;
@@ -3347,7 +3421,7 @@
         await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/fases/LIGACAO_POS_VENDA`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ valor: true, silencioso: true })
+          body: JSON.stringify({ valor: true, silencioso: false })
         });
 
         pedido.fases.LIGACAO_POS_VENDA.concluido = true;
@@ -3443,8 +3517,8 @@
           body: JSON.stringify({ valor: novoValor })
         });
 
-        if (faseCodigo === 'EM_PRODUCAO' && novoValor && resultadoFase?.audio?.success === false) {
-          window.alert(`O aviso escrito foi enviado e a produção ficou verde, mas o áudio não foi enviado: ${resultadoFase.audio.erro || 'falha desconhecida'}. Não reenvie o aviso escrito sem conferir.`);
+        if (novoValor && (resultadoFase?.audio?.success === false || resultadoFase?.notificacao?.success === false)) {
+          window.alert(`Fase marcada em verde, mas houve falha no WhatsApp: ${resultadoFase?.audio?.erro || resultadoFase?.notificacao?.error || 'erro desconhecido'}. Confira o histórico antes de tentar novamente.`);
         }
 
         if (estado.matriz?.pedidos) {

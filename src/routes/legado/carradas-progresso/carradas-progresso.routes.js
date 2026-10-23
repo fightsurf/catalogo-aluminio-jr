@@ -11,7 +11,6 @@ router.put('/:codigo/pedidos/:numeroPedido/quantidade-volumes', controller.salva
 router.patch('/:codigo/pedidos/:numeroPedido/data-expedicao', controller.salvarDataExpedicao);
 router.patch('/:codigo/pedidos/:numeroPedido/fases/:faseCodigo', controller.salvarFaseBooleana);
 router.post('/:codigo/pedidos/:numeroPedido/nota-fiscal/enviar', controller.enviarNotaFiscalPedido);
-router.post('/:codigo/producao/audio/preparar', controller.prepararAudioProducaoLote);
 router.post('/:codigo/pedidos/:numeroPedido/producao/enviar', controller.enviarInicioProducaoPedido);
 router.get('/:codigo/pedidos/:numeroPedido/pos-venda/historico', controller.buscarHistoricoPosVenda);
 router.get('/:codigo/pedidos/:numeroPedido/etiqueta-impressao', controller.buscarDadosEtiquetaImpressao);

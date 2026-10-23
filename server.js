@@ -22,6 +22,7 @@ const itensLegadoViewRoutes = require('./src/routes/legado/itens/itens.view.rout
 const carradasLegadoRoutes = require('./src/routes/legado/carradas/carradas.routes');
 const carradasLegadoViewRoutes = require('./src/routes/legado/carradas/carradas.view.routes');
 const carradasProgressoLegadoRoutes = require('./src/routes/legado/carradas-progresso/carradas-progresso.routes');
+const progressoNotificacoesConfigRoutes = require('./src/routes/legado/carradas-progresso/progresso-notificacoes-config.routes');
 const semanasLegadoRoutes = require('./src/routes/legado/semanas/semanas.routes');
 const semanasLegadoViewRoutes = require('./src/routes/legado/semanas/semanas.view.routes');
 const pagamentosLegadoRoutes = require('./src/routes/legado/pagamentos/pagamentos.routes');
@@ -143,6 +144,7 @@ app.use('/legado/pedidos-insercao', pedidosInsercaoLegadoViewRoutes);
 app.use('/api/legado/itens', itensLegadoRoutes);
 app.use('/legado/itens', itensLegadoViewRoutes);
 app.use('/api/legado/carradas', carradasLegadoRoutes);
+app.use('/api/legado/progresso-configuracoes', progressoNotificacoesConfigRoutes);
 app.use('/api/legado/carradas-progresso', carradasProgressoLegadoRoutes);
 app.use('/legado/carradas', carradasLegadoViewRoutes);
 app.use('/api/legado/semanas', semanasLegadoRoutes);
