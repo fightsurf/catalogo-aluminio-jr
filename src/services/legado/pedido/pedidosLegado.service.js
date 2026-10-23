@@ -181,6 +181,11 @@ function normalizarPedido(item) {
         ''
     },
     cliente: {
+      favorecido:
+        item?.cliente?.favorecido ??
+        item?.FAVORECIDO ??
+        item?.favorecido ??
+        null,
       nome:
         item?.cliente?.nome ??
         item?.F_NOME ??
@@ -491,6 +496,44 @@ async function calcularESalvarVolumesPedido(idMestre) {
 }
 
 
+// O PostgreSQL possui lançamentos de crédito vinculados ao pedido. É obrigatório
+// bloqueá-los antes de tentar qualquer gravação no Firebird; falha na consulta
+// também impede a alteração (fail closed).
+async function verificarLancamentosCreditoPedido(pedido) {
+  const pool = require('../../../../db/connection');
+  const existe = await pool.query("SELECT to_regclass('cliente_credito_lancamentos') AS tabela");
+  if (!existe.rows[0]?.tabela) return;
+  const resposta = await pool.query(`
+    SELECT id FROM cliente_credito_lancamentos
+    WHERE (origem_empresa = $1 AND origem_saida = $2 AND origem_pdv = $3)
+       OR (origem_saida IS NULL AND favorecido = $4 AND numero_pedido = $5)
+    LIMIT 1
+  `, [pedido.empresa, pedido.saida ?? pedido.idMestre, pedido.pdv,
+      pedido.cliente?.favorecido, String(pedido.numero || '')]);
+  if (resposta.rows.length) {
+    throw new Error('Troca bloqueada: há lançamentos de crédito do cliente vinculados a este pedido.');
+  }
+}
+
+async function alterarClientePedido(idMestre, payload = {}) {
+  const pedido = await buscarDetalhePedido(idMestre);
+  if (!pedido) throw new Error('Pedido não encontrado.');
+  const favorecidoAtual = Number(pedido.cliente?.favorecido);
+  if (!Number.isInteger(favorecidoAtual) || favorecidoAtual <= 0) {
+    throw new Error('Não foi possível identificar o cliente atual do pedido.');
+  }
+  if (Number(payload.favorecidoAtual) !== favorecidoAtual) {
+    throw new Error('O pedido foi atualizado. Recarregue-o antes de trocar o cliente.');
+  }
+  await verificarLancamentosCreditoPedido(pedido);
+
+  const response = await legadoBridgeService.put(
+    `/api/legado/pedidos/${idMestre}/cliente`,
+    { novoFavorecido: payload?.novoFavorecido, favorecidoAtual }
+  );
+  return normalizarPedido(response?.data || {});
+}
+
 async function atualizarPedido(idMestre, payload = {}) {
   const response = await legadoBridgeService.put(
     `/api/legado/pedidos/${idMestre}`,
@@ -655,6 +698,7 @@ module.exports = {
   alterarCarradaPedido,
   calcularESalvarVolumesPedido,
   atualizarPedido,
+  alterarClientePedido,
   cancelarPedido,
   copiarPedido,
   particionarPedido,

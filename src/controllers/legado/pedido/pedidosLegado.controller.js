@@ -154,6 +154,15 @@ async function calcularVolumesPedido(req, res) {
 }
 
 
+async function alterarClientePedido(req, res) {
+  try {
+    const data = await pedidosLegadoService.alterarClientePedido(req.params.idMestre, req.body || {});
+    return res.json({ success: true, message: 'Cliente do pedido alterado com sucesso.', data });
+  } catch (error) {
+    return res.status(400).json({ success: false, message: error.message || 'Erro ao trocar cliente.' });
+  }
+}
+
 async function atualizarPedido(req, res) {
   try {
     const { idMestre } = req.params;
@@ -297,6 +306,7 @@ module.exports = {
   alterarCarradaPedido,
   calcularVolumesPedido,
   atualizarPedido,
+  alterarClientePedido,
   cancelarPedido,
   copiarPedido,
   particionarPedido,

@@ -165,6 +165,21 @@
       text-transform: uppercase;
     }
 
+    .link-trocar-cliente {
+      color: #1d4ed8;
+      font: inherit;
+      font-weight: 700;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    .link-trocar-cliente:hover { color: #1e40af; }
+    .clientes-modal-lista { max-height: 300px; overflow-y: auto; margin-top: 12px; border: 1px solid #e5e7eb; border-radius: 8px; }
+    .cliente-modal-opcao { display: block; width: 100%; text-align: left; padding: 11px 13px; background: #fff; color: #111827; border: 0; border-bottom: 1px solid #e5e7eb; cursor: pointer; }
+    .cliente-modal-opcao:last-child { border-bottom: 0; }
+    .cliente-modal-opcao:hover { background: #f3f4f6; }
+    .cliente-modal-opcao.selecionado { background: #dbeafe; font-weight: 700; }
+    .cliente-modal-opcao small { color: #4b5563; display: block; font-size: 12px; padding-top: 3px; }
+
     .cliente-dados-linha,
     .grid-edicao-cliente {
       display: flex;
@@ -568,6 +583,28 @@
 
 
 
+  <div id="modalTrocaCliente" class="modal-overlay oculto" role="dialog" aria-modal="true" aria-labelledby="tituloTrocaCliente">
+    <div class="modal-card" style="width:min(630px,100%);">
+      <div class="modal-cabecalho">
+        <h3 id="tituloTrocaCliente">Trocar cliente do pedido</h3>
+        <button id="btnFecharTrocaCliente" class="btn-fechar-modal" type="button" aria-label="Fechar">×</button>
+      </div>
+      <p id="trocaClientePedidoInfo" class="cliente-linha"></p>
+      <p class="texto-ajuda">A troca é aplicada imediatamente e só é permitida se o pedido não tiver pagamentos, títulos ou créditos vinculados. Outras edições ainda não salvas permanecem na tela.</p>
+      <div class="campo" style="margin-top:14px;">
+        <label for="buscaNovoCliente">Pesquisar novo cliente</label>
+        <input id="buscaNovoCliente" type="text" placeholder="Digite as primeiras letras do nome" autocomplete="off" />
+      </div>
+      <div id="trocaClienteLista" class="clientes-modal-lista" aria-live="polite"><div class="texto-ajuda" style="padding:12px;">Digite pelo menos 2 letras para pesquisar.</div></div>
+      <div id="trocaClienteSelecionado" class="cliente-linha" style="margin-top:12px;">Nenhum cliente selecionado.</div>
+      <div id="trocaClienteAviso" class="mensagem oculto" aria-live="polite"></div>
+      <div class="acoes-pedido" style="margin-top:18px;">
+        <button id="btnConfirmarTrocaCliente" class="btn btn-primary" type="button" disabled>Confirmar troca do cliente</button>
+        <button id="btnCancelarTrocaCliente" class="btn btn-secondary" type="button">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
   <div id="modalCopia" class="modal-overlay oculto" role="dialog" aria-modal="true" aria-labelledby="tituloModalCopia">
     <div class="modal-card" style="width:min(650px, 100%);">
       <div class="modal-cabecalho">
@@ -722,6 +759,15 @@
     const btnAdicionarPagamentos = document.getElementById('btnAdicionarPagamentos');
     const btnImprimirRelatorioProducao = document.getElementById('btnImprimirRelatorioProducao');
     const btnImprimirRelatorio = document.getElementById('btnImprimirRelatorio');
+    const modalTrocaCliente = document.getElementById('modalTrocaCliente');
+    const btnFecharTrocaCliente = document.getElementById('btnFecharTrocaCliente');
+    const btnCancelarTrocaCliente = document.getElementById('btnCancelarTrocaCliente');
+    const btnConfirmarTrocaCliente = document.getElementById('btnConfirmarTrocaCliente');
+    const buscaNovoCliente = document.getElementById('buscaNovoCliente');
+    const trocaClienteLista = document.getElementById('trocaClienteLista');
+    const trocaClienteSelecionado = document.getElementById('trocaClienteSelecionado');
+    const trocaClientePedidoInfo = document.getElementById('trocaClientePedidoInfo');
+    const trocaClienteAviso = document.getElementById('trocaClienteAviso');
     const modalCopia = document.getElementById('modalCopia');
     const btnFecharCopia = document.getElementById('btnFecharCopia');
     const btnCancelarCopia = document.getElementById('btnCancelarCopia');
@@ -749,6 +795,11 @@
     const cancelamentoIdentificacao = document.getElementById('cancelamentoIdentificacao');
     const motivoCancelamento = document.getElementById('motivoCancelamento');
 
+    let novoClienteSelecionado = null;
+    let clientesBuscaAtual = [];
+    let timerPesquisaCliente = null;
+    let pesquisaClienteSequencia = 0;
+    let trocaClienteEmAndamento = false;
     let pedidoCarregado = null;
     let pedidosEncontrados = [];
     let calculoVolumesItens = [];
@@ -1426,7 +1477,7 @@
       dadosCliente.innerHTML = `
         <div class="cabecalho-box">
           <div>
-            <div class="cliente-nome">${pedido?.cliente?.nome || '-'}</div>
+            <div class="cliente-nome"><a href="#" id="linkTrocarClientePedido" class="link-trocar-cliente" title="Escolher outro cliente para este pedido">${escapeHtml(pedido?.cliente?.nome || '-')}</a></div>
             <div class="linha-info-edicao">Número: ${pedido?.numero || '-'}</div>
           </div>
           <div class="tag-status">Modo edição</div>
@@ -2712,6 +2763,120 @@
       setMensagem('Edição cancelada.');
     }
 
+    // O cliente é alterado em endpoint específico; não reenviamos itens/vendedor
+    // durante essa operação para preservar o restante da edição em andamento.
+    function mostrarAvisoTrocaCliente(texto, erro = false) {
+      trocaClienteAviso.textContent = texto;
+      trocaClienteAviso.className = erro ? 'mensagem erro' : 'mensagem';
+      trocaClienteAviso.classList.toggle('oculto', !texto);
+    }
+
+    function fecharModalTrocaCliente() {
+      if (trocaClienteEmAndamento) return;
+      modalTrocaCliente.classList.add('oculto');
+      pesquisaClienteSequencia += 1;
+      clearTimeout(timerPesquisaCliente);
+    }
+
+    function renderizarOpcoesNovoCliente() {
+      if (!clientesBuscaAtual.length) {
+        trocaClienteLista.innerHTML = '<div class="texto-ajuda" style="padding:12px;">Nenhum cliente encontrado.</div>';
+        return;
+      }
+      trocaClienteLista.innerHTML = clientesBuscaAtual.map((cliente) => {
+        const selecionado = String(novoClienteSelecionado?.favorecido) === String(cliente.favorecido);
+        return `<button type="button" class="cliente-modal-opcao ${selecionado ? 'selecionado' : ''}" data-cliente-id="${escapeHtml(cliente.favorecido)}" aria-pressed="${selecionado}"><strong>${escapeHtml(cliente.nome || '-')}</strong><small>${escapeHtml(cliente.cidade || '-')} / ${escapeHtml(cliente.uf || '-')} · Código ${escapeHtml(cliente.favorecido)}</small></button>`;
+      }).join('');
+    }
+
+    async function pesquisarNovoCliente() {
+      const termo = buscaNovoCliente.value.trim();
+      const sequencia = ++pesquisaClienteSequencia;
+      novoClienteSelecionado = null;
+      btnConfirmarTrocaCliente.disabled = true;
+      trocaClienteSelecionado.textContent = 'Nenhum cliente selecionado.';
+      mostrarAvisoTrocaCliente('');
+      if (termo.length < 2) {
+        clientesBuscaAtual = [];
+        trocaClienteLista.innerHTML = '<div class="texto-ajuda" style="padding:12px;">Digite pelo menos 2 letras para pesquisar.</div>';
+        return;
+      }
+      trocaClienteLista.innerHTML = '<div class="texto-ajuda" style="padding:12px;">Pesquisando clientes...</div>';
+      try {
+        const json = await fetchJson(`/api/legado/clientes?nome=${encodeURIComponent(termo)}&status=ativos&limite=50`);
+        if (sequencia !== pesquisaClienteSequencia || modalTrocaCliente.classList.contains('oculto')) return;
+        clientesBuscaAtual = Array.isArray(json.dados) ? json.dados.filter((c) => c.ativo !== false) : [];
+        renderizarOpcoesNovoCliente();
+      } catch (error) {
+        if (sequencia !== pesquisaClienteSequencia) return;
+        clientesBuscaAtual = [];
+        trocaClienteLista.innerHTML = '<div class="texto-ajuda" style="padding:12px;">Não foi possível pesquisar os clientes.</div>';
+        mostrarAvisoTrocaCliente(error.message || 'Erro na pesquisa.', true);
+      }
+    }
+
+    function abrirModalTrocaCliente() {
+      if (!modoEdicao || !pedidoCarregado || trocaClienteEmAndamento) return;
+      const atual = Number(pedidoCarregado.cliente?.favorecido);
+      if (!Number.isInteger(atual) || atual <= 0) {
+        setMensagem('Não foi possível identificar o código do cliente atual do pedido.', true);
+        return;
+      }
+      novoClienteSelecionado = null;
+      clientesBuscaAtual = [];
+      clearTimeout(timerPesquisaCliente);
+      pesquisaClienteSequencia += 1;
+      buscaNovoCliente.value = '';
+      trocaClienteLista.innerHTML = '<div class="texto-ajuda" style="padding:12px;">Digite pelo menos 2 letras para pesquisar.</div>';
+      trocaClienteSelecionado.textContent = 'Nenhum cliente selecionado.';
+      btnConfirmarTrocaCliente.disabled = true;
+      trocaClientePedidoInfo.textContent = `Pedido ${pedidoCarregado.numero || '-'} · Cliente atual: ${pedidoCarregado.cliente?.nome || '-'} (${atual})`;
+      mostrarAvisoTrocaCliente('');
+      modalTrocaCliente.classList.remove('oculto');
+      buscaNovoCliente.focus();
+    }
+
+    async function confirmarTrocaCliente() {
+      if (!novoClienteSelecionado || !pedidoCarregado || trocaClienteEmAndamento) return;
+      const idMestre = pedidoCarregado.idMestre;
+      const clienteAnterior = Number(pedidoCarregado.cliente?.favorecido);
+      const novoFavorecido = Number(novoClienteSelecionado.favorecido);
+      if (novoFavorecido === clienteAnterior) {
+        mostrarAvisoTrocaCliente('Selecione um cliente diferente do atual.', true);
+        return;
+      }
+      const nomeNovo = novoClienteSelecionado.nome;
+      if (!window.confirm(`Confirmar a troca do cliente do pedido ${pedidoCarregado.numero} para ${nomeNovo}?`)) return;
+
+      trocaClienteEmAndamento = true;
+      btnConfirmarTrocaCliente.disabled = true;
+      btnCancelarTrocaCliente.disabled = true;
+      btnFecharTrocaCliente.disabled = true;
+      mostrarAvisoTrocaCliente('Verificando os vínculos financeiros e atualizando o cliente...');
+      try {
+        const json = await fetchJson(`/api/legado/pedidos/${idMestre}/cliente`, {
+          method: 'PUT', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ novoFavorecido, favorecidoAtual: clienteAnterior })
+        });
+        if (!json?.data?.cliente?.favorecido) throw new Error('A API não confirmou o cliente atualizado.');
+        const clienteAtualizado = json.data.cliente;
+        pedidoCarregado.cliente = clienteAtualizado;
+        pedidosEncontrados = pedidosEncontrados.map((item) => String(item.idMestre) === String(idMestre)
+          ? { ...item, cliente: clienteAtualizado } : item);
+        modalTrocaCliente.classList.add('oculto');
+        pesquisaClienteSequencia += 1;
+        renderizarPedidoCompleto();
+        setMensagem(`Cliente do pedido ${pedidoCarregado.numero} alterado para ${clienteAtualizado.nome}. As demais alterações da edição ainda não foram salvas.`);
+      } catch (error) {
+        mostrarAvisoTrocaCliente(error.message || 'Não foi possível trocar o cliente.', true);
+      } finally {
+        trocaClienteEmAndamento = false;
+        btnCancelarTrocaCliente.disabled = false;
+        btnFecharTrocaCliente.disabled = false;
+        btnConfirmarTrocaCliente.disabled = !novoClienteSelecionado;
+      }
+    }
+
     async function pesquisarProdutosRender(silencioso = false) {
       const termo = (buscaProdutoTermo || '').trim();
 
@@ -2967,6 +3132,37 @@
       }
     }
 
+    dadosCliente.addEventListener('click', (event) => {
+      const link = event.target.closest('#linkTrocarClientePedido');
+      if (!link) return;
+      event.preventDefault();
+      abrirModalTrocaCliente();
+    });
+    buscaNovoCliente.addEventListener('input', () => {
+      clearTimeout(timerPesquisaCliente);
+      pesquisaClienteSequencia += 1;
+      novoClienteSelecionado = null;
+      btnConfirmarTrocaCliente.disabled = true;
+      trocaClienteSelecionado.textContent = 'Nenhum cliente selecionado.';
+      timerPesquisaCliente = setTimeout(pesquisarNovoCliente, 250);
+    });
+    trocaClienteLista.addEventListener('click', (event) => {
+      const botao = event.target.closest('[data-cliente-id]');
+      if (!botao || trocaClienteEmAndamento) return;
+      novoClienteSelecionado = clientesBuscaAtual.find((c) => String(c.favorecido) === botao.dataset.clienteId) || null;
+      btnConfirmarTrocaCliente.disabled = !novoClienteSelecionado;
+      trocaClienteSelecionado.textContent = novoClienteSelecionado
+        ? `Novo cliente: ${novoClienteSelecionado.nome} · ${novoClienteSelecionado.cidade || '-'} / ${novoClienteSelecionado.uf || '-'}`
+        : 'Nenhum cliente selecionado.';
+      mostrarAvisoTrocaCliente('');
+      renderizarOpcoesNovoCliente();
+    });
+    btnFecharTrocaCliente.addEventListener('click', fecharModalTrocaCliente);
+    btnCancelarTrocaCliente.addEventListener('click', fecharModalTrocaCliente);
+    btnConfirmarTrocaCliente.addEventListener('click', confirmarTrocaCliente);
+    modalTrocaCliente.addEventListener('click', (event) => {
+      if (event.target === modalTrocaCliente) fecharModalTrocaCliente();
+    });
     btnPesquisar.addEventListener('click', () => pesquisarPedidos());
     btnEditarPedido.addEventListener('click', entrarModoEdicao);
     btnCalcularVolumes.addEventListener('click', calcularVolumesPedido);
@@ -3224,6 +3420,10 @@
     });
 
     document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !modalTrocaCliente.classList.contains('oculto')) {
+        fecharModalTrocaCliente();
+        return;
+      }
       if (event.key === 'Escape' && !modalCopiaRelatorioWhatsapp.classList.contains('oculto')) {
         fecharCopiaRelatorioWhatsapp();
         return;
