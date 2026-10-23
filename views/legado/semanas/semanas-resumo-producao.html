@@ -77,6 +77,33 @@
       border-bottom: 0;
     }
     .col-indice { width: 64px; }
+    /* Associação e envio de produtos por fornecedor */
+    .mf-modal { position:fixed; inset:0; z-index:1000; background:rgba(17,24,39,.66); display:none; align-items:center; justify-content:center; padding:16px; }
+    .mf-modal.aberto { display:flex; }
+    .mf-janela { background:#fff; width:min(1080px,100%); max-height:92vh; display:flex; flex-direction:column; overflow:hidden; border-radius:14px; box-shadow:0 22px 70px rgba(0,0,0,.27); }
+    .mf-cabecalho, .mf-rodape { padding:14px 20px; display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); }
+    .mf-rodape { border-top:1px solid var(--line); border-bottom:0; }
+    .mf-corpo { padding:18px 20px; overflow:auto; }
+    .mf-cabecalho h2 { margin:0; }
+    .mf-controles { display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+    .mf-controles select { padding:9px; border:1px solid #9ca3af; border-radius:8px; max-width:100%; min-width:230px; background:white; }
+    .mf-tabela-wrap { overflow-x:auto; }
+    .mf-tabela { width:100%; border-radius:8px; }
+    .mf-tabela td, .mf-tabela th { padding:9px; }
+    .mf-tabela th:last-child, .mf-tabela td:last-child { white-space:nowrap; }
+    .mf-descricao { font-weight:600; }
+    .mf-pequeno { font-size:12px; color:#6b7280; margin-top:4px; }
+    .mf-aviso { background:#fff7ed; border:1px solid #fed7aa; padding:10px 12px; border-radius:8px; color:#9a3412; margin:10px 0; }
+    .mf-feedback { font-size:14px; min-height:20px; margin:8px 0; }
+    .mf-feedback.erro { color:#b91c1c; }
+    .mf-feedback.sucesso { color:#166534; }
+    .mf-pred { white-space:pre-wrap; font-size:13px; padding:12px; border:1px solid #d1d5db; border-radius:8px; background:#f9fafb; max-height:240px; overflow:auto; }
+    .mf-fechar { font-size:22px; font-weight:600; line-height:1; padding:4px 12px; }
+    .mf-checkbox { width:18px; height:18px; cursor:pointer; }
+    .mf-tabela tfoot td { font-weight:bold; background:#f3f4f6; }
+    .mf-btn:disabled { opacity:.5; cursor:not-allowed; }
+    @media print { .mf-modal { display:none!important; } }
+
     @media print {
       body { background: #fff; }
       .actions { display: none; }
@@ -98,12 +125,46 @@
       </div>
       <div class="actions">
         <a class="button btn-secondary" id="linkDetalhe" href="/legado/semanas">Voltar ao detalhe</a>
+        <button class="btn-secondary" id="btnAssociacaoFornecedor" type="button">Associação com Fornecedores</button>
+        <button class="btn-secondary" id="btnRelacaoFornecedor" type="button">Relação para Fornecedores</button>
         <button class="btn-primary" id="btnImprimir">Imprimir</button>
       </div>
     </div>
 
     <div id="conteudo">
       <div class="card">Carregando resumo...</div>
+    </div>
+  </div>
+
+  <!-- Os dois modais trabalham sobre o mesmo resumo semanal existente. -->
+  <div class="mf-modal" id="mfModalAssociacao" role="dialog" aria-modal="true" aria-labelledby="mfTituloAssociacao">
+    <div class="mf-janela">
+      <div class="mf-cabecalho">
+        <h2 id="mfTituloAssociacao">Associação com Fornecedores</h2>
+        <button type="button" class="btn-secondary mf-fechar" data-mf-fechar="mfModalAssociacao" aria-label="Fechar">×</button>
+      </div>
+      <div class="mf-corpo">
+        <div class="mf-controles"><label for="mfFornecedorAssociar"><strong>Fornecedor:</strong></label><select id="mfFornecedorAssociar"></select></div>
+        <p class="muted">Marque os produtos que pertencem ao fornecedor escolhido. Desmarcar um produto já associado remove seu vínculo; marcar um produto de outro fornecedor o transfere.</p>
+        <div id="mfListaAssociacao" class="mf-tabela-wrap"></div>
+        <div id="mfMensagemAssociacao" class="mf-feedback" role="status"></div>
+      </div>
+      <div class="mf-rodape"><span id="mfContadorAssociacao" class="muted"></span><button type="button" id="mfSalvarAssociacao" class="btn-primary mf-btn">Salvar associações</button></div>
+    </div>
+  </div>
+
+  <div class="mf-modal" id="mfModalRelacao" role="dialog" aria-modal="true" aria-labelledby="mfTituloRelacao">
+    <div class="mf-janela">
+      <div class="mf-cabecalho">
+        <h2 id="mfTituloRelacao">Relação para Fornecedores</h2>
+        <button type="button" class="btn-secondary mf-fechar" data-mf-fechar="mfModalRelacao" aria-label="Fechar">×</button>
+      </div>
+      <div class="mf-corpo">
+        <div class="mf-controles"><label for="mfFornecedorFiltrar"><strong>Filtrar fornecedor:</strong></label><select id="mfFornecedorFiltrar"></select><span id="mfSituacaoEnvio" class="muted"></span></div>
+        <div id="mfListaRelacao" class="mf-tabela-wrap"></div>
+        <div id="mfMensagemRelacao" class="mf-feedback" role="status"></div>
+      </div>
+      <div class="mf-rodape"><span id="mfContadorRelacao" class="muted"></span><button type="button" id="mfEnviarFornecedor" class="btn-primary mf-btn">Enviar relação via WhatsApp</button></div>
     </div>
   </div>
 
@@ -209,6 +270,164 @@
 
     document.getElementById('btnImprimir').addEventListener('click', () => {
       window.print();
+    });
+
+    // Controle isolado de fornecedores — nunca muda o cálculo do resumo atual.
+    let mfResumo = null;
+    let mfEnviando = false;
+    const mf = (id) => document.getElementById(id);
+    const mfOpcao = (valor, texto) => `<option value="${escapeHtml(String(valor))}">${escapeHtml(texto)}</option>`;
+
+    async function mfRequest(url, options = {}) {
+      const res = await fetch(url, {
+        credentials: 'same-origin',
+        ...options,
+        headers: { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...(options.headers || {}) }
+      });
+      if (res.redirected && res.url.includes('/login')) throw new Error('Sessão expirada. Faça login novamente para continuar.');
+      const resposta = await res.json().catch(() => ({}));
+      if (!res.ok || resposta.success === false) {
+        throw new Error(resposta.message || resposta.error || resposta.erro || `Falha ao consultar o servidor (${res.status}).`);
+      }
+      return resposta.data;
+    }
+    function mfMensagem(onde, texto, classe = '') {
+      mf(onde).textContent = texto || '';
+      mf(onde).className = `mf-feedback ${classe}`;
+    }
+    function mfItens() { return Array.isArray(mfResumo?.itens) ? mfResumo.itens : []; }
+    function mfFornecedores() { return Array.isArray(mfResumo?.fornecedores) ? mfResumo.fornecedores : []; }
+    function mfFornecedor(id) { return mfFornecedores().find(x => String(x.id) === String(id)); }
+    function mfOpcoes(usarTodos) {
+      return (usarTodos ? mfOpcao('', 'Todos os fornecedores') + mfOpcao('sem', 'Sem fornecedor') : mfOpcao('', 'Selecione um fornecedor')) +
+        mfFornecedores().map(x => mfOpcao(x.id, x.nome)).join('');
+    }
+    function mfTabelaVazia() { return '<p class="muted">Nenhum produto a produzir nesta semana.</p>'; }
+    function mfVinculoDescricao(item) {
+      if (item.situacao_vinculo === 'ambiguo') return 'Cadastro ambíguo: mais de um produto no PostgreSQL com este código legado';
+      if (item.situacao_vinculo === 'nao_encontrado') return 'Sem produto correspondente no PostgreSQL';
+      return item.fornecedor_nome || 'Sem fornecedor associado';
+    }
+    function mfRenderizarAssociacao() {
+      const selecao = mf('mfFornecedorAssociar').value;
+      const lista = mfItens();
+      mf('mfListaAssociacao').innerHTML = lista.length ? `
+        <table class="mf-tabela">
+          <thead><tr><th style="width:60px">Associar</th><th>Produto</th><th>Quantidade</th><th>Fornecedor atual</th></tr></thead>
+          <tbody>${lista.map(item => `<tr>
+            <td><input class="mf-checkbox mf-associar" type="checkbox" data-produto="${item.produto_id || ''}"
+              ${item.fornecedor_id != null && String(item.fornecedor_id) === selecao ? 'checked' : ''}
+              ${!selecao || item.situacao_vinculo !== 'ok' ? 'disabled' : ''}
+              aria-label="Associar ${escapeHtml(item.descricao)}"></td>
+            <td><span class="mf-descricao">${escapeHtml(item.descricao || '-')}</span>${item.situacao_vinculo !== 'ok' ? `<div class="mf-pequeno">${escapeHtml(mfVinculoDescricao(item))}</div>` : ''}</td>
+            <td>${escapeHtml(formatarQuantidade(item.quantidade))}</td><td>${escapeHtml(mfVinculoDescricao(item))}</td>
+          </tr>`).join('')}</tbody>
+        </table>` : mfTabelaVazia();
+      const indisponiveis = lista.filter(x => x.situacao_vinculo !== 'ok').length;
+      if (indisponiveis) {
+        mf('mfListaAssociacao').insertAdjacentHTML('afterbegin', `<div class="mf-aviso">${indisponiveis} produto(s) sem vínculo único com o catálogo PostgreSQL não poderão ser associados neste modal. Confira o campo item_legado em /admin-produtos.</div>`);
+      }
+      mf('mfSalvarAssociacao').disabled = !selecao || !lista.some(x => x.situacao_vinculo === 'ok');
+      mfAtualizarContadorAssociacao();
+    }
+    function mfAtualizarContadorAssociacao() {
+      mf('mfContadorAssociacao').textContent = `${document.querySelectorAll('#mfListaAssociacao .mf-associar:checked').length} produto(s) selecionado(s)`;
+    }
+    function mfRenderizarRelacao() {
+      const filtro = mf('mfFornecedorFiltrar').value;
+      const lista = mfItens().filter(x => filtro === '' || (filtro === 'sem' ? !x.fornecedor_id : String(x.fornecedor_id) === filtro));
+      const total = lista.reduce((acc,x) => acc + Number(x.quantidade || 0), 0);
+      mf('mfListaRelacao').innerHTML = lista.length ? `<table class="mf-tabela">
+        <thead><tr><th>#</th><th>Descrição</th><th>Quantidade a produzir</th><th>Fornecedor</th></tr></thead>
+        <tbody>${lista.map((item,indice) => `<tr><td>${indice + 1}</td><td>${escapeHtml(item.descricao || '-')}</td>
+          <td>${escapeHtml(formatarQuantidade(item.quantidade))}</td><td>${escapeHtml(mfVinculoDescricao(item))}</td></tr>`).join('')}</tbody>
+        <tfoot><tr><td></td><td>Total de peças a produzir</td><td>${escapeHtml(formatarQuantidade(total))}</td><td></td></tr></tfoot></table>` : mfTabelaVazia();
+      mf('mfContadorRelacao').textContent = `${lista.length} produto(s) • ${formatarQuantidade(total)} unidades`;
+      const fornecedor = mfFornecedor(filtro);
+      const envio = (mfResumo?.envios || []).find(e => String(e.fornecedor_id) === filtro);
+      mf('mfSituacaoEnvio').textContent = envio ? `Último envio: ${envio.status} (${new Date(envio.criado_em).toLocaleString('pt-BR')})` : '';
+      mf('mfEnviarFornecedor').disabled = mfEnviando || !fornecedor || !lista.length || !fornecedor.telefone;
+      mf('mfEnviarFornecedor').title = fornecedor && !fornecedor.telefone ? 'Fornecedor sem WhatsApp cadastrado' : '';
+    }
+    async function mfRecarregarDados() {
+      mfResumo = await mfRequest(`/api/legado/semanas/${encodeURIComponent(id)}/fornecedores`);
+    }
+    async function mfAbrir(tipo) {
+      const modalId = tipo === 'associacao' ? 'mfModalAssociacao' : 'mfModalRelacao';
+      mfMensagem(tipo === 'associacao' ? 'mfMensagemAssociacao' : 'mfMensagemRelacao', 'Carregando...');
+      mf(modalId).classList.add('aberto');
+      try {
+        await mfRecarregarDados();
+        if (tipo === 'associacao') {
+          mf('mfFornecedorAssociar').innerHTML = mfOpcoes(false);
+          mfRenderizarAssociacao();
+          mfMensagem('mfMensagemAssociacao','');
+        } else {
+          mf('mfFornecedorFiltrar').innerHTML = mfOpcoes(true);
+          mfRenderizarRelacao();
+          mfMensagem('mfMensagemRelacao','');
+        }
+      } catch (e) {
+        mfMensagem(tipo === 'associacao' ? 'mfMensagemAssociacao' : 'mfMensagemRelacao',e.message,'erro');
+        if (tipo === 'associacao') mf('mfSalvarAssociacao').disabled = true;
+        else mf('mfEnviarFornecedor').disabled = true;
+      }
+    }
+    mf('btnAssociacaoFornecedor').addEventListener('click', () => mfAbrir('associacao'));
+    mf('btnRelacaoFornecedor').addEventListener('click', () => mfAbrir('relacao'));
+    document.querySelectorAll('[data-mf-fechar]').forEach(btn => btn.addEventListener('click', () => mf(btn.dataset.mfFechar).classList.remove('aberto')));
+    document.querySelectorAll('.mf-modal').forEach(modal => modal.addEventListener('click', ev => { if (ev.target === modal) modal.classList.remove('aberto'); }));
+    document.addEventListener('keydown', ev => { if (ev.key === 'Escape') document.querySelectorAll('.mf-modal.aberto').forEach(m => m.classList.remove('aberto')); });
+    mf('mfFornecedorAssociar').addEventListener('change', () => { mfMensagem('mfMensagemAssociacao',''); mfRenderizarAssociacao(); });
+    mf('mfListaAssociacao').addEventListener('change', mfAtualizarContadorAssociacao);
+    mf('mfFornecedorFiltrar').addEventListener('change', () => { mfMensagem('mfMensagemRelacao',''); mfRenderizarRelacao(); });
+    mf('mfSalvarAssociacao').addEventListener('click', async () => {
+      const fornecedorId = Number(mf('mfFornecedorAssociar').value);
+      const fornecedor = mfFornecedor(fornecedorId);
+      if (!fornecedor) return;
+      const ids = [...document.querySelectorAll('#mfListaAssociacao .mf-associar:checked')].map(x => Number(x.dataset.produto));
+      const transferencias = mfItens().filter(x => ids.includes(x.produto_id) && x.fornecedor_id && x.fornecedor_id !== fornecedorId);
+      if (transferencias.length && !confirm(`ATENÇÃO: ${transferencias.length} produto(s) serão transferidos de outros fornecedores para ${fornecedor.nome}. Confirma?`)) return;
+      const marcadosAtuais = mfItens().filter(x => x.fornecedor_id === fornecedorId).length;
+      if (!confirm(`Salvar ${ids.length} produto(s) para ${fornecedor.nome}? Produtos já associados a este fornecedor que foram desmarcados (${Math.max(0,marcadosAtuais - ids.filter(pid => mfItens().some(x => x.produto_id === pid && x.fornecedor_id === fornecedorId)).length)}) ficarão sem fornecedor.`)) return;
+      mf('mfSalvarAssociacao').disabled = true;
+      mfMensagem('mfMensagemAssociacao','Salvando...');
+      try {
+        await mfRequest(`/api/legado/semanas/${encodeURIComponent(id)}/fornecedores`, {
+          method:'PUT', body: JSON.stringify({ fornecedor_id: fornecedorId, produtos_ids: ids })
+        });
+        await mfRecarregarDados();
+        mfRenderizarAssociacao();
+        mfMensagem('mfMensagemAssociacao', 'Associações salvas no PostgreSQL.', 'sucesso');
+      } catch (e) {
+        mfMensagem('mfMensagemAssociacao', e.message, 'erro');
+        mf('mfSalvarAssociacao').disabled = false;
+      }
+    });
+    mf('mfEnviarFornecedor').addEventListener('click', async () => {
+      const fornecedorId = mf('mfFornecedorFiltrar').value;
+      const fornecedor = mfFornecedor(fornecedorId);
+      if (!fornecedor || mfEnviando) return;
+      mfEnviando = true;
+      mfRenderizarRelacao();
+      mfMensagem('mfMensagemRelacao', 'Obtendo prévia atualizada...');
+      try {
+        const url = `/api/legado/semanas/${encodeURIComponent(id)}/fornecedores/${encodeURIComponent(fornecedorId)}/whatsapp`;
+        const previa = await mfRequest(url);
+        if (!confirm(`CONFIRMAR ENVIO VIA Z-API\nFornecedor: ${previa.fornecedor}\nWhatsApp: ${previa.telefone}\n\n${previa.mensagem}\n\nEnviar esta relação?`)) {
+          mfMensagem('mfMensagemRelacao', 'Envio cancelado.');
+          return;
+        }
+        mfMensagem('mfMensagemRelacao', 'Solicitando envio à Z-API...');
+        const resultado = await mfRequest(url, { method: 'POST', body: JSON.stringify({ conteudo_hash: previa.conteudo_hash }) });
+        await mfRecarregarDados();
+        mfMensagem('mfMensagemRelacao', `Mensagem aceita pela Z-API para ${resultado.fornecedor} (${resultado.telefone}). Registro #${resultado.registro_id}. A entrega deve ser conferida no WhatsApp.`, 'sucesso');
+      } catch (e) {
+        mfMensagem('mfMensagemRelacao', e.message, 'erro');
+      } finally {
+        mfEnviando = false;
+        mfRenderizarRelacao();
+      }
     });
 
     carregar();

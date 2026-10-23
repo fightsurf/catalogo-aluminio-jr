@@ -1,4 +1,5 @@
 const semanasService = require('../../../services/legado/semanas/semanas.service');
+const fornecedoresSemanaService = require('../../../services/legado/semanas/semanas-fornecedores.service');
 
 function responderErro(res, error, fallbackMessage) {
   const status = Number(error?.statusCode || 500);
@@ -110,7 +111,45 @@ async function excluirSemana(req, res) {
   }
 }
 
+
+async function listarFornecedoresResumo(req, res) {
+  try {
+    const data = await fornecedoresSemanaService.montarResumoAssociado(req.params.id);
+    res.json({ success: true, data });
+  } catch (error) {
+    return responderErro(res, error, 'Falha ao consultar fornecedores da semana.');
+  }
+}
+async function salvarFornecedoresResumo(req, res) {
+  try {
+    const data = await fornecedoresSemanaService.salvarAssociacoes(req.params.id, req.body || {});
+    res.json({ success: true, data });
+  } catch (error) {
+    return responderErro(res, error, 'Falha ao salvar associação.');
+  }
+}
+async function visualizarWhatsappFornecedor(req, res) {
+  try {
+    const data = await fornecedoresSemanaService.prepararEnvio(req.params.id, Number(req.params.fornecedorId));
+    res.json({ success: true, data: { mensagem: data.mensagem, telefone: data.telefone, fornecedor: data.fornecedor.nome, quantidade_itens: data.itens, conteudo_hash: data.conteudo_hash } });
+  } catch (error) {
+    return responderErro(res, error, 'Falha ao montar mensagem.');
+  }
+}
+async function enviarWhatsappFornecedor(req, res) {
+  try {
+    const data = await fornecedoresSemanaService.enviar(Number(req.params.id), Number(req.params.fornecedorId), req.body?.conteudo_hash);
+    res.json({ success: true, data });
+  } catch (error) {
+    return responderErro(res, error, 'Falha ao enviar mensagem.');
+  }
+}
+
 module.exports = {
+  listarFornecedoresResumo,
+  salvarFornecedoresResumo,
+  visualizarWhatsappFornecedor,
+  enviarWhatsappFornecedor,
   listarSemanas,
   listarCarradasDisponiveis,
   buscarSemanaPorId,
