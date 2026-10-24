@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Publicar produtos no WhatsApp e Instagram</title>
   <link rel="stylesheet" href="/css/theme.css" />
+  <link rel="stylesheet" href="/css/status-agendamentos.css?v=20261024b" />
   <style>
     body { padding: 24px 0 48px; }
     .page { max-width: 1120px; }
@@ -69,7 +70,8 @@
     .client-option:last-child { border-bottom: 0; }
     .client-option strong, .client-option small { display: block; }
     .client-option small { color: var(--color-muted); margin-top: 3px; }
-    .client-feedback { font-size: 12px; color: var(--color-muted); margin-top: 5px; min-height: 15px; }
+    .client-feedback { font-size: 12px; color: var(--color-muted); margin-top: 6px; }
+    .client-feedback:empty { display: none; }
     .client-feedback.selected { color: #16803d; font-weight: 600; }
     .client-feedback.warning { color: #a14d00; }
     .actions {
@@ -202,6 +204,27 @@
       </div>
     </div>
 
+    <section id="ag-status-panel" class="ag-status-panel" aria-label="Agendamento automático de publicações">
+      <div class="ag-panel-primary">
+        <span id="ag-status-badge" class="ag-status-badge">Consultando…</span>
+      </div>
+      <div class="ag-panel-meta">
+        <div class="ag-panel-item ag-panel-category">
+          <span id="ag-next-label" class="ag-panel-label">Próxima categoria</span>
+          <strong id="ag-next-category" class="ag-panel-value">—</strong>
+        </div>
+        <div class="ag-panel-item">
+          <span class="ag-panel-label">Tempo restante</span>
+          <strong id="ag-status-countdown" class="ag-panel-value ag-panel-countdown">—</strong>
+        </div>
+        <div class="ag-panel-item">
+          <span class="ag-panel-label">Próxima publicação (Brasília)</span>
+          <strong id="ag-status-date" class="ag-panel-value">—</strong>
+        </div>
+      </div>
+      <p id="ag-status-warning" class="ag-panel-error" hidden></p>
+    </section>
+
     <div id="flash" class="flash" role="alert"></div>
 
     <section class="card">
@@ -221,7 +244,6 @@
           <input id="clienteBusca" class="form-control" type="text" autocomplete="off"
             placeholder="Digite as primeiras letras do nome" aria-controls="clienteResultados" aria-expanded="false" />
           <div id="clienteResultados" class="client-results" hidden></div>
-          <div id="clienteAviso" class="client-feedback" aria-live="polite"></div>
         </div>
         <div>
           <label for="intervalo">Intervalo entre envios</label>
@@ -235,6 +257,7 @@
         </div>
         <button id="carregarBtn" type="button" class="btn btn-outline">Atualizar produtos</button>
       </div>
+      <div id="clienteAviso" class="client-feedback" aria-live="polite"></div>
 
       <div style="margin-top:14px;max-width:400px">
         <label for="tipoMidia">Conteúdo para Status e Stories</label>
@@ -1033,6 +1056,6 @@
       atualizarBotoes();
     })();
   </script>
-  <script src="/js/status-agendamentos.js"></script>
+  <script src="/js/status-agendamentos.js?v=20261024b"></script>
 </body>
 </html>

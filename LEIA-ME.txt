@@ -1,16 +1,36 @@
-PATCH STATUS ZAP - AGENDAMENTOS (24/10/2026)
-Base: ZIP render(20261024-134644).zip enviado pelo usuário.
+PATCH DE CORREÇÃO VISUAL — STATUS ZAP / AGENDAMENTOS
+Base: projeto Render de 24/10/2026 + patch do agendador já aplicado.
 
-1. Extraia este ZIP.
-2. Envie os arquivos para o GitHub, branch main, preservando as pastas.
-3. Substitua src/routes/whatsapp/status-whatsapp.routes.js e views/whatsapp/status-whatsapp.html.
-4. Adicione src/services/whatsapp/statusAgendamentos.service.js e public/js/status-agendamentos.js.
-5. Aguarde o deploy Render. Abra /whatsapp/status e configure Agendamentos de Publicações.
+OBJETIVO
+- Ajustar o modal de Agendamentos de Publicações ao estilo do sistema,
+  com controles alinhados e apresentação responsiva no computador e celular.
+- Adicionar na tela principal um mostrador com estado do agendamento,
+  próxima categoria, contagem regressiva e horário da próxima execução.
+- Corrigir o desalinhamento da busca de cliente cadastrado na primeira linha.
 
-Não precisa executar instalador Python nem SQL manual. As tabelas são criadas automaticamente.
-Agendamento inicia DESATIVADO.
+COMO INSTALAR
+1. Extraia o ZIP.
+2. Envie os arquivos para o GitHub, preservando exatamente as pastas.
+3. Substitua os arquivos existentes:
+   - views/whatsapp/status-whatsapp.html
+   - public/js/status-agendamentos.js
+4. Adicione o arquivo novo:
+   - public/css/status-agendamentos.css
+5. Aguarde o deploy do Render e recarregue a tela /whatsapp/status.
 
-ATENÇÃO: Execute teste com categoria pequena antes de ativar em produção. Render precisa
-estar ativo para executar agendamentos. Envios incertos pausam o agendador para revisão.
-A idempotência de fotos nas integrações existentes utiliza cache em memória e não garante
-proteção absoluta contra duplicação após interrupções externas.
+IMPORTANTE
+- Este patch é incremental: requer que o agendador entregue anteriormente
+  já esteja instalado, conforme informado pelo usuário.
+- Não substitui servidor, rotas, serviço de agendamento ou API local.
+- Não requer SQL, instalador Python ou variáveis novas.
+- O contador atualiza a cada segundo; os dados do servidor são atualizados
+  periodicamente, sem depender do modal estar aberto.
+- O horário é apresentado no fuso America/Sao_Paulo (horário de Brasília).
+- O próximo agendamento pode ser recalculado pelo servidor após o fim de
+  uma publicação, conforme a lógica original do agendador.
+
+VALIDAÇÃO
+- Código JavaScript validado por node --check.
+- Layout testado com navegador Chromium em telas de desktop e celular,
+  utilizando respostas simuladas da API, sem publicar conteúdos reais.
+- A execução em produção e os canais externos não foram testados.
