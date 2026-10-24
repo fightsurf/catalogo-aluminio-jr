@@ -5,3 +5,17 @@
 .avn-animated{background:linear-gradient(150deg,#f5fafc,#ecf3f8)}.media-missing{opacity:.3}.exercise a{color:#087d87;text-decoration:underline}.hint a{color:#087d87;text-decoration:underline}.day-tabs .btn{min-width:72px}.btn:focus-visible,a:focus-visible{outline:3px solid #12a0a8;outline-offset:2px}@media(prefers-reduced-motion:reduce){.avn-animated{transition:none}}
 
 .creditos{margin-top:48px;padding:18px 0;border-top:1px solid #d6e1ed;color:#738199;font-size:12px;line-height:1.7}.creditos a{color:#086c75;text-decoration:underline}.creditos strong{color:#465b70}
+
+/* Correção 2026-10-24: SVGs do Workout Guide possuem caminho único branco (#fff).
+   O filtro atua APENAS na imagem, não na moldura colorida: alto contraste em fundo claro. */
+.thumb-frame{display:inline-flex;flex:none;align-items:center;justify-content:center;
+  width:76px;height:76px;border-radius:9px;background:#e7f5fa;overflow:hidden;border:1px solid #d2e8ef}
+.thumb-frame img.thumb{display:block;width:100%;height:100%;background:transparent;
+  filter:brightness(0) saturate(100%);object-fit:contain}
+.media-preview-frame{width:100%;min-height:160px;display:flex;align-items:center;
+  justify-content:center;border-radius:11px;background:#e7f5fa;border:1px solid #d2e8ef}
+.media-preview-frame img.media-preview{display:block;max-height:290px;object-fit:contain;
+  background:transparent;filter:brightness(0) saturate(100%)}
+/* Remove gradiente do elemento filtrado; a moldura fornece o fundo. */
+img.avn-animated{background:transparent;}
+@media(max-width:850px){.thumb-frame{width:66px;height:66px}}

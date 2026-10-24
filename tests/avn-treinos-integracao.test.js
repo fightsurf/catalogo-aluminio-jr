@@ -6,8 +6,8 @@ const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const file=p=>fs.readFileSync(path.join(root,p),'utf8');
 
-test('patch direto não substitui server.js nem exige instalador',()=>{
- assert.equal(fs.existsSync(path.join(root,'server.js')),false);
+test('patch direto preserva server.js e não exige instalador',()=>{
+ assert.equal(fs.existsSync(path.join(root,'server.js')),true);
  assert.equal(fs.existsSync(path.join(root,'APLICAR_PATCH_AVN_TREINOS.js')),false);
  for(const p of ['src/routes/avn/avn-sistema.routes.js','src/services/avn/avn-migration.service.js'])assert.ok(fs.existsSync(path.join(root,p)));
 });
@@ -44,4 +44,24 @@ test('importação valida manifesto e possui dicionário de nomes em português'
  assert.match(source,/await client\.query\('BEGIN'\)/);
  assert.match(source,/ON CONFLICT\(slug\) DO UPDATE/);
  assert.ok((pt.match(/:'[^']+'/g)||[]).length>150);
+});
+
+test('a biblioteca oficial é dependência de produção e é servida pelo AVN, não por CDN',()=>{
+ const pkg=JSON.parse(file('package.json'));
+ assert.equal(pkg.dependencies['@bryllim/workout-guide'],'1.0.0');
+ const route=file('src/routes/avn/avn-sistema.routes.js');
+ assert.match(route,/router\.use\('\/midias'/);
+ assert.match(route,/requireAuth, express\.static/);
+ const catalog=file('src/services/avn/avn-treinos-catalogo.service.js');
+ assert.match(catalog,/require\.resolve\('@bryllim\/workout-guide\/manifest\.json'\)/);
+ assert.match(catalog,/LOCAL_BASE\+e\.slug/);
+ assert.doesNotMatch(catalog,/fetch\(MANIFEST/);
+});
+test('o SVG originalmente branco usa moldura contrastante e filtro apenas na ilustração',()=>{
+ const css=file('public/css/avn-treinos.css');
+ assert.match(css,/\.thumb-frame img\.thumb/);
+ assert.match(css,/filter:brightness\(0\)/);
+ const js=file('public/js/avn-treinos.js');
+ assert.match(js,/thumb-frame/);
+ assert.match(js,/media-preview-frame/);
 });

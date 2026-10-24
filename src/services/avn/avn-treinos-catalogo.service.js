@@ -1,20 +1,24 @@
 'use strict';
-/*
- * Workout Guide, Bryl Lim / Everkinetic. 302 exercícios, 3 quadros por exercício.
- * Ilustrações CC BY-SA 4.0. Código deste adaptador é independente da biblioteca.
- * Fontes/licenças: https://github.com/bryllim/workout-guide
+/**
+ * AVN / Catálogo ilustrado offline no Render.
+ * Fonte: @bryllim/workout-guide v1.0.0 (302 exercícios; 906 SVGs no npm).
+ * Copyright dos SVGs: Bryl Lim / Everkinetic — CC BY-SA 4.0.
+ * O código da biblioteca é MIT; a licença dos SVGs é separada.
  * https://github.com/bryllim/workout-guide/blob/main/LICENSE-ASSETS
  * https://github.com/bryllim/workout-guide/blob/main/ATTRIBUTION.md
  */
+const fs = require('node:fs');
 const pool = require('../../../db/connection');
 const ptBR = require('./avn-treinos-ptbr');
-const CATALOG='https://cdn.jsdelivr.net/gh/bryllim/workout-guide@main/packages/workout-guide/';
-const MANIFEST=CATALOG+'manifest.json';
+
+// O arquivo é instalado pelo npm durante o build do Render. Nada é baixado na execução.
+const MANIFEST_FILE = require.resolve('@bryllim/workout-guide/manifest.json');
+const LOCAL_BASE = '/avn/sistema/midias/';
 const LICENSE='CC BY-SA 4.0';
 const gid = {Chest:'peito',Back:'costas',Lats:'costas','Upper Back':'costas','Lower Back':'lombar',Shoulders:'ombros','Rear Delts':'ombros',Biceps:'biceps',Triceps:'triceps',Forearms:'antebracos',Quads:'quadriceps',Hamstrings:'posteriores','Posterior Chain':'posteriores',Glutes:'gluteos',Calves:'panturrilhas',Adductors:'adutores',Core:'abdomen',Legs:'cardio',Hips:'mobilidade',Mobility:'mobilidade'};
 const extraGroups=[['antebracos','Antebraços',13],['adutores','Adutores',14],['mobilidade','Mobilidade e alongamento',15]];
 const equip={Barbell:'Barra',Dumbbell:'Halteres',Machine:'Máquina',Cable:'Polia',Bodyweight:'Peso corporal',Cardio:'Cardiorrespiratório',Plate:'Anilha','Pull-up Bar':'Barra fixa',Bench:'Banco',Wall:'Parede',Chair:'Cadeira',Doorway:'Porta',Towel:'Toalha',Box:'Caixa/Step',Kettlebell:'Kettlebell','Resistance Band':'Faixa elástica','Stability Ball':'Bola suíça'};
-// Exercícios já existentes no seed em português: atualiza as imagens sem duplicá-los.
+// Mesmos slugs dos primeiros 74 exercícios, preservando os IDs dos treinos já salvos.
 const alias={
  'bench-press':'supino-reto-com-barra','dumbbell-bench-press':'supino-reto-com-halteres',
  'incline-bench-press':'supino-inclinado-com-barra','incline-dumbbell-press':'supino-inclinado-com-halteres',
@@ -60,35 +64,41 @@ const translations={
  'kettlebell-swing':'Balanço de kettlebell','farmer-carry':'Caminhada do fazendeiro',
  'wall-sit':'Cadeira na parede','bodyweight-squat':'Agachamento com peso corporal',
  'step-up':'Subida no banco','lunge':'Afundo',
+ 'reverse-pec-deck':'Crucifixo inverso na máquina',
+ 'good-morning':'Bom dia com barra',
+ 'assisted-dip':'Mergulho assistido nas paralelas',
+ 'stair-climber':'Simulador de escadas',
 };
 function validManifest(arr){
-  if(!Array.isArray(arr)||arr.length<250||arr.length>600)throw new Error('Manifesto externo com quantidade inesperada.');
+  if(!Array.isArray(arr)||arr.length!==302)throw new Error('O pacote de exercícios deve conter exatamente 302 itens.');
   const seen=new Set();
   return arr.map(e=>{
     if(!e||typeof e.slug!=='string'||!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(e.slug)||seen.has(e.slug)||!gid[e.primaryMuscle]||
       typeof e.name!=='string'||e.name.length>160||!Array.isArray(e.frames)||e.frames.length!==3||
-      e.frames.some((f,i)=>f.path!==`assets/${e.slug}/frame-${i+1}.svg`))throw new Error('Manifesto externo inválido ou não reconhecido.');
+      e.frames.some((f,i)=>f.path!==`assets/${e.slug}/frame-${i+1}.svg`))throw new Error('Manifesto local inválido.');
     seen.add(e.slug);return e;
   });
+}
+let cache;
+function loadManifest(){
+  if(!cache)cache=validManifest(JSON.parse(fs.readFileSync(MANIFEST_FILE,'utf8')));
+  return cache;
 }
 function normalizeExercise(e){
  const slug=alias[e.slug]||'wg-'+e.slug;
  const title=ptBR[e.slug]||translations[e.slug]||e.name;
- return {slug,name:title.slice(0,160),group:gid[e.primaryMuscle],equipment:(equip[e.equipment]||e.equipment||'Livre').slice(0,100),image:CATALOG+e.frames[0].path};
+ return {slug,name:title.slice(0,160),group:gid[e.primaryMuscle],equipment:(equip[e.equipment]||e.equipment||'Livre').slice(0,100),image:LOCAL_BASE+e.slug+'/frame-1.svg'};
 }
-async function loadManifest(timeoutMs=10000){
- const controller=new AbortController(),tm=setTimeout(()=>controller.abort(),timeoutMs);
- try{
-  const response=await fetch(MANIFEST,{headers:{Accept:'application/json'},signal:controller.signal});
-  if(!response.ok)throw new Error('Fonte de ilustrações indisponível (HTTP '+response.status+').');
-  const length=Number(response.headers.get('content-length')||0);
-  if(length>5_000_000)throw new Error('Manifesto acima do limite permitido.');
-  const text=await response.text();if(text.length>5_000_000)throw new Error('Manifesto acima do limite permitido.');
-  return validManifest(JSON.parse(text));
- }finally{clearTimeout(tm);}
+// Converte apenas URLs antigas da fonte oficial; mídias personalizadas permanecem intactas.
+function normalizarMidia(url){
+ if(typeof url!=='string')return url;
+ const match=url.match(/^https:\/\/cdn\.jsdelivr\.net\/gh\/bryllim\/workout-guide@[^/]+\/packages\/workout-guide\/assets\/([a-z0-9-]+)\/(frame-[123]\.svg)(?:\?.*)?$/);
+ if(!match)return url;
+ if(!loadManifest().some(e=>e.slug===match[1]))return url;
+ return LOCAL_BASE+match[1]+'/'+match[2];
 }
-async function importarCatalogo({timeoutMs=10000}={}){
- const manifest=await loadManifest(timeoutMs);
+async function importarCatalogo(){
+ const manifest=loadManifest();
  const client=await pool.connect();
  try{
   await client.query('BEGIN');
@@ -98,13 +108,18 @@ async function importarCatalogo({timeoutMs=10000}={}){
   const exercises=manifest.map(normalizeExercise);
   for(let from=0;from<exercises.length;from+=50){
    const rows=exercises.slice(from,from+50),values=[],parts=[];
-   for(const e of rows){const p=values.length;values.push(e.slug,e.name,groupMap.get(e.group),e.equipment,e.image);parts.push(`($${p+1},$${p+2},$${p+3},$${p+4},$${p+5},'imagem')`);}
+   for(const e of rows){const p=values.length;const groupId=groupMap.get(e.group);if(!groupId)throw Error('Grupo ausente: '+e.group);
+     values.push(e.slug,e.name,groupId,e.equipment,e.image);parts.push(`($${p+1},$${p+2},$${p+3},$${p+4},$${p+5},'imagem')`);}
    await client.query(`INSERT INTO public.avn_exercicios(slug,nome,grupo_id,equipamento,midia_url,midia_tipo)
      VALUES ${parts.join(',')}
-     ON CONFLICT(slug) DO UPDATE SET midia_url=COALESCE(public.avn_exercicios.midia_url,EXCLUDED.midia_url)`,values);
+     ON CONFLICT(slug) DO UPDATE SET
+       midia_url=CASE WHEN public.avn_exercicios.midia_url IS NULL
+          OR public.avn_exercicios.midia_url LIKE 'https://cdn.jsdelivr.net/gh/bryllim/workout-guide@%'
+          THEN EXCLUDED.midia_url ELSE public.avn_exercicios.midia_url END,
+       atualizado_em=NOW()`,values);
   }
   await client.query('COMMIT');
-  return {ok:true,total:manifest.length,fonte:'Workout Guide / Bryl Lim / Everkinetic',licenca:LICENSE};
+  return {ok:true,total:manifest.length,fonte:'Workout Guide / Bryl Lim / Everkinetic',licenca:LICENSE,origem:'npm-local',midias:906};
  }catch(e){await client.query('ROLLBACK').catch(()=>{});throw e;}finally{client.release();}
 }
-module.exports={importarCatalogo,validManifest,normalizeExercise,alias,CATALOG,LICENSE};
+module.exports={importarCatalogo,validManifest,normalizeExercise,normalizarMidia,loadManifest,alias,LOCAL_BASE,LICENSE};

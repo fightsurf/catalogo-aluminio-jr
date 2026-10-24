@@ -13,13 +13,12 @@ module.exports = async function migrarAvn() {
     await pool.query(sql);
   }
   console.log('[AVN] Migrações de usuários, saúde e treinos verificadas.');
-  // A rede externa não é pré-requisito para iniciar o sistema.
-  // Após a importação inicial, não consulta o GitHub em todo restart do Render.
+  // Catálogo local instalado pelo npm: nenhuma consulta externa no runtime.
   try {
-    const {rows:[contagem]}=await pool.query("SELECT COUNT(*)::int AS total FROM public.avn_exercicios WHERE slug LIKE 'wg-%'");
-    if(contagem.total >= 180) return;
+    const {rows:[contagem]}=await pool.query("SELECT COUNT(*)::int AS total FROM public.avn_exercicios WHERE midia_url LIKE '/avn/sistema/midias/%'");
+    if(contagem.total >= 302) return;
     const {importarCatalogo}=require('./avn-treinos-catalogo.service');
-    const r=await importarCatalogo({timeoutMs:6500});
+    const r=await importarCatalogo();
     console.log('[AVN] Catálogo ilustrado sincronizado: '+r.total+' exercícios.');
-  } catch(e) { console.warn('[AVN] Catálogo externo não sincronizado (74 exercícios locais permanecem disponíveis):',e.message); }
+  } catch(e) { console.error('[AVN] Falha ao importar catálogo SVG local. A aplicação continuará, mas o AVN pode apresentar imagens ausentes:',e); }
 };

@@ -18,7 +18,7 @@ router.get('/exercicios',route(async(req,res)=>{
   const r=await pool.query(`${listaSQL}
     WHERE e.ativo=TRUE AND ($1='' OR translate(lower(e.nome),'áàâãäéèêëíìîïóòôõöúùûüç','aaaaaeeeeiiiiooooouuuuc') LIKE '%'||translate(lower($1),'áàâãäéèêëíìîïóòôõöúùûüç','aaaaaeeeeiiiiooooouuuuc')||'%')
     AND ($2='' OR g.slug=$2) ORDER BY g.ordem,e.nome LIMIT 500`,params);
-  res.set('Cache-Control','no-store').json(r.rows);
+  res.set('Cache-Control','no-store').json(r.rows.map(row=>({...row,midia_url:catalogo.normalizarMidia(row.midia_url)})));
 }));
 router.post('/exercicios',route(async(req,res)=>{
   const v=V.exercicio(req.body||{});
@@ -48,7 +48,7 @@ async function consultarPlano(id,client=pool){
   const d=await client.query(`SELECT d.id,d.dia_semana,i.exercicio_id,i.posicao,i.series,i.repeticoes,i.carga_kg,i.descanso_seg,i.observacoes,e.nome AS exercicio_nome,e.midia_url,e.midia_tipo
     FROM public.avn_plano_dias d LEFT JOIN public.avn_plano_itens i ON i.plano_dia_id=d.id
     LEFT JOIN public.avn_exercicios e ON e.id=i.exercicio_id WHERE d.plano_id=$1 ORDER BY d.dia_semana,i.posicao`,[id]);
-  const days=new Map();for(const row of d.rows){if(!days.has(row.dia_semana))days.set(row.dia_semana,{dia_semana:row.dia_semana,exercicios:[]});if(row.exercicio_id!==null)days.get(row.dia_semana).exercicios.push(row);}
+  const days=new Map();for(const row of d.rows){if(!days.has(row.dia_semana))days.set(row.dia_semana,{dia_semana:row.dia_semana,exercicios:[]});if(row.exercicio_id!==null)days.get(row.dia_semana).exercicios.push({...row,midia_url:catalogo.normalizarMidia(row.midia_url)});}
   return {...r.rows[0],dias:[...days.values()]};
 }
 router.get('/planos/:id',route(async(req,res)=>{if(!V.id(req.params.id))throw V.erro('Plano inválido.');res.json(await consultarPlano(req.params.id));}));

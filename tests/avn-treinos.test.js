@@ -23,3 +23,8 @@ test('registra só sessões com IDs válidos',()=>{
  assert.equal(s.realizados[0].posicao,0);
  assert.throws(()=>v.sessao({usuario_id:0,plano_id:3,dia_semana:6,realizados:[]}));
 });
+
+test('aceita imagem local instalada no AVN e bloqueia caminhos arbitrários',()=>{
+ assert.equal(v.midiaUrl('/avn/sistema/midias/bench-press/frame-1.svg'),'/avn/sistema/midias/bench-press/frame-1.svg');
+ for(const u of ['/avn/sistema/midias/../../segredo','/avn/sistema/midias/bench-press/arquivo.js','/avn/sistema/midias/bench-press/frame-9.svg'])assert.throws(()=>v.midiaUrl(u));
+});

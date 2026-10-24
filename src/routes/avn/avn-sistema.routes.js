@@ -1,6 +1,8 @@
 'use strict';
 const express = require('express');
 const path = require('path');
+// As 906 imagens SVG chegam dentro da dependência npm, instalada no build.
+const workoutPackageRoot = path.dirname(require.resolve('@bryllim/workout-guide/manifest.json'));
 const { requireAuth } = require('../../middlewares/adminAuth.middleware');
 const avnSistemaAplicativos = require('../../services/avn/avnSistemaAplicativos.service');
 const avnTreinosRoutes = require('./avn-treinos.routes');
@@ -107,6 +109,12 @@ router.put('/api/categorias-ordem', requireAuth, async (req,res) => {
   try { res.json({ok:true,categorias:await avnSistemaAplicativos.reorderCategories(req.body?.nomes || [])}); }
   catch(err){ console.error('[AVN sistema] erro ao ordenar categorias:',err); res.status(err.status||500).json({erro:'Não foi possível salvar a ordem das categorias.'}); }
 });
+
+// Serve as imagens em domínio próprio, com controle de acesso e cache.
+router.use('/midias', requireAuth, express.static(path.join(workoutPackageRoot,'assets'), {
+  dotfiles:'deny',fallthrough:false,immutable:true,maxAge:'7d',
+  setHeaders(res){res.setHeader('X-Content-Type-Options','nosniff');}
+}));
 
 // Montador, biblioteca, consulta e execução: API + 4 páginas sob login já existente.
 router.use('/api/treinos', requireAuth, avnTreinosRoutes);

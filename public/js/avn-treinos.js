@@ -8,7 +8,7 @@ const NOMES=['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
 const state={usuarios:[],grupos:[],exercicios:[],nomes:new Map(),planos:[],usuarioId:'',filtro:'',grupo:'',dia:0,plano:null,treino:null,treinoDia:0};
 const esc = value => String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const isId = v => /^\d+$/.test(String(v||''));
-const isAnimated = url => typeof url==='string' && url.includes('/bryllim/workout-guide@') && /\/frame-1\.svg(?:$|[?#])/.test(url);
+const isAnimated = url => typeof url==='string' && /^\/avn\/sistema\/midias\/[a-z0-9-]+\/frame-1\.svg$/.test(url);
 let frame=1;
 function animateVisible(){if(document.hidden||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;frame=frame===3?1:frame+1;document.querySelectorAll('img.avn-animated').forEach(img=>{const rect=img.getBoundingClientRect();if(rect.bottom<0||rect.top>innerHeight)return;const base=img.dataset.base;if(base)img.src=base.replace('/frame-1.svg','/frame-'+frame+'.svg');});}
 setInterval(animateVisible,950);
@@ -34,27 +34,32 @@ function media(ex,small=false){
  if(!ex?.midia_url)return `<div class="thumb" title="Sem mídia cadastrada">Sem mídia</div>`;
  const url=esc(ex.midia_url),name=esc(ex.nome);
  if(ex.midia_tipo==='video')return `<video class="thumb" src="${url}" autoplay muted loop playsinline preload="metadata" title="Demonstração: ${name}"></video>`;
- return `<img class="thumb ${isAnimated(ex.midia_url)?'avn-animated':''}" src="${url}" data-base="${url}" alt="Demonstração ilustrada: ${name}" loading="lazy" referrerpolicy="no-referrer" onerror="this.onerror=null;this.classList.add('media-missing');this.alt='Imagem indisponível';">`;
+ const anim=isAnimated(ex.midia_url);
+ const img=`<img class="thumb ${anim?'avn-animated':''}" src="${url}" data-base="${url}" alt="Demonstração ilustrada: ${name}" loading="lazy" decoding="async" onerror="this.onerror=null;this.classList.add('media-missing');this.alt='Imagem indisponível';">`;
+ return anim?`<span class="thumb-frame" title="Demonstração animada: ${name}">${img}</span>`:img;
 }
 function selectGrupos(){return `<option value="">Todos os grupos</option>`+state.grupos.map(g=>`<option value="${esc(g.slug)}" ${state.grupo===g.slug?'selected':''}>${esc(g.nome)}</option>`).join('');}
 function usuarioGuard(){if(state.usuarioId)return false;$('conteudo').innerHTML='<div class="empty">Cadastre e selecione um usuário na Central AVN para começar.</div>';return true;}
 function campo(nome,id,value='',type='text',extra=''){return `<label class="label">${nome}<input id="${id}" type="${type}" value="${esc(value)}" ${extra}></label>`;}
 function preview(ex){if(!ex?.midia_url)return '<div class="empty">Sem demonstração cadastrada. Use somente mídia com licença de uso.</div>';
  const url=esc(ex.midia_url);
- return ex.midia_tipo==='video'?`<video class="media-preview" src="${url}" controls playsinline preload="metadata"></video>`:`<img class="media-preview ${isAnimated(ex.midia_url)?'avn-animated':''}" data-base="${url}" src="${url}" alt="Demonstração ilustrada" loading="lazy">`;
+ if(ex.midia_tipo==='video')return `<video class="media-preview" src="${url}" controls playsinline preload="metadata"></video>`;
+ const anim=isAnimated(ex.midia_url);
+ const img=`<img class="media-preview ${anim?'avn-animated':''}" data-base="${url}" src="${url}" alt="Demonstração ilustrada" loading="lazy" decoding="async">`;
+ return anim?`<div class="media-preview-frame">${img}</div>`:img;
 }
 function htmlExercicios(){
-  $('conteudo').innerHTML=`<section class="grid-2"><div class="card stack"><div class="row between"><h2>Consultar exercícios</h2><button class="btn small" type="button" id="syncCatalog">Atualizar ilustrações</button></div><div class="filters">${campo('Pesquisar (ignora acentos)','busca',state.filtro,'search','placeholder="Ex.: rosca scott"')}<label class="label">Grupo muscular<select id="grupo">${selectGrupos()}</select></label></div><span class="hint" id="quantidade"></span><div id="lista-exercicios" class="exercise-list"></div></div>
+  $('conteudo').innerHTML=`<section class="grid-2"><div class="card stack"><div class="row between"><h2>Consultar exercícios</h2><button class="btn small" type="button" id="syncCatalog">Atualizar catálogo local</button></div><div class="filters">${campo('Pesquisar (ignora acentos)','busca',state.filtro,'search','placeholder="Ex.: rosca scott"')}<label class="label">Grupo muscular<select id="grupo">${selectGrupos()}</select></label></div><span class="hint" id="quantidade"></span><div id="lista-exercicios" class="exercise-list"></div></div>
   <div class="card stack"><div class="row between"><h2 id="formTitle">Cadastrar exercício</h2><button class="btn small" id="novoExercicio">Novo</button></div>
   <form id="formExercicio" class="stack"><input type="hidden" id="exId"><label class="label">Nome<input id="exNome" maxlength="160" required></label>
   <div class="filters"><label class="label">Grupo<select id="exGrupo" required>${state.grupos.map(g=>`<option value="${g.id}">${esc(g.nome)}</option>`).join('')}</select></label>${campo('Equipamento','exEquip','Livre','text','maxlength="100"')}</div>
   <label class="label">Instruções<textarea id="exInstrucoes" maxlength="5000"></textarea></label>
-  <div class="filters"><label class="label">Tipo de mídia<select id="exTipo"><option value="imagem">Imagem</option><option value="gif">GIF animado / SVG</option><option value="video">Vídeo MP4/WebM</option></select></label>${campo('URL HTTPS licenciada','exMidia','','url','placeholder="https://..."')}</div>
+  <div class="filters"><label class="label">Tipo de mídia<select id="exTipo"><option value="imagem">Imagem</option><option value="gif">GIF animado / SVG</option><option value="video">Vídeo MP4/WebM</option></select></label>${campo('URL HTTPS ou biblioteca AVN','exMidia','','text','placeholder="https://... ou /avn/sistema/midias/..."')}</div>
   <div id="exPreview" class="empty">Demonstração não cadastrada</div><div class="row"><button type="submit" class="btn primary">Salvar exercício</button><button type="button" class="btn danger hide" id="exDesativar">Desativar</button></div></form>
   <p class="hint">Ilustrações originais: <a href="https://github.com/bryllim/workout-guide" target="_blank" rel="noopener noreferrer">Workout Guide / Bryl Lim</a>, com base no <a href="https://github.com/everkinetic/data" target="_blank" rel="noopener noreferrer">Everkinetic</a>. Imagens CC BY-SA 4.0. Adaptação: exibição cíclica de três quadros. Consulte <a href="https://github.com/bryllim/workout-guide/blob/main/ATTRIBUTION.md" target="_blank" rel="noopener noreferrer">créditos e alterações</a>. Nomes traduzidos ou adaptados no AVN. O carregamento externo exige conexão.</p></div></section>`;
   $('busca').oninput=debounce(async()=>{state.filtro=$('busca').value;await buscarExercicios();renderExerciciosLista();},250);
   $('grupo').onchange=async()=>{state.grupo=$('grupo').value;await buscarExercicios();renderExerciciosLista();};
-  $('syncCatalog').onclick=async()=>{const b=$('syncCatalog');b.disabled=true;b.textContent='Sincronizando…';try{const r=await fetchJSON('/catalogo/sincronizar',{method:'POST'});toast(r.total+' exercícios processados.');state.grupos=await fetchJSON('/grupos');await buscarExercicios();htmlExercicios();}catch(e){toast('Falha ao importar. O catálogo local continua disponível: '+e.message,true);b.disabled=false;b.textContent='Atualizar ilustrações';}};
+  $('syncCatalog').onclick=async()=>{const b=$('syncCatalog');b.disabled=true;b.textContent='Sincronizando…';try{const r=await fetchJSON('/catalogo/sincronizar',{method:'POST'});toast(r.total+' exercícios processados.');state.grupos=await fetchJSON('/grupos');await buscarExercicios();htmlExercicios();}catch(e){toast('Falha ao importar. O catálogo local continua disponível: '+e.message,true);b.disabled=false;b.textContent='Atualizar catálogo local';}};
   $('novoExercicio').onclick=()=>fillEx(null);
   $('formExercicio').onsubmit=salvarExercicio;
   $('exDesativar').onclick=desativarExercicio;
@@ -69,7 +74,7 @@ function renderExerciciosLista(){
  list.querySelectorAll('[data-editar]').forEach(b=>b.onclick=()=>fillEx(state.exercicios.find(e=>String(e.id)===b.dataset.editar)));
 }
 function fillEx(e){$('formTitle').textContent=e?'Editar exercício':'Cadastrar exercício';$('exId').value=e?.id||'';$('exNome').value=e?.nome||'';$('exGrupo').value=e?.grupo_id||state.grupos[0]?.id||'';$('exEquip').value=e?.equipamento||'Livre';$('exInstrucoes').value=e?.instrucoes||'';$('exTipo').value=e?.midia_tipo||'imagem';$('exMidia').value=e?.midia_url||'';$('exDesativar').classList.toggle('hide',!e);atualizarPreview();}
-function atualizarPreview(){const url=$('exMidia').value.trim();$('exPreview').innerHTML=/^https:\/\//i.test(url)?preview({midia_url:url,midia_tipo:$('exTipo').value}):'<div class="empty">Informe a URL HTTPS de uma mídia licenciada.</div>';}
+function atualizarPreview(){const url=$('exMidia').value.trim();$('exPreview').innerHTML=(/^https:\/\//i.test(url)||isAnimated(url))?preview({midia_url:url,midia_tipo:$('exTipo').value}):'<div class="empty">Informe a URL HTTPS de uma mídia licenciada.</div>';}
 async function salvarExercicio(evt){evt.preventDefault();const id=$('exId').value;const body={nome:$('exNome').value,grupo_id:$('exGrupo').value,equipamento:$('exEquip').value,instrucoes:$('exInstrucoes').value,midia_tipo:$('exTipo').value,midia_url:$('exMidia').value};
  try{await fetchJSON('/exercicios'+(id?'/'+id:''),{method:id?'PUT':'POST',body:JSON.stringify(body)});toast('Exercício salvo.');await buscarExercicios();renderExerciciosLista();fillEx(null);}catch(e){toast(e.message,true);}}
 async function desativarExercicio(){const id=$('exId').value;if(!id||!confirm('Desativar este exercício? Ele permanecerá nos treinos históricos.'))return;
