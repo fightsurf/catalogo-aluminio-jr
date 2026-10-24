@@ -1,0 +1,42 @@
+AVN — CORREÇÃO DO CATÁLOGO WORKOUT GUIDE + GRÁFICOS COMPACTOS
+24/10/2026
+
+CAUSA CONFIRMADA
+O pacote @bryllim/workout-guide 1.0.0 publica um manifesto de 302 exercícios
+com 3 quadros PNG por exercício. O código anterior exigia caminhos SVG,
+rejeitava o manifesto inteiro e provocava HTTP 500 ao listar os exercícios.
+
+O QUE MUDA
+- Catálogo: respeita o formato anunciado no manifesto local (.png ou .svg).
+- Para 1.0.0, as imagens usadas serão /avn/sistema/midias/<slug>/frame-1.png etc.
+- A importação das 302 entradas continua automática e não apaga exercícios personalizados.
+- URLs antigas do seed e locais .svg incorretas passam a apontar para .png.
+- Mídias personalizadas e vínculos dos treinos continuam preservados.
+- Os três quadros PNG agora também alternam visualmente no catálogo e montador.
+- Os formulários passam a aceitar os caminhos PNG da biblioteca.
+- Os gráficos de Evolução Corporal e Gastos Calóricos ficam menores, com
+  linha-guia e tooltip contendo data/hora e valor sobre a medição real.
+
+COMO INSTALAR
+1) Extrair este ZIP.
+2) Copiar SOMENTE o conteúdo da pasta render/ para a RAIZ do repositório
+   fightsurf/catalogo-aluminio-jr, preservando diretórios e arquivos.
+3) Publicar a branch que o Render utiliza e aguardar o deploy concluído.
+4) Abrir /avn/sistema/exercicios e conferir as imagens.
+5) Abrir /avn/evolucao-corporal e /avn/gastos-caloricos; passe o mouse na linha.
+6) Caso o navegador mantenha JS em cache, usar Ctrl+F5.
+
+VALIDAÇÃO LOCAL
+- Verificação de sintaxe JS executada.
+- Quatro testes automatizados de validação de catálogo, importação de 302
+  registros e aceitação de URLs PNG/SVG aprovados (node --test tests/avn-catalogo-formato.test.js).
+- Manifesto oficial v1.0.0 consultado: 302 exercícios e 906 PNGs.
+- NÃO foi executada importação sobre seu PostgreSQL real nem teste browser
+  autenticado no Render. A confirmação final ocorrerá após seu deploy.
+
+ESCOPO / SEGURANÇA
+Não altera server.js, a autenticação, rotas da fábrica, Firebird, app Android,
+esquemas de tabelas ou dados pessoais. A importação reutiliza as mesmas
+chaves (slugs) e UPSERT idempotente; não remove planos salvos.
+Licenciamento original preservado: código MIT; arte CC BY-SA 4.0 (Bryl Lim
+/ Everkinetic); atribuição já exibida no módulo.

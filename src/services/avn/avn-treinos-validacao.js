@@ -20,8 +20,8 @@ const carga = (v) => {
 function midiaUrl(value){
   if(value==null||String(value).trim()==='')return null;
   const input=texto(value,2048,true);
-  // Quadros licenciados, já instalados no nosso servidor, não necessitam HTTPS externo.
-  if(/^\/avn\/sistema\/midias\/[a-z0-9-]+\/frame-[123]\.svg$/.test(input))return input;
+  // Mídias locais da biblioteca oficial: aceita PNG (v1.0.0) ou SVG (versões posteriores).
+  if(/^\/avn\/sistema\/midias\/[a-z0-9-]+\/frame-[123]\.(?:png|svg)$/.test(input))return input;
   let url;try{url=new URL(input);}catch(_){throw erro('URL da mídia inválida.');}
   if(url.protocol!=='https:'||url.username||url.password||!url.hostname||/\s/.test(input))throw erro('Use URL HTTPS pública e sem credenciais.');
   return url.toString();
