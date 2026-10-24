@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>AVN — Central de Aplicativos</title>
+  <link rel="stylesheet" href="/css/system-launcher.css">
+  <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
+  <script src="/js/avn-system-launcher.js" defer></script>
+</head>
+<body>
+  <main class="shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">AVN</span><div><strong>AVN</strong><span>Central de Aplicativos</span></div></div>
+      <div class="top-actions">
+        <button class="btn secondary" id="categoriesButton"><i data-lucide="folders"></i><span>Categorias</span></button>
+        <button class="btn secondary" id="manageButton"><i data-lucide="layout-dashboard"></i><span>Organizar</span></button>
+        <button class="icon-button" id="refreshButton" title="Atualizar"><i data-lucide="refresh-cw"></i></button>
+        <a class="icon-button" href="/auth/logout" title="Sair"><i data-lucide="log-out"></i></a>
+      </div>
+    </header>
+
+    <section class="hero">
+      <div><p class="eyebrow">ÁREA DE TRABALHO</p><h1 id="pageTitle">Aplicativos</h1><p id="summaryText">Carregando…</p></div>
+      <label class="search"><i data-lucide="search"></i><input id="searchInput" type="search" placeholder="Pesquisar aplicativo, categoria ou função" autocomplete="off"></label>
+    </section>
+
+    <section id="favoritesSection" class="section" hidden>
+      <div class="section-head"><h2>Favoritos</h2></div><div id="favoritesGrid" class="apps-grid"></div>
+    </section>
+
+    <section id="categoriesSection" class="section">
+      <div class="section-head"><h2>Categorias</h2><span id="categoryCount"></span></div>
+      <div id="categoryGrid" class="category-grid"></div>
+    </section>
+
+    <section id="appsSection" class="section" hidden>
+      <div class="section-head"><div class="back-row"><button class="icon-button" id="backButton"><i data-lucide="arrow-left"></i></button><h2 id="activeCategoryTitle"></h2></div><span id="appCount"></span></div>
+      <div id="appsGrid" class="apps-grid"></div>
+      <div id="emptyState" class="empty" hidden><i data-lucide="search-x"></i><strong>Nenhum aplicativo encontrado</strong></div>
+    </section>
+  </main>
+
+  <aside class="manager" id="manager" aria-hidden="true">
+    <div class="manager-head"><div><strong>Organizar aplicativos</strong><span>Arraste um aplicativo para outra categoria. As alterações ficam salvas no servidor.</span></div><button class="icon-button" id="closeManager"><i data-lucide="x"></i></button></div>
+    <div class="manager-toolbar">
+      <label class="search"><i data-lucide="search"></i><input id="managerSearch" type="search" placeholder="Pesquisar aplicativo"></label>
+      <div class="legend"><span><i class="dot principal"></i> Principal</span><span><i class="dot secundario"></i> Secundário</span><span><i class="dot oculto"></i> Oculto</span></div>
+    </div>
+    <div id="managerBoard" class="manager-board"></div>
+  </aside>
+  <div id="scrim" class="scrim"></div>
+
+  <dialog id="editDialog" class="edit-dialog">
+    <form method="dialog" id="editForm">
+      <div class="dialog-head"><div><strong>Editar aplicativo</strong><span id="editRoute"></span></div><button type="button" class="icon-button" id="closeEdit"><i data-lucide="x"></i></button></div>
+      <input type="hidden" id="editRota">
+      <label>Nome<input id="editNome" maxlength="160" required></label>
+      <label>Categoria<input id="editCategoria" maxlength="100" list="categoryOptions" required></label>
+      <datalist id="categoryOptions"></datalist>
+      <label>Visibilidade<select id="editVisibilidade"><option value="principal">Principal</option><option value="secundario">Secundário</option><option value="oculto">Oculto</option></select></label>
+      <label class="check"><input id="editFavorito" type="checkbox"> Mostrar em Favoritos</label>
+      <div class="dialog-actions"><button type="button" class="btn ghost" id="resetButton">Restaurar padrão</button><span class="grow"></span><button type="button" class="btn secondary" id="cancelEdit">Cancelar</button><button type="submit" class="btn primary">Salvar</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="categoriesDialog" class="categories-dialog">
+    <div class="dialog-head categories-dialog-head"><div><strong>Gerenciar categorias</strong><span>Crie, renomeie, escolha o ícone e organize a ordem.</span></div><button type="button" class="icon-button" id="closeCategories"><i data-lucide="x"></i></button></div>
+    <form id="newCategoryForm" class="new-category-form">
+      <label>Nova categoria<input id="newCategoryName" maxlength="100" placeholder="Ex.: Compras" required></label>
+      <label>Ícone<select id="newCategoryIcon"></select></label>
+      <button type="submit" class="btn primary"><i data-lucide="plus"></i>Criar</button>
+    </form>
+    <div id="categoriesList" class="categories-list"></div>
+  </dialog>
+
+  <dialog id="categoryEditDialog" class="edit-dialog">
+    <form method="dialog" id="categoryEditForm">
+      <div class="dialog-head"><div><strong>Editar categoria</strong><span id="categoryEditOriginal"></span></div><button type="button" class="icon-button" id="closeCategoryEdit"><i data-lucide="x"></i></button></div>
+      <input type="hidden" id="categoryOriginalName">
+      <label>Nome<input id="categoryEditName" maxlength="100" required></label>
+      <label>Ícone<select id="categoryEditIcon"></select></label>
+      <div class="dialog-actions"><button type="button" class="btn danger ghost" id="deleteCategoryButton"><i data-lucide="trash-2"></i>Excluir</button><span class="grow"></span><button type="button" class="btn secondary" id="cancelCategoryEdit">Cancelar</button><button type="submit" class="btn primary">Salvar</button></div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" hidden></div>
+</body>
+</html>

@@ -1,0 +1,31 @@
+PATCH — CENTRAL DE APLICATIVOS AVN (24/10/2026)
+
+INSTALAÇÃO: descompactar APENAS sobre a raiz do projeto Render, preservando os caminhos.
+Não aplicar ao projeto da API local Firebird.
+
+PÁGINAS:
+  /sistema          -> fábrica (inalterada na interface; exclui /avn da descoberta)
+  /avn              -> central AVN
+  /avn/sistema      -> mesma central AVN
+  /avn/usuarios     -> cadastro de usuários, existente
+
+RECURSOS: descoberta automática das rotas GET de páginas /avn/..., busca, categorias, favoritos,
+visibilidade, nomes personalizados e ordenação. Tabelas independentes criadas ao acessar a central:
+  avn_sistema_aplicativos_config
+  avn_sistema_categorias_config
+
+SEM ALTERAR: banco Firebird, API local, CRUD AVN, rotas de vendas e produção, tabelas atuais
+sistema_aplicativos_config/sistema_categorias_config.
+
+ATENÇÃO: a descoberta é lexical a partir de app.get no server.js, e dos router.get em módulos
+com prefixo /avn e nomes convencionais de rotas de view; não é uma descoberta genérica de
+todas as rotas Express. Novos módulos devem registrar GET de páginas compatíveis.
+
+TESTE APÓS DEPLOY:
+1. Acessar /avn autenticado: Cadastros > Cadastro de Usuários.
+2. Abrir /avn/usuarios e conferir funcionamento do cadastro.
+3. Acessar /sistema e confirmar que a lista não inclui /avn/usuarios.
+4. Criar categoria no AVN, atualizar e verificar persistência sem afetar categorias da fábrica.
+
+SEGURANÇA: preservada autenticação requireAuth nas páginas e APIs da central AVN.
+A central de aplicativos NÃO substitui checagem de permissão em cada módulo.

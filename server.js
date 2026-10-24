@@ -5,6 +5,7 @@ const { WebSocketServer, WebSocket } = require('ws');
 const botEvents = require('./src/services/bot/botEvents');
 const { authRoutes, requireAuth } = require('./src/middlewares/adminAuth.middleware');
 const avnUsuarioRoutes = require('./src/routes/avn/avn-usuario.routes');
+const avnSistemaRoutes = require('./src/routes/avn/avn-sistema.routes');
 
 // =====================================================
 // 📦 IMPORTAÇÃO DE ROTAS MODULARES
@@ -124,6 +125,9 @@ app.use(authRoutes);
 // AVN: aplicativo pessoal de avaliação física (acesso administrativo obrigatório)
 app.use('/api/avn/usuarios', requireAuth, avnUsuarioRoutes);
 app.get('/avn/usuarios', requireAuth, (_req, res) => res.sendFile(path.join(__dirname, 'views/avn/usuarios.html')));
+// Central AVN independente: a fábrica continua em /sistema.
+app.get('/avn', requireAuth, (_req, res) => res.sendFile(path.join(__dirname, 'views/avn/index.html')));
+app.use('/avn/sistema', requireAuth, avnSistemaRoutes);
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/prestacao_contas', express.static(path.join(__dirname, 'views', 'prestacao_contas')));
 

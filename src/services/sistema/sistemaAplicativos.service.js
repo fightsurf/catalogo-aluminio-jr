@@ -101,6 +101,8 @@ function joinRoutes(prefix, child) {
   return normalizeRoute(`${p}/${c.replace(/^\//, '')}`);
 }
 function isLaunchable(route) {
+  // AVN possui uma central independente, embora compartilhe o mesmo server.js.
+  if (/^\/avn(?:\/|$)/.test(route) || /^\/api\/avn(?:\/|$)/.test(route)) return false;
   if (!route || route.includes(':') || route.includes('*')) return false;
   if (EXCLUDED_EXACT.has(route)) return false;
   if (EXCLUDED_PREFIXES.some(prefix => route === prefix || route.startsWith(prefix))) return false;
