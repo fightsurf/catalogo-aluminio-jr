@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Agendamentos de Publicações | Alumínio JR</title>
+  <link rel="stylesheet" href="/css/theme.css">
+  <style>
+    body { background: #f4f6f9; color: #243142; margin:0; font-family:Arial, sans-serif; }
+    .principal { max-width: 1070px; margin:auto; padding:24px 15px 60px; }
+    header { display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; margin-bottom:18px; }
+    header h1 { font-size:25px; margin:0; }
+    header p { margin:6px 0 0; color:#596778; font-size:14px; }
+    .cartao { border:1px solid #dfe5ec; background:#fff; border-radius:12px; padding:18px; margin-bottom:16px; }
+    .cartao h2 { margin:0 0 14px; font-size:18px; }
+    .painel { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
+    .painel article { background:#f8fafc; border:1px solid #e6ebef; border-radius:8px; padding:12px; min-width:0; }
+    .painel small { font-size:12px; color:#627285; display:block; margin-bottom:5px; }
+    .painel strong { font-size:15px; overflow-wrap:anywhere; font-weight:600; }
+    .campos { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:15px; margin-top:15px; }
+    .campo label, .rotulo { display:block; font-weight:600; font-size:14px; margin-bottom:6px; }
+    input[type="number"],input[type="time"],select { width:100%; min-height:40px; border:1px solid #bfccd9;
+      border-radius:8px; padding:7px 10px; background:#fff; font:inherit; box-sizing:border-box; }
+    input[type="checkbox"] { width:18px; height:18px; accent-color:#20476c; flex-shrink:0; }
+    .opcoes { display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+    .opcoes label { display:inline-flex; align-items:center; gap:6px; font-weight:400; cursor:pointer; }
+    .linha { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    .linha input { max-width:130px; }
+    .nota { color:#596778; font-size:13px; margin:7px 0 0; line-height:1.45; }
+    .lista-cat { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; max-height:390px; overflow:auto; }
+    .categoria { display:flex; align-items:center; gap:9px; background:#f9fafb; border:1px solid #e1e7ed;
+      border-radius:8px; padding:9px; min-width:0; }
+    .categoria .nome { flex:1; font-size:14px; overflow-wrap:anywhere; }
+    .categoria button { padding:5px 9px; border:1px solid #bcc8d5; background:white; border-radius:6px;
+      cursor:pointer; font-size:13px; }
+    .categoria button:disabled { opacity:.35; cursor:not-allowed; }
+    .destaque { background:#eff5fa; border-color:#8cabc5; }
+    .botao { background:#20476c; color:white; text-decoration:none; border:1px solid #20476c; border-radius:8px;
+      padding:10px 16px; cursor:pointer; font-size:14px; display:inline-block; }
+    .botao.secundario { color:#20476c; background:white; border-color:#9aafc2; }
+    .botao:disabled { opacity:.5; cursor:wait; }
+    .mensagem { font-size:14px; min-height:20px; margin-top:12px; }
+    .erro { color:#b51c2b; } .sucesso { color:#16653e; }
+    .tabela-wrap { overflow-x:auto; }
+    table { width:100%; border-collapse:collapse; font-size:13px; text-align:left; }
+    th,td { padding:10px 8px; border-bottom:1px solid #e5e9ee; vertical-align:top; }
+    th { color:#5c6976; font-weight:600; }
+    @media(max-width:740px) {
+      .painel { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .campos,.lista-cat { grid-template-columns:1fr; }
+    }
+  </style>
+</head>
+<body>
+<main class="principal">
+  <header>
+    <div><h1>Agendamentos de Publicações</h1>
+      <p>Rodízio automático do Status Zap — WhatsApp, Instagram e Facebook.</p></div>
+    <a class="botao secundario" href="/whatsapp/status">Voltar ao Status Zap</a>
+  </header>
+
+  <section class="cartao">
+    <h2>Acompanhamento</h2>
+    <div class="painel">
+      <article><small>Automação</small><strong id="estado">Carregando…</strong></article>
+      <article><small>Última categoria</small><strong id="ultima">—</strong></article>
+      <article><small>Próxima categoria</small><strong id="proxima">—</strong></article>
+      <article><small>Próxima publicação</small><strong id="horario">—</strong></article>
+    </div>
+    <p class="nota">Horários de Catolé do Rocha (America/Fortaleza). A publicação automática precisa que o serviço web do Render permaneça ligado.</p>
+  </section>
+
+  <section class="cartao">
+    <h2>Configurar rodízio</h2>
+    <form id="formulario">
+      <div class="opcoes">
+        <label><input id="ativo" type="checkbox"> <strong>Ativar agendamentos automáticos</strong></label>
+      </div>
+      <p class="nota">Inicialmente, a automação fica desligada. Ao ativar, a primeira categoria é publicada depois do intervalo configurado.</p>
+
+      <div class="campos">
+        <div>
+          <span class="rotulo">Intervalo entre categorias</span>
+          <div class="linha">
+            <label for="horas">Horas <input id="horas" type="number" min="0" max="168" value="6" required></label>
+            <label for="minutos">Minutos <input id="minutos" type="number" min="0" max="59" value="0" required></label>
+          </div>
+          <p class="nota">Exemplos: 1h30, 2h ou 2h45. Mínimo 1 minuto, máximo 7 dias.</p>
+        </div>
+        <div>
+          <label class="rotulo" for="espera">Pausa entre produtos da mesma categoria (segundos)</label>
+          <input id="espera" type="number" min="3" max="300" value="5" required>
+          <p class="nota">Separada do intervalo entre categorias. De 3 a 300 segundos.</p>
+        </div>
+        <div>
+          <span class="rotulo">Horário permitido para começar novas categorias</span>
+          <div class="linha">
+            <label for="inicio">Das <input id="inicio" type="time" value="06:00" required></label>
+            <label for="fim">Até <input id="fim" type="time" value="22:00" required></label>
+          </div>
+          <p class="nota">Se os dois horários forem iguais, publicará durante as 24 horas. Uma categoria iniciada antes do fim pode terminar depois.</p>
+        </div>
+        <div>
+          <label class="rotulo" for="tipoMidia">Tipo de publicação</label>
+          <select id="tipoMidia">
+            <option value="foto">Apenas fotos</option>
+            <option value="video">Apenas vídeos</option>
+            <option value="foto_video">Fotos e vídeos</option>
+          </select>
+          <p class="nota">Apenas itens ativos com a mídia escolhida serão publicados.</p>
+        </div>
+      </div>
+
+      <h2 style="margin-top:24px">Redes sociais</h2>
+      <div class="opcoes">
+        <label><input type="checkbox" class="rede" value="whatsapp" checked> WhatsApp Status</label>
+        <label><input type="checkbox" class="rede" value="instagram" checked> Instagram Stories</label>
+        <label><input type="checkbox" class="rede" value="facebook_story" checked> Facebook Stories</label>
+      </div>
+      <p class="nota">Para fotos, selecionar Facebook também publica o carrossel da categoria no feed, como no modo manual.</p>
+
+      <h2 style="margin-top:24px">Categorias e ordem de publicação</h2>
+      <p class="nota" style="margin-bottom:12px">Marque as categorias desejadas. Use as setas para organizar a sequência. Depois da última, o rodízio retorna à primeira.</p>
+      <div id="categorias" class="lista-cat"><p>Carregando categorias…</p></div>
+      <div class="linha" style="margin-top:18px">
+        <button class="botao" id="salvar" type="submit">Salvar agendamento</button>
+        <button class="botao secundario" id="recarregar" type="button">Descartar alterações</button>
+      </div>
+      <div id="mensagem" class="mensagem" role="status" aria-live="polite"></div>
+    </form>
+  </section>
+
+  <section class="cartao">
+    <h2>Histórico das últimas 25 execuções</h2>
+    <div class="tabela-wrap">
+      <table>
+        <thead><tr><th>Início</th><th>Categoria</th><th>Tipo</th><th>Situação</th><th>Publicações</th><th>Observação</th></tr></thead>
+        <tbody id="historico"><tr><td colspan="6">Ainda não há execuções.</td></tr></tbody>
+      </table>
+    </div>
+    <p class="nota">Um envio sem confirmação é marcado como incerto e não é reenviado automaticamente, para evitar duplicações.</p>
+  </section>
+</main>
+<script>
+'use strict';
+const api = '/api/whatsapp/status/agendamentos';
+const el = (id) => document.getElementById(id);
+const arrCategorias = [];
+let selecionadas = [];
+let carregando = false;
+let formAlterado = false;
+const dataFormatada = (valor) => valor ? new Date(valor).toLocaleString('pt-BR',{
+  timeZone:'America/Fortaleza',day:'2-digit',month:'2-digit',year:'numeric',
+  hour:'2-digit',minute:'2-digit'
+}) : '—';
+function aviso(texto, tipo='') {
+  el('mensagem').textContent = texto;
+  el('mensagem').className = 'mensagem ' + tipo;
+}
+async function request(url, options={}) {
+  const resposta = await fetch(url,{credentials:'same-origin',headers:{
+    Accept:'application/json','Content-Type':'application/json'
+  },...options});
+  if(resposta.status === 401) throw new Error('Sessão expirada. Faça login novamente.');
+  const json = await resposta.json();
+  if(!resposta.ok || !json.success) throw new Error(json.message || 'Falha na requisição.');
+  return json.data;
+}
+function renderizarCategorias() {
+  const box = el('categorias'); box.replaceChildren();
+  const todos = [...selecionadas, ...arrCategorias.map(c=>c.id).filter(id=>!selecionadas.includes(id))];
+  for(const id of todos) {
+    const cat = arrCategorias.find(c=>c.id === id);
+    if(!cat) continue;
+    const ativa = selecionadas.includes(id);
+    const pos = selecionadas.indexOf(id);
+    const linha = document.createElement('div');
+    linha.className = 'categoria' + (ativa ? ' destaque' : '');
+    const check = document.createElement('input');
+    check.type = 'checkbox'; check.checked = ativa; check.setAttribute('aria-label','Selecionar '+cat.nome);
+    check.addEventListener('change',()=>{
+      selecionadas = check.checked ? [...selecionadas,id] : selecionadas.filter(v=>v!==id);
+      formAlterado = true; renderizarCategorias();
+    });
+    const nome = document.createElement('span');
+    nome.className = 'nome'; nome.textContent = cat.nome +
+      ' (' + cat.total_publicaveis + ' fotos, ' + cat.total_videos + ' vídeos)';
+    linha.append(check,nome);
+    for(const [texto, delta] of [['↑',-1],['↓',1]]) {
+      const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = texto;
+      btn.setAttribute('aria-label',(delta<0?'Subir ':'Descer ')+cat.nome);
+      btn.disabled = !ativa || pos+delta<0 || pos+delta>=selecionadas.length;
+      btn.addEventListener('click',()=>{
+        const aux = selecionadas[pos]; selecionadas[pos]=selecionadas[pos+delta];
+        selecionadas[pos+delta]=aux; formAlterado = true; renderizarCategorias();
+      });
+      linha.appendChild(btn);
+    }
+    box.appendChild(linha);
+  }
+  if(!arrCategorias.length) box.textContent = 'Nenhuma categoria disponível.';
+}
+function preencher(cfg) {
+  selecionadas = [...cfg.categorias];
+  el('ativo').checked=cfg.ativo;
+  el('horas').value=Math.floor(cfg.intervaloMinutos/60);
+  el('minutos').value=cfg.intervaloMinutos%60;
+  el('espera').value=cfg.intervaloProdutosSegundos;
+  el('inicio').value=cfg.inicio;
+  el('fim').value=cfg.fim;
+  el('tipoMidia').value=cfg.tipoMidia;
+  document.querySelectorAll('.rede').forEach(c=>{c.checked=cfg.redes.includes(c.value);});
+  formAlterado = false;
+  renderizarCategorias();
+}
+function desenharPainel(data) {
+  const c = data.configuracao;
+  el('estado').textContent=data.executando && c.ativo?'Publicando agora':c.ativo?'Ativado':'Desativado';
+  el('ultima').textContent=data.ultimaCategoria||'—';
+  el('proxima').textContent=data.proximaCategoria||'—';
+  el('horario').textContent=c.ativo?dataFormatada(c.proximaExecucao):'Pausado';
+  const tabela=el('historico'); tabela.replaceChildren();
+  if(!data.historico.length) {
+    const linha=document.createElement('tr'), td=document.createElement('td');
+    td.colSpan=6; td.textContent='Ainda não há execuções.'; linha.appendChild(td); tabela.appendChild(linha);
+  }
+  for(const item of data.historico) {
+    const linha=document.createElement('tr');
+    const status={
+      executando:'Em andamento',concluido:'Concluído',parcial:'Parcial',
+      erro:'Falha',sem_produtos:'Sem produtos publicáveis'
+    }[item.status]||item.status;
+    const valores=[dataFormatada(item.criadoEm),item.categoria,
+      {foto:'Fotos',video:'Vídeos',foto_video:'Fotos e vídeos'}[item.tipoMidia]||item.tipoMidia,
+      status,item.publicados+'/'+item.total,item.erro||'—'];
+    valores.forEach(v=>{const td=document.createElement('td');td.textContent=String(v);linha.appendChild(td);});
+    tabela.appendChild(linha);
+  }
+}
+async function atualizar(preencherForm=false) {
+  if(carregando) return;
+  carregando=true;
+  try {
+    const data=await request(api);
+    arrCategorias.splice(0,arrCategorias.length,...data.categorias);
+    desenharPainel(data);
+    if(preencherForm || !formAlterado) preencher(data.configuracao);
+  }catch(e){aviso(e.message,'erro');}
+  finally{carregando=false;}
+}
+el('formulario').addEventListener('input',()=>{formAlterado=true;});
+el('formulario').addEventListener('submit',async(evento)=>{
+  evento.preventDefault();
+  const horas=Number(el('horas').value), minutos=Number(el('minutos').value);
+  const valor=horas*60+minutos;
+  if(!Number.isInteger(horas)||!Number.isInteger(minutos)||horas<0||minutos<0||minutos>59||
+      valor<1||valor>10080) return aviso('Intervalo deve ficar entre 1 minuto e 7 dias.','erro');
+  const redes=[...document.querySelectorAll('.rede:checked')].map(x=>x.value);
+  if(!redes.length) return aviso('Selecione pelo menos uma rede.','erro');
+  if(el('ativo').checked&&!selecionadas.length) return aviso('Selecione ao menos uma categoria.','erro');
+  const dados={
+    ativo:el('ativo').checked,categorias:selecionadas,intervaloMinutos:valor,
+    intervaloProdutosSegundos:Number(el('espera').value),inicio:el('inicio').value,
+    fim:el('fim').value,tipoMidia:el('tipoMidia').value,redes
+  };
+  el('salvar').disabled=true; aviso('Salvando...');
+  try {
+    await request(api,{method:'PUT',body:JSON.stringify(dados)});
+    aviso('Configuração salva. '+(dados.ativo?'Agendamento ativo.':'Agendamento pausado.'),'sucesso');
+    formAlterado=false; await atualizar(true);
+  }catch(e){aviso(e.message,'erro');}
+  finally{el('salvar').disabled=false;}
+});
+el('recarregar').addEventListener('click',()=>{atualizar(true);aviso('Alterações locais descartadas.');});
+atualizar(true);
+setInterval(()=>atualizar(false),30000);
+</script>
+</body>
+</html>
