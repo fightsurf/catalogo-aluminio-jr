@@ -1,29 +1,16 @@
-PATCH — TEMAS PERSONALIZÁVEIS DA CENTRAL DE OFERTAS
+PATCH STATUS ZAP - AGENDAMENTOS (24/10/2026)
+Base: ZIP render(20261024-134644).zip enviado pelo usuário.
 
-Substitua no projeto Render os arquivos mantendo as mesmas pastas:
+1. Extraia este ZIP.
+2. Envie os arquivos para o GitHub, branch main, preservando as pastas.
+3. Substitua src/routes/whatsapp/status-whatsapp.routes.js e views/whatsapp/status-whatsapp.html.
+4. Adicione src/services/whatsapp/statusAgendamentos.service.js e public/js/status-agendamentos.js.
+5. Aguarde o deploy Render. Abra /whatsapp/status e configure Agendamentos de Publicações.
 
-- src/services/ofertas/arteOferta.service.js
-- src/services/ofertas/ofertas.service.js
-- src/services/ofertas/ofertasSchema.service.js
-- views/ofertas/central-ofertas.html
+Não precisa executar instalador Python nem SQL manual. As tabelas são criadas automaticamente.
+Agendamento inicia DESATIVADO.
 
-O arquivo abaixo é uma migração opcional para execução manual:
-
-- db/sql/20260725_central_ofertas_temas.sql
-
-A aplicação já executa automaticamente os ALTER TABLE necessários ao abrir a Central de Ofertas, portanto a migração manual normalmente não é necessária.
-
-O que foi adicionado:
-
-- Claro premium como tema padrão;
-- Branco comercial;
-- Escuro premium;
-- Azul elegante;
-- Verde sofisticado;
-- Tema personalizado com quatro cores;
-- ajuste automático de cartões, sombras, textos e botões conforme a luminosidade do fundo;
-- persistência do tema em cada oferta;
-- duplicação preservando tema e cores;
-- compatibilidade com ofertas antigas, que passam a usar Claro premium.
-
-Este patch pressupõe que o patch Sharp V2 já esteja aplicado. Ele não altera /kits-feirinha.
+ATENÇÃO: Execute teste com categoria pequena antes de ativar em produção. Render precisa
+estar ativo para executar agendamentos. Envios incertos pausam o agendador para revisão.
+A idempotência de fotos nas integrações existentes utiliza cache em memória e não garante
+proteção absoluta contra duplicação após interrupções externas.

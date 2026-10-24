@@ -3,6 +3,16 @@ const controller = require('../../controllers/whatsapp/status-whatsapp.controlle
 const { requireAuth } = require('../../middlewares/adminAuth.middleware');
 
 const router = express.Router();
+const agendamentos = require('../../services/whatsapp/statusAgendamentos.service');
+agendamentos.start();
+router.get('/agendamentos', requireAuth, async (req,res) => {
+  try { res.json({success:true,data:await agendamentos.obter()}); }
+  catch(e){res.status(500).json({success:false,error:e.message});}
+});
+router.put('/agendamentos', requireAuth, async (req,res) => {
+  try { res.json({success:true,data:await agendamentos.salvar(req.body||{})}); }
+  catch(e){res.status(400).json({success:false,error:e.message});}
+});
 
 router.get('/conexao', requireAuth, controller.verificarConexao);
 router.get('/categorias', requireAuth, controller.listarCategorias);
