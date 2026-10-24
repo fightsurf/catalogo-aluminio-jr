@@ -528,3 +528,7 @@ const avnMigration = require('./src/services/avn/avn-migration.service');
 malaDiretaService.iniciarTrabalhador();
 // Histórico e limpeza exclusiva do republicador; inicialização não bloqueia as outras rotas.
 require('./src/services/marketing/republicador-youtube.service').inicializar();
+
+// Status Zap automático: verifica a cada minuto; somente configurações ativadas publicam.
+// Precisa de serviço Render sempre ligado; o PostgreSQL coordena instâncias concorrentes.
+require('./src/services/whatsapp/status-agendamentos.service').iniciar();
