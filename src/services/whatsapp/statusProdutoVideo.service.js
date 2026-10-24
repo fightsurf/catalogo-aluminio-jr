@@ -24,7 +24,12 @@ function validarId(id) {
 }
 function resumo(job) {
   const canais = {};
+  const ativos = job.canaisAtivos || CANAIS;
   for(const canal of CANAIS) {
+    if (!ativos.includes(canal)) {
+      canais[canal] = { status: 'ignorado', foto: null, partes: [], partes_publicadas: 0, total_partes: 0 };
+      continue;
+    }
     const partes = (job.partes || []).map(p=>({ numero:p.numero, ...p.canais[canal] }));
     const publicados = partes.filter(p=>p.status==='publicado').length;
     const foto = job.fotos?.[canal];
@@ -37,12 +42,12 @@ function resumo(job) {
       erro:falha?.erro || job.erro || (publicados<partes.length ? 'Há partes pendentes.' : '')
     };
   }
-  const completos = CANAIS.filter(c=>canais[c].status==='publicado').length;
-  const algum = CANAIS.some(c=>canais[c].partes_publicadas>0 || canais[c].foto?.status==='publicado');
+  const completos = ativos.filter(c=>canais[c].status==='publicado').length;
+  const algum = ativos.some(c=>canais[c].partes_publicadas>0 || canais[c].foto?.status==='publicado');
   return {
     requestId:job.requestId, produto:job.produto, tipoMidia:job.tipoMidia || 'video',
     status:job.status, progresso:job.progresso || '', erro:job.erro || '',
-    status_geral:completos===3?'publicado':algum?'parcial':'erro',
+    status_geral:completos===ativos.length?'publicado':algum?'parcial':'erro',
     canais, total_partes:job.partes?.length || 0, duracao_original:job.duracao_original,
     repetida:job.repetida || false
   };
@@ -60,12 +65,16 @@ function agendar(id) {
   ativos.add(id);
   fila = fila.catch(()=>{}).then(()=>processar(id)).catch(e=>console.error('[Status vídeo]', e.message)).finally(()=>ativos.delete(id));
 }
-async function iniciar({requestId,produto,tipoMidia='video'}) {
+async function iniciar({requestId,produto,tipoMidia='video',canaisAtivos=CANAIS}) {
+  if (!Array.isArray(canaisAtivos) || !canaisAtivos.length ||
+      canaisAtivos.some(c=>!CANAIS.includes(c)) ||
+      new Set(canaisAtivos).size !== canaisAtivos.length) throw new Error('Redes sociais inválidas.');
   await estrutura();const id=validarId(requestId);
-  const job={ requestId:id,produto,tipoMidia,fotos:tipoMidia==='foto_video' && produto.publicavel_foto ? Object.fromEntries(CANAIS.map(c=>[c,{status:'pendente'}])) : null,status:'processando',progresso:'Vídeo na fila de preparação.',partes:[] };
+  const job={ requestId:id,produto,tipoMidia,canaisAtivos,fotos:tipoMidia==='foto_video' && produto.publicavel_foto ? Object.fromEntries(CANAIS.map(c=>[c,{status:'pendente'}])) : null,status:'processando',progresso:'Vídeo na fila de preparação.',partes:[] };
   await pool.query('INSERT INTO status_produto_video_jobs (request_id,produto_id,dados) VALUES ($1,$2,$3::jsonb) ON CONFLICT DO NOTHING',[id,produto.id,JSON.stringify(job)]);
   const atual=await ler(id);
   if ((atual.tipoMidia || 'video')!==tipoMidia) throw new Error('Identificador já usado por outro modo de publicação.');
+  if ([...(atual.canaisAtivos||CANAIS)].sort().join(',') !== [...canaisAtivos].sort().join(',')) throw new Error('Identificador já usado com outras redes.');
   if (Number(atual.produto.id)!==Number(produto.id) || Number(atual.produto.categoria_id)!==Number(produto.categoria_id)) throw new Error('Identificador já usado por outro produto/categoria.');
   if (atual.status!=='concluido') {
     await pool.query(`UPDATE status_produto_video_jobs SET dados=jsonb_set(dados,'{status}','"processando"'::jsonb), updated_at=NOW() WHERE request_id=$1 AND dados->>'status'='erro'`,[id]);
@@ -86,6 +95,7 @@ async function processar(id) {
     const r=await db.query('SELECT pg_try_advisory_lock(9172046, hashtext($1)) AS locked',[id]);
     lock=r.rows[0].locked;if(!lock)return;
     job=await ler(id,db);if(job.status==='concluido')return;
+    const canaisAtivos=job.canaisAtivos||CANAIS;
     for(const p of job.partes) for(const canal of CANAIS) if(p.canais[canal].status==='enviando') {
       p.canais[canal]={status:'incerto',erro:'O servidor reiniciou durante o envio. Confira esta parte na rede antes de iniciar outra publicação.'};
     }
@@ -114,7 +124,7 @@ async function processar(id) {
     if(contexto) {await fs.rm(contexto.pasta,{recursive:true,force:true});contexto=null;}
     // A ordem é sequencial em cada canal. Uma falha pausa aquele canal antes
     // da parte seguinte; as outras redes ainda recebem a sequência completa.
-    for(const canal of CANAIS) {
+    for(const canal of canaisAtivos) {
       if (job.fotos?.[canal] && job.fotos[canal].status !== 'publicado') {
         if (job.fotos[canal].status === 'incerto') continue;
         job.progresso=`${canal}: publicando a foto antes do vídeo.`;
@@ -157,7 +167,7 @@ async function processar(id) {
         }catch(e){console.error('[Status vídeo] Contador de aparições:',e.message);}
       }
     }
-    const completo=(!job.fotos || CANAIS.every(c=>job.fotos[c].status==='publicado')) && job.partes.every(p=>CANAIS.every(c=>p.canais[c].status==='publicado'));
+    const completo=(!job.fotos || canaisAtivos.every(c=>job.fotos[c].status==='publicado')) && job.partes.every(p=>canaisAtivos.every(c=>p.canais[c].status==='publicado'));
     job.status=completo?'concluido':'erro';
     job.progresso=completo?`Publicação concluída: ${job.fotos ? 'foto e ' : ''}${job.partes.length} parte(s) de vídeo em cada rede.`:'Publicação com falhas. O reenvio retoma as partes pendentes.';
     await salvar(job,db);
