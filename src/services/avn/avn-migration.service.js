@@ -8,11 +8,12 @@ module.exports = async function migrarAvn() {
     '20261022_avn_usuario.sql',
     '20261024_avn_health.sql',
     '20261024_avn_treinos.sql',
+    '20261024_avn_nutricao.sql',
   ]) {
     const sql=fs.readFileSync(path.join(__dirname,'../../../db/sql',nome),'utf8');
     await pool.query(sql);
   }
-  console.log('[AVN] Migrações de usuários, saúde e treinos verificadas.');
+  console.log('[AVN] Migrações de usuários, saúde, treinos e nutrição verificadas.');
   // Não consulta serviços externos: arquivos e manifesto vêm do pacote npm do build.
   try {
     const catalogo=require('./avn-treinos-catalogo.service');

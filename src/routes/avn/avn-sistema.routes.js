@@ -6,6 +6,7 @@ const workoutPackageRoot = path.dirname(require.resolve('@bryllim/workout-guide/
 const { requireAuth } = require('../../middlewares/adminAuth.middleware');
 const avnSistemaAplicativos = require('../../services/avn/avnSistemaAplicativos.service');
 const avnTreinosRoutes = require('./avn-treinos.routes');
+const avnNutricaoRoutes = require('./avn-nutricao.routes');
 const pool = require('../../../db/connection');
 const router = express.Router();
 
@@ -18,14 +19,16 @@ const treinoApps = [
   {rota:'/avn/sistema/meus-treinos', nome:'Meus Treinos', icone:'calendar-check', descricao:'Gerencie planos de treinamento e seus dias.'},
   {rota:'/avn/sistema/treinar', nome:'Registrar Treino', icone:'clipboard-check', descricao:'Registre cargas e séries realmente executadas.'},
 ];
+const nutricaoApps = [{rota:'/avn/sistema/nutricao', nome:'Controle Nutricional', categoria:'Nutrição', icone:'utensils', descricao:'Diário alimentar, dieta semanal e catálogo aberto de micronutrientes.'}];
+const todosApps = [...treinoApps, ...nutricaoApps];
 async function inserirTreinosNoResumo(summary) {
   await avnSistemaAplicativos.ensureSchema();
-  const {rows:registros}=await pool.query('SELECT rota,nome,categoria,visibilidade,favorito,ordem FROM public.avn_sistema_aplicativos_config WHERE rota=ANY($1::text[])',[treinoApps.map(a=>a.rota)]);
+  const {rows:registros}=await pool.query('SELECT rota,nome,categoria,visibilidade,favorito,ordem FROM public.avn_sistema_aplicativos_config WHERE rota=ANY($1::text[])',[todosApps.map(a=>a.rota)]);
   const configs=new Map(registros.map(c=>[c.rota,c]));
   // Mantém compatibilidade com a estrutura usada pela Central de Aplicativos do AVN.
   const existentes = new Set(summary.apps.map(x => x.rota));
-  const adicionais = treinoApps.filter(a => !existentes.has(a.rota)).map((a, i) => ({
-    id:Buffer.from(a.rota).toString('base64url'), ...a, categoria:'Atividades Físicas',
+  const adicionais = todosApps.filter(a => !existentes.has(a.rota)).map((a, i) => ({
+    id:Buffer.from(a.rota).toString('base64url'), ...a, categoria:a.categoria || 'Atividades Físicas',
     visibilidade:'principal', favorito:false, ordem:2000+i, conhecido:true, personalizado:false,
   }));
   for(const app of adicionais){const c=configs.get(app.rota);if(c){app.nome=c.nome||app.nome;app.categoria=c.categoria||app.categoria;app.visibilidade=c.visibilidade||app.visibilidade;app.favorito=!!c.favorito;app.ordem=c.ordem??app.ordem;app.personalizado=true;}}
@@ -33,15 +36,15 @@ async function inserirTreinosNoResumo(summary) {
   summary.apps.sort((a,b)=>(a.ordem??999999)-(b.ordem??999999)||a.nome.localeCompare(b.nome,'pt-BR')); 
   summary.total += adicionais.length;
   summary.visiveis += adicionais.filter(a=>a.visibilidade!=='oculto').length;
-  for(const a of adicionais){let cat=summary.categoriasDetalhes.find(x=>x.nome===a.categoria);if(cat)cat.quantidade++;else{summary.categorias.push(a.categoria);summary.categoriasDetalhes.push({nome:a.categoria,icone:'activity',ordem:null,quantidade:1,personalizada:false});}}
+  for(const a of adicionais){let cat=summary.categoriasDetalhes.find(x=>x.nome===a.categoria);if(cat)cat.quantidade++;else{summary.categorias.push(a.categoria);summary.categoriasDetalhes.push({nome:a.categoria,icone:a.categoria==='Nutrição'?'utensils':'activity',ordem:null,quantidade:1,personalizada:false});}}
   return summary;
 }
 
-function novoApp(rota){return treinoApps.find(a=>a.rota===rota);}
+function novoApp(rota){return todosApps.find(a=>a.rota===rota);}
 async function salvarConfigNovo(body){
   const base=novoApp(String(body.rota||''));if(!base)return null;
   const nome=String(body.nome??base.nome).trim().slice(0,160)||base.nome;
-  const categoria=String(body.categoria??'Atividades Físicas').trim().slice(0,100)||'Atividades Físicas';
+  const categoria=String(body.categoria??base.categoria??'Atividades Físicas').trim().slice(0,100)||'Atividades Físicas';
   const visibilidade=['principal','secundario','oculto'].includes(body.visibilidade)?body.visibilidade:'principal';
   const ordem=Number.isInteger(body.ordem)?body.ordem:null;
   await avnSistemaAplicativos.ensureSchema();
@@ -124,4 +127,6 @@ for (const [rota, arquivo] of [
 ]) {
   router.get('/'+rota, requireAuth, (_req,res)=>res.sendFile(path.resolve(__dirname,'../../../views/avn/'+arquivo)));
 }
+router.use('/api/nutricao', requireAuth, avnNutricaoRoutes);
+router.get('/nutricao', requireAuth, (_req,res) => res.sendFile(path.resolve(__dirname,'../../../views/avn/nutricao.html')));
 module.exports=router;
