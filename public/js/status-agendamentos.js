@@ -18,7 +18,7 @@
       <header class="ag-modal-header">
         <div>
           <h2 class="ag-modal-title" id="ag-modal-title">Agendamentos de Publicações</h2>
-          <p class="ag-modal-subtitle" id="ag-modal-subtitle">Publique categorias automaticamente, em sequência, sem manter esta página aberta.</p>
+          <p class="ag-modal-subtitle" id="ag-modal-subtitle">Categorias enviam tarefas ao Funil Central. As publicações são rastreadas e recuperáveis.</p>
         </div>
         <button id="ag-close" type="button" class="btn btn-outline ag-close" aria-label="Fechar configurações">Fechar</button>
       </header>
@@ -26,7 +26,7 @@
         <form id="ag-form">
           <label class="ag-switch" for="ag-active">
             <input id="ag-active" type="checkbox" />
-            <span>Ativar agendamento<small>Se houver publicação incerta, o sistema pausará para revisão.</small></span>
+            <span>Ativar agendamento<small>Falhas isoladas ficam registradas no funil; outras publicações continuam.</small></span>
           </label>
           <div class="ag-form-grid">
             <div class="ag-field">
@@ -61,10 +61,29 @@
             <p id="ag-state" class="ag-feedback" role="status" aria-live="polite"></p>
           </div>
         </form>
-        <div class="ag-modal-history">
+        <section class="ag-modal-history ag-funnel" aria-label="Funil central de publicações">
+          <h3>Funil Central de Publicações</h3>
+          <p class="ag-hint">Uma publicação por vez, com progresso permanente no PostgreSQL. Envios incertos exigem conferência antes de repetir.</p>
+          <div id="ag-funnel-stats" class="ag-funnel-stats"></div>
+          <h4>Itens em andamento e pendências</h4>
+          <div id="ag-funnel-items" class="ag-history-list"></div>
+        </section>
+        <section class="ag-modal-history">
           <h3>Últimas execuções</h3>
           <div id="ag-history" class="ag-history-list"></div>
-        </div>
+        </section>
+        <section class="ag-modal-history ag-funnel">
+          <h3>Registro de eventos e erros</h3>
+          <div class="ag-log-filters">
+            <label for="ag-log-level">Filtrar por</label>
+            <select id="ag-log-level"><option value="">Todos os eventos</option><option value="erro">Somente erros</option><option value="aviso">Avisos</option></select>
+            <label for="ag-log-from">A partir de</label>
+            <input id="ag-log-from" type="date" />
+            <button id="ag-log-reload" type="button" class="btn btn-outline">Consultar</button>
+          </div>
+          <div id="ag-funnel-log" class="ag-history-list" aria-live="polite"></div>
+          <button id="ag-log-more" type="button" class="btn btn-outline ag-log-more" hidden>Ver eventos mais antigos</button>
+        </section>
       </div>
     </section>`;
   document.body.append(overlay);
@@ -123,6 +142,9 @@
   function renderPanel() {
     const cfg = lastData?.config;
     const latest = lastData?.historico?.[0];
+    const current = (lastData?.historico || []).find(x => x.origem==='funil' &&
+      Number(x.id) === Number(cfg?.lote_atual_id)) || latest;
+    const pending = Number(lastData?.funil?.resumo?.atencao || 0);
     const issue = $('ag-status-warning');
     issue.hidden = true;
     nextTime = null;
@@ -137,31 +159,35 @@
       return;
     }
 
-    const running = cfg.ativo && !cfg.proxima_execucao && latest?.estado === 'executando';
-    const pausedForReview = !cfg.ativo && latest?.estado === 'revisao';
+    const running = cfg.ativo && Boolean(cfg.lote_atual_id);
+    const pausedForReview = !cfg.ativo && lastData?.historico?.some(x=>x.origem==='legado' && ['revisao','executando'].includes(x.estado));
     if (running) {
-      showBadge('Publicando agora', 'ag-working');
+      showBadge('Funil em execução', 'ag-working');
       $('ag-next-label').textContent = 'Categoria em publicação';
-      $('ag-next-category').textContent = latest.categoria_nome || categoryName(latest.categoria_id);
+      $('ag-next-category').textContent = current?.categoria_nome || categoryName(current?.categoria_id);
       $('ag-status-countdown').textContent = 'Em andamento';
-      $('ag-status-date').textContent = latest.iniciado_em ? dateFormat.format(new Date(latest.iniciado_em)) : '—';
+      $('ag-status-date').textContent = current?.iniciado_em ? dateFormat.format(new Date(current.iniciado_em)) : '—';
       return;
     }
     if (pausedForReview) {
       showBadge('Pausado para revisão', 'ag-warning');
       $('ag-next-category').textContent = 'A definir após revisão';
-      issue.textContent = 'A última publicação precisa ser conferida antes de reativar o agendamento.';
+      issue.textContent = 'Existe uma execução antiga: recupere-a pelo histórico antes de reativar.';
       issue.hidden = false;
       return;
     }
     if (!cfg.ativo) {
       showBadge('Desativado', '');
+      if (pending && !pausedForReview) {
+        issue.textContent = `${pending} tarefa(s) requerem conferência no Funil de Publicações.`;
+        issue.hidden = false;
+      }
       $('ag-next-category').textContent = cfg.categorias?.length ? categoryName(cfg.categorias[Number(cfg.indice || 0) % cfg.categorias.length]) : 'Nenhuma categoria selecionada';
       $('ag-status-countdown').textContent = 'Não agendado';
       return;
     }
 
-    showBadge('Ativo', 'ag-active');
+    showBadge(pending ? `Ativo · ${pending} pendência(s)` : 'Ativo', pending ? 'ag-warning' : 'ag-active');
     const ids = Array.isArray(cfg.categorias) ? cfg.categorias : [];
     $('ag-next-category').textContent = ids.length
       ? categoryName(ids[Number(cfg.indice || 0) % ids.length]) : 'Nenhuma categoria selecionada';
@@ -215,16 +241,72 @@
     container.innerHTML = Array.isArray(history) && history.length
       ? history.map(item => {
         const when = item.iniciado_em ? dateFormat.format(new Date(item.iniciado_em)) : '—';
-        const state = item.estado === 'concluido' ? 'Concluída'
+        const state = item.estado === 'com_pendencias' ? 'Finalizada com pendências'
+          : item.estado === 'migrado' ? 'Recuperada para o funil'
+          : item.estado === 'concluido' ? 'Concluída'
           : item.estado === 'executando' ? 'Em andamento'
             : item.estado === 'revisao' ? 'Requer revisão' : String(item.estado || '—');
         return `<div class="ag-history-row">
           <strong>${escapeHtml(item.categoria_nome)}</strong> — <span class="${item.estado === 'revisao' ? 'ag-history-failed' : 'ag-history-muted'}">${escapeHtml(state)}</span>
           <div class="ag-history-muted">${escapeHtml(when)} · ${escapeHtml(item.tipo_midia || '')}</div>
+          ${item.total !== undefined ? `<div class="ag-history-muted">${Number(item.publicados||0)} de ${Number(item.total)} tarefas concluídas</div>` : ''}
           ${item.erro ? `<div class="ag-history-failed">${escapeHtml(item.erro)}</div>` : ''}
+          ${item.origem==='legado' && ['revisao','executando'].includes(item.estado) ? `<button type="button" class="btn btn-outline ag-import-legacy" data-legacy-id="${Number(item.id)}">Recuperar execução antiga</button>` : ''}
         </div>`;
       }).join('')
       : '<div class="ag-empty">Nenhuma execução registrada até o momento.</div>';
+  }
+
+  function renderFunnel(queue) {
+    const stats = queue?.resumo || {};
+    const statsEl = modalEl('ag-funnel-stats');
+    const cards = [
+      ['Na fila',stats.pendentes||0],['Em processamento',stats.em_execucao||0],
+      ['Concluídas',stats.concluidas||0],['Necessitam conferência',stats.atencao||0]
+    ];
+    statsEl.innerHTML = cards.map(([title,count])=>`<div class="ag-funnel-stat"><small>${escapeHtml(title)}</small><strong>${Number(count)}</strong></div>`).join('');
+    const items = Array.isArray(queue?.itens) ? queue.itens : [];
+    modalEl('ag-funnel-items').innerHTML = items.length ? items.map(item=>{
+      const needing=['incerto','atencao'].includes(item.estado);
+      const title = item.produto_nome || (item.tipo==='statuszap_feed'?'Carrossel do Facebook':'Produto');
+      const state = {
+        incerto:'Envio incerto',atencao:'Tentativas esgotadas',aguardando_video:'Vídeo em processamento',
+        aguardando_retry:'Aguardando nova tentativa',executando:'Enviando'
+      }[item.estado] || item.estado;
+      return `<div class="ag-history-row ag-funnel-item">
+        <strong>${escapeHtml(title)}</strong> <span class="ag-history-muted">· ${escapeHtml(item.categoria_nome||'')}</span>
+        <div class="ag-history-muted">${escapeHtml(state)} · Tentativas: ${Number(item.tentativas||0)} · ID ${Number(item.id)}</div>
+        ${item.detalhes?.progresso ? `<div class="ag-history-muted">${escapeHtml(item.detalhes.progresso)}</div>`:''}
+        ${item.erro ? `<div class="ag-history-failed">${escapeHtml(item.erro)}</div>`:''}
+        ${needing ? `<div class="ag-funnel-actions">
+          <button type="button" class="btn btn-outline" data-review="${Number(item.id)}" data-action="confirmar_publicado">Confirmar publicado</button>
+          <button type="button" class="btn btn-outline" data-review="${Number(item.id)}" data-action="confirmar_nao_publicado">Confirmar NÃO publicado e retomar</button>
+        </div>`:''}
+      </div>`;
+    }).join('') : '<div class="ag-empty">Nenhum item em processamento ou aguardando revisão.</div>';
+  }
+
+  let logCursor = null;
+  async function refreshLogs(append=false) {
+    const level=modalEl('ag-log-level').value;
+    const from=modalEl('ag-log-from').value;
+    const params=new URLSearchParams({limite:'60'});
+    if(level)params.set('nivel',level);
+    if(from)params.set('de',`${from}T00:00:00-03:00`);
+    if(append && logCursor)params.set('antes',String(logCursor));
+    const target=modalEl('ag-funnel-log');
+    try {
+      const data=await json(`/api/whatsapp/status/agendamentos/funil/logs?${params}`);
+      logCursor=data.proximo_cursor;
+      const lines=(data.logs||[]).map(log=>`<div class="ag-history-row">
+        <div><strong>${escapeHtml(log.codigo)}</strong> · <span class="ag-history-muted">${escapeHtml(dateFormat.format(new Date(log.criado_em)))}</span></div>
+        <div class="ag-history-muted">${escapeHtml([log.categoria_nome,log.produto_nome].filter(Boolean).join(' · '))}</div>
+        <div class="${log.nivel==='erro'?'ag-history-failed':'ag-history-muted'}">${escapeHtml(log.mensagem)}</div>
+      </div>`).join('');
+      if(append)target.insertAdjacentHTML('beforeend',lines);
+      else target.innerHTML=lines||'<div class="ag-empty">Nenhum evento para esse filtro.</div>';
+      modalEl('ag-log-more').hidden=!logCursor;
+    } catch(e){if(!append)target.textContent=`Não foi possível consultar os registros: ${e.message}`;}
   }
 
   function message(text, isError = false) {
@@ -260,12 +342,15 @@
       modalEl('ag-end').value = cfg.fim || '22:00';
       modalEl('ag-media').value = cfg.tipo_midia || 'foto';
       renderHistory(data.historico);
+      renderFunnel(data.funil);
+      refreshLogs();
       renderPanel();
       message(cfg.ativo ? `Ativo · Próxima execução: ${cfg.proxima_execucao ? dateFormat.format(new Date(cfg.proxima_execucao)) : 'em andamento'}` : 'Agendamento desativado.');
     } catch (error) {
       message(error.message, true);
       modalEl('ag-cats').innerHTML = '<div class="ag-empty">Não foi possível carregar as categorias.</div>';
       modalEl('ag-history').innerHTML = '<div class="ag-empty">Histórico indisponível.</div>';
+      modalEl('ag-funnel-items').textContent = 'Fila indisponível.';
     } finally {
       modalEl('ag-save').disabled = false;
     }
@@ -301,6 +386,44 @@
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     }
   });
+  modalEl('ag-history').addEventListener('click',async event=>{
+    const button=event.target.closest('button[data-legacy-id]');if(!button)return;
+    const id=Number(button.dataset.legacyId);
+    if(!window.confirm(`Recuperar a execução antiga nº ${id}? As publicações confirmadas serão preservadas e as incertas precisarão de conferência.`))return;
+    button.disabled=true;
+    try {
+      await json(`/api/whatsapp/status/agendamentos/recuperar-legado/${id}`,{method:'POST'});
+      await loadModal();
+      message('Execução importada. Confira os envios incertos no funil e ative o agendamento para continuar.');
+    }catch(e){message(e.message,true);}finally{button.disabled=false;}
+  });
+  modalEl('ag-funnel-items').addEventListener('click',async event=>{
+    const button=event.target.closest('button[data-review]');if(!button)return;
+    const id=Number(button.dataset.review),action=button.dataset.action;
+    try {
+      const data=await json(`/api/whatsapp/status/agendamentos/funil/itens/${id}`);
+      const item=data.item;
+      const incertos=(data.canais||[]).filter(c=>c.estado==='incerto');
+      let canal=null;
+      if(incertos.length>1) {
+        const names=incertos.map(c=>c.canal).join(', ');
+        canal=window.prompt(`Há mais de uma rede incerta. Digite a rede CONFERIDA (${names}):`);
+        if(!canal || !incertos.some(c=>c.canal===canal)) {message('Selecione uma das redes indicadas.',true);return;}
+      } else if(incertos.length===1) canal=incertos[0].canal;
+      const published=action==='confirmar_publicado';
+      const notice=published
+        ? `Você conferiu diretamente na plataforma e CONFIRMA que ${canal||'todas as partes incertas da tarefa'} foram publicadas?`
+        : `Você conferiu diretamente na plataforma e CONFIRMA que ${canal||'todas as partes incertas da tarefa'} NÃO foram publicadas? O sistema poderá tentar novamente.`;
+      if(!window.confirm(notice))return;
+      button.disabled=true;
+      await json(`/api/whatsapp/status/agendamentos/funil/itens/${id}/conciliar`,{
+        method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({acao:action,canal})
+      });
+      await loadModal();message('Conciliação registrada no histórico do funil.');
+    }catch(e){message(e.message,true);}finally{button.disabled=false;}
+  });
+  modalEl('ag-log-reload').addEventListener('click',()=>refreshLogs(false));
+  modalEl('ag-log-more').addEventListener('click',()=>refreshLogs(true));
   modalEl('ag-cats').addEventListener('click', event => {
     const control = event.target.closest('button[data-up],button[data-down]');
     if (!control) return;

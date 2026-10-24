@@ -1,0 +1,81 @@
+ALUMÍNIO JR — PATCH FUNIL CENTRAL DE PUBLICAÇÕES / STATUS ZAP
+Base utilizada: render(20261024-160517).zip
+Data de referência: 24/10/2026
+
+INSTALAÇÃO (SOMENTE RENDER)
+1. Faça backup da versão que está no GitHub.
+2. Extraia este ZIP e envie os arquivos completos para a branch main do repositório.
+3. Preserve exatamente os caminhos das pastas. Não apague outros arquivos.
+4. Aguarde a conclusão do deploy no Render.
+5. Abra /whatsapp/status, clique em "Agendamentos de Publicações".
+6. Antes de ativar amplamente, faça teste controlado com uma categoria pequena.
+
+ARQUIVOS MODIFICADOS:
+- public/css/status-agendamentos.css
+- public/js/status-agendamentos.js
+- src/routes/whatsapp/status-whatsapp.routes.js
+- src/services/whatsapp/statusAgendamentos.service.js
+- src/services/whatsapp/statusProdutoVideo.service.js
+- views/whatsapp/status-whatsapp.html
+ARQUIVO NOVO:
+- src/services/marketing/funilPublicacoes.service.js
+
+BANCO DE DADOS
+Não é necessário executar SQL manualmente. A aplicação cria/atualiza automaticamente
+as tabelas status_agendamento_config, marketing_fila_lotes, marketing_fila_itens,
+marketing_fila_canais e marketing_fila_eventos no PostgreSQL do Render.
+As tabelas antigas de histórico permanecem preservadas.
+
+FUNCIONAMENTO
+- Uma categoria vira um lote de tarefas, com uma tarefa por produto e, em modo foto,
+  uma tarefa adicional de carrossel no Facebook.
+- O executor central processa uma tarefa de cada vez, gravando progresso em PostgreSQL.
+- Fotos têm confirmação separada de WhatsApp, Instagram e Facebook Stories.
+- Vídeos utilizam IDs estáveis e os jobs de vídeo já persistidos no PostgreSQL;
+  não há mais limite fixo de 30 minutos no agendador para considerar vídeo com falha.
+- Falhas confirmadas na preparação e alguns erros de configuração são tentados de novo,
+  até 5 vezes, com espera progressiva.
+- Se houver incerteza sobre o envio, o item fica "incerto" e o restante da fila
+  continua. Não há repetição cega desse envio.
+- Falhas e decisões ficam registradas em "Registro de eventos e erros".
+- Próxima categoria somente é marcada após finalizar o lote corrente (com ou sem
+  pendências de revisão), respeitando o intervalo e a janela configurada.
+- Reinício do Render preserva tarefas, resultados e logs, inclusive canais já confirmados.
+- O agendamento só é desativado por decisão administrativa, não por falha individual.
+
+RECUPERAR A EXECUÇÃO ANTIGA (EX.: PANELA DE PRESSÃO)
+Se o histórico exibir "Requer revisão" de uma execução do agendador anterior:
+1. Abra o modal e clique "Recuperar execução antiga" nesse registro.
+2. O funil importa os produtos já conhecidos e marca envios sem confirmação.
+3. Examine os itens "Envio incerto" nas próprias redes sociais.
+4. Use "Confirmar publicado" apenas quando realmente encontrou a publicação;
+   use "Confirmar NÃO publicado e retomar" apenas após confirmar a ausência.
+   Para vídeos, a conciliação refere-se a TODAS as partes incertas do job.
+5. Depois, ative o agendamento para continuar os produtos ainda não tentados.
+ATENÇÃO: Não publique manualmente a categoria antiga inteira.
+
+OBSERVAÇÕES DE SEGURANÇA
+- Nenhuma API externa oferece aqui confirmação universal de entrega exata. Se um
+  envio for aceito mas a resposta se perder, a tarefa fica incerta e exige conferência.
+  Portanto, persistência de fila NÃO significa garantia absoluta de publicação
+  nem de ausência de duplicidade nas plataformas.
+- Facebook feed usa o publicador de carrossel existente: caso falhe entre grupos,
+  o envio fica incerto. Repetir só após conferir TODAS as postagens desse carrossel.
+- Os módulos Central de Ofertas, Mala Direta etc. NÃO foram conectados à fila ainda;
+  este patch prepara a infraestrutura compartilhada e integra o Status Zap.
+- Não houve mudanças na API local / Firebird.
+- Em Render que suspende o serviço, o trabalho não executa durante a suspensão.
+
+TESTES EXECUTADOS NESTA ENTREGA
+- node --check em todos os JavaScripts modificados.
+- Teste isolado do cálculo de janela Brasília e inclusão transacional de tarefas.
+- Teste de interface desktop e celular com respostas simuladas, sem erros de JS.
+TESTES AINDA NECESSÁRIOS NO RENDER
+- Criação das tabelas com credenciais do PostgreSQL real.
+- Teste de envio real em uma categoria pequena.
+- Reinício durante espera e simulação controlada de falha/retry de vídeo.
+- Conciliação de um item incerto após verificação nas plataformas.
+
+RETORNO À VERSÃO ANTERIOR
+Reverter os arquivos do GitHub e efetuar novo deploy. Não apagar as tabelas novas:
+elas contêm histórico de publicações e podem ser reaproveitadas na próxima implantação.

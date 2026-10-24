@@ -158,3 +158,21 @@
 @media (max-width: 360px) {
   .ag-form-grid { grid-template-columns: 1fr; }
 }
+
+/* Funil Central (somente a interface do agendador) */
+.ag-funnel h3 { margin: 0 0 8px; font-size: 16px; }
+.ag-funnel h4 { margin: 16px 0 8px; font-size: 14px; }
+.ag-funnel-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin:14px 0 18px; }
+.ag-funnel-stat { border:1px solid var(--color-border,#d0d7de); padding:12px; border-radius:8px; background:var(--color-surface,#fff); }
+.ag-funnel-stat small { display:block; font-size:11px; color:var(--color-muted,#57606a); }
+.ag-funnel-stat strong { display:block; margin-top:4px; font-size:22px; font-variant-numeric:tabular-nums; }
+.ag-funnel-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:9px; }
+.ag-funnel-actions button { font-size:11px; white-space:normal; text-align:center; }
+.ag-funnel-item { overflow-wrap:anywhere; }
+.ag-log-filters { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:12px 0; }
+.ag-log-filters label { font-size:12px; color:var(--color-muted,#57606a); }
+.ag-log-filters select,.ag-log-filters input { border:1px solid var(--color-border,#d0d7de); color:inherit; background:var(--color-surface,#fff); border-radius:6px; padding:8px; font-size:13px; min-width:0; }
+.ag-log-more { margin-top:10px; }
+.ag-import-legacy { margin:8px 0 2px; font-size:12px; }
+.ag-modal-history + .ag-modal-history { margin-top:18px; }
+@media(max-width:700px) { .ag-funnel-stats { grid-template-columns:repeat(2,minmax(0,1fr)); } }

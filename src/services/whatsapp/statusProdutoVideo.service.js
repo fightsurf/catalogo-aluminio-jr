@@ -170,4 +170,31 @@ async function processar(id) {
     db.release();
   }
 }
-module.exports={iniciar,consultar,resumo};
+
+// Conciliação EXPLÍCITA pelo administrador: somente quando verificou que as partes
+// incertas não foram publicadas. Os segmentos já confirmados ficam intactos.
+async function reconciliarIncerto(requestId, acao, db=pool) {
+  await estrutura();
+  const id=validarId(requestId);
+  if(!['nao_publicado','publicado'].includes(acao)) throw new Error('Ação de conciliação inválida.');
+  const job=await ler(id,db);
+  if(job.status==='processando') throw new Error('Este vídeo ainda está em processamento. Aguarde a conclusão antes de reconciliar.');
+  if(job.status==='concluido') throw new Error('O serviço de vídeos confirma que todas as partes já foram publicadas.');
+  let total=0;
+  for(const part of (job.partes||[])) for(const canal of CANAIS) {
+    if(part.canais?.[canal]?.status==='incerto') {
+      part.canais[canal]=acao==='publicado'?{status:'publicado',confirmacao_manual:true}:{status:'erro',erro:'Administrador confirmou que esta parte não foi publicada.'};total++;
+    }
+  }
+  for(const canal of CANAIS) if(job.fotos?.[canal]?.status==='incerto') {
+    job.fotos[canal]=acao==='publicado'?{status:'publicado',confirmacao_manual:true}:{status:'erro',erro:'Administrador confirmou que a foto não foi publicada.'};total++;
+  }
+  if(!total) throw new Error('Nenhuma parte incerta para conciliar; consulte o histórico do vídeo.');
+  const completo=(!job.fotos||CANAIS.every(c=>job.fotos[c].status==='publicado')) &&
+    job.partes.every(p=>CANAIS.every(c=>p.canais[c].status==='publicado'));
+  job.status=completo?'concluido':'erro';
+  job.progresso=completo?'Partes confirmadas manualmente; publicação concluída.':'Conciliação manual registrada. Apenas as partes pendentes serão reenviadas.';
+  await salvar(job,db);
+  return {partes_liberadas:total,concluido:completo};
+}
+module.exports={iniciar,consultar,resumo,reconciliarIncerto};
