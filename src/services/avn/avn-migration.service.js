@@ -6,5 +6,7 @@ module.exports = async function migrarAvn() {
   const arquivo = path.join(__dirname, '../../../db/sql/20261022_avn_usuario.sql');
   const sql = fs.readFileSync(arquivo, 'utf8');
   await pool.query(sql);
+  const healthSql = fs.readFileSync(path.join(__dirname, '../../../db/sql/20261024_avn_health.sql'), 'utf8');
+  await pool.query(healthSql);
   console.log('[AVN] Estrutura avn_usuario verificada.');
 };

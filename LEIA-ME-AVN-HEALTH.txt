@@ -1,0 +1,22 @@
+PATCH AVN — BASE HEALTH CONNECT E PAINÉIS — 24/10/2026
+
+Copie o conteúdo da pasta render/ para a raiz do projeto Render mantendo os caminhos.
+Não há alterações no ZIP local / API Firebird.
+
+Rotas novas (com sessão administrativa):
+  /avn/evolucao-corporal
+  /avn/gastos-caloricos
+  GET /api/avn/health/metricas
+  GET /api/avn/health/usuarios/:usuarioId/historico?metrica=peso&dias=90
+  GET /api/avn/health/usuarios/:usuarioId/atividades?dias=90
+  POST /api/avn/health/usuarios/:usuarioId/importar
+
+A migração cria automaticamente tabelas avn_metricas, avn_medicoes, avn_atividades e avn_sincronizacoes.
+O primeiro carregamento exibirá gráficos sem dados até importar medições reais.
+IMC é calculado usando a altura ATUAL cadastral; alterá-la recalcula o histórico.
+Calorias totais/ativas: séries brutas de intervalos, SEM somar automaticamente; passos agregados por dia; não confundir contagem de registros com número de passos.
+Este patch NÃO implementa o sincronizador Android, exportação Health Connect, exclusões remotas ou autenticação própria do dispositivo. A importação inicial exige sessão administrativa.
+As informações do Health Connect precisam ser convertidas pelo cliente para kg, %, kcal, passos e kcal/dia ANTES do envio. Registros devem levar ID externo estável e package do aplicativo de origem.
+Para sessões, não associar calorias arbitrariamente à atividade: campo opcional.
+
+TESTES: node --check nos arquivos JS, teste de varredura das rotas e inspeção do SQL.

@@ -6,6 +6,7 @@ const botEvents = require('./src/services/bot/botEvents');
 const { authRoutes, requireAuth } = require('./src/middlewares/adminAuth.middleware');
 const avnUsuarioRoutes = require('./src/routes/avn/avn-usuario.routes');
 const avnSistemaRoutes = require('./src/routes/avn/avn-sistema.routes');
+const avnHealthRoutes = require('./src/routes/avn/avn-health.routes');
 
 // =====================================================
 // 📦 IMPORTAÇÃO DE ROTAS MODULARES
@@ -128,6 +129,10 @@ app.get('/avn/usuarios', requireAuth, (_req, res) => res.sendFile(path.join(__di
 // Central AVN independente: a fábrica continua em /sistema.
 app.get('/avn', requireAuth, (_req, res) => res.sendFile(path.join(__dirname, 'views/avn/index.html')));
 app.use('/avn/sistema', requireAuth, avnSistemaRoutes);
+// AVN: painéis e API de saúde, todas as rotas exigem autenticação administrativa.
+app.use('/api/avn/health', requireAuth, avnHealthRoutes);
+app.get('/avn/evolucao-corporal', requireAuth, (_req,res)=>res.sendFile(path.join(__dirname,'views/avn/evolucao-corporal.html')));
+app.get('/avn/gastos-caloricos', requireAuth, (_req,res)=>res.sendFile(path.join(__dirname,'views/avn/gastos-caloricos.html')));
 app.use(express.static(path.join(__dirname, 'public')));
 app.use('/prestacao_contas', express.static(path.join(__dirname, 'views', 'prestacao_contas')));
 

@@ -10,6 +10,8 @@ const EXCLUDED_EXACT = new Set(['/bot/admin', '/hub/config']);
 
 const OVERRIDES = {
   '/avn/usuarios': { nome:'Cadastro de Usuários', categoria:'Cadastros', icone:'users', descricao:'Dados pessoais para avaliação física e nutricional.' },
+  '/avn/evolucao-corporal': { nome:'Evolução Corporal', categoria:'Avaliação Física', icone:'scale', descricao:'Histórico de peso, IMC, gordura, massa magra, água e massa óssea.' },
+  '/avn/gastos-caloricos': { nome:'Gastos Calóricos', categoria:'Atividades Físicas', icone:'flame', descricao:'TMB, passos, calorias e sessões de exercícios.' },
 };
 
 let schemaReady = false;
