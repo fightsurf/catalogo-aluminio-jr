@@ -127,9 +127,9 @@ async function painel() {
   const [cfg, lotes, cats] = await Promise.all([
     configuracao(),
     pool.query([
-      'SELECT l.*,COUNT(i.*)::int AS total,',
-      "COUNT(i.*) FILTER(WHERE i.status='publicado')::int AS publicados,",
-      "COUNT(i.*) FILTER(WHERE i.status IN ('erro','incerto'))::int AS falhas",
+      'SELECT l.*,COUNT(i.produto_id)::int AS total,',
+      "COUNT(i.produto_id) FILTER(WHERE i.status='publicado')::int AS publicados,",
+      "COUNT(i.produto_id) FILTER(WHERE i.status IN ('erro','incerto'))::int AS falhas",
       'FROM status_zap_agendamento_lotes l LEFT JOIN status_zap_agendamento_itens i ON i.lote_id=l.id',
       'GROUP BY l.id ORDER BY l.id DESC LIMIT 25'
     ].join(' ')),
@@ -146,7 +146,7 @@ async function painel() {
   return {
     configuracao: cfg, categorias: cats,
     proximaCategoria: proxId ? nomes.get(proxId) || '(categoria removida)' : null,
-    ultimaCategoria: historico[0]?.categoria || null,
+    ultimaCategoria: historico.find((l) => l.status !== 'executando')?.categoria || null,
     executando: historico.find((l) => l.status === 'executando') || null,
     historico
   };
@@ -264,7 +264,7 @@ async function trabalharLote(db, id) {
       // Sem confirmação da API externa, nunca se tenta automaticamente outra publicação.
       await marcar(db,item,'incerto',String(e.message||e).slice(0,600));
     }
-    if (ix < itens.length-1) await new Promise((r) =>
+    if (ix < itens.length-1 && itens[ix+1].produto_id !== item.produto_id) await new Promise((r) =>
       setTimeout(r,lote.intervalo_produtos_segundos*1000));
   }
   const total = (await db.query(
