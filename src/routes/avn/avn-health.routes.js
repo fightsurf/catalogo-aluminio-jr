@@ -28,7 +28,7 @@ router.get('/usuarios/:usuarioId/atividades',async(req,res)=>{
  }catch(e){err(res,e);}
 });
 // Ingestão administrativa para validação. Android precisará de credencial própria em etapa posterior.
-router.post('/usuarios/:usuarioId/importar',async(req,res)=>{
+async function importar(req,res){
  let client;
  try{
   const usuarioId=req.params.usuarioId;
@@ -65,5 +65,7 @@ router.post('/usuarios/:usuarioId/importar',async(req,res)=>{
   await client.query(`UPDATE public.avn_sincronizacoes SET status='concluida',finalizada_em=NOW(),registros_inseridos=$2,registros_atualizados=$3 WHERE id=$1`,[sync.rows[0].id,inserted,updated]);
   await client.query('COMMIT');res.json({ok:true,recebidos:clean.length+sessions.length,inseridos:inserted,atualizados:updated,sincronizacao_id:sync.rows[0].id});
  }catch(e){if(client)await client.query('ROLLBACK').catch(()=>{});err(res,e);}finally{if(client)client.release();}
-});
+}
+router.post('/usuarios/:usuarioId/importar', importar);
 module.exports=router;
+module.exports.importar=importar;
