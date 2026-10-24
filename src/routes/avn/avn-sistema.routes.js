@@ -1,28 +1,94 @@
+'use strict';
 const express = require('express');
 const path = require('path');
 const { requireAuth } = require('../../middlewares/adminAuth.middleware');
 const avnSistemaAplicativos = require('../../services/avn/avnSistemaAplicativos.service');
+const avnTreinosRoutes = require('./avn-treinos.routes');
+const pool = require('../../../db/connection');
 const router = express.Router();
+
+// A aplicação existente já monta este router em /avn/sistema, protegido por requireAuth.
+// Optou-se por concentrar a nova funcionalidade aqui para não substituir o server.js
+// do sistema da fábrica nem introduzir conflito com outros módulos.
+const treinoApps = [
+  {rota:'/avn/sistema/exercicios', nome:'Biblioteca de Exercícios', icone:'dumbbell', descricao:'Catálogo ilustrado por grupo muscular, instruções e equipamentos.'},
+  {rota:'/avn/sistema/montador', nome:'Montador de Treinos', icone:'list-plus', descricao:'Monte a semana com arrastar e soltar; personalize cada exercício.'},
+  {rota:'/avn/sistema/meus-treinos', nome:'Meus Treinos', icone:'calendar-check', descricao:'Gerencie planos de treinamento e seus dias.'},
+  {rota:'/avn/sistema/treinar', nome:'Registrar Treino', icone:'clipboard-check', descricao:'Registre cargas e séries realmente executadas.'},
+];
+async function inserirTreinosNoResumo(summary) {
+  await avnSistemaAplicativos.ensureSchema();
+  const {rows:registros}=await pool.query('SELECT rota,nome,categoria,visibilidade,favorito,ordem FROM public.avn_sistema_aplicativos_config WHERE rota=ANY($1::text[])',[treinoApps.map(a=>a.rota)]);
+  const configs=new Map(registros.map(c=>[c.rota,c]));
+  // Mantém compatibilidade com a estrutura usada pela Central de Aplicativos do AVN.
+  const existentes = new Set(summary.apps.map(x => x.rota));
+  const adicionais = treinoApps.filter(a => !existentes.has(a.rota)).map((a, i) => ({
+    id:Buffer.from(a.rota).toString('base64url'), ...a, categoria:'Atividades Físicas',
+    visibilidade:'principal', favorito:false, ordem:2000+i, conhecido:true, personalizado:false,
+  }));
+  for(const app of adicionais){const c=configs.get(app.rota);if(c){app.nome=c.nome||app.nome;app.categoria=c.categoria||app.categoria;app.visibilidade=c.visibilidade||app.visibilidade;app.favorito=!!c.favorito;app.ordem=c.ordem??app.ordem;app.personalizado=true;}}
+  summary.apps.push(...adicionais);
+  summary.apps.sort((a,b)=>(a.ordem??999999)-(b.ordem??999999)||a.nome.localeCompare(b.nome,'pt-BR')); 
+  summary.total += adicionais.length;
+  summary.visiveis += adicionais.filter(a=>a.visibilidade!=='oculto').length;
+  for(const a of adicionais){let cat=summary.categoriasDetalhes.find(x=>x.nome===a.categoria);if(cat)cat.quantidade++;else{summary.categorias.push(a.categoria);summary.categoriasDetalhes.push({nome:a.categoria,icone:'activity',ordem:null,quantidade:1,personalizada:false});}}
+  return summary;
+}
+
+function novoApp(rota){return treinoApps.find(a=>a.rota===rota);}
+async function salvarConfigNovo(body){
+  const base=novoApp(String(body.rota||''));if(!base)return null;
+  const nome=String(body.nome??base.nome).trim().slice(0,160)||base.nome;
+  const categoria=String(body.categoria??'Atividades Físicas').trim().slice(0,100)||'Atividades Físicas';
+  const visibilidade=['principal','secundario','oculto'].includes(body.visibilidade)?body.visibilidade:'principal';
+  const ordem=Number.isInteger(body.ordem)?body.ordem:null;
+  await avnSistemaAplicativos.ensureSchema();
+  await pool.query(`INSERT INTO public.avn_sistema_aplicativos_config(rota,nome,categoria,visibilidade,favorito,ordem,atualizado_em)
+    VALUES($1,$2,$3,$4,$5,$6,NOW())
+    ON CONFLICT(rota) DO UPDATE SET nome=EXCLUDED.nome,categoria=EXCLUDED.categoria,visibilidade=EXCLUDED.visibilidade,
+      favorito=EXCLUDED.favorito,ordem=EXCLUDED.ordem,atualizado_em=NOW()`,
+    [base.rota,nome,categoria,visibilidade,Boolean(body.favorito),ordem]);
+  return (await inserirTreinosNoResumo(await avnSistemaAplicativos.getSummary())).apps.find(a=>a.rota===base.rota);
+}
 router.get('/', requireAuth, (req,res) => res.sendFile(path.resolve(__dirname,'../../../views/avn/index.html')));
 router.get('/api/apps', requireAuth, async (req,res) => {
-  try { res.set('Cache-Control','no-store'); res.json(await avnSistemaAplicativos.getSummary()); }
+  try { res.set('Cache-Control','no-store'); res.json(await inserirTreinosNoResumo(await avnSistemaAplicativos.getSummary())); }
   catch(err){ console.error('[AVN sistema] erro ao montar catálogo:',err); res.status(500).json({erro:'Não foi possível montar o catálogo de aplicativos.'}); }
 });
 router.put('/api/apps/config', requireAuth, async (req,res) => {
-  try { res.json({ok:true, app:await avnSistemaAplicativos.saveConfig(req.body || {})}); }
+  try { res.json({ok:true, app:await salvarConfigNovo(req.body||{}) || await avnSistemaAplicativos.saveConfig(req.body || {})}); }
   catch(err){ console.error('[AVN sistema] erro ao salvar configuração:',err); res.status(err.status||500).json({erro:err.message||'Não foi possível salvar.'}); }
 });
 router.put('/api/apps/ordem', requireAuth, async (req,res) => {
-  try { res.json({ok:true, apps:await avnSistemaAplicativos.reorderApps(req.body?.categoria, req.body?.rotas || [])}); }
+  try {
+    const categoria=String(req.body?.categoria||'').trim();const rotas=Array.isArray(req.body?.rotas)?req.body.rotas:[];
+    await avnSistemaAplicativos.reorderApps(categoria,rotas);
+    const existing=await inserirTreinosNoResumo(await avnSistemaAplicativos.getSummary());
+    const custom=rotas.filter(x=>novoApp(x));
+    for(let i=0;i<custom.length;i++){
+      const app=existing.apps.find(a=>a.rota===custom[i]);
+      if(app)await salvarConfigNovo({...app,ordem:rotas.indexOf(custom[i])*10+10});
+    }
+    res.json({ok:true,apps:(await inserirTreinosNoResumo(await avnSistemaAplicativos.getSummary())).apps.filter(a=>a.categoria===categoria)});
+  }
   catch(err){ console.error('[AVN sistema] erro ao ordenar aplicativos:',err); res.status(err.status||500).json({erro:err.message||'Não foi possível salvar a ordem dos aplicativos.'}); }
 });
 router.delete('/api/apps/config', requireAuth, async (req,res) => {
-  try { res.json({ok:true, app:await avnSistemaAplicativos.resetConfig(req.body?.rota)}); }
+  try {
+    if(novoApp(req.body?.rota)){
+      await pool.query('DELETE FROM public.avn_sistema_aplicativos_config WHERE rota=$1',[req.body.rota]);
+      return res.json({ok:true,app:(await inserirTreinosNoResumo(await avnSistemaAplicativos.getSummary())).apps.find(a=>a.rota===req.body.rota)});
+    }
+    res.json({ok:true,app:await avnSistemaAplicativos.resetConfig(req.body?.rota)});
+  }
   catch(err){ console.error('[AVN sistema] erro ao restaurar configuração:',err); res.status(500).json({erro:'Não foi possível restaurar.'}); }
 });
-
 router.get('/api/categorias', requireAuth, async (req,res) => {
-  try { res.set('Cache-Control','no-store'); res.json({categorias:await avnSistemaAplicativos.getCategories()}); }
+  try {
+    res.set('Cache-Control','no-store');
+    const summary=await inserirTreinosNoResumo(await avnSistemaAplicativos.getSummary());
+    res.json({categorias:summary.categoriasDetalhes});
+  }
   catch(err){ console.error('[AVN sistema] erro ao listar categorias:',err); res.status(500).json({erro:'Não foi possível listar as categorias.'}); }
 });
 router.post('/api/categorias', requireAuth, async (req,res) => {
@@ -35,10 +101,19 @@ router.put('/api/categorias/:nome', requireAuth, async (req,res) => {
 });
 router.delete('/api/categorias/:nome', requireAuth, async (req,res) => {
   try { res.json(await avnSistemaAplicativos.deleteCategory(req.params.nome)); }
-  catch(err){ console.error('[AVN sistema] erro ao excluir categoria:',err); res.status(err.status||500).json({erro:err.message||'Não foi possível excluir a categoria.'}); }
+  catch(err){ console.error('[AVN sistema] erro ao excluir categoria:',err); res.status(500).json({erro:'Não foi possível excluir a categoria.'}); }
 });
 router.put('/api/categorias-ordem', requireAuth, async (req,res) => {
   try { res.json({ok:true,categorias:await avnSistemaAplicativos.reorderCategories(req.body?.nomes || [])}); }
-  catch(err){ console.error('[AVN sistema] erro ao ordenar categorias:',err); res.status(err.status||500).json({erro:err.message||'Não foi possível ordenar as categorias.'}); }
+  catch(err){ console.error('[AVN sistema] erro ao ordenar categorias:',err); res.status(err.status||500).json({erro:'Não foi possível salvar a ordem das categorias.'}); }
 });
-module.exports = router;
+
+// Montador, biblioteca, consulta e execução: API + 4 páginas sob login já existente.
+router.use('/api/treinos', requireAuth, avnTreinosRoutes);
+for (const [rota, arquivo] of [
+  ['exercicios','exercicios.html'],['montador','montador.html'],
+  ['meus-treinos','meus-treinos.html'],['treinar','treinar.html'],
+]) {
+  router.get('/'+rota, requireAuth, (_req,res)=>res.sendFile(path.resolve(__dirname,'../../../views/avn/'+arquivo)));
+}
+module.exports=router;
