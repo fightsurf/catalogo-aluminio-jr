@@ -20,7 +20,15 @@ const treinoApps = [
   {rota:'/avn/sistema/treinar', nome:'Registrar Treino', icone:'clipboard-check', descricao:'Registre cargas e séries realmente executadas.'},
 ];
 const nutricaoApps = [{rota:'/avn/sistema/nutricao', nome:'Controle Nutricional', categoria:'Nutrição', icone:'utensils', descricao:'Diário alimentar, dieta semanal e catálogo aberto de micronutrientes.'}];
-const todosApps = [...treinoApps, ...nutricaoApps];
+const corporalApps = [
+  {rota:'/avn/sistema/peso',nome:'Peso',categoria:'Avaliação Física',icone:'scale',descricao:'Histórico de peso corporal.'},
+  {rota:'/avn/sistema/imc',nome:'IMC',categoria:'Avaliação Física',icone:'calculator',descricao:'Histórico de índice de massa corporal.'},
+  {rota:'/avn/sistema/gordura-corporal',nome:'Gordura Corporal',categoria:'Avaliação Física',icone:'percent',descricao:'Percentual de gordura corporal.'},
+  {rota:'/avn/sistema/massa-magra',nome:'Massa Magra',categoria:'Avaliação Física',icone:'activity',descricao:'Histórico de massa magra.'},
+  {rota:'/avn/sistema/agua-corporal',nome:'Água Corporal',categoria:'Avaliação Física',icone:'droplets',descricao:'Histórico de água corporal.'},
+  {rota:'/avn/sistema/massa-ossea',nome:'Massa Óssea',categoria:'Avaliação Física',icone:'bone',descricao:'Histórico de massa óssea.'},
+];
+const todosApps = [...treinoApps, ...nutricaoApps, ...corporalApps];
 async function inserirTreinosNoResumo(summary) {
   await avnSistemaAplicativos.ensureSchema();
   const {rows:registros}=await pool.query('SELECT rota,nome,categoria,visibilidade,favorito,ordem FROM public.avn_sistema_aplicativos_config WHERE rota=ANY($1::text[])',[todosApps.map(a=>a.rota)]);
@@ -36,7 +44,7 @@ async function inserirTreinosNoResumo(summary) {
   summary.apps.sort((a,b)=>(a.ordem??999999)-(b.ordem??999999)||a.nome.localeCompare(b.nome,'pt-BR')); 
   summary.total += adicionais.length;
   summary.visiveis += adicionais.filter(a=>a.visibilidade!=='oculto').length;
-  for(const a of adicionais){let cat=summary.categoriasDetalhes.find(x=>x.nome===a.categoria);if(cat)cat.quantidade++;else{summary.categorias.push(a.categoria);summary.categoriasDetalhes.push({nome:a.categoria,icone:a.categoria==='Nutrição'?'utensils':'activity',ordem:null,quantidade:1,personalizada:false});}}
+  for(const a of adicionais){let cat=summary.categoriasDetalhes.find(x=>x.nome===a.categoria);if(cat)cat.quantidade++;else{summary.categorias.push(a.categoria);summary.categoriasDetalhes.push({nome:a.categoria,icone:a.categoria==='Nutrição'?'utensils':a.categoria==='Avaliação Física'?'scale':'activity',ordem:null,quantidade:1,personalizada:false});}}
   return summary;
 }
 
@@ -118,6 +126,8 @@ router.use('/midias', requireAuth, express.static(path.join(workoutPackageRoot,'
   dotfiles:'deny',fallthrough:false,immutable:true,maxAge:'7d',
   setHeaders(res){res.setHeader('X-Content-Type-Options','nosniff');}
 }));
+
+for(const a of corporalApps){const slug=a.rota.split('/').pop();router.get('/'+slug,requireAuth,(_req,res)=>res.sendFile(path.resolve(__dirname,'../../../views/avn/indicador-'+slug+'.html')));}
 
 // Montador, biblioteca, consulta e execução: API + 4 páginas sob login já existente.
 router.use('/api/treinos', requireAuth, avnTreinosRoutes);

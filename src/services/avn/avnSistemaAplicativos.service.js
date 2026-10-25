@@ -122,7 +122,7 @@ function baseApp(rota) {
 }
 async function getCatalog() {
   await ensureSchema();
-  const discovered = discoverRoutes();
+  const discovered = discoverRoutes().filter(rota=>rota!=='/avn/evolucao-corporal');
   const { rows } = await pool.query(`SELECT rota,nome,categoria,visibilidade,favorito,ordem,atualizado_em FROM avn_sistema_aplicativos_config`);
   const configs = new Map(rows.map(r => [normalizeRoute(r.rota), r]));
   return discovered.map(rota => {

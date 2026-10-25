@@ -1,11 +1,11 @@
 (()=>{'use strict';
 const $=id=>document.getElementById(id), section=document.body.dataset.section;
 const defs={peso:['Peso','kg','corporal'],imc:['IMC','kg/m²','corporal'],gordura_corporal:['Gordura corporal','%','corporal'],massa_magra:['Massa magra','kg','corporal'],agua_corporal:['Água corporal','kg','corporal'],massa_ossea:['Massa óssea','kg','corporal'],tmb:['Metabolismo basal (TMB)','kcal/dia','gastos'],passos:['Passos','passos','gastos'],calorias_ativas:['Calorias ativas','kcal','gastos'],calorias_totais:['Calorias totais','kcal','gastos'],atividades:['Exercícios físicos','sessões','gastos']};
-const keys=Object.keys(defs).filter(k=>defs[k][2]===section);let selected=keys[0],users=[];
+const fixed=document.body.dataset.fixedMetric;const keys=Object.keys(defs).filter(k=>defs[k][2]===section&&(!fixed||k===fixed));let selected=keys[0],users=[];
 const fmt=(n,dp=2)=>Number(n).toLocaleString('pt-BR',{maximumFractionDigits:dp});
 const fmtDate=d=>new Date(d).toLocaleString('pt-BR');
 async function json(url){const r=await fetch(url,{credentials:'same-origin',cache:'no-store'});if(!r.ok)throw Error('Falha ao consultar dados (HTTP '+r.status+').');return r.json();}
-function createCards(){for(const k of keys){const b=document.createElement('button');b.className='metric';b.dataset.metric=k;const t=document.createElement('strong');t.textContent=defs[k][0];const sub=document.createElement('small');sub.textContent=defs[k][1];b.append(t,sub);b.onclick=()=>{selected=k;refresh()};$('cards').append(b);}}
+function createCards(){if(fixed){$('cards').hidden=true;return;}for(const k of keys){const b=document.createElement('button');b.className='metric';b.dataset.metric=k;const t=document.createElement('strong');t.textContent=defs[k][0];const sub=document.createElement('small');sub.textContent=defs[k][1];b.append(t,sub);b.onclick=()=>{selected=k;refresh()};$('cards').append(b);}}
 function draw(rows,unit){
  const area=$('graph');area.replaceChildren();
  if(!rows.length)return;

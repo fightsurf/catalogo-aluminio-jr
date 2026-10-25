@@ -6,3 +6,16 @@
 .micro-todos{display:flex;align-items:center;gap:8px;margin:0 0 14px;font-size:13px;color:var(--muted)}
 .micro-todos input{width:auto}.micro-item small,.micro-item strong{overflow-wrap:anywhere}
 .nutrient-register button{justify-self:start}
+
+/* AVN: catálogo na esquerda e editor de três painéis independentes na direita */
+.alimento-layout{grid-template-columns:minmax(260px,.85fr) minmax(0,1.45fr);align-items:start}
+.alimento-editor{min-width:0;gap:14px}.alimento-editor .card{margin:0}.alimento-editor .card h3{margin-bottom:12px}
+.alimento-editor .avn-field{min-width:0}.nome-com-ia{display:flex;gap:8px;align-items:center}.nome-com-ia input{flex:1;width:100%;min-width:0}
+.nome-com-ia button{flex:none;font-weight:850}.form-actions{margin-top:15px}.alimentos-cadastrados{position:sticky;top:14px}
+.avn-dialog{width:min(840px,calc(100% - 22px));max-height:90vh;overflow:auto;border:1px solid var(--line);border-radius:16px;padding:22px;color:var(--ink);box-shadow:0 18px 70px #15293d5e}
+.avn-dialog::backdrop{background:#091b2bb8}.modal-head,.modal-actions{display:flex;align-items:center;justify-content:space-between;gap:12px}.modal-actions{margin-top:20px;justify-content:flex-end;border-top:1px solid var(--line);padding-top:16px}
+.avn-dialog #pesquisarIA{margin-top:10px}.avn-dialog #statusIA{margin:10px 0}.resultados-ia{display:grid;max-height:235px;overflow:auto;gap:6px}
+.ia-result{text-align:left;background:#f5f9fd;border:1px solid var(--line);border-radius:9px;padding:10px 12px;color:var(--ink)}.ia-result:hover{background:#e9f4fa}.ia-result small{display:block;color:var(--muted)}
+.ia-preview{border-top:1px solid var(--line);margin-top:14px;padding-top:14px}.ia-data{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;font-size:13px;margin:12px 0}
+@media(max-width:850px){.alimento-layout{grid-template-columns:1fr}.alimentos-cadastrados{position:static}.avn-dialog{padding:14px}}
+@media(max-width:520px){.ia-data{grid-template-columns:1fr}.modal-actions{flex-wrap:wrap}}

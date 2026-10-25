@@ -2,6 +2,7 @@
 // Autenticação obrigatória no mount em avn-sistema.routes.js.
 const express = require('express');
 const pool = require('../../../db/connection');
+const consultaUsda = require('../../services/avn/avn-nutricao-usda.service');
 const router = express.Router();
 const REFEICOES = new Set(['cafe','lanche_manha','almoco','lanche_tarde','jantar','ceia','outros']);
 const MACROS = ['kcal','proteinas_g','carboidratos_g','gorduras_g','fibras_g'];
@@ -63,24 +64,18 @@ const A = ['nome','marca','preparo','kcal_100g','proteinas_g_100g','carboidratos
 function fail(res,e){console.error('[AVN Nutrição]',e);res.status(e.status|| (e.code==='23503'||e.code==='23505'?409:500)).json({erro:e.status?e.message:e.code==='23503'?'Registro possui vínculos e não pode ser removido.':e.code==='23505'?'Registro duplicado.':'Falha no módulo de nutrição. Consulte os logs.'});}
 const wrap=fn=>async(req,res)=>{try{await fn(req,res);}catch(e){fail(res,e);}};
 
+router.get('/consulta-ia/buscar',wrap(async(req,res)=>{
+ const termo=String(req.query.termo||'').trim();if(termo.length<2||termo.length>180)throw bad('Informe um alimento com 2 a 180 caracteres.');
+ const out=await consultaUsda.search(termo);res.set('Cache-Control','no-store').json(out);
+}));
+router.get('/consulta-ia/detalhar/:fdcId',wrap(async(req,res)=>{
+ const id=String(req.params.fdcId||'');if(!/^\d{1,12}$/.test(id))throw bad('Identificador USDA inválido.');
+ const r=await pool.query('SELECT codigo,unidade FROM public.avn_nutrientes');
+ const out=await consultaUsda.detail(id,r.rows);res.set('Cache-Control','no-store').json(out);
+}));
 router.get('/nutrientes',wrap(async(_req,res)=>{
  const {rows}=await pool.query("SELECT codigo,nome,unidade,categoria FROM public.avn_nutrientes ORDER BY CASE categoria WHEN 'Vitaminas' THEN 0 WHEN 'Minerais' THEN 1 ELSE 2 END,nome,codigo");
  res.set('Cache-Control','no-store').json({macros:MACROS,micros:rows});
-}));
-router.post('/nutrientes',wrap(async(req,res)=>{
- const nome=String(req.body?.nome||'').trim();
- const unidade=normalizarUnidade(req.body?.unidade);
- const categoria=String(req.body?.categoria||'Outros');
- if(!nome||nome.length>160)throw bad('Nome do nutriente inválido.');
- if(!unidade||unidade.length>24||!/^[a-zA-Z0-9µμ°%/_ .-]+$/u.test(unidade))throw bad('Unidade inválida (ex.: mg, µg, g, UI).');
- if(!['Vitaminas','Minerais','Outros'].includes(categoria))throw bad('Categoria inválida.');
- const base=slug(nome),sufixo=slug(unidade.replace(/µ/g,'u'));
- if(!base||!sufixo||base.length<2)throw bad('Nome ou unidade inválido.');
- const codigo=(base+'_'+sufixo).slice(0,100);
- const exists=await pool.query('SELECT codigo FROM public.avn_nutrientes WHERE codigo=$1',[codigo]);
- if(exists.rowCount)throw bad('Este nutriente/unidade já está cadastrado.',409);
- const r=await pool.query('INSERT INTO public.avn_nutrientes(codigo,nome,unidade,categoria) VALUES($1,$2,$3,$4) RETURNING codigo,nome,unidade,categoria',[codigo,nome,unidade,categoria]);
- res.status(201).json(r.rows[0]);
 }));
 router.get('/alimentos',wrap(async(req,res)=>{
  const id=requiredId(req.query.usuarioId);await user(id);
@@ -91,8 +86,9 @@ router.get('/alimentos',wrap(async(req,res)=>{
 }));
 router.post('/alimentos',wrap(async(req,res)=>{
  const uid=requiredId(req.body?.usuarioId);await user(uid);const f=await foodPayload(req.body||{});
+ if(req.body?.fonte==='usda_fdc'&&/^https:\/\/fdc\.nal\.usda\.gov\/food-details\/\d+\/nutrients$/.test(req.body.fonte_referencia||'')){f.fonte='usda_fdc';f.fonte_referencia=req.body.fonte_referencia;}
  const vals=A.map(k=>k==='micronutrientes_100g'?JSON.stringify(f[k]):f[k]);
- const r=await pool.query(`INSERT INTO public.avn_alimentos(usuario_id,${A.join(',')}) VALUES ($1,${A.map((_,i)=>'$'+(i+2)).join(',')}) RETURNING *`,[uid,...vals]);res.status(201).json(r.rows[0]);
+ const r=await pool.query(`INSERT INTO public.avn_alimentos(usuario_id,${A.join(',')},fonte,fonte_referencia) VALUES ($1,${A.map((_,i)=>'$'+(i+2)).join(',')},$13,$14) RETURNING *`,[uid,...vals,f.fonte||'manual',f.fonte_referencia||null]);res.status(201).json(r.rows[0]);
 }));
 router.put('/alimentos/:id',wrap(async(req,res)=>{
  const uid=requiredId(req.body?.usuarioId),id=requiredId(req.params.id);await user(uid);const f=await foodPayload(req.body);

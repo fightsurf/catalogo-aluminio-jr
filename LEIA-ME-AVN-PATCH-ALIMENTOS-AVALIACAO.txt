@@ -1,0 +1,29 @@
+AVN — PATCH INCREMENTAL DE ALIMENTOS + AVALIAÇÃO FÍSICA (25/10/2026)
+
+Aplicar: copiar APENAS os arquivos listados neste ZIP da pasta render/ para a RAIZ do repositório correspondente no GitHub, preservando caminhos, fazer commit e aguardar deploy.
+Não substitui todo o Render. Não altera arquivos do sistema local, do aplicativo Android ou tabelas da fábrica.
+Não é necessário executar SQL manualmente.
+
+ALIMENTOS:
+- Coluna esquerda: alimentos cadastrados.
+- Coluna direita: 3 cartões separados (nome/marca/preparo; macros por 100g; vitaminas/minerais/outros), mais rodapé de porções/ações.
+- Cada campo nome/marca/preparo fica em linha própria.
+- Remove a opção de cadastrar novos tipos de micronutrientes da interface e desativa a rota POST /nutrientes, sem apagar nenhum micronutriente existente.
+- Botão IA ao lado do nome abre modal de pesquisa com resultados, fonte e prévia por 100g; botões Cadastrar com esses dados e Cancelar.
+- Dados vêm de consulta externa ao USDA FoodData Central (API oficial); a IA, quando configurada, só reformula a busca em português para inglês. Nunca inventa macro/micronutrientes.
+- Prioridade de exatidão: somente nutrientes cujo código e unidade correspondam aos do catálogo AVN são preenchidos; ausentes continuam vazios.
+- Fonte da composição é registrada no alimento importado.
+- A lista permite conferir candidatos distintos (cru/cozido/marca) antes de gravar. Duplicidade por nome/preparo/marca gera confirmação.
+
+IMPORTANTE — CONFIGURAÇÃO DAS CONSULTAS
+- USDA_API_KEY: recomendável cadastrar a chave oficial gratuita USDA FoodData Central nas variáveis do Render. Sem a chave, DEMO_KEY funciona SOMENTE PARA TESTES, com limites baixos e sujeitos a bloqueio por excesso.
+- OPENAI_API_KEY: opcional, para traduzir/reformular consultas de alimentos em português. Caso ausente, o sistema tenta tradução simplificada de nomes comuns; nenhum modelo de IA é usado nessa situação. AVN_NUTRICAO_AI_MODEL: opcional, padrão gpt-4o-mini.
+- Não compartilhe nenhuma chave na interface nem no GitHub. As chamadas ocorrem no backend protegido por login.
+- TBCA/TACO não são consultadas automaticamente neste patch: não oferecem integração pública equivalente confirmada; a fonte exibida é sempre USDA.
+
+AVALIAÇÃO FÍSICA:
+- Seis aplicativos independentes na Central AVN / categoria Avaliação Física: Peso, IMC, Gordura Corporal, Massa Magra, Água Corporal, Massa Óssea.
+- Cada indicador tem sua página e gráfico individual, reutilizando a API de saúde existente. Nenhum dado histórico é modificado.
+- O aplicativo agregado Evolução Corporal deixa de ser exibido como cartão na Central AVN, mas sua URL antiga continua acessível diretamente para compatibilidade.
+
+TESTES REALIZADOS: node --check nos JS modificados, teste de mapeamento USDA de macros e micronutrientes (inclusive valor ausente), inspeção estrutural da página HTML. NÃO foram realizadas chamadas reais ao USDA nem a um Render em produção nesta sessão.
