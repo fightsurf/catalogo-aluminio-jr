@@ -1,1 +1,15 @@
 .receitas-layout{display:grid;grid-template-columns:minmax(240px,.7fr) minmax(0,1.5fr);gap:18px;margin:16px 0}.receita-linha{display:grid;grid-template-columns:minmax(0,2fr) minmax(90px,1fr) auto;gap:9px;align-items:end;padding:11px;border:1px solid #d8e1e8;border-radius:9px;background:#fafcff}.receita-linha button{margin-bottom:0}.receita-resultado{margin-top:16px}.receita-resultado table{width:100%;border-collapse:collapse}.receita-resultado td,.receita-resultado th{padding:7px;border-bottom:1px solid #e5ebf0;text-align:left}.receita-resultado td:last-child{text-align:right}.receita-resultado .muted{color:#667}.receita-linha select{max-width:100%}@media(max-width:900px){.receitas-layout{grid-template-columns:1fr}}@media(max-width:520px){.receita-linha{grid-template-columns:1fr 100px}.receita-linha button{grid-column:1/-1}}
+/* AVN tema noturno unificado - não afeta Alumínio JR */
+:root{color-scheme:dark;--bg:#0b1220;--panel:#182437;--card:#182437;--text:#ecf2fc;--ink:#ecf2fc;--muted:#a9b9d1;--line:#34465f;--primary:#4c91e6;--primary2:#3474bf;--accent:#67a9f3;--light:#24374f;--shadow:0 10px 30px #0004;}
+html,body{background:#0b1220!important;color:#ecf2fc!important;color-scheme:dark}
+.card,.metric,.detail,.stat,.micro-item,.item,.exercise,.plan,.dropzone,.empty,.list-row,.category-card,.app-card,.manager,.manager-head,.manager-lane,.lane-head,.search,.icon-button,.edit-dialog,.dialog-head,.modal,.avn-modal,.avn-modal-ia{background:#182437!important;color:#ecf2fc!important;border-color:#34465f!important}
+input,textarea,select{background:#101c2e!important;color:#f1f5ff!important;border-color:#435775!important}input::placeholder,textarea::placeholder{color:#889bb7!important}
+.label,.avn-field,.item-head strong,.item strong,h1,h2,h3,h4,.plan strong,.category-card strong,.app-card strong,.detail h2,.manager strong{color:#f1f5ff!important}
+p,.muted,.hint,small,.exercise small,.creditos,.empty,.eyebrow,.card small,.app-copy span,.category-card small,.stat small{color:#a9b9d1!important}
+.btn:not(.primary):not(.danger),button.secondary,.btn.secondary,.day-tabs .btn,.tabs a,.avn-tabs button{background:#263b57!important;color:#ecf2fc!important;border-color:#465b7a!important}
+.btn.primary,button.primary,.day-tabs .selected{background:#277bbd!important;color:#fff!important;border-color:#277bbd!important}
+.pill,.stat:first-child,.summary .stat:first-child,.manager-lane,.stats span{background:#253c56!important;color:#d7eaff!important}
+.dropzone{background:#111e30!important;border-style:dashed!important}.thumb-frame,.media-preview-frame{background:#e2eef5!important}
+.graph-tooltip{background:#1b2a40!important;color:#fff!important;border-color:#435775!important}
+a{color:#8ec1ff}table th,table td{border-color:#34465f!important}hr,.tabs,.avn-top{border-color:#34465f!important}
+:focus-visible{outline-color:#80c4ff!important}

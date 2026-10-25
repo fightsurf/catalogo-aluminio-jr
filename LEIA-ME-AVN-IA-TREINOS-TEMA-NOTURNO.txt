@@ -1,0 +1,9 @@
+AVN — PATCH INCREMENTAL: IA NO MONTADOR + TEMA NOTURNO GLOBAL
+
+Instalação: copie o conteúdo da pasta render/ para a raiz do projeto Render no GitHub, preservando caminhos. Não inclua o projeto local ou node_modules.
+
+O botão IA requer OPENAI_API_KEY já utilizada pelo app Nutrição; modelo opcional AVN_TREINO_IA_MODEL. O servidor consulta últimos registros de métricas, atividades dos últimos 30 dias e exercícios ativos. Somente após clicar Aplicar programa a sugestão é carregada no editor; ainda precisa de Salvar treino para persistir.
+
+Montador agora inclui seletor de planos salvos. A entrada Meus Treinos sai da Central, mas a URL histórica continua para compatibilidade. O tema noturno é aplicado ao CSS de Central, Nutrição, Receitas, Avaliação Física e Atividades Físicas, não ao sistema Alumínio JR. Os cards do editor exibem ilustração esquerda, nome e campos direita.
+
+ATENÇÃO: revisar os detalhes da sugestão antes de salvar. Informações não sincronizadas não são inferidas. Não substitui avaliação profissional.

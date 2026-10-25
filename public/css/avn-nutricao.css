@@ -76,3 +76,21 @@
 .avn-chart-micros{max-height:270px;overflow:auto;display:grid;gap:9px;margin-top:13px}.avn-micro-bar{display:grid;grid-template-columns:minmax(90px,1.2fr) minmax(75px,2fr) auto;align-items:center;gap:7px;font-size:12px}.avn-micro-track{height:12px;border-radius:8px;background:#e7eef4;overflow:hidden}.avn-micro-fill{height:100%;background:#397fa2;border-radius:8px}.avn-micro-value{white-space:nowrap;font-variant-numeric:tabular-nums}
 .avn-chart-table-wrap{max-height:280px;overflow:auto;border:1px solid #e0e7ee;border-radius:9px}.avn-chart-table{width:100%;border-collapse:collapse;font-size:13px}.avn-chart-table th,.avn-chart-table td{padding:8px 10px;border-bottom:1px solid #edf0f4;text-align:left}.avn-chart-table th{position:sticky;top:0;background:#edf4f8}.avn-chart-table td:last-child{text-align:right;font-variant-numeric:tabular-nums}
 @media(max-width:760px){.avn-food-charts{grid-template-columns:1fr}.avn-food-dialog{padding:13px}.avn-food-head{gap:8px}}
+
+/* AVN tema noturno unificado - não afeta Alumínio JR */
+:root{color-scheme:dark;--bg:#0b1220;--panel:#182437;--card:#182437;--text:#ecf2fc;--ink:#ecf2fc;--muted:#a9b9d1;--line:#34465f;--primary:#4c91e6;--primary2:#3474bf;--accent:#67a9f3;--light:#24374f;--shadow:0 10px 30px #0004;}
+html,body{background:#0b1220!important;color:#ecf2fc!important;color-scheme:dark}
+.card,.metric,.detail,.stat,.micro-item,.item,.exercise,.plan,.dropzone,.empty,.list-row,.category-card,.app-card,.manager,.manager-head,.manager-lane,.lane-head,.search,.icon-button,.edit-dialog,.dialog-head,.modal,.avn-modal,.avn-modal-ia{background:#182437!important;color:#ecf2fc!important;border-color:#34465f!important}
+input,textarea,select{background:#101c2e!important;color:#f1f5ff!important;border-color:#435775!important}input::placeholder,textarea::placeholder{color:#889bb7!important}
+.label,.avn-field,.item-head strong,.item strong,h1,h2,h3,h4,.plan strong,.category-card strong,.app-card strong,.detail h2,.manager strong{color:#f1f5ff!important}
+p,.muted,.hint,small,.exercise small,.creditos,.empty,.eyebrow,.card small,.app-copy span,.category-card small,.stat small{color:#a9b9d1!important}
+.btn:not(.primary):not(.danger),button.secondary,.btn.secondary,.day-tabs .btn,.tabs a,.avn-tabs button{background:#263b57!important;color:#ecf2fc!important;border-color:#465b7a!important}
+.btn.primary,button.primary,.day-tabs .selected{background:#277bbd!important;color:#fff!important;border-color:#277bbd!important}
+.pill,.stat:first-child,.summary .stat:first-child,.manager-lane,.stats span{background:#253c56!important;color:#d7eaff!important}
+.dropzone{background:#111e30!important;border-style:dashed!important}.thumb-frame,.media-preview-frame{background:#e2eef5!important}
+.graph-tooltip{background:#1b2a40!important;color:#fff!important;border-color:#435775!important}
+a{color:#8ec1ff}table th,table td{border-color:#34465f!important}hr,.tabs,.avn-top{border-color:#34465f!important}
+:focus-visible{outline-color:#80c4ff!important}
+
+/* Harmonização de componentes dinâmicos de gráficos e pesquisa */
+.avn-food-dialog,.avn-dialog-comparador,.avn-dialog-comparador dialog{background:#182437!important;color:#ecf2fc!important;border-color:#435775!important}.avn-food-row:hover,.avn-food-row:focus-visible{background:#243b56!important}.avn-chart-table th,.avn-chart-table td,.avn-chart-table-wrap{border-color:#435775!important}.avn-chart-table,.avn-chart-micros,.avn-food-dialog details{background:#182437!important;color:#eaf2ff!important}.avn-micro-track{background:#314b68!important}.avn-alert{background:#153c35!important;color:#aef4db!important}.avn-alert.error{background:#45242b!important;color:#ffd3d9!important}

@@ -16,7 +16,6 @@ const router = express.Router();
 const treinoApps = [
   {rota:'/avn/sistema/exercicios', nome:'Biblioteca de Exercícios', icone:'dumbbell', descricao:'Catálogo ilustrado por grupo muscular, instruções e equipamentos.'},
   {rota:'/avn/sistema/montador', nome:'Montador de Treinos', icone:'list-plus', descricao:'Monte a semana com arrastar e soltar; personalize cada exercício.'},
-  {rota:'/avn/sistema/meus-treinos', nome:'Meus Treinos', icone:'calendar-check', descricao:'Gerencie planos de treinamento e seus dias.'},
   {rota:'/avn/sistema/treinar', nome:'Registrar Treino', icone:'clipboard-check', descricao:'Registre cargas e séries realmente executadas.'},
 ];
 const nutricaoApps = [
