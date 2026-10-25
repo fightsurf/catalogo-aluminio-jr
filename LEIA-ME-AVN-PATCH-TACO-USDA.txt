@@ -1,0 +1,24 @@
+AVN — PATCH INCREMENTAL TACO + USDA — 25/10/2026
+
+Extraia o ZIP e copie APENAS arquivos dentro de render/ para raiz do repositório GitHub, mantendo pastas.
+Não é um backup completo; substitua quatro arquivos existentes e adicione um serviço novo.
+
+FUNCIONALIDADES:
+- Fonte TACO (NEPA/UNICAMP, 4a ed.) padrão no modal de consulta IA.
+- Busca por nomes em português; 597 alimentos a partir de índice JSON público da API independente brolesi/taco.
+- Consulta detalhada por 100 g; macros + micronutrientes do catálogo compatíveis com unidades.
+- USDA permanece selecionável no mesmo modal.
+- Confirmação manual antes de inserir no banco; identificação da fonte.
+- A TACO não é obtida de um serviço oficial da Unicamp, mas de conversão independente documentada (MIT).
+- JSON recebido sob HTTPS é mantido em cache de memória por 12 h; sem tabela SQL adicional nem novos pacotes npm.
+- Falha de conexão com a fonte TACO exibe erro; não inventa nutrientes nem cadastra valores estimados.
+- Valores desconhecidos continuam nulos; TRAÇO (1e-05) preservado como valor pequeno.
+- TBCA não integrada automaticamente (necessária permissão).
+
+REFERÊNCIAS:
+TACO original: https://nepa.unicamp.br/wp-content/uploads/sites/27/2023/10/taco_4_edicao_ampliada_e_revisada.pdf
+JSON independente: https://brolesi.github.io/taco/
+Dicionário de campos: https://github.com/brolesi/taco/blob/main/docs/dicionario-dados.md
+
+Após deploy: AVN > Nutrição > Novo Alimento > Nome=Arroz > IA > escolher fonte TACO.
+Atenção: validar na instância Render real; testes externos de rede não foram possíveis neste ambiente.

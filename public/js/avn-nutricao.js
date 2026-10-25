@@ -139,25 +139,26 @@ function configurarIA(){
  $('consultarIA').onclick=()=>{const nome=v('alimentoNome').trim();if(!nome){show('Informe o nome do alimento para consultar.',true);return;}
   $('termoIA').value=[nome,v('alimentoPreparo').trim()].filter(Boolean).join(', ');$('resultadosIA').replaceChildren();$('previaIA').replaceChildren();status('Pesquise para ver as opções encontradas.');iaSelecionado=null;$('cadastrarIA').disabled=true;modal.showModal();pesquisarIA();};
  $('pesquisarIA').onclick=pesquisarIA;
+ $('fonteIA').onchange=pesquisarIA;
  $('termoIA').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();pesquisarIA();}};
  async function pesquisarIA(){try{iaSelecionado=null;$('cadastrarIA').disabled=true;$('previaIA').replaceChildren();status('Consultando tabela nutricional…');
-  const r=await api('/consulta-ia/buscar?termo='+encodeURIComponent(v('termoIA').trim()));
-  $('resultadosIA').innerHTML=(r.opcoes||[]).map(a=>`<button type="button" class="ia-result" data-fdc="${a.fdcId}"><strong>${esc(a.descricao)}</strong><small>${esc(a.tipo)}${a.marca?' · '+esc(a.marca):''}</small></button>`).join('')||'<p class="muted">Nenhum alimento correspondente. Ajuste a busca, inclusive o preparo.</p>';
+  const fonte=v('fonteIA');const r=await api('/consulta-ia/buscar?termo='+encodeURIComponent(v('termoIA').trim())+'&fonte='+encodeURIComponent(fonte));
+  $('resultadosIA').innerHTML=(r.opcoes||[]).map(a=>`<button type="button" class="ia-result" data-fdc="${esc(a.fdcId)}"><strong>${esc(a.descricao)}</strong><small>${esc(a.tipo)}${a.marca?' · '+esc(a.marca):''}</small></button>`).join('')||'<p class="muted">Nenhum alimento correspondente. Ajuste a busca, inclusive o preparo.</p>';
   $('resultadosIA').querySelectorAll('[data-fdc]').forEach(b=>b.onclick=()=>detalharIA(b.dataset.fdc));
-  status(`Fonte: USDA FoodData Central · ${r.opcoes.length} resultado(s) · pesquisa: ${r.pesquisa}`);
+  status(`Fonte: ${fonte==='taco'?'TACO — NEPA/UNICAMP':'USDA FoodData Central'} · ${r.opcoes.length} resultado(s) · pesquisa: ${r.pesquisa}`);
  }catch(e){status('Erro: '+e.message);}}
- async function detalharIA(id){try{status('Consultando composição completa…');const d=await api('/consulta-ia/detalhar/'+id);iaSelecionado=d;
+ async function detalharIA(id){try{status('Consultando composição completa…');const d=await api(id.startsWith('taco-')?'/consulta-ia/taco/'+id.slice(5):'/consulta-ia/detalhar/'+id);iaSelecionado=d;
   const m=MACROS.map(([k,l,u])=>`<div><strong>${esc(l)}</strong>: ${d.macros[k]===null?'Sem dado':fmt(d.macros[k],3)+' '+u}</div>`).join('');
   const mi=MICRO.filter(([k])=>d.micros[k]!==undefined&&d.micros[k]!==null).map(([k,l,u])=>`<div>${esc(l)}: ${fmt(d.micros[k],4)} ${esc(u)}</div>`).join('');
-  $('previaIA').innerHTML=`<div class="ia-preview"><h3>Prévia dos dados por 100 g</h3><p><strong>${esc(d.descricao)}</strong> · ${esc(d.tipo)} · <a target="_blank" rel="noopener noreferrer" href="${esc(d.fonteUrl)}">USDA FDC #${d.fdcId}</a></p><div class="ia-data">${m}</div><details open><summary>Micronutrientes disponíveis (${Object.keys(d.micros).length})</summary><div class="ia-data">${mi||'Nenhum dos micronutrientes do catálogo foi informado pela fonte.'}</div></details><p class="muted">Valores ausentes não são zero. Para alimentos de marca, confira o rótulo e a unidade de referência.</p></div>`;
+  $('previaIA').innerHTML=`<div class="ia-preview"><h3>Prévia dos dados por 100 g</h3><p><strong>${esc(d.descricao)}</strong> · ${esc(d.tipo)} · <a target="_blank" rel="noopener noreferrer" href="${esc(d.fonteUrl)}">${d.fonte==='taco'?'TACO #'+d.tacoId:'USDA FDC #'+d.fdcId}</a></p><div class="ia-data">${m}</div><details open><summary>Micronutrientes disponíveis (${Object.keys(d.micros).length})</summary><div class="ia-data">${mi||'Nenhum dos micronutrientes do catálogo foi informado pela fonte.'}</div></details><p class="muted">Valores ausentes não são zero. Para alimentos de marca, confira o rótulo e a unidade de referência.</p></div>`;
   $('cadastrarIA').disabled=false;status('Confira o alimento e sua preparação antes de cadastrar.');
  }catch(e){iaSelecionado=null;$('cadastrarIA').disabled=true;status(e.message);}}
  $('cadastrarIA').onclick=async()=>{if(!iaSelecionado)return;try{userGuard();const d=iaSelecionado;
- const registro={usuarioId:state.usuarioId,nome:v('alimentoNome').trim(),marca:v('alimentoMarca')||d.marca||'',preparo:v('alimentoPreparo'),fonte:'usda_fdc',fonte_referencia:d.fonteUrl,micronutrientes_100g:d.micros};
+ const registro={usuarioId:state.usuarioId,nome:v('alimentoNome').trim(),marca:v('alimentoMarca')||d.marca||'',preparo:v('alimentoPreparo')||d.preparo||'',fonte:d.fonte==='taco'?'taco':'usda_fdc',fonte_referencia:d.fonteUrl,micronutrientes_100g:d.micros};
  if(!registro.nome)registro.nome=d.descricao;
  for(const [key] of MACROS)registro[key+'_100g']=d.macros[key];
  if(state.alimentos.some(f=>f.nome.toLowerCase()===registro.nome.toLowerCase()&&(f.preparo||'').toLowerCase()===registro.preparo.toLowerCase()&&(f.marca||'').toLowerCase()===registro.marca.toLowerCase())){if(!confirm('Já existe alimento com mesmo nome, preparo e marca. Cadastrar outro?'))return;}
- await send('/alimentos','POST',registro);await loadFoods();fillFood(null);fechar();show('Alimento importado do USDA com fonte identificada.');
+ await send('/alimentos','POST',registro);await loadFoods();fillFood(null);fechar();show('Alimento importado de '+(d.fonte==='taco'?'TACO':'USDA')+' com fonte identificada.');
  }catch(e){status('Não foi possível cadastrar: '+e.message);}};
 }
 function events(){

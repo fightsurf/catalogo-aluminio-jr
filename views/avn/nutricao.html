@@ -29,7 +29,7 @@
 </form></div>
 <dialog id="modalConsultaIA" class="avn-dialog" aria-labelledby="modalIATitulo"><div class="modal-head"><h2 id="modalIATitulo">Consulta nutricional com IA</h2><button id="fecharIA" type="button" class="secondary" aria-label="Fechar">×</button></div>
 <p class="muted">Resultados verificados no USDA FoodData Central. Selecione o alimento e confira preparo, fonte e nutrientes. A IA pode auxiliar na tradução da busca, mas não cria valores.</p>
-<label class="avn-field">Pesquisar alimento<input id="termoIA" type="search" maxlength="180" placeholder="Ex.: arroz branco cozido"></label>
+<label class="avn-field">Pesquisar alimento<select id="fonteIA" aria-label="Fonte da consulta"><option value="taco">TACO — alimentos brasileiros (padrão)</option><option value="usda">USDA — base internacional</option></select><input id="termoIA" type="search" maxlength="180" placeholder="Ex.: arroz branco cozido"></label>
 <button class="secondary" id="pesquisarIA" type="button">Pesquisar</button><div id="statusIA" class="muted" role="status"></div>
 <div id="resultadosIA" class="resultados-ia"></div><div id="previaIA"></div>
 <div class="modal-actions"><button id="cancelarIA" type="button" class="secondary">Cancelar</button><button id="cadastrarIA" type="button" class="primary" disabled>Cadastrar com esses dados</button></div></dialog>

@@ -3,6 +3,7 @@
 const express = require('express');
 const pool = require('../../../db/connection');
 const consultaUsda = require('../../services/avn/avn-nutricao-usda.service');
+const consultaTaco = require('../../services/avn/avn-nutricao-taco.service');
 const router = express.Router();
 const REFEICOES = new Set(['cafe','lanche_manha','almoco','lanche_tarde','jantar','ceia','outros']);
 const MACROS = ['kcal','proteinas_g','carboidratos_g','gorduras_g','fibras_g'];
@@ -66,12 +67,18 @@ const wrap=fn=>async(req,res)=>{try{await fn(req,res);}catch(e){fail(res,e);}};
 
 router.get('/consulta-ia/buscar',wrap(async(req,res)=>{
  const termo=String(req.query.termo||'').trim();if(termo.length<2||termo.length>180)throw bad('Informe um alimento com 2 a 180 caracteres.');
- const out=await consultaUsda.search(termo);res.set('Cache-Control','no-store').json(out);
+ const fonte=String(req.query.fonte||'taco');
+ if(!['taco','usda'].includes(fonte))throw bad('Fonte não disponível.');
+ const out=await (fonte==='taco'?consultaTaco.search(termo):consultaUsda.search(termo));res.set('Cache-Control','no-store').json(out);
 }));
 router.get('/consulta-ia/detalhar/:fdcId',wrap(async(req,res)=>{
  const id=String(req.params.fdcId||'');if(!/^\d{1,12}$/.test(id))throw bad('Identificador USDA inválido.');
  const r=await pool.query('SELECT codigo,unidade FROM public.avn_nutrientes');
  const out=await consultaUsda.detail(id,r.rows);res.set('Cache-Control','no-store').json(out);
+}));
+router.get('/consulta-ia/taco/:id',wrap(async(req,res)=>{
+ const r=await pool.query('SELECT codigo,unidade FROM public.avn_nutrientes');
+ const out=await consultaTaco.detail(req.params.id,r.rows);res.set('Cache-Control','no-store').json(out);
 }));
 router.get('/nutrientes',wrap(async(_req,res)=>{
  const {rows}=await pool.query("SELECT codigo,nome,unidade,categoria FROM public.avn_nutrientes ORDER BY CASE categoria WHEN 'Vitaminas' THEN 0 WHEN 'Minerais' THEN 1 ELSE 2 END,nome,codigo");
@@ -87,6 +94,7 @@ router.get('/alimentos',wrap(async(req,res)=>{
 router.post('/alimentos',wrap(async(req,res)=>{
  const uid=requiredId(req.body?.usuarioId);await user(uid);const f=await foodPayload(req.body||{});
  if(req.body?.fonte==='usda_fdc'&&/^https:\/\/fdc\.nal\.usda\.gov\/food-details\/\d+\/nutrients$/.test(req.body.fonte_referencia||'')){f.fonte='usda_fdc';f.fonte_referencia=req.body.fonte_referencia;}
+ if(req.body?.fonte==='taco'&&/^https:\/\/brolesi\.github\.io\/taco\/foods\/[1-9]\d{0,2}\.json$/.test(req.body.fonte_referencia||'')){f.fonte='taco';f.fonte_referencia=req.body.fonte_referencia;}
  const vals=A.map(k=>k==='micronutrientes_100g'?JSON.stringify(f[k]):f[k]);
  const r=await pool.query(`INSERT INTO public.avn_alimentos(usuario_id,${A.join(',')},fonte,fonte_referencia) VALUES ($1,${A.map((_,i)=>'$'+(i+2)).join(',')},$13,$14) RETURNING *`,[uid,...vals,f.fonte||'manual',f.fonte_referencia||null]);res.status(201).json(r.rows[0]);
 }));
