@@ -4,6 +4,7 @@ const express = require('express');
 const pool = require('../../../db/connection');
 const consultaUsda = require('../../services/avn/avn-nutricao-usda.service');
 const consultaTaco = require('../../services/avn/avn-nutricao-taco.service');
+const consultaJsonIA = require('../../services/avn/avn-nutricao-ia-json.service');
 const router = express.Router();
 const REFEICOES = new Set(['cafe','lanche_manha','almoco','lanche_tarde','jantar','ceia','outros']);
 const MACROS = ['kcal','proteinas_g','carboidratos_g','gorduras_g','fibras_g'];
@@ -65,6 +66,13 @@ const A = ['nome','marca','preparo','kcal_100g','proteinas_g_100g','carboidratos
 function fail(res,e){console.error('[AVN Nutrição]',e);res.status(e.status|| (e.code==='23503'||e.code==='23505'?409:500)).json({erro:e.status?e.message:e.code==='23503'?'Registro possui vínculos e não pode ser removido.':e.code==='23505'?'Registro duplicado.':'Falha no módulo de nutrição. Consulte os logs.'});}
 const wrap=fn=>async(req,res)=>{try{await fn(req,res);}catch(e){fail(res,e);}};
 
+// Consulta com IA: a lista de todos os nutrientes vem exclusivamente do PostgreSQL.
+// Não recebe dados clínicos/pessoais do usuário; não grava alimentos automaticamente.
+router.post('/consulta-ia/gerar-json',wrap(async(req,res)=>{
+ const {rows}=await pool.query('SELECT codigo,nome,unidade,categoria FROM public.avn_nutrientes ORDER BY codigo');
+ const dados=await consultaJsonIA.gerar(req.body||{},rows);
+ res.set('Cache-Control','no-store').json(dados);
+}));
 router.get('/consulta-ia/buscar',wrap(async(req,res)=>{
  const termo=String(req.query.termo||'').trim();if(termo.length<2||termo.length>180)throw bad('Informe um alimento com 2 a 180 caracteres.');
  const fonte=String(req.query.fonte||'taco');
@@ -95,6 +103,11 @@ router.post('/alimentos',wrap(async(req,res)=>{
  const uid=requiredId(req.body?.usuarioId);await user(uid);const f=await foodPayload(req.body||{});
  if(req.body?.fonte==='usda_fdc'&&/^https:\/\/fdc\.nal\.usda\.gov\/food-details\/\d+\/nutrients$/.test(req.body.fonte_referencia||'')){f.fonte='usda_fdc';f.fonte_referencia=req.body.fonte_referencia;}
  if(req.body?.fonte==='taco'&&/^https:\/\/brolesi\.github\.io\/taco\/foods\/[1-9]\d{0,2}\.json$/.test(req.body.fonte_referencia||'')){f.fonte='taco';f.fonte_referencia=req.body.fonte_referencia;}
+ if(req.body?.fonte==='ia_pesquisa'){
+  f.fonte='ia_pesquisa';
+  const referencia=String(req.body.fonte_referencia||'');
+  if(referencia.length<=240&&/^https:\/\/[^\s]+$/.test(referencia))f.fonte_referencia=referencia;
+ }
  const vals=A.map(k=>k==='micronutrientes_100g'?JSON.stringify(f[k]):f[k]);
  const r=await pool.query(`INSERT INTO public.avn_alimentos(usuario_id,${A.join(',')},fonte,fonte_referencia) VALUES ($1,${A.map((_,i)=>'$'+(i+2)).join(',')},$13,$14) RETURNING *`,[uid,...vals,f.fonte||'manual',f.fonte_referencia||null]);res.status(201).json(r.rows[0]);
 }));

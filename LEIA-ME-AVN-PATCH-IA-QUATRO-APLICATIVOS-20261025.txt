@@ -1,0 +1,52 @@
+AVN — Consulta nutricional com IA + quatro aplicativos independentes
+Data: 25/10/2026
+Base: render(20261025-123804).zip enviado pelo usuário
+
+PATCH INCREMENTAL — SOMENTE RENDER
+
+1. Extraia o ZIP e copie os arquivos que estão na pasta render/ para a RAIZ
+   do repositório fightsurf/catalogo-aluminio-jr, PRESERVANDO os caminhos.
+2. Substitua os arquivos existentes e acrescente os arquivos novos.
+3. Commit no GitHub; aguarde o deploy Render.
+4. Não precisa executar scripts SQL ou substituir pastas inteiras.
+5. Nenhum arquivo da API local/Firebird ou do app Android foi modificado.
+
+CONFIGURAÇÃO
+- OPENAI_API_KEY: necessária apenas para o botão IA > fonte "IA — pesquisar na web e gerar JSON".
+- AVN_NUTRICAO_PESQUISA_MODEL: opcional, padrão gpt-4.1-mini.
+  A opção requer modelo habilitado para Responses API + web_search e structured outputs.
+- USDA_API_KEY: permanece como no sistema atual para pesquisar via USDA.
+- Consultas OpenAI e busca web consomem créditos da conta da API, separadamente
+  de qualquer assinatura do ChatGPT. Duas chamadas da API são feitas por pesquisa.
+- Nunca exponha as chaves de API em HTML, JavaScript público ou no repositório.
+
+APLICATIVOS NOVOS — CENTRAL AVN > NUTRIÇÃO
+/avn/sistema/nutricao/diario    Diário alimentar
+/avn/sistema/nutricao/dieta     Dieta programada
+/avn/sistema/nutricao/alimentos Alimentos
+/avn/sistema/nutricao/metas     Minhas metas
+
+O antigo /avn/sistema/nutricao redireciona para o Diário alimentar.
+As quatro páginas têm arquivos HTML SEPARADOS, compartilham JS/CSS e APIs.
+Nenhuma tabela do PostgreSQL foi apagada ou alterada; dados existentes preservados.
+
+CADASTRO DE ALIMENTOS > BOTÃO IA
+- TACO e USDA continuam disponíveis no modal.
+- Terceira opção: "IA — pesquisar na web e gerar JSON".
+- Etapa 1: faz pesquisa web com o modelo da OpenAI sobre o alimento/preparo.
+- Etapa 2: extrai um JSON estruturado a partir dos dados encontrados.
+- Esquema JSON é montado a cada consulta a partir de public.avn_nutrientes.
+- Campos de todos os nutrientes existentes + cinco macros; desconhecidos null.
+- Valida códigos, estrutura, unidades especificadas e limites de quantidade.
+- Apresenta fontes e AVISO de que valores devem ser verificados pelo usuário.
+- Permite copiar JSON, aplicar dados ao formulário e cadastrar com confirmação.
+- NÃO cadastra tipos novos de micronutrientes. NÃO salva automaticamente.
+- Pesquisa pela IA pode demorar e depender de disponibilidade/limites da API.
+- A IA não é um laboratório nem garante exatidão das fontes. Por isso, sempre
+  confira fonte, estado cru/cozido, unidade e valor por 100 g da parte comestível.
+- Se não houver fonte citável, a operação rejeita valores numéricos.
+
+TESTES (simulados, sem conexão ao Render)
+node --test tests/avn-nutricao-ia-json.test.js
+
+ARQUIVOS INCLUÍDOS: os únicos necessários a esta funcionalidade.

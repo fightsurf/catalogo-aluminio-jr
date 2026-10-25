@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>AVN — Alimentos</title><link rel="stylesheet" href="/css/avn-nutricao.css"><script src="/js/avn-nutricao.js" defer></script></head>
+<body data-nutricao-pagina="alimentos"><main class="avn-wrap">
+<header class="avn-top"><a href="/avn">← Central AVN</a><span class="avn-brand">AVN <em>Nutrição</em></span></header>
+<section class="avn-hero"><div><span class="avn-caption">NUTRIÇÃO · AVN</span><h1>Alimentos</h1><p>Cadastre alimentos manualmente, consulte TACO/USDA ou gere um JSON nutricional com IA.</p></div><label class="avn-field user-field">Usuário<select id="usuario"><option>Carregando…</option></select></label></section>
+<nav class="avn-tabs avn-links" aria-label="Aplicativos de nutrição"><a href="/avn/sistema/nutricao/diario" >Diário alimentar</a><a href="/avn/sistema/nutricao/dieta" >Dieta programada</a><a href="/avn/sistema/nutricao/alimentos" aria-current="page">Alimentos</a><a href="/avn/sistema/nutricao/metas" >Minhas metas</a></nav>
+<div id="alerta" class="avn-alert" role="status" hidden></div>
+<section id="alimentos" class="avn-panel"><div class="avn-row space"><div><h2>Catálogo de alimentos</h2><p class="muted">Valores por 100 g da parte comestível. Diferencie cru, cozido, marca e preparo.</p></div><label class="avn-field">Pesquisar<input type="search" id="buscaAlimento" placeholder="Ex.: arroz, frango, ovo"></label></div>
+<div class="avn-grid alimento-layout">
+<section class="card alimentos-cadastrados"><h3>Alimentos cadastrados</h3><div id="listaAlimentos" class="list scroll-list"></div><p class="muted">Selecione Editar para carregar o alimento nos painéis ao lado.</p></section>
+<form id="formAlimento" class="alimento-editor stack">
+<input type="hidden" id="alimentoId">
+<section class="card"><h3 id="tituloAlimento">Novo alimento</h3>
+<div class="stack"><label class="avn-field">Nome do alimento <span class="nome-com-ia"><input id="alimentoNome" required maxlength="180" placeholder="Ex.: Arroz branco, cozido"><button type="button" id="consultarIA" class="secondary" title="Consultar dados nutricionais verificáveis">IA</button></span></label>
+<label class="avn-field">Marca (opcional)<input id="alimentoMarca" maxlength="120"></label>
+<label class="avn-field">Preparo (opcional)<input id="alimentoPreparo" maxlength="120" placeholder="Cru, cozido, assado, grelhado…"></label></div></section>
+<section class="card"><h3>Composição por 100 g</h3><p class="muted">Valores da parte comestível; deixe em branco o que for desconhecido.</p><div id="camposMacros" class="avn-three"></div></section>
+<section class="card"><h3>Vitaminas, minerais e outros nutrientes</h3><p class="muted">Dados por 100 g. Nutrientes sem informação continuam vazios.</p>
+<label class="avn-field">Localizar nutriente<input type="search" id="buscaMicroAlimento" placeholder="Filtrar vitaminas, minerais e outros"></label><div id="camposMicros" class="avn-three micros-form"></div></section>
+<section class="card"><div class="avn-two"><label class="avn-field">Porção caseira (opcional)<input id="porcaoNome" placeholder="Ex.: 1 colher de sopa"></label><label class="avn-field">Peso da porção (g)<input type="number" id="porcaoGramas" min="0.1" step="0.1"></label></div>
+<div class="avn-row form-actions"><button class="primary">Salvar alimento</button><button class="secondary" type="button" id="limparAlimento">Novo</button></div></section>
+</form></div>
+<dialog id="modalConsultaIA" class="avn-dialog" aria-labelledby="modalIATitulo"><div class="modal-head"><h2 id="modalIATitulo">Consulta nutricional com IA</h2><button id="fecharIA" type="button" class="secondary" aria-label="Fechar">×</button></div>
+<p class="muted">TACO e USDA retornam dados das respectivas tabelas. A opção IA faz pesquisa complementar na web e gera um JSON completo com todos os nutrientes cadastrados no AVN. Confira as fontes e os valores sugeridos antes de cadastrar.</p>
+<label class="avn-field">Pesquisar alimento<select id="fonteIA" aria-label="Fonte da consulta"><option value="taco">TACO — alimentos brasileiros (padrão)</option><option value="usda">USDA — base internacional</option><option value="ia">IA — pesquisar na web e gerar JSON</option></select><input id="termoIA" type="search" maxlength="180" placeholder="Ex.: arroz branco cozido"></label>
+<button class="secondary" id="pesquisarIA" type="button">Pesquisar / Gerar JSON</button><div id="statusIA" class="muted" role="status"></div>
+<div id="resultadosIA" class="resultados-ia"></div><div id="previaIA"></div><div id="blocoJSON" hidden><h3>JSON gerado para importação</h3><pre id="jsonGerado" class="ia-json-block"></pre><div class="ia-opcoes"><button type="button" class="secondary" id="copiarJSON">Copiar JSON</button><button type="button" class="secondary" id="aplicarJSON">Preencher formulário para revisão</button></div></div>
+<div class="modal-actions"><button id="cancelarIA" type="button" class="secondary">Cancelar</button><button id="cadastrarIA" type="button" class="primary" disabled>Cadastrar com esses dados</button></div></dialog>
+</section>
+
+<footer>AVN · Os valores nutricionais dependem da qualidade dos dados e do preparo informado.</footer></main></body></html>

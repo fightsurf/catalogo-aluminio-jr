@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>AVN — Diário alimentar</title><link rel="stylesheet" href="/css/avn-nutricao.css"><script src="/js/avn-nutricao.js" defer></script></head>
+<body data-nutricao-pagina="diario"><main class="avn-wrap">
+<header class="avn-top"><a href="/avn">← Central AVN</a><span class="avn-brand">AVN <em>Nutrição</em></span></header>
+<section class="avn-hero"><div><span class="avn-caption">NUTRIÇÃO · AVN</span><h1>Diário alimentar</h1><p>Registre o que foi consumido, acompanhe calorias, macros e micros.</p></div><label class="avn-field user-field">Usuário<select id="usuario"><option>Carregando…</option></select></label></section>
+<nav class="avn-tabs avn-links" aria-label="Aplicativos de nutrição"><a href="/avn/sistema/nutricao/diario" aria-current="page">Diário alimentar</a><a href="/avn/sistema/nutricao/dieta" >Dieta programada</a><a href="/avn/sistema/nutricao/alimentos" >Alimentos</a><a href="/avn/sistema/nutricao/metas" >Minhas metas</a></nav>
+<div id="alerta" class="avn-alert" role="status" hidden></div>
+<section id="diario" class="avn-panel"><div class="avn-row space"><div><h2>Consumo real</h2><p class="muted">O que foi consumido é registrado somente após confirmação.</p></div><label class="avn-field">Data<input type="date" id="dataDiario"></label></div>
+<div class="summary" id="resumoDiario"></div><div class="avn-grid"><section class="card"><h3>Adicionar alimento</h3><form id="formDiario" class="stack"><label class="avn-field">Alimento<select id="diarioAlimento" required></select></label><div class="avn-two"><label class="avn-field">Refeição<select id="diarioRefeicao"></select></label><label class="avn-field">Quantidade (g)<input type="number" id="diarioGramas" required min="0.1" max="10000" step="0.1" value="100"></label></div><button class="primary">Registrar consumo</button></form><div class="aside"><strong>Dieta do dia</strong><p class="muted">Copiar a dieta significa confirmar o consumo de todos os itens planejados para esta data.</p><button type="button" id="copiarDieta" class="secondary">Registrar itens planejados</button></div></section>
+<section class="card"><h3>Alimentos registrados</h3><div id="listaDiario" class="list"></div></section></div>
+<section class="card"><h3>Micronutrientes consumidos</h3><p class="muted">“Sem dado” não é zero: o total pode estar incompleto quando o alimento não informa determinado nutriente.</p><label class="micro-todos"><input type="checkbox" id="mostrarTodosMicros"> Mostrar nutrientes sem dados</label><div id="microDiario" class="micro-grid"></div></section></section>
+
+<footer>AVN · Os valores nutricionais dependem da qualidade dos dados e do preparo informado.</footer></main></body></html>

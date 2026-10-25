@@ -1,0 +1,11 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>AVN — Minhas metas</title><link rel="stylesheet" href="/css/avn-nutricao.css"><script src="/js/avn-nutricao.js" defer></script></head>
+<body data-nutricao-pagina="metas"><main class="avn-wrap">
+<header class="avn-top"><a href="/avn">← Central AVN</a><span class="avn-brand">AVN <em>Nutrição</em></span></header>
+<section class="avn-hero"><div><span class="avn-caption">NUTRIÇÃO · AVN</span><h1>Minhas metas</h1><p>Defina objetivos diários de energia, macronutrientes e micronutrientes.</p></div><label class="avn-field user-field">Usuário<select id="usuario"><option>Carregando…</option></select></label></section>
+<nav class="avn-tabs avn-links" aria-label="Aplicativos de nutrição"><a href="/avn/sistema/nutricao/diario" >Diário alimentar</a><a href="/avn/sistema/nutricao/dieta" >Dieta programada</a><a href="/avn/sistema/nutricao/alimentos" >Alimentos</a><a href="/avn/sistema/nutricao/metas" aria-current="page">Minhas metas</a></nav>
+<div id="alerta" class="avn-alert" role="status" hidden></div>
+<section id="metas" class="avn-panel"><div class="avn-row space"><div><h2>Metas nutricionais</h2><p class="muted">Defina suas metas; nenhuma dieta calórica é presumida automaticamente.</p></div></div><section class="card"><form id="formMetas" class="stack"><h3>Calorias e macronutrientes</h3><div id="camposMetas" class="avn-three"></div><details><summary>Metas de micronutrientes (opcionais)</summary><label class="avn-field">Localizar nutriente<input type="search" id="buscaMicroMetas" placeholder="Filtrar micronutrientes"></label><div id="camposMicroMetas" class="avn-three micros-form"></div></details><button class="primary">Salvar metas</button></form></section></section>
+
+<footer>AVN · Os valores nutricionais dependem da qualidade dos dados e do preparo informado.</footer></main></body></html>
