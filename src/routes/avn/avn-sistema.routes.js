@@ -16,6 +16,8 @@ const router = express.Router();
 const treinoApps = [
   {rota:'/avn/sistema/exercicios', nome:'Biblioteca de Exercícios', icone:'dumbbell', descricao:'Catálogo ilustrado por grupo muscular, instruções e equipamentos.'},
   {rota:'/avn/sistema/montador', nome:'Montador de Treinos', icone:'list-plus', descricao:'Monte a semana com arrastar e soltar; personalize cada exercício.'},
+  {rota:'/avn/sistema/minha-academia', nome:'Minha Academia', icone:'warehouse', descricao:'Máquinas e acessórios disponíveis para os programas de treino.'},
+  {rota:'/avn/sistema/perfil-treinamento', nome:'Perfil de Treinamento', icone:'clipboard-user', descricao:'Experiência, regularidade, objetivos e limitações para orientar a IA.'},
   {rota:'/avn/sistema/treinar', nome:'Registrar Treino', icone:'clipboard-check', descricao:'Registre cargas e séries realmente executadas.'},
 ];
 const nutricaoApps = [
@@ -139,6 +141,7 @@ router.use('/api/treinos', requireAuth, avnTreinosRoutes);
 for (const [rota, arquivo] of [
   ['exercicios','exercicios.html'],['montador','montador.html'],
   ['meus-treinos','meus-treinos.html'],['treinar','treinar.html'],
+  ['minha-academia','minha-academia.html'],['perfil-treinamento','perfil-treinamento.html'],
 ]) {
   router.get('/'+rota, requireAuth, (_req,res)=>res.sendFile(path.resolve(__dirname,'../../../views/avn/'+arquivo)));
 }
