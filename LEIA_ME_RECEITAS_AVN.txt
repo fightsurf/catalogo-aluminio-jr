@@ -1,0 +1,10 @@
+PATCH AVN - RECEITAS | Render | 25/10/2026
+Copie o conteúdo de render/ para a raiz do projeto no GitHub e aguarde deploy.
+Migração automática: 20261025_avn_receitas.sql (não executar manualmente).
+Novo aplicativo: /avn/sistema/nutricao/receitas.
+Receitas criam alimento associado (fonte=receita), selecionável na dieta e no diário.
+Exige ingredientes já cadastrados em Alimentos e o PESO FINAL pronto. Usa peso em gramas da parte comestível.
+Sem correção de perdas de vitaminas durante o preparo. Ingrediente sem dados gera nutriente desconhecido.
+Não é permitido usar receitas como ingredientes de outras receitas nesta versão.
+Alterações da receita atualizam o alimento do catálogo e dietas futuras; lançamentos antigos no diário preservam composição snapshot.
+Arquivos contidos no patch: '+str(len(changed)+1)+' (incluindo este README).

@@ -6,6 +6,7 @@ const consultaUsda = require('../../services/avn/avn-nutricao-usda.service');
 const consultaTaco = require('../../services/avn/avn-nutricao-taco.service');
 const consultaJsonIA = require('../../services/avn/avn-nutricao-ia-json.service');
 const router = express.Router();
+router.use('/receitas',require('./avn-receitas.routes'));
 const REFEICOES = new Set(['cafe','lanche_manha','almoco','lanche_tarde','jantar','ceia','outros']);
 const MACROS = ['kcal','proteinas_g','carboidratos_g','gorduras_g','fibras_g'];
 // Catálogo de micronutrientes armazenado em public.avn_nutrientes (extensível).
@@ -112,12 +113,14 @@ router.post('/alimentos',wrap(async(req,res)=>{
  const r=await pool.query(`INSERT INTO public.avn_alimentos(usuario_id,${A.join(',')},fonte,fonte_referencia) VALUES ($1,${A.map((_,i)=>'$'+(i+2)).join(',')},$13,$14) RETURNING *`,[uid,...vals,f.fonte||'manual',f.fonte_referencia||null]);res.status(201).json(r.rows[0]);
 }));
 router.put('/alimentos/:id',wrap(async(req,res)=>{
+ const e=await pool.query("SELECT 1 FROM public.avn_receitas WHERE alimento_id=$1",[req.params.id]);if(e.rowCount)throw bad('Edite receitas no aplicativo Receitas, não em Alimentos.');
  const uid=requiredId(req.body?.usuarioId),id=requiredId(req.params.id);await user(uid);const f=await foodPayload(req.body);
  const vals=A.map(k=>k==='micronutrientes_100g'?JSON.stringify(f[k]):f[k]);
  const r=await pool.query(`UPDATE public.avn_alimentos SET ${A.map((k,i)=>k+'=$'+(i+1)).join(',')},atualizado_em=NOW() WHERE id=$${A.length+1} AND usuario_id=$${A.length+2} AND ativo RETURNING *`,[...vals,id,uid]);
  if(!r.rowCount)throw bad('Alimento pessoal não encontrado.',404);res.json(r.rows[0]);
 }));
 router.delete('/alimentos/:id',wrap(async(req,res)=>{
+ const e=await pool.query("SELECT 1 FROM public.avn_receitas WHERE alimento_id=$1",[req.params.id]);if(e.rowCount)throw bad('Receitas não podem ser removidas pelo cadastro de Alimentos.');
  const uid=requiredId(req.query.usuarioId),id=requiredId(req.params.id);await user(uid);
  const r=await pool.query('UPDATE public.avn_alimentos SET ativo=FALSE,atualizado_em=NOW() WHERE id=$1 AND usuario_id=$2 AND ativo RETURNING id',[id,uid]);
  if(!r.rowCount)throw bad('Alimento pessoal não encontrado.',404);res.json({ok:true});
