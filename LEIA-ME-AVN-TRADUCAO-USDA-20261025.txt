@@ -1,0 +1,16 @@
+AVN — PATCH INCREMENTAL: títulos do USDA em português no modal IA
+
+Arquivos alterados:
+  public/js/avn-nutricao.js
+  src/services/avn/avn-nutricao-usda.service.js
+Arquivos novos:
+  src/services/avn/avn-nutricao-traducao.service.js
+  tests/avn-nutricao-usda-traducao.test.js
+
+Instalar: copie somente os arquivos dentro da pasta render/ deste ZIP para a RAIZ do repositório GitHub (preserve os caminhos), substituindo os arquivos existentes. Aguarde o deploy do Render. Não execute SQL e não altere a API local ou o Android.
+
+Mudança: ao escolher USDA no modal IA, os títulos de resultados e a prévia da composição aparecem em português brasileiro. O título original em inglês permanece visível na linha "USDA (original)" para conferência. Nutrientes e URLs de fonte permanecem inalterados.
+
+A tradução usa OPENAI_API_KEY do Render, em uma única chamada para os títulos da pesquisa, com cache durante a sessão do servidor. Se o serviço de tradução estiver indisponível, o sistema traduz alguns títulos comuns por dicionário; outros continuam no original (nunca faz tradução inventada). Usar o USDA não implica que os dados nutricionais tenham sido verificados pela IA.
+
+Verificação: node --test tests/avn-nutricao-usda-traducao.test.js

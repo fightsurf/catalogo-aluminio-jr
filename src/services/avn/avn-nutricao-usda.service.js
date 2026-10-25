@@ -2,6 +2,7 @@
 // AVN: dados nutricionais reais, exclusivamente provenientes do FoodData Central.
 // OPENAI_API_KEY: opcional, só reformula a pesquisa; USDA_API_KEY: necessária para consultar.
 const API='https://api.nal.usda.gov/fdc/v1';
+const {traduzirTitulos}=require('./avn-nutricao-traducao.service');
 const mapping={
   1093:'sodio_mg',1092:'potassio_mg',1087:'calcio_mg',1089:'ferro_mg',1090:'magnesio_mg',1095:'zinco_mg',1103:'selenio_ug',1091:'fosforo_mg',1098:'cobre_mg',1101:'manganes_mg',
   1106:'vitamina_a_ug',1165:'vitamina_b1_mg',1166:'vitamina_b2_mg',1167:'vitamina_b3_mg',1170:'vitamina_b5_mg',1175:'vitamina_b6_mg',1177:'folato_ug',1178:'vitamina_b12_ug',1162:'vitamina_c_mg',1114:'vitamina_d_ug',1109:'vitamina_e_mg',1185:'vitamina_k_ug',
@@ -22,7 +23,14 @@ async function request(url){const key=process.env.USDA_API_KEY||'DEMO_KEY';const
  const r=await fetch(u,{signal:AbortSignal.timeout(14000),headers:{Accept:'application/json'}});
  if(!r.ok){const e=new Error(r.status===429?'Limite temporário de consultas USDA atingido. Cadastre uma chave USDA_API_KEY no Render.':`USDA não respondeu à consulta (HTTP ${r.status}).`);e.status=r.status===429?429:502;throw e;}
  return r.json();}
-async function search(q){const term=await reformulateAI(q);const data=await request('/foods/search?query='+encodeURIComponent(term)+'&pageSize=15');return {pesquisa:term,opcoes:(data.foods||[]).filter(f=>Number.isInteger(f.fdcId)).map(f=>({fdcId:f.fdcId,descricao:String(f.description||''),tipo:String(f.dataType||''),marca:String(f.brandOwner||f.brandName||'')}))};}
+async function search(q){
+ const term=await reformulateAI(q);
+ const data=await request('/foods/search?query='+encodeURIComponent(term)+'&pageSize=15');
+ const foods=(data.foods||[]).filter(f=>Number.isInteger(f.fdcId));
+ const originals=foods.map(f=>String(f.description||''));
+ const translated=await traduzirTitulos(originals);
+ return {pesquisa:term,opcoes:foods.map((f,i)=>({fdcId:f.fdcId,descricao:translated[i],descricaoOriginal:originals[i],tipo:String(f.dataType||''),marca:String(f.brandOwner||f.brandName||'')}))};
+}
 function safeNum(x){const n=Number(x);return x==null||!Number.isFinite(n)||n<0?null:n;}
 function fromFood(food,cat){
  const macros={kcal:null,proteinas_g:null,carboidratos_g:null,gorduras_g:null,fibras_g:null},micros={};
@@ -38,5 +46,11 @@ function fromFood(food,cat){
  }
  return {macros,micros};
 }
-async function detail(id,cat){const d=await request('/food/'+id);const {macros,micros}=fromFood(d,cat);return {fdcId:Number(id),descricao:String(d.description||''),tipo:String(d.dataType||''),marca:String(d.brandOwner||d.brandName||''),fonte:'USDA FoodData Central',fonteUrl:'https://fdc.nal.usda.gov/food-details/'+id+'/nutrients',macros,micros};}
+async function detail(id,cat){
+ const d=await request('/food/'+id);
+ const {macros,micros}=fromFood(d,cat);
+ const descricaoOriginal=String(d.description||'');
+ const [descricao]=await traduzirTitulos([descricaoOriginal]);
+ return {fdcId:Number(id),descricao,descricaoOriginal,tipo:String(d.dataType||''),marca:String(d.brandOwner||d.brandName||''),fonte:'USDA FoodData Central',fonteUrl:'https://fdc.nal.usda.gov/food-details/'+id+'/nutrients',macros,micros};
+}
 module.exports={search,detail,fromFood,reformulateLocal};
