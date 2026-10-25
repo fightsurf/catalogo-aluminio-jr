@@ -1,0 +1,46 @@
+AVN - PATCH COMPARADOR NUTRICIONAL TACO x USDA x IA
+Data: 25/10/2026
+Aplicacao: SOMENTE Render / GitHub, repositório catalogo-aluminio-jr
+
+Instalacao:
+1. Extraia o ZIP.
+2. Entre na pasta render/.
+3. Copie somente os arquivos de render/ para os mesmos caminhos na RAIZ do seu repositorio GitHub.
+4. Faça commit, aguarde o deploy do Render e recarregue a página Alimentos (Ctrl + F5).
+5. Nao e necessario executar SQL nem modificar o projeto local, Android ou Firebird.
+
+Alteracoes:
+- AVN > Nutricao > Alimentos > campo Nome > botao IA.
+- Modal passa a mostrar 3 fontes simultaneamente em colunas TACO, USDA e IA.
+- TACO e USDA iniciam pesquisa em paralelo. A cada 700 ms sem digitar,
+  atualizam suas pesquisas de maneira incremental.
+- A IA so pesquisa mediante clique em Carregar IA (API OpenAI, uso cobrado).
+- Cada fonte tem seus resultados e uma opcao de selecao independente.
+- Tabela UNICA com os 5 macronutrientes e TODOS os micronutrientes existentes em public.avn_nutrientes,
+  separados em vitaminas, minerais e outros, com linhas perfeitamente alinhadas entre TACO, USDA e IA.
+- Valor desconhecido e exibido como travessao; zero real e exibido como zero.
+- USDA mantem titulo em portugues e o nome original ingles abaixo.
+- A selecao de Usar este alimento preenche os paineis do cadastro com os dados de UMA fonte;
+  nao mescla resultados e NAO salva automaticamente. Revise e clique Salvar alimento.
+- Identificacao da fonte preservada no cadastro ao salvar.
+- TACO e uma base JSON independente com dados da TACO 4a ed.; TBCA nao foi adicionada.
+
+Arquivos modificados:
+public/js/avn-nutricao.js
+public/css/avn-nutricao.css
+views/avn/nutricao-alimentos.html
+tests/avn-nutricao-usda-traducao.test.js
+
+Arquivos novos:
+public/js/avn-nutricao-comparador.js
+tests/avn-nutricao-comparador.test.js
+
+Testes:
+- Node.js: 13 testes aprovados (comparador, IA, traducoes).
+- Sintaxe JavaScript: aprovada.
+- Simulacao de navegador Chromium com respostas simuladas confirmou:
+  pesquisas paralelas, linhas alinhadas, valores zero/desconhecidos, consulta IA
+  sob demanda e importacao USDA para o formulario com metadados da fonte.
+
+Nao houve consultas reais as APIs externas neste ambiente de teste;
+valide apos deploy com alimentos reais e com suas variaveis OPENAI_API_KEY/USDA_API_KEY existentes.

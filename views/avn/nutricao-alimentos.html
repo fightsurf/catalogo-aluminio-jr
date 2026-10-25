@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AVN — Alimentos</title><link rel="stylesheet" href="/css/avn-nutricao.css"><script src="/js/avn-nutricao.js" defer></script></head>
+<title>AVN — Alimentos</title><link rel="stylesheet" href="/css/avn-nutricao.css"><script src="/js/avn-nutricao-comparador.js" defer></script><script src="/js/avn-nutricao.js" defer></script></head>
 <body data-nutricao-pagina="alimentos"><main class="avn-wrap">
 <header class="avn-top"><a href="/avn">← Central AVN</a><span class="avn-brand">AVN <em>Nutrição</em></span></header>
 <section class="avn-hero"><div><span class="avn-caption">NUTRIÇÃO · AVN</span><h1>Alimentos</h1><p>Cadastre alimentos manualmente, consulte TACO/USDA ou gere um JSON nutricional com IA.</p></div><label class="avn-field user-field">Usuário<select id="usuario"><option>Carregando…</option></select></label></section>
@@ -21,12 +21,22 @@
 <section class="card"><div class="avn-two"><label class="avn-field">Porção caseira (opcional)<input id="porcaoNome" placeholder="Ex.: 1 colher de sopa"></label><label class="avn-field">Peso da porção (g)<input type="number" id="porcaoGramas" min="0.1" step="0.1"></label></div>
 <div class="avn-row form-actions"><button class="primary">Salvar alimento</button><button class="secondary" type="button" id="limparAlimento">Novo</button></div></section>
 </form></div>
-<dialog id="modalConsultaIA" class="avn-dialog" aria-labelledby="modalIATitulo"><div class="modal-head"><h2 id="modalIATitulo">Consulta nutricional com IA</h2><button id="fecharIA" type="button" class="secondary" aria-label="Fechar">×</button></div>
-<p class="muted">TACO e USDA retornam dados das respectivas tabelas. A opção IA faz pesquisa complementar na web e gera um JSON completo com todos os nutrientes cadastrados no AVN. Confira as fontes e os valores sugeridos antes de cadastrar.</p>
-<label class="avn-field">Pesquisar alimento<select id="fonteIA" aria-label="Fonte da consulta"><option value="taco">TACO — alimentos brasileiros (padrão)</option><option value="usda">USDA — base internacional</option><option value="ia">IA — pesquisar na web e gerar JSON</option></select><input id="termoIA" type="search" maxlength="180" placeholder="Ex.: arroz branco cozido"></label>
-<button class="secondary" id="pesquisarIA" type="button">Pesquisar / Gerar JSON</button><div id="statusIA" class="muted" role="status"></div>
-<div id="resultadosIA" class="resultados-ia"></div><div id="previaIA"></div><div id="blocoJSON" hidden><h3>JSON gerado para importação</h3><pre id="jsonGerado" class="ia-json-block"></pre><div class="ia-opcoes"><button type="button" class="secondary" id="copiarJSON">Copiar JSON</button><button type="button" class="secondary" id="aplicarJSON">Preencher formulário para revisão</button></div></div>
-<div class="modal-actions"><button id="cancelarIA" type="button" class="secondary">Cancelar</button><button id="cadastrarIA" type="button" class="primary" disabled>Cadastrar com esses dados</button></div></dialog>
+<dialog id="modalConsultaIA" class="avn-dialog avn-dialog-comparador" aria-labelledby="modalIATitulo">
+ <div class="modal-head"><div><span class="avn-caption">AVN · CONSULTA DE ALIMENTOS</span><h2 id="modalIATitulo">Comparar TACO, USDA e IA</h2></div><button id="fecharIA" type="button" class="secondary" aria-label="Fechar consulta">×</button></div>
+ <p class="muted">A TACO e o USDA são pesquisados simultaneamente. Selecione um resultado em cada fonte e compare a composição em uma única tabela por <strong>100 g da parte comestível</strong>. Para uma terceira pesquisa, clique em Carregar IA.</p>
+ <div class="ia-comparador-busca"><label class="avn-field">Pesquisar alimento<input id="termoIA" type="search" maxlength="180" placeholder="Ex.: tapioca, arroz branco cozido" autocomplete="off"></label><button id="pesquisarIA" type="button" class="secondary"><span aria-hidden="true">⌕</span> Pesquisar TACO + USDA</button></div>
+ <p id="statusIA" class="muted" role="status" aria-live="polite"></p>
+ <section class="ia-comparador-fontes" aria-label="Resultados das três fontes">
+  <section class="ia-comparador-fonte" aria-label="Pesquisa TACO"><div class="ia-fonte-top"><h3>TACO</h3><span class="ia-source-sub">Base brasileira</span></div><div id="statusTACO" class="muted" role="status">Aguardando pesquisa</div><div id="resultadosTACO" class="ia-lista-opcoes" aria-label="Alimentos encontrados na TACO"></div><div id="selecaoTACO" class="ia-selecao-fonte">Selecione um resultado</div><button type="button" id="usarTACO" class="secondary ia-usar" disabled>Usar este alimento</button></section>
+  <section class="ia-comparador-fonte" aria-label="Pesquisa USDA"><div class="ia-fonte-top"><h3>USDA</h3><span class="ia-source-sub">Fonte internacional</span></div><div id="statusUSDA" class="muted" role="status">Aguardando pesquisa</div><div id="resultadosUSDA" class="ia-lista-opcoes" aria-label="Alimentos encontrados no USDA"></div><div id="selecaoUSDA" class="ia-selecao-fonte">Selecione um resultado</div><button type="button" id="usarUSDA" class="secondary ia-usar" disabled>Usar este alimento</button></section>
+  <section class="ia-comparador-fonte" aria-label="Pesquisa complementar IA"><div class="ia-fonte-top"><h3>IA</h3><span class="ia-source-sub">Pesquisa complementar</span></div><button type="button" id="carregarIA" class="secondary ia-botao-carregar">Carregar IA</button><div id="statusIAColuna" class="muted" role="status">Aguardando sua solicitação</div><div id="selecaoIA" class="ia-selecao-fonte">O resultado gerado aparecerá nesta coluna para comparação</div><button type="button" id="usarIA" class="secondary ia-usar" disabled>Usar este alimento</button></section>
+ </section>
+ <section class="ia-comparacao" aria-label="Planilha de comparação nutricional"><div class="ia-comparacao-cabecalho"><h3>Composição nutricional comparada</h3><span class="muted">Mesma linha, três fontes · valores por 100 g</span></div>
+ <div class="ia-planilha-scroll" tabindex="0" aria-label="Tabela comparativa com rolagem"><table class="ia-planilha"><thead><tr><th scope="col">Nutriente (unidade)</th><th scope="col">TACO</th><th scope="col">USDA</th><th scope="col">IA</th></tr></thead><tbody id="nutrientesComparacao"></tbody></table></div>
+ <p class="muted ia-legenda">— = valor desconhecido (não significa zero). Os valores exibidos vêm somente do alimento selecionado em cada fonte e não são misturados. Confira se o preparo é equivalente.</p></section>
+ <details id="blocoJSON" class="ia-bloco-json" hidden><summary>Ver JSON completo gerado pela IA</summary><pre id="jsonGerado" class="ia-json-block"></pre><button type="button" class="secondary" id="copiarJSON">Copiar JSON</button></details>
+ <div class="modal-actions"><button id="cancelarIA" type="button" class="secondary">Cancelar / Fechar</button><span class="muted">Escolha <strong>Usar este alimento</strong> em uma das três colunas para preencher o cadastro.</span></div>
+</dialog>
 </section>
 
 <footer>AVN · Os valores nutricionais dependem da qualidade dos dados e do preparo informado.</footer></main></body></html>

@@ -146,60 +146,25 @@ async function startUsers(){
  localStorage.setItem('avn_nutricao_usuario',state.usuarioId);await reload();
 }
 function configurarIA(){
- const modal=$('modalConsultaIA');let gerado=null;let pesquisaAtual=0;
- const status=msg=>$('statusIA').textContent=msg;
- const reset=()=>{iaSelecionado=null;gerado=null;$('cadastrarIA').disabled=true;$('blocoJSON').hidden=true;$('jsonGerado').textContent='';$('previaIA').replaceChildren();};
- const fechar=()=>{pesquisaAtual++;modal.close();reset();};
- $('fecharIA').onclick=fechar;$('cancelarIA').onclick=fechar;
- $('consultarIA').onclick=()=>{const nome=v('alimentoNome').trim();if(!nome){show('Informe o nome do alimento para consultar.',true);return;}
-  $('termoIA').value=[nome,v('alimentoPreparo').trim()].filter(Boolean).join(', ');$('resultadosIA').replaceChildren();reset();status('Escolha TACO, USDA ou pesquisa complementar com IA.');modal.showModal();pesquisarIA();};
- $('pesquisarIA').onclick=pesquisarIA;$('fonteIA').onchange=pesquisarIA;
- $('termoIA').onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();pesquisarIA();}};
- function renderPrevia(d){
-  const m=MACROS.map(([k,l,u])=>`<div><strong>${esc(l)}</strong>: ${d.macros?.[k]==null?'Sem dado':fmt(d.macros[k],3)+' '+u}</div>`).join('');
-  const mi=MICRO.filter(([k])=>d.micros?.[k]!=null).map(([k,l,u])=>`<div>${esc(l)}: ${fmt(d.micros[k],4)} ${esc(u)}</div>`).join('');
-  const urls=Array.isArray(d.fontes)?d.fontes:[];
-  const sources=urls.length?urls.map(x=>`<a class="ia-fonte" target="_blank" rel="noopener noreferrer" href="${esc(x.url)}">${esc(x.titulo||x.url)}</a>`).join('<br>'):(d.fonteUrl?`<a href="${esc(d.fonteUrl)}" target="_blank" rel="noopener noreferrer">Abrir fonte ${esc(d.fonte||'')}</a>`:'Fontes não identificadas');
-  $('previaIA').innerHTML=`<div class="ia-preview"><h3>Prévia dos dados por 100 g</h3><p><strong>${esc(d.descricao||d.nome)}</strong> · ${esc(d.tipo||d.fonte||'')}${d.descricaoOriginal&&d.descricaoOriginal!==d.descricao?`<small style="display:block" class="muted">USDA (original): ${esc(d.descricaoOriginal)}</small>`:''}</p><div class="ia-data">${m}</div><details open><summary>Vitaminas, minerais e outros (${MICRO.filter(([k])=>d.micros?.[k]!=null).length} com dados)</summary><div class="ia-data">${mi||'Nenhum micronutriente identificado com segurança.'}</div></details><p class="muted"><strong>Fontes:</strong><br>${sources}</p>${d.fonte==='ia_pesquisa'?'<p class="ia-aviso">Dados extraídos com auxílio de IA: as fontes e os números precisam de conferência humana. Os campos sem valores permaneceram desconhecidos.</p>':''}</div>`;
- }
- function mostrarGerado(d){
-  gerado=d;iaSelecionado={...d,descricao:d.nome,tipo:'IA · pesquisa complementar',fonte:'ia_pesquisa',fonteUrl:d.fontes?.[0]?.url||'',fonte_referencia:d.fontes?.[0]?.url||''};
-  $('resultadosIA').innerHTML='';renderPrevia(iaSelecionado);
-  $('jsonGerado').textContent=JSON.stringify(d,null,2);$('blocoJSON').hidden=false;$('cadastrarIA').disabled=false;
-  status('JSON gerado com '+MICRO.length+' micronutrientes do AVN ('+MICRO.filter(([k])=>d.micros?.[k]!=null).length+' com valores). Confira os dados antes de cadastrar.');
- }
- async function pesquisarIA(){const tentativa=++pesquisaAtual;try{reset();const fonte=v('fonteIA');const termo=v('termoIA').trim();if(termo.length<2)throw Error('Informe o alimento.');
-  const botao=$('pesquisarIA');botao.disabled=true;status(fonte==='ia'?'Pesquisando fontes e criando o JSON completo. Isso pode levar até dois minutos…':'Consultando tabela nutricional…');
-  if(fonte==='ia'){
-   const d=await send('/consulta-ia/gerar-json','POST',{nome:termo,marca:v('alimentoMarca'),preparo:v('alimentoPreparo')});
-   if(tentativa!==pesquisaAtual)return;mostrarGerado(d);
-  }else{
-   const r=await api('/consulta-ia/buscar?termo='+encodeURIComponent(termo)+'&fonte='+encodeURIComponent(fonte));
-   if(tentativa!==pesquisaAtual)return;$('resultadosIA').innerHTML=(r.opcoes||[]).map(a=>`<button type="button" class="ia-result" data-fdc="${esc(a.fdcId)}"><strong>${esc(a.descricao)}</strong>${a.descricaoOriginal&&a.descricaoOriginal!==a.descricao?`<small>USDA (original): ${esc(a.descricaoOriginal)}</small>`:''}<small>${esc(a.tipo)}${a.marca?' · '+esc(a.marca):''}</small></button>`).join('')||'<p class="muted">Nenhum alimento correspondente. Tente IA — pesquisar na web e gerar JSON.</p>';
-   $('resultadosIA').querySelectorAll('[data-fdc]').forEach(b=>b.onclick=()=>detalharIA(b.dataset.fdc));
-   status(`Fonte: ${fonte==='taco'?'TACO — NEPA/UNICAMP':'USDA FoodData Central'} · ${r.opcoes?.length||0} resultado(s)`);
+ if(!window.AVNComparadorAlimentos)throw Error('Comparador nutricional não foi carregado. Atualize a página.');
+ window.AVNComparadorAlimentos.iniciar({
+  api,send,esc,fmt,MACROS,getMicros:()=>MICRO,
+  aplicar(d,fonte){
+   // Selecionar resultado não grava nada no banco: preenche o formulário para revisão.
+   fillFood(null);
+   const nome=String(d.nome||d.descricao||'').trim();
+   $('alimentoNome').value=nome;
+   $('alimentoMarca').value=String(d.marca||'');
+   $('alimentoPreparo').value=String(d.preparo||'');
+   state.origemImportacao={fonte,fonte_referencia:fonte==='ia_pesquisa'
+    ?(Array.isArray(d.fontes)?d.fontes.find(x=>x.url&&x.url.length<=240)?.url:'')||''
+    :String(d.fonteUrl||d.fonte_referencia||'')};
+   for(const [key] of MACROS)$('alim_'+key).value=d.macros?.[key]??'';
+   for(const [key] of MICRO)$('micro_'+key).value=d.micros?.[key]??'';
+   show('Dados de '+({taco:'TACO',usda_fdc:'USDA',ia_pesquisa:'IA'}[fonte]||fonte)+' preenchidos. Confira nome, preparo e nutrientes, depois clique em Salvar alimento.');
+   $('formAlimento').scrollIntoView({behavior:'smooth',block:'start'});
   }
-  botao.disabled=false;
- }catch(e){$('pesquisarIA').disabled=false;if(tentativa===pesquisaAtual)status('Erro: '+e.message);}}
- async function detalharIA(id){try{reset();status('Consultando composição completa…');const d=await api(id.startsWith('taco-')?'/consulta-ia/taco/'+id.slice(5):'/consulta-ia/detalhar/'+id);iaSelecionado=d;
-  renderPrevia({...d,fonte:d.fonte==='taco'?'taco':'usda_fdc'});$('cadastrarIA').disabled=false;status('Confira o alimento e o preparo antes de cadastrar.');
- }catch(e){reset();status(e.message);}}
- function aplicarAoFormulario(){if(!iaSelecionado)return;const d=iaSelecionado;
-  state.origemImportacao=d.fonte==='ia_pesquisa'?{fonte:'ia_pesquisa',fonte_referencia:d.fontes?.find(x=>x.url&&x.url.length<=240)?.url||''}:null;
-  if(!v('alimentoNome'))$('alimentoNome').value=d.nome||d.descricao||'';
-  if(!v('alimentoMarca'))$('alimentoMarca').value=d.marca||'';
-  if(!v('alimentoPreparo'))$('alimentoPreparo').value=d.preparo||'';
-  for(const [key] of MACROS)$('alim_'+key).value=d.macros?.[key]??'';
-  for(const [key] of MICRO)$('micro_'+key).value=d.micros?.[key]??'';
- }
- $('aplicarJSON').onclick=()=>{aplicarAoFormulario();fechar();show('JSON aplicado ao formulário. Confira e clique em Salvar alimento quando estiver pronto.');};
- $('copiarJSON').onclick=async()=>{if(!gerado)return;try{await navigator.clipboard.writeText(JSON.stringify(gerado,null,2));status('JSON copiado.');}catch(e){status('Seu navegador não permitiu copiar. Selecione o texto do JSON.');}};
- $('cadastrarIA').onclick=async()=>{if(!iaSelecionado)return;try{userGuard();const d=iaSelecionado;
-  const registro={usuarioId:state.usuarioId,nome:v('alimentoNome').trim()||d.nome||d.descricao,marca:v('alimentoMarca')||d.marca||'',preparo:v('alimentoPreparo')||d.preparo||'',fonte:d.fonte==='taco'?'taco':d.fonte==='ia_pesquisa'?'ia_pesquisa':'usda_fdc',fonte_referencia:d.fonte==='ia_pesquisa'?(d.fontes?.find(x=>x.url&&x.url.length<=240)?.url||''):d.fonteUrl||d.fonte_referencia||'',micronutrientes_100g:d.micros};
-  for(const [key] of MACROS)registro[key+'_100g']=d.macros?.[key]??null;
-  if(state.alimentos.some(f=>f.nome.toLowerCase()===registro.nome.toLowerCase()&&(f.preparo||'').toLowerCase()===registro.preparo.toLowerCase()&&(f.marca||'').toLowerCase()===registro.marca.toLowerCase())){if(!confirm('Já existe alimento com mesmo nome, preparo e marca. Cadastrar outro?'))return;}
-  await send('/alimentos','POST',registro);await loadFoods();fillFood(null);fechar();show('Alimento cadastrado com fonte identificada.');
- }catch(e){status('Não foi possível cadastrar: '+e.message);}};
+ });
 }
 function events(){
  $('usuario').onchange=async()=>{state.usuarioId=v('usuario');localStorage.setItem('avn_nutricao_usuario',state.usuarioId);try{await reload();}catch(e){show(e.message,true);}};

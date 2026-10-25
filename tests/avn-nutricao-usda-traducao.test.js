@@ -47,9 +47,9 @@ test('listagem e detalhamento USDA apresentam título em português e preservam 
 });
 
 test('títulos em português são mostrados no modal e a descrição original é identificada separadamente',()=>{
- const html=fs.readFileSync(path.join(root,'public/js/avn-nutricao.js'),'utf8');
+ const html=fs.readFileSync(path.join(root,'public/js/avn-nutricao-comparador.js'),'utf8');
  assert.match(html,/USDA \(original\)/);
- assert.match(html,/esc\(a\.descricao\)/);
+ assert.match(html,/esc\(item\.descricao\)/);
  assert.match(html,/esc\(d\.descricaoOriginal\)/);
  new vm.Script(html);
 });

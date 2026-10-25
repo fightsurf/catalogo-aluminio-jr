@@ -28,3 +28,41 @@
 .ia-fonte{font-size:12px;overflow-wrap:anywhere}.ia-aviso{padding:10px 12px;background:#fff7e7;border:1px solid #e5c78b;border-radius:9px;margin:10px 0;color:#674c1c}
 .ia-opcoes{margin-top:12px;display:flex;flex-wrap:wrap;gap:10px}
 @media(max-width:600px){.avn-links a{padding:12px 13px}}
+
+/* Comparador nutricional em três fontes. Todos os nutrientes usam uma planilha única. */
+.avn-dialog-comparador{width:min(1440px,calc(100vw - 18px));max-width:none;max-height:94dvh;padding:22px 24px}
+.ia-comparador-busca{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:12px;margin:18px 0 8px}
+.ia-comparador-busca button{white-space:nowrap}
+.ia-comparador-fontes{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:12px}
+.ia-comparador-fonte{min-width:0;display:flex;flex-direction:column;gap:7px;border:1px solid var(--line);border-radius:12px;padding:12px;background:#f9fbfe}
+.ia-fonte-top{display:flex;align-items:baseline;gap:9px;justify-content:space-between;flex-wrap:wrap}
+.ia-fonte-top h3{font-size:17px;margin:0}.ia-source-sub{color:var(--muted);font-size:11px;font-weight:600}
+.ia-lista-opcoes{display:grid;gap:5px;overflow:auto;height:190px;min-height:190px;align-content:start;scrollbar-gutter:stable}
+.ia-lista-opcoes .ia-result{display:block;width:100%;font-size:12px;line-height:1.4;padding:7px 9px;overflow-wrap:anywhere}
+.ia-lista-opcoes .ia-result[aria-pressed="true"]{border:2px solid var(--accent);background:#e6f2f9}
+.ia-lista-opcoes .ia-result:focus-visible{outline:3px solid #75abc9;outline-offset:1px}
+.ia-selecao-fonte{flex:1;min-height:56px;font-size:12px;color:var(--muted);overflow-wrap:anywhere;line-height:1.4}
+.ia-selecao-fonte strong{display:block;color:var(--ink);font-size:13px}
+.ia-selecao-fonte .ia-source-original{display:block;font-size:11px}
+.ia-usar{width:100%;font-size:12px;padding:9px 6px!important}
+.ia-usar:disabled,.ia-botao-carregar:disabled{opacity:.55;cursor:not-allowed}
+.ia-botao-carregar{margin-top:5px;align-self:flex-start}
+#statusIAColuna,#statusTACO,#statusUSDA{font-size:12px;min-height:18px}
+.ia-comparacao{margin-top:18px}.ia-comparacao-cabecalho{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.ia-comparacao-cabecalho h3{margin:0}.ia-planilha-scroll{max-height:51vh;max-height:51dvh;overflow:auto;border:1px solid var(--line);border-radius:9px;scrollbar-gutter:stable}
+.ia-planilha{width:100%;border-collapse:separate;border-spacing:0;min-width:625px;font-size:13px;table-layout:fixed}
+.ia-planilha th,.ia-planilha td{border-bottom:1px solid #e4ebf1;padding:8px 11px;text-align:right;font-variant-numeric:tabular-nums;vertical-align:middle}
+.ia-planilha thead th{position:sticky;top:0;z-index:3;background:#dfecf4;color:var(--ink);font-weight:800}
+.ia-planilha th:first-child,.ia-planilha td:first-child{width:34%;text-align:left;position:sticky;left:0;background:white;z-index:2;box-shadow:2px 0 3px #1a3d5012}
+.ia-planilha thead th:first-child{z-index:5;background:#dfecf4}
+.ia-planilha td.ia-desconhecido{color:#98a6b7}
+.ia-planilha tr:hover td:not(.ia-grupo){background:#eff6fc}
+.ia-planilha tr:hover td:first-child{background:#eff6fc}
+.ia-planilha .ia-grupo{position:static!important;text-align:left!important;background:#edf2f7!important;color:#244766;font-weight:800;text-transform:uppercase;letter-spacing:.035em;font-size:11px;padding:9px 11px}
+.ia-legenda{margin:10px 0;font-size:12px}
+.ia-bloco-json{margin-top:14px}.ia-bloco-json pre{max-height:240px}
+.avn-dialog-comparador .modal-actions{justify-content:space-between;flex-wrap:wrap;align-items:center}
+@media(max-width:950px){.avn-dialog-comparador{padding:14px}.ia-comparador-fontes{grid-template-columns:repeat(3,minmax(220px,1fr));overflow-x:auto;padding-bottom:6px}.ia-comparador-fonte{min-width:220px}.ia-comparador-busca{grid-template-columns:1fr}.ia-comparador-busca button{justify-self:start}.ia-planilha-scroll{max-height:43dvh}}
+@media(max-width:520px){.ia-comparador-fontes{grid-template-columns:repeat(3,240px)}.ia-comparacao-cabecalho h3{font-size:16px}.ia-planilha th,.ia-planilha td{padding:7px 8px}.ia-planilha{min-width:585px}}
+.ia-selecao-fonte span{display:block;margin-top:3px}
+.ia-selecao-fonte span.ia-source-original{line-height:1.45;overflow-wrap:anywhere}
