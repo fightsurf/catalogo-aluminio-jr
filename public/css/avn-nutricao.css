@@ -66,3 +66,13 @@
 @media(max-width:520px){.ia-comparador-fontes{grid-template-columns:repeat(3,240px)}.ia-comparacao-cabecalho h3{font-size:16px}.ia-planilha th,.ia-planilha td{padding:7px 8px}.ia-planilha{min-width:585px}}
 .ia-selecao-fonte span{display:block;margin-top:3px}
 .ia-selecao-fonte span.ia-source-original{line-height:1.45;overflow-wrap:anywhere}
+
+/* AVN: gráficos de alimentos cadastrados */
+.avn-food-row{cursor:pointer}.avn-food-row:focus-visible{outline:3px solid #387ab3;outline-offset:2px}.avn-food-row:hover{background:#f1f7fb}
+.avn-food-dialog{border:1px solid #dce5ed;border-radius:15px;box-shadow:0 20px 60px #082a3b48;width:min(1080px,95vw);max-height:92dvh;padding:22px;color:#24394a;background:white;overflow:auto}
+.avn-food-dialog::backdrop{background:#0a253a99}.avn-food-head{display:flex;align-items:start;justify-content:space-between;gap:16px;margin-bottom:15px}
+.avn-food-head h2{margin:4px 0}.avn-food-charts{display:grid;grid-template-columns:1fr 1fr;gap:14px}.avn-food-charts .card{min-width:0}
+.avn-chart-macros{min-height:235px;display:flex;gap:18px;align-items:center;justify-content:center;flex-wrap:wrap}.avn-macro-ring{width:184px;height:184px;border-radius:50%;position:relative;flex:none}.avn-macro-ring:after{content:'';position:absolute;inset:28%;border-radius:50%;background:white}.avn-macro-legend{display:grid;gap:9px;font-size:13px}.avn-macro-legend div{display:flex;gap:8px;align-items:center}.avn-macro-dot{width:11px;height:11px;border-radius:3px;display:inline-block}
+.avn-chart-micros{max-height:270px;overflow:auto;display:grid;gap:9px;margin-top:13px}.avn-micro-bar{display:grid;grid-template-columns:minmax(90px,1.2fr) minmax(75px,2fr) auto;align-items:center;gap:7px;font-size:12px}.avn-micro-track{height:12px;border-radius:8px;background:#e7eef4;overflow:hidden}.avn-micro-fill{height:100%;background:#397fa2;border-radius:8px}.avn-micro-value{white-space:nowrap;font-variant-numeric:tabular-nums}
+.avn-chart-table-wrap{max-height:280px;overflow:auto;border:1px solid #e0e7ee;border-radius:9px}.avn-chart-table{width:100%;border-collapse:collapse;font-size:13px}.avn-chart-table th,.avn-chart-table td{padding:8px 10px;border-bottom:1px solid #edf0f4;text-align:left}.avn-chart-table th{position:sticky;top:0;background:#edf4f8}.avn-chart-table td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+@media(max-width:760px){.avn-food-charts{grid-template-columns:1fr}.avn-food-dialog{padding:13px}.avn-food-head{gap:8px}}

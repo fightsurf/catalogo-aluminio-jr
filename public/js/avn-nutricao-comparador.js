@@ -60,7 +60,8 @@
     ?`<span class="ia-source-original">USDA (original): ${esc(d.descricaoOriginal)}</span>`:'';
    const prep=d.preparo?`<span>Preparo: ${esc(d.preparo)}</span>`:'';
    const total=getMicros().filter(([k])=>d.micros?.[k]!==null&&d.micros?.[k]!==undefined).length;
-   const note=source==='ia'?'<span>Pesquisa assistida por IA. Confira todas as fontes e valores.</span>':'';
+   const alertas=source==='ia'&&Array.isArray(d.alertas_validacao)?d.alertas_validacao:[];
+   const note=source==='ia'?'<span>Pesquisa assistida por IA. Confira todas as fontes e valores.</span>'+ (alertas.length?'<div class="ia-auditoria" role="status"><strong>Verificação automática:</strong>'+alertas.map(a=>'<span>• '+esc(a.mensagem)+'</span>').join('')+'</div>':'<span>Verificação automática: nenhum alerta adicional.</span>'):'';
    const url=source==='ia'?(d.fontes?.[0]?.url||''):d.fonteUrl;
    node.innerHTML=`<strong>${esc(descricao(d))}</strong>${original}${prep}<span>${total} micronutriente(s) com valor</span>${note}${url?`<span class="ia-source-original">Fonte: ${esc(url)}</span>`:''}`;
   }

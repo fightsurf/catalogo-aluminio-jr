@@ -1,0 +1,5 @@
+AVN: auditoria nutricional da IA + modal de gráficos nos alimentos.
+Copie os arquivos da pasta render/ para a raiz do projeto, conservando os caminhos.
+Clique na linha de um alimento para abrir gráficos; o botão Editar continua editando.
+O gráfico de macros representa calorias estimadas 4/4/9. O de micros compara somente valores da mesma unidade, sem implicar necessidade diária.
+Os dados nutricionais e tabelas existentes não são modificados.
