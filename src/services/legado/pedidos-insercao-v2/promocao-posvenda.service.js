@@ -3,6 +3,8 @@ const pool = require('../../../../db/connection');
 const custoService = require('../../produtoResumoCusto/produtoResumoCusto.service');
 const pedidos = require('../pedido/pedidosLegado.service');
 const zapi = require('../../integracoes/zapi.service');
+const eleven = require('../../integracoes/elevenlabs-jr.service');
+const vozConfig = require('../pedido/resumo-pedido-voz-config.service');
 
 let preparacao, iniciado = false;
 function erro(msg, status = 400) { const e = new Error(msg); e.status = status; return e; }
@@ -14,12 +16,19 @@ async function preparar() {
     'produto_nome TEXT NOT NULL, preco_tabela NUMERIC(14,2) NOT NULL,',
     'custo_atual NUMERIC(14,4) NOT NULL, preco_promocional NUMERIC(14,2) NOT NULL,',
     'imagem TEXT NOT NULL, mensagem TEXT NOT NULL,',
+    'audio_mp3 BYTEA, voz_id TEXT, modelo_id TEXT,',
     "status TEXT NOT NULL DEFAULT 'pendente', criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),",
     'enviar_em TIMESTAMPTZ NOT NULL, iniciado_em TIMESTAMPTZ,',
-    'imagem_aceita_em TIMESTAMPTZ,',
+    'imagem_aceita_em TIMESTAMPTZ, audio_aceito_em TIMESTAMPTZ,',
     'enviado_em TIMESTAMPTZ, atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(), erro TEXT',
     ');'
-  ].join(' ')).catch(e => { preparacao = null; throw e; });
+  ].join(' ')).then(async () => {
+    // Compatibilidade com tabelas criadas por uma versão anterior da promoção.
+    await pool.query('ALTER TABLE pedido_promocoes_posvenda ADD COLUMN IF NOT EXISTS audio_mp3 BYTEA');
+    await pool.query('ALTER TABLE pedido_promocoes_posvenda ADD COLUMN IF NOT EXISTS voz_id TEXT');
+    await pool.query('ALTER TABLE pedido_promocoes_posvenda ADD COLUMN IF NOT EXISTS modelo_id TEXT');
+    await pool.query('ALTER TABLE pedido_promocoes_posvenda ADD COLUMN IF NOT EXISTS audio_aceito_em TIMESTAMPTZ');
+  }).catch(e => { preparacao = null; throw e; });
   return preparacao;
 }
 function moeda(n) { return Number(n).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }); }
@@ -84,7 +93,32 @@ async function textoIA({ cliente, produto, preco }) {
   if (texto.length < 20 || texto.length > 400) throw erro('A IA retornou uma mensagem inválida. Nenhuma promoção foi agendada.', 502);
   return texto;
 }
-async function agendar(dados) {
+
+async function gerarTexto(dados) {
+  const pedidoRef = numeroPositivo(dados?.pedidoId, 'Pedido');
+  const produtoId = numeroPositivo(dados?.produtoId, 'Produto');
+  const preco = Number(dados?.precoPromocional);
+  if (!Number.isFinite(preco) || preco <= 0 || Math.round(preco * 100) / 100 !== preco) {
+    throw erro('Informe o preço promocional antes de gerar o texto.');
+  }
+  const [detalhe, produtos] = await Promise.all([pedidos.buscarDetalhePedido(pedidoRef), listarProdutos('')]);
+  if (!detalhe?.idMestre || Number(detalhe.idMestre) !== pedidoRef) throw erro('Pedido não encontrado.', 404);
+  const produto = produtos.find(p => Number(p.id) === produtoId);
+  if (!produto) throw erro('Produto não encontrado ou inativo.');
+  if (!(Number(produto.preco) > preco)) throw erro('O preço promocional deve ser inferior ao preço de tabela.');
+  const nome = String(detalhe.cliente?.nome || '').trim();
+  if (!nome) throw erro('Cliente sem nome no cadastro.');
+  return { texto: await textoIA({ cliente: nome.split(/\s+/)[0], produto: produto.nome, preco }) };
+}
+
+function montarMensagem(texto, preco) {
+  const conteudo = String(texto || '').replace(/\r\n?/g, '\n').trim();
+  if (!conteudo || conteudo.length > 800) throw erro('Escreva uma mensagem entre 1 e 800 caracteres.');
+  const mensagem = conteudo + '\nPreço promocional: ' + moeda(preco);
+  if (mensagem.length > 1000) throw erro('A mensagem ultrapassa o limite de 1000 caracteres para o áudio.');
+  return mensagem;
+}
+async function agendar(dados, usuario) {
   await preparar();
   const pedidoRef = numeroPositivo(dados?.pedidoId, 'Pedido');
   const produtoId = numeroPositivo(dados?.produtoId, 'Produto');
@@ -97,7 +131,7 @@ async function agendar(dados) {
     pedidos.buscarDetalhePedido(pedidoRef), listarProdutos('')
   ]);
   if (!detalhe?.idMestre || Number(detalhe.idMestre) !== pedidoRef) throw erro('Pedido não encontrado no sistema legado.', 404);
-  const produto = itens.find(p => p.id === produtoId);
+  const produto = itens.find(p => Number(p.id) === produtoId);
   if (!produto) throw erro('Produto não encontrado ou inativo.');
   if (!(Number(produto.preco) > preco)) throw erro('O preço promocional deve ser menor que o preço atual do produto.');
   if (produto.semCusto) throw erro('Produto sem custo de composição válido. Revise o custo antes de agendar a promoção.');
@@ -111,8 +145,18 @@ async function agendar(dados) {
     const bloqueado = await pool.query('SELECT 1 FROM mala_direta_bloqueios WHERE telefone=$1', [telefone]);
     if (bloqueado.rowCount) throw erro('Cliente bloqueou o recebimento de promoções.', 409);
   }
-  const textoPromocional = await textoIA({ cliente: nomeCliente.split(/\s+/)[0], produto: produto.nome, preco });
-  const mensagem = textoPromocional + '\nPreço promocional: ' + moeda(preco);
+  // A legenda e o áudio devem corresponder exatamente ao texto aprovado no modal.
+  const mensagem = montarMensagem(dados?.texto, preco);
+  const previewId = String(dados?.previewId || '').trim();
+  if (!previewId) throw erro('Gere e confira o áudio da ElevenLabs antes de agendar.');
+  const audio = eleven.obterPreview(previewId, usuario);
+  const configuracao = await vozConfig.obter();
+  if (!configuracao.voz || !configuracao.modelo) {
+    throw erro('Configure a voz e o modelo da ElevenLabs no modal.', 503);
+  }
+  if (audio.texto !== mensagem || audio.voz !== configuracao.voz || audio.modelo !== configuracao.modelo) {
+    throw erro('O texto, o preço ou a configuração de voz mudou. Gere o áudio novamente.', 409);
+  }
   const salvoEmMs = Date.parse(String(dados?.pedidoSalvoEm || ''));
   const agora = Date.now();
   const inicio = Number.isFinite(salvoEmMs) && salvoEmMs <= agora && salvoEmMs >= agora - 20 * 60000 ? salvoEmMs : agora;
@@ -120,12 +164,12 @@ async function agendar(dados) {
   try {
     const salvo = await pool.query([
       'INSERT INTO pedido_promocoes_posvenda',
-      '(pedido_ref,pedido_numero,cliente_nome,telefone,produto_id,produto_nome,preco_tabela,custo_atual,preco_promocional,imagem,mensagem,enviar_em)',
-      'VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)',
+      '(pedido_ref,pedido_numero,cliente_nome,telefone,produto_id,produto_nome,preco_tabela,custo_atual,preco_promocional,imagem,mensagem,audio_mp3,voz_id,modelo_id,enviar_em)',
+      'VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)',
       'RETURNING id, enviar_em'
     ].join(' '), [
       pedidoRef, String(detalhe.numero || pedidoRef), nomeCliente, telefone, produtoId, produto.nome,
-      produto.preco, produto.custo, preco, imagem, mensagem, horario
+      produto.preco, produto.custo, preco, imagem, mensagem, audio.bytes, audio.voz, audio.modelo, horario
     ]);
     return { id: salvo.rows[0].id, enviarEm: salvo.rows[0].enviar_em, mensagem, produto: produto.nome, precoPromocional: preco };
   } catch (e) { if (e.code === '23505') throw erro('Já existe uma oferta programada para este pedido.', 409); throw e; }
@@ -156,8 +200,13 @@ async function processarProximo() {
         return;
       }
     }
+    if (!p.audio_mp3 || !p.voz_id || !p.modelo_id) {
+      throw erro('Oferta sem áudio preparado: conferir antes de enviar.', 409);
+    }
     await zapi.enviarImagem({ telefone: p.telefone, imagem: p.imagem, legenda: p.mensagem }, { timeoutMs: 60000 });
-    await pool.query("UPDATE pedido_promocoes_posvenda SET status='enviado',imagem_aceita_em=NOW(),enviado_em=NOW(),atualizado_em=NOW() WHERE id=$1", [p.id]);
+    await pool.query('UPDATE pedido_promocoes_posvenda SET imagem_aceita_em=NOW(),atualizado_em=NOW() WHERE id=$1', [p.id]);
+    await eleven.enviarAudio({bytes:p.audio_mp3,voz:p.voz_id,modelo:p.modelo_id,caracteres:p.mensagem.length},p.telefone);
+    await pool.query("UPDATE pedido_promocoes_posvenda SET status='enviado',audio_aceito_em=NOW(),enviado_em=NOW(),atualizado_em=NOW() WHERE id=$1", [p.id]);
   } catch (e) {
     console.error('[promocao-posvenda] Envio incerto do pedido', p.pedido_ref, e.message);
     await pool.query("UPDATE pedido_promocoes_posvenda SET status='incerto', erro=$2, atualizado_em=NOW() WHERE id=$1 AND status='enviando'", [p.id, String(e.message).slice(0, 800)]).catch(e2 => console.error('[promocao-posvenda] Falha ao registrar:', e2.message));
@@ -173,4 +222,4 @@ function iniciarTrabalhador() {
   const t = setTimeout(tick, 8000);
   t.unref?.();
 }
-module.exports = { listarProdutos, agendar, iniciarTrabalhador, preparar };
+module.exports = { listarProdutos, gerarTexto, agendar, iniciarTrabalhador, preparar };
