@@ -41,7 +41,7 @@
     if (!p) { lugar.textContent = 'Selecione um produto.'; margem(); return; }
     if (p.foto) { const img = document.createElement('img'); img.src = p.foto; img.alt = p.nome; lugar.appendChild(img); }
     const d = document.createElement('div');
-    d.textContent = p.nome + ' | Preço: ' + moeda(p.preco) + ' | Custo: ' + moeda(p.custo) + (p.foto ? '' : ' | SEM FOTO');
+    d.textContent = p.nome + ' | Preço: ' + moeda(p.preco) + ' | Custo: ' + (p.semCusto ? 'indisponível' : moeda(p.custo)) + (p.foto ? '' : ' | SEM FOTO');
     lugar.appendChild(d); margem();
   }
   function filtrar() {
@@ -73,6 +73,8 @@
     const p = selecionado(), preco = Number($('pp-preco').value);
     if (!p?.foto) return status('Escolha um produto com foto cadastrada.', true);
     if (!(preco > 0)) return status('Informe um preço promocional válido.', true);
+    if (preco >= p.preco) return status('O preço promocional precisa ser inferior ao preço de tabela.', true);
+    if (p.semCusto) return status('O custo do produto ainda não foi calculado. Atualize a composição antes de oferecer.', true);
     if (!$('pp-consentimento').checked) return status('Confirme a autorização do cliente para receber ofertas.', true);
     if (preco < p.custo && !confirm('Preço inferior ao custo atualizado. Continuar?')) return;
     try {
