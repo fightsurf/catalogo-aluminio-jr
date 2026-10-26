@@ -94,3 +94,120 @@ a{color:#8ec1ff}table th,table td{border-color:#34465f!important}hr,.tabs,.avn-t
 
 /* Harmonização de componentes dinâmicos de gráficos e pesquisa */
 .avn-food-dialog,.avn-dialog-comparador,.avn-dialog-comparador dialog{background:#182437!important;color:#ecf2fc!important;border-color:#435775!important}.avn-food-row:hover,.avn-food-row:focus-visible{background:#243b56!important}.avn-chart-table th,.avn-chart-table td,.avn-chart-table-wrap{border-color:#435775!important}.avn-chart-table,.avn-chart-micros,.avn-food-dialog details{background:#182437!important;color:#eaf2ff!important}.avn-micro-track{background:#314b68!important}.avn-alert{background:#153c35!important;color:#aef4db!important}.avn-alert.error{background:#45242b!important;color:#ffd3d9!important}
+
+/* Tema noturno: correção integral dos modais de alimentos (TACO, USDA e IA) */
+/* Uso de seletores restritos ao comparador para não alterar outros módulos da fábrica. */
+.avn-dialog-comparador{
+  --comparador-fundo:#182437;
+  --comparador-painel:#142237;
+  --comparador-item:#1b2e47;
+  --comparador-realce:#254565;
+  --comparador-cabecalho:#263f5c;
+  --comparador-borda:#3c5371;
+  --comparador-texto:#ecf2fc;
+  --comparador-secundario:#b3c4db;
+  background:var(--comparador-fundo)!important;
+  color:var(--comparador-texto)!important;
+  border-color:var(--comparador-borda)!important;
+  color-scheme:dark;
+}
+.avn-dialog-comparador .ia-comparador-fonte{
+  background:var(--comparador-painel);
+  color:var(--comparador-texto);
+  border-color:var(--comparador-borda);
+}
+.avn-dialog-comparador .ia-fonte-top h3,
+.avn-dialog-comparador .ia-selecao-fonte strong{color:var(--comparador-texto)!important}
+.avn-dialog-comparador .ia-source-sub,
+.avn-dialog-comparador .ia-selecao-fonte,
+.avn-dialog-comparador .ia-source-original,
+.avn-dialog-comparador #statusTACO,
+.avn-dialog-comparador #statusUSDA,
+.avn-dialog-comparador #statusIAColuna,
+.avn-dialog-comparador .ia-legenda{color:var(--comparador-secundario)!important}
+.avn-dialog-comparador .ia-result{
+  background:var(--comparador-item);
+  color:var(--comparador-texto);
+  border-color:var(--comparador-borda);
+}
+.avn-dialog-comparador .ia-result strong{color:var(--comparador-texto)}
+.avn-dialog-comparador .ia-result small{color:var(--comparador-secundario)!important}
+.avn-dialog-comparador .ia-result:hover:not(:disabled),
+.avn-dialog-comparador .ia-result:focus-visible{
+  background:var(--comparador-realce);
+  color:var(--comparador-texto);
+  border-color:#80b9f7;
+}
+.avn-dialog-comparador .ia-lista-opcoes .ia-result[aria-pressed="true"]{
+  background:#244d73;
+  color:#fff;
+  border-color:#8ac7ff;
+}
+.avn-dialog-comparador .ia-lista-opcoes .ia-result:disabled{opacity:.75}
+.avn-dialog-comparador .ia-planilha-scroll{
+  background:var(--comparador-painel);
+  border-color:var(--comparador-borda);
+}
+.avn-dialog-comparador .ia-planilha{
+  background:var(--comparador-painel);
+  color:var(--comparador-texto);
+}
+.avn-dialog-comparador .ia-planilha th,
+.avn-dialog-comparador .ia-planilha td{border-bottom-color:var(--comparador-borda)!important}
+.avn-dialog-comparador .ia-planilha thead th,
+.avn-dialog-comparador .ia-planilha thead th:first-child{
+  background:var(--comparador-cabecalho);
+  color:#f2f7ff!important;
+}
+.avn-dialog-comparador .ia-planilha tbody td{
+  background:var(--comparador-painel);
+  color:var(--comparador-texto);
+}
+.avn-dialog-comparador .ia-planilha tbody td:first-child{
+  background:#1b2c44;
+  color:var(--comparador-texto);
+  box-shadow:2px 0 3px #07101b55;
+}
+.avn-dialog-comparador .ia-planilha tbody td.ia-desconhecido{color:#a5b8d0}
+.avn-dialog-comparador .ia-planilha tbody tr:hover td:not(.ia-grupo),
+.avn-dialog-comparador .ia-planilha tbody tr:hover td:first-child{
+  background:var(--comparador-realce);
+}
+.avn-dialog-comparador .ia-planilha .ia-grupo{
+  background:var(--comparador-cabecalho)!important;
+  color:#f2f7ff!important;
+  border-bottom-color:var(--comparador-borda)!important;
+}
+.avn-dialog-comparador .ia-planilha td small{color:var(--comparador-secundario)!important}
+.avn-dialog-comparador .ia-json-block,
+.avn-dialog-comparador .ia-bloco-json,
+.avn-dialog-comparador .ia-auditoria{
+  background:var(--comparador-painel);
+  color:var(--comparador-texto);
+  border-color:var(--comparador-borda);
+}
+.avn-dialog-comparador .ia-auditoria{
+  margin-top:8px;
+  padding:9px 11px;
+  border:1px solid var(--comparador-borda);
+  border-radius:8px;
+}
+.avn-dialog-comparador .ia-aviso{
+  background:#3a301d;
+  color:#ffe2a4;
+  border-color:#8a6b36;
+}
+/* Segundo modal da mesma página: gráficos de alimentos cadastrados. */
+.avn-food-dialog .avn-macro-ring:after{background:#182437}
+.avn-food-dialog .avn-chart-table-wrap{background:#142237;border-color:#435775!important}
+.avn-food-dialog .avn-chart-table th{
+  background:#263f5c;
+  color:#f2f7ff;
+  border-color:#435775!important;
+}
+.avn-food-dialog .avn-chart-table td{
+  background:#182437;
+  color:#ecf2fc;
+  border-color:#435775!important;
+}
+.avn-food-dialog .avn-chart-table tbody tr:hover td{background:#254565}
