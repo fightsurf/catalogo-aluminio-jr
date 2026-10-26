@@ -1,10 +1,5 @@
 const pool = require('../../../db/connection');
 
-async function tabelaExiste(nomeTabela) {
-  const result = await pool.query('SELECT to_regclass($1) AS tabela', [nomeTabela]);
-  return Boolean(result.rows[0] && result.rows[0].tabela);
-}
-
 async function criarTabelasDespesas() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS despesa_categorias (
@@ -115,92 +110,6 @@ async function criarTabelasDespesas() {
   `);
 }
 
-async function prepararTabelasAntigas() {
-  const temLancamentosAntigos = await tabelaExiste('saidas');
-  if (!temLancamentosAntigos) return;
-
-  await pool.query(`
-    ALTER TABLE saidas ADD COLUMN IF NOT EXISTS vencimento DATE;
-    ALTER TABLE saidas ADD COLUMN IF NOT EXISTS lote_carne VARCHAR(80);
-    ALTER TABLE saidas ADD COLUMN IF NOT EXISTS numero_parcela INTEGER;
-    ALTER TABLE saidas ADD COLUMN IF NOT EXISTS total_parcelas INTEGER;
-    ALTER TABLE saidas DROP COLUMN IF EXISTS descricao;
-  `);
-}
-
-async function migrarDadosAntigos() {
-  const temCategoriasAntigas = await tabelaExiste('saida_categorias');
-  const temItensAntigos = await tabelaExiste('saida_itens');
-  const temLancamentosAntigos = await tabelaExiste('saidas');
-
-  if (temCategoriasAntigas) {
-    await pool.query(`
-      INSERT INTO despesa_categorias (id, nome, ativo, observacao, created_at, updated_at)
-      SELECT id, nome, ativo, observacao, created_at, updated_at
-      FROM saida_categorias
-      ON CONFLICT (id) DO NOTHING;
-    `);
-
-    await pool.query(`
-      SELECT setval(
-        pg_get_serial_sequence('despesa_categorias', 'id'),
-        COALESCE((SELECT MAX(id) FROM despesa_categorias), 1),
-        (SELECT COUNT(*) > 0 FROM despesa_categorias)
-      );
-    `);
-  }
-
-  if (temItensAntigos && temCategoriasAntigas) {
-    await pool.query(`
-      INSERT INTO despesa_itens (id, nome, categoria_id, recorrente_mensal, ativo, observacao, created_at, updated_at)
-      SELECT id, nome, categoria_id, recorrente_mensal, ativo, observacao, created_at, updated_at
-      FROM saida_itens
-      ON CONFLICT (id) DO NOTHING;
-    `);
-
-    await pool.query(`
-      SELECT setval(
-        pg_get_serial_sequence('despesa_itens', 'id'),
-        COALESCE((SELECT MAX(id) FROM despesa_itens), 1),
-        (SELECT COUNT(*) > 0 FROM despesa_itens)
-      );
-    `);
-  }
-
-  if (temLancamentosAntigos && temItensAntigos) {
-    await pool.query(`
-      INSERT INTO despesa_lancamentos
-        (id, item_saida_id, competencia_mes, competencia_ano, vencimento, data_saida, valor, forma_pagamento, status, observacao, lote_carne, numero_parcela, total_parcelas, created_at, updated_at)
-      SELECT
-        id,
-        item_saida_id,
-        competencia_mes,
-        competencia_ano,
-        vencimento,
-        data_saida,
-        valor,
-        forma_pagamento,
-        status,
-        observacao,
-        lote_carne,
-        numero_parcela,
-        total_parcelas,
-        created_at,
-        updated_at
-      FROM saidas
-      ON CONFLICT (id) DO NOTHING;
-    `);
-
-    await pool.query(`
-      SELECT setval(
-        pg_get_serial_sequence('despesa_lancamentos', 'id'),
-        COALESCE((SELECT MAX(id) FROM despesa_lancamentos), 1),
-        (SELECT COUNT(*) > 0 FROM despesa_lancamentos)
-      );
-    `);
-  }
-}
-
 async function recalcularMediasExistentes() {
   await pool.query(`
     INSERT INTO despesa_item_medias_anuais
@@ -224,9 +133,9 @@ async function recalcularMediasExistentes() {
 }
 
 async function criarEstrutura() {
+  // Importacao das tabelas antigas desativada permanentemente.
+  // Reexecuta-la no deploy recriava itens e categorias excluidos pelo usuario.
   await criarTabelasDespesas();
-  await prepararTabelasAntigas();
-  await migrarDadosAntigos();
   await recalcularMediasExistentes();
 }
 
