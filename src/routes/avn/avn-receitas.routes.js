@@ -2,6 +2,7 @@
 const express=require('express');
 const pool=require('../../../db/connection');
 const {calcular,composicao}=require('../../services/avn/avn-receitas-calculo.service');
+const {interpretar} = require('../../services/avn/avn-receitas-importacao.service');
 const router=express.Router();
 const id=v=>/^\d+$/.test(String(v||''))&&Number(v)>0;
 const bad=(m,s=400)=>Object.assign(new Error(m),{status:s});
@@ -42,6 +43,23 @@ async function salvar(req,res,editar){
  }catch(e){await db.query('ROLLBACK').catch(()=>{});throw e;}finally{db.release();}
 }
 router.get('/',route(async(req,res)=>{const u=uid(req.query.usuarioId);await usuarioExiste(pool,u);const r=await pool.query(`SELECT r.*,a.kcal_100g,a.proteinas_g_100g,a.carboidratos_g_100g,a.gorduras_g_100g,a.fibras_g_100g,a.micronutrientes_100g FROM public.avn_receitas r JOIN public.avn_alimentos a ON a.id=r.alimento_id WHERE r.usuario_id=$1 ORDER BY r.nome,r.id`,[u]);res.json(r.rows);}));
+// O catálogo usado pela IA é o mesmo exibido para revisão no formulário.
+async function catalogoUsuario(u){
+ const r=await pool.query(`SELECT * FROM public.avn_alimentos WHERE ativo
+   AND (usuario_id=$1 OR usuario_id IS NULL) AND fonte<>'receita'
+   ORDER BY nome,id LIMIT 1200`,[u]);
+ return r.rows;
+}
+router.get('/catalogo',route(async(req,res)=>{
+ const u=uid(req.query.usuarioId);await usuarioExiste(pool,u);
+ res.set('Cache-Control','no-store').json(await catalogoUsuario(u));
+}));
+router.post('/interpretar',route(async(req,res)=>{
+ const u=uid(req.body?.usuarioId);await usuarioExiste(pool,u);
+ const catalogo=await catalogoUsuario(u);
+ const dados=await interpretar(req.body?.texto,catalogo);
+ res.set('Cache-Control','no-store').json(dados);
+}));
 router.get('/:id',route(async(req,res)=>{const u=uid(req.query.usuarioId);if(!id(req.params.id))throw bad('Receita inválida.');const r=await pool.query('SELECT * FROM public.avn_receitas WHERE id=$1 AND usuario_id=$2',[req.params.id,u]);if(!r.rowCount)throw bad('Receita não encontrada.',404);const q=await pool.query('SELECT alimento_id,quantidade_g,nome_snapshot,ordem,composicao_100g FROM public.avn_receita_ingredientes WHERE receita_id=$1 ORDER BY ordem,id',[r.rows[0].id]);res.json({...r.rows[0],ingredientes:q.rows});}));
 router.post('/',route((req,res)=>salvar(req,res,false)));
 router.put('/:id',route((req,res)=>salvar(req,res,true)));
