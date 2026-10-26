@@ -358,20 +358,16 @@ class PrestacaoContasService {
     await this._ensureSchema();
     await this._assertAberta(prestacao_id);
 
-    const { material, peso_kg, preco_por_kg } = data;
-    const peso = this._validarNumeroPositivo(peso_kg, 'peso_kg');
-    const preco = this._validarNumeroNaoNegativo(preco_por_kg, 'preco_por_kg');
-    const total_item = peso * preco;
-
+    const itemValidado = this._validarItemMaterial(data);
     const result = await pool.query(`
-      INSERT INTO prestacao_itens (prestacao_id, descricao_material, peso_kg, preco_por_kg, total_item)
-      VALUES ($1, $2, $3, $4, $5)
+      INSERT INTO prestacao_itens (prestacao_id, descricao_material, peso_kg, preco_por_kg, unidade, total_item)
+      VALUES ($1, $2, $3, $4, $5, ROUND($3::numeric * $4::numeric, 2))
       RETURNING *
-    `, [prestacao_id, material, peso, preco, total_item]);
+    `, [prestacao_id, itemValidado.material, itemValidado.quantidade, itemValidado.preco, itemValidado.unidade]);
 
     const item = result.rows[0];
     await this._recalcular(prestacao_id);
-    await this._registrarLog(prestacao_id, 'CRIAR_ITEM', `Item adicionado: ${material}`);
+    await this._registrarLog(prestacao_id, 'CRIAR_ITEM', `Item adicionado: ${itemValidado.material}`);
     return item;
   }
 
@@ -379,22 +375,19 @@ class PrestacaoContasService {
     await this._ensureSchema();
     await this._assertAberta(prestacao_id);
 
-    const { material, peso_kg, preco_por_kg } = data;
-    const peso = this._validarNumeroPositivo(peso_kg, 'peso_kg');
-    const preco = this._validarNumeroNaoNegativo(preco_por_kg, 'preco_por_kg');
-    const total_item = peso * preco;
-
+    const itemValidado = this._validarItemMaterial(data);
     const result = await pool.query(`
       UPDATE prestacao_itens
-      SET descricao_material = $1, peso_kg = $2, preco_por_kg = $3, total_item = $4, movimentado_em = NOW()
+      SET descricao_material = $1, peso_kg = $2, preco_por_kg = $3,
+          unidade = $4, total_item = ROUND($2::numeric * $3::numeric, 2), movimentado_em = NOW()
       WHERE id = $5 AND prestacao_id = $6
       RETURNING *
-    `, [material, peso, preco, total_item, itemId, prestacao_id]);
+    `, [itemValidado.material, itemValidado.quantidade, itemValidado.preco, itemValidado.unidade, itemId, prestacao_id]);
 
     const item = result.rows[0] || null;
     if (item) {
       await this._recalcular(prestacao_id);
-      await this._registrarLog(prestacao_id, 'ATUALIZAR_ITEM', `Item atualizado: ${material}`);
+      await this._registrarLog(prestacao_id, 'ATUALIZAR_ITEM', `Item atualizado: ${itemValidado.material}`);
     }
     return item;
   }
@@ -407,6 +400,80 @@ class PrestacaoContasService {
     await this._recalcular(prestacao_id);
     await this._registrarLog(prestacao_id, 'DELETAR_ITEM', `Item removido: id=${itemId}`);
     return true;
+  }
+
+  // Importação revisada: transação única, sem importação parcial ou edição de prestação concluída.
+  async importarItens(prestacao_id, itens) {
+    await this._ensureSchema();
+    if (!Array.isArray(itens) || itens.length < 1 || itens.length > 200) {
+      const err = new Error('Informe entre 1 e 200 itens para importar.');
+      err.statusCode = 400; throw err;
+    }
+    const validados = itens.map((item, indice) => {
+      try {
+        return this._validarItemMaterial({
+          material: item?.material,
+          peso_kg: item?.quantidade,
+          preco_por_kg: item?.preco_unitario,
+          unidade: item?.unidade
+        });
+      } catch (err) {
+        err.message = 'Item ' + (indice + 1) + ': ' + err.message;
+        err.statusCode = 400;
+        throw err;
+      }
+    });
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await this._assertAberta(prestacao_id, client);
+      for (const item of validados) {
+        await client.query(`
+          INSERT INTO prestacao_itens
+            (prestacao_id, descricao_material, peso_kg, preco_por_kg, unidade, total_item)
+          VALUES ($1, $2, $3, $4, $5, ROUND($3::numeric * $4::numeric, 2))
+        `, [prestacao_id, item.material, item.quantidade, item.preco, item.unidade]);
+      }
+      await this._recalcular(prestacao_id, client);
+      await this._registrarLog(prestacao_id, 'IMPORTAR_NOTA_IA',
+        validados.length + ' item(ns) importado(s) após revisão do usuário.', client);
+      await client.query('COMMIT');
+      return { quantidade: validados.length };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  _validarItemMaterial(data) {
+    const material = String(data?.material || '').trim();
+    if (!material || material.length > 120) {
+      const err = new Error('Descrição deve ter entre 1 e 120 caracteres.');
+      err.statusCode = 400; throw err;
+    }
+    const unidade = String(data?.unidade || 'KG').trim().toUpperCase();
+    if (unidade !== 'KG' && unidade !== 'UN') {
+      const err = new Error('Unidade precisa ser KG ou UN.');
+      err.statusCode = 400; throw err;
+    }
+    const quantidade = this._validarNumeroPositivo(data?.peso_kg, 'Quantidade');
+    const preco = this._validarNumeroNaoNegativo(data?.preco_por_kg, 'Preço unitário');
+    if (unidade === 'UN' && !Number.isInteger(quantidade)) {
+      const err = new Error('Quantidade em peças precisa ser inteira.');
+      err.statusCode = 400; throw err;
+    }
+    if (quantidade > 999999 || preco > 9999999) {
+      const err = new Error('Quantidade ou preço acima do limite.');
+      err.statusCode = 400; throw err;
+    }
+    if (Math.abs(quantidade - Math.round(quantidade * 1000) / 1000) > 0.0000001 ||
+        Math.abs(preco - Math.round(preco * 100) / 100) > 0.0000001) {
+      const err = new Error('Use até 3 decimais na quantidade e 2 no preço.');
+      err.statusCode = 400; throw err;
+    }
+    return { material, quantidade, preco, unidade };
   }
 
   // ─── PAGAMENTOS ───────────────────────────────────────────────
@@ -1335,7 +1402,7 @@ class PrestacaoContasService {
     const total_material = parseFloat(cabecalho ? cabecalho.total_material : 0);
     const total_pago = parseFloat(cabecalho ? cabecalho.total_pago : 0);
     const saldo_restante = parseFloat(cabecalho ? cabecalho.saldo_restante : 0);
-    const peso_total = materiaisRes.rows.reduce((acc, i) => acc + parseFloat(i.peso_kg || 0), 0);
+    const peso_total = materiaisRes.rows.reduce((acc, i) => acc + (i.unidade === 'UN' ? 0 : parseFloat(i.peso_kg || 0)), 0);
 
     return {
       cabecalho,
@@ -1376,6 +1443,9 @@ class PrestacaoContasService {
     await pool.query(`ALTER TABLE prestacao_pagamentos ADD COLUMN IF NOT EXISTS origem_saida BIGINT NULL`);
     await pool.query(`ALTER TABLE prestacao_pagamentos ADD COLUMN IF NOT EXISTS origem_pdv INTEGER NULL`);
     await pool.query(`ALTER TABLE prestacao_pagamentos ADD COLUMN IF NOT EXISTS origem_atualizado_em TIMESTAMP NULL`);
+    // Mantém colunas legadas peso_kg/preco_por_kg como quantidade/preço unitário
+    // para compatibilidade; unidade distingue peças de quilogramas.
+    await pool.query(`ALTER TABLE prestacao_itens ADD COLUMN IF NOT EXISTS unidade VARCHAR(2) NOT NULL DEFAULT 'KG'`);
     await pool.query(`ALTER TABLE prestacao_itens ADD COLUMN IF NOT EXISTS movimentado_em TIMESTAMP NULL`);
     await pool.query(`
       UPDATE prestacao_itens i
