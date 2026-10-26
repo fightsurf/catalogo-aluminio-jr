@@ -1,4 +1,5 @@
 const prestacaoContasService = require('../../services/prestacao_contas/prestacao_contas.service');
+const prestacaoNotaIa = require('../../services/prestacao_contas/prestacaoNotaIa.service');
 
 class PrestacaoContasController {
 
@@ -100,16 +101,42 @@ class PrestacaoContasController {
     }
   }
 
+  // ─── LEITURA DE NOTA / IMPORTAÇÃO ───────────────────────────
+
+  async interpretarNota(req, res) {
+    try {
+      const data = await prestacaoNotaIa.interpretarNota(req.params.id, req.files);
+      return res.json({ success: true, data });
+    } catch (error) {
+      console.error('ERRO interpretar nota:', error.message);
+      return res.status(error.statusCode || 500).json({
+        success: false, message: error.statusCode ? error.message : 'Erro interno ao interpretar a nota.'
+      });
+    }
+  }
+
+  async importarItens(req, res) {
+    try {
+      const data = await prestacaoContasService.importarItens(req.params.id, req.body?.itens);
+      return res.status(201).json({ success: true, data });
+    } catch (error) {
+      console.error('ERRO importar itens:', error.message);
+      return res.status(error.statusCode || 500).json({
+        success: false, message: error.statusCode ? error.message : 'Erro interno ao importar itens.'
+      });
+    }
+  }
+
   // ─── ITENS ────────────────────────────────────────────────────
 
   async criarItem(req, res) {
     try {
       const { id } = req.params;
-      const { material, peso_kg, preco_por_kg } = req.body;
+      const { material, peso_kg, preco_por_kg, unidade } = req.body;
       if (!material || peso_kg == null || preco_por_kg == null) {
         return res.status(400).json({ success: false, message: 'material, peso_kg e preco_por_kg são obrigatórios' });
       }
-      const data = await prestacaoContasService.criarItem(id, { material, peso_kg, preco_por_kg });
+      const data = await prestacaoContasService.criarItem(id, { material, peso_kg, preco_por_kg, unidade });
       return res.status(201).json({ success: true, data });
     } catch (error) {
       console.error('ERRO criar item:', error);
@@ -120,11 +147,11 @@ class PrestacaoContasController {
   async atualizarItem(req, res) {
     try {
       const { id, itemId } = req.params;
-      const { material, peso_kg, preco_por_kg } = req.body;
+      const { material, peso_kg, preco_por_kg, unidade } = req.body;
       if (!material || peso_kg == null || preco_por_kg == null) {
         return res.status(400).json({ success: false, message: 'material, peso_kg e preco_por_kg são obrigatórios' });
       }
-      const data = await prestacaoContasService.atualizarItem(id, itemId, { material, peso_kg, preco_por_kg });
+      const data = await prestacaoContasService.atualizarItem(id, itemId, { material, peso_kg, preco_por_kg, unidade });
       if (!data) return res.status(404).json({ success: false, message: 'Item não encontrado' });
       return res.json({ success: true, data });
     } catch (error) {
