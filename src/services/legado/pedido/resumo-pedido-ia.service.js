@@ -72,7 +72,7 @@ async function gerarResumo(id,tipoSolicitado='automatico'){
   const previsao=dataBR(pedido.carradaAtual?.data);
   const abertura=frase(gerado.abertura)||'Seu pedido foi registrado com sucesso!';
   const despedida=frase(gerado.despedida)||'A Alumínio JR agradece pela confiança!';
-  const texto=['Olá, '+cliente+'! '+abertura,
+  const texto=['Olá, '+cliente+'! '+abertura+' Seu pedido reúne '+new Set(itens.map(x=>String(x.descricao||'').trim().toLowerCase())).size+' tipos de produtos.',
     tipo==='kit-feirinha'?'Seu Kit Feirinha ficou muito bom! Destaque para '+juntar(nomes)+'. O preço médio por peça ficou em '+moeda(total/quantidade)+'.':'Entre os produtos escolhidos, destaco '+juntar(nomes)+'.',
     'O valor total do pedido é '+moeda(total)+'.',
     previsao?'A previsão de finalização é para o dia '+previsao+'.':'A previsão de finalização ainda não foi informada.',
