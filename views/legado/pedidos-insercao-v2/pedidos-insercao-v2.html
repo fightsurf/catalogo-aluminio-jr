@@ -1490,6 +1490,7 @@ const avisos = [];
 
 ultimoPedidoSalvo = {
   numero: pedido?.numero || '',
+  salvoEm: new Date().toISOString(),
   empresa: pedido?.empresa ?? -1,
   saida: pedido?.saida ?? pedido?.idMestre ?? null,
   pdv: pedido?.pdv ?? 0,
@@ -1547,6 +1548,8 @@ resultadoSucesso.innerHTML = `
 `;
 resultadoSucesso.style.display = 'block';
 atualizarBotoesAcao();
+// O modal só é aberto em caso de pedido efetivamente salvo e código previamente autorizado.
+window.promocaoPosVenda?.aposSalvar(ultimoPedidoSalvo);
 
 itensPedido = [];
 textoRelatorio.value = '';
@@ -1898,5 +1901,6 @@ setMensagem([
     carregarRelatorioWhatsappRecebido();
   </script>
   <script src="/js/pedido-resumo-ia.js"></script>
+  <script src="/js/promocao-posvenda-pedido.js"></script>
 </body>
 </html>
