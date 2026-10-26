@@ -7,6 +7,7 @@ const router=express.Router();
 const catalogo = require('../../services/avn/avn-treinos-catalogo.service');
 const compat = require('../../services/avn/avn-treinos-equipamentos.service');
 router.use('/config',require('./avn-treino-config.routes'));
+router.use('/mobile',require('./avn-treino-mobile.routes').admin);
 const grupos=async()=> (await pool.query('SELECT id,slug,nome,ordem FROM public.avn_exercicio_grupos ORDER BY ordem,nome')).rows;
 const listaSQL=`SELECT e.id,e.slug,e.nome,e.grupo_id,g.nome AS grupo,e.equipamento,e.instrucoes,e.midia_url,e.midia_tipo,e.ativo
   FROM public.avn_exercicios e JOIN public.avn_exercicio_grupos g ON g.id=e.grupo_id`;

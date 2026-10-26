@@ -137,6 +137,7 @@ app.get('/avn', requireAuth, (_req, res) => res.sendFile(path.join(__dirname, 'v
 app.use('/avn/sistema', requireAuth, avnSistemaRoutes);
 // AVN: painéis e API de saúde, todas as rotas exigem autenticação administrativa.
 app.use('/api/avn/health/sync', avnSyncRoutes);
+app.use('/api/avn/treinos-mobile', require('./src/routes/avn/avn-treino-mobile.routes').mobile);
 app.use('/api/avn/health', requireAuth, avnHealthRoutes);
 app.get('/avn/evolucao-corporal', requireAuth, (_req,res)=>res.sendFile(path.join(__dirname,'views/avn/evolucao-corporal.html')));
 app.get('/avn/gastos-caloricos', requireAuth, (_req,res)=>res.sendFile(path.join(__dirname,'views/avn/gastos-caloricos.html')));

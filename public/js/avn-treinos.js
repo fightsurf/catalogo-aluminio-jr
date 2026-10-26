@@ -157,8 +157,30 @@ async function treinoPlanos(){if(usuarioGuard())return;state.planos=await fetchJ
  $('selectPlano').onchange=async()=>{try{await carregarTreino($('selectPlano').value);$('selectDia').value=String(state.treinoDia);renderTreinoItens();}catch(e){toast(e.message,true);}};
  $('selectDia').onchange=()=>{state.treinoDia=Number($('selectDia').value);renderTreinoItens();};
  $('salvarSessao').onclick=salvarSessao;
- $('selectDia').value=String(state.treinoDia);renderTreinoItens();await renderHistorico();
+ $('selectDia').value=String(state.treinoDia);renderTreinoItens();await renderHistorico();await configurarAndroidNoRegistro();
 }
+
+async function configurarAndroidNoRegistro(){
+ const card=document.querySelector('#conteudo .grid-2 > section:nth-child(2)');
+ if(!card)return;
+ const area=document.createElement('div');area.className='stack';
+ area.innerHTML='<h3>Treinos no Android</h3><button type="button" class="btn ghost" id="vincularAvnAndroid">Vincular Android</button><p id="codigoAvnAndroid" class="hint">Gere um código de pareamento para o aplicativo Android.</p><div id="historicoAvnAndroid" class="list-rows"></div>';
+ card.appendChild(area);
+ $('vincularAvnAndroid').onclick=async()=>{try{
+   const d=await fetchJSON('/mobile/pareamento',{method:'POST',body:JSON.stringify({usuario_id:state.usuarioId})});
+   $('codigoAvnAndroid').textContent='Código válido por 10 minutos: '+d.codigo;
+   prompt('Código de pareamento para o Android AVN:',d.codigo);
+ }catch(e){toast(e.message,true);}};
+ try{
+  const sessoes=await fetchJSON('/mobile/execucoes?usuario_id='+state.usuarioId);
+  $('historicoAvnAndroid').innerHTML=sessoes.length?sessoes.map(s=>'<div class="plan"><div><strong>'+esc(s.plano_nome)+'</strong><small>'+esc(NOMES[s.dia_semana])+' · '+esc(new Date(s.iniciada_em).toLocaleString('pt-BR'))+' · '+esc(s.series_concluidas)+' séries · '+esc(s.status)+'</small></div><button type="button" class="btn small" data-avn-android-exec="'+esc(s.id)+'">Detalhes</button></div>').join(''):'<div class="empty">Nenhum treino do Android registrado ainda.</div>';
+  area.querySelectorAll('[data-avn-android-exec]').forEach(b=>b.onclick=async()=>{try{
+    const d=await fetchJSON('/mobile/execucoes/'+b.dataset.avnAndroidExec);
+    alert('Treino '+d.plano_nome+'\n'+d.eventos.map(e=>e.tipo+' · Exercício '+(e.exercicio_id||'')+' · Série '+(e.numero_serie||'')+' · '+(e.carga_kg??'')+' kg · '+(e.repeticoes??'')+' rep.').join('\n'));
+  }catch(e){toast(e.message,true);}});
+ }catch(e){toast('Histórico Android indisponível: '+e.message,true);}
+}
+
 async function carregarTreino(id){state.treino=await fetchJSON('/planos/'+id);if(String(state.treino.usuario_id)!==state.usuarioId)throw Error('Plano não pertence ao usuário.');if(!state.treino.dias.some(d=>Number(d.dia_semana)===state.treinoDia&&d.exercicios.length)){state.treinoDia=Number(state.treino.dias.find(d=>d.exercicios.length)?.dia_semana??0);}}
 function renderTreinoItens(){const day=state.treino.dias.find(d=>Number(d.dia_semana)===state.treinoDia),itens=day?.exercicios||[];
  const root=$('treinoItens');root.innerHTML=itens.length?`<div class="stack">`+itens.map((i,n)=>`<div class="item" data-realizado="${n}"><div class="row between"><strong>${esc(i.exercicio_nome||buscarNome(i.exercicio_id))}</strong><span class="pill">Previsto: ${i.series} × ${esc(i.repeticoes)}</span></div><div class="fields"><label>Séries feitas<input type="number" class="ses-series" min="0" max="30" value="${i.series}"></label><label>Repetições feitas<input class="ses-reps" maxlength="30" value="${esc(i.repeticoes)}"></label><label>Carga (kg)<input type="number" class="ses-carga" min="0" max="2000" step="0.5" value="${esc(i.carga_kg??'')}"></label></div><label class="label">Observação<input class="ses-obs" maxlength="500"></label></div>`).join('')+'</div>':'<div class="empty">Este dia não possui exercícios. Escolha outro dia ou edite o plano.</div>';
