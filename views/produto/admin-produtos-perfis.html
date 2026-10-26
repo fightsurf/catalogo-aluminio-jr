@@ -129,6 +129,15 @@ tr.inativo td {
   margin-top: 2px;
 }
 
+.custo-link {
+  color: #075aa3;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  font-weight: 600;
+}
+.custo-link:hover,
+.custo-link:focus-visible { color: #003e73; }
+
 .check-cell {
   text-align: center;
   width: 140px;
@@ -366,7 +375,14 @@ function renderizarTabela() {
           <div class="produto-meta">ID ${produto.id}${produto.item_legado ? ` — ITEM legado ${produto.item_legado}` : ''}</div>
         </td>
         <td>${escapeHtml(categoria)}</td>
-        <td>${produto.custo_composicao == null ? '—' : `R$ ${formatarMoeda(produto.custo_composicao)}`}</td>
+        <td>
+          <a class="custo-link"
+             href="/admin-produtos-composicao?produto_id=${encodeURIComponent(produto.id)}"
+             target="_blank" rel="noopener noreferrer"
+             title="Abrir composição de ${escapeHtml(produto.nome)}">
+            ${produto.custo_composicao == null ? 'Sem composição' : `R$ ${formatarMoeda(produto.custo_composicao)}`}
+          </a>
+        </td>
         <td>R$ ${formatarMoeda(produto.preco)}</td>
         <td>${status}</td>
         <td class="check-cell">
