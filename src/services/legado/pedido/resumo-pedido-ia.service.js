@@ -30,7 +30,7 @@ function prioridades(itens){
   };
   return itens.map((_,i)=>i).sort((a,b)=>pontuar(itens[b])-pontuar(itens[a])).slice(0,3);
 }
-async function chamarIA(itens,tipo){
+async function chamarIA(itens,tipo,contexto){
   const chave=String(process.env.OPENAI_API_KEY||'').trim();
   if(!chave)throw erro('Configure OPENAI_API_KEY no Render para usar o resumo com IA.',503);
   let response;
@@ -40,7 +40,7 @@ async function chamarIA(itens,tipo){
       signal:AbortSignal.timeout(30000),
       body:JSON.stringify({model:MODELO,temperature:0.6,max_tokens:220,response_format:{type:'json_object'},messages:[
         {role:'system',content:'Você é um vendedor da Alumínio JR. Responda só JSON com indices (array com até 3 índices de itens relevantes), abertura e despedida (duas frases simpáticas curtas). Exemplos: {"indices":[0,2],"abertura":"Que bom receber seu pedido!","despedida":"Obrigado pela confiança na Alumínio JR!"}. Não mencione nos textos fatos, produtos, números, datas, prazos, descontos ou promessas. Use exclusivamente índices existentes nos dados.'},
-        {role:'user',content:JSON.stringify({tipo,itens:itens.map((x,i)=>({indice:i,descricao:x.descricao,quantidade:x.quantidade,preco:x.preco})).slice(0,150)})}
+        {role:'user',content:JSON.stringify({tipo,...contexto,itens:itens.map((x,i)=>({indice:i,descricao:x.descricao,quantidade:x.quantidade,preco:x.preco})).slice(0,150)})}
       ]})
     });
   }catch(_){throw erro('Não foi possível conectar à IA.',502);}
@@ -61,17 +61,16 @@ async function gerarResumo(id,tipoSolicitado='automatico'){
   const quantidade=itens.reduce((s,x)=>s+Number(x.quantidade),0);
   const total=Number(pedido.total);
   if(!Number.isFinite(total)||total<0||!quantidade)throw erro('Total ou quantidade inválida no pedido.',422);
-  const gerado=await chamarIA(itens,tipo);
+   const cliente=String(pedido.cliente?.nome||'cliente').trim().slice(0,100)||'cliente';
+  const carrada=pedido.carradaAtual||(await pedidos.buscarItensPedido(id))?.carradaAtual;
+  const previsao=dataBR(carrada?.data);
+  const gerado=await chamarIA(itens,tipo,{cliente,total,dataPrevisao:previsao||null,precoMedio:tipo==='kit-feirinha'?Number((total/quantidade).toFixed(2)):null});
   const indices=[];
   for(const i of Array.isArray(gerado.indices)?gerado.indices:[]){
     if(Number.isInteger(i)&&i>=0&&i<itens.length&&!indices.includes(i))indices.push(i);
     if(indices.length>=3)break;
   }
   const nomes=(indices.length?indices:prioridades(itens)).map(i=>String(itens[i].descricao).trim().slice(0,120));
-  const cliente=String(pedido.cliente?.nome||'cliente').trim().slice(0,100)||'cliente';
-  // Em algumas versões da ponte a carrada só vem na rota de itens.
-  const carrada = pedido.carradaAtual || (await pedidos.buscarItensPedido(id))?.carradaAtual;
-  const previsao=dataBR(carrada?.data);
   const abertura=frase(gerado.abertura)||'Seu pedido foi registrado com sucesso!';
   const despedida=frase(gerado.despedida)||'A Alumínio JR agradece pela confiança!';
   const texto=['Olá, '+cliente+'! '+abertura+' Seu pedido reúne '+new Set(itens.map(x=>String(x.descricao||'').trim().toLowerCase())).size+' tipos de produtos.',
