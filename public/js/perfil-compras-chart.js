@@ -18,7 +18,7 @@
   function formatarMoeda(valor) {
     const preco = Number(valor);
     return Number.isFinite(preco)
-      ? preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+      ? preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 2, maximumFractionDigits: 4 })
       : '-';
   }
 
