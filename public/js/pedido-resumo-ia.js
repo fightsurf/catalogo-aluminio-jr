@@ -5,6 +5,8 @@
   let previewId = '';
   let audioUrl = '';
   let enviando = false;
+  let versaoResumo = 0;
+  let versaoAudio = 0;
   let modal = null;
   const $ = id => document.getElementById(id);
   const endpoint = '/api/whatsapp/elevenlabs-jr';
@@ -19,6 +21,7 @@
     return data;
   }
   function limparAudio() {
+    versaoAudio++;
     previewId = '';
     if (audioUrl) URL.revokeObjectURL(audioUrl);
     audioUrl = '';
@@ -73,6 +76,7 @@
     $('resumoIaCopiar').addEventListener('click', copiar);
     $('resumoIaTexto').addEventListener('input', limparAudio);
     $('resumoIaTipo').addEventListener('change', () => {
+      versaoResumo++;
       $('resumoIaTexto').value = '';
       limparAudio();
       mostrarStatus('Tipo alterado. Clique em Gerar resumo com IA para atualizar o texto.');
@@ -80,12 +84,14 @@
   }
   function fechar() {
     if (!modal || enviando) return;
+    versaoResumo++;
     modal.hidden = true; modal.style.display = 'none';
     limparAudio();
   }
   function abrir({idMestre, telefone} = {}) {
     if (!idMestre) { window.alert('Salve ou selecione um pedido antes de gerar o resumo.'); return; }
     montar();
+    versaoResumo++;
     atual = {idMestre, telefone:String(telefone||'')};
     $('resumoIaTitulo').textContent = 'Apresentação do pedido ' + String(idMestre) + ' com IA';
     $('resumoIaTipo').value = 'automatico';
@@ -98,21 +104,25 @@
   }
   async function gerar() {
     if (enviando || !atual) return;
+    const numeroId = atual.idMestre;
+    const versao = ++versaoResumo;
     const btn = $('resumoIaGerar'); btn.disabled = true;
     $('resumoIaTexto').value = ''; limparAudio();
     mostrarStatus('Consultando o pedido e gerando apresentação com IA...');
     try {
-      const data = await jsonResposta(await fetch('/api/legado/pedidos/' + encodeURIComponent(atual.idMestre) + '/resumo-ia',{
+      const data = await jsonResposta(await fetch('/api/legado/pedidos/' + encodeURIComponent(numeroId) + '/resumo-ia',{
         method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({tipo:$('resumoIaTipo').value})
       }));
+      if (versao !== versaoResumo || modal.hidden) return;
       const resumo = data.data;
       if (!resumo || !resumo.texto) throw new Error('O serviço não retornou o texto.');
+      $('resumoIaTitulo').textContent = 'Apresentação do pedido ' + String(resumo.pedidoNumero || numeroId) + ' com IA';
       $('resumoIaTexto').value = resumo.texto;
       atual.telefone = String(resumo.telefone || atual.telefone || '');
       const tipo = resumo.tipo==='kit-feirinha'?'Kit Feirinha':'orçamento normal';
       mostrarStatus('Resumo gerado (' + tipo + '). ' + (resumo.observacao || 'Revise o texto, gere o áudio e confirme o envio.'));
-    } catch(e) {mostrarStatus(e.message,true);} finally {btn.disabled = false;}
+    } catch(e) {if (versao === versaoResumo) mostrarStatus(e.message,true);} finally {if (versao === versaoResumo) btn.disabled = false;}
   }
   async function copiar() {
     const texto = $('resumoIaTexto').value.trim();
@@ -124,7 +134,9 @@
     const texto = $('resumoIaTexto').value.trim();
     if (!texto || texto.length>1000) return mostrarStatus('O texto precisa ter entre 1 e 1000 caracteres.',true);
     const btn = $('resumoIaAudio'); btn.disabled = true;
-    limparAudio(); mostrarStatus('Gerando áudio na ElevenLabs...');
+    limparAudio();
+    const versao = versaoAudio;
+    mostrarStatus('Gerando áudio na ElevenLabs...');
     try {
       const response = await fetch(endpoint+'/gerar',{
         method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({texto})
@@ -135,12 +147,14 @@
       }
       const novoId = response.headers.get('X-Preview-Id');
       if (!novoId) throw new Error('A prévia não foi identificada. Gere novamente.');
+      const blob = await response.blob();
+      if (versao !== versaoAudio || modal.hidden) return;
       previewId = novoId;
-      audioUrl = URL.createObjectURL(await response.blob());
+      audioUrl = URL.createObjectURL(blob);
       $('resumoIaPlayer').src = audioUrl; $('resumoIaPlayer').hidden = false;
       $('resumoIaEnviar').disabled = false;
       mostrarStatus('Áudio gerado. Ouça a prévia. Enviar pelo WhatsApp requer confirmação.');
-    } catch(e){mostrarStatus(e.message,true);} finally {btn.disabled=false;}
+    } catch(e){if (versao === versaoAudio) mostrarStatus(e.message,true);} finally {btn.disabled=false;}
   }
   async function enviar() {
     if (!previewId || enviando) return mostrarStatus('Gere primeiro o áudio.',true);
