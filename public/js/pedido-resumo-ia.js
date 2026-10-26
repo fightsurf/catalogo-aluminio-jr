@@ -94,6 +94,7 @@
     mostrarStatus('O resumo será criado com base nos dados reais do pedido salvo.');
     modal.hidden = false; modal.style.display = 'flex';
     $('resumoIaGerar').focus();
+    void gerar();
   }
   async function gerar() {
     if (enviando || !atual) return;
