@@ -274,3 +274,21 @@ body[data-nutricao-pagina="dieta"] .receita-importador select,body[data-nutricao
 body[data-nutricao-pagina="dieta"] #dietaAplicarImportacao{justify-self:start}
 body[data-nutricao-pagina="dieta"] .receita-importador button:disabled{opacity:.6;cursor:wait}
 @media(max-width:720px){body[data-nutricao-pagina="dieta"] .receita-importador .importador-item{grid-template-columns:auto minmax(0,1fr)}body[data-nutricao-pagina="dieta"] .receita-importador .campo-peso{grid-column:2}}
+
+/* Dieta Programada: refeições organizadas em subpainéis, mantendo o tema noturno. */
+body[data-nutricao-pagina="dieta"] #listaDieta{display:grid;gap:13px}
+body[data-nutricao-pagina="dieta"] .avn-dieta-refeicao{padding:13px;background:#111d30;border:1px solid #3b5069;border-radius:12px;min-width:0}
+body[data-nutricao-pagina="dieta"] .avn-dieta-refeicao-cabecalho{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 12px;padding-bottom:10px}
+body[data-nutricao-pagina="dieta"] .avn-dieta-refeicao-cabecalho h4{margin:0;font-size:15px;color:#ecf4ff}
+body[data-nutricao-pagina="dieta"] .avn-dieta-refeicao-cabecalho span{color:#b8c9df;font-size:12px}
+body[data-nutricao-pagina="dieta"] .avn-dieta-refeicao-itens{display:grid;gap:7px}
+body[data-nutricao-pagina="dieta"] .avn-dieta-linha{background:#1a2a3f;border-color:#394e66;gap:10px;flex-wrap:wrap;min-width:0}
+body[data-nutricao-pagina="dieta"] .avn-dieta-linha>div:first-child{min-width:0;flex:1 1 175px;overflow-wrap:anywhere}
+body[data-nutricao-pagina="dieta"] .avn-dieta-acoes{display:flex;align-items:center;gap:10px;flex:none}
+body[data-nutricao-pagina="dieta"] .avn-dieta-acoes a{color:#91c2ff;font-size:13px;font-weight:750;text-decoration:underline;text-underline-offset:3px}
+body[data-nutricao-pagina="dieta"] .avn-dieta-edicao{width:100%;display:grid;gap:11px;grid-template-columns:repeat(2,minmax(0,1fr));align-items:end}
+body[data-nutricao-pagina="dieta"] .avn-dieta-edicao .avn-field:first-child{grid-column:1/-1}
+body[data-nutricao-pagina="dieta"] .avn-dieta-edicao .avn-field select,
+body[data-nutricao-pagina="dieta"] .avn-dieta-edicao .avn-field input{background:#101b2b;color:#ecf4ff;border:1px solid #405671}
+body[data-nutricao-pagina="dieta"] .avn-dieta-edicao-acoes{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap}
+@media(max-width:520px){body[data-nutricao-pagina="dieta"] .avn-dieta-edicao{grid-template-columns:1fr}body[data-nutricao-pagina="dieta"] .avn-dieta-edicao .avn-field:first-child,body[data-nutricao-pagina="dieta"] .avn-dieta-edicao-acoes{grid-column:auto}}

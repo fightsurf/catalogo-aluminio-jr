@@ -196,6 +196,20 @@ async function salvarItensDietaLote(req,res){
  }catch(e){await client.query('ROLLBACK').catch(()=>{});throw e;}finally{client.release();}
 }
 router.post('/dieta/:usuarioId/itens/lote',wrap(salvarItensDietaLote));
+// Edita somente o item programado: não altera os nutrientes do cadastro nem o diário alimentar.
+router.put('/dieta/:usuarioId/itens/:itemId',wrap(async(req,res)=>{
+ const uid=requiredId(req.params.usuarioId),iid=requiredId(req.params.itemId);
+ await user(uid);
+ const {refeicao,alimento_id,quantidade_g}=req.body||{};
+ const ref=meal(refeicao),q=grams(quantidade_g),f=await food(alimento_id,uid);
+ const updated=await pool.query(`UPDATE public.avn_dieta_itens i
+ SET refeicao=$3,alimento_id=$4,quantidade_g=$5
+ FROM public.avn_dieta_planos p
+ WHERE i.plano_id=p.id AND p.usuario_id=$1 AND p.ativo AND i.id=$2
+ RETURNING i.id,i.refeicao,i.alimento_id,i.quantidade_g`,[uid,iid,ref,f.id,q]);
+ if(!updated.rowCount)throw bad('Item da dieta não encontrado.',404);
+ res.json({ok:true,item:updated.rows[0]});
+}));
 router.delete('/dieta/:usuarioId/itens/:itemId',wrap(async(req,res)=>{
  const uid=requiredId(req.params.usuarioId),iid=requiredId(req.params.itemId);await user(uid);
  const r=await pool.query(`DELETE FROM public.avn_dieta_itens i USING public.avn_dieta_planos p WHERE i.plano_id=p.id AND p.usuario_id=$1 AND p.ativo AND i.id=$2 RETURNING i.id`,[uid,iid]);

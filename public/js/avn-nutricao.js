@@ -100,12 +100,53 @@ function renderDaily(){
 function renderDiet(){
  if(!has('listaDieta'))return;
  const rows=state.dieta.filter(r=>Number(r.dia_semana)===state.dias);
- const a=aggregate(rows);$('listaDieta').innerHTML=rows.length?rows.map(i=>{
- const kcal=i.kcal_100g==null?'Energia desconhecida':fmt(Number(i.kcal_100g)*Number(i.quantidade_g)/100,0)+' kcal';
- return `<div class="list-row"><div><span class="name">${esc(i.alimento_nome)}</span><small>${esc(MEALS[i.refeicao]||i.refeicao)} · ${fmt(i.quantidade_g)} g · ${kcal}</small></div><button type="button" class="delete" data-plano="${i.id}">Excluir</button></div>`;
+ const a=aggregate(rows);
+ const grouped=Object.keys(MEALS).map(key=>[key,rows.filter(item=>item.refeicao===key)]).filter(([,items])=>items.length);
+ $('listaDieta').innerHTML=rows.length?grouped.map(([key,items])=>{
+  const subtotal=aggregate(items);
+  return '<section class="avn-dieta-refeicao" aria-label="'+esc(MEALS[key])+'">'+
+   '<div class="avn-dieta-refeicao-cabecalho"><h4>'+esc(MEALS[key])+'</h4>'+
+   '<span>'+items.length+' alimento(s) · '+fmt(subtotal.total.kcal,0)+' kcal'+(subtotal.miss.kcal?'*':'')+'</span></div>'+
+   '<div class="avn-dieta-refeicao-itens">'+items.map(i=>{
+    const kcal=i.kcal_100g==null?'Energia desconhecida':fmt(Number(i.kcal_100g)*Number(i.quantidade_g)/100,0)+' kcal';
+    return '<div class="list-row avn-dieta-linha" data-dieta-item="'+esc(i.id)+'"><div><span class="name">'+esc(i.alimento_nome)+'</span><small>'+fmt(i.quantidade_g)+' g · '+kcal+'</small></div>'+
+      '<div class="avn-dieta-acoes"><a href="#" data-editar-plano="'+esc(i.id)+'" aria-label="Editar '+esc(i.alimento_nome)+'">Editar</a>'+
+      '<button type="button" class="delete" data-plano="'+esc(i.id)+'">Excluir</button></div></div>';
+   }).join('')+'</div></section>';
  }).join(''):'<p class="muted">Nenhuma refeição programada para '+DAYS[state.dias]+'.</p>';
- $('resumoDieta').textContent=rows.length?`Total planejado: ${fmt(a.total.kcal,0)} kcal${a.miss.kcal?' (incompleto)':''} · ${fmt(a.total.proteinas_g)} g proteína · ${fmt(a.total.carboidratos_g)} g carboidratos · ${fmt(a.total.gorduras_g)} g gorduras`:'';
- $('listaDieta').querySelectorAll('[data-plano]').forEach(btn=>btn.onclick=async()=>{if(!confirm('Excluir item da dieta programada?'))return;try{await send(`/dieta/${state.usuarioId}/itens/${btn.dataset.plano}`,'DELETE');await loadDiet();show('Item removido da programação.');}catch(e){show(e.message,true);}});
+ $('resumoDieta').textContent=rows.length?'Total planejado: '+fmt(a.total.kcal,0)+' kcal'+(a.miss.kcal?' (incompleto)':'')+' · '+fmt(a.total.proteinas_g)+' g proteína · '+fmt(a.total.carboidratos_g)+' g carboidratos · '+fmt(a.total.gorduras_g)+' g gorduras':'';
+ $('listaDieta').querySelectorAll('[data-plano]').forEach(btn=>btn.onclick=async()=>{if(!confirm('Excluir item da dieta programada?'))return;try{await send('/dieta/'+state.usuarioId+'/itens/'+btn.dataset.plano,'DELETE');await loadDiet();show('Item removido da programação.');}catch(e){show(e.message,true);}});
+ $('listaDieta').querySelectorAll('[data-editar-plano]').forEach(link=>link.onclick=e=>{
+  e.preventDefault();const item=rows.find(i=>String(i.id)===link.dataset.editarPlano);if(!item)return;
+  abrirEdicaoDieta(item);
+ });
+}
+function abrirEdicaoDieta(item){
+ const row=[...$('listaDieta').querySelectorAll('[data-dieta-item]')].find(el=>el.dataset.dietaItem===String(item.id));
+ if(!row)return;
+ const original=row.innerHTML;
+ const foods=state.alimentos.map(f=>'<option value="'+esc(f.id)+'"'+(String(f.id)===String(item.alimento_id)?' selected':'')+'>'+esc(f.nome)+(f.preparo?' · '+esc(f.preparo):'')+'</option>').join('');
+ // Alimento previamente cadastrado pode ter sido desativado após a programação.
+ const missing=!state.alimentos.some(f=>String(f.id)===String(item.alimento_id));
+ const current=missing?'<option value="'+esc(item.alimento_id)+'" selected>'+esc(item.alimento_nome)+' (atual)</option>':'';
+ row.innerHTML='<form class="avn-dieta-edicao">'+
+  '<label class="avn-field">Alimento<select name="alimento_id" required>'+current+foods+'</select></label>'+
+  '<label class="avn-field">Refeição<select name="refeicao">'+Object.entries(MEALS).map(([id,label])=>'<option value="'+esc(id)+'"'+(id===item.refeicao?' selected':'')+'>'+esc(label)+'</option>').join('')+'</select></label>'+
+  '<label class="avn-field">Quantidade (g)<input name="quantidade_g" type="number" min="0.1" max="10000" step="any" required value="'+esc(item.quantidade_g)+'"></label>'+
+  '<div class="avn-dieta-edicao-acoes"><button type="submit" class="primary">Salvar</button><button type="button" class="secondary" data-cancelar-edicao>Cancelar</button></div></form>';
+ const form=row.querySelector('form');
+ form.querySelector('[data-cancelar-edicao]').onclick=()=>renderDiet();
+ form.onsubmit=async e=>{
+  e.preventDefault();const btn=form.querySelector('button[type=submit]');btn.disabled=true;
+  try{
+   await send('/dieta/'+state.usuarioId+'/itens/'+item.id,'PUT',{
+    alimento_id:form.elements.alimento_id.value,
+    refeicao:form.elements.refeicao.value,
+    quantidade_g:Number(form.elements.quantidade_g.value)
+   });
+   await loadDiet();show('Alimento planejado atualizado.');
+  }catch(error){show(error.message,true);btn.disabled=false;}
+ };
 }
 
 /* Importação assistida de alimentos da refeição programada, sem registrar consumo. */

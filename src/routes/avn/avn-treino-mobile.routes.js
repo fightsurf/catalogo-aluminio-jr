@@ -83,10 +83,37 @@ mobile.post('/execucoes',wrap(async(req,res)=>{
  const u=await pool.query('SELECT id FROM public.avn_planos_treino WHERE id=$1 AND usuario_id=$2',[b.plano_id,req.avnm.usuario_id]);if(!u.rowCount)throw err('Plano não pertence ao usuário.',403);
  if(ids.length){const count=await pool.query('SELECT id FROM public.avn_exercicios WHERE id=ANY($1::bigint[])',[[...new Set(ids)]]);if(count.rowCount!==new Set(ids).size)throw err('Exercício inexistente.');}
  const at=instant(b.iniciada_em);
- const r=await pool.query("INSERT INTO public.avn_treino_execucoes(id,usuario_id,plano_id,dia_semana,iniciada_em,snapshot_exercicios) VALUES($1,$2,$3,$4,$5,$6::jsonb) ON CONFLICT(id) DO NOTHING",[b.execucao_id,req.avnm.usuario_id,b.plano_id,day,at,JSON.stringify(ids)]);
- const c=await pool.query('SELECT usuario_id,plano_id,dia_semana FROM public.avn_treino_execucoes WHERE id=$1',[b.execucao_id]);
- if(!c.rowCount||String(c.rows[0].usuario_id)!==String(req.avnm.usuario_id)||String(c.rows[0].plano_id)!==String(b.plano_id)||Number(c.rows[0].dia_semana)!==day)throw err('Execução duplicada com dados diferentes.',409);
- res.status(r.rowCount?201:200).json({ok:true,criada:!!r.rowCount});
+ const client=await pool.connect();let inserted=false;
+ try{
+  await client.query('BEGIN');
+  // A mesma trava é usada no cancelamento, impedindo criação após descarte.
+  await client.query('SELECT pg_advisory_xact_lock(hashtext($1))',[b.execucao_id]);
+  const tombstone=await client.query('SELECT usuario_id FROM public.avn_treino_mobile_descartes WHERE execucao_id=$1',[b.execucao_id]);
+  if(tombstone.rowCount)throw err('Treino cancelado e descartado.',410);
+  const created=await client.query("INSERT INTO public.avn_treino_execucoes(id,usuario_id,plano_id,dia_semana,iniciada_em,snapshot_exercicios) VALUES($1,$2,$3,$4,$5,$6::jsonb) ON CONFLICT(id) DO NOTHING RETURNING id",[b.execucao_id,req.avnm.usuario_id,b.plano_id,day,at,JSON.stringify(ids)]);
+  inserted=!!created.rowCount;
+  const saved=await client.query('SELECT usuario_id,plano_id,dia_semana FROM public.avn_treino_execucoes WHERE id=$1',[b.execucao_id]);
+  if(!saved.rowCount||String(saved.rows[0].usuario_id)!==String(req.avnm.usuario_id)||String(saved.rows[0].plano_id)!==String(b.plano_id)||Number(saved.rows[0].dia_semana)!==day)throw err('Execução duplicada com dados diferentes.',409);
+  await client.query('COMMIT');
+ }catch(e){await client.query('ROLLBACK').catch(()=>{});throw e;}finally{client.release();}
+ res.status(inserted?201:200).json({ok:true,criada:inserted});
+}));
+// Cancelar não é finalizar: apaga toda a execução e memoriza somente o UUID para impedir reenvios offline.
+mobile.post('/execucoes/:id/cancelar',wrap(async(req,res)=>{
+ const id=req.params.id;if(!uuid(id))throw err('Execução inválida.');
+ const client=await pool.connect();
+ try{
+  await client.query('BEGIN');
+  await client.query('SELECT pg_advisory_xact_lock(hashtext($1))',[id]);
+  const previous=await client.query('SELECT usuario_id FROM public.avn_treino_execucoes WHERE id=$1 FOR UPDATE',[id]);
+  if(previous.rowCount&&String(previous.rows[0].usuario_id)!==String(req.avnm.usuario_id))throw err('Execução não pertence ao usuário.',403);
+  await client.query('INSERT INTO public.avn_treino_mobile_descartes(execucao_id,usuario_id) VALUES($1,$2) ON CONFLICT(execucao_id) DO NOTHING',[id,req.avnm.usuario_id]);
+  const discarded=await client.query('SELECT usuario_id FROM public.avn_treino_mobile_descartes WHERE execucao_id=$1',[id]);
+  if(String(discarded.rows[0].usuario_id)!==String(req.avnm.usuario_id))throw err('Execução não pertence ao usuário.',403);
+  await client.query('DELETE FROM public.avn_treino_execucoes WHERE id=$1 AND usuario_id=$2',[id,req.avnm.usuario_id]);
+  await client.query('COMMIT');
+  res.json({ok:true,descartado:true});
+ }catch(e){await client.query('ROLLBACK').catch(()=>{});throw e;}finally{client.release();}
 }));
 mobile.post('/execucoes/:id/eventos',wrap(async(req,res)=>{
  const id=req.params.id,items=req.body?.eventos;if(!uuid(id)||!Array.isArray(items)||items.length<1||items.length>50)throw err('Eventos inválidos.');
