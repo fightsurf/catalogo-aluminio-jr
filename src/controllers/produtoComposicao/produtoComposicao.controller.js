@@ -69,6 +69,16 @@ async function salvarItens(req, res) {
   }
 }
 
+async function atualizarDataRevisao(req, res) {
+  try {
+    const dados = await service.atualizarDataRevisao(req.params.id);
+    res.json({ success: true, data: dados, message: 'Data da revisão atualizada' });
+  } catch (error) {
+    const status = error.message === 'Composição não encontrada' ? 404 : 400;
+    res.status(status).json({ success: false, message: error.message });
+  }
+}
+
 async function excluir(req, res) {
   try {
     await service.excluir(req.params.id);
@@ -86,6 +96,7 @@ module.exports = {
   criar,
   atualizar,
   atualizarPrecoProduto,
+  atualizarDataRevisao,
   salvarItens,
   excluir
 };

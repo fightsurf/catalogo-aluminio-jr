@@ -219,6 +219,7 @@ tr.inativo td {
       <tr>
         <th>Produto</th>
         <th>Categoria</th>
+        <th>Custo</th>
         <th>Preço</th>
         <th>Status</th>
         <th class="check-cell">Kit Feirinha</th>
@@ -227,7 +228,7 @@ tr.inativo td {
       </tr>
     </thead>
     <tbody id="tbodyProdutos">
-      <tr><td colspan="7" class="vazio">Carregando produtos...</td></tr>
+      <tr><td colspan="8" class="vazio">Carregando produtos...</td></tr>
     </tbody>
   </table>
 </div>
@@ -347,7 +348,7 @@ function renderizarTabela() {
   atualizarResumo();
 
   if (!filtrados.length) {
-    tbody.innerHTML = '<tr><td colspan="7" class="vazio">Nenhum produto encontrado.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="8" class="vazio">Nenhum produto encontrado.</td></tr>';
     return;
   }
 
@@ -365,6 +366,7 @@ function renderizarTabela() {
           <div class="produto-meta">ID ${produto.id}${produto.item_legado ? ` — ITEM legado ${produto.item_legado}` : ''}</div>
         </td>
         <td>${escapeHtml(categoria)}</td>
+        <td>${produto.custo_composicao == null ? '—' : `R$ ${formatarMoeda(produto.custo_composicao)}`}</td>
         <td>R$ ${formatarMoeda(produto.preco)}</td>
         <td>${status}</td>
         <td class="check-cell">
@@ -424,15 +426,29 @@ async function atualizarPerfil(produtoId, campo, valor, checkbox) {
 
 async function carregarTudo() {
   const tbody = document.getElementById('tbodyProdutos');
-  tbody.innerHTML = '<tr><td colspan="7" class="vazio">Carregando produtos...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="8" class="vazio">Carregando produtos...</td></tr>';
 
   try {
     const resposta = await api('/api/produtos');
     produtos = Array.isArray(resposta.data) ? resposta.data : [];
+
+    // Consulta o cálculo oficial já utilizado em Resumo de Custos.
+    try {
+      const respostaCustos = await api('/api/produtos-resumo-custos?ativos=false');
+      const custos = new Map((respostaCustos.data?.produtos || []).map((item) => [
+        Number(item.produto_id), item.sem_composicao ? null : Number(item.custo)
+      ]));
+      produtos.forEach((produto) => {
+        produto.custo_composicao = custos.get(Number(produto.id)) ?? null;
+      });
+    } catch (erroCustos) {
+      console.error('Falha ao carregar custos:', erroCustos);
+      produtos.forEach((produto) => { produto.custo_composicao = null; });
+    }
     montarFiltroCategorias();
     renderizarTabela();
   } catch (error) {
-    tbody.innerHTML = `<tr><td colspan="7" class="erro-geral">Erro ao carregar produtos: ${escapeHtml(error.message)}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" class="erro-geral">Erro ao carregar produtos: ${escapeHtml(error.message)}</td></tr>`;
     document.getElementById('resumo').innerHTML = '';
   }
 }

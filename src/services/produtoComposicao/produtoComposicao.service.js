@@ -188,7 +188,8 @@ async function obterComposicao(composicaoId) {
       pc.nome,
       pc.ativo,
       pc.created_at,
-      pc.updated_at
+      pc.updated_at,
+      TO_CHAR(pc.revisado_em, 'YYYY-MM-DD') AS revisado_em
     FROM produtos_composicoes pc
     JOIN produtos p ON p.id = pc.produto_id
     WHERE pc.id = $1
@@ -350,6 +351,7 @@ async function buscar(composicaoIdParam) {
     preco_venda: moedaNumero(composicao.preco_venda),
     nome: composicao.nome,
     ativo: composicao.ativo,
+    revisado_em: composicao.revisado_em,
     itens,
     resumo
   };
@@ -408,6 +410,18 @@ async function atualizar(composicaoIdParam, data = {}) {
     }
     throw error;
   }
+}
+
+async function atualizarDataRevisao(composicaoIdParam) {
+  const composicaoId = normalizarId(composicaoIdParam, 'Composição');
+  const result = await pool.query(`
+    UPDATE produtos_composicoes
+    SET revisado_em = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Fortaleza')::date
+    WHERE id = $1
+    RETURNING TO_CHAR(revisado_em, 'YYYY-MM-DD') AS revisado_em
+  `, [composicaoId]);
+  if (!result.rows.length) throw new Error('Composição não encontrada');
+  return { id: composicaoId, revisado_em: result.rows[0].revisado_em };
 }
 
 function consolidarItens(itens = []) {
@@ -522,6 +536,7 @@ module.exports = {
   criar,
   atualizar,
   atualizarPrecoProduto,
+  atualizarDataRevisao,
   salvarItens,
   excluir
 };

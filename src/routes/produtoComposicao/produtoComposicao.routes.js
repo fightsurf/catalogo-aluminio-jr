@@ -9,6 +9,7 @@ router.get('/:id', controller.buscar);
 router.post('/', controller.criar);
 router.put('/:id', controller.atualizar);
 router.put('/:id/itens', controller.salvarItens);
+router.put('/:id/revisao', controller.atualizarDataRevisao);
 router.delete('/:id', controller.excluir);
 
 module.exports = router;
