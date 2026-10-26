@@ -411,6 +411,9 @@ class PrestacaoContasService {
     }
     const validados = itens.map((item, indice) => {
       try {
+        if (!['KG', 'UN'].includes(String(item?.unidade || '').toUpperCase())) {
+          throw new Error('Selecione a unidade KG ou UN.');
+        }
         return this._validarItemMaterial({
           material: item?.material,
           peso_kg: item?.quantidade,
@@ -456,6 +459,11 @@ class PrestacaoContasService {
     const unidade = String(data?.unidade || 'KG').trim().toUpperCase();
     if (unidade !== 'KG' && unidade !== 'UN') {
       const err = new Error('Unidade precisa ser KG ou UN.');
+      err.statusCode = 400; throw err;
+    }
+    if (data?.peso_kg == null || data?.peso_kg === '' ||
+        data?.preco_por_kg == null || data?.preco_por_kg === '') {
+      const err = new Error('Quantidade e preço unitário são obrigatórios.');
       err.statusCode = 400; throw err;
     }
     const quantidade = this._validarNumeroPositivo(data?.peso_kg, 'Quantidade');
