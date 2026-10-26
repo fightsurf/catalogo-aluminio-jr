@@ -69,7 +69,9 @@ async function gerarResumo(id,tipoSolicitado='automatico'){
   }
   const nomes=(indices.length?indices:prioridades(itens)).map(i=>String(itens[i].descricao).trim().slice(0,120));
   const cliente=String(pedido.cliente?.nome||'cliente').trim().slice(0,100)||'cliente';
-  const previsao=dataBR(pedido.carradaAtual?.data);
+  // Em algumas versões da ponte a carrada só vem na rota de itens.
+  const carrada = pedido.carradaAtual || (await pedidos.buscarItensPedido(id))?.carradaAtual;
+  const previsao=dataBR(carrada?.data);
   const abertura=frase(gerado.abertura)||'Seu pedido foi registrado com sucesso!';
   const despedida=frase(gerado.despedida)||'A Alumínio JR agradece pela confiança!';
   const texto=['Olá, '+cliente+'! '+abertura+' Seu pedido reúne '+new Set(itens.map(x=>String(x.descricao||'').trim().toLowerCase())).size+' tipos de produtos.',
