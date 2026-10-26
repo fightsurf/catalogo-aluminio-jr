@@ -154,13 +154,52 @@
 
     <!-- aba materiais -->
     <div class="tab-panel" id="tab-materiais">
+      <div class="nota-toolbar">
+        <button id="btn-importar-nota" class="btn-importar-nota" type="button">📷 Importar pedido por imagem (Ctrl+V)</button>
+        <span>Colar foto, arrastar ou selecionar arquivos. Até 5 páginas.</span>
+      </div>
+      <section id="nota-painel" class="nota-importacao" hidden aria-label="Importação de pedido por imagem">
+        <div class="nota-importacao-topo">
+          <strong>Leitura inteligente da nota</strong>
+          <button id="nota-fechar" class="btn-secundario" type="button">Fechar</button>
+        </div>
+        <div id="nota-area" class="nota-area" tabindex="0" role="button" aria-label="Colar ou adicionar imagens de nota">
+          <strong>Pressione Ctrl+V para colar uma imagem</strong>
+          <p>Ou arraste as imagens para esta área</p>
+          <button id="nota-escolher" class="btn-secundario" type="button">Selecionar imagens</button>
+        </div>
+        <input id="nota-arquivos" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden />
+        <div id="nota-miniaturas" class="nota-miniaturas"></div>
+        <div class="nota-controles">
+          <button id="nota-interpretar" class="btn-criar" type="button">Interpretar imagens com IA</button>
+          <button id="nota-limpar" class="btn-secundario" type="button">Limpar imagens</button>
+        </div>
+        <p id="nota-status" class="nota-status" role="status" aria-live="polite"></p>
+        <div id="nota-revisao" class="nota-revisao" hidden>
+          <h3>Confira todos os itens antes de importar</h3>
+          <p>Campos ilegíveis ficam vazios; corrija descrição, quantidade, unidade e preço. Nada será salvo até sua confirmação.</p>
+          <div class="table-scroll">
+            <table class="nota-tabela">
+              <thead>
+                <tr><th>Material</th><th>Quantidade</th><th>Unidade</th><th>Preço unitário (R$)</th><th>Subtotal lido</th><th>Subtotal calculado</th><th>Ação</th></tr>
+              </thead>
+              <tbody id="nota-itens"></tbody>
+            </table>
+          </div>
+          <div id="nota-avisos" class="nota-avisos"></div>
+          <div class="nota-controles">
+            <button id="nota-adicionar" class="btn-secundario" type="button">+ Adicionar item</button>
+            <button id="nota-confirmar" class="btn-criar" type="button">Importar itens revisados</button>
+          </div>
+        </div>
+      </section>
       <div class="table-scroll">
         <table id="tabela-materiais">
           <thead>
             <tr>
               <th>Material</th>
-              <th class="col-num">Peso (Kg)</th>
-              <th class="col-num">Preço/Kg (R$)</th>
+              <th class="col-num">Quantidade</th>
+              <th class="col-num">Preço unitário (R$)</th>
               <th class="col-num">Total (R$)</th>
               <th class="col-acoes-material">Ações</th>
             </tr>
@@ -184,11 +223,15 @@
           <input type="text" id="item-material" placeholder="Ex: Alumínio 6060" />
         </label>
         <label class="add-field">
-          <span>Peso (Kg)</span>
+          <span>Quantidade</span>
           <input type="number" id="item-peso" step="0.001" min="0" />
         </label>
         <label class="add-field">
-          <span>Preço/Kg (R$)</span>
+          <span>Unidade</span>
+          <select id="item-unidade"><option value="KG">KG</option><option value="UN">UN (peças)</option></select>
+        </label>
+        <label class="add-field">
+          <span>Preço unitário (R$)</span>
           <input type="number" id="item-preco" step="0.01" min="0" />
         </label>
         <button id="btn-add-item" class="btn-add">＋ Adicionar</button>
@@ -239,6 +282,7 @@
   </section><!-- /#planilha-container -->
 
   <script src="/prestacao_contas/prestacao.js"></script>
+  <script src="/prestacao_contas/prestacao-nota.js"></script>
   <script>
     // Troca de abas
     document.querySelectorAll('.tab-btn').forEach(function(btn) {
