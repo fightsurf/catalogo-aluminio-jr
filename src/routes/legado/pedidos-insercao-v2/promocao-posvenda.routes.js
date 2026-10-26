@@ -1,6 +1,6 @@
 'use strict';
 const express = require('express');
-const service = require('../../services/legado/pedidos-insercao-v2/promocao-posvenda.service');
+const service = require('../../../services/legado/pedidos-insercao-v2/promocao-posvenda.service');
 const { requireAuth } = require('../../../middlewares/adminAuth.middleware');
 const router = express.Router();
 const tentativa = (fn) => async (req, res) => {

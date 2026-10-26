@@ -21,7 +21,7 @@ async function preparar() {
     'enviar_em TIMESTAMPTZ NOT NULL, iniciado_em TIMESTAMPTZ,',
     'imagem_aceita_em TIMESTAMPTZ, audio_aceito_em TIMESTAMPTZ,',
     'enviado_em TIMESTAMPTZ, atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(), erro TEXT',
-    ');'
+    ')'
   ].join(' ')).then(async () => {
     // Compatibilidade com tabelas criadas por uma versão anterior da promoção.
     await pool.query('ALTER TABLE pedido_promocoes_posvenda ADD COLUMN IF NOT EXISTS audio_mp3 BYTEA');
