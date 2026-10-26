@@ -865,3 +865,41 @@ body {
 
 .btn-reabrir-prestacao:hover { background: #fff8c5; }
 .btn-reabrir-prestacao:focus-visible { outline: 2px solid var(--pc-warning); outline-offset: 2px; }
+
+
+/* ── Importação de nota de pedido por imagem ───────────────────── */
+.nota-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; margin: 0 0 14px; }
+.nota-toolbar span { color: var(--pc-text-muted, #596579); font-size: 12px; }
+.btn-importar-nota { color: #fff; background: var(--pc-primary); border: 0; border-radius: 7px; padding: 10px 15px; font-weight: 700; cursor: pointer; }
+.btn-importar-nota:hover { background: var(--pc-primary-d); }
+.nota-importacao { border: 1px solid var(--pc-border); border-radius: 10px; padding: 16px; margin-bottom: 16px; background: var(--pc-surface); }
+.nota-importacao[hidden], .nota-revisao[hidden] { display: none; }
+.nota-importacao-topo { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.nota-area { border: 2px dashed var(--pc-primary); border-radius: 10px; padding: 25px 12px; text-align: center; cursor: pointer; background: var(--pc-row-alt); outline-offset: 2px; }
+.nota-area p { font-size: 13px; margin: 6px 0 12px; }
+.nota-area:focus-visible { outline: 3px solid var(--pc-primary); }
+.nota-area.nota-arrastando { background: var(--pc-info-bg); }
+.nota-miniaturas { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+.nota-thumb { display: flex; flex-direction: column; width: 126px; max-width: 100%; gap: 5px; border: 1px solid var(--pc-border); border-radius: 7px; padding: 6px; }
+.nota-thumb img { width: 100%; height: 100px; object-fit: contain; background: var(--pc-row-alt); }
+.nota-thumb small { overflow-wrap: anywhere; font-size: 11px; }
+.nota-thumb button { cursor: pointer; border: 1px solid var(--pc-border); border-radius: 5px; padding: 3px; background: var(--pc-surface); }
+.nota-controles { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+.nota-controles button:disabled { opacity: .6; cursor: wait; }
+.nota-status { font-size: 13px; margin: 8px 0 0; }
+.nota-revisao { margin-top: 20px; }
+.nota-revisao h3 { margin: 0 0 7px; font-size: 16px; }
+.nota-revisao p { font-size: 13px; }
+.nota-tabela { width: 100%; border-collapse: collapse; min-width: 850px; }
+.nota-tabela th, .nota-tabela td { padding: 7px; border: 1px solid var(--pc-border); text-align: left; vertical-align: top; font-size: 12px; }
+.nota-tabela input, .nota-tabela select { box-sizing: border-box; width: 100%; min-width: 75px; border: 1px solid var(--pc-border); border-radius: 5px; padding: 6px; background: var(--pc-surface); color: var(--pc-text); font-size: 13px; }
+.nota-tabela input[name="material"] { min-width: 185px; }
+.nota-tabela .nota-linha-alertas { color: var(--pc-danger); font-size: 11px; margin-top: 4px; }
+.nota-tabela .nota-excluir { cursor: pointer; border: 1px solid var(--pc-border); background: var(--pc-surface); padding: 5px 8px; border-radius: 5px; }
+.nota-avisos { font-size: 12px; margin-top: 12px; color: var(--pc-warning); }
+.nota-avisos p { margin: 5px 0; }
+@media (max-width: 640px) {
+  .nota-importacao { padding: 10px; }
+  .nota-toolbar { align-items: stretch; flex-direction: column; }
+  .nota-thumb { width: 105px; }
+}
