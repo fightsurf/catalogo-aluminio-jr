@@ -251,8 +251,8 @@ function desenharCabecalhoMateriais(doc) {
   doc.rect(x, y - 20, w, 22, true);
   doc.fillGray(0);
   doc.text('Material', x + 5, y - 13, { fontSize: 8, bold: true });
-  doc.textRight('Peso (kg)', x + 330, y - 13, { fontSize: 8, bold: true });
-  doc.textRight('Preço/kg', x + 420, y - 13, { fontSize: 8, bold: true });
+  doc.textRight('Qtd./un.', x + 330, y - 13, { fontSize: 8, bold: true });
+  doc.textRight('Preço/un.', x + 420, y - 13, { fontSize: 8, bold: true });
   doc.textRight('Total', x + w - 5, y - 13, { fontSize: 8, bold: true });
   doc.y -= 22;
 }
@@ -276,7 +276,7 @@ function desenharMaterial(doc, cabecalho, item) {
   doc.rect(x, yTop - rowH + 2, w, rowH, false);
   doc.strokeGray(0);
   linhas.forEach((linha, index) => doc.text(linha, x + 5, yTop - 11 - (index * 10), { fontSize: 9 }));
-  doc.textRight(numero(item?.peso_kg, 3), x + 330, yTop - 11, { fontSize: 9 });
+  doc.textRight((item?.unidade === 'UN' ? numero(item?.peso_kg, 0) : numero(item?.peso_kg, 3)) + ' ' + (item?.unidade === 'UN' ? 'UN' : 'KG'), x + 330, yTop - 11, { fontSize: 9 });
   doc.textRight(moeda(item?.preco_por_kg), x + 420, yTop - 11, { fontSize: 9 });
   doc.textRight(moeda(item?.total_item), x + w - 5, yTop - 11, { fontSize: 9 });
   doc.y -= rowH;
