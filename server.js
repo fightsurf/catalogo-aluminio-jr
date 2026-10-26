@@ -87,6 +87,8 @@ const termometroVendasViewRoutes = require('./src/routes/vendas/termometro-venda
 const sqlTerminalApiRoutes = require('./src/routes/admin/sql-terminal.routes');
 const sqlTerminalViewRoutes = require('./src/routes/admin/sql-terminal.view.routes');
 const pedidosInsercaoLegadoV2Routes = require('./src/routes/legado/pedidos-insercao-v2/pedidos-insercao-v2.routes');
+const promocaoPosVendaRoutes = require('./src/routes/legado/pedidos-insercao-v2/promocao-posvenda.routes');
+const promocaoPosVendaService = require('./src/services/legado/pedidos-insercao-v2/promocao-posvenda.service');
 const pedidosInsercaoLegadoV2ViewRoutes = require('./src/routes/legado/pedidos-insercao-v2/pedidos-insercao-v2.view.routes');
 const pedidosInsercaoMobileViewRoutes = require('./src/routes/legado/pedidos-insercao-mobile/pedidos-insercao-mobile.view.routes');
 const malaDiretaRoutes = require('./src/routes/mala-direta/mala-direta.routes');
@@ -212,6 +214,7 @@ app.use('/api/saidas-itens', saidaItemRoutes);
 app.use('/api/saidas', saidaRoutes);
 app.use('/api/fechamento-mensal', fechamentoMensalRoutes);
 app.use('/api/legado/pedidos-insercao-v2', pedidosInsercaoLegadoV2Routes);
+app.use('/api/legado/pedidos-insercao-v2/promocao-posvenda', promocaoPosVendaRoutes);
 app.use('/legado/pedidos-insercao-v2', pedidosInsercaoLegadoV2ViewRoutes);
 app.use('/legado/pedidos-insercao-mobile', pedidosInsercaoMobileViewRoutes);
 app.use('/api/whatsapp', envioWhatsappRoutes);
@@ -530,6 +533,7 @@ const avnMigration = require('./src/services/avn/avn-migration.service');
     await avnMigration();
     server.listen(PORT, () => {
       console.log('🟢 Catálogo Alumínio JR rodando na porta', PORT);
+      promocaoPosVendaService.iniciarTrabalhador();
     });
   } catch (err) {
     console.error('[AVN] Falha na migração inicial; servidor não iniciado:', err);
