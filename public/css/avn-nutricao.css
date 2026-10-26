@@ -211,3 +211,49 @@ a{color:#8ec1ff}table th,table td{border-color:#34465f!important}hr,.tabs,.avn-t
   border-color:#435775!important;
 }
 .avn-food-dialog .avn-chart-table tbody tr:hover td{background:#254565}
+
+/* Diário AVN: selecionar uma refeição planejada e conferir o consumo real. */
+body[data-nutricao-pagina="diario"] .avn-refeicao-planejada{
+ display:grid;gap:11px;min-width:0;
+}
+body[data-nutricao-pagina="diario"] .avn-refeicao-planejada h3{margin:0}
+body[data-nutricao-pagina="diario"] .avn-refeicao-planejada>p{margin:0}
+body[data-nutricao-pagina="diario"] .avn-refeicao-lista{
+ display:grid;gap:9px;min-width:0;
+}
+body[data-nutricao-pagina="diario"] .avn-refeicao-resumo{
+ color:#bbd6f6!important;font-size:13px;font-weight:750;
+ padding:8px 10px;background:#233b58;border-radius:8px;
+}
+body[data-nutricao-pagina="diario"] .avn-refeicao-item{
+ display:grid;grid-template-columns:minmax(0,1.5fr) minmax(110px,.7fr);
+ gap:12px;align-items:center;padding:12px;
+ background:#142237;color:#ecf2fc;border:1px solid #435775;border-radius:10px;
+}
+body[data-nutricao-pagina="diario"] .avn-refeicao-item.ja-registrado{
+ background:#182f32;border-color:#3d706d;
+}
+body[data-nutricao-pagina="diario"] .avn-refeicao-nome{
+ display:flex;align-items:center;gap:9px;min-width:0;
+}
+body[data-nutricao-pagina="diario"] .avn-refeicao-nome input{
+ accent-color:#76b5fb;width:18px;height:18px;flex:none;
+}
+body[data-nutricao-pagina="diario"] .avn-refeicao-nome span{min-width:0;overflow-wrap:anywhere}
+body[data-nutricao-pagina="diario"] .avn-refeicao-nome strong{
+ display:block;color:#eff6ff;line-height:1.35;
+}
+body[data-nutricao-pagina="diario"] .avn-refeicao-nome small{
+ display:block;color:#b8c9de!important;font-size:12px;
+}
+body[data-nutricao-pagina="diario"] .avn-refeicao-item .avn-field{min-width:0}
+body[data-nutricao-pagina="diario"] .avn-refeicao-item .avn-field input{
+ width:100%;min-width:0;background:#101c2e!important;color:#eff6ff!important;
+ border-color:#435775!important;
+}
+body[data-nutricao-pagina="diario"] #registrarRefeicao{justify-self:start}
+body[data-nutricao-pagina="diario"] #registrarRefeicao:disabled{opacity:.55;cursor:not-allowed}
+@media(max-width:600px){
+ body[data-nutricao-pagina="diario"] .avn-refeicao-item{grid-template-columns:1fr;gap:9px}
+ body[data-nutricao-pagina="diario"] #registrarRefeicao{width:100%}
+}

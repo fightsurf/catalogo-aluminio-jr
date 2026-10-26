@@ -107,6 +107,77 @@ function renderDiet(){
  $('resumoDieta').textContent=rows.length?`Total planejado: ${fmt(a.total.kcal,0)} kcal${a.miss.kcal?' (incompleto)':''} · ${fmt(a.total.proteinas_g)} g proteína · ${fmt(a.total.carboidratos_g)} g carboidratos · ${fmt(a.total.gorduras_g)} g gorduras`:'';
  $('listaDieta').querySelectorAll('[data-plano]').forEach(btn=>btn.onclick=async()=>{if(!confirm('Excluir item da dieta programada?'))return;try{await send(`/dieta/${state.usuarioId}/itens/${btn.dataset.plano}`,'DELETE');await loadDiet();show('Item removido da programação.');}catch(e){show(e.message,true);}});
 }
+
+/* Registro assistido de UMA refeição planejada; não modifica a programação. */
+let registrandoRefeicao=false;
+function renderPlannedMeal(){
+ if(!has('refeicaoPlanejada'))return;
+ const seletor=$('refeicaoPlanejada');
+ const items=state.dieta.filter(i=>Number(i.dia_semana)===diaSemana(state.data));
+ const keys=Object.keys(MEALS).filter(k=>items.some(i=>i.refeicao===k));
+ const previous=seletor.value;
+ seletor.innerHTML='<option value="">Escolha uma refeição do dia</option>'+
+  keys.map(k=>'<option value="'+esc(k)+'">'+esc(MEALS[k])+'</option>').join('');
+ seletor.value=keys.includes(previous)?previous:'';
+ const area=$('itensRefeicaoPlanejada'), button=$('registrarRefeicao');
+ button.disabled=true;
+ if(!keys.length){
+  area.innerHTML='<p class="muted">Não há refeições planejadas para '+esc(DAYS[diaSemana(state.data)])+'.</p>';
+  return;
+ }
+ if(!seletor.value){
+  area.innerHTML='<p class="muted">Escolha uma refeição para conferir os alimentos antes do registro.</p>';
+  return;
+ }
+ const mealItems=items.filter(i=>i.refeicao===seletor.value);
+ const registrados=new Set(state.diario.filter(i=>i.plano_item_id!=null).map(i=>String(i.plano_item_id)));
+ const newItems=mealItems.filter(i=>!registrados.has(String(i.id)));
+ area.innerHTML='<p class="avn-refeicao-resumo">'+esc(MEALS[seletor.value])+' · '+mealItems.length+' alimento(s) · '+(mealItems.length-newItems.length)+' já registrado(s)</p>'+
+  mealItems.map(i=>{
+   const ja=registrados.has(String(i.id));
+   const cal=i.kcal_100g==null?'Energia não informada':fmt(Number(i.kcal_100g)*Number(i.quantidade_g)/100,0)+' kcal planejadas';
+   return '<div class="avn-refeicao-item'+(ja?' ja-registrado':'')+'" data-plano-item="'+esc(i.id)+'">'+
+    '<label class="avn-refeicao-nome"><input type="checkbox" class="avn-refeicao-marcar" '+(ja?'disabled':'checked')+'><span><strong>'+esc(i.alimento_nome)+'</strong><small>'+esc(ja?'Já registrado neste dia':cal)+'</small></span></label>'+
+    '<label class="avn-field">Quantidade consumida (g)<input class="avn-refeicao-gramas" type="number" min="0.1" max="10000" step="any" value="'+esc(i.quantidade_g)+'" '+(ja?'disabled':'')+'></label>'+
+    '</div>';
+  }).join('');
+ if(newItems.length===0){
+  area.insertAdjacentHTML('beforeend','<p class="muted">Todos os itens dessa refeição já foram registrados neste dia.</p>');
+ }
+ const change=()=>{button.disabled=registrandoRefeicao||!area.querySelector('.avn-refeicao-marcar:checked');};
+ area.querySelectorAll('.avn-refeicao-marcar').forEach(box=>box.addEventListener('change',change));
+ change();
+}
+async function registrarRefeicaoPlanejada(){
+ if(registrandoRefeicao)return;
+ try{
+  userGuard();
+  const userId=state.usuarioId,data=state.data,refeicao=v('refeicaoPlanejada');
+  if(!refeicao)throw Error('Escolha a refeição programada.');
+  const lista=[...$('itensRefeicaoPlanejada').querySelectorAll('.avn-refeicao-item')];
+  const selecionados=lista.filter(row=>row.querySelector('.avn-refeicao-marcar').checked);
+  if(!selecionados.length)throw Error('Marque os alimentos realmente consumidos.');
+  const itens=selecionados.map(row=>{
+   const input=row.querySelector('.avn-refeicao-gramas');
+   const peso=Number(input.value);
+   if(!input.value||!input.checkValidity()||!Number.isFinite(peso)||peso<=0||peso>10000){
+    input.focus();
+    throw Error('Corrija o peso consumido de '+row.querySelector('strong').textContent+'.');
+   }
+   return {plano_item_id:row.dataset.planoItem,quantidade_g:peso};
+  });
+  registrandoRefeicao=true;
+  $('registrarRefeicao').disabled=true;
+  const resposta=await send('/diario/'+userId+'/registrar-refeicao','POST',{data,refeicao,itens});
+  if(userId===state.usuarioId&&data===state.data){
+   await loadDaily();
+   show(resposta.inseridos+' alimento(s) registrado(s) em '+MEALS[refeicao]+'.'+
+    (resposta.ja_registrados?' '+resposta.ja_registrados+' já estavam registrados; nenhum duplicado.':''));
+  }else show('Registro salvo. Volte à data e ao usuário anteriores para visualizá-lo.');
+ }catch(e){show(e.message,true);}
+ finally{registrandoRefeicao=false;renderPlannedMeal();}
+}
+
 function renderFoodList(){
  if(!has('listaAlimentos'))return;
  const q=($('buscaAlimento').value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
@@ -129,8 +200,8 @@ function getMicros(prefix){const data={};for(const [key] of MICRO){const value=n
 function fillGoals(){if(!has('camposMetas'))return;for(const [key] of MACROS)$('meta_'+key).value=state.metas[key]??'';for(const [key] of MICRO)$('metamicro_'+key).value=state.metas.micros?.[key]??'';}
 async function loadFoods(){state.alimentos=await api('/alimentos?usuarioId='+state.usuarioId);selectFoods();renderFoodList();}
 async function loadGoals(){state.metas=await api('/metas/'+state.usuarioId);fillGoals();}
-async function loadDiet(){const r=await api('/dieta/'+state.usuarioId);state.dieta=r.itens;renderDiet();}
-async function loadDaily(){const r=await api('/diario/'+state.usuarioId+'?data='+state.data);state.diario=r.itens;renderDaily();}
+async function loadDiet(){const r=await api('/dieta/'+state.usuarioId);state.dieta=r.itens;renderDiet();renderPlannedMeal();}
+async function loadDaily(){const r=await api('/diario/'+state.usuarioId+'?data='+state.data);state.diario=r.itens;renderDaily();renderPlannedMeal();}
 async function reload(){
  if(!state.usuarioId){state.alimentos=[];state.diario=[];state.dieta=[];state.metas={};selectFoods();renderFoodList();renderDiet();renderDaily();fillGoals();return;}
  if(PAGE==='diario')await Promise.all([loadFoods(),loadGoals(),loadDiet(),loadDaily()]);
@@ -171,13 +242,10 @@ function events(){
  $('usuario').onchange=async()=>{state.usuarioId=v('usuario');localStorage.setItem('avn_nutricao_usuario',state.usuarioId);try{await reload();}catch(e){show(e.message,true);}};
  if(PAGE==='diario'){
  $('mostrarTodosMicros').onchange=renderDaily;
- $('dataDiario').onchange=async()=>{state.data=v('dataDiario');try{await loadDaily();}catch(e){show(e.message,true);}};
+ $('dataDiario').onchange=async()=>{state.data=v('dataDiario');$('refeicaoPlanejada').value='';try{await Promise.all([loadDaily(),loadDiet()]);}catch(e){show(e.message,true);}};
  $('formDiario').onsubmit=async e=>{e.preventDefault();try{userGuard();await send('/diario/'+state.usuarioId,'POST',{data:state.data,alimento_id:v('diarioAlimento'),refeicao:v('diarioRefeicao'),quantidade_g:Number(v('diarioGramas'))});await loadDaily();show('Alimento registrado no diário.');}catch(err){show(err.message,true);}};
- $('copiarDieta').onclick=async()=>{try{
- userGuard();const d=DAYS[diaSemana(state.data)];if(!state.dieta.some(i=>Number(i.dia_semana)===diaSemana(state.data))){show('Não há dieta programada para '+d+'.',true);return;}
- if(!confirm(`Você REALMENTE consumiu TODOS os alimentos planejados para ${d}, ${state.data}? Só confirme se comeu.`))return;
- const r=await send('/diario/'+state.usuarioId+'/copiar-dieta','POST',{data:state.data});await loadDaily();show(`${r.inseridos} alimento(s) registrados. Itens já copiados não foram duplicados.`);
- }catch(err){show(err.message,true);}};
+ $('refeicaoPlanejada').onchange=renderPlannedMeal;
+ $('registrarRefeicao').onclick=registrarRefeicaoPlanejada;
  }
  if(PAGE==='dieta'){
  $('diaDieta').onchange=()=>{state.dias=Number(v('diaDieta'));renderDiet();};

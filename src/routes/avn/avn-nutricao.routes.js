@@ -173,6 +173,61 @@ router.delete('/diario/:usuarioId/:id',wrap(async(req,res)=>{
  const uid=requiredId(req.params.usuarioId),id=requiredId(req.params.id);await user(uid);
  const r=await pool.query('DELETE FROM public.avn_diario_alimentar WHERE id=$1 AND usuario_id=$2 RETURNING id',[id,uid]);if(!r.rowCount)throw bad('Registro não encontrado.',404);res.json({ok:true});
 }));
+
+/* Registra uma refeição específica, com quantidades efetivamente consumidas.
+ * A chave única (usuario_id,data_consumo,plano_item_id) impede repetições
+ * mesmo com cliques simultâneos. Nenhum registro da dieta é alterado. */
+router.post('/diario/:usuarioId/registrar-refeicao',wrap(async(req,res)=>{
+ const uid=requiredId(req.params.usuarioId);
+ await user(uid);
+ const data=day(req.body?.data),ref=meal(req.body?.refeicao),d=weekDay(data);
+ const recebidos=req.body?.itens;
+ if(!Array.isArray(recebidos)||!recebidos.length||recebidos.length>60)
+  throw bad('Selecione de 1 a 60 alimentos da refeição.');
+ const vistos=new Set();
+ const itens=recebidos.map(i=>{
+  const pid=requiredId(i?.plano_item_id),q=grams(i?.quantidade_g);
+  if(vistos.has(pid))throw bad('A refeição contém um alimento planejado duplicado.');
+  vistos.add(pid);
+  return {pid,q};
+ });
+ const db=await pool.connect();
+ try{
+  await db.query('BEGIN');
+  const plano=await activePlan(uid,db);
+  if(!plano)throw bad('Não existe uma dieta programada ativa.');
+  const {rows}=await db.query(
+   `SELECT i.id,i.alimento_id,a.nome AS alimento_nome,
+    a.kcal_100g,a.proteinas_g_100g,a.carboidratos_g_100g,
+    a.gorduras_g_100g,a.fibras_g_100g,a.micronutrientes_100g
+    FROM public.avn_dieta_itens i
+    JOIN public.avn_alimentos a ON a.id=i.alimento_id
+    WHERE i.plano_id=$1 AND i.dia_semana=$2 AND i.refeicao=$3
+      AND a.ativo AND (a.usuario_id IS NULL OR a.usuario_id=$4)
+    FOR SHARE OF i,a`,[plano.id,d,ref,uid]);
+  const permitidos=new Map(rows.map(row=>[String(row.id),row]));
+  if(itens.some(i=>!permitidos.has(i.pid)))
+   throw bad('Um dos alimentos não pertence à refeição planejada para esta data. Atualize a página.');
+  let inseridos=0;
+  for(const item of itens){
+   const f=permitidos.get(item.pid);
+   const result=await db.query(
+    `INSERT INTO public.avn_diario_alimentar
+      (usuario_id,data_consumo,refeicao,alimento_id,alimento_nome,quantidade_g,composicao_100g,plano_item_id)
+      VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8)
+      ON CONFLICT DO NOTHING RETURNING id`,
+    [uid,data,ref,f.alimento_id,f.alimento_nome,item.q,JSON.stringify(nutritionOf(f)),item.pid]);
+   inseridos+=result.rowCount;
+  }
+  await db.query('COMMIT');
+  res.set('Cache-Control','no-store').json({
+   ok:true,data,refeicao:ref,solicitados:itens.length,
+   inseridos,ja_registrados:itens.length-inseridos
+  });
+ }catch(e){await db.query('ROLLBACK').catch(()=>{});throw e;}
+ finally{db.release();}
+}));
+
 router.post('/diario/:usuarioId/copiar-dieta',wrap(async(req,res)=>{
  const uid=requiredId(req.params.usuarioId);await user(uid);const data=day(req.body?.data);const d=weekDay(data);const p=await activePlan(uid);
  if(!p)return res.json({ok:true,inseridos:0,mensagem:'Nenhuma dieta programada.'});
