@@ -15,6 +15,34 @@
     return n.toLocaleString('pt-BR', { minimumFractionDigits: 0, maximumFractionDigits: 3 });
   }
 
+  function formatarMoeda(valor) {
+    const preco = Number(valor);
+    return Number.isFinite(preco)
+      ? preco.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+      : '-';
+  }
+
+  function formatarData(valor) {
+    if (!valor) return 'Data não informada';
+    const texto = String(valor);
+    const iso = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+    const br = texto.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+    if (br) return `${br[1]}/${br[2]}/${br[3]}`;
+    return 'Data não informada';
+  }
+
+  function codigoItem(item) {
+    const valor = item?.item ?? item?.codigoItem ?? item?.itemCodigo ?? item?.codigo;
+    const codigo = Number(valor);
+    return Number.isSafeInteger(codigo) && codigo > 0 ? codigo : null;
+  }
+
+  function ehOutros(item) {
+    return item?.outros === true || item?.agrupado === true
+      || /^outros\b/i.test(String(item?.descricao || '').trim());
+  }
+
   function formatarPercentual(valor) {
     return `${numero(valor).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })}%`;
   }
@@ -40,8 +68,10 @@
     return `M ${cx} ${cy} L ${a.x} ${a.y} A ${raio} ${raio} 0 ${grande} 1 ${b.x} ${b.y} Z`;
   }
 
-  function render(container, perfil) {
+  function render(container, perfil, opcoes = {}) {
     if (!container) return;
+    const favorecido = Number(opcoes?.favorecido);
+    const consultarPrecos = Number.isSafeInteger(favorecido) && favorecido > 0;
     container.innerHTML = '';
 
     const grafico = Array.isArray(perfil?.grafico)
@@ -104,6 +134,47 @@
     let angulo = -Math.PI / 2;
     const fatias = [];
     const legendas = [];
+    const paineis = [];
+
+    async function carregarPrecos(item, conteudo, painel) {
+      if (painel.dataset.carregado === 'true' || painel.dataset.carregando === 'true') return;
+      painel.dataset.carregando = 'true';
+      conteudo.replaceChildren(criarElemento('div', 'perfil-compras-precos-estado', 'Consultando o histórico de preços do cliente...'));
+      try {
+        const query = new URLSearchParams();
+        const codigo = codigoItem(item);
+        if (codigo !== null) query.set('item', String(codigo));
+        query.set('descricao', String(item.descricao || ''));
+        const response = await fetch(
+          `/api/legado/pedidos-cliente/${encodeURIComponent(favorecido)}/precos-historicos?${query.toString()}`,
+          { headers: { Accept: 'application/json' } }
+        );
+        const json = await response.json().catch(() => ({}));
+        if (!response.ok || json.sucesso === false) {
+          throw new Error(json.detalhe || json.mensagem || 'Falha ao consultar preços históricos.');
+        }
+        const registros = Array.isArray(json?.dados?.precos) ? json.dados.precos : [];
+        conteudo.replaceChildren();
+        if (!registros.length) {
+          conteudo.appendChild(criarElemento('div', 'perfil-compras-precos-estado', 'Nenhum preço encontrado no histórico de pedidos.'));
+        } else {
+          conteudo.appendChild(criarElemento('div', 'perfil-compras-precos-titulo', `Preços unitários praticados • ${registros.length} registro(s)`));
+          const lista = criarElemento('div', 'perfil-compras-precos-lista');
+          registros.forEach(registro => {
+            const linha = criarElemento('div', 'perfil-compras-precos-linha');
+            linha.appendChild(criarElemento('strong', '', formatarMoeda(registro.preco)));
+            linha.appendChild(criarElemento('span', '', `${formatarData(registro.data)} • Pedido ${registro.pedidoNumero || '-'} • ${formatarQuantidade(registro.quantidade)} un.`));
+            lista.appendChild(linha);
+          });
+          conteudo.appendChild(lista);
+        }
+        painel.dataset.carregado = 'true';
+      } catch (error) {
+        conteudo.replaceChildren(criarElemento('div', 'perfil-compras-precos-erro', error.message || 'Erro ao consultar os preços.'));
+      } finally {
+        delete painel.dataset.carregando;
+      }
+    }
 
     function atualizarDestaque(indice) {
       const item = grafico[indice];
@@ -156,22 +227,36 @@
       fatias.push(forma);
       angulo = proximo;
 
-      const linha = criarElemento('button', 'perfil-compras-legenda-item');
-      linha.type = 'button';
+      const expansivel = consultarPrecos && !ehOutros(item);
+      const painel = criarElemento(expansivel ? 'details' : 'div', 'perfil-compras-legenda-item');
+      const cabecalho = criarElemento(expansivel ? 'summary' : 'button', 'perfil-compras-legenda-cabecalho');
+      if (!expansivel) cabecalho.type = 'button';
       const cor = criarElemento('span', 'perfil-compras-cor');
       cor.style.backgroundColor = CORES[indice % CORES.length];
-      linha.appendChild(cor);
-      linha.appendChild(criarElemento('span', 'perfil-compras-legenda-nome', item.descricao || 'Produto'));
-      linha.appendChild(criarElemento(
+      cabecalho.appendChild(cor);
+      cabecalho.appendChild(criarElemento('span', 'perfil-compras-legenda-nome', item.descricao || 'Produto'));
+      cabecalho.appendChild(criarElemento(
         'span',
         'perfil-compras-legenda-valor',
         `${formatarQuantidade(item.quantidade)} • ${formatarPercentual(item.percentual)}`
       ));
-      ['mouseenter', 'focus', 'click', 'touchstart'].forEach((evento) => {
-        linha.addEventListener(evento, () => atualizarDestaque(indice), { passive: true });
+      if (expansivel) cabecalho.appendChild(criarElemento('span', 'perfil-compras-legenda-seta', '⌄'));
+      painel.appendChild(cabecalho);
+      if (expansivel) {
+        const conteudo = criarElemento('div', 'perfil-compras-precos-conteudo');
+        painel.appendChild(conteudo);
+        paineis.push(painel);
+        painel.addEventListener('toggle', () => {
+          if (!painel.open) return;
+          paineis.forEach(outro => { if (outro !== painel) outro.open = false; });
+          carregarPrecos(item, conteudo, painel);
+        });
+      }
+      ['mouseenter', 'focusin', 'click'].forEach(evento => {
+        cabecalho.addEventListener(evento, () => atualizarDestaque(indice));
       });
-      legenda.appendChild(linha);
-      legendas.push(linha);
+      legenda.appendChild(painel);
+      legendas.push(painel);
     });
 
     areaGrafico.appendChild(svg);

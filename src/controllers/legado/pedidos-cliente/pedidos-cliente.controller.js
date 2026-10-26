@@ -1,4 +1,5 @@
 const pedidosClienteService = require('../../../services/legado/pedidos-cliente/pedidos-cliente.service');
+const precosHistoricosService = require('../../../services/legado/pedidos-cliente/precosHistoricos.service');
 
 async function listarPedidosPorCliente(req, res) {
   try {
@@ -56,6 +57,26 @@ async function buscarPerfilCompras(req, res) {
 }
 
 
+async function buscarPrecosHistoricos(req, res) {
+  try {
+    const favorecido = Number(req.params.favorecido);
+    if (!Number.isSafeInteger(favorecido) || favorecido <= 0) {
+      return res.status(400).json({ sucesso: false, mensagem: 'Código do cliente inválido.' });
+    }
+    const dados = await precosHistoricosService.buscarPrecosHistoricos(favorecido, {
+      item: req.query.item,
+      descricao: req.query.descricao
+    });
+    return res.json({ sucesso: true, dados });
+  } catch (error) {
+    return res.status(error.statusCode || 502).json({
+      sucesso: false,
+      mensagem: 'Erro ao consultar os preços anteriores do produto.',
+      detalhe: error.message
+    });
+  }
+}
+
 async function enviarResumoImagemWhatsapp(req, res) {
   try {
     const { favorecido } = req.params;
@@ -86,5 +107,6 @@ async function enviarResumoImagemWhatsapp(req, res) {
 module.exports = {
   listarPedidosPorCliente,
   buscarPerfilCompras,
+  buscarPrecosHistoricos,
   enviarResumoImagemWhatsapp
 };

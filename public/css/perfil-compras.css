@@ -212,23 +212,53 @@
 
 .perfil-compras-legenda-item {
   width: 100%;
+  min-width: 0;
   border: 1px solid #e5e7eb;
   border-radius: 9px;
   background: #ffffff;
+  overflow: hidden;
+}
+
+.perfil-compras-legenda-item:hover,
+.perfil-compras-legenda-item.ativo,
+.perfil-compras-legenda-item[open] {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.perfil-compras-legenda-cabecalho {
+  width: 100%;
   padding: 9px 10px;
   display: grid;
-  grid-template-columns: 12px minmax(0, 1fr) auto;
+  grid-template-columns: 12px minmax(0, 1fr) auto auto;
   gap: 9px;
   align-items: center;
   text-align: left;
   cursor: pointer;
+  list-style: none;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font-size: inherit;
+  font-weight: normal;
 }
 
-.perfil-compras-legenda-item:hover,
-.perfil-compras-legenda-item.ativo {
-  background: #f8fafc;
-  border-color: #cbd5e1;
-}
+.perfil-compras-legenda-cabecalho::-webkit-details-marker { display: none; }
+.perfil-compras-legenda-cabecalho::marker { content: ''; }
+.perfil-compras-legenda-cabecalho:focus-visible { outline: 2px solid #2563eb; outline-offset: -2px; }
+.perfil-compras-legenda-cabecalho:hover { background: #f1f5f9; }
+.perfil-compras-legenda-seta { color: #64748b; font-size: 17px; transition: transform .15s; }
+.perfil-compras-legenda-item[open] .perfil-compras-legenda-seta { transform: rotate(180deg); }
+.perfil-compras-precos-conteudo { padding: 10px; border-top: 1px solid #e2e8f0; font-size: 12px; }
+.perfil-compras-precos-titulo { font-size: 11px; color: #475569; font-weight: 700; margin-bottom: 8px; }
+.perfil-compras-precos-lista { display: grid; gap: 0; max-height: 250px; overflow-y: auto; }
+.perfil-compras-precos-linha { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; padding: 8px 0; border-bottom: 1px solid #e2e8f0; }
+.perfil-compras-precos-linha:last-child { border-bottom: none; }
+.perfil-compras-precos-linha strong { white-space: nowrap; color: #0f172a; font-size: 12px; }
+.perfil-compras-precos-linha span { min-width: 0; font-size: 11px; color: #64748b; text-align: right; }
+.perfil-compras-precos-estado { color: #64748b; padding: 8px 0; }
+.perfil-compras-precos-erro { color: #b91c1c; padding: 8px 0; }
 
 .perfil-compras-cor {
   width: 12px;

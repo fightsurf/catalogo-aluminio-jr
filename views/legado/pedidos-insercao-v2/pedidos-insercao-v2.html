@@ -665,7 +665,7 @@
           throw new Error(json?.detalhe || json?.mensagem || 'Erro ao carregar o perfil de compras.');
         }
 
-        PerfilComprasChart.render(perfilComprasConteudo, json?.dados || {});
+        PerfilComprasChart.render(perfilComprasConteudo, json?.dados || {}, { favorecido });
       } catch (error) {
         PerfilComprasChart.erro(perfilComprasConteudo, error.message || 'Erro ao carregar o perfil de compras.');
       }
