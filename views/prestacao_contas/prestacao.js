@@ -19,6 +19,12 @@ function fmtPeso(v) {
   return parseFloat(v || 0).toLocaleString('pt-BR', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
 }
 
+function fmtQuantidade(item) {
+  return String(item.unidade || 'KG') === 'UN'
+    ? Number(item.peso_kg || 0).toLocaleString('pt-BR', { maximumFractionDigits: 0 }) + ' UN'
+    : fmtPeso(item.peso_kg) + ' KG';
+}
+
 function fmtData(v) {
   if (!v) return '';
   const parts = v.toString().substring(0, 10).split('-');
@@ -234,6 +240,8 @@ function renderizarPlanilha(resumo) {
   setElementDisplay('btn-whatsapp-resumo', !concluida);
   setElementDisplay('btn-whatsapp-pdf', !concluida);
   setElementDisplay('form-item', !concluida, 'flex');
+  setElementDisplay('btn-importar-nota', !concluida);
+  if (window.onPrestacaoNotaAtualizada) window.onPrestacaoNotaAtualizada(cabecalho);
   setElementDisplay('form-pagamento', !concluida, 'flex');
   setElementDisplay('form-editar-prestacao', false);
 
@@ -255,7 +263,7 @@ function renderizarPlanilha(resumo) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td>${escapeHtml(item.descricao_material)}</td>
-      <td class="num">${escapeHtml(fmtPeso(item.peso_kg))}</td>
+      <td class="num">${escapeHtml(fmtQuantidade(item))}</td>
       <td class="num">${escapeHtml(fmtMoeda(item.preco_por_kg))}</td>
       <td class="num">${escapeHtml(fmtMoeda(item.total_item))}</td>
       <td class="material-actions-cell">
@@ -274,7 +282,7 @@ function renderizarPlanilha(resumo) {
     if (btnDel) btnDel.addEventListener('click', (e) => deletarItem(item.id, e.currentTarget));
     tbodyMat.appendChild(tr);
   });
-  document.getElementById('total-peso').textContent = fmtPeso(totais.peso_total);
+  document.getElementById('total-peso').textContent = fmtPeso(totais.peso_total) + ' KG (peças não somadas)';
   document.getElementById('total-material').textContent = 'R$ ' + fmtMoeda(totais.total_material);
 
   // Tabela pagamentos
@@ -510,7 +518,8 @@ document.getElementById('btn-add-item').addEventListener('click', async () => {
   const material = document.getElementById('item-material').value.trim();
   const peso_kg = document.getElementById('item-peso').value;
   const preco_por_kg = document.getElementById('item-preco').value;
-  if (!material || !peso_kg || !preco_por_kg) {
+  const unidade = document.getElementById('item-unidade').value;
+  if (!material || !peso_kg || preco_por_kg === '') {
     showMsg('Preencha todos os campos do item.', 'erro');
     return;
   }
@@ -519,7 +528,7 @@ document.getElementById('btn-add-item').addEventListener('click', async () => {
     const res = await fetch(`${API_BASE}/${prestacaoAtualId}/itens`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ material, peso_kg, preco_por_kg })
+      body: JSON.stringify({ material, peso_kg, preco_por_kg, unidade })
     });
     const json = await res.json();
     if (!json.success) throw new Error(json.message);
@@ -555,11 +564,15 @@ function abrirEdicaoItem(item, tr) {
     </td>
     <td>
       <input class="material-edit-input material-edit-num material-edit-peso" type="number"
-             step="0.001" min="0.001" value="${escapeHtml(item.peso_kg)}" aria-label="Peso em Kg" />
+             step="0.001" min="0.001" value="${escapeHtml(item.peso_kg)}" aria-label="Quantidade" />
+      <select class="material-edit-input material-edit-unidade" aria-label="Unidade">
+        <option value="KG" ${item.unidade !== 'UN' ? 'selected' : ''}>KG</option>
+        <option value="UN" ${item.unidade === 'UN' ? 'selected' : ''}>UN</option>
+      </select>
     </td>
     <td>
       <input class="material-edit-input material-edit-num material-edit-preco" type="number"
-             step="0.01" min="0" value="${escapeHtml(item.preco_por_kg)}" aria-label="Preço por Kg" />
+             step="0.01" min="0" value="${escapeHtml(item.preco_por_kg)}" aria-label="Preço unitário" />
     </td>
     <td class="num">${escapeHtml(fmtMoeda(item.total_item))}</td>
     <td class="material-actions-cell">
@@ -573,6 +586,7 @@ function abrirEdicaoItem(item, tr) {
   const inputMaterial = tr.querySelector('.material-edit-material');
   const inputPeso = tr.querySelector('.material-edit-peso');
   const inputPreco = tr.querySelector('.material-edit-preco');
+  const inputUnidade = tr.querySelector('.material-edit-unidade');
   const btnSalvar = tr.querySelector('.btn-save-item');
   const btnCancelar = tr.querySelector('.btn-cancel-item');
 
@@ -590,6 +604,7 @@ function abrirEdicaoItem(item, tr) {
       const material = inputMaterial.value.trim();
       const peso_kg = inputPeso.value;
       const preco_por_kg = inputPreco.value;
+      const unidade = inputUnidade.value;
 
       if (!material) {
         showMsg('Informe o material.', 'erro');
@@ -597,12 +612,17 @@ function abrirEdicaoItem(item, tr) {
         return;
       }
       if (peso_kg === '' || !Number.isFinite(Number(peso_kg)) || Number(peso_kg) <= 0) {
-        showMsg('Informe um peso maior que zero.', 'erro');
+        showMsg('Informe uma quantidade maior que zero.', 'erro');
+        inputPeso.focus();
+        return;
+      }
+      if (unidade === 'UN' && !Number.isInteger(Number(peso_kg))) {
+        showMsg('Quantidade em peças deve ser inteira.', 'erro');
         inputPeso.focus();
         return;
       }
       if (preco_por_kg === '' || !Number.isFinite(Number(preco_por_kg)) || Number(preco_por_kg) < 0) {
-        showMsg('Informe um preço por Kg válido.', 'erro');
+        showMsg('Informe um preço unitário válido.', 'erro');
         inputPreco.focus();
         return;
       }
@@ -616,7 +636,7 @@ function abrirEdicaoItem(item, tr) {
         const res = await fetch(`${API_BASE}/${prestacaoAtualId}/itens/${item.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ material, peso_kg, preco_por_kg })
+          body: JSON.stringify({ material, peso_kg, preco_por_kg, unidade })
         });
         const json = await res.json();
         if (!json.success) throw new Error(json.message || 'Não foi possível alterar o item.');
@@ -994,7 +1014,7 @@ function montarLinhasMateriais(materiais) {
   return materiais.map(item => `
     <tr>
       <td>${escapeHtml(textoOuTraco(item.descricao_material))}</td>
-      <td class="num">${escapeHtml(fmtPeso(item.peso_kg))}</td>
+      <td class="num">${escapeHtml(fmtQuantidade(item))}</td>
       <td class="num">${escapeHtml(fmtMoedaRelatorio(item.preco_por_kg))}</td>
       <td class="num">${escapeHtml(fmtMoedaRelatorio(item.total_item))}</td>
     </tr>
@@ -1104,9 +1124,9 @@ function montarHtmlRelatorio(resumo) {
         <div class="secao">
           <h2>Materiais lançados</h2>
           <table>
-            <thead><tr><th>Material</th><th class="num">Peso (Kg)</th><th class="num">Preço/Kg</th><th class="num">Total</th></tr></thead>
+            <thead><tr><th>Material</th><th class="num">Quantidade</th><th class="num">Preço unitário</th><th class="num">Total</th></tr></thead>
             <tbody>${montarLinhasMateriais(materiais)}</tbody>
-            <tfoot><tr><th>Total de materiais</th><td class="num">${escapeHtml(fmtPeso(totais.peso_total))}</td><td></td><td class="num">${escapeHtml(fmtMoedaRelatorio(totais.total_material))}</td></tr></tfoot>
+            <tfoot><tr><th>Total de materiais</th><td class="num">${escapeHtml(fmtPeso(totais.peso_total))} KG</td><td></td><td class="num">${escapeHtml(fmtMoedaRelatorio(totais.total_material))}</td></tr></tfoot>
           </table>
         </div>
         <div class="secao">
