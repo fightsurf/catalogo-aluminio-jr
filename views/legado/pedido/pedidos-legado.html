@@ -560,6 +560,7 @@
         <button id="btnCancelarPedido" class="btn btn-danger oculto">Cancelar pedido</button>
         <button id="btnCancelarEdicao" class="btn btn-secondary oculto">Cancelar edição</button>
         <button id="btnSalvarAlteracoes" class="btn btn-primary oculto">Salvar alterações</button>
+        <button id="btnResumoPedidoIA" class="btn btn-primary oculto" type="button">Apresentar pedido com IA</button>
         <button id="btnEnviarWhatsapp" class="btn btn-whatsapp oculto">Enviar para WhatsApp</button>
         <button id="btnCopiarRelatorioWhatsapp" class="btn btn-whatsapp oculto">Copiar relatório WhatsApp</button>
         <button id="btnEnviarFotosWhatsapp" class="btn btn-whatsapp oculto">Enviar pedido com fotos</button>
@@ -746,6 +747,7 @@
     const btnCancelarPedido = document.getElementById('btnCancelarPedido');
     const btnCancelarEdicao = document.getElementById('btnCancelarEdicao');
     const btnSalvarAlteracoes = document.getElementById('btnSalvarAlteracoes');
+    const btnResumoPedidoIA = document.getElementById('btnResumoPedidoIA');
     const btnEnviarWhatsapp = document.getElementById('btnEnviarWhatsapp');
     const btnCopiarRelatorioWhatsapp = document.getElementById('btnCopiarRelatorioWhatsapp');
     const modalCopiaRelatorioWhatsapp = document.getElementById('modalCopiaRelatorioWhatsapp');
@@ -975,6 +977,8 @@
       btnSalvarAlteracoes.classList.add('oculto');
 
       const ocultarAcoesLeitura = !haPedido || modoEdicao || pedidoCancelado;
+      btnResumoPedidoIA.classList.toggle('oculto', ocultarAcoesLeitura);
+      btnResumoPedidoIA.disabled = ocultarAcoesLeitura || !pedidoCarregado?.idMestre;
       btnEnviarWhatsapp.classList.toggle('oculto', ocultarAcoesLeitura);
       btnCopiarRelatorioWhatsapp.classList.toggle('oculto', ocultarAcoesLeitura);
       btnEnviarFotosWhatsapp.classList.toggle('oculto', ocultarAcoesLeitura);
@@ -3214,6 +3218,11 @@
       abrirTelaPagamentos(pedidoCarregado);
     });
 
+    btnResumoPedidoIA.addEventListener('click', () => window.PedidoResumoIA.abrir({
+      idMestre: pedidoCarregado?.idMestre,
+      telefone: pedidoCarregado?.cliente?.telefonePrincipal || pedidoCarregado?.cliente?.telefone1 || ''
+    }));
+
     btnEnviarWhatsapp.addEventListener('click', async () => {
       if (!pedidoCarregado?.numero) {
         setMensagem('Nenhum pedido carregado para envio.', true);
@@ -3464,5 +3473,6 @@
       }
     });
   </script>
+  <script src="/js/pedido-resumo-ia.js"></script>
 </body>
 </html>
