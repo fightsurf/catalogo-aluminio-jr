@@ -154,7 +154,8 @@ async function agendar(dados, usuario) {
   if (!configuracao.voz || !configuracao.modelo) {
     throw erro('Configure a voz e o modelo da ElevenLabs no modal.', 503);
   }
-  if (audio.texto !== mensagem || audio.voz !== configuracao.voz || audio.modelo !== configuracao.modelo) {
+  if (audio.texto.replace(/\u00a0/g, ' ') !== mensagem.replace(/\u00a0/g, ' ') ||
+      audio.voz !== configuracao.voz || audio.modelo !== configuracao.modelo) {
     throw erro('O texto, o preço ou a configuração de voz mudou. Gere o áudio novamente.', 409);
   }
   const salvoEmMs = Date.parse(String(dados?.pedidoSalvoEm || ''));
