@@ -28,7 +28,7 @@ function normalizarPesoKg(valor) {
   if (valor === undefined || valor === null || String(valor).trim() === '') return null;
 
   const texto = String(valor).trim().replace(',', '.');
-  if (!/^\\d+(?:\\.\\d{1,6})?$/.test(texto)) {
+  if (!/^\d+(?:\.\d{1,6})?$/.test(texto)) {
     throw new Error('Peso inválido. Informe um valor numérico em kg com até 6 casas decimais.');
   }
 
