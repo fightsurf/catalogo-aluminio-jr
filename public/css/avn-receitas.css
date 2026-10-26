@@ -13,3 +13,53 @@ p,.muted,.hint,small,.exercise small,.creditos,.empty,.eyebrow,.card small,.app-
 .graph-tooltip{background:#1b2a40!important;color:#fff!important;border-color:#435775!important}
 a{color:#8ec1ff}table th,table td{border-color:#34465f!important}hr,.tabs,.avn-top{border-color:#34465f!important}
 :focus-visible{outline-color:#80c4ff!important}
+
+/* AVN receitas: tema escuro e revisão da importação por IA */
+.receitas-layout .receita-linha{
+ background:#142237!important;color:#ecf2fc!important;border-color:#435775!important;
+}
+.receitas-layout .receita-resultado,
+.receitas-layout .receita-resultado table{
+ background:#182437!important;color:#ecf2fc!important;
+}
+.receitas-layout .receita-resultado thead th{
+ background:#263f5c!important;color:#eff6ff!important;border-color:#435775!important;
+}
+.receitas-layout .receita-resultado tbody td{
+ background:#182437!important;color:#ecf2fc!important;border-color:#435775!important;
+}
+.receitas-layout .receita-resultado tbody tr:hover td{background:#243b56!important}
+.receitas-layout .receita-resultado .muted{color:#a9b9d1!important}
+.receitas-layout .receita-linha select,
+.receitas-layout .receita-linha input,
+.receitas-layout textarea{
+ background:#101c2e!important;color:#f1f5ff!important;border-color:#435775!important;
+}
+.receita-importador{
+ display:grid;gap:10px;padding:15px;margin:4px 0 12px;
+ background:#122136;color:#ecf2fc;border:1px solid #435775;border-radius:12px;min-width:0;
+}
+.receita-importador h4{margin:0;font-size:15px}
+.receita-importador textarea{resize:vertical;min-height:145px;line-height:1.6;width:100%;padding:11px;border:1px solid #435775;border-radius:9px}
+.receita-importador .importador-acoes{display:flex;align-items:center;flex-wrap:wrap;gap:10px}
+.receita-importador .importador-acoes button:disabled{opacity:.65;cursor:wait}
+.receita-importador .importador-resultado{display:grid;gap:10px;min-width:0}
+.receita-importador .importador-item{
+ display:grid;grid-template-columns:auto minmax(0,1.4fr) minmax(80px,.6fr);
+ align-items:end;gap:9px;padding:10px;border:1px solid #435775;border-radius:9px;
+ background:#1b2e47;color:#ecf2fc;
+}
+.receita-importador .importador-item.revisar{border-color:#b28b4e;background:#302c27}
+.receita-importador .importador-item .linha-original{grid-column:1/-1;margin:0;font-weight:700;color:#eaf2ff!important;overflow-wrap:anywhere}
+.receita-importador .importador-item .obs{grid-column:1/-1;margin:0;font-size:12px;color:#d2bf9b!important;overflow-wrap:anywhere}
+.receita-importador .importador-item .incluir{align-self:center;font-weight:700;font-size:12px;color:#d6e7fb;display:flex;gap:5px;align-items:center}
+.receita-importador .importador-item input[type=checkbox]{width:16px;height:16px;accent-color:#6ba5f1}
+.receita-importador .importador-item select,.receita-importador .importador-item input[type=number]{
+ width:100%;min-width:0;
+}
+.receita-importador .importador-alerta{padding:10px 12px;border-radius:8px;background:#332a20;color:#f5d5a1;border:1px solid #745532}
+.receita-importador #aplicarImportacao{justify-self:start}
+@media(max-width:720px){
+ .receita-importador .importador-item{grid-template-columns:auto minmax(0,1fr)}
+ .receita-importador .importador-item .campo-peso{grid-column:2}
+}
