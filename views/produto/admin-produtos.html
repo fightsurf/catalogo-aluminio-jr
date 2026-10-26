@@ -320,6 +320,11 @@ button.secundario:hover {
       </div>
 
       <div>
+        <label for="produtoPesoKg">Peso (kg)</label>
+        <input type="number" id="produtoPesoKg" min="0.000001" step="any" inputmode="decimal" placeholder="Ex.: 1,250">
+      </div>
+
+      <div>
         <label>Categorias</label>
         <div id="produtoCategoria" style="max-height:160px;overflow:auto;border:1px solid #ccc;padding:8px"></div>
       </div>
@@ -800,7 +805,7 @@ function renderProdutos() {
             ${thumb}
             <div class="produto-linha-texto">
               <div>${p.nome} — R$ ${Number(p.preco).toFixed(2)} — ${(p.categorias || []).map(c => c.nome).join(', ') || p.categoria || ''} — ${p.ativo ? 'Ativo' : 'Inativo'}</div>
-              <div style="font-size:12px;color:#666;">Fotos: ${fotosPreenchidas}/6 ${fotoPrincipal ? '— Foto 1 principal cadastrada' : '— Sem foto principal'}</div>
+              <div style="font-size:12px;color:#666;">Peso: ${p.peso_kg == null ? 'Não informado' : Number(p.peso_kg).toLocaleString('pt-BR', { maximumFractionDigits: 6 }) + ' kg'} — Fotos: ${fotosPreenchidas}/6 ${fotoPrincipal ? '— Foto 1 principal cadastrada' : '— Sem foto principal'}</div>
             </div>
           </div>
           <div class="lista-acoes">
@@ -820,9 +825,17 @@ async function salvarProduto() {
   salvandoProduto = true;
   try {
     if (!categoriasSelecionadas().length) throw new Error("Selecione pelo menos uma categoria.");
+    const campoPesoKg = document.getElementById('produtoPesoKg');
+    if (!campoPesoKg.checkValidity()) throw new Error('Informe um peso válido maior que zero, em kg.');
+    const textoPesoKg = campoPesoKg.value.trim();
+    const pesoKg = textoPesoKg === '' ? null : Number(textoPesoKg);
+    if (textoPesoKg !== '' && (!Number.isFinite(pesoKg) || pesoKg <= 0)) {
+      throw new Error('Informe um peso válido maior que zero, em kg.');
+    }
     const data = {
       nome: document.getElementById('produtoNome').value,
       preco: Number(document.getElementById('produtoPreco').value),
+      peso_kg: pesoKg,
       categoria_ids: categoriasSelecionadas(),
       categoria_id: categoriaPrincipalAtual,
       video_url: document.getElementById('produtoVideo').value.trim(),
@@ -859,6 +872,7 @@ function editarProduto(id) {
 
   document.getElementById('produtoNome').value = p.nome;
   document.getElementById('produtoPreco').value = p.preco;
+  document.getElementById('produtoPesoKg').value = p.peso_kg == null ? '' : p.peso_kg;
   categoriaPrincipalAtual = Number(p.categoria_id);
   marcarCategorias(p.categoria_ids?.length ? p.categoria_ids : [p.categoria_id]);
   limparVideo(p.video_url || '');
@@ -905,6 +919,7 @@ function limparFormulario() {
   produtoEditando = null;
   document.getElementById('produtoNome').value = '';
   document.getElementById('produtoPreco').value = '';
+  document.getElementById('produtoPesoKg').value = '';
   document.getElementById('produtoCaixa').value = 1;
   document.getElementById('produtoObservacao').value = '';
   document.getElementById('produtoAtivo').checked = true;

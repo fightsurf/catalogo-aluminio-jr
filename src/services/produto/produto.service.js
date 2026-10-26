@@ -24,6 +24,22 @@ function normalizarItemLegado(valor) {
   return numero;
 }
 
+function normalizarPesoKg(valor) {
+  if (valor === undefined || valor === null || String(valor).trim() === '') return null;
+
+  const texto = String(valor).trim().replace(',', '.');
+  if (!/^\\d+(?:\\.\\d{1,6})?$/.test(texto)) {
+    throw new Error('Peso inválido. Informe um valor numérico em kg com até 6 casas decimais.');
+  }
+
+  const peso = Number(texto);
+  if (!Number.isFinite(peso) || peso <= 0 || peso >= 1000000) {
+    throw new Error('Peso inválido. Informe um valor em kg maior que zero.');
+  }
+
+  return peso;
+}
+
 function normalizarFoto(valor) {
   if (valor === undefined || valor === null) return null;
   const texto = String(valor).trim();
@@ -131,7 +147,7 @@ async function listar(filtros = {}) {
     SELECT 
       p.id,
       p.nome,
-      p.preco,${camposFotosSelect('p')},
+      p.preco, p.peso_kg,${camposFotosSelect('p')},
       p.capacidade_caixa,
       p.observacao,
       p.ativo,
@@ -181,7 +197,7 @@ async function buscar(id) {
     SELECT 
       p.id,
       p.nome,
-      p.preco,${camposFotosSelect('p')},
+      p.preco, p.peso_kg,${camposFotosSelect('p')},
       p.capacidade_caixa,
       p.observacao,
       p.ativo,
@@ -228,11 +244,12 @@ async function criar(data) {
     ativo,
   } = data;
   const itemLegado = normalizarItemLegado(data?.item_legado);
+  const pesoKg = normalizarPesoKg(data.peso_kg);
 
   const result = await client.query(`
     INSERT INTO produtos
-    (nome, preco, categoria_id, foto, foto_2, foto_3, foto_4, foto_5, foto_6, capacidade_caixa, observacao, ativo, item_legado)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)
+    (nome, preco, categoria_id, foto, foto_2, foto_3, foto_4, foto_5, foto_6, capacidade_caixa, observacao, ativo, item_legado, peso_kg)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
     RETURNING *
   `, [
     nome,
@@ -248,6 +265,7 @@ async function criar(data) {
     normalizarObservacao(observacao),
     ativo !== false,
     itemLegado,
+    pesoKg,
   ]);
 
   produtoId = result.rows[0].id;
@@ -267,6 +285,9 @@ async function criar(data) {
 async function atualizar(id, data) {
   await produtoFotosSchemaService.criarEstrutura();
 
+  // PUTs antigos que não enviam peso_kg não devem apagar o peso existente.
+  const pesoInformado = Object.prototype.hasOwnProperty.call(data, 'peso_kg');
+  const pesoKg = pesoInformado ? normalizarPesoKg(data.peso_kg) : null;
   const ids = normalizarCategorias(data.categoria_ids);
   const video = normalizarVideo(data.video_url);
   if (ids !== null) data = { ...data, categoria_id: ids.includes(Number(data.categoria_id)) ? Number(data.categoria_id) : (ids[0] || null) };
@@ -303,8 +324,9 @@ async function atualizar(id, data) {
       capacidade_caixa = $10,
       observacao = $11,
       ativo = $12,
+      peso_kg = CASE WHEN $13::boolean THEN $14::numeric ELSE peso_kg END,
       updated_at = NOW()
-    WHERE id = $13
+    WHERE id = $15
     RETURNING *
   `, [
     nome,
@@ -319,6 +341,8 @@ async function atualizar(id, data) {
     capacidade_caixa || 1,
     normalizarObservacao(observacao),
     ativo !== false,
+    pesoInformado,
+    pesoKg,
     id,
   ]);
 
@@ -514,7 +538,7 @@ async function buscarPorItemLegado(itemLegado, opcoes = {}) {
     SELECT
       p.id,
       p.nome,
-      p.preco,${camposFotosSelect('p')},
+      p.preco, p.peso_kg,${camposFotosSelect('p')},
       p.capacidade_caixa,
       p.ativo,
       p.item_legado,
