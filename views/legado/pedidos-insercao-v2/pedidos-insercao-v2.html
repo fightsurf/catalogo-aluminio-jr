@@ -169,6 +169,7 @@
 
         <div class="acoes-final">
           <button id="btnResumoPedidoIA" class="secundario oculto" type="button">Apresentar pedido com IA</button>
+          <button id="btnPromocaoPosVenda" class="secundario oculto" type="button">Promoção</button>
           <button id="btnEnviarWhatsapp" class="whatsapp oculto" type="button">Enviar para WhatsApp</button>
           <button id="btnEnviarPdfWhatsapp" class="whatsapp oculto" type="button">Enviar PDF WhatsApp</button>
           <button id="btnEnviarFotosWhatsapp" class="whatsapp oculto" type="button">Enviar pedido com fotos</button>
@@ -235,6 +236,7 @@
     const btnImprimirRelatorio = document.getElementById('btnImprimirRelatorio');
     const btnImprimirRelatorioProducao = document.getElementById('btnImprimirRelatorioProducao');
     const btnResumoPedidoIA = document.getElementById('btnResumoPedidoIA');
+    const btnPromocaoPosVenda = document.getElementById('btnPromocaoPosVenda');
     const btnEnviarWhatsapp = document.getElementById('btnEnviarWhatsapp');
     const btnEnviarPdfWhatsapp = document.getElementById('btnEnviarPdfWhatsapp');
     const btnEnviarFotosWhatsapp = document.getElementById('btnEnviarFotosWhatsapp');
@@ -883,6 +885,8 @@
 
       btnResumoPedidoIA.classList.toggle('oculto', !exibirRelatorio);
       btnResumoPedidoIA.disabled = !exibirRelatorio || !obterIdPedidoAtual();
+      btnPromocaoPosVenda.classList.toggle('oculto', !exibirRelatorio);
+      btnPromocaoPosVenda.disabled = !exibirRelatorio || !obterIdPedidoAtual();
       btnImprimirRelatorio.classList.toggle('oculto', !exibirRelatorio);
       btnImprimirRelatorioProducao.classList.toggle('oculto', !exibirRelatorio);
       btnEnviarWhatsapp.classList.toggle('oculto', !exibirRelatorio);
@@ -1548,8 +1552,6 @@ resultadoSucesso.innerHTML = `
 `;
 resultadoSucesso.style.display = 'block';
 atualizarBotoesAcao();
-// O modal só é aberto em caso de pedido efetivamente salvo e código previamente autorizado.
-window.promocaoPosVenda?.aposSalvar(ultimoPedidoSalvo);
 
 itensPedido = [];
 textoRelatorio.value = '';
@@ -1670,6 +1672,7 @@ setMensagem([
     btnCalcularVolumes.addEventListener('click', calcularVolumesPedido);
     btnSalvarPedido.addEventListener('click', salvarPedido);
     btnResumoPedidoIA.addEventListener('click', () => window.PedidoResumoIA.abrir({ idMestre: obterIdPedidoAtual(), telefone: obterTelefoneClienteAtual() }));
+    btnPromocaoPosVenda.addEventListener('click', () => window.promocaoPosVenda?.abrir(ultimoPedidoSalvo));
     btnNovoPedido.addEventListener('click', limparPedidoCompleto);
     btnAdicionarPagamento.addEventListener('click', abrirTelaPagamentos);
     btnImprimirRelatorio.addEventListener('click', () => {
