@@ -3,7 +3,29 @@ const controller = require('../../../controllers/legado/pedido/pedidosLegado.con
 const router = express.Router();
 const { requireAuth } = require('../../../middlewares/adminAuth.middleware');
 const resumoIA = require('../../../services/legado/pedido/resumo-pedido-ia.service');
+const vozResumoIA = require('../../../services/legado/pedido/resumo-pedido-voz-config.service');
 
+// Preferência de voz exclusiva para a apresentação de pedidos, compartilhada entre telas e sessões.
+router.get('/pedidos/resumo-ia/config-voz', requireAuth, async (req, res) => {
+  try { return res.json({success:true,data:await vozResumoIA.obter()}); }
+  catch (error) {
+    console.error('Consultar voz do resumo:', error);
+    return res.status(error.status || 500).json({success:false,erro:error.status ? error.message : 'Não foi possível consultar a configuração de voz.'});
+  }
+});
+router.put('/pedidos/resumo-ia/config-voz', requireAuth, async (req, res) => {
+  const origin = req.get('origin');
+  if (origin) {
+    try {
+      if (new URL(origin).host !== req.get('host')) return res.status(403).json({success:false,erro:'Origem não autorizada.'});
+    } catch (_) { return res.status(403).json({success:false,erro:'Origem inválida.'}); }
+  }
+  try { return res.json({success:true,data:await vozResumoIA.salvar(req.body)}); }
+  catch (error) {
+    if (!error.status || error.status >= 500) console.error('Salvar voz do resumo:', error);
+    return res.status(error.status || 500).json({success:false,erro:error.status ? error.message : 'Não foi possível salvar a configuração de voz.'});
+  }
+});
 router.get('/pedidos', controller.pesquisarPedidos);
 router.post('/pedidos/:idMestre/resumo-ia', requireAuth, async (req, res) => {
   try {
