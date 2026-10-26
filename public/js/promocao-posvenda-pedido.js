@@ -1,7 +1,7 @@
 'use strict';
 (function () {
   const API = '/api/legado/pedidos-insercao-v2/promocao-posvenda';
-  let token = '', pedido = null, produtos = [], salvando = false;
+  let pedido = null, produtos = [], salvando = false;
   const css = document.createElement('style');
   css.textContent = '.pp-overlay{position:fixed;inset:0;background:#0009;z-index:9999;display:none;align-items:center;justify-content:center;padding:15px}.pp-overlay.aberto{display:flex}.pp-modal{background:white;max-width:700px;width:100%;max-height:90vh;overflow:auto;border-radius:12px;padding:24px;color:#111827}.pp-modal input:not([type=checkbox]),.pp-modal select{width:100%;padding:10px;border:1px solid #cbd5e1;border-radius:8px}.pp-modal label{display:block;margin-top:14px;font-weight:bold}.pp-modal button{margin:12px 8px 0 0}.pp-info{display:flex;gap:12px;align-items:center;margin-top:14px;background:#f1f5f9;padding:12px;border-radius:8px}.pp-info img{max-width:120px;max-height:100px}.pp-erro{color:#b91c1c;white-space:pre-line}.pp-resultado{white-space:pre-line}';
   document.head.appendChild(css);
@@ -24,7 +24,6 @@
   function status(msg, bad) { $('pp-status').textContent = msg; $('pp-status').className = bad ? 'pp-erro' : 'pp-resultado'; }
   async function api(url, options) {
     const o = Object.assign({}, options || {});
-    o.headers = Object.assign({ 'x-promocao-autorizacao': token }, o.headers || {});
     const response = await fetch(API + url, o);
     const body = await response.json().catch(() => ({}));
     if (!response.ok || !body.sucesso) throw new Error(body.erro || 'Erro ao consultar promoção.');
@@ -56,6 +55,18 @@
     detalhe();
   }
   async function abrir(p) {
+    if (!p?.numero || !(p.idMestre || p.saida)) return;
+    try {
+      const authResponse = await fetch('/auth/status', { credentials: 'same-origin' });
+      const auth = await authResponse.json();
+      if (!authResponse.ok || !auth.autenticado) {
+        alert('Somente um administrador pode agendar promoções. Entre no sistema com sua conta administrativa e clique novamente em Promoção.');
+        return;
+      }
+    } catch (_) {
+      alert('Não foi possível verificar a autorização administrativa. Tente novamente.');
+      return;
+    }
     pedido = p; overlay.classList.add('aberto'); overlay.setAttribute('aria-hidden', 'false');
     $('pp-cliente').textContent = 'Pedido ' + p.numero + ' — ' + (p.cliente?.nome || 'Cliente') + '. A oferta será enviada uma hora após salvar.';
     $('pp-busca').value = ''; $('pp-preco').value = ''; $('pp-consentimento').checked = false;
@@ -79,7 +90,7 @@
     if (preco < p.custo && !confirm('Preço inferior ao custo atualizado. Continuar?')) return;
     try {
       salvando = true; $('pp-agendar').disabled = true;
-      status('Preparando texto com IA e áudio ElevenLabs...');
+      status('Preparando mensagem promocional com IA...');
       const r = await api('/agendar', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pedidoId: pedido.idMestre || pedido.saida, pedidoSalvoEm: pedido.salvoEm, produtoId: p.id, precoPromocional: preco, autorizadoWhatsApp: true })
@@ -89,23 +100,5 @@
     } catch (e) { status(e.message, true); $('pp-agendar').disabled = false; }
     finally { salvando = false; }
   });
-  // Sequência clássica de videogame: ↑ ↑ ↓ ↓ ← → ← →. Só as setas são observadas.
-  const sequencia = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight'];
-  let pos = 0;
-  document.addEventListener('keydown', async event => {
-    if (!event.key.startsWith('Arrow') || event.repeat) return;
-    pos = event.key === sequencia[pos] ? pos + 1 : (event.key === sequencia[0] ? 1 : 0);
-    if (pos !== sequencia.length) return;
-    pos = 0;
-    const codigo = prompt('Digite o código secreto para habilitar a promoção após salvar pedidos:');
-    if (!codigo) return;
-    try {
-      const res = await fetch(API + '/desbloquear', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ codigo }) });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok || !body.sucesso) throw new Error(body.erro || 'Código incorreto.');
-      token = body.dados.token;
-      alert('Promoções habilitadas nesta aba. O modal aparecerá após salvar um pedido.');
-    } catch (e) { alert(e.message); }
-  });
-  window.promocaoPosVenda = { aposSalvar: p => { if (token && p?.numero) void abrir(p); } };
+  window.promocaoPosVenda = { abrir: p => { if (p?.numero) void abrir(p); } };
 })();
