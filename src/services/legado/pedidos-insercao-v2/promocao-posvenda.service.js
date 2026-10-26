@@ -144,6 +144,8 @@ async function agendar(dados) {
   if (!detalhe?.idMestre || Number(detalhe.idMestre) !== pedidoRef) throw erro('Pedido não encontrado no sistema legado.', 404);
   const produto = itens.find(p => p.id === produtoId);
   if (!produto) throw erro('Produto não encontrado ou inativo.');
+  if (!(Number(produto.preco) > preco)) throw erro('O preço promocional deve ser menor que o preço atual do produto.');
+  if (produto.semCusto) throw erro('Produto sem custo de composição válido. Revise o custo antes de agendar a promoção.');
   const dadosFoto = await pool.query('SELECT foto, foto_2, foto_3 FROM produtos WHERE id=$1 AND ativo=TRUE', [produtoId]);
   const imagem = fotoPublica([dadosFoto.rows[0]?.foto, dadosFoto.rows[0]?.foto_2, dadosFoto.rows[0]?.foto_3].find(Boolean));
   const nomeCliente = String(detalhe.cliente?.nome || '').trim();
