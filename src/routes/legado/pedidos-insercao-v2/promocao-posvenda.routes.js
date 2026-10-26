@@ -11,6 +11,16 @@ const tentativa = (fn) => async (req, res) => {
   }
 };
 router.use(requireAuth);
+function origemValida(req, res, next) {
+  const origin = req.get('origin');
+  if (origin) {
+    try {
+      if (new URL(origin).host !== req.get('host')) return res.status(403).json({ erro: 'Origem não autorizada.' });
+    } catch (_) { return res.status(403).json({ erro: 'Origem inválida.' }); }
+  }
+  next();
+}
 router.get('/produtos', tentativa(req => service.listarProdutos(req.query.busca || '')));
-router.post('/agendar', tentativa(req => service.agendar(req.body)));
+router.post('/texto-ia', origemValida, tentativa(req => service.gerarTexto(req.body)));
+router.post('/agendar', origemValida, tentativa(req => service.agendar(req.body, req.adminUser)));
 module.exports = router;
