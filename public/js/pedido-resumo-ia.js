@@ -154,7 +154,7 @@
       $('resumoIaPlayer').src = audioUrl; $('resumoIaPlayer').hidden = false;
       $('resumoIaEnviar').disabled = false;
       mostrarStatus('Áudio gerado. Ouça a prévia. Enviar pelo WhatsApp requer confirmação.');
-    } catch(e){if (versao === versaoAudio) mostrarStatus(e.message,true);} finally {btn.disabled=false;}
+    } catch(e){if (versao === versaoAudio) mostrarStatus(e.message,true);} finally {if (versao === versaoAudio) btn.disabled=false;}
   }
   async function enviar() {
     if (!previewId || enviando) return mostrarStatus('Gere primeiro o áudio.',true);
