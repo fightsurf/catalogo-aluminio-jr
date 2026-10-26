@@ -108,6 +108,106 @@ function renderDiet(){
  $('listaDieta').querySelectorAll('[data-plano]').forEach(btn=>btn.onclick=async()=>{if(!confirm('Excluir item da dieta programada?'))return;try{await send(`/dieta/${state.usuarioId}/itens/${btn.dataset.plano}`,'DELETE');await loadDiet();show('Item removido da programação.');}catch(e){show(e.message,true);}});
 }
 
+/* Importação assistida de alimentos da refeição programada, sem registrar consumo. */
+let dietaImportacaoRevision=0,dietaImportacaoPendente=false,dietaSalvandoImportacao=false,dietaCatalogoImportacao=[];
+function invalidarImportacaoDieta(limparTexto=false){
+ dietaImportacaoRevision++;
+ $('dietaRevisaoImportacao').replaceChildren();
+ $('dietaRevisaoImportacao').hidden=true;
+ $('dietaAplicarImportacao').hidden=true;
+ $('dietaStatusImportacao').textContent='';
+ if(limparTexto)$('dietaTextoIngredientes').value='';
+}
+function destinoImportacaoDieta(){
+ $('dietaDestinoImportacao').textContent='Destino: '+DAYS[state.dias]+' · '+(MEALS[v('dietaRefeicao')]||'Escolha uma refeição');
+}
+function opcoesAlimentosDieta(alimentoId){
+ return '<option value="">Selecione o alimento</option>'+dietaCatalogoImportacao.map(f=>'<option value="'+esc(f.id)+'"'+(String(f.id)===String(alimentoId)?' selected':'')+'>'+esc(f.nome)+(f.preparo?' · '+esc(f.preparo):'')+(f.marca?' · '+esc(f.marca):'')+'</option>').join('');
+}
+function renderImportacaoDieta(itens){
+ const area=$('dietaRevisaoImportacao');
+ area.replaceChildren();
+ for(const item of itens){
+  const gramas=Number(item.gramas);
+  const pesoValido=item.gramas!==null&&item.gramas!==undefined&&Number.isFinite(gramas)&&gramas>0&&gramas<=10000;
+  const confiavel=item.confianca==='alta'&&!!item.alimento_id&&pesoValido;
+  const linha=document.createElement('div');
+  linha.className='importador-item'+(confiavel?'':' revisar');
+  linha.innerHTML='<p class="linha-original">'+esc(item.linha)+'</p>'+
+   '<label class="incluir"><input class="dieta-incluir-revisao" type="checkbox"'+(confiavel?' checked':'')+'> Incluir</label>'+
+   '<label class="avn-field">Alimento do cadastro<select class="dieta-alimento-revisao">'+opcoesAlimentosDieta(item.alimento_id)+'</select></label>'+
+   '<label class="avn-field campo-peso">Peso estimado (g)<input class="dieta-peso-revisao" type="number" min="0.001" max="10000" step="any" value="'+(pesoValido?esc(gramas):'')+'" placeholder="'+(gramas>10000?'Verifique a unidade':'Informe o peso')+'"></label>'+
+   '<p class="obs">'+esc(item.observacao||'Confira alimento e peso.')+(pesoValido?'':' Peso não confirmado: informe entre 0 e 10.000 g.')+'</p>';
+  area.appendChild(linha);
+ }
+ area.hidden=false;
+ $('dietaAplicarImportacao').hidden=false;
+ $('dietaStatusImportacao').textContent=itens.length+' ingrediente(s) identificados. Confira alimento e peso; somente os marcados serão adicionados.';
+}
+async function interpretarIngredientesDieta(){
+ if(dietaImportacaoPendente||dietaSalvandoImportacao)return;
+ const texto=v('dietaTextoIngredientes').trim();
+ if(!texto){$('dietaStatusImportacao').textContent='Cole os ingredientes, um por linha.';return;}
+ try{userGuard();}catch(e){$('dietaStatusImportacao').textContent=e.message;return;}
+ const revision=++dietaImportacaoRevision;
+ const usuario=state.usuarioId;
+ const dia=state.dias;
+ const refeicao=v('dietaRefeicao');
+ $('dietaRevisaoImportacao').hidden=true;
+ $('dietaAplicarImportacao').hidden=true;
+ dietaImportacaoPendente=true;
+ $('dietaInterpretarIngredientes').disabled=true;
+ $('dietaStatusImportacao').textContent='Identificando ingredientes e estimando quantidades…';
+ try{
+  const [catalogo,resposta]=await Promise.all([
+   api('/receitas/catalogo?usuarioId='+encodeURIComponent(usuario)),
+   send('/receitas/interpretar','POST',{usuarioId:usuario,texto})
+  ]);
+  if(revision!==dietaImportacaoRevision||usuario!==state.usuarioId||dia!==state.dias||refeicao!==v('dietaRefeicao')||texto!==v('dietaTextoIngredientes').trim())return;
+  if(!Array.isArray(catalogo)||!Array.isArray(resposta.itens)||!resposta.itens.length)throw Error('A IA não retornou ingredientes válidos.');
+  dietaCatalogoImportacao=catalogo;
+  renderImportacaoDieta(resposta.itens);
+ }catch(e){if(revision===dietaImportacaoRevision)$('dietaStatusImportacao').textContent=e.message;}
+ finally{dietaImportacaoPendente=false;$('dietaInterpretarIngredientes').disabled=false;}
+}
+async function aplicarIngredientesDieta(){
+ if(dietaImportacaoPendente||dietaSalvandoImportacao)return;
+ const rows=[...$('dietaRevisaoImportacao').querySelectorAll('.importador-item')];
+ const escolhidos=rows.filter(row=>row.querySelector('.dieta-incluir-revisao').checked);
+ if(!escolhidos.length){$('dietaStatusImportacao').textContent='Marque ao menos um ingrediente.';return;}
+ const itens=[];
+ for(const row of escolhidos){
+  const alimentoId=row.querySelector('.dieta-alimento-revisao').value;
+  const input=row.querySelector('.dieta-peso-revisao');
+  const quantidade=Number(input.value);
+  if(!alimentoId||!input.value||!input.checkValidity()||!Number.isFinite(quantidade)||quantidade<=0||quantidade>10000){
+   row.classList.add('revisar');
+   $('dietaStatusImportacao').textContent='Corrija alimento e gramagem de todos os ingredientes marcados.';
+   input.focus();return;
+  }
+  itens.push({alimento_id:alimentoId,quantidade_g:quantidade});
+ }
+ const usuario=state.usuarioId;
+ const dia=state.dias;
+ const refeicao=v('dietaRefeicao');
+ const botao=$('dietaAplicarImportacao');
+ const locks=['usuario','diaDieta','dietaRefeicao','dietaTextoIngredientes','dietaInterpretarIngredientes'];
+ dietaSalvandoImportacao=true;
+ botao.disabled=true;
+ locks.forEach(id=>$(id).disabled=true);
+ $('dietaStatusImportacao').textContent='Salvando '+itens.length+' alimento(s) na refeição…';
+ try{
+  userGuard();
+  const resposta=await send('/dieta/'+encodeURIComponent(usuario)+'/itens/lote','POST',{dia_semana:dia,refeicao,itens});
+  invalidarImportacaoDieta(true);
+  await loadDiet();
+  const mensagem=(resposta.inseridos||itens.length)+' alimento(s) adicionados a '+(MEALS[refeicao]||refeicao)+' de '+DAYS[dia]+'.';
+  $('dietaStatusImportacao').textContent=mensagem;
+  show(mensagem);
+ }catch(e){$('dietaStatusImportacao').textContent=e.message;show(e.message,true);}
+ finally{dietaSalvandoImportacao=false;botao.disabled=false;locks.forEach(id=>$(id).disabled=false);}
+}
+ 
 /* Registro assistido de UMA refeição planejada; não modifica a programação. */
 let registrandoRefeicao=false;
 function renderPlannedMeal(){
@@ -239,7 +339,7 @@ function configurarIA(){
  });
 }
 function events(){
- $('usuario').onchange=async()=>{state.usuarioId=v('usuario');localStorage.setItem('avn_nutricao_usuario',state.usuarioId);try{await reload();}catch(e){show(e.message,true);}};
+ $('usuario').onchange=async()=>{if(PAGE==='dieta'){invalidarImportacaoDieta(true);dietaCatalogoImportacao=[];}state.usuarioId=v('usuario');localStorage.setItem('avn_nutricao_usuario',state.usuarioId);try{await reload();}catch(e){show(e.message,true);}};
  if(PAGE==='diario'){
  $('mostrarTodosMicros').onchange=renderDaily;
  $('dataDiario').onchange=async()=>{state.data=v('dataDiario');$('refeicaoPlanejada').value='';try{await Promise.all([loadDaily(),loadDiet()]);}catch(e){show(e.message,true);}};
@@ -248,7 +348,12 @@ function events(){
  $('registrarRefeicao').onclick=registrarRefeicaoPlanejada;
  }
  if(PAGE==='dieta'){
- $('diaDieta').onchange=()=>{state.dias=Number(v('diaDieta'));renderDiet();};
+ $('diaDieta').onchange=()=>{state.dias=Number(v('diaDieta'));invalidarImportacaoDieta();destinoImportacaoDieta();renderDiet();};
+ $('dietaRefeicao').onchange=()=>{invalidarImportacaoDieta();destinoImportacaoDieta();};
+ $('dietaTextoIngredientes').oninput=()=>invalidarImportacaoDieta();
+ $('dietaInterpretarIngredientes').onclick=interpretarIngredientesDieta;
+ $('dietaAplicarImportacao').onclick=aplicarIngredientesDieta;
+ destinoImportacaoDieta();
  $('formDieta').onsubmit=async e=>{e.preventDefault();try{userGuard();await send('/dieta/'+state.usuarioId+'/itens','POST',{dia_semana:state.dias,alimento_id:v('dietaAlimento'),refeicao:v('dietaRefeicao'),quantidade_g:Number(v('dietaGramas'))});await loadDiet();show('Item adicionado à programação.');}catch(err){show(err.message,true);}};
  }
  if(PAGE==='alimentos'){

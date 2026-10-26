@@ -7,6 +7,19 @@
 <nav class="avn-tabs avn-links" aria-label="Aplicativos de nutrição"><a href="/avn/sistema/nutricao/diario" >Diário alimentar</a><a href="/avn/sistema/nutricao/dieta" aria-current="page">Dieta programada</a><a href="/avn/sistema/nutricao/alimentos" >Alimentos</a><a href="/avn/sistema/nutricao/metas" >Minhas metas</a><a href="/avn/sistema/nutricao/receitas">Receitas</a></nav>
 <div id="alerta" class="avn-alert" role="status" hidden></div>
 <section id="dieta" class="avn-panel"><div class="avn-row space"><div><h2>Dieta programada</h2><p class="muted">Monte um cardápio recorrente de segunda a domingo. Programar não registra consumo.</p></div><label class="avn-field">Dia da semana<select id="diaDieta"><option value="0">Segunda</option><option value="1">Terça</option><option value="2">Quarta</option><option value="3">Quinta</option><option value="4">Sexta</option><option value="5">Sábado</option><option value="6">Domingo</option></select></label></div>
-<div class="avn-grid"><section class="card"><h3>Adicionar à dieta</h3><form id="formDieta" class="stack"><label class="avn-field">Alimento<select id="dietaAlimento" required></select></label><div class="avn-two"><label class="avn-field">Refeição<select id="dietaRefeicao"></select></label><label class="avn-field">Quantidade (g)<input type="number" id="dietaGramas" min="0.1" max="10000" step="0.1" required value="100"></label></div><button class="primary">Adicionar ao dia</button></form></section><section class="card"><h3>Itens planejados</h3><div id="listaDieta" class="list"></div><div id="resumoDieta" class="hint"></div></section></div></section>
+<div class="avn-grid"><section class="card"><h3>Adicionar à dieta</h3><form id="formDieta" class="stack"><label class="avn-field">Alimento<select id="dietaAlimento" required></select></label><div class="avn-two"><label class="avn-field">Refeição<select id="dietaRefeicao"></select></label><label class="avn-field">Quantidade (g)<input type="number" id="dietaGramas" min="0.1" max="10000" step="0.1" required value="100"></label></div><button class="primary">Adicionar ao dia</button></form>
+<section class="receita-importador" aria-labelledby="dietaTituloImportador">
+ <h4 id="dietaTituloImportador">Adicionar vários alimentos com IA</h4>
+ <p class="muted">Cole um alimento por linha. A IA usa o cadastro existente e estima o peso de unidades e medidas caseiras. Confira antes de salvar.</p>
+ <p class="hint" id="dietaDestinoImportacao"></p>
+ <label class="avn-field" for="dietaTextoIngredientes">Lista de ingredientes</label>
+ <textarea id="dietaTextoIngredientes" maxlength="8000" rows="6" placeholder="200 g de frango cozido&#10;3 ovos&#10;100 g de arroz&#10;1 cenoura média&#10;2 colheres de requeijão light"></textarea>
+ <div class="importador-acoes">
+  <button type="button" class="secondary" id="dietaInterpretarIngredientes">Interpretar ingredientes com IA</button>
+  <span id="dietaStatusImportacao" class="muted" role="status" aria-live="polite"></span>
+ </div>
+ <div id="dietaRevisaoImportacao" class="importador-resultado" aria-label="Conferir ingredientes da refeição" hidden></div>
+ <button type="button" class="primary" id="dietaAplicarImportacao" hidden>Adicionar alimentos revisados à refeição</button>
+</section></section><section class="card"><h3>Itens planejados</h3><div id="listaDieta" class="list"></div><div id="resumoDieta" class="hint"></div></section></div></section>
 
 <footer>AVN · Os valores nutricionais dependem da qualidade dos dados e do preparo informado.</footer></main></body></html>

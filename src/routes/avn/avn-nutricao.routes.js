@@ -153,6 +153,49 @@ router.post('/dieta/:usuarioId/itens',wrap(async(req,res)=>{
   await client.query('COMMIT');res.status(201).json(r.rows[0]);
  }catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}
 }));
+/* Insere todos os ingredientes confirmados em uma única transação. */
+async function salvarItensDietaLote(req,res){
+ const uid=requiredId(req.params.usuarioId);
+ await user(uid);
+ const body=req.body||{};
+ const dia=Number(body.dia_semana);
+ if(!Number.isInteger(dia)||dia<0||dia>6)throw bad('Dia da semana inválido.');
+ const refeicao=meal(body.refeicao);
+ if(!Array.isArray(body.itens)||!body.itens.length||body.itens.length>60)throw bad('Envie de 1 a 60 ingredientes.');
+ const ids=[],pesos=[];
+ for(const item of body.itens){
+  if(!item||typeof item!=='object'||Array.isArray(item))throw bad('Ingrediente inválido.');
+  ids.push(requiredId(item.alimento_id));
+  pesos.push(grams(item.quantidade_g));
+ }
+ const client=await pool.connect();
+ try{
+  await client.query('BEGIN');
+  // Nunca aceitar IDs que pertençam exclusivamente a outro usuário.
+  const validos=await client.query(`SELECT id FROM public.avn_alimentos
+    WHERE ativo AND (usuario_id IS NULL OR usuario_id=$1) AND id=ANY($2::bigint[])`,[uid,ids]);
+  const disponiveis=new Set(validos.rows.map(r=>String(r.id)));
+  if(ids.some(id=>!disponiveis.has(id)))throw bad('Um ou mais alimentos não estão disponíveis neste cadastro.');
+  let plano=await activePlan(uid,client);
+  if(!plano){
+   const novo=await client.query(`INSERT INTO public.avn_dieta_planos(usuario_id,nome,ativo)
+    VALUES ($1,'Dieta semanal',TRUE) RETURNING *`,[uid]);
+   plano=novo.rows[0];
+  }else{
+   await client.query('SELECT id FROM public.avn_dieta_planos WHERE id=$1 FOR UPDATE',[plano.id]);
+  }
+  const prox=await client.query(`SELECT COALESCE(MAX(ordem)+1,0) AS proxima
+    FROM public.avn_dieta_itens WHERE plano_id=$1 AND dia_semana=$2`,[plano.id,dia]);
+  const insercao=await client.query(`INSERT INTO public.avn_dieta_itens
+    (plano_id,dia_semana,refeicao,alimento_id,quantidade_g,ordem)
+    SELECT $1,$2,$3,i.alimento_id,i.quantidade_g,$6::integer + i.posicao::integer - 1
+    FROM unnest($4::bigint[],$5::numeric[]) WITH ORDINALITY AS i(alimento_id,quantidade_g,posicao)
+    ORDER BY i.posicao RETURNING id`,[plano.id,dia,refeicao,ids,pesos,Number(prox.rows[0].proxima)]);
+  await client.query('COMMIT');
+  res.status(201).json({ok:true,inseridos:insercao.rowCount});
+ }catch(e){await client.query('ROLLBACK').catch(()=>{});throw e;}finally{client.release();}
+}
+router.post('/dieta/:usuarioId/itens/lote',wrap(salvarItensDietaLote));
 router.delete('/dieta/:usuarioId/itens/:itemId',wrap(async(req,res)=>{
  const uid=requiredId(req.params.usuarioId),iid=requiredId(req.params.itemId);await user(uid);
  const r=await pool.query(`DELETE FROM public.avn_dieta_itens i USING public.avn_dieta_planos p WHERE i.plano_id=p.id AND p.usuario_id=$1 AND p.ativo AND i.id=$2 RETURNING i.id`,[uid,iid]);
