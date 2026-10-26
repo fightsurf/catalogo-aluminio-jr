@@ -8,6 +8,9 @@
   let versaoResumo = 0;
   let versaoAudio = 0;
   let modal = null;
+  let preferencias = null;
+  let carregamentoPreferencias = null;
+  const preferenciasApi = '/api/legado/pedidos/resumo-ia/config-voz';
   const $ = id => document.getElementById(id);
   const endpoint = '/api/whatsapp/elevenlabs-jr';
   function mostrarStatus(mensagem, erro) {
@@ -45,6 +48,9 @@
       '.resumo-ia-acoes .resumo-ia-principal{background:#155eef;color:white;border-color:#155eef}' +
       '.resumo-ia-janela small{display:block;color:#667085;margin-top:10px}' +
       '.resumo-ia-janela audio{width:100%;margin-top:12px}' +
+      '.resumo-ia-config{border:1px solid #d0d5dd;border-radius:9px;padding:14px;margin:12px 0;background:#f9fafb}' +
+      '.resumo-ia-config[hidden]{display:none}' +
+      '.resumo-ia-config .resumo-ia-acoes{margin-top:12px}' +
       '#resumoIaStatus{margin:12px 0;min-height:18px;white-space:pre-wrap}';
     document.head.appendChild(css);
     modal = document.createElement('div');
@@ -60,10 +66,18 @@
       '<div id="resumoIaStatus" role="status" aria-live="polite"></div>' +
       '<label for="resumoIaTexto">Texto da apresentação (editável)</label><textarea id="resumoIaTexto" maxlength="1000" placeholder="Clique em Gerar resumo com IA."></textarea>' +
       '<div class="resumo-ia-acoes">' +
+      '<button type="button" id="resumoIaConfig">⚙ Configurar ElevenLabs</button>' +
       '<button type="button" id="resumoIaGerar" class="resumo-ia-principal">Gerar resumo com IA</button>' +
       '<button type="button" id="resumoIaCopiar">Copiar texto</button>' +
       '<button type="button" id="resumoIaAudio">Gerar áudio ElevenLabs</button>' +
       '<button type="button" id="resumoIaEnviar" disabled>Enviar áudio pelo WhatsApp</button></div>' +
+      '<div id="resumoIaConfigPainel" class="resumo-ia-config" hidden>' +
+      '<strong>Configuração de voz (salva para os próximos pedidos)</strong>' +
+      '<label for="resumoIaVoz">Voz da ElevenLabs</label><select id="resumoIaVoz"><option value="">Carregar vozes...</option></select>' +
+      '<label for="resumoIaModelo">Modelo da ElevenLabs</label><select id="resumoIaModelo"><option value="">Carregar modelos...</option></select>' +
+      '<div class="resumo-ia-acoes"><button type="button" id="resumoIaSalvarConfig" class="resumo-ia-principal">Salvar configuração</button>' +
+      '<button type="button" id="resumoIaCancelarConfig">Fechar configuração</button></div>' +
+      '<small id="resumoIaConfigStatus" role="status" aria-live="polite">Selecione uma voz e um modelo.</small></div>' +
       '<audio id="resumoIaPlayer" controls hidden></audio>' +
       '<small>Confira o texto antes do envio. O WhatsApp só recebe o áudio após confirmação. Áudio de prévia expira em 10 minutos. Se a carrada não tiver data, não será inventada uma previsão.</small></section>';
     document.body.appendChild(modal);
@@ -71,6 +85,9 @@
     modal.addEventListener('click', e => { if (e.target === modal) fechar(); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && !modal.hidden) fechar(); });
     $('resumoIaGerar').addEventListener('click', gerar);
+    $('resumoIaConfig').addEventListener('click', abrirConfiguracao);
+    $('resumoIaSalvarConfig').addEventListener('click', salvarConfiguracao);
+    $('resumoIaCancelarConfig').addEventListener('click', () => { $('resumoIaConfigPainel').hidden = true; });
     $('resumoIaAudio').addEventListener('click', gerarAudio);
     $('resumoIaEnviar').addEventListener('click', enviar);
     $('resumoIaCopiar').addEventListener('click', copiar);
@@ -87,6 +104,7 @@
     versaoResumo++;
     modal.hidden = true; modal.style.display = 'none';
     limparAudio();
+    $('resumoIaConfigPainel').hidden = true;
   }
   function abrir({idMestre, telefone} = {}) {
     if (!idMestre) { window.alert('Salve ou selecione um pedido antes de gerar o resumo.'); return; }
@@ -99,8 +117,10 @@
     limparAudio();
     mostrarStatus('O resumo será criado com base nos dados reais do pedido salvo.');
     modal.hidden = false; modal.style.display = 'flex';
+    $('resumoIaConfigPainel').hidden = true;
     $('resumoIaGerar').focus();
     void gerar();
+    void carregarPreferencias().catch(() => {}); // O erro será informado ao gerar áudio ou abrir configurações.
   }
   async function gerar() {
     if (enviando || !atual) return;
@@ -130,16 +150,85 @@
     try { await navigator.clipboard.writeText(texto); mostrarStatus('Texto copiado.'); }
     catch(_) { $('resumoIaTexto').select(); mostrarStatus('Selecione o texto e copie manualmente.'); }
   }
+
+  async function carregarPreferencias() {
+    if (preferencias) return preferencias;
+    if (!carregamentoPreferencias) {
+      carregamentoPreferencias = jsonResposta(await fetch(preferenciasApi)).then(resposta => {
+        preferencias = resposta.data || {voz:'',modelo:'eleven_multilingual_v2'};
+        return preferencias;
+      }).finally(() => {carregamentoPreferencias = null;});
+    }
+    return carregamentoPreferencias;
+  }
+  async function abrirConfiguracao() {
+    $('resumoIaConfigPainel').hidden = false;
+    const status = $('resumoIaConfigStatus');
+    const btn = $('resumoIaSalvarConfig');
+    btn.disabled = true;
+    status.textContent = 'Carregando vozes, modelos e preferências salvas...';
+    try {
+      const [config, resultadoVozes, resultadoModelos] = await Promise.all([
+        carregarPreferencias(),
+        jsonResposta(await fetch(endpoint + '/vozes')),
+        jsonResposta(await fetch(endpoint + '/modelos'))
+      ]);
+      if (!modal || modal.hidden || $('resumoIaConfigPainel').hidden) return;
+      const vozes = Array.isArray(resultadoVozes.vozes) ? resultadoVozes.vozes : [];
+      const modelos = Array.isArray(resultadoModelos.modelos) ? resultadoModelos.modelos : [];
+      const preencher = (id, lista, selecionado, campo, label) => {
+        const select = $(id); select.replaceChildren();
+        const vazio = new Option('Selecione ' + label, '');
+        select.add(vazio);
+        for (const item of lista) {
+          const option = new Option(item.name + (item.category ? ' (' + item.category + ')' : ''), item[campo]);
+          select.add(option);
+        }
+        select.value = lista.some(item => item[campo] === selecionado) ? selecionado : '';
+      };
+      preencher('resumoIaVoz',vozes,config.voz,'voice_id','uma voz');
+      preencher('resumoIaModelo',modelos,config.modelo,'model_id','um modelo');
+      btn.disabled = !vozes.length || !modelos.length;
+      status.textContent = !vozes.length || !modelos.length
+        ? 'Não foram encontradas vozes ou modelos disponíveis na sua conta ElevenLabs.'
+        : 'A configuração será mantida para os próximos pedidos e nos demais aparelhos.';
+    } catch(error) {
+      status.textContent = 'Não foi possível carregar as opções: ' + error.message;
+    }
+  }
+  async function salvarConfiguracao() {
+    const voz = $('resumoIaVoz').value;
+    const modelo = $('resumoIaModelo').value;
+    const status = $('resumoIaConfigStatus');
+    if (!voz || !modelo) {status.textContent='Selecione uma voz e um modelo.';return;}
+    const botao = $('resumoIaSalvarConfig'); botao.disabled = true;
+    status.textContent = 'Salvando configuração...';
+    try {
+      const resultado = await jsonResposta(await fetch(preferenciasApi,{
+        method:'PUT',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({voz,modelo})
+      }));
+      preferencias = resultado.data;
+      limparAudio(); // Invalidar prévia feita com a configuração anterior.
+      status.textContent = 'Voz e modelo salvos. Serão usados nos próximos áudios.';
+    } catch(error) {
+      status.textContent = 'Erro ao salvar: ' + error.message;
+    } finally {botao.disabled=false;}
+  }
   async function gerarAudio() {
     const texto = $('resumoIaTexto').value.trim();
     if (!texto || texto.length>1000) return mostrarStatus('O texto precisa ter entre 1 e 1000 caracteres.',true);
     const btn = $('resumoIaAudio'); btn.disabled = true;
     limparAudio();
     const versao = versaoAudio;
-    mostrarStatus('Gerando áudio na ElevenLabs...');
+    mostrarStatus('Carregando configuração de voz...');
     try {
+      const config = await carregarPreferencias();
+      if (versao !== versaoAudio || modal.hidden) return;
+      if (!config.voz || !config.modelo) throw new Error('Clique em Configurar ElevenLabs, escolha a voz e o modelo e salve.');
+      mostrarStatus('Gerando áudio na ElevenLabs...');
       const response = await fetch(endpoint+'/gerar',{
-        method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({texto})
+        method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({texto,voz:config.voz,modelo:config.modelo})
       });
       if (!response.ok) {
         const json = await response.json().catch(()=>({}));

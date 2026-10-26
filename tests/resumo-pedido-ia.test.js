@@ -80,3 +80,20 @@ test('aceita correção manual de Kit/orçamento e rejeita pedido inválido', as
   assert.equal(dados.tipo,'kit-feirinha');
   await assert.rejects(()=>servico.gerarResumo('outro'),/Identificador inválido/);
 });
+
+test('resumo curto prioriza pressão e antiaderentes e fala quantidades exatas', async () => {
+  const p=pedido([
+    [1,'Cafeteira',8,16],
+    [2,'Bule de alumínio',5,16],
+    [3,'Caneca',4,16],
+    [4,'Panela de pressão 4,5 litros',7,16],
+    [5,'Frigideira antiaderente',3,16]
+  ],'2026-11-03T00:00:00.000Z');
+  const {servico}=carregar(p);
+  const dados=await servico.gerarResumo('123','kit-feirinha');
+  assert.equal(dados.produtosDestacados.length,3);
+  assert.match(dados.texto,/7 unidades de Panela de pressão 4,5 litros/);
+  assert.match(dados.texto,/3 unidades de Frigideira antiaderente/);
+  assert.doesNotMatch(dados.texto,/tipos de produtos|agradece pela confiança|Obrigado pela confiança/i);
+  assert.match(dados.texto,/03\/11\/2026/);
+});
