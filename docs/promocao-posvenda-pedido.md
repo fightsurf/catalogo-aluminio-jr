@@ -4,7 +4,7 @@
 Na tela `/legado/pedidos-insercao-v2`, depois de **Salvar pedido** com sucesso, o botão **Promoção** aparece junto às demais ações. O modal não abre automaticamente. Acesso e agendamento exigem sessão de administrador (`requireAuth`); não há código secreto nem sequência de teclas.
 
 ## Modal de promoção
-Escolha um produto com foto no catálogo: serão mostrados a foto, o preço de tabela, o custo atualizado e a margem bruta estimada. Informe o **preço promocional** (necessariamente menor que o de tabela).
+Escolha um produto com foto no catálogo: serão mostrados a foto, o preço de tabela, o custo atualizado e a margem bruta estimada. Informe o **preço promocional**, que pode ser menor, igual ou maior que o preço de tabela ou o custo de composição. Produtos sem custo cadastrado também podem ser promovidos; o custo é exibido como indisponível e registrado como zero no histórico da oferta. A margem estimada é apenas informativa e nunca impede o agendamento.
 
 O modal permite **Gerar texto com IA** e editar a mensagem em uma caixa de texto, como em **Apresentar pedido com IA**. O preço promocional é anexado automaticamente pelo servidor ao final do texto. Não escreva outro valor monetário conflitante no texto.
 
@@ -21,6 +21,8 @@ O trabalhador consulta a fila a cada 30 segundos, e aproximadamente uma hora ap�
 2. **Áudio ElevenLabs:** lê o mesmo texto e o novo preço.
 
 Se a promoção for agendada mais de 20 minutos após salvar, o prazo passa a ser uma hora após o agendamento.
+
+O trabalhador não faz novas comparações entre preço, custo e tabela no momento do envio. Uma oferta agendada não é cancelada por margem negativa ou ausência de custo. Permanecem exigidos os dados técnicos para envio e o respeito à autorização e ao bloqueio de recebimento registrado pelo cliente.
 
 Somente uma promoção por pedido. A fila preserva agendamentos no PostgreSQL. O envio tem estados `pendente`, `enviando`, `enviado`, `bloqueado` e `incerto`. Falhas depois de iniciar o envio ficam `incerto`, sem reenvio automático, para não duplicar mensagens.
 

@@ -105,7 +105,6 @@ async function gerarTexto(dados) {
   if (!detalhe?.idMestre || Number(detalhe.idMestre) !== pedidoRef) throw erro('Pedido não encontrado.', 404);
   const produto = produtos.find(p => Number(p.id) === produtoId);
   if (!produto) throw erro('Produto não encontrado ou inativo.');
-  if (!(Number(produto.preco) > preco)) throw erro('O preço promocional deve ser inferior ao preço de tabela.');
   const nome = String(detalhe.cliente?.nome || '').trim();
   if (!nome) throw erro('Cliente sem nome no cadastro.');
   return { texto: await textoIA({ cliente: nome.split(/\s+/)[0], produto: produto.nome, preco }) };
@@ -133,8 +132,6 @@ async function agendar(dados, usuario) {
   if (!detalhe?.idMestre || Number(detalhe.idMestre) !== pedidoRef) throw erro('Pedido não encontrado no sistema legado.', 404);
   const produto = itens.find(p => Number(p.id) === produtoId);
   if (!produto) throw erro('Produto não encontrado ou inativo.');
-  if (!(Number(produto.preco) > preco)) throw erro('O preço promocional deve ser menor que o preço atual do produto.');
-  if (produto.semCusto) throw erro('Produto sem custo de composição válido. Revise o custo antes de agendar a promoção.');
   const dadosFoto = await pool.query('SELECT foto, foto_2, foto_3 FROM produtos WHERE id=$1 AND ativo=TRUE', [produtoId]);
   const imagem = fotoPublica([dadosFoto.rows[0]?.foto, dadosFoto.rows[0]?.foto_2, dadosFoto.rows[0]?.foto_3].find(Boolean));
   const nomeCliente = String(detalhe.cliente?.nome || '').trim();
@@ -170,7 +167,7 @@ async function agendar(dados, usuario) {
       'RETURNING id, enviar_em'
     ].join(' '), [
       pedidoRef, String(detalhe.numero || pedidoRef), nomeCliente, telefone, produtoId, produto.nome,
-      produto.preco, produto.custo, preco, imagem, mensagem, audio.bytes, audio.voz, audio.modelo, horario
+      produto.preco, Number.isFinite(Number(produto.custo)) ? Number(produto.custo) : 0, preco, imagem, mensagem, audio.bytes, audio.voz, audio.modelo, horario
     ]);
     return { id: salvo.rows[0].id, enviarEm: salvo.rows[0].enviar_em, mensagem, produto: produto.nome, precoPromocional: preco };
   } catch (e) { if (e.code === '23505') throw erro('Já existe uma oferta programada para este pedido.', 409); throw e; }

@@ -157,8 +157,6 @@
     if (!Number.isFinite(preco) || preco <= 0 || Math.round(preco * 100) / 100 !== preco) {
       throw new Error('Informe um preço promocional válido com até duas casas decimais.');
     }
-    if (preco >= Number(p.preco)) throw new Error('O preço promocional precisa ser inferior ao preço de tabela.');
-    if (p.semCusto) throw new Error('O custo do produto ainda não foi calculado. Atualize a composição antes de oferecer.');
     return { p, preco };
   }
   async function gerarTexto() {
@@ -217,8 +215,6 @@
       if (!previewId) throw new Error('Gere e confira primeiro o áudio ElevenLabs.');
       if (!$('pp-consentimento').checked) throw new Error('Confirme a autorização do cliente para receber ofertas.');
     } catch (e) { return status(e.message, true); }
-    if (oferta.preco < Number(oferta.p.custo) &&
-        !window.confirm('Preço inferior ao custo atualizado. Continuar?')) return;
     const btn = $('pp-agendar'); btn.disabled = true; salvando = true;
     status('Salvando foto, texto e áudio para envio automático...');
     try {
