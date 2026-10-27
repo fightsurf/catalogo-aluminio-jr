@@ -1,0 +1,32 @@
+/* AVN Saúde · complementa o tema existente do AVN sem afetar outras telas. */
+.avn-exames .avn-ex-head{display:flex;justify-content:space-between;align-items:center;gap:1rem;margin:1.25rem 0 .75rem}
+.avn-exames .avn-ex-head h2{margin:0}
+.avn-exames .avn-ex-actions{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+.avn-exames .avn-ex-filtros,.avn-exames .avn-ex-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem}
+.avn-exames .avn-ex-full{grid-column:1/-1}
+.avn-exames .avn-ex-dialog{width:min(880px,96vw);max-height:92vh;overflow-y:auto}
+.avn-exames .avn-ex-dialog::backdrop{background:rgba(0,0,0,.7)}
+.avn-exames .avn-ex-dialog .modal-head{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin-bottom:1.15rem}
+.avn-exames .avn-ex-chart{min-height:240px;overflow-x:auto;padding:.75rem 0}
+.avn-exames .avn-ex-chart svg{display:block;width:100%;min-width:320px;max-height:350px;color:inherit}
+.avn-exames .avn-ex-chart circle{cursor:pointer}
+.avn-exames .avn-ex-lista{display:grid;gap:.65rem}
+.avn-exames .avn-ex-item{display:flex;justify-content:space-between;gap:1rem;align-items:center;padding:.9rem;border:1px solid var(--line,#364354);border-radius:12px}
+.avn-exames .avn-ex-item strong{display:block}
+.avn-exames .avn-ex-item small{display:block;font-size:.81rem;opacity:.78;line-height:1.65}
+.avn-exames .avn-ex-value{font-weight:700;font-size:1.35rem;margin:.25rem 0}
+.avn-exames .avn-ex-value span{font-size:.85rem;font-weight:400}
+.avn-exames .avn-ex-previa{display:grid;gap:.8rem;max-height:48vh;overflow:auto;margin:1rem 0}
+.avn-exames .avn-ex-preview-row{border:1px solid var(--line,#364354);border-radius:12px;padding:.8rem;min-width:0}
+.avn-exames .avn-ex-preview-row legend{font-weight:700;padding:0 .4rem}
+.avn-exames .avn-ex-check{display:flex;align-items:center;gap:.5rem;margin-top:.7rem}
+.avn-exames textarea{width:100%;resize:vertical}
+.avn-exames #exImportStatus{margin:.8rem 0}
+.avn-exames input:focus-visible,.avn-exames button:focus-visible,.avn-exames select:focus-visible{outline:2px solid #6caaf8;outline-offset:2px}
+@media(max-width:700px){
+ .avn-exames .avn-ex-head{align-items:flex-start;flex-direction:column}
+ .avn-exames .avn-ex-grid,.avn-exames .avn-ex-filtros{grid-template-columns:1fr}
+ .avn-exames .avn-ex-item{align-items:flex-start;flex-direction:column}
+ .avn-exames .avn-ex-dialog{width:98vw;max-width:98vw;max-height:95vh;padding:.9rem}
+ .avn-exames .avn-ex-actions button{flex:1 1 auto}
+}
