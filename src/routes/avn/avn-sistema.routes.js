@@ -8,6 +8,7 @@ const avnSistemaAplicativos = require('../../services/avn/avnSistemaAplicativos.
 const avnTreinosRoutes = require('./avn-treinos.routes');
 const avnNutricaoRoutes = require('./avn-nutricao.routes');
 const avnHidratacaoRoutes = require('./avn-hidratacao.routes');
+const avnExamesRoutes = require('./avn-exames.routes');
 const pool = require('../../../db/connection');
 const router = express.Router();
 
@@ -37,7 +38,10 @@ const corporalApps = [
   {rota:'/avn/sistema/agua-corporal',nome:'Água Corporal',categoria:'Avaliação Física',icone:'droplets',descricao:'Histórico de água corporal.'},
   {rota:'/avn/sistema/massa-ossea',nome:'Massa Óssea',categoria:'Avaliação Física',icone:'bone',descricao:'Histórico de massa óssea.'},
 ];
-const todosApps = [...treinoApps, ...nutricaoApps, ...corporalApps];
+const saudeApps = [
+  {rota:'/avn/sistema/saude/exames',nome:'Exames Laboratoriais',categoria:'Saúde',icone:'heart-pulse',descricao:'Registrar exames laboratoriais, importar laudos com IA e acompanhar resultados.'}
+];
+const todosApps = [...treinoApps, ...nutricaoApps, ...corporalApps, ...saudeApps];
 async function inserirTreinosNoResumo(summary) {
   await avnSistemaAplicativos.ensureSchema();
   const {rows:registros}=await pool.query('SELECT rota,nome,categoria,visibilidade,favorito,ordem FROM public.avn_sistema_aplicativos_config WHERE rota=ANY($1::text[])',[todosApps.map(a=>a.rota)]);
@@ -53,7 +57,7 @@ async function inserirTreinosNoResumo(summary) {
   summary.apps.sort((a,b)=>(a.ordem??999999)-(b.ordem??999999)||a.nome.localeCompare(b.nome,'pt-BR')); 
   summary.total += adicionais.length;
   summary.visiveis += adicionais.filter(a=>a.visibilidade!=='oculto').length;
-  for(const a of adicionais){let cat=summary.categoriasDetalhes.find(x=>x.nome===a.categoria);if(cat)cat.quantidade++;else{summary.categorias.push(a.categoria);summary.categoriasDetalhes.push({nome:a.categoria,icone:a.categoria==='Nutrição'?'utensils':a.categoria==='Avaliação Física'?'scale':'activity',ordem:null,quantidade:1,personalizada:false});}}
+  for(const a of adicionais){let cat=summary.categoriasDetalhes.find(x=>x.nome===a.categoria);if(cat)cat.quantidade++;else{summary.categorias.push(a.categoria);summary.categoriasDetalhes.push({nome:a.categoria,icone:a.categoria==='Nutrição'?'utensils':a.categoria==='Avaliação Física'?'scale':a.categoria==='Saúde'?'heart-pulse':'activity',ordem:null,quantidade:1,personalizada:false});}}
   return summary;
 }
 
@@ -148,6 +152,8 @@ for (const [rota, arquivo] of [
   router.get('/'+rota, requireAuth, (_req,res)=>res.sendFile(path.resolve(__dirname,'../../../views/avn/'+arquivo)));
 }
 router.use('/api/nutricao', requireAuth, avnNutricaoRoutes);
+router.use('/api/exames', requireAuth, avnExamesRoutes);
+router.get('/saude/exames', requireAuth, (_req,res)=>res.sendFile(path.resolve(__dirname,'../../../views/avn/exames-laboratoriais.html')));
 router.use('/api/hidratacao', requireAuth, avnHidratacaoRoutes.web);
 router.get('/nutricao', requireAuth, (req,res) => {
   const oldTab=String(req.query.tab||'');
