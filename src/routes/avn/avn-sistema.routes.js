@@ -23,7 +23,7 @@ const treinoApps = [
 ];
 const nutricaoApps = [
   {rota:'/avn/sistema/nutricao/diario',nome:'Diário alimentar',categoria:'Nutrição',icone:'notebook-pen',descricao:'Registrar alimentos realmente consumidos e seus nutrientes.'},
-  {rota:'/avn/sistema/nutricao/dieta',nome:'Dieta programada',categoria:'Nutrição',icone:'calendar-days',descricao:'Planejamento de refeições de segunda a domingo.'},
+  {rota:'/avn/sistema/nutricao/dieta',nome:'Dieta programada',categoria:'Nutrição',icone:'calendar-days',descricao:'Dieta padrão válida para todos os dias.'},
   {rota:'/avn/sistema/nutricao/alimentos',nome:'Alimentos',categoria:'Nutrição',icone:'utensils',descricao:'Cadastro de alimentos, TACO, USDA e consulta IA em JSON.'},
   {rota:'/avn/sistema/nutricao/metas',nome:'Minhas metas',categoria:'Nutrição',icone:'target',descricao:'Metas de calorias, macros e micronutrientes.'},
   {rota:'/avn/sistema/nutricao/receitas',nome:'Receitas',categoria:'Nutrição',icone:'chef-hat',descricao:'Composição nutricional de preparações por ingredientes e rendimento final.'},
