@@ -84,10 +84,13 @@ function renderDaily(){
  if(!has('resumoDiario'))return;
  const a=aggregate(state.diario);a.total.count=a.count;
  $('resumoDiario').innerHTML=MACROS.map(([key,label,unit])=>stat(a.total,a.miss,key,label,unit,state.metas[key])).join('');
- $('listaDiario').innerHTML=state.diario.length?state.diario.map(i=>{
- const energy=i.composicao_100g?.kcal;
- const kcal=energy==null?'Energia desconhecida':fmt(Number(energy)*Number(i.quantidade_g)/100,0)+' kcal';
- return `<div class="list-row"><div><span class="name">${esc(i.alimento_nome)}</span><small>${esc(MEALS[i.refeicao]||i.refeicao)} · ${fmt(i.quantidade_g)} g · ${kcal}${i.plano_item_id?' · da dieta':''}</small></div><button type="button" class="delete" data-consumo="${i.id}" aria-label="Remover registro">Excluir</button></div>`;
+
+ const groups=Object.keys(MEALS).map(key=>[key,state.diario.filter(i=>i.refeicao===key)]).filter(([,items])=>items.length);
+ $('listaDiario').innerHTML=groups.length?groups.map(([key,items])=>{
+ const total=aggregate(items);
+ return '<section class="avn-dieta-refeicao"><div class="avn-dieta-refeicao-cabecalho"><h4><a href="#" data-macro-meal="'+esc(key)+'" data-macro-source="diario">'+esc(MEALS[key])+'</a></h4><span>'+items.length+' alimento(s) · '+fmt(total.total.kcal,0)+' kcal</span></div><div class="avn-dieta-refeicao-itens">'+
+ items.map(i=>{const energy=i.composicao_100g?.kcal,kcal=energy==null?'Energia desconhecida':fmt(Number(energy)*Number(i.quantidade_g)/100,0)+' kcal';
+ return '<div class="list-row"><div><span class="name">'+esc(i.alimento_nome)+'</span><small>'+fmt(i.quantidade_g)+' g · '+kcal+(i.plano_item_id?' · da dieta':'')+'</small></div><div class="avn-dieta-acoes"><button type="button" class="secondary" data-edit-consumo="'+esc(i.id)+'">Editar gramas</button><button type="button" class="delete" data-consumo="'+esc(i.id)+'">Excluir</button></div></div>';}).join('')+'</div></section>';
  }).join(''):'<p class="muted">Nenhum alimento registrado nesta data.</p>';
  $('listaDiario').querySelectorAll('[data-consumo]').forEach(btn=>btn.onclick=async()=>{if(!confirm('Excluir este alimento do diário?'))return;try{await send(`/diario/${state.usuarioId}/${btn.dataset.consumo}`,'DELETE');await loadDaily();show('Registro excluído.');}catch(e){show(e.message,true);}});
  $('microDiario').innerHTML=MICRO.filter(([key])=> $('mostrarTodosMicros').checked || state.metas.micros?.[key]!=null || state.diario.some(r=>r.composicao_100g?.micros?.[key]!=null)).map(([key,label,unit])=>{
@@ -105,7 +108,7 @@ function renderDiet(){
  $('listaDieta').innerHTML=rows.length?grouped.map(([key,items])=>{
   const subtotal=aggregate(items);
   return '<section class="avn-dieta-refeicao" aria-label="'+esc(MEALS[key])+'">'+
-   '<div class="avn-dieta-refeicao-cabecalho"><h4>'+esc(MEALS[key])+'</h4>'+
+   '<div class="avn-dieta-refeicao-cabecalho"><h4><a href="#" data-macro-meal="'+esc(key)+'" data-macro-source="dieta">'+esc(MEALS[key])+'</a></h4>'+
    '<span>'+items.length+' alimento(s) · '+fmt(subtotal.total.kcal,0)+' kcal'+(subtotal.miss.kcal?'*':'')+'</span></div>'+
    '<div class="avn-dieta-refeicao-itens">'+items.map(i=>{
     const kcal=i.kcal_100g==null?'Energia desconhecida':fmt(Number(i.kcal_100g)*Number(i.quantidade_g)/100,0)+' kcal';
@@ -312,7 +315,8 @@ async function registrarRefeicaoPlanejada(){
   const resposta=await send('/diario/'+userId+'/registrar-refeicao','POST',{data,refeicao,itens});
   if(userId===state.usuarioId&&data===state.data){
    await loadDaily();
-   show(resposta.inseridos+' alimento(s) registrado(s) em '+MEALS[refeicao]+'.'+
+    $('modalAdicionarDiario').close();
+    show(resposta.inseridos+' alimento(s) registrado(s) em '+MEALS[refeicao]+'.'+
     (resposta.ja_registrados?' '+resposta.ja_registrados+' já estavam registrados; nenhum duplicado.':''));
   }else show('Registro salvo. Volte à data e ao usuário anteriores para visualizá-lo.');
  }catch(e){show(e.message,true);}
@@ -393,11 +397,48 @@ function configurarIA(){
   }
  });
 }
+
+let editandoConsumoId=null;
+function abrirMacroRefeicao(refeicao,tipo){
+ const itens=(tipo==='dieta'?state.dieta:state.diario).filter(i=>i.refeicao===refeicao);
+ if(!itens.length)return;
+ const a=aggregate(itens),p=a.total.proteinas_g*4,c=a.total.carboidratos_g*4,g=a.total.gorduras_g*9;
+ const partes=[['Proteínas',p,a.total.proteinas_g,'#2782ac'],['Carboidratos',c,a.total.carboidratos_g,'#efaa4b'],['Gorduras',g,a.total.gorduras_g,'#65ad88']];
+ const total=p+c+g;let pos=0;
+ const cor=partes.map(x=>{const inicio=total?pos/total*100:0;pos+=x[1];return x[3]+' '+inicio+'% '+(total?pos/total*100:0)+'%';}).join(',');
+ $('tituloMacros').textContent=(MEALS[refeicao]||refeicao)+' · '+(tipo==='dieta'?'Dieta programada':'Consumo real');
+ $('conteudoMacros').innerHTML='<p>Energia: '+fmt(a.total.kcal,0)+' kcal · Fibras: '+fmt(a.total.fibras_g)+' g</p>'+
+ (total>0?'<div class="avn-meal-ring" role="img" aria-label="Distribuição energética dos macros" style="background:conic-gradient('+cor+')"></div>':'<p class="muted">Sem dados suficientes para gerar o gráfico.</p>')+
+ '<div class="avn-meal-legend">'+partes.map(x=>'<div><i style="background:'+x[3]+'"></i>'+x[0]+': '+fmt(x[2])+' g ('+(total?fmt(x[1]*100/total,1):0)+'%)</div>').join('')+'</div>'+
+ (['kcal','proteinas_g','carboidratos_g','gorduras_g','fibras_g'].some(k=>a.miss[k])?'<p class="muted">Alguns alimentos não têm todos os valores nutricionais informados.</p>':'');
+ $('modalMacros').showModal();
+}
 function events(){
+ if(has('fecharMacros')){
+  $('fecharMacros').onclick=()=>$('modalMacros').close();
+  document.addEventListener('click',e=>{const b=e.target.closest('[data-macro-meal]');if(!b)return;e.preventDefault();abrirMacroRefeicao(b.dataset.macroMeal,b.dataset.macroSource);});
+}
+
  $('usuario').onchange=async()=>{if(PAGE==='dieta'){invalidarImportacaoDieta(true);dietaCatalogoImportacao=[];}state.usuarioId=v('usuario');localStorage.setItem('avn_nutricao_usuario',state.usuarioId);try{await reload();}catch(e){show(e.message,true);}};
  if(PAGE==='diario'){
  $('abrirModalDiario').onclick=()=>$('modalAdicionarDiario').showModal();
  $('fecharModalDiario').onclick=()=>$('modalAdicionarDiario').close();
+ $('fecharEdicaoConsumo').onclick=()=>$('modalEditarConsumo').close();
+ $('listaDiario').addEventListener('click',e=>{
+  const botao=e.target.closest('[data-edit-consumo]');if(!botao)return;
+  const item=state.diario.find(i=>String(i.id)===botao.dataset.editConsumo);
+  if(!item)return;editandoConsumoId=item.id;
+  $('nomeEdicaoConsumo').textContent=item.alimento_nome;
+  $('gramasEdicaoConsumo').value=item.quantidade_g;
+  $('modalEditarConsumo').showModal();
+ });
+ $('formEditarConsumo').onsubmit=async e=>{e.preventDefault();try{
+  userGuard();const peso=Number(v('gramasEdicaoConsumo'));
+  if(!editandoConsumoId||!Number.isFinite(peso)||peso<=0||peso>10000)throw Error('Peso inválido.');
+  await send('/diario/'+state.usuarioId+'/'+editandoConsumoId,'PUT',{quantidade_g:peso});
+  $('modalEditarConsumo').close();await loadDaily();show('Pesagem do consumo atualizada.');
+ }catch(err){show(err.message,true);}};
+
  $('mostrarTodosMicros').onchange=renderDaily;
  $('dataDiario').onchange=async()=>{state.data=v('dataDiario');$('refeicaoPlanejada').value='';try{await Promise.all([loadDaily(),loadDiet()]);}catch(e){show(e.message,true);}};
  $('formDiario').onsubmit=async e=>{e.preventDefault();try{userGuard();await send('/diario/'+state.usuarioId,'POST',{data:state.data,alimento_id:v('diarioAlimento'),refeicao:v('diarioRefeicao'),quantidade_g:Number(v('diarioGramas'))});await loadDaily();$('modalAdicionarDiario').close();show('Alimento registrado no diário.');}catch(err){show(err.message,true);}};
