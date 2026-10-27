@@ -305,3 +305,27 @@ body[data-nutricao-pagina="alimentos"] .avn-alimento-modal .modal-head{margin-bo
 body[data-nutricao-pagina="alimentos"] .avn-alimento-modal .alimento-editor{width:100%}
 body[data-nutricao-pagina="alimentos"] .avn-food-row .delete{padding:8px}
 @media(max-width:600px){body[data-nutricao-pagina="alimentos"] .avn-alimento-modal{padding:14px}body[data-nutricao-pagina="alimentos"] .avn-food-row{align-items:flex-start;flex-wrap:wrap}body[data-nutricao-pagina="alimentos"] .avn-food-actions{width:100%;justify-content:flex-end}}
+
+/* Dieta padrão e diário limpos: os editores ficam em modais e gráficos por refeição. */
+body[data-nutricao-pagina="diario"] #listaDiario,
+body[data-nutricao-pagina="dieta"] #listaDieta{display:grid;gap:14px}
+#listaDiario .avn-dieta-refeicao,#listaDieta .avn-dieta-refeicao{
+ border:1px solid var(--line);border-radius:12px;padding:12px;min-width:0
+}
+#listaDiario .avn-dieta-refeicao-cabecalho,#listaDieta .avn-dieta-refeicao-cabecalho{
+ display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;flex-wrap:wrap
+}
+#listaDiario .avn-dieta-refeicao-cabecalho h4,#listaDieta .avn-dieta-refeicao-cabecalho h4{margin:0}
+#listaDiario .avn-dieta-refeicao-cabecalho span,#listaDieta .avn-dieta-refeicao-cabecalho span{font-size:12px;color:var(--muted)}
+.avn-dieta-refeicao-itens{display:grid;gap:7px}
+.avn-dieta-acoes{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.avn-dieta-acoes button.secondary{font-size:12px;padding:6px 8px}
+.avn-meal-ring{width:min(210px,70vw);aspect-ratio:1;border-radius:50%;margin:18px auto;position:relative}
+.avn-meal-ring::after{content:"";position:absolute;inset:25%;border-radius:50%;background:var(--card)}
+.avn-meal-legend{display:grid;gap:9px;margin:16px 0}
+.avn-meal-legend>div{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.avn-meal-legend i{display:inline-block;width:12px;height:12px;border-radius:3px;flex:none}
+#modalAdicionarDieta,#modalAdicionarDiario{width:min(820px,calc(100% - 20px))}
+#modalAdicionarDiario .avn-refeicao-planejada{margin-top:20px}
+#modalAdicionarDieta textarea{width:100%}
+@media(max-width:600px){.avn-dieta-acoes{justify-content:flex-start}.avn-dieta-acoes button{font-size:12px}.avn-dialog{max-height:92dvh}}
