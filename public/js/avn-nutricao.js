@@ -471,6 +471,24 @@ function events(){
  }catch(err){show(err.message,true);}};
  }
  if(PAGE==='metas'){
+ $('abrirSugestaoMetas').onclick=()=>{try{userGuard();$('resultadoSugestaoMetas').textContent='';$('aplicarSugestaoMetas').hidden=true;$('modalSugestaoMetas').showModal();}catch(e){show(e.message,true);}};
+ $('fecharSugestaoMetas').onclick=()=>$('modalSugestaoMetas').close();
+ $('gerarSugestaoMetas').onclick=async()=>{
+  const botao=$('gerarSugestaoMetas');botao.disabled=true;$('resultadoSugestaoMetas').textContent='Consultando suas medições e o assistente de IA…';
+  $('aplicarSugestaoMetas').hidden=true;state.sugestaoMetas=null;
+  try{
+   userGuard();const resultado=await send('/metas/'+state.usuarioId+'/sugerir-ia','POST',{objetivo:v('objetivoMetasIA'),atividade:v('atividadeMetasIA')});
+   state.sugestaoMetas=resultado.metas;const m=resultado.metas;
+   $('resultadoSugestaoMetas').innerHTML='<div class="avn-meal-legend">'+MACROS.map(([key,nome,unidade])=>'<div><strong>'+esc(nome)+'</strong>: '+fmt(m[key],1)+' '+esc(unidade)+'</div>').join('')+'</div>'+
+    '<p>'+esc(resultado.explicacao)+'</p><p class="muted">'+esc(resultado.aviso)+'</p>';
+   $('aplicarSugestaoMetas').hidden=false;
+  }catch(error){$('resultadoSugestaoMetas').textContent=error.message;}
+  finally{botao.disabled=false;}
+ };
+ $('aplicarSugestaoMetas').onclick=()=>{
+  if(!state.sugestaoMetas)return;for(const [key] of MACROS)$('meta_'+key).value=state.sugestaoMetas[key];
+  $('modalSugestaoMetas').close();show('Sugestão preenchida. Confira e clique em Salvar metas para confirmar.');
+ };
  $('buscaMicroMetas').oninput=()=>filtrarNutrientes('camposMicroMetas','buscaMicroMetas');
  $('formMetas').onsubmit=async e=>{e.preventDefault();try{userGuard();const b={micros:getMicros('metamicro')};for(const [key] of MACROS)b[key]=numberOrNull('meta_'+key);await send('/metas/'+state.usuarioId,'PUT',b);await loadGoals();renderDaily();show('Metas atualizadas.');}catch(err){show(err.message,true);}}; }
 }
