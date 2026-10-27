@@ -13,6 +13,7 @@ module.exports = async function migrarAvn() {
     '20261025_avn_treino_perfil_equipamentos.sql',
     '20261026_avn_treinos_mobile.sql',
     '20261026_avn_treinos_descartes.sql',
+    '20261027_avn_hidratacao.sql',
   ]) {
     const sql=fs.readFileSync(path.join(__dirname,'../../../db/sql',nome),'utf8');
     await pool.query(sql);

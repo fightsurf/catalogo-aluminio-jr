@@ -7,6 +7,7 @@ const { requireAuth } = require('../../middlewares/adminAuth.middleware');
 const avnSistemaAplicativos = require('../../services/avn/avnSistemaAplicativos.service');
 const avnTreinosRoutes = require('./avn-treinos.routes');
 const avnNutricaoRoutes = require('./avn-nutricao.routes');
+const avnHidratacaoRoutes = require('./avn-hidratacao.routes');
 const pool = require('../../../db/connection');
 const router = express.Router();
 
@@ -25,7 +26,8 @@ const nutricaoApps = [
   {rota:'/avn/sistema/nutricao/dieta',nome:'Dieta programada',categoria:'Nutrição',icone:'calendar-days',descricao:'Planejamento de refeições de segunda a domingo.'},
   {rota:'/avn/sistema/nutricao/alimentos',nome:'Alimentos',categoria:'Nutrição',icone:'utensils',descricao:'Cadastro de alimentos, TACO, USDA e consulta IA em JSON.'},
   {rota:'/avn/sistema/nutricao/metas',nome:'Minhas metas',categoria:'Nutrição',icone:'target',descricao:'Metas de calorias, macros e micronutrientes.'},
-  {rota:'/avn/sistema/nutricao/receitas',nome:'Receitas',categoria:'Nutrição',icone:'chef-hat',descricao:'Composição nutricional de preparações por ingredientes e rendimento final.'}
+  {rota:'/avn/sistema/nutricao/receitas',nome:'Receitas',categoria:'Nutrição',icone:'chef-hat',descricao:'Composição nutricional de preparações por ingredientes e rendimento final.'},
+  {rota:'/avn/sistema/nutricao/agua',nome:'Água ingerida',categoria:'Nutrição',icone:'droplets',descricao:'Ingestão diária de água e gráfico, sincronizados com Android.'}
 ];
 const corporalApps = [
   {rota:'/avn/sistema/peso',nome:'Peso',categoria:'Avaliação Física',icone:'scale',descricao:'Histórico de peso corporal.'},
@@ -146,9 +148,10 @@ for (const [rota, arquivo] of [
   router.get('/'+rota, requireAuth, (_req,res)=>res.sendFile(path.resolve(__dirname,'../../../views/avn/'+arquivo)));
 }
 router.use('/api/nutricao', requireAuth, avnNutricaoRoutes);
+router.use('/api/hidratacao', requireAuth, avnHidratacaoRoutes.web);
 router.get('/nutricao', requireAuth, (req,res) => {
   const oldTab=String(req.query.tab||'');
-  const destino=['diario','dieta','alimentos','metas','receitas'].includes(oldTab)?oldTab:'diario';
+  const destino=['diario','dieta','alimentos','metas','receitas','agua'].includes(oldTab)?oldTab:'diario';
   res.redirect(302,'/avn/sistema/nutricao/'+destino);
 });
 for(const pagina of ['diario','dieta','alimentos','metas','receitas']){

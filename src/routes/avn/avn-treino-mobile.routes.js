@@ -5,6 +5,7 @@ const path=require('node:path');
 const pool=require('../../../db/connection');
 const V=require('../../services/avn/avn-treinos-validacao');
 const catalogo=require('../../services/avn/avn-treinos-catalogo.service');
+const hidratacao=require('./avn-hidratacao.routes');
 const admin=express.Router(), mobile=express.Router();
 const digest=s=>crypto.createHash('sha256').update(s).digest('hex');
 const err=(message,status=400)=>Object.assign(new Error(message),{status});
@@ -55,6 +56,7 @@ mobile.use(async(req,res,next)=>{try{
  const r=await pool.query('SELECT id,usuario_id FROM public.avn_treino_mobile_dispositivos WHERE token_hash=$1 AND revogado_em IS NULL',[digest(m[1])]);if(!r.rowCount)throw err('Acesso revogado.',401);
  req.avnm={id:r.rows[0].id,usuario_id:r.rows[0].usuario_id};next();
  }catch(e){res.status(e.status||500).json({erro:e.message});}});
+mobile.use('/agua',hidratacao.mobile);
 mobile.get('/planos',wrap(async(req,res)=>{
  const r=await pool.query("SELECT p.id,p.nome,p.descricao,p.atualizado_em,(SELECT COUNT(*)::int FROM public.avn_plano_itens i JOIN public.avn_plano_dias d ON d.id=i.plano_dia_id WHERE d.plano_id=p.id) AS total_exercicios FROM public.avn_planos_treino p WHERE p.usuario_id=$1 AND p.ativo=TRUE ORDER BY p.atualizado_em DESC LIMIT 80",[req.avnm.usuario_id]);res.set('Cache-Control','no-store').json(r.rows);
 }));
