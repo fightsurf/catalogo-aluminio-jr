@@ -38,12 +38,28 @@ function draw(){
  const sums={};registros.forEach(r=>{const day=dateOf(r.ingerido_em);sums[day]=(sums[day]||0)+Number(r.quantidade_ml);});
  const dates=Array.from({length:dias},(_,i)=>{const delta=dias-1-i;const d=new Date(today()+'T12:00:00-03:00');d.setUTCDate(d.getUTCDate()-delta);return dateOf(d);});
  const max=Math.max(1000,...dates.map(x=>sums[x]||0)),graph=$('aguaGrafico');graph.replaceChildren();
- const bars=document.createElement('div');bars.className='agua-barras';bars.style.minWidth=Math.max(0,dates.length*22)+'px';
- for(const date of dates){const ml=sums[date]||0;const col=document.createElement('div');col.className='agua-bar-dia';col.title=date.split('-').reverse().join('/')+': '+fmt(ml)+' ml';
- const bar=document.createElement('span');bar.className='coluna';bar.style.height=Math.max(2,ml/max*170)+'px';
- const label=document.createElement('span');label.className='eixo';label.textContent=(dias>30?date.slice(8):date.slice(8)+'/'+date.slice(5,7));
- col.append(bar,label);bars.append(col);}
- graph.append(bars);
+ const width=Math.max(600,dates.length*25),height=250,left=55,right=18,top=22,bottom=43;
+ const x=i=>left+i*(width-left-right)/Math.max(1,dates.length-1);
+ const y=v=>top+(height-top-bottom)*(1-v/max);
+ const ns='http://www.w3.org/2000/svg',svg=document.createElementNS(ns,'svg');
+ svg.setAttribute('viewBox','0 0 '+width+' '+height);svg.setAttribute('width',width);svg.setAttribute('height',height);
+ svg.setAttribute('role','img');svg.setAttribute('aria-label','Linha de consumo diário de água em mililitros');
+ const el=(tag,attrs,text)=>{const node=document.createElementNS(ns,tag);Object.entries(attrs).forEach(([k,v])=>node.setAttribute(k,v));if(text!==undefined)node.textContent=text;svg.append(node);return node;};
+ for(let i=0;i<=4;i++){const value=max*i/4,yy=y(value);
+  el('line',{x1:left,y1:yy,x2:width-right,y2:yy,stroke:'#465b7a','stroke-width':1});
+  el('text',{x:left-7,y:yy+4,'text-anchor':'end',fill:'#c8d9ec','font-size':11},fmt(Math.round(value)));
+ }
+ el('polyline',{points:dates.map((d,i)=>x(i)+','+y(sums[d]||0)).join(' '),fill:'none',stroke:'#68b8f5','stroke-width':2.5,'stroke-linejoin':'round'});
+ const step=days=>days>30?Math.ceil(days/9):days>7?Math.ceil(days/10):1;
+ dates.forEach((d,i)=>{const value=sums[d]||0,c=el('circle',{cx:x(i),cy:y(value),r:4.5,fill:'#8cd1ff',stroke:'#0b1220','stroke-width':1.5,tabindex:0});
+  const label=d.split('-').reverse().join('/')+': '+fmt(value)+' ml';
+  const title=document.createElementNS(ns,'title');title.textContent=label;c.append(title);c.setAttribute('aria-label',label);
+  c.addEventListener('mouseenter',()=>show(label));c.addEventListener('focus',()=>show(label));c.addEventListener('click',()=>show(label));
+  if(i%step(dias)===0||i===dates.length-1)el('text',{x:x(i),y:height-16,'text-anchor':'middle',fill:'#c8d9ec','font-size':10},d.slice(8)+'/'+d.slice(5,7));
+ });
+ const tip=document.createElement('div');tip.className='graph-tooltip';tip.style.cssText='padding:7px 10px;border:1px solid #435775;border-radius:7px;margin-top:5px;min-height:32px;font-size:13px';tip.textContent='Passe o mouse ou toque em um ponto para ver o valor em ml.';
+ function show(label){tip.textContent=label;}
+ graph.append(svg,tip);
 }
 async function load(){if(!uid)return;const res=await request('/?usuarioId='+encodeURIComponent(uid)+'&dias=90');registros=res.registros||[];render();}
 async function add(ml){if(busy||!uid)return;busy=true;
