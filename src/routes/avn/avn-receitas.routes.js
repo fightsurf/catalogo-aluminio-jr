@@ -114,6 +114,23 @@ async function catalogoUsuario(u){
  const r=await pool.query(`SELECT * FROM public.avn_alimentos WHERE ativo
    AND (usuario_id=$1 OR usuario_id IS NULL) AND (fonte<>'receita' OR usuario_id=$1)
    ORDER BY nome,id LIMIT 1200`,[u]);
+ const receitas=r.rows.filter(a=>a.fonte==='receita'&&String(a.usuario_id)===String(u));
+ if(receitas.length){
+  const registros=await pool.query(`SELECT r.alimento_id,r.rendimento_g,ri.quantidade_g,ri.composicao_100g
+    FROM public.avn_receitas r JOIN public.avn_receita_ingredientes ri ON ri.receita_id=r.id
+    WHERE r.usuario_id=$1 ORDER BY ri.ordem,ri.id`,[u]);
+  const codigos=(await pool.query('SELECT codigo FROM public.avn_nutrientes')).rows.map(a=>a.codigo);
+  const grupos=new Map();
+  for(const item of registros.rows){
+   const chave=String(item.alimento_id);
+   if(!grupos.has(chave))grupos.set(chave,{rendimento:Number(item.rendimento_g),itens:[]});
+   grupos.get(chave).itens.push(item);
+  }
+  for(const alimento of receitas){
+   const grupo=grupos.get(String(alimento.id));
+   if(grupo)alimento.micronutrientes_parciais=micronutrientesDisponiveis(grupo.itens,grupo.rendimento,codigos).parciais;
+  }
+ }
  return r.rows;
 }
 router.get('/catalogo',route(async(req,res)=>{
