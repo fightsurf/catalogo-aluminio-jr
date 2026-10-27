@@ -60,7 +60,12 @@ router.post('/interpretar',route(async(req,res)=>{
  const dados=await interpretar(req.body?.texto,catalogo);
  res.set('Cache-Control','no-store').json(dados);
 }));
-router.get('/:id',route(async(req,res)=>{const u=uid(req.query.usuarioId);if(!id(req.params.id))throw bad('Receita inválida.');const r=await pool.query('SELECT * FROM public.avn_receitas WHERE id=$1 AND usuario_id=$2',[req.params.id,u]);if(!r.rowCount)throw bad('Receita não encontrada.',404);const q=await pool.query('SELECT alimento_id,quantidade_g,nome_snapshot,ordem,composicao_100g FROM public.avn_receita_ingredientes WHERE receita_id=$1 ORDER BY ordem,id',[r.rows[0].id]);res.json({...r.rows[0],ingredientes:q.rows});}));
+router.get('/:id',route(async(req,res)=>{const u=uid(req.query.usuarioId);if(!id(req.params.id))throw bad('Receita inválida.');const r=await pool.query('SELECT * FROM public.avn_receitas WHERE id=$1 AND usuario_id=$2',[req.params.id,u]);if(!r.rowCount)throw bad('Receita não encontrada.',404);const q=await pool.query('SELECT alimento_id,quantidade_g,nome_snapshot,ordem,composicao_100g FROM public.avn_receita_ingredientes WHERE receita_id=$1 ORDER BY ordem,id',[r.rows[0].id]);
+ // Fonte única: calcular soma nutricional dos ingredientes salvos; depois normalizar por rendimento.
+ const c=calcular(q.rows,Number(r.rows[0].rendimento_g),[]);
+ res.json({...r.rows[0],ingredientes:q.rows,totais_ingredientes:c.totais_ingredientes,composicao_100g:{
+  kcal:c.kcal_100g,proteinas_g:c.proteinas_g_100g,carboidratos_g:c.carboidratos_g_100g,gorduras_g:c.gorduras_g_100g
+ }});}));
 router.post('/',route((req,res)=>salvar(req,res,false)));
 router.put('/:id',route((req,res)=>salvar(req,res,true)));
 module.exports=router;

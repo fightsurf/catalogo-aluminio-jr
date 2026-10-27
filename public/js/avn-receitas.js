@@ -92,38 +92,48 @@ async function listar(){
  $('listaReceitas').querySelectorAll('[data-ver-id]').forEach(b=>b.onclick=()=>ver(b.dataset.verId));
  $('listaReceitas').querySelectorAll('button[data-id]').forEach(b=>b.onclick=()=>editar(b.dataset.id));
 }
-function graficoMacros(r){
- const campos=[{chave:'proteinas_g_100g',nome:'Proteínas',cls:'proteina',cor:'#60a5fa',fator:4},{chave:'carboidratos_g_100g',nome:'Carboidratos',cls:'carboidrato',cor:'#fbbf24',fator:4},{chave:'gorduras_g_100g',nome:'Gorduras',cls:'gordura',cor:'#a78bfa',fator:9}];
- const completo=campos.every(c=>r[c.chave]!=null&&Number.isFinite(Number(r[c.chave]))&&Number(r[c.chave])>=0);
- const total=completo?campos.reduce((s,c)=>s+Number(r[c.chave])*c.fator,0):0;
+function graficoMacros(dados,titulo,escopo){
+ const campos=[
+  {chave:'proteinas_g',nome:'Proteínas',cls:'proteina',fator:4},
+  {chave:'carboidratos_g',nome:'Carboidratos',cls:'carboidrato',fator:4},
+  {chave:'gorduras_g',nome:'Gorduras',cls:'gordura',fator:9}
+ ];
+ const completo=campos.every(c=>dados[c.chave]!=null&&Number.isFinite(Number(dados[c.chave]))&&Number(dados[c.chave])>=0);
+ const total=completo?campos.reduce((s,c)=>s+Number(dados[c.chave])*c.fator,0):0;
  let visual='<p class="muted receita-sem-grafico">Dados insuficientes para calcular a distribuição dos macronutrientes.</p>';
  if(total>0){
-  const p1=Number(r.proteinas_g_100g)*4/total*100,p2=Number(r.carboidratos_g_100g)*4/total*100;
+  const p1=Number(dados.proteinas_g)*4/total*100,p2=Number(dados.carboidratos_g)*4/total*100;
   const limite1=p1.toFixed(4),limite2=(p1+p2).toFixed(4);
-  const etiqueta=campos.map(c=>c.nome+' '+fmt(Number(r[c.chave])*c.fator/total*100)+'%').join(', ');
-  visual=`<div class="receita-grafico" role="img" aria-label="Distribuição energética por 100 g: ${esc(etiqueta)}" style="background:conic-gradient(#60a5fa 0 ${limite1}%,#fbbf24 ${limite1}% ${limite2}%,#a78bfa ${limite2}% 100%)"><span>Macros</span></div>`;
+  const etiqueta=campos.map(c=>c.nome+' '+fmt(Number(dados[c.chave])*c.fator/total*100)+'%').join(', ');
+  visual=`<div class="receita-grafico" role="img" aria-label="Distribuição energética ${esc(escopo)}: ${esc(etiqueta)}" style="background:conic-gradient(#60a5fa 0 ${limite1}%,#fbbf24 ${limite1}% ${limite2}%,#a78bfa ${limite2}% 100%)"><span>Macros</span></div>`;
  }else if(completo)visual='<p class="muted receita-sem-grafico">Sem energia proveniente de macronutrientes para representar.</p>';
- const legenda=campos.map(c=>`<div class="receita-macro-linha"><span class="receita-macro-rotulo"><i class="receita-cor ${c.cls}" aria-hidden="true"></i>${c.nome}</span><strong>${r[c.chave]==null?'Sem dado':fmt(r[c.chave])+' g'}</strong></div>`).join('');
- return `<h3>Macronutrientes por 100 g</h3><p class="receita-energia">${r.kcal_100g==null?'Energia sem dado':fmt(r.kcal_100g)+' kcal'}</p>${visual}<div class="receita-macros-legenda">${legenda}</div><p class="muted receita-grafico-nota">Proporções energéticas estimadas: 4 kcal/g de proteínas e carboidratos; 9 kcal/g de gorduras.</p>`;
+ const legenda=campos.map(c=>`<div class="receita-macro-linha"><span class="receita-macro-rotulo"><i class="receita-cor ${c.cls}" aria-hidden="true"></i>${c.nome}</span><strong>${dados[c.chave]==null?'Sem dado':fmt(dados[c.chave],2)+' g'}</strong></div>`).join('');
+ return `<h3>${esc(titulo)}</h3><p class="receita-energia">${dados.kcal==null?'Energia sem dado':fmt(dados.kcal,2)+' kcal'}</p>${visual}<div class="receita-macros-legenda">${legenda}</div><p class="muted receita-grafico-nota">Distribuição energética: proteínas e carboidratos 4 kcal/g; gorduras 9 kcal/g.</p>`;
 }
 async function ver(id){
  const usuario=usuarioId;
  try{
   const r=await api('/receitas/'+id+'?usuarioId='+usuario);
   if(usuario!==usuarioId)return;
-  const resumo=receitas.find(x=>String(x.id)===String(id));
-  const macros=resumo?graficoMacros(resumo):'<p class="muted">Composição nutricional indisponível.</p>';
+  // O servidor soma os nutrientes dos ingredientes nas quantidades cadastradas.
+  // A composição por 100 g é obtida desse total usando o rendimento final.
+  const totais=r.totais_ingredientes;
+  const cemGramas=r.composicao_100g;
+  const graficoInteiro=graficoMacros(totais,'Macronutrientes do bolo inteiro','da receita inteira');
+  const grafico100g=graficoMacros(cemGramas,'Macronutrientes por 100 g','por 100 g');
   const ingredientes=Array.isArray(r.ingredientes)?r.ingredientes:[];
   const total=ingredientes.reduce((s,i)=>s+Number(i.quantidade_g||0),0);
   $('detalheTitulo').textContent=r.nome;
   $('detalheConteudo').innerHTML=`<div class="receita-detalhe-grid">
-   <section class="receita-macros" aria-label="Gráfico nutricional">${macros}</section>
    <section class="receita-descricao"><h3>Ingredientes</h3>
     <p class="receita-pesos"><strong>Ingredientes:</strong> ${fmt(total,3)} g<br><strong>Rendimento pronto:</strong> ${fmt(r.rendimento_g,3)} g</p>
     <ul class="receita-ingredientes-detalhe">${ingredientes.map(i=>`<li><span>${esc(i.nome_snapshot||'Ingrediente')}</span><strong>${fmt(i.quantidade_g,3)} g</strong></li>`).join('')}</ul>
     <p class="receita-preparo"><strong>Preparo:</strong> ${esc(r.preparo||'Não informado')}</p>
     <button type="button" class="secondary" id="editarDoDetalhe">Editar receita</button>
-   </section></div>`;
+   </section>
+   <section class="receita-macros" aria-label="Macronutrientes do bolo inteiro">${graficoInteiro}</section>
+   <section class="receita-macros" aria-label="Macronutrientes por 100 gramas">${grafico100g}</section>
+   </div>`;
   $('editarDoDetalhe').onclick=()=>editar(id);
   if(!$('modalDetalheReceita').open)$('modalDetalheReceita').showModal();
  }catch(e){alertar(e.message,true);}

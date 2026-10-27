@@ -103,3 +103,15 @@ dialog.receita-modal-detalhe{width:min(1080px,calc(100% - 24px))}
 .receita-ingredientes-detalhe li strong{flex:none;white-space:nowrap}
 .receita-preparo{overflow-wrap:anywhere}
 @media(max-width:720px){.receita-detalhe-grid{grid-template-columns:1fr}.receita-modal-conteudo{padding:14px}.receita-modal-head{padding:12px 14px}.receita-detalhe-grid>section{padding:15px}.receita-lista-linha{align-items:flex-start}.receita-grafico{width:min(210px,100%)}}
+
+/* Modal de consulta: ingredientes | receita inteira | por 100 g */
+dialog.receita-modal-detalhe{width:min(1360px,calc(100% - 24px))}
+.receita-detalhe-grid{grid-template-columns:minmax(0,1.16fr) minmax(0,1fr) minmax(0,1fr);gap:14px}
+.receita-detalhe-grid>section{padding:16px}
+.receita-detalhe-grid h3{font-size:1.02rem;line-height:1.35;min-height:2.6em}
+.receita-detalhe-grid .receita-grafico{width:min(208px,100%)}
+@media(max-width:1020px){
+ .receita-detalhe-grid{grid-template-columns:1fr}
+ .receita-detalhe-grid h3{min-height:0}
+ .receita-detalhe-grid .receita-grafico{width:min(235px,100%)}
+}
