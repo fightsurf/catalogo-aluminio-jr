@@ -1,7 +1,7 @@
 'use strict';
 const express=require('express');
 const pool=require('../../../db/connection');
-const {calcular,composicao}=require('../../services/avn/avn-receitas-calculo.service');
+const {calcular,composicao,micronutrientesDisponiveis}=require('../../services/avn/avn-receitas-calculo.service');
 const {interpretar} = require('../../services/avn/avn-receitas-importacao.service');
 const router=express.Router();
 const id=v=>/^\d+$/.test(String(v||''))&&Number(v)>0;
@@ -64,13 +64,14 @@ router.get('/:id',route(async(req,res)=>{const u=uid(req.query.usuarioId);if(!id
  // Fonte única: calcular soma nutricional dos ingredientes salvos; depois normalizar por rendimento.
  const codigos=(await pool.query('SELECT codigo FROM public.avn_nutrientes')).rows.map(n=>n.codigo);
  const c=calcular(q.rows,Number(r.rows[0].rendimento_g),codigos);
- const micronutrientesTotais={};
- for(const codigo of codigos)micronutrientesTotais[codigo]=c.totais_ingredientes[codigo];
- res.json({...r.rows[0],ingredientes:q.rows,totais_ingredientes:c.totais_ingredientes,
-  micronutrientes_totais:micronutrientesTotais,
+ // Disponibilizar os micros positivos observados sem ocultá-los quando
+ // um ingrediente não possui informação. O total parcial é identificado.
+ const micros=micronutrientesDisponiveis(q.rows,Number(r.rows[0].rendimento_g),codigos);
+ res.set('Cache-Control','no-store').json({...r.rows[0],ingredientes:q.rows,totais_ingredientes:c.totais_ingredientes,
+  micronutrientes_totais:micros.totais,micronutrientes_parciais:micros.parciais,
   composicao_100g:{
    kcal:c.kcal_100g,proteinas_g:c.proteinas_g_100g,carboidratos_g:c.carboidratos_g_100g,gorduras_g:c.gorduras_g_100g,
-   micronutrientes_100g:c.micronutrientes_100g
+   micronutrientes_100g:micros.por100g
   }
  });}));
 router.post('/',route((req,res)=>salvar(req,res,false)));

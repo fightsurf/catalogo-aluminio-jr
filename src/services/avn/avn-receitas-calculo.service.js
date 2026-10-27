@@ -18,4 +18,27 @@ function calcular(itens,rendimento,nutrientes){
  const micros={};for(const k of nutrientes)if(resultado[k]!==null)micros[k]=resultado[k];
  return {kcal_100g:resultado.kcal,proteinas_g_100g:resultado.proteinas_g,carboidratos_g_100g:resultado.carboidratos_g,gorduras_g_100g:resultado.gorduras_g,fibras_g_100g:resultado.fibras_g,micronutrientes_100g:micros,totais_ingredientes:total};
 }
-module.exports={calcular,composicao,MACROS};
+// Soma dos micronutrientes conhecidos para consulta. Dados ausentes não são zero.
+ // O cálculo original, usado ao salvar receitas, permanece inalterado.
+function micronutrientesDisponiveis(itens,rendimento,codigos){
+ const renda=Number(rendimento);
+ if(!Array.isArray(itens)||!itens.length||!Number.isFinite(renda)||renda<=0)throw Error('Receita inválida.');
+ const totais={},por100g={},parciais={};
+ for(const codigo of codigos){
+  let soma=0,conhecidos=0,faltantes=0;
+  for(const item of itens){
+   const original=item.composicao_100g?.micros?.[codigo];
+   const quantidade=Number(item.quantidade_g);
+   if(!Number.isFinite(quantidade)||quantidade<=0)throw Error('Ingrediente inválido.');
+   if(original===null||original===undefined||original===''){faltantes++;continue;}
+   const valor=Number(original);
+   if(!Number.isFinite(valor)||valor<0){faltantes++;continue;}
+   conhecidos++;soma+=valor*quantidade/100;
+  }
+  if(!conhecidos||!Number.isFinite(soma)||soma<=0)continue;
+  totais[codigo]=soma;por100g[codigo]=soma*100/renda;
+  if(faltantes)parciais[codigo]=true;
+ }
+ return {totais,por100g,parciais};
+}
+module.exports={calcular,composicao,MACROS,micronutrientesDisponiveis};

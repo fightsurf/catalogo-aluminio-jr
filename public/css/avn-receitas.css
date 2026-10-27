@@ -128,3 +128,7 @@ dialog.receita-modal-detalhe{width:min(1360px,calc(100% - 24px))}
 .receita-micros-lista li strong{flex:0 0 auto;white-space:nowrap;color:#edf5ff}
 .receita-micros-vazio{margin:10px 0;line-height:1.55}
 @media(max-width:360px){.receita-aba{font-size:.74rem;padding:9px 4px}}
+
+/* Micronutrientes com informação parcial claramente identificada */
+.receita-micro-parcial{display:inline-block;margin-left:6px;padding:2px 5px;border:1px solid #886c45;border-radius:5px;background:#443a2c;color:#f5daa8!important;font-size:.72rem;font-weight:600;vertical-align:middle}
+.receita-micro-aviso{margin:16px 0 0;line-height:1.5;font-size:.81rem}

@@ -110,16 +110,22 @@ function graficoMacros(dados,titulo,escopo){
  const legenda=campos.map(c=>`<div class="receita-macro-linha"><span class="receita-macro-rotulo"><i class="receita-cor ${c.cls}" aria-hidden="true"></i>${c.nome}</span><strong>${dados[c.chave]==null?'Sem dado':fmt(dados[c.chave],2)+' g'}</strong></div>`).join('');
  return `<h3>${esc(titulo)}</h3><p class="receita-energia">${dados.kcal==null?'Energia sem dado':fmt(dados.kcal,2)+' kcal'}</p>${visual}<div class="receita-macros-legenda">${legenda}</div><p class="muted receita-grafico-nota">Distribuição energética: proteínas e carboidratos 4 kcal/g; gorduras 9 kcal/g.</p>`;
 }
-function listaMicronutrientes(valores,titulo){
+function formatarMicro(v){
+ if(v>0&&v<0.000001)return v.toExponential(2).replace('.',',');
+ return fmt(v,9);
+}
+function listaMicronutrientes(valores,titulo,parciais={}){
  const itens=nutrientes.map(n=>({
-  nome:String(n.nome||n.codigo),unidade:String(n.unidade||''),
-  valor:valores?.[n.codigo]==null?null:Number(valores[n.codigo])
+  codigo:n.codigo,nome:String(n.nome||n.codigo),unidade:String(n.unidade||''),
+  valor:valores?.[n.codigo]==null?null:Number(valores[n.codigo]),
+  parcial:Boolean(parciais[n.codigo])
  })).filter(n=>n.valor!=null&&Number.isFinite(n.valor)&&n.valor>0)
    .sort((a,b)=>b.valor-a.valor||a.nome.localeCompare(b.nome,'pt-BR'));
- if(!itens.length)return `<h3>${esc(titulo)}</h3><p class="muted receita-micros-vazio">Nenhum micronutriente com dados completos e valor acima de zero.</p>`;
- return `<h3>${esc(titulo)}</h3><ul class="receita-micros-lista">${itens.map(n=>`<li><span>${esc(n.nome)}</span><strong>${fmt(n.valor,6)} ${esc(n.unidade)}</strong></li>`).join('')}</ul>`;
+ if(!itens.length)return `<h3>${esc(titulo)}</h3><p class="muted receita-micros-vazio">Nenhum micronutriente positivo encontrado nos dados cadastrados dos ingredientes.</p>`;
+ const temParcial=itens.some(n=>n.parcial);
+ return `<h3>${esc(titulo)}</h3><ul class="receita-micros-lista">${itens.map(n=>`<li><span>${esc(n.nome)}${n.parcial?' <small class="receita-micro-parcial" title="Um ou mais ingredientes não têm este micronutriente cadastrado.">parcial</small>':''}</span><strong>${formatarMicro(n.valor)} ${esc(n.unidade)}</strong></li>`).join('')}</ul>${temParcial?'<p class="muted receita-micro-aviso">Parcial: soma dos ingredientes com dados disponíveis. O total real pode ser maior.</p>':''}`;
 }
-function painelNutrientes(dados,totaisMicros,titulo,escopo,prefixo){
+function painelNutrientes(dados,totaisMicros,titulo,escopo,prefixo,parciais={}){
  const macroid=prefixo+'-macros',microid=prefixo+'-micros';
  const macroTab=prefixo+'-aba-macros',microTab=prefixo+'-aba-micros';
  return `<div class="receita-abas" role="tablist" aria-label="Composição nutricional ${esc(escopo)}">
@@ -127,7 +133,7 @@ function painelNutrientes(dados,totaisMicros,titulo,escopo,prefixo){
   <button type="button" id="${microTab}" class="receita-aba" role="tab" aria-selected="false" aria-controls="${microid}" tabindex="-1">Micronutrientes</button>
  </div>
  <div id="${macroid}" class="receita-aba-painel" role="tabpanel" aria-labelledby="${macroTab}">${graficoMacros(dados,titulo,escopo)}</div>
- <div id="${microid}" class="receita-aba-painel" role="tabpanel" aria-labelledby="${microTab}" hidden>${listaMicronutrientes(totaisMicros,'Micronutrientes '+escopo)}</div>`;
+ <div id="${microid}" class="receita-aba-painel" role="tabpanel" aria-labelledby="${microTab}" hidden>${listaMicronutrientes(totaisMicros,'Micronutrientes '+escopo,parciais)}</div>`;
 }
 function ativarAbasNutrientes(){
  $('detalheConteudo').querySelectorAll('.receita-abas').forEach(grupo=>{
@@ -161,8 +167,9 @@ async function ver(id){
   // A composição por 100 g é obtida desse total usando o rendimento final.
   const totais=r.totais_ingredientes;
   const cemGramas=r.composicao_100g;
-  const graficoInteiro=painelNutrientes(totais,r.micronutrientes_totais||{},'Macronutrientes da receita inteira','da receita inteira','receita-inteira');
-  const grafico100g=painelNutrientes(cemGramas,cemGramas.micronutrientes_100g||{},'Macronutrientes por 100 g','por 100 g','receita-cem-gramas');
+  const parciais=r.micronutrientes_parciais||{};
+  const graficoInteiro=painelNutrientes(totais,r.micronutrientes_totais||{},'Macronutrientes da receita inteira','da receita inteira','receita-inteira',parciais);
+  const grafico100g=painelNutrientes(cemGramas,cemGramas.micronutrientes_100g||{},'Macronutrientes por 100 g','por 100 g','receita-cem-gramas',parciais);
   const ingredientes=Array.isArray(r.ingredientes)?r.ingredientes:[];
   const total=ingredientes.reduce((s,i)=>s+Number(i.quantidade_g||0),0);
   $('detalheTitulo').textContent=r.nome;
