@@ -6,7 +6,48 @@
 <section class="avn-hero"><div><span class="avn-caption">NUTRIÇÃO · AVN</span><h1>Minhas metas</h1><p>Defina objetivos diários de energia, macronutrientes e micronutrientes.</p></div><label class="avn-field user-field">Usuário<select id="usuario"><option>Carregando…</option></select></label></section>
 <nav class="avn-tabs avn-links" aria-label="Aplicativos de nutrição"><a href="/avn/sistema/nutricao/diario" >Diário alimentar</a><a href="/avn/sistema/nutricao/dieta" >Dieta programada</a><a href="/avn/sistema/nutricao/alimentos" >Alimentos</a><a href="/avn/sistema/nutricao/metas" aria-current="page">Minhas metas</a><a href="/avn/sistema/nutricao/receitas">Receitas</a><a href="/avn/sistema/nutricao/agua">Água</a></nav>
 <div id="alerta" class="avn-alert" role="status" hidden></div>
-<section id="metas" class="avn-panel"><div class="avn-row space"><div><h2>Metas nutricionais</h2><p class="muted">Metas definidas por você; as sugestões da IA só são aplicadas após confirmação.</p></div><button type="button" id="abrirSugestaoMetas" class="primary">Sugerir metas com IA</button></div><section class="card"><form id="formMetas" class="stack"><h3>Calorias e macronutrientes</h3><div id="camposMetas" class="avn-three"></div><details><summary>Metas de micronutrientes (opcionais)</summary><label class="avn-field">Localizar nutriente<input type="search" id="buscaMicroMetas" placeholder="Filtrar micronutrientes"></label><div id="camposMicroMetas" class="avn-three micros-form"></div></details><button class="primary">Salvar metas</button></form></section></section>
+<section id="metas" class="avn-panel">
+ <div class="avn-row space avn-metas-topo"><div><h2>Metas nutricionais</h2><p class="muted">Ajuste suas metas diárias. As alterações só entram em vigor ao salvar.</p></div>
+ <div class="avn-metas-commands">
+ <button type="button" id="abrirCalculadoraGkg" class="secondary">Definir macros por g/kg</button>
+ <button type="button" id="abrirHistoricoMetas" class="secondary">Histórico de metas</button>
+ <button type="button" id="abrirSugestaoMetas" class="primary">Sugerir metas com IA</button>
+ </div></div>
+ <section class="card avn-metas-card">
+ <nav class="avn-metas-abas" role="tablist" aria-label="Tipos de metas">
+  <button type="button" role="tab" id="abaCaloriasMetas" aria-controls="painelMetasCalorias" aria-selected="true" tabindex="0" class="active">Calorias</button>
+  <button type="button" role="tab" id="abaMicrosMetas" aria-controls="painelMetasMicros" aria-selected="false" tabindex="-1">Micronutrientes</button>
+ </nav>
+ <form id="formMetas" class="stack">
+  <div role="tabpanel" id="painelMetasCalorias" aria-labelledby="abaCaloriasMetas">
+   <h3>Calorias e macronutrientes</h3><div id="camposMetas" class="avn-three"></div>
+   <p class="muted avn-metas-energia" id="resumoEnergiaMetas" aria-live="polite"></p>
+  </div>
+  <div role="tabpanel" id="painelMetasMicros" aria-labelledby="abaMicrosMetas" hidden>
+   <h3>Metas de micronutrientes</h3>
+   <label class="avn-field avn-metas-pesquisa">Buscar vitamina, mineral ou outro nutriente<input type="search" id="buscaMicroMetas" placeholder="Filtrar micronutrientes"></label>
+   <div id="camposMicroMetas" class="avn-three micros-form"></div>
+  </div>
+  <div class="avn-metas-salvar"><button class="primary" type="submit">Salvar metas</button></div>
+ </form></section></section>
+<dialog class="avn-dialog avn-metas-dialog" id="modalCalculadoraGkg" aria-labelledby="tituloCalculadoraGkg">
+ <div class="modal-head"><h3 id="tituloCalculadoraGkg">Definir macros por g/kg</h3><button type="button" class="secondary" id="fecharCalculadoraGkg">Fechar</button></div>
+ <p class="muted">Ajuste as taxas livremente; nada será salvo até aplicar e salvar as metas.</p>
+ <label class="avn-field">Peso utilizado (kg)<input id="pesoCalculadoraGkg" type="number" min="1" max="500" step="0.1" inputmode="decimal" required></label>
+ <p class="muted" id="origemPesoCalculadora"></p>
+ <div class="avn-three avn-metas-taxas">
+  <label class="avn-field">Proteínas (g/kg)<input id="gkgProteinas" type="number" min="0" max="10" step="any" inputmode="decimal" value="2"></label>
+  <label class="avn-field">Carboidratos (g/kg)<input id="gkgCarboidratos" type="number" min="0" max="10" step="any" inputmode="decimal" value="3"></label>
+  <label class="avn-field">Gorduras (g/kg)<input id="gkgGorduras" type="number" min="0" max="10" step="any" inputmode="decimal" value="1"></label>
+ </div>
+ <div id="previaCalculadoraGkg" class="avn-metas-previsao" aria-live="polite"></div>
+ <div class="modal-actions"><button type="button" class="primary" id="aplicarCalculadoraGkg">Aplicar às minhas metas</button></div>
+</dialog>
+<dialog class="avn-dialog avn-metas-dialog" id="modalHistoricoMetas" aria-labelledby="tituloHistoricoMetas">
+ <div class="modal-head"><h3 id="tituloHistoricoMetas">Histórico de metas</h3><button type="button" class="secondary" id="fecharHistoricoMetas">Fechar</button></div>
+ <p class="muted">Cada salvamento fica registrado. Restaurar preenche os campos; só terá efeito após salvar novamente.</p>
+ <div id="listaHistoricoMetas" class="avn-metas-historico" aria-live="polite"></div>
+</dialog>
 
 <dialog class="avn-dialog" id="modalSugestaoMetas"><div class="modal-head"><h3>Sugestão nutricional com IA</h3><button class="secondary" type="button" id="fecharSugestaoMetas">Fechar</button></div><p class="muted">Ao gerar, envia idade, altura, referência de cálculo, objetivo e últimas medidas corporais ao serviço de IA configurado. Revise os valores antes de aplicar.</p><label class="avn-field">Objetivo<select id="objetivoMetasIA"><option value="reduzir_gordura">Reduzir gordura</option><option value="manter">Manter peso</option><option value="ganhar_massa">Ganhar massa muscular</option></select></label><label class="avn-field">Nível de atividade<select id="atividadeMetasIA"><option value="leve">Leve</option><option value="moderada">Moderada</option><option value="alta">Alta</option><option value="sedentaria">Sedentária</option></select></label><div class="modal-actions"><button type="button" class="primary" id="gerarSugestaoMetas">Gerar sugestão</button></div><div id="resultadoSugestaoMetas" aria-live="polite"></div><div class="modal-actions"><button type="button" class="primary" id="aplicarSugestaoMetas" hidden>Preencher campos com sugestão</button></div></dialog>
 <footer>AVN · Os valores nutricionais dependem da qualidade dos dados e do preparo informado.</footer></main></body></html>

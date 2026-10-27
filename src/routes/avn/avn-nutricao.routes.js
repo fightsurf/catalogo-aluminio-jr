@@ -6,6 +6,7 @@ const consultaUsda = require('../../services/avn/avn-nutricao-usda.service');
 const consultaTaco = require('../../services/avn/avn-nutricao-taco.service');
 const consultaJsonIA = require('../../services/avn/avn-nutricao-ia-json.service');
 const router = express.Router();
+const {metaPorKg,energiaMacros,razoesDaMeta}=require('../../services/avn/avn-metas-gkg');
 router.use('/receitas',require('./avn-receitas.routes'));
 const REFEICOES = new Set(['cafe','lanche_manha','almoco','lanche_tarde','jantar','ceia','outros']);
 const MACROS = ['kcal','proteinas_g','carboidratos_g','gorduras_g','fibras_g'];
@@ -145,10 +146,84 @@ router.delete('/alimentos/:id',wrap(async(req,res)=>{
 router.get('/metas/:usuarioId',wrap(async(req,res)=>{
  await user(req.params.usuarioId);const r=await pool.query('SELECT * FROM public.avn_metas_nutricionais WHERE usuario_id=$1',[req.params.usuarioId]);res.json(r.rows[0]||{usuario_id:req.params.usuarioId,kcal:null,proteinas_g:null,carboidratos_g:null,gorduras_g:null,fibras_g:null,micros:{}});
 }));
+// Peso de referência: última pesagem real registrada em qualquer fonte de medições.
+async function ultimoPeso(uid,db=pool){
+ const r=await db.query(`SELECT d.valor AS peso_kg,d.data_medicao
+ FROM public.avn_medicoes d
+ JOIN public.avn_metricas m ON m.id=d.metrica_id
+ WHERE d.usuario_id=$1 AND m.codigo='peso' AND d.valor BETWEEN 1 AND 500
+ ORDER BY d.data_medicao DESC,d.id DESC LIMIT 1`,[uid]);
+ return r.rows[0]||{peso_kg:null,data_medicao:null};
+}
+router.get('/metas/:usuarioId/peso',wrap(async(req,res)=>{
+ const uid=requiredId(req.params.usuarioId);await user(uid);
+ res.set('Cache-Control','no-store').json(await ultimoPeso(uid));
+}));
+router.get('/metas/:usuarioId/historico',wrap(async(req,res)=>{
+ const uid=requiredId(req.params.usuarioId);await user(uid);
+ const limit=Number(req.query.limite??50);
+ if(!Number.isInteger(limit)||limit<1||limit>100)throw bad('Limite do histórico inválido.');
+ const r=await pool.query(`SELECT id,usuario_id,kcal,proteinas_g,carboidratos_g,gorduras_g,fibras_g,micros,
+ peso_kg,proteinas_g_kg,carboidratos_g_kg,gorduras_g_kg,energia_macros_kcal,origem,criado_em
+ FROM public.avn_metas_nutricionais_historico
+ WHERE usuario_id=$1 ORDER BY criado_em DESC,id DESC LIMIT $2`,[uid,limit]);
+ res.set('Cache-Control','no-store').json({registros:r.rows});
+}));
 router.put('/metas/:usuarioId',wrap(async(req,res)=>{
- await user(req.params.usuarioId);const b=req.body||{},v=MACROS.map(k=>num(b[k],k==='kcal'?12000:1000));
- const m=await micros(b.micros);const r=await pool.query(`INSERT INTO public.avn_metas_nutricionais(usuario_id,kcal,proteinas_g,carboidratos_g,gorduras_g,fibras_g,micros) VALUES($1,$2,$3,$4,$5,$6,$7::jsonb)
- ON CONFLICT(usuario_id) DO UPDATE SET kcal=EXCLUDED.kcal,proteinas_g=EXCLUDED.proteinas_g,carboidratos_g=EXCLUDED.carboidratos_g,gorduras_g=EXCLUDED.gorduras_g,fibras_g=EXCLUDED.fibras_g,micros=EXCLUDED.micros,atualizado_em=NOW() RETURNING *`,[req.params.usuarioId,...v,JSON.stringify(m)]);res.json(r.rows[0]);
+ const uid=requiredId(req.params.usuarioId),b=req.body||{};
+ const v=MACROS.map(k=>num(b[k],k==='kcal'?12000:1000));
+ const m=await micros(b.micros);
+ const origem=String(b.origem||'manual');
+ if(!['manual','calculadora_gkg','ia','restauracao'].includes(origem))throw bad('Origem das metas inválida.');
+ // Peso explícito pode vir do modal g/kg; nas outras situações, usar a última pesagem disponível.
+ const pesoInformado=b.peso_kg===null||b.peso_kg===undefined||b.peso_kg===''?null:num(b.peso_kg,500);
+ if(pesoInformado!==null&&pesoInformado<1)throw bad('Peso fora dos limites.');
+ if(origem==='calculadora_gkg'&&pesoInformado===null)throw bad('A calculadora exige o peso usado.');
+ const db=await pool.connect();
+ try{
+  await db.query('BEGIN');
+  // Serializa atualizações de metas do mesmo usuário e mantém histórico e versão atual atômicos.
+  const usuario=await db.query('SELECT id FROM public.avn_usuario WHERE id=$1 FOR UPDATE',[uid]);
+  if(!usuario.rowCount)throw bad('Usuário não encontrado.',404);
+  const pesoAnterior=pesoInformado===null?await ultimoPeso(uid,db):{peso_kg:pesoInformado};
+  const peso=Number(pesoAnterior.peso_kg);
+  const pesoValido=Number.isFinite(peso)&&peso>=1&&peso<=500?peso:null;
+  const macros=Object.fromEntries(MACROS.map((k,i)=>[k,v[i]]));
+  const gkg=razoesDaMeta(pesoValido,macros);
+  // Preserva a taxa g/kg informada, inclusive quando o arredondamento das gramas a altera.
+  if(b.taxas_gkg!=null && ['calculadora_gkg','restauracao'].includes(origem)){
+   if(pesoValido===null||!b.taxas_gkg||typeof b.taxas_gkg!=='object'||Array.isArray(b.taxas_gkg))
+    throw bad('Informe o peso válido para registrar g/kg.');
+   const taxas={};
+   for(const k of ['proteinas_g','carboidratos_g','gorduras_g']){
+    if(b.taxas_gkg[k]===null||b.taxas_gkg[k]===undefined||b.taxas_gkg[k]==='')
+     throw bad('Taxa g/kg não informada.');
+    taxas[k]=num(b.taxas_gkg[k],10);
+   }
+   const calculado=metaPorKg(pesoValido,taxas);
+   for(const k of ['proteinas_g','carboidratos_g','gorduras_g'])
+    if(macros[k]===null||Math.abs(Number(macros[k])-calculado[k])>0.025)
+     throw bad('Os valores de g/kg não correspondem ao peso e aos macros informados.');
+   for(const k of ['proteinas_g','carboidratos_g','gorduras_g'])gkg[k+'_kg']=taxas[k];
+  }
+  if(origem==='calculadora_gkg'&&b.taxas_gkg==null)throw bad('Informe as taxas da calculadora.');
+  const kcalMacros=energiaMacros(macros);
+  const r=await db.query(`INSERT INTO public.avn_metas_nutricionais(usuario_id,kcal,proteinas_g,carboidratos_g,gorduras_g,fibras_g,micros)
+ VALUES($1,$2,$3,$4,$5,$6,$7::jsonb)
+ ON CONFLICT(usuario_id) DO UPDATE SET kcal=EXCLUDED.kcal,proteinas_g=EXCLUDED.proteinas_g,
+ carboidratos_g=EXCLUDED.carboidratos_g,gorduras_g=EXCLUDED.gorduras_g,
+ fibras_g=EXCLUDED.fibras_g,micros=EXCLUDED.micros,atualizado_em=NOW() RETURNING *`,
+ [uid,...v,JSON.stringify(m)]);
+  await db.query(`INSERT INTO public.avn_metas_nutricionais_historico
+ (usuario_id,kcal,proteinas_g,carboidratos_g,gorduras_g,fibras_g,micros,peso_kg,
+  proteinas_g_kg,carboidratos_g_kg,gorduras_g_kg,energia_macros_kcal,origem)
+ VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8,$9,$10,$11,$12,$13)`,
+ [uid,...v,JSON.stringify(m),pesoValido,gkg.proteinas_g_kg,gkg.carboidratos_g_kg,
+  gkg.gorduras_g_kg,kcalMacros,origem]);
+  await db.query('COMMIT');
+  res.set('Cache-Control','no-store').json(r.rows[0]);
+ }catch(e){await db.query('ROLLBACK').catch(()=>{});throw e;}
+ finally{db.release();}
 }));
 
 /* Sugestão de metas: lê apenas as últimas medidas do usuário autenticado e jamais salva automaticamente. */

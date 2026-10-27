@@ -346,3 +346,33 @@ body[data-nutricao-pagina="dieta"] .avn-dieta-micros-lista strong{white-space:no
 body[data-nutricao-pagina="dieta"] .avn-dieta-parcial{font-size:11px;color:#f2ce91;border:1px solid #8a714e;border-radius:6px;padding:2px 5px}
 @media(max-width:750px){body[data-nutricao-pagina="dieta"] .avn-dieta-resumo{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){body[data-nutricao-pagina="dieta"] .avn-dieta-comandos{justify-content:stretch;margin-top:12px}body[data-nutricao-pagina="dieta"] .avn-dieta-comandos button{flex:1 1 auto;font-size:13px;padding:9px}body[data-nutricao-pagina="dieta"] .avn-dieta-micros-lista li{flex-wrap:wrap}body[data-nutricao-pagina="dieta"] .avn-dieta-abas{flex-wrap:wrap}}
+
+/* Metas nutricionais: duas abas e modais independentes, com foco no conteúdo atual. */
+.avn-metas-topo{align-items:center}
+.avn-metas-commands{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end}
+.avn-metas-commands button{min-height:44px}
+.avn-metas-card{padding-top:0}
+.avn-metas-abas{display:flex;gap:6px;border-bottom:1px solid var(--line);margin-bottom:20px}
+.avn-metas-abas button{padding:15px 18px;background:transparent;border:0;border-bottom:3px solid transparent;font-weight:750;color:var(--muted)}
+.avn-metas-abas button.active{border-color:var(--accent);color:var(--accent)}
+.avn-metas-abas button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.avn-metas-pesquisa{max-width:430px}
+.avn-metas-salvar{border-top:1px solid var(--line);padding-top:16px}
+.avn-metas-energia{margin-top:16px}
+.avn-metas-taxas{margin-top:18px}
+.avn-metas-previsao{margin-top:18px;display:grid;gap:7px}
+.avn-metas-previsao .list-row{align-items:flex-start;gap:6px}
+.avn-metas-previsao .list-row strong{white-space:nowrap}
+.avn-metas-historico{display:grid;gap:10px;max-height:65vh;overflow:auto;margin-top:16px}
+.avn-metas-historico article{border:1px solid var(--line);border-radius:12px;padding:14px}
+.avn-metas-historico article h4{margin:0 0 7px}
+.avn-metas-historico article .muted{overflow-wrap:anywhere}
+.avn-metas-historico article button{margin-top:10px}
+.avn-metas-dialog{width:min(720px,calc(100% - 22px))}
+@media(max-width:600px){
+ .avn-metas-commands{justify-content:stretch;display:grid;grid-template-columns:1fr 1fr;margin-top:10px}
+ .avn-metas-commands button:last-child{grid-column:1/-1}
+ .avn-metas-abas button{flex:1;padding:13px 8px}
+ .avn-metas-taxas{grid-template-columns:1fr}
+ .avn-metas-historico{max-height:60vh}
+}

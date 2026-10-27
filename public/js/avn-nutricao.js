@@ -356,9 +356,130 @@ function fillFood(f){
 }
 function numberOrNull(id){const x=v(id);if(x==='')return null;const n=Number(x);if(!Number.isFinite(n)||n<0)throw Error('Valor inválido: '+id);return n;}
 function getMicros(prefix){const data={};for(const [key] of MICRO){const value=numberOrNull(prefix+'_'+key);if(value!==null)data[key]=value;}return data;}
-function fillGoals(){if(!has('camposMetas'))return;for(const [key] of MACROS)$('meta_'+key).value=state.metas[key]??'';for(const [key] of MICRO)$('metamicro_'+key).value=state.metas.micros?.[key]??'';}
+function fillGoals(){if(!has('camposMetas'))return;for(const [key] of MACROS)$('meta_'+key).value=state.metas[key]??'';for(const [key] of MICRO)$('metamicro_'+key).value=state.metas.micros?.[key]??'';atualizarResumoEnergiaMetas();}
+
+let metaPendente=null;
+let historicoMetas=[];
+function selecionarAbaMetas(aba,focus=false){
+ if(PAGE!=='metas')return;
+ const micros=aba==='micros';
+ const ativo=micros?'abaMicrosMetas':'abaCaloriasMetas',inativo=micros?'abaCaloriasMetas':'abaMicrosMetas';
+ $(ativo).classList.add('active');$(ativo).setAttribute('aria-selected','true');$(ativo).tabIndex=0;
+ $(inativo).classList.remove('active');$(inativo).setAttribute('aria-selected','false');$(inativo).tabIndex=-1;
+ $('painelMetasMicros').hidden=!micros;$('painelMetasCalorias').hidden=micros;
+ if(focus)$(ativo).focus();
+}
+function atualizarResumoEnergiaMetas(){
+ if(PAGE!=='metas'||!has('resumoEnergiaMetas'))return;
+ const chave=['proteinas_g','carboidratos_g','gorduras_g'];
+ if(chave.some(k=>$('meta_'+k).value==='')){$('resumoEnergiaMetas').textContent='Preencha proteínas, carboidratos e gorduras para calcular as calorias correspondentes.';return;}
+ const p=Number(v('meta_proteinas_g')),c=Number(v('meta_carboidratos_g')),g=Number(v('meta_gorduras_g'));
+ if([p,c,g].some(x=>!Number.isFinite(x)||x<0)){$('resumoEnergiaMetas').textContent='Confira os valores de macronutrientes.';return;}
+ const kcal=p*4+c*4+g*9;
+ const alvo=v('meta_kcal')===''?null:Number(v('meta_kcal'));
+ $('resumoEnergiaMetas').textContent='Energia calculada pelos macros: '+fmt(kcal,1)+' kcal'+
+  (alvo===null?' · Informe uma meta energética.':' · Diferença para a meta: '+fmt(kcal-alvo,1)+' kcal (calculada − definida).');
+}
+function calcularPreviaGkg(){
+ const pesoTexto=v('pesoCalculadoraGkg');
+ const peso=pesoTexto===''?NaN:Number(pesoTexto);
+ const taxas=[v('gkgProteinas'),v('gkgCarboidratos'),v('gkgGorduras')];
+ const nums=taxas.map(x=>x===''?NaN:Number(x));
+ const ok=Number.isFinite(peso)&&peso>=1&&peso<=500&&nums.every(n=>Number.isFinite(n)&&n>=0&&n<=10);
+ $('aplicarCalculadoraGkg').disabled=!ok;
+ if(!ok){$('previaCalculadoraGkg').textContent='Informe um peso válido e taxas entre 0 e 10 g/kg.';return null;}
+ const macros=Object.fromEntries(['proteinas_g','carboidratos_g','gorduras_g'].map((k,i)=>[k,Math.round((peso*nums[i]+Number.EPSILON)*100)/100]));
+ const kcal=macros.proteinas_g*4+macros.carboidratos_g*4+macros.gorduras_g*9;
+ if(Object.values(macros).some(n=>n>1000)||kcal>12000){
+  $('aplicarCalculadoraGkg').disabled=true;
+  $('previaCalculadoraGkg').textContent='O cálculo ultrapassa os limites de metas do AVN. Reduza o peso ou as taxas.';
+  return null;
+ }
+ const alvo=v('meta_kcal')===''?null:Number(v('meta_kcal'));
+ const rows=[['Proteínas',macros.proteinas_g],['Carboidratos',macros.carboidratos_g],['Gorduras',macros.gorduras_g]];
+ $('previaCalculadoraGkg').innerHTML=rows.map(([nome,valor])=>
+  '<div class="list-row"><span>'+nome+'</span><strong>'+fmt(valor,2)+' g/dia</strong></div>').join('')+
+  '<p><strong>'+fmt(kcal,1)+' kcal/dia</strong> calculadas pelos macros'+
+  (alvo===null?'':'; diferença para a meta atual: '+fmt(kcal-alvo,1)+' kcal')+'.</p>';
+ return {peso_kg:peso,macros,energia:kcal,taxas_gkg:{proteinas_g:nums[0],carboidratos_g:nums[1],gorduras_g:nums[2]}};
+}
+async function abrirCalculadoraGkg(){
+ userGuard();
+ $('modalCalculadoraGkg').showModal();
+ $('origemPesoCalculadora').textContent='Consultando última pesagem…';
+ $('pesoCalculadoraGkg').value='';
+ calcularPreviaGkg();
+ const uid=state.usuarioId;
+ try{
+  const peso=await api('/metas/'+uid+'/peso');
+  if(uid!==state.usuarioId||!$('modalCalculadoraGkg').open)return;
+  const w=peso.peso_kg==null?null:Number(peso.peso_kg);
+  $('origemPesoCalculadora').textContent=w==null?'Nenhuma pesagem encontrada. Informe seu peso manualmente.':
+   'Última pesagem registrada: '+fmt(w,2)+' kg'+(peso.data_medicao?' · '+new Date(peso.data_medicao).toLocaleDateString('pt-BR'):'')+'. Pode alterar o valor.';
+  if(w!==null&&w>=1&&w<=500){
+   $('pesoCalculadoraGkg').value=w;
+   for(const [key,id] of [['proteinas_g','gkgProteinas'],['carboidratos_g','gkgCarboidratos'],['gorduras_g','gkgGorduras']]){
+    const m=state.metas[key];if(m!=null)$(id).value=(Number(m)/w).toFixed(2);
+   }
+  }
+  calcularPreviaGkg();
+ }catch(err){$('origemPesoCalculadora').textContent=err.message+' Informe o peso manualmente.';}
+}
+function aplicarCalculadoraGkg(){
+ const calculo=calcularPreviaGkg();
+ if(!calculo)return;
+ for(const [key,n] of Object.entries(calculo.macros))$('meta_'+key).value=n;
+ if(v('meta_kcal')==='')$('meta_kcal').value=Math.round(calculo.energia*100)/100;
+ metaPendente={origem:'calculadora_gkg',peso_kg:calculo.peso_kg,taxas_gkg:calculo.taxas_gkg};
+ $('modalCalculadoraGkg').close();
+ selecionarAbaMetas('calorias');
+ atualizarResumoEnergiaMetas();
+ show('Macros preenchidos. Confira as calorias e clique em Salvar metas para registrar no histórico.');
+}
+function renderHistoricoMetas(){
+ if(!historicoMetas.length){$('listaHistoricoMetas').innerHTML='<p class="muted">Nenhuma meta salva ainda.</p>';return;}
+ $('listaHistoricoMetas').innerHTML=historicoMetas.map(h=>{
+  const data=new Date(h.criado_em).toLocaleString('pt-BR');
+  const gkg=(nome,gramas,razao)=>gramas==null?'—':fmt(gramas,2)+' g'+(razao==null?'':' · '+fmt(razao,3)+' g/kg');
+  const origem={manual:'Manual',calculadora_gkg:'Calculadora g/kg',ia:'Sugestão de IA',restauracao:'Restauração',legado:'Meta anterior'}[h.origem]||h.origem;
+  return '<article><h4>'+esc(data)+' · '+esc(origem)+'</h4>'+
+   '<p class="muted">Peso: '+(h.peso_kg==null?'Não registrado':fmt(h.peso_kg,2)+' kg')+
+   ' · Energia definida: '+(h.kcal==null?'—':fmt(h.kcal,1)+' kcal')+
+   ' · Energia dos macros: '+(h.energia_macros_kcal==null?'—':fmt(h.energia_macros_kcal,1)+' kcal')+'</p>'+
+   '<div class="avn-two"><div><strong>Proteínas:</strong> '+gkg('Proteínas',h.proteinas_g,h.proteinas_g_kg)+'</div>'+
+   '<div><strong>Carboidratos:</strong> '+gkg('Carboidratos',h.carboidratos_g,h.carboidratos_g_kg)+'</div>'+
+   '<div><strong>Gorduras:</strong> '+gkg('Gorduras',h.gorduras_g,h.gorduras_g_kg)+'</div>'+
+   '<div><strong>Fibras:</strong> '+(h.fibras_g==null?'—':fmt(h.fibras_g,2)+' g')+'</div></div>'+
+   '<p class="muted">Micronutrientes com meta: '+Object.keys(h.micros||{}).length+'</p>'+
+   '<button class="secondary" type="button" data-restaurar-meta="'+esc(h.id)+'">Restaurar esta meta</button></article>';
+ }).join('');
+}
+async function abrirHistoricoMetas(){
+ userGuard();
+ $('modalHistoricoMetas').showModal();
+ $('listaHistoricoMetas').textContent='Carregando histórico…';
+ const uid=state.usuarioId;
+ try{
+  const h=await api('/metas/'+uid+'/historico?limite=50');
+  if(uid!==state.usuarioId||!$('modalHistoricoMetas').open)return;
+  historicoMetas=h.registros||[];
+  renderHistoricoMetas();
+ }catch(e){$('listaHistoricoMetas').textContent=e.message;}
+}
+function restaurarMeta(id){
+ const h=historicoMetas.find(item=>String(item.id)===String(id));
+ if(!h)return;
+ for(const [key] of MACROS)$('meta_'+key).value=h[key]??'';
+ for(const [key] of MICRO)$('metamicro_'+key).value=h.micros?.[key]??'';
+ metaPendente={origem:'restauracao',peso_kg:h.peso_kg??null,taxas_gkg:h.proteinas_g_kg==null||h.carboidratos_g_kg==null||h.gorduras_g_kg==null?null:{proteinas_g:Number(h.proteinas_g_kg),carboidratos_g:Number(h.carboidratos_g_kg),gorduras_g:Number(h.gorduras_g_kg)}};
+ $('modalHistoricoMetas').close();
+ selecionarAbaMetas('calorias');
+ atualizarResumoEnergiaMetas();
+ show('Meta histórica preenchida. Clique em Salvar metas para ativá-la e registrar uma nova versão.');
+}
+
 async function loadFoods(){state.alimentos=await api('/alimentos?usuarioId='+state.usuarioId);selectFoods();renderFoodList();}
-async function loadGoals(){state.metas=await api('/metas/'+state.usuarioId);fillGoals();}
+async function loadGoals(){state.metas=await api('/metas/'+state.usuarioId);metaPendente=null;fillGoals();}
 async function loadDiet(){const r=await api('/dieta/'+state.usuarioId);state.dieta=r.itens;renderDiet();renderPlannedMeal();}
 async function loadDaily(){const r=await api('/diario/'+state.usuarioId+'?data='+state.data);state.diario=r.itens;renderDaily();renderPlannedMeal();}
 async function reload(){
@@ -475,7 +596,7 @@ function events(){
   document.addEventListener('click',e=>{const b=e.target.closest('[data-macro-meal]');if(!b)return;e.preventDefault();abrirMacroRefeicao(b.dataset.macroMeal,b.dataset.macroSource);});
 }
 
- $('usuario').onchange=async()=>{if(PAGE==='dieta'){invalidarImportacaoDieta(true);dietaCatalogoImportacao=[];}state.usuarioId=v('usuario');localStorage.setItem('avn_nutricao_usuario',state.usuarioId);try{await reload();}catch(e){show(e.message,true);}};
+ $('usuario').onchange=async()=>{if(PAGE==='dieta'){invalidarImportacaoDieta(true);dietaCatalogoImportacao=[];}state.usuarioId=v('usuario');metaPendente=null;historicoMetas=[];if(has('modalCalculadoraGkg')&&$('modalCalculadoraGkg').open)$('modalCalculadoraGkg').close();if(has('modalHistoricoMetas')&&$('modalHistoricoMetas').open)$('modalHistoricoMetas').close();localStorage.setItem('avn_nutricao_usuario',state.usuarioId);try{await reload();}catch(e){show(e.message,true);}};
  if(PAGE==='diario'){
  $('abrirModalDiario').onclick=()=>$('modalAdicionarDiario').showModal();
  $('fecharModalDiario').onclick=()=>$('modalAdicionarDiario').close();
@@ -533,6 +654,23 @@ function events(){
  }catch(err){show(err.message,true);}};
  }
  if(PAGE==='metas'){
+ $('abaCaloriasMetas').onclick=()=>selecionarAbaMetas('calorias');
+ $('abaMicrosMetas').onclick=()=>selecionarAbaMetas('micros');
+ for(const tab of [$('abaCaloriasMetas'),$('abaMicrosMetas')])tab.addEventListener('keydown',e=>{
+  if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;
+  e.preventDefault();selecionarAbaMetas(e.key==='ArrowRight'||e.key==='End'?'micros':'calorias',true);
+ });
+ $('abrirCalculadoraGkg').onclick=()=>abrirCalculadoraGkg().catch(e=>show(e.message,true));
+ $('fecharCalculadoraGkg').onclick=()=>$('modalCalculadoraGkg').close();
+ for(const id of ['pesoCalculadoraGkg','gkgProteinas','gkgCarboidratos','gkgGorduras'])
+  $(id).addEventListener('input',calcularPreviaGkg);
+ $('aplicarCalculadoraGkg').onclick=aplicarCalculadoraGkg;
+ $('abrirHistoricoMetas').onclick=()=>abrirHistoricoMetas().catch(e=>show(e.message,true));
+ $('fecharHistoricoMetas').onclick=()=>$('modalHistoricoMetas').close();
+ $('listaHistoricoMetas').addEventListener('click',e=>{
+  const botao=e.target.closest('[data-restaurar-meta]');if(botao)restaurarMeta(botao.dataset.restaurarMeta);
+ });
+ $('camposMetas').addEventListener('input',()=>{metaPendente=null;atualizarResumoEnergiaMetas();});
  $('abrirSugestaoMetas').onclick=()=>{try{userGuard();$('resultadoSugestaoMetas').textContent='';$('aplicarSugestaoMetas').hidden=true;$('modalSugestaoMetas').showModal();}catch(e){show(e.message,true);}};
  $('fecharSugestaoMetas').onclick=()=>$('modalSugestaoMetas').close();
  $('gerarSugestaoMetas').onclick=async()=>{
@@ -549,10 +687,11 @@ function events(){
  };
  $('aplicarSugestaoMetas').onclick=()=>{
   if(!state.sugestaoMetas)return;for(const [key] of MACROS)$('meta_'+key).value=state.sugestaoMetas[key];
+  metaPendente={origem:'ia'};atualizarResumoEnergiaMetas();
   $('modalSugestaoMetas').close();show('Sugestão preenchida. Confira e clique em Salvar metas para confirmar.');
  };
  $('buscaMicroMetas').oninput=()=>filtrarNutrientes('camposMicroMetas','buscaMicroMetas');
- $('formMetas').onsubmit=async e=>{e.preventDefault();try{userGuard();const b={micros:getMicros('metamicro')};for(const [key] of MACROS)b[key]=numberOrNull('meta_'+key);await send('/metas/'+state.usuarioId,'PUT',b);await loadGoals();renderDaily();show('Metas atualizadas.');}catch(err){show(err.message,true);}}; }
+ $('formMetas').onsubmit=async e=>{e.preventDefault();try{userGuard();const b={micros:getMicros('metamicro'),...(metaPendente||{origem:'manual'})};for(const [key] of MACROS)b[key]=numberOrNull('meta_'+key);await send('/metas/'+state.usuarioId,'PUT',b);metaPendente=null;await loadGoals();renderDaily();show('Metas salvas e registradas no histórico.');}catch(err){show(err.message,true);}}; }
 }
 async function init(){try{await loadNutrients();inputs();state.data=localDate();if(has('dataDiario'))$('dataDiario').value=state.data;state.dias=diaSemana(state.data);events();await startUsers();}catch(e){show(e.message,true);}}
 init();
