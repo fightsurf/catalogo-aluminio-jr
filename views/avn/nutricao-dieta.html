@@ -1,12 +1,13 @@
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AVN — Dieta programada</title><link rel="stylesheet" href="/css/avn-nutricao.css"><script src="/js/avn-nutricao.js" defer></script></head>
+<title>AVN — Dieta programada</title><link rel="stylesheet" href="/css/avn-nutricao.css?v=20261027-dietapdf1"><script src="/js/avn-nutricao.js?v=20261027-dietapdf1" defer></script></head>
 <body data-nutricao-pagina="dieta"><main class="avn-wrap">
 <header class="avn-top"><a href="/avn">← Central AVN</a><span class="avn-brand">AVN <em>Nutrição</em></span></header>
 <section class="avn-hero"><div><span class="avn-caption">NUTRIÇÃO · AVN</span><h1>Dieta programada</h1><p>Planeje uma dieta padrão que vale todos os dias, sem registrar consumo antecipado.</p></div><label class="avn-field user-field">Usuário<select id="usuario"><option>Carregando…</option></select></label></section>
 <nav class="avn-tabs avn-links" aria-label="Aplicativos de nutrição"><a href="/avn/sistema/nutricao/diario" >Diário alimentar</a><a href="/avn/sistema/nutricao/dieta" aria-current="page">Dieta programada</a><a href="/avn/sistema/nutricao/alimentos" >Alimentos</a><a href="/avn/sistema/nutricao/metas" >Minhas metas</a><a href="/avn/sistema/nutricao/receitas">Receitas</a><a href="/avn/sistema/nutricao/agua">Água</a></nav>
 <div id="alerta" class="avn-alert" role="status" hidden></div>
-<section id="dieta" class="avn-panel"><div class="avn-row space"><div><h2>Dieta programada</h2><p class="muted">Uma única programação para todos os dias. Planejar não registra consumo.</p></div><button type="button" class="primary" id="abrirModalDieta">+ Adicionar alimento</button></div>
+<section id="dieta" class="avn-panel"><div class="avn-row space"><div><h2>Dieta programada</h2><p class="muted">Uma única programação para todos os dias. Planejar não registra consumo.</p></div><div class="avn-dieta-comandos"><button type="button" class="primary" id="abrirModalDieta">+ Adicionar alimento</button><button type="button" class="secondary" id="abrirAnaliseDieta">Análise Nutricional</button><button type="button" class="secondary" id="imprimirDieta">Imprimir / PDF</button></div></div>
+<h3 class="avn-dieta-resumo-titulo">Total planejado</h3><div id="resumoDieta" class="summary avn-dieta-resumo" aria-live="polite"></div>
 <dialog class="avn-dialog" id="modalAdicionarDieta"><div class="modal-head"><h3>Adicionar à dieta padrão</h3><button type="button" class="secondary" id="fecharModalDieta">Fechar</button></div><section><form id="formDieta" class="stack"><label class="avn-field">Alimento<select id="dietaAlimento" required></select></label><div class="avn-two"><label class="avn-field">Refeição<select id="dietaRefeicao"></select></label><label class="avn-field">Quantidade (g)<input type="number" id="dietaGramas" min="0.1" max="10000" step="0.1" required value="100"></label></div><button class="primary">Adicionar à dieta</button></form>
 <section class="receita-importador" aria-labelledby="dietaTituloImportador">
  <h4 id="dietaTituloImportador">Adicionar vários alimentos com IA</h4>
@@ -20,7 +21,8 @@
  </div>
  <div id="dietaRevisaoImportacao" class="importador-resultado" aria-label="Conferir ingredientes da refeição" hidden></div>
  <button type="button" class="primary" id="dietaAplicarImportacao" hidden>Adicionar alimentos revisados à refeição</button>
-</section></section></dialog><section class="card"><h3>Itens planejados</h3><div id="listaDieta" class="list"></div><div id="resumoDieta" class="hint"></div></section></section>
+</section></section></dialog><section class="card"><h3>Itens planejados</h3><div id="listaDieta" class="list"></div></section></section>
+<dialog class="avn-dialog avn-dieta-analise" id="modalAnaliseDieta" aria-labelledby="tituloAnaliseDieta"><div class="modal-head"><h3 id="tituloAnaliseDieta">Análise Nutricional · Dieta Programada</h3><button type="button" class="secondary" id="fecharAnaliseDieta">Fechar</button></div><p class="muted">Valores estimados para toda a dieta programada.</p><div class="avn-dieta-abas" role="tablist" aria-label="Nutrientes da dieta"><button type="button" role="tab" class="avn-dieta-aba" id="abaMacrosDieta" aria-controls="painelMacrosDieta" aria-selected="true" tabindex="0">Macronutrientes</button><button type="button" role="tab" class="avn-dieta-aba" id="abaMicrosDieta" aria-controls="painelMicrosDieta" aria-selected="false" tabindex="-1">Micronutrientes</button></div><section id="painelMacrosDieta" role="tabpanel" aria-labelledby="abaMacrosDieta"><div id="conteudoMacrosDieta"></div></section><section id="painelMicrosDieta" role="tabpanel" aria-labelledby="abaMicrosDieta" hidden><div id="conteudoMicrosDieta"></div></section></dialog>
 
 <dialog class="avn-dialog" id="modalMacros"><div class="modal-head"><h3 id="tituloMacros">Macronutrientes</h3><button type="button" class="secondary" id="fecharMacros">Fechar</button></div><div id="conteudoMacros"></div></dialog>
 <footer>AVN · Os valores nutricionais dependem da qualidade dos dados e do preparo informado.</footer></main></body></html>
