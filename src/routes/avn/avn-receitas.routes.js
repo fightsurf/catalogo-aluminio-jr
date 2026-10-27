@@ -9,7 +9,52 @@ const bad=(m,s=400)=>Object.assign(new Error(m),{status:s});
 const route=fn=>async(req,res)=>{try{await fn(req,res);}catch(e){console.error('[AVN receitas]',e);res.status(e.status||500).json({erro:e.status?e.message:'Falha ao processar receita. Consulte os logs.'});}};
 const uid=v=>{if(!id(v))throw bad('Selecione um usuário válido.');return String(v);};
 async function usuarioExiste(db,u){if(!(await db.query('SELECT 1 FROM public.avn_usuario WHERE id=$1',[u])).rowCount)throw bad('Usuário não encontrado.',404);}
-async function montagem(db,u,b){
+
+async function impedirCiclo(db,usuario,receitaId,alimentoId){
+ if(!receitaId)return;
+ const r=await db.query(`WITH RECURSIVE descendentes(id,caminho) AS (
+  SELECT id,ARRAY[id] FROM public.avn_receitas WHERE alimento_id=$1 AND usuario_id=$2
+  UNION ALL
+  SELECT filha.id,d.caminho||filha.id FROM descendentes d
+  JOIN public.avn_receita_ingredientes ri ON ri.receita_id=d.id
+  JOIN public.avn_receitas filha ON filha.alimento_id=ri.alimento_id
+  WHERE NOT filha.id=ANY(d.caminho)
+ ) SELECT 1 FROM descendentes WHERE id=$3 LIMIT 1`,[alimentoId,usuario,receitaId]);
+ if(r.rowCount)throw bad('Dependência circular: uma receita não pode conter a si mesma, direta ou indiretamente.');
+}
+async function recalcularDependentes(db,origemId,origemAlimentoId,usuario,codigos){
+ const dependentes=await db.query(`WITH RECURSIVE pais(id,profundidade,caminho) AS (
+  SELECT ri.receita_id,1,ARRAY[$1::bigint,ri.receita_id]
+  FROM public.avn_receita_ingredientes ri JOIN public.avn_receitas r ON r.id=ri.receita_id
+  WHERE ri.alimento_id=$2 AND r.usuario_id=$3 AND ri.receita_id<>$1
+  UNION ALL
+  SELECT ri.receita_id,p.profundidade+1,p.caminho||ri.receita_id
+  FROM pais p JOIN public.avn_receitas filha ON filha.id=p.id
+  JOIN public.avn_receita_ingredientes ri ON ri.alimento_id=filha.alimento_id
+  JOIN public.avn_receitas r ON r.id=ri.receita_id
+  WHERE r.usuario_id=$3 AND NOT ri.receita_id=ANY(p.caminho)
+ ) SELECT id FROM pais GROUP BY id ORDER BY MAX(profundidade),id`,[origemId,origemAlimentoId,usuario]);
+ for(const dep of dependentes.rows){
+  const rr=await db.query('SELECT * FROM public.avn_receitas WHERE id=$1 AND usuario_id=$2',[dep.id,usuario]);
+  if(!rr.rowCount)continue;
+  const ing=await db.query(`SELECT ri.id,ri.quantidade_g,a.* FROM public.avn_receita_ingredientes ri
+    JOIN public.avn_alimentos a ON a.id=ri.alimento_id WHERE ri.receita_id=$1 ORDER BY ri.ordem,ri.id`,[dep.id]);
+  const itens=ing.rows.map(a=>({quantidade_g:Number(a.quantidade_g),composicao_100g:composicao(a)}));
+  const calc=calcular(itens,Number(rr.rows[0].rendimento_g),codigos);
+  for(let i=0;i<ing.rows.length;i++){
+   const row=ing.rows[i];
+   await db.query(`UPDATE public.avn_receita_ingredientes SET composicao_100g=$1::jsonb,nome_snapshot=$2 WHERE id=$3`,
+     [JSON.stringify(itens[i].composicao_100g),row.nome,row.id]);
+  }
+  await db.query(`UPDATE public.avn_alimentos SET nome=$1,preparo=$2,kcal_100g=$3,
+   proteinas_g_100g=$4,carboidratos_g_100g=$5,gorduras_g_100g=$6,fibras_g_100g=$7,
+   micronutrientes_100g=$8::jsonb,atualizado_em=NOW() WHERE id=$9 AND usuario_id=$10`,
+   [rr.rows[0].nome,rr.rows[0].preparo,calc.kcal_100g,calc.proteinas_g_100g,calc.carboidratos_g_100g,
+    calc.gorduras_g_100g,calc.fibras_g_100g,JSON.stringify(calc.micronutrientes_100g),rr.rows[0].alimento_id,usuario]);
+ }
+}
+
+async function montagem(db,u,b,receitaId){
  const nome=String(b.nome||'').trim();if(!nome||nome.length>180)throw bad('Informe o nome da receita (até 180 caracteres).');
  const preparo=String(b.preparo||'').trim().slice(0,120)||null;
  const rendimento=Number(b.rendimento_g);
@@ -17,10 +62,11 @@ async function montagem(db,u,b){
  if(!Array.isArray(b.ingredientes)||!b.ingredientes.length||b.ingredientes.length>60)throw bad('Informe de 1 a 60 ingredientes.');
  const itens=[];let somaPesos=0;
  for(const [ordem,i] of b.ingredientes.entries()){
-  if(!id(i.alimento_id))throw bad('Selecione um alimento válido.');
+  if(!id(i.alimento_id))throw bad('Selecione um alimento ou receita válido.');
   const g=Number(i.quantidade_g);if(!Number.isFinite(g)||g<=0||g>10000)throw bad('Peso de ingrediente inválido.');
-  const r=await db.query(`SELECT * FROM public.avn_alimentos WHERE id=$1 AND ativo AND (usuario_id=$2 OR usuario_id IS NULL) AND fonte<>'receita'`,[i.alimento_id,u]);
-  if(!r.rowCount)throw bad('Ingrediente não encontrado ou é outra receita.',400);
+  const r=await db.query(`SELECT * FROM public.avn_alimentos WHERE id=$1 AND ativo AND (usuario_id=$2 OR usuario_id IS NULL) `,[i.alimento_id,u]);
+  await impedirCiclo(db,u,receitaId,i.alimento_id);
+  if(!r.rowCount)throw bad('Ingrediente ou receita não encontrado.',400);
   const f=r.rows[0];itens.push({alimento_id:f.id,nome_snapshot:f.nome,quantidade_g:g,ordem,composicao_100g:composicao(f)});somaPesos+=g;
  }
  const {rows:nutrientes}=await db.query('SELECT codigo FROM public.avn_nutrientes');
@@ -30,7 +76,7 @@ async function salvar(req,res,editar){
  const u=uid(req.body?.usuarioId),recId=req.params.id;const db=await pool.connect();
  try{await db.query('BEGIN');await usuarioExiste(db,u);
   let antiga=null;if(editar){if(!id(recId))throw bad('Receita inválida.');const r=await db.query('SELECT * FROM public.avn_receitas WHERE id=$1 AND usuario_id=$2 FOR UPDATE',[recId,u]);if(!r.rowCount)throw bad('Receita não encontrada.',404);antiga=r.rows[0];}
-  const data=await montagem(db,u,req.body||{});const c=data.calc;
+  const data=await montagem(db,u,req.body||{},editar?recId:null);const c=data.calc;
   const v=[data.nome,data.preparo,c.kcal_100g,c.proteinas_g_100g,c.carboidratos_g_100g,c.gorduras_g_100g,c.fibras_g_100g,JSON.stringify(c.micronutrientes_100g)];
   let alimento;
   if(editar){const r=await db.query(`UPDATE public.avn_alimentos SET nome=$1,preparo=$2,kcal_100g=$3,proteinas_g_100g=$4,carboidratos_g_100g=$5,gorduras_g_100g=$6,fibras_g_100g=$7,micronutrientes_100g=$8::jsonb,atualizado_em=NOW() WHERE id=$9 AND usuario_id=$10 RETURNING id`,[...v,antiga.alimento_id,u]);alimento=r.rows[0];}
@@ -39,6 +85,8 @@ async function salvar(req,res,editar){
   if(editar){const r=await db.query('UPDATE public.avn_receitas SET nome=$1,preparo=$2,rendimento_g=$3,atualizado_em=NOW() WHERE id=$4 RETURNING *',[data.nome,data.preparo,data.rendimento,recId]);receita=r.rows[0];await db.query('DELETE FROM public.avn_receita_ingredientes WHERE receita_id=$1',[recId]);}
   else{const r=await db.query('INSERT INTO public.avn_receitas(usuario_id,alimento_id,nome,preparo,rendimento_g) VALUES($1,$2,$3,$4,$5) RETURNING *',[u,alimento.id,data.nome,data.preparo,data.rendimento]);receita=r.rows[0];}
   for(const i of data.itens)await db.query('INSERT INTO public.avn_receita_ingredientes(receita_id,alimento_id,quantidade_g,ordem,composicao_100g,nome_snapshot) VALUES($1,$2,$3,$4,$5::jsonb,$6)',[receita.id,i.alimento_id,i.quantidade_g,i.ordem,JSON.stringify(i.composicao_100g),i.nome_snapshot]);
+  const codigos=(await db.query('SELECT codigo FROM public.avn_nutrientes')).rows.map(n=>n.codigo);
+  await recalcularDependentes(db,receita.id,alimento.id,u,codigos);
   await db.query('COMMIT');res.status(editar?200:201).json({receita,alimento_id:alimento.id,composicao_100g:c,soma_ingredientes_g:data.somaPesos});
  }catch(e){await db.query('ROLLBACK').catch(()=>{});throw e;}finally{db.release();}
 }
@@ -46,7 +94,7 @@ router.get('/',route(async(req,res)=>{const u=uid(req.query.usuarioId);await usu
 // O catálogo usado pela IA é o mesmo exibido para revisão no formulário.
 async function catalogoUsuario(u){
  const r=await pool.query(`SELECT * FROM public.avn_alimentos WHERE ativo
-   AND (usuario_id=$1 OR usuario_id IS NULL) AND fonte<>'receita'
+   AND (usuario_id=$1 OR usuario_id IS NULL) AND (fonte<>'receita' OR usuario_id=$1)
    ORDER BY nome,id LIMIT 1200`,[u]);
  return r.rows;
 }
@@ -56,7 +104,7 @@ router.get('/catalogo',route(async(req,res)=>{
 }));
 router.post('/interpretar',route(async(req,res)=>{
  const u=uid(req.body?.usuarioId);await usuarioExiste(pool,u);
- const catalogo=await catalogoUsuario(u);
+ const catalogo=(await catalogoUsuario(u)).filter(a=>a.fonte!=='receita');
  const dados=await interpretar(req.body?.texto,catalogo);
  res.set('Cache-Control','no-store').json(dados);
 }));
