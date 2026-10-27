@@ -34,6 +34,8 @@ function micronutrientesDisponiveis(itens,rendimento,codigos){
    const valor=Number(original);
    if(!Number.isFinite(valor)||valor<0){faltantes++;continue;}
    conhecidos++;soma+=valor*quantidade/100;
+   // A composicao de uma receita usada como ingrediente pode ser parcial.
+   if(item.composicao_100g?.micros_parciais?.[codigo])faltantes++;
   }
   if(!conhecidos||!Number.isFinite(soma)||soma<=0)continue;
   totais[codigo]=soma;por100g[codigo]=soma*100/renda;
