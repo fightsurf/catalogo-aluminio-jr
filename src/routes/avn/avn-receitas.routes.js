@@ -37,14 +37,14 @@ async function recalcularDependentes(db,origemId,origemAlimentoId,usuario,codigo
  for(const dep of dependentes.rows){
   const rr=await db.query('SELECT * FROM public.avn_receitas WHERE id=$1 AND usuario_id=$2',[dep.id,usuario]);
   if(!rr.rowCount)continue;
-  const ing=await db.query(`SELECT ri.id,ri.quantidade_g,a.* FROM public.avn_receita_ingredientes ri
+  const ing=await db.query(`SELECT ri.id AS item_id,ri.quantidade_g,a.* FROM public.avn_receita_ingredientes ri
     JOIN public.avn_alimentos a ON a.id=ri.alimento_id WHERE ri.receita_id=$1 ORDER BY ri.ordem,ri.id`,[dep.id]);
   const itens=ing.rows.map(a=>({quantidade_g:Number(a.quantidade_g),composicao_100g:composicao(a)}));
   const calc=calcular(itens,Number(rr.rows[0].rendimento_g),codigos);
   for(let i=0;i<ing.rows.length;i++){
    const row=ing.rows[i];
    await db.query(`UPDATE public.avn_receita_ingredientes SET composicao_100g=$1::jsonb,nome_snapshot=$2 WHERE id=$3`,
-     [JSON.stringify(itens[i].composicao_100g),row.nome,row.id]);
+     [JSON.stringify(itens[i].composicao_100g),row.nome,row.item_id]);
   }
   await db.query(`UPDATE public.avn_alimentos SET nome=$1,preparo=$2,kcal_100g=$3,
    proteinas_g_100g=$4,carboidratos_g_100g=$5,gorduras_g_100g=$6,fibras_g_100g=$7,
@@ -64,7 +64,7 @@ async function montagem(db,u,b,receitaId){
  for(const [ordem,i] of b.ingredientes.entries()){
   if(!id(i.alimento_id))throw bad('Selecione um alimento ou receita válido.');
   const g=Number(i.quantidade_g);if(!Number.isFinite(g)||g<=0||g>10000)throw bad('Peso de ingrediente inválido.');
-  const r=await db.query(`SELECT * FROM public.avn_alimentos WHERE id=$1 AND ativo AND (usuario_id=$2 OR usuario_id IS NULL) `,[i.alimento_id,u]);
+  const r=await db.query(`SELECT * FROM public.avn_alimentos WHERE id=$1 AND ativo AND (usuario_id=$2 OR usuario_id IS NULL) AND (fonte<>'receita' OR usuario_id=$2)`,[i.alimento_id,u]);
   await impedirCiclo(db,u,receitaId,i.alimento_id);
   if(!r.rowCount)throw bad('Ingrediente ou receita não encontrado.',400);
   const f=r.rows[0];itens.push({alimento_id:f.id,nome_snapshot:f.nome,quantidade_g:g,ordem,composicao_100g:composicao(f)});somaPesos+=g;
