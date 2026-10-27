@@ -99,7 +99,7 @@ function renderDaily(){
 }
 function renderDiet(){
  if(!has('listaDieta'))return;
- const rows=state.dieta.filter(r=>Number(r.dia_semana)===state.dias);
+ const rows=state.dieta;
  const a=aggregate(rows);
  const grouped=Object.keys(MEALS).map(key=>[key,rows.filter(item=>item.refeicao===key)]).filter(([,items])=>items.length);
  $('listaDieta').innerHTML=rows.length?grouped.map(([key,items])=>{
@@ -113,7 +113,7 @@ function renderDiet(){
       '<div class="avn-dieta-acoes"><a href="#" data-editar-plano="'+esc(i.id)+'" aria-label="Editar '+esc(i.alimento_nome)+'">Editar</a>'+
       '<button type="button" class="delete" data-plano="'+esc(i.id)+'">Excluir</button></div></div>';
    }).join('')+'</div></section>';
- }).join(''):'<p class="muted">Nenhuma refeição programada para '+DAYS[state.dias]+'.</p>';
+ }).join(''):'<p class="muted">Nenhuma refeição programada.</p>';
  $('resumoDieta').textContent=rows.length?'Total planejado: '+fmt(a.total.kcal,0)+' kcal'+(a.miss.kcal?' (incompleto)':'')+' · '+fmt(a.total.proteinas_g)+' g proteína · '+fmt(a.total.carboidratos_g)+' g carboidratos · '+fmt(a.total.gorduras_g)+' g gorduras':'';
  $('listaDieta').querySelectorAll('[data-plano]').forEach(btn=>btn.onclick=async()=>{if(!confirm('Excluir item da dieta programada?'))return;try{await send('/dieta/'+state.usuarioId+'/itens/'+btn.dataset.plano,'DELETE');await loadDiet();show('Item removido da programação.');}catch(e){show(e.message,true);}});
  $('listaDieta').querySelectorAll('[data-editar-plano]').forEach(link=>link.onclick=e=>{
@@ -160,7 +160,7 @@ function invalidarImportacaoDieta(limparTexto=false){
  if(limparTexto)$('dietaTextoIngredientes').value='';
 }
 function destinoImportacaoDieta(){
- $('dietaDestinoImportacao').textContent='Destino: '+DAYS[state.dias]+' · '+(MEALS[v('dietaRefeicao')]||'Escolha uma refeição');
+ $('dietaDestinoImportacao').textContent='Dieta padrão · '+(MEALS[v('dietaRefeicao')]||'Escolha uma refeição');
 }
 function opcoesAlimentosDieta(alimentoId){
  return '<option value="">Selecione o alimento</option>'+dietaCatalogoImportacao.map(f=>'<option value="'+esc(f.id)+'"'+(String(f.id)===String(alimentoId)?' selected':'')+'>'+esc(f.nome)+(f.preparo?' · '+esc(f.preparo):'')+(f.marca?' · '+esc(f.marca):'')+'</option>').join('');
@@ -232,14 +232,14 @@ async function aplicarIngredientesDieta(){
  const dia=state.dias;
  const refeicao=v('dietaRefeicao');
  const botao=$('dietaAplicarImportacao');
- const locks=['usuario','diaDieta','dietaRefeicao','dietaTextoIngredientes','dietaInterpretarIngredientes'];
+ const locks=['usuario','dietaRefeicao','dietaTextoIngredientes','dietaInterpretarIngredientes'];
  dietaSalvandoImportacao=true;
  botao.disabled=true;
  locks.forEach(id=>$(id).disabled=true);
  $('dietaStatusImportacao').textContent='Salvando '+itens.length+' alimento(s) na refeição…';
  try{
   userGuard();
-  const resposta=await send('/dieta/'+encodeURIComponent(usuario)+'/itens/lote','POST',{dia_semana:dia,refeicao,itens});
+  const resposta=await send('/dieta/'+encodeURIComponent(usuario)+'/itens/lote','POST',{refeicao,itens});
   invalidarImportacaoDieta(true);
   await loadDiet();
   const mensagem=(resposta.inseridos||itens.length)+' alimento(s) adicionados a '+(MEALS[refeicao]||refeicao)+' de '+DAYS[dia]+'.';
@@ -254,16 +254,16 @@ let registrandoRefeicao=false;
 function renderPlannedMeal(){
  if(!has('refeicaoPlanejada'))return;
  const seletor=$('refeicaoPlanejada');
- const items=state.dieta.filter(i=>Number(i.dia_semana)===diaSemana(state.data));
+ const items=state.dieta;
  const keys=Object.keys(MEALS).filter(k=>items.some(i=>i.refeicao===k));
  const previous=seletor.value;
- seletor.innerHTML='<option value="">Escolha uma refeição do dia</option>'+
+ seletor.innerHTML='<option value="">Escolha uma refeição</option>'+
   keys.map(k=>'<option value="'+esc(k)+'">'+esc(MEALS[k])+'</option>').join('');
  seletor.value=keys.includes(previous)?previous:'';
  const area=$('itensRefeicaoPlanejada'), button=$('registrarRefeicao');
  button.disabled=true;
  if(!keys.length){
-  area.innerHTML='<p class="muted">Não há refeições planejadas para '+esc(DAYS[diaSemana(state.data)])+'.</p>';
+  area.innerHTML='<p class="muted">Não há refeições na dieta programada.</p>';
   return;
  }
  if(!seletor.value){
@@ -396,20 +396,23 @@ function configurarIA(){
 function events(){
  $('usuario').onchange=async()=>{if(PAGE==='dieta'){invalidarImportacaoDieta(true);dietaCatalogoImportacao=[];}state.usuarioId=v('usuario');localStorage.setItem('avn_nutricao_usuario',state.usuarioId);try{await reload();}catch(e){show(e.message,true);}};
  if(PAGE==='diario'){
+ $('abrirModalDiario').onclick=()=>$('modalAdicionarDiario').showModal();
+ $('fecharModalDiario').onclick=()=>$('modalAdicionarDiario').close();
  $('mostrarTodosMicros').onchange=renderDaily;
  $('dataDiario').onchange=async()=>{state.data=v('dataDiario');$('refeicaoPlanejada').value='';try{await Promise.all([loadDaily(),loadDiet()]);}catch(e){show(e.message,true);}};
- $('formDiario').onsubmit=async e=>{e.preventDefault();try{userGuard();await send('/diario/'+state.usuarioId,'POST',{data:state.data,alimento_id:v('diarioAlimento'),refeicao:v('diarioRefeicao'),quantidade_g:Number(v('diarioGramas'))});await loadDaily();show('Alimento registrado no diário.');}catch(err){show(err.message,true);}};
+ $('formDiario').onsubmit=async e=>{e.preventDefault();try{userGuard();await send('/diario/'+state.usuarioId,'POST',{data:state.data,alimento_id:v('diarioAlimento'),refeicao:v('diarioRefeicao'),quantidade_g:Number(v('diarioGramas'))});await loadDaily();$('modalAdicionarDiario').close();show('Alimento registrado no diário.');}catch(err){show(err.message,true);}};
  $('refeicaoPlanejada').onchange=renderPlannedMeal;
  $('registrarRefeicao').onclick=registrarRefeicaoPlanejada;
  }
  if(PAGE==='dieta'){
- $('diaDieta').onchange=()=>{state.dias=Number(v('diaDieta'));invalidarImportacaoDieta();destinoImportacaoDieta();renderDiet();};
+ $('abrirModalDieta').onclick=()=>$('modalAdicionarDieta').showModal();
+ $('fecharModalDieta').onclick=()=>$('modalAdicionarDieta').close();
  $('dietaRefeicao').onchange=()=>{invalidarImportacaoDieta();destinoImportacaoDieta();};
  $('dietaTextoIngredientes').oninput=()=>invalidarImportacaoDieta();
  $('dietaInterpretarIngredientes').onclick=interpretarIngredientesDieta;
  $('dietaAplicarImportacao').onclick=aplicarIngredientesDieta;
  destinoImportacaoDieta();
- $('formDieta').onsubmit=async e=>{e.preventDefault();try{userGuard();await send('/dieta/'+state.usuarioId+'/itens','POST',{dia_semana:state.dias,alimento_id:v('dietaAlimento'),refeicao:v('dietaRefeicao'),quantidade_g:Number(v('dietaGramas'))});await loadDiet();show('Item adicionado à programação.');}catch(err){show(err.message,true);}};
+ $('formDieta').onsubmit=async e=>{e.preventDefault();try{userGuard();await send('/dieta/'+state.usuarioId+'/itens','POST',{alimento_id:v('dietaAlimento'),refeicao:v('dietaRefeicao'),quantidade_g:Number(v('dietaGramas'))});await loadDiet();$('modalAdicionarDieta').close();show('Item adicionado à programação.');}catch(err){show(err.message,true);}};
  }
  if(PAGE==='alimentos'){
  $('abrirModalAlimento').onclick=()=>{fillFood(null);$('modalAlimento').showModal();};
@@ -430,6 +433,6 @@ function events(){
  $('buscaMicroMetas').oninput=()=>filtrarNutrientes('camposMicroMetas','buscaMicroMetas');
  $('formMetas').onsubmit=async e=>{e.preventDefault();try{userGuard();const b={micros:getMicros('metamicro')};for(const [key] of MACROS)b[key]=numberOrNull('meta_'+key);await send('/metas/'+state.usuarioId,'PUT',b);await loadGoals();renderDaily();show('Metas atualizadas.');}catch(err){show(err.message,true);}}; }
 }
-async function init(){try{await loadNutrients();inputs();state.data=localDate();if(has('dataDiario'))$('dataDiario').value=state.data;state.dias=diaSemana(state.data);if(has('diaDieta'))$('diaDieta').value=String(state.dias);events();await startUsers();}catch(e){show(e.message,true);}}
+async function init(){try{await loadNutrients();inputs();state.data=localDate();if(has('dataDiario'))$('dataDiario').value=state.data;state.dias=diaSemana(state.data);events();await startUsers();}catch(e){show(e.message,true);}}
 init();
 })();
