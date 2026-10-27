@@ -100,6 +100,15 @@ function renderDaily(){
  const target=state.metas.micros?.[key];return `<div class="micro-item"><small>${label}</small><strong>${val}</strong><small>${target!=null?'Meta: '+fmt(target)+' '+unit:'Sem meta'}${a.miss[key]?' · incompleto':''}</small></div>`;
  }).join('') || '<p class="muted">Não há informações de micronutrientes cadastradas para os itens consumidos.</p>';
 }
+function resumoMacrosProgramados(dados,descricao){
+ const macros=[['kcal','Energia','kcal',0],['proteinas_g','Proteínas','g',1],['carboidratos_g','Carboidratos','g',1],['gorduras_g','Gorduras','g',1],['fibras_g','Fibras','g',1]];
+ return '<div class="avn-dieta-macros-inline" aria-label="'+esc(descricao)+'">'+macros.map(([key,nome,unidade,casas])=>{
+  const semDado=dados.count>0&&dados.miss[key]===dados.count;
+  const parcial=dados.miss[key]>0&&!semDado;
+  const valor=semDado?'Sem dado':fmt(dados.total[key],casas)+' '+unidade+(parcial?'*':'');
+  return '<span><b>'+nome+':</b> '+valor+'</span>';
+ }).join('')+'</div>';
+}
 function renderDiet(){
  if(!has('listaDieta'))return;
  const rows=state.dieta;
@@ -109,13 +118,18 @@ function renderDiet(){
   const subtotal=aggregate(items);
   return '<section class="avn-dieta-refeicao" aria-label="'+esc(MEALS[key])+'">'+
    '<div class="avn-dieta-refeicao-cabecalho"><h4><a href="#" data-macro-meal="'+esc(key)+'" data-macro-source="dieta">'+esc(MEALS[key])+'</a></h4>'+
-   '<span>'+items.length+' alimento(s) · '+fmt(subtotal.total.kcal,0)+' kcal'+(subtotal.miss.kcal?'*':'')+'</span></div>'+
+   '<span>'+items.length+' alimento(s)</span></div>'+
    '<div class="avn-dieta-refeicao-itens">'+items.map(i=>{
-    const kcal=i.kcal_100g==null?'Energia desconhecida':fmt(Number(i.kcal_100g)*Number(i.quantidade_g)/100,0)+' kcal';
-    return '<div class="list-row avn-dieta-linha" data-dieta-item="'+esc(i.id)+'"><div><span class="name">'+esc(i.alimento_nome)+'</span><small>'+fmt(i.quantidade_g)+' g · '+kcal+'</small></div>'+
+    const nutrientes=aggregate([i]);
+    return '<div class="list-row avn-dieta-linha" data-dieta-item="'+esc(i.id)+'"><div><a href="#" class="name avn-dieta-alimento-link" data-macro-food="'+esc(i.id)+'" aria-label="Ver macronutrientes de '+esc(i.alimento_nome)+'">'+esc(i.alimento_nome)+'</a>'+
+      '<small>'+fmt(i.quantidade_g)+' g programados</small>'+
+      resumoMacrosProgramados(nutrientes,'Macronutrientes de '+i.alimento_nome)+'</div>'+
       '<div class="avn-dieta-acoes"><a href="#" data-editar-plano="'+esc(i.id)+'" aria-label="Editar '+esc(i.alimento_nome)+'">Editar</a>'+
       '<button type="button" class="delete" data-plano="'+esc(i.id)+'">Excluir</button></div></div>';
-   }).join('')+'</div></section>';
+   }).join('')+'</div>'+
+   '<div class="avn-dieta-totais-refeicao">'+resumoMacrosProgramados(subtotal,'Total de macronutrientes de '+MEALS[key])+
+   (Object.values(subtotal.miss).some(n=>n>0)?'<small class="muted">* Alguns valores nutricionais estão incompletos.</small>':'')+
+   '</div></section>';
  }).join(''):'<p class="muted">Nenhuma refeição programada.</p>';
  $('resumoDieta').innerHTML=MACROS.slice(0,4).map(([key,label,unit])=>{
   const unknown=rows.length>0&&a.miss[key]===rows.length;
@@ -590,21 +604,35 @@ let editandoConsumoId=null;
 function abrirMacroRefeicao(refeicao,tipo){
  const itens=(tipo==='dieta'?state.dieta:state.diario).filter(i=>i.refeicao===refeicao);
  if(!itens.length)return;
+ exibirModalMacros(itens,(MEALS[refeicao]||refeicao)+' · '+(tipo==='dieta'?'Dieta programada':'Consumo real'));
+}
+function abrirMacroAlimento(id){
+ const item=state.dieta.find(i=>String(i.id)===String(id));
+ if(!item)return;
+ exibirModalMacros([item],item.alimento_nome+' · '+fmt(item.quantidade_g,1)+' g · Dieta programada');
+}
+function exibirModalMacros(itens,titulo){
  const a=aggregate(itens),p=a.total.proteinas_g*4,c=a.total.carboidratos_g*4,g=a.total.gorduras_g*9;
  const partes=[['Proteínas',p,a.total.proteinas_g,'#2782ac'],['Carboidratos',c,a.total.carboidratos_g,'#efaa4b'],['Gorduras',g,a.total.gorduras_g,'#65ad88']];
  const total=p+c+g;let pos=0;
  const cor=partes.map(x=>{const inicio=total?pos/total*100:0;pos+=x[1];return x[3]+' '+inicio+'% '+(total?pos/total*100:0)+'%';}).join(',');
- $('tituloMacros').textContent=(MEALS[refeicao]||refeicao)+' · '+(tipo==='dieta'?'Dieta programada':'Consumo real');
- $('conteudoMacros').innerHTML='<p>Energia: '+fmt(a.total.kcal,0)+' kcal · Fibras: '+fmt(a.total.fibras_g)+' g</p>'+
+ $('tituloMacros').textContent=titulo;
+ const valor=(chave,unidade,casas=1)=>a.miss[chave]===itens.length?'Sem dado':fmt(a.total[chave],casas)+' '+unidade+(a.miss[chave]?'*':'');
+ $('conteudoMacros').innerHTML='<p>Energia: '+valor('kcal','kcal',0)+' · Fibras: '+valor('fibras_g','g')+'</p>'+
  (total>0?'<div class="avn-meal-ring" role="img" aria-label="Distribuição energética dos macros" style="background:conic-gradient('+cor+')"></div>':'<p class="muted">Sem dados suficientes para gerar o gráfico.</p>')+
- '<div class="avn-meal-legend">'+partes.map(x=>'<div><i style="background:'+x[3]+'"></i>'+x[0]+': '+fmt(x[2])+' g ('+(total?fmt(x[1]*100/total,1):0)+'%)</div>').join('')+'</div>'+
+ '<div class="avn-meal-legend">'+partes.map(x=>'<div><i style="background:'+x[3]+'"></i>'+x[0]+': '+(a.miss[{Proteínas:'proteinas_g',Carboidratos:'carboidratos_g',Gorduras:'gorduras_g'}[x[0]]]===itens.length?'Sem dado':fmt(x[2])+' g')+' ('+(total?fmt(x[1]*100/total,1):0)+'%)</div>').join('')+'</div>'+
  (['kcal','proteinas_g','carboidratos_g','gorduras_g','fibras_g'].some(k=>a.miss[k])?'<p class="muted">Alguns alimentos não têm todos os valores nutricionais informados.</p>':'');
  $('modalMacros').showModal();
 }
 function events(){
  if(has('fecharMacros')){
   $('fecharMacros').onclick=()=>$('modalMacros').close();
-  document.addEventListener('click',e=>{const b=e.target.closest('[data-macro-meal]');if(!b)return;e.preventDefault();abrirMacroRefeicao(b.dataset.macroMeal,b.dataset.macroSource);});
+  document.addEventListener('click',e=>{
+   const alimento=e.target.closest('[data-macro-food]');
+   if(PAGE==='dieta'&&alimento){e.preventDefault();abrirMacroAlimento(alimento.dataset.macroFood);return;}
+   const refeicao=e.target.closest('[data-macro-meal]');
+   if(refeicao){e.preventDefault();abrirMacroRefeicao(refeicao.dataset.macroMeal,refeicao.dataset.macroSource);}
+  });
 }
 
  $('usuario').onchange=async()=>{if(PAGE==='dieta'){invalidarImportacaoDieta(true);dietaCatalogoImportacao=[];}state.usuarioId=v('usuario');metaPendente=null;historicoMetas=[];if(has('modalCalculadoraGkg')&&$('modalCalculadoraGkg').open)$('modalCalculadoraGkg').close();if(has('modalHistoricoMetas')&&$('modalHistoricoMetas').open)$('modalHistoricoMetas').close();localStorage.setItem('avn_nutricao_usuario',state.usuarioId);try{await reload();}catch(e){show(e.message,true);}};

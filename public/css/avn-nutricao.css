@@ -284,6 +284,15 @@ body[data-nutricao-pagina="dieta"] .avn-dieta-refeicao-cabecalho span{color:#b8c
 body[data-nutricao-pagina="dieta"] .avn-dieta-refeicao-itens{display:grid;gap:7px}
 body[data-nutricao-pagina="dieta"] .avn-dieta-linha{background:#1a2a3f;border-color:#394e66;gap:10px;flex-wrap:wrap;min-width:0}
 body[data-nutricao-pagina="dieta"] .avn-dieta-linha>div:first-child{min-width:0;flex:1 1 175px;overflow-wrap:anywhere}
+body[data-nutricao-pagina="dieta"] .avn-dieta-alimento-link{display:inline-block;color:#a9d3ff;text-decoration:underline;text-underline-offset:3px}
+body[data-nutricao-pagina="dieta"] .avn-dieta-alimento-link:focus-visible{outline:2px solid #a9d3ff;outline-offset:3px;border-radius:2px}
+body[data-nutricao-pagina="dieta"] .avn-dieta-macros-inline{display:flex;flex-wrap:wrap;align-items:center;gap:3px 13px;font-size:12px;line-height:1.5;color:#d3e1f2;margin-top:3px}
+body[data-nutricao-pagina="dieta"] .avn-dieta-macros-inline span{white-space:nowrap}
+body[data-nutricao-pagina="dieta"] .avn-dieta-macros-inline b{font-weight:650;color:#f1f6ff}
+body[data-nutricao-pagina="dieta"] .avn-dieta-totais-refeicao{margin-top:11px;padding:10px 2px 0;border-top:1px solid #40536c}
+body[data-nutricao-pagina="dieta"] .avn-dieta-totais-refeicao .avn-dieta-macros-inline{font-size:13px}
+body[data-nutricao-pagina="dieta"] .avn-dieta-totais-refeicao>small{display:block;margin-top:5px}
+
 body[data-nutricao-pagina="dieta"] .avn-dieta-acoes{display:flex;align-items:center;gap:10px;flex:none}
 body[data-nutricao-pagina="dieta"] .avn-dieta-acoes a{color:#91c2ff;font-size:13px;font-weight:750;text-decoration:underline;text-underline-offset:3px}
 body[data-nutricao-pagina="dieta"] .avn-dieta-edicao{width:100%;display:grid;gap:11px;grid-template-columns:repeat(2,minmax(0,1fr));align-items:end}
