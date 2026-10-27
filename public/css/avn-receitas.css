@@ -132,3 +132,15 @@ dialog.receita-modal-detalhe{width:min(1360px,calc(100% - 24px))}
 /* Micronutrientes com informação parcial claramente identificada */
 .receita-micro-parcial{display:inline-block;margin-left:6px;padding:2px 5px;border:1px solid #886c45;border-radius:5px;background:#443a2c;color:#f5daa8!important;font-size:.72rem;font-weight:600;vertical-align:middle}
 .receita-micro-aviso{margin:16px 0 0;line-height:1.5;font-size:.81rem}
+
+/* Ações do editor e diálogos empilhados */
+.receita-head-acoes{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.receita-head-acoes button{font-size:.88rem}
+.receita-ingredientes-head{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.receita-ingredientes-head h3{margin:8px 0}
+button.receita-info{position:relative;display:inline-flex;align-items:center;justify-content:center;padding:2px 6px;min-height:27px;min-width:27px;border:1px solid #526e94;border-radius:50%;background:#29415d;color:#daedff;cursor:help;font-size:.82rem;vertical-align:middle}
+button.receita-info:hover::after,button.receita-info:focus::after{content:attr(data-dica);position:absolute;z-index:10;left:0;bottom:calc(100% + 8px);width:min(300px,75vw);padding:12px;border:1px solid #59779e;border-radius:8px;background:#15283d;color:#f1f5ff;font:400 .82rem/1.5 system-ui;white-space:normal;text-align:left;box-shadow:0 5px 18px #0007}
+dialog.receita-modal-secundario{width:min(780px,calc(100% - 24px))}
+dialog.receita-modal-secundario .receita-importador{margin:0}
+dialog.receita-modal-secundario .receita-resultado{margin:0}
+@media(max-width:620px){.receita-modal-head{align-items:flex-start;flex-wrap:wrap}.receita-head-acoes{width:100%;justify-content:flex-start}.receita-head-acoes button{flex:1 1 auto}.receita-modal-secundario{max-height:calc(100dvh - 16px)}}
