@@ -83,9 +83,53 @@ function payload(){const itens=[...document.querySelectorAll('.receita-linha')].
 function comp(f){return {kcal:f.kcal_100g,proteinas_g:f.proteinas_g_100g,carboidratos_g:f.carboidratos_g_100g,gorduras_g:f.gorduras_g_100g,fibras_g:f.fibras_g_100g,micros:f.micronutrientes_100g||{}};}
 function calcLocal(data){const rows=data.ingredientes.map(i=>({quantidade_g:Number(i.quantidade_g),composicao_100g:comp(alimentos.find(f=>String(f.id)===String(i.alimento_id))||{})}));const renda=Number(data.rendimento_g);if(!(renda>0))throw Error('Informe o peso final pronto.');const out={};const keys=[['kcal','Energia','kcal'],['proteinas_g','Proteínas','g'],['carboidratos_g','Carboidratos','g'],['gorduras_g','Gorduras','g'],['fibras_g','Fibras','g'],...nutrientes.map(n=>[n.codigo,n.nome,n.unidade])];for(const [key,label,unit] of keys){let sum=0,ok=true;for(const r of rows){const v=key in r.composicao_100g?r.composicao_100g[key]:r.composicao_100g.micros[key];if(v===null||v===undefined||v===''){ok=false;continue;}sum+=Number(v)*r.quantidade_g/100;}out[key]={label,unit,val:ok?sum*100/renda:null};}return out;}
 function resultado(o){$('resultado').innerHTML='<h3>Composição estimada por 100 g da receita pronta</h3><table><thead><tr><th>Nutriente</th><th>Valor</th></tr></thead><tbody>'+Object.values(o).map(x=>`<tr><td>${esc(x.label)}</td><td>${x.val==null?'<span class="muted">Sem dado</span>':Number(x.val).toLocaleString('pt-BR',{maximumFractionDigits:3})+' '+esc(x.unit)}</td></tr>`).join('')+'</tbody></table>';$('resultado').scrollIntoView({behavior:'smooth',block:'nearest'});}
-async function listar(){receitas=await api('/receitas?usuarioId='+usuarioId);$('listaReceitas').innerHTML=receitas.length?receitas.map(r=>`<div class="list-row"><div><strong>${esc(r.nome)}</strong><small>Rendimento ${Number(r.rendimento_g).toLocaleString('pt-BR')} g · ${r.kcal_100g==null?'calorias desconhecidas':Number(r.kcal_100g).toLocaleString('pt-BR',{maximumFractionDigits:1})+' kcal/100 g'}</small></div><button type="button" class="secondary" data-id="${r.id}">Editar</button></div>`).join(''):'<p class="muted">Nenhuma receita cadastrada.</p>';$('listaReceitas').querySelectorAll('button[data-id]').forEach(b=>b.onclick=()=>editar(b.dataset.id));}
+const fmt=(x,p=1)=>Number(x).toLocaleString('pt-BR',{maximumFractionDigits:p});
+async function listar(){
+ const usuario=usuarioId, dados=await api('/receitas?usuarioId='+usuario);
+ if(usuario!==usuarioId)return;
+ receitas=dados;
+ $('listaReceitas').innerHTML=receitas.length?receitas.map(r=>`<div class="list-row receita-lista-linha"><div class="receita-lista-info"><button type="button" class="receita-nome" data-ver-id="${r.id}">${esc(r.nome)}</button><small>Rendimento ${fmt(r.rendimento_g)} g · ${r.kcal_100g==null?'calorias desconhecidas':fmt(r.kcal_100g)+' kcal/100 g'}</small></div><button type="button" class="secondary" data-id="${r.id}">Editar</button></div>`).join(''):'<p class="muted">Nenhuma receita cadastrada.</p>';
+ $('listaReceitas').querySelectorAll('[data-ver-id]').forEach(b=>b.onclick=()=>ver(b.dataset.verId));
+ $('listaReceitas').querySelectorAll('button[data-id]').forEach(b=>b.onclick=()=>editar(b.dataset.id));
+}
+function graficoMacros(r){
+ const campos=[{chave:'proteinas_g_100g',nome:'Proteínas',cls:'proteina',cor:'#60a5fa',fator:4},{chave:'carboidratos_g_100g',nome:'Carboidratos',cls:'carboidrato',cor:'#fbbf24',fator:4},{chave:'gorduras_g_100g',nome:'Gorduras',cls:'gordura',cor:'#a78bfa',fator:9}];
+ const completo=campos.every(c=>r[c.chave]!=null&&Number.isFinite(Number(r[c.chave]))&&Number(r[c.chave])>=0);
+ const total=completo?campos.reduce((s,c)=>s+Number(r[c.chave])*c.fator,0):0;
+ let visual='<p class="muted receita-sem-grafico">Dados insuficientes para calcular a distribuição dos macronutrientes.</p>';
+ if(total>0){
+  const p1=Number(r.proteinas_g_100g)*4/total*100,p2=Number(r.carboidratos_g_100g)*4/total*100;
+  const limite1=p1.toFixed(4),limite2=(p1+p2).toFixed(4);
+  const etiqueta=campos.map(c=>c.nome+' '+fmt(Number(r[c.chave])*c.fator/total*100)+'%').join(', ');
+  visual=`<div class="receita-grafico" role="img" aria-label="Distribuição energética por 100 g: ${esc(etiqueta)}" style="background:conic-gradient(#60a5fa 0 ${limite1}%,#fbbf24 ${limite1}% ${limite2}%,#a78bfa ${limite2}% 100%)"><span>Macros</span></div>`;
+ }else if(completo)visual='<p class="muted receita-sem-grafico">Sem energia proveniente de macronutrientes para representar.</p>';
+ const legenda=campos.map(c=>`<div class="receita-macro-linha"><span class="receita-macro-rotulo"><i class="receita-cor ${c.cls}" aria-hidden="true"></i>${c.nome}</span><strong>${r[c.chave]==null?'Sem dado':fmt(r[c.chave])+' g'}</strong></div>`).join('');
+ return `<h3>Macronutrientes por 100 g</h3><p class="receita-energia">${r.kcal_100g==null?'Energia sem dado':fmt(r.kcal_100g)+' kcal'}</p>${visual}<div class="receita-macros-legenda">${legenda}</div><p class="muted receita-grafico-nota">Proporções energéticas estimadas: 4 kcal/g de proteínas e carboidratos; 9 kcal/g de gorduras.</p>`;
+}
+async function ver(id){
+ const usuario=usuarioId;
+ try{
+  const r=await api('/receitas/'+id+'?usuarioId='+usuario);
+  if(usuario!==usuarioId)return;
+  const resumo=receitas.find(x=>String(x.id)===String(id));
+  const macros=resumo?graficoMacros(resumo):'<p class="muted">Composição nutricional indisponível.</p>';
+  const ingredientes=Array.isArray(r.ingredientes)?r.ingredientes:[];
+  const total=ingredientes.reduce((s,i)=>s+Number(i.quantidade_g||0),0);
+  $('detalheTitulo').textContent=r.nome;
+  $('detalheConteudo').innerHTML=`<div class="receita-detalhe-grid">
+   <section class="receita-macros" aria-label="Gráfico nutricional">${macros}</section>
+   <section class="receita-descricao"><h3>Ingredientes</h3>
+    <p class="receita-pesos"><strong>Ingredientes:</strong> ${fmt(total,3)} g<br><strong>Rendimento pronto:</strong> ${fmt(r.rendimento_g,3)} g</p>
+    <ul class="receita-ingredientes-detalhe">${ingredientes.map(i=>`<li><span>${esc(i.nome_snapshot||'Ingrediente')}</span><strong>${fmt(i.quantidade_g,3)} g</strong></li>`).join('')}</ul>
+    <p class="receita-preparo"><strong>Preparo:</strong> ${esc(r.preparo||'Não informado')}</p>
+    <button type="button" class="secondary" id="editarDoDetalhe">Editar receita</button>
+   </section></div>`;
+  $('editarDoDetalhe').onclick=()=>editar(id);
+  if(!$('modalDetalheReceita').open)$('modalDetalheReceita').showModal();
+ }catch(e){alertar(e.message,true);}
+}
 function nova(){limparImportador();editId=null;$('titulo').textContent='Nova receita';$('nome').value='';$('preparo').value='';$('rendimento').value='';$('ingredientes').innerHTML='';$('resultado').innerHTML='';addRow();}
-async function editar(id){try{const r=await api('/receitas/'+id+'?usuarioId='+usuarioId);limparImportador();editId=id;$('titulo').textContent='Editar receita';$('nome').value=r.nome;$('preparo').value=r.preparo||'';$('rendimento').value=r.rendimento_g;$('ingredientes').innerHTML='';r.ingredientes.forEach(i=>addRow(i.alimento_id,i.quantidade_g));$('resultado').innerHTML='';}catch(e){alertar(e.message,true)}}
-async function init(){try{const r=await fetch('/api/avn/usuarios',{credentials:'same-origin'});if(!r.ok)throw Error('Erro ao buscar usuários.');const users=await r.json();$('usuario').innerHTML=users.map(u=>`<option value="${u.id}">${esc(u.nome)}</option>`).join('');const stored=localStorage.getItem('avn_treinos_usuario');$('usuario').value=users.some(u=>String(u.id)===stored)?stored:users[0]?.id||'';$('usuario').onchange=()=>carregar();$('nova').onclick=nova;$('adicionar').onclick=()=>addRow();$('interpretarReceita').onclick=interpretarReceita;$('aplicarImportacao').onclick=aplicarImportacao;$('textoReceita').oninput=()=>{importacaoRevision++;$('revisaoImportacao').hidden=true;$('aplicarImportacao').hidden=true;$('statusImportacao').textContent='';};$('calcular').onclick=()=>{try{resultado(calcLocal(payload()))}catch(e){alertar(e.message,true)}};$('form').onsubmit=async e=>{e.preventDefault();try{const body=payload();await api('/receitas'+(editId?'/'+editId:''),{method:editId?'PUT':'POST',body:JSON.stringify(body)});alertar('Receita salva. Ela já está disponível na Dieta programada e no Diário alimentar.');await carregar();}catch(err){alertar(err.message,true)}};await carregar();}catch(e){alertar(e.message,true)}}
+async function editar(id){const usuario=usuarioId;try{const r=await api('/receitas/'+id+'?usuarioId='+usuario);if(usuario!==usuarioId)return;limparImportador();editId=id;$('titulo').textContent='Editar receita';$('nome').value=r.nome;$('preparo').value=r.preparo||'';$('rendimento').value=r.rendimento_g;$('ingredientes').innerHTML='';r.ingredientes.forEach(i=>addRow(i.alimento_id,i.quantidade_g));$('resultado').innerHTML='';if($('modalDetalheReceita').open)$('modalDetalheReceita').close();if(!$('modalReceita').open)$('modalReceita').showModal();}catch(e){alertar(e.message,true)}}
+async function init(){try{const r=await fetch('/api/avn/usuarios',{credentials:'same-origin'});if(!r.ok)throw Error('Erro ao buscar usuários.');const users=await r.json();$('usuario').innerHTML=users.map(u=>`<option value="${u.id}">${esc(u.nome)}</option>`).join('');const stored=localStorage.getItem('avn_treinos_usuario');$('usuario').value=users.some(u=>String(u.id)===stored)?stored:users[0]?.id||'';$('usuario').onchange=()=>{if($('modalReceita').open)$('modalReceita').close();if($('modalDetalheReceita').open)$('modalDetalheReceita').close();carregar()};$('nova').onclick=()=>{nova();$('modalReceita').showModal()};$('fecharModalReceita').onclick=()=>$('modalReceita').close();$('fecharDetalheReceita').onclick=()=>$('modalDetalheReceita').close();$('adicionar').onclick=()=>addRow();$('interpretarReceita').onclick=interpretarReceita;$('aplicarImportacao').onclick=aplicarImportacao;$('textoReceita').oninput=()=>{importacaoRevision++;$('revisaoImportacao').hidden=true;$('aplicarImportacao').hidden=true;$('statusImportacao').textContent='';};$('calcular').onclick=()=>{try{resultado(calcLocal(payload()))}catch(e){alertar(e.message,true)}};$('form').onsubmit=async e=>{e.preventDefault();try{const body=payload();await api('/receitas'+(editId?'/'+editId:''),{method:editId?'PUT':'POST',body:JSON.stringify(body)});alertar('Receita salva. Ela já está disponível na Dieta programada e no Diário alimentar.');$('modalReceita').close();await carregar();}catch(err){alertar(err.message,true)}};await carregar();}catch(e){alertar(e.message,true)}}
 async function carregar(){usuarioId=$('usuario').value;if(!usuarioId)return;nova();alimentos=await api('/receitas/catalogo?usuarioId='+usuarioId);nutrientes=(await api('/nutrientes')).micros;await listar();}
 init();})();

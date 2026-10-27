@@ -63,3 +63,43 @@ a{color:#8ec1ff}table th,table td{border-color:#34465f!important}hr,.tabs,.avn-t
  .receita-importador .importador-item{grid-template-columns:auto minmax(0,1fr)}
  .receita-importador .importador-item .campo-peso{grid-column:2}
 }
+
+/* Receitas: lista limpa e editor/detalhes em modais independentes */
+.receitas-layout{display:block;max-width:1140px;margin:16px auto}
+.receitas-lista{width:100%;min-width:0}
+.receita-lista-linha{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.receita-lista-info{display:grid;gap:5px;min-width:0}
+.receita-nome{font:inherit;font-weight:700;font-size:1.05rem;color:#a9d1ff!important;background:transparent!important;border:0!important;padding:0;text-align:left;cursor:pointer;overflow-wrap:anywhere}
+.receita-nome:hover{text-decoration:underline}
+.receita-nome:focus-visible{outline:2px solid #80c4ff;outline-offset:4px}
+dialog.receita-modal{position:fixed;inset:0;margin:auto;width:min(900px,calc(100% - 24px));max-width:none;max-height:calc(100dvh - 30px);overflow:auto;padding:0;border:1px solid #435775;border-radius:14px;background:#182437;color:#ecf2fc;box-shadow:0 20px 65px #0009}
+dialog.receita-modal::backdrop{background:#020812c9}
+dialog.receita-modal-detalhe{width:min(1080px,calc(100% - 24px))}
+.receita-modal-head{display:flex;align-items:center;justify-content:space-between;gap:15px;position:sticky;top:0;z-index:2;padding:17px 22px;background:#1d3049;border-bottom:1px solid #435775}
+.receita-modal-head h2{font-size:1.25rem;margin:0;overflow-wrap:anywhere}
+.receita-modal-conteudo{padding:20px 22px 26px;min-width:0}
+.receita-modal .receita-linha{background:#142237!important;color:#ecf2fc;border-color:#435775}
+.receita-modal .receita-resultado,.receita-modal .receita-resultado table{background:#182437;color:#ecf2fc}
+.receita-modal .receita-resultado thead th{background:#263f5c;color:#eff6ff}
+.receita-modal .receita-resultado tbody td{background:#182437;color:#ecf2fc}
+.receita-detalhe-grid{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:22px}
+.receita-detalhe-grid>section{min-width:0;background:#142237;border:1px solid #435775;border-radius:12px;padding:20px}
+.receita-detalhe-grid h3{margin:0 0 14px}
+.receita-energia{font-size:1.25rem;font-weight:750;color:#edf5ff!important;margin:0 0 15px}
+.receita-grafico{width:min(235px,100%);aspect-ratio:1;border-radius:50%;margin:12px auto 22px;display:grid;place-items:center;position:relative}
+.receita-grafico::before{content:"";position:absolute;inset:23%;border-radius:50%;background:#142237}
+.receita-grafico span{position:relative;font-weight:700;color:#f1f5ff}
+.receita-macros-legenda{display:grid;gap:10px}
+.receita-macro-linha{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid #34465f}
+.receita-macro-rotulo{display:inline-flex;align-items:center;gap:10px}
+.receita-cor{display:inline-block;width:13px;height:13px;border-radius:4px}
+.receita-cor.proteina{background:#60a5fa}.receita-cor.carboidrato{background:#fbbf24}.receita-cor.gordura{background:#a78bfa}
+.receita-grafico-nota{font-size:.78rem;line-height:1.5;margin:16px 0 0}
+.receita-sem-grafico{padding:20px;border:1px dashed #435775;border-radius:10px}
+.receita-pesos{line-height:1.8;margin:0 0 14px}
+.receita-ingredientes-detalhe{list-style:none;margin:0 0 18px;padding:0;display:grid;gap:0}
+.receita-ingredientes-detalhe li{display:flex;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid #34465f}
+.receita-ingredientes-detalhe li span{overflow-wrap:anywhere}
+.receita-ingredientes-detalhe li strong{flex:none;white-space:nowrap}
+.receita-preparo{overflow-wrap:anywhere}
+@media(max-width:720px){.receita-detalhe-grid{grid-template-columns:1fr}.receita-modal-conteudo{padding:14px}.receita-modal-head{padding:12px 14px}.receita-detalhe-grid>section{padding:15px}.receita-lista-linha{align-items:flex-start}.receita-grafico{width:min(210px,100%)}}
