@@ -10,6 +10,18 @@ const route=fn=>async(req,res)=>{try{await fn(req,res);}catch(e){console.error('
 const uid=v=>{if(!id(v))throw bad('Selecione um usuário válido.');return String(v);};
 async function usuarioExiste(db,u){if(!(await db.query('SELECT 1 FROM public.avn_usuario WHERE id=$1',[u])).rowCount)throw bad('Usuário não encontrado.',404);}
 
+
+async function composicaoDeIngrediente(db,alimento,usuario,codigos){
+ const comp=composicao(alimento);
+ if(alimento.fonte!=='receita')return comp;
+ const r=await db.query('SELECT id,rendimento_g FROM public.avn_receitas WHERE alimento_id=$1 AND usuario_id=$2',[alimento.id,usuario]);
+ if(!r.rowCount)throw bad('Receita utilizada como ingrediente não encontrada.');
+ const itens=await db.query('SELECT quantidade_g,composicao_100g FROM public.avn_receita_ingredientes WHERE receita_id=$1',[r.rows[0].id]);
+ const micros=micronutrientesDisponiveis(itens.rows,Number(r.rows[0].rendimento_g),codigos);
+ comp.micros=micros.por100g;
+ comp.micros_parciais=micros.parciais;
+ return comp;
+}
 async function impedirCiclo(db,usuario,receitaId,alimentoId){
  if(!receitaId)return;
  const r=await db.query(`WITH RECURSIVE descendentes(id,caminho) AS (
@@ -39,8 +51,11 @@ async function recalcularDependentes(db,origemId,origemAlimentoId,usuario,codigo
   if(!rr.rowCount)continue;
   const ing=await db.query(`SELECT ri.id AS item_id,ri.quantidade_g,a.* FROM public.avn_receita_ingredientes ri
     JOIN public.avn_alimentos a ON a.id=ri.alimento_id WHERE ri.receita_id=$1 ORDER BY ri.ordem,ri.id`,[dep.id]);
-  const itens=ing.rows.map(a=>({quantidade_g:Number(a.quantidade_g),composicao_100g:composicao(a)}));
-  const calc=calcular(itens,Number(rr.rows[0].rendimento_g),codigos);
+  const itens=[];
+  for(const a of ing.rows)itens.push({quantidade_g:Number(a.quantidade_g),composicao_100g:await composicaoDeIngrediente(db,a,usuario,codigos)});
+  const rendimento=Number(rr.rows[0].rendimento_g);
+  const calc=calcular(itens,rendimento,codigos);
+  const micros=micronutrientesDisponiveis(itens,rendimento,codigos);
   for(let i=0;i<ing.rows.length;i++){
    const row=ing.rows[i];
    await db.query(`UPDATE public.avn_receita_ingredientes SET composicao_100g=$1::jsonb,nome_snapshot=$2 WHERE id=$3`,
@@ -50,7 +65,7 @@ async function recalcularDependentes(db,origemId,origemAlimentoId,usuario,codigo
    proteinas_g_100g=$4,carboidratos_g_100g=$5,gorduras_g_100g=$6,fibras_g_100g=$7,
    micronutrientes_100g=$8::jsonb,atualizado_em=NOW() WHERE id=$9 AND usuario_id=$10`,
    [rr.rows[0].nome,rr.rows[0].preparo,calc.kcal_100g,calc.proteinas_g_100g,calc.carboidratos_g_100g,
-    calc.gorduras_g_100g,calc.fibras_g_100g,JSON.stringify(calc.micronutrientes_100g),rr.rows[0].alimento_id,usuario]);
+    calc.gorduras_g_100g,calc.fibras_g_100g,JSON.stringify(micros.por100g),rr.rows[0].alimento_id,usuario]);
  }
 }
 
@@ -60,6 +75,8 @@ async function montagem(db,u,b,receitaId){
  const rendimento=Number(b.rendimento_g);
  if(!Number.isFinite(rendimento)||rendimento<=0||rendimento>100000)throw bad('Peso final da receita inválido.');
  if(!Array.isArray(b.ingredientes)||!b.ingredientes.length||b.ingredientes.length>60)throw bad('Informe de 1 a 60 ingredientes.');
+ const {rows:nutrientes}=await db.query('SELECT codigo FROM public.avn_nutrientes');
+ const codigos=nutrientes.map(n=>n.codigo);
  const itens=[];let somaPesos=0;
  for(const [ordem,i] of b.ingredientes.entries()){
   if(!id(i.alimento_id))throw bad('Selecione um alimento ou receita válido.');
@@ -67,17 +84,18 @@ async function montagem(db,u,b,receitaId){
   const r=await db.query(`SELECT * FROM public.avn_alimentos WHERE id=$1 AND ativo AND (usuario_id=$2 OR usuario_id IS NULL) AND (fonte<>'receita' OR usuario_id=$2)`,[i.alimento_id,u]);
   await impedirCiclo(db,u,receitaId,i.alimento_id);
   if(!r.rowCount)throw bad('Ingrediente ou receita não encontrado.',400);
-  const f=r.rows[0];itens.push({alimento_id:f.id,nome_snapshot:f.nome,quantidade_g:g,ordem,composicao_100g:composicao(f)});somaPesos+=g;
+  const f=r.rows[0];itens.push({alimento_id:f.id,nome_snapshot:f.nome,quantidade_g:g,ordem,composicao_100g:await composicaoDeIngrediente(db,f,u,codigos)});somaPesos+=g;
  }
- const {rows:nutrientes}=await db.query('SELECT codigo FROM public.avn_nutrientes');
- const calc=calcular(itens,rendimento,nutrientes.map(n=>n.codigo));return {nome,preparo,rendimento,itens,somaPesos,calc};
+ const calc=calcular(itens,rendimento,codigos);
+ const micros=micronutrientesDisponiveis(itens,rendimento,codigos);
+ return {nome,preparo,rendimento,itens,somaPesos,calc,micros};
 }
 async function salvar(req,res,editar){
  const u=uid(req.body?.usuarioId),recId=req.params.id;const db=await pool.connect();
- try{await db.query('BEGIN');await usuarioExiste(db,u);
+ try{await db.query('BEGIN');await db.query('SELECT pg_advisory_xact_lock($1::bigint)',[u]);await usuarioExiste(db,u);
   let antiga=null;if(editar){if(!id(recId))throw bad('Receita inválida.');const r=await db.query('SELECT * FROM public.avn_receitas WHERE id=$1 AND usuario_id=$2 FOR UPDATE',[recId,u]);if(!r.rowCount)throw bad('Receita não encontrada.',404);antiga=r.rows[0];}
   const data=await montagem(db,u,req.body||{},editar?recId:null);const c=data.calc;
-  const v=[data.nome,data.preparo,c.kcal_100g,c.proteinas_g_100g,c.carboidratos_g_100g,c.gorduras_g_100g,c.fibras_g_100g,JSON.stringify(c.micronutrientes_100g)];
+  const v=[data.nome,data.preparo,c.kcal_100g,c.proteinas_g_100g,c.carboidratos_g_100g,c.gorduras_g_100g,c.fibras_g_100g,JSON.stringify(data.micros.por100g)];
   let alimento;
   if(editar){const r=await db.query(`UPDATE public.avn_alimentos SET nome=$1,preparo=$2,kcal_100g=$3,proteinas_g_100g=$4,carboidratos_g_100g=$5,gorduras_g_100g=$6,fibras_g_100g=$7,micronutrientes_100g=$8::jsonb,atualizado_em=NOW() WHERE id=$9 AND usuario_id=$10 RETURNING id`,[...v,antiga.alimento_id,u]);alimento=r.rows[0];}
   else{const r=await db.query(`INSERT INTO public.avn_alimentos(usuario_id,nome,preparo,kcal_100g,proteinas_g_100g,carboidratos_g_100g,gorduras_g_100g,fibras_g_100g,micronutrientes_100g,fonte,fonte_referencia) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,'receita','Composição estimada pelos ingredientes') RETURNING id`,[u,...v]);alimento=r.rows[0];}
