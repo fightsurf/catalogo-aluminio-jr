@@ -117,9 +117,9 @@ function graficoMacros(dados,titulo,escopo){
   const p1=Number(dados.proteinas_g)*4/total*100,p2=Number(dados.carboidratos_g)*4/total*100;
   const limite1=p1.toFixed(4),limite2=(p1+p2).toFixed(4);
   const etiqueta=campos.map(c=>c.nome+' '+fmt(Number(dados[c.chave])*c.fator/total*100)+'%').join(', ');
-  visual=`<div class="receita-grafico" role="img" aria-label="Distribuição energética ${esc(escopo)}: ${esc(etiqueta)}" style="background:conic-gradient(#60a5fa 0 ${limite1}%,#fbbf24 ${limite1}% ${limite2}%,#a78bfa ${limite2}% 100%)"><span>Macros</span></div>`;
+  visual=`<div class="receita-grafico" role="img" title="${esc(etiqueta)}" aria-label="Distribuição energética ${esc(escopo)}: ${esc(etiqueta)}" style="background:conic-gradient(#60a5fa 0 ${limite1}%,#fbbf24 ${limite1}% ${limite2}%,#a78bfa ${limite2}% 100%)"><span>Macros</span></div>`;
  }else if(completo)visual='<p class="muted receita-sem-grafico">Sem energia proveniente de macronutrientes para representar.</p>';
- const legenda=campos.map(c=>`<div class="receita-macro-linha"><span class="receita-macro-rotulo"><i class="receita-cor ${c.cls}" aria-hidden="true"></i>${c.nome}</span><strong>${dados[c.chave]==null?'Sem dado':fmt(dados[c.chave],2)+' g'}</strong></div>`).join('');
+ const legenda=campos.map(c=>`<div class="receita-macro-linha"><span class="receita-macro-rotulo"><i class="receita-cor ${c.cls}" aria-hidden="true"></i>${c.nome}</span><strong>${dados[c.chave]==null?'Sem dado':fmt(dados[c.chave],2)+' g'+(total>0?' · '+fmt(Number(dados[c.chave])*c.fator/total*100)+'%':'')}</strong></div>`).join('');
  return `<h3>${esc(titulo)}</h3><p class="receita-energia">${dados.kcal==null?'Energia sem dado':fmt(dados.kcal,2)+' kcal'}</p>${visual}<div class="receita-macros-legenda">${legenda}</div><p class="muted receita-grafico-nota">Distribuição energética: proteínas e carboidratos 4 kcal/g; gorduras 9 kcal/g.</p>`;
 }
 function formatarMicro(v){
