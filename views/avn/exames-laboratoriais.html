@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>AVN — Exames Laboratoriais</title>
+<link rel="stylesheet" href="/css/avn-nutricao.css"><link rel="stylesheet" href="/css/avn-exames.css">
+<script src="/js/avn-exames.js?v=20261027" defer></script></head>
+<body><main class="avn-wrap avn-exames">
+<header class="avn-top"><a href="/avn">← Central AVN</a><span class="avn-brand">AVN <em>Saúde</em></span></header>
+<section class="avn-hero"><div><span class="avn-caption">SAÚDE · AVN</span><h1>Exames Laboratoriais</h1><p>Histórico de resultados, referências do laudo e evolução de cada indicador.</p></div>
+<label class="avn-field user-field">Usuário<select id="exUsuario" aria-label="Selecionar usuário"><option value="">Carregando…</option></select></label></section>
+<div id="exAlerta" class="avn-alert" role="status" hidden></div>
+<section class="avn-ex-head"><h2>Meus exames</h2><div class="avn-ex-actions"><button type="button" class="primary" id="exNovo">+ Registrar exame</button><button type="button" class="secondary" id="exImportar">Importar com IA</button></div></section>
+<section class="card"><div class="avn-ex-filtros">
+<label class="avn-field">Pesquisar exame<input type="search" id="exBusca" placeholder="Ureia, TGO, hemoglobina…"></label>
+<label class="avn-field">Indicador para evolução<select id="exIndicador"><option value="">Selecione um indicador</option></select></label>
+</div><p class="muted">Cada resultado conserva a unidade e os valores de referência originais. Comparações usam apenas registros da mesma unidade e método.</p>
+<div class="avn-ex-chart" id="exGrafico" role="img" aria-label="Gráfico histórico do indicador selecionado"><p class="muted">Selecione um indicador para visualizar o histórico.</p></div>
+<div id="exDetalheGrafico" class="muted" aria-live="polite"></div></section>
+<section class="card"><div class="avn-row space"><h3>Resultados registrados</h3><span id="exContagem" class="muted"></span></div>
+<div id="exResultados" class="avn-ex-lista"><p class="muted">Nenhum resultado cadastrado.</p></div></section>
+<dialog id="exModal" class="avn-dialog avn-ex-dialog" aria-labelledby="exModalTitulo">
+<div class="modal-head"><h2 id="exModalTitulo">Registrar exame</h2><button type="button" class="secondary" id="exFechar">Fechar ×</button></div>
+<form id="exForm" class="stack">
+<input type="hidden" id="exId">
+<div class="avn-ex-grid"><label class="avn-field avn-ex-full">Nome do exame<input id="exNome" type="search" list="exListaNomes" autocomplete="off" required placeholder="Digite para localizar no catálogo"></label>
+<datalist id="exListaNomes"></datalist>
+<label class="avn-field">Data da coleta<input id="exData" type="date" required></label>
+<label class="avn-field">Resultado numérico<input id="exValor" inputmode="decimal" placeholder="Ex.: 35,2"></label>
+<label class="avn-field">Resultado textual (opcional)<input id="exValorTexto" maxlength="250" placeholder="Ex.: Não reagente"></label>
+<label class="avn-field">Unidade<input id="exUnidade" maxlength="45" required placeholder="mg/dL, U/L…"></label>
+<label class="avn-field">Referência mínima<input id="exRefMin" inputmode="decimal" placeholder="Conforme o laudo"></label>
+<label class="avn-field">Referência máxima<input id="exRefMax" inputmode="decimal" placeholder="Conforme o laudo"></label>
+<label class="avn-field avn-ex-full">Valores de referência (texto)<input id="exRefTexto" maxlength="1500" placeholder="Faixa de referência informada pelo laboratório"></label>
+<label class="avn-field">Material<input id="exMaterial" maxlength="120" placeholder="Soro, sangue, urina…"></label>
+<label class="avn-field">Método<input id="exMetodo" maxlength="180" placeholder="Ex.: enzimático"></label>
+<label class="avn-field">Laboratório<input id="exLab" maxlength="180"></label>
+<label class="avn-field avn-ex-full">Observações<textarea id="exObs" rows="2" maxlength="2000"></textarea></label></div>
+<p class="muted">A unidade é sugerida pelo catálogo. Referências de exames anteriores só serão sugeridas quando laboratório, método e material coincidirem. Confira sempre com o laudo.</p>
+<div class="avn-ex-actions"><button type="submit" class="primary">Salvar resultado</button><button type="button" class="secondary" id="exCancelar">Cancelar</button></div>
+</form></dialog>
+<dialog id="exImportModal" class="avn-dialog avn-ex-dialog" aria-labelledby="exImportTitulo">
+<div class="modal-head"><h2 id="exImportTitulo">Importar exames com IA</h2><button type="button" class="secondary" id="exImportFechar">Fechar ×</button></div>
+<p class="muted">Cole o texto copiado de um laudo ou envie um PDF de até 8 MB. Ao interpretar, o conteúdo será enviado à API de IA. Nada será salvo sem sua confirmação.</p>
+<label class="avn-field">Texto do laudo<textarea id="exTextoLaudo" rows="7" maxlength="50000" placeholder="Cole aqui o texto copiado do PDF…"></textarea></label>
+<label class="avn-field">PDF (opcional)<input type="file" id="exArquivo" accept="application/pdf,.pdf"></label>
+<div class="avn-ex-actions"><button type="button" class="primary" id="exInterpretar">Interpretar exames com IA</button></div>
+<div id="exImportStatus" role="status" aria-live="polite"></div>
+<section id="exPrevia" hidden><h3>Conferir resultados antes de salvar</h3>
+<p class="muted">Corrija campos ausentes ou incorretos. Exames não reconhecidos precisam ser associados a um indicador do catálogo. Resultados sem data, unidade ou valor não serão importados.</p>
+<div id="exLinhasPrevia" class="avn-ex-previa"></div>
+<div class="avn-ex-actions"><button type="button" class="primary" id="exConfirmar">Salvar resultados conferidos</button><button type="button" class="secondary" id="exCancelarImport">Cancelar importação</button></div>
+</section></dialog>
+<footer>AVN · Ferramenta de acompanhamento pessoal. Não substitui interpretação profissional dos exames.</footer>
+</main></body></html>
