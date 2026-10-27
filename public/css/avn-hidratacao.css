@@ -18,3 +18,9 @@
 .agua-registro-acoes{display:flex;gap:8px;flex-wrap:wrap}
 .agua-registro-acoes button{padding:7px 10px}
 @media(max-width:620px){.agua-historico-top .avn-field{width:100%}.agua-barras{gap:4px}.agua-bar-dia{flex-basis:20px}.agua-botoes button{flex-basis:42%}}
+
+/* Registro e gráfico em duas colunas, preservando consumo e registros do dia. */
+.agua-paineis{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);align-items:stretch;gap:17px;margin-bottom:17px}
+.agua-paineis>.agua-cartao{min-width:0;margin-bottom:0}
+.agua-paineis .agua-grafico{min-width:0}
+@media(max-width:920px){.agua-paineis{grid-template-columns:1fr}}
