@@ -117,7 +117,7 @@ function renderDiet(){
       '<button type="button" class="delete" data-plano="'+esc(i.id)+'">Excluir</button></div></div>';
    }).join('')+'</div></section>';
  }).join(''):'<p class="muted">Nenhuma refeição programada.</p>';
- $('resumoDieta').textContent=rows.length?'Total planejado: '+fmt(a.total.kcal,0)+' kcal'+(a.miss.kcal?' (incompleto)':'')+' · '+fmt(a.total.proteinas_g)+' g proteína · '+fmt(a.total.carboidratos_g)+' g carboidratos · '+fmt(a.total.gorduras_g)+' g gorduras':'';
+ $('resumoDieta').innerHTML=rows.length?MACROS.slice(0,4).map(([key,label,unit])=>{const unknown=a.miss[key]===rows.length,partial=a.miss[key]>0&&!unknown;return '<div class="stat"><small>'+esc(label)+'</small><strong>'+(unknown?'Sem dado':fmt(a.total[key],key==='kcal'?0:1)+' '+esc(unit))+'</strong>'+(partial?'<small>Parcial: faltam dados em alguns alimentos.</small>':'')+'</div>';}).join(''):'<p class="muted">Nenhum alimento programado.</p>';
  $('listaDieta').querySelectorAll('[data-plano]').forEach(btn=>btn.onclick=async()=>{if(!confirm('Excluir item da dieta programada?'))return;try{await send('/dieta/'+state.usuarioId+'/itens/'+btn.dataset.plano,'DELETE');await loadDiet();show('Item removido da programação.');}catch(e){show(e.message,true);}});
  $('listaDieta').querySelectorAll('[data-editar-plano]').forEach(link=>link.onclick=e=>{
   e.preventDefault();const item=rows.find(i=>String(i.id)===link.dataset.editarPlano);if(!item)return;
@@ -398,6 +398,62 @@ function configurarIA(){
  });
 }
 
+
+function microDieta(dados){
+ return MICRO.map(([key,nome,unidade])=>({key,nome,unidade,valor:Number(dados.total[key]),parcial:dados.miss[key]>0})).filter(m=>Number.isFinite(m.valor)&&m.valor>0).sort((a,b)=>b.valor-a.valor||a.nome.localeCompare(b.nome,'pt-BR'));
+}
+function fmtMicroDieta(n){return n>0&&n<0.000001?n.toExponential(2).replace('.',','):fmt(n,9);}
+function tabAnaliseDieta(tab){
+ for(const t of ['Macros','Micros']){
+  const ativo=t.toLowerCase()===tab;
+  $('aba'+t+'Dieta').setAttribute('aria-selected',String(ativo));
+  $('aba'+t+'Dieta').tabIndex=ativo?0:-1;
+  $('painel'+t+'Dieta').hidden=!ativo;
+ }
+}
+function abrirAnaliseNutricionalDieta(){
+ const a=aggregate(state.dieta), macros=[
+  {nome:'Proteínas',key:'proteinas_g',fator:4,cor:'#60a5fa'},
+  {nome:'Carboidratos',key:'carboidratos_g',fator:4,cor:'#fbbf24'},
+  {nome:'Gorduras',key:'gorduras_g',fator:9,cor:'#a78bfa'}
+ ];
+ const energia=macros.reduce((sum,m)=>sum+a.total[m.key]*m.fator,0);
+ let anterior=0;
+ const gradiente=macros.map(m=>{const p0=energia?anterior/energia*100:0;anterior+=a.total[m.key]*m.fator;return m.cor+' '+p0+'% '+(energia?anterior/energia*100:0)+'%';}).join(',');
+ const anel=energia>0?'<div class="avn-meal-ring" role="img" aria-label="Distribuição energética de proteínas, carboidratos e gorduras" style="background:conic-gradient('+gradiente+')"></div>':'<p class="muted">Sem energia conhecida de macronutrientes para o gráfico.</p>';
+ $('conteudoMacrosDieta').innerHTML='<p>Energia: <strong>'+(state.dieta.length&&a.miss.kcal===state.dieta.length?'Sem dado':fmt(a.total.kcal,0)+' kcal')+'</strong> · Fibras: '+(state.dieta.length&&a.miss.fibras_g===state.dieta.length?'Sem dado':fmt(a.total.fibras_g,2)+' g')+'</p>'+anel+
+  '<div class="avn-meal-legend">'+macros.map(m=>'<div><i style="background:'+m.cor+'"></i>'+esc(m.nome)+': <strong>'+(state.dieta.length&&a.miss[m.key]===state.dieta.length?'Sem dado':fmt(a.total[m.key],2)+' g')+'</strong> · '+(energia?fmt(a.total[m.key]*m.fator*100/energia,1):'0')+'%'+(a.miss[m.key]?' (parcial)':'')+'</div>').join('')+'</div>'+
+  (MACROS.some(([key])=>a.miss[key])?'<p class="muted">Os totais podem ser parciais quando faltam dados de alimentos.</p>':'')+
+  '<p class="muted">Percentuais por energia: proteínas e carboidratos 4 kcal/g; gorduras 9 kcal/g.</p>';
+ const micros=microDieta(a);
+ $('conteudoMicrosDieta').innerHTML=micros.length?'<ul class="avn-dieta-micros-lista">'+micros.map(m=>'<li><span>'+esc(m.nome)+(m.parcial?' <small class="avn-dieta-parcial" title="Um ou mais alimentos sem informação deste nutriente">parcial</small>':'')+'</span><strong>'+fmtMicroDieta(m.valor)+' '+esc(m.unidade)+'</strong></li>').join('')+'</ul>'+(micros.some(m=>m.parcial)?'<p class="muted">Parcial: soma dos alimentos com informação conhecida; o valor real pode ser maior.</p>':''):'<p class="muted">Nenhum micronutriente com valor positivo cadastrado.</p>';
+ tabAnaliseDieta('macros');$('modalAnaliseDieta').showModal();
+}
+function imprimirRelatorioDieta(){
+ if(!state.dieta.length){show('Adicione alimentos à dieta antes de gerar o relatório.',true);return;}
+ const a=aggregate(state.dieta);
+ const macroRows=MACROS.map(([k,nome,unidade])=>'<tr><th>'+esc(nome)+'</th><td>'+(a.miss[k]===state.dieta.length?'Sem dado':fmt(a.total[k],k==='kcal'?0:2)+' '+esc(unidade)+(a.miss[k]?' (parcial)':''))+'</td></tr>').join('');
+ const microRows=microDieta(a).map(m=>'<tr><th>'+esc(m.nome)+'</th><td>'+fmtMicroDieta(m.valor)+' '+esc(m.unidade)+(m.parcial?' (parcial)':'')+'</td></tr>').join('');
+ const refeicoes=Object.entries(MEALS).map(([key,nome])=>{
+  const itens=state.dieta.filter(i=>i.refeicao===key);if(!itens.length)return '';
+  const subtotal=aggregate(itens);
+  return '<section><h2>'+esc(nome)+'</h2><table><thead><tr><th>Alimento</th><th>Quantidade</th><th>Energia</th></tr></thead><tbody>'+itens.map(i=>{
+   const c=i.composicao_100g||composition(i);
+   return '<tr><td>'+esc(i.alimento_nome||'Alimento')+'</td><td>'+fmt(i.quantidade_g,2)+' g</td><td>'+(c.kcal==null?'Sem dado':fmt(Number(c.kcal)*Number(i.quantidade_g)/100,0)+' kcal')+'</td></tr>';
+  }).join('')+'</tbody></table><p class="info">Subtotal: '+fmt(subtotal.total.kcal,0)+' kcal'+(subtotal.miss.kcal?' (parcial)':'')+'</p></section>';
+ }).join('');
+ const usuario=$('usuario').selectedOptions[0]?.textContent?.trim()||'Usuário AVN';
+ const pagina='<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Dieta programada · AVN</title><style>'+
+  '@page{size:A4;margin:16mm}body{font:12px/1.5 Arial,sans-serif;color:#142638;margin:0}h1{font-size:24px;margin:0}h2{font-size:16px;border-bottom:1px solid #ccd5df;padding-bottom:5px;margin:21px 0 8px}p{margin:4px 0 8px}table{width:100%;border-collapse:collapse;margin:7px 0}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #dfe5ea}td:nth-child(n+2){text-align:right}thead{background:#eef4f8}.cabecalho{border-bottom:2px solid #1b6188;padding-bottom:12px}.info,.aviso{color:#596775;font-size:11px}.aviso{border-top:1px solid #ccd5df;margin-top:20px;padding-top:10px}section,tr{break-inside:avoid}.no-print{background:#eef4f8;padding:12px;margin-bottom:12px}@media print{.no-print{display:none}}'+
+  '</style></head><body><div class="no-print">Para baixar o relatório em PDF, selecione <strong>Salvar como PDF</strong> na janela de impressão.</div><div class="cabecalho"><h1>Dieta programada · AVN</h1><p>Dieta padrão válida para todos os dias · '+esc(usuario)+'</p><p>Gerado em '+esc(new Date().toLocaleString('pt-BR'))+'</p></div><h2>Resumo nutricional planejado</h2><table><tbody>'+macroRows+'</tbody></table>'+refeicoes+
+  '<h2>Micronutrientes conhecidos (maiores que zero)</h2>'+(microRows?'<table><tbody>'+microRows+'</tbody></table>':'<p>Nenhum micronutriente positivo informado.</p>')+
+  '<p class="aviso">Valores estimados conforme dados dos alimentos cadastrados. Parcial indica que faltam dados em um ou mais alimentos. A programação não comprova o consumo.</p></body></html>';
+ const janela=window.open('','_blank');
+ if(!janela){show('Permita pop-ups para abrir a impressão do relatório.',true);return;}
+ janela.opener=null;janela.document.open();janela.document.write(pagina);janela.document.close();janela.focus();
+ janela.setTimeout(()=>{if(!janela.closed)janela.print();},350);
+}
+
 let editandoConsumoId=null;
 function abrirMacroRefeicao(refeicao,tipo){
  const itens=(tipo==='dieta'?state.dieta:state.diario).filter(i=>i.refeicao===refeicao);
@@ -447,6 +503,12 @@ function events(){
  }
  if(PAGE==='dieta'){
  $('abrirModalDieta').onclick=()=>$('modalAdicionarDieta').showModal();
+  $('abrirAnaliseDieta').onclick=abrirAnaliseNutricionalDieta;
+  $('imprimirDieta').onclick=imprimirRelatorioDieta;
+  $('fecharAnaliseDieta').onclick=()=>$('modalAnaliseDieta').close();
+  $('abaMacrosDieta').onclick=()=>tabAnaliseDieta('macros');
+  $('abaMicrosDieta').onclick=()=>tabAnaliseDieta('micros');
+  ['abaMacrosDieta','abaMicrosDieta'].forEach(id=>$(id).addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key))return;e.preventDefault();const tab=e.key==='ArrowLeft'||e.key==='Home'?'macros':'micros';tabAnaliseDieta(tab);$(tab==='macros'?'abaMacrosDieta':'abaMicrosDieta').focus();}));
  $('fecharModalDieta').onclick=()=>$('modalAdicionarDieta').close();
  $('dietaRefeicao').onchange=()=>{invalidarImportacaoDieta();destinoImportacaoDieta();};
  $('dietaTextoIngredientes').oninput=()=>invalidarImportacaoDieta();
