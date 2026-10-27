@@ -7,8 +7,11 @@
 <nav class="avn-tabs avn-links" aria-label="Aplicativos de nutrição"><a href="/avn/sistema/nutricao/diario" >Diário alimentar</a><a href="/avn/sistema/nutricao/dieta" >Dieta programada</a><a href="/avn/sistema/nutricao/alimentos" aria-current="page">Alimentos</a><a href="/avn/sistema/nutricao/metas" >Minhas metas</a></nav>
 <div id="alerta" class="avn-alert" role="status" hidden></div>
 <section id="alimentos" class="avn-panel"><div class="avn-row space"><div><h2>Catálogo de alimentos</h2><p class="muted">Valores por 100 g da parte comestível. Diferencie cru, cozido, marca e preparo.</p></div><label class="avn-field">Pesquisar<input type="search" id="buscaAlimento" placeholder="Ex.: arroz, frango, ovo"></label></div>
-<div class="avn-grid alimento-layout">
-<section class="card alimentos-cadastrados"><h3>Alimentos cadastrados</h3><div id="listaAlimentos" class="list scroll-list"></div><p class="muted">Selecione Editar para carregar o alimento nos painéis ao lado.</p></section>
+<div class="avn-food-catalog">
+<section class="card alimentos-cadastrados"><div class="avn-row avn-food-catalog-head"><h3>Alimentos cadastrados</h3><button type="button" class="primary" id="abrirModalAlimento">+ Adicionar alimento</button></div><div id="listaAlimentos" class="list scroll-list"></div><p class="muted">Toque no alimento para ver sua composição, ou use Editar e Excluir.</p></section>
+</div>
+<dialog id="modalAlimento" class="avn-dialog avn-alimento-modal" aria-labelledby="tituloAlimento">
+<div class="modal-head"><span class="avn-caption">AVN · CADASTRO DE ALIMENTOS</span><button type="button" class="secondary" id="fecharModalAlimento">Fechar ×</button></div>
 <form id="formAlimento" class="alimento-editor stack">
 <input type="hidden" id="alimentoId">
 <section class="card"><h3 id="tituloAlimento">Novo alimento</h3>
@@ -20,7 +23,7 @@
 <label class="avn-field">Localizar nutriente<input type="search" id="buscaMicroAlimento" placeholder="Filtrar vitaminas, minerais e outros"></label><div id="camposMicros" class="avn-three micros-form"></div></section>
 <section class="card"><div class="avn-two"><label class="avn-field">Porção caseira (opcional)<input id="porcaoNome" placeholder="Ex.: 1 colher de sopa"></label><label class="avn-field">Peso da porção (g)<input type="number" id="porcaoGramas" min="0.1" step="0.1"></label></div>
 <div class="avn-row form-actions"><button class="primary">Salvar alimento</button><button class="secondary" type="button" id="limparAlimento">Novo</button></div></section>
-</form></div>
+</form></dialog>
 <dialog id="modalConsultaIA" class="avn-dialog avn-dialog-comparador" aria-labelledby="modalIATitulo">
  <div class="modal-head"><div><span class="avn-caption">AVN · CONSULTA DE ALIMENTOS</span><h2 id="modalIATitulo">Comparar TACO, USDA e IA</h2></div><button id="fecharIA" type="button" class="secondary" aria-label="Fechar consulta">×</button></div>
  <p class="muted">A TACO e o USDA são pesquisados simultaneamente. Selecione um resultado em cada fonte e compare a composição em uma única tabela por <strong>100 g da parte comestível</strong>. Para uma terceira pesquisa, clique em Carregar IA.</p>

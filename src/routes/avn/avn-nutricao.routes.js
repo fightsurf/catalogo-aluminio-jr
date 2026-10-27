@@ -120,10 +120,27 @@ router.put('/alimentos/:id',wrap(async(req,res)=>{
  if(!r.rowCount)throw bad('Alimento pessoal não encontrado.',404);res.json(r.rows[0]);
 }));
 router.delete('/alimentos/:id',wrap(async(req,res)=>{
- const e=await pool.query("SELECT 1 FROM public.avn_receitas WHERE alimento_id=$1",[req.params.id]);if(e.rowCount)throw bad('Receitas não podem ser removidas pelo cadastro de Alimentos.');
  const uid=requiredId(req.query.usuarioId),id=requiredId(req.params.id);await user(uid);
- const r=await pool.query('UPDATE public.avn_alimentos SET ativo=FALSE,atualizado_em=NOW() WHERE id=$1 AND usuario_id=$2 AND ativo RETURNING id',[id,uid]);
- if(!r.rowCount)throw bad('Alimento pessoal não encontrado.',404);res.json({ok:true});
+ const db=await pool.connect();
+ try{
+  await db.query('BEGIN');
+  // Bloqueia a linha para impedir inserções simultâneas com FK enquanto verificamos referências.
+  const f=await db.query('SELECT id,fonte FROM public.avn_alimentos WHERE id=$1 AND usuario_id=$2 AND ativo FOR UPDATE',[id,uid]);
+  if(!f.rowCount)throw bad('Alimento pessoal não encontrado.',404);
+  if(f.rows[0].fonte==='receita')throw bad('Receitas devem ser gerenciadas pelo módulo Receitas.',409);
+  const usos=await db.query(`SELECT
+   EXISTS(SELECT 1 FROM public.avn_diario_alimentar WHERE alimento_id=$1) AS diario,
+   EXISTS(SELECT 1 FROM public.avn_dieta_itens WHERE alimento_id=$1) AS dieta,
+   EXISTS(SELECT 1 FROM public.avn_receita_ingredientes WHERE alimento_id=$1) AS ingrediente,
+   EXISTS(SELECT 1 FROM public.avn_receitas WHERE alimento_id=$1) AS receita`,[id]);
+  const u=usos.rows[0];
+  if(u.diario||u.dieta||u.ingrediente||u.receita){
+   const lugares=[u.diario&&'diário alimentar',u.dieta&&'dieta programada',u.ingrediente&&'ingredientes de receitas',u.receita&&'receitas'].filter(Boolean);
+   throw bad('Este alimento já está em uso em: '+lugares.join(', ')+'. Remova os vínculos antes de excluir.',409);
+  }
+  await db.query('UPDATE public.avn_alimentos SET ativo=FALSE,atualizado_em=NOW() WHERE id=$1 AND usuario_id=$2',[id,uid]);
+  await db.query('COMMIT');res.json({ok:true});
+ }catch(e){await db.query('ROLLBACK').catch(()=>{});throw e;}finally{db.release();}
 }));
 router.get('/metas/:usuarioId',wrap(async(req,res)=>{
  await user(req.params.usuarioId);const r=await pool.query('SELECT * FROM public.avn_metas_nutricionais WHERE usuario_id=$1',[req.params.usuarioId]);res.json(r.rows[0]||{usuario_id:req.params.usuarioId,kcal:null,proteinas_g:null,carboidratos_g:null,gorduras_g:null,fibras_g:null,micros:{}});

@@ -292,3 +292,16 @@ body[data-nutricao-pagina="dieta"] .avn-dieta-edicao .avn-field select,
 body[data-nutricao-pagina="dieta"] .avn-dieta-edicao .avn-field input{background:#101b2b;color:#ecf4ff;border:1px solid #405671}
 body[data-nutricao-pagina="dieta"] .avn-dieta-edicao-acoes{grid-column:1/-1;display:flex;gap:8px;flex-wrap:wrap}
 @media(max-width:520px){body[data-nutricao-pagina="dieta"] .avn-dieta-edicao{grid-template-columns:1fr}body[data-nutricao-pagina="dieta"] .avn-dieta-edicao .avn-field:first-child,body[data-nutricao-pagina="dieta"] .avn-dieta-edicao-acoes{grid-column:auto}}
+
+/* AVN Alimentos: catálogo simples; cadastro e edição somente em modal. */
+body[data-nutricao-pagina="alimentos"] .avn-food-catalog{display:block}
+body[data-nutricao-pagina="alimentos"] .alimentos-cadastrados{position:static}
+body[data-nutricao-pagina="alimentos"] .avn-food-catalog-head{justify-content:space-between;flex-wrap:wrap;margin-bottom:15px}
+body[data-nutricao-pagina="alimentos"] .avn-food-catalog-head h3{margin:0}
+body[data-nutricao-pagina="alimentos"] .avn-food-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:end}
+body[data-nutricao-pagina="alimentos"] .avn-alimento-modal{width:min(1050px,calc(100vw - 22px));max-height:93dvh;overflow:auto;background:#182437;color:#ecf2fc;border-color:#435775}
+body[data-nutricao-pagina="alimentos"] .avn-alimento-modal::backdrop{background:#091b2bd9}
+body[data-nutricao-pagina="alimentos"] .avn-alimento-modal .modal-head{margin-bottom:18px}
+body[data-nutricao-pagina="alimentos"] .avn-alimento-modal .alimento-editor{width:100%}
+body[data-nutricao-pagina="alimentos"] .avn-food-row .delete{padding:8px}
+@media(max-width:600px){body[data-nutricao-pagina="alimentos"] .avn-alimento-modal{padding:14px}body[data-nutricao-pagina="alimentos"] .avn-food-row{align-items:flex-start;flex-wrap:wrap}body[data-nutricao-pagina="alimentos"] .avn-food-actions{width:100%;justify-content:flex-end}}

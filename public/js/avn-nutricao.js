@@ -323,9 +323,23 @@ function renderFoodList(){
  if(!has('listaAlimentos'))return;
  const q=($('buscaAlimento').value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  const list=state.alimentos.filter(f=>(f.nome+' '+(f.preparo||'')+' '+(f.marca||'')).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(q));
- $('listaAlimentos').innerHTML=list.length?list.map(f=>`<div class="list-row avn-food-row" data-food-id="${f.id}" tabindex="0" role="button" aria-label="Ver composição de ${esc(f.nome)}"><div><span class="name">${esc(f.nome)}</span><small>${esc([f.preparo,f.marca].filter(Boolean).join(' · '))} ${f.kcal_100g==null?'· Energia sem dado':'· '+fmt(f.kcal_100g,1)+' kcal/100 g'}</small></div><button type="button" class="secondary" data-edit="${f.id}">Editar</button></div>`).join(''):'<p class="muted">Nenhum alimento encontrado. Cadastre o primeiro alimento no formulário.</p>';
- $('listaAlimentos').querySelectorAll('[data-edit]').forEach(btn=>btn.onclick=e=>{e.stopPropagation();fillFood(state.alimentos.find(a=>String(a.id)===btn.dataset.edit));});
+ $('listaAlimentos').innerHTML=list.length?list.map(f=>`<div class="list-row avn-food-row" data-food-id="${f.id}" tabindex="0" role="button" aria-label="Ver composição de ${esc(f.nome)}"><div><span class="name">${esc(f.nome)}</span><small>${esc([f.preparo,f.marca].filter(Boolean).join(' · '))} ${f.kcal_100g==null?'· Energia sem dado':'· '+fmt(f.kcal_100g,1)+' kcal/100 g'}</small></div><div class="avn-food-actions"><button type="button" class="secondary" data-edit="${f.id}">Editar</button>${String(f.usuario_id)===String(state.usuarioId)&&f.fonte!=='receita'? `<button type="button" class="delete" data-delete-food="${f.id}" aria-label="Excluir ${esc(f.nome)}">Excluir</button>`:''}</div></div>`).join(''):'<p class="muted">Nenhum alimento encontrado. Cadastre o primeiro alimento no formulário.</p>';
+ $('listaAlimentos').querySelectorAll('[data-edit]').forEach(btn=>btn.onclick=e=>{e.stopPropagation();fillFood(state.alimentos.find(a=>String(a.id)===btn.dataset.edit));$('modalAlimento').showModal();});
+ $('listaAlimentos').querySelectorAll('[data-delete-food]').forEach(btn=>btn.onclick=async e=>{e.stopPropagation();await excluirAlimento(btn.dataset.deleteFood,btn);});
  $('listaAlimentos').querySelectorAll('[data-food-id]').forEach(row=>{const abrir=()=>window.AVNFoodCharts?.open(state.alimentos.find(a=>String(a.id)===row.dataset.foodId),MICRO);row.addEventListener('click',e=>{if(e.target.closest('button'))return;abrir();});row.addEventListener('keydown',e=>{if(e.target===row&&(e.key==='Enter'||e.key===' ')){e.preventDefault();abrir();}});});
+}
+async function excluirAlimento(id,button){
+ const alimento=state.alimentos.find(f=>String(f.id)===String(id));
+ if(!alimento||String(alimento.usuario_id)!==String(state.usuarioId))return;
+ if(!confirm('Excluir o alimento "'+alimento.nome+'" do catálogo? Se já estiver em uso, a exclusão será bloqueada.'))return;
+ button.disabled=true;
+ try{
+  userGuard();
+  await send('/alimentos/'+encodeURIComponent(id)+'?usuarioId='+encodeURIComponent(state.usuarioId),'DELETE');
+  if(has('alimentoId')&&String(v('alimentoId'))===String(id)){fillFood(null);$('modalAlimento').close();}
+  await loadFoods();
+  show('Alimento excluído do catálogo.');
+ }catch(e){show(e.message,true);button.disabled=false;}
 }
 function fillFood(f){
  state.origemImportacao=null;
@@ -398,6 +412,8 @@ function events(){
  $('formDieta').onsubmit=async e=>{e.preventDefault();try{userGuard();await send('/dieta/'+state.usuarioId+'/itens','POST',{dia_semana:state.dias,alimento_id:v('dietaAlimento'),refeicao:v('dietaRefeicao'),quantidade_g:Number(v('dietaGramas'))});await loadDiet();show('Item adicionado à programação.');}catch(err){show(err.message,true);}};
  }
  if(PAGE==='alimentos'){
+ $('abrirModalAlimento').onclick=()=>{fillFood(null);$('modalAlimento').showModal();};
+ $('fecharModalAlimento').onclick=()=>$('modalAlimento').close();
  $('buscaAlimento').oninput=renderFoodList;
  $('limparAlimento').onclick=()=>fillFood(null);
  configurarIA();
@@ -407,7 +423,7 @@ function events(){
  userGuard();const id=v('alimentoId');const b={usuarioId:state.usuarioId,nome:v('alimentoNome'),marca:v('alimentoMarca'),preparo:v('alimentoPreparo'),porcao_nome:v('porcaoNome'),porcao_gramas:numberOrNull('porcaoGramas'),micronutrientes_100g:getMicros('micro')};
  for(const [key] of MACROS)b[key+'_100g']=numberOrNull('alim_'+key);
  if(!id&&state.origemImportacao)Object.assign(b,state.origemImportacao);
- await send('/alimentos'+(id?'/'+id:''),id?'PUT':'POST',b);fillFood(null);await loadFoods();show('Alimento salvo.');
+ await send('/alimentos'+(id?'/'+id:''),id?'PUT':'POST',b);fillFood(null);$('modalAlimento').close();await loadFoods();show('Alimento salvo.');
  }catch(err){show(err.message,true);}};
  }
  if(PAGE==='metas'){
