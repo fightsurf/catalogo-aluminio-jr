@@ -117,7 +117,18 @@ function renderDiet(){
       '<button type="button" class="delete" data-plano="'+esc(i.id)+'">Excluir</button></div></div>';
    }).join('')+'</div></section>';
  }).join(''):'<p class="muted">Nenhuma refeição programada.</p>';
- $('resumoDieta').innerHTML=rows.length?MACROS.slice(0,4).map(([key,label,unit])=>{const unknown=a.miss[key]===rows.length,partial=a.miss[key]>0&&!unknown;return '<div class="stat"><small>'+esc(label)+'</small><strong>'+(unknown?'Sem dado':fmt(a.total[key],key==='kcal'?0:1)+' '+esc(unit))+'</strong>'+(partial?'<small>Parcial: faltam dados em alguns alimentos.</small>':'')+'</div>';}).join(''):'<p class="muted">Nenhum alimento programado.</p>';
+ $('resumoDieta').innerHTML=MACROS.slice(0,4).map(([key,label,unit])=>{
+  const unknown=rows.length>0&&a.miss[key]===rows.length;
+  const partial=rows.length>0&&a.miss[key]>0&&!unknown;
+  const goal=state.metas[key];
+  const goalDefined=goal!==null&&goal!==undefined&&goal!==''&&Number.isFinite(Number(goal));
+  const goalText=goalDefined?fmt(Number(goal),key==='kcal'?0:1)+' '+esc(unit):'Não definida';
+  const plannedText=unknown?'Sem dado':fmt(a.total[key],key==='kcal'?0:1)+' '+esc(unit);
+  return '<div class="avn-dieta-macro-coluna">'+
+   '<div class="stat avn-dieta-meta"><small class="avn-dieta-card-titulo">Minha meta · '+esc(label)+'</small><strong>'+goalText+'</strong></div>'+
+   '<div class="stat avn-dieta-planejado"><small class="avn-dieta-card-titulo">Total planejado · '+esc(label)+'</small><strong>'+plannedText+'</strong>'+
+   (partial?'<small class="avn-dieta-card-nota">Parcial: faltam dados em alguns alimentos.</small>':'')+'</div></div>';
+ }).join('');
  $('listaDieta').querySelectorAll('[data-plano]').forEach(btn=>btn.onclick=async()=>{if(!confirm('Excluir item da dieta programada?'))return;try{await send('/dieta/'+state.usuarioId+'/itens/'+btn.dataset.plano,'DELETE');await loadDiet();show('Item removido da programação.');}catch(e){show(e.message,true);}});
  $('listaDieta').querySelectorAll('[data-editar-plano]').forEach(link=>link.onclick=e=>{
   e.preventDefault();const item=rows.find(i=>String(i.id)===link.dataset.editarPlano);if(!item)return;
@@ -485,7 +496,7 @@ async function loadDaily(){const r=await api('/diario/'+state.usuarioId+'?data='
 async function reload(){
  if(!state.usuarioId){state.alimentos=[];state.diario=[];state.dieta=[];state.metas={};selectFoods();renderFoodList();renderDiet();renderDaily();fillGoals();return;}
  if(PAGE==='diario')await Promise.all([loadFoods(),loadGoals(),loadDiet(),loadDaily()]);
- if(PAGE==='dieta')await Promise.all([loadFoods(),loadDiet()]);
+ if(PAGE==='dieta'){await Promise.all([loadFoods(),loadGoals(),loadDiet()]);renderDiet();}
  if(PAGE==='alimentos')await loadFoods();
  if(PAGE==='metas')await loadGoals();
 }

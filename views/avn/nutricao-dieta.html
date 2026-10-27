@@ -1,13 +1,13 @@
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AVN — Dieta programada</title><link rel="stylesheet" href="/css/avn-nutricao.css?v=20261027-dietapdf1"><script src="/js/avn-nutricao.js?v=20261027-dietapdf1" defer></script></head>
+<title>AVN — Dieta programada</title><link rel="stylesheet" href="/css/avn-nutricao.css?v=20261027-dietametas1"><script src="/js/avn-nutricao.js?v=20261027-dietametas1" defer></script></head>
 <body data-nutricao-pagina="dieta"><main class="avn-wrap">
 <header class="avn-top"><a href="/avn">← Central AVN</a><span class="avn-brand">AVN <em>Nutrição</em></span></header>
 <section class="avn-hero"><div><span class="avn-caption">NUTRIÇÃO · AVN</span><h1>Dieta programada</h1><p>Planeje uma dieta padrão que vale todos os dias, sem registrar consumo antecipado.</p></div><label class="avn-field user-field">Usuário<select id="usuario"><option>Carregando…</option></select></label></section>
 <nav class="avn-tabs avn-links" aria-label="Aplicativos de nutrição"><a href="/avn/sistema/nutricao/diario" >Diário alimentar</a><a href="/avn/sistema/nutricao/dieta" aria-current="page">Dieta programada</a><a href="/avn/sistema/nutricao/alimentos" >Alimentos</a><a href="/avn/sistema/nutricao/metas" >Minhas metas</a><a href="/avn/sistema/nutricao/receitas">Receitas</a><a href="/avn/sistema/nutricao/agua">Água</a></nav>
 <div id="alerta" class="avn-alert" role="status" hidden></div>
 <section id="dieta" class="avn-panel"><div class="avn-row space"><div><h2>Dieta programada</h2><p class="muted">Uma única programação para todos os dias. Planejar não registra consumo.</p></div><div class="avn-dieta-comandos"><button type="button" class="primary" id="abrirModalDieta">+ Adicionar alimento</button><button type="button" class="secondary" id="abrirAnaliseDieta">Análise Nutricional</button><button type="button" class="secondary" id="imprimirDieta">Imprimir / PDF</button></div></div>
-<h3 class="avn-dieta-resumo-titulo">Total planejado</h3><div id="resumoDieta" class="summary avn-dieta-resumo" aria-live="polite"></div>
+<div id="resumoDieta" class="summary avn-dieta-resumo" aria-label="Metas e totais planejados" aria-live="polite"></div>
 <dialog class="avn-dialog" id="modalAdicionarDieta"><div class="modal-head"><h3>Adicionar à dieta padrão</h3><button type="button" class="secondary" id="fecharModalDieta">Fechar</button></div><section><form id="formDieta" class="stack"><label class="avn-field">Alimento<select id="dietaAlimento" required></select></label><div class="avn-two"><label class="avn-field">Refeição<select id="dietaRefeicao"></select></label><label class="avn-field">Quantidade (g)<input type="number" id="dietaGramas" min="0.1" max="10000" step="0.1" required value="100"></label></div><button class="primary">Adicionar à dieta</button></form>
 <section class="receita-importador" aria-labelledby="dietaTituloImportador">
  <h4 id="dietaTituloImportador">Adicionar vários alimentos com IA</h4>
