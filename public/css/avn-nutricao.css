@@ -329,3 +329,20 @@ body[data-nutricao-pagina="dieta"] #listaDieta{display:grid;gap:14px}
 #modalAdicionarDiario .avn-refeicao-planejada{margin-top:20px}
 #modalAdicionarDieta textarea{width:100%}
 @media(max-width:600px){.avn-dieta-acoes{justify-content:flex-start}.avn-dieta-acoes button{font-size:12px}.avn-dialog{max-height:92dvh}}
+
+
+/* Dieta programada: resumo no topo, análise nutricional e impressão/PDF. */
+body[data-nutricao-pagina="dieta"] .avn-dieta-comandos{display:flex;flex-wrap:wrap;gap:8px;justify-content:flex-end;align-items:center}
+body[data-nutricao-pagina="dieta"] .avn-dieta-resumo-titulo{margin:0 0 9px;font-size:16px}
+body[data-nutricao-pagina="dieta"] .avn-dieta-resumo{grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:18px}
+body[data-nutricao-pagina="dieta"] .avn-dieta-resumo .stat strong{font-size:clamp(15px,1.9vw,22px);white-space:normal}
+body[data-nutricao-pagina="dieta"] .avn-dieta-analise{background:#182437;color:#ecf2fc;border-color:#435775;width:min(790px,calc(100vw - 22px))}
+body[data-nutricao-pagina="dieta"] .avn-dieta-abas{display:flex;gap:7px;border-bottom:1px solid #435775;margin:15px 0;padding-bottom:7px}
+body[data-nutricao-pagina="dieta"] .avn-dieta-aba{border:1px solid #405674;background:#243a56;color:#eff5fd;border-radius:8px;padding:9px 12px;font-weight:750}
+body[data-nutricao-pagina="dieta"] .avn-dieta-aba[aria-selected="true"]{background:#286b9c;border-color:#78b5e6}
+body[data-nutricao-pagina="dieta"] .avn-dieta-micros-lista{list-style:none;padding:0;margin:10px 0;display:grid;gap:0}
+body[data-nutricao-pagina="dieta"] .avn-dieta-micros-lista li{padding:10px 4px;border-bottom:1px solid #34465f;display:flex;justify-content:space-between;gap:14px;align-items:baseline}
+body[data-nutricao-pagina="dieta"] .avn-dieta-micros-lista strong{white-space:nowrap;font-variant-numeric:tabular-nums}
+body[data-nutricao-pagina="dieta"] .avn-dieta-parcial{font-size:11px;color:#f2ce91;border:1px solid #8a714e;border-radius:6px;padding:2px 5px}
+@media(max-width:750px){body[data-nutricao-pagina="dieta"] .avn-dieta-resumo{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){body[data-nutricao-pagina="dieta"] .avn-dieta-comandos{justify-content:stretch;margin-top:12px}body[data-nutricao-pagina="dieta"] .avn-dieta-comandos button{flex:1 1 auto;font-size:13px;padding:9px}body[data-nutricao-pagina="dieta"] .avn-dieta-micros-lista li{flex-wrap:wrap}body[data-nutricao-pagina="dieta"] .avn-dieta-abas{flex-wrap:wrap}}
