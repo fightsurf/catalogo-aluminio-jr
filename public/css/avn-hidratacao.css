@@ -1,0 +1,20 @@
+/* Hidratacao AVN — layout responsivo compativel com o tema noturno existente. */
+.agua-cartao{margin-bottom:17px}
+.agua-resumo{justify-content:space-between;align-items:center;flex-wrap:wrap;padding-bottom:18px;margin-bottom:18px;border-bottom:1px solid #465b7a}
+.agua-resumo strong{display:block;font-size:clamp(30px,5vw,47px);color:#91c4ff}
+.agua-botoes,.agua-periodos{display:flex;flex-wrap:wrap;gap:9px}
+.agua-botoes{margin:13px 0}.agua-botoes button{flex:1 1 110px}
+.agua-personalizado{display:flex;gap:12px;align-items:end;flex-wrap:wrap}
+.agua-personalizado label{flex:1 1 180px}.agua-personalizado button{min-height:43px}
+.agua-historico-top{justify-content:space-between;align-items:end;flex-wrap:wrap;margin-bottom:13px}
+.agua-historico-top h2{margin:0}
+.agua-periodos [aria-pressed="true"]{background:#277bbd!important;color:white!important}
+.agua-grafico{overflow:auto;padding:14px 0 6px}
+.agua-barras{display:flex;align-items:end;gap:3px;min-height:220px;height:220px}
+.agua-bar-dia{display:flex;flex-direction:column;align-items:center;justify-content:end;flex:1 0 14px;min-width:14px;height:100%;gap:5px;font-size:10px;color:#d0e2f5}
+.agua-bar-dia .coluna{display:block;width:80%;background:#48a3d7;border-radius:4px 4px 0 0;min-height:2px}
+.agua-bar-dia .eixo{height:14px;white-space:nowrap}
+.agua-bar-dia:hover .coluna{background:#83c9ef}
+.agua-registro-acoes{display:flex;gap:8px;flex-wrap:wrap}
+.agua-registro-acoes button{padding:7px 10px}
+@media(max-width:620px){.agua-historico-top .avn-field{width:100%}.agua-barras{gap:4px}.agua-bar-dia{flex-basis:20px}.agua-botoes button{flex-basis:42%}}

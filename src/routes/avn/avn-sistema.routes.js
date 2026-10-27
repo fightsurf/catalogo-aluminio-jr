@@ -154,7 +154,7 @@ router.get('/nutricao', requireAuth, (req,res) => {
   const destino=['diario','dieta','alimentos','metas','receitas','agua'].includes(oldTab)?oldTab:'diario';
   res.redirect(302,'/avn/sistema/nutricao/'+destino);
 });
-for(const pagina of ['diario','dieta','alimentos','metas','receitas']){
+for(const pagina of ['diario','dieta','alimentos','metas','receitas','agua']){
   router.get('/nutricao/'+pagina,requireAuth,(_req,res)=>res.sendFile(path.resolve(__dirname,'../../../views/avn/nutricao-'+pagina+'.html')));
 }
 module.exports=router;

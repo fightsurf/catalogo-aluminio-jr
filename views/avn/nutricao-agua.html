@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>AVN — Água ingerida</title>
+<link rel="stylesheet" href="/css/avn-nutricao.css"><link rel="stylesheet" href="/css/avn-hidratacao.css">
+<script src="/js/avn-hidratacao.js" defer></script></head>
+<body><main class="avn-wrap">
+<header class="avn-top"><a href="/avn">← Central AVN</a><span class="avn-brand">AVN <em>Nutrição</em></span></header>
+<section class="avn-hero"><div><span class="avn-caption">HIDRATAÇÃO · AVN</span><h1>Água ingerida</h1><p>Registre quanto bebeu e acompanhe seu consumo diário.</p></div>
+<label class="avn-field user-field">Usuário<select id="aguaUsuario"><option>Carregando…</option></select></label></section>
+<nav class="avn-tabs avn-links" aria-label="Aplicativos de nutrição">
+<a href="/avn/sistema/nutricao/diario">Diário alimentar</a><a href="/avn/sistema/nutricao/dieta">Dieta programada</a><a href="/avn/sistema/nutricao/alimentos">Alimentos</a><a href="/avn/sistema/nutricao/metas">Minhas metas</a><a href="/avn/sistema/nutricao/receitas">Receitas</a><a href="/avn/sistema/nutricao/agua" aria-current="page">Água</a>
+</nav>
+<div id="aguaAlerta" class="avn-alert" role="status" hidden></div>
+<section class="card agua-cartao"><div class="avn-row agua-resumo"><div><small>Consumo de hoje</small><strong id="aguaHoje">0 ml</strong></div><div class="muted">Água bebida, não percentual de água corporal.</div></div>
+<h2>Registrar água</h2>
+<div class="agua-botoes"><button type="button" class="primary" data-ml="200">+ 200 ml</button><button type="button" class="primary" data-ml="300">+ 300 ml</button><button type="button" class="primary" data-ml="500">+ 500 ml</button><button type="button" class="primary" data-ml="1000">+ 1.000 ml</button></div>
+<form id="aguaForm" class="agua-personalizado"><label class="avn-field">Outra quantidade (ml)<input id="aguaMl" type="number" min="1" max="10000" step="1" required placeholder="Ex.: 750"></label><button type="submit" class="secondary">Registrar quantidade</button></form></section>
+<section class="card agua-cartao"><div class="avn-row agua-historico-top"><div><h2>Histórico diário</h2><p class="muted">Toque ou passe o mouse sobre as colunas para ver o total em mililitros.</p></div><div class="agua-periodos"><button type="button" class="secondary" data-dias="7">7 dias</button><button type="button" class="secondary" data-dias="30">30 dias</button><button type="button" class="secondary" data-dias="90">90 dias</button></div></div>
+<div id="aguaGrafico" class="agua-grafico" role="img" aria-label="Gráfico de ingestão de água por dia"></div></section>
+<section class="card agua-cartao"><div class="avn-row agua-historico-top"><div><h2>Registros do dia</h2><p class="muted">Edite ou exclua os lançamentos individualmente.</p></div><label class="avn-field">Data<input id="aguaData" type="date"></label></div><div id="aguaLista" class="list"></div></section>
+<footer>AVN · Registros sincronizados entre Web e Android pelo mesmo usuário.</footer></main></body></html>
