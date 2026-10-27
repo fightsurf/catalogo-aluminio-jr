@@ -150,6 +150,68 @@ router.put('/metas/:usuarioId',wrap(async(req,res)=>{
  const m=await micros(b.micros);const r=await pool.query(`INSERT INTO public.avn_metas_nutricionais(usuario_id,kcal,proteinas_g,carboidratos_g,gorduras_g,fibras_g,micros) VALUES($1,$2,$3,$4,$5,$6,$7::jsonb)
  ON CONFLICT(usuario_id) DO UPDATE SET kcal=EXCLUDED.kcal,proteinas_g=EXCLUDED.proteinas_g,carboidratos_g=EXCLUDED.carboidratos_g,gorduras_g=EXCLUDED.gorduras_g,fibras_g=EXCLUDED.fibras_g,micros=EXCLUDED.micros,atualizado_em=NOW() RETURNING *`,[req.params.usuarioId,...v,JSON.stringify(m)]);res.json(r.rows[0]);
 }));
+
+/* Sugestão de metas: lê apenas as últimas medidas do usuário autenticado e jamais salva automaticamente. */
+router.post('/metas/:usuarioId/sugerir-ia',wrap(async(req,res)=>{
+ const uid=requiredId(req.params.usuarioId);await user(uid);
+ const objetivo=String(req.body?.objetivo||''),atividade=String(req.body?.atividade||'');
+ if(!['reduzir_gordura','manter','ganhar_massa'].includes(objetivo)||
+    !['sedentaria','leve','moderada','alta'].includes(atividade))throw bad('Informe objetivo e nível de atividade.');
+ if(!process.env.OPENAI_API_KEY)throw bad('Configure OPENAI_API_KEY para ativar as sugestões de IA.',503);
+ const ur=await pool.query(`SELECT id,altura_cm,sexo_referencia_calculo,
+  EXTRACT(YEAR FROM AGE(CURRENT_DATE,data_nascimento))::int AS idade
+  FROM public.avn_usuario WHERE id=$1`,[uid]);
+ const u=ur.rows[0];
+ const mr=await pool.query(`SELECT DISTINCT ON (m.codigo) m.codigo,d.valor,d.data_medicao
+  FROM public.avn_medicoes d JOIN public.avn_metricas m ON m.id=d.metrica_id
+  WHERE d.usuario_id=$1 AND m.codigo=ANY($2::text[])
+  ORDER BY m.codigo,d.data_medicao DESC,d.id DESC`,[uid,['peso','gordura_corporal','massa_magra','tmb']]);
+ const medidas=Object.fromEntries(mr.rows.map(x=>[x.codigo,{valor:Number(x.valor),data:x.data_medicao}]));
+ const peso=medidas.peso?.valor,idade=Number(u.idade),altura=Number(u.altura_cm);
+ if(!Number.isFinite(peso)||peso<25||peso>350)throw bad('Registre uma pesagem válida na bioimpedância antes de sugerir metas.');
+ const bmrMedido=medidas.tmb?.valor;
+ const bmrCalculado=(u.sexo_referencia_calculo==='masculino'?10*peso+6.25*altura-5*idade+5:
+    u.sexo_referencia_calculo==='feminino'?10*peso+6.25*altura-5*idade-161:null);
+ const basal=(bmrMedido>=600&&bmrMedido<=4000)?bmrMedido:bmrCalculado;
+ if(!Number.isFinite(basal)||basal<=0)throw bad('Informe sexo de referência e dados pessoais válidos, ou uma TMB registrada.');
+ const fatores={sedentaria:1.2,leve:1.375,moderada:1.55,alta:1.725};
+ const multiplicadores={reduzir_gordura:.85,manter:1,ganhar_massa:1.08};
+ const kcal=Math.round(basal*fatores[atividade]*multiplicadores[objetivo]);
+ const prot=Math.round(peso*(objetivo==='reduzir_gordura'?1.8:objetivo==='ganhar_massa'?1.8:1.6));
+ const gord=Math.round(Math.min(peso*.85,kcal*.32/9));
+ const carb=Math.round(Math.max(0,(kcal-prot*4-gord*9)/4));
+ const fibras=Math.round(Math.max(25,Math.min(40,kcal*.014)));
+ const base={kcal,proteinas_g:prot,carboidratos_g:carb,gorduras_g:gord,fibras_g:fibras};
+ if(kcal<1000||kcal>6000||carb<25)throw bad('Os dados disponíveis geraram uma estimativa fora de uma faixa segura. Revise as medições.',422);
+ const prompt={objetivo,atividade,usuario:{idade,altura_cm:altura,sexo_referencia_calculo:u.sexo_referencia_calculo},
+  bioimpedancia:medidas,metas_calculadas:base,tmb_usada:basal};
+ const controlador=new AbortController();
+ const timer=setTimeout(()=>controlador.abort(),18000);
+ let descricao='';
+ try{
+  const resposta=await fetch('https://api.openai.com/v1/chat/completions',{
+   method:'POST',signal:controlador.signal,
+   headers:{Authorization:'Bearer '+process.env.OPENAI_API_KEY,'Content-Type':'application/json'},
+   body:JSON.stringify({model:process.env.AVN_NUTRICAO_AI_MODEL||'gpt-4o-mini',temperature:0.2,
+    response_format:{type:'json_object'},
+    messages:[
+     {role:'system',content:'Você é um assistente de nutrição. Responda somente JSON com propriedade explicacao (até 450 caracteres). Interprete as últimas medidas corporais e as metas já calculadas. Explique objetivamente o motivo das metas e eventuais limitações dos dados. Não diagnostique, não prescreva tratamentos e não afirme precisão clínica. Escreva em português do Brasil.'},
+     {role:'user',content:JSON.stringify(prompt)}
+    ]})
+  });
+  if(!resposta.ok)throw bad('Serviço de IA indisponível no momento.',502);
+  const json=await resposta.json();
+  const texto=json.choices?.[0]?.message?.content||'';
+  descricao=String(JSON.parse(texto).explicacao||'').slice(0,700);
+ }catch(e){if(e.status)throw e;throw bad('Não foi possível consultar a IA agora. Tente novamente.',502);}
+ finally{clearTimeout(timer);}
+ res.set('Cache-Control','no-store').json({
+  metas:base,explicacao:descricao||'Estimativa preliminar calculada a partir das medições.',
+  origem:'bioimpedancia_e_ia',medicoes:medidas,
+  aviso:'Sugestão estimada, não substitui orientação clínica. Nenhuma meta foi alterada automaticamente.'
+ });
+}));
+
 async function activePlan(uid,db=pool){const r=await db.query('SELECT * FROM public.avn_dieta_planos WHERE usuario_id=$1 AND ativo ORDER BY id DESC LIMIT 1',[uid]);return r.rows[0]||null;}
 router.get('/dieta/:usuarioId',wrap(async(req,res)=>{
  const uid=requiredId(req.params.usuarioId);await user(uid);const plan=await activePlan(uid);
