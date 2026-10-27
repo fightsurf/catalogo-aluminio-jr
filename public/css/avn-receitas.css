@@ -115,3 +115,16 @@ dialog.receita-modal-detalhe{width:min(1360px,calc(100% - 24px))}
  .receita-detalhe-grid h3{min-height:0}
  .receita-detalhe-grid .receita-grafico{width:min(235px,100%)}
 }
+
+/* Abas independentes: macronutrientes / micronutrientes em cada painel */
+.receita-abas{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:18px;border-bottom:1px solid #435775;padding-bottom:8px}
+.receita-aba{min-width:0;white-space:normal;word-break:normal;overflow-wrap:anywhere;background:#213754!important;color:#bdd1ea!important;border:1px solid #435775!important;border-radius:8px;padding:10px 6px;font-size:.79rem;line-height:1.25;font-weight:650;cursor:pointer}
+.receita-aba[aria-selected="true"]{background:#3176ba!important;color:#fff!important;border-color:#70a8e7!important}
+.receita-aba:focus-visible{outline:2px solid #9bccff;outline-offset:2px}
+.receita-aba-painel[hidden]{display:none!important}
+.receita-micros-lista{list-style:none;margin:0;padding:0;display:grid}
+.receita-micros-lista li{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:12px 0;border-bottom:1px solid #34465f}
+.receita-micros-lista li span{min-width:0;overflow-wrap:anywhere}
+.receita-micros-lista li strong{flex:0 0 auto;white-space:nowrap;color:#edf5ff}
+.receita-micros-vazio{margin:10px 0;line-height:1.55}
+@media(max-width:360px){.receita-aba{font-size:.74rem;padding:9px 4px}}

@@ -110,6 +110,48 @@ function graficoMacros(dados,titulo,escopo){
  const legenda=campos.map(c=>`<div class="receita-macro-linha"><span class="receita-macro-rotulo"><i class="receita-cor ${c.cls}" aria-hidden="true"></i>${c.nome}</span><strong>${dados[c.chave]==null?'Sem dado':fmt(dados[c.chave],2)+' g'}</strong></div>`).join('');
  return `<h3>${esc(titulo)}</h3><p class="receita-energia">${dados.kcal==null?'Energia sem dado':fmt(dados.kcal,2)+' kcal'}</p>${visual}<div class="receita-macros-legenda">${legenda}</div><p class="muted receita-grafico-nota">Distribuição energética: proteínas e carboidratos 4 kcal/g; gorduras 9 kcal/g.</p>`;
 }
+function listaMicronutrientes(valores,titulo){
+ const itens=nutrientes.map(n=>({
+  nome:String(n.nome||n.codigo),unidade:String(n.unidade||''),
+  valor:valores?.[n.codigo]==null?null:Number(valores[n.codigo])
+ })).filter(n=>n.valor!=null&&Number.isFinite(n.valor)&&n.valor>0)
+   .sort((a,b)=>b.valor-a.valor||a.nome.localeCompare(b.nome,'pt-BR'));
+ if(!itens.length)return `<h3>${esc(titulo)}</h3><p class="muted receita-micros-vazio">Nenhum micronutriente com dados completos e valor acima de zero.</p>`;
+ return `<h3>${esc(titulo)}</h3><ul class="receita-micros-lista">${itens.map(n=>`<li><span>${esc(n.nome)}</span><strong>${fmt(n.valor,6)} ${esc(n.unidade)}</strong></li>`).join('')}</ul>`;
+}
+function painelNutrientes(dados,totaisMicros,titulo,escopo,prefixo){
+ const macroid=prefixo+'-macros',microid=prefixo+'-micros';
+ const macroTab=prefixo+'-aba-macros',microTab=prefixo+'-aba-micros';
+ return `<div class="receita-abas" role="tablist" aria-label="Composição nutricional ${esc(escopo)}">
+  <button type="button" id="${macroTab}" class="receita-aba" role="tab" aria-selected="true" aria-controls="${macroid}" tabindex="0">Macronutrientes</button>
+  <button type="button" id="${microTab}" class="receita-aba" role="tab" aria-selected="false" aria-controls="${microid}" tabindex="-1">Micronutrientes</button>
+ </div>
+ <div id="${macroid}" class="receita-aba-painel" role="tabpanel" aria-labelledby="${macroTab}">${graficoMacros(dados,titulo,escopo)}</div>
+ <div id="${microid}" class="receita-aba-painel" role="tabpanel" aria-labelledby="${microTab}" hidden>${listaMicronutrientes(totaisMicros,'Micronutrientes '+escopo)}</div>`;
+}
+function ativarAbasNutrientes(){
+ $('detalheConteudo').querySelectorAll('.receita-abas').forEach(grupo=>{
+  const tabs=[...grupo.querySelectorAll('[role="tab"]')];
+  function selecionar(tab){
+   for(const b of tabs){
+    const ativa=b===tab;
+    b.setAttribute('aria-selected',String(ativa));
+    b.tabIndex=ativa?0:-1;
+    const painel=$(b.getAttribute('aria-controls'));
+    if(painel)painel.hidden=!ativa;
+   }
+  }
+  tabs.forEach((tab,i)=>{
+   tab.addEventListener('click',()=>selecionar(tab));
+   tab.addEventListener('keydown',e=>{
+    const direcao=e.key==='ArrowRight'?1:e.key==='ArrowLeft'?-1:0;
+    const destino=direcao?tabs[(i+direcao+tabs.length)%tabs.length]:
+      e.key==='Home'?tabs[0]:e.key==='End'?tabs[tabs.length-1]:null;
+    if(destino){e.preventDefault();selecionar(destino);destino.focus();}
+   });
+  });
+ });
+}
 async function ver(id){
  const usuario=usuarioId;
  try{
@@ -119,8 +161,8 @@ async function ver(id){
   // A composição por 100 g é obtida desse total usando o rendimento final.
   const totais=r.totais_ingredientes;
   const cemGramas=r.composicao_100g;
-  const graficoInteiro=graficoMacros(totais,'Macronutrientes do bolo inteiro','da receita inteira');
-  const grafico100g=graficoMacros(cemGramas,'Macronutrientes por 100 g','por 100 g');
+  const graficoInteiro=painelNutrientes(totais,r.micronutrientes_totais||{},'Macronutrientes da receita inteira','da receita inteira','receita-inteira');
+  const grafico100g=painelNutrientes(cemGramas,cemGramas.micronutrientes_100g||{},'Macronutrientes por 100 g','por 100 g','receita-cem-gramas');
   const ingredientes=Array.isArray(r.ingredientes)?r.ingredientes:[];
   const total=ingredientes.reduce((s,i)=>s+Number(i.quantidade_g||0),0);
   $('detalheTitulo').textContent=r.nome;
@@ -135,6 +177,7 @@ async function ver(id){
    <section class="receita-macros" aria-label="Macronutrientes por 100 gramas">${grafico100g}</section>
    </div>`;
   $('editarDoDetalhe').onclick=()=>editar(id);
+  ativarAbasNutrientes();
   if(!$('modalDetalheReceita').open)$('modalDetalheReceita').showModal();
  }catch(e){alertar(e.message,true);}
 }
