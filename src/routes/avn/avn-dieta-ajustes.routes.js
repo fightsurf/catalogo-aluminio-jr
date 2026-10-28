@@ -218,7 +218,12 @@ router.post('/analisar',route(async(req,res)=>{
  }).slice(0,8);
  res.set('Cache-Control','no-store').json({
   versao:ctx.hash,metas:ctx.goals,atual:simulation.total,original:simular(ctx,[]).total,
-  aplicadas:ops,sugestoes:filtradas,avisos:[
+  aplicadas:ops,
+   aplicadas_detalhes:ops.map(op=>({item_id:op.item_id,
+    titulo:(ctx.items.find(i=>i.id===op.item_id)?.nome||'Alimento'),
+    antes_g:ctx.items.find(i=>i.id===op.item_id)?.quantidade_g,
+    depois_g:op.quantidade_g})),
+   sugestoes:filtradas,avisos:[
    ...(ctx.goals.kcal>0&&ctx.goals.proteinas_g>0&&ctx.goals.carboidratos_g>0&&ctx.goals.gorduras_g>0&&Math.abs(4*ctx.goals.proteinas_g+4*ctx.goals.carboidratos_g+9*ctx.goals.gorduras_g-ctx.goals.kcal)>ctx.goals.kcal*0.06?['As metas de calorias e macronutrientes não são totalmente compatíveis (estimativa 4/4/9). Algumas diferenças podem ser inevitáveis.']:[]),
    'Sugestões estimadas a partir dos dados cadastrados. Nenhuma alteração é salva até a confirmação final.',
    'Receitas são consideradas prontas: somente a porção em gramas da dieta pode ser alterada, nunca seus ingredientes.'
