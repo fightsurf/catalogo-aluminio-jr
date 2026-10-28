@@ -406,3 +406,38 @@ body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-food strong{overflow-wrap:
 body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-food small,body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-valor small{display:block;font-size:12px;color:var(--muted)}
 body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-valor{text-align:right;font-variant-numeric:tabular-nums}
 @media(max-width:520px){body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-item{grid-template-columns:24px minmax(0,1fr);gap:8px}body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-valor{grid-column:2;text-align:left}}
+
+
+/* Perfis e compartilhamento de refeições: tela simples, com ações discretas. */
+body[data-nutricao-pagina="diario"] .avn-dieta-resumo,
+body[data-nutricao-pagina="dieta"] .avn-dieta-resumo{grid-template-columns:repeat(4,minmax(0,1fr))}
+body[data-nutricao-pagina="diario"] .avn-dieta-macro-coluna,
+body[data-nutricao-pagina="dieta"] .avn-dieta-macro-coluna{display:grid;grid-template-rows:1fr 1fr;gap:8px;min-width:0}
+body[data-nutricao-pagina="diario"] .avn-dieta-macro-coluna .stat,
+body[data-nutricao-pagina="dieta"] .avn-dieta-macro-coluna .stat{min-width:0;overflow-wrap:anywhere}
+body[data-nutricao-pagina="diario"] .avn-dieta-macro-coluna .avn-dieta-meta{border-color:var(--accent)}
+body[data-nutricao-pagina="diario"] .avn-dieta-macro-coluna .avn-dieta-card-titulo{display:block;margin-bottom:4px;font-size:16px;line-height:1.35;font-weight:650;color:var(--ink)}
+body[data-nutricao-pagina="diario"] .avn-dieta-macro-coluna .avn-dieta-card-nota{display:block;margin-top:5px;font-size:11px;line-height:1.35;color:var(--muted)}
+.avn-perfil-acoes{display:flex;flex-wrap:wrap;gap:9px;align-items:center;padding:6px 0 12px}
+.avn-perfil-acoes small{font-size:12px;color:var(--muted)}
+.avn-perfil-acoes a,.avn-perfil-acoes button{font-size:12px;font-weight:700}
+.avn-perfil-acoes button{border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--accent);padding:5px 9px}
+.avn-perfis-modal{width:min(600px,calc(100vw - 18px))}
+.avn-perfis-lista{display:grid;gap:8px;margin:15px 0}
+.avn-perfil-linha{display:flex;justify-content:space-between;gap:12px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:12px}
+.avn-perfil-linha>span{min-width:0;overflow-wrap:anywhere}
+.avn-perfil-linha>span small{display:block;color:var(--muted)}
+.avn-perfil-linha .avn-perfil-comandos{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.avn-perfil-linha button{font-size:12px;padding:5px 8px}
+.avn-perfil-novo{border-top:1px solid var(--line);padding-top:16px;display:flex;align-items:end;gap:10px}
+.avn-perfil-novo label{flex:1}
+.avn-diario-acoes{justify-content:flex-start;flex-wrap:wrap}
+.avn-diario-acoes button{margin:0}
+.avn-refeicao-vazia{padding:8px 12px;color:var(--muted)}
+.avn-dia-registrado{font-size:11px;color:var(--ok);font-weight:700}
+body[data-nutricao-pagina="diario"] .avn-dieta-emoji{display:inline-block;margin-left:2px;font-size:1.1em}
+@media(max-width:750px){
+ body[data-nutricao-pagina="diario"] .avn-dieta-resumo,
+ body[data-nutricao-pagina="dieta"] .avn-dieta-resumo{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .avn-perfil-novo{display:grid}
+}
