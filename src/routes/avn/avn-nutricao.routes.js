@@ -8,6 +8,7 @@ const consultaJsonIA = require('../../services/avn/avn-nutricao-ia-json.service'
 const router = express.Router();
 const {metaPorKg,energiaMacros,razoesDaMeta}=require('../../services/avn/avn-metas-gkg');
 router.use('/receitas',require('./avn-receitas.routes'));
+router.use('/dieta/:usuarioId/ajustes-ia',require('./avn-dieta-ajustes.routes'));
 const REFEICOES = new Set(['cafe','lanche_manha','almoco','lanche_tarde','jantar','ceia','outros']);
 const MACROS = ['kcal','proteinas_g','carboidratos_g','gorduras_g','fibras_g'];
 // Catálogo de micronutrientes armazenado em public.avn_nutrientes (extensível).
