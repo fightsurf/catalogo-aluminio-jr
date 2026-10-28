@@ -49,7 +49,7 @@ function mostrar(){
   aplicadas.map((a,i)=>{
    const fonte=resultado?.aplicadas?.[i]||a;
    return '<div class="avn-ajustes-aplicada"><span><strong>'+(i+1)+'º ajuste</strong> · '+
-    (fonte.tipo==='ingrediente'?'Ingrediente de receita':'Quantidade de alimento')+
+    (resultado.aplicadas_detalhes?.[i]?.titulo||'Quantidade de alimento')+
     ' · '+fmt(fonte.quantidade_g)+' g</span>'+
     '<button type="button" class="secondary" data-desfazer="'+i+'">Desfazer</button></div>';
   }).join(''):'';
@@ -68,7 +68,7 @@ async function analisar(acoes,reiniciar=false){
  if(ocupado)return;
  const meu=++revisao,original=usuario;
  bloqueio(true);
- status('Analisando proteínas, carboidratos, gorduras, fibras, energia e ingredientes das receitas…');
+ status('Analisando energia, proteínas, carboidratos, gorduras, fibras e porções de receitas prontas…');
  try{
   const r=await send('/dieta/'+encodeURIComponent(usuario)+'/ajustes-ia/analisar','POST',{
    versao:reiniciar?'':versao,aplicadas:acoes
@@ -98,15 +98,15 @@ async function abrir(){
 async function salvar(){
  if(ocupado||!aplicadas.length||!resultado)return;
  if(state.usuarioId!==usuario){status('O usuário mudou. Reabra a análise.',true);return;}
- if(!confirm('Salvar os '+aplicadas.length+' ajuste(s) na dieta programada? As receitas ajustadas serão copiadas; as originais serão preservadas.'))return;
+ if(!confirm('Salvar os '+aplicadas.length+' ajuste(s) na dieta programada? Somente as quantidades dos alimentos e das receitas prontas serão modificadas.'))return;
  bloqueio(true);
- status('Salvando a dieta e criando cópias das receitas ajustadas…');
+ status('Salvando somente as quantidades programadas…');
  try{
   const r=await send('/dieta/'+encodeURIComponent(usuario)+'/ajustes-ia/salvar','POST',{versao,aplicadas});
   ++revisao;
   $('modalAjustesDietaIA').close();
   await loadDiet();
-  show(r.alteracoes+' ajuste(s) salvo(s) na dieta. '+r.receitas_criadas+' receita(s) copiada(s) sem alterar as originais.');
+  show(r.alteracoes+' ajuste(s) salvo(s) na dieta. Ingredientes e receitas originais preservados.');
  }catch(e){status(e.message,true);}
  finally{bloqueio(false);}
 }
