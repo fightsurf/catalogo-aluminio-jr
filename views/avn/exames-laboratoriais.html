@@ -2,7 +2,7 @@
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>AVN — Exames Laboratoriais</title>
 <link rel="stylesheet" href="/css/avn-nutricao.css"><link rel="stylesheet" href="/css/avn-exames.css">
-<script src="/js/avn-exames.js?v=20261027" defer></script></head>
+<script src="/js/avn-exames.js?v=20261028" defer></script></head>
 <body><main class="avn-wrap avn-exames">
 <header class="avn-top"><a href="/avn">← Central AVN</a><span class="avn-brand">AVN <em>Saúde</em></span></header>
 <section class="avn-hero"><div><span class="avn-caption">SAÚDE · AVN</span><h1>Exames Laboratoriais</h1><p>Histórico de resultados, referências do laudo e evolução de cada indicador.</p></div>
@@ -39,9 +39,13 @@
 </form></dialog>
 <dialog id="exImportModal" class="avn-dialog avn-ex-dialog" aria-labelledby="exImportTitulo">
 <div class="modal-head"><h2 id="exImportTitulo">Importar exames com IA</h2><button type="button" class="secondary" id="exImportFechar">Fechar ×</button></div>
-<p class="muted">Cole o texto copiado de um laudo ou envie um PDF de até 8 MB. Ao interpretar, o conteúdo será enviado à API de IA. Nada será salvo sem sua confirmação.</p>
-<label class="avn-field">Texto do laudo<textarea id="exTextoLaudo" rows="7" maxlength="50000" placeholder="Cole aqui o texto copiado do PDF…"></textarea></label>
-<label class="avn-field">PDF (opcional)<input type="file" id="exArquivo" accept="application/pdf,.pdf"></label>
+<p class="muted">Cole o texto de um laudo ou use uma captura de tela (Ctrl+V), uma imagem JPG/JPEG/PNG ou um PDF de até 8 MB. O material só será enviado à IA quando clicar em interpretar; nada será salvo sem sua confirmação.</p>
+<label class="avn-field">Texto do laudo (opcional)<textarea id="exTextoLaudo" rows="5" maxlength="50000" placeholder="Cole aqui o texto do laudo, se houver…"></textarea></label>
+<div id="exColarImagem" class="avn-ex-colar" tabindex="0" role="region" aria-label="Área para colar print de exame">
+<strong>Cole o print aqui com Ctrl+V</strong><small>Faça a captura com a Ferramenta de Captura do Windows, clique aqui e pressione Ctrl+V. Também é possível arrastar uma imagem ou PDF.</small>
+</div>
+<label class="avn-field">Imagem JPEG/PNG ou PDF (opcional)<input type="file" id="exArquivo" accept="image/jpeg,image/png,application/pdf,.jpg,.jpeg,.png,.pdf"></label>
+<div id="exAnexoPrevia" class="avn-ex-anexo" hidden><img id="exMiniatura" alt="Prévia da imagem do laudo" hidden><span id="exAnexoNome"></span><button type="button" class="secondary" id="exLimparAnexo">Remover anexo</button></div>
 <div class="avn-ex-actions"><button type="button" class="primary" id="exInterpretar">Interpretar exames com IA</button></div>
 <div id="exImportStatus" role="status" aria-live="polite"></div>
 <section id="exPrevia" hidden><h3>Conferir resultados antes de salvar</h3>
