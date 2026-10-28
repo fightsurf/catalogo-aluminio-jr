@@ -60,7 +60,7 @@ async function novoPerfil(e){
   const r=await send('/dieta/'+state.usuarioId+'/perfis','POST',{refeicao:refeicaoPerfil,nome});
   await send('/dieta/'+state.usuarioId+'/perfis/'+r.perfil.id+'/ativar','PUT',{});
   await loadDiet();$('modalPerfisRefeicao').close();
-  show('Novo perfil criado com uma cópia dos alimentos. Edite os itens na tela principal.');
+  show('Novo perfil criado vazio e selecionado. Use “+ Adicionar alimento” para montar essa refeição.');
  }catch(err){show(err.message,true);}
  finally{perfilOcupado=false;}
 }
