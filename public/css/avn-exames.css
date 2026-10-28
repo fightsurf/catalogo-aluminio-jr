@@ -21,6 +21,14 @@
 .avn-exames .avn-ex-preview-row legend{font-weight:700;padding:0 .4rem}
 .avn-exames .avn-ex-check{display:flex;align-items:center;gap:.5rem;margin-top:.7rem}
 .avn-exames textarea{width:100%;resize:vertical}
+.avn-exames .avn-ex-colar{border:2px dashed var(--line,#61758f);border-radius:12px;min-height:110px;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:.4rem;text-align:center;padding:1rem;margin:.8rem 0;cursor:text}
+.avn-exames .avn-ex-colar strong{font-size:1rem}
+.avn-exames .avn-ex-colar small{max-width:510px;line-height:1.5;opacity:.8}
+.avn-exames .avn-ex-colar:focus-visible,.avn-exames .avn-ex-colar.is-arrastando{outline:2px solid #6caaf8;outline-offset:2px}
+.avn-exames .avn-ex-anexo{display:flex;gap:.8rem;align-items:center;flex-wrap:wrap;margin:.75rem 0}
+.avn-exames .avn-ex-anexo[hidden],.avn-exames .avn-ex-anexo img[hidden]{display:none}
+.avn-exames .avn-ex-anexo img{max-width:130px;max-height:120px;object-fit:contain;border:1px solid var(--line,#61758f);border-radius:8px}
+.avn-exames .avn-ex-anexo span{min-width:0;overflow-wrap:anywhere;flex:1}
 .avn-exames #exImportStatus{margin:.8rem 0}
 .avn-exames input:focus-visible,.avn-exames button:focus-visible,.avn-exames select:focus-visible{outline:2px solid #6caaf8;outline-offset:2px}
 @media(max-width:700px){
