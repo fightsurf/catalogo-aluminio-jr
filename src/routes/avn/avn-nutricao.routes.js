@@ -315,12 +315,11 @@ router.post('/dieta/:usuarioId/perfis',wrap(async(req,res)=>{
  const ref=meal(req.body?.refeicao),nome=perfilNome(req.body?.nome),db=await pool.connect();
  try{
   await db.query('BEGIN');
-  const p=await lockPlan(db,uid);const atual=await ensureMealProfile(db,p.id,ref);
+  const p=await lockPlan(db,uid);
+  // Preserva ou cria o perfil Original, sem copiar os alimentos para novos perfis.
+  await ensureMealProfile(db,p.id,ref);
   const criado=await db.query('INSERT INTO public.avn_dieta_refeicao_perfis(plano_id,refeicao,nome,ativo) VALUES($1,$2,$3,FALSE) RETURNING *',[p.id,ref,nome]);
-  // O novo perfil nasce como cópia independente da versão em uso.
-  await db.query(`INSERT INTO public.avn_dieta_itens(plano_id,dia_semana,refeicao,alimento_id,quantidade_g,ordem,perfil_id)
-   SELECT plano_id,dia_semana,refeicao,alimento_id,quantidade_g,ordem,$2
-   FROM public.avn_dieta_itens WHERE perfil_id=$1 ORDER BY ordem,id`,[atual,criado.rows[0].id]);
+  // Novos perfis começam vazios; cada alimento será registrado apenas no perfil ativo.
   await db.query('COMMIT');res.status(201).json({ok:true,perfil:criado.rows[0]});
  }catch(e){await db.query('ROLLBACK').catch(()=>{});throw e;}finally{db.release();}
 }));
