@@ -9,7 +9,7 @@
 .avn-ajustes-linha:first-child{border-top:0}
 .avn-ajustes-linha>span:not(:first-child){text-align:right}
 .avn-ajustes-cabecalho{background:var(--light);font-weight:750}
-.avn-ajustes-linha.ideal{background:#e8f7ee}
+.avn-ajustes-linha.ideal{background:transparent;color:inherit}
 .avn-ajustes-sugestoes{display:grid;gap:10px;margin:14px 0}
 .avn-ajustes-sugestao{border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;gap:16px;justify-content:space-between;align-items:center;background:var(--card)}
 .avn-ajustes-sugestao>div{min-width:0;flex:1}
