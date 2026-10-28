@@ -1,0 +1,36 @@
+/* Dieta programada: assistente de ajustes nutricionais por IA. */
+.avn-ajustes-dialog{width:min(1020px,calc(100vw - 24px));max-height:92vh}
+.avn-ajustes-dialog .modal-head{position:sticky;top:-22px;z-index:2;background:var(--card);padding:10px 0 14px;border-bottom:1px solid var(--line)}
+.avn-ajustes-status{margin:12px 0;padding:10px 12px;border-radius:9px;background:var(--light);color:var(--ink);font-size:13px}
+.avn-ajustes-status:empty{display:none}
+.avn-ajustes-status.erro{background:#fff0ef;color:var(--red)}
+.avn-ajustes-tabela{display:grid;gap:0;border:1px solid var(--line);border-radius:11px;overflow:hidden;margin:12px 0 16px}
+.avn-ajustes-linha{display:grid;grid-template-columns:minmax(115px,1.25fr) repeat(3,minmax(85px,1fr));gap:12px;align-items:center;padding:9px 12px;border-top:1px solid var(--line);font-size:13px;font-variant-numeric:tabular-nums}
+.avn-ajustes-linha:first-child{border-top:0}
+.avn-ajustes-linha>span:not(:first-child){text-align:right}
+.avn-ajustes-cabecalho{background:var(--light);font-weight:750}
+.avn-ajustes-linha.ideal{background:#e8f7ee}
+.avn-ajustes-sugestoes{display:grid;gap:10px;margin:14px 0}
+.avn-ajustes-sugestao{border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;gap:16px;justify-content:space-between;align-items:center;background:var(--card)}
+.avn-ajustes-sugestao>div{min-width:0;flex:1}
+.avn-ajustes-sugestao h4{margin:0 0 5px;color:var(--ink);overflow-wrap:anywhere}
+.avn-ajustes-sugestao p{margin:4px 0;font-size:13px}
+.avn-ajustes-sugestao .avn-ajustes-gramas{font-size:14px;color:var(--ink)}
+.avn-ajustes-sugestao button{flex:none}
+.avn-ajustes-sugestao details{margin-top:9px}
+.avn-ajustes-sugestao details summary{font-size:12px}
+.avn-ajustes-sugestao .avn-ajustes-linha{font-size:12px;gap:5px}
+.avn-ajustes-aplicadas{display:grid;gap:7px;margin:10px 0}
+.avn-ajustes-aplicadas h4{margin:10px 0 3px}
+.avn-ajustes-aplicada{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:9px 12px;background:var(--light);border-radius:9px;font-size:13px}
+.avn-ajustes-aplicada span{overflow-wrap:anywhere}
+.avn-ajustes-dialog button:disabled{opacity:.5;cursor:wait}
+.avn-ajustes-dialog .modal-actions{flex-wrap:wrap}
+@media(max-width:650px){
+ .avn-ajustes-dialog{padding:13px}
+ .avn-ajustes-sugestao{display:grid}
+ .avn-ajustes-sugestao button{justify-self:start}
+ .avn-ajustes-linha{grid-template-columns:minmax(78px,1.05fr) repeat(3,minmax(60px,.8fr));gap:4px;padding:9px 5px;font-size:11px}
+ .avn-ajustes-sugestao .avn-ajustes-linha{font-size:10px}
+ .avn-ajustes-aplicada{flex-wrap:wrap}
+}
