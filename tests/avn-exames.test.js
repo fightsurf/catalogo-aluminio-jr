@@ -45,3 +45,24 @@ test('interface mantém prévia revisável e gráfico com dados do histórico',(
  for(const src of ['src/routes/avn/avn-exames.routes.js','public/js/avn-exames.js'])
   assert.doesNotThrow(()=>new Function(read(src)));
 });
+
+test('importação com IA aceita print colado e anexos JPEG, PNG e PDF com revisão obrigatória',()=>{
+ const view=read('views/avn/exames-laboratoriais.html');
+ const js=read('public/js/avn-exames.js');
+ const api=read('src/routes/avn/avn-exames.routes.js');
+ for(const id of ['exColarImagem','exAnexoPrevia','exMiniatura','exLimparAnexo'])
+  assert.ok(view.includes('id="'+id+'"'));
+ assert.match(view,/Ctrl\+V/);
+ assert.match(view,/image\/jpeg,image\/png,application\/pdf/);
+ assert.match(js,/addEventListener\('paste',colarAnexo\)/);
+ assert.match(js,/clipboardData\?\.items/);
+ assert.match(js,/URL\.revokeObjectURL/);
+ assert.match(js,/fd\.append\('arquivo',arquivo/);
+ assert.match(api,/upload\.single\('arquivo'\)/);
+ assert.match(api,/type:'input_image'/);
+ assert.match(api,/type:'input_file'/);
+ assert.match(api,/arquivo\.mimetype!==tipoArquivo/);
+ assert.match(api,/LIMIT_FILE_SIZE/);
+ assert.doesNotThrow(()=>new Function(js));
+ assert.doesNotThrow(()=>new Function(api));
+});
