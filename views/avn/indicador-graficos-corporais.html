@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AVN — Gráficos corporais</title>
+<link rel="stylesheet" href="/css/avn-health.css">
+<style>
+.graphs-list{display:grid;gap:16px}
+.chart-panel{margin-top:0}
+.chart-panel h2{font-size:1.22rem}
+.chart-panel h2 small{font-size:.8rem;color:#a9b9d1;font-weight:400}
+.chart-area{max-width:none;height:245px;min-height:245px;margin:14px 0 0}
+.chart-area svg{display:block;width:100%;height:245px;touch-action:pan-y}
+.chart-status{min-height:22px;margin:10px 0}
+.chart-status[hidden]{display:none}
+.chart-area:empty{height:0;min-height:0;margin:0}
+.chart-area .graph-tooltip{max-width:calc(100% - 8px)}
+@media(max-width:650px){.chart-panel{padding:14px}.chart-area,.chart-area svg{height:230px;min-height:230px}}
+</style>
+</head>
+<body data-section="corporal">
+<main class="shell">
+<header><a href="/avn">← Central AVN</a><strong>AVN</strong></header>
+<h1>Gráficos corporais</h1>
+<div class="toolbar">
+<label>Usuário<select id="usuario" aria-label="Usuário"></select></label>
+<label>Período<select id="dias" aria-label="Período">
+<option value="7">7 dias</option><option value="30">30 dias</option>
+<option value="90" selected>90 dias</option><option value="365">1 ano</option>
+<option value="3650">Até 10 anos</option>
+</select></label>
+</div>
+<div class="graphs-list"><section class="detail chart-panel" aria-labelledby="title-peso">
+<h2 id="title-peso">Peso <small>kg</small></h2>
+<p id="status-peso" class="muted chart-status" role="status">Carregando medições…</p>
+<div id="chart-peso" class="graph chart-area" role="img" aria-label="Evolução de peso por data"></div>
+</section>
+<section class="detail chart-panel" aria-labelledby="title-gordura_corporal">
+<h2 id="title-gordura_corporal">Gordura corporal <small>%</small></h2>
+<p id="status-gordura_corporal" class="muted chart-status" role="status">Carregando medições…</p>
+<div id="chart-gordura_corporal" class="graph chart-area" role="img" aria-label="Evolução de gordura corporal por data"></div>
+</section>
+<section class="detail chart-panel" aria-labelledby="title-massa_magra">
+<h2 id="title-massa_magra">Massa magra <small>kg</small></h2>
+<p id="status-massa_magra" class="muted chart-status" role="status">Carregando medições…</p>
+<div id="chart-massa_magra" class="graph chart-area" role="img" aria-label="Evolução de massa magra por data"></div>
+</section>
+<section class="detail chart-panel" aria-labelledby="title-imc">
+<h2 id="title-imc">IMC <small>kg/m²</small></h2>
+<p id="status-imc" class="muted chart-status" role="status">Carregando medições…</p>
+<div id="chart-imc" class="graph chart-area" role="img" aria-label="Evolução de imc por data"></div>
+</section>
+<section class="detail chart-panel" aria-labelledby="title-agua_corporal">
+<h2 id="title-agua_corporal">Água corporal <small>kg</small></h2>
+<p id="status-agua_corporal" class="muted chart-status" role="status">Carregando medições…</p>
+<div id="chart-agua_corporal" class="graph chart-area" role="img" aria-label="Evolução de água corporal por data"></div>
+</section></div>
+<p class="muted">O IMC é calculado a partir do peso de cada medição e da altura atual cadastrada.</p>
+</main>
+<script src="/js/avn-graficos-corporais.js" defer></script>
+</body>
+</html>

@@ -31,6 +31,7 @@ const nutricaoApps = [
   {rota:'/avn/sistema/nutricao/agua',nome:'Água ingerida',categoria:'Nutrição',icone:'droplets',descricao:'Ingestão diária de água e gráfico, sincronizados com Android.'}
 ];
 const corporalApps = [
+  {rota:'/avn/sistema/graficos-corporais',nome:'Gráficos Corporais',categoria:'Avaliação Física',icone:'chart-line',descricao:'Cinco gráficos de evolução: peso, gordura corporal, massa magra, IMC e água corporal.'},
   {rota:'/avn/sistema/peso',nome:'Peso',categoria:'Avaliação Física',icone:'scale',descricao:'Histórico de peso corporal.'},
   {rota:'/avn/sistema/imc',nome:'IMC',categoria:'Avaliação Física',icone:'calculator',descricao:'Histórico de índice de massa corporal.'},
   {rota:'/avn/sistema/gordura-corporal',nome:'Gordura Corporal',categoria:'Avaliação Física',icone:'percent',descricao:'Percentual de gordura corporal.'},
