@@ -43,54 +43,6 @@
   }
 
 
-  // Atalho no cabeçalho: usa o mesmo catálogo, ordem e regras de visibilidade da central.
-  function renderAppSwitcher(){
-    const list=$('appSwitcherList');
-    list.replaceChildren();
-    const q=$('appSwitcherSearch').value.trim();
-    const categoryIndex=name=>{ const i=state.categories.findIndex(c=>c.nome===name); return i<0?999999:i; };
-    const apps=visibleApps().filter(a=>matches(a,q)).sort((a,b)=>
-      categoryIndex(a.categoria)-categoryIndex(b.categoria) ||
-      (a.ordem??999999)-(b.ordem??999999) ||
-      String(a.nome).localeCompare(String(b.nome),'pt-BR')
-    );
-    if(!apps.length){
-      const empty=document.createElement('p');
-      empty.className='brand-menu-empty';
-      empty.textContent='Nenhum aplicativo encontrado.';
-      list.appendChild(empty);
-      return;
-    }
-    let category=null;
-    apps.forEach(app=>{
-      if(app.categoria!==category){
-        category=app.categoria;
-        const heading=document.createElement('div');
-        heading.className='brand-menu-category';
-        heading.textContent=category||'Outros';
-        list.appendChild(heading);
-      }
-      const link=document.createElement('a');
-      link.className='brand-menu-item';
-      link.href=app.rota;
-      link.textContent=app.nome;
-      if(app.descricao)link.title=app.descricao;
-      list.appendChild(link);
-    });
-  }
-
-  function setAppSwitcherOpen(open){
-    const menu=$('appSwitcherMenu');
-    if(menu.hidden===!open)return;
-    menu.hidden=!open;
-    $('appSwitcherButton').setAttribute('aria-expanded',String(open));
-    if(open){
-      $('appSwitcherSearch').value='';
-      renderAppSwitcher();
-      $('appSwitcherSearch').focus();
-    }
-  }
-
   function renderHome(){
     if(state.query.trim()){ renderSearch(); return; }
     $('categoriesSection').hidden=false; $('appsSection').hidden=true;
@@ -200,16 +152,11 @@
 
   async function loadApps(showSpinner=true){
     if(showSpinner)$('refreshButton').classList.add('loading');
-    try{ const r=await fetch('/sistema/api/apps',{cache:'no-store'}); if(!r.ok) throw new Error(`HTTP ${r.status}`); const data=await r.json(); state.apps=data.apps||[]; state.categories=data.categoriasDetalhes||[]; renderAppSwitcher(); $('summaryText').textContent=`${data.visiveis ?? data.total} aplicativos visíveis em ${state.categories.length} categorias. A organização fica salva no servidor.`; if(state.selectedCategory && !state.categories.some(c=>c.nome===state.selectedCategory))state.selectedCategory=null; render(); if($('manager').classList.contains('open'))renderManager(); if($('categoriesDialog').open)renderCategoriesManager(); }
+    try{ const r=await fetch('/sistema/api/apps',{cache:'no-store'}); if(!r.ok) throw new Error(`HTTP ${r.status}`); const data=await r.json(); state.apps=data.apps||[]; state.categories=data.categoriasDetalhes||[]; $('summaryText').textContent=`${data.visiveis ?? data.total} aplicativos visíveis em ${state.categories.length} categorias. A organização fica salva no servidor.`; if(state.selectedCategory && !state.categories.some(c=>c.nome===state.selectedCategory))state.selectedCategory=null; render(); if($('manager').classList.contains('open'))renderManager(); if($('categoriesDialog').open)renderCategoriesManager(); }
     catch(err){console.error(err);$('summaryText').textContent='Não foi possível carregar o catálogo.';toast('Erro ao carregar aplicativos.',true);} finally{if(showSpinner)$('refreshButton').classList.remove('loading');refreshIcons();}
   }
 
 
-  $('appSwitcherButton').addEventListener('click',()=>setAppSwitcherOpen($('appSwitcherMenu').hidden));
-  $('appSwitcherSearch').addEventListener('input',renderAppSwitcher);
-  document.addEventListener('pointerdown',event=>{
-    if(!event.target.closest('.brand-switcher'))setAppSwitcherOpen(false);
-  });
   $('searchInput').addEventListener('input',e=>{state.query=e.target.value;state.selectedCategory=null;render();});
   $('backButton').addEventListener('click',()=>{state.selectedCategory=null;state.query='';$('searchInput').value='';renderHome();});
   $('refreshButton').addEventListener('click',()=>loadApps(true));
@@ -239,7 +186,7 @@
 
   $('editForm').addEventListener('submit',async e=>{e.preventDefault(); const app=state.apps.find(a=>a.rota===$('editRota').value); if(!app)return; const original={...app}; app.nome=$('editNome').value.trim(); app.categoria=$('editCategoria').value.trim(); app.visibilidade=$('editVisibilidade').value; app.favorito=$('editFavorito').checked; try{await saveApp(app);closeEdit();await loadApps(false);toast('Alterações salvas para todos os dispositivos.');}catch(err){Object.assign(app,original);toast(err.message,true);} });
   $('resetButton').addEventListener('click',async()=>{ const rota=$('editRota').value; if(!confirm('Restaurar nome, categoria e visibilidade automáticos deste aplicativo?'))return; try{const r=await fetch('/sistema/api/apps/config',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({rota})});const data=await r.json();if(!r.ok)throw new Error(data.erro||'Erro ao restaurar.');closeEdit();await loadApps(false);toast('Configuração restaurada.');}catch(err){toast(err.message,true);} });
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'){setAppSwitcherOpen(false);closeManager();}});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape')closeManager();});
   fillIconSelect($('newCategoryIcon'),'folder');
   fillIconSelect($('categoryEditIcon'),'folder');
   loadApps();
