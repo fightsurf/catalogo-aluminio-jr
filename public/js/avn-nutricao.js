@@ -168,12 +168,14 @@ function renderDiet(){
   const ativo=state.perfis.find(p=>p.refeicao===key&&p.ativo);
   const lancados=items.filter(i=>state.diario.some(d=>d.plano_item_id!=null&&String(d.plano_item_id)===String(i.id))).length;
   return '<section class="avn-dieta-refeicao" aria-label="'+esc(MEALS[key])+'">'+
-   '<div class="avn-dieta-refeicao-cabecalho"><h4><a href="#" data-macro-meal="'+esc(key)+'" data-macro-source="dieta">'+esc(MEALS[key])+' <span class="avn-dieta-emoji" aria-hidden="true">'+emojiRefeicao(key)+'</span></a></h4>'+
-   '<span>'+items.length+' alimento(s)</span></div>'+
+   '<div class="avn-dieta-refeicao-cabecalho avn-dieta-cabecalho-com-perfis">'+
+   '<div class="avn-dieta-cabecalho-linha"><h4><a href="#" data-macro-meal="'+esc(key)+'" data-macro-source="dieta">'+esc(MEALS[key])+' <span class="avn-dieta-emoji" aria-hidden="true">'+emojiRefeicao(key)+'</span></a></h4>'+
    '<div class="avn-perfil-acoes"><small>Perfil atual: <b>'+esc(ativo?.nome||'Original')+'</b></small>'+
    '<a href="#" data-perfis-refeicao="'+esc(key)+'">Selecionar perfil</a>'+
    (items.length?'<button type="button" data-enviar-refeicao="'+esc(key)+'">Adicionar ao diário</button>':'')+
-   (lancados?'<small class="avn-dia-registrado">'+lancados+'/'+items.length+' lançado(s) hoje</small>':'')+'</div>'+
+   '</div></div>'+
+   '<div class="avn-dieta-cabecalho-meta"><span class="avn-dieta-contagem">'+items.length+' alimento(s)</span>'+
+   (lancados?'<small class="avn-dia-registrado">'+lancados+'/'+items.length+' lançado(s) hoje</small>':'')+'</div></div>'+
    '<div class="avn-dieta-refeicao-itens">'+items.map(i=>{
     const nutrientes=aggregate([i]);
     return '<div class="list-row avn-dieta-linha" data-dieta-item="'+esc(i.id)+'"><div><a href="#" class="name avn-dieta-alimento-link" data-macro-food="'+esc(i.id)+'" aria-label="Ver macronutrientes de '+esc(i.alimento_nome)+'">'+esc(i.alimento_nome)+' <span class="avn-dieta-emoji" aria-hidden="true">'+emojiAlimento(i.alimento_nome)+'</span></a>'+
