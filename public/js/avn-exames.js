@@ -1,7 +1,7 @@
 /* AVN · Saúde / Exames Laboratoriais */
 (()=>{'use strict';
 const $=id=>document.getElementById(id),API='/avn/sistema/api/exames';
-const S={usuario:'',catalogo:[],resultados:[],previa:[]};
+const S={usuario:'',catalogo:[],resultados:[],previa:[],anexo:null,anexoUrl:null};
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const norm=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 const num=v=>v==null||v===''?null:Number(String(v).trim().replace(',','.'));
@@ -151,12 +151,37 @@ function renderPreview(){
  '<label class="avn-ex-check"><input type="checkbox" data-field="incluir" checked> Importar este resultado</label>'+
  (r.precisa_revisao?'<p class="muted">Confira especialmente a identificação, a data e os valores.</p>':'')+'</fieldset>').join('');
 }
+const ANEXO_MAX=8*1024*1024;
+const tiposAnexo=['image/png','image/jpeg','application/pdf'];
+function limparAnexo(){
+ if(S.anexoUrl){URL.revokeObjectURL(S.anexoUrl);S.anexoUrl=null;}
+ S.anexo=null;$('exArquivo').value='';$('exAnexoPrevia').hidden=true;
+ $('exAnexoNome').textContent='';$('exMiniatura').hidden=true;$('exMiniatura').removeAttribute('src');
+}
+function definirAnexo(file){
+ if(!file)return;
+ const tipo=file.type||({'png':'image/png','jpg':'image/jpeg','jpeg':'image/jpeg','pdf':'application/pdf'}[String(file.name||'').split('.').pop().toLowerCase()]);
+ if(!tiposAnexo.includes(tipo)){status('Use um arquivo PNG, JPG/JPEG ou PDF.');return;}
+ if(!file.size||file.size>ANEXO_MAX){status('O anexo deve ter entre 1 byte e 8 MB.');return;}
+ const nome=file.name||('captura.'+(tipo==='image/png'?'png':tipo==='image/jpeg'?'jpg':'pdf'));
+ const novo=new File([file],nome,{type:tipo});
+ limparAnexo();S.anexo=novo;
+ $('exAnexoNome').textContent=nome+' ('+(file.size/1024/1024).toFixed(2).replace('.',',')+' MB)';
+ if(tipo.startsWith('image/')){S.anexoUrl=URL.createObjectURL(novo);$('exMiniatura').src=S.anexoUrl;$('exMiniatura').hidden=false;}
+ $('exAnexoPrevia').hidden=false;S.previa=[];$('exPrevia').hidden=true;status('Anexo recebido. Clique em "Interpretar exames com IA" para analisar.');
+}
+function colarAnexo(e){
+ const item=[...(e.clipboardData?.items||[])].find(i=>i.kind==='file'&&tiposAnexo.includes(i.type));
+ if(!item)return;
+ e.preventDefault();
+ const blob=item.getAsFile();if(blob)definirAnexo(blob);
+}
 async function interpretar(){
- const texto=$('exTextoLaudo').value,pdf=$('exArquivo').files[0];
- if(!texto.trim()&&!pdf)return status('Cole um laudo ou selecione um PDF.');
+ const texto=$('exTextoLaudo').value,arquivo=S.anexo;
+ if(!texto.trim()&&!arquivo)return status('Cole um texto, um print com Ctrl+V ou selecione uma imagem/PDF.');
  const btn=$('exInterpretar');btn.disabled=true;$('exPrevia').hidden=true;status('Interpretando o laudo…');
  try{
-  const fd=new FormData();fd.append('texto',texto);if(pdf)fd.append('pdf',pdf);
+  const fd=new FormData();fd.append('texto',texto);if(arquivo)fd.append('arquivo',arquivo,arquivo.name);
   const data=await api('/interpretar',{method:'POST',body:fd});
   S.previa=data.resultados;
   if(!S.previa.length){status('A IA não identificou resultados. Confira o documento.');return;}
@@ -185,7 +210,14 @@ async function start(){
  $('exForm').onsubmit=saveManual;
  $('exNome').onchange=()=>{const c=byName($('exNome').value);if(c)$('exUnidade').value=c.unidade_padrao||'';referenceSuggestion();};
  for(const f of ['exLab','exMaterial','exMetodo'])$(f).addEventListener('change',referenceSuggestion);
- $('exImportar').onclick=()=>{S.previa=[];$('exPrevia').hidden=true;$('exTextoLaudo').value='';$('exArquivo').value='';status('');modal('exImportModal');};
+ $('exImportar').onclick=()=>{S.previa=[];$('exPrevia').hidden=true;$('exTextoLaudo').value='';limparAnexo();status('');modal('exImportModal');};
+ $('exImportModal').addEventListener('paste',colarAnexo);
+ $('exArquivo').addEventListener('change',e=>{if(e.target.files[0])definirAnexo(e.target.files[0]);});
+ $('exLimparAnexo').onclick=()=>{limparAnexo();S.previa=[];$('exPrevia').hidden=true;status('Anexo removido.');};
+ const area=$('exColarImagem');
+ area.addEventListener('dragover',e=>{e.preventDefault();area.classList.add('is-arrastando');});
+ area.addEventListener('dragleave',()=>area.classList.remove('is-arrastando'));
+ area.addEventListener('drop',e=>{e.preventDefault();area.classList.remove('is-arrastando');if(e.dataTransfer?.files[0])definirAnexo(e.dataTransfer.files[0]);});
  $('exImportFechar').onclick=()=>modal('exImportModal',false);
  $('exCancelarImport').onclick=()=>modal('exImportModal',false);
  $('exInterpretar').onclick=interpretar;$('exConfirmar').onclick=saveImported;
