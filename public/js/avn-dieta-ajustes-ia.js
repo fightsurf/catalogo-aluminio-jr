@@ -39,6 +39,7 @@ function tabela(totais,metas){
 function mostrar(){
  if(!resultado)return;
  $('ajustesIaComparacao').innerHTML=tabela(resultado.atual,resultado.metas);
+ $('ajustesIaAvisos').innerHTML=(resultado.avisos||[]).map(x=>'<p class="muted">'+esc(x)+'</p>').join('');
  const melhorou=aplicadas.length;
  $('ajustesIaResumo').textContent=melhorou?
   aplicadas.length+' ajuste(s) aplicado(s) apenas na simulação. Compare os valores antes de salvar.':
@@ -111,7 +112,7 @@ async function salvar(){
 }
 $('abrirAjustesDietaIA').addEventListener('click',abrir);
 $('fecharAjustesDietaIA').addEventListener('click',()=>$('modalAjustesDietaIA').close());
-$('modalAjustesDietaIA').addEventListener('close',()=>{++revisao;versao='';resultado=null;aplicadas=[];usuario='';});
+$('modalAjustesDietaIA').addEventListener('close',()=>{++revisao;versao='';resultado=null;aplicadas=[];usuario='';bloqueio(false);});
 $('usuario').addEventListener('change',()=>{if($('modalAjustesDietaIA').open)$('modalAjustesDietaIA').close();});
 $('ajustesIaReanalisar').addEventListener('click',()=>analisar(aplicadas));
 $('ajustesIaReiniciar').addEventListener('click',()=>analisar([],true));
