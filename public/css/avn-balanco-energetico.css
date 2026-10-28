@@ -1,0 +1,21 @@
+:root{font-family:system-ui,Arial,sans-serif;color-scheme:dark;color:#edf3ff;background:#0b1220}
+*{box-sizing:border-box}body{margin:0}.avn-balanco{max-width:1080px;margin:auto;padding:20px 18px 68px}
+.top{display:flex;justify-content:space-between;gap:12px;align-items:center}.top a,.diario-link{color:#8ec1ff;text-decoration:none;font-weight:650}
+.titulo h1{font-size:clamp(24px,4vw,34px);margin:28px 0 8px}.titulo p,.ajuda,.aviso{color:#a9b9d1;line-height:1.5}
+.filtros{display:flex;flex-wrap:wrap;gap:16px;align-items:end;margin:22px 0}.filtros label{display:flex;flex-direction:column;gap:7px;font-size:14px;font-weight:600}
+.filtros select,.filtros input{background:#101c2e;color:#f1f5ff;border:1px solid #435775;border-radius:10px;padding:10px;min-width:180px;font:inherit}
+.diario-link{padding:10px 0}.graficos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.painel,.saldo{background:#182437;border:1px solid #34465f;border-radius:16px;padding:18px;min-width:0}
+.painel-titulo{display:flex;align-items:start;justify-content:space-between;gap:8px;flex-wrap:wrap}.painel h2{font-size:17px;margin:0}.painel strong{font-size:21px;font-variant-numeric:tabular-nums}
+.ajuda{margin:8px 0 18px;font-size:12px;min-height:20px}.barras{height:155px;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;align-items:end}
+.barra-dia{height:100%;min-width:0;border:0;background:transparent;color:#a9b9d1;display:flex;flex-direction:column;justify-content:end;align-items:center;gap:7px;padding:0 2px;cursor:pointer;font-size:11px}
+.barra-dia .trilho{height:114px;width:100%;display:flex;align-items:end;justify-content:center}
+.barra-dia .coluna{width:85%;max-width:32px;min-height:3px;background:#4c91e6;border-radius:5px 5px 0 0}
+.barra-dia.selecionado .coluna{background:#66d3b0}.barra-dia.selecionado .dia{color:#fff;font-weight:800}
+.barra-dia.sem-dado .coluna{background:#48566c;height:3px!important}.barra-dia:hover .coluna{filter:brightness(1.25)}
+.barra-dia:focus-visible,.filtros input:focus-visible,.filtros select:focus-visible{outline:2px solid #8ec1ff;outline-offset:3px}
+.saldo{margin-top:18px}.saldo h2{font-size:20px;margin:0 0 10px}.saldo strong{display:block;font-size:clamp(23px,5vw,32px);font-variant-numeric:tabular-nums}
+.saldo p{margin:8px 0;color:#ccd7e9}.saldo .formula{color:#a9b9d1;font-size:13px}
+.saldo.deficit strong{color:#66d3b0}.saldo.superavit strong{color:#ffb979}.saldo.equilibrio strong{color:#b9ceff}
+.aviso{margin-top:18px;font-size:13px}#mensagem{min-height:20px;color:#a9b9d1;font-size:13px}
+@media(max-width:650px){.graficos{grid-template-columns:minmax(0,1fr)}.filtros label{flex:1;min-width:155px}.filtros select,.filtros input{width:100%;min-width:0}}

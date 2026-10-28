@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AVN — Balanço Energético</title>
+<link rel="stylesheet" href="/css/avn-balanco-energetico.css?v=20261028-1">
+<script src="/js/avn-balanco-energetico.js?v=20261028-1" defer></script></head>
+<body><main class="avn-balanco">
+<header class="top"><a href="/avn">← Central AVN</a><strong>AVN · Nutrição</strong></header>
+<div class="titulo"><h1>⚖️ Balanço Energético</h1><p>Quatro gráficos diários e uma estimativa de déficit ou superávit. Cada barra corresponde a um dia.</p></div>
+<div class="filtros">
+<label>Usuário <select id="usuario" aria-label="Usuário"><option value="">Carregando…</option></select></label>
+<label>Data <input type="date" id="data" aria-label="Data do balanço energético"></label>
+<a class="diario-link" href="/avn/sistema/nutricao/diario">Abrir diário alimentar</a>
+</div>
+<p id="mensagem" role="status" aria-live="polite">Carregando dados…</p>
+<section class="graficos" id="graficos" aria-label="Gráficos diários">
+<article class="painel"><div class="painel-titulo"><h2>🍽️ Calorias consumidas</h2><strong id="valor-ingestao">—</strong></div><p class="ajuda">Total registrado no Diário Alimentar</p><div id="grafico-ingestao" class="barras"></div></article>
+<article class="painel"><div class="painel-titulo"><h2>🔥 TMB</h2><strong id="valor-tmb">—</strong></div><p class="ajuda" id="nota-tmb">Metabolismo basal da bioimpedância</p><div id="grafico-tmb" class="barras"></div></article>
+<article class="painel"><div class="painel-titulo"><h2>👟 Passos</h2><strong id="valor-passos">—</strong></div><p class="ajuda">Passos sincronizados pelo Health Connect</p><div id="grafico-passos" class="barras"></div></article>
+<article class="painel"><div class="painel-titulo"><h2>🏋️ Calorias ativas queimadas</h2><strong id="valor-calorias_ativas">—</strong></div><p class="ajuda">Atividades registradas no Health Connect</p><div id="grafico-calorias_ativas" class="barras"></div></article>
+</section>
+<section class="saldo" id="saldo" aria-live="polite"><h2>Balanço calórico do dia</h2><strong id="saldo-valor">—</strong><p id="saldo-descricao">Selecione um usuário e uma data.</p><p class="formula" id="saldo-formula"></p></section>
+<p class="aviso">Estimativa, não medição exata: TMB + calorias ativas. Os passos não são somados novamente, evitando duplicidade. A digestão e atividades não registradas podem alterar o gasto real. O resultado do dia em andamento é provisório.</p>
+</main></body></html>

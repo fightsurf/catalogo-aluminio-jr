@@ -7,6 +7,7 @@ const { requireAuth } = require('../../middlewares/adminAuth.middleware');
 const avnSistemaAplicativos = require('../../services/avn/avnSistemaAplicativos.service');
 const avnTreinosRoutes = require('./avn-treinos.routes');
 const avnNutricaoRoutes = require('./avn-nutricao.routes');
+const avnBalancoRoutes = require('./avn-balanco-energetico.routes');
 const avnHidratacaoRoutes = require('./avn-hidratacao.routes');
 const avnExamesRoutes = require('./avn-exames.routes');
 const pool = require('../../../db/connection');
@@ -23,6 +24,7 @@ const treinoApps = [
   {rota:'/avn/sistema/treinar', nome:'Registrar Treino', icone:'clipboard-check', descricao:'Registre cargas e séries realmente executadas.'},
 ];
 const nutricaoApps = [
+  {rota:'/avn/sistema/balanco-energetico',nome:'Balanço Energético',categoria:'Nutrição',icone:'chart-column',descricao:'Quatro gráficos diários e estimativa de déficit ou superávit.'},
   {rota:'/avn/sistema/nutricao/diario',nome:'Diário alimentar',categoria:'Nutrição',icone:'notebook-pen',descricao:'Registrar alimentos realmente consumidos e seus nutrientes.'},
   {rota:'/avn/sistema/nutricao/dieta',nome:'Dieta programada',categoria:'Nutrição',icone:'calendar-days',descricao:'Dieta padrão válida para todos os dias.'},
   {rota:'/avn/sistema/nutricao/alimentos',nome:'Alimentos',categoria:'Nutrição',icone:'utensils',descricao:'Cadastro de alimentos, TACO, USDA e consulta IA em JSON.'},
@@ -153,6 +155,8 @@ for (const [rota, arquivo] of [
   router.get('/'+rota, requireAuth, (_req,res)=>res.sendFile(path.resolve(__dirname,'../../../views/avn/'+arquivo)));
 }
 router.use('/api/nutricao', requireAuth, avnNutricaoRoutes);
+router.use('/api/balanco-energetico', requireAuth, avnBalancoRoutes);
+router.get('/balanco-energetico', requireAuth, (_req,res)=>res.sendFile(path.resolve(__dirname,'../../../views/avn/balanco-energetico.html')));
 router.use('/api/exames', requireAuth, avnExamesRoutes);
 router.get('/saude/exames', requireAuth, (_req,res)=>res.sendFile(path.resolve(__dirname,'../../../views/avn/exames-laboratoriais.html')));
 router.use('/api/hidratacao', requireAuth, avnHidratacaoRoutes.web);
