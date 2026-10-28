@@ -12,7 +12,6 @@ const inteiro=x=>/^[1-9]\d*$/.test(String(x??''));
 const n=x=>Number(x);
 const numero=x=>typeof x==='number'&&Number.isFinite(x)&&x>0&&x<=10000;
 const round=x=>Math.round(x*10)/10;
-const comp=alimento=>Object.fromEntries(CHAVES.map(k=>[k,alimento[k+'_100g']==null?null:n(alimento[k+'_100g'])]));
 const compSnapshot=food=>({
  ...Object.fromEntries(CHAVES.map(k=>[k,food[k+'_100g']==null?null:n(food[k+'_100g'])])),
  micros:food.micronutrientes_100g||{}
@@ -111,7 +110,7 @@ function simular(ctx,ops){
    if(item.receita.rendimento_ajustado_g<=0||item.receita.rendimento_ajustado_g>100000)
     throw bad('O rendimento final estimado da receita ficou inválido.',422);
    const c=calcular(item.receita.ingredientes.map(g=>({quantidade_g:g.quantidade_g,composicao_100g:g.composicao_100g})),
-    item.receita.rendimento_ajustado_g,ctx.codigos);
+    item.receita.rendimento_ajustado_g,[]);
    item.composicao_100g={...item.composicao_100g,
     ...Object.fromEntries(CHAVES.map(k=>[k,c[k+'_100g']]))};
   }
@@ -268,6 +267,7 @@ router.post('/analisar',route(async(req,res)=>{
  res.set('Cache-Control','no-store').json({
   versao:ctx.hash,metas:ctx.goals,atual:simulation.total,original:simular(ctx,[]).total,
   aplicadas:ops,sugestoes:filtradas,avisos:[
+   ...(ctx.goals.kcal>0&&ctx.goals.proteinas_g>0&&ctx.goals.carboidratos_g>0&&ctx.goals.gorduras_g>0&&Math.abs(4*ctx.goals.proteinas_g+4*ctx.goals.carboidratos_g+9*ctx.goals.gorduras_g-ctx.goals.kcal)>ctx.goals.kcal*0.06?['As metas de calorias e macronutrientes não são totalmente compatíveis (estimativa 4/4/9). Algumas diferenças podem ser inevitáveis.']:[]),
    'Sugestões estimadas a partir dos dados cadastrados. Nenhuma alteração é salva até a confirmação final.',
    'Ao modificar um ingrediente, o rendimento da receita é estimado pela diferença do peso adicionado ou removido.'
   ]
