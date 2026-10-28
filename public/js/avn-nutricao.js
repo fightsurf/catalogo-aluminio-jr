@@ -171,8 +171,10 @@ function renderDiet(){
    '<div class="avn-dieta-refeicao-cabecalho avn-dieta-cabecalho-com-perfis">'+
    '<div class="avn-dieta-cabecalho-linha"><h4><a href="#" data-macro-meal="'+esc(key)+'" data-macro-source="dieta">'+esc(MEALS[key])+' <span class="avn-dieta-emoji" aria-hidden="true">'+emojiRefeicao(key)+'</span></a></h4>'+
    '<div class="avn-perfil-acoes"><small>Perfil atual: <b>'+esc(ativo?.nome||'Original')+'</b></small>'+
-   '<button type="button" class="avn-perfil-botao" data-perfis-refeicao="'+esc(key)+'">Selecionar perfil</button>'+
-   (items.length?'<button type="button" class="avn-perfil-botao" data-enviar-refeicao="'+esc(key)+'">Adicionar ao diário</button>':'')+
+   '<button type="button" class="avn-perfil-botao" data-perfis-refeicao="'+esc(key)+'"><span aria-hidden="true">🔄</span> Selecionar '+esc(MEALS[key])+' <span aria-hidden="true">'+emojiRefeicao(key)+'</span></button>'+
+   (items.length?
+    '<button type="button" class="avn-perfil-botao" data-enviar-refeicao="'+esc(key)+'"><span aria-hidden="true">📒</span> Adicionar ao diário</button>':
+    '<button type="button" class="avn-perfil-botao" data-adicionar-refeicao="'+esc(key)+'"><span aria-hidden="true">➕</span> Adicionar alimento</button>')+
    '</div></div>'+
    '<div class="avn-dieta-cabecalho-meta"><span class="avn-dieta-contagem">'+items.length+' alimento(s)</span>'+
    (lancados?'<small class="avn-dia-registrado">'+lancados+'/'+items.length+' lançado(s) hoje</small>':'')+'</div></div>'+
@@ -183,7 +185,7 @@ function renderDiet(){
       resumoMacrosProgramados(nutrientes,'Macronutrientes de '+i.alimento_nome)+'</div>'+
       '<div class="avn-dieta-acoes"><a href="#" data-editar-plano="'+esc(i.id)+'" aria-label="Editar '+esc(i.alimento_nome)+'">Editar</a>'+
       '<button type="button" class="delete" data-plano="'+esc(i.id)+'">Excluir</button></div></div>';
-   }).join('')+(items.length?'':'<p class="avn-refeicao-vazia">Nenhum alimento neste perfil. Use “Adicionar alimento”.</p>')+'</div>'+
+   }).join('')+(items.length?'':'<p class="avn-refeicao-vazia">Nenhum alimento neste perfil. Use “➕ Adicionar alimento” ao lado da refeição.</p>')+'</div>'+
    '<div class="avn-dieta-totais-refeicao">'+resumoMacrosProgramados(subtotal,'Total de macronutrientes de '+MEALS[key])+
    (Object.values(subtotal.miss).some(n=>n>0)?'<small class="muted">* Alguns valores nutricionais estão incompletos.</small>':'')+
    '</div></section>';
@@ -246,6 +248,32 @@ function invalidarImportacaoDieta(limparTexto=false){
 }
 function destinoImportacaoDieta(){
  $('dietaDestinoImportacao').textContent='Dieta padrão · '+(MEALS[v('dietaRefeicao')]||'Escolha uma refeição');
+}
+function abrirModalAdicionarNaRefeicao(refeicao){
+ if(!MEALS[refeicao])return;
+ userGuard();
+ const modal=$('modalAdicionarRefeicaoDieta'), seletor=$('dietaRefeicao');
+ modal.dataset.valorAnterior=seletor.value;
+ $('anexoFormularioRefeicaoDieta').appendChild($('conteudoFormularioDieta'));
+ seletor.value=refeicao;
+ const campo=seletor.closest('label');
+ campo.hidden=true;
+ campo.parentElement.style.gridTemplateColumns='1fr';
+ invalidarImportacaoDieta(true);
+ destinoImportacaoDieta();
+ $('tituloAdicionarRefeicaoDieta').textContent='➕ Adicionar alimento · '+MEALS[refeicao];
+ modal.showModal();
+}
+function devolverFormularioDieta(){
+ const modal=$('modalAdicionarRefeicaoDieta'), seletor=$('dietaRefeicao');
+ $('modalAdicionarDieta').appendChild($('conteudoFormularioDieta'));
+ const campo=seletor.closest('label');
+ campo.hidden=false;
+ campo.parentElement.style.gridTemplateColumns='';
+ seletor.value=modal.dataset.valorAnterior||'almoco';
+ delete modal.dataset.valorAnterior;
+ invalidarImportacaoDieta(true);
+ destinoImportacaoDieta();
 }
 function opcoesAlimentosDieta(alimentoId){
  return '<option value="">Selecione o alimento</option>'+dietaCatalogoImportacao.map(f=>'<option value="'+esc(f.id)+'"'+(String(f.id)===String(alimentoId)?' selected':'')+'>'+esc(f.nome)+(f.preparo?' · '+esc(f.preparo):'')+(f.marca?' · '+esc(f.marca):'')+'</option>').join('');
@@ -767,6 +795,12 @@ function events(){
  if(PAGE==='dieta'){
  $('fecharRankingDieta').onclick=()=>$('modalRankingDieta').close();
  $('abrirModalDieta').onclick=()=>$('modalAdicionarDieta').showModal();
+  $('listaDieta').addEventListener('click',e=>{
+   const botao=e.target.closest('[data-adicionar-refeicao]');
+   if(botao){e.preventDefault();abrirModalAdicionarNaRefeicao(botao.dataset.adicionarRefeicao);}
+  });
+  $('fecharModalAdicionarRefeicaoDieta').onclick=()=>$('modalAdicionarRefeicaoDieta').close();
+  $('modalAdicionarRefeicaoDieta').addEventListener('close',devolverFormularioDieta);
   $('abrirAnaliseDieta').onclick=abrirAnaliseNutricionalDieta;
   $('imprimirDieta').onclick=imprimirRelatorioDieta;
   $('fecharAnaliseDieta').onclick=()=>$('modalAnaliseDieta').close();
@@ -779,7 +813,7 @@ function events(){
  $('dietaInterpretarIngredientes').onclick=interpretarIngredientesDieta;
  $('dietaAplicarImportacao').onclick=aplicarIngredientesDieta;
  destinoImportacaoDieta();
- $('formDieta').onsubmit=async e=>{e.preventDefault();try{userGuard();await send('/dieta/'+state.usuarioId+'/itens','POST',{alimento_id:v('dietaAlimento'),refeicao:v('dietaRefeicao'),quantidade_g:Number(v('dietaGramas'))});await loadDiet();$('modalAdicionarDieta').close();show('Item adicionado à programação.');}catch(err){show(err.message,true);}};
+ $('formDieta').onsubmit=async e=>{e.preventDefault();try{userGuard();await send('/dieta/'+state.usuarioId+'/itens','POST',{alimento_id:v('dietaAlimento'),refeicao:v('dietaRefeicao'),quantidade_g:Number(v('dietaGramas'))});await loadDiet();const dialogo=$('modalAdicionarRefeicaoDieta').open?$('modalAdicionarRefeicaoDieta'):$('modalAdicionarDieta');dialogo.close();show('Item adicionado à programação.');}catch(err){show(err.message,true);}};
  }
  if(PAGE==='alimentos'){
  $('abrirModalAlimento').onclick=()=>{fillFood(null);$('modalAlimento').showModal();};
