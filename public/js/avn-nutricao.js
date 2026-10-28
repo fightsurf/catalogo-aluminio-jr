@@ -171,8 +171,8 @@ function renderDiet(){
    '<div class="avn-dieta-refeicao-cabecalho avn-dieta-cabecalho-com-perfis">'+
    '<div class="avn-dieta-cabecalho-linha"><h4><a href="#" data-macro-meal="'+esc(key)+'" data-macro-source="dieta">'+esc(MEALS[key])+' <span class="avn-dieta-emoji" aria-hidden="true">'+emojiRefeicao(key)+'</span></a></h4>'+
    '<div class="avn-perfil-acoes"><small>Perfil atual: <b>'+esc(ativo?.nome||'Original')+'</b></small>'+
-   '<a href="#" data-perfis-refeicao="'+esc(key)+'">Selecionar perfil</a>'+
-   (items.length?'<button type="button" data-enviar-refeicao="'+esc(key)+'">Adicionar ao diário</button>':'')+
+   '<button type="button" class="avn-perfil-botao" data-perfis-refeicao="'+esc(key)+'">Selecionar perfil</button>'+
+   (items.length?'<button type="button" class="avn-perfil-botao" data-enviar-refeicao="'+esc(key)+'">Adicionar ao diário</button>':'')+
    '</div></div>'+
    '<div class="avn-dieta-cabecalho-meta"><span class="avn-dieta-contagem">'+items.length+' alimento(s)</span>'+
    (lancados?'<small class="avn-dia-registrado">'+lancados+'/'+items.length+' lançado(s) hoje</small>':'')+'</div></div>'+
