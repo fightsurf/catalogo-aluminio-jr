@@ -27,12 +27,12 @@ async function contexto(db,uid){
  if(!plano)throw bad('Cadastre alimentos na dieta programada antes de usar os ajustes.',422);
  const [metas,base,codigos]=await Promise.all([
   db.query('SELECT kcal,proteinas_g,carboidratos_g,gorduras_g,fibras_g FROM public.avn_metas_nutricionais WHERE usuario_id=$1',[uid]),
-  db.query(\`SELECT i.id,i.alimento_id,i.refeicao,i.quantidade_g,a.nome,a.fonte,a.kcal_100g,
+  db.query(`SELECT i.id,i.alimento_id,i.refeicao,i.quantidade_g,a.nome,a.fonte,a.kcal_100g,
     a.proteinas_g_100g,a.carboidratos_g_100g,a.gorduras_g_100g,a.fibras_g_100g,a.micronutrientes_100g
     FROM public.avn_dieta_itens i JOIN public.avn_alimentos a ON a.id=i.alimento_id
     JOIN public.avn_dieta_refeicao_perfis pf ON pf.id=i.perfil_id AND pf.ativo
     WHERE i.plano_id=$1 AND i.dia_semana=(SELECT MIN(dia_semana) FROM public.avn_dieta_itens WHERE plano_id=$1)
-    ORDER BY i.ordem,i.id\`,[plano.id]),
+    ORDER BY i.ordem,i.id`,[plano.id]),
   db.query('SELECT codigo FROM public.avn_nutrientes ORDER BY codigo')
  ]);
  if(!base.rows.length)throw bad('Adicione alimentos à dieta programada antes de analisar.',422);
@@ -48,8 +48,8 @@ async function contexto(db,uid){
  for(const item of items.filter(i=>i.fonte==='receita')){
   const rec=await db.query('SELECT id,nome,preparo,rendimento_g FROM public.avn_receitas WHERE alimento_id=$1 AND usuario_id=$2',[item.alimento_id,uid]);
   if(!rec.rowCount)throw bad('Receita da dieta não encontrada: '+item.nome,409);
-  const ing=await db.query(\`SELECT id,alimento_id,nome_snapshot,quantidade_g,ordem,composicao_100g
-    FROM public.avn_receita_ingredientes WHERE receita_id=$1 ORDER BY ordem,id\`,[rec.rows[0].id]);
+  const ing=await db.query(`SELECT id,alimento_id,nome_snapshot,quantidade_g,ordem,composicao_100g
+    FROM public.avn_receita_ingredientes WHERE receita_id=$1 ORDER BY ordem,id`,[rec.rows[0].id]);
   count+=ing.rows.length;
   if(count>400)throw bad('A análise admite até 400 ingredientes distribuídos nas receitas.',422);
   item.receita={id:String(rec.rows[0].id),nome:rec.rows[0].nome,preparo:rec.rows[0].preparo,
@@ -295,25 +295,25 @@ router.post('/salvar',route(async(req,res)=>{
     const novosMacros=calcular(receita.ingredientes,receita.rendimento_ajustado_g,ctx.codigos);
     const micros=micronutrientesDisponiveis(receita.ingredientes,receita.rendimento_ajustado_g,ctx.codigos);
     const nome=(receita.nome.slice(0,160)+' (ajuste dieta)').slice(0,180);
-    const food=await db.query(\`INSERT INTO public.avn_alimentos(usuario_id,nome,preparo,kcal_100g,proteinas_g_100g,
+    const food=await db.query(`INSERT INTO public.avn_alimentos(usuario_id,nome,preparo,kcal_100g,proteinas_g_100g,
       carboidratos_g_100g,gorduras_g_100g,fibras_g_100g,micronutrientes_100g,fonte,fonte_referencia)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,'receita','Ajuste da dieta programada por IA') RETURNING id\`,
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,'receita','Ajuste da dieta programada por IA') RETURNING id`,
      [uid,nome,receita.preparo,novosMacros.kcal_100g,novosMacros.proteinas_g_100g,
       novosMacros.carboidratos_g_100g,novosMacros.gorduras_g_100g,novosMacros.fibras_g_100g,JSON.stringify(micros.por100g)]);
     alimentoId=food.rows[0].id;
-    const rec=await db.query(\`INSERT INTO public.avn_receitas(usuario_id,alimento_id,nome,preparo,rendimento_g,observacoes)
-      VALUES($1,$2,$3,$4,$5,$6) RETURNING id\`,[uid,alimentoId,nome,receita.preparo,receita.rendimento_ajustado_g,
+    const rec=await db.query(`INSERT INTO public.avn_receitas(usuario_id,alimento_id,nome,preparo,rendimento_g,observacoes)
+      VALUES($1,$2,$3,$4,$5,$6) RETURNING id`,[uid,alimentoId,nome,receita.preparo,receita.rendimento_ajustado_g,
        'Cópia criada por Ajustes com IA da dieta programada. Receita original preservada.']);
     for(const ing of receita.ingredientes){
-     await db.query(\`INSERT INTO public.avn_receita_ingredientes
+     await db.query(`INSERT INTO public.avn_receita_ingredientes
        (receita_id,alimento_id,quantidade_g,ordem,composicao_100g,nome_snapshot)
-       VALUES($1,$2,$3,$4,$5::jsonb,$6)\`,
+       VALUES($1,$2,$3,$4,$5::jsonb,$6)`,
       [rec.rows[0].id,ing.alimento_id,ing.quantidade_g,ing.ordem,JSON.stringify(ing.composicao_100g),ing.nome]);
     }
     receitasCriadas++;
    }
-   const change=await db.query(\`UPDATE public.avn_dieta_itens SET alimento_id=$3,quantidade_g=$4
-    WHERE id=$1 AND plano_id=$2 RETURNING id\`,[item.id,ctx.planoId,alimentoId,item.quantidade_g]);
+   const change=await db.query(`UPDATE public.avn_dieta_itens SET alimento_id=$3,quantidade_g=$4
+    WHERE id=$1 AND plano_id=$2 RETURNING id`,[item.id,ctx.planoId,alimentoId,item.quantidade_g]);
    if(!change.rowCount)throw bad('A dieta mudou durante o salvamento.',409);
   }
   await db.query('COMMIT');
