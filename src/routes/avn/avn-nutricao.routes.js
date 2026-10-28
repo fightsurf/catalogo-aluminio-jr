@@ -288,12 +288,89 @@ router.post('/metas/:usuarioId/sugerir-ia',wrap(async(req,res)=>{
 }));
 
 async function activePlan(uid,db=pool){const r=await db.query('SELECT * FROM public.avn_dieta_planos WHERE usuario_id=$1 AND ativo ORDER BY id DESC LIMIT 1',[uid]);return r.rows[0]||null;}
+
+// Perfil é propriedade da refeição, não da dieta inteira. Sempre travar o plano antes de criar/alternar.
+async function ensureMealProfile(db,planoId,ref){
+ const existe=await db.query('SELECT id FROM public.avn_dieta_refeicao_perfis WHERE plano_id=$1 AND refeicao=$2 AND ativo LIMIT 1',[planoId,ref]);
+ if(existe.rowCount)return existe.rows[0].id;
+ await db.query(`INSERT INTO public.avn_dieta_refeicao_perfis(plano_id,refeicao,nome,ativo)
+ VALUES ($1,$2,'Original',TRUE) ON CONFLICT DO NOTHING`,[planoId,ref]);
+ const atual=await db.query('SELECT id FROM public.avn_dieta_refeicao_perfis WHERE plano_id=$1 AND refeicao=$2 AND ativo LIMIT 1',[planoId,ref]);
+ if(!atual.rowCount)throw bad('Não foi possível ativar o perfil da refeição.',409);
+ return atual.rows[0].id;
+}
+async function lockPlan(db,uid){
+ let p=await activePlan(uid,db);
+ if(!p){const r=await db.query("INSERT INTO public.avn_dieta_planos(usuario_id,nome,ativo) VALUES ($1,'Dieta padrão',TRUE) RETURNING *",[uid]);return r.rows[0];}
+ await db.query('SELECT id FROM public.avn_dieta_planos WHERE id=$1 FOR UPDATE',[p.id]);
+ return p;
+}
+function perfilNome(valor){
+ const nome=String(valor||'').trim();
+ if(!nome||nome.length>80)throw bad('Informe um nome para o perfil (até 80 caracteres).');
+ return nome;
+}
+router.post('/dieta/:usuarioId/perfis',wrap(async(req,res)=>{
+ const uid=requiredId(req.params.usuarioId);await user(uid);
+ const ref=meal(req.body?.refeicao),nome=perfilNome(req.body?.nome),db=await pool.connect();
+ try{
+  await db.query('BEGIN');
+  const p=await lockPlan(db,uid);const atual=await ensureMealProfile(db,p.id,ref);
+  const criado=await db.query('INSERT INTO public.avn_dieta_refeicao_perfis(plano_id,refeicao,nome,ativo) VALUES($1,$2,$3,FALSE) RETURNING *',[p.id,ref,nome]);
+  // O novo perfil nasce como cópia independente da versão em uso.
+  await db.query(`INSERT INTO public.avn_dieta_itens(plano_id,dia_semana,refeicao,alimento_id,quantidade_g,ordem,perfil_id)
+   SELECT plano_id,dia_semana,refeicao,alimento_id,quantidade_g,ordem,$2
+   FROM public.avn_dieta_itens WHERE perfil_id=$1 ORDER BY ordem,id`,[atual,criado.rows[0].id]);
+  await db.query('COMMIT');res.status(201).json({ok:true,perfil:criado.rows[0]});
+ }catch(e){await db.query('ROLLBACK').catch(()=>{});throw e;}finally{db.release();}
+}));
+router.put('/dieta/:usuarioId/perfis/:perfilId/ativar',wrap(async(req,res)=>{
+ const uid=requiredId(req.params.usuarioId),id=requiredId(req.params.perfilId);await user(uid);
+ const db=await pool.connect();try{
+  await db.query('BEGIN');const p=await activePlan(uid,db);
+  if(!p)throw bad('Dieta não encontrada.',404);
+  await db.query('SELECT id FROM public.avn_dieta_planos WHERE id=$1 FOR UPDATE',[p.id]);
+  const encontrado=await db.query('SELECT id,refeicao FROM public.avn_dieta_refeicao_perfis WHERE plano_id=$1 AND id=$2',[p.id,id]);
+  if(!encontrado.rowCount)throw bad('Perfil não encontrado.',404);
+  const ref=encontrado.rows[0].refeicao;
+  await db.query('UPDATE public.avn_dieta_refeicao_perfis SET ativo=FALSE WHERE plano_id=$1 AND refeicao=$2 AND ativo',[p.id,ref]);
+  await db.query('UPDATE public.avn_dieta_refeicao_perfis SET ativo=TRUE WHERE plano_id=$1 AND id=$2',[p.id,id]);
+  await db.query('COMMIT');res.json({ok:true});
+ }catch(e){await db.query('ROLLBACK').catch(()=>{});throw e;}finally{db.release();}
+}));
+router.put('/dieta/:usuarioId/perfis/:perfilId/nome',wrap(async(req,res)=>{
+ const uid=requiredId(req.params.usuarioId),id=requiredId(req.params.perfilId);await user(uid);
+ const p=await activePlan(uid);if(!p)throw bad('Dieta não encontrada.',404);
+ const r=await pool.query('UPDATE public.avn_dieta_refeicao_perfis SET nome=$3 WHERE plano_id=$1 AND id=$2 RETURNING *',[p.id,id,perfilNome(req.body?.nome)]);
+ if(!r.rowCount)throw bad('Perfil não encontrado.',404);res.json({ok:true,perfil:r.rows[0]});
+}));
+router.delete('/dieta/:usuarioId/perfis/:perfilId',wrap(async(req,res)=>{
+ const uid=requiredId(req.params.usuarioId),id=requiredId(req.params.perfilId);await user(uid);
+ const db=await pool.connect();try{
+  await db.query('BEGIN');const p=await activePlan(uid,db);
+  if(!p)throw bad('Dieta não encontrada.',404);
+  await db.query('SELECT id FROM public.avn_dieta_planos WHERE id=$1 FOR UPDATE',[p.id]);
+  const r=await db.query('SELECT * FROM public.avn_dieta_refeicao_perfis WHERE id=$1 AND plano_id=$2',[id,p.id]);
+  if(!r.rowCount)throw bad('Perfil não encontrado.',404);
+  const perfil=r.rows[0];
+  const outros=await db.query('SELECT id FROM public.avn_dieta_refeicao_perfis WHERE plano_id=$1 AND refeicao=$2 AND id<>$3 ORDER BY id',[p.id,perfil.refeicao,id]);
+  if(!outros.rowCount)throw bad('Não é permitido excluir o último perfil da refeição.');
+  if(perfil.ativo){
+   await db.query('UPDATE public.avn_dieta_refeicao_perfis SET ativo=FALSE WHERE id=$1',[id]);
+   await db.query('UPDATE public.avn_dieta_refeicao_perfis SET ativo=TRUE WHERE id=$1',[outros.rows[0].id]);
+  }
+  await db.query('DELETE FROM public.avn_dieta_refeicao_perfis WHERE id=$1',[id]);
+  await db.query('COMMIT');res.json({ok:true});
+ }catch(e){await db.query('ROLLBACK').catch(()=>{});throw e;}finally{db.release();}
+}));
+
 router.get('/dieta/:usuarioId',wrap(async(req,res)=>{
  const uid=requiredId(req.params.usuarioId);await user(uid);const plan=await activePlan(uid);
- if(!plan)return res.json({plano:null,itens:[]});
+ if(!plan)return res.json({plano:null,itens:[],perfis:[]});
  const r=await pool.query(`SELECT i.*,a.nome AS alimento_nome,a.kcal_100g,a.proteinas_g_100g,a.carboidratos_g_100g,a.gorduras_g_100g,a.fibras_g_100g,a.micronutrientes_100g
- FROM public.avn_dieta_itens i JOIN public.avn_alimentos a ON a.id=i.alimento_id WHERE i.plano_id=$1 AND i.dia_semana=(SELECT MIN(dia_semana) FROM public.avn_dieta_itens WHERE plano_id=$1) ORDER BY ordem,i.id`,[plan.id]);
- res.json({plano:plan,itens:r.rows});
+ FROM public.avn_dieta_itens i JOIN public.avn_alimentos a ON a.id=i.alimento_id JOIN public.avn_dieta_refeicao_perfis pf ON pf.id=i.perfil_id AND pf.ativo WHERE i.plano_id=$1 AND i.dia_semana=(SELECT MIN(dia_semana) FROM public.avn_dieta_itens WHERE plano_id=$1) ORDER BY ordem,i.id`,[plan.id]);
+ const perfis=await pool.query('SELECT id,refeicao,nome,ativo FROM public.avn_dieta_refeicao_perfis WHERE plano_id=$1 ORDER BY refeicao,id',[plan.id]);
+ res.json({plano:plan,itens:r.rows,perfis:perfis.rows});
 }));
 router.post('/dieta/:usuarioId/itens',wrap(async(req,res)=>{
  const uid=requiredId(req.params.usuarioId);await user(uid);
@@ -302,8 +379,10 @@ router.post('/dieta/:usuarioId/itens',wrap(async(req,res)=>{
  const client=await pool.connect();try{
   await client.query('BEGIN');let plan=await activePlan(uid,client);
   if(!plan){const p=await client.query(`INSERT INTO public.avn_dieta_planos(usuario_id,nome,ativo) VALUES ($1,'Dieta padrão',TRUE) RETURNING *`,[uid]);plan=p.rows[0];}
-  const r=await client.query(`INSERT INTO public.avn_dieta_itens(plano_id,dia_semana,refeicao,alimento_id,quantidade_g,ordem)
- VALUES ($1,(SELECT COALESCE(MIN(dia_semana),0) FROM public.avn_dieta_itens WHERE plano_id=$1),$2,$3,$4,COALESCE((SELECT MAX(ordem)+1 FROM public.avn_dieta_itens WHERE plano_id=$1),0)) RETURNING *`,[plan.id,refeicao,alimento_id,q]);
+  await client.query('SELECT id FROM public.avn_dieta_planos WHERE id=$1 FOR UPDATE',[plan.id]);
+  const perfil=await ensureMealProfile(client,plan.id,refeicao);
+  const r=await client.query(`INSERT INTO public.avn_dieta_itens(plano_id,dia_semana,refeicao,alimento_id,quantidade_g,ordem,perfil_id)
+ VALUES ($1,(SELECT COALESCE(MIN(dia_semana),0) FROM public.avn_dieta_itens WHERE plano_id=$1),$2,$3,$4,COALESCE((SELECT MAX(ordem)+1 FROM public.avn_dieta_itens WHERE perfil_id=$5),0),$5) RETURNING *`,[plan.id,refeicao,alimento_id,q,perfil]);
   await client.query('COMMIT');res.status(201).json(r.rows[0]);
  }catch(e){await client.query('ROLLBACK');throw e;}finally{client.release();}
 }));
@@ -336,36 +415,41 @@ async function salvarItensDietaLote(req,res){
   }else{
    await client.query('SELECT id FROM public.avn_dieta_planos WHERE id=$1 FOR UPDATE',[plano.id]);
   }
-  const prox=await client.query(`SELECT COALESCE(MAX(ordem)+1,0) AS proxima
-    FROM public.avn_dieta_itens WHERE plano_id=$1 AND dia_semana=(SELECT MIN(dia_semana) FROM public.avn_dieta_itens WHERE plano_id=$1)`,[plano.id]);
+  const perfil=await ensureMealProfile(client,plano.id,refeicao);
+  const prox=await client.query(`SELECT COALESCE(MAX(ordem)+1,0) AS proxima FROM public.avn_dieta_itens WHERE perfil_id=$1`,[perfil]);
   const insercao=await client.query(`INSERT INTO public.avn_dieta_itens
-    (plano_id,dia_semana,refeicao,alimento_id,quantidade_g,ordem)
-    SELECT $1,(SELECT COALESCE(MIN(dia_semana),0) FROM public.avn_dieta_itens WHERE plano_id=$1),$2,i.alimento_id,i.quantidade_g,$5::integer + i.posicao::integer - 1
-    FROM unnest($4::bigint[],$5::numeric[]) WITH ORDINALITY AS i(alimento_id,quantidade_g,posicao)
-    ORDER BY i.posicao RETURNING id`,[plano.id,refeicao,ids,pesos,Number(prox.rows[0].proxima)]);
+    (plano_id,dia_semana,refeicao,alimento_id,quantidade_g,ordem,perfil_id)
+    SELECT $1,(SELECT COALESCE(MIN(dia_semana),0) FROM public.avn_dieta_itens WHERE plano_id=$1),$2,i.alimento_id,i.quantidade_g,$5::integer + i.posicao::integer - 1,$6
+    FROM unnest($3::bigint[],$4::numeric[]) WITH ORDINALITY AS i(alimento_id,quantidade_g,posicao)
+    ORDER BY i.posicao RETURNING id`,[plano.id,refeicao,ids,pesos,Number(prox.rows[0].proxima),perfil]);
   await client.query('COMMIT');
   res.status(201).json({ok:true,inseridos:insercao.rowCount});
  }catch(e){await client.query('ROLLBACK').catch(()=>{});throw e;}finally{client.release();}
 }
 router.post('/dieta/:usuarioId/itens/lote',wrap(salvarItensDietaLote));
-// Edita somente o item programado: não altera os nutrientes do cadastro nem o diário alimentar.
+// Editar/mover item somente dentro do perfil ativo da refeição.
 router.put('/dieta/:usuarioId/itens/:itemId',wrap(async(req,res)=>{
- const uid=requiredId(req.params.usuarioId),iid=requiredId(req.params.itemId);
- await user(uid);
- const {refeicao,alimento_id,quantidade_g}=req.body||{};
- const ref=meal(refeicao),q=grams(quantidade_g),f=await food(alimento_id,uid);
- const updated=await pool.query(`UPDATE public.avn_dieta_itens i
- SET refeicao=$3,alimento_id=$4,quantidade_g=$5
- FROM public.avn_dieta_planos p
- WHERE i.plano_id=p.id AND p.usuario_id=$1 AND p.ativo AND i.id=$2
- RETURNING i.id,i.refeicao,i.alimento_id,i.quantidade_g`,[uid,iid,ref,f.id,q]);
- if(!updated.rowCount)throw bad('Item da dieta não encontrado.',404);
- res.json({ok:true,item:updated.rows[0]});
+ const uid=requiredId(req.params.usuarioId),iid=requiredId(req.params.itemId);await user(uid);
+ const ref=meal(req.body?.refeicao),q=grams(req.body?.quantidade_g);
+ const db=await pool.connect();try{
+  await db.query('BEGIN');const p=await activePlan(uid,db);if(!p)throw bad('Dieta não encontrada.',404);
+  await db.query('SELECT id FROM public.avn_dieta_planos WHERE id=$1 FOR UPDATE',[p.id]);
+  const item=await db.query(`SELECT i.id FROM public.avn_dieta_itens i
+   JOIN public.avn_dieta_refeicao_perfis pf ON pf.id=i.perfil_id AND pf.ativo
+   WHERE i.plano_id=$1 AND i.id=$2`,[p.id,iid]);
+  if(!item.rowCount)throw bad('Item do perfil ativo não encontrado.',404);
+  const f=await food(req.body?.alimento_id,uid,db);
+  const novoPerfil=await ensureMealProfile(db,p.id,ref);
+  const r=await db.query('UPDATE public.avn_dieta_itens SET refeicao=$2,alimento_id=$3,quantidade_g=$4,perfil_id=$5 WHERE id=$1 RETURNING *',[iid,ref,f.id,q,novoPerfil]);
+  await db.query('COMMIT');res.json({ok:true,item:r.rows[0]});
+ }catch(e){await db.query('ROLLBACK').catch(()=>{});throw e;}finally{db.release();}
 }));
 router.delete('/dieta/:usuarioId/itens/:itemId',wrap(async(req,res)=>{
  const uid=requiredId(req.params.usuarioId),iid=requiredId(req.params.itemId);await user(uid);
- const r=await pool.query(`DELETE FROM public.avn_dieta_itens i USING public.avn_dieta_planos p WHERE i.plano_id=p.id AND p.usuario_id=$1 AND p.ativo AND i.id=$2 RETURNING i.id`,[uid,iid]);
- if(!r.rowCount)throw bad('Item da dieta não encontrado.',404);res.json({ok:true});
+ const r=await pool.query(`DELETE FROM public.avn_dieta_itens i USING public.avn_dieta_planos p,public.avn_dieta_refeicao_perfis pf
+ WHERE i.plano_id=p.id AND p.usuario_id=$1 AND p.ativo AND i.id=$2
+ AND pf.id=i.perfil_id AND pf.ativo RETURNING i.id`,[uid,iid]);
+ if(!r.rowCount)throw bad('Item do perfil ativo não encontrado.',404);res.json({ok:true});
 }));
 router.get('/diario/:usuarioId',wrap(async(req,res)=>{
  const uid=requiredId(req.params.usuarioId);await user(uid);const data=day(req.query.data);
@@ -382,7 +466,15 @@ router.post('/diario/:usuarioId',wrap(async(req,res)=>{
 router.put('/diario/:usuarioId/:id',wrap(async(req,res)=>{
  const uid=requiredId(req.params.usuarioId),id=requiredId(req.params.id);await user(uid);
  const q=grams(req.body?.quantidade_g);
- const r=await pool.query('UPDATE public.avn_diario_alimentar SET quantidade_g=$3 WHERE id=$1 AND usuario_id=$2 RETURNING *',[id,uid,q]);
+ const ref=req.body?.refeicao===undefined?null:meal(req.body.refeicao);
+ const f=req.body?.alimento_id===undefined?null:await food(req.body.alimento_id,uid);
+ const r=await pool.query(`UPDATE public.avn_diario_alimentar SET quantidade_g=$3,
+ refeicao=COALESCE($4,refeicao),
+ alimento_id=COALESCE($5,alimento_id),
+ alimento_nome=COALESCE($6,alimento_nome),
+ composicao_100g=COALESCE($7::jsonb,composicao_100g),
+ plano_item_id=CASE WHEN $5::bigint IS NOT NULL OR ($4::text IS NOT NULL AND $4::text<>refeicao) THEN NULL ELSE plano_item_id END
+ WHERE id=$1 AND usuario_id=$2 RETURNING *`,[id,uid,q,ref,f?.id||null,f?.nome||null,f?JSON.stringify(nutritionOf(f)):null]);
  if(!r.rowCount)throw bad('Registro não encontrado.',404);
  res.json(r.rows[0]);
 }));
@@ -419,6 +511,7 @@ router.post('/diario/:usuarioId/registrar-refeicao',wrap(async(req,res)=>{
     a.gorduras_g_100g,a.fibras_g_100g,a.micronutrientes_100g
     FROM public.avn_dieta_itens i
     JOIN public.avn_alimentos a ON a.id=i.alimento_id
+    JOIN public.avn_dieta_refeicao_perfis pf ON pf.id=i.perfil_id AND pf.ativo
     WHERE i.plano_id=$1 AND i.dia_semana=(SELECT MIN(dia_semana) FROM public.avn_dieta_itens WHERE plano_id=$1) AND i.refeicao=$2
       AND a.ativo AND (a.usuario_id IS NULL OR a.usuario_id=$3)
     FOR SHARE OF i,a`,[plano.id,ref,uid]);
@@ -445,6 +538,31 @@ router.post('/diario/:usuarioId/registrar-refeicao',wrap(async(req,res)=>{
  finally{db.release();}
 }));
 
+
+/* Copia o histórico real de uma refeição entre dias, preservando os nutrientes registrados. */
+router.post('/diario/:usuarioId/repetir-refeicao',wrap(async(req,res)=>{
+ const uid=requiredId(req.params.usuarioId);await user(uid);
+ const origem=day(req.body?.data_origem),destino=day(req.body?.data_destino);
+ const refeicao=meal(req.body?.refeicao),modo=req.body?.modo;
+ if(origem>=destino)throw bad('Escolha uma data de origem anterior ao dia de destino.');
+ if(!['acrescentar','substituir'].includes(modo))throw bad('Escolha acrescentar ou substituir.');
+ const db=await pool.connect();try{
+  await db.query('BEGIN');
+  // Bloqueio por usuário e data impede concorrência entre duas operações de cópia.
+  await db.query('SELECT pg_advisory_xact_lock($1::int,$2::int)',[Number(uid)%2147483647,Number(destino.replace(/-/g,''))]);
+  const origemItens=await db.query('SELECT * FROM public.avn_diario_alimentar WHERE usuario_id=$1 AND data_consumo=$2 AND refeicao=$3 ORDER BY id',[uid,origem,refeicao]);
+  if(!origemItens.rowCount)throw bad('Nenhum alimento encontrado nessa refeição da data anterior.');
+  if(modo==='substituir')await db.query('DELETE FROM public.avn_diario_alimentar WHERE usuario_id=$1 AND data_consumo=$2 AND refeicao=$3',[uid,destino,refeicao]);
+  let inseridos=0;
+  for(const item of origemItens.rows){
+   await db.query(`INSERT INTO public.avn_diario_alimentar(usuario_id,data_consumo,refeicao,alimento_id,alimento_nome,quantidade_g,composicao_100g,plano_item_id)
+   VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,NULL)`,[uid,destino,refeicao,item.alimento_id,item.alimento_nome,item.quantidade_g,JSON.stringify(item.composicao_100g)]);
+   inseridos++;
+  }
+  await db.query('COMMIT');res.json({ok:true,inseridos});
+ }catch(e){await db.query('ROLLBACK').catch(()=>{});throw e;}finally{db.release();}
+}));
+
 router.post('/diario/:usuarioId/copiar-dieta',wrap(async(req,res)=>{
  const uid=requiredId(req.params.usuarioId);await user(uid);const data=day(req.body?.data);const p=await activePlan(uid);
  if(!p)return res.json({ok:true,inseridos:0,mensagem:'Nenhuma dieta programada.'});
@@ -452,7 +570,7 @@ router.post('/diario/:usuarioId/copiar-dieta',wrap(async(req,res)=>{
  const r=await pool.query(`INSERT INTO public.avn_diario_alimentar(usuario_id,data_consumo,refeicao,alimento_id,alimento_nome,quantidade_g,composicao_100g,plano_item_id)
  SELECT $1,$2,i.refeicao,a.id,a.nome,i.quantidade_g,
  jsonb_build_object('kcal',a.kcal_100g,'proteinas_g',a.proteinas_g_100g,'carboidratos_g',a.carboidratos_g_100g,'gorduras_g',a.gorduras_g_100g,'fibras_g',a.fibras_g_100g,'micros',a.micronutrientes_100g),i.id
- FROM public.avn_dieta_itens i JOIN public.avn_alimentos a ON a.id=i.alimento_id
+ FROM public.avn_dieta_itens i JOIN public.avn_alimentos a ON a.id=i.alimento_id JOIN public.avn_dieta_refeicao_perfis pf ON pf.id=i.perfil_id AND pf.ativo
  WHERE i.plano_id=$3 AND i.dia_semana=(SELECT MIN(dia_semana) FROM public.avn_dieta_itens WHERE plano_id=$3) AND a.ativo AND (a.usuario_id=$1 OR a.usuario_id IS NULL)
  ON CONFLICT DO NOTHING RETURNING id`,[uid,data,p.id]);res.json({ok:true,inseridos:r.rowCount});
 }));
