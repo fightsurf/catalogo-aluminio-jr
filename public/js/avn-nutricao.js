@@ -163,7 +163,7 @@ function renderDiet(){
  const rows=state.dieta;
  const a=aggregate(rows);
  const grouped=Object.keys(MEALS).map(key=>[key,rows.filter(item=>item.refeicao===key)]).filter(([key,items])=>items.length||state.perfis.some(p=>p.refeicao===key));
- $('listaDieta').innerHTML=rows.length?grouped.map(([key,items])=>{
+ $('listaDieta').innerHTML=grouped.length?grouped.map(([key,items])=>{
   const subtotal=aggregate(items);
   const ativo=state.perfis.find(p=>p.refeicao===key&&p.ativo);
   const lancados=items.filter(i=>state.diario.some(d=>d.plano_item_id!=null&&String(d.plano_item_id)===String(i.id))).length;
