@@ -100,6 +100,35 @@ function renderDaily(){
  const target=state.metas.micros?.[key];return `<div class="micro-item"><small>${label}</small><strong>${val}</strong><small>${target!=null?'Meta: '+fmt(target)+' '+unit:'Sem meta'}${a.miss[key]?' · incompleto':''}</small></div>`;
  }).join('') || '<p class="muted">Não há informações de micronutrientes cadastradas para os itens consumidos.</p>';
 }
+// Emojis calculados no navegador, em tempo de execução, sem IA ou cadastro manual.
+// A normalização ignora acentos, maiúsculas, sinais e variações de escrita.
+function emojiAlimento(nome){
+ const texto=String(nome||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+ const regras=[
+  [/\b(tangerina|mexerica|bergamota|laranja)\b/,'🍊'],
+  [/\b(maca)\b/,'🍎'],[/\b(banana)\b/,'🍌'],[/\b(morango)\b/,'🍓'],
+  [/\b(uva|passas)\b/,'🍇'],[/\b(melancia)\b/,'🍉'],[/\b(abacaxi)\b/,'🍍'],
+  [/\b(manga)\b/,'🥭'],[/\b(pera)\b/,'🍐'],[/\b(pessego)\b/,'🍑'],
+  [/\b(limao)\b/,'🍋'],[/\b(coco)\b/,'🥥'],[/\b(abacate)\b/,'🥑'],
+  [/\b(castanha|noz|nozes|amendoim|amendoas|pistache)\b/,'🌰'],
+  [/\b(arroz|risoto)\b/,'🍚'],[/\b(feijao|lentilha|grao de bico|ervilha)\b/,'🫘'],
+  [/\b(ovo|ovos|omelete)\b/,'🥚'],[/\b(frango|galinha|peru)\b/,'🍗'],
+  [/\b(salmao|atum|sardinha|tilapia|peixe)\b/,'🐟'],[/\b(cam[ar]ao|camar[aã]o)\b/,'🦐'],
+  [/\b(carne|bife|patinho|acem|alcatra|picanha)\b/,'🥩'],
+  [/\b(tapioca|pao|torrada|cuscuz)\b/,'🍞'],[/\b(aveia|granola|cereal)\b/,'🥣'],
+  [/\b(macaxeira|mandioca|aipim|batata|inhame)\b/,'🥔'],[/\b(cenoura)\b/,'🥕'],
+  [/\b(brocolis|couve flor|repolho)\b/,'🥦'],[/\b(tomate)\b/,'🍅'],
+  [/\b(milho|pipoca)\b/,'🌽'],[/\b(alface|couve|espinafre|rucula|salada)\b/,'🥬'],
+  [/\b(abobrinha|pepino)\b/,'🥒'],[/\b(queijo|requeijao|ricota)\b/,'🧀'],
+  [/\b(leite|iogurte|whey)\b/,'🥛'],[/\b(cafe|cappuccino)\b/,'☕'],
+  [/\b(chocolate|cacau|brigadeiro)\b/,'🍫'],[/\b(bolo|torta)\b/,'🍰'],
+  [/\b(agua)\b/,'💧'],[/\b(suco|vitamina)\b/,'🧃'],[/\b(azeite|oleo|manteiga)\b/,'🧈']
+ ];
+ return (regras.find(([exp])=>exp.test(texto))||[null,'🍽️'])[1];
+}
+function emojiRefeicao(chave){
+ return {cafe:'☀️',lanche_manha:'🍏',almoco:'🍽️',lanche_tarde:'🥪',jantar:'🌙',ceia:'🌜',outros:'🍴'}[chave]||'🍽️';
+}
 function resumoMacrosProgramados(dados,descricao){
  const macros=[['kcal','Energia','kcal',0],['proteinas_g','Proteínas','g',1],['carboidratos_g','Carboidratos','g',1],['gorduras_g','Gorduras','g',1],['fibras_g','Fibras','g',1]];
  return '<div class="avn-dieta-macros-inline" aria-label="'+esc(descricao)+'">'+macros.map(([key,nome,unidade,casas])=>{
@@ -117,11 +146,11 @@ function renderDiet(){
  $('listaDieta').innerHTML=rows.length?grouped.map(([key,items])=>{
   const subtotal=aggregate(items);
   return '<section class="avn-dieta-refeicao" aria-label="'+esc(MEALS[key])+'">'+
-   '<div class="avn-dieta-refeicao-cabecalho"><h4><a href="#" data-macro-meal="'+esc(key)+'" data-macro-source="dieta">'+esc(MEALS[key])+'</a></h4>'+
+   '<div class="avn-dieta-refeicao-cabecalho"><h4><a href="#" data-macro-meal="'+esc(key)+'" data-macro-source="dieta">'+esc(MEALS[key])+' <span class="avn-dieta-emoji" aria-hidden="true">'+emojiRefeicao(key)+'</span></a></h4>'+
    '<span>'+items.length+' alimento(s)</span></div>'+
    '<div class="avn-dieta-refeicao-itens">'+items.map(i=>{
     const nutrientes=aggregate([i]);
-    return '<div class="list-row avn-dieta-linha" data-dieta-item="'+esc(i.id)+'"><div><a href="#" class="name avn-dieta-alimento-link" data-macro-food="'+esc(i.id)+'" aria-label="Ver macronutrientes de '+esc(i.alimento_nome)+'">'+esc(i.alimento_nome)+'</a>'+
+    return '<div class="list-row avn-dieta-linha" data-dieta-item="'+esc(i.id)+'"><div><a href="#" class="name avn-dieta-alimento-link" data-macro-food="'+esc(i.id)+'" aria-label="Ver macronutrientes de '+esc(i.alimento_nome)+'">'+esc(i.alimento_nome)+' <span class="avn-dieta-emoji" aria-hidden="true">'+emojiAlimento(i.alimento_nome)+'</span></a>'+
       '<small>'+fmt(i.quantidade_g)+' g programados</small>'+
       resumoMacrosProgramados(nutrientes,'Macronutrientes de '+i.alimento_nome)+'</div>'+
       '<div class="avn-dieta-acoes"><a href="#" data-editar-plano="'+esc(i.id)+'" aria-label="Editar '+esc(i.alimento_nome)+'">Editar</a>'+
@@ -140,7 +169,7 @@ function renderDiet(){
   const plannedText=unknown?'Sem dado':fmt(a.total[key],key==='kcal'?0:1)+' '+esc(unit);
   return '<div class="avn-dieta-macro-coluna">'+
    '<div class="stat avn-dieta-meta"><small class="avn-dieta-card-titulo">Minha meta · '+esc(label)+'</small><strong>'+goalText+'</strong></div>'+
-   '<div class="stat avn-dieta-planejado"><small class="avn-dieta-card-titulo">Total planejado · '+esc(label)+'</small><strong>'+plannedText+'</strong>'+
+   '<div class="stat avn-dieta-planejado"><small class="avn-dieta-card-titulo">Total planejado · '+esc(label)+'</small><strong><a href="#" class="avn-dieta-ranking-link" data-ranking-dieta="'+esc(key)+'" aria-label="Classificar alimentos por '+esc(label.toLowerCase())+'">'+plannedText+'</a></strong>'+
    (partial?'<small class="avn-dieta-card-nota">Parcial: faltam dados em alguns alimentos.</small>':'')+'</div></div>';
  }).join('');
  $('listaDieta').querySelectorAll('[data-plano]').forEach(btn=>btn.onclick=async()=>{if(!confirm('Excluir item da dieta programada?'))return;try{await send('/dieta/'+state.usuarioId+'/itens/'+btn.dataset.plano,'DELETE');await loadDiet();show('Item removido da programação.');}catch(e){show(e.message,true);}});
@@ -601,6 +630,41 @@ function imprimirRelatorioDieta(){
 }
 
 let editandoConsumoId=null;
+// Ordena a contribuição da porção cadastrada na dieta, nunca valores por 100g.
+function montarRankingDieta(chave){
+ const macro=MACROS.slice(0,4).find(([key])=>key===chave);
+ if(!macro)return null;
+ const [key,label,unit]=macro;
+ const itens=state.dieta.map(item=>{
+  const dados=aggregate([item]);
+  return {item,valor:dados.miss[key]?null:dados.total[key]};
+ }).sort((a,b)=>{
+  if(a.valor===null)return b.valor===null?a.item.alimento_nome.localeCompare(b.item.alimento_nome,'pt-BR'):1;
+  if(b.valor===null)return -1;
+  return b.valor-a.valor||a.item.alimento_nome.localeCompare(b.item.alimento_nome,'pt-BR');
+ });
+ return {key,label,unit,itens};
+}
+function abrirRankingDieta(chave){
+ const ranking=montarRankingDieta(chave);
+ if(!ranking||!has('modalRankingDieta'))return;
+ $('tituloRankingDieta').textContent='Alimentos com mais '+ranking.label.toLowerCase();
+ const conhecidos=ranking.itens.filter(x=>x.valor!==null);
+ const total=conhecidos.reduce((s,x)=>s+x.valor,0);
+ $('conteudoRankingDieta').innerHTML=ranking.itens.length?
+  '<p class="muted">Contribuição de cada porção da dieta programada, em ordem decrescente. Alimentos sem dados aparecem ao final.</p>'+
+  '<ol class="avn-dieta-ranking-lista">'+ranking.itens.map(({item,valor},i)=>{
+   const percentual=valor===null||total<=0?'':fmt(valor/total*100,1)+'% do total conhecido';
+   return '<li><div class="avn-dieta-ranking-item">'+
+    '<span class="avn-dieta-ranking-pos">'+(i+1)+'º</span>'+
+    '<span class="avn-dieta-ranking-food"><strong>'+esc(item.alimento_nome)+' <span aria-hidden="true">'+emojiAlimento(item.alimento_nome)+'</span></strong>'+
+    '<small>'+esc(MEALS[item.refeicao]||item.refeicao)+' · '+fmt(item.quantidade_g,1)+' g</small></span>'+
+    '<span class="avn-dieta-ranking-valor"><strong>'+(valor===null?'Sem dado':fmt(valor,ranking.key==='kcal'?0:1)+' '+esc(ranking.unit))+'</strong>'+
+    (percentual?'<small>'+percentual+'</small>':'')+'</span></div></li>';
+  }).join('')+'</ol>':
+  '<p class="muted">Nenhum alimento programado nesta dieta.</p>';
+ $('modalRankingDieta').showModal();
+}
 function abrirMacroRefeicao(refeicao,tipo){
  const itens=(tipo==='dieta'?state.dieta:state.diario).filter(i=>i.refeicao===refeicao);
  if(!itens.length)return;
@@ -628,6 +692,8 @@ function events(){
  if(has('fecharMacros')){
   $('fecharMacros').onclick=()=>$('modalMacros').close();
   document.addEventListener('click',e=>{
+   const ranking=e.target.closest('[data-ranking-dieta]');
+   if(PAGE==='dieta'&&ranking){e.preventDefault();abrirRankingDieta(ranking.dataset.rankingDieta);return;}
    const alimento=e.target.closest('[data-macro-food]');
    if(PAGE==='dieta'&&alimento){e.preventDefault();abrirMacroAlimento(alimento.dataset.macroFood);return;}
    const refeicao=e.target.closest('[data-macro-meal]');
@@ -662,6 +728,7 @@ function events(){
  $('registrarRefeicao').onclick=registrarRefeicaoPlanejada;
  }
  if(PAGE==='dieta'){
+ $('fecharRankingDieta').onclick=()=>$('modalRankingDieta').close();
  $('abrirModalDieta').onclick=()=>$('modalAdicionarDieta').showModal();
   $('abrirAnaliseDieta').onclick=abrirAnaliseNutricionalDieta;
   $('imprimirDieta').onclick=imprimirRelatorioDieta;

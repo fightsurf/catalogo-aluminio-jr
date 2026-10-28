@@ -390,3 +390,19 @@ body[data-nutricao-pagina="dieta"] .avn-dieta-parcial{font-size:11px;color:#f2ce
  .avn-metas-taxas{grid-template-columns:1fr}
  .avn-metas-historico{max-height:60vh}
 }
+
+/* Dieta programada: ranking dos totais e emojis automáticos (sem IA). */
+body[data-nutricao-pagina="dieta"] .avn-dieta-emoji{display:inline-block;margin-left:2px;font-size:1.1em;line-height:1;vertical-align:baseline}
+body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-link{color:inherit;text-decoration:underline;text-underline-offset:4px;text-decoration-color:var(--accent);cursor:pointer}
+body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-link:hover{color:var(--accent)}
+body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-link:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:3px}
+body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-modal{width:min(760px,calc(100vw - 22px))}
+body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-lista{list-style:none;margin:14px 0 0;padding:0;display:grid;gap:7px}
+body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-lista li{margin:0;min-width:0}
+body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-item{display:grid;grid-template-columns:36px minmax(0,1fr) auto;align-items:center;gap:12px;padding:11px;border:1px solid var(--line);border-radius:9px;background:var(--card)}
+body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-pos{color:var(--muted);font-weight:700;text-align:center}
+body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-food,body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-valor{min-width:0}
+body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-food strong{overflow-wrap:anywhere}
+body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-food small,body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-valor small{display:block;font-size:12px;color:var(--muted)}
+body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-valor{text-align:right;font-variant-numeric:tabular-nums}
+@media(max-width:520px){body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-item{grid-template-columns:24px minmax(0,1fr);gap:8px}body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-valor{grid-column:2;text-align:left}}
