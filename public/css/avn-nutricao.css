@@ -441,3 +441,17 @@ body[data-nutricao-pagina="diario"] .avn-dieta-emoji{display:inline-block;margin
  body[data-nutricao-pagina="dieta"] .avn-dieta-resumo{grid-template-columns:repeat(2,minmax(0,1fr))}
  .avn-perfil-novo{display:grid}
 }
+
+
+/* Dieta Programada: controles de perfil na linha do título da refeição. */
+body[data-nutricao-pagina="dieta"] .avn-dieta-cabecalho-com-perfis{align-items:center;gap:8px 12px}
+body[data-nutricao-pagina="dieta"] .avn-dieta-cabecalho-linha{display:flex;align-items:center;flex-wrap:wrap;gap:7px 14px;flex:1 1 auto;min-width:0}
+body[data-nutricao-pagina="dieta"] .avn-dieta-cabecalho-linha h4{margin:0;flex:none}
+body[data-nutricao-pagina="dieta"] .avn-dieta-cabecalho-linha .avn-perfil-acoes{padding:0;display:inline-flex;align-items:center;flex-wrap:wrap;gap:7px 10px;min-width:0}
+body[data-nutricao-pagina="dieta"] .avn-dieta-cabecalho-meta{display:flex;flex-wrap:wrap;align-items:center;gap:5px 10px;margin-left:auto}
+body[data-nutricao-pagina="dieta"] .avn-dieta-cabecalho-meta .avn-dieta-contagem{white-space:nowrap}
+body[data-nutricao-pagina="dieta"] .avn-dieta-cabecalho-meta .avn-dia-registrado{font-size:11px}
+@media(max-width:700px){
+ body[data-nutricao-pagina="dieta"] .avn-dieta-cabecalho-linha{flex-basis:100%}
+ body[data-nutricao-pagina="dieta"] .avn-dieta-cabecalho-meta{margin-left:0}
+}
