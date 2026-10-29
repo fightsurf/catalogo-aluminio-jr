@@ -94,7 +94,11 @@ function isAuthenticated(req) {
 }
 
 function wantsJson(req) {
-  return req.path.startsWith('/api/') || req.xhr || (req.get('accept') || '').includes('application/json');
+  // Dentro de routers montados em /api, req.path perde o prefixo do mount.
+  // Use a URL original para não redirecionar requisições da API para HTML de /login.
+  const caminho = String(req.originalUrl || `${req.baseUrl || ''}${req.path || ''}`).split('?')[0];
+  return caminho === '/api' || caminho.startsWith('/api/') ||
+    req.xhr || (req.get('accept') || '').includes('application/json');
 }
 
 function buildCookieOptions(req) {
