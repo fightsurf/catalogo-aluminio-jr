@@ -49,61 +49,84 @@ function preview(ex){if(!ex?.midia_url)return '<div class="empty">Sem demonstra�
  return anim?`<div class="media-preview-frame">${img}</div>`:img;
 }
 function htmlExercicios(){
-  $('conteudo').innerHTML=`<section class="grid-2"><div class="card stack"><div class="row between"><h2>Consultar exercícios</h2><button class="btn small" type="button" id="syncCatalog">Atualizar catálogo local</button></div><div class="filters">${campo('Pesquisar (ignora acentos)','busca',state.filtro,'search','placeholder="Ex.: rosca scott"')}<label class="label">Grupo muscular<select id="grupo">${selectGrupos()}</select></label></div><span class="hint" id="quantidade"></span><div id="lista-exercicios" class="exercise-list"></div></div>
-  <div class="card stack"><div class="row between"><h2 id="formTitle">Cadastrar exercício</h2><button class="btn small" id="novoExercicio">Novo</button></div>
-  <form id="formExercicio" class="stack"><input type="hidden" id="exId"><label class="label">Nome<input id="exNome" maxlength="160" required></label>
-  <div class="filters"><label class="label">Grupo<select id="exGrupo" required>${state.grupos.map(g=>`<option value="${g.id}">${esc(g.nome)}</option>`).join('')}</select></label>${campo('Equipamento','exEquip','Livre','text','maxlength="100"')}</div>
-  <label class="label">Instruções<textarea id="exInstrucoes" maxlength="5000"></textarea></label>
-  <div class="filters"><label class="label">Tipo de mídia<select id="exTipo"><option value="imagem">Imagem</option><option value="gif">GIF animado / SVG</option><option value="video">Vídeo MP4/WebM</option></select></label>${campo('URL HTTPS ou biblioteca AVN','exMidia','','text','placeholder="https://... ou /avn/sistema/midias/..."')}</div>
-  <div id="exPreview" class="empty">Demonstração não cadastrada</div><div class="row"><button type="submit" class="btn primary">Salvar exercício</button><button type="button" class="btn danger hide" id="exDesativar">Desativar</button></div></form>
-  <p class="hint">Ilustrações originais: <a href="https://github.com/bryllim/workout-guide" target="_blank" rel="noopener noreferrer">Workout Guide / Bryl Lim</a>, com base no <a href="https://github.com/everkinetic/data" target="_blank" rel="noopener noreferrer">Everkinetic</a>. Imagens CC BY-SA 4.0. Adaptação: exibição cíclica de três quadros. Consulte <a href="https://github.com/bryllim/workout-guide/blob/main/ATTRIBUTION.md" target="_blank" rel="noopener noreferrer">créditos e alterações</a>. Nomes traduzidos ou adaptados no AVN. O carregamento externo exige conexão.</p></div></section>`;
-  $('busca').oninput=debounce(async()=>{state.filtro=$('busca').value;await buscarExercicios();renderExerciciosLista();},250);
-  $('grupo').onchange=async()=>{state.grupo=$('grupo').value;await buscarExercicios();renderExerciciosLista();};
-  $('syncCatalog').onclick=async()=>{const b=$('syncCatalog');b.disabled=true;b.textContent='Sincronizando…';try{const r=await fetchJSON('/catalogo/sincronizar',{method:'POST'});toast(r.total+' exercícios processados.');state.grupos=await fetchJSON('/grupos');await buscarExercicios();htmlExercicios();}catch(e){toast('Falha ao importar. O catálogo local continua disponível: '+e.message,true);b.disabled=false;b.textContent='Atualizar catálogo local';}};
-  $('novoExercicio').onclick=()=>fillEx(null);
-  $('formExercicio').onsubmit=salvarExercicio;
-  $('exDesativar').onclick=desativarExercicio;
-  $('exTipo').onchange=atualizarPreview;
-  $('exMidia').onchange=atualizarPreview;
-  renderExerciciosLista();
+ $('conteudo').innerHTML=`<div class="avn-exercicios-centered"><section class="card stack">
+ <div class="avn-action-header"><h2>Consultar exercícios</h2><div class="row"><button type="button" class="btn small" id="syncCatalog">Atualizar catálogo local</button><button type="button" class="btn primary" id="novoExercicio">+ Cadastrar exercício</button></div></div>
+ <div class="filters">${campo('Pesquisar (ignora acentos)','busca',state.filtro,'search','placeholder="Ex.: rosca scott"')}<label class="label">Grupo muscular<select id="grupo">${selectGrupos()}</select></label></div>
+ <span class="hint" id="quantidade"></span><div id="lista-exercicios" class="exercise-list"></div></section></div>
+ <dialog id="modalExercicio" class="avn-dialog"><div class="avn-dialog-header"><h2 id="formTitle">Cadastrar exercício</h2><button type="button" class="btn ghost" id="fecharExercicio">Fechar ×</button></div>
+ <form id="formExercicio" class="stack"><input type="hidden" id="exId"><label class="label">Nome<input id="exNome" maxlength="160" required></label>
+ <div class="filters"><label class="label">Grupo<select id="exGrupo" required>${state.grupos.map(g=>`<option value="${g.id}">${esc(g.nome)}</option>`).join('')}</select></label>${campo('Equipamento','exEquip','Livre','text','maxlength="100"')}</div>
+ <label class="label">Instruções<textarea id="exInstrucoes" maxlength="5000"></textarea></label>
+ <div class="filters"><label class="label">Tipo de mídia<select id="exTipo"><option value="imagem">Imagem</option><option value="gif">GIF animado / SVG</option><option value="video">Vídeo MP4/WebM</option></select></label>${campo('URL HTTPS ou biblioteca AVN','exMidia','','text','placeholder="https://... ou /avn/sistema/midias/..."')}</div>
+ <div id="exPreview" class="empty">Demonstração não cadastrada</div><div class="row"><button type="submit" class="btn primary">Salvar exercício</button><button type="button" class="btn danger hide" id="exDesativar">Desativar</button></div></form>
+ <p class="hint">Ilustrações originais licenciadas pelo Workout Guide / Bryl Lim (CC BY-SA 4.0).</p></dialog>`;
+ $('busca').oninput=debounce(async()=>{state.filtro=$('busca').value;await buscarExercicios();renderExerciciosLista();},250);
+ $('grupo').onchange=async()=>{state.grupo=$('grupo').value;await buscarExercicios();renderExerciciosLista();};
+ $('syncCatalog').onclick=async()=>{const b=$('syncCatalog');b.disabled=true;try{const r=await fetchJSON('/catalogo/sincronizar',{method:'POST'});toast(r.total+' exercícios processados.');state.grupos=await fetchJSON('/grupos');await buscarExercicios();htmlExercicios();}catch(e){toast('Falha ao atualizar: '+e.message,true);b.disabled=false;}};
+ $('novoExercicio').onclick=()=>{fillEx(null);$('modalExercicio').showModal();};
+ $('fecharExercicio').onclick=()=>$('modalExercicio').close();
+ $('formExercicio').onsubmit=salvarExercicio;
+ $('exDesativar').onclick=desativarExercicio;
+ $('exTipo').onchange=atualizarPreview;
+ $('exMidia').onchange=atualizarPreview;
+ renderExerciciosLista();
 }
 function renderExerciciosLista(){
  const list=$('lista-exercicios');if(!list)return;
  $('quantidade').textContent=state.exercicios.length+' exercício(s) encontrado(s)';
  list.innerHTML=state.exercicios.length?state.exercicios.map(e=>`<div class="exercise">${media(e)}<div class="grow"><strong>${esc(e.nome)}</strong><small>${esc(e.grupo)} · ${esc(e.equipamento)}</small></div><button class="btn small" data-editar="${e.id}" aria-label="Editar ${esc(e.nome)}">Editar</button></div>`).join(''):'<div class="empty">Nenhum exercício encontrado.</div>';
- list.querySelectorAll('[data-editar]').forEach(b=>b.onclick=()=>fillEx(state.exercicios.find(e=>String(e.id)===b.dataset.editar)));
+ list.querySelectorAll('[data-editar]').forEach(b=>b.onclick=()=>{fillEx(state.exercicios.find(e=>String(e.id)===b.dataset.editar));$('modalExercicio').showModal();});
 }
 function fillEx(e){$('formTitle').textContent=e?'Editar exercício':'Cadastrar exercício';$('exId').value=e?.id||'';$('exNome').value=e?.nome||'';$('exGrupo').value=e?.grupo_id||state.grupos[0]?.id||'';$('exEquip').value=e?.equipamento||'Livre';$('exInstrucoes').value=e?.instrucoes||'';$('exTipo').value=e?.midia_tipo||'imagem';$('exMidia').value=e?.midia_url||'';$('exDesativar').classList.toggle('hide',!e);atualizarPreview();}
 function atualizarPreview(){const url=$('exMidia').value.trim();$('exPreview').innerHTML=(/^https:\/\//i.test(url)||isAnimated(url))?preview({midia_url:url,midia_tipo:$('exTipo').value}):'<div class="empty">Informe a URL HTTPS de uma mídia licenciada.</div>';}
 async function salvarExercicio(evt){evt.preventDefault();const id=$('exId').value;const body={nome:$('exNome').value,grupo_id:$('exGrupo').value,equipamento:$('exEquip').value,instrucoes:$('exInstrucoes').value,midia_tipo:$('exTipo').value,midia_url:$('exMidia').value};
- try{await fetchJSON('/exercicios'+(id?'/'+id:''),{method:id?'PUT':'POST',body:JSON.stringify(body)});toast('Exercício salvo.');await buscarExercicios();renderExerciciosLista();fillEx(null);}catch(e){toast(e.message,true);}}
+ try{await fetchJSON('/exercicios'+(id?'/'+id:''),{method:id?'PUT':'POST',body:JSON.stringify(body)});toast('Exercício salvo.');await buscarExercicios();renderExerciciosLista();fillEx(null);$('modalExercicio')?.close();}catch(e){toast(e.message,true);}}
 async function desativarExercicio(){const id=$('exId').value;if(!id||!confirm('Desativar este exercício? Ele permanecerá nos treinos históricos.'))return;
- try{await fetchJSON('/exercicios/'+id,{method:'DELETE'});await buscarExercicios();renderExerciciosLista();fillEx(null);toast('Exercício desativado.');}catch(e){toast(e.message,true);}}
+ try{await fetchJSON('/exercicios/'+id,{method:'DELETE'});await buscarExercicios();renderExerciciosLista();fillEx(null);$('modalExercicio')?.close();toast('Exercício desativado.');}catch(e){toast(e.message,true);}}
 function novoPlano(){return {id:null,usuario_id:Number(state.usuarioId),nome:'Treino semanal',descricao:'',dias:NOMES.map((_,i)=>({dia_semana:i,exercicios:[]}))};}
 function diaAtual(){return state.plano.dias.find(d=>Number(d.dia_semana)===state.dia);}
 function getDia(exercicios,day){let d=exercicios.find(x=>Number(x.dia_semana)===day);if(!d){d={dia_semana:day,exercicios:[]};exercicios.push(d);}return d;}
 function buscarNome(id){return state.nomes.get(Number(id)) || 'Exercício '+id;}
 async function carregarPlano(id){const p=await fetchJSON('/planos/'+id);if(String(p.usuario_id)!==String(state.usuarioId))throw Error('Esse plano pertence a outro usuário.');state.plano=p;for(let i=0;i<7;i++)getDia(state.plano.dias,i);}
-function listagemExerciciosMontador(){return state.exercicios.length?state.exercicios.map(e=>`<div class="exercise" draggable="true" data-exercicio="${e.id}">${media(e,true)}<div class="grow"><strong>${esc(e.nome)}</strong><small>${esc(e.grupo)} · ${esc(e.equipamento)}</small></div><button class="btn primary small" data-add="${e.id}" title="Adicionar ao dia selecionado">+ Adicionar</button></div>`).join(''):'<div class="empty">Sem exercícios para este filtro.</div>';}
+function listagemExerciciosMontador(){return state.exercicios.length?state.exercicios.map(e=>`<div class="exercise" draggable="true" data-exercicio="${e.id}">${media(e,true)}<div class="grow"><strong>${esc(e.nome)}</strong><small>${esc(e.grupo)} · ${esc(e.equipamento)}</small></div><button class="btn primary small" data-add="${e.id}" title="Selecionar exercício">Selecionar</button></div>`).join(''):'<div class="empty">Sem exercícios para este filtro.</div>';}
 function htmlMontador(){
- $('conteudo').innerHTML=`<div class="grid-2"><aside class="card stack"><h2>Biblioteca</h2><div class="filters">${campo('Buscar exercício','busca',state.filtro,'search','placeholder="Digite um nome"')}<label class="label">Grupo<select id="grupo">${selectGrupos()}</select></label></div><p class="hint">Arraste um exercício para a lista ou clique em “Adicionar” (recomendado no celular).</p><div class="exercise-list" id="listaMontador"></div></aside>
- <section class="card stack"><div class="row between"><h2>Planejamento semanal</h2><span class="pill">7 dias</span><a class="btn small" href="/avn/sistema/minha-academia">Máquinas</a><a class="btn small" href="/avn/sistema/perfil-treinamento">Perfil</a><button type="button" class="btn primary" id="abrirIA">✦ IA · Criar treino</button></div><label class="label">Abrir programa salvo<select id="selecionarPlano"><option value="">Selecione um programa…</option></select></label>${campo('Nome do plano','nomePlano',state.plano.nome,'text','maxlength="160" required')}<label class="label">Descrição<input id="descPlano" maxlength="4000" value="${esc(state.plano.descricao)}"></label>
- <div class="day-tabs" id="dias"></div><p class="hint">Arraste pelo ícone ⋮⋮ para reordenar. Também existem botões ↑ e ↓.</p>
- <div class="dropzone" id="itens" aria-label="Exercícios do dia selecionado"></div>
- <div class="row"><button class="btn primary" id="salvarPlano">Salvar treino</button><button class="btn ghost" id="limparDia">Limpar dia</button><button class="btn ghost" id="novoPlano">Novo plano</button></div></section></div>`;
+ $('conteudo').innerHTML=`<div class="avn-montador-centered"><section class="card stack">
+ <div class="avn-action-header"><h2>Planejamento semanal</h2><div class="row"><button class="btn primary small" id="salvarPlano">Salvar treino</button><button class="btn small" id="limparDia">Limpar dia</button><button class="btn small" id="novoPlano">Novo plano</button><button class="btn primary small" id="abrirIA">✦ IA</button></div></div>
+ <div class="row" style="align-items:end"><label class="label" style="flex:1;min-width:220px">Abrir programa salvo<select id="selecionarPlano"><option value="">Selecione um programa…</option></select></label><button type="button" class="btn danger" id="excluirPlano">Excluir programação</button></div>
+ ${campo('Nome do plano','nomePlano',state.plano.nome,'text','maxlength="160" required')}
+ <label class="label">Descrição<textarea id="descPlano" maxlength="4000" rows="4">${esc(state.plano.descricao)}</textarea></label>
+ <div class="row between"><div class="day-tabs" id="dias"></div><button type="button" class="btn primary" id="abrirBiblioteca">+ Adicionar exercício</button></div>
+ <p class="hint">Arraste ou use ↑ ↓ para reordenar exercícios.</p><div class="dropzone" id="itens"></div></section></div>
+ <dialog id="avn-modal-biblioteca" class="avn-dialog"><div class="avn-dialog-header"><h2 id="bibliotecaTitulo">Biblioteca de exercícios</h2><button type="button" class="btn ghost" id="fecharBiblioteca">Fechar ×</button></div>
+ <div class="filters">${campo('Buscar exercício','busca',state.filtro,'search','placeholder="Digite um nome"')}<label class="label">Grupo<select id="grupo">${selectGrupos()}</select></label></div><div class="exercise-list" id="listaMontador"></div></dialog>`;
  $('nomePlano').oninput=e=>state.plano.nome=e.target.value;
  $('descPlano').oninput=e=>state.plano.descricao=e.target.value;
  $('busca').oninput=debounce(async()=>{state.filtro=$('busca').value;try{await buscarExercicios();renderLibraryBuilder();}catch(e){toast(e.message,true);}},200);
  $('grupo').onchange=async()=>{state.grupo=$('grupo').value;try{await buscarExercicios();renderLibraryBuilder();}catch(e){toast(e.message,true);}};
  $('salvarPlano').onclick=salvarPlano;
  $('abrirIA').onclick=abrirModalIA;
+ $('abrirBiblioteca').onclick=()=>abrirBiblioteca();
+ $('fecharBiblioteca').onclick=()=>$('avn-modal-biblioteca').close();
+ $('excluirPlano').disabled=!state.plano.id;
+ $('excluirPlano').onclick=async()=>{
+  if(!state.plano.id||!confirm('Excluir esta programação? Os treinos já registrados permanecerão no histórico.'))return;
+  try{await fetchJSON('/planos/'+state.plano.id,{method:'DELETE',body:JSON.stringify({usuario_id:state.usuarioId})});state.plano=novoPlano();state.dia=0;htmlMontador();toast('Programação arquivada. Treinos realizados preservados.');}catch(e){toast(e.message,true);}
+ };
  $('selecionarPlano').onchange=async e=>{if(!e.target.value)return;try{await carregarPlano(e.target.value);htmlMontador();toast('Programa carregado.');}catch(ex){toast(ex.message,true);}};
  atualizarSeletorPlanos();
- $('limparDia').onclick=()=>{if(confirm('Remover todos os exercícios deste dia?')){diaAtual().exercicios=[];renderDia();}};
- $('novoPlano').onclick=()=>{if(confirm('Começar um novo plano sem salvar alterações pendentes?')){state.plano=novoPlano();state.dia=0;htmlMontador();}};
+ $('limparDia').onclick=()=>{if(confirm('Remover os exercícios deste dia?')){diaAtual().exercicios=[];renderDia();}};
+ $('novoPlano').onclick=()=>{if(confirm('Começar novo plano sem salvar alterações pendentes?')){state.plano=novoPlano();state.dia=0;htmlMontador();}};
  renderLibraryBuilder();renderDia();
 }
-function renderLibraryBuilder(){const list=$('listaMontador');if(!list)return;list.innerHTML=listagemExerciciosMontador();list.querySelectorAll('[data-add]').forEach(b=>b.onclick=()=>addExercicio(Number(b.dataset.add)));
+let bibliotecaSubstituirIndice=null;
+function abrirBiblioteca(index=null){
+ bibliotecaSubstituirIndice=index;
+ $('bibliotecaTitulo').textContent=index===null?'Adicionar exercício':'Trocar exercício (preservar configurações)';
+ $('avn-modal-biblioteca').showModal();
+ renderLibraryBuilder();
+ $('busca').focus();
+}
+function renderLibraryBuilder(){const list=$('listaMontador');if(!list)return;list.innerHTML=listagemExerciciosMontador();list.querySelectorAll('[data-add]').forEach(b=>b.onclick=async()=>{const id=Number(b.dataset.add);if(bibliotecaSubstituirIndice===null)addExercicio(id);else{const item=diaAtual().exercicios[bibliotecaSubstituirIndice];if(item){item.exercicio_id=id;renderDia();}}$('avn-modal-biblioteca').close();bibliotecaSubstituirIndice=null;state.filtro='';state.grupo='';try{await buscarExercicios();renderDia();}catch(e){toast(e.message,true);}});
  list.querySelectorAll('[data-exercicio]').forEach(el=>el.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/avn-exercicio-id',el.dataset.exercicio);e.dataTransfer.effectAllowed='copy';}));}
 function addExercicio(id,index){const a=diaAtual().exercicios;const i={exercicio_id:id,series:3,repeticoes:'10',carga_kg:null,descanso_seg:60,observacoes:''};if(index===undefined)a.push(i);else a.splice(index,0,i);renderDia();}
 function mover(from,to){const a=diaAtual().exercicios;if(from===to||from<0||to<0||from>=a.length||to>=a.length)return;const [x]=a.splice(from,1);a.splice(to,0,x);renderDia();}
@@ -111,10 +134,11 @@ function renderDia(){
  const tabs=$('dias');if(!tabs)return;tabs.innerHTML=NOMES.map((n,i)=>`<button class="btn small ${state.dia===i?'selected':''}" data-dia="${i}" aria-pressed="${state.dia===i}">${n.slice(0,3)}</button>`).join('');
  tabs.querySelectorAll('[data-dia]').forEach(b=>b.onclick=()=>{state.dia=Number(b.dataset.dia);renderDia();});
  const a=diaAtual().exercicios,board=$('itens');
- board.innerHTML=a.length?a.map((it,i)=>`<div class="item avn-workout-card" data-item-index="${i}" draggable="true"><div class="avn-workout-visual">${media(state.exercicios.find(e=>Number(e.id)===Number(it.exercicio_id)),true)}</div><div class="avn-workout-details"><div class="item-head"><span class="handle" title="Arrastar para reordenar" aria-label="Arrastar">⋮⋮</span><strong>${esc(buscarNome(it.exercicio_id))}</strong><button class="btn small ghost" data-up="${i}" aria-label="Mover para cima">↑</button><button class="btn small ghost" data-down="${i}" aria-label="Mover para baixo">↓</button><button class="btn danger small" data-del="${i}" aria-label="Remover">×</button></div><div class="fields">
+ board.innerHTML=a.length?a.map((it,i)=>`<div class="item avn-workout-card" data-item-index="${i}" draggable="true"><div class="avn-workout-visual">${media(state.exercicios.find(e=>Number(e.id)===Number(it.exercicio_id)),true)}</div><div class="avn-workout-details"><div class="item-head"><span class="handle" title="Arrastar para reordenar" aria-label="Arrastar">⋮⋮</span><strong>${esc(buscarNome(it.exercicio_id))}</strong><button type="button" class="btn small avn-workout-action" data-trocar="${i}">Trocar exercício</button><button class="btn small ghost" data-up="${i}" aria-label="Mover para cima">↑</button><button class="btn small ghost" data-down="${i}" aria-label="Mover para baixo">↓</button><button class="btn danger small" data-del="${i}" aria-label="Remover">×</button></div><div class="fields">
  <label>Séries<input type="number" data-index="${i}" data-field="series" min="1" max="30" value="${it.series}"></label><label>Repetições<input data-index="${i}" data-field="repeticoes" maxlength="30" value="${esc(it.repeticoes)}"></label><label>Carga (kg)<input type="number" data-index="${i}" data-field="carga_kg" min="0" max="2000" step="0.5" value="${esc(it.carga_kg??'')}"></label><label>Descanso (s)<input type="number" data-index="${i}" data-field="descanso_seg" min="0" max="3600" value="${it.descanso_seg}"></label></div>
- <label class="label">Observações<input data-index="${i}" data-field="observacoes" maxlength="500" value="${esc(it.observacoes)}" placeholder="Ex.: execução controlada"></label></div></div>`).join(''):`<div class="empty">${NOMES[state.dia]}: nenhum exercício. Arraste da biblioteca ou use + Adicionar.</div>`;
+ <label class="label">Observações<input data-index="${i}" data-field="observacoes" maxlength="500" value="${esc(it.observacoes)}" placeholder="Ex.: execução controlada"></label></div></div>`).join(''):`<div class="empty">${NOMES[state.dia]}: nenhum exercício. Use o botão + Adicionar exercício.</div>`;
  board.querySelectorAll('[data-field]').forEach(el=>el.addEventListener('input',()=>{const it=diaAtual().exercicios[Number(el.dataset.index)];it[el.dataset.field]=el.dataset.field==='carga_kg'?(el.value===''?null:Number(el.value)):['series','descanso_seg'].includes(el.dataset.field)?Number(el.value):el.value;}));
+ board.querySelectorAll('[data-trocar]').forEach(b=>b.onclick=()=>abrirBiblioteca(Number(b.dataset.trocar)));
  board.querySelectorAll('[data-up]').forEach(b=>b.onclick=()=>mover(Number(b.dataset.up),Number(b.dataset.up)-1));
  board.querySelectorAll('[data-down]').forEach(b=>b.onclick=()=>mover(Number(b.dataset.down),Number(b.dataset.down)+1));
  board.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{diaAtual().exercicios.splice(Number(b.dataset.del),1);renderDia();});
@@ -131,7 +155,7 @@ function renderDia(){
  });
 }
 async function salvarPlano(){if(!state.plano.nome.trim())return toast('Informe o nome do plano.',true);const id=state.plano.id;try{
-  const url='/planos'+(id?'/'+id:'');const result=await fetchJSON(url,{method:id?'PUT':'POST',body:JSON.stringify(state.plano)});state.plano.id=result.id;toast('Treino salvo no PostgreSQL.');
+  const url='/planos'+(id?'/'+id:'');const result=await fetchJSON(url,{method:id?'PUT':'POST',body:JSON.stringify(state.plano)});state.plano.id=result.id;await atualizarSeletorPlanos();$('excluirPlano')&&($('excluirPlano').disabled=false);toast('Treino salvo no PostgreSQL.');
  }catch(e){toast(e.message,true);}}
 
 async function atualizarSeletorPlanos(){try{const planos=await fetchJSON('/planos?usuario_id='+state.usuarioId);const sel=$('selecionarPlano');if(!sel)return;sel.innerHTML='<option value="">Selecione um programa salvo…</option>'+planos.map(p=>`<option value="${p.id}" ${String(p.id)===String(state.plano?.id)?'selected':''}>${esc(p.nome)}</option>`).join('');}catch(e){toast(e.message,true);}}
