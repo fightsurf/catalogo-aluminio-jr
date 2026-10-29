@@ -70,18 +70,20 @@ router.get('/:usuarioId',async(req,res)=>{
     const dias=r.rows.map(x=>{
       const itens=Number(x.itens||0),incompletos=Number(x.sem_kcal||0);
       const ingestao=itens ? valor(x.ingeridas):null;
-      const basal=valor(x.tmb),passos=valor(x.passos),ativas=valor(x.ativas);
+      const basal=valor(x.tmb),passos=valor(x.passos);
+      const semRegistrosAtivos=x.ativas===null||x.ativas===undefined;
+      const ativas=semRegistrosAtivos?0:valor(x.ativas);
       return {
         data:x.dia,
         ingestao:{valor:ingestao,itens,incompletos},
         tmb:{valor:basal,medida_em:x.tmb_data},
         passos:{valor:passos},
-        calorias_ativas:{valor:ativas},
-        saldo:avaliarBalanco({ingestao,tmb:basal,ativas,diarioCompleto:itens>0&&incompletos===0})
+        calorias_ativas:{valor:ativas,sem_registros:semRegistrosAtivos},
+        saldo:avaliarBalanco({ingestao,tmb:basal,ativas:x.ativas,diarioCompleto:itens>0&&incompletos===0})
       };
     });
     res.set('Cache-Control','no-store').json({data,usuario_id:id,dias,
-      metodo:'TMB + calorias ativas; os passos já podem estar incluídos nas calorias ativas. Não inclui integralmente digestão e atividades não registradas.'});
+      metodo:'TMB + calorias ativas (0 kcal quando não houver registros); os passos não são somados novamente. Digestão e atividades não registradas podem elevar o gasto real.'});
   }catch(e){console.error('[AVN Balanço Energético]',e);res.status(500).json({erro:'Não foi possível calcular o balanço energético.'});}
 });
 module.exports=router;
