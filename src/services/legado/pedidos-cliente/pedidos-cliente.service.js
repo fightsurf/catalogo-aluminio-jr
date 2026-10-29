@@ -17,6 +17,9 @@ function textoSeguro(valor) {
 }
 
 function normalizarPedido(item) {
+  const situacao = textoSeguro(item.situacao ?? item.SITUACAO ?? item.statusPedido ?? item.STATUS_PEDIDO).toUpperCase();
+  const cancelado = ['C', 'CANCELADO', 'CANCELADA'].includes(situacao) ||
+    item.cancelado === true || item.CANCELADO === true;
   const total = numeroSeguro(item.total ?? item.TOTAL);
   const totalPago = numeroSeguro(item.totalPago ?? item.total_pago ?? item.TOTAL_PAGO);
   const saldoInformado = item.saldoRestante ?? item.saldo_restante ?? item.SALDO_RESTANTE;
@@ -29,6 +32,8 @@ function normalizarPedido(item) {
     saida: item.saida ?? item.SAIDA ?? null,
     pdv: item.pdv ?? item.PDV ?? 0,
     numero: item.numero ?? item.NUMERO ?? null,
+    situacao,
+    cancelado,
     data: item.data ?? item.DATA ?? null,
     total,
     totalPago: Number(totalPago.toFixed(2)),
@@ -68,7 +73,9 @@ async function listarPedidosPorCliente(favorecido) {
     throw new Error('Variável de ambiente LEGADO_BRIDGE_URL não configurada.');
   }
 
-  const url = `${baseUrl.replace(/\/+$/, '')}/api/pedidos-cliente/${favorecido}`;
+  // Solicita o histórico completo, inclusive os pedidos cancelados.
+  // A bridge local precisa respeitar este parâmetro na consulta ao Firebird.
+  const url = `${baseUrl.replace(/\/+$/, '')}/api/pedidos-cliente/${favorecido}?incluirCancelados=1`;
 
   const response = await fetch(url);
   let payload = null;
