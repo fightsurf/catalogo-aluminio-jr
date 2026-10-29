@@ -159,12 +159,49 @@ async function salvarPlano(){if(!state.plano.nome.trim())return toast('Informe o
  }catch(e){toast(e.message,true);}}
 
 async function atualizarSeletorPlanos(){try{const planos=await fetchJSON('/planos?usuario_id='+state.usuarioId);const sel=$('selecionarPlano');if(!sel)return;sel.innerHTML='<option value="">Selecione um programa salvo…</option>'+planos.map(p=>`<option value="${p.id}" ${String(p.id)===String(state.plano?.id)?'selected':''}>${esc(p.nome)}</option>`).join('');}catch(e){toast(e.message,true);}}
+function abrirModalIA(){
+ let modal=$('avn-modal-ia');if(!modal){modal=document.createElement('dialog');modal.id='avn-modal-ia';modal.className='avn-modal-ia';document.body.appendChild(modal);}
+ modal.innerHTML=`<div class="avn-ai-head"><h2>✦ Assistente IA</h2><button class="btn ghost" id="fecharIaOpcoes">Fechar ×</button></div><p>Selecione uma ação para o planejamento semanal.</p><div class="row"><button class="btn primary" id="iaCriar">Criar treino</button><button class="btn primary" id="iaAvaliar">Avaliar treino aberto</button></div>`;
+ modal.querySelector('#fecharIaOpcoes').onclick=()=>modal.close();
+ modal.querySelector('#iaCriar').onclick=()=>abrirCriacaoIA();
+ modal.querySelector('#iaAvaliar').onclick=()=>avaliarTreinoAberto();
+ if(!modal.open)modal.showModal();
+}
+async function avaliarTreinoAberto(){
+ const modal=$('avn-modal-ia'),copia=JSON.parse(JSON.stringify(state.plano));
+ modal.innerHTML=`<div class="avn-ai-head"><h2>✦ Avaliação crítica do treino</h2><button type="button" class="btn ghost" id="fecharAvaliacao">Fechar ×</button></div><div id="resultadoAvaliacao" aria-live="polite">Analisando treino, perfil, medições, equipamentos e nutrição…</div>`;
+ modal.querySelector('#fecharAvaliacao').onclick=()=>modal.close();
+ const area=modal.querySelector('#resultadoAvaliacao');
+ try{
+  const result=await fetchJSON('/ia/avaliar',{method:'POST',body:JSON.stringify({usuario_id:state.usuarioId,plano:copia})});if(!modal.open)return;
+  const applied=new Set();
+  area.innerHTML=`<section class="avn-ai-report"><h3>Veredito: ${esc(result.veredito?.toUpperCase())}</h3><p>${esc(result.analise)}</p><h4>Nutrição e recuperação</h4><p>${esc(result.nutricao_e_recuperacao)}</p><h4>Pontos críticos</h4><ul>${(result.pontos_criticos||[]).map(x=>`<li>${esc(x)}</li>`).join('')||'<li>Nenhum informado.</li>'}</ul><h3>Sugestões aplicáveis</h3>${(result.sugestoes||[]).map((s,i)=>`<div class="avn-ai-recommendation"><div class="row"><strong>${esc(NOMES[s.dia_semana]||'Dia')} · ${esc(s.descricao)}</strong><button class="btn primary small" data-aplicar-dica="${i}">Aplicar</button></div><p>${esc(s.justificativa)}</p></div>`).join('')||'<p>Nenhuma alteração indicada.</p>'}<p class="hint">Cada sugestão altera apenas o editor; clique Salvar treino para persistir.</p></section>`;
+  area.querySelectorAll('[data-aplicar-dica]').forEach(b=>b.onclick=()=>{
+   const i=Number(b.dataset.aplicarDica),s=result.sugestoes[i];if(!s||applied.has(i))return;
+   const day=state.plano.dias.find(d=>Number(d.dia_semana)===s.dia_semana),baseline=copia.dias.find(d=>Number(d.dia_semana)===s.dia_semana);
+   if(!day){toast('Dia não encontrado.',true);return;}
+   const items=day.exercicios,base=baseline?.exercicios[s.posicao];
+   let pos=s.posicao;
+   if(s.acao!=='adicionar'){
+    if(!base){toast('Posição original não encontrada. Faça uma nova avaliação.',true);return;}
+    pos=items.findIndex(x=>Number(x.exercicio_id)===Number(base.exercicio_id));
+    if(pos<0){toast('Exercício já modificado. Reavalie para continuar.',true);return;}
+   }
+   if(s.acao==='adicionar'&&Number(s.exercicio_id)>0)items.splice(Math.min(pos,items.length),0,{exercicio_id:s.exercicio_id,series:s.series||3,repeticoes:s.repeticoes||'10',carga_kg:null,descanso_seg:s.descanso_seg??60,observacoes:''});
+   else if(s.acao==='remover')items.splice(pos,1);
+   else if(s.acao==='trocar'&&Number(s.exercicio_id)>0)items[pos].exercicio_id=s.exercicio_id;
+   else if(s.acao==='ajustar'){if(s.series!=null)items[pos].series=s.series;if(s.repeticoes!=null)items[pos].repeticoes=s.repeticoes;if(s.descanso_seg!=null)items[pos].descanso_seg=s.descanso_seg;}
+   else return;
+   applied.add(i);state.dia=s.dia_semana;renderDia();b.disabled=true;b.textContent='Aplicada ✓';toast('Sugestão aplicada no editor. Salve o treino ao terminar.');
+  });
+ }catch(e){if(modal.open)area.textContent='Erro na avaliação: '+e.message;}
+}
 let sugestaoIA=null;
-async function abrirModalIA(){
+async function abrirCriacaoIA(){
  let modal=$('avn-modal-ia');if(!modal){modal=document.createElement('dialog');modal.id='avn-modal-ia';modal.className='avn-modal-ia';document.body.appendChild(modal);}
  sugestaoIA=null;
  modal.innerHTML=`<div class="avn-ai-head"><h2>✦ Análise física e sugestão de treino</h2><button type="button" class="btn ghost" id="fecharModalIA">Fechar ×</button></div><p>A IA usará o Perfil de Treinamento, a avaliação física registrada e somente exercícios compatíveis com Minha Academia. Não modificará o programa até você confirmar.</p><div id="avn-resposta-ia" aria-live="polite">Consultando suas medições e preparando sugestão…</div><div class="row" style="justify-content:flex-end;margin-top:16px"><button type="button" class="btn primary" id="aplicarSugestao" disabled>Aplicar programa</button></div>`;
- modal.querySelector('#fecharModalIA').onclick=()=>modal.close();modal.showModal();
+ modal.querySelector('#fecharModalIA').onclick=()=>modal.close();if(!modal.open)modal.showModal();
  const saida=modal.querySelector('#avn-resposta-ia'),aplicar=modal.querySelector('#aplicarSugestao');
  aplicar.onclick=()=>{if(!sugestaoIA||!confirm('Substituir o programa atualmente aberto no Montador pela sugestão da IA? As alterações só serão gravadas ao clicar em Salvar treino.'))return;state.plano={...novoPlano(),nome:sugestaoIA.nome,descricao:sugestaoIA.descricao||'',dias:NOMES.map((_,d)=>({dia_semana:d,exercicios:(sugestaoIA.dias.find(x=>x.dia_semana===d)?.exercicios||[]).map(i=>({exercicio_id:i.exercicio_id,series:i.series,repeticoes:i.repeticoes,carga_kg:null,descanso_seg:i.descanso_seg,observacoes:i.observacoes||''}))}))};state.dia=0;modal.close();htmlMontador();toast('Sugestão aplicada no editor. Clique em Salvar treino para gravar.');};
  try {const result=await fetchJSON('/ia/sugerir',{method:'POST',body:JSON.stringify({usuario_id:state.usuarioId})});if(!modal.open)return;sugestaoIA=result.programa;saida.innerHTML=`<section class="avn-ai-report"><h3>Parecer sobre os dados atuais</h3><p>${esc(result.avaliacao.resumo)}</p><h4>Dados utilizados</h4><ul>${result.dados.map(x=>`<li>${esc(x.codigo)}: ${esc(x.valor)} (${esc(x.data_medicao)}; ${esc(x.origem)})</li>`).join('')||'<li>Sem medições recentes disponíveis</li>'}</ul><h4>Perfil de treinamento</h4><p>${esc(result.perfil?.nivel||'Não informado')} · ${esc(result.perfil?.regularidade||'')} · ${esc(result.perfil?.objetivo||'')}</p><p>${result.diagnostico_equipamentos?.exercicios_compativeis??0} exercícios compatíveis com o inventário.</p><h4>Limitações e pontos de atenção</h4><p>${esc(result.avaliacao.limitacoes)}</p><h3>Programa semanal sugerido</h3>${NOMES.map((nome,i)=>{const dia=result.programa.dias.find(x=>x.dia_semana===i);return `<div class="avn-ai-day"><strong>${nome}</strong><p>${esc(dia?.objetivo||'Recuperação')}</p>${(dia?.exercicios||[]).map(e=>`<div>${esc(buscarNome(e.exercicio_id))} · ${e.series} × ${esc(e.repeticoes)} · ${e.descanso_seg}s</div>`).join('')||'<small>Sem exercícios programados</small>'}</div>`}).join('')}</section>`;aplicar.disabled=false;
