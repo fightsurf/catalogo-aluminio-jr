@@ -150,14 +150,14 @@
           <table aria-label="Carradas pertencentes à semana selecionada">
             <thead>
               <tr>
-                <th>Carrada</th><th>Dia / Data</th><th>Descrição</th>
-                <th class="numero">Pedidos</th><th class="numero">Prontos</th><th class="numero">A produzir</th>
-                <th class="numero">Itens</th><th class="numero">Prontos</th><th class="numero">A produzir</th>
+                <th>Data</th><th>Descrição</th>
+                <th class="numero">Pedidos</th><th class="numero">Pedidos prontos</th><th class="numero">Pedidos a produzir</th>
+                <th class="numero">Total itens</th><th class="numero">Itens prontos</th><th class="numero">Itens a produzir</th>
                 <th class="numero">Total dos pedidos</th>
               </tr>
             </thead>
             <tbody id="corpoCarradas">
-              <tr><td colspan="10" class="vazio">Carregando as carradas...</td></tr>
+              <tr><td colspan="9" class="vazio">Carregando as carradas...</td></tr>
             </tbody>
             <tfoot id="rodapeCarradas"></tfoot>
           </table>
@@ -182,17 +182,6 @@
     function dataBR(valor) {
       const d = iso(valor);
       return d ? d.slice(8,10) + '/' + d.slice(5,7) + '/' + d.slice(0,4) : '-';
-    }
-    function diaDaSemana(valor) {
-      const d = iso(valor);
-      if (!d) return 8;
-      // getUTCDay: 0 = domingo. No dashboard, domingo é o 7º dia.
-      const dia = new Date(d + 'T12:00:00Z').getUTCDay();
-      return dia === 0 ? 7 : dia;
-    }
-    function rotuloDia(valor) {
-      const dias = ['','Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
-      return dias[diaDaSemana(valor)] || '-';
     }
     function quantidade(valor) {
       const n = Number(valor);
@@ -225,7 +214,7 @@
       $('corpoCarradas').replaceChildren();
       $('rodapeCarradas').replaceChildren();
       const tr = document.createElement('tr');
-      celula(tr, mensagem, 'vazio').colSpan = 10;
+      celula(tr, mensagem, 'vazio').colSpan = 9;
       $('corpoCarradas').appendChild(tr);
     }
     function atualizarBotoes() {
@@ -267,15 +256,13 @@
         return;
       }
       const fragmento = document.createDocumentFragment();
-      // Apresenta sempre segunda, terça, quarta, quinta, sexta, sábado e domingo.
+      // Mesma ordem da tela original de semanas: domingo até segunda, data decrescente.
       for (const c of carradas.slice().sort((a,b) =>
-        diaDaSemana(a.data) - diaDaSemana(b.data)
-        || iso(a.data).localeCompare(iso(b.data))
-        || quantidade(a.codigo) - quantidade(b.codigo))) {
+        iso(b.data).localeCompare(iso(a.data))
+        || quantidade(b.codigo) - quantidade(a.codigo))) {
         const tr = document.createElement('tr');
         if (iso(c.data) === hojeIso()) tr.className = 'hoje';
-        celula(tr, String(c.codigo || '-'));
-        celula(tr, rotuloDia(c.data) + ' · ' + dataBR(c.data));
+        celula(tr, dataBR(c.data));
         const descricao = celula(tr, c.descricao || '-', 'descricao');
         descricao.title = c.descricao || '';
         for (const campo of [
@@ -287,7 +274,7 @@
       }
       corpo.appendChild(fragmento);
       const tr = document.createElement('tr');
-      celula(tr, 'TOTAL DA SEMANA').colSpan = 3;
+      celula(tr, 'TOTAL DA SEMANA').colSpan = 2;
       for (const campo of [
         'quantidade_pedidos','quantidade_pedidos_prontos','quantidade_pedidos_a_produzir',
         'quantidade_itens','quantidade_itens_prontos','quantidade_itens_a_produzir'
