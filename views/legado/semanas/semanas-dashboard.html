@@ -233,7 +233,13 @@
       }
       tbody.appendChild(fragment);
       const ativo = tbody.querySelector('tr.is-selected');
-      if (ativo) ativo.scrollIntoView({ behavior:'auto', block:'nearest' });
+      if (ativo) {
+        // Rolagem restrita à tabela para manter os controles visíveis no monitor.
+        const caixa = elemento('rolagemTabela');
+        const deslocamento = ativo.getBoundingClientRect().top - caixa.getBoundingClientRect().top;
+        const centro = caixa.scrollTop + deslocamento - (caixa.clientHeight - ativo.offsetHeight) / 2;
+        caixa.scrollTop = Math.max(0, centro);
+      }
     }
     function navegar(delta) {
       const indice = semanas.findIndex((s) => String(s.id) === selecionadaId);

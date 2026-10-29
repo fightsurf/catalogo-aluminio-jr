@@ -173,6 +173,10 @@
     body.modo-consulta #btnEditar,
     body.modo-consulta #btnExcluir,
     body.modo-consulta #btnEnviarWhatsappSemana,
+    body.modo-consulta #btnResumoProducao,
+    body.modo-consulta .acoes-coluna,
+    body.modo-consulta table th:last-child,
+    body.modo-consulta table tfoot td:last-child,
     body.modo-consulta .bloqueio-vendas,
     body.modo-consulta .acao-inserir-pedido { display: none !important; }
     .bloqueio-vendas {
@@ -511,7 +515,7 @@
                       <div class="acoes-carrada">
                         <a class="button btn-secondary" href="/legado/carradas/detalhe?codigo=${encodeURIComponent(carrada.codigo)}" title="Abrir carrada">Abrir</a>
                         <a class="button btn-secondary" href="/legado/carradas/progresso?codigo=${encodeURIComponent(carrada.codigo)}" title="Progresso">Progresso</a>
-                        <a class="button btn-secondary" href="/legado/pedidos-insercao-v2?carrada_codigo=${encodeURIComponent(carrada.codigo)}" title="Inserir pedido" class="acao-inserir-pedido">Ins. Pedido</a>
+                        <a class="button btn-secondary acao-inserir-pedido" href="/legado/pedidos-insercao-v2?carrada_codigo=${encodeURIComponent(carrada.codigo)}" title="Inserir pedido">Ins. Pedido</a>
                       </div>
                     </td>
                   </tr>
