@@ -216,6 +216,23 @@
       text-decoration: underline;
     }
 
+    .pedido-cancelado {
+      background: #fff7f7;
+    }
+
+    .pedido-cancelado-info {
+      display: inline-block;
+      margin-left: 9px;
+      padding: 3px 7px;
+      border-radius: 5px;
+      background: #fee2e2;
+      color: #991b1b;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .3px;
+      vertical-align: middle;
+    }
+
     .total-cell,
     .saldo-cell {
       font-weight: bold;
@@ -972,7 +989,8 @@
     }
 
     function obterCheckboxesPedidos() {
-      return Array.from(tabelaPedidos.querySelectorAll('.pedido-checkbox'));
+      // Pedidos cancelados são apenas históricos; não entram em resumos nem envios.
+      return Array.from(tabelaPedidos.querySelectorAll('.pedido-checkbox:not(:disabled)'));
     }
 
     function obterPedidosSelecionados() {
@@ -1119,6 +1137,11 @@
       atualizarEstadoSelecao();
     });
 
+    function pedidoCancelado(pedido) {
+      const situacao = String(pedido?.situacao || '').trim().toUpperCase();
+      return pedido?.cancelado === true || ['C', 'CANCELADO', 'CANCELADA'].includes(situacao);
+    }
+
     function classeSaldo(pedido) {
       const saldo = Number(pedido?.saldoRestante || 0);
       if (saldo < 0) return 'saldo-credito';
@@ -1127,7 +1150,8 @@
     }
 
     function calcularTotaisGerais(pedidos) {
-      return pedidos.reduce((totais, pedido) => {
+      // A consulta exibe o histórico completo, mas cancelamentos não são vendas válidas.
+      return pedidos.filter((pedido) => !pedidoCancelado(pedido)).reduce((totais, pedido) => {
         totais.totalPedidos += Number(pedido.total || 0);
         totais.totalPago += Number(pedido.totalPago || 0);
         totais.saldoRestante += Number(pedido.saldoRestante || 0);
@@ -1178,20 +1202,22 @@
       }
 
       tabelaPedidos.innerHTML = pedidosAtuais.map((pedido, index) => `
-        <tr data-index="${index}">
+        <tr data-index="${index}" class="${pedidoCancelado(pedido) ? 'pedido-cancelado' : ''}">
           <td class="celula-selecao">
             <input
               type="checkbox"
               class="pedido-checkbox"
               data-index="${index}"
               aria-label="Selecionar pedido ${escapeHtml(obterNumeroPedido(pedido))}"
-              ${chavesSelecionadas.has(obterChavePedido(pedido)) ? 'checked' : ''}
+              ${pedidoCancelado(pedido) ? 'disabled' : ''}
+              ${!pedidoCancelado(pedido) && chavesSelecionadas.has(obterChavePedido(pedido)) ? 'checked' : ''}
             />
           </td>
           <td>
             <a href="#" class="pedido-link" data-index="${index}">
               ${escapeHtml(obterNumeroPedido(pedido))}
             </a>
+            ${pedidoCancelado(pedido) ? '<span class="pedido-cancelado-info">CANCELADO</span>' : ''}
           </td>
           <td>${escapeHtml(formatarData(pedido.data))}</td>
           <td>${escapeHtml(formatarCarrada(pedido))}</td>
@@ -1202,8 +1228,10 @@
           <td>
             <div class="acoes-linha">
               <button type="button" class="btn-linha" data-acao="pagamentos" data-index="${index}">Pagamentos</button>
-              <button type="button" class="btn-linha btn-whatsapp-linha" data-acao="saldo" data-index="${index}">Enviar saldo</button>
-              <button type="button" class="btn-linha btn-whatsapp-linha" data-acao="historico" data-index="${index}">Enviar histórico</button>
+              ${pedidoCancelado(pedido) ? '' : `
+                <button type="button" class="btn-linha btn-whatsapp-linha" data-acao="saldo" data-index="${index}">Enviar saldo</button>
+                <button type="button" class="btn-linha btn-whatsapp-linha" data-acao="historico" data-index="${index}">Enviar histórico</button>
+              `}
             </div>
           </td>
         </tr>
@@ -1255,7 +1283,8 @@
       });
 
       atualizarEstadoSelecao();
-      mostrarStatus('ok', `${pedidosAtuais.length} pedido(s) encontrado(s).`);
+      const quantidadeCancelados = pedidosAtuais.filter(pedidoCancelado).length;
+      mostrarStatus('ok', `${pedidosAtuais.length} pedido(s) encontrado(s)${quantidadeCancelados ? ` — ${quantidadeCancelados} cancelado(s)` : ''}.`);
     }
 
     document.querySelectorAll('.btn-ordenar-coluna').forEach((botao) => {
