@@ -5,6 +5,7 @@ const { requireAuth } = require('../../../middlewares/adminAuth.middleware');
 const router = express.Router();
 
 router.get('/carradas/disponiveis', controller.listarCarradasDisponiveis);
+router.get('/dashboard/indice', controller.listarIndiceSemanasDashboard);
 router.get('/:id/resumo', controller.buscarResumoSemana);
 router.get('/:id/fornecedores', requireAuth, controller.listarFornecedoresResumo);
 router.put('/:id/fornecedores', requireAuth, controller.salvarFornecedoresResumo);

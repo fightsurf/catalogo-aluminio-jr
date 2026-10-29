@@ -847,6 +847,18 @@ async function validarConflitoCarradas(codigosCarradas, semanaIdAtual = null, cl
   }
 }
 
+async function listarIndiceSemanasDashboard() {
+  await garantirTabelasSemana();
+  // Índice leve: não busca as carradas nem calcula totais de TODAS as semanas.
+  // O detalhe da semana selecionada continua usando buscarSemanaPorId.
+  const resultado = await pool.query(`
+    SELECT id, data_inicial, data_final, descricao
+    FROM semanas
+    ORDER BY data_inicial ASC, id ASC
+  `);
+  return resultado.rows;
+}
+
 async function listarSemanas(filtros = {}) {
   await garantirTabelasSemana();
 
@@ -1302,6 +1314,7 @@ async function buscarSemanaDaCarrada(codigoCarrada) {
 }
 
 module.exports = {
+  listarIndiceSemanasDashboard,
   listarSemanas,
   listarCarradasDisponiveis,
   buscarSemanaPorId,

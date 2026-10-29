@@ -10,6 +10,15 @@ function responderErro(res, error, fallbackMessage) {
   });
 }
 
+async function listarIndiceSemanasDashboard(req, res) {
+  try {
+    const data = await semanasService.listarIndiceSemanasDashboard();
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return responderErro(res, error, 'Erro ao carregar índice de semanas do dashboard.');
+  }
+}
+
 async function listarSemanas(req, res) {
   try {
     const data = await semanasService.listarSemanas(req.query || {});
@@ -146,6 +155,7 @@ async function enviarWhatsappFornecedor(req, res) {
 }
 
 module.exports = {
+  listarIndiceSemanasDashboard,
   listarFornecedoresResumo,
   salvarFornecedoresResumo,
   visualizarWhatsappFornecedor,

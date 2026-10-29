@@ -150,7 +150,7 @@
           <table aria-label="Carradas pertencentes à semana selecionada">
             <thead>
               <tr>
-                <th>Carrada</th><th>Data</th><th>Descrição</th>
+                <th>Carrada</th><th>Dia / Data</th><th>Descrição</th>
                 <th class="numero">Pedidos</th><th class="numero">Prontos</th><th class="numero">A produzir</th>
                 <th class="numero">Itens</th><th class="numero">Prontos</th><th class="numero">A produzir</th>
                 <th class="numero">Total dos pedidos</th>
@@ -182,6 +182,17 @@
     function dataBR(valor) {
       const d = iso(valor);
       return d ? d.slice(8,10) + '/' + d.slice(5,7) + '/' + d.slice(0,4) : '-';
+    }
+    function diaDaSemana(valor) {
+      const d = iso(valor);
+      if (!d) return 8;
+      // getUTCDay: 0 = domingo. No dashboard, domingo é o 7º dia.
+      const dia = new Date(d + 'T12:00:00Z').getUTCDay();
+      return dia === 0 ? 7 : dia;
+    }
+    function rotuloDia(valor) {
+      const dias = ['','Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
+      return dias[diaDaSemana(valor)] || '-';
     }
     function quantidade(valor) {
       const n = Number(valor);
@@ -256,11 +267,15 @@
         return;
       }
       const fragmento = document.createDocumentFragment();
-      for (const c of carradas.slice().sort((a,b) => iso(a.data).localeCompare(iso(b.data)) || quantidade(a.codigo)-quantidade(b.codigo))) {
+      // Apresenta sempre segunda, terça, quarta, quinta, sexta, sábado e domingo.
+      for (const c of carradas.slice().sort((a,b) =>
+        diaDaSemana(a.data) - diaDaSemana(b.data)
+        || iso(a.data).localeCompare(iso(b.data))
+        || quantidade(a.codigo) - quantidade(b.codigo))) {
         const tr = document.createElement('tr');
         if (iso(c.data) === hojeIso()) tr.className = 'hoje';
         celula(tr, String(c.codigo || '-'));
-        celula(tr, dataBR(c.data));
+        celula(tr, rotuloDia(c.data) + ' · ' + dataBR(c.data));
         const descricao = celula(tr, c.descricao || '-', 'descricao');
         descricao.title = c.descricao || '';
         for (const campo of [
@@ -281,12 +296,31 @@
       rodape.appendChild(tr);
     }
     async function requisitar(url) {
-      const resposta = await fetch(url, { cache:'no-store', headers:{Accept:'application/json'} });
-      const json = await resposta.json().catch(() => ({}));
-      if (!resposta.ok || json.success === false || !json.data) {
-        throw new Error(json.error || json.message || 'Não foi possível consultar a semana.');
+      for (let tentativa = 0; tentativa < 2; tentativa++) {
+        try {
+          const resposta = await fetch(url, { cache:'no-store', headers:{Accept:'application/json'} });
+          const json = await resposta.json().catch(() => ({}));
+          if (!resposta.ok || json.success === false || !json.data) {
+            const erro = new Error(json.error || json.message || 'Não foi possível consultar a semana.');
+            erro.status = resposta.status;
+            throw erro;
+          }
+          return json.data;
+        } catch (erro) {
+          // A ponte com o legado pode apresentar falhas transitórias de rede.
+          // Não repetir erros de validação (4xx).
+          if (tentativa > 0 || (erro.status && erro.status < 500)) throw erro;
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
       }
-      return json.data;
+    }
+    function limparMetricas() {
+      for (const id of [
+        'totalCarradas','totalPedidos','pedidosProntos','pedidosProduzir',
+        'totalItens','itensProntos','itensProduzir','valorTotal','progressoTexto'
+      ]) definirTexto(id, '—');
+      $('barraProgresso').style.width = '0%';
+      $('progresso').setAttribute('aria-valuenow', '0');
     }
     async function abrirSemana(semana) {
       if (!semana) return;
@@ -294,6 +328,7 @@
       const requisicao = ++estado.requisicao;
       atualizarBotoes();
       atualizarCabecalho(semana);
+      limparMetricas();
       definirTexto('situacao', 'Carregando carradas...');
       definirTexto('contadorCarradas', 'Carregando...');
       preencherVazio('Consultando as carradas desta semana...');
@@ -315,7 +350,7 @@
     }
     async function iniciar() {
       try {
-        const lista = await requisitar('/api/legado/semanas');
+        const lista = await requisitar('/api/legado/semanas/dashboard/indice');
         if (!Array.isArray(lista)) throw new Error('Lista de semanas inválida.');
         estado.semanas = lista.slice().sort((a,b) =>
           iso(a.data_inicial).localeCompare(iso(b.data_inicial)) || quantidade(a.id)-quantidade(b.id));
