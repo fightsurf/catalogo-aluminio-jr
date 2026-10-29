@@ -24,6 +24,7 @@ const OVERRIDES = {
   '/legado/carradas': { nome: 'Carradas', categoria: 'Produção', icone: 'truck', descricao: 'Consulta e gerenciamento de carradas.' },
   '/legado/carradas/progresso': { nome: 'Progresso da Carrada', categoria: 'Produção', icone: 'activity', descricao: 'Acompanhamento operacional dos pedidos da carrada.' },
   '/legado/semanas': { nome: 'Semanas', categoria: 'Produção', icone: 'calendar', descricao: 'Planejamento e acompanhamento semanal da produção.' },
+  '/legado/semanas/dashboard': { nome: 'Dashboard de Semanas', categoria: 'Produção', icone: 'monitor', descricao: 'Monitor de semanas salvas, somente leitura e atualização automática a cada 5 minutos.' },
   '/legado/pedidos': { nome: 'Pedidos', categoria: 'Vendas', icone: 'clipboard-list', descricao: 'Consulta dos pedidos do sistema legado.' },
   '/legado/pedidos-cliente': { nome: 'Pedidos por Cliente', categoria: 'Vendas', icone: 'users', descricao: 'Histórico e resumo de pedidos por cliente.' },
   '/legado/pedidos-insercao-v2': { nome: 'Inserir Pedido', categoria: 'Vendas', icone: 'file-plus', descricao: 'Inserção de pedido por produtos ou relatório WhatsApp.' },

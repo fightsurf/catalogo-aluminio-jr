@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard de Semanas | Alumínio JR</title>
+  <style>
+    :root { --bg:#f3f5f9; --surface:#fff; --text:#172033; --muted:#607089; --border:#dce3ec; --navy:#17243c; --blue:#1859af; --blue-light:#e8f2ff; --green:#116a4b; --green-light:#eaf8f1; }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--text); font:16px/1.45 Arial,Helvetica,sans-serif; }
+    .page { max-width:1550px; margin:0 auto; padding:24px; }
+    h1,h2,p { margin:0; }
+    .header { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; flex-wrap:wrap; margin-bottom:18px; }
+    .header h1 { font-size:30px; letter-spacing:-.6px; }
+    .subtitle { color:var(--muted); margin-top:4px; }
+    .refresh-status { display:flex; gap:7px; align-items:center; color:var(--green); font-weight:700; font-size:13px; white-space:nowrap; padding-top:10px; }
+    .refresh-status::before { content:""; width:9px; height:9px; border-radius:50%; background:#21a675; }
+    .panel { background:var(--surface); border:1px solid var(--border); border-radius:16px; box-shadow:0 3px 16px rgba(18,32,55,.04); }
+    .toolbar { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:16px; padding:16px 18px; margin-bottom:16px; }
+    .buttons { display:flex; flex-wrap:wrap; gap:9px; }
+    button, .open-link { min-height:43px; display:inline-flex; align-items:center; justify-content:center; gap:7px; padding:9px 15px; border:1px solid var(--border); border-radius:9px; background:#fff; color:var(--text); cursor:pointer; font:700 14px Arial,Helvetica,sans-serif; text-decoration:none; }
+    button:hover, .open-link:hover { background:#f1f5fb; }
+    button:disabled { opacity:.42; cursor:not-allowed; }
+    .primary { background:var(--navy); border-color:var(--navy); color:white; }
+    .primary:hover { background:#273c61; }
+    .toolbar-meta { color:var(--muted); font-size:13px; text-align:right; }
+    .summary { padding:20px; margin-bottom:16px; }
+    .summary-head { display:flex; align-items:center; justify-content:space-between; gap:15px; flex-wrap:wrap; margin-bottom:18px; }
+    .summary h2 { font-size:23px; }
+    .period { color:var(--muted); margin-top:3px; font-size:15px; }
+    .current-label { color:var(--blue); font-size:13px; font-weight:800; background:var(--blue-light); padding:7px 12px; border-radius:100px; }
+    .current-label.neutral { color:var(--muted); background:#f2f4f7; }
+    .metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+    .metric { border:1px solid var(--border); border-radius:12px; padding:15px 17px; }
+    .metric-label { color:var(--muted); font-size:14px; }
+    .metric-number { display:block; font-size:31px; font-weight:800; letter-spacing:-.5px; margin-top:3px; font-variant-numeric:tabular-nums; }
+    .metric.ready .metric-number { color:var(--green); }
+    .metric.pending .metric-number { color:#a35910; }
+    .progress-head { display:flex; justify-content:space-between; gap:12px; color:var(--muted); font-size:13px; margin:18px 0 7px; }
+    .progress-track { height:11px; border-radius:10px; background:#ecf0f5; overflow:hidden; }
+    .progress-value { width:0; height:100%; background:#16845e; transition:width .2s ease; }
+    .notice { padding:12px 15px; border:1px solid #f2d6aa; background:#fff8eb; border-radius:10px; margin-bottom:16px; color:#865411; }
+    .table-panel { padding:18px; }
+    .table-head { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+    .table-head h2 { font-size:20px; }
+    .table-head p { color:var(--muted); font-size:13px; }
+    .table-scroll { max-height:54vh; min-height:150px; overflow:auto; border:1px solid var(--border); border-radius:10px; }
+    table { width:100%; min-width:1060px; border-collapse:separate; border-spacing:0; }
+    th,td { padding:12px 11px; border-bottom:1px solid var(--border); text-align:left; white-space:nowrap; font-size:14px; }
+    th { background:#f5f7fa; color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.4px; position:sticky; top:0; z-index:2; }
+    td { font-variant-numeric:tabular-nums; }
+    .description { white-space:normal; min-width:160px; max-width:290px; }
+    tr.is-current td { background:#f2f7ff; }
+    tr.is-selected td { background:#dbeaff; font-weight:700; }
+    tr.is-selected td:first-child { box-shadow:inset 4px 0 0 #1859af; }
+    .open-link { min-height:34px; padding:6px 12px; }
+    .empty { text-align:center; color:var(--muted); padding:25px; }
+    .error { color:#a52c2c; }
+    @media (max-width:920px) { .metrics { grid-template-columns:repeat(2,1fr); } .page { padding:13px; } .toolbar-meta { text-align:left; } }
+    @media (max-width:480px) { .metrics { grid-template-columns:1fr 1fr; gap:7px; } .metric { padding:12px; } .metric-number { font-size:25px; } .header h1 { font-size:25px; } .summary { padding:14px; } .toolbar { padding:12px; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="header">
+      <div>
+        <h1>Dashboard de Semanas</h1>
+        <p class="subtitle">Acompanhamento das semanas salvas — somente leitura</p>
+      </div>
+      <div class="refresh-status">Atualização automática a cada 5 minutos</div>
+    </header>
+    <nav class="panel toolbar" aria-label="Navegação entre semanas">
+      <div class="buttons">
+        <button type="button" id="btnAnterior" disabled>← Semana anterior</button>
+        <button type="button" id="btnProxima" disabled>Próxima semana →</button>
+        <button type="button" class="primary" id="btnAtualizar">↻ Atualizar</button>
+      </div>
+      <div id="atualizacao" class="toolbar-meta" role="status" aria-live="polite">Carregando semanas...</div>
+    </nav>
+    <div id="aviso" class="notice" role="status" style="display:none"></div>
+    <section class="panel summary" aria-label="Resumo da semana selecionada">
+      <div class="summary-head">
+        <div>
+          <h2 id="tituloSemana">Carregando semana...</h2>
+          <div class="period" id="periodoSemana">Consultando dados cadastrados</div>
+        </div>
+        <span id="etiquetaSemana" class="current-label neutral">Aguardando dados</span>
+      </div>
+      <div class="metrics">
+        <div class="metric"><span class="metric-label">Carradas</span><strong class="metric-number" id="totalCarradas">—</strong></div>
+        <div class="metric"><span class="metric-label">Total de itens</span><strong class="metric-number" id="totalItens">—</strong></div>
+        <div class="metric ready"><span class="metric-label">Itens prontos</span><strong class="metric-number" id="itensProntos">—</strong></div>
+        <div class="metric pending"><span class="metric-label">A produzir</span><strong class="metric-number" id="itensProduzir">—</strong></div>
+      </div>
+      <div class="progress-head"><span>Itens prontos em relação ao total</span><strong id="progressoTexto">—</strong></div>
+      <div class="progress-track" role="progressbar" id="progresso" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div class="progress-value" id="barraProgresso"></div></div>
+    </section>
+    <section class="panel table-panel">
+      <div class="table-head">
+        <div>
+          <h2>Semanas salvas</h2>
+          <p>Selecione outras semanas usando os botões acima. Abrir exibe os detalhes em consulta.</p>
+        </div>
+        <strong id="qtdSemanas" class="subtitle"></strong>
+      </div>
+      <div class="table-scroll" id="rolagemTabela">
+        <table>
+          <thead><tr>
+            <th>Data inicial</th><th>Data final</th><th>Descrição</th><th>Carradas</th>
+            <th>Total itens</th><th>Itens prontos</th><th>A produzir</th><th>Ação</th>
+          </tr></thead>
+          <tbody id="tabelaSemanas"><tr><td colspan="8" class="empty">Carregando...</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <script>
+    'use strict';
+    const INTERVALO_REFRESH_MS = 5 * 60 * 1000;
+    const elemento = (id) => document.getElementById(id);
+    let semanas = [];
+    let selecionadaId = null;
+
+    function dataIso(valor) {
+      const m = String(valor || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+      return m ? m[1] + '-' + m[2] + '-' + m[3] : '';
+    }
+    function hojeIso() {
+      const d = new Date();
+      return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+    }
+    function dataBR(valor) {
+      const iso = dataIso(valor);
+      return iso ? iso.slice(8,10) + '/' + iso.slice(5,7) + '/' + iso.slice(0,4) : '-';
+    }
+    function numero(valor) {
+      const n = Number(valor);
+      return Number.isFinite(n) ? n : 0;
+    }
+    function inteiro(valor) {
+      return numero(valor).toLocaleString('pt-BR');
+    }
+    function semanaCorrente(semana) {
+      const hoje = hojeIso();
+      return Boolean(dataIso(semana.data_inicial) && dataIso(semana.data_final)
+        && dataIso(semana.data_inicial) <= hoje && hoje <= dataIso(semana.data_final));
+    }
+    function mostrarAviso(texto) {
+      elemento('aviso').style.display = texto ? 'block' : 'none';
+      elemento('aviso').textContent = texto || '';
+    }
+    function selecionarAtual() {
+      const atuais = semanas.filter(semanaCorrente);
+      const hoje = hojeIso();
+      // Se houver sobreposição, prioriza a semana de início mais recente.
+      const atual = atuais[atuais.length - 1];
+      const anterior = semanas.filter((s) => dataIso(s.data_inicial) <= hoje).slice(-1)[0];
+      selecionadaId = String((atual || anterior || semanas[0] || {}).id || '');
+      if (!atual && semanas.length) {
+        mostrarAviso('Não existe semana salva abrangendo a data de hoje. Exibindo a semana cadastrada mais próxima.');
+      } else {
+        mostrarAviso('');
+      }
+    }
+    function selecionada() {
+      return semanas.find((s) => String(s.id) === selecionadaId);
+    }
+    function atualizarResumo() {
+      const semana = selecionada();
+      const indice = semanas.findIndex((s) => String(s.id) === selecionadaId);
+      elemento('btnAnterior').disabled = indice <= 0;
+      elemento('btnProxima').disabled = indice < 0 || indice >= semanas.length - 1;
+      if (!semana) {
+        elemento('tituloSemana').textContent = 'Nenhuma semana cadastrada';
+        elemento('periodoSemana').textContent = 'Sem dados para exibição';
+        elemento('etiquetaSemana').textContent = 'Sem semana';
+        elemento('etiquetaSemana').className = 'current-label neutral';
+      } else {
+        elemento('tituloSemana').textContent = semana.descricao || 'Semana cadastrada';
+        elemento('periodoSemana').textContent = dataBR(semana.data_inicial) + ' a ' + dataBR(semana.data_final);
+        elemento('etiquetaSemana').textContent = semanaCorrente(semana) ? 'SEMANA ATUAL' : 'SEMANA SELECIONADA';
+        elemento('etiquetaSemana').className = semanaCorrente(semana) ? 'current-label' : 'current-label neutral';
+      }
+      elemento('totalCarradas').textContent = semana ? inteiro(semana.quantidade_carradas) : '—';
+      elemento('totalItens').textContent = semana ? inteiro(semana.quantidade_itens) : '—';
+      elemento('itensProntos').textContent = semana ? inteiro(semana.quantidade_itens_prontos) : '—';
+      elemento('itensProduzir').textContent = semana ? inteiro(semana.quantidade_itens_a_produzir) : '—';
+      const total = semana ? numero(semana.quantidade_itens) : 0;
+      const prontos = semana ? numero(semana.quantidade_itens_prontos) : 0;
+      const pct = total > 0 ? Math.max(0, Math.min(100, Math.round(prontos * 100 / total))) : 0;
+      elemento('progressoTexto').textContent = semana ? pct + '%' : '—';
+      elemento('barraProgresso').style.width = pct + '%';
+      elemento('progresso').setAttribute('aria-valuenow', String(pct));
+    }
+    function novaCelula(tr, texto, classe) {
+      const td = document.createElement('td');
+      td.textContent = texto;
+      if (classe) td.className = classe;
+      tr.appendChild(td);
+      return td;
+    }
+    function renderizarTabela() {
+      const tbody = elemento('tabelaSemanas');
+      tbody.replaceChildren();
+      if (!semanas.length) {
+        const tr = document.createElement('tr');
+        const td = novaCelula(tr, 'Nenhuma semana cadastrada.', 'empty');
+        td.colSpan = 8;
+        tbody.appendChild(tr);
+        return;
+      }
+      const fragment = document.createDocumentFragment();
+      for (const semana of [...semanas].reverse()) {
+        const tr = document.createElement('tr');
+        tr.dataset.semanaId = String(semana.id);
+        if (semanaCorrente(semana)) tr.classList.add('is-current');
+        if (String(semana.id) === selecionadaId) tr.classList.add('is-selected');
+        novaCelula(tr, dataBR(semana.data_inicial));
+        novaCelula(tr, dataBR(semana.data_final));
+        novaCelula(tr, semana.descricao || '-', 'description');
+        novaCelula(tr, inteiro(semana.quantidade_carradas));
+        novaCelula(tr, inteiro(semana.quantidade_itens));
+        novaCelula(tr, inteiro(semana.quantidade_itens_prontos));
+        novaCelula(tr, inteiro(semana.quantidade_itens_a_produzir));
+        const td = document.createElement('td');
+        const link = document.createElement('a');
+        link.className = 'open-link';
+        link.textContent = 'Abrir';
+        link.href = '/legado/semanas/detalhe?id=' + encodeURIComponent(semana.id) + '&modo=consulta';
+        td.appendChild(link);
+        tr.appendChild(td);
+        fragment.appendChild(tr);
+      }
+      tbody.appendChild(fragment);
+      const ativo = tbody.querySelector('tr.is-selected');
+      if (ativo) ativo.scrollIntoView({ behavior:'auto', block:'nearest' });
+    }
+    function navegar(delta) {
+      const indice = semanas.findIndex((s) => String(s.id) === selecionadaId);
+      const proximo = semanas[indice + delta];
+      if (!proximo) return;
+      selecionadaId = String(proximo.id);
+      atualizarResumo();
+      renderizarTabela();
+    }
+    async function carregar() {
+      try {
+        const resposta = await fetch('/api/legado/semanas', { cache:'no-store', headers:{ Accept:'application/json' } });
+        const json = await resposta.json();
+        if (!resposta.ok || json.success === false) throw new Error(json.error || json.message || 'Falha ao consultar semanas.');
+        if (!Array.isArray(json.data)) throw new Error('Resposta de semanas inválida.');
+        semanas = json.data.slice().sort((a,b) => {
+          const cmp = dataIso(a.data_inicial).localeCompare(dataIso(b.data_inicial));
+          return cmp || numero(a.id) - numero(b.id);
+        });
+        selecionarAtual();
+        atualizarResumo();
+        renderizarTabela();
+        elemento('qtdSemanas').textContent = inteiro(semanas.length) + ' semana(s)';
+        elemento('atualizacao').textContent = 'Atualizado às ' + new Date().toLocaleTimeString('pt-BR') + ' • próximo refresh em até 5 min';
+      } catch (erro) {
+        elemento('atualizacao').textContent = 'Erro ao carregar dados • clique em Atualizar';
+        elemento('atualizacao').classList.add('error');
+        elemento('tabelaSemanas').innerHTML = '<tr><td colspan="8" class="empty error">Não foi possível carregar as semanas. Use Atualizar para tentar novamente.</td></tr>';
+        elemento('tituloSemana').textContent = 'Dados indisponíveis';
+        mostrarAviso(erro.message || 'Falha de comunicação.');
+      }
+    }
+    elemento('btnAnterior').addEventListener('click', () => navegar(-1));
+    elemento('btnProxima').addEventListener('click', () => navegar(1));
+    elemento('btnAtualizar').addEventListener('click', () => window.location.reload());
+    // Refresh completo: volta para a semana corrente mesmo após navegação manual.
+    setInterval(() => window.location.reload(), INTERVALO_REFRESH_MS);
+    carregar();
+  </script>
+</body>
+</html>

@@ -170,6 +170,11 @@
       font-size: 14px;
     }
     th { color: var(--muted); font-size: 13px; }
+    body.modo-consulta #btnEditar,
+    body.modo-consulta #btnExcluir,
+    body.modo-consulta #btnEnviarWhatsappSemana,
+    body.modo-consulta .bloqueio-vendas,
+    body.modo-consulta .acao-inserir-pedido { display: none !important; }
     .bloqueio-vendas {
       border: 0;
       background: transparent;
@@ -245,7 +250,7 @@
       <div class="actions">
         <button class="btn-secondary" id="btnSemanaAnterior" disabled>Semana anterior</button>
         <button class="btn-secondary" id="btnProximaSemana" disabled>Próxima semana</button>
-        <a class="button btn-secondary" href="/legado/semanas">Voltar</a>
+        <a class="button btn-secondary" id="btnVoltarSemanas" href="/legado/semanas">Voltar</a>
         <button class="btn-secondary" id="btnResumo">Resumo da semana</button>
         <button class="btn-secondary" id="btnResumoProducao">Resumo para produção</button>
         <button class="btn-primary" id="btnEnviarWhatsappSemana">Enviar WhatsApp da semana</button>
@@ -286,6 +291,11 @@
   <script>
     const params = new URLSearchParams(window.location.search);
     const id = params.get('id');
+    const modoConsulta = params.get('modo') === 'consulta';
+    if (modoConsulta) {
+      document.body.classList.add('modo-consulta');
+      document.getElementById('btnVoltarSemanas').href = '/legado/semanas/dashboard';
+    }
     let semanaAtual = null;
 
     function escapeHtml(valor) {
@@ -501,7 +511,7 @@
                       <div class="acoes-carrada">
                         <a class="button btn-secondary" href="/legado/carradas/detalhe?codigo=${encodeURIComponent(carrada.codigo)}" title="Abrir carrada">Abrir</a>
                         <a class="button btn-secondary" href="/legado/carradas/progresso?codigo=${encodeURIComponent(carrada.codigo)}" title="Progresso">Progresso</a>
-                        <a class="button btn-secondary" href="/legado/pedidos-insercao-v2?carrada_codigo=${encodeURIComponent(carrada.codigo)}" title="Inserir pedido">Ins. Pedido</a>
+                        <a class="button btn-secondary" href="/legado/pedidos-insercao-v2?carrada_codigo=${encodeURIComponent(carrada.codigo)}" title="Inserir pedido" class="acao-inserir-pedido">Ins. Pedido</a>
                       </div>
                     </td>
                   </tr>
@@ -528,6 +538,7 @@
         </section>
       `;
 
+      if (modoConsulta) return;
       conteudo.querySelectorAll('[data-bloqueio-vendas]').forEach((botao) => {
         botao.addEventListener('click', async () => {
           const codigo = botao.dataset.bloqueioVendas;
@@ -596,14 +607,14 @@
         if (anterior?.id) {
           btnAnterior.disabled = false;
           btnAnterior.addEventListener('click', () => {
-            window.location.href = `/legado/semanas/detalhe?id=${encodeURIComponent(anterior.id)}`;
+            window.location.href = `/legado/semanas/detalhe?id=${encodeURIComponent(anterior.id)}${modoConsulta ? '&modo=consulta' : ''}`;
           });
         }
 
         if (proxima?.id) {
           btnProxima.disabled = false;
           btnProxima.addEventListener('click', () => {
-            window.location.href = `/legado/semanas/detalhe?id=${encodeURIComponent(proxima.id)}`;
+            window.location.href = `/legado/semanas/detalhe?id=${encodeURIComponent(proxima.id)}${modoConsulta ? '&modo=consulta' : ''}`;
           });
         }
       } catch (error) {

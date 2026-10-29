@@ -4,6 +4,7 @@ const controller = require('../../../controllers/legado/semanas/semanas.view.con
 const router = express.Router();
 
 router.get('/', controller.abrirPaginaSemanas);
+router.get('/dashboard', controller.abrirDashboardSemanas);
 router.get('/mobile', controller.abrirPaginaSemanasMobile);
 router.get('/mobile/detalhe', controller.abrirPaginaDetalheSemanaMobile);
 router.get('/detalhe', controller.abrirPaginaDetalheSemana);

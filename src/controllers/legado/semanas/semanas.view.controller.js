@@ -19,6 +19,12 @@ function abrirPaginaSemanas(req, res) {
   );
 }
 
+function abrirDashboardSemanas(req, res) {
+  return res.sendFile(
+    path.resolve(__dirname, '../../../../views/legado/semanas/semanas-dashboard.html')
+  );
+}
+
 function abrirPaginaDetalheSemana(req, res) {
   return res.sendFile(
     path.resolve(__dirname, '../../../../views/legado/semanas/semanas-detalhe.html')
@@ -39,6 +45,7 @@ function abrirPaginaResumoSemana(req, res) {
 
 module.exports = {
   abrirPaginaSemanas,
+  abrirDashboardSemanas,
   abrirPaginaSemanasMobile,
   abrirPaginaDetalheSemanaMobile,
   abrirPaginaDetalheSemana,
