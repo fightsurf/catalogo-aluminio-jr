@@ -20,6 +20,40 @@
     status.textContent = mensagem;
     status.style.color = erro ? 'var(--pc-danger, #b42318)' : 'var(--pc-text)';
   }
+  async function lerRespostaApi(res, mensagemPadrao) {
+    const caminhoFinal = res.redirected ? new URL(res.url, window.location.href).pathname : '';
+    if (caminhoFinal === '/login' || caminhoFinal === '/login/') {
+      throw new Error('Sua sessão administrativa expirou. Faça login novamente e repita a importação.');
+    }
+    const tipo = String(res.headers.get('content-type') || '').toLowerCase();
+    if (!tipo.includes('application/json') && !tipo.includes('+json')) {
+      if (res.status === 401 || res.status === 403) {
+        throw new Error('Faça login administrativo para importar notas por IA.');
+      }
+      if (res.status === 413) {
+        throw new Error('O envio excedeu o limite de tamanho. Reduza as imagens e tente novamente.');
+      }
+      if ([502, 503, 504].includes(res.status)) {
+        throw new Error('O servidor não conseguiu concluir a operação (HTTP ' + res.status + '). Tente novamente e, se persistir, verifique os logs do Render.');
+      }
+      throw new Error('O servidor retornou uma resposta inesperada (HTTP ' + res.status + '). Atualize a página e tente novamente.');
+    }
+    let json;
+    try {
+      json = await res.json();
+    } catch {
+      throw new Error('O servidor retornou uma resposta JSON incompleta (HTTP ' + res.status + '). Tente novamente.');
+    }
+    if (res.status === 401 || res.status === 403) {
+      throw new Error('Faça login administrativo para importar notas por IA.');
+    }
+    if (!res.ok || !json || json.success !== true) {
+      const detalhe = json && (json.message || json.erro || json.error);
+      throw new Error(typeof detalhe === 'string' && detalhe.trim()
+        ? detalhe : mensagemPadrao + ' (HTTP ' + res.status + ').');
+    }
+    return json;
+  }
   function revogarUrls() { urls.forEach(url => URL.revokeObjectURL(url)); urls = []; }
   function limparRevisao() {
     revisao.hidden = true;
@@ -170,12 +204,9 @@
     arquivos.forEach(a => dados.append('imagens', a, a.name || 'nota.png'));
     try {
       const res = await fetch('/api/prestacoes/' + encodeURIComponent(id) + '/interpretar-nota', {
-        method: 'POST', body: dados
+        method: 'POST', headers: { Accept: 'application/json' }, credentials: 'same-origin', body: dados
       });
-      const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(res.status === 401
-        ? 'Faça login administrativo para usar a leitura por IA.'
-        : json.message || 'Falha na interpretação.');
+      const json = await lerRespostaApi(res, 'Falha na interpretação');
       if (String(prestacaoAtualId) !== String(id)) return;
       avisos = json.data.avisos || [];
       const itens = json.data.itens || [];
@@ -230,12 +261,10 @@
     mostrarStatus('Gravando os itens revisados…');
     try {
       const res = await fetch('/api/prestacoes/' + encodeURIComponent(id) + '/itens/importar', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ itens })
+        method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+        credentials: 'same-origin', body: JSON.stringify({ itens })
       });
-      const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(res.status === 401
-        ? 'Faça login administrativo para importar os itens.'
-        : json.message || 'Não foi possível importar os itens.');
+      const json = await lerRespostaApi(res, 'Não foi possível importar os itens');
       fechar();
       await carregarResumo(id);
       await carregarLista();
