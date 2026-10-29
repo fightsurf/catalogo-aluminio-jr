@@ -37,3 +37,32 @@ a{color:#8ec1ff}table th,table td{border-color:#34465f!important}hr,.tabs,.avn-t
 
 /* Card visual no Montador */
 .avn-workout-card{grid-template-columns:140px minmax(0,1fr);display:grid;gap:16px;align-items:start}.avn-workout-visual{display:flex;align-items:center;justify-content:center;min-height:140px;border-radius:12px;background:#e2eef5}.avn-workout-visual .thumb-frame,.avn-workout-visual .thumb{width:128px;height:128px}.avn-workout-details{min-width:0;display:grid;gap:10px}.avn-workout-details .fields{grid-template-columns:repeat(4,minmax(85px,1fr))}.avn-workout-details .item-head strong{font-size:13px}.avn-modal-ia{width:min(950px,95vw);max-height:90vh;overflow:auto;padding:24px;border-radius:18px;border:1px solid #34465f}.avn-modal-ia::backdrop{background:#020611c9}.avn-ai-head{display:flex;justify-content:space-between;gap:12px;align-items:center}.avn-ai-day{border:1px solid #34465f;padding:12px;margin:8px 0;border-radius:10px}.avn-ai-report ul{font-size:13px}.avn-ai-report h3{margin:20px 0 6px}@media(max-width:650px){.avn-workout-card{grid-template-columns:92px 1fr;gap:9px}.avn-workout-visual{min-height:90px}.avn-workout-visual .thumb-frame,.avn-workout-visual .thumb{width:86px;height:86px}.avn-workout-details .fields{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+
+/* AVN: biblioteca, formulários modais e quadrinhos de alto contraste. */
+.avn-montador-centered,.avn-exercicios-centered,.avn-registrar-centered{width:100%;max-width:1160px;margin:0 auto;display:block}
+.avn-montador-centered>.card,.avn-exercicios-centered>.card,.avn-registrar-centered>.card{width:100%}
+.avn-action-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px}
+.avn-action-header .row{justify-content:flex-end}
+.avn-dialog{width:min(840px,95vw);max-height:90vh;overflow:auto;border-radius:16px;padding:22px;border:1px solid #405574;background:#182437;color:#f1f5ff}
+.avn-dialog::backdrop{background:#020611d0}
+.avn-dialog .exercise-list{max-height:58vh}
+.avn-dialog .exercise{background:#22324a!important}
+.avn-dialog .filters{margin:12px 0}
+.avn-dialog-header{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.avn-dialog-header h2{margin:0}
+.avn-library-row .grow{min-width:0}
+.avn-library-row button{flex-shrink:0}
+.avn-montador-centered #descPlano{min-height:115px;resize:vertical}
+.avn-workout-details .item-head{flex-wrap:wrap}
+.avn-workout-details .item-head strong{min-width:160px}
+.avn-thumb-light,.exercise .thumb-frame,.exercise img.thumb,.exercise video.thumb,.avn-workout-visual,.avn-workout-visual .thumb-frame,.media-preview-frame{background:#fff!important;border:1px solid #d0dae5!important}
+.avn-workout-visual{background:#fff!important}
+.exercise .thumb-frame img.thumb,.avn-workout-visual .thumb-frame img.thumb,.media-preview-frame img.media-preview{background:transparent!important;filter:brightness(0)!important}
+.exercise img.thumb:not(.avn-animated){background:#fff!important}
+.avn-ai-recommendation{border:1px solid #425976;border-radius:10px;padding:13px;margin:10px 0;background:#202f45}
+.avn-ai-recommendation .row{justify-content:space-between}
+.avn-ai-recommendation p{white-space:pre-wrap}
+.avn-ai-report p{white-space:pre-wrap}
+.avn-workout-action{white-space:nowrap}
+@media(max-width:650px){.avn-dialog{padding:13px}.avn-action-header .row{width:100%;justify-content:flex-start}.avn-workout-details .item-head strong{min-width:0}.avn-library-row{flex-wrap:wrap}.avn-library-row .grow{flex-basis:55%}}
