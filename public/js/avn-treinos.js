@@ -210,17 +210,37 @@ async function abrirCriacaoIA(){
 
 async function meusTreinos(){if(usuarioGuard())return;state.planos=await fetchJSON('/planos?usuario_id='+state.usuarioId);const r=$('conteudo');r.innerHTML=`<div class="card stack"><div class="row between"><h2>Planos de ${esc(state.usuarios.find(u=>String(u.id)===state.usuarioId)?.nome||'usuário')}</h2><a href="/avn/sistema/montador" class="btn primary">+ Criar treino</a></div><div class="list-rows" id="listaPlanos"></div></div>`;
  $('listaPlanos').innerHTML=state.planos.length?state.planos.map(p=>`<div class="plan"><div><strong>${esc(p.nome)}</strong><small>${esc(p.descricao||'Sem descrição')} · Atualizado em ${new Date(p.atualizado_em).toLocaleDateString('pt-BR')}</small></div><div class="row"><a class="btn small" href="/avn/sistema/montador?plano=${p.id}">Editar</a><a class="btn small primary" href="/avn/sistema/treinar?plano=${p.id}">Executar</a><button class="btn danger small" data-del="${p.id}">Excluir</button></div></div>`).join(''):'<div class="empty">Nenhum plano salvo. Crie o primeiro no Montador.</div>';
- document.querySelectorAll('#listaPlanos [data-del]').forEach(b=>b.onclick=async()=>{if(!confirm('Arquivar este treino? Sessões já registradas serão preservadas.'))return;try{await fetchJSON('/planos/'+b.dataset.del,{method:'DELETE'});toast('Plano arquivado.');await meusTreinos();}catch(e){toast(e.message,true);}});
+ document.querySelectorAll('#listaPlanos [data-del]').forEach(b=>b.onclick=async()=>{if(!confirm('Arquivar este treino? Sessões já registradas serão preservadas.'))return;try{await fetchJSON('/planos/'+b.dataset.del,{method:'DELETE',body:JSON.stringify({usuario_id:state.usuarioId})});toast('Plano arquivado.');await meusTreinos();}catch(e){toast(e.message,true);}});
 }
-async function treinoPlanos(){if(usuarioGuard())return;state.planos=await fetchJSON('/planos?usuario_id='+state.usuarioId);const wanted=new URLSearchParams(location.search).get('plano');const planId=state.treino?.id|| (state.planos.some(x=>String(x.id)===wanted)?wanted:state.planos[0]?.id);
- const r=$('conteudo');if(!planId){r.innerHTML='<div class="empty">Crie um plano no Montador antes de registrar uma sessão.</div>';return;}
- await carregarTreino(planId);r.innerHTML=`<div class="grid-2"><section class="card stack"><h2>Selecionar treino</h2><label class="label">Plano<select id="selectPlano">${state.planos.map(p=>`<option value="${p.id}" ${String(p.id)===String(planId)?'selected':''}>${esc(p.nome)}</option>`).join('')}</select></label><label class="label">Dia<select id="selectDia">${NOMES.map((name,i)=>`<option value="${i}">${name}</option>`).join('')}</select></label><p class="hint">A sessão será registrada apenas quando você confirmar.</p><div id="treinoItens"></div><label class="label">Observações da sessão<textarea id="sessaoObs" maxlength="1000"></textarea></label><button id="salvarSessao" class="btn primary">Registrar sessão realizada</button></section><section class="card stack"><h2>Histórico recente</h2><div id="historico" class="list-rows"></div></section></div>`;
+async function treinoPlanos(){
+ if(usuarioGuard())return;
+ state.planos=await fetchJSON('/planos?usuario_id='+state.usuarioId);
+ const wanted=new URLSearchParams(location.search).get('plano'),planId=state.treino?.id||(state.planos.some(x=>String(x.id)===wanted)?wanted:state.planos[0]?.id);
+ const r=$('conteudo');
+ if(!planId){r.innerHTML='<div class="avn-registrar-centered card"><h2>Nenhum programa ativo</h2><button class="btn" id="verHistoricoSemPlano">Ver histórico recente</button></div>';$('verHistoricoSemPlano').onclick=abrirHistoricoTreinos;return;}
+ await carregarTreino(planId);
+ r.innerHTML=`<div class="avn-registrar-centered"><section class="card stack"><div class="avn-action-header"><h2>Selecionar treino</h2><button type="button" class="btn" id="verHistoricoTreinos">Ver histórico recente</button></div><label class="label">Plano<select id="selectPlano">${state.planos.map(p=>`<option value="${p.id}" ${String(p.id)===String(planId)?'selected':''}>${esc(p.nome)}</option>`).join('')}</select></label><label class="label">Dia<select id="selectDia">${NOMES.map((n,i)=>`<option value="${i}">${n}</option>`).join('')}</select></label><div id="treinoItens"></div><label class="label">Observações da sessão<textarea id="sessaoObs" maxlength="1000"></textarea></label><button id="salvarSessao" class="btn primary">Registrar sessão realizada</button></section></div>`;
+ $('verHistoricoTreinos').onclick=abrirHistoricoTreinos;
  $('selectPlano').onchange=async()=>{try{await carregarTreino($('selectPlano').value);$('selectDia').value=String(state.treinoDia);renderTreinoItens();}catch(e){toast(e.message,true);}};
  $('selectDia').onchange=()=>{state.treinoDia=Number($('selectDia').value);renderTreinoItens();};
  $('salvarSessao').onclick=salvarSessao;
- $('selectDia').value=String(state.treinoDia);renderTreinoItens();await renderHistorico();await configurarAndroidNoRegistro();
+ $('selectDia').value=String(state.treinoDia);renderTreinoItens();
 }
-
+function abrirHistoricoTreinos(){
+ let modal=$('avn-modal-historico');if(!modal){modal=document.createElement('dialog');modal.id='avn-modal-historico';modal.className='avn-dialog';document.body.appendChild(modal);}
+ modal.innerHTML='<div class="avn-dialog-header"><h2>Histórico recente</h2><button class="btn ghost" id="fecharHistorico">Fechar ×</button></div><h3>Treinos registrados na web</h3><div id="historico" class="list-rows">Carregando...</div><h3>Treinos do Android</h3><div id="historicoAvnAndroid" class="list-rows"></div>';
+ modal.querySelector('#fecharHistorico').onclick=()=>modal.close();
+ if(!modal.open)modal.showModal();
+ renderHistorico();renderHistoricoAndroid();
+}
+async function renderHistoricoAndroid(){
+ const area=$('historicoAvnAndroid');if(!area)return;
+ try{
+  const sessoes=await fetchJSON('/mobile/execucoes?usuario_id='+state.usuarioId);if(!area.isConnected)return;
+  area.innerHTML=sessoes.length?sessoes.map(s=>`<div class="plan"><div><strong>${esc(s.plano_nome)}</strong><small>${esc(NOMES[s.dia_semana])} · ${esc(new Date(s.iniciada_em).toLocaleString('pt-BR'))} · ${esc(s.series_concluidas)} séries · ${esc(s.status)}</small></div><button type="button" class="btn small" data-android-ver="${esc(s.id)}">Detalhes</button></div>`).join(''):'<p class="hint">Nenhum treino Android registrado.</p>';
+  area.querySelectorAll('[data-android-ver]').forEach(b=>b.onclick=async()=>{try{const d=await fetchJSON('/mobile/execucoes/'+b.dataset.androidVer);alert(d.eventos.map(e=>e.tipo+' · Série '+(e.numero_serie||'-')+' · '+(e.carga_kg??'-')+' kg').join('\n'));}catch(e){toast(e.message,true);}});
+ }catch(e){if(area.isConnected)area.textContent='Histórico Android indisponível: '+e.message;}
+}
 async function configurarAndroidNoRegistro(){
  const card=document.querySelector('#conteudo .grid-2 > section:nth-child(2)');
  if(!card)return;
@@ -243,11 +263,20 @@ async function configurarAndroidNoRegistro(){
 }
 
 async function carregarTreino(id){state.treino=await fetchJSON('/planos/'+id);if(String(state.treino.usuario_id)!==state.usuarioId)throw Error('Plano não pertence ao usuário.');if(!state.treino.dias.some(d=>Number(d.dia_semana)===state.treinoDia&&d.exercicios.length)){state.treinoDia=Number(state.treino.dias.find(d=>d.exercicios.length)?.dia_semana??0);}}
-function renderTreinoItens(){const day=state.treino.dias.find(d=>Number(d.dia_semana)===state.treinoDia),itens=day?.exercicios||[];
- const root=$('treinoItens');root.innerHTML=itens.length?`<div class="stack">`+itens.map((i,n)=>`<div class="item" data-realizado="${n}"><div class="row between"><strong>${esc(i.exercicio_nome||buscarNome(i.exercicio_id))}</strong><span class="pill">Previsto: ${i.series} × ${esc(i.repeticoes)}</span></div><div class="fields"><label>Séries feitas<input type="number" class="ses-series" min="0" max="30" value="${i.series}"></label><label>Repetições feitas<input class="ses-reps" maxlength="30" value="${esc(i.repeticoes)}"></label><label>Carga (kg)<input type="number" class="ses-carga" min="0" max="2000" step="0.5" value="${esc(i.carga_kg??'')}"></label></div><label class="label">Observação<input class="ses-obs" maxlength="500"></label></div>`).join('')+'</div>':'<div class="empty">Este dia não possui exercícios. Escolha outro dia ou edite o plano.</div>';
+function renderTreinoItens(){
+ const dia=state.treino.dias.find(d=>Number(d.dia_semana)===state.treinoDia),itens=dia?.exercicios||[],root=$('treinoItens');if(!root)return;
+ root.innerHTML=itens.length?`<div class="stack">${itens.map((i,n)=>{const ex=state.exercicios.find(e=>Number(e.id)===Number(i.exercicio_id))||i;return `<div class="item avn-workout-card" data-realizado="${n}"><div class="avn-workout-visual">${media(ex,true)}</div><div class="avn-workout-details"><strong>${esc(i.exercicio_nome||buscarNome(i.exercicio_id))}</strong><small>Previsto: ${i.series} × ${esc(i.repeticoes)}</small><div class="fields"><label>Séries feitas<input type="number" class="ses-series" min="0" max="30" value="${i.series}"></label><label>Repetições feitas<input class="ses-reps" maxlength="30" value="${esc(i.repeticoes)}"></label><label>Carga (kg)<input type="number" class="ses-carga" min="0" max="2000" step="0.5" value="${esc(i.carga_kg??'')}"></label></div><label class="label">Observação<input class="ses-obs" maxlength="500"></label></div></div>`}).join('')}</div>`:'<div class="empty">Este dia não possui exercícios.</div>';
  $('salvarSessao').disabled=!itens.length;
 }
-async function renderHistorico(){const r=await fetchJSON('/sessoes?usuario_id='+state.usuarioId);$('historico').innerHTML=r.length?r.map(x=>`<div class="plan"><div><strong>${esc(x.plano_nome)}</strong><small>${NOMES[x.dia_semana]} · ${new Date(x.realizado_em).toLocaleString('pt-BR')} · ${x.total_exercicios} exercícios</small></div><button class="btn small" data-ver-sessao="${x.id}">Detalhes</button></div>`).join(''):'<div class="empty">Ainda não há sessões registradas.</div>';document.querySelectorAll('[data-ver-sessao]').forEach(b=>b.onclick=async()=>{try{const d=await fetchJSON('/sessoes/'+b.dataset.verSessao);const lines=d.exercicios.map(x=>`${x.nome}: ${x.series_realizadas} série(s), ${x.repeticoes_realizadas} rep., ${x.carga_kg??'-'} kg`).join('\n');alert(`${d.plano_nome} — ${NOMES[d.dia_semana]}\n${new Date(d.realizado_em).toLocaleString('pt-BR')}\n\n${lines}`);}catch(e){toast(e.message,true);}});}
+async function renderHistorico(){
+ const area=$('historico');if(!area)return;
+ try{
+  const data=await fetchJSON('/sessoes?usuario_id='+state.usuarioId);if(!area.isConnected)return;
+  area.innerHTML=data.length?data.map(x=>`<div class="plan"><div><strong>${esc(x.plano_nome)}</strong><small>${esc(NOMES[x.dia_semana])} · ${esc(new Date(x.realizado_em).toLocaleString('pt-BR'))} · ${x.total_exercicios} exercícios</small></div><div class="row"><button class="btn small" data-ver-sessao="${x.id}">Detalhes</button><button class="btn danger small" data-excluir-sessao="${x.id}">Excluir</button></div></div>`).join(''):'<div class="empty">Nenhum treino registrado.</div>';
+  area.querySelectorAll('[data-ver-sessao]').forEach(b=>b.onclick=async()=>{try{const d=await fetchJSON('/sessoes/'+b.dataset.verSessao);alert(d.plano_nome+' · '+NOMES[d.dia_semana]+'\n'+d.exercicios.map(x=>x.nome+': '+x.series_realizadas+' séries, '+x.repeticoes_realizadas+' reps, '+(x.carga_kg??'-')+' kg').join('\n'));}catch(e){toast(e.message,true);}});
+  area.querySelectorAll('[data-excluir-sessao]').forEach(b=>b.onclick=async()=>{if(!confirm('Excluir este registro? A programação permanecerá.'))return;try{await fetchJSON('/sessoes/'+b.dataset.excluirSessao,{method:'DELETE',body:JSON.stringify({usuario_id:state.usuarioId})});await renderHistorico();toast('Registro excluído.');}catch(e){toast(e.message,true);}});
+ }catch(e){if(area.isConnected)area.textContent='Erro ao carregar histórico: '+e.message;}
+}
 async function salvarSessao(){const d=state.treino.dias.find(x=>Number(x.dia_semana)===state.treinoDia),itens=d?.exercicios||[];
  const cards=[...document.querySelectorAll('[data-realizado]')];if(cards.length!==itens.length||!cards.length)return toast('Dia sem exercícios.',true);
  const realizados=cards.map((c,index)=>({exercicio_id:itens[index].exercicio_id,series_realizadas:Number(c.querySelector('.ses-series').value),repeticoes_realizadas:c.querySelector('.ses-reps').value,carga_kg:c.querySelector('.ses-carga').value===''?null:Number(c.querySelector('.ses-carga').value),observacoes:c.querySelector('.ses-obs').value}));
