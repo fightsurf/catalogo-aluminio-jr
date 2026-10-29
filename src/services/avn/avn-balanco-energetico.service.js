@@ -8,11 +8,13 @@ function valor(x) {
   return Number.isFinite(n) && n>=0 ? n : null;
 }
 function avaliarBalanco({ingestao,tmb,ativas,diarioCompleto=true}) {
-  const comer=valor(ingestao),basal=valor(tmb),ativo=valor(ativas);
+  const comer=valor(ingestao),basal=valor(tmb);
+  // Sem registro de calorias ativas, adota zero apenas para essa parcela do cálculo.
+  const ativo=valor(ativas===null || ativas===undefined || ativas==='' ? 0 : ativas);
   const faltam=[];
   if(comer===null || !diarioCompleto)faltam.push('Diário alimentar completo');
   if(basal===null || basal===0)faltam.push('TMB da bioimpedância');
-  if(ativo===null)faltam.push('Calorias ativas do Health Connect');
+  if(ativo===null)faltam.push('Calorias ativas inválidas do Health Connect');
   if(faltam.length)return {classificacao:'indisponivel',saldo_kcal:null,gasto_estimado_kcal:null,faltam};
   const gasto=basal+ativo, saldo=comer-gasto;
   return {

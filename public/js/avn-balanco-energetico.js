@@ -28,13 +28,15 @@ function mostrarMetricas(dias,selecionado) {
  for(const [chave,metrica] of Object.entries(conf)){
   const alvo=$('grafico-'+chave),dom=$('valor-'+chave),atual=metrica.get(selecionado);
   dom.textContent=vazio(atual)?'Sem dados':numero(atual)+' '+metrica.unidade;
+  if(chave==='calorias_ativas'&&selecionado.calorias_ativas?.sem_registros)dom.textContent+=' (sem registros)';
   alvo.replaceChildren();
   const maior=Math.max(1,...dias.map(d=>vazio(metrica.get(d))?0:Number(metrica.get(d))));
   for(const d of dias){
    const v=metrica.get(d),tem=!vazio(v),b=document.createElement('button');
    b.type='button';b.className='barra-dia'+(d.data===selecionado.data?' selecionado':'')+(tem?'':' sem-dado');
-   b.title=completo(d.data)+' — '+(tem?numero(v,1)+' '+metrica.unidade:'sem dados');
-   b.setAttribute('aria-label',metrica.nome+' em '+completo(d.data)+': '+(tem?numero(v,1)+' '+metrica.unidade:'sem dados'));
+   const nota=chave==='calorias_ativas'&&d.calorias_ativas?.sem_registros?' (sem registros)':'';
+   b.title=completo(d.data)+' — '+(tem?numero(v,1)+' '+metrica.unidade:'sem dados')+nota;
+   b.setAttribute('aria-label',metrica.nome+' em '+completo(d.data)+': '+(tem?numero(v,1)+' '+metrica.unidade:'sem dados')+nota);
    const trilho=document.createElement('span');trilho.className='trilho';
    const coluna=document.createElement('span');coluna.className='coluna';
    coluna.style.height=(tem?Math.max(3,Number(v)/maior*100):0)+'%';trilho.append(coluna);
@@ -54,12 +56,12 @@ function mostrarSaldo(d){
  if(s.classificacao==='indisponivel'){
   $('saldo-valor').textContent='Dados insuficientes';
   $('saldo-descricao').textContent='Faltam: '+s.faltam.join(', ')+'.';
-  $('saldo-formula').textContent=d.ingestao?.incompletos>0?'Há alimentos com calorias desconhecidas no diário.':'Não presumimos zero quando não há registros.';
+  $('saldo-formula').textContent=d.ingestao?.incompletos>0?'Há alimentos com calorias desconhecidas no diário.':'O diário alimentar e a TMB são necessários para calcular o balanço.';
   return;
  }
  alvo.classList.add(s.classificacao);
  $('saldo-valor').textContent=(s.classificacao==='deficit'?'Déficit':s.classificacao==='superavit'?'Superávit':'Equilíbrio')+' de '+numero(Math.abs(s.saldo_kcal))+' kcal';
- $('saldo-descricao').textContent=(s.classificacao==='deficit'?'Gasto estimado acima do consumido.':s.classificacao==='superavit'?'Consumo acima do gasto estimado.':'Consumo e gasto estimado próximos.')+(d.data===diaLocal()?' Resultado provisório de hoje.':'');
+ $('saldo-descricao').textContent=(s.classificacao==='deficit'?'Gasto estimado acima do consumido.':s.classificacao==='superavit'?'Consumo acima do gasto estimado.':'Consumo e gasto estimado próximos.')+(d.calorias_ativas?.sem_registros?' Sem registros de calorias ativas: adotadas 0 kcal para o cálculo.':'')+(d.data===diaLocal()?' Resultado provisório de hoje.':'');
  $('saldo-formula').textContent='Consumidas: '+numero(d.ingestao.valor)+' kcal − (TMB: '+numero(d.tmb.valor)+' + ativas: '+numero(d.calorias_ativas.valor)+') = '+numero(s.saldo_kcal,1)+' kcal.';
 }
 async function atualizar(){
