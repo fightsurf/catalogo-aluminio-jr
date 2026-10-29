@@ -10,12 +10,17 @@ test('superávit e equilíbrio',()=>{
  assert.equal(avaliarBalanco({ingestao:2400,tmb:1700,ativas:200}).classificacao,'superavit');
  assert.equal(avaliarBalanco({ingestao:1900,tmb:1700,ativas:200}).classificacao,'equilibrio');
 });
-test('não presume zero para diário sem registros ou calorias ativas ausentes',()=>{
+test('diário sem registros continua indisponível; ausência de calorias ativas vale zero',()=>{
  assert.equal(avaliarBalanco({ingestao:null,tmb:1700,ativas:200}).classificacao,'indisponivel');
- assert.equal(avaliarBalanco({ingestao:1900,tmb:1700,ativas:null}).classificacao,'indisponivel');
+ const semAtivas=avaliarBalanco({ingestao:1900,tmb:1700,ativas:null});
+ assert.equal(semAtivas.classificacao,'superavit');
+ assert.equal(semAtivas.gasto_estimado_kcal,1700);
+ assert.equal(semAtivas.saldo_kcal,200);
+ assert.equal(avaliarBalanco({ingestao:1900,tmb:1700}).saldo_kcal,200);
+ assert.equal(avaliarBalanco({ingestao:1900,tmb:1700,ativas:''}).saldo_kcal,200);
  assert.equal(avaliarBalanco({ingestao:1800,tmb:1700,ativas:100,diarioCompleto:false}).classificacao,'indisponivel');
 });
-test('valor zero registrado é válido; texto vazio não é zero',()=>{
+test('valor zero registrado é válido; texto vazio na função valor continua desconhecido',()=>{
  assert.equal(valor(0),0);assert.equal(valor(''),null);
  assert.equal(avaliarBalanco({ingestao:1800,tmb:1700,ativas:0}).classificacao,'superavit');
 });
