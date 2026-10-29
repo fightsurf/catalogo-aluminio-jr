@@ -5,6 +5,10 @@ const path=require('node:path');
 const pool=require('../../../db/connection');
 const V=require('../../services/avn/avn-treinos-validacao');
 const catalogo=require('../../services/avn/avn-treinos-catalogo.service');
+// Migração mínima autoaplicável: dificuldade subjetiva não é RIR.
+const dificuldadeReady=pool.query("ALTER TABLE public.avn_treino_execucao_eventos ADD COLUMN IF NOT EXISTS dificuldade VARCHAR(10) CHECK(dificuldade IN ('facil','moderado','dificil'))");
+dificuldadeReady.catch(e=>console.error('[AVN treino Android] Falha ao habilitar dificuldade',e.message));
+
 const hidratacao=require('./avn-hidratacao.routes');
 const admin=express.Router(), mobile=express.Router();
 const digest=s=>crypto.createHash('sha256').update(s).digest('hex');
@@ -37,6 +41,12 @@ admin.get('/execucoes/:id',wrap(async(req,res)=>{
  if(!uuid(req.params.id))throw err('Execução inválida.');
  const r=await pool.query('SELECT x.*,p.nome AS plano_nome FROM public.avn_treino_execucoes x JOIN public.avn_planos_treino p ON p.id=x.plano_id WHERE x.id=$1',[req.params.id]);if(!r.rowCount)throw err('Execução não encontrada.',404);
  const events=await pool.query('SELECT * FROM public.avn_treino_execucao_eventos WHERE execucao_id=$1 ORDER BY ocorrido_em,id',[req.params.id]);res.json({...r.rows[0],eventos:events.rows});
+}));
+admin.delete('/execucoes/:id',wrap(async(req,res)=>{
+ if(!uuid(req.params.id)||!validId(req.body?.usuario_id))throw err('Identificadores inválidos.');
+ const r=await pool.query("DELETE FROM public.avn_treino_execucoes WHERE id=$1 AND usuario_id=$2 AND status='finalizada' RETURNING id",[req.params.id,req.body.usuario_id]);
+ if(!r.rowCount)throw err('Registro finalizado não encontrado.',404);
+ res.json({ok:true});
 }));
 mobile.post('/parear',wrap(async(req,res)=>{
  const code=String(req.body?.codigo||'').trim().toUpperCase();
@@ -136,9 +146,12 @@ mobile.post('/execucoes/:id/eventos',wrap(async(req,res)=>{
    if(kg!==null&&(!Number.isFinite(kg)||kg<0||kg>2000))throw err('Carga inválida.');
    const reps=e.tipo==='SERIE_CONCLUIDA'?number(e.repeticoes,0,1000,'Repetições'):null;
    const rir=e.tipo==='SERIE_CONCLUIDA'?number(e.rir,0,10,'RIR',true):null;
+   const dificuldade=e.tipo==='SERIE_CONCLUIDA'&&e.dificuldade!=null?String(e.dificuldade):null;
+   if(dificuldade!==null&&!['facil','moderado','dificil'].includes(dificuldade))throw err('Dificuldade inválida.');
    const rest=e.tipo.startsWith('DESCANSO_')?number(e.descanso_seg,0,3600,'Descanso',true):null;
    const at=instant(e.ocorrido_em);
-   const saved=await c.query('INSERT INTO public.avn_treino_execucao_eventos(id,execucao_id,tipo,exercicio_id,posicao_exercicio,numero_serie,carga_kg,repeticoes,rir,descanso_seg,ocorrido_em) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) ON CONFLICT(id) DO NOTHING RETURNING id',[e.id,id,e.tipo,exercise,pos,serie,kg,reps,rir,rest,at]);
+   if(dificuldade!==null)await dificuldadeReady;
+   const saved=await c.query('INSERT INTO public.avn_treino_execucao_eventos(id,execucao_id,tipo,exercicio_id,posicao_exercicio,numero_serie,carga_kg,repeticoes,rir,descanso_seg,ocorrido_em,dificuldade) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) ON CONFLICT(id) DO NOTHING RETURNING id',[e.id,id,e.tipo,exercise,pos,serie,kg,reps,rir,rest,at,dificuldade]);
    if(saved.rowCount)inserted++;else{const r=await c.query('SELECT execucao_id FROM public.avn_treino_execucao_eventos WHERE id=$1',[e.id]);if(!r.rowCount||r.rows[0].execucao_id!==id)throw err('ID de evento duplicado em outro treino.',409);dup++;}
    if(e.tipo==='TREINO_FINALIZADO')await c.query("UPDATE public.avn_treino_execucoes SET status='finalizada',finalizada_em=GREATEST(COALESCE(finalizada_em,$2),$2) WHERE id=$1",[id,at]);
   }
