@@ -125,7 +125,7 @@ function renderComparison(){
  const dialog=$('compare-dialog');
  if(!dialog||!dialog.open)return;
  const chart=$('compare-chart'),status=$('compare-status'),legend=$('compare-legend'),stats=$('compare-stats');
- chart.replaceChildren();legend.replaceChildren();stats.replaceChildren();
+ chart.replaceChildren();chart.hidden=true;legend.replaceChildren();stats.replaceChildren();
  const keys=Object.keys(compareDefs).filter(key=>compareSelected.has(key));
  if(keys.length<2){
   status.textContent='Marque pelo menos dois indicadores para cruzar informações.';
@@ -175,6 +175,7 @@ function renderComparison(){
   dates.textContent='De '+new Date(first.time).toLocaleDateString('pt-BR')+' a '+new Date(last.time).toLocaleDateString('pt-BR');
   item.append(title,value,dates);stats.append(item);
  }
+ chart.hidden=false;
  const W=Math.max(360,Math.round(chart.clientWidth||820)),H=318,L=78,R=twoAxes?79:20,T=26,B=56;
  const plotWidth=W-L-R,plotHeight=H-T-B;
  const x=t=>L+(t-start)/(end-start)*plotWidth;
