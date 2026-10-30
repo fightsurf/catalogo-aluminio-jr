@@ -97,6 +97,195 @@ function drawGraph(area,rows,unit,label){
  hit.addEventListener('pointerleave',hide);
  area.addEventListener('mouseleave',hide,{once:true});
 }
+
+const compareDefs={
+ peso:{name:'Peso',unit:'kg',color:'#60a5fa'},
+ gordura_corporal:{name:'Gordura corporal',unit:'%',color:'#fb923c'},
+ massa_magra:{name:'Massa magra',unit:'kg',color:'#34d399'},
+ agua_corporal:{name:'Água corporal',unit:'kg',color:'#c084fc'}
+};
+const compareSelected=new Set();
+function compareDaily(records){
+ const last=new Map();
+ for(const p of records){
+  const date=new Date(p.time),year=date.getFullYear(),month=date.getMonth(),day=date.getDate();
+  const key=year+'-'+month+'-'+day;
+  last.set(key,{...p,time:new Date(year,month,day,12).getTime(),originalTime:p.time});
+ }
+ return [...last.values()].sort((a,b)=>a.time-b.time);
+}
+function compareExtent(values){
+ let min=Infinity,max=-Infinity;
+ for(const n of values){if(n<min)min=n;if(n>max)max=n;}
+ const width=max-min,padding=width>0?Math.max(width*.15,.03):Math.max(Math.abs(max)*.015,.2);
+ return {min:min-padding,max:max+padding};
+}
+function signed(n){return (n>0?'+':'')+format(n);}
+function renderComparison(){
+ const dialog=$('compare-dialog');
+ if(!dialog||!dialog.open)return;
+ const chart=$('compare-chart'),status=$('compare-status'),legend=$('compare-legend'),stats=$('compare-stats');
+ chart.replaceChildren();legend.replaceChildren();stats.replaceChildren();
+ const keys=Object.keys(compareDefs).filter(key=>compareSelected.has(key));
+ if(keys.length<2){
+  status.textContent='Marque pelo menos dois indicadores para cruzar informações.';
+  return;
+ }
+ const selected=keys.map(key=>({
+  key,...compareDefs[key],rows:compareDaily(state.data[key]||[]),error:state.errors[key]
+ }));
+ const missing=selected.filter(s=>!s.rows.length);
+ for(const s of selected){
+  const entry=document.createElement('span');
+  entry.className='compare-legend-item';
+  const dot=document.createElement('i');dot.style.background=s.color;
+  const name=document.createElement('span');name.textContent=s.name+(s.rows.length?'':' (sem dados)');
+  entry.append(dot,name);legend.append(entry);
+ }
+ const percentMode=keys.length>=3;
+ const usable=selected.filter(s=>s.rows.length && (!percentMode || s.rows[0].value!==0));
+ if(!usable.length){
+  status.textContent='Não há medições disponíveis para os indicadores escolhidos neste período.';
+  return;
+ }
+ const firstDay=Math.min(...usable.map(s=>s.rows[0].time));
+ const lastDay=Math.max(...usable.map(s=>s.rows[s.rows.length-1].time));
+ const start=firstDay===lastDay?firstDay-43200000:firstDay;
+ const end=firstDay===lastDay?lastDay+43200000:lastDay;
+ const twoAxes=!percentMode && usable.length===2;
+ status.textContent=percentMode
+  ? 'Comparação pela variação percentual desde a primeira medição de cada indicador. O eixo horizontal mostra as datas reais.'
+  : twoAxes
+   ? 'Cada indicador utiliza seu próprio eixo vertical. Cruzamentos entre linhas não significam igualdade de valores.'
+   : 'Exibindo os registros disponíveis. Selecione indicadores com histórico para comparar.';
+ if(missing.length)status.textContent+=' Sem registros: '+missing.map(s=>s.name).join(', ')+'.';
+ for(const s of selected){
+  if(!s.rows.length)continue;
+  const first=s.rows[0],last=s.rows[s.rows.length-1];
+  const item=document.createElement('div');item.className='compare-stat';
+  item.style.borderLeftColor=s.color;
+  const title=document.createElement('strong');title.textContent=s.name;
+  const value=document.createElement('span');
+  if(s.rows.length===1)value.textContent=format(first.value)+' '+s.unit+' (uma medição em '+new Date(first.time).toLocaleDateString('pt-BR')+')';
+  else{
+   const delta=last.value-first.value,pct=first.value!==0?(' ('+signed(100*delta/first.value)+'%)'):'';
+   value.textContent=format(first.value)+' → '+format(last.value)+' '+s.unit+' · '+signed(delta)+' '+s.unit+pct;
+  }
+  const dates=document.createElement('small');
+  dates.textContent='De '+new Date(first.time).toLocaleDateString('pt-BR')+' a '+new Date(last.time).toLocaleDateString('pt-BR');
+  item.append(title,value,dates);stats.append(item);
+ }
+ const W=Math.max(360,Math.round(chart.clientWidth||820)),H=318,L=78,R=twoAxes?79:20,T=26,B=56;
+ const plotWidth=W-L-R,plotHeight=H-T-B;
+ const x=t=>L+(t-start)/(end-start)*plotWidth;
+ let sharedRange;
+ if(percentMode){
+  for(const s of usable)s.rows=s.rows.map(p=>({...p,plotValue:(p.value-s.rows[0].value)/s.rows[0].value*100}));
+  sharedRange=compareExtent(usable.flatMap(s=>s.rows.map(p=>p.plotValue)));
+ }else{
+  for(const s of usable){
+   s.rows=s.rows.map(p=>({...p,plotValue:p.value}));
+   s.range=compareExtent(s.rows.map(p=>p.plotValue));
+  }
+ }
+ const scaleY=(s,v)=>{
+  const range=percentMode?sharedRange:(twoAxes?s.range:usable[0].range);
+  return T+(range.max-v)/(range.max-range.min)*plotHeight;
+ };
+ const svg=document.createElementNS(namespace,'svg');
+ svg.setAttribute('viewBox','0 0 '+W+' '+H);
+ svg.setAttribute('role','img');
+ svg.setAttribute('aria-label','Comparação entre '+keys.map(k=>compareDefs[k].name).join(', '));
+ for(let i=0;i<=4;i++){
+  const yy=T+i*plotHeight/4;
+  svgEl(svg,'line',{x1:L,x2:W-R,y1:yy,y2:yy,stroke:'#34465f'});
+  const leftRange=percentMode?sharedRange:usable[0].range;
+  const leftValue=leftRange.max-i*(leftRange.max-leftRange.min)/4;
+  svgEl(svg,'text',{x:L-10,y:yy+4,'text-anchor':'end',fill:percentMode?'#a9b9d1':usable[0].color,'font-size':11},format(leftValue));
+  if(twoAxes){
+   const rightRange=usable[1].range;
+   const rightValue=rightRange.max-i*(rightRange.max-rightRange.min)/4;
+   svgEl(svg,'text',{x:W-R+10,y:yy+4,'text-anchor':'start',fill:usable[1].color,'font-size':11},format(rightValue));
+  }
+ }
+ svgEl(svg,'text',{x:L,y:13,fill:percentMode?'#a9b9d1':usable[0].color,'font-size':11},percentMode?'Variação (%)':usable[0].name+' ('+usable[0].unit+')');
+ if(twoAxes)svgEl(svg,'text',{x:W-R,y:13,'text-anchor':'end',fill:usable[1].color,'font-size':11},usable[1].name+' ('+usable[1].unit+')');
+ svgEl(svg,'line',{x1:L,x2:L,y1:T,y2:H-B,stroke:'#64748b'});
+ svgEl(svg,'line',{x1:L,x2:W-R,y1:H-B,y2:H-B,stroke:'#64748b'});
+ if(twoAxes)svgEl(svg,'line',{x1:W-R,x2:W-R,y1:T,y2:H-B,stroke:'#64748b'});
+ const ticks=W<570?2:4;
+ for(let i=0;i<=ticks;i++){
+  const t=start+(end-start)*i/ticks;
+  svgEl(svg,'text',{x:x(t),y:H-20,'text-anchor':'middle',fill:'#a9b9d1','font-size':11},formatShort(t));
+ }
+ const days=new Set();
+ for(const s of usable){
+  const pts=s.rows.map(p=>({...p,px:x(p.time),py:scaleY(s,p.plotValue)}));
+  s.points=pts;
+  s.byDay=new Map(pts.map(p=>[p.time,p]));
+  for(const p of pts)days.add(p.time);
+  if(pts.length>1){
+   svgEl(svg,'polyline',{points:pts.map(p=>p.px+','+p.py).join(' '),fill:'none',stroke:s.color,'stroke-width':2.7,'stroke-linecap':'round','stroke-linejoin':'round'});
+  }
+  if(pts.length<=150)for(const p of pts){
+   const circle=svgEl(svg,'circle',{cx:p.px,cy:p.py,r:3.5,fill:s.color});
+   svgEl(circle,'title',{},formatDate(p.date)+' · '+s.name+': '+format(p.value)+' '+s.unit);
+  }
+ }
+ const orderedDays=[...days].sort((a,b)=>a-b);
+ const guide=svgEl(svg,'line',{x1:L,x2:L,y1:T,y2:H-B,stroke:'#cbd5e1','stroke-width':1,'stroke-dasharray':'5 5',visibility:'hidden'});
+ const markers=usable.map(s=>svgEl(svg,'circle',{r:6,fill:'#182437',stroke:s.color,'stroke-width':2.5,visibility:'hidden'}));
+ const hit=svgEl(svg,'rect',{x:L,y:T,width:plotWidth,height:plotHeight,fill:'transparent','pointer-events':'all'});
+ const tooltip=document.createElement('div');tooltip.className='graph-tooltip compare-tooltip';tooltip.hidden=true;
+ chart.append(svg,tooltip);
+ function hide(){
+  guide.setAttribute('visibility','hidden');
+  markers.forEach(marker=>marker.setAttribute('visibility','hidden'));
+  tooltip.hidden=true;
+ }
+ function show(event){
+  const rect=svg.getBoundingClientRect();if(!rect.width)return;
+  const px=Math.max(L,Math.min(W-R,(event.clientX-rect.left)*W/rect.width));
+  const target=start+(px-L)/plotWidth*(end-start);
+  let lo=0,hi=orderedDays.length-1;
+  while(lo<hi){const mid=(lo+hi)>>1;if(orderedDays[mid]<target)lo=mid+1;else hi=mid;}
+  const day=lo>0&&Math.abs(orderedDays[lo-1]-target)<Math.abs(orderedDays[lo]-target)?orderedDays[lo-1]:orderedDays[lo];
+  const xpos=x(day);
+  guide.setAttribute('x1',xpos);guide.setAttribute('x2',xpos);guide.setAttribute('visibility','visible');
+  const lines=[new Date(day).toLocaleDateString('pt-BR')];
+  usable.forEach((s,i)=>{
+   const p=s.byDay.get(day),marker=markers[i];
+   if(!p){marker.setAttribute('visibility','hidden');return;}
+   marker.setAttribute('cx',p.px);marker.setAttribute('cy',p.py);marker.setAttribute('visibility','visible');
+   lines.push(s.name+': '+format(p.value)+' '+s.unit+(percentMode?' ('+signed(p.plotValue)+'%)':''));
+  });
+  tooltip.textContent=lines.join('\n');
+  tooltip.hidden=false;
+  const pos=xpos/W*chart.clientWidth;
+  tooltip.style.left=Math.max(4,Math.min(pos+12,chart.clientWidth-tooltip.offsetWidth-4))+'px';
+  tooltip.style.top='6px';
+ }
+ hit.addEventListener('pointermove',show);
+ hit.addEventListener('pointerdown',show);
+ hit.addEventListener('pointerleave',hide);
+}
+function initComparison(){
+ const dialog=$('compare-dialog');
+ if(!dialog)return;
+ dialog.querySelectorAll('input[data-compare]').forEach(input=>{
+  input.addEventListener('change',()=>{
+   if(input.checked)compareSelected.add(input.value);else compareSelected.delete(input.value);
+   renderComparison();
+  });
+ });
+ $('compare-open').addEventListener('click',()=>{
+  dialog.showModal();
+  renderComparison();
+ });
+ $('compare-close').addEventListener('click',()=>dialog.close());
+ dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});
+}
+
 function render(){
  for(const m of definitions){
   const status=$('status-'+m.key),area=$('chart-'+m.key);
@@ -108,6 +297,7 @@ function render(){
   status.hidden=true;
   drawGraph(area,rows,m.unit,m.key.replaceAll('_',' '));
  }
+ if($('compare-dialog')?.open)renderComparison();
 }
 async function refresh(){
  const id=$('usuario').value,dias=$('dias').value,token=++state.request;
@@ -157,5 +347,6 @@ window.addEventListener('resize',()=>{
  clearTimeout(resizeTimer);
  resizeTimer=setTimeout(render,120);
 });
+initComparison();
 init();
 })();
