@@ -17,6 +17,31 @@
 .chart-area:empty{height:0;min-height:0;margin:0}
 .chart-area .graph-tooltip{max-width:calc(100% - 8px)}
 @media(max-width:650px){.chart-panel{padding:14px}.chart-area,.chart-area svg{height:230px;min-height:230px}}
+
+
+.compare-open{align-self:flex-end;border:1px solid #4087cb;border-radius:10px;padding:11px 16px;background:#2169ab;color:#fff;font-weight:700;cursor:pointer}
+.compare-open:hover{background:#3283c8}
+.compare-dialog{width:min(1000px,calc(100vw - 24px));max-width:1000px;max-height:calc(100dvh - 24px);padding:22px;border:1px solid #435775;border-radius:16px;background:#182437;color:#ecf2fc;box-shadow:0 24px 60px #0009;overflow-y:auto}
+.compare-dialog::backdrop{background:rgba(3,8,20,.8)}
+.compare-heading{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.compare-heading h2{margin:0;font-size:1.3rem}
+.compare-close{border:1px solid #506681;border-radius:9px;background:#263b57;color:#fff;padding:8px 12px;cursor:pointer;font-size:1.1rem}
+.compare-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:9px;margin:16px 0}
+.compare-choice{display:flex;align-items:center;gap:9px;padding:11px 12px;border:1px solid #435775;border-radius:10px;background:#101c2e;cursor:pointer}
+.compare-choice input{width:18px;height:18px;accent-color:#60a5fa;flex-shrink:0}
+.compare-choice i,.compare-legend-item i{display:inline-block;width:11px;height:11px;border-radius:50%;flex-shrink:0}
+.compare-legend{display:flex;flex-wrap:wrap;gap:8px 17px;margin:12px 0;font-size:.87rem}
+.compare-legend-item{display:inline-flex;align-items:center;gap:7px}
+.compare-chart{position:relative;width:100%;height:318px;margin:12px 0}
+.compare-chart:empty{display:none}
+.compare-chart svg{display:block;width:100%;height:318px;touch-action:pan-y}
+.compare-tooltip{white-space:pre-line;max-width:calc(100% - 8px);line-height:1.6}
+.compare-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:9px;margin:12px 0}
+.compare-stat{display:flex;flex-direction:column;gap:4px;padding:9px 12px;border-left:4px solid #60a5fa;border-radius:7px;background:#101c2e;font-size:.87rem}
+.compare-stat small{color:#a9b9d1}
+.compare-help{font-size:.87rem;color:#a9b9d1;line-height:1.5}
+@media(max-width:650px){.compare-dialog{padding:13px;max-height:calc(100dvh - 12px)}.compare-options{grid-template-columns:repeat(2,minmax(0,1fr))}.compare-choice{font-size:.81rem;padding:9px 7px;gap:6px}.compare-chart,.compare-chart svg{height:290px}.compare-open{width:100%}}
+
 </style>
 </head>
 <body data-section="corporal">
@@ -30,6 +55,7 @@
 <option value="90" selected>90 dias</option><option value="365">1 ano</option>
 <option value="3650">Até 10 anos</option>
 </select></label>
+<button id="compare-open" class="compare-open" type="button">🔀 Cruzar informações</button>
 </div>
 <div class="graphs-list"><section class="detail chart-panel" aria-labelledby="title-peso">
 <h2 id="title-peso">Peso <small>kg</small></h2>
@@ -56,6 +82,23 @@
 <p id="status-agua_corporal" class="muted chart-status" role="status">Carregando medições…</p>
 <div id="chart-agua_corporal" class="graph chart-area" role="img" aria-label="Evolução de água corporal por data"></div>
 </section></div>
+
+<dialog id="compare-dialog" class="compare-dialog" aria-labelledby="compare-title">
+ <div class="compare-heading"><h2 id="compare-title">🔀 Cruzar informações</h2><button type="button" id="compare-close" class="compare-close" aria-label="Fechar comparador">✕</button></div>
+ <p class="compare-help">Marque dois ou mais indicadores. O gráfico e o resumo são atualizados a cada seleção.</p>
+ <div class="compare-options" aria-label="Indicadores para comparação">
+  <label class="compare-choice"><input type="checkbox" data-compare value="peso"><i style="background:#60a5fa"></i>Peso</label>
+  <label class="compare-choice"><input type="checkbox" data-compare value="gordura_corporal"><i style="background:#fb923c"></i>Gordura corporal</label>
+  <label class="compare-choice"><input type="checkbox" data-compare value="massa_magra"><i style="background:#34d399"></i>Massa magra</label>
+  <label class="compare-choice"><input type="checkbox" data-compare value="agua_corporal"><i style="background:#c084fc"></i>Água corporal</label>
+ </div>
+ <p id="compare-status" class="compare-help" role="status">Marque pelo menos dois indicadores para comparar.</p>
+ <div id="compare-legend" class="compare-legend" aria-label="Legenda das séries"></div>
+ <div id="compare-chart" class="compare-chart" aria-label="Gráfico de comparação"></div>
+ <div id="compare-stats" class="compare-stats" aria-label="Resumo da evolução"></div>
+ <p class="compare-help">São usados os registros reais do período e a última medição de cada dia, sem preencher dias sem medição. Oscilações de bioimpedância podem refletir hidratação, não apenas mudanças de tecido corporal.</p>
+</dialog>
+
 <p class="muted">O IMC é calculado a partir do peso de cada medição e da altura atual cadastrada.</p>
 </main>
 <script src="/js/avn-graficos-corporais.js" defer></script>
