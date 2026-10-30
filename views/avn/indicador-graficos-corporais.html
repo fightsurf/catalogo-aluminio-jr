@@ -33,7 +33,7 @@
 .compare-legend{display:flex;flex-wrap:wrap;gap:8px 17px;margin:12px 0;font-size:.87rem}
 .compare-legend-item{display:inline-flex;align-items:center;gap:7px}
 .compare-chart{position:relative;width:100%;height:318px;margin:12px 0}
-.compare-chart:empty{display:none}
+.compare-chart[hidden]{display:none}
 .compare-chart svg{display:block;width:100%;height:318px;touch-action:pan-y}
 .compare-tooltip{white-space:pre-line;max-width:calc(100% - 8px);line-height:1.6}
 .compare-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:9px;margin:12px 0}
@@ -94,7 +94,7 @@
  </div>
  <p id="compare-status" class="compare-help" role="status">Marque pelo menos dois indicadores para comparar.</p>
  <div id="compare-legend" class="compare-legend" aria-label="Legenda das séries"></div>
- <div id="compare-chart" class="compare-chart" aria-label="Gráfico de comparação"></div>
+ <div id="compare-chart" class="compare-chart" aria-label="Gráfico de comparação" hidden></div>
  <div id="compare-stats" class="compare-stats" aria-label="Resumo da evolução"></div>
  <p class="compare-help">São usados os registros reais do período e a última medição de cada dia, sem preencher dias sem medição. Oscilações de bioimpedância podem refletir hidratação, não apenas mudanças de tecido corporal.</p>
 </dialog>
