@@ -8,11 +8,11 @@
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; font-family: Arial, sans-serif; background: #f3f4f6; color: #111827; }
-    .container { max-width: 1420px; margin: 0 auto; padding: 24px; }
+    .container { width: 100%; max-width: 1420px; margin: 0 auto; padding: 24px; }
     h1 { margin: 0 0 8px; }
     .subtitulo { margin: 0 0 24px; color: #4b5563; }
-    .grid { display: grid; grid-template-columns: 380px 1fr; gap: 24px; }
-    .card { background: #fff; border-radius: 14px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+    .grid { display: grid; grid-template-columns: 380px minmax(0, 1fr); gap: 24px; }
+    .card { min-width: 0; background: #fff; border-radius: 14px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
     .card h2 { margin-top: 0; margin-bottom: 16px; font-size: 20px; }
     .mensagem { margin-bottom: 18px; padding: 14px 16px; border-radius: 10px; background: #eff6ff; color: #1d4ed8; display: none; }
     .mensagem.erro { background: #fef2f2; color: #b91c1c; }
@@ -34,14 +34,23 @@
     .dropdown-item:hover, .dropdown-item.ativo { background: #eff6ff; }
     .dropdown-item strong { display: block; margin-bottom: 4px; }
     .dropdown-item small { color: #6b7280; }
-    .tabela-itens { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    #tabelaItensWrap { width: 100%; max-width: 100%; min-width: 0; overflow-x: auto; }
+    .tabela-itens { width: 100%; min-width: 590px; border-collapse: collapse; margin-top: 10px; }
+    .tabela-itens .coluna-foto { width: 66px; min-width: 66px; text-align: center; }
+    .miniatura-produto {
+      width: 52px; height: 52px; display: inline-flex; align-items: center; justify-content: center;
+      overflow: hidden; border-radius: 8px; border: 1px solid #e5e7eb; background: #f9fafb;
+    }
+    .miniatura-produto img { display: block; width: 100%; height: 100%; object-fit: contain; }
+    .miniatura-produto .miniatura-vazia { font-size: 10px; line-height: 1.2; color: #6b7280; text-align: center; }
+    .miniatura-produto .miniatura-vazia[hidden] { display: none; }
     .tabela-itens th, .tabela-itens td { padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: left; vertical-align: middle; }
     .tabela-itens th { font-size: 13px; color: #374151; }
     .tabela-itens td.valor, .tabela-itens th.valor { text-align: right; }
     .tabela-itens input[type=number] { text-align: right; }
     .tabela-vazia { padding: 18px; color: #6b7280; background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 10px; }
     .footer-pedido { margin-top: 18px; display: flex; flex-direction: column; gap: 12px; align-items: stretch; }
-    .footer-pedido-top { display: grid; grid-template-columns: 10cm 1fr 180px; gap: 12px; align-items: end; }
+    .footer-pedido-top { display: grid; grid-template-columns: 10cm minmax(0, 1fr) 180px; gap: 12px; align-items: end; }
     .footer-pedido-bottom { display: grid; grid-template-columns: 1fr; gap: 12px; align-items: end; }
     .volume-acoes { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: stretch; width: 100%; }
     .volume-acoes button { white-space: nowrap; }
@@ -50,7 +59,14 @@
     .total-box { background: #111827; color: #fff; border-radius: 10px; padding: 16px; }
     .total-box small { display: block; opacity: 0.8; margin-bottom: 6px; }
     .total-box strong { font-size: 24px; }
-    .acoes-final { margin-top: 16px; display: flex; gap: 10px; justify-content: flex-end; }
+    .acoes-final {
+      margin-top: 16px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+      justify-content: flex-end; width: 100%; min-width: 0; max-width: 100%;
+    }
+    .acoes-final > button {
+      flex: 0 1 auto; max-width: 100%; min-width: 0;
+      white-space: normal; overflow-wrap: anywhere; text-align: center;
+    }
     .whatsapp { background: #111827; color: #fff; }
     .telefone-link { color: #111827; font-weight: 600; text-decoration: underline; }
     .telefone-link:hover { color: #000; }
@@ -72,7 +88,7 @@
       .footer-pedido textarea { width: 100%; min-width: 0; max-width: 100%; }
       .filtros { grid-template-columns: 1fr; }
       .linha-importacao { grid-template-columns: 1fr; }
-      .acoes-final { justify-content: stretch; flex-direction: column; }
+      .acoes-final { justify-content: flex-start; }
     }
   </style>
 </head>
@@ -366,6 +382,28 @@
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&#39;');
+    }
+
+    function fotoPrincipalSegura(produto) {
+      const valor = String(produto?.foto || produto?.fotos?.[0] || '').trim();
+      if (!valor) return '';
+      try {
+        const url = new URL(valor, window.location.origin);
+        // Fotos do cadastro: apenas URL web, não aceita esquemas executáveis.
+        if (url.protocol !== 'https:' && url.origin !== window.location.origin) return '';
+        return url.href;
+      } catch (_) {
+        return '';
+      }
+    }
+
+    function miniaturaProduto(item) {
+      const foto = fotoPrincipalSegura(item);
+      if (!foto) return '<span class="miniatura-produto"><span class="miniatura-vazia">Sem foto</span></span>';
+      return `<span class="miniatura-produto">
+        <img src="${escapeHtml(foto)}" loading="lazy" decoding="async" alt="Foto principal de ${escapeHtml(item.nome)}" />
+        <span class="miniatura-vazia" hidden>Sem foto</span>
+      </span>`;
     }
 
     function normalizarCodigoCarrada(valor) {
@@ -995,11 +1033,13 @@
       if (existente) {
         existente.quantidade = Number(existente.quantidade) + quantidadeNumero;
         existente.precoMinimo = Math.max(Number(existente.precoMinimo || 0), minimo);
+        if (!existente.foto) existente.foto = fotoPrincipalSegura(produto);
       } else {
         itensPedido.push({
           produto_id: Number(produto.id),
           item_legado: Number(produto?.item_legado || 0) || null,
           nome: produto.nome || 'Sem nome',
+          foto: fotoPrincipalSegura(produto),
           quantidade: quantidadeNumero,
           preco: precoNumero,
           precoMinimo: minimo,
@@ -1044,6 +1084,7 @@
         <table class="tabela-itens">
           <thead>
             <tr>
+              <th class="coluna-foto" scope="col">Foto</th>
               <th>Produto</th>
               <th class="valor">Quantidade</th>
               <th class="valor">Preço</th>
@@ -1054,6 +1095,7 @@
           <tbody>
             ${itensPedido.map((item, index) => `
               <tr>
+                <td class="coluna-foto">${miniaturaProduto(item)}</td>
                 <td>${escapeHtml(item.nome)}</td>
                 <td class="valor"><input type="number" min="0.01" step="1" value="${item.quantidade}" data-campo="quantidade" data-index="${index}"></td>
                 <td class="valor">
@@ -1070,6 +1112,16 @@
         </table>
       `;
 
+      tabelaItensWrap.querySelectorAll('.miniatura-produto img').forEach((imagem) => {
+        const exibirFalha = () => {
+          imagem.hidden = true;
+          imagem.style.display = 'none';
+          const aviso = imagem.nextElementSibling;
+          if (aviso) aviso.hidden = false;
+        };
+        imagem.addEventListener('error', exibirFalha);
+        if (imagem.complete && imagem.naturalWidth === 0) exibirFalha();
+      });
       tabelaItensWrap.querySelectorAll('input[data-index]').forEach((input) => {
         input.addEventListener('change', (event) => {
           const index = Number(event.target.dataset.index);
