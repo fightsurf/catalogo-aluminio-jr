@@ -37,7 +37,7 @@
  <div class="modal-head"><h3 id="tituloEnviarDiario">Adicionar ao Diário Alimentar</h3><button type="button" class="secondary" id="fecharEnviarDiario">Fechar</button></div>
  <label class="avn-field">Data do consumo<input type="date" id="dataEnvioDiario" required></label>
  <p class="muted">Confira os alimentos e ajuste as quantidades consumidas. A dieta programada não será modificada.</p>
- <div id="itensEnvioDiario" class="avn-refeicao-lista" aria-live="polite"></div>
+ <div id="itensEnvioDiario" class="avn-refeicao-lista" aria-live="polite" style="margin-top: 1.25rem;"></div>
  <button type="button" class="primary" id="confirmarEnviarDiario">Registrar refeição no diário</button>
  </dialog>
  <dialog class="avn-dialog avn-dieta-analise" id="modalAnaliseDieta" aria-labelledby="tituloAnaliseDieta"><div class="modal-head"><h3 id="tituloAnaliseDieta">Análise Nutricional · Dieta Programada</h3><button type="button" class="secondary" id="fecharAnaliseDieta">Fechar</button></div><p class="muted">Valores estimados para toda a dieta programada.</p><div class="avn-dieta-abas" role="tablist" aria-label="Nutrientes da dieta"><button type="button" role="tab" class="avn-dieta-aba" id="abaMacrosDieta" aria-controls="painelMacrosDieta" aria-selected="true" tabindex="0">Macronutrientes</button><button type="button" role="tab" class="avn-dieta-aba" id="abaMicrosDieta" aria-controls="painelMicrosDieta" aria-selected="false" tabindex="-1">Micronutrientes</button></div><section id="painelMacrosDieta" role="tabpanel" aria-labelledby="abaMacrosDieta"><div id="conteudoMacrosDieta"></div></section><section id="painelMicrosDieta" role="tabpanel" aria-labelledby="abaMicrosDieta" hidden><div id="conteudoMicrosDieta"></div></section></dialog>
