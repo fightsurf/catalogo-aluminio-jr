@@ -32,7 +32,7 @@ function normalizarMensagem(payload) {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) {
     return { ignorar: 'payload_invalido' };
   }
-  if (payload.fromMe !== false) return { ignorar: 'nao_e_mensagem_recebida' };
+  if (payload.fromMe !== false && payload.fromMe !== true) return { ignorar: 'origem_nao_informada' };
   if (payload.type && String(payload.type).toLowerCase() !== 'receivedcallback') {
     return { ignorar: 'outro_evento' };
   }
@@ -90,7 +90,7 @@ function normalizarMensagem(payload) {
 
   mensagem = textoLimitado(mensagem);
   if (!mensagem) return { ignorar: 'conteudo_vazio' };
-  return { telefone, instancia, messageId, tipo, mensagem };
+  return { telefone, instancia, messageId, tipo, mensagem, direcao: payload.fromMe ? 'SAIDA' : 'ENTRADA' };
 }
 
 async function auditar(payload, dados, estado, motivo) {
@@ -130,9 +130,9 @@ async function registrar(payload) {
     const insercao = await client.query(`INSERT INTO bot_mensagens
       (telefone, mensagem, tipo, direcao, processada_ia, criada_em,
        zapi_instancia, zapi_message_id)
-      VALUES ($1, $2, $3, 'ENTRADA', true, NOW(), $4, $5)
+      VALUES ($1, $2, $3, $4, true, NOW(), $5, $6)
       ON CONFLICT DO NOTHING RETURNING id`,
-    [dados.telefone, dados.mensagem, dados.tipo, dados.instancia, dados.messageId]);
+    [dados.telefone, dados.mensagem, dados.tipo, dados.direcao, dados.instancia, dados.messageId]);
 
     gravada = insercao.rows.length > 0;
     if (gravada) {
