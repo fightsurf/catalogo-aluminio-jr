@@ -7,7 +7,7 @@ const contexto = new AsyncLocalStorage();
 // Inventário dos pontos de saída identificados no backend e nos frontends.
 // Todos os switches começam ligados para preservar o comportamento existente.
 const CATALOGO = Object.freeze([
-  ['envios_geral','Controle geral','Todos os envios pelo WhatsApp','Bloqueia qualquer disparo da Z-API pelo Node, inclusive jobs automáticos.','Geral','Todas as telas'],
+  ['envios_geral','Controle geral de envios','Bloqueia qualquer disparo da Z-API pelo Node, inclusive jobs automáticos.','Geral','Todas as telas'],
   ['pedidos_entrada_carrada','Pedido entrou na carrada','Aviso ao cliente ao inserir pedido ou incluir em uma carrada.','Pedidos','Inserção de pedidos / carradas'],
   ['pedidos_saida_carrada','Pedido saiu da carrada','Aviso ao retirar ou transferir pedido de carrada.','Pedidos','Inserção de pedidos / carradas'],
   ['pedidos_pdf','Enviar pedido em PDF','Botão de envio do PDF do pedido ao cliente.','Pedidos','Consulta e inserção de pedidos'],
