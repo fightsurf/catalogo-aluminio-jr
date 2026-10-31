@@ -41,7 +41,7 @@ router.post('/',wrap(async(req,res)=>{
     'fibras_g',a.fibras_g_100g,'micros',a.micronutrientes_100g)) AS composicao_100g
    FROM public.avn_dieta_itens i JOIN public.avn_dieta_refeicao_perfis p ON p.id=i.perfil_id AND p.ativo
    JOIN public.avn_alimentos a ON a.id=i.alimento_id
-   WHERE i.plano_id=$1 ORDER BY i.refeicao,i.ordem,i.id`,[pid]);
+   WHERE i.plano_id=$1 AND i.dia_semana=(SELECT MIN(dia_semana) FROM public.avn_dieta_itens WHERE plano_id=$1) ORDER BY i.refeicao,i.ordem,i.id`,[pid]);
   if(it.rowCount>500)throw erro('Limite de 500 alimentos por fotografia.');
   const dados={versao:1,refeicoes:pf.rows.map(p=>({
    refeicao:p.refeicao,perfil_id:p.recuperado?null:p.id,perfil_nome:p.recuperado?null:p.nome,
@@ -115,7 +115,7 @@ router.post('/:fotografiaId/restaurar',wrap(async(req,res)=>{
     'carboidratos_g',a.carboidratos_g_100g,'gorduras_g',a.gorduras_g_100g,
     'fibras_g',a.fibras_g_100g,'micros',a.micronutrientes_100g)) AS composicao_100g
    FROM public.avn_dieta_itens i JOIN public.avn_alimentos a ON a.id=i.alimento_id
-   WHERE i.plano_id=$1 ORDER BY i.perfil_id,i.ordem,i.id`,[pid]);
+   WHERE i.plano_id=$1 AND i.dia_semana=(SELECT MIN(dia_semana) FROM public.avn_dieta_itens WHERE plano_id=$1) ORDER BY i.perfil_id,i.ordem,i.id`,[pid]);
   const matches=dados.refeicoes.map(r=>{
    const p=perfiles.rows.find(p=>!p.recuperado&&String(p.id)===String(r.perfil_id)&&p.refeicao===r.refeicao);
    const itens=p?atuais.rows.filter(i=>String(i.perfil_id)===String(p.id)):[];
