@@ -46,6 +46,7 @@ async function listarMensagens(req, res) {
       return res.status(400).json({ success: false, message: 'Telefone é obrigatório' });
     }
 
+    await recebimento.prepararEstrutura();
     const resultado = await botAdminService.listarMensagens({ telefone, page, limit });
     res.json(resultado);
   } catch (error) {
