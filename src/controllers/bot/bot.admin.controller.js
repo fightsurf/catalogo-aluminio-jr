@@ -1,4 +1,6 @@
 const botAdminService = require('../../services/bot/bot.admin.service');
+const monitor = require('../../services/whatsapp/zapi-webhook-monitor.service');
+const recebimento = require('../../services/whatsapp/zapi-webhook-recebimento.service');
 
 async function abrirOuCriarConversa(req, res) {
   try {
@@ -51,4 +53,21 @@ async function listarMensagens(req, res) {
   }
 }
 
-module.exports = { abrirOuCriarConversa, listarConversas, listarMensagens };
+async function listarMonitoramento(req, res) {
+  try {
+    await recebimento.prepararEstrutura();
+    const dados = await monitor.listarRecebimentos({ limite: 100 });
+    res.set('Cache-Control', 'no-store');
+    return res.json({
+      dados,
+      total_exibido: dados.length,
+      webhook_configurado: String(process.env.ZAPI_WEBHOOK_TOKEN || '').trim().length >= 32,
+      atualizado_em: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('[Bot Admin] Erro ao listar recebimentos:', error.message);
+    return res.status(500).json({ success: false, message: 'Não foi possível carregar o monitoramento.' });
+  }
+}
+
+module.exports = { abrirOuCriarConversa, listarConversas, listarMensagens, listarMonitoramento };
