@@ -172,9 +172,8 @@ function renderDiet(){
    '<div class="avn-dieta-cabecalho-linha"><h4><a href="#" data-macro-meal="'+esc(key)+'" data-macro-source="dieta">'+esc(MEALS[key])+' <span class="avn-dieta-emoji" aria-hidden="true">'+emojiRefeicao(key)+'</span></a></h4>'+
    '<div class="avn-perfil-acoes"><small>Perfil atual: <b>'+esc(ativo?.nome||'Original')+'</b></small>'+
    '<button type="button" class="avn-perfil-botao" data-perfis-refeicao="'+esc(key)+'"><span aria-hidden="true">🔄</span> Selecionar '+esc(MEALS[key])+' <span aria-hidden="true">'+emojiRefeicao(key)+'</span></button>'+
-   (items.length?
-    '<button type="button" class="avn-perfil-botao" data-enviar-refeicao="'+esc(key)+'"><span aria-hidden="true">📒</span> Adicionar ao diário</button>':
-    '<button type="button" class="avn-perfil-botao" data-adicionar-refeicao="'+esc(key)+'"><span aria-hidden="true">➕</span> Adicionar alimento</button>')+
+   '<button type="button" class="avn-perfil-botao" data-enviar-refeicao="'+esc(key)+'"'+(items.length?'':' disabled title="Adicione alimentos antes de registrar o consumo"')+'><span aria-hidden="true">📒</span> Adicionar ao diário alimentar</button>'+
+   '<button type="button" class="avn-perfil-botao" data-adicionar-refeicao="'+esc(key)+'"><span aria-hidden="true">➕</span> Adicionar alimento à refeição</button>'+
    '</div></div>'+
    '<div class="avn-dieta-cabecalho-meta"><span class="avn-dieta-contagem">'+items.length+' alimento(s)</span>'+
    (lancados?'<small class="avn-dia-registrado">'+lancados+'/'+items.length+' lançado(s) hoje</small>':'')+'</div></div>'+
@@ -185,7 +184,7 @@ function renderDiet(){
       resumoMacrosProgramados(nutrientes,'Macronutrientes de '+i.alimento_nome)+'</div>'+
       '<div class="avn-dieta-acoes"><a href="#" data-editar-plano="'+esc(i.id)+'" aria-label="Editar '+esc(i.alimento_nome)+'">Editar</a>'+
       '<button type="button" class="delete" data-plano="'+esc(i.id)+'">Excluir</button></div></div>';
-   }).join('')+(items.length?'':'<p class="avn-refeicao-vazia">Nenhum alimento neste perfil. Use “➕ Adicionar alimento” ao lado da refeição.</p>')+'</div>'+
+   }).join('')+(items.length?'':'<p class="avn-refeicao-vazia">Nenhum alimento neste perfil. Use “➕ Adicionar alimento à refeição” ao lado da refeição.</p>')+'</div>'+
    '<div class="avn-dieta-totais-refeicao">'+resumoMacrosProgramados(subtotal,'Total de macronutrientes de '+MEALS[key])+
    (Object.values(subtotal.miss).some(n=>n>0)?'<small class="muted">* Alguns valores nutricionais estão incompletos.</small>':'')+
    '</div></section>';
