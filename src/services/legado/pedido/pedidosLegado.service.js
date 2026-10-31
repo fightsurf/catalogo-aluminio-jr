@@ -114,7 +114,10 @@ async function enviarNotificacaoCarrada({ tipo, pedido, carrada }) {
   const mensagem = montarMensagemCarrada({ tipo, pedido, carrada });
 
   try {
-    await envioWhatsappService.enviarMensagem({ telefone, mensagem });
+    await require('../../whatsapp/central-controle.service').comFuncionalidade(
+      tipo === 'entrada' ? 'pedidos_entrada_carrada' : 'pedidos_saida_carrada',
+      () => envioWhatsappService.enviarMensagem({ telefone, mensagem })
+    );
     return { enviado: true };
   } catch (error) {
     return { enviado: false, motivo: 'erro_envio', detalhe: error.message };
