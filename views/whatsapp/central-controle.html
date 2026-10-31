@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Central do WhatsApp · Alumínio JR</title>
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,Arial,sans-serif;color:#e9f0f8;background:#111b2b;--bg:#111b2b;--panel:#1a2940;--panel2:#22344d;--border:#3a506a;--text:#e9f0f8;--muted:#adbed3;--green:#61cf9e;--red:#ff9a9a}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:var(--bg);color:var(--text)}
+button,input{font:inherit}a{color:#a6d4ff;text-decoration:none}a:hover{text-decoration:underline}
+.shell{max-width:1420px;margin:0 auto;padding:24px 22px 60px}
+header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px}
+.crumbs{font-size:.82rem;color:var(--muted);margin:0 0 9px}
+h1{font-size:clamp(1.45rem,2.5vw,2.2rem);letter-spacing:-.035em;margin:0}
+.sub{color:var(--muted);margin:9px 0 0;font-size:.9rem}
+.header-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.btn{background:#28415d;border:1px solid #446282;color:#fff;padding:10px 15px;border-radius:10px;cursor:pointer;font-size:.85rem;font-weight:700}
+.btn:hover{background:#375575}
+.btn:disabled{opacity:.5;cursor:wait}
+.pill{display:inline-block;border-radius:100px;padding:5px 10px;font-size:.75rem;font-weight:700;background:#304158;color:#ccd9e6}
+.pill.ok{color:#b9f5d9;background:#1f513f}
+.pill.warn{color:#ffdbad;background:#694727}
+.grid-overview{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:20px}
+.metric{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px}
+.metric .label{display:block;color:var(--muted);font-size:.78rem}
+.metric strong{display:block;font-size:1.55rem;letter-spacing:-.03em;margin-top:6px}
+.metric p{font-size:.75rem;color:var(--muted);margin:5px 0 0}
+.main-grid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;align-items:start}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden}
+.card-header{padding:18px 20px;border-bottom:1px solid var(--border)}
+.card-header h2{font-size:1.1rem;margin:0}
+.card-header p{font-size:.8rem;color:var(--muted);margin:7px 0 0;line-height:1.5}
+.searchbox{margin-top:14px;background:#111e30;border:1px solid #47607b;color:#fff;width:100%;padding:11px;border-radius:8px;outline:none}
+.searchbox:focus{border-color:#82bdf8}
+#grupos{padding:0 14px 14px}
+.grupo{padding:10px 4px 2px}
+.grupo h3{font-size:.82rem;text-transform:uppercase;letter-spacing:.09em;color:#a7bde0;margin:16px 8px 9px}
+.linha{border:1px solid #374b65;background:#1e3048;border-radius:10px;margin:8px 0;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px}
+.linha-bloqueio{background:#302c39;border-color:#68516d}
+.linha-body{min-width:0;flex:1}
+.linha-body strong{display:block;font-size:.91rem;font-weight:700;margin-bottom:5px}
+.linha-body p{font-size:.77rem;color:var(--muted);margin:0 0 5px;line-height:1.5}
+.origem{font-size:.7rem;color:#91aac7;overflow-wrap:anywhere}
+.switch-wrap{display:flex;flex-direction:column;align-items:center;gap:7px;flex:0 0 80px}
+.switch-wrap .etiqueta{font-weight:700;font-size:.72rem}
+.switch{position:relative;width:48px;height:27px;border:1px solid #8695a9;background:#68758a;border-radius:20px;cursor:pointer;padding:0}
+.switch::after{content:'';position:absolute;top:3px;left:3px;background:white;width:19px;height:19px;border-radius:50%;transition:transform .15s}
+.switch[aria-checked=true]{background:#2eaa75;border-color:#2eaa75}
+.switch[aria-checked=true]::after{transform:translateX(20px)}
+.switch:disabled{opacity:.55;cursor:wait}
+.switch:focus-visible{outline:3px solid #a6d4ff;outline-offset:2px}
+.sidebar-card{padding:18px 19px;margin-bottom:14px}
+.sidebar-card h2{font-size:1rem;margin:0 0 10px}
+.sidebar-card p{font-size:.8rem;color:var(--muted);line-height:1.55;margin:7px 0}
+.status{font-size:.8rem;padding:11px;border:1px solid #4b6885;border-radius:8px;background:#223c58;overflow-wrap:anywhere}
+.status.error{background:#533039;border-color:#a76372;color:#ffd7dc}
+.hist{display:grid;gap:7px;margin-top:10px;max-height:260px;overflow:auto}
+.event{padding:9px;background:#253951;border-radius:8px}
+.event time{display:block;font-size:.7rem;color:var(--muted);margin-bottom:4px}
+.event b{font-size:.76rem}
+.event p{font-size:.76rem;color:#d7e3f0;overflow-wrap:anywhere;white-space:pre-wrap;margin-top:5px}
+.note{padding:13px;border:1px solid #745c31;border-radius:10px;color:#ffe5b8;background:#453620;font-size:.78rem;line-height:1.5}
+footer{font-size:.74rem;color:var(--muted);margin-top:16px}
+@media(max-width:950px){.main-grid{grid-template-columns:1fr}.grid-overview{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:540px){.shell{padding:15px 12px 40px}.grid-overview{grid-template-columns:1fr 1fr;gap:8px}.metric{padding:11px}.metric strong{font-size:1.3rem}.linha{padding:11px}.card-header{padding:14px}.switch-wrap{flex-basis:65px}}
+</style>
+</head>
+<body>
+<div class="shell">
+<header>
+  <div>
+    <p class="crumbs"><a href="/bot/admin">← Conversas do WhatsApp</a> / Central de controle</p>
+    <h1>Central de Controle do WhatsApp</h1>
+    <p class="sub">Ligue ou desligue os envios de cada parte do sistema. Controles aplicados no Node.js antes da Z-API.</p>
+  </div>
+  <div class="header-actions"><span id="estado-salvamento" class="pill">Carregando controles...</span><button type="button" id="atualizar" class="btn">Atualizar</button></div>
+</header>
+
+<section class="grid-overview" aria-label="Resumo">
+  <div class="metric"><span class="label">Funcionalidades catalogadas</span><strong id="total">—</strong><p>Pontos de controle do sistema</p></div>
+  <div class="metric"><span class="label">Envios ativos</span><strong id="ativos">—</strong><p>Controles ligados</p></div>
+  <div class="metric"><span class="label">Envios desativados</span><strong id="inativos">—</strong><p>Controles desligados</p></div>
+  <div class="metric"><span class="label">Último recebimento direto</span><strong id="ultimo">—</strong><p>Registro do novo webhook</p></div>
+</section>
+
+<div class="main-grid">
+<main class="card">
+  <div class="card-header">
+    <h2>Configuração de envios</h2>
+    <p>Desligar impede o envio pelo backend, mesmo que o botão continue visível em outras telas. Os controles vêm ligados por padrão, para não interromper operações existentes.</p>
+    <input id="filtro" class="searchbox" type="search" placeholder="Buscar funcionalidade, página ou setor..." aria-label="Filtrar funcionalidades">
+  </div>
+  <div id="grupos" aria-live="polite"><p style="padding:18px">Consultando o banco de dados...</p></div>
+</main>
+<aside>
+  <section class="card sidebar-card">
+    <h2>Recebimentos</h2>
+    <p>O recebimento não depende dos botões de envio. O monitor mostra as mensagens que chegaram ao novo webhook no Render.</p>
+    <div id="webhook-info" class="status">Consultando webhook...</div>
+    <div class="hist" id="eventos"></div>
+    <p><a href="/bot/admin">Abrir conversas e mensagens →</a></p>
+  </section>
+  <section class="card sidebar-card">
+    <h2>Como funciona</h2>
+    <p><b>ON:</b> permite o envio por essa funcionalidade. <b>OFF:</b> bloqueia a chamada antes da Z-API.</p>
+    <p>O controle geral bloqueia todos os envios. Os demais permitem configurar cada área individualmente.</p>
+    <div class="note">O webhook da Z-API ainda está direcionado ao n8n até a migração ser concluída. Esta página não altera essa configuração externa.</div>
+  </section>
+</aside>
+</div>
+<footer>Alumínio JR · Central administrativa. Alterações são gravadas no PostgreSQL com usuário e data. O histórico de recebimento não é uma confirmação de entrega de mensagens enviadas.</footer>
+</div>
+<script>
+(() => {
+  'use strict';
+  const API='/whatsapp/central-controle/api/controles';
+  const $=id=>document.getElementById(id);
+  let controles=[],alterando=new Set();
+  const gruposOrdem=['Geral','Pedidos','Logística','Produção','Financeiro','Marketing','Atendimento','Outros sistemas'];
+
+  const hora=(iso)=>iso?new Date(iso).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short'}):'—';
+  function status(msg,erro=false){$('estado-salvamento').textContent=msg;$('estado-salvamento').className='pill '+(erro?'warn':'ok');}
+  function criar(tag,classe,texto){const e=document.createElement(tag);if(classe)e.className=classe;if(texto!=null)e.textContent=texto;return e;}
+
+  function desenhar(){
+    const q=String($('filtro').value||'').trim().toLocaleLowerCase('pt-BR');
+    $('total').textContent=controles.length;
+    $('ativos').textContent=controles.filter(i=>i.ativo).length;
+    $('inativos').textContent=controles.filter(i=>!i.ativo).length;
+    const div=$('grupos');div.replaceChildren();
+    for(const grupo of gruposOrdem){
+      const dados=controles.filter(i=>i.grupo===grupo && [i.titulo,i.descricao,i.origem,i.grupo].join(' ').toLocaleLowerCase('pt-BR').includes(q));
+      if(!dados.length)continue;
+      const sec=criar('section','grupo');sec.append(criar('h3',null,grupo));
+      for(const i of dados){
+        const row=criar('div','linha'+(i.id==='envios_geral'?' linha-bloqueio':''));
+        const info=criar('div','linha-body');
+        info.append(criar('strong',null,i.titulo),criar('p',null,i.descricao),criar('div','origem','Origem: '+i.origem));
+        const wrap=criar('div','switch-wrap');
+        const btn=criar('button','switch');
+        btn.type='button';btn.setAttribute('role','switch');btn.setAttribute('aria-label','Ativar ou desativar '+i.titulo);
+        btn.setAttribute('aria-checked',String(i.ativo));btn.disabled=alterando.has(i.id);
+        const label=criar('span','etiqueta',i.ativo?'ON':'OFF');
+        btn.addEventListener('click',()=>alternar(i));
+        wrap.append(btn,label);row.append(info,wrap);sec.append(row);
+      }
+      div.append(sec);
+    }
+    if(!div.children.length)div.append(criar('p',null,'Nenhum controle corresponde à busca.'));
+  }
+  async function consultar(){
+    try{
+      const r=await fetch(API,{cache:'no-store',headers:{Accept:'application/json'}});
+      const j=await r.json();
+      if(!r.ok||!j.success)throw Error(j.message||'Falha na consulta');
+      controles=j.controles||[];desenhar();status('Controles carregados');
+    }catch(e){status(e.message||'Falha de conexão',true);$('grupos').replaceChildren(criar('p',null,'Não foi possível carregar os controles.'));}
+  }
+  async function alternar(item){
+    if(alterando.has(item.id))return;
+    const novo=!item.ativo;
+    alterando.add(item.id);desenhar();status('Salvando '+item.titulo+'...');
+    try{
+      const r=await fetch(API+'/'+encodeURIComponent(item.id),{
+        method:'PUT',headers:{'Content-Type':'application/json','Accept':'application/json'},
+        body:JSON.stringify({ativo:novo})
+      });
+      const j=await r.json();
+      if(!r.ok||!j.success)throw Error(j.message||'Erro ao salvar');
+      item.ativo=j.resultado.ativo;
+      status(item.titulo+' '+(item.ativo?'ligado':'desligado'));
+    }catch(e){status('Não foi possível alterar: '+e.message,true);}
+    finally{alterando.delete(item.id);desenhar();}
+  }
+  async function monitorar(){
+    try{
+      const r=await fetch('/bot/admin/monitoramento',{cache:'no-store',headers:{Accept:'application/json'}});
+      if(!r.ok)throw Error('Erro HTTP '+r.status);
+      const j=await r.json();
+      const diretas=(j.dados||[]).filter(x=>x.origem==='Z-API direta');
+      $('ultimo').textContent=diretas.length?hora(diretas[0].recebido_em):'Sem evento';
+      $('webhook-info').textContent=(j.webhook_configurado?'Chave do webhook configurada':'Chave do webhook pendente')+' · '+diretas.length+' evento(s) recente(s)';
+      const box=$('eventos');box.replaceChildren();
+      if(!diretas.length){box.append(criar('p',null,'Ainda não há recebimentos diretos.'));return;}
+      for(const ev of diretas.slice(0,12)){
+        const row=criar('div','event');row.append(criar('time',null,hora(ev.recebido_em)));
+        const tipo=ev.direcao==='SAIDA'?'Enviada por você':ev.direcao==='ENTRADA'?'Recebida':'Evento';
+        row.append(criar('b',null,(ev.telefone||'-')+' · '+tipo+' · '+ev.estado));
+        row.append(criar('p',null,ev.mensagem||ev.motivo||''));
+        box.append(row);
+      }
+    }catch(e){$('webhook-info').textContent='Não foi possível consultar o monitoramento.';$('webhook-info').classList.add('error');}
+  }
+  $('filtro').addEventListener('input',desenhar);
+  $('atualizar').addEventListener('click',()=>{consultar();monitorar();});
+  consultar();monitorar();setInterval(monitorar,15000);
+})();
+</script>
+</body>
+</html>
