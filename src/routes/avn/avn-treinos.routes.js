@@ -3,6 +3,7 @@ const express = require('express');
 const crypto = require('node:crypto');
 const pool = require('../../../db/connection');
 const V = require('../../services/avn/avn-treinos-validacao');
+const ensureCarga=require('../../services/avn/avn-treinos-carga.service');
 const router=express.Router();
 const catalogo = require('../../services/avn/avn-treinos-catalogo.service');
 const compat = require('../../services/avn/avn-treinos-equipamentos.service');
@@ -150,9 +151,10 @@ router.get('/planos',route(async(req,res)=>{
   res.json(r.rows);
 }));
 async function consultarPlano(id,client=pool){
+ await ensureCarga();
   const r=await client.query('SELECT id,usuario_id,nome,descricao,criado_em,atualizado_em FROM public.avn_planos_treino WHERE id=$1 AND ativo=TRUE',[id]);
   if(!r.rowCount)throw V.erro('Plano não encontrado.',404);
-  const d=await client.query(`SELECT d.id,d.dia_semana,i.exercicio_id,i.posicao,i.series,i.repeticoes,i.carga_kg,i.descanso_seg,i.observacoes,e.nome AS exercicio_nome,e.midia_url,e.midia_tipo
+  const d=await client.query(`SELECT d.id,d.dia_semana,i.exercicio_id,i.posicao,i.series,i.repeticoes,i.carga_kg,i.carga_unidade,i.carga_placas,i.descanso_seg,i.observacoes,e.nome AS exercicio_nome,e.midia_url,e.midia_tipo
     FROM public.avn_plano_dias d LEFT JOIN public.avn_plano_itens i ON i.plano_dia_id=d.id
     LEFT JOIN public.avn_exercicios e ON e.id=i.exercicio_id WHERE d.plano_id=$1 ORDER BY d.dia_semana,i.posicao`,[id]);
   const days=new Map();for(const row of d.rows){if(!days.has(row.dia_semana))days.set(row.dia_semana,{dia_semana:row.dia_semana,exercicios:[]});if(row.exercicio_id!==null)days.get(row.dia_semana).exercicios.push({...row,midia_url:catalogo.normalizarMidia(row.midia_url)});}
@@ -160,6 +162,7 @@ async function consultarPlano(id,client=pool){
 }
 router.get('/planos/:id',route(async(req,res)=>{if(!V.id(req.params.id))throw V.erro('Plano inválido.');res.json(await consultarPlano(req.params.id));}));
 async function salvarPlano(req,res,atualizar=false){
+ await ensureCarga();
   const v=V.plano(req.body||{});
   if(atualizar&&!V.id(req.params.id))throw V.erro('Plano inválido.');
   const client=await pool.connect();let committed=false;
@@ -181,8 +184,8 @@ async function salvarPlano(req,res,atualizar=false){
     for(const d of v.dias){
       const created=await client.query('INSERT INTO public.avn_plano_dias(plano_id,dia_semana) VALUES($1,$2) RETURNING id',[planoId,d.dia_semana]);
       const diaId=created.rows[0].id;
-      for(const i of d.itens){await client.query(`INSERT INTO public.avn_plano_itens(plano_dia_id,exercicio_id,posicao,series,repeticoes,carga_kg,descanso_seg,observacoes)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,[diaId,i.exercicio_id,i.posicao,i.series,i.repeticoes,i.carga_kg,i.descanso_seg,i.observacoes]);}
+      for(const i of d.itens){await client.query(`INSERT INTO public.avn_plano_itens(plano_dia_id,exercicio_id,posicao,series,repeticoes,carga_kg,carga_unidade,carga_placas,descanso_seg,observacoes)
+        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,[diaId,i.exercicio_id,i.posicao,i.series,i.repeticoes,i.carga_kg,i.carga_unidade,i.carga_placas,i.descanso_seg,i.observacoes]);}
     }
     await client.query('COMMIT');committed=true;res.status(atualizar?200:201).json({ok:true,id:planoId});
   }catch(e){if(!committed)await client.query('ROLLBACK').catch(()=>{});throw e;}finally{client.release();}
@@ -203,11 +206,12 @@ router.get('/sessoes',route(async(req,res)=>{
     WHERE s.usuario_id=$1 ORDER BY s.realizado_em DESC LIMIT 100`,[req.query.usuario_id]);res.json(r.rows);
 }));
 router.get('/sessoes/:id',route(async(req,res)=>{
+ await ensureCarga();
   if(!V.id(req.params.id))throw V.erro('Sessão inválida.');
   const r=await pool.query(`SELECT s.id,s.usuario_id,s.plano_id,s.dia_semana,s.realizado_em,s.observacoes,p.nome AS plano_nome
     FROM public.avn_treino_sessoes s JOIN public.avn_planos_treino p ON p.id=s.plano_id WHERE s.id=$1`,[req.params.id]);
   if(!r.rowCount)throw V.erro('Sessão não encontrada.',404);
-  const i=await pool.query(`SELECT e.nome,i.series_realizadas,i.repeticoes_realizadas,i.carga_kg,i.observacoes
+  const i=await pool.query(`SELECT e.nome,i.series_realizadas,i.repeticoes_realizadas,i.carga_kg,i.carga_unidade,i.carga_placas,i.observacoes
     FROM public.avn_treino_sessao_itens i JOIN public.avn_exercicios e ON e.id=i.exercicio_id
     WHERE i.sessao_id=$1 ORDER BY i.posicao`,[req.params.id]);
   res.json({...r.rows[0],exercicios:i.rows});
@@ -222,6 +226,7 @@ router.delete('/sessoes/:id',route(async(req,res)=>{
  }catch(e){await client.query('ROLLBACK').catch(()=>{});throw e;}finally{client.release();}
 }));
 router.post('/sessoes',route(async(req,res)=>{
+ await ensureCarga();
   const v=V.sessao(req.body||{});if(!v.realizados.length)throw V.erro('Informe ao menos um exercício realizado.');
   const client=await pool.connect();let committed=false;
   try{
@@ -233,8 +238,8 @@ router.post('/sessoes',route(async(req,res)=>{
     if(v.realizados.some(x=>!validos.has(String(x.exercicio_id))))throw V.erro('Há exercícios que não pertencem a este dia do plano.');
     const sessao=await client.query('INSERT INTO public.avn_treino_sessoes(usuario_id,plano_id,dia_semana,observacoes) VALUES($1,$2,$3,$4) RETURNING id',[v.usuario_id,v.plano_id,v.dia_semana,v.observacoes]);
     const sessaoId=sessao.rows[0].id;
-    for(const x of v.realizados)await client.query(`INSERT INTO public.avn_treino_sessao_itens(sessao_id,exercicio_id,posicao,series_realizadas,repeticoes_realizadas,carga_kg,observacoes)
-      VALUES($1,$2,$3,$4,$5,$6,$7)`,[sessaoId,x.exercicio_id,x.posicao,x.series_realizadas,x.repeticoes_realizadas,x.carga_kg,x.observacoes]);
+    for(const x of v.realizados)await client.query(`INSERT INTO public.avn_treino_sessao_itens(sessao_id,exercicio_id,posicao,series_realizadas,repeticoes_realizadas,carga_kg,carga_unidade,carga_placas,observacoes)
+      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`,[sessaoId,x.exercicio_id,x.posicao,x.series_realizadas,x.repeticoes_realizadas,x.carga_kg,x.carga_unidade,x.carga_placas,x.observacoes]);
     await client.query('COMMIT');committed=true;res.status(201).json({ok:true,id:sessaoId});
   }catch(e){if(!committed)await client.query('ROLLBACK').catch(()=>{});throw e;}finally{client.release();}
 }));

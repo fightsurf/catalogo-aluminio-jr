@@ -36,7 +36,13 @@ function itensExercicio(itens, realizados=false){
   if(!Array.isArray(itens)||itens.length>50)throw erro('Máximo de 50 exercícios por dia.');
   return itens.map((p,index)=>{
     if(!p || !id(p.exercicio_id))throw erro('Exercício inválido.');
-    const base={exercicio_id:Number(p.exercicio_id),posicao:index,carga_kg:carga(p.carga_kg),observacoes:texto(p.observacoes,500)};
+    const unidade=p.carga_unidade??'kg';
+    if(!['kg','placas'].includes(unidade))throw erro('Unidade de carga inválida.');
+    const placas=p.carga_placas==null||p.carga_placas===''?null:inteiro(p.carga_placas,0,200,'Placas');
+    if(unidade==='placas'&&p.carga_kg!=null&&p.carga_kg!=='')throw erro('Informe placas sem quilogramas.');
+    if(unidade==='kg'&&placas!==null)throw erro('Informe kg sem placas.');
+    const base={exercicio_id:Number(p.exercicio_id),posicao:index,carga_unidade:unidade,
+      carga_kg:unidade==='kg'?carga(p.carga_kg):null,carga_placas:unidade==='placas'?placas:null,observacoes:texto(p.observacoes,500)};
     if(realizados)return {...base,series_realizadas:inteiro(p.series_realizadas,0,30,'Séries realizadas'),repeticoes_realizadas:texto(p.repeticoes_realizadas,30)};
     return {...base,series:inteiro(p.series,1,30,'Séries'),repeticoes:texto(p.repeticoes,30,true),descanso_seg:inteiro(p.descanso_seg,0,3600,'Descanso')};
   });

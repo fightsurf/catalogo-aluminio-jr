@@ -28,3 +28,11 @@ test('aceita imagem local instalada no AVN e bloqueia caminhos arbitrários',()=
  assert.equal(v.midiaUrl('/avn/sistema/midias/bench-press/frame-1.svg'),'/avn/sistema/midias/bench-press/frame-1.svg');
  for(const u of ['/avn/sistema/midias/../../segredo','/avn/sistema/midias/bench-press/arquivo.js','/avn/sistema/midias/bench-press/frame-9.svg'])assert.throws(()=>v.midiaUrl(u));
 });
+
+test('placas são unidades independentes de quilogramas',()=>{
+ const x=v.plano({usuario_id:2,nome:'Teste',dias:[{dia_semana:0,exercicios:[{exercicio_id:10,series:4,repeticoes:'12',descanso_seg:60,carga_unidade:'placas',carga_placas:5}]}]});
+ assert.equal(x.dias[0].itens[0].carga_kg,null);assert.equal(x.dias[0].itens[0].carga_placas,5);
+ const s=v.sessao({usuario_id:2,plano_id:3,dia_semana:0,realizados:[{exercicio_id:10,series_realizadas:4,repeticoes_realizadas:'12',carga_unidade:'placas',carga_placas:6}]});
+ assert.equal(s.realizados[0].carga_placas,6);
+ for(const placas of [-1,201,2.5,'abc'])assert.throws(()=>v.plano({usuario_id:2,nome:'A',dias:[{dia_semana:0,exercicios:[{exercicio_id:10,series:3,repeticoes:'10',descanso_seg:60,carga_unidade:'placas',carga_placas:placas}]}]}));
+});
