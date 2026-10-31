@@ -1226,7 +1226,7 @@
         throw new Error('Dados da carrada do novo pedido não encontrados.');
       }
 
-      await fetchJson('/api/whatsapp/enviar', {
+      await fetchJson('/api/whatsapp/enviar-pedido', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ telefone, mensagem: mensagemCarrada })
@@ -3241,7 +3241,7 @@
         btnEnviarWhatsapp.disabled = true;
         btnEnviarWhatsapp.textContent = 'Enviando...';
 
-        await fetchJson('/api/whatsapp/enviar', {
+        await fetchJson('/api/whatsapp/enviar-pedido', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ telefone, mensagem: montarMensagemWhatsappPedido(pedidoCarregado) })
