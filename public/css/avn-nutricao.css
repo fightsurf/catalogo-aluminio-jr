@@ -495,3 +495,8 @@ body[data-nutricao-pagina="diario"] .avn-dieta-emoji{display:inline-block;margin
 #modalAdicionarDiario .avn-diario-painel{min-width:0}
 #modalAdicionarDiario .avn-diario-painel .avn-refeicao-planejada{margin:0;padding:0;border:0}
 @media(max-width:520px){#modalAdicionarDiario .avn-diario-abas [role="tab"]{font-size:12px;padding:10px 6px}}
+
+/* Modal Adicionar ao diário: duas linhas de respiro entre o campo de peso e o próximo alimento. */
+body[data-nutricao-pagina="dieta"] #modalEnviarDiario #itensEnvioDiario > .avn-refeicao-item + .avn-refeicao-item{
+  margin-top:40px;
+}
