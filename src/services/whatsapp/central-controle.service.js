@@ -127,7 +127,7 @@ function classificarRequisicao(req) {
   if (url.includes('/promocao-posvenda')) return 'promocao_posvenda';
   if (url.startsWith('/api/ofertas/')) return url.includes('kits-whatsapp')?'ofertas_kits':'ofertas_whatsapp';
   if (url.includes('/status-videos')||url.includes('/status-whatsapp')||url.includes('/api/whatsapp/status')) return 'status_whatsapp';
-  if (url.startsWith('/mirian/')) return 'mirian_pacientes';
+  if (url.startsWith('/mirian/') || url.startsWith('/api/mirian/')) return 'mirian_pacientes';
   if (url.startsWith('/bot/')) return 'bot_atendimento';
   if (url.startsWith('/api/whatsapp/')) return 'envio_manual';
   return null;
