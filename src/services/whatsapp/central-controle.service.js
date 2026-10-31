@@ -145,7 +145,8 @@ function comFuncionalidade(funcionalidade,fn) {
 async function verificar(funcionalidade) {
   const id=funcionalidade||atual()||'outros_envios';
   if (!POR_ID.has(id)) throw new Error('Controle WhatsApp desconhecido: '+id);
-  const mapa=await estados();
+  // Consultar o banco a cada tentativa evita envios após OFF em instâncias diferentes.
+  const mapa=await estados({semCache:true});
   for (const chave of ['envios_geral',id]) {
     if (mapa[chave]?.ativo!==true) {
       const erro=new Error('Envio de WhatsApp desativado na Central de Controle: '+POR_ID.get(chave).titulo);
@@ -156,7 +157,7 @@ async function verificar(funcionalidade) {
   return true;
 }
 async function ativo(id) {
-  const mapa=await estados();
+  const mapa=await estados({semCache:true});
   return mapa.envios_geral?.ativo===true && mapa[id]?.ativo===true;
 }
 module.exports={CATALOGO,preparar,listar,alterar,middleware,classificarRequisicao,comFuncionalidade,verificar,ativo,atual};
