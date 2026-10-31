@@ -113,7 +113,7 @@ async function listarMensagens({ telefone, page, limit }) {
   const total = parseInt(countResult.rows[0].count);
 
   const dataResult = await pool.query(
-    `SELECT id, telefone, mensagem, tipo, direcao, processada_ia, intencao_classificada, criada_em
+    `SELECT id, telefone, mensagem, tipo, direcao, processada_ia, intencao_classificada, criada_em, zapi_message_id
      FROM bot_mensagens
      WHERE telefone = $1
      ORDER BY criada_em DESC, id DESC
