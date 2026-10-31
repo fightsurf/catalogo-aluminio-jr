@@ -9,6 +9,7 @@ const router = express.Router();
 const {metaPorKg,energiaMacros,razoesDaMeta}=require('../../services/avn/avn-metas-gkg');
 router.use('/receitas',require('./avn-receitas.routes'));
 router.use('/dieta/:usuarioId/ajustes-ia',require('./avn-dieta-ajustes.routes'));
+router.use('/dieta/:usuarioId/fotografias',require('./avn-dieta-fotografias.routes'));
 const REFEICOES = new Set(['cafe','lanche_manha','almoco','lanche_tarde','jantar','ceia','outros']);
 const MACROS = ['kcal','proteinas_g','carboidratos_g','gorduras_g','fibras_g'];
 // Catálogo de micronutrientes armazenado em public.avn_nutrientes (extensível).
@@ -353,7 +354,7 @@ router.delete('/dieta/:usuarioId/perfis/:perfilId',wrap(async(req,res)=>{
   const r=await db.query('SELECT * FROM public.avn_dieta_refeicao_perfis WHERE id=$1 AND plano_id=$2',[id,p.id]);
   if(!r.rowCount)throw bad('Perfil não encontrado.',404);
   const perfil=r.rows[0];
-  const outros=await db.query('SELECT id FROM public.avn_dieta_refeicao_perfis WHERE plano_id=$1 AND refeicao=$2 AND id<>$3 ORDER BY id',[p.id,perfil.refeicao,id]);
+  const outros=await db.query('SELECT id FROM public.avn_dieta_refeicao_perfis WHERE plano_id=$1 AND refeicao=$2 AND id<>$3 AND NOT recuperado ORDER BY id',[p.id,perfil.refeicao,id]);
   if(!outros.rowCount)throw bad('Não é permitido excluir o último perfil da refeição.');
   if(perfil.ativo){
    await db.query('UPDATE public.avn_dieta_refeicao_perfis SET ativo=FALSE WHERE id=$1',[id]);
@@ -369,7 +370,7 @@ router.get('/dieta/:usuarioId',wrap(async(req,res)=>{
  if(!plan)return res.json({plano:null,itens:[],perfis:[]});
  const r=await pool.query(`SELECT i.*,a.nome AS alimento_nome,a.kcal_100g,a.proteinas_g_100g,a.carboidratos_g_100g,a.gorduras_g_100g,a.fibras_g_100g,a.micronutrientes_100g
  FROM public.avn_dieta_itens i JOIN public.avn_alimentos a ON a.id=i.alimento_id JOIN public.avn_dieta_refeicao_perfis pf ON pf.id=i.perfil_id AND pf.ativo WHERE i.plano_id=$1 AND i.dia_semana=(SELECT MIN(dia_semana) FROM public.avn_dieta_itens WHERE plano_id=$1) ORDER BY ordem,i.id`,[plan.id]);
- const perfis=await pool.query('SELECT id,refeicao,nome,ativo FROM public.avn_dieta_refeicao_perfis WHERE plano_id=$1 ORDER BY refeicao,id',[plan.id]);
+ const perfis=await pool.query('SELECT id,refeicao,nome,ativo,recuperado FROM public.avn_dieta_refeicao_perfis WHERE plano_id=$1 ORDER BY refeicao,id',[plan.id]);
  res.json({plano:plan,itens:r.rows,perfis:perfis.rows});
 }));
 router.post('/dieta/:usuarioId/itens',wrap(async(req,res)=>{
@@ -472,7 +473,7 @@ router.put('/dieta/:usuarioId/itens/:itemId',wrap(async(req,res)=>{
   if(!item.rowCount)throw bad('Item do perfil ativo não encontrado.',404);
   const f=await food(req.body?.alimento_id,uid,db);
   const novoPerfil=await ensureMealProfile(db,p.id,ref);
-  const r=await db.query('UPDATE public.avn_dieta_itens SET refeicao=$2,alimento_id=$3,quantidade_g=$4,perfil_id=$5 WHERE id=$1 RETURNING *',[iid,ref,f.id,q,novoPerfil]);
+  const r=await db.query('UPDATE public.avn_dieta_itens SET refeicao=$2,alimento_id=$3,quantidade_g=$4,perfil_id=$5,composicao_100g=CASE WHEN alimento_id=$3 THEN composicao_100g ELSE NULL END WHERE id=$1 RETURNING *',[iid,ref,f.id,q,novoPerfil]);
   await db.query('COMMIT');res.json({ok:true,item:r.rows[0]});
  }catch(e){await db.query('ROLLBACK').catch(()=>{});throw e;}finally{db.release();}
 }));
@@ -601,7 +602,7 @@ router.post('/diario/:usuarioId/copiar-dieta',wrap(async(req,res)=>{
  // INSERT atômico, snapshot da composição; conflito por item/data impede cópia duplicada.
  const r=await pool.query(`INSERT INTO public.avn_diario_alimentar(usuario_id,data_consumo,refeicao,alimento_id,alimento_nome,quantidade_g,composicao_100g,plano_item_id)
  SELECT $1,$2,i.refeicao,a.id,a.nome,i.quantidade_g,
- jsonb_build_object('kcal',a.kcal_100g,'proteinas_g',a.proteinas_g_100g,'carboidratos_g',a.carboidratos_g_100g,'gorduras_g',a.gorduras_g_100g,'fibras_g',a.fibras_g_100g,'micros',a.micronutrientes_100g),i.id
+ COALESCE(i.composicao_100g,jsonb_build_object('kcal',a.kcal_100g,'proteinas_g',a.proteinas_g_100g,'carboidratos_g',a.carboidratos_g_100g,'gorduras_g',a.gorduras_g_100g,'fibras_g',a.fibras_g_100g,'micros',a.micronutrientes_100g)),i.id
  FROM public.avn_dieta_itens i JOIN public.avn_alimentos a ON a.id=i.alimento_id JOIN public.avn_dieta_refeicao_perfis pf ON pf.id=i.perfil_id AND pf.ativo
  WHERE i.plano_id=$3 AND i.dia_semana=(SELECT MIN(dia_semana) FROM public.avn_dieta_itens WHERE plano_id=$3) AND a.ativo AND (a.usuario_id=$1 OR a.usuario_id IS NULL)
  ON CONFLICT DO NOTHING RETURNING id`,[uid,data,p.id]);res.json({ok:true,inseridos:r.rowCount});
