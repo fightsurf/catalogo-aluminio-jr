@@ -16,3 +16,28 @@ p,.muted,.hint,small,.exercise small,.creditos,.empty,.eyebrow,.card small,.app-
 .graph-tooltip{background:#1b2a40!important;color:#fff!important;border-color:#435775!important}
 a{color:#8ec1ff}table th,table td{border-color:#34465f!important}hr,.tabs,.avn-top{border-color:#34465f!important}
 :focus-visible{outline-color:#80c4ff!important}
+
+
+/* Cruzamento de dois gráficos nos aplicativos individuais de Avaliação Física. */
+.avn-cross-open{align-self:flex-end;border:1px solid #4087cb;border-radius:10px;padding:11px 16px;background:#2169ab;color:#fff;font-weight:700;cursor:pointer}
+.avn-cross-open:hover{background:#3283c8}
+.avn-cross-dialog{width:min(1000px,calc(100vw - 24px));max-width:1000px;max-height:calc(100dvh - 24px);padding:22px;border:1px solid #435775;border-radius:16px;background:#182437;color:#ecf2fc;box-shadow:0 24px 60px #0009;overflow-y:auto}
+.avn-cross-dialog::backdrop{background:rgba(3,8,20,.8)}
+.avn-cross-head{display:flex;justify-content:space-between;gap:12px;align-items:center}
+.avn-cross-head h2{font-size:1.3rem;margin:0}
+.avn-cross-close{border:1px solid #506681;border-radius:9px;background:#263b57;color:#fff;padding:8px 12px;cursor:pointer;font-size:1.1rem}
+.avn-cross-help{color:#a9b9d1;font-size:.87rem;line-height:1.5}
+.avn-cross-choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:9px;margin:16px 0}
+.avn-cross-option{display:flex;align-items:center;gap:9px;padding:11px;border:1px solid #435775;border-radius:10px;background:#101c2e;cursor:pointer;font-size:.9rem}
+.avn-cross-option input{width:18px;height:18px;accent-color:#60a5fa;flex-shrink:0}
+.avn-cross-option i,.avn-cross-legend-item i{display:inline-block;width:11px;height:11px;border-radius:50%;flex-shrink:0}
+.avn-cross-legend{display:flex;flex-wrap:wrap;gap:8px 17px;margin:12px 0;font-size:.87rem}
+.avn-cross-legend-item{display:inline-flex;align-items:center;gap:7px}
+.avn-cross-graph{position:relative;width:100%;height:320px;margin:12px 0}
+.avn-cross-graph[hidden]{display:none}
+.avn-cross-graph svg{display:block;width:100%;height:320px;touch-action:pan-y}
+.avn-cross-tooltip{white-space:pre-line;max-width:calc(100% - 8px);line-height:1.6}
+.avn-cross-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:9px;margin:12px 0}
+.avn-cross-stat{display:flex;flex-direction:column;gap:4px;padding:9px 12px;border-left:4px solid #60a5fa;border-radius:7px;background:#101c2e;font-size:.87rem}
+.avn-cross-stat small{color:#a9b9d1}
+@media(max-width:650px){.avn-cross-dialog{padding:13px;max-height:calc(100dvh - 12px)}.avn-cross-choices{grid-template-columns:repeat(2,minmax(0,1fr))}.avn-cross-option{font-size:.8rem;padding:9px 7px;gap:6px}.avn-cross-graph,.avn-cross-graph svg{height:290px}.avn-cross-open{width:100%}}
