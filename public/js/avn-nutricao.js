@@ -744,6 +744,16 @@ function exibirModalMacros(itens,titulo){
  (['kcal','proteinas_g','carboidratos_g','gorduras_g','fibras_g'].some(k=>a.miss[k])?'<p class="muted">Alguns alimentos não têm todos os valores nutricionais informados.</p>':'');
  $('modalMacros').showModal();
 }
+function ativarAbaDiario(aba,focar=false){
+ const tabs=[...document.querySelectorAll('#modalAdicionarDiario [role="tab"]')];
+ for(const tab of tabs){
+  const ativa=tab.dataset.abaDiario===aba;
+  tab.setAttribute('aria-selected',String(ativa));
+  tab.tabIndex=ativa?0:-1;
+  $(tab.getAttribute('aria-controls')).hidden=!ativa;
+  if(ativa&&focar)tab.focus();
+ }
+}
 function events(){
  if(has('fecharMacros')){
   $('fecharMacros').onclick=()=>$('modalMacros').close();
@@ -761,6 +771,21 @@ function events(){
  if(PAGE==='diario'){
  $('abrirModalDiario').onclick=()=>$('modalAdicionarDiario').showModal();
  $('fecharModalDiario').onclick=()=>$('modalAdicionarDiario').close();
+ $('modalAdicionarDiario').addEventListener('close',()=>ativarAbaDiario('avulso'));
+ const abasDiario=[...document.querySelectorAll('#modalAdicionarDiario [role="tab"]')];
+ abasDiario.forEach((tab,indice)=>{
+  tab.addEventListener('click',()=>ativarAbaDiario(tab.dataset.abaDiario));
+  tab.addEventListener('keydown',e=>{
+   let proxima=null;
+   if(e.key==='ArrowRight')proxima=(indice+1)%abasDiario.length;
+   if(e.key==='ArrowLeft')proxima=(indice-1+abasDiario.length)%abasDiario.length;
+   if(e.key==='Home')proxima=0;
+   if(e.key==='End')proxima=abasDiario.length-1;
+   if(proxima===null)return;
+   e.preventDefault();
+   ativarAbaDiario(abasDiario[proxima].dataset.abaDiario,true);
+  });
+ });
  $('fecharEdicaoConsumo').onclick=()=>$('modalEditarConsumo').close();
  $('listaDiario').addEventListener('click',e=>{
   const botao=e.target.closest('[data-edit-consumo]');if(!botao)return;
