@@ -535,3 +535,30 @@ body[data-nutricao-pagina="diario"] #listaDiario .avn-dieta-macros-inline{
 body[data-nutricao-pagina="diario"] #listaDiario .avn-dieta-macros-inline > span{
   white-space:nowrap;
 }
+
+/* Dieta programada e Diário: metas individuais ultrapassadas. */
+body[data-nutricao-pagina="dieta"] #resumoDieta .stat.avn-meta-excedida,
+body[data-nutricao-pagina="diario"] #resumoDiario .stat.avn-meta-excedida{
+  border:2px solid #f87171!important;
+  background:#4b1f28!important;
+  color:#ffe0e0!important;
+}
+body[data-nutricao-pagina="dieta"] #resumoDieta .avn-meta-excedida strong,
+body[data-nutricao-pagina="diario"] #resumoDiario .avn-meta-excedida strong,
+body[data-nutricao-pagina="dieta"] #resumoDieta .avn-meta-excedida .avn-dieta-ranking-link,
+body[data-nutricao-pagina="diario"] #resumoDiario .avn-meta-excedida .avn-dieta-ranking-link{
+  color:#ff9c9c!important;
+}
+body[data-nutricao-pagina="dieta"] #resumoDieta .avn-meta-excedida .avn-dieta-card-titulo,
+body[data-nutricao-pagina="diario"] #resumoDiario .avn-meta-excedida .avn-dieta-card-titulo{
+  color:#ffe0e0!important;
+}
+.avn-meta-aviso{display:inline;white-space:nowrap;font-size:.75em;vertical-align:baseline}
+/* Versões independentes da dieta. */
+.avn-fotografias-modal{width:min(760px,calc(100vw - 22px))}
+.avn-fotografias-lista{display:grid;gap:10px;margin-top:16px;max-height:65vh;overflow-y:auto}
+.avn-fotografia-linha{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;padding:13px;border:1px solid var(--line);border-radius:11px;background:var(--card)}
+.avn-fotografia-linha strong{display:block;color:var(--ink);overflow-wrap:anywhere}
+.avn-fotografia-linha small{display:block;color:var(--muted);font-size:12px;margin-top:4px}
+.avn-fotografia-acoes{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+@media(max-width:600px){.avn-fotografia-acoes{width:100%}.avn-fotografia-acoes button{flex:1}}
