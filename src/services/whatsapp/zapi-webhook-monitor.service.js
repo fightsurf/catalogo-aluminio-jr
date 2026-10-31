@@ -55,13 +55,13 @@ async function listarRecebimentos({ limite = 100 } = {}) {
   await criarEstrutura();
   const sql = `SELECT * FROM (
       SELECT 'zapi-' || e.id::text AS chave, e.recebido_em, e.telefone,
-        e.mensagem, e.tipo, e.zapi_message_id AS message_id,
-        e.estado, e.motivo, e.direcao, 'Z-API direta' AS origem
+        e.mensagem, e.tipo::text AS tipo, e.zapi_message_id AS message_id,
+        e.estado::text AS estado, e.motivo, e.direcao::text AS direcao, 'Z-API direta' AS origem
       FROM whatsapp_webhook_eventos e
       UNION ALL
       SELECT 'bot-' || m.id::text AS chave, m.criada_em AS recebido_em,
-        m.telefone, m.mensagem, m.tipo, NULL::text AS message_id,
-        'registrada' AS estado, NULL::text AS motivo, m.direcao, 'Integração anterior' AS origem
+        m.telefone, m.mensagem, m.tipo::text AS tipo, NULL::text AS message_id,
+        'registrada'::text AS estado, NULL::text AS motivo, m.direcao::text AS direcao, 'Integração anterior' AS origem
       FROM bot_mensagens m
       WHERE m.direcao = 'ENTRADA' AND m.zapi_message_id IS NULL
     ) eventos
