@@ -41,6 +41,8 @@ const dashboardPedidosLegadoViewRoutes = require('./src/routes/legado/dashboard-
 const pedidosRelatorioViewRoutes = require('./src/routes/legado/pedidos-relatorio/pedidos-relatorio.view.routes');
 
 const botAutonomiaService = require('./src/services/bot/botAutonomia.services');
+const whatsappControle = require('./src/services/whatsapp/central-controle.service');
+const whatsappCentralRoutes = require('./src/routes/whatsapp/central-controle.routes');
 const botAutonomiaRoutes = require('./src/routes/bot/botAutonomia.routes');
 
 const transportadorasRoutes = require('./src/routes/logistica/transportadorasRoutes');
@@ -131,6 +133,8 @@ app.use('/api/avn/health/sync', express.json({ limit: '1mb' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(authRoutes);
+// Identifica o módulo de origem dos envios para aplicar o botão ON/OFF no transporte.
+app.use(whatsappControle.middleware);
 // AVN: aplicativo pessoal de avaliação física (acesso administrativo obrigatório)
 app.use('/api/avn/usuarios', requireAuth, avnUsuarioRoutes);
 app.get('/avn/usuarios', requireAuth, (_req, res) => res.sendFile(path.join(__dirname, 'views/avn/usuarios.html')));
@@ -221,6 +225,8 @@ app.use('/api/legado/pedidos-insercao-v2/promocao-posvenda', promocaoPosVendaRou
 app.use('/legado/pedidos-insercao-v2', pedidosInsercaoLegadoV2ViewRoutes);
 app.use('/legado/pedidos-insercao-mobile', pedidosInsercaoMobileViewRoutes);
 app.use('/api/whatsapp', envioWhatsappRoutes);
+// Central administrativa de configuração de envios e monitoramento.
+app.use('/whatsapp/central-controle', whatsappCentralRoutes);
 // Recebimento direto da Z-API: somente registra mensagens, sem respostas automáticas.
 app.use('/api/whatsapp/webhook', zapiWebhookRecebimentoRoutes);
 // Integração de teste: somente administrador autenticado, sem webhooks públicos.
