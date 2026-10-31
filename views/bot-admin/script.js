@@ -13,6 +13,8 @@
   let totalMensagens = 0;
   let autonomiaAtiva = false;
   let intencoesAtivas = [];
+  let monitorCarregando = false;
+  let ultimoMonitor = [];
 
   const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/bot-admin`;
   const BACKOFF = [2000, 5000, 10000];
@@ -40,7 +42,9 @@
   }
 
   function normalizarTelefone(valor) {
-    return String(valor || '').replace(/\D/g, '');
+    const texto = String(valor || '').trim();
+    // Preservar identificadores @lid, pois são a chave original de contato da Z-API.
+    return /^\d+@lid$/i.test(texto) ? texto : texto.replace(/\D/g, '');
   }
 
   function getFiltros() {
@@ -61,6 +65,7 @@
     if (fallbackTimer) return;
     fallbackTimer = setInterval(() => {
       atualizarListaSilenciosa();
+      recarregarMensagensAtivas();
     }, 15000);
   }
 
@@ -87,6 +92,9 @@
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        if (data.tipo === 'webhook_recebido' || data.tipo === 'nova_mensagem') {
+          carregarMonitoramento();
+        }
         if (data.tipo === 'nova_mensagem') {
           atualizarListaSilenciosa();
           if (telefoneAtivo && data.telefone === telefoneAtivo) {
@@ -107,6 +115,80 @@
     ws.onerror = () => {
       ws.close();
     };
+  }
+
+
+  function statusMonitor(msg, erro = false) {
+    const elStatus = el('webhook-status');
+    if (elStatus) {
+      elStatus.textContent = msg;
+      elStatus.style.color = erro ? '#a34037' : '';
+    }
+  }
+
+  async function carregarMonitoramento() {
+    if (monitorCarregando) return;
+    monitorCarregando = true;
+    try {
+      const res = await fetch(`${API}/monitoramento`, { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      ultimoMonitor = Array.isArray(data.dados) ? data.dados : [];
+      const direto = ultimoMonitor.filter(item => item.origem === 'Z-API direta');
+      const ultima = direto[0] || null;
+      const total = estado => direto.filter(item => item.estado === estado).length;
+      const suas = direto.filter(item => item.direcao === 'SAIDA' && item.estado === 'registrada').length;
+      const config = data.webhook_configurado === true;
+      el('monitor-configuracao').textContent = config ? 'Webhook configurado' : 'Webhook sem chave no Render';
+      el('monitor-ultima').textContent = ultima
+        ? 'Último evento direto: ' + formatarData(ultima.recebido_em)
+        : 'Nenhum evento direto registrado';
+      el('monitor-contagens').textContent =
+        `Diretas: ${total('registrada')} · Suas: ${suas} · Duplicadas: ${total('duplicada')} · Ignoradas: ${total('ignorada')} · Erros: ${total('erro')}`;
+      statusMonitor(config ? 'Webhook: configuração pronta' : 'Webhook: falta configurar chave', !config);
+      renderEventosMonitor(direto);
+    } catch (error) {
+      el('monitor-configuracao').textContent = 'Monitor indisponível';
+      el('monitor-ultima').textContent = 'Falha ao consultar os eventos';
+      statusMonitor('Falha ao consultar o webhook', true);
+      const div = el('monitor-eventos-lista');
+      if (div) div.textContent = 'Não foi possível carregar o histórico do webhook.';
+      console.error('[BotAdmin] Monitoramento:', error.message);
+    } finally {
+      monitorCarregando = false;
+    }
+  }
+
+  function renderEventosMonitor(eventos) {
+    const div = el('monitor-eventos-lista');
+    if (!div) return;
+    if (!eventos.length) {
+      div.textContent = 'Nenhuma chamada ao webhook direto registrada até agora.';
+      return;
+    }
+    div.innerHTML = eventos.slice(0, 25).map(item => {
+      const estado = String(item.estado || '');
+      const classe = ['registrada', 'duplicada', 'ignorada', 'erro'].includes(estado) ? estado : '';
+      const direcao = item.direcao === 'SAIDA' ? 'Sua mensagem' : item.direcao === 'ENTRADA' ? 'Recebida' : 'Evento';
+      const descricao = item.mensagem || item.motivo || '';
+      return `<div class="monitor-evento">
+        <time>${esc(formatarData(item.recebido_em))}</time>
+        <span class="evento-numero">${esc(item.telefone || '-')}</span>
+        <span>${esc(direcao)}</span>
+        <span class="monitor-estado ${classe}">${esc(estado)}</span>
+        <span class="evento-texto">${esc(descricao)}</span>
+      </div>`;
+    }).join('');
+  }
+
+  function alternarDetalhesMonitor() {
+    const painel = el('monitor-eventos');
+    const btn = el('monitor-eventos-toggle');
+    const abrir = painel.hasAttribute('hidden');
+    if (abrir) painel.removeAttribute('hidden');
+    else painel.setAttribute('hidden', '');
+    btn.setAttribute('aria-expanded', String(abrir));
+    btn.textContent = abrir ? 'Ocultar detalhes' : 'Detalhes';
   }
 
   function renderBotAutonomia() {
@@ -304,6 +386,7 @@
           title="${esc((conversa.ultima_mensagem || '').slice(0, 120))}"
         >
           <span class="conversa-telefone">${esc(conversa.telefone)}</span>
+          <span class="conversa-preview">${esc(conversa.ultima_mensagem || '')}</span>
         </div>`;
     }).join('');
 
@@ -426,7 +509,9 @@
 
   function buildBolhaHtml(mensagem) {
     const direcao = mensagem.direcao === 'SAIDA' ? 'SAIDA' : 'ENTRADA';
-    const badgeProcessada = mensagem.direcao === 'ENTRADA'
+    const badgeProcessada = mensagem.zapi_message_id
+      ? `<span class="msg-badge badge-processada">Z-API direta · ${direcao === 'SAIDA' ? 'Enviada por você' : 'Recebida'}</span>`
+      : mensagem.direcao === 'ENTRADA'
       ? `<span class="msg-badge ${mensagem.processada_ia ? 'badge-processada' : 'badge-nao-processada'}">${mensagem.processada_ia ? '✓ Processada' : '⏳ Não processada'}</span>`
       : '';
     const badgeIntencao = mensagem.intencao_classificada
@@ -435,7 +520,7 @@
 
     return `
       <div class="bolha bolha-${direcao}">
-        <span>${mensagem.mensagem || ''}</span>
+        <span class="bolha-conteudo">${esc(mensagem.mensagem || '')}</span>
         <div class="bolha-meta">
           <span class="bolha-tipo">${esc(mensagem.tipo || '')}</span>
           <span>${formatarData(mensagem.criada_em)}</span>
@@ -598,6 +683,11 @@
       });
     });
   }
+
+  el('monitor-atualizar').addEventListener('click', carregarMonitoramento);
+  el('monitor-eventos-toggle').addEventListener('click', alternarDetalhesMonitor);
+  setInterval(carregarMonitoramento, 15000);
+  carregarMonitoramento();
 
   el('btn-filtrar').addEventListener('click', () => carregarConversas(1));
   el('btn-classificar').addEventListener('click', classificarIntencao);
