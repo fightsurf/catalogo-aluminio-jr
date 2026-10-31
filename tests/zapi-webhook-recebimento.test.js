@@ -22,6 +22,7 @@ test('aceita texto da Z-API e preserva identificador @lid', () => {
   assert.equal(dados.telefone, '123456789@lid');
   assert.equal(dados.mensagem, '@frete Natal');
   assert.equal(dados.tipo, 'texto');
+  assert.equal(dados.direcao, 'ENTRADA');
   assert.equal(dados.instancia, 'INSTANCIA_TESTE');
   assert.equal(dados.messageId, 'MENSAGEM_123');
 });
@@ -32,8 +33,19 @@ test('reconhece mídia sem executar transcrição ou automações', () => {
   assert.equal(dados.mensagem, 'Áudio recebido');
 });
 
-test('ignora mensagens enviadas pelo próprio número', () => {
-  assert.equal(normalizarMensagem(evento({ fromMe: true })).ignorar, 'nao_e_mensagem_recebida');
+test('registra comandos digitados pelo próprio número como saída', () => {
+  const dados = normalizarMensagem(evento({
+    fromMe: true,
+    messageId: 'MENSAGEM_PROPRIA_1',
+    text: { message: '@frete Fortaleza - CE' }
+  }));
+  assert.equal(dados.direcao, 'SAIDA');
+  assert.equal(dados.mensagem, '@frete Fortaleza - CE');
+  assert.equal(dados.messageId, 'MENSAGEM_PROPRIA_1');
+});
+
+test('ignora quando não sabemos se a mensagem é própria ou recebida', () => {
+  assert.equal(normalizarMensagem(evento({ fromMe: undefined })).ignorar, 'origem_nao_informada');
 });
 
 test('ignora outros webhooks e notificações', () => {
