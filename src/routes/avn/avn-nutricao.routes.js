@@ -427,6 +427,38 @@ async function salvarItensDietaLote(req,res){
  }catch(e){await client.query('ROLLBACK').catch(()=>{});throw e;}finally{client.release();}
 }
 router.post('/dieta/:usuarioId/itens/lote',wrap(salvarItensDietaLote));
+// Troca a posição de dois alimentos vizinhos e salva a sequência no banco.
+// A alteração fica restrita ao perfil ativo da refeição do usuário.
+router.put('/dieta/:usuarioId/itens/:itemId/ordem',wrap(async(req,res)=>{
+ const uid=requiredId(req.params.usuarioId),iid=requiredId(req.params.itemId);await user(uid);
+ const direcao=req.body?.direcao;
+ if(direcao!=='cima'&&direcao!=='baixo')throw bad('Direção inválida.');
+ const db=await pool.connect();
+ try{
+  await db.query('BEGIN');
+  const plano=await activePlan(uid,db);
+  if(!plano)throw bad('Dieta não encontrada.',404);
+  await db.query('SELECT id FROM public.avn_dieta_planos WHERE id=$1 FOR UPDATE',[plano.id]);
+  const atual=await db.query(`SELECT i.perfil_id FROM public.avn_dieta_itens i
+   JOIN public.avn_dieta_refeicao_perfis pf ON pf.id=i.perfil_id AND pf.ativo=TRUE
+   WHERE i.plano_id=$1 AND i.id=$2 AND pf.plano_id=$1 AND pf.refeicao=i.refeicao`,[plano.id,iid]);
+  if(!atual.rowCount)throw bad('Alimento do perfil ativo não encontrado.',404);
+  const perfil=atual.rows[0].perfil_id;
+  const lista=await db.query(`SELECT id FROM public.avn_dieta_itens
+   WHERE plano_id=$1 AND perfil_id=$2 ORDER BY ordem,id FOR UPDATE`,[plano.id,perfil]);
+  const ids=lista.rows.map(row=>String(row.id));
+  const posicao=ids.indexOf(String(iid));
+  if(posicao<0)throw bad('Alimento não encontrado na refeição.',404);
+  const destino=posicao+(direcao==='cima'?-1:1);
+  if(destino<0||destino>=ids.length)throw bad('O alimento já está no limite da refeição.',409);
+  [ids[posicao],ids[destino]]=[ids[destino],ids[posicao]];
+  await db.query(`UPDATE public.avn_dieta_itens AS i SET ordem=o.pos::integer-1
+   FROM unnest($1::bigint[]) WITH ORDINALITY AS o(id,pos)
+   WHERE i.id=o.id AND i.plano_id=$2 AND i.perfil_id=$3`,[ids,plano.id,perfil]);
+  await db.query('COMMIT');
+  res.json({ok:true,ordem:ids});
+ }catch(e){await db.query('ROLLBACK').catch(()=>{});throw e;}finally{db.release();}
+}));
 // Editar/mover item somente dentro do perfil ativo da refeição.
 router.put('/dieta/:usuarioId/itens/:itemId',wrap(async(req,res)=>{
  const uid=requiredId(req.params.usuarioId),iid=requiredId(req.params.itemId);await user(uid);
