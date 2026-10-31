@@ -15,7 +15,8 @@ async function planoAtual(db,uid,lock=false){
 function iguais(a,b){
  if(a.length!==b.length)return false;
  return a.every((i,n)=>String(i.alimento_id)===String(b[n].alimento_id)&&
-  Number(i.quantidade_g)===Number(b[n].quantidade_g)&&Number(i.ordem)===Number(b[n].ordem));
+  Number(i.quantidade_g)===Number(b[n].quantidade_g)&&Number(i.ordem)===Number(b[n].ordem)&&
+  JSON.stringify(i.composicao_100g||{})===JSON.stringify(b[n].composicao_100g||{}));
 }
 router.get('/',wrap(async(req,res)=>{
  const uid=id(req.params.usuarioId);
@@ -108,7 +109,13 @@ router.post('/:fotografiaId/restaurar',wrap(async(req,res)=>{
    pid=p.rows[0].id;
   }
   const perfiles=await db.query('SELECT id,refeicao,nome,recuperado FROM public.avn_dieta_refeicao_perfis WHERE plano_id=$1 ORDER BY id',[pid]);
-  const atuais=await db.query('SELECT perfil_id,alimento_id,quantidade_g,ordem FROM public.avn_dieta_itens WHERE plano_id=$1 ORDER BY perfil_id,ordem,id',[pid]);
+  const atuais=await db.query(`SELECT i.perfil_id,i.alimento_id,i.quantidade_g,i.ordem,
+   COALESCE(i.composicao_100g,jsonb_build_object(
+    'kcal',a.kcal_100g,'proteinas_g',a.proteinas_g_100g,
+    'carboidratos_g',a.carboidratos_g_100g,'gorduras_g',a.gorduras_g_100g,
+    'fibras_g',a.fibras_g_100g,'micros',a.micronutrientes_100g)) AS composicao_100g
+   FROM public.avn_dieta_itens i JOIN public.avn_alimentos a ON a.id=i.alimento_id
+   WHERE i.plano_id=$1 ORDER BY i.perfil_id,i.ordem,i.id`,[pid]);
   const matches=dados.refeicoes.map(r=>{
    const p=perfiles.rows.find(p=>!p.recuperado&&String(p.id)===String(r.perfil_id)&&p.refeicao===r.refeicao);
    const itens=p?atuais.rows.filter(i=>String(i.perfil_id)===String(p.id)):[];
@@ -126,7 +133,7 @@ router.post('/:fotografiaId/restaurar',wrap(async(req,res)=>{
     continue;
    }
    const temp=await db.query(`INSERT INTO public.avn_dieta_refeicao_perfis(plano_id,refeicao,nome,ativo,recuperado)
-    VALUES($1,$2,'Fotografia restaurada',TRUE,TRUE) RETURNING id`,[pid,r.refeicao]);
+    VALUES($1,$2,'__foto_'||substr(md5(random()::text),1,16),TRUE,TRUE) RETURNING id`,[pid,r.refeicao]);
    recuperados++;
    for(const i of r.itens){
     await db.query(`INSERT INTO public.avn_dieta_itens
