@@ -3,6 +3,7 @@
 // Recebimento direto da Z-API. Não executa comandos, fluxos nem envio de mensagens.
 const pool = require('../../../db/connection');
 const botEvents = require('../bot/botEvents');
+const monitor = require('./zapi-webhook-monitor.service');
 
 let schemaPromise;
 
@@ -92,20 +93,34 @@ function normalizarMensagem(payload) {
   return { telefone, instancia, messageId, tipo, mensagem };
 }
 
+async function auditar(payload, dados, estado, motivo) {
+  try {
+    await monitor.registrarEvento({ payload, dados, estado, motivo });
+    botEvents.emit('webhook_recebido', { telefone: dados.telefone || payload?.phone || '' });
+  } catch (error) {
+    // Uma falha do monitor não deve transformar uma mensagem gravada em nova tentativa.
+    console.error('[Webhook Z-API] Erro ao auditar evento:', error.message);
+  }
+}
+
 async function registrar(payload) {
   const dados = normalizarMensagem(payload);
-  if (dados.ignorar) return { salvo: false, motivo: dados.ignorar };
+  if (dados.ignorar) {
+    await auditar(payload, {}, 'ignorada', dados.ignorar);
+    return { salvo: false, motivo: dados.ignorar };
+  }
 
-  // Caso configurado, impede a mistura acidental de instâncias distintas.
   const instanciaPermitida = String(process.env.ZAPI_WEBHOOK_INSTANCE_ID || '').trim();
   if (instanciaPermitida && dados.instancia !== instanciaPermitida) {
+    await auditar(payload, dados, 'ignorada', 'instancia_nao_permitida');
     return { salvo: false, motivo: 'instancia_nao_permitida' };
   }
 
-  await prepararEstrutura();
-  const client = await pool.connect();
   let gravada = false;
+  let client;
   try {
+    await prepararEstrutura();
+    client = await pool.connect();
     await client.query('BEGIN');
     await client.query(`INSERT INTO bot_contatos
        (telefone, criado_em, atualizado_em, fluxo_primeiro_contato_enviado)
@@ -127,13 +142,17 @@ async function registrar(payload) {
     }
     await client.query('COMMIT');
   } catch (error) {
-    await client.query('ROLLBACK').catch(() => {});
+    if (client) await client.query('ROLLBACK').catch(() => {});
+    await auditar(payload, dados, 'erro', 'falha_registro');
     throw error;
   } finally {
-    client.release();
+    if (client) client.release();
   }
 
-  // Somente atualizar o painel; nunca acionar botAutonomia nesta etapa.
+  await auditar(payload, dados, gravada ? 'registrada' : 'duplicada',
+    gravada ? '' : 'message_id_repetido');
+
+  // Atualiza painel e conversa, mas não dispara a IA nem o fluxo de primeiro contato.
   if (gravada) botEvents.emit('nova_mensagem', {
     telefone: dados.telefone, somentePainel: true
   });
