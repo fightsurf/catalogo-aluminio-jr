@@ -7,85 +7,11 @@
   <link rel="stylesheet" href="/bot-admin/style.css" />
 </head>
 <body>
-  <div id="bot-shell">
-    <header class="monitor-header">
-      <div class="monitor-brand">
-        <div class="monitor-icone" aria-hidden="true">JR</div>
-        <div>
-          <h1>WhatsApp · Monitoramento</h1>
-          <p>Alumínio JR · mensagens recebidas no Render</p>
-        </div>
-      </div>
-      <nav class="monitor-tabs" aria-label="Áreas do painel">
-        <button id="aba-monitor" class="monitor-tab selecionada" type="button" aria-selected="true">Recebimentos</button>
-        <button id="aba-conversas" class="monitor-tab" type="button" aria-selected="false">Conversas e atendimento</button>
-      </nav>
-      <div class="monitor-header-actions">
-        <span id="monitor-conexao" class="monitor-conexao">Conectando...</span>
-        <button type="button" id="monitor-atualizar" class="monitor-atualizar">Atualizar</button>
-      </div>
-    </header>
-
-    <section id="monitor-painel" class="monitor-painel" aria-label="Monitor de recebimentos">
-      <div class="monitor-intro">
-        <div>
-          <h2>Mensagens recebidas</h2>
-          <p>Atualização automática. Histórico recente de mensagens registradas e eventos do webhook.</p>
-        </div>
-        <div class="monitor-identificador">
-          <span id="monitor-configuracao" class="monitor-configuracao">Verificando configuração...</span>
-          <small id="monitor-atualizado">Aguardando primeira consulta</small>
-        </div>
-      </div>
-      <div class="monitor-metricas">
-        <div class="monitor-metrica"><span>Eventos exibidos</span><strong id="monitor-total">—</strong></div>
-        <div class="monitor-metrica"><span>Registradas</span><strong id="monitor-registradas">—</strong></div>
-        <div class="monitor-metrica"><span>Duplicadas</span><strong id="monitor-duplicadas">—</strong></div>
-        <div class="monitor-metrica"><span>Ignoradas</span><strong id="monitor-ignoradas">—</strong></div>
-        <div class="monitor-metrica"><span>Erros</span><strong id="monitor-erros">—</strong></div>
-      </div>
-      <div class="monitor-lista-card">
-        <div class="monitor-filtros">
-          <label for="monitor-filtro-telefone">Buscar número ou mensagem
-            <input id="monitor-filtro-telefone" type="search" placeholder="Telefone, @lid ou conteúdo" autocomplete="off" />
-          </label>
-          <label for="monitor-filtro-origem">Origem
-            <select id="monitor-filtro-origem">
-              <option value="">Todas</option>
-              <option value="Z-API direta">Z-API direta</option>
-              <option value="Integração anterior">Integração anterior</option>
-            </select>
-          </label>
-          <label for="monitor-filtro-estado">Situação
-            <select id="monitor-filtro-estado">
-              <option value="">Todas</option>
-              <option value="registrada">Registrada</option>
-              <option value="duplicada">Duplicada</option>
-              <option value="ignorada">Ignorada</option>
-              <option value="erro">Erro</option>
-            </select>
-          </label>
-          <span id="monitor-filtro-contagem" class="monitor-filtro-contagem"></span>
-        </div>
-        <div class="monitor-tabela-wrap">
-          <table class="monitor-tabela">
-            <thead><tr>
-              <th>Recebida em</th><th>Origem</th><th>Remetente</th><th>Tipo</th>
-              <th>Mensagem / motivo</th><th>Situação</th><th>Identificador</th>
-            </tr></thead>
-            <tbody id="monitor-linhas">
-              <tr><td colspan="7" class="monitor-sem-dados">Carregando recebimentos...</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <p class="monitor-rodape">Exibindo até 100 eventos mais recentes do banco. Registros da integração anterior aparecem junto dos novos eventos recebidos diretamente da Z-API.</p>
-      </div>
-    </section>
-
-  <div id="app" class="aba-oculta">
+  <div id="app">
     <aside id="sidebar">
       <div id="sidebar-header">
-        <h2>Telefones</h2>
+        <h2>Conversas do WhatsApp</h2>
+        <span id="webhook-status" class="webhook-status">Conferindo webhook...</span>
       </div>
       <div id="lista-conversas"></div>
       <div id="paginacao-conversas"></div>
@@ -132,11 +58,26 @@
         </div>
       </div>
 
+      <section id="monitor-resumo" class="monitor-resumo" aria-label="Monitor de recebimento">
+        <div class="monitor-resumo-linha">
+          <strong>Recebimento de mensagens</strong>
+          <span id="monitor-configuracao">Conferindo configuração...</span>
+          <span id="monitor-ultima">Último evento: aguardando consulta</span>
+          <span id="monitor-contagens"></span>
+          <button type="button" id="monitor-atualizar">Atualizar</button>
+          <button type="button" id="monitor-eventos-toggle" aria-expanded="false" aria-controls="monitor-eventos">Detalhes</button>
+        </div>
+        <div id="monitor-eventos" hidden>
+          <div class="monitor-eventos-legenda">Últimos eventos do novo webhook. As conversas continuam na coluna esquerda.</div>
+          <div id="monitor-eventos-lista">Carregando eventos...</div>
+        </div>
+      </section>
+
       <div id="chat-mensagens"></div>
       <div id="paginacao-mensagens"></div>
     </main>
   </div>
-  </div><!-- /bot-shell -->
+
 
   <script>
     (function () {
