@@ -295,6 +295,18 @@ body[data-nutricao-pagina="dieta"] .avn-dieta-totais-refeicao>small{display:bloc
 
 body[data-nutricao-pagina="dieta"] .avn-dieta-acoes{display:flex;align-items:center;gap:10px;flex:none}
 body[data-nutricao-pagina="dieta"] .avn-dieta-acoes a{color:#91c2ff;font-size:13px;font-weight:750;text-decoration:underline;text-underline-offset:3px}
+/* Controles por alimento: mantém a ordem da dieta programada gravada no servidor. */
+body[data-nutricao-pagina="dieta"] .avn-dieta-ordenacao{display:inline-flex;align-items:center;gap:4px}
+body[data-nutricao-pagina="dieta"] .avn-dieta-ordenacao button{
+ display:inline-flex;justify-content:center;align-items:center;
+ min-width:32px;min-height:32px;padding:3px 7px;border-radius:8px;
+ background:#273b52;border:1px solid #5d7c9f;color:#e8f3ff;
+ font-size:19px;font-weight:800;line-height:1;cursor:pointer;
+}
+body[data-nutricao-pagina="dieta"] .avn-dieta-ordenacao button:hover:not(:disabled){background:#395976}
+body[data-nutricao-pagina="dieta"] .avn-dieta-ordenacao button:focus-visible{outline:2px solid #a9d3ff;outline-offset:2px}
+body[data-nutricao-pagina="dieta"] .avn-dieta-ordenacao button:disabled{opacity:.36;cursor:not-allowed}
+
 body[data-nutricao-pagina="dieta"] .avn-dieta-edicao{width:100%;display:grid;gap:11px;grid-template-columns:repeat(2,minmax(0,1fr));align-items:end}
 body[data-nutricao-pagina="dieta"] .avn-dieta-edicao .avn-field:first-child{grid-column:1/-1}
 body[data-nutricao-pagina="dieta"] .avn-dieta-edicao .avn-field select,
@@ -443,7 +455,7 @@ body[data-nutricao-pagina="diario"] .avn-dieta-emoji{display:inline-block;margin
 }
 
 
-/* Cabeçalho da Dieta Programada: nome, perfil e os dois botões em UMA única linha.
+/* Cabeçalho da Dieta Programada: nome, perfil e os três botões em UMA única linha.
    Em telas estreitas, a linha rola horizontalmente em vez de quebrar. */
 #listaDieta .avn-dieta-refeicao-cabecalho.avn-dieta-cabecalho-com-perfis{
  display:flex;flex-wrap:nowrap;align-items:center;justify-content:flex-start;
