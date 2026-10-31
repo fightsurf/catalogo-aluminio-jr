@@ -475,3 +475,12 @@ body[data-nutricao-pagina="diario"] .avn-dieta-emoji{display:inline-block;margin
  gap:6px 10px;margin-left:auto;white-space:nowrap;
 }
 #listaDieta .avn-dieta-cabecalho-meta .avn-dia-registrado{font-size:11px}
+
+/* Diário alimentar: abas do modal de registro de consumo. */
+#modalAdicionarDiario .avn-diario-abas{display:flex;gap:8px;margin:18px 0 20px;border-bottom:1px solid #435775}
+#modalAdicionarDiario .avn-diario-abas [role="tab"]{flex:1;min-width:0;padding:11px 9px;border:0;border-bottom:3px solid transparent;border-radius:8px 8px 0 0;background:transparent;color:#bacce2;font-weight:750;text-align:center;cursor:pointer}
+#modalAdicionarDiario .avn-diario-abas [role="tab"][aria-selected="true"]{background:#253c56;color:#fff;border-bottom-color:#81c0ff}
+#modalAdicionarDiario .avn-diario-abas [role="tab"]:focus-visible{outline:2px solid #81c0ff;outline-offset:-2px}
+#modalAdicionarDiario .avn-diario-painel{min-width:0}
+#modalAdicionarDiario .avn-diario-painel .avn-refeicao-planejada{margin:0;padding:0;border:0}
+@media(max-width:520px){#modalAdicionarDiario .avn-diario-abas [role="tab"]{font-size:12px;padding:10px 6px}}
