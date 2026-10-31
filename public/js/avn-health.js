@@ -4,7 +4,7 @@ const defs={peso:['Peso','kg','corporal'],imc:['IMC','kg/m²','corporal'],gordur
 const fixed=document.body.dataset.fixedMetric;const keys=Object.keys(defs).filter(k=>defs[k][2]===section&&(!fixed||k===fixed));let selected=keys[0],users=[];
 const fmt=(n,dp=2)=>Number(n).toLocaleString('pt-BR',{maximumFractionDigits:dp});
 const fmtDate=d=>new Date(d).toLocaleString('pt-BR');
-async function json(url){const r=await fetch(url,{credentials:'same-origin',cache:'no-store'});if(!r.ok)throw Error('Falha ao consultar dados (HTTP '+r.status+').');return r.json();}
+async function json(url,signal){const r=await fetch(url,{credentials:'same-origin',cache:'no-store',signal});if(!r.ok)throw Error('Falha ao consultar dados (HTTP '+r.status+').');return r.json();}
 function createCards(){if(fixed){$('cards').hidden=true;return;}for(const k of keys){const b=document.createElement('button');b.className='metric';b.dataset.metric=k;const t=document.createElement('strong');t.textContent=defs[k][0];const sub=document.createElement('small');sub.textContent=defs[k][1];b.append(t,sub);b.onclick=()=>{selected=k;refresh()};$('cards').append(b);}}
 function draw(rows,unit){
  const area=$('graph');area.replaceChildren();
@@ -105,4 +105,197 @@ if(selected==='passos'){const daily=new Map();for(const r of rows){const d=new D
 display(rows,selected);
 }catch(e){$('message').textContent=e.message;}}
 async function init(){createCards();try{users=await json('/api/avn/usuarios');for(const u of users){const o=document.createElement('option');o.value=u.id;o.textContent=u.nome;$('usuario').append(o);}if(!users.length){$('message').textContent='Nenhum usuário cadastrado.';return;}$('usuario').onchange=refresh;$('dias').onchange=refresh;refresh();}catch(e){$('message').textContent=e.message;}}
-init();})();
+
+/* Comparação entre dois indicadores nos cinco aplicativos individuais de avaliação física. */
+function initCrossing(){
+ const enabled=new Set(['peso','imc','gordura_corporal','massa_magra','massa_ossea']);
+ if(!enabled.has(fixed)||section!=='corporal')return;
+ const available=Object.keys(defs).filter(k=>defs[k][2]==='corporal'&&k!==fixed);
+ const main=defs[fixed],toolbar=document.querySelector('.toolbar');
+ if(!toolbar||!$('usuario')||!$('dias'))return;
+ const button=document.createElement('button');
+ button.id='avn-cross-open';button.type='button';button.className='avn-cross-open';
+ button.textContent='🔀 Cruzar informações';
+ toolbar.append(button);
+ const dialog=document.createElement('dialog');
+ dialog.className='avn-cross-dialog';dialog.setAttribute('aria-labelledby','avn-cross-title');
+ dialog.innerHTML=`
+ <div class="avn-cross-head"><h2 id="avn-cross-title">🔀 Cruzar informações</h2>
+  <button type="button" class="avn-cross-close" aria-label="Fechar comparação">✕</button></div>
+ <p class="avn-cross-help">Indicador principal: <strong id="avn-cross-primary"></strong>. Escolha outro indicador para exibir as duas linhas no mesmo gráfico.</p>
+ <div class="avn-cross-choices" role="group" aria-label="Indicador para cruzamento"></div>
+ <p class="avn-cross-help" id="avn-cross-status" role="status">Selecione um indicador para comparar.</p>
+ <div class="avn-cross-legend" aria-label="Legenda das linhas"></div>
+ <div class="avn-cross-graph" role="img" aria-label="Gráfico comparativo de evolução" hidden></div>
+ <div class="avn-cross-stats" aria-label="Resumo das medições"></div>
+ <p class="avn-cross-help">Cada indicador tem seu próprio eixo vertical e sua unidade. As linhas usam as datas reais, sem inventar medições nos dias vazios; o cruzamento visual não significa igualdade de valores.</p>`;
+ document.querySelector('.shell').append(dialog);
+ dialog.querySelector('#avn-cross-primary').textContent=main[0]+' ('+main[1]+')';
+ const choices=dialog.querySelector('.avn-cross-choices');
+ const status=dialog.querySelector('#avn-cross-status');
+ const chart=dialog.querySelector('.avn-cross-graph');
+ const legend=dialog.querySelector('.avn-cross-legend');
+ const stats=dialog.querySelector('.avn-cross-stats');
+ const close=dialog.querySelector('.avn-cross-close');
+ const palette={peso:'#60a5fa',imc:'#fbbf24',gordura_corporal:'#fb923c',massa_magra:'#34d399',agua_corporal:'#c084fc',massa_ossea:'#f472b6'};
+ let picked='',request=0,controller=null;
+ for(const k of available){
+  const option=document.createElement('label');option.className='avn-cross-option';
+  const radio=document.createElement('input');
+  radio.type='radio';radio.name='avn-cross-secondary';radio.value=k;
+  const dot=document.createElement('i');dot.style.background=palette[k];
+  const name=document.createElement('span');name.textContent=defs[k][0]+' ('+defs[k][1]+')';
+  option.append(radio,dot,name);choices.append(option);
+  radio.addEventListener('change',()=>{picked=k;load();});
+ }
+ const shortDate=t=>new Date(t).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'2-digit'});
+ const svgNS='http://www.w3.org/2000/svg';
+ const svgElement=(parent,tag,attr={},value)=>{
+  const el=document.createElementNS(svgNS,tag);
+  for(const [k,v] of Object.entries(attr))el.setAttribute(k,String(v));
+  if(value!==undefined)el.textContent=value;
+  parent.append(el);return el;
+ };
+ function series(rows){
+  const byDay=new Map();
+  for(const row of rows){
+   const t=new Date(row.data_medicao).getTime(),v=Number(row.valor);
+   if(!Number.isFinite(t)||!Number.isFinite(v))continue;
+   const date=new Intl.DateTimeFormat('sv-SE',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(t));
+   const anchor=Date.parse(date+'T12:00:00-03:00');
+   const old=byDay.get(date);
+   if(!old||t>old.recorded)byDay.set(date,{time:anchor,recorded:t,value:v,original:row.data_medicao});
+  }
+  return [...byDay.values()].sort((a,b)=>a.time-b.time);
+ }
+ function extent(rows){
+  const values=rows.map(r=>r.value),min=Math.min(...values),max=Math.max(...values);
+  const gap=max-min,margin=gap>0?Math.max(gap*.15,.03):Math.max(Math.abs(max)*.015,.2);
+  return {min:min-margin,max:max+margin};
+ }
+ function writeStats(s){
+  const box=document.createElement('div');box.className='avn-cross-stat';
+  box.style.borderLeftColor=s.color;
+  const title=document.createElement('strong');title.textContent=s.name;
+  const description=document.createElement('span'),from=s.rows[0],to=s.rows[s.rows.length-1];
+  const delta=to.value-from.value;
+  description.textContent=fmt(from.value)+' → '+fmt(to.value)+' '+s.unit+' · '+(delta>0?'+':'')+fmt(delta)+' '+s.unit;
+  const dates=document.createElement('small');dates.textContent=shortDate(from.time)+' a '+shortDate(to.time)+' · '+s.rows.length+' dia(s) com medição';
+  box.append(title,description,dates);stats.append(box);
+ }
+ function plot(items){
+  chart.replaceChildren();chart.hidden=false;
+  const W=Math.max(350,Math.round(chart.clientWidth||820)),H=320,L=80,R=80,T=30,B=55;
+  const w=W-L-R,h=H-T-B;
+  const earliest=Math.min(...items.map(s=>s.rows[0].time)),latest=Math.max(...items.map(s=>s.rows[s.rows.length-1].time));
+  const start=earliest===latest?earliest-43200000:earliest,end=earliest===latest?latest+43200000:latest;
+  const x=t=>L+(t-start)/(end-start)*w;
+  for(const s of items){s.bounds=extent(s.rows);s.y=v=>T+(s.bounds.max-v)/(s.bounds.max-s.bounds.min)*h;}
+  const svg=document.createElementNS(svgNS,'svg');
+  svg.setAttribute('viewBox','0 0 '+W+' '+H);
+  svg.setAttribute('aria-label','Evolução de '+items.map(s=>s.name).join(' e '));
+  svg.setAttribute('role','img');
+  const dayValues=new Set();
+  for(let i=0;i<=4;i++){
+   const yy=T+h*i/4;
+   svgElement(svg,'line',{x1:L,x2:W-R,y1:yy,y2:yy,stroke:'#34465f'});
+   for(let j=0;j<2;j++){
+    const s=items[j],tick=s.bounds.max-(s.bounds.max-s.bounds.min)*i/4;
+    svgElement(svg,'text',{x:j?W-R+9:L-9,y:yy+4,'text-anchor':j?'start':'end',fill:s.color,'font-size':11},fmt(tick));
+   }
+  }
+  items.forEach((s,i)=>svgElement(svg,'text',{x:i?W-R:L,y:15,'text-anchor':i?'end':'start',fill:s.color,'font-size':11},s.name+' ('+s.unit+')'));
+  svgElement(svg,'line',{x1:L,x2:L,y1:T,y2:H-B,stroke:'#64748b'});
+  svgElement(svg,'line',{x1:W-R,x2:W-R,y1:T,y2:H-B,stroke:'#64748b'});
+  svgElement(svg,'line',{x1:L,x2:W-R,y1:H-B,y2:H-B,stroke:'#64748b'});
+  for(let i=0;i<=4;i++){
+   const time=start+(end-start)*i/4;
+   svgElement(svg,'text',{x:x(time),y:H-23,'text-anchor':'middle',fill:'#a9b9d1','font-size':11},shortDate(time));
+  }
+  for(const s of items){
+   s.points=s.rows.map(r=>({...r,px:x(r.time),py:s.y(r.value)}));
+   s.lookup=new Map(s.points.map(p=>[p.time,p]));
+   s.points.forEach(p=>dayValues.add(p.time));
+   if(s.points.length>1)svgElement(svg,'polyline',{points:s.points.map(p=>p.px+','+p.py).join(' '),fill:'none',stroke:s.color,'stroke-width':2.7,'stroke-linecap':'round','stroke-linejoin':'round'});
+   for(const p of s.points.length<=160?s.points:[]){
+    const dot=svgElement(svg,'circle',{cx:p.px,cy:p.py,r:3.6,fill:s.color});
+    svgElement(dot,'title',{},fmtDate(p.original)+' · '+s.name+': '+fmt(p.value)+' '+s.unit);
+   }
+  }
+  const days=[...dayValues].sort((a,b)=>a-b);
+  const guide=svgElement(svg,'line',{x1:L,x2:L,y1:T,y2:H-B,stroke:'#d5e4f9','stroke-width':1.2,'stroke-dasharray':'4 4',visibility:'hidden'});
+  const markers=items.map(s=>svgElement(svg,'circle',{r:5.7,stroke:s.color,fill:'#182437','stroke-width':2.4,visibility:'hidden'}));
+  const hit=svgElement(svg,'rect',{x:L,y:T,width:w,height:h,fill:'transparent','pointer-events':'all'});
+  const tip=document.createElement('div');tip.className='graph-tooltip avn-cross-tooltip';tip.hidden=true;
+  chart.append(svg,tip);
+  const hide=()=>{tip.hidden=true;guide.setAttribute('visibility','hidden');markers.forEach(m=>m.setAttribute('visibility','hidden'));};
+  const show=e=>{
+   const rect=svg.getBoundingClientRect();if(!rect.width)return;
+   const px=Math.max(L,Math.min(W-R,(e.clientX-rect.left)*W/rect.width));
+   const target=start+(px-L)/w*(end-start);
+   let a=0,b=days.length-1;
+   while(a<b){const m=(a+b)>>1;if(days[m]<target)a=m+1;else b=m;}
+   const day=a>0&&Math.abs(days[a-1]-target)<Math.abs(days[a]-target)?days[a-1]:days[a];
+   const pxDay=x(day),lines=[shortDate(day)];
+   guide.setAttribute('x1',pxDay);guide.setAttribute('x2',pxDay);guide.setAttribute('visibility','visible');
+   items.forEach((s,i)=>{
+    const p=s.lookup.get(day);
+    if(!p){markers[i].setAttribute('visibility','hidden');return;}
+    markers[i].setAttribute('cx',p.px);markers[i].setAttribute('cy',p.py);markers[i].setAttribute('visibility','visible');
+    lines.push(s.name+': '+fmt(p.value)+' '+s.unit);
+   });
+   tip.textContent=lines.join('\n');tip.hidden=false;
+   tip.style.left=Math.max(4,Math.min(pxDay/W*chart.clientWidth+12,chart.clientWidth-tip.offsetWidth-4))+'px';
+   tip.style.top='5px';
+  };
+  hit.addEventListener('pointermove',show);hit.addEventListener('pointerdown',show);hit.addEventListener('pointerleave',hide);
+ }
+ async function history(metric,user,days,signal){
+  const source=metric==='imc'?'peso':metric;
+  const r=await json('/api/avn/health/usuarios/'+encodeURIComponent(user)+'/historico?metrica='+source+'&dias='+encodeURIComponent(days),signal);
+  const records=Array.isArray(r.registros)?r.registros:[];
+  if(metric!=='imc')return series(records);
+  const profile=users.find(u=>String(u.id)===String(user)),height=Number(profile?.altura_cm)/100;
+  if(!(height>0))throw Error('Cadastre a altura do usuário para calcular o IMC.');
+  return series(records.map(row=>({...row,valor:Number(row.valor)/(height*height)})));
+ }
+ async function load(){
+  const token=++request;
+  if(controller)controller.abort();
+  controller=new AbortController();
+  const user=$('usuario').value,days=$('dias').value;
+  chart.replaceChildren();chart.hidden=true;legend.replaceChildren();stats.replaceChildren();
+  if(!dialog.open)return;
+  if(!picked){status.textContent='Selecione um dos outros indicadores para cruzar informações.';return;}
+  if(!user){status.textContent='Selecione um usuário para consultar as medições.';return;}
+  status.textContent='Carregando medições…';
+  const keys=[fixed,picked];
+  try{
+   const rows=await Promise.all(keys.map(k=>history(k,user,days,controller.signal)));
+   if(token!==request||!dialog.open)return;
+   const items=keys.map((k,i)=>({key:k,name:defs[k][0],unit:defs[k][1],color:palette[k],rows:rows[i]}));
+   for(const s of items){
+    const line=document.createElement('span');line.className='avn-cross-legend-item';
+    const dot=document.createElement('i');dot.style.background=s.color;
+    const name=document.createElement('span');name.textContent=s.name+(s.rows.length?'':' (sem dados)');
+    line.append(dot,name);legend.append(line);
+    if(s.rows.length)writeStats(s);
+   }
+   const missing=items.filter(s=>!s.rows.length);
+   if(missing.length){status.textContent='Sem medições no período para: '+missing.map(s=>s.name).join(', ')+'. Selecione outro período ou indicador.';return;}
+   status.textContent='Duas linhas por data, com escalas independentes (esquerda e direita). Mostrando a última medição de cada dia.';
+   plot(items);
+  }catch(error){
+   if(token!==request||error.name==='AbortError')return;
+   status.textContent=error.message||'Não foi possível carregar as medições.';
+  }
+ }
+ button.addEventListener('click',()=>{dialog.showModal();load();});
+ close.addEventListener('click',()=>dialog.close());
+ dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});
+ dialog.addEventListener('close',()=>{++request;if(controller)controller.abort();});
+ $('usuario').addEventListener('change',()=>{if(dialog.open)load();});
+ $('dias').addEventListener('change',()=>{if(dialog.open)load();});
+}
+
+initCrossing();init();})();
