@@ -502,3 +502,22 @@ body[data-nutricao-pagina="dieta"] .avn-wrap{max-width:1340px}
 body[data-nutricao-pagina="dieta"] #modalEnviarDiario #itensEnvioDiario > .avn-refeicao-item + .avn-refeicao-item{
   margin-top:40px;
 }
+
+/* Modal da Dieta Programada: separar nome/peso e os botões do cabeçalho. */
+body[data-nutricao-pagina="dieta"] #modalEnviarDiario .modal-head{
+  flex-wrap:wrap;
+  gap:12px 16px;
+}
+body[data-nutricao-pagina="dieta"] #modalEnviarDiario .avn-envio-acoes{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:12px;
+}
+body[data-nutricao-pagina="dieta"] #modalEnviarDiario .avn-refeicao-nome > span{
+  display:inline-flex;
+  align-items:baseline;
+  flex-wrap:wrap;
+  column-gap:1ch;
+  row-gap:4px;
+}
