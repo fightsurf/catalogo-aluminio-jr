@@ -1,83 +1,32 @@
+'use strict';
 const pool = require('../../../db/connection');
-const botEvents = require('./botEvents');
-const botFluxoService = require('./botFluxo.services');
+const temporarias = require('../whatsapp/whatsapp-conversas-temporarias.service');
+const botFluxo = require('./botFluxo.services');
 
+// Endpoint legado: mantido, mas sem persistir mensagens.
 async function receberMensagem({ telefone, mensagem, tipo }) {
+  const tel = String(telefone || '').trim();
+  if (!tel) throw new Error('Telefone obrigatório.');
+  let primeiroContato = false;
   const client = await pool.connect();
-  let deveDispararPrimeiroContato = false;
-
   try {
     await client.query('BEGIN');
-
-    // Garante que o contato exista
-    await client.query(
-      `INSERT INTO bot_contatos (
-        telefone,
-        criado_em,
-        atualizado_em,
-        fluxo_primeiro_contato_enviado
-      )
-      VALUES ($1, NOW(), NOW(), false)
-      ON CONFLICT (telefone) DO NOTHING`,
-      [telefone]
-    );
-
-    // Reivindica o direito de disparar o primeiro contato de forma atômica
-    const claimResult = await client.query(
-      `UPDATE bot_contatos
-       SET fluxo_primeiro_contato_enviado = true
-       WHERE telefone = $1
-         AND fluxo_primeiro_contato_enviado = false
-       RETURNING id`,
-      [telefone]
-    );
-
-    if (claimResult.rows.length > 0) {
-      deveDispararPrimeiroContato = true;
-    }
-
-    // Inserir mensagem
-    await client.query(
-      `INSERT INTO bot_mensagens (telefone, mensagem, tipo, direcao, processada_ia, criada_em)
-       VALUES ($1, $2, $3, 'ENTRADA', false, NOW())`,
-      [telefone, mensagem, tipo]
-    );
-
-    // Atualizar ultima_mensagem e atualizado_em
-    await client.query(
-      `UPDATE bot_contatos
-       SET ultima_mensagem = $1, atualizado_em = NOW()
-       WHERE telefone = $2`,
-      [mensagem, telefone]
-    );
-
+    const insercao = await client.query(`INSERT INTO bot_contatos
+      (telefone, criado_em, atualizado_em, fluxo_primeiro_contato_enviado)
+      VALUES ($1, NOW(), NOW(), true)
+      ON CONFLICT (telefone) DO NOTHING RETURNING id`, [tel]);
+    primeiroContato = insercao.rowCount > 0 && /^\d{10,15}$/.test(tel);
+    await client.query('UPDATE bot_contatos SET atualizado_em=NOW() WHERE telefone=$1', [tel]);
     await client.query('COMMIT');
-
-    if (deveDispararPrimeiroContato) {
-      setImmediate(() => {
-        botFluxoService
-          .executarFluxo(telefone, 'PRIMEIRO_CONTATO')
-          .then(resultado => {
-            console.log(`[botPrimeiroContato] fluxo disparado | telefone=${telefone} status=${resultado.status}`);
-          })
-          .catch(err => {
-            console.error(`[botPrimeiroContato] erro ao disparar fluxo | telefone=${telefone}: ${err.message}`);
-          });
-      });
-    }
-
-    botEvents.emit('nova_mensagem', { telefone, mensagem, tipo });
-
-    return {
-      status: 'mensagem_registrada',
-      primeiro_contato: deveDispararPrimeiroContato
-    };
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } finally {
-    client.release();
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally { client.release(); }
+  temporarias.publicar({ telefone: tel, mensagem, tipo, direcao: 'ENTRADA' });
+  if (primeiroContato) {
+    botFluxo.executarFluxo(tel, 'PRIMEIRO_CONTATO').catch(err =>
+      console.error('[Bot] Falha na saudacao de contato novo:', err.message));
   }
+  return { status: 'mensagem_ao_vivo', primeiro_contato: primeiroContato };
 }
-
 module.exports = { receberMensagem };

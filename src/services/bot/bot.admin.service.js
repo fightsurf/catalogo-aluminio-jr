@@ -28,7 +28,7 @@ async function abrirOuCriarConversa({ telefone }) {
          atualizado_em,
          fluxo_primeiro_contato_enviado
        )
-       VALUES ($1, 'Conversa iniciada manualmente pelo admin', NOW(), NOW(), true)
+       VALUES ($1, NULL, NOW(), NOW(), true)
        ON CONFLICT (telefone) DO NOTHING
        RETURNING id, telefone, nome, nivel_atendimento, ultima_mensagem, criado_em, atualizado_em
      )
@@ -97,33 +97,12 @@ async function listarConversas({ page, limit, data_inicio, data_fim, nivel_atend
      LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
     [...params, limitNum, offset]
   );
-  return { dados: result.rows, total, pagina: pageNum, total_paginas: Math.ceil(total / limitNum) };
+  const dados = await require('../whatsapp/whatsapp-cliente-legado.service').enriquecer(result.rows);
+  return { dados, total, pagina: pageNum, total_paginas: Math.ceil(total / limitNum) };
 }
 
-async function listarMensagens({ telefone, page, limit }) {
-  await lidVinculos.prepararEstrutura();
-  const pageNum = Math.max(1, parseInt(page, 10) || 1);
-  const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 50));
-  const offset = (pageNum - 1) * limitNum;
-
-  // Quando o LID foi comprovado, inclui historico antigo sem mover nem apagar mensagens.
-  // O agrupamento evita reunir LIDs conflitantes entre instancias.
-  const filtro = `telefone = $1 OR telefone IN (
-    SELECT lid FROM whatsapp_lid_vinculos
-    GROUP BY lid HAVING COUNT(DISTINCT telefone) = 1 AND MIN(telefone) = $1
-  )`;
-  const countResult = await pool.query(
-    `SELECT COUNT(*) FROM bot_mensagens WHERE ${filtro}`, [telefone]
-  );
-  const total = parseInt(countResult.rows[0].count, 10);
-  const result = await pool.query(
-    `SELECT id, telefone, mensagem, tipo, direcao, processada_ia, intencao_classificada, criada_em, zapi_message_id
-     FROM bot_mensagens WHERE ${filtro}
-     ORDER BY criada_em DESC, id DESC LIMIT $2 OFFSET $3`,
-    [telefone, limitNum, offset]
-  );
-  return { dados: result.rows.reverse(), total };
-}
+// Mensagens existem somente na memoria das telas conectadas por WebSocket.
+async function listarMensagens() { return { dados: [],total:0 }; }
 
 async function criarIndices() {
   await pool.query(

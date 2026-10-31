@@ -535,6 +535,11 @@ botEvents.on('webhook_recebido', () => {
   broadcast({ tipo: 'webhook_recebido' });
 });
 
+// Entrega em tempo real somente aos navegadores conectados, sem histórico no servidor.
+botEvents.on('mensagem_ao_vivo', mensagem => {
+  broadcast({ tipo: 'mensagem_ao_vivo', ...mensagem });
+});
+
 botEvents.on('nova_mensagem', ({ telefone, somentePainel = false }) => {
   broadcast({ tipo: 'nova_mensagem', telefone });
   if (somentePainel) return;
@@ -551,6 +556,8 @@ const avnMigration = require('./src/services/avn/avn-migration.service');
 (async () => {
   try {
     await avnMigration();
+    // Limpeza única e transacional após instalar o recebimento sem persistência.
+    await require('./src/services/whatsapp/whatsapp-limpeza-historico.service').executarUmaVez();
     server.listen(PORT, () => {
       console.log('🟢 Catálogo Alumínio JR rodando na porta', PORT);
       promocaoPosVendaService.iniciarTrabalhador();

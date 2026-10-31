@@ -17,6 +17,20 @@
   let intencoesAtivas = [];
   let monitorCarregando = false;
   let ultimoMonitor = [];
+  // Histórico apenas nesta aba; fechar/recarregar elimina os textos.
+  const mensagensSessao = new Map();
+  function receberAoVivo(dado) {
+    const telefone = normalizarTelefone(dado.telefone);
+    if (!telefone) return;
+    const lista = mensagensSessao.get(telefone) || [];
+    if (dado.zapi_message_id && lista.some(m => m.zapi_message_id === dado.zapi_message_id)) return;
+    lista.push(dado);
+    mensagensSessao.set(telefone, lista);
+    if (telefone === telefoneAtivo) {
+      renderMensagens(lista);
+    }
+  }
+
 
   const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/bot-admin`;
   const BACKOFF = [2000, 5000, 10000];
@@ -96,6 +110,10 @@
         const data = JSON.parse(event.data);
         if (data.tipo === 'webhook_recebido' || data.tipo === 'nova_mensagem') {
           carregarMonitoramento();
+        }
+        if (data.tipo === 'mensagem_ao_vivo') {
+          receberAoVivo(data);
+          atualizarListaSilenciosa();
         }
         if (data.tipo === 'nova_mensagem') {
           atualizarListaSilenciosa();
@@ -382,16 +400,22 @@
     lista.innerHTML = conversas.map((conversa) => {
       const ativa = conversa.telefone === telefoneAtivo ? ' ativa' : '';
       const numero = String(conversa.telefone || '');
-      const ehLid = /^\d+@lid$/i.test(numero);
+      const ehLid = /^\\d+@lid$/i.test(numero);
+      const nome = conversa.cliente_nome || conversa.nome || numero;
+      const local = [conversa.cliente_cidade, conversa.cliente_uf].filter(Boolean).join(' - ');
+      const sessao = mensagensSessao.get(numero) || [];
+      const previa = sessao.length ? sessao[sessao.length - 1].mensagem : '';
       return `
         <div
           class="conversa-item${ativa}"
           data-telefone="${esc(numero)}"
-          title="${esc((conversa.ultima_mensagem || '').slice(0, 120))}"
+          title="${esc(previa.slice(0, 120))}"
         >
           <div class="conversa-dados">
-            <span class="conversa-telefone">${esc(numero)}</span>
-            <span class="conversa-preview">${esc(conversa.ultima_mensagem || '')}</span>
+            <span class="conversa-telefone">${esc(nome)}</span>
+            ${local ? `<span class="conversa-preview">${esc(local)}</span>` : ''}
+            ${nome !== numero ? `<span class="conversa-numero">${esc(numero)}</span>` : ''}
+            ${previa ? `<span class="conversa-preview">${esc(previa.slice(0, 120))}</span>` : ''}
           </div>
           ${ehLid ? '<small class="lid-pendente">Número não confirmado</small>' : ''}
         </div>`;
@@ -485,46 +509,19 @@
     }
   }
 
-  async function carregarMensagens(telefone, pagina) {
+  async function carregarMensagens(telefone, pagina = 1) {
     const versao = ++versaoCarregamentoMensagens;
     paginaMensagens = pagina;
-    const qs = buildQuery({ page: pagina, limit: LIMIT_MENSAGENS });
-
-    try {
-      const res = await fetch(`${API}/mensagens/${encodeURIComponent(telefone)}?${qs}`);
-      if (!res.ok) throw new Error('Erro ao carregar mensagens');
-      const data = await res.json();
-      // Não renderizar respostas de outra conversa ou página.
-      if (versao !== versaoCarregamentoMensagens || telefone !== telefoneAtivo) return;
-      totalMensagens = data.total || 0;
-      renderMensagens(data.dados || []);
-      renderPaginacaoMensagens(telefone, pagina, totalMensagens);
-    } catch (err) {
-      if (versao !== versaoCarregamentoMensagens || telefone !== telefoneAtivo) return;
-      el('chat-mensagens').innerHTML = `<p class="msg-vazia">Erro: ${esc(err.message)}</p>`;
-    }
+    if (telefone !== telefoneAtivo || versao !== versaoCarregamentoMensagens) return;
+    const mensagens = mensagensSessao.get(telefone) || [];
+    totalMensagens = mensagens.length;
+    renderMensagens(mensagens);
+    el('paginacao-mensagens').innerHTML = '<span>Mensagens desta sessão: ' + totalMensagens + '</span>';
   }
 
   async function recarregarMensagensAtivas() {
     if (!telefoneAtivo) return;
-    const telefone = telefoneAtivo;
-    const pagina = paginaMensagens;
-    const versao = ++versaoAtualizacaoMensagens;
-    const versaoAbertura = versaoCarregamentoMensagens;
-    const container = el('chat-mensagens');
-    const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 120;
-
-    try {
-      const qs = buildQuery({ page: pagina, limit: LIMIT_MENSAGENS });
-      const res = await fetch(`${API}/mensagens/${encodeURIComponent(telefone)}?${qs}`);
-      if (!res.ok) return;
-      const data = await res.json();
-      if (versao !== versaoAtualizacaoMensagens || telefone !== telefoneAtivo ||
-          pagina !== paginaMensagens || versaoAbertura !== versaoCarregamentoMensagens) return;
-      totalMensagens = data.total || 0;
-      renderMensagensSilencioso(data.dados || [], nearBottom);
-      renderPaginacaoMensagens(telefone, pagina, totalMensagens);
-    } catch (_) {}
+    renderMensagens(mensagensSessao.get(telefoneAtivo) || []);
   }
 
   function buildBolhaHtml(mensagem) {
@@ -568,7 +565,7 @@
     const container = el('chat-mensagens');
     if (!mensagens.length) {
       container.innerHTML = telefoneAtivo
-        ? '<p class="msg-vazia">Conversa iniciada. Selecione uma intenção e clique em Executar.</p>'
+        ? '<p class="msg-vazia">Nenhuma mensagem nesta sessão. As mensagens não são armazenadas.</p>'
         : '<p class="msg-vazia">Nenhuma mensagem encontrada para este número.</p>';
       return;
     }
