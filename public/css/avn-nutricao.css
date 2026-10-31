@@ -572,3 +572,16 @@ body[data-nutricao-pagina="dieta"] .avn-dieta-pesagem button:focus-visible{outli
 body[data-nutricao-pagina="dieta"] .avn-dieta-pesagem button:disabled{opacity:.4;cursor:not-allowed}
 /* Mesmo tamanho e peso do título de refeição nas duas páginas. */
 body[data-nutricao-pagina="diario"] #listaDiario .avn-dieta-refeicao-cabecalho h4{font-size:20px;font-weight:800;line-height:1.3;color:#ecf4ff}
+
+/* Metas acompanham a rolagem sem alterar os cartões originais. */
+body[data-nutricao-pagina="dieta"] #resumoDieta,
+body[data-nutricao-pagina="diario"] #resumoDiario{
+ position:sticky;
+ top:0;
+ z-index:20;
+ background:var(--bg);
+}
+@media print{
+ body[data-nutricao-pagina="dieta"] #resumoDieta,
+ body[data-nutricao-pagina="diario"] #resumoDiario{position:static}
+}
