@@ -298,7 +298,12 @@ async function ensureMealProfile(db,planoId,ref){
  await db.query(`INSERT INTO public.avn_dieta_refeicao_perfis(plano_id,refeicao,nome,ativo)
  VALUES ($1,$2,'Original',TRUE) ON CONFLICT DO NOTHING`,[planoId,ref]);
  const atual=await db.query('SELECT id FROM public.avn_dieta_refeicao_perfis WHERE plano_id=$1 AND refeicao=$2 AND ativo LIMIT 1',[planoId,ref]);
- if(!atual.rowCount)throw bad('Não foi possível ativar o perfil da refeição.',409);
+ if(!atual.rowCount){
+  const existente=await db.query('SELECT id FROM public.avn_dieta_refeicao_perfis WHERE plano_id=$1 AND refeicao=$2 AND NOT recuperado ORDER BY id LIMIT 1',[planoId,ref]);
+  if(!existente.rowCount)throw bad('Não foi possível ativar o perfil da refeição.',409);
+  await db.query('UPDATE public.avn_dieta_refeicao_perfis SET ativo=TRUE WHERE id=$1',[existente.rows[0].id]);
+  return existente.rows[0].id;
+ }
  return atual.rows[0].id;
 }
 async function lockPlan(db,uid){
@@ -539,7 +544,7 @@ router.post('/diario/:usuarioId/registrar-refeicao',wrap(async(req,res)=>{
   const plano=await activePlan(uid,db);
   if(!plano)throw bad('Não existe uma dieta programada ativa.');
   const {rows}=await db.query(
-   `SELECT i.id,i.alimento_id,a.nome AS alimento_nome,
+   `SELECT i.id,i.alimento_id,i.composicao_100g,a.nome AS alimento_nome,
     a.kcal_100g,a.proteinas_g_100g,a.carboidratos_g_100g,
     a.gorduras_g_100g,a.fibras_g_100g,a.micronutrientes_100g
     FROM public.avn_dieta_itens i
@@ -559,7 +564,7 @@ router.post('/diario/:usuarioId/registrar-refeicao',wrap(async(req,res)=>{
       (usuario_id,data_consumo,refeicao,alimento_id,alimento_nome,quantidade_g,composicao_100g,plano_item_id)
       VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,$8)
       ON CONFLICT DO NOTHING RETURNING id`,
-    [uid,data,ref,f.alimento_id,f.alimento_nome,item.q,JSON.stringify(nutritionOf(f)),item.pid]);
+    [uid,data,ref,f.alimento_id,f.alimento_nome,item.q,JSON.stringify(f.composicao_100g||nutritionOf(f)),item.pid]);
    inseridos+=result.rowCount;
   }
   await db.query('COMMIT');
