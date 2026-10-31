@@ -172,7 +172,7 @@ async function carregarTransportadoras() {
   dados.forEach(t => {
     const item = document.createElement('div');
     item.className = 'transportadora-item';
-    item.innerText = t.nome;
+    item.innerText = t.cidade_nome ? `${t.nome} - ${t.cidade_nome}` : t.nome;
     item.onclick = () => selecionarTransportadora(t);
 
     if (transportadoraSelecionada?.id === t.id) {
