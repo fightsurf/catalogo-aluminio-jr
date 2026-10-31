@@ -94,6 +94,7 @@ const pedidosInsercaoMobileViewRoutes = require('./src/routes/legado/pedidos-ins
 const malaDiretaRoutes = require('./src/routes/mala-direta/mala-direta.routes');
 const malaDiretaService = require('./src/services/mala-direta/mala-direta.service');
 const envioWhatsappRoutes = require('./src/routes/whatsapp/envio-whatsapp.routes');
+const zapiWebhookRecebimentoRoutes = require('./src/routes/whatsapp/zapi-webhook-recebimento.routes');
 const elevenlabsJrRoutes = require('./src/routes/whatsapp/elevenlabs-jr.routes');
 const envioWhatsappViewRoutes = require('./src/routes/whatsapp/envio-whatsapp.view.routes');
 const statusWhatsappRoutes = require('./src/routes/whatsapp/status-whatsapp.routes');
@@ -123,6 +124,7 @@ app.set('trust proxy', 1);
 // 🔧 MIDDLEWARES
 // =====================================================
 app.use('/api/whatsapp/mala-direta', express.json({ limit: '4mb' }));
+app.use('/api/whatsapp/webhook', express.json({ limit: '1mb' }));
 // Health Connect: lotes do sincronizador podem ultrapassar o limite JSON padrão (100 KB).
 // Aplicar o limite ampliado somente à API de sincronização, antes do parser global.
 app.use('/api/avn/health/sync', express.json({ limit: '1mb' }));
@@ -219,6 +221,8 @@ app.use('/api/legado/pedidos-insercao-v2/promocao-posvenda', promocaoPosVendaRou
 app.use('/legado/pedidos-insercao-v2', pedidosInsercaoLegadoV2ViewRoutes);
 app.use('/legado/pedidos-insercao-mobile', pedidosInsercaoMobileViewRoutes);
 app.use('/api/whatsapp', envioWhatsappRoutes);
+// Recebimento direto da Z-API: somente registra mensagens, sem respostas automáticas.
+app.use('/api/whatsapp/webhook', zapiWebhookRecebimentoRoutes);
 // Integração de teste: somente administrador autenticado, sem webhooks públicos.
 app.use('/api/whatsapp/elevenlabs-jr', requireAuth, elevenlabsJrRoutes);
 app.get('/whatsapp/elevenlabs-jr', requireAuth, (req,res) => res.sendFile(path.join(__dirname, 'views/whatsapp/elevenlabs-jr.html')));
@@ -517,8 +521,9 @@ function broadcast(data) {
   });
 }
 
-botEvents.on('nova_mensagem', ({ telefone }) => {
+botEvents.on('nova_mensagem', ({ telefone, somentePainel = false }) => {
   broadcast({ tipo: 'nova_mensagem', telefone });
+  if (somentePainel) return;
 
   botAutonomiaService
     .processarTelefoneAutonomamente({ telefone, porta: PORT })
