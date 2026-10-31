@@ -573,6 +573,16 @@ body[data-nutricao-pagina="dieta"] .avn-dieta-pesagem button:disabled{opacity:.4
 /* Mesmo tamanho e peso do título de refeição nas duas páginas. */
 body[data-nutricao-pagina="diario"] #listaDiario .avn-dieta-refeicao-cabecalho h4{font-size:20px;font-weight:800;line-height:1.3;color:#ecf4ff}
 
+/* Dieta: comandos abaixo das metas e separação visual preservada durante a rolagem.
+   O espaço inferior fica dentro do elemento sticky, não em uma margem transparente. */
+body[data-nutricao-pagina="dieta"] .avn-dieta-comandos{
+  margin:0 0 16px;
+}
+body[data-nutricao-pagina="dieta"] #resumoDieta{
+  padding-bottom:18px;
+  margin-bottom:0;
+}
+
 /* Metas acompanham a rolagem sem alterar os cartões originais. */
 body[data-nutricao-pagina="dieta"] #resumoDieta,
 body[data-nutricao-pagina="diario"] #resumoDiario{
