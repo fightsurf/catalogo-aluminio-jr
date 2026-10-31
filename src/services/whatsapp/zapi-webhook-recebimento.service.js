@@ -4,6 +4,7 @@
 const pool = require('../../../db/connection');
 const botEvents = require('../bot/botEvents');
 const monitor = require('./zapi-webhook-monitor.service');
+const vinculos = require('./zapi-lid-vinculos.service');
 
 let schemaPromise;
 
@@ -114,6 +115,14 @@ async function registrar(payload) {
   if (instanciaPermitida && dados.instancia !== instanciaPermitida) {
     await auditar(payload, dados, 'ignorada', 'instancia_nao_permitida');
     return { salvo: false, motivo: 'instancia_nao_permitida' };
+  }
+
+  // Concilia com o numero verdadeiro apenas se houver vinculo comprovado.
+  // Nao interrompe o registro de mensagens caso a verificacao falhe.
+  try {
+    dados.telefone = await vinculos.resolverRecebimento(payload);
+  } catch (e) {
+    console.error('[Webhook Z-API] Falha ao conferir identificador LID:', e.message);
   }
 
   let gravada = false;
