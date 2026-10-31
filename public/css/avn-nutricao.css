@@ -562,3 +562,13 @@ body[data-nutricao-pagina="diario"] #resumoDiario .avn-meta-excedida .avn-dieta-
 .avn-fotografia-linha small{display:block;color:var(--muted);font-size:12px;margin-top:4px}
 .avn-fotografia-acoes{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 @media(max-width:600px){.avn-fotografia-acoes{width:100%}.avn-fotografia-acoes button{flex:1}}
+
+/* Ajuste de pesagem da Dieta Programada sem abrir modal ou recarregar a página. */
+body[data-nutricao-pagina="dieta"] .avn-dieta-pesagem{display:flex;flex-wrap:wrap;align-items:center;gap:5px;margin-top:2px;font-size:12px}
+body[data-nutricao-pagina="dieta"] .avn-dieta-pesagem small{margin-right:3px;font-size:inherit}
+body[data-nutricao-pagina="dieta"] .avn-dieta-pesagem button{display:inline-flex;align-items:center;justify-content:center;min-width:22px;min-height:22px;padding:1px 5px;border:1px solid #5d7c9f;border-radius:5px;background:#273b52;color:#eff6ff;font-size:inherit;font-weight:750;line-height:1}
+body[data-nutricao-pagina="dieta"] .avn-dieta-pesagem button:hover:not(:disabled){background:#395976}
+body[data-nutricao-pagina="dieta"] .avn-dieta-pesagem button:focus-visible{outline:2px solid #a9d3ff;outline-offset:2px}
+body[data-nutricao-pagina="dieta"] .avn-dieta-pesagem button:disabled{opacity:.4;cursor:not-allowed}
+/* Mesmo tamanho e peso do título de refeição nas duas páginas. */
+body[data-nutricao-pagina="diario"] #listaDiario .avn-dieta-refeicao-cabecalho h4{font-size:20px;font-weight:800;line-height:1.3;color:#ecf4ff}
