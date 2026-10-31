@@ -3,7 +3,7 @@ const http = require('http');
 const path = require('path');
 const { WebSocketServer, WebSocket } = require('ws');
 const botEvents = require('./src/services/bot/botEvents');
-const { authRoutes, requireAuth } = require('./src/middlewares/adminAuth.middleware');
+const { authRoutes, requireAuth, isAuthenticated } = require('./src/middlewares/adminAuth.middleware');
 const avnUsuarioRoutes = require('./src/routes/avn/avn-usuario.routes');
 const avnSistemaRoutes = require('./src/routes/avn/avn-sistema.routes');
 const avnHealthRoutes = require('./src/routes/avn/avn-health.routes');
@@ -257,9 +257,9 @@ app.use('/bot', botIntencoesRoutes);
 app.use('/bot', classificadorIntencaoRoutes);
 app.use('/bot/fluxo', botFluxoRoutes);
 
-app.use('/bot-admin', express.static(path.join(__dirname, 'views', 'bot-admin')));
+app.use('/bot-admin', requireAuth, express.static(path.join(__dirname, 'views', 'bot-admin')));
 
-app.get('/bot/admin', (req, res) => {
+app.get('/bot/admin', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'bot-admin', 'index.html'));
 });
 
@@ -499,7 +499,11 @@ mirianSchemaService.criarEstrutura().catch(err =>
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: '/ws/bot-admin' });
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
+  if (!isAuthenticated(req)) {
+    ws.close(1008, 'Sessão administrativa obrigatória');
+    return;
+  }
   ws.isAlive = true;
   ws.on('pong', () => { ws.isAlive = true; });
 });
@@ -520,6 +524,10 @@ function broadcast(data) {
     if (ws.readyState === WebSocket.OPEN) ws.send(msg);
   });
 }
+
+botEvents.on('webhook_recebido', () => {
+  broadcast({ tipo: 'webhook_recebido' });
+});
 
 botEvents.on('nova_mensagem', ({ telefone, somentePainel = false }) => {
   broadcast({ tipo: 'nova_mensagem', telefone });
