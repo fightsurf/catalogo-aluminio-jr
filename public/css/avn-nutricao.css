@@ -276,10 +276,10 @@ body[data-nutricao-pagina="dieta"] .receita-importador button:disabled{opacity:.
 @media(max-width:720px){body[data-nutricao-pagina="dieta"] .receita-importador .importador-item{grid-template-columns:auto minmax(0,1fr)}body[data-nutricao-pagina="dieta"] .receita-importador .campo-peso{grid-column:2}}
 
 /* Dieta Programada: refeições organizadas em subpainéis, mantendo o tema noturno. */
-body[data-nutricao-pagina="dieta"] #listaDieta{display:grid;gap:13px}
+body[data-nutricao-pagina="dieta"] #listaDieta{display:grid;gap:28px}
 body[data-nutricao-pagina="dieta"] .avn-dieta-refeicao{padding:13px;background:#111d30;border:1px solid #3b5069;border-radius:12px;min-width:0}
 body[data-nutricao-pagina="dieta"] .avn-dieta-refeicao-cabecalho{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 12px;padding-bottom:10px}
-body[data-nutricao-pagina="dieta"] .avn-dieta-refeicao-cabecalho h4{margin:0;font-size:15px;color:#ecf4ff}
+body[data-nutricao-pagina="dieta"] .avn-dieta-refeicao-cabecalho h4{margin:0;font-size:20px;font-weight:800;line-height:1.3;color:#ecf4ff}
 body[data-nutricao-pagina="dieta"] .avn-dieta-refeicao-cabecalho span{color:#b8c9df;font-size:12px}
 body[data-nutricao-pagina="dieta"] .avn-dieta-refeicao-itens{display:grid;gap:7px}
 body[data-nutricao-pagina="dieta"] .avn-dieta-linha{background:#1a2a3f;border-color:#394e66;gap:10px;flex-wrap:wrap;min-width:0}
@@ -328,8 +328,7 @@ body[data-nutricao-pagina="alimentos"] .avn-food-row .delete{padding:8px}
 @media(max-width:600px){body[data-nutricao-pagina="alimentos"] .avn-alimento-modal{padding:14px}body[data-nutricao-pagina="alimentos"] .avn-food-row{align-items:flex-start;flex-wrap:wrap}body[data-nutricao-pagina="alimentos"] .avn-food-actions{width:100%;justify-content:flex-end}}
 
 /* Dieta padrão e diário limpos: os editores ficam em modais e gráficos por refeição. */
-body[data-nutricao-pagina="diario"] #listaDiario,
-body[data-nutricao-pagina="dieta"] #listaDieta{display:grid;gap:14px}
+body[data-nutricao-pagina="diario"] #listaDiario{display:grid;gap:14px}
 #listaDiario .avn-dieta-refeicao,#listaDieta .avn-dieta-refeicao{
  border:1px solid var(--line);border-radius:12px;padding:12px;min-width:0
 }
