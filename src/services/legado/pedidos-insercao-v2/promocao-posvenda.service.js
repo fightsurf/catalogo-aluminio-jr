@@ -173,6 +173,8 @@ async function agendar(dados, usuario) {
   } catch (e) { if (e.code === '23505') throw erro('Já existe uma oferta programada para este pedido.', 409); throw e; }
 }
 async function processarProximo() {
+  // Não retirar agendamentos da fila enquanto a promoção estiver OFF.
+  if (!await require('../../whatsapp/central-controle.service').ativo('promocao_posvenda')) return;
   await preparar();
   await pool.query([
     "UPDATE pedido_promocoes_posvenda SET status='incerto',",
@@ -201,9 +203,10 @@ async function processarProximo() {
     if (!p.audio_mp3 || !p.voz_id || !p.modelo_id) {
       throw erro('Oferta sem áudio preparado: conferir antes de enviar.', 409);
     }
-    await zapi.enviarImagem({ telefone: p.telefone, imagem: p.imagem, legenda: p.mensagem }, { timeoutMs: 60000 });
+    await zapi.enviarImagem({ telefone: p.telefone, imagem: p.imagem, legenda: p.mensagem }, { timeoutMs: 60000, funcionalidade: 'promocao_posvenda' });
     await pool.query('UPDATE pedido_promocoes_posvenda SET imagem_aceita_em=NOW(),atualizado_em=NOW() WHERE id=$1', [p.id]);
-    await eleven.enviarAudio({bytes:p.audio_mp3,voz:p.voz_id,modelo:p.modelo_id,caracteres:p.mensagem.length},p.telefone);
+    await require('../../whatsapp/central-controle.service').comFuncionalidade('promocao_posvenda',
+      () => eleven.enviarAudio({bytes:p.audio_mp3,voz:p.voz_id,modelo:p.modelo_id,caracteres:p.mensagem.length},p.telefone));
     await pool.query("UPDATE pedido_promocoes_posvenda SET status='enviado',audio_aceito_em=NOW(),enviado_em=NOW(),atualizado_em=NOW() WHERE id=$1", [p.id]);
   } catch (e) {
     console.error('[promocao-posvenda] Envio incerto do pedido', p.pedido_ref, e.message);
