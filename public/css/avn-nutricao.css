@@ -521,3 +521,17 @@ body[data-nutricao-pagina="dieta"] #modalEnviarDiario .avn-refeicao-nome > span{
   column-gap:1ch;
   row-gap:4px;
 }
+
+/* Diário alimentar: separar valores de energia, proteínas, carboidratos, gorduras e fibras. */
+body[data-nutricao-pagina="diario"] #listaDiario .avn-dieta-macros-inline{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:4px 14px;
+  margin-top:4px;
+  font-size:12px;
+  line-height:1.5;
+}
+body[data-nutricao-pagina="diario"] #listaDiario .avn-dieta-macros-inline > span{
+  white-space:nowrap;
+}
