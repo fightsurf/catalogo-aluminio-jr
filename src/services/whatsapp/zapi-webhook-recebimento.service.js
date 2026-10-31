@@ -133,7 +133,7 @@ async function registrar(payload) {
         (telefone, criado_em, atualizado_em, fluxo_primeiro_contato_enviado)
         VALUES ($1, NOW(), NOW(), true)
         ON CONFLICT (telefone) DO NOTHING RETURNING id`, [dados.telefone]);
-      contatoNovo = result.rowCount > 0 && /^\\d{10,15}$/.test(dados.telefone);
+      contatoNovo = result.rowCount > 0 && /^\d{10,15}$/.test(dados.telefone);
       // Não gravar ultima_mensagem nem conteúdo em bot_mensagens.
       await pool.query('UPDATE bot_contatos SET atualizado_em=NOW() WHERE telefone=$1', [dados.telefone]);
     }
