@@ -4,6 +4,7 @@
 const pool = require('../../../db/connection');
 const botEvents = require('../bot/botEvents');
 const monitor = require('./zapi-webhook-monitor.service');
+const mapeamentoLid = require('./zapi-lid-mapeamento.service');
 
 let schemaPromise;
 
@@ -90,7 +91,11 @@ function normalizarMensagem(payload) {
 
   mensagem = textoLimitado(mensagem);
   if (!mensagem) return { ignorar: 'conteudo_vazio' };
-  return { telefone, instancia, messageId, tipo, mensagem, direcao: payload.fromMe ? 'SAIDA' : 'ENTRADA' };
+  return {
+    telefone, instancia, messageId, tipo, mensagem,
+    direcao: payload.fromMe ? 'SAIDA' : 'ENTRADA',
+    lid: mapeamentoLid.identificarLid(payload)
+  };
 }
 
 async function auditar(payload, dados, estado, motivo) {
@@ -114,6 +119,15 @@ async function registrar(payload) {
   if (instanciaPermitida && dados.instancia !== instanciaPermitida) {
     await auditar(payload, dados, 'ignorada', 'instancia_nao_permitida');
     return { salvo: false, motivo: 'instancia_nao_permitida' };
+  }
+
+  // Preservar o recebimento mesmo se o mecanismo opcional de associação LID falhar.
+  try {
+    dados.telefone = await mapeamentoLid.resolverTelefone({
+      instancia: dados.instancia, telefone: dados.telefone, lid: dados.lid
+    });
+  } catch (error) {
+    console.error('[Webhook Z-API] Não foi possível associar LID ao telefone:', error.message);
   }
 
   let gravada = false;
