@@ -11,6 +11,8 @@
   let telefoneAtivo = null;
   let paginaMensagens = 1;
   let totalMensagens = 0;
+  let versaoCarregamentoMensagens = 0;
+  let versaoAtualizacaoMensagens = 0;
   let autonomiaAtiva = false;
   let intencoesAtivas = [];
   let monitorCarregando = false;
@@ -391,56 +393,13 @@
             <span class="conversa-telefone">${esc(numero)}</span>
             <span class="conversa-preview">${esc(conversa.ultima_mensagem || '')}</span>
           </div>
-          ${ehLid
-            ? '<small class="lid-pendente">Número não confirmado</small>'
-            : `<button type="button" class="btn-conferir-lid" data-telefone="${esc(numero)}" title="Consultar o LID deste número na Z-API">Conferir LID</button>`}
+          ${ehLid ? '<small class="lid-pendente">Número não confirmado</small>' : ''}
         </div>`;
     }).join('');
 
     lista.querySelectorAll('.conversa-item').forEach((item) => {
       item.addEventListener('click', () => abrirConversa(item.dataset.telefone));
     });
-    lista.querySelectorAll('.btn-conferir-lid').forEach((botao) => {
-      botao.addEventListener('click', (event) => {
-        event.stopPropagation();
-        conferirLid(botao);
-      });
-    });
-  }
-
-  async function conferirLid(botao) {
-    const telefone = botao.dataset.telefone;
-    if (!/^\d{10,15}$/.test(telefone)) return;
-    botao.disabled = true;
-    const anterior = botao.textContent;
-    botao.textContent = 'Consultando...';
-    try {
-      const res = await fetch(`${API}/conversas/conferir-lid`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ telefone })
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.message || 'Erro na consulta do LID');
-      if (data.vinculado) {
-        alert('LID confirmado pela Z-API. As mensagens serão reunidas na mesma conversa.');
-      } else if (data.motivo === 'lid_nao_disponivel') {
-        alert('A Z-API confirmou o telefone, mas ainda não informou o LID.');
-      } else if (data.motivo === 'conflito_de_identidade') {
-        alert('Há conflito no vínculo entre LID e telefone. Nenhuma conversa foi mesclada.');
-      } else if (data.motivo === 'telefone_divergente') {
-        alert('O telefone retornado pela Z-API é diferente. Nenhuma associação foi criada.');
-      } else {
-        alert('Não foi possível confirmar um LID para esse número.');
-      }
-      await atualizarListaSilenciosa();
-      if (telefoneAtivo === telefone) await recarregarMensagensAtivas();
-    } catch (error) {
-      alert(error.message || 'Falha ao consultar o LID.');
-    } finally {
-      botao.disabled = false;
-      botao.textContent = anterior;
-    }
   }
 
     function renderPaginacaoConversas(pagina, totalPaginas, total) {
@@ -465,6 +424,8 @@
     if (!telefoneNormalizado) return;
 
     telefoneAtivo = telefoneNormalizado;
+    // Descarta atualizações pendentes da conversa anterior.
+    versaoAtualizacaoMensagens += 1;
     paginaMensagens = 1;
     atualizarTituloConversa();
     marcarConversaAtivaNaLista();
@@ -478,6 +439,7 @@
     }
 
     el('chat-mensagens').innerHTML = '<p class="msg-carregando">Carregando mensagens...</p>';
+    el('chat-mensagens').scrollTop = 0;
     el('paginacao-mensagens').innerHTML = '';
 
     await carregarMensagens(telefoneNormalizado, 1);
@@ -524,6 +486,7 @@
   }
 
   async function carregarMensagens(telefone, pagina) {
+    const versao = ++versaoCarregamentoMensagens;
     paginaMensagens = pagina;
     const qs = buildQuery({ page: pagina, limit: LIMIT_MENSAGENS });
 
@@ -531,27 +494,36 @@
       const res = await fetch(`${API}/mensagens/${encodeURIComponent(telefone)}?${qs}`);
       if (!res.ok) throw new Error('Erro ao carregar mensagens');
       const data = await res.json();
+      // Não renderizar respostas de outra conversa ou página.
+      if (versao !== versaoCarregamentoMensagens || telefone !== telefoneAtivo) return;
       totalMensagens = data.total || 0;
       renderMensagens(data.dados || []);
       renderPaginacaoMensagens(telefone, pagina, totalMensagens);
     } catch (err) {
+      if (versao !== versaoCarregamentoMensagens || telefone !== telefoneAtivo) return;
       el('chat-mensagens').innerHTML = `<p class="msg-vazia">Erro: ${esc(err.message)}</p>`;
     }
   }
 
   async function recarregarMensagensAtivas() {
     if (!telefoneAtivo) return;
+    const telefone = telefoneAtivo;
+    const pagina = paginaMensagens;
+    const versao = ++versaoAtualizacaoMensagens;
+    const versaoAbertura = versaoCarregamentoMensagens;
     const container = el('chat-mensagens');
     const nearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 120;
 
     try {
-      const qs = buildQuery({ page: paginaMensagens, limit: LIMIT_MENSAGENS });
-      const res = await fetch(`${API}/mensagens/${encodeURIComponent(telefoneAtivo)}?${qs}`);
+      const qs = buildQuery({ page: pagina, limit: LIMIT_MENSAGENS });
+      const res = await fetch(`${API}/mensagens/${encodeURIComponent(telefone)}?${qs}`);
       if (!res.ok) return;
       const data = await res.json();
+      if (versao !== versaoAtualizacaoMensagens || telefone !== telefoneAtivo ||
+          pagina !== paginaMensagens || versaoAbertura !== versaoCarregamentoMensagens) return;
       totalMensagens = data.total || 0;
       renderMensagensSilencioso(data.dados || [], nearBottom);
-      renderPaginacaoMensagens(telefoneAtivo, paginaMensagens, totalMensagens);
+      renderPaginacaoMensagens(telefone, pagina, totalMensagens);
     } catch (_) {}
   }
 
@@ -577,6 +549,21 @@
       </div>`;
   }
 
+  // Ao abrir uma conversa, mostrar a última mensagem independentemente
+  // do ponto em que o scroll ficou na conversa anterior.
+  function rolarAteUltimaMensagem() {
+    const container = el('chat-mensagens');
+    const telefone = telefoneAtivo;
+    const versao = versaoCarregamentoMensagens;
+    const posicionar = () => {
+      if (telefone === telefoneAtivo && versao === versaoCarregamentoMensagens && paginaMensagens === 1) {
+        container.scrollTop = container.scrollHeight;
+      }
+    };
+    posicionar();
+    requestAnimationFrame(posicionar);
+  }
+
   function renderMensagens(mensagens) {
     const container = el('chat-mensagens');
     if (!mensagens.length) {
@@ -588,7 +575,7 @@
 
     container.innerHTML = mensagens.map((mensagem) => buildBolhaHtml(mensagem)).join('');
     if (paginaMensagens === 1) {
-      container.scrollTop = container.scrollHeight;
+      rolarAteUltimaMensagem();
     }
   }
 
