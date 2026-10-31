@@ -11,7 +11,7 @@ let refeicaoPerfil=null,perfilOcupado=false;
 function listarPerfis(){
  if(!refeicaoPerfil)return;
  $('tituloPerfisRefeicao').textContent='Perfis · '+nomeRefeicao(refeicaoPerfil);
- const perfis=state.perfis.filter(p=>p.refeicao===refeicaoPerfil);
+ const perfis=state.perfis.filter(p=>p.refeicao===refeicaoPerfil&&!p.recuperado);
  $('listaPerfisRefeicao').innerHTML=perfis.map(p=>
   '<div class="avn-perfil-linha"><span><strong>'+esc(p.nome)+'</strong>'+
   (p.ativo?'<small>Perfil selecionado</small>':'')+'</span><div class="avn-perfil-comandos">'+
@@ -175,9 +175,23 @@ async function confirmarRepeticao(){
  finally{repetindo=false;if($('modalRepetirRefeicao').open)renderRepeticao();}
 }
 if(PAGE==='dieta'){
- $('listaDieta').addEventListener('click',e=>{
+ $('listaDieta').addEventListener('click',async e=>{
   const perfil=e.target.closest('[data-perfis-refeicao]');
   if(perfil){e.preventDefault();abrirPerfis(perfil.dataset.perfisRefeicao);return;}
+  const recuperar=e.target.closest('[data-salvar-perfil-recuperado]');
+  if(recuperar){
+   if(perfilOcupado)return;
+   const nome=prompt('Nome do novo perfil (até 80 caracteres):');
+   if(nome===null)return;
+   if(!nome.trim()||nome.trim().length>80){show('Informe um nome de até 80 caracteres.',true);return;}
+   perfilOcupado=true;
+   try{
+    await send('/dieta/'+state.usuarioId+'/fotografias/perfil-recuperado/'+recuperar.dataset.salvarPerfilRecuperado+'/salvar','POST',{nome:nome.trim()});
+    await loadDiet();
+    show('Refeição salva como novo perfil cadastrado.');
+   }catch(err){show(err.message,true);}finally{perfilOcupado=false;}
+   return;
+  }
   const botao=e.target.closest('[data-enviar-refeicao]');
   if(botao)abrirEnvio(botao.dataset.enviarRefeicao);
  });
