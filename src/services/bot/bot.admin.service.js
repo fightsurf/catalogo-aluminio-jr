@@ -28,7 +28,7 @@ async function abrirOuCriarConversa({ telefone }) {
          atualizado_em,
          fluxo_primeiro_contato_enviado
        )
-       VALUES ($1, 'Conversa iniciada manualmente pelo admin', NOW(), NOW(), true)
+       VALUES ($1, NULL, NOW(), NOW(), true)
        ON CONFLICT (telefone) DO NOTHING
        RETURNING id, telefone, nome, nivel_atendimento, ultima_mensagem, criado_em, atualizado_em
      )
@@ -97,7 +97,8 @@ async function listarConversas({ page, limit, data_inicio, data_fim, nivel_atend
      LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
     [...params, limitNum, offset]
   );
-  return { dados: result.rows, total, pagina: pageNum, total_paginas: Math.ceil(total / limitNum) };
+  const dados = await require('../whatsapp/whatsapp-cliente-legado.service').enriquecer(result.rows);
+  return { dados, total, pagina: pageNum, total_paginas: Math.ceil(total / limitNum) };
 }
 
 // Mensagens existem somente na memoria das telas conectadas por WebSocket.
