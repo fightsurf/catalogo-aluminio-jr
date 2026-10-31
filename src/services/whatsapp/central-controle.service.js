@@ -10,6 +10,10 @@ const CATALOGO = Object.freeze([
   ['envios_geral','Controle geral de envios','Bloqueia qualquer disparo da Z-API pelo Node, inclusive jobs automáticos.','Geral','Todas as telas'],
   ['pedidos_entrada_carrada','Pedido entrou na carrada','Aviso ao cliente ao inserir pedido ou incluir em uma carrada.','Pedidos','Inserção de pedidos / carradas'],
   ['pedidos_saida_carrada','Pedido saiu da carrada','Aviso ao retirar ou transferir pedido de carrada.','Pedidos','Inserção de pedidos / carradas'],
+  ['pedidos_texto','Enviar texto do pedido','Botão "Enviar para WhatsApp" no pedido, em telas web e mobile.','Pedidos','Inserção e consulta de pedidos'],
+  ['pedidos_historico_financeiro','Mensagens financeiras do cliente','Envio do saldo e histórico de pagamentos do cliente.','Pedidos','Pedidos do cliente'],
+  ['pagamentos_mensagens','Mensagens dos pagamentos','Envios manuais relacionados a pagamentos no legado.','Financeiro','Pagamentos (web e mobile)'],
+  ['progresso_mensagem_cliente','Mensagem manual no progresso','Botão de mensagem ao cliente no progresso da carrada.','Produção','Carradas / progresso'],
   ['pedidos_pdf','Enviar pedido em PDF','Botão de envio do PDF do pedido ao cliente.','Pedidos','Consulta e inserção de pedidos'],
   ['pedidos_fotos','Fotos dos produtos do pedido','Envio das fotos dos itens ao WhatsApp do cliente.','Pedidos','Relatório de fotos / inserção de pedidos'],
   ['pedidos_fotos_finalizacao','Resumo das fotos do pedido','Mensagem de encerramento e resumo do envio das fotos.','Pedidos','Relatório de fotos'],
@@ -98,6 +102,10 @@ function classificarRequisicao(req) {
   const metodo=String(req.method||'').toUpperCase();
   if (!['POST','PATCH','PUT','DELETE'].includes(metodo)) return null;
   const url=String(req.originalUrl||req.url||'').split('?')[0].toLowerCase();
+  if (url === '/api/whatsapp/enviar-pedido') return 'pedidos_texto';
+  if (url === '/api/whatsapp/enviar-cliente-financeiro') return 'pedidos_historico_financeiro';
+  if (url === '/api/whatsapp/enviar-pagamento') return 'pagamentos_mensagens';
+  if (url === '/api/whatsapp/enviar-progresso') return 'progresso_mensagem_cliente';
   if (/\/api\/legado\/pedidos\/[^/]+\/whatsapp\/pdf/.test(url)) return 'pedidos_pdf';
   if (url.startsWith('/api/whatsapp/relatorio-fotos/')) {
     return url.endsWith('/finalizar')?'pedidos_fotos_finalizacao':'pedidos_fotos';
