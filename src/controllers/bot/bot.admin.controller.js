@@ -34,7 +34,8 @@ async function listarConversas(req, res) {
     });
     res.json(resultado);
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error('[Bot Admin] Erro ao consultar contatos:', error.message);
+    res.status(500).json({ success: false, message: 'Falha ao carregar contatos.' });
   }
 }
 

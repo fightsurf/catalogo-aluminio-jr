@@ -97,7 +97,13 @@ async function listarConversas({ page, limit, data_inicio, data_fim, nivel_atend
      LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
     [...params, limitNum, offset]
   );
-  const dados = await require('../whatsapp/whatsapp-cliente-legado.service').enriquecer(result.rows);
+  let dados = result.rows;
+  try {
+    dados = await require('../whatsapp/whatsapp-cliente-legado.service').enriquecer(dados);
+  } catch (erro) {
+    console.error('[Bot Admin] Erro no enriquecimento de clientes:', erro.message);
+    // Telefones permanecem visiveis mesmo se o cadastro legado falhar.
+  }
   return { dados, total, pagina: pageNum, total_paginas: Math.ceil(total / limitNum) };
 }
 
