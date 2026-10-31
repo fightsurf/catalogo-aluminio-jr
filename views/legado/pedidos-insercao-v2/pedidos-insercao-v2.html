@@ -829,7 +829,7 @@
         return;
       }
 
-      const response = await fetch('/api/whatsapp/enviar', {
+      const response = await fetch('/api/whatsapp/enviar-pedido', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ telefone, mensagem: mensagemCarrada })
@@ -1757,7 +1757,7 @@ setMensagem([
         btnEnviarWhatsapp.disabled = true;
         btnEnviarWhatsapp.textContent = 'Enviando...';
 
-        const response = await fetch('/api/whatsapp/enviar', {
+        const response = await fetch('/api/whatsapp/enviar-pedido', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ telefone, mensagem: montarMensagemWhatsappPedido() })
