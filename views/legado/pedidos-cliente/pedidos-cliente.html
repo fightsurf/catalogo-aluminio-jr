@@ -966,7 +966,7 @@
           ? montarMensagemHistoricoPagamentos(detalhe, pedido)
           : montarMensagemSaldoPedido(detalhe, pedido);
 
-        const response = await fetch('/api/whatsapp/enviar', {
+        const response = await fetch('/api/whatsapp/enviar-cliente-financeiro', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ telefone, mensagem })
