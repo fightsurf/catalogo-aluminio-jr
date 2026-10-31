@@ -677,7 +677,7 @@
           botao.innerHTML = 'Enviando...';
         }
 
-        await request('/api/whatsapp/enviar', {
+        await request('/api/whatsapp/enviar-pagamento', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
