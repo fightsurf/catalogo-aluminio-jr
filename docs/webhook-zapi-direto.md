@@ -14,13 +14,14 @@ não envia mensagens e não aciona o atendimento automático**.
 
 ### Comportamento
 
-1. Aceita somente eventos `ReceivedCallback` com `fromMe:false`.
+1. Aceita eventos `ReceivedCallback` tanto com `fromMe:false` (clientes) quanto com `fromMe:true` (mensagens enviadas pelo próprio número, inclusive comandos como `@frete`). A direção é armazenada como `ENTRADA` ou `SAIDA`.
 2. Extrai `phone`, `instanceId`, `messageId` e o texto ou uma descrição de mídia.
 3. Ignora eventos de status, notificações, mensagens próprias e payloads incompletos.
 4. Adiciona as colunas `zapi_instancia`, `zapi_message_id` e índice único parcial à tabela já existente `bot_mensagens`. As alterações são idempotentes.
 5. Registra a mensagem em `bot_mensagens`, atualiza `bot_contatos` e comunica o painel por WebSocket.
 6. Eventos com o mesmo par (instância, messageId) são ignorados, sem duplicar registro.
-7. As novas mensagens entram com `processada_ia=true` e a notificação usa `somentePainel=true`, evitando o disparo de IA, primeiro contato e fluxos.
+7. As novas mensagens entram com `processada_ia=true` e a notificação usa `somentePainel=true`, evitando o disparo de IA, primeiro contato e fluxos. Esta etapa **registra** comandos enviados por você, mas **não os executa**.
+8. O painel `/bot/admin` mantém a coluna de contatos à esquerda e as mensagens da conversa à direita. Exibe um resumo do webhook acima da conversa e detalhes opcionais dos últimos eventos.
 
 ### Teste sem trocar o webhook atual
 
