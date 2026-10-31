@@ -273,10 +273,10 @@ async function enviarTeste(dados,origem,usuario) {
   const imagem=urlFoto(dados.imagem,origem);
   // Validar inclusive a validade do áudio ANTES de disparar a foto.
   const {audio}=audioSelecionado(dados,usuario);
-  await zapi.enviarImagem({telefone:n,imagem,legenda:m},{timeoutMs:60000});
+  await zapi.enviarImagem({telefone:n,imagem,legenda:m},{timeoutMs:60000, funcionalidade:'mala_direta'});
   if(audio){
     try{
-      await zapi.postZapi('/send-audio',{phone:n,audio:'data:audio/mpeg;base64,'+audio.bytes.toString('base64')},{timeoutMs:60000});
+      await zapi.postZapi('/send-audio',{phone:n,audio:'data:audio/mpeg;base64,'+audio.bytes.toString('base64')},{timeoutMs:60000, funcionalidade:'mala_direta'});
     }catch(e){const falha=new Error('Foto aceita pela Z-API, mas houve falha no envio do áudio. Confira o WhatsApp antes de repetir: '+e.message);falha.status=502;throw falha;}
   }
   return {telefone:n,imagemAceita:true,audioAceito:!!audio};
@@ -285,6 +285,8 @@ async function enviarTeste(dados,origem,usuario) {
 // Se o processo morrer durante a chamada, ele passa a 'incerto' e requer verificação manual.
 async function processarProximo() {
   await preparar();
+  // OFF pausa a fila antes de reivindicar um destinatário; retoma quando religado.
+  if (!await require('../whatsapp/central-controle.service').ativo('mala_direta')) return;
   // O envio é independente do Termômetro de Vendas. Nunca esperar a
   // contagem de aparições no caminho crítico da fila de WhatsApp.
   const client=await pool.connect(); let trabalho;
@@ -332,7 +334,7 @@ async function processarProximo() {
   } catch(e) {await client.query('ROLLBACK').catch(()=>{});throw e;} finally {client.release();}
   let resultado, erro;
   try {
-    resultado=await zapi.enviarImagem({telefone:trabalho.telefone,imagem:trabalho.imagem,legenda:trabalho.mensagem},{timeoutMs:60000});
+    resultado=await zapi.enviarImagem({telefone:trabalho.telefone,imagem:trabalho.imagem,legenda:trabalho.mensagem},{timeoutMs:60000, funcionalidade:'mala_direta'});
     // Gravar confirmação da imagem ANTES de tentar enviar o áudio; nunca repetir envio incerto.
     await pool.query(`UPDATE mala_direta_destinatarios SET imagem_aceita_em=NOW(),
       retorno_zapi=$2::jsonb,atualizado_em=NOW() WHERE id=$1 AND status='enviando'`,
@@ -344,7 +346,7 @@ async function processarProximo() {
       const bytes=Buffer.isBuffer(trabalho.audio_mp3)?trabalho.audio_mp3:Buffer.from(trabalho.audio_mp3);
       await zapi.postZapi('/send-audio',{
         phone:trabalho.telefone,audio:'data:audio/mpeg;base64,'+bytes.toString('base64')
-      },{timeoutMs:60000});
+      },{timeoutMs:60000, funcionalidade:'mala_direta'});
       await pool.query(`UPDATE mala_direta_destinatarios SET audio_aceito_em=NOW(),atualizado_em=NOW()
         WHERE id=$1 AND status='enviando'`,[trabalho.id]);
     }
