@@ -16,8 +16,10 @@ function criarEstrutura() {
         zapi_instancia TEXT,
         zapi_message_id TEXT,
         estado VARCHAR(20) NOT NULL,
-        motivo TEXT
+        motivo TEXT,
+        direcao VARCHAR(12)
       )`);
+      await pool.query('ALTER TABLE whatsapp_webhook_eventos ADD COLUMN IF NOT EXISTS direcao VARCHAR(12)');
       await pool.query(`CREATE INDEX IF NOT EXISTS idx_whatsapp_webhook_eventos_data
         ON whatsapp_webhook_eventos(recebido_em DESC, id DESC)`);
     })().catch(err => { estruturaPromise = null; throw err; });
@@ -37,12 +39,13 @@ async function registrarEvento({ payload = {}, dados = {}, estado, motivo = '' }
   const mensagem = estado === 'ignorada' || estado === 'erro'
     ? '' : cortar(dados.mensagem, 5000);
   await pool.query(`INSERT INTO whatsapp_webhook_eventos
-    (telefone, mensagem, tipo, zapi_instancia, zapi_message_id, estado, motivo)
-    VALUES ($1, $2, $3, $4, $5, $6, $7)`, [
+    (telefone, mensagem, tipo, zapi_instancia, zapi_message_id, estado, motivo, direcao)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, [
       telefone, mensagem, tipo,
       cortar(dados.instancia || payload?.instanceId, 120),
       cortar(dados.messageId || payload?.messageId, 250),
-      estado, cortar(motivo, 160)
+      estado, cortar(motivo, 160),
+      dados.direcao || (payload?.fromMe === true ? 'SAIDA' : payload?.fromMe === false ? 'ENTRADA' : null)
     ]);
 }
 
@@ -53,12 +56,12 @@ async function listarRecebimentos({ limite = 100 } = {}) {
   const sql = `SELECT * FROM (
       SELECT 'zapi-' || e.id::text AS chave, e.recebido_em, e.telefone,
         e.mensagem, e.tipo, e.zapi_message_id AS message_id,
-        e.estado, e.motivo, 'Z-API direta' AS origem
+        e.estado, e.motivo, e.direcao, 'Z-API direta' AS origem
       FROM whatsapp_webhook_eventos e
       UNION ALL
       SELECT 'bot-' || m.id::text AS chave, m.criada_em AS recebido_em,
         m.telefone, m.mensagem, m.tipo, NULL::text AS message_id,
-        'registrada' AS estado, NULL::text AS motivo, 'Integração anterior' AS origem
+        'registrada' AS estado, NULL::text AS motivo, m.direcao, 'Integração anterior' AS origem
       FROM bot_mensagens m
       WHERE m.direcao = 'ENTRADA' AND m.zapi_message_id IS NULL
     ) eventos
