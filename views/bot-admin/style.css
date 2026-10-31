@@ -451,3 +451,39 @@ body {
   .monitor-resumo { padding:8px; }
   #monitor-contagens { margin-left:0; }
 }
+
+
+/* Mesmo tema das telas Sistemas e Categorias do AVN. */
+:root {
+  color-scheme: dark;
+  --bg-app: #0b1220;
+  --bg-card: #182437;
+  --bg-muted: #24374f;
+  --border: #34465f;
+  --text: #ecf2fc;
+  --text-soft: #a9b9d1;
+  --primary: #277bbd;
+  --primary-dark: #1b639f;
+  --secondary: #3474bf;
+  --secondary-dark: #255c99;
+  --shadow: 0 10px 30px #0004;
+}
+#sidebar-header, #topbar, #sidebar, #paginacao-conversas, #paginacao-mensagens { background: var(--bg-card); }
+.conversa-item { border-bottom-color: var(--border); }
+.conversa-item:hover, .conversa-item.ativa { background: #253c56; }
+.conversa-numero { font-size: .71rem; color: var(--text-soft); }
+#topbar input, #topbar select { background: #101c2e; color: #f1f5ff; border-color: #435775; }
+#topbar input::placeholder { color: #889bb7; }
+.btn-pag { background: #263b57; color: var(--text); border-color: #465b7a; }
+.bolha-ENTRADA { background: #182437; color: #ecf2fc; border-color: #34465f; }
+.bolha-SAIDA { background: #253c56; color: #ecf2fc; border-color: #3e638c; }
+.monitor-resumo { background:#182437; color:var(--text); border-color:var(--border); }
+.monitor-resumo-linha strong { color:var(--text); }
+.monitor-resumo-linha button { background:#263b57; color:var(--text); border-color:#465b7a; }
+#monitor-eventos, .monitor-evento { border-color:var(--border); }
+.monitor-eventos-legenda, .monitor-evento time { color:var(--text-soft); }
+.monitor-estado { background:#24374f; color:var(--text); }
+.monitor-estado.registrada { background:#214b40; color:#a2efd0; }
+.monitor-estado.duplicada { background:#554521; color:#f6d58e; }
+.monitor-estado.ignorada, .monitor-estado.erro { background:#5a3038; color:#f8bac4; }
+.badge-processada, .badge-intencao-msg { background:#253c56; color:#c4e2ff; border-color:#465b7a; }
