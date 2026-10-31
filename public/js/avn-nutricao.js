@@ -919,6 +919,6 @@ function events(){
  $('formMetas').onsubmit=async e=>{e.preventDefault();try{userGuard();const b={micros:getMicros('metamicro'),...(metaPendente||{origem:'manual'})};for(const [key] of MACROS)b[key]=numberOrNull('meta_'+key);await send('/metas/'+state.usuarioId,'PUT',b);metaPendente=null;await loadGoals();renderDaily();show('Metas salvas e registradas no histórico.');}catch(err){show(err.message,true);}}; }
 }
 window.AVNNutricaoInterno={state,MEALS,esc,fmt,localDate,show,api,send,loadDiet,loadDaily,renderDiet,renderDaily,userGuard};
-async function init(){try{await loadNutrients();inputs();state.data=localDate();if(has('dataDiario'))$('dataDiario').value=state.data;state.dias=diaSemana(state.data);events();await startUsers();}catch(e){show(e.message,true);}}
+async function init(){try{await loadNutrients();inputs();const dataUrl=new URLSearchParams(window.location.search).get('data');state.data=PAGE==='diario'&&/^\d{4}-\d{2}-\d{2}$/.test(dataUrl||'')?dataUrl:localDate();if(has('dataDiario'))$('dataDiario').value=state.data;state.dias=diaSemana(state.data);events();await startUsers();}catch(e){show(e.message,true);}}
 init();
 })();
