@@ -2552,7 +2552,7 @@
       setFeedback(el.feedbackWhatsappCliente, 'Enviando mensagem...');
 
       try {
-        await request('/api/whatsapp/enviar', {
+        await request('/api/whatsapp/enviar-progresso', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ telefone, mensagem })
