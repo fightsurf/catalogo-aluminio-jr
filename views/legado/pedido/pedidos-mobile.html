@@ -244,7 +244,7 @@
       }
       try {
         setMensagem('Enviando WhatsApp...');
-        const response = await fetch('/api/whatsapp/enviar', {
+        const response = await fetch('/api/whatsapp/enviar-pedido', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ telefone, mensagem: montarMensagemWhatsappPedido() })
