@@ -1,6 +1,7 @@
 const botAdminService = require('../../services/bot/bot.admin.service');
 const monitor = require('../../services/whatsapp/zapi-webhook-monitor.service');
 const recebimento = require('../../services/whatsapp/zapi-webhook-recebimento.service');
+const lidVinculos = require('../../services/whatsapp/zapi-lid-vinculos.service');
 
 async function abrirOuCriarConversa(req, res) {
   try {
@@ -71,4 +72,17 @@ async function listarMonitoramento(req, res) {
   }
 }
 
-module.exports = { abrirOuCriarConversa, listarConversas, listarMensagens, listarMonitoramento };
+async function conferirLid(req, res) {
+  try {
+    const resultado = await lidVinculos.conferirNumero(req.body?.telefone);
+    res.set('Cache-Control', 'no-store');
+    return res.json(resultado);
+  } catch (error) {
+    console.error('[Bot Admin] Conferencia de LID:', error.message);
+    return res.status(error.status || 500).json({
+      success: false, message: error.message || 'Falha ao conferir identidade.'
+    });
+  }
+}
+
+module.exports = { abrirOuCriarConversa, listarConversas, listarMensagens, listarMonitoramento, conferirLid };
