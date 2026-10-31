@@ -188,6 +188,21 @@ class PrestacaoContasController {
     }
   }
 
+  async atualizarPagamento(req, res) {
+    try {
+      const { id, pagamentoId } = req.params;
+      const { data, valor, observacao } = req.body || {};
+      const pagamento = await prestacaoContasService.atualizarPagamento(id, pagamentoId, { data, valor, observacao });
+      return res.json({ success: true, data: pagamento });
+    } catch (error) {
+      console.error('ERRO atualizar pagamento:', error);
+      return res.status(error.statusCode || 500).json({
+        success: false,
+        message: error.statusCode ? error.message : 'Falha ao atualizar pagamento.'
+      });
+    }
+  }
+
   async deletarPagamento(req, res) {
     try {
       const { id, pagamentoId } = req.params;

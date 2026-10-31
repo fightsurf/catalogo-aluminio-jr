@@ -1,6 +1,7 @@
 const pool = require('../../../db/connection');
 const envioWhatsappService = require('../whatsapp/envio-whatsapp.service');
 const prestacaoPdfService = require('./prestacaoPdf.service');
+const { validarPagamentoEditavel, validarAtualizacaoPagamento } = require('./prestacao-pagamentos-validacao');
 
 class PrestacaoContasService {
   constructor() {
@@ -503,6 +504,49 @@ class PrestacaoContasService {
     await this._recalcular(prestacao_id);
     await this._registrarLog(prestacao_id, 'CRIAR_PAGAMENTO', `Pagamento registrado: R$ ${valorNumber.toFixed(2)}`);
     return pagamento;
+  }
+
+  async atualizarPagamento(prestacao_id, pagamentoId, data) {
+    await this._ensureSchema();
+    const valores = validarAtualizacaoPagamento(data);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await this._assertAberta(prestacao_id, client);
+      const atual = await client.query(`
+        SELECT * FROM prestacao_pagamentos
+        WHERE id = $1 AND prestacao_id = $2
+        FOR UPDATE
+      `, [pagamentoId, prestacao_id]);
+      const pagamento = atual.rows[0] || null;
+      validarPagamentoEditavel(pagamento);
+      const origem = await client.query(
+        'SELECT EXISTS (SELECT 1 FROM prestacao_pagamento_origens WHERE prestacao_pagamento_id = $1) AS vinculado',
+        [pagamentoId]
+      );
+      if (origem.rows[0]?.vinculado) {
+        const error = new Error('Pagamento distribuído entre pedidos. Altere pela tela de pagamentos dos pedidos.');
+        error.statusCode = 409;
+        throw error;
+      }
+      const result = await client.query(`
+        UPDATE prestacao_pagamentos
+        SET data_pagamento = $1, valor = $2, observacao = $3
+        WHERE id = $4 AND prestacao_id = $5
+        RETURNING *
+      `, [valores.data, valores.valor, valores.observacao, pagamentoId, prestacao_id]);
+      await this._recalcular(prestacao_id, client);
+      await this._registrarLog(prestacao_id, 'ALTERAR_PAGAMENTO',
+        `Pagamento id=${pagamentoId} alterado: data ${this._formatarDataBr(pagamento.data_pagamento)} -> ${this._formatarDataBr(valores.data)}, valor R$ ${Number(pagamento.valor).toFixed(2)} -> R$ ${valores.valor.toFixed(2)}`,
+        client);
+      await client.query('COMMIT');
+      return result.rows[0];
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
   async deletarPagamento(prestacao_id, pagamentoId) {

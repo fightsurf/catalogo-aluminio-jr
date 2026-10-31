@@ -8,6 +8,21 @@ const API_BASE = '/api/prestacoes';
 let prestacaoAtualId = null;
 let prestacaoAtualResumo = null;
 let todasPrestacoes = [];
+let ultimaDataPagamentoAutomatica = '';
+
+// Usa a data local do aparelho, sem converter para UTC (evita mudança de dia).
+function dataLocalISO(date = new Date()) {
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, '0'), String(date.getDate()).padStart(2, '0')].join('-');
+}
+function preencherDataPagamentoHoje(forcar = false) {
+  const campo = document.getElementById('pag-data');
+  if (!campo) return;
+  if (forcar || !campo.value || campo.value === ultimaDataPagamentoAutomatica) {
+    campo.value = dataLocalISO();
+    ultimaDataPagamentoAutomatica = campo.value;
+  }
+}
+document.querySelector('[data-tab="pagamentos"]')?.addEventListener('click', () => preencherDataPagamentoHoje());
 
 // ─── FORMAT HELPERS ────────────────────────────────────────────
 
@@ -243,6 +258,7 @@ function renderizarPlanilha(resumo) {
   setElementDisplay('btn-importar-nota', !concluida);
   if (window.onPrestacaoNotaAtualizada) window.onPrestacaoNotaAtualizada(cabecalho);
   setElementDisplay('form-pagamento', !concluida, 'flex');
+  if (!concluida) preencherDataPagamentoHoje();
   setElementDisplay('form-editar-prestacao', false);
 
   const creditoInfo = document.getElementById('credito-info');
@@ -286,23 +302,121 @@ function renderizarPlanilha(resumo) {
   document.getElementById('total-material').textContent = 'R$ ' + fmtMoeda(totais.total_material);
 
   // Tabela pagamentos
-  const tbodyPag = document.getElementById('tbody-pagamentos');
-  tbodyPag.innerHTML = '';
+  renderizarLinhasPagamentos(pagamentos, concluida);
+  document.getElementById('total-pago').textContent = 'R$ ' + fmtMoeda(totais.total_pago);
+  document.getElementById('saldo-restante').textContent = 'R$ ' + fmtMoeda(totais.saldo_restante);
+}
+
+
+// A edição é feita na própria linha, sem alterar os demais pagamentos.
+function renderizarLinhasPagamentos(pagamentos, concluida) {
+  const tbody = document.getElementById('tbody-pagamentos');
+  if (!tbody) return;
+  tbody.replaceChildren();
   pagamentos.forEach(pag => {
     const tr = document.createElement('tr');
     const automatico = pag.credito_origem_id ? '<span class="tag-credito">crédito</span>' : '';
+    const vinculado = Boolean(pag.credito_origem_id || pag.origem_pagamento_codigo ||
+      String(pag.origem_sistema || '').trim());
+    const motivo = pag.credito_origem_id
+      ? 'Crédito automático: não pode ser alterado diretamente.'
+      : 'Pagamento vinculado a pedidos: altere pela tela de pagamentos de pedidos.';
     tr.innerHTML = `
       <td>${escapeHtml(fmtData(pag.data_pagamento))}</td>
       <td class="num">R$ ${escapeHtml(fmtMoeda(pag.valor))}</td>
       <td>${escapeHtml(pag.observacao || '')} ${automatico}</td>
-      <td style="text-align:center;">${concluida ? '' : `<button class="btn-del" data-id="${escapeHtml(pag.id)}">✕</button>`}</td>
-    `;
-    const btnDel = tr.querySelector('.btn-del');
-    if (btnDel) btnDel.addEventListener('click', (e) => deletarPagamento(pag.id, e.currentTarget));
-    tbodyPag.appendChild(tr);
+      <td class="pagamento-actions-cell">${concluida ? '' : `
+        <div class="pagamento-actions">
+          <button class="btn-edit-pag" type="button" title="${vinculado ? escapeHtml(motivo) : 'Editar pagamento'}"
+            aria-label="Editar pagamento" ${vinculado ? 'disabled' : ''}>✎</button>
+          <button class="btn-del btn-del-pag" type="button" title="Excluir pagamento"
+            aria-label="Excluir pagamento">✕</button>
+        </div>`}
+      </td>`;
+    tr.querySelector('.btn-edit-pag')?.addEventListener('click', () => abrirEdicaoPagamento(pag, tr));
+    tr.querySelector('.btn-del-pag')?.addEventListener('click', (e) => deletarPagamento(pag.id, e.currentTarget));
+    tbody.appendChild(tr);
   });
-  document.getElementById('total-pago').textContent = 'R$ ' + fmtMoeda(totais.total_pago);
-  document.getElementById('saldo-restante').textContent = 'R$ ' + fmtMoeda(totais.saldo_restante);
+}
+
+function cancelarEdicaoPagamento() {
+  if (!prestacaoAtualResumo) return;
+  renderizarLinhasPagamentos(prestacaoAtualResumo.pagamentos || [],
+    isConcluida(prestacaoAtualResumo.cabecalho));
+}
+
+function abrirEdicaoPagamento(pag, tr) {
+  if (!prestacaoAtualId || !prestacaoAtualResumo || isConcluida(prestacaoAtualResumo.cabecalho)) {
+    showMsg('Selecione uma prestação aberta para editar o pagamento.', 'erro');
+    return;
+  }
+  if (tr.parentElement.querySelector('.linha-pagamento-editando')) {
+    showMsg('Salve ou cancele a edição do outro pagamento primeiro.', 'erro');
+    return;
+  }
+
+  const idPrestacao = prestacaoAtualId;
+  tr.classList.add('linha-pagamento-editando');
+  tr.innerHTML = `
+    <td><input class="pag-edit-input pag-edit-data" type="date"
+      value="${escapeHtml(String(pag.data_pagamento || '').substring(0, 10))}"
+      aria-label="Data do pagamento" required /></td>
+    <td><input class="pag-edit-input pag-edit-valor" type="number" step="0.01"
+      min="0.01" value="${escapeHtml(pag.valor)}" aria-label="Valor em reais" required /></td>
+    <td><input class="pag-edit-input pag-edit-obs" type="text"
+      value="${escapeHtml(pag.observacao || '')}" maxlength="2000"
+      aria-label="Observação do pagamento" /></td>
+    <td class="pagamento-actions-cell">
+      <div class="pagamento-actions">
+        <button class="btn-save-pag" type="button">Salvar</button>
+        <button class="btn-cancel-pag" type="button">Cancelar</button>
+      </div>
+    </td>`;
+  const inputData = tr.querySelector('.pag-edit-data');
+  const inputValor = tr.querySelector('.pag-edit-valor');
+  const inputObs = tr.querySelector('.pag-edit-obs');
+  const salvar = tr.querySelector('.btn-save-pag');
+  const cancelar = tr.querySelector('.btn-cancel-pag');
+  cancelar.addEventListener('click', cancelarEdicaoPagamento);
+  salvar.addEventListener('click', async () => {
+    const data = inputData.value, valor = inputValor.value, observacao = inputObs.value.trim();
+    const numero = Number(valor);
+    if (!data) { showMsg('Informe a data do pagamento.', 'erro'); inputData.focus(); return; }
+    if (!valor || !Number.isFinite(numero) || numero <= 0 || !Number.isInteger(Math.round(numero * 100)) ||
+        Math.abs(numero * 100 - Math.round(numero * 100)) > 0.000001) {
+      showMsg('Informe um valor maior que zero, com até duas casas decimais.', 'erro');
+      inputValor.focus();
+      return;
+    }
+    salvar.disabled = true;
+    cancelar.disabled = true;
+    salvar.textContent = 'Salvando...';
+    try {
+      const res = await fetch(`${API_BASE}/${idPrestacao}/pagamentos/${pag.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data, valor: numero, observacao })
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.message || 'Falha ao atualizar pagamento.');
+      if (String(prestacaoAtualId) === String(idPrestacao)) {
+        await carregarResumo(idPrestacao);
+        await carregarLista();
+      }
+      showMsg('Pagamento alterado com sucesso.', 'sucesso');
+    } catch (error) {
+      console.error('Erro ao editar pagamento:', error);
+      showMsg('Erro ao editar pagamento: ' + error.message, 'erro');
+      salvar.disabled = false;
+      cancelar.disabled = false;
+      salvar.textContent = 'Salvar';
+    }
+  });
+  [inputData, inputValor, inputObs].forEach(input => input.addEventListener('keydown', event => {
+    if (event.key === 'Escape') { event.preventDefault(); cancelar.click(); }
+    if (event.key === 'Enter') { event.preventDefault(); salvar.click(); }
+  }));
+  inputData.focus();
 }
 
 // ─── CARREGAR FORNECEDORES ─────────────────────────────────────
@@ -717,7 +831,7 @@ document.getElementById('btn-add-pag').addEventListener('click', async () => {
     });
     const json = await res.json();
     if (!json.success) throw new Error(json.message);
-    document.getElementById('pag-data').value = '';
+    preencherDataPagamentoHoje(true);
     document.getElementById('pag-valor').value = '';
     document.getElementById('pag-obs').value = '';
     await carregarResumo(prestacaoAtualId);
@@ -1203,6 +1317,7 @@ if (btnRelatorioPdf) {
 // ─── INIT ──────────────────────────────────────────────────────
 
 async function inicializarPrestacaoContas() {
+  preencherDataPagamentoHoje();
   await carregarFornecedores();
 
   // Evita que o navegador restaure automaticamente um fornecedor antigo

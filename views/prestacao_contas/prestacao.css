@@ -435,6 +435,56 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/* Ações e edição de pagamentos, no mesmo tamanho visual dos controles existentes. */
+.col-acoes-pagamento { width: 150px; text-align: center !important; }
+.pagamento-actions-cell { text-align: center !important; white-space: nowrap; }
+.pagamento-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+.pagamento-actions button {
+  font: 600 12px var(--pc-font);
+  border-radius: var(--pc-radius-sm);
+  padding: 4px 7px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.pagamento-actions .btn-edit-pag,
+.pagamento-actions .btn-del-pag {
+  width: 29px;
+  height: 29px;
+  margin: 0;
+  padding: 0;
+  font-size: 16px;
+}
+.btn-edit-pag {
+  color: var(--pc-primary);
+  background: var(--pc-surface);
+  border: 1px solid var(--pc-primary);
+}
+.btn-edit-pag:hover:not(:disabled) { background: var(--pc-info-bg); }
+.btn-edit-pag:disabled { opacity: .4; cursor: not-allowed; }
+.btn-save-pag { color: #fff; background: var(--pc-primary); border: 1px solid var(--pc-primary); }
+.btn-cancel-pag { color: var(--pc-text); background: var(--pc-surface); border: 1px solid var(--pc-border); }
+.btn-save-pag:hover:not(:disabled) { background: var(--pc-primary-d); }
+.btn-cancel-pag:hover:not(:disabled) { background: var(--pc-bg); }
+.btn-save-pag:disabled, .btn-cancel-pag:disabled { opacity: .65; cursor: wait; }
+.linha-pagamento-editando td { vertical-align: middle; }
+.pag-edit-input {
+  width: 100%;
+  min-width: 110px;
+  padding: 6px 8px;
+  border: 1px solid var(--pc-border);
+  border-radius: var(--pc-radius-sm);
+  background: var(--pc-surface);
+  color: var(--pc-text);
+  font: inherit;
+}
+.pag-edit-valor { text-align: right; min-width: 100px; font-variant-numeric: tabular-nums; }
+.pag-edit-input:focus { outline: 2px solid var(--pc-primary); outline-offset: 0; }
+
 /* ── Empty state ───────────────────────────────────────── */
 .empty-state {
   margin: 0 auto 24px;

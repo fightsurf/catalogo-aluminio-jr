@@ -40,6 +40,7 @@ router.delete('/:id/itens/:itemId', ctrl.deletarItem);
 
 // Pagamentos
 router.post('/:id/pagamentos', ctrl.criarPagamento);
+router.put('/:id/pagamentos/:pagamentoId', ctrl.atualizarPagamento);
 router.delete('/:id/pagamentos/:pagamentoId', ctrl.deletarPagamento);
 
 module.exports = router;
