@@ -194,6 +194,10 @@ function montarRequisicao(tipoAcao, telefone, conteudo) {
 }
 
 async function postZapi(endpoint, payload, options = {}) {
+  // Controle aplicado no transporte: não depende de esconder botões do frontend.
+  // Todas as chamadas de envio à Z-API passam por esta verificação.
+  await require('../whatsapp/central-controle.service').verificar(options.funcionalidade ||
+    (endpoint.includes('status') ? 'status_whatsapp' : null));
   const url = `${getZapiUrlBase()}${endpoint}`;
 
   let response;
