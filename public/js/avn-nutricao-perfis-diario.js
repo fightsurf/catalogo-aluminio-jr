@@ -109,10 +109,9 @@ async function confirmarEnvio(){
    });
   if(!selecionados.length)throw Error('Selecione pelo menos um alimento.');
   salvandoEnvio=true;$('confirmarEnviarDiario').disabled=true;
-  const r=await send('/diario/'+state.usuarioId+'/registrar-refeicao','POST',{data,refeicao:envioRefeicao,itens:selecionados});
+  await send('/diario/'+state.usuarioId+'/registrar-refeicao','POST',{data,refeicao:envioRefeicao,itens:selecionados});
   $('modalEnviarDiario').close();
-  if(data===state.data){await loadDaily();renderDiet();}
-  show(r.inseridos+' alimento(s) registrado(s) no diário.'+(r.ja_registrados?' '+r.ja_registrados+' já constava(m).':''));
+  window.location.assign('/avn/sistema/nutricao/diario?data='+encodeURIComponent(data));
  }catch(err){show(err.message,true);}
  finally{salvandoEnvio=false;if($('modalEnviarDiario').open)montarEnvio();}
 }
