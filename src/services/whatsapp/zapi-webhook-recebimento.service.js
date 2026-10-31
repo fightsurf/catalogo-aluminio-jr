@@ -8,6 +8,7 @@ const vinculos = require('./zapi-lid-vinculos.service');
 
 const comandos = require('./whatsapp-comandos-jr.service');
 const temporarias = require('./whatsapp-conversas-temporarias.service');
+const ordemEntradas = require('./bot-contatos-ultima-entrada.service');
 const fluxo = require('../bot/botFluxo.services');
 const vistos = new Map();
 
@@ -136,6 +137,10 @@ async function registrar(payload) {
       contatoNovo = result.rowCount > 0 && /^\d{10,15}$/.test(dados.telefone);
       // Não gravar ultima_mensagem nem conteúdo em bot_mensagens.
       await pool.query('UPDATE bot_contatos SET atualizado_em=NOW() WHERE telefone=$1', [dados.telefone]);
+      // Atualizar a ordem dos contatos mesmo com o painel fechado; sem salvar texto.
+      await ordemEntradas.marcarEntrada(dados.telefone).catch(erro =>
+        console.error('[Webhook Z-API] Falha ao registrar ordem de entrada:', erro.message)
+      );
     }
     // Apenas clientes realmente novos recebem a saudação já configurada no bot.
     if (contatoNovo) {
