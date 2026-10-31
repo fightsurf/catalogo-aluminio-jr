@@ -1,6 +1,7 @@
 const pool = require('../../../db/connection');
 const botEvents = require('./botEvents');
 const botFluxoService = require('./botFluxo.services');
+const { elegivelBoasVindas } = require('./bot-identidade.service');
 
 async function receberMensagem({ telefone, mensagem, tipo }) {
   const client = await pool.connect();
@@ -27,9 +28,10 @@ async function receberMensagem({ telefone, mensagem, tipo }) {
       `UPDATE bot_contatos
        SET fluxo_primeiro_contato_enviado = true
        WHERE telefone = $1
+         AND $2::boolean = true
          AND fluxo_primeiro_contato_enviado = false
        RETURNING id`,
-      [telefone]
+      [telefone, elegivelBoasVindas(telefone)]
     );
 
     if (claimResult.rows.length > 0) {
