@@ -537,7 +537,7 @@ botEvents.on('webhook_recebido', () => {
 
 // Entrega em tempo real somente aos navegadores conectados, sem histórico no servidor.
 botEvents.on('mensagem_ao_vivo', mensagem => {
-  broadcast({ tipo: 'mensagem_ao_vivo', ...mensagem });
+  broadcast({ ...mensagem, evento: 'mensagem_ao_vivo' });
 });
 
 botEvents.on('nova_mensagem', ({ telefone, somentePainel = false }) => {

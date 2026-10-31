@@ -111,7 +111,7 @@
         if (data.tipo === 'webhook_recebido' || data.tipo === 'nova_mensagem') {
           carregarMonitoramento();
         }
-        if (data.tipo === 'mensagem_ao_vivo') {
+        if (data.evento === 'mensagem_ao_vivo') {
           receberAoVivo(data);
           atualizarListaSilenciosa();
         }
@@ -400,7 +400,7 @@
     lista.innerHTML = conversas.map((conversa) => {
       const ativa = conversa.telefone === telefoneAtivo ? ' ativa' : '';
       const numero = String(conversa.telefone || '');
-      const ehLid = /^\\d+@lid$/i.test(numero);
+      const ehLid = /^\d+@lid$/i.test(numero);
       const nome = conversa.cliente_nome || conversa.nome || numero;
       const local = [conversa.cliente_cidade, conversa.cliente_uf].filter(Boolean).join(' - ');
       const sessao = mensagensSessao.get(numero) || [];
