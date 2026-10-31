@@ -655,7 +655,7 @@
       }
       try {
         setMensagem('Enviando WhatsApp...');
-        await request('/api/whatsapp/enviar', {
+        await request('/api/whatsapp/enviar-pagamento', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ telefone, mensagem: montarMensagemWhatsappPagamento() })
