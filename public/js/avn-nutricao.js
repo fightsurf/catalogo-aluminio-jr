@@ -86,11 +86,13 @@ function resumoMetaDupla(itens,descricao){
  return MACROS.slice(0,4).map(([key,label,unit])=>{
   const goal=state.metas[key],valid=goal!==null&&goal!==undefined&&goal!==''&&Number.isFinite(Number(goal));
   const sem=a.count>0&&a.miss[key]===a.count;
-  return '<div class="avn-dieta-macro-coluna"><div class="stat avn-dieta-meta">'+
+  const excedeu=valid&&!sem&&a.total[key]>Number(goal);
+  const alerta=excedeu?'<span class="avn-meta-aviso" role="img" aria-label="Meta ultrapassada" title="Meta ultrapassada"> ⚠️</span>':'';
+  return '<div class="avn-dieta-macro-coluna"><div class="stat avn-dieta-meta'+(excedeu?' avn-meta-excedida':'')+'">'+
    '<small class="avn-dieta-card-titulo">Minha meta · '+esc(label)+'</small><strong>'+
-   (valid?fmt(Number(goal),key==='kcal'?0:1)+' '+unit:'Não definida')+'</strong></div>'+
-   '<div class="stat avn-dieta-planejado"><small class="avn-dieta-card-titulo">'+esc(descricao)+' · '+esc(label)+'</small><strong>'+
-   (sem?'Sem dado':fmt(a.total[key],key==='kcal'?0:1)+' '+unit)+'</strong>'+
+   (valid?fmt(Number(goal),key==='kcal'?0:1)+' '+unit:'Não definida')+alerta+'</strong></div>'+
+   '<div class="stat avn-dieta-planejado'+(excedeu?' avn-meta-excedida':'')+'"><small class="avn-dieta-card-titulo">'+esc(descricao)+' · '+esc(label)+'</small><strong>'+
+   (sem?'Sem dado':fmt(a.total[key],key==='kcal'?0:1)+' '+unit)+alerta+'</strong>'+
    (a.miss[key]&&!sem?'<small class="avn-dieta-card-nota">Valores incompletos em alguns alimentos.</small>':'')+'</div></div>';
  }).join('');
 }
@@ -189,7 +191,8 @@ function renderDiet(){
   return '<section class="avn-dieta-refeicao" aria-label="'+esc(MEALS[key])+'">'+
    '<div class="avn-dieta-refeicao-cabecalho avn-dieta-cabecalho-com-perfis">'+
    '<div class="avn-dieta-cabecalho-linha"><h4><a href="#" data-macro-meal="'+esc(key)+'" data-macro-source="dieta">'+esc(MEALS[key])+' <span class="avn-dieta-emoji" aria-hidden="true">'+emojiRefeicao(key)+'</span></a></h4>'+
-   '<div class="avn-perfil-acoes"><small>Perfil atual: <b>'+esc(ativo?.nome||'Original')+'</b></small>'+
+   '<div class="avn-perfil-acoes"><small>Perfil atual: <b>'+esc(ativo?.recuperado?'Sem perfil cadastrado':ativo?.nome||'Original')+'</b></small>'+ 
+   (ativo?.recuperado?'<button type="button" class="avn-perfil-botao" data-salvar-perfil-recuperado="'+esc(ativo.id)+'">💾 Salvar como novo perfil</button>':'')+
    '<button type="button" class="avn-perfil-botao" data-perfis-refeicao="'+esc(key)+'"><span aria-hidden="true">🔄</span> Selecionar perfil: '+esc(MEALS[key])+' <span aria-hidden="true">'+emojiRefeicao(key)+'</span></button>'+
    '<button type="button" class="avn-perfil-botao" data-enviar-refeicao="'+esc(key)+'"'+(items.length?'':' disabled title="Adicione alimentos antes de registrar o consumo"')+'><span aria-hidden="true">📒</span> Adicionar ao diário alimentar</button>'+
    '<button type="button" class="avn-perfil-botao" data-adicionar-refeicao="'+esc(key)+'"><span aria-hidden="true">➕</span> Adicionar alimento à refeição</button>'+
@@ -218,9 +221,11 @@ function renderDiet(){
   const goalDefined=goal!==null&&goal!==undefined&&goal!==''&&Number.isFinite(Number(goal));
   const goalText=goalDefined?fmt(Number(goal),key==='kcal'?0:1)+' '+esc(unit):'Não definida';
   const plannedText=unknown?'Sem dado':fmt(a.total[key],key==='kcal'?0:1)+' '+esc(unit);
+  const excedeu=goalDefined&&!unknown&&a.total[key]>Number(goal);
+  const aviso=excedeu?'<span class="avn-meta-aviso" role="img" aria-label="Meta ultrapassada" title="Meta ultrapassada"> ⚠️</span>':'';
   return '<div class="avn-dieta-macro-coluna">'+
-   '<div class="stat avn-dieta-meta"><small class="avn-dieta-card-titulo">Minha meta · '+esc(label)+'</small><strong>'+goalText+'</strong></div>'+
-   '<div class="stat avn-dieta-planejado"><small class="avn-dieta-card-titulo">Total planejado · '+esc(label)+'</small><strong><a href="#" class="avn-dieta-ranking-link" data-ranking-dieta="'+esc(key)+'" aria-label="Classificar alimentos por '+esc(label.toLowerCase())+'">'+plannedText+'</a></strong>'+
+   '<div class="stat avn-dieta-meta'+(excedeu?' avn-meta-excedida':'')+'"><small class="avn-dieta-card-titulo">Minha meta · '+esc(label)+'</small><strong>'+goalText+aviso+'</strong></div>'+
+   '<div class="stat avn-dieta-planejado'+(excedeu?' avn-meta-excedida':'')+'"><small class="avn-dieta-card-titulo">Total planejado · '+esc(label)+'</small><strong><a href="#" class="avn-dieta-ranking-link" data-ranking-dieta="'+esc(key)+'" aria-label="Classificar alimentos por '+esc(label.toLowerCase())+'">'+plannedText+'</a>'+aviso+'</strong>'+
    (partial?'<small class="avn-dieta-card-nota">Parcial: faltam dados em alguns alimentos.</small>':'')+'</div></div>';
  }).join('');
  $('listaDieta').querySelectorAll('[data-plano]').forEach(btn=>btn.onclick=async()=>{if(!confirm('Excluir item da dieta programada?'))return;try{await send('/dieta/'+state.usuarioId+'/itens/'+btn.dataset.plano,'DELETE');await loadDiet();show('Item removido da programação.');}catch(e){show(e.message,true);}});
