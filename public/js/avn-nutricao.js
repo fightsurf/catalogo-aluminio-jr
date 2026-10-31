@@ -158,6 +158,25 @@ function resumoMacrosProgramados(dados,descricao){
   return '<span><b>'+nome+':</b> '+valor+'</span>';
  }).join('')+'</div>';
 }
+let ordenandoAlimentoDieta=false;
+async function moverAlimentoDieta(botao){
+ if(ordenandoAlimentoDieta)return;
+ try{userGuard();}catch(e){show(e.message,true);return;}
+ ordenandoAlimentoDieta=true;
+ const botoes=[...$('listaDieta').querySelectorAll('[data-mover-dieta]')];
+ botoes.forEach(b=>b.disabled=true);
+ try{
+  await send('/dieta/'+state.usuarioId+'/itens/'+botao.dataset.moverDieta+'/ordem','PUT',{direcao:botao.dataset.direcao});
+  await loadDiet();
+  const destino=[...$('listaDieta').querySelectorAll('[data-mover-dieta]')].find(b=>
+   b.dataset.moverDieta===botao.dataset.moverDieta&&b.dataset.direcao===botao.dataset.direcao);
+  if(destino&&!destino.disabled)destino.focus();
+  show('Sequência dos alimentos salva na dieta programada.');
+ }catch(e){
+  show(e.message,true);
+  try{await loadDiet();}catch(_){botoes.forEach(b=>b.disabled=b.dataset.extremo==='true');}
+ }finally{ordenandoAlimentoDieta=false;}
+}
 function renderDiet(){
  if(!has('listaDieta'))return;
  const rows=state.dieta;
@@ -177,12 +196,15 @@ function renderDiet(){
    '</div></div>'+
    '<div class="avn-dieta-cabecalho-meta"><span class="avn-dieta-contagem">'+items.length+' alimento(s)</span>'+
    (lancados?'<small class="avn-dia-registrado">'+lancados+'/'+items.length+' lançado(s) hoje</small>':'')+'</div></div>'+
-   '<div class="avn-dieta-refeicao-itens">'+items.map(i=>{
+   '<div class="avn-dieta-refeicao-itens">'+items.map((i,indice)=>{
     const nutrientes=aggregate([i]);
     return '<div class="list-row avn-dieta-linha" data-dieta-item="'+esc(i.id)+'"><div><a href="#" class="name avn-dieta-alimento-link" data-macro-food="'+esc(i.id)+'" aria-label="Ver macronutrientes de '+esc(i.alimento_nome)+'">'+esc(i.alimento_nome)+' <span class="avn-dieta-emoji" aria-hidden="true">'+emojiAlimento(i.alimento_nome)+'</span></a>'+
       '<small>'+fmt(i.quantidade_g)+' g programados</small>'+
       resumoMacrosProgramados(nutrientes,'Macronutrientes de '+i.alimento_nome)+'</div>'+
-      '<div class="avn-dieta-acoes"><a href="#" data-editar-plano="'+esc(i.id)+'" aria-label="Editar '+esc(i.alimento_nome)+'">Editar</a>'+
+      '<div class="avn-dieta-acoes"><div class="avn-dieta-ordenacao" role="group" aria-label="Ordenar '+esc(i.alimento_nome)+'">'+
+       '<button type="button" data-mover-dieta="'+esc(i.id)+'" data-direcao="cima" data-extremo="'+(indice===0)+'" aria-label="Subir '+esc(i.alimento_nome)+'" title="Subir"'+(indice===0?' disabled':'')+'>↑</button>'+
+       '<button type="button" data-mover-dieta="'+esc(i.id)+'" data-direcao="baixo" data-extremo="'+(indice===items.length-1)+'" aria-label="Descer '+esc(i.alimento_nome)+'" title="Descer"'+(indice===items.length-1?' disabled':'')+'>↓</button></div>'+
+       '<a href="#" data-editar-plano="'+esc(i.id)+'" aria-label="Editar '+esc(i.alimento_nome)+'">Editar</a>'+
       '<button type="button" class="delete" data-plano="'+esc(i.id)+'">Excluir</button></div></div>';
    }).join('')+(items.length?'':'<p class="avn-refeicao-vazia">Nenhum alimento neste perfil. Use “➕ Adicionar alimento à refeição” ao lado da refeição.</p>')+'</div>'+
    '<div class="avn-dieta-totais-refeicao">'+resumoMacrosProgramados(subtotal,'Total de macronutrientes de '+MEALS[key])+
@@ -820,6 +842,8 @@ function events(){
  $('fecharRankingDieta').onclick=()=>$('modalRankingDieta').close();
  $('abrirModalDieta').onclick=()=>$('modalAdicionarDieta').showModal();
   $('listaDieta').addEventListener('click',e=>{
+   const mover=e.target.closest('[data-mover-dieta]');
+   if(mover){e.preventDefault();moverAlimentoDieta(mover);return;}
    const botao=e.target.closest('[data-adicionar-refeicao]');
    if(botao){e.preventDefault();abrirModalAdicionarNaRefeicao(botao.dataset.adicionarRefeicao);}
   });
