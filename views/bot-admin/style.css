@@ -395,3 +395,37 @@ body {
     border-bottom: 1px solid var(--border);
   }
 }
+
+
+/* Monitoramento integrado ao layout existente: números à esquerda, mensagens à direita. */
+.webhook-status { display:block; margin-top:5px; font-size:.72rem; color:var(--text-soft); overflow-wrap:anywhere; }
+.monitor-resumo {
+  flex:0 0 auto; padding:10px 14px; border-bottom:1px solid var(--border);
+  background:#eef5f0; color:#2a4433; min-width:0; font-size:.78rem;
+}
+.monitor-resumo-linha { display:flex; align-items:center; flex-wrap:wrap; gap:8px 15px; }
+.monitor-resumo-linha strong { font-size:.82rem; color:#214c34; }
+.monitor-resumo-linha span { overflow-wrap:anywhere; }
+.monitor-resumo-linha button {
+  border:1px solid #c4d9c9; background:#fff; color:#28513a;
+  border-radius:7px; font-size:.75rem; padding:6px 10px; cursor:pointer;
+}
+#monitor-contagens { margin-left:auto; }
+#monitor-eventos[hidden] { display:none; }
+#monitor-eventos { margin-top:10px; border-top:1px solid #cfdfd1; padding-top:9px; max-height:210px; overflow-y:auto; }
+.monitor-eventos-legenda { color:#526858; margin-bottom:8px; font-size:.76rem; }
+.monitor-evento { display:flex; flex-wrap:wrap; align-items:center; gap:5px 12px; padding:7px 4px; border-bottom:1px solid #dbe9dd; }
+.monitor-evento time { color:#65726a; white-space:nowrap; }
+.monitor-evento .evento-numero { font-weight:700; }
+.monitor-evento .evento-texto { overflow-wrap:anywhere; white-space:pre-wrap; }
+.monitor-estado { font-size:.71rem; font-weight:700; border-radius:6px; padding:2px 7px; background:#e2e9e4; }
+.monitor-estado.registrada { background:#d5eadc; color:#245b3c; }
+.monitor-estado.duplicada { background:#f6e8c9; color:#765211; }
+.monitor-estado.ignorada, .monitor-estado.erro { background:#f7dbd8; color:#963d38; }
+.conversa-item { flex-direction:column; align-items:stretch; gap:3px; }
+.conversa-preview { font-size:.73rem; color:var(--text-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bolha .bolha-conteudo { white-space:pre-wrap; overflow-wrap:anywhere; }
+@media (max-width:860px) {
+  .monitor-resumo { padding:8px; }
+  #monitor-contagens { margin-left:0; }
+}
