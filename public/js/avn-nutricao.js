@@ -190,7 +190,7 @@ function renderDiet(){
    '<div class="avn-dieta-refeicao-cabecalho avn-dieta-cabecalho-com-perfis">'+
    '<div class="avn-dieta-cabecalho-linha"><h4><a href="#" data-macro-meal="'+esc(key)+'" data-macro-source="dieta">'+esc(MEALS[key])+' <span class="avn-dieta-emoji" aria-hidden="true">'+emojiRefeicao(key)+'</span></a></h4>'+
    '<div class="avn-perfil-acoes"><small>Perfil atual: <b>'+esc(ativo?.nome||'Original')+'</b></small>'+
-   '<button type="button" class="avn-perfil-botao" data-perfis-refeicao="'+esc(key)+'"><span aria-hidden="true">🔄</span> Selecionar '+esc(MEALS[key])+' <span aria-hidden="true">'+emojiRefeicao(key)+'</span></button>'+
+   '<button type="button" class="avn-perfil-botao" data-perfis-refeicao="'+esc(key)+'"><span aria-hidden="true">🔄</span> Selecionar perfil: '+esc(MEALS[key])+' <span aria-hidden="true">'+emojiRefeicao(key)+'</span></button>'+
    '<button type="button" class="avn-perfil-botao" data-enviar-refeicao="'+esc(key)+'"'+(items.length?'':' disabled title="Adicione alimentos antes de registrar o consumo"')+'><span aria-hidden="true">📒</span> Adicionar ao diário alimentar</button>'+
    '<button type="button" class="avn-perfil-botao" data-adicionar-refeicao="'+esc(key)+'"><span aria-hidden="true">➕</span> Adicionar alimento à refeição</button>'+
    '</div></div>'+
