@@ -1,5 +1,6 @@
 const pool = require('../../../db/connection');
 const lidVinculos = require('../whatsapp/zapi-lid-vinculos.service');
+const ordemEntradas = require('../whatsapp/bot-contatos-ultima-entrada.service');
 
 function normalizarTelefone(valor) {
   return String(valor || '').replace(/\D/g, '');
@@ -62,8 +63,30 @@ const CTE_CONVERSAS = `WITH lid_unico AS (
   FROM origens GROUP BY telefone_canonico
 )`;
 
+// A tabela opcional de ordem contem somente telefone e horario de recebimento.
+// Se sua criacao falhar, a lista continua usando os timestamps ja existentes.
+const CTE_COM_ORDEM = CTE_CONVERSAS.replace(
+  'MIN(criado_em) AS criado_em, MAX(atualizado_em) AS atualizado_em\n  FROM origens GROUP BY telefone_canonico',
+  `MIN(criado_em) AS criado_em, MAX(atualizado_em) AS atualizado_em,
+    COALESCE(MAX(e.ultima_entrada_em), MAX(origens.atualizado_em)) AS ultima_entrada_em
+  FROM origens LEFT JOIN bot_contatos_ultima_entrada e
+    ON e.telefone = origens.telefone_canonico
+  GROUP BY telefone_canonico`
+);
+
 async function listarConversas({ page, limit, data_inicio, data_fim, nivel_atendimento, telefone }) {
-  await lidVinculos.prepararEstrutura();
+  // Nenhum problema do cadastro externo pode impedir a lista de telefones.
+  await lidVinculos.prepararEstrutura().catch(erro =>
+    console.warn('[Bot Admin] Vinculos LID indisponiveis:', erro.message)
+  );
+  let comOrdem = true;
+  try { await ordemEntradas.preparar(); }
+  catch (erro) {
+    console.error('[Bot Admin] Registro de ordem indisponivel, usando data anterior:', erro.message);
+    comOrdem = false;
+  }
+  const cte = comOrdem ? CTE_COM_ORDEM : CTE_CONVERSAS;
+  const campoOrdem = comOrdem ? 'ultima_entrada_em' : 'atualizado_em';
   const pageNum = Math.max(1, parseInt(page, 10) || 1);
   const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
   const offset = (pageNum - 1) * limitNum;
@@ -87,13 +110,13 @@ async function listarConversas({ page, limit, data_inicio, data_fim, nivel_atend
   }
   const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
   const countResult = await pool.query(
-    `${CTE_CONVERSAS} SELECT COUNT(*) FROM conversas ${where}`, params
+    `${cte} SELECT COUNT(*) FROM conversas ${where}`, params
   );
   const total = parseInt(countResult.rows[0].count, 10);
   const result = await pool.query(
-    `${CTE_CONVERSAS}
+    `${cte}
      SELECT id, telefone, nome, nivel_atendimento, ultima_mensagem, criado_em, atualizado_em
-     FROM conversas ${where} ORDER BY atualizado_em DESC, telefone ASC
+     FROM conversas ${where} ORDER BY ${campoOrdem} DESC, telefone ASC
      LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
     [...params, limitNum, offset]
   );
