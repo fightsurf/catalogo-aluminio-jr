@@ -373,29 +373,77 @@
   function renderConversas(conversas) {
     const lista = el('lista-conversas');
     if (!conversas.length) {
-      lista.innerHTML = '<p class="msg-vazia">Nenhum telefone encontrado.</p>';
+      lista.innerHTML = '<p class="msg-vazia">Nenhum contato encontrado.</p>';
       return;
     }
 
     lista.innerHTML = conversas.map((conversa) => {
       const ativa = conversa.telefone === telefoneAtivo ? ' ativa' : '';
+      const numero = String(conversa.telefone || '');
+      const ehLid = /^\d+@lid$/i.test(numero);
       return `
         <div
           class="conversa-item${ativa}"
-          data-telefone="${esc(conversa.telefone)}"
+          data-telefone="${esc(numero)}"
           title="${esc((conversa.ultima_mensagem || '').slice(0, 120))}"
         >
-          <span class="conversa-telefone">${esc(conversa.telefone)}</span>
-          <span class="conversa-preview">${esc(conversa.ultima_mensagem || '')}</span>
+          <div class="conversa-dados">
+            <span class="conversa-telefone">${esc(numero)}</span>
+            <span class="conversa-preview">${esc(conversa.ultima_mensagem || '')}</span>
+          </div>
+          ${ehLid
+            ? '<small class="lid-pendente">Número não confirmado</small>'
+            : `<button type="button" class="btn-conferir-lid" data-telefone="${esc(numero)}" title="Consultar o LID deste número na Z-API">Conferir LID</button>`}
         </div>`;
     }).join('');
 
     lista.querySelectorAll('.conversa-item').forEach((item) => {
       item.addEventListener('click', () => abrirConversa(item.dataset.telefone));
     });
+    lista.querySelectorAll('.btn-conferir-lid').forEach((botao) => {
+      botao.addEventListener('click', (event) => {
+        event.stopPropagation();
+        conferirLid(botao);
+      });
+    });
   }
 
-  function renderPaginacaoConversas(pagina, totalPaginas, total) {
+  async function conferirLid(botao) {
+    const telefone = botao.dataset.telefone;
+    if (!/^\d{10,15}$/.test(telefone)) return;
+    botao.disabled = true;
+    const anterior = botao.textContent;
+    botao.textContent = 'Consultando...';
+    try {
+      const res = await fetch(`${API}/conversas/conferir-lid`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ telefone })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || 'Erro na consulta do LID');
+      if (data.vinculado) {
+        alert('LID confirmado pela Z-API. As mensagens serão reunidas na mesma conversa.');
+      } else if (data.motivo === 'lid_nao_disponivel') {
+        alert('A Z-API confirmou o telefone, mas ainda não informou o LID.');
+      } else if (data.motivo === 'conflito_de_identidade') {
+        alert('Há conflito no vínculo entre LID e telefone. Nenhuma conversa foi mesclada.');
+      } else if (data.motivo === 'telefone_divergente') {
+        alert('O telefone retornado pela Z-API é diferente. Nenhuma associação foi criada.');
+      } else {
+        alert('Não foi possível confirmar um LID para esse número.');
+      }
+      await atualizarListaSilenciosa();
+      if (telefoneAtivo === telefone) await recarregarMensagensAtivas();
+    } catch (error) {
+      alert(error.message || 'Falha ao consultar o LID.');
+    } finally {
+      botao.disabled = false;
+      botao.textContent = anterior;
+    }
+  }
+
+    function renderPaginacaoConversas(pagina, totalPaginas, total) {
     const pag = el('paginacao-conversas');
     if (!totalPaginas || totalPaginas <= 1) {
       pag.innerHTML = `<span>${total} telefone(s)</span>`;
