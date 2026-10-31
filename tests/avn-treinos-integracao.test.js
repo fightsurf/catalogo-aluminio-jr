@@ -65,3 +65,14 @@ test('o SVG originalmente branco usa moldura contrastante e filtro apenas na ilu
  assert.match(js,/thumb-frame/);
  assert.match(js,/media-preview-frame/);
 });
+
+test('miniaturas PNG da biblioteca mantêm o fundo claro fora do filtro de contraste',()=>{
+ const js=file('public/js/avn-treinos.js');
+ const css=file('public/css/avn-treinos.css');
+ assert.match(js,/const isPngAnimated =/);
+ assert.ok(js.includes('return (anim||isPngAnimated(ex.midia_url))?'));
+ assert.equal(js.split('return (anim||isPngAnimated(ex.midia_url))?').length-1,2);
+ assert.ok(css.includes('.exercise > img.thumb:not(.avn-animated){background:#fff!important}'));
+ assert.ok(css.includes('.exercise .thumb-frame img.thumb'));
+ assert.ok(css.includes('.exercise .thumb-frame,.exercise img.thumb'));
+});

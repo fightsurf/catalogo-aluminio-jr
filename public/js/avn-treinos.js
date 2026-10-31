@@ -9,6 +9,7 @@ const state={usuarios:[],grupos:[],exercicios:[],nomes:new Map(),planos:[],usuar
 const esc = value => String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const isId = v => /^\d+$/.test(String(v||''));
 const isAnimated = url => typeof url==='string' && /^\/avn\/sistema\/midias\/[a-z0-9-]+\/frame-1\.svg$/.test(url);
+const isPngAnimated = url => typeof url==='string' && /^\/avn\/sistema\/midias\/[a-z0-9-]+\/frame-1\.png$/.test(url);
 let frame=1;
 function animateVisible(){if(document.hidden||window.matchMedia('(prefers-reduced-motion: reduce)').matches)return;frame=frame===3?1:frame+1;document.querySelectorAll('img.avn-animated').forEach(img=>{const rect=img.getBoundingClientRect();if(rect.bottom<0||rect.top>innerHeight)return;const base=img.dataset.base;if(base)img.src=base.replace('/frame-1.svg','/frame-'+frame+'.svg');});}
 setInterval(animateVisible,950);
@@ -36,7 +37,7 @@ function media(ex,small=false){
  if(ex.midia_tipo==='video')return `<video class="thumb" src="${url}" autoplay muted loop playsinline preload="metadata" title="Demonstração: ${name}"></video>`;
  const anim=isAnimated(ex.midia_url);
  const img=`<img class="thumb ${anim?'avn-animated':''}" src="${url}" data-base="${url}" alt="Demonstração ilustrada: ${name}" loading="lazy" decoding="async" onerror="this.onerror=null;this.classList.add('media-missing');this.alt='Imagem indisponível';">`;
- return anim?`<span class="thumb-frame" title="Demonstração animada: ${name}">${img}</span>`:img;
+ return (anim||isPngAnimated(ex.midia_url))?`<span class="thumb-frame" title="Demonstração animada: ${name}">${img}</span>`:img;
 }
 function selectGrupos(){return `<option value="">Todos os grupos</option>`+state.grupos.map(g=>`<option value="${esc(g.slug)}" ${state.grupo===g.slug?'selected':''}>${esc(g.nome)}</option>`).join('');}
 function usuarioGuard(){if(state.usuarioId)return false;$('conteudo').innerHTML='<div class="empty">Cadastre e selecione um usuário na Central AVN para começar.</div>';return true;}
@@ -46,7 +47,7 @@ function preview(ex){if(!ex?.midia_url)return '<div class="empty">Sem demonstra�
  if(ex.midia_tipo==='video')return `<video class="media-preview" src="${url}" controls playsinline preload="metadata"></video>`;
  const anim=isAnimated(ex.midia_url);
  const img=`<img class="media-preview ${anim?'avn-animated':''}" data-base="${url}" src="${url}" alt="Demonstração ilustrada" loading="lazy" decoding="async">`;
- return anim?`<div class="media-preview-frame">${img}</div>`:img;
+ return (anim||isPngAnimated(ex.midia_url))?`<div class="media-preview-frame">${img}</div>`:img;
 }
 function htmlExercicios(){
  $('conteudo').innerHTML=`<div class="avn-exercicios-centered"><section class="card stack">

@@ -59,7 +59,7 @@ a{color:#8ec1ff}table th,table td{border-color:#34465f!important}hr,.tabs,.avn-t
 .avn-thumb-light,.exercise .thumb-frame,.exercise img.thumb,.exercise video.thumb,.avn-workout-visual,.avn-workout-visual .thumb-frame,.media-preview-frame{background:#fff!important;border:1px solid #d0dae5!important}
 .avn-workout-visual{background:#fff!important}
 .exercise .thumb-frame img.thumb,.avn-workout-visual .thumb-frame img.thumb,.media-preview-frame img.media-preview{background:transparent!important;filter:brightness(0)!important}
-.exercise img.thumb:not(.avn-animated){background:#fff!important}
+.exercise > img.thumb:not(.avn-animated){background:#fff!important}
 .avn-ai-recommendation{border:1px solid #425976;border-radius:10px;padding:13px;margin:10px 0;background:#202f45}
 .avn-ai-recommendation .row{justify-content:space-between}
 .avn-ai-recommendation p{white-space:pre-wrap}
