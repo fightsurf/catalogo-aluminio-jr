@@ -25,9 +25,21 @@ async function responder(comando,arg,destino,zapi) {
     if (!arg) return;
     const r = await logistica.buscarTransportadorasPorNomeCidade(arg);
     let mensagem;
-    if (r.tipo === 'resultado') {
+    if (r.tipo === 'resultado' && Array.isArray(r.dados) && r.dados.length > 0) {
       const lista = r.dados.map((t,i)=>`${i+1}. ${t.nome}\n📞 ${t.telefone||'Sem telefone'}`).join('\n\n');
       mensagem = `🚚 Frete para ${r.dados[0].cidade_nome} - ${r.dados[0].estado}\n\n${lista}`;
+      // Foto apenas quando há transportadoras. Primeiro a imagem, depois a lista.
+      // Se a foto falhar, a lista ainda deve chegar ao cliente.
+      try {
+        await zapi.postZapi('/send-image', {
+          phone: destino,
+          image: 'https://pub-51cb4ace3dfb43a4ac45a4b7c399904d.r2.dev/comum/caixapanela.jpeg',
+          caption: 'Medidas da caixa do Alumínio JR',
+          viewOnce: false
+        });
+      } catch (erro) {
+        console.error('[WhatsApp @frete] Foto da caixa não enviada:', erro.message);
+      }
     } else if (r.tipo === 'sugestao') {
       const lista = r.cidades.map((c,i)=>`${i+1}. ${c.nome} - ${c.estado}`).join('\n');
       mensagem = `🔎 Encontrei várias cidades parecidas:\n\n${lista}\n\nDigite novamente assim:\n@frete NomeDaCidade - UF\n\nExemplo:\n@frete Cruz - CE`;
