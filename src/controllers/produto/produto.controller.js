@@ -107,12 +107,14 @@ async function uploadVideo(req, res) {
   try {
     if (!req.file || !req.file.size) throw new Error('Selecione um vídeo para enviar.');
     const produto = await produtoService.buscar(req.params.id);
+    const posicao = req.params.posicao === undefined ? 1 : Number(req.params.posicao);
+    if (![1, 2, 3].includes(posicao)) throw new Error('Posição de vídeo inválida. Use de 1 a 3.');
     const extensoes = { 'video/mp4': 'mp4', 'video/webm': 'webm', 'video/quicktime': 'mov' };
     const upload = await cloudflareR2Service.uploadBuffer(req.file.buffer, {
-      pasta: 'produtos-videos', nome: `produto-${produto.id}.${extensoes[req.file.mimetype]}`,
-      contentType: req.file.mimetype, metadata: { produto_id: produto.id }
+      pasta: 'produtos-videos', nome: `produto-${produto.id}-video-${posicao}.${extensoes[req.file.mimetype]}`,
+      contentType: req.file.mimetype, metadata: { produto_id: produto.id, posicao_video: posicao }
     });
-    const atualizado = await produtoService.atualizarVideo(produto.id, upload.url);
+    const atualizado = await produtoService.atualizarVideo(produto.id, upload.url, posicao);
     res.json({ success: true, data: { produto: atualizado, url: upload.url } });
   } catch (error) { res.status(400).json({ success: false, message: error.message }); }
 }
