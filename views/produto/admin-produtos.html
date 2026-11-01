@@ -813,6 +813,13 @@ function renderProdutos() {
     .forEach(p => {
       const fotoPrincipal = p.foto && String(p.foto).trim() ? p.foto : '';
       const fotosPreenchidas = contarFotosProduto(p);
+      // A API inclui todas as categorias vinculadas (principal e adicionais).
+      const nomesCategorias = [...new Set(
+        (Array.isArray(p.categorias) ? p.categorias : [])
+          .map(c => String(c?.nome || '').trim())
+          .filter(Boolean)
+      )];
+      const categoriasProduto = nomesCategorias.join(', ') || p.categoria || 'Não informadas';
       const thumb = fotoPrincipal
         ? `<img src="${fotoPrincipal}" class="produto-thumb" alt="Foto principal">`
         : `<div class="produto-thumb"></div>`;
@@ -822,8 +829,8 @@ function renderProdutos() {
           <div class="produto-info">
             ${thumb}
             <div class="produto-linha-texto">
-              <div>${p.nome} — R$ ${Number(p.preco).toFixed(2)} — ${(p.categorias || []).map(c => c.nome).join(', ') || p.categoria || ''} — ${p.ativo ? 'Ativo' : 'Inativo'}</div>
-              <div style="font-size:12px;color:#666;">Peso: ${p.peso_kg == null ? 'Não informado' : Number(p.peso_kg).toLocaleString('pt-BR', { maximumFractionDigits: 6 }) + ' kg'} — Fotos: ${fotosPreenchidas}/6 — Vídeos: ${[p.video_url, p.video_url_2, p.video_url_3].filter(Boolean).length}/3 ${fotoPrincipal ? '— Foto 1 principal cadastrada' : '— Sem foto principal'}</div>
+              <div>${p.nome} — R$ ${Number(p.preco).toFixed(2)} — ${p.ativo ? 'Ativo' : 'Inativo'}</div>
+              <div style="font-size:12px;color:#666;overflow-wrap:anywhere;">Categorias: ${categoriasProduto} — Peso: ${p.peso_kg == null ? 'Não informado' : Number(p.peso_kg).toLocaleString('pt-BR', { maximumFractionDigits: 6 }) + ' kg'} — Fotos: ${fotosPreenchidas}/6 — Vídeos: ${[p.video_url, p.video_url_2, p.video_url_3].filter(Boolean).length}/3 ${fotoPrincipal ? '— Foto 1 principal cadastrada' : '— Sem foto principal'}</div>
             </div>
           </div>
           <div class="lista-acoes">
