@@ -266,7 +266,7 @@
           <option value="video">Apenas vídeos</option>
           <option value="foto_video">Fotos e vídeos</option>
         </select>
-        <p class="note">Vídeos: nome e preço em todas as partes, até 55 segundos por parte. O vídeo inteiro será publicado em sequência nas três redes. Em Fotos e vídeos, cada rede recebe a foto e depois todas as partes do vídeo do mesmo produto. Produtos com apenas uma mídia publicam a que estiver disponível. O carrossel do feed e o envio ao cliente continuam disponíveis no modo Apenas fotos.</p>
+        <p class="note">Vídeos: serão publicados os vídeos 1, 2 e 3 que estiverem cadastrados, nessa ordem, em todas as três redes. Nome e preço aparecem em todas as partes de até 55 segundos. Em Fotos e vídeos, cada rede recebe a foto e depois todas as partes dos vídeos do produto. Produtos com apenas uma mídia publicam a que estiver disponível. O carrossel do feed e o envio ao cliente continuam disponíveis no modo Apenas fotos.</p>
       </div>
       <div class="actions">
         <button id="enviarClienteBtn" type="button" class="btn btn-primary" disabled>Enviar categoria para o WhatsApp do cliente</button>
@@ -559,8 +559,9 @@
 
       lista.innerHTML = produtos.map((produto, index) => {
         const classe = produto.publicavel ? (produto.estado || '') : 'skipped';
-        const imagem = tipoMidiaEl.value !== 'foto' && produto.video_url
-          ? `<video class="thumb" style="width:110px;height:150px;object-fit:contain" src="${escaparHtml(produto.video_url)}" controls playsinline preload="none"></video>`
+        const primeiroVideo = (produto.videos || [produto.video_url, produto.video_url_2, produto.video_url_3]).find(Boolean);
+        const imagem = tipoMidiaEl.value !== 'foto' && primeiroVideo
+          ? `<video class="thumb" style="width:110px;height:150px;object-fit:contain" src="${escaparHtml(primeiroVideo)}" controls playsinline preload="none"></video>`
           : produto.foto
           ? `<img class="thumb" src="${escaparHtml(produto.foto)}" alt="Foto 1 de ${escaparHtml(produto.nome)}" loading="lazy" />`
           : '<div class="thumb-placeholder">Sem foto 1</div>';
@@ -574,7 +575,7 @@
             <div>
               <div class="product-name">${index + 1}. ${escaparHtml(produto.nome)}</div>
               <div class="caption-preview">${escaparHtml(produto.nome)}<br>${escaparHtml(produto.preco_formatado || 'Preço inválido')}</div>
-              <div class="product-meta">Conteúdo: ${tipoMidiaEl.value !== 'foto' ? (tipoMidiaEl.value === 'foto_video' ? (produto.publicavel_foto ? 'foto' : '') + (produto.publicavel_foto && produto.publicavel_video ? ' seguida de ' : '') + (produto.publicavel_video ? 'vídeo completo em partes' : '') : 'vídeo completo em partes, nome e preço') : 'foto 1, descrição do produto e preço'}</div>
+              <div class="product-meta">Conteúdo: ${tipoMidiaEl.value !== 'foto' ? (tipoMidiaEl.value === 'foto_video' ? (produto.publicavel_foto ? 'foto' : '') + (produto.publicavel_foto && produto.publicavel_video ? ' seguida de ' : '') + (produto.publicavel_video ? `${produto.total_videos || 1} vídeo(s) em sequência` : '') : `${produto.total_videos || 0} vídeo(s) em sequência, nome e preço`) : 'foto 1, descrição do produto e preço'}</div>
               <div class="product-status">${escaparHtml(textoEstado(produto))}</div>
             </div>
             ${badge}
