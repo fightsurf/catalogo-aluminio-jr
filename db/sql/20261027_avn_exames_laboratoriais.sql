@@ -95,6 +95,7 @@ VALUES
 ('estradiol','Estradiol',ARRAY['e2','17-beta estradiol','17β-estradiol'],'Hormônios','pg/mL','indicador'),
 ('vitamina_d','Vitamina D (25-OH)',ARRAY['25-oh vitamina d','25 hidroxi vitamina d'],'Vitaminas','ng/mL','indicador'),
 ('vitamina_b12','Vitamina B12',ARRAY['cobalamina'],'Vitaminas','pg/mL','indicador'),
+('magnesio','Magnésio',ARRAY['magnesio','magnésio sérico','magnesio serico','magnésio no sangue'],'Minerais','mg/dL','indicador'),
 ('ferritina','Ferritina',ARRAY[]::text[],'Metabolismo','ng/mL','indicador'),
 ('pcr','Proteína C-reativa',ARRAY['pcr','crp'],'Inflamação','mg/L','indicador')
 ON CONFLICT(codigo) DO NOTHING;
