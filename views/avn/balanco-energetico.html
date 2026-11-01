@@ -1,24 +1,60 @@
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>AVN — Balanço Energético</title>
-<link rel="stylesheet" href="/css/avn-balanco-energetico.css?v=20261028-1">
-<script src="/js/avn-balanco-energetico.js?v=20261101-2" defer></script></head>
+<link rel="stylesheet" href="/css/avn-balanco-energetico.css?v=20261101-3">
+<script src="/js/avn-balanco-energetico.js?v=20261101-3" defer></script></head>
 <body><main class="avn-balanco">
 <header class="top"><a href="/avn">← Central AVN</a><strong>AVN · Nutrição</strong></header>
-<div class="titulo"><h1>⚖️ Balanço Energético</h1><p>Cinco gráficos diários e uma estimativa de déficit ou superávit. Cada barra corresponde a um dia.</p></div>
+<div class="titulo"><h1>⚖️ Balanço Energético</h1><p>Saldo diário e evolução dos indicadores. Cada ponto corresponde a uma data; selecione um ponto para consultar aquele dia.</p></div>
 <div class="filtros">
 <label>Usuário <select id="usuario" aria-label="Usuário"><option value="">Carregando…</option></select></label>
 <label>Data <input type="date" id="data" aria-label="Data do balanço energético"></label>
 <a class="diario-link" href="/avn/sistema/nutricao/diario">Abrir diário alimentar</a>
+<button id="compare-open" class="btn-principal" type="button">Cruzar informações</button>
 </div>
 <p id="mensagem" role="status" aria-live="polite">Carregando dados…</p>
-<section class="graficos" id="graficos" aria-label="Gráficos diários">
-<article class="painel"><div class="painel-titulo"><h2>🍽️ Calorias consumidas</h2><strong id="valor-ingestao">—</strong></div><p class="ajuda">Total registrado no Diário Alimentar</p><div id="grafico-ingestao" class="barras"></div></article>
-<article class="painel"><div class="painel-titulo"><h2>🔥 TMB</h2><strong id="valor-tmb">—</strong></div><p class="ajuda" id="nota-tmb">Metabolismo basal da bioimpedância</p><div id="grafico-tmb" class="barras"></div></article>
-<article class="painel"><div class="painel-titulo"><h2>👟 Passos</h2><strong id="valor-passos">—</strong></div><p class="ajuda">Passos sincronizados pelo Health Connect</p><div id="grafico-passos" class="barras"></div></article>
-<article class="painel"><div class="painel-titulo"><h2>🏋️ Calorias de treinamento</h2><strong id="valor-calorias_ativas">—</strong></div><p class="ajuda">Calorias ativas registradas no Health Connect; sem registros, usamos 0 kcal.</p><div id="grafico-calorias_ativas" class="barras"></div></article>
-<article class="painel"><div class="painel-titulo"><h2>👣 Calorias estimadas dos passos</h2><strong id="valor-calorias_passos">—</strong></div><p class="ajuda" id="nota-calorias-passos">Estimativa da caminhada diária com peso e altura cadastrados.</p><div id="grafico-calorias_passos" class="barras"></div></article>
+<section class="saldo" id="saldo" aria-live="polite">
+<h2>Balanço calórico do dia</h2>
+<strong id="saldo-valor">—</strong>
+<p id="saldo-descricao">Selecione um usuário e uma data.</p>
+<p class="formula" id="saldo-formula"></p>
 </section>
-<section class="saldo" id="saldo" aria-live="polite"><h2>Balanço calórico do dia</h2><strong id="saldo-valor">—</strong><p id="saldo-descricao">Selecione um usuário e uma data.</p><p class="formula" id="saldo-formula"></p></section>
-<p class="aviso">Estimativa, não medição exata: TMB + calorias de treinamento (registros de calorias ativas) + gasto líquido estimado dos passos. A estimativa usa a altura, o peso recente e os passos fora dos intervalos de calorias ativas, para reduzir a contagem dupla. Registros com horários imprecisos, passos duplicados entre dispositivos, digestão e atividades não medidas podem alterar o gasto real. Sem registros de passos ou calorias ativas, adotamos 0 kcal apenas para a parcela ausente. O resultado do dia em andamento é provisório.</p>
+<section class="graficos" id="graficos" aria-label="Gráficos diários de linha">
+<article class="painel painel-principal">
+<div class="painel-titulo"><h2>📉 Histórico do Balanço Energético</h2><strong id="valor-saldo">—</strong></div>
+<p class="ajuda">Calorias consumidas − TMB − treinamento − calorias estimadas dos passos. Valores negativos indicam déficit e positivos, superávit.</p>
+<div id="grafico-saldo" class="linha-grafico" aria-label="Histórico de déficit ou superávit por data"></div>
+</article>
+<article class="painel"><div class="painel-titulo"><h2>🍽️ Calorias consumidas</h2><strong id="valor-ingestao">—</strong></div>
+<p class="ajuda">Quilocalorias registradas por dia no Diário Alimentar.</p><div id="grafico-ingestao" class="linha-grafico"></div></article>
+<article class="painel"><div class="painel-titulo"><h2>🔥 TMB</h2><strong id="valor-tmb">—</strong></div>
+<p class="ajuda" id="nota-tmb">Metabolismo basal da bioimpedância.</p><div id="grafico-tmb" class="linha-grafico"></div></article>
+<article class="painel"><div class="painel-titulo"><h2>👟 Passos</h2><strong id="valor-passos">—</strong></div>
+<p class="ajuda" id="nota-passos">Passos sincronizados pelo Health Connect; abaixo de cada ponto, as kcal líquidas estimadas dos passos.</p><div id="grafico-passos" class="linha-grafico"></div></article>
+<article class="painel"><div class="painel-titulo"><h2>🏋️ Calorias de treinamento</h2><strong id="valor-calorias_ativas">—</strong></div>
+<p class="ajuda">Calorias ativas sincronizadas pelo Health Connect. Sem registros, adotamos 0 kcal.</p><div id="grafico-calorias_ativas" class="linha-grafico"></div></article>
+</section>
+<p class="aviso">O gasto dos passos é estimado a partir do peso, da altura e dos intervalos registrados, excluindo os trechos coincidentes com calorias ativas para reduzir contagem dupla. Não é uma medida direta do relógio; horários, registros ausentes ou repetidos podem alterar a precisão. Sem registros de calorias ativas ou passos, só a parcela ausente é presumida zero. Dias com diário incompleto ou TMB inválida não têm saldo calculado.</p>
+<dialog id="compare-dialog" class="compare-modal" aria-labelledby="compare-title">
+<div class="compare-header"><div><h2 id="compare-title">Cruzar informações</h2><p>Escolha dois ou mais indicadores para sobrepor as curvas no mesmo período.</p></div><button id="compare-close" type="button" class="btn-fechar" aria-label="Fechar comparador">✕ Fechar</button></div>
+<fieldset class="compare-group"><legend>Balanço Energético</legend><div class="compare-checks">
+<label><input data-compare="ingestao" type="checkbox"> Calorias consumidas</label>
+<label><input data-compare="tmb" type="checkbox"> TMB</label>
+<label><input data-compare="passos" type="checkbox"> Passos</label>
+<label><input data-compare="calorias_ativas" type="checkbox"> Calorias de treinamento</label>
+<label><input data-compare="saldo" type="checkbox" checked> Balanço energético</label>
+</div></fieldset>
+<fieldset class="compare-group"><legend>Avaliação Física</legend><div class="compare-checks">
+<label><input data-compare="peso" type="checkbox" checked> Peso</label>
+<label><input data-compare="imc" type="checkbox"> IMC</label>
+<label><input data-compare="gordura_corporal" type="checkbox"> Gordura corporal</label>
+<label><input data-compare="massa_magra" type="checkbox"> Massa magra</label>
+<label><input data-compare="agua_corporal" type="checkbox"> Água corporal</label>
+<label><input data-compare="massa_ossea" type="checkbox"> Massa óssea</label>
+</div></fieldset>
+<div class="compare-filtros"><label>Período <select id="compare-dias"><option value="30">30 dias</option><option value="90" selected>90 dias</option><option value="180">180 dias</option><option value="365">365 dias</option></select></label><span id="compare-status" role="status">Selecione os indicadores.</span></div>
+<div id="compare-legend" class="compare-legend" aria-label="Legenda do gráfico"></div>
+<div id="compare-chart" class="compare-chart" role="group" aria-label="Gráfico cruzado dos indicadores"></div>
+<p class="compare-help">Com dois indicadores, cada curva usa seu próprio eixo vertical. Com três ou mais, as curvas são apresentadas em escala relativa de 0 a 100 para comparação de tendências; isso não representa unidades iguais. Pontos sem medição não são inventados.</p>
+</dialog>
 </main></body></html>
