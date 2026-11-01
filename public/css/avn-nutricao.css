@@ -595,3 +595,28 @@ body[data-nutricao-pagina="diario"] #resumoDiario{
  body[data-nutricao-pagina="dieta"] #resumoDieta,
  body[data-nutricao-pagina="diario"] #resumoDiario{position:static}
 }
+
+/* Ranking nutricional editável: cabe abaixo do resumo sticky e rola internamente. */
+body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-modal{
+ width:min(1020px,calc(100vw - 22px));max-width:none;
+ position:fixed;inset:auto auto auto 50%;top:var(--avn-ranking-top,12px);
+ transform:translateX(-50%);margin:0;overflow:hidden;
+ max-height:calc(100dvh - var(--avn-ranking-top,12px) - 10px);padding:12px 18px;
+}
+body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-modal[open]{display:flex;flex-direction:column}
+body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-modal::backdrop{background:rgba(9,27,43,.12)}
+body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-modal .modal-head{flex:none}
+body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-modal .modal-head h3{margin:0}
+body[data-nutricao-pagina="dieta"] #conteudoRankingDieta{flex:1 1 auto;min-height:0;overflow-y:auto;scrollbar-gutter:stable}
+body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-intro{margin:7px 0 3px}
+body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-lista{margin:7px 0 0;gap:5px}
+body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-item{grid-template-columns:26px minmax(0,1fr) minmax(98px,auto);gap:9px;padding:6px 9px}
+body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-food strong{display:block;overflow-wrap:anywhere;font-size:13px}
+body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-food small,body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-valor small{font-size:11px}
+body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-valor strong{font-size:14px}
+body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-item .avn-dieta-pesagem{margin-top:1px;gap:5px}
+@media(max-width:520px){
+ body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-modal{padding:9px 10px}
+ body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-item{grid-template-columns:20px minmax(0,1fr);gap:3px 7px;padding:6px}
+ body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-valor{grid-column:2;text-align:left}
+}
