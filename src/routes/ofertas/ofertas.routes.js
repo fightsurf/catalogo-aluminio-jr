@@ -8,6 +8,15 @@ const router = express.Router();
 router.get('/publica/:codigo', controller.publica);
 router.post('/integracao/kits-whatsapp', n8nAuth, controller.enviarKitsComandoWhatsapp);
 router.post('/publica/:codigo/clique', controller.clique);
+const agendaMarketing = require('../../services/marketing/agendadorModulos.service');
+router.get('/agendamento', requireAuth, async(_req,res)=>{
+ try{res.json({success:true,data:await agendaMarketing.obter('ofertas')});}
+ catch(e){res.status(500).json({success:false,message:e.message});}
+});
+router.put('/agendamento', requireAuth, async(req,res)=>{
+ try{res.json({success:true,data:await agendaMarketing.salvar('ofertas',req.body||{})});}
+ catch(e){res.status(400).json({success:false,message:e.message});}
+});
 router.get('/produtos', requireAuth, controller.produtos);
 router.get('/', requireAuth, controller.listar);
 router.post('/', requireAuth, controller.criar);

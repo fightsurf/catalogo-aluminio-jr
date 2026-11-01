@@ -5,6 +5,9 @@ const service = require('../../services/marketing/republicador-youtube.service')
 
 const router = express.Router();
 router.use(requireAuth);
+const agendador = require('../../services/marketing/agendadorModulos.service');
+router.get('/api/agendamento', tratar(async (_req,res)=>res.json({success:true,data:await agendador.obter('youtube')})));
+router.put('/api/agendamento', tratar(async (req,res)=>res.json({success:true,data:await agendador.salvar('youtube',req.body||{})})));
 router.get('/api/diagnostico', async (_req,res) => res.json({ success:true, data:await service.diagnostico() }));
 
 function tratar(fn) { return async(req,res)=> { try { await fn(req,res); }

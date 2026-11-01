@@ -14,6 +14,7 @@ const facebook = require('../integracoes/facebook.service');
 const zapi = require('../integracoes/zapi.service');
 const videoOverlay = require('../status-videos/videoOverlay.service');
 const localDownloader = require('./republicador-youtube.local');
+const sharp = require('sharp');
 
 const MAX_BYTES = 250 * 1024 * 1024;
 const MAX_SEGUNDOS = 660; // até 12 Stories/Status de 55s
@@ -163,6 +164,27 @@ async function duracao(caminho) {
   return t;
 }
 
+
+async function adicionarFaixaPrecos(original,dir,segundos){
+  // Overlay com margem inferior para ficar acima dos controles das redes sociais.
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="720" height="1280">
+    <rect x="16" y="1022" width="688" height="104" rx="16" fill="#132b4b" fill-opacity=".94"/>
+    <text x="360" y="1087" text-anchor="middle" font-family="Arial,Helvetica,sans-serif"
+       font-weight="bold" font-size="35" fill="#ffffff">Consultar preços atualizados</text>
+  </svg>`;
+  const png=path.join(dir,'faixa-precos.png'),saida=path.join(dir,'original-com-faixa.mp4');
+  await sharp(Buffer.from(svg)).png().toFile(png);
+  await processarFfmpeg(['-y','-threads','1','-i',original,'-loop','1','-i',png,
+    '-filter_complex_threads','1','-filter_complex',
+    '[0:v]scale=720:1280:force_original_aspect_ratio=decrease,pad=720:1280:(ow-iw)/2:(oh-ih)/2,setsar=1[base];[base][1:v]overlay=0:0:shortest=1[outv]',
+    '-map','[outv]','-map','0:a?','-t',String(segundos),
+    '-c:v','libx264','-preset','ultrafast','-threads','1','-crf','25',
+    '-pix_fmt','yuv420p','-c:a','aac','-b:a','96k','-movflags','+faststart',saida]);
+  const st=await fsp.stat(saida);
+  if(!st.size||st.size>MAX_BYTES)throw new Error('Vídeo final com faixa vazio ou maior que 250 MB.');
+  return saida;
+}
+
 async function preparar(job) {
   if (job.partes?.clips?.length && job.partes?.original?.url && (job.arquivos || []).length) {
     return job.partes; // Reutiliza mídia no R2 após falha; não baixa de novo.
@@ -177,9 +199,11 @@ async function preparar(job) {
   const partes = { original: null, clips: [] };
   try {
     await salvar(job.id, { estado: 'baixando', etapa: 'Iniciando download pelo Node local' });
-    const original = await localDownloader.baixarVideo(job.youtube_video_id, dir,
+    const bruto = await localDownloader.baixarVideo(job.youtube_video_id, dir,
       etapa => salvar(job.id, { etapa }));
-    const segundos = await duracao(original);
+    const segundos = await duracao(bruto);
+    await salvar(job.id,{estado:'preparando',etapa:'Aplicando faixa Consultar preços atualizados'});
+    const original = await adicionarFaixaPrecos(bruto,dir,segundos);
     await salvar(job.id, { estado: 'preparando', etapa: 'Enviando vídeo original ao Cloudflare R2' });
     const subido = await r2.upload(original, `${job.id}-original.mp4`, job.id, 'original');
     keys.push(subido.key);

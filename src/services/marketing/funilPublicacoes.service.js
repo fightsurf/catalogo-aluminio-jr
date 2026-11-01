@@ -2,6 +2,7 @@
 // Funil central de marketing. Os adaptadores de outros módulos usarão enfileirarLote().
 // PostgreSQL é a fonte da verdade: nunca reexecutar um envio externo sem confirmar o estado.
 const pool = require('../../../db/connection');
+const crypto=require('node:crypto');
 const status = require('../whatsapp/status-whatsapp.service');
 const videos = require('../whatsapp/statusProdutoVideo.service');
 const zap = require('../integracoes/zapi.service');
@@ -85,7 +86,7 @@ async function enfileirarLote({origem,chaveOrigem,categoriaId=null,categoriaNome
   const id=Number(r.rows[0].id);
   for(let i=0;i<itens.length;i++) {
     const task=itens[i];
-    if(!['statuszap_produto','statuszap_feed'].includes(task.tipo)) throw new Error('Adaptador de tarefa desconhecido.');
+    if(!['statuszap_produto','statuszap_feed','youtube_video','oferta_kit'].includes(task.tipo)) throw new Error('Adaptador de tarefa desconhecido.');
     const requestId=task.requestId || `funil-${id}-${i+1}`;
     await db.query(`INSERT INTO marketing_fila_itens(lote_id,ordem,tipo,produto_id,produto_nome,request_id,estado,detalhes)
       VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb)`,
@@ -110,11 +111,13 @@ async function retryOrAttention(db,item,erro,{codigo='TENTATIVA_FALHOU',detalhes
 }
 async function incerto(db,item,erro,detalhes) {
   await atualizar(db,item,'incerto',{erro,detalhes});
+  await db.query('UPDATE marketing_publicacao_ritmo SET ultima_reserva_em=NOW() WHERE ultimo_item_id=$1',[item.id]).catch(()=>{});
   await evento(db,{loteId:item.lote_id,itemId:item.id,nivel:'erro',codigo:'ENTREGA_INCERTA',mensagem:erro,
     detalhes:{requer_conferencia:true}});
 }
 async function concluido(db,item,detalhes={}) {
   await atualizar(db,item,'concluido',{detalhes});
+  await db.query('UPDATE marketing_publicacao_ritmo SET ultima_reserva_em=NOW() WHERE ultimo_item_id=$1',[item.id]).catch(()=>{});
   await evento(db,{loteId:item.lote_id,itemId:item.id,codigo:'PUBLICACAO_CONCLUIDA',mensagem:'Tarefa concluída.'});
 }
 async function processarFoto(db,item,lot) {
@@ -252,15 +255,76 @@ async function recuperarProcessos(db) {
       if((await db.query("SELECT 1 FROM marketing_fila_canais WHERE item_id=$1 AND estado='incerto' LIMIT 1",[item.id])).rows.length) {
         await incerto(db,item,'Render reiniciou durante o envio de foto. Conferir cada canal.');
       } else await atualizar(db,item,'pendente');
-    } else if(item.tipo==='statuszap_feed') {
-      await incerto(db,item,'Render reiniciou durante o envio de carrossel. Conferir feed.');
+    } else if(item.tipo==='statuszap_feed' || item.tipo==='oferta_kit') {
+      await incerto(db,item,'Render reiniciou durante um envio externo. Conferir redes antes de repetir.');
     } else {await atualizar(db,item,'aguardando_video');}
   }
 }
+
+function uuidEstavel(requestId){
+  const h=crypto.createHash('sha256').update(requestId).digest('hex');
+  return [h.slice(0,8),h.slice(8,12),h.slice(12,16),h.slice(16,20),h.slice(20,32)].join('-');
+}
+async function processarYoutube(db,item){
+  const republicador=require('./republicador-youtube.service');
+  const videoId=item.detalhes?.youtube_video_id||item.request_id.replace(/^youtube-auto-/,'');
+  const jobId=item.detalhes?.job_id||uuidEstavel(item.request_id);
+  if(!/^[A-Za-z0-9_-]{11}$/.test(videoId))throw new Error('Vídeo inválido na fila do YouTube.');
+  const job=await republicador.obter(jobId);
+  if(!job){
+    // UUID estável: reinicialização antes/depois da criação não duplica job.
+    await atualizar(db,item,'aguardando_video',{detalhes:{...item.detalhes,job_id:jobId}});
+    const criado=await republicador.iniciar(videoId,'publicar',jobId);
+    if(criado.id!==jobId)await atualizar(db,item,'aguardando_video',
+      {detalhes:{...item.detalhes,job_id:criado.id}});
+    return;
+  }
+  if(job.estado==='concluido'){
+    await concluido(db,item,{...item.detalhes,job_id:job.id,concluido_em:new Date().toISOString()});return;
+  }
+  if(['parcial','erro','interrompido'].includes(job.estado)){
+    await incerto(db,item,'Republicador sem confirmação completa das três redes. Conferir histórico antes de repetir.',
+      {...item.detalhes,job_id:job.id,estado_republicador:job.estado});return;
+  }
+  await atualizar(db,item,'aguardando_video',{detalhes:{...item.detalhes,job_id:job.id,estado_republicador:job.estado}});
+}
+async function processarOferta(db,item){
+  const ofertas=require('../ofertas/ofertas.service');
+  // Grava "executando" antes da chamada que pode publicar nos quatro canais.
+  await atualizar(db,item,'executando',{detalhes:item.detalhes});
+  const base=process.env.PUBLIC_BASE_URL||'https://catalogo-aluminio-jr.onrender.com';
+  let result;
+  try{result=await ofertas.publicar(item.produto_id,base);}
+  catch(e){await incerto(db,item,'Kit com resultado desconhecido: '+cleanError(e)+'. Conferir quatro redes.');return;}
+  if(result.publicacao_completa===true){
+    await concluido(db,item,{...item.detalhes,oferta_id:item.produto_id,canais:result.canais});return;
+  }
+  if(result.publicacao_parcial===true){
+    await incerto(db,item,'Kit publicado parcialmente. Conferir WhatsApp, Instagram e Facebook.',
+      {...item.detalhes,canais:result.canais});return;
+  }
+  await atualizar(db,item,'atencao',{erro:'Kit requer confirmação manual da regra de repetição antes de publicar.',
+    detalhes:{...item.detalhes,comparacao_pendente:true}});
+  await evento(db,{loteId:item.lote_id,itemId:item.id,nivel:'aviso',codigo:'KIT_REQUER_CONFIRMACAO',
+    mensagem:'Kit precisa de confirmação no aplicativo Central de Ofertas.'});
+}
+async function respeitarRitmo(db,item){
+  // O limite é por tarefa (vídeo ou kit), não por rede nem trecho da mesma tarefa.
+  if(!['pendente','aguardando_retry'].includes(item.estado))return true;
+  const r=(await db.query('SELECT * FROM marketing_publicacao_ritmo WHERE id=1 FOR UPDATE')).rows[0];
+  if(!r)return false;
+  if(Number(r.ultimo_item_id)===Number(item.id))return true;
+  const next=r.ultima_reserva_em?new Date(r.ultima_reserva_em).getTime()+
+    r.intervalo_global_minutos*60000:0;
+  if(next>Date.now())return false;
+  await db.query('UPDATE marketing_publicacao_ritmo SET ultimo_item_id=$1,ultima_reserva_em=NOW() WHERE id=1',[item.id]);
+  return true;
+}
+
 async function executarPasso() {
   if(busy) return;busy=true;let db,locked=false;
   try {
-    await table();db=await pool.connect();
+    await table();await require('./agendadorModulos.service').schema();db=await pool.connect();
     locked=(await db.query('SELECT pg_try_advisory_lock($1) AS ok',[LOCK])).rows[0].ok;
     if(!locked) return;
     await recuperarProcessos(db);
@@ -268,6 +332,10 @@ async function executarPasso() {
     const r=await db.query(`SELECT i.*,l.origem,l.categoria_id,l.tipo_midia,l.categoria_nome FROM marketing_fila_itens i
       JOIN marketing_fila_lotes l ON l.id=i.lote_id
       WHERE l.estado IN ('pendente','executando') AND i.estado <> ALL($1::text[])
+        AND (l.origem NOT IN ('youtube_agenda','ofertas_agenda') OR EXISTS(
+          SELECT 1 FROM marketing_agendadores_modulos mc
+          WHERE mc.modulo=CASE WHEN l.origem='youtube_agenda' THEN 'youtube' ELSE 'ofertas' END
+          AND mc.ativo=TRUE))
       ORDER BY l.id,i.ordem LIMIT 1`,[TERMINAIS]);
     if(!r.rows.length) return;
     const item=r.rows[0];
@@ -276,9 +344,17 @@ async function executarPasso() {
       const cfg=(await db.query('SELECT ativo FROM status_agendamento_config WHERE id=1')).rows[0];
       if(!cfg?.ativo) return;
     }
+    if(item.origem==='youtube_agenda'||item.origem==='ofertas_agenda'){
+      const modulo=item.origem==='youtube_agenda'?'youtube':'ofertas';
+      const c=(await db.query('SELECT ativo FROM marketing_agendadores_modulos WHERE modulo=$1',[modulo])).rows[0];
+      if(!c?.ativo)return;
+    }
     if(item.proxima_tentativa && new Date(item.proxima_tentativa)>new Date()) return;
+    if(!await respeitarRitmo(db,item))return;
     const lot={categoria_id:item.categoria_id,tipo_midia:item.tipo_midia};
-    if(item.tipo==='statuszap_feed') await processarFeed(db,item,lot);
+    if(item.tipo==='youtube_video') await processarYoutube(db,item);
+    else if(item.tipo==='oferta_kit') await processarOferta(db,item);
+    else if(item.tipo==='statuszap_feed') await processarFeed(db,item,lot);
     else if(item.tipo==='statuszap_produto' && item.tipo_midia==='foto') await processarFoto(db,item,lot);
     else if(item.tipo==='statuszap_produto') await processarVideo(db,item,lot);
     else await incerto(db,item,'Tipo de tarefa não suportado pelo funil.');
@@ -363,6 +439,27 @@ async function resolverItem({id,acao,canal=null}) {
       await atualizar(db,item,restantes?'incerto':outros?'pendente':'concluido');
       if(!restantes && acao==='confirmar_nao_publicado')
         await db.query('UPDATE marketing_fila_itens SET tentativas=0 WHERE id=$1',[item.id]);
+      }
+    } else if(item.tipo==='youtube_video'){
+      const republicador=require('./republicador-youtube.service');
+      const jobId=item.detalhes?.job_id;
+      if(acao==='confirmar_publicado'){
+        await atualizar(db,item,'concluido',{detalhes:{...item.detalhes,confirmacao_manual:true}});
+      }else{
+        if(jobId){
+          const job=await republicador.obter(jobId);
+          if(job && ['parcial','erro','interrompido'].includes(job.estado))await republicador.retry(jobId);
+        }
+        await atualizar(db,item,'aguardando_video',{detalhes:item.detalhes});
+      }
+    } else if(item.tipo==='oferta_kit'){
+      if(acao==='confirmar_publicado'){
+        await atualizar(db,item,'concluido',{detalhes:{...item.detalhes,confirmacao_manual:true}});
+      }else{
+        const of=(await db.query('SELECT whatsapp_status,instagram_status,facebook_story_status,facebook_feed_status FROM ofertas WHERE id=$1',[item.produto_id])).rows[0];
+        if(of && ['whatsapp_status','instagram_status','facebook_story_status','facebook_feed_status'].some(k=>of[k]==='publicado'))
+          throw new Error('Já existe canal confirmado. Não é seguro reenviar o kit inteiro. Concilie manualmente.');
+        await atualizar(db,item,'pendente',{detalhes:item.detalhes});
       }
     } else if(item.tipo==='statuszap_produto' && ['video','foto_video'].includes(lot.tipo_midia)) {
       if(item.estado==='incerto') {
