@@ -18,10 +18,13 @@ const conf={
  gordura_corporal:{nome:'Gordura corporal',unidade:'%',cor:'#e879f9'},
  massa_magra:{nome:'Massa magra',unidade:'kg',cor:'#4ade80'},
  agua_corporal:{nome:'Água corporal',unidade:'kg',cor:'#2dd4bf'},
- massa_ossea:{nome:'Massa óssea',unidade:'kg',cor:'#eab308'}
+ massa_ossea:{nome:'Massa óssea',unidade:'kg',cor:'#eab308'},
+ proteinas:{nome:'Proteínas consumidas',unidade:'g',cor:'#fca5a5'},
+ agua_ingerida:{nome:'Água ingerida',unidade:'ml',cor:'#67e8f9'}
 };
 const metricas=['saldo','ingestao','tmb','passos','calorias_ativas'];
 const fisicas=['peso','gordura_corporal','massa_magra','agua_corporal','massa_ossea'];
+const nutricao=['proteinas','agua_ingerida'];
 let seq=0,resultadoAtual=null,usuarios=[],comparacao=null,compareSeq=0,resizeHandle=null;
 const svg=(root,tag,attrs={},txt)=>{const e=document.createElementNS(NS,tag);for(const [k,v] of Object.entries(attrs))e.setAttribute(k,String(v));if(txt!==undefined)e.textContent=String(txt);root.append(e);return e;};
 function svgRoot(W,H,label){const el=document.createElementNS(NS,'svg');el.setAttribute('viewBox','0 0 '+W+' '+H);el.setAttribute('role','img');el.setAttribute('aria-label',label);return el;}
@@ -163,18 +166,22 @@ async function carregarComparacao(){
   const urls=fisicas.map(k=>'/api/avn/health/usuarios/'+encodeURIComponent(user)+'/historico?metrica='+k+'&dias='+janela);
   const requests=await Promise.allSettled([
    getJson('/avn/sistema/api/balanco-energetico/'+encodeURIComponent(user)+'?data='+day+'&dias='+period),
+   getJson('/avn/sistema/api/balanco-energetico/nutricao-comparacao/'+encodeURIComponent(user)+'?data='+day+'&dias='+period),
    ...urls.map(getJson)
   ]);
   if(token!==compareSeq||!$('compare-dialog').open)return;
   const energy=requests[0].status==='fulfilled'?requests[0].value:null;
   const errors={};
   if(!energy)errors.saldo=requests[0].reason?.message||'Falha ao consultar balanço.';
+  const nutrition=requests[1].status==='fulfilled'?requests[1].value:null;
+  if(!nutrition)for(const key of nutricao)errors[key]=requests[1].reason?.message||'Falha ao consultar nutrição.';
   const series={};
   const inicio=new Date(isoDay(day)-(period-1)*86400000).toISOString().slice(0,10);
   for(const key of metricas)series[key]=energy?compararDatas(energy.dias,conf[key]):[];
+  for(const key of nutricao)series[key]=nutrition?.series?.[key]||[];
   fisicas.forEach((key,i)=>{
-   if(requests[i+1].status==='fulfilled')series[key]=dadosFisicos(requests[i+1].value.registros,inicio,day);
-   else {series[key]=[];errors[key]=requests[i+1].reason?.message||'Falha na consulta.';}
+   if(requests[i+2].status==='fulfilled')series[key]=dadosFisicos(requests[i+2].value.registros,inicio,day);
+   else {series[key]=[];errors[key]=requests[i+2].reason?.message||'Falha na consulta.';}
   });
   const u=usuarios.find(x=>String(x.id)===user),altura=Number(u?.altura_cm)/100;
   series.imc=altura>0?series.peso.map(p=>({...p,value:p.value/(altura*altura)})):[];
@@ -267,7 +274,7 @@ function desenharComparacao(){
  overlay.addEventListener('pointerdown',at);
  overlay.addEventListener('pointerleave',()=>{guide.setAttribute('visibility','hidden');tooltip.hidden=true;});
  area.append(root,tooltip);
- status.textContent=(relative?'Três ou mais indicadores: cada curva em escala relativa 0–100 (mínimo e máximo próprios).':'Dois indicadores: cada curva utiliza seu eixo vertical, conforme a cor.')+' Somente datas medidas são exibidas.'+(all.some(a=>!a.rows.length)?' Sem dados: '+all.filter(a=>!a.rows.length).map(a=>a.nome).join(', ')+'.':'');
+ status.textContent=(relative?'Três ou mais indicadores: cada curva em escala relativa 0–100 (mínimo e máximo próprios).':'Dois indicadores: cada curva utiliza seu eixo vertical, conforme a cor.')+' Somente datas com registros válidos são exibidas.'+(all.some(a=>!a.rows.length)?' Sem dados: '+all.filter(a=>!a.rows.length).map(a=>a.nome).join(', ')+'.':'')+(escolhidas.some(key=>nutricao.includes(key))?' Proteínas: diário alimentar; água ingerida: registros de hidratação (diferente de água corporal).':'');
 }
 function initComparador(){
  const dialog=$('compare-dialog');
