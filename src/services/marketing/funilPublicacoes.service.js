@@ -294,8 +294,17 @@ async function processarOferta(db,item){
   await atualizar(db,item,'executando',{detalhes:item.detalhes});
   const base=process.env.PUBLIC_BASE_URL||'https://catalogo-aluminio-jr.onrender.com';
   let result;
-  try{result=await ofertas.publicar(item.produto_id,base);}
-  catch(e){await incerto(db,item,'Kit com resultado desconhecido: '+cleanError(e)+'. Conferir quatro redes.');return;}
+  try{
+    let confirmacao=null;
+    if(item.origem==='ofertas_agenda' && Number(item.detalhes?.ciclo)>0){
+      // Repetir um kit faz parte da agenda autorizada. A comparacao permanece
+      // obrigatoria para publicacoes manuais, mas nao bloqueia um novo ciclo.
+      const comparacao=require('../ofertas/ofertasComparacao.service');
+      const oferta=await ofertas.buscarPorId(item.produto_id);
+      confirmacao=(await comparacao.verificar(oferta))?.confirmacao||null;
+    }
+    result=await ofertas.publicar(item.produto_id,base,confirmacao);
+  }catch(e){await incerto(db,item,'Kit com resultado desconhecido: '+cleanError(e)+'. Conferir quatro redes.');return;}
   if(result.publicacao_completa===true){
     await concluido(db,item,{...item.detalhes,oferta_id:item.produto_id,canais:result.canais});return;
   }
@@ -466,8 +475,12 @@ async function resolverItem({id,acao,canal=null}) {
         await atualizar(db,item,'concluido',{detalhes:{...item.detalhes,confirmacao_manual:true}});
       }else{
         const of=(await db.query('SELECT whatsapp_status,instagram_status,facebook_story_status,facebook_feed_status FROM ofertas WHERE id=$1',[item.produto_id])).rows[0];
-        if(of && ['whatsapp_status','instagram_status','facebook_story_status','facebook_feed_status'].some(k=>of[k]==='publicado'))
-          throw new Error('Já existe canal confirmado. Não é seguro reenviar o kit inteiro. Concilie manualmente.');
+        const canaisAtuais=Object.values(item.detalhes?.canais||{});
+        const publicadoNestaTentativa=canaisAtuais.some(c=>c?.status==='publicado');
+        const historicoAnterior=!(lot.origem==='ofertas_agenda' && Number(item.detalhes?.ciclo)>1);
+        if(publicadoNestaTentativa || (historicoAnterior && of &&
+          ['whatsapp_status','instagram_status','facebook_story_status','facebook_feed_status'].some(k=>of[k]==='publicado')))
+          throw new Error('Já existe canal confirmado nesta publicação. Concilie antes de reenviar o kit inteiro.');
         await atualizar(db,item,'pendente',{detalhes:item.detalhes});
       }
     } else if(item.tipo==='statuszap_produto' && ['video','foto_video'].includes(lot.tipo_midia)) {
