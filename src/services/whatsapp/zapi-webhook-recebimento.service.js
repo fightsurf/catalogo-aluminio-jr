@@ -142,9 +142,9 @@ async function registrar(payload) {
         console.error('[Webhook Z-API] Falha ao registrar ordem de entrada:', erro.message)
       );
     }
-    // Apenas clientes realmente novos recebem a saudação já configurada no bot.
+    // Apenas clientes novos podem receber saudação, e somente com Bot ON.
     if (contatoNovo) {
-      fluxo.executarFluxo(dados.telefone, 'PRIMEIRO_CONTATO').catch(err =>
+      fluxo.executarPrimeiroContatoAutomatico(dados.telefone).catch(err =>
         console.error('[Webhook Z-API] Falha ao saudar contato:', err.message));
     }
     temporarias.publicar(dados);
