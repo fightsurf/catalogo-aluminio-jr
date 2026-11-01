@@ -13,7 +13,7 @@ const conf={
  ingestao:{nome:'Calorias consumidas',unidade:'kcal',get:d=>d.ingestao?.valor},
  tmb:{nome:'TMB',unidade:'kcal/dia',get:d=>d.tmb?.valor},
  passos:{nome:'Passos',unidade:'passos',get:d=>d.passos?.valor},
- calorias_ativas:{nome:'Calorias ativas queimadas',unidade:'kcal',get:d=>d.calorias_ativas?.valor}
+ calorias_ativas:{nome:'Calorias de treinamento',unidade:'kcal',get:d=>d.calorias_ativas?.valor}
 };
 let usuario='',data='',sequencia=0;
 const vazio=v=>v===null||v===undefined||!Number.isFinite(Number(v));
