@@ -396,14 +396,32 @@ button.secundario:hover {
         </div>
 
         <div class="fotos-grid" style="margin-top:12px">
-          <div class="foto-slot" id="videoSlot" tabindex="0">
-            <label>Vídeo do produto</label>
-            <div class="foto-colar-ajuda">Clique aqui e pressione <strong>Ctrl+V</strong> para colar um arquivo de vídeo.</div>
-            <input type="text" id="produtoVideo" placeholder="URL direta do vídeo">
+          <div class="foto-slot" id="videoSlot" data-video-posicao="1" tabindex="0">
+            <label>Vídeo 1 do produto</label>
+            <div class="foto-colar-ajuda">Clique aqui e pressione <strong>Ctrl+V</strong> para colar o vídeo 1.</div>
+            <input type="text" id="produtoVideo" placeholder="URL direta do vídeo 1">
             <input type="file" id="produtoVideoArquivo" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov">
-            <small>MP4, WEBM ou MOV · Até 50 MB. Se o navegador não disponibilizar o vídeo para colar, use Escolher arquivo.</small>
+            <small>MP4, WEBM ou MOV · Até 50 MB. Envie o arquivo ou informe a URL.</small>
             <video id="produtoVideoPreview" controls playsinline preload="metadata" style="display:none;width:100%;max-height:240px;margin-top:8px"></video>
-            <button type="button" onclick="limparVideo();setFotoStatus('Vídeo removido do formulário. Salve o produto para confirmar.');">Remover vídeo</button>
+            <button type="button" onclick="limparVideo(1);setFotoStatus('Vídeo 1 removido do formulário. Salve o produto para confirmar.');">Remover vídeo 1</button>
+          </div>
+          <div class="foto-slot" id="videoSlot2" data-video-posicao="2" tabindex="0">
+            <label>Vídeo 2 do produto</label>
+            <div class="foto-colar-ajuda">Clique aqui e pressione <strong>Ctrl+V</strong> para colar o vídeo 2.</div>
+            <input type="text" id="produtoVideo2" placeholder="URL direta do vídeo 2">
+            <input type="file" id="produtoVideoArquivo2" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov">
+            <small>MP4, WEBM ou MOV · Até 50 MB. Envie o arquivo ou informe a URL.</small>
+            <video id="produtoVideoPreview2" controls playsinline preload="metadata" style="display:none;width:100%;max-height:240px;margin-top:8px"></video>
+            <button type="button" onclick="limparVideo(2);setFotoStatus('Vídeo 2 removido do formulário. Salve o produto para confirmar.');">Remover vídeo 2</button>
+          </div>
+          <div class="foto-slot" id="videoSlot3" data-video-posicao="3" tabindex="0">
+            <label>Vídeo 3 do produto</label>
+            <div class="foto-colar-ajuda">Clique aqui e pressione <strong>Ctrl+V</strong> para colar o vídeo 3.</div>
+            <input type="text" id="produtoVideo3" placeholder="URL direta do vídeo 3">
+            <input type="file" id="produtoVideoArquivo3" accept="video/mp4,video/webm,video/quicktime,.mp4,.webm,.mov">
+            <small>MP4, WEBM ou MOV · Até 50 MB. Envie o arquivo ou informe a URL.</small>
+            <video id="produtoVideoPreview3" controls playsinline preload="metadata" style="display:none;width:100%;max-height:240px;margin-top:8px"></video>
+            <button type="button" onclick="limparVideo(3);setFotoStatus('Vídeo 3 removido do formulário. Salve o produto para confirmar.');">Remover vídeo 3</button>
           </div>
         </div>
         <div id="fotoStatus" class="foto-status"></div>
@@ -526,7 +544,7 @@ function definirFotoSlotAtivo(posicao) {
   fotoSlotAtivo = posicao;
 
   document.querySelectorAll('.foto-slot').forEach(slot => {
-    slot.classList.toggle('colagem-ativa', Number(slot.dataset.fotoPosicao) === posicao);
+    slot.classList.toggle('colagem-ativa', Number(slot.dataset.fotoPosicao) === posicao || (slot.dataset.videoPosicao && -Number(slot.dataset.videoPosicao) === posicao));
   });
 }
 
@@ -805,7 +823,7 @@ function renderProdutos() {
             ${thumb}
             <div class="produto-linha-texto">
               <div>${p.nome} — R$ ${Number(p.preco).toFixed(2)} — ${(p.categorias || []).map(c => c.nome).join(', ') || p.categoria || ''} — ${p.ativo ? 'Ativo' : 'Inativo'}</div>
-              <div style="font-size:12px;color:#666;">Peso: ${p.peso_kg == null ? 'Não informado' : Number(p.peso_kg).toLocaleString('pt-BR', { maximumFractionDigits: 6 }) + ' kg'} — Fotos: ${fotosPreenchidas}/6 ${fotoPrincipal ? '— Foto 1 principal cadastrada' : '— Sem foto principal'}</div>
+              <div style="font-size:12px;color:#666;">Peso: ${p.peso_kg == null ? 'Não informado' : Number(p.peso_kg).toLocaleString('pt-BR', { maximumFractionDigits: 6 }) + ' kg'} — Fotos: ${fotosPreenchidas}/6 — Vídeos: ${[p.video_url, p.video_url_2, p.video_url_3].filter(Boolean).length}/3 ${fotoPrincipal ? '— Foto 1 principal cadastrada' : '— Sem foto principal'}</div>
             </div>
           </div>
           <div class="lista-acoes">
@@ -839,6 +857,8 @@ async function salvarProduto() {
       categoria_ids: categoriasSelecionadas(),
       categoria_id: categoriaPrincipalAtual,
       video_url: document.getElementById('produtoVideo').value.trim(),
+      video_url_2: document.getElementById('produtoVideo2').value.trim(),
+      video_url_3: document.getElementById('produtoVideo3').value.trim(),
       ...urlsFotosFormulario(),
       capacidade_caixa: Number(document.getElementById('produtoCaixa').value),
       observacao: document.getElementById('produtoObservacao').value.trim(),
@@ -875,7 +895,7 @@ function editarProduto(id) {
   document.getElementById('produtoPesoKg').value = p.peso_kg == null ? '' : p.peso_kg;
   categoriaPrincipalAtual = Number(p.categoria_id);
   marcarCategorias(p.categoria_ids?.length ? p.categoria_ids : [p.categoria_id]);
-  limparVideo(p.video_url || '');
+  for (let posicao = 1; posicao <= 3; posicao++) limparVideo(posicao, p[posicao === 1 ? 'video_url' : `video_url_${posicao}`] || '');
   document.getElementById('produtoCaixa').value = p.capacidade_caixa;
   document.getElementById('produtoObservacao').value = p.observacao || '';
   document.getElementById('produtoAtivo').checked = p.ativo;
@@ -915,7 +935,8 @@ async function excluirProduto(id) {
 }
 
 function limparFormulario() {
-  marcarCategorias([]); categoriaPrincipalAtual = null; limparVideo();
+  marcarCategorias([]); categoriaPrincipalAtual = null;
+  for (let posicao = 1; posicao <= 3; posicao++) limparVideo(posicao);
   produtoEditando = null;
   document.getElementById('produtoNome').value = '';
   document.getElementById('produtoPreco').value = '';
@@ -975,54 +996,69 @@ for (let i = 1; i <= 6; i++) {
 
 let categoriaPrincipalAtual = null;
 let salvandoProduto = false;
-let videoPendente = null;
-let videoObjectUrl = null;
-function categoriasSelecionadas() { return Array.from(document.querySelectorAll('#produtoCategoria input:checked')).map(el => Number(el.value)); }
-function marcarCategorias(ids) { document.querySelectorAll('#produtoCategoria input').forEach(el => { el.checked = ids.map(Number).includes(Number(el.value)); }); }
-function previewVideo(src) {
-  const el = document.getElementById('produtoVideoPreview');
-  el.pause();
-  if (videoObjectUrl) { URL.revokeObjectURL(videoObjectUrl); videoObjectUrl = null; }
-  if (src instanceof Blob) { videoObjectUrl = URL.createObjectURL(src); src = videoObjectUrl; }
-  if (src) el.src = src; else el.removeAttribute('src');
-  el.style.display = src ? 'block' : 'none'; el.load();
+const videosPendentes = {};
+const videosObjectUrl = {};
+function campoVideo(posicao) { return document.getElementById(`produtoVideo${posicao === 1 ? '' : posicao}`); }
+function campoArquivoVideo(posicao) { return document.getElementById(`produtoVideoArquivo${posicao === 1 ? '' : posicao}`); }
+function previewVideo(src, posicao = 1) {
+  const preview = document.getElementById(`produtoVideoPreview${posicao === 1 ? '' : posicao}`);
+  preview.pause();
+  if (videosObjectUrl[posicao]) { URL.revokeObjectURL(videosObjectUrl[posicao]); delete videosObjectUrl[posicao]; }
+  if (src instanceof Blob) { videosObjectUrl[posicao] = URL.createObjectURL(src); src = videosObjectUrl[posicao]; }
+  if (src) preview.src = src; else preview.removeAttribute('src');
+  preview.style.display = src ? 'block' : 'none';
+  preview.load();
 }
-function limparVideo(url = '') {
-  videoPendente = null; document.getElementById('produtoVideoArquivo').value = '';
-  document.getElementById('produtoVideo').value = url; previewVideo(url);
+function limparVideo(posicao = 1, url = '') {
+  delete videosPendentes[posicao];
+  campoArquivoVideo(posicao).value = '';
+  campoVideo(posicao).value = url;
+  previewVideo(url, posicao);
 }
-function selecionarVideo(file) {
+function selecionarVideo(file, posicao = 1) {
   if (!file) return;
-  if (!['video/mp4','video/webm','video/quicktime'].includes(file.type)) throw new Error('Use vídeo MP4, WEBM ou MOV.');
+  if (!['video/mp4', 'video/webm', 'video/quicktime'].includes(file.type)) throw new Error('Use vídeo MP4, WEBM ou MOV.');
   if (!file.size || file.size > 50 * 1024 * 1024) throw new Error('O vídeo deve ter até 50 MB e não pode estar vazio.');
-  videoPendente = file; previewVideo(file);
-  setFotoStatus('Vídeo selecionado. Clique em Salvar Produto para enviar.');
+  videosPendentes[posicao] = file;
+  previewVideo(file, posicao);
+  setFotoStatus(`Vídeo ${posicao} selecionado. Clique em Salvar Produto para enviar.`);
 }
 async function enviarVideoSelecionado(id) {
-  if (!videoPendente) return;
-  setFotoStatus('Enviando vídeo...');
-  const form = new FormData(); form.append('video', videoPendente);
-  const response = await fetch(`/api/produtos/${id}/video`, { method: 'POST', body: form });
-  const json = await response.json();
-  if (!response.ok || !json.success) throw new Error(json.message || 'Falha ao enviar o vídeo. Clique em Salvar Produto para tentar novamente.');
-  limparVideo(json.data.url);
+  for (let posicao = 1; posicao <= 3; posicao++) {
+    if (!videosPendentes[posicao]) continue;
+    setFotoStatus(`Enviando vídeo ${posicao} de 3...`);
+    const form = new FormData();
+    form.append('video', videosPendentes[posicao]);
+    const response = await fetch(`/api/produtos/${id}/videos/${posicao}`, { method: 'POST', body: form });
+    const json = await response.json().catch(() => ({}));
+    if (!response.ok || !json.success) throw new Error(json.message || `Falha ao enviar o vídeo ${posicao}. Clique em Salvar Produto para tentar novamente.`);
+    limparVideo(posicao, json.data.url);
+  }
 }
-document.getElementById('produtoVideoArquivo').addEventListener('change', e => {
-  try { selecionarVideo(e.target.files[0]); } catch(error) { e.target.value = ''; setFotoStatus(error.message); alert(error.message); }
-});
-document.getElementById('produtoVideo').addEventListener('input', e => {
-  videoPendente = null; document.getElementById('produtoVideoArquivo').value = ''; previewVideo(e.target.value.trim());
-});
-const videoSlot = document.getElementById('videoSlot');
-videoSlot.addEventListener('focusin', () => definirFotoSlotAtivo(0));
-videoSlot.addEventListener('click', () => { definirFotoSlotAtivo(0); videoSlot.classList.add('colagem-ativa'); });
+for (let posicao = 1; posicao <= 3; posicao++) {
+  const arquivo = campoArquivoVideo(posicao);
+  arquivo.addEventListener('change', e => {
+    try { selecionarVideo(e.target.files[0], posicao); }
+    catch (error) { e.target.value = ''; setFotoStatus(error.message); alert(error.message); }
+  });
+  campoVideo(posicao).addEventListener('input', e => {
+    delete videosPendentes[posicao];
+    arquivo.value = '';
+    previewVideo(e.target.value.trim(), posicao);
+  });
+  const slot = document.querySelector(`[data-video-posicao="${posicao}"]`);
+  slot.addEventListener('focusin', () => definirFotoSlotAtivo(-posicao));
+  slot.addEventListener('click', () => definirFotoSlotAtivo(-posicao));
+}
 document.addEventListener('paste', e => {
-  if (fotoSlotAtivo !== 0 || !document.getElementById('produtos').classList.contains('active')) return;
+  if (fotoSlotAtivo >= 0 || !document.getElementById('produtos').classList.contains('active')) return;
+  const posicao = -fotoSlotAtivo;
   const files = Array.from(e.clipboardData?.files || []);
   const file = files.find(f => f.type.startsWith('video/'));
   if (!file) return;
   e.preventDefault(); e.stopPropagation();
-  try { selecionarVideo(file); } catch(error) { setFotoStatus(error.message); alert(error.message); }
+  try { selecionarVideo(file, posicao); }
+  catch(error) { setFotoStatus(error.message); alert(error.message); }
 });
 
 document.addEventListener('paste', tratarColagemImagem);
