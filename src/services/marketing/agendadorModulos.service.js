@@ -22,6 +22,7 @@ async function schema(){
       fim VARCHAR(5) NOT NULL DEFAULT '22:00',proxima_execucao TIMESTAMPTZ,
       ultimo_video_id VARCHAR(11),ultima_oferta_id BIGINT,ultimo_sucesso_em TIMESTAMPTZ,
       ultimo_erro TEXT,atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+    await pool.query("ALTER TABLE marketing_agendadores_modulos ADD COLUMN IF NOT EXISTS ciclo_atual INTEGER NOT NULL DEFAULT 1");
     await pool.query(`CREATE TABLE IF NOT EXISTS marketing_publicacao_ritmo(
       id INTEGER PRIMARY KEY DEFAULT 1 CHECK(id=1),
       intervalo_global_minutos INTEGER NOT NULL DEFAULT 15,
@@ -77,31 +78,42 @@ function duration(iso){
   const m=String(iso||'').match(/^P(?:\d+D)?T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
   return m?Number(m[1]||0)*3600+Number(m[2]||0)*60+Number(m[3]||0):0;
 }
-async function proximoVideo(db){
+// A lista e consultada a cada disparo: novos videos entram sem reiniciar a agenda.
+async function listarVideosElegiveis(){
   let token='',lista=[],n=0;
   do{
     const p=await catalogo.listar(token);
     lista.push(...p.videos);token=p.proxima_pagina||'';
-    if(++n>60)throw new Error('Mais de 3000 vídeos: excedeu a paginação de segurança.');
+    if(++n>60)throw new Error('Mais de 3000 videos: excedeu a paginacao de seguranca.');
   }while(token);
-  lista=lista.filter(v=>duration(v.duracao_iso)>=3&&duration(v.duracao_iso)<=660)
+  return lista.filter(v=>duration(v.duracao_iso)>=3&&duration(v.duracao_iso)<=660)
     .sort((a,b)=>new Date(a.data)-new Date(b.data)||a.id.localeCompare(b.id));
+}
+async function proximoVideo(db,ciclo,lista){
   for(const v of lista){
-    const r=await db.query(`SELECT EXISTS(SELECT 1 FROM marketing_fila_itens WHERE request_id=$1) AS enfileirado,
-      EXISTS(SELECT 1 FROM marketing_republicador_youtube WHERE youtube_video_id=$2 AND
-      modo='publicar' AND estado='concluido') AS publicado`,['youtube-auto-'+v.id,v.id]);
-    if(!r.rows[0].enfileirado&&!r.rows[0].publicado)return v;
+    const r=await db.query(`SELECT EXISTS(
+      SELECT 1 FROM marketing_fila_itens WHERE request_id=$1 OR ($3=1 AND request_id=$2)
+    ) AS enfileirado, EXISTS(
+      SELECT 1 FROM marketing_republicador_youtube WHERE youtube_video_id=$4
+        AND modo='publicar' AND estado='concluido'
+    ) AS publicado`,[`youtube-auto-c${ciclo}-${v.id}`,`youtube-auto-${v.id}`,ciclo,v.id]);
+    // No primeiro ciclo, respeita as publicacoes legadas; nos seguintes, cada
+    // video pode voltar uma vez, com chave nova e historico preservado.
+    if(!r.rows[0].enfileirado && (ciclo>1||!r.rows[0].publicado))return v;
   }
   return null;
 }
-async function proximaOferta(db){
+async function proximaOferta(db,ciclo){
   const r=await db.query(`SELECT id,titulo,created_at FROM ofertas o
-    WHERE NOT EXISTS(SELECT 1 FROM marketing_fila_itens i WHERE i.request_id='ofertas-auto-'||o.id::text)
-    AND COALESCE(whatsapp_status,'nao_publicado')='nao_publicado'
-    AND COALESCE(instagram_status,'nao_publicado')='nao_publicado'
-    AND COALESCE(facebook_story_status,'nao_publicado')='nao_publicado'
-    AND COALESCE(facebook_feed_status,'nao_publicado')='nao_publicado'
-    ORDER BY created_at,id LIMIT 1`);
+    WHERE NOT EXISTS(SELECT 1 FROM marketing_fila_itens i
+      WHERE i.request_id='ofertas-auto-c'||$1::text||'-'||o.id::text
+        OR ($1=1 AND i.request_id='ofertas-auto-'||o.id::text))
+    AND ($1>1 OR (
+      COALESCE(whatsapp_status,'nao_publicado')='nao_publicado'
+      AND COALESCE(instagram_status,'nao_publicado')='nao_publicado'
+      AND COALESCE(facebook_story_status,'nao_publicado')='nao_publicado'
+      AND COALESCE(facebook_feed_status,'nao_publicado')='nao_publicado'))
+    ORDER BY created_at,id LIMIT 1`,[ciclo]);
   return r.rows[0]||null;
 }
 async function progresso(db,modulo){
@@ -113,7 +125,7 @@ async function progresso(db,modulo){
     ultimo_video_id=CASE WHEN modulo='youtube' THEN $2 ELSE ultimo_video_id END,
     ultima_oferta_id=CASE WHEN modulo='ofertas' THEN $3 ELSE ultima_oferta_id END,
     ultimo_sucesso_em=GREATEST(COALESCE(ultimo_sucesso_em,'epoch'::timestamptz),$4::timestamptz)
-    WHERE modulo=$1`,[modulo,modulo==='youtube'?i.request_id.slice('youtube-auto-'.length):null,
+    WHERE modulo=$1`,[modulo,modulo==='youtube'?(i.detalhes?.youtube_video_id||i.request_id.replace(/^youtube-auto-(?:c\\d+-)?/,'')):null,
       modulo==='ofertas'?i.produto_id:null,i.atualizado_em]);
 }
 async function tick(){
@@ -134,21 +146,48 @@ async function tick(){
         JOIN marketing_fila_lotes l ON l.id=i.lote_id WHERE l.origem=$1
         AND i.estado NOT IN ('concluido','ignorado') LIMIT 1`,[modulo+'_agenda']);
       if(pendente.rowCount)continue;
-      const v=modulo==='youtube'?await proximoVideo(db):await proximaOferta(db);
-      if(v){
-        await funil.enfileirarLote({origem:modulo+'_agenda',chaveOrigem:modulo+':agenda:'+v.id,
-          categoriaNome:modulo==='youtube'?'YouTube':'Kits feirinha',
-          tipoMidia:modulo==='youtube'?'video':'foto',
-          itens:[modulo==='youtube'
-            ?{tipo:'youtube_video',produtoNome:v.titulo,requestId:'youtube-auto-'+v.id,
-              detalhes:{youtube_video_id:v.id,data_publicacao:v.data}}
-            :{tipo:'oferta_kit',produtoId:Number(v.id),produtoNome:v.titulo,
-              requestId:'ofertas-auto-'+v.id,detalhes:{data_criacao:v.created_at}}],
-          metadados:{agendamento:true}});
+      const ciclo=Number(cfg.ciclo_atual)||1;
+      const videosElegiveis=modulo==='youtube'?await listarVideosElegiveis():null;
+      let v=modulo==='youtube'
+        ?await proximoVideo(db,ciclo,videosElegiveis):await proximaOferta(db,ciclo);
+      let cicloSelecionado=ciclo;
+      if(!v){
+        const haConteudo=modulo==='youtube'?videosElegiveis.length>0:
+          (await db.query('SELECT 1 FROM ofertas LIMIT 1')).rowCount>0;
+        if(haConteudo){
+          // O ciclo so vira quando nao existe envio pendente ou incerto do modulo.
+          cicloSelecionado=ciclo+1;
+          v=modulo==='youtube'
+            ?await proximoVideo(db,cicloSelecionado,videosElegiveis)
+            :await proximaOferta(db,cicloSelecionado);
+        }
       }
-      await db.query(`UPDATE marketing_agendadores_modulos SET proxima_execucao=$2,ultimo_erro=NULL,
-        atualizado_em=NOW() WHERE modulo=$1`,
-        [modulo,nextWindow(cfg,new Date(Date.now()+cfg.intervalo_minutos*60000))]);
+      // A virada de ciclo, a tarefa e o proximo horario devem ser atomicos.
+      // Se o servidor cair, nenhuma etapa sera considerada feita pela metade.
+      await db.query('BEGIN');
+      try{
+        if(v){
+          await funil.enfileirarLote({
+            origem:modulo+'_agenda',
+            chaveOrigem:modulo+':agenda:c'+cicloSelecionado+':'+v.id,
+            categoriaNome:modulo==='youtube'?'YouTube':'Kits feirinha',
+            tipoMidia:modulo==='youtube'?'video':'foto',
+            itens:[modulo==='youtube'
+              ?{tipo:'youtube_video',produtoNome:v.titulo,
+                requestId:'youtube-auto-c'+cicloSelecionado+'-'+v.id,
+                detalhes:{youtube_video_id:v.id,data_publicacao:v.data,ciclo:cicloSelecionado}}
+              :{tipo:'oferta_kit',produtoId:Number(v.id),produtoNome:v.titulo,
+                requestId:'ofertas-auto-c'+cicloSelecionado+'-'+v.id,
+                detalhes:{data_criacao:v.created_at,ciclo:cicloSelecionado}}],
+            metadados:{agendamento:true,ciclo:cicloSelecionado}
+          },db);
+        }
+        await db.query(`UPDATE marketing_agendadores_modulos
+          SET ciclo_atual=$3,proxima_execucao=$2,ultimo_erro=NULL,atualizado_em=NOW()
+          WHERE modulo=$1`,
+          [modulo,nextWindow(cfg,new Date(Date.now()+cfg.intervalo_minutos*60000)),cicloSelecionado]);
+        await db.query('COMMIT');
+      }catch(e){await db.query('ROLLBACK').catch(()=>{});throw e;}
     }
   }catch(e){
     console.error('[Agendadores marketing]',erro(e));
