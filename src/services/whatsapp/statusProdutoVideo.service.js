@@ -43,7 +43,9 @@ function resumo(job) {
     requestId:job.requestId, produto:job.produto, tipoMidia:job.tipoMidia || 'video',
     status:job.status, progresso:job.progresso || '', erro:job.erro || '',
     status_geral:completos===3?'publicado':algum?'parcial':'erro',
-    canais, total_partes:job.partes?.length || 0, duracao_original:job.duracao_original,
+    canais, total_partes:job.partes?.length || 0,
+    total_videos: [job.produto.video_url, job.produto.video_url_2, job.produto.video_url_3].filter(v=>String(v || '').trim()).length,
+    duracao_original:job.duracao_original,
     repetida:job.repetida || false
   };
 }
@@ -91,27 +93,75 @@ async function processar(id) {
     }
     for(const canal of CANAIS) if(job.fotos?.[canal]?.status==='enviando') job.fotos[canal]={status:'incerto',erro:'Envio da foto interrompido sem confirmação. Confira a rede antes de publicar novamente.'};
     job.status='processando';job.erro='';await salvar(job,db);
-    const precisaArquivo=Boolean(job.produto.video_url) && (!job.partes.length || job.partes.some(p=>!p.url));
-    if(precisaArquivo) {
-      job.progresso='Baixando e analisando o vídeo completo.';await salvar(job,db);
-      contexto=await media.preparar(job.produto);
-      if(!job.partes.length) {
-        job.duracao_original=contexto.duracao;
-        job.partes=contexto.partes.map(p=>({...p,canais:Object.fromEntries(CANAIS.map(c=>[c,{status:'pendente'}]))}));
+    // Cada fonte é publicada em ordem (vídeos 1, 2 e 3), incluindo todas as
+    // partes de até 55 s. O planejamento persiste antes de qualquer envio externo.
+    // Jobs antigos, com apenas video_url, seguem compatíveis.
+    const fontes = [
+      { posicao: 1, url: job.produto.video_url },
+      { posicao: 2, url: job.produto.video_url_2 },
+      { posicao: 3, url: job.produto.video_url_3 }
+    ].filter(fonte => typeof fonte.url === 'string' && fonte.url.trim());
+    if (fontes.length && !job.partes.length) {
+      const partes = [];
+      const duracoes = {};
+      for (const fonte of fontes) {
+        job.progresso = `Analisando vídeo ${fonte.posicao} de 3.`;
         await salvar(job,db);
-      } else if(Math.abs(contexto.duracao-job.duracao_original)>0.1) throw new Error('O arquivo original mudou de duração. Inicie uma nova publicação.');
+        contexto = await media.preparar({ video_url: fonte.url });
+        try {
+          duracoes[fonte.posicao] = contexto.duracao;
+          for (const parte of contexto.partes) {
+            partes.push({
+              ...parte, numero: partes.length + 1, video_posicao: fonte.posicao,
+              canais: Object.fromEntries(CANAIS.map(c => [c, { status: 'pendente' }]))
+            });
+          }
+        } finally {
+          await fs.rm(contexto.pasta, { recursive: true, force: true });
+          contexto = null;
+        }
+      }
+      job.duracoes_videos = duracoes;
+      job.duracao_original = Object.values(duracoes).reduce((soma, valor) => soma + valor, 0);
+      job.partes = partes;
+      await salvar(job,db);
     }
-    // Prepara todas as partes antes de publicar. Nenhuma parte final é descartada.
-    for(const p of job.partes) if(!p.url) {
-      job.progresso=`Preparando parte ${p.numero} de ${job.partes.length}.`;await salvar(job,db);
-      const arquivo=await media.gerar(contexto,job.produto,p,job.partes.length);
+    // Preparar as partes de uma fonte por vez evita manter os três arquivos
+    // originais simultaneamente no disco temporário do Render.
+    for (const fonte of fontes) {
+      const pendentes = job.partes.filter(parte => !parte.url && (parte.video_posicao || 1) === fonte.posicao);
+      if (!pendentes.length) continue;
+      job.progresso = `Preparando vídeo ${fonte.posicao} de 3.`;
+      await salvar(job,db);
+      contexto = await media.preparar({ video_url: fonte.url });
       try {
-        const upload=await r2.uploadArquivoLocal(arquivo.caminho,{pasta:'status-videos',nome:`produto-${job.produto.id}-${id}-${p.numero}.mp4`,contentType:'video/mp4'});
-        p.url=upload.url;p.r2_key=upload.key;p.tamanho_bytes=arquivo.tamanho_bytes;p.duracao_final=arquivo.duracao;
-        await salvar(job,db);
-      } finally { await fs.unlink(arquivo.caminho).catch(()=>{}); }
+        const duracaoEsperada = job.duracoes_videos?.[fonte.posicao] ??
+          (fontes.length === 1 ? job.duracao_original : null);
+        if (duracaoEsperada != null && Math.abs(contexto.duracao - duracaoEsperada) > 0.1) {
+          throw new Error(`O vídeo ${fonte.posicao} mudou de duração. Inicie uma nova publicação.`);
+        }
+        for (const parte of pendentes) {
+          job.progresso = `Vídeo ${fonte.posicao}/3: preparando parte ${parte.numero} de ${job.partes.length}.`;
+          await salvar(job,db);
+          const arquivo = await media.gerar(contexto,job.produto,parte,job.partes.length);
+          try {
+            const upload = await r2.uploadArquivoLocal(arquivo.caminho,{
+              pasta:'status-videos',
+              nome:`produto-${job.produto.id}-${id}-${parte.numero}.mp4`,
+              contentType:'video/mp4'
+            });
+            parte.url=upload.url;parte.r2_key=upload.key;
+            parte.tamanho_bytes=arquivo.tamanho_bytes;parte.duracao_final=arquivo.duracao;
+            await salvar(job,db);
+          } finally {
+            await fs.unlink(arquivo.caminho).catch(()=>{});
+          }
+        }
+      } finally {
+        await fs.rm(contexto.pasta,{recursive:true,force:true});
+        contexto = null;
+      }
     }
-    if(contexto) {await fs.rm(contexto.pasta,{recursive:true,force:true});contexto=null;}
     // A ordem é sequencial em cada canal. Uma falha pausa aquele canal antes
     // da parte seguinte; as outras redes ainda recebem a sequência completa.
     for(const canal of CANAIS) {
@@ -138,7 +188,7 @@ async function processar(id) {
       for(const p of job.partes) {
         if(p.canais[canal].status==='publicado')continue;
         if(p.canais[canal].status==='incerto')break;
-        job.progresso=`${canal}: publicando parte ${p.numero} de ${job.partes.length}.`;
+        job.progresso=`${canal}: vídeo ${p.video_posicao || 1}/3, parte ${p.numero} de ${job.partes.length}.`;
         p.canais[canal]={status:'enviando'};await salvar(job,db);
         try {
           let resultado;
