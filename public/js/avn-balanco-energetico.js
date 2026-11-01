@@ -50,7 +50,7 @@ function graficoDiario(chave,dias,selecionado){
  const root=svgRoot(W,H,met.nome+' por data');
  const painelH=H-T-B;
  for(let j=0;j<=4;j++){
-  const y=T+panelH*j/4;
+  const y=T+painelH*j/4;
   svg(root,'line',{x1:L,x2:W-R,y1:y,y2:y,stroke:'#33455f','stroke-width':1});
   svg(root,'text',{x:L-7,y:y+4,'text-anchor':'end',fill:'#afbfda','font-size':11},fmt(max-(max-min)*j/4,Math.abs(max-min)<10?1:0));
  }
