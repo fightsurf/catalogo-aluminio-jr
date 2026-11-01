@@ -24,7 +24,7 @@ async function receberMensagem({ telefone, mensagem, tipo }) {
   } finally { client.release(); }
   temporarias.publicar({ telefone: tel, mensagem, tipo, direcao: 'ENTRADA' });
   if (primeiroContato) {
-    botFluxo.executarFluxo(tel, 'PRIMEIRO_CONTATO').catch(err =>
+    botFluxo.executarPrimeiroContatoAutomatico(tel).catch(err =>
       console.error('[Bot] Falha na saudacao de contato novo:', err.message));
   }
   return { status: 'mensagem_ao_vivo', primeiro_contato: primeiroContato };
