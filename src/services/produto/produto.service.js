@@ -109,6 +109,8 @@ function normalizarPosicaoFoto(posicao) {
 function camposFotosSelect(alias = 'p') {
   return `
       ${alias}.video_url,
+      ${alias}.video_url_2,
+      ${alias}.video_url_3,
       COALESCE((SELECT json_agg(json_build_object('id', cat.id, 'nome', cat.nome) ORDER BY cat.nome)
         FROM produtos_categorias cat WHERE cat.id = ${alias}.categoria_id OR EXISTS
         (SELECT 1 FROM produto_categoria_vinculos v WHERE v.produto_id = ${alias}.id AND v.categoria_id = cat.id)), '[]'::json) AS categorias,
@@ -224,6 +226,8 @@ async function criar(data) {
 
   const ids = normalizarCategorias(data.categoria_ids);
   const video = normalizarVideo(data.video_url);
+  const video2 = normalizarVideo(data.video_url_2);
+  const video3 = normalizarVideo(data.video_url_3);
   if (ids !== null) data = { ...data, categoria_id: ids.includes(Number(data.categoria_id)) ? Number(data.categoria_id) : (ids[0] || null) };
   const client = await pool.connect();
   let produtoId;
@@ -274,6 +278,8 @@ async function criar(data) {
     await client.query('INSERT INTO produto_categoria_vinculos (produto_id, categoria_id) SELECT $1, unnest($2::int[])', [produtoId, ids]);
   }
   if (data.video_url !== undefined) await client.query('UPDATE produtos SET video_url = $1 WHERE id = $2', [video, produtoId]);
+  if (data.video_url_2 !== undefined) await client.query('UPDATE produtos SET video_url_2 = $1 WHERE id = $2', [video2, produtoId]);
+  if (data.video_url_3 !== undefined) await client.query('UPDATE produtos SET video_url_3 = $1 WHERE id = $2', [video3, produtoId]);
   await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK');
@@ -290,6 +296,8 @@ async function atualizar(id, data) {
   const pesoKg = pesoInformado ? normalizarPesoKg(data.peso_kg) : null;
   const ids = normalizarCategorias(data.categoria_ids);
   const video = normalizarVideo(data.video_url);
+  const video2 = normalizarVideo(data.video_url_2);
+  const video3 = normalizarVideo(data.video_url_3);
   if (ids !== null) data = { ...data, categoria_id: ids.includes(Number(data.categoria_id)) ? Number(data.categoria_id) : (ids[0] || null) };
   const client = await pool.connect();
   let produtoId;
@@ -356,6 +364,8 @@ async function atualizar(id, data) {
     await client.query('INSERT INTO produto_categoria_vinculos (produto_id, categoria_id) SELECT $1, unnest($2::int[])', [produtoId, ids]);
   }
   if (data.video_url !== undefined) await client.query('UPDATE produtos SET video_url = $1 WHERE id = $2', [video, produtoId]);
+  if (data.video_url_2 !== undefined) await client.query('UPDATE produtos SET video_url_2 = $1 WHERE id = $2', [video2, produtoId]);
+  if (data.video_url_3 !== undefined) await client.query('UPDATE produtos SET video_url_3 = $1 WHERE id = $2', [video3, produtoId]);
   await client.query('COMMIT');
   } catch (error) {
     await client.query('ROLLBACK');
@@ -597,9 +607,12 @@ function normalizarVideo(valor) {
   if (!['https:', 'http:'].includes(url.protocol)) throw new Error('Use uma URL HTTP ou HTTPS para o vídeo.');
   return texto;
 }
-async function atualizarVideo(id, url) {
+async function atualizarVideo(id, url, posicao = 1) {
   await produtoFotosSchemaService.criarEstrutura();
-  const result = await pool.query('UPDATE produtos SET video_url = $1, updated_at = NOW() WHERE id = $2 RETURNING id', [normalizarVideo(url), id]);
+  const colunas = { 1: 'video_url', 2: 'video_url_2', 3: 'video_url_3' };
+  const coluna = colunas[posicao];
+  if (!coluna) throw new Error('Posição de vídeo inválida. Use de 1 a 3.');
+  const result = await pool.query(`UPDATE produtos SET ${coluna} = $1, updated_at = NOW() WHERE id = $2 RETURNING id`, [normalizarVideo(url), id]);
   if (!result.rows.length) throw new Error('Produto não encontrado');
   return buscar(id);
 }
