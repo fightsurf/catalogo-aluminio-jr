@@ -9,6 +9,8 @@ async function criarEstrutura() {
     await pool.query(`
       ALTER TABLE produtos
         ADD COLUMN IF NOT EXISTS video_url TEXT,
+        ADD COLUMN IF NOT EXISTS video_url_2 TEXT,
+        ADD COLUMN IF NOT EXISTS video_url_3 TEXT,
         ADD COLUMN IF NOT EXISTS foto_2 TEXT,
         ADD COLUMN IF NOT EXISTS foto_3 TEXT,
         ADD COLUMN IF NOT EXISTS foto_4 TEXT,
