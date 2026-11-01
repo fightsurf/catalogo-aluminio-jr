@@ -6,7 +6,7 @@ const router=express.Router();
 
 const SQL=[
   "WITH dias AS (",
-  " SELECT g.dia::date AS dia FROM generate_series($2::date - 6, $2::date, INTERVAL '1 day') AS g(dia)",
+  " SELECT g.dia::date AS dia FROM generate_series($2::date - ($3::int - 1), $2::date, INTERVAL '1 day') AS g(dia)",
   "), periodos AS (",
   " SELECT dia, dia::timestamp AT TIME ZONE 'America/Sao_Paulo' AS inicio,",
   "        (dia+1)::timestamp AT TIME ZONE 'America/Sao_Paulo' AS fim FROM dias",
@@ -96,11 +96,14 @@ router.get('/:usuarioId',async(req,res)=>{
   try {
     const id=String(req.params.usuarioId);
     const data=String(req.query.data||'');
+    // A tela usa 7 dias; o comparador pode solicitar histórico de até 365 dias.
+    const periodo=Number(req.query.dias||7);
+    if(!Number.isInteger(periodo)||periodo<1||periodo>365)return res.status(400).json({erro:'Período inválido: escolha de 1 a 365 dias.'});
     if(!/^[1-9]\d*$/.test(id)||!validarData(data))
       return res.status(400).json({erro:'Informe um usuário e uma data válida (AAAA-MM-DD).'});
     const usuario=await pool.query('SELECT 1 FROM public.avn_usuario WHERE id=$1',[id]);
     if(!usuario.rowCount)return res.status(404).json({erro:'Usuário não encontrado.'});
-    const r=await pool.query(SQL,[id,data]);
+    const r=await pool.query(SQL,[id,data,periodo]);
     const dias=r.rows.map(x=>{
       const itens=Number(x.itens||0),incompletos=Number(x.sem_kcal||0);
       const ingestao=itens ? valor(x.ingeridas):null;
@@ -130,7 +133,7 @@ router.get('/:usuarioId',async(req,res)=>{
         })
       };
     });
-    res.set('Cache-Control','no-store').json({data,usuario_id:id,dias,
+    res.set('Cache-Control','no-store').json({data,usuario_id:id,periodo_dias:periodo,dias,
       metodo:'Saldo = calorias consumidas - (TMB + calorias ativas registradas + calorias líquidas estimadas dos passos não cobertos pelos registros de calorias ativas). Estimativa dos passos usa peso, altura e distância presumida, não uma medição do relógio. Pode haver imprecisão se os intervalos estiverem incompletos.'});
   }catch(e){console.error('[AVN Balanço Energético]',e);res.status(500).json({erro:'Não foi possível calcular o balanço energético.'});}
 });
