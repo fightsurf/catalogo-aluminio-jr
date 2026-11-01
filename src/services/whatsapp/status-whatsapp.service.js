@@ -81,11 +81,12 @@ function formatarLegendaProduto(nome, preco) {
 
 function avaliarProduto(produto, tipoMidia = 'foto') {
   const foto1 = limparTexto(produto.foto);
+  const videos = [produto.video_url, produto.video_url_2, produto.video_url_3].map(limparTexto).filter(Boolean);
   const descricao = limparTexto(produto.nome);
   const precoNumero = Number(produto.preco);
   let motivo = '';
 
-  if (tipoMidia === 'foto_video' ? (!foto1 && !limparTexto(produto.video_url)) : tipoMidia === 'video' ? !limparTexto(produto.video_url) : !foto1) {
+  if (tipoMidia === 'foto_video' ? (!foto1 && !videos.length) : tipoMidia === 'video' ? !videos.length : !foto1) {
     motivo = tipoMidia === 'foto_video' ? 'Produto sem foto e sem vídeo.' : tipoMidia === 'video' ? 'Produto sem vídeo cadastrado.' : 'Produto sem foto 1.';
   } else if (!descricao) {
     motivo = 'Produto sem descrição válida.';
@@ -103,8 +104,12 @@ function avaliarProduto(produto, tipoMidia = 'foto') {
     legenda: !motivo ? formatarLegendaProduto(descricao, precoNumero) : '',
     foto: foto1,
     video_url: limparTexto(produto.video_url),
+    video_url_2: limparTexto(produto.video_url_2),
+    video_url_3: limparTexto(produto.video_url_3),
+    videos,
+    total_videos: videos.length,
     publicavel_foto: Boolean(foto1 && descricao && Number.isFinite(precoNumero) && precoNumero > 0),
-    publicavel_video: Boolean(limparTexto(produto.video_url) && descricao && Number.isFinite(precoNumero) && precoNumero > 0),
+    publicavel_video: Boolean(videos.length && descricao && Number.isFinite(precoNumero) && precoNumero > 0),
     categoria_id: Number(produto.categoria_id),
     categoria: produto.categoria,
     ativo: Boolean(produto.ativo),
@@ -148,7 +153,7 @@ async function listarCategorias() {
           AND p.preco IS NOT NULL
           AND p.preco > 0
       )::int AS total_publicaveis,
-      COUNT(p.id) FILTER (WHERE p.ativo=true AND NULLIF(BTRIM(p.video_url),'') IS NOT NULL AND NULLIF(BTRIM(p.nome),'') IS NOT NULL AND p.preco>0)::int AS total_videos
+      COUNT(p.id) FILTER (WHERE p.ativo=true AND (NULLIF(BTRIM(p.video_url),'') IS NOT NULL OR NULLIF(BTRIM(p.video_url_2),'') IS NOT NULL OR NULLIF(BTRIM(p.video_url_3),'') IS NOT NULL) AND NULLIF(BTRIM(p.nome),'') IS NOT NULL AND p.preco>0)::int AS total_videos
     FROM produtos_categorias c
     LEFT JOIN produtos p ON (p.categoria_id = c.id OR EXISTS (SELECT 1 FROM produto_categoria_vinculos v WHERE v.produto_id=p.id AND v.categoria_id=c.id))
     GROUP BY c.id, c.nome
@@ -184,6 +189,8 @@ async function listarProdutosPorCategoria(categoriaId) {
       p.preco,
       p.foto,
       p.video_url,
+      p.video_url_2,
+      p.video_url_3,
       p.ativo,
       c.id AS categoria_id,
       c.nome AS categoria
@@ -220,6 +227,8 @@ async function buscarProdutoParaEnvio(produtoId, categoriaId, tipoMidia = 'foto'
       p.preco,
       p.foto,
       p.video_url,
+      p.video_url_2,
+      p.video_url_3,
       p.ativo,
       c.id AS categoria_id,
       c.nome AS categoria
