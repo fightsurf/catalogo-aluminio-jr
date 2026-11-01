@@ -172,10 +172,10 @@ async function ajustarPesoDieta(botao){
  if(!Number.isFinite(peso)||peso<=0||peso>10000)return;
  const usuario=state.usuarioId;
  if(!usuario)return;
- const linha=botao.closest('[data-dieta-item]');
- const controles=[...(linha?.querySelectorAll('[data-ajustar-peso-dieta]')||[])];
+ const linha=[...$('listaDieta').querySelectorAll('[data-dieta-item]')].find(el=>el.dataset.dietaItem===id);
+ const controles=()=>[...document.querySelectorAll('[data-ajustar-peso-dieta]')].filter(b=>b.dataset.ajustarPesoDieta===id);
  ajustandoPesoDieta.add(id);
- controles.forEach(b=>b.disabled=true);
+ controles().forEach(b=>b.disabled=true);
  try{
   await send('/dieta/'+encodeURIComponent(usuario)+'/itens/'+encodeURIComponent(id),'PUT',{
    alimento_id:item.alimento_id,refeicao:item.refeicao,quantidade_g:peso
@@ -193,12 +193,19 @@ async function ajustarPesoDieta(botao){
    macrosRefeicao.outerHTML=resumoMacrosProgramados(aggregate(itens),'Total de macronutrientes de '+MEALS[item.refeicao]);
   }
   atualizarResumoDieta();
+  if($('modalRankingDieta')?.open){
+   const area=$('conteudoRankingDieta'), scroll=area.scrollTop;
+   const foco=!!botao.closest('#modalRankingDieta'), variacao=botao.dataset.variacaoPeso;
+   renderRankingDieta();
+   area.scrollTop=scroll;
+   if(foco)[...area.querySelectorAll('[data-ajustar-peso-dieta]')].find(b=>b.dataset.ajustarPesoDieta===id&&b.dataset.variacaoPeso===variacao)?.focus({preventScroll:true});
+  }
  }catch(error){show(error.message,true);}
  finally{
   ajustandoPesoDieta.delete(id);
   const atual=state.dieta.find(i=>String(i.id)===id);
   const gramas=Number(atual?.quantidade_g||0);
-  controles.forEach(b=>b.disabled=b.dataset.variacaoPeso==='-5'?gramas<=5:gramas+5>10000);
+  controles().forEach(b=>b.disabled=b.dataset.variacaoPeso==='-5'?gramas<=5:gramas+5>10000);
  }
 }
 let ordenandoAlimentoDieta=false;
@@ -774,24 +781,40 @@ function montarRankingDieta(chave){
  });
  return {key,label,unit,itens};
 }
-function abrirRankingDieta(chave){
- const ranking=montarRankingDieta(chave);
- if(!ranking||!has('modalRankingDieta'))return;
+let rankingDietaAtivo=null;
+function posicionarRankingDieta(){
+ const resumo=$('resumoDieta');
+ if(!resumo)return;
+ $('modalRankingDieta').style.setProperty('--avn-ranking-top',Math.max(8,Math.round(resumo.getBoundingClientRect().bottom+10))+'px');
+}
+function renderRankingDieta(){
+ const ranking=montarRankingDieta(rankingDietaAtivo);
+ if(!ranking)return;
  $('tituloRankingDieta').textContent='Alimentos com mais '+ranking.label.toLowerCase();
- const conhecidos=ranking.itens.filter(x=>x.valor!==null);
- const total=conhecidos.reduce((s,x)=>s+x.valor,0);
+ const total=ranking.itens.reduce((s,x)=>s+(x.valor===null?0:x.valor),0);
  $('conteudoRankingDieta').innerHTML=ranking.itens.length?
-  '<p class="muted">Contribuição de cada porção da dieta programada, em ordem decrescente. Alimentos sem dados aparecem ao final.</p>'+
+  '<p class="muted avn-dieta-ranking-intro">Ajuste as porções em 5 g para acompanhar os totais planejados acima.</p>'+
   '<ol class="avn-dieta-ranking-lista">'+ranking.itens.map(({item,valor},i)=>{
    const percentual=valor===null||total<=0?'':fmt(valor/total*100,1)+'% do total conhecido';
-   return '<li><div class="avn-dieta-ranking-item">'+
+   const bloqueado=ajustandoPesoDieta.has(String(item.id));
+   return '<li><div class="avn-dieta-ranking-item" data-dieta-item="'+esc(item.id)+'">'+
     '<span class="avn-dieta-ranking-pos">'+(i+1)+'º</span>'+
-    '<span class="avn-dieta-ranking-food"><strong>'+esc(item.alimento_nome)+' <span aria-hidden="true">'+emojiAlimento(item.alimento_nome)+'</span></strong>'+
-    '<small>'+esc(MEALS[item.refeicao]||item.refeicao)+' · '+fmt(item.quantidade_g,1)+' g</small></span>'+
+    '<div class="avn-dieta-ranking-food"><strong>'+esc(item.alimento_nome)+' <span aria-hidden="true">'+emojiAlimento(item.alimento_nome)+'</span></strong>'+
+    '<div class="avn-dieta-pesagem"><small data-peso-dieta>'+fmt(item.quantidade_g,1)+' g</small>'+
+    '<button type="button" data-ajustar-peso-dieta="'+esc(item.id)+'" data-variacao-peso="-5" aria-label="Diminuir 5 gramas de '+esc(item.alimento_nome)+'" title="Diminuir 5 g"'+(bloqueado||Number(item.quantidade_g)<=5?' disabled':'')+'>−</button>'+
+    '<button type="button" data-ajustar-peso-dieta="'+esc(item.id)+'" data-variacao-peso="5" aria-label="Aumentar 5 gramas de '+esc(item.alimento_nome)+'" title="Aumentar 5 g"'+(bloqueado||Number(item.quantidade_g)+5>10000?' disabled':'')+'>+</button></div>'+
+    '<small class="avn-dieta-ranking-refeicao">'+esc(MEALS[item.refeicao]||item.refeicao)+'</small></div>'+
     '<span class="avn-dieta-ranking-valor"><strong>'+(valor===null?'Sem dado':fmt(valor,ranking.key==='kcal'?0:1)+' '+esc(ranking.unit))+'</strong>'+
     (percentual?'<small>'+percentual+'</small>':'')+'</span></div></li>';
-  }).join('')+'</ol>':
-  '<p class="muted">Nenhum alimento programado nesta dieta.</p>';
+  }).join('')+'</ol>':'<p class="muted">Nenhum alimento programado nesta dieta.</p>';
+}
+function abrirRankingDieta(chave){
+ if(!montarRankingDieta(chave)||!has('modalRankingDieta'))return;
+ rankingDietaAtivo=chave;
+ const topo=$('resumoDieta').getBoundingClientRect().top;
+ if(topo>8)window.scrollBy(0,topo-8);
+ renderRankingDieta();
+ posicionarRankingDieta();
  $('modalRankingDieta').showModal();
 }
 function abrirMacroRefeicao(refeicao,tipo){
@@ -892,6 +915,12 @@ function events(){
  }
  if(PAGE==='dieta'){
  $('fecharRankingDieta').onclick=()=>$('modalRankingDieta').close();
+ $('modalRankingDieta').addEventListener('close',()=>{rankingDietaAtivo=null;});
+ $('conteudoRankingDieta').addEventListener('click',e=>{
+  const botao=e.target.closest('[data-ajustar-peso-dieta]');
+  if(botao){e.preventDefault();ajustarPesoDieta(botao);}
+ });
+ window.addEventListener('resize',()=>{if($('modalRankingDieta').open)posicionarRankingDieta();});
  $('abrirModalDieta').onclick=()=>$('modalAdicionarDieta').showModal();
   $('listaDieta').addEventListener('click',e=>{
    const peso=e.target.closest('[data-ajustar-peso-dieta]');
