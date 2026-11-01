@@ -148,7 +148,7 @@ router.get('/nutricao-comparacao/:usuarioId',async(req,res)=>{
  try{
   const id=String(req.params.usuarioId),data=String(req.query.data||'');
   const periodo=Number(req.query.dias||90);
-  if(!/^[1-9]\\d*$/.test(id)||!validarData(data))
+  if(!/^[1-9]\d*$/.test(id)||!validarData(data))
    return res.status(400).json({erro:'Informe um usuário e uma data válida (AAAA-MM-DD).'});
   if(!Number.isInteger(periodo)||periodo<1||periodo>365)
    return res.status(400).json({erro:'Período inválido: escolha de 1 a 365 dias.'});
