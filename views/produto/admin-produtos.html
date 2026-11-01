@@ -996,6 +996,16 @@ for (let i = 1; i <= 6; i++) {
 
 let categoriaPrincipalAtual = null;
 let salvandoProduto = false;
+// Funções compartilhadas pelo carregamento das categorias e edição de produtos.
+function categoriasSelecionadas() {
+  return Array.from(document.querySelectorAll('#produtoCategoria input:checked')).map(el => Number(el.value));
+}
+function marcarCategorias(ids) {
+  const selecionados = (Array.isArray(ids) ? ids : []).map(Number);
+  document.querySelectorAll('#produtoCategoria input').forEach(el => {
+    el.checked = selecionados.includes(Number(el.value));
+  });
+}
 const videosPendentes = {};
 const videosObjectUrl = {};
 function campoVideo(posicao) { return document.getElementById(`produtoVideo${posicao === 1 ? '' : posicao}`); }
