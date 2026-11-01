@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>AVN — Balanço Energético</title>
-<link rel="stylesheet" href="/css/avn-balanco-energetico.css?v=20261101-3">
-<script src="/js/avn-balanco-energetico.js?v=20261101-3" defer></script></head>
+<link rel="stylesheet" href="/css/avn-balanco-energetico.css?v=20261101-4">
+<script src="/js/avn-balanco-energetico.js?v=20261101-4" defer></script></head>
 <body><main class="avn-balanco">
 <header class="top"><a href="/avn">← Central AVN</a><strong>AVN · Nutrição</strong></header>
 <div class="titulo"><h1>⚖️ Balanço Energético</h1><p>Saldo diário e evolução dos indicadores. Cada ponto corresponde a uma data; selecione um ponto para consultar aquele dia.</p></div>
@@ -51,6 +51,10 @@
 <label><input data-compare="massa_magra" type="checkbox"> Massa magra</label>
 <label><input data-compare="agua_corporal" type="checkbox"> Água corporal</label>
 <label><input data-compare="massa_ossea" type="checkbox"> Massa óssea</label>
+</div></fieldset>
+<fieldset class="compare-group"><legend>Nutrição</legend><div class="compare-checks">
+<label><input data-compare="proteinas" type="checkbox"> Proteínas consumidas (g)</label>
+<label><input data-compare="agua_ingerida" type="checkbox"> Água ingerida (ml)</label>
 </div></fieldset>
 <div class="compare-filtros"><label>Período <select id="compare-dias"><option value="30">30 dias</option><option value="90" selected>90 dias</option><option value="180">180 dias</option><option value="365">365 dias</option></select></label><span id="compare-status" role="status">Selecione os indicadores.</span></div>
 <div id="compare-legend" class="compare-legend" aria-label="Legenda do gráfico"></div>
