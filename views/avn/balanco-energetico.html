@@ -2,7 +2,7 @@
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>AVN — Balanço Energético</title>
 <link rel="stylesheet" href="/css/avn-balanco-energetico.css?v=20261028-1">
-<script src="/js/avn-balanco-energetico.js?v=20261029-1" defer></script></head>
+<script src="/js/avn-balanco-energetico.js?v=20261101-1" defer></script></head>
 <body><main class="avn-balanco">
 <header class="top"><a href="/avn">← Central AVN</a><strong>AVN · Nutrição</strong></header>
 <div class="titulo"><h1>⚖️ Balanço Energético</h1><p>Quatro gráficos diários e uma estimativa de déficit ou superávit. Cada barra corresponde a um dia.</p></div>
@@ -16,7 +16,7 @@
 <article class="painel"><div class="painel-titulo"><h2>🍽️ Calorias consumidas</h2><strong id="valor-ingestao">—</strong></div><p class="ajuda">Total registrado no Diário Alimentar</p><div id="grafico-ingestao" class="barras"></div></article>
 <article class="painel"><div class="painel-titulo"><h2>🔥 TMB</h2><strong id="valor-tmb">—</strong></div><p class="ajuda" id="nota-tmb">Metabolismo basal da bioimpedância</p><div id="grafico-tmb" class="barras"></div></article>
 <article class="painel"><div class="painel-titulo"><h2>👟 Passos</h2><strong id="valor-passos">—</strong></div><p class="ajuda">Passos sincronizados pelo Health Connect</p><div id="grafico-passos" class="barras"></div></article>
-<article class="painel"><div class="painel-titulo"><h2>🏋️ Calorias ativas queimadas</h2><strong id="valor-calorias_ativas">—</strong></div><p class="ajuda">Atividades registradas no Health Connect; sem registros, usamos 0 kcal.</p><div id="grafico-calorias_ativas" class="barras"></div></article>
+<article class="painel"><div class="painel-titulo"><h2>🏋️ Calorias de treinamento</h2><strong id="valor-calorias_ativas">—</strong></div><p class="ajuda">Atividades registradas no Health Connect; sem registros, usamos 0 kcal.</p><div id="grafico-calorias_ativas" class="barras"></div></article>
 </section>
 <section class="saldo" id="saldo" aria-live="polite"><h2>Balanço calórico do dia</h2><strong id="saldo-valor">—</strong><p id="saldo-descricao">Selecione um usuário e uma data.</p><p class="formula" id="saldo-formula"></p></section>
 <p class="aviso">Estimativa, não medição exata: TMB + calorias ativas. Os passos não são somados novamente, evitando duplicidade. A digestão e atividades não registradas podem alterar o gasto real. Sem registros de calorias ativas, adotamos 0 kcal no cálculo, sem afirmar ausência de atividade. O resultado do dia em andamento é provisório.</p>
