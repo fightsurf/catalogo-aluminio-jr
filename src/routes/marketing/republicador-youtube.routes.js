@@ -5,7 +5,7 @@ const service = require('../../services/marketing/republicador-youtube.service')
 
 const router = express.Router();
 router.use(requireAuth);
-router.get('/api/diagnostico', (_req,res) => res.json({ success:true, data:service.diagnostico() }));
+router.get('/api/diagnostico', (_req,res) => res.json({ success:true, data:await service.diagnostico() }));
 
 function tratar(fn) { return async(req,res)=> { try { await fn(req,res); }
   catch(e) { console.error('[Republicador YouTube]', String(e?.message||e).slice(0,500));
