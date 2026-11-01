@@ -125,7 +125,7 @@ async function progresso(db,modulo){
     ultimo_video_id=CASE WHEN modulo='youtube' THEN $2 ELSE ultimo_video_id END,
     ultima_oferta_id=CASE WHEN modulo='ofertas' THEN $3 ELSE ultima_oferta_id END,
     ultimo_sucesso_em=GREATEST(COALESCE(ultimo_sucesso_em,'epoch'::timestamptz),$4::timestamptz)
-    WHERE modulo=$1`,[modulo,modulo==='youtube'?(i.detalhes?.youtube_video_id||i.request_id.replace(/^youtube-auto-(?:c\\d+-)?/,'')):null,
+    WHERE modulo=$1`,[modulo,modulo==='youtube'?(i.detalhes?.youtube_video_id||i.request_id.replace(/^youtube-auto-(?:c\d+-)?/,'')):null,
       modulo==='ofertas'?i.produto_id:null,i.atualizado_em]);
 }
 async function tick(){
