@@ -307,6 +307,8 @@
     if (btnExecutar) {
       btnExecutar.disabled = !telefoneAtivo || !select || !select.value;
     }
+
+    window.BotAdmin?.atualizarEnvioCategoria?.();
   }
 
   function preencherSelectIntencoes() {
@@ -740,6 +742,7 @@
     if (e.key === 'Enter') abrirConversaManual();
   });
 
+  window.BotAdmin.getTelefoneAtivo = () => telefoneAtivo;
   atualizarTituloConversa();
   atualizarEstadoAcoes();
   carregarStatusAutonomia();

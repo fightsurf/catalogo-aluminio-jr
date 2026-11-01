@@ -57,6 +57,18 @@
             <span id="status-execucao-intencao" class="status-inline"></span>
           </div>
         </div>
+
+        <div class="topbar-row topbar-row-categoria" aria-label="Enviar categoria de produtos pelo WhatsApp">
+          <div class="toolbar-group toolbar-group-categoria">
+            <label for="select-categoria-whatsapp">Categoria de produtos</label>
+            <select id="select-categoria-whatsapp" disabled>
+              <option value="">Carregando categorias...</option>
+            </select>
+            <button type="button" id="btn-enviar-categoria" disabled>Enviar</button>
+          </div>
+          <span id="categoria-whatsapp-destino" class="categoria-whatsapp-destino">Selecione uma conversa</span>
+          <span id="categoria-whatsapp-feedback" class="categoria-whatsapp-feedback" role="status" aria-live="polite"></span>
+        </div>
       </div>
 
       <section id="monitor-resumo" class="monitor-resumo" aria-label="Monitor de recebimento">
@@ -197,5 +209,6 @@
   </script>
 
   <script src="/bot-admin/script.js"></script>
+  <script src="/bot-admin/categoria-envio.js"></script>
 </body>
 </html>

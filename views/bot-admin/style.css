@@ -487,3 +487,53 @@ body {
 .monitor-estado.duplicada { background:#554521; color:#f6d58e; }
 .monitor-estado.ignorada, .monitor-estado.erro { background:#5a3038; color:#f8bac4; }
 .badge-processada, .badge-intencao-msg { background:#253c56; color:#c4e2ff; border-color:#465b7a; }
+
+
+/* Envio de categoria para a conversa selecionada, sem quebrar o painel. */
+.topbar-row-categoria {
+  border-top: 1px solid var(--border);
+  padding-top: 7px;
+  align-items: center;
+}
+.toolbar-group-categoria label {
+  color: var(--text);
+  font-size: .79rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+#select-categoria-whatsapp {
+  width: min(310px, 100%);
+  min-width: 190px;
+  max-width: 100%;
+}
+#btn-enviar-categoria {
+  background: var(--primary);
+}
+#btn-enviar-categoria:hover:not(:disabled) {
+  background: var(--primary-dark);
+}
+#topbar button:disabled {
+  opacity: .52;
+  cursor: not-allowed;
+}
+.categoria-whatsapp-destino {
+  font-size: .76rem;
+  color: var(--text-soft);
+  white-space: nowrap;
+}
+.categoria-whatsapp-feedback {
+  color: var(--text-soft);
+  font-size: .76rem;
+  overflow-wrap: anywhere;
+  flex: 1 1 170px;
+}
+.categoria-whatsapp-feedback[data-estado="erro"] { color: #ff9ba6; }
+.categoria-whatsapp-feedback[data-estado="sucesso"] { color: #91e5b9; }
+@media (max-width: 1200px) {
+  #select-categoria-whatsapp { width: 100%; min-width: 0; }
+  .toolbar-group-categoria { width: 100%; }
+}
+@media (max-width: 600px) {
+  .categoria-whatsapp-destino { white-space: normal; }
+  .toolbar-group-categoria label { width: 100%; }
+}
