@@ -12,16 +12,16 @@ const router = express.Router();
 const diaryReady=(async()=>{
   await pool.query('ALTER TABLE public.avn_diario_alimentar ADD COLUMN IF NOT EXISTS modificado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()');
   await pool.query(`CREATE OR REPLACE FUNCTION public.avn_diario_carimbar_modificacao()
-    RETURNS trigger LANGUAGE plpgsql AS $
-    BEGIN NEW.modificado_em = clock_timestamp(); RETURN NEW; END $`);
-  await pool.query(`DO $
+    RETURNS trigger LANGUAGE plpgsql AS $$
+    BEGIN NEW.modificado_em = clock_timestamp(); RETURN NEW; END $$;`);
+  await pool.query(`DO $$
     BEGIN
       IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid='public.avn_diario_alimentar'::regclass AND tgname='avn_diario_modificacao_mobile') THEN
         CREATE TRIGGER avn_diario_modificacao_mobile
         BEFORE UPDATE ON public.avn_diario_alimentar
         FOR EACH ROW EXECUTE FUNCTION public.avn_diario_carimbar_modificacao();
       END IF;
-    END $`);
+    END $$;`);
 })().catch(e=>{console.error('[AVN diario sync] Falha ao preparar controle de versão',e);throw e});
 
 const REFEICOES = new Set(['cafe', 'lanche_manha', 'almoco', 'lanche_tarde', 'jantar', 'ceia', 'outros']);
