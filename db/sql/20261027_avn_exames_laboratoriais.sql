@@ -92,6 +92,7 @@ VALUES
 ('testosterona_total','Testosterona total',ARRAY[]::text[],'Hormônios','ng/dL','indicador'),
 ('testosterona_livre','Testosterona livre',ARRAY[]::text[],'Hormônios','ng/dL','indicador'),
 ('shbg','SHBG',ARRAY['globulina ligadora dos hormônios sexuais'],'Hormônios','nmol/L','indicador'),
+('estradiol','Estradiol',ARRAY['e2','17-beta estradiol','17β-estradiol'],'Hormônios','pg/mL','indicador'),
 ('vitamina_d','Vitamina D (25-OH)',ARRAY['25-oh vitamina d','25 hidroxi vitamina d'],'Vitaminas','ng/mL','indicador'),
 ('vitamina_b12','Vitamina B12',ARRAY['cobalamina'],'Vitaminas','pg/mL','indicador'),
 ('ferritina','Ferritina',ARRAY[]::text[],'Metabolismo','ng/mL','indicador'),
