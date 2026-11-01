@@ -8,6 +8,17 @@ const definitions=[
  {key:'agua_corporal',unit:'kg'}
 ];
 const sources=['peso','gordura_corporal','massa_magra','agua_corporal'];
+// Faixas de referência para adultos; IMC não mede diretamente a gordura corporal.
+const imcBands=[
+ {name:'Abaixo do peso',range:'Menos de 18,5',min:-Infinity,max:18.5,color:'#60a5fa'},
+ {name:'Peso normal',range:'18,5 a 24,9',min:18.5,max:25,color:'#34d399'},
+ {name:'Sobrepeso',range:'25 a 29,9',min:25,max:30,color:'#fbbf24'},
+ {name:'Obesidade grau 1',range:'30 a 34,9',min:30,max:35,color:'#fb923c'},
+ {name:'Obesidade grau 2',range:'35 a 39,9',min:35,max:40,color:'#f87171'},
+ {name:'Obesidade grau 3',range:'40 ou mais',min:40,max:Infinity,color:'#c084fc'}
+];
+const imcLimits=[18.5,25,30,35,40];
+function imcBand(value){return imcBands.find(b=>value>=b.min&&value<b.max);}
 const $=id=>document.getElementById(id);
 const format=n=>Number(n).toLocaleString('pt-BR',{maximumFractionDigits:2});
 const formatDate=n=>new Date(n).toLocaleString('pt-BR');
@@ -33,14 +44,43 @@ function validRows(items){
  })).filter(row=>Number.isFinite(row.time)&&Number.isFinite(row.value))
    .sort((a,b)=>a.time-b.time);
 }
+function renderImcReference(rows){
+ const grid=$('imc-ranges'),current=$('imc-current');
+ if(!grid||!current)return;
+ if(!grid.childElementCount){
+  for(const band of imcBands){
+   const item=document.createElement('div');
+   item.className='imc-reference-item';
+   item.style.setProperty('--imc-color',band.color);
+   const range=document.createElement('span');range.textContent=band.range;
+   const name=document.createElement('strong');name.textContent=band.name;
+   item.append(range,name);grid.append(item);
+  }
+ }
+ const latest=rows.length?rows[rows.length-1]:null;
+ const active=latest?imcBand(latest.value):null;
+ current.textContent=active
+  ?'Último IMC do período: '+format(latest.value)+' kg/m² — '+active.name+'.'
+  :'Sem medição de IMC no período selecionado.';
+ [...grid.children].forEach((item,i)=>item.classList.toggle('active',imcBands[i]===active));
+}
 function drawGraph(area,rows,unit,label){
  area.replaceChildren();
  if(!rows.length)return;
  const W=Math.max(310,Math.round(area.clientWidth||800)),H=245,L=58,R=18,T=16,B=47;
  const values=rows.map(p=>p.value),times=rows.map(p=>p.time);
- let low=Math.min(...values),high=Math.max(...values);
+ const isImc=label==='imc';
+ const minValue=Math.min(...values),maxValue=Math.max(...values);
+ let low=minValue,high=maxValue;
  const pad=Math.max((high-low)*.12,Math.abs(high)*.015,.2);
  low-=pad;high+=pad;
+ if(isImc){
+  // Mostra os limites da faixa atual sem comprimir o histórico na escala total.
+  const lower=imcLimits.filter(limit=>limit<=minValue).pop();
+  const upper=imcLimits.find(limit=>limit>maxValue);
+  if(lower!==undefined)low=Math.min(low,lower-.35);
+  if(upper!==undefined)high=Math.max(high,upper+.35);
+ }
  let start=times[0],end=times[times.length-1];
  if(start===end){start-=43200000;end+=43200000;}
  const x=t=>L+(t-start)/(end-start)*(W-L-R);
@@ -50,10 +90,20 @@ function drawGraph(area,rows,unit,label){
  svg.setAttribute('viewBox','0 0 '+W+' '+H);
  svg.setAttribute('role','img');
  svg.setAttribute('aria-label','Histórico de '+label+': toque ou passe o mouse para ver a data e o valor');
+ if(isImc)for(const band of imcBands){
+  const from=Math.max(low,band.min),to=Math.min(high,band.max);
+  if(from<to)svgEl(svg,'rect',{x:L,y:y(to),width:W-L-R,height:y(from)-y(to),fill:band.color,opacity:.12,'pointer-events':'none'});
+ }
  for(let i=0;i<=4;i++){
   const yy=T+(H-T-B)*i/4;
   svgEl(svg,'line',{x1:L,x2:W-R,y1:yy,y2:yy,stroke:'#34465f'});
   svgEl(svg,'text',{x:L-8,y:yy+4,'text-anchor':'end',fill:'#a9b9d1','font-size':11},format(high-(high-low)*i/4));
+ }
+ if(isImc)for(const limit of imcLimits){
+  if(limit<=low||limit>=high)continue;
+  const yy=y(limit);
+  svgEl(svg,'line',{x1:L,x2:W-R,y1:yy,y2:yy,stroke:'#d6e3f5','stroke-width':1,'stroke-dasharray':'4 5',opacity:.72,'pointer-events':'none'});
+  svgEl(svg,'text',{x:W-R-3,y:yy-5,'text-anchor':'end',fill:'#d6e3f5','font-size':10},format(limit));
  }
  const ticks=W<520?2:4;
  for(let i=0;i<=ticks;i++){
@@ -86,7 +136,8 @@ function drawGraph(area,rows,unit,label){
   const p=points[ix];
   guide.setAttribute('x1',p.px);guide.setAttribute('x2',p.px);guide.setAttribute('visibility','visible');
   focus.setAttribute('cx',p.px);focus.setAttribute('cy',p.py);focus.setAttribute('visibility','visible');
-  tooltip.textContent=formatDate(p.date)+' · '+format(p.value)+' '+unit;
+  const band=isImc?imcBand(p.value):null;
+  tooltip.textContent=formatDate(p.date)+' · '+format(p.value)+' '+unit+(band?' · '+band.name:'');
   tooltip.hidden=false;
   const xpos=p.px/W*area.clientWidth, ypos=p.py/H*area.clientHeight;
   tooltip.style.left=Math.max(4,Math.min(xpos+10,area.clientWidth-tooltip.offsetWidth-4))+'px';
@@ -291,6 +342,7 @@ function render(){
  for(const m of definitions){
   const status=$('status-'+m.key),area=$('chart-'+m.key);
   const error=state.errors[m.key],rows=state.data[m.key]||[];
+  if(m.key==='imc')renderImcReference(rows);
   if(error||!rows.length){
    status.hidden=false;status.textContent=error||'Nenhuma medição disponível neste período.';
    area.replaceChildren();continue;
