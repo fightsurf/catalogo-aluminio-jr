@@ -808,6 +808,23 @@
         && facebookFeedCategoria
         && facebookFeedCategoria.status !== 'publicado';
       if (processando || (!listaParaEnviar.length && !precisaRepetirFeed) || !categoriaAtual) return;
+      if(destino==='status'){
+        if(!listaParaEnviar.length){mostrarFlash('erro','Confira a pendência na Central de Publicações.');return;}
+        if(!window.confirm('Enviar '+listaParaEnviar.length+' produto(s) ao Funil Central? A publicação respeitará os intervalos.'))return;
+        processando=true;atualizarBotoes();
+        try{
+          const r=await fetch('/marketing/central-publicacoes/api/manual/status',{
+            method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({solicitacao_id:crypto.randomUUID(),categoria_id:Number(categoriaAtual.id),
+              tipo_midia:tipoMidiaEl.value,produtos:listaParaEnviar.map(p=>Number(p.id))})
+          });
+          const j=await lerJson(r);
+          if(!r.ok||!j.success)throw Error(j.message||j.error||'Falha ao incluir publicação na fila.');
+          mostrarFlash('sucesso','Lote nº '+j.data.id+' incluído no Funil Central. Acompanhe na Central de Publicações.');
+        }catch(e){mostrarFlash('erro',e.message);}
+        finally{processando=false;atualizarBotoes();}
+        return;
+      }
 
       let telefone = '';
       let nomeDestinatario = '';
@@ -1057,6 +1074,23 @@
       atualizarBotoes();
     })();
   </script>
-  <script src="/js/status-agendamentos.js?v=20261024-funil1"></script>
+  <script>
+(() => {
+ const target=document.getElementById('ag-status-badge'),actions=document.querySelector('.top-actions');
+ if(actions){const a=document.createElement('a');a.className='btn btn-outline';a.href='/marketing/central-publicacoes';a.textContent='Central de Publicações';actions.prepend(a);}
+ async function atualizar(){
+  try{
+   const r=await fetch('/api/whatsapp/status/agendamentos',{credentials:'same-origin'}),j=await r.json();
+   if(!r.ok||!j.success)throw Error(j.error||'Falha de consulta.');
+   const c=j.data.config;
+   target.textContent=c.ativo?'AGENDAMENTO LIGADO':'AGENDAMENTO DESLIGADO';
+   document.getElementById('ag-next-category').textContent=(c.categorias||[]).length?'Ver na Central':'Nenhuma categoria';
+   document.getElementById('ag-status-countdown').textContent=c.lote_atual_id?'Em publicação':'—';
+   document.getElementById('ag-status-date').textContent=c.proxima_execucao?new Date(c.proxima_execucao).toLocaleString('pt-BR'):'—';
+  }catch(e){target.textContent=e.message;}
+ }
+ atualizar();setInterval(atualizar,30000);
+})();
+</script>
 </body>
 </html>

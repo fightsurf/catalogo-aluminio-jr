@@ -32,19 +32,9 @@ a{color:#216bb5}#recentes{max-height:450px;overflow:auto}
 <main>
 
 <section id="agendaYoutube">
- <h2>Agendamento automático — vídeos mais antigos primeiro</h2>
- <p class="muted">Cada vídeo do canal é publicado uma única vez, em ordem cronológica, via Funil Central. Os envios parciais exigem conferência antes de avançar. O agendamento inicia desligado.</p>
- <div class="toolbar">
-  <label><input type="checkbox" id="ay-ativo" style="min-width:0;flex:unset;width:auto"> Agendamento ligado</label>
-  <label>Intervalo (min) <input type="number" min="1" max="10080" id="ay-intervalo" style="min-width:90px;max-width:110px"></label>
-  <label>Início <input type="time" id="ay-inicio" style="min-width:140px"></label>
-  <label>Fim <input type="time" id="ay-fim" style="min-width:140px"></label>
-  <label>Pausa global no funil (min) <input type="number" min="1" max="1440" id="ay-global" style="min-width:90px;max-width:110px"></label>
-  <button id="ay-salvar" class="primary">Salvar agendamento</button>
- </div>
- <div class="notice">A pausa global é compartilhada com o Status WhatsApp e a Central de Ofertas. <a href="/whatsapp/status" target="_blank">Abrir o Funil Central para conciliar pendências</a>. Alterá-la aqui também altera o intervalo mínimo entre tarefas dos outros aplicativos.</div>
- <p id="ay-situacao" class="muted" aria-live="polite">Carregando configuração…</p>
-</section>
+<h2>Agendamento — vídeos mais antigos primeiro</h2>
+<p class="muted">Controle o agendamento e a fila na <a href="/marketing/central-publicacoes">Central de Publicações</a>.</p>
+<p id="ay-situacao" class="muted">Consultando…</p></section>
 <section>
  <h2>Vídeos do nosso canal</h2>
  <div class="toolbar"><input id="busca" placeholder="Pesquisar nos vídeos carregados" aria-label="Pesquisar">
@@ -97,10 +87,17 @@ async function criarJob(id,modo){
  if(modo==='publicar'&&!confirm('Publicar este vídeo no WhatsApp Status, Instagram Stories e Facebook Feed?'))return;
  ocupados.add(id);renderVideos();
  try{
-  const job=await req('/api/jobs',{method:'POST',body:JSON.stringify({video_id:id,modo,
-    request_id:crypto.randomUUID(),confirmar:modo==='publicar'?'PUBLICAR_NAS_TRES_REDES':''})});
-  mensagem('Operação '+job.id+' iniciada. Acompanhe abaixo.');
-  await atualizarHistorico();
+  if(modo==='publicar'){
+    const video=videos.find(v=>v.id===id);
+    const r=await fetch('/marketing/central-publicacoes/api/manual/youtube',{
+      method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({solicitacao_id:crypto.randomUUID(),video_id:id,titulo:video?.titulo||id,confirmar:'PUBLICAR_NAS_TRES_REDES'})});
+    const j=await r.json();if(!r.ok||!j.success)throw Error(j.message||'Falha ao enfileirar vídeo.');
+    mensagem('Vídeo colocado na fila nº '+j.data.id+'. Acompanhe na Central de Publicações.');
+   }else{
+    const job=await req('/api/jobs',{method:'POST',body:JSON.stringify({video_id:id,modo,request_id:crypto.randomUUID()})});
+    mensagem('Teste '+job.id+' iniciado.');await atualizarHistorico();
+   }
  }catch(e){mensagem(e.message,true);}
  finally{ocupados.delete(id);renderVideos();}
 }
@@ -129,37 +126,13 @@ $('diagnosticar').onclick=async()=>{try{const data=await req('/api/diagnostico')
 carregar(true);atualizarHistorico();polling=setInterval(atualizarHistorico,5000);
 
 async function carregarAgendaYoutube(){
- try{
-  const d=await req('/api/agendamento'),c=d.config;
-  $('ay-ativo').checked=Boolean(c.ativo);
-  $('ay-intervalo').value=c.intervalo_minutos;
-  $('ay-inicio').value=c.inicio;
-  $('ay-fim').value=c.fim;
-  $('ay-global').value=d.intervalo_global_minutos;
-  const txt=(c.ativo?'LIGADO':'DESLIGADO')+
-   ' · Próxima execução: '+(c.proxima_execucao?new Date(c.proxima_execucao).toLocaleString('pt-BR'):'não agendada')+
-   ' · Último vídeo concluído: '+(d.ultimo_publicado?.produto_nome||'nenhum')+
-   (d.pendencia?' · PENDÊNCIA: '+d.pendencia.produto_nome+' ('+d.pendencia.estado+')':'')+
-   (c.ultimo_erro?' · ERRO: '+c.ultimo_erro:'');
-  $('ay-situacao').textContent=txt;
+ try{const d=await req('/api/agendamento'),c=d.config;
+ $('ay-situacao').textContent=(c.ativo?'LIGADO':'DESLIGADO')+
+ ' · Próxima: '+(c.proxima_execucao?new Date(c.proxima_execucao).toLocaleString('pt-BR'):'não agendada')+
+ (d.pendencia?' · PENDÊNCIA: '+d.pendencia.estado:'');
  }catch(e){$('ay-situacao').textContent=e.message;}
 }
-$('ay-salvar').onclick=async()=>{
- const botao=$('ay-salvar');botao.disabled=true;
- try{
-  const ativo=$('ay-ativo').checked;
-  if(ativo&&!confirm('Ligar o agendamento automático? O Funil começará a publicar vídeos reais nas redes sociais, do mais antigo ao mais novo.'))return;
-  await req('/api/agendamento',{method:'PUT',body:JSON.stringify({
-    ativo,intervalo_minutos:Number($('ay-intervalo').value),
-    inicio:$('ay-inicio').value,fim:$('ay-fim').value,
-    intervalo_global_minutos:Number($('ay-global').value)
-  })});
-  await carregarAgendaYoutube();mensagem('Agendamento salvo.');
- }catch(e){mensagem(e.message,true);}
- finally{botao.disabled=false;}
-};
-carregarAgendaYoutube();
-setInterval(carregarAgendaYoutube,30000);
+carregarAgendaYoutube();setInterval(carregarAgendaYoutube,30000);
 
 })();
 </script></body></html>

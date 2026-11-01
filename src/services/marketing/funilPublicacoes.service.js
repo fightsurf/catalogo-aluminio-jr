@@ -330,17 +330,24 @@ async function executarPasso() {
     await recuperarProcessos(db);
     await fecharLotes(db);
     const r=await db.query(`SELECT i.*,l.origem,l.categoria_id,l.tipo_midia,l.categoria_nome FROM marketing_fila_itens i
-      JOIN marketing_fila_lotes l ON l.id=i.lote_id
+      JOIN marketing_fila_lotes l ON l.id=i.lote_id CROSS JOIN marketing_publicacao_ritmo p
       WHERE l.estado IN ('pendente','executando') AND i.estado <> ALL($1::text[])
+        AND (l.origem <> 'statuszap_agendamento' OR EXISTS(
+          SELECT 1 FROM status_agendamento_config s WHERE s.id=1 AND s.ativo=TRUE))
         AND (l.origem NOT IN ('youtube_agenda','ofertas_agenda') OR EXISTS(
           SELECT 1 FROM marketing_agendadores_modulos mc
           WHERE mc.modulo=CASE WHEN l.origem='youtube_agenda' THEN 'youtube' ELSE 'ofertas' END
           AND mc.ativo=TRUE))
-      ORDER BY l.id,i.ordem LIMIT 1`,[TERMINAIS]);
+      ORDER BY CASE WHEN i.estado IN ('executando','aguardando_video') THEN 0 ELSE 1 END,
+        date_trunc('minute',l.criado_em),
+        CASE WHEN l.origem LIKE 'statuszap%' THEN COALESCE((p.prioridades->>'statuszap')::int,1)
+             WHEN l.origem LIKE 'youtube%' THEN COALESCE((p.prioridades->>'youtube')::int,2)
+             WHEN l.origem LIKE 'ofertas%' THEN COALESCE((p.prioridades->>'ofertas')::int,3)
+             ELSE 4 END, l.id,i.ordem LIMIT 1`,[TERMINAIS]);
     if(!r.rows.length) return;
     const item=r.rows[0];
     // Somente as tarefas do agendamento do Status Zap obedecem ao interruptor desse agendamento.
-    if(item.origem.startsWith('statuszap')) {
+    if(item.origem==='statuszap_agendamento') {
       const cfg=(await db.query('SELECT ativo FROM status_agendamento_config WHERE id=1')).rows[0];
       if(!cfg?.ativo) return;
     }
@@ -350,6 +357,8 @@ async function executarPasso() {
       if(!c?.ativo)return;
     }
     if(item.proxima_tentativa && new Date(item.proxima_tentativa)>new Date()) return;
+    const pace=(await db.query('SELECT pausado FROM marketing_publicacao_ritmo WHERE id=1')).rows[0];
+    if(pace?.pausado && ['pendente','aguardando_retry'].includes(item.estado))return;
     if(!await respeitarRitmo(db,item))return;
     const lot={categoria_id:item.categoria_id,tipo_midia:item.tipo_midia};
     if(item.tipo==='youtube_video') await processarYoutube(db,item);
@@ -372,7 +381,7 @@ async function painel() {
     pool.query(`SELECT i.id,i.lote_id,i.ordem,i.tipo,i.produto_id,i.produto_nome,i.estado,i.erro,i.tentativas,
       i.proxima_tentativa,i.detalhes,l.categoria_nome,l.tipo_midia,l.origem,l.criado_em
       FROM marketing_fila_itens i JOIN marketing_fila_lotes l ON l.id=i.lote_id
-      WHERE i.estado IN ('incerto','atencao','aguardando_video','aguardando_retry','executando') ORDER BY i.id DESC LIMIT 60`),
+      WHERE i.estado IN ('pendente','incerto','atencao','aguardando_video','aguardando_retry','executando') ORDER BY CASE WHEN i.estado IN ('incerto','atencao') THEN 0 ELSE 1 END,i.id ASC LIMIT 100`),
     pool.query(`SELECT e.id,e.criado_em,e.nivel,e.codigo,e.mensagem,e.item_id,e.lote_id,
       l.categoria_nome,i.produto_nome FROM marketing_fila_eventos e
       LEFT JOIN marketing_fila_lotes l ON l.id=e.lote_id

@@ -1,0 +1,63 @@
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Central de Publicações — Alumínio JR</title>
+<style>
+:root{font-family:system-ui,Arial,sans-serif;color:#182638;background:#f3f5f8}*{box-sizing:border-box}body{margin:0}
+header{background:#142b47;color:white;padding:22px max(18px,calc((100vw - 1250px)/2))}h1{font-size:24px;margin:0 0 6px}h2{font-size:19px;margin:0 0 12px}h3{font-size:16px;margin:12px 0}p{line-height:1.5}
+header p{margin:0;color:#d0dce9}nav{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}nav a{color:white;font-size:14px}
+main{max-width:1250px;margin:20px auto;padding:0 14px 60px}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(305px,1fr));gap:16px}
+section.card{background:white;padding:20px;border:1px solid #dce3ed;border-radius:12px;margin-bottom:18px;min-width:0}
+.muted{font-size:13px;color:#556477}label{display:block;font-size:13px;font-weight:600;margin:10px 0 5px}
+input,select,button{font:inherit}input[type=time],input[type=number],select{width:100%;border:1px solid #aebaca;border-radius:7px;padding:9px;background:white}
+input[type=checkbox]{width:18px;height:18px;vertical-align:middle;margin-right:8px}button{background:#163f73;color:white;border:0;border-radius:7px;padding:10px 15px;cursor:pointer;margin-top:12px}
+button:disabled{opacity:.6;cursor:wait}.outline{background:white;border:1px solid #41648b;color:#153c68}.danger{background:#a11d22}
+form{margin:0}.columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.status{background:#eef5fa;border-radius:8px;padding:12px;font-size:13px;margin:12px 0;min-height:46px}
+.info{font-size:13px;color:#374b5e}.categories{max-height:220px;overflow:auto;border:1px solid #d3dce5;border-radius:8px;padding:8px}
+.cat{display:flex;align-items:center;gap:9px;padding:5px;border-bottom:1px solid #eee;font-size:13px}.cat input{flex:none}.cat span{flex:1}.cat button{padding:4px 9px;margin:0}
+.tablewrap{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid #e2e7eb;padding:10px;text-align:left;vertical-align:top}td button{margin:3px;padding:7px;font-size:12px}th{background:#f4f7fa}
+.pills{display:flex;gap:10px;flex-wrap:wrap}.pill{border:1px solid #cbd6e0;border-radius:8px;padding:10px 14px;min-width:140px}.pill b{display:block;font-size:22px}
+#feedback{position:sticky;top:0;background:#fcf3d9;color:#483400;padding:12px;border-radius:7px;margin:8px 0;display:none;z-index:2}
+.note{background:#fff9e9;padding:11px;border-left:4px solid #cb8d2e;font-size:13px}
+@media(max-width:600px){.columns{grid-template-columns:1fr}h1{font-size:20px}section.card{padding:13px}}
+</style></head><body>
+<header><h1>Central de Publicações</h1><p>Alumínio JR · Controle único de agenda, fila e conciliação</p>
+<nav><a href="/whatsapp/status">Status WhatsApp</a><a href="/marketing/republicador-youtube">Republicador YouTube</a><a href="/central-ofertas">Central de Ofertas</a></nav></header>
+<main><div id="feedback" role="status" aria-live="polite"></div>
+<section class="card"><h2>Controle global do funil</h2>
+<p class="muted">O funil processa uma tarefa por vez. A pausa global interrompe novos envios; mídias já aceitas continuam sendo acompanhadas.</p>
+<form id="global"><div class="columns">
+<div><label><input type="checkbox" id="pausado"> Pausar novos envios em todas as redes</label></div>
+<div><label for="global-min">Pausa mínima entre tarefas (minutos)</label><input type="number" min="1" max="1440" id="global-min" required></div>
+</div><h3>Prioridade em solicitações do mesmo minuto</h3><p class="muted">1 = primeira preferência. Solicitações de minutos anteriores continuam à frente.</p>
+<div class="columns"><div><label for="prio-status">Status WhatsApp</label><select id="prio-status"><option>1</option><option>2</option><option>3</option></select></div>
+<div><label for="prio-youtube">Republicador YouTube</label><select id="prio-youtube"><option>1</option><option>2</option><option>3</option></select></div>
+<div><label for="prio-ofertas">Central de Ofertas</label><select id="prio-ofertas"><option>1</option><option>2</option><option>3</option></select></div></div>
+<button type="submit">Salvar controle global</button></form>
+<div id="global-status" class="status">Carregando…</div></section>
+<div class="grid"><section class="card">
+<h2>Status WhatsApp</h2><form id="status">
+<label><input type="checkbox" id="s-ativo"> Agendamento ligado</label>
+<div class="columns"><div><label>Intervalo (minutos)<input id="s-intervalo" type="number" min="1" max="10080" required></label></div>
+<div><label>Tipo de mídia<select id="s-midia"><option value="foto">Fotos</option><option value="video">Vídeos</option><option value="foto_video">Fotos e vídeos</option></select></label></div>
+<div><label>Início<input id="s-inicio" type="time" required></label></div>
+<div><label>Fim<input id="s-fim" type="time" required></label></div></div>
+<label>Categorias e sequência</label><div id="categorias" class="categories">Carregando…</div>
+<button type="submit">Salvar Status WhatsApp</button></form>
+<div id="s-status" class="status"></div><div id="legados"></div></section>
+<section class="card"><h2>Republicador YouTube</h2><p class="muted">Do vídeo mais antigo para o mais recente; progresso registrado por vídeo.</p>
+<form id="youtube"><label><input type="checkbox" id="y-ativo"> Agendamento ligado</label>
+<div class="columns"><div><label>Intervalo (minutos)<input type="number" id="y-intervalo" min="1" max="10080" required></label></div>
+<div><label>Início<input id="y-inicio" type="time" required></label></div><div><label>Fim<input id="y-fim" type="time" required></label></div></div>
+<button type="submit">Salvar Republicador</button></form><div id="y-status" class="status"></div></section>
+<section class="card"><h2>Central de Ofertas</h2><p class="muted">Kits feirinha mais antigos primeiro; sem republicar automaticamente um kit já enviado.</p>
+<form id="ofertas"><label><input type="checkbox" id="o-ativo"> Agendamento ligado</label>
+<div class="columns"><div><label>Intervalo (minutos)<input type="number" id="o-intervalo" min="1" max="10080" required></label></div>
+<div><label>Início<input id="o-inicio" type="time" required></label></div><div><label>Fim<input id="o-fim" type="time" required></label></div></div>
+<button type="submit">Salvar Central de Ofertas</button></form><div id="o-status" class="status"></div></section></div>
+<section class="card"><h2>Fila única de publicações</h2><p class="note">Horários são previstos, não garantidos. Publicações aguardam a conclusão anterior e o intervalo global. Um envio incerto precisa de conferência diretamente na rede antes de retomar.</p>
+<div id="stats" class="pills"></div><button type="button" id="atualizar" class="outline">Atualizar agora</button>
+<div class="tablewrap"><table><thead><tr><th>ID / origem</th><th>Conteúdo</th><th>Estado</th><th>Data / pendência</th><th>Conciliação</th></tr></thead><tbody id="fila"></tbody></table></div></section>
+<section class="card"><h2>Histórico de lotes</h2><div class="tablewrap"><table><thead><tr><th>ID</th><th>Origem</th><th>Estado</th><th>Criado em</th></tr></thead><tbody id="lotes"></tbody></table></div></section>
+<section class="card"><h2>Eventos e erros</h2><div class="columns"><div><label>Nível<select id="nivel"><option value="">Todos</option><option value="erro">Erros</option><option value="aviso">Avisos</option><option value="info">Informações</option></select></label></div>
+<div><label>Desde<input id="desde" type="date"></label></div></div><button id="logs-btn" type="button" class="outline">Consultar eventos</button>
+<div id="logs"></div><button type="button" id="mais-logs" class="outline" hidden>Ver eventos anteriores</button></section>
+</main><script src="/js/central-publicacoes.js?v=1"></script></body></html>

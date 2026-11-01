@@ -26,6 +26,8 @@ async function schema(){
       id INTEGER PRIMARY KEY DEFAULT 1 CHECK(id=1),
       intervalo_global_minutos INTEGER NOT NULL DEFAULT 15,
       ultimo_item_id BIGINT,ultima_reserva_em TIMESTAMPTZ,atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW())`);
+    await pool.query("ALTER TABLE marketing_publicacao_ritmo ADD COLUMN IF NOT EXISTS pausado BOOLEAN NOT NULL DEFAULT FALSE");
+    await pool.query("ALTER TABLE marketing_publicacao_ritmo ADD COLUMN IF NOT EXISTS prioridades JSONB NOT NULL DEFAULT '{\"statuszap\":1,\"youtube\":2,\"ofertas\":3}'::jsonb");
     await pool.query('INSERT INTO marketing_publicacao_ritmo(id) VALUES(1) ON CONFLICT DO NOTHING');
     for(const m of MODULOS)await pool.query('INSERT INTO marketing_agendadores_modulos(modulo) VALUES($1) ON CONFLICT DO NOTHING',[m]);
     await funil.table();

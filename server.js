@@ -111,6 +111,7 @@ const ofertasViewRoutes = require('./src/routes/ofertas/ofertas.view.routes');
 const statusVideosRoutes = require('./src/routes/status-videos/status-videos.routes');
 const statusVideosViewRoutes = require('./src/routes/status-videos/status-videos.view.routes');
 const republicadorYoutubeRoutes = require('./src/routes/marketing/republicador-youtube.routes');
+const centralPublicacoesRoutes = require('./src/routes/marketing/central-publicacoes.routes');
 const sistemaRoutes = require('./src/routes/sistema/sistema.routes');
 const perfisPrecoRoutes = require('./src/routes/perfis-preco/perfisPreco.routes');
 
@@ -249,6 +250,7 @@ app.use('/status-videos', statusVideosViewRoutes);
 // Republicador YouTube: somente administrador. Os publicadores existentes permanecem inalterados.
 app.get('/marketing/republicador-youtube', requireAuth, (_req, res) => res.sendFile(path.join(__dirname, 'views/marketing/republicador-youtube.html')));
 app.use('/marketing/republicador-youtube', republicadorYoutubeRoutes);
+app.use('/marketing/central-publicacoes', centralPublicacoesRoutes);
 app.use('/sistema', sistemaRoutes);
 
 // Projeto Mirian: API e páginas isoladas pelo prefixo /mirian

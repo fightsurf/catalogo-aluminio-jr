@@ -25,19 +25,8 @@
 </header>
 
 <section id="agendaOfertas" class="painel" style="max-width:1400px;margin:18px auto;padding:18px">
- <h2>Agendamento automático — Kits Feirinha</h2>
- <p>Publica os kits ainda não publicados, do mais antigo ao mais novo, pelo Funil Central. Ativação manual; pausa em casos de envio parcial ou incerto.</p>
- <div style="display:flex;align-items:end;gap:12px;flex-wrap:wrap">
-  <label class="campo">Ativo <input type="checkbox" id="ao-ativo" style="width:auto"></label>
-  <label class="campo">Intervalo (min) <input type="number" min="1" max="10080" id="ao-intervalo" style="max-width:125px"></label>
-  <label class="campo">Início <input type="time" id="ao-inicio"></label>
-  <label class="campo">Fim <input type="time" id="ao-fim"></label>
-  <label class="campo">Pausa global do funil (min) <input type="number" min="1" max="1440" id="ao-global" style="max-width:125px"></label>
-  <button id="ao-salvar">Salvar agendamento</button>
- </div>
- <p style="font-size:12px;color:#4b5563">Pausa global compartilhada com Status WhatsApp e Republicador YouTube; alterações afetam os três. <a href="/whatsapp/status" target="_blank">Ver Funil Central e conciliar pendências</a>.</p>
- <div id="ao-status" class="aviso" aria-live="polite">Carregando agendamento…</div>
-</section>
+<h2>Agendamento — Kits Feirinha</h2><p>Controle na <a href="/marketing/central-publicacoes">Central de Publicações</a>.</p>
+<p id="ao-status" class="aviso">Consultando agendamento…</p></section>
 
 
 <main class="layout">
@@ -917,21 +906,15 @@ function confirmarKitRepetido(comparacao) {
 
 let publicacaoEmAndamento = false;
 async function publicarComComparacao(id) {
-  if (publicacaoEmAndamento) throw new Error('Já existe uma publicação em andamento.');
-  publicacaoEmAndamento = true;
-  try {
-    let confirmacao;
-    while (true) {
-      const resultado = await api(`/api/ofertas/${id}/publicar`, {
-        method: 'POST', body: JSON.stringify({ confirmacao }),
-      });
-      if (!resultado.requer_confirmacao) return resultado;
-      if (!await confirmarKitRepetido(resultado)) return null;
-      confirmacao = resultado.confirmacao;
-    }
-  } finally {
-    publicacaoEmAndamento = false;
-  }
+ if (publicacaoEmAndamento) throw new Error('Já existe uma solicitação em andamento.');
+ if (!window.confirm('Colocar este kit na fila do Funil Central para WhatsApp, Instagram e Facebook?')) return null;
+ publicacaoEmAndamento=true;
+ try{
+  const d=await api('/marketing/central-publicacoes/api/manual/ofertas',{
+   method:'POST',body:JSON.stringify({solicitacao_id:crypto.randomUUID(),oferta_id:Number(id),confirmar:'PUBLICAR_KIT'})
+  });
+  return {enfileirado:true,lote_id:d.id};
+ }finally{publicacaoEmAndamento=false;}
 }
 
 async function publicarOferta() {
@@ -945,6 +928,7 @@ async function publicarOferta() {
     mostrarAviso('Verificando kits anteriores e preparando a publicação...', 'normal', true);
     const resultado = await publicarComComparacao(ofertaAtual.id);
     if (!resultado) { mostrarAviso('Publicação cancelada. Revise o kit.'); return; }
+    if(resultado.enfileirado){mostrarAviso('Kit adicionado à fila nº '+resultado.lote_id+'. Acompanhe na Central de Publicações.','sucesso');return;}
     atualizarPainelOferta(resultado.oferta);
     const resumo = resumoResultadoPublicacao(resultado);
     mostrarAviso(resumo.texto, resumo.tipo);
@@ -1082,6 +1066,7 @@ async function republicarOfertaModal() {
     el.modalPublicarStatus.disabled = true;
     const resultado = await publicarComComparacao(ofertaModalAtual.id);
     if (!resultado) return;
+    if(resultado.enfileirado){alert('Kit adicionado à fila nº '+resultado.lote_id+'. Acompanhe na Central de Publicações.');return;}
     ofertaModalAtual = resultado.oferta;
     ofertasHistorico.set(Number(resultado.oferta.id), resultado.oferta);
     const resumo = resumoResultadoPublicacao(resultado, false);
@@ -1247,42 +1232,17 @@ iniciar();
 
 <script>
 (() => {
- const el=id=>document.getElementById(id);
- async function apiAgenda(options={}){
-  const r=await fetch('/api/ofertas/agendamento',{credentials:'same-origin',
-   headers:{'content-type':'application/json'},...options});
-  const j=await r.json().catch(()=>({}));
-  if(!r.ok||!j.success)throw Error(j.message||'Falha no agendamento.');
-  return j.data;
- }
  async function carregar(){
-  try{
-   const d=await apiAgenda(),c=d.config;
-   el('ao-ativo').checked=Boolean(c.ativo);
-   el('ao-intervalo').value=c.intervalo_minutos;
-   el('ao-inicio').value=c.inicio;
-   el('ao-fim').value=c.fim;
-   el('ao-global').value=d.intervalo_global_minutos;
-   el('ao-status').textContent=(c.ativo?'LIGADO':'DESLIGADO')+
-    ' · Próxima: '+(c.proxima_execucao?new Date(c.proxima_execucao).toLocaleString('pt-BR'):'não agendada')+
-    ' · Último kit concluído: '+(d.ultimo_publicado?.produto_nome||'nenhum')+
-    (d.pendencia?' · PENDÊNCIA: '+d.pendencia.produto_nome+' ('+d.pendencia.estado+')':'')+
-    (c.ultimo_erro?' · ERRO: '+c.ultimo_erro:'');
-  }catch(e){el('ao-status').textContent=e.message;}
+ const el=document.getElementById('ao-status');
+ try{
+  const r=await fetch('/api/ofertas/agendamento',{credentials:'same-origin'}),j=await r.json();
+  if(!r.ok||!j.success)throw Error(j.message||'Erro');
+  const d=j.data,c=d.config;
+  el.textContent=(c.ativo?'LIGADO':'DESLIGADO')+' · Próxima: '+
+    (c.proxima_execucao?new Date(c.proxima_execucao).toLocaleString('pt-BR'):'não agendada')+
+    (d.pendencia?' · PENDÊNCIA: '+d.pendencia.estado:'');
+ }catch(e){el.textContent=e.message;}
  }
- el('ao-salvar').onclick=async()=>{
-  const b=el('ao-salvar');b.disabled=true;
-  try{
-   const ativo=el('ao-ativo').checked;
-   if(ativo&&!confirm('Ligar o envio automático de Kits Feirinha para WhatsApp, Instagram e Facebook?'))return;
-   await apiAgenda({method:'PUT',body:JSON.stringify({
-    ativo,intervalo_minutos:Number(el('ao-intervalo').value),
-    inicio:el('ao-inicio').value,fim:el('ao-fim').value,
-    intervalo_global_minutos:Number(el('ao-global').value)})});
-   await carregar();
-  }catch(e){el('ao-status').textContent=e.message;}
-  finally{b.disabled=false;}
- };
  carregar();setInterval(carregar,30000);
 })();
 </script>
