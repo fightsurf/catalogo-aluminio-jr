@@ -1,5 +1,6 @@
 const pool = require('../../../db/connection');
 const zapiService = require('../integracoes/zapi.service');
+const botAutonomia = require('./botAutonomia.services');
 
 const TIPOS_VALIDOS = zapiService.TIPOS_VALIDOS;
 
@@ -75,12 +76,18 @@ async function enviarAcaoZAPI(telefone, acao) {
   });
 }
 
-async function executarFluxo(telefone, intencao) {
+async function executarFluxo(telefone, intencao, { exigirAutonomiaAtiva = false } = {}) {
   const tel = normalizarTelefone(telefone);
   const int = normalizarIntencao(intencao);
 
   if (!tel) throw new Error('Telefone é obrigatório.');
   if (!int) throw new Error('Intenção é obrigatória.');
+
+  // Disparos automáticos nunca enviam mensagens quando o Bot Admin está OFF.
+  // Falhas ao consultar a configuração também impedem o envio.
+  if (exigirAutonomiaAtiva && !(await botAutonomia.getAutonomiaAtiva())) {
+    return { status: 'bot_desligado' };
+  }
 
   const inseriu = await registrarExecucaoComIdempotencia(tel, int);
   if (!inseriu) {
@@ -99,10 +106,18 @@ async function executarFluxo(telefone, intencao) {
   }
 
   for (const acao of acoes) {
+    // Revalidar também após delays: desligar o bot interrompe o fluxo automático.
+    if (exigirAutonomiaAtiva && !(await botAutonomia.getAutonomiaAtiva())) {
+      return { status: 'bot_desligado' };
+    }
     const delay = Number(acao.delay_ms || 0);
 
     if (delay > 0) {
       await sleep(delay);
+    }
+
+    if (exigirAutonomiaAtiva && !(await botAutonomia.getAutonomiaAtiva())) {
+      return { status: 'bot_desligado' };
     }
 
     try {
@@ -114,6 +129,12 @@ async function executarFluxo(telefone, intencao) {
   }
 
   return { status: 'fluxo_concluido' };
+}
+
+// Só o disparo automático de primeiro contato depende do botão Bot ON/OFF.
+// Execuções manuais continuam disponíveis com o bot desligado.
+async function executarPrimeiroContatoAutomatico(telefone) {
+  return executarFluxo(telefone, 'PRIMEIRO_CONTATO', { exigirAutonomiaAtiva: true });
 }
 
 async function listarAcoes(intencaoFiltro = '') {
@@ -224,6 +245,7 @@ module.exports = {
   buscarAcoesPorIntencao,
   enviarAcaoZAPI,
   executarFluxo,
+  executarPrimeiroContatoAutomatico,
   listarAcoes,
   criarAcao,
   atualizarAcao,
