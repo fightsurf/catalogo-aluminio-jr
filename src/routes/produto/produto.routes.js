@@ -36,10 +36,13 @@ const uploadVideo = multer({
     cb(['video/mp4', 'video/webm', 'video/quicktime'].includes(file.mimetype) ? null : new Error('Use vídeo MP4, WEBM ou MOV.'), true);
   }
 });
-router.post('/:id/video', uploadVideo.single('video'), (err, req, res, next) => {
+function tratarErroUploadVideo(err, req, res, next) {
   if (!err) return next();
   res.status(400).json({ success: false, message: err.code === 'LIMIT_FILE_SIZE' ? 'Vídeo muito grande. Limite: 50 MB.' : err.message });
-}, controller.uploadVideo);
+}
+// Compatibilidade com o upload existente do vídeo 1.
+router.post('/:id/video', uploadVideo.single('video'), tratarErroUploadVideo, controller.uploadVideo);
+router.post('/:id/videos/:posicao', uploadVideo.single('video'), tratarErroUploadVideo, controller.uploadVideo);
 router.get('/', controller.listar);
 router.get('/:id', controller.buscar);
 router.post('/', controller.criar);
