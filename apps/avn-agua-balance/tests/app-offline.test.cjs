@@ -33,7 +33,7 @@ function iniciar(opcoes = {}) {
       return elemento
     }
   }
-  const codigo = source.replace(/^import .*\\n/gm, '')
+  const codigo = source.split('\n').filter(linha => !linha.startsWith('import ')).join('\n')
   const contexto = { ...ui, LocalStorage: StorageFalso, Date: DataFalsa, Page: p => { page = p }, console }
   vm.runInNewContext(codigo, contexto, { filename: 'pages/index.js' })
   page.build()
