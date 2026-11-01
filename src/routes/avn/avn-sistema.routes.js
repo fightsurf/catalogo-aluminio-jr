@@ -160,6 +160,11 @@ router.get('/balanco-energetico', requireAuth, (_req,res)=>res.sendFile(path.res
 router.use('/api/exames', requireAuth, avnExamesRoutes);
 router.get('/saude/exames', requireAuth, (_req,res)=>res.sendFile(path.resolve(__dirname,'../../../views/avn/exames-laboratoriais.html')));
 router.use('/api/hidratacao', requireAuth, avnHidratacaoRoutes.web);
+// Tela isolada para validar no celular a futura interface do aplicativo de relógio.
+// Somente leitura de HTML: não altera a API nem grava registros de hidratação.
+router.get('/teste-agua-relogio', requireAuth, (_req,res) =>
+  res.sendFile(path.resolve(__dirname, '../../../views/avn/teste-agua-relogio.html')));
+
 router.get('/nutricao', requireAuth, (req,res) => {
   const oldTab=String(req.query.tab||'');
   const destino=['diario','dieta','alimentos','metas','receitas','agua'].includes(oldTab)?oldTab:'diario';
