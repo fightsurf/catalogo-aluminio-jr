@@ -4,6 +4,26 @@
 const express = require('express');
 const pool = require('../../../db/connection');
 const router = express.Router();
+
+/*
+ * Carimbo de alteração mantido por trigger: cobre também os PUTs do AVN Web.
+ * A DDL é idempotente e executada antes de servir o diário mobile.
+ */
+const diaryReady=(async()=>{
+  await pool.query('ALTER TABLE public.avn_diario_alimentar ADD COLUMN IF NOT EXISTS modificado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()');
+  await pool.query(`CREATE OR REPLACE FUNCTION public.avn_diario_carimbar_modificacao()
+    RETURNS trigger LANGUAGE plpgsql AS $
+    BEGIN NEW.modificado_em = clock_timestamp(); RETURN NEW; END $`);
+  await pool.query(`DO $
+    BEGIN
+      IF NOT EXISTS(SELECT 1 FROM pg_trigger WHERE tgrelid='public.avn_diario_alimentar'::regclass AND tgname='avn_diario_modificacao_mobile') THEN
+        CREATE TRIGGER avn_diario_modificacao_mobile
+        BEFORE UPDATE ON public.avn_diario_alimentar
+        FOR EACH ROW EXECUTE FUNCTION public.avn_diario_carimbar_modificacao();
+      END IF;
+    END $`);
+})().catch(e=>{console.error('[AVN diario sync] Falha ao preparar controle de versão',e);throw e});
+
 const REFEICOES = new Set(['cafe', 'lanche_manha', 'almoco', 'lanche_tarde', 'jantar', 'ceia', 'outros']);
 const bad = (message, status = 400) => Object.assign(new Error(message), { status });
 const wrap = fn => async (req, res) => {
@@ -63,9 +83,10 @@ router.get('/dieta', wrap(async (req, res) => {
 }));
 
 router.get('/diario', wrap(async (req, res) => {
+  await diaryReady;
   const data = dia(req.query.data);
   const r = await pool.query(
-    'SELECT id, data_consumo, refeicao, alimento_nome, quantidade_g, composicao_100g, plano_item_id FROM public.avn_diario_alimentar WHERE usuario_id=$1 AND data_consumo=$2 ORDER BY id',
+    'SELECT id, data_consumo, refeicao, alimento_nome, quantidade_g, composicao_100g, plano_item_id, modificado_em FROM public.avn_diario_alimentar WHERE usuario_id=$1 AND data_consumo=$2 ORDER BY id',
     [req.avnm.usuario_id, data]
   );
   res.set('Cache-Control', 'no-store').json({ data, itens: r.rows });
@@ -74,6 +95,7 @@ router.get('/diario', wrap(async (req, res) => {
 // O registro é transacional e idempotente pela chave (usuario_id, data, plano_item_id).
 // O plano fica intacto: somente a quantidade realmente consumida vai para o diário.
 router.post('/diario/registrar-refeicao', wrap(async (req, res) => {
+  await diaryReady;
   const usuarioId = req.avnm.usuario_id;
   const data = dia(req.body?.data);
   const ref = refeicao(req.body?.refeicao);
@@ -139,7 +161,58 @@ router.post('/diario/registrar-refeicao', wrap(async (req, res) => {
 }));
 
 // Permite corrigir um peso do diário depois da pesagem, sem modificar o plano.
+
+/*
+ * Sincronização de edições/exclusões feitas offline, exclusiva do Diário.
+ * Última alteração vence, sem confiar cegamente em relógios adiantados.
+ * O SELECT FOR UPDATE impede sobrescrita concorrente entre duas sincronizações.
+ * Remoção feita na Web prevalece sobre edição de item inexistente no celular.
+ */
+router.post('/diario/sincronizar-registro',wrap(async(req,res)=>{
+  await diaryReady;
+  const userId=req.avnm.usuario_id;
+  const entryId=id(req.body?.id);
+  const action=req.body?.acao;
+  if(!['editar','excluir'].includes(action))throw bad('Ação inválida.');
+  const weight=action==='editar'?gramas(req.body?.quantidade_g):null;
+  const changedAt=new Date(req.body?.alterado_em);
+  if(Number.isNaN(changedAt.getTime()))throw bad('Horário da alteração inválido.');
+  if(changedAt.getTime()>Date.now()+10*60*1000)
+    return res.json({resultado:'conflito',motivo:'Relógio do celular está adiantado. Ajuste data/hora antes de sincronizar.'});
+  const base=req.body?.versao_base==null?null:new Date(req.body.versao_base);
+  if(base&&Number.isNaN(base.getTime()))throw bad('Versão base inválida.');
+  const db=await pool.connect();
+  try{
+    await db.query('BEGIN');
+    const found=await db.query('SELECT id,modificado_em FROM public.avn_diario_alimentar WHERE id=$1 AND usuario_id=$2 FOR UPDATE',[entryId,userId]);
+    if(!found.rowCount){
+      await db.query('COMMIT');
+      return res.json({resultado:'remoto',motivo:'Registro removido no servidor.'});
+    }
+    const serverAt=found.rows[0].modificado_em.getTime();
+    // Quando o registro foi alterado no servidor após a versão vista pelo celular,
+    // preserva a alteração mais recente. Empate ou dúvida: não sobrescrever.
+    if(base&&serverAt>base.getTime()&&serverAt>=changedAt.getTime()){
+      await db.query('COMMIT');
+      return res.json({resultado:'remoto',motivo:'Alteração mais recente no AVN Web.'});
+    }
+    if(!base){
+      await db.query('COMMIT');
+      return res.json({resultado:'conflito',motivo:'Não foi possível comparar a versão original.'});
+    }
+    if(action==='editar'){
+      await db.query('UPDATE public.avn_diario_alimentar SET quantidade_g=$3 WHERE id=$1 AND usuario_id=$2',[entryId,userId,weight]);
+    }else{
+      await db.query('DELETE FROM public.avn_diario_alimentar WHERE id=$1 AND usuario_id=$2',[entryId,userId]);
+    }
+    await db.query('COMMIT');
+    return res.json({resultado:'aplicado'});
+  }catch(e){await db.query('ROLLBACK').catch(()=>{});throw e;}
+  finally{db.release();}
+}));
+
 router.put('/diario/:id', wrap(async (req, res) => {
+  await diaryReady;
   const diarioId = id(req.params.id);
   const quantidade = gramas(req.body?.quantidade_g);
   const r = await pool.query(
@@ -151,6 +224,7 @@ router.put('/diario/:id', wrap(async (req, res) => {
 }));
 
 router.delete('/diario/:id', wrap(async (req, res) => {
+  await diaryReady;
   const diarioId = id(req.params.id);
   const r = await pool.query('DELETE FROM public.avn_diario_alimentar WHERE id=$1 AND usuario_id=$2 RETURNING id', [diarioId, req.avnm.usuario_id]);
   if (!r.rowCount) throw bad('Registro não encontrado.', 404);
