@@ -35,9 +35,9 @@
 @media(max-width:670px){
  .avn-balanco{padding:14px 10px 45px}.graficos{grid-template-columns:minmax(0,1fr)}.painel-principal{grid-column:auto}.painel,.saldo{padding:13px}
  .filtros{gap:11px}.filtros label{flex:1;min-width:135px}.filtros select,.filtros input{width:100%;min-width:0}
- .linha-grafico{min-height:160px}.compare-modal{width:calc(100% - 12px);padding:12px;max-height:96dvh}.compare-header{align-items:start}
+ .linha-grafico{min-height:160px;overflow-x:auto;overflow-y:hidden}.linha-grafico svg{min-width:550px}.compare-modal{width:calc(100% - 12px);padding:12px;max-height:96dvh}.compare-header{align-items:start}
  .compare-header h2{font-size:19px}.compare-header p{font-size:12px}.btn-fechar{padding:8px 10px;font-size:12px}
- .compare-checks{column-gap:10px;row-gap:9px}.compare-checks label{width:calc(50% - 5px)}.compare-chart{padding:3px}
+ .compare-checks{column-gap:10px;row-gap:9px}.compare-checks label{width:calc(50% - 5px)}.compare-chart{padding:3px;overflow-x:auto}.compare-chart svg{min-width:760px}
  .compare-legend{gap:8px 12px}.compare-help{font-size:11px}
 }
 @media(max-width:375px){.compare-checks label{width:100%}.painel strong{font-size:18px}.btn-principal{width:100%}}
