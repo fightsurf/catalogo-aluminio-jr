@@ -137,4 +137,47 @@ router.get('/:usuarioId',async(req,res)=>{
       metodo:'Saldo = calorias consumidas - (TMB + calorias ativas registradas + calorias líquidas estimadas dos passos não cobertos pelos registros de calorias ativas). Estimativa dos passos usa peso, altura e distância presumida, não uma medição do relógio. Pode haver imprecisão se os intervalos estiverem incompletos.'});
   }catch(e){console.error('[AVN Balanço Energético]',e);res.status(500).json({erro:'Não foi possível calcular o balanço energético.'});}
 });
+
+/*
+ * Histórico nutricional para o comparador: consulta apenas quando o modal abre.
+ * Proteínas são soma dos alimentos efetivamente registrados no Diário (g);
+ * dias com composição proteica incompleta não entram na série. Água representa
+ * mililitros ingeridos registrados, não a água corporal da bioimpedância.
+ */
+router.get('/nutricao-comparacao/:usuarioId',async(req,res)=>{
+ try{
+  const id=String(req.params.usuarioId),data=String(req.query.data||'');
+  const periodo=Number(req.query.dias||90);
+  if(!/^[1-9]\\d*$/.test(id)||!validarData(data))
+   return res.status(400).json({erro:'Informe um usuário e uma data válida (AAAA-MM-DD).'});
+  if(!Number.isInteger(periodo)||periodo<1||periodo>365)
+   return res.status(400).json({erro:'Período inválido: escolha de 1 a 365 dias.'});
+  const usuario=await pool.query('SELECT 1 FROM public.avn_usuario WHERE id=$1',[id]);
+  if(!usuario.rowCount)return res.status(404).json({erro:'Usuário não encontrado.'});
+  const [proteinas,agua]=await Promise.all([
+   pool.query(`SELECT data_consumo::text AS data,
+    ROUND(SUM(quantidade_g * NULLIF(composicao_100g->>'proteinas_g','')::numeric / 100),2) AS valor,
+    COUNT(*) FILTER (WHERE NULLIF(composicao_100g->>'proteinas_g','') IS NULL)::int AS incompletos
+    FROM public.avn_diario_alimentar
+    WHERE usuario_id=$1 AND data_consumo BETWEEN $2::date-($3::int-1) AND $2::date
+    GROUP BY data_consumo ORDER BY data_consumo`,[id,data,periodo]),
+   pool.query(`SELECT (ingerido_em AT TIME ZONE 'America/Sao_Paulo')::date::text AS data,
+    SUM(quantidade_ml)::numeric AS valor
+    FROM public.avn_agua_registros
+    WHERE usuario_id=$1 AND removido_em IS NULL
+      AND ingerido_em >= (($2::date-($3::int-1))::timestamp AT TIME ZONE 'America/Sao_Paulo')
+      AND ingerido_em < (($2::date+1)::timestamp AT TIME ZONE 'America/Sao_Paulo')
+    GROUP BY (ingerido_em AT TIME ZONE 'America/Sao_Paulo')::date
+    ORDER BY (ingerido_em AT TIME ZONE 'America/Sao_Paulo')::date`,[id,data,periodo])
+  ]);
+  const toPoints=rows=>rows.filter(row=>Number.isFinite(Number(row.valor)))
+   .map(row=>({data:row.data,value:Number(row.valor)}));
+  const series={
+   proteinas:toPoints(proteinas.rows.filter(row=>row.incompletos===0 && row.valor!==null)),
+   agua_ingerida:toPoints(agua.rows)
+  };
+  res.set('Cache-Control','no-store').json({data,periodo_dias:periodo,series,
+   observacoes:'Proteínas consumidas no diário alimentar (g); dias com proteína não informada ficam sem ponto. Água ingerida registrada (ml), distinta da água corporal. Ausência de registro não significa consumo zero.'});
+ }catch(e){console.error('[AVN comparação nutrição]',e);res.status(500).json({erro:'Não foi possível carregar os dados nutricionais.'});}
+});
 module.exports=router;
