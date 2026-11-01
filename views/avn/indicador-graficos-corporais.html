@@ -17,6 +17,15 @@
 .chart-area:empty{height:0;min-height:0;margin:0}
 .chart-area .graph-tooltip{max-width:calc(100% - 8px)}
 @media(max-width:650px){.chart-panel{padding:14px}.chart-area,.chart-area svg{height:230px;min-height:230px}}
+.imc-reference{margin-top:13px;padding:12px;border:1px solid #34465f;border-radius:12px;background:#101c2e}
+.imc-reference>strong{display:block;font-size:.95rem;color:#ecf2fc}
+.imc-reference-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:11px 0}
+.imc-reference-item{display:flex;flex-direction:column;gap:4px;border:1px solid #435775;border-left:4px solid var(--imc-color);border-radius:8px;padding:8px 10px;font-size:.8rem;min-width:0}
+.imc-reference-item span{color:#a9b9d1}
+.imc-reference-item strong{font-size:.84rem;color:#ecf2fc}
+.imc-reference-item.active{background:#263b57;border-color:var(--imc-color)}
+.imc-current{margin:8px 0 0;font-size:.9rem;color:#ecf2fc}
+@media(max-width:650px){.imc-reference-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 
 .compare-open{align-self:flex-end;border:1px solid #4087cb;border-radius:10px;padding:11px 16px;background:#2169ab;color:#fff;font-weight:700;cursor:pointer}
@@ -75,7 +84,12 @@
 <section class="detail chart-panel" aria-labelledby="title-imc">
 <h2 id="title-imc">IMC <small>kg/m²</small></h2>
 <p id="status-imc" class="muted chart-status" role="status">Carregando medições…</p>
-<div id="chart-imc" class="graph chart-area" role="img" aria-label="Evolução de imc por data"></div>
+<div id="chart-imc" class="graph chart-area" role="img" aria-label="Evolução de IMC por data com faixas de referência"></div>
+<div class="imc-reference" aria-label="Referências de IMC para adultos">
+ <strong>Faixas de IMC para adultos</strong>
+ <div id="imc-ranges" class="imc-reference-grid"></div>
+ <p id="imc-current" class="imc-current" aria-live="polite">Aguardando medições de IMC.</p>
+</div>
 </section>
 <section class="detail chart-panel" aria-labelledby="title-agua_corporal">
 <h2 id="title-agua_corporal">Água corporal <small>kg</small></h2>
@@ -101,6 +115,6 @@
 
 <p class="muted">O IMC é calculado a partir do peso de cada medição e da altura atual cadastrada.</p>
 </main>
-<script src="/js/avn-graficos-corporais.js" defer></script>
+<script src="/js/avn-graficos-corporais.js?v=20261101-imc1" defer></script>
 </body>
 </html>
