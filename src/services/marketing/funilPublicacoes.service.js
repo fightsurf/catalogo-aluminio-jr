@@ -303,6 +303,7 @@ async function recuperarPendenciasAgendadasSemEnvio(db) {
       AND (
         j.estado IN ('aguardando','baixando','preparando','publicando','concluido')
         OR (j.estado='interrompido'
+          AND j.atualizado_em < NOW()-INTERVAL '2 minutes'
           AND COALESCE(j.canais->'whatsapp_status'->>'status','pendente')='pendente'
           AND COALESCE(j.canais->'instagram_story'->>'status','pendente')='pendente'
           AND COALESCE(j.canais->'facebook_feed'->>'status','pendente')='pendente'
