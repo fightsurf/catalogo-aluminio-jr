@@ -261,13 +261,80 @@ async function recuperarProcessos(db) {
   }
 }
 
+
+async function recuperarPendenciasAgendadasSemEnvio(db) {
+  // Recupera somente ofertas barradas na comparação ANTES da chamada externa.
+  // Nenhum status de rede pode ter sido marcado como publicado.
+  await db.query('BEGIN');
+  try {
+    const ofertas=(await db.query(`UPDATE marketing_fila_itens i
+      SET estado='pendente',erro=NULL,atualizado_em=NOW(),
+          detalhes=i.detalhes-'comparacao_pendente'
+      FROM marketing_fila_lotes l, ofertas o, marketing_agendadores_modulos m
+      WHERE l.id=i.lote_id AND o.id=i.produto_id AND m.modulo='ofertas' AND m.ativo=TRUE
+        AND l.origem='ofertas_agenda' AND i.tipo='oferta_kit'
+        AND i.estado='atencao'
+        AND i.erro='Kit requer confirmação manual da regra de repetição antes de publicar.'
+        AND i.detalhes->>'comparacao_pendente'='true'
+        AND COALESCE(o.whatsapp_status,'nao_publicado')='nao_publicado'
+        AND COALESCE(o.instagram_status,'nao_publicado')='nao_publicado'
+        AND COALESCE(o.facebook_story_status,'nao_publicado')='nao_publicado'
+        AND COALESCE(o.facebook_feed_status,'nao_publicado')='nao_publicado'
+      RETURNING i.id,i.lote_id`)).rows;
+    for(const item of ofertas){
+      await db.query("UPDATE marketing_fila_lotes SET estado='pendente',encerrado_em=NULL WHERE id=$1",[item.lote_id]);
+      await evento(db,{loteId:item.lote_id,itemId:item.id,codigo:'RECUPERACAO_SEGURA',
+        mensagem:'Kit agendado liberado: comparação anterior não iniciou envio externo.'});
+    }
+    await db.query('COMMIT');
+  }catch(e){await db.query('ROLLBACK').catch(()=>{});throw e;}
+
+  // O republicador persiste 'processando' ANTES de enviar à rede.
+  // Somente retomamos automaticamente um job interrompido quando TODAS
+  // as redes ainda estão pendentes, sem trechos em voo ou confirmados.
+  const jobs=(await db.query(`SELECT i.*,j.id::text AS job_id,j.estado AS job_estado
+    FROM marketing_fila_itens i
+    JOIN marketing_fila_lotes l ON l.id=i.lote_id
+    JOIN marketing_agendadores_modulos m ON m.modulo='youtube' AND m.ativo=TRUE
+    JOIN marketing_republicador_youtube j ON j.id::text=i.detalhes->>'job_id'
+    WHERE l.origem='youtube_agenda' AND i.tipo='youtube_video'
+      AND i.estado='incerto'
+      AND i.erro='Republicador sem confirmação completa das três redes. Conferir histórico antes de repetir.'
+      AND (
+        j.estado IN ('aguardando','baixando','preparando','publicando','concluido')
+        OR (j.estado='interrompido'
+          AND COALESCE(j.canais->'whatsapp_status'->>'status','pendente')='pendente'
+          AND COALESCE(j.canais->'instagram_story'->>'status','pendente')='pendente'
+          AND COALESCE(j.canais->'facebook_feed'->>'status','pendente')='pendente'
+          AND COALESCE(j.canais->'whatsapp_status'->'partes','{}'::jsonb)='{}'::jsonb
+          AND COALESCE(j.canais->'instagram_story'->'partes','{}'::jsonb)='{}'::jsonb)
+      )
+    ORDER BY i.id LIMIT 10`)).rows;
+  if(!jobs.length)return;
+  const republicador=require('./republicador-youtube.service');
+  for(const item of jobs){
+    if(item.job_estado==='interrompido'){
+      try{await republicador.retry(item.job_id);}
+      catch(e){console.error('[Funil] Recuperação segura YouTube:',cleanError(e));continue;}
+    }
+    await db.query('BEGIN');
+    try{
+      await atualizar(db,item,'aguardando_video',{detalhes:item.detalhes});
+      await db.query("UPDATE marketing_fila_lotes SET estado='pendente',encerrado_em=NULL WHERE id=$1",[item.lote_id]);
+      await evento(db,{loteId:item.lote_id,itemId:item.id,codigo:'RECUPERACAO_SEGURA',
+        mensagem:'Republicador retomado: não havia envio externo iniciado ou o job já está em andamento.'});
+      await db.query('COMMIT');
+    }catch(e){await db.query('ROLLBACK').catch(()=>{});throw e;}
+  }
+}
+
 function uuidEstavel(requestId){
   const h=crypto.createHash('sha256').update(requestId).digest('hex');
   return [h.slice(0,8),h.slice(8,12),h.slice(12,16),h.slice(16,20),h.slice(20,32)].join('-');
 }
 async function processarYoutube(db,item){
   const republicador=require('./republicador-youtube.service');
-  const videoId=item.detalhes?.youtube_video_id||item.request_id.replace(/^youtube-auto-/,'');
+  const videoId=item.detalhes?.youtube_video_id||item.request_id.replace(/^youtube-auto-(?:c\d+-)?/,'');
   const jobId=item.detalhes?.job_id||uuidEstavel(item.request_id);
   if(!/^[A-Za-z0-9_-]{11}$/.test(videoId))throw new Error('Vídeo inválido na fila do YouTube.');
   const job=await republicador.obter(jobId);
@@ -296,9 +363,9 @@ async function processarOferta(db,item){
   let result;
   try{
     let confirmacao=null;
-    if(item.origem==='ofertas_agenda' && Number(item.detalhes?.ciclo)>0){
-      // Repetir um kit faz parte da agenda autorizada. A comparacao permanece
-      // obrigatoria para publicacoes manuais, mas nao bloqueia um novo ciclo.
+    if(item.origem==='ofertas_agenda'){
+      // Agendamento ativo autoriza ciclos e itens legados sem campo "ciclo".
+      // Publicação manual continua exigindo comparação e confirmação.
       const comparacao=require('../ofertas/ofertasComparacao.service');
       const oferta=await ofertas.buscarPorId(item.produto_id);
       confirmacao=(await comparacao.verificar(oferta))?.confirmacao||null;
@@ -336,6 +403,7 @@ async function executarPasso() {
     await table();await require('./agendadorModulos.service').schema();db=await pool.connect();
     locked=(await db.query('SELECT pg_try_advisory_lock($1) AS ok',[LOCK])).rows[0].ok;
     if(!locked) return;
+    await recuperarPendenciasAgendadasSemEnvio(db);
     await recuperarProcessos(db);
     await fecharLotes(db);
     const r=await db.query(`SELECT i.*,l.origem,l.categoria_id,l.tipo_midia,l.categoria_nome FROM marketing_fila_itens i
