@@ -45,7 +45,7 @@ function validar(data){
 }
 async function obter(modulo){
   checkModulo(modulo);await schema();
-  const [cfg,pace,pending,last]=await Promise.all([
+  const [cfg,pace,pending,last,working]=await Promise.all([
     pool.query('SELECT * FROM marketing_agendadores_modulos WHERE modulo=$1',[modulo]),
     pool.query('SELECT * FROM marketing_publicacao_ritmo WHERE id=1'),
     pool.query(`SELECT i.id,i.estado,i.erro,i.produto_nome,i.atualizado_em FROM marketing_fila_itens i
@@ -53,11 +53,23 @@ async function obter(modulo){
       ORDER BY i.id LIMIT 1`,[modulo+'_agenda']),
     pool.query(`SELECT i.produto_nome,i.request_id,i.atualizado_em FROM marketing_fila_itens i
       JOIN marketing_fila_lotes l ON l.id=i.lote_id WHERE l.origem=$1 AND i.estado='concluido'
-      ORDER BY i.atualizado_em DESC LIMIT 1`,[modulo+'_agenda'])
+      ORDER BY i.atualizado_em DESC LIMIT 1`,[modulo+'_agenda']),
+    pool.query(`SELECT i.id,i.estado FROM marketing_fila_itens i
+      JOIN marketing_fila_lotes l ON l.id=i.lote_id WHERE l.origem=$1
+      AND i.estado IN ('pendente','executando','aguardando_retry','aguardando_video')
+      ORDER BY i.id LIMIT 1`,[modulo+'_agenda'])
   ]);
-  return {config:cfg.rows[0],intervalo_global_minutos:pace.rows[0].intervalo_global_minutos,
-    pendencia:pending.rows[0]||null,ultimo_publicado:last.rows[0]||null,
-    ultima_reserva_global:pace.rows[0].ultima_reserva_em};
+  const config=cfg.rows[0],ritmo=pace.rows[0];
+  const atraso=config.ativo&&config.proxima_execucao
+    ?Math.floor((Date.now()-new Date(config.proxima_execucao).getTime())/60000):0;
+  const alerta=config.ultimo_erro?{tipo:'erro',motivo:config.ultimo_erro}:
+    atraso>Math.max(20,Number(ritmo.intervalo_global_minutos||0)+5)
+    ?{tipo:'atraso',minutos:atraso,motivo:ritmo.pausado?'Funil global pausado':
+      working.rows.length?'Publicação anterior ainda em processamento ou na fila':
+      'Agendador não disparou no horário previsto'}:null;
+  return {config,intervalo_global_minutos:ritmo.intervalo_global_minutos,
+    pendencia:pending.rows[0]||null,em_andamento:working.rows[0]||null,alerta,
+    ultimo_publicado:last.rows[0]||null,ultima_reserva_global:ritmo.ultima_reserva_em};
 }
 async function salvar(modulo,data){
   checkModulo(modulo);await schema();const v=validar(data),db=await pool.connect();
@@ -96,10 +108,15 @@ async function proximoVideo(db,ciclo,lista){
     ) AS enfileirado, EXISTS(
       SELECT 1 FROM marketing_republicador_youtube WHERE youtube_video_id=$4
         AND modo='publicar' AND estado='concluido'
-    ) AS publicado`,[`youtube-auto-c${ciclo}-${v.id}`,`youtube-auto-${v.id}`,ciclo,v.id]);
+    ) AS publicado, EXISTS(
+      SELECT 1 FROM marketing_fila_itens pend
+      WHERE pend.tipo='youtube_video'
+      AND pend.detalhes->>'youtube_video_id'=$4
+      AND pend.estado IN ('incerto','atencao','pendente','executando','aguardando_retry','aguardando_video')
+    ) AS sem_confirmacao`,[`youtube-auto-c${ciclo}-${v.id}`,`youtube-auto-${v.id}`,ciclo,v.id]);
     // No primeiro ciclo, respeita as publicacoes legadas; nos seguintes, cada
     // video pode voltar uma vez, com chave nova e historico preservado.
-    if(!r.rows[0].enfileirado && (ciclo>1||!r.rows[0].publicado))return v;
+    if(!r.rows[0].enfileirado && !r.rows[0].sem_confirmacao && (ciclo>1||!r.rows[0].publicado))return v;
   }
   return null;
 }
@@ -108,6 +125,9 @@ async function proximaOferta(db,ciclo){
     WHERE NOT EXISTS(SELECT 1 FROM marketing_fila_itens i
       WHERE i.request_id='ofertas-auto-c'||$1::text||'-'||o.id::text
         OR ($1=1 AND i.request_id='ofertas-auto-'||o.id::text))
+    AND NOT EXISTS(SELECT 1 FROM marketing_fila_itens pend
+      WHERE pend.tipo='oferta_kit' AND pend.produto_id=o.id
+        AND pend.estado IN ('incerto','atencao','pendente','executando','aguardando_retry','aguardando_video'))
     AND ($1>1 OR (
       COALESCE(whatsapp_status,'nao_publicado')='nao_publicado'
       AND COALESCE(instagram_status,'nao_publicado')='nao_publicado'
@@ -135,66 +155,73 @@ async function tick(){
     locked=(await db.query('SELECT pg_try_advisory_lock($1) AS ok',[LOCK])).rows[0].ok;
     if(!locked)return;
     for(const modulo of MODULOS){
-      await progresso(db,modulo);
-      const cfg=(await db.query('SELECT * FROM marketing_agendadores_modulos WHERE modulo=$1',[modulo])).rows[0];
-      if(!cfg.ativo||!cfg.proxima_execucao||new Date(cfg.proxima_execucao)>new Date())continue;
-      if(!inWindow(cfg,new Date())){
-        await db.query('UPDATE marketing_agendadores_modulos SET proxima_execucao=$2 WHERE modulo=$1',
-          [modulo,nextWindow(cfg,new Date(Date.now()+60000))]);continue;
-      }
-      const pendente=await db.query(`SELECT 1 FROM marketing_fila_itens i
-        JOIN marketing_fila_lotes l ON l.id=i.lote_id WHERE l.origem=$1
-        AND i.estado NOT IN ('concluido','ignorado') LIMIT 1`,[modulo+'_agenda']);
-      if(pendente.rowCount)continue;
-      const ciclo=Number(cfg.ciclo_atual)||1;
-      const videosElegiveis=modulo==='youtube'?await listarVideosElegiveis():null;
-      let v=modulo==='youtube'
-        ?await proximoVideo(db,ciclo,videosElegiveis):await proximaOferta(db,ciclo);
-      let cicloSelecionado=ciclo;
-      if(!v){
-        const haConteudo=modulo==='youtube'?videosElegiveis.length>0:
-          (await db.query('SELECT 1 FROM ofertas LIMIT 1')).rowCount>0;
-        if(haConteudo){
-          // O ciclo so vira quando nao existe envio pendente ou incerto do modulo.
-          cicloSelecionado=ciclo+1;
-          v=modulo==='youtube'
-            ?await proximoVideo(db,cicloSelecionado,videosElegiveis)
-            :await proximaOferta(db,cicloSelecionado);
+      try {
+        await progresso(db,modulo);
+        const cfg=(await db.query('SELECT * FROM marketing_agendadores_modulos WHERE modulo=$1',[modulo])).rows[0];
+        if(!cfg.ativo||!cfg.proxima_execucao||new Date(cfg.proxima_execucao)>new Date())continue;
+        if(!inWindow(cfg,new Date())){
+          await db.query('UPDATE marketing_agendadores_modulos SET proxima_execucao=$2 WHERE modulo=$1',
+            [modulo,nextWindow(cfg,new Date(Date.now()+60000))]);continue;
         }
-      }
-      // A virada de ciclo, a tarefa e o proximo horario devem ser atomicos.
-      // Se o servidor cair, nenhuma etapa sera considerada feita pela metade.
-      await db.query('BEGIN');
-      try{
-        if(v){
-          await funil.enfileirarLote({
-            origem:modulo+'_agenda',
-            chaveOrigem:modulo+':agenda:c'+cicloSelecionado+':'+v.id,
-            categoriaNome:modulo==='youtube'?'YouTube':'Kits feirinha',
-            tipoMidia:modulo==='youtube'?'video':'foto',
-            itens:[modulo==='youtube'
-              ?{tipo:'youtube_video',produtoNome:v.titulo,
-                requestId:'youtube-auto-c'+cicloSelecionado+'-'+v.id,
-                detalhes:{youtube_video_id:v.id,data_publicacao:v.data,ciclo:cicloSelecionado}}
-              :{tipo:'oferta_kit',produtoId:Number(v.id),produtoNome:v.titulo,
-                requestId:'ofertas-auto-c'+cicloSelecionado+'-'+v.id,
-                detalhes:{data_criacao:v.created_at,ciclo:cicloSelecionado}}],
-            metadados:{agendamento:true,ciclo:cicloSelecionado}
-          },db);
+        // Apenas trabalho efetivamente em execução bloqueia nova tarefa.
+        // Pendências incertas continuam no histórico, sem travar o módulo todo.
+        const pendente=await db.query(`SELECT 1 FROM marketing_fila_itens i
+          JOIN marketing_fila_lotes l ON l.id=i.lote_id WHERE l.origem=$1
+          AND i.estado IN ('pendente','executando','aguardando_retry','aguardando_video') LIMIT 1`,
+          [modulo+'_agenda']);
+        if(pendente.rowCount)continue;
+        const ciclo=Number(cfg.ciclo_atual)||1;
+        const videosElegiveis=modulo==='youtube'?await listarVideosElegiveis():null;
+        let v=modulo==='youtube'
+          ?await proximoVideo(db,ciclo,videosElegiveis):await proximaOferta(db,ciclo);
+        let cicloSelecionado=ciclo;
+        if(!v){
+          const haConteudo=modulo==='youtube'?videosElegiveis.length>0:
+            (await db.query('SELECT 1 FROM ofertas LIMIT 1')).rowCount>0;
+          if(haConteudo){
+            // Somente avança de ciclo se houver conteúdo realmente elegível.
+            // Isso não permite reciclar um vídeo/kit sem confirmação.
+            const proximoCiclo=ciclo+1;
+            v=modulo==='youtube'
+              ?await proximoVideo(db,proximoCiclo,videosElegiveis)
+              :await proximaOferta(db,proximoCiclo);
+            if(v)cicloSelecionado=proximoCiclo;
+          }
         }
+        await db.query('BEGIN');
+        try{
+          if(v){
+            await funil.enfileirarLote({
+              origem:modulo+'_agenda',
+              chaveOrigem:modulo+':agenda:c'+cicloSelecionado+':'+v.id,
+              categoriaNome:modulo==='youtube'?'YouTube':'Kits feirinha',
+              tipoMidia:modulo==='youtube'?'video':'foto',
+              itens:[modulo==='youtube'
+                ?{tipo:'youtube_video',produtoNome:v.titulo,
+                  requestId:'youtube-auto-c'+cicloSelecionado+'-'+v.id,
+                  detalhes:{youtube_video_id:v.id,data_publicacao:v.data,ciclo:cicloSelecionado}}
+                :{tipo:'oferta_kit',produtoId:Number(v.id),produtoNome:v.titulo,
+                  requestId:'ofertas-auto-c'+cicloSelecionado+'-'+v.id,
+                  detalhes:{data_criacao:v.created_at,ciclo:cicloSelecionado}}],
+              metadados:{agendamento:true,ciclo:cicloSelecionado}
+            },db);
+          }
+          await db.query(`UPDATE marketing_agendadores_modulos
+            SET ciclo_atual=$3,proxima_execucao=$2,ultimo_erro=NULL,atualizado_em=NOW()
+            WHERE modulo=$1`,
+            [modulo,nextWindow(cfg,new Date(Date.now()+cfg.intervalo_minutos*60000)),cicloSelecionado]);
+          await db.query('COMMIT');
+        }catch(e){await db.query('ROLLBACK').catch(()=>{});throw e;}
+      }catch(e){
+        // Falha de uma integração não desliga o outro agendador.
+        console.error('[Agendador '+modulo+']',erro(e));
         await db.query(`UPDATE marketing_agendadores_modulos
-          SET ciclo_atual=$3,proxima_execucao=$2,ultimo_erro=NULL,atualizado_em=NOW()
-          WHERE modulo=$1`,
-          [modulo,nextWindow(cfg,new Date(Date.now()+cfg.intervalo_minutos*60000)),cicloSelecionado]);
-        await db.query('COMMIT');
-      }catch(e){await db.query('ROLLBACK').catch(()=>{});throw e;}
+          SET ativo=FALSE,proxima_execucao=NULL,ultimo_erro=$2,atualizado_em=NOW()
+          WHERE modulo=$1 AND ativo=TRUE`,[modulo,erro(e)]).catch(()=>{});
+      }
     }
-  }catch(e){
-    console.error('[Agendadores marketing]',erro(e));
-    // Erros de coleta interrompem o disparo automático até o operador reativar.
-    if(db)await db.query(`UPDATE marketing_agendadores_modulos SET ativo=FALSE,proxima_execucao=NULL,
-      ultimo_erro=$1,atualizado_em=NOW() WHERE ativo=TRUE`,[erro(e)]).catch(()=>{});
-  }finally{
+  }catch(e){console.error('[Agendadores marketing]',erro(e));}
+  finally{
     if(db){if(locked)await db.query('SELECT pg_advisory_unlock($1)',[LOCK]).catch(()=>{});db.release();}
     busy=false;
   }
