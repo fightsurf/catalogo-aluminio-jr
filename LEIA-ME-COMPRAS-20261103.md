@@ -14,7 +14,15 @@ Endpoint privado \`POST /api/compras/interpretar\`, multipart com campo
 Usa a \`OPENAI_API_KEY\` existente e, opcionalmente, \`COMPRAS_IA_MODEL\`.
 O upload fica somente em memória e é encaminhado ao modelo de visão; não
 salva os arquivos e não cria lançamentos automaticamente.
-O operador revisa a NF, fornecedor e todas as linhas e clica em Salvar.
+A IA tenta reconhecer o fornecedor cadastrado e o número da NF. Quando os dois
+são identificados (ou informados previamente na tela), a importação localiza
+a nota pela chave **fornecedor_id + numero_nf**. Se existir, complementa
+automaticamente campos vazios e adiciona os novos insumos; se não existir,
+cria a NF. Reimportar a mesma foto não deve duplicar itens de mesmo nome
+normalizado e unidade. Dados previamente informados não são sobrescritos.
+O operador deve conferir e pode corrigir o resultado. Se houver divergência
+entre número/fornecedor digitado e o reconhecido pela IA, nada é gravado
+automaticamente: a tela solicita conferência e salvamento manual.
 
 **Privacidade:** embora não sejam guardadas no banco ou servidor, as fotos
 são enviadas para processamento pela API da OpenAI; não inclua imagens
@@ -35,6 +43,8 @@ Manter descrição original informada e histórico consultável.
 - \`POST /api/compras\`
 - \`PUT /api/compras/:id\`
 - \`POST /api/compras/interpretar\`
+
+**Testes:** `node --test tests/compras-validator.test.js tests/compras-importacao.test.js`.
 
 **Conferência:** a soma dos insumos é informativa. Não deve haver
 validação que exija igualdade com o valor da NF: este pode conter

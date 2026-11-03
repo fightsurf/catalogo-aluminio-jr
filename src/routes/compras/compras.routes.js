@@ -18,7 +18,42 @@ function tratar(res,e) {
 }
 router.get('/fornecedores',async (_req,res)=>{try{res.json(await service.fornecedores());}catch(e){tratar(res,e);}});
 router.get('/insumos',async (_req,res)=>{try{res.json(await service.insumos());}catch(e){tratar(res,e);}});
-router.post('/interpretar',receber,async(req,res)=>{try{res.json(await ia.interpretar(req.files));}catch(e){tratar(res,e);}});
+// Importação IA localiza fornecedor+NF e completa o cadastro automaticamente.
+router.post('/interpretar', receber, async (req,res) => {
+  try {
+    const resultado=await ia.interpretar(req.files);
+    const dados=resultado.dados;
+    const fornecedorInformado=String(req.body?.fornecedor_id || '').trim();
+    const numeroInformado=String(req.body?.numero_nf || '').trim();
+    const fornecedorDetectado=dados.fornecedor_id ? String(dados.fornecedor_id) : '';
+    const numeroDetectado=String(dados.numero_nf || '').trim();
+    const conflitanteFornecedor=Boolean(fornecedorInformado && fornecedorDetectado &&
+      fornecedorInformado !== fornecedorDetectado);
+    const conflitanteNumero=Boolean(numeroInformado && numeroDetectado &&
+      numeroInformado !== numeroDetectado);
+    if(conflitanteFornecedor) resultado.avisos.push('Fornecedor selecionado é diferente do reconhecido na foto. Selecione o correto para evitar vincular à NF errada.');
+    if(conflitanteNumero) resultado.avisos.push('Número da NF digitado difere do reconhecido na foto. Confira antes de gravar.');
+    const fornecedor_id=fornecedorInformado || fornecedorDetectado;
+    const numero_nf=numeroInformado || numeroDetectado;
+    dados.fornecedor_id=fornecedor_id || null;
+    dados.numero_nf=numero_nf;
+    if (!fornecedor_id || !numero_nf) {
+      resultado.avisos.push('Informe fornecedor e número da NF para completar o cadastro.');
+    } else if (!conflitanteFornecedor && !conflitanteNumero) {
+      try {
+        resultado.registro=await service.importarDaIa(dados);
+      } catch(e) {
+        if((e.status || 500) >= 500) throw e;
+        resultado.avisos.push('Importação automática não concluída: '+e.message+' Corrija os campos e salve manualmente.');
+      }
+    }
+    res.json(resultado);
+  } catch(e){tratar(res,e);}
+});
+router.get('/localizar',async(req,res)=>{
+  try{res.json({nota:await service.localizar(req.query.fornecedor_id,req.query.numero_nf)});}
+  catch(e){tratar(res,e);}
+});
 router.get('/',async(req,res)=>{try{res.json(await service.listar(req.query));}catch(e){tratar(res,e);}});
 router.get('/:id',async(req,res)=>{try{res.json(await service.buscar(req.params.id));}catch(e){tratar(res,e);}});
 router.post('/',async(req,res)=>{try{res.status(201).json(await service.gravar(req.body));}catch(e){tratar(res,e);}});

@@ -44,6 +44,7 @@
     const linha = document.createElement('div');
     linha.className = 'linha';
     linha.dataset.insumoId = item.insumo_id || '';
+    linha.dataset.valorTotal = item.valor_total ?? item.subtotal_informado ?? '';
     linha.innerHTML = '<span class="numero">Insumo</span>' +
       '<label>Descrição do insumo<input class="descricao" type="text" list="catalogoInsumos" maxlength="240" placeholder="Digite ou selecione um insumo"></label>' +
       '<label>Unidade<select class="unidade"></select></label>' +
@@ -65,7 +66,8 @@
       if(achado && unidades.includes(achado.unidade_medida)) unidade.value=achado.unidade_medida;
       atualizar();
     });
-    for(const controle of [descricao,unidade,quantidade,preco]) controle.addEventListener('input',atualizar);
+    for(const controle of [descricao,unidade]) controle.addEventListener('input',atualizar);
+    for(const controle of [quantidade,preco]) controle.addEventListener('input',()=>{linha.dataset.valorTotal='';atualizar();});
     linha.querySelector('.remove').addEventListener('click',()=>{linha.remove();atualizar();});
     $('linhas').appendChild(linha);
     atualizar();
@@ -75,29 +77,37 @@
       insumo_id: linha.dataset.insumoId ? Number(linha.dataset.insumoId) : null,
       descricao:linha.querySelector('.descricao').value.trim(),
       unidade:linha.querySelector('.unidade').value,
-      quantidade:Number(linha.querySelector('.quantidade').value),
-      preco_unitario:Number(linha.querySelector('.preco').value)
-    }));
+      quantidade:linha.querySelector('.quantidade').value === '' ? null : Number(linha.querySelector('.quantidade').value),
+      preco_unitario:linha.querySelector('.preco').value === '' ? null : Number(linha.querySelector('.preco').value),
+      valor_total:linha.dataset.valorTotal === '' ? null : Number(linha.dataset.valorTotal)
+    })).filter(item => item.descricao || item.quantidade !== null || item.preco_unitario !== null);
   }
   function td(tr,valor) {const cel=document.createElement('td');cel.textContent=String(valor);tr.appendChild(cel);return cel;}
   function atualizar() {
     const itens=lerItens();
-    const total=itens.reduce((s,i)=>s+Math.round(i.quantidade*i.preco_unitario*100)/100,0);
+    const subtotal = item => item.quantidade === null || item.preco_unitario === null
+      ? item.valor_total : Math.round((item.quantidade*item.preco_unitario+Number.EPSILON)*100)/100;
+    const total=itens.reduce((s,i)=>s+(subtotal(i) ?? 0),0);
     const tbody=$('previewItens');tbody.replaceChildren();
-    for(const [indice,item] of itens.entries()) {
-      const linha=$('linhas').children[indice];
+    [...$('linhas').children].forEach((linha,indice)=>{
       linha.querySelector('.numero').textContent='Insumo '+(indice+1);
-      linha.querySelector('.subtotal').textContent=dinheiro(item.quantidade*item.preco_unitario);
+      const q=linha.querySelector('.quantidade').value;
+      const p=linha.querySelector('.preco').value;
+      linha.querySelector('.subtotal').textContent = q !== '' && p !== '' ? dinheiro(Number(q)*Number(p)) :
+        (linha.dataset.valorTotal === '' ? '—' : dinheiro(linha.dataset.valorTotal));
+    });
+    for(const item of itens) {
       const tr=document.createElement('tr');
-      td(tr,item.descricao || 'Sem descrição');td(tr,item.quantidade || '—');
-      td(tr,item.unidade);td(tr,dinheiro(item.preco_unitario));td(tr,dinheiro(item.quantidade*item.preco_unitario));
+      td(tr,item.descricao || 'Sem descrição');td(tr,item.quantidade ?? '—');
+      td(tr,item.unidade);td(tr,item.preco_unitario == null ? '—' : dinheiro(item.preco_unitario));
+      td(tr,subtotal(item) == null ? '—' : dinheiro(subtotal(item)));
       tbody.appendChild(tr);
     }
     if (!itens.length) {
       const tr=document.createElement('tr');td(tr,'Adicione os itens da NF para começar.').colSpan=5;tbody.appendChild(tr);
     }
     const qty=$('quantidade_itens_nf');
-    if (!qty.value || Number(qty.value)===ultimaContagem) qty.value=itens.length||'';
+    if (!qty.value || Number(qty.value)===ultimaContagem) qty.value=itens.length || '';
     ultimaContagem=itens.length;
     $('resumoItens').textContent=itens.length + ' linha(s) cadastrada(s).';
     $('contadorLinhas').textContent=itens.length + ' item(ns)';
@@ -118,7 +128,7 @@
     $('btnSalvar').textContent='Salvar compra';
     $('avisosIa').hidden=true;$('avisosIa').textContent='';
     $('fotos').value='';
-    $('valor_frete').value=0;$('icms_frete').value=0;
+    $('valor_frete').value='';$('icms_frete').value='';
     atualizar();
   }
   function preencher(nota) {
@@ -131,7 +141,7 @@
     $('data_nf').value=String(nota.data_nf || '').slice(0,10);
     const itens=nota.itens || [];
     itens.forEach(criarLinha);
-    $('quantidade_itens_nf').value=nota.quantidade_itens_nf ?? itens.length;
+    $('quantidade_itens_nf').value=nota.quantidade_itens_nf ?? (itens.length || '');
     $('etiquetaEdicao').textContent=edicaoId ? 'Editando NF #'+nota.numero_nf : 'Importação IA';
     $('btnSalvar').textContent=edicaoId ? 'Salvar alterações' : 'Salvar compra';
     atualizar();
@@ -139,23 +149,25 @@
   async function salvar(evento) {
     evento.preventDefault();
     const itens=lerItens();
-    if(!itens.length) return aviso('Inclua pelo menos um insumo.','erro');
-    if (itens.some(i=>!i.descricao || !Number.isFinite(i.quantidade) || i.quantidade<=0 || !Number.isFinite(i.preco_unitario) || i.preco_unitario<0))
-      return aviso('Revise descrição, quantidade e preço de todos os insumos.','erro');
+    // Uma nota pode existir apenas com fornecedor e número, sem itens ou valores.
+    if (itens.some(i=>(i.quantidade !== null && (!Number.isFinite(i.quantidade) || i.quantidade<=0)) ||
+        (i.preco_unitario !== null && (!Number.isFinite(i.preco_unitario) || i.preco_unitario<0))))
+      return aviso('Confira as quantidades e os preços preenchidos.','erro');
     const payload={
       fornecedor_id:$('fornecedor_id').value,
       numero_nf:$('numero_nf').value,
       data_nf:$('data_nf').value||null,
       valor_nf:$('valor_nf').value,
       quantidade_itens_nf:$('quantidade_itens_nf').value,
-      valor_frete:$('valor_frete').value || 0,
-      icms_frete:$('icms_frete').value || 0,
+      valor_frete:$('valor_frete').value || null,
+      icms_frete:$('icms_frete').value || null,
       origem, itens
     };
-    if (!payload.fornecedor_id || !payload.numero_nf.trim() || payload.valor_nf === '')
-      return aviso('Preencha fornecedor, número da NF e valor total.','erro');
-    if (Number(payload.quantidade_itens_nf)!==itens.length &&
-      !confirm('A quantidade de itens na NF é diferente do número de linhas cadastradas. Deseja continuar?')) return;
+    if (!payload.fornecedor_id || !payload.numero_nf.trim())
+      return aviso('Fornecedor e número da NF são obrigatórios.','erro');
+    if (payload.quantidade_itens_nf !== '' && itens.length > 0 &&
+      Number(payload.quantidade_itens_nf)!==itens.length &&
+      !confirm('A quantidade de itens na NF difere do número de linhas cadastradas. Deseja continuar?')) return;
     const botao=$('btnSalvar');botao.disabled=true;
     try {
       const nota=await api(edicaoId ? '/api/compras/'+edicaoId : '/api/compras',{
@@ -170,23 +182,36 @@
     if(!arquivos.length) return;
     if(arquivos.length>5) return aviso('Selecione até 5 fotos.','erro');
     const form=new FormData();arquivos.forEach(arquivo=>form.append('imagens',arquivo));
+    if($('fornecedor_id').value) form.append('fornecedor_id',$('fornecedor_id').value);
+    if($('numero_nf').value.trim()) form.append('numero_nf',$('numero_nf').value.trim());
     const botao=$('btnImportar');botao.disabled=true;botao.textContent='Interpretando fotos...';
     try {
       const resultado=await api('/api/compras/interpretar',{method:'POST',body:form});
       const n=resultado.dados||{};
-      preencher({...n, valor_frete:n.valor_frete ?? 0,icms_frete:n.icms_frete ?? 0, origem:'ia'});
-      origem='ia';
-      $('etiquetaEdicao').textContent='Importação IA — revisar';
-      $('quantidade_itens_nf').value=n.quantidade_itens_nf || n.itens?.length || '';
-      const mensagens=[...(resultado.avisos||[])];
-      if(n.valor_frete===null) mensagens.push('Frete não identificado. Confira se é zero.');
-      if(n.icms_frete===null) mensagens.push('ICMS do frete não identificado. Confira se é zero.');
-      if(mensagens.length){
-        $('avisosIa').hidden=false;
-        $('avisosIa').textContent='CONFERÊNCIA NECESSÁRIA\n'+mensagens.join('\n');
+      const registro=resultado.registro;
+      if(registro?.nota) {
+        preencher(registro.nota);
+        $('etiquetaEdicao').textContent='NF '+registro.nota.numero_nf+' — importada';
+      } else {
+        preencher({...n,origem:'ia'});
+        $('etiquetaEdicao').textContent='Importação IA — revisar';
+        $('quantidade_itens_nf').value=n.quantidade_itens_nf || n.itens?.length || '';
       }
-      aviso('Dados extraídos. Confira fornecedor, valores e cada insumo antes de salvar.');
-      if(n.itens?.length) abrirModal();
+      origem='ia';
+      const mensagens=[...(resultado.avisos||[])];
+      if(n.valor_frete===null) mensagens.push('Frete não identificado. Deixe em branco ou preencha.');
+      if(n.icms_frete===null) mensagens.push('ICMS do frete não identificado. Deixe em branco ou preencha.');
+      if(mensagens.length) {
+        $('avisosIa').hidden=false;
+        $('avisosIa').textContent='CONFERÊNCIA RECOMENDADA\n'+mensagens.join('\n');
+      }
+      if(registro?.nota){
+        aviso((registro.criada ? 'NF cadastrada automaticamente.' : 'NF existente localizada e complementada.') +
+          ' '+registro.itensIncluidos+' novo(s) insumo(s), '+registro.itensCompletados+' item(ns) completado(s). Confira os dados.');
+      } else {
+        aviso('Dados extraídos, mas não gravados automaticamente. Confira fornecedor e número da NF e clique em Salvar.');
+      }
+      if((registro?.nota.itens?.length || n.itens?.length)) abrirModal();
     } catch(e){aviso(e.message,'erro');}
     finally{botao.disabled=false;botao.textContent='Importar fotos';$('fotos').value='';}
   }
@@ -198,7 +223,7 @@
     const tbody=$('historico');tbody.replaceChildren();
     for(const n of dados) {
       const tr=document.createElement('tr');
-      td(tr,n.numero_nf);td(tr,n.fornecedor_nome);td(tr,dinheiro(n.valor_nf));td(tr,dinheiro(n.valor_frete));
+      td(tr,n.numero_nf);td(tr,n.fornecedor_nome);td(tr,n.valor_nf == null ? '—' : dinheiro(n.valor_nf));td(tr,n.valor_frete == null ? '—' : dinheiro(n.valor_frete));
       td(tr,n.linhas_cadastradas);td(tr,new Date(n.criado_em).toLocaleDateString('pt-BR'));
       const botao=document.createElement('button');botao.type='button';botao.className='btn secondary pequeno';
       botao.textContent='Abrir / editar';
