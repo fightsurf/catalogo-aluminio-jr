@@ -32,6 +32,14 @@ router.post('/api/jobs', tratar(async(req,res)=> {
   const job = await service.iniciar(video_id,modo,request_id);
   res.status(202).json({success:true,data:job});
 }));
+router.post('/api/jobs/:id/conciliar', tratar(async(req,res)=> {
+  if (req.body?.confirmar !== 'CONFERI_NA_REDE')
+    return res.status(400).json({success:false,message:'Confira o resultado diretamente na rede social.'});
+  const job=await service.conciliarEntrega(req.params.id,{
+    canal:req.body?.canal,parte:req.body?.parte,resultado:req.body?.resultado
+  });
+  res.json({success:true,data:job});
+}));
 router.post('/api/jobs/:id/repetir', tratar(async(req,res)=> {
   if (req.body?.confirmar !== 'REPETIR_APENAS_PENDENTES') {
     return res.status(400).json({success:false,message:'Confirme a repetição dos destinos pendentes.'});
