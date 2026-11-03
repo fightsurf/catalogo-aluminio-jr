@@ -31,6 +31,12 @@ async function schema(){
     await pool.query("ALTER TABLE marketing_publicacao_ritmo ADD COLUMN IF NOT EXISTS prioridades JSONB NOT NULL DEFAULT '{\"statuszap\":1,\"youtube\":2,\"ofertas\":3}'::jsonb");
     await pool.query('INSERT INTO marketing_publicacao_ritmo(id) VALUES(1) ON CONFLICT DO NOTHING');
     for(const m of MODULOS)await pool.query('INSERT INTO marketing_agendadores_modulos(modulo) VALUES($1) ON CONFLICT DO NOTHING',[m]);
+    // Reabilita apenas o agendador desligado automaticamente pelo erro
+    // de tipos SQL corrigido nesta versão, preservando desligamentos manuais.
+    await pool.query(`UPDATE marketing_agendadores_modulos
+      SET ativo=TRUE,proxima_execucao=NOW(),ultimo_erro=NULL,atualizado_em=NOW()
+      WHERE modulo='ofertas' AND ativo=FALSE
+        AND ultimo_erro='operator does not exist: text = integer'`);
     await funil.table();
   })().catch(e=>{promise=null;throw e;});
   return promise;
@@ -123,12 +129,12 @@ async function proximoVideo(db,ciclo,lista){
 async function proximaOferta(db,ciclo){
   const r=await db.query(`SELECT id,titulo,created_at FROM ofertas o
     WHERE NOT EXISTS(SELECT 1 FROM marketing_fila_itens i
-      WHERE i.request_id='ofertas-auto-c'||$1::text||'-'||o.id::text
-        OR ($1=1 AND i.request_id='ofertas-auto-'||o.id::text))
+      WHERE i.request_id='ofertas-auto-c'||($1::integer)::text||'-'||o.id::text
+        OR ($1::integer=1 AND i.request_id='ofertas-auto-'||o.id::text))
     AND NOT EXISTS(SELECT 1 FROM marketing_fila_itens pend
       WHERE pend.tipo='oferta_kit' AND pend.produto_id=o.id
         AND pend.estado IN ('incerto','atencao','pendente','executando','aguardando_retry','aguardando_video'))
-    AND ($1>1 OR (
+    AND ($1::integer>1 OR (
       COALESCE(whatsapp_status,'nao_publicado')='nao_publicado'
       AND COALESCE(instagram_status,'nao_publicado')='nao_publicado'
       AND COALESCE(facebook_story_status,'nao_publicado')='nao_publicado'
