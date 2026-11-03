@@ -246,6 +246,17 @@ button.secundario:hover {
   min-width: 0;
 }
 
+.produto-custo-link {
+  color: #005da8;
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.produto-custo-link:hover,
+.produto-custo-link:focus-visible {
+  color: #003e73;
+}
+
 @media (max-width: 900px) {
   .form-grid,
   .fotos-grid {
@@ -793,8 +804,28 @@ async function excluirCategoria(id) {
 /* ================= PRODUTOS ================= */
 
 async function carregarProdutos() {
-  const res = await api('/api/produtos');
-  produtos = res.data;
+  const [res, respostaCustos] = await Promise.all([
+    api('/api/produtos'),
+    api('/api/produtos-resumo-custos?ativos=false').catch(error => {
+      console.error('Falha ao consultar custos de composição:', error);
+      return null;
+    })
+  ]);
+
+  produtos = Array.isArray(res.data) ? res.data : [];
+  const itensCusto = respostaCustos?.data?.produtos;
+  const custosDisponiveis = Array.isArray(itensCusto);
+  const custosPorProduto = new Map(
+    (custosDisponiveis ? itensCusto : []).map(item => [Number(item.produto_id), item])
+  );
+
+  produtos.forEach(produto => {
+    const item = custosPorProduto.get(Number(produto.id));
+    const custo = item && !item.sem_composicao ? Number(item.custo) : null;
+    produto.custo_composicao = custo !== null && Number.isFinite(custo) ? custo : null;
+    produto.custo_indisponivel = !custosDisponiveis;
+  });
+
   renderProdutos();
 }
 
@@ -823,13 +854,18 @@ function renderProdutos() {
       const thumb = fotoPrincipal
         ? `<img src="${fotoPrincipal}" class="produto-thumb" alt="Foto principal">`
         : `<div class="produto-thumb"></div>`;
+      const textoCusto = p.custo_indisponivel
+        ? 'Indisponível'
+        : p.custo_composicao == null
+          ? 'Sem composição'
+          : Number(p.custo_composicao).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
       lista.innerHTML += `
         <div class="lista-item">
           <div class="produto-info">
             ${thumb}
             <div class="produto-linha-texto">
-              <div>${p.nome} — R$ ${Number(p.preco).toFixed(2)} — ${p.ativo ? 'Ativo' : 'Inativo'}</div>
+              <div>${p.nome} — R$ ${Number(p.preco).toFixed(2)} — Custo: <a class="produto-custo-link" href="/admin-produtos-composicao?produto_id=${encodeURIComponent(p.id)}" target="_blank" rel="noopener noreferrer" title="Abrir composição do produto">${textoCusto}</a> — ${p.ativo ? 'Ativo' : 'Inativo'}</div>
               <div style="font-size:12px;color:#666;overflow-wrap:anywhere;">Categorias: ${categoriasProduto} — Peso: ${p.peso_kg == null ? 'Não informado' : Number(p.peso_kg).toLocaleString('pt-BR', { maximumFractionDigits: 6 }) + ' kg'} — Fotos: ${fotosPreenchidas}/6 — Vídeos: ${[p.video_url, p.video_url_2, p.video_url_3].filter(Boolean).length}/3 ${fotoPrincipal ? '— Foto 1 principal cadastrada' : '— Sem foto principal'}</div>
             </div>
           </div>
