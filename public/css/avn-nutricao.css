@@ -620,3 +620,13 @@ body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-item .avn-dieta-pesagem{ma
  body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-item{grid-template-columns:20px minmax(0,1fr);gap:3px 7px;padding:6px}
  body[data-nutricao-pagina="dieta"] .avn-dieta-ranking-valor{grid-column:2;text-align:left}
 }
+
+
+/* AVN Alimentos: valores por 100 g e destaque para cadastros incompletos. */
+body[data-nutricao-pagina="alimentos"] .avn-food-row .avn-food-info{min-width:0;flex:1}
+body[data-nutricao-pagina="alimentos"] .avn-food-row small.avn-food-summary{display:flex;flex-wrap:wrap;gap:3px 13px;margin-top:5px;font-size:.74rem;line-height:1.5;color:#bbcbe0!important}
+body[data-nutricao-pagina="alimentos"] .avn-food-summary b{font-weight:650;color:#e3edfb}
+body[data-nutricao-pagina="alimentos"] .avn-food-row.avn-food-incompleto{border-color:#d4a63a!important;background:#40341f!important}
+body[data-nutricao-pagina="alimentos"] .avn-food-row.avn-food-incompleto:hover,
+body[data-nutricao-pagina="alimentos"] .avn-food-row.avn-food-incompleto:focus-visible{background:#4a3c23!important;border-color:#f5c451!important}
+body[data-nutricao-pagina="alimentos"] .avn-food-row small.avn-food-aviso{display:block;width:fit-content;margin-top:6px;color:#ffe09a!important;font-size:.75rem;font-weight:700;line-height:1.45}
