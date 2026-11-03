@@ -65,10 +65,21 @@ function draw(){
  (d.status.config.lote_atual_id?' · Lote em andamento nº '+d.status.config.lote_atual_id:'');
  get('y-status').textContent=info(d,d.youtube.config)+
  ' · Último vídeo: '+(d.youtube.ultimo_publicado?.produto_nome||'nenhum')+
- (d.youtube.pendencia?' · PENDÊNCIA: '+d.youtube.pendencia.estado:'');
+ (d.youtube.pendencia?' · PENDÊNCIA: '+d.youtube.pendencia.estado+' (não bloqueia as próximas)':'')+
+ (d.youtube.alerta?' · ALERTA: '+d.youtube.alerta.motivo+
+ (d.youtube.alerta.minutos?' ('+d.youtube.alerta.minutos+' min de atraso)':''):'');
  get('o-status').textContent=info(d,d.ofertas.config)+
  ' · Último kit: '+(d.ofertas.ultimo_publicado?.produto_nome||'nenhum')+
- (d.ofertas.pendencia?' · PENDÊNCIA: '+d.ofertas.pendencia.estado:'');
+ (d.ofertas.pendencia?' · PENDÊNCIA: '+d.ofertas.pendencia.estado+' (não bloqueia as próximas)':'')+
+ (d.ofertas.alerta?' · ALERTA: '+d.ofertas.alerta.motivo+
+ (d.ofertas.alerta.minutos?' ('+d.ofertas.alerta.minutos+' min de atraso)':''):'');
+ get('y-status').classList.toggle('warn',!!d.youtube.alerta);
+ get('o-status').classList.toggle('warn',!!d.ofertas.alerta);
+ const avisos=[['Republicador YouTube',d.youtube.alerta],['Central de Ofertas',d.ofertas.alerta]]
+  .filter(([,a])=>!!a);
+ get('alertas').hidden=!avisos.length;
+ get('alertas').textContent=avisos.map(([nome,a])=>nome+': '+a.motivo+
+  (a.minutos?' ('+a.minutos+' min de atraso)':'')).join(' | ');
  const stats=d.fila.resumo||{};
  get('stats').innerHTML=[['Pendentes',stats.pendentes],['Em execução',stats.em_execucao],['Concluídas',stats.concluidas],['Exigem conferência',stats.atencao]]
  .map(([label,n])=>'<div class="pill">'+esc(label)+'<b>'+Number(n||0)+'</b></div>').join('');
