@@ -630,3 +630,36 @@ body[data-nutricao-pagina="alimentos"] .avn-food-row.avn-food-incompleto{border-
 body[data-nutricao-pagina="alimentos"] .avn-food-row.avn-food-incompleto:hover,
 body[data-nutricao-pagina="alimentos"] .avn-food-row.avn-food-incompleto:focus-visible{background:#4a3c23!important;border-color:#f5c451!important}
 body[data-nutricao-pagina="alimentos"] .avn-food-row small.avn-food-aviso{display:block;width:fit-content;margin-top:6px;color:#ffe09a!important;font-size:.75rem;font-weight:700;line-height:1.45}
+
+/* Paleta nutricional única das receitas: calorias branco, proteínas azul,
+   carboidratos amarelo, gorduras violeta. Mantém fibras no tom neutro. */
+.avn-dieta-macros-inline{display:flex;flex-wrap:wrap;align-items:baseline;gap:3px 13px;margin-top:4px;font-size:12px;line-height:1.55}
+.avn-dieta-macros-inline .avn-nutriente{white-space:nowrap}
+.avn-dieta-macros-inline .avn-nutriente b{font-weight:650;color:inherit!important}
+.avn-dieta-macros-inline .avn-nutriente-calorias{color:#edf5ff!important}
+.avn-dieta-macros-inline .avn-nutriente-proteinas{color:#60a5fa!important}
+.avn-dieta-macros-inline .avn-nutriente-carboidratos{color:#fbbf24!important}
+.avn-dieta-macros-inline .avn-nutriente-gorduras{color:#a78bfa!important}
+.avn-dieta-macros-inline .avn-nutriente-fibras{color:#b8c9df!important}
+#itensRefeicaoPlanejada .avn-refeicao-principal,
+#itensEnvioDiario .avn-refeicao-principal{display:grid;gap:4px;min-width:0}
+#itensRefeicaoPlanejada [data-previa-macros],
+#itensEnvioDiario [data-previa-macros]{min-width:0}
+#itensRefeicaoPlanejada .avn-refeicao-macros-inline,
+#itensEnvioDiario .avn-refeicao-macros-inline{margin-top:4px}
+#itensRefeicaoPlanejada .avn-refeicao-peso-invalido,
+#itensEnvioDiario .avn-refeicao-peso-invalido{color:#fbbf24;font-size:12px}
+body[data-nutricao-pagina="dieta"] #itensEnvioDiario >.avn-refeicao-item{
+ display:grid;grid-template-columns:minmax(0,1.5fr) minmax(110px,.7fr);
+ gap:12px;align-items:center;padding:12px;border:1px solid #435775;
+ border-radius:10px;background:#142237;color:#ecf2fc
+}
+body[data-nutricao-pagina="dieta"] #itensEnvioDiario .avn-refeicao-nome{
+ display:flex;align-items:center;gap:9px;min-width:0
+}
+body[data-nutricao-pagina="dieta"] #itensEnvioDiario .avn-refeicao-nome input{accent-color:#76b5fb;width:18px;height:18px;flex:none}
+body[data-nutricao-pagina="dieta"] #itensEnvioDiario .avn-refeicao-nome strong{display:block;color:#eff6ff}
+body[data-nutricao-pagina="dieta"] #itensEnvioDiario .avn-refeicao-nome small{display:block;color:#b8c9de;font-size:12px}
+@media(max-width:600px){
+ body[data-nutricao-pagina="dieta"] #itensEnvioDiario >.avn-refeicao-item{grid-template-columns:1fr}
+}

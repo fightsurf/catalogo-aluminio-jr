@@ -3,7 +3,7 @@
 'use strict';
 const core=window.AVNNutricaoInterno;
 if(!core)return;
-const {state,MEALS,esc,fmt,localDate,show,api,send,loadDiet,loadDaily,renderDiet,userGuard}=core;
+const {state,MEALS,esc,fmt,localDate,show,api,send,loadDiet,loadDaily,renderDiet,userGuard,resumoMacrosDoAlimento}=core;
 const $=id=>document.getElementById(id);
 const PAGE=document.body.dataset.nutricaoPagina;
 const nomeRefeicao=id=>MEALS[id]||id;
@@ -74,11 +74,27 @@ function montarEnvio(){
  $('itensEnvioDiario').innerHTML=itens.map(i=>{
   const registrado=ids.has(String(i.id));
   return '<div class="avn-refeicao-item" data-envio-item="'+esc(i.id)+'">'+
-   '<label class="avn-refeicao-nome"><input type="checkbox" data-envio-check '+(registrado?'disabled':'checked')+'>'+
+   '<div class="avn-refeicao-principal"><label class="avn-refeicao-nome"><input type="checkbox" data-envio-check '+(registrado?'disabled':'checked')+'>'+
    '<span><strong>'+esc(i.alimento_nome)+'</strong><small>'+esc(registrado?'Já registrado nessa data':fmt(i.quantidade_g)+' g programados')+'</small></span></label>'+
+   '<div data-previa-macros>'+resumoMacrosDoAlimento(i,i.quantidade_g)+'</div></div>'+
    '<label class="avn-field">Quantidade consumida (g)<input type="number" data-envio-peso min="0.1" max="10000" step="any" value="'+esc(i.quantidade_g)+'" '+(registrado?'disabled':'')+'></label></div>';
  }).join('')||'<p class="muted">Nenhum alimento planejado nesse perfil.</p>';
- $('confirmarEnviarDiario').disabled=!itens.some(i=>!ids.has(String(i.id)))||salvandoEnvio;
+ const atualizarBotao=()=>{
+  const marcados=[...$('itensEnvioDiario').querySelectorAll('[data-envio-check]:checked')];
+  $('confirmarEnviarDiario').disabled=salvandoEnvio||!marcados.length||marcados.some(box=>{
+   const peso=box.closest('[data-envio-item]').querySelector('[data-envio-peso]');
+   const valor=Number(peso.value);
+   return !peso.value||!peso.checkValidity()||!Number.isFinite(valor)||valor<0.1||valor>10000;
+  });
+ };
+ $('itensEnvioDiario').querySelectorAll('[data-envio-check]').forEach(box=>box.addEventListener('change',atualizarBotao));
+ $('itensEnvioDiario').querySelectorAll('[data-envio-peso]').forEach(input=>input.addEventListener('input',()=>{
+  const linha=input.closest('[data-envio-item]');
+  const item=itens.find(i=>String(i.id)===linha.dataset.envioItem);
+  if(item)linha.querySelector('[data-previa-macros]').innerHTML=resumoMacrosDoAlimento(item,input.value);
+  atualizarBotao();
+ }));
+ atualizarBotao();
 }
 async function consultarEnvio(){
  const data=$('dataEnvioDiario').value,uid=state.usuarioId;
