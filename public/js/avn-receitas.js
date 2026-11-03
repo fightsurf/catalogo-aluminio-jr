@@ -96,6 +96,17 @@ function resultado(o){
  if(!$('modalPreviaReceita').open)$('modalPreviaReceita').showModal();
 }
 const fmt=(x,p=1)=>Number(x).toLocaleString('pt-BR',{maximumFractionDigits:p});
+// Valores nutricionais de cada ingrediente para o peso efetivamente usado na receita.
+function nutrienteDoIngrediente(i,chave,unidade){
+ const valor=i.composicao_100g?.[chave],peso=Number(i.quantidade_g);
+ if(valor==null||valor===''||!Number.isFinite(Number(valor))||!Number.isFinite(peso))return 'Sem dado';
+ return fmt(Number(valor)*peso/100,1)+' '+unidade;
+}
+function renderizarIngrediente(i){
+ const campos=[['kcal','Calorias','kcal'],['proteinas_g','Proteínas','g'],['carboidratos_g','Carboidratos','g'],['gorduras_g','Gorduras','g']];
+ const macros=campos.map(([chave,rotulo,unidade])=>'<span>'+rotulo+': <b>'+esc(nutrienteDoIngrediente(i,chave,unidade))+'</b></span>').join('');
+ return `<li><div class="receita-ingrediente-info"><span class="receita-ingrediente-nome">${esc(i.nome_snapshot||'Ingrediente')}</span><small class="receita-ingrediente-macros">${macros}</small></div><strong class="receita-ingrediente-peso">${fmt(i.quantidade_g,3)} g</strong></li>`;
+}
 async function listar(){
  const usuario=usuarioId, dados=await api('/receitas?usuarioId='+usuario);
  if(usuario!==usuarioId)return;
@@ -188,7 +199,7 @@ async function ver(id){
   $('detalheConteudo').innerHTML=`<div class="receita-detalhe-grid">
    <section class="receita-descricao"><h3>Ingredientes</h3>
     <p class="receita-pesos"><strong>Ingredientes:</strong> ${fmt(total,3)} g<br><strong>Rendimento pronto:</strong> ${fmt(r.rendimento_g,3)} g</p>
-    <ul class="receita-ingredientes-detalhe">${ingredientes.map(i=>`<li><span>${esc(i.nome_snapshot||'Ingrediente')}</span><strong>${fmt(i.quantidade_g,3)} g</strong></li>`).join('')}</ul>
+    <ul class="receita-ingredientes-detalhe">${ingredientes.map(renderizarIngrediente).join('')}</ul>
     <p class="receita-preparo"><strong>Preparo:</strong> ${esc(r.preparo||'Não informado')}</p>
     <button type="button" class="secondary" id="editarDoDetalhe">Editar receita</button>
    </section>
