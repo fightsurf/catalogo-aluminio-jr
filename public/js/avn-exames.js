@@ -42,7 +42,8 @@ async function loadResults(){
 function reference(r){
  const a=r.limite_inferior!=null?fmt(r.limite_inferior):'—';
  const b=r.limite_superior!=null?fmt(r.limite_superior):'—';
- return (r.limite_inferior!=null||r.limite_superior!=null?a+' a '+b+' '+(r.unidade||''):'')+(r.referencia_texto?' · '+r.referencia_texto:'')||'Não informada';
+ const intervalo=r.limite_inferior!=null&&r.limite_superior!=null?a+' a '+b:r.limite_inferior!=null?'≥ '+a:r.limite_superior!=null?'≤ '+b:'';
+ return (intervalo?intervalo+' '+(r.unidade||''):'')+(r.referencia_texto?' · '+r.referencia_texto:'')||'Não informada';
 }
 function render(){
  const q=norm($('exBusca').value);
@@ -106,20 +107,33 @@ function openEditor(row=null){
  for(const [field,value] of Object.entries(fieldsFromRow(row)))$(field).value=value;
  modal('exModal');
 }
+let referenciaSolicitacao=0;
 async function referenceSuggestion(){
  if($('exId').value||!S.usuario)return;
  const c=byName($('exNome').value);if(!c)return;
- // Apenas unidade padrão é preenchida sem contexto clínico.
+ const pedido=++referenciaSolicitacao;
  if(!$('exUnidade').value)$('exUnidade').value=c.unidade_padrao||'';
- if(!($('exLab').value||$('exMetodo').value||$('exMaterial').value))return;
+ const lab=$('exLab').value,metodo=$('exMetodo').value,material=$('exMaterial').value;
+ const temContexto=Boolean(lab||metodo||material);
  try{
-  const params=new URLSearchParams({usuarioId:S.usuario,exameId:c.id,laboratorio:$('exLab').value,metodo:$('exMetodo').value,material:$('exMaterial').value});
+  const params=new URLSearchParams({usuarioId:S.usuario,exameId:c.id,laboratorio:lab,metodo,material});
   const r=await api('/referencia?'+params);
-  if(norm($('exNome').value)!==norm(c.nome))return;
-  if(r.referencia&&confirm('Aplicar a referência do último exame com este mesmo laboratório, material e método?')){
-   const a=r.referencia;
+  if(pedido!==referenciaSolicitacao||$('exId').value||byName($('exNome').value)?.id!==c.id)return;
+  if(temContexto&&r.referencia){
+   if(confirm('Aplicar a referência do último exame com este mesmo laboratório, material e método?')){
+    const a=r.referencia;
+    $('exRefMin').value=a.limite_inferior??'';$('exRefMax').value=a.limite_superior??'';
+    $('exRefTexto').value=a.referencia_texto||'';$('exUnidade').value=a.unidade;
+   }
+   return;
+  }
+  // Referência orientativa pré-cadastrada para indicadores como a TFG.
+  // Não substitui valores que o usuário tenha preenchido manualmente.
+  if(r.referencia_catalogo&&!($('exRefMin').value||$('exRefMax').value||$('exRefTexto').value)){
+   const a=r.referencia_catalogo;
    $('exRefMin').value=a.limite_inferior??'';$('exRefMax').value=a.limite_superior??'';
-   $('exRefTexto').value=a.referencia_texto||'';$('exUnidade').value=a.unidade;
+   $('exRefTexto').value=a.referencia_texto||'';
+   $('exUnidade').value=a.unidade||c.unidade_padrao||'';
   }
  }catch(e){alertar(e.message,true);}
 }
@@ -208,7 +222,7 @@ async function start(){
  $('exNovo').onclick=()=>openEditor();$('exFechar').onclick=() =>modal('exModal',false);
  $('exCancelar').onclick=()=>modal('exModal',false);
  $('exForm').onsubmit=saveManual;
- $('exNome').onchange=()=>{const c=byName($('exNome').value);if(c)$('exUnidade').value=c.unidade_padrao||'';referenceSuggestion();};
+ $('exNome').onchange=()=>{const c=byName($('exNome').value);$('exUnidade').value=c?.unidade_padrao||'';$('exRefMin').value='';$('exRefMax').value='';$('exRefTexto').value='';referenceSuggestion();};
  for(const f of ['exLab','exMaterial','exMetodo'])$(f).addEventListener('change',referenceSuggestion);
  $('exImportar').onclick=()=>{S.previa=[];$('exPrevia').hidden=true;$('exTextoLaudo').value='';limparAnexo();status('');modal('exImportModal');};
  $('exImportModal').addEventListener('paste',colarAnexo);

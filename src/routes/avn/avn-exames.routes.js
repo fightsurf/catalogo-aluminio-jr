@@ -65,7 +65,12 @@ router.get('/referencia',wrap(async(req,res)=>{
  ORDER BY data_coleta DESC,id DESC LIMIT 1`,[uid,eid,lab,metodo,material]);
  const catalogo=await pool.query('SELECT unidade_padrao FROM public.avn_exames_catalogo WHERE id=$1 AND tipo=$2',[eid,'indicador']);
  if(!catalogo.rowCount)throw bad('Exame não encontrado ou não aceita resultado direto.',404);
- res.set('Cache-Control','no-store').json({referencia:q.rows[0]||null,unidade_padrao:catalogo.rows[0].unidade_padrao});
+ // Referência do catálogo, sem sobrescrever a do laboratório.
+ const padrao=await pool.query(`SELECT unidade,limite_inferior,limite_superior,referencia_texto,material,metodo,laboratorio,fonte
+ FROM public.avn_exames_referencias WHERE exame_id=$1
+ AND laboratorio IS NULL AND material IS NULL AND metodo IS NULL
+ ORDER BY criado_em DESC,id DESC LIMIT 1`,[eid]);
+ res.set('Cache-Control','no-store').json({referencia:q.rows[0]||null,referencia_catalogo:padrao.rows[0]||null,unidade_padrao:catalogo.rows[0].unidade_padrao});
 }));
 router.get('/resultados',wrap(async(req,res)=>{
  const uid=id(req.query.usuarioId);await checkUser(uid);

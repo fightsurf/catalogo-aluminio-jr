@@ -66,3 +66,18 @@ test('importação com IA aceita print colado e anexos JPEG, PNG e PDF com revis
  assert.doesNotThrow(()=>new Function(js));
  assert.doesNotThrow(()=>new Function(api));
 });
+
+test('TFG estimada tem categorias KDIGO e referência padrão automática',()=>{
+ const sql=read('db/sql/20261027_avn_exames_laboratoriais.sql');
+ const api=read('src/routes/avn/avn-exames.routes.js');
+ const js=read('public/js/avn-exames.js');
+ assert.match(sql,/\('tfg_estimada','TFG estimada \(eTFG\)'/);
+ assert.match(sql,/mL\/min\/1,73 m²/);
+ for(const t of ['G1 ≥90','G2 60–89','G3a 45–59','G3b 30–44','G4 15–29','G5 <15'])assert.ok(sql.includes(t));
+ assert.match(sql,/AND NOT EXISTS \(/);
+ assert.match(api,/referencia_catalogo:padrao\.rows\[0\]/);
+ assert.match(js,/r\.referencia_catalogo/);
+ assert.match(js,/≥ /);
+ assert.doesNotThrow(()=>new Function(js));
+ assert.doesNotThrow(()=>new Function(api));
+});

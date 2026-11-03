@@ -77,6 +77,7 @@ VALUES
 ('vpm','VPM',ARRAY['volume plaquetário médio','mpv'],'Hemograma · Plaquetas','fL','indicador'),
 ('ureia','Ureia',ARRAY['uréia'],'Função renal','mg/dL','indicador'),
 ('creatinina','Creatinina',ARRAY[]::text[],'Função renal','mg/dL','indicador'),
+('tfg_estimada','TFG estimada (eTFG)',ARRAY['tfg','egfr','tfge','taxa de filtração glomerular','taxa de filtração glomerular estimada','filtração glomerular estimada','ckd-epi'],'Função renal','mL/min/1,73 m²','indicador'),
 ('tgo','Aspartato aminotransferase (TGO/AST)',ARRAY['tgo','ast','aspartato aminotransferase'],'Função hepática','U/L','indicador'),
 ('tgp','Alanina aminotransferase (TGP/ALT)',ARRAY['tgp','alt','alanina aminotransferase'],'Função hepática','U/L','indicador'),
 ('gama_gt','Gama GT',ARRAY['ggt','gama glutamiltransferase'],'Função hepática','U/L','indicador'),
@@ -101,3 +102,17 @@ VALUES
 ('ferritina','Ferritina',ARRAY[]::text[],'Metabolismo','ng/mL','indicador'),
 ('pcr','Proteína C-reativa',ARRAY['pcr','crp'],'Inflamação','mg/L','indicador')
 ON CONFLICT(codigo) DO NOTHING;
+-- Faixas KDIGO para adultos, independentemente de sexo. G1/G2 isolados não indicam DRC.
+-- Inserção idempotente sem alterar referências já registradas.
+INSERT INTO public.avn_exames_referencias
+ (exame_id,laboratorio,material,metodo,sexo_referencia,idade_min_anos,idade_max_anos,
+  limite_inferior,limite_superior,referencia_texto,unidade,fonte)
+SELECT c.id,NULL,NULL,NULL,NULL,18,NULL,90,NULL,
+ 'KDIGO (adultos): G1 ≥90 (normal ou alta); G2 60–89 (levemente reduzida); G3a 45–59 (leve a moderadamente reduzida); G3b 30–44 (moderada a gravemente reduzida); G4 15–29 (gravemente reduzida); G5 <15 (falência renal). G1 e G2, isoladamente, não diagnosticam doença renal crônica.',
+ 'mL/min/1,73 m²','KDIGO 2024 · https://www.kidney.org/how-to-classify-ckd'
+FROM public.avn_exames_catalogo c
+WHERE c.codigo='tfg_estimada'
+ AND NOT EXISTS (
+  SELECT 1 FROM public.avn_exames_referencias r
+  WHERE r.exame_id=c.id AND r.laboratorio IS NULL AND r.material IS NULL AND r.metodo IS NULL
+ );
