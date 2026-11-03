@@ -16,12 +16,12 @@ form{margin:0}.columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr)
 .tablewrap{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:13px}th,td{border-bottom:1px solid #e2e7eb;padding:10px;text-align:left;vertical-align:top}td button{margin:3px;padding:7px;font-size:12px}th{background:#f4f7fa}
 .pills{display:flex;gap:10px;flex-wrap:wrap}.pill{border:1px solid #cbd6e0;border-radius:8px;padding:10px 14px;min-width:140px}.pill b{display:block;font-size:22px}
 #feedback{position:sticky;top:0;background:#fcf3d9;color:#483400;padding:12px;border-radius:7px;margin:8px 0;display:none;z-index:2}
-.note{background:#fff9e9;padding:11px;border-left:4px solid #cb8d2e;font-size:13px}
+.note{background:#fff9e9;padding:11px;border-left:4px solid #cb8d2e;font-size:13px}.status.warn,#alertas{background:#fff1d1;border-left:4px solid #b97909;padding:12px;border-radius:8px}#alertas{margin-bottom:16px;font-size:14px}
 @media(max-width:600px){.columns{grid-template-columns:1fr}h1{font-size:20px}section.card{padding:13px}}
 </style></head><body>
 <header><h1>Central de Publicações</h1><p>Alumínio JR · Controle único de agenda, fila e conciliação</p>
 <nav><a href="/whatsapp/status">Status WhatsApp</a><a href="/marketing/republicador-youtube">Republicador YouTube</a><a href="/central-ofertas">Central de Ofertas</a></nav></header>
-<main><div id="feedback" role="status" aria-live="polite"></div>
+<main><div id="feedback" role="status" aria-live="polite"></div><div id="alertas" role="status" aria-live="polite" hidden></div>
 <section class="card"><h2>Controle global do funil</h2>
 <p class="muted">O funil processa uma tarefa por vez. A pausa global interrompe novos envios; mídias já aceitas continuam sendo acompanhadas.</p>
 <form id="global"><div class="columns">
@@ -48,7 +48,7 @@ form{margin:0}.columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr)
 <div class="columns"><div><label>Intervalo (minutos)<input type="number" id="y-intervalo" min="1" max="10080" required></label></div>
 <div><label>Início<input id="y-inicio" type="time" required></label></div><div><label>Fim<input id="y-fim" type="time" required></label></div></div>
 <button type="submit">Salvar Republicador</button></form><div id="y-status" class="status"></div></section>
-<section class="card"><h2>Central de Ofertas</h2><p class="muted">Kits feirinha mais antigos primeiro; sem republicar automaticamente um kit já enviado.</p>
+<section class="card"><h2>Central de Ofertas</h2><p class="muted">Kits feirinha mais antigos primeiro; ao terminar, reinicia do primeiro. Itens incertos aguardam conferência.</p>
 <form id="ofertas"><label><input type="checkbox" id="o-ativo"> Agendamento ligado</label>
 <div class="columns"><div><label>Intervalo (minutos)<input type="number" id="o-intervalo" min="1" max="10080" required></label></div>
 <div><label>Início<input id="o-inicio" type="time" required></label></div><div><label>Fim<input id="o-fim" type="time" required></label></div></div>
@@ -60,4 +60,4 @@ form{margin:0}.columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr)
 <section class="card"><h2>Eventos e erros</h2><div class="columns"><div><label>Nível<select id="nivel"><option value="">Todos</option><option value="erro">Erros</option><option value="aviso">Avisos</option><option value="info">Informações</option></select></label></div>
 <div><label>Desde<input id="desde" type="date"></label></div></div><button id="logs-btn" type="button" class="outline">Consultar eventos</button>
 <div id="logs"></div><button type="button" id="mais-logs" class="outline" hidden>Ver eventos anteriores</button></section>
-</main><script src="/js/central-publicacoes.js?v=1"></script></body></html>
+</main><script src="/js/central-publicacoes.js?v=2"></script></body></html>
