@@ -23,8 +23,9 @@
     .form-cadastro tr:hover { background:transparent; }
     .grid-filtro { display:grid; grid-template-columns: 1fr 1fr 1fr 160px 140px 140px; gap:12px; align-items:end; }
     label { display:block; font-size:13px; font-weight:bold; color:#4a5568; margin-bottom:6px; }
-    input, select, button { width:100%; padding:10px 12px; border-radius:6px; border:1px solid #ccd3db; font-size:14px; box-sizing:border-box; }
+    input, select, textarea, button { width:100%; padding:10px 12px; border-radius:6px; border:1px solid #ccd3db; font-size:14px; box-sizing:border-box; }
     input[readonly] { background:#f4f7fa; }
+    textarea { min-height:76px; resize:vertical; font-family:inherit; }
     button { border:none; cursor:pointer; font-weight:bold; }
     .btn-salvar { background:#2ecc71; color:#fff; }
     .btn-limpar { background:#95a5a6; color:#fff; }
@@ -39,9 +40,10 @@
     .tabela-custos th,
     .tabela-custos td { padding:4px 8px; height:32px; line-height:16px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .tabela-custos th { padding-top:7px; padding-bottom:7px; }
-    .tabela-custos .col-insumo { width:34%; }
-    .tabela-custos .col-categoria { width:16%; }
-    .tabela-custos .col-fornecedor { width:20%; }
+    .tabela-custos .col-insumo { width:24%; }
+    .tabela-custos .col-categoria { width:13%; }
+    .tabela-custos .col-fornecedor { width:17%; }
+    .tabela-custos .col-observacao { width:20%; }
     .tabela-custos .col-unidade { width:6%; text-align:center; }
     .tabela-custos .col-custo { width:9%; text-align:right; }
     .tabela-custos .col-status { width:7%; text-align:center; }
@@ -117,6 +119,10 @@
             <td class="campo"><input type="text" id="custo_final" readonly /></td>
           </tr>
           <tr>
+            <td class="titulo-campo"><label for="observacao">Observação</label></td>
+            <td class="campo"><textarea id="observacao" rows="3" placeholder="Observações sobre o custo deste insumo"></textarea></td>
+          </tr>
+          <tr>
             <td class="titulo-campo"><label for="ativo">Ativo</label></td>
             <td class="campo">
               <select id="ativo">
@@ -179,6 +185,7 @@
             <th class="col-insumo">Insumo</th>
             <th class="col-categoria">Categoria</th>
             <th class="col-fornecedor">Fornecedor</th>
+            <th class="col-observacao">Observação</th>
             <th class="col-unidade">Unid.</th>
             <th class="col-custo">Custo final</th>
             <th class="col-status">Status</th>
@@ -206,6 +213,12 @@
       const el = document.getElementById('mensagem');
       el.textContent = '';
       el.className = 'mensagem';
+    }
+
+    function escapeHtml(valor) {
+      return String(valor ?? '').replace(/[&<>"']/g, caractere => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      })[caractere]);
     }
 
     function moeda(valor) {
@@ -273,6 +286,7 @@
       document.getElementById('outras_despesas_valor').value = '';
       document.getElementById('desconto_valor').value = '';
       document.getElementById('custo_final').value = '';
+      document.getElementById('observacao').value = '';
       document.getElementById('ativo').value = 'true';
       atualizarInsumoSelecionado();
       limparMensagem();
@@ -313,6 +327,7 @@
             <td class="col-insumo" title="${tituloInsumo}">${item.insumo}</td>
             <td class="col-categoria" title="${item.categoria || ''}">${item.categoria || ''}</td>
             <td class="col-fornecedor" title="${item.fornecedor || ''}">${item.fornecedor || ''}</td>
+            <td class="col-observacao" title="${escapeHtml(item.observacao || '')}">${escapeHtml(item.observacao || '')}</td>
             <td class="col-unidade" title="${item.unidade_custo || ''}">${item.unidade_custo || ''}</td>
             <td class="col-custo" title="${moeda(item.custo_final)}">${moeda(item.custo_final)}</td>
             <td class="col-status"><span class="status ${item.ativo ? 'status-ativo' : 'status-inativo'}">${item.ativo ? 'Ativo' : 'Inativo'}</span></td>
@@ -325,7 +340,7 @@
             </td>
           </tr>
         `;
-      }).join('') || '<tr><td colspan="7">Nenhum registro encontrado.</td></tr>';
+      }).join('') || '<tr><td colspan="8">Nenhum registro encontrado.</td></tr>';
     }
 
     async function editar(id) {
@@ -345,6 +360,7 @@
       document.getElementById('frete_valor').value = item.frete_valor;
       document.getElementById('outras_despesas_valor').value = item.outras_despesas_valor;
       document.getElementById('desconto_valor').value = item.desconto_valor;
+      document.getElementById('observacao').value = item.observacao || '';
       document.getElementById('ativo').value = String(item.ativo);
       atualizarInsumoSelecionado();
       atualizarCustoFinalPreview();
@@ -364,6 +380,7 @@
           frete_valor: document.getElementById('frete_valor').value,
           outras_despesas_valor: document.getElementById('outras_despesas_valor').value,
           desconto_valor: document.getElementById('desconto_valor').value,
+          observacao: document.getElementById('observacao').value,
           ativo: document.getElementById('ativo').value === 'true'
         };
 

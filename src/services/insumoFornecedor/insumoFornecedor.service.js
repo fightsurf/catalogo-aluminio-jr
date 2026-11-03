@@ -1,5 +1,19 @@
 const pool = require('../../../db/connection');
 
+// Migração idempotente para bancos já existentes (executada uma vez por processo).
+let observacaoSchemaPromise = null;
+function garantirColunaObservacao() {
+  if (!observacaoSchemaPromise) {
+    observacaoSchemaPromise = pool.query(
+      'ALTER TABLE insumos_fornecedores ADD COLUMN IF NOT EXISTS observacao TEXT'
+    ).catch(error => {
+      observacaoSchemaPromise = null;
+      throw error;
+    });
+  }
+  return observacaoSchemaPromise;
+}
+
 function parseAtivo(value) {
   if (value === undefined || value === null || value === '') return null;
   if (value === true || value === 'true' || value === '1' || value === 1) return true;
@@ -117,6 +131,7 @@ function mapearRegistro(row) {
     outras_despesas_valor: Number(row.outras_despesas_valor),
     desconto_valor: Number(row.desconto_valor),
     custo_final: Number(row.custo_final),
+    observacao: row.observacao || '',
     ativo: row.ativo,
     eh_disco: row.eh_disco,
     diametro_mm: row.diametro_mm !== null ? Number(row.diametro_mm) : null,
@@ -126,6 +141,7 @@ function mapearRegistro(row) {
 }
 
 async function listar(filtros = {}) {
+  await garantirColunaObservacao();
   const values = [];
   const conditions = [];
 
@@ -166,6 +182,7 @@ async function listar(filtros = {}) {
       ifn.outras_despesas_valor,
       ifn.desconto_valor,
       ifn.custo_final,
+      ifn.observacao,
       ifn.ativo,
       (d.insumo_id IS NOT NULL) AS eh_disco,
       d.diametro_mm,
@@ -189,6 +206,7 @@ async function listar(filtros = {}) {
 }
 
 async function buscar(id) {
+  await garantirColunaObservacao();
   const result = await pool.query(`
     SELECT
       ifn.id,
@@ -205,6 +223,7 @@ async function buscar(id) {
       ifn.outras_despesas_valor,
       ifn.desconto_valor,
       ifn.custo_final,
+      ifn.observacao,
       ifn.ativo,
       (d.insumo_id IS NOT NULL) AS eh_disco,
       d.diametro_mm,
@@ -226,6 +245,7 @@ async function buscar(id) {
 }
 
 async function criar(data = {}) {
+  await garantirColunaObservacao();
   const insumoId = normalizarId(data.insumo_id, 'Insumo');
   const fornecedorId = normalizarId(data.fornecedor_id, 'Fornecedor');
   const insumo = await obterInsumo(insumoId);
@@ -245,6 +265,7 @@ async function criar(data = {}) {
 
   const unidadeCusto = insumo.eh_disco ? 'kg' : insumo.unidade_medida;
   const custoFinal = calcularCustoFinal(payload);
+  const observacao = normalizarTexto(data.observacao);
   const ativo = data.ativo === undefined ? true : parseAtivo(data.ativo);
 
   const result = await pool.query(`
@@ -258,9 +279,10 @@ async function criar(data = {}) {
       outras_despesas_valor,
       desconto_valor,
       custo_final,
+      observacao,
       ativo
     )
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
     RETURNING id
   `, [
     insumoId,
@@ -272,6 +294,7 @@ async function criar(data = {}) {
     payload.outras_despesas_valor,
     payload.desconto_valor,
     custoFinal,
+    observacao,
     ativo
   ]);
 
@@ -279,6 +302,7 @@ async function criar(data = {}) {
 }
 
 async function atualizar(id, data = {}) {
+  await garantirColunaObservacao();
   const atual = await buscar(id);
   const insumoId = data.insumo_id !== undefined ? normalizarId(data.insumo_id, 'Insumo') : atual.insumo_id;
   const fornecedorId = data.fornecedor_id !== undefined ? normalizarId(data.fornecedor_id, 'Fornecedor') : atual.fornecedor_id;
@@ -299,6 +323,7 @@ async function atualizar(id, data = {}) {
 
   const unidadeCusto = insumo.eh_disco ? 'kg' : insumo.unidade_medida;
   const custoFinal = calcularCustoFinal(payload);
+  const observacao = data.observacao === undefined ? atual.observacao : normalizarTexto(data.observacao);
   const ativo = data.ativo === undefined ? atual.ativo : parseAtivo(data.ativo);
 
   await pool.query(`
@@ -312,9 +337,10 @@ async function atualizar(id, data = {}) {
         outras_despesas_valor = $7,
         desconto_valor = $8,
         custo_final = $9,
-        ativo = $10,
+        observacao = $10,
+        ativo = $11,
         updated_at = NOW()
-    WHERE id = $11
+    WHERE id = $12
   `, [
     insumoId,
     fornecedorId,
@@ -325,6 +351,7 @@ async function atualizar(id, data = {}) {
     payload.outras_despesas_valor,
     payload.desconto_valor,
     custoFinal,
+    observacao,
     ativo,
     Number(id)
   ]);
