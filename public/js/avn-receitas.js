@@ -102,16 +102,29 @@ function nutrienteDoIngrediente(i,chave,unidade){
  if(valor==null||valor===''||!Number.isFinite(Number(valor))||!Number.isFinite(peso))return 'Sem dado';
  return fmt(Number(valor)*peso/100,1)+' '+unidade;
 }
+function formatarNutrientesExibicao(obterValor){
+ const campos=[
+  ['kcal','Calorias','kcal','calorias'],
+  ['proteinas_g','Proteínas','g','proteinas'],
+  ['carboidratos_g','Carboidratos','g','carboidratos'],
+  ['gorduras_g','Gorduras','g','gorduras']
+ ];
+ return campos.map(([chave,rotulo,unidade,cor])=>`<span class="receita-nutriente receita-nutriente-${cor}">${rotulo}: <b>${esc(obterValor(chave,unidade))}</b></span>`).join('');
+}
+function nutrientePor100g(r,chave,unidade){
+ const valor=r[chave+'_100g'];
+ if(valor==null||valor===''||!Number.isFinite(Number(valor)))return 'Sem dado';
+ return fmt(valor,1)+' '+unidade;
+}
 function renderizarIngrediente(i){
- const campos=[['kcal','Calorias','kcal'],['proteinas_g','Proteínas','g'],['carboidratos_g','Carboidratos','g'],['gorduras_g','Gorduras','g']];
- const macros=campos.map(([chave,rotulo,unidade])=>'<span>'+rotulo+': <b>'+esc(nutrienteDoIngrediente(i,chave,unidade))+'</b></span>').join('');
- return `<li><div class="receita-ingrediente-info"><span class="receita-ingrediente-nome">${esc(i.nome_snapshot||'Ingrediente')}</span><small class="receita-ingrediente-macros">${macros}</small></div><strong class="receita-ingrediente-peso">${fmt(i.quantidade_g,3)} g</strong></li>`;
+ const macros=formatarNutrientesExibicao((chave,unidade)=>nutrienteDoIngrediente(i,chave,unidade));
+ return `<li><div class="receita-ingrediente-info"><span class="receita-ingrediente-nome">${esc(i.nome_snapshot||'Ingrediente')}</span><small class="receita-valores-nutricionais receita-ingrediente-macros">${macros}</small></div><strong class="receita-ingrediente-peso">${fmt(i.quantidade_g,3)} g</strong></li>`;
 }
 async function listar(){
  const usuario=usuarioId, dados=await api('/receitas?usuarioId='+usuario);
  if(usuario!==usuarioId)return;
  receitas=dados;
- $('listaReceitas').innerHTML=receitas.length?receitas.map(r=>`<div class="list-row receita-lista-linha"><div class="receita-lista-info"><button type="button" class="receita-nome" data-ver-id="${r.id}">${esc(r.nome)}</button><small>Rendimento ${fmt(r.rendimento_g)} g · ${r.kcal_100g==null?'calorias desconhecidas':fmt(r.kcal_100g)+' kcal/100 g'}</small></div><button type="button" class="secondary" data-id="${r.id}">Editar</button></div>`).join(''):'<p class="muted">Nenhuma receita cadastrada.</p>';
+ $('listaReceitas').innerHTML=receitas.length?receitas.map(r=>`<div class="list-row receita-lista-linha"><div class="receita-lista-info"><button type="button" class="receita-nome" data-ver-id="${r.id}">${esc(r.nome)}</button><small class="receita-lista-meta">Rendimento ${fmt(r.rendimento_g)} g · Valores por 100 g</small><small class="receita-valores-nutricionais receita-lista-macros">${formatarNutrientesExibicao((chave,unidade)=>nutrientePor100g(r,chave,unidade))}</small></div><button type="button" class="secondary" data-id="${r.id}">Editar</button></div>`).join(''):'<p class="muted">Nenhuma receita cadastrada.</p>';
  $('listaReceitas').querySelectorAll('[data-ver-id]').forEach(b=>b.onclick=()=>ver(b.dataset.verId));
  $('listaReceitas').querySelectorAll('button[data-id]').forEach(b=>b.onclick=()=>editar(b.dataset.id));
 }
