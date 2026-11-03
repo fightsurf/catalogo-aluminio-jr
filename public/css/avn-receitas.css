@@ -144,3 +144,10 @@ dialog.receita-modal-secundario{width:min(780px,calc(100% - 24px))}
 dialog.receita-modal-secundario .receita-importador{margin:0}
 dialog.receita-modal-secundario .receita-resultado{margin:0}
 @media(max-width:620px){.receita-modal-head{align-items:flex-start;flex-wrap:wrap}.receita-head-acoes{width:100%;justify-content:flex-start}.receita-head-acoes button{flex:1 1 auto}.receita-modal-secundario{max-height:calc(100dvh - 16px)}}
+
+/* Receita: linha pequena de calorias e macros por ingrediente, na ordem solicitada. */
+.receita-ingrediente-info{min-width:0;flex:1}
+.receita-ingrediente-nome{display:block;color:#ecf2fc;font-weight:650}
+.receita-ingredientes-detalhe li .receita-ingrediente-macros{display:flex;flex-wrap:wrap;gap:2px 12px;margin-top:4px;font-size:.72rem;line-height:1.5;color:#a9b9d1!important}
+.receita-ingrediente-macros b{font-weight:600;color:#d5e6fb}
+.receita-ingredientes-detalhe li .receita-ingrediente-peso{align-self:flex-start}
