@@ -358,8 +358,11 @@ async function trabalhar(id) {
     const canais = await publicarCanais(job, partes);
     const success = ['whatsapp_status','instagram_story','facebook_feed'].every(k => canais[k]?.status === 'publicado');
     await salvar(id,{ estado:success?'concluido':'parcial',
-      etapa:success?'Três redes aceitaram o vídeo. Aguardando limpeza do R2.':'Falha em uma ou mais redes; use Repetir pendentes.',
-      erro:success?null:Object.entries(canais).filter(([,v])=>v.status==='erro').map(([k,v])=>`${k}: ${v.erro}`).join(' | ').slice(0,700),
+      etapa:success?'Três redes aceitaram o vídeo. Aguardando limpeza do R2.':
+        haEnvioSemConfirmacao(canais)?'Há envios sem confirmação; concilie os trechos antes de repetir.':
+        'Falha em uma ou mais redes; use Repetir pendentes.',
+      erro:success?null:Object.entries(canais).filter(([,v])=>['erro','incerto'].includes(v.status))
+        .map(([k,v])=>`${k}: ${v.erro||'envio sem confirmação'}`).join(' | ').slice(0,700),
       r2_apagar_em:dataLimpeza(success?MINUTOS_RETENCAO_SUCESSO:HORAS_RETENCAO_ERRO*60) });
   } catch (e) {
     console.error('[Republicador YouTube] Falha no job:',id, erroCurto(e));
