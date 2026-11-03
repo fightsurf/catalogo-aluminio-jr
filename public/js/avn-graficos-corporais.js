@@ -156,6 +156,30 @@ const compareDefs={
  agua_corporal:{name:'Água corporal',unit:'kg',color:'#c084fc'}
 };
 const compareSelected=new Set();
+const compareState={data:{},errors:{},request:0,controller:null,userId:'',days:90};
+async function loadComparison(){
+ const dialog=$('compare-dialog');
+ if(!dialog||!dialog.open)return;
+ const id=String($('usuario').value||''),days=Number($('compare-days').value);
+ const token=++compareState.request;
+ if(compareState.controller)compareState.controller.abort();
+ compareState.controller=new AbortController();
+ compareState.userId=id;compareState.days=days;
+ compareState.data={};compareState.errors={};
+ $('compare-chart').replaceChildren();$('compare-chart').hidden=true;
+ $('compare-legend').replaceChildren();$('compare-stats').replaceChildren();
+ if(!id){$('compare-status').textContent='Selecione um usuário para comparar.';return;}
+ $('compare-status').textContent='Carregando medições de '+days+' dias…';
+ const keys=Object.keys(compareDefs);
+ const results=await Promise.allSettled(keys.map(key=>
+  getJson('/api/avn/health/usuarios/'+encodeURIComponent(id)+'/historico?metrica='+key+'&dias='+days,compareState.controller.signal)));
+ if(token!==compareState.request||!dialog.open)return;
+ keys.forEach((key,i)=>{
+  if(results[i].status==='fulfilled')compareState.data[key]=validRows(results[i].value.registros);
+  else compareState.errors[key]=results[i].reason?.message||'Erro ao carregar medições.';
+ });
+ renderComparison();
+}
 function compareDaily(records){
  const last=new Map();
  for(const p of records){
@@ -183,7 +207,7 @@ function renderComparison(){
   return;
  }
  const selected=keys.map(key=>({
-  key,...compareDefs[key],rows:compareDaily(state.data[key]||[]),error:state.errors[key]
+  key,...compareDefs[key],rows:compareDaily(compareState.data[key]||[]),error:compareState.errors[key]
  }));
  const missing=selected.filter(s=>!s.rows.length);
  for(const s of selected){
@@ -330,9 +354,12 @@ function initComparison(){
    renderComparison();
   });
  });
+ $('compare-days').addEventListener('change',loadComparison);
  $('compare-open').addEventListener('click',()=>{
+  const mainDays=Number($('dias').value);
+  $('compare-days').value=[7,30,90].includes(mainDays)?String(mainDays):'90';
   dialog.showModal();
-  renderComparison();
+  loadComparison();
  });
  $('compare-close').addEventListener('click',()=>dialog.close());
  dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});
@@ -386,7 +413,10 @@ async function init(){
    option.value=u.id;option.textContent=u.nome;select.append(option);
   }
   if(!state.users.length){refresh();return;}
-  select.addEventListener('change',refresh);
+  select.addEventListener('change',()=>{
+   refresh();
+   if($('compare-dialog')?.open)loadComparison();
+  });
   $('dias').addEventListener('change',refresh);
   await refresh();
  }catch(error){
