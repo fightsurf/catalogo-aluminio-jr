@@ -45,3 +45,10 @@ test('aguardar video libera a fila sem fazer polling continuo',()=>{
   assert.match(funil,/result\.status==='processando'[\s\S]*?tentativaEm:new Date\(Date\.now\(\)\+30000\)/);
   assert.match(funil,/estado_republicador:job\.estado\}[\s\S]*?tentativaEm:new Date\(Date\.now\(\)\+30000\)/);
 });
+
+test('consulta SQL dos ciclos de ofertas usa parametro inteiro em toda comparacao',()=>{
+  assert.match(agenda,/\(\$1::integer\)::text/);
+  assert.match(agenda,/\(\$1::integer=1 AND i\.request_id/);
+  assert.match(agenda,/\(\$1::integer>1 OR/);
+  assert.match(agenda,/ultimo_erro='operator does not exist: text = integer'/);
+});
