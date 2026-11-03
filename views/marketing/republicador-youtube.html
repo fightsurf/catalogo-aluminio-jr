@@ -22,7 +22,7 @@ section{margin-bottom:26px;background:white;padding:16px;border:1px solid #e0e6e
 .muted{color:#5b6879}.job{border-bottom:1px solid #e6ebf1;padding:11px 0;font-size:14px}
 .job strong{display:block;margin-bottom:5px}.job .state{font-weight:700}
 .status{display:inline-block;background:#e4e9f1;padding:4px 7px;border-radius:6px;margin:4px 4px 4px 0;font-size:12px}
-.status.ok{background:#d8f4e4;color:#0c5c34}.status.fail{background:#fce0df;color:#a92222}
+.status.ok{background:#d8f4e4;color:#0c5c34}.status.fail{background:#fce0df;color:#a92222}.review-actions{margin:8px 0;padding:8px;background:#fff6e2;border-left:3px solid #cb8d2e;font-size:12px}.review-actions button{font-size:12px;margin:3px 5px 3px 0}
 .error{color:#a92222;white-space:pre-wrap;overflow-wrap:anywhere}
 #msg{min-height:16px;font-size:14px}#mais{margin-top:16px}
 a{color:#216bb5}#recentes{max-height:450px;overflow:auto}
@@ -103,16 +103,46 @@ async function criarJob(id,modo){
 }
 function canalStatus(nome,x){if(!x)return '';
  const suffix=x.partes?` (${Object.values(x.partes).filter(p=>p.status==='publicado').length} partes aceitas)` : '';
- const cl=x.status==='publicado'?'ok':x.status==='erro'?'fail':'';
+ const cl=x.status==='publicado'?'ok':['erro','incerto','processando'].includes(x.status)?'fail':'';
  return `<span class="status ${cl}">${escape(nome)}: ${escape(x.status)}${escape(suffix)}</span>`;
+}
+function revisoesPendentes(j){
+ const nomes={whatsapp_status:'WhatsApp',instagram_story:'Instagram',facebook_feed:'Facebook'};
+ const duvidoso=s=>['enviando','processando','incerto'].includes(s);
+ const botoes=(canal,parte,label)=>'<div class="review-actions">'+escape(label)+' — conferir na rede: '+
+  '<button data-conciliar="'+escape(j.id)+'" data-canal="'+escape(canal)+'" data-parte="'+escape(parte??'')+'" data-resultado="publicado">Confirmar publicado</button>'+
+  '<button data-conciliar="'+escape(j.id)+'" data-canal="'+escape(canal)+'" data-parte="'+escape(parte??'')+'" data-resultado="nao_publicado">Confirmar NÃO publicado</button></div>';
+ return Object.entries(j.canais||{}).flatMap(([canal,c])=>{
+  const partes=Object.entries(c.partes||{}).filter(([,p])=>duvidoso(p.status));
+  if(partes.length)return partes.map(([indice])=>botoes(canal,indice,(nomes[canal]||canal)+' — parte '+(Number(indice)+1)));
+  return duvidoso(c.status)?[botoes(canal,null,nomes[canal]||canal)]:[];
+ }).join('');
+}
+function temRevisao(j){
+ return Object.values(j.canais||{}).some(c=>
+  ['enviando','processando','incerto'].includes(c.status) ||
+  Object.values(c.partes||{}).some(p=>['enviando','processando','incerto'].includes(p.status)));
 }
 function renderJobs(items){
  $('recentes').innerHTML=items.map(j=>`<div class="job"><strong>${escape(j.titulo)}</strong>
  <span class="state">${escape(j.estado)} · ${escape(j.etapa)}</span><div>
  ${canalStatus('WhatsApp',j.canais.whatsapp_status)}${canalStatus('Instagram',j.canais.instagram_story)}${canalStatus('Facebook',j.canais.facebook_feed)}</div>
+ ${revisoesPendentes(j)}
  ${j.erro?`<div class="error">${escape(j.erro)}</div>`:''}
  <small class="muted">${new Date(j.criado_em).toLocaleString('pt-BR')} · ${escape(j.modo)} · ${j.possui_arquivo_temporario?'Arquivo temporário no R2':'Sem arquivo armazenado'}</small>
- ${['parcial','erro','interrompido'].includes(j.estado)&&j.modo==='publicar'?` <button data-retry="${escape(j.id)}">Repetir pendentes</button>`:''}</div>`).join('') || '<p class="muted">Nenhuma publicação registrada.</p>';
+ ${['parcial','erro','interrompido'].includes(j.estado)&&j.modo==='publicar'&&!temRevisao(j)?` <button data-retry="${escape(j.id)}">Repetir pendentes</button>`:''}</div>`).join('') || '<p class="muted">Nenhuma publicação registrada.</p>';
+ $('recentes').querySelectorAll('[data-conciliar]').forEach(b=>b.addEventListener('click',async()=>{
+  const resultado=b.dataset.resultado, canal=b.dataset.canal, parte=b.dataset.parte;
+  const mensagem='Você conferiu diretamente '+canal+(parte!==''?' (trecho '+(Number(parte)+1)+')':'')+
+    ' e confirma que '+(resultado==='publicado'?'FOI':'NÃO FOI')+' publicado?';
+  if(!confirm(mensagem))return;
+  b.disabled=true;
+  try{
+   await req('/api/jobs/'+enc(b.dataset.conciliar)+'/conciliar',{method:'POST',
+    body:JSON.stringify({confirmar:'CONFERI_NA_REDE',canal,parte:parte===''?null:Number(parte),resultado})});
+   await atualizarHistorico();
+  }catch(e){alert(e.message);b.disabled=false;}
+ }));
  $('recentes').querySelectorAll('[data-retry]').forEach(b=>b.addEventListener('click',async()=>{
   if(!confirm('Repetir somente os canais/trechos que ainda não foram aceitos? Verifique antes se houve publicação nas redes durante a falha.'))return;
   try{await req('/api/jobs/'+enc(b.dataset.retry)+'/repetir',{method:'POST',body:JSON.stringify({confirmar:'REPETIR_APENAS_PENDENTES'})});await atualizarHistorico();}catch(e){alert(e.message);}
