@@ -214,6 +214,8 @@ app.use('/api/agencias-recebimento', agenciasRecebimentoRoutes);
 app.use('/api/logistica', logisticaRoutes);
 app.use('/api/funcionarios', funcionarioRoutes);
 app.use('/api/fornecedores', fornecedorRoutes);
+// Compras de insumos: APIs privadas, incluindo upload efêmero de fotos.
+app.use('/api/compras', requireAuth, require('./src/routes/compras/compras.routes'));
 app.use('/api/volume', volumeRoutes);
 app.use('/api/admin-volume', adminVolumeRoutes);
 app.use('/api/prestacoes', prestacaoContasRoutes);
@@ -388,6 +390,11 @@ app.get('/admin-funcionarios', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'funcionario', 'admin-funcionario.html'));
 });
 
+// 🔥 COMPRAS DE INSUMOS
+app.get('/compras', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'compras', 'index.html'));
+});
+
 // 🔥 FORNECEDORES
 app.get('/admin-fornecedores', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'fornecedor', 'admin-fornecedor.html'));
@@ -558,6 +565,8 @@ const avnMigration = require('./src/services/avn/avn-migration.service');
 (async () => {
   try {
     await avnMigration();
+    // Tabelas de compras verificadas antes de publicar a API no Render.
+    await require('./src/services/compras/comprasSchema.service').criarEstrutura();
     // Limpeza única e transacional após instalar o recebimento sem persistência.
     await require('./src/services/whatsapp/whatsapp-limpeza-historico.service').executarUmaVez();
     server.listen(PORT, () => {

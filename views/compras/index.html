@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Compras de Insumos | Alumínio JR</title>
+  <link rel="stylesheet" href="/css/compras.css">
+  <script src="/js/compras.js" defer></script>
+</head>
+<body>
+  <main class="container">
+    <header class="header">
+      <div><span class="eyebrow">ALUMÍNIO JR / GESTÃO</span><h1>Compras de insumos</h1><p>Notas fiscais, frete, ICMS e histórico de preços.</p></div>
+      <a class="back" href="/sistema">Voltar ao sistema</a>
+    </header>
+    <div id="aviso" class="aviso" role="status" aria-live="polite" hidden></div>
+    <nav class="tabs" aria-label="Seções">
+      <button class="tab active" type="button" id="tabCadastro">Cadastro de compra</button>
+      <button class="tab" type="button" id="tabHistorico">Histórico de compras</button>
+    </nav>
+    <section id="painelCadastro">
+      <section class="card importacao">
+        <div><h2>Importar nota fiscal com IA</h2><p>Selecione de 1 a 5 fotos (JPG, PNG ou WEBP). O sistema lê os campos e itens sem armazenar as imagens.</p></div>
+        <input type="file" id="fotos" accept="image/jpeg,image/png,image/webp" multiple hidden>
+        <button class="btn primary" type="button" id="btnImportar">Importar fotos</button>
+      </section>
+      <div id="avisosIa" class="avisos-ia" hidden></div>
+      <form id="formCompra" novalidate>
+        <section class="card">
+          <div class="card-head">
+            <h2>Dados da nota fiscal</h2>
+            <span id="etiquetaEdicao" class="pill">Nova nota</span>
+          </div>
+          <div class="fields">
+            <label class="span2">Fornecedor <span class="required">*</span>
+              <select name="fornecedor_id" id="fornecedor_id" required><option value="">Selecione o fornecedor</option></select>
+            </label>
+            <label>Número da NF <span class="required">*</span>
+              <input name="numero_nf" id="numero_nf" maxlength="60" required placeholder="Ex.: 123456">
+            </label>
+            <label>Data da NF <span class="optional">(opcional)</span>
+              <input type="date" name="data_nf" id="data_nf">
+            </label>
+            <label>Valor da nota fiscal (R$) <span class="required">*</span>
+              <input type="number" step="0.01" min="0" name="valor_nf" id="valor_nf" required placeholder="0,00">
+            </label>
+            <label>Quantidade de itens na NF <span class="required">*</span>
+              <input type="number" step="1" min="1" max="500" name="quantidade_itens_nf" id="quantidade_itens_nf" required placeholder="Linhas de produtos">
+            </label>
+            <label>Valor do frete (R$)
+              <input type="number" step="0.01" min="0" name="valor_frete" id="valor_frete" value="0">
+            </label>
+            <label>ICMS do frete (R$)
+              <input type="number" step="0.01" min="0" name="icms_frete" id="icms_frete" value="0">
+            </label>
+          </div>
+        </section>
+        <section class="card">
+          <div class="card-head row-wrap">
+            <div><h2>Insumos da nota</h2><p id="resumoItens">Nenhum item cadastrado.</p></div>
+            <button class="btn secondary" type="button" id="btnItens">Adicionar / editar insumos</button>
+          </div>
+          <div class="table-wrap">
+            <table><thead><tr><th>Insumo</th><th>Quantidade</th><th>Unidade</th><th>Unitário</th><th>Total</th></tr></thead><tbody id="previewItens"><tr><td colspan="5">Adicione os itens da NF para começar.</td></tr></tbody></table>
+          </div>
+          <div class="totais">
+            <div><span>Soma dos insumos</span><strong id="somaItens">R$ 0,00</strong></div>
+            <div><span>Diferença (NF − itens)</span><strong id="diferenca">—</strong></div>
+          </div>
+          <p class="hint">O total da nota pode incluir frete, impostos e ajustes. Confira os valores antes de salvar.</p>
+        </section>
+        <div class="actions">
+          <button class="btn primary" type="submit" id="btnSalvar">Salvar compra</button>
+          <button class="btn ghost" type="button" id="btnNova">Nova compra / limpar</button>
+        </div>
+      </form>
+    </section>
+    <section id="painelHistorico" hidden>
+      <section class="card">
+        <div class="card-head"><h2>Histórico de notas fiscais</h2><button type="button" class="btn ghost" id="btnAtualizar">Atualizar</button></div>
+        <div class="filters">
+          <label>Pesquisar NF / fornecedor <input type="search" id="busca" placeholder="Digite o número ou nome"></label>
+          <label>Fornecedor <select id="filtroFornecedor"><option value="">Todos</option></select></label>
+          <button class="btn secondary" type="button" id="btnFiltrar">Pesquisar</button>
+        </div>
+        <div class="table-wrap">
+          <table><thead><tr><th>NF</th><th>Fornecedor</th><th>Valor</th><th>Frete</th><th>Linhas</th><th>Cadastro</th><th></th></tr></thead><tbody id="historico"><tr><td colspan="7">Carregando...</td></tr></tbody></table>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <dialog id="modalItens" aria-labelledby="tituloModal">
+    <div class="modal-body">
+      <header class="modal-header"><div><h2 id="tituloModal">Insumos da nota fiscal</h2><p>Edite as linhas e confira as quantidades e preços antes de gravar.</p></div><button class="btn ghost" id="btnFecharModal" type="button">Fechar</button></header>
+      <div class="modal-tools">
+        <button class="btn secondary" id="btnAdicionarLinha" type="button">+ Adicionar insumo</button>
+        <span id="contadorLinhas"></span>
+      </div>
+      <datalist id="catalogoInsumos"></datalist>
+      <div id="linhas" class="linhas"></div>
+      <footer class="modal-footer">
+        <strong id="totalModal">Total: R$ 0,00</strong>
+        <button class="btn primary" type="button" id="btnConcluirItens">Concluir conferência</button>
+      </footer>
+    </div>
+  </dialog>
+</body>
+</html>

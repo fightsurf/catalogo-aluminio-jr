@@ -33,6 +33,7 @@ const OVERRIDES = {
   '/legado/pagamentos/realizados': { nome: 'Pagamentos Realizados', categoria: 'Financeiro', icone: 'circle-check', descricao: 'Pesquisa de pagamentos realizados.' },
   '/legado/cheques': { nome: 'Cheques', categoria: 'Financeiro', icone: 'banknote', descricao: 'Consulta e acompanhamento de cheques.' },
   '/legado/clientes-creditos': { nome: 'Créditos de Clientes', categoria: 'Financeiro', icone: 'badge-dollar-sign', descricao: 'Créditos disponíveis e extratos dos clientes.' },
+  '/compras': { nome: 'Controle de Compras', categoria: 'Financeiro', icone: 'clipboard-list', descricao: 'Registro de notas fiscais e insumos com leitura por IA.' },
   '/admin-saidas': { nome: 'Despesas', categoria: 'Financeiro', icone: 'receipt', descricao: 'Lançamento e gestão das despesas da fábrica.' },
   '/admin-saidas-categorias': { nome: 'Categorias de Custos', categoria: 'Financeiro', icone: 'folders', descricao: 'Categorias da estrutura de custos da fábrica.' },
   '/admin-saidas-itens': { nome: 'Estrutura de Custos', categoria: 'Financeiro', icone: 'list-tree', descricao: 'Custos fixos, variáveis, despesas e impostos usados na precificação.' },
