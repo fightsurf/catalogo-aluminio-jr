@@ -710,18 +710,21 @@ function configurarIA(){
  window.AVNComparadorAlimentos.iniciar({
   api,send,esc,fmt,MACROS,getMicros:()=>MICRO,
   aplicar(d,fonte){
-   // Selecionar resultado não grava nada no banco: preenche o formulário para revisão.
-   fillFood(null);
-   const nome=String(d.nome||d.descricao||'').trim();
-   $('alimentoNome').value=nome;
-   $('alimentoMarca').value=String(d.marca||'');
-   $('alimentoPreparo').value=String(d.preparo||'');
+   // A consulta preenche os nutrientes, mas jamais transforma uma edicao em novo cadastro.
+   // Preservar o ID garante que "Salvar alimento" use PUT no registro existente.
+   const editando=Boolean(v('alimentoId'));
+   if(!editando){
+    fillFood(null);
+    $('alimentoNome').value=String(d.nome||d.descricao||'').trim();
+    $('alimentoMarca').value=String(d.marca||'');
+    $('alimentoPreparo').value=String(d.preparo||'');
+   }
    state.origemImportacao={fonte,fonte_referencia:fonte==='ia_pesquisa'
     ?(Array.isArray(d.fontes)?d.fontes.find(x=>x.url&&x.url.length<=240)?.url:'')||''
     :String(d.fonteUrl||d.fonte_referencia||'')};
    for(const [key] of MACROS)$('alim_'+key).value=d.macros?.[key]??'';
    for(const [key] of MICRO)$('micro_'+key).value=d.micros?.[key]??'';
-   show('Dados de '+({taco:'TACO',usda_fdc:'USDA',ia_pesquisa:'IA'}[fonte]||fonte)+' preenchidos. Confira nome, preparo e nutrientes, depois clique em Salvar alimento.');
+   show('Dados de '+({taco:'TACO',usda_fdc:'USDA',ia_pesquisa:'IA'}[fonte]||fonte)+' preenchidos. '+(editando?'O alimento original continuará em edição. Confira os nutrientes e salve para atualizá-lo.':'Confira nome, preparo e nutrientes, depois clique em Salvar alimento.'));
    $('formAlimento').scrollIntoView({behavior:'smooth',block:'start'});
   }
  });
