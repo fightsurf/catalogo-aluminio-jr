@@ -81,6 +81,7 @@ VALUES
 ('tgp','Alanina aminotransferase (TGP/ALT)',ARRAY['tgp','alt','alanina aminotransferase'],'Função hepática','U/L','indicador'),
 ('gama_gt','Gama GT',ARRAY['ggt','gama glutamiltransferase'],'Função hepática','U/L','indicador'),
 ('glicemia_jejum','Glicemia de jejum',ARRAY['glicose de jejum','glicemia'],'Metabolismo','mg/dL','indicador'),
+('glicose','Glicose',ARRAY['glucose','glicose sérica','glicose serica','glicose no sangue'],'Metabolismo','mg/dL','indicador'),
 ('hba1c','Hemoglobina glicada',ARRAY['hba1c','a1c'],'Metabolismo','%','indicador'),
 ('colesterol_total','Colesterol total',ARRAY[]::text[],'Perfil lipídico','mg/dL','indicador'),
 ('hdl','Colesterol HDL',ARRAY['hdl'],'Perfil lipídico','mg/dL','indicador'),
