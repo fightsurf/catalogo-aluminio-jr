@@ -120,11 +120,53 @@ async function historico() {
   return rows.map(paraCliente);
 }
 
+function haEnvioSemConfirmacao(canais) {
+  const incerto=s=>['processando','enviando','incerto'].includes(s);
+  return Object.values(canais||{}).some(c=>incerto(c?.status) ||
+    Object.values(c?.partes||{}).some(p=>incerto(p?.status)));
+}
+
+// Conciliação explícita por trecho/rede: não apagar provas de partes já publicadas.
+async function conciliarEntrega(id,{canal,parte=null,resultado}={}) {
+  await ensure();
+  if(!['whatsapp_status','instagram_story','facebook_feed'].includes(canal) ||
+     !['publicado','nao_publicado'].includes(resultado))
+    throw new Error('Canal ou resultado inválido.');
+  const job=await obter(id);
+  if(!job||job.modo!=='publicar'||!['parcial','erro','interrompido'].includes(job.estado))
+    throw new Error('Job não disponível para conciliação.');
+  const canais=job.canais||{},atual=canais[canal];
+  if(!atual)throw new Error('Canal não encontrado.');
+  const incerto=s=>['processando','enviando','incerto'].includes(s);
+  const status=resultado==='publicado'?'publicado':'pendente';
+  if(parte!==null && parte!==undefined && parte!==''){
+    const i=Number(parte);
+    if(canal==='facebook_feed'||!Number.isInteger(i)||i<0||i>11||
+       !incerto(atual.partes?.[i]?.status))
+      throw new Error('Trecho não está aguardando conciliação.');
+    atual.partes[i]={...atual.partes[i],status,confirmacao_manual:true};
+    const vals=Object.values(atual.partes);
+    const total=Number(job.partes?.clips?.length||0);
+    atual.status=vals.some(p=>incerto(p.status))?'incerto':
+      total>0 && Array.from({length:total},(_,x)=>atual.partes[x]).every(p=>p?.status==='publicado')
+      ?'publicado':'pendente';
+  } else {
+    if(!incerto(atual.status)||Object.values(atual.partes||{}).some(p=>incerto(p.status)))
+      throw new Error('Concilie os trechos incertos individualmente.');
+    if(status==='pendente'&&Object.values(atual.partes||{}).some(p=>p.status==='publicado'))
+      throw new Error('Existem trechos já publicados: confira o restante individualmente.');
+    atual.status=status;
+    if(status==='pendente')atual.partes={};
+  }
+  await salvar(id,{canais});
+  return paraCliente(await obter(id));
+}
 async function retry(id) {
   await ensure();
   const job = await obter(id);
   if (!job || job.modo !== 'publicar') throw new Error('Publicação não encontrada.');
   if (!['parcial','erro','interrompido'].includes(job.estado)) throw new Error('Essa publicação não está disponível para repetição.');
+  if (haEnvioSemConfirmacao(job.canais)) throw new Error('Há envios sem confirmação. Concilie os trechos/redes na tela do Republicador antes de repetir.');
   const { rowCount } = await pool.query(`UPDATE marketing_republicador_youtube
     SET estado='aguardando', etapa='Retentativa apenas das redes pendentes', erro=NULL,
       atualizado_em=NOW(), r2_apagar_em=NULL
@@ -256,13 +298,21 @@ async function publicarCanais(job, partes) {
     await salvar(job.id, { estado:'publicando', etapa: titulo, canais });
     for (let i=0; i<partes.clips.length; i++) {
       if (atual.partes[i]?.status === 'publicado') continue;
+      if (['enviando','processando','incerto'].includes(atual.partes[i]?.status))
+        throw new Error('Trecho com envio incerto: conciliação manual necessária.');
+      // Persistir a intenção ANTES da chamada externa. Depois de um reinício,
+      // somente o trecho realmente incerto exigirá conferência.
+      atual.partes[i]={status:'enviando'};
+      await salvar(job.id,{canais});
       try {
         const resultado = await enviar(partes.clips[i][urlCampo]);
         atual.partes[i] = { status: 'publicado', id: resultado?.media_id || resultado?.zapi?.messageId || null };
         atual.erro = null;
         await salvar(job.id, { etapa: `${titulo}: ${i+1}/${partes.clips.length} aceitas`, canais });
       } catch (e) {
-        atual.status = 'erro'; atual.erro = erroCurto(e);
+        atual.status = 'incerto';
+        atual.partes[i]={status:'incerto',erro:erroCurto(e)};
+        atual.erro = erroCurto(e);
         await salvar(job.id, { canais });
         return;
       }
@@ -287,7 +337,7 @@ async function publicarCanais(job, partes) {
         message: `${job.titulo}\n\nAlumínio JR\nhttps://www.youtube.com/watch?v=${job.youtube_video_id}`,
       });
       fb.status = 'publicado'; fb.post_id = response.post_id || response.video_id; delete fb.erro;
-    } catch (e) { fb.status = 'erro'; fb.erro = erroCurto(e); }
+    } catch (e) { fb.status = 'incerto'; fb.erro = erroCurto(e); }
     await salvar(job.id, { canais });
   }
   return canais;
@@ -343,11 +393,15 @@ async function limparVencidos() {
 
 function inicializar() {
   ensure().then(async()=>{
-    // Não republicar automaticamente após queda: resposta anterior da rede pode ser incerta.
+    // O estado 'aguardando' nunca disparou uma rede: é seguro recuperar a fila.
+    // Estados com processamento iniciado seguem para verificação/retomada segura.
     await pool.query(`UPDATE marketing_republicador_youtube
-      SET estado='interrompido', etapa='Render reiniciou; verificar publicações anteriores antes de repetir',
+      SET estado='interrompido', etapa='Render reiniciou; verificar envios anteriores',
         atualizado_em=NOW(), r2_apagar_em=NOW()+INTERVAL '24 hours'
-      WHERE estado IN ('aguardando','baixando','preparando','publicando')`);
+      WHERE estado IN ('baixando','preparando','publicando')`);
+    const pendentes=(await pool.query(`SELECT id FROM marketing_republicador_youtube
+      WHERE estado='aguardando' ORDER BY criado_em LIMIT 50`)).rows;
+    for(const p of pendentes)colocarNaFila(p.id);
     await limparVencidos();
   }).catch(e=>console.warn('[Republicador YouTube] Schema:',erroCurto(e)));
   const timer = setInterval(limparVencidos, 60000);
@@ -366,4 +420,4 @@ async function diagnostico() {
     observacao: 'Sucesso significa aceite pelas APIs; não confirmação de visualização pública.' };
 }
 
-module.exports = { inicializar, iniciar, retry, obter, paraCliente, historico, diagnostico, listar:catalogo.listar };
+module.exports = { inicializar, iniciar, retry, conciliarEntrega, haEnvioSemConfirmacao, obter, paraCliente, historico, diagnostico, listar:catalogo.listar };
