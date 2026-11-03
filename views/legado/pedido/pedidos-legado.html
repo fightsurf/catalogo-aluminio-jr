@@ -2057,7 +2057,7 @@
             <table>
               <thead>
                 <tr>
-                  <th>Item</th>
+                  <th style="width:76px;">Foto</th>
                   <th>Descrição</th>
                   <th class="right">Quantidade</th>
                   <th class="right">Preço</th>
@@ -2073,7 +2073,7 @@
                   const calculoItem = calculoVolumesItens[index] || null;
                   return `
                     <tr>
-                      <td>${item.item || '-'}</td>
+                      <td class="celula-foto-item">${miniaturaProdutoEdicao(item)}</td>
                       <td>${item.descricao || '-'}</td>
                       <td class="right">${numero(item.quantidade)}</td>
                       <td class="right">${moeda(item.preco)}</td>
@@ -2130,7 +2130,7 @@
           <table>
             <thead>
               <tr>
-                <th style="width:76px;">Item</th>
+                <th style="width:76px;">Foto</th>
                 <th>Descrição</th>
                 <th class="right" style="width:130px;">Quantidade</th>
                 <th class="right" style="width:190px;">Preço</th>
@@ -3054,6 +3054,16 @@
       importandoRelatorio = false;
       limparBuscaProduto();
       renderizarPedidoCompleto();
+      // A tabela de consulta usa as mesmas fotos do catálogo exibidas durante a edição.
+      // Se o catálogo estiver indisponível, mantém a tabela com a indicação "Sem foto".
+      try {
+        await buscarCatalogoAtualEdicao();
+      } catch (_) {
+        catalogoProdutosEdicao = new Map();
+      }
+      if (!modoEdicao && String(pedidoCarregado?.idMestre) === String(pedidoBase.idMestre)) {
+        renderizarItens(pedidoCarregado);
+      }
     }
 
     async function pesquisarPedidos(filtrosExternos = null) {
