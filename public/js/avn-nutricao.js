@@ -513,11 +513,29 @@ async function registrarRefeicaoPlanejada(){
  finally{registrandoRefeicao=false;renderPlannedMeal();}
 }
 
+// Zero é valor informado. Ausente, não numérico ou negativo exige revisão do cadastro.
+function nutrienteAusenteAlimento(valor){
+ return valor==null||String(valor).trim()===''||!Number.isFinite(Number(valor))||Number(valor)<0;
+}
 function renderFoodList(){
  if(!has('listaAlimentos'))return;
  const q=($('buscaAlimento').value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  const list=state.alimentos.filter(f=>(f.nome+' '+(f.preparo||'')+' '+(f.marca||'')).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(q));
- $('listaAlimentos').innerHTML=list.length?list.map(f=>`<div class="list-row avn-food-row" data-food-id="${f.id}" tabindex="0" role="button" aria-label="Ver composição de ${esc(f.nome)}"><div><span class="name">${esc(f.nome)}</span><small>${esc([f.preparo,f.marca].filter(Boolean).join(' · '))} ${f.kcal_100g==null?'· Energia sem dado':'· '+fmt(f.kcal_100g,1)+' kcal/100 g'}</small></div><div class="avn-food-actions"><button type="button" class="secondary" data-edit="${f.id}">Editar</button>${String(f.usuario_id)===String(state.usuarioId)&&f.fonte!=='receita'? `<button type="button" class="delete" data-delete-food="${f.id}" aria-label="Excluir ${esc(f.nome)}">Excluir</button>`:''}</div></div>`).join(''):'<p class="muted">Nenhum alimento encontrado. Cadastre o primeiro alimento no formulário.</p>';
+ const campos=[['Energia','kcal_100g','kcal'],['Carboidratos','carboidratos_g_100g','g'],['Gorduras','gorduras_g_100g','g']];
+ $('listaAlimentos').innerHTML=list.length?list.map(f=>{
+  const faltantes=campos.filter(([,chave])=>nutrienteAusenteAlimento(f[chave])).map(([nome])=>nome);
+  const incompleto=faltantes.length>0;
+  const resumo=campos.map(([nome,chave,unidade])=>'<span>'+nome+': <b>'+(nutrienteAusenteAlimento(f[chave])?'Sem dado':fmt(f[chave],1)+' '+unidade)+'</b></span>').join('');
+  const detalhes=[f.preparo,f.marca].filter(Boolean).join(' · ');
+  return '<div class="list-row avn-food-row'+(incompleto?' avn-food-incompleto':'')+'" data-food-id="'+esc(f.id)+'" tabindex="0" role="button" aria-label="Ver composição de '+esc(f.nome)+'">'+
+   '<div class="avn-food-info"><span class="name">'+esc(f.nome)+'</span>'+
+   (detalhes?'<small class="avn-food-meta">'+esc(detalhes)+'</small>':'')+
+   '<small class="avn-food-summary"><span>Por 100 g:</span>'+resumo+'</small>'+
+   (incompleto?'<small class="avn-food-aviso">⚠ Atenção: sem dados de '+esc(faltantes.join(', '))+'</small>':'')+
+   '</div><div class="avn-food-actions"><button type="button" class="secondary" data-edit="'+esc(f.id)+'">Editar</button>'+
+   (String(f.usuario_id)===String(state.usuarioId)&&f.fonte!=='receita'? '<button type="button" class="delete" data-delete-food="'+esc(f.id)+'" aria-label="Excluir '+esc(f.nome)+'">Excluir</button>':'')+
+   '</div></div>';
+ }).join(''):'<p class="muted">Nenhum alimento encontrado. Cadastre o primeiro alimento no formulário.</p>';
  $('listaAlimentos').querySelectorAll('[data-edit]').forEach(btn=>btn.onclick=e=>{e.stopPropagation();fillFood(state.alimentos.find(a=>String(a.id)===btn.dataset.edit));$('modalAlimento').showModal();});
  $('listaAlimentos').querySelectorAll('[data-delete-food]').forEach(btn=>btn.onclick=async e=>{e.stopPropagation();await excluirAlimento(btn.dataset.deleteFood,btn);});
  $('listaAlimentos').querySelectorAll('[data-food-id]').forEach(row=>{const abrir=()=>window.AVNFoodCharts?.open(state.alimentos.find(a=>String(a.id)===row.dataset.foodId),MICRO);row.addEventListener('click',e=>{if(e.target.closest('button'))return;abrir();});row.addEventListener('keydown',e=>{if(e.target===row&&(e.key==='Enter'||e.key===' ')){e.preventDefault();abrir();}});});
