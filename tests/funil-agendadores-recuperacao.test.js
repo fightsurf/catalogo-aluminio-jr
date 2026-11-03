@@ -39,3 +39,9 @@ test('republicador detecta partes incertas e impede repeticao cega',()=>{
   assert.match(republicador,/atual\.partes\[i\]=\{status:'enviando'\}/);
   assert.match(republicador,/if \(haEnvioSemConfirmacao\(job\.canais\)\)/);
 });
+
+test('aguardar video libera a fila sem fazer polling continuo',()=>{
+  assert.match(funil,/\(i\.proxima_tentativa IS NULL OR i\.proxima_tentativa<=NOW\(\)\)/);
+  assert.match(funil,/result\.status==='processando'[\s\S]*?tentativaEm:new Date\(Date\.now\(\)\+30000\)/);
+  assert.match(funil,/estado_republicador:job\.estado\}[\s\S]*?tentativaEm:new Date\(Date\.now\(\)\+30000\)/);
+});
