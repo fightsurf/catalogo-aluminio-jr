@@ -193,7 +193,8 @@ async function processarVideo(db,item,lot) {
   const detalhes={progresso:result.progresso,resultado:result.status_geral, canais:result.canais,
     partes:result.total_partes,atualizado_em:new Date().toISOString()};
   if(result.status==='processando') {
-    await atualizar(db,item,'aguardando_video',{detalhes});return;
+    // Não monopolizar o funil enquanto o renderizador trabalha em segundo plano.
+    await atualizar(db,item,'aguardando_video',{detalhes,tentativaEm:new Date(Date.now()+30000)});return;
   }
   if(result.status==='concluido' && result.status_geral==='publicado') {await concluido(db,item,detalhes);return;}
   const erro=cleanError(result.erro || Object.values(result.canais||{}).map(c=>c.erro).find(Boolean) || 'Vídeo incompleto');
@@ -341,10 +342,11 @@ async function processarYoutube(db,item){
   const job=await republicador.obter(jobId);
   if(!job){
     // UUID estável: reinicialização antes/depois da criação não duplica job.
-    await atualizar(db,item,'aguardando_video',{detalhes:{...item.detalhes,job_id:jobId}});
+    await atualizar(db,item,'aguardando_video',{detalhes:{...item.detalhes,job_id:jobId},
+      tentativaEm:new Date(Date.now()+30000)});
     const criado=await republicador.iniciar(videoId,'publicar',jobId);
     if(criado.id!==jobId)await atualizar(db,item,'aguardando_video',
-      {detalhes:{...item.detalhes,job_id:criado.id}});
+      {detalhes:{...item.detalhes,job_id:criado.id},tentativaEm:new Date(Date.now()+30000)});
     return;
   }
   if(job.estado==='concluido'){
@@ -354,7 +356,8 @@ async function processarYoutube(db,item){
     await incerto(db,item,'Republicador sem confirmação completa das três redes. Conferir histórico antes de repetir.',
       {...item.detalhes,job_id:job.id,estado_republicador:job.estado});return;
   }
-  await atualizar(db,item,'aguardando_video',{detalhes:{...item.detalhes,job_id:job.id,estado_republicador:job.estado}});
+  await atualizar(db,item,'aguardando_video',{detalhes:{...item.detalhes,job_id:job.id,estado_republicador:job.estado},
+    tentativaEm:new Date(Date.now()+30000)});
 }
 async function processarOferta(db,item){
   const ofertas=require('../ofertas/ofertas.service');
@@ -410,6 +413,7 @@ async function executarPasso() {
     const r=await db.query(`SELECT i.*,l.origem,l.categoria_id,l.tipo_midia,l.categoria_nome FROM marketing_fila_itens i
       JOIN marketing_fila_lotes l ON l.id=i.lote_id CROSS JOIN marketing_publicacao_ritmo p
       WHERE l.estado IN ('pendente','executando') AND i.estado <> ALL($1::text[])
+        AND (i.proxima_tentativa IS NULL OR i.proxima_tentativa<=NOW())
         AND (l.origem <> 'statuszap_agendamento' OR EXISTS(
           SELECT 1 FROM status_agendamento_config s WHERE s.id=1 AND s.ativo=TRUE))
         AND (l.origem NOT IN ('youtube_agenda','ofertas_agenda') OR EXISTS(
