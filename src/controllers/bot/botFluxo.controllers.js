@@ -1,4 +1,3 @@
-const path = require('path');
 const botFluxoService = require('../../services/bot/botFluxo.services');
 
 async function executarFluxo(req, res) {
@@ -76,7 +75,7 @@ async function deletarAcao(req, res) {
 }
 
 function getAdminView(req, res) {
-  res.sendFile(path.join(__dirname, '..', '..', '..', 'views', 'bot', 'botFluxo.html'));
+  res.redirect(302, '/bot/intencoes-admin');
 }
 
 module.exports = {
