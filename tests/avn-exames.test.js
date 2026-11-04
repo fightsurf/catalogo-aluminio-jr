@@ -15,6 +15,19 @@ test('migração aditiva de exames é carregada pelo AVN',()=>{
  assert.doesNotMatch(sql,/^\s*(DROP|TRUNCATE)\b/mi);
  assert.match(sql,/usuario_id BIGINT NOT NULL REFERENCES public\.avn_usuario/);
 });
+test('ferro sérico é incluído com guarda por nome, código e aliases',()=>{
+ const sql=read('db/sql/20261027_avn_exames_laboratoriais.sql');
+ const ferro=sql.slice(sql.indexOf("SELECT 'ferro_serico','Ferro sérico'"),sql.indexOf('-- Faixas KDIGO'));
+ assert.ok(ferro.startsWith("SELECT 'ferro_serico','Ferro sérico'"), 'Ferro sérico ausente');
+ assert.match(ferro,/'Minerais','µg\/dL','indicador'/);
+ assert.match(ferro,/WHERE NOT EXISTS \(/);
+ assert.match(ferro,/c\.codigo='ferro_serico'/);
+ assert.match(ferro,/lower\(c\.nome\)/);
+ assert.match(ferro,/unnest\(c\.aliases\)/);
+ assert.match(ferro,/ON CONFLICT\(codigo\) DO NOTHING/);
+ assert.match(sql,/\('ferritina','Ferritina'/);
+});
+
 test('Saúde tem rota autenticada e menu cadastrado',()=>{
  const routes=read('src/routes/avn/avn-sistema.routes.js');
  assert.match(routes,/categoria:'Saúde'/);
