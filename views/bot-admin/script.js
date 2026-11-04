@@ -473,6 +473,7 @@
     if (campoNovoTelefone) {
       campoNovoTelefone.value = telefoneNormalizado;
     }
+    atualizarEstadoAcoes();
 
     el('chat-mensagens').innerHTML = '<p class="msg-carregando">Carregando mensagens...</p>';
     el('chat-mensagens').scrollTop = 0;
