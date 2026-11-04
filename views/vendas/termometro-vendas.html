@@ -2,293 +2,221 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Termômetro de Vendas — Alumínio JR</title>
 <style>
-  :root { color-scheme: light; --bg:#f4f6f9; --line:#e2e8f0; --ink:#1b293b; --muted:#657387; --blue:#2455b9; --violet:#7c3aed; --panel:white; }
-  * { box-sizing: border-box; }
-  body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Arial, sans-serif; color:var(--ink); background:var(--bg); }
-  .page { max-width:1500px; margin:auto; padding:20px 18px 45px; }
-  .top { display:flex; justify-content:space-between; align-items:start; gap:12px; flex-wrap:wrap; }
-  h1 { font-size:clamp(22px,3vw,30px); margin:0 0 5px; letter-spacing:-.5px; }
-  p.lead { margin:0; color:var(--muted); font-size:13px; }
-  .actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-  button, select, input { font:inherit; font-size:13px; border:1px solid #cbd5e1; border-radius:9px; padding:10px 11px; background:#fff; color:var(--ink); }
-  button { cursor:pointer; font-weight:650; }
-  button:hover:not(:disabled) { border-color:var(--blue); }
-  button:disabled { opacity:.55; cursor:wait; }
-  button.primary { background:#162c48; color:#fff; border-color:#162c48; }
-  .message { margin:15px 0 0; padding:12px 14px; border:1px solid #bfd4ff; border-radius:10px; background:#ecf3ff; color:#244478; font-size:13px; }
-  .message.error { border-color:#fecaca; background:#fef2f2; color:#991b1b; }
-  .summary { display:grid; grid-template-columns:repeat(3,minmax(0,240px)); gap:10px; margin:20px 0 18px; }
-  .summary-card { border-radius:13px; padding:12px; border:1px solid var(--line); background:var(--panel); }
-  .summary-card.current { border-color:#adc8f7; background:#f8fbff; }
-  .summary-card h2 { margin:0 0 10px; font-size:13px; text-transform:capitalize; }
-  .summary-cols { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
-  .total { font-size:clamp(19px,2vw,24px); font-weight:800; font-variant-numeric:tabular-nums; }
-  .sum-label { font-size:11px; color:var(--muted); line-height:1.6; }
-  .panel-toolbar { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin:0 0 12px; }
-  .panel-toolbar h2 { margin:0; font-size:18px; }
-  .muted { color:var(--muted); }
-  .cards { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
-  .product-card { background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:13px; box-shadow:0 2px 10px #0f172a06; min-width:0; }
-  .product-title { margin:0; font-size:15px; font-weight:750; line-height:1.35; overflow-wrap:anywhere; }
-  .product-sub { color:var(--muted); font-size:12px; margin:4px 0 12px; }
-  .metric { margin-top:16px; }
-  .metric + .metric { border-top:1px solid #edf1f6; padding-top:16px; }
-  .metric-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:9px; }
-  .metric-head strong { font-size:13px; }
-  .metric-head span { font-size:11px; color:var(--muted); }
-  .bar-chart { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
-  .bar-col { min-width:0; text-align:center; }
-  .bar-value { font-size:14px; font-weight:800; font-variant-numeric:tabular-nums; margin:0 0 6px; }
-  .bar-track { height:108px; background:linear-gradient(to top, #f0f4fa 1px,transparent 1px) 0 0/100% 25%; display:flex; align-items:flex-end; justify-content:center; border-bottom:1px solid #cbd5e1; }
-  .bar { width:min(58%,45px); min-height:0; background:var(--blue); border-radius:5px 5px 0 0; transition:height .2s ease-out; }
-  .bar.ads { background:var(--violet); }
-  .bar-month { display:block; margin-top:7px; color:var(--muted); font-size:11px; text-transform:capitalize; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
-  .empty { background:white; border:1px dashed #aebace; border-radius:14px; padding:36px; text-align:center; color:var(--muted); }
-  .empty strong { color:var(--ink); display:block; margin-bottom:8px; }
-  .warn { color:#9a3412; font-size:12px; margin:10px 0 0; }
-  .footer { color:var(--muted); font-size:12px; line-height:1.6; margin-top:22px; }
-  dialog { border:1px solid var(--line); border-radius:16px; padding:0; width:min(760px,calc(100vw - 26px)); max-height:90vh; box-shadow:0 25px 80px #14203438; }
-  dialog::backdrop { background:#14203488; }
-  .dialog-head { display:flex; justify-content:space-between; align-items:start; gap:10px; padding:19px 21px 12px; }
-  .dialog-head h2 { margin:0; font-size:21px; }
-  .dialog-head p { margin:5px 0 0; font-size:12px; color:var(--muted); }
-  .dialog-body { padding:0 21px 16px; overflow:auto; max-height:calc(90vh - 195px); }
-  .search-row { display:flex; align-items:center; gap:8px; margin:6px 0 15px; }
-  .search-row input { min-width:0; flex:1; }
-  .config-heading { margin:14px 0 8px; font-weight:700; font-size:14px; }
-  .selected-list, .option-list { display:grid; gap:7px; }
-  .config-row { display:flex; align-items:center; gap:10px; background:#f8fafc; border:1px solid var(--line); border-radius:10px; padding:8px 10px; font-size:13px; min-width:0; }
-  .config-row .name { flex:1; overflow-wrap:anywhere; }
-  .config-row .minor { font-size:11px; color:var(--muted); }
-  .config-row button { padding:5px 10px; }
-  .config-row input[type=checkbox] { width:17px; height:17px; margin:0; flex-shrink:0; accent-color:var(--blue); }
-  .config-row.selected { background:#edf5ff; border-color:#c4dbff; }
-  .config-row .reorder { display:flex; gap:3px; }
-  .config-row .reorder button { padding:5px 7px; }
-  .dialog-footer { display:flex; gap:8px; justify-content:flex-end; align-items:center; border-top:1px solid var(--line); padding:13px 21px; }
-  .dialog-footer .count { font-size:12px; color:var(--muted); margin-right:auto; }
-  @media(max-width:1200px) { .cards {grid-template-columns:repeat(3,minmax(0,1fr));} }
-  @media(max-width:900px) { .cards {grid-template-columns:repeat(2,minmax(0,1fr));} }
-  @media(max-width:620px) { .cards {grid-template-columns:minmax(0,380px);} .summary {grid-template-columns:repeat(3,minmax(0,1fr)); gap:7px;} .summary-card {padding:12px 9px;} .summary-cols {flex-direction:column; gap:4px;} .total {font-size:22px;} }
-  @media(max-width:480px) { .page {padding:15px 10px 30px;} .top {display:block;} .actions {margin-top:14px;} .actions button {flex:1;} .summary-card h2 {font-size:12px;} .config-row .minor {display:none;} .dialog-body {padding:0 13px 12px;} .dialog-head,.dialog-footer {padding-left:13px;padding-right:13px;} }
+:root{color-scheme:dark;--bg:#0b1220;--panel:#142138;--line:#2b3d58;--txt:#f1f5f9;--muted:#a7b5c9;--blue:#60a5fa;--red:#fb7185;--warning:#fbbf24}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:1800px;margin:auto;padding:20px 24px 30px}.top{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+h1{font-size:clamp(19px,2vw,26px);margin:0}.sub{margin-top:5px;color:var(--muted);font-size:13px}
+.controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}button{border:1px solid #49607e;background:#1c2b46;color:white;border-radius:9px;padding:10px 13px;font:inherit;cursor:pointer}
+button:hover{background:#304563}button:disabled{opacity:.5;cursor:default}.timer{min-width:120px;padding:9px 14px;border:1px solid var(--line);border-radius:10px;font-size:clamp(17px,2vw,23px);font-weight:750;font-variant-numeric:tabular-nums;text-align:center}
+.timer.paused{color:var(--warning);font-size:15px}.main-title{margin:24px 0 12px;display:flex;justify-content:space-between;align-items:end;gap:15px;flex-wrap:wrap}
+h2{font-size:clamp(22px,3vw,42px);margin:0;font-weight:780;line-height:1.15}.index{color:var(--muted);white-space:nowrap}
+.dashboard{display:grid;grid-template-columns:minmax(0,7fr) minmax(240px,3fr);gap:16px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:15px;padding:18px;min-width:0}
+.chart-head{display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap;margin-bottom:12px}
+.legend{display:flex;gap:22px;flex-wrap:wrap;font-weight:670}.legend span{display:inline-flex;align-items:center;gap:7px}.swatch{display:inline-block;width:22px;height:4px;border-radius:3px}
+.blue{background:var(--blue)}.red{background:var(--red)}.muted{color:var(--muted);font-size:13px}
+.chart-wrap{min-height:340px;height:min(55vh,540px);width:100%;display:flex;align-items:stretch}
+svg{width:100%;height:100%;overflow:visible}svg text{fill:#9bacc3;font:12px system-ui,sans-serif}svg .grid{stroke:#33455f;stroke-width:1}
+svg .line{fill:none;stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
+.stat{margin-top:10px;color:var(--muted);font-size:14px}.stat strong{color:var(--txt)}
+.photo{display:flex;min-height:370px;align-items:center;justify-content:center;background:#eef2f6;border-radius:12px;overflow:hidden}
+.photo img{width:100%;height:100%;max-height:540px;object-fit:contain;display:block}.photo .none{color:#536277;text-align:center;padding:32px;font-weight:600}
+.photo-label{margin:12px 0 0;color:var(--muted);font-size:13px}
+.alert{margin-top:16px;border:2px solid #b45309;background:#3b2a1a;border-radius:14px;padding:17px 20px}
+.alert h3{margin:0 0 8px;color:#fcd34d;font-size:22px}.alert p{margin:0 0 12px;line-height:1.45}
+.price-row{display:flex;gap:13px;flex-wrap:wrap;margin:8px 0 15px}
+.price{padding:13px 16px;border-radius:10px;border:1px solid #8e6429;background:#1e293b;min-width:170px}
+.price small{display:block;color:#cbd5e1;margin-bottom:3px}.price strong{font-size:24px}
+.alert button{border:1px solid #fbbf24;background:#fbbf24;color:#332000;font-weight:750}
+.error{background:#49252c;color:#fecdd3;border:1px solid #e8798b;border-radius:10px;padding:13px;margin-top:15px}
+footer{font-size:12px;color:var(--muted);margin-top:16px;line-height:1.5}
+[hidden]{display:none!important}
+@media(max-width:900px){main{padding:16px 12px 25px}.dashboard{grid-template-columns:minmax(0,1fr)}.photo{min-height:230px;max-height:350px}.chart-wrap{height:370px}.card{padding:12px}h2{font-size:25px}}
 </style>
 </head>
 <body>
-<main class="page">
-  <div class="top">
-    <div>
-      <h1>Termômetro de Vendas</h1>
-      <p class="lead">Quantidade vendida pela data da carrada · Divulgações por publicação · Mês anterior, atual e seguinte · Atualização a cada 30 segundos</p>
-    </div>
-    <div class="actions">
-      <button id="reload" type="button">↻ Atualizar</button>
-      <button id="settings" class="primary" type="button">⚙ Configurar produtos</button>
-    </div>
+<main>
+<div class="top">
+  <div><h1>Termômetro de Vendas</h1><div class="sub">30 dias · Todos os produtos · Data da carrada no legado</div></div>
+  <div class="controls">
+    <button id="prev" type="button" title="Produto anterior">← Anterior</button>
+    <div id="timer" class="timer" aria-live="off">05:00</div>
+    <button id="next" type="button">Próximo →</button>
+    <button id="refresh" type="button">↻ Atualizar</button>
+    <button id="fullscreen" type="button">⛶ Tela cheia</button>
   </div>
-  <div id="message" class="message" role="status">Carregando o painel…</div>
-  <section id="summary" class="summary" aria-label="Resumo mensal"></section>
-  <div class="panel-toolbar">
-    <h2 id="panelTitle">Produtos monitorados</h2>
-    <label class="muted" for="sort">Ordenar: <select id="sort">
-      <option value="config">Minha ordem</option>
-      <option value="most">Mais vendidos no mês atual</option>
-      <option value="least">Menos vendidos no mês atual</option>
-      <option value="name">Nome (A–Z)</option>
-    </select></label>
+</div>
+<div class="main-title"><h2 id="productName">Carregando produtos…</h2><span id="index" class="index"></span></div>
+<div id="error" class="error" role="alert" hidden></div>
+<div class="dashboard">
+  <section class="card" aria-label="Gráfico de vendas e divulgações">
+    <div class="chart-head">
+      <div class="legend"><span><i class="swatch blue"></i> Divulgado</span><span><i class="swatch red"></i> Vendido</span></div>
+      <span class="muted">Eixo X: dia · Eixo Y: quantidade</span>
+    </div>
+    <div id="chart" class="chart-wrap" aria-label="Série diária dos últimos 30 dias"></div>
+    <div id="stat" class="stat"></div>
+  </section>
+  <aside class="card" aria-label="Foto do produto">
+    <div id="photo" class="photo"><span class="none">Carregando imagem…</span></div>
+    <p class="photo-label" id="photoLabel"></p>
+  </aside>
+</div>
+<section id="alert" class="alert" role="alert" hidden>
+  <h3>⚠ Atenção: produto com dia sem vendas</h3>
+  <p id="alertText"></p>
+  <div class="price-row">
+    <div class="price"><small>Custo unitário</small><strong id="cost"></strong></div>
+    <div class="price"><small>Preço de venda atual</small><strong id="price"></strong></div>
+    <div class="price"><small>Margem bruta estimada</small><strong id="margin"></strong></div>
   </div>
-  <section id="cards" class="cards" aria-label="Gráficos por produto"></section>
-  <p class="footer">As vendas incluem todo o mês da carrada, mesmo que a data esteja no futuro. As divulgações contam apenas publicações registradas pelos módulos Central de Ofertas, Status Zap e Status Vídeo, uma vez por produto e publicação, independentemente da rede de destino ou quantidade no kit. Pedidos cancelados são desconsiderados. Os dados de divulgação anteriores à implantação do registro podem ser incompletos.</p>
+  <button type="button" id="continue">Continuar para o próximo produto →</button>
+</section>
+<footer>As divulgações são contadas por publicação registrada, não pelo número de visualizações. Vendas: pedidos das carradas, excluindo cancelados identificados pelo legado. Produtos sem código vinculado não são tratados como vendas zeradas. Dias incompletos não acionam alerta. Publicações anteriores ao início do registro podem estar ausentes.</footer>
 </main>
-
-<dialog id="configDialog" aria-labelledby="configTitle">
-  <div class="dialog-head">
-    <div><h2 id="configTitle">Configurar produtos</h2><p>Escolha quais produtos acompanhar. A seleção é salva para todos os dispositivos.</p></div>
-    <button type="button" id="closeDialog" aria-label="Fechar">✕</button>
-  </div>
-  <div class="dialog-body">
-    <div class="search-row"><input type="search" id="productSearch" autocomplete="off" placeholder="Buscar produto por nome ou código (sem acentos)"></div>
-    <div class="config-heading" id="selectedTitle">Selecionados</div>
-    <div class="selected-list" id="selectedList"></div>
-    <div class="config-heading">Adicionar produtos</div>
-    <div class="option-list" id="availableList"></div>
-    <p class="muted" id="moreResults" style="font-size:12px"></p>
-  </div>
-  <div class="dialog-footer">
-    <span class="count" id="selectedCount">0 selecionados</span>
-    <button type="button" id="cancelSettings">Cancelar</button>
-    <button type="button" id="saveSettings" class="primary">Salvar seleção</button>
-  </div>
-</dialog>
 <script>
 'use strict';
-const urlBase = '/api/vendas/termometro-vendas';
-const elem = (id) => document.getElementById(id);
-const number = new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 3 });
-let painel = null;
-let catalogo = [];
-let selecionados = [];
-let carregando = false;
-
-function escapar(value) {
-  return String(value ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-}
-function normalizar(texto) {
-  return String(texto ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
-}
-function aviso(mensagem, tipo = 'info') {
-  const el = elem('message');
-  el.textContent = mensagem;
-  el.className = 'message' + (tipo === 'error' ? ' error' : '');
-  el.hidden = !mensagem;
-}
-async function consultar(path, opts) {
-  const resp = await fetch(urlBase + path, { credentials:'same-origin', cache:'no-store', ...opts });
-  const payload = await resp.json().catch(() => ({}));
-  if (!resp.ok || !payload.success) throw new Error(payload.message || `Falha HTTP ${resp.status}`);
-  return payload.data;
-}
-function barras(itens, chave) {
-  const maior = Math.max(0, ...itens.map((m) => Number(m[chave]) || 0));
-  const cor = chave === 'vendas' ? '' : ' ads';
-  return `<div class="bar-chart">${itens.map((m, i) => {
-    const qtd = m[chave];
-    const valor = qtd === null ? '—' : number.format(qtd);
-    const altura = qtd === null || Number(qtd) <= 0 ? 0 : Math.max(3, Number(qtd) / maior * 100);
-    const mes = painel.meses[i].rotulo.split(' ')[0];
-    return `<div class="bar-col" title="${escapar(painel.meses[i].rotulo)}: ${escapar(valor)}">
-      <div class="bar-value">${escapar(valor)}</div>
-      <div class="bar-track"><div class="bar${cor}" style="height:${altura.toFixed(2)}%"></div></div>
-      <span class="bar-month">${escapar(mes)}</span>
-    </div>`;
-  }).join('')}</div>`;
-}
-function cartao(p) {
-  const vinculo = p.item_legado ? `Código legado ${p.item_legado}` : 'Sem vínculo com item do Firebird';
-  return `<article class="product-card">
-    <h3 class="product-title">${escapar(p.nome)}</h3>
-    <div class="product-sub">${escapar(vinculo)}</div>
-    <div class="metric"><div class="metric-head"><strong>Unidades vendidas</strong><span>Por data da carrada</span></div>${barras(p.meses,'vendas')}</div>
-    <div class="metric"><div class="metric-head"><strong>Divulgações</strong><span>Uma por publicação</span></div>${barras(p.meses,'divulgacoes')}</div>
-    ${p.item_legado ? '' : '<p class="warn">Vincule o produto ao item legado para exibir suas vendas.</p>'}
-  </article>`;
-}
-function renderizar() {
-  if (!painel) return;
-  const meses = painel.meses;
-  elem('summary').innerHTML = painel.totais.map((m,i) => `<div class="summary-card${i===1?' current':''}">
-    <h2>${escapar(m.rotulo)}</h2>
-    <div class="summary-cols"><div><div class="total">${number.format(m.vendas)}</div><div class="sum-label">unidades vendidas</div></div>
-    <div><div class="total">${number.format(m.divulgacoes)}</div><div class="sum-label">divulgações</div></div></div>
-  </div>`).join('');
-  const produtos = [...painel.itens];
-  const sort = elem('sort').value;
-  const vendas = (p) => Number(p.meses[1]?.vendas || 0);
-  if (sort === 'most') produtos.sort((a,b) => vendas(b)-vendas(a) || a.ordem-b.ordem);
-  if (sort === 'least') produtos.sort((a,b) => vendas(a)-vendas(b) || a.ordem-b.ordem);
-  if (sort === 'name') produtos.sort((a,b) => a.nome.localeCompare(b.nome, 'pt-BR'));
-  elem('panelTitle').textContent = `Produtos monitorados (${produtos.length})`;
-  elem('cards').innerHTML = produtos.length ? produtos.map(cartao).join('') : `<div class="empty" style="grid-column:1/-1"><strong>Nenhum produto selecionado</strong>Abra “Configurar produtos” para escolher os itens que deseja acompanhar.</div>`;
-}
-async function atualizar() {
-  if (carregando || elem('configDialog').open) return;
-  carregando = true;
-  elem('reload').disabled = true;
-  try {
-    const dados = await consultar('/painel');
-    painel = dados;
-    aviso('');
-    renderizar();
-  } catch (erro) {
-    console.error(erro);
-    aviso('Falha ao carregar o Termômetro: ' + erro.message, 'error');
-  } finally {
-    carregando = false;
-    elem('reload').disabled = false;
+var endpoint='/api/vendas/termometro-vendas/painel-rotativo';
+var painel=null,indice=0,inicio=Date.now(),bloqueado=false,ocupado=false;
+var duracao=300000,erroVisivel=false;
+var el=function(id){return document.getElementById(id)};
+var numero=new Intl.NumberFormat('pt-BR',{maximumFractionDigits:3});
+var dinheiro=new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
+function htmlSeguro(x){return String(x==null?'':x).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]})}
+function dataBR(iso){return iso.slice(8,10)+'/'+iso.slice(5,7)}
+function mostrarErro(txt){el('error').textContent=txt;el('error').hidden=!txt}
+function total(p,campo){return p.dias.reduce(function(acc,d){return acc+Number(d[campo]||0)},0)}
+function valorBR(n){return n==null?'Não cadastrado':dinheiro.format(n)}
+function atual(){return painel&&painel.itens[indice]}
+function desenharGrafico(p){
+  var width=1000,height=450,left=58,right=15,top=22,bottom=395;
+  var plotW=width-left-right,plotH=bottom-top;
+  var valores=p.dias.flatMap(function(d){return [Number(d.divulgado)||0,Number(d.vendido)||0]});
+  var teto=Math.max(1,...valores);
+  var unidade=Math.max(1,Math.ceil(teto/4));
+  var max=unidade*4;
+  var x=function(i){return left+(plotW*i/Math.max(1,p.dias.length-1))};
+  var y=function(v){return bottom-(Number(v)||0)/max*plotH};
+  var xml=['<svg viewBox="0 0 '+width+' '+height+'" role="img" aria-label="Divulgações e vendas diárias dos últimos 30 dias">'];
+  for(var j=0;j<=4;j++){
+    var yy=y(j*unidade);
+    xml.push('<line class="grid" x1="'+left+'" y1="'+yy+'" x2="'+(width-right)+'" y2="'+yy+'"></line>');
+    xml.push('<text x="'+(left-10)+'" y="'+(yy+4)+'" text-anchor="end">'+numero.format(j*unidade)+'</text>');
   }
-}
-function linhaProduto(p, selecionado, indice) {
-  const naoVinculado = !p.item_legado ? '<span class="minor">Sem vínculo legado</span>' : `<span class="minor">Item ${p.item_legado}</span>`;
-  return `<div class="config-row${selecionado?' selected':''}">
-    <input type="checkbox" data-toggle="${p.id}" ${selecionado?'checked':''} aria-label="Monitorar ${escapar(p.nome)}">
-    <span class="name">${escapar(p.nome)}</span>${naoVinculado}
-    ${selecionado ? `<div class="reorder"><button type="button" data-move="${p.id}" data-dir="-1" ${indice===0?'disabled':''} title="Subir">↑</button><button type="button" data-move="${p.id}" data-dir="1" ${indice===selecionados.length-1?'disabled':''} title="Descer">↓</button></div>` : ''}
-  </div>`;
-}
-function renderizarConfiguracao() {
-  const mapa = new Map(catalogo.map((p) => [p.id,p]));
-  const termo = normalizar(elem('productSearch').value.trim());
-  const listaSelecionados = selecionados.map((id,index) => mapa.get(id) ? linhaProduto(mapa.get(id),true,index) : '').filter(Boolean);
-  elem('selectedList').innerHTML = listaSelecionados.join('') || '<p class="muted" style="font-size:12px">Nenhum produto selecionado.</p>';
-  elem('selectedTitle').textContent = `Selecionados (${selecionados.length}) — use ↑ ↓ para definir a ordem`;
-  elem('selectedCount').textContent = `${selecionados.length} selecionado(s)`;
-  const escolhidos = new Set(selecionados);
-  const disponiveis = catalogo.filter((p) => !escolhidos.has(p.id) && (normalizar(p.nome).includes(termo) || String(p.item_legado||'').includes(termo) || String(p.id).includes(termo)));
-  elem('availableList').innerHTML = disponiveis.slice(0,120).map((p) => linhaProduto(p,false)).join('') || '<p class="muted" style="font-size:12px">Nenhum produto encontrado.</p>';
-  elem('moreResults').textContent = disponiveis.length > 120 ? `Mostrando 120 de ${disponiveis.length}. Digite parte do nome para localizar outros.` : '';
-}
-async function abrirConfiguracao() {
-  elem('settings').disabled = true;
-  try {
-    const dados = await consultar('/configuracao');
-    catalogo = dados.produtos;
-    selecionados = [...dados.selecionados];
-    elem('productSearch').value = '';
-    renderizarConfiguracao();
-    elem('configDialog').showModal();
-    elem('productSearch').focus();
-  } catch (erro) {
-    aviso('Não foi possível abrir a configuração: ' + erro.message, 'error');
-  } finally { elem('settings').disabled = false; }
-}
-function fecharConfiguracao() { elem('configDialog').close(); }
-async function salvarConfiguracao() {
-  const button = elem('saveSettings');
-  button.disabled = true;
-  try {
-    await consultar('/configuracao', {
-      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({selecionados})
+  for(var i=0;i<p.dias.length;i++){
+    if(i%3!==0&&i!==p.dias.length-1)continue;
+    xml.push('<text x="'+x(i)+'" y="'+(bottom+24)+'" text-anchor="middle">'+dataBR(p.dias[i].data)+'</text>');
+  }
+  function serie(campo,cor){
+    if(p.dias.every(function(d){return d[campo]==null}))return;
+    var pontos=p.dias.map(function(d,i){return d[campo]==null?null:[x(i),y(d[campo])]});
+    var path='',aberto=false;
+    pontos.forEach(function(pt){if(!pt){aberto=false;return}path+=(aberto?' L':' M')+pt[0].toFixed(2)+','+pt[1].toFixed(2);aberto=true});
+    xml.push('<path class="line" stroke="'+cor+'" d="'+path+'"></path>');
+    pontos.forEach(function(pt,i){if(!pt)return;
+      var v=p.dias[i];
+      xml.push('<circle cx="'+pt[0]+'" cy="'+pt[1]+'" r="4" fill="'+cor+'"><title>'+
+      htmlSeguro(v.data+' — '+(campo==='vendido'?'Vendido: ':'Divulgado: ')+numero.format(v[campo]))+
+      '</title></circle>');
     });
-    fecharConfiguracao();
-    await atualizar();
-  } catch (erro) {
-    console.error(erro);
-    window.alert('Não foi possível salvar: ' + erro.message);
-  } finally { button.disabled = false; }
-}
-function acaoConfig(evento) {
-  const checkbox = evento.target.closest('[data-toggle]');
-  if (checkbox) {
-    const id = Number(checkbox.dataset.toggle);
-    if (checkbox.checked && !selecionados.includes(id)) selecionados.push(id);
-    if (!checkbox.checked) selecionados = selecionados.filter((s) => s!==id);
-    renderizarConfiguracao();
-    return;
   }
-  const botao = evento.target.closest('button[data-move]');
-  if (botao) {
-    const i = selecionados.indexOf(Number(botao.dataset.move));
-    const j = i + Number(botao.dataset.dir);
-    if (i>=0 && j>=0 && j<selecionados.length) {
-      [selecionados[i],selecionados[j]]=[selecionados[j],selecionados[i]];
-      renderizarConfiguracao();
+  serie('divulgado','#60a5fa');serie('vendido','#fb7185');
+  xml.push('<text x="'+(left+plotW/2)+'" y="444" text-anchor="middle">Data (dia/mês)</text>');
+  xml.push('</svg>');
+  el('chart').innerHTML=xml.join('');
+}
+function desenharFoto(p){
+  var root=el('photo');root.replaceChildren();
+  var url=String(p.foto||'').trim();
+  if(url&&(/^(https?:)?\/\//i.test(url)||url.charAt(0)==='/')){
+    var img=document.createElement('img');
+    img.alt='Foto do produto '+p.nome;img.src=url;
+    img.onerror=function(){root.textContent='Imagem indisponível'};
+    root.appendChild(img);
+  }else{
+    var span=document.createElement('span');span.className='none';span.textContent='Produto sem foto cadastrada';root.appendChild(span);
+  }
+  el('photoLabel').textContent=(p.item_legado?'Item legado '+p.item_legado:'Sem vínculo com o legado')+
+    (p.ativo?'':' · Produto inativo');
+}
+function entrarProduto(n){
+  if(!painel||!painel.itens.length)return;
+  indice=(n+painel.itens.length)%painel.itens.length;
+  inicio=Date.now();
+  var p=atual();el('productName').textContent=p.nome;
+  el('index').textContent=(indice+1)+' de '+painel.itens.length+' produtos';
+  desenharGrafico(p);desenharFoto(p);
+  el('stat').textContent='Divulgações no período: '+numero.format(total(p,'divulgado'))+
+    ' · Unidades vendidas: '+(p.item_legado?numero.format(total(p,'vendido')):'indisponível (sem vínculo)');
+  // Um dia ainda em andamento não é dia completo e não deve paralisar o monitor.
+  var completos=p.dias.slice(0,-1);
+  var zerados=p.item_legado?completos.filter(function(d){return d.vendido===0}):[];
+  bloqueado=zerados.length>0;
+  el('alert').hidden=!bloqueado;
+  if(bloqueado){
+    el('alertText').textContent=zerados.length+' dia(s) completo(s) sem vendas nos últimos 30 dias. '+
+      'Exemplo: '+zerados.slice(0,6).map(function(d){return dataBR(d.data)}).join(', ')+
+      (zerados.length>6?'…':'')+'. A rotação está pausada até sua decisão.';
+    el('cost').textContent=valorBR(p.custo);
+    el('price').textContent=valorBR(p.preco);
+    el('margin').textContent=p.custo!=null&&p.preco>0?
+      numero.format((p.preco-p.custo)/p.preco*100)+'%':'Indisponível';
+  }
+  atualizarRelogio();
+}
+function atualizarRelogio(){
+  if(!painel||!painel.itens.length)return;
+  var t=el('timer');
+  if(bloqueado){t.textContent='⏸ PAUSADO';t.classList.add('paused');return}
+  t.classList.remove('paused');
+  var restante=Math.max(0,duracao-(Date.now()-inicio));
+  var segundos=Math.ceil(restante/1000);
+  t.textContent=String(Math.floor(segundos/60)).padStart(2,'0')+':'+String(segundos%60).padStart(2,'0');
+  if(restante<=0)entrarProduto(indice+1);
+}
+async function carregar(){
+  if(ocupado)return;
+  ocupado=true;el('refresh').disabled=true;
+  try{
+    var resp=await fetch(endpoint,{credentials:'same-origin',cache:'no-store'});
+    var json=await resp.json();
+    if(!resp.ok||!json.success)throw new Error(json.message||'Falha HTTP '+resp.status);
+    var id=atual()&&atual().id;
+    var houvePainel=!!painel;var estavaBloqueado=bloqueado;
+    painel=json.data;
+    if(!Array.isArray(painel.itens)||!painel.itens.length){
+      mostrarErro('Não existem produtos cadastrados para exibir.');return;
     }
-  }
+    mostrarErro('');
+    var novaPosicao=id==null?-1:painel.itens.findIndex(function(p){return p.id===id});
+    if(novaPosicao<0)novaPosicao=0;
+    var mesmo=houvePainel&&painel.itens[novaPosicao].id===id;
+    var inicioAnterior=inicio;
+    entrarProduto(novaPosicao);
+    if(mesmo){
+      // Atualizar dados e alerta, sem reiniciar os 5 minutos.
+      inicio=inicioAnterior;
+      if(estavaBloqueado&&bloqueado)el('timer').textContent='⏸ PAUSADO';
+      atualizarRelogio();
+    }
+  }catch(e){
+    console.error(e);mostrarErro('Não foi possível atualizar os dados: '+e.message+'. Nenhum zero será inferido.');
+  }finally{ocupado=false;el('refresh').disabled=false}
 }
-elem('settings').addEventListener('click', abrirConfiguracao);
-elem('reload').addEventListener('click', atualizar);
-elem('sort').addEventListener('change', renderizar);
-elem('productSearch').addEventListener('input', renderizarConfiguracao);
-elem('selectedList').addEventListener('click', acaoConfig);
-elem('selectedList').addEventListener('change', acaoConfig);
-elem('availableList').addEventListener('change', acaoConfig);
-elem('closeDialog').addEventListener('click', fecharConfiguracao);
-elem('cancelSettings').addEventListener('click', fecharConfiguracao);
-elem('saveSettings').addEventListener('click', salvarConfiguracao);
-setInterval(atualizar, 30000);
-atualizar();
+el('next').addEventListener('click',function(){entrarProduto(indice+1)});
+el('prev').addEventListener('click',function(){entrarProduto(indice-1)});
+el('continue').addEventListener('click',function(){entrarProduto(indice+1)});
+el('refresh').addEventListener('click',carregar);
+el('fullscreen').addEventListener('click',function(){
+  if(document.fullscreenElement){document.exitFullscreen()}else if(document.documentElement.requestFullscreen){document.documentElement.requestFullscreen()}
+});
+setInterval(atualizarRelogio,1000);
+setInterval(carregar,60000);
+document.addEventListener('visibilitychange',function(){if(!document.hidden)atualizarRelogio()});
+carregar();
 </script>
 </body>
 </html>
