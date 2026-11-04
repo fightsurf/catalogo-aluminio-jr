@@ -85,7 +85,7 @@ test('TFG estimada tem categorias KDIGO e referência padrão automática',()=>{
 
 test('catálogo inclui fósforo e cálcio total sem confundir com cálcio ionizado',()=>{
  const sql=read('db/sql/20261027_avn_exames_laboratoriais.sql');
- const linhas=sql.split('\\n');
+ const linhas=sql.split(String.fromCharCode(10));
  for(const [codigo,nome] of [['fosforo','Fósforo'],['calcio_total','Cálcio total']]){
   const linha=linhas.find(l=>l.startsWith("('"+codigo+"','"+nome+"'"));
   assert.ok(linha, 'Exame ausente: '+nome);
