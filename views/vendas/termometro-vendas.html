@@ -35,6 +35,123 @@ svg .line{fill:none;stroke-width:3;stroke-linejoin:round;stroke-linecap:round}
 footer{font-size:12px;color:var(--muted);margin-top:16px;line-height:1.5}
 [hidden]{display:none!important}
 @media(max-width:900px){main{padding:16px 12px 25px}.dashboard{grid-template-columns:minmax(0,1fr)}.photo{min-height:230px;max-height:350px}.chart-wrap{height:370px}.card{padding:12px}h2{font-size:25px}}
+
+/* Painel de monitoramento: todos os elementos essenciais dentro da altura visível. */
+html,body{height:100%}
+body{overflow:hidden}
+main{
+  width:100%;height:100vh;height:100dvh;min-height:0;
+  display:flex;flex-direction:column;
+  gap:clamp(5px,.85vh,11px);
+  padding:clamp(7px,1.1vw,16px) clamp(8px,1.4vw,22px);
+  overflow:hidden;
+}
+.top,.main-title{flex:0 0 auto;min-height:0}
+.top{align-items:center}
+.sub{margin-top:3px}
+.main-title{margin:0;align-items:center}
+h2{font-size:clamp(19px,2.5vw,34px);overflow-wrap:anywhere}
+.dashboard{
+  flex:1 1 auto;min-height:0;
+  grid-template-columns:minmax(0,7fr) minmax(0,3fr);
+  gap:clamp(7px,1vw,14px);
+}
+.dashboard>.card{
+  display:flex;flex-direction:column;min-width:0;min-height:0;
+  overflow:hidden;padding:clamp(8px,1.1vw,15px);
+}
+.chart-head{flex:0 0 auto;margin-bottom:5px}
+.chart-wrap{flex:1 1 auto;min-height:0;height:auto;max-height:none;overflow:hidden}
+.chart-wrap svg{display:block;width:100%;height:100%;min-height:0}
+.stat{flex:0 0 auto;margin-top:5px;line-height:1.2}
+.photo{flex:1 1 auto;min-height:0;height:auto;max-height:none;overflow:hidden}
+.photo img{height:100%;width:100%;max-height:100%;object-fit:contain}
+.photo-label{flex:0 0 auto;margin:6px 0 0;line-height:1.15}
+.alert{
+  flex:0 0 auto;min-height:0;margin:0;
+  display:grid;grid-template-columns:minmax(210px,.9fr) minmax(0,2.1fr);
+  align-items:center;gap:clamp(8px,1vw,15px);
+  padding:clamp(8px,1vw,13px);
+}
+.alert h3{font-size:clamp(15px,1.6vw,21px);margin:0 0 4px}
+.alert p{font-size:clamp(11px,1vw,13px);line-height:1.25;margin:0}
+.alert-actions{display:flex;align-items:stretch;min-width:0;gap:8px}
+.price-row{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  flex:1 1 auto;min-width:0;gap:7px;margin:0;
+}
+.price{
+  min-width:0;display:flex;flex-direction:column;justify-content:center;
+  padding:8px 9px;
+}
+.price small{font-size:clamp(10px,1vw,12px);line-height:1.15;margin-bottom:4px}
+.price strong{font-size:clamp(15px,1.6vw,23px);overflow-wrap:anywhere;line-height:1.18}
+.alert button{
+  flex:0 0 150px;width:150px;max-width:150px;
+  padding:7px;font-size:clamp(11px,1vw,13px);line-height:1.25;
+}
+.notes{position:relative;z-index:30;flex:0 0 auto;color:var(--muted);font-size:11px}
+.notes summary{cursor:pointer;list-style:none;text-align:right}
+.notes summary::-webkit-details-marker{display:none}
+.notes p{
+  position:absolute;right:0;bottom:100%;z-index:50;
+  width:min(510px,calc(100vw - 30px));margin:0 0 7px;
+  background:#20324d;border:1px solid var(--line);border-radius:10px;
+  padding:11px;color:var(--txt);line-height:1.5;
+  box-shadow:0 8px 22px #0008;
+}
+@media(max-width:1100px){
+  .alert{grid-template-columns:minmax(0,1fr);gap:6px}
+  .alert-copy{display:flex;align-items:center;gap:12px}
+  .alert h3{margin:0;flex:0 0 auto}
+  .alert p{flex:1}
+}
+@media(max-width:650px){
+  main{gap:5px;padding:6px 7px}
+  h1{font-size:17px}
+  .top .sub{display:none}
+  .controls{gap:4px}
+  .controls button{padding:6px 7px;font-size:11px}
+  .timer{min-width:68px;padding:5px;font-size:14px}
+  .timer.paused{font-size:11px}
+  h2{font-size:clamp(17px,5vw,24px)}
+  .main-title{gap:6px}
+  .index{font-size:11px}
+  .dashboard{
+    grid-template-columns:minmax(0,1fr);
+    grid-template-rows:minmax(0,1fr) clamp(66px,12vh,95px);
+    gap:5px;
+  }
+  .dashboard>.card{padding:6px 8px}
+  .dashboard>aside.card{flex-direction:row;gap:8px;align-items:center}
+  .photo{flex:0 0 105px;width:105px;height:100%}
+  .photo-label{flex:1 1 auto;margin:0;font-size:11px}
+  .chart-head{gap:6px;margin-bottom:2px}
+  .chart-head .muted{display:none}
+  .legend{gap:10px;font-size:12px}
+  .stat{font-size:11px;margin-top:2px}
+  .alert{gap:5px;padding:7px}
+  .alert-copy{display:block}
+  .alert h3{font-size:14px;margin:0 0 3px}
+  .alert p{font-size:10px;line-height:1.18}
+  .alert-actions{gap:5px}
+  .price-row{gap:4px}
+  .price{padding:5px}
+  .price small{font-size:9px;line-height:1.1}
+  .price strong{font-size:clamp(12px,3vw,16px)}
+  .alert button{flex-basis:85px;max-width:85px;width:85px;font-size:10px;padding:5px}
+  .notes{font-size:10px}
+}
+@media(max-height:710px){
+  main{gap:4px;padding-top:6px;padding-bottom:6px}
+  .top .sub{display:none}
+  .main-title h2{font-size:clamp(17px,2vw,26px)}
+  .alert h3{font-size:16px}
+  .alert p{font-size:11px}
+  .alert{padding:7px}
+  .price{padding:5px 7px}
+  .price strong{font-size:clamp(13px,1.4vw,19px)}
+}
 </style>
 </head>
 <body>
@@ -66,16 +183,20 @@ footer{font-size:12px;color:var(--muted);margin-top:16px;line-height:1.5}
   </aside>
 </div>
 <section id="alert" class="alert" role="alert" hidden>
-  <h3>⚠ Atenção: produto com dia sem vendas</h3>
-  <p id="alertText"></p>
-  <div class="price-row">
-    <div class="price"><small>Custo unitário</small><strong id="cost"></strong></div>
-    <div class="price"><small>Preço de venda atual</small><strong id="price"></strong></div>
-    <div class="price"><small>Margem bruta estimada</small><strong id="margin"></strong></div>
+  <div class="alert-copy">
+    <h3>⚠ Atenção: produto com dia sem vendas</h3>
+    <p id="alertText"></p>
   </div>
-  <button type="button" id="continue">Continuar para o próximo produto →</button>
+  <div class="alert-actions">
+    <div class="price-row">
+      <div class="price"><small>Custo unitário</small><strong id="cost"></strong></div>
+      <div class="price"><small>Preço de venda atual</small><strong id="price"></strong></div>
+      <div class="price"><small>Margem bruta estimada</small><strong id="margin"></strong></div>
+    </div>
+    <button type="button" id="continue">Continuar para o próximo produto →</button>
+  </div>
 </section>
-<footer>As divulgações são contadas por publicação registrada, não pelo número de visualizações. Vendas: pedidos das carradas, excluindo cancelados identificados pelo legado. Produtos sem código vinculado não são tratados como vendas zeradas. Dias incompletos não acionam alerta. Publicações anteriores ao início do registro podem estar ausentes.</footer>
+<details class="notes"><summary>ⓘ Critérios dos dados</summary><p>As divulgações são contadas por publicação registrada, não pelo número de visualizações. Vendas: pedidos das carradas, excluindo cancelados identificados pelo legado. Produtos sem código vinculado não são tratados como vendas zeradas. Dias incompletos não acionam alerta. Publicações anteriores ao início do registro podem estar ausentes.</p></details>
 </main>
 <script>
 'use strict';
