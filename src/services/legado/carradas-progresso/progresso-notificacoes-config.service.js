@@ -20,7 +20,7 @@ const DEFAULTS = [
   ['ETIQUETA_VOLUMES','Etiqueta de volumes',`📦 Pedido nº {pedido}\n\nCliente: {cliente}\n\nConfirma os dizeres abaixo para a etiqueta de volumes deste pedido?\n\n{etiqueta_texto}`,true],
   ['VIDEO_FEITO','Vídeo feito','',false],
   ['QUER_NOTA_FISCAL','Quer nota fiscal','Vai precisar de Nota Fiscal? Preciso calcular os impostos para acrescentar se for querer.',true],
-  ['LOCAL_ENTREGA','Local de entrega',`MENSAGEM AUTOMÁTICA - ALUMÍNIO JR\n{data_carrada} - {descricao_carrada}\n\nNome cliente: {cliente}\nNúmero pedido: {pedido}\n{detalhes_entrega}\n\nPrevisão de volumes: {volumes}`,true],
+  ['LOCAL_ENTREGA','Local de entrega',`MENSAGEM AUTOMÁTICA - ALUMÍNIO JR\n{data_carrada} - {descricao_carrada}\n\nNome cliente: {cliente}\nNúmero pedido: {pedido}\n\n{detalhes_entrega}\n\nPrevisão de volumes: {volumes}`,true],
   ['DATA_EXPEDICAO','Data de expedição',`MENSAGEM AUTOMÁTICA - ALUMÍNIO JR\n📦 Pedido nº {pedido}\n\nSeu pedido foi expedido em {data_expedicao}.`,true],
   ['LIGACAO_POS_VENDA','Ligação pós-venda','',false],
   ['PAGAMENTO_QUITADO','Pagamento quitado','',false],
@@ -28,6 +28,16 @@ const DEFAULTS = [
   ['LOCAL_ENTREGA_REPETICAO','Consulta para repetir entrega',`MENSAGEM AUTOMÁTICA - ALUMÍNIO JR\n📦 Pedido nº {pedido}\n\nNo seu pedido anterior nº {pedido_anterior}, o local de entrega foi:\nTransportadora / excursão: {transportadora_anterior}\nRedespacho: {redespacho_anterior}\nAgência de recebimento: {agencia_anterior}\n\nPodemos repetir estes mesmos dados de entrega neste pedido?`,true]
 ];
 const MAP = new Map(DEFAULTS.map(([codigo, nome, texto, ativo])=>[codigo,{codigo,nome,texto,ativo}]));
+const TEXTO_LOCAL_ENTREGA_ANTERIOR = [
+  'MENSAGEM AUTOMÁTICA - ALUMÍNIO JR',
+  '{data_carrada} - {descricao_carrada}',
+  '',
+  'Nome cliente: {cliente}',
+  'Número pedido: {pedido}',
+  '{detalhes_entrega}',
+  '',
+  'Previsão de volumes: {volumes}'
+].join('\n');
 const VARIAVEIS = [
  ['cliente','Nome do cliente'],['pedido','Número do pedido'],['carrada','Código da carrada'],
  ['fase','Nome da fase'],['data','Data de hoje'],['data_carrada','Data da carrada'],
@@ -58,6 +68,11 @@ async function garantir() {
       await pool.query(`INSERT INTO progresso_notificacoes_fases(codigo,nome,texto,texto_ativo)
         VALUES($1,$2,$3,$4) ON CONFLICT(codigo) DO NOTHING`,[codigo,nome,texto,ativo]);
     }
+    // Atualiza apenas o modelo padrão antigo, preservando textos personalizados.
+    await pool.query(`UPDATE progresso_notificacoes_fases
+      SET texto=$1, atualizado_em=now()
+      WHERE codigo='LOCAL_ENTREGA' AND texto=$2`,
+      [MAP.get('LOCAL_ENTREGA').texto, TEXTO_LOCAL_ENTREGA_ANTERIOR]);
   })().catch(err=>{estruturaPromise=null; throw err;});
   return estruturaPromise;
 }
