@@ -50,13 +50,14 @@ async function listarCarradasNoPeriodo(datas) {
   const fim = datas[datas.length - 1];
   let carradas = [];
   try {
-    const resposta = await bridge.get('/api/carradas/resumo-producao-lista', { dias: 40 });
+    const resposta = await bridge.get('/api/carradas/resumo-producao-lista');
     carradas = listaCarradas(resposta);
   } catch (error) {
     console.warn('Termômetro: falha no resumo de carradas; tentando lista completa:', error.message);
   }
-  // Algumas instalações limitam o resumo a carradas futuras.
-  if (!carradas.some(c => dataISO(c.data) >= inicio && dataISO(c.data) <= fim)) {
+  // Sem limite de dias: a API otimizada lista todas as carradas;
+  // o filtro local seleciona exatamente os últimos 30 dias.
+  if (!carradas.length) {
     carradas = listaCarradas(await bridge.get('/api/carradas'));
   }
   return carradas.filter(c => {
