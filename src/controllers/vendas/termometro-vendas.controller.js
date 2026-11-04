@@ -1,5 +1,6 @@
 const service = require('../../services/termometro/termometro-vendas.service');
 const painelService = require('../../services/termometro/termometro-painel.service');
+const rotativoService = require('../../services/termometro/termometro-rotativo.service');
 
 async function carregarTermometro(req, res) {
   try {
@@ -68,10 +69,25 @@ async function carregarPainelSimplificado(req, res) {
   }
 }
 
+async function carregarPainelRotativo(req, res) {
+  try {
+    const data = await rotativoService.carregar();
+    res.set('Cache-Control', 'no-store');
+    return res.json({ success: true, data });
+  } catch (error) {
+    console.error('Erro no painel rotativo do Termômetro:', error);
+    return res.status(503).json({
+      success: false,
+      message: 'Vendas diárias indisponíveis: ' + error.message
+    });
+  }
+}
+
 module.exports = {
   carregarTermometro,
   carregarHistoricoProduto,
   listarConfiguracaoPainel,
   salvarConfiguracaoPainel,
-  carregarPainelSimplificado
+  carregarPainelSimplificado,
+  carregarPainelRotativo
 };
