@@ -21,6 +21,26 @@ async function abrirOuCriarConversa(req, res) {
   }
 }
 
+async function excluirContato(req, res) {
+  try {
+    const resultado = await botAdminService.excluirContato({ telefone: req.params.telefone });
+    res.set('Cache-Control', 'no-store');
+    if (!resultado.excluido) {
+      return res.status(404).json({ success: false, message: 'Este telefone nao existe na tabela bot_contatos.' });
+    }
+    return res.json({
+      success: true, telefone: resultado.telefone,
+      message: 'Contato excluido somente do cadastro local do bot.'
+    });
+  } catch (error) {
+    console.error('[Bot Admin] Erro ao excluir contato local:', error.message);
+    return res.status(error.status || 500).json({
+      success: false,
+      message: error.status ? error.message : 'Nao foi possivel excluir o contato do bot.'
+    });
+  }
+}
+
 async function listarConversas(req, res) {
   try {
     const { page, limit, data_inicio, data_fim, nivel_atendimento, telefone } = req.query;
@@ -86,4 +106,4 @@ async function conferirLid(req, res) {
   }
 }
 
-module.exports = { abrirOuCriarConversa, listarConversas, listarMensagens, listarMonitoramento, conferirLid };
+module.exports = { abrirOuCriarConversa, excluirContato, listarConversas, listarMensagens, listarMonitoramento, conferirLid };
