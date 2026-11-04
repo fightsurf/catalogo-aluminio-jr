@@ -250,8 +250,9 @@ async function desconectar() {
   if (resultado.rows[0] && configurado()) {
     try {
       const token = descriptografar(resultado.rows[0].refresh_token);
-      await fetch('https://oauth2.googleapis.com/revoke?token=' + encodeURIComponent(token), {
+      await fetch('https://oauth2.googleapis.com/revoke', {
         method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ token }),
         signal: AbortSignal.timeout(10000)
       });
     } catch (erro) { console.warn('[Google Contatos JR] Revogacao remota:', erro.message); }
