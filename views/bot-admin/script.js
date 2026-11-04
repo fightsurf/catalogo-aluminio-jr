@@ -292,6 +292,16 @@
   }
 
   function atualizarEstadoAcoes() {
+    const btnExcluir = el('btn-excluir-contato');
+    const telefoneInformado = normalizarTelefone(el('novo-telefone')?.value || '');
+    // Exibir somente para o mesmo numero da conversa aberta (nao para outro numero digitado).
+    const podeExcluir = Boolean(telefoneAtivo && /^\d{10,15}$/.test(telefoneAtivo) &&
+      telefoneInformado === telefoneAtivo);
+    if (btnExcluir) {
+      btnExcluir.hidden = !podeExcluir;
+      btnExcluir.disabled = !podeExcluir;
+    }
+
     const btnClassificar = el('btn-classificar');
     const select = el('select-intencao-manual');
     const btnExecutar = el('btn-executar-intencao');
@@ -511,6 +521,55 @@
     }
   }
 
+  async function excluirContatoAberto() {
+    const telefone = telefoneAtivo;
+    const informado = normalizarTelefone(el('novo-telefone')?.value || '');
+    if (!telefone || informado !== telefone || !/^\d{10,15}$/.test(telefone)) {
+      alert('Primeiro informe o telefone e clique em Abrir.');
+      return;
+    }
+
+    if (!confirm('Excluir ' + telefone + ' somente da tabela bot_contatos da JR?\n\n' +
+      'O contato do Google e o cadastro comercial nao serao alterados.')) return;
+
+    const btn = el('btn-excluir-contato');
+    btn.disabled = true;
+    btn.textContent = 'Excluindo...';
+    try {
+      const res = await fetch(`${API}/conversas/${encodeURIComponent(telefone)}`, {
+        method: 'DELETE',
+        credentials: 'same-origin'
+      });
+      const dados = await res.json().catch(() => ({}));
+      if (!res.ok || dados.success !== true) {
+        throw new Error(dados.message || 'Falha ao excluir contato');
+      }
+
+      // Excluir tambem as mensagens efemeras desta aba, sem mexer na agenda Google.
+      mensagensSessao.delete(telefone);
+      if (telefoneAtivo === telefone) {
+        telefoneAtivo = null;
+        versaoCarregamentoMensagens += 1;
+        versaoAtualizacaoMensagens += 1;
+        paginaMensagens = 1;
+        totalMensagens = 0;
+        atualizarTituloConversa();
+        resetarClassificacao();
+        resetarStatusExecucaoIntencao();
+        atualizarEstadoAcoes();
+        el('chat-mensagens').innerHTML = '<p class="msg-vazia">Conversa removida do cadastro local do bot.</p>';
+        el('paginacao-mensagens').innerHTML = '';
+      }
+      await carregarConversas(1);
+      alert('Telefone ' + telefone + ' excluido de bot_contatos. Google Contatos e cadastro de clientes preservados.');
+    } catch (erro) {
+      alert(erro.message || 'Erro ao excluir contato do bot.');
+    } finally {
+      btn.textContent = 'Excluir contato';
+      atualizarEstadoAcoes();
+    }
+  }
+
   async function carregarMensagens(telefone, pagina = 1) {
     const versao = ++versaoCarregamentoMensagens;
     paginaMensagens = pagina;
@@ -727,6 +786,8 @@
   el('btn-classificar').addEventListener('click', classificarIntencao);
   el('btn-executar-intencao').addEventListener('click', executarIntencaoManual);
   el('btn-abrir-conversa').addEventListener('click', abrirConversaManual);
+  el('btn-excluir-contato').addEventListener('click', excluirContatoAberto);
+  el('novo-telefone').addEventListener('input', atualizarEstadoAcoes);
   el('btn-autonomia').addEventListener('click', alternarAutonomia);
 
   el('select-intencao-manual').addEventListener('change', () => {
