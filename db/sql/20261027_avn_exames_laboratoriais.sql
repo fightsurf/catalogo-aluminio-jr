@@ -99,6 +99,8 @@ VALUES
 ('vitamina_b12','Vitamina B12',ARRAY['cobalamina'],'Vitaminas','pg/mL','indicador'),
 ('insulina_basal','Insulina basal',ARRAY['insulina','insulina em jejum','insulina de jejum','insulina sérica','insulina serica','fasting insulin'],'Hormônios','µUI/mL','indicador'),
 ('magnesio','Magnésio',ARRAY['magnesio','magnésio sérico','magnesio serico','magnésio no sangue'],'Minerais','mg/dL','indicador'),
+('fosforo','Fósforo',ARRAY['fosforo','fósforo sérico','fosforo serico','fósforo inorgânico','fosforo inorganico','fosfato sérico','phosphorus'],'Minerais','mg/dL','indicador'),
+('calcio_total','Cálcio total',ARRAY['cálcio','calcio','cálcio sérico','calcio serico','calcio total','cálcio no sangue','calcio no sangue','total calcium'],'Minerais','mg/dL','indicador'),
 ('ferritina','Ferritina',ARRAY[]::text[],'Metabolismo','ng/mL','indicador'),
 ('pcr','Proteína C-reativa',ARRAY['pcr','crp'],'Inflamação','mg/L','indicador')
 ON CONFLICT(codigo) DO NOTHING;
