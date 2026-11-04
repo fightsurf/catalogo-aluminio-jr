@@ -10,6 +10,7 @@ const comandos = require('./whatsapp-comandos-jr.service');
 const temporarias = require('./whatsapp-conversas-temporarias.service');
 const ordemEntradas = require('./bot-contatos-ultima-entrada.service');
 const fluxo = require('../bot/botFluxo.services');
+const googleContatos = require('../bot/google-contatos.service');
 const vistos = new Map();
 
 // A nova integração não cria tabelas de mensagens.
@@ -142,7 +143,9 @@ async function registrar(payload) {
         console.error('[Webhook Z-API] Falha ao registrar ordem de entrada:', erro.message)
       );
     }
-    // Apenas clientes novos podem receber saudação, e somente com Bot ON.
+    // Novo na tabela do bot nao significa novo no Google ou no cadastro da JR.
+    contatoNovo = contatoNovo && await googleContatos.autorizarPrimeiroContato(dados.telefone);
+    // Com bot OFF, ou fontes indisponiveis, nao enviar a saudacao.
     if (contatoNovo) {
       fluxo.executarPrimeiroContatoAutomatico(dados.telefone).catch(err =>
         console.error('[Webhook Z-API] Falha ao saudar contato:', err.message));
