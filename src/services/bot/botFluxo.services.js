@@ -163,7 +163,7 @@ async function listarAcoes(intencaoFiltro = '') {
 
 async function buscarIntencaoNomePorId(intencao_id) {
   const result = await pool.query(
-    `SELECT nome
+    `SELECT COALESCE(NULLIF(BTRIM(fluxo_chave), ''), nome) AS nome
      FROM bot_intencoes
      WHERE id = $1
      LIMIT 1`,
