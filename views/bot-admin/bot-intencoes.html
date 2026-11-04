@@ -45,12 +45,46 @@
     .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 0.78rem; font-weight: bold; }
     .badge-sim { background: #d5f5e3; color: #1e8449; }
     .badge-nao { background: #fde8e8; color: #c0392b; }
+    .btn-acoes { background:#0f766e; color:white; border:0; border-radius:5px; padding:6px 12px; cursor:pointer; font-size:.83rem; }
+    .btn-acoes:hover { background:#115e59; }
+    .acoes-resumo { display:flex; align-items:center; gap:9px; white-space:nowrap; }
+    .qtd-acoes { display:inline-block; font-weight:bold; min-width:20px; color:#334155; }
+    .overlay-acoes { z-index:150; padding:14px; overflow-y:auto; }
+    .modal-acoes { width:min(860px,100%); max-width:860px; max-height:92vh; overflow-y:auto; }
+    .acoes-topo { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:12px; }
+    .acoes-topo p { color:#64748b; font-size:.86rem; line-height:1.45; }
+    .acoes-topo button { border:0; border-radius:5px; padding:7px 12px; cursor:pointer; background:#e2e8f0; }
+    .acoes-lista { display:grid; gap:9px; margin:12px 0 16px; }
+    .acao-linha { display:flex; align-items:flex-start; flex-wrap:wrap; gap:10px; justify-content:space-between; padding:12px; border:1px solid #dce3ed; border-radius:7px; background:#f8fafc; }
+    .acao-conteudo { white-space:pre-wrap; overflow-wrap:anywhere; color:#475569; font-size:.84rem; margin-top:6px; max-height:105px; overflow:auto; }
+    .acao-detalhes { flex:1; min-width:180px; }
+    .acao-botoes { display:flex; gap:7px; }
+    .acao-botoes button { border:0; border-radius:5px; padding:6px 10px; cursor:pointer; }
+    .acao-editar { color:white; background:#d97706; }
+    .acao-excluir { color:white; background:#dc2626; }
+    .acoes-vazio { font-size:.9rem; padding:14px; background:#f8fafc; border:1px dashed #cbd5e1; border-radius:7px; }
+    .acao-form { border:1px solid #93c5fd; padding:16px; border-radius:8px; background:#f8fbff; }
+    .acao-form h3 { font-size:1rem; margin-bottom:12px; }
+    .acao-form .colunas { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .acao-form .campo input, .acao-form .campo select, .acao-form .campo textarea { width:100%; padding:8px; border:1px solid #cbd5e1; border-radius:5px; font-size:.9rem; }
+    .acao-form .campo textarea { min-height:95px; }
+    .msg-acoes { color:#b91c1c; font-size:.88rem; margin:8px 0; min-height:16px; }
+    .acao-help { color:#64748b; display:block; font-size:.79rem; margin-top:5px; }
+    .acoes-btn-nova { border:0; border-radius:5px; background:#16a34a; color:white; padding:9px 14px; cursor:pointer; }
+    .acoes-btn-nova:disabled { opacity:.6; cursor:wait; }
+    @media(max-width:700px) {
+      body { padding:10px; }
+      .topo { flex-wrap:wrap; }
+      #tabela { display:block; overflow-x:auto; }
+      .modal { margin:12px; max-height:94vh; overflow:auto; }
+      .acao-form .colunas { grid-template-columns:1fr; gap:0; }
+    }
   </style>
 </head>
 <body>
   <div class="topo">
     <button class="btn-voltar" onclick="location.href='/bot/admin'">← Voltar</button>
-    <h1>🤖 Gestão de Intenções – Bot WhatsApp</h1>
+    <h1>🤖 Intenções e Ações – Bot WhatsApp</h1>
     <button class="btn-novo" onclick="abrirModalNovo()">+ Nova Intenção</button>
   </div>
 
@@ -63,6 +97,7 @@
         <th>Fluxo (chave)</th>
         <th>Exige Humano</th>
         <th>Ativa</th>
+        <th>Ações do fluxo</th>
         <th>Criado em</th>
         <th></th>
       </tr>
@@ -106,27 +141,87 @@
     </div>
   </div>
 
+
+  <!-- As ações são gerenciadas aqui, sem uma segunda página administrativa. -->
+  <div class="overlay overlay-acoes" id="overlay-acoes" role="dialog" aria-modal="true" aria-labelledby="acoes-titulo">
+    <div class="modal modal-acoes">
+      <div class="acoes-topo">
+        <div>
+          <h2 id="acoes-titulo">Ações da intenção</h2>
+          <p id="acoes-subtitulo"></p>
+        </div>
+        <button type="button" onclick="fecharAcoes()">Fechar</button>
+      </div>
+      <div id="acoes-mensagem" class="msg-acoes" role="status"></div>
+      <div id="acoes-lista" class="acoes-lista"></div>
+      <button type="button" id="acoes-btn-nova" class="acoes-btn-nova" onclick="novaAcao()">+ Adicionar ação</button>
+      <form id="acao-form" class="acao-form" style="display:none" onsubmit="salvarAcao(event)">
+        <h3 id="acao-form-titulo">Nova ação</h3>
+        <div class="colunas">
+          <div class="campo"><label for="acao-ordem">Ordem *</label><input type="number" min="1" step="1" id="acao-ordem" required></div>
+          <div class="campo"><label for="acao-tipo">Tipo de ação *</label>
+            <select id="acao-tipo" required onchange="atualizarAjudaAcao()">
+              <option value="">Selecione</option>
+              <option value="SEND_TEXT">Enviar texto</option>
+              <option value="SEND_IMAGE">Enviar imagem</option>
+              <option value="SEND_LOCATION">Enviar localização</option>
+              <option value="SEND_VIDEO">Enviar vídeo</option>
+              <option value="SEND_AUDIO">Enviar áudio</option>
+              <option value="SEND_DOCUMENT">Enviar documento</option>
+              <option value="SEND_LINK">Enviar link</option>
+            </select>
+          </div>
+        </div>
+        <div class="campo">
+          <label for="acao-conteudo">Conteúdo *</label>
+          <textarea id="acao-conteudo" required></textarea>
+          <small class="acao-help" id="acao-hint"></small>
+        </div>
+        <div class="colunas">
+          <div class="campo"><label for="acao-delay">Espera antes de executar (milissegundos)</label><input id="acao-delay" type="number" min="0" step="1" value="0"></div>
+          <div class="campo"><label class="campo-check" for="acao-ativo"><input id="acao-ativo" type="checkbox" checked> Ação ativa</label></div>
+        </div>
+        <div class="acoes-modal">
+          <button type="button" class="btn-cancelar" onclick="cancelarEdicaoAcao()">Cancelar</button>
+          <button type="submit" class="btn-salvar" id="acao-salvar">Salvar ação</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script>
     let modoEdicao = false;
     let idEdicao = null;
+    let intencoesUnificadas = [];
+    let acoesUnificadas = [];
 
     async function carregar() {
       try {
-        const res = await fetch('/bot/intencoes');
+        const [res, resAcoes] = await Promise.all([
+          fetch('/bot/intencoes'), fetch('/bot/fluxo/admin/acoes')
+        ]);
         if (!res.ok) throw new Error('Erro ao carregar intenções');
+        if (!resAcoes.ok) throw new Error('Erro ao carregar ações do fluxo');
         const intencoes = await res.json();
+        const acoes = await resAcoes.json();
+        if (!Array.isArray(intencoes) || !Array.isArray(acoes)) throw new Error('Resposta inválida do servidor');
+        intencoesUnificadas = intencoes;
+        acoesUnificadas = acoes;
         const tbody = document.getElementById('tbody');
         tbody.innerHTML = '';
         intencoes.forEach(i => {
           const tr = document.createElement('tr');
+          const chaveFluxo = chaveDaIntencao(i);
+          const numeroAcoes = acoesUnificadas.filter(a => a.intencao_nome === chaveFluxo).length;
           tr.innerHTML = `
             <td><strong>${esc(i.nome)}</strong></td>
             <td>${esc(i.descricao)}</td>
             <td>${esc(i.fluxo_chave || '—')}</td>
             <td><span class="badge ${i.exige_humano ? 'badge-sim' : 'badge-nao'}">${i.exige_humano ? 'Sim' : 'Não'}</span></td>
             <td><span class="badge ${i.ativa ? 'badge-sim' : 'badge-nao'}">${i.ativa ? 'Sim' : 'Não'}</span></td>
+            <td><div class="acoes-resumo"><span class="qtd-acoes">${numeroAcoes}</span><button class="btn-acoes" onclick="abrirAcoes(${Number(i.id)})">Gerenciar ações</button></div></td>
             <td>${formatarData(i.criado_em)}</td>
-            <td><button class="btn-editar" onclick='abrirModalEditar(${JSON.stringify(i)})'>Editar</button><button class="btn-excluir" onclick='excluir(${i.id}, "${esc(i.nome)}")'>Excluir</button></td>
+            <td><button class="btn-editar" onclick="editarIntencao(${Number(i.id)})">Editar</button><button class="btn-excluir" onclick="excluirIntencao(${Number(i.id)})">Excluir</button></td>
           `;
           tbody.appendChild(tr);
         });
@@ -137,6 +232,17 @@
       }
     }
 
+    function chaveDaIntencao(i) {
+      return String((i && i.fluxo_chave) || (i && i.nome) || '').trim().toUpperCase();
+    }
+    function editarIntencao(id) {
+      const i = intencoesUnificadas.find(v => Number(v.id) === Number(id));
+      if (i) abrirModalEditar(i);
+    }
+    function excluirIntencao(id) {
+      const i = intencoesUnificadas.find(v => Number(v.id) === Number(id));
+      if (i) excluir(i.id, i.nome);
+    }
     async function excluir(id, nome) {
       if (!confirm(`Tem certeza que deseja excluir a intenção "${nome}"? Esta ação não pode ser desfeita.`)) return;
       try {
@@ -193,7 +299,16 @@
       const descricao = document.getElementById('campo-descricao').value.trim();
       const fluxo_chave = document.getElementById('campo-fluxo-chave').value.trim();
       const exige_humano = document.getElementById('campo-exige-humano').checked;
-
+      if (modoEdicao) {
+        const original = intencoesUnificadas.find(i => Number(i.id) === Number(idEdicao));
+        const anterior = chaveDaIntencao(original);
+        const proximo = (fluxo_chave || (original && original.nome) || '').trim().toUpperCase();
+        if (original && anterior !== proximo && acoesUnificadas.some(a => a.intencao_nome === anterior)) {
+          msgEl.textContent = '✗ Esta intenção já tem ações. Para preservar o fluxo, mantenha a chave atual enquanto houver ações vinculadas.';
+          msgEl.classList.add('err');
+          return;
+        }
+      }
       try {
         let res;
         if (modoEdicao) {
@@ -215,7 +330,13 @@
         if (!res.ok) throw new Error(data.message || 'Erro ao salvar');
         msgEl.textContent = '✓ Salvo com sucesso!';
         msgEl.classList.add('ok');
-        setTimeout(() => { fecharModal(); carregar(); }, 800);
+        const eraEdicao = modoEdicao;
+        const novaId = data.intencao && data.intencao.id;
+        setTimeout(async () => {
+          fecharModal();
+          await carregar();
+          if (!eraEdicao && novaId) abrirAcoes(novaId);
+        }, 350);
       } catch (err) {
         msgEl.textContent = '✗ ' + err.message;
         msgEl.classList.add('err');
@@ -233,6 +354,210 @@
     }
 
     carregar();
+  </script>
+
+
+  <script>
+    let intencaoAcoesAtual = null;
+    let acaoEdicaoId = null;
+
+    function mensagemAcoes(mensagem) {
+      document.getElementById('acoes-mensagem').textContent = mensagem || '';
+    }
+
+    async function abrirAcoes(id) {
+      const intencao = intencoesUnificadas.find(i => Number(i.id) === Number(id));
+      if (!intencao) return;
+      intencaoAcoesAtual = intencao;
+      document.getElementById('acoes-titulo').textContent = 'Ações da intenção: ' + intencao.nome;
+      document.getElementById('acoes-subtitulo').textContent = 'Fluxo: ' + chaveDaIntencao(intencao) + ' · As ações são executadas pela ordem definida.';
+      document.getElementById('overlay-acoes').classList.add('ativo');
+      cancelarEdicaoAcao();
+      await atualizarAcoesDaIntencao();
+    }
+    function fecharAcoes() {
+      document.getElementById('overlay-acoes').classList.remove('ativo');
+      intencaoAcoesAtual = null;
+      cancelarEdicaoAcao();
+    }
+
+    async function atualizarAcoesDaIntencao() {
+      if (!intencaoAcoesAtual) return;
+      const idAtual = intencaoAcoesAtual.id;
+      const chave = chaveDaIntencao(intencaoAcoesAtual);
+      const lista = document.getElementById('acoes-lista');
+      lista.textContent = 'Carregando ações...';
+      mensagemAcoes('');
+      try {
+        const res = await fetch('/bot/fluxo/admin/acoes?intencao=' + encodeURIComponent(chave));
+        if (!res.ok) throw new Error('Falha na consulta das ações.');
+        const acoes = await res.json();
+        if (!Array.isArray(acoes)) throw new Error('Resposta inválida.');
+        if (!intencaoAcoesAtual || Number(intencaoAcoesAtual.id) !== Number(idAtual)) return;
+        lista.replaceChildren();
+        acoes.sort((a, b) => Number(a.ordem) - Number(b.ordem) || Number(a.id) - Number(b.id));
+        if (!acoes.length) {
+          const vazio = document.createElement('div');
+          vazio.className = 'acoes-vazio';
+          vazio.textContent = 'Nenhuma ação cadastrada. Clique em Adicionar ação para configurar este fluxo.';
+          lista.appendChild(vazio);
+        }
+        acoes.forEach(a => {
+          const linha = document.createElement('div');
+          linha.className = 'acao-linha';
+          const detalhes = document.createElement('div');
+          detalhes.className = 'acao-detalhes';
+          const titulo = document.createElement('strong');
+          titulo.textContent = '#' + a.ordem + ' · ' + a.tipo_acao + (a.ativo ? '' : ' · Inativa');
+          const conteudo = document.createElement('div');
+          conteudo.className = 'acao-conteudo';
+          conteudo.textContent = String(a.conteudo || '');
+          const delay = document.createElement('small');
+          delay.className = 'acao-help';
+          delay.textContent = 'Espera: ' + (a.delay_ms || 0) + ' ms';
+          detalhes.append(titulo, conteudo, delay);
+          const botoes = document.createElement('div');
+          botoes.className = 'acao-botoes';
+          const editar = document.createElement('button');
+          editar.type = 'button';
+          editar.className = 'acao-editar';
+          editar.textContent = 'Editar';
+          editar.onclick = () => editarAcao(a);
+          const excluir = document.createElement('button');
+          excluir.type = 'button';
+          excluir.className = 'acao-excluir';
+          excluir.textContent = 'Excluir';
+          excluir.onclick = () => excluirAcao(a);
+          botoes.append(editar, excluir);
+          linha.append(detalhes, botoes);
+          lista.appendChild(linha);
+        });
+      } catch(e) {
+        lista.replaceChildren();
+        mensagemAcoes('Erro ao carregar ações: ' + e.message);
+      }
+    }
+
+    function novaAcao() {
+      if (!intencaoAcoesAtual) return;
+      acaoEdicaoId = null;
+      document.getElementById('acao-form-titulo').textContent = 'Adicionar ação';
+      document.getElementById('acao-ordem').value = String(
+        Math.max(0, ...Array.from(document.querySelectorAll('#acoes-lista .acao-linha strong'))
+          .map(e => Number((e.textContent.match(/^#([0-9]+)/) || [,'0'])[1]) || 0)) + 1
+      );
+      document.getElementById('acao-tipo').value = 'SEND_TEXT';
+      document.getElementById('acao-conteudo').value = '';
+      document.getElementById('acao-delay').value = '0';
+      document.getElementById('acao-ativo').checked = true;
+      document.getElementById('acao-form').style.display = 'block';
+      document.getElementById('acoes-btn-nova').style.display = 'none';
+      atualizarAjudaAcao();
+      document.getElementById('acao-conteudo').focus();
+    }
+    function editarAcao(a) {
+      acaoEdicaoId = a.id;
+      document.getElementById('acao-form-titulo').textContent = 'Editar ação #' + a.ordem;
+      document.getElementById('acao-ordem').value = a.ordem;
+      document.getElementById('acao-tipo').value = a.tipo_acao;
+      document.getElementById('acao-conteudo').value = a.conteudo || '';
+      document.getElementById('acao-delay').value = a.delay_ms || 0;
+      document.getElementById('acao-ativo').checked = !!a.ativo;
+      document.getElementById('acao-form').style.display = 'block';
+      document.getElementById('acoes-btn-nova').style.display = 'none';
+      atualizarAjudaAcao();
+      document.getElementById('acao-form').scrollIntoView({block:'nearest', behavior:'smooth'});
+    }
+    function cancelarEdicaoAcao() {
+      acaoEdicaoId = null;
+      document.getElementById('acao-form').style.display = 'none';
+      document.getElementById('acoes-btn-nova').style.display = '';
+      document.getElementById('acao-salvar').disabled = false;
+    }
+    function atualizarAjudaAcao() {
+      const tipo = document.getElementById('acao-tipo').value;
+      const hints = {
+        SEND_TEXT:'Texto que será enviado no WhatsApp.',
+        SEND_IMAGE:'URL completa da imagem, começando por https://.',
+        SEND_LOCATION:'Endereço ou JSON com lat/lng, latitude/longitude ou address.',
+        SEND_VIDEO:'URL completa do vídeo.',
+        SEND_AUDIO:'URL completa do áudio.',
+        SEND_DOCUMENT:'URL completa do documento.',
+        SEND_LINK:'Link ou texto para enviar.'
+      };
+      document.getElementById('acao-hint').textContent = hints[tipo] || '';
+    }
+    function validarConteudoAcao(tipo, conteudo) {
+      if (!conteudo) return 'O conteúdo é obrigatório.';
+      if (['SEND_IMAGE','SEND_VIDEO','SEND_AUDIO','SEND_DOCUMENT'].includes(tipo)) {
+        try {
+          const url = new URL(conteudo);
+          if (!['https:','http:'].includes(url.protocol)) throw new Error('Protocolo inválido');
+        } catch (_) { return 'Informe uma URL HTTP(S) válida para este tipo de ação.'; }
+      }
+      if (tipo === 'SEND_LOCATION' && conteudo.startsWith('{')) {
+        try {
+          const loc = JSON.parse(conteudo);
+          if (!loc || !(loc.address || ((loc.lat != null && loc.lng != null) || (loc.latitude != null && loc.longitude != null)))) {
+            return 'Informe um endereço ou coordenadas válidas.';
+          }
+        } catch (_) { return 'JSON de localização inválido.'; }
+      }
+      return '';
+    }
+    async function salvarAcao(ev) {
+      ev.preventDefault();
+      if (!intencaoAcoesAtual) return;
+      const intencaoAntes = intencaoAcoesAtual.id;
+      const ordem = Number(document.getElementById('acao-ordem').value);
+      const tipo_acao = document.getElementById('acao-tipo').value;
+      const conteudo = document.getElementById('acao-conteudo').value.trim();
+      const delay_ms = Number(document.getElementById('acao-delay').value);
+      const ativo = document.getElementById('acao-ativo').checked;
+      if (!Number.isSafeInteger(ordem) || ordem < 1 || !Number.isSafeInteger(delay_ms) || delay_ms < 0) {
+        mensagemAcoes('Ordem e espera devem ser números inteiros válidos, sem valores negativos.');
+        return;
+      }
+      const erro = validarConteudoAcao(tipo_acao, conteudo);
+      if (erro) { mensagemAcoes(erro); return; }
+      const payload = {intencao_id:Number(intencaoAntes), ordem, tipo_acao, conteudo, delay_ms, ativo};
+      const btn = document.getElementById('acao-salvar');
+      btn.disabled = true;
+      mensagemAcoes('');
+      try {
+        const editando = acaoEdicaoId;
+        const url = editando ? '/bot/fluxo/admin/acoes/' + encodeURIComponent(editando) : '/bot/fluxo/admin/acoes';
+        const res = await fetch(url, {
+          method: editando ? 'PUT' : 'POST',
+          headers: {'Content-Type':'application/json'},
+          body:JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Não foi possível salvar a ação.');
+        if (!intencaoAcoesAtual || Number(intencaoAcoesAtual.id) !== Number(intencaoAntes)) return;
+        cancelarEdicaoAcao();
+        await atualizarAcoesDaIntencao();
+        await carregar();
+        mensagemAcoes('Ação salva com sucesso.');
+      } catch(e) {
+        mensagemAcoes('Erro ao salvar: ' + e.message);
+      } finally { btn.disabled = false; }
+    }
+    async function excluirAcao(a) {
+      if (!intencaoAcoesAtual || !confirm('Excluir a ação #' + a.ordem + ' (' + a.tipo_acao + ')?')) return;
+      const id = intencaoAcoesAtual.id;
+      try {
+        const res = await fetch('/bot/fluxo/admin/acoes/' + encodeURIComponent(a.id), {method:'DELETE'});
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || 'Falha ao excluir.');
+        if (intencaoAcoesAtual && Number(intencaoAcoesAtual.id) === Number(id)) {
+          cancelarEdicaoAcao();
+          await atualizarAcoesDaIntencao();
+          await carregar();
+          mensagemAcoes('Ação excluída.');
+        }
+      } catch(e) { mensagemAcoes('Erro ao excluir: ' + e.message); }
+    }
   </script>
 
   <!-- ─── BotBus & BotConfig – inicialização compartilhada ─────────────────── -->
