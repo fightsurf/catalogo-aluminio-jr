@@ -130,6 +130,22 @@ async function listarConversas({ page, limit, data_inicio, data_fim, nivel_atend
   return { dados, total, pagina: pageNum, total_paginas: Math.ceil(total / limitNum) };
 }
 
+// Remove somente o registro local do bot. Nao interfere no Firebird nem no Google.
+async function excluirContato({ telefone }) {
+  const numero = normalizarTelefone(telefone);
+  if (!/^\d{10,15}$/.test(numero) || String(telefone || '').trim() !== numero) {
+    const erro = new Error('Informe um telefone com 10 a 15 digitos, sem caracteres especiais.');
+    erro.status = 400;
+    throw erro;
+  }
+
+  const resultado = await pool.query(
+    'DELETE FROM bot_contatos WHERE telefone = $1 RETURNING telefone',
+    [numero]
+  );
+  return { excluido: resultado.rowCount > 0, telefone: numero };
+}
+
 // Mensagens existem somente na memoria das telas conectadas por WebSocket.
 async function listarMensagens() { return { dados: [],total:0 }; }
 
@@ -148,4 +164,4 @@ async function criarIndices() {
   );
 }
 
-module.exports = { abrirOuCriarConversa, listarConversas, listarMensagens, criarIndices };
+module.exports = { abrirOuCriarConversa, excluirContato, listarConversas, listarMensagens, criarIndices };
