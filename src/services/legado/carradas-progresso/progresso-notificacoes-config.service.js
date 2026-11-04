@@ -24,7 +24,8 @@ const DEFAULTS = [
   ['DATA_EXPEDICAO','Data de expedição',`MENSAGEM AUTOMÁTICA - ALUMÍNIO JR\n📦 Pedido nº {pedido}\n\nSeu pedido foi expedido em {data_expedicao}.`,true],
   ['LIGACAO_POS_VENDA','Ligação pós-venda','',false],
   ['PAGAMENTO_QUITADO','Pagamento quitado','',false],
-  ['LOCAL_ENTREGA_LOGISTICA','Aviso à transportadora/agência',`MENSAGEM AUTOMÁTICA - ALUMÍNIO JR\n{data_carrada} - {descricao_carrada}\n\nNome cliente: {cliente_telefone}\nCidade cliente: {cidade_uf}\nNúmero pedido: {pedido}{linha_transportadora}\n\nPrevisão qtde volume: {volumes}`,true],
+  ['LOCAL_ENTREGA_LOGISTICA','Aviso à transportadora/redespacho',`MENSAGEM AUTOMÁTICA - ALUMÍNIO JR\n{data_carrada} - {descricao_carrada}\n\nNome cliente: {cliente_telefone}\nCidade cliente: {cidade_uf}\nNúmero pedido: {pedido}{linha_transportadora}\n\nPrevisão qtde volume: {volumes}`,true],
+  ['LOCAL_ENTREGA_AGENCIA','Aviso à agência de recebimento',`MENSAGEM AUTOMÁTICA - ALUMÍNIO JR\n{data_carrada} - {descricao_carrada}\n\nNome cliente: {cliente_telefone}\nCidade cliente: {cidade_uf}\n\nExcursão / Transportadora: {transportadora_nome}\n\nNúmero pedido: {pedido}\nPrevisão qtde volume: {volumes}`,true],
   ['LOCAL_ENTREGA_REPETICAO','Consulta para repetir entrega',`MENSAGEM AUTOMÁTICA - ALUMÍNIO JR\n📦 Pedido nº {pedido}\n\nNo seu pedido anterior nº {pedido_anterior}, o local de entrega foi:\nTransportadora / excursão: {transportadora_anterior}\nRedespacho: {redespacho_anterior}\nAgência de recebimento: {agencia_anterior}\n\nPodemos repetir estes mesmos dados de entrega neste pedido?`,true]
 ];
 const MAP = new Map(DEFAULTS.map(([codigo, nome, texto, ativo])=>[codigo,{codigo,nome,texto,ativo}]));
@@ -46,7 +47,7 @@ const VARIAVEIS = [
  ['volumes','Quantidade de volumes'],['vendedor','Vendedor'],['cidade','Cidade'],
  ['empresa','Nome da empresa'],['data_expedicao','Data de expedição'],
  ['etiqueta_texto','Texto da etiqueta'],['detalhes_entrega','Dados do destino'],
- ['cliente_telefone','Nome e telefone do cliente'],['cidade_uf','Cidade e UF do cliente'],['linha_transportadora','Informação da transportadora'],
+ ['cliente_telefone','Nome e telefone do cliente'],['cidade_uf','Cidade e UF do cliente'],['linha_transportadora','Informação da transportadora'],['transportadora_nome','Nome da transportadora'],
  ['pedido_anterior','Pedido anterior'],['transportadora_anterior','Transportadora anterior'],
  ['redespacho_anterior','Redespacho anterior'],['agencia_anterior','Agência anterior']
 ];
@@ -73,6 +74,10 @@ async function garantir() {
       SET texto=$1, atualizado_em=now()
       WHERE codigo='LOCAL_ENTREGA' AND texto=$2`,
       [MAP.get('LOCAL_ENTREGA').texto, TEXTO_LOCAL_ENTREGA_ANTERIOR]);
+    // Renomeia a configuração compartilhada apenas se mantiver o nome padrão anterior.
+    await pool.query(`UPDATE progresso_notificacoes_fases
+      SET nome='Aviso à transportadora/redespacho'
+      WHERE codigo='LOCAL_ENTREGA_LOGISTICA' AND nome='Aviso à transportadora/agência'`);
   })().catch(err=>{estruturaPromise=null; throw err;});
   return estruturaPromise;
 }
