@@ -3058,7 +3058,7 @@ async function salvarLocalEntrega({
   const avisoLocalEntrega=await enviarAvisoFaseConfigurado({
     faseCodigo:'LOCAL_ENTREGA',codigoCarrada,numeroPedido,carrada,pedido:pedidoComVolumesEDadosCliente,
     telefone:telefoneCliente,
-    extras:{detalhes_entrega:detalhesEntrega.join('\n'),volumes:quantidadeVolumes}
+    extras:{detalhes_entrega:detalhesEntrega.join('\n\n'),volumes:quantidadeVolumes}
   });
   const notificacaoCliente=avisoLocalEntrega.notificacao;
   const configLogistica=await notificacoesConfig.carregar('LOCAL_ENTREGA_LOGISTICA');
