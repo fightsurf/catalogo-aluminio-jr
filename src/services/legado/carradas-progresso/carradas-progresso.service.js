@@ -2821,6 +2821,7 @@ function montarMensagemDestinoLocalEntrega({ pedido, numeroPedido, carrada, tele
     data_carrada:formatarDataBR(carrada?.data)||'-',
     descricao_carrada:limparTexto(carrada?.descricao)||'-',
     linha_transportadora:limparTexto(transportadoraNome)?`\nExcursão / Transportadora: ${limparTexto(transportadoraNome)}`:'',
+    transportadora_nome:limparTexto(transportadoraNome)||'-',
     volumes
   });
 }
@@ -3062,6 +3063,7 @@ async function salvarLocalEntrega({
   });
   const notificacaoCliente=avisoLocalEntrega.notificacao;
   const configLogistica=await notificacoesConfig.carregar('LOCAL_ENTREGA_LOGISTICA');
+  const configAgencia=await notificacoesConfig.carregar('LOCAL_ENTREGA_AGENCIA');
   let notificacaoTransportadora = null;
   if (transportadoraFoiDefinidaAgora && configLogistica.enviarTexto) {
     const mensagemTransportadora = montarMensagemDestinoLocalEntrega({
@@ -3099,14 +3101,14 @@ async function salvarLocalEntrega({
   }
 
   let notificacaoAgencia = null;
-  if (agenciaRecebimento && agenciaFoiDefinidaAgora && configLogistica.enviarTexto) {
+  if (agenciaRecebimento && agenciaFoiDefinidaAgora && configLogistica.enviarTexto && configAgencia.enviarTexto) {
     const mensagemAgencia = montarMensagemDestinoLocalEntrega({
       pedido: pedidoComVolumesEDadosCliente,
       numeroPedido,
       carrada,
       telefoneCliente,
       transportadoraNome: transportadora.nome,
-      textoModelo:configLogistica.f.texto
+      textoModelo:configAgencia.f.texto
     });
     notificacaoAgencia = await enviarNotificacaoLocalEntrega({
       codigoCarrada,
