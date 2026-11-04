@@ -104,6 +104,22 @@ VALUES
 ('ferritina','Ferritina',ARRAY[]::text[],'Metabolismo','ng/mL','indicador'),
 ('pcr','Proteína C-reativa',ARRAY['pcr','crp'],'Inflamação','mg/L','indicador')
 ON CONFLICT(codigo) DO NOTHING;
+-- Ferro sérico: só cadastrar se ainda não existir sob código, nome ou alias equivalente.
+-- Não presumir intervalo de referência; usar os dados do laudo.
+INSERT INTO public.avn_exames_catalogo(codigo,nome,aliases,grupo,unidade_padrao,tipo)
+SELECT 'ferro_serico','Ferro sérico',
+ ARRAY['ferro serico','ferro','ferro no sangue','serum iron']::text[],
+ 'Minerais','µg/dL','indicador'
+WHERE NOT EXISTS (
+ SELECT 1 FROM public.avn_exames_catalogo c
+ WHERE c.codigo='ferro_serico'
+ OR translate(lower(c.nome),'áàâãäéèêëíìîïóòôõöúùûüç','aaaaaeeeeiiiiooooouuuuc') IN ('ferro serico','ferro','serum iron')
+ OR EXISTS (
+  SELECT 1 FROM unnest(c.aliases) AS a(nome)
+  WHERE translate(lower(a.nome),'áàâãäéèêëíìîïóòôõöúùûüç','aaaaaeeeeiiiiooooouuuuc') IN ('ferro serico','ferro','serum iron')
+ )
+)
+ON CONFLICT(codigo) DO NOTHING;
 -- Faixas KDIGO para adultos, independentemente de sexo. G1/G2 isolados não indicam DRC.
 -- Inserção idempotente sem alterar referências já registradas.
 INSERT INTO public.avn_exames_referencias
