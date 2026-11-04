@@ -239,6 +239,17 @@ body {
   background: var(--primary-dark);
 }
 
+/* Exclusao do registro do bot, visivel somente apos abrir o numero. */
+#btn-excluir-contato {
+  background: var(--danger);
+}
+#btn-excluir-contato:hover:not(:disabled) {
+  background: #a61f28;
+}
+#btn-excluir-contato[hidden] {
+  display: none;
+}
+
 #btn-classificar {
   background: var(--secondary);
 }
