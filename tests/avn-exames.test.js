@@ -81,3 +81,16 @@ test('TFG estimada tem categorias KDIGO e referência padrão automática',()=>{
  assert.doesNotThrow(()=>new Function(js));
  assert.doesNotThrow(()=>new Function(api));
 });
+
+
+test('catálogo inclui fósforo e cálcio total sem confundir com cálcio ionizado',()=>{
+ const sql=read('db/sql/20261027_avn_exames_laboratoriais.sql');
+ const linhas=sql.split('\\n');
+ for(const [codigo,nome] of [['fosforo','Fósforo'],['calcio_total','Cálcio total']]){
+  const linha=linhas.find(l=>l.startsWith("('"+codigo+"','"+nome+"'"));
+  assert.ok(linha, 'Exame ausente: '+nome);
+  assert.ok(linha.includes("'Minerais','mg/dL','indicador'"), 'Unidade ou grupo inválido: '+nome);
+ }
+ const calcio=linhas.find(l=>l.startsWith("('calcio_total'"));
+ assert.ok(!calcio.includes('ionizado'),'Não associar cálcio ionizado ao total');
+});
