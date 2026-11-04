@@ -5,6 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>WhatsApp · Monitoramento – Alumínio JR</title>
   <link rel="stylesheet" href="/bot-admin/style.css" />
+  <style>
+    .google-contatos-painel { padding: 8px 12px; border: 1px solid #334155; border-radius: 8px; margin: 6px 10px; font-size: 12px; }
+    .google-contatos-linha { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .google-contatos-linha strong { margin-right: auto; }
+    .google-contatos-linha button { padding: 5px 9px; cursor: pointer; }
+    .google-contatos-linha button:disabled { opacity: .5; cursor: not-allowed; }
+    .google-contatos-detalhe { padding-top: 3px; opacity: .84; }
+  </style>
+
 </head>
 <body>
   <div id="app">
@@ -84,6 +93,17 @@
           <div class="monitor-eventos-legenda">Últimos eventos do novo webhook. As conversas continuam na coluna esquerda.</div>
           <div id="monitor-eventos-lista">Carregando eventos...</div>
         </div>
+      </section>
+
+      <section class="google-contatos-painel" aria-label="Integração com Google Contatos">
+        <div class="google-contatos-linha">
+          <strong id="google-contatos-status">Google Contatos: verificando...</strong>
+          <button type="button" id="google-contatos-conectar" disabled>Conectar Google</button>
+          <button type="button" id="google-contatos-sync" disabled>Sincronizar agora</button>
+          <button type="button" id="google-contatos-desconectar" disabled>Desconectar</button>
+        </div>
+        <div id="google-contatos-detalhe" class="google-contatos-detalhe"></div>
+        <div id="google-contatos-feedback" class="google-contatos-detalhe" role="status" aria-live="polite"></div>
       </section>
 
       <div id="chat-mensagens"></div>
@@ -210,5 +230,6 @@
 
   <script src="/bot-admin/script.js"></script>
   <script src="/bot-admin/categoria-envio.js"></script>
+  <script src="/bot-admin/google-contatos.js"></script>
 </body>
 </html>
