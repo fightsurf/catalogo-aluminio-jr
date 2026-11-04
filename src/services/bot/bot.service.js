@@ -2,6 +2,7 @@
 const pool = require('../../../db/connection');
 const temporarias = require('../whatsapp/whatsapp-conversas-temporarias.service');
 const botFluxo = require('./botFluxo.services');
+const googleContatos = require('./google-contatos.service');
 
 // Endpoint legado: mantido, mas sem persistir mensagens.
 async function receberMensagem({ telefone, mensagem, tipo }) {
@@ -23,6 +24,7 @@ async function receberMensagem({ telefone, mensagem, tipo }) {
     throw err;
   } finally { client.release(); }
   temporarias.publicar({ telefone: tel, mensagem, tipo, direcao: 'ENTRADA' });
+  primeiroContato = primeiroContato && await googleContatos.autorizarPrimeiroContato(tel);
   if (primeiroContato) {
     botFluxo.executarPrimeiroContatoAutomatico(tel).catch(err =>
       console.error('[Bot] Falha na saudacao de contato novo:', err.message));
