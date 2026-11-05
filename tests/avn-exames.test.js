@@ -118,3 +118,22 @@ test('catálogo cadastra ácido úrico com equivalências séricas e unidade cor
  assert.ok(linha.includes("'Metabolismo','mg/dL','indicador'"));
  assert.ok(!linha.includes('urinário'),'Exame urinário não deve ser confundido com sérico');
 });
+
+test('catálogo cadastra FSH e LH e reconhece a nomenclatura do laudo e o SHBG',()=>{
+ const sql=read('db/sql/20261027_avn_exames_laboratoriais.sql');
+ const linhas=sql.split(String.fromCharCode(10));
+ for(const [codigo,nomeCompleto] of [
+  ['fsh','hormônio folículo estimulante - fsh'],
+  ['lh','hormônio luteinizante - lh'],
+ ]){
+  const linha=linhas.find(l=>l.startsWith("('"+codigo+"','"+codigo.toUpperCase()+"'"));
+  assert.ok(linha,'Exame ausente: '+codigo.toUpperCase());
+  assert.ok(linha.includes("'"+nomeCompleto+"'"),'Alias do laudo ausente: '+codigo);
+  assert.ok(linha.includes("'Hormônios','mUI/mL','indicador'"),'Unidade inválida: '+codigo);
+ }
+ const shbg=linhas.find(l=>l.startsWith("('shbg','SHBG'"));
+ assert.ok(shbg,'SHBG deve continuar no catálogo');
+ assert.ok(shbg.includes("'globulina ligadora de hormônios sexuais'"),'Alias literal SHBG ausente');
+ assert.match(sql,/WHERE codigo='shbg' AND NOT/,'Aliases precisam ser atualizados nos cadastros já existentes');
+ assert.match(sql,/ON CONFLICT\(codigo\) DO NOTHING/,'Migração deve ser idempotente');
+});

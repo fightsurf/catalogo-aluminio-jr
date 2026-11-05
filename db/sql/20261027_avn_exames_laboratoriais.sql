@@ -93,7 +93,9 @@ VALUES
 ('t3_livre','T3 livre',ARRAY['ft3'],'Tireoide','pg/mL','indicador'),
 ('testosterona_total','Testosterona total',ARRAY[]::text[],'Hormônios','ng/dL','indicador'),
 ('testosterona_livre','Testosterona livre',ARRAY[]::text[],'Hormônios','ng/dL','indicador'),
-('shbg','SHBG',ARRAY['globulina ligadora dos hormônios sexuais'],'Hormônios','nmol/L','indicador'),
+('shbg','SHBG',ARRAY['globulina ligadora dos hormônios sexuais','globulina ligadora de hormônios sexuais','globulina ligadora de hormônios sexuais - shbg'],'Hormônios','nmol/L','indicador'),
+('fsh','FSH',ARRAY['hormônio folículo estimulante','hormônio folículo-estimulante','hormônio folículo estimulante - fsh','hormônio foliculoestimulante','folitropina','follicle stimulating hormone'],'Hormônios','mUI/mL','indicador'),
+('lh','LH',ARRAY['hormônio luteinizante','hormônio luteinizante - lh','lutropina','luteinizing hormone'],'Hormônios','mUI/mL','indicador'),
 ('estradiol','Estradiol',ARRAY['e2','17-beta estradiol','17β-estradiol'],'Hormônios','pg/mL','indicador'),
 ('vitamina_d','Vitamina D (25-OH)',ARRAY['25-oh vitamina d','25 hidroxi vitamina d'],'Vitaminas','ng/mL','indicador'),
 ('vitamina_b12','Vitamina B12',ARRAY['cobalamina'],'Vitaminas','pg/mL','indicador'),
@@ -105,6 +107,13 @@ VALUES
 ('ferritina','Ferritina',ARRAY[]::text[],'Metabolismo','ng/mL','indicador'),
 ('pcr','Proteína C-reativa',ARRAY['pcr','crp'],'Inflamação','mg/L','indicador')
 ON CONFLICT(codigo) DO NOTHING;
+-- Atualiza aliases do SHBG já existente sem substituir outras equivalências.
+UPDATE public.avn_exames_catalogo
+SET aliases = array_append(aliases,'globulina ligadora de hormônios sexuais')
+WHERE codigo='shbg' AND NOT ('globulina ligadora de hormônios sexuais'=ANY(aliases));
+UPDATE public.avn_exames_catalogo
+SET aliases = array_append(aliases,'globulina ligadora de hormônios sexuais - shbg')
+WHERE codigo='shbg' AND NOT ('globulina ligadora de hormônios sexuais - shbg'=ANY(aliases));
 -- Ferro sérico: só cadastrar se ainda não existir sob código, nome ou alias equivalente.
 -- Não presumir intervalo de referência; usar os dados do laudo.
 INSERT INTO public.avn_exames_catalogo(codigo,nome,aliases,grupo,unidade_padrao,tipo)
