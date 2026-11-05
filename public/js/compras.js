@@ -180,11 +180,16 @@
   async function interpretar() {
     const arquivos=[...$('fotos').files];
     if(!arquivos.length) return;
-    if(arquivos.length>5) return aviso('Selecione até 5 fotos.','erro');
+    const pdfs=arquivos.filter(a=>a.type==='application/pdf'||/\.pdf$/i.test(a.name));
+    if(pdfs.length && arquivos.length!==1) return aviso('Selecione um único PDF, sem misturar com fotos.','erro');
+    if(!pdfs.length && arquivos.length>5) return aviso('Selecione até 5 fotos.','erro');
+    if(pdfs.length && pdfs[0].size>12*1024*1024) return aviso('PDF maior que 12 MB.','erro');
+    if(!pdfs.length && arquivos.some(a=>a.size>7*1024*1024))
+      return aviso('Cada foto deve ter até 7 MB.','erro');
     const form=new FormData();arquivos.forEach(arquivo=>form.append('imagens',arquivo));
     if($('fornecedor_id').value) form.append('fornecedor_id',$('fornecedor_id').value);
     if($('numero_nf').value.trim()) form.append('numero_nf',$('numero_nf').value.trim());
-    const botao=$('btnImportar');botao.disabled=true;botao.textContent='Interpretando fotos...';
+    const botao=$('btnImportar');botao.disabled=true;botao.textContent=pdfs.length?'Interpretando PDF...':'Interpretando fotos...';
     try {
       const resultado=await api('/api/compras/interpretar',{method:'POST',body:form});
       const n=resultado.dados||{};
@@ -213,7 +218,7 @@
       }
       if((registro?.nota.itens?.length || n.itens?.length)) abrirModal();
     } catch(e){aviso(e.message,'erro');}
-    finally{botao.disabled=false;botao.textContent='Importar fotos';$('fotos').value='';}
+    finally{botao.disabled=false;botao.textContent='Importar fotos ou PDF';$('fotos').value='';}
   }
   async function consultar() {
     const params=new URLSearchParams();

@@ -8,24 +8,24 @@ valor da NF, quantidade de linhas de produtos, valor do frete e ICMS do frete.
 Cada NF contém 1 a 500 linhas com descrição, unidade, quantidade, preço unitário,
 total calculado e associação opcional ao cadastro \`insumos\`.
 
-## Leitura IA (fotos)
+## Leitura IA (fotos e PDFs)
 Endpoint privado \`POST /api/compras/interpretar\`, multipart com campo
-\`imagens\` (1–5 arquivos JPG/PNG/WEBP até 7 MB cada).
+\`imagens\` (1–5 arquivos JPG/PNG/WEBP até 7 MB cada, ou um PDF de até 12 MB).
 Usa a \`OPENAI_API_KEY\` existente e, opcionalmente, \`COMPRAS_IA_MODEL\`.
-O upload fica somente em memória e é encaminhado ao modelo de visão; não
+O upload fica somente em memória e é encaminhado ao modelo de visão, que analisa texto e páginas de PDFs digitais ou digitalizados; não
 salva os arquivos e não cria lançamentos automaticamente.
-A IA tenta reconhecer o fornecedor cadastrado e o número da NF. Quando os dois
+A IA tenta reconhecer o fornecedor cadastrado e o número da NF em imagens ou PDF. Quando os dois
 são identificados (ou informados previamente na tela), a importação localiza
 a nota pela chave **fornecedor_id + numero_nf**. Se existir, complementa
 automaticamente campos vazios e adiciona os novos insumos; se não existir,
-cria a NF. Reimportar a mesma foto não deve duplicar itens de mesmo nome
+cria a NF. Reimportar o mesmo arquivo não deve duplicar itens de mesmo nome
 normalizado e unidade. Dados previamente informados não são sobrescritos.
 O operador deve conferir e pode corrigir o resultado. Se houver divergência
 entre número/fornecedor digitado e o reconhecido pela IA, nada é gravado
 automaticamente: a tela solicita conferência e salvamento manual.
 
-**Privacidade:** embora não sejam guardadas no banco ou servidor, as fotos
-são enviadas para processamento pela API da OpenAI; não inclua imagens
+**Privacidade:** embora não sejam guardados no banco ou servidor, fotos e PDFs
+são enviados para processamento pela API da OpenAI; não inclua páginas
 desnecessárias.
 
 ## Banco e validações
@@ -44,7 +44,7 @@ Manter descrição original informada e histórico consultável.
 - \`PUT /api/compras/:id\`
 - \`POST /api/compras/interpretar\`
 
-**Testes:** `node --test tests/compras-validator.test.js tests/compras-importacao.test.js`.
+**Testes:** `node --test tests/compras-validator.test.js tests/compras-importacao.test.js tests/compras-ia-arquivos.test.js`.
 
 **Conferência:** a soma dos insumos é informativa. Não deve haver
 validação que exija igualdade com o valor da NF: este pode conter

@@ -4,12 +4,13 @@ const multer = require('multer');
 const service = require('../../services/compras/compras.service');
 const ia = require('../../services/compras/comprasIa.service');
 const router = express.Router();
-const upload = multer({storage:multer.memoryStorage(),limits:{files:5,fileSize:7*1024*1024}}).array('imagens',5);
+// Arquivos transitam apenas em memória: PDF único (até 12 MB) ou até 5 imagens (até 7 MB cada).
+const upload = multer({storage:multer.memoryStorage(),limits:{files:5,fileSize:12*1024*1024}}).array('imagens',5);
 function receber(req,res,next) {
   upload(req,res,erro=>{
     if (!erro) return next();
     res.status(erro instanceof multer.MulterError ? 413 : 400)
-      .json({erro:erro.code==='LIMIT_FILE_SIZE'?'Cada foto pode ter até 7 MB.':erro.message});
+      .json({erro:erro.code==='LIMIT_FILE_SIZE'?'Arquivo acima de 12 MB. PDFs aceitam até 12 MB e fotos até 7 MB.':erro.message});
   });
 }
 function tratar(res,e) {
@@ -31,8 +32,8 @@ router.post('/interpretar', receber, async (req,res) => {
       fornecedorInformado !== fornecedorDetectado);
     const conflitanteNumero=Boolean(numeroInformado && numeroDetectado &&
       numeroInformado !== numeroDetectado);
-    if(conflitanteFornecedor) resultado.avisos.push('Fornecedor selecionado é diferente do reconhecido na foto. Selecione o correto para evitar vincular à NF errada.');
-    if(conflitanteNumero) resultado.avisos.push('Número da NF digitado difere do reconhecido na foto. Confira antes de gravar.');
+    if(conflitanteFornecedor) resultado.avisos.push('Fornecedor selecionado é diferente do reconhecido no arquivo. Selecione o correto para evitar vincular à NF errada.');
+    if(conflitanteNumero) resultado.avisos.push('Número da NF digitado difere do reconhecido no arquivo. Confira antes de gravar.');
     const fornecedor_id=fornecedorInformado || fornecedorDetectado;
     const numero_nf=numeroInformado || numeroDetectado;
     dados.fornecedor_id=fornecedor_id || null;

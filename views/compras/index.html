@@ -20,9 +20,9 @@
     </nav>
     <section id="painelCadastro">
       <section class="card importacao">
-        <div><h2>Importar nota fiscal com IA</h2><p>Selecione de 1 a 5 fotos (JPG, PNG ou WEBP). O sistema identifica fornecedor e NF, procura o cadastro existente e adiciona dados e insumos sem duplicar linhas. As imagens não são armazenadas.</p></div>
-        <input type="file" id="fotos" accept="image/jpeg,image/png,image/webp" multiple hidden>
-        <button class="btn primary" type="button" id="btnImportar">Importar fotos</button>
+        <div><h2>Importar nota fiscal com IA</h2><p>Importe um PDF (até 12 MB), inclusive digitalizado, ou de 1 a 5 fotos (JPG, PNG ou WEBP; até 7 MB cada). A IA identifica fornecedor, NF, impostos, frete e insumos, completando cadastros existentes sem duplicar linhas. Arquivos não são armazenados.</p></div>
+        <input type="file" id="fotos" accept=".pdf,application/pdf,image/jpeg,image/png,image/webp" multiple hidden>
+        <button class="btn primary" type="button" id="btnImportar">Importar fotos ou PDF</button>
       </section>
       <div id="avisosIa" class="avisos-ia" hidden></div>
       <form id="formCompra" novalidate>
