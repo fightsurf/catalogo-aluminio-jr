@@ -38,7 +38,7 @@ test('prévia mostra conversa montada à direita das ações mesmo sem editar',(
  const html=read('views/bot-admin/bot-intencoes.html');
  assert.match(html,/\.acoes-layout \{ display:grid; grid-template-columns:/);
  assert.match(html,/\.acoes-previa-completa \{ position:sticky/);
- assert.match(html,/@media\(max-width:900px\)/);
+ assert.match(html,/@media\(max-width:620px\)/);
  for(const id of ['acao-form','acao-tipo','acao-conteudo','wa-conversa','wa-resumo'])
   assert.ok(html.includes('id="'+id+'"'),id+' deve existir');
  const inicioFormulario=html.indexOf('<form id="acao-form"');
