@@ -19,6 +19,7 @@
     .btn-buscar,.btn-ver,.btn-pedido { background:#111827; color:#fff; }
     .btn-limpar,.btn-copiar,.btn-fechar { background:#e5e7eb; color:#111827; }
     .btn-excluir { background:#fee2e2; color:#991b1b; }
+    .btn-excluir:disabled { opacity:.65; cursor:wait; }
     .lista { display:grid; gap:10px; }
     .registro { padding:14px; }
     .registro-topo { display:flex; justify-content:space-between; gap:14px; align-items:flex-start; }
@@ -102,6 +103,9 @@
     let relatorioModalAtual = '';
     let telefoneFiltroAplicado = '';
     let carregandoEmAndamento = false;
+    let revisaoLista = 0;
+    const idsExcluidos = new Set();
+    const exclusoesEmAndamento = new Set();
 
     function escapeHtml(valor) {
       return String(valor ?? '').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'",'&#039;');
@@ -193,6 +197,7 @@
     async function carregar({ silencioso = false } = {}) {
       if (carregandoEmAndamento) return;
       carregandoEmAndamento = true;
+      const revisaoInicio = revisaoLista;
       if (!silencioso) lista.innerHTML = '<div class="carregando">Carregando...</div>';
 
       const query = telefoneFiltroAplicado ? `?telefone=${encodeURIComponent(telefoneFiltroAplicado)}` : '';
@@ -204,10 +209,13 @@
         }
         const json = await response.json();
         if (!response.ok || !json.success) throw new Error(json.message || 'Erro ao carregar relatórios.');
-        registrosAtuais = Array.isArray(json.data) ? json.data : [];
+        // Uma busca iniciada antes da exclusão não pode repor o registro removido.
+        if (revisaoInicio !== revisaoLista) return;
+        registrosAtuais = (Array.isArray(json.data) ? json.data : [])
+          .filter((registro) => !idsExcluidos.has(String(registro.id)));
         renderizar();
       } catch (error) {
-        if (!silencioso) lista.innerHTML = `<div class="erro">${escapeHtml(error.message)}</div>`;
+        if (!silencioso && revisaoInicio === revisaoLista) lista.innerHTML = `<div class="erro">${escapeHtml(error.message)}</div>`;
       } finally {
         carregandoEmAndamento = false;
       }
@@ -262,17 +270,38 @@
       window.location.href = url;
     }
 
-    async function excluirRelatorio(id) {
+    async function excluirRelatorio(id, botao) {
+      const chave = String(id);
       const item = obterRegistro(id);
-      if (!item) return;
+      if (!item || exclusoesEmAndamento.has(chave)) return;
       if (!window.confirm(`Tem certeza que deseja excluir este relatório recebido de ${formatarTelefone(item.telefone)}?\n\nA exclusão é definitiva.`)) return;
+
+      exclusoesEmAndamento.add(chave);
+      if (botao) {
+        botao.disabled = true;
+        botao.textContent = 'Excluindo...';
+      }
+
       try {
         const response = await fetch(`/api/whatsapp/relatorios/${encodeURIComponent(id)}`, { method:'DELETE', headers:{ Accept:'application/json' } });
         const json = await response.json();
         if (!response.ok || !json.success) throw new Error(json.message || 'Não foi possível excluir o relatório.');
-        registrosAtuais = registrosAtuais.filter((r) => Number(r.id) !== Number(id));
+
+        // Remover imediatamente e impedir que respostas antigas da atualização
+        // automática (a cada 5s) façam o relatório reaparecer.
+        idsExcluidos.add(chave);
+        revisaoLista += 1;
+        registrosAtuais = registrosAtuais.filter((registro) => String(registro.id) !== chave);
         renderizar();
-      } catch (error) { window.alert(error.message); }
+      } catch (error) {
+        window.alert(error.message || 'Não foi possível excluir o relatório.');
+      } finally {
+        exclusoesEmAndamento.delete(chave);
+        if (botao && botao.isConnected) {
+          botao.disabled = false;
+          botao.textContent = 'Excluir';
+        }
+      }
     }
 
     lista.addEventListener('click', (event) => {
@@ -286,7 +315,7 @@
         if (telefone) copiarTexto(telefone, botao, { textoSucesso: '✓', mensagemErro: 'Não foi possível copiar o telefone.' });
       }
       if (botao.dataset.acao === 'pedido') abrirInsercaoPedido(botao.dataset.id);
-      if (botao.dataset.acao === 'excluir') excluirRelatorio(botao.dataset.id);
+      if (botao.dataset.acao === 'excluir') excluirRelatorio(botao.dataset.id, botao);
     });
 
     btnBuscar.addEventListener('click', () => { telefoneFiltroAplicado = telefoneBusca.value.trim(); carregar(); });
