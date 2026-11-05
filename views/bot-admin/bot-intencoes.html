@@ -182,7 +182,7 @@
           <div class="acao-edicao-campos">
             <h3 id="acao-form-titulo">Nova ação</h3>
             <div class="colunas">
-          <div class="campo"><label for="acao-ordem">Ordem *</label><input type="number" min="1" step="1" id="acao-ordem" required></div>
+          <div class="campo"><label for="acao-ordem">Posição da mensagem (automática)</label><input type="number" min="1" step="1" id="acao-ordem" required readonly title="Para mudar a ordem, use as setas ↑ e ↓ nos painéis acima."><small class="acao-help">Para mudar, use ↑ e ↓ nos painéis de ações acima.</small></div>
           <div class="campo"><label for="acao-tipo">Tipo de ação *</label>
             <select id="acao-tipo" required onchange="atualizarAjudaAcao()">
               <option value="">Selecione</option>
