@@ -182,3 +182,31 @@ test('metas lipídicas 2025 por categoria são independentes das referências do
  assert.doesNotThrow(()=>new Function(api));
  assert.doesNotThrow(()=>new Function(js));
 });
+
+
+test('perfil cardiovascular é aditivo e não presume ausência de fatores de risco',()=>{
+ const sql=read('db/sql/20261105_avn_risco_cardiovascular.sql');
+ const mig=read('src/services/avn/avn-migration.service.js');
+ const api=read('src/routes/avn/avn-exames.routes.js');
+ const service=read('src/services/avn/avn-risco-cardiovascular.service.js');
+ const js=read('public/js/avn-exames.js');
+ const page=read('views/avn/exames-laboratoriais.html');
+ assert.match(sql,/CREATE TABLE IF NOT EXISTS public\.avn_risco_cardiovascular_perfil/);
+ assert.match(sql,/DEFAULT 'nao_informado'/);
+ assert.match(sql,/CHECK \(/);
+ assert.match(mig,/20261105_avn_risco_cardiovascular\.sql/);
+ assert.match(api,/router\.get\('\/risco'/);
+ assert.match(api,/router\.put\('\/risco'/);
+ assert.match(api,/checkUser\(uid\)/);
+ assert.match(service,/categoria_minima/);
+ assert.match(service,/ldl>=190/);
+ assert.match(service,/ldl>=160/);
+ assert.match(service,/nao_informado/);
+ assert.match(service,/PREVENT/);
+ assert.match(js,/loadRisk\(\)/);
+ assert.match(js,/salvarRisco/);
+ for(const id of ['exRiscoResumo','exRiscoModal','exRiscoForm','riscoPressaoSistolica','riscoFamilia'])
+  assert.ok(page.includes('id="'+id+'"'),id);
+ for(const src of ['src/services/avn/avn-risco-cardiovascular.service.js','public/js/avn-exames.js','src/routes/avn/avn-exames.routes.js'])
+  assert.doesNotThrow(()=>new Function(read(src)));
+});
