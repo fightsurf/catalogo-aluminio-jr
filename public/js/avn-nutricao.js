@@ -860,21 +860,51 @@ function configurarTabelaNutricional(){
  });
  $('fecharTabelaNutricional').onclick=fechar;
  $('cancelarTabelaNutricional').onclick=fechar;
- botao.onclick=()=>{arquivo.value='';arquivo.click();};
- arquivo.onchange=async()=>{
-  const foto=arquivo.files?.[0];if(!foto)return;
+ // O botão sempre abre o modal: não lança o seletor de arquivos antes da escolha.
+ const areaColar=$('areaColarTabelaNutricional');
+ botao.onclick=()=>{
+  if(controle){controle.abort();controle=null;}
+  liberarPreview();resultado=null;resumo.hidden=true;aplicar.disabled=true;
+  arquivo.value='';
+  status.textContent='Cole uma imagem com Ctrl+V ou selecione um arquivo.';
+  if(!modal.open)modal.showModal();
+  areaColar.focus({preventScroll:true});
+ };
+ $('selecionarArquivoTabelaNutricional').onclick=()=>{arquivo.value='';arquivo.click();};
+ // A área editável permite usar a opção Colar dos dispositivos móveis.
+ // Impedimos a inserção de texto ou HTML: só uma imagem será processada.
+ areaColar.addEventListener('beforeinput',event=>{
+  if(event.inputType!=='insertFromPaste')event.preventDefault();
+ });
+ modal.addEventListener('paste',event=>{
+  if(!modal.open)return;
+  event.preventDefault();
+  const itens=[...(event.clipboardData?.items||[])];
+  const item=itens.find(i=>i.kind==='file'&&i.type.startsWith('image/'));
+  const foto=item?.getAsFile()||[...(event.clipboardData?.files||[])].find(f=>f.type.startsWith('image/'));
+  if(!foto){
+   status.textContent='Não encontrei uma imagem copiada. Copie uma captura de tela ou selecione um arquivo.';
+   return;
+  }
+  processarFoto(foto);
+ });
+ arquivo.onchange=()=>processarFoto(arquivo.files?.[0]);
+ async function processarFoto(foto){
+  if(!foto)return;
+  if(controle){controle.abort();controle=null;}
+  resultado=null;aplicar.disabled=true;resumo.hidden=true;
   if(!['image/jpeg','image/png','image/webp'].includes(foto.type)){
-   show('Selecione uma imagem JPG, PNG ou WebP da tabela nutricional.',true);return;
+   status.textContent='Selecione uma imagem JPG, PNG ou WebP da tabela nutricional.';return;
   }
   if(foto.size>8*1024*1024){
-   show('A imagem excede 8 MB. Envie uma foto menor.',true);return;
+   status.textContent='A imagem excede 8 MB. Envie uma foto menor.';return;
   }
   liberarPreview();
   if(!modal.open)modal.showModal();
   previewUrl=URL.createObjectURL(foto);preview.src=previewUrl;preview.hidden=false;
   resumo.hidden=true;resultado=null;aplicar.disabled=true;
   status.textContent='Interpretando os valores da tabela nutricional…';
-  const form=new FormData();form.append('imagem',foto,foto.name);
+  const form=new FormData();form.append('imagem',foto,foto.name||'tabela-nutricional.png');
   const pedido=new AbortController();controle=pedido;
   try{
    const resposta=await fetch(API+'/consulta-ia/tabela-nutricional',{
@@ -910,7 +940,7 @@ function configurarTabelaNutricional(){
    status.textContent=e.message||'Não foi possível interpretar a tabela.';
    aplicar.disabled=true;resumo.hidden=true;
   }finally{if(controle===pedido)controle=null;}
- };
+ }
  aplicar.onclick=()=>{
   if(!resultado)return;
   const dados=resultado;
