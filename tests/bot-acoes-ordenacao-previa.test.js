@@ -69,3 +69,15 @@ test('prévia mostra conversa montada à direita das ações mesmo sem editar',(
  assert.match(previa,/formatarMensagemWhatsApp/);
  assert.match(previa,/Simulação · não enviado/);
 });
+
+test('prévia compacta ocupa aproximadamente metade e modal não exige scroll externo',()=>{
+ const html=read('views/bot-admin/bot-intencoes.html');
+ assert.match(html,/\.modal-acoes \{[\s\S]*?height:min\(670px,calc\(100dvh - 20px\)\)/);
+ assert.match(html,/\.acoes-layout \{ grid-template-columns:minmax\(0,1fr\) 245px/);
+ assert.match(html,/\.acoes-previa-completa \.wa-chat \{ height:255px; min-height:0; flex:0 0 255px/);
+ assert.match(html,/\.acoes-coluna-editor \{ min-height:0; overflow-y:auto/);
+ assert.match(html,/\.acoes-previa-completa \.wa-fundo \{ min-height:0; max-height:none/);
+ assert.match(html,/@media\(max-width:620px\)/);
+ assert.match(html,/\.acoes-previa-completa \.wa-chat \{ height:167px; flex:0 0 167px/);
+ assert.match(html,/\.overlay-acoes \.modal-acoes \{ margin:0; max-height:calc\(100dvh - 20px\); overflow:hidden/);
+});
