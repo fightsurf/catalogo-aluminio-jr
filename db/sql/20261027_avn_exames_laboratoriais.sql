@@ -101,6 +101,7 @@ VALUES
 ('magnesio','Magnésio',ARRAY['magnesio','magnésio sérico','magnesio serico','magnésio no sangue'],'Minerais','mg/dL','indicador'),
 ('fosforo','Fósforo',ARRAY['fosforo','fósforo sérico','fosforo serico','fósforo inorgânico','fosforo inorganico','fosfato sérico','phosphorus'],'Minerais','mg/dL','indicador'),
 ('calcio_total','Cálcio total',ARRAY['cálcio','calcio','cálcio sérico','calcio serico','calcio total','cálcio no sangue','calcio no sangue','total calcium'],'Minerais','mg/dL','indicador'),
+('acido_urico','Ácido úrico',ARRAY['acido urico','ácido úrico sérico','acido urico serico','uricemia','urato sérico','urato serico','uric acid','serum uric acid'],'Metabolismo','mg/dL','indicador'),
 ('ferritina','Ferritina',ARRAY[]::text[],'Metabolismo','ng/mL','indicador'),
 ('pcr','Proteína C-reativa',ARRAY['pcr','crp'],'Inflamação','mg/L','indicador')
 ON CONFLICT(codigo) DO NOTHING;
