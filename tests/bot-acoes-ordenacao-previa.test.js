@@ -34,26 +34,38 @@ test('setas reordenam as ações e salvam a sequência integral no servidor',()=
  assert.doesNotThrow(()=>new Function(routes));
 });
 
-test('prévia WhatsApp à direita da edição nunca faz disparo',()=>{
+test('prévia mostra conversa montada à direita das ações mesmo sem editar',()=>{
  const html=read('views/bot-admin/bot-intencoes.html');
- assert.match(html,/\.acao-edicao-layout \{ display:grid; grid-template-columns:/);
- assert.match(html,/\.acao-previa \{ position:sticky/);
- assert.match(html,/@media\(max-width:860px\)/);
- for(const id of ['acao-form','acao-tipo','acao-conteudo','wa-bolha','wa-inativo'])
+ assert.match(html,/\.acoes-layout \{ display:grid; grid-template-columns:/);
+ assert.match(html,/\.acoes-previa-completa \{ position:sticky/);
+ assert.match(html,/@media\(max-width:900px\)/);
+ for(const id of ['acao-form','acao-tipo','acao-conteudo','wa-conversa','wa-resumo'])
   assert.ok(html.includes('id="'+id+'"'),id+' deve existir');
+ const inicioFormulario=html.indexOf('<form id="acao-form"');
+ const fimFormulario=html.indexOf('</form>',inicioFormulario);
+ const painel=html.indexOf('<aside class="acoes-previa-completa"');
+ assert.ok(inicioFormulario>0 && fimFormulario>inicioFormulario && painel>fimFormulario,
+  'Prévia deve permanecer fora do formulário, visível quando o usuário não está editando');
+ assert.match(html,/Todas as mensagens ativas, na sequência em que serão enviadas/);
  assert.match(html,/function atualizarPreviaAcao\(/);
+ assert.match(html,/function preencherBolhaWhatsApp\(/);
  assert.match(html,/function formatarMensagemWhatsApp\(/);
+ assert.match(html,/lista = acoesDaIntencao\.map\(a => \(\{\.\.\.a\}\)\)/);
+ assert.match(html,/for \(let indice = 0; indice < lista\.length; indice\+\+\)/);
+ assert.match(html,/if \(!acao\.ativo\) continue/);
+ assert.match(html,/Mensagem ' \+ \(indice \+ 1\)/);
+ assert.match(html,/wa-preview-item-rascunho/);
+ assert.match(html,/foto\.onerror/);
  assert.match(html,/addEventListener\('input', atualizarPreviaAcao\)/);
  assert.match(html,/addEventListener\('change', atualizarPreviaAcao\)/);
  for(const tipo of ['SEND_TEXT','SEND_IMAGE','SEND_VIDEO','SEND_AUDIO','SEND_DOCUMENT','SEND_LINK','SEND_LOCATION'])
-  assert.ok(html.includes("tipo === '"+tipo+"'")||html.includes("tipo === '"+tipo+"'")||html.includes("'"+tipo+"'"));
- const inicio=html.indexOf('function atualizarPreviaAcao()');
+  assert.ok(html.includes("'"+tipo+"'"),'Tipo não suportado: '+tipo);
+ const inicio=html.indexOf('function preencherBolhaWhatsApp(');
  const fim=html.indexOf('function validarConteudoAcao(',inicio);
  const previa=html.slice(inicio,fim);
  assert.ok(inicio>0 && fim>inicio);
  assert.doesNotMatch(previa,/fetch\s*\(|enviarAcao|executarFluxo/);
  assert.match(previa,/replaceChildren\(\)/);
  assert.match(previa,/formatarMensagemWhatsApp/);
- assert.match(previa,/foto\.onerror/);
- assert.match(previa,/Prévia · não enviado/);
+ assert.match(previa,/Simulação · não enviado/);
 });
