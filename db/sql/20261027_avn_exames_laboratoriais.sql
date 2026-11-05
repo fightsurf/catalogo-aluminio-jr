@@ -146,3 +146,37 @@ WHERE c.codigo='tfg_estimada'
   SELECT 1 FROM public.avn_exames_referencias r
   WHERE r.exame_id=c.id AND r.laboratorio IS NULL AND r.material IS NULL AND r.metodo IS NULL
  );
+
+-- Metas de tratamento por risco cardiovascular (SBC 2025), separadas das faixas do laudo.
+-- O valor corresponde a uma meta ESTRITAMENTE MENOR, não a um limite diagnóstico.
+CREATE TABLE IF NOT EXISTS public.avn_exames_metas_risco (
+ id BIGSERIAL PRIMARY KEY,
+ exame_id BIGINT NOT NULL REFERENCES public.avn_exames_catalogo(id) ON DELETE RESTRICT,
+ categoria_risco VARCHAR(25) NOT NULL,
+ rotulo VARCHAR(45) NOT NULL,
+ ordem SMALLINT NOT NULL,
+ meta_menor_que NUMERIC NOT NULL CHECK (meta_menor_que > 0),
+ unidade VARCHAR(45) NOT NULL DEFAULT 'mg/dL',
+ fonte TEXT NOT NULL,
+ UNIQUE (exame_id,categoria_risco)
+);
+INSERT INTO public.avn_exames_metas_risco
+ (exame_id,categoria_risco,rotulo,ordem,meta_menor_que,unidade,fonte)
+SELECT c.id, v.categoria_risco, v.rotulo, v.ordem, v.meta, 'mg/dL',
+ 'Diretriz Brasileira de Dislipidemias e Prevenção da Aterosclerose – 2025; https://pmc.ncbi.nlm.nih.gov/articles/PMC12674852/'
+FROM (VALUES
+ ('colesterol_nao_hdl','baixo','Baixo',1,145),
+ ('colesterol_nao_hdl','intermediario','Intermediário',2,130),
+ ('colesterol_nao_hdl','alto','Alto',3,100),
+ ('colesterol_nao_hdl','muito_alto','Muito alto',4,80),
+ ('colesterol_nao_hdl','extremo','Extremo',5,70),
+ ('ldl','baixo','Baixo',1,115),
+ ('ldl','intermediario','Intermediário',2,100),
+ ('ldl','alto','Alto',3,70),
+ ('ldl','muito_alto','Muito alto',4,50),
+ ('ldl','extremo','Extremo',5,40)
+) AS v(codigo,categoria_risco,rotulo,ordem,meta)
+JOIN public.avn_exames_catalogo c ON c.codigo=v.codigo
+ON CONFLICT (exame_id,categoria_risco) DO UPDATE
+ SET rotulo=EXCLUDED.rotulo,ordem=EXCLUDED.ordem,
+ meta_menor_que=EXCLUDED.meta_menor_que,unidade=EXCLUDED.unidade,fonte=EXCLUDED.fonte;
