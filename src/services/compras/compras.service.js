@@ -81,7 +81,7 @@ async function gravar(dados, id = null) {
     return buscar(nota.id);
   } catch (e) {
     await cliente.query('ROLLBACK');
-    if (e.code === '23505') throw erro('Já existe uma NF com esse número para este fornecedor.',409);
+    if (e.code === '23505') throw erro('Já existe uma NF desse fornecedor ou uma linha digitável/código de boleto duplicado.',409);
     if (e.code === '23503') throw erro('Fornecedor ou insumo não encontrado.',400);
     throw e;
   } finally { cliente.release(); }

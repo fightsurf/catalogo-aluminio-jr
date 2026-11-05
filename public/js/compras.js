@@ -150,6 +150,7 @@
       '<label>Tipo<select class="b-tipo"><option value="boleto">Boleto</option><option value="duplicata">Duplicata / parcela</option></select></label>'+
       '<label>Situação<select class="b-status"><option value="a_confirmar">A confirmar</option><option value="pendente">Pendente</option><option value="pago">Pago</option><option value="cancelado">Cancelado</option></select></label>'+
       '<label class="b-linha-campo">Linha digitável (47 ou 48 dígitos)<input class="b-linha" maxlength="80" placeholder="Opcional"></label>'+
+      '<label class="b-linha-campo">Código de barras (44 dígitos)<input class="b-codigo" maxlength="60" placeholder="Opcional"></label>'+
       '<label>Data pagamento<input class="b-pagamento" type="date"></label>'+
       '<label>Valor pago (R$)<input class="b-valor-pago" type="number" step="0.01" min="0"></label>'+
       '<label class="b-obs-campo">Observações<input class="b-obs" maxlength="400"></label></div>';
@@ -163,6 +164,7 @@
       '.b-tipo':b.tipo||'boleto',
       '.b-status':b.status||(b.tipo==='duplicata'?'a_confirmar':'pendente'),
       '.b-linha':b.linha_digitavel,
+      '.b-codigo':b.codigo_barras,
       '.b-pagamento':b.data_pagamento,
       '.b-valor-pago':b.valor_pago,
       '.b-obs':b.observacao
@@ -176,6 +178,9 @@
       const pago=linha.querySelector('.b-status').value==='pago';
       linha.querySelector('.b-pagamento').disabled=!pago;
       linha.querySelector('.b-valor-pago').disabled=!pago;
+      if(pago && !linha.querySelector('.b-pagamento').value)linha.querySelector('.b-pagamento').value=dataHoje();
+      if(pago && !linha.querySelector('.b-valor-pago').value)
+        linha.querySelector('.b-valor-pago').value=linha.querySelector('.b-valor').value;
       atualizarBoletos();
     };
     linha.querySelector('.b-status').addEventListener('change',mudarStatus);
@@ -198,7 +203,7 @@
         tipo:campo('tipo'),status:campo('status'),parcela:campo('parcela'),
         vencimento:campo('vencimento'),valor:campo('valor'),
         numero_documento:campo('documento'),nosso_numero:campo('nosso'),
-        banco:campo('banco'),linha_digitavel:campo('linha'),
+        banco:campo('banco'),linha_digitavel:campo('linha'),codigo_barras:campo('codigo'),
         data_pagamento:campo('pagamento'),valor_pago:campo('valor-pago'),observacao:campo('obs')
       };
     });
