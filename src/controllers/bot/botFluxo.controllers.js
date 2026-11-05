@@ -61,6 +61,16 @@ async function atualizarAcao(req, res) {
   }
 }
 
+async function reordenarAcoes(req, res) {
+  try {
+    const resultado = await botFluxoService.reordenarAcoes(req.body || {});
+    res.json({ success: true, ...resultado });
+  } catch (err) {
+    console.error('[botFluxo] erro ao reordenar ações:', err.message);
+    res.status(400).json({ success: false, message: err.message });
+  }
+}
+
 async function deletarAcao(req, res) {
   try {
     const result = await botFluxoService.deletarAcao(req.params.id);
@@ -83,6 +93,7 @@ module.exports = {
   getAcoesView,
   criarAcao,
   atualizarAcao,
+  reordenarAcoes,
   deletarAcao,
   getAdminView
 };

@@ -50,7 +50,7 @@
     .acoes-resumo { display:flex; align-items:center; gap:9px; white-space:nowrap; }
     .qtd-acoes { display:inline-block; font-weight:bold; min-width:20px; color:#334155; }
     .overlay-acoes { z-index:150; padding:14px; overflow-y:auto; }
-    .modal-acoes { width:min(860px,100%); max-width:860px; max-height:92vh; overflow-y:auto; }
+    .modal-acoes { width:min(1180px,100%); max-width:1180px; max-height:92vh; overflow-y:auto; }
     .acoes-topo { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:12px; }
     .acoes-topo p { color:#64748b; font-size:.86rem; line-height:1.45; }
     .acoes-topo button { border:0; border-radius:5px; padding:7px 12px; cursor:pointer; background:#e2e8f0; }
@@ -58,7 +58,9 @@
     .acao-linha { display:flex; align-items:flex-start; flex-wrap:wrap; gap:10px; justify-content:space-between; padding:12px; border:1px solid #dce3ed; border-radius:7px; background:#f8fafc; }
     .acao-conteudo { white-space:pre-wrap; overflow-wrap:anywhere; color:#475569; font-size:.84rem; margin-top:6px; max-height:105px; overflow:auto; }
     .acao-detalhes { flex:1; min-width:180px; }
-    .acao-botoes { display:flex; gap:7px; }
+    .acao-botoes { display:flex; gap:7px; flex-wrap:wrap; justify-content:flex-end; }
+    .acao-mover { background:#dbeafe; color:#1e40af; font-size:1rem; min-width:34px; }
+    .acao-botoes button:disabled { opacity:.4; cursor:not-allowed; }
     .acao-botoes button { border:0; border-radius:5px; padding:6px 10px; cursor:pointer; }
     .acao-editar { color:white; background:#d97706; }
     .acao-excluir { color:white; background:#dc2626; }
@@ -72,6 +74,26 @@
     .acao-help { color:#64748b; display:block; font-size:.79rem; margin-top:5px; }
     .acoes-btn-nova { border:0; border-radius:5px; background:#16a34a; color:white; padding:9px 14px; cursor:pointer; }
     .acoes-btn-nova:disabled { opacity:.6; cursor:wait; }
+    .acao-edicao-layout { display:grid; grid-template-columns:minmax(0,1fr) minmax(275px,.82fr); gap:18px; align-items:start; }
+    .acao-edicao-campos { min-width:0; }
+    .acao-previa { position:sticky; top:0; min-width:0; }
+    .acao-previa h4 { color:#334155; font-size:.9rem; margin-bottom:8px; }
+    .wa-chat { border-radius:12px; overflow:hidden; border:1px solid #b6c9c3; box-shadow:0 2px 7px #0001; }
+    .wa-cabecalho { background:#075e54; color:white; font-size:.85rem; padding:12px; font-weight:bold; }
+    .wa-cabecalho small { display:block; font-weight:normal; opacity:.85; margin-top:3px; }
+    .wa-fundo { background:#e5ddd5; padding:18px 12px; min-height:220px; display:flex; align-items:flex-end; justify-content:flex-end; }
+    .wa-bolha { max-width:96%; min-width:140px; background:#dcf8c6; border-radius:9px 9px 2px 9px; padding:9px; box-shadow:0 1px 2px #0002; color:#182b20; font-size:.87rem; overflow-wrap:anywhere; }
+    .wa-texto { white-space:normal; line-height:1.4; }
+    .wa-media { max-width:100%; border-radius:6px; display:block; margin-bottom:6px; }
+    .wa-media-video { width:100%; max-height:220px; }
+    .wa-audio { width:100%; max-width:260px; }
+    .wa-link { overflow-wrap:anywhere; color:#075e54; }
+    .wa-rodape { color:#667c6c; font-size:.69rem; text-align:right; margin-top:5px; }
+    .wa-inativo { font-size:.75rem; color:#92400e; margin-top:8px; }
+    @media(max-width:860px) {
+      .acao-edicao-layout { grid-template-columns:1fr; }
+      .acao-previa { position:static; }
+    }
     @media(max-width:700px) {
       body { padding:10px; }
       .topo { flex-wrap:wrap; }
@@ -156,8 +178,10 @@
       <div id="acoes-lista" class="acoes-lista"></div>
       <button type="button" id="acoes-btn-nova" class="acoes-btn-nova" onclick="novaAcao()">+ Adicionar ação</button>
       <form id="acao-form" class="acao-form" style="display:none" onsubmit="salvarAcao(event)">
-        <h3 id="acao-form-titulo">Nova ação</h3>
-        <div class="colunas">
+        <div class="acao-edicao-layout">
+          <div class="acao-edicao-campos">
+            <h3 id="acao-form-titulo">Nova ação</h3>
+            <div class="colunas">
           <div class="campo"><label for="acao-ordem">Ordem *</label><input type="number" min="1" step="1" id="acao-ordem" required></div>
           <div class="campo"><label for="acao-tipo">Tipo de ação *</label>
             <select id="acao-tipo" required onchange="atualizarAjudaAcao()">
@@ -184,6 +208,16 @@
         <div class="acoes-modal">
           <button type="button" class="btn-cancelar" onclick="cancelarEdicaoAcao()">Cancelar</button>
           <button type="submit" class="btn-salvar" id="acao-salvar">Salvar ação</button>
+        </div>
+          </div>
+          <aside class="acao-previa" aria-label="Prévia da mensagem no WhatsApp">
+            <h4>Prévia da mensagem no WhatsApp</h4>
+            <div class="wa-chat">
+              <div class="wa-cabecalho">WhatsApp · Simulação <small>Visualização — nenhuma mensagem será enviada</small></div>
+              <div class="wa-fundo"><div id="wa-bolha" class="wa-bolha" aria-live="polite"></div></div>
+            </div>
+            <div id="wa-inativo" class="wa-inativo" style="display:none">Esta ação está inativa e não será enviada pelo bot.</div>
+          </aside>
         </div>
       </form>
     </div>
@@ -360,6 +394,8 @@
   <script>
     let intencaoAcoesAtual = null;
     let acaoEdicaoId = null;
+    let acoesDaIntencao = [];
+    let ordenandoAcoes = false;
 
     function mensagemAcoes(mensagem) {
       document.getElementById('acoes-mensagem').textContent = mensagem || '';
@@ -378,6 +414,7 @@
     function fecharAcoes() {
       document.getElementById('overlay-acoes').classList.remove('ativo');
       intencaoAcoesAtual = null;
+      acoesDaIntencao = [];
       cancelarEdicaoAcao();
     }
 
@@ -394,47 +431,104 @@
         const acoes = await res.json();
         if (!Array.isArray(acoes)) throw new Error('Resposta inválida.');
         if (!intencaoAcoesAtual || Number(intencaoAcoesAtual.id) !== Number(idAtual)) return;
-        lista.replaceChildren();
-        acoes.sort((a, b) => Number(a.ordem) - Number(b.ordem) || Number(a.id) - Number(b.id));
-        if (!acoes.length) {
-          const vazio = document.createElement('div');
-          vazio.className = 'acoes-vazio';
-          vazio.textContent = 'Nenhuma ação cadastrada. Clique em Adicionar ação para configurar este fluxo.';
-          lista.appendChild(vazio);
-        }
-        acoes.forEach(a => {
-          const linha = document.createElement('div');
-          linha.className = 'acao-linha';
-          const detalhes = document.createElement('div');
-          detalhes.className = 'acao-detalhes';
-          const titulo = document.createElement('strong');
-          titulo.textContent = '#' + a.ordem + ' · ' + a.tipo_acao + (a.ativo ? '' : ' · Inativa');
-          const conteudo = document.createElement('div');
-          conteudo.className = 'acao-conteudo';
-          conteudo.textContent = String(a.conteudo || '');
-          const delay = document.createElement('small');
-          delay.className = 'acao-help';
-          delay.textContent = 'Espera: ' + (a.delay_ms || 0) + ' ms';
-          detalhes.append(titulo, conteudo, delay);
-          const botoes = document.createElement('div');
-          botoes.className = 'acao-botoes';
-          const editar = document.createElement('button');
-          editar.type = 'button';
-          editar.className = 'acao-editar';
-          editar.textContent = 'Editar';
-          editar.onclick = () => editarAcao(a);
-          const excluir = document.createElement('button');
-          excluir.type = 'button';
-          excluir.className = 'acao-excluir';
-          excluir.textContent = 'Excluir';
-          excluir.onclick = () => excluirAcao(a);
-          botoes.append(editar, excluir);
-          linha.append(detalhes, botoes);
-          lista.appendChild(linha);
-        });
+        acoesDaIntencao = acoes.sort((a, b) => Number(a.ordem) - Number(b.ordem) || Number(a.id) - Number(b.id));
+        desenharAcoes();
       } catch(e) {
         lista.replaceChildren();
         mensagemAcoes('Erro ao carregar ações: ' + e.message);
+      }
+    }
+
+    function desenharAcoes() {
+      const lista = document.getElementById('acoes-lista');
+      lista.replaceChildren();
+      if (!acoesDaIntencao.length) {
+        const vazio = document.createElement('div');
+        vazio.className = 'acoes-vazio';
+        vazio.textContent = 'Nenhuma ação cadastrada. Clique em Adicionar ação para configurar este fluxo.';
+        lista.appendChild(vazio);
+      }
+      acoesDaIntencao.forEach((a, indice) => {
+        const linha = document.createElement('div');
+        linha.className = 'acao-linha';
+        const detalhes = document.createElement('div');
+        detalhes.className = 'acao-detalhes';
+        const titulo = document.createElement('strong');
+        titulo.textContent = '#' + (indice + 1) + ' · ' + a.tipo_acao + (a.ativo ? '' : ' · Inativa');
+        const conteudo = document.createElement('div');
+        conteudo.className = 'acao-conteudo';
+        conteudo.textContent = String(a.conteudo || '');
+        const delay = document.createElement('small');
+        delay.className = 'acao-help';
+        delay.textContent = 'Espera: ' + (a.delay_ms || 0) + ' ms';
+        detalhes.append(titulo, conteudo, delay);
+        const botoes = document.createElement('div');
+        botoes.className = 'acao-botoes';
+        for (const [icone, deslocamento, rotulo] of [['↑', -1, 'Subir ação'], ['↓', 1, 'Descer ação']]) {
+          const mover = document.createElement('button');
+          mover.type = 'button';
+          mover.className = 'acao-mover';
+          mover.textContent = icone;
+          mover.title = rotulo;
+          mover.setAttribute('aria-label', rotulo + ' ' + (indice + 1));
+          mover.disabled = ordenandoAcoes || indice + deslocamento < 0 || indice + deslocamento >= acoesDaIntencao.length;
+          mover.onclick = () => moverAcao(a.id, deslocamento);
+          botoes.appendChild(mover);
+        }
+        const editar = document.createElement('button');
+        editar.type = 'button';
+        editar.className = 'acao-editar';
+        editar.disabled = ordenandoAcoes;
+        editar.textContent = 'Editar';
+        editar.onclick = () => editarAcao(a);
+        const excluir = document.createElement('button');
+        excluir.type = 'button';
+        excluir.className = 'acao-excluir';
+        excluir.disabled = ordenandoAcoes;
+        excluir.textContent = 'Excluir';
+        excluir.onclick = () => excluirAcao(a);
+        botoes.append(editar, excluir);
+        linha.append(detalhes, botoes);
+        lista.appendChild(linha);
+      });
+      document.getElementById('acoes-btn-nova').disabled = ordenandoAcoes;
+    }
+
+    async function moverAcao(id, deslocamento) {
+      if (!intencaoAcoesAtual || ordenandoAcoes) return;
+      const indice = acoesDaIntencao.findIndex(a => Number(a.id) === Number(id));
+      const destino = indice + deslocamento;
+      if (indice < 0 || destino < 0 || destino >= acoesDaIntencao.length) return;
+      const intencaoId = Number(intencaoAcoesAtual.id);
+      const anterior = acoesDaIntencao.slice();
+      acoesDaIntencao = anterior.slice();
+      [acoesDaIntencao[indice], acoesDaIntencao[destino]] = [acoesDaIntencao[destino], acoesDaIntencao[indice]];
+      ordenandoAcoes = true;
+      desenharAcoes();
+      mensagemAcoes('Salvando nova sequência...');
+      try {
+        const res = await fetch('/bot/fluxo/admin/acoes/reordenar', {
+          method: 'PUT',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({intencao_id:intencaoId, ids:acoesDaIntencao.map(a => Number(a.id))})
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) throw new Error(data.message || 'Não foi possível alterar a ordem.');
+        if (!intencaoAcoesAtual || Number(intencaoAcoesAtual.id) !== intencaoId) return;
+        acoesDaIntencao.forEach((a, posicao) => { a.ordem = posicao + 1; });
+        if (acaoEdicaoId) {
+          const editada = acoesDaIntencao.find(a => Number(a.id) === Number(acaoEdicaoId));
+          if (editada) document.getElementById('acao-ordem').value = editada.ordem;
+        }
+        mensagemAcoes('Sequência salva. O bot enviará as mensagens nesta ordem.');
+      } catch(e) {
+        if (intencaoAcoesAtual && Number(intencaoAcoesAtual.id) === intencaoId) {
+          acoesDaIntencao = anterior;
+          mensagemAcoes('Erro ao reordenar: ' + e.message);
+        }
+      } finally {
+        ordenandoAcoes = false;
+        if (intencaoAcoesAtual && Number(intencaoAcoesAtual.id) === intencaoId) desenharAcoes();
       }
     }
 
@@ -443,8 +537,7 @@
       acaoEdicaoId = null;
       document.getElementById('acao-form-titulo').textContent = 'Adicionar ação';
       document.getElementById('acao-ordem').value = String(
-        Math.max(0, ...Array.from(document.querySelectorAll('#acoes-lista .acao-linha strong'))
-          .map(e => Number((e.textContent.match(/^#([0-9]+)/) || [,'0'])[1]) || 0)) + 1
+        Math.max(0, ...acoesDaIntencao.map(a => Number(a.ordem) || 0)) + 1
       );
       document.getElementById('acao-tipo').value = 'SEND_TEXT';
       document.getElementById('acao-conteudo').value = '';
@@ -486,7 +579,95 @@
         SEND_LINK:'Link ou texto para enviar.'
       };
       document.getElementById('acao-hint').textContent = hints[tipo] || '';
+      atualizarPreviaAcao();
     }
+    function urlPrevia(conteudo) {
+      try {
+        const url = new URL(conteudo);
+        return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+      } catch (_) { return ''; }
+    }
+    function formatarMensagemWhatsApp(texto) {
+      const escapado = String(texto).replace(/[&<>"']/g, c => ({
+        '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+      })[c]);
+      return escapado
+        .replace(/\*([^*\n]+)\*/g, '<strong>$1</strong>')
+        .replace(/_([^_\n]+)_/g, '<em>$1</em>')
+        .replace(/~([^~\n]+)~/g, '<s>$1</s>')
+        .replace(/\n/g, '<br>');
+    }
+    function atualizarPreviaAcao() {
+      const tipo = document.getElementById('acao-tipo').value;
+      const conteudo = document.getElementById('acao-conteudo').value.trim();
+      const bolha = document.getElementById('wa-bolha');
+      bolha.replaceChildren();
+      const adicionarTexto = (texto, formatado = false) => {
+        const elemento = document.createElement('div');
+        elemento.className = 'wa-texto';
+        if (formatado) elemento.innerHTML = formatarMensagemWhatsApp(texto);
+        else elemento.textContent = texto;
+        bolha.appendChild(elemento);
+      };
+      const url = urlPrevia(conteudo);
+      if (!conteudo) {
+        adicionarTexto('Digite o conteúdo para ver como ficará no WhatsApp.');
+      } else if (tipo === 'SEND_TEXT' || (tipo === 'SEND_LINK' && !url)) {
+        adicionarTexto(conteudo, true);
+      } else if (tipo === 'SEND_IMAGE' && url) {
+        const foto = document.createElement('img');
+        foto.className = 'wa-media';
+        foto.alt = 'Imagem da mensagem';
+        foto.loading = 'lazy';
+        foto.src = url;
+        foto.onerror = () => {
+          foto.replaceWith(document.createTextNode('Imagem indisponível nesta prévia.'));
+        };
+        bolha.appendChild(foto);
+      } else if (tipo === 'SEND_VIDEO' && url) {
+        const video = document.createElement('video');
+        video.className = 'wa-media wa-media-video';
+        video.controls = true;
+        video.preload = 'metadata';
+        video.src = url;
+        bolha.appendChild(video);
+      } else if (tipo === 'SEND_AUDIO' && url) {
+        const audio = document.createElement('audio');
+        audio.className = 'wa-audio';
+        audio.controls = true;
+        audio.preload = 'none';
+        audio.src = url;
+        bolha.appendChild(audio);
+      } else if ((tipo === 'SEND_DOCUMENT' || tipo === 'SEND_LINK') && url) {
+        const link = document.createElement('a');
+        link.className = 'wa-link';
+        link.href = url;
+        link.rel = 'noopener noreferrer';
+        link.target = '_blank';
+        link.textContent = tipo === 'SEND_DOCUMENT' ? '📄 Abrir documento' : conteudo;
+        bolha.appendChild(link);
+      } else if (tipo === 'SEND_LOCATION') {
+        let endereco = conteudo;
+        if (conteudo.startsWith('{')) {
+          try {
+            const loc = JSON.parse(conteudo);
+            endereco = loc.address || ([loc.lat ?? loc.latitude, loc.lng ?? loc.longitude].join(', '));
+          } catch (_) { /* Mostra o conteúdo original */ }
+        }
+        adicionarTexto('📍 Localização: ' + endereco);
+      } else {
+        adicionarTexto(conteudo);
+      }
+      const rodape = document.createElement('div');
+      rodape.className = 'wa-rodape';
+      rodape.textContent = 'Prévia · não enviado';
+      bolha.appendChild(rodape);
+      document.getElementById('wa-inativo').style.display =
+        document.getElementById('acao-ativo').checked ? 'none' : 'block';
+    }
+    document.getElementById('acao-conteudo').addEventListener('input', atualizarPreviaAcao);
+    document.getElementById('acao-ativo').addEventListener('change', atualizarPreviaAcao);
+
     function validarConteudoAcao(tipo, conteudo) {
       if (!conteudo) return 'O conteúdo é obrigatório.';
       if (['SEND_IMAGE','SEND_VIDEO','SEND_AUDIO','SEND_DOCUMENT'].includes(tipo)) {

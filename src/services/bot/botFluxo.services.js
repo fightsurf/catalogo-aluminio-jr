@@ -229,6 +229,49 @@ async function atualizarAcao(id, { intencao_id, ordem, tipo_acao, conteudo, dela
   return result.rows[0] || null;
 }
 
+async function reordenarAcoes({ intencao_id, ids }) {
+  const intencaoId = Number(intencao_id);
+  if (!Number.isSafeInteger(intencaoId) || intencaoId < 1) throw new Error('Intenção inválida.');
+  if (!Array.isArray(ids) || !ids.length || ids.length > 500) {
+    throw new Error('Informe a sequência completa das ações.');
+  }
+  const sequencia = ids.map(Number);
+  if (sequencia.some(id => !Number.isSafeInteger(id) || id < 1) ||
+      new Set(sequencia).size !== sequencia.length) {
+    throw new Error('A sequência contém ações inválidas ou repetidas.');
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const intencao = await client.query(
+      "SELECT COALESCE(NULLIF(BTRIM(fluxo_chave), ''), nome) AS nome FROM bot_intencoes WHERE id = $1 FOR UPDATE",
+      [intencaoId]
+    );
+    if (!intencao.rows.length) throw new Error('Intenção não encontrada.');
+    const nome = String(intencao.rows[0].nome).trim().toUpperCase();
+    const atuais = await client.query(
+      'SELECT id FROM bot_acoes WHERE intencao_nome = $1 ORDER BY ordem ASC, id ASC FOR UPDATE',
+      [nome]
+    );
+    const existentes = new Set(atuais.rows.map(acao => Number(acao.id)));
+    if (existentes.size !== sequencia.length ||
+        sequencia.some(id => !existentes.has(id))) {
+      throw new Error('A lista de ações mudou. Reabra o gerenciamento e tente novamente.');
+    }
+    await client.query(
+      'UPDATE bot_acoes AS acao SET ordem = sequencia.posicao::integer FROM unnest($1::bigint[]) WITH ORDINALITY AS sequencia(id, posicao) WHERE acao.id = sequencia.id AND acao.intencao_nome = $2',
+      [sequencia, nome]
+    );
+    await client.query('COMMIT');
+    return { ids: sequencia };
+  } catch (erro) {
+    await client.query('ROLLBACK');
+    throw erro;
+  } finally {
+    client.release();
+  }
+}
+
 async function deletarAcao(id) {
   const result = await pool.query(
     `DELETE FROM bot_acoes
@@ -249,5 +292,6 @@ module.exports = {
   listarAcoes,
   criarAcao,
   atualizarAcao,
+  reordenarAcoes,
   deletarAcao
 };
