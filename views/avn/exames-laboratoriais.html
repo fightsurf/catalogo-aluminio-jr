@@ -2,12 +2,39 @@
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>AVN — Exames Laboratoriais</title>
 <link rel="stylesheet" href="/css/avn-nutricao.css"><link rel="stylesheet" href="/css/avn-exames.css">
-<script src="/js/avn-exames.js?v=20261105riscos" defer></script></head>
+<script src="/js/avn-exames.js?v=20261105avaliacao" defer></script></head>
 <body><main class="avn-wrap avn-exames">
 <header class="avn-top"><a href="/avn">← Central AVN</a><span class="avn-brand">AVN <em>Saúde</em></span></header>
 <section class="avn-hero"><div><span class="avn-caption">SAÚDE · AVN</span><h1>Exames Laboratoriais</h1><p>Histórico de resultados, referências do laudo e evolução de cada indicador.</p></div>
 <label class="avn-field user-field">Usuário<select id="exUsuario" aria-label="Selecionar usuário"><option value="">Carregando…</option></select></label></section>
 <div id="exAlerta" class="avn-alert" role="status" hidden></div>
+<section class="card avn-ex-risco" aria-labelledby="exRiscoTitulo">
+ <div class="avn-row space"><h2 id="exRiscoTitulo">Avaliação de risco cardiovascular</h2>
+ <button type="button" class="secondary" id="exRiscoEditar">Informar dados clínicos</button></div>
+ <div id="exRiscoResumo" role="status" aria-live="polite"><p class="muted">Carregando os dados do usuário…</p></div>
+ <p class="muted">Estimativa provisória conforme critérios objetivos da diretriz SBC 2025. Não substitui o cálculo PREVENT nem avaliação médica.</p>
+</section>
+<dialog id="exRiscoModal" class="avn-dialog avn-ex-dialog" aria-labelledby="exRiscoModalTitulo">
+ <div class="modal-head"><h2 id="exRiscoModalTitulo">Dados para avaliação cardiovascular</h2>
+ <button type="button" class="secondary" id="exRiscoFechar">Fechar ×</button></div>
+ <p class="muted">Idade e sexo vêm do cadastro do AVN; LDL, HDL, colesterol total e eTFG vêm dos exames. Informe aqui apenas dados clínicos ainda não cadastrados. Se não souber, mantenha “Não sei”.</p>
+ <form id="exRiscoForm" class="stack">
+ <div class="avn-ex-grid">
+ <label class="avn-field">Pressão sistólica (máxima, mmHg)<input id="riscoPressaoSistolica" type="number" min="70" max="260" step="1" placeholder="Ex.: 120"></label>
+ <label class="avn-field">Pressão diastólica (mínima, mmHg)<input id="riscoPressaoDiastolica" type="number" min="35" max="160" step="1" placeholder="Ex.: 80"></label>
+ <label class="avn-field">Fuma atualmente?<select id="riscoFuma"><option value="nao_informado">Não sei / não informado</option><option value="nao">Não</option><option value="sim">Sim</option></select></label>
+ <label class="avn-field">Toma remédio para pressão?<select id="riscoAntihipertensivo"><option value="nao_informado">Não sei / não informado</option><option value="nao">Não</option><option value="sim">Sim</option></select></label>
+ <label class="avn-field">Usa estatina para reduzir colesterol?<select id="riscoEstatina"><option value="nao_informado">Não sei / não informado</option><option value="nao">Não</option><option value="sim">Sim</option></select></label>
+ <label class="avn-field">Tem diagnóstico médico de diabetes tipo 2?<select id="riscoDiabetes"><option value="nao_informado">Não sei / não informado</option><option value="nao">Não</option><option value="sim">Sim</option></select></label>
+ <label class="avn-field avn-ex-full">Pai, mãe ou irmão(ã) teve infarto ou AVC antes dos 55 anos (homens) ou 65 (mulheres)?<select id="riscoFamilia"><option value="nao_informado">Não sei / não informado</option><option value="nao">Não</option><option value="sim">Sim</option></select></label>
+ <label class="avn-field">Já teve infarto, AVC isquêmico ou doença arterial periférica sintomática?<select id="riscoEvento"><option value="nao_informado">Não sei / não informado</option><option value="nao">Não</option><option value="sim">Sim</option></select></label>
+ <label class="avn-field">Há obstrução arterial ≥ 50% confirmada por exame?<select id="riscoObstrucao"><option value="nao_informado">Não sei / não informado</option><option value="nao">Não</option><option value="sim">Sim</option></select></label>
+ <label class="avn-field">Há placa aterosclerótica subclínica identificada em exame?<select id="riscoPlaca"><option value="nao_informado">Não sei / não informado</option><option value="nao">Não</option><option value="sim">Sim</option></select></label>
+ <label class="avn-field">Escore de cálcio coronariano (se tiver)<input id="riscoCAC" type="number" min="0" max="100000" step="0.1" placeholder="Deixe vazio se não fez o exame"></label>
+ </div>
+ <div class="avn-ex-actions"><button class="primary" type="submit">Salvar e reavaliar</button><button class="secondary" type="button" id="exRiscoCancelar">Cancelar</button></div>
+ </form>
+</dialog>
 <section class="avn-ex-head"><h2>Meus exames</h2><div class="avn-ex-actions"><button type="button" class="primary" id="exNovo">+ Registrar exame</button><button type="button" class="secondary" id="exImportar">Importar com IA</button></div></section>
 <section class="card"><div class="avn-ex-filtros">
 <label class="avn-field">Pesquisar exame<input type="search" id="exBusca" placeholder="Ureia, TGO, hemoglobina…"></label>
