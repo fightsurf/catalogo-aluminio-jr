@@ -107,3 +107,14 @@ test('catálogo inclui fósforo e cálcio total sem confundir com cálcio ioniza
  const calcio=linhas.find(l=>l.startsWith("('calcio_total'"));
  assert.ok(!calcio.includes('ionizado'),'Não associar cálcio ionizado ao total');
 });
+
+
+test('catálogo cadastra ácido úrico com equivalências séricas e unidade correta',()=>{
+ const sql=read('db/sql/20261027_avn_exames_laboratoriais.sql');
+ const linha=sql.split(String.fromCharCode(10)).find(l=>l.startsWith("('acido_urico','Ácido úrico'"));
+ assert.ok(linha,'Ácido úrico deve existir no catálogo');
+ for(const termo of ['uricemia','urato sérico','uric acid','ácido úrico sérico'])
+  assert.ok(linha.includes("'"+termo+"'"),'Alias ausente: '+termo);
+ assert.ok(linha.includes("'Metabolismo','mg/dL','indicador'"));
+ assert.ok(!linha.includes('urinário'),'Exame urinário não deve ser confundido com sérico');
+});
