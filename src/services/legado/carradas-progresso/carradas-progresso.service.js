@@ -240,6 +240,31 @@ function dataHojeFortalezaBR() {
   }).format(new Date());
 }
 
+/**
+ * A data da carrada vem do legado como data civil (sem horário).
+ * Evita converter strings ISO de meia-noite para o fuso do servidor,
+ * o que poderia antecipar a data um dia e liberar avisos indevidamente.
+ */
+function dataCivilCarradaBR(valor) {
+  if (!valor) return '';
+
+  if (valor instanceof Date) {
+    if (Number.isNaN(valor.getTime())) return '';
+    const dia = String(valor.getUTCDate()).padStart(2, '0');
+    const mes = String(valor.getUTCMonth() + 1).padStart(2, '0');
+    return `${dia}/${mes}/${valor.getUTCFullYear()}`;
+  }
+
+  const texto = String(valor).trim();
+  const iso = /^(\d{4})-(\d{2})-(\d{2})(?=$|[T\s])/.exec(texto);
+  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+
+  const br = /^(\d{2})\/(\d{2})\/(\d{4})(?=$|\s)/.exec(texto);
+  if (br) return `${br[1]}/${br[2]}/${br[3]}`;
+
+  return '';
+}
+
 function normalizarDataExpedicao(value) {
   const texto = limparTexto(value);
 
@@ -3064,8 +3089,11 @@ async function salvarLocalEntrega({
   const notificacaoCliente=avisoLocalEntrega.notificacao;
   const configLogistica=await notificacoesConfig.carregar('LOCAL_ENTREGA_LOGISTICA');
   const configAgencia=await notificacoesConfig.carregar('LOCAL_ENTREGA_AGENCIA');
+  // A seleção fica salva mesmo em carradas futuras ou passadas.
+  // Os avisos aos contatos da logística só podem sair no próprio dia da carrada.
+  const podeNotificarLogistica = dataCivilCarradaBR(carrada?.data) === dataHojeFortalezaBR();
   let notificacaoTransportadora = null;
-  if (transportadoraFoiDefinidaAgora && configLogistica.enviarTexto) {
+  if (podeNotificarLogistica && transportadoraFoiDefinidaAgora && configLogistica.enviarTexto) {
     const mensagemTransportadora = montarMensagemDestinoLocalEntrega({
       pedido: pedidoComVolumesEDadosCliente,
       numeroPedido,
@@ -3083,7 +3111,7 @@ async function salvarLocalEntrega({
   }
 
   let notificacaoRedespacho = null;
-  if (redespachoTransportadora && redespachoFoiDefinidoAgora && configLogistica.enviarTexto) {
+  if (podeNotificarLogistica && redespachoTransportadora && redespachoFoiDefinidoAgora && configLogistica.enviarTexto) {
     const mensagemRedespacho = montarMensagemDestinoLocalEntrega({
       pedido: pedidoComVolumesEDadosCliente,
       numeroPedido,
@@ -3101,7 +3129,7 @@ async function salvarLocalEntrega({
   }
 
   let notificacaoAgencia = null;
-  if (agenciaRecebimento && agenciaFoiDefinidaAgora && configLogistica.enviarTexto && configAgencia.enviarTexto) {
+  if (podeNotificarLogistica && agenciaRecebimento && agenciaFoiDefinidaAgora && configLogistica.enviarTexto && configAgencia.enviarTexto) {
     const mensagemAgencia = montarMensagemDestinoLocalEntrega({
       pedido: pedidoComVolumesEDadosCliente,
       numeroPedido,
