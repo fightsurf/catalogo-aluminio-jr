@@ -56,7 +56,7 @@ async function loadRisk(){
    const e=r.exames[key];return e?fmt(e.valor)+' '+esc(e.unidade)+' (coleta: '+esc(strDate(e.data_coleta).split('-').reverse().join('/'))+')':'Não registrado';
   };
   el.innerHTML='<h3>'+esc(titulo)+'</h3>'+
-   '<p><strong>Dados recuperados:</strong> '+esc(r.idade)+' anos; LDL: '+exam('ldl')+
+   '<p><strong>Dados recuperados:</strong> '+esc(r.idade)+' anos; IMC: '+(r.imc!=null?esc(fmt(r.imc)):'não disponível')+'; LDL: '+exam('ldl')+
    '; HDL: '+exam('hdl')+'; colesterol total: '+exam('colesterol_total')+
    '; função renal (eTFG): '+exam('tfg_estimada')+'.</p>'+
    (r.criterios.length?'<p><strong>Por quê:</strong> '+r.criterios.map(esc).join(' ')+'</p>':'<p>Não há critérios suficientes para atribuir uma categoria.</p>')+
