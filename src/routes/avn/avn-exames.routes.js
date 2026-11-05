@@ -53,6 +53,15 @@ router.get('/catalogo',wrap(async(req,res)=>{
  ORDER BY grupo,nome LIMIT 300`,[busca]);
  res.set('Cache-Control','no-store').json(r.rows);
 }));
+const riscoCV=require('../../services/avn/avn-risco-cardiovascular.service');
+router.get('/risco',wrap(async(req,res)=>{
+ const uid=id(req.query.usuarioId);
+ res.set('Cache-Control','no-store').json(await riscoCV.avaliar(uid));
+}));
+router.put('/risco',wrap(async(req,res)=>{
+ const uid=id(req.body.usuarioId);await checkUser(uid);
+ res.set('Cache-Control','no-store').json(await riscoCV.salvar(uid,req.body));
+}));
 // Metas terapêuticas oficiais, independentes dos valores de referência de cada laudo.
 router.get('/metas',wrap(async(req,res)=>{
  const eid=id(req.query.exameId);
