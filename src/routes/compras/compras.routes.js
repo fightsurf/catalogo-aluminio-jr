@@ -19,6 +19,8 @@ function tratar(res,e) {
 }
 router.get('/fornecedores',async (_req,res)=>{try{res.json(await service.fornecedores());}catch(e){tratar(res,e);}});
 router.get('/insumos',async (_req,res)=>{try{res.json(await service.insumos());}catch(e){tratar(res,e);}});
+router.get('/boletos',async (req,res)=>{try{res.json(await service.consultarBoletos(req.query));}catch(e){tratar(res,e);}});
+router.patch('/boletos/:id/status',async(req,res)=>{try{res.json(await service.alterarStatusBoleto(req.params.id,req.body));}catch(e){tratar(res,e);}});
 // Importação IA localiza fornecedor+NF e completa o cadastro automaticamente.
 router.post('/interpretar', receber, async (req,res) => {
   try {

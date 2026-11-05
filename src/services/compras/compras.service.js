@@ -1,6 +1,7 @@
 'use strict';
 const pool = require('../../../db/connection');
 const { validarCompra, erro } = require('./comprasValidator');
+const boletos = require('./comprasBoletos.service');
 
 async function fornecedores() {
   const { rows } = await pool.query('SELECT id, nome FROM public.fornecedores ORDER BY nome');
@@ -23,7 +24,8 @@ async function listar({ fornecedor_id, busca } = {}) {
   }
   const { rows } = await pool.query(
     'SELECT n.*, f.nome AS fornecedor_nome, ' +
-    '(SELECT COUNT(*)::int FROM public.compras_itens i WHERE i.nota_id=n.id) AS linhas_cadastradas ' +
+    '(SELECT COUNT(*)::int FROM public.compras_itens i WHERE i.nota_id=n.id) AS linhas_cadastradas, ' +
+    '(SELECT COUNT(*)::int FROM public.compras_boletos b WHERE b.nota_id=n.id) AS boletos_quantidade ' +
     'FROM public.compras_notas n JOIN public.fornecedores f ON f.id=n.fornecedor_id ' +
     (filtros.length ? 'WHERE '+filtros.join(' AND ')+' ' : '') + 'ORDER BY n.criado_em DESC LIMIT 200', valores
   );
@@ -36,10 +38,11 @@ async function buscar(id) {
   if (!nota) throw erro('Nota fiscal não encontrada.',404);
   const { rows:itens } = await pool.query(
     'SELECT id, insumo_id, descricao, unidade, quantidade, preco_unitario, valor_total, posicao FROM public.compras_itens WHERE nota_id=$1 ORDER BY posicao', [id]);
-  return { ...nota, itens };
+  return { ...nota, itens, boletos:await boletos.listar(id) };
 }
 async function gravar(dados, id = null) {
   const compra = validarCompra(dados);
+  const listaBoletos=dados.boletos===undefined?undefined:boletos.validarBoletos(dados.boletos);
   const cliente = await pool.connect();
   try {
     await cliente.query('BEGIN');
@@ -73,6 +76,7 @@ async function gravar(dados, id = null) {
         'INSERT INTO public.compras_itens (nota_id,insumo_id,descricao,unidade,quantidade,preco_unitario,valor_total,posicao) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)',
         [nota.id,item.insumo_id,item.descricao,item.unidade,item.quantidade,item.preco_unitario,item.valor_total,item.posicao]);
     }
+    if(listaBoletos!==undefined) await boletos.sincronizar(cliente,nota.id,listaBoletos);
     await cliente.query('COMMIT');
     return buscar(nota.id);
   } catch (e) {
@@ -95,13 +99,14 @@ async function localizar(fornecedor_id, numero_nf) {
     'SELECT id FROM public.compras_notas WHERE fornecedor_id=$1 AND numero_nf=$2', [f,nf]);
   return rows.length ? buscar(rows[0].id) : null;
 }
-// Importa dados de foto em uma transação. A chave fornecedor+NF decide se
+// Importa dados extraídos de fotos ou PDF em uma transação. A chave fornecedor+NF decide se
 // complementa o registro existente ou cria um novo. Nunca apaga itens antigos.
 // Reimportações idênticas são idempotentes.
 async function importarDaIa(dados) {
   const compra = validarCompra({...dados, origem:'ia'});
+  const listaBoletos=boletos.validarBoletos(dados.boletos||[],'ia');
   const cliente=await pool.connect();
-  let id, criada=false, itensIncluidos=0, itensCompletados=0;
+  let id, criada=false, itensIncluidos=0, itensCompletados=0, boletosIncluidos=0;
   try {
     await cliente.query('BEGIN');
     let {rows:[nota]}=await cliente.query(
@@ -164,13 +169,15 @@ async function importarDaIa(dados) {
         itensIncluidos++;
       }
     }
+    boletosIncluidos=await boletos.importar(cliente,id,listaBoletos);
     await cliente.query('COMMIT');
   } catch(e) {
     await cliente.query('ROLLBACK');
     if(e.code==='23503') throw erro('Fornecedor ou insumo não encontrado.',400);
     throw e;
   } finally {cliente.release();}
-  return {nota:await buscar(id),criada,itensIncluidos,itensCompletados};
+  return {nota:await buscar(id),criada,itensIncluidos,itensCompletados,boletosIncluidos};
 }
 
-module.exports = { fornecedores, insumos, listar, buscar, localizar, gravar, importarDaIa };
+module.exports = { fornecedores, insumos, listar, buscar, localizar, gravar, importarDaIa,
+  consultarBoletos:boletos.consultar, alterarStatusBoleto:boletos.alterarStatus };

@@ -8,7 +8,7 @@ async function criarEstrutura() {
   if (pronto) return;
   if (!emExecucao) {
     emExecucao = (async () => {
-      for (const arquivo of ['20261103_compras.sql','20261103_compras_campos_opcionais.sql']) {
+      for (const arquivo of ['20261103_compras.sql','20261103_compras_campos_opcionais.sql','20261105_compras_boletos.sql']) {
         const sql = fs.readFileSync(path.join(__dirname, '../../../db/sql', arquivo), 'utf8');
         await pool.query(sql);
       }

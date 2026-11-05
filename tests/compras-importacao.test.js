@@ -48,6 +48,7 @@ function criarServicoFalso() {
   const fakeRequire = nome => {
     if (nome==='../../../db/connection') return pool;
     if (nome==='./comprasValidator') return validator;
+    if (nome==='./comprasBoletos.service') return {listar:async()=>[],validarBoletos:xs=>xs,sincronizar:async()=>{},importar:async()=>0};
     throw new Error('Dependência inesperada: '+nome);
   };
   new Function('require','module','exports',codigo)(fakeRequire,modulo,modulo.exports);
