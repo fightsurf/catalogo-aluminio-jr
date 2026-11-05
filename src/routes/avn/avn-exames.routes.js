@@ -53,6 +53,16 @@ router.get('/catalogo',wrap(async(req,res)=>{
  ORDER BY grupo,nome LIMIT 300`,[busca]);
  res.set('Cache-Control','no-store').json(r.rows);
 }));
+// Metas terapêuticas oficiais, independentes dos valores de referência de cada laudo.
+router.get('/metas',wrap(async(req,res)=>{
+ const eid=id(req.query.exameId);
+ const r=await pool.query(`SELECT m.categoria_risco,m.rotulo,m.meta_menor_que,m.unidade,m.fonte
+ FROM public.avn_exames_metas_risco m
+ JOIN public.avn_exames_catalogo c ON c.id=m.exame_id
+ WHERE m.exame_id=$1 AND c.ativo
+ ORDER BY m.ordem`,[eid]);
+ res.set('Cache-Control','no-store').json(r.rows);
+}));
 router.get('/referencia',wrap(async(req,res)=>{
  const uid=id(req.query.usuarioId),eid=id(req.query.exameId);await checkUser(uid);
  // Prioriza referência previamente usada no MESMO laboratório, método e material. Sem isso, só informa a unidade padrão.
