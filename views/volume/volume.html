@@ -119,6 +119,57 @@
       background: #777;
       margin-top: 6px;
     }
+
+    .produto-link {
+      background: none;
+      border: 0;
+      padding: 0;
+      font: inherit;
+      color: #075fad;
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .produto-link:hover, .produto-link:focus-visible {
+      color: #034578;
+    }
+
+    .volume-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .6);
+      z-index: 1200;
+      padding: 16px;
+      align-items: center;
+      justify-content: center;
+      box-sizing: border-box;
+    }
+
+    .volume-modal-overlay.aberto { display: flex; }
+
+    .volume-modal {
+      background: #fff;
+      color: #222;
+      width: min(100%, 420px);
+      border-radius: 10px;
+      padding: 22px;
+      box-sizing: border-box;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, .3);
+    }
+
+    .volume-modal h2 { margin: 0 0 10px; font-size: 20px; }
+    .volume-modal .nome-produto { margin: 0 0 18px; font-weight: bold; overflow-wrap: anywhere; }
+    .volume-modal label { display: block; margin-bottom: 6px; font-weight: bold; }
+    .volume-modal input { border-radius: 5px; }
+    .volume-modal .acoes { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+    .volume-modal .acoes button { border: 0; padding: 10px 16px; border-radius: 5px; cursor: pointer; font-size: 14px; }
+    .volume-modal .acoes .cancelar { background: #e5e7eb; color: #111; }
+    .volume-modal .acoes .salvar { background: #1862aa; color: #fff; }
+    .volume-modal .acoes button:disabled { opacity: .6; cursor: wait; }
+    .volume-modal .mensagem-erro { min-height: 18px; color: #b42318; margin: 8px 0 0; font-size: 13px; }
   </style>
   <link rel="stylesheet" href="/css/theme.css" />
 </head>
@@ -163,6 +214,24 @@ Formato ORÇAMENTO:
   </div>
 </div>
 
+
+<div id="modal-capacidade" class="volume-modal-overlay" role="presentation" onclick="if (event.target === this) fecharModalCapacidade()">
+  <div class="volume-modal" role="dialog" aria-modal="true" aria-labelledby="titulo-modal-capacidade">
+    <h2 id="titulo-modal-capacidade">Alterar capacidade por caixa</h2>
+    <p id="nome-produto-modal" class="nome-produto"></p>
+    <form id="form-capacidade" onsubmit="salvarCapacidade(event)">
+      <label for="nova-capacidade">Capacidade por caixa</label>
+      <input type="number" id="nova-capacidade" min="0" step="any" required />
+      <p style="font-size:12px;margin:8px 0 0;">Use 0 para ignorar o produto no cálculo de volumes.</p>
+      <p id="erro-modal-capacidade" class="mensagem-erro" role="alert"></p>
+      <div class="acoes">
+        <button type="button" class="cancelar" id="cancelar-capacidade" onclick="fecharModalCapacidade()">Cancelar</button>
+        <button type="submit" class="salvar" id="salvar-capacidade">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div class="painel">
   <p id="resumo-total">Total: – volumes</p>
   <button onclick="calcularVolumes()">📊 Calcular Volumes</button>
@@ -170,6 +239,76 @@ Formato ORÇAMENTO:
 </div>
 
 <script>
+let produtoEdicaoCapacidade = null;
+let salvandoCapacidade = false;
+
+function abrirModalCapacidade(item) {
+  if (!item.produto_id) {
+    const erro = document.getElementById('erro');
+    erro.textContent = 'Não foi possível identificar o produto para edição.';
+    erro.style.display = 'block';
+    return;
+  }
+  produtoEdicaoCapacidade = item;
+  document.getElementById('nome-produto-modal').textContent = item.produto;
+  document.getElementById('nova-capacidade').value = item.capacidade_caixa;
+  document.getElementById('erro-modal-capacidade').textContent = '';
+  document.getElementById('modal-capacidade').classList.add('aberto');
+  document.getElementById('nova-capacidade').focus();
+  document.getElementById('nova-capacidade').select();
+}
+
+function fecharModalCapacidade() {
+  if (salvandoCapacidade) return;
+  document.getElementById('modal-capacidade').classList.remove('aberto');
+  produtoEdicaoCapacidade = null;
+}
+
+document.addEventListener('keydown', event => {
+  if (event.key === 'Escape') fecharModalCapacidade();
+});
+
+async function salvarCapacidade(event) {
+  event.preventDefault();
+  if (salvandoCapacidade || !produtoEdicaoCapacidade) return;
+
+  const entrada = document.getElementById('nova-capacidade').value.trim();
+  const capacidade = Number(entrada);
+  const erroEl = document.getElementById('erro-modal-capacidade');
+
+  if (entrada === '' || !Number.isFinite(capacidade) || capacidade < 0) {
+    erroEl.textContent = 'Informe uma capacidade numérica maior ou igual a zero.';
+    return;
+  }
+
+  salvandoCapacidade = true;
+  document.getElementById('salvar-capacidade').disabled = true;
+  document.getElementById('cancelar-capacidade').disabled = true;
+  erroEl.textContent = '';
+
+  try {
+    const response = await fetch(`/api/admin-volume/produtos/${encodeURIComponent(produtoEdicaoCapacidade.produto_id)}/volume`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ volume: capacidade })
+    });
+    const json = await response.json();
+    if (!response.ok || json.success === false) {
+      throw new Error(json.message || 'Não foi possível salvar a capacidade.');
+    }
+
+    document.getElementById('modal-capacidade').classList.remove('aberto');
+    produtoEdicaoCapacidade = null;
+    await calcularVolumes();
+  } catch (error) {
+    erroEl.textContent = error.message || 'Erro ao salvar capacidade.';
+  } finally {
+    salvandoCapacidade = false;
+    document.getElementById('salvar-capacidade').disabled = false;
+    document.getElementById('cancelar-capacidade').disabled = false;
+  }
+}
+
 async function calcularVolumes() {
   const texto = document.getElementById('texto').value.trim();
   const multiplicador = parseInt(document.getElementById('multiplicador').value) || 1;
@@ -219,9 +358,17 @@ async function calcularVolumes() {
         'volumes'
       ].forEach(campo => {
         const td = document.createElement('td');
-        if (campo === 'volumes') {
-          td.textContent = typeof item[campo] === 'number' 
-            ? item[campo].toFixed(2) 
+        if (campo === 'produto') {
+          const link = document.createElement('button');
+          link.type = 'button';
+          link.className = 'produto-link';
+          link.textContent = item.produto;
+          link.title = 'Alterar capacidade por caixa';
+          link.addEventListener('click', () => abrirModalCapacidade(item));
+          td.appendChild(link);
+        } else if (campo === 'volumes') {
+          td.textContent = typeof item[campo] === 'number'
+            ? item[campo].toFixed(2)
             : item[campo];
         } else {
           td.textContent = item[campo];
