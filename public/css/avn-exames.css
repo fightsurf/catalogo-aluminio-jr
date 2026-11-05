@@ -38,3 +38,13 @@
  .avn-exames .avn-ex-dialog{width:98vw;max-width:98vw;max-height:95vh;padding:.9rem}
  .avn-exames .avn-ex-actions button{flex:1 1 auto}
 }
+
+/* Metas terapêuticas separadas das referências laboratoriais */
+.avn-exames .avn-ex-metas{margin:1rem 0;padding:1rem;border:1px solid var(--line,#364354);border-radius:12px;background:rgba(100,130,165,.07)}
+.avn-exames .avn-ex-metas[hidden]{display:none}
+.avn-exames .avn-ex-metas h3{margin:0 0 .55rem;font-size:1.02rem}
+.avn-exames .avn-ex-metas .avn-ex-table-scroll{overflow-x:auto}
+.avn-exames .avn-ex-metas table{width:100%;border-collapse:collapse;text-align:left;font-size:.9rem}
+.avn-exames .avn-ex-metas th,.avn-exames .avn-ex-metas td{padding:.5rem .6rem;border-bottom:1px solid var(--line,#364354)}
+.avn-exames .avn-ex-metas th:last-child,.avn-exames .avn-ex-metas td:last-child{text-align:right;white-space:nowrap}
+.avn-exames .avn-ex-metas p{margin:.6rem 0 0;line-height:1.5;font-size:.82rem;opacity:.85}
