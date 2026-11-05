@@ -72,7 +72,7 @@ function normalizarIA(v) {
     const dataValida=/^\d{4}-\d{2}-\d{2}$/.test(vencimento) &&
       !Number.isNaN(Date.parse(vencimento+'T12:00:00Z')) &&
       new Date(vencimento+'T12:00:00Z').toISOString().slice(0,10)===vencimento;
-    if(!dataValida || valor===null || valor<=0 || Math.round(valor*100)!==valor*100){
+    if(!dataValida || valor===null || valor<=0 || Math.abs(Math.round(valor*100)-valor*100)>1e-6){
       avisos.push('Título '+(i+1)+': vencimento/valor ilegível. Não foi lançado automaticamente.');
       continue;
     }

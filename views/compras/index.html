@@ -17,10 +17,11 @@
     <nav class="tabs" aria-label="Seções">
       <button class="tab active" type="button" id="tabCadastro">Cadastro de compra</button>
       <button class="tab" type="button" id="tabHistorico">Histórico de compras</button>
+      <button class="tab" type="button" id="tabBoletos">Controle de boletos</button>
     </nav>
     <section id="painelCadastro">
       <section class="card importacao">
-        <div><h2>Importar nota fiscal com IA</h2><p>Importe um PDF (até 12 MB), inclusive digitalizado, ou de 1 a 5 fotos (JPG, PNG ou WEBP; até 7 MB cada). A IA identifica fornecedor, NF, impostos, frete e insumos, completando cadastros existentes sem duplicar linhas. Arquivos não são armazenados.</p></div>
+        <div><h2>Importar nota fiscal com IA</h2><p>Importe um PDF (até 12 MB), inclusive digitalizado, ou de 1 a 5 fotos (JPG, PNG ou WEBP; até 7 MB cada). A IA identifica fornecedor, NF, impostos, frete, insumos e boletos/duplicatas identificáveis, completando cadastros existentes sem duplicar registros. Arquivos não são armazenados.</p></div>
         <input type="file" id="fotos" accept=".pdf,application/pdf,image/jpeg,image/png,image/webp" multiple hidden>
         <button class="btn primary" type="button" id="btnImportar">Importar fotos ou PDF</button>
       </section>
@@ -69,6 +70,20 @@
           </div>
           <p class="hint">Somente fornecedor e número da NF são obrigatórios. É possível salvar a nota sem valores e sem insumos, preenchendo o restante depois. O total pode incluir frete, impostos e ajustes.</p>
         </section>
+        <section class="card">
+          <div class="card-head row-wrap">
+            <div><h2>Boletos desta compra</h2><p id="resumoBoletos">Nenhum boleto cadastrado.</p></div>
+            <button class="btn secondary" type="button" id="btnBoletos">Adicionar / editar boletos</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Parcela / Documento</th><th>Vencimento</th><th>Valor</th><th>Situação</th></tr></thead>
+              <tbody id="previewBoletos"><tr><td colspan="4">Nenhum boleto.</td></tr></tbody>
+            </table>
+          </div>
+          <div class="totais"><div><span>Total em boletos</span><strong id="totalBoletos">R$ 0,00</strong></div><div><span>Em aberto / a confirmar</span><strong id="totalBoletosAbertos">R$ 0,00</strong></div></div>
+          <p class="hint">Uma nota pode ter zero ou vários boletos. Duplicatas identificadas apenas na NF ficam como “A confirmar”. Confira os dados bancários antes de pagar.</p>
+        </section>
         <div class="actions">
           <button class="btn primary" type="submit" id="btnSalvar">Salvar compra</button>
           <button class="btn ghost" type="button" id="btnNova">Nova compra / limpar</button>
@@ -84,12 +99,57 @@
           <button class="btn secondary" type="button" id="btnFiltrar">Pesquisar</button>
         </div>
         <div class="table-wrap">
-          <table><thead><tr><th>NF</th><th>Fornecedor</th><th>Valor</th><th>Frete</th><th>Linhas</th><th>Cadastro</th><th></th></tr></thead><tbody id="historico"><tr><td colspan="7">Carregando...</td></tr></tbody></table>
+          <table><thead><tr><th>NF</th><th>Fornecedor</th><th>Valor</th><th>Frete</th><th>Linhas</th><th>Boletos</th><th>Cadastro</th><th></th></tr></thead><tbody id="historico"><tr><td colspan="8">Carregando...</td></tr></tbody></table>
+        </div>
+      </section>
+    </section>
+    <section id="painelBoletos" hidden>
+      <section class="card">
+        <div class="card-head row-wrap">
+          <div><h2>Boletos e parcelas de fornecedores</h2><p>Consulte vencimentos, confirme títulos identificados pela IA e registre pagamentos.</p></div>
+          <button class="btn ghost" id="btnAtualizarBoletos" type="button">Atualizar</button>
+        </div>
+        <div class="filters">
+          <label>Fornecedor, NF ou documento <input type="search" id="buscaBoleto" placeholder="Pesquisar"></label>
+          <label>Situação
+            <select id="filtroStatusBoleto">
+              <option value="">Todas</option>
+              <option value="a_confirmar">A confirmar</option>
+              <option value="pendente">Pendente</option>
+              <option value="pago">Pago</option>
+              <option value="cancelado">Cancelado</option>
+            </select>
+          </label>
+          <button class="btn secondary" type="button" id="btnFiltrarBoletos">Pesquisar</button>
+        </div>
+        <p id="resumoControleBoletos" class="hint">Consultando boletos...</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Fornecedor / NF</th><th>Parcela / Documento</th><th>Vencimento</th><th>Valor</th><th>Status</th><th>Ações</th></tr></thead>
+            <tbody id="tabelaControleBoletos"><tr><td colspan="6">Aguardando consulta.</td></tr></tbody>
+          </table>
         </div>
       </section>
     </section>
   </main>
 
+  <dialog id="modalBoletos" aria-labelledby="tituloModalBoletos">
+    <div class="modal-body">
+      <header class="modal-header">
+        <div><h2 id="tituloModalBoletos">Boletos vinculados à nota fiscal</h2><p>Informe vencimento e valor para cada boleto. Alterações serão gravadas ao salvar a compra.</p></div>
+        <button class="btn ghost" type="button" id="btnFecharBoletos">Fechar</button>
+      </header>
+      <div class="modal-tools">
+        <button class="btn secondary" id="btnAdicionarBoleto" type="button">+ Adicionar boleto</button>
+        <span id="contadorBoletos"></span>
+      </div>
+      <div id="boletosLinhas" class="boletos-linhas"></div>
+      <footer class="modal-footer">
+        <strong id="totalModalBoletos">Total: R$ 0,00</strong>
+        <button class="btn primary" type="button" id="btnConcluirBoletos">Concluir conferência</button>
+      </footer>
+    </div>
+  </dialog>
   <dialog id="modalItens" aria-labelledby="tituloModal">
     <div class="modal-body">
       <header class="modal-header"><div><h2 id="tituloModal">Insumos da nota fiscal</h2><p>Edite as linhas e confira as quantidades e preços antes de gravar.</p></div><button class="btn ghost" id="btnFecharModal" type="button">Fechar</button></header>

@@ -4,6 +4,17 @@
   const dinheiro = valor => Number(valor || 0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
   let fornecedores = [], catalogo = [], edicaoId = null, origem = 'manual', ultimaContagem = 0;
   const unidades = ['un','kg','g','m','cm','mm','l','ml','cx','pct','outro'];
+  const nomeStatus = {a_confirmar:'A confirmar',pendente:'Pendente',pago:'Pago',cancelado:'Cancelado'};
+  const nomeTipo = {boleto:'Boleto',duplicata:'Duplicata / parcela'};
+  const formatarData = iso => {
+    if(!iso)return '—';
+    const d=String(iso).slice(0,10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(d) ? d.slice(8,10)+'/'+d.slice(5,7)+'/'+d.slice(0,4) : '—';
+  };
+  const dataHoje=() => {
+    const d=new Date(),ajustado=new Date(d.getTime()-d.getTimezoneOffset()*60000);
+    return ajustado.toISOString().slice(0,10);
+  };
   const limparNome = valor => String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/\s+/g,' ').trim();
 
   function aviso(mensagem, tipo = 'ok') {
@@ -33,12 +44,15 @@
     catalogo.forEach(i=>option($('catalogoInsumos'),i.nome,i.nome));
   }
   function mostrarAba(aba) {
-    const historico = aba === 'historico';
-    $('painelCadastro').hidden = historico;
+    const historico = aba === 'historico',controle=aba==='boletos';
+    $('painelCadastro').hidden = historico||controle;
     $('painelHistorico').hidden = !historico;
-    $('tabCadastro').classList.toggle('active',!historico);
+    $('painelBoletos').hidden = !controle;
+    $('tabCadastro').classList.toggle('active',!historico&&!controle);
     $('tabHistorico').classList.toggle('active',historico);
+    $('tabBoletos').classList.toggle('active',controle);
     if(historico) consultar().catch(e=>aviso(e.message,'erro'));
+    if(controle) consultarBoletos().catch(e=>aviso(e.message,'erro'));
   }
   function criarLinha(item = {}) {
     const linha = document.createElement('div');
@@ -120,16 +134,164 @@
     if (!$('linhas').children.length) criarLinha();
     $('modalItens').showModal();
   }
+  function criarBoleto(b={}) {
+    const linha=document.createElement('div');
+    linha.className='boleto-linha';
+    linha.dataset.boletoId=b.id||'';
+    linha.dataset.origem=b.origem||'manual';
+    linha.innerHTML='<div class="boleto-topo"><strong class="boleto-numero">Boleto</strong><button type="button" class="remove boleto-remover">Remover</button></div>'+
+      '<div class="boleto-campos">'+
+      '<label>Parcela<input class="b-parcela" maxlength="30" placeholder="Ex.: 1/3"></label>'+
+      '<label>Vencimento *<input class="b-vencimento" type="date" required></label>'+
+      '<label>Valor (R$) *<input class="b-valor" type="number" step="0.01" min="0.01" placeholder="0,00" required></label>'+
+      '<label>Nº documento<input class="b-documento" maxlength="80"></label>'+
+      '<label>Nosso número<input class="b-nosso" maxlength="80"></label>'+
+      '<label>Banco<input class="b-banco" maxlength="120"></label>'+
+      '<label>Tipo<select class="b-tipo"><option value="boleto">Boleto</option><option value="duplicata">Duplicata / parcela</option></select></label>'+
+      '<label>Situação<select class="b-status"><option value="a_confirmar">A confirmar</option><option value="pendente">Pendente</option><option value="pago">Pago</option><option value="cancelado">Cancelado</option></select></label>'+
+      '<label class="b-linha-campo">Linha digitável (47 ou 48 dígitos)<input class="b-linha" maxlength="80" placeholder="Opcional"></label>'+
+      '<label>Data pagamento<input class="b-pagamento" type="date"></label>'+
+      '<label>Valor pago (R$)<input class="b-valor-pago" type="number" step="0.01" min="0"></label>'+
+      '<label class="b-obs-campo">Observações<input class="b-obs" maxlength="400"></label></div>';
+    const valores={
+      '.b-parcela':b.parcela,
+      '.b-vencimento':b.vencimento,
+      '.b-valor':b.valor,
+      '.b-documento':b.numero_documento,
+      '.b-nosso':b.nosso_numero,
+      '.b-banco':b.banco,
+      '.b-tipo':b.tipo||'boleto',
+      '.b-status':b.status||(b.tipo==='duplicata'?'a_confirmar':'pendente'),
+      '.b-linha':b.linha_digitavel,
+      '.b-pagamento':b.data_pagamento,
+      '.b-valor-pago':b.valor_pago,
+      '.b-obs':b.observacao
+    };
+    for(const [sel,valor] of Object.entries(valores)) {
+      if(valor!==null&&valor!==undefined) {
+        linha.querySelector(sel).value=sel==='.b-vencimento'||sel==='.b-pagamento' ? String(valor).slice(0,10) : String(valor);
+      }
+    }
+    const mudarStatus=()=>{
+      const pago=linha.querySelector('.b-status').value==='pago';
+      linha.querySelector('.b-pagamento').disabled=!pago;
+      linha.querySelector('.b-valor-pago').disabled=!pago;
+      atualizarBoletos();
+    };
+    linha.querySelector('.b-status').addEventListener('change',mudarStatus);
+    linha.querySelector('.b-tipo').addEventListener('change',()=>{
+      if(linha.querySelector('.b-tipo').value==='duplicata'&&linha.querySelector('.b-status').value==='pendente')
+        linha.querySelector('.b-status').value='a_confirmar';
+      mudarStatus();
+    });
+    linha.querySelector('.boleto-remover').addEventListener('click',()=>{linha.remove();atualizarBoletos();});
+    linha.querySelectorAll('input').forEach(el=>el.addEventListener('input',atualizarBoletos));
+    $('boletosLinhas').append(linha);
+    mudarStatus();
+  }
+  function lerBoletos() {
+    return [...$('boletosLinhas').querySelectorAll('.boleto-linha')].map(linha=>{
+      const campo=cls=>linha.querySelector('.b-'+cls).value.trim();
+      return {
+        id:linha.dataset.boletoId?Number(linha.dataset.boletoId):null,
+        origem:linha.dataset.origem,
+        tipo:campo('tipo'),status:campo('status'),parcela:campo('parcela'),
+        vencimento:campo('vencimento'),valor:campo('valor'),
+        numero_documento:campo('documento'),nosso_numero:campo('nosso'),
+        banco:campo('banco'),linha_digitavel:campo('linha'),
+        data_pagamento:campo('pagamento'),valor_pago:campo('valor-pago'),observacao:campo('obs')
+      };
+    });
+  }
+  function atualizarBoletos() {
+    const boletos=lerBoletos();
+    const tbody=$('previewBoletos');tbody.replaceChildren();
+    boletos.forEach((b,i)=>{
+      const linha=$('boletosLinhas').children[i];
+      linha.querySelector('.boleto-numero').textContent='Boleto / parcela '+(i+1);
+      const tr=document.createElement('tr');
+      td(tr,b.parcela||b.numero_documento||nomeTipo[b.tipo]||'Boleto');
+      td(tr,formatarData(b.vencimento));td(tr,b.valor?dinheiro(b.valor):'—');
+      td(tr,nomeStatus[b.status]||'—');tbody.append(tr);
+    });
+    if(!boletos.length){const tr=document.createElement('tr');td(tr,'Nenhum boleto cadastrado.').colSpan=4;tbody.append(tr);}
+    const total=boletos.reduce((s,b)=>s+Number(b.valor||0),0);
+    const abertos=boletos.filter(b=>b.status==='pendente'||b.status==='a_confirmar')
+      .reduce((s,b)=>s+Number(b.valor||0),0);
+    $('resumoBoletos').textContent=boletos.length+' boleto(s) / parcela(s) vinculado(s) à NF.';
+    $('contadorBoletos').textContent=boletos.length+' título(s)';
+    $('totalBoletos').textContent=dinheiro(total);
+    $('totalBoletosAbertos').textContent=dinheiro(abertos);
+    $('totalModalBoletos').textContent='Total: '+dinheiro(total);
+  }
+  function abrirModalBoletos(){ $('modalBoletos').showModal(); }
+  async function consultarBoletos() {
+    const params=new URLSearchParams();
+    if($('buscaBoleto').value.trim())params.set('busca',$('buscaBoleto').value.trim());
+    if($('filtroStatusBoleto').value)params.set('status',$('filtroStatusBoleto').value);
+    const lista=await api('/api/compras/boletos?'+params.toString());
+    const tbody=$('tabelaControleBoletos');tbody.replaceChildren();
+    const totalAberto=lista.filter(b=>['pendente','a_confirmar'].includes(b.status))
+      .reduce((t,b)=>t+Number(b.valor||0),0);
+    $('resumoControleBoletos').textContent=lista.length+' título(s) encontrado(s) · Em aberto/a confirmar: '+dinheiro(totalAberto)+'.';
+    for(const b of lista){
+      const tr=document.createElement('tr');
+      td(tr,b.fornecedor_nome+' / NF '+b.numero_nf);
+      td(tr,[b.parcela,b.numero_documento].filter(Boolean).join(' · ')||'Sem número');
+      td(tr,formatarData(b.vencimento));
+      td(tr,dinheiro(b.valor));
+      const situacao=td(tr,nomeStatus[b.status]||b.status);
+      if(b.atrasado)situacao.classList.add('vencido');
+      const cel=document.createElement('td'),acoes=document.createElement('div');acoes.className='acoes-boleto';
+      const abrir=document.createElement('button');abrir.type='button';abrir.className='btn ghost pequeno';abrir.textContent='Abrir NF';
+      abrir.addEventListener('click',async()=>{
+        try{preencher(await api('/api/compras/'+b.nota_id));mostrarAba('cadastro');window.scrollTo({top:0,behavior:'smooth'});}
+        catch(e){aviso(e.message,'erro');}
+      });
+      acoes.append(abrir);
+      if(b.status==='pendente'||b.status==='a_confirmar'||b.status==='pago'){
+        const proximo=b.status==='pago'?'pendente':'pago';
+        const mudar=document.createElement('button');mudar.type='button';mudar.className='btn secondary pequeno';
+        mudar.textContent=proximo==='pago'?'Registrar pagamento':'Reabrir';
+        mudar.addEventListener('click',async()=>{
+          const texto=proximo==='pago'?'Confirmar que este boleto foi pago?':'Reabrir este boleto como pendente?';
+          if(!window.confirm(texto))return;
+          mudar.disabled=true;
+          try{
+            const atualizado=await api('/api/compras/boletos/'+b.id+'/status',{
+              method:'PATCH',headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({status:proximo,data_pagamento:proximo==='pago'?dataHoje():null,
+                valor_pago:proximo==='pago'?Number(b.valor):null})
+            });
+            if(Number(edicaoId)===Number(b.nota_id)){
+              const linha=[...$('boletosLinhas').children].find(x=>Number(x.dataset.boletoId)===Number(b.id));
+              if(linha){
+                linha.querySelector('.b-status').value=atualizado.status;
+                linha.querySelector('.b-pagamento').value=String(atualizado.data_pagamento||'').slice(0,10);
+                linha.querySelector('.b-valor-pago').value=atualizado.valor_pago||'';
+                linha.querySelector('.b-status').dispatchEvent(new Event('change'));
+              }
+            }
+            await consultarBoletos();
+          }catch(e){aviso(e.message,'erro');mudar.disabled=false;}
+        });
+        acoes.append(mudar);
+      }
+      cel.append(acoes);tr.append(cel);tbody.append(tr);
+    }
+    if(!lista.length){const tr=document.createElement('tr');td(tr,'Nenhum boleto encontrado.').colSpan=6;tbody.append(tr);}
+  }
   function limpar() {
     $('formCompra').reset();
     $('linhas').replaceChildren();
+    $('boletosLinhas').replaceChildren();
     edicaoId=null;origem='manual';ultimaContagem=0;
     $('etiquetaEdicao').textContent='Nova nota';
     $('btnSalvar').textContent='Salvar compra';
     $('avisosIa').hidden=true;$('avisosIa').textContent='';
     $('fotos').value='';
     $('valor_frete').value='';$('icms_frete').value='';
-    atualizar();
+    atualizar();atualizarBoletos();
   }
   function preencher(nota) {
     limpar();
@@ -141,14 +303,16 @@
     $('data_nf').value=String(nota.data_nf || '').slice(0,10);
     const itens=nota.itens || [];
     itens.forEach(criarLinha);
+    (nota.boletos || []).forEach(criarBoleto);
     $('quantidade_itens_nf').value=nota.quantidade_itens_nf ?? (itens.length || '');
     $('etiquetaEdicao').textContent=edicaoId ? 'Editando NF #'+nota.numero_nf : 'Importação IA';
     $('btnSalvar').textContent=edicaoId ? 'Salvar alterações' : 'Salvar compra';
-    atualizar();
+    atualizar();atualizarBoletos();
   }
   async function salvar(evento) {
     evento.preventDefault();
     const itens=lerItens();
+    const boletos=lerBoletos();
     // Uma nota pode existir apenas com fornecedor e número, sem itens ou valores.
     if (itens.some(i=>(i.quantidade !== null && (!Number.isFinite(i.quantidade) || i.quantidade<=0)) ||
         (i.preco_unitario !== null && (!Number.isFinite(i.preco_unitario) || i.preco_unitario<0))))
@@ -161,10 +325,12 @@
       quantidade_itens_nf:$('quantidade_itens_nf').value,
       valor_frete:$('valor_frete').value || null,
       icms_frete:$('icms_frete').value || null,
-      origem, itens
+      origem, itens, boletos
     };
     if (!payload.fornecedor_id || !payload.numero_nf.trim())
       return aviso('Fornecedor e número da NF são obrigatórios.','erro');
+    if(boletos.some(b=>!b.vencimento||!b.valor||Number(b.valor)<=0))
+      return aviso('Confira o vencimento e o valor de todos os boletos.','erro');
     if (payload.quantidade_itens_nf !== '' && itens.length > 0 &&
       Number(payload.quantidade_itens_nf)!==itens.length &&
       !confirm('A quantidade de itens na NF difere do número de linhas cadastradas. Deseja continuar?')) return;
@@ -212,7 +378,8 @@
       }
       if(registro?.nota){
         aviso((registro.criada ? 'NF cadastrada automaticamente.' : 'NF existente localizada e complementada.') +
-          ' '+registro.itensIncluidos+' novo(s) insumo(s), '+registro.itensCompletados+' item(ns) completado(s). Confira os dados.');
+          ' '+registro.itensIncluidos+' novo(s) insumo(s), '+registro.itensCompletados+' item(ns) completado(s), '+
+          (registro.boletosIncluidos||0)+' novo(s) boleto(s)/parcela(s). Confira os dados.');
       } else {
         aviso('Dados extraídos, mas não gravados automaticamente. Confira fornecedor e número da NF e clique em Salvar.');
       }
@@ -229,7 +396,7 @@
     for(const n of dados) {
       const tr=document.createElement('tr');
       td(tr,n.numero_nf);td(tr,n.fornecedor_nome);td(tr,n.valor_nf == null ? '—' : dinheiro(n.valor_nf));td(tr,n.valor_frete == null ? '—' : dinheiro(n.valor_frete));
-      td(tr,n.linhas_cadastradas);td(tr,new Date(n.criado_em).toLocaleDateString('pt-BR'));
+      td(tr,n.linhas_cadastradas);td(tr,n.boletos_quantidade||0);td(tr,new Date(n.criado_em).toLocaleDateString('pt-BR'));
       const botao=document.createElement('button');botao.type='button';botao.className='btn secondary pequeno';
       botao.textContent='Abrir / editar';
       botao.addEventListener('click',async()=>{
@@ -238,11 +405,25 @@
       });
       const cel=document.createElement('td');cel.appendChild(botao);tr.appendChild(cel);tbody.appendChild(tr);
     }
-    if(!dados.length) { const tr=document.createElement('tr');td(tr,'Nenhuma NF encontrada.').colSpan=7;tbody.appendChild(tr); }
+    if(!dados.length) { const tr=document.createElement('tr');td(tr,'Nenhuma NF encontrada.').colSpan=8;tbody.appendChild(tr); }
   }
   async function iniciar() {
     $('tabCadastro').addEventListener('click',()=>mostrarAba('cadastro'));
     $('tabHistorico').addEventListener('click',()=>mostrarAba('historico'));
+    $('tabBoletos').addEventListener('click',()=>mostrarAba('boletos'));
+    $('btnBoletos').addEventListener('click',abrirModalBoletos);
+    $('btnAdicionarBoleto').addEventListener('click',()=>criarBoleto());
+    $('btnFecharBoletos').addEventListener('click',()=>$('modalBoletos').close());
+    $('btnConcluirBoletos').addEventListener('click',()=>{
+      const boletos=lerBoletos();
+      if(boletos.some(b=>!b.vencimento||!b.valor||Number(b.valor)<=0)){
+        return aviso('Confira os vencimentos e valores dos boletos.','erro');
+      }
+      $('modalBoletos').close();atualizarBoletos();
+    });
+    $('btnFiltrarBoletos').addEventListener('click',()=>consultarBoletos().catch(e=>aviso(e.message,'erro')));
+    $('btnAtualizarBoletos').addEventListener('click',()=>consultarBoletos().catch(e=>aviso(e.message,'erro')));
+    $('buscaBoleto').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();consultarBoletos().catch(err=>aviso(err.message,'erro'));}});
     $('btnItens').addEventListener('click',abrirModal);
     $('btnAdicionarLinha').addEventListener('click',()=>criarLinha());
     $('btnFecharModal').addEventListener('click',()=>$('modalItens').close());

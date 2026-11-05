@@ -52,3 +52,24 @@ frete, tributos, descontos e outros lançamentos.
 
 ## Testes
 \`node --test tests/compras-validator.test.js\`.
+
+## Boletos e parcelas — 05/11/2026
+Uma NF pode ter **zero ou vários** registros em `public.compras_boletos` (`nota_id` com FK).
+A tabela tem vencimento, valor, parcela, documento, nosso número, banco, linha digitável,
+código de barras, situação (`a_confirmar`, `pendente`, `pago`, `cancelado`),
+data e valor de pagamento, observação e origem.
+
+A IA lê tanto boletos bancários quanto duplicatas/parcelas explicitamente presentes na NF:
+- Cobrança bancária identificável: tipo `boleto`, status `pendente`.
+- Duplicata/parcela sem boleto bancário: tipo `duplicata`, status `a_confirmar`.
+- Apenas prazo genérico: não gera boleto. Nunca presumir pagamento realizado.
+- Importação de documento já existente mantém pagamentos, valores manuais e itens.
+  Confere parcelas repetidas para não criar duplicidades. Arquivos PDF não são guardados.
+
+A tela possui modal "Boletos desta compra" para edição e terceira aba "Controle de boletos"
+para consultar títulos de todos os fornecedores, vencimentos e registrar pagamentos.
+Endpoints privados:
+- `GET /api/compras/boletos?status=&busca=`
+- `PATCH /api/compras/boletos/:id/status`
+- `GET /api/compras/:id` devolve `boletos: []`; `POST/PUT /api/compras` aceita `boletos: []`.
+Migração idempotente: `db/sql/20261105_compras_boletos.sql`, incluída no startup.
