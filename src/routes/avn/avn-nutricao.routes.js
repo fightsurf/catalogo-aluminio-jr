@@ -1,6 +1,7 @@
 'use strict';
 // Autenticação obrigatória no mount em avn-sistema.routes.js.
 const express = require('express');
+const multer = require('multer');
 const pool = require('../../../db/connection');
 const consultaUsda = require('../../services/avn/avn-nutricao-usda.service');
 const consultaTaco = require('../../services/avn/avn-nutricao-taco.service');
@@ -69,6 +70,30 @@ async function foodPayload(body){
 const A = ['nome','marca','preparo','kcal_100g','proteinas_g_100g','carboidratos_g_100g','gorduras_g_100g','fibras_g_100g','micronutrientes_100g','porcao_nome','porcao_gramas'];
 function fail(res,e){console.error('[AVN Nutrição]',e);res.status(e.status|| (e.code==='23503'||e.code==='23505'?409:500)).json({erro:e.status?e.message:e.code==='23503'?'Registro possui vínculos e não pode ser removido.':e.code==='23505'?'Registro duplicado.':'Falha no módulo de nutrição. Consulte os logs.'});}
 const wrap=fn=>async(req,res)=>{try{await fn(req,res);}catch(e){fail(res,e);}};
+
+// Recebimento em memória: uma foto de rótulo, no máximo 8 MB, sem persistir arquivo.
+const uploadTabela=multer({
+ storage:multer.memoryStorage(),
+ limits:{fileSize:8*1024*1024,files:1,fields:0},
+ fileFilter:(_req,file,cb)=>{
+  if(!['image/jpeg','image/png','image/webp'].includes(file.mimetype))
+   return cb(bad('Formato não suportado. Use JPG, PNG ou WebP.',415));
+  cb(null,true);
+ }
+}).single('imagem');
+router.post('/consulta-ia/tabela-nutricional',(req,res,next)=>{
+ uploadTabela(req,res,erro=>{
+  if(erro)return res.status(erro.code==='LIMIT_FILE_SIZE'?413:(erro.status||400))
+   .set('Cache-Control','no-store').json({erro:erro.code==='LIMIT_FILE_SIZE'?'A foto excede o limite de 8 MB.':erro.message});
+  if(!req.file)return res.status(400).set('Cache-Control','no-store')
+   .json({erro:'Selecione uma foto da tabela nutricional em JPG, PNG ou WebP.'});
+  next();
+ });
+},wrap(async(req,res)=>{
+ const {rows}=await pool.query('SELECT codigo,nome,unidade,categoria FROM public.avn_nutrientes ORDER BY codigo');
+ const dados=await consultaJsonIA.lerTabelaNutricional(req.file.buffer,rows);
+ res.set('Cache-Control','no-store').json(dados);
+}));
 
 // Consulta com IA: a lista de todos os nutrientes vem exclusivamente do PostgreSQL.
 // Não recebe dados clínicos/pessoais do usuário; não grava alimentos automaticamente.
