@@ -20,6 +20,23 @@ const json=(url,method,body)=>api(url,{method,headers:{'Content-Type':'applicati
 const exam=id=>S.catalogo.find(c=>String(c.id)===String(id));
 const byName=name=>S.catalogo.find(c=>[c.nome,...(c.aliases||[])].some(t=>norm(t)===norm(name)));
 const modal=(id,open=true)=>open?$(id).showModal():$(id).close();
+// Exibe TODAS as metas por categoria; nunca infere risco pelo resultado.
+async function mostrarMetas(alvo,exameId){
+ const el=$(alvo);if(!el)return;
+ const idAtual=String(exameId||'');
+ el.dataset.exameId=idAtual;el.innerHTML='';el.hidden=true;
+ if(!idAtual)return;
+ try{
+  const metas=await api('/metas?exameId='+encodeURIComponent(idAtual));
+  if(el.dataset.exameId!==idAtual||!metas.length)return;
+  el.innerHTML='<h3>Metas terapêuticas por risco cardiovascular</h3>'+
+   '<div class="avn-ex-table-scroll"><table><thead><tr><th>Categoria de risco</th><th>Meta (mg/dL)</th></tr></thead><tbody>'+
+   metas.map(m=>'<tr><td>'+esc(m.rotulo)+'</td><td>&lt; '+esc(fmt(m.meta_menor_que))+'</td></tr>').join('')+
+   '</tbody></table></div>'+
+   '<p>Diretriz Brasileira de Dislipidemias (2025). São metas de tratamento, não faixas que classificam o resultado ou o risco do paciente. A categoria deve ser definida por avaliação clínica. <a href="https://pmc.ncbi.nlm.nih.gov/articles/PMC12674852/" target="_blank" rel="noopener noreferrer">Consultar diretriz</a>.</p>';
+  el.hidden=false;
+ }catch(e){if(el.dataset.exameId===idAtual){el.innerHTML='';el.hidden=true;}}
+}
 async function loadUsers(){
  const r=await fetch('/api/avn/usuarios',{credentials:'same-origin'});
  if(!r.ok)throw Error('Falha ao carregar usuários AVN.');
@@ -61,7 +78,7 @@ function drawSvg(svg,tag,attrs,content){
 }
 function chart(){
  const el=$('exGrafico'),details=$('exDetalheGrafico'),eid=$('exIndicador').value;
- details.textContent='';
+ details.textContent='';mostrarMetas('exMetasGrafico',eid);
  if(!eid){el.innerHTML='<p class="muted">Selecione um indicador para visualizar o histórico.</p>';return;}
  const all=S.resultados.filter(r=>String(r.exame_id)===eid&&r.valor!=null).sort((a,b)=>strDate(a.data_coleta).localeCompare(strDate(b.data_coleta))||Number(a.id)-Number(b.id));
  if(!all.length){el.innerHTML='<p class="muted">Este indicador ainda não tem resultados numéricos.</p>';return;}
@@ -105,6 +122,7 @@ function fieldsFromRow(r){
 function openEditor(row=null){
  $('exModalTitulo').textContent=row?'Editar resultado':'Registrar exame';$('exId').value=row?.id||'';
  for(const [field,value] of Object.entries(fieldsFromRow(row)))$(field).value=value;
+ mostrarMetas('exMetasModal',row?.exame_id);
  modal('exModal');
 }
 let referenciaSolicitacao=0;
@@ -222,7 +240,7 @@ async function start(){
  $('exNovo').onclick=()=>openEditor();$('exFechar').onclick=() =>modal('exModal',false);
  $('exCancelar').onclick=()=>modal('exModal',false);
  $('exForm').onsubmit=saveManual;
- $('exNome').onchange=()=>{const c=byName($('exNome').value);$('exUnidade').value=c?.unidade_padrao||'';$('exRefMin').value='';$('exRefMax').value='';$('exRefTexto').value='';referenceSuggestion();};
+ $('exNome').onchange=()=>{const c=byName($('exNome').value);$('exUnidade').value=c?.unidade_padrao||'';$('exRefMin').value='';$('exRefMax').value='';$('exRefTexto').value='';mostrarMetas('exMetasModal',c?.id);referenceSuggestion();};
  for(const f of ['exLab','exMaterial','exMetodo'])$(f).addEventListener('change',referenceSuggestion);
  $('exImportar').onclick=()=>{S.previa=[];$('exPrevia').hidden=true;$('exTextoLaudo').value='';limparAnexo();status('');modal('exImportModal');};
  $('exImportModal').addEventListener('paste',colarAnexo);
