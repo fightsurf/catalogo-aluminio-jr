@@ -30,9 +30,14 @@ function payload(body){
  return p;
 }
 async function avaliar(uid){
- const ur=await pool.query('SELECT u.data_nascimento,u.sexo_referencia_calculo, EXTRACT(YEAR FROM AGE(CURRENT_DATE,u.data_nascimento))::int idade,p.* FROM public.avn_usuario u LEFT JOIN public.avn_risco_cardiovascular_perfil p ON p.usuario_id=u.id WHERE u.id=$1',[uid]);
+ const ur=await pool.query('SELECT u.data_nascimento,u.sexo_referencia_calculo,u.altura_cm, EXTRACT(YEAR FROM AGE(CURRENT_DATE,u.data_nascimento))::int idade,p.* FROM public.avn_usuario u LEFT JOIN public.avn_risco_cardiovascular_perfil p ON p.usuario_id=u.id WHERE u.id=$1',[uid]);
  if(!ur.rowCount)throw Object.assign(new Error('Usuário não encontrado.'),{status:404});
  const u=ur.rows[0];
+
+ const pesoRows=await pool.query("SELECT d.valor::float8 AS peso_kg,d.data_medicao FROM public.avn_medicoes d JOIN public.avn_metricas m ON m.id=d.metrica_id WHERE d.usuario_id=$1 AND m.codigo='peso' AND d.valor BETWEEN 1 AND 500 ORDER BY d.data_medicao DESC,d.id DESC LIMIT 1",[uid]);
+ const peso=pesoRows.rows[0]||null;
+ const altura=Number(u.altura_cm)||0,imc=peso&&altura>0?Number((peso.peso_kg/(altura/100)**2).toFixed(1)):null;
+
  const ex=(await pool.query("SELECT DISTINCT ON (c.codigo) c.codigo,r.valor::float8 AS valor,r.unidade,r.data_coleta FROM public.avn_exames_resultados r JOIN public.avn_exames_catalogo c ON c.id=r.exame_id WHERE r.usuario_id=$1 AND c.codigo=ANY($2::text[]) AND r.valor IS NOT NULL ORDER BY c.codigo,r.data_coleta DESC,r.id DESC",
  [uid,['ldl','colesterol_nao_hdl','colesterol_total','hdl','tfg_estimada','hba1c']])).rows;
  const exames=Object.fromEntries(ex.map(x=>[x.codigo,{valor:x.valor,unidade:x.unidade,data_coleta:x.data_coleta}]));
@@ -66,9 +71,10 @@ async function avaliar(uid){
  for(const [k,label] of [['colesterol_total','colesterol total'],['hdl','HDL'],['tfg_estimada','função renal (eTFG)']]){
   if(!exames[k])faltantes.push(label);
  }
+ if(imc==null)faltantes.push('peso/IMC no histórico de avaliação física');
  const labels=[null,'Intermediário','Alto','Muito alto'],codes=[null,'intermediario','alto','muito_alto'];
  return {perfil:Object.fromEntries(fields.map(k=>[k,u[k]??(numeric.has(k)?null:'nao_informado')])),
-  idade:u.idade,sexo_referencia_calculo:u.sexo_referencia_calculo,exames,
+  idade:u.idade,sexo_referencia_calculo:u.sexo_referencia_calculo,imc,peso: peso?.peso_kg??null,exames,
   categoria_minima:codes[nivel],rotulo:labels[nivel],criterios,dados_pendentes:faltantes,
   aviso:'Classificação mínima provisória por critérios explícitos da SBC 2025. Não equivale a risco definitivo nem ao cálculo PREVENT. Validar com o médico.'};
 }
