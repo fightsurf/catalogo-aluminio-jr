@@ -37,6 +37,55 @@ async function mostrarMetas(alvo,exameId){
   el.hidden=false;
  }catch(e){if(el.dataset.exameId===idAtual){el.innerHTML='';el.hidden=true;}}
 }
+const riscoInputs={
+ pressao_sistolica:'riscoPressaoSistolica',pressao_diastolica:'riscoPressaoDiastolica',
+ fuma:'riscoFuma',usa_antihipertensivo:'riscoAntihipertensivo',usa_estatina:'riscoEstatina',
+ diabetes_diagnosticado:'riscoDiabetes',historico_familiar_precoce:'riscoFamilia',
+ evento_cardiovascular_previo:'riscoEvento',obstrucao_arterial_50:'riscoObstrucao',
+ placa_subclinica:'riscoPlaca',escore_calcio_coronariano:'riscoCAC'
+};
+async function loadRisk(){
+ const el=$('exRiscoResumo');
+ if(!S.usuario){S.risco=null;el.innerHTML='<p class="muted">Selecione um usuário AVN.</p>';return;}
+ try{
+  const uid=S.usuario,r=await api('/risco?usuarioId='+encodeURIComponent(uid));
+  if(uid!==S.usuario)return;
+  S.risco=r;
+  const titulo=r.rotulo?'Pelo menos risco '+r.rotulo.toLowerCase():'Categoria ainda não determinada';
+  const exam=key=>{
+   const e=r.exames[key];return e?fmt(e.valor)+' '+esc(e.unidade)+' (coleta: '+esc(strDate(e.data_coleta).split('-').reverse().join('/'))+')':'Não registrado';
+  };
+  el.innerHTML='<h3>'+esc(titulo)+'</h3>'+
+   '<p><strong>Dados recuperados:</strong> '+esc(r.idade)+' anos; LDL: '+exam('ldl')+
+   '; HDL: '+exam('hdl')+'; colesterol total: '+exam('colesterol_total')+
+   '; função renal (eTFG): '+exam('tfg_estimada')+'.</p>'+
+   (r.criterios.length?'<p><strong>Por quê:</strong> '+r.criterios.map(esc).join(' ')+'</p>':'<p>Não há critérios suficientes para atribuir uma categoria.</p>')+
+   (r.dados_pendentes.length?'<p><strong>Falta informar ou conferir:</strong> '+r.dados_pendentes.map(esc).join('; ')+'.</p>':'')+
+   '<p class="muted">'+esc(r.aviso)+'</p>';
+ }catch(e){el.innerHTML='<p class="muted">Não foi possível consultar o risco cardiovascular. '+esc(e.message)+'</p>';}
+}
+function editarRisco(){
+ if(!S.usuario)return alertar('Selecione um usuário.',true);
+ const p=S.risco?.perfil||{};
+ for(const [key,id] of Object.entries(riscoInputs)){
+  const el=$(id);
+  el.value=p[key]??(el.tagName==='SELECT'?'nao_informado':'');
+ }
+ modal('exRiscoModal');
+}
+async function salvarRisco(e){
+ e.preventDefault();if(!S.usuario)return alertar('Selecione um usuário.',true);
+ const data={usuarioId:S.usuario};
+ for(const [key,id] of Object.entries(riscoInputs))data[key]=$(id).value;
+ const button=$('exRiscoForm').querySelector('[type=submit]');button.disabled=true;
+ try{
+  await json('/risco','PUT',data);
+  modal('exRiscoModal',false);await loadRisk();
+  alertar('Dados clínicos salvos e avaliação atualizada.');
+ }catch(err){alertar(err.message,true);}
+ finally{button.disabled=false;}
+}
+
 async function loadUsers(){
  const r=await fetch('/api/avn/usuarios',{credentials:'same-origin'});
  if(!r.ok)throw Error('Falha ao carregar usuários AVN.');
@@ -55,6 +104,7 @@ async function loadResults(){
  if(!S.usuario){S.resultados=[];render();return;}
  S.resultados=await api('/resultados?usuarioId='+encodeURIComponent(S.usuario));
  render();
+ await loadRisk();
 }
 function reference(r){
  const a=r.limite_inferior!=null?fmt(r.limite_inferior):'—';
@@ -236,6 +286,10 @@ async function start(){
  try{await Promise.all([loadUsers(),loadCatalog()]);await loadResults();}
  catch(e){alertar(e.message,true);}
  $('exUsuario').onchange=async e=>{S.usuario=e.target.value;localStorage.setItem('avn_exames_usuario',S.usuario);try{await loadResults();}catch(err){alertar(err.message,true);}};
+ $('exRiscoEditar').onclick=editarRisco;
+ $('exRiscoFechar').onclick=()=>modal('exRiscoModal',false);
+ $('exRiscoCancelar').onclick=()=>modal('exRiscoModal',false);
+ $('exRiscoForm').onsubmit=salvarRisco;
  $('exBusca').oninput=render;$('exIndicador').onchange=chart;
  $('exNovo').onclick=()=>openEditor();$('exFechar').onclick=() =>modal('exModal',false);
  $('exCancelar').onclick=()=>modal('exModal',false);
