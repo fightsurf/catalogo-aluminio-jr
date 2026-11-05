@@ -165,7 +165,8 @@ test('metas lipídicas 2025 por categoria são independentes das referências do
  };
  const riscos=['baixo','intermediario','alto','muito_alto','extremo'];
  for(const [codigo,vals] of Object.entries(expected)){
-  const lines=sql.split('\n').filter(line=>line.trimStart().startsWith("('"+codigo+"','"));
+  const linhasMetas=sql.slice(sql.indexOf('-- Metas de tratamento por risco cardiovascular'));
+  const lines=linhasMetas.split('\n').filter(line=>line.trimStart().startsWith("('"+codigo+"','"));
   assert.equal(lines.length,5,'Cinco metas esperadas para '+codigo);
   riscos.forEach((risco,i)=>{
    const linha=lines.find(l=>l.includes("('"+codigo+"','"+risco+"'"));
