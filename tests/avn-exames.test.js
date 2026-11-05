@@ -151,3 +151,33 @@ test('perfil lipídico mantém triglicerídeos e inclui não-HDL e VLDL sem dupl
  assert.ok(naoHdl.includes("'nao hdl'"));
  assert.ok(vldl.includes("'vldl-c'"));
 });
+
+test('metas lipídicas 2025 por categoria são independentes das referências dos laudos',()=>{
+ const sql=read('db/sql/20261027_avn_exames_laboratoriais.sql');
+ const api=read('src/routes/avn/avn-exames.routes.js');
+ const view=read('views/avn/exames-laboratoriais.html');
+ const js=read('public/js/avn-exames.js');
+ assert.match(sql,/CREATE TABLE IF NOT EXISTS public\.avn_exames_metas_risco/);
+ assert.match(sql,/UNIQUE \(exame_id,categoria_risco\)/);
+ const expected={
+  colesterol_nao_hdl:[145,130,100,80,70],
+  ldl:[115,100,70,50,40]
+ };
+ const riscos=['baixo','intermediario','alto','muito_alto','extremo'];
+ for(const [codigo,vals] of Object.entries(expected)){
+  const lines=sql.split('\n').filter(line=>line.trimStart().startsWith("('"+codigo+"','"));
+  assert.equal(lines.length,5,'Cinco metas esperadas para '+codigo);
+  riscos.forEach((risco,i)=>{
+   const linha=lines.find(l=>l.includes("('"+codigo+"','"+risco+"'"));
+   assert.ok(linha,'Risco ausente: '+codigo+'/'+risco);
+   assert.ok(linha.trimEnd().replace(/,$/,'').endsWith(','+vals[i]+')'),'Meta incorreta: '+codigo+'/'+risco);
+  });
+ }
+ assert.match(sql,/ON CONFLICT \(exame_id,categoria_risco\) DO UPDATE/);
+ assert.match(api,/router\.get\('\/metas'/);
+ for(const id of ['exMetasGrafico','exMetasModal']) assert.ok(view.includes('id="'+id+'"'));
+ assert.match(js,/mostrarMetas\('exMetasGrafico',eid\)/);
+ assert.match(js,/mostrarMetas\('exMetasModal',c\?\.id\)/);
+ assert.doesNotThrow(()=>new Function(api));
+ assert.doesNotThrow(()=>new Function(js));
+});
