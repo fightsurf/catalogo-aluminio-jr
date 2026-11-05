@@ -50,7 +50,7 @@
     .acoes-resumo { display:flex; align-items:center; gap:9px; white-space:nowrap; }
     .qtd-acoes { display:inline-block; font-weight:bold; min-width:20px; color:#334155; }
     .overlay-acoes { z-index:150; padding:14px; overflow-y:auto; }
-    .modal-acoes { width:min(1180px,100%); max-width:1180px; max-height:92vh; overflow-y:auto; }
+    .modal-acoes { width:min(1280px,100%); max-width:1280px; max-height:92vh; overflow-y:auto; }
     .acoes-topo { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; margin-bottom:12px; }
     .acoes-topo p { color:#64748b; font-size:.86rem; line-height:1.45; }
     .acoes-topo button { border:0; border-radius:5px; padding:7px 12px; cursor:pointer; background:#e2e8f0; }
@@ -93,6 +93,27 @@
     @media(max-width:860px) {
       .acao-edicao-layout { grid-template-columns:1fr; }
       .acao-previa { position:static; }
+    }
+
+    /* Conversa completa sempre visível ao lado direito do gerenciamento. */
+    .acoes-layout { display:grid; grid-template-columns:minmax(0,1.12fr) minmax(320px,.88fr); gap:18px; align-items:start; }
+    .acoes-coluna-editor { min-width:0; }
+    .acoes-previa-completa { position:sticky; top:0; min-width:0; max-height:calc(92vh - 116px); display:flex; flex-direction:column; }
+    .acoes-previa-completa h3 { color:#234034; font-size:1rem; margin:2px 0 5px; }
+    .acoes-previa-descricao { color:#64748b; font-size:.82rem; line-height:1.4; margin-bottom:10px; }
+    .acoes-previa-completa .wa-chat { min-height:300px; display:flex; flex-direction:column; overflow:hidden; }
+    .acoes-previa-completa .wa-fundo { display:block; min-height:250px; overflow-y:auto; max-height:calc(92vh - 245px); padding:14px 12px; flex:1; }
+    .wa-conversa { display:flex; flex-direction:column; gap:11px; }
+    .wa-preview-item { display:flex; flex-direction:column; align-items:flex-end; gap:3px; }
+    .wa-preview-posicao { font-size:.71rem; color:#425b53; font-weight:bold; }
+    .wa-preview-item .wa-bolha { max-width:94%; width:fit-content; min-width:135px; }
+    .wa-preview-item-rascunho .wa-bolha { outline:2px dashed #0f766e; outline-offset:1px; }
+    .wa-preview-vazio { color:#52645d; background:#fff9; padding:12px; border-radius:8px; line-height:1.45; font-size:.86rem; }
+    .acoes-previa-resumo { color:#64748b; font-size:.79rem; line-height:1.45; margin-top:9px; }
+    @media(max-width:900px) {
+      .acoes-layout { grid-template-columns:1fr; }
+      .acoes-previa-completa { position:static; max-height:none; }
+      .acoes-previa-completa .wa-fundo { max-height:440px; }
     }
     @media(max-width:700px) {
       body { padding:10px; }
@@ -175,12 +196,12 @@
         <button type="button" onclick="fecharAcoes()">Fechar</button>
       </div>
       <div id="acoes-mensagem" class="msg-acoes" role="status"></div>
+      <div class="acoes-layout">
+        <div class="acoes-coluna-editor">
       <div id="acoes-lista" class="acoes-lista"></div>
       <button type="button" id="acoes-btn-nova" class="acoes-btn-nova" onclick="novaAcao()">+ Adicionar ação</button>
       <form id="acao-form" class="acao-form" style="display:none" onsubmit="salvarAcao(event)">
-        <div class="acao-edicao-layout">
-          <div class="acao-edicao-campos">
-            <h3 id="acao-form-titulo">Nova ação</h3>
+        <h3 id="acao-form-titulo">Nova ação</h3>
             <div class="colunas">
           <div class="campo"><label for="acao-ordem">Posição da mensagem (automática)</label><input type="number" min="1" step="1" id="acao-ordem" required readonly title="Para mudar a ordem, use as setas ↑ e ↓ nos painéis acima."><small class="acao-help">Para mudar, use ↑ e ↓ nos painéis de ações acima.</small></div>
           <div class="campo"><label for="acao-tipo">Tipo de ação *</label>
@@ -209,17 +230,19 @@
           <button type="button" class="btn-cancelar" onclick="cancelarEdicaoAcao()">Cancelar</button>
           <button type="submit" class="btn-salvar" id="acao-salvar">Salvar ação</button>
         </div>
-          </div>
-          <aside class="acao-previa" aria-label="Prévia da mensagem no WhatsApp">
-            <h4>Prévia da mensagem no WhatsApp</h4>
-            <div class="wa-chat">
-              <div class="wa-cabecalho">WhatsApp · Simulação <small>Visualização — nenhuma mensagem será enviada</small></div>
-              <div class="wa-fundo"><div id="wa-bolha" class="wa-bolha" aria-live="polite"></div></div>
-            </div>
-            <div id="wa-inativo" class="wa-inativo" style="display:none">Esta ação está inativa e não será enviada pelo bot.</div>
-          </aside>
-        </div>
       </form>
+        </div>
+        <aside class="acoes-previa-completa" aria-label="Conversa montada para WhatsApp">
+          <h3>Prévia da conversa no WhatsApp</h3>
+          <p class="acoes-previa-descricao">Todas as mensagens ativas, na sequência em que serão enviadas.</p>
+          <div class="wa-chat">
+            <div class="wa-cabecalho">Alumínio JR · WhatsApp <small>Simulação — nenhuma mensagem será enviada</small></div>
+            <div class="wa-fundo"><div id="wa-conversa" class="wa-conversa" aria-live="polite" aria-label="Mensagens montadas"></div></div>
+          </div>
+          <p id="wa-resumo" class="acoes-previa-resumo" role="status"></p>
+        </aside>
+      </div>
+
     </div>
   </div>
 
@@ -405,6 +428,7 @@
       const intencao = intencoesUnificadas.find(i => Number(i.id) === Number(id));
       if (!intencao) return;
       intencaoAcoesAtual = intencao;
+      acoesDaIntencao = [];
       document.getElementById('acoes-titulo').textContent = 'Ações da intenção: ' + intencao.nome;
       document.getElementById('acoes-subtitulo').textContent = 'Fluxo: ' + chaveDaIntencao(intencao) + ' · As ações são executadas pela ordem definida.';
       document.getElementById('overlay-acoes').classList.add('ativo');
@@ -425,6 +449,7 @@
       const lista = document.getElementById('acoes-lista');
       lista.textContent = 'Carregando ações...';
       mensagemAcoes('');
+      atualizarPreviaAcao();
       try {
         const res = await fetch('/bot/fluxo/admin/acoes?intencao=' + encodeURIComponent(chave));
         if (!res.ok) throw new Error('Falha na consulta das ações.');
@@ -492,6 +517,7 @@
         lista.appendChild(linha);
       });
       document.getElementById('acoes-btn-nova').disabled = ordenandoAcoes;
+      atualizarPreviaAcao();
     }
 
     async function moverAcao(id, deslocamento) {
@@ -566,6 +592,7 @@
       document.getElementById('acao-form').style.display = 'none';
       document.getElementById('acoes-btn-nova').style.display = '';
       document.getElementById('acao-salvar').disabled = false;
+      atualizarPreviaAcao();
     }
     function atualizarAjudaAcao() {
       const tipo = document.getElementById('acao-tipo').value;
@@ -597,32 +624,30 @@
         .replace(/~([^~\n]+)~/g, '<s>$1</s>')
         .replace(/\n/g, '<br>');
     }
-    function atualizarPreviaAcao() {
-      const tipo = document.getElementById('acao-tipo').value;
-      const conteudo = document.getElementById('acao-conteudo').value.trim();
-      const bolha = document.getElementById('wa-bolha');
-      bolha.replaceChildren();
-      const adicionarTexto = (texto, formatado = false) => {
-        const elemento = document.createElement('div');
-        elemento.className = 'wa-texto';
-        if (formatado) elemento.innerHTML = formatarMensagemWhatsApp(texto);
-        else elemento.textContent = texto;
-        bolha.appendChild(elemento);
+    // Renderiza a conversa COMPLETA, não apenas a ação em edição.
+    function preencherBolhaWhatsApp(bolha, acao) {
+      const tipo = acao.tipo_acao;
+      const conteudo = String(acao.conteudo || '').trim();
+      const texto = (valor, formatado = false) => {
+        const el = document.createElement('div');
+        el.className = 'wa-texto';
+        if (formatado) el.innerHTML = formatarMensagemWhatsApp(valor);
+        else el.textContent = valor;
+        bolha.appendChild(el);
       };
       const url = urlPrevia(conteudo);
       if (!conteudo) {
-        adicionarTexto('Digite o conteúdo para ver como ficará no WhatsApp.');
+        texto('Digite o conteúdo para visualizar a mensagem.');
       } else if (tipo === 'SEND_TEXT' || (tipo === 'SEND_LINK' && !url)) {
-        adicionarTexto(conteudo, true);
+        texto(conteudo, true);
       } else if (tipo === 'SEND_IMAGE' && url) {
         const foto = document.createElement('img');
         foto.className = 'wa-media';
-        foto.alt = 'Imagem da mensagem';
+        foto.alt = 'Imagem que será enviada';
         foto.loading = 'lazy';
+        foto.referrerPolicy = 'no-referrer';
         foto.src = url;
-        foto.onerror = () => {
-          foto.replaceWith(document.createTextNode('Imagem indisponível nesta prévia.'));
-        };
+        foto.onerror = () => { foto.replaceWith(document.createTextNode('Não foi possível carregar a imagem na prévia.')); };
         bolha.appendChild(foto);
       } else if (tipo === 'SEND_VIDEO' && url) {
         const video = document.createElement('video');
@@ -635,7 +660,7 @@
         const audio = document.createElement('audio');
         audio.className = 'wa-audio';
         audio.controls = true;
-        audio.preload = 'none';
+        audio.preload = 'metadata';
         audio.src = url;
         bolha.appendChild(audio);
       } else if ((tipo === 'SEND_DOCUMENT' || tipo === 'SEND_LINK') && url) {
@@ -651,22 +676,75 @@
         if (conteudo.startsWith('{')) {
           try {
             const loc = JSON.parse(conteudo);
-            endereco = loc.address || ([loc.lat ?? loc.latitude, loc.lng ?? loc.longitude].join(', '));
-          } catch (_) { /* Mostra o conteúdo original */ }
+            endereco = loc.address || [loc.lat ?? loc.latitude, loc.lng ?? loc.longitude].join(', ');
+          } catch (_) { /* Exibe o valor original */ }
         }
-        adicionarTexto('📍 Localização: ' + endereco);
+        texto('📍 Localização: ' + endereco);
       } else {
-        adicionarTexto(conteudo);
+        texto(conteudo);
       }
       const rodape = document.createElement('div');
       rodape.className = 'wa-rodape';
-      rodape.textContent = 'Prévia · não enviado';
+      rodape.textContent = 'Simulação · não enviado';
       bolha.appendChild(rodape);
-      document.getElementById('wa-inativo').style.display =
-        document.getElementById('acao-ativo').checked ? 'none' : 'block';
+    }
+
+    function atualizarPreviaAcao() {
+      const conversa = document.getElementById('wa-conversa');
+      if (!conversa) return;
+      conversa.replaceChildren();
+      const lista = acoesDaIntencao.map(a => ({...a}));
+      const formulario = document.getElementById('acao-form');
+      const editando = formulario.style.display !== 'none' && !!intencaoAcoesAtual;
+      let rascunhoInativo = false;
+      if (editando) {
+        const atual = {
+          id: acaoEdicaoId,
+          tipo_acao: document.getElementById('acao-tipo').value,
+          conteudo: document.getElementById('acao-conteudo').value,
+          ativo: document.getElementById('acao-ativo').checked,
+          delay_ms: Number(document.getElementById('acao-delay').value) || 0,
+          rascunho: true
+        };
+        if (acaoEdicaoId != null) {
+          const posicao = lista.findIndex(a => Number(a.id) === Number(acaoEdicaoId));
+          if (posicao >= 0) lista[posicao] = {...lista[posicao], ...atual};
+        } else {
+          lista.push(atual);
+        }
+        rascunhoInativo = !atual.ativo;
+      }
+      let exibidas = 0;
+      for (let indice = 0; indice < lista.length; indice++) {
+        const acao = lista[indice];
+        if (!acao.ativo) continue;
+        exibidas++;
+        const container = document.createElement('div');
+        container.className = 'wa-preview-item' + (acao.rascunho ? ' wa-preview-item-rascunho' : '');
+        const posicao = document.createElement('span');
+        posicao.className = 'wa-preview-posicao';
+        posicao.textContent = 'Mensagem ' + (indice + 1) + (acao.rascunho ? ' · não salva' : '');
+        const bolha = document.createElement('div');
+        bolha.className = 'wa-bolha';
+        preencherBolhaWhatsApp(bolha, acao);
+        container.append(posicao, bolha);
+        conversa.appendChild(container);
+      }
+      if (!exibidas) {
+        const vazio = document.createElement('p');
+        vazio.className = 'wa-preview-vazio';
+        vazio.textContent = 'Nenhuma ação ativa nesta intenção. Cadastre ou ative uma ação para montar a conversa.';
+        conversa.appendChild(vazio);
+      }
+      const ignoradas = lista.filter(a => !a.ativo).length;
+      document.getElementById('wa-resumo').textContent =
+        exibidas + ' mensagem(ns) ativa(s) na sequência.' +
+        (ignoradas ? ' ' + ignoradas + ' ação(ões) inativa(s) não aparece(m) na conversa.' : '') +
+        (editando ? (rascunhoInativo ? ' A edição atual está inativa.' : ' Alterações na prévia ainda não foram salvas.') : '');
     }
     document.getElementById('acao-conteudo').addEventListener('input', atualizarPreviaAcao);
     document.getElementById('acao-ativo').addEventListener('change', atualizarPreviaAcao);
+    document.getElementById('acao-delay').addEventListener('input', atualizarPreviaAcao);
 
     function validarConteudoAcao(tipo, conteudo) {
       if (!conteudo) return 'O conteúdo é obrigatório.';
