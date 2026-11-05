@@ -87,6 +87,8 @@ VALUES
 ('colesterol_total','Colesterol total',ARRAY[]::text[],'Perfil lipídico','mg/dL','indicador'),
 ('hdl','Colesterol HDL',ARRAY['hdl'],'Perfil lipídico','mg/dL','indicador'),
 ('ldl','Colesterol LDL',ARRAY['ldl'],'Perfil lipídico','mg/dL','indicador'),
+('colesterol_nao_hdl','Colesterol não-HDL',ARRAY['colesterol nao hdl','colesterol não hdl','não hdl','nao hdl','colesterol non hdl','non-hdl cholesterol'],'Perfil lipídico','mg/dL','indicador'),
+('vldl','Colesterol VLDL',ARRAY['vldl','vldl-c','colesterol vldl','very low density lipoprotein cholesterol'],'Perfil lipídico','mg/dL','indicador'),
 ('triglicerideos','Triglicerídeos',ARRAY['tg'],'Perfil lipídico','mg/dL','indicador'),
 ('tsh','TSH',ARRAY['hormônio tireoestimulante'],'Tireoide','µUI/mL','indicador'),
 ('t4_livre','T4 livre',ARRAY['ft4','tiroxina livre'],'Tireoide','ng/dL','indicador'),
