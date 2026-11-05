@@ -137,3 +137,17 @@ test('catálogo cadastra FSH e LH e reconhece a nomenclatura do laudo e o SHBG',
  assert.match(sql,/WHERE codigo='shbg' AND NOT/,'Aliases precisam ser atualizados nos cadastros já existentes');
  assert.match(sql,/ON CONFLICT\(codigo\) DO NOTHING/,'Migração deve ser idempotente');
 });
+
+test('perfil lipídico mantém triglicerídeos e inclui não-HDL e VLDL sem duplicações',()=>{
+ const sql=read('db/sql/20261027_avn_exames_laboratoriais.sql');
+ for(const [codigo,nome] of [['colesterol_nao_hdl','Colesterol não-HDL'],['vldl','Colesterol VLDL'],['triglicerideos','Triglicerídeos']]){
+  const linhas=sql.split(String.fromCharCode(10)).filter(l=>l.startsWith("('"+codigo+"','"+nome+"'"));
+  assert.equal(linhas.length,1,'Exame ausente ou duplicado: '+nome);
+  assert.ok(linhas[0].includes("'Perfil lipídico','mg/dL','indicador'"),'Grupo ou unidade inválidos: '+nome);
+ }
+ assert.match(sql,/ON CONFLICT\(codigo\) DO NOTHING/);
+ const naoHdl=sql.split(String.fromCharCode(10)).find(l=>l.startsWith("('colesterol_nao_hdl'"));
+ const vldl=sql.split(String.fromCharCode(10)).find(l=>l.startsWith("('vldl'"));
+ assert.ok(naoHdl.includes("'nao hdl'"));
+ assert.ok(vldl.includes("'vldl-c'"));
+});
