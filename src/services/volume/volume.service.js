@@ -129,6 +129,7 @@ async function calcular({ texto, itens, multiplicador = 1 }) {
     // 🔥 Capacidade 0 = IGNORADO
     if (capacidade === 0) {
       resultado.push({
+        produto_id: produto.id,
         produto: produto.nome,
         quantidade: item.quantidade,
         multiplicador,
@@ -143,6 +144,7 @@ async function calcular({ texto, itens, multiplicador = 1 }) {
     somaVolumes += volumes;
 
     resultado.push({
+      produto_id: produto.id,
       produto: produto.nome,
       quantidade: item.quantidade,
       multiplicador,
