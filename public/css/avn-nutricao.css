@@ -11,7 +11,34 @@
 .alimento-layout{grid-template-columns:minmax(260px,.85fr) minmax(0,1.45fr);align-items:start}
 .alimento-editor{min-width:0;gap:14px}.alimento-editor .card{margin:0}.alimento-editor .card h3{margin-bottom:12px}
 .alimento-editor .avn-field{min-width:0}.nome-com-ia{display:flex;gap:8px;align-items:center}.nome-com-ia input{flex:1;width:100%;min-width:0}
-.nome-com-ia button{flex:none;font-weight:850}.form-actions{margin-top:15px}.alimentos-cadastrados{position:sticky;top:14px}
+.nome-com-ia button{flex:none;font-weight:850}
+
+/* Leitura de rótulos: botões junto ao nome e conferência antes de aplicar. */
+body[data-nutricao-pagina="alimentos"] .nome-com-ia{flex-wrap:wrap}
+body[data-nutricao-pagina="alimentos"] .nome-com-ia input{flex:1 1 210px}
+body[data-nutricao-pagina="alimentos"] #consultarTabelaNutricional{white-space:nowrap}
+body[data-nutricao-pagina="alimentos"] .avn-tabela-dialog{
+ width:min(780px,calc(100vw - 24px));max-height:92dvh;overflow:auto;
+ background:#182437;color:#ecf2fc;border:1px solid #435775;
+}
+body[data-nutricao-pagina="alimentos"] .avn-tabela-dialog::backdrop{background:#091b2bd9}
+body[data-nutricao-pagina="alimentos"] .avn-tabela-dialog .modal-head{margin-bottom:14px}
+body[data-nutricao-pagina="alimentos"] .avn-tabela-preview{
+ display:block;max-width:100%;max-height:260px;margin:12px auto;border-radius:10px;object-fit:contain;
+}
+body[data-nutricao-pagina="alimentos"] .avn-tabela-preview[hidden]{display:none}
+body[data-nutricao-pagina="alimentos"] .avn-tabela-valores{overflow:auto;max-height:290px;margin:12px 0}
+body[data-nutricao-pagina="alimentos"] .avn-tabela-valores table{width:100%;border-collapse:collapse;font-size:14px}
+body[data-nutricao-pagina="alimentos"] .avn-tabela-valores th,
+body[data-nutricao-pagina="alimentos"] .avn-tabela-valores td{
+ border-bottom:1px solid #435775;padding:7px 9px;text-align:left;
+}
+body[data-nutricao-pagina="alimentos"] .avn-tabela-valores td:last-child{text-align:right;white-space:nowrap}
+@media(max-width:560px){
+ body[data-nutricao-pagina="alimentos"] .nome-com-ia input{flex-basis:100%}
+ body[data-nutricao-pagina="alimentos"] .nome-com-ia button{font-size:12px}
+}
+.form-actions{margin-top:15px}.alimentos-cadastrados{position:sticky;top:14px}
 .avn-dialog{width:min(840px,calc(100% - 22px));max-height:90vh;overflow:auto;border:1px solid var(--line);border-radius:16px;padding:22px;color:var(--ink);box-shadow:0 18px 70px #15293d5e}
 .avn-dialog::backdrop{background:#091b2bb8}.modal-head,.modal-actions{display:flex;align-items:center;justify-content:space-between;gap:12px}.modal-actions{margin-top:20px;justify-content:flex-end;border-top:1px solid var(--line);padding-top:16px}
 .avn-dialog #pesquisarIA{margin-top:10px}.avn-dialog #statusIA{margin:10px 0}.resultados-ia{display:grid;max-height:235px;overflow:auto;gap:6px}
