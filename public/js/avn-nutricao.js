@@ -838,6 +838,103 @@ function configurarIA(){
 }
 
 
+
+function configurarTabelaNutricional(){
+ const botao=$('consultarTabelaNutricional'),arquivo=$('arquivoTabelaNutricional');
+ const modal=$('modalTabelaNutricional'),preview=$('imagemTabelaPreview');
+ const status=$('statusTabelaNutricional'),resumo=$('resultadoTabelaNutricional');
+ const aplicar=$('aplicarTabelaNutricional');
+ let resultado=null,controle=null,previewUrl=null;
+ const liberarPreview=()=>{
+  if(previewUrl){URL.revokeObjectURL(previewUrl);previewUrl=null;}
+  preview.removeAttribute('src');preview.hidden=true;
+ };
+ function fechar(){
+  if(controle){controle.abort();controle=null;}
+  modal.close();
+ }
+ modal.addEventListener('close',()=>{
+  if(controle){controle.abort();controle=null;}
+  liberarPreview();
+  resultado=null;aplicar.disabled=true;
+ });
+ $('fecharTabelaNutricional').onclick=fechar;
+ $('cancelarTabelaNutricional').onclick=fechar;
+ botao.onclick=()=>{arquivo.value='';arquivo.click();};
+ arquivo.onchange=async()=>{
+  const foto=arquivo.files?.[0];if(!foto)return;
+  if(!['image/jpeg','image/png','image/webp'].includes(foto.type)){
+   show('Selecione uma imagem JPG, PNG ou WebP da tabela nutricional.',true);return;
+  }
+  if(foto.size>8*1024*1024){
+   show('A imagem excede 8 MB. Envie uma foto menor.',true);return;
+  }
+  liberarPreview();
+  if(!modal.open)modal.showModal();
+  previewUrl=URL.createObjectURL(foto);preview.src=previewUrl;preview.hidden=false;
+  resumo.hidden=true;resultado=null;aplicar.disabled=true;
+  status.textContent='Interpretando os valores da tabela nutricional…';
+  const form=new FormData();form.append('imagem',foto,foto.name);
+  const pedido=new AbortController();controle=pedido;
+  try{
+   const resposta=await fetch(API+'/consulta-ia/tabela-nutricional',{
+    method:'POST',credentials:'same-origin',cache:'no-store',body:form,signal:pedido.signal
+   });
+   if(resposta.redirected&&resposta.url.includes('/login'))
+    throw Error('Sessão expirada. Entre novamente no sistema.');
+   const dados=await resposta.json().catch(()=>{throw Error('Resposta inválida do servidor.');});
+   if(!resposta.ok)throw Error(dados.erro||'Não foi possível ler a tabela nutricional.');
+   if(controle!==pedido||!modal.open)return;
+   const nutrientes=[
+    ...MACROS.map(([codigo,nome,unidade])=>({nome,unidade,valor:dados.macros?.[codigo]})),
+    ...MICRO.map(([codigo,nome,unidade])=>({nome,unidade,valor:dados.micros?.[codigo]}))
+   ].filter(n=>typeof n.valor==='number'&&Number.isFinite(n.valor)&&n.valor>=0);
+   if(!nutrientes.length)throw Error('A foto não apresentou valores nutricionais aproveitáveis.');
+   resultado=dados;
+   $('detalhesTabelaNutricional').textContent=
+    (dados.nome?'Alimento identificado: '+dados.nome+' · ':'')+
+    (dados.base_original==='porcao'
+     ?'Valores convertidos de uma porção de '+fmt(dados.peso_porcao_original_g,2)+' g para 100 g.'
+     :'Valores transcritos da coluna por 100 g.');
+   $('valoresTabelaNutricional').innerHTML='<table><thead><tr><th>Nutriente</th><th>Por 100 g</th></tr></thead><tbody>'+
+    nutrientes.map(n=>'<tr><td>'+esc(n.nome)+'</td><td>'+esc(fmt(n.valor,5))+' '+esc(n.unidade)+'</td></tr>').join('')+'</tbody></table>';
+   const alertas=Array.isArray(dados.alertas_validacao)?dados.alertas_validacao.filter(a=>a.nivel!=='informativo'):[];
+   $('observacoesTabelaNutricional').textContent=
+    (dados.observacoes||'')+
+    (alertas.length?' Atenção: '+alertas.map(a=>a.mensagem).join(' '):'');
+   resumo.hidden=false;aplicar.disabled=false;
+   status.textContent=nutrientes.length+' nutriente(s) identificado(s). Confira e clique em Aplicar para preencher o formulário.';
+  }catch(e){
+   if(e.name==='AbortError')return;
+   if(controle!==pedido)return;
+   status.textContent=e.message||'Não foi possível interpretar a tabela.';
+   aplicar.disabled=true;resumo.hidden=true;
+  }finally{if(controle===pedido)controle=null;}
+ };
+ aplicar.onclick=()=>{
+  if(!resultado)return;
+  const dados=resultado;
+  // Não apagar os campos já informados quando um nutriente não foi lido.
+  // Preservar também o ID de um alimento que estiver sendo editado.
+  for(const [codigo] of MACROS){
+   const val=dados.macros?.[codigo];
+   if(typeof val==='number'&&Number.isFinite(val)&&val>=0)$('alim_'+codigo).value=val;
+  }
+  for(const [codigo] of MICRO){
+   const val=dados.micros?.[codigo];
+   if(typeof val==='number'&&Number.isFinite(val)&&val>=0)$('micro_'+codigo).value=val;
+  }
+  if(!v('alimentoNome').trim()&&dados.nome)$('alimentoNome').value=dados.nome;
+  if(!v('alimentoMarca').trim()&&dados.marca)$('alimentoMarca').value=dados.marca;
+  if(!v('alimentoPreparo').trim()&&dados.preparo)$('alimentoPreparo').value=dados.preparo;
+  // A foto não é uma pesquisa TACO/USDA/IA com URL de fonte externa.
+  state.origemImportacao=null;
+  fechar();
+  show('Valores da tabela nutricional preenchidos por 100 g. Confira e clique em Salvar alimento.');
+  $('formAlimento').scrollIntoView({behavior:'smooth',block:'start'});
+ };
+}
+
 function microDieta(dados){
  return MICRO.map(([key,nome,unidade])=>({key,nome,unidade,valor:Number(dados.total[key]),parcial:dados.miss[key]>0})).filter(m=>Number.isFinite(m.valor)&&m.valor>0).sort((a,b)=>b.valor-a.valor||a.nome.localeCompare(b.nome,'pt-BR'));
 }
@@ -1141,6 +1238,7 @@ function events(){
  $('buscaAlimento').oninput=renderFoodList;
  $('limparAlimento').onclick=()=>fillFood(null);
  configurarIA();
+ configurarTabelaNutricional();
  $('buscaMicroAlimento').oninput=()=>filtrarNutrientes('camposMicros','buscaMicroAlimento');
 
  $('formAlimento').onsubmit=async e=>{e.preventDefault();try{
