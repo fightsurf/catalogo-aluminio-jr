@@ -699,3 +699,27 @@ body[data-nutricao-pagina="diario"] #listaDiario .avn-dieta-pesagem small{font-s
 body[data-nutricao-pagina="diario"] #listaDiario .avn-dieta-linha>div:first-child{min-width:0;flex:1 1 180px}
 body[data-nutricao-pagina="diario"] #listaDiario .avn-dieta-linha{flex-wrap:wrap;gap:10px}
 body[data-nutricao-pagina="diario"] #listaDiario .avn-dieta-acoes{flex:none}
+
+/* Modal de tabela nutricional: colagem Ctrl+V ou seleção direta de foto. */
+body[data-nutricao-pagina="alimentos"] .avn-tabela-entrada{display:grid;gap:12px;margin:16px 0}
+body[data-nutricao-pagina="alimentos"] .avn-tabela-colar{
+  min-height:112px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:5px;text-align:center;padding:18px;cursor:text;white-space:normal;
+  border:2px dashed #648ab4;border-radius:11px;background:#13263f;color:#e8f3ff;
+  outline-offset:3px;
+}
+body[data-nutricao-pagina="alimentos"] .avn-tabela-colar:focus{
+  border-color:#a1ceff;outline:2px solid #75b3f0;background:#1b3654;
+}
+body[data-nutricao-pagina="alimentos"] .avn-tabela-colar strong{font-size:15px;color:#f2f7ff}
+body[data-nutricao-pagina="alimentos"] .avn-tabela-colar span{font-size:13px;color:#baccdf}
+body[data-nutricao-pagina="alimentos"] .avn-tabela-arquivo-acoes{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+}
+body[data-nutricao-pagina="alimentos"] .avn-tabela-arquivo-acoes small{font-size:12px;color:#adbed4}
+body[data-nutricao-pagina="alimentos"] .avn-tabela-dialog .modal-actions{flex-wrap:wrap}
+body[data-nutricao-pagina="alimentos"] .avn-tabela-dialog #aplicarTabelaNutricional:disabled{opacity:.5;cursor:not-allowed}
+@media(max-width:520px){
+ body[data-nutricao-pagina="alimentos"] .avn-tabela-colar{min-height:102px;padding:12px}
+ body[data-nutricao-pagina="alimentos"] .avn-tabela-arquivo-acoes button{width:100%}
+}
