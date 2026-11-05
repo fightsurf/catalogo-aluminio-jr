@@ -65,7 +65,7 @@
   <main class="pagina">
     <section class="topo">
       <h1>Relatórios recebidos pelo WhatsApp</h1>
-      <p class="subtitulo">A lista é atualizada automaticamente.</p>
+      <p class="subtitulo">A lista é carregada ao abrir a página e ao pesquisar.</p>
       <div class="busca">
         <input id="telefoneBusca" type="search" inputmode="tel" placeholder="Pesquisar pelo número do WhatsApp" autocomplete="off" />
         <button id="btnBuscar" class="btn-buscar" type="button">Pesquisar</button>
@@ -327,7 +327,7 @@
     document.addEventListener('keydown', (event) => { if (event.key === 'Escape') fecharModal(); });
 
     carregar();
-    setInterval(() => { if (!document.hidden) carregar({ silencioso:true }); }, 5000);
+
   </script>
 </body>
 </html>
