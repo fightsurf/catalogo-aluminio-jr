@@ -111,7 +111,7 @@ function renderDaily(){
    '<button type="button" data-diario-adicionar="'+esc(key)+'">+ Adicionar alimento</button>'+
    '<button type="button" data-diario-repetir="'+esc(key)+'">Repetir refeição</button></div>'+
    '<div class="avn-dieta-refeicao-itens">'+items.map(i=>
-    '<div class="list-row avn-dieta-linha" data-diario-item="'+esc(i.id)+'"><div><span class="name">'+esc(i.alimento_nome)+' <span class="avn-dieta-emoji">'+emojiAlimento(i.alimento_nome)+'</span></span>'+
+    '<div class="list-row avn-dieta-linha" data-diario-item="'+esc(i.id)+'"><div><span class="name">'+esc(i.alimento_nome)+' <span class="avn-dieta-emoji">'+emojiAlimento(i.alimento_nome)+'</span></span><button type="button" class="avn-mudar-refeicao-link" data-mudar-refeicao="'+esc(i.id)+'" aria-label="Mudar refeição de '+esc(i.alimento_nome)+'">Mudar refeição</button>'+
     '<div class="avn-dieta-pesagem"><small data-peso-diario>'+fmt(i.quantidade_g)+' g consumidos'+(i.plano_item_id?' · da dieta':'')+'</small>'+
      '<button type="button" data-ajustar-peso-diario="'+esc(i.id)+'" data-variacao-peso="-5" aria-label="Diminuir 5 gramas de '+esc(i.alimento_nome)+'" title="Diminuir 5 g"'+(ajustandoPesoDiario.has(String(i.id))||Number(i.quantidade_g)<=5?' disabled':'')+'>−</button>'+
      '<button type="button" data-ajustar-peso-diario="'+esc(i.id)+'" data-variacao-peso="5" aria-label="Aumentar 5 gramas de '+esc(i.alimento_nome)+'" title="Aumentar 5 g"'+(ajustandoPesoDiario.has(String(i.id))||Number(i.quantidade_g)+5>10000?' disabled':'')+'>+</button></div>'+
@@ -331,7 +331,7 @@ function renderDiet(){
    (lancados?'<small class="avn-dia-registrado">'+lancados+'/'+items.length+' lançado(s) hoje</small>':'')+'</div></div>'+
    '<div class="avn-dieta-refeicao-itens">'+items.map((i,indice)=>{
     const nutrientes=aggregate([i]);
-    return '<div class="list-row avn-dieta-linha" data-dieta-item="'+esc(i.id)+'"><div><a href="#" class="name avn-dieta-alimento-link" data-macro-food="'+esc(i.id)+'" aria-label="Ver macronutrientes de '+esc(i.alimento_nome)+'">'+esc(i.alimento_nome)+' <span class="avn-dieta-emoji" aria-hidden="true">'+emojiAlimento(i.alimento_nome)+'</span></a>'+
+    return '<div class="list-row avn-dieta-linha" data-dieta-item="'+esc(i.id)+'"><div><a href="#" class="name avn-dieta-alimento-link" data-macro-food="'+esc(i.id)+'" aria-label="Ver macronutrientes de '+esc(i.alimento_nome)+'">'+esc(i.alimento_nome)+' <span class="avn-dieta-emoji" aria-hidden="true">'+emojiAlimento(i.alimento_nome)+'</span></a><button type="button" class="avn-mudar-refeicao-link" data-mudar-refeicao="'+esc(i.id)+'" aria-label="Mudar refeição de '+esc(i.alimento_nome)+'">Mudar refeição</button>'+
       '<div class="avn-dieta-pesagem"><small data-peso-dieta>'+fmt(i.quantidade_g)+' g programados</small>'+
       '<button type="button" data-ajustar-peso-dieta="'+esc(i.id)+'" data-variacao-peso="-5" aria-label="Diminuir 5 gramas de '+esc(i.alimento_nome)+'" title="Diminuir 5 g"'+(Number(i.quantidade_g)<=5?' disabled':'')+'>−</button>'+
       '<button type="button" data-ajustar-peso-dieta="'+esc(i.id)+'" data-variacao-peso="5" aria-label="Aumentar 5 gramas de '+esc(i.alimento_nome)+'" title="Aumentar 5 g"'+(Number(i.quantidade_g)+5>10000?' disabled':'')+'>+</button></div>'+
@@ -1145,6 +1145,78 @@ function exibirModalMacros(itens,titulo){
  (['kcal','proteinas_g','carboidratos_g','gorduras_g','fibras_g'].some(k=>a.miss[k])?'<p class="muted">Alguns alimentos não têm todos os valores nutricionais informados.</p>':'');
  $('modalMacros').showModal();
 }
+
+// Mover o registro entre refeições sem recriá-lo ou recalcular seus dados nutricionais.
+function configurarMudancaRefeicao(){
+ if(PAGE!=='diario'&&PAGE!=='dieta')return;
+ const modal=document.createElement('dialog');
+ modal.id='modalMudarRefeicao';
+ modal.className='avn-dialog avn-mudar-refeicao-modal';
+ modal.setAttribute('aria-labelledby','tituloMudarRefeicao');
+ modal.innerHTML='<div class="modal-head"><h3 id="tituloMudarRefeicao">Mudar refeição</h3></div>'+
+  '<form id="formMudarRefeicao" class="stack">'+
+   '<p class="avn-mudar-alimento"><strong id="nomeMudarRefeicao"></strong></p>'+
+   '<p class="avn-mudar-peso"><b>Quantidade / peso:</b> <span id="pesoMudarRefeicao"></span> g</p>'+
+   '<div id="macrosMudarRefeicao"></div>'+
+   '<p class="muted">Refeição atual: <strong id="origemMudarRefeicao"></strong></p>'+
+   '<label class="avn-field">Nova refeição<select id="destinoMudarRefeicao" required></select></label>'+
+   '<div class="modal-actions"><button type="button" class="secondary" id="cancelarMudarRefeicao">Cancelar</button>'+
+   '<button type="submit" class="primary" id="salvarMudarRefeicao" disabled>Salvar</button></div>'+
+  '</form>';
+ document.querySelector('main')?.append(modal);
+ let selecionado=null;
+ const destino=$('destinoMudarRefeicao'),salvar=$('salvarMudarRefeicao');
+ $('cancelarMudarRefeicao').onclick=()=>modal.close();
+ modal.addEventListener('close',()=>{selecionado=null;salvar.disabled=true;});
+ destino.addEventListener('change',()=>{salvar.disabled=!destino.value;});
+ document.addEventListener('click',e=>{
+  const botao=e.target.closest('[data-mudar-refeicao]');
+  if(!botao)return;
+  e.preventDefault();
+  const item=(PAGE==='diario'?state.diario:state.dieta).find(i=>String(i.id)===botao.dataset.mudarRefeicao);
+  if(!item||!state.usuarioId)return;
+  selecionado={id:String(item.id),usuarioId:state.usuarioId,data:state.data};
+  $('nomeMudarRefeicao').textContent=item.alimento_nome;
+  $('pesoMudarRefeicao').textContent=fmt(item.quantidade_g);
+  $('macrosMudarRefeicao').innerHTML=resumoMacrosDoAlimento(item,item.quantidade_g);
+  $('origemMudarRefeicao').textContent=MEALS[item.refeicao]||item.refeicao;
+  destino.innerHTML='<option value="">Selecione a refeição de destino</option>'+
+   Object.entries(MEALS).filter(([id])=>id!==item.refeicao)
+    .map(([id,nome])=>'<option value="'+esc(id)+'">'+esc(nome)+'</option>').join('');
+  destino.value='';
+  salvar.disabled=true;
+  modal.showModal();
+  destino.focus();
+ });
+ $('formMudarRefeicao').onsubmit=async e=>{
+  e.preventDefault();
+  if(!selecionado||!destino.value||!MEALS[destino.value])return;
+  const atual=selecionado;
+  if(atual.usuarioId!==state.usuarioId||(PAGE==='diario'&&atual.data!==state.data)){
+   show('Os dados mudaram. Abra novamente o alimento para transferi-lo.',true);modal.close();return;
+  }
+  salvar.disabled=true;$('cancelarMudarRefeicao').disabled=true;
+  try{
+   userGuard();
+   if(PAGE==='diario'){
+    await send('/diario/'+encodeURIComponent(atual.usuarioId)+'/'+encodeURIComponent(atual.id)+'/refeicao','PATCH',
+      {refeicao:destino.value,data:atual.data});
+    modal.close();
+    if($('modalRankingDiario')?.open)$('modalRankingDiario').close();
+    await loadDaily();
+   }else{
+    await send('/dieta/'+encodeURIComponent(atual.usuarioId)+'/itens/'+encodeURIComponent(atual.id)+'/refeicao','PATCH',
+      {refeicao:destino.value});
+    modal.close();
+    if($('modalRankingDieta')?.open)$('modalRankingDieta').close();
+    await loadDiet();
+   }
+   show('Alimento transferido para '+MEALS[destino.value]+'.');
+  }catch(err){show(err.message,true);}
+  finally{$('cancelarMudarRefeicao').disabled=false;salvar.disabled=!destino.value||!modal.open;}
+ };
+}
+
 function ativarAbaDiario(aba,focar=false){
  const tabs=[...document.querySelectorAll('#modalAdicionarDiario [role="tab"]')];
  for(const tab of tabs){
@@ -1156,6 +1228,7 @@ function ativarAbaDiario(aba,focar=false){
  }
 }
 function events(){
+ configurarMudancaRefeicao();
  if(has('fecharMacros')){
   $('fecharMacros').onclick=()=>$('modalMacros').close();
   document.addEventListener('click',e=>{
@@ -1170,7 +1243,7 @@ function events(){
   });
 }
 
- $('usuario').onchange=async()=>{if(PAGE==='diario'&&$('modalRankingDiario').open)$('modalRankingDiario').close();if(PAGE==='dieta'){invalidarImportacaoDieta(true);dietaCatalogoImportacao=[];}state.usuarioId=v('usuario');metaPendente=null;historicoMetas=[];if(has('modalCalculadoraGkg')&&$('modalCalculadoraGkg').open)$('modalCalculadoraGkg').close();if(has('modalHistoricoMetas')&&$('modalHistoricoMetas').open)$('modalHistoricoMetas').close();localStorage.setItem('avn_nutricao_usuario',state.usuarioId);try{await reload();}catch(e){show(e.message,true);}};
+ $('usuario').onchange=async()=>{if($('modalMudarRefeicao')?.open)$('modalMudarRefeicao').close();if(PAGE==='diario'&&$('modalRankingDiario').open)$('modalRankingDiario').close();if(PAGE==='dieta'){invalidarImportacaoDieta(true);dietaCatalogoImportacao=[];}state.usuarioId=v('usuario');metaPendente=null;historicoMetas=[];if(has('modalCalculadoraGkg')&&$('modalCalculadoraGkg').open)$('modalCalculadoraGkg').close();if(has('modalHistoricoMetas')&&$('modalHistoricoMetas').open)$('modalHistoricoMetas').close();localStorage.setItem('avn_nutricao_usuario',state.usuarioId);try{await reload();}catch(e){show(e.message,true);}};
  if(PAGE==='diario'){
  $('fecharRankingDiario').onclick=()=>$('modalRankingDiario').close();
  $('modalRankingDiario').addEventListener('close',()=>{rankingDiarioAtivo=null;});
@@ -1224,7 +1297,7 @@ function events(){
   $('modalEditarConsumo').close();await loadDaily();show('Pesagem do consumo atualizada.');
  }catch(err){show(err.message,true);}};
 
- $('dataDiario').onchange=async()=>{if($('modalRankingDiario').open)$('modalRankingDiario').close();state.data=v('dataDiario');$('refeicaoPlanejada').value='';try{await Promise.all([loadDaily(),loadDiet()]);}catch(e){show(e.message,true);}};
+ $('dataDiario').onchange=async()=>{if($('modalMudarRefeicao')?.open)$('modalMudarRefeicao').close();if($('modalRankingDiario').open)$('modalRankingDiario').close();state.data=v('dataDiario');$('refeicaoPlanejada').value='';try{await Promise.all([loadDaily(),loadDiet()]);}catch(e){show(e.message,true);}};
  $('formDiario').onsubmit=async e=>{e.preventDefault();try{userGuard();await send('/diario/'+state.usuarioId,'POST',{data:state.data,alimento_id:v('diarioAlimento'),refeicao:v('diarioRefeicao'),quantidade_g:Number(v('diarioGramas'))});await loadDaily();$('modalAdicionarDiario').close();show('Alimento registrado no diário.');}catch(err){show(err.message,true);}};
  $('refeicaoPlanejada').onchange=renderPlannedMeal;
  $('registrarRefeicao').onclick=registrarRefeicaoPlanejada;
