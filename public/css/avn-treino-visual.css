@@ -1,0 +1,159 @@
+/* AVN — nova identidade na tela de registro de treinos.
+   Escopo estrito: não altera os aplicativos da Alumínio JR. */
+body[data-page="treinar"]{
+  color-scheme:dark;
+  background:#050505!important;
+  color:#f9f9f9!important;
+  --avn-yellow:#ffc400;
+  --avn-card:#1d1d1d;
+  --avn-border:#353535;
+  --avn-muted:#b7b7b7;
+}
+body[data-page="treinar"] .layout{background:#050505}
+body[data-page="treinar"] .topbar{background:#101010!important;border-bottom:1px solid #2a2a2a;padding-block:15px}
+body[data-page="treinar"] .logo{background:var(--avn-yellow)!important;color:#111!important;font-weight:800}
+body[data-page="treinar"] .brand,
+body[data-page="treinar"] .back{color:#f7f7f7!important}
+body[data-page="treinar"] .main{max-width:1120px;padding-bottom:128px}
+body[data-page="treinar"] .heading{margin-bottom:16px}
+body[data-page="treinar"] h1{font-weight:750;letter-spacing:-.03em}
+body[data-page="treinar"] .eyebrow{color:var(--avn-yellow)!important}
+body[data-page="treinar"] .tabs{border-color:#333!important;gap:7px}
+body[data-page="treinar"] .tabs a{background:#1d1d1d!important;color:#c5c5c5!important;border-radius:12px 12px 0 0}
+body[data-page="treinar"] .tabs a[aria-current]{color:#ffc400!important;background:#29251c!important;border-bottom:3px solid #ffc400}
+body[data-page="treinar"] .avn-registrar-centered{max-width:1040px}
+body[data-page="treinar"] .avn-registrar-centered>.card{
+  background:#131313!important;
+  border:1px solid #333!important;
+  border-radius:28px;
+  box-shadow:none;
+  gap:19px;
+  padding:clamp(16px,3vw,28px)
+}
+body[data-page="treinar"] .avn-action-header h2{font-size:24px;letter-spacing:-.03em}
+body[data-page="treinar"] .avn-registrar-centered .label{color:#f4f4f4!important;font-weight:650}
+body[data-page="treinar"] input,
+body[data-page="treinar"] select,
+body[data-page="treinar"] textarea{
+  background:#292929!important;
+  color:#fff!important;
+  border:1px solid #4b4b4b!important;
+  border-radius:13px;
+  min-height:44px
+}
+body[data-page="treinar"] input:focus,
+body[data-page="treinar"] select:focus,
+body[data-page="treinar"] textarea:focus{outline:2px solid var(--avn-yellow);outline-offset:1px}
+body[data-page="treinar"] .btn,
+body[data-page="treinar"] .btn:not(.primary):not(.danger){
+  background:#303030!important;
+  border:1px solid #575757!important;
+  color:#fff!important;
+  border-radius:12px;
+  padding:10px 15px
+}
+body[data-page="treinar"] .btn:hover:not(:disabled){filter:brightness(1.13)}
+body[data-page="treinar"] .btn:focus-visible,
+body[data-page="treinar"] a:focus-visible{outline:3px solid var(--avn-yellow)!important}
+body[data-page="treinar"] #treinoItens>.stack{
+  counter-reset:avn-workout-exercise;
+  gap:16px;
+}
+body[data-page="treinar"] .avn-workout-session-card{
+  counter-increment:avn-workout-exercise;
+  position:relative;
+  display:grid;
+  grid-template-columns:120px minmax(0,1fr);
+  gap:18px;
+  align-items:center;
+  padding:19px;
+  background:var(--avn-card)!important;
+  border:1px solid var(--avn-border)!important;
+  border-radius:26px;
+  box-shadow:none;
+}
+body[data-page="treinar"] .avn-workout-session-card::before{
+  content:counter(avn-workout-exercise);
+  position:absolute;
+  z-index:2;
+  top:12px;
+  left:12px;
+  background:var(--avn-yellow);
+  color:#101010;
+  width:29px;
+  height:29px;
+  border-radius:9px;
+  display:grid;
+  place-items:center;
+  font-size:13px;
+  font-weight:800;
+}
+body[data-page="treinar"] .avn-workout-session-card .avn-workout-visual{
+  min-height:120px;
+  border:0!important;
+  border-radius:18px;
+  background:#303030!important;
+  overflow:hidden;
+}
+body[data-page="treinar"] .avn-workout-session-card .thumb-frame{
+  width:110px;
+  height:110px;
+  border-radius:16px;
+}
+body[data-page="treinar"] .avn-workout-session-card .avn-workout-details{gap:11px}
+body[data-page="treinar"] .avn-workout-session-card .avn-workout-details>strong{
+  color:#fff!important;
+  font-size:20px;
+  font-weight:750;
+  line-height:1.3
+}
+body[data-page="treinar"] .avn-workout-session-card small{color:var(--avn-muted)!important;font-size:13px}
+body[data-page="treinar"] .avn-workout-session-card .fields{gap:10px;grid-template-columns:repeat(4,minmax(0,1fr))}
+body[data-page="treinar"] .avn-workout-session-card .fields label{
+  color:var(--avn-muted)!important;
+  font-weight:600;
+  font-size:12px
+}
+body[data-page="treinar"] .avn-workout-session-card .fields input,
+body[data-page="treinar"] .avn-workout-session-card .fields select{margin-top:6px}
+body[data-page="treinar"] .avn-workout-session-card .label{font-size:12px!important}
+body[data-page="treinar"] .avn-workout-session-card .ses-obs{min-height:42px}
+body[data-page="treinar"] #salvarSessao{
+  position:fixed;
+  bottom:max(16px,env(safe-area-inset-bottom));
+  left:50%;
+  transform:translateX(-50%);
+  z-index:25;
+  width:min(990px,calc(100vw - 32px));
+  min-height:60px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:22px;
+  border:0!important;
+  background:var(--avn-yellow)!important;
+  color:#101010!important;
+  font-size:18px;
+  font-weight:800;
+  box-shadow:0 8px 26px #000b
+}
+body[data-page="treinar"] #salvarSessao:disabled{
+  background:#51421a!important;
+  color:#b4b4b4!important;
+  cursor:not-allowed;
+  box-shadow:none
+}
+body[data-page="treinar"] .creditos{border-color:#303030}
+@media(max-width:680px){
+  body[data-page="treinar"] .topbar{padding-inline:14px}
+  body[data-page="treinar"] .main{padding:16px 12px 112px}
+  body[data-page="treinar"] .avn-registrar-centered>.card{padding:15px;border-radius:20px}
+  body[data-page="treinar"] .avn-workout-session-card{grid-template-columns:86px minmax(0,1fr);gap:10px;padding:12px;border-radius:20px}
+  body[data-page="treinar"] .avn-workout-session-card .avn-workout-visual{min-height:86px}
+  body[data-page="treinar"] .avn-workout-session-card .thumb-frame{width:80px;height:80px}
+  body[data-page="treinar"] .avn-workout-session-card .avn-workout-details>strong{font-size:16px}
+  body[data-page="treinar"] .avn-workout-session-card .fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+  body[data-page="treinar"] .avn-workout-session-card .avn-workout-details>.label,
+  body[data-page="treinar"] .avn-workout-session-card .avn-workout-details>.fields{grid-column:1/-1}
+  body[data-page="treinar"] #salvarSessao{bottom:max(9px,env(safe-area-inset-bottom));min-height:56px;font-size:16px}
+}
