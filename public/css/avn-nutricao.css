@@ -723,3 +723,19 @@ body[data-nutricao-pagina="alimentos"] .avn-tabela-dialog #aplicarTabelaNutricio
  body[data-nutricao-pagina="alimentos"] .avn-tabela-colar{min-height:102px;padding:12px}
  body[data-nutricao-pagina="alimentos"] .avn-tabela-arquivo-acoes button{width:100%}
 }
+
+/* Transferência de alimentos entre refeições (diário e dieta). */
+.avn-mudar-refeicao-link{
+ display:inline-flex;align-items:center;vertical-align:middle;max-width:100%;
+ margin:2px 0 2px 9px;padding:3px 8px;border-radius:7px;
+ background:transparent;border:1px solid #547a9c;color:#a9d3ff;
+ font:600 11px/1.4 inherit;line-height:1.4;cursor:pointer;white-space:normal;
+}
+.avn-mudar-refeicao-link:hover{background:#223951;border-color:#85baff}
+.avn-mudar-refeicao-link:focus-visible{outline:2px solid #a9d3ff;outline-offset:2px}
+.avn-mudar-refeicao-modal{width:min(560px,calc(100% - 20px))}
+.avn-mudar-refeicao-modal .avn-mudar-alimento{font-size:17px;margin:12px 0 4px;overflow-wrap:anywhere}
+.avn-mudar-refeicao-modal .avn-mudar-peso{margin:0 0 8px}
+.avn-mudar-refeicao-modal #macrosMudarRefeicao{padding:10px 0;border-block:1px solid var(--line)}
+.avn-mudar-refeicao-modal #macrosMudarRefeicao .avn-dieta-macros-inline{display:flex;flex-wrap:wrap;gap:6px 14px}
+.avn-mudar-refeicao-modal .modal-actions{flex-wrap:wrap}
