@@ -58,6 +58,46 @@ test('aceita áudio enviado para o próprio número conectado sem aceitar saída
   assert.equal(piloto.receber(enviadoApi), false);
 });
 
+test('aceita envio para si sem connectedPhone, e mantém bloqueio quando o conectado diverge', () => {
+  process.env.WHATSAPP_TRANSCRICAO_NUMEROS = '5583999991234';
+  const proprio = evento('AUTO_SEM_CONNECTED');
+  proprio.payload.phone = '5583999991234';
+  proprio.payload.fromMe = true;
+  proprio.payload.audio = {};
+  proprio.dados.direcao = 'SAIDA';
+  assert.equal(piloto.receber(proprio), true);
+  assert.equal(piloto.receber(proprio), false);
+  const errado = evento('AUTO_CONNECTED_DIFERENTE');
+  errado.payload.fromMe = true;
+  errado.payload.connectedPhone = '5511888888888';
+  errado.dados.direcao = 'SAIDA';
+  assert.equal(piloto.receber(errado), false);
+});
+
+test('diagnóstico registra metadados sem expor números, URLs ou conteúdos', () => {
+  process.env.WHATSAPP_TRANSCRICAO_NUMEROS = '5583999991234';
+  process.env.ZAPI_WEBHOOK_INSTANCE_ID = 'INSTANCIA_TESTE';
+  piloto.observarWebhook({
+    type: 'ReceivedCallback', instanceId: 'INSTANCIA_TESTE',
+    phone: '5511888888888', messageId: 'ID_PRIVADO',
+    fromMe: false, text: { message: 'mensagem confidencial' }
+  });
+  piloto.observarWebhook({
+    type: 'ReceivedCallback', instanceId: 'INSTANCIA_TESTE',
+    phone: '5583999991234', messageId: 'AUDIO_PRIVADO',
+    fromMe: true, audio: { audioUrl: 'https://storage.z-api.io/segredo.ogg' }
+  });
+  const eventos = piloto.listar().ultimos_webhooks;
+  assert.equal(eventos[0].possui_audio, true);
+  assert.equal(eventos[0].numero_autorizado, true);
+  assert.equal(eventos[0].conectado_informado, false);
+  assert.equal(eventos[0].instancia_confere, true);
+  assert.equal(eventos[1].numero_autorizado, false);
+  const texto = JSON.stringify(eventos);
+  for (const segredo of ['ID_PRIVADO', 'AUDIO_PRIVADO', '5511888888888',
+    'segredo.ogg', 'mensagem confidencial']) assert.equal(texto.includes(segredo), false);
+});
+
 test('aceita apenas links HTTPS de domínios autorizados', () => {
   process.env.WHATSAPP_TRANSCRICAO_DOMINIOS = 'z-api.io';
   assert.throws(() => piloto.urlSegura('http://storage.z-api.io/a.ogg'));

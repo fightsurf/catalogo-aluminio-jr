@@ -36,7 +36,7 @@ Se o WhatsApp conectado à Z-API for o mesmo que o número autorizado, áudios e
 
 Se o número conectado na Z-API for o número comercial da Alumínio JR, diferente do número pessoal, **enviar para a própria conversa pessoal não passa pela Z-API da fábrica**. O áudio deve ser enviado ao número conectado à instância da Z-API.
 
-O painel agora mostra o horário do último webhook visto no Render e o último áudio detectado do número autorizado, sem expor conteúdo ou credenciais. Se não chegar webhook, confira o destino no painel da Z-API e a notificação de mensagens enviadas pelo próprio aparelho.
+O painel mostra horário, tipo (áudio/texto/outro), direção, presença de link de áudio, reconhecimento do número autorizado e instância, além dos 12 últimos callbacks. Esses dados são somente metadados voláteis: não armazena números de clientes, URL de áudio, mensagem ou credenciais. Se `connectedPhone` não vier no callback, o piloto pode aceitar um envio para si quando `phone` coincidir com a lista autorizada e `fromMe:true`, desde que a instância autenticada corresponda à da fábrica. Se não chegar webhook, confira o destino no painel da Z-API e a notificação de mensagens enviadas pelo próprio aparelho.
 
 ## Teste
 

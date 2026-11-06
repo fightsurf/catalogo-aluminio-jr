@@ -11,6 +11,8 @@ const fila = [];
 let executando = false;
 let ultimoWebhookEm = null;
 let ultimoAudioAutorizado = null;
+const diagnosticos = []; // Somente metadados, em memória e sem telefones de clientes.
+
 
 function numero(valor) { return String(valor || '').replace(/\D/g, ''); }
 function permitidos() {
@@ -25,13 +27,36 @@ function podeReceber(telefone) {
 function observarWebhook(payload) {
   const agora = new Date().toISOString();
   ultimoWebhookEm = agora;
-  if (!payload?.audio || !podeReceber(payload.phone)) return;
-  const proprio = payload.fromMe === true &&
-    numero(payload.connectedPhone) === numero(payload.phone) &&
-    Boolean(numero(payload.connectedPhone));
+  const possuiAudio = Boolean(payload?.audio);
+  const autorizado = podeReceber(payload?.phone);
+  const mesmoNumero = Boolean(numero(payload?.connectedPhone)) &&
+    numero(payload.connectedPhone) === numero(payload?.phone);
+  const instanciaEsperada = String(process.env.ZAPI_WEBHOOK_INSTANCE_ID || '').trim() ||
+    (String(process.env.ZAPI_URL || '').match(/\/instances\/([^/]+)\/token\//i) || [])[1] || '';
+  const evento = {
+    recebido_em: agora,
+    tipo_evento: String(payload?.type || 'não informado').slice(0, 40),
+    tipo_mensagem: possuiAudio ? 'áudio' :
+      payload?.text ? 'texto' : payload?.image ? 'imagem' :
+      payload?.video ? 'vídeo' : payload?.document ? 'documento' : 'outra',
+    origem: payload?.fromMe === true ? 'enviada por mim' :
+      payload?.fromMe === false ? 'recebida' : 'não informada',
+    numero_autorizado: autorizado,
+    identificador_lid: /@lid$/i.test(String(payload?.phone || '')),
+    conectado_informado: Boolean(numero(payload?.connectedPhone)),
+    conectado_coincide: mesmoNumero,
+    possui_audio: possuiAudio,
+    possui_url_audio: Boolean(payload?.audio?.audioUrl),
+    id_mensagem: Boolean(payload?.messageId),
+    instancia_confere: Boolean(instanciaEsperada && String(payload?.instanceId || '') === instanciaEsperada)
+  };
+  diagnosticos.unshift(evento);
+  while (diagnosticos.length > 12) diagnosticos.pop();
+  if (!possuiAudio || !autorizado) return;
   ultimoAudioAutorizado = {
     recebido_em: agora,
-    tipo: payload.fromMe === true ? (proprio ? 'enviado_para_si' : 'enviado_para_outro') : 'recebido'
+    tipo: payload?.fromMe === true ? (mesmoNumero || !evento.conectado_informado ?
+      'enviado_para_si' : 'enviado_para_outro') : 'recebido'
   };
 }
 function limpar() {
@@ -147,10 +172,10 @@ async function processarFila() {
 function receber({ payload, dados }) {
   // Mensagens para o próprio número vêm como fromMe:true. Aceitar só se o
   // WhatsApp conectado à Z-API for exatamente o número autorizado/destinatário.
+  const conectado = numero(payload?.connectedPhone);
   const enviadoParaSi = dados?.direcao === 'SAIDA' && payload?.fromMe === true &&
-    payload?.fromApi !== true && Boolean(numero(payload.connectedPhone)) &&
-    numero(payload.connectedPhone) === numero(dados.telefone) &&
-    podeReceber(payload.connectedPhone);
+    payload?.fromApi !== true && podeReceber(dados.telefone) &&
+    (!conectado || conectado === numero(dados.telefone));
   const entrada = dados?.direcao === 'ENTRADA' && payload?.fromMe !== true;
   if (!dados || dados.tipo !== 'audio' || (!entrada && !enviadoParaSi) ||
       !podeReceber(dados.telefone) || payload?.isGroup || payload?.isNewsletter) return false;
@@ -189,6 +214,7 @@ function listar() {
     instancia_configurada: Boolean(String(process.env.ZAPI_WEBHOOK_INSTANCE_ID || '').trim() || /\/instances\/[^/]+\/token\//i.test(String(process.env.ZAPI_URL || ''))),
     ultimo_webhook_em: ultimoWebhookEm,
     ultimo_audio_autorizado: ultimoAudioAutorizado,
+    ultimos_webhooks: diagnosticos.slice(),
     registros: registros.map(({ criadoMs, ...r }) => ({ ...r }))
   };
 }
