@@ -729,7 +729,7 @@ body[data-nutricao-pagina="alimentos"] .avn-tabela-dialog #aplicarTabelaNutricio
  display:inline-flex;align-items:center;vertical-align:middle;max-width:100%;
  margin:2px 0 2px 9px;padding:3px 8px;border-radius:7px;
  background:transparent;border:1px solid #547a9c;color:#a9d3ff;
- font:600 11px/1.4 inherit;line-height:1.4;cursor:pointer;white-space:normal;
+ font-family:inherit;font-size:11px;font-weight:600;line-height:1.4;cursor:pointer;white-space:normal;
 }
 .avn-mudar-refeicao-link:hover{background:#223951;border-color:#85baff}
 .avn-mudar-refeicao-link:focus-visible{outline:2px solid #a9d3ff;outline-offset:2px}
