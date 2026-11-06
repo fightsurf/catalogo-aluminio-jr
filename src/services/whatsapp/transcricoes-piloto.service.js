@@ -45,6 +45,7 @@ function observarWebhook(payload) {
     numero_autorizado: autorizado,
     identificador_lid: /@lid$/i.test(String(payload?.phone || '')),
     conectado_informado: Boolean(numero(payload?.connectedPhone)),
+    conectado_autorizado: podeReceber(payload?.connectedPhone),
     conectado_coincide: mesmoNumero,
     possui_audio: possuiAudio,
     possui_url_audio: Boolean(payload?.audio?.audioUrl),
@@ -244,7 +245,21 @@ async function receberVerificandoLid({ payload, dados }, conferir = vinculos.con
     return false;
   }
   try {
-    const resultado = await conferir(conectado);
+    // Um timeout também cobre demoras no banco depois da resposta HTTP da Z-API.
+    // Assim a tela nunca fica indefinidamente em "Verificando...".
+    let timer;
+    let resultado;
+    try {
+      resultado = await Promise.race([
+        conferir(conectado),
+        new Promise((_, rejeitar) => {
+          timer = setTimeout(() => rejeitar(new Error('timeout_verificacao_lid')), 25000);
+          timer.unref?.();
+        })
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
     if (resultado?.vinculado !== true ||
         resultado.telefone !== conectado ||
         String(resultado.lid || '').toLowerCase() !== String(dados.telefone).toLowerCase()) {
@@ -254,7 +269,7 @@ async function receberVerificandoLid({ payload, dados }, conferir = vinculos.con
     return receber({ payload, dados: { ...dados, telefone: conectado } });
   } catch (e) {
     // Não registrar payload, telefone, LID nem segredos.
-    console.error('[Piloto transcrição] Falha ao verificar LID:', e.message);
+    console.error('[Piloto transcrição] Falha na verificação segura de LID.');
     marcarLid(payload, 'consulta_falhou');
     return false;
   }
@@ -272,4 +287,4 @@ function listar() {
     registros: registros.map(({ criadoMs, ...r }) => ({ ...r }))
   };
 }
-module.exports = { receber, receberVerificandoLid, listar, podeReceber, urlSegura, formatoAudio, observarWebhook };
+module.exports = { receber, receberVerificandoLid, listar, podeReceber, urlSegura, formatoAudio, observarWebhook, marcarLid };

@@ -91,6 +91,7 @@ test('diagnóstico registra metadados sem expor números, URLs ou conteúdos', (
   assert.equal(eventos[0].possui_audio, true);
   assert.equal(eventos[0].numero_autorizado, true);
   assert.equal(eventos[0].conectado_informado, false);
+  assert.equal(eventos[0].conectado_autorizado, false);
   assert.equal(eventos[0].instancia_confere, true);
   assert.equal(eventos[1].numero_autorizado, false);
   const texto = JSON.stringify(eventos);
@@ -121,6 +122,7 @@ test('confirma LID do próprio número autorizado antes de aceitar áudio', asyn
   assert.equal(await piloto.receberVerificandoLid(proprio, confirmar), false);
   assert.equal(piloto.listar().ultimos_webhooks[0].verificacao_lid, 'confirmado');
   assert.equal(piloto.listar().ultimos_webhooks[0].numero_autorizado, true);
+  assert.equal(piloto.listar().ultimos_webhooks[0].conectado_autorizado, true);
   assert.equal(piloto.listar().registros[0].telefone, tel);
   assert.equal(consultas, 2); // A deduplicação da transcrição continua ativa
 });
@@ -155,6 +157,21 @@ test('não atribui LID de outro contato ao número conectado', async () => {
     return { telefone: tel, lid: semConta.payload.phone, vinculado:true };
   }), false);
   assert.equal(chamado, false);
+});
+
+test('diagnóstico permite registrar bloqueios do webhook sem dados pessoais', () => {
+  process.env.WHATSAPP_TRANSCRICAO_NUMEROS = '5583999991234';
+  const evt = { instanceId:'INSTANCIA_TESTE', messageId:'ID_INTERNO',
+    phone:'111222333@lid', connectedPhone:'5583999991234',
+    fromMe:true, audio:{ audioUrl:'https://storage.z-api.io/teste.ogg' } };
+  piloto.observarWebhook(evt);
+  piloto.marcarLid(evt,'evento_ignorado');
+  const item = piloto.listar().ultimos_webhooks[0];
+  assert.equal(item.verificacao_lid, 'evento_ignorado');
+  assert.equal(item.conectado_autorizado, true);
+  assert.equal(item.numero_autorizado, false);
+  assert.equal(Object.hasOwn(item,'_id'),false);
+  assert.equal(JSON.stringify(item).includes('111222333'),false);
 });
 
 test('falha segura quando Z-API não confirma LID', async () => {

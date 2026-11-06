@@ -4,7 +4,6 @@
 const pool = require('../../../db/connection');
 const botEvents = require('../bot/botEvents');
 const monitor = require('./zapi-webhook-monitor.service');
-const transcricoesPiloto = require('./transcricoes-piloto.service');
 const vinculos = require('./zapi-lid-vinculos.service');
 
 const comandos = require('./whatsapp-comandos-jr.service');
@@ -153,11 +152,7 @@ async function registrar(payload) {
     }
     temporarias.publicar(dados);
     // Só o número do piloto é transcrito, sem interferir nas automações do bot.
-    // Verificação assíncrona do @lid, isolada do atendimento e dos comandos.
-    // O webhook continua respondendo mesmo se a Z-API não confirmar a identidade.
-    void transcricoesPiloto.receberVerificandoLid({ payload, dados }).catch(erro =>
-      console.error('[Piloto transcrição] Falha ao receber áudio:', erro.message)
-    );
+    // O piloto de áudio é processado diretamente na rota do webhook, isolado do bot.
     if (dados.direcao === 'SAIDA') {
       await comandos.executar(payload, dados);
     }

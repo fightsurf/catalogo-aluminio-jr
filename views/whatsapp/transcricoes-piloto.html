@@ -119,13 +119,18 @@ h2{font-size:1.08rem;margin:27px 0 13px}#lista{display:grid;gap:12px}.diag-list{
         ' | ID: ' + marcacao(e.id_mensagem) +
         ' | Instância válida: ' + marcacao(e.instancia_confere) +
         ' | ConnectedPhone informado: ' + marcacao(e.conectado_informado) +
+        ' | ConnectedPhone autorizado: ' + marcacao(e.conectado_autorizado) +
         (e.identificador_lid ? ' | Identificação LID: ' + ({
           aguardando: 'Verificando...',
           confirmado: 'Confirmado',
           nao_elegivel: 'Evento não elegível',
           telefone_conectado_nao_autorizado: 'Número conectado não autorizado',
           lid_nao_confirmado: 'LID não corresponde ao número autorizado',
-          consulta_falhou: 'Falha ao consultar Z-API; confira ZAPI_URL e ZAPI_TOKEN'
+          consulta_falhou: 'Falha/timeout ao consultar Z-API; confira ZAPI_URL e ZAPI_TOKEN',
+          evento_ignorado: 'Webhook descartado antes do piloto',
+          instancia_divergente: 'Instância diferente da autorizada',
+          conversa_coletiva: 'Grupo/canal não autorizado',
+          erro_inesperado: 'Falha interna ao iniciar verificação'
         }[e.verificacao_lid] || 'Aguardando verificação') : '');
       linha.append(destaque, detalhes);
       lista.appendChild(linha);

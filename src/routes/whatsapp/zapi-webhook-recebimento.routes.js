@@ -32,9 +32,26 @@ router.get('/zapi', autenticar, (_req, res) => res.json({
 
 router.post('/zapi', autenticar, async (req, res) => {
   try {
-    // Mostra no painel se o webhook direto realmente chegou ao Render.
-    transcricoesPiloto.observarWebhook(req.body);
-    const resultado = await recebimento.registrar(req.body);
+    // O piloto deve iniciar antes das tarefas do bot, que podem depender do banco
+    // ou de outros serviços. Não modifica o atendimento nem espera pela transcrição.
+    const payload = req.body;
+    transcricoesPiloto.observarWebhook(payload);
+    const dadosPiloto = recebimento.normalizarMensagem(payload);
+    if (dadosPiloto.ignorar) {
+      transcricoesPiloto.marcarLid(payload, 'evento_ignorado');
+    } else if (dadosPiloto.tipo === 'audio') {
+      if (!vinculos.instanciaAtual() || dadosPiloto.instancia !== vinculos.instanciaAtual()) {
+        transcricoesPiloto.marcarLid(payload, 'instancia_divergente');
+      } else if (payload.isGroup === true || payload.isNewsletter === true) {
+        transcricoesPiloto.marcarLid(payload, 'conversa_coletiva');
+      } else {
+        void transcricoesPiloto.receberVerificandoLid({ payload, dados: dadosPiloto }).catch(erro => {
+          transcricoesPiloto.marcarLid(payload, 'erro_inesperado');
+          console.error('[Piloto transcrição] Falha ao verificar evento:', erro.message);
+        });
+      }
+    }
+    const resultado = await recebimento.registrar(payload);
     return res.status(200).json({ success: true, ...resultado });
   } catch (error) {
     // Nunca registrar o payload nem as credenciais nos logs.

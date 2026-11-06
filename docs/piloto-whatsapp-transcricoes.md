@@ -46,6 +46,14 @@ O piloto verifica a identidade do destinatário pela chamada já existente `conf
 
 A chamada ocorre de forma assíncrona no webhook principal, sem atrasar os comandos de clientes. O painel mostra `Verificação LID: Confirmado`, `LID não corresponde` ou `Falha ao consultar Z-API`. Conferir `ZAPI_URL` e `ZAPI_TOKEN` caso a consulta falhe. Não armazenar o LID nos eventos expostos no frontend.
 
+## Diagnóstico de callbacks e resolução independente (06/11)
+
+O webhook autenticado inicia o processamento do piloto logo após validar o payload e a instância, **antes** das consultas de contatos, dos eventos de bot e dos comandos comerciais. A verificação não deve depender da conclusão do atendimento normal; o fluxo do bot permanece como estava, sem transcrição duplicada.
+
+O diagnóstico agora exibe se `connectedPhone` pertence aos números autorizados (sem expor o valor), mais resultados `Evento descartado`, `Instância divergente` e `Erro ao iniciar`. Uma verificação LID que ficar presa terá prazo total de até 25 segundos, exibindo `Falha/timeout` em vez de permanecer indefinidamente em `Verificando`.
+
+A conclusão da verificação ainda exige comprovação do LID pelo endpoint `phone-exists`: o número conectado, sozinho, não comprova que o áudio foi enviado para si mesmo.
+
 ## Teste
 
 1. Abra `https://catalogo-aluminio-jr.onrender.com/whatsapp/transcricoes` autenticado.
