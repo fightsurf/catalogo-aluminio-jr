@@ -155,7 +155,7 @@ function renderizarGrid() {
   tbody.innerHTML = '';
   if (!lista.length) {
     const tr = document.createElement('tr');
-    tr.innerHTML = '<td colspan="6" class="msg-vazio">Nenhuma prestação encontrada.</td>';
+    tr.innerHTML = '<td colspan="7" class="msg-vazio">Nenhuma prestação encontrada.</td>';
     tbody.appendChild(tr);
     return;
   }
@@ -170,6 +170,7 @@ function renderizarGrid() {
       <td>${escapeHtml(p.titulo)}</td>
       <td>${escapeHtml(fmtData(p.data_referencia))}</td>
       <td>${escapeHtml(p.fornecedor_nome || '—')}</td>
+      <td class="col-saldo">R$ ${fmtMoeda(p.saldo_restante)}</td>
       <td><span class="status-badge ${concluida ? 'status-concluida' : 'status-aberta'}">${labelStatus(p.status)}</span></td>
       <td style="text-align:center; white-space:nowrap;">
         <button class="btn-selecionar">Abrir</button>
@@ -650,6 +651,7 @@ document.getElementById('btn-add-item').addEventListener('click', async () => {
     document.getElementById('item-peso').value = '';
     document.getElementById('item-preco').value = '';
     await carregarResumo(prestacaoAtualId);
+    await carregarLista();
     showMsg('Item adicionado com sucesso!', 'sucesso');
   } catch (e) {
     console.error('Erro ao adicionar item:', e);
@@ -801,6 +803,7 @@ async function deletarItem(itemId, btn) {
     const json = await res.json();
     if (!json.success) throw new Error(json.message);
     await carregarResumo(prestacaoAtualId);
+    await carregarLista();
     showMsg('Item removido.', 'sucesso');
   } catch (e) {
     console.error('Erro ao deletar item:', e);
@@ -835,6 +838,7 @@ document.getElementById('btn-add-pag').addEventListener('click', async () => {
     document.getElementById('pag-valor').value = '';
     document.getElementById('pag-obs').value = '';
     await carregarResumo(prestacaoAtualId);
+    await carregarLista();
     showMsg('Pagamento adicionado com sucesso!', 'sucesso');
   } catch (e) {
     console.error('Erro ao adicionar pagamento:', e);
@@ -904,6 +908,7 @@ async function deletarPagamento(pagamentoId, btn) {
     const json = await res.json();
     if (!json.success) throw new Error(json.message);
     await carregarResumo(prestacaoAtualId);
+    await carregarLista();
     showMsg('Pagamento removido.', 'sucesso');
   } catch (e) {
     console.error('Erro ao deletar pagamento:', e);

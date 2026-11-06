@@ -294,6 +294,13 @@ body {
 }
 
 /* ── Tabela lista ──────────────────────────────────────── */
+.tabela-lista th.col-saldo,
+.tabela-lista td.col-saldo {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.tabela-lista td.col-saldo { font-weight: 600; }
+
 .table-scroll { overflow-x: auto; }
 
 .tabela-lista {
