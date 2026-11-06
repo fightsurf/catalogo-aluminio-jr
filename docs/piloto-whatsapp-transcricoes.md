@@ -30,6 +30,14 @@ No fluxo do n8n que recebe o evento original da Z-API:
 
 Se a Z-API **já** aponta para o endpoint direto `/api/whatsapp/webhook/zapi`, não precisa configurar o ramo no n8n: a transcrição é iniciada pelo recebimento existente.
 
+## Enviar áudio para o próprio número
+
+Se o WhatsApp conectado à Z-API for o mesmo que o número autorizado, áudios enviados para a conversa consigo mesmo chegam marcados com `fromMe:true` quando a opção de notificar mensagens **enviadas por mim** estiver habilitada na Z-API. O piloto aceita somente essa conversa própria, confirmada por `connectedPhone === phone`, e rejeita outros envios de saída e mensagens enviadas pela API.
+
+Se o número conectado na Z-API for o número comercial da Alumínio JR, diferente do número pessoal, **enviar para a própria conversa pessoal não passa pela Z-API da fábrica**. O áudio deve ser enviado ao número conectado à instância da Z-API.
+
+O painel agora mostra o horário do último webhook visto no Render e o último áudio detectado do número autorizado, sem expor conteúdo ou credenciais. Se não chegar webhook, confira o destino no painel da Z-API e a notificação de mensagens enviadas pelo próprio aparelho.
+
 ## Teste
 
 1. Abra `https://catalogo-aluminio-jr.onrender.com/whatsapp/transcricoes` autenticado.
@@ -41,7 +49,7 @@ Se a Z-API **já** aponta para o endpoint direto `/api/whatsapp/webhook/zapi`, n
 
 ## Privacidade e limites
 
-- Somente entradas de WhatsApp individual de número autorizado.
+- Mensagens individuais de número autorizado e, excepcionalmente, mensagens do número conectado enviadas a si mesmo.
 - Sem persistência em PostgreSQL, sem salvar arquivo de áudio; lista em memória por até 2 horas (60 eventos no máximo).
 - Reinício ou novo deploy apagam o histórico. Em múltiplas instâncias do Render, o monitor deve ser consultado na mesma instância que processou o evento; este MVP não sincroniza entre réplicas.
 - Tamanho máximo de 20 MB por áudio. Fila sequencial de até 15 pendentes. Download e transcrição possuem timeouts.

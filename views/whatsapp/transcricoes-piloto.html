@@ -48,6 +48,7 @@ h2{font-size:1.08rem;margin:27px 0 13px}#lista{display:grid;gap:12px}
     <div class="stat"><span class="label">Transcrições concluídas</span><strong id="concluidas">0</strong></div>
   </section>
   <p class="note" id="nota">Carregando a situação do piloto...</p>
+  <p class="note" id="diagnostico">Conferindo recebimento do webhook...</p>
   <section aria-label="Mensagens recebidas">
     <h2>Mensagens recebidas</h2>
     <div id="lista" aria-live="polite"><div class="empty">Aguardando mensagens...</div></div>
@@ -84,6 +85,11 @@ h2{font-size:1.08rem;margin:27px 0 13px}#lista{display:grid;gap:12px}
       const fala = document.createElement('p');
       fala.className = 'transcricao' + (r.status === 'erro' ? ' error' : r.status !== 'concluida' ? ' muted' : '');
       fala.textContent = r.status === 'concluida' ? r.texto : r.status === 'erro' ? r.erro : 'Aguardando texto da transcrição...';
+      if (r.origem === 'enviado_para_si') {
+        const origem = document.createElement('span');
+        origem.textContent = 'Conversa consigo mesmo';
+        meta.append(origem);
+      }
       meta.append(phone, quando, pill); item.append(meta, fala); lista.appendChild(item);
     }
   }
@@ -95,12 +101,24 @@ h2{font-size:1.08rem;margin:27px 0 13px}#lista{display:grid;gap:12px}
       if (resposta.status === 401) { location.href = '/login?next=/whatsapp/transcricoes'; return; }
       if (!resposta.ok) throw new Error('HTTP ' + resposta.status);
       const dados = await resposta.json();
-      $('estado').textContent = dados.habilitado && dados.ia_configurada ? 'Preparado' : 'Configuração pendente';
+      $('estado').textContent = dados.habilitado && dados.ia_configurada &&
+        dados.webhook_configurado && dados.instancia_configurada ? 'Preparado' : 'Configuração pendente';
       $('nota').textContent = !dados.habilitado
         ? 'Configure WHATSAPP_TRANSCRICAO_NUMEROS no Render com o número autorizado (55 + DDD + telefone).'
         : !dados.ia_configurada
           ? 'Configure OPENAI_API_KEY no Render para permitir a transcrição.'
-          : 'Pronto para receber mensagens. A página atualiza a cada 3 segundos. O histórico é temporário (até 2 horas) e não é salvo no banco.';
+          : !dados.webhook_configurado
+            ? 'Configure ZAPI_WEBHOOK_TOKEN no Render para receber o webhook.'
+            : !dados.instancia_configurada
+              ? 'Configure ZAPI_WEBHOOK_INSTANCE_ID ou ZAPI_URL no Render para validar a instância.'
+              : 'Pronto para receber mensagens. A página atualiza a cada 3 segundos. O histórico é temporário (até 2 horas) e não é salvo no banco.';
+      const web = dados.ultimo_webhook_em ? horario(dados.ultimo_webhook_em) : 'nenhum desde a última inicialização do servidor';
+      const audio = dados.ultimo_audio_autorizado;
+      const origem = audio?.tipo === 'enviado_para_si' ? 'enviado para si mesmo' :
+        audio?.tipo === 'enviado_para_outro' ? 'enviado para outro número (ignorado)' : 'recebido';
+      $('diagnostico').textContent = 'Último webhook recebido pelo Render: ' + web +
+        '. Último áudio do número autorizado: ' + (audio ? horario(audio.recebido_em) + ' — ' + origem : 'nenhum') +
+        '. Se não houver webhook, confira na Z-API se as mensagens enviadas por você estão sendo notificadas.';
       const regs = Array.isArray(dados.registros) ? dados.registros : [];
       $('total').textContent = regs.length;
       $('concluidas').textContent = regs.filter(r => r.status === 'concluida').length;

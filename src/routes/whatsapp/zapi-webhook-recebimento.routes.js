@@ -32,6 +32,8 @@ router.get('/zapi', autenticar, (_req, res) => res.json({
 
 router.post('/zapi', autenticar, async (req, res) => {
   try {
+    // Mostra no painel se o webhook direto realmente chegou ao Render.
+    transcricoesPiloto.observarWebhook(req.body);
     const resultado = await recebimento.registrar(req.body);
     return res.status(200).json({ success: true, ...resultado });
   } catch (error) {
@@ -53,6 +55,7 @@ router.post('/zapi/transcricao-piloto', autenticar, async (req, res) => {
     if (dados.telefone.includes('@lid')) {
       dados.telefone = await vinculos.resolverRecebimento(payload);
     }
+    transcricoesPiloto.observarWebhook(payload);
     const aceito = transcricoesPiloto.receber({ payload, dados });
     return res.json({ success: true, aceito });
   } catch (error) {

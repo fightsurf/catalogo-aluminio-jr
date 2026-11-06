@@ -9,6 +9,8 @@ const PRAZO_MS = 2 * 60 * 60 * 1000;
 const registros = [];
 const fila = [];
 let executando = false;
+let ultimoWebhookEm = null;
+let ultimoAudioAutorizado = null;
 
 function numero(valor) { return String(valor || '').replace(/\D/g, ''); }
 function permitidos() {
@@ -18,6 +20,19 @@ function permitidos() {
 function podeReceber(telefone) {
   const n = numero(telefone);
   return /^\d{10,15}$/.test(n) && permitidos().has(n);
+}
+// Apenas metadados de diagnóstico. Nunca guarda áudio, URL ou texto do webhook.
+function observarWebhook(payload) {
+  const agora = new Date().toISOString();
+  ultimoWebhookEm = agora;
+  if (!payload?.audio || !podeReceber(payload.phone)) return;
+  const proprio = payload.fromMe === true &&
+    numero(payload.connectedPhone) === numero(payload.phone) &&
+    Boolean(numero(payload.connectedPhone));
+  ultimoAudioAutorizado = {
+    recebido_em: agora,
+    tipo: payload.fromMe === true ? (proprio ? 'enviado_para_si' : 'enviado_para_outro') : 'recebido'
+  };
 }
 function limpar() {
   const corte = Date.now() - PRAZO_MS;
@@ -130,7 +145,14 @@ async function processarFila() {
   }
 }
 function receber({ payload, dados }) {
-  if (!dados || dados.tipo !== 'audio' || dados.direcao !== 'ENTRADA' ||
+  // Mensagens para o próprio número vêm como fromMe:true. Aceitar só se o
+  // WhatsApp conectado à Z-API for exatamente o número autorizado/destinatário.
+  const enviadoParaSi = dados?.direcao === 'SAIDA' && payload?.fromMe === true &&
+    payload?.fromApi !== true && Boolean(numero(payload.connectedPhone)) &&
+    numero(payload.connectedPhone) === numero(dados.telefone) &&
+    podeReceber(payload.connectedPhone);
+  const entrada = dados?.direcao === 'ENTRADA' && payload?.fromMe !== true;
+  if (!dados || dados.tipo !== 'audio' || (!entrada && !enviadoParaSi) ||
       !podeReceber(dados.telefone) || payload?.isGroup || payload?.isNewsletter) return false;
   limpar();
   const id = String(dados.instancia) + ':' + String(dados.messageId);
@@ -138,6 +160,7 @@ function receber({ payload, dados }) {
   const agora = Date.now();
   const registro = {
     id, telefone: numero(dados.telefone), criadoMs: agora,
+    origem: enviadoParaSi ? 'enviado_para_si' : 'recebido',
     recebido_em: new Date(agora).toISOString(), atualizado_em: new Date(agora).toISOString(),
     status: 'pendente', texto: '', erro: ''
   };
@@ -162,7 +185,11 @@ function listar() {
   return {
     habilitado: permitidos().size > 0,
     ia_configurada: Boolean(String(process.env.OPENAI_API_KEY || '').trim()),
+    webhook_configurado: String(process.env.ZAPI_WEBHOOK_TOKEN || '').trim().length >= 32,
+    instancia_configurada: Boolean(String(process.env.ZAPI_WEBHOOK_INSTANCE_ID || '').trim() || /\/instances\/[^/]+\/token\//i.test(String(process.env.ZAPI_URL || ''))),
+    ultimo_webhook_em: ultimoWebhookEm,
+    ultimo_audio_autorizado: ultimoAudioAutorizado,
     registros: registros.map(({ criadoMs, ...r }) => ({ ...r }))
   };
 }
-module.exports = { receber, listar, podeReceber, urlSegura, formatoAudio };
+module.exports = { receber, listar, podeReceber, urlSegura, formatoAudio, observarWebhook };

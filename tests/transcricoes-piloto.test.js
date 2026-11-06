@@ -32,6 +32,32 @@ test('ignora número não autorizado e mensagens de saída', () => {
   assert.equal(piloto.receber({ ...evento('N2'), dados: { ...evento('N2').dados, direcao: 'SAIDA' } }), false);
   assert.equal(piloto.receber({ ...evento('N3'), payload: { isGroup: true, audio: {} } }), false);
 });
+test('aceita áudio enviado para o próprio número conectado sem aceitar saída para terceiros', () => {
+  process.env.WHATSAPP_TRANSCRICAO_NUMEROS = '5583999991234';
+  const propria = evento('AUTO_1');
+  propria.payload.fromMe = true;
+  propria.payload.connectedPhone = '5583999991234';
+  propria.payload.audio = {}; // sem link: não precisa baixar no teste
+  propria.dados.direcao = 'SAIDA';
+  piloto.observarWebhook({ ...propria.payload, phone: propria.dados.telefone });
+  assert.equal(piloto.listar().ultimo_audio_autorizado.tipo, 'enviado_para_si');
+  assert.equal(piloto.receber(propria), true);
+  assert.equal(piloto.receber(propria), false);
+
+  const terceiro = evento('AUTO_2');
+  terceiro.payload.fromMe = true;
+  terceiro.payload.connectedPhone = '5583988885555';
+  terceiro.dados.direcao = 'SAIDA';
+  assert.equal(piloto.receber(terceiro), false);
+
+  const enviadoApi = evento('AUTO_3');
+  enviadoApi.payload.fromMe = true;
+  enviadoApi.payload.fromApi = true;
+  enviadoApi.payload.connectedPhone = '5583999991234';
+  enviadoApi.dados.direcao = 'SAIDA';
+  assert.equal(piloto.receber(enviadoApi), false);
+});
+
 test('aceita apenas links HTTPS de domínios autorizados', () => {
   process.env.WHATSAPP_TRANSCRICAO_DOMINIOS = 'z-api.io';
   assert.throws(() => piloto.urlSegura('http://storage.z-api.io/a.ogg'));
