@@ -118,7 +118,15 @@ h2{font-size:1.08rem;margin:27px 0 13px}#lista{display:grid;gap:12px}.diag-list{
         ' | Link de áudio: ' + marcacao(e.possui_url_audio) +
         ' | ID: ' + marcacao(e.id_mensagem) +
         ' | Instância válida: ' + marcacao(e.instancia_confere) +
-        ' | ConnectedPhone informado: ' + marcacao(e.conectado_informado);
+        ' | ConnectedPhone informado: ' + marcacao(e.conectado_informado) +
+        (e.identificador_lid ? ' | Identificação LID: ' + ({
+          aguardando: 'Verificando...',
+          confirmado: 'Confirmado',
+          nao_elegivel: 'Evento não elegível',
+          telefone_conectado_nao_autorizado: 'Número conectado não autorizado',
+          lid_nao_confirmado: 'LID não corresponde ao número autorizado',
+          consulta_falhou: 'Falha ao consultar Z-API; confira ZAPI_URL e ZAPI_TOKEN'
+        }[e.verificacao_lid] || 'Aguardando verificação') : '');
       linha.append(destaque, detalhes);
       lista.appendChild(linha);
     }

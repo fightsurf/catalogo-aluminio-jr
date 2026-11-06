@@ -38,6 +38,14 @@ Se o número conectado na Z-API for o número comercial da Alumínio JR, diferen
 
 O painel mostra horário, tipo (áudio/texto/outro), direção, presença de link de áudio, reconhecimento do número autorizado e instância, além dos 12 últimos callbacks. Esses dados são somente metadados voláteis: não armazena números de clientes, URL de áudio, mensagem ou credenciais. Se `connectedPhone` não vier no callback, o piloto pode aceitar um envio para si quando `phone` coincidir com a lista autorizada e `fromMe:true`, desde que a instância autenticada corresponda à da fábrica. Se não chegar webhook, confira o destino no painel da Z-API e a notificação de mensagens enviadas pelo próprio aparelho.
 
+## Correção para mensagens @lid (06/11)
+
+Quando o webhook entrega o áudio com `phone: "...@lid"` e `connectedPhone` informa o número autorizado, **não é seguro** presumir que a conversa é consigo mesmo: `connectedPhone` é a conta que enviou, não o destinatário.
+
+O piloto verifica a identidade do destinatário pela chamada já existente `conferirNumero` (`GET /phone-exists/{numero}` da Z-API), para o **único número da lista permitida**, apenas no evento `fromMe:true`, `fromApi:false`, em conversa individual e na instância esperada. Só aceita o áudio se a API retornar o mesmo telefone, o mesmo LID recebido no webhook e uma confirmação sem conflito no banco. Se não houver LID confirmado, não transcreve (falha fechada).
+
+A chamada ocorre de forma assíncrona no webhook principal, sem atrasar os comandos de clientes. O painel mostra `Verificação LID: Confirmado`, `LID não corresponde` ou `Falha ao consultar Z-API`. Conferir `ZAPI_URL` e `ZAPI_TOKEN` caso a consulta falhe. Não armazenar o LID nos eventos expostos no frontend.
+
 ## Teste
 
 1. Abra `https://catalogo-aluminio-jr.onrender.com/whatsapp/transcricoes` autenticado.

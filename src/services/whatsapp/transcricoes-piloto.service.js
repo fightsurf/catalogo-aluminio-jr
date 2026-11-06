@@ -2,6 +2,7 @@
 
 // Piloto isolado: apenas os números autorizados, sem alterar bot, sem banco e sem resposta.
 const net = require('node:net');
+const vinculos = require('./zapi-lid-vinculos.service');
 const MAX_AUDIO = 20 * 1024 * 1024;
 const MAX_REGISTROS = 60;
 const MAX_FILA = 15;
@@ -48,7 +49,9 @@ function observarWebhook(payload) {
     possui_audio: possuiAudio,
     possui_url_audio: Boolean(payload?.audio?.audioUrl),
     id_mensagem: Boolean(payload?.messageId),
-    instancia_confere: Boolean(instanciaEsperada && String(payload?.instanceId || '') === instanciaEsperada)
+    instancia_confere: Boolean(instanciaEsperada && String(payload?.instanceId || '') === instanciaEsperada),
+    verificacao_lid: possuiAudio && /@lid$/i.test(String(payload?.phone || '')) ? 'aguardando' : 'nao_necessaria',
+    _id: String(payload?.instanceId || '') + ':' + String(payload?.messageId || '')
   };
   diagnosticos.unshift(evento);
   while (diagnosticos.length > 12) diagnosticos.pop();
@@ -57,6 +60,20 @@ function observarWebhook(payload) {
     recebido_em: agora,
     tipo: payload?.fromMe === true ? (mesmoNumero || !evento.conectado_informado ?
       'enviado_para_si' : 'enviado_para_outro') : 'recebido'
+  };
+}
+function marcarLid(payload, estado) {
+  const chave = String(payload?.instanceId || '') + ':' + String(payload?.messageId || '');
+  const item = diagnosticos.find(d => d._id === chave);
+  if (item) {
+    item.verificacao_lid = estado;
+    if (estado === 'confirmado') item.numero_autorizado = true;
+  }
+}
+function marcarAudioIdentificado(payload, origem) {
+  ultimoAudioAutorizado = {
+    recebido_em: new Date().toISOString(),
+    tipo: origem === 'enviado_para_si' ? 'enviado_para_si' : 'recebido'
   };
 }
 function limpar() {
@@ -190,6 +207,8 @@ function receber({ payload, dados }) {
     status: 'pendente', texto: '', erro: ''
   };
   registros.unshift(registro);
+  marcarAudioIdentificado(payload, registro.origem);
+  if (/@lid$/i.test(String(payload?.phone || ''))) marcarLid(payload, 'confirmado');
   limpar();
   const url = payload?.audio?.audioUrl;
   if (!url) {
@@ -205,6 +224,41 @@ function receber({ payload, dados }) {
   }
   return true;
 }
+// Só confere LID de áudio enviado pela própria conta, com a instância
+// autenticada e o telefone conectado explicitamente autorizado.
+// connectedPhone sozinho NÃO autoriza qualquer destinatário @lid.
+async function receberVerificandoLid({ payload, dados }, conferir = vinculos.conferirNumero) {
+  if (!vinculos.ehLid(dados?.telefone)) {
+    return receber({ payload, dados });
+  }
+  if (dados?.tipo !== 'audio' || dados?.direcao !== 'SAIDA' ||
+      payload?.fromMe !== true || payload?.fromApi === true ||
+      payload?.isGroup === true || payload?.isNewsletter === true ||
+      dados?.instancia !== vinculos.instanciaAtual()) {
+    marcarLid(payload, 'nao_elegivel');
+    return false;
+  }
+  const conectado = vinculos.limparTelefone(payload?.connectedPhone);
+  if (!conectado || !podeReceber(conectado)) {
+    marcarLid(payload, 'telefone_conectado_nao_autorizado');
+    return false;
+  }
+  try {
+    const resultado = await conferir(conectado);
+    if (resultado?.vinculado !== true ||
+        resultado.telefone !== conectado ||
+        String(resultado.lid || '').toLowerCase() !== String(dados.telefone).toLowerCase()) {
+      marcarLid(payload, 'lid_nao_confirmado');
+      return false;
+    }
+    return receber({ payload, dados: { ...dados, telefone: conectado } });
+  } catch (e) {
+    // Não registrar payload, telefone, LID nem segredos.
+    console.error('[Piloto transcrição] Falha ao verificar LID:', e.message);
+    marcarLid(payload, 'consulta_falhou');
+    return false;
+  }
+}
 function listar() {
   limpar();
   return {
@@ -214,8 +268,8 @@ function listar() {
     instancia_configurada: Boolean(String(process.env.ZAPI_WEBHOOK_INSTANCE_ID || '').trim() || /\/instances\/[^/]+\/token\//i.test(String(process.env.ZAPI_URL || ''))),
     ultimo_webhook_em: ultimoWebhookEm,
     ultimo_audio_autorizado: ultimoAudioAutorizado,
-    ultimos_webhooks: diagnosticos.slice(),
+    ultimos_webhooks: diagnosticos.map(({ _id, ...evento }) => evento),
     registros: registros.map(({ criadoMs, ...r }) => ({ ...r }))
   };
 }
-module.exports = { receber, listar, podeReceber, urlSegura, formatoAudio, observarWebhook };
+module.exports = { receber, receberVerificandoLid, listar, podeReceber, urlSegura, formatoAudio, observarWebhook };

@@ -56,7 +56,7 @@ router.post('/zapi/transcricao-piloto', autenticar, async (req, res) => {
       dados.telefone = await vinculos.resolverRecebimento(payload);
     }
     transcricoesPiloto.observarWebhook(payload);
-    const aceito = transcricoesPiloto.receber({ payload, dados });
+    const aceito = await transcricoesPiloto.receberVerificandoLid({ payload, dados });
     return res.json({ success: true, aceito });
   } catch (error) {
     console.error('[Piloto transcrição] Falha no encaminhamento:', error.message);

@@ -153,8 +153,11 @@ async function registrar(payload) {
     }
     temporarias.publicar(dados);
     // Só o número do piloto é transcrito, sem interferir nas automações do bot.
-    try { transcricoesPiloto.receber({ payload, dados }); }
-    catch (erro) { console.error('[Piloto transcrição] Falha ao receber áudio:', erro.message); }
+    // Verificação assíncrona do @lid, isolada do atendimento e dos comandos.
+    // O webhook continua respondendo mesmo se a Z-API não confirmar a identidade.
+    void transcricoesPiloto.receberVerificandoLid({ payload, dados }).catch(erro =>
+      console.error('[Piloto transcrição] Falha ao receber áudio:', erro.message)
+    );
     if (dados.direcao === 'SAIDA') {
       await comandos.executar(payload, dados);
     }

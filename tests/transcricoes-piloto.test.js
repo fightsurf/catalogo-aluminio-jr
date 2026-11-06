@@ -98,6 +98,82 @@ test('diagnóstico registra metadados sem expor números, URLs ou conteúdos', (
     'segredo.ogg', 'mensagem confidencial']) assert.equal(texto.includes(segredo), false);
 });
 
+test('confirma LID do próprio número autorizado antes de aceitar áudio', async () => {
+  const tel = '5583999991234';
+  process.env.WHATSAPP_TRANSCRICAO_NUMEROS = tel;
+  process.env.ZAPI_WEBHOOK_INSTANCE_ID = 'INSTANCIA_TESTE';
+  const proprio = evento('SELF_LID_VALIDO');
+  proprio.payload.phone = '992233445566@lid';
+  proprio.payload.instanceId = 'INSTANCIA_TESTE';
+  proprio.payload.connectedPhone = tel;
+  proprio.payload.fromMe = true;
+  proprio.payload.audio = {}; // Simula arquivo sem link, sem chamadas reais à IA
+  proprio.dados.telefone = proprio.payload.phone;
+  proprio.dados.direcao = 'SAIDA';
+  piloto.observarWebhook(proprio.payload);
+  let consultas = 0;
+  const confirmar = async telefone => {
+    consultas++;
+    assert.equal(telefone, tel);
+    return { telefone, lid: '992233445566@lid', vinculado: true };
+  };
+  assert.equal(await piloto.receberVerificandoLid(proprio, confirmar), true);
+  assert.equal(await piloto.receberVerificandoLid(proprio, confirmar), false);
+  assert.equal(piloto.listar().ultimos_webhooks[0].verificacao_lid, 'confirmado');
+  assert.equal(piloto.listar().ultimos_webhooks[0].numero_autorizado, true);
+  assert.equal(piloto.listar().registros[0].telefone, tel);
+  assert.equal(consultas, 2); // A deduplicação da transcrição continua ativa
+});
+
+test('não atribui LID de outro contato ao número conectado', async () => {
+  const tel = '5583999991234';
+  process.env.WHATSAPP_TRANSCRICAO_NUMEROS = tel;
+  process.env.ZAPI_WEBHOOK_INSTANCE_ID = 'INSTANCIA_TESTE';
+  const terceiro = evento('SELF_LID_TERCEIRO');
+  terceiro.payload.phone = '112233445566@lid';
+  terceiro.payload.connectedPhone = tel;
+  terceiro.payload.instanceId = 'INSTANCIA_TESTE';
+  terceiro.payload.fromMe = true;
+  terceiro.payload.audio = {};
+  terceiro.dados.telefone = terceiro.payload.phone;
+  terceiro.dados.direcao = 'SAIDA';
+  piloto.observarWebhook(terceiro.payload);
+  assert.equal(await piloto.receberVerificandoLid(terceiro,
+    async telefone => ({ telefone, lid:'99999999999@lid', vinculado:true })), false);
+  assert.equal(piloto.listar().ultimos_webhooks[0].verificacao_lid, 'lid_nao_confirmado');
+  assert.equal(piloto.listar().ultimos_webhooks[0].numero_autorizado, false);
+
+  const semConta = evento('SELF_LID_SEM_CONTA');
+  semConta.payload.phone = '112233445566@lid';
+  semConta.payload.fromMe = true;
+  semConta.payload.audio = {};
+  semConta.dados.telefone = semConta.payload.phone;
+  semConta.dados.direcao = 'SAIDA';
+  let chamado = false;
+  assert.equal(await piloto.receberVerificandoLid(semConta, async () => {
+    chamado = true;
+    return { telefone: tel, lid: semConta.payload.phone, vinculado:true };
+  }), false);
+  assert.equal(chamado, false);
+});
+
+test('falha segura quando Z-API não confirma LID', async () => {
+  const tel = '5583999991234';
+  process.env.WHATSAPP_TRANSCRICAO_NUMEROS = tel;
+  process.env.ZAPI_WEBHOOK_INSTANCE_ID = 'INSTANCIA_TESTE';
+  const entrada = evento('SELF_LID_OFFLINE');
+  entrada.payload.phone = '111122223333@lid';
+  entrada.payload.connectedPhone = tel;
+  entrada.payload.instanceId = 'INSTANCIA_TESTE';
+  entrada.payload.fromMe = true;
+  entrada.payload.audio = {};
+  entrada.dados.telefone = entrada.payload.phone;
+  entrada.dados.direcao = 'SAIDA';
+  piloto.observarWebhook(entrada.payload);
+  assert.equal(await piloto.receberVerificandoLid(entrada, async () => { throw new Error('offline'); }), false);
+  assert.equal(piloto.listar().ultimos_webhooks[0].verificacao_lid, 'consulta_falhou');
+});
+
 test('aceita apenas links HTTPS de domínios autorizados', () => {
   process.env.WHATSAPP_TRANSCRICAO_DOMINIOS = 'z-api.io';
   assert.throws(() => piloto.urlSegura('http://storage.z-api.io/a.ogg'));
