@@ -191,6 +191,47 @@ test('falha segura quando Z-API não confirma LID', async () => {
   assert.equal(piloto.listar().ultimos_webhooks[0].verificacao_lid, 'consulta_falhou');
 });
 
+test('distingue telefone conectado de LID e exibe somente final e tamanho', () => {
+  process.env.WHATSAPP_TRANSCRICAO_NUMEROS = '5583999792085';
+  process.env.ZAPI_WEBHOOK_INSTANCE_ID = 'INSTANCIA_TESTE';
+  assert.equal(piloto.podeReceber('5583999792085@lid'), false);
+  assert.equal(piloto.podeReceber('+55 (83) 99979-2085'), true);
+  piloto.observarWebhook({
+    type: 'ReceivedCallback', instanceId:'INSTANCIA_TESTE',
+    messageId:'MASCARADO_TESTE', phone:'1122334455@lid',
+    connectedPhone:'5583999792085', fromMe:true, audio:{ audioUrl:'https://storage.z-api.io/audio.ogg' }
+  });
+  const a = piloto.listar().ultimos_webhooks[0];
+  assert.equal(a.conectado_formato, 'telefone');
+  assert.equal(a.conectado_digitos, 13);
+  assert.equal(a.conectado_final, '2085');
+  assert.equal(a.conectado_autorizado, true);
+  assert.deepEqual(piloto.listar().numeros_permitidos_resumo, [{digitos:13,final:'2085'}]);
+  piloto.observarWebhook({
+    type:'ReceivedCallback', instanceId:'INSTANCIA_TESTE',
+    messageId:'MASCARADO_2', phone:'1122334455@lid',
+    connectedPhone:'558399792085', fromMe:true, audio:{ audioUrl:'https://storage.z-api.io/audio.ogg' }
+  });
+  const b = piloto.listar().ultimos_webhooks[0];
+  assert.equal(b.conectado_formato, 'telefone');
+  assert.equal(b.conectado_digitos, 12);
+  assert.equal(b.conectado_final, '2085');
+  assert.equal(b.conectado_autorizado, false);
+  piloto.observarWebhook({
+    type:'ReceivedCallback', instanceId:'INSTANCIA_TESTE',
+    messageId:'MASCARADO_3', phone:'1122334455@lid',
+    connectedPhone:'123456789123@lid', fromMe:true, audio:{ audioUrl:'https://storage.z-api.io/audio.ogg' }
+  });
+  const d = piloto.listar().ultimos_webhooks[0];
+  assert.equal(d.conectado_formato, 'lid');
+  assert.equal(d.conectado_autorizado, false);
+  assert.equal(d.conectado_final, null);
+  const diagnostico = JSON.stringify(piloto.listar().ultimos_webhooks);
+  assert.equal(diagnostico.includes('5583999792085'), false);
+  assert.equal(diagnostico.includes('MASCARADO_TESTE'), false);
+  assert.equal(diagnostico.includes('storage.z-api.io'), false);
+});
+
 test('aceita apenas links HTTPS de domínios autorizados', () => {
   process.env.WHATSAPP_TRANSCRICAO_DOMINIOS = 'z-api.io';
   assert.throws(() => piloto.urlSegura('http://storage.z-api.io/a.ogg'));

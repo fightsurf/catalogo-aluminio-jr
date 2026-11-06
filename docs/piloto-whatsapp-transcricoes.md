@@ -54,6 +54,12 @@ O diagnóstico agora exibe se `connectedPhone` pertence aos números autorizados
 
 A conclusão da verificação ainda exige comprovação do LID pelo endpoint `phone-exists`: o número conectado, sozinho, não comprova que o áudio foi enviado para si mesmo.
 
+## Divergência do connectedPhone (06/11)
+
+A Z-API documenta `connectedPhone` como o telefone conectado à instância. Mesmo quando `fromMe:true`, `phone` pode conter um LID que identifica a conversa, não necessariamente a própria conta. Para não liberar transcrição de outros destinatários, o piloto exige que `connectedPhone` seja o telefone autorizado e que `phone` corresponda ao LID confirmado pela Z-API.
+
+O painel de diagnóstico agora mostra apenas a **terminação de quatro dígitos, a quantidade de dígitos e o formato** de `connectedPhone`, além do mesmo resumo da lista autorizada. Por exemplo, `****2085 (13 dígitos)` versus `****2085 (12 dígitos)` mostra uma diferença de formatação/número sem expor os telefones inteiros. Se o formato for LID/JID/outro, o sistema não transforma arbitrariamente seu identificador em telefone. É preciso confirmar a identidade pela Z-API antes de alterar a autorização.
+
 ## Teste
 
 1. Abra `https://catalogo-aluminio-jr.onrender.com/whatsapp/transcricoes` autenticado.

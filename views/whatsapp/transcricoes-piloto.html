@@ -49,6 +49,7 @@ h2{font-size:1.08rem;margin:27px 0 13px}#lista{display:grid;gap:12px}.diag-list{
   </section>
   <p class="note" id="nota">Carregando a situação do piloto...</p>
   <p class="note" id="diagnostico">Conferindo recebimento do webhook...</p>
+  <p class="note" id="numeros-monitorados">Conferindo o número permitido...</p>
   <section aria-label="Diagnóstico dos callbacks"><h2>Últimos eventos do webhook</h2><p class="diag-tip">Exibe apenas tipo e indicadores técnicos. Não exibe conteúdo, número de clientes, áudios nem credenciais.</p><div class="diag-list" id="eventos-webhook"></div></section>
   <section aria-label="Mensagens recebidas">
     <h2>Mensagens recebidas</h2>
@@ -120,6 +121,11 @@ h2{font-size:1.08rem;margin:27px 0 13px}#lista{display:grid;gap:12px}.diag-list{
         ' | Instância válida: ' + marcacao(e.instancia_confere) +
         ' | ConnectedPhone informado: ' + marcacao(e.conectado_informado) +
         ' | ConnectedPhone autorizado: ' + marcacao(e.conectado_autorizado) +
+        ' | Formato conectado: ' + (e.conectado_formato || 'desconhecido') +
+        (e.conectado_final
+          ? ' | ConnectedPhone final: ****' + e.conectado_final +
+            ' (' + e.conectado_digitos + ' dígitos)'
+          : '') +
         (e.identificador_lid ? ' | Identificação LID: ' + ({
           aguardando: 'Verificando...',
           confirmado: 'Confirmado',
@@ -163,6 +169,13 @@ h2{font-size:1.08rem;margin:27px 0 13px}#lista{display:grid;gap:12px}.diag-list{
         '. Último áudio do número autorizado: ' + (audio ? horario(audio.recebido_em) + ' — ' + origem : 'nenhum') +
         '. Se não houver webhook, confira na Z-API se as mensagens enviadas por você estão sendo notificadas.';
       desenharDiagnosticos(Array.isArray(dados.ultimos_webhooks) ? dados.ultimos_webhooks : []);
+      const permitidos = Array.isArray(dados.numeros_permitidos_resumo)
+        ? dados.numeros_permitidos_resumo : [];
+      $('numeros-monitorados').textContent = 'Número(s) autorizados: ' +
+        (permitidos.length ? permitidos.map(n =>
+          '****' + n.final + ' (' + n.digitos + ' dígitos)').join(', ') : 'nenhum') +
+        '. Compare o final e a quantidade de dígitos com ConnectedPhone exibido nos eventos. ' +
+        'Se forem diferentes, não altere a lista de autorização sem confirmar a conta conectada na Z-API.';
       const regs = Array.isArray(dados.registros) ? dados.registros : [];
       $('total').textContent = regs.length;
       $('concluidas').textContent = regs.filter(r => r.status === 'concluida').length;

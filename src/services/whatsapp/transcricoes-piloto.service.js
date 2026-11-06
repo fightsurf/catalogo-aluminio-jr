@@ -21,8 +21,22 @@ function permitidos() {
     .split(/[;,\s]+/).map(numero).filter(n => /^\d{10,15}$/.test(n)));
 }
 function podeReceber(telefone) {
-  const n = numero(telefone);
-  return /^\d{10,15}$/.test(n) && permitidos().has(n);
+  // Recusa LID/JID como telefone: extrair apenas dígitos pode confundir identidades.
+  const n = vinculos.limparTelefone(telefone);
+  return Boolean(n) && permitidos().has(n);
+}
+function diagnosticarConnectedPhone(valor) {
+  const bruto = typeof valor === 'string' ? valor.trim() : '';
+  const telefone = vinculos.limparTelefone(valor);
+  const formato = telefone ? 'telefone' :
+    /^\d+@lid$/i.test(bruto) ? 'lid' :
+    /@s\.whatsapp\.net$/i.test(bruto) ? 'jid' :
+    bruto ? 'inesperado' : 'ausente';
+  return {
+    formato,
+    digitos: telefone ? telefone.length : null,
+    final: telefone ? telefone.slice(-4) : null
+  };
 }
 // Apenas metadados de diagnóstico. Nunca guarda áudio, URL ou texto do webhook.
 function observarWebhook(payload) {
@@ -30,8 +44,9 @@ function observarWebhook(payload) {
   ultimoWebhookEm = agora;
   const possuiAudio = Boolean(payload?.audio);
   const autorizado = podeReceber(payload?.phone);
-  const mesmoNumero = Boolean(numero(payload?.connectedPhone)) &&
-    numero(payload.connectedPhone) === numero(payload?.phone);
+  const conectado = diagnosticarConnectedPhone(payload?.connectedPhone);
+  const mesmoNumero = conectado.formato === 'telefone' &&
+    vinculos.limparTelefone(payload.connectedPhone) === vinculos.limparTelefone(payload?.phone);
   const instanciaEsperada = String(process.env.ZAPI_WEBHOOK_INSTANCE_ID || '').trim() ||
     (String(process.env.ZAPI_URL || '').match(/\/instances\/([^/]+)\/token\//i) || [])[1] || '';
   const evento = {
@@ -44,8 +59,11 @@ function observarWebhook(payload) {
       payload?.fromMe === false ? 'recebida' : 'não informada',
     numero_autorizado: autorizado,
     identificador_lid: /@lid$/i.test(String(payload?.phone || '')),
-    conectado_informado: Boolean(numero(payload?.connectedPhone)),
+    conectado_informado: conectado.formato !== 'ausente',
     conectado_autorizado: podeReceber(payload?.connectedPhone),
+    conectado_formato: conectado.formato,
+    conectado_digitos: conectado.digitos,
+    conectado_final: conectado.final,
     conectado_coincide: mesmoNumero,
     possui_audio: possuiAudio,
     possui_url_audio: Boolean(payload?.audio?.audioUrl),
@@ -284,6 +302,9 @@ function listar() {
     ultimo_webhook_em: ultimoWebhookEm,
     ultimo_audio_autorizado: ultimoAudioAutorizado,
     ultimos_webhooks: diagnosticos.map(({ _id, ...evento }) => evento),
+    numeros_permitidos_resumo: [...permitidos()].map(n => ({
+      digitos: n.length, final: n.slice(-4)
+    })),
     registros: registros.map(({ criadoMs, ...r }) => ({ ...r }))
   };
 }
