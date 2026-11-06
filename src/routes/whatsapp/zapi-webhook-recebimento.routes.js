@@ -3,6 +3,8 @@
 const express = require('express');
 const crypto = require('crypto');
 const recebimento = require('../../services/whatsapp/zapi-webhook-recebimento.service');
+const transcricoesPiloto = require('../../services/whatsapp/transcricoes-piloto.service');
+const vinculos = require('../../services/whatsapp/zapi-lid-vinculos.service');
 const router = express.Router();
 
 // A Z-API permite configurar a URL do webhook, incluindo um parâmetro de consulta.
@@ -36,6 +38,26 @@ router.post('/zapi', autenticar, async (req, res) => {
     // Nunca registrar o payload nem as credenciais nos logs.
     console.error('[Webhook Z-API] Falha ao registrar mensagem:', error.message);
     return res.status(500).json({ success: false, message: 'Falha no registro.' });
+  }
+});
+
+// Encaminhamento opcional do n8n: não aciona comandos nem fluxos do bot.
+router.post('/zapi/transcricao-piloto', autenticar, async (req, res) => {
+  try {
+    const payload = req.body?.body?.instanceId ? req.body.body : req.body;
+    const dados = recebimento.normalizarMensagem(payload);
+    const instancia = vinculos.instanciaAtual();
+    if (dados.ignorar || dados.tipo !== 'audio' || !instancia || dados.instancia !== instancia) {
+      return res.json({ success: true, aceito: false });
+    }
+    if (dados.telefone.includes('@lid')) {
+      dados.telefone = await vinculos.resolverRecebimento(payload);
+    }
+    const aceito = transcricoesPiloto.receber({ payload, dados });
+    return res.json({ success: true, aceito });
+  } catch (error) {
+    console.error('[Piloto transcrição] Falha no encaminhamento:', error.message);
+    return res.status(500).json({ success: false, message: 'Falha no recebimento do piloto.' });
   }
 });
 

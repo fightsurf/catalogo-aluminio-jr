@@ -1,0 +1,56 @@
+# Piloto: transcrição de áudios do WhatsApp — Alumínio JR
+
+## Objetivo
+
+Um áudio enviado de **um número autorizado** à instância WhatsApp da fábrica chega pelo webhook da Z-API, é baixado no Render, transcrito pela OpenAI e exibido em uma página web. O piloto **não responde** ao remetente e **não executa ações** do sistema.
+
+- Front-end (login administrativo): `/whatsapp/transcricoes`
+- Consulta do front-end: `GET /whatsapp/transcricoes/api` (login obrigatório)
+- Webhook direto Z-API existente: `POST /api/whatsapp/webhook/zapi?chave=TOKEN`
+- **Webhook alternativo exclusivo para encaminhamento do n8n**: `POST /api/whatsapp/webhook/zapi/transcricao-piloto?chave=TOKEN`. Não passa pelo fluxo de atendimento, não responde, não executa comandos.
+
+## Configuração no Render
+
+1. `WHATSAPP_TRANSCRICAO_NUMEROS`: obrigatório. Um ou mais números WhatsApp autorizados, em formato 55 + DDD + número, separados por vírgula. Exemplo fictício: `5583999991234`. Sem esse valor, nenhuma mensagem é transcrita.
+2. `OPENAI_API_KEY`: obrigatório. Pode aproveitar a chave que já está configurada no sistema para outras integrações de IA.
+3. `ZAPI_WEBHOOK_TOKEN`: token existente do webhook (mínimo 32 caracteres). Não incluir segredo no GitHub.
+4. `ZAPI_WEBHOOK_INSTANCE_ID` ou identificação equivalente da instância na configuração Z-API existente: necessária para filtrar callbacks de outra instância.
+5. `WHATSAPP_TRANSCRICAO_MODELO`: opcional; padrão `gpt-transcribe`.
+6. `WHATSAPP_TRANSCRICAO_DOMINIOS`: opcional. Por padrão são aceitos domínios de mídia `z-api.io`, `amazonaws.com`, `cloudfront.net`, `whatsapp.net`, `r2.dev`. Se o áudio real vier de outro domínio legítimo, acrescente **somente o domínio verificado da mídia**.
+
+## Como ligar sem interromper as automações atuais do n8n
+
+Se a Z-API ainda aponta para o n8n, **não altere o webhook principal**.
+
+No fluxo do n8n que recebe o evento original da Z-API:
+
+1. Acrescente um ramo independente que identifique apenas mensagens recebidas com `audio.audioUrl`, `fromMe:false`, `isGroup:false` e `isNewsletter:false`.
+2. Envie um POST JSON (corpo original da Z-API; `$json.body` quando o webhook do n8n envolver o payload em `body`) ao endpoint exclusivo `/api/whatsapp/webhook/zapi/transcricao-piloto?chave=TOKEN`. Use o mesmo token seguro existente do webhook, configurado no ambiente do n8n. **Não exponha esse valor em logs**.
+3. Mantenha o restante do fluxo n8n como está. A resposta do endpoint do piloto contém somente `{success:true,aceito:boolean}`.
+
+Se a Z-API **já** aponta para o endpoint direto `/api/whatsapp/webhook/zapi`, não precisa configurar o ramo no n8n: a transcrição é iniciada pelo recebimento existente.
+
+## Teste
+
+1. Abra `https://catalogo-aluminio-jr.onrender.com/whatsapp/transcricoes` autenticado.
+2. Confira o indicador "Preparado". Se mostrar configuração pendente, revise a variável listada.
+3. Envie um áudio do número autorizado ao WhatsApp da fábrica. Diga: "Quanto vendemos hoje?".
+4. A tela deve mostrar número, horário, "Transcrevendo" e, em seguida, "Quanto vendemos hoje?".
+5. Faça um teste com número não autorizado; ele não deve aparecer.
+6. Se o áudio não chegar, verifique o encaminhamento n8n ou o webhook direto. Se aparecer "Falha", examine o aviso da tela e o domínio da mídia.
+
+## Privacidade e limites
+
+- Somente entradas de WhatsApp individual de número autorizado.
+- Sem persistência em PostgreSQL, sem salvar arquivo de áudio; lista em memória por até 2 horas (60 eventos no máximo).
+- Reinício ou novo deploy apagam o histórico. Em múltiplas instâncias do Render, o monitor deve ser consultado na mesma instância que processou o evento; este MVP não sincroniza entre réplicas.
+- Tamanho máximo de 20 MB por áudio. Fila sequencial de até 15 pendentes. Download e transcrição possuem timeouts.
+- Evita registrar payload, link do áudio e credenciais nos logs.
+- A transcrição pode ter erro de reconhecimento. Nenhuma consulta ao Firebird/PostgreSQL é executada nesta fase.
+- A cobrança da API de transcrição depende da conta OpenAI e do uso real.
+
+## Verificação local
+
+```bash
+node --test tests/transcricoes-piloto.test.js
+```

@@ -4,6 +4,7 @@
 const pool = require('../../../db/connection');
 const botEvents = require('../bot/botEvents');
 const monitor = require('./zapi-webhook-monitor.service');
+const transcricoesPiloto = require('./transcricoes-piloto.service');
 const vinculos = require('./zapi-lid-vinculos.service');
 
 const comandos = require('./whatsapp-comandos-jr.service');
@@ -151,6 +152,9 @@ async function registrar(payload) {
         console.error('[Webhook Z-API] Falha ao saudar contato:', err.message));
     }
     temporarias.publicar(dados);
+    // Só o número do piloto é transcrito, sem interferir nas automações do bot.
+    try { transcricoesPiloto.receber({ payload, dados }); }
+    catch (erro) { console.error('[Piloto transcrição] Falha ao receber áudio:', erro.message); }
     if (dados.direcao === 'SAIDA') {
       await comandos.executar(payload, dados);
     }

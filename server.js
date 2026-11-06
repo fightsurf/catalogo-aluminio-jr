@@ -97,6 +97,7 @@ const malaDiretaRoutes = require('./src/routes/mala-direta/mala-direta.routes');
 const malaDiretaService = require('./src/services/mala-direta/mala-direta.service');
 const envioWhatsappRoutes = require('./src/routes/whatsapp/envio-whatsapp.routes');
 const zapiWebhookRecebimentoRoutes = require('./src/routes/whatsapp/zapi-webhook-recebimento.routes');
+const transcricoesPilotoRoutes = require('./src/routes/whatsapp/transcricoes-piloto.routes');
 const elevenlabsJrRoutes = require('./src/routes/whatsapp/elevenlabs-jr.routes');
 const envioWhatsappViewRoutes = require('./src/routes/whatsapp/envio-whatsapp.view.routes');
 const statusWhatsappRoutes = require('./src/routes/whatsapp/status-whatsapp.routes');
@@ -232,6 +233,8 @@ app.use('/api/whatsapp', envioWhatsappRoutes);
 app.use('/whatsapp/central-controle', whatsappCentralRoutes);
 // Recebimento direto da Z-API: somente registra mensagens, sem respostas automáticas.
 app.use('/api/whatsapp/webhook', zapiWebhookRecebimentoRoutes);
+// Piloto privado: apenas exibe transcrições de áudios autorizados.
+app.use('/whatsapp/transcricoes', transcricoesPilotoRoutes);
 // Integração de teste: somente administrador autenticado, sem webhooks públicos.
 app.use('/api/whatsapp/elevenlabs-jr', requireAuth, elevenlabsJrRoutes);
 app.get('/whatsapp/elevenlabs-jr', requireAuth, (req,res) => res.sendFile(path.join(__dirname, 'views/whatsapp/elevenlabs-jr.html')));
