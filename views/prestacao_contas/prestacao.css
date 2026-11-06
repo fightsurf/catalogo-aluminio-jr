@@ -258,6 +258,12 @@ body {
   overflow: hidden;
 }
 
+/* A listagem possui sete colunas; o card padrão de 720px causa rolagem horizontal. */
+.page-section.lista-prestacoes {
+  width: calc(100% - 32px);
+  max-width: 1180px;
+}
+
 .section-head {
   display: flex;
   align-items: center;
@@ -818,6 +824,7 @@ body {
   .btn-nova, .btn-zap, .btn-painel-saldos { flex: 1; }
   .btn-zap { display: none; }
   .page-section { margin: 10px 12px; }
+  .page-section.lista-prestacoes { width: calc(100% - 24px); }
   .nova-panel { margin: 10px 12px; }
   .empty-state { margin: 0 12px 16px; }
   .section-head { align-items: flex-start; flex-direction: column; }
