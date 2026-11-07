@@ -4,6 +4,7 @@ const path = require('path');
 const { requireAuth } = require('../../middlewares/adminAuth.middleware');
 const piloto = require('../../services/whatsapp/transcricoes-piloto.service');
 const intencoes = require('../../services/whatsapp/intencoes-admin.service');
+const acoes = require('../../services/whatsapp/acoes-admin.service');
 const router = express.Router();
 
 router.use(requireAuth);
@@ -58,6 +59,39 @@ router.delete('/intencoes/:id', mesmaOrigem, async (req, res) => {
   const id = idValido(req,res); if (!id) return;
   try { await intencoes.excluir(id); res.json({ success: true }); }
   catch (e) { res.status(400).json({ success: false, message: e.message }); }
+});
+
+
+// Catálogo de entidades expõe apenas campos explicitamente autorizados pelo código.
+router.get('/acoes/catalogo', (_req,res) => {
+  res.set('Cache-Control','no-store');
+  res.json({success:true,entidades:acoes.ENTIDADES});
+});
+router.get('/acoes', async (_req,res) => {
+  try {
+    res.set('Cache-Control','no-store');
+    res.json({success:true,dados:await acoes.listar()});
+  } catch(e) {
+    console.error('[Ações administrativas] Falha ao listar:',e.message);
+    res.status(503).json({success:false,message:'Cadastro de ações indisponível.'});
+  }
+});
+router.post('/acoes',mesmaOrigem,async(req,res)=>{
+  try {res.status(201).json({success:true,dado:await acoes.cadastrar(req.body)});}
+  catch(e){res.status(/connect|timeout|relation|indisponível/i.test(e.message)?503:400).json({success:false,message:e.message});}
+});
+router.put('/acoes/:id',mesmaOrigem,async(req,res)=>{
+  const id=idValido(req,res); if(!id)return;
+  try{res.json({success:true,dado:await acoes.atualizar(id,req.body)});}
+  catch(e){res.status(400).json({success:false,message:e.message});}
+});
+router.delete('/acoes/:id',mesmaOrigem,async(req,res)=>{
+  const id=idValido(req,res); if(!id)return;
+  try{
+    await intencoes.preparar(); // garante a coluna acao_id para verificar vínculos
+    await acoes.excluir(id);
+    res.json({success:true});
+  }catch(e){res.status(400).json({success:false,message:e.message});}
 });
 
 // Server-Sent Events: mantém somente o painel de mensagens sincronizado.
