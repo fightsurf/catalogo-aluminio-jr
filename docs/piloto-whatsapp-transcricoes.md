@@ -16,7 +16,7 @@ Um áudio enviado de **um número autorizado** à instância WhatsApp da fábric
 3. `ZAPI_WEBHOOK_TOKEN`: token existente do webhook (mínimo 32 caracteres). Não incluir segredo no GitHub.
 4. `ZAPI_WEBHOOK_INSTANCE_ID` ou identificação equivalente da instância na configuração Z-API existente: necessária para filtrar callbacks de outra instância.
 5. `WHATSAPP_TRANSCRICAO_MODELO`: opcional; padrão `gpt-transcribe`.
-6. `WHATSAPP_TRANSCRICAO_DOMINIOS`: opcional. Por padrão são aceitos domínios de mídia `z-api.io`, `amazonaws.com`, `cloudfront.net`, `whatsapp.net`, `r2.dev`. Se o áudio real vier de outro domínio legítimo, acrescente **somente o domínio verificado da mídia**.
+6. `WHATSAPP_TRANSCRICAO_DOMINIOS`: opcional. Por padrão são aceitos domínios de mídia `z-api.io`, `amazonaws.com`, `cloudfront.net`, `whatsapp.net`, `r2.dev`, `storage.googleapis.com`. Se o áudio real vier de outro domínio legítimo, acrescente **somente o domínio verificado da mídia**.
 
 ## Como ligar sem interromper as automações atuais do n8n
 
@@ -67,6 +67,14 @@ Quando o Render tem autorizado `55 + DDD + 9 + oito dígitos` (13 dígitos) e a 
 Para áudio enviado pela própria conta, o código continua exigindo instância correta, `fromMe:true`, `fromApi` diferente de true, conversa individual e `phone` igual ao LID retornado pela Z-API para o mesmo número. A consulta ao provedor tenta primeiro o número configurado de 13 dígitos; se ele não for confirmado e o campo `connectedPhone` representar exatamente sua forma legada, tenta também esse número de 12 dígitos. Só transcreve se algum retorno confirmar o LID e o telefone consultado, sem conflito no vínculo do banco.
 
 O diagnóstico indicará `ConnectedPhone autorizado: Sim (equivalência BR sem o nono dígito)` quando essa correspondência for exata. Isso **não** significa que o LID foi confirmado: o segundo resultado de identificação continua obrigatório.
+
+## Diagnóstico do domínio da mídia (07/11)
+
+A identificação LID e do número autorizado já foi confirmada no teste real. O download do áudio falhou porque a URL `audio.audioUrl` tinha domínio fora da lista permitida; não houve chamada à API de transcrição nessa tentativa.
+
+O piloto agora também aceita `storage.googleapis.com` e seus subdomínios como origem de áudio HTTPS, uma possibilidade comum em storage de mídia. Essa inclusão não confirma que seja a origem específica do último áudio; ela precisa ser verificada em novo callback.
+
+Em **Últimos eventos do webhook**, o campo `Domínio da mídia` mostra apenas o hostname, sem caminho, parâmetros de assinatura ou arquivo. Indica `na lista` ou `fora da lista`. Se o domínio real for outro, revise a confiabilidade do host antes de adicioná-lo à variável `WHATSAPP_TRANSCRICAO_DOMINIOS` no Render. O downloader mantém bloqueio de esquemas HTTP, IPs diretos, portas não autorizadas, redirecionamento e arquivo acima de 20 MB. A alteração não interfere no bot, banco ou envio de WhatsApp.
 
 ## Teste
 

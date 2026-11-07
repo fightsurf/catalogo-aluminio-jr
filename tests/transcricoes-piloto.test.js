@@ -297,6 +297,40 @@ test('LID divergente não autoriza mesmo com telefone brasileiro legado correto'
   assert.equal(chamada,false);
 });
 
+test('mídia no Google Cloud Storage é aceita e diagnóstico mostra só domínio', () => {
+  const anterior = process.env.WHATSAPP_TRANSCRICAO_DOMINIOS;
+  try {
+    delete process.env.WHATSAPP_TRANSCRICAO_DOMINIOS;
+    const url = 'https://storage.googleapis.com/testes/audio.ogg?assinatura=SENSIVEL';
+    assert.equal(piloto.urlSegura(url), url);
+    assert.throws(() => piloto.urlSegura('https://storage.googleapis.com.malicioso.net/audio.ogg'));
+    assert.throws(() => piloto.urlSegura('http://storage.googleapis.com/audio.ogg'));
+    process.env.WHATSAPP_TRANSCRICAO_NUMEROS = '5583999792085';
+    process.env.ZAPI_WEBHOOK_INSTANCE_ID = 'INSTANCIA_TESTE';
+    piloto.observarWebhook({
+      type:'ReceivedCallback',instanceId:'INSTANCIA_TESTE',messageId:'HOST_GCS',
+      fromMe:true,phone:'113355779900@lid',connectedPhone:'558399792085',
+      audio:{ audioUrl:url }
+    });
+    const evento = piloto.listar().ultimos_webhooks[0];
+    assert.equal(evento.dominio_midia, 'storage.googleapis.com');
+    assert.equal(evento.dominio_midia_na_lista, true);
+    assert.equal(JSON.stringify(evento).includes('assinatura=SENSIVEL'), false);
+    piloto.observarWebhook({
+      type:'ReceivedCallback',instanceId:'INSTANCIA_TESTE',messageId:'HOST_NOVO',
+      fromMe:true,phone:'113355779900@lid',connectedPhone:'558399792085',
+      audio:{audioUrl:'https://outro.exemplo.org/segredo.ogg?token=nao-mostrar'}
+    });
+    const novo = piloto.listar().ultimos_webhooks[0];
+    assert.equal(novo.dominio_midia, 'outro.exemplo.org');
+    assert.equal(novo.dominio_midia_na_lista, false);
+    assert.equal(JSON.stringify(novo).includes('segredo.ogg'), false);
+  } finally {
+    if (anterior === undefined) delete process.env.WHATSAPP_TRANSCRICAO_DOMINIOS;
+    else process.env.WHATSAPP_TRANSCRICAO_DOMINIOS = anterior;
+  }
+});
+
 test('aceita apenas links HTTPS de domínios autorizados', () => {
   process.env.WHATSAPP_TRANSCRICAO_DOMINIOS = 'z-api.io';
   assert.throws(() => piloto.urlSegura('http://storage.z-api.io/a.ogg'));

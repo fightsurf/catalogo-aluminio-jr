@@ -50,11 +50,28 @@ function diagnosticarConnectedPhone(valor) {
     final: telefone ? telefone.slice(-4) : null
   };
 }
+// Guarda só o host da mídia para diagnóstico; nunca registra caminho, query ou token.
+function hostAudio(valor) {
+  if (typeof valor !== 'string' || valor.length > 16000) return null;
+  try {
+    const host = new URL(valor).hostname.toLowerCase().replace(/\.$/, '');
+    return /^[a-z0-9.-]{1,253}$/.test(host) ? host : null;
+  } catch (_) { return null; }
+}
+function dominioDeAudioPermitido(host) {
+  if (!host) return false;
+  const dominios = String(process.env.WHATSAPP_TRANSCRICAO_DOMINIOS ||
+    'z-api.io,amazonaws.com,cloudfront.net,whatsapp.net,r2.dev,storage.googleapis.com')
+    .toLowerCase().split(/[;,\s]+/).map(x => x.replace(/^\./, '').trim()).filter(Boolean);
+  return dominios.some(d => host === d || host.endsWith('.' + d));
+}
+
 // Apenas metadados de diagnóstico. Nunca guarda áudio, URL ou texto do webhook.
 function observarWebhook(payload) {
   const agora = new Date().toISOString();
   ultimoWebhookEm = agora;
   const possuiAudio = Boolean(payload?.audio);
+  const dominioAudio = hostAudio(payload?.audio?.audioUrl);
   const autorizado = podeReceber(payload?.phone);
   const conectado = diagnosticarConnectedPhone(payload?.connectedPhone);
   const mesmoNumero = conectado.formato === 'telefone' &&
@@ -81,6 +98,8 @@ function observarWebhook(payload) {
     conectado_coincide: mesmoNumero,
     possui_audio: possuiAudio,
     possui_url_audio: Boolean(payload?.audio?.audioUrl),
+    dominio_midia: dominioAudio,
+    dominio_midia_na_lista: dominioDeAudioPermitido(dominioAudio),
     id_mensagem: Boolean(payload?.messageId),
     instancia_confere: Boolean(instanciaEsperada && String(payload?.instanceId || '') === instanciaEsperada),
     verificacao_lid: possuiAudio && /@lid$/i.test(String(payload?.phone || '')) ? 'aguardando' : 'nao_necessaria',
@@ -129,10 +148,7 @@ function urlSegura(valor) {
       host.endsWith('.local') || host.endsWith('.internal')) {
     throw erro('Origem do áudio não autorizada.');
   }
-  const dominios = String(process.env.WHATSAPP_TRANSCRICAO_DOMINIOS ||
-    'z-api.io,amazonaws.com,cloudfront.net,whatsapp.net,r2.dev')
-    .toLowerCase().split(/[;,\s]+/).map(x => x.replace(/^\./, '').trim()).filter(Boolean);
-  if (!dominios.some(d => host === d || host.endsWith('.' + d))) {
+  if (!dominioDeAudioPermitido(host)) {
     throw erro('Domínio da mídia não autorizado; confira WHATSAPP_TRANSCRICAO_DOMINIOS.');
   }
   return u.toString();

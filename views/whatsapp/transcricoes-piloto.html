@@ -117,6 +117,8 @@ h2{font-size:1.08rem;margin:27px 0 13px}#lista{display:grid;gap:12px}.diag-list{
         (e.identificador_lid ? ' (LID não resolvido)' : '') +
         ' | Campo áudio: ' + marcacao(e.possui_audio) +
         ' | Link de áudio: ' + marcacao(e.possui_url_audio) +
+        (e.dominio_midia ? ' | Domínio da mídia: ' + e.dominio_midia +
+          ' (' + (e.dominio_midia_na_lista ? 'na lista' : 'fora da lista') + ')' : '') +
         ' | ID: ' + marcacao(e.id_mensagem) +
         ' | Instância válida: ' + marcacao(e.instancia_confere) +
         ' | ConnectedPhone informado: ' + marcacao(e.conectado_informado) +
