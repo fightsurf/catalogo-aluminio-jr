@@ -52,9 +52,11 @@ router.post('/zapi', autenticar, async (req, res) => {
         });
       }
     }
+    const resultado = await recebimento.registrar(payload);
     // Texto próprio: aceita telefone ou LID previamente vinculado após verificação
     // da Z-API. Exclui mensagens para terceiros e respostas enviadas pela API.
-    if (!dadosPiloto.ignorar && dadosPiloto.tipo === 'texto' &&
+    if (resultado.motivo === 'entregue_em_tempo_real' &&
+        !dadosPiloto.ignorar && dadosPiloto.tipo === 'texto' &&
         dadosPiloto.direcao === 'SAIDA' && payload.fromMe === true &&
         payload.fromApi !== true && !payload.isGroup && !payload.isNewsletter &&
         dadosPiloto.instancia === vinculos.instanciaAtual()) {
@@ -77,7 +79,6 @@ router.post('/zapi', autenticar, async (req, res) => {
         });
       })().catch(e => console.error('[Intenções administrativas] Falha em texto:', e.message));
     }
-    const resultado = await recebimento.registrar(payload);
     return res.status(200).json({ success: true, ...resultado });
   } catch (error) {
     // Nunca registrar o payload nem as credenciais nos logs.
