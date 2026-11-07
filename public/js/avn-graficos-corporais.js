@@ -1,11 +1,19 @@
 (()=>{
 'use strict';
+// Cores fixas por indicador, também utilizadas no cruzamento de informações.
+const metricColors={
+ peso:'#60a5fa',
+ gordura_corporal:'#fb923c',
+ massa_magra:'#34d399',
+ imc:'#f472b6',
+ agua_corporal:'#c084fc'
+};
 const definitions=[
- {key:'peso',unit:'kg'},
- {key:'gordura_corporal',unit:'%'},
- {key:'massa_magra',unit:'kg'},
- {key:'imc',unit:'kg/m²'},
- {key:'agua_corporal',unit:'kg'}
+ {key:'peso',unit:'kg',color:metricColors.peso},
+ {key:'gordura_corporal',unit:'%',color:metricColors.gordura_corporal},
+ {key:'massa_magra',unit:'kg',color:metricColors.massa_magra},
+ {key:'imc',unit:'kg/m²',color:metricColors.imc},
+ {key:'agua_corporal',unit:'kg',color:metricColors.agua_corporal}
 ];
 const sources=['peso','gordura_corporal','massa_magra','agua_corporal'];
 // Faixas de referência para adultos; IMC não mede diretamente a gordura corporal.
@@ -64,7 +72,7 @@ function renderImcReference(rows){
   :'Sem medição de IMC no período selecionado.';
  [...grid.children].forEach((item,i)=>item.classList.toggle('active',imcBands[i]===active));
 }
-function drawGraph(area,rows,unit,label){
+function drawGraph(area,rows,unit,label,color){
  area.replaceChildren();
  if(!rows.length)return;
  const W=Math.max(310,Math.round(area.clientWidth||800)),H=245,L=58,R=18,T=16,B=47;
@@ -115,14 +123,14 @@ function drawGraph(area,rows,unit,label){
  svgEl(svg,'text',{x:L,y:11,fill:'#a9b9d1','font-size':11},unit);
  const points=rows.map(p=>({...p,px:x(p.time),py:y(p.value)}));
  const poly=points.map(p=>p.px+','+p.py).join(' ');
- svgEl(svg,'polyline',{points:poly,fill:'none',stroke:'#60a5fa','stroke-width':2.5,'stroke-linecap':'round','stroke-linejoin':'round'});
+ svgEl(svg,'polyline',{points:poly,fill:'none',stroke:color,'stroke-width':2.5,'stroke-linecap':'round','stroke-linejoin':'round'});
  const drawDots=points.length<=180?points:[points[0],points[points.length-1]];
  for(const p of drawDots){
-  const c=svgEl(svg,'circle',{cx:p.px,cy:p.py,r:3.5,fill:'#60a5fa'});
+  const c=svgEl(svg,'circle',{cx:p.px,cy:p.py,r:3.5,fill:color});
   svgEl(c,'title',{},formatDate(p.date)+' — '+format(p.value)+' '+unit);
  }
  const guide=svgEl(svg,'line',{x1:L,x2:L,y1:T,y2:H-B,stroke:'#34d399','stroke-width':1.3,'stroke-dasharray':'4 4',visibility:'hidden'});
- const focus=svgEl(svg,'circle',{cx:L,cy:T,r:5.5,fill:'#182437',stroke:'#34d399','stroke-width':2.5,visibility:'hidden'});
+ const focus=svgEl(svg,'circle',{cx:L,cy:T,r:5.5,fill:'#182437',stroke:color,'stroke-width':2.5,visibility:'hidden'});
  const hit=svgEl(svg,'rect',{x:L,y:T,width:W-L-R,height:H-T-B,fill:'transparent','pointer-events':'all'});
  const tooltip=document.createElement('div');tooltip.className='graph-tooltip';tooltip.hidden=true;
  area.append(svg,tooltip);
@@ -150,10 +158,10 @@ function drawGraph(area,rows,unit,label){
 }
 
 const compareDefs={
- peso:{name:'Peso',unit:'kg',color:'#60a5fa'},
- gordura_corporal:{name:'Gordura corporal',unit:'%',color:'#fb923c'},
- massa_magra:{name:'Massa magra',unit:'kg',color:'#34d399'},
- agua_corporal:{name:'Água corporal',unit:'kg',color:'#c084fc'}
+ peso:{name:'Peso',unit:'kg',color:metricColors.peso},
+ gordura_corporal:{name:'Gordura corporal',unit:'%',color:metricColors.gordura_corporal},
+ massa_magra:{name:'Massa magra',unit:'kg',color:metricColors.massa_magra},
+ agua_corporal:{name:'Água corporal',unit:'kg',color:metricColors.agua_corporal}
 };
 const compareSelected=new Set();
 const compareState={data:{},errors:{},request:0,controller:null,userId:'',days:90};
@@ -375,7 +383,7 @@ function render(){
    area.replaceChildren();continue;
   }
   status.hidden=true;
-  drawGraph(area,rows,m.unit,m.key.replaceAll('_',' '));
+  drawGraph(area,rows,m.unit,m.key.replaceAll('_',' '),m.color);
  }
  if($('compare-dialog')?.open)renderComparison();
 }
