@@ -355,6 +355,7 @@
         <div class="linha-botoes">
           <button id="btnSalvarCliente" class="btn btn-success" type="submit">Salvar cliente</button>
           <button id="btnCancelarEdicao" class="btn btn-secondary" type="button">Cancelar edição</button>
+          <button id="btnInserirPedidoAposSalvar" class="btn btn-primary" type="button" hidden>Inserir pedido</button>
         </div>
       </form>
 
@@ -451,6 +452,7 @@
     const btnNovoClienteTopo = document.getElementById('btnNovoClienteTopo');
     const btnSalvarCliente = document.getElementById('btnSalvarCliente');
     const btnCancelarEdicao = document.getElementById('btnCancelarEdicao');
+    const btnInserirPedidoAposSalvar = document.getElementById('btnInserirPedidoAposSalvar');
     const mensagemForm = document.getElementById('mensagemForm');
 
     const filtroNome = document.getElementById('filtroNome');
@@ -652,6 +654,8 @@
     });
 
     function limparFormulario() {
+      btnInserirPedidoAposSalvar.hidden = true;
+      btnInserirPedidoAposSalvar.dataset.favorecido = '';
       clienteFavorecido.value = '';
       inputCodigo.value = '';
       inputNome.value = '';
@@ -669,6 +673,8 @@
     }
 
     function preencherFormulario(cliente) {
+      btnInserirPedidoAposSalvar.hidden = true;
+      btnInserirPedidoAposSalvar.dataset.favorecido = '';
       clienteFavorecido.value = obterFavorecidoCliente(cliente);
       inputCodigo.value = cliente?.codigo || '';
       inputNome.value = cliente?.nome || '';
@@ -729,8 +735,20 @@
           throw new Error(json?.erro || json?.detalhe || 'Erro ao salvar cliente.');
         }
 
+        const favorecidoSalvo = String(obterFavorecidoCliente(json?.dado) || favorecido).trim();
         limparFormulario();
-        setMensagem(mensagemForm, editando ? 'Cliente alterado com sucesso.' : 'Cliente cadastrado com sucesso.', 'ok');
+        if (/^\d+$/.test(favorecidoSalvo) && Number(favorecidoSalvo) > 0) {
+          btnInserirPedidoAposSalvar.dataset.favorecido = favorecidoSalvo;
+          btnInserirPedidoAposSalvar.hidden = false;
+        }
+        const mensagemSucesso = editando ? 'Cliente alterado com sucesso.' : 'Cliente cadastrado com sucesso.';
+        setMensagem(
+          mensagemForm,
+          favorecidoSalvo && !btnInserirPedidoAposSalvar.hidden
+            ? `${mensagemSucesso} Clique em Inserir pedido para continuar com este cliente.`
+            : `${mensagemSucesso} Código do cliente não retornado para iniciar um pedido automaticamente.`,
+          'ok'
+        );
         await pesquisarClientes(false);
       } catch (error) {
         setMensagem(mensagemForm, error.message || 'Erro ao salvar cliente.', 'erro');
@@ -984,6 +1002,11 @@
     });
 
     formCliente.addEventListener('submit', salvarCliente);
+    btnInserirPedidoAposSalvar.addEventListener('click', () => {
+      const favorecido = btnInserirPedidoAposSalvar.dataset.favorecido || '';
+      if (!/^\d+$/.test(favorecido) || Number(favorecido) <= 0) return;
+      window.location.href = `/legado/pedidos-insercao-v2?favorecido=${encodeURIComponent(favorecido)}`;
+    });
     btnNovoClienteTopo.addEventListener('click', limparFormulario);
     btnCancelarEdicao.addEventListener('click', limparFormulario);
     btnPesquisar.addEventListener('click', () => pesquisarClientes(true));
