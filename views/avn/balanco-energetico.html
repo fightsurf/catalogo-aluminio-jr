@@ -2,7 +2,7 @@
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>AVN — Balanço Energético</title>
 <link rel="stylesheet" href="/css/avn-balanco-energetico.css?v=20261101-4">
-<script src="/js/avn-balanco-energetico.js?v=20261107-carboidratos1" defer></script></head>
+<script src="/js/avn-balanco-energetico.js?v=20261107-macrocharts1" defer></script></head>
 <body><main class="avn-balanco">
 <header class="top"><a href="/avn">← Central AVN</a><strong>AVN · Nutrição</strong></header>
 <div class="titulo"><h1>⚖️ Balanço Energético</h1><p>Saldo diário e evolução dos indicadores. Cada ponto corresponde a uma data; selecione um ponto para consultar aquele dia.</p></div>
@@ -34,6 +34,19 @@
 <article class="painel"><div class="painel-titulo"><h2>🏋️ Calorias de treinamento</h2><strong id="valor-calorias_ativas">—</strong></div>
 <p class="ajuda">Calorias ativas sincronizadas pelo Health Connect. Sem registros, adotamos 0 kcal.</p><div id="grafico-calorias_ativas" class="linha-grafico"></div></article>
 </section>
+<section class="graficos graficos-macros" aria-label="Gráficos diários de consumo de macronutrientes">
+<h2 class="secao-graficos-titulo">Consumo diário de macronutrientes</h2>
+<article class="painel"><div class="painel-titulo"><h2>🥚 Proteínas consumidas</h2><strong id="valor-proteinas">—</strong></div>
+<p class="ajuda" id="nota-proteinas">Consultando o Diário Alimentar e Minhas metas…</p>
+<div id="grafico-proteinas" class="linha-grafico" aria-label="Proteínas consumidas por data, em gramas, com meta hachurada"></div></article>
+<article class="painel"><div class="painel-titulo"><h2>🍚 Carboidratos consumidos</h2><strong id="valor-carboidratos">—</strong></div>
+<p class="ajuda" id="nota-carboidratos">Consultando o Diário Alimentar e Minhas metas…</p>
+<div id="grafico-carboidratos" class="linha-grafico" aria-label="Carboidratos consumidos por data, em gramas, com meta hachurada"></div></article>
+<article class="painel painel-macro-amplo"><div class="painel-titulo"><h2>🥑 Gorduras consumidas</h2><strong id="valor-gorduras">—</strong></div>
+<p class="ajuda" id="nota-gorduras">Consultando o Diário Alimentar e Minhas metas…</p>
+<div id="grafico-gorduras" class="linha-grafico" aria-label="Gorduras consumidas por data, em gramas, com meta hachurada"></div></article>
+</section>
+<p class="aviso">Os três gráficos nutricionais exibem o consumo real registrado no Diário Alimentar nos últimos 7 dias até a data escolhida. A linha amarela tracejada marca a meta atual de Minhas metas, e a faixa hachurada de ±5% é apenas uma referência visual — não é uma faixa de meta prescrita. Dias com nutrientes ausentes não são tratados como zero.</p>
 <p class="aviso">O gasto dos passos é estimado a partir do peso, da altura e dos intervalos registrados, excluindo os trechos coincidentes com calorias ativas para reduzir contagem dupla. Não é uma medida direta do relógio; horários, registros ausentes ou repetidos podem alterar a precisão. Sem registros de calorias ativas ou passos, só a parcela ausente é presumida zero. Dias com diário incompleto ou TMB inválida não têm saldo calculado.</p>
 <dialog id="compare-dialog" class="compare-modal" aria-labelledby="compare-title">
 <div class="compare-header"><div><h2 id="compare-title">Cruzar informações</h2><p>Escolha dois ou mais indicadores para sobrepor as curvas no mesmo período.</p></div><button id="compare-close" type="button" class="btn-fechar" aria-label="Fechar comparador">✕ Fechar</button></div>
