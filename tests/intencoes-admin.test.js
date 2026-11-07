@@ -26,8 +26,8 @@ test('consulta e responde somente quando autorizado, sem alterar cadastro', asyn
     },
     listarIntencoes: async () => intencoes,
     listarClientes: async nome => { nomeBuscado = nome; return [
-      {favorecido:7,nome:'Maria Lima',cidade:'Sousa',uf:'PB'},
-      {favorecido:8,nome:'Maria Silva',cidade:'Patos',uf:'PB'} ]; },
+      {favorecido:7,nome:'Maria Lima',cidade:'Sousa',uf:'PB',telefonePrincipal:'83999990000'},
+      {favorecido:8,nome:'Maria Silva',cidade:'Patos',uf:'PB',telefone1:'83988887777'} ]; },
     enviar: async ({mensagem}) => enviados.push(mensagem)
   };
   const r = await admin.processarMensagem({
@@ -37,6 +37,9 @@ test('consulta e responde somente quando autorizado, sem alterar cadastro', asyn
   assert.equal(r.reconhecido,true);
   assert.match(enviados[0],/Maria Lima/);
   assert.match(enviados[0],/Maria Silva/);
+  assert.match(enviados[0],/1\. \*Maria Lima\*\nCidade: Sousa\/PB\nTelefone: \(83\) 99999-0000/);
+  assert.match(enviados[0],/\n\n2\. \*Maria Silva\*\nCidade: Patos\/PB\nTelefone: \(83\) 98888-7777/);
+  assert.equal(enviados.length, 1);
 });
 test('pergunta nome e continua a mesma conversa', async () => {
   const enviados=[]; let buscado='';
@@ -100,4 +103,46 @@ test('intenção não reconhecida não consulta o cadastro nem envia WhatsApp', 
   assert.equal(r.motivo,'intencao_nao_reconhecida');
   assert.equal(consultou,false);
   assert.equal(enviou,false);
+});
+
+test('limita a resposta a cinco clientes e separa os blocos com uma linha em branco', () => {
+  const encontrados = Array.from({length: 8}, (_, i) => ({
+    favorecido: i + 1, nome: 'Cliente ' + (i + 1), cidade: 'Patos', uf: 'PB',
+    telefonePrincipal: '8399999000' + i
+  }));
+  const respostas = admin.respostasClientes('Cliente', encontrados);
+  assert.equal(respostas.length, 1);
+  const texto = respostas[0];
+  assert.equal((texto.match(/Cidade:/g) || []).length, 5);
+  assert.equal((texto.match(/Telefone:/g) || []).length, 5);
+  assert.match(texto, /1\. \*Cliente 1\*\nCidade: Patos\/PB\nTelefone: \(83\) 99999-0000\n\n2\. \*Cliente 2\*/);
+  assert.match(texto, /5\. \*Cliente 5\*/);
+  assert.doesNotMatch(texto, /Cliente 6|Cliente 7|Cliente 8|cód\./);
+});
+
+test('consulta telefone no cadastro somente para os primeiros cinco clientes sem número', async () => {
+  const enviados = [];
+  const codigosConsultados = [];
+  const deps = {
+    listarIntencoes: async () => intencoes,
+    classificar: async () => ({ intencao: intencoes[0], argumento: 'Maria' }),
+    listarClientes: async () => [
+      ...Array.from({length: 6}, (_, i) => ({
+        favorecido: i + 1, nome: 'Maria ' + (i + 1), cidade: 'Sousa', uf: 'PB'
+      }))
+    ],
+    buscarCliente: async favorecido => {
+      codigosConsultados.push(favorecido);
+      return { favorecido, telefonePrincipal: '83999990000' };
+    },
+    enviar: async ({mensagem}) => enviados.push(mensagem)
+  };
+  const resultado = await admin.processarMensagem({
+    telefone: '5583999792085', texto: 'Sistema, localize cliente Maria', permitido: true
+  }, deps);
+  assert.equal(resultado.reconhecido, true);
+  assert.deepEqual(codigosConsultados.sort(), [1, 2, 3, 4, 5]);
+  assert.equal(enviados.length, 1);
+  assert.match(enviados[0], /Telefone: \(83\) 99999-0000/);
+  assert.doesNotMatch(enviados[0], /Maria 6/);
 });
