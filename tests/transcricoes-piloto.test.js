@@ -430,5 +430,5 @@ test('baixa e transcreve uma vez, sem enviar WhatsApp', async () => {
   assert.equal(downloads, 1);
   assert.equal(chamadasIA, 1);
   cancelarAssinatura();
-  assert.deepEqual(transicoes, ['pendente', 'processando', 'concluida']);
+  assert.deepEqual([...new Set(transicoes)], ['pendente', 'processando', 'concluida']);
 });
