@@ -7,7 +7,8 @@ const clientesLegado = require('../legado/clientes/clientes.service');
 const envio = require('./envio-whatsapp.service');
 const classificador = require('./classificador-intencoes-admin.service');
 
-const ACOES = Object.freeze({ localizar_cliente: 'Localizar cliente' });
+const ACOES = Object.freeze({ localizar_cliente: 'Localizar cliente', etapa_futura: 'Etapa futura (sem execução)' });
+const ACOES_EXECUTAVEIS = new Set(['localizar_cliente']);
 const sessoes = new Map();
 const SESSAO_MS = 10 * 60 * 1000;
 let preparando = null;
@@ -29,6 +30,10 @@ async function preparar() {
         )`);
       // Migração compatível com cadastros anteriores.
       await pool.query("ALTER TABLE whatsapp_admin_intencoes ADD COLUMN IF NOT EXISTS descricao TEXT NOT NULL DEFAULT ''");
+      await pool.query("ALTER TABLE whatsapp_admin_intencoes ADD COLUMN IF NOT EXISTS proximas_intencoes BIGINT[] NOT NULL DEFAULT '{}'::BIGINT[]");
+      // Migração compatível: etapas futuras são inativas até existir um executor.
+      await pool.query("ALTER TABLE whatsapp_admin_intencoes DROP CONSTRAINT IF EXISTS whatsapp_admin_intencoes_acao_check");
+      await pool.query("ALTER TABLE whatsapp_admin_intencoes ADD CONSTRAINT whatsapp_admin_intencoes_acao_check CHECK (acao IN ('localizar_cliente','etapa_futura'))");
       await pool.query(`UPDATE whatsapp_admin_intencoes SET descricao =
         'Localiza os clientes cadastrados na Alumínio JR pelo nome completo ou parcial e retorna a lista por WhatsApp. Não modifica cadastros.'
         WHERE acao = 'localizar_cliente' AND TRIM(descricao) = ''`);
@@ -52,37 +57,54 @@ function validar(dados) {
   if (nome.length < 3 || nome.length > 120) throw new Error('Nome deve ter de 3 a 120 caracteres.');
   if (descricao.length < 12 || descricao.length > 800) throw new Error('Descreva a intenção em 12 a 800 caracteres.');
   if (!Object.hasOwn(ACOES, acao)) throw new Error('Ação administrativa indisponível.');
+  if (!ACOES_EXECUTAVEIS.has(acao) && dados?.ativo !== false) {
+    throw new Error('Uma etapa sem ação implementada deve permanecer inativa.');
+  }
+  const proximas = dados?.proximas_intencoes ?? [];
+  if (!Array.isArray(proximas) || proximas.length > 20 ||
+      proximas.some(id => !Number.isSafeInteger(Number(id)) || Number(id) <= 0)) {
+    throw new Error('Vincule até 20 próximas intenções válidas.');
+  }
+  const proximasIntencoes = [...new Set(proximas.map(Number))];
   const lista = frases.split('\n').map(x => x.trim()).filter(Boolean);
   if (!lista.length || lista.length > 20 || lista.some(x => x.length < 5 || x.length > 100)) {
     throw new Error('Informe de 1 a 20 frases, uma por linha, com 5 a 100 caracteres.');
   }
-  return { nome, descricao, acao, frases: lista.join('\n'), ativo: dados.ativo !== false };
+  return { nome, descricao, acao, frases: lista.join('\n'), ativo: dados.ativo !== false, proximasIntencoes };
 }
 async function listar() {
   await preparar();
   const r = await pool.query(`
-    SELECT id, chave, nome, descricao, acao, frases, ativo, criado_em, atualizado_em
+    SELECT id, chave, nome, descricao, acao, frases, ativo, proximas_intencoes, criado_em, atualizado_em
     FROM whatsapp_admin_intencoes ORDER BY id ASC`);
   return r.rows;
+}
+async function validarVinculos(ids, idAtual = null) {
+  if (!ids.length) return;
+  if (idAtual && ids.includes(Number(idAtual))) throw new Error('Uma intenção não pode apontar para ela mesma.');
+  const r = await pool.query('SELECT id FROM whatsapp_admin_intencoes WHERE id = ANY($1::BIGINT[])', [ids]);
+  if (r.rows.length !== ids.length) throw new Error('Uma das próximas intenções não existe mais. Atualize a lista.');
 }
 async function cadastrar(dados) {
   const d = validar(dados);
   await preparar();
+  await validarVinculos(d.proximasIntencoes);
   const chave = 'int_' + crypto.randomUUID().replace(/-/g, '');
   const r = await pool.query(`
-    INSERT INTO whatsapp_admin_intencoes (chave, nome, descricao, acao, frases, ativo)
-    VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-    [chave, d.nome, d.descricao, d.acao, d.frases, d.ativo]);
+    INSERT INTO whatsapp_admin_intencoes (chave, nome, descricao, acao, frases, ativo, proximas_intencoes)
+    VALUES ($1,$2,$3,$4,$5,$6,$7::BIGINT[]) RETURNING *`,
+    [chave, d.nome, d.descricao, d.acao, d.frases, d.ativo, d.proximasIntencoes]);
   return r.rows[0];
 }
 async function atualizar(id, dados) {
   const d = validar(dados);
   await preparar();
+  await validarVinculos(d.proximasIntencoes, id);
   const r = await pool.query(`
     UPDATE whatsapp_admin_intencoes
-    SET nome=$2, descricao=$3, acao=$4, frases=$5, ativo=$6, atualizado_em=NOW()
+    SET nome=$2, descricao=$3, acao=$4, frases=$5, ativo=$6, proximas_intencoes=$7::BIGINT[], atualizado_em=NOW()
     WHERE id=$1 RETURNING *`,
-    [id, d.nome, d.descricao, d.acao, d.frases, d.ativo]);
+    [id, d.nome, d.descricao, d.acao, d.frases, d.ativo, d.proximasIntencoes]);
   if (!r.rows.length) throw new Error('Intenção não encontrada.');
   return r.rows[0];
 }
@@ -90,6 +112,7 @@ async function excluir(id) {
   await preparar();
   const r = await pool.query('DELETE FROM whatsapp_admin_intencoes WHERE id=$1 RETURNING id', [id]);
   if (!r.rows.length) throw new Error('Intenção não encontrada.');
+  await pool.query('UPDATE whatsapp_admin_intencoes SET proximas_intencoes = array_remove(proximas_intencoes, $1::BIGINT) WHERE $1::BIGINT = ANY(proximas_intencoes)', [id]);
   return true;
 }
 function semAcentos(valor) {
@@ -101,7 +124,7 @@ function identificar(texto, intencoes) {
   original = original.replace(/^sistema\b\s*[,.:;!?\-]*\s*/i, '');
   const normal = semAcentos(original);
   for (const intencao of intencoes) {
-    if (!intencao.ativo || !Object.hasOwn(ACOES, intencao.acao)) continue;
+    if (!intencao.ativo || !ACOES_EXECUTAVEIS.has(intencao.acao)) continue;
     const frases = String(intencao.frases || '').split('\n').map(x => x.trim()).filter(Boolean);
     frases.sort((a,b) => b.length - a.length);
     for (const frase of frases) {
