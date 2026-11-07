@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const pool = require('../../../db/connection');
 const pagamentos = require('../legado/pagamentos/pagamentos.service');
 const envio = require('./envio-whatsapp.service');
+const classificador = require('./classificador-intencoes-admin.service');
 
 const ACOES = Object.freeze({ localizar_cliente: 'Localizar cliente' });
 const sessoes = new Map();
@@ -18,15 +19,23 @@ async function preparar() {
           id BIGSERIAL PRIMARY KEY,
           chave VARCHAR(90) NOT NULL UNIQUE,
           nome VARCHAR(120) NOT NULL,
+          descricao TEXT NOT NULL DEFAULT '',
           acao VARCHAR(60) NOT NULL CHECK (acao IN ('localizar_cliente')),
           frases TEXT NOT NULL,
           ativo BOOLEAN NOT NULL DEFAULT TRUE,
           criado_em TIMESTAMPTZ NOT NULL DEFAULT NOW(),
           atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )`);
+      // Migração compatível com cadastros anteriores.
+      await pool.query("ALTER TABLE whatsapp_admin_intencoes ADD COLUMN IF NOT EXISTS descricao TEXT NOT NULL DEFAULT ''");
+      await pool.query(`UPDATE whatsapp_admin_intencoes SET descricao =
+        'Localiza os clientes cadastrados na Alumínio JR pelo nome completo ou parcial e retorna a lista por WhatsApp. Não modifica cadastros.'
+        WHERE acao = 'localizar_cliente' AND TRIM(descricao) = ''`);
       await pool.query(`
-        INSERT INTO whatsapp_admin_intencoes (chave, nome, acao, frases, ativo)
-        VALUES ('localizar_cliente', 'Localizar cliente', 'localizar_cliente',
+        INSERT INTO whatsapp_admin_intencoes (chave, nome, descricao, acao, frases, ativo)
+        VALUES ('localizar_cliente', 'Localizar cliente',
+                'Localiza os clientes cadastrados pelo nome ou parte do nome e devolve a lista por WhatsApp. Não altera clientes.',
+                'localizar_cliente',
                 'localize cliente\nlocalizar cliente\nprocure cliente\nbusque cliente', TRUE)
         ON CONFLICT (chave) DO NOTHING`);
     })().catch(error => { preparando = null; throw error; });
@@ -37,19 +46,21 @@ async function preparar() {
 function validar(dados) {
   const nome = String(dados?.nome || '').trim();
   const acao = String(dados?.acao || '').trim();
+  const descricao = String(dados?.descricao || '').trim();
   const frases = String(dados?.frases || '').replace(/\r/g, '').trim();
   if (nome.length < 3 || nome.length > 120) throw new Error('Nome deve ter de 3 a 120 caracteres.');
+  if (descricao.length < 12 || descricao.length > 800) throw new Error('Descreva a intenção em 12 a 800 caracteres.');
   if (!Object.hasOwn(ACOES, acao)) throw new Error('Ação administrativa indisponível.');
   const lista = frases.split('\n').map(x => x.trim()).filter(Boolean);
   if (!lista.length || lista.length > 20 || lista.some(x => x.length < 5 || x.length > 100)) {
     throw new Error('Informe de 1 a 20 frases, uma por linha, com 5 a 100 caracteres.');
   }
-  return { nome, acao, frases: lista.join('\n'), ativo: dados.ativo !== false };
+  return { nome, descricao, acao, frases: lista.join('\n'), ativo: dados.ativo !== false };
 }
 async function listar() {
   await preparar();
   const r = await pool.query(`
-    SELECT id, chave, nome, acao, frases, ativo, criado_em, atualizado_em
+    SELECT id, chave, nome, descricao, acao, frases, ativo, criado_em, atualizado_em
     FROM whatsapp_admin_intencoes ORDER BY id ASC`);
   return r.rows;
 }
@@ -58,9 +69,9 @@ async function cadastrar(dados) {
   await preparar();
   const chave = 'int_' + crypto.randomUUID().replace(/-/g, '');
   const r = await pool.query(`
-    INSERT INTO whatsapp_admin_intencoes (chave, nome, acao, frases, ativo)
-    VALUES ($1,$2,$3,$4,$5) RETURNING *`,
-    [chave, d.nome, d.acao, d.frases, d.ativo]);
+    INSERT INTO whatsapp_admin_intencoes (chave, nome, descricao, acao, frases, ativo)
+    VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+    [chave, d.nome, d.descricao, d.acao, d.frases, d.ativo]);
   return r.rows[0];
 }
 async function atualizar(id, dados) {
@@ -68,9 +79,9 @@ async function atualizar(id, dados) {
   await preparar();
   const r = await pool.query(`
     UPDATE whatsapp_admin_intencoes
-    SET nome=$2, acao=$3, frases=$4, ativo=$5, atualizado_em=NOW()
+    SET nome=$2, descricao=$3, acao=$4, frases=$5, ativo=$6, atualizado_em=NOW()
     WHERE id=$1 RETURNING *`,
-    [id, d.nome, d.acao, d.frases, d.ativo]);
+    [id, d.nome, d.descricao, d.acao, d.frases, d.ativo]);
   if (!r.rows.length) throw new Error('Intenção não encontrada.');
   return r.rows[0];
 }
@@ -140,12 +151,18 @@ async function processarMensagem({ telefone, texto, permitido = false }, deps = 
   const buscarIntencoes = deps.listarIntencoes || listar;
   const pendente = sessoes.get(telefone);
   const frase = String(texto || '').trim().slice(0,1000);
-  const encontrado = identificar(frase, await buscarIntencoes());
-  if (!encontrado && !pendente) return { reconhecido: false };
-  if (encontrado && encontrado.intencao.acao !== 'localizar_cliente') return { reconhecido: false };
+  // Mensagem transcrita + todas as intenções ativas e suas descrições vão à IA.
+  // A IA apenas seleciona uma chave existente; não executa comandos.
+  const cadastradas = (await buscarIntencoes()).filter(i => i.ativo && Object.hasOwn(ACOES, i.acao));
+  const classificar = deps.classificar || classificador.classificar;
+  const encontrado = await classificar(frase, cadastradas);
+  if (!encontrado?.intencao && !pendente) return { reconhecido: false, motivo: 'intencao_nao_reconhecida' };
+  if (encontrado?.intencao && encontrado.intencao.acao !== 'localizar_cliente') {
+    return { reconhecido: false, motivo: 'acao_indisponivel' };
+  }
   const resposta = [];
-  if (encontrado) sessoes.delete(telefone);
-  const nome = normalizarNome(encontrado ? encontrado.argumento : frase);
+  if (encontrado?.intencao) sessoes.delete(telefone);
+  const nome = normalizarNome(encontrado?.intencao ? encontrado.argumento : frase);
   if (!nome) {
     sessoes.set(telefone, { acao: 'localizar_cliente', expira: Date.now() + SESSAO_MS });
     resposta.push('Qual é o nome do cliente que deseja localizar?');
@@ -155,7 +172,7 @@ async function processarMensagem({ telefone, texto, permitido = false }, deps = 
     resposta.push(...respostasClientes(nome, Array.isArray(encontrados) ? encontrados : []));
   }
   for (const mensagem of resposta) await enviar({ telefone, mensagem });
-  return { reconhecido: true, acao: 'localizar_cliente', resposta: resposta.join('\n\n') };
+  return { reconhecido: true, intencao: encontrado?.intencao?.nome || 'Localizar cliente', acao: 'localizar_cliente', resposta: resposta.join('\n\n') };
 }
 module.exports = { ACOES, preparar, listar, cadastrar, atualizar, excluir, identificar,
   respostasClientes, processarMensagem };
