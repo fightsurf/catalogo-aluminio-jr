@@ -4,11 +4,16 @@ const crypto = require('node:crypto');
 const pool = require('../../../db/connection');
 const pagamentos = require('../legado/pagamentos/pagamentos.service');
 const clientesLegado = require('../legado/clientes/clientes.service');
+const pedidosCliente = require('../legado/pedidos-cliente/pedidos-cliente.service');
 const envio = require('./envio-whatsapp.service');
 const classificador = require('./classificador-intencoes-admin.service');
 
-const ACOES = Object.freeze({ localizar_cliente: 'Localizar cliente', etapa_futura: 'Etapa futura (sem execução)' });
-const ACOES_EXECUTAVEIS = new Set(['localizar_cliente']);
+const ACOES = Object.freeze({
+  localizar_cliente: 'Localizar cliente',
+  ultimos_pedidos_cliente: 'Localizar últimos pedidos do cliente',
+  etapa_futura: 'Etapa futura (sem execução)'
+});
+const ACOES_EXECUTAVEIS = new Set(['localizar_cliente', 'ultimos_pedidos_cliente']);
 const sessoes = new Map();
 const SESSAO_MS = 10 * 60 * 1000;
 let preparando = null;
@@ -33,7 +38,7 @@ async function preparar() {
       await pool.query("ALTER TABLE whatsapp_admin_intencoes ADD COLUMN IF NOT EXISTS proximas_intencoes BIGINT[] NOT NULL DEFAULT '{}'::BIGINT[]");
       // Migração compatível: etapas futuras são inativas até existir um executor.
       await pool.query("ALTER TABLE whatsapp_admin_intencoes DROP CONSTRAINT IF EXISTS whatsapp_admin_intencoes_acao_check");
-      await pool.query("ALTER TABLE whatsapp_admin_intencoes ADD CONSTRAINT whatsapp_admin_intencoes_acao_check CHECK (acao IN ('localizar_cliente','etapa_futura'))");
+      await pool.query("ALTER TABLE whatsapp_admin_intencoes ADD CONSTRAINT whatsapp_admin_intencoes_acao_check CHECK (acao IN ('localizar_cliente','ultimos_pedidos_cliente','etapa_futura'))");
       await pool.query(`UPDATE whatsapp_admin_intencoes SET descricao =
         'Localiza os clientes cadastrados na Alumínio JR pelo nome completo ou parcial e retorna a lista por WhatsApp. Não modifica cadastros.'
         WHERE acao = 'localizar_cliente' AND TRIM(descricao) = ''`);
@@ -224,6 +229,50 @@ function resumoSelecao(cliente, origem, cadastradas) {
   }
   return { mensagem, executaveis };
 }
+function chaveDataPedido(valor) {
+  const texto = String(valor || '').trim();
+  const iso = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return Number(iso[1] + iso[2] + iso[3]);
+  const br = texto.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (br) return Number(br[3] + br[2] + br[1]);
+  const milissegundos = Date.parse(texto);
+  return Number.isFinite(milissegundos) ? Math.floor(milissegundos / 86400000) : 0;
+}
+function dataPedido(valor) {
+  const texto = String(valor || '').trim();
+  const iso = texto.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return iso[3] + '/' + iso[2] + '/' + iso[1];
+  const br = texto.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (br) return br[1] + '/' + br[2] + '/' + br[3];
+  return texto || 'Não informada';
+}
+async function respostaUltimosPedidos(cliente, deps = {}) {
+  const favorecido = Number(cliente?.favorecido);
+  if (!Number.isSafeInteger(favorecido) || favorecido <= 0) {
+    throw new Error('Código inválido do cliente selecionado para consultar pedidos.');
+  }
+  const consultar = deps.listarPedidosPorCliente || pedidosCliente.listarPedidosPorCliente;
+  const resultado = await consultar(favorecido);
+  const pedidos = (Array.isArray(resultado?.dados) ? resultado.dados : [])
+    .filter(p => p && String(p.numero ?? '').trim())
+    .sort((a, b) => chaveDataPedido(b.data) - chaveDataPedido(a.data) ||
+      Number(b.numero || 0) - Number(a.numero || 0))
+    .slice(0, 5);
+  const nome = String(cliente.nome || 'Cliente').replace(/\*/g, '').trim().slice(0, 120);
+  if (!pedidos.length) return 'Não encontrei pedidos para o cliente *' + nome + '*.';
+  const linhas = pedidos.map((pedido, i) => {
+    const numero = String(pedido.numero).replace(/\*/g, '').trim().slice(0, 40);
+    const total = Number(pedido.total);
+    const valor = (Number.isFinite(total) ? total : 0).toLocaleString('pt-BR', {
+      style: 'currency', currency: 'BRL'
+    });
+    const situacao = pedido.cancelado ? '\nSituação: Cancelado' : '';
+    return (i + 1) + '. *Pedido ' + numero + '*\nData: ' + dataPedido(pedido.data) +
+      '\nValor: ' + valor + situacao;
+  });
+  return 'Últimos pedidos de *' + nome + '*:\n\n' + linhas.join('\n\n');
+}
+
 async function processarMensagem({ telefone, texto, permitido = false }, deps = {}) {
   // O chamador verifica previamente número, instância, direção e eventual LID.
   if (!permitido || !/^\d{10,15}$/.test(String(telefone || ''))) return { reconhecido: false };
@@ -233,6 +282,12 @@ async function processarMensagem({ telefone, texto, permitido = false }, deps = 
   const buscarIntencoes = deps.listarIntencoes || listar;
   const frase = String(texto || '').trim().slice(0, 1000);
   const pendente = sessoes.get(telefone);
+  async function responderUltimosPedidos(intencao, sessao) {
+    const mensagem = await respostaUltimosPedidos(sessao.cliente, deps);
+    sessoes.set(telefone, { ...sessao, expira: Date.now() + SESSAO_MS });
+    await enviar({ telefone, mensagem });
+    return { reconhecido: true, intencao: intencao.nome, acao: intencao.acao, resposta: mensagem };
+  }
   if (semAcentos(frase) === 'cancelar' && pendente) {
     sessoes.delete(telefone);
     const mensagem = 'Atendimento administrativo cancelado.';
@@ -268,6 +323,9 @@ async function processarMensagem({ telefone, texto, permitido = false }, deps = 
         await enviar({ telefone, mensagem });
         return { reconhecido: true, intencao: proxima.nome, acao: proxima.acao, resposta: mensagem };
       }
+      if (proxima && proxima.acao === 'ultimos_pedidos_cliente') {
+        return responderUltimosPedidos(proxima, pendente);
+      }
       const mensagem = 'Escolha uma opção disponível ou diga "localize cliente" para iniciar outra busca.';
       await enviar({ telefone, mensagem });
       return { reconhecido: true, intencao: 'Selecionar intenção', acao: 'selecionar_intencao', resposta: mensagem };
@@ -284,6 +342,18 @@ async function processarMensagem({ telefone, texto, permitido = false }, deps = 
       return { reconhecido: true, intencao: 'Selecionar cliente', acao: 'selecionar_cliente', resposta: mensagem };
     }
     return { reconhecido: false, motivo: 'intencao_nao_reconhecida' };
+  }
+  if (encontrado?.intencao?.acao === 'ultimos_pedidos_cliente') {
+    if (pendente?.etapa === 'cliente_selecionado' &&
+        pendente.opcoes?.includes(Number(encontrado.intencao.id))) {
+      return responderUltimosPedidos(encontrado.intencao, pendente);
+    }
+    const mensagem = pendente?.etapa === 'escolher_cliente'
+      ? 'Primeiro escolha o número do cliente na lista para consultar seus pedidos.'
+      : 'Primeiro localize e selecione um cliente para consultar os últimos pedidos.';
+    await enviar({ telefone, mensagem });
+    return { reconhecido: true, intencao: encontrado.intencao.nome,
+      acao: encontrado.intencao.acao, resposta: mensagem };
   }
   if (encontrado?.intencao && encontrado.intencao.acao !== 'localizar_cliente') {
     return { reconhecido: false, motivo: 'acao_indisponivel' };
