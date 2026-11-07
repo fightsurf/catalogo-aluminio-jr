@@ -146,3 +146,62 @@ test('consulta telefone no cadastro somente para os primeiros cinco clientes sem
   assert.match(enviados[0], /Telefone: \(83\) 99999-0000/);
   assert.doesNotMatch(enviados[0], /Maria 6/);
 });
+
+
+test('wizard numera clientes, guarda escolha e respeita etapas futuras inativas', async () => {
+  const telefone = '5583988887777';
+  const enviados = [];
+  let chamadasIA = 0;
+  const comVinculo = {...intencoes[0], proximas_intencoes:[2]};
+  const futura = {id:2,chave:'consultar_pedidos',nome:'Consultar pedidos',
+    descricao:'Próxima intenção ainda não implementada.',acao:'etapa_futura',ativo:false,
+    frases:'mostrar pedidos'};
+  const deps = {
+    listarIntencoes:async()=>[comVinculo, futura],
+    classificar:async frase=>{
+      chamadasIA++;
+      return frase.includes('localize')
+        ? {intencao:comVinculo,argumento:'Maria'} : {intencao:null,argumento:''};
+    },
+    listarClientes:async()=>Array.from({length:6},(_,i)=>({
+      favorecido:i+10,nome:'Maria '+(i+1),cidade:'Patos',uf:'PB',
+      telefonePrincipal:'83999990000'
+    })),
+    enviar:async ({mensagem})=>enviados.push(mensagem)
+  };
+  const primeiro = await admin.processarMensagem({
+    telefone,texto:'Sistema, localize cliente Maria',permitido:true
+  },deps);
+  assert.match(primeiro.resposta,/5\. \*Maria 5\*/);
+  assert.doesNotMatch(primeiro.resposta,/6\. \*Maria 6\*/);
+  assert.match(primeiro.resposta,/Responda com um número de 1 a 5/);
+  const segundo = await admin.processarMensagem({telefone,texto:'quero o 3',permitido:true},deps);
+  assert.equal(segundo.acao,'selecionar_cliente');
+  assert.match(segundo.resposta,/Cliente selecionado: \*Maria 3\*/);
+  assert.match(segundo.resposta,/nenhuma está ativa e implementada/);
+  assert.equal(chamadasIA,1,'resposta numérica não chama o classificador');
+  assert.equal(enviados.length,2);
+  const cancelado = await admin.processarMensagem({telefone,texto:'cancelar',permitido:true},deps);
+  assert.equal(cancelado.acao,'cancelar');
+});
+
+test('wizard valida número fora da lista e permite nova busca', async () => {
+  const telefone = '5583988887766';
+  const mensagens=[];
+  const deps = {
+    listarIntencoes:async()=>intencoes,
+    classificar:async frase=>frase.startsWith('localize')
+      ? {intencao:intencoes[0],argumento:'João'} : {intencao:null,argumento:''},
+    listarClientes:async()=>[{favorecido:33,nome:'João da Silva',cidade:'Sousa',uf:'PB',
+      telefonePrincipal:'83988887777'}],
+    enviar:async({mensagem})=>mensagens.push(mensagem)
+  };
+  await admin.processarMensagem({telefone,texto:'localize cliente João',permitido:true},deps);
+  const invalido = await admin.processarMensagem({telefone,texto:'5',permitido:true},deps);
+  assert.match(invalido.resposta,/Opção inválida/);
+  const selecionado = await admin.processarMensagem({telefone,texto:'1',permitido:true},deps);
+  assert.match(selecionado.resposta,/João da Silva/);
+  const recomecar = await admin.processarMensagem({telefone,texto:'localize cliente Maria',permitido:true},deps);
+  assert.equal(recomecar.acao,'localizar_cliente');
+  assert.match(recomecar.resposta,/Responda com um número/);
+});
