@@ -1887,6 +1887,27 @@
         .replace(/'/g, '&#39;');
     }
 
+    // Formatação de exibição: não modifica os dados de cadastro nem o payload enviado à API.
+    function formatarNomeClienteExibicao(valor) {
+      return String(valor ?? '').trim().toLocaleUpperCase('pt-BR');
+    }
+
+    function formatarCidadeClienteExibicao(valor) {
+      const texto = String(valor ?? '').trim().toLocaleLowerCase('pt-BR');
+      return texto.replace(/\p{L}+/gu, (palavra, indice) => (
+        indice > 0 && /^(de|da|do|das|dos|e)$/.test(palavra)
+          ? palavra
+          : palavra.charAt(0).toLocaleUpperCase('pt-BR') + palavra.slice(1)
+      ));
+    }
+
+    function formatarLocalidadeClienteExibicao(cidade, uf, separador = ' - ') {
+      return [
+        formatarCidadeClienteExibicao(cidade),
+        String(uf ?? '').trim().toLocaleUpperCase('pt-BR')
+      ].filter(Boolean).join(separador);
+    }
+
     function normalizarTelefoneWhatsappCliente(value) {
       let digitos = String(value || '').replace(/\D+/g, '');
 
@@ -2076,8 +2097,8 @@
       el.modalMudarCarradaTitulo.textContent = `Alterar carrada — pedido ${pedido.numero}`;
       el.mudarCarradaDadosPedido.innerHTML = `
         <div><strong>Pedido:</strong> ${escapeHtml(pedido.numero)}</div>
-        <div><strong>Cliente:</strong> ${escapeHtml(pedido.cliente?.nome || '-')}</div>
-        <div><strong>Cidade:</strong> ${escapeHtml([pedido.cliente?.cidade, pedido.cliente?.uf].filter(Boolean).join(' / ') || '-')}</div>
+        <div><strong>Cliente:</strong> ${escapeHtml(formatarNomeClienteExibicao(pedido.cliente?.nome || '-'))}</div>
+        <div><strong>Cidade:</strong> ${escapeHtml(formatarLocalidadeClienteExibicao(pedido.cliente?.cidade, pedido.cliente?.uf, ' / ') || '-')}</div>
         <div><strong>Data:</strong> ${escapeHtml(formatarData(pedido.data) || '-')}</div>
         <div><strong>Valor:</strong> ${escapeHtml(formatarMoeda(pedido.total))}</div>
         <div><strong>Quantidade de itens:</strong> ${escapeHtml(pedido.quantidadeItens ?? 0)}</div>
@@ -2182,7 +2203,7 @@
         <label class="carrada-lote-item">
           <input type="checkbox" data-carrada-lote-numero value="${escapeHtml(pedido.numero)}" />
           <strong>Pedido ${escapeHtml(pedido.numero)}</strong>
-          <span>${escapeHtml(pedido.cliente?.nome || pedido.resumoPedido?.cliente?.nome || '-')}${pedido.cliente?.cidade ? ` — ${escapeHtml([pedido.cliente.cidade, pedido.cliente?.uf].filter(Boolean).join(' / '))}` : ''}</span>
+          <span>${escapeHtml(formatarNomeClienteExibicao(pedido.cliente?.nome || pedido.resumoPedido?.cliente?.nome || '-'))}${pedido.cliente?.cidade ? ` — ${escapeHtml(formatarLocalidadeClienteExibicao(pedido.cliente.cidade, pedido.cliente?.uf, ' / '))}` : ''}</span>
         </label>
       `).join('');
       el.checkboxCarradaLoteTodos.checked = false;
@@ -2296,13 +2317,13 @@
       el.subtituloNotaFiscalLote.textContent = rotuloCarradaDestino(estado.matriz?.carrada || { codigo: CODIGO_CARRADA });
       el.listaNotaFiscalLotePedidos.innerHTML = pedidos.map((pedido) => {
         const concluido = Boolean(pedido.fases?.QUER_NOTA_FISCAL?.concluido);
-        const cidade = [pedido.cliente?.cidade, pedido.cliente?.uf].filter(Boolean).join(' / ');
+        const cidade = formatarLocalidadeClienteExibicao(pedido.cliente?.cidade, pedido.cliente?.uf, ' / ');
         return `
           <label class="carrada-lote-item ${concluido ? 'nf-lote-concluido' : ''}" data-nf-item-numero="${escapeHtml(pedido.numero)}">
             <input type="checkbox" data-nf-lote-numero value="${escapeHtml(pedido.numero)}" ${concluido ? 'checked disabled' : ''} />
             <div class="nf-lote-pedido">
               <strong>Pedido ${escapeHtml(pedido.numero)}</strong>
-              <span>${escapeHtml(pedido.cliente?.nome || pedido.resumoPedido?.cliente?.nome || '-')}${cidade ? ` — ${escapeHtml(cidade)}` : ''}</span>
+              <span>${escapeHtml(formatarNomeClienteExibicao(pedido.cliente?.nome || pedido.resumoPedido?.cliente?.nome || '-'))}${cidade ? ` — ${escapeHtml(cidade)}` : ''}</span>
               <span class="nf-lote-status">${concluido ? 'NF já marcada — não reenviar' : 'Pendente de envio'}</span>
             </div>
           </label>`;
@@ -2404,13 +2425,13 @@
       el.subtituloProducaoLote.textContent = rotuloCarradaDestino(estado.matriz?.carrada || { codigo: CODIGO_CARRADA });
       el.listaProducaoLotePedidos.innerHTML = pedidos.map((pedido) => {
         const concluido = Boolean(pedido.fases?.EM_PRODUCAO?.concluido);
-        const cidade = [pedido.cliente?.cidade, pedido.cliente?.uf].filter(Boolean).join(' / ');
+        const cidade = formatarLocalidadeClienteExibicao(pedido.cliente?.cidade, pedido.cliente?.uf, ' / ');
         return `
           <label class="carrada-lote-item ${concluido ? 'nf-lote-concluido' : ''}" data-producao-item-numero="${escapeHtml(pedido.numero)}">
             <input type="checkbox" data-producao-lote-numero value="${escapeHtml(pedido.numero)}" ${concluido ? 'checked disabled' : ''} />
             <div class="nf-lote-pedido">
               <strong>Pedido ${escapeHtml(pedido.numero)}</strong>
-              <span>${escapeHtml(pedido.cliente?.nome || pedido.resumoPedido?.cliente?.nome || '-')}${cidade ? ` — ${escapeHtml(cidade)}` : ''}</span>
+              <span>${escapeHtml(formatarNomeClienteExibicao(pedido.cliente?.nome || pedido.resumoPedido?.cliente?.nome || '-'))}${cidade ? ` — ${escapeHtml(cidade)}` : ''}</span>
               <span class="producao-lote-status">${concluido ? 'Produção já marcada — não reenviar' : 'Aguardando aviso de produção'}</span>
             </div>
           </label>`;
@@ -2524,7 +2545,7 @@
         telefone
       };
 
-      el.modalWhatsappClienteSubtitulo.textContent = `${nomeCliente} • ${telefoneFormatado || telefone}`;
+      el.modalWhatsappClienteSubtitulo.textContent = `${formatarNomeClienteExibicao(nomeCliente)} • ${telefoneFormatado || telefone}`;
       el.textareaWhatsappClienteMensagem.value = '';
       setFeedback(el.feedbackWhatsappCliente, 'Digite a mensagem e clique em Enviar WhatsApp.');
       el.btnWhatsappClienteEnviar.disabled = false;
@@ -2856,7 +2877,7 @@
         }).join('');
 
         const observacaoPedido = String(pedido.observacaoPedido || '').trim();
-        const nomeCliente = escapeHtml(pedido.cliente?.nome || '-');
+        const nomeCliente = escapeHtml(formatarNomeClienteExibicao(pedido.cliente?.nome || '-'));
         const nomeClienteHtml = pedido.cliente?.favorecido
           ? `<a class="cliente-link" href="/legado/pedidos-cliente?favorecido=${encodeURIComponent(pedido.cliente.favorecido)}" target="_blank" rel="noopener noreferrer">${nomeCliente}</a>`
           : nomeCliente;
@@ -2885,7 +2906,7 @@
               </div>
               <div class="pedido-meta">
                 <span class="cliente-contato"><strong>${nomeClienteHtml}</strong>${telefoneClienteHtml}${impressoraClienteHtml}</span><br>
-                ${pedido.cliente?.cidade ? escapeHtml(pedido.cliente.cidade) + (pedido.cliente?.uf ? ' - ' + escapeHtml(pedido.cliente.uf) : '') + '<br>' : ''}
+                ${pedido.cliente?.cidade ? escapeHtml(formatarLocalidadeClienteExibicao(pedido.cliente.cidade, pedido.cliente?.uf)) + '<br>' : ''}
                 Data: ${escapeHtml(formatarData(pedido.data) || '-')}<br>
                 <strong>Valor: ${escapeHtml(formatarMoeda(pedido.total))}</strong><br><br>
                 Vendedor: ${escapeHtml(pedido.vendedor?.nome || '-')}<br>
@@ -3066,7 +3087,7 @@
             <h4 style="margin:0 0 10px 0;">Dados do pedido</h4>
             <div class="pedido-meta">
               Número: <strong>${escapeHtml(resumoPedido.numeroPedido || '-')}</strong><br>
-              Cliente: <strong>${escapeHtml(resumoPedido.cliente?.nome || '-')}</strong><br>
+              Cliente: <strong>${escapeHtml(formatarNomeClienteExibicao(resumoPedido.cliente?.nome || '-'))}</strong><br>
               Data: <strong>${escapeHtml(formatarData(resumoPedido.data) || '-')}</strong><br>
               Valor: <strong>${escapeHtml(formatarMoeda(resumoPedido.valorPedido))}</strong>
             </div>
@@ -3149,7 +3170,7 @@
         const quantidadeInformada = Boolean(quantidadeVolumes.concluido)
           || Boolean(quantidadeVolumes.calculadoAutomaticamente)
           || quantidade > 0;
-        const cliente = String(pedido?.cliente?.nome || '').trim();
+        const cliente = formatarNomeClienteExibicao(pedido?.cliente?.nome);
 
         return {
           cidadeAgencia,
@@ -3158,7 +3179,7 @@
           nomeCaixas: String(etiquetaVolumes.apelido || cliente).trim(),
           numeroPedido: String(pedido?.numero || '').trim(),
           excursao: String(localEntrega.transportadoraNome || '').trim(),
-          cidadeCliente: montarCidadeUfRomaneio(pedido?.cliente?.cidade, pedido?.cliente?.uf),
+          cidadeCliente: formatarLocalidadeClienteExibicao(pedido?.cliente?.cidade, pedido?.cliente?.uf, ' / '),
           quantidadeVolumes: quantidadeInformada ? Math.max(0, Math.trunc(quantidade)) : null
         };
       }).sort((a, b) => (
@@ -3341,13 +3362,13 @@
     function montarResumoPosVenda(payload) {
       const cliente = payload?.cliente || {};
       const telefone = formatarTelefoneCliente(cliente.telefonePrincipal || '') || 'Não informado';
-      const cidade = [cliente.cidade, cliente.uf].filter(Boolean).join(' - ') || 'Não informada';
+      const cidade = formatarLocalidadeClienteExibicao(cliente.cidade, cliente.uf) || 'Não informada';
       const totalPedidos = Number(payload?.totalPedidosEncontrados || 0);
 
       el.modalPosVendaTitulo.textContent = 'Pós-venda do cliente';
-      el.modalPosVendaSubtitulo.textContent = `${cliente.nome || '-'} • Pedido ${payload?.numeroPedidoAtual || '-'}`;
+      el.modalPosVendaSubtitulo.textContent = `${formatarNomeClienteExibicao(cliente.nome || '-')} • Pedido ${payload?.numeroPedidoAtual || '-'}`;
       el.posVendaResumo.innerHTML = `
-        <div class="pos-venda-resumo-card"><span>Cliente</span><strong>${escapeHtml(cliente.nome || '-')}</strong></div>
+        <div class="pos-venda-resumo-card"><span>Cliente</span><strong>${escapeHtml(formatarNomeClienteExibicao(cliente.nome || '-'))}</strong></div>
         <div class="pos-venda-resumo-card"><span>Cidade</span><strong>${escapeHtml(cidade)}</strong></div>
         <div class="pos-venda-resumo-card"><span>Telefone</span><strong>${escapeHtml(telefone)}</strong></div>
         <div class="pos-venda-resumo-card"><span>Compras encontradas</span><strong>${escapeHtml(totalPedidos)}</strong></div>
@@ -3379,7 +3400,7 @@
       estado.posVendaModal.pedidoNumero = String(numeroPedido);
       estado.posVendaModal.carregando = true;
       el.modalPosVendaTitulo.textContent = 'Pós-venda do cliente';
-      el.modalPosVendaSubtitulo.textContent = `${pedido.cliente?.nome || '-'} • Pedido ${numeroPedido}`;
+      el.modalPosVendaSubtitulo.textContent = `${formatarNomeClienteExibicao(pedido.cliente?.nome || '-')} • Pedido ${numeroPedido}`;
       el.posVendaResumo.innerHTML = '';
       PerfilComprasChart.loading(el.posVendaPerfilCompras, 'Carregando perfil de compras...');
       el.tbodyPosVendaHistorico.innerHTML = '<tr><td colspan="5" class="loading">Carregando histórico do cliente...</td></tr>';
@@ -3490,7 +3511,7 @@
 
     function abrirResumoPedido(titulo, resumoPedido, notificacao = null) {
       el.modalResumoTitulo.textContent = titulo;
-      el.modalResumoSubtitulo.textContent = `${resumoPedido?.cliente?.nome || '-'} • Pedido ${resumoPedido?.numeroPedido || '-'}`;
+      el.modalResumoSubtitulo.textContent = `${formatarNomeClienteExibicao(resumoPedido?.cliente?.nome || '-')} • Pedido ${resumoPedido?.numeroPedido || '-'}`;
       el.modalResumoBody.innerHTML = construirResumoHtml(resumoPedido, notificacao);
       abrirModal(el.modalResumoBackdrop);
     }
@@ -3549,9 +3570,9 @@
     function montarDadosEtiquetaImpressaoHtml(payload) {
       return `
         <div><strong>Pedido:</strong> ${escapeHtml(payload?.numeroPedido || '-')}</div>
-        <div><strong>Cliente:</strong> ${escapeHtml(payload?.clienteNome || '-')}</div>
+        <div><strong>Cliente:</strong> ${escapeHtml(formatarNomeClienteExibicao(payload?.clienteNome || '-'))}</div>
         <div><strong>Telefone:</strong> ${escapeHtml(payload?.clienteTelefone || '-')}</div>
-        <div><strong>Cidade:</strong> ${escapeHtml([payload?.clienteCidade, payload?.clienteUf].filter(Boolean).join(' - ') || '-')}</div>
+        <div><strong>Cidade:</strong> ${escapeHtml(formatarLocalidadeClienteExibicao(payload?.clienteCidade, payload?.clienteUf) || '-')}</div>
         <div><strong>Volumes:</strong> ${escapeHtml(payload?.quantidadeVolumes || 0)} folha(s) A4</div>
         <div><strong>Transportadora:</strong> ${escapeHtml(payload?.transportadoraNome || 'NÃO INFORMADA')}</div>
         <div><strong>Observação:</strong> ${escapeHtml(payload?.transportadoraObservacao || 'Sem observação')}</div>
@@ -3565,7 +3586,7 @@
         const payload = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/etiqueta-impressao`);
         estado.etiquetaImpressaoModal = { pedidoNumero: numeroPedido, payload };
         el.modalEtiquetaImpressaoTitulo.textContent = `Etiqueta A4 • Pedido ${numeroPedido}`;
-        el.modalEtiquetaImpressaoSubtitulo.textContent = `${payload.clienteNome || '-'} • ${payload.quantidadeVolumes} volume(s)`;
+        el.modalEtiquetaImpressaoSubtitulo.textContent = `${formatarNomeClienteExibicao(payload.clienteNome || '-')} • ${payload.quantidadeVolumes} volume(s)`;
         el.imgEtiquetaImpressao.src = payload.imagemDataUrl;
         el.dadosEtiquetaImpressao.innerHTML = montarDadosEtiquetaImpressaoHtml(payload);
         setFeedback(el.feedbackEtiquetaImpressao, 'Confira os dados. A imagem enviada ao cliente será esta prévia da etiqueta.', '');
@@ -3631,9 +3652,9 @@
         return;
       }
 
-      const nome = escapeHtml(payload.clienteNome || '-');
+      const nome = escapeHtml(formatarNomeClienteExibicao(payload.clienteNome || '-'));
       const telefone = escapeHtml(payload.clienteTelefone || '-');
-      const cidade = escapeHtml([payload.clienteCidade, payload.clienteUf].filter(Boolean).join(' - ') || '-');
+      const cidade = escapeHtml(formatarLocalidadeClienteExibicao(payload.clienteCidade, payload.clienteUf) || '-');
       const pedido = escapeHtml(payload.numeroPedido || '-');
       const transportadora = escapeHtml(payload.transportadoraNome || 'NÃO INFORMADA');
       const observacao = escapeHtml(payload.transportadoraObservacao || '');
@@ -3920,7 +3941,7 @@
         estado.etiquetaModal = { pedidoNumero: numeroPedido, payload };
         const pedido = obterPedido(numeroPedido);
         el.modalEtiquetaTitulo.textContent = `Gerenciador de etiquetas • Pedido ${numeroPedido}`;
-        el.modalEtiquetaSubtitulo.textContent = `${pedido?.cliente?.nome || payload?.pedido?.cliente?.nome || '-'} • ${formatarMoeda(pedido?.total || payload?.pedido?.total || 0)}`;
+        el.modalEtiquetaSubtitulo.textContent = `${formatarNomeClienteExibicao(pedido?.cliente?.nome || payload?.pedido?.cliente?.nome || '-')} • ${formatarMoeda(pedido?.total || payload?.pedido?.total || 0)}`;
         popularSelectEtiquetas(payload);
 
         if (payload?.atual?.confirmadoBoolean) {
@@ -4123,7 +4144,7 @@
         };
 
         el.modalLocalEntregaTitulo.textContent = `Local de entrega • Pedido ${numeroPedido}`;
-        el.modalLocalEntregaSubtitulo.textContent = `${pedido?.cliente?.nome || '-'} • ${formatarMoeda(pedido?.total || 0)}`;
+        el.modalLocalEntregaSubtitulo.textContent = `${formatarNomeClienteExibicao(pedido?.cliente?.nome || '-')} • ${formatarMoeda(pedido?.total || 0)}`;
         const optionsTransportadoras = ['<option value="">Selecione</option>']
           .concat(transportadoras.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(formatarTransportadora(item))}</option>`))
           .join('');
@@ -4507,7 +4528,7 @@
               ? 'Ignorado: pedido pronto'
               : 'Erro';
         const detalhe = item?.erro ? ` • ${escapeHtml(item.erro)}` : '';
-        return `<li><strong>${escapeHtml(item?.numeroPedido || '-')}</strong> • ${escapeHtml(item?.nomeCliente || '-')} • ${escapeHtml(status)}${detalhe}</li>`;
+        return `<li><strong>${escapeHtml(item?.numeroPedido || '-')}</strong> • ${escapeHtml(formatarNomeClienteExibicao(item?.nomeCliente || '-'))} • ${escapeHtml(status)}${detalhe}</li>`;
       }).join('');
 
       el.resumoWhatsappCarrada.innerHTML = `
