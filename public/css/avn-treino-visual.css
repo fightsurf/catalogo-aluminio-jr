@@ -157,3 +157,94 @@ body[data-page="treinar"] .creditos{border-color:#303030}
   body[data-page="treinar"] .avn-workout-session-card .avn-workout-details>.fields{grid-column:1/-1}
   body[data-page="treinar"] #salvarSessao{bottom:max(9px,env(safe-area-inset-bottom));min-height:56px;font-size:16px}
 }
+
+
+/* Execução de treino no navegador — modal único, responsivo e com descanso. */
+body[data-page="treinar"] .avn-exec-launch{
+ display:flex;align-items:center;flex-wrap:wrap;gap:12px;
+ padding:16px;border:1px solid #4a4129;border-radius:18px;
+ background:#252015;
+}
+body[data-page="treinar"] .avn-exec-launch .btn.primary,
+body[data-page="treinar"] .avn-dialog-execucao .btn.primary{
+ background:#ffc400!important;color:#121212!important;border-color:#ffc400!important;
+ font-weight:800;
+}
+body[data-page="treinar"] .avn-exec-launch small{flex:1;min-width:180px;color:#c9c4b5!important;line-height:1.5}
+body[data-page="treinar"] .avn-dialog-execucao{
+ border:1px solid #454545;border-radius:24px;background:#111;color:#fff;
+ width:min(920px,calc(100vw - 22px));max-width:none;
+ max-height:94vh;max-height:94dvh;padding:clamp(14px,3vw,26px);
+ overflow-x:hidden;overflow-y:auto;box-shadow:0 16px 100px #000c;
+}
+body[data-page="treinar"] .avn-dialog-execucao::backdrop{background:#000d}
+body[data-page="treinar"] .avn-dialog-execucao .web-modal-header{
+ display:flex;justify-content:space-between;gap:14px;align-items:start;
+}
+body[data-page="treinar"] .avn-dialog-execucao .web-modal-header small{color:#ffc400!important;letter-spacing:.06em;font-weight:800}
+body[data-page="treinar"] .avn-dialog-execucao .web-modal-header h2{font-size:clamp(20px,3vw,29px);margin:5px 0 8px}
+body[data-page="treinar"] .avn-dialog-execucao .web-modal-header span{color:#ddd;font-size:13px}
+body[data-page="treinar"] .avn-dialog-execucao .web-progress{height:8px;background:#393939;border-radius:40px;overflow:hidden;margin:18px 0}
+body[data-page="treinar"] .avn-dialog-execucao .web-progress div{height:100%;background:#ffc400;border-radius:40px;transition:width .2s}
+body[data-page="treinar"] .avn-dialog-execucao .web-choose{
+ display:grid;gap:8px;font-weight:700;font-size:13px;margin-bottom:18px;
+}
+body[data-page="treinar"] .avn-dialog-execucao .web-focus{
+ background:#202020;border:1px solid #373737;border-radius:20px;
+ display:grid;grid-template-columns:180px minmax(0,1fr);align-items:center;gap:20px;padding:18px;
+}
+body[data-page="treinar"] .avn-dialog-execucao .web-focus h3{font-size:clamp(19px,2.8vw,25px);margin:6px 0}
+body[data-page="treinar"] .avn-dialog-execucao .web-focus small{color:#ffc400!important;font-weight:750}
+body[data-page="treinar"] .avn-dialog-execucao .web-focus p{color:#c9c9c9!important;font-size:14px;line-height:1.5}
+body[data-page="treinar"] .avn-dialog-execucao .web-media{
+ display:grid;place-items:center;border-radius:17px;background:#fff;min-height:164px;overflow:hidden;
+}
+body[data-page="treinar"] .avn-dialog-execucao .web-media .thumb-frame{width:150px;height:150px}
+body[data-page="treinar"] .avn-dialog-execucao .web-media .thumb{width:146px;height:146px;object-fit:contain}
+body[data-page="treinar"] .avn-dialog-execucao .web-fields{
+ display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:22px 0 14px;
+}
+body[data-page="treinar"] .avn-dialog-execucao .web-fields label{
+ display:grid;gap:7px;font-weight:700;font-size:13px;color:#d4d4d4;
+}
+body[data-page="treinar"] .avn-dialog-execucao .web-main-action{
+ width:100%;padding:16px;font-size:19px;min-height:56px;
+}
+body[data-page="treinar"] .avn-dialog-execucao .web-rest{
+ display:grid;justify-items:center;text-align:center;gap:10px;
+ padding:26px 14px;border-radius:20px;background:#242015;border:1px solid #6e5626;margin:18px 0;
+}
+body[data-page="treinar"] .avn-dialog-execucao .web-rest span{color:#ffc400;font-size:13px;font-weight:800;letter-spacing:.15em}
+body[data-page="treinar"] .avn-dialog-execucao .web-rest strong{color:#fff;font-size:clamp(56px,9vw,92px);line-height:1;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+body[data-page="treinar"] .avn-dialog-execucao .web-rest p{color:#ded5c2!important}
+body[data-page="treinar"] .avn-dialog-execucao .web-rest .btn{min-height:50px;padding-inline:26px}
+body[data-page="treinar"] .avn-dialog-execucao .web-next{
+ margin:18px 0;padding:18px;text-align:center;border:1px solid #4b4b4b;border-radius:18px;
+}
+body[data-page="treinar"] .avn-dialog-execucao .web-next p{color:#ccc!important;margin:8px 0 14px}
+body[data-page="treinar"] .avn-dialog-execucao .web-footer{
+ display:flex;flex-wrap:wrap;gap:9px;padding-top:18px;margin-top:18px;border-top:1px solid #373737;
+}
+body[data-page="treinar"] .avn-dialog-execucao .web-footer button{flex:1;min-width:130px}
+body[data-page="treinar"] .avn-dialog-execucao #webFinalizar{
+ background:#254632!important;border-color:#46845a!important;color:#effff4!important;
+}
+body[data-page="treinar"] .avn-dialog-execucao #webCancelar{
+ background:#53272b!important;border-color:#995053!important;color:#fff!important;
+}
+body[data-page="treinar"] .avn-dialog-execucao .web-save-hint{
+ font-size:12px;line-height:1.6;color:#aaa!important;margin-top:14px;
+}
+@media(max-width:620px){
+ body[data-page="treinar"] .avn-exec-launch{display:grid}
+ body[data-page="treinar"] .avn-exec-launch small{min-width:0}
+ body[data-page="treinar"] .avn-dialog-execucao{border-radius:16px;padding:13px;width:calc(100vw - 12px);max-height:96dvh}
+ body[data-page="treinar"] .avn-dialog-execucao .web-modal-header{align-items:center}
+ body[data-page="treinar"] .avn-dialog-execucao .web-modal-header #webFechar{padding:8px 10px;font-size:12px}
+ body[data-page="treinar"] .avn-dialog-execucao .web-focus{grid-template-columns:95px minmax(0,1fr);gap:10px;padding:12px}
+ body[data-page="treinar"] .avn-dialog-execucao .web-media{min-height:96px}
+ body[data-page="treinar"] .avn-dialog-execucao .web-media .thumb-frame,
+ body[data-page="treinar"] .avn-dialog-execucao .web-media .thumb{width:92px;height:92px}
+ body[data-page="treinar"] .avn-dialog-execucao .web-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+ body[data-page="treinar"] .avn-dialog-execucao .web-footer button{min-width:125px}
+}
