@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AVN — Diário alimentar</title><link rel="stylesheet" href="/css/avn-nutricao.css?v=20261106-mudar-refeicao1"><script src="/js/avn-nutricao.js?v=20261106-mudar-refeicao1" defer></script><script src="/js/avn-nutricao-perfis-diario.js?v=20261028-perfis-diario1" defer></script></head>
+<title>AVN — Diário alimentar</title><link rel="stylesheet" href="/css/avn-nutricao.css?v=20261106-mudar-refeicao1"><script src="/js/avn-nutricao.js?v=20261106-mudar-refeicao1" defer></script><script src="/js/avn-nutricao-perfis-diario.js?v=20261107-repetir-data1" defer></script></head>
 <body data-nutricao-pagina="diario"><main class="avn-wrap">
 <header class="avn-top"><a href="/avn">← Central AVN</a><span class="avn-brand">AVN <em>Nutrição</em></span></header>
 <section class="avn-hero"><div><span class="avn-caption">NUTRIÇÃO · AVN</span><h1>Diário alimentar</h1><p>Registre o consumo real e acompanhe calorias e macronutrientes.</p></div><label class="avn-field user-field">Usuário<select id="usuario"><option>Carregando…</option></select></label></section>
@@ -40,12 +40,13 @@
 <section class="card"><h3>Alimentos registrados</h3><div id="listaDiario" class="list"></div></section>
 </section>
 <dialog class="avn-dialog" id="modalRepetirRefeicao" aria-labelledby="tituloRepetirRefeicao">
- <div class="modal-head"><h3 id="tituloRepetirRefeicao">Repetir refeição anterior</h3><button type="button" class="secondary" id="fecharRepetirRefeicao">Fechar</button></div>
+ <div class="modal-head"><h3 id="tituloRepetirRefeicao">Repetir refeição em outra data</h3><button type="button" class="secondary" id="fecharRepetirRefeicao">Fechar</button></div>
  <p class="muted" id="destinoRepetirRefeicao"></p>
- <div class="avn-two"><label class="avn-field">Copiar da data<input type="date" id="dataOrigemRefeicao" required></label><label class="avn-field">Refeição<select id="tipoRepetirRefeicao"></select></label></div>
+ <div class="avn-two"><label class="avn-field">Data de origem<input type="date" id="dataOrigemRefeicao" required></label><label class="avn-field">Data de destino<input type="date" id="dataDestinoRefeicao" required></label></div>
+ <label class="avn-field">Refeição<select id="tipoRepetirRefeicao"></select></label>
  <div id="previaRepetirRefeicao" class="avn-refeicao-lista" aria-live="polite"></div>
  <label class="avn-field">Se já houver alimentos nesta refeição<select id="modoRepetirRefeicao"><option value="acrescentar">Acrescentar aos registrados</option><option value="substituir">Substituir os registrados</option></select></label>
- <button type="button" id="confirmarRepetirRefeicao" class="primary">Copiar refeição para o dia selecionado</button>
+ <button type="button" id="confirmarRepetirRefeicao" class="primary">Copiar refeição para a data escolhida</button>
 </dialog>
 
 <dialog class="avn-dialog" id="modalEditarConsumo"><div class="modal-head"><h3>Editar alimento consumido</h3><button type="button" class="secondary" id="fecharEdicaoConsumo">Fechar</button></div><p id="nomeEdicaoConsumo"></p><form id="formEditarConsumo" class="stack"><label class="avn-field">Alimento<select id="alimentoEdicaoConsumo" required></select></label><label class="avn-field">Refeição<select id="refeicaoEdicaoConsumo"></select></label><label class="avn-field">Quantidade consumida (g)<input id="gramasEdicaoConsumo" type="number" min="0.1" max="10000" step="any" required></label><button class="primary">Salvar nova pesagem</button></form></dialog>
