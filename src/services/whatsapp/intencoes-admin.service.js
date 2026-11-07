@@ -199,39 +199,119 @@ function limparSessoes() {
   const agora = Date.now();
   for (const [tel, s] of sessoes) if (s.expira < agora) sessoes.delete(tel);
 }
+function indiceCliente(texto) {
+  const valor = semAcentos(texto);
+  const match = valor.match(/^(?:(?:quero|escolho|seleciono)(?: o)?|opcao|numero|cliente)?\s*([1-5])$/);
+  return match ? Number(match[1]) - 1 : null;
+}
+function idsProximas(intencao) {
+  return Array.isArray(intencao?.proximas_intencoes)
+    ? intencao.proximas_intencoes.map(Number).filter(Number.isSafeInteger) : [];
+}
+function resumoSelecao(cliente, origem, cadastradas) {
+  const nome = String(cliente?.nome || 'Cliente').replace(/\*/g, '').trim().slice(0, 120);
+  const ids = idsProximas(origem);
+  const proximas = cadastradas.filter(i => ids.includes(Number(i.id)));
+  const executaveis = proximas.filter(i => i.ativo && ACOES_EXECUTAVEIS.has(i.acao));
+  let mensagem = 'Cliente selecionado: *' + nome + '*.';
+  if (executaveis.length) {
+    mensagem += '\n\nO que deseja fazer com esse cliente?\n' +
+      executaveis.map((i, n) => (n + 1) + '. ' + i.nome).join('\n');
+  } else if (proximas.length) {
+    mensagem += '\n\nHá próximas intenções cadastradas, mas nenhuma está ativa e implementada.';
+  } else {
+    mensagem += '\n\nAinda não há próxima intenção vinculada. Você pode iniciar outro comando.';
+  }
+  return { mensagem, executaveis };
+}
 async function processarMensagem({ telefone, texto, permitido = false }, deps = {}) {
-  // O chamador precisa ter verificado número, instância, direção e LID, se houver.
+  // O chamador verifica previamente número, instância, direção e eventual LID.
   if (!permitido || !/^\d{10,15}$/.test(String(telefone || ''))) return { reconhecido: false };
   limparSessoes();
   const busca = deps.listarClientes || pagamentos.listarClientes;
   const enviar = deps.enviar || envio.enviarMensagem;
   const buscarIntencoes = deps.listarIntencoes || listar;
+  const frase = String(texto || '').trim().slice(0, 1000);
   const pendente = sessoes.get(telefone);
-  const frase = String(texto || '').trim().slice(0,1000);
-  // Mensagem transcrita + todas as intenções ativas e suas descrições vão à IA.
-  // A IA apenas seleciona uma chave existente; não executa comandos.
-  const cadastradas = (await buscarIntencoes()).filter(i => i.ativo && Object.hasOwn(ACOES, i.acao));
+  if (semAcentos(frase) === 'cancelar' && pendente) {
+    sessoes.delete(telefone);
+    const mensagem = 'Atendimento administrativo cancelado.';
+    await enviar({ telefone, mensagem });
+    return { reconhecido: true, intencao: 'Cancelar', acao: 'cancelar', resposta: mensagem };
+  }
+  const todas = await buscarIntencoes();
+  const cadastradas = todas.filter(i => i.ativo && ACOES_EXECUTAVEIS.has(i.acao));
+  // Números durante o wizard são escolhas e não passam pela IA.
+  if (pendente?.etapa === 'escolher_cliente' || pendente?.etapa === 'cliente_selecionado') {
+    const indice = indiceCliente(frase);
+    if (indice !== null) {
+      if (pendente.etapa === 'escolher_cliente') {
+        const cliente = pendente.candidatos?.[indice];
+        if (!cliente) {
+          const mensagem = 'Opção inválida. Escolha um número de 1 a ' + pendente.candidatos.length + '.';
+          await enviar({ telefone, mensagem });
+          return { reconhecido: true, intencao: 'Selecionar cliente', acao: 'selecionar_cliente', resposta: mensagem };
+        }
+        const origem = todas.find(i => Number(i.id) === Number(pendente.intencaoId));
+        const { mensagem, executaveis } = resumoSelecao(cliente, origem, todas);
+        sessoes.set(telefone, { etapa: 'cliente_selecionado',
+          cliente: { favorecido: cliente.favorecido, nome: cliente.nome, cidade: cliente.cidade, uf: cliente.uf },
+          opcoes: executaveis.map(i => Number(i.id)), expira: Date.now() + SESSAO_MS });
+        await enviar({ telefone, mensagem });
+        return { reconhecido: true, intencao: 'Selecionar cliente', acao: 'selecionar_cliente', resposta: mensagem };
+      }
+      const proxima = todas.find(i => Number(i.id) === pendente.opcoes?.[indice] &&
+        i.ativo && ACOES_EXECUTAVEIS.has(i.acao));
+      if (proxima && proxima.acao === 'localizar_cliente') {
+        sessoes.set(telefone, { etapa: 'aguardando_nome', expira: Date.now() + SESSAO_MS });
+        const mensagem = 'Qual é o nome do cliente que deseja localizar?';
+        await enviar({ telefone, mensagem });
+        return { reconhecido: true, intencao: proxima.nome, acao: proxima.acao, resposta: mensagem };
+      }
+      const mensagem = 'Escolha uma opção disponível ou diga "localize cliente" para iniciar outra busca.';
+      await enviar({ telefone, mensagem });
+      return { reconhecido: true, intencao: 'Selecionar intenção', acao: 'selecionar_intencao', resposta: mensagem };
+    }
+  }
+  // A IA recebe a transcrição com todas as intenções executáveis e descrições.
   const classificar = deps.classificar || classificador.classificar;
   const encontrado = await classificar(frase, cadastradas);
-  if (!encontrado?.intencao && !pendente) return { reconhecido: false, motivo: 'intencao_nao_reconhecida' };
+  if (!encontrado?.intencao && pendente?.etapa !== 'aguardando_nome') {
+    if (pendente?.etapa === 'escolher_cliente') {
+      const mensagem = 'Escolha o número do cliente na lista (1 a ' + pendente.candidatos.length +
+        ') ou diga "localize cliente" para começar outra busca.';
+      await enviar({ telefone, mensagem });
+      return { reconhecido: true, intencao: 'Selecionar cliente', acao: 'selecionar_cliente', resposta: mensagem };
+    }
+    return { reconhecido: false, motivo: 'intencao_nao_reconhecida' };
+  }
   if (encontrado?.intencao && encontrado.intencao.acao !== 'localizar_cliente') {
     return { reconhecido: false, motivo: 'acao_indisponivel' };
   }
-  const resposta = [];
-  if (encontrado?.intencao) sessoes.delete(telefone);
   const nome = normalizarNome(encontrado?.intencao ? encontrado.argumento : frase);
   if (!nome) {
-    sessoes.set(telefone, { acao: 'localizar_cliente', expira: Date.now() + SESSAO_MS });
-    resposta.push('Qual é o nome do cliente que deseja localizar?');
+    sessoes.set(telefone, { etapa: 'aguardando_nome', expira: Date.now() + SESSAO_MS });
+    const mensagem = 'Qual é o nome do cliente que deseja localizar?';
+    await enviar({ telefone, mensagem });
+    return { reconhecido: true, intencao: encontrado?.intencao?.nome || 'Localizar cliente',
+      acao: 'localizar_cliente', resposta: mensagem };
+  }
+  const encontrados = await busca(nome);
+  const primeiros = Array.isArray(encontrados) ? encontrados.slice(0, LIMITE_CLIENTES_RESPOSTA) : [];
+  const comTelefones = await completarTelefones(primeiros, deps.buscarCliente || clientesLegado.buscarCliente);
+  let mensagem = respostasClientes(nome, comTelefones).join('\n\n');
+  if (comTelefones.length) {
+    sessoes.set(telefone, { etapa: 'escolher_cliente',
+      candidatos: comTelefones.map(c => ({ favorecido:c.favorecido, nome:c.nome, cidade:c.cidade, uf:c.uf })),
+      intencaoId: encontrado?.intencao?.id || todas.find(i => i.acao === 'localizar_cliente')?.id,
+      expira: Date.now() + SESSAO_MS });
+    mensagem += '\n\nResponda com um número de 1 a ' + comTelefones.length + ' para selecionar o cliente.';
   } else {
     sessoes.delete(telefone);
-    const encontrados = await busca(nome);
-    const primeiros = Array.isArray(encontrados) ? encontrados.slice(0, LIMITE_CLIENTES_RESPOSTA) : [];
-    const comTelefones = await completarTelefones(primeiros, deps.buscarCliente || clientesLegado.buscarCliente);
-    resposta.push(...respostasClientes(nome, comTelefones));
   }
-  for (const mensagem of resposta) await enviar({ telefone, mensagem });
-  return { reconhecido: true, intencao: encontrado?.intencao?.nome || 'Localizar cliente', acao: 'localizar_cliente', resposta: resposta.join('\n\n') };
+  await enviar({ telefone, mensagem });
+  return { reconhecido: true, intencao: encontrado?.intencao?.nome || 'Localizar cliente',
+    acao: 'localizar_cliente', resposta: mensagem };
 }
 module.exports = { ACOES, preparar, listar, cadastrar, atualizar, excluir, identificar,
   respostasClientes, processarMensagem };
