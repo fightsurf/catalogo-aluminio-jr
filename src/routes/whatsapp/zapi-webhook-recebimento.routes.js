@@ -4,6 +4,7 @@ const express = require('express');
 const crypto = require('crypto');
 const recebimento = require('../../services/whatsapp/zapi-webhook-recebimento.service');
 const transcricoesPiloto = require('../../services/whatsapp/transcricoes-piloto.service');
+const intencoesAdmin = require('../../services/whatsapp/intencoes-admin.service');
 const vinculos = require('../../services/whatsapp/zapi-lid-vinculos.service');
 const router = express.Router();
 
@@ -50,6 +51,23 @@ router.post('/zapi', autenticar, async (req, res) => {
           console.error('[Piloto transcrição] Falha ao verificar evento:', erro.message);
         });
       }
+    }
+    // Mensagem escrita na conversa consigo mesmo: mesmo acesso privado do piloto.
+    // Nunca interpretar respostas enviadas pela API nem mensagens para terceiros.
+    if (!dadosPiloto.ignorar && dadosPiloto.tipo === 'texto' &&
+        dadosPiloto.direcao === 'SAIDA' && payload.fromMe === true &&
+        payload.fromApi !== true && !payload.isGroup && !payload.isNewsletter &&
+        dadosPiloto.instancia === vinculos.instanciaAtual() &&
+        transcricoesPiloto.podeReceber(dadosPiloto.telefone) &&
+        (!payload.connectedPhone ||
+          (transcricoesPiloto.podeReceber(payload.connectedPhone) &&
+           String(payload.connectedPhone).replace(/\D/g, '').slice(-8) ===
+           String(dadosPiloto.telefone).replace(/\D/g, '').slice(-8)))) {
+      void intencoesAdmin.processarMensagem({
+        telefone: String(dadosPiloto.telefone).replace(/\D/g, ''),
+        texto: dadosPiloto.mensagem,
+        permitido: true
+      }).catch(e => console.error('[Intenções administrativas] Falha em texto:', e.message));
     }
     const resultado = await recebimento.registrar(payload);
     return res.status(200).json({ success: true, ...resultado });

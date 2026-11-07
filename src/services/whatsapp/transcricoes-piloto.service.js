@@ -3,6 +3,7 @@
 // Piloto isolado: apenas os números autorizados, sem alterar bot, sem banco e sem resposta.
 const net = require('node:net');
 const vinculos = require('./zapi-lid-vinculos.service');
+const intencoesAdmin = require('./intencoes-admin.service');
 const MAX_AUDIO = 20 * 1024 * 1024;
 const MAX_REGISTROS = 60;
 const MAX_FILA = 15;
@@ -248,6 +249,19 @@ async function processarFila() {
       try {
         registro.texto = await transcrever(tarefa);
         registro.status = 'concluida';
+        // Só o número já autenticado pelo piloto pode disparar intenções administrativas.
+        try {
+          const resultado = await intencoesAdmin.processarMensagem({
+            telefone: registro.telefone, texto: registro.texto, permitido: true
+          });
+          if (resultado.reconhecido) {
+            registro.acao = resultado.acao;
+            registro.resposta = resultado.resposta;
+          }
+        } catch (erroComando) {
+          registro.erroComando = 'Não foi possível processar a intenção administrativa.';
+          console.error('[Intenções administrativas] Falha de consulta ou envio:', erroComando.message);
+        }
       } catch (falha) {
         registro.status = 'erro';
         registro.erro = falha.message || 'Falha ao transcrever áudio.';

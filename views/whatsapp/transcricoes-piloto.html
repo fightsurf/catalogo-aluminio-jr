@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mensagens recebidas • Alumínio JR</title>
+<title>Assistente administrativo • Alumínio JR</title>
 <style>
 :root{color-scheme:dark;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
 *{box-sizing:border-box}
@@ -22,15 +22,62 @@ h1{font-size:clamp(1.4rem,3vw,1.85rem);letter-spacing:-.035em;margin:0 0 22px}
 .muted{color:#99adc7}
 .error{color:#ffb2bd}
 .empty{border:1px dashed #3a4b61;background:#121f30;color:#a8bcd5;border-radius:13px;padding:38px 22px;text-align:center;line-height:1.6}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 20px}
+.tabs button,.actions button,form button{border:1px solid #48627d;border-radius:9px;padding:10px 14px;background:#1d3047;color:#edf4fe;cursor:pointer}
+.tabs button[aria-selected="true"]{background:#275d9f;border-color:#699ee0}
+[hidden]{display:none!important}
+.panel{background:#131f30;border:1px solid #2a3c55;border-radius:13px;padding:18px;margin-bottom:18px}
+.panel h2{font-size:1.1rem;margin:0 0 14px}
+.field{display:grid;gap:5px;margin-bottom:12px}
+.field label{color:#c8d9ed}
+.field input,.field select,.field textarea{width:100%;background:#0b1726;color:#fff;border:1px solid #48627d;border-radius:8px;padding:10px;font:inherit}
+.field textarea{min-height:115px;resize:vertical}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+.intencao{padding:14px 0;border-bottom:1px solid #2a3c55}
+.intencao:last-child{border:0}
+.intencao strong{display:block;margin-bottom:4px}
+.resposta{margin:12px 0 0;white-space:pre-wrap;color:#a9ebc7;line-height:1.5}
+.notice{color:#b2c9e7;min-height:1.6em;white-space:pre-wrap}
+.checkline{display:flex;gap:8px;align-items:center;margin-bottom:16px}
 @media(max-width:620px){.wrap{padding:19px 14px 35px}.item{padding:14px}}
 </style>
 </head>
 <body>
 <main class="wrap">
-  <h1>Mensagens recebidas</h1>
-  <div id="lista" aria-live="polite">
-    <div class="empty">Carregando mensagens...</div>
-  </div>
+  <h1>Assistente administrativo</h1>
+  <nav class="tabs" aria-label="Áreas do assistente">
+    <button id="aba-mensagens" type="button" aria-selected="true">Mensagens recebidas</button>
+    <button id="aba-intencoes" type="button" aria-selected="false">Intenções administrativas</button>
+  </nav>
+  <section id="painel-mensagens" aria-label="Mensagens recebidas">
+    <div id="lista" aria-live="polite">
+      <div class="empty">Carregando mensagens...</div>
+    </div>
+  </section>
+  <section id="painel-intencoes" hidden aria-label="Intenções administrativas">
+    <div class="panel">
+      <h2 id="titulo-formulario">Nova intenção administrativa</h2>
+      <form id="form-intencao">
+        <input type="hidden" id="intencao-id">
+        <div class="field"><label for="intencao-nome">Nome da intenção</label>
+          <input id="intencao-nome" required maxlength="120" placeholder="Ex.: Localizar cliente"></div>
+        <div class="field"><label for="intencao-acao">Ação do sistema</label>
+          <select id="intencao-acao"><option value="localizar_cliente">Localizar cliente (somente consulta)</option></select></div>
+        <div class="field"><label for="intencao-frases">Frases de reconhecimento (uma por linha)</label>
+          <textarea id="intencao-frases" required placeholder="localize cliente&#10;localizar cliente"></textarea></div>
+        <label class="checkline"><input type="checkbox" id="intencao-ativa" checked> Intenção ativa</label>
+        <div class="actions">
+          <button type="submit">Salvar intenção</button>
+          <button id="limpar-formulario" type="button">Novo / cancelar edição</button>
+        </div>
+      </form>
+    </div>
+    <div class="panel">
+      <h2>Intenções cadastradas</h2>
+      <p id="status-intencoes" class="notice" role="status"></p>
+      <div id="lista-intencoes"></div>
+    </div>
+  </section>
 </main>
 <script>
 (() => {
@@ -83,11 +130,128 @@ h1{font-size:clamp(1.4rem,3vw,1.85rem);letter-spacing:-.035em;margin:0 0 22px}
       }
       meta.append(phone, quando, pill);
       item.append(meta, fala);
+      if (r.resposta) {
+        const resposta = document.createElement('p');
+        resposta.className = 'resposta';
+        resposta.textContent = 'Resposta administrativa:\n' + r.resposta;
+        item.appendChild(resposta);
+      }
+      if (r.erroComando) {
+        const erro = document.createElement('p');
+        erro.className = 'error';
+        erro.textContent = r.erroComando;
+        item.appendChild(erro);
+      }
       fragmento.appendChild(item);
     }
     // Atualiza apenas esta lista; não consulta novamente e não recarrega a página.
     lista.replaceChildren(fragmento);
   }
+
+  const abaMensagens = document.getElementById('aba-mensagens');
+  const abaIntencoes = document.getElementById('aba-intencoes');
+  const painelMensagens = document.getElementById('painel-mensagens');
+  const painelIntencoes = document.getElementById('painel-intencoes');
+  const form = document.getElementById('form-intencao');
+  const campoId = document.getElementById('intencao-id');
+  const campoNome = document.getElementById('intencao-nome');
+  const campoAcao = document.getElementById('intencao-acao');
+  const campoFrases = document.getElementById('intencao-frases');
+  const campoAtiva = document.getElementById('intencao-ativa');
+  const listaIntencoes = document.getElementById('lista-intencoes');
+  const statusIntencoes = document.getElementById('status-intencoes');
+  let intencoes = [];
+  function alternar(qual) {
+    const intencao = qual === 'intencoes';
+    painelMensagens.hidden = intencao;
+    painelIntencoes.hidden = !intencao;
+    abaMensagens.setAttribute('aria-selected', String(!intencao));
+    abaIntencoes.setAttribute('aria-selected', String(intencao));
+    if (intencao) carregarIntencoes();
+  }
+  abaMensagens.addEventListener('click', () => alternar('mensagens'));
+  abaIntencoes.addEventListener('click', () => alternar('intencoes'));
+  function limparFormulario() {
+    form.reset();
+    campoId.value = '';
+    campoAtiva.checked = true;
+    document.getElementById('titulo-formulario').textContent = 'Nova intenção administrativa';
+  }
+  document.getElementById('limpar-formulario').addEventListener('click', limparFormulario);
+  async function requisitar(url, options) {
+    const r = await fetch(url, { credentials: 'same-origin', ...options,
+      headers: { 'Content-Type':'application/json', ...(options?.headers || {}) } });
+    const dados = await r.json().catch(() => ({}));
+    if (!r.ok || !dados.success) throw new Error(dados.message || 'Falha na requisição.');
+    return dados;
+  }
+  function desenharIntencoes() {
+    listaIntencoes.replaceChildren();
+    if (!intencoes.length) {
+      listaIntencoes.textContent = 'Nenhuma intenção cadastrada.';
+      return;
+    }
+    for (const item of intencoes) {
+      const linha = document.createElement('div');
+      linha.className = 'intencao';
+      const titulo = document.createElement('strong');
+      titulo.textContent = item.nome + (item.ativo ? ' — Ativa' : ' — Inativa');
+      const resumo = document.createElement('p');
+      resumo.className = 'muted';
+      resumo.textContent = 'Ação: ' + item.acao + ' | Frases: ' + item.frases.replace(/\n/g, ' · ');
+      const comandos = document.createElement('div');
+      comandos.className = 'actions';
+      const editar = document.createElement('button');
+      editar.type = 'button';
+      editar.textContent = 'Editar';
+      editar.onclick = () => {
+        campoId.value = item.id;
+        campoNome.value = item.nome;
+        campoAcao.value = item.acao;
+        campoFrases.value = item.frases;
+        campoAtiva.checked = item.ativo;
+        document.getElementById('titulo-formulario').textContent = 'Editar intenção administrativa';
+        form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+      const apagar = document.createElement('button');
+      apagar.type = 'button';
+      apagar.textContent = 'Excluir';
+      apagar.onclick = async () => {
+        if (!confirm('Excluir a intenção ' + item.nome + '?')) return;
+        try {
+          await requisitar('/whatsapp/transcricoes/intencoes/' + item.id, { method:'DELETE' });
+          await carregarIntencoes();
+          if (String(campoId.value) === String(item.id)) limparFormulario();
+        } catch (e) { statusIntencoes.textContent = e.message; }
+      };
+      comandos.append(editar, apagar);
+      linha.append(titulo, resumo, comandos);
+      listaIntencoes.appendChild(linha);
+    }
+  }
+  async function carregarIntencoes() {
+    statusIntencoes.textContent = 'Carregando intenções...';
+    try {
+      const r = await requisitar('/whatsapp/transcricoes/intencoes');
+      intencoes = Array.isArray(r.dados) ? r.dados : [];
+      desenharIntencoes();
+      statusIntencoes.textContent = intencoes.length + ' intenção(ões) cadastrada(s).';
+    } catch (e) { statusIntencoes.textContent = e.message; }
+  }
+  form.addEventListener('submit', async evento => {
+    evento.preventDefault();
+    const id = campoId.value;
+    const dados = { nome: campoNome.value, acao: campoAcao.value, frases: campoFrases.value,
+      ativo: campoAtiva.checked };
+    statusIntencoes.textContent = 'Salvando...';
+    try {
+      await requisitar('/whatsapp/transcricoes/intencoes' + (id ? '/' + id : ''), {
+        method: id ? 'PUT' : 'POST', body: JSON.stringify(dados)
+      });
+      limparFormulario();
+      await carregarIntencoes();
+    } catch (e) { statusIntencoes.textContent = e.message; }
+  });
 
   // O servidor envia eventos quando novas mensagens chegam ou mudam de estado.
   // EventSource restabelece a conexão automaticamente em caso de interrupção.
