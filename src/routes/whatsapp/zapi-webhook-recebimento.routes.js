@@ -52,22 +52,30 @@ router.post('/zapi', autenticar, async (req, res) => {
         });
       }
     }
-    // Mensagem escrita na conversa consigo mesmo: mesmo acesso privado do piloto.
-    // Nunca interpretar respostas enviadas pela API nem mensagens para terceiros.
+    // Texto próprio: aceita telefone ou LID previamente vinculado após verificação
+    // da Z-API. Exclui mensagens para terceiros e respostas enviadas pela API.
     if (!dadosPiloto.ignorar && dadosPiloto.tipo === 'texto' &&
         dadosPiloto.direcao === 'SAIDA' && payload.fromMe === true &&
         payload.fromApi !== true && !payload.isGroup && !payload.isNewsletter &&
-        dadosPiloto.instancia === vinculos.instanciaAtual() &&
-        transcricoesPiloto.podeReceber(dadosPiloto.telefone) &&
-        (!payload.connectedPhone ||
-          (transcricoesPiloto.podeReceber(payload.connectedPhone) &&
-           String(payload.connectedPhone).replace(/\D/g, '').slice(-8) ===
-           String(dadosPiloto.telefone).replace(/\D/g, '').slice(-8)))) {
-      void intencoesAdmin.processarMensagem({
-        telefone: String(dadosPiloto.telefone).replace(/\D/g, ''),
-        texto: dadosPiloto.mensagem,
-        permitido: true
-      }).catch(e => console.error('[Intenções administrativas] Falha em texto:', e.message));
+        dadosPiloto.instancia === vinculos.instanciaAtual()) {
+      void (async () => {
+        const conectado = vinculos.limparTelefone(payload.connectedPhone);
+        const eLid = vinculos.ehLid(dadosPiloto.telefone);
+        // LID só pode ser interpretado com a própria linha conectada autenticada.
+        if (eLid && !transcricoesPiloto.podeReceber(conectado)) return;
+        const telefone = eLid
+          ? await vinculos.resolverRecebimento(payload)
+          : dadosPiloto.telefone;
+        if (!transcricoesPiloto.podeReceber(telefone)) return;
+        if (conectado &&
+            (!transcricoesPiloto.podeReceber(conectado) ||
+              conectado.slice(-8) !== String(telefone).replace(/\D/g, '').slice(-8))) return;
+        await intencoesAdmin.processarMensagem({
+          telefone: String(telefone).replace(/\D/g, ''),
+          texto: dadosPiloto.mensagem,
+          permitido: true
+        });
+      })().catch(e => console.error('[Intenções administrativas] Falha em texto:', e.message));
     }
     const resultado = await recebimento.registrar(payload);
     return res.status(200).json({ success: true, ...resultado });
