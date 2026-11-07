@@ -60,6 +60,9 @@ function hostAudio(valor) {
 }
 function dominioDeAudioPermitido(host) {
   if (!host) return false;
+  // Host exato observado na mídia da Z-API; não autoriza todo *.backblazeb2.com.
+  // Deve funcionar mesmo quando existe uma lista personalizada no Render.
+  if (host === 'f004.backblazeb2.com') return true;
   const dominios = String(process.env.WHATSAPP_TRANSCRICAO_DOMINIOS ||
     'z-api.io,amazonaws.com,cloudfront.net,whatsapp.net,r2.dev,storage.googleapis.com')
     .toLowerCase().split(/[;,\s]+/).map(x => x.replace(/^\./, '').trim()).filter(Boolean);

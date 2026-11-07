@@ -76,6 +76,12 @@ O piloto agora também aceita `storage.googleapis.com` e seus subdomínios como 
 
 Em **Últimos eventos do webhook**, o campo `Domínio da mídia` mostra apenas o hostname, sem caminho, parâmetros de assinatura ou arquivo. Indica `na lista` ou `fora da lista`. Se o domínio real for outro, revise a confiabilidade do host antes de adicioná-lo à variável `WHATSAPP_TRANSCRICAO_DOMINIOS` no Render. O downloader mantém bloqueio de esquemas HTTP, IPs diretos, portas não autorizadas, redirecionamento e arquivo acima de 20 MB. A alteração não interfere no bot, banco ou envio de WhatsApp.
 
+## Host de mídia Backblaze confirmado no teste real (07/11)
+
+O teste real mostrou LID confirmado, `connectedPhone` autorizado e URL de áudio presente. A falha seguinte foi `Domínio da mídia não autorizado`, com hostname **`f004.backblazeb2.com`**. O piloto passou a aceitar esse **host exato**, independentemente de eventual lista personalizada em `WHATSAPP_TRANSCRICAO_DOMINIOS`. Não foram autorizados `*.backblazeb2.com`, hosts semelhantes ou domínios com prefixos/sufixos adicionais.
+
+Continuam obrigatórios: HTTPS na porta padrão, sem credenciais na URL, sem IP direto, sem redirecionamento, limite de 20 MB e verificação de identidade. A página mostra apenas o hostname, sem caminho, parâmetros de assinatura ou tokens. É necessário enviar um novo áudio para confirmar o download e a resposta da API de transcrição; o arquivo anterior não é reprocessado automaticamente.
+
 ## Teste
 
 1. Abra `https://catalogo-aluminio-jr.onrender.com/whatsapp/transcricoes` autenticado.

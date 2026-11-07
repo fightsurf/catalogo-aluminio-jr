@@ -297,6 +297,33 @@ test('LID divergente não autoriza mesmo com telefone brasileiro legado correto'
   assert.equal(chamada,false);
 });
 
+test('mídia Backblaze só autoriza host exato visto na Z-API, mesmo com lista personalizada', () => {
+  const anterior = process.env.WHATSAPP_TRANSCRICAO_DOMINIOS;
+  try {
+    process.env.WHATSAPP_TRANSCRICAO_DOMINIOS = 'z-api.io';
+    const permitido = 'https://f004.backblazeb2.com/file/arquivo.ogg?Authorization=SEGREDO';
+    assert.equal(piloto.urlSegura(permitido), permitido);
+    assert.throws(() => piloto.urlSegura('https://f005.backblazeb2.com/file/arquivo.ogg'));
+    assert.throws(() => piloto.urlSegura('https://outro.f004.backblazeb2.com/file/arquivo.ogg'));
+    assert.throws(() => piloto.urlSegura('https://f004.backblazeb2.com.evil.tld/file/arquivo.ogg'));
+    assert.throws(() => piloto.urlSegura('http://f004.backblazeb2.com/file/arquivo.ogg'));
+    process.env.WHATSAPP_TRANSCRICAO_NUMEROS = '5583999792085';
+    process.env.ZAPI_WEBHOOK_INSTANCE_ID = 'INSTANCIA_TESTE';
+    piloto.observarWebhook({
+      type:'ReceivedCallback', instanceId:'INSTANCIA_TESTE', messageId:'B2_TESTE',
+      fromMe:true, phone:'123456789000@lid', connectedPhone:'558399792085',
+      audio:{ audioUrl: permitido }
+    });
+    const diagnostico = piloto.listar().ultimos_webhooks[0];
+    assert.equal(diagnostico.dominio_midia, 'f004.backblazeb2.com');
+    assert.equal(diagnostico.dominio_midia_na_lista, true);
+    assert.equal(JSON.stringify(diagnostico).includes('SEGREDO'), false);
+  } finally {
+    if (anterior === undefined) delete process.env.WHATSAPP_TRANSCRICAO_DOMINIOS;
+    else process.env.WHATSAPP_TRANSCRICAO_DOMINIOS = anterior;
+  }
+});
+
 test('mídia no Google Cloud Storage é aceita e diagnóstico mostra só domínio', () => {
   const anterior = process.env.WHATSAPP_TRANSCRICAO_DOMINIOS;
   try {
