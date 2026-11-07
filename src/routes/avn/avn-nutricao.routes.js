@@ -645,14 +645,14 @@ router.post('/diario/:usuarioId/repetir-refeicao',wrap(async(req,res)=>{
  const uid=requiredId(req.params.usuarioId);await user(uid);
  const origem=day(req.body?.data_origem),destino=day(req.body?.data_destino);
  const refeicao=meal(req.body?.refeicao),modo=req.body?.modo;
- if(origem>=destino)throw bad('Escolha uma data de origem anterior ao dia de destino.');
+ if(origem===destino)throw bad('Escolha datas de origem e destino diferentes.');
  if(!['acrescentar','substituir'].includes(modo))throw bad('Escolha acrescentar ou substituir.');
  const db=await pool.connect();try{
   await db.query('BEGIN');
   // Bloqueio por usuário e data impede concorrência entre duas operações de cópia.
   await db.query('SELECT pg_advisory_xact_lock($1::int,$2::int)',[Number(uid)%2147483647,Number(destino.replace(/-/g,''))]);
   const origemItens=await db.query('SELECT * FROM public.avn_diario_alimentar WHERE usuario_id=$1 AND data_consumo=$2 AND refeicao=$3 ORDER BY id',[uid,origem,refeicao]);
-  if(!origemItens.rowCount)throw bad('Nenhum alimento encontrado nessa refeição da data anterior.');
+  if(!origemItens.rowCount)throw bad('Nenhum alimento encontrado nessa refeição na data de origem.');
   if(modo==='substituir')await db.query('DELETE FROM public.avn_diario_alimentar WHERE usuario_id=$1 AND data_consumo=$2 AND refeicao=$3',[uid,destino,refeicao]);
   let inseridos=0;
   for(const item of origemItens.rows){
