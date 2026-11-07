@@ -132,7 +132,8 @@ async function confirmarEnvio(){
  finally{salvandoEnvio=false;if($('modalEnviarDiario').open)montarEnvio();}
 }
 
-let anteriores=[],repetindo=false;
+let anteriores=[],destinoRegistrados=[],repetindo=false;
+let consultandoOrigem=false,consultandoDestino=false;
 function anterior(data){
  const d=new Date(data+'T12:00:00');d.setDate(d.getDate()-1);
  const pad=n=>String(n).padStart(2,'0');
@@ -140,53 +141,87 @@ function anterior(data){
 }
 function renderRepeticao(){
  const ref=$('tipoRepetirRefeicao').value;
+ const origem=$('dataOrigemRefeicao').value,destino=$('dataDestinoRefeicao').value;
  const itens=anteriores.filter(i=>i.refeicao===ref);
- const presentes=state.diario.filter(i=>i.refeicao===ref);
+ const presentes=destinoRegistrados.filter(i=>i.refeicao===ref);
+ const mesmaData=Boolean(origem&&destino&&origem===destino);
+ $('destinoRepetirRefeicao').textContent='Origem: '+(origem||'selecione a data')+' · Destino: '+(destino||'selecione a data');
  $('previaRepetirRefeicao').innerHTML=itens.length?itens.map(i=>
   '<div class="list-row"><span>'+esc(i.alimento_nome)+'</span><small>'+fmt(i.quantidade_g)+' g</small></div>'
- ).join(''):'<p class="muted">Não há alimentos nessa refeição da data anterior.</p>';
+ ).join(''):'<p class="muted">Não há alimentos nessa refeição na data de origem.</p>';
+ if(mesmaData)$('previaRepetirRefeicao').insertAdjacentHTML('beforeend',
+  '<p class="muted">A data de destino deve ser diferente da data de origem.</p>');
  if(presentes.length)$('previaRepetirRefeicao').insertAdjacentHTML('beforeend',
   '<p class="muted">Já existem '+presentes.length+' alimento(s) no destino. Escolha acrescentar ou substituir.</p>');
- $('confirmarRepetirRefeicao').disabled=!itens.length||repetindo||$('dataOrigemRefeicao').value>=state.data;
+ $('confirmarRepetirRefeicao').disabled=!itens.length||repetindo||consultandoOrigem||consultandoDestino||
+  !origem||!destino||mesmaData||!$('dataOrigemRefeicao').checkValidity()||!$('dataDestinoRefeicao').checkValidity();
 }
 async function consultarOrigem(){
+ const data=$('dataOrigemRefeicao').value,uid=state.usuarioId;
+ anteriores=[];consultandoOrigem=Boolean(data);renderRepeticao();
+ if(!data)return;
  try{
-  const data=$('dataOrigemRefeicao').value,uid=state.usuarioId;
-  if(!data||data>=state.data){anteriores=[];renderRepeticao();return;}
-  $('previaRepetirRefeicao').textContent='Carregando refeição anterior…';
-  $('confirmarRepetirRefeicao').disabled=true;
   const r=await api('/diario/'+uid+'?data='+encodeURIComponent(data));
   if(uid!==state.usuarioId||data!==$('dataOrigemRefeicao').value)return;
-  anteriores=r.itens||[];renderRepeticao();
- }catch(err){anteriores=[];show(err.message,true);renderRepeticao();}
+  anteriores=r.itens||[];
+ }catch(err){
+  if(uid===state.usuarioId&&data===$('dataOrigemRefeicao').value)show(err.message,true);
+ }finally{
+  if(uid===state.usuarioId&&data===$('dataOrigemRefeicao').value){consultandoOrigem=false;renderRepeticao();}
+ }
+}
+async function consultarDestino(){
+ const data=$('dataDestinoRefeicao').value,uid=state.usuarioId;
+ destinoRegistrados=[];consultandoDestino=Boolean(data);renderRepeticao();
+ if(!data)return;
+ try{
+  const r=await api('/diario/'+uid+'?data='+encodeURIComponent(data));
+  if(uid!==state.usuarioId||data!==$('dataDestinoRefeicao').value)return;
+  destinoRegistrados=r.itens||[];
+ }catch(err){
+  if(uid===state.usuarioId&&data===$('dataDestinoRefeicao').value)show(err.message,true);
+ }finally{
+  if(uid===state.usuarioId&&data===$('dataDestinoRefeicao').value){consultandoDestino=false;renderRepeticao();}
+ }
 }
 async function abrirRepeticao(ref='cafe'){
  try{
   userGuard();
-  $('destinoRepetirRefeicao').textContent='Data de destino: '+state.data;
-  $('dataOrigemRefeicao').max=anterior(state.data);
+  $('dataOrigemRefeicao').removeAttribute('max');
   $('dataOrigemRefeicao').value=anterior(state.data);
+  $('dataDestinoRefeicao').value=state.data;
   $('tipoRepetirRefeicao').innerHTML=Object.entries(MEALS).map(([id,nome])=>
    '<option value="'+esc(id)+'">'+esc(nome)+'</option>').join('');
   $('tipoRepetirRefeicao').value=ref;
   $('modoRepetirRefeicao').value='acrescentar';
   $('modalRepetirRefeicao').showModal();
-  await consultarOrigem();
+  await Promise.all([consultarOrigem(),consultarDestino()]);
  }catch(err){show(err.message,true);}
 }
 async function confirmarRepeticao(){
- if(repetindo)return;
+ if(repetindo||consultandoOrigem||consultandoDestino)return;
  try{
+  userGuard();
+  const origem=$('dataOrigemRefeicao').value,destino=$('dataDestinoRefeicao').value;
   const ref=$('tipoRepetirRefeicao').value,modo=$('modoRepetirRefeicao').value;
+  if(!origem||!destino||!$('dataOrigemRefeicao').checkValidity()||!$('dataDestinoRefeicao').checkValidity())
+   throw Error('Informe datas válidas de origem e destino.');
+  if(origem===destino)throw Error('Escolha uma data de destino diferente da origem.');
   if(!anteriores.some(i=>i.refeicao===ref))throw Error('Não há alimentos para copiar.');
-  if(modo==='substituir'&&state.diario.some(i=>i.refeicao===ref)&&
-   !confirm('Substituir todos os alimentos registrados nessa refeição do dia de destino?'))return;
+  if(modo==='substituir'&&destinoRegistrados.some(i=>i.refeicao===ref)&&
+   !confirm('Substituir todos os alimentos registrados nessa refeição em '+destino+'?'))return;
   repetindo=true;$('confirmarRepetirRefeicao').disabled=true;
-  const r=await send('/diario/'+state.usuarioId+'/repetir-refeicao','POST',{
-   data_origem:$('dataOrigemRefeicao').value,data_destino:state.data,refeicao:ref,modo
+  const uid=state.usuarioId;
+  const r=await send('/diario/'+uid+'/repetir-refeicao','POST',{
+   data_origem:origem,data_destino:destino,refeicao:ref,modo
   });
   $('modalRepetirRefeicao').close();
-  await loadDaily();show(r.inseridos+' alimento(s) copiado(s) para '+nomeRefeicao(ref)+'.');
+  if(uid===state.usuarioId){
+   state.data=destino;
+   $('dataDiario').value=destino;
+   await loadDaily();
+  }
+  show(r.inseridos+' alimento(s) copiado(s) para '+nomeRefeicao(ref)+' em '+destino+'.');
  }catch(err){show(err.message,true);}
  finally{repetindo=false;if($('modalRepetirRefeicao').open)renderRepeticao();}
 }
@@ -222,6 +257,7 @@ if(PAGE==='diario'){
  $('abrirRepetirRefeicao').onclick=()=>abrirRepeticao();
  $('fecharRepetirRefeicao').onclick=()=>$('modalRepetirRefeicao').close();
  $('dataOrigemRefeicao').onchange=consultarOrigem;
+ $('dataDestinoRefeicao').onchange=consultarDestino;
  $('tipoRepetirRefeicao').onchange=renderRepeticao;
  $('confirmarRepetirRefeicao').onclick=confirmarRepeticao;
  $('listaDiario').addEventListener('click',e=>{
