@@ -11,6 +11,7 @@ async function classificar(texto, intencoes, deps = {}) {
       chave: String(item.chave),
       nome: String(item.nome || '').slice(0, 120),
       descricao: String(item.descricao || '').slice(0, 800),
+      entidade: item.entidade === 'clientes' || item.entidade === 'pedidos' ? item.entidade : null,
       frases_exemplo: String(item.frases || '').split('\n').filter(Boolean).slice(0, 20)
     }));
   if (!mensagem || !disponiveis.length) return { intencao: null, argumento: '' };
@@ -32,7 +33,7 @@ async function classificar(texto, intencoes, deps = {}) {
           'Considere os nomes, descrições e exemplos fornecidos. ' +
           'Selecione exclusivamente a chave de UMA intenção disponível, quando o pedido corresponder claramente à descrição. ' +
           'Caso não corresponda, escolha null. Não crie intenções ou ações. ' +
-          'Para a ação localizar_cliente, extraia somente o nome do cliente mencionado, sem palavras de comando. ' +
+          'Para a ação localizar_cliente, ou para intenção de entidade clientes, extraia somente o nome do cliente mencionado, sem palavras de comando. ' +
           'Se o nome não foi informado, use argumento vazio. ' +
           'Nunca invente nomes ou informações. Responda apenas JSON válido: ' +
           '{"chave":string|null,"argumento":string}.'
