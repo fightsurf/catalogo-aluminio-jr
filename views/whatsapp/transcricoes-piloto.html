@@ -60,6 +60,7 @@ body.modal-aberto{overflow:hidden}
   <nav class="tabs" aria-label="Áreas do assistente">
     <button id="aba-mensagens" type="button" aria-selected="true">Mensagens recebidas</button>
     <button id="aba-intencoes" type="button" aria-selected="false">Intenções administrativas</button>
+    <button id="aba-acoes" type="button" aria-selected="false">Cadastro de ações</button>
   </nav>
   <section id="painel-mensagens" aria-label="Mensagens recebidas">
     <div id="lista" aria-live="polite">
@@ -76,6 +77,17 @@ body.modal-aberto{overflow:hidden}
       </div>
       <p id="status-intencoes" class="notice" role="status"></p>
       <div id="lista-intencoes"></div>
+    </div>
+  </section>
+  <section id="painel-acoes" hidden aria-label="Cadastro de ações">
+    <div class="panel">
+      <div class="panel-heading">
+        <h2>Ações cadastradas</h2>
+        <div class="actions"><button id="nova-acao" type="button">+ Nova Ação</button></div>
+      </div>
+      <p class="field-help">Escolha a entidade, os campos e o modelo da resposta. Nenhum comando SQL é aceito nesta tela.</p>
+      <p id="status-acoes" class="notice" role="status"></p>
+      <div id="lista-acoes"></div>
     </div>
   </section>
 </main>
@@ -103,6 +115,41 @@ body.modal-aberto{overflow:hidden}
       <div class="actions">
         <button type="submit" id="salvar-intencao">Salvar intenção</button>
         <button id="cancelar-modal" type="button">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>
+<div id="modal-acao" class="modal-backdrop" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="titulo-acao">
+    <button id="fechar-acao" type="button" class="modal-fechar" aria-label="Fechar cadastro de ação">&times;</button>
+    <h2 id="titulo-acao">Nova ação</h2>
+    <form id="form-acao">
+      <input type="hidden" id="acao-id">
+      <div class="field"><label for="acao-nome">Nome da ação</label>
+        <input id="acao-nome" required maxlength="120" placeholder="Ex.: Listar últimos pedidos"></div>
+      <div class="field"><label for="acao-entidade">Entidade do sistema</label>
+        <select id="acao-entidade" required></select></div>
+      <div class="field"><label for="acao-filtro">Filtro da consulta</label>
+        <select id="acao-filtro" required></select></div>
+      <div class="field"><label for="acao-ordenacao">Ordenação</label>
+        <select id="acao-ordenacao" required></select></div>
+      <div class="field"><label for="acao-limite">Quantidade máxima de resultados (1 a 10)</label>
+        <input id="acao-limite" type="number" min="1" max="10" required value="5"></div>
+      <div class="field"><label>Campos disponíveis para retorno</label>
+        <div id="acao-campos" class="links-options" role="group" aria-label="Campos da entidade"></div></div>
+      <div class="field"><label for="acao-cabecalho">Cabeçalho da mensagem</label>
+        <textarea id="acao-cabecalho" maxlength="900"></textarea></div>
+      <div class="field"><label for="acao-item">Modelo de cada resultado</label>
+        <textarea id="acao-item" required maxlength="1500"></textarea>
+        <small class="field-help">Use {{campo}}, {{indice}}, {{cliente.nome}}, {{termo}} ou {{quantidade}}.
+        Cada resultado será separado por uma linha em branco.</small></div>
+      <div class="field"><label for="acao-vazio">Mensagem sem resultados</label>
+        <textarea id="acao-vazio" maxlength="400">Nenhum resultado encontrado.</textarea></div>
+      <label class="checkline"><input id="acao-ativa" type="checkbox" checked> Ação ativa</label>
+      <p id="modal-acao-status" class="notice" role="alert" hidden></p>
+      <div class="actions">
+        <button id="salvar-acao" type="submit">Salvar ação</button>
+        <button id="cancelar-acao" type="button">Cancelar</button>
       </div>
     </form>
   </div>
@@ -194,8 +241,10 @@ body.modal-aberto{overflow:hidden}
 
   const abaMensagens = document.getElementById('aba-mensagens');
   const abaIntencoes = document.getElementById('aba-intencoes');
+  const abaAcoes = document.getElementById('aba-acoes');
   const painelMensagens = document.getElementById('painel-mensagens');
   const painelIntencoes = document.getElementById('painel-intencoes');
+  const painelAcoes = document.getElementById('painel-acoes');
   const modalIntencao = document.getElementById('modal-intencao');
   const modalStatus = document.getElementById('modal-status');
   const botaoSalvar = document.getElementById('salvar-intencao');
@@ -211,17 +260,27 @@ body.modal-aberto{overflow:hidden}
   const statusIntencoes = document.getElementById('status-intencoes');
   let intencoes = [];
   let rotulosAcoes = {};
+  let acoes = [];
+  let entidades = {};
   function alternar(qual) {
     const intencao = qual === 'intencoes';
-    painelMensagens.hidden = intencao;
+    const acao = qual === 'acoes';
+    painelMensagens.hidden = intencao || acao;
     painelIntencoes.hidden = !intencao;
-    abaMensagens.setAttribute('aria-selected', String(!intencao));
+    painelAcoes.hidden = !acao;
+    abaMensagens.setAttribute('aria-selected', String(!intencao && !acao));
     abaIntencoes.setAttribute('aria-selected', String(intencao));
+    abaAcoes.setAttribute('aria-selected', String(acao));
     if (!intencao) fecharModal();
-    if (intencao) carregarIntencoes();
+    if (!acao) fecharModalAcao();
+    if (intencao) carregarAcoes().then(carregarIntencoes).catch(e => {
+      statusIntencoes.textContent = e.message;
+    });
+    if (acao) carregarAcoes().catch(e => { document.getElementById('status-acoes').textContent = e.message; });
   }
   abaMensagens.addEventListener('click', () => alternar('mensagens'));
   abaIntencoes.addEventListener('click', () => alternar('intencoes'));
+  abaAcoes.addEventListener('click', () => alternar('acoes'));
   let focoAnterior = null;
   function limparFormulario() {
     form.reset();
@@ -266,7 +325,7 @@ body.modal-aberto{overflow:hidden}
       campoId.value = item.id;
       campoNome.value = item.nome;
       campoDescricao.value = item.descricao || '';
-      campoAcao.value = item.acao;
+      campoAcao.value = item.acao === 'configurada' ? 'configurada:' + item.acao_id : item.acao;
       campoFrases.value = item.frases;
       campoAtiva.checked = item.ativo;
       document.getElementById('titulo-formulario').textContent = 'Editar intenção administrativa';
@@ -334,7 +393,10 @@ body.modal-aberto{overflow:hidden}
       resumo.className = 'muted';
       const nomesProximas = (item.proximas_intencoes || []).map(Number)
         .map(id => intencoes.find(i => Number(i.id) === id)?.nome).filter(Boolean);
-      resumo.textContent = 'Ação: ' + (rotulosAcoes[item.acao] || item.acao) +
+      const acaoNome = item.acao === 'configurada' ?
+        (acoes.find(a => Number(a.id) === Number(item.acao_id))?.nome || 'Ação cadastrada indisponível') :
+        (rotulosAcoes[item.acao] || item.acao);
+      resumo.textContent = 'Ação: ' + acaoNome +
         ' | Descrição: ' + (item.descricao || 'Sem descrição') +
         ' | Próximas: ' + (nomesProximas.length ? nomesProximas.join(' → ') : 'Nenhuma') +
         ' | Exemplos: ' + item.frases.replace(/\n/g, ' · ');
@@ -373,7 +435,11 @@ body.modal-aberto{overflow:hidden}
   form.addEventListener('submit', async evento => {
     evento.preventDefault();
     const id = campoId.value;
-    const dados = { nome: campoNome.value, descricao: campoDescricao.value, acao: campoAcao.value, frases: campoFrases.value,
+    const valorAcao = campoAcao.value;
+    const dados = { nome: campoNome.value, descricao: campoDescricao.value,
+      acao: valorAcao.startsWith('configurada:') ? 'configurada' : valorAcao,
+      acao_id: valorAcao.startsWith('configurada:') ? Number(valorAcao.split(':')[1]) : null,
+      frases: campoFrases.value,
       ativo: campoAtiva.checked,
       proximas_intencoes: Array.from(campoProximas.querySelectorAll('input:checked'), c => Number(c.value)) };
     modalStatus.hidden = false;
@@ -390,6 +456,155 @@ body.modal-aberto{overflow:hidden}
     } finally {
       botaoSalvar.disabled = false;
     }
+  });
+
+
+  const modalAcao = document.getElementById('modal-acao');
+  const formAcao = document.getElementById('form-acao');
+  const acaoId = document.getElementById('acao-id');
+  const acaoNome = document.getElementById('acao-nome');
+  const acaoEntidade = document.getElementById('acao-entidade');
+  const acaoFiltro = document.getElementById('acao-filtro');
+  const acaoOrdenacao = document.getElementById('acao-ordenacao');
+  const acaoLimite = document.getElementById('acao-limite');
+  const acaoCampos = document.getElementById('acao-campos');
+  const acaoCabecalho = document.getElementById('acao-cabecalho');
+  const acaoItem = document.getElementById('acao-item');
+  const acaoVazio = document.getElementById('acao-vazio');
+  const acaoAtiva = document.getElementById('acao-ativa');
+  const modalAcaoStatus = document.getElementById('modal-acao-status');
+  const statusAcoes = document.getElementById('status-acoes');
+  const listaAcoes = document.getElementById('lista-acoes');
+  function opcao(select, valor, rotulo) {
+    const item=document.createElement('option');
+    item.value=valor; item.textContent=rotulo; select.appendChild(item);
+  }
+  function sincronizarEntidade(item) {
+    const entidade=entidades[acaoEntidade.value];
+    acaoFiltro.replaceChildren();
+    acaoOrdenacao.replaceChildren();
+    acaoCampos.replaceChildren();
+    if(!entidade)return;
+    for(const filtro of entidade.filtros) opcao(acaoFiltro,filtro.id,filtro.nome);
+    for(const ordem of entidade.ordenacoes) opcao(acaoOrdenacao,ordem.id,ordem.nome);
+    for(const campo of entidade.campos){
+      const label=document.createElement('label');
+      const checkbox=document.createElement('input');
+      checkbox.type='checkbox';checkbox.value=campo.id;
+      checkbox.checked=item?item.campos.includes(campo.id):true;
+      const nome=document.createElement('span');nome.textContent=campo.nome+' ('+campo.id+')';
+      label.append(checkbox,nome);acaoCampos.appendChild(label);
+    }
+    if(item){
+      acaoFiltro.value=item.filtro;
+      acaoOrdenacao.value=item.ordenacao;
+    }else if(acaoEntidade.value==='clientes'){
+      acaoCabecalho.value='Clientes encontrados para "{{termo}}":';
+      acaoItem.value='{{indice}}. *{{nome}}*\nCidade: {{cidade}}/{{uf}}\nTelefone: {{telefone}}';
+      acaoVazio.value='Nenhum cliente encontrado para "{{termo}}".';
+    }else{
+      acaoCabecalho.value='Últimos pedidos de *{{cliente.nome}}*:';
+      acaoItem.value='{{indice}}. *Pedido {{numero}}*\nData: {{data}}\nValor: {{total}}\nSituação: {{situacao}}';
+      acaoVazio.value='Nenhum pedido encontrado para {{cliente.nome}}.';
+    }
+  }
+  function fecharModalAcao(){
+    if(modalAcao.hidden)return;
+    modalAcao.hidden=true;
+    document.body.classList.remove('modal-aberto');
+  }
+  function abrirModalAcao(item){
+    formAcao.reset();
+    acaoId.value=item?.id||'';
+    acaoNome.value=item?.nome||'';
+    acaoEntidade.replaceChildren();
+    for(const [id,def] of Object.entries(entidades)) opcao(acaoEntidade,id,def.nome);
+    acaoEntidade.value=item?.entidade||'clientes';
+    sincronizarEntidade(item);
+    acaoLimite.value=item?.limite||5;
+    acaoAtiva.checked=item?.ativo!==false;
+    if(item){
+      acaoCabecalho.value=item.cabecalho;
+      acaoItem.value=item.item;
+      acaoVazio.value=item.vazio;
+    }
+    document.getElementById('titulo-acao').textContent=item?'Editar ação':'Nova ação';
+    modalAcaoStatus.hidden=true;modalAcaoStatus.textContent='';
+    modalAcao.hidden=false;
+    document.body.classList.add('modal-aberto');
+    acaoNome.focus();
+  }
+  acaoEntidade.addEventListener('change',()=>sincronizarEntidade(null));
+  document.getElementById('nova-acao').addEventListener('click',()=>abrirModalAcao());
+  document.getElementById('fechar-acao').addEventListener('click',fecharModalAcao);
+  document.getElementById('cancelar-acao').addEventListener('click',fecharModalAcao);
+  modalAcao.addEventListener('click',ev=>{if(ev.target===modalAcao)fecharModalAcao();});
+  modalAcao.addEventListener('keydown',ev=>{if(ev.key==='Escape')fecharModalAcao();});
+  function atualizarOpcoesAcoes(){
+    campoAcao.querySelectorAll('[data-configurada]').forEach(el=>el.remove());
+    for(const acao of acoes){
+      if(!acao.ativo)continue;
+      const o=document.createElement('option');
+      o.value='configurada:'+acao.id;
+      o.textContent=acao.nome+' ('+entidades[acao.entidade]?.nome+')';
+      o.dataset.configurada='1';
+      campoAcao.appendChild(o);
+    }
+  }
+  function desenharAcoes(){
+    listaAcoes.replaceChildren();
+    if(!acoes.length){listaAcoes.textContent='Nenhuma ação cadastrada. Clique em + Nova Ação.';return;}
+    for(const a of acoes){
+      const linha=document.createElement('div');linha.className='intencao';
+      const titulo=document.createElement('strong');
+      titulo.textContent=a.nome+(a.ativo?' — Ativa':' — Inativa');
+      const info=document.createElement('p');info.className='muted';
+      info.textContent='Entidade: '+(entidades[a.entidade]?.nome||a.entidade)+
+        ' | Filtro: '+a.filtro+' | Limite: '+a.limite+' | Campos: '+a.campos.join(', ');
+      const botoes=document.createElement('div');botoes.className='actions';
+      const editar=document.createElement('button');editar.type='button';editar.textContent='Editar';
+      editar.onclick=()=>abrirModalAcao(a);
+      const excluir=document.createElement('button');excluir.type='button';excluir.textContent='Excluir';
+      excluir.onclick=async()=>{
+        if(!confirm('Excluir a ação '+a.nome+'?'))return;
+        try{
+          await requisitar('/whatsapp/transcricoes/acoes/'+a.id,{method:'DELETE'});
+          await carregarAcoes();
+        }catch(e){statusAcoes.textContent=e.message;}
+      };
+      botoes.append(editar,excluir);linha.append(titulo,info,botoes);listaAcoes.appendChild(linha);
+    }
+  }
+  async function carregarAcoes(){
+    if(!Object.keys(entidades).length){
+      const r=await requisitar('/whatsapp/transcricoes/acoes/catalogo');
+      entidades=r.entidades||{};
+    }
+    const r=await requisitar('/whatsapp/transcricoes/acoes');
+    acoes=Array.isArray(r.dados)?r.dados:[];
+    atualizarOpcoesAcoes();
+    desenharAcoes();
+    statusAcoes.textContent=acoes.length+' ação(ões) cadastrada(s).';
+  }
+  formAcao.addEventListener('submit',async ev=>{
+    ev.preventDefault();
+    const id=acaoId.value;
+    const dados={
+      nome:acaoNome.value,entidade:acaoEntidade.value,filtro:acaoFiltro.value,
+      ordenacao:acaoOrdenacao.value,limite:Number(acaoLimite.value),
+      campos:Array.from(acaoCampos.querySelectorAll('input:checked'),x=>x.value),
+      cabecalho:acaoCabecalho.value,item:acaoItem.value,vazio:acaoVazio.value,
+      ativo:acaoAtiva.checked
+    };
+    modalAcaoStatus.hidden=false;modalAcaoStatus.textContent='Salvando ação...';
+    const salvar=document.getElementById('salvar-acao');salvar.disabled=true;
+    try{
+      await requisitar('/whatsapp/transcricoes/acoes'+(id?'/'+id:''),{
+        method:id?'PUT':'POST',body:JSON.stringify(dados)
+      });
+      fecharModalAcao();await carregarAcoes();
+    }catch(e){modalAcaoStatus.textContent=e.message;}
+    finally{salvar.disabled=false;}
   });
 
   // O servidor envia eventos quando novas mensagens chegam ou mudam de estado.
