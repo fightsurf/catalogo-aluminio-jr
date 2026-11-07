@@ -83,9 +83,11 @@ body.modal-aberto{overflow:hidden}
       <input type="hidden" id="intencao-id">
       <div class="field"><label for="intencao-nome">Nome da intenção</label>
         <input id="intencao-nome" required maxlength="120" placeholder="Ex.: Localizar cliente"></div>
+      <div class="field"><label for="intencao-descricao">Descrição da intenção (enviada à IA)</label>
+        <textarea id="intencao-descricao" required minlength="12" maxlength="800" placeholder="Explique quando a IA deve reconhecer esta intenção. Ex.: Localiza clientes pelo nome ou parte do nome, sem alterar cadastros."></textarea></div>
       <div class="field"><label for="intencao-acao">Ação do sistema</label>
         <select id="intencao-acao"><option value="localizar_cliente">Localizar cliente (somente consulta)</option></select></div>
-      <div class="field"><label for="intencao-frases">Frases de reconhecimento (uma por linha)</label>
+      <div class="field"><label for="intencao-frases">Frases de exemplo para a IA (uma por linha)</label>
         <textarea id="intencao-frases" required placeholder="localize cliente&#10;localizar cliente"></textarea></div>
       <label class="checkline"><input type="checkbox" id="intencao-ativa" checked> Intenção ativa</label>
       <p id="modal-status" class="notice" role="alert" hidden></p>
@@ -147,6 +149,17 @@ body.modal-aberto{overflow:hidden}
       }
       meta.append(phone, quando, pill);
       item.append(meta, fala);
+      if (r.intencaoStatus === 'nao_reconhecida') {
+        const aviso = document.createElement('p');
+        aviso.className = 'muted';
+        aviso.textContent = 'IA: nenhuma intenção administrativa identificada.';
+        item.appendChild(aviso);
+      } else if (r.intencaoStatus === 'identificada') {
+        const aviso = document.createElement('p');
+        aviso.className = 'resposta';
+        aviso.textContent = 'IA: intenção identificada — ' + (r.intencao || r.acao || 'comando administrativo');
+        item.appendChild(aviso);
+      }
       if (r.resposta) {
         const resposta = document.createElement('p');
         resposta.className = 'resposta';
@@ -176,6 +189,7 @@ body.modal-aberto{overflow:hidden}
   const campoId = document.getElementById('intencao-id');
   const campoNome = document.getElementById('intencao-nome');
   const campoAcao = document.getElementById('intencao-acao');
+  const campoDescricao = document.getElementById('intencao-descricao');
   const campoFrases = document.getElementById('intencao-frases');
   const campoAtiva = document.getElementById('intencao-ativa');
   const listaIntencoes = document.getElementById('lista-intencoes');
@@ -206,6 +220,7 @@ body.modal-aberto{overflow:hidden}
     if (item) {
       campoId.value = item.id;
       campoNome.value = item.nome;
+      campoDescricao.value = item.descricao || '';
       campoAcao.value = item.acao;
       campoFrases.value = item.frases;
       campoAtiva.checked = item.ativo;
@@ -270,7 +285,7 @@ body.modal-aberto{overflow:hidden}
       titulo.textContent = item.nome + (item.ativo ? ' — Ativa' : ' — Inativa');
       const resumo = document.createElement('p');
       resumo.className = 'muted';
-      resumo.textContent = 'Ação: ' + item.acao + ' | Frases: ' + item.frases.replace(/\n/g, ' · ');
+      resumo.textContent = 'Ação: ' + item.acao + ' | Descrição: ' + (item.descricao || 'Sem descrição') + ' | Exemplos: ' + item.frases.replace(/\n/g, ' · ');
       const comandos = document.createElement('div');
       comandos.className = 'actions';
       const editar = document.createElement('button');
@@ -305,7 +320,7 @@ body.modal-aberto{overflow:hidden}
   form.addEventListener('submit', async evento => {
     evento.preventDefault();
     const id = campoId.value;
-    const dados = { nome: campoNome.value, acao: campoAcao.value, frases: campoFrases.value,
+    const dados = { nome: campoNome.value, descricao: campoDescricao.value, acao: campoAcao.value, frases: campoFrases.value,
       ativo: campoAtiva.checked };
     modalStatus.hidden = false;
     modalStatus.textContent = 'Salvando intenção...';
