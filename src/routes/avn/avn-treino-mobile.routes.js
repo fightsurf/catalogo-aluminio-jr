@@ -12,7 +12,7 @@ const dificuldadeReady=pool.query("ALTER TABLE public.avn_treino_execucao_evento
 dificuldadeReady.catch(e=>console.error('[AVN treino Android] Falha ao habilitar dificuldade',e.message));
 
 const hidratacao=require('./avn-hidratacao.routes');
-const admin=express.Router(), mobile=express.Router();
+const admin=express.Router(), mobile=express.Router(), execRoutes=express.Router();
 const digest=s=>crypto.createHash('sha256').update(s).digest('hex');
 const err=(message,status=400)=>Object.assign(new Error(message),{status});
 const wrap=fn=>async(req,res)=>{try{await fn(req,res);}catch(e){console.error('[AVN treino Android]',e.status||500,e.message);res.status(e.status||500).json({erro:e.status?e.message:'Falha interna nos treinos Android.'});}};
@@ -96,7 +96,7 @@ mobile.get('/midias/:id',wrap(async(req,res)=>{
    res.type('png').set('Cache-Control','private,max-age=86400').send(png);
   }else res.set('Cache-Control','private,max-age=86400').sendFile(file);
 }));
-mobile.post('/execucoes',wrap(async(req,res)=>{
+execRoutes.post('/execucoes',wrap(async(req,res)=>{
  const b=req.body||{};
  if(!uuid(b.execucao_id)||!validId(b.plano_id))throw err('ID de execução/plano inválido.');
  const day=number(b.dia_semana,0,6,'Dia');
@@ -121,7 +121,7 @@ mobile.post('/execucoes',wrap(async(req,res)=>{
  res.status(inserted?201:200).json({ok:true,criada:inserted});
 }));
 // Cancelar não é finalizar: apaga toda a execução e memoriza somente o UUID para impedir reenvios offline.
-mobile.post('/execucoes/:id/cancelar',wrap(async(req,res)=>{
+execRoutes.post('/execucoes/:id/cancelar',wrap(async(req,res)=>{
  const id=req.params.id;if(!uuid(id))throw err('Execução inválida.');
  const client=await pool.connect();
  try{
@@ -137,7 +137,7 @@ mobile.post('/execucoes/:id/cancelar',wrap(async(req,res)=>{
   res.json({ok:true,descartado:true});
  }catch(e){await client.query('ROLLBACK').catch(()=>{});throw e;}finally{client.release();}
 }));
-mobile.post('/execucoes/:id/eventos',wrap(async(req,res)=>{
+execRoutes.post('/execucoes/:id/eventos',wrap(async(req,res)=>{
  await ensureCarga();
  const id=req.params.id,items=req.body?.eventos;if(!uuid(id)||!Array.isArray(items)||items.length<1||items.length>50)throw err('Eventos inválidos.');
  const c=await pool.connect();try{
@@ -175,10 +175,18 @@ mobile.post('/execucoes/:id/eventos',wrap(async(req,res)=>{
   await c.query('COMMIT');res.json({ok:true,inseridos:inserted,duplicados:dup});
  }catch(e){await c.query('ROLLBACK').catch(()=>{});if(e.code==='23505')throw err('Série já registrada com outro identificador.',409);throw e;}finally{c.release();}
 }));
-mobile.get('/execucoes/:id',wrap(async(req,res)=>{
+execRoutes.get('/execucoes/:id',wrap(async(req,res)=>{
  await ensureCarga();
  if(!uuid(req.params.id))throw err('Execução inválida.');
- const x=await pool.query('SELECT id,plano_id,dia_semana,iniciada_em,finalizada_em,status FROM public.avn_treino_execucoes WHERE id=$1 AND usuario_id=$2',[req.params.id,req.avnm.usuario_id]);if(!x.rowCount)throw err('Execução não encontrada.',404);
+ const x=await pool.query('SELECT id,plano_id,dia_semana,iniciada_em,finalizada_em,status,snapshot_exercicios FROM public.avn_treino_execucoes WHERE id=$1 AND usuario_id=$2',[req.params.id,req.avnm.usuario_id]);if(!x.rowCount)throw err('Execução não encontrada.',404);
  const events=await pool.query('SELECT id,tipo,exercicio_id,posicao_exercicio,numero_serie,carga_kg,carga_unidade,carga_placas,repeticoes,rir,descanso_seg,ocorrido_em FROM public.avn_treino_execucao_eventos WHERE execucao_id=$1 ORDER BY ocorrido_em,id',[req.params.id]);res.json({...x.rows[0],eventos:events.rows});
 }));
+// A Web autenticada utiliza os mesmos validadores e eventos do Android.
+mobile.use(execRoutes);
+admin.use('/web',(req,res,next)=>{
+ const usuario=req.method==='GET'?req.query.usuario_id:req.body?.usuario_id;
+ if(!validId(usuario))return res.status(400).json({erro:'Selecione um usuário válido.'});
+ req.avnm={usuario_id:Number(usuario)};
+ next();
+},execRoutes);
 module.exports={admin,mobile};
