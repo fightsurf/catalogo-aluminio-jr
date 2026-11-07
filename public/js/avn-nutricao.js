@@ -89,12 +89,18 @@ function resumoMetaDupla(itens,descricao){
   const sem=a.count>0&&a.miss[key]===a.count;
   const excedeu=valid&&!sem&&a.total[key]>Number(goal);
   const alerta=excedeu?'<span class="avn-meta-aviso" role="img" aria-label="Meta ultrapassada" title="Meta ultrapassada"> ⚠️</span>':'';
+  // Exibe o saldo somente quando há meta e pelo menos um valor nutricional conhecido.
+  const precisao=key==='kcal'?0:1;
+  const diferenca=valid&&!sem?Math.round((Number(goal)-a.total[key])*Math.pow(10,precisao))/Math.pow(10,precisao):null;
+  const mensagemSaldo=diferenca===null?'':diferenca>0?'faltam '+fmt(diferenca,precisao)+' '+unit:
+    diferenca<0?'excedeu '+fmt(-diferenca,precisao)+' '+unit:'meta atingida';
+  const saldo=mensagemSaldo?'<small class="avn-dieta-saldo"> ('+mensagemSaldo+(a.miss[key]?' · parcial':'')+')</small>':'';
   return '<div class="avn-dieta-macro-coluna"><div class="stat avn-dieta-meta'+(excedeu?' avn-meta-excedida':'')+'">'+
    '<small class="avn-dieta-card-titulo">Minha meta · '+esc(label)+'</small><strong>'+
    (valid?fmt(Number(goal),key==='kcal'?0:1)+' '+unit:statusDasMetas())+alerta+'</strong></div>'+
    '<div class="stat avn-dieta-planejado'+(excedeu?' avn-meta-excedida':'')+'"><small class="avn-dieta-card-titulo">'+esc(descricao)+' · '+esc(label)+'</small><strong>'+
    '<a href="#" class="avn-dieta-ranking-link" data-ranking-diario="'+esc(key)+'" aria-label="Classificar alimentos consumidos por '+esc(label.toLowerCase())+'">'+
-    (sem?'Sem dado':fmt(a.total[key],key==='kcal'?0:1)+' '+unit)+'</a>'+alerta+'</strong>'+
+    (sem?'Sem dado':fmt(a.total[key],key==='kcal'?0:1)+' '+unit)+'</a>'+saldo+alerta+'</strong>'+
    (a.miss[key]&&!sem?'<small class="avn-dieta-card-nota">Valores incompletos em alguns alimentos.</small>':'')+'</div></div>';
  }).join('');
 }
