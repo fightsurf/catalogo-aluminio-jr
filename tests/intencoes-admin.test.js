@@ -205,3 +205,67 @@ test('wizard valida número fora da lista e permite nova busca', async () => {
   assert.equal(recomecar.acao,'localizar_cliente');
   assert.match(recomecar.resposta,/Responda com um número/);
 });
+
+
+test('wizard consulta cinco últimos pedidos do cliente selecionado, por número ou frase', async () => {
+  const telefone = '5583988776655';
+  const enviados = []; const consultados = [];
+  const origem = { ...intencoes[0], proximas_intencoes: [2] };
+  const ultimos = { id:2, chave:'ultimos_pedidos_cliente', nome:'Localizar últimos pedidos',
+    descricao:'Mostra os cinco pedidos mais recentes do cliente selecionado.',
+    acao:'ultimos_pedidos_cliente', ativo:true, frases:'últimos pedidos\nconsultar pedidos' };
+  const deps = {
+    listarIntencoes:async()=>[origem,ultimos],
+    classificar:async frase=>frase.startsWith('localize')
+      ? {intencao:origem,argumento:'Maria'}
+      : {intencao:ultimos,argumento:''},
+    listarClientes:async()=>[{favorecido:77,nome:'Maria de Souza',cidade:'Sousa',uf:'PB',
+      telefonePrincipal:'83999990000'}],
+    listarPedidosPorCliente:async id=>{
+      consultados.push(id);
+      return {dados:[
+        {numero:100,data:'2026-10-01',total:200},
+        {numero:106,data:'2026-11-06',total:1500.5},
+        {numero:105,data:'2026-11-05',total:55,cancelado:true},
+        {numero:104,data:'2026-11-04',total:75},
+        {numero:103,data:'2026-11-03',total:95},
+        {numero:102,data:'2026-11-02',total:115}
+      ]};
+    },
+    enviar:async({mensagem})=>enviados.push(mensagem)
+  };
+  await admin.processarMensagem({telefone,texto:'localize cliente Maria',permitido:true},deps);
+  const selecionado = await admin.processarMensagem({telefone,texto:'1',permitido:true},deps);
+  assert.match(selecionado.resposta,/1\. Localizar últimos pedidos/);
+  const pedidos = await admin.processarMensagem({telefone,texto:'1',permitido:true},deps);
+  assert.equal(pedidos.acao,'ultimos_pedidos_cliente');
+  assert.deepEqual(consultados,[77]);
+  assert.match(pedidos.resposta,/1\. \*Pedido 106\*\nData: 06\/11\/2026\nValor: R\$ 1\.500,50/);
+  assert.match(pedidos.resposta,/Situação: Cancelado/);
+  assert.doesNotMatch(pedidos.resposta,/Pedido 100/);
+  assert.equal((pedidos.resposta.match(/\*Pedido/g)||[]).length,5);
+  const porVoz = await admin.processarMensagem({
+    telefone,texto:'Mostre os últimos pedidos desse cliente',permitido:true
+  },deps);
+  assert.equal(porVoz.acao,'ultimos_pedidos_cliente');
+  assert.deepEqual(consultados,[77,77]);
+  assert.equal(enviados.length,4);
+});
+
+test('não consulta pedidos sem cliente selecionado', async () => {
+  const telefone='5583988776600';
+  const ultimos = { id:2, chave:'ultimos_pedidos_cliente', nome:'Localizar últimos pedidos',
+    descricao:'Consulta últimos pedidos do cliente selecionado.', acao:'ultimos_pedidos_cliente',
+    ativo:true, frases:'últimos pedidos' };
+  let consultou=false;
+  const r = await admin.processarMensagem({
+    telefone,texto:'últimos pedidos',permitido:true
+  },{
+    listarIntencoes:async()=>[intencoes[0],ultimos],
+    classificar:async()=>({intencao:ultimos,argumento:''}),
+    listarPedidosPorCliente:async()=>{consultou=true;return{dados:[]};},
+    enviar:async()=>{}
+  });
+  assert.match(r.resposta,/Primeiro localize e selecione um cliente/);
+  assert.equal(consultou,false);
+});
