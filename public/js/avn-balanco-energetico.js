@@ -26,6 +26,12 @@ const conf={
 const metricas=['saldo','ingestao','tmb','passos','calorias_ativas'];
 const fisicas=['peso','gordura_corporal','massa_magra','agua_corporal','massa_ossea'];
 const nutricao=['proteinas','carboidratos','agua_ingerida'];
+// Mesmas cores usadas no painel nutricional. Metas em gramas vêm de Minhas metas.
+const macrosDiarios=[
+ {key:'proteinas',campo:'proteinas_g',nome:'Proteínas consumidas',cor:'#60a5fa'},
+ {key:'carboidratos',campo:'carboidratos_g',nome:'Carboidratos consumidos',cor:'#fbbf24'},
+ {key:'gorduras',campo:'gorduras_g',nome:'Gorduras consumidas',cor:'#a78bfa'}
+];
 let seq=0,resultadoAtual=null,usuarios=[],comparacao=null,compareSeq=0,resizeHandle=null;
 const svg=(root,tag,attrs={},txt)=>{const e=document.createElementNS(NS,tag);for(const [k,v] of Object.entries(attrs))e.setAttribute(k,String(v));if(txt!==undefined)e.textContent=String(txt);root.append(e);return e;};
 function svgRoot(W,H,label){const el=document.createElementNS(NS,'svg');el.setAttribute('viewBox','0 0 '+W+' '+H);el.setAttribute('role','img');el.setAttribute('aria-label',label);return el;}
@@ -121,12 +127,108 @@ function pintarDiarios(dias,selecionado){
    :'Kcal líquidas estimadas sob cada ponto. No dia escolhido: '+fmt(e.valor,1)+' kcal de '+fmt(e.passos_considerados)+' passos considerados, sem duplicar intervalos de treino.';
  preencherResumo(selecionado);
 }
+
+function limparGraficosMacros(){
+ for(const m of macrosDiarios){
+  $('valor-'+m.key).textContent='—';
+  $('nota-'+m.key).textContent='Consultando o Diário Alimentar e Minhas metas…';
+  $('grafico-'+m.key).replaceChildren();
+ }
+}
+function datasMacros(fim,quantidade=7){
+ const base=Date.parse(fim+'T12:00:00Z');
+ return Array.from({length:quantidade},(_,i)=>new Date(base-(quantidade-i-1)*86400000).toISOString().slice(0,10));
+}
+function desenharGraficoMacro(m,registros,meta,fim,erro){
+ const area=$('grafico-'+m.key),valor=$('valor-'+m.key),nota=$('nota-'+m.key);
+ area.replaceChildren();
+ if(erro){valor.textContent='Sem dados';nota.textContent=erro;area.textContent='Não foi possível carregar este histórico.';return;}
+ const datas=datasMacros(fim),porData=new Map();
+ for(const registro of Array.isArray(registros)?registros:[]){
+  if(datas.includes(registro.data)&&has(registro.value)&&Number(registro.value)>=0)
+   porData.set(registro.data,Number(registro.value));
+ }
+ const numeros=[...porData.values()];
+ const alvo=has(meta)&&Number(meta)>=0?Number(meta):null;
+ const diaAtual=porData.get(fim);
+ valor.textContent=diaAtual===undefined?'Sem registro no dia':fmt(diaAtual,1)+' g';
+ nota.textContent=alvo===null
+  ?'Meta não definida em Minhas metas. '+(numeros.length?'':'Sem consumo registrado neste período.')
+  :'Meta atual: '+fmt(alvo,1)+' g/dia · área hachurada: referência visual de ±5% da meta'+(numeros.length?'.':'. Sem consumo registrado neste período.');
+ if(!numeros.length&&alvo===null){area.textContent='Sem consumo registrado ou meta definida para este indicador.';return;}
+ const W=650,H=282,L=62,R=23,T=32,B=63;
+ const baixo=alvo===null?null:alvo*.95,alto=alvo===null?null:alvo*1.05;
+ const numerosEscala=[...numeros,...(alvo===null?[]:[baixo,alvo,alto])];
+ const {min,max}=ranges(numerosEscala,true);
+ const px=i=>L+(datas.length===1?.5:i/(datas.length-1))*(W-L-R);
+ const py=v=>T+(max-v)/(max-min)*(H-T-B);
+ const root=svgRoot(W,H,m.nome+' por dia, em gramas, com meta nutricional hachurada');
+ // A banda não modifica a meta cadastrada: a linha tracejada marca seu valor exato.
+ if(alvo!==null){
+  const defs=svg(root,'defs');
+  const id='hatch-'+m.key;
+  const pattern=svg(defs,'pattern',{id,width:9,height:9,patternUnits:'userSpaceOnUse',patternTransform:'rotate(45)'});
+  svg(pattern,'line',{x1:0,y1:0,x2:0,y2:9,stroke:'#fbbf24','stroke-width':3,opacity:.55});
+  const a=py(alto),b=py(baixo),altura=Math.abs(b-a);
+  const yInicio=Math.max(T,Math.min(a,b)-(altura<7?3:0));
+  const yFim=Math.min(H-B,Math.max(a,b)+(altura<7?3:0));
+  const faixa={x:L,y:yInicio,width:W-L-R,height:Math.max(3,yFim-yInicio),'pointer-events':'none'};
+  svg(root,'rect',{...faixa,fill:'#fbbf24',opacity:.14});
+  svg(root,'rect',{...faixa,fill:'url(#'+id+')'});
+ }
+ for(let j=0;j<=4;j++){
+  const y=T+(H-T-B)*j/4;
+  svg(root,'line',{x1:L,x2:W-R,y1:y,y2:y,stroke:'#33455f'});
+  svg(root,'text',{x:L-8,y:y+4,'text-anchor':'end',fill:'#afbfda','font-size':11},fmt(max-(max-min)*j/4,1));
+ }
+ if(alvo!==null){
+  const y=py(alvo);
+  svg(root,'line',{x1:L,x2:W-R,y1:y,y2:y,stroke:'#fbbf24','stroke-width':2,'stroke-dasharray':'6 4'});
+  svg(root,'text',{x:W-R-5,y:Math.max(T+12,Math.min(H-B-8,y-8)),'text-anchor':'end','font-size':11,'font-weight':700,fill:'#fbbf24'},'Meta: '+fmt(alvo,1)+' g');
+ }
+ svg(root,'line',{x1:L,x2:L,y1:T,y2:H-B,stroke:'#91a5c2'});
+ svg(root,'line',{x1:L,x2:W-R,y1:H-B,y2:H-B,stroke:'#91a5c2'});
+ svg(root,'text',{x:10,y:17,'font-size':12,fill:'#c1d3e9'},'g');
+ svg(root,'text',{x:W-R,y:H-7,'text-anchor':'end','font-size':11,fill:'#c1d3e9'},'Data');
+ const pontos=datas.map((data,i)=>porData.has(data)?{x:px(i),y:py(porData.get(data)),v:porData.get(data),data}:null);
+ segmentos(root,pontos,m.cor); // Quebra a linha nos dias sem registro; não presume zero.
+ for(let i=0;i<datas.length;i++){
+  const data=datas[i],ativo=data===fim;
+  svg(root,'text',{x:px(i),y:H-B+22,'text-anchor':'middle','font-size':12,fill:ativo?'#fff':'#a9b9d1','font-weight':ativo?700:400},dataBR(data).slice(0,5));
+  const p=pontos[i];if(!p)continue;
+  const circle=svg(root,'circle',{cx:p.x,cy:p.y,r:ativo?6:4.5,fill:m.cor,stroke:ativo?'#fff':'#182437','stroke-width':ativo?2:1.5,role:'button',tabindex:0});
+  const detalhe=dataBR(data)+' — '+fmt(p.v,2)+' g'+(alvo===null?'':' · Meta atual: '+fmt(alvo,2)+' g');
+  svg(circle,'title',{},detalhe);
+  circle.setAttribute('aria-label',detalhe+'; selecionar data');
+  const selecionar=()=>{if($('data').value!==data){$('data').value=data;atualizar();}};
+  circle.addEventListener('click',selecionar);
+  circle.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();selecionar();}});
+ }
+ area.append(root);
+}
+async function carregarGraficosMacros(token,usuario,dia){
+ const base='/avn/sistema/api/';
+ const [consumo,metas]=await Promise.allSettled([
+  getJson(base+'balanco-energetico/nutricao-comparacao/'+encodeURIComponent(usuario)+'?data='+dia+'&dias=7'),
+  getJson(base+'nutricao/metas/'+encodeURIComponent(usuario))
+ ]);
+ if(token!==seq||$('usuario').value!==usuario||$('data').value!==dia)return;
+ const erroConsumo=consumo.status==='rejected'?(consumo.reason?.message||'Falha na consulta nutricional.'):null;
+ const metasAtuais=metas.status==='fulfilled'?metas.value:{};
+ for(const m of macrosDiarios){
+  desenharGraficoMacro(m,consumo.status==='fulfilled'?consumo.value.series?.[m.key]:[],metasAtuais?.[m.campo],dia,erroConsumo);
+  if(metas.status==='rejected'&&!erroConsumo)
+   $('nota-'+m.key).textContent='Não foi possível consultar Minhas metas; a linha de referência não foi exibida.';
+ }
+}
+
 function limpar(){
  for(const chave of metricas){$('valor-'+chave).textContent='—';$('grafico-'+chave).replaceChildren();}
  $('saldo').className='saldo';$('saldo-valor').textContent='—';$('saldo-descricao').textContent='Não foi possível consultar os dados.';$('saldo-formula').textContent='';
 }
 async function atualizar(){
  const current=++seq,user=$('usuario').value,day=$('data').value;
+ limparGraficosMacros();
  if(!user||!day){$('mensagem').textContent='Selecione usuário e data.';return;}
  $('mensagem').textContent='Carregando gráficos…';
  try{
@@ -137,6 +239,7 @@ async function atualizar(){
   resultadoAtual=r;
   pintarDiarios(r.dias,selected);
   $('mensagem').textContent='Dados de '+dataBR(day)+' · selecione os pontos para consultar outros dias.';
+  carregarGraficosMacros(current,user,day);
   if($('compare-dialog').open)await carregarComparacao();
  }catch(err){if(current===seq){resultadoAtual=null;limpar();$('mensagem').textContent=err.message;}}
 }
