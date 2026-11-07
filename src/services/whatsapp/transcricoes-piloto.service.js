@@ -249,17 +249,24 @@ async function processarFila() {
       try {
         registro.texto = await transcrever(tarefa);
         registro.status = 'concluida';
+        registro.intencaoStatus = 'classificando';
+        notificarMensagens();
         // Só o número já autenticado pelo piloto pode disparar intenções administrativas.
         try {
           const resultado = await intencoesAdmin.processarMensagem({
             telefone: registro.telefone, texto: registro.texto, permitido: true
           });
           if (resultado.reconhecido) {
+            registro.intencaoStatus = 'identificada';
+            registro.intencao = resultado.intencao || resultado.acao;
             registro.acao = resultado.acao;
             registro.resposta = resultado.resposta;
+          } else {
+            registro.intencaoStatus = 'nao_reconhecida';
           }
         } catch (erroComando) {
-          registro.erroComando = 'Não foi possível processar a intenção administrativa.';
+          registro.intencaoStatus = 'erro';
+          registro.erroComando = 'Falha ao classificar, consultar ou enviar a resposta administrativa. Confira os logs do servidor.';
           console.error('[Intenções administrativas] Falha de consulta ou envio:', erroComando.message);
         }
       } catch (falha) {
