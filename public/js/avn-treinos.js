@@ -226,16 +226,224 @@ async function treinoPlanos(){
  const r=$('conteudo');
  if(!planId){r.innerHTML='<div class="avn-registrar-centered card"><h2>Nenhum programa ativo</h2><button class="btn" id="verHistoricoSemPlano">Ver histórico recente</button></div>';$('verHistoricoSemPlano').onclick=abrirHistoricoTreinos;return;}
  await carregarTreino(planId);
- r.innerHTML=`<div class="avn-registrar-centered"><section class="card stack"><div class="avn-action-header"><h2>Selecionar treino</h2><button type="button" class="btn" id="verHistoricoTreinos">Ver histórico recente</button></div><label class="label">Plano<select id="selectPlano">${state.planos.map(p=>`<option value="${p.id}" ${String(p.id)===String(planId)?'selected':''}>${esc(p.nome)}</option>`).join('')}</select></label><label class="label">Dia<select id="selectDia">${NOMES.map((n,i)=>`<option value="${i}">${n}</option>`).join('')}</select></label><div id="treinoItens"></div><label class="label">Observações da sessão<textarea id="sessaoObs" maxlength="1000"></textarea></label><button id="salvarSessao" class="btn primary">Registrar sessão realizada</button></section></div>`;
+ r.innerHTML=`<div class="avn-registrar-centered"><section class="card stack"><div class="avn-action-header"><h2>Selecionar treino</h2><button type="button" class="btn" id="verHistoricoTreinos">Ver histórico recente</button></div><label class="label">Plano<select id="selectPlano">${state.planos.map(p=>`<option value="${p.id}" ${String(p.id)===String(planId)?'selected':''}>${esc(p.nome)}</option>`).join('')}</select></label><label class="label">Dia<select id="selectDia">${NOMES.map((n,i)=>`<option value="${i}">${n}</option>`).join('')}</select></label><div class="avn-exec-launch"><button type="button" id="iniciarExecucaoWeb" class="btn primary">▶ Iniciar treino pela Web</button><button type="button" id="retomarExecucaoWeb" class="btn primary" hidden>↻ Retomar treino em andamento</button><small>Realize séries, descansos e trocas de exercícios em um único modal, com histórico compartilhado com o Android.</small></div><div id="treinoItens"></div><label class="label">Observações da sessão<textarea id="sessaoObs" maxlength="1000"></textarea></label><button id="salvarSessao" class="btn primary">Registrar sessão realizada</button></section></div>`;
  $('verHistoricoTreinos').onclick=abrirHistoricoTreinos;
- $('selectPlano').onchange=async()=>{try{await carregarTreino($('selectPlano').value);$('selectDia').value=String(state.treinoDia);renderTreinoItens();}catch(e){toast(e.message,true);}};
- $('selectDia').onchange=()=>{state.treinoDia=Number($('selectDia').value);renderTreinoItens();};
+ $('iniciarExecucaoWeb').onclick=()=>iniciarExecucaoWeb().catch(e=>toast(e.message,true));
+ $('retomarExecucaoWeb').onclick=()=>retomarExecucaoWeb().catch(e=>toast(e.message,true));
+ $('selectPlano').onchange=async()=>{try{await carregarTreino($('selectPlano').value);$('selectDia').value=String(state.treinoDia);renderTreinoItens();await buscarExecucaoWeb();}catch(e){toast(e.message,true);}};
+ $('selectDia').onchange=()=>{state.treinoDia=Number($('selectDia').value);renderTreinoItens();buscarExecucaoWeb().catch(e=>toast(e.message,true));};
  $('salvarSessao').onclick=salvarSessao;
- $('selectDia').value=String(state.treinoDia);renderTreinoItens();
+ $('selectDia').value=String(state.treinoDia);renderTreinoItens();await buscarExecucaoWeb();
 }
+
+/* Execução Web: eventos idênticos aos usados pelo AVN Android; um único modal para todo o fluxo. */
+let webExec=null,webExecPendente=null,webTimer=null,webAvisoDescanso=false;
+const webUuid=()=>crypto.randomUUID();
+const webAPI=(uri,data,method='POST')=>fetchJSON('/mobile/web'+uri,method==='GET'?{}:{method,body:JSON.stringify({usuario_id:Number(state.usuarioId),...data})});
+const webEvento=async(tipo,extra={})=>{
+ if(!webExec)throw Error('Nenhuma execução aberta.');
+ const evento=webExec.eventoPendente||{id:webUuid(),tipo,ocorrido_em:new Date().toISOString(),...extra};
+ if(evento.tipo!==tipo)throw Error('Existe um evento anterior aguardando confirmação.');
+ webExec.eventoPendente=evento;
+ await webAPI('/execucoes/'+webExec.id+'/eventos',{eventos:[evento]});
+ webExec.eventoPendente=null;
+};
+function webItensPlano(){
+ const d=state.treino?.dias.find(x=>Number(x.dia_semana)===Number(state.treinoDia));
+ return d?.exercicios||[];
+}
+function webSerieTotal(item){return Math.min(30,Math.max(1,Number(item?.series)||3));}
+function webRestante(item){return Math.min(3600,Math.max(0,Number(item?.descanso_seg)||0));}
+function webChave(){return 'avn_execucao_web_'+state.usuarioId;}
+async function buscarExecucaoWeb(){
+ const start=$('iniciarExecucaoWeb'),resume=$('retomarExecucaoWeb');
+ if(!start||!resume)return;
+ const currentPlano=String(state.treino?.id||''),currentDia=Number(state.treinoDia);
+ const sessoes=await fetchJSON('/mobile/execucoes?usuario_id='+encodeURIComponent(state.usuarioId));
+ if(!start.isConnected||String(state.treino?.id||'')!==currentPlano||Number(state.treinoDia)!==currentDia)return;
+ webExecPendente=sessoes.find(x=>x.status!=='finalizada'&&String(x.plano_id)===currentPlano&&Number(x.dia_semana)===currentDia)||null;
+ start.hidden=!!webExecPendente;
+ resume.hidden=!webExecPendente;
+ start.disabled=!webItensPlano().length;
+ resume.textContent=webExecPendente?'↻ Retomar treino em andamento · '+webExecPendente.series_concluidas+' séries':'↻ Retomar treino';
+}
+function webMontarExecucao(id,itens){
+ webExec={id,itens,indice:0,etapa:'serie',concluidas:{},pulados:new Set(),descansoAte:0,eventoPendente:null,ocupado:false,comeco:Date.now()};
+}
+async function iniciarExecucaoWeb(){
+ if(webExecPendente)return retomarExecucaoWeb();
+ const itens=webItensPlano().map(x=>({...x}));if(!itens.length)throw Error('Este dia não possui exercícios.');
+ if(!window.crypto?.randomUUID)throw Error('O navegador precisa de conexão HTTPS para iniciar o treino.');
+ const id=webUuid();
+ await webAPI('/execucoes',{execucao_id:id,plano_id:Number(state.treino.id),dia_semana:Number(state.treinoDia),snapshot_exercicios:itens.map(x=>Number(x.exercicio_id)),iniciada_em:new Date().toISOString()});
+ webMontarExecucao(id,itens);
+ localStorage.setItem(webChave(),JSON.stringify({id,indice:0}));
+ await webEvento('TREINO_INICIADO');
+ webAbrirModal();await buscarExecucaoWeb();
+}
+async function retomarExecucaoWeb(){
+ const pend=webExecPendente;
+ if(!pend)throw Error('Nenhum treino em andamento para este dia.');
+ const d=await fetchJSON('/mobile/web/execucoes/'+pend.id+'?usuario_id='+encodeURIComponent(state.usuarioId));
+ if(d.status==='finalizada'){await buscarExecucaoWeb();throw Error('Este treino já foi finalizado.');}
+ const mapa=new Map(webItensPlano().map(x=>[Number(x.exercicio_id),x]));
+ const itens=(d.snapshot_exercicios||[]).map(id=>mapa.get(Number(id))||{exercicio_id:Number(id),exercicio_nome:buscarNome(id),series:3,repeticoes:'10',descanso_seg:60,carga_unidade:'kg'});
+ if(!itens.length)throw Error('Execução sem exercícios.');
+ webMontarExecucao(d.id,itens);
+ webExec.comeco=new Date(d.iniciada_em).getTime();
+ let descanso=null;
+ for(const ev of d.eventos||[]){
+  if(ev.tipo==='SERIE_CONCLUIDA'){const p=Number(ev.posicao_exercicio)-1;webExec.concluidas[p]=Math.max(webExec.concluidas[p]||0,Number(ev.numero_serie)||0);}
+  if(ev.tipo==='EXERCICIO_PULADO')webExec.pulados.add(Number(ev.posicao_exercicio)-1);
+  if(ev.tipo==='DESCANSO_INICIADO')descanso=ev;
+  if(ev.tipo==='DESCANSO_FINALIZADO')descanso=null;
+ }
+ const loc=JSON.parse(localStorage.getItem(webChave())||'null');
+ const indice=loc?.id===d.id?Number(loc.indice):-1;
+ webExec.indice=Number.isInteger(indice)&&indice>=0&&indice<itens.length?indice:itens.findIndex((x,i)=>!webExec.pulados.has(i)&&(webExec.concluidas[i]||0)<webSerieTotal(x));
+ if(webExec.indice<0)webExec.indice=0;
+ if(descanso&&!webExec.pulados.has(webExec.indice)){
+  webExec.descansoAte=new Date(descanso.ocorrido_em).getTime()+Number(descanso.descanso_seg||0)*1000;
+  webExec.etapa='descanso';
+ }else webExec.etapa=(webExec.concluidas[webExec.indice]||0)>=webSerieTotal(itens[webExec.indice])?'proximo':'serie';
+ webAbrirModal();
+}
+function webSalvarPosicao(){
+ if(webExec)localStorage.setItem(webChave(),JSON.stringify({id:webExec.id,indice:webExec.indice}));
+}
+function webModal(){
+ let modal=$('avn-modal-execucao');
+ if(!modal){modal=document.createElement('dialog');modal.id='avn-modal-execucao';modal.className='avn-dialog-execucao';document.body.appendChild(modal);
+  modal.addEventListener('cancel',ev=>{ev.preventDefault();webFecharModal();});
+ }
+ return modal;
+}
+function webAbrirModal(){
+ const modal=webModal();
+ if(!modal.open)modal.showModal();
+ webRender();
+ if(webTimer)clearInterval(webTimer);
+ webAvisoDescanso=false;
+ webTimer=setInterval(webAtualizarRelogios,500);
+}
+function webFecharModal(){
+ if(webTimer)clearInterval(webTimer);webTimer=null;
+ const modal=$('avn-modal-execucao');
+ if(modal?.open)modal.close();
+ webExec=null;
+ buscarExecucaoWeb().catch(()=>{});
+}
+function webSomFim(){
+ try{const AudioContext=window.AudioContext||window.webkitAudioContext;if(!AudioContext)return;
+  const ctx=new AudioContext(),osc=ctx.createOscillator(),gain=ctx.createGain();
+  osc.type='sine';osc.frequency.value=880;gain.gain.value=.12;osc.connect(gain);gain.connect(ctx.destination);
+  osc.start();osc.stop(ctx.currentTime+.18);osc.onended=()=>ctx.close();
+ }catch(_){}
+}
+function webAtualizarRelogios(){
+ if(!webExec)return;
+ const rel=$('webTempoTotal');if(rel){const sec=Math.max(0,Math.floor((Date.now()-webExec.comeco)/1000));rel.textContent=String(Math.floor(sec/60)).padStart(2,'0')+':'+String(sec%60).padStart(2,'0');}
+ const r=$('webTempoDescanso');if(r){
+  const faltam=Math.max(0,Math.ceil((webExec.descansoAte-Date.now())/1000));
+  r.textContent=String(Math.floor(faltam/60)).padStart(2,'0')+':'+String(faltam%60).padStart(2,'0');
+  if(faltam===0&&!webAvisoDescanso){webAvisoDescanso=true;webSomFim();const msg=$('webDescansoMensagem');if(msg)msg.textContent='Descanso concluído. Pode avançar.';}
+ }
+}
+function webProximoIndice(direcao=1){
+ const n=webExec.itens.length;for(let j=1;j<=n;j++){const k=(webExec.indice+direcao*j+n*2)%n;
+  if(!webExec.pulados.has(k)&&(webExec.concluidas[k]||0)<webSerieTotal(webExec.itens[k]))return k;}
+ return -1;
+}
+function webTrocarIndice(indice){
+ if(!webExec||indice<0||indice>=webExec.itens.length)return;
+ webExec.indice=indice;
+ webExec.etapa=webExec.pulados.has(indice)||(webExec.concluidas[indice]||0)>=webSerieTotal(webExec.itens[indice])?'proximo':'serie';
+ webSalvarPosicao();webRender();
+}
+function webRender(){
+ const w=webExec,m=webModal();if(!w)return;
+ const item=w.itens[w.indice],feitas=w.concluidas[w.indice]||0,total=webSerieTotal(item),terminado=w.pulados.has(w.indice)||feitas>=total;
+ const todas=w.itens.reduce((a,x,i)=>a+Math.min(webSerieTotal(x),w.concluidas[i]||0),0);
+ const alvo=w.itens.reduce((a,x)=>a+webSerieTotal(x),0);
+ const ex=state.exercicios.find(x=>Number(x.id)===Number(item.exercicio_id))||item;
+ const nome=item.exercicio_nome||buscarNome(item.exercicio_id);
+ const unidade=item.carga_unidade==='placas'?'placas':'kg';
+ const valor=unidade==='placas'?(item.carga_placas??''):(item.carga_kg??'');
+ const reps=/\d+/.exec(String(item.repeticoes||''))?.[0]||'10';
+ const options=w.itens.map((x,i)=>'<option value="'+i+'" '+(i===w.indice?'selected':'')+'>'+esc((i+1)+'. '+(x.exercicio_nome||buscarNome(x.exercicio_id))+' · '+(w.concluidas[i]||0)+'/'+webSerieTotal(x))+'</option>').join('');
+ const duracao=w.etapa==='descanso'?'<div class="web-rest"><span>DESCANSO</span><strong id="webTempoDescanso">00:00</strong><p id="webDescansoMensagem">Recupere a respiração antes da próxima série.</p><button type="button" class="btn primary" id="webEncerrarDescanso">Encerrar descanso</button></div>':'';
+ const form=w.etapa==='serie'&&!terminado?'<div class="web-fields"><label>Repetições feitas<input id="webRepeticoes" type="number" min="0" max="1000" value="'+esc(reps)+'"></label><label>Unidade<select id="webUnidade"><option value="kg" '+(unidade==='kg'?'selected':'')+'>kg</option><option value="placas" '+(unidade==='placas'?'selected':'')+'>Placas</option></select></label><label>Carga<input id="webCarga" type="number" step="'+(unidade==='kg'?'0.5':'1')+'" min="0" max="'+(unidade==='kg'?'2000':'200')+'" value="'+esc(valor)+'"></label><label>RIR<input id="webRir" type="number" min="0" max="10" placeholder="Opcional"></label></div><button type="button" class="btn primary web-main-action" id="webConcluirSerie">Concluir série '+(feitas+1)+' de '+total+'</button>':'';
+ const proximo=w.etapa==='proximo'||terminado?'<div class="web-next"><strong>Exercício concluído ou pulado.</strong><p>Escolha o próximo exercício ou finalize o treino.</p><button type="button" class="btn primary" id="webProximo">Próximo exercício →</button></div>':'';
+ m.innerHTML='<div class="web-modal-header"><div><small>EXECUÇÃO DE TREINO · '+esc(NOMES[state.treinoDia])+'</small><h2>'+esc(state.treino.nome)+'</h2><span>Tempo: <b id="webTempoTotal">00:00</b> · Séries concluídas: '+todas+'/'+alvo+'</span></div><button class="btn" type="button" id="webFechar" aria-label="Fechar e continuar depois">Fechar ×</button></div><div class="web-progress"><div style="width:'+Math.min(100,Math.round(100*todas/Math.max(1,alvo)))+'%"></div></div><label class="web-choose">Trocar exercício<select id="webEscolher">'+options+'</select></label><section class="web-focus"><div class="web-media">'+media(ex,true)+'</div><div><small>Exercício '+(w.indice+1)+' de '+w.itens.length+'</small><h3>'+esc(nome)+'</h3><p>Série '+Math.min(feitas+1,total)+' de '+total+' · Previsto: '+esc(item.repeticoes)+' repetições · '+webRestante(item)+' s de descanso</p></div></section>'+duracao+form+proximo+'<div class="web-footer"><button type="button" class="btn" id="webAnterior">← Anterior</button><button type="button" class="btn" id="webAvancar">Próximo →</button><button type="button" class="btn" id="webPular">Pular exercício</button><button type="button" class="btn" id="webFinalizar">Finalizar treino</button><button type="button" class="btn danger" id="webCancelar">Cancelar treino</button></div><p class="web-save-hint">Séries e descansos são salvos automaticamente. Fechar mantém o treino em andamento para retomar depois.</p>';
+ m.querySelector('#webFechar').onclick=webFecharModal;
+ m.querySelector('#webEscolher').onchange=e=>webAcao(async()=>{if(w.etapa==='descanso')await webEncerrarDescanso();webTrocarIndice(Number(e.target.value));});
+ m.querySelector('#webAnterior').onclick=()=>webMover(-1);
+ m.querySelector('#webAvancar').onclick=()=>webMover(1);
+ m.querySelector('#webPular').onclick=()=>webAcao(webPular);
+ m.querySelector('#webFinalizar').onclick=()=>webAcao(webFinalizar);
+ m.querySelector('#webCancelar').onclick=()=>webAcao(webCancelar);
+ if(m.querySelector('#webEncerrarDescanso'))m.querySelector('#webEncerrarDescanso').onclick=()=>webAcao(webEncerrarDescanso);
+ if(m.querySelector('#webConcluirSerie'))m.querySelector('#webConcluirSerie').onclick=()=>webAcao(webConcluirSerie);
+ if(m.querySelector('#webProximo'))m.querySelector('#webProximo').onclick=()=>webMover(1);
+ const unidadeEl=m.querySelector('#webUnidade');
+ if(unidadeEl)unidadeEl.onchange=()=>{const c=$('webCarga');c.value='';c.max=unidadeEl.value==='kg'?'2000':'200';c.step=unidadeEl.value==='kg'?'0.5':'1';};
+ webAtualizarRelogios();
+}
+async function webAcao(fn){
+ if(!webExec||webExec.ocupado)return;
+ webExec.ocupado=true;for(const el of webModal().querySelectorAll('button,select'))el.disabled=true;
+ try{await fn();}catch(e){toast(e.message,true);if(webExec)webRender();}
+ finally{if(webExec){webExec.ocupado=false;for(const el of webModal().querySelectorAll('button,select'))el.disabled=false;}}
+}
+function webMover(direcao){webAcao(async()=>{if(webExec.etapa==='descanso')await webEncerrarDescanso();const indice=webProximoIndice(direcao);if(indice<0){webExec.etapa='proximo';webRender();toast('Todas as séries previstas foram concluídas ou puladas.');}else webTrocarIndice(indice);});}
+async function webConcluirSerie(){
+ const w=webExec,i=w.indice,item=w.itens[i],num=(w.concluidas[i]||0)+1;
+ const reps=Number($('webRepeticoes').value),u=$('webUnidade').value,cRaw=$('webCarga').value,c=cRaw===''?null:Number(cRaw),rirRaw=$('webRir').value;
+ if(!Number.isInteger(reps)||reps<0||reps>1000)throw Error('Informe repetições entre 0 e 1000.');
+ if(c!==null&&(!Number.isFinite(c)||c<0||c>(u==='kg'?2000:200)||(u==='placas'&&!Number.isInteger(c))))throw Error('Carga inválida.');
+ const rir=rirRaw===''?null:Number(rirRaw);
+ if(rir!==null&&(!Number.isInteger(rir)||rir<0||rir>10))throw Error('RIR deve estar entre 0 e 10.');
+ await webEvento('SERIE_CONCLUIDA',{exercicio_id:Number(item.exercicio_id),posicao_exercicio:i+1,numero_serie:num,repeticoes:reps,carga_unidade:u,carga_kg:u==='kg'?c:null,carga_placas:u==='placas'?c:null,rir});
+ w.concluidas[i]=num;item.carga_unidade=u;item.carga_kg=u==='kg'?c:null;item.carga_placas=u==='placas'?c:null;item.repeticoes=String(reps);
+ const descanso=webRestante(item);
+ if(num<webSerieTotal(item)&&descanso>0){
+  await webEvento('DESCANSO_INICIADO',{exercicio_id:Number(item.exercicio_id),posicao_exercicio:i+1,descanso_seg:descanso});
+  w.descansoAte=Date.now()+descanso*1000;w.etapa='descanso';webAvisoDescanso=false;
+ }else w.etapa=num>=webSerieTotal(item)?'proximo':'serie';
+ webRender();
+}
+async function webEncerrarDescanso(){
+ const w=webExec,item=w.itens[w.indice];
+ if(w.etapa!=='descanso')return;
+ await webEvento('DESCANSO_FINALIZADO',{exercicio_id:Number(item.exercicio_id),posicao_exercicio:w.indice+1,descanso_seg:Math.min(3600,Math.max(0,Math.round((Date.now()-(w.descansoAte-webRestante(item)*1000))/1000)))});
+ w.etapa=(w.concluidas[w.indice]||0)>=webSerieTotal(item)?'proximo':'serie';
+ w.descansoAte=0;webRender();
+}
+async function webPular(){
+ const w=webExec,item=w.itens[w.indice];
+ if(!confirm('Pular este exercício? Você poderá voltar a ele depois.'))return;
+ if(w.etapa==='descanso')await webEncerrarDescanso();
+ await webEvento('EXERCICIO_PULADO',{exercicio_id:Number(item.exercicio_id),posicao_exercicio:w.indice+1});
+ w.pulados.add(w.indice);
+ const next=webProximoIndice();if(next>=0)webTrocarIndice(next);else{w.etapa='proximo';webRender();}
+}
+async function webFinalizar(){
+ const w=webExec;
+ const faltam=w.itens.some((x,i)=>!w.pulados.has(i)&&(w.concluidas[i]||0)<webSerieTotal(x));
+ if(!confirm(faltam?'Há séries pendentes. Finalizar o treino mesmo assim?':'Finalizar e salvar este treino?'))return;
+ if(w.etapa==='descanso')await webEncerrarDescanso();
+ await webEvento('TREINO_FINALIZADO');
+ localStorage.removeItem(webChave());webFecharModal();toast('Treino finalizado e salvo no histórico Web/Android.');
+}
+async function webCancelar(){
+ if(!confirm('Cancelar e APAGAR toda a execução deste treino?'))return;
+ await webAPI('/execucoes/'+webExec.id+'/cancelar',{});
+ localStorage.removeItem(webChave());webFecharModal();toast('Treino cancelado e descartado.');
+}
+
 function abrirHistoricoTreinos(){
  let modal=$('avn-modal-historico');if(!modal){modal=document.createElement('dialog');modal.id='avn-modal-historico';modal.className='avn-dialog';document.body.appendChild(modal);}
- modal.innerHTML='<div class="avn-dialog-header"><h2>Histórico recente</h2><button class="btn ghost" id="fecharHistorico">Fechar ×</button></div><h3>Treinos registrados na web</h3><div id="historico" class="list-rows">Carregando...</div><h3>Treinos do Android</h3><div id="historicoAvnAndroid" class="list-rows"></div>';
+ modal.innerHTML='<div class="avn-dialog-header"><h2>Histórico recente</h2><button class="btn ghost" id="fecharHistorico">Fechar ×</button></div><h3>Treinos registrados na web</h3><div id="historico" class="list-rows">Carregando...</div><h3>Treinos executados no Android ou na Web</h3><div id="historicoAvnAndroid" class="list-rows"></div>';
  modal.querySelector('#fecharHistorico').onclick=()=>modal.close();
  if(!modal.open)modal.showModal();
  renderHistorico();renderHistoricoAndroid();
@@ -244,10 +452,10 @@ async function renderHistoricoAndroid(){
  const area=$('historicoAvnAndroid');if(!area)return;
  try{
   const sessoes=await fetchJSON('/mobile/execucoes?usuario_id='+state.usuarioId);if(!area.isConnected)return;
-  area.innerHTML=sessoes.length?sessoes.map(s=>`<div class="plan"><div><strong>${esc(s.plano_nome)}</strong><small>${esc(NOMES[s.dia_semana])} · ${esc(new Date(s.iniciada_em).toLocaleString('pt-BR'))} · ${esc(s.series_concluidas)} séries · ${esc(s.status)}</small></div><div class="row"><button type="button" class="btn small" data-android-ver="${esc(s.id)}">Detalhes</button><button type="button" class="btn danger small" data-android-del="${esc(s.id)}" ${s.status==='finalizada'?'':'disabled title="Apenas treinos finalizados"'}>Excluir</button></div></div>`).join(''):'<p class="hint">Nenhum treino Android registrado.</p>';
-  area.querySelectorAll('[data-android-del]').forEach(b=>b.onclick=async()=>{if(!confirm('Excluir permanentemente este treino realizado no Android?'))return;try{await fetchJSON('/mobile/execucoes/'+b.dataset.androidDel,{method:'DELETE',body:JSON.stringify({usuario_id:state.usuarioId})});await renderHistoricoAndroid();toast('Registro do Android excluído.');}catch(e){toast(e.message,true);}});
+  area.innerHTML=sessoes.length?sessoes.map(s=>`<div class="plan"><div><strong>${esc(s.plano_nome)}</strong><small>${esc(NOMES[s.dia_semana])} · ${esc(new Date(s.iniciada_em).toLocaleString('pt-BR'))} · ${esc(s.series_concluidas)} séries · ${esc(s.status)}</small></div><div class="row"><button type="button" class="btn small" data-android-ver="${esc(s.id)}">Detalhes</button><button type="button" class="btn danger small" data-android-del="${esc(s.id)}" ${s.status==='finalizada'?'':'disabled title="Apenas treinos finalizados"'}>Excluir</button></div></div>`).join(''):'<p class="hint">Nenhum treino executado registrado.</p>';
+  area.querySelectorAll('[data-android-del]').forEach(b=>b.onclick=async()=>{if(!confirm('Excluir permanentemente esta execução de treino?'))return;try{await fetchJSON('/mobile/execucoes/'+b.dataset.androidDel,{method:'DELETE',body:JSON.stringify({usuario_id:state.usuarioId})});await renderHistoricoAndroid();toast('Execução excluída.');}catch(e){toast(e.message,true);}});
   area.querySelectorAll('[data-android-ver]').forEach(b=>b.onclick=async()=>{try{const d=await fetchJSON('/mobile/execucoes/'+b.dataset.androidVer);alert(d.eventos.map(e=>e.tipo+' · Série '+(e.numero_serie||'-')+' · '+formatCarga(e)).join('\n'));}catch(e){toast(e.message,true);}});
- }catch(e){if(area.isConnected)area.textContent='Histórico Android indisponível: '+e.message;}
+ }catch(e){if(area.isConnected)area.textContent='Histórico de execuções indisponível: '+e.message;}
 }
 async function configurarAndroidNoRegistro(){
  const card=document.querySelector('#conteudo .grid-2 > section:nth-child(2)');
@@ -276,6 +484,7 @@ function renderTreinoItens(){
  root.innerHTML=itens.length?`<div class="stack">${itens.map((i,n)=>{const ex=state.exercicios.find(e=>Number(e.id)===Number(i.exercicio_id))||i;return `<div class="item avn-workout-card avn-workout-session-card" data-realizado="${n}"><div class="avn-workout-visual">${media(ex,true)}</div><div class="avn-workout-details"><strong>${esc(i.exercicio_nome||buscarNome(i.exercicio_id))}</strong><small>Previsto: ${i.series} × ${esc(i.repeticoes)}</small><div class="fields"><label>Séries feitas<input type="number" class="ses-series" min="0" max="30" value="${i.series}"></label><label>Repetições feitas<input class="ses-reps" maxlength="30" value="${esc(i.repeticoes)}"></label><label>Unidade<select class="ses-unidade"><option value="kg" ${i.carga_unidade!=='placas'?'selected':''}>kg</option><option value="placas" ${i.carga_unidade==='placas'?'selected':''}>Placas</option></select></label><label>Carga<input type="number" class="ses-carga" min="0" max="${i.carga_unidade==='placas'?200:2000}" step="${i.carga_unidade==='placas'?1:0.5}" value="${esc(i.carga_unidade==='placas'?(i.carga_placas??''):(i.carga_kg??''))}"></label></div><label class="label">Observação<input class="ses-obs" maxlength="500"></label></div></div>`}).join('')}</div>`:'<div class="empty">Este dia não possui exercícios.</div>';
  root.querySelectorAll('.ses-unidade').forEach(sel=>sel.addEventListener('change',()=>{const input=sel.closest('[data-realizado]').querySelector('.ses-carga');input.value='';input.max=sel.value==='placas'?'200':'2000';input.step=sel.value==='placas'?'1':'0.5';}));
  $('salvarSessao').disabled=!itens.length;
+ if($('iniciarExecucaoWeb'))$('iniciarExecucaoWeb').disabled=!itens.length;
 }
 async function renderHistorico(){
  const area=$('historico');if(!area)return;
