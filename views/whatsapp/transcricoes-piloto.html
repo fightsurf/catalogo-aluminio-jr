@@ -3,197 +3,104 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Áudios do WhatsApp • Alumínio JR</title>
+<title>Mensagens recebidas • Alumínio JR</title>
 <style>
-:root{color-scheme:dark;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}*{box-sizing:border-box}
+:root{color-scheme:dark;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+*{box-sizing:border-box}
 body{margin:0;min-height:100vh;background:#0b1320;color:#e7effc}
 .wrap{width:min(100%,1040px);margin:auto;padding:26px 22px 48px}
-.top{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;flex-wrap:wrap}
-.back{color:#a9caff;font-size:.91rem;text-decoration:none}
-h1{font-size:clamp(1.5rem,3vw,2rem);margin:13px 0 7px;letter-spacing:-.035em}
-.intro{color:#a9b9cf;margin:0;font-size:.98rem;line-height:1.55}
-.toolbar{display:flex;align-items:center;gap:12px;margin-top:8px}
-button{cursor:pointer;background:#1f4ea1;color:white;border:1px solid #4775c0;border-radius:9px;padding:10px 14px;font-size:.91rem}
-button:hover{background:#2865c5}button:focus-visible,.back:focus-visible{outline:3px solid #a9caff;outline-offset:2px}
-#atualizado{color:#8fa6c3;font-size:.83rem}
-.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:25px}
-.stat{padding:15px 18px;background:#121f31;border:1px solid #293b53;border-radius:12px}
-.stat .label{display:block;color:#9cb0cb;font-size:.83rem;margin-bottom:5px}.stat strong{font-size:1.13rem}
-.note{background:#19273b;border:1px solid #38516c;padding:12px 15px;border-radius:11px;color:#bfcfe5;font-size:.88rem;line-height:1.5;margin:18px 0 0}
-h2{font-size:1.08rem;margin:27px 0 13px}#lista{display:grid;gap:12px}.diag-list{display:grid;gap:8px}.diag-row{padding:10px 14px;border-radius:10px;background:#111f30;border:1px solid #2a3c55;font-size:.88rem;line-height:1.6;color:#b9c9de}.diag-row strong{color:#e7effc}.diag-tip{font-size:.86rem;color:#94b4d5}
+h1{font-size:clamp(1.4rem,3vw,1.85rem);letter-spacing:-.035em;margin:0 0 22px}
+#lista{display:grid;gap:12px}
 .item{background:#131f30;border:1px solid #2a3c55;border-radius:13px;padding:18px}
 .meta{display:flex;align-items:center;gap:10px 18px;flex-wrap:wrap;color:#a9bbd1;font-size:.84rem}
-.phone{color:#f1f5fe;font-weight:650}.pill{padding:4px 9px;border:1px solid #5a6980;border-radius:99px;font-size:.79rem}
-.pill.concluida{border-color:#3c9f84;color:#80dfbb}.pill.processando,.pill.pendente{border-color:#c1964d;color:#fbd187}
+.phone{color:#f1f5fe;font-weight:650}
+.pill{padding:4px 9px;border:1px solid #5a6980;border-radius:99px;font-size:.79rem}
+.pill.concluida{border-color:#3c9f84;color:#80dfbb}
+.pill.processando,.pill.pendente{border-color:#c1964d;color:#fbd187}
 .pill.erro{border-color:#b75d6c;color:#ffadba}
 .transcricao{white-space:pre-wrap;overflow-wrap:anywhere;margin:14px 0 0;font-size:1.05rem;line-height:1.6}
-.muted{color:#99adc7}.error{color:#ffb2bd}
+.muted{color:#99adc7}
+.error{color:#ffb2bd}
 .empty{border:1px dashed #3a4b61;background:#121f30;color:#a8bcd5;border-radius:13px;padding:38px 22px;text-align:center;line-height:1.6}
-@media(max-width:620px){.wrap{padding:19px 14px 35px}.stats{grid-template-columns:1fr;gap:8px}.stat{padding:12px 14px}.toolbar{width:100%;justify-content:space-between}}
+@media(max-width:620px){.wrap{padding:19px 14px 35px}.item{padding:14px}}
 </style>
 </head>
 <body>
 <main class="wrap">
-  <header class="top">
-    <div>
-      <a class="back" href="/whatsapp/central-controle">← Central do WhatsApp</a>
-      <h1>Transcrição de áudios do WhatsApp</h1>
-      <p class="intro">Piloto da Alumínio JR: áudio enviado pelo número autorizado aparece transcrito aqui.</p>
-    </div>
-    <div class="toolbar"><button type="button" id="atualizar">Atualizar agora</button><span id="atualizado">Aguardando...</span></div>
-  </header>
-  <section class="stats" aria-label="Resumo">
-    <div class="stat"><span class="label">Monitoramento</span><strong id="estado">Carregando...</strong></div>
-    <div class="stat"><span class="label">Áudios recebidos</span><strong id="total">0</strong></div>
-    <div class="stat"><span class="label">Transcrições concluídas</span><strong id="concluidas">0</strong></div>
-  </section>
-  <p class="note" id="nota">Carregando a situação do piloto...</p>
-  <p class="note" id="diagnostico">Conferindo recebimento do webhook...</p>
-  <p class="note" id="numeros-monitorados">Conferindo o número permitido...</p>
-  <section aria-label="Diagnóstico dos callbacks"><h2>Últimos eventos do webhook</h2><p class="diag-tip">Exibe apenas tipo e indicadores técnicos. Não exibe conteúdo, número de clientes, áudios nem credenciais.</p><div class="diag-list" id="eventos-webhook"></div></section>
-  <section aria-label="Mensagens recebidas">
-    <h2>Mensagens recebidas</h2>
-    <div id="lista" aria-live="polite"><div class="empty">Aguardando mensagens...</div></div>
-  </section>
+  <h1>Mensagens recebidas</h1>
+  <div id="lista" aria-live="polite">
+    <div class="empty">Carregando mensagens...</div>
+  </div>
 </main>
 <script>
 (() => {
   'use strict';
-  const $ = id => document.getElementById(id);
+  const lista = document.getElementById('lista');
   const labels = { pendente:'Na fila', processando:'Transcrevendo', concluida:'Transcrito', erro:'Falha' };
   let ultimaVersao = '';
-  let carregando = false;
+
   function horario(valor) {
-    try { return new Intl.DateTimeFormat('pt-BR', { dateStyle:'short', timeStyle:'medium' }).format(new Date(valor)); }
-    catch (_) { return 'Horário indisponível'; }
+    try {
+      return new Intl.DateTimeFormat('pt-BR', {
+        dateStyle:'short', timeStyle:'medium'
+      }).format(new Date(valor));
+    } catch (_) { return 'Horário indisponível'; }
   }
+
   function desenhar(registros) {
-    const lista = $('lista');
-    lista.replaceChildren();
+    const versao = JSON.stringify(registros);
+    if (versao === ultimaVersao) return;
+    ultimaVersao = versao;
+    const fragmento = document.createDocumentFragment();
     if (!registros.length) {
       const vazio = document.createElement('div');
       vazio.className = 'empty';
-      vazio.textContent = 'Nenhum áudio recebido ainda. Envie um áudio do WhatsApp autorizado para a instância da Alumínio JR.';
-      lista.appendChild(vazio);
-      return;
+      vazio.textContent = 'Nenhum áudio recebido ainda.';
+      fragmento.appendChild(vazio);
     }
     for (const r of registros) {
-      const item = document.createElement('article'); item.className = 'item';
-      const meta = document.createElement('div'); meta.className = 'meta';
-      const phone = document.createElement('span'); phone.className = 'phone'; phone.textContent = r.telefone || 'Número não informado';
-      const quando = document.createElement('time'); quando.textContent = horario(r.recebido_em);
-      const pill = document.createElement('span'); pill.className = 'pill ' + (labels[r.status] ? r.status : '');
+      const item = document.createElement('article');
+      item.className = 'item';
+      const meta = document.createElement('div');
+      meta.className = 'meta';
+      const phone = document.createElement('span');
+      phone.className = 'phone';
+      phone.textContent = r.telefone || 'Número não informado';
+      const quando = document.createElement('time');
+      quando.textContent = horario(r.recebido_em);
+      const pill = document.createElement('span');
+      pill.className = 'pill ' + (labels[r.status] ? r.status : '');
       pill.textContent = labels[r.status] || 'Recebido';
       const fala = document.createElement('p');
-      fala.className = 'transcricao' + (r.status === 'erro' ? ' error' : r.status !== 'concluida' ? ' muted' : '');
-      fala.textContent = r.status === 'concluida' ? r.texto : r.status === 'erro' ? r.erro : 'Aguardando texto da transcrição...';
+      fala.className = 'transcricao' +
+        (r.status === 'erro' ? ' error' : r.status !== 'concluida' ? ' muted' : '');
+      fala.textContent = r.status === 'concluida' ? r.texto :
+        r.status === 'erro' ? r.erro : 'Aguardando texto da transcrição...';
       if (r.origem === 'enviado_para_si') {
         const origem = document.createElement('span');
         origem.textContent = 'Conversa consigo mesmo';
-        meta.append(origem);
+        meta.appendChild(origem);
       }
-      meta.append(phone, quando, pill); item.append(meta, fala); lista.appendChild(item);
+      meta.append(phone, quando, pill);
+      item.append(meta, fala);
+      fragmento.appendChild(item);
     }
+    // Atualiza apenas esta lista; não consulta novamente e não recarrega a página.
+    lista.replaceChildren(fragmento);
   }
-  function desenharDiagnosticos(eventos) {
-    const lista = $('eventos-webhook');
-    lista.replaceChildren();
-    if (!eventos.length) {
-      const linha = document.createElement('div');
-      linha.className = 'diag-row';
-      linha.textContent = 'Nenhum callback desde a última inicialização do servidor.';
-      lista.appendChild(linha);
-      return;
-    }
-    for (const e of eventos) {
-      const linha = document.createElement('div');
-      linha.className = 'diag-row';
-      const destaque = document.createElement('strong');
-      destaque.textContent = horario(e.recebido_em) + ' · ' + e.tipo_mensagem + ' · ' + e.origem;
-      const detalhes = document.createElement('div');
-      const marcacao = valor => valor ? 'Sim' : 'Não';
-      detalhes.textContent = 'Tipo: ' + e.tipo_evento +
-        ' | Número autorizado: ' + marcacao(e.numero_autorizado) +
-        (e.identificador_lid ? ' (LID não resolvido)' : '') +
-        ' | Campo áudio: ' + marcacao(e.possui_audio) +
-        ' | Link de áudio: ' + marcacao(e.possui_url_audio) +
-        (e.dominio_midia ? ' | Domínio da mídia: ' + e.dominio_midia +
-          ' (' + (e.dominio_midia_na_lista ? 'na lista' : 'fora da lista') + ')' : '') +
-        ' | ID: ' + marcacao(e.id_mensagem) +
-        ' | Instância válida: ' + marcacao(e.instancia_confere) +
-        ' | ConnectedPhone informado: ' + marcacao(e.conectado_informado) +
-        ' | ConnectedPhone autorizado: ' + marcacao(e.conectado_autorizado) +
-        (e.conectado_equivalencia_sem_nono ? ' (equivalência BR sem o nono dígito)' : '') +
-        ' | Formato conectado: ' + (e.conectado_formato || 'desconhecido') +
-        (e.conectado_final
-          ? ' | ConnectedPhone final: ****' + e.conectado_final +
-            ' (' + e.conectado_digitos + ' dígitos)'
-          : '') +
-        (e.identificador_lid ? ' | Identificação LID: ' + ({
-          aguardando: 'Verificando...',
-          confirmado: 'Confirmado',
-          nao_elegivel: 'Evento não elegível',
-          telefone_conectado_nao_autorizado: 'Número conectado não autorizado',
-          lid_nao_confirmado: 'LID não corresponde ao número autorizado',
-          consulta_falhou: 'Falha/timeout ao consultar Z-API; confira ZAPI_URL e ZAPI_TOKEN',
-          evento_ignorado: 'Webhook descartado antes do piloto',
-          instancia_divergente: 'Instância diferente da autorizada',
-          conversa_coletiva: 'Grupo/canal não autorizado',
-          erro_inesperado: 'Falha interna ao iniciar verificação'
-        }[e.verificacao_lid] || 'Aguardando verificação') : '');
-      linha.append(destaque, detalhes);
-      lista.appendChild(linha);
-    }
-  }
-  async function atualizar() {
-    if (carregando) return;
-    carregando = true;
+
+  // O servidor envia eventos quando novas mensagens chegam ou mudam de estado.
+  // EventSource restabelece a conexão automaticamente em caso de interrupção.
+  const eventos = new EventSource('/whatsapp/transcricoes/eventos');
+  eventos.addEventListener('mensagens', evento => {
     try {
-      const resposta = await fetch('/whatsapp/transcricoes/api', { cache:'no-store', headers:{ Accept:'application/json' } });
-      if (resposta.status === 401) { location.href = '/login?next=/whatsapp/transcricoes'; return; }
-      if (!resposta.ok) throw new Error('HTTP ' + resposta.status);
-      const dados = await resposta.json();
-      $('estado').textContent = dados.habilitado && dados.ia_configurada &&
-        dados.webhook_configurado && dados.instancia_configurada ? 'Preparado' : 'Configuração pendente';
-      $('nota').textContent = !dados.habilitado
-        ? 'Configure WHATSAPP_TRANSCRICAO_NUMEROS no Render com o número autorizado (55 + DDD + telefone).'
-        : !dados.ia_configurada
-          ? 'Configure OPENAI_API_KEY no Render para permitir a transcrição.'
-          : !dados.webhook_configurado
-            ? 'Configure ZAPI_WEBHOOK_TOKEN no Render para receber o webhook.'
-            : !dados.instancia_configurada
-              ? 'Configure ZAPI_WEBHOOK_INSTANCE_ID ou ZAPI_URL no Render para validar a instância.'
-              : 'Pronto para receber mensagens. A página atualiza a cada 3 segundos. O histórico é temporário (até 2 horas) e não é salvo no banco.';
-      const web = dados.ultimo_webhook_em ? horario(dados.ultimo_webhook_em) : 'nenhum desde a última inicialização do servidor';
-      const audio = dados.ultimo_audio_autorizado;
-      const origem = audio?.tipo === 'enviado_para_si' ? 'enviado para si mesmo' :
-        audio?.tipo === 'enviado_para_outro' ? 'enviado para outro número (ignorado)' : 'recebido';
-      $('diagnostico').textContent = 'Último webhook recebido pelo Render: ' + web +
-        '. Último áudio do número autorizado: ' + (audio ? horario(audio.recebido_em) + ' — ' + origem : 'nenhum') +
-        '. Se não houver webhook, confira na Z-API se as mensagens enviadas por você estão sendo notificadas.';
-      desenharDiagnosticos(Array.isArray(dados.ultimos_webhooks) ? dados.ultimos_webhooks : []);
-      const permitidos = Array.isArray(dados.numeros_permitidos_resumo)
-        ? dados.numeros_permitidos_resumo : [];
-      $('numeros-monitorados').textContent = 'Número(s) autorizados: ' +
-        (permitidos.length ? permitidos.map(n =>
-          '****' + n.final + ' (' + n.digitos + ' dígitos)').join(', ') : 'nenhum') +
-        '. Compare o final e a quantidade de dígitos com ConnectedPhone exibido nos eventos. ' +
-        'Se forem diferentes, não altere a lista de autorização sem confirmar a conta conectada na Z-API.';
-      const regs = Array.isArray(dados.registros) ? dados.registros : [];
-      $('total').textContent = regs.length;
-      $('concluidas').textContent = regs.filter(r => r.status === 'concluida').length;
-      const versao = JSON.stringify(regs);
-      if (versao !== ultimaVersao) { ultimaVersao = versao; desenhar(regs); }
-      $('atualizado').textContent = 'Atualizado às ' + new Date().toLocaleTimeString('pt-BR');
+      const dados = JSON.parse(evento.data);
+      desenhar(Array.isArray(dados.registros) ? dados.registros : []);
     } catch (_) {
-      $('estado').textContent = 'Sem conexão';
-      $('nota').textContent = 'Não foi possível consultar a API. Verifique sua conexão ou a sessão administrativa.';
-    } finally { carregando = false; }
-  }
-  $('atualizar').addEventListener('click', atualizar);
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) void atualizar(); });
-  void atualizar();
-  setInterval(() => { if (!document.hidden) void atualizar(); }, 3000);
+      // Um evento inválido não altera a lista atual.
+    }
+  });
+  window.addEventListener('pagehide', () => eventos.close());
 })();
 </script>
 </body>

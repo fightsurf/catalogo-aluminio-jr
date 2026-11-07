@@ -358,6 +358,31 @@ test('mídia no Google Cloud Storage é aceita e diagnóstico mostra só domíni
   }
 });
 
+test('mensagens notificam assinantes sem polling e deixam de notificar após cancelar', () => {
+  process.env.WHATSAPP_TRANSCRICAO_NUMEROS = '5583999991234';
+  const atualizacoes = [];
+  const cancelar = piloto.assinarMensagens(registros => {
+    atualizacoes.push(registros);
+  });
+  const e = evento('SSE_EVENTO_NOVO');
+  e.payload.audio = {}; // Sem link: gera falha imediata sem acesso à rede.
+  try {
+    assert.equal(piloto.receber(e), true);
+    assert.equal(atualizacoes.length, 1);
+    const mensagem = atualizacoes[0].find(r => r.id.endsWith(':SSE_EVENTO_NOVO'));
+    assert.equal(mensagem.status, 'erro');
+    assert.equal(piloto.listarMensagens().some(r => r.id.endsWith(':SSE_EVENTO_NOVO')), true);
+    assert.equal(piloto.receber(e), false); // Duplicidade não emite evento.
+    assert.equal(atualizacoes.length, 1);
+  } finally {
+    cancelar();
+  }
+  const novo = evento('SSE_EVENTO_APOS_CANCELAR');
+  novo.payload.audio = {};
+  assert.equal(piloto.receber(novo), true);
+  assert.equal(atualizacoes.length, 1);
+});
+
 test('aceita apenas links HTTPS de domínios autorizados', () => {
   process.env.WHATSAPP_TRANSCRICAO_DOMINIOS = 'z-api.io';
   assert.throws(() => piloto.urlSegura('http://storage.z-api.io/a.ogg'));
@@ -386,6 +411,11 @@ test('baixa e transcreve uma vez, sem enviar WhatsApp', async () => {
     }
     throw new Error('URL inesperada');
   };
+  const transicoes = [];
+  const cancelarAssinatura = piloto.assinarMensagens(registros => {
+    const registro = registros.find(r => r.id.endsWith(':TRANSCRICAO_TESTE'));
+    if (registro) transicoes.push(registro.status);
+  });
   const entrada = evento('TRANSCRICAO_TESTE');
   assert.equal(piloto.receber(entrada), true);
   assert.equal(piloto.receber(entrada), false);
@@ -399,4 +429,6 @@ test('baixa e transcreve uma vez, sem enviar WhatsApp', async () => {
   assert.equal(r.texto, 'Quanto vendemos hoje?');
   assert.equal(downloads, 1);
   assert.equal(chamadasIA, 1);
+  cancelarAssinatura();
+  assert.deepEqual(transicoes, ['pendente', 'processando', 'concluida']);
 });

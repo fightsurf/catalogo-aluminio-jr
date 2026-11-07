@@ -9,6 +9,25 @@ const MAX_FILA = 15;
 const PRAZO_MS = 2 * 60 * 60 * 1000;
 const registros = [];
 const fila = [];
+// Atualização reativa da lista de mensagens: sem polling da página.
+const assinantesMensagens = new Set();
+function listarMensagens() {
+  limpar();
+  return registros.map(({ criadoMs, ...registro }) => ({ ...registro }));
+}
+function assinarMensagens(callback) {
+  if (typeof callback !== 'function') throw new TypeError('O callback é obrigatório.');
+  assinantesMensagens.add(callback);
+  return () => assinantesMensagens.delete(callback);
+}
+function notificarMensagens() {
+  if (!assinantesMensagens.size) return;
+  const mensagens = listarMensagens();
+  for (const callback of [...assinantesMensagens]) {
+    try { callback(mensagens); }
+    catch (_) { assinantesMensagens.delete(callback); }
+  }
+}
 let executando = false;
 let ultimoWebhookEm = null;
 let ultimoAudioAutorizado = null;
@@ -224,6 +243,8 @@ async function processarFila() {
       const tarefa = fila.shift();
       const registro = tarefa.registro;
       registro.status = 'processando';
+      registro.atualizado_em = new Date().toISOString();
+      notificarMensagens();
       try {
         registro.texto = await transcrever(tarefa);
         registro.status = 'concluida';
@@ -233,6 +254,7 @@ async function processarFila() {
         console.error('[Piloto transcrição WhatsApp]', registro.erro);
       }
       registro.atualizado_em = new Date().toISOString();
+      notificarMensagens();
     }
   } finally {
     executando = false;
@@ -272,6 +294,9 @@ function receber({ payload, dados }) {
     registro.erro = 'Fila de transcrição cheia. Envie novamente depois.';
   } else {
     fila.push({ registro, url, mime: payload.audio.mimeType });
+  }
+  notificarMensagens();
+  if (url && registro.status !== 'erro') {
     void processarFila().catch(falha =>
       console.error('[Piloto transcrição WhatsApp] Falha na fila:', falha.message));
   }
@@ -355,7 +380,7 @@ function listar() {
     numeros_permitidos_resumo: [...permitidos()].map(n => ({
       digitos: n.length, final: n.slice(-4)
     })),
-    registros: registros.map(({ criadoMs, ...r }) => ({ ...r }))
+    registros: listarMensagens()
   };
 }
-module.exports = { receber, receberVerificandoLid, listar, podeReceber, urlSegura, formatoAudio, observarWebhook, marcarLid };
+module.exports = { receber, receberVerificandoLid, listar, listarMensagens, assinarMensagens, podeReceber, urlSegura, formatoAudio, observarWebhook, marcarLid };

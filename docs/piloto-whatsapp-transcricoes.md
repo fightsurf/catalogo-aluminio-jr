@@ -5,7 +5,8 @@
 Um áudio enviado de **um número autorizado** à instância WhatsApp da fábrica chega pelo webhook da Z-API, é baixado no Render, transcrito pela OpenAI e exibido em uma página web. O piloto **não responde** ao remetente e **não executa ações** do sistema.
 
 - Front-end (login administrativo): `/whatsapp/transcricoes`
-- Consulta do front-end: `GET /whatsapp/transcricoes/api` (login obrigatório)
+- Atualização de mensagens por eventos (SSE): `GET /whatsapp/transcricoes/eventos` (login obrigatório). Envia lista atual na conexão e atualizações apenas ao receber novos áudios ou mudar o estado da transcrição.
+- Consulta antiga `GET /whatsapp/transcricoes/api` permanece disponível para uso interno, mas não é chamada pela página.
 - Webhook direto Z-API existente: `POST /api/whatsapp/webhook/zapi?chave=TOKEN`
 - **Webhook alternativo exclusivo para encaminhamento do n8n**: `POST /api/whatsapp/webhook/zapi/transcricao-piloto?chave=TOKEN`. Não passa pelo fluxo de atendimento, não responde, não executa comandos.
 
@@ -82,14 +83,20 @@ O teste real mostrou LID confirmado, `connectedPhone` autorizado e URL de áudio
 
 Continuam obrigatórios: HTTPS na porta padrão, sem credenciais na URL, sem IP direto, sem redirecionamento, limite de 20 MB e verificação de identidade. A página mostra apenas o hostname, sem caminho, parâmetros de assinatura ou tokens. É necessário enviar um novo áudio para confirmar o download e a resposta da API de transcrição; o arquivo anterior não é reprocessado automaticamente.
 
+## Interface simplificada e atualização por eventos (07/11)
+
+A página `/whatsapp/transcricoes` mostra somente **Mensagens recebidas** e os cartões de mensagens, com horário, contato, estado e transcrição. Foram retirados os indicadores de monitoramento, contadores, painéis de webhook/LID, número autorizado, descrição do piloto e botão "Atualizar agora". O diagnóstico técnico permanece no backend, mas não é exibido na interface.
+
+Foi removido o polling de três segundos. A conexão autenticada `EventSource` recebe `event: mensagens` do servidor, que envia uma foto da lista logo após conectar e a atualiza somente quando a fila muda: pendente → processando → transcrito/erro. Apenas o contêiner de mensagens é redesenhado, sem recarregar a página ou consultar a API periodicamente. A conexão envia comentários de manutenção a cada 25 segundos (sem atualizar a tela) e se reconecta automaticamente se cair. A assinatura é cancelada ao desconectar.
+
 ## Teste
 
 1. Abra `https://catalogo-aluminio-jr.onrender.com/whatsapp/transcricoes` autenticado.
-2. Confira o indicador "Preparado". Se mostrar configuração pendente, revise a variável listada.
-3. Envie um áudio do número autorizado ao WhatsApp da fábrica. Diga: "Quanto vendemos hoje?".
-4. A tela deve mostrar número, horário, "Transcrevendo" e, em seguida, "Quanto vendemos hoje?".
-5. Faça um teste com número não autorizado; ele não deve aparecer.
-6. Se o áudio não chegar, verifique o encaminhamento n8n ou o webhook direto. Se aparecer "Falha", examine o aviso da tela e o domínio da mídia.
+2. Confirme que a tela mostra apenas o título **Mensagens recebidas** e a lista de áudios.
+3. Envie um áudio do número autorizado ao WhatsApp da fábrica.
+4. Sem recarregar a página, o cartão deverá aparecer com o estado **Transcrevendo** e depois **Transcrito** com o texto.
+5. Confirme que não existem consultas a cada 3 segundos na aba Rede do navegador; o navegador mantém somente uma conexão `/eventos`.
+6. Teste uma mensagem não autorizada: ela não deve aparecer.
 
 ## Privacidade e limites
 
