@@ -90,7 +90,7 @@ body.modal-aberto{overflow:hidden}
       <div class="field"><label for="intencao-descricao">Descrição da intenção (enviada à IA)</label>
         <textarea id="intencao-descricao" required minlength="12" maxlength="800" placeholder="Explique quando a IA deve reconhecer esta intenção. Ex.: Localiza clientes pelo nome ou parte do nome, sem alterar cadastros."></textarea></div>
       <div class="field"><label for="intencao-acao">Ação do sistema</label>
-        <select id="intencao-acao"><option value="localizar_cliente">Localizar cliente (somente consulta)</option><option value="etapa_futura">A definir — etapa futura (não executa)</option></select></div>
+        <select id="intencao-acao"><option value="localizar_cliente">Localizar cliente (somente consulta)</option><option value="ultimos_pedidos_cliente">Localizar últimos pedidos (somente consulta)</option><option value="etapa_futura">A definir — etapa futura (não executa)</option></select></div>
       <div class="field"><label for="intencao-frases">Frases de exemplo para a IA (uma por linha)</label>
         <textarea id="intencao-frases" required placeholder="localize cliente&#10;localizar cliente"></textarea></div>
       <div class="field">
