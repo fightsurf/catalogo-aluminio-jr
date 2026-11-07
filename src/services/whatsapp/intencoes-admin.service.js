@@ -311,7 +311,10 @@ async function processarMensagem({ telefone, texto, permitido = false }, deps = 
   const todas = await buscarIntencoes();
   const catalogoAcoes = todas.some(i => i.acao === 'configurada' && i.acao_id)
     ? await (deps.listarAcoes || acoesAdmin.listar)() : [];
-  const cadastradas = todas.filter(i => executavel(i, catalogoAcoes));
+  const cadastradas = todas.filter(i => executavel(i, catalogoAcoes)).map(i => {
+    const acao = i.acao === 'configurada' ? catalogoAcoes.find(a => Number(a.id) === Number(i.acao_id)) : null;
+    return acao ? { ...i, entidade:acao.entidade } : i;
+  });
   async function responderConfigurada(intencao, sessao, termo = '') {
     const acao = catalogoAcoes.find(a => a.ativo && Number(a.id) === Number(intencao.acao_id));
     if (!acao) throw Error('Ação configurada indisponível.');
