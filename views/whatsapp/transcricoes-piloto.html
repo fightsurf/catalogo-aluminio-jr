@@ -45,6 +45,10 @@ h1{font-size:clamp(1.4rem,3vw,1.85rem);letter-spacing:-.035em;margin:0 0 22px}
 .modal-card{position:relative;width:min(100%,620px);max-height:90vh;overflow:auto;background:#131f30;border:1px solid #48627d;border-radius:14px;padding:24px;box-shadow:0 22px 60px rgba(0,0,0,.5)}
 .modal-card h2{font-size:1.2rem;margin:0 42px 20px 0}
 .modal-fechar{position:absolute;top:15px;right:16px;border:1px solid #48627d;border-radius:8px;background:#1d3047;color:#edf4fe;cursor:pointer;font-size:1.4rem;line-height:1;padding:7px 11px}
+.links-options{border:1px solid #33485f;border-radius:9px;padding:10px;max-height:180px;overflow:auto}
+.links-options label{display:flex;gap:10px;align-items:center;padding:6px 0;cursor:pointer}
+.links-options input{width:auto;accent-color:#699ee0}
+.field-help{color:#99adc7;font-size:.85rem;margin-top:5px}
 body.modal-aberto{overflow:hidden}
 @media(max-width:620px){.modal-card{padding:18px}}
 @media(max-width:620px){.wrap{padding:19px 14px 35px}.item{padding:14px}}
@@ -86,9 +90,14 @@ body.modal-aberto{overflow:hidden}
       <div class="field"><label for="intencao-descricao">Descrição da intenção (enviada à IA)</label>
         <textarea id="intencao-descricao" required minlength="12" maxlength="800" placeholder="Explique quando a IA deve reconhecer esta intenção. Ex.: Localiza clientes pelo nome ou parte do nome, sem alterar cadastros."></textarea></div>
       <div class="field"><label for="intencao-acao">Ação do sistema</label>
-        <select id="intencao-acao"><option value="localizar_cliente">Localizar cliente (somente consulta)</option></select></div>
+        <select id="intencao-acao"><option value="localizar_cliente">Localizar cliente (somente consulta)</option><option value="etapa_futura">A definir — etapa futura (não executa)</option></select></div>
       <div class="field"><label for="intencao-frases">Frases de exemplo para a IA (uma por linha)</label>
         <textarea id="intencao-frases" required placeholder="localize cliente&#10;localizar cliente"></textarea></div>
+      <div class="field">
+        <label id="rotulo-proximas">Próximas intenções (encadeamento)</label>
+        <div id="intencao-proximas" class="links-options" role="group" aria-labelledby="rotulo-proximas"></div>
+        <div class="field-help">Escolha para quais intenções esta etapa pode avançar. Etapas sem ação implementada ficam inativas.</div>
+      </div>
       <label class="checkline"><input type="checkbox" id="intencao-ativa" checked> Intenção ativa</label>
       <p id="modal-status" class="notice" role="alert" hidden></p>
       <div class="actions">
@@ -197,9 +206,11 @@ body.modal-aberto{overflow:hidden}
   const campoDescricao = document.getElementById('intencao-descricao');
   const campoFrases = document.getElementById('intencao-frases');
   const campoAtiva = document.getElementById('intencao-ativa');
+  const campoProximas = document.getElementById('intencao-proximas');
   const listaIntencoes = document.getElementById('lista-intencoes');
   const statusIntencoes = document.getElementById('status-intencoes');
   let intencoes = [];
+  let rotulosAcoes = {};
   function alternar(qual) {
     const intencao = qual === 'intencoes';
     painelMensagens.hidden = intencao;
@@ -216,9 +227,38 @@ body.modal-aberto{overflow:hidden}
     form.reset();
     campoId.value = '';
     campoAtiva.checked = true;
+    campoAtiva.disabled = false;
     modalStatus.textContent = '';
     modalStatus.hidden = true;
     document.getElementById('titulo-formulario').textContent = 'Nova intenção administrativa';
+  }
+  function sincronizarAcao() {
+    const futura = campoAcao.value === 'etapa_futura';
+    if (futura) campoAtiva.checked = false;
+    campoAtiva.disabled = futura;
+  }
+  campoAcao.addEventListener('change', sincronizarAcao);
+  function desenharProximas(item) {
+    campoProximas.replaceChildren();
+    const ids = new Set((item?.proximas_intencoes || []).map(Number));
+    const candidatas = intencoes.filter(i => String(i.id) !== String(item?.id || ''));
+    if (!candidatas.length) {
+      const vazio = document.createElement('span');
+      vazio.className = 'muted';
+      vazio.textContent = 'Cadastre outra intenção para criar um vínculo.';
+      campoProximas.appendChild(vazio);
+    }
+    for (const proxima of candidatas) {
+      const rotulo = document.createElement('label');
+      const check = document.createElement('input');
+      check.type = 'checkbox';
+      check.value = proxima.id;
+      check.checked = ids.has(Number(proxima.id));
+      const nome = document.createElement('span');
+      nome.textContent = proxima.nome + (proxima.ativo ? '' : ' (inativa)');
+      rotulo.append(check, nome);
+      campoProximas.appendChild(rotulo);
+    }
   }
   function abrirModal(item) {
     limparFormulario();
@@ -231,6 +271,8 @@ body.modal-aberto{overflow:hidden}
       campoAtiva.checked = item.ativo;
       document.getElementById('titulo-formulario').textContent = 'Editar intenção administrativa';
     }
+    desenharProximas(item);
+    sincronizarAcao();
     focoAnterior = document.activeElement;
     modalIntencao.hidden = false;
     document.body.classList.add('modal-aberto');
@@ -290,7 +332,12 @@ body.modal-aberto{overflow:hidden}
       titulo.textContent = item.nome + (item.ativo ? ' — Ativa' : ' — Inativa');
       const resumo = document.createElement('p');
       resumo.className = 'muted';
-      resumo.textContent = 'Ação: ' + item.acao + ' | Descrição: ' + (item.descricao || 'Sem descrição') + ' | Exemplos: ' + item.frases.replace(/\n/g, ' · ');
+      const nomesProximas = (item.proximas_intencoes || []).map(Number)
+        .map(id => intencoes.find(i => Number(i.id) === id)?.nome).filter(Boolean);
+      resumo.textContent = 'Ação: ' + (rotulosAcoes[item.acao] || item.acao) +
+        ' | Descrição: ' + (item.descricao || 'Sem descrição') +
+        ' | Próximas: ' + (nomesProximas.length ? nomesProximas.join(' → ') : 'Nenhuma') +
+        ' | Exemplos: ' + item.frases.replace(/\n/g, ' · ');
       const comandos = document.createElement('div');
       comandos.className = 'actions';
       const editar = document.createElement('button');
@@ -318,6 +365,7 @@ body.modal-aberto{overflow:hidden}
     try {
       const r = await requisitar('/whatsapp/transcricoes/intencoes');
       intencoes = Array.isArray(r.dados) ? r.dados : [];
+      rotulosAcoes = r.acoes || {};
       desenharIntencoes();
       statusIntencoes.textContent = intencoes.length + ' intenção(ões) cadastrada(s).';
     } catch (e) { statusIntencoes.textContent = e.message; }
@@ -326,7 +374,8 @@ body.modal-aberto{overflow:hidden}
     evento.preventDefault();
     const id = campoId.value;
     const dados = { nome: campoNome.value, descricao: campoDescricao.value, acao: campoAcao.value, frases: campoFrases.value,
-      ativo: campoAtiva.checked };
+      ativo: campoAtiva.checked,
+      proximas_intencoes: Array.from(campoProximas.querySelectorAll('input:checked'), c => Number(c.value)) };
     modalStatus.hidden = false;
     modalStatus.textContent = 'Salvando intenção...';
     botaoSalvar.disabled = true;
