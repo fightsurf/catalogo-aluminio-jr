@@ -215,7 +215,7 @@ function limparSessoes() {
 }
 function indiceCliente(texto) {
   const valor = semAcentos(texto);
-  const match = valor.match(/^(?:(?:quero|escolho|seleciono)(?: o)?|opcao|numero|cliente)?\s*([1-5])$/);
+  const match = valor.match(/^(?:(?:quero|escolho|seleciono)(?: o)?|opcao|numero|cliente)?\s*(10|[1-9])$/);
   return match ? Number(match[1]) - 1 : null;
 }
 function idsProximas(intencao) {
