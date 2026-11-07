@@ -140,8 +140,8 @@ router.get('/:usuarioId',async(req,res)=>{
 
 /*
  * Histórico nutricional para o comparador: consulta apenas quando o modal abre.
- * Proteínas são soma dos alimentos efetivamente registrados no Diário (g);
- * dias com composição proteica incompleta não entram na série. Água representa
+ * Proteínas e carboidratos são somas dos alimentos registrados no Diário (g);
+ * dias com composição incompleta do respectivo macro não entram na série. Água representa
  * mililitros ingeridos registrados, não a água corporal da bioimpedância.
  */
 router.get('/nutricao-comparacao/:usuarioId',async(req,res)=>{
@@ -157,7 +157,9 @@ router.get('/nutricao-comparacao/:usuarioId',async(req,res)=>{
   const [proteinas,agua]=await Promise.all([
    pool.query(`SELECT data_consumo::text AS data,
     ROUND(SUM(quantidade_g * NULLIF(composicao_100g->>'proteinas_g','')::numeric / 100),2) AS valor,
-    COUNT(*) FILTER (WHERE NULLIF(composicao_100g->>'proteinas_g','') IS NULL)::int AS incompletos
+    COUNT(*) FILTER (WHERE NULLIF(composicao_100g->>'proteinas_g','') IS NULL)::int AS incompletos,
+    ROUND(SUM(quantidade_g * NULLIF(composicao_100g->>'carboidratos_g','')::numeric / 100),2) AS carboidratos,
+    COUNT(*) FILTER (WHERE NULLIF(composicao_100g->>'carboidratos_g','') IS NULL)::int AS carboidratos_incompletos
     FROM public.avn_diario_alimentar
     WHERE usuario_id=$1 AND data_consumo BETWEEN $2::date-($3::int-1) AND $2::date
     GROUP BY data_consumo ORDER BY data_consumo`,[id,data,periodo]),
@@ -174,10 +176,12 @@ router.get('/nutricao-comparacao/:usuarioId',async(req,res)=>{
    .map(row=>({data:row.data,value:Number(row.valor)}));
   const series={
    proteinas:toPoints(proteinas.rows.filter(row=>row.incompletos===0 && row.valor!==null)),
+   carboidratos:toPoints(proteinas.rows.filter(row=>row.carboidratos_incompletos===0 && row.carboidratos!==null)
+    .map(row=>({data:row.data,valor:row.carboidratos}))),
    agua_ingerida:toPoints(agua.rows)
   };
   res.set('Cache-Control','no-store').json({data,periodo_dias:periodo,series,
-   observacoes:'Proteínas consumidas no diário alimentar (g); dias com proteína não informada ficam sem ponto. Água ingerida registrada (ml), distinta da água corporal. Ausência de registro não significa consumo zero.'});
+   observacoes:'Proteínas e carboidratos consumidos no diário alimentar (g); dias com composição incompleta de cada macro ficam sem ponto. Água ingerida registrada (ml), distinta da água corporal. Ausência de registro não significa consumo zero.'});
  }catch(e){console.error('[AVN comparação nutrição]',e);res.status(500).json({erro:'Não foi possível carregar os dados nutricionais.'});}
 });
 module.exports=router;
