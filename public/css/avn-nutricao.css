@@ -739,3 +739,7 @@ body[data-nutricao-pagina="alimentos"] .avn-tabela-dialog #aplicarTabelaNutricio
 .avn-mudar-refeicao-modal #macrosMudarRefeicao{padding:10px 0;border-block:1px solid var(--line)}
 .avn-mudar-refeicao-modal #macrosMudarRefeicao .avn-dieta-macros-inline{display:flex;flex-wrap:wrap;gap:6px 14px}
 .avn-mudar-refeicao-modal .modal-actions{flex-wrap:wrap}
+
+/* Saldo para completar as metas, em fonte secundária nos totais do Diário Alimentar. */
+body[data-nutricao-pagina="diario"] #resumoDiario .avn-dieta-planejado strong{white-space:normal}
+body[data-nutricao-pagina="diario"] #resumoDiario .avn-dieta-saldo{font-size:12px;font-weight:500;color:var(--muted);white-space:normal;line-height:1.35}
