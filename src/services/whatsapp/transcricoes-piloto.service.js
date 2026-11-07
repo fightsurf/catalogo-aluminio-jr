@@ -20,10 +20,22 @@ function permitidos() {
   return new Set(String(process.env.WHATSAPP_TRANSCRICAO_NUMEROS || '')
     .split(/[;,\s]+/).map(numero).filter(n => /^\d{10,15}$/.test(n)));
 }
+// Apenas equivalência BR exata: 55 + DDD + 9 + 8 dígitos,
+ // permitindo a forma legada sem o nono dígito, quando ela corresponder
+ // integralmente a um número autorizado. Nunca compara só prefixos ou finais.
+function telefoneAutorizado(telefone) {
+  const n = vinculos.limparTelefone(telefone); // recusa LID, JID e texto arbitrário
+  if (!n) return '';
+  const lista = permitidos();
+  if (lista.has(n)) return n;
+  for (const autorizado of lista) {
+    if (/^55[1-9][0-9]9[0-9]{8}$/.test(autorizado) &&
+        n === autorizado.slice(0, 4) + autorizado.slice(5)) return autorizado;
+  }
+  return '';
+}
 function podeReceber(telefone) {
-  // Recusa LID/JID como telefone: extrair apenas dígitos pode confundir identidades.
-  const n = vinculos.limparTelefone(telefone);
-  return Boolean(n) && permitidos().has(n);
+  return Boolean(telefoneAutorizado(telefone));
 }
 function diagnosticarConnectedPhone(valor) {
   const bruto = typeof valor === 'string' ? valor.trim() : '';
@@ -61,6 +73,8 @@ function observarWebhook(payload) {
     identificador_lid: /@lid$/i.test(String(payload?.phone || '')),
     conectado_informado: conectado.formato !== 'ausente',
     conectado_autorizado: podeReceber(payload?.connectedPhone),
+    conectado_equivalencia_sem_nono: Boolean(telefoneAutorizado(payload?.connectedPhone)) &&
+      vinculos.limparTelefone(payload?.connectedPhone) !== telefoneAutorizado(payload?.connectedPhone),
     conectado_formato: conectado.formato,
     conectado_digitos: conectado.digitos,
     conectado_final: conectado.final,
@@ -208,10 +222,11 @@ async function processarFila() {
 function receber({ payload, dados }) {
   // Mensagens para o próprio número vêm como fromMe:true. Aceitar só se o
   // WhatsApp conectado à Z-API for exatamente o número autorizado/destinatário.
-  const conectado = numero(payload?.connectedPhone);
+  const conectado = vinculos.limparTelefone(payload?.connectedPhone);
+  const canonico = telefoneAutorizado(dados?.telefone);
   const enviadoParaSi = dados?.direcao === 'SAIDA' && payload?.fromMe === true &&
-    payload?.fromApi !== true && podeReceber(dados.telefone) &&
-    (!conectado || conectado === numero(dados.telefone));
+    payload?.fromApi !== true && Boolean(canonico) &&
+    (!conectado || telefoneAutorizado(conectado) === canonico);
   const entrada = dados?.direcao === 'ENTRADA' && payload?.fromMe !== true;
   if (!dados || dados.tipo !== 'audio' || (!entrada && !enviadoParaSi) ||
       !podeReceber(dados.telefone) || payload?.isGroup || payload?.isNewsletter) return false;
@@ -220,7 +235,7 @@ function receber({ payload, dados }) {
   if (registros.some(x => x.id === id)) return false;
   const agora = Date.now();
   const registro = {
-    id, telefone: numero(dados.telefone), criadoMs: agora,
+    id, telefone: canonico || numero(dados.telefone), criadoMs: agora,
     origem: enviadoParaSi ? 'enviado_para_si' : 'recebido',
     recebido_em: new Date(agora).toISOString(), atualizado_em: new Date(agora).toISOString(),
     status: 'pendente', texto: '', erro: ''
@@ -258,18 +273,36 @@ async function receberVerificandoLid({ payload, dados }, conferir = vinculos.con
     return false;
   }
   const conectado = vinculos.limparTelefone(payload?.connectedPhone);
-  if (!conectado || !podeReceber(conectado)) {
+  const autorizado = telefoneAutorizado(conectado);
+  if (!conectado || !autorizado) {
     marcarLid(payload, 'telefone_conectado_nao_autorizado');
     return false;
   }
   try {
-    // Um timeout também cobre demoras no banco depois da resposta HTTP da Z-API.
-    // Assim a tela nunca fica indefinidamente em "Verificando...".
+    // Consulta primeiro o formato cadastrado; se ele não confirmar e a Z-API
+    // usar a variante sem o 9, verifica também SOMENTE essa variante exata.
+    // O LID do webhook precisa ser o mesmo confirmado pelo provedor.
+    const candidatos = autorizado === conectado ? [autorizado] : [autorizado, conectado];
     let timer;
-    let resultado;
+    let confirmado = false;
     try {
-      resultado = await Promise.race([
-        conferir(conectado),
+      confirmado = await Promise.race([
+        (async () => {
+          for (const telefone of candidatos) {
+            let resposta;
+            try { resposta = await conferir(telefone); }
+            catch (falha) {
+              // Credenciais, rede ou banco indisponíveis: não ignora o erro.
+              throw falha;
+            }
+            if (resposta?.vinculado === true &&
+                resposta.telefone === telefone &&
+                String(resposta.lid || '').toLowerCase() === String(dados.telefone).toLowerCase()) {
+              return true;
+            }
+          }
+          return false;
+        })(),
         new Promise((_, rejeitar) => {
           timer = setTimeout(() => rejeitar(new Error('timeout_verificacao_lid')), 25000);
           timer.unref?.();
@@ -278,13 +311,11 @@ async function receberVerificandoLid({ payload, dados }, conferir = vinculos.con
     } finally {
       if (timer) clearTimeout(timer);
     }
-    if (resultado?.vinculado !== true ||
-        resultado.telefone !== conectado ||
-        String(resultado.lid || '').toLowerCase() !== String(dados.telefone).toLowerCase()) {
+    if (!confirmado) {
       marcarLid(payload, 'lid_nao_confirmado');
       return false;
     }
-    return receber({ payload, dados: { ...dados, telefone: conectado } });
+    return receber({ payload, dados: { ...dados, telefone: autorizado } });
   } catch (e) {
     // Não registrar payload, telefone, LID nem segredos.
     console.error('[Piloto transcrição] Falha na verificação segura de LID.');

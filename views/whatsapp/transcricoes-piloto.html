@@ -121,6 +121,7 @@ h2{font-size:1.08rem;margin:27px 0 13px}#lista{display:grid;gap:12px}.diag-list{
         ' | Instância válida: ' + marcacao(e.instancia_confere) +
         ' | ConnectedPhone informado: ' + marcacao(e.conectado_informado) +
         ' | ConnectedPhone autorizado: ' + marcacao(e.conectado_autorizado) +
+        (e.conectado_equivalencia_sem_nono ? ' (equivalência BR sem o nono dígito)' : '') +
         ' | Formato conectado: ' + (e.conectado_formato || 'desconhecido') +
         (e.conectado_final
           ? ' | ConnectedPhone final: ****' + e.conectado_final +

@@ -216,7 +216,8 @@ test('distingue telefone conectado de LID e exibe somente final e tamanho', () =
   assert.equal(b.conectado_formato, 'telefone');
   assert.equal(b.conectado_digitos, 12);
   assert.equal(b.conectado_final, '2085');
-  assert.equal(b.conectado_autorizado, false);
+  assert.equal(b.conectado_autorizado, true);
+  assert.equal(b.conectado_equivalencia_sem_nono, true);
   piloto.observarWebhook({
     type:'ReceivedCallback', instanceId:'INSTANCIA_TESTE',
     messageId:'MASCARADO_3', phone:'1122334455@lid',
@@ -230,6 +231,70 @@ test('distingue telefone conectado de LID e exibe somente final e tamanho', () =
   assert.equal(diagnostico.includes('5583999792085'), false);
   assert.equal(diagnostico.includes('MASCARADO_TESTE'), false);
   assert.equal(diagnostico.includes('storage.z-api.io'), false);
+});
+
+test('equivalência de nono dígito exige coincidência integral, não apenas final', () => {
+  process.env.WHATSAPP_TRANSCRICAO_NUMEROS = '5583999792085';
+  assert.equal(piloto.podeReceber('558399792085'), true);
+  assert.equal(piloto.podeReceber('558398792085'), false); // Mesmo final, DDD/miolo diferente.
+  assert.equal(piloto.podeReceber('558399872085'), false);
+  assert.equal(piloto.podeReceber('558399792085@lid'), false);
+  assert.equal(piloto.podeReceber('5583999792085@s.whatsapp.net'), false);
+  process.env.WHATSAPP_TRANSCRICAO_NUMEROS = '5511988872085';
+  assert.equal(piloto.podeReceber('551188872085'), true); // Outro DDD, com nona posição 9.
+  assert.equal(piloto.podeReceber('558388872085'), false);
+});
+
+test('LID da conversa consigo mesmo aceita variante brasileira somente após confirmação', async () => {
+  process.env.WHATSAPP_TRANSCRICAO_NUMEROS = '5583999792085';
+  process.env.ZAPI_WEBHOOK_INSTANCE_ID = 'INSTANCIA_TESTE';
+  const entrada = evento('LID_LEGADO_SEM_NONO', '777777777777@lid');
+  entrada.payload = {
+    type:'ReceivedCallback', phone: '777777777777@lid',
+    connectedPhone: '558399792085', instanceId: 'INSTANCIA_TESTE',
+    messageId:'LID_LEGADO_SEM_NONO', fromMe: true,
+    audio: {} // Sem download, exige apenas autorização / identificação
+  };
+  entrada.dados.direcao = 'SAIDA';
+  piloto.observarWebhook(entrada.payload);
+  const consultas = [];
+  const falsoPrimeiro = async numero => {
+    consultas.push(numero);
+    if (numero === '5583999792085') return {telefone:numero, lid:null,vinculado:false};
+    return {telefone:numero, lid:'777777777777@lid',vinculado:true};
+  };
+  assert.equal(await piloto.receberVerificandoLid(entrada,falsoPrimeiro), true);
+  assert.deepEqual(consultas,['5583999792085','558399792085']);
+  assert.equal(piloto.listar().registros[0].telefone,'5583999792085');
+  const estado = piloto.listar().ultimos_webhooks[0];
+  assert.equal(estado.conectado_autorizado,true);
+  assert.equal(estado.conectado_equivalencia_sem_nono,true);
+  assert.equal(estado.verificacao_lid,'confirmado');
+});
+
+test('LID divergente não autoriza mesmo com telefone brasileiro legado correto', async () => {
+  process.env.WHATSAPP_TRANSCRICAO_NUMEROS = '5583999792085';
+  process.env.ZAPI_WEBHOOK_INSTANCE_ID = 'INSTANCIA_TESTE';
+  const entrada = evento('LID_LEGADO_DIVERGENTE','123456789123@lid');
+  entrada.payload = {
+    phone:'123456789123@lid',connectedPhone:'558399792085',
+    instanceId:'INSTANCIA_TESTE',messageId:'LID_LEGADO_DIVERGENTE',
+    fromMe:true,audio:{}
+  };
+  entrada.dados.direcao='SAIDA';
+  const consultas = [];
+  assert.equal(await piloto.receberVerificandoLid(entrada,async numero=>{
+    consultas.push(numero);
+    return {telefone:numero,lid:'999888777666@lid',vinculado:true};
+  }),false);
+  assert.deepEqual(consultas,['5583999792085','558399792085']);
+  assert.equal(piloto.listar().registros.some(x=>x.id.endsWith('LID_LEGADO_DIVERGENTE')),false);
+  entrada.payload.connectedPhone='558398792085';
+  entrada.payload.messageId='LID_LEGADO_OUTRA_CONTA';
+  entrada.dados.messageId='LID_LEGADO_OUTRA_CONTA';
+  let chamada=false;
+  assert.equal(await piloto.receberVerificandoLid(entrada,async()=>{chamada=true;return null;}),false);
+  assert.equal(chamada,false);
 });
 
 test('aceita apenas links HTTPS de domínios autorizados', () => {

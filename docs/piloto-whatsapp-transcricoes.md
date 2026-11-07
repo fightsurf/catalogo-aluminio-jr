@@ -60,6 +60,14 @@ A Z-API documenta `connectedPhone` como o telefone conectado à instância. Mesm
 
 O painel de diagnóstico agora mostra apenas a **terminação de quatro dígitos, a quantidade de dígitos e o formato** de `connectedPhone`, além do mesmo resumo da lista autorizada. Por exemplo, `****2085 (13 dígitos)` versus `****2085 (12 dígitos)` mostra uma diferença de formatação/número sem expor os telefones inteiros. Se o formato for LID/JID/outro, o sistema não transforma arbitrariamente seu identificador em telefone. É preciso confirmar a identidade pela Z-API antes de alterar a autorização.
 
+## Equivalência brasileira com ou sem nono dígito (07/11)
+
+Quando o Render tem autorizado `55 + DDD + 9 + oito dígitos` (13 dígitos) e a Z-API informa `connectedPhone` com 12 dígitos, o piloto verifica a equivalência **integral** com a variante de 12 dígitos, removendo apenas o nono dígito após o DDD. Nunca autoriza por DDD isolado, final de telefone, LID arbitrário, ou qualquer número com diferença em outras posições. A lista configurada no Render continua intacta com os números de 13 dígitos.
+
+Para áudio enviado pela própria conta, o código continua exigindo instância correta, `fromMe:true`, `fromApi` diferente de true, conversa individual e `phone` igual ao LID retornado pela Z-API para o mesmo número. A consulta ao provedor tenta primeiro o número configurado de 13 dígitos; se ele não for confirmado e o campo `connectedPhone` representar exatamente sua forma legada, tenta também esse número de 12 dígitos. Só transcreve se algum retorno confirmar o LID e o telefone consultado, sem conflito no vínculo do banco.
+
+O diagnóstico indicará `ConnectedPhone autorizado: Sim (equivalência BR sem o nono dígito)` quando essa correspondência for exata. Isso **não** significa que o LID foi confirmado: o segundo resultado de identificação continua obrigatório.
+
 ## Teste
 
 1. Abra `https://catalogo-aluminio-jr.onrender.com/whatsapp/transcricoes` autenticado.
