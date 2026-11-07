@@ -39,6 +39,14 @@ h1{font-size:clamp(1.4rem,3vw,1.85rem);letter-spacing:-.035em;margin:0 0 22px}
 .resposta{margin:12px 0 0;white-space:pre-wrap;color:#a9ebc7;line-height:1.5}
 .notice{color:#b2c9e7;min-height:1.6em;white-space:pre-wrap}
 .checkline{display:flex;gap:8px;align-items:center;margin-bottom:16px}
+.panel-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.panel-heading h2{margin:0}
+.modal-backdrop{position:fixed;inset:0;z-index:1000;background:rgba(3,9,18,.82);display:flex;align-items:center;justify-content:center;padding:16px}
+.modal-card{position:relative;width:min(100%,620px);max-height:90vh;overflow:auto;background:#131f30;border:1px solid #48627d;border-radius:14px;padding:24px;box-shadow:0 22px 60px rgba(0,0,0,.5)}
+.modal-card h2{font-size:1.2rem;margin:0 42px 20px 0}
+.modal-fechar{position:absolute;top:15px;right:16px;border:1px solid #48627d;border-radius:8px;background:#1d3047;color:#edf4fe;cursor:pointer;font-size:1.4rem;line-height:1;padding:7px 11px}
+body.modal-aberto{overflow:hidden}
+@media(max-width:620px){.modal-card{padding:18px}}
 @media(max-width:620px){.wrap{padding:19px 14px 35px}.item{padding:14px}}
 </style>
 </head>
@@ -56,29 +64,38 @@ h1{font-size:clamp(1.4rem,3vw,1.85rem);letter-spacing:-.035em;margin:0 0 22px}
   </section>
   <section id="painel-intencoes" hidden aria-label="Intenções administrativas">
     <div class="panel">
-      <h2 id="titulo-formulario">Nova intenção administrativa</h2>
-      <form id="form-intencao">
-        <input type="hidden" id="intencao-id">
-        <div class="field"><label for="intencao-nome">Nome da intenção</label>
-          <input id="intencao-nome" required maxlength="120" placeholder="Ex.: Localizar cliente"></div>
-        <div class="field"><label for="intencao-acao">Ação do sistema</label>
-          <select id="intencao-acao"><option value="localizar_cliente">Localizar cliente (somente consulta)</option></select></div>
-        <div class="field"><label for="intencao-frases">Frases de reconhecimento (uma por linha)</label>
-          <textarea id="intencao-frases" required placeholder="localize cliente&#10;localizar cliente"></textarea></div>
-        <label class="checkline"><input type="checkbox" id="intencao-ativa" checked> Intenção ativa</label>
+      <div class="panel-heading">
+        <h2>Intenções cadastradas</h2>
         <div class="actions">
-          <button type="submit">Salvar intenção</button>
-          <button id="limpar-formulario" type="button">Novo / cancelar edição</button>
+          <button id="nova-intencao" type="button">+ Nova Intenção</button>
         </div>
-      </form>
-    </div>
-    <div class="panel">
-      <h2>Intenções cadastradas</h2>
+      </div>
       <p id="status-intencoes" class="notice" role="status"></p>
       <div id="lista-intencoes"></div>
     </div>
   </section>
 </main>
+<div id="modal-intencao" class="modal-backdrop" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="titulo-formulario">
+    <button id="fechar-modal" type="button" class="modal-fechar" aria-label="Fechar formulário">&times;</button>
+    <h2 id="titulo-formulario">Nova intenção administrativa</h2>
+    <form id="form-intencao">
+      <input type="hidden" id="intencao-id">
+      <div class="field"><label for="intencao-nome">Nome da intenção</label>
+        <input id="intencao-nome" required maxlength="120" placeholder="Ex.: Localizar cliente"></div>
+      <div class="field"><label for="intencao-acao">Ação do sistema</label>
+        <select id="intencao-acao"><option value="localizar_cliente">Localizar cliente (somente consulta)</option></select></div>
+      <div class="field"><label for="intencao-frases">Frases de reconhecimento (uma por linha)</label>
+        <textarea id="intencao-frases" required placeholder="localize cliente&#10;localizar cliente"></textarea></div>
+      <label class="checkline"><input type="checkbox" id="intencao-ativa" checked> Intenção ativa</label>
+      <p id="modal-status" class="notice" role="alert" hidden></p>
+      <div class="actions">
+        <button type="submit" id="salvar-intencao">Salvar intenção</button>
+        <button id="cancelar-modal" type="button">Cancelar</button>
+      </div>
+    </form>
+  </div>
+</div>>
 <script>
 (() => {
   'use strict';
@@ -152,6 +169,9 @@ h1{font-size:clamp(1.4rem,3vw,1.85rem);letter-spacing:-.035em;margin:0 0 22px}
   const abaIntencoes = document.getElementById('aba-intencoes');
   const painelMensagens = document.getElementById('painel-mensagens');
   const painelIntencoes = document.getElementById('painel-intencoes');
+  const modalIntencao = document.getElementById('modal-intencao');
+  const modalStatus = document.getElementById('modal-status');
+  const botaoSalvar = document.getElementById('salvar-intencao');
   const form = document.getElementById('form-intencao');
   const campoId = document.getElementById('intencao-id');
   const campoNome = document.getElementById('intencao-nome');
@@ -167,17 +187,69 @@ h1{font-size:clamp(1.4rem,3vw,1.85rem);letter-spacing:-.035em;margin:0 0 22px}
     painelIntencoes.hidden = !intencao;
     abaMensagens.setAttribute('aria-selected', String(!intencao));
     abaIntencoes.setAttribute('aria-selected', String(intencao));
+    if (!intencao) fecharModal();
     if (intencao) carregarIntencoes();
   }
   abaMensagens.addEventListener('click', () => alternar('mensagens'));
   abaIntencoes.addEventListener('click', () => alternar('intencoes'));
+  let focoAnterior = null;
   function limparFormulario() {
     form.reset();
     campoId.value = '';
     campoAtiva.checked = true;
+    modalStatus.textContent = '';
+    modalStatus.hidden = true;
     document.getElementById('titulo-formulario').textContent = 'Nova intenção administrativa';
   }
-  document.getElementById('limpar-formulario').addEventListener('click', limparFormulario);
+  function abrirModal(item) {
+    limparFormulario();
+    if (item) {
+      campoId.value = item.id;
+      campoNome.value = item.nome;
+      campoAcao.value = item.acao;
+      campoFrases.value = item.frases;
+      campoAtiva.checked = item.ativo;
+      document.getElementById('titulo-formulario').textContent = 'Editar intenção administrativa';
+    }
+    focoAnterior = document.activeElement;
+    modalIntencao.hidden = false;
+    document.body.classList.add('modal-aberto');
+    campoNome.focus();
+  }
+  function fecharModal() {
+    if (modalIntencao.hidden) return;
+    modalIntencao.hidden = true;
+    document.body.classList.remove('modal-aberto');
+    limparFormulario();
+    if (focoAnterior && focoAnterior.isConnected) focoAnterior.focus();
+    focoAnterior = null;
+  }
+  document.getElementById('nova-intencao').addEventListener('click', () => abrirModal());
+  document.getElementById('fechar-modal').addEventListener('click', fecharModal);
+  document.getElementById('cancelar-modal').addEventListener('click', fecharModal);
+  modalIntencao.addEventListener('click', evento => {
+    if (evento.target === modalIntencao) fecharModal();
+  });
+  modalIntencao.addEventListener('keydown', evento => {
+    if (evento.key === 'Escape') {
+      evento.preventDefault();
+      fecharModal();
+    } else if (evento.key === 'Tab') {
+      const controles = Array.from(modalIntencao.querySelectorAll(
+        'button:not(:disabled),input:not([type="hidden"]):not(:disabled),select:not(:disabled),textarea:not(:disabled)'
+      ));
+      if (!controles.length) return;
+      const primeiro = controles[0];
+      const ultimo = controles[controles.length - 1];
+      if (evento.shiftKey && document.activeElement === primeiro) {
+        evento.preventDefault();
+        ultimo.focus();
+      } else if (!evento.shiftKey && document.activeElement === ultimo) {
+        evento.preventDefault();
+        primeiro.focus();
+      }
+    }
+  });
   async function requisitar(url, options) {
     const r = await fetch(url, { credentials: 'same-origin', ...options,
       headers: { 'Content-Type':'application/json', ...(options?.headers || {}) } });
@@ -204,15 +276,7 @@ h1{font-size:clamp(1.4rem,3vw,1.85rem);letter-spacing:-.035em;margin:0 0 22px}
       const editar = document.createElement('button');
       editar.type = 'button';
       editar.textContent = 'Editar';
-      editar.onclick = () => {
-        campoId.value = item.id;
-        campoNome.value = item.nome;
-        campoAcao.value = item.acao;
-        campoFrases.value = item.frases;
-        campoAtiva.checked = item.ativo;
-        document.getElementById('titulo-formulario').textContent = 'Editar intenção administrativa';
-        form.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      };
+      editar.onclick = () => abrirModal(item);
       const apagar = document.createElement('button');
       apagar.type = 'button';
       apagar.textContent = 'Excluir';
@@ -221,7 +285,7 @@ h1{font-size:clamp(1.4rem,3vw,1.85rem);letter-spacing:-.035em;margin:0 0 22px}
         try {
           await requisitar('/whatsapp/transcricoes/intencoes/' + item.id, { method:'DELETE' });
           await carregarIntencoes();
-          if (String(campoId.value) === String(item.id)) limparFormulario();
+          if (String(campoId.value) === String(item.id)) fecharModal();
         } catch (e) { statusIntencoes.textContent = e.message; }
       };
       comandos.append(editar, apagar);
@@ -243,14 +307,20 @@ h1{font-size:clamp(1.4rem,3vw,1.85rem);letter-spacing:-.035em;margin:0 0 22px}
     const id = campoId.value;
     const dados = { nome: campoNome.value, acao: campoAcao.value, frases: campoFrases.value,
       ativo: campoAtiva.checked };
-    statusIntencoes.textContent = 'Salvando...';
+    modalStatus.hidden = false;
+    modalStatus.textContent = 'Salvando intenção...';
+    botaoSalvar.disabled = true;
     try {
       await requisitar('/whatsapp/transcricoes/intencoes' + (id ? '/' + id : ''), {
         method: id ? 'PUT' : 'POST', body: JSON.stringify(dados)
       });
-      limparFormulario();
+      fecharModal();
       await carregarIntencoes();
-    } catch (e) { statusIntencoes.textContent = e.message; }
+    } catch (e) {
+      modalStatus.textContent = e.message;
+    } finally {
+      botaoSalvar.disabled = false;
+    }
   });
 
   // O servidor envia eventos quando novas mensagens chegam ou mudam de estado.
