@@ -149,7 +149,12 @@ body.modal-aberto{overflow:hidden}
       }
       meta.append(phone, quando, pill);
       item.append(meta, fala);
-      if (r.intencaoStatus === 'nao_reconhecida') {
+      if (r.intencaoStatus === 'classificando') {
+        const aviso = document.createElement('p');
+        aviso.className = 'muted';
+        aviso.textContent = 'IA: analisando a transcrição e as intenções cadastradas...';
+        item.appendChild(aviso);
+      } else if (r.intencaoStatus === 'nao_reconhecida') {
         const aviso = document.createElement('p');
         aviso.className = 'muted';
         aviso.textContent = 'IA: nenhuma intenção administrativa identificada.';
