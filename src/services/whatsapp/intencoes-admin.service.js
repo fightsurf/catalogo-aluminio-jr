@@ -7,13 +7,15 @@ const clientesLegado = require('../legado/clientes/clientes.service');
 const pedidosCliente = require('../legado/pedidos-cliente/pedidos-cliente.service');
 const envio = require('./envio-whatsapp.service');
 const classificador = require('./classificador-intencoes-admin.service');
+const acoesAdmin = require('./acoes-admin.service');
 
 const ACOES = Object.freeze({
   localizar_cliente: 'Localizar cliente',
   ultimos_pedidos_cliente: 'Localizar últimos pedidos do cliente',
+  configurada: 'Ação configurável',
   etapa_futura: 'Etapa futura (sem execução)'
 });
-const ACOES_EXECUTAVEIS = new Set(['localizar_cliente', 'ultimos_pedidos_cliente']);
+const ACOES_EXECUTAVEIS = new Set(['localizar_cliente', 'ultimos_pedidos_cliente', 'configurada']);
 const sessoes = new Map();
 const SESSAO_MS = 10 * 60 * 1000;
 let preparando = null;
@@ -36,9 +38,10 @@ async function preparar() {
       // Migração compatível com cadastros anteriores.
       await pool.query("ALTER TABLE whatsapp_admin_intencoes ADD COLUMN IF NOT EXISTS descricao TEXT NOT NULL DEFAULT ''");
       await pool.query("ALTER TABLE whatsapp_admin_intencoes ADD COLUMN IF NOT EXISTS proximas_intencoes BIGINT[] NOT NULL DEFAULT '{}'::BIGINT[]");
+      await pool.query('ALTER TABLE whatsapp_admin_intencoes ADD COLUMN IF NOT EXISTS acao_id BIGINT');
       // Migração compatível: etapas futuras são inativas até existir um executor.
       await pool.query("ALTER TABLE whatsapp_admin_intencoes DROP CONSTRAINT IF EXISTS whatsapp_admin_intencoes_acao_check");
-      await pool.query("ALTER TABLE whatsapp_admin_intencoes ADD CONSTRAINT whatsapp_admin_intencoes_acao_check CHECK (acao IN ('localizar_cliente','ultimos_pedidos_cliente','etapa_futura'))");
+      await pool.query("ALTER TABLE whatsapp_admin_intencoes ADD CONSTRAINT whatsapp_admin_intencoes_acao_check CHECK (acao IN ('localizar_cliente','ultimos_pedidos_cliente','configurada','etapa_futura'))");
       await pool.query(`UPDATE whatsapp_admin_intencoes SET descricao =
         'Localiza os clientes cadastrados na Alumínio JR pelo nome completo ou parcial e retorna a lista por WhatsApp. Não modifica cadastros.'
         WHERE acao = 'localizar_cliente' AND TRIM(descricao) = ''`);
@@ -62,6 +65,10 @@ function validar(dados) {
   if (nome.length < 3 || nome.length > 120) throw new Error('Nome deve ter de 3 a 120 caracteres.');
   if (descricao.length < 12 || descricao.length > 800) throw new Error('Descreva a intenção em 12 a 800 caracteres.');
   if (!Object.hasOwn(ACOES, acao)) throw new Error('Ação administrativa indisponível.');
+  const acaoId = acao === 'configurada' ? Number(dados?.acao_id) : null;
+  if (acao === 'configurada' && (!Number.isSafeInteger(acaoId) || acaoId <= 0)) {
+    throw new Error('Selecione uma ação cadastrada.');
+  }
   if (!ACOES_EXECUTAVEIS.has(acao) && dados?.ativo !== false) {
     throw new Error('Uma etapa sem ação implementada deve permanecer inativa.');
   }
@@ -75,12 +82,12 @@ function validar(dados) {
   if (!lista.length || lista.length > 20 || lista.some(x => x.length < 5 || x.length > 100)) {
     throw new Error('Informe de 1 a 20 frases, uma por linha, com 5 a 100 caracteres.');
   }
-  return { nome, descricao, acao, frases: lista.join('\n'), ativo: dados.ativo !== false, proximasIntencoes };
+  return { nome, descricao, acao, acaoId, frases: lista.join('\n'), ativo: dados.ativo !== false, proximasIntencoes };
 }
 async function listar() {
   await preparar();
   const r = await pool.query(`
-    SELECT id, chave, nome, descricao, acao, frases, ativo, proximas_intencoes, criado_em, atualizado_em
+    SELECT id, chave, nome, descricao, acao, acao_id, frases, ativo, proximas_intencoes, criado_em, atualizado_em
     FROM whatsapp_admin_intencoes ORDER BY id ASC`);
   return r.rows;
 }
@@ -94,22 +101,24 @@ async function cadastrar(dados) {
   const d = validar(dados);
   await preparar();
   await validarVinculos(d.proximasIntencoes);
+  if (d.acaoId && !(await acoesAdmin.obter(d.acaoId))?.ativo) throw Error('Ação cadastrada inexistente ou inativa.');
   const chave = 'int_' + crypto.randomUUID().replace(/-/g, '');
   const r = await pool.query(`
-    INSERT INTO whatsapp_admin_intencoes (chave, nome, descricao, acao, frases, ativo, proximas_intencoes)
-    VALUES ($1,$2,$3,$4,$5,$6,$7::BIGINT[]) RETURNING *`,
-    [chave, d.nome, d.descricao, d.acao, d.frases, d.ativo, d.proximasIntencoes]);
+    INSERT INTO whatsapp_admin_intencoes (chave, nome, descricao, acao, acao_id, frases, ativo, proximas_intencoes)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8::BIGINT[]) RETURNING *`,
+    [chave, d.nome, d.descricao, d.acao, d.acaoId, d.frases, d.ativo, d.proximasIntencoes]);
   return r.rows[0];
 }
 async function atualizar(id, dados) {
   const d = validar(dados);
   await preparar();
   await validarVinculos(d.proximasIntencoes, id);
+  if (d.acaoId && !(await acoesAdmin.obter(d.acaoId))?.ativo) throw Error('Ação cadastrada inexistente ou inativa.');
   const r = await pool.query(`
     UPDATE whatsapp_admin_intencoes
-    SET nome=$2, descricao=$3, acao=$4, frases=$5, ativo=$6, proximas_intencoes=$7::BIGINT[], atualizado_em=NOW()
+    SET nome=$2, descricao=$3, acao=$4, acao_id=$5, frases=$6, ativo=$7, proximas_intencoes=$8::BIGINT[], atualizado_em=NOW()
     WHERE id=$1 RETURNING *`,
-    [id, d.nome, d.descricao, d.acao, d.frases, d.ativo, d.proximasIntencoes]);
+    [id, d.nome, d.descricao, d.acao, d.acaoId, d.frases, d.ativo, d.proximasIntencoes]);
   if (!r.rows.length) throw new Error('Intenção não encontrada.');
   return r.rows[0];
 }
@@ -213,11 +222,16 @@ function idsProximas(intencao) {
   return Array.isArray(intencao?.proximas_intencoes)
     ? intencao.proximas_intencoes.map(Number).filter(Number.isSafeInteger) : [];
 }
-function resumoSelecao(cliente, origem, cadastradas) {
+function executavel(intencao, catalogo = []) {
+  return !!intencao?.ativo && (intencao.acao === 'configurada'
+    ? catalogo.some(a => a.ativo && Number(a.id) === Number(intencao.acao_id))
+    : ACOES_EXECUTAVEIS.has(intencao.acao));
+}
+function resumoSelecao(cliente, origem, cadastradas, catalogo = []) {
   const nome = String(cliente?.nome || 'Cliente').replace(/\*/g, '').trim().slice(0, 120);
   const ids = idsProximas(origem);
   const proximas = cadastradas.filter(i => ids.includes(Number(i.id)));
-  const executaveis = proximas.filter(i => i.ativo && ACOES_EXECUTAVEIS.has(i.acao));
+  const executaveis = proximas.filter(i => executavel(i, catalogo));
   let mensagem = 'Cliente selecionado: *' + nome + '*.';
   if (executaveis.length) {
     mensagem += '\n\nO que deseja fazer com esse cliente?\n' +
@@ -295,7 +309,34 @@ async function processarMensagem({ telefone, texto, permitido = false }, deps = 
     return { reconhecido: true, intencao: 'Cancelar', acao: 'cancelar', resposta: mensagem };
   }
   const todas = await buscarIntencoes();
-  const cadastradas = todas.filter(i => i.ativo && ACOES_EXECUTAVEIS.has(i.acao));
+  const catalogoAcoes = todas.some(i => i.acao === 'configurada' && i.acao_id)
+    ? await (deps.listarAcoes || acoesAdmin.listar)() : [];
+  const cadastradas = todas.filter(i => executavel(i, catalogoAcoes));
+  async function responderConfigurada(intencao, sessao, termo = '') {
+    const acao = catalogoAcoes.find(a => a.ativo && Number(a.id) === Number(intencao.acao_id));
+    if (!acao) throw Error('Ação configurada indisponível.');
+    if (acao.entidade === 'pedidos' && !sessao?.cliente) {
+      const mensagem = 'Primeiro localize e selecione um cliente para consultar os pedidos.';
+      await enviar({ telefone, mensagem });
+      return { reconhecido:true, intencao:intencao.nome, acao:'configurada', resposta:mensagem };
+    }
+    if (acao.entidade === 'clientes' && !String(termo).trim()) {
+      const mensagem = 'Informe o nome do cliente na pesquisa.';
+      await enviar({ telefone, mensagem });
+      return { reconhecido:true, intencao:intencao.nome, acao:'configurada', resposta:mensagem };
+    }
+    const resultado = await acoesAdmin.executar(acao, { cliente:sessao?.cliente,termo }, deps);
+    let mensagem = resultado.mensagem;
+    if (resultado.entidade === 'clientes' && resultado.registros.length) {
+      const candidatos = resultado.registros.map(c => ({ favorecido:c.favorecido,nome:c.nome,cidade:c.cidade,uf:c.uf }));
+      sessoes.set(telefone,{etapa:'escolher_cliente',candidatos,intencaoId:intencao.id,expira:Date.now()+SESSAO_MS});
+      mensagem += '\n\nResponda com um número de 1 a ' + candidatos.length + ' para selecionar o cliente.';
+    } else if (sessao?.cliente) {
+      sessoes.set(telefone,{...sessao,expira:Date.now()+SESSAO_MS});
+    }
+    await enviar({ telefone, mensagem });
+    return { reconhecido:true,intencao:intencao.nome,acao:'configurada',resposta:mensagem };
+  }
   // Números durante o wizard são escolhas e não passam pela IA.
   if (pendente?.etapa === 'escolher_cliente' || pendente?.etapa === 'cliente_selecionado') {
     const indice = indiceCliente(frase);
@@ -308,7 +349,7 @@ async function processarMensagem({ telefone, texto, permitido = false }, deps = 
           return { reconhecido: true, intencao: 'Selecionar cliente', acao: 'selecionar_cliente', resposta: mensagem };
         }
         const origem = todas.find(i => Number(i.id) === Number(pendente.intencaoId));
-        const { mensagem, executaveis } = resumoSelecao(cliente, origem, todas);
+        const { mensagem, executaveis } = resumoSelecao(cliente, origem, todas, catalogoAcoes);
         sessoes.set(telefone, { etapa: 'cliente_selecionado',
           cliente: { favorecido: cliente.favorecido, nome: cliente.nome, cidade: cliente.cidade, uf: cliente.uf },
           opcoes: executaveis.map(i => Number(i.id)), expira: Date.now() + SESSAO_MS });
@@ -316,7 +357,7 @@ async function processarMensagem({ telefone, texto, permitido = false }, deps = 
         return { reconhecido: true, intencao: 'Selecionar cliente', acao: 'selecionar_cliente', resposta: mensagem };
       }
       const proxima = todas.find(i => Number(i.id) === pendente.opcoes?.[indice] &&
-        i.ativo && ACOES_EXECUTAVEIS.has(i.acao));
+        executavel(i, catalogoAcoes));
       if (proxima && proxima.acao === 'localizar_cliente') {
         sessoes.set(telefone, { etapa: 'aguardando_nome', expira: Date.now() + SESSAO_MS });
         const mensagem = 'Qual é o nome do cliente que deseja localizar?';
@@ -325,6 +366,9 @@ async function processarMensagem({ telefone, texto, permitido = false }, deps = 
       }
       if (proxima && proxima.acao === 'ultimos_pedidos_cliente') {
         return responderUltimosPedidos(proxima, pendente);
+      }
+      if (proxima && proxima.acao === 'configurada') {
+        return responderConfigurada(proxima, pendente);
       }
       const mensagem = 'Escolha uma opção disponível ou diga "localize cliente" para iniciar outra busca.';
       await enviar({ telefone, mensagem });
@@ -342,6 +386,9 @@ async function processarMensagem({ telefone, texto, permitido = false }, deps = 
       return { reconhecido: true, intencao: 'Selecionar cliente', acao: 'selecionar_cliente', resposta: mensagem };
     }
     return { reconhecido: false, motivo: 'intencao_nao_reconhecida' };
+  }
+  if (encontrado?.intencao?.acao === 'configurada') {
+    return responderConfigurada(encontrado.intencao,pendente?.etapa === 'cliente_selecionado' ? pendente : null,encontrado.argumento);
   }
   if (encontrado?.intencao?.acao === 'ultimos_pedidos_cliente') {
     if (pendente?.etapa === 'cliente_selecionado' &&
