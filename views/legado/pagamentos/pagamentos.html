@@ -703,6 +703,22 @@
       return Number(texto.replace(/\./g, '').replace(',', '.')) || 0;
     }
 
+    function formatarValorPagamentoEmCentavos(valor) {
+      const digitos = String(valor ?? '').replace(/\D/g, '');
+      return (Number(digitos || '0') / 100).toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+
+    function formatarValorPagamentoEdicao(valor) {
+      const numero = Number(valor);
+      return (Number.isFinite(numero) ? numero : 0).toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+    }
+
     function mostrarStatus(tipo, mensagem) {
       el.status.className = `status show ${tipo}`;
       el.status.textContent = mensagem;
@@ -948,7 +964,7 @@
             <form id="formPagamento">
               <div class="field">
                 <label for="valorPagamento">Valor</label>
-                <input type="text" id="valorPagamento" placeholder="0,00" value="${escapeHtml(estado.pagamentoEmEdicao ? String(estado.pagamentoEmEdicao.valor || '').replace('.', ',') : '')}" />
+                <input type="text" id="valorPagamento" inputmode="numeric" autocomplete="off" placeholder="0,00" value="${escapeHtml(estado.pagamentoEmEdicao ? formatarValorPagamentoEdicao(estado.pagamentoEmEdicao.valor) : '0,00')}" />
               </div>
 
               <div id="blocoDataPgto" ${estado.tipoPagamento === 'V' ? '' : 'style="display:none;"'}>
@@ -1115,6 +1131,12 @@
         });
       }
 
+      const valorPagamento = document.getElementById('valorPagamento');
+      valorPagamento.addEventListener('input', () => {
+        valorPagamento.value = formatarValorPagamentoEmCentavos(valorPagamento.value);
+        valorPagamento.setSelectionRange(valorPagamento.value.length, valorPagamento.value.length);
+      });
+
       const formPagamento = document.getElementById('formPagamento');
       formPagamento.addEventListener('submit', salvarPagamento);
 
@@ -1228,7 +1250,8 @@
     }
 
     function montarPayloadFormulario() {
-      const valor = document.getElementById('valorPagamento').value;
+      // Mantém o padrão "1500,50" aceito pela API, sem pontos de milhar.
+      const valor = document.getElementById('valorPagamento').value.replace(/\./g, '');
       const observacao = document.getElementById('observacaoPagamento').value;
 
       const payload = {
