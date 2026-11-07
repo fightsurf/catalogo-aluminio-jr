@@ -302,7 +302,9 @@ async function retomarExecucaoWeb(){
  const indice=loc?.id===d.id?Number(loc.indice):-1;
  webExec.indice=Number.isInteger(indice)&&indice>=0&&indice<itens.length?indice:itens.findIndex((x,i)=>!webExec.pulados.has(i)&&(webExec.concluidas[i]||0)<webSerieTotal(x));
  if(webExec.indice<0)webExec.indice=0;
- if(descanso&&!webExec.pulados.has(webExec.indice)){
+ if(descanso){
+  const indiceDescanso=Number(descanso.posicao_exercicio)-1;
+  if(indiceDescanso>=0&&indiceDescanso<itens.length)webExec.indice=indiceDescanso;
   webExec.descansoAte=new Date(descanso.ocorrido_em).getTime()+Number(descanso.descanso_seg||0)*1000;
   webExec.etapa='descanso';
  }else webExec.etapa=(webExec.concluidas[webExec.indice]||0)>=webSerieTotal(itens[webExec.indice])?'proximo':'serie';
@@ -327,6 +329,7 @@ function webAbrirModal(){
  webTimer=setInterval(webAtualizarRelogios,500);
 }
 function webFecharModal(){
+ if(webExec?.ocupado){toast('Aguarde a gravação da série ou do descanso antes de fechar.');return;}
  if(webTimer)clearInterval(webTimer);webTimer=null;
  const modal=$('avn-modal-execucao');
  if(modal?.open)modal.close();
