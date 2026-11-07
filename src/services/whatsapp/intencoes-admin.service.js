@@ -3,6 +3,7 @@
 const crypto = require('node:crypto');
 const pool = require('../../../db/connection');
 const pagamentos = require('../legado/pagamentos/pagamentos.service');
+const clientesLegado = require('../legado/clientes/clientes.service');
 const envio = require('./envio-whatsapp.service');
 const classificador = require('./classificador-intencoes-admin.service');
 
@@ -121,22 +122,55 @@ function normalizarNome(nome) {
   if (resultado.length < 2 || resultado.length > 100) return '';
   return resultado;
 }
+const LIMITE_CLIENTES_RESPOSTA = 5;
+function telefoneCliente(cliente) {
+  return String(cliente?.telefonePrincipal || cliente?.telefone_principal ||
+    cliente?.telefone1 || cliente?.telefone || cliente?.fone1 || cliente?.fOne1 ||
+    cliente?.celular || '').replace(/\s+/g, ' ').trim().slice(0, 60);
+}
+function telefoneExibicao(valor) {
+  const telefone = String(valor || '').replace(/\D/g, '');
+  const nacional = telefone.startsWith('55') && (telefone.length === 12 || telefone.length === 13)
+    ? telefone.slice(2) : telefone;
+  const prefixo = nacional !== telefone ? '+55 ' : '';
+  if (nacional.length === 11) {
+    return prefixo + '(' + nacional.slice(0, 2) + ') ' + nacional.slice(2, 7) +
+      '-' + nacional.slice(7);
+  }
+  if (nacional.length === 10) {
+    return prefixo + '(' + nacional.slice(0, 2) + ') ' + nacional.slice(2, 6) +
+      '-' + nacional.slice(6);
+  }
+  return String(valor || '').trim() || 'Não informado';
+}
+async function completarTelefones(lista, buscarCliente) {
+  // A consulta de pagamentos pode retornar apenas nome e cidade. Busca detalhes
+  // exclusivamente dos cinco clientes exibidos, sem alterar qualquer cadastro.
+  return Promise.all(lista.slice(0, LIMITE_CLIENTES_RESPOSTA).map(async cliente => {
+    if (telefoneCliente(cliente) || !cliente?.favorecido) return cliente;
+    try {
+      const detalhe = await buscarCliente(cliente.favorecido);
+      if (!detalhe || Number(detalhe.favorecido) !== Number(cliente.favorecido)) return cliente;
+      return { ...cliente, telefonePrincipal: telefoneCliente(detalhe) };
+    } catch (_) {
+      // A indisponibilidade de um telefone não impede a resposta aos demais.
+      return cliente;
+    }
+  }));
+}
 function respostasClientes(nome, clientes) {
   if (!clientes.length) return ['Não encontrei clientes com o nome "' + nome + '". Informe outro nome.'];
-  const linhas = clientes.map((c, i) => {
-    const nomeCliente = String(c.nome || 'Sem nome').trim().slice(0,120);
-    const codigo = String(c.favorecido ?? '').trim();
-    const local = [c.cidade, c.uf].filter(Boolean).map(x => String(x).trim().slice(0,55)).join('/');
-    return (i+1) + '. ' + nomeCliente + (local ? ' — ' + local : '') + (codigo ? ' (cód. ' + codigo + ')' : '');
+  const linhas = clientes.slice(0, LIMITE_CLIENTES_RESPOSTA).map((c, i) => {
+    const nomeCliente = String(c.nome || 'Sem nome').replace(/\s+/g, ' ').trim()
+      .replace(/\*/g, '').slice(0, 120);
+    const cidade = [c.cidade, c.uf].filter(Boolean)
+      .map(x => String(x).replace(/\s+/g, ' ').trim().slice(0, 55)).join('/');
+    const telefone = telefoneExibicao(telefoneCliente(c));
+    return (i + 1) + '. *' + nomeCliente + '*\n' +
+      'Cidade: ' + (cidade || 'Não informada') + '\n' +
+      'Telefone: ' + telefone;
   });
-  const paginas = [];
-  let pagina = 'Clientes encontrados para "' + nome + '" (' + clientes.length + '):';
-  for (const linha of linhas) {
-    if (pagina.length + linha.length > 3000) { paginas.push(pagina); pagina = ''; }
-    pagina += '\n' + linha.slice(0, 3000);
-  }
-  if (pagina) paginas.push(pagina);
-  return paginas;
+  return ['Clientes encontrados para "' + nome + '":\n\n' + linhas.join('\n\n')];
 }
 function limparSessoes() {
   const agora = Date.now();
@@ -169,7 +203,9 @@ async function processarMensagem({ telefone, texto, permitido = false }, deps = 
   } else {
     sessoes.delete(telefone);
     const encontrados = await busca(nome);
-    resposta.push(...respostasClientes(nome, Array.isArray(encontrados) ? encontrados : []));
+    const primeiros = Array.isArray(encontrados) ? encontrados.slice(0, LIMITE_CLIENTES_RESPOSTA) : [];
+    const comTelefones = await completarTelefones(primeiros, deps.buscarCliente || clientesLegado.buscarCliente);
+    resposta.push(...respostasClientes(nome, comTelefones));
   }
   for (const mensagem of resposta) await enviar({ telefone, mensagem });
   return { reconhecido: true, intencao: encontrado?.intencao?.nome || 'Localizar cliente', acao: 'localizar_cliente', resposta: resposta.join('\n\n') };
