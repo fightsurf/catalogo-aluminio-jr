@@ -262,6 +262,7 @@
     const paramsPedidoInsercao = new URLSearchParams(window.location.search);
     const carradaCodigoPreSelecionada = paramsPedidoInsercao.get('carrada_codigo') || paramsPedidoInsercao.get('carradaCodigo') || '';
     const relatorioWhatsappId = paramsPedidoInsercao.get('relatorio_whatsapp_id') || '';
+    const favorecidoPreSelecionado = paramsPedidoInsercao.get('favorecido') || '';
 
     let clientes = [];
     let clienteSelecionado = null;
@@ -935,6 +936,36 @@
       btnEnviarPdfWhatsapp.disabled = btnEnviarWhatsapp.disabled || !obterIdPedidoAtual();
       btnEnviarFotosWhatsapp.disabled = btnEnviarWhatsapp.disabled || !Array.isArray(ultimoPedidoSalvo?.itens) || !ultimoPedidoSalvo.itens.length;
       carradaPedido.disabled = exibirRelatorio;
+    }
+
+    async function carregarClientePreSelecionado() {
+      if (!favorecidoPreSelecionado || relatorioWhatsappId) return;
+
+      const favorecido = favorecidoPreSelecionado.trim();
+      if (!/^\d+$/.test(favorecido) || Number(favorecido) <= 0) {
+        setMensagem('Código do cliente informado no link é inválido.', true);
+        return;
+      }
+
+      try {
+        setMensagem('Carregando cliente do cadastro...');
+        const response = await fetch(`/api/legado/clientes/${encodeURIComponent(favorecido)}`, {
+          headers: { Accept: 'application/json' }
+        });
+        const json = await lerJson(response);
+        const cliente = json?.dado || null;
+        if (!cliente || String(cliente.favorecido) !== favorecido) {
+          throw new Error('O cliente não foi encontrado para iniciar o pedido.');
+        }
+
+        clienteSelecionado = cliente;
+        buscaCliente.value = cliente.nome || '';
+        listaClientes.innerHTML = '';
+        renderClienteSelecionado();
+        setMensagem(`Cliente ${cliente.nome || favorecido} selecionado. Adicione os itens do pedido.`);
+      } catch (error) {
+        setMensagem(error.message || 'Não foi possível selecionar automaticamente o cliente.', true);
+      }
     }
 
     async function carregarClientes() {
@@ -1953,6 +1984,7 @@ setMensagem([
     renderClienteSelecionado();
     renderItensPedido();
     atualizarBotoesAcao();
+    carregarClientePreSelecionado();
     carregarRelatorioWhatsappRecebido();
   </script>
   <script src="/js/pedido-resumo-ia.js"></script>
