@@ -108,14 +108,15 @@ function atualizarResumoDiario(){if(has('resumoDiario'))$('resumoDiario').innerH
 function renderDaily(){
  if(!has('resumoDiario'))return;
  atualizarResumoDiario();
- const groups=Object.keys(MEALS).map(key=>[key,state.diario.filter(i=>i.refeicao===key)]).filter(([,items])=>items.length);
+ const groups=Object.keys(MEALS).map(key=>[key,state.diario.filter(i=>i.refeicao===key)]);
  $('listaDiario').innerHTML=groups.length?groups.map(([key,items])=>{
   const sub=aggregate(items);
-  return '<section class="avn-dieta-refeicao"><div class="avn-dieta-refeicao-cabecalho">'+
+  return '<section class="avn-dieta-refeicao'+(!items.length?' avn-diario-refeicao-vazia':'')+'"><div class="avn-dieta-refeicao-cabecalho">'+
    '<h4><a href="#" data-macro-meal="'+esc(key)+'" data-macro-source="diario">'+esc(MEALS[key])+' <span class="avn-dieta-emoji">'+emojiRefeicao(key)+'</span></a></h4><span>'+
    items.length+' alimento(s)</span></div><div class="avn-perfil-acoes">'+
    '<button type="button" data-diario-adicionar="'+esc(key)+'">+ Adicionar alimento</button>'+
-   '<button type="button" data-diario-repetir="'+esc(key)+'">Copiar para</button></div>'+
+   '<button type="button" data-diario-repetir="'+esc(key)+'"'+(!items.length?' disabled':'')+'>Copiar para</button>'+ 
+   '<button type="button" data-diario-copiar-de="'+esc(key)+'">Copiar de</button></div>'+
    '<div class="avn-dieta-refeicao-itens">'+items.map(i=>
     '<div class="list-row avn-dieta-linha" data-diario-item="'+esc(i.id)+'"><div><span class="name">'+esc(i.alimento_nome)+' <span class="avn-dieta-emoji">'+emojiAlimento(i.alimento_nome)+'</span></span><button type="button" class="avn-mudar-refeicao-link" data-mudar-refeicao="'+esc(i.id)+'" aria-label="Mudar refeição de '+esc(i.alimento_nome)+'">Mudar refeição</button>'+
     '<div class="avn-dieta-pesagem"><small data-peso-diario>'+fmt(i.quantidade_g)+' g consumidos'+(i.plano_item_id?' · da dieta':'')+'</small>'+
@@ -124,7 +125,7 @@ function renderDaily(){
     resumoMacrosProgramados(aggregate([i]),'Macronutrientes de '+i.alimento_nome)+'</div>'+
     '<div class="avn-dieta-acoes"><button type="button" class="secondary" data-edit-consumo="'+esc(i.id)+'">Editar</button>'+
     '<button type="button" class="delete" data-consumo="'+esc(i.id)+'">Excluir</button></div></div>').join('')+
-   '</div><div class="avn-dieta-totais-refeicao">'+resumoMacrosProgramados(sub,'Total de '+MEALS[key])+'</div></section>';
+   '</div>'+(items.length?'<div class="avn-dieta-totais-refeicao">'+resumoMacrosProgramados(sub,'Total de '+MEALS[key])+'</div>':'')+'</section>';
  }).join(''):'<p class="muted">Nenhum alimento registrado nesta data.</p>';
  $('listaDiario').querySelectorAll('[data-consumo]').forEach(btn=>btn.onclick=async()=>{
   if(!confirm('Excluir este alimento do diário?'))return;

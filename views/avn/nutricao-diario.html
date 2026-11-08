@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AVN — Diário alimentar</title><link rel="stylesheet" href="/css/avn-nutricao.css?v=20261108-dias1"><script src="/js/avn-nutricao.js?v=20261108-dias1" defer></script><script src="/js/avn-nutricao-perfis-diario.js?v=20261108-copiar-para1" defer></script></head>
+<title>AVN — Diário alimentar</title><link rel="stylesheet" href="/css/avn-nutricao.css?v=20261108-copiar-de1"><script src="/js/avn-nutricao.js?v=20261108-copiar-de1" defer></script><script src="/js/avn-nutricao-perfis-diario.js?v=20261108-copiar-de1" defer></script></head>
 <body data-nutricao-pagina="diario"><main class="avn-wrap">
 <header class="avn-top"><a href="/avn">← Central AVN</a><span class="avn-brand">AVN <em>Nutrição</em></span></header>
 <section class="avn-hero"><div><span class="avn-caption">NUTRIÇÃO · AVN</span><h1>Diário alimentar</h1><p>Registre o consumo real e acompanhe calorias e macronutrientes.</p></div><label class="avn-field user-field">Usuário<select id="usuario"><option>Carregando…</option></select></label></section>
@@ -53,6 +53,17 @@
  <button type="button" id="confirmarRepetirRefeicao" class="primary" disabled>Copiar para</button>
 </dialog>
 
+
+<dialog class="avn-dialog avn-copiar-refeicao-modal" id="modalCopiarDe" aria-labelledby="tituloCopiarDe">
+ <div class="modal-head"><h3 id="tituloCopiarDe">Copiar de outra refeição ou data</h3><button type="button" class="secondary" id="fecharCopiarDe">Fechar</button></div>
+ <div class="avn-copiar-refeicao-campos">
+  <p class="muted" id="destinoCopiarDe"></p>
+  <label class="avn-field">Data de origem<input type="date" id="dataOrigemCopiarDe" required></label>
+  <label class="avn-field">Refeição de origem<select id="refeicaoOrigemCopiarDe" required></select></label>
+  <p class="muted" id="statusCopiarDe" role="status" aria-live="polite"></p>
+ </div>
+ <button type="button" id="confirmarCopiarDe" class="primary" disabled>Copiar de</button>
+</dialog>
 <dialog class="avn-dialog" id="modalEditarConsumo"><div class="modal-head"><h3>Editar alimento consumido</h3><button type="button" class="secondary" id="fecharEdicaoConsumo">Fechar</button></div><p id="nomeEdicaoConsumo"></p><form id="formEditarConsumo" class="stack"><label class="avn-field">Alimento<select id="alimentoEdicaoConsumo" required></select></label><label class="avn-field">Refeição<select id="refeicaoEdicaoConsumo"></select></label><label class="avn-field">Quantidade consumida (g)<input id="gramasEdicaoConsumo" type="number" min="0.1" max="10000" step="any" required></label><button class="primary">Salvar nova pesagem</button></form></dialog>
 <dialog class="avn-dialog avn-dieta-ranking-modal" id="modalRankingDiario" aria-labelledby="tituloRankingDiario"><div class="modal-head"><h3 id="tituloRankingDiario">Ranking de alimentos consumidos</h3><button type="button" class="secondary" id="fecharRankingDiario">Fechar</button></div><div id="conteudoRankingDiario" class="avn-dieta-ranking-conteudo" aria-live="polite"></div></dialog>
 <dialog class="avn-dialog" id="modalMacros"><div class="modal-head"><h3 id="tituloMacros">Macronutrientes</h3><button type="button" class="secondary" id="fecharMacros">Fechar</button></div><div id="conteudoMacros"></div></dialog>

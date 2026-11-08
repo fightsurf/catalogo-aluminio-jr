@@ -778,3 +778,15 @@ body[data-nutricao-pagina="diario"] .avn-data-navegacao-botao:focus-visible{outl
  body[data-nutricao-pagina="diario"] .avn-data-navegacao{width:100%;grid-template-columns:auto minmax(0,1fr) auto;margin-top:12px;}
  body[data-nutricao-pagina="diario"] .avn-data-navegacao-botao{font-size:13px;padding:9px 8px;}
 }
+
+/* Diário alimentar: permitir cópia para refeições sem consumo ainda. */
+body[data-nutricao-pagina="diario"] .avn-diario-refeicao-vazia{padding:9px 12px}
+body[data-nutricao-pagina="diario"] .avn-diario-refeicao-vazia .avn-dieta-refeicao-cabecalho{padding-bottom:0}
+body[data-nutricao-pagina="diario"] .avn-diario-refeicao-vazia .avn-dieta-refeicao-itens{display:none}
+body[data-nutricao-pagina="diario"] .avn-perfil-acoes button:disabled{opacity:.48;cursor:not-allowed}
+#modalCopiarDe[open]{display:flex;flex-direction:column;width:min(640px,calc(100vw - 24px));min-height:min(530px,86dvh);max-height:94dvh}
+#modalCopiarDe .avn-copiar-refeicao-campos{display:grid;gap:20px;align-content:start;flex:1;min-height:0;padding-top:16px}
+#modalCopiarDe #destinoCopiarDe{font-size:14px;font-weight:750;margin:0;color:var(--ink)}
+#modalCopiarDe #statusCopiarDe{line-height:1.6;min-height:48px;margin:0;overflow-wrap:anywhere}
+#modalCopiarDe #confirmarCopiarDe{margin-top:20px;align-self:stretch}
+@media(max-width:600px){#modalCopiarDe[open]{min-height:min(490px,88dvh);max-height:94dvh}}
