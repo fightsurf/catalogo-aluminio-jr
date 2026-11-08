@@ -66,9 +66,23 @@ mobile.post('/parear',wrap(async(req,res)=>{
 }));
 mobile.use(async(req,res,next)=>{try{
  const m=/^Bearer ([A-Za-z0-9_-]{40,100})$/.exec(req.get('Authorization')||'');if(!m)throw err('Dispositivo não autenticado.',401);
- const r=await pool.query('SELECT id,usuario_id FROM public.avn_treino_mobile_dispositivos WHERE token_hash=$1 AND revogado_em IS NULL',[digest(m[1])]);if(!r.rowCount)throw err('Acesso revogado.',401);
- req.avnm={id:r.rows[0].id,usuario_id:r.rows[0].usuario_id};next();
+ const r=await pool.query('SELECT id,usuario_id,nome FROM public.avn_treino_mobile_dispositivos WHERE token_hash=$1 AND revogado_em IS NULL',[digest(m[1])]);if(!r.rowCount)throw err('Acesso revogado.',401);
+ const watchOnly=String(r.rows[0].nome||'').startsWith('AVN-AGUA-WATCH:');
+ if(watchOnly&&!req.path.startsWith('/agua'))throw err('Este dispositivo tem acesso somente ao registro de água.',403);
+ req.avnm={id:r.rows[0].id,usuario_id:r.rows[0].usuario_id,watchOnly};next();
  }catch(e){res.status(e.status||500).json({erro:e.message});}});
+// O celular previamente vinculado concede credencial exclusiva e revogável ao relógio,
+// sem código digitado no Watch7. Tokens de relógio nunca podem criar outros tokens.
+mobile.post('/relogio/autorizar',wrap(async(req,res)=>{
+ if(req.avnm.watchOnly)throw err('O relógio não pode autorizar novos dispositivos.',403);
+ const nome=String(req.body?.dispositivo||'Galaxy Watch7').trim().slice(0,70)||'Galaxy Watch7';
+ const token=crypto.randomBytes(32).toString('base64url');
+ await pool.query(
+  'INSERT INTO public.avn_treino_mobile_dispositivos(usuario_id,token_hash,nome) VALUES($1,$2,$3)',
+  [req.avnm.usuario_id,digest(token),'AVN-AGUA-WATCH:'+nome]
+ );
+ res.set('Cache-Control','no-store').status(201).json({token});
+}));
 mobile.use('/agua',hidratacao.mobile);
 mobile.use('/nutricao',require('./avn-nutricao-mobile.routes'));
 
