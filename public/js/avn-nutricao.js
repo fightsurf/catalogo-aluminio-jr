@@ -310,9 +310,15 @@ function atualizarResumoDieta(){
   const plannedText=unknown?'Sem dado':fmt(a.total[key],key==='kcal'?0:1)+' '+esc(unit);
   const excedeu=goalDefined&&!unknown&&a.total[key]>Number(goal);
   const aviso=excedeu?'<span class="avn-meta-aviso" role="img" aria-label="Meta ultrapassada" title="Meta ultrapassada"> ⚠️</span>':'';
+  const precisao=key==='kcal'?0:1;
+  // Variacao = total planejado - meta. Valor negativo significa quantidade faltante.
+  const variacao=goalDefined&&!unknown?Math.round((a.total[key]-Number(goal))*Math.pow(10,precisao))/Math.pow(10,precisao):null;
+  const mensagemSaldo=variacao===null?'':variacao<0?'faltam '+fmt(-variacao,precisao)+' '+unit:
+    variacao>0?'excedeu '+fmt(variacao,precisao)+' '+unit:'meta atingida';
+  const saldo=mensagemSaldo?'<small class="avn-dieta-saldo"> ('+mensagemSaldo+(partial?' · parcial':'')+')</small>':'';
   return '<div class="avn-dieta-macro-coluna">'+
    '<div class="stat avn-dieta-meta'+(excedeu?' avn-meta-excedida':'')+'"><small class="avn-dieta-card-titulo">Minha meta · '+esc(label)+'</small><strong>'+goalText+aviso+'</strong></div>'+
-   '<div class="stat avn-dieta-planejado'+(excedeu?' avn-meta-excedida':'')+'"><small class="avn-dieta-card-titulo">Total planejado · '+esc(label)+'</small><strong><a href="#" class="avn-dieta-ranking-link" data-ranking-dieta="'+esc(key)+'" aria-label="Classificar alimentos por '+esc(label.toLowerCase())+'">'+plannedText+'</a>'+aviso+'</strong>'+
+   '<div class="stat avn-dieta-planejado'+(excedeu?' avn-meta-excedida':'')+'"><small class="avn-dieta-card-titulo">Total planejado · '+esc(label)+'</small><strong><a href="#" class="avn-dieta-ranking-link" data-ranking-dieta="'+esc(key)+'" aria-label="Classificar alimentos por '+esc(label.toLowerCase())+'">'+plannedText+'</a>'+saldo+aviso+'</strong>'+
    (partial?'<small class="avn-dieta-card-nota">Parcial: faltam dados em alguns alimentos.</small>':'')+'</div></div>';
  }).join('');
 }

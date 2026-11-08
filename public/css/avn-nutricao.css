@@ -743,6 +743,8 @@ body[data-nutricao-pagina="alimentos"] .avn-tabela-dialog #aplicarTabelaNutricio
 /* Saldo para completar as metas, em fonte secundária nos totais do Diário Alimentar. */
 body[data-nutricao-pagina="diario"] #resumoDiario .avn-dieta-planejado strong{white-space:normal}
 body[data-nutricao-pagina="diario"] #resumoDiario .avn-dieta-saldo{font-size:12px;font-weight:500;color:var(--muted);white-space:normal;line-height:1.35}
+body[data-nutricao-pagina="dieta"] #resumoDieta .avn-dieta-planejado strong{white-space:normal}
+body[data-nutricao-pagina="dieta"] #resumoDieta .avn-dieta-saldo{font-size:12px;font-weight:500;color:var(--muted);white-space:normal;line-height:1.35}
 
 /* Diário Alimentar: cópia de refeição com origem fixa e seleção apenas do destino. */
 #modalRepetirRefeicao[open]{
