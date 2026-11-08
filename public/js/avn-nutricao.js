@@ -1304,6 +1304,18 @@ function events(){
  }catch(err){show(err.message,true);}};
 
  $('dataDiario').onchange=async()=>{if($('modalMudarRefeicao')?.open)$('modalMudarRefeicao').close();if($('modalRankingDiario').open)$('modalRankingDiario').close();state.data=v('dataDiario');$('refeicaoPlanejada').value='';try{await Promise.all([loadDaily(),loadDiet()]);}catch(e){show(e.message,true);}};
+ // Reaproveita a mesma atualização da seleção manual, inclusive na troca de meses e anos.
+ const navegarDiaDiario=passo=>{
+  const campo=$('dataDiario'),valor=campo.value||state.data;
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(valor))return;
+  const data=new Date(valor+'T12:00:00Z');
+  if(Number.isNaN(data.getTime()))return;
+  data.setUTCDate(data.getUTCDate()+passo);
+  campo.value=data.toISOString().slice(0,10);
+  campo.dispatchEvent(new Event('change',{bubbles:true}));
+ };
+ $('diaAnterior').onclick=()=>navegarDiaDiario(-1);
+ $('diaSeguinte').onclick=()=>navegarDiaDiario(1);
  $('formDiario').onsubmit=async e=>{e.preventDefault();try{userGuard();await send('/diario/'+state.usuarioId,'POST',{data:state.data,alimento_id:v('diarioAlimento'),refeicao:v('diarioRefeicao'),quantidade_g:Number(v('diarioGramas'))});await loadDaily();$('modalAdicionarDiario').close();show('Alimento registrado no diário.');}catch(err){show(err.message,true);}};
  $('refeicaoPlanejada').onchange=renderPlannedMeal;
  $('registrarRefeicao').onclick=registrarRefeicaoPlanejada;

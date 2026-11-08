@@ -760,3 +760,21 @@ body[data-nutricao-pagina="diario"] #resumoDiario .avn-dieta-saldo{font-size:12p
 @media(max-width:600px){
  #modalRepetirRefeicao[open]{min-height:min(490px,88dvh);max-height:94dvh;}
 }
+
+/* Diário alimentar: botões de navegação diária ao lado da data. */
+body[data-nutricao-pagina="diario"] .avn-data-navegacao{
+ display:grid;grid-template-columns:auto minmax(145px,1fr) auto;
+ align-items:end;gap:8px;max-width:100%;
+}
+body[data-nutricao-pagina="diario"] .avn-data-navegacao .avn-field{min-width:0;}
+body[data-nutricao-pagina="diario"] .avn-data-navegacao-botao{
+ min-height:44px;padding:9px 12px;border-radius:9px;
+ background:#263b57;color:#ecf2fc;border:1px solid #465b7a;
+ font-weight:700;white-space:nowrap;
+}
+body[data-nutricao-pagina="diario"] .avn-data-navegacao-botao:hover{background:#395976;}
+body[data-nutricao-pagina="diario"] .avn-data-navegacao-botao:focus-visible{outline:2px solid #a9d3ff;outline-offset:2px;}
+@media(max-width:600px){
+ body[data-nutricao-pagina="diario"] .avn-data-navegacao{width:100%;grid-template-columns:auto minmax(0,1fr) auto;margin-top:12px;}
+ body[data-nutricao-pagina="diario"] .avn-data-navegacao-botao{font-size:13px;padding:9px 8px;}
+}
