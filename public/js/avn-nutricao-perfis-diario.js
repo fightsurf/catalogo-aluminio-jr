@@ -132,98 +132,96 @@ async function confirmarEnvio(){
  finally{salvandoEnvio=false;if($('modalEnviarDiario').open)montarEnvio();}
 }
 
-let anteriores=[],destinoRegistrados=[],repetindo=false;
-let consultandoOrigem=false,consultandoDestino=false;
-function anterior(data){
- const d=new Date(data+'T12:00:00');d.setDate(d.getDate()-1);
- const pad=n=>String(n).padStart(2,'0');
- return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+
+let origemCopia=null,destinoRegistrados=[],copiando=false,consultandoDestino=false,falhaConsultaDestino=false,versaoConsultaDestino=0;
+function dataBR(data){
+ const p=String(data||'').split('-');
+ return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:data;
 }
-function renderRepeticao(){
- const ref=$('tipoRepetirRefeicao').value;
- const origem=$('dataOrigemRefeicao').value,destino=$('dataDestinoRefeicao').value;
- const itens=anteriores.filter(i=>i.refeicao===ref);
- const presentes=destinoRegistrados.filter(i=>i.refeicao===ref);
- const mesmaData=Boolean(origem&&destino&&origem===destino);
- $('destinoRepetirRefeicao').textContent='Origem: '+(origem||'selecione a data')+' · Destino: '+(destino||'selecione a data');
- $('previaRepetirRefeicao').innerHTML=itens.length?itens.map(i=>
-  '<div class="list-row"><span>'+esc(i.alimento_nome)+'</span><small>'+fmt(i.quantidade_g)+' g</small></div>'
- ).join(''):'<p class="muted">Não há alimentos nessa refeição na data de origem.</p>';
- if(mesmaData)$('previaRepetirRefeicao').insertAdjacentHTML('beforeend',
-  '<p class="muted">A data de destino deve ser diferente da data de origem.</p>');
- if(presentes.length)$('previaRepetirRefeicao').insertAdjacentHTML('beforeend',
-  '<p class="muted">Já existem '+presentes.length+' alimento(s) no destino. Escolha acrescentar ou substituir.</p>');
- $('confirmarRepetirRefeicao').disabled=!itens.length||repetindo||consultandoOrigem||consultandoDestino||
-  !origem||!destino||mesmaData||!$('dataOrigemRefeicao').checkValidity()||!$('dataDestinoRefeicao').checkValidity();
-}
-async function consultarOrigem(){
- const data=$('dataOrigemRefeicao').value,uid=state.usuarioId;
- anteriores=[];consultandoOrigem=Boolean(data);renderRepeticao();
- if(!data)return;
- try{
-  const r=await api('/diario/'+uid+'?data='+encodeURIComponent(data));
-  if(uid!==state.usuarioId||data!==$('dataOrigemRefeicao').value)return;
-  anteriores=r.itens||[];
- }catch(err){
-  if(uid===state.usuarioId&&data===$('dataOrigemRefeicao').value)show(err.message,true);
- }finally{
-  if(uid===state.usuarioId&&data===$('dataOrigemRefeicao').value){consultandoOrigem=false;renderRepeticao();}
- }
+function renderCopia(){
+ if(!origemCopia)return;
+ const destino=$('dataDestinoRefeicao').value,refDestino=$('refeicaoDestinoRepeticao').value;
+ const origem=origemCopia;
+ const itensOrigem=state.diario.filter(i=>i.refeicao===origem.ref);
+ const itensDestino=destinoRegistrados.filter(i=>i.refeicao===refDestino);
+ const mesmoLugar=Boolean(destino&&origem.data===destino&&origem.ref===refDestino);
+ $('origemRepetirRefeicao').textContent='Origem: '+nomeRefeicao(origem.ref)+' · '+dataBR(origem.data);
+ const avisos=[];
+ if(!itensOrigem.length)avisos.push('Não há alimentos nessa refeição para copiar.');
+ else avisos.push('Serão copiados '+itensOrigem.length+' alimento(s) com as quantidades e os nutrientes registrados.');
+ if(!destino)avisos.push('Escolha a data de destino.');
+ else if(mesmoLugar)avisos.push('Escolha outra data ou outra refeição de destino.');
+ else if(itensDestino.length)avisos.push('O destino já possui alimentos. A cópia será acrescentada, sem excluir os existentes.');
+ if(falhaConsultaDestino)avisos.push('Não foi possível consultar o destino. Escolha novamente a data.');
+ $('statusRepetirRefeicao').textContent=avisos.join(' ');
+ $('confirmarRepetirRefeicao').disabled=!itensOrigem.length||!destino||!MEALS[refDestino]||
+  !($('dataDestinoRefeicao').checkValidity())||mesmoLugar||copiando||consultandoDestino||falhaConsultaDestino;
 }
 async function consultarDestino(){
- const data=$('dataDestinoRefeicao').value,uid=state.usuarioId;
- destinoRegistrados=[];consultandoDestino=Boolean(data);renderRepeticao();
+ const versao=++versaoConsultaDestino,uid=state.usuarioId,data=$('dataDestinoRefeicao').value;
+ destinoRegistrados=[];falhaConsultaDestino=false;consultandoDestino=Boolean(data);
+ renderCopia();
  if(!data)return;
  try{
   const r=await api('/diario/'+uid+'?data='+encodeURIComponent(data));
-  if(uid!==state.usuarioId||data!==$('dataDestinoRefeicao').value)return;
+  if(versao!==versaoConsultaDestino||!origemCopia||uid!==state.usuarioId)return;
   destinoRegistrados=r.itens||[];
  }catch(err){
-  if(uid===state.usuarioId&&data===$('dataDestinoRefeicao').value)show(err.message,true);
+  if(versao===versaoConsultaDestino&&origemCopia&&uid===state.usuarioId){
+   falhaConsultaDestino=true;show(err.message,true);
+  }
  }finally{
-  if(uid===state.usuarioId&&data===$('dataDestinoRefeicao').value){consultandoDestino=false;renderRepeticao();}
+  if(versao===versaoConsultaDestino&&origemCopia&&uid===state.usuarioId){
+   consultandoDestino=false;renderCopia();
+  }
  }
 }
-async function abrirRepeticao(ref='cafe'){
+function abrirCopia(ref){
  try{
   userGuard();
-  $('dataOrigemRefeicao').removeAttribute('max');
-  $('dataOrigemRefeicao').value=anterior(state.data);
-  $('dataDestinoRefeicao').value=state.data;
-  $('tipoRepetirRefeicao').innerHTML=Object.entries(MEALS).map(([id,nome])=>
+  if(!MEALS[ref]||!state.data||!state.diario.some(i=>i.refeicao===ref))
+   throw Error('Escolha uma refeição com alimentos registrados para copiar.');
+  origemCopia={data:state.data,ref,usuarioId:state.usuarioId};
+  ++versaoConsultaDestino;
+  destinoRegistrados=[];consultandoDestino=false;falhaConsultaDestino=false;
+  $('dataDestinoRefeicao').value='';
+  $('refeicaoDestinoRepeticao').innerHTML=Object.entries(MEALS).map(([id,nome])=>
    '<option value="'+esc(id)+'">'+esc(nome)+'</option>').join('');
-  $('tipoRepetirRefeicao').value=ref;
-  $('modoRepetirRefeicao').value='acrescentar';
+  $('refeicaoDestinoRepeticao').value=ref;
   $('modalRepetirRefeicao').showModal();
-  await Promise.all([consultarOrigem(),consultarDestino()]);
+  renderCopia();
  }catch(err){show(err.message,true);}
 }
-async function confirmarRepeticao(){
- if(repetindo||consultandoOrigem||consultandoDestino)return;
+async function confirmarCopia(){
+ if(copiando||consultandoDestino||falhaConsultaDestino||!origemCopia)return;
  try{
   userGuard();
-  const origem=$('dataOrigemRefeicao').value,destino=$('dataDestinoRefeicao').value;
-  const ref=$('tipoRepetirRefeicao').value,modo=$('modoRepetirRefeicao').value;
-  if(!origem||!destino||!$('dataOrigemRefeicao').checkValidity()||!$('dataDestinoRefeicao').checkValidity())
-   throw Error('Informe datas válidas de origem e destino.');
-  if(origem===destino)throw Error('Escolha uma data de destino diferente da origem.');
-  if(!anteriores.some(i=>i.refeicao===ref))throw Error('Não há alimentos para copiar.');
-  if(modo==='substituir'&&destinoRegistrados.some(i=>i.refeicao===ref)&&
-   !confirm('Substituir todos os alimentos registrados nessa refeição em '+destino+'?'))return;
-  repetindo=true;$('confirmarRepetirRefeicao').disabled=true;
-  const uid=state.usuarioId;
-  const r=await send('/diario/'+uid+'/repetir-refeicao','POST',{
-   data_origem:origem,data_destino:destino,refeicao:ref,modo
+  const origem={...origemCopia},destino=$('dataDestinoRefeicao').value;
+  const refDestino=$('refeicaoDestinoRepeticao').value;
+  if(origem.usuarioId!==state.usuarioId||origem.data!==state.data)
+   throw Error('O diário mudou. Abra novamente a refeição para copiar.');
+  if(!destino||!$('dataDestinoRefeicao').checkValidity())throw Error('Escolha uma data de destino válida.');
+  if(!MEALS[refDestino])throw Error('Escolha uma refeição de destino válida.');
+  if(destino===origem.data&&refDestino===origem.ref)
+   throw Error('Escolha outra data ou outra refeição de destino.');
+  if(!state.diario.some(i=>i.refeicao===origem.ref))throw Error('Não há alimentos para copiar.');
+  copiando=true;$('confirmarRepetirRefeicao').disabled=true;
+  const r=await send('/diario/'+origem.usuarioId+'/repetir-refeicao','POST',{
+   data_origem:origem.data,data_destino:destino,
+   refeicao:origem.ref,refeicao_destino:refDestino,modo:'acrescentar'
   });
   $('modalRepetirRefeicao').close();
-  if(uid===state.usuarioId){
+  ++versaoConsultaDestino;
+  origemCopia=null;
+  if(origem.usuarioId===state.usuarioId){
    state.data=destino;
    $('dataDiario').value=destino;
-   await loadDaily();
+   try{await loadDaily();}
+   catch(err){show('A refeição foi copiada, mas não foi possível atualizar o diário: '+err.message,true);return;}
   }
-  show(r.inseridos+' alimento(s) copiado(s) para '+nomeRefeicao(ref)+' em '+destino+'.');
+  show(r.inseridos+' alimento(s) copiado(s) para '+nomeRefeicao(refDestino)+' em '+dataBR(destino)+'.');
  }catch(err){show(err.message,true);}
- finally{repetindo=false;if($('modalRepetirRefeicao').open)renderRepeticao();}
+ finally{copiando=false;if($('modalRepetirRefeicao').open)renderCopia();}
 }
 if(PAGE==='dieta'){
  $('listaDieta').addEventListener('click',async e=>{
@@ -254,17 +252,16 @@ if(PAGE==='dieta'){
  $('confirmarEnviarDiario').onclick=confirmarEnvio;
 }
 if(PAGE==='diario'){
- $('abrirRepetirRefeicao').onclick=()=>abrirRepeticao();
  $('fecharRepetirRefeicao').onclick=()=>$('modalRepetirRefeicao').close();
- $('dataOrigemRefeicao').onchange=consultarOrigem;
+ $('modalRepetirRefeicao').addEventListener('close',()=>{++versaoConsultaDestino;origemCopia=null;});
  $('dataDestinoRefeicao').onchange=consultarDestino;
- $('tipoRepetirRefeicao').onchange=renderRepeticao;
- $('confirmarRepetirRefeicao').onclick=confirmarRepeticao;
+ $('refeicaoDestinoRepeticao').onchange=consultarDestino;
+ $('confirmarRepetirRefeicao').onclick=confirmarCopia;
  $('listaDiario').addEventListener('click',e=>{
   const add=e.target.closest('[data-diario-adicionar]');
   if(add){$('diarioRefeicao').value=add.dataset.diarioAdicionar;$('modalAdicionarDiario').showModal();return;}
   const copy=e.target.closest('[data-diario-repetir]');
-  if(copy)abrirRepeticao(copy.dataset.diarioRepetir);
+  if(copy)abrirCopia(copy.dataset.diarioRepetir);
  });
 }
 })();

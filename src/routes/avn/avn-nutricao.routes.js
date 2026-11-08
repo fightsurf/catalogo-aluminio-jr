@@ -640,12 +640,12 @@ router.post('/diario/:usuarioId/registrar-refeicao',wrap(async(req,res)=>{
 }));
 
 
-/* Copia o histórico real de uma refeição entre dias, preservando os nutrientes registrados. */
+/* Copia a refeição real para qualquer dia/refeição de destino, preservando os nutrientes. */
 router.post('/diario/:usuarioId/repetir-refeicao',wrap(async(req,res)=>{
  const uid=requiredId(req.params.usuarioId);await user(uid);
  const origem=day(req.body?.data_origem),destino=day(req.body?.data_destino);
- const refeicao=meal(req.body?.refeicao),modo=req.body?.modo;
- if(origem===destino)throw bad('Escolha datas de origem e destino diferentes.');
+ const refeicao=meal(req.body?.refeicao),refeicaoDestino=meal(req.body?.refeicao_destino||req.body?.refeicao),modo=req.body?.modo;
+ if(origem===destino&&refeicao===refeicaoDestino)throw bad('Escolha outra data ou outra refeição de destino.');
  if(!['acrescentar','substituir'].includes(modo))throw bad('Escolha acrescentar ou substituir.');
  const db=await pool.connect();try{
   await db.query('BEGIN');
@@ -653,11 +653,11 @@ router.post('/diario/:usuarioId/repetir-refeicao',wrap(async(req,res)=>{
   await db.query('SELECT pg_advisory_xact_lock($1::int,$2::int)',[Number(uid)%2147483647,Number(destino.replace(/-/g,''))]);
   const origemItens=await db.query('SELECT * FROM public.avn_diario_alimentar WHERE usuario_id=$1 AND data_consumo=$2 AND refeicao=$3 ORDER BY id',[uid,origem,refeicao]);
   if(!origemItens.rowCount)throw bad('Nenhum alimento encontrado nessa refeição na data de origem.');
-  if(modo==='substituir')await db.query('DELETE FROM public.avn_diario_alimentar WHERE usuario_id=$1 AND data_consumo=$2 AND refeicao=$3',[uid,destino,refeicao]);
+  if(modo==='substituir')await db.query('DELETE FROM public.avn_diario_alimentar WHERE usuario_id=$1 AND data_consumo=$2 AND refeicao=$3',[uid,destino,refeicaoDestino]);
   let inseridos=0;
   for(const item of origemItens.rows){
    await db.query(`INSERT INTO public.avn_diario_alimentar(usuario_id,data_consumo,refeicao,alimento_id,alimento_nome,quantidade_g,composicao_100g,plano_item_id)
-   VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,NULL)`,[uid,destino,refeicao,item.alimento_id,item.alimento_nome,item.quantidade_g,JSON.stringify(item.composicao_100g)]);
+   VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,NULL)`,[uid,destino,refeicaoDestino,item.alimento_id,item.alimento_nome,item.quantidade_g,JSON.stringify(item.composicao_100g)]);
    inseridos++;
   }
   await db.query('COMMIT');res.json({ok:true,inseridos});

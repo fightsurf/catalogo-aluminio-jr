@@ -115,7 +115,7 @@ function renderDaily(){
    '<h4><a href="#" data-macro-meal="'+esc(key)+'" data-macro-source="diario">'+esc(MEALS[key])+' <span class="avn-dieta-emoji">'+emojiRefeicao(key)+'</span></a></h4><span>'+
    items.length+' alimento(s)</span></div><div class="avn-perfil-acoes">'+
    '<button type="button" data-diario-adicionar="'+esc(key)+'">+ Adicionar alimento</button>'+
-   '<button type="button" data-diario-repetir="'+esc(key)+'">Repetir refeição</button></div>'+
+   '<button type="button" data-diario-repetir="'+esc(key)+'">Copiar para</button></div>'+
    '<div class="avn-dieta-refeicao-itens">'+items.map(i=>
     '<div class="list-row avn-dieta-linha" data-diario-item="'+esc(i.id)+'"><div><span class="name">'+esc(i.alimento_nome)+' <span class="avn-dieta-emoji">'+emojiAlimento(i.alimento_nome)+'</span></span><button type="button" class="avn-mudar-refeicao-link" data-mudar-refeicao="'+esc(i.id)+'" aria-label="Mudar refeição de '+esc(i.alimento_nome)+'">Mudar refeição</button>'+
     '<div class="avn-dieta-pesagem"><small data-peso-diario>'+fmt(i.quantidade_g)+' g consumidos'+(i.plano_item_id?' · da dieta':'')+'</small>'+
