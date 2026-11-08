@@ -68,7 +68,16 @@ mobile.use(async(req,res,next)=>{try{
  const m=/^Bearer ([A-Za-z0-9_-]{40,100})$/.exec(req.get('Authorization')||'');if(!m)throw err('Dispositivo não autenticado.',401);
  const r=await pool.query('SELECT id,usuario_id,nome FROM public.avn_treino_mobile_dispositivos WHERE token_hash=$1 AND revogado_em IS NULL',[digest(m[1])]);if(!r.rowCount)throw err('Acesso revogado.',401);
  const watchOnly=String(r.rows[0].nome||'').startsWith('AVN-AGUA-WATCH:');
- if(watchOnly&&!req.path.startsWith('/agua'))throw err('Este dispositivo tem acesso somente ao registro de água.',403);
+ // A mesma credencial revogavel do Watch7 permite agua e execucao de treinos
+ // deste usuario. Impede acesso a nutricao, novo pareamento e rotas futuras.
+ const watchWorkoutAllowed=(
+  (req.method==='GET' && (/^\/planos(?:\/[1-9][0-9]*)?$/.test(req.path) ||
+    /^\/execucoes\/[0-9a-f-]{36}$/.test(req.path))) ||
+  (req.method==='POST' && (/^\/execucoes$/.test(req.path) ||
+    /^\/execucoes\/[0-9a-f-]{36}\/(?:eventos|cancelar)$/.test(req.path)))
+ );
+ if(watchOnly && !req.path.startsWith('/agua') && !watchWorkoutAllowed)
+  throw err('Acesso do relogio limitado a agua e execucao de treinos.',403);
  req.avnm={id:r.rows[0].id,usuario_id:r.rows[0].usuario_id,watchOnly};next();
  }catch(e){res.status(e.status||500).json({erro:e.message});}});
 // O celular previamente vinculado concede credencial exclusiva e revogável ao relógio,
