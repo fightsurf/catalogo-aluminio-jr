@@ -993,7 +993,7 @@
       const pedidoCancelado = String(pedidoCarregado?.situacao || '').trim().toUpperCase() === 'C';
       btnEditarPedido.classList.toggle('oculto', !haPedido || modoEdicao || pedidoCancelado);
       btnCalcularVolumes.classList.toggle('oculto', !haPedido || modoEdicao || pedidoCancelado);
-      btnCopiarPedido.classList.toggle('oculto', !haPedido || modoEdicao || pedidoCancelado);
+      btnCopiarPedido.classList.toggle('oculto', !haPedido || modoEdicao);
       btnParticionarPedido.classList.toggle('oculto', !haPedido || modoEdicao || pedidoCancelado);
       btnCancelarPedido.classList.toggle('oculto', !haPedido || modoEdicao || pedidoCancelado);
       btnCancelarEdicao.classList.add('oculto');
