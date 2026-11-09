@@ -1,4 +1,5 @@
 const legadoBridgeService = require('../legadoBridge.service');
+const pool = require('../../../../db/connection');
 const envioWhatsappService = require('../../whatsapp/envio-whatsapp.service');
 const pedidoPdfService = require('./pedidoPdf.service');
 const prestacaoContasService = require('../../prestacao_contas/prestacao_contas.service');
@@ -581,9 +582,37 @@ async function cancelarPedido(idMestre, payload = {}) {
 }
 
 async function copiarPedido(idMestre, payload = {}) {
+  // O cadastro do Render é a mesma fonte de preço usada no botão
+  // "Atualizar preços" da tela de edição de pedidos.
+  const pedidoOrigem = await buscarItensPedido(idMestre);
+  const codigos = [...new Set(
+    (pedidoOrigem?.itens || [])
+      .map((item) => Number(item?.item))
+      .filter((codigo) => Number.isSafeInteger(codigo) && codigo > 0)
+  )];
+
+  let precosAtuais = [];
+  if (codigos.length) {
+    const { rows } = await pool.query(
+      `SELECT item_legado, preco
+       FROM produtos
+       WHERE ativo = TRUE AND item_legado = ANY($1::bigint[])`,
+      [codigos]
+    );
+
+    precosAtuais = rows
+      .filter((produto) => produto.preco !== null && produto.preco !== undefined
+        && Number.isFinite(Number(produto.preco)) && Number(produto.preco) >= 0)
+      .map((produto) => ({
+        item: Number(produto.item_legado),
+        preco: Number(produto.preco)
+      }));
+  }
+
+  // Ignora eventuais preços enviados pelo navegador: preços devem vir do banco.
   const response = await legadoBridgeService.post(
     `/api/legado/pedidos/${idMestre}/copiar`,
-    payload
+    { codigoCarrada: payload?.codigoCarrada, precosAtuais }
   );
 
   const data = response?.data || {};
