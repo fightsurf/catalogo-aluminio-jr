@@ -12,6 +12,25 @@
     .google-contatos-linha button { padding: 5px 9px; cursor: pointer; }
     .google-contatos-linha button:disabled { opacity: .5; cursor: not-allowed; }
     .google-contatos-detalhe { padding-top: 3px; opacity: .84; }
+
+    #btn-enviar-produto { background: #1f4f8f; }
+    #btn-enviar-produto:hover:not(:disabled) { background: #173d70; }
+    .produto-envio-modal { position: fixed; margin: auto; inset: 0; width: min(520px, calc(100vw - 28px));
+      max-height: calc(100dvh - 28px); overflow-y: auto; border: 1px solid #d8dee9; border-radius: 14px;
+      padding: 22px; background: #fff; color: #172033; box-shadow: 0 20px 60px #0003; }
+    .produto-envio-modal::backdrop { background: #1720339e; }
+    .produto-envio-modal h2 { margin: 0 0 8px; font-size: 1.25rem; }
+    .produto-envio-modal p { margin: 8px 0 14px; font-size: .9rem; overflow-wrap: anywhere; }
+    .produto-envio-modal label { display: block; font-weight: 700; margin: 16px 0 6px; }
+    .produto-envio-modal select { display: block; width: 100%; height: 40px; padding: 0 10px;
+      border: 1px solid #b8c4d3; border-radius: 8px; background: #fff; color: #172033; }
+    .produto-envio-modal footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; flex-wrap: wrap; }
+    .produto-envio-modal button { border: 0; border-radius: 8px; padding: 11px 16px; font-weight: 700; cursor: pointer; }
+    .produto-envio-modal button:disabled { opacity: .5; cursor: not-allowed; }
+    #produto-envio-confirmar { color: #fff; background: #1f4f8f; }
+    #produto-envio-cancelar { color: #172033; background: #e5eaf1; }
+    #produto-envio-feedback { min-height: 25px; color: #17603c; font-weight: 600; }
+    #produto-envio-feedback[data-estado=erro] { color: #b42318; }
   </style>
 
 </head>
@@ -76,6 +95,7 @@
             </select>
             <button type="button" id="btn-enviar-categoria" disabled>Enviar</button>
           </div>
+          <button type="button" id="btn-enviar-produto" disabled>Enviar produto</button>
           <span id="categoria-whatsapp-destino" class="categoria-whatsapp-destino">Selecione uma conversa</span>
           <span id="categoria-whatsapp-feedback" class="categoria-whatsapp-feedback" role="status" aria-live="polite"></span>
         </div>
@@ -112,6 +132,21 @@
     </main>
   </div>
 
+
+  <dialog id="modal-enviar-produto" class="produto-envio-modal" aria-labelledby="produto-envio-titulo">
+    <h2 id="produto-envio-titulo">Enviar produto pelo WhatsApp</h2>
+    <p id="produto-envio-destino">Cliente selecionado:</p>
+    <label for="produto-envio-categoria">Categoria</label>
+    <select id="produto-envio-categoria"><option value="">Selecione uma categoria</option></select>
+    <label for="produto-envio-produto">Produto</label>
+    <select id="produto-envio-produto"><option value="">Selecione um produto</option></select>
+    <p id="produto-envio-resumo" aria-live="polite"></p>
+    <p id="produto-envio-feedback" role="status" aria-live="polite"></p>
+    <footer>
+      <button type="button" id="produto-envio-cancelar">Fechar / Cancelar</button>
+      <button type="button" id="produto-envio-confirmar" disabled>Enviar todas as mídias</button>
+    </footer>
+  </dialog>
 
   <script>
     (function () {
@@ -231,6 +266,7 @@
 
   <script src="/bot-admin/script.js"></script>
   <script src="/bot-admin/categoria-envio.js"></script>
+  <script src="/bot-admin/produto-envio.js"></script>
   <script src="/bot-admin/google-contatos.js"></script>
 </body>
 </html>
