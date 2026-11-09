@@ -1252,13 +1252,36 @@ async function copiarPedido(idMestre, payload = {}) {
       throw new Error('O pedido não possui itens para copiar.');
     }
 
-    const itensCopiados = itensOriginais.map((item) => ({
-      item: Number(item.item),
-      descricao: item.descricao || null,
-      quantidade: arredondarNumero(item.quantidade),
-      preco: arredondarNumero(item.preco, 3),
-      subtotalitem: arredondarNumero(Number(item.quantidade || 0) * Number(item.preco || 0))
-    }));
+    const precosAtuais = new Map();
+    for (const produto of (Array.isArray(payload?.precosAtuais) ? payload.precosAtuais : [])) {
+      const item = Number(produto?.item);
+      const precoInformado = produto?.preco;
+      const preco = Number(precoInformado);
+      if (Number.isSafeInteger(item) && item > 0
+        && precoInformado !== null && precoInformado !== undefined
+        && String(precoInformado).trim() !== ''
+        && Number.isFinite(preco) && preco >= 0) {
+        precosAtuais.set(item, arredondarNumero(preco, 3));
+      }
+    }
+
+    let precosAtualizados = 0;
+    let itensSemPrecoAtual = 0;
+    const itensCopiados = itensOriginais.map((item) => {
+      const precoAnterior = arredondarNumero(item.preco, 3);
+      const precoVigente = precosAtuais.get(Number(item.item));
+      const preco = precoVigente === undefined ? precoAnterior : precoVigente;
+      if (precoVigente === undefined) itensSemPrecoAtual += 1;
+      if (Math.abs(preco - precoAnterior) >= 0.0005) precosAtualizados += 1;
+
+      return {
+        item: Number(item.item),
+        descricao: item.descricao || null,
+        quantidade: arredondarNumero(item.quantidade),
+        preco,
+        subtotalitem: arredondarNumero(Number(item.quantidade || 0) * preco)
+      };
+    });
     const totalNovo = arredondarNumero(
       itensCopiados.reduce((acc, item) => acc + Number(item.subtotalitem || 0), 0)
     );
@@ -1298,7 +1321,9 @@ async function copiarPedido(idMestre, payload = {}) {
         saida: original.saida,
         numero: original.numero
       },
-      carradaDestino
+      carradaDestino,
+      precosAtualizados,
+      itensSemPrecoAtual
     };
   });
 }
