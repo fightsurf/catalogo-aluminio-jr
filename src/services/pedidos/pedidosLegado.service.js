@@ -1234,10 +1234,6 @@ async function copiarPedido(idMestre, payload = {}) {
       throw new Error('Pedido não encontrado.');
     }
 
-    if (textoOuVazio(original.situacao).toUpperCase() === 'C') {
-      throw new Error('Pedido cancelado não pode ser copiado.');
-    }
-
     const carradaDestino = await buscarCarradaPorCodigo(codigoCarrada, tx);
 
     if (!carradaDestino) {
