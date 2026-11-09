@@ -117,13 +117,6 @@
       </div>
 
       <div id="infoProduto" class="info-produto"></div>
-      <div class="revisao-linha">
-        <div class="revisao-campo">
-          <label for="data_revisao">Data da última revisão</label>
-          <input type="text" id="data_revisao" value="Não revisada" readonly />
-        </div>
-        <button id="btnAtualizarRevisao" type="button" class="btn-secundario" onclick="atualizarDataRevisao()" disabled>Atualizar data</button>
-      </div>
       <div id="mensagem" class="mensagem"></div>
     </div>
 
@@ -190,6 +183,14 @@
           </div>
           <div class="resumo-card"><span>Lucro bruto</span><strong id="resumoLucro">R$ 0,00</strong></div>
           <div class="resumo-card"><span>Margem bruta</span><strong id="resumoMargem">0%</strong></div>
+        </div>
+
+        <div class="revisao-linha">
+          <div class="revisao-campo">
+            <label for="data_revisao">Data da última revisão</label>
+            <input type="text" id="data_revisao" value="Não revisada" readonly />
+          </div>
+          <button id="btnAtualizarRevisao" type="button" class="btn-secundario" onclick="atualizarDataRevisao()" disabled>Atualizar data</button>
         </div>
 
         <div class="acoes">
@@ -606,6 +607,7 @@
         document.getElementById('infoProduto').textContent = `Produto selecionado: ${produtoAtual.nome} | Preço de venda: ${moeda(produtoAtual.preco)}`;
         atualizarOptionProdutoSelecionado();
         atualizarResumo();
+        if (composicaoAtualId) exibirDataRevisao(json.data.revisado_em);
         mostrarMensagem('Preço de venda atualizado com sucesso.', 'sucesso');
       } catch (error) {
         mostrarMensagem(error.message, 'erro');
