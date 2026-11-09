@@ -319,6 +319,7 @@
     }
 
     window.BotAdmin?.atualizarEnvioCategoria?.();
+    window.BotAdmin?.atualizarEnvioProduto?.();
   }
 
   function preencherSelectIntencoes() {
