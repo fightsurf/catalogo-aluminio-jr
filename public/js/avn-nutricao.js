@@ -1008,31 +1008,101 @@ function abrirAnaliseNutricionalDieta(){
  $('conteudoMicrosDieta').innerHTML=micros.length?'<ul class="avn-dieta-micros-lista">'+micros.map(m=>'<li><span>'+esc(m.nome)+(m.parcial?' <small class="avn-dieta-parcial" title="Um ou mais alimentos sem informação deste nutriente">parcial</small>':'')+'</span><strong>'+fmtMicroDieta(m.valor)+' '+esc(m.unidade)+'</strong></li>').join('')+'</ul>'+(micros.some(m=>m.parcial)?'<p class="muted">Parcial: soma dos alimentos com informação conhecida; o valor real pode ser maior.</p>':''):'<p class="muted">Nenhum micronutriente com valor positivo cadastrado.</p>';
  tabAnaliseDieta('macros');$('modalAnaliseDieta').showModal();
 }
-function imprimirRelatorioDieta(){
+async function imprimirRelatorioDieta(){
  if(!state.dieta.length){show('Adicione alimentos à dieta antes de gerar o relatório.',true);return;}
- const a=aggregate(state.dieta);
- const macroRows=MACROS.map(([k,nome,unidade])=>'<tr><th>'+esc(nome)+'</th><td>'+(a.miss[k]===state.dieta.length?'Sem dado':fmt(a.total[k],k==='kcal'?0:2)+' '+esc(unidade)+(a.miss[k]?' (parcial)':''))+'</td></tr>').join('');
- const microRows=microDieta(a).map(m=>'<tr><th>'+esc(m.nome)+'</th><td>'+fmtMicroDieta(m.valor)+' '+esc(m.unidade)+(m.parcial?' (parcial)':'')+'</td></tr>').join('');
- const refeicoes=Object.entries(MEALS).map(([key,nome])=>{
-  const itens=state.dieta.filter(i=>i.refeicao===key);if(!itens.length)return '';
-  const subtotal=aggregate(itens);
-  return '<section><h2>'+esc(nome)+'</h2><table><thead><tr><th>Alimento</th><th>Quantidade</th><th>Energia</th></tr></thead><tbody>'+itens.map(i=>{
-   const c=i.composicao_100g||composition(i);
-   return '<tr><td>'+esc(i.alimento_nome||'Alimento')+'</td><td>'+fmt(i.quantidade_g,2)+' g</td><td>'+(c.kcal==null?'Sem dado':fmt(Number(c.kcal)*Number(i.quantidade_g)/100,0)+' kcal')+'</td></tr>';
-  }).join('')+'</tbody></table><p class="info">Subtotal: '+fmt(subtotal.total.kcal,0)+' kcal'+(subtotal.miss.kcal?' (parcial)':'')+'</p></section>';
- }).join('');
- const usuario=$('usuario').selectedOptions[0]?.textContent?.trim()||'Usuário AVN';
- const pagina='<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Dieta programada · AVN</title><style>'+
-  '@page{size:A4;margin:16mm}body{font:12px/1.5 Arial,sans-serif;color:#142638;margin:0}h1{font-size:24px;margin:0}h2{font-size:16px;border-bottom:1px solid #ccd5df;padding-bottom:5px;margin:21px 0 8px}p{margin:4px 0 8px}table{width:100%;border-collapse:collapse;margin:7px 0}th,td{text-align:left;padding:6px 8px;border-bottom:1px solid #dfe5ea}td:nth-child(n+2){text-align:right}thead{background:#eef4f8}.cabecalho{border-bottom:2px solid #1b6188;padding-bottom:12px}.info,.aviso{color:#596775;font-size:11px}.aviso{border-top:1px solid #ccd5df;margin-top:20px;padding-top:10px}section,tr{break-inside:avoid}.no-print{background:#eef4f8;padding:12px;margin-bottom:12px}@media print{.no-print{display:none}}'+
-  '</style></head><body><div class="no-print">Para baixar o relatório em PDF, selecione <strong>Salvar como PDF</strong> na janela de impressão.</div><div class="cabecalho"><h1>Dieta programada · AVN</h1><p>Dieta padrão válida para todos os dias · '+esc(usuario)+'</p><p>Gerado em '+esc(new Date().toLocaleString('pt-BR'))+'</p></div><h2>Resumo nutricional planejado</h2><table><tbody>'+macroRows+'</tbody></table>'+refeicoes+
-  '<h2>Micronutrientes conhecidos (maiores que zero)</h2>'+(microRows?'<table><tbody>'+microRows+'</tbody></table>':'<p>Nenhum micronutriente positivo informado.</p>')+
-  '<p class="aviso">Valores estimados conforme dados dos alimentos cadastrados. Parcial indica que faltam dados em um ou mais alimentos. A programação não comprova o consumo.</p></body></html>';
+ // Abra a janela durante o clique: aguardar a API antes de abrir seria bloqueado como pop-up.
  const janela=window.open('','_blank');
  if(!janela){show('Permita pop-ups para abrir a impressão do relatório.',true);return;}
- janela.opener=null;janela.document.open();janela.document.write(pagina);janela.document.close();janela.focus();
- janela.setTimeout(()=>{if(!janela.closed)janela.print();},350);
+ janela.opener=null;
+ janela.document.open();
+ janela.document.write('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Preparando dieta · AVN</title></head><body><p>Preparando o relatório da dieta e suas receitas…</p></body></html>');
+ janela.document.close();
+ try{
+  const usuarioId=state.usuarioId;
+  const dieta=state.dieta.slice();
+  const metas={...state.metas};
+  const a=aggregate(dieta);
+  // Os alimentos do tipo receita são identificados pelo alimento_id registrado no plano.
+  // Uma mesma receita (inclusive quando é ingrediente de outra) aparece uma única vez.
+  const catalogo=await api('/receitas?usuarioId='+encodeURIComponent(usuarioId));
+  if(!Array.isArray(catalogo))throw Error('Não foi possível consultar as receitas cadastradas.');
+  if(usuarioId!==state.usuarioId)throw Error('O usuário foi alterado. Gere o relatório novamente.');
+  const porAlimento=new Map(catalogo.map(r=>[String(r.alimento_id),r]));
+  const identificadas=new Set(),fila=[],detalhes=[];
+  const incluirReceita=alimentoId=>{
+   const r=porAlimento.get(String(alimentoId));
+   if(r&&!identificadas.has(String(r.id))){identificadas.add(String(r.id));fila.push(r);}
+  };
+  dieta.forEach(i=>incluirReceita(i.alimento_id));
+  while(fila.length){
+   const lote=fila.splice(0);
+   const resultados=await Promise.all(lote.map(r=>api('/receitas/'+encodeURIComponent(r.id)+'?usuarioId='+encodeURIComponent(usuarioId))));
+   if(usuarioId!==state.usuarioId)throw Error('O usuário foi alterado. Gere o relatório novamente.');
+   for(const receita of resultados){
+    if(!Array.isArray(receita.ingredientes))throw Error('Ingredientes incompletos na receita '+(receita.nome||'selecionada')+'.');
+    detalhes.push(receita);
+    receita.ingredientes.forEach(i=>incluirReceita(i.alimento_id));
+   }
+  }
+  const cores={kcal:'energia',proteinas_g:'proteinas',carboidratos_g:'carboidratos',gorduras_g:'gorduras'};
+  const card=(key,label,unit,tipo)=>{
+   const goal=metas[key],valida=goal!==null&&goal!==undefined&&goal!==''&&Number.isFinite(Number(goal));
+   const semDado=a.miss[key]===dieta.length;
+   const parcial=a.miss[key]>0&&!semDado;
+   const casas=key==='kcal'?0:1;
+   const valor=tipo==='meta'?(valida?fmt(Number(goal),casas)+' '+unit:statusDasMetas()):
+    (semDado?'Sem dado':fmt(a.total[key],casas)+' '+unit);
+   const excedeu=tipo==='planejado'&&valida&&!semDado&&a.total[key]>Number(goal);
+   const saldo=tipo==='planejado'&&valida&&!semDado?Number(goal)-a.total[key]:null;
+   const diferenca=saldo===null?'':Math.abs(saldo)<Math.pow(10,-casas)/2?'Meta atingida':
+    saldo>0?'Faltam '+fmt(saldo,casas)+' '+unit:'Excedeu '+fmt(-saldo,casas)+' '+unit;
+   return '<div class="macro-card macro-'+cores[key]+(excedeu?' excedeu':'')+'"><small>'+
+    esc((tipo==='meta'?'Minha meta':'Total planejado')+' · '+label)+'</small><strong>'+esc(valor)+'</strong>'+
+    (tipo==='planejado'?(diferenca?'<span class="detalhe">'+esc(diferenca)+(parcial?' · parcial':'')+'</span>':'')+
+      (parcial&&!diferenca?'<span class="detalhe">Dados parciais</span>':''):'')+'</div>';
+  };
+  const grupo=(tipo,titulo)=>'<div class="bloco-resumo"><h2>'+esc(titulo)+'</h2><div class="macro-grid">'+
+   MACROS.slice(0,4).map(([key,label,unit])=>card(key,label,unit,tipo)).join('')+'</div></div>';
+  const resumo='<section class="resumo-paineis">'+grupo('meta','Minha Meta')+grupo('planejado','Total Planejado')+'</section>';
+  const tabela=(coluna,itens)=>'<table><thead><tr><th>'+coluna+'</th><th>Quantidade</th></tr></thead><tbody>'+
+   (itens.length?itens.map(i=>'<tr><td>'+esc(i.nome)+'</td><td>'+fmt(i.quantidade_g,2)+' g</td></tr>').join(''):
+    '<tr><td colspan="2" class="sem-itens">Nenhum alimento programado</td></tr>')+'</tbody></table>';
+  const painel=(nome,coluna,itens,classe)=>'<section class="painel '+classe+'"><h3>'+esc(nome)+'</h3>'+
+   tabela(coluna,itens)+'</section>';
+  const refeicoes=Object.entries(MEALS).map(([key,nome])=>{
+   const itens=dieta.filter(i=>i.refeicao===key);
+   if(!itens.length&&!state.perfis.some(p=>p.refeicao===key))return '';
+   return painel(nome,'Alimento',itens.map(i=>({nome:i.alimento_nome||'Alimento',quantidade_g:i.quantidade_g})),'painel-refeicao');
+  }).join('');
+  const receitas=detalhes.length?'<div class="secao-receitas"><h2>Receitas</h2>'+
+   detalhes.map(r=>painel(r.nome||'Receita','Ingrediente',
+    r.ingredientes.map(i=>({nome:i.nome_snapshot||'Ingrediente',quantidade_g:i.quantidade_g})),'painel-receita')).join('')+'</div>':'';
+  const usuario=$('usuario').selectedOptions[0]?.textContent?.trim()||'Usuário AVN';
+  const pagina='<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><title>Dieta programada · AVN</title><style>'+
+   '@page{size:A4;margin:12mm 13mm}*{box-sizing:border-box}body{font:11px/1.4 Arial,sans-serif;color:#19314b;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
+   '.cabecalho{border-bottom:2px solid #145e85;padding-bottom:8px;margin-bottom:10px}.cabecalho h1{font-size:21px;margin:0 0 3px}.cabecalho p{margin:2px 0;font-size:10px;color:#596775}'+
+   '.resumo-paineis,.bloco-resumo,.macro-card{break-inside:avoid;page-break-inside:avoid}.bloco-resumo{margin:0 0 10px}.bloco-resumo h2{font-size:13px;margin:0 0 6px}'+
+   '.macro-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}.macro-card{min-width:0;min-height:67px;border:1px solid #cedce6;border-top:3px solid #64748b;border-radius:7px;padding:7px 8px;background:#f7fafc}'+
+   '.macro-card small{display:block;font-size:9px;color:#455a70;line-height:1.25}.macro-card strong{display:block;font-size:15px;line-height:1.25;margin-top:5px;overflow-wrap:anywhere}.macro-card .detalhe{display:block;font-size:9px;color:#596775;margin-top:4px}'+
+   '.macro-energia{border-top-color:#64748b}.macro-proteinas{border-top-color:#60a5fa}.macro-carboidratos{border-top-color:#fbbf24}.macro-gorduras{border-top-color:#a78bfa}.macro-card.excedeu{border-color:#c85353;border-top-color:#c85353}'+
+   '.refeicoes{margin-top:5em}.painel{border:1px solid #9fb3c4;border-radius:7px;overflow:hidden;break-inside:avoid;page-break-inside:avoid}'+
+   '.painel-refeicao+.painel-refeicao{margin-top:3em}.painel h3{font-size:13px;margin:0;padding:7px 10px;background:#e7f2f7;border-bottom:1px solid #9fb3c4}'+
+   '.painel table{width:100%;border-collapse:collapse;table-layout:fixed}.painel th,.painel td{padding:5px 10px;text-align:left;border-bottom:1px solid #e0e8ef;vertical-align:top;overflow-wrap:anywhere}'+
+   '.painel tr:last-child td{border-bottom:0}.painel th{font-size:10px;background:#f5f8fb}.painel th:last-child,.painel td:last-child{width:24%;text-align:right;white-space:nowrap}.sem-itens{color:#596775;font-style:italic}'+
+   '.secao-receitas{margin-top:3em}.secao-receitas>h2{font-size:17px;margin:0 0 10px;break-after:avoid;page-break-after:avoid}.painel-receita+.painel-receita{margin-top:16px}'+
+   '.aviso{font-size:9px;color:#596775;border-top:1px solid #ccd5df;margin-top:20px;padding-top:8px}.no-print{background:#eef4f8;padding:12px;margin-bottom:12px}'+
+   '@media print{.no-print{display:none!important}}'+
+   '</style></head><body><div class="no-print">Para baixar o relatório em PDF, selecione <strong>Salvar como PDF</strong> na janela de impressão.</div>'+
+   '<header class="cabecalho"><h1>Dieta programada · AVN</h1><p>Dieta padrão válida para todos os dias · '+esc(usuario)+'</p><p>Gerado em '+esc(new Date().toLocaleString('pt-BR'))+'</p></header>'+
+   resumo+'<div class="refeicoes">'+refeicoes+'</div>'+receitas+
+   '<p class="aviso">Quantidades programadas, não consumo confirmado. Os valores nutricionais são estimados pelos alimentos cadastrados.</p></body></html>';
+  janela.document.open();janela.document.write(pagina);janela.document.close();janela.focus();
+  janela.setTimeout(()=>{if(!janela.closed)janela.print();},350);
+ }catch(error){
+  if(!janela.closed){janela.document.body.textContent='Falha ao preparar o PDF: '+error.message;}
+  show('Não foi possível gerar o PDF: '+error.message,true);
+ }
 }
-
 let editandoConsumoId=null;
 // Ordena a contribuição da porção cadastrada na dieta, nunca valores por 100g.
 function montarRankingDieta(chave){
