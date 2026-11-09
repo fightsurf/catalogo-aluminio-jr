@@ -5,6 +5,7 @@ const controller = require('../../controllers/produtoComposicao/produtoComposica
 router.get('/insumos', controller.listarInsumosDisponiveis);
 router.get('/produto/:produtoId', controller.listarPorProduto);
 router.put('/produto/:produtoId/preco', controller.atualizarPrecoProduto);
+router.post('/produto/:produtoId/copiar-composicao', controller.copiarComposicaoProduto);
 router.get('/:id', controller.buscar);
 router.post('/', controller.criar);
 router.put('/:id', controller.atualizar);

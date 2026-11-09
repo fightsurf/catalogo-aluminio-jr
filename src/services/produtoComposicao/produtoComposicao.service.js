@@ -503,6 +503,65 @@ async function atualizarPrecoProduto(produtoIdParam, precoParam) {
   }
 }
 
+
+async function copiarComposicaoProduto(destinoIdParam, origemIdParam) {
+  const destinoId = normalizarId(destinoIdParam, 'Produto de destino');
+  const origemId = normalizarId(origemIdParam, 'Produto de origem');
+  if (destinoId === origemId) throw new Error('Escolha um produto de origem diferente do destino');
+
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Bloquear os dois produtos em ordem consistente durante a cópia.
+    const produtos = await client.query(
+      'SELECT id FROM produtos WHERE id = ANY($1::int[]) ORDER BY id FOR UPDATE',
+      [[origemId, destinoId]]
+    );
+    if (produtos.rows.length !== 2) throw new Error('Produto de origem ou de destino não encontrado');
+
+    const origem = await client.query(
+      'SELECT id FROM produtos_composicoes WHERE produto_id = $1 FOR SHARE',
+      [origemId]
+    );
+    if (!origem.rows.length) throw new Error('O produto de origem não possui composição salva');
+
+    const itens = await client.query(
+      'SELECT insumo_fornecedor_id, quantidade, ativo FROM produtos_composicoes_itens WHERE composicao_id = $1',
+      [origem.rows[0].id]
+    );
+    if (!itens.rows.length) throw new Error('A composição de origem não possui insumos para copiar');
+
+    // Preserva nome e situação da composição existente; não altera o preço de venda.
+    const destino = await client.query(`
+      INSERT INTO produtos_composicoes (produto_id, nome, ativo, revisado_em)
+      VALUES ($1, 'PADRÃO', TRUE, (CURRENT_TIMESTAMP AT TIME ZONE 'America/Fortaleza')::date)
+      ON CONFLICT (produto_id) DO UPDATE
+      SET revisado_em = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Fortaleza')::date,
+          updated_at = NOW()
+      RETURNING id
+    `, [destinoId]);
+    const composicaoId = destino.rows[0].id;
+
+    await client.query('DELETE FROM produtos_composicoes_itens WHERE composicao_id = $1', [composicaoId]);
+    for (const item of itens.rows) {
+      await client.query(`
+        INSERT INTO produtos_composicoes_itens
+          (composicao_id, insumo_fornecedor_id, quantidade, ativo)
+        VALUES ($1, $2, $3, $4)
+      `, [composicaoId, item.insumo_fornecedor_id, item.quantidade, item.ativo]);
+    }
+
+    await client.query('COMMIT');
+    return buscar(composicaoId);
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 async function salvarItens(composicaoIdParam, itensPayload = []) {
   const composicaoId = normalizarId(composicaoIdParam, 'Composição');
   await obterComposicao(composicaoId);
@@ -576,6 +635,7 @@ module.exports = {
   criar,
   atualizar,
   atualizarPrecoProduto,
+  copiarComposicaoProduto,
   atualizarDataRevisao,
   salvarItens,
   excluir

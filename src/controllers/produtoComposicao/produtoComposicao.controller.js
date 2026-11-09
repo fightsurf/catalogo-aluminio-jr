@@ -59,6 +59,17 @@ async function atualizarPrecoProduto(req, res) {
   }
 }
 
+
+async function copiarComposicaoProduto(req, res) {
+  try {
+    const dados = await service.copiarComposicaoProduto(req.params.produtoId, req.body?.produto_origem_id);
+    res.json({ success: true, data: dados, message: 'Composição copiada com sucesso' });
+  } catch (error) {
+    const status = error.message.includes('não encontrado') ? 404 : 400;
+    res.status(status).json({ success: false, message: error.message });
+  }
+}
+
 async function salvarItens(req, res) {
   try {
     const dados = await service.salvarItens(req.params.id, req.body.itens || []);
@@ -96,6 +107,7 @@ module.exports = {
   criar,
   atualizar,
   atualizarPrecoProduto,
+  copiarComposicaoProduto,
   atualizarDataRevisao,
   salvarItens,
   excluir
