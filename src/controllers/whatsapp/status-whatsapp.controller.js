@@ -132,11 +132,37 @@ async function publicarCategoriaFacebook(req, res) {
   }
 }
 
+
+const botProdutoMidias = require('../../services/whatsapp/botProdutoMidias.service');
+
+async function listarMidiasProduto(req, res) {
+  try {
+    const data = await botProdutoMidias.listarMidias({
+      produtoId: req.query.produtoId, categoriaId: req.query.categoriaId
+    });
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return res.status(400).json({ success: false, error: error.message });
+  }
+}
+
+async function enviarMidiaProduto(req, res) {
+  try {
+    const data = await botProdutoMidias.enviarMidia(req.body || {});
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    console.error('[Bot envio de mídia de produto]', error.message);
+    return res.status(502).json({ success: false, error: error.message });
+  }
+}
+
 module.exports = {
   verificarConexao,
   listarCategorias,
   listarProdutos,
   enviarProduto,
+  listarMidiasProduto,
+  enviarMidiaProduto,
   publicarProdutoNoStatus,
   publicarCategoriaFacebook,
 };
