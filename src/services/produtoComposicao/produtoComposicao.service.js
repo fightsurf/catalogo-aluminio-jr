@@ -465,25 +465,42 @@ async function validarInsumosFornecedores(client, itens) {
 async function atualizarPrecoProduto(produtoIdParam, precoParam) {
   const produtoId = normalizarId(produtoIdParam, 'Produto');
   const preco = parsePrecoVenda(precoParam);
+  const client = await pool.connect();
 
-  const result = await pool.query(`
-    UPDATE produtos
-    SET preco = $1,
-        updated_at = NOW()
-    WHERE id = $2
-    RETURNING id, nome, preco, ativo
-  `, [preco, produtoId]);
+  try {
+    await client.query('BEGIN');
+    const result = await client.query(`
+      UPDATE produtos
+      SET preco = $1,
+          updated_at = NOW()
+      WHERE id = $2
+      RETURNING id, nome, preco, ativo
+    `, [preco, produtoId]);
+    if (result.rows.length === 0) throw new Error('Produto não encontrado');
 
-  if (result.rows.length === 0) {
-    throw new Error('Produto não encontrado');
+    // O preço pertence ao produto: todas as versões existentes foram revisadas.
+    const revisoes = await client.query(`
+      UPDATE produtos_composicoes
+      SET revisado_em = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Fortaleza')::date,
+          updated_at = NOW()
+      WHERE produto_id = $1
+      RETURNING TO_CHAR(revisado_em, 'YYYY-MM-DD') AS revisado_em
+    `, [produtoId]);
+
+    await client.query('COMMIT');
+    return {
+      id: Number(result.rows[0].id),
+      nome: result.rows[0].nome,
+      preco: moedaNumero(result.rows[0].preco),
+      ativo: result.rows[0].ativo,
+      revisado_em: revisoes.rows[0]?.revisado_em || null
+    };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
   }
-
-  return {
-    id: Number(result.rows[0].id),
-    nome: result.rows[0].nome,
-    preco: moedaNumero(result.rows[0].preco),
-    ativo: result.rows[0].ativo
-  };
 }
 
 async function salvarItens(composicaoIdParam, itensPayload = []) {
@@ -508,7 +525,8 @@ async function salvarItens(composicaoIdParam, itensPayload = []) {
 
     await client.query(`
       UPDATE produtos_composicoes
-      SET updated_at = NOW()
+      SET updated_at = NOW(),
+          revisado_em = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Fortaleza')::date
       WHERE id = $1
     `, [composicaoId]);
 
@@ -524,9 +542,31 @@ async function salvarItens(composicaoIdParam, itensPayload = []) {
 
 async function excluir(composicaoIdParam) {
   const composicaoId = normalizarId(composicaoIdParam, 'Composição');
-  await obterComposicao(composicaoId);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const atual = await client.query(
+      'SELECT produto_id FROM produtos_composicoes WHERE id = $1 FOR UPDATE',
+      [composicaoId]
+    );
+    if (!atual.rows.length) throw new Error('Composição não encontrada');
 
-  await pool.query('DELETE FROM produtos_composicoes WHERE id = $1', [composicaoId]);
+    const produtoId = atual.rows[0].produto_id;
+    await client.query('DELETE FROM produtos_composicoes WHERE id = $1', [composicaoId]);
+    // A versão apagada não existe mais; registrar a revisão nas que permanecerem.
+    await client.query(`
+      UPDATE produtos_composicoes
+      SET revisado_em = (CURRENT_TIMESTAMP AT TIME ZONE 'America/Fortaleza')::date,
+          updated_at = NOW()
+      WHERE produto_id = $1
+    `, [produtoId]);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 }
 
 module.exports = {
