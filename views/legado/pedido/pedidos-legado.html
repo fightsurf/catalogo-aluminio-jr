@@ -2283,8 +2283,17 @@
         marcarResultadoAtivo(1);
 
         const mensagens = [
-          `Pedido ${pedidoOrigemVisual.numero} copiado para o novo pedido ${novo.numero}, na carrada ${formatarResumoCarrada(novo.carradaAtual)}.`
+          `Pedido ${pedidoOrigemVisual.numero} copiado para o novo pedido ${novo.numero}, na carrada ${formatarResumoCarrada(novo.carradaAtual)}.`,
+          `Total atualizado: ${moeda(novo.total || 0)}.`
         ];
+        const quantidadeAtualizada = Number(json?.data?.precosAtualizados || 0);
+        const itensSemPrecoAtual = Number(json?.data?.itensSemPrecoAtual || 0);
+        if (quantidadeAtualizada > 0) {
+          mensagens.push(`${quantidadeAtualizada} preço(s) ajustado(s) conforme o cadastro atual.`);
+        }
+        if (itensSemPrecoAtual > 0) {
+          mensagens.push(`${itensSemPrecoAtual} item(ns) sem preço válido no cadastro atual: mantido o valor anterior.`);
+        }
 
         try {
           await enviarWhatsappCarradaAutomatico(novo);
