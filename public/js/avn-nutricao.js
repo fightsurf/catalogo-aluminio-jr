@@ -700,15 +700,31 @@ async function abrirCalculadoraGkg(){
  calcularPreviaGkg();
  const uid=state.usuarioId;
  try{
-  const peso=await api('/metas/'+uid+'/peso');
+  const [peso,historico]=await Promise.all([
+   api('/metas/'+uid+'/peso'),
+   api('/metas/'+uid+'/historico?limite=50')
+  ]);
   if(uid!==state.usuarioId||!$('modalCalculadoraGkg').open)return;
   const w=peso.peso_kg==null?null:Number(peso.peso_kg);
   $('origemPesoCalculadora').textContent=w==null?'Nenhuma pesagem encontrada. Informe seu peso manualmente.':
    'Última pesagem registrada: '+fmt(w,2)+' kg'+(peso.data_medicao?' · '+new Date(peso.data_medicao).toLocaleDateString('pt-BR'):'')+'. Pode alterar o valor.';
+  // A meta em gramas pode ter sido arredondada ou o peso pode ter mudado.
+  // Não reconstruir uma taxa digitada (ex.: 2 g/kg) dividindo gramas pelo peso atual.
+  const chaves=['proteinas_g','carboidratos_g','gorduras_g'];
+  const registro=(historico.registros||[]).find(h=>
+   ['calculadora_gkg','restauracao'].includes(h.origem)&&chaves.every(k=>
+    state.metas[k]!=null&&h[k]!=null&&h[k+'_kg']!=null&&
+    Number.isFinite(Number(h[k+'_kg']))&&Math.abs(Number(state.metas[k])-Number(h[k]))<0.005
+   )
+  );
+  const taxas=metaPendente?.taxas_gkg||
+   (registro?Object.fromEntries(chaves.map(k=>[k,Number(registro[k+'_kg'])])):null);
   if(w!==null&&w>=1&&w<=500){
    $('pesoCalculadoraGkg').value=w;
    for(const [key,id] of [['proteinas_g','gkgProteinas'],['carboidratos_g','gkgCarboidratos'],['gorduras_g','gkgGorduras']]){
-    const m=state.metas[key];if(m!=null)$(id).value=(Number(m)/w).toFixed(2);
+    const m=state.metas[key];
+    if(taxas?.[key]!=null&&Number.isFinite(Number(taxas[key])))$(id).value=String(Number(taxas[key]));
+    else if(m!=null)$(id).value=(Number(m)/w).toFixed(2);
    }
   }
   calcularPreviaGkg();
@@ -718,7 +734,7 @@ function aplicarCalculadoraGkg(){
  const calculo=calcularPreviaGkg();
  if(!calculo)return;
  for(const [key,n] of Object.entries(calculo.macros))$('meta_'+key).value=n;
- if(v('meta_kcal')==='')$('meta_kcal').value=Math.round(calculo.energia*100)/100;
+ $('meta_kcal').value=Math.round(calculo.energia*100)/100;
  metaPendente={origem:'calculadora_gkg',peso_kg:calculo.peso_kg,taxas_gkg:calculo.taxas_gkg};
  $('modalCalculadoraGkg').close();
  selecionarAbaMetas('calorias');
