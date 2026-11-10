@@ -323,9 +323,9 @@ function webModal(){
 function webAbrirModal(){
  const modal=webModal();
  if(!modal.open)modal.showModal();
+ webAvisoDescanso=false;
  webRender();
  if(webTimer)clearInterval(webTimer);
- webAvisoDescanso=false;
  webTimer=setInterval(webAtualizarRelogios,500);
 }
 function webFecharModal(){
@@ -349,7 +349,17 @@ function webAtualizarRelogios(){
  const r=$('webTempoDescanso');if(r){
   const faltam=Math.max(0,Math.ceil((webExec.descansoAte-Date.now())/1000));
   r.textContent=String(Math.floor(faltam/60)).padStart(2,'0')+':'+String(faltam%60).padStart(2,'0');
-  if(faltam===0&&!webAvisoDescanso){webAvisoDescanso=true;webSomFim();const msg=$('webDescansoMensagem');if(msg)msg.textContent='Descanso concluído. Pode avançar.';}
+  if(faltam===0&&!webAvisoDescanso&&!webExec.ocupado){
+   webAvisoDescanso=true;webSomFim();
+   const msg=$('webDescansoMensagem');if(msg)msg.textContent='Descanso concluído. Avançando automaticamente…';
+   webAcao(async()=>{
+    if(!webExec||webExec.etapa!=='descanso')return;
+    await webEncerrarDescanso();
+    const indice=webProximoIndice(1);
+    if(indice>=0)webTrocarIndice(indice);
+    else{webExec.etapa='proximo';webRender();}
+   });
+  }
  }
 }
 function webProximoIndice(direcao=1){
@@ -374,14 +384,15 @@ function webRender(){
  const valor=unidade==='placas'?(item.carga_placas??''):(item.carga_kg??'');
  const reps=/\d+/.exec(String(item.repeticoes||''))?.[0]||'10';
  const options=w.itens.map((x,i)=>'<option value="'+i+'" '+(i===w.indice?'selected':'')+'>'+esc((i+1)+'. '+(x.exercicio_nome||buscarNome(x.exercicio_id))+' · '+(w.concluidas[i]||0)+'/'+webSerieTotal(x))+'</option>').join('');
+ const temPendentes=w.itens.some((x,i)=>!w.pulados.has(i)&&(w.concluidas[i]||0)<webSerieTotal(x));
  const duracao=w.etapa==='descanso'?'<div class="web-rest"><span>DESCANSO</span><strong id="webTempoDescanso">00:00</strong><p id="webDescansoMensagem">Recupere a respiração antes da próxima série.</p><button type="button" class="btn primary" id="webEncerrarDescanso">Encerrar descanso</button></div>':'';
  const form=w.etapa==='serie'&&!terminado?'<div class="web-fields"><label>Repetições feitas<input id="webRepeticoes" type="number" min="0" max="1000" value="'+esc(reps)+'"></label><label>Unidade<select id="webUnidade"><option value="kg" '+(unidade==='kg'?'selected':'')+'>kg</option><option value="placas" '+(unidade==='placas'?'selected':'')+'>Placas</option></select></label><label>Carga<input id="webCarga" type="number" step="'+(unidade==='kg'?'0.5':'1')+'" min="0" max="'+(unidade==='kg'?'2000':'200')+'" value="'+esc(valor)+'"></label><label>RIR<input id="webRir" type="number" min="0" max="10" placeholder="Opcional"></label></div><button type="button" class="btn primary web-main-action" id="webConcluirSerie">Concluir série '+(feitas+1)+' de '+total+'</button>':'';
- const proximo=w.etapa==='proximo'||terminado?'<div class="web-next"><strong>Exercício concluído ou pulado.</strong><p>Escolha o próximo exercício ou finalize o treino.</p><button type="button" class="btn primary" id="webProximo">Próximo exercício →</button></div>':'';
- m.innerHTML='<div class="web-modal-header"><div><small>EXECUÇÃO DE TREINO · '+esc(NOMES[state.treinoDia])+'</small><h2>'+esc(state.treino.nome)+'</h2><span>Tempo: <b id="webTempoTotal">00:00</b> · Séries concluídas: '+todas+'/'+alvo+'</span></div><button class="btn" type="button" id="webFechar" aria-label="Fechar e continuar depois">Fechar ×</button></div><div class="web-progress"><div style="width:'+Math.min(100,Math.round(100*todas/Math.max(1,alvo)))+'%"></div></div><label class="web-choose">Trocar exercício<select id="webEscolher">'+options+'</select></label><section class="web-focus"><div class="web-media">'+media(ex,true)+'</div><div><small>Exercício '+(w.indice+1)+' de '+w.itens.length+'</small><h3>'+esc(nome)+'</h3><p>Série '+Math.min(feitas+1,total)+' de '+total+' · Previsto: '+esc(item.repeticoes)+' repetições · '+webRestante(item)+' s de descanso</p></div></section>'+duracao+form+proximo+'<div class="web-footer"><button type="button" class="btn" id="webAnterior">← Anterior</button><button type="button" class="btn" id="webAvancar">Próximo →</button><button type="button" class="btn" id="webPular">Pular exercício</button><button type="button" class="btn" id="webFinalizar">Finalizar treino</button><button type="button" class="btn danger" id="webCancelar">Cancelar treino</button></div><p class="web-save-hint">Séries e descansos são salvos automaticamente. Fechar mantém o treino em andamento para retomar depois.</p>';
+ const proximo=w.etapa==='proximo'||terminado?'<div class="web-next"><strong>'+(temPendentes?'Exercício concluído ou pulado.':'Todas as séries foram concluídas ou puladas.')+'</strong><p>'+(temPendentes?'Escolha o próximo exercício ou finalize o treino.':'Use Finalizar treino no rodapé para salvar a sessão.')+'</p>'+(temPendentes?'<button type="button" class="btn primary" id="webProximo">Próximo exercício →</button>':'')+'</div>':'';
+ m.innerHTML='<div class="web-modal-header"><div><small>EXECUÇÃO DE TREINO · '+esc(NOMES[state.treinoDia])+'</small><h2>'+esc(state.treino.nome)+'</h2><span>Tempo: <b id="webTempoTotal">00:00</b> · Séries concluídas: '+todas+'/'+alvo+'</span></div><button class="btn" type="button" id="webFechar" aria-label="Fechar e continuar depois">Fechar ×</button></div><div class="web-progress"><div style="width:'+Math.min(100,Math.round(100*todas/Math.max(1,alvo)))+'%"></div></div><label class="web-choose">Trocar exercício<select id="webEscolher">'+options+'</select></label><section class="web-focus"><div class="web-media">'+media(ex,true)+'</div><div><small>Exercício '+(w.indice+1)+' de '+w.itens.length+'</small><h3>'+esc(nome)+'</h3><p>Série '+Math.min(feitas+1,total)+' de '+total+' · Previsto: '+esc(item.repeticoes)+' repetições · '+webRestante(item)+' s de descanso</p></div></section>'+duracao+form+proximo+'<div class="web-footer"><button type="button" class="btn" id="webAnterior">← Anterior</button>'+(temPendentes?'<button type="button" class="btn" id="webAvancar">Próximo →</button>':'')+'<button type="button" class="btn" id="webPular">Pular exercício</button><button type="button" class="btn" id="webFinalizar">Finalizar treino</button><button type="button" class="btn danger" id="webCancelar">Cancelar treino</button></div><p class="web-save-hint">Séries e descansos são salvos automaticamente. Fechar mantém o treino em andamento para retomar depois.</p>';
  m.querySelector('#webFechar').onclick=webFecharModal;
  m.querySelector('#webEscolher').onchange=e=>webAcao(async()=>{if(w.etapa==='descanso')await webEncerrarDescanso();webTrocarIndice(Number(e.target.value));});
  m.querySelector('#webAnterior').onclick=()=>webMover(-1);
- m.querySelector('#webAvancar').onclick=()=>webMover(1);
+ if(m.querySelector('#webAvancar'))m.querySelector('#webAvancar').onclick=()=>webMover(1);
  m.querySelector('#webPular').onclick=()=>webAcao(webPular);
  m.querySelector('#webFinalizar').onclick=()=>webAcao(webFinalizar);
  m.querySelector('#webCancelar').onclick=()=>webAcao(webCancelar);
