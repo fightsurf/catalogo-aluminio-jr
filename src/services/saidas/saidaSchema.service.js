@@ -136,6 +136,16 @@ async function criarEstrutura() {
   // Importacao das tabelas antigas desativada permanentemente.
   // Reexecuta-la no deploy recriava itens e categorias excluidos pelo usuario.
   await criarTabelasDespesas();
+  // Correção idempotente: registros antigos da categoria IMPOSTOS
+  // foram cadastrados como CUSTO_FIXO e ficavam fora do painel de impostos.
+  await pool.query(`
+    UPDATE despesa_itens i
+       SET classificacao = 'IMPOSTO', updated_at = NOW()
+      FROM despesa_categorias c
+     WHERE c.id = i.categoria_id
+       AND UPPER(TRIM(c.nome)) = 'IMPOSTOS'
+       AND i.classificacao <> 'IMPOSTO'
+  `);
   await recalcularMediasExistentes();
 }
 
