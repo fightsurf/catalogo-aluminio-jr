@@ -6,7 +6,7 @@
   <title>Estrutura de Custos - Alumínio JR</title>
   <link rel="stylesheet" href="/css/theme.css" />
   <style>
-    body{font-family:Arial,sans-serif;background:#eef2f7;margin:0;padding:24px;color:#243447}.container{max-width:1380px;margin:0 auto}.box{background:#fff;padding:22px;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,.08);margin-bottom:22px}h1,h2{margin-top:0}.sub{color:#667085;margin-top:-8px}.menu{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}.menu a{text-decoration:none;background:#34495e;color:#fff;padding:9px 12px;border-radius:6px;font-size:13px}.menu a.ativo{background:#2ecc71}.cards{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:18px 0}.card{background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:15px}.card small{display:block;color:#667085;font-weight:bold;margin-bottom:7px}.card strong{font-size:21px}.grid-form{display:grid;grid-template-columns:1.5fr 1fr 1fr 180px 1.5fr 180px;gap:10px;align-items:end}.grid-filtro{display:grid;grid-template-columns:1.2fr 1fr 1fr 130px 120px 120px;gap:10px;align-items:end}label{display:block;font-size:12px;font-weight:bold;color:#4a5568;margin-bottom:6px}input,select,button{width:100%;padding:10px 11px;border-radius:6px;border:1px solid #ccd3db;font-size:14px;box-sizing:border-box}button{border:none;cursor:pointer;font-weight:bold}.btn-salvar{background:#2ecc71;color:#fff}.btn-limpar{background:#95a5a6;color:#fff}.btn-buscar{background:#34495e;color:#fff}.btn-editar{background:#f39c12;color:#fff;padding:7px 9px}.btn-excluir{background:#e74c3c;color:#fff;padding:7px 9px}.mensagem{margin-top:12px;font-weight:bold;display:none}.mensagem.sucesso{color:#1e8449;display:block}.mensagem.erro{color:#c0392b;display:block}.categoria{margin-top:20px;border:1px solid #e4e7ec;border-radius:9px;overflow:hidden}.categoria-head{display:flex;justify-content:space-between;gap:15px;align-items:center;padding:12px 14px;background:#f2f4f7;font-weight:bold}.categoria-total{font-size:16px}table{width:100%;border-collapse:collapse}th{background:#2c3e50;color:#fff;padding:9px;text-align:left;font-size:12px}td{padding:9px;border-bottom:1px solid #edf0f2;font-size:13px;vertical-align:middle}.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#eef2f6;font-weight:bold;font-size:11px}.valor{font-weight:bold;text-align:right;white-space:nowrap}.acoes{display:flex;gap:6px}.muted{color:#98a2b3}.top-note{background:#edf7ed;border:1px solid #b7dfb7;padding:10px 12px;border-radius:8px;font-size:13px;margin-bottom:15px}@media(max-width:1150px){.cards{grid-template-columns:repeat(2,1fr)}.grid-form,.grid-filtro{grid-template-columns:1fr}}@media(max-width:650px){body{padding:10px}.cards{grid-template-columns:1fr}.categoria{overflow:auto}}
+    body{font-family:Arial,sans-serif;background:#eef2f7;margin:0;padding:24px;color:#243447}.container{max-width:1380px;margin:0 auto}.box{background:#fff;padding:22px;border-radius:10px;box-shadow:0 4px 12px rgba(0,0,0,.08);margin-bottom:22px}h1,h2{margin-top:0}.sub{color:#667085;margin-top:-8px}.menu{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}.menu a{text-decoration:none;background:#34495e;color:#fff;padding:9px 12px;border-radius:6px;font-size:13px}.menu a.ativo{background:#2ecc71}.cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:18px 0}.card{min-width:0;background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:15px}.card small{display:block;color:#667085;font-weight:bold;margin-bottom:7px}.card strong{font-size:21px;overflow-wrap:anywhere}.grid-form{display:grid;grid-template-columns:1.5fr 1fr 1fr 180px 1.5fr 180px;gap:10px;align-items:end}.grid-filtro{display:grid;grid-template-columns:1.2fr 1fr 1fr 130px 120px 120px;gap:10px;align-items:end}label{display:block;font-size:12px;font-weight:bold;color:#4a5568;margin-bottom:6px}input,select,button{width:100%;padding:10px 11px;border-radius:6px;border:1px solid #ccd3db;font-size:14px;box-sizing:border-box}button{border:none;cursor:pointer;font-weight:bold}.btn-salvar{background:#2ecc71;color:#fff}.btn-limpar{background:#95a5a6;color:#fff}.btn-buscar{background:#34495e;color:#fff}.btn-editar{background:#f39c12;color:#fff;padding:7px 9px}.btn-excluir{background:#e74c3c;color:#fff;padding:7px 9px}.mensagem{margin-top:12px;font-weight:bold;display:none}.mensagem.sucesso{color:#1e8449;display:block}.mensagem.erro{color:#c0392b;display:block}.categoria{margin-top:20px;border:1px solid #e4e7ec;border-radius:9px;overflow:hidden}.categoria-head{display:flex;justify-content:space-between;gap:15px;align-items:center;padding:12px 14px;background:#f2f4f7;font-weight:bold}.categoria-total{font-size:16px}table{width:100%;border-collapse:collapse}th{background:#2c3e50;color:#fff;padding:9px;text-align:left;font-size:12px}td{padding:9px;border-bottom:1px solid #edf0f2;font-size:13px;vertical-align:middle}.badge{display:inline-block;padding:4px 8px;border-radius:999px;background:#eef2f6;font-weight:bold;font-size:11px}.valor{font-weight:bold;text-align:right;white-space:nowrap}.acoes{display:flex;gap:6px}.muted{color:#98a2b3}.top-note{background:#edf7ed;border:1px solid #b7dfb7;padding:10px 12px;border-radius:8px;font-size:13px;margin-bottom:15px}@media(max-width:1150px){.cards{grid-template-columns:repeat(2,1fr)}.grid-form,.grid-filtro{grid-template-columns:1fr}}@media(max-width:650px){body{padding:10px}.cards{grid-template-columns:1fr}.categoria{overflow:auto}}
   </style>
 </head>
 <body>
@@ -28,6 +28,10 @@
       <div class="card"><small>DESPESAS</small><strong id="totalDespesa">R$ 0,00</strong></div>
       <div class="card"><small>IMPOSTOS</small><strong id="totalImposto">R$ 0,00</strong></div>
       <div class="card"><small>TOTAL CADASTRADO</small><strong id="totalGeral">R$ 0,00</strong></div>
+      <div class="card"><small>ITENS VENDIDOS — MÊS ANTERIOR</small><strong id="itensMesAnterior">—</strong></div>
+      <div class="card"><small>CUSTO POR ITEM — MÊS ANTERIOR</small><strong id="custoPorItemAnterior">—</strong></div>
+      <div class="card"><small>ITENS VENDIDOS — MÊS ATUAL</small><strong id="itensMesAtual">—</strong></div>
+      <div class="card"><small>CUSTO POR ITEM — MÊS ATUAL</small><strong id="custoPorItemAtual">—</strong></div>
     </div>
 
     <input type="hidden" id="item_id" />
@@ -66,18 +70,61 @@ async function tratar(res){const j=await res.json();if(!res.ok||j.success===fals
 async function carregarCategorias(){const j=await tratar(await fetch('/api/saidas-categorias?ativo=true'));categorias=j.data||[];const o=categorias.map(c=>`<option value="${c.id}">${escapeHtml(c.nome)}</option>`).join('');document.querySelector('.btn-salvar').disabled=!categorias.length;document.getElementById('categoria_id').innerHTML='<option value="">Selecione</option>'+o;document.getElementById('filtroCategoria').innerHTML='<option value="">Todas</option>'+o}
 function limparFormulario(){item_id.value='';nome.value='';categoria_id.value='';classificacao.value='CUSTO_FIXO';valor_mensal.value='0';observacao.value='';limparMsg();nome.focus()}
 function limparFiltros(){filtroNome.value='';filtroCategoria.value='';filtroClassificacao.value='';filtroAtivo.value='true';listar()}
-function atualizarCards(){const soma=t=>itens.filter(i=>i.ativo&&i.classificacao===t).reduce((a,i)=>a+Number(i.valor_mensal||0),0);const a=soma('CUSTO_FIXO'),b=soma('CUSTO_VARIAVEL'),c=soma('DESPESA'),d=soma('IMPOSTO');totalFixo.textContent=fmt(a);totalVariavel.textContent=fmt(b);totalDespesa.textContent=fmt(c);totalImposto.textContent=fmt(d);totalGeral.textContent=fmt(a+b+c+d)}
+const fmtQuantidade = valor => Number(valor).toLocaleString('pt-BR', { maximumFractionDigits: 3 });
+function atualizarCards(resumo) {
+  const totais = resumo.totais || {};
+  totalFixo.textContent = fmt(totais.CUSTO_FIXO);
+  totalVariavel.textContent = fmt(totais.CUSTO_VARIAVEL);
+  totalDespesa.textContent = fmt(totais.DESPESA);
+  totalImposto.textContent = fmt(totais.IMPOSTO);
+  totalGeral.textContent = fmt(totais.total_cadastrado);
+  const valorTotal = Number(totais.total_cadastrado || 0);
+
+  function atualizarPeriodo(periodo, idQuantidade, idCusto) {
+    const quantidadeElemento = document.getElementById(idQuantidade);
+    const custoElemento = document.getElementById(idCusto);
+    const data = periodo && periodo.mes && periodo.ano
+      ? `${String(periodo.mes).padStart(2, '0')}/${periodo.ano}` : 'período indisponível';
+    const quantidade = periodo?.quantidade === null || periodo?.quantidade === undefined
+      ? null : Number(periodo.quantidade);
+    quantidadeElemento.textContent = quantidade === null ? '—' : fmtQuantidade(quantidade);
+    custoElemento.textContent = quantidade > 0 ? fmt(valorTotal / quantidade) : '—';
+    quantidadeElemento.title = periodo?.erro || `Itens vendidos em ${data}, por data da carrada`;
+    custoElemento.title = periodo?.erro || `Total cadastrado ÷ itens vendidos em ${data}`;
+  }
+  atualizarPeriodo(resumo.mes_anterior, 'itensMesAnterior', 'custoPorItemAnterior');
+  atualizarPeriodo(resumo.mes_atual, 'itensMesAtual', 'custoPorItemAtual');
+}
+async function carregarResumo() {
+  try {
+    const j = await tratar(await fetch(`${API}/resumo`));
+    atualizarCards(j.data || {});
+  } catch (e) {
+    ['totalFixo', 'totalVariavel', 'totalDespesa', 'totalImposto', 'totalGeral',
+     'itensMesAnterior', 'custoPorItemAnterior', 'itensMesAtual', 'custoPorItemAtual']
+      .forEach(id => { document.getElementById(id).textContent = '—'; });
+    msg(`Não foi possível carregar o resumo: ${e.message}`, 'erro');
+  }
+}
 function render(){
-  atualizarCards();
   const blocos=[];
   const grupos={}; for(const i of itens){(grupos[i.categoria_nome]??=[]).push(i)}
   for(const [cat,arr] of Object.entries(grupos)){const subtotal=arr.filter(i=>i.ativo).reduce((a,i)=>a+Number(i.valor_mensal||0),0);blocos.push(`<div class="categoria"><div class="categoria-head"><span>${escapeHtml(cat)}</span><span class="categoria-total">${fmt(subtotal)}</span></div><table><thead><tr><th>Item</th><th>Classificação</th><th style="text-align:right">Valor mensal</th><th>Status</th><th style="width:145px">Ações</th></tr></thead><tbody>${arr.map(i=>`<tr><td><strong>${escapeHtml(i.nome)}</strong>${i.observacao?`<br><span class="muted">${escapeHtml(i.observacao)}</span>`:''}</td><td><span class="badge">${labels[i.classificacao]||escapeHtml(i.classificacao)}</span></td><td class="valor">${fmt(i.valor_mensal)}</td><td>${i.ativo?'Ativo':'Inativo'}</td><td><div class="acoes"><button class="btn-editar" onclick="editar(${i.id})">Editar</button><button class="btn-excluir" onclick="excluirRegistro(${i.id})">Excluir</button></div></td></tr>`).join('')}</tbody></table></div>`)}
   lista.innerHTML=blocos.length?blocos.join(''):categorias.length?'<p class="muted">Nenhum custo cadastrado.</p>':'<p class="muted">Comece cadastrando uma <a href="/admin-saidas-categorias">categoria de custos</a>.</p>';
 }
 async function listar(){try{limparMsg();const p=new URLSearchParams();if(filtroNome.value.trim())p.append('nome',filtroNome.value.trim());if(filtroCategoria.value)p.append('categoria_id',filtroCategoria.value);if(filtroClassificacao.value)p.append('classificacao',filtroClassificacao.value);if(filtroAtivo.value!=='')p.append('ativo',filtroAtivo.value);const j=await tratar(await fetch(`${API}?${p}`));itens=j.data||[];render()}catch(e){msg(e.message,'erro')}}
-async function editar(id){try{const j=await tratar(await fetch(`${API}/${id}`));const i=j.data;item_id.value=i.id;nome.value=i.nome||'';categoria_id.value=i.categoria_id;classificacao.value=i.classificacao||'DESPESA';valor_mensal.value=Number(i.valor_mensal||0);observacao.value=i.observacao||'';window.scrollTo({top:0,behavior:'smooth'})}catch(e){msg(e.message,'erro')}}
-async function salvar(){try{const id=item_id.value;const body={nome:nome.value.trim(),categoria_id:categoria_id.value,classificacao:classificacao.value,forma_calculo:'VALOR_MENSAL',valor_mensal:valor_mensal.value,origem_valor:'MANUAL',recorrente_mensal:true,ativo:true,observacao:observacao.value.trim()};if(!body.nome)throw new Error('Nome é obrigatório');if(!body.categoria_id)throw new Error('Categoria é obrigatória');await tratar(await fetch(id?`${API}/${id}`:API,{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}));msg(id?'Item atualizado':'Item criado');limparFormulario();await listar()}catch(e){msg(e.message,'erro')}}
-async function excluirRegistro(id){try{if(!confirm('Excluir este item de custo?'))return;await tratar(await fetch(`${API}/${id}`,{method:'DELETE'}));msg('Item excluído');listar()}catch(e){msg(e.message,'erro')}}
-filtroNome.addEventListener('keydown',e=>{if(e.key==='Enter')listar()});carregarCategorias().then(listar).catch(e=>msg(e.message,'erro'));
+async function editar(id){try{const j=await tratar(await fetch(`${API}/${id}`));const i=j.data;item_id.value=i.id;nome.value=i.nome||'';categoria_id.value=i.categoria_id;classificacao.value=(String(i.categoria_nome||'').trim().toUpperCase()==='IMPOSTOS')?'IMPOSTO':(i.classificacao||'DESPESA');valor_mensal.value=Number(i.valor_mensal||0);observacao.value=i.observacao||'';window.scrollTo({top:0,behavior:'smooth'})}catch(e){msg(e.message,'erro')}}
+async function salvar(){try{const id=item_id.value;const body={nome:nome.value.trim(),categoria_id:categoria_id.value,classificacao:classificacao.value,forma_calculo:'VALOR_MENSAL',valor_mensal:valor_mensal.value,origem_valor:'MANUAL',recorrente_mensal:true,ativo:true,observacao:observacao.value.trim()};if(!body.nome)throw new Error('Nome é obrigatório');if(!body.categoria_id)throw new Error('Categoria é obrigatória');await tratar(await fetch(id?`${API}/${id}`:API,{method:id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}));msg(id?'Item atualizado':'Item criado');limparFormulario();await Promise.all([listar(),carregarResumo()])}catch(e){msg(e.message,'erro')}}
+async function excluirRegistro(id){try{if(!confirm('Excluir este item de custo?'))return;await tratar(await fetch(`${API}/${id}`,{method:'DELETE'}));msg('Item excluído');await Promise.all([listar(),carregarResumo()])}catch(e){msg(e.message,'erro')}}
+filtroNome.addEventListener('keydown',e=>{if(e.key==='Enter')listar()});
+categoria_id.addEventListener('change', () => {
+  const selecionada = categorias.find(cat => String(cat.id) === categoria_id.value);
+  if (String(selecionada?.nome || '').trim().toUpperCase() === 'IMPOSTOS') {
+    classificacao.value = 'IMPOSTO';
+  }
+});
+carregarCategorias().then(async () => {
+  await Promise.all([listar(), carregarResumo()]);
+}).catch(e => msg(e.message, 'erro'));
 </script>
 </body></html>
