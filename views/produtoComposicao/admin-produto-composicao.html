@@ -47,13 +47,16 @@
     .col-acao { width:48px; text-align:center; }
     .qtde-input { height:28px; padding:4px 6px; font-size:12px; }
     .btn-mini { width:26px; height:24px; padding:0; border-radius:5px; display:inline-flex; align-items:center; justify-content:center; font-size:13px; }
-    .resumo { display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; margin-top:14px; }
+    .resumo { display:flex; flex-direction:column; gap:12px; margin-top:14px; }
+    .resumo-titulo { font-size:13px; font-weight:bold; color:#34495e; margin-bottom:7px; }
+    .resumo-linha { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; }
+    .resumo-card { min-width:0; overflow-wrap:anywhere; }
     .resumo-card { background:#f6f8fb; border-radius:8px; padding:12px; }
     .resumo-card span { display:block; font-size:12px; color:#566573; margin-bottom:4px; }
     .resumo-card strong { font-size:18px; color:#17202a; }
     .preco-venda-card { display:flex; flex-direction:column; gap:7px; }
     .preco-venda-linha { display:flex; gap:6px; align-items:center; }
-    .preco-venda-linha input { height:32px; padding:5px 7px; font-size:14px; font-weight:bold; text-align:right; }
+    .preco-venda-linha input { min-width:0; height:32px; padding:5px 7px; font-size:14px; font-weight:bold; text-align:right; }
     .preco-venda-linha button { width:38px; min-width:38px; height:32px; padding:0; border-radius:6px; background:#2ecc71; color:#fff; font-size:15px; }
     .preco-venda-atual { font-size:11px; color:#566573; }
     .acoes { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
@@ -71,8 +74,10 @@
     .info-produto { margin-top:10px; font-size:13px; color:#34495e; }
     .tag-disco { display:inline-block; font-size:11px; background:#e8f4fd; color:#21618c; padding:2px 6px; border-radius:999px; margin-left:4px; }
     .hidden { display:none !important; }
+    @media (max-width:800px) { .resumo-linha { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media (max-width:480px) { .resumo-linha { grid-template-columns:1fr; } }
     @media (max-width: 1150px) {
-      .grid-topo, .duas-colunas, .filtros-insumos, .resumo { grid-template-columns:1fr; }
+      .grid-topo, .duas-colunas, .filtros-insumos { grid-template-columns:1fr; }
       .acoes button { width:100%; }
     }
   </style>
@@ -176,17 +181,40 @@
         </table>
 
         <div class="resumo">
-          <div class="resumo-card"><span>Custo dos insumos</span><strong id="resumoCusto">R$ 0,00</strong></div>
-          <div class="resumo-card preco-venda-card">
-            <span>Preço final de venda</span>
-            <div class="preco-venda-linha">
-              <input type="text" id="preco_venda_produto" placeholder="0,00" onkeydown="if(event.key==='Enter'){salvarPrecoVenda()}" />
-              <button type="button" title="Salvar preço de venda" onclick="salvarPrecoVenda()">💾</button>
+          <div>
+            <div class="resumo-titulo">Base de custos: mês anterior <span id="periodoAnterior"></span></div>
+            <div class="resumo-linha">
+              <div class="resumo-card"><span>Custo dos insumos</span><strong id="resumoCusto">R$ 0,00</strong></div>
+              <div class="resumo-card" title="Total cadastrado dividido pelos itens vendidos no mês anterior"><span>Custo por item — mês anterior</span><strong id="resumoCustoMesAnterior">—</strong></div>
+              <div class="resumo-card preco-venda-card">
+                <span>Preço final de venda</span>
+                <div class="preco-venda-linha">
+                  <input type="text" id="preco_venda_produto" placeholder="0,00" aria-label="Preço final de venda — mês anterior" onkeydown="if(event.key==='Enter'){salvarPrecoVenda()}" />
+                  <button type="button" title="Salvar preço de venda" onclick="salvarPrecoVenda()">💾</button>
+                </div>
+                <div class="preco-venda-atual">Atual: <strong id="resumoVenda">R$ 0,00</strong></div>
+              </div>
+              <div class="resumo-card"><span>Lucro bruto</span><strong id="resumoLucro">—</strong></div>
+              <div class="resumo-card"><span>Margem bruta</span><strong id="resumoMargem">—</strong></div>
             </div>
-            <div class="preco-venda-atual">Atual: <strong id="resumoVenda">R$ 0,00</strong></div>
           </div>
-          <div class="resumo-card"><span>Lucro bruto</span><strong id="resumoLucro">R$ 0,00</strong></div>
-          <div class="resumo-card"><span>Margem bruta</span><strong id="resumoMargem">0%</strong></div>
+          <div>
+            <div class="resumo-titulo">Base de custos: mês atual <span id="periodoAtual"></span></div>
+            <div class="resumo-linha">
+              <div class="resumo-card"><span>Custo dos insumos</span><strong id="resumoCustoAtual">R$ 0,00</strong></div>
+              <div class="resumo-card" title="Total cadastrado dividido pelos itens vendidos no mês atual"><span>Custo por item — mês atual</span><strong id="resumoCustoMesAtual">—</strong></div>
+              <div class="resumo-card preco-venda-card">
+                <span>Preço final de venda</span>
+                <div class="preco-venda-linha">
+                  <input type="text" id="preco_venda_produto_atual" placeholder="0,00" aria-label="Preço final de venda — mês atual" onkeydown="if(event.key==='Enter'){salvarPrecoVenda('preco_venda_produto_atual')}" />
+                  <button type="button" title="Salvar preço de venda" onclick="salvarPrecoVenda('preco_venda_produto_atual')">💾</button>
+                </div>
+                <div class="preco-venda-atual">Atual: <strong id="resumoVendaAtual">R$ 0,00</strong></div>
+              </div>
+              <div class="resumo-card"><span>Lucro bruto</span><strong id="resumoLucroAtual">—</strong></div>
+              <div class="resumo-card"><span>Margem bruta</span><strong id="resumoMargemAtual">—</strong></div>
+            </div>
+          </div>
         </div>
 
         <div class="revisao-linha">
@@ -230,6 +258,36 @@
     let dataRevisaoAtual = null;
     let itensDisponiveis = [];
     let itensComposicao = [];
+    // Usa o mesmo resumo e as mesmas quantidades vendidas da tela de saídas.
+    let custosRateados = { anterior: null, atual: null };
+    async function carregarCustosRateados() {
+      try {
+        const response = await fetch('/api/saidas-itens/resumo', { cache: 'no-store' });
+        const json = await response.json();
+        if (!response.ok || !json.success) throw new Error(json.message || 'Não foi possível carregar os custos');
+        const dados = json.data || {};
+        const total = Number(dados.totais?.total_cadastrado);
+        if (!Number.isFinite(total)) throw new Error('Total de custos inválido');
+        const rateio = periodo => {
+          if (periodo?.quantidade == null) return null;
+          const qtde = Number(periodo.quantidade);
+          return Number.isFinite(qtde) && qtde > 0 ? total / qtde : null;
+        };
+        custosRateados = { anterior: rateio(dados.mes_anterior), atual: rateio(dados.mes_atual) };
+        const rotulo = periodo => periodo?.mes && periodo?.ano
+          ? '(' + String(periodo.mes).padStart(2, '0') + '/' + periodo.ano + ')' : '';
+        document.getElementById('periodoAnterior').textContent = rotulo(dados.mes_anterior);
+        document.getElementById('periodoAtual').textContent = rotulo(dados.mes_atual);
+        document.getElementById('resumoCustoMesAnterior').title = dados.mes_anterior?.erro || 'Total cadastrado dividido pelos itens vendidos no mês anterior';
+        document.getElementById('resumoCustoMesAtual').title = dados.mes_atual?.erro || 'Total cadastrado dividido pelos itens vendidos no mês atual';
+      } catch (error) {
+        custosRateados = { anterior: null, atual: null };
+        document.getElementById('resumoCustoMesAnterior').title = error.message;
+        document.getElementById('resumoCustoMesAtual').title = error.message;
+        console.error('Erro ao carregar rateio dos custos:', error);
+      }
+      atualizarResumo();
+    }
 
     function escapeHtml(texto) {
       return String(texto ?? '')
@@ -382,14 +440,14 @@
         document.getElementById('composicao_id').innerHTML = '<option value="">Selecione produto</option>';
         document.getElementById('infoProduto').textContent = '';
         document.getElementById('nome_composicao').value = 'PADRÃO';
-        const campoPreco = document.getElementById('preco_venda_produto');
-        if (campoPreco) campoPreco.value = '';
+        document.getElementById('preco_venda_produto').value = '';
+        document.getElementById('preco_venda_produto_atual').value = '';
         return;
       }
 
       document.getElementById('infoProduto').textContent = `Produto selecionado: ${produtoAtual.nome} | Preço de venda: ${moeda(produtoAtual.preco)}`;
-      const campoPreco = document.getElementById('preco_venda_produto');
-      if (campoPreco) campoPreco.value = formatarMoedaInput(produtoAtual.preco);
+      document.getElementById('preco_venda_produto').value = formatarMoedaInput(produtoAtual.preco);
+      document.getElementById('preco_venda_produto_atual').value = formatarMoedaInput(produtoAtual.preco);
       await carregarComposicoesProduto(produtoAtual.id);
     }
 
@@ -584,13 +642,22 @@
     function atualizarResumo() {
       const custo = itensComposicao.reduce((soma, item) => soma + (Number(item.quantidade || 0) * Number(item.custo_unitario || 0)), 0);
       const precoVenda = produtoAtual ? Number(produtoAtual.preco || 0) : 0;
-      const lucro = precoVenda - custo;
-      const margem = precoVenda > 0 ? (lucro / precoVenda) * 100 : 0;
-
+      // Lucro bruto = preço final de venda - custo dos insumos - rateio mensal por item.
+      // Margem bruta = lucro bruto / preço final de venda.
+      function atualizarPeriodo(rateio, idRateio, idLucro, idMargem) {
+        const valido = Number.isFinite(rateio);
+        const lucro = valido ? precoVenda - custo - rateio : null;
+        const margem = valido && precoVenda > 0 ? lucro / precoVenda * 100 : null;
+        document.getElementById(idRateio).textContent = valido ? moeda(rateio) : '—';
+        document.getElementById(idLucro).textContent = valido ? moeda(lucro) : '—';
+        document.getElementById(idMargem).textContent = margem === null ? '—' : margem.toFixed(2) + '%';
+      }
       document.getElementById('resumoCusto').textContent = moeda(custo);
+      document.getElementById('resumoCustoAtual').textContent = moeda(custo);
       document.getElementById('resumoVenda').textContent = moeda(precoVenda);
-      document.getElementById('resumoLucro').textContent = moeda(lucro);
-      document.getElementById('resumoMargem').textContent = `${margem.toFixed(2)}%`;
+      document.getElementById('resumoVendaAtual').textContent = moeda(precoVenda);
+      atualizarPeriodo(custosRateados.anterior, 'resumoCustoMesAnterior', 'resumoLucro', 'resumoMargem');
+      atualizarPeriodo(custosRateados.atual, 'resumoCustoMesAtual', 'resumoLucroAtual', 'resumoMargemAtual');
     }
 
     function atualizarOptionProdutoSelecionado() {
@@ -599,13 +666,13 @@
       if (option) option.textContent = `${produtoAtual.nome} - ${moeda(produtoAtual.preco)}`;
     }
 
-    async function salvarPrecoVenda() {
+    async function salvarPrecoVenda(campoId = 'preco_venda_produto') {
       try {
         limparMensagem();
         produtoAtual = obterProdutoSelecionado();
         if (!produtoAtual) throw new Error('Selecione o produto acabado');
 
-        const campo = document.getElementById('preco_venda_produto');
+        const campo = document.getElementById(campoId);
         const preco = parseMoedaInput(campo.value);
         if (preco === null) throw new Error('Informe um preço de venda válido');
 
@@ -622,7 +689,8 @@
         const idx = produtos.findIndex(p => Number(p.id) === Number(produtoAtual.id));
         if (idx >= 0) produtos[idx].preco = produtoAtual.preco;
 
-        campo.value = formatarMoedaInput(produtoAtual.preco);
+        document.getElementById('preco_venda_produto').value = formatarMoedaInput(produtoAtual.preco);
+        document.getElementById('preco_venda_produto_atual').value = formatarMoedaInput(produtoAtual.preco);
         document.getElementById('infoProduto').textContent = `Produto selecionado: ${produtoAtual.nome} | Preço de venda: ${moeda(produtoAtual.preco)}`;
         atualizarOptionProdutoSelecionado();
         atualizarResumo();
@@ -860,6 +928,8 @@
       document.getElementById('nome_composicao').value = 'PADRÃO';
       document.getElementById('ativo').value = 'true';
       document.getElementById('infoProduto').textContent = '';
+      document.getElementById('preco_venda_produto').value = '';
+      document.getElementById('preco_venda_produto_atual').value = '';
       produtoAtual = null;
       composicaoAtualId = null;
       exibirDataRevisao(null);
@@ -876,7 +946,7 @@
         const produtoIdLink = idParam && /^[1-9]\d*$/.test(idParam) && Number.isSafeInteger(Number(idParam))
           ? Number(idParam) : null;
 
-        await Promise.all([carregarProdutos(produtoIdLink !== null), carregarFiltros()]);
+        await Promise.all([carregarProdutos(produtoIdLink !== null), carregarFiltros(), carregarCustosRateados()]);
         await carregarInsumosDisponiveis();
         document.getElementById('composicao_id').innerHTML = '<option value="">Selecione produto</option>';
         renderizarComposicao();
@@ -893,6 +963,7 @@
       }
     }
 
+    window.addEventListener('focus', carregarCustosRateados);
     inicializar();
   </script>
 </body>
