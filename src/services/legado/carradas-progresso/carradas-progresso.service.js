@@ -1253,7 +1253,9 @@ async function buscarResumoLocalEntregaDosPedidos(pedidos = []) {
   const [localEntregaResult, silenciosoResult] = await Promise.all([
     pool.query(
       `
-        SELECT numero_pedido, saida, TRUE AS concluido, created_at, updated_at
+        SELECT numero_pedido, saida,
+               (agencia_recebimento_codigo IS NULL OR agencia_notificada_em IS NOT NULL) AS concluido,
+               created_at, updated_at
         FROM carradas_pedidos_local_entrega
         WHERE transportadora_id IS NOT NULL
           AND ((saida IS NOT NULL AND saida = ANY($1::bigint[])) OR numero_pedido = ANY($2::text[]))
@@ -3172,7 +3174,7 @@ async function salvarLocalEntrega({
 
   return {
     numeroPedido,
-    concluido: true,
+    concluido: !result.rows[0].agencia_recebimento_codigo || Boolean(result.rows[0].agencia_notificada_em),
     transportadoraId: result.rows[0].transportadora_id,
     transportadoraNome: transportadora.nome || '',
     transportadoraTelefonePrincipal: transportadora.telefone_principal || '',
@@ -3301,6 +3303,9 @@ async function enviarNotificacaoAgenciaLocalEntrega({ codigoCarrada: codigoCarra
       WHERE codigo_carrada = $1 AND numero_pedido = $2 AND agencia_envio_token = $3
       RETURNING agencia_notificada_em
     `, [codigoCarrada, numeroPedido, tokenEnvio]);
+    if (confirmado.rowCount) {
+      await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
+    }
 
     return {
       numeroPedido,
