@@ -2554,8 +2554,6 @@ async function confirmarEtiquetaVolumes({ codigoCarrada: codigoCarradaParam, num
     faseCodigo: 'ETIQUETA_VOLUMES'
   });
 
-  await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
-
   const atualizada = result.rows
     .slice()
     .sort((a, b) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime())[0];
@@ -2590,6 +2588,8 @@ async function confirmarEtiquetaVolumes({ codigoCarrada: codigoCarradaParam, num
       localEntregaPreenchidoAutomaticamente = true;
     }
   }
+
+  await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
 
   return {
     numeroPedido,
