@@ -328,8 +328,8 @@ function webAbrirModal(){
  if(webTimer)clearInterval(webTimer);
  webTimer=setInterval(webAtualizarRelogios,500);
 }
-function webFecharModal(){
- if(webExec?.ocupado){toast('Aguarde a gravação da série ou do descanso antes de fechar.');return;}
+function webFecharModal({force=false}={}){
+ if(webExec?.ocupado&&!force){toast('Aguarde a gravação da série ou do descanso antes de fechar.');return;}
  if(webTimer)clearInterval(webTimer);webTimer=null;
  const modal=$('avn-modal-execucao');
  if(modal?.open)modal.close();
@@ -447,12 +447,15 @@ async function webFinalizar(){
  if(!confirm(faltam?'Há séries pendentes. Finalizar o treino mesmo assim?':'Finalizar e salvar este treino?'))return;
  if(w.etapa==='descanso')await webEncerrarDescanso();
  await webEvento('TREINO_FINALIZADO');
- localStorage.removeItem(webChave());webFecharModal();toast('Treino finalizado e salvo no histórico Web/Android.');
+ localStorage.removeItem(webChave());
+ webFecharModal({force:true});
+ abrirHistoricoTreinos();
+ toast('Treino finalizado e salvo no histórico Web/Android.');
 }
 async function webCancelar(){
  if(!confirm('Cancelar e APAGAR toda a execução deste treino?'))return;
  await webAPI('/execucoes/'+webExec.id+'/cancelar',{});
- localStorage.removeItem(webChave());webFecharModal();toast('Treino cancelado e descartado.');
+ localStorage.removeItem(webChave());webFecharModal({force:true});toast('Treino cancelado e descartado.');
 }
 
 function abrirHistoricoTreinos(){
