@@ -1145,7 +1145,7 @@
       <div class="header-grid" id="cardsCabecalho"></div>
       <div class="legend">
         <div class="legend-item"><span class="legend-color success"></span> Verde = fase concluída</div>
-        <div class="legend-item"><span class="legend-color calculated"></span> Amarelo = volumes calculados, aguardando confirmação</div>
+        <div class="legend-item"><span class="legend-color calculated"></span> Amarelo = volumes aguardando confirmação ou agência aguardando envio de WhatsApp</div>
         <div class="legend-item"><span class="legend-color"></span> Branco = pendência operacional</div>
       </div>
     </section>
@@ -2665,7 +2665,7 @@
       }
 
       if (faseCodigo === 'LOCAL_ENTREGA') {
-        if (faseData?.concluido) {
+        if (faseData?.transportadoraId || faseData?.concluido) {
           return faseData.transportadoraNome || 'Definido';
         }
         return 'Definir';
@@ -2711,6 +2711,9 @@
 
       if (faseCodigo === 'LOCAL_ENTREGA') {
         const partes = [];
+        if (faseData?.agenciaNotificacaoPendente) {
+          partes.push('Toque para enviar à agência');
+        }
         if (faseData?.redespachoTransportadoraNome) {
           partes.push(`Redesp.: ${faseData.redespachoTransportadoraNome}`);
         }
@@ -2823,9 +2826,11 @@
             `;
           }
 
+          const agenciaPendente = fase.codigo === 'LOCAL_ENTREGA' && Boolean(faseData.agenciaNotificacaoPendente);
           const classes = [
             'cell-button',
             faseData.concluido ? 'done' : '',
+            agenciaPendente ? 'calculated' : '',
             fase.tipo === 'automatico' ? 'readonly' : '',
             fase.tipo !== 'boolean' ? 'special' : ''
           ].filter(Boolean).join(' ');
@@ -2854,6 +2859,9 @@
           const silentLink = exibirSilentLink
             ? `<a href="#" class="silent-link" data-silent-numero="${escapeHtml(pedido.numero)}" data-silent-fase="${escapeHtml(fase.codigo)}" title="Marcar/desmarcar sem enviar mensagem">${faseData.concluido ? '↺ desmarcar sem msg' : '↺ marcar sem msg'}</a>`
             : '';
+          const editarEntregaLink = agenciaPendente
+            ? `<a href="#" class="manual-link" data-editar-local-entrega-numero="${escapeHtml(pedido.numero)}" title="Editar o cadastro sem enviar WhatsApp">editar local</a>`
+            : '';
 
           return `
             <td>
@@ -2862,13 +2870,14 @@
                 data-numero-pedido="${escapeHtml(pedido.numero)}"
                 data-fase-codigo="${escapeHtml(fase.codigo)}"
                 ${readonly}
-                title="${escapeHtml(fase.nome)}"
+                title="${escapeHtml(agenciaPendente ? 'Enviar WhatsApp à agência (somente no dia da carrada)' : fase.nome)}"
               >
                 <span>
                   ${escapeHtml(titulo || (faseData.concluido ? '✓' : ''))}
                   ${subtitulo ? `<span class="subtext">${escapeHtml(subtitulo)}</span>` : ''}
                 </span>
               </button>
+              ${editarEntregaLink}
               ${silentLink}
               ${manualPagamentoLink}
               ${extratoCreditoLink}
@@ -3001,6 +3010,13 @@
 
       el.tbodyMatriz.querySelectorAll('[data-fase-codigo]').forEach((botao) => {
         botao.addEventListener('click', () => onClickCelula(botao));
+      });
+      el.tbodyMatriz.querySelectorAll('[data-editar-local-entrega-numero]').forEach((link) => {
+        link.addEventListener('click', async (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          await abrirModalLocalEntrega(link.dataset.editarLocalEntregaNumero);
+        });
       });
 
       el.tbodyMatriz.querySelectorAll('[data-silent-numero]').forEach((link) => {
@@ -4162,7 +4178,7 @@
           ? String(pedido.fases.LOCAL_ENTREGA.agenciaRecebimentoCodigo)
           : '';
 
-        if (pedido?.fases?.LOCAL_ENTREGA?.concluido) {
+        if (pedido?.fases?.LOCAL_ENTREGA?.transportadoraId || pedido?.fases?.LOCAL_ENTREGA?.concluido) {
           const detalhes = [
             `Transportadora atual: ${pedido.fases.LOCAL_ENTREGA.transportadoraNome || '-'}`,
             pedido.fases.LOCAL_ENTREGA.redespachoTransportadoraNome
@@ -4172,7 +4188,10 @@
               ? `Agência: ${pedido.fases.LOCAL_ENTREGA.agenciaRecebimentoNome}${pedido.fases.LOCAL_ENTREGA.agenciaRecebimentoCidadeNome ? ` - ${pedido.fases.LOCAL_ENTREGA.agenciaRecebimentoCidadeNome}${pedido.fases.LOCAL_ENTREGA.agenciaRecebimentoCidadeUf ? ` / ${pedido.fases.LOCAL_ENTREGA.agenciaRecebimentoCidadeUf}` : ''}` : ''}`
               : (pedido.fases.LOCAL_ENTREGA.agenciaCidade ? `Agência: ${pedido.fases.LOCAL_ENTREGA.agenciaCidade}` : '')
           ].filter(Boolean);
-          setFeedback(el.feedbackLocalEntrega, detalhes.join(' • '), 'success');
+          const avisoPendente = pedido.fases.LOCAL_ENTREGA.agenciaNotificacaoPendente
+            ? ' • Agência cadastrada. WhatsApp pendente de envio manual.'
+            : '';
+          setFeedback(el.feedbackLocalEntrega, detalhes.join(' • ') + avisoPendente, avisoPendente ? '' : 'success');
         } else {
           setFeedback(el.feedbackLocalEntrega, 'Defina a transportadora. Redespacho e Agência de Recebimento são opcionais.', '');
         }
@@ -4385,9 +4404,6 @@
           }
           if (data?.notificacaoRedespacho?.success === false) {
             falhas.push(`redespacho: ${data.notificacaoRedespacho.error || 'erro desconhecido'}`);
-          }
-          if (data?.notificacaoAgencia?.success === false) {
-            falhas.push(`agência de recebimento: ${data.notificacaoAgencia.error || 'erro desconhecido'}`);
           }
 
           if (falhas.length) {
@@ -5091,6 +5107,28 @@
       }
     }
 
+    async function enviarMensagemAgenciaPendente(numeroPedido, botao) {
+      if (!botao || botao.disabled) return;
+      const pedido = obterPedido(numeroPedido);
+      if (!pedido?.fases?.LOCAL_ENTREGA?.agenciaNotificacaoPendente) return;
+
+      botao.disabled = true;
+      try {
+        const data = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/local-entrega/agencia/enviar`, {
+          method: 'POST'
+        });
+        await carregarMatriz();
+        if (data?.cadastroAlteradoDuranteEnvio) {
+          window.alert('A mensagem foi enviada, mas o local de entrega foi alterado durante o envio. Confira o cadastro e o status atual.');
+        }
+      } catch (error) {
+        window.alert(error.message);
+        await carregarMatriz();
+      } finally {
+        botao.disabled = false;
+      }
+    }
+
     async function onClickCelula(botao) {
       const faseCodigo = botao.dataset.faseCodigo;
       const numeroPedido = botao.dataset.numeroPedido;
@@ -5112,7 +5150,11 @@
       }
 
       if (faseCodigo === 'LOCAL_ENTREGA') {
-        await abrirModalLocalEntrega(numeroPedido);
+        if (obterPedido(numeroPedido)?.fases?.LOCAL_ENTREGA?.agenciaNotificacaoPendente) {
+          await enviarMensagemAgenciaPendente(numeroPedido, botao);
+        } else {
+          await abrirModalLocalEntrega(numeroPedido);
+        }
         return;
       }
 
