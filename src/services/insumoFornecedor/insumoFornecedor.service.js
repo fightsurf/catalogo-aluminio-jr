@@ -359,6 +359,57 @@ async function atualizar(id, data = {}) {
   return buscar(id);
 }
 
+// Reutiliza o mesmo cálculo de custo da composição e do resumo de custos.
+async function listarProdutosAfetados(id) {
+  const registroId = normalizarId(id, 'Registro de custo');
+  await buscar(registroId);
+
+  const result = await pool.query(`
+    SELECT
+      p.id AS produto_id,
+      p.nome AS produto,
+      p.ativo,
+      p.preco AS preco_venda,
+      pc.id AS composicao_id,
+      COALESCE(SUM(
+        pci.quantidade *
+        CASE
+          WHEN d.insumo_id IS NOT NULL THEN COALESCE(d.peso_kg, 0) * COALESCE(ifn.custo_final, 0)
+          ELSE COALESCE(ifn.custo_final, 0)
+        END
+      ), 0)::numeric(14,4) AS custo_atualizado
+    FROM produtos_composicoes pc
+    JOIN produtos p ON p.id = pc.produto_id
+    JOIN produtos_composicoes_itens pci ON pci.composicao_id = pc.id
+    JOIN insumos_fornecedores ifn ON ifn.id = pci.insumo_fornecedor_id
+    LEFT JOIN insumos_discos d ON d.insumo_id = ifn.insumo_id
+    WHERE EXISTS (
+      SELECT 1
+      FROM produtos_composicoes_itens item_afetado
+      WHERE item_afetado.composicao_id = pc.id
+        AND item_afetado.insumo_fornecedor_id = $1
+    )
+    GROUP BY p.id, p.nome, p.ativo, p.preco, pc.id
+    ORDER BY p.nome ASC
+  `, [registroId]);
+
+  return result.rows.map(row => {
+    const custo = Number(row.custo_atualizado);
+    const preco = Number(row.preco_venda);
+    const lucro = Number((preco - custo).toFixed(4));
+    return {
+      produto_id: Number(row.produto_id),
+      produto: row.produto,
+      ativo: row.ativo,
+      composicao_id: Number(row.composicao_id),
+      custo_atualizado: custo,
+      preco_venda: preco,
+      lucro_bruto: lucro,
+      margem_bruta_percentual: preco > 0 ? Number((lucro / preco * 100).toFixed(2)) : null
+    };
+  });
+}
+
 async function inativar(id) {
   const registroId = normalizarId(id, 'Registro de custo');
   const atual = await buscar(registroId);
@@ -406,5 +457,6 @@ module.exports = {
   atualizar,
   inativar,
   excluir,
-  calcularCustoFinal
+  calcularCustoFinal,
+  listarProdutosAfetados
 };
