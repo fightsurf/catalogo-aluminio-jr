@@ -39,6 +39,20 @@ function svgEl(parent,tag,attrs,text){
  if(text!==undefined)el.textContent=text;
  parent.append(el);return el;
 }
+// Rotula cada ponto com o valor, sem capturar os eventos do mouse.
+function drawValueLabel(svg,point,value,color,index,limits){
+ let labelY=point.py+(index%2===0?-11:16);
+ if(labelY<limits.top+11)labelY=point.py+16;
+ if(labelY>limits.bottom-4)labelY=point.py-11;
+ labelY=Math.max(limits.top+11,Math.min(limits.bottom-4,labelY));
+ const anchor=point.px<limits.left+44?'start':point.px>limits.right-44?'end':'middle';
+ return svgEl(svg,'text',{
+  x:Math.max(limits.left+3,Math.min(limits.right-3,point.px)),
+  y:labelY,'text-anchor':anchor,fill:color,'font-size':10,'font-weight':700,
+  stroke:'#101c2e','stroke-width':3,'stroke-linejoin':'round',
+  'paint-order':'stroke','pointer-events':'none'
+ },format(value));
+}
 async function getJson(url,signal){
  const res=await fetch(url,{credentials:'same-origin',cache:'no-store',signal});
  if(!res.ok)throw new Error('Falha ao consultar medições (HTTP '+res.status+').');
@@ -124,17 +138,21 @@ function drawGraph(area,rows,unit,label,color){
  const points=rows.map(p=>({...p,px:x(p.time),py:y(p.value)}));
  const poly=points.map(p=>p.px+','+p.py).join(' ');
  svgEl(svg,'polyline',{points:poly,fill:'none',stroke:color,'stroke-width':2.5,'stroke-linecap':'round','stroke-linejoin':'round'});
- const drawDots=points.length<=180?points:[points[0],points[points.length-1]];
- for(const p of drawDots){
+ const pointLabels=points.map((p,index)=>{
   const c=svgEl(svg,'circle',{cx:p.px,cy:p.py,r:3.5,fill:color});
   svgEl(c,'title',{},formatDate(p.date)+' — '+format(p.value)+' '+unit);
- }
+  return drawValueLabel(svg,p,p.value,color,index,{left:L,right:W-R,top:T,bottom:H-B});
+ });
  const guide=svgEl(svg,'line',{x1:L,x2:L,y1:T,y2:H-B,stroke:'#34d399','stroke-width':1.3,'stroke-dasharray':'4 4',visibility:'hidden'});
  const focus=svgEl(svg,'circle',{cx:L,cy:T,r:5.5,fill:'#182437',stroke:color,'stroke-width':2.5,visibility:'hidden'});
  const hit=svgEl(svg,'rect',{x:L,y:T,width:W-L-R,height:H-T-B,fill:'transparent','pointer-events':'all'});
  const tooltip=document.createElement('div');tooltip.className='graph-tooltip';tooltip.hidden=true;
  area.append(svg,tooltip);
- const hide=()=>{tooltip.hidden=true;guide.setAttribute('visibility','hidden');focus.setAttribute('visibility','hidden');};
+ let activeIndex=-1;
+ const hide=()=>{
+  if(activeIndex!==-1){pointLabels[activeIndex].setAttribute('visibility','visible');activeIndex=-1;}
+  tooltip.hidden=true;guide.setAttribute('visibility','hidden');focus.setAttribute('visibility','hidden');
+ };
  const show=e=>{
   const rect=svg.getBoundingClientRect();if(!rect.width)return;
   const px=(e.clientX-rect.left)*W/rect.width;
@@ -142,6 +160,11 @@ function drawGraph(area,rows,unit,label,color){
   while(left<right){const mid=(left+right)>>1;if(points[mid].px<px)left=mid+1;else right=mid;}
   const ix=left>0&&Math.abs(points[left-1].px-px)<Math.abs(points[left].px-px)?left-1:left;
   const p=points[ix];
+  if(activeIndex!==ix){
+   if(activeIndex!==-1)pointLabels[activeIndex].setAttribute('visibility','visible');
+   pointLabels[ix].setAttribute('visibility','hidden');
+   activeIndex=ix;
+  }
   guide.setAttribute('x1',p.px);guide.setAttribute('x2',p.px);guide.setAttribute('visibility','visible');
   focus.setAttribute('cx',p.px);focus.setAttribute('cy',p.py);focus.setAttribute('visibility','visible');
   const band=isImc?imcBand(p.value):null;
@@ -302,8 +325,8 @@ function renderComparison(){
   const t=start+(end-start)*i/ticks;
   svgEl(svg,'text',{x:x(t),y:H-20,'text-anchor':'middle',fill:'#a9b9d1','font-size':11},formatShort(t));
  }
- const days=new Set();
- for(const s of usable){
+ const days=new Set(),dayLabels=new Map();
+ for(const [seriesIndex,s] of usable.entries()){
   const pts=s.rows.map(p=>({...p,px:x(p.time),py:scaleY(s,p.plotValue)}));
   s.points=pts;
   s.byDay=new Map(pts.map(p=>[p.time,p]));
@@ -311,9 +334,12 @@ function renderComparison(){
   if(pts.length>1){
    svgEl(svg,'polyline',{points:pts.map(p=>p.px+','+p.py).join(' '),fill:'none',stroke:s.color,'stroke-width':2.7,'stroke-linecap':'round','stroke-linejoin':'round'});
   }
-  if(pts.length<=150)for(const p of pts){
+  for(const [pointIndex,p] of pts.entries()){
    const circle=svgEl(svg,'circle',{cx:p.px,cy:p.py,r:3.5,fill:s.color});
    svgEl(circle,'title',{},formatDate(p.date)+' · '+s.name+': '+format(p.value)+' '+s.unit);
+   const valueLabel=drawValueLabel(svg,p,p.value,s.color,pointIndex+seriesIndex,{left:L,right:W-R,top:T,bottom:H-B});
+   if(!dayLabels.has(p.time))dayLabels.set(p.time,[]);
+   dayLabels.get(p.time).push(valueLabel);
   }
  }
  const orderedDays=[...days].sort((a,b)=>a-b);
@@ -322,7 +348,12 @@ function renderComparison(){
  const hit=svgEl(svg,'rect',{x:L,y:T,width:plotWidth,height:plotHeight,fill:'transparent','pointer-events':'all'});
  const tooltip=document.createElement('div');tooltip.className='graph-tooltip compare-tooltip';tooltip.hidden=true;
  chart.append(svg,tooltip);
+ let activeDay=null;
  function hide(){
+  if(activeDay!==null){
+   (dayLabels.get(activeDay)||[]).forEach(label=>label.setAttribute('visibility','visible'));
+   activeDay=null;
+  }
   guide.setAttribute('visibility','hidden');
   markers.forEach(marker=>marker.setAttribute('visibility','hidden'));
   tooltip.hidden=true;
@@ -334,6 +365,11 @@ function renderComparison(){
   let lo=0,hi=orderedDays.length-1;
   while(lo<hi){const mid=(lo+hi)>>1;if(orderedDays[mid]<target)lo=mid+1;else hi=mid;}
   const day=lo>0&&Math.abs(orderedDays[lo-1]-target)<Math.abs(orderedDays[lo]-target)?orderedDays[lo-1]:orderedDays[lo];
+  if(activeDay!==day){
+   if(activeDay!==null)(dayLabels.get(activeDay)||[]).forEach(label=>label.setAttribute('visibility','visible'));
+   (dayLabels.get(day)||[]).forEach(label=>label.setAttribute('visibility','hidden'));
+   activeDay=day;
+  }
   const xpos=x(day);
   guide.setAttribute('x1',xpos);guide.setAttribute('x2',xpos);guide.setAttribute('visibility','visible');
   const lines=[new Date(day).toLocaleDateString('pt-BR')];
@@ -341,7 +377,7 @@ function renderComparison(){
    const p=s.byDay.get(day),marker=markers[i];
    if(!p){marker.setAttribute('visibility','hidden');return;}
    marker.setAttribute('cx',p.px);marker.setAttribute('cy',p.py);marker.setAttribute('visibility','visible');
-   lines.push(s.name+': '+format(p.value)+' '+s.unit+(percentMode?' ('+signed(p.plotValue)+'%)':''));
+   lines.push(s.name+': '+formatDate(p.date)+' · '+format(p.value)+' '+s.unit+(percentMode?' ('+signed(p.plotValue)+'%)':''));
   });
   tooltip.textContent=lines.join('\n');
   tooltip.hidden=false;
