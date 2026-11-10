@@ -48,7 +48,18 @@ async function excluir(req, res) {
   }
 }
 
+async function resumo(req, res) {
+  try {
+    const data = await service.resumo();
+    return res.json({ success: true, data });
+  } catch (error) {
+    console.error('ERRO RESUMO ESTRUTURA DE CUSTOS:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+}
+
 module.exports = {
+  resumo,
   listar,
   buscar,
   criar,
