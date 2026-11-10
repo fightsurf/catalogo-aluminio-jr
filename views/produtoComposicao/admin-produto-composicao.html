@@ -68,6 +68,12 @@
     .modal-copia-painel { width:100%; max-width:520px; background:#fff; border-radius:10px; padding:22px; box-shadow:0 10px 35px rgba(0,0,0,.25); box-sizing:border-box; }
     .modal-copia-painel p { font-size:14px; line-height:1.5; color:#4a5568; }
     .modal-copia-painel .acoes button { flex:1; }
+    .link-editar-insumo { color:#1768a5; text-decoration:underline; font-weight:bold; text-underline-offset:2px; }
+    .link-editar-insumo:hover, .link-editar-insumo:focus-visible { color:#0a426e; }
+    .modal-preco-detalhes { margin:10px 0 16px; padding:10px 12px; background:#f6f8fb; border-radius:6px; }
+    .modal-preco-detalhes p { margin:5px 0; overflow-wrap:anywhere; }
+    .modal-preco-dica { font-size:12px !important; color:#566573; }
+    .modal-preco-valor { font-weight:bold; margin:10px 0 !important; }
     .mensagem { margin-top:12px; font-weight:bold; display:none; }
     .mensagem.sucesso { color:#1e8449; display:block; }
     .mensagem.erro { color:#c0392b; display:block; }
@@ -249,6 +255,26 @@
     </div>
   </div>
 
+  <div id="modalPrecoFornecedor" class="modal-copia-fundo hidden" role="dialog" aria-modal="true" aria-labelledby="tituloModalPrecoFornecedor" onclick="if(event.target===this)fecharModalPrecoFornecedor()">
+    <form class="modal-copia-painel" onsubmit="salvarPrecoFornecedor(event)">
+      <h3 id="tituloModalPrecoFornecedor">Atualizar preço do fornecedor</h3>
+      <div class="modal-preco-detalhes">
+        <p><strong>Produto:</strong> <span id="modalPrecoProduto"></span></p>
+        <p><strong>Insumo:</strong> <span id="modalPrecoInsumo"></span></p>
+        <p><strong>Fornecedor:</strong> <span id="modalPrecoFornecedorNome"></span></p>
+      </div>
+      <label id="modalPrecoBaseLabel" for="modalPrecoBase">Preço base do fornecedor (R$)</label>
+      <input type="text" id="modalPrecoBase" inputmode="decimal" autocomplete="off" required aria-describedby="modalPrecoDica" />
+      <p class="modal-preco-valor">Custo final atual do insumo: <span id="modalPrecoCustoFinal">—</span></p>
+      <p id="modalPrecoDica" class="modal-preco-dica">Use vírgula para centavos. Impostos, frete, despesas e descontos já cadastrados serão preservados; o custo final será recalculado.</p>
+      <div id="mensagemPrecoFornecedor" class="mensagem" aria-live="polite"></div>
+      <div class="acoes">
+        <button id="btnSalvarPrecoFornecedor" type="submit" class="btn-principal">Salvar preço</button>
+        <button id="btnCancelarPrecoFornecedor" type="button" class="btn-limpar" onclick="fecharModalPrecoFornecedor()">Cancelar</button>
+      </div>
+    </form>
+  </div>
+
   <script>
     const API = '/api/produtos-composicoes';
     let produtos = [];
@@ -258,6 +284,9 @@
     let dataRevisaoAtual = null;
     let itensDisponiveis = [];
     let itensComposicao = [];
+    let precoFornecedorEmEdicao = null;
+    let salvandoPrecoFornecedor = false;
+    let focoAntesModalPrecoFornecedor = null;
     // Usa o mesmo resumo e as mesmas quantidades vendidas da tela de saídas.
     let custosRateados = { anterior: null, atual: null };
     async function carregarCustosRateados() {
@@ -367,6 +396,120 @@
         minimumFractionDigits: 2,
         maximumFractionDigits: 2
       });
+    }
+
+    // Preço do fornecedor usa até 4 casas decimais, como o cadastro original.
+    // Números com milhar seguem pt-BR (1.234,56); também aceita 13.50.
+    function parsePrecoBaseFornecedor(valor) {
+      let texto = String(valor ?? '').trim().replace(/^R\$\s*/i, '').replace(/\s/g, '');
+      if (/^\d{1,3}(?:\.\d{3})+(?:,\d{1,4})?$/.test(texto)) {
+        texto = texto.replace(/\./g, '').replace(',', '.');
+      } else if (/^\d+(?:,\d{1,4})?$/.test(texto)) {
+        texto = texto.replace(',', '.');
+      } else if (!/^\d+(?:\.\d{1,4})?$/.test(texto)) {
+        return null;
+      }
+      const numero = Number(texto);
+      return Number.isFinite(numero) && numero >= 0 ? Number(numero.toFixed(4)) : null;
+    }
+
+    function formatarPrecoBaseFornecedor(valor) {
+      return Number(valor).toLocaleString('pt-BR', {
+        minimumFractionDigits: 2, maximumFractionDigits: 4
+      });
+    }
+
+    async function abrirModalPrecoFornecedor(insumoFornecedorId) {
+      try {
+        limparMensagem();
+        const id = Number(insumoFornecedorId);
+        const item = itensComposicao.find(i => Number(i.insumo_fornecedor_id) === id);
+        const produto = obterProdutoSelecionado();
+        if (!item || !produto) throw new Error('Selecione um produto e um insumo da composição.');
+
+        // Busca o registro atual do cadastro do fornecedor (não usa preço em cache).
+        const resp = await fetch('/api/insumos-fornecedores/' + id, { cache:'no-store' });
+        const json = await resp.json();
+        if (!resp.ok || !json.success || !json.data) {
+          throw new Error(json.message || 'Não foi possível consultar o preço do fornecedor.');
+        }
+        const registro = json.data;
+        precoFornecedorEmEdicao = id;
+        focoAntesModalPrecoFornecedor = document.activeElement;
+        document.getElementById('modalPrecoProduto').textContent = produto.nome;
+        document.getElementById('modalPrecoInsumo').textContent = registro.insumo;
+        document.getElementById('modalPrecoFornecedorNome').textContent = registro.fornecedor;
+        document.getElementById('modalPrecoBaseLabel').textContent = 'Preço base do fornecedor (R$ por ' + registro.unidade_custo + ')';
+        document.getElementById('modalPrecoBase').value = formatarPrecoBaseFornecedor(registro.preco_base);
+        document.getElementById('modalPrecoCustoFinal').textContent = formatarPrecoBaseFornecedor(registro.custo_final) + ' R$ / ' + registro.unidade_custo;
+        const mensagem = document.getElementById('mensagemPrecoFornecedor');
+        mensagem.textContent = '';
+        mensagem.className = 'mensagem';
+        document.getElementById('modalPrecoFornecedor').classList.remove('hidden');
+        document.getElementById('modalPrecoBase').focus();
+      } catch (error) {
+        mostrarMensagem(error.message, 'erro');
+      }
+    }
+
+    function fecharModalPrecoFornecedor() {
+      if (salvandoPrecoFornecedor) return;
+      document.getElementById('modalPrecoFornecedor').classList.add('hidden');
+      precoFornecedorEmEdicao = null;
+      if (focoAntesModalPrecoFornecedor?.isConnected) focoAntesModalPrecoFornecedor.focus();
+      focoAntesModalPrecoFornecedor = null;
+    }
+
+    async function salvarPrecoFornecedor(event) {
+      event.preventDefault();
+      if (salvandoPrecoFornecedor || !precoFornecedorEmEdicao) return;
+      const mensagem = document.getElementById('mensagemPrecoFornecedor');
+      const preco = parsePrecoBaseFornecedor(document.getElementById('modalPrecoBase').value);
+      if (preco === null) {
+        mensagem.textContent = 'Informe um preço válido, com até quatro casas decimais.';
+        mensagem.className = 'mensagem erro';
+        return;
+      }
+
+      salvandoPrecoFornecedor = true;
+      document.getElementById('btnSalvarPrecoFornecedor').disabled = true;
+      document.getElementById('btnCancelarPrecoFornecedor').disabled = true;
+      const id = precoFornecedorEmEdicao;
+      try {
+        const resp = await fetch('/api/insumos-fornecedores/' + id, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ preco_base: preco })
+        });
+        const json = await resp.json();
+        if (!resp.ok || !json.success || !json.data) {
+          throw new Error(json.message || 'Erro ao salvar o preço do fornecedor.');
+        }
+        const registro = json.data;
+        const atualizarCusto = item => {
+          if (Number(item.insumo_fornecedor_id) !== id) return;
+          item.preco_base = Number(registro.preco_base);
+          item.custo_final = Number(registro.custo_final);
+          // Para discos, o custo unitário da composição é o custo por kg x peso do disco.
+          item.custo_unitario = Number((item.custo_final * (item.eh_disco ? Number(item.peso_kg || 0) : 1)).toFixed(4));
+          if ('quantidade' in item) item.subtotal = Number((Number(item.quantidade || 0) * item.custo_unitario).toFixed(4));
+        };
+        itensComposicao.forEach(atualizarCusto);
+        itensDisponiveis.forEach(atualizarCusto);
+        renderizarComposicao();
+        renderizarInsumosDisponiveis();
+        atualizarResumo();
+        salvandoPrecoFornecedor = false;
+        fecharModalPrecoFornecedor();
+        mostrarMensagem('Preço do fornecedor atualizado. Custos, lucro e margem recalculados.', 'sucesso');
+      } catch (error) {
+        mensagem.textContent = error.message;
+        mensagem.className = 'mensagem erro';
+      } finally {
+        salvandoPrecoFornecedor = false;
+        document.getElementById('btnSalvarPrecoFornecedor').disabled = false;
+        document.getElementById('btnCancelarPrecoFornecedor').disabled = false;
+      }
     }
 
     function mostrarMensagem(texto, tipo = 'sucesso') {
@@ -627,7 +770,7 @@
         const subtotal = Number(item.quantidade || 0) * Number(item.custo_unitario || 0);
         return `
           <tr>
-            <td class="col-item" title="${escapeHtml(item.insumo)}">${escapeHtml(item.insumo)}${item.eh_disco ? '<span class="tag-disco">DISCO</span>' : ''}</td>
+            <td class="col-item" title="${escapeHtml(item.insumo)}"><a href="#" class="link-editar-insumo" title="Atualizar preço deste insumo no fornecedor" onclick="abrirModalPrecoFornecedor(${Number(item.insumo_fornecedor_id)}); return false;">${escapeHtml(item.insumo)}</a>${item.eh_disco ? '<span class="tag-disco">DISCO</span>' : ''}</td>
             <td class="col-fornecedor" title="${escapeHtml(item.fornecedor)}">${escapeHtml(item.fornecedor)}</td>
             <td class="col-unid">${escapeHtml(item.unidade_custo)}</td>
             <td class="col-qtde"><input class="qtde-input" type="number" min="0" step="0.0001" value="${Number(item.quantidade || 0)}" onchange="atualizarQuantidade(${item.insumo_fornecedor_id}, this.value)" /></td>
@@ -963,6 +1106,9 @@
       }
     }
 
+    window.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && !document.getElementById('modalPrecoFornecedor').classList.contains('hidden')) fecharModalPrecoFornecedor();
+    });
     window.addEventListener('focus', carregarCustosRateados);
     inicializar();
   </script>
