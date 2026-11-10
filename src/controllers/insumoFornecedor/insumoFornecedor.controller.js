@@ -20,6 +20,16 @@ async function buscar(req, res) {
   }
 }
 
+async function listarProdutosAfetados(req, res) {
+  try {
+    const dados = await service.listarProdutosAfetados(req.params.id);
+    res.json({ success: true, data: dados });
+  } catch (error) {
+    const status = error.message === 'Registro de custo não encontrado' ? 404 : 400;
+    res.status(status).json({ success: false, message: error.message });
+  }
+}
+
 async function criar(req, res) {
   try {
     const dados = await service.criar(req.body);
@@ -65,5 +75,6 @@ module.exports = {
   criar,
   atualizar,
   inativar,
-  excluir
+  excluir,
+  listarProdutosAfetados
 };
