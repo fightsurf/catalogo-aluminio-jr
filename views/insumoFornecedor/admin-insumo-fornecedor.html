@@ -58,6 +58,26 @@
     .mensagem.sucesso { color:#1e8449; display:block; }
     .mensagem.erro { color:#c0392b; display:block; }
     .observacao-disco { margin-top: 12px; font-size: 13px; color: #2c3e50; background: #f5f8fb; padding: 10px 12px; border-radius: 6px; display:none; }
+
+    .impacto-overlay { position:fixed; inset:0; z-index:5000; display:none; align-items:center; justify-content:center; padding:20px; background:rgba(17,24,39,.68); box-sizing:border-box; }
+    .impacto-overlay.aberto { display:flex; }
+    .impacto-dialog { width:min(1120px,100%); max-height:92vh; overflow:auto; background:#fff; border-radius:12px; padding:22px; box-sizing:border-box; box-shadow:0 18px 52px rgba(0,0,0,.25); }
+    .impacto-header { display:flex; align-items:start; justify-content:space-between; gap:18px; }
+    .impacto-header h2 { margin:0 0 8px; }
+    .impacto-header p { margin:0 0 14px; color:#475569; line-height:1.5; font-size:13px; }
+    .impacto-fechar { width:auto; flex-shrink:0; background:#e2e8f0; color:#1e293b; }
+    .impacto-tabela-wrap { overflow-x:auto; }
+    .tabela-impacto { margin-top:8px; font-size:13px; min-width:860px; }
+    .tabela-impacto th, .tabela-impacto td { padding:9px 10px; }
+    .tabela-impacto .impacto-numero { text-align:right; white-space:nowrap; }
+    .tabela-impacto .impacto-produto { min-width:180px; }
+    .tabela-impacto input { min-width:115px; width:115px; padding:8px; }
+    .tabela-impacto button { width:auto; padding:8px 12px; white-space:nowrap; }
+    .impacto-ajuda { color:#64748b; font-size:12px; margin:12px 0 0; }
+    .impacto-feedback { font-size:12px; margin-top:6px; color:#166534; }
+    .impacto-feedback.erro { color:#b91c1c; }
+    .impacto-inativo { color:#64748b; font-size:11px; font-weight:normal; }
+    @media (max-width: 760px) { .impacto-overlay { padding:8px; } .impacto-dialog { padding:14px; } .impacto-header { gap:8px; } }
     @media (max-width: 1280px) { .grid-filtro { grid-template-columns:1fr; } }
     @media (max-width: 760px) {
       .form-cadastro, .form-cadastro tbody, .form-cadastro tr, .form-cadastro td { display:block; width:100%; }
@@ -197,11 +217,45 @@
     </div>
   </div>
 
+
+  <div id="impactoOverlay" class="impacto-overlay" onclick="if (event.target === this) fecharModalImpacto()">
+    <section class="impacto-dialog" role="dialog" aria-modal="true" aria-labelledby="impactoTitulo">
+      <div class="impacto-header">
+        <div>
+          <h2 id="impactoTitulo">Produtos afetados pelo novo custo</h2>
+          <p id="impactoDescricao"></p>
+        </div>
+        <button type="button" id="impactoFechar" class="impacto-fechar" onclick="fecharModalImpacto()">Fechar</button>
+      </div>
+      <div class="impacto-tabela-wrap">
+        <table class="tabela-impacto">
+          <thead>
+            <tr>
+              <th class="impacto-produto">Produto</th>
+              <th class="impacto-numero">Custo atualizado</th>
+              <th class="impacto-numero">Preço de venda atual</th>
+              <th class="impacto-numero">Margem bruta atual</th>
+              <th>Novo preço de venda</th>
+              <th class="impacto-numero">Nova margem</th>
+              <th>Ação</th>
+            </tr>
+          </thead>
+          <tbody id="impactoProdutosBody"></tbody>
+        </table>
+      </div>
+      <p class="impacto-ajuda">Margem bruta = (preço de venda − custo atualizado) ÷ preço de venda × 100. Não inclui impostos sobre a venda nem outras despesas. Os preços de venda só mudam quando você clica em Aplicar.</p>
+    </section>
+  </div>
+
   <script>
     const API = '/api/insumos-fornecedores';
     let insumos = [];
     let fornecedores = [];
     let categorias = [];
+    let custoAntesEdicao = null;
+    let produtosImpactados = [];
+    let focoAnteriorModal = null;
+    let overflowAnteriorModal = '';
 
     function mostrarMensagem(texto, tipo = 'sucesso') {
       const el = document.getElementById('mensagem');
@@ -276,6 +330,7 @@
     }
 
     function limparFormulario() {
+      custoAntesEdicao = null;
       document.getElementById('registro_id').value = '';
       document.getElementById('insumo_id').value = '';
       document.getElementById('fornecedor_id').value = '';
@@ -352,6 +407,7 @@
       }
 
       const item = json.data;
+      custoAntesEdicao = Number(item.custo_final);
       document.getElementById('registro_id').value = item.id;
       document.getElementById('insumo_id').value = item.insumo_id;
       document.getElementById('fornecedor_id').value = item.fornecedor_id;
@@ -372,6 +428,7 @@
       try {
         limparMensagem();
         const id = document.getElementById('registro_id').value;
+        const custoAnterior = custoAntesEdicao;
         const payload = {
           insumo_id: document.getElementById('insumo_id').value,
           fornecedor_id: document.getElementById('fornecedor_id').value,
@@ -396,13 +453,161 @@
           throw new Error(json.message || 'Erro ao salvar registro');
         }
 
-        mostrarMensagem('Registro salvo com sucesso');
+        const registroSalvo = json.data;
         limparFormulario();
-        listar();
+        mostrarMensagem('Registro salvo com sucesso');
+        listar().catch(error => mostrarMensagem('Registro salvo, mas não foi possível atualizar a lista: ' + error.message, 'erro'));
+
+        if (id && custoAnterior !== null &&
+            Math.abs(Number(registroSalvo.custo_final) - custoAnterior) >= 0.00005) {
+          abrirModalImpacto(registroSalvo);
+        }
       } catch (error) {
         mostrarMensagem(error.message, 'erro');
       }
     }
+
+
+    function formatarReal(valor, casas = 2) {
+      return Number(valor).toLocaleString('pt-BR', { style:'currency', currency:'BRL', minimumFractionDigits:casas, maximumFractionDigits:casas });
+    }
+
+    function formatarMargem(valor) {
+      return valor === null || !Number.isFinite(Number(valor))
+        ? '—'
+        : Number(valor).toLocaleString('pt-BR', { minimumFractionDigits:2, maximumFractionDigits:2 }) + '%';
+    }
+
+    function fecharModalImpacto() {
+      const overlay = document.getElementById('impactoOverlay');
+      if (!overlay.classList.contains('aberto')) return;
+      overlay.classList.remove('aberto');
+      document.body.style.overflow = overflowAnteriorModal;
+      if (focoAnteriorModal && focoAnteriorModal.isConnected) focoAnteriorModal.focus();
+    }
+
+    function calcularMargem(preco, custo) {
+      return preco > 0 ? (preco - custo) / preco * 100 : null;
+    }
+
+    function precoValido(input) {
+      const numero = Number(input.value);
+      return input.value.trim() !== '' &&
+        Number.isFinite(numero) && numero >= 0 &&
+        Math.abs(numero * 100 - Math.round(numero * 100)) < 0.000001 &&
+        input.validity.valid;
+    }
+
+    function atualizarMargemPrevista(produtoId) {
+      const produto = produtosImpactados.find(item => item.produto_id === Number(produtoId));
+      if (!produto) return;
+      const input = document.getElementById('impactoNovoPreco' + produtoId);
+      const margem = document.getElementById('impactoNovaMargem' + produtoId);
+      const botao = document.getElementById('impactoSalvar' + produtoId);
+      const valido = precoValido(input);
+      const novoPreco = valido ? Number(input.value) : null;
+      margem.textContent = valido ? formatarMargem(calcularMargem(novoPreco, produto.custo_atualizado)) : 'Preço inválido';
+      botao.disabled = !valido || Math.abs(novoPreco - produto.preco_venda) < 0.005;
+    }
+
+    async function aplicarPrecoProduto(produtoId) {
+      const produto = produtosImpactados.find(item => item.produto_id === Number(produtoId));
+      if (!produto) return;
+      const input = document.getElementById('impactoNovoPreco' + produtoId);
+      const botao = document.getElementById('impactoSalvar' + produtoId);
+      const feedback = document.getElementById('impactoFeedback' + produtoId);
+      if (!precoValido(input)) {
+        feedback.textContent = 'Informe um preço válido com até duas casas decimais.';
+        feedback.className = 'impacto-feedback erro';
+        return;
+      }
+
+      const novoPreco = Number(Number(input.value).toFixed(2));
+      if (Math.abs(novoPreco - produto.preco_venda) < 0.005) return;
+      botao.disabled = true;
+      input.disabled = true;
+      feedback.textContent = 'Salvando...';
+      feedback.className = 'impacto-feedback';
+      try {
+        const resp = await fetch('/api/produtos-composicoes/produto/' + produtoId + '/preco', {
+          method:'PUT',
+          headers:{ 'Content-Type':'application/json' },
+          body:JSON.stringify({ preco:novoPreco })
+        });
+        const json = await resp.json();
+        if (!resp.ok || !json.success) throw new Error(json.message || 'Não foi possível atualizar o preço');
+
+        produto.preco_venda = Number(json.data.preco);
+        document.getElementById('impactoPrecoAtual' + produtoId).textContent = formatarReal(produto.preco_venda);
+        document.getElementById('impactoMargemAtual' + produtoId).textContent = formatarMargem(
+          calcularMargem(produto.preco_venda, produto.custo_atualizado)
+        );
+        input.value = produto.preco_venda.toFixed(2);
+        feedback.textContent = 'Preço atualizado.';
+      } catch (error) {
+        feedback.textContent = error.message;
+        feedback.className = 'impacto-feedback erro';
+      } finally {
+        input.disabled = false;
+        atualizarMargemPrevista(produtoId);
+      }
+    }
+
+    async function abrirModalImpacto(registro) {
+      produtosImpactados = [];
+      const overlay = document.getElementById('impactoOverlay');
+      const tbody = document.getElementById('impactoProdutosBody');
+      focoAnteriorModal = document.activeElement;
+      overflowAnteriorModal = document.body.style.overflow;
+      document.getElementById('impactoDescricao').textContent =
+        registro.insumo + ' — ' + registro.fornecedor + '. Novo custo do insumo: ' +
+        formatarReal(registro.custo_final, 4) + ' por ' + registro.unidade_custo +
+        '. Produtos que usam este insumo deste fornecedor em suas composições:';
+      tbody.innerHTML = '<tr><td colspan="7">Calculando custos dos produtos...</td></tr>';
+      overlay.classList.add('aberto');
+      document.body.style.overflow = 'hidden';
+      document.getElementById('impactoFechar').focus();
+
+      try {
+        const resp = await fetch(API + '/' + encodeURIComponent(registro.id) + '/produtos-afetados');
+        const json = await resp.json();
+        if (!resp.ok || !json.success) throw new Error(json.message || 'Falha ao consultar produtos afetados');
+        if (!overlay.classList.contains('aberto')) return;
+        produtosImpactados = json.data || [];
+
+        if (!produtosImpactados.length) {
+          tbody.innerHTML = '<tr><td colspan="7">Nenhum produto utiliza este custo de insumo na composição cadastrada.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = produtosImpactados.map(item => `
+          <tr>
+            <td class="impacto-produto">
+              <a href="/admin-produtos-composicao?produto_id=${encodeURIComponent(item.produto_id)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.produto)}</a>
+              ${item.ativo ? '' : '<span class="impacto-inativo">(inativo)</span>'}
+            </td>
+            <td class="impacto-numero">${formatarReal(item.custo_atualizado, 4)}</td>
+            <td class="impacto-numero" id="impactoPrecoAtual${item.produto_id}">${formatarReal(item.preco_venda)}</td>
+            <td class="impacto-numero" id="impactoMargemAtual${item.produto_id}">${formatarMargem(item.margem_bruta_percentual)}</td>
+            <td><input type="number" id="impactoNovoPreco${item.produto_id}" min="0" step="0.01" value="${Number(item.preco_venda).toFixed(2)}"
+              aria-label="Novo preço de venda de ${escapeHtml(item.produto)}" oninput="atualizarMargemPrevista(${item.produto_id})" /></td>
+            <td class="impacto-numero" id="impactoNovaMargem${item.produto_id}">${formatarMargem(item.margem_bruta_percentual)}</td>
+            <td>
+              <button type="button" class="btn-salvar" id="impactoSalvar${item.produto_id}" onclick="aplicarPrecoProduto(${item.produto_id})" disabled>Aplicar</button>
+              <div id="impactoFeedback${item.produto_id}" class="impacto-feedback" role="status"></div>
+            </td>
+          </tr>`).join('');
+      } catch (error) {
+        if (overlay.classList.contains('aberto')) {
+          tbody.innerHTML = '<tr><td colspan="7">Não foi possível carregar os produtos: ' +
+            escapeHtml(error.message) + '</td></tr>';
+        }
+      }
+    }
+
+    document.addEventListener('keydown', event => {
+      if (event.key === 'Escape') fecharModalImpacto();
+    });
 
     async function inativar(id) {
       if (!confirm('Deseja inativar este registro de custo?')) return;
