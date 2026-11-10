@@ -1,4 +1,5 @@
 const pool = require('../../../db/connection');
+const legadoBridgeService = require('../legado/legadoBridge.service');
 
 const CLASSIFICACOES = new Set(['CUSTO_FIXO', 'CUSTO_VARIAVEL', 'DESPESA', 'IMPOSTO']);
 const FORMAS_CALCULO = new Set(['VALOR_MENSAL', 'VALOR_UNIDADE', 'PERCENTUAL_FATURAMENTO', 'AUTOMATICO']);
@@ -32,6 +33,15 @@ function normalizarValor(value) {
   const n = Number(String(value).replace(',', '.'));
   if (!Number.isFinite(n) || n < 0) throw new Error('Valor mensal inválido');
   return Math.round(n * 100) / 100;
+}
+
+async function classificacaoDaCategoria(categoriaId, classificacao) {
+  // Todo item da categoria IMPOSTOS deve participar do painel de impostos.
+  const result = await pool.query(
+    'SELECT UPPER(TRIM(nome)) AS nome FROM despesa_categorias WHERE id = $1',
+    [categoriaId]
+  );
+  return result.rows[0]?.nome === 'IMPOSTOS' ? 'IMPOSTO' : classificacao;
 }
 
 async function categoriaExiste(id) {
@@ -99,13 +109,14 @@ async function criar(data = {}) {
   if (!nome) throw new Error('Nome é obrigatório');
   if (!(await categoriaExiste(categoriaId))) throw new Error('Categoria não encontrada');
   if (await nomeJaExiste(nome)) throw new Error('Já existe um item de custo com este nome');
+  const classificacaoFinal = await classificacaoDaCategoria(categoriaId, classificacao);
 
   const result = await pool.query(
     `INSERT INTO despesa_itens
        (nome, categoria_id, recorrente_mensal, ativo, observacao, classificacao, forma_calculo, valor_mensal, origem_valor)
      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
      RETURNING *`,
-    [nome, categoriaId, recorrenteMensal, ativo, observacao, classificacao, formaCalculo, valorMensal, origemValor]);
+    [nome, categoriaId, recorrenteMensal, ativo, observacao, classificacaoFinal, formaCalculo, valorMensal, origemValor]);
   return result.rows[0];
 }
 
@@ -124,13 +135,14 @@ async function atualizar(id, data = {}) {
   if (!nome) throw new Error('Nome é obrigatório');
   if (!(await categoriaExiste(categoriaId))) throw new Error('Categoria não encontrada');
   if (await nomeJaExiste(nome, itemId)) throw new Error('Já existe um item de custo com este nome');
+  const classificacaoFinal = await classificacaoDaCategoria(categoriaId, classificacao);
 
   const result = await pool.query(
     `UPDATE despesa_itens
         SET nome=$1, categoria_id=$2, recorrente_mensal=$3, ativo=$4, observacao=$5,
             classificacao=$6, forma_calculo=$7, valor_mensal=$8, origem_valor=$9, updated_at=NOW()
       WHERE id=$10 RETURNING *`,
-    [nome, categoriaId, recorrenteMensal, ativo, observacao, classificacao, formaCalculo, valorMensal, origemValor, itemId]);
+    [nome, categoriaId, recorrenteMensal, ativo, observacao, classificacaoFinal, formaCalculo, valorMensal, origemValor, itemId]);
   return result.rows[0];
 }
 
@@ -142,4 +154,62 @@ async function excluir(id) {
   await pool.query('DELETE FROM despesa_itens WHERE id = $1', [itemId]);
 }
 
-module.exports = { listar, buscar, criar, atualizar, excluir };
+// Resumo geral independente dos filtros da lista.
+async function resumo() {
+  const result = await pool.query(`
+    SELECT CASE WHEN UPPER(TRIM(c.nome)) = 'IMPOSTOS' THEN 'IMPOSTO'
+                ELSE i.classificacao END AS classificacao,
+           COALESCE(SUM(i.valor_mensal), 0) AS total
+      FROM despesa_itens i
+      JOIN despesa_categorias c ON c.id = i.categoria_id
+     WHERE i.ativo = TRUE
+     GROUP BY 1
+  `);
+  const totais = { CUSTO_FIXO: 0, CUSTO_VARIAVEL: 0, DESPESA: 0, IMPOSTO: 0 };
+  for (const row of result.rows) {
+    if (Object.hasOwn(totais, row.classificacao)) {
+      totais[row.classificacao] = Number(row.total || 0);
+    }
+  }
+  const totalCadastrado = Object.values(totais).reduce((soma, valor) => soma + valor, 0);
+
+  const partes = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Fortaleza', year: 'numeric', month: '2-digit'
+  }).formatToParts(new Date());
+  const data = Object.fromEntries(partes.map(parte => [parte.type, parte.value]));
+  const atual = { mes: Number(data.month), ano: Number(data.year) };
+  const anterior = atual.mes === 1
+    ? { mes: 12, ano: atual.ano - 1 }
+    : { mes: atual.mes - 1, ano: atual.ano };
+
+  async function quantidadeVendida(periodo) {
+    const response = await legadoBridgeService.get('/api/fechamento-mensal/itens-vendidos', periodo);
+    const valor = response?.dados?.totais?.quantidade_itens_vendidos;
+    if (valor === undefined || valor === null) {
+      throw new Error('O legado não retornou a quantidade de itens vendidos.');
+    }
+    const quantidade = Number(valor);
+    if (!Number.isFinite(quantidade) || quantidade < 0) {
+      throw new Error('Quantidade de itens vendidos inválida.');
+    }
+    return Number(quantidade.toFixed(3));
+  }
+
+  const resultados = await Promise.allSettled([
+    quantidadeVendida(anterior), quantidadeVendida(atual)
+  ]);
+  const montarPeriodo = (periodo, resultado) => ({
+    ...periodo,
+    quantidade: resultado.status === 'fulfilled' ? resultado.value : null,
+    erro: resultado.status === 'rejected'
+      ? (resultado.reason?.message || 'Vendas indisponíveis.') : null
+  });
+
+  return {
+    totais: { ...totais, total_cadastrado: Number(totalCadastrado.toFixed(2)) },
+    mes_anterior: montarPeriodo(anterior, resultados[0]),
+    mes_atual: montarPeriodo(atual, resultados[1])
+  };
+}
+
+module.exports = { listar, buscar, criar, atualizar, excluir, resumo };
