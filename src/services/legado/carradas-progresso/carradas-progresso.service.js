@@ -103,7 +103,10 @@ async function garantirTabelasModulo(client = pool) {
           ADD COLUMN IF NOT EXISTS nome_impressao VARCHAR(180),
           ADD COLUMN IF NOT EXISTS telefone_impressao VARCHAR(40),
           ADD COLUMN IF NOT EXISTS cidade_impressao VARCHAR(140),
-          ADD COLUMN IF NOT EXISTS uf_impressao VARCHAR(2)
+          ADD COLUMN IF NOT EXISTS uf_impressao VARCHAR(2),
+          ADD COLUMN IF NOT EXISTS transportadora_id BIGINT REFERENCES transportadoras(id) ON DELETE SET NULL,
+          ADD COLUMN IF NOT EXISTS redespacho_transportadora_id BIGINT REFERENCES transportadoras(id) ON DELETE SET NULL,
+          ADD COLUMN IF NOT EXISTS agencia_recebimento_codigo BIGINT REFERENCES agencias_recebimento(codigo) ON DELETE SET NULL
       `);
 
       await client.query(`
@@ -1687,16 +1690,43 @@ async function enviarNotaFiscalPedido({codigoCarrada,numeroPedido}) {
 }
 
 async function listarEtiquetasDoCliente(favorecido) {
-  const result = await pool.query(
-    `
-      SELECT id, favorecido, apelido, texto_etiqueta, nome_impressao, telefone_impressao, cidade_impressao, uf_impressao, ativo, created_at, updated_at
-      FROM clientes_etiquetas_volumes
-      WHERE favorecido = $1
-        AND ativo = TRUE
-      ORDER BY LOWER(apelido), id DESC
-    `,
-    [favorecido]
-  );
+  // Perfis antigos ainda não tinham os IDs de logística. Recupera somente o
+  // local de entrega de pedidos vinculados ao MESMO perfil, nunca apenas ao cliente.
+  await pool.query(`
+    WITH historico AS (
+      SELECT DISTINCT ON (e.etiqueta_cliente_id)
+        e.etiqueta_cliente_id AS perfil_id,
+        le.transportadora_id, le.redespacho_transportadora_id, le.agencia_recebimento_codigo
+      FROM carradas_pedidos_etiquetas_volumes e
+      JOIN clientes_etiquetas_volumes c ON c.id = e.etiqueta_cliente_id AND c.favorecido = $1
+      JOIN carradas_pedidos_local_entrega le
+        ON le.codigo_carrada = e.codigo_carrada AND le.numero_pedido = e.numero_pedido
+      WHERE le.transportadora_id IS NOT NULL
+      ORDER BY e.etiqueta_cliente_id, COALESCE(le.updated_at, le.created_at) DESC, le.codigo_carrada DESC
+    )
+    UPDATE clientes_etiquetas_volumes p
+    SET transportadora_id = h.transportadora_id,
+        redespacho_transportadora_id = h.redespacho_transportadora_id,
+        agencia_recebimento_codigo = h.agencia_recebimento_codigo,
+        updated_at = NOW()
+    FROM historico h
+    WHERE p.id = h.perfil_id AND p.transportadora_id IS NULL
+  `, [favorecido]);
+
+  const result = await pool.query(`
+    SELECT c.id, c.favorecido, c.apelido, c.texto_etiqueta, c.nome_impressao,
+           c.telefone_impressao, c.cidade_impressao, c.uf_impressao, c.ativo,
+           c.transportadora_id, c.redespacho_transportadora_id, c.agencia_recebimento_codigo,
+           t.nome AS transportadora_nome, t.observacao AS transportadora_observacao,
+           r.nome AS redespacho_transportadora_nome, a.nome AS agencia_recebimento_nome,
+           c.created_at, c.updated_at
+    FROM clientes_etiquetas_volumes c
+    LEFT JOIN transportadoras t ON t.id = c.transportadora_id
+    LEFT JOIN transportadoras r ON r.id = c.redespacho_transportadora_id
+    LEFT JOIN agencias_recebimento a ON a.codigo = c.agencia_recebimento_codigo
+    WHERE c.favorecido = $1 AND c.ativo = TRUE
+    ORDER BY LOWER(c.apelido), c.id DESC
+  `, [favorecido]);
 
   return result.rows.map((row) => ({
     id: row.id,
@@ -1707,12 +1737,18 @@ async function listarEtiquetasDoCliente(favorecido) {
     telefoneImpressao: row.telefone_impressao || '',
     cidadeImpressao: row.cidade_impressao || '',
     ufImpressao: row.uf_impressao || '',
+    transportadoraId: row.transportadora_id || null,
+    transportadoraNome: row.transportadora_nome || '',
+    transportadoraObservacao: row.transportadora_observacao || '',
+    redespachoTransportadoraId: row.redespacho_transportadora_id || null,
+    redespachoTransportadoraNome: row.redespacho_transportadora_nome || '',
+    agenciaRecebimentoCodigo: row.agencia_recebimento_codigo || null,
+    agenciaRecebimentoNome: row.agencia_recebimento_nome || '',
     ativo: Boolean(row.ativo),
     createdAt: row.created_at || null,
     updatedAt: row.updated_at || null
   }));
 }
-
 
 function escaparXmlEtiqueta(value) {
   return String(value ?? '')
@@ -1943,7 +1979,7 @@ async function gerarImagemEtiquetaImpressao(dados) {
   return sharp(Buffer.from(svg)).png({ compressionLevel: 9 }).toBuffer();
 }
 
-async function montarDadosEtiquetaImpressao({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam, permitirSemVolumes = false }) {
+async function montarDadosEtiquetaImpressao({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam, permitirSemVolumes = false, etiquetaClienteId }) {
   await garantirTabelasModulo();
 
   const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
@@ -1986,6 +2022,17 @@ async function montarDadosEtiquetaImpressao({ codigoCarrada: codigoCarradaParam,
     [pedido.saida ?? null, numeroPedido]
   );
   const perfil = perfilResult.rows[0] || null;
+  // Na prévia, a seleção atual do modal prevalece sobre o vínculo anterior.
+  // String vazia significa 'Novo perfil' e não carrega logística antiga.
+  const idSolicitado = etiquetaClienteId === undefined
+    ? perfil?.etiqueta_cliente_id
+    : (etiquetaClienteId === '' ? null : etiquetaClienteId);
+  const perfis = idSolicitado ? await listarEtiquetasDoCliente(pedido?.cliente?.favorecido ?? null) : [];
+  const perfilLogistica = perfis.find((item) => String(item.id) === String(idSolicitado)) || null;
+  if (idSolicitado && !perfilLogistica) {
+    throw criarErro('Perfil de etiqueta não pertence ao cliente ou não está disponível.', 400);
+  }
+  const dadosLogistica = perfilLogistica?.transportadoraId ? perfilLogistica : localEntrega;
   const nomePerfil = limparTexto(perfil?.nome_snapshot || perfil?.nome_impressao);
   const telefonePerfil = limparTexto(perfil?.telefone_snapshot || perfil?.telefone_impressao);
   const cidadePerfil = limparTexto(perfil?.cidade_snapshot || perfil?.cidade_impressao);
@@ -2005,10 +2052,10 @@ async function montarDadosEtiquetaImpressao({ codigoCarrada: codigoCarradaParam,
     perfilEtiquetaApelido: perfil?.apelido || '',
     quantidadeVolumes: quantidadeVolumes > 0 ? quantidadeVolumes : 1,
     quantidadeVolumesConfirmada: quantidadeVolumes > 0 ? quantidadeVolumesConfirmada : false,
-    transportadoraNome: localEntrega?.transportadoraNome || '',
-    transportadoraObservacao: localEntrega?.transportadoraObservacao || '',
-    redespachoTransportadoraNome: localEntrega?.redespachoTransportadoraNome || '',
-    agenciaRecebimentoNome: localEntrega?.agenciaRecebimentoNome || localEntrega?.agenciaCidade || '',
+    transportadoraNome: dadosLogistica?.transportadoraNome || '',
+    transportadoraObservacao: dadosLogistica?.transportadoraObservacao || '',
+    redespachoTransportadoraNome: dadosLogistica?.redespachoTransportadoraNome || '',
+    agenciaRecebimentoNome: dadosLogistica?.agenciaRecebimentoNome || dadosLogistica?.agenciaCidade || '',
     telefoneWhatsapp: normalizarTelefonePedido(detalhePagamento)
   };
 }
@@ -2513,8 +2560,40 @@ async function confirmarEtiquetaVolumes({ codigoCarrada: codigoCarradaParam, num
     .slice()
     .sort((a, b) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime())[0];
 
+  let localEntregaPreenchidoAutomaticamente = false;
+  if (confirmadoBoolean && atualizada.etiqueta_cliente_id) {
+    const perfilResult = await pool.query(`
+      SELECT transportadora_id, redespacho_transportadora_id, agencia_recebimento_codigo
+      FROM clientes_etiquetas_volumes
+      WHERE id = $1 AND favorecido = $2 AND ativo = TRUE
+      LIMIT 1
+    `, [atualizada.etiqueta_cliente_id, pedido?.cliente?.favorecido]);
+    const perfil = perfilResult.rows[0];
+    if (perfil?.transportadora_id) {
+      const agencia = perfil.agencia_recebimento_codigo
+        ? await pool.query('SELECT nome FROM agencias_recebimento WHERE codigo = $1', [perfil.agencia_recebimento_codigo])
+        : null;
+      await pool.query(`
+        INSERT INTO carradas_pedidos_local_entrega
+          (codigo_carrada, numero_pedido, saida, transportadora_id, redespacho_transportadora_id, agencia_recebimento_codigo, agencia_cidade)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        ON CONFLICT (codigo_carrada, numero_pedido) DO UPDATE SET
+          saida = EXCLUDED.saida, transportadora_id = EXCLUDED.transportadora_id,
+          redespacho_transportadora_id = EXCLUDED.redespacho_transportadora_id,
+          agencia_recebimento_codigo = EXCLUDED.agencia_recebimento_codigo,
+          agencia_cidade = EXCLUDED.agencia_cidade, updated_at = NOW()
+      `, [
+        codigoCarrada, numeroPedido, identificadores.saida, perfil.transportadora_id,
+        perfil.redespacho_transportadora_id, perfil.agencia_recebimento_codigo,
+        agencia?.rows[0]?.nome || null
+      ]);
+      localEntregaPreenchidoAutomaticamente = true;
+    }
+  }
+
   return {
     numeroPedido,
+    localEntregaPreenchidoAutomaticamente,
     confirmadoBoolean: Boolean(atualizada.confirmado_boolean),
     enviadoEm: atualizada.enviado_em || null,
     confirmadoEm: atualizada.confirmado_em || null,
@@ -3051,6 +3130,20 @@ async function salvarLocalEntrega({
       agenciaCidadeNormalizada
     ]
   );
+
+  // O último local definido manualmente alimenta o perfil de etiqueta vinculado
+  // a este pedido, permitindo reutilizá-lo nas próximas carradas do cliente.
+  await pool.query(`
+    UPDATE clientes_etiquetas_volumes c
+    SET transportadora_id = $1, redespacho_transportadora_id = $2,
+        agencia_recebimento_codigo = $3, updated_at = NOW()
+    WHERE c.id = (
+      SELECT e.etiqueta_cliente_id FROM carradas_pedidos_etiquetas_volumes e
+      WHERE e.codigo_carrada = $4 AND e.numero_pedido = $5
+      LIMIT 1
+    ) AND c.favorecido = $6 AND c.ativo = TRUE
+  `, [transportadoraIdInt, redespachoTransportadoraIdInt, agenciaRecebimentoCodigoInt,
+      codigoCarrada, numeroPedido, pedido?.cliente?.favorecido]);
 
   await excluirFaseBooleanaPorPedido({
     saida: identificadores.saida,
