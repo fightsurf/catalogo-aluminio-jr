@@ -1422,6 +1422,7 @@
           <div class="field">
             <label for="selectEtiquetas">Perfil salvo do cliente</label>
             <select id="selectEtiquetas"></select>
+            <small class="muted" id="resumoLogisticaPerfilEtiqueta">A logística será reutilizada somente se houver dados salvos no perfil.</small>
           </div>
           <div class="field">
             <label for="inputEtiquetaApelido">Apelido do perfil</label>
@@ -1833,6 +1834,7 @@
       modalEtiquetaTitulo: document.getElementById('modalEtiquetaTitulo'),
       modalEtiquetaSubtitulo: document.getElementById('modalEtiquetaSubtitulo'),
       selectEtiquetas: document.getElementById('selectEtiquetas'),
+      resumoLogisticaPerfilEtiqueta: document.getElementById('resumoLogisticaPerfilEtiqueta'),
       inputEtiquetaApelido: document.getElementById('inputEtiquetaApelido'),
       inputEtiquetaNome: document.getElementById('inputEtiquetaNome'),
       inputEtiquetaTelefone: document.getElementById('inputEtiquetaTelefone'),
@@ -3625,12 +3627,15 @@
       const numeroPedido = estado.etiquetaImpressaoModal.pedidoNumero;
       if (!numeroPedido) return;
       try {
-        await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/etiqueta-volumes/confirmacao`, {
+        const resultado = await request(`/api/legado/carradas-progresso/${encodeURIComponent(CODIGO_CARRADA)}/pedidos/${encodeURIComponent(numeroPedido)}/etiqueta-volumes/confirmacao`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ confirmado })
         });
-        setFeedback(el.feedbackEtiquetaImpressao, confirmado ? 'Etiqueta marcada como confirmada.' : 'Confirmação removida.', confirmado ? 'success' : '');
+        const mensagem = confirmado
+          ? (resultado?.localEntregaPreenchidoAutomaticamente ? 'Etiqueta confirmada; Entrega preenchida pelo perfil salvo.' : 'Etiqueta confirmada. Sem logística no perfil: preencha Entrega manualmente.')
+          : 'Confirmação removida.';
+        setFeedback(el.feedbackEtiquetaImpressao, mensagem, confirmado ? 'success' : '');
         await carregarMatriz();
       } catch (error) {
         setFeedback(el.feedbackEtiquetaImpressao, error.message, 'error');
@@ -3817,7 +3822,8 @@
             nomeImpressao: el.inputEtiquetaNome.value.trim(),
             telefoneImpressao: el.inputEtiquetaTelefone.value.trim(),
             cidadeImpressao: el.inputEtiquetaCidade.value.trim(),
-            ufImpressao: el.inputEtiquetaUf.value.trim().toUpperCase()
+            ufImpressao: el.inputEtiquetaUf.value.trim().toUpperCase(),
+            etiquetaClienteId: el.selectEtiquetas.value === '__novo__' ? '' : el.selectEtiquetas.value
           })
         });
         if (sequencia !== sequenciaPreviewEtiqueta) return;
@@ -3884,7 +3890,9 @@
 
       const atualDisponivel = atual?.etiquetaClienteId
         && etiquetas.some((etiqueta) => String(etiqueta.id) === String(atual.etiquetaClienteId));
-      el.selectEtiquetas.value = atualDisponivel ? String(atual.etiquetaClienteId) : '__novo__';
+      // Somente um perfil: já o seleciona. Havendo vários, exige escolha explícita.
+      el.selectEtiquetas.value = atualDisponivel ? String(atual.etiquetaClienteId)
+        : (etiquetas.length === 1 ? String(etiquetas[0].id) : '__novo__');
 
       preencherCamposEtiquetaPorSelect();
     }
@@ -3896,6 +3904,12 @@
 
       const etiquetas = Array.isArray(payload.etiquetas) ? payload.etiquetas : [];
       const valor = el.selectEtiquetas.value;
+      const perfilLogistica = etiquetas.find((item) => String(item.id) === String(valor));
+      el.resumoLogisticaPerfilEtiqueta.textContent = perfilLogistica?.transportadoraId
+        ? ['Entrega ao confirmar: ' + perfilLogistica.transportadoraNome,
+            perfilLogistica.redespachoTransportadoraNome ? 'Redespacho: ' + perfilLogistica.redespachoTransportadoraNome : '',
+            perfilLogistica.agenciaRecebimentoNome ? 'Agência: ' + perfilLogistica.agenciaRecebimentoNome : ''].filter(Boolean).join(' • ')
+        : 'Sem logística salva neste perfil. A entrega será preenchida manualmente, quando necessário.';
 
       if (valor === '__novo__') {
         if (payload?.atual?.etiquetaClienteId) {
