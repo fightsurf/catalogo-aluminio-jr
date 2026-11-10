@@ -234,6 +234,7 @@
         <div class="acoes">
           <button type="button" class="btn-principal" onclick="salvarComposicao()">Salvar composição</button>
           <button type="button" class="btn-secundario" onclick="abrirModalCopiarComposicao()">Copiar de outro produto</button>
+          <button type="button" class="btn-secundario" onclick="abrirModalCopiarParaOutroProduto()">Copiar para outro produto</button>
           <button type="button" class="btn-perigo" onclick="excluirComposicaoAtual()">Excluir versão</button>
           <button type="button" class="btn-secundario" onclick="imprimirComposicao()">Imprimir composição</button>
         </div>
@@ -251,6 +252,21 @@
       <div class="acoes">
         <button id="btnConfirmarCopia" type="button" class="btn-principal" onclick="confirmarCopiaComposicao()">Copiar composição</button>
         <button id="btnCancelarCopia" type="button" class="btn-limpar" onclick="fecharModalCopiarComposicao()">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalCopiarParaOutroProduto" class="modal-copia-fundo hidden" role="dialog" aria-modal="true" aria-labelledby="tituloModalCopiaPara" onclick="if(event.target===this)fecharModalCopiarParaOutroProduto()">
+    <div class="modal-copia-painel">
+      <h3 id="tituloModalCopiaPara">Copiar composição para outro produto</h3>
+      <p><strong>Produto de origem:</strong> <span id="produtoOrigemCopiaPara"></span></p>
+      <p>Serão copiados os insumos, fornecedores e quantidades da composição <strong>salva</strong> da origem, substituindo a composição do destino. Alterações não salvas não serão copiadas. O preço de venda do destino não será alterado.</p>
+      <label for="produto_destino_copia_para">Produto de destino</label>
+      <select id="produto_destino_copia_para"></select>
+      <div id="mensagemCopiaPara" class="mensagem" aria-live="polite"></div>
+      <div class="acoes">
+        <button id="btnConfirmarCopiaPara" type="button" class="btn-principal" onclick="confirmarCopiaParaOutroProduto()">Copiar composição</button>
+        <button id="btnCancelarCopiaPara" type="button" class="btn-limpar" onclick="fecharModalCopiarParaOutroProduto()">Cancelar</button>
       </div>
     </div>
   </div>
@@ -982,6 +998,81 @@
         copiaEmAndamento = false;
         document.getElementById('btnConfirmarCopia').disabled = false;
         document.getElementById('btnCancelarCopia').disabled = false;
+      }
+    }
+
+    async function abrirModalCopiarParaOutroProduto() {
+      try {
+        limparMensagem();
+        const origem = obterProdutoSelecionado();
+        if (!origem) throw new Error('Selecione o produto de origem antes de copiar');
+        if (!composicaoAtualId) throw new Error('Salve a composição do produto de origem antes de copiar');
+
+        const resp = await fetch('/api/produtos');
+        const json = await resp.json();
+        if (!resp.ok || !json.success) throw new Error(json.message || 'Erro ao carregar produtos');
+
+        const destinos = (json.data || []).filter(p => Number(p.id) !== Number(origem.id));
+        if (!destinos.length) throw new Error('Não há outro produto disponível como destino');
+
+        document.getElementById('produtoOrigemCopiaPara').textContent = origem.nome;
+        const campo = document.getElementById('produto_destino_copia_para');
+        campo.innerHTML = '<option value="">Selecione o produto de destino</option>' + destinos
+          .map(p => '<option value="' + Number(p.id) + '">' + escapeHtml(p.nome) + '</option>')
+          .join('');
+        const mensagem = document.getElementById('mensagemCopiaPara');
+        mensagem.textContent = '';
+        mensagem.className = 'mensagem';
+        document.getElementById('modalCopiarParaOutroProduto').classList.remove('hidden');
+        campo.focus();
+      } catch (error) {
+        mostrarMensagem(error.message, 'erro');
+      }
+    }
+
+    function fecharModalCopiarParaOutroProduto() {
+      if (copiaEmAndamento) return;
+      document.getElementById('modalCopiarParaOutroProduto').classList.add('hidden');
+    }
+
+    async function confirmarCopiaParaOutroProduto() {
+      if (copiaEmAndamento) return;
+      const origem = obterProdutoSelecionado();
+      const campo = document.getElementById('produto_destino_copia_para');
+      const destinoId = Number(campo.value || 0);
+      const destinoNome = campo.selectedOptions[0]?.textContent || 'produto selecionado';
+      const mensagem = document.getElementById('mensagemCopiaPara');
+
+      if (!origem || !composicaoAtualId || !destinoId || Number(origem.id) === destinoId) {
+        mensagem.textContent = 'Selecione um produto de destino diferente da origem e salve a composição de origem.';
+        mensagem.className = 'mensagem erro';
+        return;
+      }
+
+      if (!confirm('Substituir a composição de ' + destinoNome + ' pela composição salva de ' + origem.nome + '? Insumos e quantidades do destino serão sobrescritos.')) return;
+
+      copiaEmAndamento = true;
+      document.getElementById('btnConfirmarCopiaPara').disabled = true;
+      document.getElementById('btnCancelarCopiaPara').disabled = true;
+      try {
+        const resp = await fetch(API + '/produto/' + destinoId + '/copiar-composicao', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ produto_origem_id: origem.id })
+        });
+        const json = await resp.json();
+        if (!resp.ok || !json.success) throw new Error(json.message || 'Erro ao copiar composição');
+
+        copiaEmAndamento = false;
+        fecharModalCopiarParaOutroProduto();
+        mostrarMensagem('Composição copiada para ' + destinoNome + ' com sucesso. Data da revisão atualizada no destino.', 'sucesso');
+      } catch (error) {
+        mensagem.textContent = error.message;
+        mensagem.className = 'mensagem erro';
+      } finally {
+        copiaEmAndamento = false;
+        document.getElementById('btnConfirmarCopiaPara').disabled = false;
+        document.getElementById('btnCancelarCopiaPara').disabled = false;
       }
     }
 
