@@ -132,6 +132,7 @@ app.use('/api/whatsapp/webhook', express.json({ limit: '1mb' }));
 // Health Connect: lotes do sincronizador podem ultrapassar o limite JSON padrão (100 KB).
 // Aplicar o limite ampliado somente à API de sincronização, antes do parser global.
 app.use('/api/avn/health/sync', express.json({ limit: '1mb' }));
+app.use('/api/avn/treinos-mobile/sono', express.json({ limit: '1mb' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(authRoutes);

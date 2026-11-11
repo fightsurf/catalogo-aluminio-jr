@@ -93,6 +93,7 @@ mobile.post('/relogio/autorizar',wrap(async(req,res)=>{
  res.set('Cache-Control','no-store').status(201).json({token});
 }));
 mobile.use('/agua',hidratacao.mobile);
+mobile.use('/sono',require('./avn-sono-mobile.routes'));
 mobile.use('/nutricao',require('./avn-nutricao-mobile.routes'));
 
 mobile.get('/planos',wrap(async(req,res)=>{
