@@ -946,18 +946,33 @@
       width: min(920px, 100%);
     }
     .romaneio-filtros {
-      display: flex;
-      align-items: flex-end;
-      flex-wrap: wrap;
+      display: grid;
       gap: 12px;
       margin-bottom: 16px;
     }
-    .romaneio-filtros .field {
-      flex: 1 1 300px;
+    .romaneio-filtro-linha {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 290px;
+      gap: 12px;
+      align-items: end;
+    }
+    .romaneio-filtro-linha .field {
+      min-width: 0;
       margin: 0;
     }
-    .romaneio-filtros select {
+    .romaneio-filtro-linha select {
       width: 100%;
+    }
+    .romaneio-filtro-linha button {
+      width: 100%;
+      min-height: 40px;
+      white-space: normal;
+    }
+    @media (max-width: 640px) {
+      .romaneio-filtro-linha {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 8px;
+      }
     }
     .romaneio-resumo {
       display: flex;
@@ -1285,34 +1300,42 @@
       </div>
       <div class="modal-body">
         <div class="romaneio-filtros">
-          <div class="field">
-            <label for="selectRomaneioTransportadora">Excursão / Transportadora</label>
-            <select id="selectRomaneioTransportadora">
-              <option value="">Selecione uma transportadora</option>
-            </select>
+          <div class="romaneio-filtro-linha">
+            <div class="field">
+              <label for="selectRomaneioTransportadora">Excursão / Transportadora</label>
+              <select id="selectRomaneioTransportadora">
+                <option value="">Selecione uma transportadora</option>
+              </select>
+            </div>
+            <button type="button" class="btn-primary" id="btnFiltrarRomaneioTransportadora">Filtrar pedidos por transportadora</button>
           </div>
-          <button type="button" class="btn-primary" id="btnFiltrarRomaneioTransportadora">Filtrar pedidos por transportadora</button>
-          <div class="field">
-            <label for="selectRomaneioRedespacho">Redespacho</label>
-            <select id="selectRomaneioRedespacho">
-              <option value="">Selecione um redespacho</option>
-            </select>
+          <div class="romaneio-filtro-linha">
+            <div class="field">
+              <label for="selectRomaneioRedespacho">Redespacho</label>
+              <select id="selectRomaneioRedespacho">
+                <option value="">Selecione um redespacho</option>
+              </select>
+            </div>
+            <button type="button" class="btn-primary" id="btnFiltrarRomaneioRedespacho">Filtrar pedidos por redespacho</button>
           </div>
-          <button type="button" class="btn-primary" id="btnFiltrarRomaneioRedespacho">Filtrar pedidos por redespacho</button>
-          <div class="field">
-            <label for="selectRomaneioAgencia">Agência de recebimento</label>
-            <select id="selectRomaneioAgencia">
-              <option value="">Selecione uma agência</option>
-            </select>
+          <div class="romaneio-filtro-linha">
+            <div class="field">
+              <label for="selectRomaneioAgencia">Agência de recebimento</label>
+              <select id="selectRomaneioAgencia">
+                <option value="">Selecione uma agência</option>
+              </select>
+            </div>
+            <button type="button" class="btn-primary" id="btnFiltrarRomaneioAgencia">Filtrar pedidos por agência</button>
           </div>
-          <button type="button" class="btn-primary" id="btnFiltrarRomaneioAgencia">Filtrar pedidos por agência</button>
-          <div class="field">
-            <label for="selectRomaneioCidadeAgencia">Cidade da agência selecionada</label>
-            <select id="selectRomaneioCidadeAgencia" disabled>
-              <option value="">Selecione uma agência primeiro</option>
-            </select>
+          <div class="romaneio-filtro-linha">
+            <div class="field">
+              <label for="selectRomaneioCidadeAgencia">Cidade da agência selecionada</label>
+              <select id="selectRomaneioCidadeAgencia" disabled>
+                <option value="">Selecione uma agência primeiro</option>
+              </select>
+            </div>
+            <button type="button" class="btn-primary" id="btnFiltrarRomaneioCidadeAgencia" disabled>Filtrar pedidos pela cidade da agência</button>
           </div>
-          <button type="button" class="btn-primary" id="btnFiltrarRomaneioCidadeAgencia" disabled>Filtrar pedidos pela cidade da agência</button>
         </div>
         <div class="romaneio-resumo" id="romaneioEntregaResumo" role="status" aria-live="polite">Selecione uma opção e clique no filtro correspondente.</div>
         <div class="romaneio-whatsapp">
