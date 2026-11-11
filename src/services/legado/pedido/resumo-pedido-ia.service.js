@@ -46,7 +46,7 @@ function quantidadeFalavel(item) {
   const valor = Number(item.quantidade);
   const numero = valor.toLocaleString('pt-BR', {maximumFractionDigits: 2});
   return numero + (valor === 1 ? ' unidade de ' : ' unidades de ')
-    + String(item.descricao || '').trim().slice(0, 100);
+    + String(item.descricao || '').trim().replace(/\bTMP\b/gi, 'tampa').slice(0, 100);
 }
 async function chamarIA(itens,tipo,contexto){
   const chave=String(process.env.OPENAI_API_KEY||'').trim();
