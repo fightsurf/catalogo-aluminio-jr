@@ -952,8 +952,14 @@
     }
     .romaneio-filtro-linha {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 290px;
+      grid-template-columns: minmax(0, 1fr) 350px;
       gap: 12px;
+      align-items: end;
+    }
+    .romaneio-filtro-acoes {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 44px;
+      gap: 8px;
       align-items: end;
     }
     .romaneio-filtro-linha .field {
@@ -968,6 +974,29 @@
       min-height: 40px;
       white-space: normal;
     }
+    .romaneio-filtro-acoes .btn-romaneio-whatsapp {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 0;
+      background: #25d366;
+      color: #fff;
+      border: 1px solid #1aa94c;
+      border-radius: 9px;
+      cursor: pointer;
+    }
+    .romaneio-filtro-acoes .btn-romaneio-whatsapp svg { width: 22px; height: 22px; }
+    .romaneio-filtro-acoes .btn-romaneio-whatsapp:disabled { opacity: .45; cursor: not-allowed; }
+    .romaneio-filtro-acoes .btn-romaneio-whatsapp:not(:disabled):hover { background: #1aa94c; }
+    .romaneio-envio-feedback {
+      white-space: pre-line;
+      max-height: 220px;
+      overflow-y: auto;
+      font-size: 13px;
+      line-height: 1.5;
+      margin: 10px 0;
+    }
+    .romaneio-envio-feedback:empty { display: none; }
     @media (max-width: 640px) {
       .romaneio-filtro-linha {
         grid-template-columns: minmax(0, 1fr);
@@ -1307,7 +1336,10 @@
                 <option value="">Selecione uma transportadora</option>
               </select>
             </div>
-            <button type="button" class="btn-primary" id="btnFiltrarRomaneioTransportadora">Filtrar pedidos por transportadora</button>
+            <div class="romaneio-filtro-acoes">
+              <button type="button" class="btn-primary" id="btnFiltrarRomaneioTransportadora">Filtrar pedidos por transportadora</button>
+              <button type="button" class="btn-romaneio-whatsapp" id="btnEnviarRomaneioTransportadoraWhatsapp" aria-label="Enviar romaneios a todas as transportadoras pelo WhatsApp" title="Enviar romaneio a cada transportadora da lista" disabled><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.966-.273-.099-.471-.148-.67.15-.198.297-.768.966-.94 1.164-.173.198-.347.223-.644.075-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.76-1.653-2.057-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.148-.174.198-.298.297-.496.099-.198.05-.372-.025-.52-.074-.149-.669-1.612-.916-2.206-.242-.579-.487-.5-.67-.51-.173-.008-.372-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479s1.065 2.875 1.213 3.073c.148.198 2.095 3.2 5.077 4.487.709.306 1.262.49 1.693.627.712.227 1.36.195 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.445 7.13h-.004a9.7 9.7 0 0 1-4.946-1.355l-.355-.211-3.677.964.982-3.585-.23-.367a9.69 9.69 0 0 1-1.487-5.188c.002-5.35 4.355-9.704 9.705-9.704a9.63 9.63 0 0 1 6.865 2.846 9.63 9.63 0 0 1 2.841 6.869c-.002 5.35-4.355 9.704-9.694 9.704m8.255-17.964A11.5 11.5 0 0 0 12.026 0C5.392 0 .005 5.386.003 12.02a11.94 11.94 0 0 0 1.603 6.003L0 24l6.136-1.61a11.96 11.96 0 0 0 5.89 1.5h.005c6.632 0 12.02-5.387 12.023-12.021a11.92 11.92 0 0 0-3.5-8.47z"/></svg></button>
+            </div>
           </div>
           <div class="romaneio-filtro-linha">
             <div class="field">
@@ -1316,7 +1348,10 @@
                 <option value="">Selecione um redespacho</option>
               </select>
             </div>
-            <button type="button" class="btn-primary" id="btnFiltrarRomaneioRedespacho">Filtrar pedidos por redespacho</button>
+            <div class="romaneio-filtro-acoes">
+              <button type="button" class="btn-primary" id="btnFiltrarRomaneioRedespacho">Filtrar pedidos por redespacho</button>
+              <button type="button" class="btn-romaneio-whatsapp" id="btnEnviarRomaneioRedespachoWhatsapp" aria-label="Enviar romaneios a todas as redespachos pelo WhatsApp" title="Enviar romaneio a cada redespacho da lista" disabled><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.966-.273-.099-.471-.148-.67.15-.198.297-.768.966-.94 1.164-.173.198-.347.223-.644.075-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.76-1.653-2.057-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.148-.174.198-.298.297-.496.099-.198.05-.372-.025-.52-.074-.149-.669-1.612-.916-2.206-.242-.579-.487-.5-.67-.51-.173-.008-.372-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479s1.065 2.875 1.213 3.073c.148.198 2.095 3.2 5.077 4.487.709.306 1.262.49 1.693.627.712.227 1.36.195 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.445 7.13h-.004a9.7 9.7 0 0 1-4.946-1.355l-.355-.211-3.677.964.982-3.585-.23-.367a9.69 9.69 0 0 1-1.487-5.188c.002-5.35 4.355-9.704 9.705-9.704a9.63 9.63 0 0 1 6.865 2.846 9.63 9.63 0 0 1 2.841 6.869c-.002 5.35-4.355 9.704-9.694 9.704m8.255-17.964A11.5 11.5 0 0 0 12.026 0C5.392 0 .005 5.386.003 12.02a11.94 11.94 0 0 0 1.603 6.003L0 24l6.136-1.61a11.96 11.96 0 0 0 5.89 1.5h.005c6.632 0 12.02-5.387 12.023-12.021a11.92 11.92 0 0 0-3.5-8.47z"/></svg></button>
+            </div>
           </div>
           <div class="romaneio-filtro-linha">
             <div class="field">
@@ -1325,7 +1360,10 @@
                 <option value="">Selecione uma agência</option>
               </select>
             </div>
-            <button type="button" class="btn-primary" id="btnFiltrarRomaneioAgencia">Filtrar pedidos por agência</button>
+            <div class="romaneio-filtro-acoes">
+              <button type="button" class="btn-primary" id="btnFiltrarRomaneioAgencia">Filtrar pedidos por agência</button>
+              <button type="button" class="btn-romaneio-whatsapp" id="btnEnviarRomaneioAgenciaWhatsapp" aria-label="Enviar romaneios a todas as agências pelo WhatsApp" title="Enviar romaneio a cada agência da lista" disabled><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.966-.273-.099-.471-.148-.67.15-.198.297-.768.966-.94 1.164-.173.198-.347.223-.644.075-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.76-1.653-2.057-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.148-.174.198-.298.297-.496.099-.198.05-.372-.025-.52-.074-.149-.669-1.612-.916-2.206-.242-.579-.487-.5-.67-.51-.173-.008-.372-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479s1.065 2.875 1.213 3.073c.148.198 2.095 3.2 5.077 4.487.709.306 1.262.49 1.693.627.712.227 1.36.195 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.445 7.13h-.004a9.7 9.7 0 0 1-4.946-1.355l-.355-.211-3.677.964.982-3.585-.23-.367a9.69 9.69 0 0 1-1.487-5.188c.002-5.35 4.355-9.704 9.705-9.704a9.63 9.63 0 0 1 6.865 2.846 9.63 9.63 0 0 1 2.841 6.869c-.002 5.35-4.355 9.704-9.694 9.704m8.255-17.964A11.5 11.5 0 0 0 12.026 0C5.392 0 .005 5.386.003 12.02a11.94 11.94 0 0 0 1.603 6.003L0 24l6.136-1.61a11.96 11.96 0 0 0 5.89 1.5h.005c6.632 0 12.02-5.387 12.023-12.021a11.92 11.92 0 0 0-3.5-8.47z"/></svg></button>
+            </div>
           </div>
           <div class="romaneio-filtro-linha">
             <div class="field">
@@ -1338,6 +1376,7 @@
           </div>
         </div>
         <div class="romaneio-resumo" id="romaneioEntregaResumo" role="status" aria-live="polite">Selecione uma opção e clique no filtro correspondente.</div>
+        <div class="romaneio-envio-feedback" id="feedbackRomaneioWhatsapp" role="status" aria-live="polite"></div>
         <div class="romaneio-whatsapp">
           <h4>Resumo para envio</h4>
           <p class="muted">Somente os pedidos do filtro selecionado: nome do cliente, cidade, excursão ou transportadora, agência de recebimento e quantidade de volumes.</p>
@@ -1725,6 +1764,7 @@
       transportadoras: null,
       agenciasRecebimento: null,
       romaneioFiltroAtivo: null,
+      romaneioEnviando: false,
       etiquetaModal: {
         pedidoNumero: null,
         payload: null
@@ -1803,12 +1843,16 @@
       modalRomaneioEntregaBackdrop: document.getElementById('modalRomaneioEntregaBackdrop'),
       modalRomaneioEntregaSubtitulo: document.getElementById('modalRomaneioEntregaSubtitulo'),
       romaneioEntregaResumo: document.getElementById('romaneioEntregaResumo'),
+      feedbackRomaneioWhatsapp: document.getElementById('feedbackRomaneioWhatsapp'),
       selectRomaneioTransportadora: document.getElementById('selectRomaneioTransportadora'),
       btnFiltrarRomaneioTransportadora: document.getElementById('btnFiltrarRomaneioTransportadora'),
+      btnEnviarRomaneioTransportadoraWhatsapp: document.getElementById('btnEnviarRomaneioTransportadoraWhatsapp'),
       selectRomaneioRedespacho: document.getElementById('selectRomaneioRedespacho'),
       btnFiltrarRomaneioRedespacho: document.getElementById('btnFiltrarRomaneioRedespacho'),
+      btnEnviarRomaneioRedespachoWhatsapp: document.getElementById('btnEnviarRomaneioRedespachoWhatsapp'),
       selectRomaneioAgencia: document.getElementById('selectRomaneioAgencia'),
       btnFiltrarRomaneioAgencia: document.getElementById('btnFiltrarRomaneioAgencia'),
+      btnEnviarRomaneioAgenciaWhatsapp: document.getElementById('btnEnviarRomaneioAgenciaWhatsapp'),
       selectRomaneioCidadeAgencia: document.getElementById('selectRomaneioCidadeAgencia'),
       btnFiltrarRomaneioCidadeAgencia: document.getElementById('btnFiltrarRomaneioCidadeAgencia'),
       textareaRomaneioWhatsapp: document.getElementById('textareaRomaneioWhatsapp'),
@@ -2057,6 +2101,7 @@
       if (backdrop.id === 'modalMudarCarradaLoteBackdrop' && estado.mudarCarradaLote.salvando) return;
       if (backdrop.id === 'modalNotaFiscalLoteBackdrop' && estado.notaFiscalLote.enviando) return;
       if (backdrop.id === 'modalProducaoLoteBackdrop' && estado.producaoLote.enviando) return;
+      if (backdrop.id === 'modalRomaneioEntregaBackdrop' && estado.romaneioEnviando) return;
       if (backdrop.id === 'modalEtiquetaBackdrop') fecharBuscaCidadeEtiqueta();
       backdrop.classList.remove('open');
     }
@@ -3166,6 +3211,9 @@
         const ufAgencia = String(localEntrega.agenciaRecebimentoCidadeUf || '').trim().toUpperCase();
         return {
           transportadora: String(localEntrega.transportadoraNome || '').trim(),
+          telefoneTransportadora: String(localEntrega.transportadoraTelefonePrincipal || '').trim(),
+          telefoneRedespacho: String(localEntrega.redespachoTransportadoraTelefonePrincipal || '').trim(),
+          telefoneAgencia: String(localEntrega.agenciaRecebimentoTelefone || '').trim(),
           redespacho: String(localEntrega.redespachoTransportadoraNome || '').trim(),
           agencia: String(localEntrega.agenciaRecebimentoNome || '').trim(),
           cidadeAgencia: cidadeAgencia ? [cidadeAgencia, ufAgencia].filter(Boolean).join(' / ') : '',
@@ -3238,6 +3286,7 @@
       ].join('');
       el.selectRomaneioTransportadora.disabled = !linhas.length;
       el.btnFiltrarRomaneioTransportadora.disabled = !linhas.length;
+      el.btnEnviarRomaneioTransportadoraWhatsapp.disabled = !lista.length;
       return lista.length + Number(semTransportadora);
     }
 
@@ -3257,6 +3306,7 @@
       ].join('');
       el.selectRomaneioRedespacho.disabled = !lista.length;
       el.btnFiltrarRomaneioRedespacho.disabled = !lista.length;
+      el.btnEnviarRomaneioRedespachoWhatsapp.disabled = !lista.length;
       return lista.length;
     }
 
@@ -3275,6 +3325,7 @@
       ].join('');
       el.selectRomaneioAgencia.disabled = !lista.length;
       el.btnFiltrarRomaneioAgencia.disabled = !lista.length;
+      el.btnEnviarRomaneioAgenciaWhatsapp.disabled = !lista.length;
       return lista.length;
     }
 
@@ -3295,6 +3346,95 @@
       el.selectRomaneioCidadeAgencia.disabled = !lista.length;
       el.btnFiltrarRomaneioCidadeAgencia.disabled = !lista.length;
       return lista.length;
+    }
+
+    function agruparDestinatariosRomaneio(tipo, linhas) {
+      const campos = {
+        transportadora: { nome: 'transportadora', telefone: 'telefoneTransportadora' },
+        redespacho: { nome: 'redespacho', telefone: 'telefoneRedespacho' },
+        agencia: { nome: 'agencia', telefone: 'telefoneAgencia' }
+      };
+      const camposTipo = campos[tipo];
+      if (!camposTipo) return [];
+      const grupos = new Map();
+      linhas.forEach((linha) => {
+        const nome = String(linha[camposTipo.nome] || '').trim();
+        if (!nome) return;
+        const chave = nome.toLocaleLowerCase('pt-BR');
+        if (!grupos.has(chave)) {
+          grupos.set(chave, { nome, linhas: [], telefones: new Set() });
+        }
+        const grupo = grupos.get(chave);
+        grupo.linhas.push(linha);
+        const telefone = String(linha[camposTipo.telefone] || '').replace(/\D+/g, '');
+        if (telefone) grupo.telefones.add(telefone);
+      });
+      return [...grupos.values()].map((grupo) => ({
+        nome: grupo.nome,
+        linhas: grupo.linhas.sort((a, b) => (
+          compararTextoRomaneio(a.cliente, b.cliente)
+          || compararTextoRomaneio(a.numeroPedido, b.numeroPedido)
+        )),
+        telefones: [...grupo.telefones]
+      })).sort((a, b) => compararTextoRomaneio(a.nome, b.nome));
+    }
+
+    async function enviarRomaneioWhatsappLote(tipo) {
+      if (estado.romaneioEnviando) return;
+      const nomes = { transportadora: 'transportadoras', redespacho: 'redespachos', agencia: 'agências' };
+      if (!nomes[tipo]) return;
+      const grupos = agruparDestinatariosRomaneio(tipo, construirLinhasRomaneioEntrega());
+      const validos = grupos.filter((grupo) => grupo.telefones.length === 1 && grupo.telefones[0].length >= 10);
+      const ignorados = grupos.filter((grupo) => !validos.includes(grupo)).map((grupo) => {
+        const motivo = grupo.telefones.length > 1
+          ? 'mais de um telefone cadastrado'
+          : grupo.telefones.length === 0 ? 'sem telefone cadastrado' : 'telefone inválido';
+        return grupo.nome + ': ' + motivo;
+      });
+      if (!validos.length) {
+        setFeedback(el.feedbackRomaneioWhatsapp, 'Nenhum destinatário com telefone único e válido nesta lista.\n' + ignorados.join('\n'), 'error');
+        return;
+      }
+      const aviso = 'Enviar ' + validos.length + ' romaneio(s) pelo WhatsApp, um para cada destinatário da lista de '
+        + nomes[tipo] + '?\n' + (ignorados.length ? ignorados.length + ' destinatário(s) serão ignorados por falta ou conflito de telefone.\n' : '')
+        + 'Esta ação enviará mensagens reais e não poderá ser desfeita.';
+      if (!window.confirm(aviso)) return;
+      estado.romaneioEnviando = true;
+      const botoes = [
+        el.btnEnviarRomaneioTransportadoraWhatsapp,
+        el.btnEnviarRomaneioRedespachoWhatsapp,
+        el.btnEnviarRomaneioAgenciaWhatsapp
+      ];
+      const desabilitadosAntes = botoes.map((botao) => botao.disabled);
+      botoes.forEach((botao) => { botao.disabled = true; });
+      let enviados = 0;
+      const falhas = [];
+      try {
+        for (const grupo of validos) {
+          const mensagem = construirTextoRomaneioWhatsapp(grupo.linhas, tipo, grupo.nome);
+          try {
+            await request('/api/whatsapp/enviar', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ telefone: grupo.telefones[0], mensagem })
+            });
+            enviados += 1;
+          } catch (error) {
+            falhas.push(grupo.nome + ': ' + (error?.message || 'falha no envio'));
+          }
+          setFeedback(el.feedbackRomaneioWhatsapp, 'Enviados: ' + enviados + ' de ' + validos.length
+            + ' • Falhas: ' + falhas.length + ' • Processados: ' + (enviados + falhas.length) + ' de ' + validos.length);
+        }
+      } finally {
+        estado.romaneioEnviando = false;
+        botoes.forEach((botao, indice) => { botao.disabled = desabilitadosAntes[indice]; });
+      }
+      setFeedback(el.feedbackRomaneioWhatsapp, [
+        'Envio concluído para ' + nomes[tipo] + '.',
+        'Enviados: ' + enviados + ' • Falhas: ' + falhas.length + ' • Ignorados: ' + ignorados.length + '.',
+        ...falhas.map((item) => 'Falha: ' + item),
+        ...ignorados.map((item) => 'Ignorado: ' + item)
+      ].join('\n'), falhas.length || ignorados.length ? 'error' : 'success');
     }
 
     function limparResultadoRomaneio(aviso) {
@@ -3421,6 +3561,7 @@
     function abrirRomaneioEntrega() {
       const linhas = construirLinhasRomaneioEntrega();
       const carrada = estado.matriz?.carrada || {};
+      setFeedback(el.feedbackRomaneioWhatsapp, '');
       el.modalRomaneioEntregaSubtitulo.textContent = [
         `Carrada ${carrada.codigo || CODIGO_CARRADA}`,
         carrada.data ? formatarData(carrada.data) : '',
@@ -5250,8 +5391,11 @@
     el.btnRecarregar.addEventListener('click', carregarMatriz);
     el.btnRomaneioEntrega.addEventListener('click', abrirRomaneioEntrega);
     el.btnFiltrarRomaneioTransportadora.addEventListener('click', filtrarPedidosRomaneioPorTransportadora);
+    el.btnEnviarRomaneioTransportadoraWhatsapp.addEventListener('click', () => enviarRomaneioWhatsappLote('transportadora'));
     el.btnFiltrarRomaneioRedespacho.addEventListener('click', filtrarPedidosRomaneioPorRedespacho);
+    el.btnEnviarRomaneioRedespachoWhatsapp.addEventListener('click', () => enviarRomaneioWhatsappLote('redespacho'));
     el.btnFiltrarRomaneioAgencia.addEventListener('click', filtrarPedidosRomaneioPorAgencia);
+    el.btnEnviarRomaneioAgenciaWhatsapp.addEventListener('click', () => enviarRomaneioWhatsappLote('agencia'));
     el.btnFiltrarRomaneioCidadeAgencia.addEventListener('click', filtrarPedidosRomaneioPorCidadeAgencia);
     el.selectRomaneioTransportadora.addEventListener('change', () => {
       el.selectRomaneioRedespacho.value = '';
