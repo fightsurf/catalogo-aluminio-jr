@@ -1329,9 +1329,9 @@
           </div>
           <div class="romaneio-filtro-linha">
             <div class="field">
-              <label for="selectRomaneioCidadeAgencia">Cidade da agência selecionada</label>
+              <label for="selectRomaneioCidadeAgencia">Cidade da agência</label>
               <select id="selectRomaneioCidadeAgencia" disabled>
-                <option value="">Selecione uma agência primeiro</option>
+                <option value="">Selecione a cidade da agência</option>
               </select>
             </div>
             <button type="button" class="btn-primary" id="btnFiltrarRomaneioCidadeAgencia" disabled>Filtrar pedidos pela cidade da agência</button>
@@ -3190,7 +3190,7 @@
       return `${String(total).padStart(3, '0')} ${total === 1 ? 'VOLUME' : 'VOLUMES'}`;
     }
 
-    function construirTextoRomaneioWhatsapp(linhas, tipo, nome, agenciaSelecionada = '') {
+    function construirTextoRomaneioWhatsapp(linhas, tipo, nome) {
       if (!linhas.length) return '';
       const carrada = estado.matriz?.carrada || {};
       const totalConhecido = linhas.reduce((soma, linha) => soma + (linha.quantidadeVolumes ?? 0), 0);
@@ -3202,7 +3202,7 @@
         `*DATA:* ${dataCarrada}`,
         `*TÍTULO:* ${tituloCarrada}`,
         ...(tipo === 'cidadeAgencia'
-          ? [`*AGÊNCIA:* ${agenciaSelecionada}`, `*CIDADE DA AGÊNCIA:* ${nome}`]
+          ? [`*CIDADE DA AGÊNCIA:* ${nome}`]
           : [`*${tipo === 'redespacho' ? 'REDESPACHO' : tipo === 'agencia' ? 'AGÊNCIA' : 'TRANSPORTADORA'}:* ${nome}`]),
         '',
         ...linhas.flatMap((linha, indice) => [
@@ -3278,22 +3278,17 @@
     }
 
     function preencherCidadesAgenciaRomaneio(linhas) {
-      const agencia = String(el.selectRomaneioAgencia.value || '').trim();
+      // Cidades distintas de todas as agências presentes nos pedidos desta carrada.
       const nomes = new Map();
-      if (agencia) {
-        linhas.forEach((linha) => {
-          if (linha.agencia.localeCompare(agencia, 'pt-BR', { sensitivity: 'base' }) !== 0) return;
-          const cidade = String(linha.cidadeAgencia || '').trim();
-          if (!cidade) return;
-          const chave = cidade.toLocaleLowerCase('pt-BR');
-          if (!nomes.has(chave)) nomes.set(chave, cidade);
-        });
-      }
+      linhas.forEach((linha) => {
+        const cidade = String(linha.cidadeAgencia || '').trim();
+        if (!cidade) return;
+        const chave = cidade.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('pt-BR');
+        if (!nomes.has(chave)) nomes.set(chave, cidade);
+      });
       const lista = [...nomes.values()].sort(compararTextoRomaneio);
-      const placeholder = !agencia ? 'Selecione uma agência primeiro'
-        : lista.length ? 'Selecione a cidade da agência' : 'Nenhuma cidade informada para esta agência';
       el.selectRomaneioCidadeAgencia.innerHTML = [
-        `<option value="">${placeholder}</option>`,
+        `<option value="">${lista.length ? 'Selecione a cidade da agência' : 'Nenhuma cidade de agência nesta carrada'}</option>`,
         ...lista.map((cidade) => `<option value="${escapeHtml(cidade)}">${escapeHtml(cidade)}</option>`)
       ].join('');
       el.selectRomaneioCidadeAgencia.disabled = !lista.length;
@@ -3331,11 +3326,6 @@
       const configuracao = configuracoes[tipo];
       if (!configuracao) return;
       const selecionada = String(configuracao.select.value || '').trim();
-      const agenciaSelecionada = String(el.selectRomaneioAgencia.value || '').trim();
-      if (tipo === 'cidadeAgencia' && !agenciaSelecionada) {
-        limparResultadoRomaneio('Selecione uma agência antes de filtrar pela cidade.');
-        return;
-      }
       if (!selecionada) {
         limparResultadoRomaneio(`Selecione uma opção de ${configuracao.descricao} para filtrar.`);
         return;
@@ -3345,8 +3335,7 @@
           return !linha.transportadora;
         }
         if (tipo === 'cidadeAgencia') {
-          return linha.agencia.localeCompare(agenciaSelecionada, 'pt-BR', { sensitivity: 'base' }) === 0
-            && linha.cidadeAgencia.localeCompare(selecionada, 'pt-BR', { sensitivity: 'base' }) === 0;
+          return linha.cidadeAgencia.localeCompare(selecionada, 'pt-BR', { sensitivity: 'base' }) === 0;
         }
         const valor = tipo === 'redespacho' ? linha.redespacho
           : tipo === 'agencia' ? linha.agencia : linha.transportadora;
@@ -3368,13 +3357,8 @@
         `<span><strong>${volumesInformados}</strong> volume(s) informado(s)</span>`,
         ...(volumesPendentes ? [`<span><strong>${volumesPendentes}</strong> pedido(s) com volumes pendentes</span>`] : [])
       ].join('<span>•</span>');
-      el.textareaRomaneioWhatsapp.value = construirTextoRomaneioWhatsapp(
-        linhas, tipo, nome, tipo === 'cidadeAgencia' ? agenciaSelecionada : ''
-      );
-      estado.romaneioFiltroAtivo = {
-        tipo,
-        nome: tipo === 'cidadeAgencia' ? `${agenciaSelecionada}-${nome}` : nome
-      };
+      el.textareaRomaneioWhatsapp.value = construirTextoRomaneioWhatsapp(linhas, tipo, nome);
+      estado.romaneioFiltroAtivo = { tipo, nome };
       el.btnCopiarRomaneioWhatsapp.disabled = false;
       el.btnBaixarRomaneioTxt.disabled = false;
     }
@@ -5271,24 +5255,25 @@
     el.selectRomaneioTransportadora.addEventListener('change', () => {
       el.selectRomaneioRedespacho.value = '';
       el.selectRomaneioAgencia.value = '';
-      preencherCidadesAgenciaRomaneio(construirLinhasRomaneioEntrega());
+      el.selectRomaneioCidadeAgencia.value = '';
       limparResultadoRomaneio('Clique em Filtrar pedidos por transportadora para gerar o resumo.');
     });
     el.selectRomaneioRedespacho.addEventListener('change', () => {
       el.selectRomaneioTransportadora.value = '';
       el.selectRomaneioAgencia.value = '';
-      preencherCidadesAgenciaRomaneio(construirLinhasRomaneioEntrega());
+      el.selectRomaneioCidadeAgencia.value = '';
       limparResultadoRomaneio('Clique em Filtrar pedidos por redespacho para gerar o resumo.');
     });
     el.selectRomaneioAgencia.addEventListener('change', () => {
       el.selectRomaneioTransportadora.value = '';
       el.selectRomaneioRedespacho.value = '';
-      const totalCidades = preencherCidadesAgenciaRomaneio(construirLinhasRomaneioEntrega());
-      limparResultadoRomaneio(el.selectRomaneioAgencia.value
-        ? `Agência selecionada. ${totalCidades} cidade(s) encontrada(s). Filtre por agência ou escolha uma cidade.`
-        : 'Selecione uma agência para visualizar as cidades dela.');
+      el.selectRomaneioCidadeAgencia.value = '';
+      limparResultadoRomaneio('Clique em Filtrar pedidos por agência para gerar o resumo.');
     });
     el.selectRomaneioCidadeAgencia.addEventListener('change', () => {
+      el.selectRomaneioTransportadora.value = '';
+      el.selectRomaneioRedespacho.value = '';
+      el.selectRomaneioAgencia.value = '';
       limparResultadoRomaneio('Clique em Filtrar pedidos pela cidade da agência para gerar o resumo.');
     });
     el.btnCopiarRomaneioWhatsapp?.addEventListener('click', copiarRomaneioWhatsapp);
