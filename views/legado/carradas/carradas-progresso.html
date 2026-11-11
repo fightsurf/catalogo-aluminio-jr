@@ -1340,7 +1340,7 @@
         <div class="romaneio-resumo" id="romaneioEntregaResumo" role="status" aria-live="polite">Selecione uma opção e clique no filtro correspondente.</div>
         <div class="romaneio-whatsapp">
           <h4>Resumo para envio</h4>
-          <p class="muted">Somente os pedidos do filtro selecionado: nome do cliente, cidade, excursão ou transportadora e quantidade de volumes.</p>
+          <p class="muted">Somente os pedidos do filtro selecionado: nome do cliente, cidade, excursão ou transportadora, agência de recebimento e quantidade de volumes.</p>
           <textarea id="textareaRomaneioWhatsapp" readonly spellcheck="false" placeholder="O resumo aparecerá aqui após filtrar."></textarea>
         </div>
       </div>
@@ -3209,8 +3209,9 @@
           `*NOME DO CLIENTE:* ${linha.cliente || 'NÃO INFORMADO'}`,
           `*CIDADE:* ${linha.cidadeCliente || 'NÃO INFORMADA'}`,
           `*EXCURSÃO / TRANSPORTADORA:* ${linha.transportadora || 'NÃO INFORMADA'}`,
+          `*AGÊNCIA DE RECEBIMENTO:* ${linha.agencia || 'NÃO INFORMADA'}`,
           `*QUANTIDADE DE VOLUMES:* ${formatarCargaRomaneioWhatsapp(linha.quantidadeVolumes)}`,
-          ...(indice < linhas.length - 1 ? ['------------------------------'] : [])
+          ...(indice < linhas.length - 1 ? ['', '------------------------------', ''] : [])
         ]),
         '',
         `*TOTAL DE PEDIDOS:* ${linhas.length}`,
