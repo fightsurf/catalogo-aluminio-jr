@@ -1303,7 +1303,7 @@
         <div class="romaneio-resumo" id="romaneioEntregaResumo" role="status" aria-live="polite">Selecione uma transportadora ou um redespacho e clique no filtro correspondente.</div>
         <div class="romaneio-whatsapp">
           <h4>Resumo para envio</h4>
-          <p class="muted">Somente os pedidos do filtro selecionado: nome do cliente, cidade e quantidade de volumes.</p>
+          <p class="muted">Somente os pedidos do filtro selecionado: nome do cliente, cidade, excursão ou transportadora e quantidade de volumes.</p>
           <textarea id="textareaRomaneioWhatsapp" readonly spellcheck="false" placeholder="O resumo aparecerá aqui após filtrar."></textarea>
         </div>
       </div>
@@ -3150,13 +3150,18 @@
       const carrada = estado.matriz?.carrada || {};
       const totalConhecido = linhas.reduce((soma, linha) => soma + (linha.quantidadeVolumes ?? 0), 0);
       const semVolumes = linhas.filter((linha) => linha.quantidadeVolumes === null).length;
+      const dataCarrada = carrada.data ? formatarData(carrada.data) : 'DATA NÃO INFORMADA';
+      const tituloCarrada = String(carrada.descricao || '').trim() || 'SEM TÍTULO';
       return [
-        `*ROMANEIO DA CARRADA ${carrada.codigo || CODIGO_CARRADA}*`,
+        `*ROMANEIO DA CARGA*`,
+        `*DATA:* ${dataCarrada}`,
+        `*TÍTULO:* ${tituloCarrada}`, 
         `*${tipo === 'redespacho' ? 'REDESPACHO' : 'TRANSPORTADORA'}:* ${nome}`,
         '',
         ...linhas.flatMap((linha, indice) => [
           `*NOME DO CLIENTE:* ${linha.cliente || 'NÃO INFORMADO'}`,
           `*CIDADE:* ${linha.cidadeCliente || 'NÃO INFORMADA'}`,
+          `*EXCURSÃO / TRANSPORTADORA:* ${linha.transportadora || 'NÃO INFORMADA'}`,
           `*QUANTIDADE DE VOLUMES:* ${formatarCargaRomaneioWhatsapp(linha.quantidadeVolumes)}`,
           ...(indice < linhas.length - 1 ? ['------------------------------'] : [])
         ]),
