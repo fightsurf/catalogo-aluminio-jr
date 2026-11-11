@@ -1,31 +1,78 @@
 name: Testes AVN Sono Samsung
-
 on:
   pull_request:
     paths:
       - 'src/routes/avn/avn-sono-mobile.routes.js'
       - 'test/avn-sono-samsung.test.js'
+      - 'db/sql/20261111_avn_sono_samsung.sql'
       - '.github/workflows/avn-sono-tests.yml'
   workflow_dispatch:
-
 permissions:
   contents: read
-
 jobs:
   backend-sono:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: avn-ci
+          POSTGRES_DB: avntest
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d avntest"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      DATABASE_URL: postgresql://postgres:avn-ci@localhost:5432/avntest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Checar sintaxe e testar validador sem dados reais
-        shell: bash
+      - name: Instalar dependencias minimas para testes isolados
         run: |
-          set -euo pipefail
-          node --check src/routes/avn/avn-sono-mobile.routes.js
-          node --check test/avn-sono-samsung.test.js
           mkdir -p "$RUNNER_TEMP/avn-test-deps"
           npm install --prefix "$RUNNER_TEMP/avn-test-deps" --no-audit --no-fund --ignore-scripts express pg
-          NODE_PATH="$RUNNER_TEMP/avn-test-deps/node_modules" node --test test/avn-sono-samsung.test.js
+          echo "NODE_PATH=$RUNNER_TEMP/avn-test-deps/node_modules" >> "$GITHUB_ENV"
+      - name: Checar sintaxe e testar validacao
+        run: |
+          node --check src/routes/avn/avn-sono-mobile.routes.js
+          node --check test/avn-sono-samsung.test.js
+          node --test test/avn-sono-samsung.test.js
+      - name: Verificar SQL real, migracao idempotente, fases e unicidade
+        shell: bash
+        run: |
+          node <<'JS'
+          'use strict';
+          const fs=require('node:fs');
+          const {Client}=require('pg');
+          (async()=>{
+            const db=new Client({connectionString:process.env.DATABASE_URL});
+            await db.connect();
+            try{
+              await db.query('CREATE TABLE public.avn_usuario (id BIGSERIAL PRIMARY KEY)');
+              const migration=fs.readFileSync('db/sql/20261111_avn_sono_samsung.sql','utf8');
+              await db.query(migration);
+              await db.query(migration);
+              const u=await db.query('INSERT INTO public.avn_usuario DEFAULT VALUES RETURNING id');
+              const user=u.rows[0].id;
+              const night=async()=>await db.query("INSERT INTO public.avn_sono_sessoes(usuario_id,registro_externo_id,inicio,fim,duracao_min,pontuacao) VALUES($1,'abc','2026-11-10T22:00:00Z','2026-11-11T06:00:00Z',420,85) ON CONFLICT(usuario_id,origem,registro_externo_id) DO UPDATE SET atualizado_em=NOW() RETURNING id",[user]);
+              const a=await night(), b=await night();
+              if(String(a.rows[0].id)!==String(b.rows[0].id))throw Error('ID duplicado na sincronizacao.');
+              const id=a.rows[0].id;
+              await db.query("INSERT INTO public.avn_sono_estagios(sessao_id,posicao,tipo,inicio,fim) VALUES($1,1,'REM','2026-11-10T22:00:00Z','2026-11-11T00:00:00Z')",[id]);
+              const count=await db.query('SELECT count(*)::int as n FROM public.avn_sono_sessoes WHERE usuario_id=$1',[user]);
+              if(count.rows[0].n!==1)throw Error('Unicidade de sessao falhou.');
+              const sc=await db.query('SELECT count(*)::int as n FROM public.avn_sono_estagios WHERE sessao_id=$1',[id]);
+              if(sc.rows[0].n!==1)throw Error('Falha no armazenamento das fases.');
+              try{
+                await db.query("INSERT INTO public.avn_sono_estagios(sessao_id,posicao,tipo,inicio,fim) VALUES($1,2,'INVALID','2026-11-10T22:00:00Z','2026-11-11T00:00:00Z')",[id]);
+                throw Error('Tipo de fase invalido foi aceito.');
+              }catch(e){if(e.code!=='23514')throw e;}
+              console.log('PostgreSQL: migracao, upsert, fases e constraints validados.');
+            }finally{await db.end();}
+          })().catch(e=>{console.error(e.message);process.exitCode=1;});
+          JS
