@@ -943,7 +943,21 @@
       background: #f8fafc;
     }
     .romaneio-modal {
-      width: min(1320px, 100%);
+      width: min(920px, 100%);
+    }
+    .romaneio-filtros {
+      display: flex;
+      align-items: flex-end;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .romaneio-filtros .field {
+      flex: 1 1 300px;
+      margin: 0;
+    }
+    .romaneio-filtros select {
+      width: 100%;
     }
     .romaneio-resumo {
       display: flex;
@@ -956,56 +970,6 @@
     .romaneio-resumo strong {
       color: var(--text);
     }
-    .romaneio-table-wrap {
-      overflow: auto;
-      max-height: calc(100vh - 250px);
-      border: 1px solid var(--line);
-      border-radius: 12px;
-    }
-    .romaneio-table {
-      min-width: 1080px;
-    }
-    .romaneio-table th,
-    .romaneio-table td {
-      position: static;
-      min-width: 0 !important;
-      max-width: none !important;
-      text-align: left;
-      white-space: normal;
-      vertical-align: top;
-      padding: 10px 9px;
-      font-size: 12px;
-    }
-    .romaneio-table thead th {
-      position: sticky;
-      top: 0;
-      z-index: 3;
-      background: #f8fafc;
-    }
-    .romaneio-table .romaneio-cidade-grupo td {
-      background: #e2e8f0;
-      color: #0f172a;
-      font-size: 13px;
-      font-weight: 800;
-      border-top: 3px solid #94a3b8;
-    }
-    .romaneio-table .romaneio-agencia-grupo td {
-      background: #f1f5f9;
-      color: #334155;
-      font-size: 12px;
-      font-weight: 800;
-    }
-    .romaneio-sem-dado {
-      color: #b45309;
-      font-weight: 700;
-    }
-    .romaneio-table .col-cidade-agencia { width: 17%; }
-    .romaneio-table .col-agencia { width: 20%; }
-    .romaneio-table .col-cliente { width: 23%; }
-    .romaneio-table .col-pedido { width: 10%; }
-    .romaneio-table .col-excursao { width: 17%; }
-    .romaneio-table .col-cidade-cliente { width: 13%; }
-
     .romaneio-whatsapp {
       margin-top: 18px;
       border-top: 1px solid #d7dee8;
@@ -1017,7 +981,7 @@
     }
     .romaneio-whatsapp textarea {
       width: 100%;
-      min-height: 280px;
+      min-height: 340px;
       resize: vertical;
       box-sizing: border-box;
       margin-top: 10px;
@@ -1314,38 +1278,32 @@
     <div class="modal romaneio-modal">
       <div class="modal-header">
         <div>
-          <h3>Romaneio de entrega do motorista</h3>
-          <p class="muted" id="modalRomaneioEntregaSubtitulo">Pedidos agrupados por cidade e agência de entrega.</p>
+          <h3>Romaneio por transportadora</h3>
+          <p class="muted" id="modalRomaneioEntregaSubtitulo">Filtre os pedidos de uma excursão ou transportadora da carrada.</p>
         </div>
-        <button class="btn-secondary" data-close-modal="modalRomaneioEntregaBackdrop">Fechar</button>
+        <button type="button" class="btn-secondary" data-close-modal="modalRomaneioEntregaBackdrop">Fechar</button>
       </div>
       <div class="modal-body">
-        <div class="romaneio-resumo" id="romaneioEntregaResumo"></div>
-        <div class="romaneio-table-wrap">
-          <table class="romaneio-table">
-            <thead>
-              <tr>
-                <th class="col-cidade-agencia">Cidade da agência de entrega</th>
-                <th class="col-agencia">Agência da entrega</th>
-                <th class="col-cliente">Cliente</th>
-                <th class="col-pedido">Nº do pedido</th>
-                <th class="col-excursao">Excursão / Transportadora</th>
-                <th class="col-cidade-cliente">Cidade do cliente</th>
-              </tr>
-            </thead>
-            <tbody id="tbodyRomaneioEntrega"></tbody>
-          </table>
+        <div class="romaneio-filtros">
+          <div class="field">
+            <label for="selectRomaneioTransportadora">Excursão / Transportadora</label>
+            <select id="selectRomaneioTransportadora">
+              <option value="">Selecione uma transportadora</option>
+            </select>
+          </div>
+          <button type="button" class="btn-primary" id="btnFiltrarRomaneioTransportadora">Filtrar pedidos por transportadora</button>
         </div>
+        <div class="romaneio-resumo" id="romaneioEntregaResumo" role="status" aria-live="polite">Selecione uma transportadora e clique em Filtrar pedidos.</div>
         <div class="romaneio-whatsapp">
-          <h4>Texto para WhatsApp</h4>
-          <p class="muted">Mantém a mesma ordem do romaneio. Você pode copiar o texto ou baixar um arquivo TXT.</p>
-          <textarea id="textareaRomaneioWhatsapp" readonly spellcheck="false"></textarea>
+          <h4>Resumo para envio</h4>
+          <p class="muted">Somente os pedidos da transportadora selecionada: nome do cliente, cidade e quantidade de volumes.</p>
+          <textarea id="textareaRomaneioWhatsapp" readonly spellcheck="false" placeholder="O resumo aparecerá aqui após filtrar."></textarea>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn-secondary" id="btnBaixarRomaneioTxt">Baixar TXT</button>
-        <button class="btn-primary" id="btnCopiarRomaneioWhatsapp">Copiar para WhatsApp</button>
-        <button class="btn-secondary" data-close-modal="modalRomaneioEntregaBackdrop">Fechar</button>
+        <button type="button" class="btn-secondary" id="btnBaixarRomaneioTxt" disabled>Baixar TXT</button>
+        <button type="button" class="btn-primary" id="btnCopiarRomaneioWhatsapp" disabled>Copiar para WhatsApp</button>
+        <button type="button" class="btn-secondary" data-close-modal="modalRomaneioEntregaBackdrop">Fechar</button>
       </div>
     </div>
   </div>
@@ -1800,7 +1758,8 @@
       modalRomaneioEntregaBackdrop: document.getElementById('modalRomaneioEntregaBackdrop'),
       modalRomaneioEntregaSubtitulo: document.getElementById('modalRomaneioEntregaSubtitulo'),
       romaneioEntregaResumo: document.getElementById('romaneioEntregaResumo'),
-      tbodyRomaneioEntrega: document.getElementById('tbodyRomaneioEntrega'),
+      selectRomaneioTransportadora: document.getElementById('selectRomaneioTransportadora'),
+      btnFiltrarRomaneioTransportadora: document.getElementById('btnFiltrarRomaneioTransportadora'),
       textareaRomaneioWhatsapp: document.getElementById('textareaRomaneioWhatsapp'),
       btnCopiarRomaneioWhatsapp: document.getElementById('btnCopiarRomaneioWhatsapp'),
       btnBaixarRomaneioTxt: document.getElementById('btnBaixarRomaneioTxt'),
@@ -3135,118 +3094,121 @@
     function compararTextoRomaneio(a, b) {
       const textoA = String(a || '').trim();
       const textoB = String(b || '').trim();
-
       if (!textoA && !textoB) return 0;
       if (!textoA) return 1;
       if (!textoB) return -1;
-
-      return textoA.localeCompare(textoB, 'pt-BR', {
-        sensitivity: 'base',
-        numeric: true
-      });
-    }
-
-    function montarCidadeUfRomaneio(cidade, uf) {
-      const cidadeLimpa = String(cidade || '').trim();
-      const ufLimpa = String(uf || '').trim().toUpperCase();
-      if (!cidadeLimpa) return '';
-      return ufLimpa ? `${cidadeLimpa} / ${ufLimpa}` : cidadeLimpa;
+      return textoA.localeCompare(textoB, 'pt-BR', { sensitivity: 'base', numeric: true });
     }
 
     function construirLinhasRomaneioEntrega() {
       const pedidos = Array.isArray(estado.matriz?.pedidos) ? estado.matriz.pedidos : [];
-
       return pedidos.map((pedido) => {
         const localEntrega = pedido?.fases?.LOCAL_ENTREGA || {};
-        const cidadeAgencia = montarCidadeUfRomaneio(
-          localEntrega.agenciaRecebimentoCidadeNome,
-          localEntrega.agenciaRecebimentoCidadeUf
-        );
-        const agencia = String(localEntrega.agenciaRecebimentoNome || localEntrega.agenciaCidade || '').trim();
-
         const etiquetaVolumes = pedido?.fases?.ETIQUETA_VOLUMES || {};
-        const quantidadeVolumes = pedido?.fases?.QTDE_VOLUMES || {};
-        const quantidade = Number(quantidadeVolumes.quantidade ?? 0);
-        const quantidadeInformada = Boolean(quantidadeVolumes.concluido)
-          || Boolean(quantidadeVolumes.calculadoAutomaticamente)
+        const faseVolumes = pedido?.fases?.QTDE_VOLUMES || {};
+        const quantidade = Number(faseVolumes.quantidade ?? 0);
+        const informada = Boolean(faseVolumes.concluido)
+          || Boolean(faseVolumes.calculadoAutomaticamente)
           || quantidade > 0;
         const cliente = formatarNomeClienteExibicao(pedido?.cliente?.nome);
-
         return {
-          cidadeAgencia,
-          agencia,
+          transportadora: String(localEntrega.transportadoraNome || '').trim(),
           cliente,
           nomeCaixas: String(etiquetaVolumes.apelido || cliente).trim(),
-          numeroPedido: String(pedido?.numero || '').trim(),
-          excursao: String(localEntrega.transportadoraNome || '').trim(),
           cidadeCliente: formatarLocalidadeClienteExibicao(pedido?.cliente?.cidade, pedido?.cliente?.uf, ' / '),
-          quantidadeVolumes: quantidadeInformada ? Math.max(0, Math.trunc(quantidade)) : null
+          numeroPedido: String(pedido?.numero || '').trim(),
+          quantidadeVolumes: informada && Number.isFinite(quantidade) ? Math.max(0, Math.trunc(quantidade)) : null
         };
-      }).sort((a, b) => (
-        compararTextoRomaneio(a.cidadeAgencia, b.cidadeAgencia)
-        || compararTextoRomaneio(a.agencia, b.agencia)
+      }).sort((a,b) => (
+        compararTextoRomaneio(a.transportadora, b.transportadora)
         || compararTextoRomaneio(a.cliente, b.cliente)
         || compararTextoRomaneio(a.numeroPedido, b.numeroPedido)
-        || compararTextoRomaneio(a.excursao, b.excursao)
-        || compararTextoRomaneio(a.cidadeCliente, b.cidadeCliente)
       ));
     }
 
-    function valorRomaneioHtml(value, rotuloVazio = 'NÃO INFORMADO') {
-      const texto = String(value || '').trim();
-      return texto
-        ? escapeHtml(texto)
-        : `<span class="romaneio-sem-dado">${escapeHtml(rotuloVazio)}</span>`;
-    }
-
-    function textoRomaneioWhatsappValor(value, fallback = 'NÃO INFORMADO') {
-      const texto = String(value ?? '').trim();
-      return texto || fallback;
-    }
-
     function formatarCargaRomaneioWhatsapp(quantidade) {
-      if (quantidade === null || quantidade === undefined || quantidade === '' || !Number.isFinite(Number(quantidade))) {
+      if (quantidade === null || quantidade === undefined || !Number.isFinite(Number(quantidade))) {
         return 'NÃO INFORMADA';
       }
-
       const total = Math.max(0, Math.trunc(Number(quantidade)));
-      const numero = String(total).padStart(3, '0');
-      return `${numero} ${total === 1 ? 'CAIXA' : 'CAIXAS'}`;
+      return `${String(total).padStart(3, '0')} ${total === 1 ? 'VOLUME' : 'VOLUMES'}`;
     }
 
-    function formatarDestinoRomaneioWhatsapp(linha) {
-      const agencia = String(linha?.agencia || '').trim();
-      const cidadeAgencia = String(linha?.cidadeAgencia || '').trim();
-
-      if (agencia && cidadeAgencia) {
-        return `${agencia} - ${cidadeAgencia}`;
-      }
-      return agencia || cidadeAgencia || 'NÃO INFORMADO';
+    function construirTextoRomaneioWhatsapp(linhas, transportadora) {
+      if (!linhas.length) return '';
+      const carrada = estado.matriz?.carrada || {};
+      const totalConhecido = linhas.reduce((soma, linha) => soma + (linha.quantidadeVolumes ?? 0), 0);
+      const semVolumes = linhas.filter((linha) => linha.quantidadeVolumes === null).length;
+      return [
+        `*ROMANEIO DA CARRADA ${carrada.codigo || CODIGO_CARRADA}*`,
+        `*TRANSPORTADORA:* ${transportadora}`,
+        '',
+        ...linhas.flatMap((linha, indice) => [
+          `*NOME DO CLIENTE:* ${linha.cliente || 'NÃO INFORMADO'}`,
+          `*CIDADE:* ${linha.cidadeCliente || 'NÃO INFORMADA'}`,
+          `*QUANTIDADE DE VOLUMES:* ${formatarCargaRomaneioWhatsapp(linha.quantidadeVolumes)}`,
+          ...(indice < linhas.length - 1 ? ['------------------------------'] : [])
+        ]),
+        '',
+        `*TOTAL DE PEDIDOS:* ${linhas.length}`,
+        `*TOTAL DE VOLUMES${semVolumes ? ' INFORMADOS' : ''}:* ${totalConhecido}`,
+        ...(semVolumes ? [`*ATENÇÃO:* ${semVolumes} pedido(s) sem quantidade de volumes informada.`] : [])
+      ].join('\n');
     }
 
-    function construirTextoRomaneioWhatsapp(linhas = construirLinhasRomaneioEntrega()) {
-      if (!Array.isArray(linhas) || !linhas.length) {
-        return '';
+    function preencherTransportadorasRomaneio(linhas) {
+      const nomes = new Map();
+      linhas.forEach(({ transportadora }) => {
+        const nome = String(transportadora || '').trim();
+        if (nome) {
+          const chave = nome.toLocaleLowerCase('pt-BR');
+          if (!nomes.has(chave)) nomes.set(chave, nome);
+        }
+      });
+      const lista = [...nomes.values()].sort(compararTextoRomaneio);
+      const semTransportadora = linhas.some((linha) => !linha.transportadora);
+      el.selectRomaneioTransportadora.innerHTML = [
+        '<option value="">Selecione uma transportadora</option>',
+        ...lista.map((nome) => `<option value="${escapeHtml(nome)}">${escapeHtml(nome)}</option>`),
+        ...(semTransportadora ? ['<option value="__SEM_TRANSPORTADORA__">SEM TRANSPORTADORA INFORMADA</option>'] : [])
+      ].join('');
+      el.selectRomaneioTransportadora.disabled = !linhas.length;
+      el.btnFiltrarRomaneioTransportadora.disabled = !linhas.length;
+      return lista.length + Number(semTransportadora);
+    }
+
+    function filtrarPedidosRomaneioPorTransportadora() {
+      const selecionada = String(el.selectRomaneioTransportadora.value || '');
+      if (!selecionada) {
+        el.romaneioEntregaResumo.textContent = 'Selecione uma transportadora para filtrar.';
+        el.textareaRomaneioWhatsapp.value = '';
+        el.btnCopiarRomaneioWhatsapp.disabled = true;
+        el.btnBaixarRomaneioTxt.disabled = true;
+        return;
       }
-
-      const separador = '////////////////////////////////////////';
-
-      return linhas.map((linha) => [
-        `*NOME NAS CAIXAS:* ${textoRomaneioWhatsappValor(linha.nomeCaixas)}`,
-        `*CARGA:* ${formatarCargaRomaneioWhatsapp(linha.quantidadeVolumes)}`,
-        `*EXCURSÃO:* ${textoRomaneioWhatsappValor(linha.excursao)}`,
-        `*CIDADE:* ${textoRomaneioWhatsappValor(linha.cidadeCliente)}`,
-        `*ENTREGAR NO:* ${formatarDestinoRomaneioWhatsapp(linha)}`
-      ].join('\n')).join(`\n${separador}\n`);
+      const linhas = construirLinhasRomaneioEntrega().filter((linha) => (
+        selecionada === '__SEM_TRANSPORTADORA__'
+          ? !linha.transportadora
+          : linha.transportadora.localeCompare(selecionada, 'pt-BR', { sensitivity: 'base' }) === 0
+      ));
+      const nome = selecionada === '__SEM_TRANSPORTADORA__'
+        ? 'SEM TRANSPORTADORA INFORMADA' : selecionada;
+      const volumesInformados = linhas.reduce((soma, linha) => soma + (linha.quantidadeVolumes ?? 0), 0);
+      const volumesPendentes = linhas.filter((linha) => linha.quantidadeVolumes === null).length;
+      el.romaneioEntregaResumo.innerHTML = [
+        `<span><strong>${linhas.length}</strong> pedido(s)</span>`,
+        `<span><strong>${volumesInformados}</strong> volume(s) informado(s)</span>`,
+        ...(volumesPendentes ? [`<span><strong>${volumesPendentes}</strong> pedido(s) com volumes pendentes</span>`] : [])
+      ].join('<span>•</span>');
+      el.textareaRomaneioWhatsapp.value = construirTextoRomaneioWhatsapp(linhas, nome);
+      el.btnCopiarRomaneioWhatsapp.disabled = !linhas.length;
+      el.btnBaixarRomaneioTxt.disabled = !linhas.length;
+      if (!linhas.length) el.romaneioEntregaResumo.textContent = 'Nenhum pedido encontrado para esta transportadora.';
     }
 
     async function copiarRomaneioWhatsapp() {
       const texto = String(el.textareaRomaneioWhatsapp?.value || '');
-      if (!texto) {
-        window.alert('Não há pedidos no romaneio para copiar.');
-        return;
-      }
-
+      if (!texto) return;
       try {
         await navigator.clipboard.writeText(texto);
       } catch (_) {
@@ -3258,7 +3220,6 @@
           return;
         }
       }
-
       const textoOriginal = el.btnCopiarRomaneioWhatsapp.textContent;
       el.btnCopiarRomaneioWhatsapp.textContent = 'Copiado';
       window.setTimeout(() => {
@@ -3268,16 +3229,14 @@
 
     function baixarRomaneioTxt() {
       const texto = String(el.textareaRomaneioWhatsapp?.value || '');
-      if (!texto) {
-        window.alert('Não há pedidos no romaneio para gerar o TXT.');
-        return;
-      }
-
+      if (!texto) return;
       const blob = new Blob([texto], { type: 'text/plain;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `romaneio-carrada-${CODIGO_CARRADA}.txt`;
+      const transportadora = String(el.selectRomaneioTransportadora?.value || 'transportadora')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9-]+/g, '-').replace(/^-|-$/g, '').toLowerCase();
+      link.download = `romaneio-carrada-${CODIGO_CARRADA}-${transportadora}.txt`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -3287,75 +3246,18 @@
     function abrirRomaneioEntrega() {
       const linhas = construirLinhasRomaneioEntrega();
       const carrada = estado.matriz?.carrada || {};
-      const cidades = new Set(linhas.map((item) => item.cidadeAgencia).filter(Boolean));
-      const agencias = new Set(linhas
-        .filter((item) => item.agencia)
-        .map((item) => `${item.cidadeAgencia}||${item.agencia}`));
-      const semAgencia = linhas.filter((item) => !item.agencia || !item.cidadeAgencia).length;
-
       el.modalRomaneioEntregaSubtitulo.textContent = [
         `Carrada ${carrada.codigo || CODIGO_CARRADA}`,
         carrada.data ? formatarData(carrada.data) : '',
         carrada.descricao || ''
       ].filter(Boolean).join(' • ');
-
-      el.romaneioEntregaResumo.innerHTML = [
-        `<span><strong>${linhas.length}</strong> pedido(s)</span>`,
-        `<span><strong>${cidades.size}</strong> cidade(s) de agência</span>`,
-        `<span><strong>${agencias.size}</strong> agência(s)</span>`,
-        semAgencia ? `<span class="romaneio-sem-dado"><strong>${semAgencia}</strong> pedido(s) com agência ou cidade da agência incompleta</span>` : ''
-      ].filter(Boolean).join('<span>•</span>');
-
-      if (el.textareaRomaneioWhatsapp) {
-        el.textareaRomaneioWhatsapp.value = construirTextoRomaneioWhatsapp(linhas);
-      }
-
-      if (!linhas.length) {
-        el.tbodyRomaneioEntrega.innerHTML = '<tr><td colspan="6" class="empty">Nenhum pedido encontrado nesta carrada.</td></tr>';
-        abrirModal(el.modalRomaneioEntregaBackdrop);
-        return;
-      }
-
-      let cidadeAnterior = null;
-      let agenciaAnterior = null;
-      const html = [];
-
-      linhas.forEach((linha) => {
-        const chaveCidade = linha.cidadeAgencia || '__SEM_CIDADE__';
-        const chaveAgencia = linha.agencia || '__SEM_AGENCIA__';
-
-        if (chaveCidade !== cidadeAnterior) {
-          cidadeAnterior = chaveCidade;
-          agenciaAnterior = null;
-          html.push(`
-            <tr class="romaneio-cidade-grupo">
-              <td colspan="6">CIDADE DA AGÊNCIA: ${valorRomaneioHtml(linha.cidadeAgencia, 'CIDADE NÃO INFORMADA')}</td>
-            </tr>
-          `);
-        }
-
-        if (chaveAgencia !== agenciaAnterior) {
-          agenciaAnterior = chaveAgencia;
-          html.push(`
-            <tr class="romaneio-agencia-grupo">
-              <td colspan="6">AGÊNCIA: ${valorRomaneioHtml(linha.agencia, 'AGÊNCIA NÃO INFORMADA')}</td>
-            </tr>
-          `);
-        }
-
-        html.push(`
-          <tr>
-            <td>${valorRomaneioHtml(linha.cidadeAgencia, '—')}</td>
-            <td>${valorRomaneioHtml(linha.agencia, '—')}</td>
-            <td><strong>${valorRomaneioHtml(linha.cliente, '—')}</strong></td>
-            <td>${valorRomaneioHtml(linha.numeroPedido, '—')}</td>
-            <td>${valorRomaneioHtml(linha.excursao, '—')}</td>
-            <td>${valorRomaneioHtml(linha.cidadeCliente, '—')}</td>
-          </tr>
-        `);
-      });
-
-      el.tbodyRomaneioEntrega.innerHTML = html.join('');
+      const totalTransportadoras = preencherTransportadorasRomaneio(linhas);
+      el.romaneioEntregaResumo.textContent = linhas.length
+        ? `${totalTransportadoras} opção(ões) de transportadora. Selecione uma e clique em Filtrar pedidos.`
+        : 'Nenhum pedido encontrado nesta carrada.';
+      el.textareaRomaneioWhatsapp.value = '';
+      el.btnCopiarRomaneioWhatsapp.disabled = true;
+      el.btnBaixarRomaneioTxt.disabled = true;
       abrirModal(el.modalRomaneioEntregaBackdrop);
     }
 
@@ -5172,6 +5074,13 @@
     el.selectCarradaDestino.addEventListener('change', atualizarBotaoSalvarCarrada);
     el.btnRecarregar.addEventListener('click', carregarMatriz);
     el.btnRomaneioEntrega.addEventListener('click', abrirRomaneioEntrega);
+    el.btnFiltrarRomaneioTransportadora.addEventListener('click', filtrarPedidosRomaneioPorTransportadora);
+    el.selectRomaneioTransportadora.addEventListener('change', () => {
+      el.textareaRomaneioWhatsapp.value = '';
+      el.romaneioEntregaResumo.textContent = 'Clique em Filtrar pedidos para gerar o resumo da transportadora selecionada.';
+      el.btnCopiarRomaneioWhatsapp.disabled = true;
+      el.btnBaixarRomaneioTxt.disabled = true;
+    });
     el.btnCopiarRomaneioWhatsapp?.addEventListener('click', copiarRomaneioWhatsapp);
     el.btnBaixarRomaneioTxt?.addEventListener('click', baixarRomaneioTxt);
     el.btnEnviarWhatsappCarrada.addEventListener('click', abrirModalWhatsappCarrada);
