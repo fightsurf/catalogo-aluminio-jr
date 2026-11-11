@@ -114,3 +114,42 @@ test('expande TMP para tampa somente na apresentação, sem alterar demais nomes
   assert.equal(p.itens[0].descricao, 'TMP DE PRESSÃO 4,5 L');
   assert.equal(p.itens[1].descricao, 'Kit TMP-20 CM');
 });
+
+test('CRAQ e TMP são expandidos apenas como abreviações isoladas no pitch', async () => {
+  const p = pedido([
+    [1, 'TMP CRAQ 24 CM', 2, 25],
+    [2, 'CRAQ-30 CM', 1, 30],
+    [3, 'ACRAQADO', 1, 20]
+  ]);
+  const {servico} = carregar(p);
+  const dados = await servico.gerarResumo('123', 'orcamento');
+  assert.match(dados.texto, /2 unidades de tampa craqueado 24 CM/);
+  assert.match(dados.texto, /1 unidade de craqueado-30 CM/);
+  assert.match(dados.texto, /1 unidade de ACRAQADO/);
+  assert.equal(p.itens[0].descricao, 'TMP CRAQ 24 CM');
+  assert.equal(p.itens[1].descricao, 'CRAQ-30 CM');
+});
+
+test('previsão contextualizada usa a semana local do Brasil e dias reais', () => {
+  const {servico} = carregar(pedido([]));
+  const agora = new Date('2026-11-11T20:00:00Z'); // 17h no horário de Brasília.
+  assert.equal(servico.previsaoFalavel('2026-11-15', agora), '15/11/2026, domingo desta semana');
+  assert.equal(servico.previsaoFalavel('2026-11-20', agora), '20/11/2026, sexta-feira da semana que vem');
+  assert.equal(servico.previsaoFalavel('2026-11-29', agora), '29/11/2026, domingo, daqui a 18 dias');
+  assert.equal(servico.previsaoFalavel('2026-11-08', agora), '08/11/2026, domingo');
+  assert.equal(servico.previsaoFalavel('2026-02-30', agora), '');
+  // Na virada de data UTC, ainda é 11/11 em São Paulo.
+  assert.equal(servico.previsaoFalavel('2026-11-12', new Date('2026-11-12T01:00:00Z')), '12/11/2026, quinta-feira desta semana');
+});
+
+test('pitch sempre termina com mensagem fixa sobre fotos inclusive sem previsão', async () => {
+  const frase = 'Vou enviar as fotos de todos os itens do seu pedido agora. Um momento.';
+  const comCarrada = carregar(pedido([[1, 'TMP CRAQ', 1, 30]]));
+  const dados = await comCarrada.servico.gerarResumo('123', 'orcamento');
+  assert.ok(dados.texto.endsWith(frase));
+  assert.match(dados.texto, /previsão de finalização do pedido é para o dia 15\/11\/2026, domingo/);
+  const semCarrada = carregar(pedido([[1, 'TMP', 1, 30]], null));
+  const semPrevisao = await semCarrada.servico.gerarResumo('123', 'orcamento');
+  assert.ok(semPrevisao.texto.endsWith(frase));
+  assert.match(semPrevisao.texto, /previsão de finalização ainda não foi informada/);
+});
