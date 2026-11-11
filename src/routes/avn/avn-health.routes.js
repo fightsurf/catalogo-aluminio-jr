@@ -66,6 +66,27 @@ async function importar(req,res){
   await client.query('COMMIT');res.json({ok:true,recebidos:clean.length+sessions.length,inseridos:inserted,atualizados:updated,sincronizacao_id:sync.rows[0].id});
  }catch(e){if(client)await client.query('ROLLBACK').catch(()=>{});err(res,e);}finally{if(client)client.release();}
 }
+// Histórico de sono: protegido pelo requireAuth do router administrativo em server.js.
+router.get('/usuarios/:usuarioId/sono', async(req,res)=>{
+ try {
+  if (!isId(req.params.usuarioId)) throw bad('Usuário inválido.');
+  if (!await userExists(req.params.usuarioId)) return res.status(404).json({erro:'Usuário não encontrado.'});
+  const dias=Math.max(1,Math.min(3650,Number(req.query.dias)||90));
+  const found=await pool.query(
+   "SELECT id,inicio,fim,duracao_min,pontuacao,sessoes_quantidade,origem FROM public.avn_sono_sessoes WHERE usuario_id=$1 AND inicio>=NOW()-($2::int*INTERVAL '1 day') ORDER BY inicio DESC LIMIT 1500",
+   [req.params.usuarioId,dias]
+  );
+  const ids=found.rows.map(x=>x.id);
+  const stages=ids.length ? (await pool.query(
+   'SELECT sessao_id,posicao,tipo,inicio,fim FROM public.avn_sono_estagios WHERE sessao_id=ANY($1::bigint[]) ORDER BY sessao_id,posicao',
+   [ids]
+  )).rows : [];
+  const byId=new Map();
+  for(const x of stages){const id=String(x.sessao_id);if(!byId.has(id))byId.set(id,[]);byId.get(id).push({tipo:x.tipo,inicio:x.inicio,fim:x.fim});}
+  res.set('Cache-Control','no-store').json({dias,noites:found.rows.map(x=>({inicio:x.inicio,fim:x.fim,duracao_min:x.duracao_min,pontuacao:x.pontuacao,sessoes_quantidade:x.sessoes_quantidade,origem:x.origem,estagios:byId.get(String(x.id))||[]}))});
+ }catch(e){err(res,e);}
+});
+
 router.post('/usuarios/:usuarioId/importar', importar);
 module.exports=router;
 module.exports.importar=importar;
