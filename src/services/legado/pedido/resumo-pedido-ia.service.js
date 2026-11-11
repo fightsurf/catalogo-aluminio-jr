@@ -15,6 +15,29 @@ function dataBR(data){
   const d=new Date(Date.UTC(+m[1],+m[2]-1,+m[3],12));
   return !Number.isNaN(d.getTime())&&d.toISOString().slice(0,10)===m[0]?m[3]+'/'+m[2]+'/'+m[1]:'';
 }
+// Calcula a referência temporal no fuso do negócio, sem depender do fuso do servidor.
+function previsaoFalavel(data, agora = new Date()) {
+  const m = String(data || '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  const dataFormatada = dataBR(data);
+  if (!m || !dataFormatada) return '';
+  const milissegundosDia = 86400000;
+  const dataAlvo = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const partes = new Intl.DateTimeFormat('pt-BR', {
+    timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).formatToParts(agora);
+  const valor = tipo => Number(partes.find(p => p.type === tipo)?.value);
+  const hoje = Date.UTC(valor('year'), valor('month') - 1, valor('day'));
+  const dias = Math.round((dataAlvo - hoje) / milissegundosDia);
+  const diaSemana = new Date(dataAlvo).getUTCDay();
+  const nome = ['domingo','segunda-feira','terça-feira','quarta-feira','quinta-feira','sexta-feira','sábado'][diaSemana];
+  const inicioSemana = data => data - ((new Date(data).getUTCDay() + 6) % 7) * milissegundosDia;
+  const diferencaSemanas = (inicioSemana(dataAlvo) - inicioSemana(hoje)) / milissegundosDia;
+  let referencia = '';
+  if (dias >= 0 && diferencaSemanas === 0) referencia = ' desta semana';
+  else if (dias >= 0 && diferencaSemanas === 7) referencia = ' da semana que vem';
+  else if (dias > 0) referencia = ', daqui a ' + dias + ' dias';
+  return dataFormatada + ', ' + nome + referencia;
+}
 function juntar(n){
   return n.length<=2?n.join(' e '):n.slice(0,-1).join(', ')+' e '+n[n.length-1];
 }
@@ -46,7 +69,7 @@ function quantidadeFalavel(item) {
   const valor = Number(item.quantidade);
   const numero = valor.toLocaleString('pt-BR', {maximumFractionDigits: 2});
   return numero + (valor === 1 ? ' unidade de ' : ' unidades de ')
-    + String(item.descricao || '').trim().replace(/\bTMP\b/gi, 'tampa').slice(0, 100);
+    + String(item.descricao || '').trim().replace(/\bTMP\b/gi, 'tampa').replace(/\bCRAQ\b/gi, 'craqueado').slice(0, 100);
 }
 async function chamarIA(itens,tipo,contexto){
   const chave=String(process.env.OPENAI_API_KEY||'').trim();
@@ -92,7 +115,8 @@ async function gerarResumo(id,tipoSolicitado='automatico'){
       ? 'Seu Kit Feirinha ficou muito bom! Destaque para ' + juntar(nomes) + '. O preço médio por peça ficou em ' + moeda(total / quantidade) + '.'
       : 'Destaque para ' + juntar(nomes) + '.',
     'O valor total do pedido é ' + moeda(total) + '.',
-    previsao ? 'A previsão de finalização é para o dia ' + previsao + '.' : 'A previsão de finalização ainda não foi informada.'
+    previsao ? 'A previsão de finalização do pedido é para o dia ' + previsaoFalavel(carrada?.data) + '.' : 'A previsão de finalização ainda não foi informada.',
+    'Vou enviar as fotos de todos os itens do seu pedido agora. Um momento.'
   ].join(' ');
   if(texto.length>1000)throw erro('O texto ultrapassou o limite de áudio.',422);
   return {texto,cliente,pedidoNumero:pedido.numero,telefone:pedido.cliente?.telefonePrincipal||'',
@@ -100,4 +124,4 @@ async function gerarResumo(id,tipoSolicitado='automatico'){
     dataPrevisao:previsao||null,produtosDestacados:nomes,
     observacao:previsao?null:'Sem data de carrada cadastrada; a previsão não foi inventada.'};
 }
-module.exports={gerarResumo,detectarTipo,dataBR,prioridades};
+module.exports={gerarResumo,detectarTipo,dataBR,previsaoFalavel,prioridades};
