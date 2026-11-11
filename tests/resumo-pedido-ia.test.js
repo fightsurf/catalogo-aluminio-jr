@@ -97,3 +97,20 @@ test('resumo curto prioriza pressão e antiaderentes e fala quantidades exatas',
   assert.doesNotMatch(dados.texto,/tipos de produtos|agradece pela confiança|Obrigado pela confiança/i);
   assert.match(dados.texto,/03\/11\/2026/);
 });
+
+test('expande TMP para tampa somente na apresentação, sem alterar demais nomes', async () => {
+  const p = pedido([
+    [1, 'TMP DE PRESSÃO 4,5 L', 2, 25],
+    [2, 'Kit TMP-20 CM', 1, 30],
+    [3, 'ESTAMPADA', 1, 20]
+  ]);
+  const {servico} = carregar(p);
+  const dados = await servico.gerarResumo('123','orcamento');
+  assert.match(dados.texto, /2 unidades de tampa DE PRESSÃO 4,5 L/);
+  assert.match(dados.texto, /1 unidade de Kit tampa-20 CM/);
+  assert.match(dados.texto, /1 unidade de ESTAMPADA/);
+  assert.doesNotMatch(dados.texto, /\\bTMP\\b/);
+  assert.ok(dados.produtosDestacados.some(nome => nome.includes('tampa DE PRESSÃO')));
+  assert.equal(p.itens[0].descricao, 'TMP DE PRESSÃO 4,5 L');
+  assert.equal(p.itens[1].descricao, 'Kit TMP-20 CM');
+});
