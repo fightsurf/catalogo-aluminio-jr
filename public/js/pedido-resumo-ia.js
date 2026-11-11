@@ -31,6 +31,8 @@
     const player = $('resumoIaPlayer');
     if (player) { player.pause(); player.removeAttribute('src'); player.hidden = true; }
     if ($('resumoIaEnviar')) $('resumoIaEnviar').disabled = true;
+    // A geração anterior foi invalidada: não deixe o botão de áudio travado.
+    if ($('resumoIaAudio')) $('resumoIaAudio').disabled = false;
   }
   function montar() {
     if (modal) return;
@@ -218,9 +220,9 @@
   async function gerarAudio() {
     const texto = $('resumoIaTexto').value.trim();
     if (!texto || texto.length>1000) return mostrarStatus('O texto precisa ter entre 1 e 1000 caracteres.',true);
-    const btn = $('resumoIaAudio'); btn.disabled = true;
     limparAudio();
     const versao = versaoAudio;
+    const btn = $('resumoIaAudio'); btn.disabled = true;
     mostrarStatus('Carregando configuração de voz...');
     try {
       const config = await carregarPreferencias();
