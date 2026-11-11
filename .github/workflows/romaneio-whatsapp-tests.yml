@@ -1,0 +1,31 @@
+name: Testes de WhatsApp do romaneio
+on:
+  push:
+    paths:
+      - 'views/legado/carradas/carradas-progresso.html'
+      - 'src/services/legado/carradas-progresso/carradas-progresso.service.js'
+      - 'tests/romaneio-whatsapp-lote.test.js'
+      - '.github/workflows/romaneio-whatsapp-tests.yml'
+  pull_request:
+    paths:
+      - 'views/legado/carradas/carradas-progresso.html'
+      - 'src/services/legado/carradas-progresso/carradas-progresso.service.js'
+      - 'tests/romaneio-whatsapp-lote.test.js'
+      - '.github/workflows/romaneio-whatsapp-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  romaneio-whatsapp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validar sintaxe e testes de regressão
+        run: |
+          node --check src/services/legado/carradas-progresso/carradas-progresso.service.js
+          node --check tests/romaneio-whatsapp-lote.test.js
+          node --test tests/romaneio-whatsapp-lote.test.js
