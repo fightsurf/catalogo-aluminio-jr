@@ -18,7 +18,7 @@ const integer = (value,min,max,label,optional=false) => {
  if (!Number.isInteger(value) || value < min || value > max) throw bad(label+' inválido.');
  return value;
 };
-const validId = s => typeof s === 'string' && s.length >= 1 && s.length <= 240 && !/[\u0000-\u001f]/.test(s);
+const validId = s => typeof s === 'string' && s.trim().length >= 1 && s.length <= 240 && !/[\u0000-\u001f]/.test(s);
 function parseNight(value) {
  if (!value || typeof value !== 'object' || Array.isArray(value) || !validId(value.external_id)) throw bad('Identificador Samsung inválido.');
  const start=date(value.inicio), end=date(value.fim);
@@ -80,4 +80,6 @@ router.get('/', handler(async(req,res)=>{
  const stages=ids.length ? (await pool.query('SELECT sessao_id,tipo,inicio,fim FROM public.avn_sono_estagios WHERE sessao_id=ANY($1::bigint[]) ORDER BY sessao_id,posicao',[ids])).rows : [];
  return res.set('Cache-Control','no-store').json({noites:result.rows.map(n=>({...n,estagios:stages.filter(s=>String(s.sessao_id)===String(n.id)).map(s=>({tipo:s.tipo,inicio:s.inicio,fim:s.fim}))}))});
 }));
+// Exportado apenas para testes unitários sem acesso ao banco. Não é rota HTTP.
+router._parseNight = parseNight;
 module.exports=router;
