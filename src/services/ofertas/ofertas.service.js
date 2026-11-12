@@ -211,19 +211,46 @@ async function listar(filtros = {}) {
   await schemaService.criarEstrutura();
 
   const precoMedioInformado = String(filtros.preco_medio ?? '').trim();
-  let result;
+  const dataPublicacao = String(filtros.data_publicacao ?? '').trim();
+  if (dataPublicacao && !/^\d{4}-\d{2}-\d{2}$/.test(dataPublicacao)) {
+    throw new Error('Data de publicação inválida.');
+  }
+  const parametros = [];
+  const condicoes = [];
+  let filtroDataHistorico = 'NULL::timestamptz AS publicacao_na_data_em';
+
+  if (dataPublicacao) {
+    parametros.push(dataPublicacao);
+    filtroDataHistorico = `MAX(h.publicado_em) FILTER (
+      WHERE (h.publicado_em AT TIME ZONE 'America/Fortaleza')::date = $${parametros.length}::date
+    ) AS publicacao_na_data_em`;
+    condicoes.push('pubs.publicacao_na_data_em IS NOT NULL');
+  }
+
   if (precoMedioInformado) {
     const precoMedio = numeroPositivo(precoMedioInformado.replace(',', '.'), 'Preço médio');
-    result = await pool.query(
-      `SELECT * FROM ofertas
-       WHERE ABS(preco_medio - $1::numeric) < 0.005
-       ORDER BY created_at DESC
-       LIMIT 100`,
-      [precoMedio]
-    );
-  } else {
-    result = await pool.query('SELECT * FROM ofertas ORDER BY created_at DESC LIMIT 100');
+    parametros.push(precoMedio);
+    condicoes.push(`ABS(o.preco_medio - $${parametros.length}::numeric) < 0.005`);
   }
+
+  const whereSql = condicoes.length ? `WHERE ${condicoes.join(' AND ')}` : '';
+  const limiteSql = dataPublicacao ? '' : 'LIMIT 100';
+  const result = await pool.query(
+    `SELECT o.*, pubs.ultima_publicacao_em, pubs.total_publicacoes, pubs.publicacao_na_data_em
+     FROM ofertas o
+     LEFT JOIN LATERAL (
+       SELECT MAX(h.publicado_em) AS ultima_publicacao_em,
+              COUNT(*)::integer AS total_publicacoes,
+              ${filtroDataHistorico}
+       FROM ofertas_publicacoes_historico h
+       WHERE h.oferta_id = o.id
+     ) pubs ON TRUE
+     ${whereSql}
+     ORDER BY COALESCE(pubs.publicacao_na_data_em, pubs.ultima_publicacao_em,
+                       o.publicado_em, o.created_at) DESC, o.id DESC
+     ${limiteSql}`,
+    parametros
+  );
   const mapaProdutos = await carregarMapaProdutosAtuais();
 
   return Promise.all(result.rows.map(async row => {
