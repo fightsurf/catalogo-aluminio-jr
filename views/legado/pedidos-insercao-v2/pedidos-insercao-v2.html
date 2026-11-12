@@ -23,7 +23,12 @@
     .acao-principal { background: #111827; color: #fff; }
     .secundario { background: #e5e7eb; color: #111827; }
     .lista-busca { display: flex; flex-direction: column; gap: 8px; max-height: 320px; overflow-y: auto; }
-    .linha-busca { text-align: left; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; cursor: pointer; }
+    .linha-cliente { display: flex; align-items: center; gap: 10px; min-width: 0; }
+    .linha-busca { flex: 1; min-width: 0; text-align: left; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; cursor: pointer; }
+    .linha-busca strong, .linha-busca small { display: block; overflow-wrap: anywhere; }
+    .linha-busca small { margin-top: 4px; color: #6b7280; }
+    .link-alterar-cliente { flex: 0 0 auto; color: #1d4ed8; font-size: 12px; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+    .link-alterar-cliente:hover { color: #1e40af; }
     .linha-busca:hover { background: #eff6ff; border-color: #bfdbfe; }
     .selecionado { margin-top: 12px; padding: 12px; border-radius: 10px; background: #ecfdf5; border: 1px solid #a7f3d0; }
     .acao-cliente { margin-top: 10px; width: 100%; }
@@ -273,6 +278,8 @@
     let itensPedido = [];
     let sequenciaGrupoKit = 0;
     let timerBuscaProduto = null;
+    let timerBuscaCliente = null;
+    let sequenciaBuscaCliente = 0;
     let salvando = false;
     let envioFotosEmAndamento = false;
     let carradasDisponiveis = [];
@@ -454,12 +461,22 @@
         return;
       }
 
-      listaClientes.innerHTML = clientes.map((cliente) => `
-        <button type="button" class="linha-busca" data-favorecido="${cliente.favorecido}">
-          <strong>${cliente.nome || 'Sem nome'}</strong>
-          <small>${cliente.cidade || '-'}${cliente.uf ? `/${cliente.uf}` : ''}</small>
-        </button>
-      `).join('');
+      listaClientes.innerHTML = clientes.map((cliente) => {
+        const favorecido = String(cliente.favorecido ?? '').trim();
+        const idValido = /^\d+$/.test(favorecido) && Number.isSafeInteger(Number(favorecido)) && Number(favorecido) > 0;
+        const nome = escapeHtml(cliente.nome || 'Sem nome');
+        const cidade = escapeHtml(cliente.cidade || '-');
+        const uf = cliente.uf ? `/${escapeHtml(cliente.uf)}` : '';
+        return `
+          <div class="linha-cliente">
+            <button type="button" class="linha-busca" data-favorecido="${escapeHtml(favorecido)}">
+              <strong>${nome}</strong>
+              <small>${cidade}${uf}</small>
+            </button>
+            ${idValido ? `<a class="link-alterar-cliente" href="/legado/clientes?editar=${encodeURIComponent(favorecido)}" target="_blank" rel="noopener noreferrer" aria-label="Alterar cliente ${nome}">Alterar cliente</a>` : ''}
+          </div>
+        `;
+      }).join('');
 
       listaClientes.querySelectorAll('[data-favorecido]').forEach((botao) => {
         botao.addEventListener('click', () => {
@@ -970,8 +987,11 @@
 
     async function carregarClientes() {
       const termo = buscaCliente.value.trim();
+      const sequencia = ++sequenciaBuscaCliente;
 
       if (termo.length < 2) {
+        clientes = [];
+        listaClientes.innerHTML = '';
         setMensagem('Digite ao menos 2 letras para buscar o cliente.', true);
         return;
       }
@@ -980,10 +1000,12 @@
         setMensagem('Buscando clientes...');
         const response = await fetch(`/api/legado/clientes?nome=${encodeURIComponent(termo)}&limite=20`);
         const json = await lerJson(response);
+        if (sequencia !== sequenciaBuscaCliente) return;
         clientes = Array.isArray(json?.dados) ? json.dados : [];
         renderClientes();
         setMensagem(clientes.length ? '' : 'Nenhum cliente encontrado para esse filtro.', !clientes.length);
       } catch (error) {
+        if (sequencia !== sequenciaBuscaCliente) return;
         setMensagem(error.message, true);
       }
     }
@@ -1663,6 +1685,8 @@ setMensagem([
       itensPedido = [];
       clienteSelecionado = null;
       clientes = [];
+      clearTimeout(timerBuscaCliente);
+      ++sequenciaBuscaCliente;
       buscaCliente.value = '';
       listaClientes.innerHTML = '';
       renderClienteSelecionado();
@@ -1693,8 +1717,15 @@ setMensagem([
       if (event.key === 'Escape') fecharPerfilCompras();
     });
 
-    btnBuscarCliente.addEventListener('click', carregarClientes);
+    function executarBuscaClientes() {
+      clearTimeout(timerBuscaCliente);
+      carregarClientes();
+    }
+
+    btnBuscarCliente.addEventListener('click', executarBuscaClientes);
     btnLimparCliente.addEventListener('click', () => {
+      clearTimeout(timerBuscaCliente);
+      ++sequenciaBuscaCliente;
       clientes = [];
       clienteSelecionado = null;
       buscaCliente.value = '';
@@ -1703,9 +1734,22 @@ setMensagem([
       setMensagem('');
     });
 
+    buscaCliente.addEventListener('input', () => {
+      clearTimeout(timerBuscaCliente);
+      ++sequenciaBuscaCliente;
+      if (buscaCliente.value.trim().length < 2) {
+        clientes = [];
+        listaClientes.innerHTML = '';
+        setMensagem('');
+        return;
+      }
+      timerBuscaCliente = setTimeout(carregarClientes, 300);
+    });
+
     buscaCliente.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
-        carregarClientes();
+        event.preventDefault();
+        executarBuscaClientes();
       }
     });
 
