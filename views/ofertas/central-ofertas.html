@@ -154,6 +154,10 @@
       <label for="pesquisaPrecoMedio">Pesquisar pelo preço médio do kit</label>
       <input id="pesquisaPrecoMedio" type="text" inputmode="decimal" placeholder="Ex.: 25,90">
     </div>
+    <div class="campo">
+      <label for="pesquisaDataPublicacao">Data de publicação</label>
+      <input id="pesquisaDataPublicacao" type="date">
+    </div>
     <button id="pesquisarPrecoMedio" class="azul" type="button">Pesquisar kit</button>
     <button id="limparPesquisa" class="sec oculto" type="button">Mostrar recentes</button>
   </div>
@@ -285,6 +289,7 @@ const el = {
   limparR2: document.querySelector('#limparR2'),
   colunaLateral: document.querySelector('#colunaLateral'),
   pesquisaPrecoMedio: document.querySelector('#pesquisaPrecoMedio'),
+  pesquisaDataPublicacao: document.querySelector('#pesquisaDataPublicacao'),
   pesquisarPrecoMedio: document.querySelector('#pesquisarPrecoMedio'),
   limparPesquisa: document.querySelector('#limparPesquisa'),
   modalOferta: document.querySelector('#modalOferta'),
@@ -981,16 +986,37 @@ function problemaOferta(oferta) {
   return `<div class="oferta-problema">${escapeHtml((oferta.problemas || []).join(' '))}</div>`;
 }
 
-async function carregarHistorico(precoMedio = '') {
+function formatarDataHoraPublicacao(valor) {
+  if (!valor) return '';
+  const data = new Date(valor);
+  return Number.isNaN(data.getTime()) ? '' : data.toLocaleString('pt-BR', {
+    timeZone: 'America/Fortaleza', day: '2-digit', month: '2-digit',
+    year: 'numeric', hour: '2-digit', minute: '2-digit'
+  });
+}
+
+function resumoDatasPublicacao(oferta) {
+  const data = oferta.publicacao_na_data_em || oferta.ultima_publicacao_em || oferta.publicado_em;
+  const texto = formatarDataHoraPublicacao(data);
+  const total = Number(oferta.total_publicacoes || 0);
+  if (!texto) return 'Ainda não publicado';
+  return `Publicado em: ${texto}${total > 1 ? ` · ${total - 1} republicação(ões)` : ''}`;
+}
+
+async function carregarHistorico(precoMedio = el.pesquisaPrecoMedio.value.trim()) {
   try {
-    const parametro = precoMedio ? `?preco_medio=${encodeURIComponent(precoMedio)}` : '';
-    const lista = await api(`/api/ofertas${parametro}`);
+    const parametros = new URLSearchParams();
+    if (precoMedio) parametros.set('preco_medio', precoMedio);
+    if (el.pesquisaDataPublicacao.value) parametros.set('data_publicacao', el.pesquisaDataPublicacao.value);
+    const query = parametros.toString();
+    const lista = await api(`/api/ofertas${query ? '?' + query : ''}`);
     ofertasHistorico = new Map(lista.map(oferta => [Number(oferta.id), oferta]));
     el.historico.innerHTML = lista.length ? lista.map(oferta => `
       <article class="oferta">
         <div class="oferta-info">
           <button class="nome-oferta abrir-oferta" type="button" data-id="${oferta.id}">${escapeHtml(oferta.codigo)} — ${escapeHtml(oferta.titulo)}</button>
           <div class="oferta-meta">
+            <strong>${escapeHtml(resumoDatasPublicacao(oferta))}</strong><br>
             ${brl(oferta.total)} · médio ${brl(oferta.preco_medio)} · ${oferta.total_itens} peças<br>
             tema ${escapeHtml(temasConfig[oferta.tema_arte]?.nome || oferta.tema_arte || 'Claro premium')} ·
             ${oferta.visualizacoes} visualizações · ${oferta.cliques_whatsapp} cliques<br>
@@ -1003,7 +1029,7 @@ async function carregarHistorico(precoMedio = '') {
           <button class="azul visualizar" type="button" data-id="${oferta.id}" ${oferta.disponivel === false ? 'disabled' : ''}>Visualizar arte</button>
           <button class="sec duplicar" type="button" data-id="${oferta.id}" ${oferta.disponivel === false ? 'disabled' : ''}>Duplicar</button>
         </div>
-      </article>`).join('') : `<div class="vazio-historico">${precoMedio ? `Nenhum kit encontrado com preço médio de ${brl(String(precoMedio).replace(',', '.'))}.` : 'Nenhuma oferta criada.'}</div>`;
+      </article>`).join('') : `<div class="vazio-historico">${precoMedio || el.pesquisaDataPublicacao.value ? 'Nenhum kit publicado encontrado com os filtros informados.' : 'Nenhuma oferta criada.'}</div>`;
   } catch (error) {
     el.historico.textContent = error.message;
   }
@@ -1025,7 +1051,7 @@ function abrirModalOferta(id) {
       <div><b>${escapeHtml(item.nome)}</b><small>${item.quantidade} × ${brl(item.preco_unitario)}</small></div>
       <b>${brl(Number(item.quantidade) * Number(item.preco_unitario))}</b>
     </div>`).join('') || '<div class="selecionados-vazio">Nenhum item encontrado.</div>';
-  el.modalOfertaResumo.innerHTML = `<b>${oferta.total_itens} peças</b> · preço médio ${brl(oferta.preco_medio)} · total ${brl(oferta.total)}<br><small>${escapeHtml(resumoCanaisOferta(oferta))}</small>`;
+  el.modalOfertaResumo.innerHTML = `<b>${oferta.total_itens} peças</b> · preço médio ${brl(oferta.preco_medio)} · total ${brl(oferta.total)}<br><small>${escapeHtml(resumoDatasPublicacao(oferta))}<br>${escapeHtml(resumoCanaisOferta(oferta))}</small>`;
   el.modalTelefoneWhatsapp.value = '';
   el.modalOferta.classList.remove('oculto');
   document.body.style.overflow = 'hidden';
@@ -1081,18 +1107,22 @@ async function republicarOfertaModal() {
 
 async function pesquisarPorPrecoMedio() {
   const valor = el.pesquisaPrecoMedio.value.trim();
-  const numero = Number(valor.replace(',', '.'));
-  if (!Number.isFinite(numero) || numero <= 0) {
-    mostrarAviso('Informe um preço médio válido para pesquisar.', 'erro');
-    el.pesquisaPrecoMedio.focus();
-    return;
+  if (valor) {
+    const numero = Number(valor.replace(',', '.'));
+    if (!Number.isFinite(numero) || numero <= 0) {
+      mostrarAviso('Informe um preço médio válido para pesquisar.', 'erro');
+      el.pesquisaPrecoMedio.focus();
+      return;
+    }
   }
-  el.limparPesquisa.classList.remove('oculto');
+  const temFiltro = Boolean(valor || el.pesquisaDataPublicacao.value);
+  el.limparPesquisa.classList.toggle('oculto', !temFiltro);
   await carregarHistorico(valor);
 }
 
 async function limparPesquisaHistorico() {
   el.pesquisaPrecoMedio.value = '';
+  el.pesquisaDataPublicacao.value = '';
   el.limparPesquisa.classList.add('oculto');
   await carregarHistorico();
 }
@@ -1184,6 +1214,7 @@ el.limparR2.addEventListener('click', limparArtesR2);
 el.pesquisarPrecoMedio.addEventListener('click', pesquisarPorPrecoMedio);
 el.limparPesquisa.addEventListener('click', limparPesquisaHistorico);
 el.pesquisaPrecoMedio.addEventListener('keydown', event => { if (event.key === 'Enter') pesquisarPorPrecoMedio(); });
+el.pesquisaDataPublicacao.addEventListener('change', pesquisarPorPrecoMedio);
 el.fecharModalOferta.addEventListener('click', fecharModalOferta);
 el.modalEnviarWhatsapp.addEventListener('click', reenviarOfertaModal);
 el.modalPublicarStatus.addEventListener('click', republicarOfertaModal);

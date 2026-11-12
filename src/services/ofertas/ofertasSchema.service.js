@@ -91,6 +91,8 @@ async function criarEstrutura() {
     );
     CREATE INDEX IF NOT EXISTS idx_ofertas_publicacoes_assinatura
       ON ofertas_publicacoes_historico (assinatura, publicado_em DESC);
+    CREATE INDEX IF NOT EXISTS idx_ofertas_publicacoes_oferta_data
+      ON ofertas_publicacoes_historico (oferta_id, publicado_em DESC);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_ofertas_publicacoes_legado
       ON ofertas_publicacoes_historico (oferta_id) WHERE legado;
 
