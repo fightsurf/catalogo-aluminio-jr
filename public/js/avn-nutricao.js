@@ -602,11 +602,11 @@ function renderFoodList(){
  if(!has('listaAlimentos'))return;
  const q=($('buscaAlimento').value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
  const list=state.alimentos.filter(f=>(f.nome+' '+(f.preparo||'')+' '+(f.marca||'')).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().includes(q));
- const campos=[['Energia','kcal_100g','kcal'],['Carboidratos','carboidratos_g_100g','g'],['Gorduras','gorduras_g_100g','g']];
+ const campos=[['Energia','kcal_100g','kcal','calorias'],['Proteínas','proteinas_g_100g','g','proteinas'],['Carboidratos','carboidratos_g_100g','g','carboidratos'],['Gorduras','gorduras_g_100g','g','gorduras']];
  $('listaAlimentos').innerHTML=list.length?list.map(f=>{
   const faltantes=campos.filter(([,chave])=>nutrienteAusenteAlimento(f[chave])).map(([nome])=>nome);
   const incompleto=faltantes.length>0;
-  const resumo=campos.map(([nome,chave,unidade])=>'<span>'+nome+': <b>'+(nutrienteAusenteAlimento(f[chave])?'Sem dado':fmt(f[chave],1)+' '+unidade)+'</b></span>').join('');
+  const resumo=campos.map(([nome,chave,unidade,cor])=>'<span class="avn-nutriente avn-nutriente-'+cor+'"><b>'+nome+':</b> '+(nutrienteAusenteAlimento(f[chave])?'Sem dado':fmt(f[chave],1)+' '+unidade)+'</span>').join('');
   const detalhes=[f.preparo,f.marca].filter(Boolean).join(' · ');
   return '<div class="list-row avn-food-row'+(incompleto?' avn-food-incompleto':'')+'" data-food-id="'+esc(f.id)+'" tabindex="0" role="button" aria-label="Ver composição de '+esc(f.nome)+'">'+
    '<div class="avn-food-info"><span class="name">'+esc(f.nome)+'</span>'+
