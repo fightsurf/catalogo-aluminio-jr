@@ -210,3 +210,24 @@ test('perfil cardiovascular é aditivo e não presume ausência de fatores de ri
  for(const src of ['src/services/avn/avn-risco-cardiovascular.service.js','public/js/avn-exames.js','src/routes/avn/avn-exames.routes.js'])
   assert.doesNotThrow(()=>new Function(read(src)));
 });
+
+
+test('frações da hemoglobina glicada e glicemia estimada têm indicadores próprios',()=>{
+ const base=read('db/sql/20261027_avn_exames_laboratoriais.sql');
+ const sql=read('db/sql/20261112_avn_fracoes_hemoglobina_glicada.sql');
+ const migracao=read('src/services/avn/avn-migration.service.js');
+ assert.match(base,/\('hba1c','Hemoglobina glicada'/);
+ assert.ok(migracao.includes('20261112_avn_fracoes_hemoglobina_glicada.sql'));
+ for(const [codigo,nome,unidade] of [
+  ['hba1a','HbA1a','%'],['hba1b','HbA1b','%'],['hbf','HbF','%'],
+  ['hba1c_labil','HbA1c lábil','%'],['hba','HbA','%'],
+  ['glicemia_media_estimada','Glicemia média estimada','mg/dL']
+ ]){
+  const linha=sql.split('\n').find(l=>l.trimStart().startsWith("('"+codigo+"','"+nome+"'"));
+  assert.ok(linha, 'Indicador ausente: '+nome);
+  assert.ok(linha.includes("'Metabolismo','"+unidade+"','indicador'"), 'Unidade incorreta: '+nome);
+ }
+ assert.match(sql,/ON CONFLICT \(codigo\) DO NOTHING/);
+ assert.doesNotMatch(sql,/\bINSERT\s+INTO\s+(?:public\.)?avn_exames_resultados\b/i, 'Não importar resultados pessoais por migração');
+ assert.doesNotMatch(sql,/^\s*(DROP|TRUNCATE)\b/mi);
+});
