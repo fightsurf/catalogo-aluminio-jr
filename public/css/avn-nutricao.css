@@ -653,6 +653,13 @@ body[data-nutricao-pagina="diario"] #resumoDiario{
 body[data-nutricao-pagina="alimentos"] .avn-food-row .avn-food-info{min-width:0;flex:1}
 body[data-nutricao-pagina="alimentos"] .avn-food-row small.avn-food-summary{display:flex;flex-wrap:wrap;gap:3px 13px;margin-top:5px;font-size:.74rem;line-height:1.5;color:#bbcbe0!important}
 body[data-nutricao-pagina="alimentos"] .avn-food-summary b{font-weight:650;color:#e3edfb}
+/* Mesma paleta de macronutrientes do Diário Alimentar. */
+body[data-nutricao-pagina="alimentos"] .avn-food-summary .avn-nutriente{white-space:nowrap}
+body[data-nutricao-pagina="alimentos"] .avn-food-summary .avn-nutriente b{color:inherit!important}
+body[data-nutricao-pagina="alimentos"] .avn-food-summary .avn-nutriente-calorias{color:#edf5ff!important}
+body[data-nutricao-pagina="alimentos"] .avn-food-summary .avn-nutriente-proteinas{color:#60a5fa!important}
+body[data-nutricao-pagina="alimentos"] .avn-food-summary .avn-nutriente-carboidratos{color:#fbbf24!important}
+body[data-nutricao-pagina="alimentos"] .avn-food-summary .avn-nutriente-gorduras{color:#a78bfa!important}
 body[data-nutricao-pagina="alimentos"] .avn-food-row.avn-food-incompleto{border-color:#d4a63a!important;background:#40341f!important}
 body[data-nutricao-pagina="alimentos"] .avn-food-row.avn-food-incompleto:hover,
 body[data-nutricao-pagina="alimentos"] .avn-food-row.avn-food-incompleto:focus-visible{background:#4a3c23!important;border-color:#f5c451!important}
