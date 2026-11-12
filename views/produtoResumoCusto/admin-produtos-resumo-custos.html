@@ -7,7 +7,7 @@
   <link rel="stylesheet" href="/css/theme.css" />
   <style>
     body { font-family: Arial, sans-serif; background:#eef2f7; margin:0; padding:24px; color:#17202a; }
-    .container { max-width:1200px; margin:0 auto; }
+    .container { max-width:1480px; margin:0 auto; }
     .box { background:#fff; padding:20px; border-radius:10px; box-shadow:0 4px 12px rgba(0,0,0,.08); margin-bottom:20px; }
     h1 { margin-top:0; color:#243447; }
     .menu-modulo { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
@@ -26,8 +26,16 @@
     th { background:#2c3e50; color:#fff; padding:8px; text-align:left; font-size:13px; }
     td { padding:8px; border-bottom:1px solid #e9edf2; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     tr:hover { background:#f9fbfd; }
-    .col-produto { width:52%; }
-    .col-num { width:16%; text-align:right; }
+    .col-produto { width:30%; }
+    .col-num { width:14%; text-align:right; }
+    .tabela-rolagem { overflow-x:auto; }
+    .tabela-rolagem table { min-width:950px; }
+    .botao-preco { background:#edf5ff; border:1px dashed #5085b4; color:#1c527a; width:100%; text-align:right; padding:7px; }
+    .botao-preco:hover,.botao-preco:focus-visible { background:#dbeeff; outline:2px solid #96c8f2; }
+    .entrada-preco { text-align:right; width:100%; padding:7px; border:2px solid #3485c9; }
+    .nota-rateio { color:#516172; font-size:12px; margin:0 0 12px; line-height:1.6; }
+    .nota-rateio strong { color:#2c3e50; }
+    .mensagem.sucesso { color:#1e8449; display:block; }
     .produto-erro { color:#c0392b; font-weight:bold; }
     .lucro-negativo { color:#c0392b; font-weight:bold; }
     .ok { color:#1e8449; font-weight:bold; }
@@ -63,7 +71,7 @@
             <option value="todos">Todos</option>
             <option value="erro">Somente com erro</option>
             <option value="custo_zerado">Custo zerado</option>
-            <option value="lucro_negativo">Lucro negativo</option>
+            <option value="lucro_negativo">Lucro negativo (mês atual)</option>
             <option value="ok">OK</option>
           </select>
         </div>
@@ -91,17 +99,22 @@
     </div>
 
     <div class="box">
-      <table>
-        <thead>
-          <tr>
-            <th class="col-produto">Produto</th>
-            <th class="col-num">Custo</th>
-            <th class="col-num">Preço de venda</th>
-            <th class="col-num">Lucro</th>
-          </tr>
-        </thead>
-        <tbody id="tbodyResumo"></tbody>
-      </table>
+      <p class="nota-rateio" id="notaRateio">Custo fixo por unidade = despesas pagas do mês ÷ itens vendidos no mês. O lucro considera o rateio do mês atual.</p>
+      <div class="tabela-rolagem">
+        <table>
+          <thead>
+            <tr>
+              <th class="col-produto">Produto</th>
+              <th class="col-num">Custo</th>
+              <th class="col-num" id="tituloCustoAnterior">Custo fixo — mês anterior</th>
+              <th class="col-num" id="tituloCustoAtual">Custo fixo — mês atual</th>
+              <th class="col-num">Preço de venda ✎</th>
+              <th class="col-num" title="Preço de venda menos custo e rateio do mês atual">Lucro</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyResumo"></tbody>
+        </table>
+      </div>
       <div id="vazio" class="vazio" style="display:none;">Nenhum produto encontrado.</div>
     </div>
   </div>
@@ -137,6 +150,36 @@
       el.className = 'mensagem';
     }
 
+
+    let produtosAtuais = [];
+    let rateiosAtuais = {};
+
+    function mostrarSucesso(texto) {
+      const el = document.getElementById('mensagem');
+      el.textContent = texto;
+      el.className = 'mensagem sucesso';
+    }
+
+    function formatarMes(periodo, titulo) {
+      return periodo && Number(periodo.mes) && Number(periodo.ano)
+        ? `${titulo} (${String(periodo.mes).padStart(2, '0')}/${periodo.ano})`
+        : titulo;
+    }
+
+    function moedaOuTraco(valor) {
+      return valor === null || valor === undefined ? '—' : moeda(valor);
+    }
+
+    function detalhesRateio(periodo) {
+      const referencia = periodo && periodo.mes && periodo.ano
+        ? `${String(periodo.mes).padStart(2, '0')}/${periodo.ano}` : 'período indisponível';
+      if (!periodo || periodo.custo_fixo_por_item === null || periodo.custo_fixo_por_item === undefined) {
+        return `${referencia}: ${periodo?.erro || 'Sem vendas ou despesas disponíveis para cálculo'}`;
+      }
+      const itens = Number(periodo.itens_vendidos).toLocaleString('pt-BR', { maximumFractionDigits: 3 });
+      return `${referencia}: ${moeda(periodo.total_despesas_pagas)} ÷ ${itens} itens = ${moeda(periodo.custo_fixo_por_item)} por item`;
+    }
+
     async function carregarResumo() {
       try {
         limparMensagem();
@@ -144,55 +187,139 @@
         const busca = document.getElementById('busca').value.trim();
         const status = document.getElementById('status').value;
         const ativos = document.getElementById('ativos').value;
-
         if (busca) params.append('busca', busca);
         if (status) params.append('status', status);
         params.append('ativos', ativos);
 
-        const resp = await fetch(`/api/produtos-resumo-custos?${params.toString()}`);
+        const resp = await fetch(`/api/produtos-resumo-custos/precificacao?${params.toString()}`);
         const json = await resp.json();
-        if (!resp.ok || !json.success) throw new Error(json.message || 'Erro ao carregar resumo');
-
-        renderizar(json.data.produtos || [], json.data.totais || {});
+        if (!resp.ok || !json.success) throw new Error(json.message || 'Erro ao carregar precificação');
+        produtosAtuais = json.data.produtos || [];
+        rateiosAtuais = json.data.rateios || {};
+        renderizar();
       } catch (error) {
         mostrarErro(error.message);
       }
     }
 
-    function renderizar(produtos, totais) {
-      document.getElementById('totalProdutos').textContent = totais.total_produtos || 0;
-      document.getElementById('totalErros').textContent = totais.total_erros || 0;
-      document.getElementById('totalCustoZerado').textContent = totais.total_custo_zerado || 0;
-      document.getElementById('totalLucroNegativo').textContent = totais.total_lucro_negativo || 0;
+    function renderizar() {
+      const produtos = produtosAtuais;
+      const totalProdutos = produtos.length;
+      document.getElementById('totalProdutos').textContent = totalProdutos;
+      document.getElementById('totalErros').textContent = produtos.filter(i => i.erro_precificacao).length;
+      document.getElementById('totalCustoZerado').textContent = produtos.filter(i => i.custo_zerado).length;
+      document.getElementById('totalLucroNegativo').textContent = produtos.filter(i => i.lucro_liquido_negativo).length;
+      document.getElementById('tituloCustoAnterior').textContent = formatarMes(rateiosAtuais.mes_anterior, 'Custo fixo — mês anterior');
+      document.getElementById('tituloCustoAtual').textContent = formatarMes(rateiosAtuais.mes_atual, 'Custo fixo — mês atual');
+      document.getElementById('notaRateio').textContent =
+        'Rateio = despesas pagas no mês ÷ quantidade de itens vendidos (data da carrada). Lucro usa o mês atual. ' +
+        detalhesRateio(rateiosAtuais.mes_anterior) + ' | ' + detalhesRateio(rateiosAtuais.mes_atual);
 
       const tbody = document.getElementById('tbodyResumo');
       const vazio = document.getElementById('vazio');
-
-      if (!produtos.length) {
+      if (!totalProdutos) {
         tbody.innerHTML = '';
         vazio.style.display = 'block';
         return;
       }
-
       vazio.style.display = 'none';
       tbody.innerHTML = produtos.map(item => {
-        const classeProduto = item.erro ? 'produto-erro' : '';
-        const classeLucro = item.lucro < 0 ? 'lucro-negativo' : 'ok';
+        const classeProduto = item.erro_precificacao ? 'produto-erro' : '';
+        const classeLucro = item.lucro_liquido === null ? '' : (item.lucro_liquido < 0 ? 'lucro-negativo' : 'ok');
         const titulo = item.custo_zerado
-          ? 'Custo zerado: produto sem composição, composição vazia ou item sem custo válido.'
-          : item.lucro_negativo
-            ? 'Lucro negativo: preço de venda menor que custo.'
-            : 'Produto OK';
-
+          ? 'Custo de composição zerado ou indisponível.'
+          : item.lucro_liquido === null
+            ? 'Sem rateio do mês atual: lucro indisponível.'
+            : item.lucro_liquido_negativo
+              ? 'Lucro negativo após o rateio do mês atual.'
+              : 'Custo e rateio aplicados ao lucro.';
         return `
-          <tr title="${escapeHtml(titulo)}">
+          <tr data-produto-id="${Number(item.produto_id)}" title="${escapeHtml(titulo)}">
             <td class="col-produto ${classeProduto}">${escapeHtml(item.produto)}</td>
             <td class="col-num">${moeda(item.custo)}</td>
-            <td class="col-num">${moeda(item.preco_venda)}</td>
-            <td class="col-num ${classeLucro}">${moeda(item.lucro)}</td>
-          </tr>
-        `;
+            <td class="col-num">${moedaOuTraco(item.custo_fixo_mes_anterior)}</td>
+            <td class="col-num">${moedaOuTraco(item.custo_fixo_mes_atual)}</td>
+            <td class="col-num preco-coluna"><button type="button" class="botao-preco" onclick="editarPrecoVenda(${Number(item.produto_id)})" aria-label="Editar preço de venda de ${escapeHtml(item.produto)}" title="Clique, digite o preço e pressione Enter">${moeda(item.preco_venda)} ✎</button></td>
+            <td class="col-num ${classeLucro}">${moedaOuTraco(item.lucro_liquido)}</td>
+          </tr>`;
       }).join('');
+    }
+
+    function interpretarPreco(texto) {
+      const valor = String(texto).trim().replace(/^R\$\s*/, '').replace(/\s/g, '');
+      const normalizado = valor.includes(',') ? valor.replace(/\./g, '').replace(',', '.') : valor;
+      if (!/^\d+(\.\d{1,2})?$/.test(normalizado)) return null;
+      const numero = Number(normalizado);
+      return Number.isFinite(numero) && numero >= 0 && numero <= 999999999 ? numero : null;
+    }
+
+    function editarPrecoVenda(produtoId) {
+      const produto = produtosAtuais.find(p => Number(p.produto_id) === Number(produtoId));
+      const linha = document.querySelector(`tr[data-produto-id="${Number(produtoId)}"]`);
+      const celula = linha?.querySelector('.preco-coluna');
+      if (!produto || !celula || celula.querySelector('input')) return;
+      const botaoOriginal = celula.firstElementChild;
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'entrada-preco';
+      input.inputMode = 'decimal';
+      input.setAttribute('enterkeyhint', 'done');
+      input.setAttribute('aria-label', `Novo preço de venda de ${produto.produto}`);
+      input.value = Number(produto.preco_venda).toFixed(2).replace('.', ',');
+      celula.replaceChildren(input);
+      let salvando = false;
+      const cancelar = () => { if (!salvando && celula.contains(input)) celula.replaceChildren(botaoOriginal); };
+      input.addEventListener('blur', cancelar);
+      input.addEventListener('keydown', async evento => {
+        if (evento.key === 'Escape') { cancelar(); return; }
+        if (evento.key !== 'Enter' || salvando) return;
+        evento.preventDefault();
+        const novoPreco = interpretarPreco(input.value);
+        if (novoPreco === null) {
+          mostrarErro('Preço inválido. Informe valor com até duas casas decimais.');
+          input.select();
+          return;
+        }
+        if (Math.abs(novoPreco - Number(produto.preco_venda)) < 0.001) {
+          cancelar();
+          return;
+        }
+        salvando = true;
+        input.disabled = true;
+        try {
+          const resp = await fetch(`/api/produtos-resumo-custos/${Number(produtoId)}/preco-venda`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ preco: novoPreco })
+          });
+          const json = await resp.json();
+          if (!resp.ok || !json.success) throw new Error(json.message || 'Não foi possível salvar o preço.');
+          const precoSalvo = Number(json.data.preco);
+          produto.preco_venda = precoSalvo;
+          produto.lucro = Number((precoSalvo - Number(produto.custo)).toFixed(4));
+          produto.lucro_negativo = produto.lucro < 0;
+          const fixoAtual = rateiosAtuais.mes_atual?.custo_fixo_por_item;
+          produto.lucro_liquido = fixoAtual === null || fixoAtual === undefined
+            ? null : Number((precoSalvo - Number(produto.custo) - Number(fixoAtual)).toFixed(4));
+          produto.lucro_liquido_negativo = produto.lucro_liquido !== null && produto.lucro_liquido < 0;
+          produto.erro_precificacao = produto.custo_zerado || produto.lucro_liquido_negativo;
+          const filtro = document.getElementById('status').value;
+          if ((filtro === 'lucro_negativo' && !produto.lucro_liquido_negativo) ||
+              (filtro === 'erro' && !produto.erro_precificacao) ||
+              (filtro === 'ok' && (produto.erro_precificacao || produto.lucro_liquido === null))) {
+            produtosAtuais = produtosAtuais.filter(p => p !== produto);
+          }
+          renderizar();
+          mostrarSucesso(`Preço de ${produto.produto} atualizado para ${moeda(precoSalvo)}.`);
+        } catch (erro) {
+          salvando = false;
+          input.disabled = false;
+          mostrarErro(erro.message);
+          input.focus();
+        }
+      });
+      input.focus();
+      input.select();
     }
 
     carregarResumo();
