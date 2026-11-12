@@ -1036,7 +1036,39 @@
       }
     });
 
+    async function abrirClienteParaEdicaoDoLink() {
+      const favorecidoParam = new URLSearchParams(window.location.search).get('editar');
+      if (favorecidoParam === null) return;
+
+      const favorecido = favorecidoParam.trim();
+      if (!/^\d+$/.test(favorecido) || !Number.isSafeInteger(Number(favorecido)) || Number(favorecido) <= 0) {
+        setMensagem(mensagemForm, 'Código do cliente no link é inválido.', 'erro');
+        return;
+      }
+
+      try {
+        setMensagem(mensagemForm, 'Carregando cliente para edição...');
+        const response = await fetch(`/api/legado/clientes/${encodeURIComponent(favorecido)}`, {
+          headers: { Accept: 'application/json' }
+        });
+        const json = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(json?.erro || json?.detalhe || 'Não foi possível carregar o cliente.');
+        }
+
+        const cliente = json?.dado || null;
+        if (!cliente || Number(obterFavorecidoCliente(cliente)) !== Number(favorecido)) {
+          throw new Error('Cliente não encontrado no cadastro.');
+        }
+
+        preencherFormulario(cliente);
+      } catch (error) {
+        setMensagem(mensagemForm, error.message || 'Erro ao abrir o cliente para edição.', 'erro');
+      }
+    }
+
     pesquisarClientes(true);
+    abrirClienteParaEdicaoDoLink();
   </script>
 </body>
 </html>
