@@ -14,29 +14,29 @@
 .nome-com-ia button{flex:none;font-weight:850}
 
 /* Leitura de rótulos: botões junto ao nome e conferência antes de aplicar. */
-body[data-nutricao-pagina="alimentos"] .nome-com-ia{flex-wrap:wrap}
-body[data-nutricao-pagina="alimentos"] .nome-com-ia input{flex:1 1 210px}
-body[data-nutricao-pagina="alimentos"] #consultarTabelaNutricional{white-space:nowrap}
-body[data-nutricao-pagina="alimentos"] .avn-tabela-dialog{
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .nome-com-ia{flex-wrap:wrap}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .nome-com-ia input{flex:1 1 210px}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) #consultarTabelaNutricional{white-space:nowrap}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-tabela-dialog{
  width:min(780px,calc(100vw - 24px));max-height:92dvh;overflow:auto;
  background:#182437;color:#ecf2fc;border:1px solid #435775;
 }
-body[data-nutricao-pagina="alimentos"] .avn-tabela-dialog::backdrop{background:#091b2bd9}
-body[data-nutricao-pagina="alimentos"] .avn-tabela-dialog .modal-head{margin-bottom:14px}
-body[data-nutricao-pagina="alimentos"] .avn-tabela-preview{
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-tabela-dialog::backdrop{background:#091b2bd9}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-tabela-dialog .modal-head{margin-bottom:14px}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-tabela-preview{
  display:block;max-width:100%;max-height:260px;margin:12px auto;border-radius:10px;object-fit:contain;
 }
-body[data-nutricao-pagina="alimentos"] .avn-tabela-preview[hidden]{display:none}
-body[data-nutricao-pagina="alimentos"] .avn-tabela-valores{overflow:auto;max-height:290px;margin:12px 0}
-body[data-nutricao-pagina="alimentos"] .avn-tabela-valores table{width:100%;border-collapse:collapse;font-size:14px}
-body[data-nutricao-pagina="alimentos"] .avn-tabela-valores th,
-body[data-nutricao-pagina="alimentos"] .avn-tabela-valores td{
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-tabela-preview[hidden]{display:none}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-tabela-valores{overflow:auto;max-height:290px;margin:12px 0}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-tabela-valores table{width:100%;border-collapse:collapse;font-size:14px}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-tabela-valores th,
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-tabela-valores td{
  border-bottom:1px solid #435775;padding:7px 9px;text-align:left;
 }
-body[data-nutricao-pagina="alimentos"] .avn-tabela-valores td:last-child{text-align:right;white-space:nowrap}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-tabela-valores td:last-child{text-align:right;white-space:nowrap}
 @media(max-width:560px){
- body[data-nutricao-pagina="alimentos"] .nome-com-ia input{flex-basis:100%}
- body[data-nutricao-pagina="alimentos"] .nome-com-ia button{font-size:12px}
+ body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .nome-com-ia input{flex-basis:100%}
+ body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .nome-com-ia button{font-size:12px}
 }
 .form-actions{margin-top:15px}.alimentos-cadastrados{position:sticky;top:14px}
 .avn-dialog{width:min(840px,calc(100% - 22px));max-height:90vh;overflow:auto;border:1px solid var(--line);border-radius:16px;padding:22px;color:var(--ink);box-shadow:0 18px 70px #15293d5e}
@@ -342,17 +342,17 @@ body[data-nutricao-pagina="dieta"] .avn-dieta-edicao-acoes{grid-column:1/-1;disp
 @media(max-width:520px){body[data-nutricao-pagina="dieta"] .avn-dieta-edicao{grid-template-columns:1fr}body[data-nutricao-pagina="dieta"] .avn-dieta-edicao .avn-field:first-child,body[data-nutricao-pagina="dieta"] .avn-dieta-edicao-acoes{grid-column:auto}}
 
 /* AVN Alimentos: catálogo simples; cadastro e edição somente em modal. */
-body[data-nutricao-pagina="alimentos"] .avn-food-catalog{display:block}
-body[data-nutricao-pagina="alimentos"] .alimentos-cadastrados{position:static}
-body[data-nutricao-pagina="alimentos"] .avn-food-catalog-head{justify-content:space-between;flex-wrap:wrap;margin-bottom:15px}
-body[data-nutricao-pagina="alimentos"] .avn-food-catalog-head h3{margin:0}
-body[data-nutricao-pagina="alimentos"] .avn-food-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:end}
-body[data-nutricao-pagina="alimentos"] .avn-alimento-modal{width:min(1050px,calc(100vw - 22px));max-height:93dvh;overflow:auto;background:#182437;color:#ecf2fc;border-color:#435775}
-body[data-nutricao-pagina="alimentos"] .avn-alimento-modal::backdrop{background:#091b2bd9}
-body[data-nutricao-pagina="alimentos"] .avn-alimento-modal .modal-head{margin-bottom:18px}
-body[data-nutricao-pagina="alimentos"] .avn-alimento-modal .alimento-editor{width:100%}
-body[data-nutricao-pagina="alimentos"] .avn-food-row .delete{padding:8px}
-@media(max-width:600px){body[data-nutricao-pagina="alimentos"] .avn-alimento-modal{padding:14px}body[data-nutricao-pagina="alimentos"] .avn-food-row{align-items:flex-start;flex-wrap:wrap}body[data-nutricao-pagina="alimentos"] .avn-food-actions{width:100%;justify-content:flex-end}}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-food-catalog{display:block}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .alimentos-cadastrados{position:static}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-food-catalog-head{justify-content:space-between;flex-wrap:wrap;margin-bottom:15px}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-food-catalog-head h3{margin:0}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-food-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:end}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-alimento-modal{width:min(1050px,calc(100vw - 22px));max-height:93dvh;overflow:auto;background:#182437;color:#ecf2fc;border-color:#435775}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-alimento-modal::backdrop{background:#091b2bd9}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-alimento-modal .modal-head{margin-bottom:18px}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-alimento-modal .alimento-editor{width:100%}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-food-row .delete{padding:8px}
+@media(max-width:600px){body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-alimento-modal{padding:14px}body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-food-row{align-items:flex-start;flex-wrap:wrap}body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-food-actions{width:100%;justify-content:flex-end}}
 
 /* Dieta padrão e diário limpos: os editores ficam em modais e gráficos por refeição. */
 body[data-nutricao-pagina="diario"] #listaDiario{display:grid;gap:14px}
@@ -650,20 +650,20 @@ body[data-nutricao-pagina="diario"] #resumoDiario{
 
 
 /* AVN Alimentos: valores por 100 g e destaque para cadastros incompletos. */
-body[data-nutricao-pagina="alimentos"] .avn-food-row .avn-food-info{min-width:0;flex:1}
-body[data-nutricao-pagina="alimentos"] .avn-food-row small.avn-food-summary{display:flex;flex-wrap:wrap;gap:3px 13px;margin-top:5px;font-size:.74rem;line-height:1.5;color:#bbcbe0!important}
-body[data-nutricao-pagina="alimentos"] .avn-food-summary b{font-weight:650;color:#e3edfb}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-food-row .avn-food-info{min-width:0;flex:1}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-food-row small.avn-food-summary{display:flex;flex-wrap:wrap;gap:3px 13px;margin-top:5px;font-size:.74rem;line-height:1.5;color:#bbcbe0!important}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-food-summary b{font-weight:650;color:#e3edfb}
 /* Mesma paleta de macronutrientes do Diário Alimentar. */
-body[data-nutricao-pagina="alimentos"] .avn-food-summary .avn-nutriente{white-space:nowrap}
-body[data-nutricao-pagina="alimentos"] .avn-food-summary .avn-nutriente b{color:inherit!important}
-body[data-nutricao-pagina="alimentos"] .avn-food-summary .avn-nutriente-calorias{color:#edf5ff!important}
-body[data-nutricao-pagina="alimentos"] .avn-food-summary .avn-nutriente-proteinas{color:#60a5fa!important}
-body[data-nutricao-pagina="alimentos"] .avn-food-summary .avn-nutriente-carboidratos{color:#fbbf24!important}
-body[data-nutricao-pagina="alimentos"] .avn-food-summary .avn-nutriente-gorduras{color:#a78bfa!important}
-body[data-nutricao-pagina="alimentos"] .avn-food-row.avn-food-incompleto{border-color:#d4a63a!important;background:#40341f!important}
-body[data-nutricao-pagina="alimentos"] .avn-food-row.avn-food-incompleto:hover,
-body[data-nutricao-pagina="alimentos"] .avn-food-row.avn-food-incompleto:focus-visible{background:#4a3c23!important;border-color:#f5c451!important}
-body[data-nutricao-pagina="alimentos"] .avn-food-row small.avn-food-aviso{display:block;width:fit-content;margin-top:6px;color:#ffe09a!important;font-size:.75rem;font-weight:700;line-height:1.45}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-food-summary .avn-nutriente{white-space:nowrap}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-food-summary .avn-nutriente b{color:inherit!important}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-food-summary .avn-nutriente-calorias{color:#edf5ff!important}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-food-summary .avn-nutriente-proteinas{color:#60a5fa!important}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-food-summary .avn-nutriente-carboidratos{color:#fbbf24!important}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-food-summary .avn-nutriente-gorduras{color:#a78bfa!important}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-food-row.avn-food-incompleto{border-color:#d4a63a!important;background:#40341f!important}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-food-row.avn-food-incompleto:hover,
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-food-row.avn-food-incompleto:focus-visible{background:#4a3c23!important;border-color:#f5c451!important}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-food-row small.avn-food-aviso{display:block;width:fit-content;margin-top:6px;color:#ffe09a!important;font-size:.75rem;font-weight:700;line-height:1.45}
 
 /* Paleta nutricional única das receitas: calorias branco, proteínas azul,
    carboidratos amarelo, gorduras violeta. Mantém fibras no tom neutro. */
@@ -708,27 +708,27 @@ body[data-nutricao-pagina="diario"] #listaDiario .avn-dieta-linha{flex-wrap:wrap
 body[data-nutricao-pagina="diario"] #listaDiario .avn-dieta-acoes{flex:none}
 
 /* Modal de tabela nutricional: colagem Ctrl+V ou seleção direta de foto. */
-body[data-nutricao-pagina="alimentos"] .avn-tabela-entrada{display:grid;gap:12px;margin:16px 0}
-body[data-nutricao-pagina="alimentos"] .avn-tabela-colar{
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-tabela-entrada{display:grid;gap:12px;margin:16px 0}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-tabela-colar{
   min-height:112px;display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:5px;text-align:center;padding:18px;cursor:text;white-space:normal;
   border:2px dashed #648ab4;border-radius:11px;background:#13263f;color:#e8f3ff;
   outline-offset:3px;
 }
-body[data-nutricao-pagina="alimentos"] .avn-tabela-colar:focus{
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-tabela-colar:focus{
   border-color:#a1ceff;outline:2px solid #75b3f0;background:#1b3654;
 }
-body[data-nutricao-pagina="alimentos"] .avn-tabela-colar strong{font-size:15px;color:#f2f7ff}
-body[data-nutricao-pagina="alimentos"] .avn-tabela-colar span{font-size:13px;color:#baccdf}
-body[data-nutricao-pagina="alimentos"] .avn-tabela-arquivo-acoes{
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-tabela-colar strong{font-size:15px;color:#f2f7ff}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-tabela-colar span{font-size:13px;color:#baccdf}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-tabela-arquivo-acoes{
   display:flex;align-items:center;gap:12px;flex-wrap:wrap;
 }
-body[data-nutricao-pagina="alimentos"] .avn-tabela-arquivo-acoes small{font-size:12px;color:#adbed4}
-body[data-nutricao-pagina="alimentos"] .avn-tabela-dialog .modal-actions{flex-wrap:wrap}
-body[data-nutricao-pagina="alimentos"] .avn-tabela-dialog #aplicarTabelaNutricional:disabled{opacity:.5;cursor:not-allowed}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-tabela-arquivo-acoes small{font-size:12px;color:#adbed4}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-tabela-dialog .modal-actions{flex-wrap:wrap}
+body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-tabela-dialog #aplicarTabelaNutricional:disabled{opacity:.5;cursor:not-allowed}
 @media(max-width:520px){
- body[data-nutricao-pagina="alimentos"] .avn-tabela-colar{min-height:102px;padding:12px}
- body[data-nutricao-pagina="alimentos"] .avn-tabela-arquivo-acoes button{width:100%}
+ body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-tabela-colar{min-height:102px;padding:12px}
+ body:is([data-nutricao-pagina="alimentos"],[data-nutricao-pagina="suplementos"]) .avn-tabela-arquivo-acoes button{width:100%}
 }
 
 /* Transferência de alimentos entre refeições (diário e dieta). */

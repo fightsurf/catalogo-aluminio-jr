@@ -28,6 +28,7 @@ const nutricaoApps = [
   {rota:'/avn/sistema/nutricao/diario',nome:'Diário alimentar',categoria:'Nutrição',icone:'notebook-pen',descricao:'Registrar alimentos realmente consumidos e seus nutrientes.'},
   {rota:'/avn/sistema/nutricao/dieta',nome:'Dieta programada',categoria:'Nutrição',icone:'calendar-days',descricao:'Dieta padrão válida para todos os dias.'},
   {rota:'/avn/sistema/nutricao/alimentos',nome:'Alimentos',categoria:'Nutrição',icone:'utensils',descricao:'Cadastro de alimentos, TACO, USDA e consulta IA em JSON.'},
+  {rota:'/avn/sistema/nutricao/suplementos',nome:'Suplementos',categoria:'Nutrição',icone:'pill',descricao:'Cadastro de suplementos com composição nutricional, integrado ao diário e à dieta.'},
   {rota:'/avn/sistema/nutricao/metas',nome:'Minhas metas',categoria:'Nutrição',icone:'target',descricao:'Metas de calorias, macros e micronutrientes.'},
   {rota:'/avn/sistema/nutricao/receitas',nome:'Receitas',categoria:'Nutrição',icone:'chef-hat',descricao:'Composição nutricional de preparações por ingredientes e rendimento final.'},
   {rota:'/avn/sistema/nutricao/agua',nome:'Água ingerida',categoria:'Nutrição',icone:'droplets',descricao:'Ingestão diária de água e gráfico, sincronizados com Android.'}
@@ -162,10 +163,10 @@ router.get('/saude/exames', requireAuth, (_req,res)=>res.sendFile(path.resolve(_
 router.use('/api/hidratacao', requireAuth, avnHidratacaoRoutes.web);
 router.get('/nutricao', requireAuth, (req,res) => {
   const oldTab=String(req.query.tab||'');
-  const destino=['diario','dieta','alimentos','metas','receitas','agua'].includes(oldTab)?oldTab:'diario';
+  const destino=['diario','dieta','alimentos','suplementos','metas','receitas','agua'].includes(oldTab)?oldTab:'diario';
   res.redirect(302,'/avn/sistema/nutricao/'+destino);
 });
-for(const pagina of ['diario','dieta','alimentos','metas','receitas','agua']){
+for(const pagina of ['diario','dieta','alimentos','suplementos','metas','receitas','agua']){
   router.get('/nutricao/'+pagina,requireAuth,(_req,res)=>res.sendFile(path.resolve(__dirname,'../../../views/avn/nutricao-'+pagina+'.html')));
 }
 module.exports=router;

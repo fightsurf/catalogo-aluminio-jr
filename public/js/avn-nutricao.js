@@ -3,6 +3,8 @@
 const $=id=>document.getElementById(id);
 const API='/avn/sistema/api/nutricao';
 const PAGE=document.body.dataset.nutricaoPagina||'diario';
+const CATALOG_TYPE=PAGE==='suplementos'?'suplemento':'alimento';
+const CATALOG_LABEL=CATALOG_TYPE==='suplemento'?'suplemento':'alimento';
 const has=id=>!!document.getElementById(id);
 const MEALS={cafe:'Café da manhã',lanche_manha:'Lanche da manhã',almoco:'Almoço',lanche_tarde:'Lanche da tarde',jantar:'Jantar',ceia:'Ceia',outros:'Outros'};
 const DAYS=['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
@@ -62,7 +64,7 @@ async function loadNutrients(preserve=false){
  if(preserve){inputNutrientes('micro','camposMicros',true);inputNutrientes('metamicro','camposMicroMetas',true);
   filtrarNutrientes('camposMicros','buscaMicroAlimento');filtrarNutrientes('camposMicroMetas','buscaMicroMetas');}
 }
-function selectFoods(){const opt=state.alimentos.map(f=>`<option value="${f.id}">${esc(f.nome)}${f.preparo?' · '+esc(f.preparo):''}${f.marca?' · '+esc(f.marca):''}</option>`).join('');
+function selectFoods(){const opt=state.alimentos.map(f=>`<option value="${f.id}">${f.tipo==='suplemento'?'Suplemento · ':f.tipo==='receita'?'Receita · ':''}${esc(f.nome)}${f.preparo?' · '+esc(f.preparo):''}${f.marca?' · '+esc(f.marca):''}</option>`).join('');
  for(const id of ['diarioAlimento','dietaAlimento']){if(!has(id))continue;const e=$(id),prev=e.value;e.innerHTML='<option value="">Selecione um alimento</option>'+opt;if(state.alimentos.some(f=>String(f.id)===prev))e.value=prev;}
 }
 function composition(a){return {kcal:a.kcal_100g,proteinas_g:a.proteinas_g_100g,carboidratos_g:a.carboidratos_g_100g,gorduras_g:a.gorduras_g_100g,fibras_g:a.fibras_g_100g,micros:a.micronutrientes_100g||{}};}
@@ -616,7 +618,7 @@ function renderFoodList(){
    '</div><div class="avn-food-actions"><button type="button" class="secondary" data-edit="'+esc(f.id)+'">Editar</button>'+
    (String(f.usuario_id)===String(state.usuarioId)&&f.fonte!=='receita'? '<button type="button" class="delete" data-delete-food="'+esc(f.id)+'" aria-label="Excluir '+esc(f.nome)+'">Excluir</button>':'')+
    '</div></div>';
- }).join(''):'<p class="muted">Nenhum alimento encontrado. Cadastre o primeiro alimento no formulário.</p>';
+ }).join(''):'<p class="muted">Nenhum '+CATALOG_LABEL+' encontrado. Cadastre o primeiro '+CATALOG_LABEL+' no formulário.</p>';
  $('listaAlimentos').querySelectorAll('[data-edit]').forEach(btn=>btn.onclick=e=>{e.stopPropagation();fillFood(state.alimentos.find(a=>String(a.id)===btn.dataset.edit));$('modalAlimento').showModal();});
  $('listaAlimentos').querySelectorAll('[data-delete-food]').forEach(btn=>btn.onclick=async e=>{e.stopPropagation();await excluirAlimento(btn.dataset.deleteFood,btn);});
  $('listaAlimentos').querySelectorAll('[data-food-id]').forEach(row=>{const abrir=()=>window.AVNFoodCharts?.open(state.alimentos.find(a=>String(a.id)===row.dataset.foodId),MICRO);row.addEventListener('click',e=>{if(e.target.closest('button'))return;abrir();});row.addEventListener('keydown',e=>{if(e.target===row&&(e.key==='Enter'||e.key===' ')){e.preventDefault();abrir();}});});
@@ -628,15 +630,15 @@ async function excluirAlimento(id,button){
  button.disabled=true;
  try{
   userGuard();
-  await send('/alimentos/'+encodeURIComponent(id)+'?usuarioId='+encodeURIComponent(state.usuarioId),'DELETE');
+  await send('/alimentos/'+encodeURIComponent(id)+'?usuarioId='+encodeURIComponent(state.usuarioId)+'&tipo='+encodeURIComponent(CATALOG_TYPE),'DELETE');
   if(has('alimentoId')&&String(v('alimentoId'))===String(id)){fillFood(null);$('modalAlimento').close();}
   await loadFoods();
-  show('Alimento excluído do catálogo.');
+  show((CATALOG_TYPE==='suplemento'?'Suplemento':'Alimento')+' excluído do catálogo.');
  }catch(e){show(e.message,true);button.disabled=false;}
 }
 function fillFood(f){
  state.origemImportacao=null;
- $('formAlimento').reset();$('tituloAlimento').textContent=f?'Editar alimento':'Novo alimento';$('alimentoId').value=f?.id||'';
+ $('formAlimento').reset();$('tituloAlimento').textContent=f?'Editar '+CATALOG_LABEL:'Novo '+CATALOG_LABEL;$('alimentoId').value=f?.id||'';
  $('alimentoNome').value=f?.nome||'';$('alimentoMarca').value=f?.marca||'';$('alimentoPreparo').value=f?.preparo||'';
  $('porcaoNome').value=f?.porcao_nome||'';$('porcaoGramas').value=f?.porcao_gramas||'';
  for(const [key] of MACROS)$('alim_'+key).value=f?.[key+'_100g']??'';
@@ -784,7 +786,9 @@ function restaurarMeta(id){
 }
 
 async function loadFoods(){
- const usuario=state.usuarioId,r=await api('/alimentos?usuarioId='+encodeURIComponent(usuario));
+ const usuario=state.usuarioId;
+ const filtro=PAGE==='alimentos'||PAGE==='suplementos'?'&tipo='+encodeURIComponent(CATALOG_TYPE):'';
+ const r=await api('/alimentos?usuarioId='+encodeURIComponent(usuario)+filtro);
  if(usuario!==state.usuarioId)return;
  state.alimentos=r;selectFoods();renderFoodList();
 }
@@ -830,7 +834,7 @@ async function reload(){
   if(PAGE==='diario')renderDaily();
   if(PAGE==='dieta')renderDiet();
  }
- if(PAGE==='alimentos')await loadFoods();
+ if(PAGE==='alimentos'||PAGE==='suplementos')await loadFoods();
  if(PAGE==='metas')await loadGoals();
 }
 async function startUsers(){
@@ -1446,7 +1450,7 @@ function events(){
  destinoImportacaoDieta();
  $('formDieta').onsubmit=async e=>{e.preventDefault();try{userGuard();await send('/dieta/'+state.usuarioId+'/itens','POST',{alimento_id:v('dietaAlimento'),refeicao:v('dietaRefeicao'),quantidade_g:Number(v('dietaGramas'))});await loadDiet();const dialogo=$('modalAdicionarRefeicaoDieta').open?$('modalAdicionarRefeicaoDieta'):$('modalAdicionarDieta');dialogo.close();show('Item adicionado à programação.');}catch(err){show(err.message,true);}};
  }
- if(PAGE==='alimentos'){
+ if(PAGE==='alimentos'||PAGE==='suplementos'){
  $('abrirModalAlimento').onclick=()=>{fillFood(null);$('modalAlimento').showModal();};
  $('fecharModalAlimento').onclick=()=>$('modalAlimento').close();
  $('buscaAlimento').oninput=renderFoodList;
@@ -1456,10 +1460,10 @@ function events(){
  $('buscaMicroAlimento').oninput=()=>filtrarNutrientes('camposMicros','buscaMicroAlimento');
 
  $('formAlimento').onsubmit=async e=>{e.preventDefault();try{
- userGuard();const id=v('alimentoId');const b={usuarioId:state.usuarioId,nome:v('alimentoNome'),marca:v('alimentoMarca'),preparo:v('alimentoPreparo'),porcao_nome:v('porcaoNome'),porcao_gramas:numberOrNull('porcaoGramas'),micronutrientes_100g:getMicros('micro')};
+ userGuard();const id=v('alimentoId');const b={usuarioId:state.usuarioId,tipo:CATALOG_TYPE,nome:v('alimentoNome'),marca:v('alimentoMarca'),preparo:v('alimentoPreparo'),porcao_nome:v('porcaoNome'),porcao_gramas:numberOrNull('porcaoGramas'),micronutrientes_100g:getMicros('micro')};
  for(const [key] of MACROS)b[key+'_100g']=numberOrNull('alim_'+key);
  if(!id&&state.origemImportacao)Object.assign(b,state.origemImportacao);
- await send('/alimentos'+(id?'/'+id:''),id?'PUT':'POST',b);fillFood(null);$('modalAlimento').close();await loadFoods();show('Alimento salvo.');
+ await send('/alimentos'+(id?'/'+id:''),id?'PUT':'POST',b);fillFood(null);$('modalAlimento').close();await loadFoods();show((CATALOG_TYPE==='suplemento'?'Suplemento':'Alimento')+' salvo.');
  }catch(err){show(err.message,true);}};
  }
  if(PAGE==='metas'){

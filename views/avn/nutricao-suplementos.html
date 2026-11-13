@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>AVN — Suplementos</title><link rel="stylesheet" href="/css/avn-nutricao.css?v=20261112-macros-alimentos"><script src="/js/avn-nutricao-comparador.js" defer></script><script src="/js/avn-nutricao.js?v=20261113-suplementos1" defer></script><script src="/js/avn-nutricao-graficos.js" defer></script></head>
+<body data-nutricao-pagina="suplementos"><main class="avn-wrap">
+<header class="avn-top"><a href="/avn">← Central AVN</a><span class="avn-brand">AVN <em>Nutrição</em></span></header>
+<section class="avn-hero"><div><span class="avn-caption">NUTRIÇÃO · AVN</span><h1>Suplementos</h1><p>Cadastre suplementos com os mesmos dados nutricionais usados no Diário alimentar e na Dieta programada.</p></div><label class="avn-field user-field">Usuário<select id="usuario"><option>Carregando…</option></select></label></section>
+<nav class="avn-tabs avn-links" aria-label="Aplicativos de nutrição"><a href="/avn/sistema/nutricao/diario" >Diário alimentar</a><a href="/avn/sistema/nutricao/dieta" >Dieta programada</a><a href="/avn/sistema/nutricao/alimentos">Alimentos</a><a href="/avn/sistema/nutricao/suplementos" aria-current="page">Suplementos</a><a href="/avn/sistema/nutricao/metas" >Minhas metas</a><a href="/avn/sistema/nutricao/receitas">Receitas</a><a href="/avn/sistema/nutricao/agua">Água</a></nav>
+<div id="alerta" class="avn-alert" role="status" hidden></div>
+<section id="alimentos" class="avn-panel"><div class="avn-row space"><div><h2>Catálogo de suplementos</h2><p class="muted">Valores nutricionais por 100 g ou por porção, conforme o rótulo do suplemento.</p></div><label class="avn-field">Pesquisar<input type="search" id="buscaAlimento" placeholder="Ex.: whey, creatina, multivitamínico"></label></div>
+<div class="avn-food-catalog">
+<section class="card alimentos-cadastrados"><div class="avn-row avn-food-catalog-head"><h3>Suplementos cadastrados</h3><button type="button" class="primary" id="abrirModalAlimento">+ Adicionar suplemento</button></div><div id="listaAlimentos" class="list scroll-list"></div><p class="muted">Toque no suplemento para ver sua composição, ou use Editar e Excluir.</p></section>
+</div>
+<dialog id="modalAlimento" class="avn-dialog avn-alimento-modal" aria-labelledby="tituloAlimento">
+<div class="modal-head"><span class="avn-caption">AVN · CADASTRO DE SUPLEMENTOS</span><button type="button" class="secondary" id="fecharModalAlimento">Fechar ×</button></div>
+<form id="formAlimento" class="alimento-editor stack">
+<input type="hidden" id="alimentoId">
+<section class="card"><h3 id="tituloAlimento">Novo suplemento</h3>
+<div class="stack"><label class="avn-field">Nome do suplemento <span class="nome-com-ia"><input id="alimentoNome" required maxlength="180" placeholder="Ex.: Whey protein, creatina monohidratada"><button type="button" id="consultarIA" class="secondary" title="Consultar dados nutricionais verificáveis">IA</button><button type="button" id="consultarTabelaNutricional" class="secondary" title="Interpretar foto do rótulo nutricional com IA">IA tabela nutricional</button></span></label>
+<label class="avn-field">Marca (opcional)<input id="alimentoMarca" maxlength="120"></label>
+<label class="avn-field">Preparo (opcional)<input id="alimentoPreparo" maxlength="120" placeholder="Cru, cozido, assado, grelhado…"></label></div></section>
+<section class="card"><h3>Composição por 100 g</h3><p class="muted">Valores da parte comestível; deixe em branco o que for desconhecido.</p><div id="camposMacros" class="avn-three"></div></section>
+<section class="card"><h3>Vitaminas, minerais e outros nutrientes</h3><p class="muted">Dados por 100 g. Nutrientes sem informação continuam vazios.</p>
+<label class="avn-field">Localizar nutriente<input type="search" id="buscaMicroAlimento" placeholder="Filtrar vitaminas, minerais e outros"></label><div id="camposMicros" class="avn-three micros-form"></div></section>
+<section class="card"><div class="avn-two"><label class="avn-field">Porção caseira (opcional)<input id="porcaoNome" placeholder="Ex.: 1 colher de sopa"></label><label class="avn-field">Peso da porção (g)<input type="number" id="porcaoGramas" min="0.1" step="0.1"></label></div>
+<div class="avn-row form-actions"><button class="primary">Salvar suplemento</button><button class="secondary" type="button" id="limparAlimento">Novo</button></div></section>
+</form></dialog>
+<input type="file" id="arquivoTabelaNutricional" accept="image/jpeg,image/png,image/webp" hidden aria-label="Selecionar foto da tabela nutricional">
+<dialog id="modalTabelaNutricional" class="avn-dialog avn-tabela-dialog" aria-labelledby="tituloTabelaNutricional">
+ <div class="modal-head"><div><span class="avn-caption">AVN · IMPORTAÇÃO DE RÓTULO</span><h2 id="tituloTabelaNutricional">IA tabela nutricional</h2></div><button id="fecharTabelaNutricional" type="button" class="secondary">Fechar ×</button></div>
+ <p class="muted">Cole uma captura de tela da tabela nutricional usando Ctrl+V ou selecione uma imagem. A IA identifica os nutrientes e converte para 100 g quando a informação de peso permite. Nada será salvo automaticamente.</p>
+ <div class="avn-tabela-entrada">
+  <div id="areaColarTabelaNutricional" class="avn-tabela-colar" contenteditable="true" role="textbox" aria-label="Área para colar imagem da tabela nutricional com Ctrl mais V" aria-multiline="false" spellcheck="false" tabindex="0">
+   <strong>Colar imagem da tabela</strong><span>Clique aqui e pressione Ctrl+V. No celular, toque e segure para colar, se disponível.</span>
+  </div>
+  <div class="avn-tabela-arquivo-acoes"><button id="selecionarArquivoTabelaNutricional" type="button" class="secondary">Selecionar imagem</button><small>JPG, PNG ou WebP · até 8 MB</small></div>
+ </div>
+ <img id="imagemTabelaPreview" class="avn-tabela-preview" alt="Prévia da foto enviada" hidden>
+ <p id="statusTabelaNutricional" role="status" aria-live="polite" class="muted">Aguardando imagem.</p>
+ <div id="resultadoTabelaNutricional" hidden>
+  <p id="detalhesTabelaNutricional" class="muted"></p>
+  <div id="valoresTabelaNutricional" class="avn-tabela-valores" aria-label="Nutrientes identificados"></div>
+  <p id="observacoesTabelaNutricional" class="muted"></p>
+  <p class="muted">Confira os valores no rótulo original. Dados não identificados ficam em branco. A importação não altera o cadastro até você clicar em Aplicar.</p>
+ </div>
+ <div class="modal-actions"><button id="aplicarTabelaNutricional" type="button" class="primary" disabled>Aplicar dados ao suplemento</button><button id="cancelarTabelaNutricional" type="button" class="secondary">Cancelar</button></div>
+</dialog>
+<dialog id="modalConsultaIA" class="avn-dialog avn-dialog-comparador" aria-labelledby="modalIATitulo">
+ <div class="modal-head"><div><span class="avn-caption">AVN · CONSULTA DE COMPOSIÇÃO</span><h2 id="modalIATitulo">Comparar TACO, USDA e IA</h2></div><button id="fecharIA" type="button" class="secondary" aria-label="Fechar consulta">×</button></div>
+ <p class="muted">A TACO e o USDA são pesquisados simultaneamente. Selecione um resultado em cada fonte e compare a composição em uma única tabela por <strong>100 g da parte comestível</strong>. Para uma terceira pesquisa, clique em Carregar IA.</p>
+ <div class="ia-comparador-busca"><label class="avn-field">Pesquisar item<input id="termoIA" type="search" maxlength="180" placeholder="Ex.: tapioca, arroz branco cozido" autocomplete="off"></label><button id="pesquisarIA" type="button" class="secondary"><span aria-hidden="true">⌕</span> Pesquisar TACO + USDA</button></div>
+ <p id="statusIA" class="muted" role="status" aria-live="polite"></p>
+ <section class="ia-comparador-fontes" aria-label="Resultados das três fontes">
+  <section class="ia-comparador-fonte" aria-label="Pesquisa TACO"><div class="ia-fonte-top"><h3>TACO</h3><span class="ia-source-sub">Base brasileira</span></div><div id="statusTACO" class="muted" role="status">Aguardando pesquisa</div><div id="resultadosTACO" class="ia-lista-opcoes" aria-label="Alimentos encontrados na TACO"></div><div id="selecaoTACO" class="ia-selecao-fonte">Selecione um resultado</div><button type="button" id="usarTACO" class="secondary ia-usar" disabled>Usar este item</button></section>
+  <section class="ia-comparador-fonte" aria-label="Pesquisa USDA"><div class="ia-fonte-top"><h3>USDA</h3><span class="ia-source-sub">Fonte internacional</span></div><div id="statusUSDA" class="muted" role="status">Aguardando pesquisa</div><div id="resultadosUSDA" class="ia-lista-opcoes" aria-label="Alimentos encontrados no USDA"></div><div id="selecaoUSDA" class="ia-selecao-fonte">Selecione um resultado</div><button type="button" id="usarUSDA" class="secondary ia-usar" disabled>Usar este item</button></section>
+  <section class="ia-comparador-fonte" aria-label="Pesquisa complementar IA"><div class="ia-fonte-top"><h3>IA</h3><span class="ia-source-sub">Pesquisa complementar</span></div><button type="button" id="carregarIA" class="secondary ia-botao-carregar">Carregar IA</button><div id="statusIAColuna" class="muted" role="status">Aguardando sua solicitação</div><div id="selecaoIA" class="ia-selecao-fonte">O resultado gerado aparecerá nesta coluna para comparação</div><button type="button" id="usarIA" class="secondary ia-usar" disabled>Usar este item</button></section>
+ </section>
+ <section class="ia-comparacao" aria-label="Planilha de comparação nutricional"><div class="ia-comparacao-cabecalho"><h3>Composição nutricional comparada</h3><span class="muted">Mesma linha, três fontes · valores por 100 g</span></div>
+ <div class="ia-planilha-scroll" tabindex="0" aria-label="Tabela comparativa com rolagem"><table class="ia-planilha"><thead><tr><th scope="col">Nutriente (unidade)</th><th scope="col">TACO</th><th scope="col">USDA</th><th scope="col">IA</th></tr></thead><tbody id="nutrientesComparacao"></tbody></table></div>
+ <p class="muted ia-legenda">— = valor desconhecido (não significa zero). Os valores exibidos vêm somente do alimento selecionado em cada fonte e não são misturados. Confira se o preparo é equivalente.</p></section>
+ <details id="blocoJSON" class="ia-bloco-json" hidden><summary>Ver JSON nutricional gerado pela IA</summary><pre id="jsonGerado" class="ia-json-block"></pre><button type="button" class="secondary" id="copiarJSON">Copiar JSON</button></details>
+ <div class="modal-actions"><button id="cancelarIA" type="button" class="secondary">Cancelar / Fechar</button><span class="muted">Escolha <strong>Usar este item</strong> em uma das três colunas para preencher o cadastro.</span></div>
+</dialog>
+</section>
+<dialog id="avnModalGraficos" class="avn-food-dialog" aria-labelledby="avnTituloGraficos">
+ <div class="avn-food-head"><div><span class="avn-caption">AVN · SUPLEMENTO CADASTRADO</span><h2 id="avnTituloGraficos">Composição nutricional</h2><p id="avnDescricaoGraficos" class="muted">Valores por 100 g da parte comestível</p></div><button type="button" id="avnFecharGraficos" class="secondary">Fechar ×</button></div>
+ <div class="avn-food-charts"><section class="card"><h3>Distribuição das calorias por macro</h3><div id="avnGraficoMacros" class="avn-chart-macros"></div><p class="muted">Proteína e carboidratos: 4 kcal/g; gordura: 9 kcal/g. Aproximação, não quantidade em gramas.</p></section><section class="card"><h3>Micronutrientes e outros componentes</h3><label class="avn-field">Grupo<select id="avnGrupoMicros"><option value="Vitaminas">Vitaminas</option><option value="Minerais">Minerais</option><option value="Outros">Outros componentes</option></select></label><label class="avn-field">Unidade<select id="avnUnidadeMicros"></select></label><div id="avnGraficoMicros" class="avn-chart-micros"></div><p class="muted">Comparação visual apenas entre nutrientes da mesma unidade. As barras não indicam percentual de necessidade diária.</p></section></div>
+ <h3>Composição completa por 100 g</h3><div class="avn-chart-table-wrap"><table class="avn-chart-table"><thead><tr><th>Nutriente</th><th>Quantidade</th></tr></thead><tbody id="avnTabelaNutrientes"></tbody></table></div>
+</dialog>
+
+<footer>AVN · Os valores nutricionais dependem da qualidade dos dados e do preparo informado.</footer></main></body></html>

@@ -123,13 +123,17 @@ router.get('/nutrientes',wrap(async(_req,res)=>{
 }));
 router.get('/alimentos',wrap(async(req,res)=>{
  const id=requiredId(req.query.usuarioId);await user(id);
+ const tipo=String(req.query.tipo||'');
+ if(tipo&&!['alimento','suplemento','receita'].includes(tipo))throw bad('Tipo de cadastro inválido.');
  const q=String(req.query.busca||'').trim().slice(0,120);
  const r=await pool.query(`SELECT * FROM public.avn_alimentos WHERE ativo AND (usuario_id IS NULL OR usuario_id=$1)
- AND ($2='' OR translate(lower(nome),'áàâãäéèêëíìîïóòôõöúùûüç','aaaaaeeeeiiiiooooouuuuc') LIKE '%' || translate(lower($2),'áàâãäéèêëíìîïóòôõöúùûüç','aaaaaeeeeiiiiooooouuuuc') || '%')
- ORDER BY nome,id LIMIT 300`,[id,q]);res.set('Cache-Control','no-store');res.json(r.rows);
+ AND ($2='' OR tipo=$2)
+ AND ($3='' OR translate(lower(nome),'áàâãäéèêëíìîïóòôõöúùûüç','aaaaaeeeeiiiiooooouuuuc') LIKE '%' || translate(lower($3),'áàâãäéèêëíìîïóòôõöúùûüç','aaaaaeeeeiiiiooooouuuuc') || '%')
+ ORDER BY nome,id LIMIT 300`,[id,tipo,q]);res.set('Cache-Control','no-store');res.json(r.rows);
 }));
 router.post('/alimentos',wrap(async(req,res)=>{
  const uid=requiredId(req.body?.usuarioId);await user(uid);const f=await foodPayload(req.body||{});
+ const tipo=String(req.body?.tipo||'alimento');if(!['alimento','suplemento'].includes(tipo))throw bad('Tipo de cadastro inválido.');
  if(req.body?.fonte==='usda_fdc'&&/^https:\/\/fdc\.nal\.usda\.gov\/food-details\/\d+\/nutrients$/.test(req.body.fonte_referencia||'')){f.fonte='usda_fdc';f.fonte_referencia=req.body.fonte_referencia;}
  if(req.body?.fonte==='taco'&&/^https:\/\/brolesi\.github\.io\/taco\/foods\/[1-9]\d{0,2}\.json$/.test(req.body.fonte_referencia||'')){f.fonte='taco';f.fonte_referencia=req.body.fonte_referencia;}
  if(req.body?.fonte==='ia_pesquisa'){
@@ -138,23 +142,25 @@ router.post('/alimentos',wrap(async(req,res)=>{
   if(referencia.length<=240&&/^https:\/\/[^\s]+$/.test(referencia))f.fonte_referencia=referencia;
  }
  const vals=A.map(k=>k==='micronutrientes_100g'?JSON.stringify(f[k]):f[k]);
- const r=await pool.query(`INSERT INTO public.avn_alimentos(usuario_id,${A.join(',')},fonte,fonte_referencia) VALUES ($1,${A.map((_,i)=>'$'+(i+2)).join(',')},$13,$14) RETURNING *`,[uid,...vals,f.fonte||'manual',f.fonte_referencia||null]);res.status(201).json(r.rows[0]);
+ const r=await pool.query(`INSERT INTO public.avn_alimentos(usuario_id,${A.join(',')},fonte,fonte_referencia,tipo) VALUES ($1,${A.map((_,i)=>'$'+(i+2)).join(',')},$13,$14,$15) RETURNING *`,[uid,...vals,f.fonte||'manual',f.fonte_referencia||null,tipo]);res.status(201).json(r.rows[0]);
 }));
 router.put('/alimentos/:id',wrap(async(req,res)=>{
  const e=await pool.query("SELECT 1 FROM public.avn_receitas WHERE alimento_id=$1",[req.params.id]);if(e.rowCount)throw bad('Edite receitas no aplicativo Receitas, não em Alimentos.');
  const uid=requiredId(req.body?.usuarioId),id=requiredId(req.params.id);await user(uid);const f=await foodPayload(req.body);
+ const tipo=String(req.body?.tipo||'alimento');if(!['alimento','suplemento'].includes(tipo))throw bad('Tipo de cadastro inválido.');
  const vals=A.map(k=>k==='micronutrientes_100g'?JSON.stringify(f[k]):f[k]);
- const r=await pool.query(`UPDATE public.avn_alimentos SET ${A.map((k,i)=>k+'=$'+(i+1)).join(',')},atualizado_em=NOW() WHERE id=$${A.length+1} AND usuario_id=$${A.length+2} AND ativo RETURNING *`,[...vals,id,uid]);
- if(!r.rowCount)throw bad('Alimento pessoal não encontrado.',404);res.json(r.rows[0]);
+ const r=await pool.query(`UPDATE public.avn_alimentos SET ${A.map((k,i)=>k+'=$'+(i+1)).join(',')},atualizado_em=NOW() WHERE id=$${A.length+1} AND usuario_id=$${A.length+2} AND tipo=$${A.length+3} AND ativo RETURNING *`,[...vals,id,uid,tipo]);
+ if(!r.rowCount)throw bad('Cadastro não encontrado nesta categoria.',404);res.json(r.rows[0]);
 }));
 router.delete('/alimentos/:id',wrap(async(req,res)=>{
  const uid=requiredId(req.query.usuarioId),id=requiredId(req.params.id);await user(uid);
+ const tipo=String(req.query.tipo||'alimento');if(!['alimento','suplemento'].includes(tipo))throw bad('Tipo de cadastro inválido.');
  const db=await pool.connect();
  try{
   await db.query('BEGIN');
   // Bloqueia a linha para impedir inserções simultâneas com FK enquanto verificamos referências.
-  const f=await db.query('SELECT id,fonte FROM public.avn_alimentos WHERE id=$1 AND usuario_id=$2 AND ativo FOR UPDATE',[id,uid]);
-  if(!f.rowCount)throw bad('Alimento pessoal não encontrado.',404);
+  const f=await db.query('SELECT id,fonte FROM public.avn_alimentos WHERE id=$1 AND usuario_id=$2 AND tipo=$3 AND ativo FOR UPDATE',[id,uid,tipo]);
+  if(!f.rowCount)throw bad('Cadastro pessoal não encontrado.',404);
   if(f.rows[0].fonte==='receita')throw bad('Receitas devem ser gerenciadas pelo módulo Receitas.',409);
   const usos=await db.query(`SELECT
    EXISTS(SELECT 1 FROM public.avn_diario_alimentar WHERE alimento_id=$1) AS diario,
