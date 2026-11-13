@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AVN — Sono</title>
+  <link rel="stylesheet" href="/css/avn-sono.css?v=20261113">
+  <script src="/js/avn-sono.js?v=20261113" defer></script>
+</head>
+<body>
+<main class="shell">
+  <header class="topbar">
+    <a href="/avn">← Central AVN</a>
+    <strong>AVN <span>Saúde</span></strong>
+  </header>
+  <section class="heading">
+    <div><p class="eyebrow">SAMSUNG HEALTH · HISTÓRICO</p><h1>Sono</h1>
+      <p class="sub">Noites sincronizadas pelo AVN Android: horários, duração, pontuação e fases do sono.</p>
+    </div>
+    <button id="reload" type="button" class="action">Atualizar dados</button>
+  </section>
+  <section class="filters" aria-label="Filtros de sono">
+    <label>Usuário <select id="usuario"><option value="">Carregando…</option></select></label>
+    <label>Período <select id="dias">
+      <option value="7">Últimos 7 dias</option>
+      <option value="30" selected>Últimos 30 dias</option>
+      <option value="90">Últimos 90 dias</option>
+      <option value="365">Últimos 365 dias</option>
+      <option value="3650">Histórico disponível</option>
+    </select></label>
+  </section>
+  <p id="status" class="status" role="status" aria-live="polite">Carregando registros de sono…</p>
+  <section id="summary" class="summary" aria-label="Resumo do período">
+    <article class="stat"><span>Noites registradas</span><strong id="noites">—</strong></article>
+    <article class="stat"><span>Duração média</span><strong id="duracao">—</strong><small>Somente noites com duração informada</small></article>
+    <article class="stat"><span>Pontuação média</span><strong id="pontuacao">—</strong><small>Somente noites com pontuação</small></article>
+    <article class="stat"><span>Sono profundo médio</span><strong id="profundo">—</strong><small>Somente noites com fases disponíveis</small></article>
+    <article class="stat"><span>Sono REM médio</span><strong id="rem">—</strong><small>Somente noites com fases disponíveis</small></article>
+  </section>
+  <section class="charts" aria-label="Evolução do sono">
+    <article class="panel"><h2>Duração por noite</h2><p class="hint">Horas de sono informadas pela Samsung; não inclui períodos sem informação.</p><div id="chart-duration" class="chart" role="img" aria-label="Gráfico da duração do sono por noite"></div></article>
+    <article class="panel"><h2>Pontuação por noite</h2><p class="hint">Pontuação fornecida pela Samsung, quando disponível. Não é diagnóstico médico.</p><div id="chart-score" class="chart" role="img" aria-label="Gráfico da pontuação do sono por noite"></div></article>
+  </section>
+  <section class="panel">
+    <h2>Histórico de noites</h2>
+    <div class="legend" aria-label="Legenda das fases">
+      <span><i class="awake"></i>Acordado</span><span><i class="light"></i>Leve</span>
+      <span><i class="deep"></i>Profundo</span><span><i class="rem"></i>REM</span>
+    </div>
+    <div id="history" class="history" aria-live="polite"></div>
+  </section>
+  <p class="note"><strong>Não aparecem noites?</strong> No celular, abra <strong>AVN → Sono — Samsung → Ler sono do Samsung Health</strong> e depois toque em <strong>Enviar sono ao AVN</strong>. A leitura local, sozinha, não envia registros ao Web. O celular deve estar vinculado na aba Treinos.</p>
+</main>
+</body>
+</html>
