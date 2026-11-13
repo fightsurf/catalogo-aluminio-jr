@@ -26,7 +26,7 @@ async function responder(comando,arg,destino,zapi) {
     const r = await logistica.buscarTransportadorasPorNomeCidade(arg);
     let mensagem;
     if (r.tipo === 'resultado' && Array.isArray(r.dados) && r.dados.length > 0) {
-      const lista = r.dados.map((t,i)=>`${i+1}. ${t.nome}\n📞 ${t.telefone||'Sem telefone'}`).join('\n\n');
+      const lista = r.dados.map((t,i)=>`${i+1}. ${t.nome}${t.transportadora_cidade_nome ? ` / ${t.transportadora_cidade_nome}` : ''}\n📞 ${t.telefone||'Sem telefone'}`).join('\n\n');
       mensagem = `🚚 Frete para ${r.dados[0].cidade_nome} - ${r.dados[0].estado}\n\n${lista}`;
       // Foto apenas quando há transportadoras. Primeiro a imagem, depois a lista.
       // Se a foto falhar, a lista ainda deve chegar ao cliente.
