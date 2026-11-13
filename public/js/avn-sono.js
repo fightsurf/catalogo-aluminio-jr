@@ -41,6 +41,13 @@ function prepare(raw){
     score:toNumber(raw.pontuacao),
     origin:String(raw.origem||'samsung_health'),
     totals,
+    segments:Array.isArray(raw.estagios)?raw.estagios.map(s=>{
+      const code=String(s?.tipo||'').toUpperCase();
+      const begin=new Date(s?.inicio).getTime(),finish=new Date(s?.fim).getTime();
+      if(!stages[code]||!Number.isFinite(begin)||!Number.isFinite(finish)||finish<=begin)return null;
+      const a=Math.max(begin,start),b=Math.min(finish,end);
+      return b>a?{code,start:a,end:b}:null;
+    }).filter(Boolean).sort((a,b)=>a.start-b.start):[],
     hasStages:segments.length>0
   };
 }
@@ -55,6 +62,54 @@ function setStats(nights){
   $('pontuacao').textContent=score==null?'—':score.toLocaleString('pt-BR',{maximumFractionDigits:1});
   $('profundo').textContent=minutesFormat(mean(validStages.map(n=>n.totals.DEEP)));
   $('rem').textContent=minutesFormat(mean(validStages.map(n=>n.totals.REM)));
+}
+
+function latestNight(nights){
+  const host=$('latest-content');host.replaceChildren();
+  const night=nights[0];
+  if(!night){host.append(element('p','hint','Ainda não há noites sincronizadas para apresentar.'));return;}
+  const hero=element('div','latest-hero');
+  const rating=element('div','latest-rating');
+  rating.append(element('div','latest-caption','Pontuação Samsung Health'));
+  rating.append(element('strong','',night.score===null?'—':String(night.score)));
+  rating.append(element('div','latest-label',night.score===null?'Não informada':'Escala de 0 a 100'));
+  const times=element('div','latest-times');
+  times.append(element('span','',datetime(night.start)+' → '+datetime(night.end)));
+  times.append(element('strong','',night.duration===null?'Duração não informada':minutesFormat(night.duration)+' · Duração informada'));
+  const inBed=elapsed(night.start,night.end);
+  if(inBed!==null)times.append(element('span','',minutesFormat(inBed)+' · Intervalo entre início e fim'));
+  hero.append(rating,times);
+  host.append(hero);
+  const asleep=night.hasStages?night.totals.LIGHT+night.totals.DEEP+night.totals.REM:null;
+  if(asleep!==null)host.append(element('p','latest-asleep','Tempo nas fases de sono registradas: '+minutesFormat(asleep)));
+  if(!night.segments.length){host.append(element('p','hint','Não há fases com horários disponíveis para montar a linha do tempo.'));return;}
+  const total=new Date(night.end).getTime()-new Date(night.start).getTime();
+  if(total<=0)return;
+  const timeline=element('div','sleep-timeline');
+  timeline.setAttribute('role','img');
+  timeline.setAttribute('aria-label','Linha do tempo das fases do sono, do início ao fim da noite');
+  for(const s of night.segments){
+    const block=element('span','timeline-segment '+stages[s.code].css);
+    block.style.left=((s.start-new Date(night.start).getTime())/total*100)+'%';
+    block.style.width=(Math.max(0,s.end-s.start)/total*100)+'%';
+    block.title=stages[s.code].name+' · '+datetime(s.start)+' → '+datetime(s.end);
+    timeline.append(block);
+  }
+  host.append(timeline);
+  const labels=element('div','timeline-labels');
+  labels.append(element('span','',datetime(night.start)),element('span','',datetime(night.end)));
+  host.append(labels);
+  const phases=element('div','latest-phases');
+  const reported=Object.values(night.totals).reduce((a,b)=>a+b,0);
+  for(const [type,meta] of Object.entries(stages)){
+    const tile=element('div','latest-phase');
+    const key=element('span','');
+    key.append(element('i',meta.css),document.createTextNode(meta.name));
+    tile.append(key,element('strong','',minutesFormat(night.totals[type])));
+    if(reported>0)tile.append(element('small','',Math.round(night.totals[type]/reported*100)+'% dos estágios registrados'));
+    phases.append(tile);
+  }
+  host.append(phases);
 }
 
 function drawChart(target,rows,field,unit){
@@ -146,6 +201,7 @@ function makeNight(n){
   return card;
 }
 function render(nights){
+  latestNight(nights);
   setStats(nights);
   drawChart('chart-duration',nights,'duration','h');
   drawChart('chart-score',nights,'score','pontos');
