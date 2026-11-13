@@ -42,3 +42,33 @@ h2{font-size:19px;margin:0 0 6px}.eyebrow{font-weight:800;letter-spacing:.13em;f
 .note strong{color:#e8f2ff}
 @media(max-width:930px){.summary{grid-template-columns:repeat(3,minmax(0,1fr))}.charts{grid-template-columns:1fr}}
 @media(max-width:620px){.shell{padding:12px 13px 34px}.heading{display:block;margin:23px 0 15px}.heading .action{margin-top:13px;width:100%}.filters{display:grid;grid-template-columns:1fr 1fr}.filters select{min-width:0;width:100%}.summary{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.stat{padding:11px}.stat strong{font-size:22px}.panel{padding:14px}.night{padding:12px}.chart{height:210px}}
+
+
+/* Painel de última noite: derivado somente de registros enviados pela Samsung. */
+.latest{margin:0 0 20px}
+.latest-content{margin-top:14px}
+.latest-hero{display:flex;align-items:center;flex-wrap:wrap;gap:20px;padding:12px 0 20px}
+.latest-rating{min-width:132px;border-right:1px solid var(--stroke);padding-right:26px}
+.latest-rating strong{font-size:52px;line-height:1.1;font-weight:850;letter-spacing:-.04em;color:#e4f2ff}
+.latest-caption,.latest-label{font-size:12px;color:var(--muted)}
+.latest-times{display:grid;gap:6px;color:var(--muted);font-size:14px}
+.latest-times strong{font-size:20px;color:#eff6ff}
+.latest-asleep{color:#b9eade;margin:0 0 16px;font-size:13px}
+.sleep-timeline{position:relative;height:29px;border-radius:7px;background:#25344c;overflow:hidden}
+.timeline-segment{position:absolute;top:0;height:100%;opacity:.96}
+.timeline-segment.awake{background:#fa568e}
+.timeline-segment.rem{background:#bdadff}
+.timeline-segment.light{background:#7456f4}
+.timeline-segment.deep{background:#4529bf}
+.timeline-labels{display:flex;justify-content:space-between;color:#a9b9d1;font-size:12px;margin:7px 0 18px}
+.latest-phases{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:11px}
+.latest-phase{background:#111d30;border-radius:11px;border:1px solid #354865;padding:12px;display:flex;flex-direction:column;gap:5px}
+.latest-phase span{display:flex;gap:8px;align-items:center;font-size:12px;color:#c5d5e7}
+.latest-phase i{display:inline-block;width:9px;height:9px;border-radius:50%}
+.latest-phase strong{font-size:18px}
+.latest-phase small{font-size:11px;color:var(--muted)}
+.latest-phase .awake{background:#fa568e}
+.latest-phase .rem{background:#bdadff}
+.latest-phase .light{background:#7456f4}
+.latest-phase .deep{background:#4529bf}
+@media(max-width:690px){.latest-phases{grid-template-columns:repeat(2,minmax(0,1fr))}.latest-rating{min-width:108px;padding-right:14px}.latest-rating strong{font-size:43px}.latest-times strong{font-size:16px}}
