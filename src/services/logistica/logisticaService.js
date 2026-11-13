@@ -159,6 +159,7 @@ async function buscarTransportadorasPorNomeCidade(nomeCidade) {
                                               t.telefone,
                                                       tc.observacao,
                                                       origem.nome AS transportadora_cidade_nome,
+                                                      origem.estado AS transportadora_cidade_estado,
                                                               c.nome AS cidade_nome,
                                                                       c.estado
                                                                             FROM transportadora_cidade tc
