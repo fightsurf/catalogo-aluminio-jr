@@ -290,6 +290,32 @@ app.get('/catalogo-celular', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'catalogo-celular.html'));
 });
 
+/**
+ * Link de apresentação: a mesma página mobile, com dados limitados no servidor.
+ * Nenhuma informação de preço ou custos é enviada nesta resposta.
+ */
+const CATALOGO_APRESENTACAO_CODIGO = 'cn5H9uab2pUBzYMuhZLqo3F73T3y3O1X';
+app.get(`/catalogo-celular/${CATALOGO_APRESENTACAO_CODIGO}/itens`, async (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.set('Referrer-Policy', 'no-referrer');
+  res.set('X-Robots-Tag', 'noindex, nofollow');
+  try {
+    const todos = await require('./src/services/produto/produto.service').listar();
+    const dados = todos.map(({ id, nome, categoria, categorias, foto, fotos }) =>
+      ({ id, nome, categoria, categorias, foto, fotos }));
+    res.json({ success: true, data: dados });
+  } catch (erro) {
+    console.error('[catalogo-apresentacao] Falha ao carregar produtos:', erro);
+    res.status(500).json({ success: false, message: 'Erro ao carregar produtos.' });
+  }
+});
+app.get(`/catalogo-celular/${CATALOGO_APRESENTACAO_CODIGO}`, (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  res.set('Referrer-Policy', 'no-referrer');
+  res.set('X-Robots-Tag', 'noindex, nofollow');
+  res.sendFile(path.join(__dirname, 'views', 'catalogo-celular.html'));
+});
+
 app.get('/admin-1234', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'admin.html'));
 });
