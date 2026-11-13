@@ -158,11 +158,13 @@ async function buscarTransportadorasPorNomeCidade(nomeCidade) {
                                       t.nome,
                                               t.telefone,
                                                       tc.observacao,
+                                                      origem.nome AS transportadora_cidade_nome,
                                                               c.nome AS cidade_nome,
                                                                       c.estado
                                                                             FROM transportadora_cidade tc
                                                                                   JOIN cidades c ON tc.cidade_id = c.id
                                                                                         JOIN transportadoras t ON tc.transportadora_id = t.id
+                                                                                              LEFT JOIN cidades origem ON origem.id = t.cidade_id
                                                                                               WHERE LOWER(unaccent(c.nome)) = LOWER(unaccent($1))
                                                                                                     ${estado ? "AND LOWER(unaccent(c.estado)) = LOWER(unaccent($2))" : ""}
                                                                                                           ORDER BY t.nome;
