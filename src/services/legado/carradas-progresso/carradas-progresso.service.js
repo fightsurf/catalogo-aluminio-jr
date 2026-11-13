@@ -3011,20 +3011,6 @@ async function salvarLocalEntrega({
   // Mantém o texto legado preenchido com o nome da agência para compatibilidade
   // com rotinas antigas. A associação nova é feita pelo código da entidade.
   const agenciaCidadeNormalizada = agenciaRecebimento?.nome || null;
-  const localAnteriorResult = await pool.query(
-    `
-      SELECT transportadora_id, redespacho_transportadora_id, agencia_recebimento_codigo
-      FROM carradas_pedidos_local_entrega
-      WHERE codigo_carrada = $1 AND numero_pedido = $2
-      LIMIT 1
-    `,
-    [codigoCarrada, numeroPedido]
-  );
-  const localAnterior = localAnteriorResult.rows[0] || null;
-  const transportadoraFoiDefinidaAgora = Number(localAnterior?.transportadora_id || 0) !== transportadoraIdInt;
-  const redespachoFoiDefinidoAgora = Number(localAnterior?.redespacho_transportadora_id || 0) !== Number(redespachoTransportadoraIdInt || 0);
-  const agenciaFoiDefinidaAgora = Number(localAnterior?.agencia_recebimento_codigo || 0) !== Number(agenciaRecebimentoCodigoInt || 0);
-
   const result = await pool.query(
     `
       INSERT INTO carradas_pedidos_local_entrega (
@@ -3092,65 +3078,12 @@ async function salvarLocalEntrega({
     extras:{detalhes_entrega:detalhesEntrega.join('\n\n'),volumes:quantidadeVolumes}
   });
   const notificacaoCliente=avisoLocalEntrega.notificacao;
-  const configLogistica=await notificacoesConfig.carregar('LOCAL_ENTREGA_LOGISTICA');
-  const configAgencia=await notificacoesConfig.carregar('LOCAL_ENTREGA_AGENCIA');
-  // A seleção fica salva mesmo em carradas futuras ou passadas.
-  // Os avisos aos contatos da logística só podem sair no próprio dia da carrada.
-  const podeNotificarLogistica = dataCivilCarradaBR(carrada?.data) === dataHojeFortalezaBR();
-  let notificacaoTransportadora = null;
-  if (podeNotificarLogistica && transportadoraFoiDefinidaAgora && configLogistica.enviarTexto) {
-    const mensagemTransportadora = montarMensagemDestinoLocalEntrega({
-      pedido: pedidoComVolumesEDadosCliente,
-      numeroPedido,
-      carrada,
-      telefoneCliente,
-      textoModelo:configLogistica.f.texto
-    });
-    notificacaoTransportadora = await enviarNotificacaoLocalEntrega({
-      codigoCarrada,
-      numeroPedido,
-      telefone: transportadora.telefone_principal,
-      mensagem: mensagemTransportadora,
-      telefoneObrigatorioMensagem: 'A transportadora não possui Telefone Principal cadastrado.'
-    });
-  }
-
-  let notificacaoRedespacho = null;
-  if (podeNotificarLogistica && redespachoTransportadora && redespachoFoiDefinidoAgora && configLogistica.enviarTexto) {
-    const mensagemRedespacho = montarMensagemDestinoLocalEntrega({
-      pedido: pedidoComVolumesEDadosCliente,
-      numeroPedido,
-      carrada,
-      telefoneCliente,
-      textoModelo:configLogistica.f.texto
-    });
-    notificacaoRedespacho = await enviarNotificacaoLocalEntrega({
-      codigoCarrada,
-      numeroPedido,
-      telefone: redespachoTransportadora.telefone_principal,
-      mensagem: mensagemRedespacho,
-      telefoneObrigatorioMensagem: 'A transportadora de redespacho não possui Telefone Principal cadastrado.'
-    });
-  }
-
-  let notificacaoAgencia = null;
-  if (podeNotificarLogistica && agenciaRecebimento && agenciaFoiDefinidaAgora && configLogistica.enviarTexto && configAgencia.enviarTexto) {
-    const mensagemAgencia = montarMensagemDestinoLocalEntrega({
-      pedido: pedidoComVolumesEDadosCliente,
-      numeroPedido,
-      carrada,
-      telefoneCliente,
-      transportadoraNome: transportadora.nome,
-      textoModelo:configAgencia.f.texto
-    });
-    notificacaoAgencia = await enviarNotificacaoLocalEntrega({
-      codigoCarrada,
-      numeroPedido,
-      telefone: agenciaRecebimento.telefone,
-      mensagem: mensagemAgencia,
-      telefoneObrigatorioMensagem: 'A Agência de Recebimento não possui telefone cadastrado.'
-    });
-  }
+  // Salvar o local de entrega não dispara mensagens automáticas para
+  // transportadora/excursão, redespacho ou agência de recebimento.
+  // O aviso ao cliente acima e o envio manual de romaneios não são alterados.
+  const notificacaoTransportadora = null;
+  const notificacaoRedespacho = null;
+  const notificacaoAgencia = null;
 
   await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
 
