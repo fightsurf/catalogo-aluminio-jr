@@ -49,8 +49,8 @@ test('@frete: imagem ANTES da lista quando ha transportadoras', async () => {
   retornoFrete = {
     tipo: 'resultado',
     dados: [
-      { nome: 'Transportadora A', telefone: '84999999999', cidade_nome: 'Mossoró', estado: 'RN', transportadora_cidade_nome: 'Natal' },
-      { nome: 'Transportadora B', telefone: '84988888888', cidade_nome: 'Mossoró', estado: 'RN', transportadora_cidade_nome: 'Fortaleza' }
+      { nome: 'Transportadora A', telefone: '84999999999', cidade_nome: 'Mossoró', estado: 'RN', transportadora_cidade_nome: 'Natal', transportadora_cidade_estado: 'RN' },
+      { nome: 'Transportadora B', telefone: '84988888888', cidade_nome: 'Mossoró', estado: 'RN', transportadora_cidade_nome: 'Fortaleza', transportadora_cidade_estado: 'CE' }
     ]
   };
   const { zapi, chamadas } = simularZapi();
@@ -62,8 +62,8 @@ test('@frete: imagem ANTES da lista quando ha transportadoras', async () => {
   assert.equal(chamadas[0].payload.viewOnce, false);
   assert.equal(chamadas[1].payload.phone, destino);
   assert.match(chamadas[1].payload.message, /Frete para Mossoró - RN/);
-  assert.match(chamadas[1].payload.message, /1\. Transportadora A \/ Natal\n📞 84999999999/);
-  assert.match(chamadas[1].payload.message, /2\. Transportadora B \/ Fortaleza\n📞 84988888888/);
+  assert.match(chamadas[1].payload.message, /1\. Transportadora A \/ Natal - RN\n📞 84999999999/);
+  assert.match(chamadas[1].payload.message, /2\. Transportadora B \/ Fortaleza - CE\n📞 84988888888/);
 });
 
 test('@frete: cidade sem transportadora retorna SOMENTE texto', async () => {
