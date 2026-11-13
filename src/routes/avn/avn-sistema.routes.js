@@ -43,7 +43,8 @@ const corporalApps = [
   {rota:'/avn/sistema/massa-ossea',nome:'Massa Óssea',categoria:'Avaliação Física',icone:'bone',descricao:'Histórico de massa óssea.'},
 ];
 const saudeApps = [
-  {rota:'/avn/sistema/saude/exames',nome:'Exames Laboratoriais',categoria:'Saúde',icone:'heart-pulse',descricao:'Registrar exames laboratoriais, importar laudos com IA e acompanhar resultados.'}
+  {rota:'/avn/sistema/saude/exames',nome:'Exames Laboratoriais',categoria:'Saúde',icone:'heart-pulse',descricao:'Registrar exames laboratoriais, importar laudos com IA e acompanhar resultados.'},
+  {rota:'/avn/sistema/sono',nome:'Sono',categoria:'Saúde',icone:'moon',descricao:'Histórico de sono do Samsung Health: duração, pontuação e fases por noite.'}
 ];
 const todosApps = [...treinoApps, ...nutricaoApps, ...corporalApps, ...saudeApps];
 async function inserirTreinosNoResumo(summary) {
@@ -160,6 +161,7 @@ router.use('/api/balanco-energetico', requireAuth, avnBalancoRoutes);
 router.get('/balanco-energetico', requireAuth, (_req,res)=>res.sendFile(path.resolve(__dirname,'../../../views/avn/balanco-energetico.html')));
 router.use('/api/exames', requireAuth, avnExamesRoutes);
 router.get('/saude/exames', requireAuth, (_req,res)=>res.sendFile(path.resolve(__dirname,'../../../views/avn/exames-laboratoriais.html')));
+router.get('/sono', requireAuth, (_req,res)=>res.sendFile(path.resolve(__dirname,'../../../views/avn/sono.html')));
 router.use('/api/hidratacao', requireAuth, avnHidratacaoRoutes.web);
 router.get('/nutricao', requireAuth, (req,res) => {
   const oldTab=String(req.query.tab||'');
