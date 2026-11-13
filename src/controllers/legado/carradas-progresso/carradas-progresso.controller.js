@@ -263,6 +263,18 @@ async function salvarLocalEntrega(req, res) {
   }
 }
 
+async function enviarNotificacaoAgenciaLocalEntrega(req, res) {
+  try {
+    const data = await service.enviarNotificacaoAgenciaLocalEntrega({
+      codigoCarrada: req.params.codigo,
+      numeroPedido: req.params.numeroPedido
+    });
+    return res.status(200).json({ success: true, data });
+  } catch (error) {
+    return responderErro(res, error, 'Erro ao enviar a mensagem para a agência.');
+  }
+}
+
 async function buscarHistoricoLocalEntrega(req, res) {
   try {
     const data = await service.buscarHistoricoLocalEntrega({
@@ -322,6 +334,7 @@ module.exports = {
   enviarEtiquetaVolumes,
   confirmarEtiquetaVolumes,
   salvarLocalEntrega,
+  enviarNotificacaoAgenciaLocalEntrega,
   buscarHistoricoLocalEntrega,
   perguntarRepeticaoLocalEntrega,
   enviarWhatsappCarradaLote

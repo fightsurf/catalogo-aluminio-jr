@@ -39,6 +39,7 @@ const FASES_MATRIZ = [
 
 let estruturaRedespachoPromise = null;
 let estruturaPerfisEtiquetaPromise = null;
+let estruturaNotificacaoAgenciaPromise = null;
 
 function criarErro(message, status = 400) {
   const error = new Error(message);
@@ -95,6 +96,19 @@ async function garantirTabelasModulo(client = pool) {
   }
 
   await estruturaRedespachoPromise;
+
+  if (!estruturaNotificacaoAgenciaPromise) {
+    estruturaNotificacaoAgenciaPromise = client.query(`
+      ALTER TABLE carradas_pedidos_local_entrega
+        ADD COLUMN IF NOT EXISTS agencia_notificada_em TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS agencia_envio_token TEXT,
+        ADD COLUMN IF NOT EXISTS agencia_envio_iniciado_em TIMESTAMPTZ
+    `).catch((error) => {
+      estruturaNotificacaoAgenciaPromise = null;
+      throw error;
+    });
+  }
+  await estruturaNotificacaoAgenciaPromise;
 
   if (!estruturaPerfisEtiquetaPromise) {
     estruturaPerfisEtiquetaPromise = (async () => {
@@ -768,6 +782,7 @@ async function buscarLocalEntregaRowsDosPedidos(pedidos = []) {
         le.transportadora_id,
         le.redespacho_transportadora_id,
         le.agencia_recebimento_codigo,
+        le.agencia_notificada_em,
         le.agencia_cidade,
         le.created_at,
         le.updated_at,
@@ -812,6 +827,7 @@ async function buscarLocalEntregaRowsDosPedidos(pedidos = []) {
       redespachoTransportadoraNome: row.redespacho_transportadora_nome || '',
       redespachoTransportadoraTelefonePrincipal: row.redespacho_transportadora_telefone_principal || '',
       agenciaRecebimentoCodigo: row.agencia_recebimento_codigo || null,
+      agenciaNotificadaEm: row.agencia_notificada_em || null,
       agenciaRecebimentoNome: row.agencia_recebimento_nome || row.agencia_cidade || '',
       agenciaRecebimentoTelefone: row.agencia_recebimento_telefone || '',
       agenciaRecebimentoCidadeId: row.agencia_recebimento_cidade_id || null,
@@ -842,6 +858,11 @@ function montarFasesDoPedido({ pedido, booleanRows = {}, etiquetaRow = null, loc
   const etiquetaSilenciosa = Boolean(booleanRows.ETIQUETA_VOLUMES?.valorBoolean);
   const etiquetaConfirmada = Boolean(etiquetaRow?.confirmadoBoolean) || etiquetaSilenciosa;
   const localEntregaDefinido = Boolean(localEntregaRow?.transportadoraId) || faseLocalEntregaSilencioso;
+  const agenciaNotificacaoPendente = Boolean(
+    localEntregaRow?.transportadoraId
+    && localEntregaRow?.agenciaRecebimentoCodigo
+    && !localEntregaRow?.agenciaNotificadaEm
+  );
   const pagamentoQuitadoAutomatico = calcularPagamentoQuitado(detalhePagamento);
   const pagamentoMarcadoManual = Boolean(booleanRows.PAGAMENTO_QUITADO?.valorBoolean);
   const pagamentoQuitado = pagamentoQuitadoAutomatico || pagamentoMarcadoManual;
@@ -893,8 +914,10 @@ function montarFasesDoPedido({ pedido, booleanRows = {}, etiquetaRow = null, loc
     },
     LOCAL_ENTREGA: {
       codigo: 'LOCAL_ENTREGA',
-      concluido: localEntregaDefinido,
+      concluido: localEntregaDefinido && !agenciaNotificacaoPendente,
       tipo: 'especial',
+      agenciaNotificacaoPendente,
+      agenciaNotificadaEm: localEntregaRow?.agenciaNotificadaEm || null,
       transportadoraId: localEntregaRow?.transportadoraId || null,
       transportadoraNome: localEntregaRow?.transportadoraNome || '',
       transportadoraTelefonePrincipal: localEntregaRow?.transportadoraTelefonePrincipal || '',
@@ -1235,7 +1258,9 @@ async function buscarResumoLocalEntregaDosPedidos(pedidos = []) {
   const [localEntregaResult, silenciosoResult] = await Promise.all([
     pool.query(
       `
-        SELECT numero_pedido, saida, TRUE AS concluido, created_at, updated_at
+        SELECT numero_pedido, saida,
+               (agencia_recebimento_codigo IS NULL OR agencia_notificada_em IS NOT NULL) AS concluido,
+               created_at, updated_at
         FROM carradas_pedidos_local_entrega
         WHERE transportadora_id IS NOT NULL
           AND ((saida IS NOT NULL AND saida = ANY($1::bigint[])) OR numero_pedido = ANY($2::text[]))
@@ -3023,7 +3048,6 @@ async function salvarLocalEntrega({
   const localAnterior = localAnteriorResult.rows[0] || null;
   const transportadoraFoiDefinidaAgora = Number(localAnterior?.transportadora_id || 0) !== transportadoraIdInt;
   const redespachoFoiDefinidoAgora = Number(localAnterior?.redespacho_transportadora_id || 0) !== Number(redespachoTransportadoraIdInt || 0);
-  const agenciaFoiDefinidaAgora = Number(localAnterior?.agencia_recebimento_codigo || 0) !== Number(agenciaRecebimentoCodigoInt || 0);
 
   const result = await pool.query(
     `
@@ -3043,8 +3067,23 @@ async function salvarLocalEntrega({
         redespacho_transportadora_id = EXCLUDED.redespacho_transportadora_id,
         agencia_recebimento_codigo = EXCLUDED.agencia_recebimento_codigo,
         agencia_cidade = EXCLUDED.agencia_cidade,
+        agencia_notificada_em = CASE
+          WHEN carradas_pedidos_local_entrega.transportadora_id IS DISTINCT FROM EXCLUDED.transportadora_id
+            OR carradas_pedidos_local_entrega.redespacho_transportadora_id IS DISTINCT FROM EXCLUDED.redespacho_transportadora_id
+            OR carradas_pedidos_local_entrega.agencia_recebimento_codigo IS DISTINCT FROM EXCLUDED.agencia_recebimento_codigo
+          THEN NULL ELSE carradas_pedidos_local_entrega.agencia_notificada_em END,
+        agencia_envio_token = CASE
+          WHEN carradas_pedidos_local_entrega.transportadora_id IS DISTINCT FROM EXCLUDED.transportadora_id
+            OR carradas_pedidos_local_entrega.redespacho_transportadora_id IS DISTINCT FROM EXCLUDED.redespacho_transportadora_id
+            OR carradas_pedidos_local_entrega.agencia_recebimento_codigo IS DISTINCT FROM EXCLUDED.agencia_recebimento_codigo
+          THEN NULL ELSE carradas_pedidos_local_entrega.agencia_envio_token END,
+        agencia_envio_iniciado_em = CASE
+          WHEN carradas_pedidos_local_entrega.transportadora_id IS DISTINCT FROM EXCLUDED.transportadora_id
+            OR carradas_pedidos_local_entrega.redespacho_transportadora_id IS DISTINCT FROM EXCLUDED.redespacho_transportadora_id
+            OR carradas_pedidos_local_entrega.agencia_recebimento_codigo IS DISTINCT FROM EXCLUDED.agencia_recebimento_codigo
+          THEN NULL ELSE carradas_pedidos_local_entrega.agencia_envio_iniciado_em END,
         updated_at = NOW()
-      RETURNING codigo_carrada, numero_pedido, saida, transportadora_id, redespacho_transportadora_id, agencia_recebimento_codigo, agencia_cidade, updated_at
+      RETURNING codigo_carrada, numero_pedido, saida, transportadora_id, redespacho_transportadora_id, agencia_recebimento_codigo, agencia_notificada_em, agencia_cidade, updated_at
     `,
     [
       codigoCarrada,
@@ -3093,7 +3132,6 @@ async function salvarLocalEntrega({
   });
   const notificacaoCliente=avisoLocalEntrega.notificacao;
   const configLogistica=await notificacoesConfig.carregar('LOCAL_ENTREGA_LOGISTICA');
-  const configAgencia=await notificacoesConfig.carregar('LOCAL_ENTREGA_AGENCIA');
   // A seleção fica salva mesmo em carradas futuras ou passadas.
   // Os avisos aos contatos da logística só podem sair no próprio dia da carrada.
   const podeNotificarLogistica = dataCivilCarradaBR(carrada?.data) === dataHojeFortalezaBR();
@@ -3133,30 +3171,15 @@ async function salvarLocalEntrega({
     });
   }
 
-  let notificacaoAgencia = null;
-  if (podeNotificarLogistica && agenciaRecebimento && agenciaFoiDefinidaAgora && configLogistica.enviarTexto && configAgencia.enviarTexto) {
-    const mensagemAgencia = montarMensagemDestinoLocalEntrega({
-      pedido: pedidoComVolumesEDadosCliente,
-      numeroPedido,
-      carrada,
-      telefoneCliente,
-      transportadoraNome: transportadora.nome,
-      textoModelo:configAgencia.f.texto
-    });
-    notificacaoAgencia = await enviarNotificacaoLocalEntrega({
-      codigoCarrada,
-      numeroPedido,
-      telefone: agenciaRecebimento.telefone,
-      mensagem: mensagemAgencia,
-      telefoneObrigatorioMensagem: 'A Agência de Recebimento não possui telefone cadastrado.'
-    });
-  }
+  // A agência é apenas cadastrada aqui. Seu WhatsApp depende de clique explícito
+  // na célula amarela e da validação de data no endpoint dedicado.
+  const notificacaoAgencia = null;
 
   await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
 
   return {
     numeroPedido,
-    concluido: true,
+    concluido: !result.rows[0].agencia_recebimento_codigo || Boolean(result.rows[0].agencia_notificada_em),
     transportadoraId: result.rows[0].transportadora_id,
     transportadoraNome: transportadora.nome || '',
     transportadoraTelefonePrincipal: transportadora.telefone_principal || '',
@@ -3164,6 +3187,8 @@ async function salvarLocalEntrega({
     redespachoTransportadoraNome: redespachoTransportadora?.nome || '',
     redespachoTransportadoraTelefonePrincipal: redespachoTransportadora?.telefone_principal || '',
     agenciaRecebimentoCodigo: result.rows[0].agencia_recebimento_codigo || null,
+    agenciaNotificadaEm: result.rows[0].agencia_notificada_em || null,
+    agenciaNotificacaoPendente: Boolean(result.rows[0].agencia_recebimento_codigo && !result.rows[0].agencia_notificada_em),
     agenciaRecebimentoNome: agenciaRecebimento?.nome || result.rows[0].agencia_cidade || '',
     agenciaRecebimentoTelefone: agenciaRecebimento?.telefone || '',
     agenciaRecebimentoCidadeId: agenciaRecebimento?.cidade_id || null,
@@ -3180,6 +3205,128 @@ async function salvarLocalEntrega({
     notificacaoRedespacho,
     notificacaoAgencia
   };
+}
+
+
+/**
+ * Notifica uma agência previamente cadastrada somente por ação manual
+ * e no dia civil da carrada. O envio é reclamado atomicamente para evitar
+ * clique duplicado; a célula só passa a verde após sucesso no WhatsApp.
+ */
+async function enviarNotificacaoAgenciaLocalEntrega({ codigoCarrada: codigoCarradaParam, numeroPedido: numeroPedidoParam }) {
+  await garantirTabelasModulo();
+  const codigoCarrada = parseCodigoCarrada(codigoCarradaParam);
+  const numeroPedido = normalizarNumeroPedido(numeroPedidoParam);
+  const carrada = await buscarCarradaOuFalhar(codigoCarrada);
+  const pedido = encontrarPedidoNaCarrada(carrada, numeroPedido);
+  const diaCarrada = dataCivilCarradaBR(carrada?.data);
+  if (!diaCarrada || diaCarrada !== dataHojeFortalezaBR()) {
+    throw criarErro(`A mensagem à agência só pode ser enviada no dia da carrada (${diaCarrada || 'data não informada'}).`, 409);
+  }
+
+  const localResult = await pool.query(`
+    SELECT le.agencia_recebimento_codigo, le.agencia_notificada_em, le.transportadora_id,
+           t.nome AS transportadora_nome, a.telefone AS agencia_telefone
+    FROM carradas_pedidos_local_entrega le
+    JOIN transportadoras t ON t.id = le.transportadora_id
+    LEFT JOIN agencias_recebimento a ON a.codigo = le.agencia_recebimento_codigo
+    WHERE le.codigo_carrada = $1 AND le.numero_pedido = $2
+    LIMIT 1
+  `, [codigoCarrada, numeroPedido]);
+  const local = localResult.rows[0];
+  if (!local?.agencia_recebimento_codigo) {
+    throw criarErro('Cadastre primeiro uma agência de recebimento para o pedido.', 400);
+  }
+  if (local.agencia_notificada_em) {
+    return { numeroPedido, jaEnviado: true, agenciaNotificadaEm: local.agencia_notificada_em };
+  }
+  if (!limparTexto(local.agencia_telefone)) {
+    throw criarErro('A Agência de Recebimento não possui telefone cadastrado.', 400);
+  }
+
+  const [configLogistica, configAgencia] = await Promise.all([
+    notificacoesConfig.carregar('LOCAL_ENTREGA_LOGISTICA'),
+    notificacoesConfig.carregar('LOCAL_ENTREGA_AGENCIA')
+  ]);
+  if (!configLogistica.enviarTexto || !configAgencia.enviarTexto) {
+    throw criarErro('O envio de notificações à agência está desabilitado nas configurações.', 409);
+  }
+
+  const tokenEnvio = randomUUID();
+  const reservado = await pool.query(`
+    UPDATE carradas_pedidos_local_entrega
+    SET agencia_envio_token = $3, agencia_envio_iniciado_em = NOW()
+    WHERE codigo_carrada = $1 AND numero_pedido = $2
+      AND agencia_recebimento_codigo = $4
+      AND transportadora_id = $5
+      AND agencia_notificada_em IS NULL
+      AND (agencia_envio_token IS NULL OR agencia_envio_iniciado_em < NOW() - INTERVAL '5 minutes')
+    RETURNING codigo_carrada
+  `, [codigoCarrada, numeroPedido, tokenEnvio, local.agencia_recebimento_codigo, local.transportadora_id]);
+
+  if (!reservado.rowCount) {
+    throw criarErro('O aviso à agência já está em envio, foi enviado ou o cadastro mudou. Atualize a tela.', 409);
+  }
+
+  try {
+    const detalhePagamento = await buscarDetalhePagamentoDoPedido(pedido);
+    const telefoneCliente = normalizarTelefoneLote(pedido, detalhePagamento);
+    const clienteDetalhe = detalhePagamento?.pedido?.cliente || {};
+    const pedidoParaMensagem = {
+      ...pedido,
+      cliente: {
+        ...(pedido?.cliente || {}),
+        nome: clienteDetalhe.nome || pedido?.cliente?.nome || '',
+        cidade: clienteDetalhe.cidade || pedido?.cliente?.cidade || '',
+        uf: clienteDetalhe.uf || pedido?.cliente?.uf || ''
+      }
+    };
+    const mensagem = montarMensagemDestinoLocalEntrega({
+      pedido: pedidoParaMensagem,
+      numeroPedido,
+      carrada,
+      telefoneCliente,
+      transportadoraNome: local.transportadora_nome,
+      textoModelo: configAgencia.f.texto
+    });
+    const notificacao = await enviarNotificacaoLocalEntrega({
+      codigoCarrada,
+      numeroPedido,
+      telefone: local.agencia_telefone,
+      mensagem,
+      telefoneObrigatorioMensagem: 'A Agência de Recebimento não possui telefone cadastrado.'
+    });
+    if (!notificacao.success) {
+      throw criarErro(`Não foi possível enviar à agência: ${notificacao.error || 'erro no WhatsApp'}`, 502);
+    }
+
+    const confirmado = await pool.query(`
+      UPDATE carradas_pedidos_local_entrega
+      SET agencia_notificada_em = NOW(),
+          agencia_envio_token = NULL,
+          agencia_envio_iniciado_em = NULL
+      WHERE codigo_carrada = $1 AND numero_pedido = $2 AND agencia_envio_token = $3
+      RETURNING agencia_notificada_em
+    `, [codigoCarrada, numeroPedido, tokenEnvio]);
+    if (confirmado.rowCount) {
+      await carradasStatusResumoService.recalcularStatusCarrada(codigoCarrada);
+    }
+
+    return {
+      numeroPedido,
+      notificacao,
+      agenciaNotificadaEm: confirmado.rows[0]?.agencia_notificada_em || null,
+      cadastroAlteradoDuranteEnvio: !confirmado.rowCount
+    };
+  } finally {
+    // Libera a tentativa em caso de falha. Se o cadastro foi alterado enquanto
+    // o WhatsApp era enviado, o token antigo não marca o novo cadastro como verde.
+    await pool.query(`
+      UPDATE carradas_pedidos_local_entrega
+      SET agencia_envio_token = NULL, agencia_envio_iniciado_em = NULL
+      WHERE codigo_carrada = $1 AND numero_pedido = $2 AND agencia_envio_token = $3
+    `, [codigoCarrada, numeroPedido, tokenEnvio]);
+  }
 }
 
 async function enviarWhatsappCarradaLote({ codigoCarrada: codigoCarradaParam, mensagemPersonalizada, ignorarPedidosProntos = false }) {
@@ -3300,6 +3447,7 @@ module.exports = {
   enviarEtiquetaVolumes,
   confirmarEtiquetaVolumes,
   salvarLocalEntrega,
+  enviarNotificacaoAgenciaLocalEntrega,
   buscarHistoricoLocalEntrega,
   perguntarRepeticaoLocalEntrega,
   enviarWhatsappCarradaLote
