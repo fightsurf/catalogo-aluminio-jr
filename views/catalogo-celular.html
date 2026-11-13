@@ -258,6 +258,8 @@
 <script src="/js/perfis-preco.js"></script>
 <script>
   let produtos = [];
+  // A apresentação com código na URL compartilha esta página, mas não recebe valores.
+  const catalogoApresentacao = /^\/catalogo-celular\/[A-Za-z0-9_-]+$/.test(window.location.pathname);
 
   async function apiGet(url) {
     const response = await fetch(url);
@@ -311,7 +313,9 @@
 
   async function carregarCatalogo() {
     try {
-      produtos = PrecosVendedor.token === null ? await apiGet('/api/produtos') : await PrecosVendedor.produtos('catalogo');
+      produtos = catalogoApresentacao
+        ? await apiGet(window.location.pathname + '/itens')
+        : (PrecosVendedor.token === null ? await apiGet('/api/produtos') : await PrecosVendedor.produtos('catalogo'));
 
       const porCategoria = {};
 
@@ -352,7 +356,7 @@
               ? p.foto
               : 'https://via.placeholder.com/400x400?text=Sem+Foto';
 
-            const preco = Number(p.preco);
+            const precoHtml = catalogoApresentacao ? '' : `<div class="preco">R$ ${Number(p.preco).toFixed(2).replace('.', ',')}</div>`;
 
             const div = document.createElement('div');
             div.className = 'produto';
@@ -361,9 +365,7 @@
             div.innerHTML = `
               <img class="foto-clicavel" src="${foto}" alt="${p.nome}" onclick="abrirGaleriaProduto(${Number(p.id)})">
               <div class="nome">${p.nome}</div>
-              <div class="preco">
-                R$ ${preco.toFixed(2).replace('.', ',')}
-              </div>
+              ${precoHtml}
             `;
 
             bloco.appendChild(div);
