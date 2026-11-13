@@ -22,17 +22,22 @@
   <section class="filters" aria-label="Filtros de sono">
     <label>Usuário <select id="usuario"><option value="">Carregando…</option></select></label>
     <label>Período <select id="dias">
-      <option value="7">Últimos 7 dias</option>
-      <option value="30" selected>Últimos 30 dias</option>
+      <option value="7" selected>Últimos 7 dias</option>
+      <option value="30">Últimos 30 dias</option>
       <option value="90">Últimos 90 dias</option>
       <option value="365">Últimos 365 dias</option>
       <option value="3650">Histórico disponível</option>
     </select></label>
   </section>
   <p id="status" class="status" role="status" aria-live="polite">Carregando registros de sono…</p>
+
+  <section class="panel latest" id="latest" aria-label="Última noite registrada">
+    <h2>Última noite registrada</h2>
+    <div id="latest-content" class="latest-content"><p class="hint">Selecione um usuário para consultar.</p></div>
+  </section>
   <section id="summary" class="summary" aria-label="Resumo do período">
     <article class="stat"><span>Noites registradas</span><strong id="noites">—</strong></article>
-    <article class="stat"><span>Duração média</span><strong id="duracao">—</strong><small>Somente noites com duração informada</small></article>
+    <article class="stat"><span>Duração média informada</span><strong id="duracao">—</strong><small>Somente noites com duração informada</small></article>
     <article class="stat"><span>Pontuação média</span><strong id="pontuacao">—</strong><small>Somente noites com pontuação</small></article>
     <article class="stat"><span>Sono profundo médio</span><strong id="profundo">—</strong><small>Somente noites com fases disponíveis</small></article>
     <article class="stat"><span>Sono REM médio</span><strong id="rem">—</strong><small>Somente noites com fases disponíveis</small></article>
