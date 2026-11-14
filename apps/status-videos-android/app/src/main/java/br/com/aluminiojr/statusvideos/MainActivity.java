@@ -283,11 +283,13 @@ public final class MainActivity extends Activity {
         io.execute(() -> {
             long bytes = fileSize(uri);
             long seconds = -1;
-            try (MediaMetadataRetriever retriever = new MediaMetadataRetriever()) {
+            MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+            try {
                 retriever.setDataSource(this, uri);
                 String ms = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
                 if (ms != null) seconds = Math.round(Double.parseDouble(ms) / 1000);
             } catch (Exception ignored) { }
+            finally { retriever.release(); }
             long finalSeconds = seconds;
             ui.post(() -> {
                 if (!uri.equals(videoUri)) return;
