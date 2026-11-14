@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AVN — Sono</title>
-  <link rel="stylesheet" href="/css/avn-sono.css?v=20261114-diario1">
-  <script src="/js/avn-sono.js?v=20261114-diario1" defer></script>
+  <link rel="stylesheet" href="/css/avn-sono.css?v=20261114-modais-sono2">
+  <script src="/js/avn-sono.js?v=20261114-modais-sono2" defer></script>
 </head>
 <body>
 <main class="shell">
@@ -17,7 +17,12 @@
     <div><p class="eyebrow">SAMSUNG HEALTH · HISTÓRICO</p><h1>Sono</h1>
       <p class="sub">Noites sincronizadas pelo AVN Android: horários, duração, pontuação e fases do sono.</p>
     </div>
-    <button id="reload" type="button" class="action">Atualizar dados</button>
+    <div class="heading-actions">
+      <button id="reload" type="button" class="action">Atualizar dados</button>
+      <button id="open-history" type="button" class="action secondary">Histórico de noites</button>
+      <button id="open-charts" type="button" class="action secondary">Gráficos</button>
+      <button id="open-averages" type="button" class="action secondary">Médias</button>
+    </div>
   </section>
   <section class="filters" aria-label="Filtros de sono">
     <label>Usuário <select id="usuario"><option value="">Carregando…</option></select></label>
@@ -32,30 +37,55 @@
   </section>
   <p id="status" class="status" role="status" aria-live="polite">Carregando registros de sono…</p>
 
-  <section class="panel latest" id="latest" aria-label="Última noite registrada">
+  <section class="panel latest" id="latest" aria-label="Noite selecionada">
     <h2>Noite selecionada</h2>
     <div id="latest-content" class="latest-content"><p class="hint">Selecione um usuário para consultar.</p></div>
   </section>
-  <section id="summary" class="summary" aria-label="Dados de sono do dia selecionado">
-    <article class="stat"><span>Duração inteira informada</span><strong id="duracao">—</strong><small>Total informado na data escolhida</small></article>
-    <article class="stat"><span>Sono leve</span><strong id="leve">—</strong><small>Fases registradas na data</small></article>
-    <article class="stat"><span>Sono profundo</span><strong id="profundo">—</strong><small>Fases registradas na data</small></article>
-    <article class="stat"><span>Sono REM</span><strong id="rem">—</strong><small>Fases registradas na data</small></article>
-    <article class="stat"><span>Pontuação Samsung Health</span><strong id="pontuacao">—</strong><small>Pontuação da última sessão pontuada do dia</small></article>
-  </section>
-  <p class="hint">Os cartões acima exibem os valores do dia selecionado, sem médias. Gráficos e histórico seguem o período filtrado. Para noites que cruzam a meia-noite, vale o dia do despertar.</p>
-  <section class="charts" aria-label="Evolução do sono">
-    <article class="panel"><h2>Duração por noite</h2><p class="hint">Horas de sono informadas pela Samsung; não inclui períodos sem informação.</p><div id="chart-duration" class="chart" role="img" aria-label="Gráfico da duração do sono por noite"></div></article>
-    <article class="panel"><h2>Pontuação por noite</h2><p class="hint">Pontuação fornecida pela Samsung, quando disponível. Não é diagnóstico médico.</p><div id="chart-score" class="chart" role="img" aria-label="Gráfico da pontuação do sono por noite"></div></article>
-  </section>
-  <section class="panel">
-    <h2>Histórico de noites</h2>
-    <div class="legend" aria-label="Legenda das fases">
-      <span><i class="awake"></i>Acordado</span><span><i class="light"></i>Leve</span>
-      <span><i class="deep"></i>Profundo</span><span><i class="rem"></i>REM</span>
+  <dialog id="dialog-history" class="avn-modal" aria-labelledby="history-title">
+    <div class="modal-head">
+      <h2 id="history-title">Histórico de noites</h2>
+      <button type="button" class="close-modal" aria-label="Fechar histórico de noites" data-close>✕</button>
     </div>
-    <div id="history" class="history" aria-live="polite"></div>
-  </section>
+    <div class="modal-body">
+      <div class="legend" aria-label="Legenda das fases">
+        <span><i class="awake"></i>Acordado</span><span><i class="light"></i>Leve</span>
+        <span><i class="deep"></i>Profundo</span><span><i class="rem"></i>REM</span>
+      </div>
+      <div id="history" class="history" aria-live="polite"></div>
+    </div>
+  </dialog>
+  <dialog id="dialog-charts" class="avn-modal" aria-labelledby="charts-title">
+    <div class="modal-head">
+      <h2 id="charts-title">Gráficos do sono</h2>
+      <button type="button" class="close-modal" aria-label="Fechar gráficos" data-close>✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="hint modal-intro">Evolução das noites sincronizadas no período escolhido. Duração efetiva = sono leve + profundo + REM. Valores ausentes não são tratados como zero.</p>
+      <section class="charts" aria-label="Evolução do sono">
+        <article class="panel"><h2>Sono efetivo por noite</h2><p class="hint">Tempo realmente dormido estimado a partir das fases da Samsung.</p><div id="chart-duration" class="chart" role="img" aria-label="Gráfico de linha do tempo real dormido por noite"></div></article>
+        <article class="panel"><h2>Pontuação por noite</h2><p class="hint">Pontuação fornecida pela Samsung, quando disponível. Não é diagnóstico médico.</p><div id="chart-score" class="chart" role="img" aria-label="Gráfico de linha da pontuação do sono por noite"></div></article>
+      </section>
+    </div>
+  </dialog>
+  <dialog id="dialog-averages" class="avn-modal" aria-labelledby="averages-title">
+    <div class="modal-head">
+      <h2 id="averages-title">Médias do período</h2>
+      <button type="button" class="close-modal" aria-label="Fechar médias" data-close>✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="hint modal-intro">Médias calculadas por noite com registros válidos, conforme o usuário e o período selecionados. Sem registros, o valor fica indisponível.</p>
+      <section id="summary" class="summary" aria-label="Médias de sono do período">
+        <article class="stat"><span>Tempo real dormido</span><strong id="media-real">—</strong><small>Soma de leve, profundo e REM</small></article>
+        <article class="stat"><span>Duração total informada</span><strong id="duracao">—</strong><small>Inclui períodos acordados</small></article>
+        <article class="stat"><span>Tempo acordado</span><strong id="acordado">—</strong><small>Detectado nos estágios</small></article>
+        <article class="stat"><span>Sono leve</span><strong id="leve">—</strong><small>Fase detectada</small></article>
+        <article class="stat"><span>Sono profundo</span><strong id="profundo">—</strong><small>Fase detectada</small></article>
+        <article class="stat"><span>Sono REM</span><strong id="rem">—</strong><small>Fase detectada</small></article>
+        <article class="stat"><span>Pontuação Samsung Health</span><strong id="pontuacao">—</strong><small>Média de 0 a 100</small></article>
+      </section>
+      <p id="average-coverage" class="hint" aria-live="polite"></p>
+    </div>
+  </dialog>
 </main>
 </body>
 </html>
