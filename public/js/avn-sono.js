@@ -138,6 +138,15 @@ function latestNight(nights){
     key.append(element('i',meta.css),document.createTextNode(meta.name));
     tile.append(key,element('strong','',minutesFormat(night.totals[type])));
     if(reported>0)tile.append(element('small','',Math.round(night.totals[type]/reported*100)+'% dos estágios registrados'));
+    if(['LIGHT','DEEP','REM'].includes(type)){
+      tile.classList.add('is-clickable');
+      tile.tabIndex=0;tile.setAttribute('role','button');
+      tile.setAttribute('aria-label','Abrir histórico de sono '+meta.name);
+      tile.addEventListener('click',()=>openStage(type));
+      tile.addEventListener('keydown',event=>{
+        if(event.key==='Enter'||event.key===' '){event.preventDefault();openStage(type);}
+      });
+    }
     phases.append(tile);
   }
   host.append(phases);
@@ -240,6 +249,265 @@ function makeNight(n){
   }
   return card;
 }
+
+/* Históricos independentes por fase e comparação com hábitos do dia anterior. */
+const stageColors={LIGHT:'#7456f4',DEEP:'#6967dc',REM:'#2dd4bf'};
+const compareMetrics={
+ LIGHT:{name:'Sono leve',unit:'min',color:'#7456f4',sleep:true},
+ DEEP:{name:'Sono profundo',unit:'min',color:'#6967dc',sleep:true},
+ REM:{name:'Sono REM',unit:'min',color:'#2dd4bf',sleep:true},
+ ASLEEP:{name:'Tempo real dormido',unit:'min',color:'#38bdf8',sleep:true},
+ AWAKE:{name:'Tempo acordado',unit:'min',color:'#fb7185',sleep:true},
+ calorias:{name:'Calorias consumidas',unit:'kcal',color:'#f9a8d4'},
+ proteinas:{name:'Proteínas',unit:'g',color:'#60a5fa'},
+ carboidratos:{name:'Carboidratos',unit:'g',color:'#fbbf24'},
+ gorduras:{name:'Gorduras',unit:'g',color:'#a78bfa'},
+ passos:{name:'Passos',unit:'passos',color:'#e879f9'},
+ caloriasAtivas:{name:'Calorias ativas',unit:'kcal',color:'#fb923c'},
+ caloriasPassos:{name:'Gasto estimado dos passos',unit:'kcal',color:'#f97316'},
+ treinos:{name:'Sessões Health Connect',unit:'sessões',color:'#84cc16'}
+};
+const stageCache=new Map(),phaseTokens={LIGHT:0,DEEP:0,REM:0};
+let crossToken=0;
+const goodNumber=value=>value!==null&&value!==undefined&&value!==''&&Number.isFinite(Number(value));
+const dayOffset=(date,amount)=>{
+ const value=new Date(date+'T12:00:00Z');
+ value.setUTCDate(value.getUTCDate()+amount);
+ return value.toISOString().slice(0,10);
+};
+const dateSeries=days=>{
+ const today=isoLocal(new Date());
+ return Array.from({length:days},(_,index)=>dayOffset(today,index-days+1));
+};
+const labelDate=date=>date.slice(8,10)+'/'+date.slice(5,7);
+const longDate=date=>labelDate(date)+'/'+date.slice(0,4);
+const valueLabel=(value,unit)=>goodNumber(value)?Number(value).toLocaleString('pt-BR',{maximumFractionDigits:unit==='sessões'||unit==='passos'?0:1})+' '+unit:'Sem registro';
+
+async function nightsFor(days){
+ const user=$('usuario').value;
+ if(!user)throw new Error('Selecione um usuário para consultar.');
+ const key=user+'|'+days;
+ if(!stageCache.has(key)){
+  // Busca margem para incluir sessões iniciadas antes da meia-noite.
+  const promise=getJSON('/api/avn/health/usuarios/'+encodeURIComponent(user)+'/sono?dias='+(days+3))
+   .then(data=>{
+    if(!Array.isArray(data.noites))throw new Error('Histórico de sono inválido.');
+    return data.noites.map(prepare).filter(Boolean);
+   });
+  stageCache.set(key,promise);
+  promise.catch(()=>{if(stageCache.get(key)===promise)stageCache.delete(key);});
+ }
+ return stageCache.get(key);
+}
+function dailySleep(nights,dates){
+ const grouped=new Map(dates.map(date=>[date,{date,has:false,ASLEEP:0,LIGHT:0,DEEP:0,REM:0,AWAKE:0}]));
+ for(const night of nights){
+  if(night.asleep===null||night.asleep<=0)continue;
+  const date=isoLocal(night.end),day=grouped.get(date);
+  if(!day)continue;
+  day.has=true;day.ASLEEP+=night.asleep;
+  for(const code of ['LIGHT','DEEP','REM','AWAKE'])day[code]+=night.totals[code];
+ }
+ return [...grouped.values()];
+}
+function addSVG(parent,tag,attrs={},content){
+ const node=document.createElementNS('http://www.w3.org/2000/svg',tag);
+ for(const [key,value] of Object.entries(attrs))node.setAttribute(key,String(value));
+ if(content!==undefined)node.textContent=String(content);
+ parent.append(node);
+ return node;
+}
+function makeSvg(width,height,title){
+ const node=document.createElementNS('http://www.w3.org/2000/svg','svg');
+ node.setAttribute('viewBox','0 0 '+width+' '+height);
+ node.setAttribute('role','img');
+ node.setAttribute('aria-label',title);
+ node.style.width=width+'px';
+ node.style.height=height+'px';
+ return node;
+}
+function tableFromRows(host,columns,data,wide=false){
+ host.replaceChildren();
+ const table=element('table','sleep-data-table'+(wide?' compare-data-table':''));
+ const header=element('thead'),tr=element('tr');
+ for(const column of columns)tr.append(element('th','',column));
+ header.append(tr);table.append(header);
+ const body=element('tbody');
+ for(const row of data){
+  const line=element('tr');
+  for(const cell of row)line.append(element('td','',String(cell)));
+  body.append(line);
+ }
+ table.append(body);host.append(table);
+}
+function plotStage(code,rows){
+ const host=$('stage-chart-'+code);host.replaceChildren();
+ const available=rows.filter(x=>x.has);
+ if(!available.length){
+  host.append(element('div','empty','Nenhuma noite com fases válidas no período.'));
+  return;
+ }
+ const W=Math.max(850,rows.length*45+85),H=285,L=56,R=22,T=38,B=48;
+ const svg=makeSvg(W,H,'Evolução diária de '+stages[code].name+', em minutos');
+ const max=Math.max(30,Math.ceil(Math.max(...available.map(x=>x[code]))/15)*15);
+ const x=i=>L+(rows.length===1?.5:i/(rows.length-1))*(W-L-R);
+ const y=value=>H-B-(value/max)*(H-T-B);
+ for(let j=0;j<=4;j++){
+  const v=max*j/4,yy=y(v);
+  addSVG(svg,'line',{x1:L,y1:yy,x2:W-R,y2:yy,stroke:'#34465f'});
+  addSVG(svg,'text',{x:L-7,y:yy+4,fill:'#bac9dc','text-anchor':'end','font-size':11},Math.round(v));
+ }
+ addSVG(svg,'text',{x:L,y:19,fill:'#cbd5e1','font-size':12},'minutos');
+ let previous=null;
+ const step=Math.max(1,Math.ceil(rows.length/9));
+ rows.forEach((row,i)=>{
+  const xx=x(i);
+  if(i%step===0||i===rows.length-1)addSVG(svg,'text',{x:xx,y:H-15,fill:'#b9c6d8','text-anchor':'middle','font-size':11},labelDate(row.date));
+  if(!row.has){previous=null;return;}
+  const yy=y(row[code]),percent=row.ASLEEP>0?100*row[code]/row.ASLEEP:null;
+  if(previous)addSVG(svg,'line',{x1:previous.x,y1:previous.y,x2:xx,y2:yy,stroke:stageColors[code],'stroke-width':3,'stroke-linecap':'round'});
+  const dot=addSVG(svg,'circle',{cx:xx,cy:yy,r:5,fill:stageColors[code],stroke:'#101c2e','stroke-width':2});
+  addSVG(dot,'title',{},longDate(row.date)+': '+minutesFormat(row[code])+(percent===null?'':' ('+percent.toFixed(1).replace('.',',')+'% do sono real)'));
+  if(rows.length<=30)addSVG(svg,'text',{x:xx,y:Math.max(T-3,yy-13),fill:'#eff6ff','text-anchor':'middle','font-size':11},Math.round(row[code])+'m');
+  previous={x:xx,y:yy};
+ });
+ host.append(svg);
+}
+async function updateStage(code){
+ const token=++phaseTokens[code],days=Number($('stage-period-'+code).value);
+ const status=$('stage-status-'+code);
+ status.classList.remove('error');
+ status.textContent='Consultando as noites sincronizadas…';
+ try{
+  const nights=await nightsFor(days);
+  if(token!==phaseTokens[code]||!$('dialog-stage-'+code).open)return;
+  const rows=dailySleep(nights,dateSeries(days));
+  const valid=rows.filter(x=>x.has).length;
+  plotStage(code,rows);
+  tableFromRows($('stage-table-'+code),['Dia do despertar',stages[code].name,'% do sono real'],
+   [...rows].reverse().map(r=>[
+    longDate(r.date),r.has?minutesFormat(r[code]):'Sem registro',
+    r.has&&r.ASLEEP>0?(100*r[code]/r.ASLEEP).toLocaleString('pt-BR',{maximumFractionDigits:1})+'%':'—'
+   ]));
+  status.textContent=valid+' de '+days+' dia(s) com fases de sono registradas.';
+ }catch(error){
+  if(token!==phaseTokens[code])return;
+  status.classList.add('error');status.textContent=error.message||'Falha no histórico.';
+  $('stage-chart-'+code).replaceChildren();$('stage-table-'+code).replaceChildren();
+ }
+}
+function openStage(code){
+ const dialog=$('dialog-stage-'+code);
+ if(!dialog.open)dialog.showModal();
+ updateStage(code);
+}
+function plotCross(rows,keys){
+ const host=$('compare-chart');host.replaceChildren();
+ const valid=keys.filter(key=>rows.some(row=>goodNumber(row.values[key])));
+ if(!valid.length){host.append(element('div','empty','Nenhum indicador selecionado possui registros neste período.'));return;}
+ const W=Math.max(900,rows.length*51+90),H=330,L=54,R=28,T=32,B=52;
+ const svg=makeSvg(W,H,'Evolução cruzada dos indicadores, normalizada de 0 a 100');
+ const x=i=>L+(rows.length===1?.5:i/(rows.length-1))*(W-L-R),y=v=>H-B-v/100*(H-T-B);
+ for(let tick=0;tick<=4;tick++){
+  const value=tick*25,yy=y(value);
+  addSVG(svg,'line',{x1:L,y1:yy,x2:W-R,y2:yy,stroke:'#34465f'});
+  addSVG(svg,'text',{x:L-6,y:yy+4,fill:'#bfcce0','text-anchor':'end','font-size':11},value);
+ }
+ addSVG(svg,'text',{x:L,y:18,fill:'#bccadc','font-size':11},'Escala relativa (0 a 100)');
+ const step=Math.max(1,Math.ceil(rows.length/10));
+ rows.forEach((row,i)=>{
+  if(i%step===0||i===rows.length-1)addSVG(svg,'text',{x:x(i),y:H-16,fill:'#b9c6d8','text-anchor':'middle','font-size':11},labelDate(row.date));
+ });
+ valid.forEach((key,k)=>{
+  const values=rows.map(row=>row.values[key]).filter(goodNumber).map(Number);
+  const min=Math.min(...values),max=Math.max(...values);
+  const scaled=v=>max===min?50:(v-min)/(max-min)*100;
+  let previous=null;
+  rows.forEach((row,i)=>{
+   const raw=row.values[key];
+   if(!goodNumber(raw)){previous=null;return;}
+   const xx=x(i),yy=y(scaled(Number(raw)));
+   if(previous)addSVG(svg,'line',{x1:previous.x,y1:previous.y,x2:xx,y2:yy,stroke:compareMetrics[key].color,'stroke-width':2.6,'stroke-linecap':'round'});
+   const dot=addSVG(svg,'circle',{cx:xx,cy:yy,r:4.5,stroke:'#152138','stroke-width':1.5,fill:compareMetrics[key].color});
+   addSVG(dot,'title',{},longDate(row.date)+' — '+compareMetrics[key].name+': '+valueLabel(raw,compareMetrics[key].unit));
+   if(rows.length<=10&&valid.length<=3){
+    const dy=k%2===0?-13:20;
+    addSVG(svg,'text',{x:xx,y:Math.max(T+8,Math.min(H-B-6,yy+dy)),fill:compareMetrics[key].color,'font-size':10,'text-anchor':'middle'},Number(raw).toLocaleString('pt-BR',{maximumFractionDigits:1}));
+   }
+   previous={x:xx,y:yy};
+  });
+ });
+ host.append(svg);
+}
+async function updateCross(){
+ const token=++crossToken,days=Number($('compare-period').value);
+ const keys=[...document.querySelectorAll('input[data-sleep-compare]:checked')].map(x=>x.dataset.sleepCompare);
+ const status=$('compare-status'),chart=$('compare-chart'),legend=$('compare-legend'),table=$('compare-table');
+ status.classList.remove('error');
+ chart.replaceChildren();legend.replaceChildren();table.replaceChildren();
+ if(keys.length<2){status.textContent='Selecione pelo menos dois indicadores para cruzar.';return;}
+ const user=$('usuario').value;
+ if(!user){status.textContent='Selecione um usuário.';return;}
+ status.textContent='Consultando sono, alimentação e atividade física…';
+ const dates=dateSeries(days),previousEnd=dayOffset(dates[dates.length-1],-1);
+ const needsEnergy=keys.some(k=>['calorias','passos','caloriasAtivas','caloriasPassos'].includes(k));
+ const needsNutrition=keys.some(k=>['proteinas','carboidratos','gorduras'].includes(k));
+ const needsActivity=keys.includes('treinos');
+ const base='/avn/sistema/api/balanco-energetico/';
+ const calls=[
+  nightsFor(days),
+  needsEnergy?getJSON(base+encodeURIComponent(user)+'?data='+previousEnd+'&dias='+days):Promise.resolve(null),
+  needsNutrition?getJSON(base+'nutricao-comparacao/'+encodeURIComponent(user)+'?data='+previousEnd+'&dias='+days):Promise.resolve(null),
+  needsActivity?getJSON('/api/avn/health/usuarios/'+encodeURIComponent(user)+'/atividades?dias='+(days+3)):Promise.resolve(null)
+ ];
+ const result=await Promise.allSettled(calls);
+ if(token!==crossToken||!$('dialog-compare').open)return;
+ if(result[0].status!=='fulfilled'){
+  status.classList.add('error');status.textContent='Falha ao consultar sono: '+(result[0].reason?.message||'erro');
+  return;
+ }
+ const sleep=new Map(dailySleep(result[0].value,dates).map(x=>[x.date,x]));
+ const energy=new Map((result[1].status==='fulfilled'?result[1].value?.dias:[])?.map(x=>[x.data,x])||[]);
+ const nutrition=result[2].status==='fulfilled'?result[2].value?.series:{};
+ const nutrientMaps={};
+ for(const key of ['proteinas','carboidratos','gorduras'])
+  nutrientMaps[key]=new Map((nutrition?.[key]||[]).filter(p=>goodNumber(p.value)).map(p=>[p.data,Number(p.value)]));
+ const sessions=new Map();
+ if(result[3].status==='fulfilled'&&Array.isArray(result[3].value)){
+  for(const s of result[3].value){
+   const date=isoLocal(s.inicio);
+   sessions.set(date,(sessions.get(date)||0)+1);
+  }
+ }
+ const rows=dates.map(date=>{
+  const wake=sleep.get(date),prior=dayOffset(date,-1),e=energy.get(prior);
+  const values={};
+  for(const key of keys){
+   if(compareMetrics[key].sleep)values[key]=wake?.has?wake[key]:null;
+   else if(key==='calorias')values[key]=e?.ingestao?.itens>0&&e.ingestao.incompletos===0&&goodNumber(e.ingestao.valor)?Number(e.ingestao.valor):null;
+   else if(key==='passos')values[key]=goodNumber(e?.passos?.valor)?Number(e.passos.valor):null;
+   else if(key==='caloriasAtivas')values[key]=e?.calorias_ativas&&!e.calorias_ativas.sem_registros&&goodNumber(e.calorias_ativas.valor)?Number(e.calorias_ativas.valor):null;
+   else if(key==='caloriasPassos')values[key]=e?.calorias_passos&&!e.calorias_passos.sem_registros&&goodNumber(e.calorias_passos.valor)?Number(e.calorias_passos.valor):null;
+   else if(key==='treinos')values[key]=sessions.has(prior)?sessions.get(prior):null;
+   else values[key]=nutrientMaps[key]?.get(prior)??null;
+  }
+  return {date,prior,values};
+ });
+ for(const key of keys){
+  const span=element('span');const dot=element('i');dot.style.backgroundColor=compareMetrics[key].color;
+  span.append(dot,document.createTextNode(compareMetrics[key].name));legend.append(span);
+ }
+ plotCross(rows,keys);
+ tableFromRows(table,['Sono (despertar)','Hábitos do dia',...keys.map(k=>compareMetrics[k].name)],
+  [...rows].reverse().map(r=>[longDate(r.date),longDate(r.prior),...keys.map(k=>valueLabel(r.values[k],compareMetrics[k].unit))]),true);
+ const paired=rows.filter(r=>keys.every(key=>goodNumber(r.values[key]))).length;
+ const errors=[];
+ if(needsEnergy&&result[1].status!=='fulfilled')errors.push('balanço energético');
+ if(needsNutrition&&result[2].status!=='fulfilled')errors.push('nutrição');
+ if(needsActivity&&result[3].status!=='fulfilled')errors.push('sessões de atividade');
+ status.textContent=paired+' de '+days+' dia(s) com todos os indicadores selecionados. '+(errors.length?'Fontes indisponíveis: '+errors.join(', ')+'. ':'')+'Dias sem registro não entram como zero.';
+}
+
 function render(nights,keepSelected=false){
   let selected=$('dia-sono').value;
   if(!keepSelected&&nights.length&&!nights.some(n=>isoLocal(n.end)===selected)){
@@ -262,6 +530,9 @@ function render(nights,keepSelected=false){
   history.append(fragment);
 }
 async function refresh(){
+  stageCache.clear();
+  for(const code of ['LIGHT','DEEP','REM'])phaseTokens[code]++;
+  crossToken++;
   const user=$('usuario').value;
   if(controller)controller.abort();
   controller=new AbortController();
@@ -283,6 +554,8 @@ async function refresh(){
     const nights=result.noites.map(prepare).filter(Boolean).sort((a,b)=>new Date(b.start)-new Date(a.start));
     currentNights=nights;
     render(nights);
+    for(const code of ['LIGHT','DEEP','REM'])if($('dialog-stage-'+code).open)updateStage(code);
+    if($('dialog-compare').open)updateCross();
     $('status').textContent=nights.length?nights.length+' noite(s) sincronizada(s) no período.':'Nenhum registro enviado ao AVN Web neste período.';
   }catch(error){
     if(signal.aborted||job!==sequence)return;
@@ -304,6 +577,18 @@ async function init(){
     dialog.querySelector('[data-close]').addEventListener('click',()=>dialog.close());
     dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});
   }
+  for(const code of ['LIGHT','DEEP','REM']){
+    const dialog=$('dialog-stage-'+code);
+    dialog.querySelector('[data-close]').addEventListener('click',()=>dialog.close());
+    dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});
+    $('stage-period-'+code).addEventListener('change',()=>updateStage(code));
+  }
+  const crossDialog=$('dialog-compare');
+  $('open-compare').addEventListener('click',()=>{crossDialog.showModal();updateCross();});
+  crossDialog.querySelector('[data-close]').addEventListener('click',()=>crossDialog.close());
+  crossDialog.addEventListener('click',event=>{if(event.target===crossDialog)crossDialog.close();});
+  $('compare-period').addEventListener('change',updateCross);
+  document.querySelectorAll('input[data-sleep-compare]').forEach(check=>check.addEventListener('change',updateCross));
   $('dia-sono').max=isoLocal(new Date());
   $('dia-sono').addEventListener('change',()=>{
     render(currentNights,true);
