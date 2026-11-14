@@ -97,7 +97,7 @@ function linhaSvg({ texto, x, y, tamanhoFonte = pxFonte(48), centralizarEm = nul
   };
 }
 
-function montarSvg({ precoMedio, valorTotal, quantidadeItens }) {
+function montarSvg({ precoMedio, valorTotal, quantidadeItens, tipoVideo = 'kit_feirinha' }) {
   const zap = 'ZAP: 83.9.9979-2085';
   const instagram = 'Instagram: @aluminiojrpb';
   const nome = 'George';
@@ -118,6 +118,7 @@ function montarSvg({ precoMedio, valorTotal, quantidadeItens }) {
   const baixo1 = linhaSvg({ texto: cadaItem, x: 0, y: pxY(1320), tamanhoFonte: pxFonte(52), centralizarEm: centroVideo });
   const baixo2 = linhaSvg({ texto: kit, x: 0, y: pxY(1404), tamanhoFonte: pxFonte(52), centralizarEm: centroVideo });
   const baixo3 = linhaSvg({ texto: itens, x: 0, y: pxY(1488), tamanhoFonte: pxFonte(52), centralizarEm: centroVideo, peso: 600 });
+  const rodape = tipoVideo === 'promocional' ? '' : `${baixo1.svg}${baixo2.svg}${baixo3.svg}`;
 
   return `
     <svg width="${LARGURA}" height="${ALTURA}" viewBox="0 0 ${LARGURA} ${ALTURA}"
@@ -125,9 +126,7 @@ function montarSvg({ precoMedio, valorTotal, quantidadeItens }) {
       ${topo1.svg}
       ${topo2.svg}
       ${topo3.svg}
-      ${baixo1.svg}
-      ${baixo2.svg}
-      ${baixo3.svg}
+      ${rodape}
     </svg>`;
 }
 
@@ -261,7 +260,7 @@ async function gerarVideoWhatsapp({ caminhoEntrada, duracaoSegundos }) {
   throw new Error('Não foi possível reduzir o vídeo para o limite seguro do WhatsApp Status.');
 }
 
-async function gerarVideoFinal({ caminhoEntrada, precoMedio, valorTotal, quantidadeItens }) {
+async function gerarVideoFinal({ caminhoEntrada, precoMedio, valorTotal, quantidadeItens, tipoVideo = 'kit_feirinha' }) {
   if (!caminhoEntrada) throw new Error('Vídeo de entrada não informado.');
 
   const duracao = await obterDuracaoSegundos(caminhoEntrada);
@@ -271,7 +270,7 @@ async function gerarVideoFinal({ caminhoEntrada, precoMedio, valorTotal, quantid
   const duracaoSaida = Math.min(duracao, DURACAO_MAXIMA_SEGUNDOS);
   const cortadoAutomaticamente = duracao > DURACAO_MAXIMA_SEGUNDOS + 0.05;
 
-  const overlay = await criarOverlayPng({ precoMedio, valorTotal, quantidadeItens });
+  const overlay = await criarOverlayPng({ precoMedio, valorTotal, quantidadeItens, tipoVideo });
   const saida = path.join(os.tmpdir(), `status-video-final-${Date.now()}-${crypto.randomBytes(6).toString('hex')}.mp4`);
 
   try {
