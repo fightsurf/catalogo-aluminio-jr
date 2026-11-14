@@ -3,6 +3,11 @@ const $=id=>document.getElementById(id);
 const timezone='America/Sao_Paulo';
 const displayDate=new Intl.DateTimeFormat('pt-BR',{timeZone:timezone,dateStyle:'short',timeStyle:'short'});
 const displayDay=new Intl.DateTimeFormat('pt-BR',{timeZone:timezone,day:'2-digit',month:'2-digit'});
+const isoLocal=value=>{
+  const parts=new Intl.DateTimeFormat('en-GB',{timeZone:timezone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(value));
+  const p=type=>parts.find(x=>x.type===type)?.value;
+  return p('year')+'-'+p('month')+'-'+p('day');
+};
 const stages={
   AWAKE:{name:'Acordado',css:'awake'},
   LIGHT:{name:'Leve',css:'light'},
@@ -18,6 +23,7 @@ const elapsed=(start,end)=>{const a=new Date(start).getTime(),b=new Date(end).ge
 const element=(tag,cls,text)=>{const node=document.createElement(tag);if(cls)node.className=cls;if(text!==undefined)node.textContent=text;return node;};
 let controller=null;
 let sequence=0;
+let currentNights=[];
 
 async function getJSON(url,signal){
   const response=await fetch(url,{credentials:'same-origin',cache:'no-store',signal,headers:{Accept:'application/json'}});
@@ -52,16 +58,16 @@ function prepare(raw){
   };
 }
 function setStats(nights){
-  $('noites').textContent=String(nights.length);
-  const mean=values=>values.length?values.reduce((a,b)=>a+b,0)/values.length:null;
-  const durations=nights.map(n=>n.duration).filter(n=>n!==null);
-  const scores=nights.map(n=>n.score).filter(n=>n!==null);
-  const validStages=nights.filter(n=>n.hasStages);
-  $('duracao').textContent=minutesFormat(mean(durations));
-  const score=mean(scores);
-  $('pontuacao').textContent=score==null?'—':score.toLocaleString('pt-BR',{maximumFractionDigits:1});
-  $('profundo').textContent=minutesFormat(mean(validStages.map(n=>n.totals.DEEP)));
-  $('rem').textContent=minutesFormat(mean(validStages.map(n=>n.totals.REM)));
+  // Somente dados da data selecionada. Nunca calcular médias de dias diferentes.
+  const total=key=>nights.reduce((sum,n)=>sum+(n[key]===null?0:n[key]),0);
+  const duracoes=nights.filter(n=>n.duration!==null);
+  const comFases=nights.filter(n=>n.hasStages);
+  const pontuada=nights.find(n=>n.score!==null);
+  $('duracao').textContent=duracoes.length?minutesFormat(total('duration')):'—';
+  $('pontuacao').textContent=pontuada?String(pontuada.score):'—';
+  for(const [id,tipo] of [['leve','LIGHT'],['profundo','DEEP'],['rem','REM']]){
+    $(''+id).textContent=comFases.length?minutesFormat(comFases.reduce((sum,n)=>sum+n.totals[tipo],0)):'—';
+  }
 }
 
 function latestNight(nights){
@@ -200,9 +206,16 @@ function makeNight(n){
   }
   return card;
 }
-function render(nights){
-  latestNight(nights);
-  setStats(nights);
+function render(nights,keepSelected=false){
+  let selected=$('dia-sono').value;
+  if(!keepSelected&&nights.length&&!nights.some(n=>isoLocal(n.end)===selected)){
+    selected=isoLocal(nights[0].end);
+    $('dia-sono').value=selected;
+  }
+  if(!nights.length&&!keepSelected){selected='';$('dia-sono').value='';}
+  const escolhidas=nights.filter(n=>isoLocal(n.end)===selected);
+  latestNight(escolhidas);
+  setStats(escolhidas);
   drawChart('chart-duration',nights,'duration','h');
   drawChart('chart-score',nights,'score','pontos');
   const history=$('history');history.replaceChildren();
@@ -234,10 +247,12 @@ async function refresh(){
     if(signal.aborted||job!==sequence)return;
     if(!Array.isArray(result.noites))throw new Error('Resposta de sono inesperada do servidor.');
     const nights=result.noites.map(prepare).filter(Boolean).sort((a,b)=>new Date(b.start)-new Date(a.start));
+    currentNights=nights;
     render(nights);
     $('status').textContent=nights.length?nights.length+' noite(s) sincronizada(s) no período. Gráficos exibem no máximo 45 noites recentes.':'Nenhum registro enviado ao AVN Web neste período.';
   }catch(error){
     if(signal.aborted||job!==sequence)return;
+    currentNights=[];
     render([]);
     $('status').classList.add('error');
     $('status').textContent=error.message||'Erro ao consultar o histórico de sono.';
@@ -249,6 +264,13 @@ async function init(){
   $('usuario').addEventListener('change',refresh);
   $('dias').addEventListener('change',refresh);
   $('reload').addEventListener('click',refresh);
+  $('dia-sono').max=isoLocal(new Date());
+  $('dia-sono').addEventListener('change',()=>{
+    render(currentNights,true);
+    const selected=$('dia-sono').value;
+    const count=currentNights.filter(n=>isoLocal(n.end)===selected).length;
+    $('status').textContent=count?count+' registro(s) de sono na data '+selected.split('-').reverse().join('/')+'.':'Nenhum registro de sono na data escolhida neste período.';
+  });
   try{
     const users=await getJSON('/api/avn/usuarios');
     if(!Array.isArray(users))throw new Error('Resposta inesperada da lista de usuários.');
