@@ -68,6 +68,23 @@ const consulta = {
     'AND s.realizado_em<(($3::date+1)::timestamp AT TIME ZONE \'America/Sao_Paulo\')',
     'ORDER BY s.realizado_em,s.id,i.posicao,i.id'
   ].join(' '),
+  execucoes: [
+    'SELECT x.id::text AS sessao_id,x.iniciada_em AS realizado_em,x.finalizada_em,',
+    'p.nome AS plano_nome,ev.id::text AS item_id,ev.ocorrido_em,',
+    'ev.posicao_exercicio,ev.numero_serie,ev.repeticoes,ev.carga_kg,ev.rir,',
+    "(to_jsonb(ev)->>'carga_unidade') AS carga_unidade,",
+    "(to_jsonb(ev)->>'carga_placas') AS carga_placas,",
+    'ev.exercicio_id,e.nome AS exercicio,g.nome AS grupo_muscular',
+    'FROM public.avn_treino_execucoes x',
+    'JOIN public.avn_planos_treino p ON p.id=x.plano_id',
+    "LEFT JOIN public.avn_treino_execucao_eventos ev ON ev.execucao_id=x.id AND ev.tipo='SERIE_CONCLUIDA'",
+    'LEFT JOIN public.avn_exercicios e ON e.id=ev.exercicio_id',
+    'LEFT JOIN public.avn_exercicio_grupos g ON g.id=e.grupo_id',
+    "WHERE x.usuario_id=$1 AND x.status='finalizada'",
+    "AND x.iniciada_em>=($2::date::timestamp AT TIME ZONE 'America/Sao_Paulo')",
+    "AND x.iniciada_em<(($3::date+1)::timestamp AT TIME ZONE 'America/Sao_Paulo')",
+    'ORDER BY x.iniciada_em,x.id,ev.ocorrido_em,ev.id'
+  ].join(' '),
   atividades: [
     'SELECT inicio,fim,tipo_atividade,titulo,calorias_kcal,origem,aplicativo_origem',
     'FROM public.avn_atividades WHERE usuario_id=$1',
@@ -100,19 +117,20 @@ router.get('/:usuarioId', async(req,res)=>{
       pool.query(consulta.sono,[uid,inicio,fim]),
       pool.query(consulta.medicoes,[uid,inicio,fim]),
       pool.query(consulta.treinos,[uid,inicio,fim]),
+      pool.query(consulta.execucoes,[uid,inicio,fim]),
       pool.query(consulta.atividades,[uid,inicio,fim]),
       pool.query(consulta.exames,[uid]),
       pool.query('SELECT kcal,proteinas_g,carboidratos_g,gorduras_g,fibras_g,micros,atualizado_em FROM public.avn_metas_nutricionais WHERE usuario_id=$1',[uid]),
       pool.query('SELECT codigo,nome,unidade,categoria FROM public.avn_nutrientes ORDER BY categoria,nome',[ ]),
       pool.query('SELECT nivel,anos_experiencia,regularidade,dias_semana,duracao_min,objetivo,limitacoes,preferencias FROM public.avn_treino_perfil WHERE usuario_id=$1',[uid])
     ]);
-    const [diario,receitas,agua,sono,medicoes,treinos,atividades,exames,metas,nutrientes,perfil]=results;
+    const [diario,receitas,agua,sono,medicoes,treinos,execucoes,atividades,exames,metas,nutrientes,perfil]=results;
     res.set('Cache-Control','private, no-store').json({
       versao:1,gerado_em:new Date().toISOString(),
       periodo:{inicio:inicioAtual,fim,anterior_inicio:inicio,anterior_fim:fimAnterior,dias:30},
       usuario:usuario.rows[0],
       diario:diario.rows,receitas:receitas.rows,agua:agua.rows,sono:sono.rows,
-      medicoes:medicoes.rows,treinos:treinos.rows,atividades:atividades.rows,
+      medicoes:medicoes.rows,treinos:treinos.rows,execucoes:execucoes.rows,atividades:atividades.rows,
       exames:exames.rows,metas_atuais:metas.rows[0] || null,
       nutrientes:nutrientes.rows,perfil_treinamento:perfil.rows[0] || null,
       avisos:[

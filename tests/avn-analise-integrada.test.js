@@ -45,9 +45,45 @@ test('o relatório inclui 30 dias, receitas proporcionais e instruções finais 
  assert.match(r.texto,/Torta: 300 g \(0,3 kg\)/);
  assert.match(r.texto,/Frango: 150 g/);
  assert.match(r.texto,/13\/11\/2026/);
- assert.match(r.texto,/INSTRUÇÕES FINAIS PARA A INTELIGÊNCIA ARTIFICIAL/);
- assert.match(r.texto,/NÃO altere automaticamente/);
+ assert.doesNotMatch(r.texto,/INSTRUÇÕES FINAIS PARA A INTELIGÊNCIA ARTIFICIAL/);
+ assert.match(r.instrucoes,/INSTRUÇÕES FIXAS PARA INTELIGÊNCIA ARTIFICIAL/);
+ assert.match(r.instrucoes,/Não modifique registros ou metas do AVN/);
  assert.match(r.texto,/Gordura visceral: valor do Zepp é um ÍNDICE/);
  assert.equal(r.cobertura,1);
  assert.doesNotMatch(source,/openai\.com\/v1|generativelanguage\.googleapis\.com/);
+});
+
+test('o relatório usa as duas listas do histórico recente e apenas execuções finalizadas',()=>{
+ assert.match(route,/FROM public\.avn_treino_execucoes x/);
+ assert.match(route,/x\.status='finalizada'/);
+ assert.match(route,/SERIE_CONCLUIDA/);
+ const {montarRelatorio}=exportsDeRelatorio();
+ const data={gerado_em:'2026-11-14T09:00:00Z',
+  periodo:{inicio:'2026-10-16',fim:'2026-11-14',anterior_inicio:'2026-09-16',anterior_fim:'2026-10-15'},
+  usuario:{nome:'Teste'},perfil_treinamento:null,metas_atuais:{},nutrientes:[],
+  diario:[],receitas:[],agua:[],sono:[],medicoes:[],atividades:[],exames:[],avisos:[],
+  treinos:[{sessao_id:11,realizado_em:'2026-11-12T12:00:00Z',plano_nome:'Manual',
+   item_id:2,exercicio:'Leg press',grupo_muscular:'Pernas',series_realizadas:3,repeticoes_realizadas:'10',carga_kg:80}],
+  execucoes:[
+   {sessao_id:'abc',realizado_em:'2026-11-13T12:00:00Z',plano_nome:'Android',item_id:'a1',
+    exercicio:'Supino',grupo_muscular:'Peito',numero_serie:1,repeticoes:10,carga_kg:40},
+   {sessao_id:'abc',realizado_em:'2026-11-13T12:00:00Z',plano_nome:'Android',item_id:'a2',
+    exercicio:'Supino',grupo_muscular:'Peito',numero_serie:2,repeticoes:9,carga_kg:42}
+  ]};
+ const r=montarRelatorio(data,{dias:[]},null);
+ assert.equal(r.treinos,2);
+ assert.match(r.texto,/Sessões realizadas: 2 nos últimos 30 dias/);
+ assert.match(r.texto,/Peito 2/);
+ assert.match(r.texto,/registro manual Web/);
+ assert.match(r.texto,/execução finalizada Web\/Android/);
+ assert.match(r.instrucoes,/QUADRO DE ALERTAS/);
+ assert.doesNotMatch(r.texto,/INSTRUÇÕES FIXAS PARA INTELIGÊNCIA ARTIFICIAL/);
+});
+test('painéis independentes com botão de copiar tudo',()=>{
+ const html=fs.readFileSync(path.resolve(__dirname,'../views/avn/analise-integrada.html'),'utf8');
+ assert.match(html,/id="relatorio"/);
+ assert.match(html,/id="instrucoes"/);
+ assert.match(html,/id="copiar"/);
+ assert.match(html,/id="copiar-dados"/);
+ assert.match(html,/id="copiar-instrucoes"/);
 });

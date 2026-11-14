@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="dark">
 <title>AVN — Análise Integrada de Saúde</title>
-<link rel="stylesheet" href="/css/avn-analise-integrada.css?v=20261114">
-<script src="/js/avn-analise-integrada.js?v=20261114" defer></script>
+<link rel="stylesheet" href="/css/avn-analise-integrada.css?v=20261114b">
+<script src="/js/avn-analise-integrada.js?v=20261114b" defer></script>
 </head>
 <body>
 <main class="app">
@@ -30,14 +30,25 @@
   </section>
   <section class="report">
     <div class="report-head">
-      <div><h2>Relatório completo</h2><p>Texto pronto para colar no ChatGPT, Gemini, Claude ou outra IA. Inclui instruções de análise ao final.</p></div>
+      <div><h2>Dados do AVN — relatório completo</h2><p>Dados e cálculos dos períodos, sem misturar as instruções fixas destinadas à IA.</p></div>
       <div class="actions">
-        <button id="copiar" type="button" disabled>Copiar relatório completo</button>
-        <button id="baixar" type="button" class="secondary" disabled>Baixar TXT</button>
+        <button id="copiar-dados" type="button" disabled>Copiar dados do AVN</button>
+        <button id="copiar" type="button" disabled>Copiar os dois</button>
+        <button id="baixar" type="button" class="secondary" disabled>Baixar TXT (os dois)</button>
       </div>
     </div>
-    <textarea id="relatorio" readonly spellcheck="false" aria-label="Relatório completo para análise por IA" placeholder="O texto será exibido aqui após gerar o relatório."></textarea>
+    <textarea id="relatorio" readonly spellcheck="false" aria-label="Dados completos do relatório AVN" placeholder="O texto será exibido aqui após gerar o relatório."></textarea>
     <p class="disclaimer">Os cálculos nutricionais dependem da completude dos alimentos cadastrados. O balanço energético e as medições por bioimpedância são estimativas. O relatório não é diagnóstico médico.</p>
+  </section>
+  <section class="report instructions-report" aria-label="Instruções fixas para inteligência artificial">
+    <div class="report-head">
+      <div><h2>Instruções para a IA</h2><p>Texto fixo elaborado para análise crítica, identificação de padrões, sinais de piora e recomendações seguras. Não é alterado ao gerar novos dados.</p></div>
+      <div class="actions">
+        <button id="copiar-instrucoes" type="button" class="secondary">Copiar instruções</button>
+      </div>
+    </div>
+    <textarea id="instrucoes" readonly spellcheck="false" aria-label="Instruções fixas para a inteligência artificial"></textarea>
+    <p class="disclaimer">Para enviar tudo a uma IA, use <strong>Copiar os dois</strong> ou <strong>Baixar TXT</strong>. Nada é enviado automaticamente.</p>
   </section>
 </main>
 </body>

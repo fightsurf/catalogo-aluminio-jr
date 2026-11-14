@@ -11,6 +11,7 @@ const FISICAS=[
  ['massa_ossea','Massa óssea','kg'],['gordura_visceral','Gordura visceral','índice'],
  ['tmb','TMB da bioimpedância','kcal/dia']
 ];
+const INSTRUCOES_IA="INSTRUÇÕES FIXAS PARA INTELIGÊNCIA ARTIFICIAL — ANÁLISE CRÍTICA DO AVN\n\nVocê receberá dados reais exportados do AVN e deve analisá-los de modo rigoroso, crítico, fundamentado e direto. Objetivos: reduzir gordura corporal, preservar ou ganhar massa muscular, melhorar saúde, recuperação e condicionamento. Não execute alterações no AVN.\n\nPRINCÍPIO: DUAS CLASSES DE INFORMAÇÃO\nAÇÕES MODIFICÁVEIS: ingestão de alimentos, calorias, proteínas, carboidratos, gorduras, fibras, micronutrientes, água, rotina e horários de sono, exercícios, frequência, cargas, descanso e consistência dos registros. Algumas dessas ações têm limitações práticas.\nRESPOSTAS FISIOLÓGICAS: peso, percentual e massa de gordura, massa magra, massa muscular quando medida, gordura visceral, TMB estimada, evolução física, qualidade de sono estimada e resultados de exames. Essas respostas dependem também de fatores fora do controle direto.\nPergunta central: quais mudanças realistas nos comportamentos modificáveis podem melhorar as respostas fisiológicas, considerando todos os dados em conjunto? Apresente mecanismos plausíveis, limitações e como testar as hipóteses.\n\nANÁLISES OBRIGATÓRIAS\n1. Compare os últimos 30 dias com os 30 anteriores. Descreva o que melhorou, piorou e estagnou; indique datas, valores, unidades e cobertura, sem interpretar dias ausentes como zero.\n2. Identifique padrões temporais entre macronutrientes, micronutrientes, alimentos, hidratação, sono, exercício, balanço energético, peso, composição corporal, metabolismo e exames. Procure repetições e tendências, não apenas médias.\n3. Para cada padrão, informe datas concretas, número de observações, direção da associação, possíveis causas alternativas, confiança (alta, moderada ou baixa) e como verificá-lo. NÃO atribua causalidade a uma simples coincidência. Mais proteína não garante ganho muscular e mais treino não garante perda de peso.\n4. Seja criticamente construtivo: aponte decisões ruins, inconsistências, falta de adesão e oportunidades de melhoria com firmeza e clareza, sem humilhar, julgar moralmente ou culpar o usuário por respostas fisiológicas.\n5. Examine metas de energia, proteínas, carboidratos, gorduras, fibras e micronutrientes. Proponha alterações quantitativas somente com evidência suficiente e explique benefícios, riscos e o que acompanhar. Nunca altere automaticamente metas.\n6. Examine individualmente TODOS os indicadores disponíveis de avaliação física, sono e exames, incluindo sua evolução. Procure valores fora de referências aplicáveis, tendências persistentes de piora, combinações preocupantes e alterações que justifiquem precauções.\n7. Gere um QUADRO DE ALERTAS com: indicador, valor/unidade, data, referência aplicável, tendência, confiança e prioridade: ATENDIMENTO IMEDIATO, AVALIAÇÃO PROFISSIONAL EM BREVE ou MONITORAR. Explique a ação segura recomendada, fatores que podem mudar a prioridade e informações ausentes. Não presuma sintomas ou urgência sem base; se os dados indicarem possível risco agudo, recomende avaliação imediata.\n8. Considere condições clínicas e limitações físicas explicitamente informadas, os exames mais recentes e suas datas. Não diagnostique doenças nem recomende iniciar, suspender ou ajustar remédios sem profissional habilitado.\n9. Examine treinos realmente realizados, frequência, grupos musculares, séries, repetições, cargas, progressão, fadiga e recuperação. Não confunda treino programado com executado, nem dias sem lançamento com descanso. Evite dupla contagem de calorias de passos e exercícios.\n10. Examine sono (duração, regularidade, fases, despertares e pontuação disponíveis), hidratação, macros e micros. Considere limites dos relógios, bioimpedância e tabelas nutricionais. Não trate lacunas como deficiências comprovadas.\n11. Trate TMB e balanço energético como estimativas, não como medições exatas do gasto total. Relacione o saldo com tendências de peso e gordura, considerando hidratação e a imprecisão da composição corporal.\n12. Formule as CINCO ações mais importantes para os próximos 30 dias. Para cada uma, explique o comportamento a modificar, evidência, justificativa, benefício esperado como hipótese, risco, prioridade, indicador de acompanhamento, período de reavaliação e quando buscar ajuda.\n13. Estruture sua resposta em: (a) diagnóstico situacional; (b) alertas e pioras; (c) padrões e hipóteses; (d) críticas aos hábitos; (e) metas e recomendações; (f) plano de 30 dias e verificações futuras. Se faltarem dados, liste perguntas relevantes.\n\nREGRAS ESSENCIAIS\nNão invente dados, sintomas, padrões, valores de referência nem relações de causa e efeito.\nNão use resultados antigos como se fossem atuais. Indique a data de cada exame e seus limites laboratoriais quando disponíveis.\nBioimpedância, relógio e TMB são estimativas sujeitas a erros. Massa magra não equivale necessariamente a massa muscular.\nFalta de diário não é jejum; falta de treino registrado não é dia de repouso; dado ausente não é zero.\nNão recomende dietas extremas, sobrecarga de treino nem mudanças de medicamentos sem supervisão adequada.\nDistingua fatos, hipóteses e conclusões incertas. Seja direto e crítico, mas nunca mais confiante do que os dados permitem.\nNão modifique registros ou metas do AVN: faça apenas recomendações fundamentadas.";
 const numero=x=>x===null||x===undefined||x===''?null:Number.isFinite(Number(x))?Number(x):null;
 const fmt=(x,casas=2)=>numero(x)===null?'sem dado':Number(x).toLocaleString('pt-BR',{maximumFractionDigits:casas});
 const dBR=d=>d?d.split('-').reverse().join('/'):'—';
@@ -77,12 +78,21 @@ function sessaoSono(rows) {
  }
  return [...out.values()].sort((a,b)=>+new Date(a.fim)-+new Date(b.fim));
 }
-function sessaoTreino(rows) {
+function sessaoTreino(rows,execucoes) {
  const out=new Map();
  for(const x of rows||[]){
-  const id=String(x.sessao_id);
-  if(!out.has(id))out.set(id,{id,realizado_em:x.realizado_em,plano_nome:x.plano_nome,observacoes:x.sessao_observacoes,exercicios:[]});
+  const id='registro:'+String(x.sessao_id);
+  if(!out.has(id))out.set(id,{id,origem:'registro manual Web',realizado_em:x.realizado_em,plano_nome:x.plano_nome,observacoes:x.sessao_observacoes,exercicios:[]});
   if(x.item_id!=null)out.get(id).exercicios.push(x);
+ }
+ for(const x of execucoes||[]){
+  const id='execucao:'+String(x.sessao_id);
+  if(!out.has(id))out.set(id,{id,origem:'execução finalizada Web/Android',realizado_em:x.realizado_em,plano_nome:x.plano_nome,observacoes:null,exercicios:[]});
+  if(x.item_id!=null)out.get(id).exercicios.push({
+   exercicio:x.exercicio,grupo_muscular:x.grupo_muscular,series_realizadas:1,
+   numero_serie:x.numero_serie,repeticoes_realizadas:x.repeticoes==null?null:String(x.repeticoes),
+   carga_kg:x.carga_kg,carga_unidade:x.carga_unidade,carga_placas:x.carga_placas,rir:x.rir
+  });
  }
  return [...out.values()].sort((a,b)=>+new Date(a.realizado_em)-+new Date(b.realizado_em));
 }
@@ -122,7 +132,7 @@ function montarRelatorio(info,balanco,erroBalanco) {
  const agua=mapaPorDia(info.agua,x=>x.data);
  const sono=sessaoSono(info.sono);
  const sonoDia=mapaPorDia(sono,x=>diaLocal(x.fim));
- const treinos=sessaoTreino(info.treinos);
+ const treinos=sessaoTreino(info.treinos,info.execucoes);
  const treinoDia=mapaPorDia(treinos,x=>diaLocal(x.realizado_em));
  const medicoes=mapaPorDia(info.medicoes,x=>diaLocal(x.data_medicao));
  const bal=dadosBalanco(balanco);
@@ -269,6 +279,7 @@ function montarRelatorio(info,balanco,erroBalanco) {
  add('Limitação: diferenças de hidratação, aparelho e horário podem alterar estimativas de composição corporal.');
  separar();
  add('8. TREINOS EFETIVAMENTE REALIZADOS');
+ add('Fontes: as duas listas de Ver histórico recente na página Treinar (registros Web e execuções finalizadas Web/Android). Execuções em andamento não entram.');
  const treinosAtual=atual.flatMap(d=>treinoDia.get(d)||[]),treinosAnterior=anterior.flatMap(d=>treinoDia.get(d)||[]);
  const grupos=new Map(),exercicios=new Map();
  for(const s of treinosAtual)for(const e of s.exercicios){
@@ -289,8 +300,8 @@ function montarRelatorio(info,balanco,erroBalanco) {
   const arr=treinoDia.get(d)||[];
   if(!arr.length){add(dBR(d)+': nenhum treino executado registrado.');continue;}
   for(const s of arr){
-   add(dBR(d)+' — '+dataHora(s.realizado_em)+' — '+(s.plano_nome||'Treino')+(s.observacoes?' (observações: '+s.observacoes+')':''));
-   for(const ex of s.exercicios)add('  '+ex.exercicio+' ['+(ex.grupo_muscular||'grupo indefinido')+']: '+(ex.series_realizadas??'?')+' séries, repetições '+(ex.repeticoes_realizadas||'não registradas')+', carga '+(numero(ex.carga_kg)===null?'não informada':fmt(ex.carga_kg)+' kg')+(ex.carga_unidade?' ('+ex.carga_unidade+')':'')+(ex.carga_placas?' / placas '+ex.carga_placas:'')+'.');
+   add(dBR(d)+' — '+dataHora(s.realizado_em)+' — '+(s.plano_nome||'Treino')+' [origem: '+s.origem+']'+(s.observacoes?' (observações: '+s.observacoes+')':''));
+   for(const ex of s.exercicios)add('  '+ex.exercicio+(ex.numero_serie?' — série '+ex.numero_serie:'')+' ['+(ex.grupo_muscular||'grupo indefinido')+']: '+(ex.series_realizadas??'?')+' séries, repetições '+(ex.repeticoes_realizadas||'não registradas')+', carga '+(numero(ex.carga_kg)===null?'não informada':fmt(ex.carga_kg)+' kg')+(ex.carga_unidade?' ('+ex.carga_unidade+')':'')+(ex.carga_placas?' / placas '+ex.carga_placas:'')+'.');
   }
  }
  add('Volume de carga total só pode ser calculado com repetições e cargas inequivocamente registradas. Calorias de treinamento são obtidas do Health Connect por meio do balanço energético; NÃO somar novamente calorias destas sessões.');
@@ -333,21 +344,8 @@ function montarRelatorio(info,balanco,erroBalanco) {
  add('Receitas aninhadas exibem ingredientes proporcionais ao rendimento cadastrado, mas mudanças históricas na fórmula podem não ser recuperáveis.');
  for(const aviso of info.avisos||[])add('- '+aviso);
  separar();
- add('12. INSTRUÇÕES FINAIS PARA A INTELIGÊNCIA ARTIFICIAL');
- add('Analise integralmente os dados acima, sem inventar registros nem tratar lacunas como zero. O objetivo é reduzir gordura corporal, preservar ou aumentar massa muscular, melhorar a qualidade do sono e o condicionamento físico.');
- add('Entregue os seguintes resultados:');
- add('1) Diagnóstico situacional dos últimos 30 dias e comparação crítica com os 30 anteriores, diferenciando fatos, estimativas, hipóteses e ausência de dados.');
- add('2) Análise do balanço energético e da evolução do peso, gordura corporal, massa magra e TMB; investigue inconsistências e não converta saldo estimado em perda de gordura garantida.');
- add('3) Avaliação de alimentos reais, quantidades, receitas, calorias, macronutrientes, fibras, vitaminas e minerais. Identifique possíveis excessos e insuficiências apenas quando a cobertura sustentar a inferência.');
- add('4) Avalie as metas nutricionais atuais e proponha mudanças quantitativas justificadas, quando houver evidência suficiente. NÃO altere automaticamente qualquer meta do AVN.');
- add('5) Avalie treinos executados, frequência, volume, progressão, recuperação e distribuição dos grupos musculares. Relacione possíveis padrões com nutrição e sono sem confundir correlação com causalidade.');
- add('6) Avalie duração, horários, fases e pontuação Samsung Health, identificando padrões e limitações das medidas do wearable.');
- add('7) Interprete os exames laboratoriais com datas e referências e indique quando uma questão precisa de médico ou nutricionista. Não recomende ajustes de medicamentos por conta própria.');
- add('8) Proponha um plano priorizado com as CINCO mudanças mais importantes para os próximos 30 dias, valores e justificativas quando cabíveis, metas de acompanhamento e critérios para reavaliar.');
- add('9) Diga explicitamente quais dados adicionais seriam necessários e o grau de confiança de cada conclusão. Considere as limitações físicas cadastradas.');
- add('10) Separe sugestões práticas de hipóteses ainda não confirmadas. Não faça diagnóstico médico definitivo.');
- add('FIM DO RELATÓRIO');
- return {texto:L.join('\n'),cobertura:cobertura(atual),sonoNoites:atual.filter(d=>sonoDia.has(d)).length,treinos:treinosAtual.length};
+ add('FIM DOS DADOS DO RELATÓRIO');
+ return {texto:L.join('\n'),instrucoes:INSTRUCOES_IA,cobertura:cobertura(atual),sonoNoites:atual.filter(d=>sonoDia.has(d)).length,treinos:treinosAtual.length};
 }
 async function get(url){
  const r=await fetch(url,{credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});
@@ -357,9 +355,10 @@ async function get(url){
  return b;
 }
 let textoAtual='';
+const textoCombinado=()=>textoAtual?textoAtual+'\n\n'+'='.repeat(78)+'\n\n'+INSTRUCOES_IA:'';
 function setLoading(sim){
  $('gerar').disabled=sim;$('usuario').disabled=sim;$('data').disabled=sim;
- $('copiar').disabled=sim||!textoAtual;$('baixar').disabled=sim||!textoAtual;
+ $('copiar').disabled=sim||!textoAtual;$('copiar-dados').disabled=sim||!textoAtual;$('baixar').disabled=sim||!textoAtual;
 }
 async function gerar(){
  const id=$('usuario').value,data=$('data').value;
@@ -386,26 +385,31 @@ async function gerar(){
   $('status').classList.add('error');$('status').textContent=e.message||'Falha ao gerar o relatório.';
  }finally{setLoading(false);}
 }
-async function copiar(){
- if(!textoAtual)return;
- try{
-  await navigator.clipboard.writeText(textoAtual);
-  $('status').textContent='Relatório completo copiado, incluindo as instruções finais para a IA.';
+async function copiarTexto(texto,campo,mensagem){
+ if(!texto)return;
+ try {
+  await navigator.clipboard.writeText(texto);
+  $('status').textContent=mensagem;
  }catch(e){
-  $('relatorio').focus();$('relatorio').select();
+  campo.focus();campo.select();
   $('status').textContent='Cópia automática indisponível. Selecione e copie o texto do campo.';
  }
 }
+const copiar=()=>copiarTexto(textoCombinado(),$('relatorio'),'Dados do AVN e instruções fixas da IA copiados juntos.');
+const copiarDados=()=>copiarTexto(textoAtual,$('relatorio'),'Dados do relatório AVN copiados.');
+const copiarInstrucoes=()=>copiarTexto(INSTRUCOES_IA,$('instrucoes'),'Instruções fixas para IA copiadas.');
 function baixar(){
  if(!textoAtual)return;
- const blob=new Blob([textoAtual],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob);
+ const blob=new Blob([textoCombinado()],{type:'text/plain;charset=utf-8'}),url=URL.createObjectURL(blob);
  const a=document.createElement('a');a.href=url;a.download='AVN-analise-integrada-'+$('data').value+'.txt';
  document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 async function iniciar(){
- $('data').value=hoje();$('data').max=hoje();
+ $('data').value=hoje();$('data').max=hoje();$('instrucoes').value=INSTRUCOES_IA;
  $('gerar').addEventListener('click',gerar);
  $('copiar').addEventListener('click',copiar);
+ $('copiar-dados').addEventListener('click',copiarDados);
+ $('copiar-instrucoes').addEventListener('click',copiarInstrucoes);
  $('baixar').addEventListener('click',baixar);
  $('usuario').addEventListener('change',()=>{localStorage.setItem('avn_nutricao_usuario',$('usuario').value);});
  try{

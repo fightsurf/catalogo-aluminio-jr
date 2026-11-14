@@ -24,3 +24,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .disclaimer{font-size:13px;margin-bottom:0}
 @media(max-width:800px){.overview{grid-template-columns:repeat(2,minmax(0,1fr))}.app{padding:14px 12px 50px}.controls>label{flex:1;min-width:140px}.controls>label select,.controls>label input{width:100%;min-width:0}.controls>button{flex:1}.actions{width:100%}.actions button{flex:1}#relatorio{min-height:470px}}
 @media(max-width:440px){.overview{grid-template-columns:1fr 1fr}.stat{padding:12px}.stat strong{font-size:17px}}
+
+.instructions-report{margin-top:18px}
+#instrucoes{width:100%;min-height:400px;max-height:80vh;resize:vertical;margin-top:16px;padding:18px;border:1px solid #4b6280;border-radius:10px;background:#0b1423;color:#e9f0fc;line-height:1.55;font-size:13px;white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Consolas,'Liberation Mono',monospace}
+@media(max-width:800px){#instrucoes{min-height:360px}}
