@@ -48,3 +48,9 @@
 .avn-exames .avn-ex-metas th,.avn-exames .avn-ex-metas td{padding:.5rem .6rem;border-bottom:1px solid var(--line,#364354)}
 .avn-exames .avn-ex-metas th:last-child,.avn-exames .avn-ex-metas td:last-child{text-align:right;white-space:nowrap}
 .avn-exames .avn-ex-metas p{margin:.6rem 0 0;line-height:1.5;font-size:.82rem;opacity:.85}
+
+/* Comparacao de coletas atuais e historicas durante importacao com IA. */
+.avn-exames .avn-ex-verificacao{padding:.65rem .75rem;margin:.65rem 0 0;border-radius:8px;border:1px solid var(--line,#64748b);font-size:.85rem;line-height:1.45;overflow-wrap:anywhere}
+.avn-exames .avn-ex-verificacao.novo{border-color:#35825b;background:rgba(53,130,91,.11)}
+.avn-exames .avn-ex-verificacao.identico{border-color:#64748b;background:rgba(100,116,139,.10)}
+.avn-exames .avn-ex-verificacao.divergente{border-color:#d97706;background:rgba(217,119,6,.15);font-weight:600}
