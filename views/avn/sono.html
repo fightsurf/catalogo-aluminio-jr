@@ -4,8 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>AVN — Sono</title>
-  <link rel="stylesheet" href="/css/avn-sono.css?v=20261113">
-  <script src="/js/avn-sono.js?v=20261113" defer></script>
+  <link rel="stylesheet" href="/css/avn-sono.css?v=20261114-diario1">
+  <script src="/js/avn-sono.js?v=20261114-diario1" defer></script>
 </head>
 <body>
 <main class="shell">
@@ -28,20 +28,22 @@
       <option value="365">Últimos 365 dias</option>
       <option value="3650">Histórico disponível</option>
     </select></label>
+    <label>Data da noite <input type="date" id="dia-sono" aria-label="Data da noite a consultar"></label>
   </section>
   <p id="status" class="status" role="status" aria-live="polite">Carregando registros de sono…</p>
 
   <section class="panel latest" id="latest" aria-label="Última noite registrada">
-    <h2>Última noite registrada</h2>
+    <h2>Noite selecionada</h2>
     <div id="latest-content" class="latest-content"><p class="hint">Selecione um usuário para consultar.</p></div>
   </section>
-  <section id="summary" class="summary" aria-label="Resumo do período">
-    <article class="stat"><span>Noites registradas</span><strong id="noites">—</strong></article>
-    <article class="stat"><span>Duração média informada</span><strong id="duracao">—</strong><small>Somente noites com duração informada</small></article>
-    <article class="stat"><span>Pontuação média</span><strong id="pontuacao">—</strong><small>Somente noites com pontuação</small></article>
-    <article class="stat"><span>Sono profundo médio</span><strong id="profundo">—</strong><small>Somente noites com fases disponíveis</small></article>
-    <article class="stat"><span>Sono REM médio</span><strong id="rem">—</strong><small>Somente noites com fases disponíveis</small></article>
+  <section id="summary" class="summary" aria-label="Dados de sono do dia selecionado">
+    <article class="stat"><span>Duração inteira informada</span><strong id="duracao">—</strong><small>Total informado na data escolhida</small></article>
+    <article class="stat"><span>Sono leve</span><strong id="leve">—</strong><small>Fases registradas na data</small></article>
+    <article class="stat"><span>Sono profundo</span><strong id="profundo">—</strong><small>Fases registradas na data</small></article>
+    <article class="stat"><span>Sono REM</span><strong id="rem">—</strong><small>Fases registradas na data</small></article>
+    <article class="stat"><span>Pontuação Samsung Health</span><strong id="pontuacao">—</strong><small>Pontuação da última sessão pontuada do dia</small></article>
   </section>
+  <p class="hint">Os cartões acima exibem os valores do dia selecionado, sem médias. Gráficos e histórico seguem o período filtrado. Para noites que cruzam a meia-noite, vale o dia do despertar.</p>
   <section class="charts" aria-label="Evolução do sono">
     <article class="panel"><h2>Duração por noite</h2><p class="hint">Horas de sono informadas pela Samsung; não inclui períodos sem informação.</p><div id="chart-duration" class="chart" role="img" aria-label="Gráfico da duração do sono por noite"></div></article>
     <article class="panel"><h2>Pontuação por noite</h2><p class="hint">Pontuação fornecida pela Samsung, quando disponível. Não é diagnóstico médico.</p><div id="chart-score" class="chart" role="img" aria-label="Gráfico da pontuação do sono por noite"></div></article>
