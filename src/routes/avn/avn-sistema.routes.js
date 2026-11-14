@@ -10,6 +10,7 @@ const avnNutricaoRoutes = require('./avn-nutricao.routes');
 const avnBalancoRoutes = require('./avn-balanco-energetico.routes');
 const avnHidratacaoRoutes = require('./avn-hidratacao.routes');
 const avnExamesRoutes = require('./avn-exames.routes');
+const avnAnaliseRoutes = require('./avn-analise-integrada.routes');
 const pool = require('../../../db/connection');
 const router = express.Router();
 
@@ -44,7 +45,8 @@ const corporalApps = [
 ];
 const saudeApps = [
   {rota:'/avn/sistema/saude/exames',nome:'Exames Laboratoriais',categoria:'Saúde',icone:'heart-pulse',descricao:'Registrar exames laboratoriais, importar laudos com IA e acompanhar resultados.'},
-  {rota:'/avn/sistema/sono',nome:'Sono',categoria:'Saúde',icone:'moon',descricao:'Histórico de sono do Samsung Health: duração, pontuação e fases por noite.'}
+  {rota:'/avn/sistema/sono',nome:'Sono',categoria:'Saúde',icone:'moon',descricao:'Histórico de sono do Samsung Health: duração, pontuação e fases por noite.'},
+  {rota:'/avn/sistema/analise-integrada',nome:'Análise Integrada de Saúde',categoria:'Saúde',icone:'file-heart',descricao:'Relatório para IA com nutrição, sono, treinos, avaliação física, exames e balanço energético dos últimos 30 dias.'}
 ];
 const todosApps = [...treinoApps, ...nutricaoApps, ...corporalApps, ...saudeApps];
 async function inserirTreinosNoResumo(summary) {
@@ -160,6 +162,8 @@ router.use('/api/nutricao', requireAuth, avnNutricaoRoutes);
 router.use('/api/balanco-energetico', requireAuth, avnBalancoRoutes);
 router.get('/balanco-energetico', requireAuth, (_req,res)=>res.sendFile(path.resolve(__dirname,'../../../views/avn/balanco-energetico.html')));
 router.use('/api/exames', requireAuth, avnExamesRoutes);
+router.use('/api/analise-integrada', requireAuth, avnAnaliseRoutes);
+router.get('/analise-integrada', requireAuth, (_req,res)=>res.sendFile(path.resolve(__dirname,'../../../views/avn/analise-integrada.html')));
 router.get('/saude/exames', requireAuth, (_req,res)=>res.sendFile(path.resolve(__dirname,'../../../views/avn/exames-laboratoriais.html')));
 router.get('/sono', requireAuth, (_req,res)=>res.sendFile(path.resolve(__dirname,'../../../views/avn/sono.html')));
 router.use('/api/hidratacao', requireAuth, avnHidratacaoRoutes.web);
