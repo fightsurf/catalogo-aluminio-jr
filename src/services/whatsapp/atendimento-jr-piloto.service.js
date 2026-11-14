@@ -227,4 +227,17 @@ async function processar(payload, deps={}) {
     return {aceito:false,motivo:'falha_interna'};
   }
 }
+// Prontidão sem valores de credenciais ou telefones nos logs do Render.
+console.info('[Atendimento JR piloto] prontidao', JSON.stringify({
+  ativo: ativo(),
+  numeros_autorizados: numerosAutorizados().size,
+  ia: Boolean(String(process.env.OPENAI_API_KEY || '').trim()),
+  zapi_url: Boolean(String(process.env.ZAPI_URL || '').trim()),
+  zapi_token: Boolean(String(process.env.ZAPI_TOKEN || '').trim()),
+  zapi_instancia: Boolean(vinculos.instanciaAtual()),
+  webhook_token: String(process.env.ZAPI_WEBHOOK_TOKEN || '').trim().length >= 32,
+  audio_sintese: Boolean(String(process.env.ELEVENLABS_API_KEY || '').trim()) &&
+    Boolean(String(process.env.ATENDIMENTO_JR_VOZ_ID || process.env.ELEVENLABS_VOICE_ID || '').trim()),
+  aviso_vendedor: Boolean(String(process.env.ATENDIMENTO_JR_VENDEDOR || '').trim())
+}));
 module.exports = {processar,ativo,numerosAutorizados,precoTabela,reconhecerResposta,buscarProdutos};
