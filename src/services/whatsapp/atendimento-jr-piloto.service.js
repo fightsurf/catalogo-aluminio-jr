@@ -4,7 +4,6 @@
 const base = require('./zapi-webhook-recebimento.service');
 const vinculos = require('./zapi-lid-vinculos.service');
 const assistente = require('../assistente/assistente-produtos.service');
-const perfis = require('../perfis-preco/perfisPreco.service');
 const transcricoes = require('./transcricoes-piloto.service');
 const eleven = require('../integracoes/elevenlabs-jr.service');
 const zapi = require('../integracoes/zapi.service');
@@ -21,13 +20,13 @@ function numerosAutorizados() {
 function ativo() {
   return process.env.ATENDIMENTO_JR_PILOTO === '1' && numerosAutorizados().size > 0;
 }
-function precoComPerfil(valor, perfil) {
+function precoTabela(valor) {
+  // Preço cadastrado na tabela de produtos: sem perfil, acréscimo ou desconto.
   if (valor == null || String(valor).trim() === '') return null;
-  const baseCentavos = Math.round(Number(valor) * 100);
-  if (!Number.isSafeInteger(baseCentavos) || baseCentavos < 0 || !perfil) return null;
-  if (perfil.tipo === 'fixo') return (baseCentavos + Math.round(Number(perfil.valor) * 100)) / 100;
-  if (perfil.tipo === 'percentual') return Math.round(baseCentavos * (1 + Number(perfil.valor) / 100)) / 100;
-  return null;
+  const numero = Number(String(valor).trim().replace(',', '.'));
+  if (!Number.isFinite(numero) || numero < 0) return null;
+  const centavos = Math.round(numero * 100);
+  return Number.isSafeInteger(centavos) ? centavos / 100 : null;
 }
 function moeda(n) {
   return n == null ? 'preço não disponível' :
@@ -111,7 +110,7 @@ async function enviarResposta(telefone, texto, formato) {
     return enviarTexto(telefone, 'Por enquanto estou respondendo por texto. '+texto);
   }
 }
-async function buscarProdutos(consultas, perfil) {
+async function buscarProdutos(consultas) {
   const linhas = [];
   const midias = [];
   for (const item of consultas) {
@@ -120,11 +119,11 @@ async function buscarProdutos(consultas, perfil) {
       linhas.push(item.termo+': não encontrei o modelo. Pode me informar o tamanho ou referência?');
       continue;
     }
-    // Nunca transforma o preço-base em resposta ao cliente; aplica perfil autorizado.
+    // Usa somente o preço vigente cadastrado para cada produto ativo.
     const candidatos = achados.produtos.slice(0, achados.encontrados > 1 ? 3 : 1);
     if (candidatos.length > 1) linhas.push('Para '+item.termo+', encontrei estes modelos:');
     for (const p of candidatos) {
-      const valor = precoComPerfil(p.preco,perfil);
+      const valor = precoTabela(p.preco);
       const qtd = item.quantidade;
       const total = valor != null && qtd != null ? Math.round(valor * qtd * 100) / 100 : null;
       linhas.push('• '+p.nome+': '+moeda(valor)+(total != null ? ' | '+qtd+' un.: '+moeda(total) : ''));
@@ -208,26 +207,8 @@ async function processar(payload, deps={}) {
         'Sou o atendimento virtual da Alumínio JR. Me diga qual produto ou dúvida você tem.',dados.tipo);
       return {aceito:true,acao:'orientou'};
     }
-    // Não existe preço padrão seguro sem um perfil comercial configurado.
-    const token = String(process.env.ATENDIMENTO_JR_PERFIL_TOKEN || '').trim();
-    if (!token) {
-      await (deps.entregarHumano || entregarHumano)(telefone);
-      await (deps.enviarResposta || enviarResposta)(telefone,
-        'Vou passar para o vendedor confirmar os valores.',dados.tipo);
-      await (deps.avisarVendedor || avisarVendedor)(telefone,texto).catch(()=>{});
-      return {aceito:true,acao:'sem_perfil_transferido'};
-    }
-    let perfil;
-    try { perfil = await (deps.carregarPerfil || perfis.localizar)(token); }
-    catch (erro) {
-      console.error('[Atendimento JR piloto] Perfil comercial indisponível:',erro.message);
-      await (deps.entregarHumano || entregarHumano)(telefone);
-      await (deps.enviarResposta || enviarResposta)(telefone,
-        'Vou passar para o vendedor confirmar os valores.',dados.tipo);
-      await (deps.avisarVendedor || avisarVendedor)(telefone,texto).catch(()=>{});
-      return {aceito:true,acao:'perfil_invalido_transferido'};
-    }
-    const resposta = await (deps.buscarProdutos || buscarProdutos)(interpretado.produtos,perfil);
+    // Consulta o preço cadastrado na tabela, sem depender de perfil comercial.
+    const resposta = await (deps.buscarProdutos || buscarProdutos)(interpretado.produtos);
     // Um vendedor pode ter começado a responder durante a consulta da IA.
     if (await (deps.nivelAtendimento || nivelAtendimento)(telefone) === 'HUMANO') {
       return {aceito:false,motivo:'vendedor_assumiu_durante_consulta'};
@@ -246,4 +227,4 @@ async function processar(payload, deps={}) {
     return {aceito:false,motivo:'falha_interna'};
   }
 }
-module.exports = {processar,ativo,numerosAutorizados,precoComPerfil,reconhecerResposta,buscarProdutos};
+module.exports = {processar,ativo,numerosAutorizados,precoTabela,reconhecerResposta,buscarProdutos};
