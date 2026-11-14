@@ -468,6 +468,8 @@ async function webFinalizar(){
  await webEvento('TREINO_FINALIZADO');
  localStorage.removeItem(webChave());
  webFecharModal({force:true});
+ await carregarTreino(state.treino.id);
+ renderTreinoItens();
  abrirHistoricoTreinos();
  toast('Treino finalizado e salvo no histórico Web/Android.');
 }
@@ -535,7 +537,7 @@ async function salvarSessao(){const d=state.treino.dias.find(x=>Number(x.dia_sem
  const cards=[...document.querySelectorAll('[data-realizado]')];if(cards.length!==itens.length||!cards.length)return toast('Dia sem exercícios.',true);
  const realizados=cards.map((c,index)=>{const unidade=c.querySelector('.ses-unidade').value,raw=c.querySelector('.ses-carga').value,valor=raw===''?null:Number(raw);return {exercicio_id:itens[index].exercicio_id,series_realizadas:Number(c.querySelector('.ses-series').value),repeticoes_realizadas:c.querySelector('.ses-reps').value,carga_unidade:unidade,carga_kg:unidade==='kg'?valor:null,carga_placas:unidade==='placas'?valor:null,observacoes:c.querySelector('.ses-obs').value};});
  if(!confirm('Confirmar o registro desta sessão como realizada?'))return;
- try{await fetchJSON('/sessoes',{method:'POST',body:JSON.stringify({usuario_id:state.usuarioId,plano_id:state.treino.id,dia_semana:state.treinoDia,realizados,observacoes:$('sessaoObs').value})});$('sessaoObs').value='';toast('Sessão registrada.');await renderHistorico();}catch(e){toast(e.message,true);}}
+ try{await fetchJSON('/sessoes',{method:'POST',body:JSON.stringify({usuario_id:state.usuarioId,plano_id:state.treino.id,dia_semana:state.treinoDia,realizados,observacoes:$('sessaoObs').value})});$('sessaoObs').value='';toast('Sessão registrada.');await carregarTreino(state.treino.id);renderTreinoItens();await renderHistorico();}catch(e){toast(e.message,true);}}
 function debounce(fn,ms){let handle;return(...args)=>{clearTimeout(handle);handle=setTimeout(()=>Promise.resolve(fn(...args)).catch(e=>toast(e.message,true)),ms);};}
 async function show(){if(page==='exercicios'){htmlExercicios();return;}if(usuarioGuard())return;if(page==='montador'){
  state.plano=novoPlano();const from=new URLSearchParams(location.search).get('plano');if(isId(from))await carregarPlano(from);htmlMontador();
