@@ -6,6 +6,7 @@ const recebimento = require('../../services/whatsapp/zapi-webhook-recebimento.se
 const transcricoesPiloto = require('../../services/whatsapp/transcricoes-piloto.service');
 const intencoesAdmin = require('../../services/whatsapp/intencoes-admin.service');
 const vinculos = require('../../services/whatsapp/zapi-lid-vinculos.service');
+const atendimentoPiloto = require('../../services/whatsapp/atendimento-jr-piloto.service');
 const router = express.Router();
 
 // A Z-API permite configurar a URL do webhook, incluindo um parâmetro de consulta.
@@ -106,6 +107,15 @@ router.post('/zapi/transcricao-piloto', autenticar, async (req, res) => {
     console.error('[Piloto transcrição] Falha no encaminhamento:', error.message);
     return res.status(500).json({ success: false, message: 'Falha no recebimento do piloto.' });
   }
+});
+
+// Endpoint isolado para o n8n encaminhar a mensagem original SEM trocar o webhook principal.
+// Retorna rapidamente; o piloto usa allowlist e chave de ativação próprias.
+router.post('/zapi/atendimento-piloto', autenticar, (req, res) => {
+  const payload = req.body?.body?.instanceId ? req.body.body : req.body;
+  void atendimentoPiloto.processar(payload).catch(e =>
+    console.error('[Atendimento JR piloto] Erro inesperado:',e.message));
+  return res.status(200).json({ success:true, recebido:true, piloto:atendimentoPiloto.ativo() });
 });
 
 module.exports = router;
