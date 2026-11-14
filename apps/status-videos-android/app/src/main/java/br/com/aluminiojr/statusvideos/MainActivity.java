@@ -289,7 +289,7 @@ public final class MainActivity extends Activity {
                 String ms = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
                 if (ms != null) seconds = Math.round(Double.parseDouble(ms) / 1000);
             } catch (Exception ignored) { }
-            finally { retriever.release(); }
+            finally { try { retriever.release(); } catch (Exception ignored) { } }
             long finalSeconds = seconds;
             ui.post(() -> {
                 if (!uri.equals(videoUri)) return;
