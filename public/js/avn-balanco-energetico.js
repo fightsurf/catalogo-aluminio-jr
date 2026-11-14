@@ -22,7 +22,8 @@ const conf={
  proteinas:{nome:'Proteínas consumidas',unidade:'g',cor:'#fca5a5'},
  carboidratos:{nome:'Carboidratos consumidos',unidade:'g',cor:'#fbbf24'},
  agua_ingerida:{nome:'Água ingerida',unidade:'ml',cor:'#67e8f9'},
- sono_duracao:{nome:'Duração inteira informada',unidade:'h',cor:'#60a5fa'},
+ sono_efetivo:{nome:'Tempo real dormido',unidade:'h',cor:'#34d399'},
+ sono_duracao:{nome:'Duração total informada',unidade:'h',cor:'#60a5fa'},
  sono_leve:{nome:'Sono leve',unidade:'h',cor:'#a3bffa'},
  sono_profundo:{nome:'Sono profundo',unidade:'h',cor:'#a78bfa'},
  sono_rem:{nome:'Sono REM',unidade:'h',cor:'#e879f9'},
@@ -31,7 +32,7 @@ const conf={
 const metricas=['saldo','ingestao','tmb','passos','calorias_ativas'];
 const fisicas=['peso','gordura_corporal','massa_magra','agua_corporal','massa_ossea'];
 const nutricao=['proteinas','carboidratos','agua_ingerida'];
-const sono=['sono_duracao','sono_leve','sono_profundo','sono_rem','sono_pontuacao'];
+const sono=['sono_efetivo','sono_duracao','sono_leve','sono_profundo','sono_rem','sono_pontuacao'];
 // Mesmas cores usadas no painel nutricional. Metas em gramas vêm de Minhas metas.
 const macrosDiarios=[
  {key:'proteinas',campo:'proteinas_g',nome:'Proteínas consumidas',cor:'#60a5fa'},
@@ -309,7 +310,7 @@ function dadosSono(noites,inicio,fim){
  for(const d of [...dias.values()].sort((a,b)=>a.data.localeCompare(b.data))){
   const point=(key,value)=>series[key].push({data:d.data,value:Number(value.toFixed(3))});
   if(d.temDuracao)point('sono_duracao',d.duracao/60);
-  if(d.temFases){point('sono_leve',d.LIGHT/60);point('sono_profundo',d.DEEP/60);point('sono_rem',d.REM/60);}
+  if(d.temFases){if(d.LIGHT+d.DEEP+d.REM>0)point('sono_efetivo',(d.LIGHT+d.DEEP+d.REM)/60);point('sono_leve',d.LIGHT/60);point('sono_profundo',d.DEEP/60);point('sono_rem',d.REM/60);}
   if(d.score!==null)point('sono_pontuacao',d.score);
  }
  return series;
