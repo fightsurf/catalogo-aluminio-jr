@@ -1,6 +1,6 @@
 :root{color-scheme:dark;--bg:#0b1220;--card:#182437;--stroke:#34465f;--text:#ecf2fc;--muted:#a9b9d1;--blue:#60a5fa}
 *{box-sizing:border-box}html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif}
-button,select{font:inherit}a{color:#8ec1ff;text-decoration:none}a:hover{text-decoration:underline}
+button,select,input{font:inherit}a{color:#8ec1ff;text-decoration:none}a:hover{text-decoration:underline}
 .shell{max-width:1240px;margin:0 auto;padding:22px 24px 52px}
 .topbar{display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--stroke);padding:8px 0 20px;font-weight:750}
 .topbar strong{font-size:20px}.topbar span{color:#80bcf6}
@@ -12,7 +12,7 @@ h2{font-size:19px;margin:0 0 6px}.eyebrow{font-weight:800;letter-spacing:.13em;f
 .action:disabled{opacity:.6;cursor:wait}
 .filters{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:18px}
 .filters label{display:grid;gap:5px;font-size:13px;color:#c7d5e7;font-weight:700}
-.filters select{background:#101c2e;color:#fff;border:1px solid #435775;padding:11px;border-radius:10px;min-width:200px}
+.filters select,.filters input{background:#101c2e;color:#fff;border:1px solid #435775;padding:11px;border-radius:10px;min-width:200px}
 .status{color:#c0cfe4;min-height:24px;margin:6px 0 18px}
 .status.error{color:#ffb4a8}
 .summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:14px 0 20px}
@@ -41,7 +41,7 @@ h2{font-size:19px;margin:0 0 6px}.eyebrow{font-weight:800;letter-spacing:.13em;f
 .note{margin:23px 0 0;font-size:13px;padding:14px 18px;background:#142239;border-left:3px solid #4c91e6;border-radius:8px}
 .note strong{color:#e8f2ff}
 @media(max-width:930px){.summary{grid-template-columns:repeat(3,minmax(0,1fr))}.charts{grid-template-columns:1fr}}
-@media(max-width:620px){.shell{padding:12px 13px 34px}.heading{display:block;margin:23px 0 15px}.heading .action{margin-top:13px;width:100%}.filters{display:grid;grid-template-columns:1fr 1fr}.filters select{min-width:0;width:100%}.summary{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.stat{padding:11px}.stat strong{font-size:22px}.panel{padding:14px}.night{padding:12px}.chart{height:210px}}
+@media(max-width:620px){.shell{padding:12px 13px 34px}.heading{display:block;margin:23px 0 15px}.heading .action{margin-top:13px;width:100%}.filters{display:grid;grid-template-columns:1fr 1fr}.filters select,.filters input{min-width:0;width:100%}.summary{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.stat{padding:11px}.stat strong{font-size:22px}.panel{padding:14px}.night{padding:12px}.chart{height:210px}}
 
 
 /* Painel de última noite: derivado somente de registros enviados pela Samsung. */
