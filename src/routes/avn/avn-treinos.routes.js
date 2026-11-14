@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const pool = require('../../../db/connection');
 const V = require('../../services/avn/avn-treinos-validacao');
 const ensureCarga=require('../../services/avn/avn-treinos-carga.service');
+const {aplicarUltimasCargas}=require('../../services/avn/avn-treinos-ultimas-cargas.service');
 const router=express.Router();
 const catalogo = require('../../services/avn/avn-treinos-catalogo.service');
 const compat = require('../../services/avn/avn-treinos-equipamentos.service');
@@ -158,7 +159,9 @@ async function consultarPlano(id,client=pool){
     FROM public.avn_plano_dias d LEFT JOIN public.avn_plano_itens i ON i.plano_dia_id=d.id
     LEFT JOIN public.avn_exercicios e ON e.id=i.exercicio_id WHERE d.plano_id=$1 ORDER BY d.dia_semana,i.posicao`,[id]);
   const days=new Map();for(const row of d.rows){if(!days.has(row.dia_semana))days.set(row.dia_semana,{dia_semana:row.dia_semana,exercicios:[]});if(row.exercicio_id!==null)days.get(row.dia_semana).exercicios.push({...row,midia_url:catalogo.normalizarMidia(row.midia_url)});}
-  return {...r.rows[0],dias:[...days.values()]};
+  const dias=[...days.values()];
+  await aplicarUltimasCargas(r.rows[0].usuario_id,dias,client);
+  return {...r.rows[0],dias};
 }
 router.get('/planos/:id',route(async(req,res)=>{if(!V.id(req.params.id))throw V.erro('Plano inválido.');res.json(await consultarPlano(req.params.id));}));
 async function salvarPlano(req,res,atualizar=false){
