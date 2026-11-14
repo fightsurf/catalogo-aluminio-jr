@@ -9,6 +9,14 @@ const state={usuarios:[],grupos:[],exercicios:[],nomes:new Map(),planos:[],usuar
 const esc = value => String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const isId = v => /^\d+$/.test(String(v||''));
 const formatCarga = x => x?.carga_unidade==='placas' ? (x.carga_placas??'-')+' placas' : (x?.carga_kg??'-')+' kg';
+// A carga do último treino é sugerida na próxima execução; o valor planejado permanece intacto.
+function cargaParaSessao(item) {
+ const unidade=item?.ultima_carga_unidade;
+ if(unidade!=='kg'&&unidade!=='placas')return {...item};
+ return {...item,carga_unidade:unidade,
+  carga_kg:unidade==='kg'?item.ultima_carga_kg:null,
+  carga_placas:unidade==='placas'?item.ultima_carga_placas:null};
+}
 const isAnimated = url => typeof url==='string' && /^\/avn\/sistema\/midias\/[a-z0-9-]+\/frame-1\.svg$/.test(url);
 const isPngAnimated = url => typeof url==='string' && /^\/avn\/sistema\/midias\/[a-z0-9-]+\/frame-1\.png$/.test(url);
 let frame=1;
@@ -250,7 +258,7 @@ const webEvento=async(tipo,extra={})=>{
 };
 function webItensPlano(){
  const d=state.treino?.dias.find(x=>Number(x.dia_semana)===Number(state.treinoDia));
- return d?.exercicios||[];
+ return (d?.exercicios||[]).map(cargaParaSessao);
 }
 function webSerieTotal(item){return Math.min(30,Math.max(1,Number(item?.series)||3));}
 function webRestante(item){return Math.min(3600,Math.max(0,Number(item?.descanso_seg)||0));}
@@ -293,7 +301,18 @@ async function retomarExecucaoWeb(){
  webExec.comeco=new Date(d.iniciada_em).getTime();
  let descanso=null;
  for(const ev of d.eventos||[]){
-  if(ev.tipo==='SERIE_CONCLUIDA'){const p=Number(ev.posicao_exercicio)-1;webExec.concluidas[p]=Math.max(webExec.concluidas[p]||0,Number(ev.numero_serie)||0);}
+  if(ev.tipo==='SERIE_CONCLUIDA'){
+   const p=Number(ev.posicao_exercicio)-1;
+   if(p>=0&&p<webExec.itens.length){
+    webExec.concluidas[p]=Math.max(webExec.concluidas[p]||0,Number(ev.numero_serie)||0);
+    const item=webExec.itens[p],u=ev.carga_unidade==='placas'?'placas':'kg';
+    const valor=u==='placas'?ev.carga_placas:ev.carga_kg;
+    if(valor!==null&&valor!==undefined){
+     item.carga_unidade=u;item.carga_kg=u==='kg'?valor:null;item.carga_placas=u==='placas'?valor:null;
+    }
+    if(ev.repeticoes!==null&&ev.repeticoes!==undefined)item.repeticoes=String(ev.repeticoes);
+   }
+  }
   if(ev.tipo==='EXERCICIO_PULADO')webExec.pulados.add(Number(ev.posicao_exercicio)-1);
   if(ev.tipo==='DESCANSO_INICIADO')descanso=ev;
   if(ev.tipo==='DESCANSO_FINALIZADO')descanso=null;
@@ -498,7 +517,7 @@ async function configurarAndroidNoRegistro(){
 async function carregarTreino(id){state.treino=await fetchJSON('/planos/'+id);if(String(state.treino.usuario_id)!==state.usuarioId)throw Error('Plano não pertence ao usuário.');if(!state.treino.dias.some(d=>Number(d.dia_semana)===state.treinoDia&&d.exercicios.length)){state.treinoDia=Number(state.treino.dias.find(d=>d.exercicios.length)?.dia_semana??0);}}
 function renderTreinoItens(){
  const dia=state.treino.dias.find(d=>Number(d.dia_semana)===state.treinoDia),itens=dia?.exercicios||[],root=$('treinoItens');if(!root)return;
- root.innerHTML=itens.length?`<div class="stack">${itens.map((i,n)=>{const ex=state.exercicios.find(e=>Number(e.id)===Number(i.exercicio_id))||i;return `<div class="item avn-workout-card avn-workout-session-card" data-realizado="${n}"><div class="avn-workout-visual">${media(ex,true)}</div><div class="avn-workout-details"><strong>${esc(i.exercicio_nome||buscarNome(i.exercicio_id))}</strong><small>Previsto: ${i.series} × ${esc(i.repeticoes)}</small><div class="fields"><label>Séries feitas<input type="number" class="ses-series" min="0" max="30" value="${i.series}"></label><label>Repetições feitas<input class="ses-reps" maxlength="30" value="${esc(i.repeticoes)}"></label><label>Unidade<select class="ses-unidade"><option value="kg" ${i.carga_unidade!=='placas'?'selected':''}>kg</option><option value="placas" ${i.carga_unidade==='placas'?'selected':''}>Placas</option></select></label><label>Carga<input type="number" class="ses-carga" min="0" max="${i.carga_unidade==='placas'?200:2000}" step="${i.carga_unidade==='placas'?1:0.5}" value="${esc(i.carga_unidade==='placas'?(i.carga_placas??''):(i.carga_kg??''))}"></label></div><label class="label">Observação<input class="ses-obs" maxlength="500"></label></div></div>`}).join('')}</div>`:'<div class="empty">Este dia não possui exercícios.</div>';
+ root.innerHTML=itens.length?`<div class="stack">${itens.map((original,n)=>{const i=cargaParaSessao(original);const ex=state.exercicios.find(e=>Number(e.id)===Number(i.exercicio_id))||i;return `<div class="item avn-workout-card avn-workout-session-card" data-realizado="${n}"><div class="avn-workout-visual">${media(ex,true)}</div><div class="avn-workout-details"><strong>${esc(i.exercicio_nome||buscarNome(i.exercicio_id))}</strong><small>Previsto: ${i.series} × ${esc(i.repeticoes)}</small><div class="fields"><label>Séries feitas<input type="number" class="ses-series" min="0" max="30" value="${i.series}"></label><label>Repetições feitas<input class="ses-reps" maxlength="30" value="${esc(i.repeticoes)}"></label><label>Unidade<select class="ses-unidade"><option value="kg" ${i.carga_unidade!=='placas'?'selected':''}>kg</option><option value="placas" ${i.carga_unidade==='placas'?'selected':''}>Placas</option></select></label><label>Carga<input type="number" class="ses-carga" min="0" max="${i.carga_unidade==='placas'?200:2000}" step="${i.carga_unidade==='placas'?1:0.5}" value="${esc(i.carga_unidade==='placas'?(i.carga_placas??''):(i.carga_kg??''))}"></label></div><label class="label">Observação<input class="ses-obs" maxlength="500"></label></div></div>`}).join('')}</div>`:'<div class="empty">Este dia não possui exercícios.</div>';
  root.querySelectorAll('.ses-unidade').forEach(sel=>sel.addEventListener('change',()=>{const input=sel.closest('[data-realizado]').querySelector('.ses-carga');input.value='';input.max=sel.value==='placas'?'200':'2000';input.step=sel.value==='placas'?'1':'0.5';}));
  $('salvarSessao').disabled=!itens.length;
  if($('iniciarExecucaoWeb'))$('iniciarExecucaoWeb').disabled=!itens.length;
