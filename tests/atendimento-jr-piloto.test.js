@@ -5,8 +5,7 @@ const piloto = require('../src/services/whatsapp/atendimento-jr-piloto.service')
 const anterior = {
   ATENDIMENTO_JR_PILOTO: process.env.ATENDIMENTO_JR_PILOTO,
   ATENDIMENTO_JR_NUMEROS_TESTE: process.env.ATENDIMENTO_JR_NUMEROS_TESTE,
-  ZAPI_WEBHOOK_INSTANCE_ID: process.env.ZAPI_WEBHOOK_INSTANCE_ID,
-  ATENDIMENTO_JR_PERFIL_TOKEN: process.env.ATENDIMENTO_JR_PERFIL_TOKEN
+  ZAPI_WEBHOOK_INSTANCE_ID: process.env.ZAPI_WEBHOOK_INSTANCE_ID
 };
 test.after(() => {
   for (const [chave,valor] of Object.entries(anterior)) {
@@ -17,7 +16,6 @@ function preparar() {
   process.env.ATENDIMENTO_JR_PILOTO = '1';
   process.env.ATENDIMENTO_JR_NUMEROS_TESTE = '5583999991234';
   process.env.ZAPI_WEBHOOK_INSTANCE_ID = 'INSTANCIA_PILOTO';
-  process.env.ATENDIMENTO_JR_PERFIL_TOKEN = 'TOKEN_TESTE_SEM_API';
 }
 let proximo = 0;
 function evento(texto, extra={}) {
@@ -39,11 +37,13 @@ test('recusa números não autorizados, mensagens próprias e grupos',async()=>{
   assert.equal((await piloto.processar(evento('oi',{fromMe:true}))).motivo,'evento_ignorado');
   assert.equal((await piloto.processar(evento('oi',{isGroup:true}))).motivo,'evento_ignorado');
 });
-test('preços são ajustados pelo perfil e nunca publicados em valor-base',()=>{
-  assert.equal(piloto.precoComPerfil(40,{tipo:'percentual',valor:10}),44);
-  assert.equal(piloto.precoComPerfil(40,{tipo:'fixo',valor:5}),45);
-  assert.equal(piloto.precoComPerfil(null,{tipo:'fixo',valor:5}),null);
-  assert.equal(piloto.precoComPerfil(40,null),null);
+test('consulta retorna valor da tabela sem acréscimo ou perfil',()=>{
+  assert.equal(piloto.precoTabela(40),40);
+  assert.equal(piloto.precoTabela('40,50'),40.5);
+  assert.equal(piloto.precoTabela(null),null);
+  assert.equal(piloto.precoTabela(''),null);
+  assert.equal(piloto.precoTabela(-1),null);
+  assert.equal(piloto.precoTabela('invalido'),null);
 });
 test('interpreta lista de produtos sem acrescentar itens inexistentes',()=>{
   const dados=piloto.reconhecerResposta(JSON.stringify({
@@ -64,8 +64,7 @@ test('responde múltiplos produtos de uma vez e deduplica o webhook',async()=>{
     interpretar:async()=>({intencao:'consulta',produtos:[
       {termo:'panela 4',quantidade:2},{termo:'panela 6',quantidade:3}
     ],foto:false,video:false}),
-    carregarPerfil:async()=>({tipo:'percentual',valor:10}),
-    buscarProdutos:async(itens)=>{consultados.push(itens);return {texto:'Panela 4: R$ 44,00\nPanela 6: R$ 55,00',midias:[]};},
+    buscarProdutos:async(itens)=>{consultados.push(itens);return {texto:'Panela 4: R$ 40,00\nPanela 6: R$ 50,00',midias:[]};},
     enviarResposta:async(_tel,msg,tipo)=>respostas.push({msg,tipo})
   };
   const e=evento('preço da 4 e da 6');
@@ -105,20 +104,21 @@ test('pedido é transferido ao humano e novas mensagens não são atendidas',asy
   assert.equal(avisos,1);
   assert.equal(respostas,1);
 });
-test('sem perfil comercial, passa ao vendedor sem revelar preço-base',async()=>{
+test('sem perfil comercial o bot responde com o preço da tabela',async()=>{
   preparar();
-  delete process.env.ATENDIMENTO_JR_PERFIL_TOKEN;
-  const respostas=[];
+  const respostas=[], consultados=[];
   const deps={
     nivelAtendimento:async()=> 'IA',
     interpretar:async()=>({intencao:'consulta',produtos:[{termo:'panela 4',quantidade:null}],foto:false,video:false}),
-    entregarHumano:async()=>{},
-    enviarResposta:async(_tel,msg)=>respostas.push(msg),
-    avisarVendedor:async()=>{}
+    buscarProdutos:async(itens)=>{
+      consultados.push(itens);
+      return {texto:'Panela 4: R$ 40,00',midias:[]};
+    },
+    enviarResposta:async(_tel,msg)=>respostas.push(msg)
   };
-  assert.equal((await piloto.processar(evento('quanto custa a 4'),deps)).acao,'sem_perfil_transferido');
-  assert.equal(respostas.length,1);
-  assert.doesNotMatch(respostas[0],/R\$/);
+  assert.equal((await piloto.processar(evento('quanto custa a 4'),deps)).acao,'respondeu');
+  assert.deepEqual(consultados,[[{termo:'panela 4',quantidade:null}]]);
+  assert.deepEqual(respostas,['Panela 4: R$ 40,00']);
 });
 
 test('mensagem manual do vendedor suspende o bot sem disparar resposta',async()=>{
@@ -129,18 +129,4 @@ test('mensagem manual do vendedor suspende o bot sem disparar resposta',async()=
   });
   assert.equal(resultado.acao,'vendedor_assumiu_manualmente');
   assert.equal(entregue,1);
-});
-test('perfil comercial inexistente aciona vendedor e não expõe preço',async()=>{
-  preparar();
-  const enviados=[];
-  const resultado=await piloto.processar(evento('preço da panela 6'),{
-    nivelAtendimento:async()=> 'IA',
-    interpretar:async()=>({intencao:'consulta',produtos:[{termo:'panela 6',quantidade:null}],foto:false,video:false}),
-    carregarPerfil:async()=>{throw Error('perfil removido');},
-    entregarHumano:async()=>{},
-    enviarResposta:async(_tel,msg)=>enviados.push(msg),
-    avisarVendedor:async()=>{}
-  });
-  assert.equal(resultado.acao,'perfil_invalido_transferido');
-  assert.doesNotMatch(enviados[0],/R\$/);
 });
