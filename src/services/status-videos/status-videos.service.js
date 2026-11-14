@@ -27,6 +27,12 @@ function normalizarRequestId(valor) {
   return requestId;
 }
 
+function normalizarTipoVideo(valor) {
+  const tipo = texto(valor || 'kit_feirinha').toLowerCase();
+  if (!['kit_feirinha', 'promocional'].includes(tipo)) throw new Error('Tipo de vídeo inválido.');
+  return tipo;
+}
+
 function normalizarQuantidade(valor) {
   const quantidade = Number.parseInt(valor, 10);
   if (!Number.isInteger(quantidade) || quantidade <= 0 || quantidade > 99) {
@@ -112,7 +118,17 @@ function calcularResumo(itens) {
   };
 }
 
-function montarTextoFacebook(itens, resumo) {
+function montarTextoFacebook(itens, resumo, tipoVideo = 'kit_feirinha') {
+  if (tipoVideo === 'promocional') {
+    return [
+      'Vídeo promocional — Alumínio JR',
+      '',
+      'Ligue agora e faça o seu pedido: (83) 9.9979-2085 (Whatsapp).',
+      'George',
+      'Instagram: @aluminiojrpb',
+    ].join('\n');
+  }
+
   const linhasItens = itens.map(item => (
     `• ${item.quantidade}x ${item.nome} — ${moeda(resumo.preco_medio)} cada`
   ));
@@ -133,7 +149,20 @@ function montarTextoFacebook(itens, resumo) {
   ].join('\n');
 }
 
-function montarYoutube(itens, resumo) {
+function montarYoutube(itens, resumo, tipoVideo = 'kit_feirinha') {
+  if (tipoVideo === 'promocional') {
+    return {
+      titulo: 'Vídeo promocional — Alumínio JR #Shorts',
+      descricao: [
+        'Alumínio JR',
+        'Ligue agora e faça o seu pedido: (83) 9.9979-2085 (Whatsapp).',
+        'Instagram: @aluminiojrpb',
+        '#Shorts #AluminioJR',
+      ].join('\n'),
+      tags: ['Alumínio JR', 'promoção'],
+    };
+  }
+
   const rotuloItens = resumo.quantidade_itens === 1 ? 'item' : 'itens';
   const titulo = `Kit Alumínio JR — ${resumo.quantidade_itens} ${rotuloItens} por ${moeda(resumo.valor_total)} #Shorts`;
   const descricao = [
@@ -209,7 +238,7 @@ function mb(bytes) {
   return Math.round((Number(bytes || 0) / 1024 / 1024) * 100) / 100;
 }
 
-async function publicar({ arquivo, requestId, itens: itensBrutos }) {
+async function publicar({ arquivo, requestId, itens: itensBrutos, tipoVideo }) {
   if (!arquivo?.path) throw new Error('Selecione o vídeo antes de publicar.');
 
   let videoFinal = null;
@@ -217,8 +246,9 @@ async function publicar({ arquivo, requestId, itens: itensBrutos }) {
 
   try {
     const idRequisicao = normalizarRequestId(requestId);
-    const itensInformados = parseItens(itensBrutos);
-    const itens = await carregarItensSelecionados(itensInformados);
+    const tipo = normalizarTipoVideo(tipoVideo);
+    const itensInformados = tipo === 'promocional' ? [] : parseItens(itensBrutos);
+    const itens = itensInformados.length ? await carregarItensSelecionados(itensInformados) : [];
     const resumo = calcularResumo(itens);
 
     logMemoria('antes_ffmpeg', idRequisicao);
@@ -227,6 +257,7 @@ async function publicar({ arquivo, requestId, itens: itensBrutos }) {
       precoMedio: resumo.preco_medio,
       valorTotal: resumo.valor_total,
       quantidadeItens: resumo.quantidade_itens,
+      tipoVideo: tipo,
     });
     logMemoria('depois_ffmpeg', idRequisicao);
 
@@ -246,8 +277,8 @@ async function publicar({ arquivo, requestId, itens: itensBrutos }) {
       metadata: { request_id: idRequisicao },
     });
 
-    const textoFacebook = montarTextoFacebook(itens, resumo);
-    const youtube = montarYoutube(itens, resumo);
+    const textoFacebook = montarTextoFacebook(itens, resumo, tipo);
+    const youtube = montarYoutube(itens, resumo, tipo);
 
     // Os canais são executados um de cada vez. Como o frontend agora acompanha o job
     // por polling, não há necessidade de concentrar cinco uploads/processamentos ao mesmo
@@ -303,7 +334,7 @@ async function publicar({ arquivo, requestId, itens: itensBrutos }) {
       const r = await facebookService.publicarFeedVideo({
         videoUrl: r2.url,
         message: textoFacebook,
-        title: `Kit Alumínio JR — ${resumo.quantidade_itens} ${resumo.quantidade_itens === 1 ? 'item' : 'itens'}`,
+        title: tipo === 'promocional' ? 'Vídeo promocional — Alumínio JR' : `Kit Alumínio JR — ${resumo.quantidade_itens} ${resumo.quantidade_itens === 1 ? 'item' : 'itens'}`,
       });
       return { post_id: r.post_id, video_id: r.video_id, api_version: r.api_version };
     });
@@ -330,7 +361,7 @@ async function publicar({ arquivo, requestId, itens: itensBrutos }) {
     const totalCanais = Object.keys(canais).length;
     const statusGeral = publicados === totalCanais ? 'publicado' : (publicados > 0 ? 'parcial' : 'erro');
 
-    if (publicados > 0) {
+    if (publicados > 0 && itens.length > 0) {
       try {
         await termometroAparicoesService.registrarStatusVideos({
           requestId: idRequisicao,
@@ -346,6 +377,7 @@ async function publicar({ arquivo, requestId, itens: itensBrutos }) {
     return {
       success: statusGeral === 'publicado',
       status_geral: statusGeral,
+      tipo_video: tipo,
       request_id: idRequisicao,
       video_url: r2.url,
       video: {
@@ -394,11 +426,12 @@ function serializarPublicacao(job) {
   };
 }
 
-async function iniciarPublicacao({ arquivo, requestId, itens }) {
+async function iniciarPublicacao({ arquivo, requestId, itens, tipoVideo }) {
   if (!arquivo?.path) throw new Error('Selecione o vídeo antes de publicar.');
 
   const idRequisicao = normalizarRequestId(requestId);
-  const itensNormalizados = parseItens(itens);
+  const tipo = normalizarTipoVideo(tipoVideo);
+  const itensNormalizados = tipo === 'promocional' ? [] : parseItens(itens);
   const existente = publicacoes.get(idRequisicao);
 
   if (existente && ['aguardando', 'processando'].includes(existente.status)) {
@@ -427,6 +460,7 @@ async function iniciarPublicacao({ arquivo, requestId, itens }) {
         arquivo,
         requestId: idRequisicao,
         itens: itensNormalizados,
+        tipoVideo: tipo,
       });
       job.status = 'concluido';
       job.resultado = resultado;
