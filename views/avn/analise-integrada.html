@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>AVN — Análise Integrada de Saúde</title>
+<link rel="stylesheet" href="/css/avn-analise-integrada.css?v=20261114">
+<script src="/js/avn-analise-integrada.js?v=20261114" defer></script>
+</head>
+<body>
+<main class="app">
+  <header class="top"><a href="/avn">← Central AVN</a><strong>AVN · Saúde</strong></header>
+  <section class="heading">
+    <span class="eyebrow">AVN · RELATÓRIO PARA IA</span>
+    <h1>Análise Integrada de Saúde</h1>
+    <p>Consolida alimentação real, micronutrientes, água, sono, avaliação física, treinos, balanço energético, exames e metas. Compara 30 dias com os 30 anteriores e prepara instruções para uma IA analisar. Nenhum dado é enviado automaticamente.</p>
+  </section>
+  <section class="controls" aria-label="Filtros do relatório">
+    <label>Usuário <select id="usuario"><option>Carregando…</option></select></label>
+    <label>Último dia do período <input type="date" id="data"></label>
+    <button id="gerar" type="button">Gerar relatório</button>
+  </section>
+  <p class="status" id="status" role="status" aria-live="polite">Selecione um usuário e gere o relatório.</p>
+  <section class="overview" aria-label="Visão geral do relatório">
+    <div class="stat"><small>Período principal</small><strong id="periodo">—</strong></div>
+    <div class="stat"><small>Diário alimentar</small><strong id="diario-dias">—</strong><span>dias com registros</span></div>
+    <div class="stat"><small>Sono</small><strong id="sono-noites">—</strong><span>noites registradas</span></div>
+    <div class="stat"><small>Treinos</small><strong id="treinos-sessoes">—</strong><span>sessões realizadas</span></div>
+  </section>
+  <section class="report">
+    <div class="report-head">
+      <div><h2>Relatório completo</h2><p>Texto pronto para colar no ChatGPT, Gemini, Claude ou outra IA. Inclui instruções de análise ao final.</p></div>
+      <div class="actions">
+        <button id="copiar" type="button" disabled>Copiar relatório completo</button>
+        <button id="baixar" type="button" class="secondary" disabled>Baixar TXT</button>
+      </div>
+    </div>
+    <textarea id="relatorio" readonly spellcheck="false" aria-label="Relatório completo para análise por IA" placeholder="O texto será exibido aqui após gerar o relatório."></textarea>
+    <p class="disclaimer">Os cálculos nutricionais dependem da completude dos alimentos cadastrados. O balanço energético e as medições por bioimpedância são estimativas. O relatório não é diagnóstico médico.</p>
+  </section>
+</main>
+</body>
+</html>
