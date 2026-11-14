@@ -87,3 +87,32 @@ test('painéis independentes com botão de copiar tudo',()=>{
  assert.match(html,/id="copiar-dados"/);
  assert.match(html,/id="copiar-instrucoes"/);
 });
+
+test('dia em andamento fica nos detalhes mas fora das medias e do saldo acumulado',()=>{
+ const {montarRelatorio}=exportsDeRelatorio();
+ const info={gerado_em:'2026-11-14T19:00:00Z',
+  periodo:{inicio:'2026-10-16',fim:'2026-11-14',anterior_inicio:'2026-09-16',anterior_fim:'2026-10-15'},
+  usuario:{nome:'Teste'},perfil_treinamento:null,metas_atuais:{},nutrientes:[],receitas:[],
+  diario:[
+   {data:'2026-11-13',alimento_id:1,alimento_nome:'Alimento',quantidade_g:100,composicao_100g:{kcal:1000}},
+   {data:'2026-11-14',alimento_id:1,alimento_nome:'Alimento',quantidade_g:100,composicao_100g:{kcal:100}}
+  ],
+  agua:[{data:'2026-11-13',quantidade_ml:2000},{data:'2026-11-14',quantidade_ml:500}],
+  sono:[],medicoes:[],treinos:[],execucoes:[],atividades:[],exames:[],avisos:[]};
+ const saldo={dias:[
+  {data:'2026-11-13',saldo:{saldo_kcal:-500}},
+  {data:'2026-11-14',saldo:{saldo_kcal:1000}}
+ ]};
+ const parcial=montarRelatorio(info,saldo,null);
+ assert.equal(parcial.diaParcial,'2026-11-14');
+ assert.ok(parcial.texto.includes('Calorias: média 1.000 kcal/dia; soma dos dias válidos: 1.000 kcal; cobertura 1/29 dias'));
+ assert.ok(parcial.texto.includes('Média atual: média 2.000 ml/dia; soma dos dias válidos: 2.000 ml; cobertura 1/29 dias'));
+ assert.ok(parcial.texto.includes('Período atual: soma dos 1 dias calculáveis -500 kcal; média -500 kcal/dia'));
+ assert.ok(parcial.texto.includes('14/11/2026 [DIA PARCIAL]'));
+ assert.ok(parcial.texto.includes('PROVISÓRIO; fora da soma e da média'));
+ assert.equal(parcial.cobertura,2);
+ const historico=montarRelatorio({...info,gerado_em:'2026-11-15T19:00:00Z'},saldo,null);
+ assert.equal(historico.diaParcial,null);
+ assert.ok(historico.texto.includes('Calorias: média 550 kcal/dia; soma dos dias válidos: 1.100 kcal; cobertura 2/30 dias'));
+ assert.ok(historico.texto.includes('Período atual: soma dos 2 dias calculáveis 500 kcal; média 250 kcal/dia'));
+});
