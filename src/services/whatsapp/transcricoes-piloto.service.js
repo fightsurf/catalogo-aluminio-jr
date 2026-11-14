@@ -404,4 +404,4 @@ function listar() {
     registros: listarMensagens()
   };
 }
-module.exports = { receber, receberVerificandoLid, listar, listarMensagens, assinarMensagens, podeReceber, urlSegura, formatoAudio, observarWebhook, marcarLid };
+module.exports = { receber, receberVerificandoLid, listar, listarMensagens, assinarMensagens, podeReceber, urlSegura, formatoAudio, observarWebhook, marcarLid, transcrever };

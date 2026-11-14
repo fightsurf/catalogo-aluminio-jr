@@ -6,6 +6,7 @@ const recebimento = require('../../services/whatsapp/zapi-webhook-recebimento.se
 const transcricoesPiloto = require('../../services/whatsapp/transcricoes-piloto.service');
 const intencoesAdmin = require('../../services/whatsapp/intencoes-admin.service');
 const vinculos = require('../../services/whatsapp/zapi-lid-vinculos.service');
+const atendimentoPiloto = require('../../services/whatsapp/atendimento-jr-piloto.service');
 const router = express.Router();
 
 // A Z-API permite configurar a URL do webhook, incluindo um parâmetro de consulta.
@@ -53,6 +54,16 @@ router.post('/zapi', autenticar, async (req, res) => {
       }
     }
     const resultado = await recebimento.registrar(payload);
+    // Reaproveita o webhook direto já existente. A proteção por número e a
+    // chave de ativação são conferidas novamente dentro do serviço piloto.
+    // Evita responder callbacks repetidos e mantém comandos @ independentes.
+    if (resultado.motivo === 'entregue_em_tempo_real' && atendimentoPiloto.ativo() &&
+        !dadosPiloto.ignorar && ['texto', 'audio'].includes(dadosPiloto.tipo) &&
+        !payload.isGroup && !payload.isNewsletter &&
+        dadosPiloto.instancia === vinculos.instanciaAtual()) {
+      void atendimentoPiloto.processar(payload).catch(erro =>
+        console.error('[Atendimento JR piloto] Falha no webhook direto:', erro.message));
+    }
     // Texto próprio: aceita telefone ou LID previamente vinculado após verificação
     // da Z-API. Exclui mensagens para terceiros e respostas enviadas pela API.
     if (resultado.motivo === 'entregue_em_tempo_real' &&
@@ -106,6 +117,15 @@ router.post('/zapi/transcricao-piloto', autenticar, async (req, res) => {
     console.error('[Piloto transcrição] Falha no encaminhamento:', error.message);
     return res.status(500).json({ success: false, message: 'Falha no recebimento do piloto.' });
   }
+});
+
+// Endpoint isolado para o n8n encaminhar a mensagem original SEM trocar o webhook principal.
+// Retorna rapidamente; o piloto usa allowlist e chave de ativação próprias.
+router.post('/zapi/atendimento-piloto', autenticar, (req, res) => {
+  const payload = req.body?.body?.instanceId ? req.body.body : req.body;
+  void atendimentoPiloto.processar(payload).catch(e =>
+    console.error('[Atendimento JR piloto] Erro inesperado:',e.message));
+  return res.status(200).json({ success:true, recebido:true, piloto:atendimentoPiloto.ativo() });
 });
 
 module.exports = router;
