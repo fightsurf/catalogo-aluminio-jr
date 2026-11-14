@@ -34,6 +34,20 @@ async function responder(comando,arg,destino,zapi) {
       if (foto) await imagem(zapi,destino,foto,descricao);
       else await texto(zapi,destino,descricao);
     }
+  } else if (comando === '@jogopanela') {
+    const normalizar = valor => String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+    const categorias = new Set(['jogo de panelas','jogos de panelas','jogo de panela','jogos de panela']);
+    const lista = (await produtos.listar({apenasAtivos:true}))
+      .filter(p => (p.categorias || []).some(c => categorias.has(normalizar(c.nome))))
+      .sort((a,b) => String(a.nome).localeCompare(String(b.nome),'pt-BR',{sensitivity:'base'}));
+    if (!lista.length) return texto(zapi,destino,'❌ Nenhum jogo de panelas ativo encontrado na categoria.');
+    for (const p of lista) {
+      const preco = Number(p.preco);
+      const descricao = `${p.nome} - ${Number.isFinite(preco) && p.preco != null ? 'R$ ' + preco.toFixed(2) : 'Preço sob consulta'}`;
+      const foto = p.foto || p.fotos?.find(Boolean);
+      if (foto) await imagem(zapi,destino,foto,descricao);
+      else await texto(zapi,destino,descricao);
+    }
   } else if (comando === '@frete') {
     if (!arg) return;
     const r = await logistica.buscarTransportadorasPorNomeCidade(arg);
