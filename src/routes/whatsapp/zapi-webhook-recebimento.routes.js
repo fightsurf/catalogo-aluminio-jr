@@ -54,6 +54,16 @@ router.post('/zapi', autenticar, async (req, res) => {
       }
     }
     const resultado = await recebimento.registrar(payload);
+    // Reaproveita o webhook direto já existente. A proteção por número e a
+    // chave de ativação são conferidas novamente dentro do serviço piloto.
+    // Evita responder callbacks repetidos e mantém comandos @ independentes.
+    if (resultado.motivo === 'entregue_em_tempo_real' && atendimentoPiloto.ativo() &&
+        !dadosPiloto.ignorar && ['texto', 'audio'].includes(dadosPiloto.tipo) &&
+        !payload.isGroup && !payload.isNewsletter &&
+        dadosPiloto.instancia === vinculos.instanciaAtual()) {
+      void atendimentoPiloto.processar(payload).catch(erro =>
+        console.error('[Atendimento JR piloto] Falha no webhook direto:', erro.message));
+    }
     // Texto próprio: aceita telefone ou LID previamente vinculado após verificação
     // da Z-API. Exclui mensagens para terceiros e respostas enviadas pela API.
     if (resultado.motivo === 'entregue_em_tempo_real' &&
