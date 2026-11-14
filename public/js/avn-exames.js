@@ -1,7 +1,7 @@
 /* AVN · Saúde / Exames Laboratoriais */
 (()=>{'use strict';
 const $=id=>document.getElementById(id),API='/avn/sistema/api/exames';
-const S={usuario:'',catalogo:[],resultados:[],previa:[],anexo:null,anexoUrl:null};
+const S={usuario:'',catalogo:[],resultados:[],previa:[],anexo:null,anexoUrl:null,conferenciaSeq:0};
 const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const norm=v=>String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
 const num=v=>v==null||v===''?null:Number(String(v).trim().replace(',','.'));
@@ -223,15 +223,48 @@ async function saveManual(e){
   $('exIndicador').value=data.exame_id;chart();alertar(out.duplicado?'Esse resultado já estava cadastrado.':'Resultado salvo.');
  }catch(e){alertar(e.message,true);}
 }
-const pvFields=[['data_coleta','Data da coleta','date'],['valor','Valor numérico','text'],['valor_texto','Resultado textual','text'],['unidade','Unidade','text'],['limite_inferior','Referência mín.','text'],['limite_superior','Referência máx.','text'],['referencia_texto','Referência descritiva','text'],['material','Material','text'],['metodo','Método','text'],['laboratorio','Laboratório','text']];
+const pvFields=[['data_coleta','Data da coleta','date'],['valor','Valor numérico','text'],['valor_texto','Resultado textual','text'],['unidade','Unidade','text'],['limite_inferior','Referência mín.','text'],['limite_superior','Referência máx.','text'],['referencia_texto','Referência descritiva','text'],['material','Material','text'],['metodo','Método','text'],['laboratorio','Laboratório','text'],['observacoes','Observações','text']];
 function renderPreview(){
  $('exPrevia').hidden=false;
- $('exLinhasPrevia').innerHTML=S.previa.map((r,i)=>'<fieldset class="avn-ex-preview-row" data-index="'+i+'"><legend>Exame '+(i+1)+': '+esc(r.nome||'Não identificado')+'</legend>'+
+ $('exLinhasPrevia').innerHTML=S.previa.map((r,i)=>'<fieldset class="avn-ex-preview-row" data-index="'+i+'"><legend>Exame '+(i+1)+': '+esc(r.nome||'Não identificado')+(r.historico?' — RESULTADO ANTERIOR':'')+'</legend>'+
  '<label class="avn-field">Associar ao catálogo<select data-field="exame_id"><option value="">Selecione um indicador</option>'+
  S.catalogo.map(c=>'<option value="'+esc(c.id)+'"'+(String(c.id)===String(r.exame_id)?' selected':'')+'>'+esc(c.grupo+' · '+c.nome)+'</option>').join('')+'</select></label>'+
  '<div class="avn-ex-grid">'+pvFields.map(([key,label,type])=>'<label class="avn-field">'+esc(label)+'<input data-field="'+key+'" type="'+type+'" value="'+esc(r[key]??'')+'"></label>').join('')+'</div>'+
  '<label class="avn-ex-check"><input type="checkbox" data-field="incluir" checked> Importar este resultado</label>'+
- (r.precisa_revisao?'<p class="muted">Confira especialmente a identificação, a data e os valores.</p>':'')+'</fieldset>').join('');
+ (r.precisa_revisao?'<p class="muted">Confira especialmente a identificação, a data e os valores.</p>':'')+
+ '<p class="avn-ex-verificacao" data-estado>Coleta ainda não conferida no AVN.</p></fieldset>').join('');
+}
+function linhasImportacao(){
+ return [...$('exLinhasPrevia').querySelectorAll('[data-index]')].filter(el=>el.querySelector('[data-field="incluir"]').checked).map(el=>{
+  const index=Number(el.dataset.index),data={origem:'ia'};
+  el.querySelectorAll('[data-field]').forEach(input=>{if(input.dataset.field!=='incluir')data[input.dataset.field]=input.value;});
+  if(S.previa[index]?.historico){
+   data.observacoes=[data.observacoes,'Resultado anterior identificado no laudo importado.'].filter(Boolean).join(' ');
+  }
+  return {index,el,data};
+ });
+}
+const validoImportacao=r=>Boolean(r.exame_id&&r.data_coleta&&r.unidade&&(String(r.valor??'').trim()!==''||String(r.valor_texto??'').trim()!==''));
+const dataBR=d=>String(d||'').split('-').reverse().join('/');
+const mostrarValor=r=>r==null?'—':String(r.valor??r.valor_texto??'—').replace('.',',')+' '+String(r.unidade||'');
+function atualizarAviso(el,d,novo){
+ const p=el.querySelector('[data-estado]');if(!p)return;
+ if(d.situacao==='novo'){p.className='avn-ex-verificacao novo';p.textContent='Coleta de '+dataBR(novo.data_coleta)+' ainda não cadastrada. Será incluída ao salvar.';return;}
+ if(d.situacao==='identico'){p.className='avn-ex-verificacao identico';p.textContent='Coleta de '+dataBR(novo.data_coleta)+' já cadastrada com o mesmo resultado. Não será duplicada.';return;}
+ if(d.situacao==='divergente'){p.className='avn-ex-verificacao divergente';
+  p.textContent='ATENÇÃO: coleta de '+dataBR(novo.data_coleta)+' já existe com valor diferente. AVN: '+mostrarValor(d.existente)+' | Laudo: '+mostrarValor(novo)+'. O registro existente não será alterado.';
+ }
+}
+async function conferirPrevia(){
+ const seq=++S.conferenciaSeq;
+ const todos=linhasImportacao(),validos=todos.filter(x=>validoImportacao(x.data));
+ for(const row of todos){const p=row.el.querySelector('[data-estado]');if(p){p.className='avn-ex-verificacao';p.textContent=validoImportacao(row.data)?'Comparando com os resultados já cadastrados…':'Corrija indicador, data, unidade ou valor para conferir a coleta.';}}
+ if(!validos.length)return {validos:0,divergentes:0};
+ const r=await json('/resultados/conferir','POST',{usuarioId:S.usuario,resultados:validos.map(x=>x.data)});
+ if(seq!==S.conferenciaSeq)return null;
+ let divergentes=0;
+ validos.forEach((item,i)=>{const estado=r.situacoes[i];if(estado){if(estado.situacao==='divergente')divergentes++;atualizarAviso(item.el,estado,item.data);}});
+ return {validos:validos.length,divergentes};
 }
 const ANEXO_MAX=8*1024*1024;
 const tiposAnexo=['image/png','image/jpeg','application/pdf'];
@@ -265,27 +298,39 @@ async function interpretar(){
  try{
   const fd=new FormData();fd.append('texto',texto);if(arquivo)fd.append('arquivo',arquivo,arquivo.name);
   const data=await api('/interpretar',{method:'POST',body:fd});
-  S.previa=data.resultados;
+  S.conferenciaSeq++;S.previa=data.resultados;
   if(!S.previa.length){status('A IA não identificou resultados. Confira o documento.');return;}
-  renderPreview();status(S.previa.length+' resultado(s) identificado(s). Confira e corrija antes de salvar.');
- }catch(e){status(e.message);}finally{btn.disabled=false;}
+  renderPreview();
+  const anteriores=S.previa.filter(x=>x.historico).length;
+  status(S.previa.length+' resultado(s) identificado(s), incluindo '+anteriores+' anterior(es). Confira os valores, as datas e os avisos antes de salvar.');
+  await conferirPrevia();
+ }catch(e){status('Falha na interpretação ou na comparação: '+e.message);}finally{btn.disabled=false;}
 }
 async function saveImported(){
  if(!S.usuario)return status('Selecione um usuário primeiro.');
- const rows=[...$('exLinhasPrevia').querySelectorAll('[data-index]')].filter(el=>el.querySelector('[data-field="incluir"]').checked);
+ const rows=linhasImportacao();
  if(!rows.length)return status('Selecione pelo menos um resultado.');
- const results=rows.map(el=>{const data={origem:'ia'};el.querySelectorAll('[data-field]').forEach(input=>{if(input.dataset.field!=='incluir')data[input.dataset.field]=input.value;});return data;});
- if(results.some(r=>!r.exame_id||!r.data_coleta||!r.unidade||(!r.valor&&!r.valor_texto)))return status('Complete exame, data, resultado e unidade de todas as linhas selecionadas.');
- const btn=$('exConfirmar');btn.disabled=true;status('Salvando resultados conferidos…');
+ if(rows.some(x=>!validoImportacao(x.data)))return status('Complete indicador, data, resultado e unidade de todas as linhas selecionadas.');
+ const btn=$('exConfirmar');btn.disabled=true;status('Conferindo valores antes de gravar…');
  try{
-  const r=await json('/resultados/lote','POST',{usuarioId:S.usuario,resultados:results});
-  modal('exImportModal',false);await loadResults();alertar(r.inseridos+' resultado(s) salvo(s); '+r.duplicados+' duplicado(s) ignorado(s).');
+  const conferencia=await conferirPrevia();
+  if(!conferencia)return status('Os valores foram alterados durante a conferência. Confira novamente.');
+  if(conferencia.divergentes>0&&!confirm(conferencia.divergentes+' resultado(s) divergem de coletas já existentes. Esses valores NÃO serão sobrescritos. Deseja salvar apenas os novos resultados?')){
+   return status('Nenhum dado alterado. Revise os avisos de divergência acima.');
+  }
+  const r=await json('/resultados/lote','POST',{usuarioId:S.usuario,resultados:rows.map(x=>x.data)});
+  await loadResults();
+  const resumo=r.inseridos+' resultado(s) inserido(s); '+r.duplicados+' já existente(s); '+r.divergentes+' divergência(s) preservada(s).';
+  if(r.divergentes){
+   for(const conflito of r.divergencias){const item=rows[conflito.indice];if(item)atualizarAviso(item.el,{situacao:'divergente',existente:conflito.existente},item.data);}
+   status(resumo+' Confira os valores divergentes antes de fechar.');
+  }else{modal('exImportModal',false);alertar(resumo);}
  }catch(e){status(e.message);}finally{btn.disabled=false;}
 }
 async function start(){
  try{await Promise.all([loadUsers(),loadCatalog()]);await loadResults();}
  catch(e){alertar(e.message,true);}
- $('exUsuario').onchange=async e=>{S.usuario=e.target.value;localStorage.setItem('avn_exames_usuario',S.usuario);try{await loadResults();}catch(err){alertar(err.message,true);}};
+ $('exUsuario').onchange=async e=>{S.conferenciaSeq++;S.usuario=e.target.value;localStorage.setItem('avn_exames_usuario',S.usuario);try{await loadResults();}catch(err){alertar(err.message,true);}};
  $('exRiscoEditar').onclick=editarRisco;
  $('exRiscoFechar').onclick=()=>modal('exRiscoModal',false);
  $('exRiscoCancelar').onclick=()=>modal('exRiscoModal',false);
@@ -298,6 +343,7 @@ async function start(){
  for(const f of ['exLab','exMaterial','exMetodo'])$(f).addEventListener('change',referenceSuggestion);
  $('exImportar').onclick=()=>{S.previa=[];$('exPrevia').hidden=true;$('exTextoLaudo').value='';limparAnexo();status('');modal('exImportModal');};
  $('exImportModal').addEventListener('paste',colarAnexo);
+ $('exLinhasPrevia').addEventListener('change',()=>{conferirPrevia().catch(e=>status('Não foi possível conferir os resultados: '+e.message));});
  $('exArquivo').addEventListener('change',e=>{if(e.target.files[0])definirAnexo(e.target.files[0]);});
  $('exLimparAnexo').onclick=()=>{limparAnexo();S.previa=[];$('exPrevia').hidden=true;status('Anexo removido.');};
  const area=$('exColarImagem');
