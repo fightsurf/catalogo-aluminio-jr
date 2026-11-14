@@ -1,0 +1,26 @@
+:root{color-scheme:dark;--bg:#0d1524;--surface:#162236;--border:#30435b;--text:#edf3fc;--muted:#a7b8d0;--blue:#60a5fa}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text)}
+.app{max-width:1260px;margin:auto;padding:24px 22px 80px}
+.top{display:flex;justify-content:space-between;gap:12px;align-items:center;padding-bottom:20px;border-bottom:1px solid var(--border)}
+a{color:#93c5fd;text-decoration:none}.top strong{color:var(--muted)}
+.heading{padding:24px 0 10px}.eyebrow{font-size:12px;letter-spacing:.15em;color:#9bc6fd;font-weight:800}
+h1{font-size:clamp(26px,4vw,38px);margin:10px 0 8px}h2{font-size:20px;margin:0 0 6px}
+p{line-height:1.55}.heading p,.report-head p,.disclaimer{color:var(--muted)}
+.controls{display:flex;flex-wrap:wrap;align-items:end;gap:13px;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin:14px 0}
+label{display:grid;gap:7px;color:var(--muted);font-weight:600;font-size:13px}
+input,select,button{font:inherit}select,input[type=date]{min-width:180px;height:43px;padding:0 12px;border:1px solid #4b6280;background:#0d1729;color:var(--text);border-radius:9px}
+button{min-height:43px;padding:10px 16px;border:none;border-radius:9px;color:#071326;background:#93c5fd;font-weight:750;cursor:pointer}
+button.secondary{background:#263951;color:#e4effe;border:1px solid #4b6280}
+button:disabled{opacity:.48;cursor:not-allowed}
+button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.status{min-height:24px;margin:10px 0 17px;color:#c4d8ef}.status.error{color:#fca5a5}
+.overview{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:18px}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;display:grid;gap:7px}
+.stat small,.stat span{color:var(--muted)}.stat strong{font-size:20px;font-variant-numeric:tabular-nums}
+.report{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px}
+.report-head{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
+.actions{display:flex;gap:10px;flex-wrap:wrap}
+#relatorio{width:100%;min-height:570px;max-height:85vh;resize:vertical;margin-top:16px;padding:18px;border:1px solid #4b6280;border-radius:10px;background:#0b1423;color:#e9f0fc;line-height:1.55;font-size:13px;white-space:pre;font-family:ui-monospace,SFMono-Regular,Consolas,"Liberation Mono",monospace}
+.disclaimer{font-size:13px;margin-bottom:0}
+@media(max-width:800px){.overview{grid-template-columns:repeat(2,minmax(0,1fr))}.app{padding:14px 12px 50px}.controls>label{flex:1;min-width:140px}.controls>label select,.controls>label input{width:100%;min-width:0}.controls>button{flex:1}.actions{width:100%}.actions button{flex:1}#relatorio{min-height:470px}}
+@media(max-width:440px){.overview{grid-template-columns:1fr 1fr}.stat{padding:12px}.stat strong{font-size:17px}}
