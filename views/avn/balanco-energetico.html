@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>AVN — Balanço Energético</title>
-<link rel="stylesheet" href="/css/avn-balanco-energetico.css?v=20261107-macrocharts1">
-<script src="/js/avn-balanco-energetico.js?v=20261107-macrocharts1" defer></script></head>
+<link rel="stylesheet" href="/css/avn-balanco-energetico.css?v=20261114-pointlabels1">
+<script src="/js/avn-balanco-energetico.js?v=20261114-pointlabels1" defer></script></head>
 <body><main class="avn-balanco">
 <header class="top"><a href="/avn">← Central AVN</a><strong>AVN · Nutrição</strong></header>
 <div class="titulo"><h1>⚖️ Balanço Energético</h1><p>Saldo diário e evolução dos indicadores. Cada ponto corresponde a uma data; selecione um ponto para consultar aquele dia.</p></div>
@@ -70,7 +70,7 @@
 <label><input data-compare="carboidratos" type="checkbox"> Carboidratos consumidos (g)</label>
 <label><input data-compare="agua_ingerida" type="checkbox"> Água ingerida (ml)</label>
 </div></fieldset>
-<div class="compare-filtros"><label>Período <select id="compare-dias"><option value="7">7 dias</option><option value="15">15 dias</option><option value="30" selected>30 dias</option><option value="90">90 dias</option></select></label><span id="compare-status" role="status">Selecione os indicadores.</span></div>
+<div class="compare-filtros"><label>Período <select id="compare-dias"><option value="7" selected>7 dias</option><option value="15">15 dias</option><option value="30">30 dias</option><option value="90">90 dias</option></select></label><span id="compare-status" role="status">Selecione os indicadores.</span></div>
 <div id="compare-legend" class="compare-legend" aria-label="Legenda do gráfico"></div>
 <div id="compare-chart" class="compare-chart" role="group" aria-label="Gráfico cruzado dos indicadores"></div>
 <p class="compare-help">Com dois indicadores, cada curva usa seu próprio eixo vertical. Com três ou mais, as curvas são apresentadas em escala relativa de 0 a 100 para comparação de tendências; isso não representa unidades iguais. Pontos sem medição não são inventados.</p>
