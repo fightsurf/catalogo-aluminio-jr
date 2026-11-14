@@ -254,7 +254,7 @@ router.post('/interpretar', (req,res,next)=>upload.single('arquivo')(req,res,err
   method:'POST',headers:{Authorization:'Bearer '+process.env.OPENAI_API_KEY,'Content-Type':'application/json'},
   signal:AbortSignal.timeout(65000),
   body:JSON.stringify({model:process.env.AVN_EXAMES_IA_MODEL||'gpt-4.1-mini',store:false,
-   input:[{role:'user',content}],text:{format:{type:'json_object'}},max_output_tokens:6500})
+   input:[{role:'user',content}],text:{format:{type:'json_object'}},max_output_tokens:12000})
  }).catch(()=>{throw bad('O serviço de IA não respondeu.',502);});
  if(!response.ok)throw bad(response.status===429?'Limite da API de IA atingido.':'Não foi possível interpretar o laudo com IA.',502);
  const raw=await response.json();
