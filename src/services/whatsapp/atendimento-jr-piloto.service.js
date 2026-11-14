@@ -169,8 +169,10 @@ async function processar(payload, deps={}) {
   // Proteções redundantes para impedir envio a números fora do piloto.
   if (!ativo()) return {aceito:false,motivo:'desligado'};
   const dados = base.normalizarMensagem(payload);
+  const manual = dados.direcao === 'SAIDA' && payload.fromMe === true &&
+    payload.fromApi === false && dados.tipo === 'texto';
   if (dados.ignorar || !['texto','audio'].includes(dados.tipo) ||
-      dados.direcao !== 'ENTRADA' || payload.fromMe !== false ||
+      (!manual && (dados.direcao !== 'ENTRADA' || payload.fromMe !== false)) ||
       payload.fromApi === true || payload.isGroup === true || payload.isNewsletter === true ||
       dados.instancia !== vinculos.instanciaAtual()) {
     return {aceito:false,motivo:'evento_ignorado'};
@@ -181,6 +183,11 @@ async function processar(payload, deps={}) {
   if (!numerosAutorizados().has(telefone)) return {aceito:false,motivo:'fora_do_piloto'};
   if (!reivindicar(dados.instancia,dados.messageId)) return {aceito:false,motivo:'duplicado'};
   try {
+    // Se o vendedor escrever manualmente, o robô libera a conversa imediatamente.
+    if (manual) {
+      await (deps.entregarHumano || entregarHumano)(telefone);
+      return {aceito:true,acao:'vendedor_assumiu_manualmente'};
+    }
     if (await (deps.nivelAtendimento || nivelAtendimento)(telefone) === 'HUMANO') {
       return {aceito:false,motivo:'vendedor_assumiu'};
     }
@@ -210,8 +217,21 @@ async function processar(payload, deps={}) {
       await (deps.avisarVendedor || avisarVendedor)(telefone,texto).catch(()=>{});
       return {aceito:true,acao:'sem_perfil_transferido'};
     }
-    const perfil = await (deps.carregarPerfil || perfis.localizar)(token);
+    let perfil;
+    try { perfil = await (deps.carregarPerfil || perfis.localizar)(token); }
+    catch (erro) {
+      console.error('[Atendimento JR piloto] Perfil comercial indisponível:',erro.message);
+      await (deps.entregarHumano || entregarHumano)(telefone);
+      await (deps.enviarResposta || enviarResposta)(telefone,
+        'Vou passar para o vendedor confirmar os valores.',dados.tipo);
+      await (deps.avisarVendedor || avisarVendedor)(telefone,texto).catch(()=>{});
+      return {aceito:true,acao:'perfil_invalido_transferido'};
+    }
     const resposta = await (deps.buscarProdutos || buscarProdutos)(interpretado.produtos,perfil);
+    // Um vendedor pode ter começado a responder durante a consulta da IA.
+    if (await (deps.nivelAtendimento || nivelAtendimento)(telefone) === 'HUMANO') {
+      return {aceito:false,motivo:'vendedor_assumiu_durante_consulta'};
+    }
     await (deps.enviarResposta || enviarResposta)(telefone,resposta.texto,dados.tipo);
     guardarContexto(telefone,interpretado.produtos);
     if ((interpretado.foto || interpretado.video) && resposta.midias.length === 1) {
