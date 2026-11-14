@@ -10,7 +10,7 @@ async function imagem(zapi,destino,url,legenda) {
   return zapi.postZapi('/send-image',{phone:destino,image:url,caption:legenda});
 }
 async function responder(comando,arg,destino,zapi) {
-  if (comando === '@preco') {
+  if (comando === '@preço') {
     if (!arg) return;
     const lista = await produtos.listar({busca:arg,apenasAtivos:true});
     lista.sort((a,b)=>String(a.nome).localeCompare(String(b.nome),'pt-BR',{sensitivity:'base'}));
