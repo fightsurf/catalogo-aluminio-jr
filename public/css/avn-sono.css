@@ -72,3 +72,28 @@ h2{font-size:19px;margin:0 0 6px}.eyebrow{font-weight:800;letter-spacing:.13em;f
 .latest-phase .light{background:#7456f4}
 .latest-phase .deep{background:#4529bf}
 @media(max-width:690px){.latest-phases{grid-template-columns:repeat(2,minmax(0,1fr))}.latest-rating{min-width:108px;padding-right:14px}.latest-rating strong{font-size:43px}.latest-times strong{font-size:16px}}
+
+/* Botões e três modais independentes: histórico, gráficos e médias. */
+.heading-actions{display:flex;gap:9px;align-items:center;justify-content:flex-end;flex-wrap:wrap}
+.action.secondary{background:#152640;border-color:#435a78;color:#e4efff}
+.action.secondary:hover,.action:hover:not(:disabled){filter:brightness(1.13)}
+.avn-modal{color:var(--text);background:#0d1728;border:1px solid #46607e;border-radius:16px;box-shadow:0 18px 70px #0009;max-width:min(1100px,96vw);width:100%;max-height:90vh;padding:0;overflow:auto}
+.avn-modal::backdrop{background:#030913c9}
+.modal-head{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;align-items:center;gap:14px;padding:17px 23px;background:#17263a;border-bottom:1px solid var(--stroke)}
+.modal-head h2{margin:0;font-size:21px}
+.close-modal{border:1px solid #536c8b;background:#0e1e32;border-radius:9px;padding:5px 12px;color:#edf5ff;cursor:pointer;font-size:20px}
+.modal-body{padding:20px 23px 24px}
+.modal-intro{margin:0 0 18px}
+.avn-modal .charts{grid-template-columns:1fr;margin-bottom:0}
+.avn-modal .chart{height:290px}
+.avn-modal .summary{grid-template-columns:repeat(4,minmax(0,1fr));margin-top:4px}
+@media(max-width:930px){.avn-modal .summary{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:620px){
+  .heading-actions{margin-top:14px;justify-content:stretch;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  .heading .heading-actions .action{width:100%;margin:0;white-space:normal;min-height:45px;padding:9px 8px;font-size:13px}
+  .avn-modal{max-width:96vw;max-height:92vh}
+  .modal-head{padding:12px 15px}
+  .modal-body{padding:14px 12px 20px}
+  .avn-modal .summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .avn-modal .chart{height:240px}
+}
