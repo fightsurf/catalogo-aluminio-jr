@@ -3,10 +3,10 @@ const zapi = require('../integracoes/zapi.service');
 const { instanciaAtual, ehLid } = require('./zapi-lid-vinculos.service');
 const formatar = require('./whatsapp-comandos-formatos.service');
 const usados = new Map();
-const TODOS = new Set(['@preco','@frete','@cidades','@volume','@kits-hoje','@kits-ontem']);
+const TODOS = new Set(['@preço','@frete','@cidades','@volume','@kits-hoje','@kits-ontem']);
 function parsear(mensagem) {
  const texto = String(mensagem || '').trim();
- const m = texto.match(/^(@[a-z-]+)(?:\s+([\s\S]*))?$/i);
+ const m = texto.match(/^(@[a-zç-]+)(?:\s+([\s\S]*))?$/i);
  return m && TODOS.has(m[1].toLowerCase()) ? { comando:m[1].toLowerCase(), argumento:(m[2]||'').trim() } : null;
 }
 function podeExecutar(payload, dados) {
