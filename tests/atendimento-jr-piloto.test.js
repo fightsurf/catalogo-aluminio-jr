@@ -120,3 +120,27 @@ test('sem perfil comercial, passa ao vendedor sem revelar preço-base',async()=>
   assert.equal(respostas.length,1);
   assert.doesNotMatch(respostas[0],/R\$/);
 });
+
+test('mensagem manual do vendedor suspende o bot sem disparar resposta',async()=>{
+  preparar();
+  let entregue=0;
+  const resultado=await piloto.processar(evento('Vou te atender',{fromMe:true,fromApi:false}),{
+    entregarHumano:async()=>{entregue++;}
+  });
+  assert.equal(resultado.acao,'vendedor_assumiu_manualmente');
+  assert.equal(entregue,1);
+});
+test('perfil comercial inexistente aciona vendedor e não expõe preço',async()=>{
+  preparar();
+  const enviados=[];
+  const resultado=await piloto.processar(evento('preço da panela 6'),{
+    nivelAtendimento:async()=> 'IA',
+    interpretar:async()=>({intencao:'consulta',produtos:[{termo:'panela 6',quantidade:null}],foto:false,video:false}),
+    carregarPerfil:async()=>{throw Error('perfil removido');},
+    entregarHumano:async()=>{},
+    enviarResposta:async(_tel,msg)=>enviados.push(msg),
+    avisarVendedor:async()=>{}
+  });
+  assert.equal(resultado.acao,'perfil_invalido_transferido');
+  assert.doesNotMatch(enviados[0],/R\$/);
+});
