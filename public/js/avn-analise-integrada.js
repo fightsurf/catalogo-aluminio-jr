@@ -235,10 +235,12 @@ function montarRelatorio(info,balanco,erroBalanco) {
  add('6. SONO — SAMSUNG HEALTH');
  const sonoAtual=atual.flatMap(d=>sonoDia.get(d)||[]),sonoAnterior=anterior.flatMap(d=>sonoDia.get(d)||[]);
  const mediaSono=(arr,fn)=>{const valid=arr.map(fn).filter(v=>numero(v)!==null);return valid.length?valid.reduce((a,b)=>a+Number(b),0)/valid.length:null;};
+ const tempoRealSono=s=>{const min=s.fases.LIGHT+s.fases.DEEP+s.fases.REM;return s.comFases&&min>0?min:null;};
  const totalSonoNoite=arr=>arr.some(s=>s.duracao_min!==null)?arr.reduce((a,s)=>a+(s.duracao_min||0),0):null;
  const noitePontos=arr=>arr.map(s=>s.pontuacao).filter(v=>v!==null);
  add('Sessões no período: '+sonoAtual.length+'; noites com registros: '+atual.filter(d=>sonoDia.has(d)).length+'/30.');
- add('Duração média por sessão: '+duracao(mediaSono(sonoAtual,s=>s.duracao_min))+'; anterior: '+duracao(mediaSono(sonoAnterior,s=>s.duracao_min))+'.');
+ add('Tempo real dormido médio por sessão (leve + profundo + REM): '+duracao(mediaSono(sonoAtual,tempoRealSono))+'; anterior: '+duracao(mediaSono(sonoAnterior,tempoRealSono))+'.');
+ add('Duração total informada média por sessão (inclui tempo acordado): '+duracao(mediaSono(sonoAtual,s=>s.duracao_min))+'; anterior: '+duracao(mediaSono(sonoAnterior,s=>s.duracao_min))+'.');
  add('Pontuação Samsung Health média das sessões válidas: '+fmt(mediaSono(sonoAtual,s=>s.pontuacao),1)+'; anterior: '+fmt(mediaSono(sonoAnterior,s=>s.pontuacao),1)+'.');
  for(const fase of [['LIGHT','leve'],['DEEP','profundo'],['REM','REM'],['AWAKE','acordado']]){
   add('Sono '+fase[1]+' médio por sessão com estágios: '+duracao(mediaSono(sonoAtual.filter(s=>s.comFases),s=>s.fases[fase[0]]))+'.');
@@ -250,10 +252,10 @@ function montarRelatorio(info,balanco,erroBalanco) {
    const fases=s.comFases?'leve '+duracao(s.fases.LIGHT)+', profundo '+duracao(s.fases.DEEP)+', REM '+duracao(s.fases.REM)+', acordado '+duracao(s.fases.AWAKE):'fases sem registro';
    const conhecido=s.fases.LIGHT+s.fases.DEEP+s.fases.REM;
    const pct=s.comFases&&conhecido>0?' (profundo '+fmt(s.fases.DEEP/conhecido*100,1)+'%, REM '+fmt(s.fases.REM/conhecido*100,1)+'% das fases dormidas registradas)':'';
-   return 'dormiu '+dataHora(s.inicio)+', acordou '+dataHora(s.fim)+', duração informada '+duracao(s.duracao_min)+', '+fases+pct+', pontuação Samsung Health '+fmt(s.pontuacao,0);
+   return 'início '+dataHora(s.inicio)+', fim '+dataHora(s.fim)+', tempo real dormido '+duracao(tempoRealSono(s))+', duração total informada '+duracao(s.duracao_min)+', '+fases+pct+', pontuação Samsung Health '+fmt(s.pontuacao,0);
   }).join(' | '));
  }
- add('NOTA: estágios de sono do wearable são estimativas. Sono é associado à data do despertar, e não da hora de deitar. Fases ausentes não são zero.');
+ add('NOTA: tempo real dormido é a soma das fases leve, profundo e REM. Duração total informada inclui períodos acordados; não confundir as duas medidas. Estágios do wearable são estimativas. Sono é associado à data do despertar; fases ausentes não são zero.');
  separar();
  add('7. AVALIAÇÃO FÍSICA E METABOLISMO BASAL');
  for(const [codigo,nome,unidade] of FISICAS){
