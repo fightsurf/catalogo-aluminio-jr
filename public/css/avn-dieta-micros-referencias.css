@@ -60,3 +60,67 @@ body[data-nutricao-pagina="dieta"] .avn-micro-ref-disclaimer a{color:#92caff}
  body[data-nutricao-pagina="dieta"] .avn-micro-ref-foot small{font-size:11px}
  body[data-nutricao-pagina="dieta"] .avn-micro-ref-intro{padding:11px 12px}
 }
+
+/* Exploração por nutriente e edição contextual dos alimentos da dieta. */
+body[data-nutricao-pagina="dieta"] .avn-micro-ref-name{
+ display:inline-block;border:0;background:transparent;color:#a9dbff;
+ font-size:inherit;font-weight:750;line-height:1.4;text-align:left;
+ padding:2px 0;cursor:pointer;text-decoration:underline;text-decoration-style:dotted;
+ text-underline-offset:3px;overflow-wrap:anywhere
+}
+body[data-nutricao-pagina="dieta"] .avn-micro-ref-name:hover,
+body[data-nutricao-pagina="dieta"] .avn-micro-ref-name:focus-visible{color:#e6f6ff;text-decoration-style:solid}
+body[data-nutricao-pagina="dieta"] .avn-micro-ref-note-link{
+ background:transparent;border:0;padding:3px 0;text-align:left;
+ text-decoration:underline;text-underline-offset:2px;cursor:pointer;
+ font:inherit;font-size:11px;color:#f1c88d
+}
+body[data-nutricao-pagina="dieta"] .avn-micro-ref-note-link:hover{color:#ffe4bb}
+.avn-micro-detail-dialog,.avn-micro-edit-dialog{
+ width:min(820px,calc(100vw - 24px));max-width:calc(100vw - 24px);
+ max-height:calc(100dvh - 24px);overflow-y:auto;
+}
+.avn-micro-detail-dialog h4{
+ margin:17px 0 9px;font-size:15px;color:#e6f3ff;
+}
+.avn-micro-food-list{display:grid;gap:8px;margin:10px 0 18px}
+.avn-micro-food-line{
+ display:flex;align-items:center;justify-content:space-between;
+ gap:14px;border:1px solid #435775;border-radius:9px;
+ padding:10px 12px;background:#22334a;min-width:0
+}
+.avn-micro-food-line>div{min-width:0}
+.avn-micro-food-line strong{display:block;font-size:14px;color:#f1f7ff;overflow-wrap:anywhere}
+.avn-micro-food-line small{display:block;font-size:12px;color:#c2d4e8;line-height:1.45;margin-top:2px}
+.avn-micro-food-line button{flex-shrink:0;font-size:12px}
+.avn-micro-examples{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:8px 20px;margin:10px 0;padding-left:22px}
+.avn-micro-examples li{padding:3px 0}
+.avn-micro-caution{
+ padding:10px 12px;border-left:3px solid #e3aa56;background:#3a3440;
+ color:#ffe5be;border-radius:6px;font-size:13px;line-height:1.5
+}
+.avn-micro-complete{color:#bbf1c4}
+.avn-micro-edit-table-wrap{max-height:55dvh;overflow:auto;border:1px solid #435775;border-radius:10px;margin:12px 0}
+.avn-micro-edit-table{border-collapse:collapse;width:100%;font-size:13px}
+.avn-micro-edit-table thead{position:sticky;top:0;background:#21334b;z-index:1}
+.avn-micro-edit-table th,.avn-micro-edit-table td{
+ padding:9px 11px;border-bottom:1px solid #384b61;text-align:left
+}
+.avn-micro-edit-table th{color:#d7e8fa}
+.avn-micro-edit-table td label{color:#e9f3ff}
+.avn-micro-category-tr th{background:#2b405d;color:#fff;font-size:14px;padding:11px}
+.avn-micro-edit-value{display:flex;align-items:center;gap:7px}
+.avn-micro-edit-value input{
+ width:min(170px,100%);min-width:85px;background:#15253a;color:#f3f8ff;
+ border:1px solid #5c7694;border-radius:6px;padding:8px 9px;font-size:14px
+}
+.avn-micro-edit-value small{color:#c0d2e9;min-width:20px}
+.avn-micro-edit-highlight td{background:#283c56}
+.avn-micro-edit-error{color:#ffb7ad;font-size:13px}
+@media(max-width:560px){
+ .avn-micro-food-line{align-items:flex-start;flex-direction:column}
+ .avn-micro-food-line button{width:100%}
+ .avn-micro-examples{grid-template-columns:1fr}
+ .avn-micro-edit-table th,.avn-micro-edit-table td{padding:7px}
+ .avn-micro-edit-value input{width:110px}
+}
