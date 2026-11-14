@@ -7,6 +7,7 @@ const V=require('../../services/avn/avn-treinos-validacao');
 const catalogo=require('../../services/avn/avn-treinos-catalogo.service');
 const sharp=require('sharp');
 const ensureCarga=require('../../services/avn/avn-treinos-carga.service');
+const {aplicarUltimasCargas}=require('../../services/avn/avn-treinos-ultimas-cargas.service');
 // Migração mínima autoaplicável: dificuldade subjetiva não é RIR.
 const dificuldadeReady=pool.query("ALTER TABLE public.avn_treino_execucao_eventos ADD COLUMN IF NOT EXISTS dificuldade VARCHAR(10) CHECK(dificuldade IN ('facil','moderado','dificil'))");
 dificuldadeReady.catch(e=>console.error('[AVN treino Android] Falha ao habilitar dificuldade',e.message));
@@ -105,6 +106,7 @@ mobile.get('/planos/:id',wrap(async(req,res)=>{
  const p=await pool.query('SELECT id,nome,descricao,atualizado_em FROM public.avn_planos_treino WHERE id=$1 AND usuario_id=$2 AND ativo=TRUE',[req.params.id,req.avnm.usuario_id]);if(!p.rowCount)throw err('Plano não encontrado.',404);
  const r=await pool.query('SELECT d.dia_semana,i.exercicio_id,i.posicao,i.series,i.repeticoes,i.carga_kg,i.carga_unidade,i.carga_placas,i.descanso_seg,i.observacoes,e.nome AS exercicio_nome,e.midia_url FROM public.avn_plano_dias d JOIN public.avn_plano_itens i ON i.plano_dia_id=d.id JOIN public.avn_exercicios e ON e.id=i.exercicio_id WHERE d.plano_id=$1 ORDER BY d.dia_semana,i.posicao',[req.params.id]);
  const dias=Array.from({length:7},(_,dia_semana)=>({dia_semana,exercicios:r.rows.filter(x=>Number(x.dia_semana)===dia_semana).map(x=>({...x,midia_url:catalogo.normalizarMidia(x.midia_url),imagem_url:'/api/avn/treinos-mobile/midias/'+x.exercicio_id}))}));
+ await aplicarUltimasCargas(req.avnm.usuario_id,dias);
  res.set('Cache-Control','no-store').json({...p.rows[0],dias});
 }));
 mobile.get('/midias/:id',wrap(async(req,res)=>{
