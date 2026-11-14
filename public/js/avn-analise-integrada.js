@@ -11,7 +11,7 @@ const FISICAS=[
  ['massa_ossea','Massa óssea','kg'],['gordura_visceral','Gordura visceral','índice'],
  ['tmb','TMB da bioimpedância','kcal/dia']
 ];
-const INSTRUCOES_IA="INSTRUÇÕES FIXAS PARA INTELIGÊNCIA ARTIFICIAL — ANÁLISE CRÍTICA DO AVN\n\nVocê receberá dados reais exportados do AVN e deve analisá-los de modo rigoroso, crítico, fundamentado e direto. Objetivos: reduzir gordura corporal, preservar ou ganhar massa muscular, melhorar saúde, recuperação e condicionamento. Não execute alterações no AVN.\n\nPRINCÍPIO: DUAS CLASSES DE INFORMAÇÃO\nAÇÕES MODIFICÁVEIS: ingestão de alimentos, calorias, proteínas, carboidratos, gorduras, fibras, micronutrientes, água, rotina e horários de sono, exercícios, frequência, cargas, descanso e consistência dos registros. Algumas dessas ações têm limitações práticas.\nRESPOSTAS FISIOLÓGICAS: peso, percentual e massa de gordura, massa magra, massa muscular quando medida, gordura visceral, TMB estimada, evolução física, qualidade de sono estimada e resultados de exames. Essas respostas dependem também de fatores fora do controle direto.\nPergunta central: quais mudanças realistas nos comportamentos modificáveis podem melhorar as respostas fisiológicas, considerando todos os dados em conjunto? Apresente mecanismos plausíveis, limitações e como testar as hipóteses.\n\nANÁLISES OBRIGATÓRIAS\n1. Compare os últimos 30 dias com os 30 anteriores. Descreva o que melhorou, piorou e estagnou; indique datas, valores, unidades e cobertura, sem interpretar dias ausentes como zero.\n2. Identifique padrões temporais entre macronutrientes, micronutrientes, alimentos, hidratação, sono, exercício, balanço energético, peso, composição corporal, metabolismo e exames. Procure repetições e tendências, não apenas médias.\n3. Para cada padrão, informe datas concretas, número de observações, direção da associação, possíveis causas alternativas, confiança (alta, moderada ou baixa) e como verificá-lo. NÃO atribua causalidade a uma simples coincidência. Mais proteína não garante ganho muscular e mais treino não garante perda de peso.\n4. Seja criticamente construtivo: aponte decisões ruins, inconsistências, falta de adesão e oportunidades de melhoria com firmeza e clareza, sem humilhar, julgar moralmente ou culpar o usuário por respostas fisiológicas.\n5. Examine metas de energia, proteínas, carboidratos, gorduras, fibras e micronutrientes. Proponha alterações quantitativas somente com evidência suficiente e explique benefícios, riscos e o que acompanhar. Nunca altere automaticamente metas.\n6. Examine individualmente TODOS os indicadores disponíveis de avaliação física, sono e exames, incluindo sua evolução. Procure valores fora de referências aplicáveis, tendências persistentes de piora, combinações preocupantes e alterações que justifiquem precauções.\n7. Gere um QUADRO DE ALERTAS com: indicador, valor/unidade, data, referência aplicável, tendência, confiança e prioridade: ATENDIMENTO IMEDIATO, AVALIAÇÃO PROFISSIONAL EM BREVE ou MONITORAR. Explique a ação segura recomendada, fatores que podem mudar a prioridade e informações ausentes. Não presuma sintomas ou urgência sem base; se os dados indicarem possível risco agudo, recomende avaliação imediata.\n8. Considere condições clínicas e limitações físicas explicitamente informadas, os exames mais recentes e suas datas. Não diagnostique doenças nem recomende iniciar, suspender ou ajustar remédios sem profissional habilitado.\n9. Examine treinos realmente realizados, frequência, grupos musculares, séries, repetições, cargas, progressão, fadiga e recuperação. Não confunda treino programado com executado, nem dias sem lançamento com descanso. Evite dupla contagem de calorias de passos e exercícios.\n10. Examine sono (duração, regularidade, fases, despertares e pontuação disponíveis), hidratação, macros e micros. Considere limites dos relógios, bioimpedância e tabelas nutricionais. Não trate lacunas como deficiências comprovadas.\n11. Trate TMB e balanço energético como estimativas, não como medições exatas do gasto total. Relacione o saldo com tendências de peso e gordura, considerando hidratação e a imprecisão da composição corporal.\n12. Formule as CINCO ações mais importantes para os próximos 30 dias. Para cada uma, explique o comportamento a modificar, evidência, justificativa, benefício esperado como hipótese, risco, prioridade, indicador de acompanhamento, período de reavaliação e quando buscar ajuda.\n13. Estruture sua resposta em: (a) diagnóstico situacional; (b) alertas e pioras; (c) padrões e hipóteses; (d) críticas aos hábitos; (e) metas e recomendações; (f) plano de 30 dias e verificações futuras. Se faltarem dados, liste perguntas relevantes.\n\nREGRAS ESSENCIAIS\nNão invente dados, sintomas, padrões, valores de referência nem relações de causa e efeito.\nNão use resultados antigos como se fossem atuais. Indique a data de cada exame e seus limites laboratoriais quando disponíveis.\nBioimpedância, relógio e TMB são estimativas sujeitas a erros. Massa magra não equivale necessariamente a massa muscular.\nFalta de diário não é jejum; falta de treino registrado não é dia de repouso; dado ausente não é zero.\nNão recomende dietas extremas, sobrecarga de treino nem mudanças de medicamentos sem supervisão adequada.\nDistingua fatos, hipóteses e conclusões incertas. Seja direto e crítico, mas nunca mais confiante do que os dados permitem.\nNão modifique registros ou metas do AVN: faça apenas recomendações fundamentadas.";
+const INSTRUCOES_IA="INSTRUÇÕES FIXAS PARA INTELIGÊNCIA ARTIFICIAL — ANÁLISE CRÍTICA DO AVN\n\nVocê receberá dados reais exportados do AVN e deve analisá-los de modo rigoroso, crítico, fundamentado e direto. Objetivos: reduzir gordura corporal, preservar ou ganhar massa muscular, melhorar saúde, recuperação e condicionamento. Não execute alterações no AVN.\n\nPRINCÍPIO: DUAS CLASSES DE INFORMAÇÃO\nAÇÕES MODIFICÁVEIS: ingestão de alimentos, calorias, proteínas, carboidratos, gorduras, fibras, micronutrientes, água, rotina e horários de sono, exercícios, frequência, cargas, descanso e consistência dos registros. Algumas dessas ações têm limitações práticas.\nRESPOSTAS FISIOLÓGICAS: peso, percentual e massa de gordura, massa magra, massa muscular quando medida, gordura visceral, TMB estimada, evolução física, qualidade de sono estimada e resultados de exames. Essas respostas dependem também de fatores fora do controle direto.\nPergunta central: quais mudanças realistas nos comportamentos modificáveis podem melhorar as respostas fisiológicas, considerando todos os dados em conjunto? Apresente mecanismos plausíveis, limitações e como testar as hipóteses.\n\nANÁLISES OBRIGATÓRIAS\n1. Compare os últimos 30 dias com os 30 anteriores. Descreva o que melhorou, piorou e estagnou; indique datas, valores, unidades e cobertura, sem interpretar dias ausentes como zero.\n2. Identifique padrões temporais entre macronutrientes, micronutrientes, alimentos, hidratação, sono, exercício, balanço energético, peso, composição corporal, metabolismo e exames. Procure repetições e tendências, não apenas médias.\n3. Para cada padrão, informe datas concretas, número de observações, direção da associação, possíveis causas alternativas, confiança (alta, moderada ou baixa) e como verificá-lo. NÃO atribua causalidade a uma simples coincidência. Mais proteína não garante ganho muscular e mais treino não garante perda de peso.\n4. Seja criticamente construtivo: aponte decisões ruins, inconsistências, falta de adesão e oportunidades de melhoria com firmeza e clareza, sem humilhar, julgar moralmente ou culpar o usuário por respostas fisiológicas.\n5. Examine metas de energia, proteínas, carboidratos, gorduras, fibras e micronutrientes. Proponha alterações quantitativas somente com evidência suficiente e explique benefícios, riscos e o que acompanhar. Nunca altere automaticamente metas.\n6. Examine individualmente TODOS os indicadores disponíveis de avaliação física, sono e exames, incluindo sua evolução. Procure valores fora de referências aplicáveis, tendências persistentes de piora, combinações preocupantes e alterações que justifiquem precauções.\n7. Gere um QUADRO DE ALERTAS com: indicador, valor/unidade, data, referência aplicável, tendência, confiança e prioridade: ATENDIMENTO IMEDIATO, AVALIAÇÃO PROFISSIONAL EM BREVE ou MONITORAR. Explique a ação segura recomendada, fatores que podem mudar a prioridade e informações ausentes. Não presuma sintomas ou urgência sem base; se os dados indicarem possível risco agudo, recomende avaliação imediata.\n8. Considere condições clínicas e limitações físicas explicitamente informadas, os exames mais recentes e suas datas. Não diagnostique doenças nem recomende iniciar, suspender ou ajustar remédios sem profissional habilitado.\n9. Examine treinos realmente realizados, frequência, grupos musculares, séries, repetições, cargas, progressão, fadiga e recuperação. Não confunda treino programado com executado, nem dias sem lançamento com descanso. Evite dupla contagem de calorias de passos e exercícios.\n10. Examine sono (duração, regularidade, fases, despertares e pontuação disponíveis), hidratação, macros e micros. Considere limites dos relógios, bioimpedância e tabelas nutricionais. Não trate lacunas como deficiências comprovadas.\n11. Trate TMB e balanço energético como estimativas, não como medições exatas do gasto total. Relacione o saldo com tendências de peso e gordura, considerando hidratação e a imprecisão da composição corporal.\n12. Formule as CINCO ações mais importantes para os próximos 30 dias. Para cada uma, explique o comportamento a modificar, evidência, justificativa, benefício esperado como hipótese, risco, prioridade, indicador de acompanhamento, período de reavaliação e quando buscar ajuda.\n13. Estruture sua resposta em: (a) diagnóstico situacional; (b) alertas e pioras; (c) padrões e hipóteses; (d) críticas aos hábitos; (e) metas e recomendações; (f) plano de 30 dias e verificações futuras. Se faltarem dados, liste perguntas relevantes.\n\nREGRAS ESSENCIAIS\nNão invente dados, sintomas, padrões, valores de referência nem relações de causa e efeito.\nNão inclua o dia da geração, ainda em andamento, em médias, somas de balanço energético ou conclusões de adesão diária; seus valores devem ser tratados como parciais. Não use resultados antigos como se fossem atuais. Indique a data de cada exame e seus limites laboratoriais quando disponíveis.\nBioimpedância, relógio e TMB são estimativas sujeitas a erros. Massa magra não equivale necessariamente a massa muscular.\nFalta de diário não é jejum; falta de treino registrado não é dia de repouso; dado ausente não é zero.\nNão recomende dietas extremas, sobrecarga de treino nem mudanças de medicamentos sem supervisão adequada.\nDistingua fatos, hipóteses e conclusões incertas. Seja direto e crítico, mas nunca mais confiante do que os dados permitem.\nNão modifique registros ou metas do AVN: faça apenas recomendações fundamentadas.";
 const numero=x=>x===null||x===undefined||x===''?null:Number.isFinite(Number(x))?Number(x):null;
 const fmt=(x,casas=2)=>numero(x)===null?'sem dado':Number(x).toLocaleString('pt-BR',{maximumFractionDigits:casas});
 const dBR=d=>d?d.split('-').reverse().join('/'):'—';
@@ -126,6 +126,9 @@ function saldoTotal(dates,map){
 }
 function montarRelatorio(info,balanco,erroBalanco) {
  const atual=diasDoPeriodo(info.periodo.inicio,info.periodo.fim);
+  // O dia da geração está em andamento: exibir detalhes, mas excluir de médias e acumulados.
+  const dataParcial=info.periodo.fim===diaLocal(info.gerado_em)?info.periodo.fim:null;
+  const atualEncerrado=dataParcial?atual.filter(d=>d!==dataParcial):atual;
  const anterior=diasDoPeriodo(info.periodo.anterior_inicio,info.periodo.anterior_fim);
  const todos=[...anterior,...atual];
  const diario=mapaPorDia(info.diario,x=>x.data);
@@ -148,6 +151,7 @@ function montarRelatorio(info,balanco,erroBalanco) {
      'Período principal: '+dBR(info.periodo.inicio)+' a '+dBR(info.periodo.fim)+' (30 dias)',
      'Período de comparação: '+dBR(info.periodo.anterior_inicio)+' a '+dBR(info.periodo.anterior_fim)+' (30 dias)',
      'Fonte: registros reais do AVN; este relatório NÃO contém avaliação de IA.');
+  if(dataParcial)add('AVISO: '+dBR(dataParcial)+' é um DIA EM ANDAMENTO. Os lançamentos são parciais e aparecem no detalhamento, mas NÃO entram nas médias de alimentação, micronutrientes e água, nem nas somas ou médias do balanço energético.');
  separar();
  add('1. OBJETIVOS, PERFIL E METAS ATUAIS');
  const p=info.perfil_treinamento;
@@ -164,16 +168,16 @@ function montarRelatorio(info,balanco,erroBalanco) {
  separar();
  add('2. ALIMENTAÇÃO REAL — RESUMO DOS 30 DIAS');
  add('Origem exclusiva: Diário Alimentar, nunca a dieta programada.');
- add('Dias com alimentos registrados: '+cobertura(atual)+'/30; período anterior: '+cobertura(anterior)+'/30.');
+ add('Dias com alimentos registrados: '+cobertura(atual)+'/30'+(dataParcial&&diario.has(dataParcial)?' (inclui dia atual parcial, excluído das médias)':'')+'; período anterior: '+cobertura(anterior)+'/30.');
  for(const [key,nome,unidade] of MACROS){
-  const cur=estatisticaDiaria(atual,diario,itens=>extrairTotal(itens,key).valor);
+  const cur=estatisticaDiaria(atualEncerrado,diario,itens=>extrairTotal(itens,key).valor);
   const prev=estatisticaDiaria(anterior,diario,itens=>extrairTotal(itens,key).valor);
   add(nome+': '+estatTexto(cur,unidade)+'. Anterior: '+(prev.cobertura?fmt(prev.media)+' '+unidade+'/dia ('+prev.cobertura+'/30 dias válidos)':'sem média confiável')+'.');
  }
  add('Valores por dia (um alimento sem composição torna o total daquele nutriente incompleto):');
  for(const d of atual){
   const itens=diario.get(d)||[];
-  add(dBR(d)+': '+(itens.length?MACROS.map(([k,n,u])=>n+' '+rotuloTotal(extrairTotal(itens,k),u)).join('; '):'SEM REGISTROS NO DIÁRIO'));
+  add(dBR(d)+(d===dataParcial?' [DIA PARCIAL]':'')+': '+(itens.length?MACROS.map(([k,n,u])=>n+' '+rotuloTotal(extrairTotal(itens,k),u)).join('; '):'SEM REGISTROS NO DIÁRIO'));
  }
  separar();
  add('3. ALIMENTOS CONSUMIDOS — DIA A DIA E ACUMULADO');
@@ -208,7 +212,7 @@ function montarRelatorio(info,balanco,erroBalanco) {
  add('4. MICRONUTRIENTES — MÉDIAS, COBERTURA E EVOLUÇÃO');
  add('Médias calculadas somente com dias em que TODOS os alimentos possuem valor do micronutriente. Dias incompletos NÃO equivalem a consumo zero.');
  for(const n of listaMicro){
-  const cur=mediaMicro(atual,n.codigo),prev=mediaMicro(anterior,n.codigo),alvo=numero(meta.micros?.[n.codigo]);
+  const cur=mediaMicro(atualEncerrado,n.codigo),prev=mediaMicro(anterior,n.codigo),alvo=numero(meta.micros?.[n.codigo]);
   const razao=alvo!==null&&alvo>0&&cur.media!==null?fmt(cur.media/alvo*100,1)+'%':'indeterminado';
   add(n.nome+' ('+n.unidade+'): '+estatTexto(cur,n.unidade)+'; meta atual '+(alvo===null?'não definida':fmt(alvo)+' '+n.unidade+'/dia')+'; percentual da meta '+razao+'; média anterior '+(prev.media===null?'indisponível':fmt(prev.media)+' '+n.unidade+'/dia, '+prev.cobertura+'/30 dias válidos')+'.');
  }
@@ -221,16 +225,16 @@ function montarRelatorio(info,balanco,erroBalanco) {
    if(v.valor!==null)presentes.push(n.nome+' '+fmt(v.valor)+' '+n.unidade);
    else if(v.itens)faltando.push(n.nome+(v.conhecido>0?' (parcial '+fmt(v.conhecido)+' '+n.unidade+')':''));
   }
-  add(dBR(d)+': '+(itens.length?presentes.join('; ')||'nenhum micronutriente completo':'SEM DIÁRIO'));
+  add(dBR(d)+(d===dataParcial?' [DIA PARCIAL]':'')+': '+(itens.length?presentes.join('; ')||'nenhum micronutriente completo':'SEM DIÁRIO'));
   if(faltando.length)add('  Composição incompleta/ausente: '+faltando.join(', '));
  }
  separar();
  add('5. HIDRATAÇÃO — ÁGUA INGERIDA');
  const aguaValor=itens=>itens.length?itens.reduce((a,x)=>a+Number(x.quantidade_ml||0),0):null;
- add('Média atual: '+estatTexto(estatisticaDiaria(atual,agua,aguaValor),'ml')+'.');
+ add('Média atual: '+estatTexto(estatisticaDiaria(atualEncerrado,agua,aguaValor),'ml')+'.');
  add('Média anterior: '+estatTexto(estatisticaDiaria(anterior,agua,aguaValor),'ml')+'.');
  add('Meta de água: não consta nas metas nutricionais consultadas. Não presumir meta.');
- for(const d of atual)add(dBR(d)+': '+(agua.get(d)?.length?fmt(aguaValor(agua.get(d)))+' ml':'sem registro'));
+ for(const d of atual)add(dBR(d)+(d===dataParcial?' [DIA PARCIAL]':'')+': '+(agua.get(d)?.length?fmt(aguaValor(agua.get(d)))+' ml':'sem registro'));
  separar();
  add('6. SONO — SAMSUNG HEALTH');
  const sonoAtual=atual.flatMap(d=>sonoDia.get(d)||[]),sonoAnterior=anterior.flatMap(d=>sonoDia.get(d)||[]);
@@ -311,13 +315,13 @@ function montarRelatorio(info,balanco,erroBalanco) {
  add('9. BALANÇO ENERGÉTICO — CÁLCULO ATUAL DO AVN');
  add('Saldo = calorias consumidas - [TMB + calorias ativas registradas + gasto líquido estimado dos passos sem sobreposição]. Saldos negativos representam déficit estimado.');
  if(erroBalanco)add('ALERTA: API do balanço energético indisponível: '+erroBalanco+'. Não estimar valores ausentes.');
- const atualSaldo=saldoTotal(atual,bal),prevSaldo=saldoTotal(anterior,bal);
+ const atualSaldo=saldoTotal(atualEncerrado,bal),prevSaldo=saldoTotal(anterior,bal);
  add('Período atual: '+(atualSaldo.dias?'soma dos '+atualSaldo.dias+' dias calculáveis '+fmt(atualSaldo.soma)+' kcal; média '+fmt(atualSaldo.media)+' kcal/dia':'sem saldos calculáveis')+'.');
  add('Período anterior: '+(prevSaldo.dias?'soma dos '+prevSaldo.dias+' dias calculáveis '+fmt(prevSaldo.soma)+' kcal; média '+fmt(prevSaldo.media)+' kcal/dia':'sem saldos calculáveis')+'.');
  for(const d of atual){
   const s=bal.get(d);
   if(!s){add(dBR(d)+': balanço indisponível.');continue;}
-  add(dBR(d)+': ingeridas '+fmt(s.ingestao?.valor)+' kcal; TMB '+fmt(s.tmb?.valor)+' kcal/dia; passos '+fmt(s.passos?.valor,0)+'; gasto líquido estimado passos '+fmt(s.calorias_passos?.valor)+' kcal; calorias ativas '+fmt(s.calorias_ativas?.valor)+' kcal'+(s.calorias_ativas?.sem_registros?' (sem registros)':'')+'; saldo '+fmt(s.saldo?.saldo_kcal)+' kcal'+(s.saldo?.faltam?.length?' (faltam: '+s.saldo.faltam.join('; ')+')':'')+'.');
+  add(dBR(d)+(d===dataParcial?' [DIA PARCIAL]':'')+': ingeridas '+fmt(s.ingestao?.valor)+' kcal; TMB '+fmt(s.tmb?.valor)+' kcal/dia; passos '+fmt(s.passos?.valor,0)+'; gasto líquido estimado passos '+fmt(s.calorias_passos?.valor)+' kcal; calorias ativas '+fmt(s.calorias_ativas?.valor)+' kcal'+(s.calorias_ativas?.sem_registros?' (sem registros)':'')+'; saldo '+fmt(s.saldo?.saldo_kcal)+' kcal'+(d===dataParcial?' (PROVISÓRIO; fora da soma e da média)':'')+(s.saldo?.faltam?.length?' (faltam: '+s.saldo.faltam.join('; ')+')':'')+'.');
  }
  add('A TMB não equivale ao gasto total diário. Atividades cotidianas não registradas, erros de estimativa e dados ausentes podem distorcer o saldo. O acumulado de dias válidos NÃO é o saldo comprovado do mês inteiro.');
  separar();
@@ -341,13 +345,13 @@ function montarRelatorio(info,balanco,erroBalanco) {
  separar();
  add('11. CONFIABILIDADE, COBERTURA E LIMITAÇÕES');
  add('Diário: '+cobertura(atual)+'/30 dias; sono: '+atual.filter(d=>sonoDia.has(d)).length+'/30 noites com registros; água: '+atual.filter(d=>agua.has(d)).length+'/30 dias; treinos: '+atual.filter(d=>treinoDia.has(d)).length+'/30 dias com sessão.');
- add('Balanço energético: '+atualSaldo.dias+'/30 dias calculáveis; medições físicas: '+atual.filter(d=>medicoes.has(d)).length+'/30 dias com ao menos uma medição.');
+ add('Balanço energético: '+atualSaldo.dias+'/'+atualEncerrado.length+' dias encerrados com saldo calculável; medições físicas: '+atual.filter(d=>medicoes.has(d)).length+'/30 dias com ao menos uma medição.');
  add('Não é possível saber se um dia sem Diário corresponde a jejum ou falha de lançamento. Dias sem treino registrado não comprovam repouso.');
  add('Receitas aninhadas exibem ingredientes proporcionais ao rendimento cadastrado, mas mudanças históricas na fórmula podem não ser recuperáveis.');
  for(const aviso of info.avisos||[])add('- '+aviso);
  separar();
  add('FIM DOS DADOS DO RELATÓRIO');
- return {texto:L.join('\n'),instrucoes:INSTRUCOES_IA,cobertura:cobertura(atual),sonoNoites:atual.filter(d=>sonoDia.has(d)).length,treinos:treinosAtual.length};
+ return {texto:L.join('\n'),instrucoes:INSTRUCOES_IA,diaParcial:dataParcial,cobertura:cobertura(atual),sonoNoites:atual.filter(d=>sonoDia.has(d)).length,treinos:treinosAtual.length};
 }
 async function get(url){
  const r=await fetch(url,{credentials:'same-origin',cache:'no-store',headers:{Accept:'application/json'}});
@@ -382,7 +386,7 @@ async function gerar(){
   $('diario-dias').textContent=obj.cobertura+'/30';
   $('sono-noites').textContent=obj.sonoNoites+'/30';
   $('treinos-sessoes').textContent=String(obj.treinos);
-  $('status').textContent='Relatório gerado: '+textoAtual.length.toLocaleString('pt-BR')+' caracteres.'+(erro?' Atenção: balanço energético indisponível.':'')+' Nenhuma informação foi enviada à IA.';
+  $('status').textContent='Relatório gerado: '+textoAtual.length.toLocaleString('pt-BR')+' caracteres.'+(obj.diaParcial?' Dia em andamento fora das médias e do saldo acumulado.':'')+(erro?' Atenção: balanço energético indisponível.':'')+' Nenhuma informação foi enviada à IA.';
  }catch(e){
   $('status').classList.add('error');$('status').textContent=e.message||'Falha ao gerar o relatório.';
  }finally{setLoading(false);}
