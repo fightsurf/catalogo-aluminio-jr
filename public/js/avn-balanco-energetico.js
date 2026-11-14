@@ -21,11 +21,17 @@ const conf={
  massa_ossea:{nome:'Massa óssea',unidade:'kg',cor:'#eab308'},
  proteinas:{nome:'Proteínas consumidas',unidade:'g',cor:'#fca5a5'},
  carboidratos:{nome:'Carboidratos consumidos',unidade:'g',cor:'#fbbf24'},
- agua_ingerida:{nome:'Água ingerida',unidade:'ml',cor:'#67e8f9'}
+ agua_ingerida:{nome:'Água ingerida',unidade:'ml',cor:'#67e8f9'},
+ sono_duracao:{nome:'Duração inteira informada',unidade:'h',cor:'#60a5fa'},
+ sono_leve:{nome:'Sono leve',unidade:'h',cor:'#a3bffa'},
+ sono_profundo:{nome:'Sono profundo',unidade:'h',cor:'#a78bfa'},
+ sono_rem:{nome:'Sono REM',unidade:'h',cor:'#e879f9'},
+ sono_pontuacao:{nome:'Pontuação Samsung Health',unidade:'pontos',cor:'#2dd4bf'}
 };
 const metricas=['saldo','ingestao','tmb','passos','calorias_ativas'];
 const fisicas=['peso','gordura_corporal','massa_magra','agua_corporal','massa_ossea'];
 const nutricao=['proteinas','carboidratos','agua_ingerida'];
+const sono=['sono_duracao','sono_leve','sono_profundo','sono_rem','sono_pontuacao'];
 // Mesmas cores usadas no painel nutricional. Metas em gramas vêm de Minhas metas.
 const macrosDiarios=[
  {key:'proteinas',campo:'proteinas_g',nome:'Proteínas consumidas',cor:'#60a5fa'},
@@ -274,6 +280,40 @@ function dadosFisicos(registros,inicio,fim){
  }
  return [...diarios.values()].sort((a,b)=>a.data.localeCompare(b.data));
 }
+// Sessões vinculadas à data local de despertar, sem médias ou preenchimento fictício.
+function dadosSono(noites,inicio,fim){
+ const dias=new Map();
+ for(const noite of Array.isArray(noites)?noites:[]){
+  const start=new Date(noite.inicio).getTime(),end=new Date(noite.fim).getTime();
+  if(!Number.isFinite(start)||!Number.isFinite(end)||end<start)continue;
+  const dia=roundDay(new Date(end));
+  if(dia<inicio||dia>fim)continue;
+  if(!dias.has(dia))dias.set(dia,{data:dia,duracao:0,temDuracao:false,score:null,ultimoFim:-Infinity,
+   LIGHT:0,DEEP:0,REM:0,temFases:false});
+  const d=dias.get(dia),duracao=noite.duracao_min;
+  if(has(duracao)&&Number(duracao)>=0){d.duracao+=Number(duracao);d.temDuracao=true;}
+  if(has(noite.pontuacao)&&Number(noite.pontuacao)>=0&&Number(noite.pontuacao)<=100&&end>=d.ultimoFim){
+   d.score=Number(noite.pontuacao);d.ultimoFim=end;
+  }
+  for(const estagio of Array.isArray(noite.estagios)?noite.estagios:[]){
+   const tipo=String(estagio.tipo||'').toUpperCase();
+   if(!['LIGHT','DEEP','REM','AWAKE'].includes(tipo))continue;
+   const a=new Date(estagio.inicio).getTime(),b=new Date(estagio.fim).getTime();
+   if(!Number.isFinite(a)||!Number.isFinite(b)||b<=a)continue;
+   const minutos=Math.max(0,Math.min(end,b)-Math.max(start,a))/60000;
+   if(minutos<=0)continue;
+   d.temFases=true;if(tipo!=='AWAKE')d[tipo]+=minutos;
+  }
+ }
+ const series=Object.fromEntries(sono.map(key=>[key,[]]));
+ for(const d of [...dias.values()].sort((a,b)=>a.data.localeCompare(b.data))){
+  const point=(key,value)=>series[key].push({data:d.data,value:Number(value.toFixed(3))});
+  if(d.temDuracao)point('sono_duracao',d.duracao/60);
+  if(d.temFases){point('sono_leve',d.LIGHT/60);point('sono_profundo',d.DEEP/60);point('sono_rem',d.REM/60);}
+  if(d.score!==null)point('sono_pontuacao',d.score);
+ }
+ return series;
+}
 function compararDatas(dias,met){return dias.filter(d=>has(met.get(d))).map(d=>({data:d.data,value:Number(met.get(d))}));}
 async function carregarComparacao(){
  if(!$('compare-dialog').open)return;
@@ -289,7 +329,8 @@ async function carregarComparacao(){
   const requests=await Promise.allSettled([
    getJson('/avn/sistema/api/balanco-energetico/'+encodeURIComponent(user)+'?data='+day+'&dias='+period),
    getJson('/avn/sistema/api/balanco-energetico/nutricao-comparacao/'+encodeURIComponent(user)+'?data='+day+'&dias='+period),
-   ...urls.map(getJson)
+   ...urls.map(getJson),
+   getJson('/api/avn/health/usuarios/'+encodeURIComponent(user)+'/sono?dias='+janela)
   ]);
   if(token!==compareSeq||!$('compare-dialog').open)return;
   const energy=requests[0].status==='fulfilled'?requests[0].value:null;
@@ -305,6 +346,9 @@ async function carregarComparacao(){
    if(requests[i+2].status==='fulfilled')series[key]=dadosFisicos(requests[i+2].value.registros,inicio,day);
    else {series[key]=[];errors[key]=requests[i+2].reason?.message||'Falha na consulta.';}
   });
+  const respostaSono=requests[2+fisicas.length];
+  if(respostaSono.status==='fulfilled')Object.assign(series,dadosSono(respostaSono.value.noites,inicio,day));
+  else for(const key of sono){series[key]=[];errors[key]=respostaSono.reason?.message||'Falha ao consultar sono.';}
   const u=usuarios.find(x=>String(x.id)===user),altura=Number(u?.altura_cm)/100;
   series.imc=altura>0?series.peso.map(p=>({...p,value:p.value/(altura*altura)})):[];
   if(!(altura>0))errors.imc='Cadastre a altura para calcular o IMC.';
@@ -402,7 +446,7 @@ function desenharComparacao(){
  overlay.addEventListener('pointerdown',at);
  overlay.addEventListener('pointerleave',()=>{guide.setAttribute('visibility','hidden');tooltip.hidden=true;});
  area.append(root,tooltip);
- status.textContent=(relative?'Três ou mais indicadores: cada curva em escala relativa 0–100 (mínimo e máximo próprios).':'Dois indicadores: cada curva utiliza seu eixo vertical, conforme a cor.')+' Somente datas com registros válidos são exibidas.'+(all.some(a=>!a.rows.length)?' Sem dados: '+all.filter(a=>!a.rows.length).map(a=>a.nome).join(', ')+'.':'')+(escolhidas.some(key=>nutricao.includes(key))?' Proteínas e carboidratos: diário alimentar (g); água ingerida: registros de hidratação (diferente de água corporal).':'');
+ status.textContent=(relative?'Três ou mais indicadores: cada curva em escala relativa 0–100 (mínimo e máximo próprios).':'Dois indicadores: cada curva utiliza seu eixo vertical, conforme a cor.')+' Somente datas com registros válidos são exibidas.'+(all.some(a=>!a.rows.length)?' Sem dados: '+all.filter(a=>!a.rows.length).map(a=>a.nome).join(', ')+'.':'')+(escolhidas.some(key=>nutricao.includes(key))?' Proteínas e carboidratos: diário alimentar (g); água ingerida: registros de hidratação (diferente de água corporal).':'')+(escolhidas.some(key=>sono.includes(key))?' Sono: dados do dia do despertar, sem médias. Duração e fases em horas.':'');
 }
 function initComparador(){
  const dialog=$('compare-dialog');
