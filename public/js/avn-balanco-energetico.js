@@ -227,7 +227,24 @@ function limpar(){
  for(const chave of metricas){$('valor-'+chave).textContent='—';$('grafico-'+chave).replaceChildren();}
  $('saldo').className='saldo';$('saldo-valor').textContent='—';$('saldo-descricao').textContent='Não foi possível consultar os dados.';$('saldo-formula').textContent='';
 }
+function atualizarNavegacao(){
+ const dia=$('data').value;
+ $('dia-anterior').disabled=!dia;
+ $('dia-seguinte').disabled=!dia||dia>=hoje();
+}
+function navegarDia(passos){
+ const dia=$('data').value;
+ if(!dia)return;
+ const data=new Date(dia+'T12:00:00Z');
+ if(Number.isNaN(data.getTime()))return;
+ data.setUTCDate(data.getUTCDate()+passos);
+ const destino=data.toISOString().slice(0,10);
+ if(destino>hoje()||destino===dia)return;
+ $('data').value=destino;
+ atualizar();
+}
 async function atualizar(){
+ atualizarNavegacao();
  const current=++seq,user=$('usuario').value,day=$('data').value;
  limparGraficosMacros();
  if(!user||!day){$('mensagem').textContent='Selecione usuário e data.';return;}
@@ -411,6 +428,8 @@ async function iniciar(){
   if(!usuarios.length){$('mensagem').textContent='Cadastre um usuário no AVN.';return;}
   $('usuario').addEventListener('change',()=>{localStorage.setItem('avn_nutricao_usuario',$('usuario').value);atualizar();});
   $('data').addEventListener('change',atualizar);
+  $('dia-anterior').addEventListener('click',()=>navegarDia(-1));
+  $('dia-seguinte').addEventListener('click',()=>navegarDia(1));
   atualizar();
  }catch(e){$('mensagem').textContent=e.message||'Falha ao carregar usuários.';}
 }
