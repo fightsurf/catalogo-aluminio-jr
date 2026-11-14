@@ -86,12 +86,12 @@ function graficoDiario(chave,dias,selecionado){
   const selecionar=()=>{if($('data').value!==p.d.data){$('data').value=p.d.data;atualizar();}};
   circle.addEventListener('click',selecionar);
   circle.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selecionar();}});
-  if(chave==='saldo'){
-   svg(root,'text',{x:p.x,y:Math.max(15,p.y-13),'text-anchor':'middle','font-size':12,'font-weight':700,fill:met.cor,'pointer-events':'none'},(p.v>0?'+':'')+fmt(p.v,0));
-  } else if(chave==='passos'){
-   // Exibe a energia dos passos sob cada ponto, sem criar um sexto gráfico.
+  // Valor numérico visível em todos os pontos dos gráficos diários.
+  svg(root,'text',{x:p.x,y:Math.max(16,p.y-13),'text-anchor':'middle','font-size':12,'font-weight':700,fill:met.cor,stroke:'#182437','stroke-width':3,'paint-order':'stroke','pointer-events':'none'},(chave==='saldo'&&p.v>0?'+':'')+fmt(p.v,0));
+  if(chave==='passos'){
+   // Preserva a estimativa de kcal dos passos sob cada ponto, além da contagem de passos acima.
    const kcal=p.d.calorias_passos?.valor;
-   svg(root,'text',{x:p.x,y:Math.min(H-B+17,p.y+19),'text-anchor':'middle','font-size':11,'font-weight':700,fill:'#e1d5ff','pointer-events':'none'},has(kcal)?fmt(kcal,0)+' kcal':'— kcal');
+   svg(root,'text',{x:p.x,y:Math.min(H-B+17,p.y+19),'text-anchor':'middle','font-size':11,'font-weight':700,fill:'#e1d5ff',stroke:'#182437','stroke-width':3,'paint-order':'stroke','pointer-events':'none'},has(kcal)?fmt(kcal,0)+' kcal':'— kcal');
   }
  }
  alvo.append(root);
@@ -203,6 +203,7 @@ function desenharGraficoMacro(m,registros,meta,fim,erro){
   const selecionar=()=>{if($('data').value!==data){$('data').value=data;atualizar();}};
   circle.addEventListener('click',selecionar);
   circle.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();selecionar();}});
+  svg(root,'text',{x:p.x,y:Math.max(16,p.y-13),'text-anchor':'middle','font-size':12,'font-weight':700,fill:m.cor,stroke:'#182437','stroke-width':3,'paint-order':'stroke','pointer-events':'none'},fmt(p.v,1));
  }
  area.append(root);
 }
@@ -311,7 +312,8 @@ function desenharComparacao(){
  if(!usable.length){status.textContent='Nenhum dos indicadores escolhidos tem registros no período.';return;}
  const two=escolhidas.length===2&&usable.length===2;
  const relative=escolhidas.length>=3;
- const W=940,H=365,L=75,R=two?80:32,T=42,B=61;
+ // O período maior precisa de largura útil para mostrar um valor em cada ponto.
+ const W=Math.max(940,comparacao.period*82+155),H=365,L=75,R=two?80:32,T=42,B=61;
  const inicio=isoDay(comparacao.day)-(comparacao.period-1)*86400000,fim=isoDay(comparacao.day);
  const px=d=>L+(isoDay(d)-inicio)/Math.max(1,fim-inicio)*(W-L-R);
  const Hplot=H-T-B;
@@ -326,6 +328,7 @@ function desenharComparacao(){
  const py=(v,range)=>T+(range.max-v)/(range.max-range.min)*Hplot;
  const eixo=a=>relative?{min:0,max:100}:a.range;
  const root=svgRoot(W,H,'Comparação de '+escolhidas.map(k=>conf[k].nome).join(', '));
+ if(W>940)root.style.width=W+'px';
  for(let i=0;i<=5;i++){
   const yy=T+Hplot*i/5;
   svg(root,'line',{x1:L,x2:W-R,y1:yy,y2:yy,stroke:'#33455f'});
@@ -345,7 +348,7 @@ function desenharComparacao(){
   svg(root,'text',{x:L+(W-L-R)*i/5,y:H-28,'text-anchor':'middle','font-size':12,fill:'#afbfda'},new Date(time).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',timeZone:'UTC'}));
  }
  const allDays=new Set();
- for(const a of usable){
+ for(const [serieIndice,a] of usable.entries()){
   const coords=a.points.map(p=>({...p,x:px(p.data),y:py(p.valorPlot,eixo(a))}));
   a.coords=coords;
   if(coords.length>1)svg(root,'polyline',{points:coords.map(p=>p.x+','+p.y).join(' '),fill:'none',stroke:a.cor,'stroke-width':2.8,'stroke-linejoin':'round','stroke-linecap':'round'});
@@ -353,6 +356,10 @@ function desenharComparacao(){
    allDays.add(p.data);
    const dot=svg(root,'circle',{cx:p.x,cy:p.y,r:4,fill:a.cor});
    svg(dot,'title',{},dataBR(p.data)+' · '+a.nome+': '+fmt(p.value,2)+' '+a.unidade);
+   // Exibe o valor real (não o percentual da escala relativa), com alternância para reduzir sobreposição.
+   const deslocamento=serieIndice%2===0?-13-Math.floor(serieIndice/2)*13:19+Math.floor(serieIndice/2)*13;
+   const yRotulo=Math.max(T+12,Math.min(H-B-7,p.y+deslocamento));
+   svg(root,'text',{x:p.x,y:yRotulo,'text-anchor':'middle','font-size':11,'font-weight':700,fill:a.cor,stroke:'#172439','stroke-width':3,'paint-order':'stroke','pointer-events':'none'},fmt(p.value,Math.abs(p.value)<10?2:1));
   }
  }
  const guide=svg(root,'line',{x1:L,x2:L,y1:T,y2:H-B,stroke:'#e5e7eb','stroke-dasharray':'4 4',visibility:'hidden'});
