@@ -1,0 +1,62 @@
+/* AVN Dieta: barras acessíveis de micronutrientes por referência diária adulta. */
+body[data-nutricao-pagina="dieta"] .avn-micro-ref-intro{
+ border:1px solid #425b79;border-radius:12px;background:#1d3049;padding:14px 15px;
+ margin:10px 0 19px;color:#e3edfb;line-height:1.5;font-size:13px
+}
+body[data-nutricao-pagina="dieta"] .avn-micro-ref-intro b{font-size:13px}
+body[data-nutricao-pagina="dieta"] .avn-micro-ref-intro p{margin:8px 0 0;color:#c1d2e8}
+body[data-nutricao-pagina="dieta"] .avn-micro-ref-section{margin:12px 0 24px}
+body[data-nutricao-pagina="dieta"] .avn-micro-ref-section h4{
+ margin:0 0 8px;padding-bottom:7px;border-bottom:1px solid #43617d;
+ color:#f1f6ff;font-size:16px;letter-spacing:.01em
+}
+body[data-nutricao-pagina="dieta"] .avn-micro-ref-row{
+ padding:13px 1px 15px;border-bottom:1px solid #33465d;min-width:0
+}
+body[data-nutricao-pagina="dieta"] .avn-micro-ref-header{
+ display:flex;justify-content:space-between;gap:12px;align-items:baseline;
+ font-size:14px;color:#e9f3ff;font-variant-numeric:tabular-nums
+}
+body[data-nutricao-pagina="dieta"] .avn-micro-ref-header strong{font-weight:750;overflow-wrap:anywhere}
+body[data-nutricao-pagina="dieta"] .avn-micro-ref-header span{
+ text-align:right;white-space:nowrap;font-weight:750;color:#f0f6ff
+}
+body[data-nutricao-pagina="dieta"] .avn-micro-bar{
+ margin-top:9px;height:13px;background:#3a495f;border-radius:100px;
+ overflow:hidden;border:1px solid #607088;
+}
+body[data-nutricao-pagina="dieta"] .avn-micro-ref-fill{
+ display:block;height:100%;width:var(--micro-progress,0%);
+ background:linear-gradient(90deg,#227fc6,#5dc0f5);
+ border-radius:100px;transition:width .18s ease-out;
+}
+body[data-nutricao-pagina="dieta"] .avn-micro-bar.is-limit .avn-micro-ref-fill{
+ background:linear-gradient(90deg,#8194b1,#bec6d1)
+}
+body[data-nutricao-pagina="dieta"] .avn-micro-bar.over-limit .avn-micro-ref-fill{
+ background:linear-gradient(90deg,#e0a64f,#fa725b)
+}
+body[data-nutricao-pagina="dieta"] .avn-micro-bar.no-reference{
+ background:repeating-linear-gradient(110deg,#344157 0px,#344157 9px,#2b384c 9px,#2b384c 18px)
+}
+body[data-nutricao-pagina="dieta"] .avn-micro-ref-foot{
+ display:flex;justify-content:space-between;align-items:baseline;
+ gap:10px;margin-top:6px;font-size:12px;color:#bfcee0;font-variant-numeric:tabular-nums
+}
+body[data-nutricao-pagina="dieta"] .avn-micro-ref-foot small{font-size:12px}
+body[data-nutricao-pagina="dieta"] .avn-micro-ref-foot small:last-child{
+ color:#d6e5f5;white-space:nowrap;font-weight:650
+}
+body[data-nutricao-pagina="dieta"] .avn-micro-ref-note{
+ display:block;font-size:11px;color:#f1c88d;margin-top:4px;line-height:1.5
+}
+body[data-nutricao-pagina="dieta"] .avn-micro-ref-disclaimer{
+ margin:16px 0 4px;font-size:12px;line-height:1.55;color:#c4d2e4
+}
+body[data-nutricao-pagina="dieta"] .avn-micro-ref-disclaimer a{color:#92caff}
+@media(max-width:520px){
+ body[data-nutricao-pagina="dieta"] .avn-micro-ref-header{font-size:13px;gap:7px}
+ body[data-nutricao-pagina="dieta"] .avn-micro-ref-header span{font-size:13px}
+ body[data-nutricao-pagina="dieta"] .avn-micro-ref-foot small{font-size:11px}
+ body[data-nutricao-pagina="dieta"] .avn-micro-ref-intro{padding:11px 12px}
+}
