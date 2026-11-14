@@ -1,15 +1,18 @@
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>AVN — Balanço Energético</title>
-<link rel="stylesheet" href="/css/avn-balanco-energetico.css?v=20261114-pointlabels1">
-<script src="/js/avn-balanco-energetico.js?v=20261114-pointlabels1" defer></script></head>
+<link rel="stylesheet" href="/css/avn-balanco-energetico.css?v=20261114-datanav1">
+<script src="/js/avn-balanco-energetico.js?v=20261114-datanav1" defer></script></head>
 <body><main class="avn-balanco">
 <header class="top"><a href="/avn">← Central AVN</a><strong>AVN · Nutrição</strong></header>
 <div class="titulo"><h1>⚖️ Balanço Energético</h1><p>Saldo diário e evolução dos indicadores. Cada ponto corresponde a uma data; selecione um ponto para consultar aquele dia.</p></div>
 <div class="filtros">
 <label>Usuário <select id="usuario" aria-label="Usuário"><option value="">Carregando…</option></select></label>
+<div class="data-navegacao" role="group" aria-label="Navegar entre datas do balanço energético">
+<button id="dia-anterior" class="btn-navegacao" type="button" aria-label="Dia anterior">Anterior</button>
 <label>Data <input type="date" id="data" aria-label="Data do balanço energético"></label>
-<a class="diario-link" href="/avn/sistema/nutricao/diario">Abrir diário alimentar</a>
+<button id="dia-seguinte" class="btn-navegacao" type="button" aria-label="Dia seguinte">Seguinte</button>
+</div>
 <button id="compare-open" class="btn-principal" type="button">Cruzar informações</button>
 </div>
 <p id="mensagem" role="status" aria-live="polite">Carregando dados…</p>
@@ -25,7 +28,7 @@
 <p class="ajuda">Calorias consumidas − TMB − treinamento − calorias estimadas dos passos. Valores negativos indicam déficit e positivos, superávit.</p>
 <div id="grafico-saldo" class="linha-grafico" aria-label="Histórico de déficit ou superávit por data"></div>
 </article>
-<article class="painel"><div class="painel-titulo"><h2>🍽️ Calorias consumidas</h2><strong id="valor-ingestao">—</strong></div>
+<article class="painel"><div class="painel-titulo"><h2>🍽️ Calorias consumidas</h2><div class="painel-acoes"><a class="diario-link" href="/avn/sistema/nutricao/diario">Diário alimentar</a><strong id="valor-ingestao">—</strong></div></div>
 <p class="ajuda">Quilocalorias registradas por dia no Diário Alimentar.</p><div id="grafico-ingestao" class="linha-grafico"></div></article>
 <article class="painel"><div class="painel-titulo"><h2>🔥 TMB</h2><strong id="valor-tmb">—</strong></div>
 <p class="ajuda" id="nota-tmb">Metabolismo basal da bioimpedância.</p><div id="grafico-tmb" class="linha-grafico"></div></article>
