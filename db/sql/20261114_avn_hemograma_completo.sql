@@ -14,18 +14,17 @@ VALUES
  ('morfologia_serie_plaquetaria','Morfologia da série plaquetária',ARRAY['observacao plaquetas','observações da série plaquetária'],'Hemograma · Plaquetas','texto','indicador')
 ON CONFLICT (codigo) DO NOTHING;
 
--- Alias complementares para laudos que usam siglas e nomes alternativos.
-WITH novos(codigo,alias) AS (VALUES
- ('hemacias','hemacias (rbc)'),
- ('vcm','v.c.m.'),
- ('hcm','h.c.m.'),
- ('chcm','c.h.c.m.'),
- ('rdw','r.d.w.'),
- ('neutrofilos','segmentados relativos'),
- ('neutrofilos_absoluto','segmentados absolutos'),
- ('neutrofilos_absoluto','segmentados abs'),
- ('linfocitos_absoluto','linfócitos absolutos')
+-- Inclui todos os aliases sem perder os ja existentes, mesmo com repeticoes.
+WITH novos(codigo,aliases_novos) AS (VALUES
+ ('hemacias',ARRAY['hemacias (rbc)']::text[]),
+ ('vcm',ARRAY['v.c.m.']::text[]),
+ ('hcm',ARRAY['h.c.m.']::text[]),
+ ('chcm',ARRAY['c.h.c.m.']::text[]),
+ ('rdw',ARRAY['r.d.w.']::text[]),
+ ('neutrofilos',ARRAY['segmentados relativos']::text[]),
+ ('neutrofilos_absoluto',ARRAY['segmentados absolutos','segmentados abs']::text[]),
+ ('linfocitos_absoluto',ARRAY['linfócitos absolutos']::text[])
 )
 UPDATE public.avn_exames_catalogo AS c
-SET aliases=array_append(c.aliases,novos.alias)
-FROM novos WHERE c.codigo=novos.codigo AND NOT (novos.alias=ANY(c.aliases));
+SET aliases=(SELECT ARRAY(SELECT DISTINCT a FROM unnest(c.aliases || novos.aliases_novos) AS a ORDER BY a))
+FROM novos WHERE c.codigo=novos.codigo;
