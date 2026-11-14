@@ -122,12 +122,12 @@
   const stateText=ratio===null?'':fmt(ratio,0)+'% da referência';
   const style=valid?'style="--micro-progress:'+width.toFixed(2)+'%;"':'';
   const classes='avn-micro-bar'+(!valid?' no-reference':'')+(ref?.tipo==='limite'?' is-limit':'')+(ref?.tipo==='limite'&&exceeds?' over-limit':'')+(calc.miss?' has-missing':'');
-  return '<article class="avn-micro-ref-row">'+
-    '<div class="avn-micro-ref-header"><strong>'+clean(name)+'</strong><span>'+clean(estimated)+'</span></div>'+
+  return '<article class="avn-micro-ref-row" data-nutriente="'+clean(key)+'">'+
+    '<div class="avn-micro-ref-header"><button type="button" class="avn-micro-ref-name" data-micro-fontes="'+clean(key)+'" title="Ver alimentos que contêm '+clean(name)+'">'+clean(name)+'</button><span>'+clean(estimated)+'</span></div>'+
     '<div class="'+classes+'" '+style+' role="progressbar" aria-label="'+clean(name)+' — '+clean(caption)+'" '+
     (valid&&calc.found?'aria-valuemin="0" aria-valuemax="100" aria-valuenow="'+Math.min(100,Math.round(ratio))+'"':'aria-valuetext="'+clean(calc.found?'Sem referência':'Sem dados')+'"')+'><span class="avn-micro-ref-fill"></span></div>'+
     '<div class="avn-micro-ref-foot"><small>'+clean(caption)+'</small><small>'+clean(stateText)+'</small></div>'+
-    (note?'<small class="avn-micro-ref-note">'+clean(note)+'</small>':'')+
+    (note?(calc.miss?'<button type="button" class="avn-micro-ref-note avn-micro-ref-note-link" data-micro-faltantes="'+clean(key)+'" title="Listar alimentos da dieta sem '+clean(name)+'">'+clean(note)+' · ver alimentos</button>':'<small class="avn-micro-ref-note">'+clean(note)+'</small>'):'')+
     '</article>';
  }
  function renderList(catalogue,items,p){
@@ -175,6 +175,7 @@
   btn.addEventListener('click',()=>requestAnimationFrame(refresh));
   modal.addEventListener('close',()=>{token++;});
  }
+ window.AVNDietaMicros={refresh};
  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init,{once:true});
  else init();
 })();
