@@ -14,6 +14,7 @@ async function publicar(req, res) {
       arquivo: req.file,
       requestId: req.body?.request_id,
       itens: req.body?.itens,
+      tipoVideo: req.body?.tipo_video,
     });
 
     // O upload HTTP termina aqui. FFmpeg + redes sociais continuam em background e
