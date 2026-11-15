@@ -611,7 +611,7 @@ function renderFoodList(){
   const incompleto=CATALOG_TYPE!=='medicamento'&&faltantes.length>0;
   const resumo=campos.map(([nome,chave,unidade,cor])=>'<span class="avn-nutriente avn-nutriente-'+cor+'"><b>'+nome+':</b> '+(nutrienteAusenteAlimento(f[chave])?'Sem dado':fmt(f[chave],1)+' '+unidade)+'</span>').join('');
   const detalhes=[f.preparo,f.marca].filter(Boolean).join(' · ');
-  return '<div class="list-row avn-food-row'+(incompleto?' avn-food-incompleto':'')+'" data-food-id="'+esc(f.id)+'" tabindex="0" role="button" aria-label="'+(CATALOG_TYPE==='medicamento'?'Editar medicamento ':'Ver composição de ')'+esc(f.nome)+'">'+
+  return '<div class="list-row avn-food-row'+(incompleto?' avn-food-incompleto':'')+'" data-food-id="'+esc(f.id)+'" tabindex="0" role="button" aria-label="'+(CATALOG_TYPE==='medicamento'?'Editar medicamento ':'Ver composição de ')+esc(f.nome)+'">'+
    '<div class="avn-food-info"><span class="name">'+esc(f.nome)+'</span>'+
    (detalhes?'<small class="avn-food-meta">'+esc(detalhes)+'</small>':'')+
    (CATALOG_TYPE==='medicamento'?'':'<small class="avn-food-summary"><span>Por 100 g:</span>'+resumo+'</small>')+
