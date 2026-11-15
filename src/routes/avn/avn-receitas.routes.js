@@ -81,7 +81,7 @@ async function montagem(db,u,b,receitaId){
  for(const [ordem,i] of b.ingredientes.entries()){
   if(!id(i.alimento_id))throw bad('Selecione um alimento ou receita válido.');
   const g=Number(i.quantidade_g);if(!Number.isFinite(g)||g<=0||g>10000)throw bad('Peso de ingrediente inválido.');
-  const r=await db.query(`SELECT * FROM public.avn_alimentos WHERE id=$1 AND ativo AND (usuario_id=$2 OR usuario_id IS NULL) AND (fonte<>'receita' OR usuario_id=$2)`,[i.alimento_id,u]);
+  const r=await db.query(`SELECT * FROM public.avn_alimentos WHERE id=$1 AND ativo AND (usuario_id=$2 OR usuario_id IS NULL) AND tipo<>'medicamento' AND (fonte<>'receita' OR usuario_id=$2)`,[i.alimento_id,u]);
   await impedirCiclo(db,u,receitaId,i.alimento_id);
   if(!r.rowCount)throw bad('Ingrediente ou receita não encontrado.',400);
   const f=r.rows[0];itens.push({alimento_id:f.id,nome_snapshot:f.nome,quantidade_g:g,ordem,composicao_100g:await composicaoDeIngrediente(db,f,u,codigos)});somaPesos+=g;
@@ -112,7 +112,7 @@ router.get('/',route(async(req,res)=>{const u=uid(req.query.usuarioId);await usu
 // O catálogo usado pela IA é o mesmo exibido para revisão no formulário.
 async function catalogoUsuario(u){
  const r=await pool.query(`SELECT * FROM public.avn_alimentos WHERE ativo
-   AND (usuario_id=$1 OR usuario_id IS NULL) AND (fonte<>'receita' OR usuario_id=$1)
+   AND (usuario_id=$1 OR usuario_id IS NULL) AND tipo<>'medicamento' AND (fonte<>'receita' OR usuario_id=$1)
    ORDER BY nome,id LIMIT 1200`,[u]);
  const receitas=r.rows.filter(a=>a.fonte==='receita'&&String(a.usuario_id)===String(u));
  if(receitas.length){

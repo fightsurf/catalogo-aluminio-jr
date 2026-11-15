@@ -124,7 +124,7 @@ router.get('/nutrientes',wrap(async(_req,res)=>{
 router.get('/alimentos',wrap(async(req,res)=>{
  const id=requiredId(req.query.usuarioId);await user(id);
  const tipo=String(req.query.tipo||'');
- if(tipo&&!['alimento','suplemento','receita'].includes(tipo))throw bad('Tipo de cadastro inválido.');
+ if(tipo&&!['alimento','suplemento','medicamento','receita'].includes(tipo))throw bad('Tipo de cadastro inválido.');
  const q=String(req.query.busca||'').trim().slice(0,120);
  const r=await pool.query(`SELECT * FROM public.avn_alimentos WHERE ativo AND (usuario_id IS NULL OR usuario_id=$1)
  AND ($2='' OR tipo=$2)
@@ -133,7 +133,7 @@ router.get('/alimentos',wrap(async(req,res)=>{
 }));
 router.post('/alimentos',wrap(async(req,res)=>{
  const uid=requiredId(req.body?.usuarioId);await user(uid);const f=await foodPayload(req.body||{});
- const tipo=String(req.body?.tipo||'alimento');if(!['alimento','suplemento'].includes(tipo))throw bad('Tipo de cadastro inválido.');
+ const tipo=String(req.body?.tipo||'alimento');if(!['alimento','suplemento','medicamento'].includes(tipo))throw bad('Tipo de cadastro inválido.');
  if(req.body?.fonte==='usda_fdc'&&/^https:\/\/fdc\.nal\.usda\.gov\/food-details\/\d+\/nutrients$/.test(req.body.fonte_referencia||'')){f.fonte='usda_fdc';f.fonte_referencia=req.body.fonte_referencia;}
  if(req.body?.fonte==='taco'&&/^https:\/\/brolesi\.github\.io\/taco\/foods\/[1-9]\d{0,2}\.json$/.test(req.body.fonte_referencia||'')){f.fonte='taco';f.fonte_referencia=req.body.fonte_referencia;}
  if(req.body?.fonte==='ia_pesquisa'){
@@ -147,14 +147,14 @@ router.post('/alimentos',wrap(async(req,res)=>{
 router.put('/alimentos/:id',wrap(async(req,res)=>{
  const e=await pool.query("SELECT 1 FROM public.avn_receitas WHERE alimento_id=$1",[req.params.id]);if(e.rowCount)throw bad('Edite receitas no aplicativo Receitas, não em Alimentos.');
  const uid=requiredId(req.body?.usuarioId),id=requiredId(req.params.id);await user(uid);const f=await foodPayload(req.body);
- const tipo=String(req.body?.tipo||'alimento');if(!['alimento','suplemento'].includes(tipo))throw bad('Tipo de cadastro inválido.');
+ const tipo=String(req.body?.tipo||'alimento');if(!['alimento','suplemento','medicamento'].includes(tipo))throw bad('Tipo de cadastro inválido.');
  const vals=A.map(k=>k==='micronutrientes_100g'?JSON.stringify(f[k]):f[k]);
  const r=await pool.query(`UPDATE public.avn_alimentos SET ${A.map((k,i)=>k+'=$'+(i+1)).join(',')},atualizado_em=NOW() WHERE id=$${A.length+1} AND usuario_id=$${A.length+2} AND tipo=$${A.length+3} AND ativo RETURNING *`,[...vals,id,uid,tipo]);
  if(!r.rowCount)throw bad('Cadastro não encontrado nesta categoria.',404);res.json(r.rows[0]);
 }));
 router.delete('/alimentos/:id',wrap(async(req,res)=>{
  const uid=requiredId(req.query.usuarioId),id=requiredId(req.params.id);await user(uid);
- const tipo=String(req.query.tipo||'alimento');if(!['alimento','suplemento'].includes(tipo))throw bad('Tipo de cadastro inválido.');
+ const tipo=String(req.query.tipo||'alimento');if(!['alimento','suplemento','medicamento'].includes(tipo))throw bad('Tipo de cadastro inválido.');
  const db=await pool.connect();
  try{
   await db.query('BEGIN');
@@ -170,7 +170,7 @@ router.delete('/alimentos/:id',wrap(async(req,res)=>{
   const u=usos.rows[0];
   if(u.diario||u.dieta||u.ingrediente||u.receita){
    const lugares=[u.diario&&'diário alimentar',u.dieta&&'dieta programada',u.ingrediente&&'ingredientes de receitas',u.receita&&'receitas'].filter(Boolean);
-   throw bad('Este alimento já está em uso em: '+lugares.join(', ')+'. Remova os vínculos antes de excluir.',409);
+   throw bad('Este cadastro já está em uso em: '+lugares.join(', ')+'. Remova os vínculos antes de excluir.',409);
   }
   await db.query('UPDATE public.avn_alimentos SET ativo=FALSE,atualizado_em=NOW() WHERE id=$1 AND usuario_id=$2',[id,uid]);
   await db.query('COMMIT');res.json({ok:true});
