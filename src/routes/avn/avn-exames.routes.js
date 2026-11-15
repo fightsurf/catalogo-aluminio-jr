@@ -208,6 +208,30 @@ function match(catalogo,nome,codigo){
   normalize(v)===needle || normalize(v).replace(/ /g,'')===needle.replace(/ /g,'')));
  return hits.length===1?hits[0]:null;
 }
+// Erros da API mapeados sem expor credenciais, dados do laudo ou detalhes internos.
+function erroInterpretacaoIA(status,erro){
+ const codigo=String(erro?.code||'').toLowerCase();
+ const mensagem=String(erro?.message||'').toLowerCase();
+ if(status===401||codigo==='invalid_api_key')return bad('Chave de acesso da IA inválida. Confira OPENAI_API_KEY no Render.',503);
+ if(status===403)return bad('A conta da IA não tem permissão para usar o modelo configurado. Confira as permissões da API.',503);
+ if(status===404||codigo==='model_not_found')return bad('Modelo de IA não encontrado. Confira AVN_EXAMES_IA_MODEL no Render.',503);
+ if(status===429){
+  if(codigo==='insufficient_quota'||mensagem.includes('quota'))return bad('A conta da IA está sem créditos ou atingiu a cota. Confira faturamento e limites da API.',503);
+  return bad('A IA atingiu o limite de solicitações. Tente novamente mais tarde.',429);
+ }
+ if(status===413||codigo==='request_too_large')return bad('Arquivo ou solicitação grande demais para a IA. Envie uma imagem menor ou divida o laudo.',413);
+ if(status===400||status===422){
+  if(/image|unsupported_image|invalid_image|file.*format|file_type/.test(codigo+' '+mensagem))
+   return bad('A IA rejeitou a imagem ou seu formato. Envie uma foto nítida em JPG/PNG ou o PDF original.',422);
+  if(/context_length|token|too_large|maximum.*size/.test(codigo+' '+mensagem))
+   return bad('O laudo é grande demais para uma interpretação. Envie menos páginas de cada vez.',422);
+  if(/model|vision|unsupported.*content|not.support/.test(codigo+' '+mensagem))
+   return bad('O modelo configurado não aceita esse arquivo. Confira AVN_EXAMES_IA_MODEL no Render.',503);
+  return bad('A IA recusou a interpretação (erro '+status+'). Confira o arquivo e as configurações.',502);
+ }
+ if(status>=500)return bad('O serviço de IA está indisponível (erro '+status+'). Tente novamente.',502);
+ return bad('Não foi possível interpretar o laudo (erro '+status+').',502);
+}
 router.post('/interpretar', (req,res,next)=>upload.single('arquivo')(req,res,err=>{
  if(err)return res.status(err.code==='LIMIT_FILE_SIZE'?413:400).json({erro:err.code==='LIMIT_FILE_SIZE'?'Arquivo maior que 8 MB.':'Não foi possível receber o anexo.'});
  next();
@@ -255,11 +279,17 @@ router.post('/interpretar', (req,res,next)=>upload.single('arquivo')(req,res,err
   signal:AbortSignal.timeout(65000),
   body:JSON.stringify({model:process.env.AVN_EXAMES_IA_MODEL||'gpt-4.1-mini',store:false,
    input:[{role:'user',content}],text:{format:{type:'json_object'}},max_output_tokens:12000})
- }).catch(()=>{throw bad('O serviço de IA não respondeu.',502);});
- if(!response.ok)throw bad(response.status===429?'Limite da API de IA atingido.':'Não foi possível interpretar o laudo com IA.',502);
- const raw=await response.json();
+ }).catch(e=>{throw bad(e?.name==='TimeoutError'?'A interpretação ultrapassou 65 segundos. Envie uma imagem menor ou menos páginas.':'Não houve comunicação com a IA. Confira a conexão do servidor e tente novamente.',502);});
+ const raw=await response.json().catch(()=>null);
+ if(!response.ok){
+  const erro=raw?.error||{};
+  console.error('[AVN Exames IA] Solicitação recusada',{httpStatus:response.status,codigo:erro.code||null,tipo:erro.type||null,requestId:response.headers.get('x-request-id')||null});
+  throw erroInterpretacaoIA(response.status,erro);
+ }
+ if(!raw||raw.status==='failed')throw bad('A IA falhou ao processar o exame. Tente com uma foto nítida ou PDF original.',502);
+ if(raw.status==='incomplete')throw bad('A IA interrompeu a leitura antes de concluir. Envie uma página por vez.',502);
  const output=(raw.output||[]).flatMap(x=>x.type==='message'?(x.content||[]).filter(p=>p.type==='output_text').map(p=>p.text):[]).join('');
- let parsed;try{parsed=JSON.parse(output);}catch{throw bad('A IA retornou um formato inválido. Tente novamente.',502);}
+ let parsed;try{parsed=JSON.parse(output);}catch{throw bad('A IA retornou um resultado incompleto ou inválido. Tente com uma imagem mais nítida ou menos páginas.',502);}
  if(!Array.isArray(parsed.exames)||parsed.exames.length>100)throw bad('A IA não retornou uma lista válida de exames.',502);
  const out=parsed.exames.map(x=>{
   if(!x||typeof x!=='object')return null;
