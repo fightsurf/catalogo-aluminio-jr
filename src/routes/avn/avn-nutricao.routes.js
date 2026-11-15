@@ -770,8 +770,8 @@ router.post('/diario/:usuarioId/repetir-refeicao',wrap(async(req,res)=>{
   if(modo==='substituir')await db.query('DELETE FROM public.avn_diario_alimentar WHERE usuario_id=$1 AND data_consumo=$2 AND refeicao=$3',[uid,destino,refeicaoDestino]);
   let inseridos=0;
   for(const item of origemItens.rows){
-   await db.query(`INSERT INTO public.avn_diario_alimentar(usuario_id,data_consumo,refeicao,alimento_id,alimento_nome,quantidade_g,composicao_100g,plano_item_id)
-   VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,NULL)`,[uid,destino,refeicaoDestino,item.alimento_id,item.alimento_nome,item.quantidade_g,JSON.stringify(item.composicao_100g)]);
+   await db.query(`INSERT INTO public.avn_diario_alimentar(usuario_id,data_consumo,refeicao,alimento_id,alimento_nome,quantidade_g,composicao_100g,plano_item_id,receita_versao_id)
+   VALUES($1,$2,$3,$4,$5,$6,$7::jsonb,NULL,$8)`,[uid,destino,refeicaoDestino,item.alimento_id,item.alimento_nome,item.quantidade_g,JSON.stringify(item.composicao_100g),item.receita_versao_id]);
    inseridos++;
   }
   await db.query('COMMIT');res.json({ok:true,inseridos});
