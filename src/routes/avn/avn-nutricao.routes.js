@@ -403,11 +403,65 @@ router.delete('/dieta/:usuarioId/perfis/:perfilId',wrap(async(req,res)=>{
 
 router.get('/dieta/:usuarioId',wrap(async(req,res)=>{
  const uid=requiredId(req.params.usuarioId);await user(uid);const plan=await activePlan(uid);
- if(!plan)return res.json({plano:null,itens:[],perfis:[]});
+ if(!plan)return res.json({plano:null,itens:[],perfis:[],medicamentos:[]});
  const r=await pool.query(`SELECT i.*,a.nome AS alimento_nome,a.kcal_100g,a.proteinas_g_100g,a.carboidratos_g_100g,a.gorduras_g_100g,a.fibras_g_100g,a.micronutrientes_100g
  FROM public.avn_dieta_itens i JOIN public.avn_alimentos a ON a.id=i.alimento_id JOIN public.avn_dieta_refeicao_perfis pf ON pf.id=i.perfil_id AND pf.ativo WHERE i.plano_id=$1 AND i.dia_semana=(SELECT MIN(dia_semana) FROM public.avn_dieta_itens WHERE plano_id=$1) ORDER BY ordem,i.id`,[plan.id]);
  const perfis=await pool.query('SELECT id,refeicao,nome,ativo,recuperado FROM public.avn_dieta_refeicao_perfis WHERE plano_id=$1 ORDER BY refeicao,id',[plan.id]);
- res.json({plano:plan,itens:r.rows,perfis:perfis.rows});
+ const medicamentos=await pool.query(`SELECT m.id,m.medicamento_id,m.refeicao,m.dose_texto,m.horario,
+  a.nome AS medicamento_nome,a.marca AS laboratorio,a.preparo AS apresentacao
+  FROM public.avn_dieta_medicamentos m
+  JOIN public.avn_alimentos a ON a.id=m.medicamento_id
+  WHERE m.plano_id=$1 ORDER BY m.refeicao,m.id`,[plan.id]);
+ res.set('Cache-Control','no-store').json({plano:plan,itens:r.rows,perfis:perfis.rows,medicamentos:medicamentos.rows});
+}));
+// Medicamentos planejados não são pesados em gramas nem entram nos totais nutricionais.
+function campoMedicamento(valor,maximo,nome){
+ if(valor!=null&&typeof valor!=='string')throw bad(nome+' inválido.');
+ const texto=String(valor||'').trim();
+ if(texto.length>maximo)throw bad(nome+' deve ter até '+maximo+' caracteres.');
+ return texto||null;
+}
+async function validarMedicamento(id,uid,db=pool){
+ const mid=requiredId(id);
+ const r=await db.query("SELECT id FROM public.avn_alimentos WHERE id=$1 AND ativo AND tipo='medicamento' AND (usuario_id IS NULL OR usuario_id=$2)",[mid,uid]);
+ if(!r.rowCount)throw bad('Medicamento não cadastrado para este usuário.',404);
+ return mid;
+}
+router.post('/dieta/:usuarioId/medicamentos',wrap(async(req,res)=>{
+ const uid=requiredId(req.params.usuarioId);await user(uid);
+ const refeicao=meal(req.body?.refeicao),medicamentoId=await validarMedicamento(req.body?.medicamento_id,uid);
+ const dose=campoMedicamento(req.body?.dose_texto,120,'Dose/apresentação');
+ const horario=campoMedicamento(req.body?.horario,60,'Horário');
+ const db=await pool.connect();
+ try{
+  await db.query('BEGIN');
+  const plano=await lockPlan(db,uid);
+  const r=await db.query(`INSERT INTO public.avn_dieta_medicamentos(plano_id,medicamento_id,refeicao,dose_texto,horario)
+   VALUES($1,$2,$3,$4,$5) RETURNING *`,[plano.id,medicamentoId,refeicao,dose,horario]);
+  await db.query('COMMIT');res.status(201).json(r.rows[0]);
+ }catch(e){await db.query('ROLLBACK').catch(()=>{});throw e;}finally{db.release();}
+}));
+router.put('/dieta/:usuarioId/medicamentos/:itemId',wrap(async(req,res)=>{
+ const uid=requiredId(req.params.usuarioId),itemId=requiredId(req.params.itemId);await user(uid);
+ const refeicao=meal(req.body?.refeicao),medicamentoId=await validarMedicamento(req.body?.medicamento_id,uid);
+ const dose=campoMedicamento(req.body?.dose_texto,120,'Dose/apresentação');
+ const horario=campoMedicamento(req.body?.horario,60,'Horário');
+ const r=await pool.query(`UPDATE public.avn_dieta_medicamentos m
+ SET medicamento_id=$3,refeicao=$4,dose_texto=$5,horario=$6
+ FROM public.avn_dieta_planos p
+ WHERE m.id=$1 AND m.plano_id=p.id AND p.usuario_id=$2 AND p.ativo
+ RETURNING m.id`,[itemId,uid,medicamentoId,refeicao,dose,horario]);
+ if(!r.rowCount)throw bad('Medicamento não encontrado nesta dieta.',404);
+ res.json({ok:true});
+}));
+router.delete('/dieta/:usuarioId/medicamentos/:itemId',wrap(async(req,res)=>{
+ const uid=requiredId(req.params.usuarioId),itemId=requiredId(req.params.itemId);await user(uid);
+ const r=await pool.query(`DELETE FROM public.avn_dieta_medicamentos m
+ USING public.avn_dieta_planos p
+ WHERE m.id=$1 AND m.plano_id=p.id AND p.usuario_id=$2 AND p.ativo
+ RETURNING m.id`,[itemId,uid]);
+ if(!r.rowCount)throw bad('Medicamento não encontrado nesta dieta.',404);
+ res.json({ok:true});
 }));
 router.post('/dieta/:usuarioId/itens',wrap(async(req,res)=>{
  const uid=requiredId(req.params.usuarioId);await user(uid);
