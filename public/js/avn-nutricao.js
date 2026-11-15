@@ -1058,7 +1058,7 @@ function abrirAnaliseNutricionalDieta(){
  tabAnaliseDieta('macros');$('modalAnaliseDieta').showModal();
 }
 async function imprimirRelatorioDieta(){
- if(!state.dieta.length){show('Adicione alimentos à dieta antes de gerar o relatório.',true);return;}
+ if(!state.dieta.length&&!state.medicamentosDieta.length){show('Adicione alimentos ou medicamentos à dieta antes de gerar o relatório.',true);return;}
  // Abra a janela durante o clique: aguardar a API antes de abrir seria bloqueado como pop-up.
  const janela=window.open('','_blank');
  if(!janela){show('Permita pop-ups para abrir a impressão do relatório.',true);return;}
@@ -1069,6 +1069,7 @@ async function imprimirRelatorioDieta(){
  try{
   const usuarioId=state.usuarioId;
   const dieta=state.dieta.slice();
+  const medicamentos=state.medicamentosDieta.slice();
   const metas={...state.metas};
   const a=aggregate(dieta);
   // Os alimentos do tipo receita são identificados pelo alimento_id registrado no plano.
@@ -1096,7 +1097,7 @@ async function imprimirRelatorioDieta(){
   const cores={kcal:'energia',proteinas_g:'proteinas',carboidratos_g:'carboidratos',gorduras_g:'gorduras'};
   const card=(key,label,unit,tipo)=>{
    const goal=metas[key],valida=goal!==null&&goal!==undefined&&goal!==''&&Number.isFinite(Number(goal));
-   const semDado=a.miss[key]===dieta.length;
+   const semDado=dieta.length>0&&a.miss[key]===dieta.length;
    const parcial=a.miss[key]>0&&!semDado;
    const casas=key==='kcal'?0:1;
    const valor=tipo==='meta'?(valida?fmt(Number(goal),casas)+' '+unit:statusDasMetas()):
@@ -1120,8 +1121,13 @@ async function imprimirRelatorioDieta(){
    tabela(coluna,itens)+'</section>';
   const refeicoes=Object.entries(MEALS).map(([key,nome])=>{
    const itens=dieta.filter(i=>i.refeicao===key);
-   if(!itens.length&&!state.perfis.some(p=>p.refeicao===key))return '';
-   return painel(nome,'Alimento',itens.map(i=>({nome:i.alimento_nome||'Alimento',quantidade_g:i.quantidade_g})),'painel-refeicao');
+   const meds=medicamentos.filter(m=>m.refeicao===key);
+   if(!itens.length&&!meds.length&&!state.perfis.some(p=>p.refeicao===key))return '';
+   const medicamentosHtml=meds.length?'<table><thead><tr><th>Medicamento</th><th>Planejado</th></tr></thead><tbody>'+
+     meds.map(m=>'<tr><td>💊 '+esc(m.medicamento_nome)+(m.apresentacao?' · '+esc(m.apresentacao):'')+'</td><td>'+esc([m.dose_texto,m.horario].filter(Boolean).join(' · ')||'Sem dose/horário informado')+'</td></tr>').join('')+'</tbody></table>':'';
+   return '<section class="painel painel-refeicao"><h3>'+esc(nome)+'</h3>'+
+     tabela('Alimento',itens.map(i=>({nome:i.alimento_nome||'Alimento',quantidade_g:i.quantidade_g})))+
+     medicamentosHtml+'</section>';
   }).join('');
   const receitas=detalhes.length?'<div class="secao-receitas"><h2>Receitas</h2>'+
    detalhes.map(r=>painel(r.nome||'Receita','Ingrediente',
@@ -1144,7 +1150,7 @@ async function imprimirRelatorioDieta(){
    '</style></head><body><div class="no-print">Para baixar o relatório em PDF, selecione <strong>Salvar como PDF</strong> na janela de impressão.</div>'+
    '<header class="cabecalho"><h1>Dieta programada · AVN</h1><p>Dieta padrão válida para todos os dias · '+esc(usuario)+'</p><p>Gerado em '+esc(new Date().toLocaleString('pt-BR'))+'</p></header>'+
    resumo+'<div class="refeicoes">'+refeicoes+'</div>'+receitas+
-   '<p class="aviso">Quantidades programadas, não consumo confirmado. Os valores nutricionais são estimados pelos alimentos cadastrados.</p></body></html>';
+   '<p class="aviso">Quantidades e medicamentos programados, não consumo ou administração confirmados. Os valores nutricionais são estimados somente pelos alimentos cadastrados.</p></body></html>';
   janela.document.open();janela.document.write(pagina);janela.document.close();janela.focus();
   janela.setTimeout(()=>{if(!janela.closed)janela.print();},350);
  }catch(error){
@@ -1455,13 +1461,42 @@ function events(){
  });
  window.addEventListener('resize',()=>{if($('modalRankingDieta').open)posicionarRankingDieta();});
  $('abrirModalDieta').onclick=()=>$('modalAdicionarDieta').showModal();
-  $('listaDieta').addEventListener('click',e=>{
+ $('abrirModalMedicamentoDieta').onclick=()=>abrirModalMedicamentoDieta();
+ $('fecharModalMedicamentoDieta').onclick=()=>$('modalMedicamentoDieta').close();
+ $('formMedicamentoDieta').onsubmit=async e=>{
+  e.preventDefault();
+  try{
+   userGuard();
+   const id=v('dietaMedicamentoItemId');
+   const dados={medicamento_id:v('dietaMedicamento'),refeicao:v('dietaMedicamentoRefeicao'),
+    dose_texto:v('dietaMedicamentoDose'),horario:v('dietaMedicamentoHorario')};
+   const botao=$('salvarMedicamentoDieta');botao.disabled=true;
+   try{
+    await send('/dieta/'+state.usuarioId+'/medicamentos'+(id?'/'+encodeURIComponent(id):''),id?'PUT':'POST',dados);
+    $('modalMedicamentoDieta').close();
+    await loadDiet();show('Medicamento salvo na dieta programada.');
+   }finally{botao.disabled=false;}
+  }catch(err){show(err.message,true);}
+ };
+  $('listaDieta').addEventListener('click',async e=>{
    const peso=e.target.closest('[data-ajustar-peso-dieta]');
    if(peso){e.preventDefault();ajustarPesoDieta(peso);return;}
    const mover=e.target.closest('[data-mover-dieta]');
    if(mover){e.preventDefault();moverAlimentoDieta(mover);return;}
    const botao=e.target.closest('[data-adicionar-refeicao]');
-   if(botao){e.preventDefault();abrirModalAdicionarNaRefeicao(botao.dataset.adicionarRefeicao);}
+   if(botao){e.preventDefault();abrirModalAdicionarNaRefeicao(botao.dataset.adicionarRefeicao);return;}
+   const novoMedicamento=e.target.closest('[data-adicionar-medicamento-refeicao]');
+   if(novoMedicamento){e.preventDefault();abrirModalMedicamentoDieta(novoMedicamento.dataset.adicionarMedicamentoRefeicao);return;}
+   const editarMedicamento=e.target.closest('[data-editar-medicamento]');
+   if(editarMedicamento){e.preventDefault();const item=state.medicamentosDieta.find(m=>String(m.id)===editarMedicamento.dataset.editarMedicamento);if(item)abrirModalMedicamentoDieta(item.refeicao,item);return;}
+   const excluirMedicamento=e.target.closest('[data-excluir-medicamento]');
+   if(excluirMedicamento){
+    e.preventDefault();if(!confirm('Excluir este medicamento da dieta programada? O cadastro do medicamento será preservado.'))return;
+    try{
+     await send('/dieta/'+state.usuarioId+'/medicamentos/'+encodeURIComponent(excluirMedicamento.dataset.excluirMedicamento),'DELETE');
+     await loadDiet();show('Medicamento removido da dieta programada.');
+    }catch(err){show(err.message,true);}
+   }
   });
   $('fecharModalAdicionarRefeicaoDieta').onclick=()=>$('modalAdicionarRefeicaoDieta').close();
   $('modalAdicionarRefeicaoDieta').addEventListener('close',devolverFormularioDieta);
