@@ -387,7 +387,7 @@ function abrirEdicaoDieta(item){
  const row=[...$('listaDieta').querySelectorAll('[data-dieta-item]')].find(el=>el.dataset.dietaItem===String(item.id));
  if(!row)return;
  const original=row.innerHTML;
- const foods=state.alimentos.map(f=>'<option value="'+esc(f.id)+'"'+(String(f.id)===String(item.alimento_id)?' selected':'')+'>'+esc(f.nome)+(f.preparo?' · '+esc(f.preparo):'')+'</option>').join('');
+ const foods=state.alimentos.filter(f=>f.tipo!=='medicamento').map(f=>'<option value="'+esc(f.id)+'"'+(String(f.id)===String(item.alimento_id)?' selected':'')+'>'+esc(f.nome)+(f.preparo?' · '+esc(f.preparo):'')+'</option>').join('');
  // Alimento previamente cadastrado pode ter sido desativado após a programação.
  const missing=!state.alimentos.some(f=>String(f.id)===String(item.alimento_id));
  const current=missing?'<option value="'+esc(item.alimento_id)+'" selected>'+esc(item.alimento_nome)+' (atual)</option>':'';
