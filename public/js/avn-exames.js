@@ -128,17 +128,32 @@ function drawSvg(svg,tag,attrs,content){
 }
 function chart(){
  const el=$('exGrafico'),details=$('exDetalheGrafico'),eid=$('exIndicador').value;
+ const aviso=$('exAvisoGrafico'),legenda=$('exLegendaGrafico');
+ const mostrarAvisos=mensagens=>{if(!aviso)return;aviso.hidden=!mensagens.length;aviso.innerHTML=mensagens.map(m=>'<p>'+esc(m)+'</p>').join('');};
  details.textContent='';mostrarMetas('exMetasGrafico',eid);
+ if(legenda)legenda.hidden=true;
+ mostrarAvisos([]);
  if(!eid){el.innerHTML='<p class="muted">Selecione um indicador para visualizar o histórico.</p>';return;}
- const all=S.resultados.filter(r=>String(r.exame_id)===eid&&r.valor!=null).sort((a,b)=>strDate(a.data_coleta).localeCompare(strDate(b.data_coleta))||Number(a.id)-Number(b.id));
- if(!all.length){el.innerHTML='<p class="muted">Este indicador ainda não tem resultados numéricos.</p>';return;}
- // Não sobrepor unidades ou métodos diferentes: incompatibilidades permanecem listadas no histórico.
+ const registros=S.resultados.filter(r=>String(r.exame_id)===eid);
+ const all=registros.filter(r=>r.valor!=null).sort((a,b)=>strDate(a.data_coleta).localeCompare(strDate(b.data_coleta))||Number(a.id)-Number(b.id));
+ if(!all.length){
+  el.innerHTML='<p class="muted">Este indicador ainda não tem resultados numéricos.</p>';
+  if(registros.length)mostrarAvisos(['Os resultados cadastrados para este indicador são textuais. Para desenhar a evolução, é necessário um resultado numérico explícito no laudo.']);
+  return;
+ }
+ // Apenas resultados com a mesma unidade e método podem formar uma linha comparável.
  const latest=all[all.length-1],unit=latest.unidade,method=norm(latest.metodo);
  const rows=all.filter(r=>r.unidade===unit&&norm(r.metodo)===method);
  const excluded=all.length-rows.length;
+ const referencias=rows.map(r=>{
+  const min=r.limite_inferior==null||r.limite_inferior===''?null:Number(r.limite_inferior);
+  const max=r.limite_superior==null||r.limite_superior===''?null:Number(r.limite_superior);
+  return {min:Number.isFinite(min)?min:null,max:Number.isFinite(max)?max:null};
+ });
+ const limites=referencias.flatMap(ref=>[ref.min,ref.max].filter(v=>v!=null));
  const w=760,h=300,l=65,t=28,right=18,b=48,plotW=w-l-right,plotH=h-t-b;
  const vals=rows.map(r=>Number(r.valor));
- let lo=Math.min(...vals),hi=Math.max(...vals);
+ let lo=Math.min(...vals,...limites),hi=Math.max(...vals,...limites);
  if(lo===hi){lo-=Math.max(1,Math.abs(lo)*0.1);hi+=Math.max(1,Math.abs(hi)*0.1);}
  else{const pad=(hi-lo)*0.12;lo-=pad;hi+=pad;}
  const times=rows.map(r=>Date.parse(strDate(r.data_coleta)+'T12:00:00Z'));
@@ -147,6 +162,22 @@ function chart(){
  const y=v=>t+plotH-(v-lo)/(hi-lo)*plotH;
  el.innerHTML='';
  const svg=drawSvg(el,'svg',{viewBox:'0 0 760 300',role:'img','aria-label':'Evolução histórica de '+exam(eid)?.nome});
+ // Pinta uma região por coleta; nunca reutiliza a faixa de um laudo como se valesse para todos.
+ let faixas=0,semLimites=[],inconsistentes=[];
+ for(let i=0;i<rows.length;i++){
+  const ref=referencias[i],data=strDate(rows[i].data_coleta).split('-').reverse().join('/');
+  if(ref.min==null&&ref.max==null){semLimites.push(data);continue;}
+  if(ref.min!=null&&ref.max!=null&&ref.min>ref.max){inconsistentes.push(data);continue;}
+  const x0=i===0?l:(x(times[i-1],i-1)+x(times[i],i))/2;
+  const x1=i===rows.length-1?w-right:(x(times[i],i)+x(times[i+1],i+1))/2;
+  const yTop=y(ref.max==null?hi:ref.max),yBottom=y(ref.min==null?lo:ref.min);
+  drawSvg(svg,'rect',{x:x0,y:yTop,width:Math.max(0,x1-x0),height:Math.max(0,yBottom-yTop),fill:'#2e9f74','fill-opacity':'.17'});
+  for(const limite of [ref.min,ref.max]){
+   if(limite!=null)drawSvg(svg,'line',{x1:x0,x2:x1,y1:y(limite),y2:y(limite),stroke:'#2e9f74','stroke-width':1.4,'stroke-opacity':'.75','stroke-dasharray':'5 4'});
+  }
+  faixas++;
+ }
+ if(legenda){legenda.hidden=!faixas;legenda.textContent='Faixa verde: intervalo de referência registrado em cada coleta. Faixas que mudam entre laudos aparecem em trechos diferentes; não representam meta terapêutica.';}
  for(let i=0;i<=4;i++){
   const yy=t+plotH*i/4,v=hi-(hi-lo)*i/4;
   drawSvg(svg,'line',{x1:l,x2:w-right,y1:yy,y2:yy,stroke:'currentColor','stroke-opacity':'.15'});
@@ -163,6 +194,22 @@ function chart(){
   const show=()=>{details.textContent='Coleta: '+strDate(r.data_coleta).split('-').reverse().join('/')+' | Resultado: '+fmt(r.valor)+' '+unit+' | Referência: '+reference(r)+' | Material: '+(r.material||'Não informado')+' | Método: '+(r.metodo||'Não informado')+' | Laboratório: '+(r.laboratorio||'Não informado');};
   circle.addEventListener('mouseenter',show);circle.addEventListener('focus',show);circle.addEventListener('click',show);
  }
+ const avisos=[];
+ if(excluded){
+  const descartados=all.filter(r=>!(r.unidade===unit&&norm(r.metodo)===method));
+  const itens=descartados.map(r=>{
+   const motivos=[];
+   if(r.unidade!==unit)motivos.push('unidade '+(r.unidade||'não informada')+' em vez de '+(unit||'não informada'));
+   if(norm(r.metodo)!==method)motivos.push('método '+(r.metodo||'não informado')+' em vez de '+(latest.metodo||'não informado'));
+   return strDate(r.data_coleta).split('-').reverse().join('/')+': '+motivos.join(' e ');
+  });
+  avisos.push(excluded+' resultado(s) não conectado(s) ao gráfico por diferenças na unidade ou no método: '+itens.join('; ')+'. Confira os laudos antes de editar: métodos distintos podem não ser comparáveis.');
+ }
+ const textuais=registros.filter(r=>r.valor==null&&r.valor_texto);
+ if(textuais.length)avisos.push(textuais.length+' resultado(s) textual(is) não aparecem na linha: '+textuais.map(r=>strDate(r.data_coleta).split('-').reverse().join('/')).join(', ')+'. Não converta valores como “menor que” em números exatos.');
+ if(semLimites.length)avisos.push('Não há limites numéricos de referência para as coletas de '+semLimites.join(', ')+'. Esses trechos ficam sem faixa colorida.');
+ if(inconsistentes.length)avisos.push('Limites de referência inconsistentes nas coletas de '+inconsistentes.join(', ')+'. Confira o mínimo e o máximo no laudo.');
+ mostrarAvisos(avisos);
  const ref=reference(latest);
  details.textContent='Referência do registro mais recente: '+ref+'. '+(excluded?'Há '+excluded+' resultado(s) com unidade ou método diferente, omitidos deste gráfico para evitar comparação inválida.':'');
 }
