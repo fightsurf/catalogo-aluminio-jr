@@ -124,3 +124,16 @@ body[data-nutricao-pagina="dieta"] .avn-micro-ref-note-link:hover{color:#ffe4bb}
  .avn-micro-edit-table th,.avn-micro-edit-table td{padding:7px}
  .avn-micro-edit-value input{width:110px}
 }
+
+/* Abas de fontes alimentares e exemplos do USDA. */
+.avn-micro-source-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:16px 0}
+.avn-micro-source-tabs button{
+ cursor:pointer;border:1px solid #5a7190;border-radius:9px;padding:10px 13px;
+ background:#21334b;color:#d8eafa;font-size:13px;font-weight:650
+}
+.avn-micro-source-tabs button.active,.avn-micro-source-tabs button[aria-selected="true"]{
+ background:#36638a;color:#fff;border-color:#7eb8e1
+}
+.avn-micro-source-tabs button:focus-visible{outline:2px solid #a3d9ff;outline-offset:2px}
+.avn-micro-food-line a{font-size:12px;color:#9ad7ff;white-space:nowrap}
+@media(max-width:560px){.avn-micro-source-tabs{display:grid;grid-template-columns:1fr}.avn-micro-food-line{flex-wrap:wrap}}
