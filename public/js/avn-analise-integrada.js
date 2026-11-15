@@ -106,6 +106,15 @@ function receitasDoUsuario(rows) {
  for(const r of porId.values())porAlimento.set(r.alimento_id,r);
  return porAlimento;
 }
+// A identidade histórica inclui nome e fotografia nutricional, não somente o ID atual.
+function assinaturaComposicao(comp) {
+ if(!comp||typeof comp!=='object')return 'sem composição';
+ const ordenar=obj=>Array.isArray(obj)?obj.map(ordenar):obj&&typeof obj==='object'?Object.fromEntries(Object.keys(obj).sort().map(k=>[k,ordenar(obj[k])])):obj;
+ return JSON.stringify(ordenar(comp));
+}
+function chaveHistorica(item) {
+ return JSON.stringify([item.alimento_id==null?null:String(item.alimento_id),String(item.alimento_nome||'Alimento sem nome'),assinaturaComposicao(item.composicao_100g)]);
+}
 function detalharReceita(receita,gramas,porAlimento,prefixo,visitados,linhas,profundidade) {
  if(!receita?.rendimento_g||receita.rendimento_g<=0){linhas.push(prefixo+'Composição da receita indisponível.');return;}
  if(profundidade>8||visitados.has(receita.id)){linhas.push(prefixo+'Receita aninhada não expandida (limite de profundidade/ciclo).');return;}
@@ -181,17 +190,25 @@ function montarRelatorio(info,balanco,erroBalanco) {
  }
  separar();
  add('3. ALIMENTOS CONSUMIDOS — DIA A DIA E ACUMULADO');
- const somaAlimentos=new Map();
+ const somaAlimentos=new Map(),variantesPorId=new Map(),variantesPorNome=new Map();
  for(const d of atual){
   const itens=diario.get(d)||[];
   add('Dia '+dBR(d)+':');
   if(!itens.length){add('  Nenhum alimento registrado.');continue;}
   const grupos=new Map();
   for(const i of itens){
-   const chave=(i.alimento_id!=null?'id:'+String(i.alimento_id):'nome:'+i.alimento_nome);
-   if(!grupos.has(chave))grupos.set(chave,{nome:i.alimento_nome,id:i.alimento_id==null?null:String(i.alimento_id),gramas:0,refeicoes:new Set()});
+   const chave=chaveHistorica(i),id=i.alimento_id==null?null:String(i.alimento_id);
+   const nome=String(i.alimento_nome||'Alimento sem nome');
+   const chaveNome=JSON.stringify([id,nome]);
+   if(id!==null){
+    if(!variantesPorId.has(id))variantesPorId.set(id,new Set());
+    variantesPorId.get(id).add(chave);
+   }
+   if(!variantesPorNome.has(chaveNome))variantesPorNome.set(chaveNome,[]);
+   if(!variantesPorNome.get(chaveNome).includes(chave))variantesPorNome.get(chaveNome).push(chave);
+   if(!grupos.has(chave))grupos.set(chave,{nome,id,gramas:0,refeicoes:new Set()});
    const g=grupos.get(chave);g.gramas+=Number(i.quantidade_g)||0;g.refeicoes.add(i.refeicao||'não informada');
-   if(!somaAlimentos.has(chave))somaAlimentos.set(chave,{nome:i.alimento_nome,id:g.id,gramas:0,dias:new Map()});
+   if(!somaAlimentos.has(chave))somaAlimentos.set(chave,{chave,nome,id,gramas:0,dias:new Map()});
    const all=somaAlimentos.get(chave);all.gramas+=Number(i.quantidade_g)||0;
    all.dias.set(d,(all.dias.get(d)||0)+(Number(i.quantidade_g)||0));
   }
@@ -199,15 +216,19 @@ function montarRelatorio(info,balanco,erroBalanco) {
  }
  add('','ACUMULADO DOS 30 DIAS POR ALIMENTO (com distribuição diária):');
  for(const f of [...somaAlimentos.values()].sort((a,b)=>b.gramas-a.gramas||a.nome.localeCompare(b.nome,'pt-BR'))){
-  add('- '+f.nome+': '+fmt(f.gramas,1)+' g ('+fmt(f.gramas/1000,3)+' kg); dias: '+[...f.dias].map(([d,g])=>dBR(d)+' '+fmt(g,1)+' g').join('; '));
+  const variantesNome=variantesPorNome.get(JSON.stringify([f.id,f.nome]))||[];
+  const rotulo=f.nome+(variantesNome.length>1?' [composição registrada '+(variantesNome.indexOf(f.chave)+1)+'/'+variantesNome.length+']':'');
+  add('- '+rotulo+': '+fmt(f.gramas,1)+' g ('+fmt(f.gramas/1000,3)+' kg); dias: '+[...f.dias].map(([d,g])=>dBR(d)+' '+fmt(g,1)+' g').join('; '));
   const rec=receitas.get(f.id);
-  if(rec){
-   add('  Ingredientes proporcionais à porção total consumida (receita atualmente cadastrada; rendimento '+fmt(rec.rendimento_g)+' g):');
+  if(rec&&((variantesPorId.get(f.id)?.size||0)>1||rec.nome!==f.nome)){
+   add('  Ingredientes históricos indisponíveis para esta versão. A receita atual NÃO foi aplicada aos registros antigos.');
+  }else if(rec){
+   add('  Ingredientes da receita atualmente cadastrada (somente referência; não comprova a fórmula histórica; rendimento '+fmt(rec.rendimento_g)+' g):');
    detalharReceita(rec,f.gramas,receitas,'  ',new Set(),L,0);
   }
  }
  if(!somaAlimentos.size)add('Nenhum alimento registrado.');
- add('NOTA: nutrientes das receitas já integram a composição dos alimentos no Diário. NÃO somar novamente os nutrientes dos ingredientes. Ingredientes são detalhamento qualitativo/quantitativo, conforme a receita atual e seu rendimento.');
+ add('NOTA: nutrientes das receitas já integram os registros históricos no Diário e NÃO devem ser somados novamente. Registros com mesmo ID, mas nome ou fotografia nutricional diferente, são separados. Ingredientes históricos sem versão salva não podem ser reconstruídos a partir da receita atual.');
  separar();
  add('4. MICRONUTRIENTES — MÉDIAS, COBERTURA E EVOLUÇÃO');
  add('Médias calculadas somente com dias em que TODOS os alimentos possuem valor do micronutriente. Dias incompletos NÃO equivalem a consumo zero.');
@@ -347,7 +368,7 @@ function montarRelatorio(info,balanco,erroBalanco) {
  add('Diário: '+cobertura(atual)+'/30 dias; sono: '+atual.filter(d=>sonoDia.has(d)).length+'/30 noites com registros; água: '+atual.filter(d=>agua.has(d)).length+'/30 dias; treinos: '+atual.filter(d=>treinoDia.has(d)).length+'/30 dias com sessão.');
  add('Balanço energético: '+atualSaldo.dias+'/'+atualEncerrado.length+' dias encerrados com saldo calculável; medições físicas: '+atual.filter(d=>medicoes.has(d)).length+'/30 dias com ao menos uma medição.');
  add('Não é possível saber se um dia sem Diário corresponde a jejum ou falha de lançamento. Dias sem treino registrado não comprovam repouso.');
- add('Receitas aninhadas exibem ingredientes proporcionais ao rendimento cadastrado, mas mudanças históricas na fórmula podem não ser recuperáveis.');
+ add('Receitas com mudanças históricas de nome ou composição são separadas. Ingredientes da fórmula antiga podem não estar disponíveis; a receita atual nunca deve substituir a composição histórica do Diário.');
  for(const aviso of info.avisos||[])add('- '+aviso);
  separar();
  add('FIM DOS DADOS DO RELATÓRIO');
