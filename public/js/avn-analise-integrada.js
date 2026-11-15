@@ -113,7 +113,7 @@ function assinaturaComposicao(comp) {
  return JSON.stringify(ordenar(comp));
 }
 function chaveHistorica(item) {
- return JSON.stringify([item.alimento_id==null?null:String(item.alimento_id),String(item.alimento_nome||'Alimento sem nome'),assinaturaComposicao(item.composicao_100g)]);
+ return JSON.stringify([item.alimento_id==null?null:String(item.alimento_id),String(item.alimento_nome||'Alimento sem nome'),assinaturaComposicao(item.composicao_100g),item.receita_versao_id==null?null:String(item.receita_versao_id)]);
 }
 function detalharReceita(receita,gramas,porAlimento,prefixo,visitados,linhas,profundidade) {
  if(!receita?.rendimento_g||receita.rendimento_g<=0){linhas.push(prefixo+'Composição da receita indisponível.');return;}
@@ -150,6 +150,7 @@ function montarRelatorio(info,balanco,erroBalanco) {
  const bal=dadosBalanco(balanco);
  const meta=info.metas_atuais||{};
  const receitas=receitasDoUsuario(info.receitas);
+ const versoes=new Map((info.versoes||[]).map(v=>[String(v.id),v]));
  const L=[];
  const add=(...v)=>L.push(...v);
  const separar=()=>add('','='.repeat(78),'');
@@ -208,7 +209,7 @@ function montarRelatorio(info,balanco,erroBalanco) {
    if(!variantesPorNome.get(chaveNome).includes(chave))variantesPorNome.get(chaveNome).push(chave);
    if(!grupos.has(chave))grupos.set(chave,{nome,id,gramas:0,refeicoes:new Set()});
    const g=grupos.get(chave);g.gramas+=Number(i.quantidade_g)||0;g.refeicoes.add(i.refeicao||'não informada');
-   if(!somaAlimentos.has(chave))somaAlimentos.set(chave,{chave,nome,id,gramas:0,dias:new Map()});
+   if(!somaAlimentos.has(chave))somaAlimentos.set(chave,{chave,nome,id,versaoId:i.receita_versao_id==null?null:String(i.receita_versao_id),gramas:0,dias:new Map()});
    const all=somaAlimentos.get(chave);all.gramas+=Number(i.quantidade_g)||0;
    all.dias.set(d,(all.dias.get(d)||0)+(Number(i.quantidade_g)||0));
   }
@@ -220,7 +221,13 @@ function montarRelatorio(info,balanco,erroBalanco) {
   const rotulo=f.nome+(variantesNome.length>1?' [composição registrada '+(variantesNome.indexOf(f.chave)+1)+'/'+variantesNome.length+']':'');
   add('- '+rotulo+': '+fmt(f.gramas,1)+' g ('+fmt(f.gramas/1000,3)+' kg); dias: '+[...f.dias].map(([d,g])=>dBR(d)+' '+fmt(g,1)+' g').join('; '));
   const rec=receitas.get(f.id);
-  if(rec&&((variantesPorId.get(f.id)?.size||0)>1||rec.nome!==f.nome)){
+  const versao=f.versaoId?versoes.get(f.versaoId):null;
+  if(versao&&numero(versao.rendimento_g)>0){
+   add('  Receita versão '+versao.numero+'; ingredientes históricos proporcionais ao total consumido (rendimento '+fmt(versao.rendimento_g)+' g):');
+   for(const i of versao.ingredientes||[])add('  - '+i.nome_snapshot+': '+fmt(numero(i.quantidade_g)*f.gramas/numero(versao.rendimento_g),1)+' g');
+  }else if(f.versaoId){
+   add('  Versão indicada pelo Diário não encontrada. Ingredientes históricos indisponíveis; não usar os atuais.');
+  }else if(rec&&((variantesPorId.get(f.id)?.size||0)>1||rec.nome!==f.nome)){
    add('  Ingredientes históricos indisponíveis para esta versão. A receita atual NÃO foi aplicada aos registros antigos.');
   }else if(rec){
    add('  Ingredientes da receita atualmente cadastrada (somente referência; não comprova a fórmula histórica; rendimento '+fmt(rec.rendimento_g)+' g):');
@@ -228,7 +235,7 @@ function montarRelatorio(info,balanco,erroBalanco) {
   }
  }
  if(!somaAlimentos.size)add('Nenhum alimento registrado.');
- add('NOTA: nutrientes das receitas já integram os registros históricos no Diário e NÃO devem ser somados novamente. Registros com mesmo ID, mas nome ou fotografia nutricional diferente, são separados. Ingredientes históricos sem versão salva não podem ser reconstruídos a partir da receita atual.');
+ add('NOTA: nutrientes das receitas já integram os registros históricos no Diário e NÃO devem ser somados novamente. Registros com mesmo ID, mas nome, fotografia nutricional ou ID de versão diferente, são separados. Versões registradas permitem detalhar ingredientes históricos; lançamentos sem versão não podem ser reconstruídos a partir da receita atual.');
  separar();
  add('4. MICRONUTRIENTES — MÉDIAS, COBERTURA E EVOLUÇÃO');
  add('Médias calculadas somente com dias em que TODOS os alimentos possuem valor do micronutriente. Dias incompletos NÃO equivalem a consumo zero.');
@@ -368,7 +375,7 @@ function montarRelatorio(info,balanco,erroBalanco) {
  add('Diário: '+cobertura(atual)+'/30 dias; sono: '+atual.filter(d=>sonoDia.has(d)).length+'/30 noites com registros; água: '+atual.filter(d=>agua.has(d)).length+'/30 dias; treinos: '+atual.filter(d=>treinoDia.has(d)).length+'/30 dias com sessão.');
  add('Balanço energético: '+atualSaldo.dias+'/'+atualEncerrado.length+' dias encerrados com saldo calculável; medições físicas: '+atual.filter(d=>medicoes.has(d)).length+'/30 dias com ao menos uma medição.');
  add('Não é possível saber se um dia sem Diário corresponde a jejum ou falha de lançamento. Dias sem treino registrado não comprovam repouso.');
- add('Receitas com mudanças históricas de nome ou composição são separadas. Ingredientes da fórmula antiga podem não estar disponíveis; a receita atual nunca deve substituir a composição histórica do Diário.');
+ add('Versões vinculadas ao Diário preservam ingredientes históricos. Versões anteriores à implantação não são inferidas; sem vínculo, a composição antiga pode estar indisponível.');
  for(const aviso of info.avisos||[])add('- '+aviso);
  separar();
  add('FIM DOS DADOS DO RELATÓRIO');
