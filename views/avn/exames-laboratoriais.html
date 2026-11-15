@@ -2,7 +2,7 @@
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>AVN — Exames Laboratoriais</title>
 <link rel="stylesheet" href="/css/avn-nutricao.css"><link rel="stylesheet" href="/css/avn-exames.css">
-<script src="/js/avn-exames.js?v=20261105avaliacao" defer></script></head>
+<script src="/js/avn-exames.js?v=20261115faixas" defer></script></head>
 <body><main class="avn-wrap avn-exames">
 <header class="avn-top"><a href="/avn">← Central AVN</a><span class="avn-brand">AVN <em>Saúde</em></span></header>
 <section class="avn-hero"><div><span class="avn-caption">SAÚDE · AVN</span><h1>Exames Laboratoriais</h1><p>Histórico de resultados, referências do laudo e evolução de cada indicador.</p></div>
@@ -41,6 +41,8 @@
 <label class="avn-field">Indicador para evolução<select id="exIndicador"><option value="">Selecione um indicador</option></select></label>
 </div><p class="muted">Cada resultado conserva a unidade e os valores de referência originais. Comparações usam apenas registros da mesma unidade e método.</p>
 <div class="avn-ex-chart" id="exGrafico" role="img" aria-label="Gráfico histórico do indicador selecionado"><p class="muted">Selecione um indicador para visualizar o histórico.</p></div>
+<div id="exLegendaGrafico" class="avn-ex-graph-legend" hidden></div>
+<div id="exAvisoGrafico" class="avn-ex-graph-warning" role="status" aria-live="polite" hidden></div>
 <div id="exDetalheGrafico" class="muted" aria-live="polite"></div>
 <section id="exMetasGrafico" class="avn-ex-metas" aria-live="polite" hidden></section></section>
 <section class="card"><div class="avn-row space"><h3>Resultados registrados</h3><span id="exContagem" class="muted"></span></div>
