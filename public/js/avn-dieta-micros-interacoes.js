@@ -19,6 +19,31 @@ const foodMicros=food=>{
 };
 const hasAmount=(v)=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v))&&Number(v)>=0;
 let catalogue=[],activeKey='',view='',editingId='',locked=false,sessionId='';
+let sourcesTab='externos';
+const externalExamples=new Map();
+async function loadExternalExamples(key){
+ if(externalExamples.has(key))return;
+ externalExamples.set(key,{loading:true});
+ try{
+  const response=await api('/nutrientes/fontes-exemplos/'+encodeURIComponent(key));
+  externalExamples.set(key,{data:response});
+ }catch(err){externalExamples.set(key,{error:err.message||'Consulta indisponível'});}
+ if(activeKey===key&&view==='sources'&&$('avnMicroFontesModal')?.open)renderDetails();
+}
+function externalList(n){
+ const record=externalExamples.get(activeKey);
+ if(!record||record.loading)return '<p class="muted" role="status">Consultando valores por 100 g na base USDA…</p>';
+ if(record.error)return '<p class="muted" role="alert">Consulta indisponível: '+escapeText(record.error)+'. Nenhum valor foi estimado.</p>';
+ const foods=Array.isArray(record.data?.alimentos)?record.data.alimentos.slice().sort((a,b)=>Number(b.valor_100g)-Number(a.valor_100g)):[];
+ const message=record.data?.aviso?'<p class="muted">'+escapeText(record.data.aviso)+'</p>':'';
+ if(!foods.length)return message+'<p class="muted">Nenhum exemplo com composição verificada disponível neste momento.</p>';
+ return message+'<div class="avn-micro-food-list">'+foods.map(f=>{
+  const url=/^https:\/\/fdc\.nal\.usda\.gov\/food-details\/\d+\/nutrients$/.test(f.fonte_url||'')?f.fonte_url:null;
+  return '<div class="avn-micro-food-line"><div><strong>'+escapeText(f.nome||f.descricao_original||'Alimento')+'</strong>'+
+   '<small>'+numberText(f.valor_100g,3)+' '+escapeText(f.unidade||n.unidade)+' por 100 g · '+escapeText(f.descricao_original||'USDA FoodData Central')+'</small></div>'+
+   (url?'<a href="'+escapeText(url)+'" target="_blank" rel="noopener noreferrer">Ver fonte</a>':'')+'</div>';
+ }).join('')+'</div><p class="muted">Dados informativos do USDA FoodData Central. Variedades e preparos diferentes podem ter outros valores; os exemplos não foram incluídos no seu catálogo AVN.</p>';
+}
 function ensureDialogs(){
  if(!$('avnMicroFontesModal')){
   document.body.insertAdjacentHTML('beforeend',
@@ -46,6 +71,13 @@ function ensureDialogs(){
   });
  };
  $('avnMicroFontesConteudo').addEventListener('click',event=>{
+  const tab=event.target.closest('button[data-fontes-tab]');
+  if(tab){
+   sourcesTab=tab.dataset.fontesTab==='avn'?'avn':'externos';
+   renderDetails();
+   if(sourcesTab==='externos')loadExternalExamples(activeKey);
+   return;
+  }
   const btn=event.target.closest('button[data-edit-food]');
   if(btn)openEditor(btn.dataset.editFood);
  });
@@ -58,9 +90,10 @@ function editable(food){
 function showDetails(key,mode){
  if(!$('modalAnaliseDieta')?.open)return;
  if(!nutrient(key))return;
- activeKey=key;view=mode;sessionId=String(state.usuarioId||'');
+ activeKey=key;view=mode;sourcesTab='externos';sessionId=String(state.usuarioId||'');
  renderDetails();
  if(!$('avnMicroFontesModal').open)$('avnMicroFontesModal').showModal();
+ if(mode==='sources')loadExternalExamples(key);
 }
 function renderDetails(){
  const target=$('avnMicroFontesConteudo'),n=nutrient(activeKey);
@@ -91,20 +124,18 @@ function renderDetails(){
  const registered=(Array.isArray(state.alimentos)?state.alimentos:[]).map(food=>({food,value:foodMicros(food)[activeKey]}))
   .filter(r=>hasAmount(r.value)&&Number(r.value)>0)
   .sort((a,b)=>Number(b.value)-Number(a.value));
- const examples=SOURCE_FOODS[activeKey]||[];
  const caution=WATCH.has(activeKey)?
-   '<p class="avn-micro-caution">Atenção: conhecer alimentos que contêm este componente não significa que seja desejável aumentar seu consumo. Considere limites e recomendações individuais.</p>':'';
- target.innerHTML='<p class="muted">Alimentos-fontes para consultar ao ajustar a dieta. A quantidade depende do alimento, marca e preparo.</p>'+
-  caution+
-  '<h4>Alimentos já cadastrados no AVN</h4>'+
-  (registered.length?'<div class="avn-micro-food-list">'+registered.slice(0,30).map(({food,value})=>
+   '<p class="avn-micro-caution">Atenção: conhecer fontes deste componente não significa que seja desejável aumentar seu consumo. Considere limites e recomendações individuais.</p>':'';
+ const tabs='<div class="avn-micro-source-tabs" role="tablist" aria-label="Categorias de fontes alimentares">'+
+  '<button type="button" role="tab" data-fontes-tab="externos" aria-selected="'+(sourcesTab==='externos')+'" class="'+(sourcesTab==='externos'?'active':'')+'">Outros exemplos de fontes alimentares</button>'+
+  '<button type="button" role="tab" data-fontes-tab="avn" aria-selected="'+(sourcesTab==='avn')+'" class="'+(sourcesTab==='avn'?'active':'')+'">Alimentos cadastrados no AVN</button></div>';
+ const ownHtml=registered.length?'<div class="avn-micro-food-list">'+registered.map(({food,value})=>
    '<div class="avn-micro-food-line"><div><strong>'+escapeText(food.nome)+'</strong><small>'+numberText(value,3)+' '+escapeText(n.unidade)+' por 100 g · '+escapeText(food.preparo||food.marca||'Cadastro AVN')+'</small></div>'+
    (editable(food)?'<button type="button" class="secondary" data-edit-food="'+escapeText(food.id)+'">Editar composição</button>':'')+'</div>'
-   ).join('')+'</div>':'<p class="muted">Nenhum alimento do catálogo possui valor positivo informado para este nutriente.</p>')+
-  '<h4>Outros exemplos de fontes alimentares</h4>'+
-  (examples.length?'<ul class="avn-micro-examples">'+examples.map(name=>'<li>'+escapeText(name)+'</li>').join('')+'</ul>':
-   '<p class="muted">Para este nutriente, consulte a composição em uma base de dados antes de escolher um alimento.</p>')+
-  '<p class="muted">Exemplos gerais, não são valores medidos no AVN. Verifique cada alimento na <a href="https://fdc.nal.usda.gov/" target="_blank" rel="noopener noreferrer">USDA FoodData Central</a> e nas <a href="https://ods.od.nih.gov/factsheets/list-all/" target="_blank" rel="noopener noreferrer">fichas do NIH</a>. A presença e o teor dependem da preparação.</p>';
+   ).join('')+'</div>':'<p class="muted">Nenhum alimento com valor positivo informado para este nutriente no catálogo carregado.</p>';
+ target.innerHTML='<p class="muted">Compare as fontes por 100 g, do maior para o menor teor registrado.</p>'+caution+tabs+
+  '<section role="tabpanel" aria-label="'+(sourcesTab==='externos'?'Outros exemplos de fontes alimentares':'Alimentos cadastrados no AVN')+'">'+
+  (sourcesTab==='externos'?externalList(n):ownHtml)+'</section>';
 }
 function openEditor(id){
  if(locked)return;
