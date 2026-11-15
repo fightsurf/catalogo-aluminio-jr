@@ -414,6 +414,51 @@ router.get('/dieta/:usuarioId',wrap(async(req,res)=>{
   WHERE m.plano_id=$1 ORDER BY m.refeicao,m.id`,[plan.id]);
  res.set('Cache-Control','no-store').json({plano:plan,itens:r.rows,perfis:perfis.rows,medicamentos:medicamentos.rows});
 }));
+// Sequência conjunta de alimentos e medicamentos, por perfil ativo da refeição.
+router.put('/dieta/:usuarioId/ordem-painel',wrap(async(req,res)=>{
+ const uid=requiredId(req.params.usuarioId);await user(uid);
+ const refeicao=meal(req.body?.refeicao),tipo=req.body?.tipo,itemId=requiredId(req.body?.item_id);
+ const direcao=req.body?.direcao;
+ if(!['alimento','medicamento'].includes(tipo))throw bad('Tipo de item inválido.');
+ if(direcao!=='cima'&&direcao!=='baixo')throw bad('Direção inválida.');
+ const db=await pool.connect();
+ try{
+  await db.query('BEGIN');
+  const plano=await activePlan(uid,db);
+  if(!plano)throw bad('Dieta não encontrada.',404);
+  await db.query('SELECT id FROM public.avn_dieta_planos WHERE id=$1 FOR UPDATE',[plano.id]);
+  const perfilId=await ensureMealProfile(db,plano.id,refeicao);
+  const alimentos=await db.query(`SELECT id FROM public.avn_dieta_itens
+   WHERE plano_id=$1 AND perfil_id=$2 AND refeicao=$3 ORDER BY ordem,id`,[plano.id,perfilId,refeicao]);
+  const medicamentos=await db.query(`SELECT id FROM public.avn_dieta_medicamentos
+   WHERE plano_id=$1 AND refeicao=$2 ORDER BY id`,[plano.id,refeicao]);
+  const padrao=[...alimentos.rows.map(i=>'a:'+i.id),...medicamentos.rows.map(i=>'m:'+i.id)];
+  const mapa=plano.painel_ordem&&typeof plano.painel_ordem==='object'&&!Array.isArray(plano.painel_ordem)
+   ?{...plano.painel_ordem}:{};
+  const salva=Array.isArray(mapa[String(perfilId)])?mapa[String(perfilId)]:[];
+  const valido=new Set(padrao),vistos=new Set();
+  const ordem=[...salva,...padrao].filter(chave=>{
+   if(typeof chave!=='string'||!valido.has(chave)||vistos.has(chave))return false;
+   vistos.add(chave);return true;
+  });
+  const chave=(tipo==='medicamento'?'m:':'a:')+itemId;
+  const pos=ordem.indexOf(chave);
+  if(pos<0)throw bad('Item não encontrado nesta refeição.',404);
+  const proximo=pos+(direcao==='cima'?-1:1);
+  if(proximo<0||proximo>=ordem.length)throw bad('O item já está no limite da refeição.',409);
+  [ordem[pos],ordem[proximo]]=[ordem[proximo],ordem[pos]];
+  mapa[String(perfilId)]=ordem;
+  await db.query('UPDATE public.avn_dieta_planos SET painel_ordem=$2::jsonb WHERE id=$1',[plano.id,JSON.stringify(mapa)]);
+  const ordenados=ordem.filter(k=>k.startsWith('a:')).map(k=>k.slice(2));
+  if(ordenados.length){
+   await db.query(`UPDATE public.avn_dieta_itens i SET ordem=t.pos::integer-1
+    FROM unnest($1::bigint[]) WITH ORDINALITY AS t(id,pos)
+    WHERE i.id=t.id AND i.plano_id=$2 AND i.perfil_id=$3`,[ordenados,plano.id,perfilId]);
+  }
+  await db.query('COMMIT');
+  res.json({ok:true,ordem});
+ }catch(e){await db.query('ROLLBACK').catch(()=>{});throw e;}finally{db.release();}
+}));
 // Medicamentos planejados não são pesados em gramas nem entram nos totais nutricionais.
 function campoMedicamento(valor,maximo,nome){
  if(valor!=null&&typeof valor!=='string')throw bad(nome+' inválido.');
@@ -436,6 +481,7 @@ router.post('/dieta/:usuarioId/medicamentos',wrap(async(req,res)=>{
  try{
   await db.query('BEGIN');
   const plano=await lockPlan(db,uid);
+  await ensureMealProfile(db,plano.id,refeicao);
   const r=await db.query(`INSERT INTO public.avn_dieta_medicamentos(plano_id,medicamento_id,refeicao,dose_texto,horario)
    VALUES($1,$2,$3,$4,$5) RETURNING *`,[plano.id,medicamentoId,refeicao,dose,horario]);
   await db.query('COMMIT');res.status(201).json(r.rows[0]);

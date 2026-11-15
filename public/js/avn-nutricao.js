@@ -12,7 +12,7 @@ const DAYS=['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
 const MACROS=[['kcal','Energia','kcal'],['proteinas_g','Proteínas','g'],['carboidratos_g','Carboidratos','g'],['gorduras_g','Gorduras','g'],['fibras_g','Fibras','g']];
 let MICRO=[]; // definição dinâmica via tabela avn_nutrientes
 let iaSelecionado=null;
-const state={usuarioId:'',alimentos:[],diario:[],dieta:[],medicamentosDieta:[],perfis:[],metas:{},metasStatus:'carregando',data:'',tab:'diario',dias:0,loading:false,origemImportacao:null};
+const state={usuarioId:'',alimentos:[],diario:[],dieta:[],medicamentosDieta:[],ordemPainel:{},perfis:[],metas:{},metasStatus:'carregando',data:'',tab:'diario',dias:0,loading:false,origemImportacao:null};
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fmt=(n,d=1)=>Number(n).toLocaleString('pt-BR',{maximumFractionDigits:d});
 const localDate=()=>{const d=new Date(),a=n=>String(n).padStart(2,'0');return `${d.getFullYear()}-${a(d.getMonth()+1)}-${a(d.getDate())}`;};
@@ -289,24 +289,46 @@ async function ajustarPesoDieta(botao){
   controles().forEach(b=>b.disabled=b.dataset.variacaoPeso==='-5'?gramas<=5:gramas+5>10000);
  }
 }
-let ordenandoAlimentoDieta=false;
-async function moverAlimentoDieta(botao){
- if(ordenandoAlimentoDieta)return;
+
+let ordenandoPainelDieta=false;
+async function moverItemPainelDieta(botao){
+ if(ordenandoPainelDieta)return;
  try{userGuard();}catch(e){show(e.message,true);return;}
- ordenandoAlimentoDieta=true;
- const botoes=[...$('listaDieta').querySelectorAll('[data-mover-dieta]')];
+ const tipo=botao.hasAttribute('data-mover-medicamento')?'medicamento':'alimento';
+ const itemId=tipo==='medicamento'?botao.dataset.moverMedicamento:botao.dataset.moverDieta;
+ const refeicao=botao.closest('[data-refeicao-painel]')?.dataset.refeicaoPainel;
+ if(!MEALS[refeicao]||!itemId)return;
+ ordenandoPainelDieta=true;
+ const seletor='[data-mover-dieta],[data-mover-medicamento]';
+ const botoes=[...$('listaDieta').querySelectorAll(seletor)];
  botoes.forEach(b=>b.disabled=true);
  try{
-  await send('/dieta/'+state.usuarioId+'/itens/'+botao.dataset.moverDieta+'/ordem','PUT',{direcao:botao.dataset.direcao});
+  await send('/dieta/'+encodeURIComponent(state.usuarioId)+'/ordem-painel','PUT',{
+   refeicao,tipo,item_id:itemId,direcao:botao.dataset.direcao
+  });
   await loadDiet();
-  const destino=[...$('listaDieta').querySelectorAll('[data-mover-dieta]')].find(b=>
-   b.dataset.moverDieta===botao.dataset.moverDieta&&b.dataset.direcao===botao.dataset.direcao);
+  const destino=[...$('listaDieta').querySelectorAll(seletor)].find(b=>
+   b.dataset.direcao===botao.dataset.direcao &&
+   (tipo==='medicamento'?b.dataset.moverMedicamento:b.dataset.moverDieta)===itemId);
   if(destino&&!destino.disabled)destino.focus();
-  show('Sequência dos alimentos salva na dieta programada.');
+  show('Posição salva na dieta programada.');
  }catch(e){
   show(e.message,true);
   try{await loadDiet();}catch(_){botoes.forEach(b=>b.disabled=b.dataset.extremo==='true');}
- }finally{ordenandoAlimentoDieta=false;}
+ }finally{ordenandoPainelDieta=false;}
+}
+function itensOrdenadosPainel(refeicao,itens,meds){
+ const todos=[...itens.map(item=>({tipo:'alimento',item,chave:'a:'+item.id})),
+   ...meds.map(item=>({tipo:'medicamento',item,chave:'m:'+item.id}))];
+ const perfil=state.perfis.find(p=>p.refeicao===refeicao&&p.ativo);
+ const sequencia=perfil?state.ordemPainel[String(perfil.id)]:null;
+ if(!Array.isArray(sequencia))return todos;
+ const porChave=new Map(todos.map(v=>[v.chave,v]));
+ const emOrdem=[];
+ for(const chave of sequencia){
+  if(porChave.has(chave)){emOrdem.push(porChave.get(chave));porChave.delete(chave);}
+ }
+ return emOrdem.concat([...porChave.values()]);
 }
 function atualizarResumoDieta(){
  const rows=state.dieta,a=aggregate(rows);
@@ -340,8 +362,9 @@ function renderDiet(){
   const subtotal=aggregate(items);
   const ativo=state.perfis.find(p=>p.refeicao===key&&p.ativo);
   const meds=state.medicamentosDieta.filter(m=>m.refeicao===key);
+  const itensPainel=itensOrdenadosPainel(key,items,meds);
   const lancados=items.filter(i=>state.diario.some(d=>d.plano_item_id!=null&&String(d.plano_item_id)===String(i.id))).length;
-  return '<section class="avn-dieta-refeicao" aria-label="'+esc(MEALS[key])+'">'+
+  return '<section class="avn-dieta-refeicao" data-refeicao-painel="'+esc(key)+'" aria-label="'+esc(MEALS[key])+'">'+
    '<div class="avn-dieta-refeicao-cabecalho avn-dieta-cabecalho-com-perfis">'+
    '<div class="avn-dieta-cabecalho-linha"><h4><a href="#" data-macro-meal="'+esc(key)+'" data-macro-source="dieta">'+esc(MEALS[key])+' <span class="avn-dieta-emoji" aria-hidden="true">'+emojiRefeicao(key)+'</span></a></h4>'+
    '<div class="avn-perfil-acoes"><small>Perfil atual: <b>'+esc(ativo?.recuperado?'Sem perfil cadastrado':ativo?.nome||'Nenhum perfil selecionado')+'</b></small>'+ 
@@ -353,7 +376,20 @@ function renderDiet(){
    '</div></div>'+
    '<div class="avn-dieta-cabecalho-meta"><span class="avn-dieta-contagem">'+items.length+' alimento(s) · '+meds.length+' medicamento(s)</span>'+
    (lancados?'<small class="avn-dia-registrado">'+lancados+'/'+items.length+' lançado(s) hoje</small>':'')+'</div></div>'+
-   '<div class="avn-dieta-refeicao-itens">'+items.map((i,indice)=>{
+   '<div class="avn-dieta-refeicao-itens">'+itensPainel.map(({tipo,item},indice)=>{
+    if(tipo==='medicamento'){
+     const m=item;
+     return '<div class="list-row avn-dieta-linha avn-dieta-medicamento" data-medicamento-dieta="'+esc(m.id)+'">'+
+      '<div><strong class="name">💊 '+esc(m.medicamento_nome)+'</strong>'+
+      (m.apresentacao||m.laboratorio?'<small>'+esc([m.apresentacao,m.laboratorio].filter(Boolean).join(' · '))+'</small>':'')+
+      '<small>Programado'+(m.dose_texto?' · '+esc(m.dose_texto):'')+(m.horario?' · '+esc(m.horario):'')+'</small></div>'+
+      '<div class="avn-dieta-acoes"><div class="avn-dieta-ordenacao" role="group" aria-label="Ordenar '+esc(m.medicamento_nome)+'">'+
+      '<button type="button" data-mover-medicamento="'+esc(m.id)+'" data-direcao="cima" data-extremo="'+(indice===0)+'" aria-label="Subir '+esc(m.medicamento_nome)+'" title="Subir"'+(indice===0?' disabled':'')+'>↑</button>'+
+      '<button type="button" data-mover-medicamento="'+esc(m.id)+'" data-direcao="baixo" data-extremo="'+(indice===itensPainel.length-1)+'" aria-label="Descer '+esc(m.medicamento_nome)+'" title="Descer"'+(indice===itensPainel.length-1?' disabled':'')+'>↓</button></div>'+
+      '<button type="button" class="secondary" data-editar-medicamento="'+esc(m.id)+'">Editar</button>'+
+      '<button type="button" class="delete" data-excluir-medicamento="'+esc(m.id)+'">Excluir</button></div></div>';
+    }
+    const i=item;
     const nutrientes=aggregate([i]);
     return '<div class="list-row avn-dieta-linha" data-dieta-item="'+esc(i.id)+'"><div><a href="#" class="name avn-dieta-alimento-link" data-macro-food="'+esc(i.id)+'" aria-label="Ver macronutrientes de '+esc(i.alimento_nome)+'">'+esc(i.alimento_nome)+' <span class="avn-dieta-emoji" aria-hidden="true">'+emojiAlimento(i.alimento_nome)+'</span></a><button type="button" class="avn-mudar-refeicao-link" data-mudar-refeicao="'+esc(i.id)+'" aria-label="Mudar refeição de '+esc(i.alimento_nome)+'">Mudar refeição</button>'+
       '<div class="avn-dieta-pesagem"><small data-peso-dieta>'+fmt(i.quantidade_g)+' g programados</small>'+
@@ -362,15 +398,10 @@ function renderDiet(){
       resumoMacrosProgramados(nutrientes,'Macronutrientes de '+i.alimento_nome)+'</div>'+
       '<div class="avn-dieta-acoes"><div class="avn-dieta-ordenacao" role="group" aria-label="Ordenar '+esc(i.alimento_nome)+'">'+
        '<button type="button" data-mover-dieta="'+esc(i.id)+'" data-direcao="cima" data-extremo="'+(indice===0)+'" aria-label="Subir '+esc(i.alimento_nome)+'" title="Subir"'+(indice===0?' disabled':'')+'>↑</button>'+
-       '<button type="button" data-mover-dieta="'+esc(i.id)+'" data-direcao="baixo" data-extremo="'+(indice===items.length-1)+'" aria-label="Descer '+esc(i.alimento_nome)+'" title="Descer"'+(indice===items.length-1?' disabled':'')+'>↓</button></div>'+
+       '<button type="button" data-mover-dieta="'+esc(i.id)+'" data-direcao="baixo" data-extremo="'+(indice===itensPainel.length-1)+'" aria-label="Descer '+esc(i.alimento_nome)+'" title="Descer"'+(indice===itensPainel.length-1?' disabled':'')+'>↓</button></div>'+
        '<a href="#" data-editar-plano="'+esc(i.id)+'" aria-label="Editar '+esc(i.alimento_nome)+'">Editar</a>'+
       '<button type="button" class="delete" data-plano="'+esc(i.id)+'">Excluir</button></div></div>';
-   }).join('')+meds.map(m=>'<div class="list-row avn-dieta-linha avn-dieta-medicamento" data-medicamento-dieta="'+esc(m.id)+'">'+
-    '<div><strong class="name">💊 '+esc(m.medicamento_nome)+'</strong>'+
-    (m.apresentacao||m.laboratorio?'<small>'+esc([m.apresentacao,m.laboratorio].filter(Boolean).join(' · '))+'</small>':'')+
-    '<small>Programado'+(m.dose_texto?' · '+esc(m.dose_texto):'')+(m.horario?' · '+esc(m.horario):'')+'</small></div>'+
-    '<div class="avn-dieta-acoes"><button type="button" class="secondary" data-editar-medicamento="'+esc(m.id)+'">Editar</button>'+
-    '<button type="button" class="delete" data-excluir-medicamento="'+esc(m.id)+'">Excluir</button></div></div>').join('')+
+   }).join('')+
     (items.length||meds.length?'':'<p class="avn-refeicao-vazia">Nenhum alimento neste perfil. Use “➕ Adicionar alimento à refeição” ao lado da refeição.</p>')+'</div>'+
    '<div class="avn-dieta-totais-refeicao">'+resumoMacrosProgramados(subtotal,'Total de macronutrientes de '+MEALS[key])+
    (Object.values(subtotal.miss).some(n=>n>0)?'<small class="muted">* Alguns valores nutricionais estão incompletos.</small>':'')+
@@ -846,7 +877,7 @@ async function loadGoals(){
 async function loadDiet(){
  const usuario=state.usuarioId,r=await api('/dieta/'+encodeURIComponent(usuario));
  if(usuario!==state.usuarioId)return;
- state.dieta=r.itens||[];state.medicamentosDieta=r.medicamentos||[];state.perfis=r.perfis||[];renderDiet();renderPlannedMeal();
+ state.dieta=r.itens||[];state.medicamentosDieta=r.medicamentos||[];state.perfis=r.perfis||[];state.ordemPainel=r.plano?.painel_ordem||{};renderDiet();renderPlannedMeal();
 }
 async function loadDaily(){
  const usuario=state.usuarioId,data=state.data;
@@ -857,7 +888,7 @@ async function loadDaily(){
 async function reload(){
  const usuario=state.usuarioId;
  if(!usuario){
-  state.alimentos=[];state.diario=[];state.dieta=[];state.medicamentosDieta=[];state.perfis=[];state.metas={};state.metasStatus='pronto';
+  state.alimentos=[];state.diario=[];state.dieta=[];state.medicamentosDieta=[];state.ordemPainel={};state.perfis=[];state.metas={};state.metasStatus='pronto';
   selectFoods();renderFoodList();renderDiet();renderDaily();fillGoals();return;
  }
  state.metasStatus='carregando';
@@ -1128,11 +1159,13 @@ async function imprimirRelatorioDieta(){
    const itens=dieta.filter(i=>i.refeicao===key);
    const meds=medicamentos.filter(m=>m.refeicao===key);
    if(!itens.length&&!meds.length&&!state.perfis.some(p=>p.refeicao===key))return '';
-   const medicamentosHtml=meds.length?'<table><thead><tr><th>Medicamento</th><th>Planejado</th></tr></thead><tbody>'+
-     meds.map(m=>'<tr><td>💊 '+esc(m.medicamento_nome)+(m.apresentacao?' · '+esc(m.apresentacao):'')+'</td><td>'+esc([m.dose_texto,m.horario].filter(Boolean).join(' · ')||'Sem dose/horário informado')+'</td></tr>').join('')+'</tbody></table>':'';
-   return '<section class="painel painel-refeicao"><h3>'+esc(nome)+'</h3>'+
-     tabela('Alimento',itens.map(i=>({nome:i.alimento_nome||'Alimento',quantidade_g:i.quantidade_g})))+
-     medicamentosHtml+'</section>';
+   const sequencia=itensOrdenadosPainel(key,itens,meds);
+   const tabelaMista='<table><thead><tr><th>Item planejado</th><th>Quantidade / Programação</th></tr></thead><tbody>'+
+    (sequencia.length?sequencia.map(({tipo,item})=>tipo==='medicamento'
+     ?'<tr><td>💊 '+esc(item.medicamento_nome)+(item.apresentacao?' · '+esc(item.apresentacao):'')+'</td><td>'+esc([item.dose_texto,item.horario].filter(Boolean).join(' · ')||'Sem dose/horário informado')+'</td></tr>'
+     :'<tr><td>'+esc(item.alimento_nome||'Alimento')+'</td><td>'+fmt(item.quantidade_g,2)+' g</td></tr>'
+    ).join(''):'<tr><td colspan="2" class="sem-itens">Nenhum item programado</td></tr>')+'</tbody></table>';
+   return '<section class="painel painel-refeicao"><h3>'+esc(nome)+'</h3>'+tabelaMista+'</section>';
   }).join('');
   const receitas=detalhes.length?'<div class="secao-receitas"><h2>Receitas</h2>'+
    detalhes.map(r=>painel(r.nome||'Receita','Ingrediente',
@@ -1487,7 +1520,9 @@ function events(){
    const peso=e.target.closest('[data-ajustar-peso-dieta]');
    if(peso){e.preventDefault();ajustarPesoDieta(peso);return;}
    const mover=e.target.closest('[data-mover-dieta]');
-   if(mover){e.preventDefault();moverAlimentoDieta(mover);return;}
+   if(mover){e.preventDefault();moverItemPainelDieta(mover);return;}
+   const moverMedicamento=e.target.closest('[data-mover-medicamento]');
+   if(moverMedicamento){e.preventDefault();moverItemPainelDieta(moverMedicamento);return;}
    const botao=e.target.closest('[data-adicionar-refeicao]');
    if(botao){e.preventDefault();abrirModalAdicionarNaRefeicao(botao.dataset.adicionarRefeicao);return;}
    const novoMedicamento=e.target.closest('[data-adicionar-medicamento-refeicao]');
