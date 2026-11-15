@@ -219,6 +219,7 @@ function fieldsFromRow(r){
 function openEditor(row=null){
  $('exModalTitulo').textContent=row?'Editar resultado':'Registrar exame';$('exId').value=row?.id||'';
  for(const [field,value] of Object.entries(fieldsFromRow(row)))$(field).value=value;
+ $('exData').max=localDate();
  mostrarMetas('exMetasModal',row?.exame_id);
  modal('exModal');
 }
@@ -259,6 +260,7 @@ function formData(){
  limite_inferior:$('exRefMin').value,limite_superior:$('exRefMax').value,referencia_texto:$('exRefTexto').value,
  material:$('exMaterial').value,metodo:$('exMetodo').value,laboratorio:$('exLab').value,observacoes:$('exObs').value,origem:'manual'};
  if(!r.valor&&!r.valor_texto)throw Error('Informe um resultado.');
+ const erroData=erroDataColeta(r.data_coleta);if(erroData)throw Error(erroData);
  return r;
 }
 async function saveManual(e){
@@ -270,15 +272,24 @@ async function saveManual(e){
   $('exIndicador').value=data.exame_id;chart();alertar(out.duplicado?'Esse resultado já estava cadastrado.':'Resultado salvo.');
  }catch(e){alertar(e.message,true);}
 }
+function erroDataColeta(data) {
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(String(data||'')))return 'Informe uma data de coleta válida conforme o laudo.';
+ const ts=Date.parse(data+'T12:00:00Z');
+ if(!Number.isFinite(ts)||new Date(ts).toISOString().slice(0,10)!==data)return 'Data de coleta inválida. Confira dia, mês e ano.';
+ if(data>localDate())return 'Data de coleta futura. Confira o ano no laudo e corrija antes de salvar.';
+ return null;
+}
+const dataMuitoAntiga=data=>!erroDataColeta(data)&&Number(data.slice(0,4))<Number(localDate().slice(0,4))-10;
 const pvFields=[['data_coleta','Data da coleta','date'],['valor','Valor numérico','text'],['valor_texto','Resultado textual','text'],['unidade','Unidade','text'],['limite_inferior','Referência mín.','text'],['limite_superior','Referência máx.','text'],['referencia_texto','Referência descritiva','text'],['material','Material','text'],['metodo','Método','text'],['laboratorio','Laboratório','text'],['observacoes','Observações','text']];
 function renderPreview(){
  $('exPrevia').hidden=false;
  $('exLinhasPrevia').innerHTML=S.previa.map((r,i)=>'<fieldset class="avn-ex-preview-row" data-index="'+i+'"><legend>Exame '+(i+1)+': '+esc(r.nome||'Não identificado')+(r.historico?' — RESULTADO ANTERIOR':'')+'</legend>'+
  '<label class="avn-field">Associar ao catálogo<select data-field="exame_id"><option value="">Selecione um indicador</option>'+
  S.catalogo.map(c=>'<option value="'+esc(c.id)+'"'+(String(c.id)===String(r.exame_id)?' selected':'')+'>'+esc(c.grupo+' · '+c.nome)+'</option>').join('')+'</select></label>'+
- '<div class="avn-ex-grid">'+pvFields.map(([key,label,type])=>'<label class="avn-field">'+esc(label)+'<input data-field="'+key+'" type="'+type+'" value="'+esc(r[key]??'')+'"></label>').join('')+'</div>'+
+ '<div class="avn-ex-grid">'+pvFields.map(([key,label,type])=>'<label class="avn-field">'+esc(label)+'<input data-field="'+key+'" type="'+type+'"'+(key==='data_coleta'?' max="'+esc(localDate())+'"':'')+' value="'+esc(r[key]??'')+'"></label>').join('')+'</div>'+
  '<label class="avn-ex-check"><input type="checkbox" data-field="incluir" checked> Importar este resultado</label>'+
  (r.precisa_revisao?'<p class="muted">Confira especialmente a identificação, a data e os valores.</p>':'')+
+ '<p class="avn-ex-verificacao divergente" data-data-aviso'+(r.aviso_data?'':' hidden')+'>'+esc(r.aviso_data||'')+'</p>'+
  '<p class="avn-ex-verificacao" data-estado>Coleta ainda não conferida no AVN.</p></fieldset>').join('');
 }
 function linhasImportacao(){
@@ -291,7 +302,7 @@ function linhasImportacao(){
   return {index,el,data};
  });
 }
-const validoImportacao=r=>Boolean(r.exame_id&&r.data_coleta&&r.unidade&&(String(r.valor??'').trim()!==''||String(r.valor_texto??'').trim()!==''));
+const validoImportacao=r=>Boolean(r.exame_id&&!erroDataColeta(r.data_coleta)&&r.unidade&&(String(r.valor??'').trim()!==''||String(r.valor_texto??'').trim()!==''));
 const dataBR=d=>String(d||'').split('-').reverse().join('/');
 const mostrarValor=r=>r==null?'—':String(r.valor??r.valor_texto??'—').replace('.',',')+' '+String(r.unidade||'');
 function atualizarAviso(el,d,novo){
@@ -305,7 +316,14 @@ function atualizarAviso(el,d,novo){
 async function conferirPrevia(){
  const seq=++S.conferenciaSeq;
  const todos=linhasImportacao(),validos=todos.filter(x=>validoImportacao(x.data));
- for(const row of todos){const p=row.el.querySelector('[data-estado]');if(p){p.className='avn-ex-verificacao';p.textContent=validoImportacao(row.data)?'Comparando com os resultados já cadastrados…':'Corrija indicador, data, unidade ou valor para conferir a coleta.';}}
+ for(const row of todos){
+  const erro=erroDataColeta(row.data.data_coleta);
+  const aviso=erro||(dataMuitoAntiga(row.data.data_coleta)?'Data de coleta com mais de dez anos. Confira o ano no laudo; o AVN solicitará confirmação antes de salvar.':'');
+  const dataAlerta=row.el.querySelector('[data-data-aviso]');
+  if(dataAlerta){dataAlerta.hidden=!aviso;dataAlerta.textContent=aviso;}
+  const p=row.el.querySelector('[data-estado]');
+  if(p){p.className='avn-ex-verificacao';p.textContent=erro||(validoImportacao(row.data)?'Comparando com os resultados já cadastrados…':'Corrija indicador, data, unidade ou valor para conferir a coleta.');}
+ }
  if(!validos.length)return {validos:0,divergentes:0};
  const r=await json('/resultados/conferir','POST',{usuarioId:S.usuario,resultados:validos.map(x=>x.data)});
  if(seq!==S.conferenciaSeq)return null;
@@ -349,7 +367,8 @@ async function interpretar(){
   if(!S.previa.length){status('A IA não identificou resultados. Confira o documento.');return;}
   renderPreview();
   const anteriores=S.previa.filter(x=>x.historico).length;
-  status(S.previa.length+' resultado(s) identificado(s), incluindo '+anteriores+' anterior(es). Confira os valores, as datas e os avisos antes de salvar.');
+  const suspeitas=S.previa.filter(x=>x.aviso_data).length;
+  status(S.previa.length+' resultado(s) identificado(s), incluindo '+anteriores+' anterior(es).'+(suspeitas?' ATENÇÃO: '+suspeitas+' data(s) precisam de conferência.':'')+' Revise as datas de coleta antes de salvar.');
   await conferirPrevia();
  }catch(e){status('Falha na interpretação ou na comparação: '+e.message);}finally{btn.disabled=false;}
 }
@@ -357,11 +376,17 @@ async function saveImported(){
  if(!S.usuario)return status('Selecione um usuário primeiro.');
  const rows=linhasImportacao();
  if(!rows.length)return status('Selecione pelo menos um resultado.');
+ const dataInvalida=rows.find(x=>erroDataColeta(x.data.data_coleta));
+ if(dataInvalida)return status('Exame '+(dataInvalida.index+1)+': '+erroDataColeta(dataInvalida.data.data_coleta));
  if(rows.some(x=>!validoImportacao(x.data)))return status('Complete indicador, data, resultado e unidade de todas as linhas selecionadas.');
  const btn=$('exConfirmar');btn.disabled=true;status('Conferindo valores antes de gravar…');
  try{
   const conferencia=await conferirPrevia();
   if(!conferencia)return status('Os valores foram alterados durante a conferência. Confira novamente.');
+  const antigas=rows.filter(x=>dataMuitoAntiga(x.data.data_coleta));
+  if(antigas.length&&!confirm('Atenção: '+antigas.length+' data(s) de coleta têm mais de dez anos: '+[...new Set(antigas.map(x=>dataBR(x.data.data_coleta)))].join(', ')+'. Você conferiu o ano no laudo e confirma essas datas?')){
+   return status('Nenhum dado salvo. Confira as datas antigas no laudo.');
+  }
   if(conferencia.divergentes>0&&!confirm(conferencia.divergentes+' resultado(s) divergem de coletas já existentes. Esses valores NÃO serão sobrescritos. Deseja salvar apenas os novos resultados?')){
    return status('Nenhum dado alterado. Revise os avisos de divergência acima.');
   }
