@@ -25,7 +25,18 @@ function snapshotVersao(receita,itens,calc,micros){
    quantidade_g:Number(i.quantidade_g),ordem:Number(i.ordem),composicao_100g:i.composicao_100g}))};
 }
 async function registrarVersao(db,receita,itens,calc,micros){
- const d=snapshotVersao(receita,itens,calc,micros);
+ // O banco arredonda macros para NUMERIC(12,4). Usar a composição
+ // efetivamente persistida evita divergências com o snapshot do Diário.
+ const a=await db.query('SELECT kcal_100g,proteinas_g_100g,carboidratos_g_100g,gorduras_g_100g,fibras_g_100g,micronutrientes_100g FROM public.avn_alimentos WHERE id=$1',[receita.alimento_id]);
+ if(!a.rowCount)throw bad('Alimento associado à receita não encontrado.');
+ const salvo=a.rows[0];
+ const d=snapshotVersao(receita,itens,{
+  kcal_100g:salvo.kcal_100g==null?null:Number(salvo.kcal_100g),
+  proteinas_g_100g:salvo.proteinas_g_100g==null?null:Number(salvo.proteinas_g_100g),
+  carboidratos_g_100g:salvo.carboidratos_g_100g==null?null:Number(salvo.carboidratos_g_100g),
+  gorduras_g_100g:salvo.gorduras_g_100g==null?null:Number(salvo.gorduras_g_100g),
+  fibras_g_100g:salvo.fibras_g_100g==null?null:Number(salvo.fibras_g_100g)
+ },{por100g:salvo.micronutrientes_100g||{}});
  const q=await db.query('SELECT * FROM public.avn_receita_versoes WHERE receita_id=$1 ORDER BY numero DESC LIMIT 1 FOR UPDATE',[receita.id]);
  const anterior=q.rows[0];
  if(anterior){
