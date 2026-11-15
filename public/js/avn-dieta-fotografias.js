@@ -17,7 +17,7 @@
   $('listaFotografiasDieta').innerHTML=registros.length?registros.map(item=>
    '<article class="avn-fotografia-linha"><div><strong>'+esc(item.nome)+'</strong>'+
    '<small>'+esc(new Date(item.criado_em).toLocaleString('pt-BR'))+
-   ' · '+esc(item.refeicoes)+' refeições · '+esc(item.alimentos)+' alimentos</small></div>'+
+   ' · '+esc(item.refeicoes)+' refeições · '+esc(item.alimentos)+' alimentos · '+esc(item.medicamentos||0)+' medicamentos</small></div>'+
    '<div class="avn-fotografia-acoes"><button type="button" class="primary" data-restaurar-fotografia="'+esc(item.id)+'">Restaurar dieta</button>'+
    '<button type="button" class="delete" data-excluir-fotografia="'+esc(item.id)+'">Excluir</button></div></article>'
   ).join(''):'<p class="muted">Nenhuma fotografia salva. Use “Salvar dieta atual”.</p>';
