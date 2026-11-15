@@ -8,10 +8,24 @@ const router=express.Router();
 const upload=multer({storage:multer.memoryStorage(),limits:{fileSize:8*1024*1024,files:1}});
 const bad=(s,status=400)=>Object.assign(new Error(s),{status});
 const id=s=>{if(!/^[1-9]\d*$/.test(String(s||'')))throw bad('Identificador inválido.');return String(s);};
+function hojeColeta() {
+ // Data civil brasileira; servidor Render pode usar UTC.
+ const partes=new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+ const p=Object.fromEntries(partes.map(x=>[x.type,x.value]));
+ return p.year+'-'+p.month+'-'+p.day;
+}
 function day(v) {
  const s=String(v||'');
  if(!/^\d{4}-\d\d-\d\d$/.test(s)||!Number.isFinite(Date.parse(s))||new Date(s+'T12:00:00Z').toISOString().slice(0,10)!==s)throw bad('Data de coleta inválida.');
+ if(s>hojeColeta())throw bad('Data de coleta futura. Confira o ano no laudo antes de salvar.');
  return s;
+}
+function avisoDataIA(data) {
+ if(!data)return 'Data de coleta não identificada. Confira o laudo e informe a data.';
+ try{day(data);}catch(e){return e.message;}
+ if(Number(data.slice(0,4))<Number(hojeColeta().slice(0,4))-10)
+  return 'Data de coleta com mais de dez anos. Confira o ano no laudo antes de confirmar.';
+ return null;
 }
 const clean=(v,n=180)=>String(v??'').trim().slice(0,n)||null;
 function decimal(v,label){
@@ -254,6 +268,7 @@ router.post('/interpretar', (req,res,next)=>upload.single('arquivo')(req,res,err
   'Extraia TODOS os indicadores do hemograma: serie vermelha; serie branca (cada percentual E cada contagem absoluta como indicadores distintos); plaquetas; observacoes morfologicas textuais.',
   'Inclua resultados anteriores mostrados no proprio laudo: para cada indicador anterior crie OUTRO registro com a data historica correspondente (AAAA-MM-DD) e historico=true.',
   'Se a data de um resultado anterior nao estiver inequivocamente ligada a ele, nao invente a data: marque null e historico=true para revisao.',
+  'Nunca corrija por conta propria a data de coleta; se o ano parecer incorreto, mantenha a transcricao e deixe para confirmacao na previa.',
   'NUNCA substitua resultados atuais por anteriores, nunca calcule valores ausentes a partir de porcentagens e nunca descarte resultados iguais a zero.',
   'Para observacoes de serie vermelha, branca e plaquetaria, use os indicadores de morfologia no catalogo, valor_texto com o texto original e unidade texto.',
   'Retorne JSON com exames:[{codigo,nome,historico,data_coleta,valor,valor_texto,unidade,limite_inferior,limite_superior,referencia_texto,material,metodo,laboratorio,observacoes}].',
@@ -294,13 +309,15 @@ router.post('/interpretar', (req,res,next)=>upload.single('arquivo')(req,res,err
  const out=parsed.exames.map(x=>{
   if(!x||typeof x!=='object')return null;
   const nome=clean(x.nome,180);const c=match(cat,nome,x.codigo);
+  const dataColeta=clean(x.data_coleta,20);
+  const aviso_data=avisoDataIA(dataColeta);
   return {nome,exame_id:c?.id||null,exame_nome:c?.nome||null,historico:x.historico===true,
-   data_coleta:clean(x.data_coleta,20),valor:x.valor??null,valor_texto:clean(x.valor_texto,250),
+   data_coleta:dataColeta,aviso_data,valor:x.valor??null,valor_texto:clean(x.valor_texto,250),
    unidade:clean(x.unidade,45)||c?.unidade_padrao||null,
    limite_inferior:x.limite_inferior??null,limite_superior:x.limite_superior??null,
    referencia_texto:clean(x.referencia_texto,1500),material:clean(x.material,120),
    metodo:clean(x.metodo,180),laboratorio:clean(x.laboratorio,180),observacoes:clean(x.observacoes,2000),origem:'ia',
-   precisa_revisao:!c||!x.data_coleta||((x.valor==null||x.valor==='')&&!x.valor_texto)
+   precisa_revisao:!c||Boolean(aviso_data)||((x.valor==null||x.valor==='')&&!x.valor_texto)
   };
  }).filter(Boolean);
  res.set('Cache-Control','no-store').json({resultados:out,avisos:['Confira todos os dados e as referências com o laudo antes de salvar.','Imagens e PDFs são enviados à API de IA apenas quando você solicita a interpretação.']});
