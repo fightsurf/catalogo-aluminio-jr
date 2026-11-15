@@ -818,8 +818,13 @@ async function loadFoods(){
  const usuario=state.usuarioId;
  const filtro=IS_CATALOG_PAGE?'&tipo='+encodeURIComponent(CATALOG_TYPE):'';
  const r=await api('/alimentos?usuarioId='+encodeURIComponent(usuario)+filtro);
+ // O endpoint limita a listagem geral a 300 itens. Consulte os medicamentos
+ // separadamente para que continuem disponíveis mesmo em catálogos extensos.
+ const medicamentos=PAGE==='dieta'?await api('/alimentos?usuarioId='+encodeURIComponent(usuario)+'&tipo=medicamento'):[];
  if(usuario!==state.usuarioId)return;
- state.alimentos=r;selectFoods();renderFoodList();
+ const ids=new Set(r.map(f=>String(f.id)));
+ state.alimentos=PAGE==='dieta'?r.concat(medicamentos.filter(f=>!ids.has(String(f.id)))):r;
+ selectFoods();renderFoodList();
 }
 async function loadGoals(){
  const usuario=state.usuarioId;
