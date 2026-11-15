@@ -23,7 +23,8 @@ router.get('/',wrap(async(req,res)=>{
  const r=await pool.query(`SELECT id,nome,criado_em,
  jsonb_array_length(dados->'refeicoes') AS refeicoes,
  (SELECT COALESCE(SUM(jsonb_array_length(x->'itens')),0)::int
-  FROM jsonb_array_elements(dados->'refeicoes') x) AS alimentos
+  FROM jsonb_array_elements(dados->'refeicoes') x) AS alimentos,
+ COALESCE(jsonb_array_length(dados->'medicamentos'),0) AS medicamentos
  FROM public.avn_dieta_fotografias WHERE usuario_id=$1 ORDER BY criado_em DESC,id DESC`,[uid]);
  res.set('Cache-Control','no-store').json({fotografias:r.rows});
 }));
@@ -43,7 +44,10 @@ router.post('/',wrap(async(req,res)=>{
    JOIN public.avn_alimentos a ON a.id=i.alimento_id
    WHERE i.plano_id=$1 AND i.dia_semana=(SELECT MIN(dia_semana) FROM public.avn_dieta_itens WHERE plano_id=$1) ORDER BY i.refeicao,i.ordem,i.id`,[pid]);
   if(it.rowCount>500)throw erro('Limite de 500 alimentos por fotografia.');
-  const dados={versao:1,refeicoes:pf.rows.map(p=>({
+  const meds=await db.query(`SELECT medicamento_id,refeicao,dose_texto,horario
+    FROM public.avn_dieta_medicamentos WHERE plano_id=$1 ORDER BY id`,[pid]);
+  if(meds.rowCount>500)throw erro('Limite de 500 medicamentos por fotografia.');
+  const dados={versao:1,medicamentos:meds.rows,refeicoes:pf.rows.map(p=>({
    refeicao:p.refeicao,perfil_id:p.recuperado?null:p.id,perfil_nome:p.recuperado?null:p.nome,
    itens:it.rows.filter(i=>String(i.perfil_id)===String(p.id)).map(i=>({
     alimento_id:i.alimento_id,quantidade_g:i.quantidade_g,ordem:i.ordem,
@@ -96,6 +100,26 @@ router.post('/:fotografiaId/restaurar',wrap(async(req,res)=>{
    }
   }
   if(ids.length>500)throw erro('Fotografia acima do limite de alimentos.');
+  // Fotos antigas não possuem a propriedade medicamentos; ao restaurá-las,
+  // preservar o planejamento de medicamentos atual em vez de apagá-lo.
+  const possuiMedicamentos=Object.prototype.hasOwnProperty.call(dados,'medicamentos');
+  if(possuiMedicamentos&&!Array.isArray(dados.medicamentos))throw erro('Medicamentos inválidos na fotografia.');
+  const medicamentos=possuiMedicamentos?dados.medicamentos:[];
+  if(medicamentos.length>500)throw erro('Fotografia acima do limite de medicamentos.');
+  const medIds=[];
+  for(const m of medicamentos){
+   if(!m||!REFEICOES.has(m.refeicao))throw erro('Refeição de medicamento inválida na fotografia.');
+   medIds.push(id(m.medicamento_id));
+   for(const [key,limite] of [['dose_texto',120],['horario',60]]){
+    if(m[key]!=null&&(typeof m[key]!=='string'||m[key].length>limite))throw erro('Informação de medicamento inválida na fotografia.');
+   }
+  }
+  if(medIds.length){
+   const validos=await db.query(`SELECT id FROM public.avn_alimentos
+    WHERE id=ANY($1::bigint[]) AND ativo AND tipo='medicamento' AND (usuario_id IS NULL OR usuario_id=$2)`,[medIds,uid]);
+   const conjunto=new Set(validos.rows.map(x=>String(x.id)));
+   if(medIds.some(mid=>!conjunto.has(mid)))throw erro('Há medicamentos da fotografia indisponíveis. A dieta atual foi preservada.',409);
+  }
   const uniq=[...new Set(ids)];
   if(uniq.length){
    const r=await db.query(`SELECT id FROM public.avn_alimentos
@@ -140,6 +164,13 @@ router.post('/:fotografiaId/restaurar',wrap(async(req,res)=>{
      (plano_id,dia_semana,refeicao,alimento_id,quantidade_g,ordem,perfil_id,composicao_100g)
      VALUES($1,$2,$3,$4,$5,$6,$7,$8::jsonb)`,
      [pid,dia.rows[0].dia,r.refeicao,i.alimento_id,i.quantidade_g,i.ordem,temp.rows[0].id,JSON.stringify(i.composicao_100g||{})]);
+   }
+  }
+  if(possuiMedicamentos){
+   await db.query('DELETE FROM public.avn_dieta_medicamentos WHERE plano_id=$1',[pid]);
+   for(const m of medicamentos){
+    await db.query(`INSERT INTO public.avn_dieta_medicamentos(plano_id,medicamento_id,refeicao,dose_texto,horario)
+     VALUES($1,$2,$3,$4,$5)`,[pid,m.medicamento_id,m.refeicao,m.dose_texto||null,m.horario||null]);
    }
   }
   await db.query('COMMIT');
