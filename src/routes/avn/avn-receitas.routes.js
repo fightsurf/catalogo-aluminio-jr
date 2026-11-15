@@ -11,6 +11,36 @@ const uid=v=>{if(!id(v))throw bad('Selecione um usuário válido.');return Strin
 async function usuarioExiste(db,u){if(!(await db.query('SELECT 1 FROM public.avn_usuario WHERE id=$1',[u])).rowCount)throw bad('Usuário não encontrado.',404);}
 
 
+
+function canonico(value){
+ if(Array.isArray(value))return value.map(canonico);
+ if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().map(k=>[k,canonico(value[k])]));
+ return value;
+}
+function snapshotVersao(receita,itens,calc,micros){
+ return {nome:receita.nome,preparo:receita.preparo||null,rendimento_g:Number(receita.rendimento_g),
+  composicao_100g:{kcal:calc.kcal_100g,proteinas_g:calc.proteinas_g_100g,carboidratos_g:calc.carboidratos_g_100g,
+   gorduras_g:calc.gorduras_g_100g,fibras_g:calc.fibras_g_100g,micros:micros.por100g},
+  ingredientes:itens.map(i=>({alimento_id:i.alimento_id,nome_snapshot:i.nome_snapshot,
+   quantidade_g:Number(i.quantidade_g),ordem:Number(i.ordem),composicao_100g:i.composicao_100g}))};
+}
+async function registrarVersao(db,receita,itens,calc,micros){
+ const d=snapshotVersao(receita,itens,calc,micros);
+ const q=await db.query('SELECT * FROM public.avn_receita_versoes WHERE receita_id=$1 ORDER BY numero DESC LIMIT 1 FOR UPDATE',[receita.id]);
+ const anterior=q.rows[0];
+ if(anterior){
+  const a={nome:anterior.nome,preparo:anterior.preparo||null,rendimento_g:Number(anterior.rendimento_g),
+   composicao_100g:anterior.composicao_100g,ingredientes:anterior.ingredientes};
+  if(JSON.stringify(canonico(a))===JSON.stringify(canonico(d)))return anterior;
+ }
+ const n=anterior?Number(anterior.numero)+1:1;
+ const r=await db.query(`INSERT INTO public.avn_receita_versoes
+ (receita_id,numero,nome,preparo,rendimento_g,composicao_100g,ingredientes)
+ VALUES($1,$2,$3,$4,$5,$6::jsonb,$7::jsonb) RETURNING *`,
+ [receita.id,n,d.nome,d.preparo,d.rendimento_g,JSON.stringify(d.composicao_100g),JSON.stringify(d.ingredientes)]);
+ return r.rows[0];
+}
+
 async function composicaoDeIngrediente(db,alimento,usuario,codigos){
  const comp=composicao(alimento);
  if(alimento.fonte!=='receita')return comp;
@@ -66,6 +96,10 @@ async function recalcularDependentes(db,origemId,origemAlimentoId,usuario,codigo
    micronutrientes_100g=$8::jsonb,atualizado_em=NOW() WHERE id=$9 AND usuario_id=$10`,
    [rr.rows[0].nome,rr.rows[0].preparo,calc.kcal_100g,calc.proteinas_g_100g,calc.carboidratos_g_100g,
     calc.gorduras_g_100g,calc.fibras_g_100g,JSON.stringify(micros.por100g),rr.rows[0].alimento_id,usuario]);
+  await registrarVersao(db,rr.rows[0],ing.rows.map((row,j)=>({
+   alimento_id:row.id,nome_snapshot:row.nome,quantidade_g:row.quantidade_g,
+   ordem:j,composicao_100g:itens[j].composicao_100g
+  })),calc,micros);
  }
 }
 
@@ -103,12 +137,13 @@ async function salvar(req,res,editar){
   if(editar){const r=await db.query('UPDATE public.avn_receitas SET nome=$1,preparo=$2,rendimento_g=$3,atualizado_em=NOW() WHERE id=$4 RETURNING *',[data.nome,data.preparo,data.rendimento,recId]);receita=r.rows[0];await db.query('DELETE FROM public.avn_receita_ingredientes WHERE receita_id=$1',[recId]);}
   else{const r=await db.query('INSERT INTO public.avn_receitas(usuario_id,alimento_id,nome,preparo,rendimento_g) VALUES($1,$2,$3,$4,$5) RETURNING *',[u,alimento.id,data.nome,data.preparo,data.rendimento]);receita=r.rows[0];}
   for(const i of data.itens)await db.query('INSERT INTO public.avn_receita_ingredientes(receita_id,alimento_id,quantidade_g,ordem,composicao_100g,nome_snapshot) VALUES($1,$2,$3,$4,$5::jsonb,$6)',[receita.id,i.alimento_id,i.quantidade_g,i.ordem,JSON.stringify(i.composicao_100g),i.nome_snapshot]);
+  const versao=await registrarVersao(db,receita,data.itens,c,data.micros);
   const codigos=(await db.query('SELECT codigo FROM public.avn_nutrientes')).rows.map(n=>n.codigo);
   await recalcularDependentes(db,receita.id,alimento.id,u,codigos);
-  await db.query('COMMIT');res.status(editar?200:201).json({receita,alimento_id:alimento.id,composicao_100g:c,soma_ingredientes_g:data.somaPesos});
+  await db.query('COMMIT');res.status(editar?200:201).json({receita,alimento_id:alimento.id,receita_versao_id:versao.id,versao_numero:versao.numero,composicao_100g:c,soma_ingredientes_g:data.somaPesos});
  }catch(e){await db.query('ROLLBACK').catch(()=>{});throw e;}finally{db.release();}
 }
-router.get('/',route(async(req,res)=>{const u=uid(req.query.usuarioId);await usuarioExiste(pool,u);const r=await pool.query(`SELECT r.*,a.kcal_100g,a.proteinas_g_100g,a.carboidratos_g_100g,a.gorduras_g_100g,a.fibras_g_100g,a.micronutrientes_100g FROM public.avn_receitas r JOIN public.avn_alimentos a ON a.id=r.alimento_id WHERE r.usuario_id=$1 ORDER BY r.nome,r.id`,[u]);res.json(r.rows);}));
+router.get('/',route(async(req,res)=>{const u=uid(req.query.usuarioId);await usuarioExiste(pool,u);const r=await pool.query(`SELECT r.*,a.kcal_100g,a.proteinas_g_100g,a.carboidratos_g_100g,a.gorduras_g_100g,a.fibras_g_100g,a.micronutrientes_100g,v.numero AS versao_numero FROM public.avn_receitas r JOIN public.avn_alimentos a ON a.id=r.alimento_id LEFT JOIN LATERAL (SELECT numero FROM public.avn_receita_versoes WHERE receita_id=r.id ORDER BY numero DESC LIMIT 1) v ON TRUE WHERE r.usuario_id=$1 ORDER BY r.nome,r.id`,[u]);res.json(r.rows);}));
 // O catálogo usado pela IA é o mesmo exibido para revisão no formulário.
 async function catalogoUsuario(u){
  const r=await pool.query(`SELECT * FROM public.avn_alimentos WHERE ativo
@@ -144,13 +179,14 @@ router.post('/interpretar',route(async(req,res)=>{
  res.set('Cache-Control','no-store').json(dados);
 }));
 router.get('/:id',route(async(req,res)=>{const u=uid(req.query.usuarioId);if(!id(req.params.id))throw bad('Receita inválida.');const r=await pool.query('SELECT * FROM public.avn_receitas WHERE id=$1 AND usuario_id=$2',[req.params.id,u]);if(!r.rowCount)throw bad('Receita não encontrada.',404);const q=await pool.query('SELECT alimento_id,quantidade_g,nome_snapshot,ordem,composicao_100g FROM public.avn_receita_ingredientes WHERE receita_id=$1 ORDER BY ordem,id',[r.rows[0].id]);
+ const historico=await pool.query('SELECT id,numero,nome,preparo,rendimento_g,composicao_100g,ingredientes,criado_em FROM public.avn_receita_versoes WHERE receita_id=$1 ORDER BY numero DESC',[r.rows[0].id]);
  // Fonte única: calcular soma nutricional dos ingredientes salvos; depois normalizar por rendimento.
  const codigos=(await pool.query('SELECT codigo FROM public.avn_nutrientes')).rows.map(n=>n.codigo);
  const c=calcular(q.rows,Number(r.rows[0].rendimento_g),codigos);
  // Disponibilizar os micros positivos observados sem ocultá-los quando
  // um ingrediente não possui informação. O total parcial é identificado.
  const micros=micronutrientesDisponiveis(q.rows,Number(r.rows[0].rendimento_g),codigos);
- res.set('Cache-Control','no-store').json({...r.rows[0],ingredientes:q.rows,totais_ingredientes:c.totais_ingredientes,
+ res.set('Cache-Control','no-store').json({...r.rows[0],ingredientes:q.rows,versoes:historico.rows,totais_ingredientes:c.totais_ingredientes,
   micronutrientes_totais:micros.totais,micronutrientes_parciais:micros.parciais,
   composicao_100g:{
    kcal:c.kcal_100g,proteinas_g:c.proteinas_g_100g,carboidratos_g:c.carboidratos_g_100g,gorduras_g:c.gorduras_g_100g,
