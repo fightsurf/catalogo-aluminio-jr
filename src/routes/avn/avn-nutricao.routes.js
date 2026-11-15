@@ -117,6 +117,14 @@ router.get('/consulta-ia/taco/:id',wrap(async(req,res)=>{
  const r=await pool.query('SELECT codigo,unidade FROM public.avn_nutrientes');
  const out=await consultaTaco.detail(req.params.id,r.rows);res.set('Cache-Control','no-store').json(out);
 }));
+router.get('/nutrientes/fontes-exemplos/:codigo',wrap(async(req,res)=>{
+ const codigo=String(req.params.codigo||'');
+ if(!/^[a-z0-9_]{2,50}$/.test(codigo))throw bad('Código de nutriente inválido.');
+ const q=await pool.query('SELECT codigo,unidade FROM public.avn_nutrientes WHERE codigo=$1',[codigo]);
+ if(!q.rowCount)throw bad('Nutriente não cadastrado.',404);
+ const out=await consultaUsda.exemplosPorNutriente(codigo,q.rows[0].unidade);
+ res.set('Cache-Control','private, max-age=1800').json(out);
+}));
 router.get('/nutrientes',wrap(async(_req,res)=>{
  const {rows}=await pool.query("SELECT codigo,nome,unidade,categoria FROM public.avn_nutrientes ORDER BY CASE categoria WHEN 'Vitaminas' THEN 0 WHEN 'Minerais' THEN 1 ELSE 2 END,nome,codigo");
  res.set('Cache-Control','no-store').json({macros:MACROS,micros:rows});
