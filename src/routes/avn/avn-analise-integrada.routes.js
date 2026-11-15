@@ -22,7 +22,7 @@ function hojeLocal() {
 }
 const consulta = {
   diario: [
-    'SELECT id,data_consumo::text AS data,refeicao,alimento_id,alimento_nome,quantidade_g,composicao_100g',
+    'SELECT id,data_consumo::text AS data,refeicao,alimento_id,alimento_nome,quantidade_g,composicao_100g,receita_versao_id',
     'FROM public.avn_diario_alimentar WHERE usuario_id=$1 AND data_consumo BETWEEN $2::date AND $3::date',
     'ORDER BY data_consumo,refeicao,id'
   ].join(' '),
@@ -32,6 +32,11 @@ const consulta = {
     'ri.nome_snapshot AS ingrediente_nome,ri.quantidade_g AS ingrediente_quantidade_g,ri.ordem',
     'FROM public.avn_receitas r LEFT JOIN public.avn_receita_ingredientes ri ON ri.receita_id=r.id',
     'WHERE r.usuario_id=$1 ORDER BY r.id,ri.ordem,ri.id'
+  ].join(' '),
+  versoes: [
+    'SELECT v.id,v.receita_id,r.alimento_id,v.numero,v.nome,v.preparo,v.rendimento_g,v.ingredientes',
+    'FROM public.avn_receita_versoes v JOIN public.avn_receitas r ON r.id=v.receita_id',
+    'WHERE r.usuario_id=$1 ORDER BY r.alimento_id,v.numero'
   ].join(' '),
   agua: [
     "SELECT (ingerido_em AT TIME ZONE 'America/Sao_Paulo')::date::text AS data,",
@@ -113,6 +118,7 @@ router.get('/:usuarioId', async(req,res)=>{
     const results=await Promise.all([
       pool.query(consulta.diario,[uid,inicio,fim]),
       pool.query(consulta.receitas,[uid]),
+      pool.query(consulta.versoes,[uid]),
       pool.query(consulta.agua,[uid,inicio,fim]),
       pool.query(consulta.sono,[uid,inicio,fim]),
       pool.query(consulta.medicoes,[uid,inicio,fim]),
@@ -124,18 +130,18 @@ router.get('/:usuarioId', async(req,res)=>{
       pool.query('SELECT codigo,nome,unidade,categoria FROM public.avn_nutrientes ORDER BY categoria,nome',[ ]),
       pool.query('SELECT nivel,anos_experiencia,regularidade,dias_semana,duracao_min,objetivo,limitacoes,preferencias FROM public.avn_treino_perfil WHERE usuario_id=$1',[uid])
     ]);
-    const [diario,receitas,agua,sono,medicoes,treinos,execucoes,atividades,exames,metas,nutrientes,perfil]=results;
+    const [diario,receitas,versoes,agua,sono,medicoes,treinos,execucoes,atividades,exames,metas,nutrientes,perfil]=results;
     res.set('Cache-Control','private, no-store').json({
       versao:1,gerado_em:new Date().toISOString(),
       periodo:{inicio:inicioAtual,fim,anterior_inicio:inicio,anterior_fim:fimAnterior,dias:30},
       usuario:usuario.rows[0],
-      diario:diario.rows,receitas:receitas.rows,agua:agua.rows,sono:sono.rows,
+      diario:diario.rows,receitas:receitas.rows,versoes:versoes.rows,agua:agua.rows,sono:sono.rows,
       medicoes:medicoes.rows,treinos:treinos.rows,execucoes:execucoes.rows,atividades:atividades.rows,
       exames:exames.rows,metas_atuais:metas.rows[0] || null,
       nutrientes:nutrientes.rows,perfil_treinamento:perfil.rows[0] || null,
       avisos:[
         'Relatório baseado em registros do AVN; dados ausentes não são zero.',
-        'Ingredientes de receitas refletem a receita atualmente cadastrada, que pode ter mudado desde o consumo.',
+        'O detalhamento histórico dos ingredientes é usado somente quando o Diário aponta para uma versão registrada; lançamentos anteriores à implantação podem não ter esse vínculo.',
         'Micronutrientes incompletos não permitem afirmar ingestão total ou deficiência.',
         'Medições de bioimpedância e estimativas do relógio têm incerteza.'
       ]
