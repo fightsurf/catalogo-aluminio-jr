@@ -54,7 +54,7 @@ function nutritionOf(food){return {
   micros:food.micronutrientes_100g||{}
 };}
 async function user(id){requiredId(id);const r=await pool.query('SELECT 1 FROM public.avn_usuario WHERE id=$1',[id]);if(!r.rowCount)throw bad('Usuário não encontrado.',404);}
-async function food(id, uid, db=pool){requiredId(id);const r=await db.query('SELECT * FROM public.avn_alimentos WHERE id=$1 AND ativo AND (usuario_id IS NULL OR usuario_id=$2)',[id,uid]);if(!r.rowCount)throw bad('Alimento não encontrado.',404);return r.rows[0];}
+async function food(id, uid, db=pool){requiredId(id);const r=await db.query('SELECT * FROM public.avn_alimentos WHERE id=$1 AND ativo AND tipo<>$3 AND (usuario_id IS NULL OR usuario_id=$2)',[id,uid,'medicamento']);if(!r.rowCount)throw bad('Alimento não encontrado.',404);return r.rows[0];}
 async function foodPayload(body){
  const nome=String(body.nome||'').trim().slice(0,180);if(!nome)throw bad('Informe o nome do alimento.');
  const marca=String(body.marca||'').trim().slice(0,120)||null;
@@ -495,7 +495,7 @@ async function salvarItensDietaLote(req,res){
   await client.query('BEGIN');
   // Nunca aceitar IDs que pertençam exclusivamente a outro usuário.
   const validos=await client.query(`SELECT id FROM public.avn_alimentos
-    WHERE ativo AND (usuario_id IS NULL OR usuario_id=$1) AND id=ANY($2::bigint[])`,[uid,ids]);
+    WHERE ativo AND tipo<>'medicamento' AND (usuario_id IS NULL OR usuario_id=$1) AND id=ANY($2::bigint[])`,[uid,ids]);
   const disponiveis=new Set(validos.rows.map(r=>String(r.id)));
   if(ids.some(id=>!disponiveis.has(id)))throw bad('Um ou mais alimentos não estão disponíveis neste cadastro.');
   let plano=await activePlan(uid,client);
