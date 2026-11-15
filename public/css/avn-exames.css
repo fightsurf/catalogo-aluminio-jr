@@ -54,3 +54,9 @@
 .avn-exames .avn-ex-verificacao.novo{border-color:#35825b;background:rgba(53,130,91,.11)}
 .avn-exames .avn-ex-verificacao.identico{border-color:#64748b;background:rgba(100,116,139,.10)}
 .avn-exames .avn-ex-verificacao.divergente{border-color:#d97706;background:rgba(217,119,6,.15);font-weight:600}
+
+/* Faixas de referência por coleta e alertas explícitos de comparabilidade. */
+.avn-exames .avn-ex-graph-legend{margin:.25rem 0 .6rem;padding:.5rem .75rem;border-left:4px solid #2e9f74;font-size:.82rem;line-height:1.5}
+.avn-exames .avn-ex-graph-warning{margin:.5rem 0 .75rem;padding:.65rem .8rem;border:1px solid #b9872c;border-radius:9px;background:rgba(185,135,44,.10);font-size:.86rem;line-height:1.5;overflow-wrap:anywhere}
+.avn-exames .avn-ex-graph-warning p{margin:.25rem 0}
+.avn-exames .avn-ex-graph-warning[hidden],.avn-exames .avn-ex-graph-legend[hidden]{display:none}
