@@ -116,3 +116,27 @@ test('dia em andamento fica nos detalhes mas fora das medias e do saldo acumulad
  assert.ok(historico.texto.includes('Calorias: média 550 kcal/dia; soma dos dias válidos: 1.100 kcal; cobertura 2/30 dias'));
  assert.ok(historico.texto.includes('Período atual: soma dos 2 dias calculáveis 500 kcal; média 250 kcal/dia'));
 });
+
+test('acumulado separa versões históricas sem aplicar ingredientes da receita atual',()=>{
+ const {montarRelatorio}=exportsDeRelatorio();
+ const info={gerado_em:'2026-11-15T10:00:00Z',
+  periodo:{inicio:'2026-10-17',fim:'2026-11-15',anterior_inicio:'2026-09-17',anterior_fim:'2026-10-16'},
+  usuario:{nome:'Teste'},perfil_treinamento:null,metas_atuais:{},nutrientes:[],
+  diario:[
+   {data:'2026-11-09',alimento_id:1,alimento_nome:'Escondidinho coxão mole',quantidade_g:350,composicao_100g:{kcal:200,proteinas_g:17}},
+   {data:'2026-11-10',alimento_id:1,alimento_nome:'Escondidinho patinho',quantidade_g:350,composicao_100g:{kcal:180,proteinas_g:24}},
+   {data:'2026-11-11',alimento_id:1,alimento_nome:'Escondidinho patinho',quantidade_g:350,composicao_100g:{kcal:180,proteinas_g:24}}
+  ],
+  receitas:[{receita_id:3,alimento_id:1,nome:'Escondidinho patinho',rendimento_g:350,ingrediente_id:5,ingrediente_alimento_id:2,ingrediente_nome:'Patinho atual',ingrediente_quantidade_g:200}],
+  agua:[],sono:[],medicoes:[],treinos:[],execucoes:[],atividades:[],exames:[],avisos:[]};
+ const rel=montarRelatorio(info,{dias:[]},null).texto;
+ assert.match(rel,/Escondidinho coxão mole: 350 g/);
+ assert.match(rel,/Escondidinho patinho: 700 g/);
+ assert.doesNotMatch(rel,/Escondidinho coxão mole: 1\.050 g/);
+ assert.doesNotMatch(rel,/Patinho atual: 600 g/);
+ assert.match(rel,/Ingredientes históricos indisponíveis para esta versão/);
+ const mesmaComNomeRepetido={...info,diario:info.diario.map(i=>({...i,alimento_nome:'Escondidinho'}))};
+ const rel2=montarRelatorio(mesmaComNomeRepetido,{dias:[]},null).texto;
+ assert.match(rel2,/Escondidinho \[composição registrada 1\/2\]: 350 g/);
+ assert.match(rel2,/Escondidinho \[composição registrada 2\/2\]: 700 g/);
+});
