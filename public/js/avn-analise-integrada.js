@@ -70,11 +70,11 @@ function sessaoSono(rows) {
  const out=new Map();
  for(const x of rows||[]){
   const id=String(x.id);
-  if(!out.has(id))out.set(id,{id,inicio:x.inicio,fim:x.fim,duracao_min:numero(x.duracao_min),pontuacao:numero(x.pontuacao),fases:{LIGHT:0,DEEP:0,REM:0,AWAKE:0},comFases:false});
+  if(!out.has(id))out.set(id,{id,inicio:x.inicio,fim:x.fim,duracao_min:numero(x.duracao_min),pontuacao:numero(x.pontuacao),fases:{LIGHT:0,DEEP:0,REM:0,AWAKE:0},fasesPresentes:new Set(),comFases:false});
   const s=out.get(id);
   if(!['LIGHT','DEEP','REM','AWAKE'].includes(x.fase_tipo))continue;
   const a=Math.max(+new Date(x.fase_inicio),+new Date(s.inicio)),b=Math.min(+new Date(x.fase_fim),+new Date(s.fim));
-  if(Number.isFinite(a)&&Number.isFinite(b)&&b>a){s.fases[x.fase_tipo]+=(b-a)/60000;s.comFases=true;}
+  if(Number.isFinite(a)&&Number.isFinite(b)&&b>a){s.fases[x.fase_tipo]+=(b-a)/60000;s.fasesPresentes.add(x.fase_tipo);s.comFases=true;}
  }
  return [...out.values()].sort((a,b)=>+new Date(a.fim)-+new Date(b.fim));
 }
@@ -267,27 +267,28 @@ function montarRelatorio(info,balanco,erroBalanco) {
  add('6. SONO — SAMSUNG HEALTH');
  const sonoAtual=atual.flatMap(d=>sonoDia.get(d)||[]),sonoAnterior=anterior.flatMap(d=>sonoDia.get(d)||[]);
  const mediaSono=(arr,fn)=>{const valid=arr.map(fn).filter(v=>numero(v)!==null);return valid.length?valid.reduce((a,b)=>a+Number(b),0)/valid.length:null;};
- const tempoRealSono=s=>{const min=s.fases.LIGHT+s.fases.DEEP+s.fases.REM;return s.comFases&&min>0?min:null;};
- const totalSonoNoite=arr=>arr.some(s=>s.duracao_min!==null)?arr.reduce((a,s)=>a+(s.duracao_min||0),0):null;
+ const fasesCompletas=s=>['LIGHT','DEEP','REM','AWAKE'].every(k=>s.fasesPresentes.has(k));
+  const tempoRealSono=s=>{const min=s.fases.LIGHT+s.fases.DEEP+s.fases.REM;return fasesCompletas(s)&&min>0?min:null;};
+ const totalSonoNoite=arr=>arr.length&&arr.every(s=>s.duracao_min!==null)?arr.reduce((a,s)=>a+s.duracao_min,0):null;
  const noitePontos=arr=>arr.map(s=>s.pontuacao).filter(v=>v!==null);
  add('Sessões no período: '+sonoAtual.length+'; noites com registros: '+atual.filter(d=>sonoDia.has(d)).length+'/30.');
  add('Tempo real dormido médio por sessão (leve + profundo + REM): '+duracao(mediaSono(sonoAtual,tempoRealSono))+'; anterior: '+duracao(mediaSono(sonoAnterior,tempoRealSono))+'.');
  add('Duração total informada média por sessão (inclui tempo acordado): '+duracao(mediaSono(sonoAtual,s=>s.duracao_min))+'; anterior: '+duracao(mediaSono(sonoAnterior,s=>s.duracao_min))+'.');
  add('Pontuação Samsung Health média das sessões válidas: '+fmt(mediaSono(sonoAtual,s=>s.pontuacao),1)+'; anterior: '+fmt(mediaSono(sonoAnterior,s=>s.pontuacao),1)+'.');
  for(const fase of [['LIGHT','leve'],['DEEP','profundo'],['REM','REM'],['AWAKE','acordado']]){
-  add('Sono '+fase[1]+' médio por sessão com estágios: '+duracao(mediaSono(sonoAtual.filter(s=>s.comFases),s=>s.fases[fase[0]]))+'.');
+  add('Sono '+fase[1]+' médio por sessão com fase registrada: '+duracao(mediaSono(sonoAtual.filter(s=>s.fasesPresentes.has(fase[0])),s=>s.fases[fase[0]]))+'.');
  }
  for(const d of atual){
   const arr=sonoDia.get(d)||[];
   if(!arr.length){add(dBR(d)+': sem registro de sono.');continue;}
   add(dBR(d)+' (data do despertar): '+arr.map(s=>{
-   const fases=s.comFases?'leve '+duracao(s.fases.LIGHT)+', profundo '+duracao(s.fases.DEEP)+', REM '+duracao(s.fases.REM)+', acordado '+duracao(s.fases.AWAKE):'fases sem registro';
+   const fases=s.comFases?['LIGHT','DEEP','REM','AWAKE'].map((f,i)=>['leve','profundo','REM','acordado'][i]+' '+(s.fasesPresentes.has(f)?duracao(s.fases[f]):'sem dado')).join(', '):'fases sem registro';
    const conhecido=s.fases.LIGHT+s.fases.DEEP+s.fases.REM;
-   const pct=s.comFases&&conhecido>0?' (profundo '+fmt(s.fases.DEEP/conhecido*100,1)+'%, REM '+fmt(s.fases.REM/conhecido*100,1)+'% das fases dormidas registradas)':'';
+   const pct=fasesCompletas(s)&&conhecido>0?' (profundo '+fmt(s.fases.DEEP/conhecido*100,1)+'%, REM '+fmt(s.fases.REM/conhecido*100,1)+'% das fases dormidas registradas)':'';
    return 'início '+dataHora(s.inicio)+', fim '+dataHora(s.fim)+', tempo real dormido '+duracao(tempoRealSono(s))+', duração total informada '+duracao(s.duracao_min)+', '+fases+pct+', pontuação Samsung Health '+fmt(s.pontuacao,0);
   }).join(' | '));
  }
- add('NOTA: tempo real dormido é a soma das fases leve, profundo e REM. Duração total informada inclui períodos acordados; não confundir as duas medidas. Estágios do wearable são estimativas. Sono é associado à data do despertar; fases ausentes não são zero.');
+ add('NOTA: tempo real dormido é calculado somente quando todas as fases (leve, profundo, REM e acordado) aparecem no registro. Duração total informada pode incluir vigília e não equivale automaticamente a sono efetivo. Estágios do wearable são estimativas. Sono é associado à data do despertar; fases ausentes não são zero.');
  separar();
  add('7. AVALIAÇÃO FÍSICA E METABOLISMO BASAL');
  for(const [codigo,nome,unidade] of FISICAS){
@@ -303,11 +304,18 @@ function montarRelatorio(info,balanco,erroBalanco) {
  let massaCalculada=0;
  for(const d of atual){
   const registros=medicoes.get(d)||[];
-  const peso=[...registros].reverse().find(x=>x.codigo==='peso');
-  const pct=[...registros].reverse().find(x=>x.codigo==='gordura_corporal');
-  if(peso&&pct&&numero(pct.valor)!==null){add('  '+dBR(d)+': '+fmt(Number(peso.valor)*Number(pct.valor)/100)+' kg, derivada de peso e % gordura medidos na mesma data.');massaCalculada++;}
+  const pesos=registros.filter(x=>x.codigo==='peso'&&numero(x.valor)!==null);
+  const percentuais=registros.filter(x=>x.codigo==='gordura_corporal'&&numero(x.valor)!==null);
+  const pares=[];
+  for(const pct of percentuais){
+   const candidatos=pesos.filter(p=>Math.abs(+new Date(p.data_medicao)- +new Date(pct.data_medicao))<=15*60000);
+   candidatos.sort((a,b)=>Math.abs(+new Date(a.data_medicao)- +new Date(pct.data_medicao))-Math.abs(+new Date(b.data_medicao)- +new Date(pct.data_medicao)));
+   if(candidatos.length)pares.push({peso:candidatos[0],pct});
+  }
+  if(pares.length){const par=pares[pares.length-1];add('  '+dBR(d)+': '+fmt(Number(par.peso.valor)*Number(par.pct.valor)/100)+' kg, estimados a partir de peso e % gordura coletados com até 15 minutos de diferença ('+dataHora(par.pct.data_medicao)+').');massaCalculada++;}
+  else if(pesos.length||percentuais.length)add('  '+dBR(d)+': sem par de peso e percentual de gordura suficientemente próximo no tempo; cálculo omitido.');
  }
- if(!massaCalculada)add('  Sem par de peso e gordura corporal medidos na mesma data.');
+ if(!massaCalculada)add('  Sem pares de peso e gordura corporal com diferença de horário de até 15 minutos.');
  add('Massa muscular: só apresentar caso haja métrica própria; massa magra NÃO é equivalente à massa muscular.');
  add('Gordura visceral: valor do Zepp é um ÍNDICE, não porcentagem. Sem medições cadastradas no AVN, informar ausência, não inserir automaticamente o número 14.');
  add('Limitação: diferenças de hidratação, aparelho e horário podem alterar estimativas de composição corporal.');
@@ -321,21 +329,22 @@ function montarRelatorio(info,balanco,erroBalanco) {
   grupos.set(grupo,(grupos.get(grupo)||0)+series);
   const nome=e.exercicio||'Exercício não informado';
   if(!exercicios.has(nome))exercicios.set(nome,[]);
-  exercicios.get(nome).push({dia:diaLocal(s.realizado_em),carga:numero(e.carga_kg),series,repeticoes:e.repeticoes_realizadas});
+  exercicios.get(nome).push({dia:diaLocal(s.realizado_em),carga:numero(e.carga_kg),unidade:e.carga_unidade,placas:numero(e.carga_placas),series,repeticoes:e.repeticoes_realizadas});
  }
  add('Sessões realizadas: '+treinosAtual.length+' nos últimos 30 dias; '+treinosAnterior.length+' nos 30 anteriores.');
  add('Dias com treino: '+atual.filter(d=>treinoDia.has(d)).length+'/30.');
  add('Séries por grupo muscular: '+([ ...grupos].map(([g,v])=>g+' '+v).join('; ')||'sem séries registradas')+'.');
  for(const [ex,rows] of exercicios){
-  const valid=rows.filter(x=>x.carga!==null);
-  add('Progressão '+ex+': '+(valid.length>=2?'primeira carga '+fmt(valid[0].carga)+' kg, última '+fmt(valid[valid.length-1].carga)+' kg':'cargas insuficientes para comparar')+'.');
+  const valid=rows.filter(x=>x.carga!==null&&(!x.unidade||x.unidade==='kg'));
+  const validPlacas=rows.filter(x=>x.placas!==null);
+  add('Progressão '+ex+': '+(valid.length>=2?'primeira carga '+fmt(valid[0].carga)+' kg, última '+fmt(valid[valid.length-1].carga)+' kg':validPlacas.length>=2?'primeira carga '+fmt(validPlacas[0].placas)+' placas, última '+fmt(validPlacas[validPlacas.length-1].placas)+' placas':'cargas comparáveis insuficientes')+'.');
  }
  for(const d of atual){
   const arr=treinoDia.get(d)||[];
   if(!arr.length){add(dBR(d)+': nenhum treino executado registrado.');continue;}
   for(const s of arr){
    add(dBR(d)+' — '+dataHora(s.realizado_em)+' — '+(s.plano_nome||'Treino')+' [origem: '+s.origem+']'+(s.observacoes?' (observações: '+s.observacoes+')':''));
-   for(const ex of s.exercicios)add('  '+ex.exercicio+(ex.numero_serie?' — série '+ex.numero_serie:'')+' ['+(ex.grupo_muscular||'grupo indefinido')+']: '+(ex.series_realizadas??'?')+' séries, repetições '+(ex.repeticoes_realizadas||'não registradas')+', carga '+(numero(ex.carga_kg)===null?'não informada':fmt(ex.carga_kg)+' kg')+(ex.carga_unidade?' ('+ex.carga_unidade+')':'')+(ex.carga_placas?' / placas '+ex.carga_placas:'')+'.');
+   for(const ex of s.exercicios)add('  '+ex.exercicio+(ex.numero_serie?' — série '+ex.numero_serie:'')+' ['+(ex.grupo_muscular||'grupo indefinido')+']: '+(ex.series_realizadas??'?')+' séries, repetições '+(ex.repeticoes_realizadas||'não registradas')+', carga '+(numero(ex.carga_kg)===null?'não informada':fmt(ex.carga_kg)+' kg')+(ex.carga_unidade?' ('+ex.carga_unidade+')':'')+(ex.carga_placas!=null?' / placas '+ex.carga_placas:'')+'.');
   }
  }
  add('Volume de carga total só pode ser calculado com repetições e cargas inequivocamente registradas. Calorias de treinamento são obtidas do Health Connect por meio do balanço energético; NÃO somar novamente calorias destas sessões.');
