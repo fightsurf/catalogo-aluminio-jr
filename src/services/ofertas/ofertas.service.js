@@ -211,15 +211,33 @@ async function listar(filtros = {}) {
   await schemaService.criarEstrutura();
 
   const precoMedioInformado = String(filtros.preco_medio ?? '').trim();
+  const condicao = String(filtros.condicao || 'igual').trim().toLowerCase();
+  if (!['igual', 'abaixo', 'acima', 'entre'].includes(condicao)) {
+    throw new Error('Condição de preço médio inválida.');
+  }
+
   let result;
   if (precoMedioInformado) {
     const precoMedio = numeroPositivo(precoMedioInformado.replace(',', '.'), 'Preço médio');
+    const parametros = [precoMedio];
+    let condicaoSql = 'ABS(preco_medio - $1::numeric) < 0.005';
+
+    if (condicao === 'abaixo') condicaoSql = 'preco_medio < $1::numeric';
+    if (condicao === 'acima') condicaoSql = 'preco_medio > $1::numeric';
+    if (condicao === 'entre') {
+      const limiteSuperiorTexto = String(filtros.preco_medio_max ?? '').trim();
+      const limiteSuperior = numeroPositivo(limiteSuperiorTexto.replace(',', '.'), 'Preço médio máximo');
+      if (limiteSuperior < precoMedio) throw new Error('O valor final deve ser maior ou igual ao inicial.');
+      parametros.push(limiteSuperior);
+      condicaoSql = 'preco_medio >= $1::numeric AND preco_medio <= $2::numeric';
+    }
+
     result = await pool.query(
       `SELECT * FROM ofertas
-       WHERE ABS(preco_medio - $1::numeric) < 0.005
+       WHERE ${condicaoSql}
        ORDER BY created_at DESC
        LIMIT 100`,
-      [precoMedio]
+      parametros
     );
   } else {
     result = await pool.query('SELECT * FROM ofertas ORDER BY created_at DESC LIMIT 100');
