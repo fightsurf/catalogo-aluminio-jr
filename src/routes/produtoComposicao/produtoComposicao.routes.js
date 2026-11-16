@@ -3,6 +3,7 @@ const router = express.Router();
 const controller = require('../../controllers/produtoComposicao/produtoComposicao.controller');
 
 router.get('/insumos', controller.listarInsumosDisponiveis);
+router.get('/revisoes', controller.listarRevisoesPorProduto);
 router.get('/produto/:produtoId', controller.listarPorProduto);
 router.put('/produto/:produtoId/preco', controller.atualizarPrecoProduto);
 router.post('/produto/:produtoId/copiar-composicao', controller.copiarComposicaoProduto);
