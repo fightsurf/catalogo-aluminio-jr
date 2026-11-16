@@ -10,6 +10,16 @@ async function listarInsumosDisponiveis(req, res) {
   }
 }
 
+async function listarRevisoesPorProduto(req, res) {
+  try {
+    const dados = await service.listarRevisoesPorProduto();
+    res.json({ success: true, data: dados });
+  } catch (error) {
+    console.error('ERRO LISTAR REVISÕES DAS COMPOSIÇÕES:', error);
+    res.status(500).json({ success: false, message: 'Erro ao carregar revisões dos produtos' });
+  }
+}
+
 async function listarPorProduto(req, res) {
   try {
     const dados = await service.listarPorProduto(req.params.produtoId);
@@ -102,6 +112,7 @@ async function excluir(req, res) {
 
 module.exports = {
   listarInsumosDisponiveis,
+  listarRevisoesPorProduto,
   listarPorProduto,
   buscar,
   criar,
