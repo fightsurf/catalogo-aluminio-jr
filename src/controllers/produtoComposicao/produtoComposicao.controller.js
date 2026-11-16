@@ -62,7 +62,7 @@ async function atualizarPrecoProduto(req, res) {
 
 async function copiarComposicaoProduto(req, res) {
   try {
-    const dados = await service.copiarComposicaoProduto(req.params.produtoId, req.body?.produto_origem_id);
+    const dados = await service.copiarComposicaoProduto(req.params.produtoId, req.body?.produto_origem_id, req.body?.modo_copia);
     res.json({ success: true, data: dados, message: 'Composição copiada com sucesso' });
   } catch (error) {
     const status = error.message.includes('não encontrado') ? 404 : 400;
