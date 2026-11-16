@@ -24,7 +24,7 @@
     .btn-limpar { background:#95a5a6; color:#fff; }
     .btn-alerta { background:#f39c12; color:#fff; }
     .btn-perigo { background:#e74c3c; color:#fff; }
-    .grid-topo { display:grid; grid-template-columns: 1.3fr 220px 1fr 110px 130px 120px; gap:12px; align-items:end; }
+    .grid-topo { display:grid; grid-template-columns:minmax(0,1fr) 130px; gap:12px; align-items:end; }
     .duas-colunas { display:grid; grid-template-columns: 1fr 1fr; gap:18px; align-items:start; }
     .filtros-insumos { display:grid; grid-template-columns: 1fr 1fr 1fr 120px 100px; gap:10px; align-items:end; margin-bottom:12px; }
     .cards { display:grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap:10px; max-height:610px; overflow:auto; padding-right:4px; }
@@ -110,25 +110,6 @@
         <div>
           <label for="produto_id">Produto acabado</label>
           <select id="produto_id" onchange="selecionarProduto()"></select>
-        </div>
-        <div>
-          <label for="composicao_id">Versão existente</label>
-          <select id="composicao_id" onchange="selecionarComposicao()"></select>
-        </div>
-        <div>
-          <label for="nome_composicao">Nome da versão</label>
-          <input type="text" id="nome_composicao" value="PADRÃO" />
-        </div>
-        <div>
-          <label for="ativo">Ativo</label>
-          <select id="ativo">
-            <option value="true">Sim</option>
-            <option value="false">Não</option>
-          </select>
-        </div>
-        <div>
-          <label>&nbsp;</label>
-          <button type="button" class="btn-alerta" onclick="novaComposicao()">Nova versão</button>
         </div>
         <div>
           <label>&nbsp;</label>
@@ -240,7 +221,7 @@
           <button type="button" class="btn-principal" onclick="salvarComposicao()">Salvar composição</button>
           <button type="button" class="btn-secundario" onclick="abrirModalCopiarComposicao()">Copiar de outro produto</button>
           <button type="button" class="btn-secundario" onclick="abrirModalCopiarParaOutroProduto()">Copiar para outro produto</button>
-          <button type="button" class="btn-perigo" onclick="excluirComposicaoAtual()">Excluir versão</button>
+          <button type="button" class="btn-perigo" onclick="excluirComposicaoAtual()">Excluir composição</button>
           <button type="button" class="btn-secundario" onclick="imprimirComposicao()">Imprimir composição</button>
         </div>
       </div>
@@ -310,7 +291,6 @@
     const API = '/api/produtos-composicoes';
     let produtos = [];
     let produtoAtual = null;
-    let composicoes = [];
     let composicaoAtualId = null;
     let dataRevisaoAtual = null;
     let itensDisponiveis = [];
@@ -610,10 +590,7 @@
       atualizarResumo();
 
       if (!produtoAtual) {
-        composicoes = [];
-        document.getElementById('composicao_id').innerHTML = '<option value="">Selecione produto</option>';
         document.getElementById('infoProduto').textContent = '';
-        document.getElementById('nome_composicao').value = 'PADRÃO';
         document.getElementById('preco_venda_produto').value = '';
         document.getElementById('preco_venda_produto_atual').value = '';
         return;
@@ -630,40 +607,21 @@
       const json = await resp.json();
       if (!resp.ok || !json.success) throw new Error(json.message || 'Erro ao carregar composições');
 
-      composicoes = json.data.composicoes || [];
-      const select = document.getElementById('composicao_id');
-      select.innerHTML = '<option value="">Nova composição</option>' + composicoes
-        .map(c => `<option value="${c.id}">${escapeHtml(c.nome)} - ${moeda(c.custo_total)}${c.ativo ? '' : ' (inativa)'}</option>`)
-        .join('');
-
-      if (composicoes.length) {
-        select.value = composicoes[0].id;
-        await selecionarComposicao();
+      const composicoesDoProduto = json.data.composicoes || [];
+      if (composicoesDoProduto.length) {
+        await selecionarComposicao(composicoesDoProduto[0].id);
       } else {
-        novaComposicao(false);
+        // Sem composição cadastrada: os itens podem ser adicionados e salvos normalmente.
+        composicaoAtualId = null;
+        exibirDataRevisao(null);
+        itensComposicao = [];
+        renderizarComposicao();
+        atualizarResumo();
       }
     }
 
-    function novaComposicao(mostrar = true) {
-      composicaoAtualId = null;
-      exibirDataRevisao(null);
-      document.getElementById('composicao_id').value = '';
-      document.getElementById('nome_composicao').value = 'PADRÃO';
-      document.getElementById('ativo').value = 'true';
-      itensComposicao = [];
-      renderizarComposicao();
-      atualizarResumo();
-      if (mostrar) mostrarMensagem('Nova composição iniciada. Adicione os insumos e salve.', 'sucesso');
-    }
-
-    async function selecionarComposicao() {
+    async function selecionarComposicao(id) {
       limparMensagem();
-      const id = document.getElementById('composicao_id').value;
-      if (!id) {
-        novaComposicao(false);
-        return;
-      }
-
       const resp = await fetch(`${API}/${id}`);
       const json = await resp.json();
       if (!resp.ok || !json.success) throw new Error(json.message || 'Erro ao carregar composição');
@@ -671,8 +629,6 @@
       const comp = json.data;
       composicaoAtualId = comp.id;
       exibirDataRevisao(comp.revisado_em);
-      document.getElementById('nome_composicao').value = comp.nome;
-      document.getElementById('ativo').value = String(comp.ativo);
       itensComposicao = (comp.itens || []).map(item => ({ ...item }));
       renderizarComposicao();
       atualizarResumo();
@@ -889,7 +845,6 @@
       }
 
       const nomeProduto = escapeHtml(produtoAtual.nome);
-      const nomeVersao = escapeHtml(document.getElementById('nome_composicao').value.trim());
       const revisao = escapeHtml(document.getElementById('data_revisao').value);
       const custoTotal = itensComposicao.reduce((soma, item) =>
         soma + Number(item.quantidade || 0) * Number(item.custo_unitario || 0), 0);
@@ -928,7 +883,6 @@
   <h1>Alumínio JR — Composição do produto</h1>
   <div class="dados">
     <div><strong>Produto:</strong> ${nomeProduto}</div>
-    <div><strong>Versão:</strong> ${nomeVersao}</div>
     <div><strong>Última revisão:</strong> ${revisao}</div>
     <div><strong>Emissão:</strong> ${emissao}</div>
   </div>
@@ -1107,35 +1061,21 @@
         produtoAtual = obterProdutoSelecionado();
         if (!produtoAtual) throw new Error('Selecione o produto acabado');
 
-        const nome = document.getElementById('nome_composicao').value.trim();
-        if (!nome) throw new Error('Informe o nome da versão');
-
-        const payloadComposicao = {
-          produto_id: produtoAtual.id,
-          nome,
-          ativo: document.getElementById('ativo').value === 'true'
-        };
-
         let compId = composicaoAtualId;
-        let resp;
-        if (compId) {
-          resp = await fetch(`${API}/${compId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payloadComposicao)
-          });
-        } else {
-          resp = await fetch(API, {
+        // A composição é única por produto. Criar só quando ainda não existir;
+        // nunca alterar o status do produto nem o campo técnico ativo da composição.
+        if (!compId) {
+          const criacao = await fetch(API, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payloadComposicao)
+            body: JSON.stringify({ produto_id: produtoAtual.id })
           });
+          const resultadoCriacao = await criacao.json();
+          if (!criacao.ok || !resultadoCriacao.success) {
+            throw new Error(resultadoCriacao.message || 'Erro ao criar composição');
+          }
+          compId = resultadoCriacao.data.id;
         }
-
-        let json = await resp.json();
-        if (!resp.ok || !json.success) throw new Error(json.message || 'Erro ao salvar composição');
-
-        compId = json.data.id;
         const itensValidos = itensComposicao
           .map(item => ({
             insumo_fornecedor_id: item.insumo_fornecedor_id,
@@ -1143,19 +1083,17 @@
           }))
           .filter(item => item.quantidade > 0);
 
-        resp = await fetch(`${API}/${compId}/itens`, {
+        const resp = await fetch(`${API}/${compId}/itens`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ itens: itensValidos })
         });
 
-        json = await resp.json();
+        const json = await resp.json();
         if (!resp.ok || !json.success) throw new Error(json.message || 'Erro ao salvar itens');
 
         composicaoAtualId = compId;
         await carregarComposicoesProduto(produtoAtual.id);
-        document.getElementById('composicao_id').value = compId;
-        await selecionarComposicao();
         mostrarMensagem('Composição salva com sucesso.', 'sucesso');
       } catch (error) {
         mostrarMensagem(error.message, 'erro');
@@ -1165,17 +1103,21 @@
     async function excluirComposicaoAtual() {
       try {
         limparMensagem();
-        if (!composicaoAtualId) throw new Error('Nenhuma versão selecionada para excluir');
-        if (!confirm('Excluir esta versão de composição?')) return;
+        if (!composicaoAtualId) throw new Error('Nenhuma composição salva para excluir');
+        if (!confirm('Excluir a composição deste produto e todos os seus insumos?')) return;
 
         const resp = await fetch(`${API}/${composicaoAtualId}`, { method: 'DELETE' });
         const json = await resp.json();
         if (!resp.ok || !json.success) throw new Error(json.message || 'Erro ao excluir composição');
 
         const produtoId = produtoAtual?.id;
-        novaComposicao(false);
+        composicaoAtualId = null;
+        exibirDataRevisao(null);
+        itensComposicao = [];
+        renderizarComposicao();
+        atualizarResumo();
         if (produtoId) await carregarComposicoesProduto(produtoId);
-        mostrarMensagem('Versão excluída com sucesso.', 'sucesso');
+        mostrarMensagem('Composição excluída com sucesso.', 'sucesso');
       } catch (error) {
         mostrarMensagem(error.message, 'erro');
       }
@@ -1183,16 +1125,12 @@
 
     function limparTudo() {
       document.getElementById('produto_id').value = '';
-      document.getElementById('composicao_id').innerHTML = '<option value="">Selecione produto</option>';
-      document.getElementById('nome_composicao').value = 'PADRÃO';
-      document.getElementById('ativo').value = 'true';
       document.getElementById('infoProduto').textContent = '';
       document.getElementById('preco_venda_produto').value = '';
       document.getElementById('preco_venda_produto_atual').value = '';
       produtoAtual = null;
       composicaoAtualId = null;
       exibirDataRevisao(null);
-      composicoes = [];
       itensComposicao = [];
       renderizarComposicao();
       atualizarResumo();
@@ -1207,7 +1145,6 @@
 
         await Promise.all([carregarProdutos(produtoIdLink !== null), carregarFiltros(), carregarCustosRateados()]);
         await carregarInsumosDisponiveis();
-        document.getElementById('composicao_id').innerHTML = '<option value="">Selecione produto</option>';
         renderizarComposicao();
         atualizarResumo();
 
