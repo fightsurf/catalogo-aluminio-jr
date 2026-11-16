@@ -169,6 +169,26 @@ router.post('/interpretar', (req, res, next) => {
   }
 });
 
+router.get('/cidades', async (req, res) => {
+  try {
+    const nome = limparNome(req.query.nome, 120);
+    const uf = ufValida(req.query.uf);
+    if (nome.length < 2) falha('Informe ao menos duas letras para buscar a cidade.');
+    const resultado = await pool.query(
+      "SELECT id, nome, estado AS uf FROM cidades " +
+      "WHERE codigo_ibge IS NOT NULL " +
+      "AND LOWER(unaccent(nome)) LIKE LOWER(unaccent($1)) " +
+      "AND ($2::text = '' OR UPPER(estado) = $2) " +
+      "ORDER BY CASE WHEN LOWER(unaccent(nome)) = LOWER(unaccent($3)) THEN 0 ELSE 1 END, nome LIMIT 30",
+      ['%' + nome + '%', uf, nome]
+    );
+    res.json(resultado.rows.map(c => ({ id: c.id, nome: c.nome, uf: ufValida(c.uf) })));
+  } catch (e) {
+    if ((e.status || 500) >= 500) console.error('[ImportacaoIA] Buscar cidades:', e);
+    res.status(e.status || 500).json({ erro: e.status ? e.message : 'Falha ao buscar cidades.' });
+  }
+});
+
 router.post('/confirmar', async (req, res) => {
   const cliente = await pool.connect().catch(() => null);
   if (!cliente) return res.status(500).json({ erro: 'Não foi possível conectar ao banco.' });
