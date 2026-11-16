@@ -259,6 +259,18 @@ async function listarInsumosDisponiveis(filtros = {}) {
   return result.rows.map(mapearInsumoDisponivel);
 }
 
+async function listarRevisoesPorProduto() {
+  const result = await pool.query(`
+    SELECT produto_id, TO_CHAR(MAX(revisado_em), 'YYYY-MM-DD') AS revisado_em
+    FROM produtos_composicoes
+    GROUP BY produto_id
+  `);
+  return result.rows.map(row => ({
+    produto_id: Number(row.produto_id),
+    revisado_em: row.revisado_em
+  }));
+}
+
 async function listarPorProduto(produtoIdParam) {
   const produtoId = normalizarId(produtoIdParam, 'Produto');
   const produto = await obterProduto(produtoId);
@@ -659,6 +671,7 @@ async function excluir(composicaoIdParam) {
 
 module.exports = {
   listarInsumosDisponiveis,
+  listarRevisoesPorProduto,
   listarPorProduto,
   buscar,
   criar,
