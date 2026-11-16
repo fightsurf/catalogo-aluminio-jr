@@ -27,13 +27,22 @@
     .grid-topo { display:grid; grid-template-columns:minmax(0,1fr) 130px; gap:12px; align-items:end; }
     .produto-seletor { position:relative; }
     .produto-select-original { display:none; }
-    .produto-dropdown-botao { background:#fff; color:#17202a; text-align:left; border:1px solid #ccd3db; font-weight:normal; white-space:pre-wrap; overflow-wrap:anywhere; }
-    .produto-dropdown-botao::after { content:'⌄'; float:right; font-size:18px; margin-left:12px; }
+    .produto-dropdown-botao { display:flex; align-items:center; gap:10px; background:#fff; color:#17202a; text-align:left; border:1px solid #ccd3db; font-weight:normal; white-space:pre-wrap; overflow-wrap:anywhere; }
+    .produto-dropdown-botao::after { content:'⌄'; font-size:18px; margin-left:auto; }
     .produto-dropdown-botao.revisado { background:#18783a; color:#fff; border-color:#18783a; }
     .produto-dropdown-popup { position:absolute; z-index:40; top:calc(100% + 4px); left:0; right:0; background:#fff; border:1px solid #cbd5e1; border-radius:8px; box-shadow:0 12px 28px rgba(0,0,0,.19); padding:8px; }
     .produto-dropdown-popup input { margin-bottom:7px; }
     .produto-dropdown-lista { max-height:340px; overflow-y:auto; overscroll-behavior:contain; }
-    .produto-dropdown-opcao { display:block; width:100%; background:#fff; color:#17202a; text-align:left; padding:10px 12px; border:0; border-radius:5px; font-weight:normal; white-space:pre-wrap; overflow-wrap:anywhere; }
+    .produto-dropdown-opcao { display:flex; align-items:center; gap:10px; width:100%; background:#fff; color:#17202a; text-align:left; padding:8px 12px; border:0; border-radius:5px; font-weight:normal; white-space:pre-wrap; overflow-wrap:anywhere; }
+    .produto-dropdown-texto { flex:1; min-width:0; }
+    .produto-foto { width:42px; height:42px; display:inline-flex; align-items:center; justify-content:center; flex:none; border:1px solid #cbd5e1; border-radius:6px; background:#edf1f5; overflow:hidden; }
+    .produto-foto img { display:block; width:100%; height:100%; object-fit:contain; background:#fff; }
+    .produto-foto img + .produto-foto-sem-imagem { display:none; }
+    .produto-foto-sem-imagem { font-size:18px; opacity:.55; }
+    .produto-resumo-identificacao { display:flex; align-items:center; gap:12px; margin-bottom:12px; font-size:17px; color:#243447; overflow-wrap:anywhere; }
+    .produto-resumo-identificacao .produto-foto { width:58px; height:58px; }
+    .info-produto-conteudo { display:flex; align-items:center; gap:10px; }
+    .info-produto-conteudo > span:last-child { min-width:0; }
     .produto-dropdown-opcao:hover, .produto-dropdown-opcao:focus-visible { background:#e4ecf4; }
     .produto-dropdown-opcao.revisado { background:#18783a; color:#fff; }
     .produto-dropdown-opcao.revisado:hover, .produto-dropdown-opcao.revisado:focus-visible { background:#11622e; color:#fff; }
@@ -66,7 +75,8 @@
     .btn-mini { width:26px; height:24px; padding:0; border-radius:5px; display:inline-flex; align-items:center; justify-content:center; font-size:13px; }
     .resumo { display:flex; flex-direction:column; gap:12px; margin-top:14px; }
     .resumo-titulo { font-size:13px; font-weight:bold; color:#34495e; margin-bottom:7px; }
-    .resumo-linha { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:10px; }
+    .resumo-linha { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:10px; }
+    .resumo-periodo-atual .resumo-card { background:#e2e8f0; border:1px solid #cbd5e1; }
     .resumo-card { min-width:0; overflow-wrap:anywhere; }
     .resumo-card { background:#f6f8fb; border-radius:8px; padding:12px; }
     .resumo-card span { display:block; font-size:12px; color:#566573; margin-bottom:4px; }
@@ -202,10 +212,12 @@
 
         <div class="resumo">
           <div>
+            <div id="produtoResumoIdentificacao" class="produto-resumo-identificacao hidden"></div>
             <div class="resumo-titulo">Base de custos: mês anterior <span id="periodoAnterior"></span></div>
             <div class="resumo-linha">
               <div class="resumo-card"><span>Custo dos insumos</span><strong id="resumoCusto">R$ 0,00</strong></div>
               <div class="resumo-card" title="Total cadastrado dividido pelos itens vendidos no mês anterior"><span>Custo por item — mês anterior</span><strong id="resumoCustoMesAnterior">—</strong></div>
+              <div class="resumo-card" title="Custo dos insumos + custo por item do mês anterior"><span>Custo total por item</span><strong id="resumoCustoTotalAnterior">—</strong></div>
               <div class="resumo-card preco-venda-card">
                 <span>Preço final de venda</span>
                 <div class="preco-venda-linha">
@@ -218,11 +230,12 @@
               <div class="resumo-card"><span>Margem bruta</span><strong id="resumoMargem">—</strong></div>
             </div>
           </div>
-          <div>
+          <div class="resumo-periodo-atual">
             <div class="resumo-titulo">Base de custos: mês atual <span id="periodoAtual"></span></div>
             <div class="resumo-linha">
               <div class="resumo-card"><span>Custo dos insumos</span><strong id="resumoCustoAtual">R$ 0,00</strong></div>
               <div class="resumo-card" title="Total cadastrado dividido pelos itens vendidos no mês atual"><span>Custo por item — mês atual</span><strong id="resumoCustoMesAtual">—</strong></div>
+              <div class="resumo-card" title="Custo dos insumos + custo por item do mês atual"><span>Custo total por item</span><strong id="resumoCustoTotalAtual">—</strong></div>
               <div class="resumo-card preco-venda-card">
                 <span>Preço final de venda</span>
                 <div class="preco-venda-linha">
@@ -754,6 +767,26 @@
       return `${produto.nome} - ${moeda(produto.preco)}  --- ${formatarDataRevisaoLista(produto.revisado_em) || 'Sem revisão'}`;
     }
 
+    function fotoProdutoHtml(produto) {
+      const foto = String(produto?.foto || '').trim();
+      return `<span class="produto-foto" aria-hidden="true">${foto ? `<img src="${escapeHtml(foto)}" alt="" loading="lazy" onerror="this.remove()">` : ''}<span class="produto-foto-sem-imagem">📷</span></span>`;
+    }
+
+    function atualizarIdentificacaoProduto() {
+      const info = document.getElementById('infoProduto');
+      const resumo = document.getElementById('produtoResumoIdentificacao');
+      if (!produtoAtual) {
+        info.textContent = '';
+        resumo.innerHTML = '';
+        resumo.classList.add('hidden');
+        return;
+      }
+      const nome = escapeHtml(produtoAtual.nome);
+      info.innerHTML = `<div class="info-produto-conteudo">${fotoProdutoHtml(produtoAtual)}<span>Produto selecionado: ${nome} | Preço de venda: ${moeda(produtoAtual.preco)}</span></div>`;
+      resumo.innerHTML = `${fotoProdutoHtml(produtoAtual)}<strong>${nome}</strong>`;
+      resumo.classList.remove('hidden');
+    }
+
     function renderizarListaProdutos() {
       const campoBusca = document.getElementById('produtoDropdownBusca');
       const termo = campoBusca.value.trim().toLocaleLowerCase('pt-BR');
@@ -762,7 +795,7 @@
       document.getElementById('produtoDropdownLista').innerHTML = filtrados.length
         ? filtrados.map(p => `<button type="button" class="produto-dropdown-opcao${formatarDataRevisaoLista(p.revisado_em) ? ' revisado' : ''}"
             role="option" aria-selected="${Number(p.id) === selecionado}"
-            onclick="selecionarProdutoNaLista(${Number(p.id)})">${escapeHtml(rotuloProdutoLista(p))}</button>`).join('')
+            onclick="selecionarProdutoNaLista(${Number(p.id)})">${fotoProdutoHtml(p)}<span class="produto-dropdown-texto">${escapeHtml(rotuloProdutoLista(p))}</span></button>`).join('')
         : '<div class="produto-dropdown-vazio">Nenhum produto encontrado.</div>';
     }
 
@@ -770,7 +803,9 @@
       const idSelecionado = Number(document.getElementById('produto_id').value || 0);
       const selecionado = produtos.find(p => Number(p.id) === idSelecionado);
       const botao = document.getElementById('produtoDropdownBotao');
-      botao.textContent = selecionado ? rotuloProdutoLista(selecionado) : 'Selecione um produto';
+      botao.innerHTML = selecionado
+        ? `${fotoProdutoHtml(selecionado)}<span class="produto-dropdown-texto">${escapeHtml(rotuloProdutoLista(selecionado))}</span>`
+        : '<span class="produto-dropdown-texto">Selecione um produto</span>';
       botao.classList.toggle('revisado', !!(selecionado && formatarDataRevisaoLista(selecionado.revisado_em)));
       renderizarListaProdutos();
     }
@@ -887,14 +922,13 @@
       renderizarComposicao();
       atualizarResumo();
 
+      atualizarIdentificacaoProduto();
       if (!produtoAtual) {
-        document.getElementById('infoProduto').textContent = '';
         document.getElementById('preco_venda_produto').value = '';
         document.getElementById('preco_venda_produto_atual').value = '';
         return;
       }
 
-      document.getElementById('infoProduto').textContent = `Produto selecionado: ${produtoAtual.nome} | Preço de venda: ${moeda(produtoAtual.preco)}`;
       document.getElementById('preco_venda_produto').value = formatarMoedaInput(produtoAtual.preco);
       document.getElementById('preco_venda_produto_atual').value = formatarMoedaInput(produtoAtual.preco);
       await carregarComposicoesProduto(produtoAtual.id);
@@ -1114,11 +1148,13 @@
       const precoVenda = produtoAtual ? Number(produtoAtual.preco || 0) : 0;
       // Lucro bruto = preço final de venda - custo dos insumos - rateio mensal por item.
       // Margem bruta = lucro bruto / preço final de venda.
-      function atualizarPeriodo(rateio, idRateio, idLucro, idMargem) {
+      function atualizarPeriodo(rateio, idRateio, idCustoTotal, idLucro, idMargem) {
         const valido = Number.isFinite(rateio);
-        const lucro = valido ? precoVenda - custo - rateio : null;
+        const custoTotal = valido ? custo + rateio : null;
+        const lucro = valido ? precoVenda - custoTotal : null;
         const margem = valido && precoVenda > 0 ? lucro / precoVenda * 100 : null;
         document.getElementById(idRateio).textContent = valido ? moeda(rateio) : '—';
+        document.getElementById(idCustoTotal).textContent = valido ? moeda(custoTotal) : '—';
         document.getElementById(idLucro).textContent = valido ? moeda(lucro) : '—';
         document.getElementById(idMargem).textContent = margem === null ? '—' : margem.toFixed(2) + '%';
       }
@@ -1126,8 +1162,8 @@
       document.getElementById('resumoCustoAtual').textContent = moeda(custo);
       document.getElementById('resumoVenda').textContent = moeda(precoVenda);
       document.getElementById('resumoVendaAtual').textContent = moeda(precoVenda);
-      atualizarPeriodo(custosRateados.anterior, 'resumoCustoMesAnterior', 'resumoLucro', 'resumoMargem');
-      atualizarPeriodo(custosRateados.atual, 'resumoCustoMesAtual', 'resumoLucroAtual', 'resumoMargemAtual');
+      atualizarPeriodo(custosRateados.anterior, 'resumoCustoMesAnterior', 'resumoCustoTotalAnterior', 'resumoLucro', 'resumoMargem');
+      atualizarPeriodo(custosRateados.atual, 'resumoCustoMesAtual', 'resumoCustoTotalAtual', 'resumoLucroAtual', 'resumoMargemAtual');
     }
 
     function atualizarOptionProdutoSelecionado() {
@@ -1162,7 +1198,7 @@
 
         document.getElementById('preco_venda_produto').value = formatarMoedaInput(produtoAtual.preco);
         document.getElementById('preco_venda_produto_atual').value = formatarMoedaInput(produtoAtual.preco);
-        document.getElementById('infoProduto').textContent = `Produto selecionado: ${produtoAtual.nome} | Preço de venda: ${moeda(produtoAtual.preco)}`;
+        atualizarIdentificacaoProduto();
         atualizarOptionProdutoSelecionado();
         atualizarResumo();
         if (composicaoAtualId) exibirDataRevisao(json.data.revisado_em);
@@ -1470,10 +1506,10 @@
       document.getElementById('produto_id').value = '';
       fecharListaProdutos();
       atualizarSeletorProdutos();
-      document.getElementById('infoProduto').textContent = '';
+      produtoAtual = null;
+      atualizarIdentificacaoProduto();
       document.getElementById('preco_venda_produto').value = '';
       document.getElementById('preco_venda_produto_atual').value = '';
-      produtoAtual = null;
       document.getElementById('btnAdicionarInsumo').disabled = true;
       composicaoAtualId = null;
       exibirDataRevisao(null);
