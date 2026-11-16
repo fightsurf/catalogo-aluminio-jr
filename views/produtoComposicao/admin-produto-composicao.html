@@ -76,6 +76,26 @@
     .preco-venda-linha input { min-width:0; height:32px; padding:5px 7px; font-size:14px; font-weight:bold; text-align:right; }
     .preco-venda-linha button { width:38px; min-width:38px; height:32px; padding:0; border-radius:6px; background:#2ecc71; color:#fff; font-size:15px; }
     .preco-venda-atual { font-size:11px; color:#566573; }
+    .comparador-abrir { margin-top:10px; }
+    .comparador-abrir button { width:auto; padding:8px 12px; font-size:13px; }
+    .janela-comparacao { position:fixed; top:96px; right:16px; z-index:80; width:min(390px, calc(100vw - 20px)); max-height:calc(100dvh - 116px); display:flex; flex-direction:column; background:#fff; border:1px solid #93a5b7; border-radius:10px; box-shadow:0 12px 34px rgba(0,0,0,.24); overflow:hidden; }
+    .janela-comparacao-cabecalho { display:flex; align-items:center; justify-content:space-between; gap:12px; background:#243447; color:#fff; padding:10px 12px; user-select:none; touch-action:none; cursor:move; }
+    .janela-comparacao-cabecalho strong { font-size:14px; }
+    .janela-comparacao-fechar { width:30px; height:30px; flex:none; padding:0; color:#fff; background:#b33939; border-radius:5px; font-size:20px; line-height:1; cursor:pointer; }
+    .janela-comparacao-conteudo { padding:12px; overflow-y:auto; min-height:0; }
+    .janela-comparacao-dica { font-size:12px; color:#566573; margin:0 0 12px; line-height:1.4; }
+    .comparacao-busca-lista { max-height:155px; overflow-y:auto; border:1px solid #e0e5ed; border-radius:6px; margin:7px 0 12px; }
+    .comparacao-busca-opcao { display:flex; align-items:center; justify-content:space-between; text-align:left; gap:10px; width:100%; background:#fff; font-weight:normal; border:0; border-bottom:1px solid #e9edf2; border-radius:0; padding:8px 10px; font-size:12px; }
+    .comparacao-busca-opcao:hover,.comparacao-busca-opcao:focus-visible { background:#edf4fa; }
+    .comparacao-busca-preco { flex:none; font-weight:bold; color:#176c3a; }
+    .comparacao-vazio { padding:10px; font-size:12px; color:#64748b; }
+    .comparacao-referencia { display:flex; align-items:center; gap:10px; justify-content:space-between; padding:10px 0; border-bottom:1px solid #e5eaf0; }
+    .comparacao-referencia-nome { font-size:13px; font-weight:bold; overflow-wrap:anywhere; }
+    .comparacao-referencia-preco { font-size:17px; color:#176c3a; font-weight:bold; margin-top:3px; }
+    .comparacao-referencia-remover { width:auto; flex:none; padding:6px 8px; background:#e9edf2; color:#34495e; font-size:11px; }
+    .comparacao-subtitulo { font-size:12px; font-weight:bold; color:#34495e; margin:10px 0 4px; }
+    @media (max-width:480px) { .janela-comparacao { top:70px; right:10px; max-height:calc(100dvh - 84px); } }
+
     .acoes { display:flex; gap:10px; flex-wrap:wrap; margin-top:14px; }
     .acoes button { width:auto; min-width:140px; }
     .revisao-linha { display:flex; gap:10px; align-items:end; margin-top:14px; flex-wrap:wrap; }
@@ -152,6 +172,9 @@
       </div>
 
       <div id="infoProduto" class="info-produto"></div>
+      <div class="comparador-abrir">
+        <button id="btnAbrirComparadorPrecos" type="button" class="btn-secundario" onclick="abrirComparadorPrecos()">📌 Comparar preços de outros produtos</button>
+      </div>
       <div id="mensagem" class="mensagem"></div>
     </div>
 
@@ -232,6 +255,21 @@
       </div>
     </div>
   </div>
+
+  <aside id="janelaComparacaoPrecos" class="janela-comparacao hidden" role="dialog" aria-modal="false" aria-labelledby="tituloComparacaoPrecos">
+    <div id="cabecalhoComparacaoPrecos" class="janela-comparacao-cabecalho" title="Arraste para mover a janela">
+      <strong id="tituloComparacaoPrecos">📌 Preços de referência</strong>
+      <button type="button" class="janela-comparacao-fechar" aria-label="Fechar comparação de preços" title="Fechar somente ao clicar no X" onclick="fecharComparadorPrecos()">×</button>
+    </div>
+    <div class="janela-comparacao-conteudo">
+      <p class="janela-comparacao-dica">Esta janela permanece aberta enquanto você edita o produto. Arraste pelo título para mudar de posição; somente o X fecha a janela.</p>
+      <label for="buscaComparacaoPrecos">Adicionar produto para comparar</label>
+      <input id="buscaComparacaoPrecos" type="search" autocomplete="off" placeholder="Digite o nome de outro produto..." oninput="renderizarBuscaComparacaoPrecos()" />
+      <div id="resultadosComparacaoPrecos" class="comparacao-busca-lista" aria-label="Resultados da busca"></div>
+      <div class="comparacao-subtitulo">Produtos selecionados para comparação</div>
+      <div id="referenciasComparacaoPrecos" aria-live="polite"></div>
+    </div>
+  </aside>
 
   <div id="modalAdicionarInsumos" class="modal-copia-fundo hidden" role="dialog" aria-modal="true" aria-labelledby="tituloModalInsumos" onclick="if(event.target===this)fecharModalInsumos()">
     <div class="modal-insumos-painel">
@@ -337,6 +375,129 @@
   <script>
     const API = '/api/produtos-composicoes';
     let produtos = [];
+    // O comparador usa apenas os dados de preços já carregados; não altera o produto em edição.
+    const CHAVE_COMPARACAO_PRECOS = 'aluminiojr:composicao:comparador-precos:v1';
+    let estadoComparadorPrecos = { aberto:false, referencias:[] };
+    try {
+      const anterior = JSON.parse(sessionStorage.getItem(CHAVE_COMPARACAO_PRECOS) || '{}');
+      estadoComparadorPrecos.aberto = anterior.aberto === true;
+      if (Array.isArray(anterior.referencias)) {
+        estadoComparadorPrecos.referencias = [...new Set(anterior.referencias.map(Number).filter(id => Number.isSafeInteger(id) && id > 0))];
+      }
+    } catch (error) { /* Modo sem armazenamento: o comparador continua funcional. */ }
+
+    function guardarEstadoComparadorPrecos() {
+      try { sessionStorage.setItem(CHAVE_COMPARACAO_PRECOS, JSON.stringify(estadoComparadorPrecos)); }
+      catch (error) { /* Armazenamento pode estar desabilitado no navegador. */ }
+    }
+
+    function abrirComparadorPrecos() {
+      estadoComparadorPrecos.aberto = true;
+      document.getElementById('janelaComparacaoPrecos').classList.remove('hidden');
+      manterComparadorDentroDaTela();
+      renderizarReferenciasComparacaoPrecos();
+      renderizarBuscaComparacaoPrecos();
+      guardarEstadoComparadorPrecos();
+    }
+
+    // A janela NÃO fecha ao clicar fora, pressionar Esc, selecionar produto ou salvar.
+    function fecharComparadorPrecos() {
+      estadoComparadorPrecos.aberto = false;
+      document.getElementById('janelaComparacaoPrecos').classList.add('hidden');
+      guardarEstadoComparadorPrecos();
+    }
+
+    function adicionarReferenciaComparacaoPreco(id) {
+      id = Number(id);
+      if (!produtos.some(p => Number(p.id) === id)) return;
+      if (!estadoComparadorPrecos.referencias.includes(id)) {
+        estadoComparadorPrecos.referencias.push(id);
+        guardarEstadoComparadorPrecos();
+      }
+      renderizarReferenciasComparacaoPrecos();
+      renderizarBuscaComparacaoPrecos();
+    }
+
+    function removerReferenciaComparacaoPreco(id) {
+      estadoComparadorPrecos.referencias = estadoComparadorPrecos.referencias.filter(item => item !== Number(id));
+      guardarEstadoComparadorPrecos();
+      renderizarReferenciasComparacaoPrecos();
+      renderizarBuscaComparacaoPrecos();
+    }
+
+    function renderizarBuscaComparacaoPrecos() {
+      const lista = document.getElementById('resultadosComparacaoPrecos');
+      const termo = document.getElementById('buscaComparacaoPrecos').value.trim().toLocaleLowerCase('pt-BR');
+      if (!termo) {
+        lista.innerHTML = '<div class="comparacao-vazio">Digite parte do nome para pesquisar.</div>';
+        return;
+      }
+      const candidatos = produtos.filter(p => String(p.nome).toLocaleLowerCase('pt-BR').includes(termo)
+        && Number(p.id) !== Number(produtoAtual?.id)
+        && !estadoComparadorPrecos.referencias.includes(Number(p.id))).slice(0, 30);
+      lista.innerHTML = candidatos.length
+        ? candidatos.map(p => '<button type="button" class="comparacao-busca-opcao" onclick="adicionarReferenciaComparacaoPreco('
+          + Number(p.id) + ')" title="Adicionar sem trocar o produto em edição"><span>'
+          + escapeHtml(p.nome) + '</span><span class="comparacao-busca-preco">'
+          + moeda(p.preco) + ' ＋</span></button>').join('')
+        : '<div class="comparacao-vazio">Nenhum outro produto encontrado.</div>';
+    }
+
+    function renderizarReferenciasComparacaoPrecos() {
+      const el = document.getElementById('referenciasComparacaoPrecos');
+      if (!estadoComparadorPrecos.referencias.length) {
+        el.innerHTML = '<div class="comparacao-vazio">Nenhum produto de referência selecionado.</div>';
+        return;
+      }
+      el.innerHTML = estadoComparadorPrecos.referencias.map(id => {
+        const p = produtos.find(item => Number(item.id) === id);
+        return '<div class="comparacao-referencia"><div><div class="comparacao-referencia-nome">'
+          + escapeHtml(p ? p.nome : 'Produto indisponível na lista atual')
+          + '</div><div class="comparacao-referencia-preco">'
+          + (p ? moeda(p.preco) : '—')
+          + '</div></div><button type="button" class="comparacao-referencia-remover" onclick="removerReferenciaComparacaoPreco('
+          + Number(id) + ')" title="Remover este produto de referência">Remover</button></div>';
+      }).join('');
+    }
+
+    function manterComparadorDentroDaTela() {
+      const painel = document.getElementById('janelaComparacaoPrecos');
+      if (painel.classList.contains('hidden')) return;
+      const r = painel.getBoundingClientRect();
+      const x = Math.max(8, Math.min(r.left, Math.max(8, window.innerWidth - r.width - 8)));
+      const y = Math.max(8, Math.min(r.top, Math.max(8, window.innerHeight - r.height - 8)));
+      painel.style.left = x + 'px';
+      painel.style.top = y + 'px';
+      painel.style.right = 'auto';
+    }
+
+    (function configurarArrasteComparador() {
+      const cabecalho = document.getElementById('cabecalhoComparacaoPrecos');
+      const painel = document.getElementById('janelaComparacaoPrecos');
+      let arraste = null;
+      cabecalho.addEventListener('pointerdown', event => {
+        if (event.target.closest('button') || (event.pointerType === 'mouse' && event.button !== 0)) return;
+        const rect = painel.getBoundingClientRect();
+        arraste = { id:event.pointerId, origemX:event.clientX, origemY:event.clientY, x:rect.left, y:rect.top };
+        cabecalho.setPointerCapture(event.pointerId);
+        event.preventDefault();
+      });
+      cabecalho.addEventListener('pointermove', event => {
+        if (!arraste || event.pointerId !== arraste.id) return;
+        const x = Math.max(8, Math.min(arraste.x + event.clientX - arraste.origemX, Math.max(8, innerWidth - painel.offsetWidth - 8)));
+        const y = Math.max(8, Math.min(arraste.y + event.clientY - arraste.origemY, Math.max(8, innerHeight - painel.offsetHeight - 8)));
+        painel.style.left = x + 'px';
+        painel.style.top = y + 'px';
+        painel.style.right = 'auto';
+      });
+      const terminar = event => {
+        if (arraste && event.pointerId === arraste.id) arraste = null;
+      };
+      cabecalho.addEventListener('pointerup', terminar);
+      cabecalho.addEventListener('pointercancel', terminar);
+      window.addEventListener('resize', manterComparadorDentroDaTela);
+    })();
+
     let produtoAtual = null;
     let composicaoAtualId = null;
     let dataRevisaoAtual = null;
@@ -693,7 +854,9 @@
       atualizarSeletorProdutos();
     }
 
-    async function carregarFiltros() {
+    async function carregarFiltros()      renderizarReferenciasComparacaoPrecos();
+      renderizarBuscaComparacaoPrecos();
+ {
       const [fornResp, catResp] = await Promise.all([
         fetch('/api/fornecedores'),
         fetch('/api/insumos-categorias?ativo=true')
@@ -717,6 +880,7 @@
       produtoAtual = obterProdutoSelecionado();
       atualizarSeletorProdutos();
       document.getElementById('btnAdicionarInsumo').disabled = !produtoAtual;
+      renderizarBuscaComparacaoPrecos();
       composicaoAtualId = null;
       exibirDataRevisao(null);
       itensComposicao = [];
@@ -1002,6 +1166,8 @@
         atualizarOptionProdutoSelecionado();
         atualizarResumo();
         if (composicaoAtualId) exibirDataRevisao(json.data.revisado_em);
+        renderizarReferenciasComparacaoPrecos();
+        renderizarBuscaComparacaoPrecos();
         mostrarMensagem('Preço de venda atualizado com sucesso.', 'sucesso');
       } catch (error) {
         mostrarMensagem(error.message, 'erro');
@@ -1317,7 +1483,8 @@
       limparMensagem();
     }
 
-    async function inicializar() {
+    async function inicializar()      renderizarBuscaComparacaoPrecos();
+ {
       try {
         const idParam = new URLSearchParams(window.location.search).get('produto_id');
         const produtoIdLink = idParam && /^[1-9]\d*$/.test(idParam) && Number.isSafeInteger(Number(idParam))
@@ -1327,7 +1494,9 @@
         renderizarComposicao();
         atualizarResumo();
 
-        if (produtoIdLink !== null) {
+        if (produtoIdLink !== null)        if (estadoComparadorPrecos.aberto) abrirComparadorPrecos();
+
+ {
           const encontrado = produtos.some(p => Number(p.id) === produtoIdLink);
           if (!encontrado) throw new Error('Produto do link não encontrado.');
           document.getElementById('produto_id').value = String(produtoIdLink);
