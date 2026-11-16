@@ -151,8 +151,21 @@
   </div>
   <div class="pesquisa-ofertas">
     <div class="campo">
-      <label for="pesquisaPrecoMedio">Pesquisar pelo preço médio do kit</label>
-      <input id="pesquisaPrecoMedio" type="text" inputmode="decimal" placeholder="Ex.: 25,90">
+      <label for="pesquisaCondicaoPreco">Condição do preço médio</label>
+      <select id="pesquisaCondicaoPreco">
+        <option value="igual">Exatamente</option>
+        <option value="abaixo">Abaixo de</option>
+        <option value="acima">Acima de</option>
+        <option value="entre">Entre dois valores</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label for="pesquisaPrecoMedio" id="pesquisaPrecoMedioLabel">Preço médio (R$)</label>
+      <input id="pesquisaPrecoMedio" type="text" inputmode="decimal" placeholder="Ex.: 15,00">
+    </div>
+    <div class="campo oculto" id="campoPrecoMedioMax">
+      <label for="pesquisaPrecoMedioMax">Até (R$)</label>
+      <input id="pesquisaPrecoMedioMax" type="text" inputmode="decimal" placeholder="Ex.: 16,00">
     </div>
     <button id="pesquisarPrecoMedio" class="azul" type="button">Pesquisar kit</button>
     <button id="limparPesquisa" class="sec oculto" type="button">Mostrar recentes</button>
@@ -254,6 +267,7 @@ let temaArte = 'claro';
 let categoriaSelecionada = '';
 let urlPreviewAtual = null;
 let ofertasHistorico = new Map();
+let filtroPesquisaAtivo = null;
 let ofertaModalAtual = null;
 const selecoesGlobais = new Map();
 
@@ -284,7 +298,11 @@ const el = {
   temas: document.querySelector('#temas'),
   limparR2: document.querySelector('#limparR2'),
   colunaLateral: document.querySelector('#colunaLateral'),
+  pesquisaCondicaoPreco: document.querySelector('#pesquisaCondicaoPreco'),
+  pesquisaPrecoMedioLabel: document.querySelector('#pesquisaPrecoMedioLabel'),
   pesquisaPrecoMedio: document.querySelector('#pesquisaPrecoMedio'),
+  campoPrecoMedioMax: document.querySelector('#campoPrecoMedioMax'),
+  pesquisaPrecoMedioMax: document.querySelector('#pesquisaPrecoMedioMax'),
   pesquisarPrecoMedio: document.querySelector('#pesquisarPrecoMedio'),
   limparPesquisa: document.querySelector('#limparPesquisa'),
   modalOferta: document.querySelector('#modalOferta'),
@@ -981,9 +999,20 @@ function problemaOferta(oferta) {
   return `<div class="oferta-problema">${escapeHtml((oferta.problemas || []).join(' '))}</div>`;
 }
 
-async function carregarHistorico(precoMedio = '') {
+async function carregarHistorico(filtro = filtroPesquisaAtivo) {
   try {
-    const parametro = precoMedio ? `?preco_medio=${encodeURIComponent(precoMedio)}` : '';
+    const parametros = filtro ? new URLSearchParams({
+      preco_medio: filtro.valor,
+      condicao: filtro.condicao,
+      ...(filtro.condicao === 'entre' ? { preco_medio_max: filtro.valorMax } : {}),
+    }) : null;
+    const parametro = parametros ? `?${parametros}` : '';
+    const descricaoPesquisa = filtro ? ({
+      igual: `de ${brl(filtro.valor)}`,
+      abaixo: `abaixo de ${brl(filtro.valor)}`,
+      acima: `acima de ${brl(filtro.valor)}`,
+      entre: `entre ${brl(filtro.valor)} e ${brl(filtro.valorMax)}`,
+    })[filtro.condicao] : '';
     const lista = await api(`/api/ofertas${parametro}`);
     ofertasHistorico = new Map(lista.map(oferta => [Number(oferta.id), oferta]));
     el.historico.innerHTML = lista.length ? lista.map(oferta => `
@@ -1003,7 +1032,7 @@ async function carregarHistorico(precoMedio = '') {
           <button class="azul visualizar" type="button" data-id="${oferta.id}" ${oferta.disponivel === false ? 'disabled' : ''}>Visualizar arte</button>
           <button class="sec duplicar" type="button" data-id="${oferta.id}" ${oferta.disponivel === false ? 'disabled' : ''}>Duplicar</button>
         </div>
-      </article>`).join('') : `<div class="vazio-historico">${precoMedio ? `Nenhum kit encontrado com preço médio de ${brl(String(precoMedio).replace(',', '.'))}.` : 'Nenhuma oferta criada.'}</div>`;
+      </article>`).join('') : `<div class="vazio-historico">${filtro ? `Nenhum kit encontrado com preço médio ${descricaoPesquisa}.` : 'Nenhuma oferta criada.'}</div>`;
   } catch (error) {
     el.historico.textContent = error.message;
   }
@@ -1071,7 +1100,7 @@ async function republicarOfertaModal() {
     ofertasHistorico.set(Number(resultado.oferta.id), resultado.oferta);
     const resumo = resumoResultadoPublicacao(resultado, false);
     alert(resumo.texto);
-    await carregarHistorico(el.pesquisaPrecoMedio.value.trim());
+    await carregarHistorico();
   } catch (error) {
     alert(error.message);
   } finally {
@@ -1079,20 +1108,42 @@ async function republicarOfertaModal() {
   }
 }
 
+function atualizarCamposPesquisa() {
+  const entre = el.pesquisaCondicaoPreco.value === 'entre';
+  el.campoPrecoMedioMax.classList.toggle('oculto', !entre);
+  el.pesquisaPrecoMedioLabel.textContent = entre ? 'De (R$)' : 'Preço médio (R$)';
+}
+
 async function pesquisarPorPrecoMedio() {
-  const valor = el.pesquisaPrecoMedio.value.trim();
-  const numero = Number(valor.replace(',', '.'));
-  if (!Number.isFinite(numero) || numero <= 0) {
+  const condicao = el.pesquisaCondicaoPreco.value;
+  const valor = el.pesquisaPrecoMedio.value.trim().replace(',', '.');
+  const numero = Number(valor);
+  if (!valor || !Number.isFinite(numero) || numero <= 0) {
     mostrarAviso('Informe um preço médio válido para pesquisar.', 'erro');
     el.pesquisaPrecoMedio.focus();
     return;
   }
+  let valorMax = '';
+  if (condicao === 'entre') {
+    valorMax = el.pesquisaPrecoMedioMax.value.trim().replace(',', '.');
+    const maximo = Number(valorMax);
+    if (!valorMax || !Number.isFinite(maximo) || maximo <= 0 || maximo < numero) {
+      mostrarAviso('Informe um valor final válido, maior ou igual ao inicial.', 'erro');
+      el.pesquisaPrecoMedioMax.focus();
+      return;
+    }
+  }
+  filtroPesquisaAtivo = { condicao, valor, valorMax };
   el.limparPesquisa.classList.remove('oculto');
-  await carregarHistorico(valor);
+  await carregarHistorico();
 }
 
 async function limparPesquisaHistorico() {
+  filtroPesquisaAtivo = null;
+  el.pesquisaCondicaoPreco.value = 'igual';
   el.pesquisaPrecoMedio.value = '';
+  el.pesquisaPrecoMedioMax.value = '';
+  atualizarCamposPesquisa();
   el.limparPesquisa.classList.add('oculto');
   await carregarHistorico();
 }
@@ -1181,9 +1232,12 @@ el.gerarRelatorioWhatsapp.addEventListener('click', () => {
 });
 el.enviarWhatsapp.addEventListener('click', enviarOfertaWhatsapp);
 el.limparR2.addEventListener('click', limparArtesR2);
+el.pesquisaCondicaoPreco.addEventListener('change', atualizarCamposPesquisa);
+atualizarCamposPesquisa();
 el.pesquisarPrecoMedio.addEventListener('click', pesquisarPorPrecoMedio);
 el.limparPesquisa.addEventListener('click', limparPesquisaHistorico);
 el.pesquisaPrecoMedio.addEventListener('keydown', event => { if (event.key === 'Enter') pesquisarPorPrecoMedio(); });
+el.pesquisaPrecoMedioMax.addEventListener('keydown', event => { if (event.key === 'Enter') pesquisarPorPrecoMedio(); });
 el.fecharModalOferta.addEventListener('click', fecharModalOferta);
 el.modalEnviarWhatsapp.addEventListener('click', reenviarOfertaModal);
 el.modalPublicarStatus.addEventListener('click', republicarOfertaModal);
