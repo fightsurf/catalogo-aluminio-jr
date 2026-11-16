@@ -852,11 +852,11 @@
         .map(p => `<option value="${Number(p.id)}">${escapeHtml(rotuloProdutoLista(p))}</option>`)
         .join('');
       atualizarSeletorProdutos();
+      renderizarReferenciasComparacaoPrecos();
+      renderizarBuscaComparacaoPrecos();
     }
 
-    async function carregarFiltros()      renderizarReferenciasComparacaoPrecos();
-      renderizarBuscaComparacaoPrecos();
- {
+    async function carregarFiltros() {
       const [fornResp, catResp] = await Promise.all([
         fetch('/api/fornecedores'),
         fetch('/api/insumos-categorias?ativo=true')
@@ -1483,8 +1483,7 @@
       limparMensagem();
     }
 
-    async function inicializar()      renderizarBuscaComparacaoPrecos();
- {
+    async function inicializar() {
       try {
         const idParam = new URLSearchParams(window.location.search).get('produto_id');
         const produtoIdLink = idParam && /^[1-9]\d*$/.test(idParam) && Number.isSafeInteger(Number(idParam))
@@ -1494,9 +1493,9 @@
         renderizarComposicao();
         atualizarResumo();
 
-        if (produtoIdLink !== null)        if (estadoComparadorPrecos.aberto) abrirComparadorPrecos();
+        if (estadoComparadorPrecos.aberto) abrirComparadorPrecos();
 
- {
+        if (produtoIdLink !== null) {
           const encontrado = produtos.some(p => Number(p.id) === produtoIdLink);
           if (!encontrado) throw new Error('Produto do link não encontrado.');
           document.getElementById('produto_id').value = String(produtoIdLink);
