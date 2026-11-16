@@ -207,6 +207,10 @@ async function buscarPorCodigo(codigo, registrarVisualizacao = false) {
   return materializarOfertaAtual(row, await obterItens(row.id), mapaProdutos, false);
 }
 
+function precoMedioEmCentavos(valor) {
+  return Math.round(Number(valor) * 100);
+}
+
 async function listar(filtros = {}) {
   await schemaService.criarEstrutura();
 
@@ -216,38 +220,57 @@ async function listar(filtros = {}) {
     throw new Error('Condição de preço médio inválida.');
   }
 
-  let result;
+  let limiteInferiorCentavos = null;
+  let limiteSuperiorCentavos = null;
   if (precoMedioInformado) {
-    const precoMedio = numeroPositivo(precoMedioInformado.replace(',', '.'), 'Preço médio');
-    const parametros = [precoMedio];
-    let condicaoSql = 'ABS(preco_medio - $1::numeric) < 0.005';
+    const limiteInferior = numeroPositivo(precoMedioInformado.replace(',', '.'), 'Preço médio');
+    limiteInferiorCentavos = precoMedioEmCentavos(limiteInferior);
 
-    if (condicao === 'abaixo') condicaoSql = 'preco_medio < $1::numeric';
-    if (condicao === 'acima') condicaoSql = 'preco_medio > $1::numeric';
     if (condicao === 'entre') {
       const limiteSuperiorTexto = String(filtros.preco_medio_max ?? '').trim();
       const limiteSuperior = numeroPositivo(limiteSuperiorTexto.replace(',', '.'), 'Preço médio máximo');
-      if (limiteSuperior < precoMedio) throw new Error('O valor final deve ser maior ou igual ao inicial.');
-      parametros.push(limiteSuperior);
-      condicaoSql = 'preco_medio >= $1::numeric AND preco_medio <= $2::numeric';
+      if (limiteSuperior < limiteInferior) throw new Error('O valor final deve ser maior ou igual ao inicial.');
+      limiteSuperiorCentavos = precoMedioEmCentavos(limiteSuperior);
     }
-
-    result = await pool.query(
-      `SELECT * FROM ofertas
-       WHERE ${condicaoSql}
-       ORDER BY created_at DESC
-       LIMIT 100`,
-      parametros
-    );
-  } else {
-    result = await pool.query('SELECT * FROM ofertas ORDER BY created_at DESC LIMIT 100');
   }
-  const mapaProdutos = await carregarMapaProdutosAtuais();
 
-  return Promise.all(result.rows.map(async row => {
-    const receita = await obterItens(row.id);
-    return materializarOfertaAtual(row, receita, mapaProdutos, true);
-  }));
+  // O preço salvo em ofertas é histórico; o histórico exibido usa preços atuais.
+  // Filtrar a coluna antiga devolve kits fora da faixa que o usuário vê.
+  const result = await pool.query(precoMedioInformado
+    ? 'SELECT * FROM ofertas ORDER BY created_at DESC'
+    : 'SELECT * FROM ofertas ORDER BY created_at DESC LIMIT 100'
+  );
+  if (!result.rows.length) return [];
+
+  const mapaProdutos = await carregarMapaProdutosAtuais();
+  // Carregamento em lote evita uma consulta ao banco por kit.
+  const ids = result.rows.map(row => row.id);
+  const itensResult = await pool.query(
+    'SELECT * FROM ofertas_itens WHERE oferta_id = ANY($1::bigint[]) ORDER BY oferta_id, id ASC',
+    [ids]
+  );
+  const receitas = new Map();
+  for (const item of itensResult.rows) {
+    const chave = String(item.oferta_id);
+    if (!receitas.has(chave)) receitas.set(chave, []);
+    receitas.get(chave).push(normalizarItemReceita(item));
+  }
+
+  const ofertas = result.rows.map(row =>
+    materializarOfertaAtual(row, receitas.get(String(row.id)) || [], mapaProdutos, true)
+  );
+  if (!precoMedioInformado) return ofertas;
+
+  // Comparar centavos do preço exibido: abaixo/acima exclusivos; entre inclusivo.
+  return ofertas.filter(oferta => {
+    const precoCentavos = precoMedioEmCentavos(oferta.preco_medio);
+    if (condicao === 'abaixo') return precoCentavos < limiteInferiorCentavos;
+    if (condicao === 'acima') return precoCentavos > limiteInferiorCentavos;
+    if (condicao === 'entre') {
+      return precoCentavos >= limiteInferiorCentavos && precoCentavos <= limiteSuperiorCentavos;
+    }
+    return precoCentavos === limiteInferiorCentavos;
+  }).slice(0, 100);
 }
 
 async function criar(payload) {
