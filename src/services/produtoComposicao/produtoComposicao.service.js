@@ -504,7 +504,11 @@ async function atualizarPrecoProduto(produtoIdParam, precoParam) {
 }
 
 
-async function copiarComposicaoProduto(destinoIdParam, origemIdParam) {
+async function copiarComposicaoProduto(destinoIdParam, origemIdParam, modoCopiaParam = 'substituir') {
+  const modoCopia = String(modoCopiaParam || '').trim().toLowerCase();
+  if (!['acrescentar', 'substituir'].includes(modoCopia)) {
+    throw new Error('Modo de cópia inválido. Escolha acrescentar ou substituir.');
+  }
   const destinoId = normalizarId(destinoIdParam, 'Produto de destino');
   const origemId = normalizarId(origemIdParam, 'Produto de origem');
   if (destinoId === origemId) throw new Error('Escolha um produto de origem diferente do destino');
@@ -543,13 +547,38 @@ async function copiarComposicaoProduto(destinoIdParam, origemIdParam) {
     `, [destinoId]);
     const composicaoId = destino.rows[0].id;
 
-    await client.query('DELETE FROM produtos_composicoes_itens WHERE composicao_id = $1', [composicaoId]);
+    if (modoCopia === 'substituir') {
+      await client.query('DELETE FROM produtos_composicoes_itens WHERE composicao_id = $1', [composicaoId]);
+    }
+
+    // Ao acrescentar, preserva os itens existentes e soma quantidades do mesmo insumo/fornecedor.
+    const itensExistentes = modoCopia === 'acrescentar'
+      ? await client.query(
+        'SELECT id, insumo_fornecedor_id FROM produtos_composicoes_itens WHERE composicao_id = $1 FOR UPDATE',
+        [composicaoId]
+      )
+      : { rows: [] };
+    const itensPorFornecedor = new Map(
+      itensExistentes.rows.map(item => [Number(item.insumo_fornecedor_id), item.id])
+    );
+
     for (const item of itens.rows) {
-      await client.query(`
-        INSERT INTO produtos_composicoes_itens
-          (composicao_id, insumo_fornecedor_id, quantidade, ativo)
-        VALUES ($1, $2, $3, $4)
-      `, [composicaoId, item.insumo_fornecedor_id, item.quantidade, item.ativo]);
+      const fornecedorId = Number(item.insumo_fornecedor_id);
+      const idExistente = itensPorFornecedor.get(fornecedorId);
+      if (idExistente) {
+        await client.query(
+          'UPDATE produtos_composicoes_itens SET quantidade = quantidade + $1::numeric WHERE id = $2',
+          [item.quantidade, idExistente]
+        );
+      } else {
+        const inserido = await client.query(`
+          INSERT INTO produtos_composicoes_itens
+            (composicao_id, insumo_fornecedor_id, quantidade, ativo)
+          VALUES ($1, $2, $3, $4)
+          RETURNING id
+        `, [composicaoId, item.insumo_fornecedor_id, item.quantidade, item.ativo]);
+        itensPorFornecedor.set(fornecedorId, inserido.rows[0].id);
+      }
     }
 
     await client.query('COMMIT');
