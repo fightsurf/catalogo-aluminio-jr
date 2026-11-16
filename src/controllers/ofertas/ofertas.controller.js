@@ -15,7 +15,7 @@ async function produtos(req, res) {
 
 async function listar(req, res) {
   try {
-    res.json({ success: true, data: await ofertasService.listar({ preco_medio: req.query.preco_medio }) });
+    res.json({ success: true, data: await ofertasService.listar({ preco_medio: req.query.preco_medio, condicao: req.query.condicao, preco_medio_max: req.query.preco_medio_max }) });
   } catch (error) {
     erro(res, error, 500);
   }
