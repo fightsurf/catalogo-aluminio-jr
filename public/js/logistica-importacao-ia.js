@@ -111,7 +111,7 @@ async function interpretar(){
     $('ia-telefones').value=(resultado.extraido.telefones||[]).join(' / ');
     $('ia-principal').value=resultado.extraido.telefones?.[0]||'';
     $('ia-sobrescrever').checked=false;
-    preencherDestino();renderCidades();$('ia-preview').hidden=false;
+    preencherDestino();renderCidades();$('ia-preview').hidden=false;$('ia-confirmar').disabled=false;
     aviso('Prévia pronta. Confira transportadora, telefones e cidades antes de confirmar.');
   }catch(e){aviso(e.message,true);}finally{$('ia-ler').disabled=false;}
 }
@@ -132,11 +132,13 @@ async function confirmar(){
     })});
     aviso('Cadastro salvo: '+salvo.transportadora.nome+'. '+salvo.cidades_adicionadas+' cidade(s) adicionada(s); '+
       salvo.cidades_ja_vinculadas+' já vinculada(s).');
-    const todas=await json('/api/transportadoras');
-    if(typeof window.selecionarTransportadora==='function'){
-      const alvo=todas.find(t=>Number(t.id)===Number(salvo.transportadora.id));
-      if(alvo)window.selecionarTransportadora(alvo);
-    }else if(typeof window.carregarTransportadoras==='function')await window.carregarTransportadoras();
+    try {
+      const todas=await json('/api/transportadoras');
+      if(typeof window.selecionarTransportadora==='function'){
+        const alvo=todas.find(t=>Number(t.id)===Number(salvo.transportadora.id));
+        if(alvo)window.selecionarTransportadora(alvo);
+      }else if(typeof window.carregarTransportadoras==='function')await window.carregarTransportadoras();
+    } catch (e) { console.error('Cadastro salvo, mas a atualização da lista falhou:',e); }
   }catch(e){aviso(e.message,true);botao.disabled=false;}
 }
 window.abrirImportacaoIA=abrir;
