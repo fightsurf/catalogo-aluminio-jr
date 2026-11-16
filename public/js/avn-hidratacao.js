@@ -1,6 +1,6 @@
 (()=>{'use strict';
 const $=id=>document.getElementById(id),api='/avn/sistema/api/hidratacao';
-let uid='',dias=7,registros=[],busy=false;
+let uid='',dias=7,registros=[],filaRegistros=Promise.resolve();
 const today=()=>dateOf(new Date());
 const dateOf=value=>{const parts=new Intl.DateTimeFormat('pt-BR',{timeZone:'America/Sao_Paulo',day:'2-digit',month:'2-digit',year:'numeric'}).formatToParts(new Date(value));const get=k=>parts.find(x=>x.type===k).value;return get('year')+'-'+get('month')+'-'+get('day');};
 const fmt=n=>Number(n).toLocaleString('pt-BR');
@@ -18,7 +18,7 @@ function render(){
   const div=document.createElement('div');div.className='list-row';
   const left=document.createElement('div'),name=document.createElement('span'),small=document.createElement('small');
   name.className='name';name.textContent=fmt(row.quantidade_ml)+' ml';
-  small.textContent=new Date(row.ingerido_em).toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit'});
+  small.textContent='Horário da ingestão: '+new Date(row.ingerido_em).toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit'});
   left.append(name,small);
   const actions=document.createElement('div');actions.className='agua-registro-acoes';
   const edit=document.createElement('button');edit.type='button';edit.className='secondary';edit.textContent='Editar';
@@ -62,9 +62,19 @@ function draw(){
  graph.append(svg,tip);
 }
 async function load(){if(!uid)return;const res=await request('/?usuarioId='+encodeURIComponent(uid)+'&dias=90');registros=res.registros||[];render();}
-async function add(ml){if(busy||!uid)return;busy=true;
- try{await request('/','POST',{usuarioId:uid,quantidade_ml:ml,ingerido_em:new Date().toISOString()});await load();warn(fmt(ml)+' ml registrados.');}
- catch(e){warn(e.message,true);}finally{busy=false;}
+function add(ml){
+ if(!uid)return;
+ // Captura o instante no clique, mesmo quando há outra gravação em andamento.
+ const usuarioId=uid,ingeridoEm=new Date().toISOString();
+ const horario=new Date(ingeridoEm).toLocaleTimeString('pt-BR',{timeZone:'America/Sao_Paulo',hour:'2-digit',minute:'2-digit'});
+ // Cada clique entra na fila: nenhum lançamento é ignorado enquanto outro salva.
+ filaRegistros=filaRegistros.then(async()=>{
+  try{
+   await request('/','POST',{usuarioId,quantidade_ml:ml,ingerido_em:ingeridoEm});
+   if(uid===usuarioId){await load();warn(fmt(ml)+' ml registrados às '+horario+'.');}
+  }catch(e){warn(e.message,true);}
+ });
+ return filaRegistros;
 }
 async function init(){
  $('aguaData').value=today();
