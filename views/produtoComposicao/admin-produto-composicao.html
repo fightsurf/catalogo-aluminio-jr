@@ -25,7 +25,10 @@
     .btn-alerta { background:#f39c12; color:#fff; }
     .btn-perigo { background:#e74c3c; color:#fff; }
     .grid-topo { display:grid; grid-template-columns:minmax(0,1fr) 130px; gap:12px; align-items:end; }
-    .duas-colunas { display:grid; grid-template-columns: 1fr 1fr; gap:18px; align-items:start; }
+    .duas-colunas { display:block; }
+    .cabecalho-custos { display:flex; gap:14px; align-items:center; justify-content:space-between; flex-wrap:wrap; margin-bottom:12px; }
+    .cabecalho-custos h2 { margin-bottom:0; }
+    .cabecalho-custos button { width:auto; min-width:180px; }
     .filtros-insumos { display:grid; grid-template-columns: 1fr 1fr 1fr 120px 100px; gap:10px; align-items:end; margin-bottom:12px; }
     .cards { display:grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap:10px; max-height:610px; overflow:auto; padding-right:4px; }
     .card { border:1px solid #dbe3eb; border-radius:8px; padding:10px; background:#fdfefe; }
@@ -67,6 +70,14 @@
     .modal-copia-fundo { position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; padding:16px; z-index:1000; }
     .modal-copia-painel { width:100%; max-width:520px; background:#fff; border-radius:10px; padding:22px; box-shadow:0 10px 35px rgba(0,0,0,.25); box-sizing:border-box; }
     .modal-copia-painel p { font-size:14px; line-height:1.5; color:#4a5568; }
+    .modal-insumos-painel { width:100%; max-width:1120px; max-height:calc(100vh - 32px); background:#fff; border-radius:10px; padding:22px; box-shadow:0 10px 35px rgba(0,0,0,.25); box-sizing:border-box; overflow-y:auto; }
+    .modal-insumos-cabecalho { display:flex; align-items:center; gap:16px; justify-content:space-between; margin-bottom:12px; }
+    .modal-insumos-cabecalho h3 { margin:0; }
+    .modal-insumos-cabecalho button { width:auto; min-width:110px; }
+    .modal-insumos-painel .cards { max-height:55vh; }
+    .modal-insumos-rodape { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:14px; flex-wrap:wrap; }
+    .modal-insumos-rodape p { margin:0; flex:1; font-size:12px; color:#566573; }
+    .modal-insumos-rodape button { width:auto; min-width:115px; }
     .modal-copia-painel .acoes button { flex:1; }
     .modo-copia { margin-top:14px; padding:12px; border:1px solid #dbe3eb; border-radius:8px; }
     .modo-copia legend { padding:0 5px; font-size:13px; font-weight:bold; color:#34495e; }
@@ -90,6 +101,8 @@
     @media (max-width: 1150px) {
       .grid-topo, .duas-colunas, .filtros-insumos { grid-template-columns:1fr; }
       .acoes button { width:100%; }
+      .cabecalho-custos button { width:100%; }
+      .modal-insumos-painel .cards { max-height:45vh; }
     }
   </style>
 </head>
@@ -123,40 +136,11 @@
 
     <div class="duas-colunas">
       <div class="box">
-        <h2>Insumos disponíveis</h2>
-        <div class="filtros-insumos">
-          <div>
-            <label for="filtroFornecedor">Fornecedor</label>
-            <select id="filtroFornecedor"></select>
-          </div>
-          <div>
-            <label for="filtroCategoria">Categoria</label>
-            <select id="filtroCategoria"></select>
-          </div>
-          <div>
-            <label for="filtroBusca">Buscar insumo</label>
-            <input type="text" id="filtroBusca" placeholder="Nome do insumo" onkeydown="if(event.key==='Enter'){carregarInsumosDisponiveis()}" />
-          </div>
-          <div>
-            <label for="filtroTipo">Tipo</label>
-            <select id="filtroTipo">
-              <option value="">Todos</option>
-              <option value="comum">Comum</option>
-              <option value="disco">Disco</option>
-            </select>
-          </div>
-          <div>
-            <label>&nbsp;</label>
-            <button type="button" class="btn-secundario" onclick="carregarInsumosDisponiveis()">Buscar</button>
-          </div>
+        <div class="cabecalho-custos">
+          <h2>Área de custos do produto</h2>
+          <button id="btnAdicionarInsumo" type="button" class="btn-principal" onclick="abrirModalInsumos()" disabled>+ Adicionar insumo</button>
         </div>
-
-        <div id="cardsInsumos" class="cards"></div>
-      </div>
-
-      <div class="box">
-        <h2>Área de custos do produto</h2>
-        <div id="composicaoVazia" class="composicao-vazia">Selecione insumos na coluna da esquerda para montar a composição.</div>
+        <div id="composicaoVazia" class="composicao-vazia">Clique em "Adicionar insumo" para montar a composição.</div>
         <table id="tabelaComposicao" class="hidden">
           <thead>
             <tr>
@@ -228,6 +212,48 @@
     </div>
   </div>
 
+  <div id="modalAdicionarInsumos" class="modal-copia-fundo hidden" role="dialog" aria-modal="true" aria-labelledby="tituloModalInsumos" onclick="if(event.target===this)fecharModalInsumos()">
+    <div class="modal-insumos-painel">
+      <div class="modal-insumos-cabecalho">
+        <h3 id="tituloModalInsumos">Adicionar insumo à composição</h3>
+        <button type="button" class="btn-limpar" onclick="fecharModalInsumos()">Fechar</button>
+      </div>
+      <div class="filtros-insumos">
+          <div>
+            <label for="filtroFornecedor">Fornecedor</label>
+            <select id="filtroFornecedor"></select>
+          </div>
+          <div>
+            <label for="filtroCategoria">Categoria</label>
+            <select id="filtroCategoria"></select>
+          </div>
+          <div>
+            <label for="filtroBusca">Buscar insumo</label>
+            <input type="text" id="filtroBusca" placeholder="Nome do insumo" onkeydown="if(event.key==='Enter'){buscarInsumosNoModal()}" />
+          </div>
+          <div>
+            <label for="filtroTipo">Tipo</label>
+            <select id="filtroTipo">
+              <option value="">Todos</option>
+              <option value="comum">Comum</option>
+              <option value="disco">Disco</option>
+            </select>
+          </div>
+          <div>
+            <label>&nbsp;</label>
+            <button type="button" class="btn-secundario" onclick="buscarInsumosNoModal()">Buscar</button>
+          </div>
+        </div>
+
+        <div id="cardsInsumos" class="cards"></div>
+      <div id="mensagemInsumos" class="mensagem" role="status" aria-live="polite"></div>
+      <div class="modal-insumos-rodape">
+        <p>Você pode adicionar vários insumos. As alterações serão gravadas ao clicar em <strong>Salvar composição</strong> na tela principal.</p>
+        <button type="button" class="btn-principal" onclick="fecharModalInsumos()">Concluir</button>
+      </div>
+    </div>
+  </div>
+
   <div id="modalCopiarComposicao" class="modal-copia-fundo hidden" role="dialog" aria-modal="true" aria-labelledby="tituloModalCopia" onclick="if(event.target===this)fecharModalCopiarComposicao()">
     <div class="modal-copia-painel">
       <h3 id="tituloModalCopia">Copiar composição de outro produto</h3>
@@ -294,6 +320,7 @@
     let composicaoAtualId = null;
     let dataRevisaoAtual = null;
     let itensDisponiveis = [];
+    let focoAntesModalInsumos = null;
     let itensComposicao = [];
     let precoFornecedorEmEdicao = null;
     let salvandoPrecoFornecedor = false;
@@ -583,6 +610,7 @@
     async function selecionarProduto() {
       limparMensagem();
       produtoAtual = obterProdutoSelecionado();
+      document.getElementById('btnAdicionarInsumo').disabled = !produtoAtual;
       composicaoAtualId = null;
       exibirDataRevisao(null);
       itensComposicao = [];
@@ -658,6 +686,46 @@
       }
     }
 
+    async function buscarInsumosNoModal() {
+      const mensagem = document.getElementById('mensagemInsumos');
+      mensagem.textContent = 'Buscando insumos...';
+      mensagem.className = 'mensagem sucesso';
+      try {
+        await carregarInsumosDisponiveis();
+        mensagem.textContent = '';
+        mensagem.className = 'mensagem';
+      } catch (error) {
+        mensagem.textContent = error.message || 'Erro ao buscar insumos.';
+        mensagem.className = 'mensagem erro';
+      }
+    }
+
+    async function abrirModalInsumos() {
+      const produto = obterProdutoSelecionado();
+      if (!produto) {
+        mostrarMensagem('Selecione um produto acabado antes de adicionar insumos.', 'erro');
+        return;
+      }
+      focoAntesModalInsumos = document.activeElement;
+      document.getElementById('modalAdicionarInsumos').classList.remove('hidden');
+      document.getElementById('filtroBusca').focus();
+      await buscarInsumosNoModal();
+    }
+
+    function fecharModalInsumos() {
+      document.getElementById('modalAdicionarInsumos').classList.add('hidden');
+      if (focoAntesModalInsumos?.isConnected) focoAntesModalInsumos.focus();
+      focoAntesModalInsumos = null;
+    }
+
+    function avisarInsumoAdicionado(id) {
+      const item = itensComposicao.find(i => Number(i.insumo_fornecedor_id) === Number(id));
+      if (!item) return;
+      const mensagem = document.getElementById('mensagemInsumos');
+      mensagem.textContent = item.insumo + ' na composição. Quantidade: ' + numero(item.quantidade) + '.';
+      mensagem.className = 'mensagem sucesso';
+    }
+
     async function carregarInsumosDisponiveis() {
       const params = new URLSearchParams();
       const fornecedor = document.getElementById('filtroFornecedor').value;
@@ -713,6 +781,7 @@
         existente.quantidade = Number((Number(existente.quantidade || 0) + 1).toFixed(4));
         renderizarComposicao();
         atualizarResumo();
+        avisarInsumoAdicionado(insumoFornecedorId);
         return;
       }
 
@@ -722,6 +791,7 @@
       itensComposicao.push({ ...item, quantidade: 1, subtotal: Number(item.custo_unitario || 0) });
       renderizarComposicao();
       atualizarResumo();
+      avisarInsumoAdicionado(insumoFornecedorId);
     }
 
     function removerItem(insumoFornecedorId) {
@@ -1129,6 +1199,7 @@
       document.getElementById('preco_venda_produto').value = '';
       document.getElementById('preco_venda_produto_atual').value = '';
       produtoAtual = null;
+      document.getElementById('btnAdicionarInsumo').disabled = true;
       composicaoAtualId = null;
       exibirDataRevisao(null);
       itensComposicao = [];
@@ -1144,7 +1215,6 @@
           ? Number(idParam) : null;
 
         await Promise.all([carregarProdutos(produtoIdLink !== null), carregarFiltros(), carregarCustosRateados()]);
-        await carregarInsumosDisponiveis();
         renderizarComposicao();
         atualizarResumo();
 
@@ -1160,6 +1230,7 @@
     }
 
     window.addEventListener('keydown', event => {
+      if (event.key === 'Escape' && !document.getElementById('modalAdicionarInsumos').classList.contains('hidden')) fecharModalInsumos();
       if (event.key === 'Escape' && !document.getElementById('modalPrecoFornecedor').classList.contains('hidden')) fecharModalPrecoFornecedor();
     });
     window.addEventListener('focus', carregarCustosRateados);
