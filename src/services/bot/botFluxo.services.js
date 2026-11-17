@@ -1,6 +1,7 @@
 const pool = require('../../../db/connection');
 const zapiService = require('../integracoes/zapi.service');
 const botAutonomia = require('./botAutonomia.services');
+const malaDiretaContato = require('./primeiro-contato-mala-direta.service');
 
 const TIPOS_VALIDOS = zapiService.TIPOS_VALIDOS;
 
@@ -76,6 +77,17 @@ async function enviarAcaoZAPI(telefone, acao) {
   });
 }
 
+
+// Em qualquer falha de consulta, bloquear a saudacao, nunca arriscar duplicidade.
+async function saudacaoBloqueadaPelaMalaDireta(telefone) {
+  try {
+    return await malaDiretaContato.abordadoPelaMalaDireta(telefone);
+  } catch (erro) {
+    console.warn('[Bot] Saudacao bloqueada: falha ao verificar Mala Direta:', erro.message);
+    return true;
+  }
+}
+
 async function executarFluxo(telefone, intencao, { exigirAutonomiaAtiva = false } = {}) {
   const tel = normalizarTelefone(telefone);
   const int = normalizarIntencao(intencao);
@@ -87,6 +99,10 @@ async function executarFluxo(telefone, intencao, { exigirAutonomiaAtiva = false 
   // Falhas ao consultar a configuração também impedem o envio.
   if (exigirAutonomiaAtiva && !(await botAutonomia.getAutonomiaAtiva())) {
     return { status: 'bot_desligado' };
+  }
+
+  if (exigirAutonomiaAtiva && int === 'PRIMEIRO_CONTATO' && await saudacaoBloqueadaPelaMalaDireta(tel)) {
+    return { status: 'saudacao_bloqueada_mala_direta' };
   }
 
   const inseriu = await registrarExecucaoComIdempotencia(tel, int);
@@ -118,6 +134,11 @@ async function executarFluxo(telefone, intencao, { exigirAutonomiaAtiva = false 
 
     if (exigirAutonomiaAtiva && !(await botAutonomia.getAutonomiaAtiva())) {
       return { status: 'bot_desligado' };
+    }
+
+    // Revalidar apos os delays: uma campanha pode iniciar durante o fluxo.
+    if (exigirAutonomiaAtiva && int === 'PRIMEIRO_CONTATO' && await saudacaoBloqueadaPelaMalaDireta(tel)) {
+      return { status: 'saudacao_bloqueada_mala_direta' };
     }
 
     try {
