@@ -244,3 +244,31 @@ test('conferência manual marca apenas etapas realmente confirmadas e mantém ca
   assert.equal(JSON.parse(alteracoes[0][2])[0].conferidoManualmente,true);
   await assert.rejects(()=>mod.exports.conciliarDestinatario(5,51,{quantidadeConfirmada:4}),/Quantidade incompatível/);
 });
+
+
+test('restaurar campanha pausada renderiza Conferir mensagens sem erro de append',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'../views/whatsapp/mala-direta.html'),'utf8');
+  const inicio=html.indexOf('function preencherTabelaAndamento(');
+  const fim=html.indexOf('function exibirResumoCampanha(',inicio);
+  assert.ok(inicio>0&&fim>inicio,'função de acompanhamento deve existir');
+  const elemento=(tag,texto)=>({
+    tag,textContent:texto??'',children:[],
+    append(...itens){this.children.push(...itens);},
+    replaceChildren(...itens){this.children=[...itens];}
+  });
+  const tbody=elemento('tbody');
+  const render=new Function('$','el','rotuloSituacao','dataHora','campanhaVisualizada','sequencia',
+    html.slice(inicio,fim)+'\nreturn preencherTabelaAndamento;')(
+      id=>id==='campanhaDestinatarios'?tbody:null,
+      elemento,status=>status,()=>'-',
+      {id:12,status:'pausada'},
+      [{tipo:'imagem'},{tipo:'texto'},...Array(4).fill({tipo:'audio'})]
+    );
+  assert.doesNotThrow(()=>render([
+    {id:1,nome:'Contato incerto',telefone:'5583999999999',status:'incerto',etapa_enviada_index:-1},
+    {id:2,nome:'Contato concluído',telefone:'5583988888888',status:'enviado',etapa_enviada_index:5}
+  ]));
+  assert.equal(tbody.children.length,2);
+  assert.equal(tbody.children[0].children[6].children[0].textContent,'Conferir mensagens');
+  assert.equal(tbody.children[1].children[6].children.length,0);
+});
