@@ -25,11 +25,44 @@ test('bloqueia saudacao de campanha anterior ao deploy, sem depender do cadastro
   }};
   const service = carregar(HELPER, { '../../../db/connection': pool });
   assert.equal(await service.abordadoPelaMalaDireta('5583999991111'), true);
-  assert.deepEqual(consultas[0].parametros, ['5583999991111']);
+  assert.deepEqual(consultas[0].parametros, [['5583999991111', '558399991111']]);
   assert.match(consultas[0].sql, /mala_direta_destinatarios/);
   assert.match(consultas[0].sql, /etapa_enviada_index/);
   assert.match(consultas[0].sql, /iniciado_envio_em/);
   assert.match(consultas[0].sql, /enviado_em/);
+});
+
+test('resposta com 12 digitos bloqueia saudacao para campanha com 13 digitos', async () => {
+  const telefoneCampanha = '5583999991111';
+  let parametrosDaConsulta;
+  const pool = { query: async (sql, params) => {
+    assert.match(sql, /telefone = ANY\\(\\$1::varchar\\[\\]\\)/);
+    parametrosDaConsulta = params;
+    return { rows: [{ abordado: params[0].includes(telefoneCampanha) }] };
+  }};
+  const service = carregar(HELPER, { '../../../db/connection': pool });
+  assert.equal(await service.abordadoPelaMalaDireta('558399991111'), true);
+  assert.deepEqual(parametrosDaConsulta, [['558399991111', '5583999991111']]);
+});
+
+test('resposta com 13 digitos bloqueia saudacao para campanha com 12 digitos', async () => {
+  const telefoneCampanha = '558399991111';
+  let parametrosDaConsulta;
+  const pool = { query: async (sql, params) => {
+    parametrosDaConsulta = params;
+    return { rows: [{ abordado: params[0].includes(telefoneCampanha) }] };
+  }};
+  const service = carregar(HELPER, { '../../../db/connection': pool });
+  assert.equal(await service.abordadoPelaMalaDireta('5583999991111'), true);
+  assert.deepEqual(parametrosDaConsulta, [['5583999991111', '558399991111']]);
+});
+
+test('numeros de DDD diferente nao sao confundidos por sufixo igual', async () => {
+  const pool = { query: async (_sql, params) => ({
+    rows: [{ abordado: params[0].includes('5584999991111') }]
+  }) };
+  const service = carregar(HELPER, { '../../../db/connection': pool });
+  assert.equal(await service.abordadoPelaMalaDireta('558399991111'), false);
 });
 
 test('sem envio anterior, primeira saudacao segue permitida', async () => {
