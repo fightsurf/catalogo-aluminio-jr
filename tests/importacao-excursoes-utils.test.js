@@ -20,8 +20,8 @@ test('inclui origem e rota uma vez cada', () => {
   });
   assert.equal(linha.nome, 'Abdon Turismo');
   assert.equal(linha.telefones[0], '73991041424');
-  assert.equal(linha.cidades.length, 3);
-  assert.deepEqual(linha.cidades.map(c => c.uf), ['BA','BA','BA']);
+  assert.equal(linha.cidades.length, 2);
+  assert.deepEqual(linha.cidades.map(c => c.uf), ['BA','BA']);
 });
 test('campos cadastrais usam DDI 55, primeira linha como principal e observacao de origem', () => {
   const linha = normalizarLinha({
