@@ -246,7 +246,10 @@ async function postZapi(endpoint, payload, options = {}) {
       responseText ||
       'Erro ao enviar pela Z-API.';
 
-    throw new Error(`Z-API respondeu ${response.status}: ${detalhe}`);
+    const erro=new Error(`Z-API respondeu ${response.status}: ${detalhe}`);
+    // HTTP 429 é recusa explícita. Timeout/rede e respostas ambíguas não permitem replay.
+    erro.httpStatus=response.status;
+    throw erro;
   }
 
   return {
