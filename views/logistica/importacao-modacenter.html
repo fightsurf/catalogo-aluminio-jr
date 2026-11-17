@@ -29,7 +29,17 @@ select{max-width:225px;padding:6px;border:1px solid #cbd4df;border-radius:5px}
 <body><main>
 <a href="/admin-logistica">← Voltar à logística</a>
 <h1>Importar excursões e transportadoras</h1>
-<p class="alert"><strong>Fonte: Moda Center.</strong> Utilize apenas arquivos recebidos, exportados ou obtidos com autorização para uso comercial. Esta ferramenta não faz coleta automática do site nem confirma se uma excursão transporta mercadorias. Confira esse ponto antes de importar.</p>
+<p class="alert"><strong>Fonte: Moda Center.</strong> O site restringe a cópia e o uso comercial do conteúdo. A coleta direta requer autorização específica do titular dos dados. O registro como excursão não comprova que a empresa realiza entregas de mercadorias.</p>
+<section class="panel">
+<h2>Coletar diretamente do Moda Center</h2>
+<p>O Alumínio JR consultará a lista pública de excursões, verificará as páginas que conseguir acessar e mostrará uma prévia. <strong>Não grava no banco sem sua aprovação.</strong> Se a paginação não puder ser lida ou houver bloqueio, será exibido aviso de coleta parcial.</p>
+<label style="display:block;margin:12px 0"><input id="autorizacaoColeta" type="checkbox"> Confirmo que possuo autorização do Moda Center para copiar estes cadastros e utilizá-los comercialmente no Alumínio JR.</label>
+<div class="actions">
+<button type="button" id="btnColetar">Consultar Moda Center e comparar registros</button>
+<span class="info">A coleta poderá demorar e respeita intervalo entre solicitações.</span>
+</div>
+<p id="resumoColeta" role="status"></p>
+</section>
 <section class="panel">
 <h2>1. Selecionar arquivo</h2>
 <p>Abra uma planilha no Excel, escolha <strong>Salvar como CSV UTF-8</strong> e carregue aqui. Também é possível colar linhas copiadas do Excel. São aceitas colunas como <strong>nome, origem, telefone, telefone2, rota, destino, tipo</strong>. As cidades na rota devem estar no formato <strong>Cidade - UF / Cidade - UF</strong>.</p>
@@ -144,9 +154,13 @@ function montarTabela() {
     const desabilitado = item.situacao === 'invalido' || item.situacao === 'duplicado_arquivo';
     const selecao = '<input type="checkbox" class="checkLinha" data-indice="'+item.indice+'" '+(desabilitado?'disabled':'')+'>';
     const opcoes = item.candidatos.map(c => '<option value="'+Number(c.id)+'">'+h(c.nome+' (#'+c.id+', '+c.tipo+')')+'</option>').join('');
+    const podeCriarAposRevisao = item.situacao === 'revisar' &&
+      item.candidatos.length > 0 && item.candidatos.every(c => c.tipo === 'semelhante');
+    const criarSeparado = podeCriarAposRevisao
+      ? '<option value="criar_novo">Não corresponde: criar cadastro separado</option>' : '';
     const escolha = item.situacao === 'novo' ? '<strong>Criar novo cadastro</strong>' :
       '<select class="selecionarExistente" data-indice="'+item.indice+'">'+
-      '<option value="">Selecione um cadastro</option>'+opcoes+'</select>';
+      '<option value="">Selecione um cadastro</option>'+opcoes+criarSeparado+'</select>';
     const alertaTel = item.candidatos.some(c => c.divergenciaTelefone) ? '<small>Telefone divergente; cadastro atual será preservado</small>' : '';
     const cidades = (item.cidadesEncontradas||[]).length;
     const ausentes = (item.cidadesNaoEncontradas||[]).length;
@@ -165,6 +179,45 @@ function contarSelecionados() {
   const marcadas = document.querySelectorAll('.checkLinha:checked').length;
   $('selecionados').textContent = marcadas + ' selecionados';
   $('btnConfirmar').disabled = !marcadas;
+}
+async function coletarSite() {
+  if (!$('autorizacaoColeta').checked) {
+    mensagem('É necessário confirmar a autorização do titular para coleta e uso comercial.', true);
+    return;
+  }
+  $('btnColetar').disabled = true;
+  $('btnPrevia').disabled = true;
+  $('previsao').hidden = true;
+  $('resultadoPainel').hidden = true;
+  previa = null;
+  $('resumoColeta').textContent = 'Consultando o site... Aguarde a validação da paginação.';
+  mensagem('Coleta em andamento. Nenhum dado será gravado.');
+  try {
+    const dados = await api('/coletar', {
+      method:'POST', body: JSON.stringify({ autorizaColeta: true })
+    });
+    if (!dados.rows || !dados.rows.length) throw new Error('O site não retornou cadastros.');
+    linhas = dados.rows;
+    const informados = dados.total_informado == null ? '?' : dados.total_informado;
+    const pags = (dados.paginas_visitadas || []).length;
+    const frase = (dados.coleta_completa ? 'Coleta completa' : 'COLETA PARCIAL') +
+      ': ' + linhas.length + ' registros, ' + pags + ' página(s) consultada(s), ' +
+      informados + ' resultados informados pelo site.';
+    $('resumoColeta').textContent = frase + (dados.avisos?.length ? '\n' + dados.avisos.join(' | ') : '');
+    $('resumoColeta').style.whiteSpace = 'pre-wrap';
+    $('resumoColeta').style.color = dados.coleta_completa ? '#176238' : '#a3471b';
+    previa = await api('/previa', { method:'POST', body: JSON.stringify({rows:linhas}) });
+    montarTabela();
+    mensagem(dados.coleta_completa
+      ? 'Prévia gerada a partir da coleta. Revise os registros antes de gravar.'
+      : 'Prévia parcial. Verifique o aviso de paginação acima antes de importar.', !dados.coleta_completa);
+  } catch (erro) {
+    $('resumoColeta').textContent = 'Coleta não concluída.';
+    mensagem(erro.message, true);
+  } finally {
+    $('btnColetar').disabled = false;
+    $('btnPrevia').disabled = false;
+  }
 }
 async function gerarPrevia() {
   $('btnPrevia').disabled = true;
@@ -202,9 +255,13 @@ async function confirmar() {
     if (item.situacao === 'novo') decisoes.push({ indice, acao:'criar' });
     else {
       const escolha = document.querySelector('.selecionarExistente[data-indice="'+indice+'"]');
-      const id = Number(escolha && escolha.value);
-      if (!id) { mensagem('Escolha a transportadora correspondente para '+item.nome+'.', true); escolha.focus(); return; }
-      decisoes.push({ indice, acao:'vincular', transportadora_id:id });
+      if (escolha && escolha.value === 'criar_novo') {
+        decisoes.push({ indice, acao:'criar', revisao_confirmada:true });
+      } else {
+        const id = Number(escolha && escolha.value);
+        if (!id) { mensagem('Escolha a transportadora correspondente para '+item.nome+'.', true); escolha.focus(); return; }
+        decisoes.push({ indice, acao:'vincular', transportadora_id:id });
+      }
     }
   }
   if (!decisoes.length) return;
@@ -237,6 +294,7 @@ async function carregarHistorico() {
       ' — '+h(x.origem)+' — '+Number(x.resumo.criadas||0)+' novas, '+Number(x.resumo.vinculadas||0)+' associadas</li>').join('')+'</ul>';
   } catch(e) { $('historico').textContent = e.message; }
 }
+$('btnColetar').addEventListener('click', coletarSite);
 $('btnPrevia').addEventListener('click', gerarPrevia);
 $('selecionarNovos').addEventListener('click', selecionarNovos);
 $('desmarcarTodos').addEventListener('click', () => {
