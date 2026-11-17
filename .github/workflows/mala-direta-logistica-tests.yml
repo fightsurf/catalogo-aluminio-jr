@@ -1,0 +1,26 @@
+name: Mala Direta - Logistica e horarios
+on:
+  pull_request:
+    paths:
+      - 'src/services/mala-direta/**'
+      - 'views/whatsapp/mala-direta.html'
+      - 'tests/mala-direta-logistica.test.js'
+      - '.github/workflows/mala-direta-logistica-tests.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/services/mala-direta/**'
+      - 'views/whatsapp/mala-direta.html'
+      - 'tests/mala-direta-logistica.test.js'
+      - '.github/workflows/mala-direta-logistica-tests.yml'
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node --check src/services/mala-direta/mala-direta.service.js
+      - run: node --check src/services/mala-direta/mala-direta-logistica.service.js
+      - run: node --test tests/mala-direta-logistica.test.js
