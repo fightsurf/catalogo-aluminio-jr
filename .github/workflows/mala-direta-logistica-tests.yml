@@ -6,6 +6,7 @@ on:
       - 'views/whatsapp/mala-direta.html'
       - 'tests/mala-direta-logistica.test.js'
       - 'tests/mala-direta-audio-importado.test.js'
+      - 'tests/mala-direta-estado.test.js'
       - '.github/workflows/mala-direta-logistica-tests.yml'
   push:
     branches: [main]
@@ -14,6 +15,7 @@ on:
       - 'views/whatsapp/mala-direta.html'
       - 'tests/mala-direta-logistica.test.js'
       - 'tests/mala-direta-audio-importado.test.js'
+      - 'tests/mala-direta-estado.test.js'
       - '.github/workflows/mala-direta-logistica-tests.yml'
 jobs:
   tests:
@@ -27,4 +29,4 @@ jobs:
       - run: node --check src/services/mala-direta/mala-direta-logistica.service.js
       - run: node --check src/services/mala-direta/mala-direta-audio-gravado.service.js
       - run: node --check src/routes/mala-direta/mala-direta.routes.js
-      - run: node --test tests/mala-direta-logistica.test.js tests/mala-direta-audio-importado.test.js
+      - run: node --test tests/mala-direta-logistica.test.js tests/mala-direta-audio-importado.test.js tests/mala-direta-estado.test.js
