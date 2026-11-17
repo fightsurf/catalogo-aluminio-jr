@@ -63,7 +63,7 @@ function normalizarLinha(dados) {
   // A origem tambem e uma cidade atendida, alem de todas as paradas da rota.
   if (orig) adicionar(orig);
   else if (origem) semUf.push(origem);
-  for (const trecho of rota.split(/[\/|\n;]+/) {
+  for (const trecho of rota.split(/[\/|\n;]+/)) {
     if (!trecho.trim()) continue;
     const cidade = localidade(trecho);
     if (cidade) adicionar(cidade);
