@@ -592,6 +592,9 @@ async function processarProximo() {
       await client.query(`UPDATE mala_direta_destinatarios SET status='bloqueado',atualizado_em=NOW() WHERE id=$1`,[trabalho.id]);
     } else {
       await client.query(`UPDATE mala_direta_destinatarios SET status='enviando',iniciado_envio_em=NOW(),atualizado_em=NOW() WHERE id=$1`,[trabalho.id]);
+      // Registrar a abordagem antes de chamar a Z-API, na mesma transacao.
+      // Se houver falha, nao reivindicar o contato nem enviar mensagens.
+      await require('../bot/primeiro-contato-mala-direta.service').registrarEnvioIniciado(trabalho.telefone, client);
       // Não iniciar os dez minutos entre contatos aqui: o relógio começa
       // somente depois que TODAS as mensagens deste contato forem aceitas.
       await client.query(`UPDATE mala_direta_campanhas
