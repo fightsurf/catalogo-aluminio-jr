@@ -399,7 +399,7 @@ async function estadoCampanha(cid){
     mensagem,imagem,sequencia_mensagens,encode(audio_mp3,'base64') AS audio_mp3,
     criada_em,proximo_envio_em,concluida_em FROM mala_direta_campanhas WHERE id=$1`,[id(cid)]);
   if(!c.rows.length)bad('Campanha não encontrada.');
-  const destinatarios=await pool.query(`SELECT favorecido,nome,telefone,origem_destinatario,
+  const destinatarios=await pool.query(`SELECT id,favorecido,nome,telefone,origem_destinatario,
     referencia_destinatario,status,iniciado_envio_em,enviado_em,etapa_enviada_index,etapas_aceitas,erro
     FROM mala_direta_destinatarios WHERE campanha_id=$1 ORDER BY id`,[id(cid)]);
   return {campanha:c.rows[0],destinatarios:destinatarios.rows};
@@ -433,7 +433,7 @@ async function detalhe(cid) {
    FROM jsonb_array_elements(sequencia_mensagens) WITH ORDINALITY AS mensagens(item,ordem)) AS sequencia_resumo
   FROM mala_direta_campanhas WHERE id=$1`,[id(cid)]);
   if(!c.rows.length) bad('Campanha não encontrada.');
-  const d=await pool.query('SELECT favorecido,nome,telefone,status,iniciado_envio_em,enviado_em,atualizado_em,imagem_aceita_em,audio_aceito_em,etapa_enviada_index,etapas_aceitas,erro FROM mala_direta_destinatarios WHERE campanha_id=$1 ORDER BY id',[cid]);
+  const d=await pool.query('SELECT id,favorecido,nome,telefone,status,iniciado_envio_em,enviado_em,atualizado_em,imagem_aceita_em,audio_aceito_em,etapa_enviada_index,etapas_aceitas,erro FROM mala_direta_destinatarios WHERE campanha_id=$1 ORDER BY id',[cid]);
   return {campanha:c.rows[0],destinatarios:d.rows};
 }
 async function mudarStatus(cid, acao) {
@@ -450,6 +450,46 @@ async function mudarStatus(cid, acao) {
     :await pool.query(`UPDATE mala_direta_campanhas SET status='ativa', proximo_envio_em=NOW() WHERE id=$1 AND status='pausada' RETURNING id`,[id(cid)]);
   if(!r.rowCount) bad('Campanha inexistente ou em estado incompatível.');
   return {id:Number(cid),status:acao==='pausar'?'pausada':'ativa'};
+}
+// A reconciliação de uma mensagem incerta depende de conferência real no WhatsApp.
+// Nunca deduzir que a foto chegou apenas pela tentativa feita pelo servidor.
+async function conciliarDestinatario(cid,destinatarioId,dados){
+  await preparar();
+  const campanhaId=id(cid),destinoId=id(destinatarioId);
+  const quantidade=Number(dados?.quantidadeConfirmada);
+  if(!Number.isSafeInteger(quantidade)||quantidade<0)
+    bad('Informe quantas mensagens foram realmente confirmadas no WhatsApp.');
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    const r=await client.query(`SELECT c.status AS campanha_status,c.sequencia_mensagens,
+      d.id,d.status,d.etapa_enviada_index,d.etapas_aceitas
+      FROM mala_direta_destinatarios d JOIN mala_direta_campanhas c ON c.id=d.campanha_id
+      WHERE c.id=$1 AND d.id=$2 FOR UPDATE OF c,d`,[campanhaId,destinoId]);
+    if(!r.rowCount)bad('Destinatário não encontrado nesta campanha.');
+    const atual=r.rows[0], etapas=atual.sequencia_mensagens;
+    if(atual.campanha_status!=='pausada'||atual.status!=='incerto')
+      bad('Pause a campanha e selecione um contato com envio incerto.');
+    if(!Array.isArray(etapas)||!etapas.length)
+      bad('Esta conciliação exige uma campanha com sequência de mensagens.');
+    if(quantidade>etapas.length||quantidade<Number(atual.etapa_enviada_index)+1)
+      bad('Quantidade incompatível com as mensagens já confirmadas.');
+    const historico=Array.isArray(atual.etapas_aceitas)?atual.etapas_aceitas.slice():[];
+    for(let i=Number(atual.etapa_enviada_index)+1;i<quantidade;i++)
+      historico.push({indice:i,tipo:etapas[i].tipo,em:new Date().toISOString(),conferidoManualmente:true});
+    const completo=quantidade===etapas.length;
+    const u=await client.query(`UPDATE mala_direta_destinatarios
+      SET etapa_enviada_index=$2::integer,etapas_aceitas=$3::jsonb,
+        status=$4::varchar(24),enviado_em=CASE WHEN $4::varchar(24)='enviado' THEN NOW() ELSE NULL END,
+        atualizado_em=NOW(),erro=NULL,iniciado_envio_em=NULL
+      WHERE id=$1 AND status='incerto' RETURNING id`,
+      [destinoId,quantidade-1,JSON.stringify(historico),completo?'enviado':'pendente']);
+    if(u.rowCount!==1)throw Error('Status do destinatário alterado durante a conferência.');
+    await client.query('COMMIT');
+    return {campanhaId,destinatarioId:destinoId,quantidadeConfirmada:quantidade,
+      status:completo?'enviado':'pendente',campanhaPausada:true};
+  }catch(e){await client.query('ROLLBACK').catch(()=>{});throw e;}
+  finally{client.release();}
 }
 async function bloquear(fone, motivo) {
   await preparar();
@@ -687,4 +727,4 @@ function iniciarTrabalhador() {
   t=setTimeout(executarTermometro,12000);
   t.unref?.();
 }
-module.exports={produtos,compradores,compradoresPorCriterio,carradas,semanas,primeiraCompra,criar,listar,detalhe,estadoCampanha,lerRascunho,salvarRascunho,excluirRascunho,mudarStatus,bloquear,enviarTeste,iniciarTrabalhador};
+module.exports={produtos,compradores,compradoresPorCriterio,carradas,semanas,primeiraCompra,criar,listar,detalhe,estadoCampanha,lerRascunho,salvarRascunho,excluirRascunho,mudarStatus,conciliarDestinatario,bloquear,enviarTeste,iniciarTrabalhador};
