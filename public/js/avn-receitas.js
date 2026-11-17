@@ -5,9 +5,40 @@ async function api(url,options={}){const r=await fetch(API+url,{credentials:'sam
 function alertar(t,e=false){$('alerta').hidden=false;$('alerta').textContent=t;$('alerta').className='avn-alert'+(e?' error':'');}
 function opcoes(id){return '<option value="">Escolha um alimento ou receita</option>'+alimentos.filter(f=>f.fonte!=='receita'||String(f.usuario_id)===String(usuarioId)).filter(f=>!editId||!receitas.some(r=>String(r.id)===String(editId)&&String(r.alimento_id)===String(f.id))).map(f=>`<option value="${f.id}" ${String(id)===String(f.id)?'selected':''}>${f.fonte==='receita'?'📖 Receita · ':''}${esc(f.nome)}${f.preparo?' · '+esc(f.preparo):''}</option>`).join('');}
 function addRow(id='',g=''){const linha=document.createElement('div');linha.className='receita-linha';linha.innerHTML=`<label class="avn-field">Alimento ou receita<select class="ingrediente" required>${opcoes(id)}</select></label><label class="avn-field">Peso (g)<input class="gramas" type="number" min="0.001" max="10000" step="any" required value="${esc(g)}"></label><button class="secondary remover" type="button">Remover</button>`;linha.querySelector('.remover').onclick=()=>{linha.remove();soma()};linha.querySelector('.gramas').oninput=soma;$('ingredientes').appendChild(linha);soma();}
-let importacaoRevision=0,importacaoPendente=false;
-function limparImportador(){
+let importacaoRevision=0,importacaoPendente=false,imagemReceita=null,imagemReceitaUrl=null;
+function invalidarImportacao(){
  importacaoRevision++;
+ $('revisaoImportacao').replaceChildren();
+ $('revisaoImportacao').hidden=true;
+ $('aplicarImportacao').hidden=true;
+ $('statusImportacao').textContent='';
+}
+function removerImagemReceita(){
+ imagemReceita=null;
+ if(imagemReceitaUrl){URL.revokeObjectURL(imagemReceitaUrl);imagemReceitaUrl=null;}
+ $('miniaturaImagemReceita').removeAttribute('src');
+ $('previewImagemReceita').hidden=true;
+ $('arquivoImagemReceita').value='';
+ invalidarImportacao();
+}
+function receberImagemReceita(arquivo){
+ if(!arquivo)return;
+ if(!['image/png','image/jpeg','image/webp'].includes(arquivo.type)){
+  $('statusImportacao').textContent='Selecione uma imagem JPG, PNG ou WebP.';return;
+ }
+ if(arquivo.size>8*1024*1024){
+  $('statusImportacao').textContent='A imagem excede 8 MB. Escolha uma menor.';return;
+ }
+ imagemReceita=arquivo;
+ if(imagemReceitaUrl)URL.revokeObjectURL(imagemReceitaUrl);
+ imagemReceitaUrl=URL.createObjectURL(arquivo);
+ $('miniaturaImagemReceita').src=imagemReceitaUrl;
+ $('previewImagemReceita').hidden=false;
+ invalidarImportacao();
+ $('statusImportacao').textContent='Imagem anexada. Clique em Interpretar ingredientes com IA.';
+}
+function limparImportador(){
+ removerImagemReceita();
  $('textoReceita').value='';
  $('revisaoImportacao').replaceChildren();
  $('revisaoImportacao').hidden=true;
@@ -36,17 +67,20 @@ function renderImportacao(itens){
 async function interpretarReceita(){
  if(importacaoPendente)return;
  const texto=$('textoReceita').value.trim();
- if(!texto){$('statusImportacao').textContent='Cole os ingredientes, um por linha.';return;}
+ const imagem=imagemReceita;
+ if(!texto&&!imagem){$('statusImportacao').textContent='Cole os ingredientes em texto ou anexe uma imagem.';return;}
  if(!usuarioId){$('statusImportacao').textContent='Selecione um usuário.';return;}
  const r=++importacaoRevision;const usuario=usuarioId;
  $('revisaoImportacao').hidden=true;$('aplicarImportacao').hidden=true;
  importacaoPendente=true;$('interpretarReceita').disabled=true;
  $('statusImportacao').textContent='Interpretando e comparando os alimentos do cadastro…';
  try{
-  const result=await api('/receitas/interpretar',{
-   method:'POST',body:JSON.stringify({usuarioId:usuario,texto})
-  });
-  if(r!==importacaoRevision||usuario!==usuarioId||texto!==$('textoReceita').value.trim())return;
+  const envio=imagem?new FormData():null;
+  if(envio){envio.append('usuarioId',usuario);envio.append('texto',texto);envio.append('imagem',imagem,imagem.name||'receita.png');}
+  const result=await api('/receitas/interpretar',envio
+   ?{method:'POST',headers:{},body:envio}
+   :{method:'POST',body:JSON.stringify({usuarioId:usuario,texto})});
+  if(r!==importacaoRevision||usuario!==usuarioId||texto!==$('textoReceita').value.trim()||imagem!==imagemReceita)return;
   if(!Array.isArray(result.itens))throw Error('A IA não retornou ingredientes.');
   renderImportacao(result.itens);
   // Se todos os alimentos e pesos forem confiáveis, aplicar imediatamente.
@@ -78,6 +112,7 @@ function aplicarImportacao(){
  for(const item of itens)addRow(item.alimento,item.peso);
  $('revisaoImportacao').hidden=true;$('aplicarImportacao').hidden=true;
  $('textoReceita').value='';
+ removerImagemReceita();
  $('statusImportacao').textContent=itens.length+' ingrediente(s) acrescentados. Confira a lista antes de salvar a receita.';
  soma();
  if($('modalImportacaoReceita').open)$('modalImportacaoReceita').close();
@@ -236,6 +271,19 @@ async function ver(id){
 }
 function nova(){limparImportador();editId=null;$('titulo').textContent='Nova receita';$('salvarReceita').textContent='Salvar receita';$('nome').value='';$('preparo').value='';$('rendimento').value='';$('ingredientes').innerHTML='';$('resultado').innerHTML='';addRow();}
 async function editar(id){const usuario=usuarioId;try{const r=await api('/receitas/'+id+'?usuarioId='+usuario);if(usuario!==usuarioId)return;limparImportador();editId=id;$('titulo').textContent='Editar receita';$('salvarReceita').textContent='Salvar nova versão';$('nome').value=r.nome;$('preparo').value=r.preparo||'';$('rendimento').value=r.rendimento_g;$('ingredientes').innerHTML='';r.ingredientes.forEach(i=>addRow(i.alimento_id,i.quantidade_g));$('resultado').innerHTML='';if($('modalDetalheReceita').open)$('modalDetalheReceita').close();if(!$('modalReceita').open)$('modalReceita').showModal();}catch(e){alertar(e.message,true)}}
-async function init(){try{const r=await fetch('/api/avn/usuarios',{credentials:'same-origin'});if(!r.ok)throw Error('Erro ao buscar usuários.');const users=await r.json();$('usuario').innerHTML=users.map(u=>`<option value="${u.id}">${esc(u.nome)}</option>`).join('');const stored=localStorage.getItem('avn_treinos_usuario');$('usuario').value=users.some(u=>String(u.id)===stored)?stored:users[0]?.id||'';$('usuario').onchange=()=>{if($('modalImportacaoReceita').open)$('modalImportacaoReceita').close();if($('modalPreviaReceita').open)$('modalPreviaReceita').close();if($('modalReceita').open)$('modalReceita').close();if($('modalDetalheReceita').open)$('modalDetalheReceita').close();carregar()};$('nova').onclick=()=>{nova();$('modalReceita').showModal()};$('fecharModalReceita').onclick=()=>{if($('modalImportacaoReceita').open)$('modalImportacaoReceita').close();if($('modalPreviaReceita').open)$('modalPreviaReceita').close();$('modalReceita').close()};$('abrirImportacao').onclick=()=>{if(!$('modalImportacaoReceita').open)$('modalImportacaoReceita').showModal()};$('fecharImportacao').onclick=()=>$('modalImportacaoReceita').close();$('fecharPrevia').onclick=()=>$('modalPreviaReceita').close();$('fecharDetalheReceita').onclick=()=>$('modalDetalheReceita').close();$('adicionar').onclick=()=>addRow();$('interpretarReceita').onclick=interpretarReceita;$('aplicarImportacao').onclick=aplicarImportacao;$('textoReceita').oninput=()=>{importacaoRevision++;$('revisaoImportacao').hidden=true;$('aplicarImportacao').hidden=true;$('statusImportacao').textContent='';};$('calcular').onclick=()=>{try{resultado(calcLocal(payload()))}catch(e){alertar(e.message,true)}};$('form').onsubmit=async e=>{e.preventDefault();try{const body=payload();const salvo=await api('/receitas'+(editId?'/'+editId:''),{method:editId?'PUT':'POST',body:JSON.stringify(body)});alertar('Receita salva na versão '+salvo.versao_numero+'. O Diário preserva a versão dos lançamentos futuros.');if($('modalPreviaReceita').open)$('modalPreviaReceita').close();if($('modalImportacaoReceita').open)$('modalImportacaoReceita').close();$('modalReceita').close();await carregar();}catch(err){alertar(err.message,true)}};await carregar();}catch(e){alertar(e.message,true)}}
+async function init(){try{const r=await fetch('/api/avn/usuarios',{credentials:'same-origin'});if(!r.ok)throw Error('Erro ao buscar usuários.');const users=await r.json();$('usuario').innerHTML=users.map(u=>`<option value="${u.id}">${esc(u.nome)}</option>`).join('');const stored=localStorage.getItem('avn_treinos_usuario');$('usuario').value=users.some(u=>String(u.id)===stored)?stored:users[0]?.id||'';$('usuario').onchange=()=>{if($('modalImportacaoReceita').open)$('modalImportacaoReceita').close();if($('modalPreviaReceita').open)$('modalPreviaReceita').close();if($('modalReceita').open)$('modalReceita').close();if($('modalDetalheReceita').open)$('modalDetalheReceita').close();carregar()};$('nova').onclick=()=>{nova();$('modalReceita').showModal()};$('fecharModalReceita').onclick=()=>{if($('modalImportacaoReceita').open)$('modalImportacaoReceita').close();if($('modalPreviaReceita').open)$('modalPreviaReceita').close();$('modalReceita').close()};$('abrirImportacao').onclick=()=>{if(!$('modalImportacaoReceita').open)$('modalImportacaoReceita').showModal()};$('fecharImportacao').onclick=()=>$('modalImportacaoReceita').close();$('fecharPrevia').onclick=()=>$('modalPreviaReceita').close();$('fecharDetalheReceita').onclick=()=>$('modalDetalheReceita').close();$('adicionar').onclick=()=>addRow();$('interpretarReceita').onclick=interpretarReceita;$('aplicarImportacao').onclick=aplicarImportacao;$('textoReceita').oninput=invalidarImportacao;
+$('selecionarImagemReceita').onclick=()=>$('arquivoImagemReceita').click();
+$('arquivoImagemReceita').onchange=e=>receberImagemReceita(e.target.files?.[0]);
+$('removerImagemReceita').onclick=removerImagemReceita;
+document.addEventListener('paste',e=>{
+ if(!$('modalImportacaoReceita').open)return;
+ const imagem=[...(e.clipboardData?.items||[])].find(item=>item.type.startsWith('image/'));
+ if(!imagem)return;
+ e.preventDefault();
+ receberImagemReceita(imagem.getAsFile());
+});
+const areaImagem=$('areaImagemReceita');
+areaImagem.addEventListener('dragover',e=>{if([...e.dataTransfer.types].includes('Files'))e.preventDefault();});
+areaImagem.addEventListener('drop',e=>{e.preventDefault();receberImagemReceita([...e.dataTransfer.files].find(file=>file.type.startsWith('image/'))||e.dataTransfer.files[0]);});$('calcular').onclick=()=>{try{resultado(calcLocal(payload()))}catch(e){alertar(e.message,true)}};$('form').onsubmit=async e=>{e.preventDefault();try{const body=payload();const salvo=await api('/receitas'+(editId?'/'+editId:''),{method:editId?'PUT':'POST',body:JSON.stringify(body)});alertar('Receita salva na versão '+salvo.versao_numero+'. O Diário preserva a versão dos lançamentos futuros.');if($('modalPreviaReceita').open)$('modalPreviaReceita').close();if($('modalImportacaoReceita').open)$('modalImportacaoReceita').close();$('modalReceita').close();await carregar();}catch(err){alertar(err.message,true)}};await carregar();}catch(e){alertar(e.message,true)}}
 async function carregar(){usuarioId=$('usuario').value;if(!usuarioId)return;nova();alimentos=await api('/receitas/catalogo?usuarioId='+usuarioId);nutrientes=(await api('/nutrientes')).micros;await listar();}
 init();})();
