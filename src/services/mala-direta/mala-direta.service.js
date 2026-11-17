@@ -83,6 +83,10 @@ async function preparar() {
       -- NULL preserva as regras de campanhas antigas, sem restringir horários retroativamente.
       ALTER TABLE mala_direta_campanhas ADD COLUMN IF NOT EXISTS horario_inicio TIME;
       ALTER TABLE mala_direta_campanhas ADD COLUMN IF NOT EXISTS horario_fim TIME;
+      ALTER TABLE mala_direta_campanhas ADD COLUMN IF NOT EXISTS cidade_logistica_id BIGINT;
+      ALTER TABLE mala_direta_campanhas ADD COLUMN IF NOT EXISTS sequencia_mensagens JSONB;
+      ALTER TABLE mala_direta_destinatarios ADD COLUMN IF NOT EXISTS etapa_enviada_index INTEGER NOT NULL DEFAULT -1;
+      ALTER TABLE mala_direta_destinatarios ADD COLUMN IF NOT EXISTS etapas_aceitas JSONB NOT NULL DEFAULT '[]'::jsonb;
       CREATE INDEX IF NOT EXISTS idx_mala_direta_fila ON mala_direta_destinatarios (campanha_id,id) WHERE status='pendente';
       CREATE TABLE IF NOT EXISTS mala_direta_bloqueios (
         telefone VARCHAR(20) PRIMARY KEY,
@@ -155,13 +159,15 @@ function criterioValido(dados) {
   if (tipo==='periodo'&&(!Number.isInteger(meses)||meses<0||meses>600||meses%6)) bad('Período inválido.');
   const grupo=tipo==='logistica'?String(dados.grupoLogistica||'todos'):null;
   if(tipo==='logistica'&&!['todos','transportadoras','agencias'].includes(grupo)) bad('Grupo da logística inválido.');
-  return {tipo,referencia,meses,grupo};
+  const cidade=tipo==='logistica'?Number(dados.cidadeLogistica):null;
+  if(tipo==='logistica'&&(!Number.isSafeInteger(cidade)||cidade<1))bad('Selecione a cidade da logística antes de consultar.');
+  return {tipo,referencia,meses,grupo,cidade};
 }
 async function compradoresPorCriterio(dados) {
-  const {tipo,referencia,meses,grupo}=criterioValido(dados);
+  const {tipo,referencia,meses,grupo,cidade}=criterioValido(dados);
   if(tipo==='logistica') {
     await preparar();
-    return require('./mala-direta-logistica.service').consultar(grupo);
+    return require('./mala-direta-logistica.service').consultar(grupo,cidade);
   }
   if(tipo==='periodo') return compradores(id(dados.item),meses);
   let codigos=[];
@@ -207,7 +213,7 @@ function audioSelecionado(dados,usuario){
 async function criar(dados, origem,usuario) {
   await preparar();
   const produtoId=id(dados.produtoId), criterio=criterioValido(dados);
-  const {tipo,referencia,meses,grupo}=criterio;
+  const {tipo,referencia,meses,grupo,cidade}=criterio;
   const minutosInformados=dados.intervaloMinutos!==undefined;
   const intervalo=minutosInformados?Number(dados.intervaloMinutos)*60:Number(dados.intervaloSegundos);
   if(!Number.isInteger(intervalo)||intervalo<(minutosInformados?60:5)||intervalo>86400)
