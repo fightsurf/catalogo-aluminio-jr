@@ -4,6 +4,11 @@ const crypto = require('crypto');
 const pool = require('../../../db/connection');
 const { chave, normalizarLinha, classificar } = require('../../services/logistica/importacaoExcursoesUtils');
 const router = express.Router();
+const { coletarExcursoes } = require('../../services/logistica/coletorModaCenter.service');
+
+let coletaEmAndamento = false;
+let ultimaColeta = 0;
+const INTERVALO_COLETA_MS = 90 * 1000;
 
 // Nao ha crawler: a origem deve ser uma planilha obtida com autorizacao.
 const FONTE = 'Moda Center - arquivo autorizado';
@@ -79,6 +84,36 @@ function responderErro(res, erro) {
   console.error('[importacao-logistica]', erro);
   res.status(erro.status || 500).json({ erro: erro.status ? erro.message : 'Erro ao processar a importacao.' });
 }
+// A coleta nao grava dados. A licenca para utilizacao comercial deve ser confirmada pelo administrador.
+router.post('/coletar', async (req, res) => {
+  if (req.body?.autorizaColeta !== true) {
+    return res.status(400).json({
+      erro: 'Confirme sua autorizacao do titular dos dados para copia e uso comercial.'
+    });
+  }
+  if (coletaEmAndamento) {
+    return res.status(409).json({ erro: 'Ja existe uma coleta em andamento. Aguarde.' });
+  }
+  if (Date.now() - ultimaColeta < INTERVALO_COLETA_MS) {
+    return res.status(429).json({ erro: 'Aguarde 90 segundos entre coletas para reduzir requisicoes ao site.' });
+  }
+  coletaEmAndamento = true;
+  ultimaColeta = Date.now();
+  try {
+    const resultado = await coletarExcursoes();
+    res.set('Cache-Control', 'no-store');
+    return res.json({
+      origem: 'Moda Center - listagem publica',
+      ...resultado,
+      aviso_uso: 'Dados coletados para revisao; nao foram gravados no banco.'
+    });
+  } catch (erro) {
+    return responderErro(res, erro);
+  } finally {
+    coletaEmAndamento = false;
+  }
+});
+
 router.post('/previa', async (req, res) => {
   try {
     const registros = validarLinhas(req.body);
