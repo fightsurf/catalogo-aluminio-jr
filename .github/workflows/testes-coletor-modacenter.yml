@@ -1,0 +1,24 @@
+name: Testes de importacao e coletor de logistica
+on:
+  pull_request:
+    paths:
+      - 'src/services/logistica/coletorModaCenter.service.js'
+      - 'src/services/logistica/importacaoExcursoesUtils.js'
+      - 'src/routes/logistica/importacaoExcursoesRoutes.js'
+      - 'views/logistica/importacao-modacenter.html'
+      - 'tests/coletor-modacenter.test.js'
+      - 'tests/importacao-excursoes-utils.test.js'
+      - 'package.json'
+      - '.github/workflows/testes-coletor-modacenter.yml'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Instalar dependencias
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Executar testes
+        run: node --test tests/coletor-modacenter.test.js tests/importacao-excursoes-utils.test.js
