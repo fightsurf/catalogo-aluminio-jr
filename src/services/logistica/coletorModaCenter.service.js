@@ -146,9 +146,94 @@ function assinaturaPagina(dados) {
   return dados.registros.map(identificador).join(';');
 }
 
+// O Moda Center envia a lista inteira via Next.js Flight e pagina apenas no navegador.
+// Lemos os argumentos JSON dos scripts; nunca avaliamos JavaScript remoto.
+function extrairDadosIncorporados(html) {
+  const $ = cheerio.load(html);
+  const pedaços = [];
+  const scriptRegex = /self\.__next_f\.push\((\[\s*1\s*,\s*"(?:\\.|[^"\\])*"\s*\])\)/g;
+  $('script:not([src])').each((_, script) => {
+    const texto = $(script).text();
+    if (texto.length > MAX_HTML_BYTES) return;
+    for (const achado of texto.matchAll(scriptRegex)) {
+      try {
+        const mensagem = JSON.parse(achado[1]);
+        if (mensagem[0] === 1 && typeof mensagem[1] === 'string') pedaços.push(mensagem[1]);
+      } catch (_) { /* um fragmento inválido não autoriza importar dados incompletos */ }
+    }
+  });
+  if (!pedaços.length) return [];
+  const registrosFlight = pedaços.join('').split(/\n(?=[0-9a-f]+:)/);
+  let lista = null;
+  function procurar(valor, nivel) {
+    if (lista || nivel > 22 || !valor || typeof valor !== 'object') return;
+    if (Array.isArray(valor)) {
+      for (const item of valor) procurar(item, nivel + 1);
+      return;
+    }
+    if (Array.isArray(valor.excursions) && valor.excursions.length &&
+        valor.excursions[0] && typeof valor.excursions[0].name === 'string' &&
+        Array.isArray(valor.excursions[0].route) &&
+        Array.isArray(valor.excursions[0].phones)) {
+      lista = valor.excursions;
+      return;
+    }
+    for (const filho of Object.values(valor)) procurar(filho, nivel + 1);
+  }
+  for (const entrada of registrosFlight) {
+    const separador = entrada.indexOf(':');
+    if (separador < 0) continue;
+    const json = entrada.slice(separador + 1).trim();
+    if (json[0] !== '{' && json[0] !== '[') continue;
+    try { procurar(JSON.parse(json), 0); } catch (_) { /* ignora metadados */ }
+    if (lista) break;
+  }
+  if (!lista || lista.length > MAX_REGISTROS) return [];
+  const usados = new Set();
+  const saida = [];
+  for (const excursao of lista) {
+    if (!excursao || typeof excursao.name !== 'string') continue;
+    const nome = textoLimpo(excursao.name).slice(0, 150);
+    const cidade = textoLimpo(excursao.city);
+    const uf = textoLimpo(excursao.state).toUpperCase();
+    const origem = cidade ? (cidade + (/^[A-Z]{2}$/.test(uf) ? ' - ' + uf : '')) : '';
+    const contato = telefones((Array.isArray(excursao.phones) ? excursao.phones : [])
+      .map(p => p && typeof p.phone === 'string' ? p.phone : '').join(' / '));
+    const rota = (Array.isArray(excursao.route) ? excursao.route : [])
+      .filter(r => typeof r === 'string').map(textoLimpo).filter(Boolean).join(' / ');
+    if (!nome || !origem || !contato.length) continue;
+    const formatado = {
+      nome, origem, destino: textoLimpo(excursao.address).slice(0, 300),
+      telefones: contato.map(n => n.length === 11
+        ? '(' + n.slice(0, 2) + ') ' + n.slice(2, 7) + '-' + n.slice(7)
+        : '(' + n.slice(0, 2) + ') ' + n.slice(2, 6) + '-' + n.slice(6)).join(' / '),
+      rota, tipo: 'excursao/transportadora - tipo nao verificado'
+    };
+    const id = identificador(formatado);
+    if (!usados.has(id)) {
+      usados.add(id);
+      saida.push(formatado);
+    }
+  }
+  return saida;
+}
+
 async function coletarExcursoes(fetcher = fetch) {
   const primeiroHtml = await baixarPagina(BASE, fetcher);
   const primeira = extrairPagina(primeiroHtml);
+  const incorporados = extrairDadosIncorporados(primeiroHtml);
+  if (incorporados.length && primeira.total && incorporados.length >= primeira.total) {
+    const paginasVirtuais = Math.ceil(incorporados.length / 10);
+    return {
+      rows: incorporados,
+      total_informado: primeira.total,
+      paginas_visitadas: [1],
+      paginas_virtuais: paginasVirtuais,
+      metodo: 'dados_incorporados_nextjs',
+      coleta_completa: true,
+      avisos: []
+    };
+  }
   if (!primeira.registros.length) {
     throw new Error('Nao foi possivel identificar os cadastros na pagina publica. Estrutura do site pode ter mudado.');
   }
@@ -239,6 +324,6 @@ async function coletarExcursoes(fetcher = fetch) {
   };
 }
 module.exports = {
-  extrairPagina, urlPermitida, linksPaginacao, modeloPagina2,
+  extrairPagina, extrairDadosIncorporados, urlPermitida, linksPaginacao, modeloPagina2,
   proximaUrl, coletarExcursoes
 };
