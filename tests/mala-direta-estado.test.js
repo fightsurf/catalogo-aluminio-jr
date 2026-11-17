@@ -114,3 +114,16 @@ test('histórico aparece em campanhas e relatórios e o painel iniciar não flut
   assert.match(script,/historico\.onclick=\(\)=>carregarHistorico/);
   assert.match(script,/finally\{\$\('enviar'\)\.disabled=!!campanhaVisualizada/);
 });
+
+
+test('envio em sequência persiste checkpoint e conclusão com parâmetros SQL tipados',()=>{
+  const service=fs.readFileSync(path.join(__dirname,'../src/services/mala-direta/mala-direta.service.js'),'utf8');
+  // A foto aceita é registrada antes do texto/áudios. Os parâmetros usados em
+  // colunas tipadas e funções jsonb não podem ficar com inferências conflitantes.
+  assert.match(service,/SET etapa_enviada_index=\$2::integer,/);
+  assert.match(service,/jsonb_build_object\('indice',\$2::integer,'tipo',\$3::text/);
+  assert.match(service,/SET status=\$2::varchar\(24\),/);
+  assert.match(service,/WHEN \$2::varchar\(24\)='enviado' THEN NOW\(\)/);
+  assert.match(service,/erro\?'incerto':'enviado'/);
+  assert.match(service,/Falha na sequência:/);
+});
