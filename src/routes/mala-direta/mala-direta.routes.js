@@ -18,6 +18,7 @@ const handler=(etapa,fn)=>async(req,res)=>{try{res.json({sucesso:true,dados:awai
 router.get('/produtos',handler('consulta de produtos (catálogo PostgreSQL Render)',req=>svc.produtos(req.query.busca)));
 router.get('/carradas',handler('carradas (Firebird)',()=>svc.carradas()));
 router.get('/semanas',handler('semanas (PostgreSQL)',()=>svc.semanas()));
+router.get('/cidades-logistica',handler('cidades vinculadas à logística',req=>require('../../services/mala-direta/mala-direta-logistica.service').cidades(req.query.grupo||'todos')));
 router.post('/destinatarios',handler('clientes pelo critério escolhido',req=>svc.compradoresPorCriterio(req.body||{})));
 router.get('/primeira-compra/:item',handler('consulta da primeira compra (Firebird)',req=>svc.primeiraCompra(req.params.item)));
 router.get('/compradores/:item',handler('consulta de compradores (Firebird / bloqueios PostgreSQL)',req=>svc.compradores(req.params.item,req.query.meses)));

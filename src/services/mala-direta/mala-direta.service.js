@@ -83,6 +83,10 @@ async function preparar() {
       -- NULL preserva as regras de campanhas antigas, sem restringir horários retroativamente.
       ALTER TABLE mala_direta_campanhas ADD COLUMN IF NOT EXISTS horario_inicio TIME;
       ALTER TABLE mala_direta_campanhas ADD COLUMN IF NOT EXISTS horario_fim TIME;
+      ALTER TABLE mala_direta_campanhas ADD COLUMN IF NOT EXISTS cidade_logistica_id BIGINT;
+      ALTER TABLE mala_direta_campanhas ADD COLUMN IF NOT EXISTS sequencia_mensagens JSONB;
+      ALTER TABLE mala_direta_destinatarios ADD COLUMN IF NOT EXISTS etapa_enviada_index INTEGER NOT NULL DEFAULT -1;
+      ALTER TABLE mala_direta_destinatarios ADD COLUMN IF NOT EXISTS etapas_aceitas JSONB NOT NULL DEFAULT '[]'::jsonb;
       CREATE INDEX IF NOT EXISTS idx_mala_direta_fila ON mala_direta_destinatarios (campanha_id,id) WHERE status='pendente';
       CREATE TABLE IF NOT EXISTS mala_direta_bloqueios (
         telefone VARCHAR(20) PRIMARY KEY,
@@ -155,13 +159,15 @@ function criterioValido(dados) {
   if (tipo==='periodo'&&(!Number.isInteger(meses)||meses<0||meses>600||meses%6)) bad('Período inválido.');
   const grupo=tipo==='logistica'?String(dados.grupoLogistica||'todos'):null;
   if(tipo==='logistica'&&!['todos','transportadoras','agencias'].includes(grupo)) bad('Grupo da logística inválido.');
-  return {tipo,referencia,meses,grupo};
+  const cidade=tipo==='logistica'?Number(dados.cidadeLogistica):null;
+  if(tipo==='logistica'&&(!Number.isSafeInteger(cidade)||cidade<1))bad('Selecione a cidade da logística antes de consultar.');
+  return {tipo,referencia,meses,grupo,cidade};
 }
 async function compradoresPorCriterio(dados) {
-  const {tipo,referencia,meses,grupo}=criterioValido(dados);
+  const {tipo,referencia,meses,grupo,cidade}=criterioValido(dados);
   if(tipo==='logistica') {
     await preparar();
-    return require('./mala-direta-logistica.service').consultar(grupo);
+    return require('./mala-direta-logistica.service').consultar(grupo,cidade);
   }
   if(tipo==='periodo') return compradores(id(dados.item),meses);
   let codigos=[];
@@ -204,10 +210,44 @@ function audioSelecionado(dados,usuario){
   if(audio.origem==='gravacao'||!texto||texto.length>1000||texto!==audio.texto)bad('O texto ou a prévia da ElevenLabs não confere. Gere novamente.');
   return {audio,texto};
 }
+// Validação completa da sequência antes de iniciar qualquer disparo.
+function prepararSequencia(dados,origem,usuario){
+  if(dados.sequencia===undefined)return null;
+  if(!Array.isArray(dados.sequencia)||!dados.sequencia.length||dados.sequencia.length>30)
+    bad('Informe de 1 a 30 mensagens na sequência.');
+  let tamanhoAudio=0;
+  return dados.sequencia.map((item,i)=>{
+    if(!item||typeof item!=='object')bad('Mensagem da sequência inválida na posição '+(i+1));
+    const tipo=String(item.tipo||'');
+    if(tipo==='imagem')return {tipo,imagem:urlFoto(item.imagem,origem)};
+    if(tipo==='texto'){
+      const texto=String(item.texto||'').trim();
+      if(!texto||texto.length>3000)bad('Texto inválido na posição '+(i+1));
+      return {tipo,texto};
+    }
+    if(tipo==='audio'){
+      const {audio}=audioSelecionado(item,usuario);
+      if(!audio)bad('Áudio ausente na posição '+(i+1));
+      tamanhoAudio+=audio.bytes.length;
+      if(tamanhoAudio>20*1024*1024)bad('A soma dos áudios ultrapassou 20 MB.');
+      return {tipo,origem:audio.origem,mp3:audio.bytes.toString('base64')};
+    }
+    bad('Tipo de mensagem inválido na posição '+(i+1));
+  });
+}
+async function enviarEtapa(telefoneDestino,etapa){
+  const opts={timeoutMs:60000,funcionalidade:'mala_direta'};
+  if(etapa.tipo==='imagem')return zapi.enviarImagem({telefone:telefoneDestino,imagem:etapa.imagem,legenda:''},opts);
+  if(etapa.tipo==='texto')return zapi.postZapi('/send-text',{phone:telefoneDestino,message:etapa.texto},opts);
+  if(etapa.tipo==='audio')return zapi.postZapi('/send-audio',{
+    phone:telefoneDestino,audio:'data:audio/mpeg;base64,'+etapa.mp3
+  },opts);
+  throw Error('Etapa desconhecida.');
+}
 async function criar(dados, origem,usuario) {
   await preparar();
   const produtoId=id(dados.produtoId), criterio=criterioValido(dados);
-  const {tipo,referencia,meses,grupo}=criterio;
+  const {tipo,referencia,meses,grupo,cidade}=criterio;
   const minutosInformados=dados.intervaloMinutos!==undefined;
   const intervalo=minutosInformados?Number(dados.intervaloMinutos)*60:Number(dados.intervaloSegundos);
   if(!Number.isInteger(intervalo)||intervalo<(minutosInformados?60:5)||intervalo>86400)
@@ -217,8 +257,9 @@ async function criar(dados, origem,usuario) {
   const horaValida=h=>/^([01]\d|2[0-3]):[0-5]\d$/.test(h);
   if((inicio||fim)&&(!horaValida(inicio)||!horaValida(fim)||inicio>=fim))
     bad('Informe horário inicial anterior ao final no formato HH:MM.');
-  const mensagem=String(dados.mensagem||'').trim();
-  if(!mensagem||mensagem.length>3000) bad('Informe texto de até 3000 caracteres.');
+  const sequencia=prepararSequencia(dados,origem,usuario);
+  const mensagem=sequencia?(sequencia.find(x=>x.tipo==='texto')?.texto||''):String(dados.mensagem||'').trim();
+  if(!sequencia&&(!mensagem||mensagem.length>3000)) bad('Informe texto de até 3000 caracteres.');
   if(dados.confirmouConsentimento!==true) bad('Confirme a autorização dos destinatários antes de iniciar a campanha.');
   const selecionados=dados.destinatarios;
   if(!Array.isArray(selecionados)||!selecionados.length||selecionados.length>2000) bad('Selecione de 1 a 2000 destinatários.');
@@ -226,7 +267,7 @@ async function criar(dados, origem,usuario) {
   if(!produto.rows.length) bad('Produto não encontrado no catálogo Render.');
   const codigo=produto.rows[0].item_legado==null?null:Number(produto.rows[0].item_legado);
   if(tipo==='periodo'&&!codigo) bad('Vincule o item legado para consultar compradores por período.');
-  const base=await compradoresPorCriterio({tipoPublico:tipo,referenciaPublico:referencia,grupoLogistica:grupo,meses,item:codigo});
+  const base=await compradoresPorCriterio({tipoPublico:tipo,referenciaPublico:referencia,grupoLogistica:grupo,cidadeLogistica:cidade,meses,item:codigo});
   let linhas;
   if(tipo==='logistica') {
     const refs=selecionados.map(x=>String(x.referencia||''));
@@ -251,8 +292,8 @@ async function criar(dados, origem,usuario) {
   }
   if(new Set(linhas.map(x=>x.fone)).size!==linhas.length)
     bad('Existem destinatários com o mesmo telefone; remova duplicidades antes de enviar.');
-  const imagem=urlFoto(dados.imagem,origem);
-  const preparado=audioSelecionado(dados,usuario);
+  const imagem=sequencia?(sequencia.find(x=>x.tipo==='imagem')?.imagem||''):urlFoto(dados.imagem,origem);
+  const preparado=sequencia?{audio:null,texto:null}:audioSelecionado(dados,usuario);
   const audio=preparado.audio, audioTexto=preparado.texto;
   const client=await pool.connect();
   try {
@@ -260,11 +301,11 @@ async function criar(dados, origem,usuario) {
     const camp=await client.query(`INSERT INTO mala_direta_campanhas
       (produto_id,item_legado,produto_nome,meses,mensagem,imagem,intervalo_segundos,
         tipo_publico,referencia_publico,audio_texto,audio_mp3,audio_voz,audio_modelo,
-        grupo_logistica,horario_inicio,horario_fim)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING id`,
+        grupo_logistica,horario_inicio,horario_fim,cidade_logistica_id,sequencia_mensagens)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18::jsonb) RETURNING id`,
       [produto.rows[0].id,codigo,produto.rows[0].nome,meses,mensagem,imagem,intervalo,
         tipo,referencia,audioTexto||null,audio?.bytes||null,audio?.voz||null,audio?.modelo||null,
-        grupo,inicio||null,fim||null]);
+        grupo,inicio||null,fim||null,cidade,sequencia?JSON.stringify(sequencia):null]);
     const cid=camp.rows[0].id;
     for(const r of linhas)await client.query(`INSERT INTO mala_direta_destinatarios
       (campanha_id,favorecido,nome,telefone,origem_destinatario,referencia_destinatario)
@@ -276,7 +317,7 @@ async function criar(dados, origem,usuario) {
 }
 async function listar() {
   await preparar();
-  const r=await pool.query(`SELECT c.id,c.produto_nome,c.item_legado,c.tipo_publico,c.referencia_publico,c.grupo_logistica,c.horario_inicio,c.horario_fim,c.audio_mp3 IS NOT NULL AS com_audio,c.status,c.criada_em,c.intervalo_segundos,
+  const r=await pool.query(`SELECT c.id,c.produto_nome,c.item_legado,c.tipo_publico,c.referencia_publico,c.grupo_logistica,c.cidade_logistica_id,c.horario_inicio,c.horario_fim,(c.audio_mp3 IS NOT NULL OR COALESCE(c.sequencia_mensagens @> '[{"tipo":"audio"}]'::jsonb,false)) AS com_audio,c.status,c.criada_em,c.intervalo_segundos,
     COUNT(d.id)::int total,
     COUNT(d.id) FILTER (WHERE d.status='enviado')::int enviados,
     COUNT(d.id) FILTER (WHERE d.status='pendente')::int pendentes,
@@ -287,9 +328,9 @@ async function listar() {
 }
 async function detalhe(cid) {
   await preparar();
-  const c=await pool.query('SELECT id,produto_nome,status,tipo_publico,referencia_publico,grupo_logistica,horario_inicio,horario_fim, audio_mp3 IS NOT NULL AS com_audio, intervalo_segundos,criada_em,concluida_em FROM mala_direta_campanhas WHERE id=$1',[id(cid)]);
+  const c=await pool.query('SELECT id,produto_nome,status,tipo_publico,referencia_publico,grupo_logistica,cidade_logistica_id,horario_inicio,horario_fim, audio_mp3 IS NOT NULL AS com_audio, intervalo_segundos,criada_em,concluida_em FROM mala_direta_campanhas WHERE id=$1',[id(cid)]);
   if(!c.rows.length) bad('Campanha não encontrada.');
-  const d=await pool.query('SELECT favorecido,nome,telefone,status,iniciado_envio_em,enviado_em,imagem_aceita_em,audio_aceito_em,erro FROM mala_direta_destinatarios WHERE campanha_id=$1 ORDER BY id',[cid]);
+  const d=await pool.query('SELECT favorecido,nome,telefone,status,iniciado_envio_em,enviado_em,imagem_aceita_em,audio_aceito_em,etapa_enviada_index,etapas_aceitas,erro FROM mala_direta_destinatarios WHERE campanha_id=$1 ORDER BY id',[cid]);
   return {campanha:c.rows[0],destinatarios:d.rows};
 }
 async function mudarStatus(cid, acao) {
@@ -312,6 +353,15 @@ async function bloquear(fone, motivo) {
 }
 async function enviarTeste(dados,origem,usuario) {
   const n=telefone(dados.telefone);if(!n)bad('Telefone de teste inválido.');
+  const sequencia=prepararSequencia(dados,origem,usuario);
+  if(sequencia){
+    let concluidas=0;
+    for(const item of sequencia){
+      try{await enviarEtapa(n,item);concluidas++;}
+      catch(e){const erro=new Error('Teste interrompido após '+concluidas+' mensagem(ns). Confira o WhatsApp antes de tentar novamente: '+e.message);erro.status=502;throw erro;}
+    }
+    return {telefone:n,mensagensAceitas:concluidas};
+  }
   const m=String(dados.mensagem||'').trim();if(!m||m.length>3000)bad('Mensagem inválida.');
   const imagem=urlFoto(dados.imagem,origem);
   // Validar inclusive a validade do áudio ANTES de disparar a foto.
@@ -342,11 +392,19 @@ async function processarProximo() {
     // o envio solicitado à Z-API. Áudio configurado exige aceite do áudio.
     // Em qualquer outro caso manter 'incerto', sem reenvio automático.
     await client.query(`UPDATE mala_direta_destinatarios AS d SET
-      status=CASE WHEN d.imagem_aceita_em IS NOT NULL AND (c.audio_mp3 IS NULL OR d.audio_aceito_em IS NOT NULL)
+      status=CASE WHEN c.sequencia_mensagens IS NOT NULL
+        THEN CASE WHEN d.etapa_enviada_index=jsonb_array_length(c.sequencia_mensagens)-1 THEN 'enviado' ELSE 'incerto' END
+        WHEN d.imagem_aceita_em IS NOT NULL AND (c.audio_mp3 IS NULL OR d.audio_aceito_em IS NOT NULL)
         THEN 'enviado' ELSE 'incerto' END,
-      enviado_em=CASE WHEN d.imagem_aceita_em IS NOT NULL AND (c.audio_mp3 IS NULL OR d.audio_aceito_em IS NOT NULL)
+      enviado_em=CASE WHEN c.sequencia_mensagens IS NOT NULL
+        AND d.etapa_enviada_index=jsonb_array_length(c.sequencia_mensagens)-1 THEN COALESCE(d.enviado_em,NOW())
+        WHEN c.sequencia_mensagens IS NULL AND d.imagem_aceita_em IS NOT NULL
+        AND (c.audio_mp3 IS NULL OR d.audio_aceito_em IS NOT NULL)
         THEN COALESCE(d.enviado_em,d.audio_aceito_em,d.imagem_aceita_em) ELSE NULL END,
-      erro=CASE WHEN d.imagem_aceita_em IS NOT NULL AND (c.audio_mp3 IS NULL OR d.audio_aceito_em IS NOT NULL)
+      erro=CASE WHEN c.sequencia_mensagens IS NOT NULL
+        AND d.etapa_enviada_index=jsonb_array_length(c.sequencia_mensagens)-1 THEN NULL
+        WHEN c.sequencia_mensagens IS NULL AND d.imagem_aceita_em IS NOT NULL
+        AND (c.audio_mp3 IS NULL OR d.audio_aceito_em IS NOT NULL)
         THEN NULL ELSE 'Envio interrompido: verificar manualmente antes de qualquer novo disparo' END,
       atualizado_em=NOW()
       FROM mala_direta_campanhas AS c
@@ -357,7 +415,7 @@ async function processarProximo() {
       WHERE c.status='ativa' AND NOT EXISTS
         (SELECT 1 FROM mala_direta_destinatarios d WHERE d.campanha_id=c.id AND d.status IN ('pendente','enviando'))`);
     const r=await client.query(`
-      SELECT d.id,d.campanha_id,d.telefone,c.produto_id,c.produto_nome,c.mensagem,c.imagem,c.intervalo_segundos,c.audio_mp3
+      SELECT d.id,d.campanha_id,d.telefone,d.etapa_enviada_index,c.produto_id,c.produto_nome,c.mensagem,c.imagem,c.intervalo_segundos,c.audio_mp3,c.sequencia_mensagens
       FROM mala_direta_destinatarios d JOIN mala_direta_campanhas c ON c.id=d.campanha_id
       WHERE d.status='pendente' AND c.status='ativa' AND c.proximo_envio_em<=NOW()
         AND (c.horario_inicio IS NULL OR (NOW() AT TIME ZONE 'America/Fortaleza')::time >= c.horario_inicio)
@@ -379,6 +437,18 @@ async function processarProximo() {
   } catch(e) {await client.query('ROLLBACK').catch(()=>{});throw e;} finally {client.release();}
   let resultado, erro;
   try {
+    if(Array.isArray(trabalho.sequencia_mensagens)){
+      for(let i=Number(trabalho.etapa_enviada_index)+1;i<trabalho.sequencia_mensagens.length;i++){
+        const etapa=trabalho.sequencia_mensagens[i];
+        resultado=await enviarEtapa(trabalho.telefone,etapa);
+        // Checkpoint após cada aceite; falhas são marcadas incertas, sem reenvio automático.
+        await pool.query(`UPDATE mala_direta_destinatarios
+          SET etapa_enviada_index=$2,
+            etapas_aceitas=etapas_aceitas || jsonb_build_array(jsonb_build_object('indice',$2,'tipo',$3,'em',NOW())),
+            atualizado_em=NOW()
+          WHERE id=$1 AND status='enviando'`,[trabalho.id,i,etapa.tipo]);
+      }
+    }else{
     resultado=await zapi.enviarImagem({telefone:trabalho.telefone,imagem:trabalho.imagem,legenda:trabalho.mensagem},{timeoutMs:60000, funcionalidade:'mala_direta'});
     // Gravar confirmação da imagem ANTES de tentar enviar o áudio; nunca repetir envio incerto.
     await pool.query(`UPDATE mala_direta_destinatarios SET imagem_aceita_em=NOW(),
@@ -394,6 +464,7 @@ async function processarProximo() {
       },{timeoutMs:60000, funcionalidade:'mala_direta'});
       await pool.query(`UPDATE mala_direta_destinatarios SET audio_aceito_em=NOW(),atualizado_em=NOW()
         WHERE id=$1 AND status='enviando'`,[trabalho.id]);
+    }
     }
   }catch(e){erro=e;}
   // Rede/Z-API podem ter aceitado uma das mensagens. Não reenviar automaticamente.

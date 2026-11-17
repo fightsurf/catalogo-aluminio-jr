@@ -53,9 +53,61 @@
 .previa-teste-botoes{display:flex;gap:9px;flex-wrap:wrap;align-items:end}
 .previa-teste-botoes .field{flex:1;min-width:200px}
 .previa-audio{width:100%;max-width:600px;margin-top:7px}
+
+/* Tema azul da Alumínio JR e layout com simulador independente. */
+:root{color-scheme:dark;color:#eaf3ff;background:#081d35}
+body{background:linear-gradient(140deg,#081d35,#0a2c51 55%,#071a32);color:#eaf3ff}
+.wrap{max-width:1700px}
+.mala-layout{display:grid;grid-template-columns:minmax(0,1fr) 370px;align-items:start;gap:18px}
+.mala-main{min-width:0}
+.mala-side{position:sticky;top:14px;height:max-content;min-width:0}
+.card,.whatsapp-sim{background:#102e4e;border:1px solid #36597b;border-radius:12px;color:#eaf3ff;box-shadow:0 5px 16px #020c1b55}
+.card{margin:14px 0}.muted,.gravador-aviso,.gravador-status{color:#b5cce3}
+input,select,textarea{background:#091f38;color:#f2f8ff;border:1px solid #477094}
+option{background:#102e4e;color:#f2f8ff}
+input:focus,select:focus,textarea:focus{outline:2px solid #5db4ff;outline-offset:1px}
+button{background:#1869b6;color:#fff}
+button:hover:not(:disabled){filter:brightness(1.13)}
+button.secondary,.telefone-acao{background:#234b70;color:#eaf3ff;border:1px solid #477094}
+button.danger{background:#9d343f}
+.modo-filtro,.notice{background:#173a5b;border-color:#426a8e}
+.pill,.produto-menu,.carrada-opcoes,.modal .dialog{background:#102e4e;color:#eaf3ff;border:1px solid #426a8e}
+.produto-select,.carrada-select,.produto-opcao,.carrada-opcao{background:#123757;color:#eef6ff;border-color:#41698b}
+.produto-opcao.ativo{background:#1a4b75}
+.produto-opcao:hover,.carrada-opcao:hover{background:#1d4e79}
+.produto-menu[hidden],.carrada-opcoes[hidden],[hidden]{display:none!important}
+thead th{background:#1b4263;color:#eaf3ff}
+th,td{border-color:#335473}
+table{color:#eaf3ff}
+a{color:#8bd1ff}.ok{color:#7de0a2}.error{color:#ff9da5}
+.bottom{background:#0c2948;border-color:#466b8a;z-index:4}
+.modal{background:#041326cc}
+.modal .dialog{max-width:850px}
+.modal .dialog.contatos-dialog{width:min(96vw,1200px);max-width:none}
+.gravando-indicador{color:#ff9da5}
+.audio-abas{margin-bottom:14px}
+.audio-abas .aba-ativa{background:#368ed6;color:white;border:1px solid #7dc7ff}
+.seq-lista{display:grid;gap:9px;margin:12px 0}
+.seq-item{background:#143b5e;border:1px solid #416c94;border-radius:10px;padding:10px;display:flex;gap:10px;align-items:center}
+.seq-item .seq-descricao{flex:1;min-width:0;overflow-wrap:anywhere}
+.seq-item .seq-controles{display:flex;gap:4px;flex-wrap:wrap}
+.seq-item button{padding:6px 9px}
+.whatsapp-sim{padding:14px}
+.sim-title{font-weight:700;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+.sim-tag{font-size:.7rem;border:1px solid #5a8baf;border-radius:99px;padding:3px 7px;color:#bde0fc}
+.sim-phone{border:1px solid #3e7185;border-radius:14px;overflow:hidden;background:#122d2e}
+.sim-header{background:#145c51;color:#fff;font-weight:600;padding:13px}
+.sim-chat{height:min(65vh,700px);min-height:360px;overflow-y:auto;padding:12px;background:#0b252a;display:flex;flex-direction:column;gap:9px}
+.sim-balao{align-self:flex-end;max-width:94%;min-width:120px;background:#185942;color:#fff;padding:9px 10px;border-radius:12px 12px 3px 12px;overflow-wrap:anywhere;white-space:pre-wrap}
+.sim-balao img{display:block;max-width:100%;max-height:240px;border-radius:7px;object-fit:contain}
+.sim-balao audio{display:block;width:100%;max-width:290px;margin-top:5px}
+.sim-numero{font-size:.7rem;color:#c0e8dd;display:block;margin-bottom:4px}
+@media(max-width:1080px){.mala-layout{grid-template-columns:minmax(0,1fr)}.mala-side{position:static}.sim-chat{height:440px}}
+@media(max-width:600px){.seq-item{flex-wrap:wrap}.seq-item .seq-controles{width:100%}}
 </style></head><body><main class="wrap">
 <h1>Mala Direta — Alumínio JR</h1><p class="muted">Escolha um produto, um grupo de destinatários e envie a divulgação pelo WhatsApp.</p>
 <div id="status" role="status" aria-live="polite"></div>
+<div class="mala-layout"><div class="mala-main">
 <section class="card"><h2>1. Escolha do produto</h2>
 <div class="grid mala-produto-filtros">
 <div class="field"><label for="categoriaProduto">Categoria do produto</label><select id="categoriaProduto"><option value="">Todas as categorias</option></select></div>
@@ -64,64 +116,72 @@
 <button type="button" id="produtoSelect" class="produto-select" role="combobox" aria-labelledby="produtoLabel produtoSelectConteudo" aria-expanded="false" aria-controls="listaProdutos" aria-haspopup="listbox"><span id="produtoSelectConteudo" class="produto-select-conteudo"><span class="produto-select-nome">Selecione um produto</span></span><span class="produto-select-seta" aria-hidden="true">▼</span></button>
 <div id="listaProdutos" class="produto-menu" role="listbox" aria-label="Produtos com foto" hidden></div></div>
 </div></section>
-<section class="card"><div class="row" style="justify-content:space-between"><h2>2. Seleção dos destinatários</h2><span id="resumo" class="muted">Escolha um critério.</span></div>
-<p class="muted">Escolha um único critério. Os demais ficam desabilitados. Carrada e semana incluem clientes com pedidos válidos; logística consulta transportadoras (inclusive redespachos) e agências de recebimento, independentemente do produto anunciado.</p>
+<section class="card"><div class="row" style="justify-content:space-between"><h2>2. Seleção dos destinatários</h2><span id="resumo" class="muted">Escolha a origem dos contatos.</span></div>
+<div class="field"><label for="origemDestinatarios">Origem dos destinatários</label><select id="origemDestinatarios">
+<option value="">Selecione uma origem</option><option value="logistica">Contatos da Logística</option><option value="compras">Contatos por Período de Compra do Produto</option>
+</select></div>
+<div id="filtrosLogistica" hidden>
+<div class="grupo-filtros">
+<div class="field"><label for="grupoLogistica">Tipo de contato da logística</label><select id="grupoLogistica">
+<option value="">Selecione o tipo</option><option value="todos">Todos os contatos da Logística</option><option value="transportadoras">Transportadoras e Redespachos</option><option value="agencias">Agências de Recebimento</option>
+</select></div>
+<div class="field"><label for="cidadeLogistica">Cidade de origem / localidade vinculada</label><select id="cidadeLogistica"><option value="">Selecione o tipo de contato primeiro</option></select></div>
+</div><p class="muted small">A busca considera as cidades vinculadas à transportadora (incluindo rotas) ou à agência. O vínculo não comprova que a cidade seja a origem exclusiva da excursão.</p>
+</div>
+<div id="filtrosCompras" hidden><p class="muted small">Escolha um dos filtros: período, carrada ou semana. Os demais serão limpos automaticamente.</p>
 <div class="grupo-filtros">
 <div class="field"><label for="periodo">Período de compras do produto</label><select id="periodo"><option value="">Escolha um período</option><option value="0">Todas as compras realizadas</option></select></div>
 <div class="field"><label id="carradaLabel" for="carradaSelect">Carrada</label>
 <select id="carrada" class="carrada-native" tabindex="-1" aria-hidden="true"><option value="">Escolha uma carrada</option></select>
 <div class="carrada-select-wrapper">
 <button type="button" id="carradaSelect" class="carrada-select" role="combobox" aria-labelledby="carradaLabel carradaSelectTexto" aria-haspopup="listbox" aria-expanded="false" aria-controls="listaCarradas"><span id="carradaSelectTexto" class="carrada-select-texto">Escolha uma carrada</span><span class="carrada-select-seta" aria-hidden="true">▼</span></button>
-<div id="listaCarradas" class="carrada-opcoes" role="listbox" aria-label="Carradas por situação" hidden></div>
-</div>
+<div id="listaCarradas" class="carrada-opcoes" role="listbox" aria-label="Carradas por situação" hidden></div></div>
 <a id="abrirProgresso" class="abrir-progresso" target="_blank" rel="noopener noreferrer" aria-disabled="true" tabindex="-1">Abrir progresso ↗</a>
 </div>
 <div class="field"><label for="semana">Semana</label><select id="semana"><option value="">Escolha uma semana</option></select></div>
-<div class="field"><label for="grupoLogistica">Contatos da logística</label><select id="grupoLogistica">
-<option value="">Escolha uma opção</option>
-<option value="todos">Todos os contatos da logística</option>
-<option value="transportadoras">Transportadoras e redespachos</option>
-<option value="agencias">Agências de recebimento</option>
-</select><span class="muted small">Serão exibidos todos os telefones válidos de cada cadastro, sem repetições.</span></div>
-</div>
-<div class="row modo-filtro"><button type="button" class="secondary" id="limparFiltro">Limpar filtro e liberar os quatro seletores</button><button type="button" id="consultar" class="secondary">Consultar destinatários</button><span id="criterioAtivo" class="muted">Nenhum critério escolhido</span></div>
-<div class="row"><button class="secondary" id="selecionarTodos">Marcar destinatários com telefone válido</button><button class="secondary" id="limpar">Limpar seleção</button></div>
-<div class="tablewrap"><table><thead><tr><th>Selecionar</th><th>Cliente / contato</th><th>Cidade</th><th>Telefone</th><th>Unidades</th><th>Pedidos</th><th>Última compra</th><th>Perfil</th></tr></thead><tbody id="compradores"></tbody></table></div>
+</div></div>
+<div class="row modo-filtro"><button type="button" class="secondary" id="limparFiltro">Limpar filtros</button><button type="button" id="consultar" class="secondary">Consultar destinatários</button><button type="button" id="visualizarContatos" disabled>Visualizar contatos</button><span id="criterioAtivo" class="muted">Nenhum critério escolhido</span></div>
 <p class="muted" id="contagem">0 selecionados</p></section>
 <section class="card"><h2>3. Imagem e mensagem</h2>
 <div class="grid">
   <div class="field"><label for="fotoSistema">Foto cadastrada do produto</label><select id="fotoSistema"><option value="">Selecione uma foto ou envie outra</option></select></div>
   <div class="field"><label for="upload">Ou enviar uma nova foto</label><input id="upload" type="file" accept="image/jpeg,image/png,image/webp"><span class="muted">O navegador comprime a imagem antes do envio.</span></div>
 </div>
-<div class="field" style="margin-top:12px"><label for="mensagem">Mensagem de texto (legenda da imagem)</label><textarea id="mensagem" maxlength="3000" placeholder="Oferta... Para não receber promoções, responda SAIR."></textarea></div>
+<div class="row" style="margin-top:12px"><button type="button" id="adicionarFoto">➕ Adicionar foto à sequência</button><span class="muted small">Selecione uma foto do produto ou carregue outra, depois adicione.</span></div>
+<div class="field" style="margin-top:12px"><label for="mensagem">Mensagem de texto</label><textarea id="mensagem" maxlength="3000" placeholder="Digite a mensagem. Para não receber promoções, responda SAIR."></textarea></div>
+<div class="row"><button type="button" id="adicionarTexto">➕ Adicionar texto à sequência</button></div>
 </section>
-<section class="card"><h2>4. Mensagem de áudio</h2>
-<div class="field">
-  <label>Gravação pelo microfone do computador</label>
-  <p class="gravador-aviso">Grave uma única mensagem (até 3 minutos) e reutilize o mesmo áudio para todos os contatos. Autorize o microfone quando solicitado.</p>
-  <div class="gravador-controles">
-    <button type="button" id="iniciarGravacao">🎙️ Iniciar gravação</button>
-    <button type="button" class="danger" id="pararGravacao" disabled>■ Parar</button>
-    <button type="button" class="secondary" id="excluirGravacao" disabled>Excluir / regravar</button>
-    <span id="gravacaoStatus" class="gravador-status" role="status" aria-live="polite">Nenhuma gravação.</span>
-  </div>
-  <audio id="gravacaoPlayer" class="gravador-player" controls hidden preload="metadata"></audio>
+<section class="card"><h2>4. Mensagens de áudio</h2>
+<div class="audio-abas row" role="tablist" aria-label="Origem dos áudios">
+<button type="button" id="abaMicrofone" class="aba-ativa" role="tab" aria-selected="true">🎙️ Gravação pelo microfone</button>
+<button type="button" id="abaElevenLabs" class="secondary" role="tab" aria-selected="false">🤖 ElevenLabs</button>
 </div>
-<div class="field" style="margin-top:14px">
-  <label for="audioTexto">Mensagem de áudio (texto a ser falado pela ElevenLabs, opcional)</label>
-  <textarea id="audioTexto" maxlength="1000" placeholder="Digite o texto para a ElevenLabs (alternativa à gravação pelo microfone)."></textarea>
-  <div class="row"><button type="button" class="secondary" id="abrirEleven">⚙️ Configurar ElevenLabs e ouvir áudio</button><span class="muted" id="audioResumo">Nenhum áudio ElevenLabs preparado.</span></div>
+<div id="conteudoMicrofone">
+<p class="gravador-aviso">Grave até 3 minutos por áudio; cada gravação pode ser adicionada à sequência, sem apagar as anteriores.</p>
+<div class="gravador-controles">
+<button type="button" id="iniciarGravacao">🎙️ Iniciar gravação</button>
+<button type="button" class="danger" id="pararGravacao" disabled>■ Parar</button>
+<button type="button" class="secondary" id="excluirGravacao" disabled>Excluir / regravar</button>
+<span id="gravacaoStatus" class="gravador-status" role="status" aria-live="polite">Nenhuma gravação.</span>
 </div>
-<div class="field" style="margin-top:14px">
-  <label for="fonteAudio">Áudio que será enviado</label>
-  <select class="audio-fonte" id="fonteAudio"><option value="nenhum">Sem áudio (somente foto e legenda)</option><option value="gravacao">Gravação do microfone</option><option value="elevenlabs">Voz da ElevenLabs</option></select>
-  <span class="muted small">Escolha somente uma fonte; a campanha envia uma foto com legenda e, se selecionado, um áudio em seguida.</span>
+<audio id="gravacaoPlayer" class="gravador-player" controls hidden preload="metadata"></audio>
+<button type="button" id="adicionarGravacao" class="secondary">➕ Adicionar gravação à sequência</button>
 </div>
+<div id="conteudoElevenLabs" hidden>
+<div class="field"><label for="audioTexto">Texto a ser falado pela ElevenLabs</label>
+<textarea id="audioTexto" maxlength="1000" placeholder="Digite o texto para gerar a voz."></textarea></div>
+<div class="row"><button type="button" class="secondary" id="abrirEleven">⚙️ Escolher voz e gerar áudio</button><span class="muted" id="audioResumo">Nenhum áudio ElevenLabs preparado.</span></div>
+<button type="button" id="adicionarAudioEleven" class="secondary">➕ Adicionar áudio ElevenLabs à sequência</button>
+</div>
+<select class="audio-fonte" id="fonteAudio" hidden><option value="nenhum">Sem áudio</option><option value="gravacao">Microfone</option><option value="elevenlabs">ElevenLabs</option></select>
+<p class="muted small">Os áudios das duas abas entram na mesma lista de envio. Trocar de aba não remove gravações adicionadas.</p>
 </section>
-<section class="card"><h2>5. Prévia e teste individual</h2>
-<div class="preview"><img id="previewFoto" alt="Prévia da foto" hidden><p id="previewTexto" class="muted">Escreva a mensagem.</p></div>
-<p id="previewAudioResumo" class="muted" style="margin:13px 0 3px">Sem mensagem de áudio.</p>
-<audio id="previewAudioPlayer" class="previa-audio" controls hidden preload="metadata"></audio>
+<section class="card"><h2>5. Ordem de envio, horários e teste</h2>
+<div class="row" style="justify-content:space-between"><h3>Sequência personalizada</h3><span id="sequenciaContagem" class="muted">Nenhuma mensagem adicionada</span></div>
+<div id="sequenciaResumo" class="seq-lista" aria-live="polite"></div>
+<p class="muted small">Use ↑ e ↓ para reorganizar fotos, textos e áudios. As mensagens serão enviadas separadamente, nesta ordem. O intervalo em minutos vale entre destinatários, não entre etapas da mesma conversa.</p>
+<div hidden aria-hidden="true"><div class="preview"><img id="previewFoto" alt="Prévia da foto" hidden><p id="previewTexto" class="muted">Escreva a mensagem.</p></div>
+<p id="previewAudioResumo" class="muted">Sem mensagem de áudio.</p><audio id="previewAudioPlayer" controls hidden preload="metadata"></audio></div>
 <div class="grid" style="margin-top:16px">
 <div class="field"><label for="intervalo">Intervalo mínimo entre envios (minutos)</label><input id="intervalo" type="number" min="1" max="1440" step="1" value="15" inputmode="numeric" required><span class="muted small">Exemplo: 15 = no mínimo 15 minutos entre o início de mensagens consecutivas.</span></div>
 <div class="field"><label for="horarioInicio">Horário inicial dos envios</label><input id="horarioInicio" type="time" value="08:00" required></div>
@@ -129,15 +189,26 @@
 </div>
 <p class="muted small">Horários da Paraíba (America/Fortaleza, UTC−3). A fila aguarda fora da janela e continua automaticamente no dia seguinte. Enviar devagar não substitui a autorização para receber publicidade.</p>
 <div class="previa-teste-botoes" style="margin-top:15px"><div class="field"><label for="numeroTeste">WhatsApp para teste (55 + DDD + número)</label><input id="numeroTeste" inputmode="tel" placeholder="5583999999999"></div><button type="button" class="secondary" id="teste">Enviar prévia ao número informado</button><button type="button" id="testeFabrica">Enviar para WhatsApp da fábrica (5583999792085)</button></div>
-<p class="muted small">O teste envia de verdade a foto, a legenda e o áudio selecionado, sem iniciar campanha ou alterar a seleção dos clientes.</p>
+<p class="muted small">O teste envia de verdade toda a sequência configurada, sem iniciar uma campanha. Confirme o destinatário antes do teste.</p>
 </section>
 <section class="card bottom"><div class="row"><button id="enviar">Iniciar Mala Direta</button><span class="muted" id="enviarResumo">Nenhum destinatário selecionado</span></div></section>
 <section class="card"><div class="row" style="justify-content:space-between"><h2>Campanhas e relatórios</h2><button class="secondary" id="atualizar">Atualizar</button></div><div class="tablewrap"><table><thead><tr><th>Campanha</th><th>Produto</th><th>Status</th><th>Enviados</th><th>Pendentes</th><th>Problemas</th><th>Ações</th></tr></thead><tbody id="campanhas"></tbody></table></div></section>
-</main>
-<div class="modal" id="modal"><div class="dialog"><div class="row" style="justify-content:space-between"><h2 id="modalTitulo">Perfil de compras</h2><button class="secondary" id="fechar">Fechar</button></div><div id="modalCorpo"></div></div></div>
+</div><aside class="mala-side" aria-label="Simulador de mensagem no WhatsApp">
+<div class="whatsapp-sim">
+<div class="sim-title">Prévia da conversa no WhatsApp <span class="sim-tag">Simulação</span></div>
+<div class="sim-phone"><div class="sim-header">🟢 WhatsApp • Destinatário</div><div class="sim-chat" id="simChat"><p class="muted">Adicione mensagens à sequência para visualizar a conversa.</p></div></div>
+<div class="muted small">A prévia é ilustrativa; nenhum envio acontece durante a montagem.</div>
+</div></aside></div></main>
+<div class="modal" id="modal"<div class="dialog"><div class="row" style="justify-content:space-between"><h2 id="modalTitulo">Perfil de compras</h2><button class="secondary" id="fechar">Fechar</button></div><div id="modalCorpo"></div></div></div>
+<div class="modal" id="modalContatos" role="dialog" aria-modal="true" aria-labelledby="contatosTitulo"><div class="dialog contatos-dialog">
+<div class="row" style="justify-content:space-between"><h2 id="contatosTitulo">Destinatários encontrados</h2><button type="button" id="fecharContatos" class="secondary">Fechar</button></div>
+<p id="contatosResumo" class="muted">Consulte os contatos primeiro.</p>
+<div class="row" style="margin-bottom:10px"><button type="button" id="selecionarTodos" class="secondary">Marcar todos os telefones válidos</button><button type="button" id="limpar" class="secondary">Limpar seleção</button><button type="button" id="confirmarContatos">Confirmar seleção</button></div>
+<div class="tablewrap"><table><thead><tr><th>Selecionar</th><th>Cliente / contato</th><th>Cidade</th><th>Telefone</th><th>Unidades</th><th>Pedidos</th><th>Última compra</th><th>Perfil</th></tr></thead><tbody id="compradores"></tbody></table></div>
+</div></div>
 <div class="modal" id="modalEleven" role="dialog" aria-modal="true" aria-labelledby="elevenTitulo"><div class="dialog">
 <div class="row" style="justify-content:space-between"><h2 id="elevenTitulo">Configurações ElevenLabs</h2><button type="button" class="secondary" id="fecharEleven">Fechar</button></div>
-<p class="muted">Sua voz clonada e o modelo são os mesmos da tela de testes do Assistente JR. Gere a prévia uma vez: o áudio será reutilizado na campanha. A prévia deve ser usada em até 10 minutos; depois disso, gere novamente.</p>
+<p class="muted">Escolha uma voz e gere o áudio. Cada geração poderá ser incluída na sequência e reproduzida no simulador. Prévia temporária: o sistema irá renová-la antes do envio quando necessário.</p>
 <div class="field"><label for="elevenVoz">Voz</label><select id="elevenVoz"><option value="">Carregando vozes...</option></select></div>
 <div class="field"><label for="elevenVozManual">Voice ID (opcional, substitui a seleção)</label><input id="elevenVozManual" placeholder="Cole o identificador da sua voz clonada"></div>
 <div class="field"><label for="elevenModelo">Modelo ElevenLabs</label><select id="elevenModelo"><option value="">Carregando modelos...</option></select></div>
@@ -150,7 +221,8 @@
 const $=id=>document.getElementById(id);const api='/api/whatsapp/mala-direta';
 let produtos=[], clientes=[], imagemUpload='',ultimaConsulta='',consultaSeq=0;
 let carradasMeta=[];
-let audioPreviewId='',audioPreviewTexto='',audioObjectUrl='',elevenCarregado=false;
+let audioPreviewId='',audioPreviewTexto='',audioObjectUrl='',audioBlobEleven=null,elevenCarregado=false;
+let sequencia=[],proximoItemSequencia=1;
 let gravacaoStream=null,gravacaoRecorder=null,gravacaoPartes=[],gravacaoBlob=null;
 let gravacaoObjectUrl='',gravacaoPreviewId='',gravacaoSubidaEm=0,gravacaoInicio=0,gravacaoRelogio=null;
 let gravacaoUploadPendente=null,gravacaoVersao=0;
@@ -274,12 +346,16 @@ $('produtoSelect').onkeydown=e=>{
 document.addEventListener('pointerdown',e=>{
   if(!e.target.closest('.produto-select-field'))fecharProdutos();
 });
-function chaveConsulta(){const c=criterio();return c?`${produto()?.produtoId||0}:${c.tipo}:${c.grupo??c.referencia??c.meses}`:'';}
+function chaveConsulta(){const c=criterio();return c?`${produto()?.produtoId||0}:${c.tipo}:${c.grupo||''}:${c.cidade||''}:${c.referencia??''}:${c.meses??''}`:'';}
 function criterio(){
+  if($('origemDestinatarios').value==='logistica'){
+    if(!$('grupoLogistica').value||!$('cidadeLogistica').value)return null;
+    return {tipo:'logistica',grupo:$('grupoLogistica').value,cidade:Number($('cidadeLogistica').value)};
+  }
+  if($('origemDestinatarios').value!=='compras')return null;
   if($('periodo').value!=='')return {tipo:'periodo',meses:Number($('periodo').value)};
   if($('carrada').value!=='')return {tipo:'carrada',referencia:Number($('carrada').value)};
   if($('semana').value!=='')return {tipo:'semana',referencia:Number($('semana').value)};
-  if($('grupoLogistica').value!=='')return {tipo:'logistica',grupo:$('grupoLogistica').value};
   return null;
 }
 // A cor segue a regra de obterClassesLinhaCarrada() da tela original de carradas.
@@ -388,13 +464,16 @@ document.addEventListener('pointerdown',e=>{
   if(!e.target.closest('.carrada-select-wrapper'))fecharCarradas();
 });
 function atualizarBloqueios(){
-  const c=criterio();
-  $('periodo').disabled=Boolean(c&&c.tipo!=='periodo');
-  $('carrada').disabled=Boolean(c&&c.tipo!=='carrada');
+  const origem=$('origemDestinatarios').value,c=criterio();
+  $('filtrosLogistica').hidden=origem!=='logistica';
+  $('filtrosCompras').hidden=origem!=='compras';
+  $('periodo').disabled=origem!=='compras';
+  $('carrada').disabled=origem!=='compras';
   atualizarSeletorCarradas();
-  $('semana').disabled=Boolean(c&&c.tipo!=='semana');
-  $('grupoLogistica').disabled=Boolean(c&&c.tipo!=='logistica');
-  $('criterioAtivo').textContent=c?`Critério ativo: ${c.tipo==='periodo'?'Período de compras':c.tipo==='carrada'?'Carrada':c.tipo==='semana'?'Semana':'Contatos da logística'}`:'Nenhum critério escolhido';
+  $('semana').disabled=origem!=='compras';
+  $('grupoLogistica').disabled=origem!=='logistica';
+  $('cidadeLogistica').disabled=origem!=='logistica'||!$('grupoLogistica').value;
+  $('criterioAtivo').textContent=c?`Critério ativo: ${c.tipo==='periodo'?'Período de compras':c.tipo==='carrada'?'Carrada':c.tipo==='semana'?'Semana':$('grupoLogistica').selectedOptions[0]?.textContent+' • '+$('cidadeLogistica').selectedOptions[0]?.textContent}`:'Escolha os filtros';
 }
 function resetClientes(){consultaSeq++;clientes=[];ultimaConsulta='';renderClientes();}
 function atualizarProduto(){
@@ -432,13 +511,13 @@ async function carregarFiltros(){
 async function consultar(){
   const p=produto(),c=criterio();const seq=++consultaSeq;
   clientes=[];ultimaConsulta='';renderClientes();
-  if(!c){msg('Escolha período, carrada, semana ou contatos da logística.',true);return;}
+  if(!c){msg('Escolha a origem e complete os filtros (inclusive a cidade, na logística).',true);return;}
   if(c.tipo==='periodo'&&!p){msg('Escolha o produto antes de consultar o período de compras.',true);return;}
   if(c.tipo==='periodo'&&!p.item){msg('O produto precisa de vínculo com o Firebird para consultar seu histórico.',true);return;}
   $('consultar').disabled=true;$('resumo').textContent='Carregando destinatários...';
   const chave=chaveConsulta();msg('Consultando clientes do critério selecionado...');
   try{
-    const dados=await post(api+'/destinatarios',{tipoPublico:c.tipo,referenciaPublico:c.referencia,grupoLogistica:c.grupo,meses:c.meses,item:p?.item});
+    const dados=await post(api+'/destinatarios',{tipoPublico:c.tipo,referenciaPublico:c.referencia,grupoLogistica:c.grupo,cidadeLogistica:c.cidade,meses:c.meses,item:p?.item});
     if(seq!==consultaSeq||chave!==chaveConsulta())return;
     if(!Array.isArray(dados))throw Error('A consulta retornou dados inesperados.');
     clientes=dados.map(x=>({...x,marcado:false}));ultimaConsulta=chave;renderClientes();
@@ -447,13 +526,41 @@ async function consultar(){
   finally{if(seq===consultaSeq)$('consultar').disabled=false;}
 }
 $('consultar').onclick=consultar;
-for(const idFiltro of ['periodo','carrada','semana','grupoLogistica']){
-  $(idFiltro).onchange=()=>{atualizarBloqueios();consultar();};
+$('origemDestinatarios').onchange=()=>{
+  $('periodo').value='';$('carrada').value='';$('semana').value='';
+  $('grupoLogistica').value='';$('cidadeLogistica').replaceChildren(new Option('Escolha o tipo de contato primeiro',''));
+  resetClientes();atualizarBloqueios();
+};
+async function carregarCidadesLogistica(){
+  const grupo=$('grupoLogistica').value,select=$('cidadeLogistica'),anterior=select.value;
+  select.replaceChildren(new Option(grupo?'Escolha a cidade':'Selecione o tipo de contato primeiro',''));
+  resetClientes();atualizarBloqueios();
+  if(!grupo)return;
+  try{
+    const cidades=await get(api+'/cidades-logistica?grupo='+encodeURIComponent(grupo));
+    if(grupo!==$('grupoLogistica').value)return;
+    for(const local of cidades)select.add(new Option(local.label,String(local.id)));
+    if([...select.options].some(x=>x.value===anterior))select.value=anterior;
+  }catch(e){msg('Falha ao carregar cidades da logística: '+e.message,true);}
+  atualizarBloqueios();
+}
+$('grupoLogistica').onchange=carregarCidadesLogistica;
+$('cidadeLogistica').onchange=()=>{atualizarBloqueios();consultar();};
+for(const idFiltro of ['periodo','carrada','semana']){
+  $(idFiltro).onchange=()=>{
+    if($(idFiltro).value!=='')for(const outro of ['periodo','carrada','semana'])if(outro!==idFiltro)$(outro).value='';
+    atualizarBloqueios();consultar();
+  };
 }
 $('limparFiltro').onclick=()=>{
-  $('periodo').value='';$('carrada').value='';$('semana').value='';$('grupoLogistica').value='';
-  atualizarBloqueios();resetClientes();msg('Filtro liberado. Escolha um dos quatro critérios.');
+  $('periodo').value='';$('carrada').value='';$('semana').value='';
+  $('grupoLogistica').value='';$('cidadeLogistica').value='';
+  atualizarBloqueios();resetClientes();msg('Filtros limpos.');
 };
+$('visualizarContatos').onclick=()=>{$('modalContatos').classList.add('active');};
+$('fecharContatos').onclick=()=>{$('modalContatos').classList.remove('active');};
+$('confirmarContatos').onclick=()=>{$('fecharContatos').click();};
+$('modalContatos').onclick=e=>{if(e.target===$('modalContatos'))$('fecharContatos').click();};
 async function copiarTelefone(numero){
   try{
     if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(numero);}
@@ -496,10 +603,12 @@ function renderClientes(){
     }
     body.append(tr);
   }
-  $('resumo').textContent=`${clientes.length} destinatários`;
+  $('resumo').textContent=`${clientes.length} destinatários encontrados`;
+  $('visualizarContatos').disabled=!clientes.length;
+  $('contatosResumo').textContent=`${clientes.length} contatos encontrados. Selecione apenas quem autorizou o recebimento da campanha.`;
   contagem();
 }
-function contagem(){const qtd=selected().length;$('contagem').textContent=`${qtd} selecionados`;$('enviarResumo').textContent=`${qtd} destinatários selecionados`;}
+function contagem(){const qtd=selected().length;$('contagem').textContent=`${qtd} selecionados de ${clientes.length} encontrados`;$('enviarResumo').textContent=`${qtd} destinatários selecionados`;}
 $('selecionarTodos').onclick=()=>{clientes.forEach(c=>{c.marcado=Boolean(c.telefoneNormalizado&&!c.bloqueado)});renderClientes();};
 $('limpar').onclick=()=>{clientes.forEach(c=>c.marcado=false);renderClientes();};
 const dataHora=v=>{if(!v)return '-';const d=new Date(v);return Number.isNaN(d.getTime())?'-':d.toLocaleString('pt-BR',{hour12:false});};
@@ -636,7 +745,7 @@ async function audioParaEnvio(){
 }
 
 function descartarAudio(){
-  audioPreviewId='';audioPreviewTexto='';$('audioResumo').textContent='Nenhum áudio preparado.';
+  audioPreviewId='';audioPreviewTexto='';audioBlobEleven=null;$('audioResumo').textContent='Nenhum áudio preparado.';
   if(audioObjectUrl)URL.revokeObjectURL(audioObjectUrl);
   audioObjectUrl='';$('elevenPlayer').removeAttribute('src');$('elevenPlayer').hidden=true;atualizarPreviewAudio();
 }
@@ -676,7 +785,7 @@ $('gerarEleven').onclick=async()=>{
     if(!response.ok){const j=await response.json().catch(()=>({}));throw Error(j.erro||`HTTP ${response.status}`);}
     const blob=await response.blob(),id=response.headers.get('X-Preview-Id');
     if(!id)throw Error('A ElevenLabs não retornou o identificador da prévia.');
-    audioPreviewId=id;audioPreviewTexto=texto;
+    audioPreviewId=id;audioPreviewTexto=texto;audioBlobEleven=blob;
     audioObjectUrl=URL.createObjectURL(blob);$('elevenPlayer').src=audioObjectUrl;$('elevenPlayer').hidden=false;
     $('audioResumo').textContent='Áudio ElevenLabs preparado e pronto para envio.';
     $('fonteAudio').value='elevenlabs';atualizarPreviewAudio();
@@ -684,16 +793,137 @@ $('gerarEleven').onclick=async()=>{
   }catch(e){$('elevenStatus').textContent='Erro: '+e.message;descartarAudio();}
   finally{$('gerarEleven').disabled=false;}
 };
+// Compositor: vários blocos independentes, ordenados em uma fila única.
+function alternarAbaAudio(aba){
+  const mic=aba==='mic';
+  $('conteudoMicrofone').hidden=!mic;$('conteudoElevenLabs').hidden=mic;
+  $('abaMicrofone').className=mic?'aba-ativa':'secondary';
+  $('abaElevenLabs').className=mic?'secondary':'aba-ativa';
+  $('abaMicrofone').setAttribute('aria-selected',String(mic));
+  $('abaElevenLabs').setAttribute('aria-selected',String(!mic));
+}
+$('abaMicrofone').onclick=()=>alternarAbaAudio('mic');
+$('abaElevenLabs').onclick=()=>alternarAbaAudio('eleven');
+function adicionarItem(item){
+  if(sequencia.length>=30)throw Error('Limite de 30 mensagens por campanha.');
+  sequencia.push({...item,id:proximoItemSequencia++});
+  desenharSequencia();
+}
+function descricaoItem(item){
+  return item.tipo==='imagem'?'📷 Foto':item.tipo==='texto'?'💬 '+item.texto.slice(0,90)
+    :item.audioOrigem==='gravacao'?'🎙️ Áudio do microfone':'🤖 Áudio ElevenLabs';
+}
+function desenharSequencia(){
+  const lista=$('sequenciaResumo');lista.replaceChildren();
+  $('sequenciaContagem').textContent=sequencia.length+' mensagem(ns) na sequência';
+  for(let i=0;i<sequencia.length;i++){
+    const item=sequencia[i],linha=el('div',undefined,'seq-item');
+    linha.append(el('b',(i+1)+'.'));
+    linha.append(el('span',descricaoItem(item),'seq-descricao'));
+    const controls=el('div',undefined,'seq-controles');
+    const cima=el('button','↑','secondary'),baixo=el('button','↓','secondary'),apagar=el('button','Excluir','danger');
+    cima.type=baixo.type=apagar.type='button';cima.title='Mover para cima';baixo.title='Mover para baixo';
+    cima.disabled=i===0;baixo.disabled=i===sequencia.length-1;
+    cima.onclick=()=>{[sequencia[i-1],sequencia[i]]=[sequencia[i],sequencia[i-1]];desenharSequencia();};
+    baixo.onclick=()=>{[sequencia[i],sequencia[i+1]]=[sequencia[i+1],sequencia[i]];desenharSequencia();};
+    apagar.onclick=()=>{if(item.url)URL.revokeObjectURL(item.url);sequencia.splice(i,1);desenharSequencia();};
+    controls.append(cima,baixo,apagar);linha.append(controls);lista.append(linha);
+  }
+  renderSimulador();
+}
+function renderSimulador(){
+  const chat=$('simChat');chat.replaceChildren();
+  if(!sequencia.length)return chat.append(el('p','Adicione fotos, textos ou áudios para visualizar a conversa.','muted'));
+  for(let i=0;i<sequencia.length;i++){
+    const item=sequencia[i],balao=el('div',undefined,'sim-balao');
+    balao.append(el('span','Mensagem '+(i+1),'sim-numero'));
+    if(item.tipo==='imagem'){
+      const img=el('img');img.src=item.imagem;img.alt='Foto '+(i+1);balao.append(img);
+    }else if(item.tipo==='texto')balao.append(el('span',item.texto));
+    else{
+      balao.append(el('span',item.audioOrigem==='gravacao'?'🎙️ Gravação pelo microfone':'🤖 Voz ElevenLabs'));
+      const player=el('audio');player.controls=true;player.preload='metadata';player.src=item.url;balao.append(player);
+    }
+    chat.append(balao);
+  }
+  chat.scrollTop=chat.scrollHeight;
+}
+$('adicionarFoto').onclick=()=>{
+  try{
+    const imagem=imagemAtual();if(!imagem)throw Error('Selecione ou envie a foto antes de adicionar.');
+    adicionarItem({tipo:'imagem',imagem});msg('Foto adicionada à sequência.');
+  }catch(e){msg(e.message,true);}
+};
+$('adicionarTexto').onclick=()=>{
+  try{
+    const texto=$('mensagem').value.trim();if(!texto)throw Error('Digite o texto antes de adicionar.');
+    adicionarItem({tipo:'texto',texto});$('mensagem').value='';msg('Texto adicionado à sequência.');
+  }catch(e){msg(e.message,true);}
+};
+$('adicionarGravacao').onclick=async()=>{
+  try{
+    $('adicionarGravacao').disabled=true;
+    if(!gravacaoBlob)throw Error('Grave um áudio antes de adicionar.');
+    const previewId=await prepararGravacao();
+    adicionarItem({tipo:'audio',audioOrigem:'gravacao',blob:gravacaoBlob,
+      url:URL.createObjectURL(gravacaoBlob),audioPreviewId:previewId,criadoEm:gravacaoSubidaEm});
+    msg('Gravação incluída na sequência. Você já pode gravar outro áudio.');
+  }catch(e){msg(e.message,true);}finally{$('adicionarGravacao').disabled=false;}
+};
+$('adicionarAudioEleven').onclick=()=>{
+  try{
+    if(!audioBlobEleven||!audioPreviewId||audioPreviewTexto!==$('audioTexto').value.trim())
+      throw Error('Gere o áudio ElevenLabs antes de adicionar.');
+    adicionarItem({tipo:'audio',audioOrigem:'elevenlabs',
+      audioTexto:audioPreviewTexto,audioPreviewId,criadoEm:Date.now(),blob:audioBlobEleven,
+      url:URL.createObjectURL(audioBlobEleven),
+      voz:$('elevenVozManual').value.trim()||$('elevenVoz').value,modelo:$('elevenModelo').value});
+    msg('Áudio ElevenLabs adicionado à sequência.');
+  }catch(e){msg(e.message,true);}
+};
+async function renovarAudio(item){
+  if(Date.now()-item.criadoEm<7*60*1000&&item.audioPreviewId)return item.audioPreviewId;
+  if(item.audioOrigem==='gravacao'){
+    const form=new FormData();
+    const ext=item.blob.type.includes('mp4')?'m4a':item.blob.type.includes('ogg')?'ogg':'webm';
+    form.append('audio',item.blob,'gravacao.'+ext);
+    const r=await fetch(api+'/audio-gravado',{method:'POST',body:form});
+    if(!r.ok){const j=await r.json().catch(()=>({}));throw Error(j.detalhe||'Falha ao renovar a gravação.');}
+    item.audioPreviewId=r.headers.get('X-Preview-Id');
+  }else{
+    const r=await fetch('/api/whatsapp/elevenlabs-jr/gerar',{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({texto:item.audioTexto,voz:item.voz,modelo:item.modelo})});
+    if(!r.ok){const j=await r.json().catch(()=>({}));throw Error(j.erro||'Falha ao renovar a voz ElevenLabs.');}
+    item.audioPreviewId=r.headers.get('X-Preview-Id');
+  }
+  if(!item.audioPreviewId)throw Error('O servidor não retornou identificação de áudio.');
+  item.criadoEm=Date.now();return item.audioPreviewId;
+}
+async function prepararSequenciaEnvio(){
+  if(!sequencia.length)throw Error('Monte a sequência de mensagens antes de enviar.');
+  const saida=[];
+  for(const item of sequencia){
+    if(item.tipo==='imagem')saida.push({tipo:'imagem',imagem:item.imagem});
+    else if(item.tipo==='texto')saida.push({tipo:'texto',texto:item.texto});
+    else saida.push({tipo:'audio',audioOrigem:item.audioOrigem,
+      audioTexto:item.audioOrigem==='elevenlabs'?item.audioTexto:'',
+      audioPreviewId:await renovarAudio(item)});
+  }
+  return saida;
+}
+desenharSequencia();
+
 async function enviarPreviaTeste(numero){
-  if(!imagemAtual()||!$('mensagem').value.trim())return msg('Selecione a foto e preencha a legenda.',true);
   const tel=norm(numero);
   if(!/^55\d{10,11}$/.test(tel))return msg('Informe um WhatsApp válido (55 + DDD + número).',true);
-  if(!confirm(`Enviar teste REAL para ${tel} com foto, legenda e o áudio selecionado?`))return;
+  if(!sequencia.length)return msg('Adicione mensagens à sequência antes do teste.',true);
+  if(!confirm(`Enviar TESTE REAL para ${tel}, com ${sequencia.length} mensagens na ordem configurada?`))return;
   try{
     $('teste').disabled=true;$('testeFabrica').disabled=true;
-    const audio=await audioParaEnvio();
-    await post(api+'/teste',{telefone:tel,imagem:imagemAtual(),mensagem:$('mensagem').value,...audio});
-    msg(`Prévia aceita pela Z-API para ${tel} (foto e áudio selecionado).`);
+    const mensagens=await prepararSequenciaEnvio();
+    const resposta=await post(api+'/teste',{telefone:tel,sequencia:mensagens});
+    msg(`Teste enviado para ${tel}: ${resposta.mensagensAceitas} etapas aceitas pela Z-API.`);
   }catch(e){msg('Falha no teste: '+e.message,true);}
   finally{$('teste').disabled=false;$('testeFabrica').disabled=false;}
 }
@@ -704,31 +934,30 @@ $('enviar').onclick=async()=>{
   if(!p)return msg('Selecione o produto anunciado.',true);
   if(!c||chaveConsulta()!==ultimaConsulta)return msg('Consulte os destinatários do critério atual antes de enviar.',true);
   if(c.tipo==='periodo'&&!p.item)return msg('Vincule o item legado do produto para filtrar por período.',true);
-  const dest=selected();if(!dest.length)return msg('Selecione pelo menos um destinatário.',true);
-  if(!imagemAtual()||!$('mensagem').value.trim())return msg('Preencha imagem e legenda.',true);
+  const dest=selected();if(!dest.length)return msg('Selecione pelo menos um destinatário no modal.',true);
+  if(!sequencia.length)return msg('Adicione pelo menos uma foto, mensagem de texto ou áudio à sequência.',true);
   const minutos=Number($('intervalo').value);
   if(!Number.isInteger(minutos)||minutos<1||minutos>1440)return msg('Informe intervalo de 1 a 1440 minutos.',true);
   const inicio=$('horarioInicio').value,fim=$('horarioFim').value;
   if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(inicio)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(fim)||inicio>=fim)
     return msg('Defina um horário inicial anterior ao final.',true);
-  let audio;try{audio=await audioParaEnvio();}catch(e){return msg(e.message,true);}
-  if(!confirm(`INICIAR ENVIO REAL para ${dest.length} destinatários? Critério: ${c.tipo}. Intervalo mínimo: ${minutos} minuto(s). Horário: ${inicio}–${fim} (horário da Paraíba). Produto: ${p.nome}. ${audio.audioOrigem!=='nenhum'?'Foto e áudio serão enviados.':''}
-Você confirma que TODOS os telefones selecionados autorizaram receber esta divulgação pelo WhatsApp?`))return;
+  if(!confirm(`INICIAR ENVIO REAL para ${dest.length} destinatários? Sequência: ${sequencia.length} mensagens. Intervalo mínimo entre destinatários: ${minutos} minuto(s). Janela: ${inicio}–${fim} (horário da Paraíba).
+Você confirma que TODOS os telefones selecionados autorizaram esta divulgação pelo WhatsApp?`))return;
   try{
     $('enviar').disabled=true;
+    const mensagens=await prepararSequenciaEnvio();
     const r=await post(api+'/campanhas',{
       item:p.item||null,produtoId:p.produtoId,tipoPublico:c.tipo,referenciaPublico:c.referencia||null,
-      grupoLogistica:c.grupo||null,meses:c.meses??0,
+      grupoLogistica:c.grupo||null,cidadeLogistica:c.cidade||null,meses:c.meses??0,
       destinatarios:dest.map(x=>c.tipo==='logistica'
         ?{referencia:x.referencia,autorizado:true}
         :{favorecido:x.favorecido,autorizado:true}),
-      imagem:imagemAtual(),mensagem:$('mensagem').value,
-      intervaloMinutos:minutos,horarioInicio:inicio,horarioFim:fim,
-      confirmouConsentimento:true,...audio
+      sequencia:mensagens,intervaloMinutos:minutos,horarioInicio:inicio,horarioFim:fim,
+      confirmouConsentimento:true
     });
-    msg(`Campanha ${r.id} iniciada com ${r.total} destinatários. Envios limitados à janela informada.`);
+    msg(`Campanha ${r.id} iniciada com ${r.total} destinatários e ${mensagens.length} mensagens por destinatário.`);
     await carregarCampanhas();
-  }catch(e){msg(e.message,true);}finally{$('enviar').disabled=false;}
+  }catch(e){msg('Falha ao iniciar: '+e.message,true);}finally{$('enviar').disabled=false;}
 };
 async function carregarCampanhas(){try{const campanhas=await get(api+'/campanhas');$('campanhas').replaceChildren();for(const c of campanhas){const tr=el('tr');function td(value){const cel=el('td',String(value));tr.append(cel);return cel;}td(c.id);td(c.produto_nome+(c.com_audio?' 🔊':''));td(c.status);td(`${c.enviados}/${c.total}`);td(c.pendentes);td(c.problemas);const a=td('');const detalhe=el('button','Relatório','secondary');detalhe.onclick=()=>verRelatorio(c.id);a.append(detalhe);if(c.status==='ativa'||c.status==='pausada'){const cmd=c.status==='ativa'?'pausar':'retomar';const b=el('button',cmd==='pausar'?'Pausar':'Retomar','secondary');b.style.marginLeft='5px';b.onclick=async()=>{try{await post(`${api}/campanhas/${c.id}/${cmd}`,{});await carregarCampanhas();}catch(e){msg(e.message,true)}};a.append(b);} $('campanhas').append(tr);}}catch(e){msg(e.message,true);}}
 async function verRelatorio(cid){abrirModal('Campanha '+cid);try{const d=await get(api+'/campanhas/'+cid);const box=$('modalCorpo');box.replaceChildren(el('p',`Status: ${d.campanha.status}`));const table=el('table'),head=el('tr');for(const t of ['Cliente','Telefone','Situação','Início do envio','Intervalo real','Imagem aceita','Áudio aceito','Concluído','Erro','Bloquear'])head.append(el('th',t));table.append(head);let inicioAnterior=null;for(const x of d.destinatarios){const tr=el('tr');const inicio=x.iniciado_envio_em?new Date(x.iniciado_envio_em).getTime():null;const intervaloReal=Number.isFinite(inicio)&&inicioAnterior!==null?((inicio-inicioAnterior)/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})+' s':'-';if(Number.isFinite(inicio))inicioAnterior=inicio;for(const v of [x.nome,x.telefone,x.status,dataHora(x.iniciado_envio_em),intervaloReal,dataHora(x.imagem_aceita_em),dataHora(x.audio_aceito_em),dataHora(x.enviado_em),x.erro||'-'])tr.append(el('td',v));const cell=el('td'),bloq=el('button','Bloquear','danger');bloq.onclick=async()=>{if(!confirm('Bloquear este telefone de futuras promoções?'))return;try{await post(api+'/bloqueios',{telefone:x.telefone,motivo:'Solicitação do cliente'});bloq.disabled=true;bloq.textContent='Bloqueado';}catch(e){msg(e.message,true)}};cell.append(bloq);tr.append(cell);table.append(tr);}const wrap=el('div',undefined,'tablewrap');wrap.append(table);box.append(wrap);}catch(e){$('modalCorpo').textContent=e.message;}}

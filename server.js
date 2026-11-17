@@ -129,7 +129,7 @@ app.set('trust proxy', 1);
 // =====================================================
 // 🔧 MIDDLEWARES
 // =====================================================
-app.use('/api/whatsapp/mala-direta', express.json({ limit: '4mb' }));
+app.use('/api/whatsapp/mala-direta', express.json({ limit: '32mb' })); // Sequências com várias fotos compactadas (limite verificado no serviço).
 app.use('/api/whatsapp/webhook', express.json({ limit: '1mb' }));
 // Health Connect: lotes do sincronizador podem ultrapassar o limite JSON padrão (100 KB).
 // Aplicar o limite ampliado somente à API de sincronização, antes do parser global.

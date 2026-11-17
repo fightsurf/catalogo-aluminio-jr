@@ -15,7 +15,7 @@ function setup(){
   ];
   const agencias=[{codigo:5,nome:'Agencia C',telefone:'5581988887777 / 5584988885555',cidade_nome:'Patos',cidade_estado:'PB'}];
   const pool={
-    async query(sql){
+    async query(sql,args){
       if(sql.includes('FROM transportadoras t'))return {rows:transportadoras};
       if(sql.includes('FROM agencias_recebimento a'))return {rows:agencias};
       if(sql.includes('FROM mala_direta_bloqueios WHERE telefone=ANY'))return {rows:[{telefone:'5583999999999'}]};
@@ -53,7 +53,7 @@ test('campanha logistica valida contatos no servidor e agenda intervalo e janela
   const {log,svc,writes}=setup();
   const contato=(await log.consultar('todos')).find(x=>!x.bloqueado);
   const dados={produtoId:3,tipoPublico:'logistica',grupoLogistica:'todos',
-    intervaloMinutos:15,horarioInicio:'08:00',horarioFim:'18:00',
+    cidadeLogistica:1,intervaloMinutos:15,horarioInicio:'08:00',horarioFim:'18:00',
     mensagem:'Divulgacao autorizada',confirmouConsentimento:true,
     destinatarios:[{referencia:contato.referencia,autorizado:true}],
     imagem:'data:image/png;base64,aGVsbG8=',audioOrigem:'nenhum'};
@@ -63,6 +63,7 @@ test('campanha logistica valida contatos no servidor e agenda intervalo e janela
   assert.equal(camp.args[6],900);
   assert.equal(camp.args[14],'08:00');
   assert.equal(camp.args[15],'18:00');
+  assert.equal(camp.args[16],1);
   const linha=writes.find(x=>x.sql.includes('INSERT INTO mala_direta_destinatarios'));
   assert.equal(linha.args[1],null);
   assert.equal(linha.args[4],'logistica');
@@ -70,6 +71,7 @@ test('campanha logistica valida contatos no servidor e agenda intervalo e janela
   await assert.rejects(()=>svc.criar({...dados,horarioInicio:'19:00',horarioFim:'08:00'},'https://example.com',{}),/horário inicial/);
   await assert.rejects(()=>svc.criar({...dados,destinatarios:[{referencia:'t:999:5583000000000',autorizado:true}]},'https://example.com',{}),/não encontrado/);
   await assert.rejects(()=>svc.criar({...dados,confirmouConsentimento:false},'https://example.com',{}),/autorização/);
+  await assert.rejects(()=>svc.criar({...dados,cidadeLogistica:null},'https://example.com',{}),/cidade/);
 });
 test('interface e agendamento do worker mantem sintaxe valida',()=>{
   const view=source('views/whatsapp/mala-direta.html');
@@ -78,6 +80,34 @@ test('interface e agendamento do worker mantem sintaxe valida',()=>{
   const backend=source('src/services/mala-direta/mala-direta.service.js');
   assert.match(backend,/NOW\(\) AT TIME ZONE 'America\/Fortaleza'/);
   assert.match(view,/id="grupoLogistica"/);
+  assert.match(view,/id="cidadeLogistica"/);
+  assert.match(view,/id="modalContatos"/);
+  assert.match(view,/id="simChat"/);
+  assert.match(view,/id="adicionarAudioEleven"/);
+  assert.match(view,/id="origemDestinatarios"/);
   assert.match(view,/id="horarioInicio"/);
   assert.match(view,/id="horarioFim"/);
+});
+
+test('campanha valida e guarda ordem de foto, áudio e texto, sem repetir contatos',async()=>{
+  const {log,svc,writes}=setup();
+  const contato=(await log.consultar('transportadoras',1)).find(x=>!x.bloqueado);
+  const params={
+    produtoId:3,tipoPublico:'logistica',grupoLogistica:'transportadoras',cidadeLogistica:1,
+    intervaloMinutos:15,horarioInicio:'08:00',horarioFim:'18:00',
+    confirmouConsentimento:true,destinatarios:[{referencia:contato.referencia,autorizado:true}],
+    sequencia:[
+      {tipo:'imagem',imagem:'data:image/png;base64,aGVsbG8='},
+      {tipo:'texto',texto:'Oferta autorizada'},
+      {tipo:'imagem',imagem:'data:image/png;base64,aGVsbG8='},
+      {tipo:'texto',texto:'Para sair, responda SAIR'}
+    ]
+  };
+  assert.equal((await svc.criar(params,'https://example.com',{})).total,1);
+  const insert=writes.find(x=>x.sql.includes('INSERT INTO mala_direta_campanhas'));
+  const etapas=JSON.parse(insert.args[17]);
+  assert.deepEqual(etapas.map(x=>x.tipo),['imagem','texto','imagem','texto']);
+  assert.equal(insert.args[16],1);
+  await assert.rejects(()=>svc.criar({...params,sequencia:[{tipo:'invalido'}]},'https://example.com',{}),/Tipo de mensagem inválido/);
+  await assert.rejects(()=>svc.criar({...params,sequencia:[]},'https://example.com',{}),/sequência/);
 });
