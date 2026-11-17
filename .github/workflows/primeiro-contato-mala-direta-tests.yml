@@ -1,0 +1,36 @@
+name: Primeiro contato x Mala Direta
+
+on:
+  pull_request:
+    paths:
+      - 'src/services/bot/primeiro-contato-mala-direta.service.js'
+      - 'src/services/bot/botFluxo.services.js'
+      - 'src/services/mala-direta/mala-direta.service.js'
+      - 'tests/primeiro-contato-mala-direta.test.js'
+      - '.github/workflows/primeiro-contato-mala-direta-tests.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/services/bot/primeiro-contato-mala-direta.service.js'
+      - 'src/services/bot/botFluxo.services.js'
+      - 'src/services/mala-direta/mala-direta.service.js'
+      - 'tests/primeiro-contato-mala-direta.test.js'
+      - '.github/workflows/primeiro-contato-mala-direta-tests.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Validate syntax
+        run: |
+          node --check src/services/bot/primeiro-contato-mala-direta.service.js
+          node --check src/services/bot/botFluxo.services.js
+          node --check src/services/mala-direta/mala-direta.service.js
+          node --check tests/primeiro-contato-mala-direta.test.js
+      - name: Regression tests
+        run: node --test tests/primeiro-contato-mala-direta.test.js
