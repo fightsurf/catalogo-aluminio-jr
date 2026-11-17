@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Importar transportadoras — Alumínio JR</title>
+<style>
+:root{font-family:Arial,sans-serif;color:#17212d;background:#f3f5f8}
+body{margin:0;padding:22px}main{max-width:1380px;margin:auto}h1{font-size:25px;margin:12px 0}
+p{line-height:1.5}a{color:#1258ac}button{border:0;border-radius:6px;padding:10px 14px;cursor:pointer;background:#1158ad;color:#fff;font-weight:bold}
+button:disabled{opacity:.45;cursor:not-allowed}.secondary{background:#576b84}.ghost{background:#e9edf3;color:#26384b}
+.panel{background:white;border:1px solid #dfe4ed;border-radius:10px;padding:18px;margin:14px 0}
+.info{color:#5a6575;font-size:14px}.alert{background:#fff5df;border-left:4px solid #b97709;padding:11px 14px;border-radius:4px}
+fieldset{border:0;padding:0;margin:12px 0}input[type=file]{max-width:100%}
+textarea{width:100%;min-height:105px;box-sizing:border-box;padding:9px;border:1px solid #cfd7e1;border-radius:6px}
+.actions{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:12px}
+.tablewrap{overflow:auto;max-height:65vh;border:1px solid #e1e5ed;border-radius:7px}
+table{border-collapse:collapse;width:100%;font-size:13px;min-width:960px}
+th,td{border-bottom:1px solid #e6eaf0;padding:9px;text-align:left;vertical-align:top}
+th{position:sticky;top:0;background:#e9eef5;z-index:1}td small{color:#60718b;display:block;margin-top:4px}
+select{max-width:225px;padding:6px;border:1px solid #cbd4df;border-radius:5px}
+.tag{font-size:12px;font-weight:bold;padding:4px 7px;border-radius:5px;white-space:nowrap;background:#e7ecf4}
+.tag.novo{background:#d8f0e3;color:#176238}.tag.revisar{background:#fff0cc;color:#754e0e}
+.tag.existente{background:#e3eaff;color:#243f93}
+.stats{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.stat{border:1px solid #dee4ec;border-radius:8px;padding:9px 14px}
+#resultado{white-space:pre-wrap}#mensagem{min-height:20px;font-weight:bold}
+</style>
+</head>
+<body><main>
+<a href="/admin-logistica">← Voltar à logística</a>
+<h1>Importar excursões e transportadoras</h1>
+<p class="alert"><strong>Fonte: Moda Center.</strong> Utilize apenas arquivos recebidos, exportados ou obtidos com autorização para uso comercial. Esta ferramenta não faz coleta automática do site nem confirma se uma excursão transporta mercadorias. Confira esse ponto antes de importar.</p>
+<section class="panel">
+<h2>1. Selecionar arquivo</h2>
+<p>Abra uma planilha no Excel, escolha <strong>Salvar como CSV UTF-8</strong> e carregue aqui. Também é possível colar linhas copiadas do Excel. São aceitas colunas como <strong>nome, origem, telefone, telefone2, rota, destino, tipo</strong>. As cidades na rota devem estar no formato <strong>Cidade - UF / Cidade - UF</strong>.</p>
+<fieldset><input id="arquivo" type="file" accept=".csv,.txt,text/csv"></fieldset>
+<label for="colado">Ou cole o conteúdo CSV / linhas do Excel:</label>
+<textarea id="colado" placeholder="nome;origem;telefone;rota;destino;tipo&#10;Transportadora Exemplo;Campina Grande - PB;(83) 99999-0000;Campina Grande - PB / João Pessoa - PB;Setor A;transportadora"></textarea>
+<div class="actions">
+<button id="btnPrevia" type="button">Gerar prévia e comparar com o banco</button>
+<span class="info">Limite: 1.000 linhas por operação. Nenhum dado é gravado nesta etapa.</span>
+</div>
+<p id="mensagem" role="status"></p>
+</section>
+<section class="panel" id="previsao" hidden>
+<h2>2. Revisar os registros</h2>
+<div id="estatisticas" class="stats"></div>
+<div class="actions">
+<button type="button" class="ghost" id="selecionarNovos">Selecionar apenas novos</button>
+<button type="button" class="ghost" id="desmarcarTodos">Desmarcar todos</button>
+<span class="info">Divergências de telefone e nomes semelhantes exigem decisão manual. Dados existentes nunca são sobrescritos.</span>
+</div>
+<p class="info">Cidades não encontradas no cadastro do Alumínio JR serão ignoradas e exibidas no relatório. A origem e o destino das novas transportadoras serão guardados em observações.</p>
+<div class="tablewrap"><table><thead><tr>
+<th>Importar</th><th>Nome / categoria</th><th>Origem / telefone</th><th>Situação</th><th>Rota</th><th>Destino</th><th>Registro do Alumínio JR</th>
+</tr></thead><tbody id="tabela"></tbody></table></div>
+<div class="actions">
+<button type="button" id="btnConfirmar">Confirmar selecionados e gravar no PostgreSQL</button>
+<span id="selecionados" class="info">0 selecionados</span>
+</div>
+</section>
+<section class="panel" id="resultadoPainel" hidden><h2>3. Resultado</h2><div id="resultado"></div></section>
+<section class="panel"><h2>Histórico de importações</h2><div id="historico" class="info">Carregando...</div></section>
+</main>
+<script>
+'use strict';
+const API = '/api/logistica/importacao-modacenter';
+const $ = id => document.getElementById(id);
+let linhas = [], previa = null;
+function h(texto) {
+  return String(texto == null ? '' : texto).replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' })[c]);
+}
+function mensagem(texto, erro) {
+  $('mensagem').textContent = texto || '';
+  $('mensagem').style.color = erro ? '#a12828' : '#245b42';
+}
+function parseCSV(texto) {
+  texto = String(texto || '').replace(/^\uFEFF/, '');
+  const primeira = texto.split(/\r?\n/, 1)[0] || '';
+  const contagem = s => (primeira.match(new RegExp('\\' + s, 'g')) || []).length;
+  const separador = ['\t',';',','].sort((a,b) => contagem(b)-contagem(a))[0];
+  const dados = []; let linha = [], campo = '', aspas = false;
+  for (let i=0;i<texto.length;i++) {
+    const c = texto[i];
+    if (aspas) {
+      if (c === '"' && texto[i+1] === '"') { campo += '"'; i++; }
+      else if (c === '"') aspas = false;
+      else campo += c;
+    } else if (c === '"') aspas = true;
+    else if (c === separador) { linha.push(campo); campo = ''; }
+    else if (c === '\n' || c === '\r') {
+      if (c === '\r' && texto[i+1] === '\n') i++;
+      linha.push(campo); campo = '';
+      if (linha.some(v => v.trim())) dados.push(linha);
+      linha = [];
+    } else campo += c;
+  }
+  if (aspas) throw new Error('Arquivo CSV com aspas sem fechamento.');
+  linha.push(campo);
+  if (linha.some(v => v.trim())) dados.push(linha);
+  if (dados.length < 2) throw new Error('É necessário um cabeçalho e ao menos um registro.');
+  const normalizar = s => String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');
+  const apelidos = {
+    nome:['nome','transportadora','excursao','razaosocial'],
+    origem:['origem','cidadedeorigem','cidadeorigem'],
+    uf:['uf','estado'], telefone:['telefone','fone','contato','celular'],
+    telefone2:['telefone2','telefone02','fone2','celular2','contato2'],
+    telefones:['telefones','contatos'], whatsapp:['whatsapp'],
+    rota:['rota','cidades','cidadesatendidas','trajeto','itinerario'],
+    destino:['destino','localdedestino','estacionamento'],
+    tipo:['tipo','categoria','modalidade']
+  };
+  const cabecalho = dados.shift().map(normalizar);
+  const indices = {};
+  Object.keys(apelidos).forEach(k => {
+    indices[k] = cabecalho.findIndex(s => apelidos[k].includes(s));
+  });
+  if (indices.nome < 0) throw new Error('Coluna obrigatória ausente: nome (ou transportadora / excursão).');
+  const registros = dados.map(r => {
+    const objeto = {};
+    Object.keys(indices).forEach(k => { objeto[k] = indices[k] >= 0 ? (r[indices[k]] || '').trim() : ''; });
+    return objeto;
+  });
+  if (registros.length > 1000) throw new Error('O máximo permitido são 1.000 registros por importação.');
+  return registros;
+}
+async function api(rota, opcoes) {
+  const response = await fetch(API + rota, Object.assign({ credentials:'same-origin', headers:{ 'Content-Type':'application/json', Accept:'application/json' } }, opcoes || {}));
+  const json = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(json.erro || 'Erro HTTP ' + response.status);
+  return json;
+}
+function indicador(s) {
+  const nomes = { novo:'Novo', revisar:'Revisar', existente:'Já cadastrado', duplicado_arquivo:'Duplicado no arquivo', invalido:'Inválido' };
+  return '<span class="tag '+h(s)+'">'+h(nomes[s] || s)+'</span>';
+}
+function montarTabela() {
+  const contagens = {};
+  previa.itens.forEach(i => { contagens[i.situacao] = (contagens[i.situacao] || 0) + 1; });
+  $('estatisticas').innerHTML = Object.keys(contagens).map(s =>
+    '<div class="stat">' + indicador(s) + '<strong> ' + contagens[s] + '</strong></div>').join('');
+  $('tabela').innerHTML = previa.itens.map(item => {
+    const desabilitado = item.situacao === 'invalido' || item.situacao === 'duplicado_arquivo';
+    const selecao = '<input type="checkbox" class="checkLinha" data-indice="'+item.indice+'" '+(desabilitado?'disabled':'')+'>';
+    const opcoes = item.candidatos.map(c => '<option value="'+Number(c.id)+'">'+h(c.nome+' (#'+c.id+', '+c.tipo+')')+'</option>').join('');
+    const escolha = item.situacao === 'novo' ? '<strong>Criar novo cadastro</strong>' :
+      '<select class="selecionarExistente" data-indice="'+item.indice+'">'+
+      '<option value="">Selecione um cadastro</option>'+opcoes+'</select>';
+    const alertaTel = item.candidatos.some(c => c.divergenciaTelefone) ? '<small>Telefone divergente; cadastro atual será preservado</small>' : '';
+    const cidades = (item.cidadesEncontradas||[]).length;
+    const ausentes = (item.cidadesNaoEncontradas||[]).length;
+    return '<tr><td>'+selecao+'</td><td><strong>'+h(item.nome)+'</strong><small>'+h(item.tipo||'Tipo não informado')+'</small></td>'+
+      '<td>'+h(item.origem)+'<small>'+h(item.telefones.join(' / '))+'</small></td>'+
+      '<td>'+indicador(item.situacao)+alertaTel+'</td>'+
+      '<td>'+cidades+' cidades reconhecidas'+(ausentes?'<small>'+ausentes+' não localizadas: '+h(item.cidadesNaoEncontradas.join(', '))+'</small>':'')+'</td>'+
+      '<td>'+h(item.destino)+'</td><td>'+escolha+'</td></tr>';
+  }).join('');
+  $('previsao').hidden = false;
+  $('resultadoPainel').hidden = true;
+  document.querySelectorAll('.checkLinha').forEach(el => el.addEventListener('change', contarSelecionados));
+  contarSelecionados();
+}
+function contarSelecionados() {
+  const marcadas = document.querySelectorAll('.checkLinha:checked').length;
+  $('selecionados').textContent = marcadas + ' selecionados';
+  $('btnConfirmar').disabled = !marcadas;
+}
+async function gerarPrevia() {
+  $('btnPrevia').disabled = true;
+  $('previsao').hidden = true;
+  previa = null;
+  try {
+    const arquivo = $('arquivo').files[0];
+    let texto = $('colado').value;
+    if (arquivo) {
+      if (arquivo.size > 1450000) throw new Error('Arquivo muito grande (máximo 1,45 MB).');
+      const bytes = await arquivo.arrayBuffer();
+      const utf = new TextDecoder('utf-8').decode(bytes);
+      texto = utf.includes('\uFFFD') ? new TextDecoder('windows-1252').decode(bytes) : utf;
+    }
+    linhas = parseCSV(texto);
+    mensagem('Comparando ' + linhas.length + ' registros com o banco...');
+    previa = await api('/previa', { method:'POST', body: JSON.stringify({rows:linhas}) });
+    montarTabela();
+    mensagem('Prévia pronta. Nenhum registro foi gravado.');
+  } catch(e) { mensagem(e.message, true); }
+  finally { $('btnPrevia').disabled = false; }
+}
+function selecionarNovos() {
+  document.querySelectorAll('.checkLinha').forEach(c => {
+    c.checked = !c.disabled && previa.itens[Number(c.dataset.indice)].situacao === 'novo';
+  });
+  contarSelecionados();
+}
+async function confirmar() {
+  if (!previa) return;
+  const decisoes = [];
+  for (const c of document.querySelectorAll('.checkLinha:checked')) {
+    const indice = Number(c.dataset.indice);
+    const item = previa.itens[indice];
+    if (item.situacao === 'novo') decisoes.push({ indice, acao:'criar' });
+    else {
+      const escolha = document.querySelector('.selecionarExistente[data-indice="'+indice+'"]');
+      const id = Number(escolha && escolha.value);
+      if (!id) { mensagem('Escolha a transportadora correspondente para '+item.nome+'.', true); escolha.focus(); return; }
+      decisoes.push({ indice, acao:'vincular', transportadora_id:id });
+    }
+  }
+  if (!decisoes.length) return;
+  if (!confirm('Confirmar a gravação de '+decisoes.length+' registros selecionados? Cadastros existentes não serão sobrescritos.')) return;
+  $('btnConfirmar').disabled = true;
+  try {
+    const dados = await api('/confirmar', { method:'POST', body:JSON.stringify({rows:linhas,token:previa.token,decisoes}) });
+    const r = dados.resumo;
+    $('resultado').textContent = 'Importação #'+dados.importacao_id+
+      '\nTransportadoras criadas: '+r.criadas+
+      '\nRegistros associados: '+r.vinculadas+
+      '\nCidades vinculadas: '+r.cidadesVinculadas+
+      '\nRegistros ignorados: '+r.puladas+
+      '\nCidades não localizadas: '+r.cidadesNaoLocalizadas+
+      '\n\nDetalhes:\n'+r.registros.map(x => x.nome+' — '+x.status+
+        (x.cidades_nao_localizadas && x.cidades_nao_localizadas.length ? ' — não localizadas: '+x.cidades_nao_localizadas.join(', ') : '')).join('\n');
+    $('resultadoPainel').hidden = false;
+    $('previsao').hidden = true;
+    previa = null;
+    mensagem('Importação concluída.');
+    carregarHistorico();
+  } catch(e) { mensagem(e.message, true); }
+  finally { $('btnConfirmar').disabled = false; }
+}
+async function carregarHistorico() {
+  try {
+    const rows = await api('/historico');
+    $('historico').innerHTML = !rows.length ? 'Nenhuma importação realizada.' :
+      '<ul>'+rows.map(x => '<li><strong>#'+Number(x.id)+'</strong> — '+h(new Date(x.criado_em).toLocaleString('pt-BR'))+
+      ' — '+h(x.origem)+' — '+Number(x.resumo.criadas||0)+' novas, '+Number(x.resumo.vinculadas||0)+' associadas</li>').join('')+'</ul>';
+  } catch(e) { $('historico').textContent = e.message; }
+}
+$('btnPrevia').addEventListener('click', gerarPrevia);
+$('selecionarNovos').addEventListener('click', selecionarNovos);
+$('desmarcarTodos').addEventListener('click', () => {
+  document.querySelectorAll('.checkLinha').forEach(c => c.checked = false); contarSelecionados();
+});
+$('btnConfirmar').addEventListener('click', confirmar);
+carregarHistorico();
+</script>
+</body></html>
