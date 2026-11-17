@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { extrairPagina, urlPermitida, modeloPagina2, coletarExcursoes } =
+const { extrairPagina, urlPermitida, modeloPagina2, extrairDadosIncorporados, coletarExcursoes } =
   require('../src/services/logistica/coletorModaCenter.service');
 
 function card(nome, origem, telefone, rota) {
@@ -64,4 +64,39 @@ test('coleta duas paginas e identifica total sem duplicacao', async () => {
   assert.deepEqual(resultado.paginas_visitadas, [1, 2]);
   assert.equal(resultado.rows.length, 3);
   assert.equal(chamadas.length, 2);
+});
+
+test('extrai todos os registros de payload Next.js Flight sem executar scripts', () => {
+  const dados = [
+    {id:'a',name:'Abdon Turismo',city:'Ilheus',state:'BA',
+      address:'Moda Center - Vaga 33',route:['Ilhéus - BA','Itabuna - BA'],
+      phones:[{phone:'(73) 99104-1424'},{phone:'(73) 99137-1325'}]},
+    {id:'b',name:'Outra Turismo',city:'Natal',state:'RN',
+      address:'Moda Center',route:['Natal - RN'],
+      phones:[{phone:'(84) 99928-6541'}]}
+  ];
+  const flight='20:'+JSON.stringify({children:[{props:{excursions:dados}}]})+'\n';
+  const html='<html><script>self.__next_f.push([1,'+JSON.stringify(flight)+'])</script></html>';
+  const extraidos=extrairDadosIncorporados(html);
+  assert.equal(extraidos.length,2);
+  assert.equal(extraidos[0].nome,'Abdon Turismo');
+  assert.equal(extraidos[0].origem,'Ilheus - BA');
+  assert.equal(extraidos[0].telefones,'(73) 99104-1424 / (73) 99137-1325');
+  assert.equal(extraidos[0].rota,'Ilhéus - BA / Itabuna - BA');
+});
+test('prioriza dados incorporados quando a lista virtual e completa', async () => {
+  const dados = Array.from({length:12}, (_,i)=>({
+    name:'Excursao '+(i+1), city:'Natal',state:'RN',address:'Moda Center',
+    route:['Natal - RN'],phones:[{phone:'(84) 99928-6541'}]
+  }));
+  const flight='20:'+JSON.stringify({props:{excursions:dados}})+'\n';
+  const html=pagina([card('Excursao 1','Natal - RN','(84) 99928-6541','Natal - RN')],12)
+    .replace('</body>','<script>self.__next_f.push([1,'+JSON.stringify(flight)+'])</script></body>');
+  const r=await coletarExcursoes(async()=>({
+    ok:true,status:200,headers:{get:()=> 'text/html'},text:async()=>html
+  }));
+  assert.equal(r.rows.length,12);
+  assert.equal(r.coleta_completa,true);
+  assert.equal(r.metodo,'dados_incorporados_nextjs');
+  assert.equal(r.paginas_virtuais,2);
 });
