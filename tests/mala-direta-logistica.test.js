@@ -8,7 +8,7 @@ const utilsModule={exports:{}};
 new Function('module',source('src/services/logistica/importacaoExcursoesUtils.js'))(utilsModule);
 const utils=utilsModule.exports;
 function setup(){
-  const writes=[];
+  const writes=[],readQueries=[];
   const transportadoras=[
     {id:1,nome:'Empresa A',telefone_principal:'5583999999999',telefone:'5583999999999 / 5581988887777',cidade_nome:'Santa Cruz do Capibaribe',cidade_estado:'PE'},
     {id:2,nome:'Empresa B',telefone:'5583988886666'}
@@ -16,6 +16,8 @@ function setup(){
   const agencias=[{codigo:5,nome:'Agencia C',telefone:'5581988887777 / 5584988885555',cidade_nome:'Patos',cidade_estado:'PB'}];
   const pool={
     async query(sql,args){
+      readQueries.push({sql,args});
+      if(sql.includes('SELECT DISTINCT id,nome,estado FROM ('))return {rows:[{id:1,nome:'Santa Cruz do Capibaribe',estado:'PE'},{id:2,nome:'Patos',estado:'PB'}]};
       if(sql.includes('FROM transportadoras t'))return {rows:transportadoras};
       if(sql.includes('FROM agencias_recebimento a'))return {rows:agencias};
       if(sql.includes('FROM mala_direta_bloqueios WHERE telefone=ANY'))return {rows:[{telefone:'5583999999999'}]};
@@ -37,7 +39,7 @@ function setup(){
   new Function('require','module',source('src/services/mala-direta/mala-direta.service.js'))(
     name=>name.includes('db/connection')?pool:name==='./mala-direta-logistica.service'?log:{},svcModule
   );
-  return {log,svc:svcModule.exports,writes};
+  return {log,svc:svcModule.exports,writes,readQueries};
 }
 test('logistica seleciona todos os telefones validos uma unica vez e respeita bloqueios',async()=>{
   const {log}=setup();
@@ -48,6 +50,27 @@ test('logistica seleciona todos os telefones validos uma unica vez e respeita bl
   assert.equal((await log.consultar('transportadoras')).length,3);
   assert.equal((await log.consultar('agencias')).length,2);
   await assert.rejects(()=>log.consultar('incorreto'),/inválido/);
+});
+test('cidades da logística usam apenas o cadastro da transportadora com DISTINCT, sem cidades de rotas',async()=>{
+  const {log,readQueries}=setup();
+  const cidades=await log.cidades('transportadoras');
+  assert.equal(cidades.length,2);
+  const lista=readQueries.find(q=>q.sql.includes('SELECT DISTINCT id,nome,estado FROM ('));
+  assert.ok(lista);
+  assert.match(lista.sql,/SELECT DISTINCT id,nome,estado/);
+  assert.match(lista.sql,/FROM transportadoras t INNER JOIN cidades c ON c.id=t.cidade_id/);
+  assert.doesNotMatch(lista.sql,/transportadora_cidade/);
+  assert.doesNotMatch(lista.sql,/agencias_recebimento/);
+  await log.consultar('transportadoras',1);
+  const consulta=readQueries.find(q=>q.sql.includes('SELECT t.id,t.nome,t.telefone'));
+  assert.ok(consulta);
+  assert.match(consulta.sql,/t.cidade_id=\\$1/);
+  assert.doesNotMatch(consulta.sql,/transportadora_cidade/);
+  assert.deepEqual(consulta.args,[1]);
+  await log.cidades('agencias');
+  const listaAgencias=readQueries.filter(q=>q.sql.includes('SELECT DISTINCT id,nome,estado FROM (')).at(-1);
+  assert.match(listaAgencias.sql,/agencias_recebimento a ON a.cidade_id=c.id/);
+  assert.doesNotMatch(listaAgencias.sql,/FROM transportadoras t/);
 });
 test('campanha logistica valida contatos no servidor e agenda intervalo e janela',async()=>{
   const {log,svc,writes}=setup();
