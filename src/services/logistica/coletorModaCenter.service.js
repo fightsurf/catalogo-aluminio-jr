@@ -201,7 +201,7 @@ function extrairDadosIncorporados(html) {
       .map(p => p && typeof p.phone === 'string' ? p.phone : '').join(' / '));
     const rota = (Array.isArray(excursao.route) ? excursao.route : [])
       .filter(r => typeof r === 'string').map(textoLimpo).filter(Boolean).join(' / ');
-    if (!nome || !origem || !contato.length) continue;
+    if (!nome || !origem) continue;
     const formatado = {
       nome, origem, destino: textoLimpo(excursao.address).slice(0, 300),
       telefones: contato.map(n => n.length === 11
@@ -224,14 +224,19 @@ async function coletarExcursoes(fetcher = fetch) {
   const incorporados = extrairDadosIncorporados(primeiroHtml);
   if (incorporados.length && primeira.total && incorporados.length >= primeira.total) {
     const paginasVirtuais = Math.ceil(incorporados.length / 10);
+    const semTelefone = incorporados.filter(registro => !registro.telefones).length;
+    const avisos = semTelefone ? [
+      semTelefone + ' excursao(oes) sem telefone na fonte. Revise individualmente antes de cadastrar sem contato.'
+    ] : [];
     return {
       rows: incorporados,
       total_informado: primeira.total,
       paginas_visitadas: [1],
       paginas_virtuais: paginasVirtuais,
+      registros_sem_telefone: semTelefone,
       metodo: 'dados_incorporados_nextjs',
       coleta_completa: true,
-      avisos: []
+      avisos
     };
   }
   if (!primeira.registros.length) {
