@@ -540,7 +540,7 @@ async function processarProximo() {
     // persistidas. Uma imagem aceita, sem áudio na campanha, já conclui
     // o envio solicitado à Z-API. Áudio configurado exige aceite do áudio.
     // Em qualquer outro caso manter 'incerto', sem reenvio automático.
-    await client.query(`UPDATE mala_direta_destinatarios AS d SET
+    const recuperados=await client.query(`UPDATE mala_direta_destinatarios AS d SET
       status=CASE WHEN c.sequencia_mensagens IS NOT NULL
         THEN CASE WHEN d.etapa_enviada_index=jsonb_array_length(c.sequencia_mensagens)-1 THEN 'enviado' ELSE 'incerto' END
         WHEN d.imagem_aceita_em IS NOT NULL AND (c.audio_mp3 IS NULL OR d.audio_aceito_em IS NOT NULL)
@@ -558,7 +558,15 @@ async function processarProximo() {
       atualizado_em=NOW()
       FROM mala_direta_campanhas AS c
       WHERE d.campanha_id=c.id AND d.status='enviando'
-        AND d.atualizado_em < NOW()-INTERVAL '3 minutes'`);
+        AND d.atualizado_em < NOW()-INTERVAL '3 minutes'
+      RETURNING d.campanha_id,d.status`);
+    // Se todas as mensagens estavam confirmadas antes da queda, preservar
+    // os dez minutos entre contatos ao recuperar o envio concluído.
+    for(const r of recuperados.rows||[]){
+      if(r.status==='enviado')await client.query(`UPDATE mala_direta_campanhas
+        SET proximo_envio_em=GREATEST(proximo_envio_em,NOW()+(intervalo_segundos * INTERVAL '1 second'))
+        WHERE id=$1`,[r.campanha_id]);
+    }
     // Qualquer destinatário incerto bloqueia a campanha inteira.
     // Assim, uma foto isolada nunca libera o próximo contato.
     await client.query(`UPDATE mala_direta_campanhas c SET status='pausada'
