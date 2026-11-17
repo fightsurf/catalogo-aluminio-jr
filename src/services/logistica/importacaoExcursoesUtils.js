@@ -41,7 +41,7 @@ function normalizarLinha(dados) {
     const key = chave(cidade.nome) + '|' + cidade.uf;
     if (!achadas.has(key)) { cidades.push(cidade); achadas.add(key); }
   }
-  if (orig && !achadas.has(chave(orig.nome) + '|' + orig.uf)) cidades.push(orig);
+  // A origem e informacao cadastral; somente a rota define cidades atendidas.
   return {
     nome, origem, origemLocalidade: orig, destino: limpar(dados.destino, 300),
     tipo: limpar(dados.tipo || dados.categoria, 70),
@@ -49,6 +49,17 @@ function normalizarLinha(dados) {
     cidades, semUf
   };
 }
+function montarCamposTransportadora(registro) {
+  const numeros = telefones((registro.telefones || []).join(' / '));
+  const internacionais = numeros.map(numero => '55' + numero);
+  return {
+    nome: registro.nome,
+    telefone: internacionais.join(' / ') || null,
+    telefone_principal: internacionais[0] || null,
+    observacao: registro.origem ? 'Origem: ' + registro.origem : null
+  };
+}
+
 function candidatosPara(registro, existentes) {
   const nome = chave(registro.nome);
   const hits = [];
@@ -83,4 +94,4 @@ function classificar(registro, existentes) {
   }
   return { situacao: candidatos.length ? 'revisar' : 'novo', candidatos };
 }
-module.exports = { limpar, chave, telefones, localidade, normalizarLinha, candidatosPara, classificar };
+module.exports = { limpar, chave, telefones, localidade, normalizarLinha, montarCamposTransportadora, candidatosPara, classificar };
