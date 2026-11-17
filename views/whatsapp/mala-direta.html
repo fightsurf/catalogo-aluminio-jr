@@ -245,7 +245,7 @@ let produtos=[], clientes=[], imagemUpload='',ultimaConsulta='',consultaSeq=0;
 let carradasMeta=[];
 let audioPreviewId='',audioPreviewTexto='',audioObjectUrl='',audioBlobEleven=null,elevenCarregado=false;
 let sequencia=[],proximoItemSequencia=1;
-let campanhaVisualizada=null, inicializandoRascunho=true, restaurandoRascunho=false;
+let campanhaVisualizada=null, historicoCampanhaId=null, inicializandoRascunho=true, restaurandoRascunho=false;
 let salvarRascunhoTimer=null, versaoRascunho=0, filaRascunho=Promise.resolve();
 let gravacaoStream=null,gravacaoRecorder=null,gravacaoPartes=[],gravacaoBlob=null;
 let gravacaoObjectUrl='',gravacaoPreviewId='',gravacaoSubidaEm=0,gravacaoInicio=0,gravacaoRelogio=null;
@@ -1076,6 +1076,84 @@ Você confirma que TODOS os telefones selecionados autorizaram esta divulgação
 
 const textoSituacao={pendente:'Pendente',enviando:'Enviando',enviado:'Enviado',erro:'Erro',incerto:'Incerto — verificar',bloqueado:'Bloqueado'};
 function rotuloSituacao(status){return textoSituacao[status]||status||'-';}
+function historicoDaCampanha(relatorio){
+  const c=relatorio.campanha||{}, contatos=relatorio.destinatarios||[];
+  const itens=Array.isArray(c.sequencia_resumo)?c.sequencia_resumo.slice():[];
+  if(!itens.length){
+    if(c.com_imagem)itens.push({tipo:'imagem',imagem:c.imagem_resumo||null,texto:c.mensagem_resumo||''});
+    else if(c.mensagem_resumo)itens.push({tipo:'texto',texto:c.mensagem_resumo});
+    if(c.com_audio)itens.push({tipo:'audio',origem:'gravacao'});
+  }
+  const registros=[];
+  const registrar=(p,indice,quando,registro,conteudo)=>registros.push({
+    nome:p.nome||'-',telefone:p.telefone||'-',indice,quando,registro,conteudo:conteudo||itens[indice]||null
+  });
+  for(const p of contatos){
+    const confirmadas=Array.isArray(p.etapas_aceitas)?p.etapas_aceitas:[];
+    if(confirmadas.length){
+      for(const etapa of confirmadas){
+        const i=Number(etapa.indice);
+        if(Number.isInteger(i)&&i>=0&&i<itens.length)
+          registrar(p,i,etapa.em||null,'Aceita pela Z-API');
+      }
+    }else if(itens.length&&Number.isInteger(p.etapa_enviada_index)&&p.etapa_enviada_index>=0){
+      // Campanhas anteriores podem ter o checkpoint sem a lista de horários.
+      for(let i=0;i<=Math.min(p.etapa_enviada_index,itens.length-1);i++)
+        registrar(p,i,null,'Aceite registrado, sem horário');
+    }else if(!Array.isArray(c.sequencia_resumo)||!c.sequencia_resumo.length){
+      if(p.imagem_aceita_em&&itens.length)registrar(p,0,p.imagem_aceita_em,'Aceita pela Z-API');
+      if(p.audio_aceito_em){
+        const i=itens.findIndex(x=>x.tipo==='audio');
+        if(i>=0)registrar(p,i,p.audio_aceito_em,'Aceita pela Z-API');
+      }
+    }
+    if(p.status==='incerto')registrar(p,-1,p.atualizado_em||null,'Incerto — conferir',
+      {tipo:'aviso',texto:p.erro||'O envio não foi confirmado. Verifique o WhatsApp antes de repetir.'});
+  }
+  registros.sort((a,b)=>(Date.parse(b.quando)||0)-(Date.parse(a.quando)||0));
+  return {registros,contatos:contatos.length};
+}
+function renderizarHistorico(relatorio){
+  const cid=Number(relatorio.campanha?.id);
+  if(!Number.isSafeInteger(cid)||cid<1)return;
+  historicoCampanhaId=cid;
+  const painel=$('historicoMensagens'),corpo=$('historicoLinhas');
+  const {registros,contatos}=historicoDaCampanha(relatorio);
+  painel.hidden=false;corpo.replaceChildren();
+  $('historicoTitulo').textContent='Histórico de mensagens — Campanha #'+cid;
+  const confirmados=registros.filter(x=>x.registro.startsWith('Aceita')||x.registro.startsWith('Aceite')).length;
+  $('historicoResumo').textContent=contatos+' destinatários • '+confirmados+' etapas aceitas/registradas • '+
+    Math.max(0,registros.length-confirmados)+' registros incertos. Mais recentes primeiro.';
+  if(!registros.length){
+    const tr=el('tr'),cel=el('td','Nenhuma mensagem com aceite registrado até o momento.');
+    cel.colSpan=5;tr.append(cel);corpo.append(tr);return;
+  }
+  for(const r of registros.slice(0,300)){
+    const tr=el('tr');
+    const tipo=r.conteudo?.tipo||'desconhecido';
+    const nomeTipo={imagem:'📷 Foto',texto:'💬 Texto',audio:'🔊 Áudio',aviso:'⚠️ Aviso'}[tipo]||tipo;
+    const td=(valor)=>{const cel=el('td',String(valor??'-'));tr.append(cel);return cel;};
+    td(r.quando?new Date(r.quando).toLocaleString('pt-BR',{timeZone:'America/Fortaleza'}):'Horário não registrado');
+    td(r.nome+' ('+r.telefone+')');td(nomeTipo);
+    let mensagem='';
+    if(tipo==='texto'||tipo==='aviso')mensagem=r.conteudo?.texto||'';
+    else if(tipo==='imagem')mensagem=r.conteudo?.texto?'Foto com legenda: '+r.conteudo.texto:'Foto da campanha';
+    else if(tipo==='audio')mensagem=({arquivo:'Áudio OGG importado',gravacao:'Gravação de áudio',elevenlabs:'Áudio ElevenLabs'})[r.conteudo?.origem]||'Mensagem de áudio';
+    else mensagem='Conteúdo não detalhado no registro anterior';
+    const conteudo=td(mensagem);conteudo.style.whiteSpace='pre-wrap';conteudo.style.minWidth='220px';
+    if(tipo==='imagem'&&/^https:\/\//i.test(r.conteudo?.imagem||'')){
+      const mini=document.createElement('img');mini.src=r.conteudo.imagem;mini.alt='Foto da mensagem';
+      mini.loading='lazy';mini.style.cssText='display:block;max-width:90px;max-height:75px;object-fit:contain;margin-top:4px';
+      conteudo.append(mini);
+    }
+    td(r.registro);corpo.append(tr);
+  }
+  if(registros.length>300)$('historicoResumo').textContent+=' Exibindo os 300 registros mais recentes.';
+}
+async function carregarHistorico(cid){
+  const relatorio=await get(api+'/campanhas/'+cid);
+  renderizarHistorico(relatorio);
+}
 function guardarUltimaCampanha(id){
   try{if(id)localStorage.setItem('malaDiretaCampanhaAberta',String(id));else localStorage.removeItem('malaDiretaCampanhaAberta');}catch(_){}
 }
@@ -1146,6 +1224,7 @@ async function abrirCampanha(id){
     }));
     ultimaConsulta='';renderClientes();desenharSequencia();
     exibirResumoCampanha(c,resposta.destinatarios);
+    try{await carregarHistorico(id);}catch(e){msg('Campanha recuperada, mas histórico indisponível: '+e.message,true);}
     msg(`Campanha ${id} recuperada do banco. Os envios já realizados não serão repetidos.`);
   }finally{restaurandoRascunho=false;}
 }
@@ -1162,6 +1241,7 @@ async function atualizarAndamento(){
     }
     renderClientes();
     exibirResumoCampanha({...d.campanha,id},d.destinatarios);
+    if(historicoCampanhaId===id)renderizarHistorico(d);
   }catch(e){msg('Falha ao atualizar andamento: '+e.message,true);}
 }
 $('retomarCampanha').onclick=async()=>{
@@ -1294,6 +1374,8 @@ async function carregarCampanhas(){
       abrir.onclick=()=>abrirCampanha(c.id).catch(e=>msg(e.message,true));a.append(abrir);
       const detalhe=el('button','Relatório','secondary');
       detalhe.style.marginLeft='5px';detalhe.onclick=()=>verRelatorio(c.id);a.append(detalhe);
+      const historico=el('button','Histórico de mensagens','secondary');
+      historico.style.marginLeft='5px';historico.onclick=()=>carregarHistorico(c.id).catch(e=>msg('Falha ao carregar histórico: '+e.message,true));a.append(historico);
       if(c.status==='ativa'||c.status==='pausada'){
         const cmd=c.status==='ativa'?'pausar':'retomar';
         const b=el('button',cmd==='pausar'?'Pausar':'Retomar','secondary');
@@ -1320,5 +1402,5 @@ $('atualizar').onclick=carregarCampanhas;
   }catch(e){msg('Falha ao restaurar a Mala Direta: '+e.message,true);}
   finally{inicializandoRascunho=false;}
 })();
-setInterval(()=>{if(!document.hidden){carregarCampanhas();if(campanhaVisualizada)atualizarAndamento();}},30000);
+setInterval(()=>{if(!document.hidden){carregarCampanhas();if(campanhaVisualizada)atualizarAndamento();if(historicoCampanhaId&&historicoCampanhaId!==campanhaVisualizada?.id)carregarHistorico(historicoCampanhaId).catch(e=>msg('Falha ao atualizar histórico: '+e.message,true));}},30000);
 </script></body></html>
