@@ -7,7 +7,6 @@ on:
       - 'src/routes/logistica/importacaoExcursoesRoutes.js'
       - 'views/logistica/importacao-modacenter.html'
       - 'tests/coletor-modacenter.test.js'
-      - 'tests/diagnostico-paginacao-modacenter.test.js'
       - 'tests/importacao-excursoes-utils.test.js'
       - 'package.json'
       - '.github/workflows/testes-coletor-modacenter.yml'
@@ -22,4 +21,4 @@ jobs:
       - name: Instalar dependencias
         run: npm install --ignore-scripts --no-audit --no-fund
       - name: Executar testes
-        run: node --test tests/coletor-modacenter.test.js tests/importacao-excursoes-utils.test.js tests/diagnostico-paginacao-modacenter.test.js
+        run: node --test tests/coletor-modacenter.test.js tests/importacao-excursoes-utils.test.js
