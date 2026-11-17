@@ -200,7 +200,13 @@ a{color:#8bd1ff}.ok{color:#7de0a2}.error{color:#ff9da5}
 <div class="previa-teste-botoes" style="margin-top:15px"><div class="field"><label for="numeroTeste">WhatsApp para teste (55 + DDD + número)</label><input id="numeroTeste" inputmode="tel" placeholder="5583999999999"></div><button type="button" class="secondary" id="teste">Enviar prévia ao número informado</button><button type="button" id="testeFabrica">Enviar para WhatsApp da fábrica (5583999792085)</button></div>
 <p class="muted small">O teste envia de verdade toda a sequência configurada, sem iniciar uma campanha. Confirme o destinatário antes do teste.</p>
 </section>
-<section class="card bottom"><div class="row"><button id="enviar">Iniciar Mala Direta</button><span class="muted" id="enviarResumo">Nenhum destinatário selecionado</span></div></section>
+<section class="card bottom"><div class="row"><button id="enviar">Iniciar Mala Direta</button><button type="button" class="secondary" id="salvarRascunho">💾 Salvar rascunho</button><span class="muted" id="enviarResumo">Nenhum destinatário selecionado</span></div><p class="muted small" id="rascunhoStatus">Montagem salva automaticamente no servidor, inclusive os áudios e a seleção dos contatos.</p></section>
+<section class="card" id="campanhaRetomada" hidden>
+  <div class="row" style="justify-content:space-between"><h2 id="campanhaRetomadaTitulo">Campanha recuperada</h2><div class="row"><button type="button" id="retomarCampanha" hidden>▶ Retomar envios</button><button type="button" class="secondary" id="montarNova">✏️ Montar nova / abrir rascunho</button></div></div>
+  <p class="muted" id="campanhaRetomadaResumo"></p>
+  <div class="tablewrap" style="max-height:330px;overflow:auto"><table><thead><tr><th>Destinatário</th><th>WhatsApp</th><th>Situação</th><th>Enviado em</th><th>Última etapa</th></tr></thead><tbody id="campanhaDestinatarios"></tbody></table></div>
+  <p class="muted small">O conteúdo exibido no simulador corresponde à campanha salva no servidor. A fila continua sem reenviar destinatários já atendidos; itens incertos exigem conferência manual.</p>
+</section>
 <section class="card"><div class="row" style="justify-content:space-between"><h2>Campanhas e relatórios</h2><button class="secondary" id="atualizar">Atualizar</button></div><div class="tablewrap"><table><thead><tr><th>Campanha</th><th>Produto</th><th>Status</th><th>Enviados</th><th>Pendentes</th><th>Problemas</th><th>Ações</th></tr></thead><tbody id="campanhas"></tbody></table></div></section>
 </div><aside class="mala-side" aria-label="Simulador de mensagem no WhatsApp">
 <div class="whatsapp-sim">
@@ -213,7 +219,7 @@ a{color:#8bd1ff}.ok{color:#7de0a2}.error{color:#ff9da5}
 <div class="row" style="justify-content:space-between"><h2 id="contatosTitulo">Destinatários encontrados</h2><button type="button" id="fecharContatos" class="secondary">Fechar</button></div>
 <p id="contatosResumo" class="muted">Consulte os contatos primeiro.</p>
 <div class="row" style="margin-bottom:10px"><button type="button" id="selecionarTodos" class="secondary">Marcar todos os telefones válidos</button><button type="button" id="limpar" class="secondary">Limpar seleção</button><button type="button" id="confirmarContatos">Confirmar seleção</button></div>
-<div class="tablewrap"><table><thead><tr><th>Selecionar</th><th>Cliente / contato</th><th>Cidade</th><th>Telefone</th><th>Unidades</th><th>Pedidos</th><th>Última compra</th><th>Perfil</th></tr></thead><tbody id="compradores"></tbody></table></div>
+<div class="tablewrap"><table><thead><tr><th>Selecionar</th><th>Cliente / contato</th><th>Cidade</th><th>Telefone</th><th>Unidades</th><th>Pedidos</th><th>Última compra</th><th>Situação</th><th>Perfil</th></tr></thead><tbody id="compradores"></tbody></table></div>
 </div></div>
 <div class="modal" id="modalEleven" role="dialog" aria-modal="true" aria-labelledby="elevenTitulo"><div class="dialog">
 <div class="row" style="justify-content:space-between"><h2 id="elevenTitulo">Configurações ElevenLabs</h2><button type="button" class="secondary" id="fecharEleven">Fechar</button></div>
@@ -232,6 +238,8 @@ let produtos=[], clientes=[], imagemUpload='',ultimaConsulta='',consultaSeq=0;
 let carradasMeta=[];
 let audioPreviewId='',audioPreviewTexto='',audioObjectUrl='',audioBlobEleven=null,elevenCarregado=false;
 let sequencia=[],proximoItemSequencia=1;
+let campanhaVisualizada=null, inicializandoRascunho=true, restaurandoRascunho=false;
+let salvarRascunhoTimer=null, versaoRascunho=0, filaRascunho=Promise.resolve();
 let gravacaoStream=null,gravacaoRecorder=null,gravacaoPartes=[],gravacaoBlob=null;
 let gravacaoObjectUrl='',gravacaoPreviewId='',gravacaoSubidaEm=0,gravacaoInicio=0,gravacaoRelogio=null;
 let gravacaoUploadPendente=null,gravacaoVersao=0;
@@ -595,7 +603,7 @@ function renderClientes(){
     const tr=el('tr');
     const cell=()=>{const td=el('td');tr.append(td);return td;};
     const cb=el('input');cb.type='checkbox';cb.checked=c.marcado;
-    cb.disabled=!c.telefoneNormalizado||c.bloqueado;
+    cb.disabled=Boolean(campanhaVisualizada)||!c.telefoneNormalizado||c.bloqueado;
     cb.onchange=()=>{c.marcado=cb.checked;contagem();};
     cell().append(cb);
     cell().textContent=(c.nome||'(sem nome)')+(c.origem?' — '+c.origem:'');
@@ -606,6 +614,7 @@ function renderClientes(){
     cell().textContent=c.quantidade==null?'-':Number(c.quantidade).toLocaleString('pt-BR');
     cell().textContent=c.pedidos==null?'-':String(c.pedidos);
     cell().textContent=date(c.ultimaCompra);
+    cell().textContent=c.status||'Não iniciada';
     const perfil=cell();
     if(c.origem==='Transportadora'||c.origem==='Agência'){
       perfil.textContent='Contato da logística';
@@ -619,7 +628,12 @@ function renderClientes(){
   $('contatosResumo').textContent=`${clientes.length} contatos encontrados. Selecione apenas quem autorizou o recebimento da campanha.`;
   contagem();
 }
-function contagem(){const qtd=selected().length;$('contagem').textContent=`${qtd} selecionados de ${clientes.length} encontrados`;$('enviarResumo').textContent=`${qtd} destinatários selecionados`;}
+function contagem(){
+  const qtd=selected().length;
+  $('contagem').textContent=campanhaVisualizada?`${clientes.length} destinatários registrados na campanha ${campanhaVisualizada.id}`:`${qtd} selecionados de ${clientes.length} encontrados`;
+  $('enviarResumo').textContent=campanhaVisualizada?`Campanha ${campanhaVisualizada.id} — edição bloqueada`:`${qtd} destinatários selecionados`;
+  agendarSalvarRascunho();
+}
 $('selecionarTodos').onclick=()=>{clientes.forEach(c=>{c.marcado=Boolean(c.telefoneNormalizado&&!c.bloqueado)});renderClientes();};
 $('limpar').onclick=()=>{clientes.forEach(c=>c.marcado=false);renderClientes();};
 const dataHora=v=>{if(!v)return '-';const d=new Date(v);return Number.isNaN(d.getTime())?'-':d.toLocaleString('pt-BR',{hour12:false});};
@@ -876,6 +890,7 @@ $('abaMicrofone').onclick=()=>alternarAbaAudio('mic');
 $('abaElevenLabs').onclick=()=>alternarAbaAudio('eleven');
 $('abaArquivo').onclick=()=>alternarAbaAudio('arquivo');
 function adicionarItem(item){
+  if(campanhaVisualizada)throw Error('Clique em "Montar nova / abrir rascunho" para editar uma nova campanha.');
   if(sequencia.length>=30)throw Error('Limite de 30 mensagens por campanha.');
   sequencia.push({...item,id:proximoItemSequencia++});
   desenharSequencia();
@@ -898,9 +913,11 @@ function desenharSequencia(){
     cima.onclick=()=>{[sequencia[i-1],sequencia[i]]=[sequencia[i],sequencia[i-1]];desenharSequencia();};
     baixo.onclick=()=>{[sequencia[i],sequencia[i+1]]=[sequencia[i+1],sequencia[i]];desenharSequencia();};
     apagar.onclick=()=>{if(item.url)URL.revokeObjectURL(item.url);sequencia.splice(i,1);desenharSequencia();};
-    controls.append(cima,baixo,apagar);linha.append(controls);lista.append(linha);
+    if(!campanhaVisualizada){controls.append(cima,baixo,apagar);linha.append(controls);}
+    lista.append(linha);
   }
   renderSimulador();
+  agendarSalvarRascunho();
 }
 function renderSimulador(){
   const chat=$('simChat');chat.replaceChildren();
@@ -913,7 +930,9 @@ function renderSimulador(){
     }else if(item.tipo==='texto')balao.append(el('span',item.texto));
     else{
       balao.append(el('span',item.audioOrigem==='gravacao'?'🎙️ Gravação pelo microfone':item.audioOrigem==='arquivo'?'📎 Áudio importado: '+item.nomeArquivo:'🤖 Voz ElevenLabs'));
-      const player=el('audio');player.controls=true;player.preload='metadata';player.src=item.url;balao.append(player);
+      const player=el('audio');player.controls=true;player.preload='metadata';
+      player.src=item.url||(item.mp3?'data:audio/mpeg;base64,'+item.mp3:'');
+      if(player.src)balao.append(player);
     }
     chat.append(balao);
   }
@@ -1039,12 +1058,251 @@ Você confirma que TODOS os telefones selecionados autorizaram esta divulgação
       confirmouConsentimento:true
     });
     msg(`Campanha ${r.id} iniciada com ${r.total} destinatários e ${mensagens.length} mensagens por destinatário.`);
+    clearTimeout(salvarRascunhoTimer);
+    campanhaVisualizada={id:r.id,status:'ativa'};
+    await filaRascunho.catch(()=>{});
+    try{await get(api+'/rascunho',{method:'DELETE'});}catch(e){msg('Campanha iniciada, mas o rascunho não foi apagado: '+e.message,true);}
     await carregarCampanhas();
+    await abrirCampanha(r.id);
   }catch(e){msg('Falha ao iniciar: '+e.message,true);}finally{$('enviar').disabled=false;}
 };
-async function carregarCampanhas(){try{const campanhas=await get(api+'/campanhas');$('campanhas').replaceChildren();for(const c of campanhas){const tr=el('tr');function td(value){const cel=el('td',String(value));tr.append(cel);return cel;}td(c.id);td(c.produto_nome+(c.com_audio?' 🔊':''));td(c.status);td(`${c.enviados}/${c.total}`);td(c.pendentes);td(c.problemas);const a=td('');const detalhe=el('button','Relatório','secondary');detalhe.onclick=()=>verRelatorio(c.id);a.append(detalhe);if(c.status==='ativa'||c.status==='pausada'){const cmd=c.status==='ativa'?'pausar':'retomar';const b=el('button',cmd==='pausar'?'Pausar':'Retomar','secondary');b.style.marginLeft='5px';b.onclick=async()=>{try{await post(`${api}/campanhas/${c.id}/${cmd}`,{});await carregarCampanhas();}catch(e){msg(e.message,true)}};a.append(b);} $('campanhas').append(tr);}}catch(e){msg(e.message,true);}}
+
+const textoSituacao={pendente:'Pendente',enviando:'Enviando',enviado:'Enviado',erro:'Erro',incerto:'Incerto — verificar',bloqueado:'Bloqueado'};
+function rotuloSituacao(status){return textoSituacao[status]||status||'-';}
+function guardarUltimaCampanha(id){
+  try{if(id)localStorage.setItem('malaDiretaCampanhaAberta',String(id));else localStorage.removeItem('malaDiretaCampanhaAberta');}catch(_){}
+}
+function lerUltimaCampanha(){try{return Number(localStorage.getItem('malaDiretaCampanhaAberta'))||null;}catch(_){return null;}}
+function preencherTabelaAndamento(destinatarios){
+  const corpo=$('campanhaDestinatarios');corpo.replaceChildren();
+  for(const d of destinatarios){
+    const tr=el('tr');
+    const td=valor=>tr.append(el('td',String(valor??'-')));
+    td(d.nome||'-');td(d.telefone||'-');td(rotuloSituacao(d.status));
+    td(dataHora(d.enviado_em));td(Number.isInteger(d.etapa_enviada_index)&&d.etapa_enviada_index>=0?d.etapa_enviada_index+1:'-');
+    corpo.append(tr);
+  }
+}
+function exibirResumoCampanha(c,destinatarios){
+  const total=destinatarios.length, enviados=destinatarios.filter(d=>d.status==='enviado').length;
+  const pendentes=destinatarios.filter(d=>['pendente','enviando'].includes(d.status)).length;
+  const problemas=destinatarios.filter(d=>['erro','incerto','bloqueado'].includes(d.status)).length;
+  $('campanhaRetomada').hidden=false;
+  $('campanhaRetomadaTitulo').textContent='Campanha #'+c.id+' — '+(c.produto_nome||'');
+  $('campanhaRetomadaResumo').textContent=`Status: ${c.status} • ${total} contatos • ${enviados} enviados • ${pendentes} pendentes/em envio • ${problemas} problemas. Horário de envio: ${String(c.horario_inicio||'08:00').slice(0,5)}–${String(c.horario_fim||'18:00').slice(0,5)}.`;
+  $('retomarCampanha').hidden=c.status!=='pausada';
+  preencherTabelaAndamento(destinatarios);
+}
+async function abrirCampanha(id){
+  const resposta=await get(api+'/campanhas/'+id+'/estado');
+  const c=resposta.campanha;
+  restaurandoRascunho=true;
+  try{
+    campanhaVisualizada={id:Number(c.id),status:c.status};
+    guardarUltimaCampanha(id);
+    $('enviar').disabled=true;$('salvarRascunho').disabled=true;
+    $('produto').value=String(c.produto_id||'');renderProdutos();
+    const foto=$('fotoSistema');foto.replaceChildren(new Option('Selecione uma foto ou envie outra',''));
+    for(const [i,f] of (produto()?.fotos||[]).entries())foto.add(new Option('Foto '+(i+1),f));
+    $('origemDestinatarios').value=c.tipo_publico==='logistica'?'logistica':'compras';
+    $('grupoLogistica').value=c.grupo_logistica||'';
+    if(c.tipo_publico==='logistica')await carregarCidadesLogistica();
+    $('cidadeLogistica').value=String(c.cidade_logistica_id||'');
+    if(c.tipo_publico==='periodo')await periodos();
+    $('periodo').value=c.tipo_publico==='periodo'?String(c.meses??''):'';
+    $('carrada').value=c.tipo_publico==='carrada'?String(c.referencia_publico||''):'';
+    $('semana').value=c.tipo_publico==='semana'?String(c.referencia_publico||''):'';
+    atualizarBloqueios();imagemUpload='';$('mensagem').value='';
+    $('intervalo').value=String(Math.max(1,Math.round(Number(c.intervalo_segundos||900)/60)));
+    $('horarioInicio').value=String(c.horario_inicio||'08:00').slice(0,5);
+    $('horarioFim').value=String(c.horario_fim||'18:00').slice(0,5);
+    const partes=Array.isArray(c.sequencia_mensagens)?c.sequencia_mensagens:[];
+    if(partes.length)sequencia=partes.map((e,i)=>({...e,id:i+1,audioOrigem:e.origem||'elevenlabs'}));
+    else {
+      sequencia=[];
+      if(c.imagem)sequencia.push({tipo:'imagem',imagem:c.imagem,id:1});
+      if(c.mensagem)sequencia.push({tipo:'texto',texto:c.mensagem,id:sequencia.length+1});
+      if(c.audio_mp3)sequencia.push({tipo:'audio',audioOrigem:'elevenlabs',mp3:c.audio_mp3,id:sequencia.length+1});
+    }
+    proximoItemSequencia=sequencia.length+1;
+    clientes=resposta.destinatarios.map(d=>({
+      ...d,telefoneNormalizado:d.telefone,marcado:true,origem:d.origem_destinatario==='logistica'?'Transportadora':'Cliente'
+    }));
+    ultimaConsulta='';renderClientes();desenharSequencia();
+    exibirResumoCampanha(c,resposta.destinatarios);
+    msg(`Campanha ${id} recuperada do banco. Os envios já realizados não serão repetidos.`);
+  }finally{restaurandoRascunho=false;}
+}
+async function atualizarAndamento(){
+  if(!campanhaVisualizada)return;
+  const id=campanhaVisualizada.id;
+  try{
+    const d=await get(api+'/campanhas/'+id);
+    if(!campanhaVisualizada||campanhaVisualizada.id!==id)return;
+    campanhaVisualizada.status=d.campanha.status;
+    const porTelefone=new Map(d.destinatarios.map(x=>[norm(x.telefone),x]));
+    for(const c of clientes){
+      const linha=porTelefone.get(norm(c.telefone));if(linha){c.status=linha.status;c.enviado_em=linha.enviado_em;c.etapa_enviada_index=linha.etapa_enviada_index;}
+    }
+    renderClientes();
+    exibirResumoCampanha({...d.campanha,id},d.destinatarios);
+  }catch(e){msg('Falha ao atualizar andamento: '+e.message,true);}
+}
+$('retomarCampanha').onclick=async()=>{
+  if(!campanhaVisualizada)return;
+  try{
+    await post(api+'/campanhas/'+campanhaVisualizada.id+'/retomar',{});
+    await atualizarAndamento();await carregarCampanhas();
+    msg('Campanha retomada. Somente contatos pendentes continuarão na fila.');
+  }catch(e){msg('Não foi possível retomar: '+e.message,true);}
+};
+function limparMontagem(){
+  restaurandoRascunho=true;
+  try{
+    $('categoriaProduto').value='';$('produto').value='';renderProdutos();
+    for(const campo of ['origemDestinatarios','grupoLogistica','cidadeLogistica','periodo','carrada','semana','fotoSistema','mensagem','audioTexto','elevenVozManual','numeroTeste'])$(campo).value='';
+    $('intervalo').value='15';$('horarioInicio').value='08:00';$('horarioFim').value='18:00';
+    imagemUpload='';clientes=[];ultimaConsulta='';sequencia=[];proximoItemSequencia=1;
+    atualizarBloqueios();renderClientes();desenharSequencia();
+  }finally{restaurandoRascunho=false;}
+}
+function blobComoDataUrl(blob){
+  return new Promise((resolve,reject)=>{const leitor=new FileReader();leitor.onload=()=>resolve(String(leitor.result));leitor.onerror=()=>reject(Error('Falha ao guardar arquivo de áudio.'));leitor.readAsDataURL(blob);});
+}
+async function serializarRascunho(){
+  const campos={categoriaProduto:$('categoriaProduto').value,produtoId:$('produto').value,
+    origemDestinatarios:$('origemDestinatarios').value,grupoLogistica:$('grupoLogistica').value,
+    cidadeLogistica:$('cidadeLogistica').value,periodo:$('periodo').value,carrada:$('carrada').value,
+    semana:$('semana').value,fotoSistema:$('fotoSistema').value,imagemUpload,
+    mensagem:$('mensagem').value,audioTexto:$('audioTexto').value,
+    elevenVozManual:$('elevenVozManual').value,elevenVoz:$('elevenVoz').value,
+    elevenModelo:$('elevenModelo').value,numeroTeste:$('numeroTeste').value,
+    intervalo:$('intervalo').value,horarioInicio:$('horarioInicio').value,horarioFim:$('horarioFim').value};
+  const mensagens=await Promise.all(sequencia.map(async item=>{
+    if(item.tipo==='imagem')return {tipo:'imagem',imagem:item.imagem};
+    if(item.tipo==='texto')return {tipo:'texto',texto:item.texto};
+    if(!item.blob)throw Error('Áudio sem arquivo de origem. Reimporte para salvar.');
+    return {tipo:'audio',audioOrigem:item.audioOrigem,audioTexto:item.audioTexto||'',
+      nomeArquivo:item.nomeArquivo||'',voz:item.voz||'',modelo:item.modelo||'',
+      audioData:await blobComoDataUrl(item.blob)};
+  }));
+  return {campos,destinatarios:selected().map(c=>({...c,marcado:true})),sequencia:mensagens};
+}
+function agendarSalvarRascunho(){
+  if(inicializandoRascunho||restaurandoRascunho||campanhaVisualizada)return;
+  ++versaoRascunho;
+  clearTimeout(salvarRascunhoTimer);
+  $('rascunhoStatus').textContent='Alterações pendentes de salvamento...';
+  salvarRascunhoTimer=setTimeout(()=>salvarRascunhoAgora(),1300);
+}
+function salvarRascunhoAgora(){
+  if(inicializandoRascunho||restaurandoRascunho||campanhaVisualizada)return filaRascunho;
+  clearTimeout(salvarRascunhoTimer);
+  const versao=versaoRascunho;
+  filaRascunho=filaRascunho.catch(()=>{}).then(async()=>{
+    if(versao!==versaoRascunho||campanhaVisualizada)return;
+    const estado=await serializarRascunho();
+    if(versao!==versaoRascunho||campanhaVisualizada)return;
+    await post(api+'/rascunho',estado);
+    if(versao===versaoRascunho)$('rascunhoStatus').textContent='💾 Rascunho salvo no servidor às '+new Date().toLocaleTimeString('pt-BR')+'.';
+  }).catch(e=>{$('rascunhoStatus').textContent='⚠️ Rascunho não salvo: '+e.message;});
+  return filaRascunho;
+}
+$('salvarRascunho').onclick=()=>salvarRascunhoAgora();
+async function restaurarRascunho(){
+  const r=await get(api+'/rascunho');
+  if(!r||!r.estado)return false;
+  restaurandoRascunho=true;
+  try{
+    const c=r.estado.campos||{};
+    $('categoriaProduto').value=c.categoriaProduto||'';
+    $('produto').value=c.produtoId||'';renderProdutos();
+    const foto=$('fotoSistema');foto.replaceChildren(new Option('Selecione uma foto ou envie outra',''));
+    for(const [i,f] of (produto()?.fotos||[]).entries())foto.add(new Option('Foto '+(i+1),f));
+    $('origemDestinatarios').value=c.origemDestinatarios||'';
+    $('grupoLogistica').value=c.grupoLogistica||'';
+    if(c.origemDestinatarios==='logistica'&&c.grupoLogistica)await carregarCidadesLogistica();
+    $('cidadeLogistica').value=c.cidadeLogistica||'';
+    if(c.periodo!==undefined&&c.periodo!==''&&produto())await periodos();
+    for(const nome of ['periodo','carrada','semana','fotoSistema','mensagem','audioTexto','elevenVozManual','numeroTeste','intervalo','horarioInicio','horarioFim']){
+      if(c[nome]!==undefined)$(nome).value=c[nome];
+    }
+    imagemUpload=c.imagemUpload||'';
+    atualizarBloqueios();fotoPreview();
+    clientes=(r.estado.destinatarios||[]).map(x=>({...x,marcado:true}));
+    ultimaConsulta=clientes.length?chaveConsulta():'';
+    sequencia=[];
+    for(const [i,e] of (r.estado.sequencia||[]).entries()){
+      if(e.tipo!=='audio'){sequencia.push({...e,id:i+1});continue;}
+      const resposta=await fetch(e.audioData);
+      const original=await resposta.blob();
+      const blob=e.audioOrigem==='arquivo'?new File([original],e.nomeArquivo||'audio.ogg',{type:original.type}):original;
+      sequencia.push({...e,id:i+1,blob,url:URL.createObjectURL(blob),audioPreviewId:'',criadoEm:0});
+      delete sequencia[sequencia.length-1].audioData;
+    }
+    proximoItemSequencia=sequencia.length+1;
+    renderClientes();desenharSequencia();
+    $('rascunhoStatus').textContent='💾 Rascunho restaurado do servidor ('+dataHora(r.atualizado_em)+').';
+    msg('Mensagem e destinatários selecionados recuperados. Revise antes de iniciar.');
+    return true;
+  }finally{restaurandoRascunho=false;}
+}
+$('montarNova').onclick=async()=>{
+  campanhaVisualizada=null;guardarUltimaCampanha(null);
+  $('enviar').disabled=false;$('salvarRascunho').disabled=false;
+  $('campanhaRetomada').hidden=true;limparMontagem();
+  try{
+    const carregou=await restaurarRascunho();
+    if(!carregou)msg('Nova campanha pronta para montagem.');
+  }catch(e){msg('Não foi possível recuperar o rascunho: '+e.message,true);}
+};
+document.addEventListener('input',e=>{if(e.target.closest('.mala-main'))agendarSalvarRascunho();});
+document.addEventListener('change',e=>{if(e.target.closest('.mala-main'))agendarSalvarRascunho();});
+document.addEventListener('click',e=>{
+  if(e.target.closest('#produtoSelect, #listaProdutos, #adicionarFoto, #adicionarTexto, #adicionarGravacao, #adicionarAudioArquivo, #adicionarAudioEleven, #selecionarTodos, #limpar, #limparFiltro'))
+    agendarSalvarRascunho();
+});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)salvarRascunhoAgora();});
+
+async function carregarCampanhas(){
+  try{
+    const campanhas=await get(api+'/campanhas');
+    $('campanhas').replaceChildren();
+    for(const c of campanhas){
+      const tr=el('tr');
+      function td(value){const cel=el('td',String(value));tr.append(cel);return cel;}
+      td(c.id);td(c.produto_nome+(c.com_audio?' 🔊':''));td(c.status);
+      td(`${c.enviados}/${c.total}`);td(c.pendentes);td(c.problemas);
+      const a=td('');
+      const abrir=el('button','📂 Abrir','secondary');
+      abrir.onclick=()=>abrirCampanha(c.id).catch(e=>msg(e.message,true));a.append(abrir);
+      const detalhe=el('button','Relatório','secondary');
+      detalhe.style.marginLeft='5px';detalhe.onclick=()=>verRelatorio(c.id);a.append(detalhe);
+      if(c.status==='ativa'||c.status==='pausada'){
+        const cmd=c.status==='ativa'?'pausar':'retomar';
+        const b=el('button',cmd==='pausar'?'Pausar':'Retomar','secondary');
+        b.style.marginLeft='5px';
+        b.onclick=async()=>{try{await post(`${api}/campanhas/${c.id}/${cmd}`,{});await carregarCampanhas();if(campanhaVisualizada?.id===Number(c.id))await atualizarAndamento();}catch(e){msg(e.message,true)}};
+        a.append(b);
+      }
+      $('campanhas').append(tr);
+    }
+    return campanhas;
+  }catch(e){msg('Não foi possível listar campanhas: '+e.message,true);return [];}
+}
 async function verRelatorio(cid){abrirModal('Campanha '+cid);try{const d=await get(api+'/campanhas/'+cid);const box=$('modalCorpo');box.replaceChildren(el('p',`Status: ${d.campanha.status}`));const table=el('table'),head=el('tr');for(const t of ['Cliente','Telefone','Situação','Início do envio','Intervalo real','Imagem aceita','Áudio aceito','Concluído','Erro','Bloquear'])head.append(el('th',t));table.append(head);let inicioAnterior=null;for(const x of d.destinatarios){const tr=el('tr');const inicio=x.iniciado_envio_em?new Date(x.iniciado_envio_em).getTime():null;const intervaloReal=Number.isFinite(inicio)&&inicioAnterior!==null?((inicio-inicioAnterior)/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})+' s':'-';if(Number.isFinite(inicio))inicioAnterior=inicio;for(const v of [x.nome,x.telefone,x.status,dataHora(x.iniciado_envio_em),intervaloReal,dataHora(x.imagem_aceita_em),dataHora(x.audio_aceito_em),dataHora(x.enviado_em),x.erro||'-'])tr.append(el('td',v));const cell=el('td'),bloq=el('button','Bloquear','danger');bloq.onclick=async()=>{if(!confirm('Bloquear este telefone de futuras promoções?'))return;try{await post(api+'/bloqueios',{telefone:x.telefone,motivo:'Solicitação do cliente'});bloq.disabled=true;bloq.textContent='Bloqueado';}catch(e){msg(e.message,true)}};cell.append(bloq);tr.append(cell);table.append(tr);}const wrap=el('div',undefined,'tablewrap');wrap.append(table);box.append(wrap);}catch(e){$('modalCorpo').textContent=e.message;}}
 $('atualizar').onclick=carregarCampanhas;
-(async()=>{await Promise.all([carregarProdutos(),carregarFiltros(),carregarCampanhas()]);})();
-setInterval(()=>{if(!document.hidden)carregarCampanhas();},30000);
+(async()=>{
+  try{
+    await Promise.all([carregarProdutos(),carregarFiltros()]);
+    const campanhas=await carregarCampanhas();
+    const anterior=lerUltimaCampanha();
+    const ativa=campanhas.find(c=>Number(c.id)===anterior&&['ativa','pausada'].includes(c.status))||
+      campanhas.find(c=>['ativa','pausada'].includes(c.status));
+    if(ativa)await abrirCampanha(ativa.id);
+    else await restaurarRascunho();
+  }catch(e){msg('Falha ao restaurar a Mala Direta: '+e.message,true);}
+  finally{inicializandoRascunho=false;}
+})();
+setInterval(()=>{if(!document.hidden){carregarCampanhas();if(campanhaVisualizada)atualizarAndamento();}},30000);
 </script></body></html>
