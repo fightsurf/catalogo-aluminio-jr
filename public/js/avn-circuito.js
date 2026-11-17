@@ -188,7 +188,14 @@
     if (ex.mediaType === 'video') {
       return '<video class="avn-circuito-foto" src="' + escapeHtml(src) + '" autoplay muted loop playsinline></video>';
     }
-    return '<img class="avn-circuito-foto" src="' + escapeHtml(src) + '" alt="' + escapeHtml(ex.name) + '">';
+    // O catálogo Workout Guide usa imagens claras/translúcidas. Repete o filtro
+    // de silhueta preta do treino tradicional e a animação frame-1/2/3.
+    const catalogo = /^\/avn\/sistema\/midias\/[a-z0-9-]+\/frame-1\.(?:png|svg)$/.test(ex.mediaUrl);
+    const svgAnimado = catalogo && ex.mediaUrl.endsWith('.svg');
+    const classes = 'avn-circuito-foto' + (catalogo ? ' avn-circuito-ilustracao' : '') + (svgAnimado ? ' avn-animated' : '');
+    const base = catalogo ? ' data-base="' + escapeHtml(ex.mediaUrl) + '"' : '';
+    return '<img class="' + classes + '" src="' + escapeHtml(src) + '"' + base +
+      ' alt="' + escapeHtml(ex.name) + '" loading="eager" decoding="async">';
   }
 
   function desenhar() {
@@ -212,6 +219,14 @@
         '<div class="avn-circuito-descanso-corpo"><h2>DESCANSO</h2><div class="avn-circuito-tempo" id="avnCircuitoRelogio" role="timer">00:00</div>' +
         '<span class="avn-circuito-pausado" id="avnCircuitoEstado">' + (s.paused ? 'PAUSADO' : '') + '</span></div></section>';
     }
+    const imagem = modal.querySelector('img.avn-circuito-foto');
+    if (imagem) imagem.onerror = () => {
+      imagem.onerror = null;
+      const aviso = document.createElement('div');
+      aviso.className = 'avn-circuito-sem-foto';
+      aviso.textContent = 'Imagem indisponível';
+      imagem.replaceWith(aviso);
+    };
     byId('avnCircuitoPausar').onclick = pausarOuContinuar;
     byId('avnCircuitoSair').onclick = fechar;
     atualizarRelogio();
