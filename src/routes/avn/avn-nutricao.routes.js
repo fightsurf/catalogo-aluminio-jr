@@ -8,6 +8,7 @@ const consultaTaco = require('../../services/avn/avn-nutricao-taco.service');
 const consultaJsonIA = require('../../services/avn/avn-nutricao-ia-json.service');
 const router = express.Router();
 const {metaPorKg,energiaMacros,razoesDaMeta}=require('../../services/avn/avn-metas-gkg');
+router.use('/importacao-lote',require('./avn-alimentos-lote.routes'));
 router.use('/receitas',require('./avn-receitas.routes'));
 router.use('/dieta/:usuarioId/ajustes-ia',require('./avn-dieta-ajustes.routes'));
 router.use('/dieta/:usuarioId/fotografias',require('./avn-dieta-fotografias.routes'));
