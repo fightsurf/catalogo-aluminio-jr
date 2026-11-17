@@ -22,6 +22,38 @@ test('diagnostico da paginacao publica - sem dados pessoais', async () => {
     const marker=html.indexOf('Abdon Turismo');
     if(marker>=0)console.log('PAGINACAO_DIAG CONTEXTO',html.slice(Math.max(0,marker-230),marker+260).replace(/\\\\/g,'\\\\').replace(/\\d{5,}/g,'[numero]'));
     const rev=html.indexOf('pageSize');if(rev>=0)console.log('PAGINACAO_DIAG PAGE SIZE CONTEXTO',html.slice(Math.max(0,rev-180),rev+190).replace(/\\d{5,}/g,'[numero]'));
+    
+    const inlineScripts=$('script:not([src])').map((_,el)=>$(el).text()).get().join('\n');
+    const flight=[];
+    const re=/self\.__next_f\.push\((\[\s*\d+\s*,\s*"(?:\\.|[^"\\])*"\s*\])\)/g;
+    for(const m of inlineScripts.matchAll(re)){
+      try{const tuple=JSON.parse(m[1]);if(tuple[0]===1)flight.push(tuple[1]);}catch(e){console.log('PAGINACAO_DIAG FLIGHT PARSE ERRO',e.message)}
+    }
+    const flightText=flight.join('');
+    console.log('PAGINACAO_DIAG FLIGHT', {chunks:flight.length,bytes:flightText.length,excursionsIndex:flightText.indexOf('"excursions"')});
+    const entries=flightText.split(/\n(?=[0-9a-f]+:)/);
+    console.log('PAGINACAO_DIAG RSC ENTRIES',entries.length,entries.map(e=>e.slice(0,35)).slice(0,12));
+    for(const entry of entries){
+      if(entry.includes('"excursions"')){
+        const jsonText=entry.slice(entry.indexOf(':')+1).trim();
+        try{
+          const object=JSON.parse(jsonText);
+          console.log('PAGINACAO_DIAG RSC ROOT',Object.keys(object));
+          function walk(value,depth=0){
+            if(depth>4 || !value || typeof value!=='object')return;
+            if(Array.isArray(value)){
+              console.log('PAGINACAO_DIAG ARRAY',depth,'len',value.length,'firstKeys',value[0] && typeof value[0]==='object'?Object.keys(value[0]):typeof value[0]);return;
+            }
+            for(const [key,v] of Object.entries(value)){
+              if(key==='excursions')console.log('PAGINACAO_DIAG EXCURSIONS',Array.isArray(v),v?.length,Array.isArray(v)&&v[0]&&Object.keys(v[0]),Array.isArray(v)&&v[0]&&Object.fromEntries(Object.entries(v[0]).map(([k,val])=>[k,Array.isArray(val)?'array('+val.length+')':typeof val])));
+              else if(typeof v==='object')walk(v,depth+1);
+            }
+          }
+          walk(object);
+        }catch(e){console.log('PAGINACAO_DIAG RSC JSON ERRO',e.message,jsonText.length)}
+      }
+    }
+
     console.log('PAGINACAO_DIAG PAGER', $('button,a,[role=button]').filter((_,e)=>/^\s*(2|3|>|>>)\s*$/.test($(e).text())).slice(0,12).map((_,e)=>$(e).prop('outerHTML').slice(0,750)).get());
     console.log('PAGINACAO_DIAG STATE', $('script[type="application/json"],#__NEXT_DATA__,script[data-nuxt-data]').map((_,e)=>({attrs:$(e).attr(),size:$(e).text().length,peek:$(e).text().slice(0,160)})).get().slice(0,8));
     for(const q of ['?page=2','?pagina=2','?p=2','?pageNumber=2','?current_page=2']){
