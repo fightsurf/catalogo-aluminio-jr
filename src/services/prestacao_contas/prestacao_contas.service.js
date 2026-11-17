@@ -1374,12 +1374,6 @@ class PrestacaoContasService {
       throw err;
     }
 
-    if (this._statusPrestacao(cabecalho) !== 'ABERTA') {
-      const err = new Error('O PDF do WhatsApp só pode ser enviado para uma prestação aberta.');
-      err.statusCode = 400;
-      throw err;
-    }
-
     if (!String(cabecalho.fornecedor_telefone || '').trim()) {
       const err = new Error('O fornecedor desta prestação não possui telefone cadastrado.');
       err.statusCode = 400;
