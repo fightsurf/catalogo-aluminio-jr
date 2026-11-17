@@ -18,13 +18,35 @@ function telefones(valor) {
     return n;
   }).filter(n => n.length === 10 || n.length === 11))];
 }
+const UFS_POR_ESTADO = {
+  acre:'AC', alagoas:'AL', amapa:'AP', amazonas:'AM', bahia:'BA', ceara:'CE',
+  'distrito federal':'DF', 'espirito santo':'ES', goias:'GO', maranhao:'MA',
+  'mato grosso':'MT', 'mato grosso do sul':'MS', 'minas gerais':'MG', para:'PA',
+  paraiba:'PB', parana:'PR', pernambuco:'PE', piaui:'PI', 'rio de janeiro':'RJ',
+  'rio grande do norte':'RN', 'rio grande do sul':'RS', rondonia:'RO',
+  roraima:'RR', 'santa catarina':'SC', 'sao paulo':'SP', sergipe:'SE',
+  tocantins:'TO'
+};
 function localidade(valor, ufAlternativa) {
-  const raw = limpar(valor, 160).replace(/\.$/, '');
-  const m = raw.match(/^(.*?)\s*[-–]\s*([A-Z]{2})$/i);
-  const nome = limpar(m ? m[1] : raw, 120);
-  const uf = limpar(m ? m[2] : ufAlternativa, 2).toUpperCase();
+  const raw = limpar(valor, 160).replace(/\.$/, '').trim();
+  let nome = raw;
+  let uf = limpar(ufAlternativa, 2).toUpperCase();
+  const sigla = raw.match(/^(.*?)\s*(?:[-–,]\s*|\s+)([A-Z]{2})$/i);
+  if (sigla) { nome = sigla[1].trim(); uf = sigla[2].toUpperCase(); }
+  else {
+    const semAcentos = chave(raw);
+    for (const [estado, siglaEstado] of Object.entries(UFS_POR_ESTADO)) {
+      if (semAcentos.endsWith(' ' + estado)) {
+        nome = raw.slice(0, raw.length - estado.length).replace(/[\s,–-]+$/, '').trim();
+        uf = siglaEstado;
+        break;
+      }
+    }
+  }
+  nome = limpar(nome, 120);
   return nome && /^[A-Z]{2}$/.test(uf) ? { nome, uf } : null;
 }
+
 function normalizarLinha(dados) {
   const nome = limpar(dados.nome || dados.transportadora || dados.excursao, 150);
   const origem = limpar(dados.origem, 160);
@@ -34,19 +56,24 @@ function normalizarLinha(dados) {
   const cidades = [];
   const semUf = [];
   const achadas = new Set();
-  for (const trecho of rota.split(/[\/|\n;]+/)) {
-    if (!trecho.trim()) continue;
-    const cidade = localidade(trecho);
-    if (!cidade) { semUf.push(limpar(trecho, 140)); continue; }
+  const adicionar = cidade => {
     const key = chave(cidade.nome) + '|' + cidade.uf;
     if (!achadas.has(key)) { cidades.push(cidade); achadas.add(key); }
+  };
+  // A origem tambem e uma cidade atendida, alem de todas as paradas da rota.
+  if (orig) adicionar(orig);
+  else if (origem) semUf.push(origem);
+  for (const trecho of rota.split(/[\\/|\n;]+/)) {
+    if (!trecho.trim()) continue;
+    const cidade = localidade(trecho);
+    if (cidade) adicionar(cidade);
+    else semUf.push(limpar(trecho, 140));
   }
-  // A origem e informacao cadastral; somente a rota define cidades atendidas.
   return {
     nome, origem, origemLocalidade: orig, destino: limpar(dados.destino, 300),
     tipo: limpar(dados.tipo || dados.categoria, 70),
     telefones: telefones([dados.telefones, dados.telefone, dados.telefone1, dados.telefone2, dados.whatsapp].filter(Boolean).join(' / ')),
-    cidades, semUf
+    cidades, semUf: [...new Set(semUf)]
   };
 }
 function montarCamposTransportadora(registro) {
@@ -56,8 +83,49 @@ function montarCamposTransportadora(registro) {
     nome: registro.nome,
     telefone: internacionais.join(' / ') || null,
     telefone_principal: internacionais[0] || null,
-    observacao: registro.origem ? 'Origem: ' + registro.origem : null
+    observacao: registro.destino || null
   };
+}
+function combinarTelefones(existente, novos) {
+  const originais = telefones([existente.telefone, existente.telefone_principal].filter(Boolean).join(' / '));
+  const conhecidos = new Set(originais);
+  const adicionados = [];
+  for (const numero of telefones((novos || []).join(' / '))) {
+    if (!conhecidos.has(numero)) { adicionados.push(numero); conhecidos.add(numero); }
+  }
+  const lista = [...originais, ...adicionados].map(n => '55' + n);
+  // Se algum cadastro legado tiver um telefone fora do formato reconhecido, nao o apagar.
+  const original = String(existente.telefone || '').trim();
+  const telefone = originais.length ? lista.join(' / ') :
+    [original, ...adicionados.map(n => '55' + n)].filter(Boolean).join(' / ');
+  const principalExistente = String(existente.telefone_principal || '').trim();
+  return {
+    telefone: telefone || null,
+    telefone_principal: principalExistente || lista[0] || null,
+    adicionados: adicionados.length
+  };
+}
+function combinarObservacao(atual, destino) {
+  const observacao = String(atual || '').trim();
+  const nova = String(destino || '').trim();
+  if (!nova || (observacao && chave(observacao).includes(chave(nova)))) return observacao || null;
+  return [observacao, nova].filter(Boolean).join('\n') || null;
+}
+// Apenas correspondencia unica por nome exato ou telefone permite fusao automatica.
+function escolherTransportadora(registro, existentes) {
+  const nome = chave(registro.nome);
+  const comTelefone = t => {
+    const numeros = telefones([t.telefone, t.telefone_principal].filter(Boolean).join(' / '));
+    return (registro.telefones || []).some(n => numeros.includes(n));
+  };
+  const porNome = existentes.filter(t => chave(t.nome) === nome);
+  if (porNome.length === 1) return porNome[0];
+  if (porNome.length > 1) {
+    const porNomeTelefone = porNome.filter(comTelefone);
+    return porNomeTelefone.length === 1 ? porNomeTelefone[0] : null;
+  }
+  const porTelefone = existentes.filter(comTelefone);
+  return porTelefone.length === 1 ? porTelefone[0] : null;
 }
 
 function candidatosPara(registro, existentes) {
@@ -94,4 +162,4 @@ function classificar(registro, existentes) {
   }
   return { situacao: candidatos.length ? 'revisar' : 'novo', candidatos };
 }
-module.exports = { limpar, chave, telefones, localidade, normalizarLinha, montarCamposTransportadora, candidatosPara, classificar };
+module.exports = { limpar, chave, telefones, localidade, normalizarLinha, montarCamposTransportadora, combinarTelefones, combinarObservacao, escolherTransportadora, candidatosPara, classificar };
