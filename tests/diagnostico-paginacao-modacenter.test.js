@@ -1,12 +1,15 @@
 'use strict';
 const test = require('node:test');
 const cheerio = require('cheerio');
+const { extrairDadosIncorporados, coletarExcursoes } = require('../src/services/logistica/coletorModaCenter.service');
 test('diagnostico da paginacao publica - sem dados pessoais', async () => {
   try {
     const response = await fetch('https://omodacenter.com.br/c/excursoes', {signal:AbortSignal.timeout(12000)});
     console.log('PAGINACAO_DIAG status',response.status,'type',response.headers.get('content-type'));
     if(!response.ok)return;
     const html=await response.text();const $=cheerio.load(html);
+    const parsed=extrairDadosIncorporados(html);
+    console.log('PAGINACAO_DIAG RESULT', {parsed:parsed.length,firstRoute:parsed[0]?.rota.split(' / ').length,firstPhones:parsed[0]?.telefones.split(' / ').length});
     console.log('PAGINACAO_DIAG HTML',html.length,'scripts', $('script[src]').map((_,e)=>$(e).attr('src')).get().slice(0,40));
     console.log('PAGINACAO_DIAG counts', {origem:(html.match(/Origem:/g)||[]).length, conferir:(html.match(/Conferir rota/g)||[]).length, heading:$('h3').length, nextScripts:(html.match(/self\\.__next_f\\.push/g)||[]).length});
     const chunk='/_next/static/chunks/app/c/excursoes/page-a7832169bf156013.js';
