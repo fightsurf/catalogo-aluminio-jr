@@ -6,7 +6,6 @@ on:
       - 'views/whatsapp/mala-direta.html'
       - 'tests/mala-direta-logistica.test.js'
       - 'tests/mala-direta-audio-importado.test.js'
-      - 'tests/mala-direta-audio-importado.test.js'
       - '.github/workflows/mala-direta-logistica-tests.yml'
   push:
     branches: [main]
@@ -14,6 +13,7 @@ on:
       - 'src/services/mala-direta/**'
       - 'views/whatsapp/mala-direta.html'
       - 'tests/mala-direta-logistica.test.js'
+      - 'tests/mala-direta-audio-importado.test.js'
       - '.github/workflows/mala-direta-logistica-tests.yml'
 jobs:
   tests:
