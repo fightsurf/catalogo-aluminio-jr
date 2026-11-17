@@ -64,7 +64,7 @@ test('cidades da logística usam apenas o cadastro da transportadora com DISTINC
   await log.consultar('transportadoras',1);
   const consulta=readQueries.find(q=>q.sql.includes('SELECT t.id,t.nome,t.telefone'));
   assert.ok(consulta);
-  assert.match(consulta.sql,/t.cidade_id=\\$1/);
+  assert.match(consulta.sql,/t\.cidade_id=\$1/);
   assert.doesNotMatch(consulta.sql,/transportadora_cidade/);
   assert.deepEqual(consulta.args,[1]);
   await log.cidades('agencias');
