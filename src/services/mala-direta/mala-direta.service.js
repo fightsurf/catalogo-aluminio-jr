@@ -72,6 +72,17 @@ async function preparar() {
       ALTER TABLE mala_direta_campanhas ADD COLUMN IF NOT EXISTS audio_modelo VARCHAR(100);
       ALTER TABLE mala_direta_destinatarios ADD COLUMN IF NOT EXISTS imagem_aceita_em TIMESTAMPTZ;
       ALTER TABLE mala_direta_destinatarios ADD COLUMN IF NOT EXISTS audio_aceito_em TIMESTAMPTZ;
+      -- Contatos da logística não possuem código de favorecido no Firebird.
+      ALTER TABLE mala_direta_destinatarios ALTER COLUMN favorecido DROP NOT NULL;
+      ALTER TABLE mala_direta_destinatarios ADD COLUMN IF NOT EXISTS origem_destinatario VARCHAR(16) NOT NULL DEFAULT 'cliente';
+      ALTER TABLE mala_direta_destinatarios ADD COLUMN IF NOT EXISTS referencia_destinatario VARCHAR(80);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_mala_direta_origem_ref
+        ON mala_direta_destinatarios(campanha_id,origem_destinatario,referencia_destinatario)
+        WHERE referencia_destinatario IS NOT NULL;
+      ALTER TABLE mala_direta_campanhas ADD COLUMN IF NOT EXISTS grupo_logistica VARCHAR(24);
+      -- NULL preserva as regras de campanhas antigas, sem restringir horários retroativamente.
+      ALTER TABLE mala_direta_campanhas ADD COLUMN IF NOT EXISTS horario_inicio TIME;
+      ALTER TABLE mala_direta_campanhas ADD COLUMN IF NOT EXISTS horario_fim TIME;
       CREATE INDEX IF NOT EXISTS idx_mala_direta_fila ON mala_direta_destinatarios (campanha_id,id) WHERE status='pendente';
       CREATE TABLE IF NOT EXISTS mala_direta_bloqueios (
         telefone VARCHAR(20) PRIMARY KEY,
@@ -138,14 +149,20 @@ async function semanas() {
 }
 function criterioValido(dados) {
   const tipo=String(dados.tipoPublico||'periodo');
-  if (!['periodo','carrada','semana'].includes(tipo)) bad('Escolha período, carrada ou semana.');
-  const referencia=tipo==='periodo'?null:id(dados.referenciaPublico);
+  if (!['periodo','carrada','semana','logistica'].includes(tipo)) bad('Escolha período, carrada, semana ou contatos da logística.');
+  const referencia=(tipo==='periodo'||tipo==='logistica')?null:id(dados.referenciaPublico);
   const meses=tipo==='periodo'?Number(dados.meses):0;
   if (tipo==='periodo'&&(!Number.isInteger(meses)||meses<0||meses>600||meses%6)) bad('Período inválido.');
-  return {tipo,referencia,meses};
+  const grupo=tipo==='logistica'?String(dados.grupoLogistica||'todos'):null;
+  if(tipo==='logistica'&&!['todos','transportadoras','agencias'].includes(grupo)) bad('Grupo da logística inválido.');
+  return {tipo,referencia,meses,grupo};
 }
 async function compradoresPorCriterio(dados) {
-  const {tipo,referencia,meses}=criterioValido(dados);
+  const {tipo,referencia,meses,grupo}=criterioValido(dados);
+  if(tipo==='logistica') {
+    await preparar();
+    return require('./mala-direta-logistica.service').consultar(grupo);
+  }
   if(tipo==='periodo') return compradores(id(dados.item),meses);
   let codigos=[];
   if(tipo==='carrada') {
@@ -189,28 +206,51 @@ function audioSelecionado(dados,usuario){
 }
 async function criar(dados, origem,usuario) {
   await preparar();
-  const produtoId=id(dados.produtoId), criterio=criterioValido(dados), intervalo=Number(dados.intervaloSegundos);
-  const {tipo,referencia,meses}=criterio;
-  if(!Number.isInteger(intervalo)||intervalo<5||intervalo>3600) bad('Intervalo de 5 a 3600 segundos.');
+  const produtoId=id(dados.produtoId), criterio=criterioValido(dados);
+  const {tipo,referencia,meses,grupo}=criterio;
+  const minutosInformados=dados.intervaloMinutos!==undefined;
+  const intervalo=minutosInformados?Number(dados.intervaloMinutos)*60:Number(dados.intervaloSegundos);
+  if(!Number.isInteger(intervalo)||intervalo<(minutosInformados?60:5)||intervalo>86400)
+    bad('Informe um intervalo válido de 1 a 1440 minutos.');
+  const inicio=String(dados.horarioInicio||'').trim();
+  const fim=String(dados.horarioFim||'').trim();
+  const horaValida=h=>/^([01]\d|2[0-3]):[0-5]\d$/.test(h);
+  if((inicio||fim)&&(!horaValida(inicio)||!horaValida(fim)||inicio>=fim))
+    bad('Informe horário inicial anterior ao final no formato HH:MM.');
   const mensagem=String(dados.mensagem||'').trim();
   if(!mensagem||mensagem.length>3000) bad('Informe texto de até 3000 caracteres.');
   if(dados.confirmouConsentimento!==true) bad('Confirme a autorização dos destinatários antes de iniciar a campanha.');
   const selecionados=dados.destinatarios;
-  if(!Array.isArray(selecionados)||!selecionados.length||selecionados.length>2000) bad('Selecione de 1 a 2000 clientes.');
-  const ids=selecionados.map(x=>id(x.favorecido));
-  if(new Set(ids).size!==ids.length) bad('Clientes repetidos.');
+  if(!Array.isArray(selecionados)||!selecionados.length||selecionados.length>2000) bad('Selecione de 1 a 2000 destinatários.');
   const produto=await pool.query('SELECT id, nome, item_legado FROM produtos WHERE id=$1',[produtoId]);
   if(!produto.rows.length) bad('Produto não encontrado no catálogo Render.');
   const codigo=produto.rows[0].item_legado==null?null:Number(produto.rows[0].item_legado);
   if(tipo==='periodo'&&!codigo) bad('Vincule o item legado para consultar compradores por período.');
-  const base=await compradoresPorCriterio({tipoPublico:tipo,referenciaPublico:referencia,meses,item:codigo});
-  const permitidos=new Map(base.map(x=>[Number(x.favorecido),x]));
-  const linhas=selecionados.map(s=>{
-    const c=permitidos.get(Number(s.favorecido));
-    if(!c||!c.telefoneNormalizado||c.bloqueado||s.autorizado!==true) bad(`Cliente ${s.favorecido}: telefone inválido, bloqueado ou autorização não confirmada.`);
-    return {id:Number(s.favorecido),nome:String(c.nome||''),fone:c.telefoneNormalizado};
-  });
-  if(new Set(linhas.map(x=>x.fone)).size!==linhas.length) bad('Existem clientes selecionados com o mesmo telefone; resolva duplicidades antes de enviar.');
+  const base=await compradoresPorCriterio({tipoPublico:tipo,referenciaPublico:referencia,grupoLogistica:grupo,meses,item:codigo});
+  let linhas;
+  if(tipo==='logistica') {
+    const refs=selecionados.map(x=>String(x.referencia||''));
+    if(refs.some(x=>!x)||new Set(refs).size!==refs.length)bad('Contatos da logística repetidos ou inválidos.');
+    const permitidos=new Map(base.map(x=>[x.referencia,x]));
+    linhas=selecionados.map(x=>{
+      const c=permitidos.get(String(x.referencia||''));
+      if(!c||!c.telefoneNormalizado||c.bloqueado||x.autorizado!==true)
+        bad('Contato da logística não encontrado, inválido, bloqueado ou sem confirmação de autorização.');
+      return {id:null,nome:String(c.nome||''),fone:c.telefoneNormalizado,origem:'logistica',referencia:c.referencia};
+    });
+  } else {
+    const ids=selecionados.map(x=>id(x.favorecido));
+    if(new Set(ids).size!==ids.length)bad('Clientes repetidos.');
+    const permitidos=new Map(base.map(x=>[Number(x.favorecido),x]));
+    linhas=selecionados.map(x=>{
+      const c=permitidos.get(Number(x.favorecido));
+      if(!c||!c.telefoneNormalizado||c.bloqueado||x.autorizado!==true)
+        bad('Cliente: telefone inválido, bloqueado ou autorização não confirmada.');
+      return {id:Number(x.favorecido),nome:String(c.nome||''),fone:c.telefoneNormalizado,origem:'cliente',referencia:null};
+    });
+  }
+  if(new Set(linhas.map(x=>x.fone)).size!==linhas.length)
+    bad('Existem destinatários com o mesmo telefone; remova duplicidades antes de enviar.');
   const imagem=urlFoto(dados.imagem,origem);
   const preparado=audioSelecionado(dados,usuario);
   const audio=preparado.audio, audioTexto=preparado.texto;
@@ -219,13 +259,16 @@ async function criar(dados, origem,usuario) {
     await client.query('BEGIN');
     const camp=await client.query(`INSERT INTO mala_direta_campanhas
       (produto_id,item_legado,produto_nome,meses,mensagem,imagem,intervalo_segundos,
-        tipo_publico,referencia_publico,audio_texto,audio_mp3,audio_voz,audio_modelo)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING id`,
+        tipo_publico,referencia_publico,audio_texto,audio_mp3,audio_voz,audio_modelo,
+        grupo_logistica,horario_inicio,horario_fim)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING id`,
       [produto.rows[0].id,codigo,produto.rows[0].nome,meses,mensagem,imagem,intervalo,
-        tipo,referencia,audioTexto||null,audio?.bytes||null,audio?.voz||null,audio?.modelo||null]);
+        tipo,referencia,audioTexto||null,audio?.bytes||null,audio?.voz||null,audio?.modelo||null,
+        grupo,inicio||null,fim||null]);
     const cid=camp.rows[0].id;
-    for(const r of linhas) await client.query(`INSERT INTO mala_direta_destinatarios (campanha_id,favorecido,nome,telefone)
-      VALUES ($1,$2,$3,$4)`,[cid,r.id,r.nome,r.fone]);
+    for(const r of linhas)await client.query(`INSERT INTO mala_direta_destinatarios
+      (campanha_id,favorecido,nome,telefone,origem_destinatario,referencia_destinatario)
+      VALUES ($1,$2,$3,$4,$5,$6)`,[cid,r.id,r.nome,r.fone,r.origem,r.referencia]);
     await client.query('COMMIT');
     return {id:Number(cid),total:linhas.length};
   } catch(e) { await client.query('ROLLBACK'); throw e; }
@@ -233,7 +276,7 @@ async function criar(dados, origem,usuario) {
 }
 async function listar() {
   await preparar();
-  const r=await pool.query(`SELECT c.id,c.produto_nome,c.item_legado,c.tipo_publico,c.referencia_publico,c.audio_mp3 IS NOT NULL AS com_audio,c.status,c.criada_em,c.intervalo_segundos,
+  const r=await pool.query(`SELECT c.id,c.produto_nome,c.item_legado,c.tipo_publico,c.referencia_publico,c.grupo_logistica,c.horario_inicio,c.horario_fim,c.audio_mp3 IS NOT NULL AS com_audio,c.status,c.criada_em,c.intervalo_segundos,
     COUNT(d.id)::int total,
     COUNT(d.id) FILTER (WHERE d.status='enviado')::int enviados,
     COUNT(d.id) FILTER (WHERE d.status='pendente')::int pendentes,
@@ -244,7 +287,7 @@ async function listar() {
 }
 async function detalhe(cid) {
   await preparar();
-  const c=await pool.query('SELECT id,produto_nome,status,tipo_publico,referencia_publico, audio_mp3 IS NOT NULL AS com_audio, intervalo_segundos,criada_em,concluida_em FROM mala_direta_campanhas WHERE id=$1',[id(cid)]);
+  const c=await pool.query('SELECT id,produto_nome,status,tipo_publico,referencia_publico,grupo_logistica,horario_inicio,horario_fim, audio_mp3 IS NOT NULL AS com_audio, intervalo_segundos,criada_em,concluida_em FROM mala_direta_campanhas WHERE id=$1',[id(cid)]);
   if(!c.rows.length) bad('Campanha não encontrada.');
   const d=await pool.query('SELECT favorecido,nome,telefone,status,iniciado_envio_em,enviado_em,imagem_aceita_em,audio_aceito_em,erro FROM mala_direta_destinatarios WHERE campanha_id=$1 ORDER BY id',[cid]);
   return {campanha:c.rows[0],destinatarios:d.rows};
@@ -317,6 +360,8 @@ async function processarProximo() {
       SELECT d.id,d.campanha_id,d.telefone,c.produto_id,c.produto_nome,c.mensagem,c.imagem,c.intervalo_segundos,c.audio_mp3
       FROM mala_direta_destinatarios d JOIN mala_direta_campanhas c ON c.id=d.campanha_id
       WHERE d.status='pendente' AND c.status='ativa' AND c.proximo_envio_em<=NOW()
+        AND (c.horario_inicio IS NULL OR (NOW() AT TIME ZONE 'America/Fortaleza')::time >= c.horario_inicio)
+        AND (c.horario_fim IS NULL OR (NOW() AT TIME ZONE 'America/Fortaleza')::time < c.horario_fim)
         AND NOT EXISTS(SELECT 1 FROM mala_direta_destinatarios v WHERE v.campanha_id=c.id AND v.status='enviando')
       ORDER BY c.proximo_envio_em,c.id,d.id LIMIT 1 FOR UPDATE OF d SKIP LOCKED`);
     if(!r.rows.length){await client.query('COMMIT');return;}
