@@ -35,3 +35,18 @@ Executar: node --test tests/importacao-excursoes-utils.test.js
 
 ## Futuro
 Para sincronizacao automatica, obter autorizacao ou API documentada do Moda Center; manter o fluxo de previa e aprovacao.
+
+## Coleta online (novo)
+A pagina /admin-logistica/importacao-modacenter agora tem o botao **Consultar Moda Center e comparar registros**.
+
+- O administrador deve confirmar que possui **autorizacao especifica para copiar os cadastros e utiliza-los comercialmente**. Autorizar transporte ou ter relacionamento com as excursoes nao equivale automaticamente a essa permissao.
+- O backend consulta apenas https://omodacenter.com.br/c/excursoes, via HTTPS. Nao tenta contornar bloqueios, logins ou mecanismos anti-automacao.
+- O coletor extrai nome, origem, destino, telefones e rota visiveis no HTML publico, e procura paginas seguintes por links ou por parametros de paginacao. Pode deixar de funcionar se a estrutura do site ou a paginacao forem alteradas.
+- Ha pausas de 400 ms entre requisicoes, timeout de 12 segundos por pagina, maximo de 45 paginas, 1.000 registros e bloqueio de coletas repetidas durante 90 segundos.
+- **A coleta nao grava nada diretamente**. Os dados extraidos sao enviados ao mesmo endpoint de previa do CSV. A confirmacao final continua obrigatoria.
+- Para nao declarar sucesso enganoso, o status **coleta completa** somente aparece quando o numero de registros unicos atinge o total informado pelo proprio site. Quando nao e possivel acessar as proximas paginas, a interface apresenta aviso de **coleta parcial**.
+- Registros com nomes semelhantes, mas sem nome/telefone identicos, podem ser criados separadamente com revisao explicita. Coincidencias fortes permanecem protegidas.
+- Ainda exige validacao em producao de rede/paginacao, pois o layout e o comportamento da fonte podem variar. Se a fonte passar a carregar as paginas exclusivamente em JavaScript, sera necessario um acordo de API/exportacao ou um adaptador especifico autorizado.
+
+## Teste do coletor
+Execute `node --test tests/coletor-modacenter.test.js`. Para validar com a fonte real, acesse a pagina autenticado, marque a autorizacao, clique em **Consultar Moda Center** e revise numero de paginas e registros antes de confirmar qualquer importacao.
