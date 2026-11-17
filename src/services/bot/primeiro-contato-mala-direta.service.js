@@ -8,14 +8,29 @@ function telefoneCanonico(telefone) {
   return /^\d{10,15}$/.test(valor) ? valor : null;
 }
 
-async function abordadoPelaMalaDireta(telefone, executor = pool) {
+// A Z-API pode devolver o numero sem o nono digito, mesmo quando
+// a campanha enviou para o numero com 9. Nunca comparar apenas o sufixo:
+// exigir o mesmo DDI 55, DDD e os oito digitos finais.
+function telefonesEquivalentes(telefone) {
   const tel = telefoneCanonico(telefone);
+  if (!tel) return [];
+  if (/^55\d{2}\d{8}$/.test(tel)) {
+    return [tel, tel.slice(0, 4) + '9' + tel.slice(4)];
+  }
+  if (/^55\d{2}9\d{8}$/.test(tel)) {
+    return [tel, tel.slice(0, 4) + tel.slice(5)];
+  }
+  return [tel];
+}
+
+async function abordadoPelaMalaDireta(telefone, executor = pool) {
+  const telefones = telefonesEquivalentes(telefone);
   // Um identificador nao canonico nunca autoriza saudacao automatica.
-  if (!tel) return true;
+  if (!telefones.length) return true;
   const consulta = await executor.query(`
     SELECT EXISTS (
       SELECT 1 FROM mala_direta_destinatarios
-      WHERE telefone = $1
+      WHERE telefone = ANY($1::varchar[])
         AND (
           iniciado_envio_em IS NOT NULL
           OR etapa_enviada_index >= 0
@@ -24,7 +39,7 @@ async function abordadoPelaMalaDireta(telefone, executor = pool) {
           OR status IN ('enviando', 'enviado', 'incerto')
         )
     ) AS abordado
-  `, [tel]);
+  `, [telefones]);
   return consulta.rows[0]?.abordado === true;
 }
 
