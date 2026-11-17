@@ -1182,7 +1182,7 @@ function preencherTabelaAndamento(destinatarios){
         if(!/^\d+$/.test(resposta.trim())||Number(resposta)>total){
           msg('Informe uma quantidade válida, entre zero e '+total+'.',true);return;
         }
-        const quantidade=Number(resposta),minimo=Math.max(0,Number(d.etapa_enviada_index||-1)+1);
+        const quantidade=Number(resposta),minimo=Math.max(0,Number(d.etapa_enviada_index??-1)+1);
         if(quantidade<minimo){msg('Não é possível desfazer mensagens já registradas como aceitas.',true);return;}
         if(!window.confirm('Confirmar '+quantidade+' mensagem(ns) realmente verificadas neste contato? '
           +'As demais serão consideradas pendentes e poderão ser enviadas quando você retomar. Uma confirmação errada pode repetir mensagens.'))return;
