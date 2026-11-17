@@ -178,6 +178,9 @@ function simularFila({erroNoTexto=null}={}){
     if(name.includes('db/connection'))return pool;
     if(name.includes('integracoes/zapi.service'))return zapi;
     if(name.includes('central-controle.service'))return {ativo:async()=>true};
+    if(name.includes('bot/primeiro-contato-mala-direta.service'))return {
+      registrarEnvioIniciado:async()=>{eventos.push('abordagem_registrada');}
+    };
     return {};
   },mod,eventos);
   return {processar:mod.exports.processarProximo,eventos};
@@ -191,6 +194,8 @@ test('seis mensagens são aceitas em ordem, com cinco esperas de 5 segundos e 10
   assert.equal(eventos.filter(e=>e==='espera:5000').length,5);
   assert.equal(eventos.filter(e=>e.startsWith('checkpoint:')).length,6);
   assert.equal(eventos.filter(e=>e==='agenda:600').length,1);
+  assert.ok(eventos.indexOf('abordagem_registrada')>=0);
+  assert.ok(eventos.indexOf('abordagem_registrada')<eventos.indexOf('foto'));
   assert.ok(eventos.indexOf('agenda:600')>eventos.lastIndexOf('audio'));
   assert.ok(eventos.indexOf('status:enviado')>eventos.lastIndexOf('checkpoint:5'));
 });
