@@ -8,6 +8,7 @@ const gravador=require('../../services/mala-direta/mala-direta-audio-gravado.ser
 const eleven=require('../../services/integracoes/elevenlabs-jr.service');
 const uploadAudio=multer({storage:multer.memoryStorage(),limits:{fileSize:6*1024*1024,files:1,fields:0}}).single('audio');
 router.use(requireAuth);
+router.use((_req,res,next)=>{res.set('Cache-Control','no-store');next();});
 // Cada rota informa sua etapa de falha. Sem expor tokens ou credenciais.
 const handler=(etapa,fn)=>async(req,res)=>{try{res.json({sucesso:true,dados:await fn(req)});}catch(e){
   console.error('[mala-direta/api]',etapa,e.stack||e.message);
