@@ -56,6 +56,7 @@
 </style></head><body><main class="wrap">
 <h1>Mala Direta — Alumínio JR</h1><p class="muted">Escolha um produto, um grupo de destinatários e envie a divulgação pelo WhatsApp.</p>
 <div id="status" role="status" aria-live="polite"></div>
+<div class="mala-layout"><div class="mala-main">
 <section class="card"><h2>1. Escolha do produto</h2>
 <div class="grid mala-produto-filtros">
 <div class="field"><label for="categoriaProduto">Categoria do produto</label><select id="categoriaProduto"><option value="">Todas as categorias</option></select></div>
@@ -64,29 +65,31 @@
 <button type="button" id="produtoSelect" class="produto-select" role="combobox" aria-labelledby="produtoLabel produtoSelectConteudo" aria-expanded="false" aria-controls="listaProdutos" aria-haspopup="listbox"><span id="produtoSelectConteudo" class="produto-select-conteudo"><span class="produto-select-nome">Selecione um produto</span></span><span class="produto-select-seta" aria-hidden="true">▼</span></button>
 <div id="listaProdutos" class="produto-menu" role="listbox" aria-label="Produtos com foto" hidden></div></div>
 </div></section>
-<section class="card"><div class="row" style="justify-content:space-between"><h2>2. Seleção dos destinatários</h2><span id="resumo" class="muted">Escolha um critério.</span></div>
-<p class="muted">Escolha um único critério. Os demais ficam desabilitados. Carrada e semana incluem clientes com pedidos válidos; logística consulta transportadoras (inclusive redespachos) e agências de recebimento, independentemente do produto anunciado.</p>
+<section class="card"><div class="row" style="justify-content:space-between"><h2>2. Seleção dos destinatários</h2><span id="resumo" class="muted">Escolha a origem dos contatos.</span></div>
+<div class="field"><label for="origemDestinatarios">Origem dos destinatários</label><select id="origemDestinatarios">
+<option value="">Selecione uma origem</option><option value="logistica">Contatos da Logística</option><option value="compras">Contatos por Período de Compra do Produto</option>
+</select></div>
+<div id="filtrosLogistica" hidden>
+<div class="grupo-filtros">
+<div class="field"><label for="grupoLogistica">Tipo de contato da logística</label><select id="grupoLogistica">
+<option value="">Selecione o tipo</option><option value="todos">Todos os contatos da Logística</option><option value="transportadoras">Transportadoras e Redespachos</option><option value="agencias">Agências de Recebimento</option>
+</select></div>
+<div class="field"><label for="cidadeLogistica">Cidade de origem / localidade vinculada</label><select id="cidadeLogistica"><option value="">Selecione o tipo de contato primeiro</option></select></div>
+</div><p class="muted small">A busca considera as cidades vinculadas à transportadora (incluindo rotas) ou à agência. O vínculo não comprova que a cidade seja a origem exclusiva da excursão.</p>
+</div>
+<div id="filtrosCompras" hidden><p class="muted small">Escolha um dos filtros: período, carrada ou semana. Os demais serão limpos automaticamente.</p>
 <div class="grupo-filtros">
 <div class="field"><label for="periodo">Período de compras do produto</label><select id="periodo"><option value="">Escolha um período</option><option value="0">Todas as compras realizadas</option></select></div>
 <div class="field"><label id="carradaLabel" for="carradaSelect">Carrada</label>
 <select id="carrada" class="carrada-native" tabindex="-1" aria-hidden="true"><option value="">Escolha uma carrada</option></select>
 <div class="carrada-select-wrapper">
 <button type="button" id="carradaSelect" class="carrada-select" role="combobox" aria-labelledby="carradaLabel carradaSelectTexto" aria-haspopup="listbox" aria-expanded="false" aria-controls="listaCarradas"><span id="carradaSelectTexto" class="carrada-select-texto">Escolha uma carrada</span><span class="carrada-select-seta" aria-hidden="true">▼</span></button>
-<div id="listaCarradas" class="carrada-opcoes" role="listbox" aria-label="Carradas por situação" hidden></div>
-</div>
+<div id="listaCarradas" class="carrada-opcoes" role="listbox" aria-label="Carradas por situação" hidden></div></div>
 <a id="abrirProgresso" class="abrir-progresso" target="_blank" rel="noopener noreferrer" aria-disabled="true" tabindex="-1">Abrir progresso ↗</a>
 </div>
 <div class="field"><label for="semana">Semana</label><select id="semana"><option value="">Escolha uma semana</option></select></div>
-<div class="field"><label for="grupoLogistica">Contatos da logística</label><select id="grupoLogistica">
-<option value="">Escolha uma opção</option>
-<option value="todos">Todos os contatos da logística</option>
-<option value="transportadoras">Transportadoras e redespachos</option>
-<option value="agencias">Agências de recebimento</option>
-</select><span class="muted small">Serão exibidos todos os telefones válidos de cada cadastro, sem repetições.</span></div>
-</div>
-<div class="row modo-filtro"><button type="button" class="secondary" id="limparFiltro">Limpar filtro e liberar os quatro seletores</button><button type="button" id="consultar" class="secondary">Consultar destinatários</button><span id="criterioAtivo" class="muted">Nenhum critério escolhido</span></div>
-<div class="row"><button class="secondary" id="selecionarTodos">Marcar destinatários com telefone válido</button><button class="secondary" id="limpar">Limpar seleção</button></div>
-<div class="tablewrap"><table><thead><tr><th>Selecionar</th><th>Cliente / contato</th><th>Cidade</th><th>Telefone</th><th>Unidades</th><th>Pedidos</th><th>Última compra</th><th>Perfil</th></tr></thead><tbody id="compradores"></tbody></table></div>
+</div></div>
+<div class="row modo-filtro"><button type="button" class="secondary" id="limparFiltro">Limpar filtros</button><button type="button" id="consultar" class="secondary">Consultar destinatários</button><button type="button" id="visualizarContatos" disabled>Visualizar contatos</button><span id="criterioAtivo" class="muted">Nenhum critério escolhido</span></div>
 <p class="muted" id="contagem">0 selecionados</p></section>
 <section class="card"><h2>3. Imagem e mensagem</h2>
 <div class="grid">
@@ -133,8 +136,19 @@
 </section>
 <section class="card bottom"><div class="row"><button id="enviar">Iniciar Mala Direta</button><span class="muted" id="enviarResumo">Nenhum destinatário selecionado</span></div></section>
 <section class="card"><div class="row" style="justify-content:space-between"><h2>Campanhas e relatórios</h2><button class="secondary" id="atualizar">Atualizar</button></div><div class="tablewrap"><table><thead><tr><th>Campanha</th><th>Produto</th><th>Status</th><th>Enviados</th><th>Pendentes</th><th>Problemas</th><th>Ações</th></tr></thead><tbody id="campanhas"></tbody></table></div></section>
-</main>
-<div class="modal" id="modal"><div class="dialog"><div class="row" style="justify-content:space-between"><h2 id="modalTitulo">Perfil de compras</h2><button class="secondary" id="fechar">Fechar</button></div><div id="modalCorpo"></div></div></div>
+</div><aside class="mala-side" aria-label="Simulador de mensagem no WhatsApp">
+<div class="whatsapp-sim">
+<div class="sim-title">Prévia da conversa no WhatsApp <span class="sim-tag">Simulação</span></div>
+<div class="sim-phone"><div class="sim-header">🟢 WhatsApp • Destinatário</div><div class="sim-chat" id="simChat"><p class="muted">Adicione mensagens à sequência para visualizar a conversa.</p></div></div>
+<div class="muted small">A prévia é ilustrativa; nenhum envio acontece durante a montagem.</div>
+</div></aside></div></main>
+<div class="modal" id="modal"<div class="dialog"><div class="row" style="justify-content:space-between"><h2 id="modalTitulo">Perfil de compras</h2><button class="secondary" id="fechar">Fechar</button></div><div id="modalCorpo"></div></div></div>
+<div class="modal" id="modalContatos" role="dialog" aria-modal="true" aria-labelledby="contatosTitulo"><div class="dialog contatos-dialog">
+<div class="row" style="justify-content:space-between"><h2 id="contatosTitulo">Destinatários encontrados</h2><button type="button" id="fecharContatos" class="secondary">Fechar</button></div>
+<p id="contatosResumo" class="muted">Consulte os contatos primeiro.</p>
+<div class="row" style="margin-bottom:10px"><button type="button" id="selecionarTodos" class="secondary">Marcar todos os telefones válidos</button><button type="button" id="limpar" class="secondary">Limpar seleção</button><button type="button" id="confirmarContatos">Confirmar seleção</button></div>
+<div class="tablewrap"><table><thead><tr><th>Selecionar</th><th>Cliente / contato</th><th>Cidade</th><th>Telefone</th><th>Unidades</th><th>Pedidos</th><th>Última compra</th><th>Perfil</th></tr></thead><tbody id="compradores"></tbody></table></div>
+</div></div>
 <div class="modal" id="modalEleven" role="dialog" aria-modal="true" aria-labelledby="elevenTitulo"><div class="dialog">
 <div class="row" style="justify-content:space-between"><h2 id="elevenTitulo">Configurações ElevenLabs</h2><button type="button" class="secondary" id="fecharEleven">Fechar</button></div>
 <p class="muted">Sua voz clonada e o modelo são os mesmos da tela de testes do Assistente JR. Gere a prévia uma vez: o áudio será reutilizado na campanha. A prévia deve ser usada em até 10 minutos; depois disso, gere novamente.</p>
