@@ -317,7 +317,7 @@ async function criar(dados, origem,usuario) {
 }
 async function listar() {
   await preparar();
-  const r=await pool.query(`SELECT c.id,c.produto_nome,c.item_legado,c.tipo_publico,c.referencia_publico,c.grupo_logistica,c.horario_inicio,c.horario_fim,c.audio_mp3 IS NOT NULL AS com_audio,c.status,c.criada_em,c.intervalo_segundos,
+  const r=await pool.query(`SELECT c.id,c.produto_nome,c.item_legado,c.tipo_publico,c.referencia_publico,c.grupo_logistica,c.cidade_logistica_id,c.horario_inicio,c.horario_fim,(c.audio_mp3 IS NOT NULL OR COALESCE(c.sequencia_mensagens @> '[{"tipo":"audio"}]'::jsonb,false)) AS com_audio,c.status,c.criada_em,c.intervalo_segundos,
     COUNT(d.id)::int total,
     COUNT(d.id) FILTER (WHERE d.status='enviado')::int enviados,
     COUNT(d.id) FILTER (WHERE d.status='pendente')::int pendentes,
@@ -328,9 +328,9 @@ async function listar() {
 }
 async function detalhe(cid) {
   await preparar();
-  const c=await pool.query('SELECT id,produto_nome,status,tipo_publico,referencia_publico,grupo_logistica,horario_inicio,horario_fim, audio_mp3 IS NOT NULL AS com_audio, intervalo_segundos,criada_em,concluida_em FROM mala_direta_campanhas WHERE id=$1',[id(cid)]);
+  const c=await pool.query('SELECT id,produto_nome,status,tipo_publico,referencia_publico,grupo_logistica,cidade_logistica_id,horario_inicio,horario_fim, audio_mp3 IS NOT NULL AS com_audio, intervalo_segundos,criada_em,concluida_em FROM mala_direta_campanhas WHERE id=$1',[id(cid)]);
   if(!c.rows.length) bad('Campanha não encontrada.');
-  const d=await pool.query('SELECT favorecido,nome,telefone,status,iniciado_envio_em,enviado_em,imagem_aceita_em,audio_aceito_em,erro FROM mala_direta_destinatarios WHERE campanha_id=$1 ORDER BY id',[cid]);
+  const d=await pool.query('SELECT favorecido,nome,telefone,status,iniciado_envio_em,enviado_em,imagem_aceita_em,audio_aceito_em,etapa_enviada_index,etapas_aceitas,erro FROM mala_direta_destinatarios WHERE campanha_id=$1 ORDER BY id',[cid]);
   return {campanha:c.rows[0],destinatarios:d.rows};
 }
 async function mudarStatus(cid, acao) {
@@ -353,6 +353,15 @@ async function bloquear(fone, motivo) {
 }
 async function enviarTeste(dados,origem,usuario) {
   const n=telefone(dados.telefone);if(!n)bad('Telefone de teste inválido.');
+  const sequencia=prepararSequencia(dados,origem,usuario);
+  if(sequencia){
+    let concluidas=0;
+    for(const item of sequencia){
+      try{await enviarEtapa(n,item);concluidas++;}
+      catch(e){const erro=new Error('Teste interrompido após '+concluidas+' mensagem(ns). Confira o WhatsApp antes de tentar novamente: '+e.message);erro.status=502;throw erro;}
+    }
+    return {telefone:n,mensagensAceitas:concluidas};
+  }
   const m=String(dados.mensagem||'').trim();if(!m||m.length>3000)bad('Mensagem inválida.');
   const imagem=urlFoto(dados.imagem,origem);
   // Validar inclusive a validade do áudio ANTES de disparar a foto.
