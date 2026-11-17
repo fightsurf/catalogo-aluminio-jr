@@ -48,6 +48,7 @@ const botAutonomiaRoutes = require('./src/routes/bot/botAutonomia.routes');
 const transportadorasRoutes = require('./src/routes/logistica/transportadorasRoutes');
 const agenciasRecebimentoRoutes = require('./src/routes/logistica/agenciasRecebimentoRoutes');
 const logisticaRoutes = require('./src/routes/logistica/logisticaRoutes');
+const mcpLogisticaRoutes = require('./src/routes/integracao/mcpLogistica.routes');
 
 const funcionarioRoutes = require('./src/routes/funcionario/funcionario.routes');
 const fornecedorRoutes = require('./src/routes/fornecedor/fornecedor.routes');
@@ -214,6 +215,8 @@ app.use('/api/assistente-pedidos', assistentePedidosRoutes);
 app.use('/api/transportadoras', transportadorasRoutes);
 app.use('/api/agencias-recebimento', agenciasRecebimentoRoutes);
 app.use('/api/logistica', logisticaRoutes);
+// MCP temporariamente sem autenticação: apenas consultas filtradas, sem contatos ou gravação.
+app.use('/mcp', mcpLogisticaRoutes);
 app.use('/api/funcionarios', funcionarioRoutes);
 app.use('/api/fornecedores', fornecedorRoutes);
 // Compras de insumos: APIs privadas, incluindo upload efêmero de fotos.
