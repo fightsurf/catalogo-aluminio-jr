@@ -1,0 +1,34 @@
+
+.avn-lote-botoes{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.avn-lote-dialog{width:min(1120px,96vw);max-width:1120px;max-height:94vh;overflow:auto}
+.avn-lote-dialog .modal-head{position:sticky;top:0;z-index:3;background:var(--card,#fff);padding:12px 0}
+.avn-lote-area{border:2px dashed var(--line,#dce5ee);border-radius:14px;padding:18px;display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center;cursor:pointer;background:rgba(120,160,190,.06)}
+.avn-lote-area:focus-visible{outline:3px solid var(--accent,#145e85);outline-offset:3px}
+.avn-lote-area.dragging{background:rgba(70,155,200,.15);border-color:var(--accent,#145e85)}
+.avn-lote-area span{font-size:13px;color:var(--muted,#65758a)}
+.avn-lote-previa{display:block;max-width:min(420px,100%);max-height:210px;object-fit:contain;margin:12px auto;border:1px solid var(--line,#dce5ee);border-radius:8px}
+.avn-lote-previa[hidden]{display:none}
+.avn-lote-status{display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;margin:12px 0}
+.avn-lote-status p{margin:0}
+.avn-lote-lista{display:grid;gap:12px;margin:12px 0}
+.avn-lote-item{border:1px solid var(--line,#dce5ee);border-radius:12px;padding:14px;background:var(--card,#fff)}
+.avn-lote-item.duplicado{opacity:.82;border-style:dashed}
+.avn-lote-item.erro{border-color:#b63838}
+.avn-lote-item header{display:flex;align-items:center;gap:12px;justify-content:space-between;flex-wrap:wrap;margin-bottom:10px}
+.avn-lote-item header .avn-lote-identificacao{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+.avn-lote-item header label{display:flex;align-items:center;gap:6px}
+.avn-lote-item .avn-lote-campos{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px}
+.avn-lote-item .avn-lote-campos label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted,#65758a)}
+.avn-lote-item .avn-lote-campos input{min-width:0;width:100%;padding:7px 8px}
+.avn-lote-item small{display:block;margin:7px 0;color:var(--muted,#65758a)}
+.avn-lote-item .avn-lote-resumo{display:flex;flex-wrap:wrap;gap:9px;font-size:13px;margin:7px 0}
+.avn-lote-item .avn-lote-resumo strong{color:var(--ink,#19314b)}
+.avn-lote-item details{margin-top:12px;border-top:1px solid var(--line,#dce5ee);padding-top:8px}
+.avn-lote-item summary{cursor:pointer;font-weight:600}
+.avn-lote-nutrientes{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:7px;margin:12px 0}
+.avn-lote-nutrientes label{display:flex;flex-direction:column;font-size:12px;gap:2px}
+.avn-lote-nutrientes input{min-width:0;width:100%;padding:6px 8px}
+.avn-lote-microtitulo{margin-top:14px}
+.avn-lote-erro{color:#b63838 !important}
+.avn-lote-aviso{color:#a56300}
+@media(max-width:700px){.avn-lote-item .avn-lote-campos{grid-template-columns:1fr}.avn-lote-dialog{width:99vw;max-height:98vh}.avn-lote-botoes{justify-content:flex-start}}
