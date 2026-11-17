@@ -167,9 +167,11 @@ async function salvar(){
   }));
   const resultado=await jsonPost('salvar',{usuarioId:usuarioImagem,itens:payload});
   const cadastrados=resultado.cadastrados?.length||0,ignorados=resultado.ignorados?.length||0;
-  await ctx().loadFoods();
+  let avisoAtualizacao='';
+  const duplicadosNoPrint=itens.filter(i=>i.status==='duplicado').length;
+  try{await ctx().loadFoods();}catch(e){avisoAtualizacao=' Atualize a página para recarregar a lista.';}
   $('modalImportacaoAlimentos').close();
-  notificar(cadastrados+' alimento(s) cadastrado(s). '+(ignorados+itens.filter(i=>i.status==='duplicado').length)+' duplicado(s) ignorado(s).');
+  notificar(cadastrados+' alimento(s) cadastrado(s). '+(ignorados+duplicadosNoPrint)+' duplicado(s) ignorado(s).'+avisoAtualizacao);
  }catch(e){
   status('Não foi possível salvar: '+e.message);
   notificar(e.message,true);
