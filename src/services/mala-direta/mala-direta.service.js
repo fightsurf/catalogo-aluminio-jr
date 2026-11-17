@@ -88,6 +88,11 @@ async function preparar() {
       ALTER TABLE mala_direta_destinatarios ADD COLUMN IF NOT EXISTS etapa_enviada_index INTEGER NOT NULL DEFAULT -1;
       ALTER TABLE mala_direta_destinatarios ADD COLUMN IF NOT EXISTS etapas_aceitas JSONB NOT NULL DEFAULT '[]'::jsonb;
       CREATE INDEX IF NOT EXISTS idx_mala_direta_fila ON mala_direta_destinatarios (campanha_id,id) WHERE status='pendente';
+      CREATE TABLE IF NOT EXISTS mala_direta_rascunhos (
+        usuario VARCHAR(120) PRIMARY KEY,
+        estado JSONB NOT NULL,
+        atualizado_em TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
       CREATE TABLE IF NOT EXISTS mala_direta_bloqueios (
         telefone VARCHAR(20) PRIMARY KEY,
         motivo TEXT,
@@ -315,6 +320,74 @@ async function criar(dados, origem,usuario) {
   } catch(e) { await client.query('ROLLBACK'); throw e; }
   finally {client.release();}
 }
+// Rascunho por usuário: evita perder a composição e os destinatários selecionados
+// ao fechar o navegador. Áudios são armazenados como arquivo de origem, nunca como preview temporário.
+function usuarioRascunho(usuario) {
+  const chave=String(usuario||'').trim();
+  if(!chave||chave.length>120)bad('Usuário administrativo inválido.');
+  return chave;
+}
+function validarRascunho(estado){
+  if(!estado||typeof estado!=='object'||Array.isArray(estado))bad('Rascunho inválido.');
+  if(!estado.campos||typeof estado.campos!=='object'||Array.isArray(estado.campos))bad('Filtros do rascunho inválidos.');
+  if(!Array.isArray(estado.destinatarios)||estado.destinatarios.length>2000)
+    bad('O rascunho aceita até 2.000 destinatários selecionados.');
+  if(!Array.isArray(estado.sequencia)||estado.sequencia.length>30)
+    bad('O rascunho aceita até 30 mensagens.');
+  const json=JSON.stringify(estado);
+  if(Buffer.byteLength(json,'utf8')>28*1024*1024)bad('Rascunho maior que 28 MB. Reduza os arquivos.');
+  let bytesAudio=0;
+  for(const etapa of estado.sequencia){
+    if(!etapa||!['texto','imagem','audio'].includes(etapa.tipo))bad('Mensagem inválida no rascunho.');
+    if(etapa.tipo==='texto'&&String(etapa.texto||'').length>3000)bad('Texto do rascunho excedeu 3.000 caracteres.');
+    if(etapa.tipo==='imagem'&&String(etapa.imagem||'').length>2800000)bad('Imagem do rascunho excedeu o limite.');
+    if(etapa.tipo==='audio'){
+      const fonte=String(etapa.audioOrigem||'');
+      if(!['gravacao','arquivo','elevenlabs'].includes(fonte))bad('Origem de áudio inválida.');
+      const raw=String(etapa.audioData||'');
+      if(!/^data:(?:audio|video)\/[a-z0-9.+-]+;base64,[a-z0-9+/=]+$/i.test(raw))
+        bad('Arquivo de áudio do rascunho inválido.');
+      const tamanho=Math.floor(raw.slice(raw.indexOf(',')+1).length*3/4);
+      if(tamanho>6*1024*1024)bad('Cada áudio deve ter até 6 MB.');
+      bytesAudio+=tamanho;
+      if(bytesAudio>20*1024*1024)bad('Áudios do rascunho ultrapassaram 20 MB.');
+    }
+  }
+  return json;
+}
+async function lerRascunho(usuario){
+  await preparar();
+  const r=await pool.query('SELECT estado,atualizado_em FROM mala_direta_rascunhos WHERE usuario=$1',[usuarioRascunho(usuario)]);
+  return r.rows[0]||null;
+}
+async function salvarRascunho(usuario,estado){
+  await preparar();
+  const json=validarRascunho(estado);
+  const r=await pool.query(`INSERT INTO mala_direta_rascunhos(usuario,estado)
+    VALUES ($1,$2::jsonb)
+    ON CONFLICT(usuario) DO UPDATE SET estado=excluded.estado,atualizado_em=NOW()
+    RETURNING atualizado_em`,[usuarioRascunho(usuario),json]);
+  return {atualizadoEm:r.rows[0].atualizado_em};
+}
+async function excluirRascunho(usuario){
+  await preparar();
+  await pool.query('DELETE FROM mala_direta_rascunhos WHERE usuario=$1',[usuarioRascunho(usuario)]);
+  return {excluido:true};
+}
+// Conteúdo integral da campanha já iniciada, somente para a prévia interna do administrador.
+// O envio continua a usar exclusivamente a cópia imutável persistida no PostgreSQL.
+async function estadoCampanha(cid){
+  await preparar();
+  const c=await pool.query(`SELECT id,produto_id,produto_nome,status,tipo_publico,referencia_publico,
+    grupo_logistica,cidade_logistica_id,meses,intervalo_segundos,horario_inicio,horario_fim,
+    mensagem,imagem,sequencia_mensagens,encode(audio_mp3,'base64') AS audio_mp3,
+    criada_em,proximo_envio_em,concluida_em FROM mala_direta_campanhas WHERE id=$1`,[id(cid)]);
+  if(!c.rows.length)bad('Campanha não encontrada.');
+  const destinatarios=await pool.query(`SELECT favorecido,nome,telefone,origem_destinatario,
+    referencia_destinatario,status,iniciado_envio_em,enviado_em,etapa_enviada_index,etapas_aceitas,erro
+    FROM mala_direta_destinatarios WHERE campanha_id=$1 ORDER BY id`,[id(cid)]);
+  return {campanha:c.rows[0],destinatarios:destinatarios.rows};
+}
 async function listar() {
   await preparar();
   const r=await pool.query(`SELECT c.id,c.produto_nome,c.item_legado,c.tipo_publico,c.referencia_publico,c.grupo_logistica,c.cidade_logistica_id,c.horario_inicio,c.horario_fim,(c.audio_mp3 IS NOT NULL OR COALESCE(c.sequencia_mensagens @> '[{"tipo":"audio"}]'::jsonb,false)) AS com_audio,c.status,c.criada_em,c.intervalo_segundos,
@@ -323,7 +396,9 @@ async function listar() {
     COUNT(d.id) FILTER (WHERE d.status='pendente')::int pendentes,
     COUNT(d.id) FILTER (WHERE d.status IN ('erro','incerto','bloqueado'))::int problemas
     FROM mala_direta_campanhas c JOIN mala_direta_destinatarios d ON d.campanha_id=c.id
-    GROUP BY c.id ORDER BY c.id DESC LIMIT 30`);
+    WHERE c.status IN ('ativa','pausada') OR c.id IN
+      (SELECT id FROM mala_direta_campanhas ORDER BY id DESC LIMIT 30)
+    GROUP BY c.id ORDER BY c.id DESC LIMIT 150`);
   return r.rows;
 }
 async function detalhe(cid) {
@@ -542,4 +617,4 @@ function iniciarTrabalhador() {
   t=setTimeout(executarTermometro,12000);
   t.unref?.();
 }
-module.exports={produtos,compradores,compradoresPorCriterio,carradas,semanas,primeiraCompra,criar,listar,detalhe,mudarStatus,bloquear,enviarTeste,iniciarTrabalhador};
+module.exports={produtos,compradores,compradoresPorCriterio,carradas,semanas,primeiraCompra,criar,listar,detalhe,estadoCampanha,lerRascunho,salvarRascunho,excluirRascunho,mudarStatus,bloquear,enviarTeste,iniciarTrabalhador};
