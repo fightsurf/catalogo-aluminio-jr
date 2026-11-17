@@ -36,7 +36,7 @@ test('resposta com 12 digitos bloqueia saudacao para campanha com 13 digitos', a
   const telefoneCampanha = '5583999991111';
   let parametrosDaConsulta;
   const pool = { query: async (sql, params) => {
-    assert.match(sql, /telefone = ANY\\(\\$1::varchar\\[\\]\\)/);
+    assert.match(sql, /telefone = ANY\(\$1::varchar\[\]\)/);
     parametrosDaConsulta = params;
     return { rows: [{ abordado: params[0].includes(telefoneCampanha) }] };
   }};
