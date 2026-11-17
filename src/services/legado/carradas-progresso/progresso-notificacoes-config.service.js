@@ -20,7 +20,7 @@ const DEFAULTS = [
   ['ETIQUETA_VOLUMES','Etiqueta de volumes',`📦 Pedido nº {pedido}\n\nCliente: {cliente}\n\nConfirma os dizeres abaixo para a etiqueta de volumes deste pedido?\n\n{etiqueta_texto}`,true],
   ['VIDEO_FEITO','Vídeo feito','',false],
   ['QUER_NOTA_FISCAL','Quer nota fiscal','Vai precisar de Nota Fiscal? Preciso calcular os impostos para acrescentar se for querer.',true],
-  ['LOCAL_ENTREGA','Local de entrega',`MENSAGEM AUTOMÁTICA - ALUMÍNIO JR\n{data_carrada} - {descricao_carrada}\n\nNome cliente: {cliente}\nNúmero pedido: {pedido}\n\n{detalhes_entrega}\n\nPrevisão de volumes: {volumes}`,true],
+  ['LOCAL_ENTREGA','Local de entrega',`MENSAGEM AUTOMÁTICA - ALUMÍNIO JR\n{data_carrada} - {descricao_carrada}\n\nNome cliente: {cliente}\nNúmero pedido: {pedido}\n\n{detalhes_entrega}`,true],
   ['DATA_EXPEDICAO','Data de expedição',`MENSAGEM AUTOMÁTICA - ALUMÍNIO JR\n📦 Pedido nº {pedido}\n\nSeu pedido foi expedido em {data_expedicao}.`,true],
   ['LIGACAO_POS_VENDA','Ligação pós-venda','',false],
   ['PAGAMENTO_QUITADO','Pagamento quitado','',false],
@@ -74,6 +74,12 @@ async function garantir() {
       SET texto=$1, atualizado_em=now()
       WHERE codigo='LOCAL_ENTREGA' AND texto=$2`,
       [MAP.get('LOCAL_ENTREGA').texto, TEXTO_LOCAL_ENTREGA_ANTERIOR]);
+    // Remove a previsão de volumes dos textos já salvos para o cliente.
+    // Mantém todas as demais personalizações do modelo.
+    await pool.query(`UPDATE progresso_notificacoes_fases
+      SET texto = replace(replace(texto, $1, ''), $2, ''), atualizado_em = now()
+      WHERE codigo = 'LOCAL_ENTREGA' AND (strpos(texto, $1) > 0 OR strpos(texto, $2) > 0)`,
+      ['\n\nPrevisão de volumes: {volumes}', '\nPrevisão de volumes: {volumes}']);
     // Renomeia a configuração compartilhada apenas se mantiver o nome padrão anterior.
     await pool.query(`UPDATE progresso_notificacoes_fases
       SET nome='Aviso à transportadora/redespacho'
