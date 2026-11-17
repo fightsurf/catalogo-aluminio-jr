@@ -53,14 +53,15 @@ select{max-width:225px;padding:6px;border:1px solid #cbd4df;border-radius:5px}
 <p id="mensagem" role="status"></p>
 </section>
 <section class="panel" id="previsao" hidden>
-<h2>2. Revisar os registros</h2>
+<h2>2. Selecionar e importar os registros</h2>
 <div id="estatisticas" class="stats"></div>
 <div class="actions">
+<button type="button" id="marcarTodos">Marcar todos</button>
 <button type="button" class="ghost" id="selecionarNovos">Selecionar apenas novos</button>
 <button type="button" class="ghost" id="desmarcarTodos">Desmarcar todos</button>
-<span class="info">Divergências de telefone e nomes semelhantes exigem decisão manual. Dados existentes nunca são sobrescritos.</span>
+<span class="info">O modo automático atualiza cadastros com correspondência segura e cria os demais. Telefones existentes são preservados.</span>
 </div>
-<p class="info">Toda transportadora nova terá como cidade <strong>Santa Cruz do Capibaribe - PE</strong>. O campo observação será <strong>Origem: cidade - UF</strong>, conforme a origem encontrada no Moda Center. Todos os telefones terão prefixo 55 (DDD incluído); o primeiro será o principal. As cidades de "Conferir rota" serão vinculadas separadamente. Cidades ausentes ou ambíguas serão indicadas no relatório, sem vínculo automático.</p>
+<p class="info">Toda transportadora nova terá como cidade <strong>Santa Cruz do Capibaribe - PE</strong>. A <strong>origem</strong> e todas as cidades da <strong>rota</strong> serão vinculadas à transportadora, criando as cidades ausentes. O campo <strong>Destino</strong> será gravado na <strong>Observação</strong>. Telefones novos recebem prefixo 55 e são acrescentados aos existentes. Cidades sem UF podem usar a UF da origem (indicadas na prévia); sem UF de referência serão informadas no relatório.</p>
 <div class="tablewrap"><table><thead><tr>
 <th>Importar</th><th>Nome / categoria</th><th>Origem / telefone</th><th>Situação</th><th>Rota</th><th>Destino</th><th>Registro do Alumínio JR</th>
 </tr></thead><tbody id="tabela"></tbody></table></div>
@@ -151,26 +152,24 @@ function montarTabela() {
   $('estatisticas').innerHTML = Object.keys(contagens).map(s =>
     '<div class="stat">' + indicador(s) + '<strong> ' + contagens[s] + '</strong></div>').join('');
   $('tabela').innerHTML = previa.itens.map(item => {
-    const desabilitado = item.situacao === 'invalido' || item.situacao === 'duplicado_arquivo';
+    const desabilitado = item.situacao === 'invalido';
     const selecao = '<input type="checkbox" class="checkLinha" data-indice="'+item.indice+'" '+(desabilitado?'disabled':'')+'>';
     const opcoes = item.candidatos.map(c => '<option value="'+Number(c.id)+'">'+h(c.nome+' (#'+c.id+', '+c.tipo+')')+'</option>').join('');
-    const podeCriarAposRevisao = item.situacao === 'revisar' &&
-      item.candidatos.length > 0 && item.candidatos.every(c => c.tipo === 'semelhante');
-    const criarSeparado = podeCriarAposRevisao
-      ? '<option value="criar_novo">Não corresponde: criar cadastro separado</option>' : '';
     const escolha = item.situacao === 'novo' ? '<strong>Criar novo cadastro</strong>' :
-      '<select class="selecionarExistente" data-indice="'+item.indice+'">'+
-      '<option value="">Selecione um cadastro</option>'+opcoes+criarSeparado+'</select>';
+      '<select class="selecionarExistente" data-indice="'+item.indice+'">' +
+      '<option value="automatico">Automático: criar ou atualizar</option>'+opcoes+'</select>';
     const alertaTel = item.candidatos.some(c => c.divergenciaTelefone)
-      ? '<small>Telefone divergente; cadastro atual será preservado</small>' : '';
+      ? '<small>Novos telefones serão acrescentados sem apagar os atuais</small>' : '';
     const avisoSemTelefone = !item.telefones.length
-      ? '<small style="color:#a12828;font-weight:bold">Sem telefone na fonte — revise antes de importar</small>' : '';
+      ? '<small style="color:#a12828;font-weight:bold">Sem telefone na fonte — cadastro ainda será importado</small>' : '';
     const cidades = (item.cidadesEncontradas||[]).length;
     const ausentes = (item.cidadesNaoEncontradas||[]).length;
+    const criarCidades = (item.cidadesParaCriar||[]).length;
+    const inferidas = (item.cidadesUfInferida||[]).length;
     return '<tr><td>'+selecao+'</td><td><strong>'+h(item.nome)+'</strong><small>'+h(item.tipo||'Tipo não informado')+'</small></td>'+
       '<td>'+h(item.origem)+'<small>'+h(item.telefones.map(n => '55' + n).join(' / '))+'</small></td>'+
       '<td>'+indicador(item.situacao)+alertaTel+avisoSemTelefone+'</td>'+
-      '<td>'+cidades+' cidades reconhecidas'+(ausentes?'<small>'+ausentes+' não localizadas: '+h(item.cidadesNaoEncontradas.join(', '))+'</small>':'')+'</td>'+
+      '<td>'+cidades+' reconhecidas; '+criarCidades+' a cadastrar'+(inferidas?'<small>UF inferida em '+inferidas+': '+h(item.cidadesUfInferida.join(', '))+'</small>':'')+(ausentes?'<small>'+ausentes+' sem UF: '+h(item.cidadesNaoEncontradas.join(', '))+'</small>':'')+'</td>'+
       '<td>'+h(item.destino)+'</td><td>'+escolha+'</td></tr>';
   }).join('');
   $('previsao').hidden = false;
@@ -215,7 +214,7 @@ async function coletarSite() {
     previa = await api('/previa', { method:'POST', body: JSON.stringify({rows:linhas}) });
     montarTabela();
     mensagem(dados.coleta_completa
-      ? 'Prévia gerada. Revise os registros antes de gravar.' +
+      ? 'Prévia pronta. Use Marcar todos e confirme a importação.' +
         (dados.registros_sem_telefone ? ' ' + dados.registros_sem_telefone + ' registro(s) sem telefone.' : '')
       : 'Prévia parcial. Verifique o aviso de paginação acima antes de importar.', !dados.coleta_completa);
   } catch (erro) {
@@ -249,8 +248,7 @@ async function gerarPrevia() {
 }
 function selecionarNovos() {
   document.querySelectorAll('.checkLinha').forEach(c => {
-    c.checked = !c.disabled && previa.itens[Number(c.dataset.indice)].situacao === 'novo' &&
-      previa.itens[Number(c.dataset.indice)].telefones.length > 0;
+    c.checked = !c.disabled && previa.itens[Number(c.dataset.indice)].situacao === 'novo';
   });
   contarSelecionados();
 }
@@ -260,32 +258,31 @@ async function confirmar() {
   for (const c of document.querySelectorAll('.checkLinha:checked')) {
     const indice = Number(c.dataset.indice);
     const item = previa.itens[indice];
-    if (item.situacao === 'novo') decisoes.push({ indice, acao:'criar' });
-    else {
-      const escolha = document.querySelector('.selecionarExistente[data-indice="'+indice+'"]');
-      if (escolha && escolha.value === 'criar_novo') {
-        decisoes.push({ indice, acao:'criar', revisao_confirmada:true });
-      } else {
-        const id = Number(escolha && escolha.value);
-        if (!id) { mensagem('Escolha a transportadora correspondente para '+item.nome+'.', true); escolha.focus(); return; }
-        decisoes.push({ indice, acao:'vincular', transportadora_id:id });
-      }
+    const escolha = document.querySelector('.selecionarExistente[data-indice="'+indice+'"]');
+    const opcao = escolha ? escolha.value : 'automatico';
+    if (opcao === 'automatico') {
+      decisoes.push({ indice, acao:'automatico' });
+    } else {
+      decisoes.push({ indice, acao:'vincular', transportadora_id:Number(opcao) });
     }
   }
   if (!decisoes.length) return;
-  if (!confirm('Confirmar a gravação de '+decisoes.length+' registros selecionados? Cadastros existentes não serão sobrescritos.')) return;
+  if (!confirm('Importar '+decisoes.length+' registros? Os cadastros existentes receberão telefones e destino que ainda não constam neles; cidades ausentes serão cadastradas.')) return;
   $('btnConfirmar').disabled = true;
   try {
     const dados = await api('/confirmar', { method:'POST', body:JSON.stringify({rows:linhas,token:previa.token,decisoes}) });
     const r = dados.resumo;
     $('resultado').textContent = 'Importação #'+dados.importacao_id+
       '\nTransportadoras criadas: '+r.criadas+
-      '\nRegistros associados: '+r.vinculadas+
+      '\nRegistros existentes atualizados: '+r.atualizadas+
+      '\nTelefones acrescentados: '+r.telefonesAdicionados+
+      '\nCidades criadas: '+r.cidadesCriadas+
       '\nCidades vinculadas: '+r.cidadesVinculadas+
       '\nRegistros ignorados: '+r.puladas+
       '\nCidades não localizadas: '+r.cidadesNaoLocalizadas+
       '\n\nDetalhes:\n'+r.registros.map(x => x.nome+' — '+x.status+
-        (x.cidades_nao_localizadas && x.cidades_nao_localizadas.length ? ' — não localizadas: '+x.cidades_nao_localizadas.join(', ') : '')).join('\n');
+        (x.cidades_nao_localizadas && x.cidades_nao_localizadas.length ? ' — sem UF: '+x.cidades_nao_localizadas.join(', ') : '') +
+        (x.cidades_uf_inferida && x.cidades_uf_inferida.length ? ' — UF inferida: '+x.cidades_uf_inferida.join(', ') : '')).join('\n');
     $('resultadoPainel').hidden = false;
     $('previsao').hidden = true;
     previa = null;
@@ -304,6 +301,10 @@ async function carregarHistorico() {
 }
 $('btnColetar').addEventListener('click', coletarSite);
 $('btnPrevia').addEventListener('click', gerarPrevia);
+$('marcarTodos').addEventListener('click', () => {
+  document.querySelectorAll('.checkLinha').forEach(c => { c.checked = !c.disabled; });
+  contarSelecionados();
+});
 $('selecionarNovos').addEventListener('click', selecionarNovos);
 $('desmarcarTodos').addEventListener('click', () => {
   document.querySelectorAll('.checkLinha').forEach(c => c.checked = false); contarSelecionados();
