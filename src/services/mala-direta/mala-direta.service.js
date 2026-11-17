@@ -214,7 +214,7 @@ async function criar(dados, origem,usuario) {
     bad('Informe um intervalo válido de 1 a 1440 minutos.');
   const inicio=String(dados.horarioInicio||'').trim();
   const fim=String(dados.horarioFim||'').trim();
-  const horaValida=h=>/^([01]\\d|2[0-3]):[0-5]\\d$/.test(h);
+  const horaValida=h=>/^([01]\d|2[0-3]):[0-5]\d$/.test(h);
   if((inicio||fim)&&(!horaValida(inicio)||!horaValida(fim)||inicio>=fim))
     bad('Informe horário inicial anterior ao final no formato HH:MM.');
   const mensagem=String(dados.mensagem||'').trim();
