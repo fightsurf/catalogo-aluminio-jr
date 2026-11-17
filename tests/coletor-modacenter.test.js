@@ -100,3 +100,13 @@ test('prioriza dados incorporados quando a lista virtual e completa', async () =
   assert.equal(r.metodo,'dados_incorporados_nextjs');
   assert.equal(r.paginas_virtuais,2);
 });
+
+test('mantem excursao sem telefone para revisao manual', () => {
+  const dados=[{name:'Turismo sem contato',city:'Natal',state:'RN',address:'Moda Center',route:['Natal - RN'],phones:[]}];
+  const flight='20:'+JSON.stringify({props:{excursions:dados}})+'\n';
+  const html='<script>self.__next_f.push([1,'+JSON.stringify(flight)+'])</script>';
+  const result=extrairDadosIncorporados(html);
+  assert.equal(result.length,1);
+  assert.equal(result[0].telefones,'');
+  assert.equal(result[0].rota,'Natal - RN');
+});
