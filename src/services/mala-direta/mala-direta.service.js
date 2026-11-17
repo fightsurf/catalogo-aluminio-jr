@@ -437,6 +437,18 @@ async function processarProximo() {
   } catch(e) {await client.query('ROLLBACK').catch(()=>{});throw e;} finally {client.release();}
   let resultado, erro;
   try {
+    if(Array.isArray(trabalho.sequencia_mensagens)){
+      for(let i=Number(trabalho.etapa_enviada_index)+1;i<trabalho.sequencia_mensagens.length;i++){
+        const etapa=trabalho.sequencia_mensagens[i];
+        resultado=await enviarEtapa(trabalho.telefone,etapa);
+        // Checkpoint após cada aceite; falhas são marcadas incertas, sem reenvio automático.
+        await pool.query(`UPDATE mala_direta_destinatarios
+          SET etapa_enviada_index=$2,
+            etapas_aceitas=etapas_aceitas || jsonb_build_array(jsonb_build_object('indice',$2,'tipo',$3,'em',NOW())),
+            atualizado_em=NOW()
+          WHERE id=$1 AND status='enviando'`,[trabalho.id,i,etapa.tipo]);
+      }
+    }else{
     resultado=await zapi.enviarImagem({telefone:trabalho.telefone,imagem:trabalho.imagem,legenda:trabalho.mensagem},{timeoutMs:60000, funcionalidade:'mala_direta'});
     // Gravar confirmação da imagem ANTES de tentar enviar o áudio; nunca repetir envio incerto.
     await pool.query(`UPDATE mala_direta_destinatarios SET imagem_aceita_em=NOW(),
@@ -452,6 +464,7 @@ async function processarProximo() {
       },{timeoutMs:60000, funcionalidade:'mala_direta'});
       await pool.query(`UPDATE mala_direta_destinatarios SET audio_aceito_em=NOW(),atualizado_em=NOW()
         WHERE id=$1 AND status='enviando'`,[trabalho.id]);
+    }
     }
   }catch(e){erro=e;}
   // Rede/Z-API podem ter aceitado uma das mensagens. Não reenviar automaticamente.
