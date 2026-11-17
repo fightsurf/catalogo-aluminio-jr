@@ -60,7 +60,7 @@ select{max-width:225px;padding:6px;border:1px solid #cbd4df;border-radius:5px}
 <button type="button" class="ghost" id="desmarcarTodos">Desmarcar todos</button>
 <span class="info">Divergências de telefone e nomes semelhantes exigem decisão manual. Dados existentes nunca são sobrescritos.</span>
 </div>
-<p class="info">Cidades não encontradas no cadastro do Alumínio JR serão ignoradas e exibidas no relatório. A origem e o destino das novas transportadoras serão guardados em observações.</p>
+<p class="info">Toda transportadora nova terá como cidade <strong>Santa Cruz do Capibaribe - PE</strong>. O campo observação será <strong>Origem: cidade - UF</strong>, conforme a origem encontrada no Moda Center. Todos os telefones terão prefixo 55 (DDD incluído); o primeiro será o principal. As cidades de "Conferir rota" serão vinculadas separadamente. Cidades ausentes ou ambíguas serão indicadas no relatório, sem vínculo automático.</p>
 <div class="tablewrap"><table><thead><tr>
 <th>Importar</th><th>Nome / categoria</th><th>Origem / telefone</th><th>Situação</th><th>Rota</th><th>Destino</th><th>Registro do Alumínio JR</th>
 </tr></thead><tbody id="tabela"></tbody></table></div>
@@ -165,7 +165,7 @@ function montarTabela() {
     const cidades = (item.cidadesEncontradas||[]).length;
     const ausentes = (item.cidadesNaoEncontradas||[]).length;
     return '<tr><td>'+selecao+'</td><td><strong>'+h(item.nome)+'</strong><small>'+h(item.tipo||'Tipo não informado')+'</small></td>'+
-      '<td>'+h(item.origem)+'<small>'+h(item.telefones.join(' / '))+'</small></td>'+
+      '<td>'+h(item.origem)+'<small>'+h(item.telefones.map(n => '55' + n).join(' / '))+'</small></td>'+
       '<td>'+indicador(item.situacao)+alertaTel+'</td>'+
       '<td>'+cidades+' cidades reconhecidas'+(ausentes?'<small>'+ausentes+' não localizadas: '+h(item.cidadesNaoEncontradas.join(', '))+'</small>':'')+'</td>'+
       '<td>'+h(item.destino)+'</td><td>'+escolha+'</td></tr>';
