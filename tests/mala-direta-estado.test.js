@@ -153,7 +153,8 @@ function simularFila({erroNoTexto=null}={}){
       eventos.push('agenda:600');return {rowCount:1,rows:[]};
     }
     if(texto.includes("SET status='pausada'")){
-      eventos.push('pausada');return {rowCount:1,rows:[]};
+      if(texto.includes('WHERE id=$1')||texto.includes("AND EXISTS")===false)eventos.push('pausada');
+      return {rowCount:1,rows:[]};
     }
     return {rowCount:1,rows:[]};
   };
@@ -215,4 +216,31 @@ test('resposta HTTP 429 tenta texto até três vezes, aguardando 30 segundos e s
   assert.equal(eventos.filter(e=>e==='espera:30000').length,2);
   assert.ok(eventos.includes('pausada'));
   assert.ok(!eventos.includes('audio'));
+});
+
+
+test('conferência manual marca apenas etapas realmente confirmadas e mantém campanha pausada',async()=>{
+  const alteracoes=[];
+  const row={campanha_status:'pausada',status:'incerto',etapa_enviada_index:-1,etapas_aceitas:[],
+    sequencia_mensagens:[{tipo:'imagem'},{tipo:'texto'},{tipo:'audio'}]};
+  const query=async(sql,args=[])=>{
+    const q=String(sql);
+    if(q.includes('SELECT c.status AS campanha_status'))return {rowCount:1,rows:[row]};
+    if(q.includes('UPDATE mala_direta_destinatarios')&&q.includes("WHERE id=$1 AND status='incerto'")){
+      alteracoes.push(args);return {rowCount:1,rows:[{id:51}]};
+    }
+    return {rowCount:1,rows:[]};
+  };
+  const pool={query,async connect(){return {query,release(){}};}};
+  const source=fs.readFileSync(path.join(__dirname,'../src/services/mala-direta/mala-direta.service.js'),'utf8');
+  const mod={exports:{}};
+  new Function('require','module',source)(name=>name.includes('db/connection')?pool:{},mod);
+  const r=await mod.exports.conciliarDestinatario(5,51,{quantidadeConfirmada:1});
+  assert.equal(r.status,'pendente');
+  assert.equal(r.campanhaPausada,true);
+  assert.equal(alteracoes.length,1);
+  assert.equal(alteracoes[0][1],0);
+  assert.equal(alteracoes[0][3],'pendente');
+  assert.equal(JSON.parse(alteracoes[0][2])[0].conferidoManualmente,true);
+  await assert.rejects(()=>mod.exports.conciliarDestinatario(5,51,{quantidadeConfirmada:4}),/Quantidade incompatível/);
 });
