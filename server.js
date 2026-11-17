@@ -48,6 +48,7 @@ const botAutonomiaRoutes = require('./src/routes/bot/botAutonomia.routes');
 const transportadorasRoutes = require('./src/routes/logistica/transportadorasRoutes');
 const agenciasRecebimentoRoutes = require('./src/routes/logistica/agenciasRecebimentoRoutes');
 const logisticaRoutes = require('./src/routes/logistica/logisticaRoutes');
+const integracaoV1Routes = require('./src/routes/integracao/integracaoV1.routes');
 
 const funcionarioRoutes = require('./src/routes/funcionario/funcionario.routes');
 const fornecedorRoutes = require('./src/routes/fornecedor/fornecedor.routes');
@@ -214,6 +215,9 @@ app.use('/api/assistente-pedidos', assistentePedidosRoutes);
 app.use('/api/transportadoras', transportadorasRoutes);
 app.use('/api/agencias-recebimento', agenciasRecebimentoRoutes);
 app.use('/api/logistica', logisticaRoutes);
+// Consulta de dados para integrações externas; usa login administrativo já existente.
+app.use('/api/integracao/v1', requireAuth, integracaoV1Routes);
+app.get('/integracao/transportadoras', requireAuth, (_req, res) => res.sendFile(path.join(__dirname, 'views/integracao/transportadoras.html')));
 app.use('/api/funcionarios', funcionarioRoutes);
 app.use('/api/fornecedores', fornecedorRoutes);
 // Compras de insumos: APIs privadas, incluindo upload efêmero de fotos.
