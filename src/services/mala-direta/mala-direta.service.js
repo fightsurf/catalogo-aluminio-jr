@@ -345,7 +345,7 @@ function validarRascunho(estado){
       const fonte=String(etapa.audioOrigem||'');
       if(!['gravacao','arquivo','elevenlabs'].includes(fonte))bad('Origem de áudio inválida.');
       const raw=String(etapa.audioData||'');
-      if(!/^data:(?:audio|video)\/[a-z0-9.+-]+;base64,[a-z0-9+/=]+$/i.test(raw))
+      if(!/^data:(?:(?:audio|video)\/[a-z0-9.+-]+|application\/octet-stream);base64,[a-z0-9+/=]+$/i.test(raw))
         bad('Arquivo de áudio do rascunho inválido.');
       const tamanho=Math.floor(raw.slice(raw.indexOf(',')+1).length*3/4);
       if(tamanho>6*1024*1024)bad('Cada áudio deve ter até 6 MB.');
