@@ -96,32 +96,39 @@
   <div class="field"><label for="fotoSistema">Foto cadastrada do produto</label><select id="fotoSistema"><option value="">Selecione uma foto ou envie outra</option></select></div>
   <div class="field"><label for="upload">Ou enviar uma nova foto</label><input id="upload" type="file" accept="image/jpeg,image/png,image/webp"><span class="muted">O navegador comprime a imagem antes do envio.</span></div>
 </div>
-<div class="field" style="margin-top:12px"><label for="mensagem">Mensagem de texto (legenda da imagem)</label><textarea id="mensagem" maxlength="3000" placeholder="Oferta... Para não receber promoções, responda SAIR."></textarea></div>
+<div class="row" style="margin-top:12px"><button type="button" id="adicionarFoto">➕ Adicionar foto à sequência</button><span class="muted small">Selecione uma foto do produto ou carregue outra, depois adicione.</span></div>
+<div class="field" style="margin-top:12px"><label for="mensagem">Mensagem de texto</label><textarea id="mensagem" maxlength="3000" placeholder="Digite a mensagem. Para não receber promoções, responda SAIR."></textarea></div>
+<div class="row"><button type="button" id="adicionarTexto">➕ Adicionar texto à sequência</button></div>
 </section>
-<section class="card"><h2>4. Mensagem de áudio</h2>
-<div class="field">
-  <label>Gravação pelo microfone do computador</label>
-  <p class="gravador-aviso">Grave uma única mensagem (até 3 minutos) e reutilize o mesmo áudio para todos os contatos. Autorize o microfone quando solicitado.</p>
-  <div class="gravador-controles">
-    <button type="button" id="iniciarGravacao">🎙️ Iniciar gravação</button>
-    <button type="button" class="danger" id="pararGravacao" disabled>■ Parar</button>
-    <button type="button" class="secondary" id="excluirGravacao" disabled>Excluir / regravar</button>
-    <span id="gravacaoStatus" class="gravador-status" role="status" aria-live="polite">Nenhuma gravação.</span>
-  </div>
-  <audio id="gravacaoPlayer" class="gravador-player" controls hidden preload="metadata"></audio>
+<section class="card"><h2>4. Mensagens de áudio</h2>
+<div class="audio-abas row" role="tablist" aria-label="Origem dos áudios">
+<button type="button" id="abaMicrofone" class="aba-ativa" role="tab" aria-selected="true">🎙️ Gravação pelo microfone</button>
+<button type="button" id="abaElevenLabs" class="secondary" role="tab" aria-selected="false">🤖 ElevenLabs</button>
 </div>
-<div class="field" style="margin-top:14px">
-  <label for="audioTexto">Mensagem de áudio (texto a ser falado pela ElevenLabs, opcional)</label>
-  <textarea id="audioTexto" maxlength="1000" placeholder="Digite o texto para a ElevenLabs (alternativa à gravação pelo microfone)."></textarea>
-  <div class="row"><button type="button" class="secondary" id="abrirEleven">⚙️ Configurar ElevenLabs e ouvir áudio</button><span class="muted" id="audioResumo">Nenhum áudio ElevenLabs preparado.</span></div>
+<div id="conteudoMicrofone">
+<p class="gravador-aviso">Grave até 3 minutos por áudio; cada gravação pode ser adicionada à sequência, sem apagar as anteriores.</p>
+<div class="gravador-controles">
+<button type="button" id="iniciarGravacao">🎙️ Iniciar gravação</button>
+<button type="button" class="danger" id="pararGravacao" disabled>■ Parar</button>
+<button type="button" class="secondary" id="excluirGravacao" disabled>Excluir / regravar</button>
+<span id="gravacaoStatus" class="gravador-status" role="status" aria-live="polite">Nenhuma gravação.</span>
 </div>
-<div class="field" style="margin-top:14px">
-  <label for="fonteAudio">Áudio que será enviado</label>
-  <select class="audio-fonte" id="fonteAudio"><option value="nenhum">Sem áudio (somente foto e legenda)</option><option value="gravacao">Gravação do microfone</option><option value="elevenlabs">Voz da ElevenLabs</option></select>
-  <span class="muted small">Escolha somente uma fonte; a campanha envia uma foto com legenda e, se selecionado, um áudio em seguida.</span>
+<audio id="gravacaoPlayer" class="gravador-player" controls hidden preload="metadata"></audio>
+<button type="button" id="adicionarGravacao" class="secondary">➕ Adicionar gravação à sequência</button>
 </div>
+<div id="conteudoElevenLabs" hidden>
+<div class="field"><label for="audioTexto">Texto a ser falado pela ElevenLabs</label>
+<textarea id="audioTexto" maxlength="1000" placeholder="Digite o texto para gerar a voz."></textarea></div>
+<div class="row"><button type="button" class="secondary" id="abrirEleven">⚙️ Escolher voz e gerar áudio</button><span class="muted" id="audioResumo">Nenhum áudio ElevenLabs preparado.</span></div>
+<button type="button" id="adicionarAudioEleven" class="secondary">➕ Adicionar áudio ElevenLabs à sequência</button>
+</div>
+<select class="audio-fonte" id="fonteAudio" hidden><option value="nenhum">Sem áudio</option><option value="gravacao">Microfone</option><option value="elevenlabs">ElevenLabs</option></select>
+<p class="muted small">Os áudios das duas abas entram na mesma lista de envio. Trocar de aba não remove gravações adicionadas.</p>
 </section>
-<section class="card"><h2>5. Prévia e teste individual</h2>
+<section class="card"><h2>5. Ordem de envio, horários e teste</h2>
+<div class="row" style="justify-content:space-between"><h3>Sequência personalizada</h3><span id="sequenciaContagem" class="muted">Nenhuma mensagem adicionada</span></div>
+<div id="sequenciaResumo" class="seq-lista" aria-live="polite"></div>
+<p class="muted small">Use ↑ e ↓ para reorganizar fotos, textos e áudios. As mensagens serão enviadas separadamente, nesta ordem. O intervalo em minutos vale entre destinatários, não entre etapas da mesma conversa.</p>
 <div class="preview"><img id="previewFoto" alt="Prévia da foto" hidden><p id="previewTexto" class="muted">Escreva a mensagem.</p></div>
 <p id="previewAudioResumo" class="muted" style="margin:13px 0 3px">Sem mensagem de áudio.</p>
 <audio id="previewAudioPlayer" class="previa-audio" controls hidden preload="metadata"></audio>
@@ -132,7 +139,7 @@
 </div>
 <p class="muted small">Horários da Paraíba (America/Fortaleza, UTC−3). A fila aguarda fora da janela e continua automaticamente no dia seguinte. Enviar devagar não substitui a autorização para receber publicidade.</p>
 <div class="previa-teste-botoes" style="margin-top:15px"><div class="field"><label for="numeroTeste">WhatsApp para teste (55 + DDD + número)</label><input id="numeroTeste" inputmode="tel" placeholder="5583999999999"></div><button type="button" class="secondary" id="teste">Enviar prévia ao número informado</button><button type="button" id="testeFabrica">Enviar para WhatsApp da fábrica (5583999792085)</button></div>
-<p class="muted small">O teste envia de verdade a foto, a legenda e o áudio selecionado, sem iniciar campanha ou alterar a seleção dos clientes.</p>
+<p class="muted small">O teste envia de verdade toda a sequência configurada, sem iniciar uma campanha. Confirme o destinatário antes do teste.</p>
 </section>
 <section class="card bottom"><div class="row"><button id="enviar">Iniciar Mala Direta</button><span class="muted" id="enviarResumo">Nenhum destinatário selecionado</span></div></section>
 <section class="card"><div class="row" style="justify-content:space-between"><h2>Campanhas e relatórios</h2><button class="secondary" id="atualizar">Atualizar</button></div><div class="tablewrap"><table><thead><tr><th>Campanha</th><th>Produto</th><th>Status</th><th>Enviados</th><th>Pendentes</th><th>Problemas</th><th>Ações</th></tr></thead><tbody id="campanhas"></tbody></table></div></section>
@@ -151,7 +158,7 @@
 </div></div>
 <div class="modal" id="modalEleven" role="dialog" aria-modal="true" aria-labelledby="elevenTitulo"><div class="dialog">
 <div class="row" style="justify-content:space-between"><h2 id="elevenTitulo">Configurações ElevenLabs</h2><button type="button" class="secondary" id="fecharEleven">Fechar</button></div>
-<p class="muted">Sua voz clonada e o modelo são os mesmos da tela de testes do Assistente JR. Gere a prévia uma vez: o áudio será reutilizado na campanha. A prévia deve ser usada em até 10 minutos; depois disso, gere novamente.</p>
+<p class="muted">Escolha uma voz e gere o áudio. Cada geração poderá ser incluída na sequência e reproduzida no simulador. Prévia temporária: o sistema irá renová-la antes do envio quando necessário.</p>
 <div class="field"><label for="elevenVoz">Voz</label><select id="elevenVoz"><option value="">Carregando vozes...</option></select></div>
 <div class="field"><label for="elevenVozManual">Voice ID (opcional, substitui a seleção)</label><input id="elevenVozManual" placeholder="Cole o identificador da sua voz clonada"></div>
 <div class="field"><label for="elevenModelo">Modelo ElevenLabs</label><select id="elevenModelo"><option value="">Carregando modelos...</option></select></div>
