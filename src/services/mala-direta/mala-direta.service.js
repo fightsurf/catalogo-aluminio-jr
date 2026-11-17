@@ -210,6 +210,40 @@ function audioSelecionado(dados,usuario){
   if(audio.origem==='gravacao'||!texto||texto.length>1000||texto!==audio.texto)bad('O texto ou a prévia da ElevenLabs não confere. Gere novamente.');
   return {audio,texto};
 }
+// Validação completa da sequência antes de iniciar qualquer disparo.
+function prepararSequencia(dados,origem,usuario){
+  if(dados.sequencia===undefined)return null;
+  if(!Array.isArray(dados.sequencia)||!dados.sequencia.length||dados.sequencia.length>30)
+    bad('Informe de 1 a 30 mensagens na sequência.');
+  let tamanhoAudio=0;
+  return dados.sequencia.map((item,i)=>{
+    if(!item||typeof item!=='object')bad('Mensagem da sequência inválida na posição '+(i+1));
+    const tipo=String(item.tipo||'');
+    if(tipo==='imagem')return {tipo,imagem:urlFoto(item.imagem,origem)};
+    if(tipo==='texto'){
+      const texto=String(item.texto||'').trim();
+      if(!texto||texto.length>3000)bad('Texto inválido na posição '+(i+1));
+      return {tipo,texto};
+    }
+    if(tipo==='audio'){
+      const {audio}=audioSelecionado(item,usuario);
+      if(!audio)bad('Áudio ausente na posição '+(i+1));
+      tamanhoAudio+=audio.bytes.length;
+      if(tamanhoAudio>20*1024*1024)bad('A soma dos áudios ultrapassou 20 MB.');
+      return {tipo,origem:audio.origem,mp3:audio.bytes.toString('base64')};
+    }
+    bad('Tipo de mensagem inválido na posição '+(i+1));
+  });
+}
+async function enviarEtapa(telefoneDestino,etapa){
+  const opts={timeoutMs:60000,funcionalidade:'mala_direta'};
+  if(etapa.tipo==='imagem')return zapi.enviarImagem({telefone:telefoneDestino,imagem:etapa.imagem,legenda:''},opts);
+  if(etapa.tipo==='texto')return zapi.postZapi('/send-text',{phone:telefoneDestino,message:etapa.texto},opts);
+  if(etapa.tipo==='audio')return zapi.postZapi('/send-audio',{
+    phone:telefoneDestino,audio:'data:audio/mpeg;base64,'+etapa.mp3
+  },opts);
+  throw Error('Etapa desconhecida.');
+}
 async function criar(dados, origem,usuario) {
   await preparar();
   const produtoId=id(dados.produtoId), criterio=criterioValido(dados);
