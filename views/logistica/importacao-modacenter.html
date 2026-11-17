@@ -154,9 +154,13 @@ function montarTabela() {
     const desabilitado = item.situacao === 'invalido' || item.situacao === 'duplicado_arquivo';
     const selecao = '<input type="checkbox" class="checkLinha" data-indice="'+item.indice+'" '+(desabilitado?'disabled':'')+'>';
     const opcoes = item.candidatos.map(c => '<option value="'+Number(c.id)+'">'+h(c.nome+' (#'+c.id+', '+c.tipo+')')+'</option>').join('');
+    const podeCriarAposRevisao = item.situacao === 'revisar' &&
+      item.candidatos.length > 0 && item.candidatos.every(c => c.tipo === 'semelhante');
+    const criarSeparado = podeCriarAposRevisao
+      ? '<option value="criar_novo">Não corresponde: criar cadastro separado</option>' : '';
     const escolha = item.situacao === 'novo' ? '<strong>Criar novo cadastro</strong>' :
       '<select class="selecionarExistente" data-indice="'+item.indice+'">'+
-      '<option value="">Selecione um cadastro</option>'+opcoes+'</select>';
+      '<option value="">Selecione um cadastro</option>'+opcoes+criarSeparado+'</select>';
     const alertaTel = item.candidatos.some(c => c.divergenciaTelefone) ? '<small>Telefone divergente; cadastro atual será preservado</small>' : '';
     const cidades = (item.cidadesEncontradas||[]).length;
     const ausentes = (item.cidadesNaoEncontradas||[]).length;
@@ -251,9 +255,13 @@ async function confirmar() {
     if (item.situacao === 'novo') decisoes.push({ indice, acao:'criar' });
     else {
       const escolha = document.querySelector('.selecionarExistente[data-indice="'+indice+'"]');
-      const id = Number(escolha && escolha.value);
-      if (!id) { mensagem('Escolha a transportadora correspondente para '+item.nome+'.', true); escolha.focus(); return; }
-      decisoes.push({ indice, acao:'vincular', transportadora_id:id });
+      if (escolha && escolha.value === 'criar_novo') {
+        decisoes.push({ indice, acao:'criar', revisao_confirmada:true });
+      } else {
+        const id = Number(escolha && escolha.value);
+        if (!id) { mensagem('Escolha a transportadora correspondente para '+item.nome+'.', true); escolha.focus(); return; }
+        decisoes.push({ indice, acao:'vincular', transportadora_id:id });
+      }
     }
   }
   if (!decisoes.length) return;
