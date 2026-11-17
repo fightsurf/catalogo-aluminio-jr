@@ -159,3 +159,11 @@ dialog.receita-modal-secundario .receita-resultado{margin:0}
 .receita-ingredientes-detalhe li .receita-ingrediente-peso{align-self:flex-start}
 .receita-lista-meta{color:#a9b9d1}
 .receita-lista-macros{margin-top:2px}
+
+/* Anexação de imagens na importação de receitas (seleção, Ctrl+V ou arrastar). */
+.receita-importador .importador-imagem{display:grid;gap:10px;padding:12px;border:1px dashed #6d87a8;border-radius:9px;background:#101e31}
+.receita-importador .importador-imagem:focus-visible{outline:2px solid #80c4ff;outline-offset:2px}
+.receita-importador .importador-imagem-ajuda{display:flex;align-items:center;flex-wrap:wrap;gap:10px;color:#bdcde1;font-size:.9rem}
+.receita-importador .importador-imagem-previa{display:flex;align-items:flex-start;flex-wrap:wrap;gap:12px}
+.receita-importador .importador-imagem-previa[hidden]{display:none!important}
+.receita-importador .importador-imagem-previa img{width:auto;max-width:100%;height:auto;max-height:280px;object-fit:contain;border:1px solid #435775;border-radius:7px}
