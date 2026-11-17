@@ -17,6 +17,11 @@ test('diagnostico da paginacao publica - sem dados pessoais', async () => {
       while ((p=js.indexOf(term,p+1))>=0 && locations.length<4) locations.push(js.slice(Math.max(0,p-160),Math.min(js.length,p+240)).replace(/[0-9]{10,}/g,'[n]'));
       if(locations.length)console.log('PAGINACAO_DIAG JS',term,locations);
     }
+    console.log('PAGINACAO_DIAG INLINE', $('script:not([src])').length, $('script:not([src])').map((_,e)=>$(e).text().length).get().filter(Boolean).sort((a,b)=>b-a).slice(0,8));
+    console.log('PAGINACAO_DIAG RSC', {tokenCount:html.split('self.__next_f.push').length-1, nameCount:html.split('\\\\"name\\\\"').length-1, itemCount:html.split('initialCurrentItems').length-1});
+    const marker=html.indexOf('Abdon Turismo');
+    if(marker>=0)console.log('PAGINACAO_DIAG CONTEXTO',html.slice(Math.max(0,marker-230),marker+260).replace(/\\\\/g,'\\\\').replace(/\\d{5,}/g,'[numero]'));
+    const rev=html.indexOf('pageSize');if(rev>=0)console.log('PAGINACAO_DIAG PAGE SIZE CONTEXTO',html.slice(Math.max(0,rev-180),rev+190).replace(/\\d{5,}/g,'[numero]'));
     console.log('PAGINACAO_DIAG PAGER', $('button,a,[role=button]').filter((_,e)=>/^\s*(2|3|>|>>)\s*$/.test($(e).text())).slice(0,12).map((_,e)=>$(e).prop('outerHTML').slice(0,750)).get());
     console.log('PAGINACAO_DIAG STATE', $('script[type="application/json"],#__NEXT_DATA__,script[data-nuxt-data]').map((_,e)=>({attrs:$(e).attr(),size:$(e).text().length,peek:$(e).text().slice(0,160)})).get().slice(0,8));
     for(const q of ['?page=2','?pagina=2','?p=2','?pageNumber=2','?current_page=2']){
