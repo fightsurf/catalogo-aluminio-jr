@@ -2,7 +2,7 @@
 const express = require('express');
 const crypto = require('crypto');
 const pool = require('../../../db/connection');
-const { chave, normalizarLinha, montarCamposTransportadora, classificar } = require('../../services/logistica/importacaoExcursoesUtils');
+const { chave, normalizarLinha, montarCamposTransportadora, classificar, combinarTelefones, combinarObservacao, escolherTransportadora } = require('../../services/logistica/importacaoExcursoesUtils');
 const router = express.Router();
 const { coletarExcursoes } = require('../../services/logistica/coletorModaCenter.service');
 
@@ -45,54 +45,60 @@ function validarToken(registros, token) {
 }
 async function preparar(client, registros) {
   const [transportadoras, cidades] = await Promise.all([
-    client.query('SELECT t.id, t.nome, t.telefone, t.telefone_principal, c.nome AS cidade_nome, c.estado AS cidade_estado FROM transportadoras t LEFT JOIN cidades c ON c.id = t.cidade_id'),
+    client.query('SELECT t.id, t.nome, t.telefone, t.telefone_principal, t.observacao, t.cidade_id, c.nome AS cidade_nome, c.estado AS cidade_estado FROM transportadoras t LEFT JOIN cidades c ON c.id = t.cidade_id'),
     client.query('SELECT id, nome, estado FROM cidades')
   ]);
-  const mapa = new Map();
-  const mapaPorNome = new Map();
-  for (const c of cidades.rows) {
-    const nomeNormalizado = chave(c.nome);
-    const chaveCidade = nomeNormalizado + '|' + String(c.estado).toUpperCase();
-    if (!mapa.has(chaveCidade)) mapa.set(chaveCidade, []);
-    mapa.get(chaveCidade).push(c);
-    if (!mapaPorNome.has(nomeNormalizado)) mapaPorNome.set(nomeNormalizado, []);
-    mapaPorNome.get(nomeNormalizado).push(c);
+  const porNomeUf = new Map(), porNome = new Map();
+  for (const cidade of cidades.rows) {
+    const nome = chave(cidade.nome), uf = String(cidade.estado || '').toUpperCase();
+    const indice = nome + '|' + uf;
+    if (!porNomeUf.has(indice)) porNomeUf.set(indice, []);
+    porNomeUf.get(indice).push(cidade);
+    if (!porNome.has(nome)) porNome.set(nome, []);
+    porNome.get(nome).push(cidade);
   }
-  // Novas transportadoras do Moda Center sao cadastradas com cidade fixa.
-  const cidadePadrao = mapa.get(chave('Santa Cruz do Capibaribe') + '|PE') || [];
-  const cidadeCadastroId = cidadePadrao.length === 1 ? cidadePadrao[0].id : null;
-  const vistos = new Set();
+  const santaCruz = porNomeUf.get(chave('Santa Cruz do Capibaribe') + '|PE') || [];
+  const cidadeCadastroId = santaCruz.length ? santaCruz[0].id : null;
   const itens = registros.map((registro, indice) => {
-    const encontrado = classificar(registro, transportadoras.rows);
-    const identidade = chave(registro.nome) + '|' + chave(registro.origem);
-    if (vistos.has(identidade)) encontrado.situacao = 'duplicado_arquivo';
-    vistos.add(identidade);
-    const encontradas = [], naoEncontradas = [];
-    for (const local of registro.cidades) {
-      const encontrados = mapa.get(chave(local.nome) + '|' + local.uf) || [];
-      if (encontrados.length === 1) {
-        encontradas.push({ id: encontrados[0].id, nome: local.nome, uf: local.uf });
+    const classificado = classificar(registro, transportadoras.rows);
+    const existente = escolherTransportadora(registro, transportadoras.rows);
+    const encontradas = [], criar = [], naoEncontradas = [], ufInferida = [];
+    const vistas = new Set();
+    function incluir(local) {
+      const uf = String(local.uf || '').toUpperCase();
+      const key = chave(local.nome) + '|' + uf;
+      if (!local.nome || !/^[A-Z]{2}$/.test(uf) || vistas.has(key)) return;
+      vistas.add(key);
+      const coincidencias = porNomeUf.get(key) || [];
+      if (coincidencias.length) {
+        encontradas.push({ id: coincidencias[0].id, nome: local.nome, uf });
       } else {
-        naoEncontradas.push(local.nome + ' - ' + local.uf + (encontrados.length ? ' (ambiguo)' : ''));
+        criar.push({ nome: local.nome, uf });
       }
     }
-    // Vincula uma cidade sem UF apenas quando o nome identifica uma unica cidade no banco.
-    const idsVinculados = new Set(encontradas.map(c => Number(c.id)));
+    for (const local of registro.cidades) incluir(local);
     for (const nome of registro.semUf) {
-      const opcoes = mapaPorNome.get(chave(nome)) || [];
-      if (opcoes.length === 1) {
-        const cidade = opcoes[0];
-        if (!idsVinculados.has(Number(cidade.id))) {
-          encontradas.push({ id: cidade.id, nome: cidade.nome, uf: cidade.estado });
-          idsVinculados.add(Number(cidade.id));
-        }
+      const coincidencias = porNome.get(chave(nome)) || [];
+      const estados = new Set(coincidencias.map(x => String(x.estado || '').toUpperCase()));
+      if (estados.size === 1 && coincidencias.length) {
+        incluir({ nome: coincidencias[0].nome, uf: coincidencias[0].estado });
+      } else if (registro.origemLocalidade && registro.origemLocalidade.uf) {
+        // UF ausente na rota: assume a UF da origem, e informa a inferencia na previa.
+        incluir({ nome, uf: registro.origemLocalidade.uf });
+        ufInferida.push(nome + ' - ' + registro.origemLocalidade.uf);
       } else {
-        naoEncontradas.push(nome + (opcoes.length ? ' (cidade ambigua: informe UF)' : ' (nao encontrada)'));
+        naoEncontradas.push(nome + ' (UF nao informada; necessario informar a UF no arquivo)');
       }
     }
     return {
-      indice, ...registro, situacao: encontrado.situacao, candidatos: encontrado.candidatos,
-      cidadesEncontradas: encontradas, cidadesNaoEncontradas: naoEncontradas,
+      indice, ...registro,
+      situacao: existente ? 'existente' : classificado.situacao,
+      candidatos: classificado.candidatos,
+      transportadoraIdSugerida: existente ? existente.id : null,
+      cidadesEncontradas: encontradas,
+      cidadesParaCriar: criar,
+      cidadesNaoEncontradas: naoEncontradas,
+      cidadesUfInferida: ufInferida,
       cidadeCadastroId
     };
   });
@@ -159,69 +165,107 @@ router.post('/confirmar', async (req, res) => {
     const indices = new Set();
     for (const d of decisoes) {
       if (!Number.isInteger(d.indice) || d.indice < 0 || d.indice >= registros.length ||
-          !['criar', 'vincular'].includes(d.acao) || indices.has(d.indice)) {
+          !['automatico', 'criar', 'vincular'].includes(d.acao) || indices.has(d.indice) ||
+          (d.acao === 'vincular' && !Number.isInteger(Number(d.transportadora_id)))) {
         return res.status(400).json({ erro: 'Selecao invalida ou duplicada.' });
       }
       indices.add(d.indice);
     }
     client = await pool.connect();
     await client.query('BEGIN');
-    // Serializa importacoes simultaneas para evitar duplicacao na mesma origem.
     await client.query('SELECT pg_advisory_xact_lock(7051181)');
     const { itens, existentes } = await preparar(client, registros);
-    const resumo = { criadas: 0, vinculadas: 0, cidadesVinculadas: 0, puladas: 0, cidadesNaoLocalizadas: 0, registros: [] };
+    const rCidades = await client.query('SELECT id, nome, estado FROM cidades');
+    const idsCidades = new Map();
+    for (const c of rCidades.rows) {
+      const key = chave(c.nome) + '|' + String(c.estado || '').toUpperCase();
+      if (!idsCidades.has(key)) idsCidades.set(key, c.id);
+    }
+    const resumo = {
+      criadas: 0, vinculadas: 0, atualizadas: 0, telefonesAdicionados: 0,
+      cidadesCriadas: 0, cidadesVinculadas: 0, puladas: 0,
+      cidadesNaoLocalizadas: 0, registros: []
+    };
+    async function garantirCidade(nome, uf) {
+      const key = chave(nome) + '|' + String(uf).toUpperCase();
+      if (idsCidades.has(key)) return idsCidades.get(key);
+      const criada = await client.query(
+        'INSERT INTO cidades (nome, estado) VALUES ($1, $2) RETURNING id', [nome, uf]
+      );
+      const id = criada.rows[0].id;
+      idsCidades.set(key, id);
+      resumo.cidadesCriadas++;
+      return id;
+    }
+    // A cidade fixa e criada uma unica vez se estiver ausente.
+    const cidadeCadastroId = await garantirCidade('Santa Cruz do Capibaribe', 'PE');
     for (const decisao of decisoes) {
       const item = itens[decisao.indice];
-      let id = null;
-      let acao = decisao.acao;
-      if (item.situacao === 'invalido' || item.situacao === 'duplicado_arquivo') {
-        resumo.puladas++; resumo.registros.push({ indice: item.indice, nome: item.nome, status: 'ignorado' }); continue;
+      if (!item.nome || item.nome.length < 2) {
+        resumo.puladas++;
+        resumo.registros.push({ indice: item.indice, nome: item.nome, status: 'nome_invalido' });
+        continue;
       }
-      // Sugestoes por prefixo nao sao duplicatas confirmadas. Aceita criacao revisada
-      // apenas se nao houver outro cadastro com nome exato ou telefone igual.
-      const candidatosAtuais = classificar(item, existentes).candidatos;
-      const duplicadoForte = candidatosAtuais.some(c => c.tipo === 'nome' || c.tipo === 'telefone');
-      const criarPermitido = acao === 'criar' && !duplicadoForte &&
-        (item.situacao === 'novo' ||
-          (item.situacao === 'revisar' && decisao.revisao_confirmada === true));
-      if (criarPermitido) {
-        if (!item.cidadeCadastroId) {
-          const erro = new Error('Cidade Santa Cruz do Capibaribe - PE ausente ou ambigua no cadastro de cidades. Corrija antes de importar.');
-          erro.status = 409;
-          throw erro;
+      let cadastro = null;
+      if (decisao.acao === 'vincular') {
+        const idEscolhido = Number(decisao.transportadora_id);
+        const permitido = item.candidatos.some(c => Number(c.id) === idEscolhido) ||
+          Number(item.transportadoraIdSugerida) === idEscolhido;
+        cadastro = permitido ? existentes.find(t => Number(t.id) === idEscolhido) : null;
+        if (!cadastro) {
+          const erro = new Error('Transportadora selecionada nao corresponde a previa: ' + item.nome);
+          erro.status = 400; throw erro;
         }
-        const cadastro = montarCamposTransportadora(item);
-        const criacao = await client.query(
+      } else if (decisao.acao === 'automatico') {
+        cadastro = escolherTransportadora(item, existentes);
+      } else if (decisao.acao === 'criar') {
+        // Evita duplicar correspondencias unicas, inclusive linhas repetidas da planilha.
+        cadastro = escolherTransportadora(item, existentes);
+      }
+      let id, status, adicionados = 0;
+      if (cadastro) {
+        id = cadastro.id;
+        const tels = combinarTelefones(cadastro, item.telefones);
+        const obs = combinarObservacao(cadastro.observacao, item.destino);
+        const cidadeId = cadastro.cidade_id || cidadeCadastroId;
+        await client.query(
+          'UPDATE transportadoras SET telefone = $1, telefone_principal = $2, observacao = $3, cidade_id = $4 WHERE id = $5',
+          [tels.telefone, tels.telefone_principal, obs, cidadeId, id]
+        );
+        Object.assign(cadastro, { telefone: tels.telefone, telefone_principal: tels.telefone_principal,
+          observacao: obs, cidade_id: cidadeId });
+        adicionados = tels.adicionados;
+        resumo.vinculadas++;
+        resumo.atualizadas++;
+        status = 'atualizada';
+      } else {
+        const dados = montarCamposTransportadora(item);
+        const nova = await client.query(
           'INSERT INTO transportadoras (nome, telefone, telefone_principal, observacao, cidade_id) VALUES ($1, $2, $3, $4, $5) RETURNING id',
-          [cadastro.nome, cadastro.telefone, cadastro.telefone_principal, cadastro.observacao, item.cidadeCadastroId]
+          [dados.nome, dados.telefone, dados.telefone_principal, dados.observacao, cidadeCadastroId]
         );
-        id = criacao.rows[0].id;
-        existentes.push({ id, nome: cadastro.nome, telefone: cadastro.telefone, telefone_principal: cadastro.telefone_principal });
+        id = nova.rows[0].id;
+        existentes.push({ id, ...dados, cidade_id: cidadeCadastroId });
+        adicionados = item.telefones.length;
         resumo.criadas++;
-      } else if (acao === 'vincular') {
-        const selecionado = Number(decisao.transportadora_id);
-        if (item.candidatos.some(c => Number(c.id) === selecionado) &&
-            existentes.some(t => Number(t.id) === selecionado)) {
-          id = selecionado;
-          resumo.vinculadas++;
-        }
+        status = 'criada';
       }
-      if (!id) {
-        resumo.puladas++; resumo.registros.push({ indice: item.indice, nome: item.nome, status: 'revisar' }); continue;
-      }
-      let quantidade = 0;
-      for (const cidade of item.cidadesEncontradas) {
-        const insercao = await client.query(
+      resumo.telefonesAdicionados += adicionados;
+      let vinculadas = 0;
+      for (const cidade of [...item.cidadesEncontradas, ...item.cidadesParaCriar]) {
+        const cidadeId = await garantirCidade(cidade.nome, cidade.uf);
+        const vinculo = await client.query(
           'INSERT INTO transportadora_cidade (transportadora_id, cidade_id, observacao) VALUES ($1, $2, NULL) ON CONFLICT (transportadora_id, cidade_id) DO NOTHING RETURNING cidade_id',
-          [id, cidade.id]
+          [id, cidadeId]
         );
-        quantidade += insercao.rowCount;
+        vinculadas += vinculo.rowCount;
       }
-      resumo.cidadesVinculadas += quantidade;
+      resumo.cidadesVinculadas += vinculadas;
       resumo.cidadesNaoLocalizadas += item.cidadesNaoEncontradas.length;
       resumo.registros.push({
-        indice: item.indice, nome: item.nome, status: acao, transportadora_id: id,
-        cidades_adicionadas: quantidade, cidades_nao_localizadas: item.cidadesNaoEncontradas
+        indice: item.indice, nome: item.nome, status, transportadora_id: id,
+        telefones_adicionados: adicionados, cidades_adicionadas: vinculadas,
+        cidades_nao_localizadas: item.cidadesNaoEncontradas, cidades_uf_inferida: item.cidadesUfInferida
       });
     }
     await client.query(
@@ -239,6 +283,7 @@ router.post('/confirmar', async (req, res) => {
     return responderErro(res, erro);
   } finally { if (client) client.release(); }
 });
+
 router.get('/historico', async (_req, res) => {
   try {
     const existe = await pool.query("SELECT to_regclass('public.logistica_importacoes_autorizadas') AS tabela");
