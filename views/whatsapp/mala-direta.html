@@ -1162,7 +1162,7 @@ function preencherTabelaAndamento(destinatarios){
   const corpo=$('campanhaDestinatarios');corpo.replaceChildren();
   for(const d of destinatarios){
     const tr=el('tr');
-    const td=valor=>tr.append(el('td',String(valor??'-')));
+    const td=valor=>{const cel=el('td',String(valor??'-'));tr.append(cel);return cel;};
     td(d.nome||'-');td(d.telefone||'-');td(rotuloSituacao(d.status));
     td(dataHora(d.enviado_em));
     const aceitas=Array.isArray(d.etapas_aceitas)?d.etapas_aceitas.length:0;
