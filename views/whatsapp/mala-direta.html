@@ -709,7 +709,7 @@ $('enviar').onclick=async()=>{
   const minutos=Number($('intervalo').value);
   if(!Number.isInteger(minutos)||minutos<1||minutos>1440)return msg('Informe intervalo de 1 a 1440 minutos.',true);
   const inicio=$('horarioInicio').value,fim=$('horarioFim').value;
-  if(!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(inicio)||!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(fim)||inicio>=fim)
+  if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(inicio)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(fim)||inicio>=fim)
     return msg('Defina um horário inicial anterior ao final.',true);
   let audio;try{audio=await audioParaEnvio();}catch(e){return msg(e.message,true);}
   if(!confirm(`INICIAR ENVIO REAL para ${dest.length} destinatários? Critério: ${c.tipo}. Intervalo mínimo: ${minutos} minuto(s). Horário: ${inicio}–${fim} (horário da Paraíba). Produto: ${p.nome}. ${audio.audioOrigem!=='nenhum'?'Foto e áudio serão enviados.':''}
