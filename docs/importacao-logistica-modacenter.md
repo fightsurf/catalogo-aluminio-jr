@@ -24,8 +24,8 @@ Exemplo ilustrativo com dados ficticios:
 ## Fluxo
 1. Gerar previa (sem gravar) com correspondencias pelo nome/telefone e cidades.
 2. Selecionar registros novos ou indicar explicitamente a transportadora existente a associar.
-3. Confirmar a gravacao. Registro novo cria transportadora; existente so acrescenta vinculacoes de cidades (nao altera telefone, nome nem observacao).
-4. Conferir relatorio de cidades ignoradas e o historico das importacoes.
+3. Confirmar a gravacao. Registro novo cria transportadora com cidade fixa Santa Cruz do Capibaribe - PE, telefones normalizados com prefixo 55, primeiro como principal, e observacao "Origem: <campo origem do site>". Existente so acrescenta vinculacoes de cidades (nao altera telefone, nome nem observacao).
+4. Conferir relatorio de cidades ignoradas e o historico das importacoes. Apenas cidades da rota sao vinculadas; a cidade de origem nao e acrescentada automaticamente. Localidades sem UF sao vinculadas somente se o nome for unico no cadastro de cidades.
 
 Limites: 1.000 registros por lote, 1,6 MB de JSON, previa assinada e valida por 20 minutos.
 A validacao e repetida dentro de uma transacao antes de gravar; importacoes simultaneas usam lock. Cidades ausentes/ambiguas no banco sao listadas, mas nao sao criadas automaticamente. A classificacao de excursao nao significa autorizacao para transporte de carga.
