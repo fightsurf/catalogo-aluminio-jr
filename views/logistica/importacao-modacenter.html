@@ -200,8 +200,11 @@ async function coletarSite() {
     linhas = dados.rows;
     const informados = dados.total_informado == null ? '?' : dados.total_informado;
     const pags = (dados.paginas_visitadas || []).length;
+    const abrangencia = dados.paginas_virtuais
+      ? dados.paginas_virtuais + ' páginas da listagem cobertas (dados incorporados em uma resposta)'
+      : pags + ' página(s) consultada(s)';
     const frase = (dados.coleta_completa ? 'Coleta completa' : 'COLETA PARCIAL') +
-      ': ' + linhas.length + ' registros, ' + pags + ' página(s) consultada(s), ' +
+      ': ' + linhas.length + ' registros, ' + abrangencia + ', ' +
       informados + ' resultados informados pelo site.';
     $('resumoColeta').textContent = frase + (dados.avisos?.length ? '\n' + dados.avisos.join(' | ') : '');
     $('resumoColeta').style.whiteSpace = 'pre-wrap';
