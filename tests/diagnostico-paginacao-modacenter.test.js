@@ -40,9 +40,11 @@ test('diagnostico da paginacao publica - sem dados pessoais', async () => {
           const object=JSON.parse(jsonText);
           console.log('PAGINACAO_DIAG RSC ROOT',Object.keys(object));
           function walk(value,depth=0){
-            if(depth>4 || !value || typeof value!=='object')return;
+            if(depth>18 || !value || typeof value!=='object')return;
             if(Array.isArray(value)){
-              console.log('PAGINACAO_DIAG ARRAY',depth,'len',value.length,'firstKeys',value[0] && typeof value[0]==='object'?Object.keys(value[0]):typeof value[0]);return;
+              if(value.length>=100)console.log('PAGINACAO_DIAG BIG ARRAY',depth,'len',value.length,'firstKeys',value[0] && typeof value[0]==='object'?Object.keys(value[0]):typeof value[0]);
+              for(const v of value)walk(v,depth+1);
+              return;
             }
             for(const [key,v] of Object.entries(value)){
               if(key==='excursions')console.log('PAGINACAO_DIAG EXCURSIONS',Array.isArray(v),v?.length,Array.isArray(v)&&v[0]&&Object.keys(v[0]),Array.isArray(v)&&v[0]&&Object.fromEntries(Object.entries(v[0]).map(([k,val])=>[k,Array.isArray(val)?'array('+val.length+')':typeof val])));
