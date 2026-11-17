@@ -213,6 +213,8 @@ app.use('/api/assistente/catalogo', assistenteCatalogoRoutes);
 app.use('/api/assistente-pedidos', assistentePedidosRoutes);
 app.use('/api/transportadoras', transportadorasRoutes);
 app.use('/api/agencias-recebimento', agenciasRecebimentoRoutes);
+// Importação IA: leitura de fotos e cadastro após revisão administrativa.
+app.use('/api/logistica/importacao-ia', requireAuth, require('./src/routes/logistica/importacaoIaRoutes'));
 app.use('/api/logistica', logisticaRoutes);
 app.use('/api/funcionarios', funcionarioRoutes);
 app.use('/api/fornecedores', fornecedorRoutes);
