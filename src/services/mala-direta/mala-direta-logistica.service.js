@@ -21,23 +21,13 @@ function numeros(cadastro){
   }
   return saida;
 }
-// Cadastro importado: a localidade vinculada fica em transportadora_cidade.
-// Nos cadastros antigos sem vínculos de rota, usamos cidade_id como alternativa.
-// Importante: cidades de rota podem não ser a origem exclusiva da excursão.
-const LOCAL_TRANSPORTADORA=`(
-  EXISTS(SELECT 1 FROM transportadora_cidade tc WHERE tc.transportadora_id=t.id AND tc.cidade_id=$1)
-  OR (t.cidade_id=$1 AND NOT EXISTS
-    (SELECT 1 FROM transportadora_cidade tc2 WHERE tc2.transportadora_id=t.id))
-)`;
+// Usar exclusivamente a cidade registrada na mesma linha da transportadora.
+// transportadora_cidade contém localidades atendidas/rotas e NÃO deve alimentar este filtro.
 async function cidades(grupo='todos'){
   validarGrupo(grupo);
   const partes=[];
   if(grupo!=='agencias')partes.push(`SELECT c.id,c.nome,c.estado
-    FROM cidades c WHERE EXISTS(
-      SELECT 1 FROM transportadoras t WHERE
-      EXISTS(SELECT 1 FROM transportadora_cidade tc WHERE tc.transportadora_id=t.id AND tc.cidade_id=c.id)
-      OR (t.cidade_id=c.id AND NOT EXISTS (SELECT 1 FROM transportadora_cidade x WHERE x.transportadora_id=t.id))
-    )`);
+    FROM transportadoras t INNER JOIN cidades c ON c.id=t.cidade_id`);
   if(grupo!=='transportadoras')partes.push(`SELECT c.id,c.nome,c.estado
     FROM cidades c INNER JOIN agencias_recebimento a ON a.cidade_id=c.id`);
   const resultado=await pool.query(`SELECT DISTINCT id,nome,estado FROM (${partes.join(' UNION ALL ')}) locais ORDER BY nome,estado`);
@@ -64,7 +54,7 @@ async function consultar(grupo='todos',cidade=null){
     const t=await pool.query(`SELECT t.id,t.nome,t.telefone,t.telefone_principal,
       c.nome AS cidade_nome,c.estado AS cidade_estado
       FROM transportadoras t LEFT JOIN cidades c ON c.id=t.cidade_id
-      WHERE ($1::bigint IS NULL OR ${LOCAL_TRANSPORTADORA})
+      WHERE ($1::bigint IS NULL OR t.cidade_id=$1)
       ORDER BY LOWER(t.nome),t.id`,[cidadeId]);
     for(const r of t.rows)incluir('t',r.id,r.nome,
       [r.cidade_nome,r.cidade_estado].filter(Boolean).join(' - '),r);
