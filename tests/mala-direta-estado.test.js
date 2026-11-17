@@ -127,3 +127,92 @@ test('envio em sequência persiste checkpoint e conclusão com parâmetros SQL t
   assert.match(service,/erro\?'incerto':'enviado'/);
   assert.match(service,/Falha na sequência:/);
 });
+
+
+function simularFila({erroNoTexto=null}={}){
+  const eventos=[],etapas=[
+    {tipo:'imagem',imagem:'https://example.com/foto.jpg'},
+    {tipo:'texto',texto:'Promoção autorizada'},
+    {tipo:'audio',mp3:'bXAz'}, {tipo:'audio',mp3:'bXAz'},
+    {tipo:'audio',mp3:'bXAz'}, {tipo:'audio',mp3:'bXAz'}
+  ];
+  const trabalho={id:51,campanha_id:5,telefone:'5583999999999',etapa_enviada_index:-1,
+    intervalo_segundos:600,sequencia_mensagens:etapas};
+  const query=async(sql,args=[])=>{
+    const texto=String(sql);
+    if(texto.includes('SELECT pg_try_advisory_xact_lock'))return {rows:[{ok:true}]};
+    if(texto.includes('SELECT d.id,d.campanha_id'))return {rows:[trabalho],rowCount:1};
+    if(texto.includes('SELECT 1 FROM mala_direta_bloqueios'))return {rows:[],rowCount:0};
+    if(texto.includes('SET etapa_enviada_index=$2::integer')){
+      eventos.push('checkpoint:'+args[1]);return {rows:[{id:51}],rowCount:1};
+    }
+    if(texto.includes("SET status=$2::varchar(24)")){
+      eventos.push('status:'+args[1]);return {rows:[{id:51}],rowCount:1};
+    }
+    if(texto.includes("SET proximo_envio_em=NOW()+")){
+      eventos.push('agenda:600');return {rowCount:1,rows:[]};
+    }
+    if(texto.includes("SET status='pausada'")){
+      eventos.push('pausada');return {rowCount:1,rows:[]};
+    }
+    return {rowCount:1,rows:[]};
+  };
+  const client={query,release(){}};
+  const pool={query,async connect(){return client;}};
+  const zapi={
+    async enviarImagem(){eventos.push('foto');return {success:true};},
+    async postZapi(endpoint){
+      const tipo=endpoint==='/send-text'?'texto':'audio';
+      eventos.push(tipo);
+      if(tipo==='texto'&&erroNoTexto)throw erroNoTexto;
+      return {success:true};
+    }
+  };
+  const src=fs.readFileSync(path.join(__dirname,'../src/services/mala-direta/mala-direta.service.js'),'utf8')
+    .replace('const aguardar=ms=>new Promise(resolve=>setTimeout(resolve,ms));',
+      'const aguardar=async ms=>events.push("espera:"+ms);')
+    .replace('module.exports={produtos,','module.exports={processarProximo,produtos,');
+  const mod={exports:{}};
+  new Function('require','module','events',src)(name=>{
+    if(name.includes('db/connection'))return pool;
+    if(name.includes('integracoes/zapi.service'))return zapi;
+    if(name.includes('central-controle.service'))return {ativo:async()=>true};
+    return {};
+  },mod,eventos);
+  return {processar:mod.exports.processarProximo,eventos};
+}
+
+test('seis mensagens são aceitas em ordem, com cinco esperas de 5 segundos e 10 minutos somente após concluir',async()=>{
+  const {processar,eventos}=simularFila();
+  await processar();
+  assert.deepEqual(eventos.filter(e=>e==='foto'||e==='texto'||e==='audio'),
+    ['foto','texto','audio','audio','audio','audio']);
+  assert.equal(eventos.filter(e=>e==='espera:5000').length,5);
+  assert.equal(eventos.filter(e=>e.startsWith('checkpoint:')).length,6);
+  assert.equal(eventos.filter(e=>e==='agenda:600').length,1);
+  assert.ok(eventos.indexOf('agenda:600')>eventos.lastIndexOf('audio'));
+  assert.ok(eventos.indexOf('status:enviado')>eventos.lastIndexOf('checkpoint:5'));
+});
+
+test('erro ambíguo no texto pausa campanha sem avançar para nenhum áudio',async()=>{
+  const erro=new Error('Resposta Z-API indefinida');
+  const {processar,eventos}=simularFila({erroNoTexto:erro});
+  await processar();
+  assert.deepEqual(eventos.filter(e=>['foto','texto','audio'].includes(e)),['foto','texto']);
+  assert.ok(eventos.includes('checkpoint:0'));
+  assert.ok(eventos.includes('espera:5000'));
+  assert.ok(eventos.includes('status:incerto'));
+  assert.ok(eventos.includes('pausada'));
+  assert.ok(!eventos.includes('agenda:600'));
+});
+
+test('resposta HTTP 429 tenta texto até três vezes, aguardando 30 segundos e sem repetir a foto',async()=>{
+  const erro=new Error('Z-API respondeu 429: limite');erro.httpStatus=429;
+  const {processar,eventos}=simularFila({erroNoTexto:erro});
+  await processar();
+  assert.equal(eventos.filter(e=>e==='foto').length,1);
+  assert.equal(eventos.filter(e=>e==='texto').length,3);
+  assert.equal(eventos.filter(e=>e==='espera:30000').length,2);
+  assert.ok(eventos.includes('pausada'));
+  assert.ok(!eventos.includes('audio'));
+});
