@@ -530,8 +530,8 @@ async function processarProximo() {
         resultado=await enviarEtapa(trabalho.telefone,etapa);
         // Checkpoint após cada aceite; falhas são marcadas incertas, sem reenvio automático.
         await pool.query(`UPDATE mala_direta_destinatarios
-          SET etapa_enviada_index=$2,
-            etapas_aceitas=etapas_aceitas || jsonb_build_array(jsonb_build_object('indice',$2,'tipo',$3,'em',NOW())),
+          SET etapa_enviada_index=$2::integer,
+            etapas_aceitas=etapas_aceitas || jsonb_build_array(jsonb_build_object('indice',$2::integer,'tipo',$3::text,'em',NOW())),
             atualizado_em=NOW()
           WHERE id=$1 AND status='enviando'`,[trabalho.id,i,etapa.tipo]);
       }
@@ -553,12 +553,16 @@ async function processarProximo() {
         WHERE id=$1 AND status='enviando'`,[trabalho.id]);
     }
     }
-  }catch(e){erro=e;}
+  }catch(e){
+    erro=e;
+    // Sem telefone nem conteúdo no log; manter o destinatário incerto após qualquer falha de checkpoint.
+    console.error('[mala-direta] Falha na sequência:', 'campanha', trabalho.campanha_id, 'destinatário', trabalho.id, e.message);
+  }
   // Rede/Z-API podem ter aceitado uma das mensagens. Não reenviar automaticamente.
   const status=erro?'incerto':'enviado';
   try {
-    await pool.query(`UPDATE mala_direta_destinatarios SET status=$2,
-      enviado_em=CASE WHEN $2='enviado' THEN NOW() ELSE NULL END,
+    await pool.query(`UPDATE mala_direta_destinatarios SET status=$2::varchar(24),
+      enviado_em=CASE WHEN $2::varchar(24)='enviado' THEN NOW() ELSE NULL END,
       atualizado_em=NOW(),erro=$3 WHERE id=$1 AND status='enviando'`,
       [trabalho.id,status,erro?String(erro.message).slice(0,900):null]);
   } catch(e) {console.error('[mala-direta] Persistência pós-envio:',e.message);}
