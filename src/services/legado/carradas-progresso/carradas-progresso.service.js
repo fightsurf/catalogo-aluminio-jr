@@ -2968,45 +2968,12 @@ async function salvarLocalEntrega({
     }
   }
 
-  // Antes de concluir o local de entrega, garante que o pedido tenha a quantidade
-  // de volumes calculada. Reaproveita exatamente a mesma rotina acionada pelo link
-  // "CALCULAR AUTOMÁTICO" da coluna Qtde Vols.
-  const quantidadeVolumesAtualBruta = Number(pedido?.qtdeVolume ?? pedido?.volumes ?? 0);
-  const quantidadeVolumesAtual = Number.isFinite(quantidadeVolumesAtualBruta) && quantidadeVolumesAtualBruta > 0
-    ? Math.trunc(quantidadeVolumesAtualBruta)
+  // Salvar o destino não calcula nem altera os volumes do pedido.
+  // A coluna Qtde Vols permanece independente, inclusive quando ainda está vazia.
+  const quantidadeVolumesBruta = Number(pedido?.qtdeVolume ?? pedido?.volumes ?? 0);
+  const quantidadeVolumes = Number.isFinite(quantidadeVolumesBruta) && quantidadeVolumesBruta > 0
+    ? Math.trunc(quantidadeVolumesBruta)
     : 0;
-
-  let quantidadeVolumes = quantidadeVolumesAtual;
-  let volumesCalculadosAutomaticamente = false;
-
-  if (quantidadeVolumes <= 0) {
-    const calculoVolumes = await calcularQuantidadeVolumesPedido({
-      codigoCarrada,
-      numeroPedido
-    });
-
-    const quantidadeCalculadaBruta = Number(calculoVolumes?.quantidade ?? 0);
-    quantidadeVolumes = Number.isFinite(quantidadeCalculadaBruta) && quantidadeCalculadaBruta > 0
-      ? Math.trunc(quantidadeCalculadaBruta)
-      : 0;
-
-    if (quantidadeVolumes <= 0) {
-      throw criarErro(
-        'O cálculo automático não encontrou uma quantidade válida de volumes. O local de entrega não foi salvo.',
-        400
-      );
-    }
-
-    volumesCalculadosAutomaticamente = true;
-  }
-
-  // Usa a quantidade confirmada/calculada também nas mensagens enviadas nesta
-  // mesma requisição, evitando que o objeto carregado antes do cálculo mantenha 0.
-  const pedidoComVolumes = {
-    ...pedido,
-    qtdeVolume: quantidadeVolumes,
-    volumes: quantidadeVolumes
-  };
 
   // Mantém o texto legado preenchido com o nome da agência para compatibilidade
   // com rotinas antigas. A associação nova é feita pelo código da entidade.
@@ -3054,17 +3021,17 @@ async function salvarLocalEntrega({
   const detalhePagamento = await buscarDetalhePagamentoDoPedido(pedido);
   const telefoneCliente = normalizarTelefoneLote(pedido, detalhePagamento);
   const clienteDetalhePagamento = detalhePagamento?.pedido?.cliente || {};
-  const pedidoComVolumesEDadosCliente = {
-    ...pedidoComVolumes,
+  const pedidoComDadosCliente = {
+    ...pedido,
     cliente: {
-      ...(pedidoComVolumes?.cliente || {}),
-      nome: clienteDetalhePagamento.nome || pedidoComVolumes?.cliente?.nome || '',
-      cidade: clienteDetalhePagamento.cidade || pedidoComVolumes?.cliente?.cidade || '',
-      uf: clienteDetalhePagamento.uf || pedidoComVolumes?.cliente?.uf || ''
+      ...(pedido?.cliente || {}),
+      nome: clienteDetalhePagamento.nome || pedido?.cliente?.nome || '',
+      cidade: clienteDetalhePagamento.cidade || pedido?.cliente?.cidade || '',
+      uf: clienteDetalhePagamento.uf || pedido?.cliente?.uf || ''
     }
   };
 
-  const nomeCliente = limparTexto(pedidoComVolumesEDadosCliente?.cliente?.nome) || '-';
+  const nomeCliente = limparTexto(pedidoComDadosCliente?.cliente?.nome) || '-';
   const dataCarrada = formatarDataBR(carrada?.data) || '-';
   const descricaoCarrada = limparTexto(carrada?.descricao) || '-';
   const detalhesEntrega=[
@@ -3073,9 +3040,9 @@ async function salvarLocalEntrega({
   if(redespachoTransportadora)detalhesEntrega.push(`Redespacho: ${montarNomeComTelefone(redespachoTransportadora.nome,redespachoTransportadora.telefone_principal)}`);
   if(agenciaRecebimento)detalhesEntrega.push(`Agência de recebimento: ${montarNomeComTelefone(agenciaRecebimento.nome,agenciaRecebimento.telefone)}`);
   const avisoLocalEntrega=await enviarAvisoFaseConfigurado({
-    faseCodigo:'LOCAL_ENTREGA',codigoCarrada,numeroPedido,carrada,pedido:pedidoComVolumesEDadosCliente,
+    faseCodigo:'LOCAL_ENTREGA',codigoCarrada,numeroPedido,carrada,pedido:pedidoComDadosCliente,
     telefone:telefoneCliente,
-    extras:{detalhes_entrega:detalhesEntrega.join('\n\n'),volumes:quantidadeVolumes}
+    extras:{detalhes_entrega:detalhesEntrega.join('\n\n')}
   });
   const notificacaoCliente=avisoLocalEntrega.notificacao;
   // Salvar o local de entrega não dispara mensagens automáticas para
@@ -3105,7 +3072,7 @@ async function salvarLocalEntrega({
     agenciaCidade: result.rows[0].agencia_cidade || agenciaRecebimento?.nome || '',
     updatedAt: result.rows[0].updated_at || null,
     quantidadeVolumes,
-    volumesCalculadosAutomaticamente,
+    volumesCalculadosAutomaticamente: false,
     notificacao: notificacaoCliente,
     audio:avisoLocalEntrega.audio,
     notificacaoCliente,
