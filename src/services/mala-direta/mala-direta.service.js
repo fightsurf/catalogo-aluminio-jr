@@ -257,8 +257,9 @@ async function criar(dados, origem,usuario) {
   const horaValida=h=>/^([01]\d|2[0-3]):[0-5]\d$/.test(h);
   if((inicio||fim)&&(!horaValida(inicio)||!horaValida(fim)||inicio>=fim))
     bad('Informe horário inicial anterior ao final no formato HH:MM.');
-  const mensagem=String(dados.mensagem||'').trim();
-  if(!mensagem||mensagem.length>3000) bad('Informe texto de até 3000 caracteres.');
+  const sequencia=prepararSequencia(dados,origem,usuario);
+  const mensagem=sequencia?(sequencia.find(x=>x.tipo==='texto')?.texto||''):String(dados.mensagem||'').trim();
+  if(!sequencia&&(!mensagem||mensagem.length>3000)) bad('Informe texto de até 3000 caracteres.');
   if(dados.confirmouConsentimento!==true) bad('Confirme a autorização dos destinatários antes de iniciar a campanha.');
   const selecionados=dados.destinatarios;
   if(!Array.isArray(selecionados)||!selecionados.length||selecionados.length>2000) bad('Selecione de 1 a 2000 destinatários.');
@@ -266,7 +267,7 @@ async function criar(dados, origem,usuario) {
   if(!produto.rows.length) bad('Produto não encontrado no catálogo Render.');
   const codigo=produto.rows[0].item_legado==null?null:Number(produto.rows[0].item_legado);
   if(tipo==='periodo'&&!codigo) bad('Vincule o item legado para consultar compradores por período.');
-  const base=await compradoresPorCriterio({tipoPublico:tipo,referenciaPublico:referencia,grupoLogistica:grupo,meses,item:codigo});
+  const base=await compradoresPorCriterio({tipoPublico:tipo,referenciaPublico:referencia,grupoLogistica:grupo,cidadeLogistica:cidade,meses,item:codigo});
   let linhas;
   if(tipo==='logistica') {
     const refs=selecionados.map(x=>String(x.referencia||''));
@@ -291,8 +292,8 @@ async function criar(dados, origem,usuario) {
   }
   if(new Set(linhas.map(x=>x.fone)).size!==linhas.length)
     bad('Existem destinatários com o mesmo telefone; remova duplicidades antes de enviar.');
-  const imagem=urlFoto(dados.imagem,origem);
-  const preparado=audioSelecionado(dados,usuario);
+  const imagem=sequencia?(sequencia.find(x=>x.tipo==='imagem')?.imagem||''):urlFoto(dados.imagem,origem);
+  const preparado=sequencia?{audio:null,texto:null}:audioSelecionado(dados,usuario);
   const audio=preparado.audio, audioTexto=preparado.texto;
   const client=await pool.connect();
   try {
@@ -300,11 +301,11 @@ async function criar(dados, origem,usuario) {
     const camp=await client.query(`INSERT INTO mala_direta_campanhas
       (produto_id,item_legado,produto_nome,meses,mensagem,imagem,intervalo_segundos,
         tipo_publico,referencia_publico,audio_texto,audio_mp3,audio_voz,audio_modelo,
-        grupo_logistica,horario_inicio,horario_fim)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16) RETURNING id`,
+        grupo_logistica,horario_inicio,horario_fim,cidade_logistica_id,sequencia_mensagens)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18::jsonb) RETURNING id`,
       [produto.rows[0].id,codigo,produto.rows[0].nome,meses,mensagem,imagem,intervalo,
         tipo,referencia,audioTexto||null,audio?.bytes||null,audio?.voz||null,audio?.modelo||null,
-        grupo,inicio||null,fim||null]);
+        grupo,inicio||null,fim||null,cidade,sequencia?JSON.stringify(sequencia):null]);
     const cid=camp.rows[0].id;
     for(const r of linhas)await client.query(`INSERT INTO mala_direta_destinatarios
       (campanha_id,favorecido,nome,telefone,origem_destinatario,referencia_destinatario)
