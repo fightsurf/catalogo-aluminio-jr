@@ -22,7 +22,10 @@ async function verificarUsuario(usuario,db=pool){
 }
 const upload=multer({
  storage:multer.memoryStorage(),
- limits:{fileSize:8*1024*1024,files:1,fields:1,parts:2},
+ // FormData envia usuarioId + imagem, mas a contagem de partes do parser pode
+ // incluir partes auxiliares. Mantenha o limite de um único arquivo, com folga
+ // moderada para os campos do multipart.
+ limits:{fileSize:8*1024*1024,files:1,fields:6,parts:8,fieldSize:1024},
  fileFilter:(_req,file,cb)=>{
   if(!['image/jpeg','image/png','image/webp'].includes(file.mimetype))
    return cb(bad('Use uma imagem JPG, PNG ou WebP.',415));
@@ -31,7 +34,7 @@ const upload=multer({
 }).single('imagem');
 router.post('/interpretar',(req,res,next)=>upload(req,res,err=>{
  if(err)return res.status(err.code==='LIMIT_FILE_SIZE'?413:err.status||400)
-  .set('Cache-Control','no-store').json({erro:err.code==='LIMIT_FILE_SIZE'?'O print excede 8 MB.':err.message});
+  .set('Cache-Control','no-store').json({erro:err.code==='LIMIT_FILE_SIZE'?'O print excede 8 MB.':err.code==='LIMIT_PART_COUNT'||err.code==='LIMIT_FIELD_COUNT'?'Formulário de importação com partes em excesso. Recarregue a página e tente novamente.':err.message});
  if(!req.file)return res.status(400).set('Cache-Control','no-store').json({erro:'Selecione um print com os nomes dos alimentos.'});
  next();
 }),wrap(async(req,res)=>{
