@@ -1,7 +1,7 @@
 'use strict';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { chave, telefones, localidade, normalizarLinha, classificar } = require('../src/services/logistica/importacaoExcursoesUtils');
+const { chave, telefones, localidade, normalizarLinha, montarCamposTransportadora, classificar } = require('../src/services/logistica/importacaoExcursoesUtils');
 
 test('normaliza acentos e cidade/UF da origem', () => {
   assert.equal(chave('Ilhéus – BA'), 'ilheus ba');
@@ -23,6 +23,21 @@ test('interpreta rota e inclui origem uma vez', () => {
   assert.equal(linha.cidades.length, 2);
   assert.deepEqual(linha.cidades.map(c => c.uf), ['BA','BA']);
 });
+test('campos cadastrais usam DDI 55, primeira linha como principal e observacao de origem', () => {
+  const linha = normalizarLinha({
+    nome: 'Abdon Turismo', origem: 'Ilhéus - BA',
+    telefone: '(73) 99104-1424', telefone2: '+55 (73) 99137-1325',
+    rota: 'Itabuna - BA / Canavieiras - BA'
+  });
+  assert.deepEqual(montarCamposTransportadora(linha), {
+    nome: 'Abdon Turismo',
+    telefone: '5573991041424 / 5573991371325',
+    telefone_principal: '5573991041424',
+    observacao: 'Origem: Ilhéus - BA'
+  });
+  assert.deepEqual(linha.cidades.map(c => c.nome), ['Itabuna', 'Canavieiras']);
+});
+
 test('nao confunde nomes diferentes e requer revisao de divergencias', () => {
   const existentes = [
     { id: 1, nome: 'Abdon Turismo', telefone: '(73) 99104-1424', telefone_principal: '' },
