@@ -53,6 +53,57 @@
 .previa-teste-botoes{display:flex;gap:9px;flex-wrap:wrap;align-items:end}
 .previa-teste-botoes .field{flex:1;min-width:200px}
 .previa-audio{width:100%;max-width:600px;margin-top:7px}
+
+/* Tema azul da Alumínio JR e layout com simulador independente. */
+:root{color-scheme:dark;color:#eaf3ff;background:#081d35}
+body{background:linear-gradient(140deg,#081d35,#0a2c51 55%,#071a32);color:#eaf3ff}
+.wrap{max-width:1700px}
+.mala-layout{display:grid;grid-template-columns:minmax(0,1fr) 370px;align-items:start;gap:18px}
+.mala-main{min-width:0}
+.mala-side{position:sticky;top:14px;height:max-content;min-width:0}
+.card,.whatsapp-sim{background:#102e4e;border:1px solid #36597b;border-radius:12px;color:#eaf3ff;box-shadow:0 5px 16px #020c1b55}
+.card{margin:14px 0}.muted,.gravador-aviso,.gravador-status{color:#b5cce3}
+input,select,textarea{background:#091f38;color:#f2f8ff;border:1px solid #477094}
+option{background:#102e4e;color:#f2f8ff}
+input:focus,select:focus,textarea:focus{outline:2px solid #5db4ff;outline-offset:1px}
+button{background:#1869b6;color:#fff}
+button:hover:not(:disabled){filter:brightness(1.13)}
+button.secondary,.telefone-acao{background:#234b70;color:#eaf3ff;border:1px solid #477094}
+button.danger{background:#9d343f}
+.modo-filtro,.notice{background:#173a5b;border-color:#426a8e}
+.pill,.produto-menu,.carrada-opcoes,.modal .dialog{background:#102e4e;color:#eaf3ff;border:1px solid #426a8e}
+.produto-select,.carrada-select,.produto-opcao,.carrada-opcao{background:#123757;color:#eef6ff;border-color:#41698b}
+.produto-opcao.ativo{background:#1a4b75}
+.produto-opcao:hover,.carrada-opcao:hover{background:#1d4e79}
+.produto-menu[hidden],.carrada-opcoes[hidden],[hidden]{display:none!important}
+thead th{background:#1b4263;color:#eaf3ff}
+th,td{border-color:#335473}
+table{color:#eaf3ff}
+a{color:#8bd1ff}.ok{color:#7de0a2}.error{color:#ff9da5}
+.bottom{background:#0c2948;border-color:#466b8a;z-index:4}
+.modal{background:#041326cc}
+.modal .dialog{max-width:850px}
+.modal .dialog.contatos-dialog{width:min(96vw,1200px);max-width:none}
+.gravando-indicador{color:#ff9da5}
+.audio-abas{margin-bottom:14px}
+.audio-abas .aba-ativa{background:#368ed6;color:white;border:1px solid #7dc7ff}
+.seq-lista{display:grid;gap:9px;margin:12px 0}
+.seq-item{background:#143b5e;border:1px solid #416c94;border-radius:10px;padding:10px;display:flex;gap:10px;align-items:center}
+.seq-item .seq-descricao{flex:1;min-width:0;overflow-wrap:anywhere}
+.seq-item .seq-controles{display:flex;gap:4px;flex-wrap:wrap}
+.seq-item button{padding:6px 9px}
+.whatsapp-sim{padding:14px}
+.sim-title{font-weight:700;display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px}
+.sim-tag{font-size:.7rem;border:1px solid #5a8baf;border-radius:99px;padding:3px 7px;color:#bde0fc}
+.sim-phone{border:1px solid #3e7185;border-radius:14px;overflow:hidden;background:#122d2e}
+.sim-header{background:#145c51;color:#fff;font-weight:600;padding:13px}
+.sim-chat{height:min(65vh,700px);min-height:360px;overflow-y:auto;padding:12px;background:#0b252a;display:flex;flex-direction:column;gap:9px}
+.sim-balao{align-self:flex-end;max-width:94%;min-width:120px;background:#185942;color:#fff;padding:9px 10px;border-radius:12px 12px 3px 12px;overflow-wrap:anywhere;white-space:pre-wrap}
+.sim-balao img{display:block;max-width:100%;max-height:240px;border-radius:7px;object-fit:contain}
+.sim-balao audio{display:block;width:100%;max-width:290px;margin-top:5px}
+.sim-numero{font-size:.7rem;color:#c0e8dd;display:block;margin-bottom:4px}
+@media(max-width:1080px){.mala-layout{grid-template-columns:minmax(0,1fr)}.mala-side{position:static}.sim-chat{height:440px}}
+@media(max-width:600px){.seq-item{flex-wrap:wrap}.seq-item .seq-controles{width:100%}}
 </style></head><body><main class="wrap">
 <h1>Mala Direta — Alumínio JR</h1><p class="muted">Escolha um produto, um grupo de destinatários e envie a divulgação pelo WhatsApp.</p>
 <div id="status" role="status" aria-live="polite"></div>
