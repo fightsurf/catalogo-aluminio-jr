@@ -65,7 +65,7 @@
 <div id="listaProdutos" class="produto-menu" role="listbox" aria-label="Produtos com foto" hidden></div></div>
 </div></section>
 <section class="card"><div class="row" style="justify-content:space-between"><h2>2. Seleção dos destinatários</h2><span id="resumo" class="muted">Escolha um critério.</span></div>
-<p class="muted">Escolha um único critério. Ao selecionar um deles, os outros dois ficam desabilitados. Carrada e semana incluem todos os clientes com pedidos válidos, independentemente do produto escolhido.</p>
+<p class="muted">Escolha um único critério. Os demais ficam desabilitados. Carrada e semana incluem clientes com pedidos válidos; logística consulta transportadoras (inclusive redespachos) e agências de recebimento, independentemente do produto anunciado.</p>
 <div class="grupo-filtros">
 <div class="field"><label for="periodo">Período de compras do produto</label><select id="periodo"><option value="">Escolha um período</option><option value="0">Todas as compras realizadas</option></select></div>
 <div class="field"><label id="carradaLabel" for="carradaSelect">Carrada</label>
@@ -77,10 +77,16 @@
 <a id="abrirProgresso" class="abrir-progresso" target="_blank" rel="noopener noreferrer" aria-disabled="true" tabindex="-1">Abrir progresso ↗</a>
 </div>
 <div class="field"><label for="semana">Semana</label><select id="semana"><option value="">Escolha uma semana</option></select></div>
+<div class="field"><label for="grupoLogistica">Contatos da logística</label><select id="grupoLogistica">
+<option value="">Escolha uma opção</option>
+<option value="todos">Todos os contatos da logística</option>
+<option value="transportadoras">Transportadoras e redespachos</option>
+<option value="agencias">Agências de recebimento</option>
+</select><span class="muted small">Serão exibidos todos os telefones válidos de cada cadastro, sem repetições.</span></div>
 </div>
-<div class="row modo-filtro"><button type="button" class="secondary" id="limparFiltro">Limpar filtro e liberar os três seletores</button><button type="button" id="consultar" class="secondary">Consultar clientes</button><span id="criterioAtivo" class="muted">Nenhum critério escolhido</span></div>
-<div class="row"><button class="secondary" id="selecionarTodos">Marcar clientes com telefone válido</button><button class="secondary" id="limpar">Limpar seleção</button></div>
-<div class="tablewrap"><table><thead><tr><th>Selecionar</th><th>Cliente</th><th>Cidade</th><th>Telefone</th><th>Unidades</th><th>Pedidos</th><th>Última compra</th><th>Perfil</th></tr></thead><tbody id="compradores"></tbody></table></div>
+<div class="row modo-filtro"><button type="button" class="secondary" id="limparFiltro">Limpar filtro e liberar os quatro seletores</button><button type="button" id="consultar" class="secondary">Consultar destinatários</button><span id="criterioAtivo" class="muted">Nenhum critério escolhido</span></div>
+<div class="row"><button class="secondary" id="selecionarTodos">Marcar destinatários com telefone válido</button><button class="secondary" id="limpar">Limpar seleção</button></div>
+<div class="tablewrap"><table><thead><tr><th>Selecionar</th><th>Cliente / contato</th><th>Cidade</th><th>Telefone</th><th>Unidades</th><th>Pedidos</th><th>Última compra</th><th>Perfil</th></tr></thead><tbody id="compradores"></tbody></table></div>
 <p class="muted" id="contagem">0 selecionados</p></section>
 <section class="card"><h2>3. Imagem e mensagem</h2>
 <div class="grid">
@@ -116,7 +122,12 @@
 <div class="preview"><img id="previewFoto" alt="Prévia da foto" hidden><p id="previewTexto" class="muted">Escreva a mensagem.</p></div>
 <p id="previewAudioResumo" class="muted" style="margin:13px 0 3px">Sem mensagem de áudio.</p>
 <audio id="previewAudioPlayer" class="previa-audio" controls hidden preload="metadata"></audio>
-<div class="grid" style="margin-top:16px"><div class="field"><label for="intervalo">Intervalo mínimo entre inícios dos envios (campanha)</label><select id="intervalo"><option value="10">10 segundos</option><option selected value="15">15 segundos</option><option value="20">20 segundos</option><option value="30">30 segundos</option><option value="60">60 segundos</option><option value="120">120 segundos</option><option value="300">300 segundos</option></select><span class="muted small">A Z-API ou o WhatsApp podem demorar mais para concluir a entrega.</span></div></div>
+<div class="grid" style="margin-top:16px">
+<div class="field"><label for="intervalo">Intervalo mínimo entre envios (minutos)</label><input id="intervalo" type="number" min="1" max="1440" step="1" value="15" inputmode="numeric" required><span class="muted small">Exemplo: 15 = no mínimo 15 minutos entre o início de mensagens consecutivas.</span></div>
+<div class="field"><label for="horarioInicio">Horário inicial dos envios</label><input id="horarioInicio" type="time" value="08:00" required></div>
+<div class="field"><label for="horarioFim">Horário final dos envios</label><input id="horarioFim" type="time" value="18:00" required></div>
+</div>
+<p class="muted small">Horários da Paraíba (America/Fortaleza, UTC−3). A fila aguarda fora da janela e continua automaticamente no dia seguinte. Enviar devagar não substitui a autorização para receber publicidade.</p>
 <div class="previa-teste-botoes" style="margin-top:15px"><div class="field"><label for="numeroTeste">WhatsApp para teste (55 + DDD + número)</label><input id="numeroTeste" inputmode="tel" placeholder="5583999999999"></div><button type="button" class="secondary" id="teste">Enviar prévia ao número informado</button><button type="button" id="testeFabrica">Enviar para WhatsApp da fábrica (5583999792085)</button></div>
 <p class="muted small">O teste envia de verdade a foto, a legenda e o áudio selecionado, sem iniciar campanha ou alterar a seleção dos clientes.</p>
 </section>
@@ -263,11 +274,12 @@ $('produtoSelect').onkeydown=e=>{
 document.addEventListener('pointerdown',e=>{
   if(!e.target.closest('.produto-select-field'))fecharProdutos();
 });
-function chaveConsulta(){const c=criterio();return c?`${produto()?.produtoId||0}:${c.tipo}:${c.referencia??c.meses}`:'';}
+function chaveConsulta(){const c=criterio();return c?`${produto()?.produtoId||0}:${c.tipo}:${c.grupo??c.referencia??c.meses}`:'';}
 function criterio(){
   if($('periodo').value!=='')return {tipo:'periodo',meses:Number($('periodo').value)};
   if($('carrada').value!=='')return {tipo:'carrada',referencia:Number($('carrada').value)};
   if($('semana').value!=='')return {tipo:'semana',referencia:Number($('semana').value)};
+  if($('grupoLogistica').value!=='')return {tipo:'logistica',grupo:$('grupoLogistica').value};
   return null;
 }
 // A cor segue a regra de obterClassesLinhaCarrada() da tela original de carradas.
@@ -381,7 +393,8 @@ function atualizarBloqueios(){
   $('carrada').disabled=Boolean(c&&c.tipo!=='carrada');
   atualizarSeletorCarradas();
   $('semana').disabled=Boolean(c&&c.tipo!=='semana');
-  $('criterioAtivo').textContent=c?`Critério ativo: ${c.tipo==='periodo'?'Período de compras':c.tipo==='carrada'?'Carrada':'Semana'}`:'Nenhum critério escolhido';
+  $('grupoLogistica').disabled=Boolean(c&&c.tipo!=='logistica');
+  $('criterioAtivo').textContent=c?`Critério ativo: ${c.tipo==='periodo'?'Período de compras':c.tipo==='carrada'?'Carrada':c.tipo==='semana'?'Semana':'Contatos da logística'}`:'Nenhum critério escolhido';
 }
 function resetClientes(){consultaSeq++;clientes=[];ultimaConsulta='';renderClientes();}
 function atualizarProduto(){
@@ -419,27 +432,27 @@ async function carregarFiltros(){
 async function consultar(){
   const p=produto(),c=criterio();const seq=++consultaSeq;
   clientes=[];ultimaConsulta='';renderClientes();
-  if(!c){msg('Escolha período, carrada ou semana.',true);return;}
+  if(!c){msg('Escolha período, carrada, semana ou contatos da logística.',true);return;}
   if(c.tipo==='periodo'&&!p){msg('Escolha o produto antes de consultar o período de compras.',true);return;}
   if(c.tipo==='periodo'&&!p.item){msg('O produto precisa de vínculo com o Firebird para consultar seu histórico.',true);return;}
-  $('consultar').disabled=true;$('resumo').textContent='Carregando clientes...';
+  $('consultar').disabled=true;$('resumo').textContent='Carregando destinatários...';
   const chave=chaveConsulta();msg('Consultando clientes do critério selecionado...');
   try{
-    const dados=await post(api+'/destinatarios',{tipoPublico:c.tipo,referenciaPublico:c.referencia,meses:c.meses,item:p?.item});
+    const dados=await post(api+'/destinatarios',{tipoPublico:c.tipo,referenciaPublico:c.referencia,grupoLogistica:c.grupo,meses:c.meses,item:p?.item});
     if(seq!==consultaSeq||chave!==chaveConsulta())return;
     if(!Array.isArray(dados))throw Error('A consulta retornou dados inesperados.');
     clientes=dados.map(x=>({...x,marcado:false}));ultimaConsulta=chave;renderClientes();
-    msg(clientes.length?`${clientes.length} clientes encontrados.`:'Nenhum cliente encontrado neste critério.');
-  }catch(e){if(seq!==consultaSeq)return;$('resumo').textContent='Erro na consulta';msg('Não foi possível carregar clientes: '+e.message,true);}
+    msg(clientes.length?`${clientes.length} destinatários encontrados.`:'Nenhum contato encontrado neste critério.');
+  }catch(e){if(seq!==consultaSeq)return;$('resumo').textContent='Erro na consulta';msg('Não foi possível carregar destinatários: '+e.message,true);}
   finally{if(seq===consultaSeq)$('consultar').disabled=false;}
 }
 $('consultar').onclick=consultar;
-for(const idFiltro of ['periodo','carrada','semana']){
+for(const idFiltro of ['periodo','carrada','semana','grupoLogistica']){
   $(idFiltro).onchange=()=>{atualizarBloqueios();consultar();};
 }
 $('limparFiltro').onclick=()=>{
-  $('periodo').value='';$('carrada').value='';$('semana').value='';
-  atualizarBloqueios();resetClientes();msg('Filtro liberado. Escolha um dos três critérios.');
+  $('periodo').value='';$('carrada').value='';$('semana').value='';$('grupoLogistica').value='';
+  atualizarBloqueios();resetClientes();msg('Filtro liberado. Escolha um dos quatro critérios.');
 };
 async function copiarTelefone(numero){
   try{
@@ -458,7 +471,34 @@ function acoesTelefone(c,alvo){
   const whatsapp=el('a','💬','telefone-acao');whatsapp.href='https://wa.me/'+numero;whatsapp.target='_blank';whatsapp.rel='noopener noreferrer';whatsapp.title='Abrir conversa no WhatsApp com '+numero;whatsapp.setAttribute('aria-label',whatsapp.title);
   acoes.append(copiar,whatsapp);alvo.append(acoes);
 }
-function renderClientes(){const body=$('compradores');body.replaceChildren();for(const c of clientes){const tr=el('tr');const cell=()=>{const td=el('td');tr.append(td);return td;};const cb=el('input');cb.type='checkbox';cb.checked=c.marcado;cb.disabled=!c.telefoneNormalizado||c.bloqueado;cb.onchange=()=>{c.marcado=cb.checked;contagem();};cell().append(cb);cell().textContent=c.nome||'(sem nome)';cell().textContent=c.cidade||'-';const tel=cell();tel.append(document.createTextNode(c.telefone||'-'));acoesTelefone(c,tel);if(!c.telefoneNormalizado)tel.append(el('span',' Inválido','error'));if(c.bloqueado)tel.append(el('span',' Bloqueado','error'));cell().textContent=Number(c.quantidade||0).toLocaleString('pt-BR');cell().textContent=String(c.pedidos);cell().textContent=date(c.ultimaCompra);const perfil=el('button','Perfil de compras','secondary');perfil.onclick=()=>abrirPerfil(c);cell().append(perfil);body.append(tr);} $('resumo').textContent=`${clientes.length} clientes`;contagem();}
+function renderClientes(){
+  const body=$('compradores');body.replaceChildren();
+  for(const c of clientes){
+    const tr=el('tr');
+    const cell=()=>{const td=el('td');tr.append(td);return td;};
+    const cb=el('input');cb.type='checkbox';cb.checked=c.marcado;
+    cb.disabled=!c.telefoneNormalizado||c.bloqueado;
+    cb.onchange=()=>{c.marcado=cb.checked;contagem();};
+    cell().append(cb);
+    cell().textContent=(c.nome||'(sem nome)')+(c.origem?' — '+c.origem:'');
+    cell().textContent=c.cidade||'-';
+    const tel=cell();tel.append(document.createTextNode(c.telefone||'-'));acoesTelefone(c,tel);
+    if(!c.telefoneNormalizado)tel.append(el('span',' Inválido','error'));
+    if(c.bloqueado)tel.append(el('span',' Bloqueado','error'));
+    cell().textContent=c.quantidade==null?'-':Number(c.quantidade).toLocaleString('pt-BR');
+    cell().textContent=c.pedidos==null?'-':String(c.pedidos);
+    cell().textContent=date(c.ultimaCompra);
+    const perfil=cell();
+    if(c.origem==='Transportadora'||c.origem==='Agência'){
+      perfil.textContent='Contato da logística';
+    }else{
+      const botao=el('button','Perfil de compras','secondary');botao.onclick=()=>abrirPerfil(c);perfil.append(botao);
+    }
+    body.append(tr);
+  }
+  $('resumo').textContent=`${clientes.length} destinatários`;
+  contagem();
+}
 function contagem(){const qtd=selected().length;$('contagem').textContent=`${qtd} selecionados`;$('enviarResumo').textContent=`${qtd} destinatários selecionados`;}
 $('selecionarTodos').onclick=()=>{clientes.forEach(c=>{c.marcado=Boolean(c.telefoneNormalizado&&!c.bloqueado)});renderClientes();};
 $('limpar').onclick=()=>{clientes.forEach(c=>c.marcado=false);renderClientes();};
@@ -662,22 +702,31 @@ $('testeFabrica').onclick=()=>enviarPreviaTeste(NUMERO_FABRICA);
 $('enviar').onclick=async()=>{
   const p=produto(),c=criterio();
   if(!p)return msg('Selecione o produto anunciado.',true);
-  if(!c||chaveConsulta()!==ultimaConsulta)return msg('Consulte os clientes do critério atual antes de enviar.',true);
+  if(!c||chaveConsulta()!==ultimaConsulta)return msg('Consulte os destinatários do critério atual antes de enviar.',true);
   if(c.tipo==='periodo'&&!p.item)return msg('Vincule o item legado do produto para filtrar por período.',true);
-  const dest=selected();if(!dest.length)return msg('Selecione pelo menos um cliente.',true);
+  const dest=selected();if(!dest.length)return msg('Selecione pelo menos um destinatário.',true);
   if(!imagemAtual()||!$('mensagem').value.trim())return msg('Preencha imagem e legenda.',true);
+  const minutos=Number($('intervalo').value);
+  if(!Number.isInteger(minutos)||minutos<1||minutos>1440)return msg('Informe intervalo de 1 a 1440 minutos.',true);
+  const inicio=$('horarioInicio').value,fim=$('horarioFim').value;
+  if(!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(inicio)||!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(fim)||inicio>=fim)
+    return msg('Defina um horário inicial anterior ao final.',true);
   let audio;try{audio=await audioParaEnvio();}catch(e){return msg(e.message,true);}
-  if(!confirm(`INICIAR ENVIO REAL para ${dest.length} clientes? Critério: ${c.tipo}. Intervalo mínimo: ${$('intervalo').value} segundos. Produto: ${p.nome}. ${audio.audioOrigem!=='nenhum'?'Será enviada a imagem e, em seguida, a mensagem de áudio.':''}
-Confirma que estes destinatários autorizaram receber mensagens promocionais?`))return;
+  if(!confirm(`INICIAR ENVIO REAL para ${dest.length} destinatários? Critério: ${c.tipo}. Intervalo mínimo: ${minutos} minuto(s). Horário: ${inicio}–${fim} (horário da Paraíba). Produto: ${p.nome}. ${audio.audioOrigem!=='nenhum'?'Foto e áudio serão enviados.':''}
+Você confirma que TODOS os telefones selecionados autorizaram receber esta divulgação pelo WhatsApp?`))return;
   try{
     $('enviar').disabled=true;
     const r=await post(api+'/campanhas',{
       item:p.item||null,produtoId:p.produtoId,tipoPublico:c.tipo,referenciaPublico:c.referencia||null,
-      meses:c.meses??0,destinatarios:dest.map(x=>({favorecido:x.favorecido,autorizado:true})),
-      imagem:imagemAtual(),mensagem:$('mensagem').value,intervaloSegundos:Number($('intervalo').value),
+      grupoLogistica:c.grupo||null,meses:c.meses??0,
+      destinatarios:dest.map(x=>c.tipo==='logistica'
+        ?{referencia:x.referencia,autorizado:true}
+        :{favorecido:x.favorecido,autorizado:true}),
+      imagem:imagemAtual(),mensagem:$('mensagem').value,
+      intervaloMinutos:minutos,horarioInicio:inicio,horarioFim:fim,
       confirmouConsentimento:true,...audio
     });
-    msg(`Campanha ${r.id} iniciada com ${r.total} destinatários. O envio continuará no servidor.`);
+    msg(`Campanha ${r.id} iniciada com ${r.total} destinatários. Envios limitados à janela informada.`);
     await carregarCampanhas();
   }catch(e){msg(e.message,true);}finally{$('enviar').disabled=false;}
 };
