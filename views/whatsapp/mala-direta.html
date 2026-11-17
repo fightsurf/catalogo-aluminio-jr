@@ -155,6 +155,7 @@ a{color:#8bd1ff}.ok{color:#7de0a2}.error{color:#ff9da5}
 <div class="audio-abas row" role="tablist" aria-label="Origem dos áudios">
 <button type="button" id="abaMicrofone" class="aba-ativa" role="tab" aria-selected="true">🎙️ Gravação pelo microfone</button>
 <button type="button" id="abaElevenLabs" class="secondary" role="tab" aria-selected="false">🤖 ElevenLabs</button>
+<button type="button" id="abaArquivo" class="secondary" role="tab" aria-selected="false">📎 Importar OGG</button>
 </div>
 <div id="conteudoMicrofone">
 <p class="gravador-aviso">Grave até 3 minutos por áudio; cada gravação pode ser adicionada à sequência, sem apagar as anteriores.</p>
@@ -173,8 +174,16 @@ a{color:#8bd1ff}.ok{color:#7de0a2}.error{color:#ff9da5}
 <div class="row"><button type="button" class="secondary" id="abrirEleven">⚙️ Escolher voz e gerar áudio</button><span class="muted" id="audioResumo">Nenhum áudio ElevenLabs preparado.</span></div>
 <button type="button" id="adicionarAudioEleven" class="secondary">➕ Adicionar áudio ElevenLabs à sequência</button>
 </div>
-<select class="audio-fonte" id="fonteAudio" hidden><option value="nenhum">Sem áudio</option><option value="gravacao">Microfone</option><option value="elevenlabs">ElevenLabs</option></select>
-<p class="muted small">Os áudios das duas abas entram na mesma lista de envio. Trocar de aba não remove gravações adicionadas.</p>
+<div id="conteudoArquivo" hidden>
+<div class="field"><label for="arquivoAudioInput">Áudio baixado do WhatsApp (.OGG)</label>
+<input id="arquivoAudioInput" type="file" accept=".ogg,audio/ogg,application/ogg">
+<span class="muted small">Arquivo OGG de até 6 MB; o servidor converte para MP3 (limite de 3 minutos).</span></div>
+<p id="arquivoAudioStatus" class="gravador-status" role="status" aria-live="polite">Nenhum arquivo selecionado.</p>
+<audio id="arquivoAudioPlayer" class="gravador-player" controls hidden preload="metadata"></audio>
+<button type="button" id="adicionarAudioArquivo" class="secondary" disabled>➕ Adicionar áudio importado à sequência</button>
+</div>
+<select class="audio-fonte" id="fonteAudio" hidden><option value="nenhum">Sem áudio</option><option value="gravacao">Microfone</option><option value="elevenlabs">ElevenLabs</option><option value="arquivo">Arquivo OGG</option></select>
+<p class="muted small">As três abas adicionam áudios à mesma sequência. Trocar de aba não remove mensagens adicionadas.</p>
 </section>
 <section class="card"><h2>5. Ordem de envio, horários e teste</h2>
 <div class="row" style="justify-content:space-between"><h3>Sequência personalizada</h3><span id="sequenciaContagem" class="muted">Nenhuma mensagem adicionada</span></div>
@@ -226,6 +235,8 @@ let sequencia=[],proximoItemSequencia=1;
 let gravacaoStream=null,gravacaoRecorder=null,gravacaoPartes=[],gravacaoBlob=null;
 let gravacaoObjectUrl='',gravacaoPreviewId='',gravacaoSubidaEm=0,gravacaoInicio=0,gravacaoRelogio=null;
 let gravacaoUploadPendente=null,gravacaoVersao=0;
+let arquivoAudio=null,arquivoMp3=null,arquivoPreviewId='',arquivoSubidaEm=0,arquivoObjectUrl='';
+let arquivoVersao=0,arquivoUploadPendente=null;
 const NUMERO_FABRICA='5583999792085';
 const selected=()=>clientes.filter(c=>c.marcado);const norm=s=>String(s||'').replace(/\D/g,'');
 const date=v=>{if(!v)return '-';const d=new Date(v);return Number.isNaN(d.getTime())?'-':d.toLocaleDateString('pt-BR',{timeZone:'UTC'});};
@@ -629,6 +640,9 @@ function atualizarPreviewAudio(){
   if(fonte==='gravacao'){
     url=gravacaoObjectUrl;
     texto=gravacaoBlob?'Áudio do microfone selecionado.':'Grave a mensagem antes de enviar.';
+  }else if(fonte==='arquivo'){
+    url=arquivoObjectUrl;
+    texto=arquivoPreviewId?'Áudio OGG importado e convertido para MP3.':'Selecione o áudio OGG antes de enviar.';
   }else if(fonte==='elevenlabs'){
     url=audioObjectUrl;
     texto=audioPreviewId&&audioPreviewTexto===$('audioTexto').value.trim()
@@ -733,9 +747,62 @@ async function prepararGravacao(forcar=false){
   })();
   try{return await gravacaoUploadPendente;}finally{gravacaoUploadPendente=null;}
 }
+function limparArquivoAudio(){
+  arquivoVersao++;
+  arquivoAudio=null;arquivoMp3=null;arquivoPreviewId='';arquivoSubidaEm=0;arquivoUploadPendente=null;
+  if(arquivoObjectUrl)URL.revokeObjectURL(arquivoObjectUrl);
+  arquivoObjectUrl='';
+  const player=$('arquivoAudioPlayer');player.pause();player.removeAttribute('src');player.load();player.hidden=true;
+  $('arquivoAudioStatus').textContent='Nenhum arquivo selecionado.';
+  $('adicionarAudioArquivo').disabled=true;
+  if($('fonteAudio').value==='arquivo')$('fonteAudio').value='nenhum';
+  atualizarPreviewAudio();
+}
+async function prepararArquivoAudio(){
+  if(!arquivoAudio)throw Error('Selecione um arquivo .OGG.');
+  if(arquivoUploadPendente)return arquivoUploadPendente;
+  if(arquivoPreviewId&&Date.now()-arquivoSubidaEm<7*60*1000)return arquivoPreviewId;
+  const selecionado=arquivoAudio,versao=arquivoVersao;
+  arquivoUploadPendente=(async()=>{
+    const form=new FormData();form.append('audio',selecionado,selecionado.name);
+    $('arquivoAudioStatus').textContent='Convertendo arquivo OGG para MP3...';
+    const response=await fetch(api+'/audio-importado',{method:'POST',body:form});
+    if(!response.ok){const d=await response.json().catch(()=>({}));throw Error(d.detalhe||d.mensagem||'Falha ao importar áudio.');}
+    const id=response.headers.get('X-Preview-Id');
+    if(!id)throw Error('O servidor não retornou identificação do áudio.');
+    const mp3=await response.blob();
+    if(versao!==arquivoVersao||selecionado!==arquivoAudio)throw Error('O arquivo foi substituído durante o preparo.');
+    arquivoPreviewId=id;arquivoSubidaEm=Date.now();arquivoMp3=mp3;
+    if(arquivoObjectUrl)URL.revokeObjectURL(arquivoObjectUrl);
+    arquivoObjectUrl=URL.createObjectURL(mp3);
+    const player=$('arquivoAudioPlayer');player.src=arquivoObjectUrl;player.hidden=false;
+    $('adicionarAudioArquivo').disabled=false;
+    $('arquivoAudioStatus').textContent=selecionado.name+' — MP3 preparado. Ouça e adicione à sequência.';
+    atualizarPreviewAudio();
+    return id;
+  })();
+  try{return await arquivoUploadPendente;}finally{if(versao===arquivoVersao)arquivoUploadPendente=null;}
+}
+$('arquivoAudioInput').onchange=async()=>{
+  const file=$('arquivoAudioInput').files[0];
+  limparArquivoAudio();
+  if(!file)return;
+  const versao=arquivoVersao;
+  try{
+    if(!/\.ogg$/i.test(file.name))throw Error('Selecione um arquivo com extensão .OGG.');
+    if(!file.size||file.size>6*1024*1024)throw Error('O arquivo OGG deve ter até 6 MB.');
+    arquivoAudio=file;$('fonteAudio').value='arquivo';atualizarPreviewAudio();
+    await prepararArquivoAudio();
+  }catch(e){
+    if(versao!==arquivoVersao)return;
+    $('arquivoAudioStatus').textContent='Erro: '+e.message;
+    $('adicionarAudioArquivo').disabled=true;msg(e.message,true);
+  }
+};
 async function audioParaEnvio(){
   const fonte=$('fonteAudio').value;
   if(fonte==='gravacao')return {audioOrigem:'gravacao',audioPreviewId:await prepararGravacao(true),audioTexto:''};
+  if(fonte==='arquivo')return {audioOrigem:'arquivo',audioPreviewId:await prepararArquivoAudio(),audioTexto:''};
   if(fonte==='elevenlabs'){
     const fala=$('audioTexto').value.trim();
     if(!fala||!audioPreviewId||audioPreviewTexto!==fala)throw Error('Gere e ouça a prévia ElevenLabs antes de enviar.');
@@ -795,15 +862,19 @@ $('gerarEleven').onclick=async()=>{
 };
 // Compositor: vários blocos independentes, ordenados em uma fila única.
 function alternarAbaAudio(aba){
-  const mic=aba==='mic';
-  $('conteudoMicrofone').hidden=!mic;$('conteudoElevenLabs').hidden=mic;
-  $('abaMicrofone').className=mic?'aba-ativa':'secondary';
-  $('abaElevenLabs').className=mic?'secondary':'aba-ativa';
-  $('abaMicrofone').setAttribute('aria-selected',String(mic));
-  $('abaElevenLabs').setAttribute('aria-selected',String(!mic));
+  for(const [nome,botao,painel] of [
+    ['mic','abaMicrofone','conteudoMicrofone'],
+    ['eleven','abaElevenLabs','conteudoElevenLabs'],
+    ['arquivo','abaArquivo','conteudoArquivo']
+  ]){
+    const ativo=aba===nome;
+    $(painel).hidden=!ativo;$(botao).className=ativo?'aba-ativa':'secondary';
+    $(botao).setAttribute('aria-selected',String(ativo));
+  }
 }
 $('abaMicrofone').onclick=()=>alternarAbaAudio('mic');
 $('abaElevenLabs').onclick=()=>alternarAbaAudio('eleven');
+$('abaArquivo').onclick=()=>alternarAbaAudio('arquivo');
 function adicionarItem(item){
   if(sequencia.length>=30)throw Error('Limite de 30 mensagens por campanha.');
   sequencia.push({...item,id:proximoItemSequencia++});
@@ -811,7 +882,7 @@ function adicionarItem(item){
 }
 function descricaoItem(item){
   return item.tipo==='imagem'?'📷 Foto':item.tipo==='texto'?'💬 '+item.texto.slice(0,90)
-    :item.audioOrigem==='gravacao'?'🎙️ Áudio do microfone':'🤖 Áudio ElevenLabs';
+    :item.audioOrigem==='gravacao'?'🎙️ Áudio do microfone':item.audioOrigem==='arquivo'?'📎 OGG: '+item.nomeArquivo:'🤖 Áudio ElevenLabs';
 }
 function desenharSequencia(){
   const lista=$('sequenciaResumo');lista.replaceChildren();
@@ -841,7 +912,7 @@ function renderSimulador(){
       const img=el('img');img.src=item.imagem;img.alt='Foto '+(i+1);balao.append(img);
     }else if(item.tipo==='texto')balao.append(el('span',item.texto));
     else{
-      balao.append(el('span',item.audioOrigem==='gravacao'?'🎙️ Gravação pelo microfone':'🤖 Voz ElevenLabs'));
+      balao.append(el('span',item.audioOrigem==='gravacao'?'🎙️ Gravação pelo microfone':item.audioOrigem==='arquivo'?'📎 Áudio importado: '+item.nomeArquivo:'🤖 Voz ElevenLabs'));
       const player=el('audio');player.controls=true;player.preload='metadata';player.src=item.url;balao.append(player);
     }
     chat.append(balao);
@@ -870,6 +941,16 @@ $('adicionarGravacao').onclick=async()=>{
     msg('Gravação incluída na sequência. Você já pode gravar outro áudio.');
   }catch(e){msg(e.message,true);}finally{$('adicionarGravacao').disabled=false;}
 };
+$('adicionarAudioArquivo').onclick=async()=>{
+  try{
+    $('adicionarAudioArquivo').disabled=true;
+    const previewId=await prepararArquivoAudio();
+    if(!arquivoMp3||!arquivoAudio)throw Error('Prepare o áudio importado antes de adicionar.');
+    adicionarItem({tipo:'audio',audioOrigem:'arquivo',blob:arquivoAudio,nomeArquivo:arquivoAudio.name,
+      audioPreviewId:previewId,criadoEm:arquivoSubidaEm,url:URL.createObjectURL(arquivoMp3)});
+    msg('Áudio OGG adicionado à sequência. Você pode importar outro arquivo.');
+  }catch(e){msg(e.message,true);}finally{$('adicionarAudioArquivo').disabled=!arquivoMp3;}
+};
 $('adicionarAudioEleven').onclick=()=>{
   try{
     if(!audioBlobEleven||!audioPreviewId||audioPreviewTexto!==$('audioTexto').value.trim())
@@ -883,12 +964,14 @@ $('adicionarAudioEleven').onclick=()=>{
 };
 async function renovarAudio(item){
   if(Date.now()-item.criadoEm<7*60*1000&&item.audioPreviewId)return item.audioPreviewId;
-  if(item.audioOrigem==='gravacao'){
+  if(item.audioOrigem==='gravacao'||item.audioOrigem==='arquivo'){
     const form=new FormData();
     const ext=item.blob.type.includes('mp4')?'m4a':item.blob.type.includes('ogg')?'ogg':'webm';
-    form.append('audio',item.blob,'gravacao.'+ext);
-    const r=await fetch(api+'/audio-gravado',{method:'POST',body:form});
-    if(!r.ok){const j=await r.json().catch(()=>({}));throw Error(j.detalhe||'Falha ao renovar a gravação.');}
+    const nome=item.audioOrigem==='arquivo'?item.nomeArquivo:'gravacao.'+ext;
+    form.append('audio',item.blob,nome);
+    const endpoint=item.audioOrigem==='arquivo'?'/audio-importado':'/audio-gravado';
+    const r=await fetch(api+endpoint,{method:'POST',body:form});
+    if(!r.ok){const j=await r.json().catch(()=>({}));throw Error(j.detalhe||'Falha ao renovar o áudio.');}
     item.audioPreviewId=r.headers.get('X-Preview-Id');
   }else{
     const r=await fetch('/api/whatsapp/elevenlabs-jr/gerar',{

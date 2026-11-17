@@ -198,16 +198,16 @@ async function primeiraCompra(item) { return (await bridge.get('/api/mala-direta
 function audioSelecionado(dados,usuario){
   const texto=String(dados.audioTexto||'').trim();
   const fonte=String(dados.audioOrigem||((texto||dados.audioPreviewId)?'elevenlabs':'nenhum'));
-  if(!['nenhum','gravacao','elevenlabs'].includes(fonte))bad('Fonte de áudio inválida.');
+  if(!['nenhum','gravacao','arquivo','elevenlabs'].includes(fonte))bad('Fonte de áudio inválida.');
   if(fonte==='nenhum')return {audio:null,texto:null};
   if(!dados.audioPreviewId)bad('Prepare o áudio selecionado antes de enviar.');
   const audio=eleven.obterPreview(dados.audioPreviewId,usuario);
   if(!audio?.bytes?.length||audio.bytes.length>5*1024*1024)bad('Áudio inválido ou grande demais.');
-  if(fonte==='gravacao'){
-    if(audio.origem!=='gravacao'||texto)bad('A gravação selecionada não corresponde à prévia.');
+  if(fonte==='gravacao'||fonte==='arquivo'){
+    if(audio.origem!==fonte||texto)bad('O áudio selecionado não corresponde à prévia.');
     return {audio,texto:null};
   }
-  if(audio.origem==='gravacao'||!texto||texto.length>1000||texto!==audio.texto)bad('O texto ou a prévia da ElevenLabs não confere. Gere novamente.');
+  if(['gravacao','arquivo'].includes(audio.origem)||!texto||texto.length>1000||texto!==audio.texto)bad('O texto ou a prévia da ElevenLabs não confere. Gere novamente.');
   return {audio,texto};
 }
 // Validação completa da sequência antes de iniciar qualquer disparo.

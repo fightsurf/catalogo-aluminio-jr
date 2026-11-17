@@ -28,24 +28,30 @@ router.post('/campanhas',handler('criação de campanha',req=>svc.criar(req.body
 router.post('/campanhas/:id/:acao',handler('alteração de campanha',req=>svc.mudarStatus(req.params.id,req.params.acao)));
 router.post('/bloqueios',handler('bloqueio de telefone',req=>svc.bloquear(req.body?.telefone,req.body?.motivo)));
 router.post('/teste',handler('envio de teste',req=>svc.enviarTeste(req.body||{},`${req.protocol}://${req.get('host')}`,req.adminUser)));
-router.post('/audio-gravado',(req,res,next)=>{
-  // Conferir a origem para impedir a preparação de arquivos via outros sites.
+// Origem autenticada e limite compartilhados entre microfone e arquivo OGG.
+function conferirOrigemAudio(req,res,next){
   const origin=req.get('origin');
   try{if(origin && new URL(origin).host!==req.get('host'))return res.status(403).json({sucesso:false,detalhe:'Origem não autorizada.'});}
   catch(_){return res.status(403).json({sucesso:false,detalhe:'Origem inválida.'});}
+  next();
+}
+function receberAudio(req,res,next){
   uploadAudio(req,res,e=>{
-    if(e)return res.status(e.code==='LIMIT_FILE_SIZE'?413:400).json({sucesso:false,detalhe:e.code==='LIMIT_FILE_SIZE'?'Gravação maior que 6 MB.':'Upload de áudio inválido.'});
+    if(e)return res.status(e.code==='LIMIT_FILE_SIZE'?413:400).json({sucesso:false,detalhe:e.code==='LIMIT_FILE_SIZE'?'Áudio maior que 6 MB.':'Upload de áudio inválido.'});
     next();
   });
-},async(req,res)=>{
+}
+const prepararAudio=origem=>async(req,res)=>{
   try{
-    const audio=await gravador.converter(req.file);
+    const audio=await gravador.converter(req.file,{origem});
     const previewId=eleven.salvarPreview(audio,req.adminUser);
     res.set('X-Preview-Id',previewId);
     res.set('Cache-Control','no-store');
     res.type('audio/mpeg').send(audio.bytes);
-  }catch(e){res.status(e.status||500).json({sucesso:false,detalhe:e.message||'Falha no áudio gravado.'});}
-});
+  }catch(e){res.status(e.status||500).json({sucesso:false,detalhe:e.message||'Falha ao preparar áudio.'});}
+};
+router.post('/audio-gravado',conferirOrigemAudio,receberAudio,prepararAudio('gravacao'));
+router.post('/audio-importado',conferirOrigemAudio,receberAudio,prepararAudio('arquivo'));
 // Diagnóstico de leitura; não dispara WhatsApp nem altera vendas.
 router.get('/diagnostico', async(_req,res)=>{
   const pool=require('../../../db/connection');

@@ -7,11 +7,17 @@ const LIMITE_ENTRADA = 6 * 1024 * 1024;
 const LIMITE_SAIDA = 5 * 1024 * 1024;
 
 function erro(mensagem, status=400) {const e=new Error(mensagem);e.status=status;return e;}
-async function converter(arquivo) {
+async function converter(arquivo,opcoes={}) {
+  const importado=opcoes.origem==='arquivo';
   if(!arquivo || !Buffer.isBuffer(arquivo.buffer) || !arquivo.buffer.length)throw erro('Gravação não recebida.');
   if(arquivo.buffer.length>LIMITE_ENTRADA)throw erro('Áudio excedeu 6 MB.',413);
-  const tipos=['audio/webm','audio/ogg','audio/mp4','audio/mpeg','audio/x-m4a','audio/m4a'];
-  if(!tipos.some(t=>arquivo.mimetype?.toLowerCase().startsWith(t)))throw erro('Formato de gravação não suportado. Use Chrome ou Edge atualizado.');
+  if(importado){
+    if(!/\.ogg$/i.test(String(arquivo.originalname||'')))throw erro('Selecione um arquivo .OGG baixado do WhatsApp.');
+    if(arquivo.buffer.subarray(0,4).toString('ascii')!=='OggS')throw erro('O arquivo não contém áudio OGG válido.');
+  }else{
+    const tipos=['audio/webm','audio/ogg','audio/mp4','audio/mpeg','audio/x-m4a','audio/m4a'];
+    if(!tipos.some(t=>arquivo.mimetype?.toLowerCase().startsWith(t)))throw erro('Formato de gravação não suportado. Use Chrome ou Edge atualizado.');
+  }
   if(!ffmpegPath)throw erro('Conversor de áudio não instalado no servidor.',503);
   return new Promise((resolve,reject)=>{
     let terminado=false,excedeu=false,expirou=false;
@@ -37,7 +43,7 @@ async function converter(arquivo) {
       if(expirou)return finalizar(erro('Tempo limite de conversão excedido.',503));
       if(excedeu)return finalizar(erro('Gravação maior que o limite de áudio MP3.',413));
       if(code!==0||tamanho<1024)return finalizar(erro('Não foi possível converter a gravação para MP3. Verifique se o áudio foi capturado.'));
-      finalizar(null,{bytes:Buffer.concat(partes),voz:'microfone',modelo:'gravacao',texto:'',formato:'audio/mpeg',origem:'gravacao'});
+      finalizar(null,{bytes:Buffer.concat(partes),voz:importado?'arquivo':'microfone',modelo:importado?'upload':'gravacao',texto:'',formato:'audio/mpeg',origem:importado?'arquivo':'gravacao'});
     });
     proc.stdin.on('error',()=>{}); // FFmpeg pode fechar a entrada antes do fim de um arquivo inválido.
     proc.stdin.end(arquivo.buffer);
