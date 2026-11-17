@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#111827">
+  <title>Integração - Transportadoras | Alumínio JR</title>
+  <style>
+    :root{color-scheme:dark;font-family:system-ui,-apple-system,Segoe UI,sans-serif;background:#101827;color:#f8fafc}
+    *{box-sizing:border-box}body{margin:0;padding:20px 14px 70px}
+    main{max-width:780px;margin:0 auto}header{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:22px}
+    .marca{font-size:.82rem;color:#94a3b8;letter-spacing:.04em;font-weight:700}
+    .selo{background:#182b3b;border:1px solid #35556b;border-radius:20px;padding:6px 12px;color:#b7e7ff;font-size:.77rem;white-space:nowrap}
+    h1{font-size:clamp(1.35rem,5vw,2rem);margin:0 0 10px}
+    .explicacao{line-height:1.5;color:#bac6d7;margin:0 0 22px}
+    form{display:flex;flex-wrap:wrap;gap:9px;align-items:center;margin-bottom:14px}
+    input{background:#1e293b;border:1px solid #475569;color:#fff;border-radius:10px;padding:14px 13px;min-width:0;flex:1 1 190px;font-size:1rem}
+    button{background:#2563eb;border:1px solid #3b82f6;border-radius:10px;color:white;font-weight:700;padding:13px 16px;font-size:1rem;cursor:pointer}
+    button:disabled{opacity:.6;cursor:wait}button.secundario{background:#26374e;border-color:#465970}button.microfone{font-size:1.2rem;padding:9px 13px}
+    #situacao{color:#bfdbfe;min-height:1.6em;margin:10px 0 15px}
+    #lista{display:grid;gap:11px}
+    article{padding:16px;border-radius:13px;background:#182435;border:1px solid #35455c}
+    article h2{font-size:1.1rem;margin:0 0 7px;line-height:1.3}
+    article p{margin:3px 0 12px;color:#c7d2e1}
+    article button{font-size:.88rem;padding:9px 12px}
+    .cidades{margin:12px 0 0;border-top:1px solid #3b4c64;padding-top:12px;font-size:.92rem;color:#cdd8e8}
+    .cidades li{margin:7px 0}
+    a{color:#93c5fd}
+    .erro{color:#fecaca!important}
+    @media(min-width:620px){body{padding:28px}.cartao-cabecalho{display:flex;justify-content:space-between;align-items:center;gap:12px}.cartao-cabecalho p{margin:0}}
+  </style>
+</head>
+<body>
+<main>
+  <header><span class="marca">ALUMÍNIO JR · INTEGRAÇÃO</span><span class="selo">Etapa 1 · Consulta</span></header>
+  <h1>Transportadoras</h1>
+  <p class="explicacao">Teste remoto da nova camada de integração. Consulta os dados atuais da Alumínio JR, sem cadastrar, editar ou excluir informações.</p>
+  <form id="busca-form">
+    <input id="filtro" type="search" autocomplete="off" maxlength="120" placeholder="Nome da transportadora" aria-label="Nome da transportadora">
+    <button type="submit" id="buscar">Consultar</button>
+    <button type="button" id="todos" class="secundario">Todas</button>
+    <button type="button" id="voz" class="secundario microfone" aria-label="Pesquisar por voz" title="Pesquisar por voz" hidden>🎤</button>
+  </form>
+  <div id="situacao" role="status" aria-live="polite">Carregando…</div>
+  <section id="lista" aria-label="Transportadoras encontradas"></section>
+</main>
+<script>
+(() => {
+  const api = '/api/integracao/v1';
+  const status = document.getElementById('situacao');
+  const lista = document.getElementById('lista');
+  const filtro = document.getElementById('filtro');
+  const botaoBuscar = document.getElementById('buscar');
+  const todos = document.getElementById('todos');
+  const voz = document.getElementById('voz');
+
+  const el = (tag, text, classe) => {
+    const node = document.createElement(tag);
+    if (text !== undefined) node.textContent = String(text);
+    if (classe) node.className = classe;
+    return node;
+  };
+
+  async function requisicao(url) {
+    const resposta = await fetch(url, { credentials: 'same-origin', headers: { Accept: 'application/json' } });
+    if (resposta.status === 401) {
+      const erro = new Error('Sua sessão expirou. Faça login novamente para consultar os dados.');
+      erro.login = true;
+      throw erro;
+    }
+    if (!resposta.ok) throw new Error('Não foi possível consultar a API (HTTP ' + resposta.status + ').');
+    return resposta.json();
+  }
+
+  function exibirErro(erro, destino) {
+    destino.textContent = '';
+    destino.appendChild(el('span', erro.message || 'Falha ao consultar.', 'erro'));
+    if (erro.login) {
+      destino.appendChild(document.createTextNode(' '));
+      const link = el('a', 'Entrar no sistema');
+      link.href = '/login?next=' + encodeURIComponent('/integracao/transportadoras');
+      destino.appendChild(link);
+    }
+  }
+
+  function montarCartao(transportadora) {
+    const cartao = el('article');
+    const topo = el('div', undefined, 'cartao-cabecalho');
+    const nome = el('h2', transportadora.nome || '(sem nome)');
+    const local = [transportadora.cidade_nome, transportadora.cidade_estado].filter(Boolean).join(' - ');
+    const meta = el('p', local || 'Cidade de origem não informada');
+    topo.append(nome, meta);
+    cartao.appendChild(topo);
+    if (transportadora.telefone_principal) cartao.appendChild(el('p', 'Telefone: ' + transportadora.telefone_principal));
+
+    const botao = el('button', 'Ver cidades atendidas', 'secundario');
+    botao.type = 'button';
+    const detalhe = el('div', undefined, 'cidades');
+    detalhe.hidden = true;
+    let carregado = false;
+    botao.addEventListener('click', async () => {
+      if (!detalhe.hidden) { detalhe.hidden = true; botao.textContent = 'Ver cidades atendidas'; return; }
+      detalhe.hidden = false;
+      botao.textContent = 'Ocultar cidades';
+      if (carregado) return;
+      detalhe.textContent = 'Consultando cidades…';
+      try {
+        const dados = await requisicao(api + '/transportadoras/' + encodeURIComponent(transportadora.id) + '/cidades');
+        detalhe.textContent = '';
+        if (!dados.cidades.length) detalhe.appendChild(el('p', 'Nenhuma cidade vinculada.'));
+        else {
+          detalhe.appendChild(el('strong', dados.total + ' cidade(s) vinculada(s)'));
+          const itens = el('ul');
+          dados.cidades.forEach(cidade => itens.appendChild(el('li', [cidade.nome, cidade.estado].filter(Boolean).join(' - '))));
+          detalhe.appendChild(itens);
+        }
+        carregado = true;
+      } catch (error) { exibirErro(error, detalhe); }
+    });
+    cartao.append(botao, detalhe);
+    return cartao;
+  }
+
+  async function consultar() {
+    status.textContent = 'Consultando…';
+    lista.replaceChildren();
+    botaoBuscar.disabled = true;
+    todos.disabled = true;
+    try {
+      const termo = filtro.value.trim();
+      const dados = await requisicao(api + '/transportadoras' + (termo ? '?nome=' + encodeURIComponent(termo) : ''));
+      status.textContent = dados.total + ' transportadora(s) encontrada(s).';
+      if (!dados.total) lista.appendChild(el('p', 'Nenhum resultado. Tente outro nome.'));
+      else dados.transportadoras.forEach(t => lista.appendChild(montarCartao(t)));
+    } catch (error) {
+      exibirErro(error, status);
+    } finally {
+      botaoBuscar.disabled = false;
+      todos.disabled = false;
+    }
+  }
+
+  document.getElementById('busca-form').addEventListener('submit', event => {
+    event.preventDefault();
+    consultar();
+  });
+  todos.addEventListener('click', () => { filtro.value = ''; consultar(); });
+
+  // Demonstração opcional de fala como entrada. Não é um assistente conversacional.
+  const Reconhecimento = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (Reconhecimento) {
+    voz.hidden = false;
+    voz.addEventListener('click', () => {
+      const recognizer = new Reconhecimento();
+      recognizer.lang = 'pt-BR';
+      recognizer.interimResults = false;
+      recognizer.maxAlternatives = 1;
+      recognizer.onstart = () => { voz.disabled = true; status.textContent = 'Ouvindo o nome da transportadora…'; };
+      recognizer.onerror = () => { status.textContent = 'Não foi possível usar o microfone. Digite o nome para consultar.'; voz.disabled = false; };
+      recognizer.onend = () => { voz.disabled = false; };
+      recognizer.onresult = event => {
+        let fala = event.results[0][0].transcript.trim();
+        if (/^(listar|mostrar|consultar)\s+(todas\s+as\s+)?transportadoras[.!]?$/i.test(fala)) fala = '';
+        else fala = fala.replace(/^(buscar|consultar|pesquisar|mostrar)\s+(a\s+)?(transportadora\s+)?/i, '').replace(/^transportadora\s+/i, '');
+        filtro.value = fala;
+        consultar();
+      };
+      try { recognizer.start(); } catch (error) { status.textContent = 'Microfone indisponível neste navegador.'; voz.disabled = false; }
+    });
+  }
+
+  consultar();
+})();
+</script>
+</body>
+</html>
