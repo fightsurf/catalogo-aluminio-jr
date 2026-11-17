@@ -63,7 +63,7 @@ function normalizarLinha(dados) {
   // A origem tambem e uma cidade atendida, alem de todas as paradas da rota.
   if (orig) adicionar(orig);
   else if (origem) semUf.push(origem);
-  for (const trecho of rota.split(/[\\/|\n;]+/)) {
+  for (const trecho of rota.split(/[\/|\n;]+/) {
     if (!trecho.trim()) continue;
     const cidade = localidade(trecho);
     if (cidade) adicionar(cidade);
@@ -87,24 +87,23 @@ function montarCamposTransportadora(registro) {
   };
 }
 function combinarTelefones(existente, novos) {
-  const originais = telefones([existente.telefone, existente.telefone_principal].filter(Boolean).join(' / '));
-  const conhecidos = new Set(originais);
+  const original = String(existente.telefone || '').trim();
+  const jaExistentes = new Set(telefones([original, existente.telefone_principal].filter(Boolean).join(' / ')));
   const adicionados = [];
   for (const numero of telefones((novos || []).join(' / '))) {
-    if (!conhecidos.has(numero)) { adicionados.push(numero); conhecidos.add(numero); }
+    if (!jaExistentes.has(numero)) {
+      adicionados.push('55' + numero);
+      jaExistentes.add(numero);
+    }
   }
-  const lista = [...originais, ...adicionados].map(n => '55' + n);
-  // Se algum cadastro legado tiver um telefone fora do formato reconhecido, nao o apagar.
-  const original = String(existente.telefone || '').trim();
-  const telefone = originais.length ? lista.join(' / ') :
-    [original, ...adicionados.map(n => '55' + n)].filter(Boolean).join(' / ');
-  const principalExistente = String(existente.telefone_principal || '').trim();
+  const principalAtual = String(existente.telefone_principal || '').trim();
   return {
-    telefone: telefone || null,
-    telefone_principal: principalExistente || lista[0] || null,
+    telefone: [original, ...adicionados].filter(Boolean).join(' / ') || null,
+    telefone_principal: principalAtual || (telefones(original)[0] ? '55' + telefones(original)[0] : adicionados[0] || null),
     adicionados: adicionados.length
   };
 }
+
 function combinarObservacao(atual, destino) {
   const observacao = String(atual || '').trim();
   const nova = String(destino || '').trim();
