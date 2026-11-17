@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>AVN — Alimentos</title><link rel="stylesheet" href="/css/avn-nutricao.css?v=20261112-macros-alimentos"><script src="/js/avn-nutricao-comparador.js" defer></script><script src="/js/avn-nutricao.js?v=20261115-medicamentos1" defer></script><script src="/js/avn-nutricao-graficos.js" defer></script></head>
+<title>AVN — Alimentos</title><link rel="stylesheet" href="/css/avn-nutricao.css?v=20261112-macros-alimentos"><script src="/js/avn-nutricao-comparador.js" defer></script><script src="/js/avn-nutricao.js?v=20261115-medicamentos1" defer></script><script src="/js/avn-nutricao-graficos.js" defer></script><link rel="stylesheet" href="/css/avn-alimentos-lote.css?v=20261117"><script src="/js/avn-alimentos-lote.js?v=20261117" defer></script></head>
 <body data-nutricao-pagina="alimentos"><main class="avn-wrap">
 <header class="avn-top"><a href="/avn">← Central AVN</a><span class="avn-brand">AVN <em>Nutrição</em></span></header>
 <section class="avn-hero"><div><span class="avn-caption">NUTRIÇÃO · AVN</span><h1>Alimentos</h1><p>Cadastre alimentos manualmente, consulte TACO/USDA ou gere um JSON nutricional com IA.</p></div><label class="avn-field user-field">Usuário<select id="usuario"><option>Carregando…</option></select></label></section>
@@ -8,8 +8,24 @@
 <div id="alerta" class="avn-alert" role="status" hidden></div>
 <section id="alimentos" class="avn-panel"><div class="avn-row space"><div><h2>Catálogo de alimentos</h2><p class="muted">Valores por 100 g da parte comestível. Diferencie cru, cozido, marca e preparo.</p></div><label class="avn-field">Pesquisar<input type="search" id="buscaAlimento" placeholder="Ex.: arroz, frango, ovo"></label></div>
 <div class="avn-food-catalog">
-<section class="card alimentos-cadastrados"><div class="avn-row avn-food-catalog-head"><h3>Alimentos cadastrados</h3><button type="button" class="primary" id="abrirModalAlimento">+ Adicionar alimento</button></div><div id="listaAlimentos" class="list scroll-list"></div><p class="muted">Toque no alimento para ver sua composição, ou use Editar e Excluir.</p></section>
+<section class="card alimentos-cadastrados"><div class="avn-row avn-food-catalog-head"><h3>Alimentos cadastrados</h3><div class="avn-lote-botoes"><button type="button" class="secondary" id="abrirImportacaoAlimentos">📷 Importar em lote com IA</button><button type="button" class="primary" id="abrirModalAlimento">+ Adicionar alimento</button></div></div><div id="listaAlimentos" class="list scroll-list"></div><p class="muted">Toque no alimento para ver sua composição, ou use Editar e Excluir.</p></section>
 </div>
+
+<input id="arquivoImportacaoAlimentos" type="file" accept="image/png,image/jpeg,image/webp" hidden aria-label="Escolher print com lista de alimentos">
+<dialog id="modalImportacaoAlimentos" class="avn-dialog avn-lote-dialog" aria-labelledby="tituloImportacaoAlimentos">
+ <div class="modal-head"><div><span class="avn-caption">AVN · ALIMENTOS EM LOTE</span><h2 id="tituloImportacaoAlimentos">Importar alimentos por print com IA</h2></div><button type="button" class="secondary" id="fecharImportacaoAlimentos">Fechar ×</button></div>
+ <p class="muted">Envie um print com nomes de alimentos. A IA identifica até 15 por imagem e pesquisa macros e micros por 100 g. Itens existentes são ignorados. Você revisa os valores antes de salvar.</p>
+ <div id="areaPrintAlimentos" class="avn-lote-area" tabindex="0" role="button" aria-label="Colar ou selecionar print da lista de alimentos">
+  <strong>Colar print (Ctrl+V), arrastar imagem ou selecionar arquivo</strong>
+  <span>JPG, PNG ou WebP · máximo 8 MB · até 15 alimentos por imagem</span>
+  <button type="button" id="selecionarPrintAlimentos" class="secondary">Selecionar imagem</button>
+ </div>
+ <img id="previaPrintAlimentos" class="avn-lote-previa" alt="Imagem dos alimentos selecionada" hidden>
+ <div class="avn-lote-status"><p id="statusImportacaoAlimentos" role="status" aria-live="polite">Aguardando imagem.</p><span id="contagemImportacaoAlimentos"></span></div>
+ <div id="listaImportacaoAlimentos" class="avn-lote-lista" aria-label="Alimentos reconhecidos e dados nutricionais"></div>
+ <p class="muted">Fontes exatas TACO são identificadas. Outros resultados são estimativas de IA, não análises laboratoriais. Campos não encontrados continuam em branco.</p>
+ <div class="modal-actions"><button type="button" id="salvarImportacaoAlimentos" class="primary" disabled>Salvar alimentos selecionados</button><button type="button" id="cancelarImportacaoAlimentos" class="secondary">Cancelar</button></div>
+</dialog>
 <dialog id="modalAlimento" class="avn-dialog avn-alimento-modal" aria-labelledby="tituloAlimento">
 <div class="modal-head"><span class="avn-caption">AVN · CADASTRO DE ALIMENTOS</span><button type="button" class="secondary" id="fecharModalAlimento">Fechar ×</button></div>
 <form id="formAlimento" class="alimento-editor stack">
