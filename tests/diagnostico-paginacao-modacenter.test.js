@@ -47,7 +47,10 @@ test('diagnostico da paginacao publica - sem dados pessoais', async () => {
               return;
             }
             for(const [key,v] of Object.entries(value)){
-              if(key==='excursions')console.log('PAGINACAO_DIAG EXCURSIONS',Array.isArray(v),v?.length,Array.isArray(v)&&v[0]&&Object.keys(v[0]),Array.isArray(v)&&v[0]&&Object.fromEntries(Object.entries(v[0]).map(([k,val])=>[k,Array.isArray(val)?'array('+val.length+')':typeof val])));
+              if(key==='excursions'){
+                console.log('PAGINACAO_DIAG EXCURSIONS',Array.isArray(v),v?.length,Array.isArray(v)&&v[0]&&Object.keys(v[0]),Array.isArray(v)&&v[0]&&Object.fromEntries(Object.entries(v[0]).map(([k,val])=>[k,Array.isArray(val)?'array('+val.length+')':typeof val])));
+                if(Array.isArray(v)&&v[0])console.log('PAGINACAO_DIAG SHAPE',{routeFirst:v[0].route?.[0],phoneKeys:Object.keys(v[0].phones?.[0]||{}),location:v[0].localization,originCity:v[0].city,originState:v[0].state});
+              }
               else if(typeof v==='object')walk(v,depth+1);
             }
           }
