@@ -392,11 +392,19 @@ async function processarProximo() {
     // o envio solicitado à Z-API. Áudio configurado exige aceite do áudio.
     // Em qualquer outro caso manter 'incerto', sem reenvio automático.
     await client.query(`UPDATE mala_direta_destinatarios AS d SET
-      status=CASE WHEN d.imagem_aceita_em IS NOT NULL AND (c.audio_mp3 IS NULL OR d.audio_aceito_em IS NOT NULL)
+      status=CASE WHEN c.sequencia_mensagens IS NOT NULL
+        THEN CASE WHEN d.etapa_enviada_index=jsonb_array_length(c.sequencia_mensagens)-1 THEN 'enviado' ELSE 'incerto' END
+        WHEN d.imagem_aceita_em IS NOT NULL AND (c.audio_mp3 IS NULL OR d.audio_aceito_em IS NOT NULL)
         THEN 'enviado' ELSE 'incerto' END,
-      enviado_em=CASE WHEN d.imagem_aceita_em IS NOT NULL AND (c.audio_mp3 IS NULL OR d.audio_aceito_em IS NOT NULL)
+      enviado_em=CASE WHEN c.sequencia_mensagens IS NOT NULL
+        AND d.etapa_enviada_index=jsonb_array_length(c.sequencia_mensagens)-1 THEN COALESCE(d.enviado_em,NOW())
+        WHEN c.sequencia_mensagens IS NULL AND d.imagem_aceita_em IS NOT NULL
+        AND (c.audio_mp3 IS NULL OR d.audio_aceito_em IS NOT NULL)
         THEN COALESCE(d.enviado_em,d.audio_aceito_em,d.imagem_aceita_em) ELSE NULL END,
-      erro=CASE WHEN d.imagem_aceita_em IS NOT NULL AND (c.audio_mp3 IS NULL OR d.audio_aceito_em IS NOT NULL)
+      erro=CASE WHEN c.sequencia_mensagens IS NOT NULL
+        AND d.etapa_enviada_index=jsonb_array_length(c.sequencia_mensagens)-1 THEN NULL
+        WHEN c.sequencia_mensagens IS NULL AND d.imagem_aceita_em IS NOT NULL
+        AND (c.audio_mp3 IS NULL OR d.audio_aceito_em IS NOT NULL)
         THEN NULL ELSE 'Envio interrompido: verificar manualmente antes de qualquer novo disparo' END,
       atualizado_em=NOW()
       FROM mala_direta_campanhas AS c
@@ -407,7 +415,7 @@ async function processarProximo() {
       WHERE c.status='ativa' AND NOT EXISTS
         (SELECT 1 FROM mala_direta_destinatarios d WHERE d.campanha_id=c.id AND d.status IN ('pendente','enviando'))`);
     const r=await client.query(`
-      SELECT d.id,d.campanha_id,d.telefone,c.produto_id,c.produto_nome,c.mensagem,c.imagem,c.intervalo_segundos,c.audio_mp3
+      SELECT d.id,d.campanha_id,d.telefone,d.etapa_enviada_index,c.produto_id,c.produto_nome,c.mensagem,c.imagem,c.intervalo_segundos,c.audio_mp3,c.sequencia_mensagens
       FROM mala_direta_destinatarios d JOIN mala_direta_campanhas c ON c.id=d.campanha_id
       WHERE d.status='pendente' AND c.status='ativa' AND c.proximo_envio_em<=NOW()
         AND (c.horario_inicio IS NULL OR (NOW() AT TIME ZONE 'America/Fortaleza')::time >= c.horario_inicio)
