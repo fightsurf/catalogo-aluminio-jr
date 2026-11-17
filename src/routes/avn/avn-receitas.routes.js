@@ -1,9 +1,22 @@
 'use strict';
 const express=require('express');
+const multer=require('multer');
 const pool=require('../../../db/connection');
 const {calcular,composicao,micronutrientesDisponiveis}=require('../../services/avn/avn-receitas-calculo.service');
 const {interpretar} = require('../../services/avn/avn-receitas-importacao.service');
 const router=express.Router();
+const uploadImagemReceita=multer({
+ storage:multer.memoryStorage(),
+ limits:{fileSize:8*1024*1024,files:1,fields:3,parts:6},
+ fileFilter:(req,file,cb)=>cb(null,['image/jpeg','image/png','image/webp'].includes(file.mimetype))
+});
+function receberImagemReceita(req,res,next){
+ if(!req.is('multipart/form-data'))return next();
+ uploadImagemReceita.single('imagem')(req,res,erro=>{
+  if(!erro)return next();
+  res.status(erro.code==='LIMIT_FILE_SIZE'?413:400).json({erro:erro.code==='LIMIT_FILE_SIZE'?'A imagem excede o limite de 8 MB.':'Não foi possível receber a imagem: '+erro.message});
+ });
+}
 const id=v=>/^\d+$/.test(String(v||''))&&Number(v)>0;
 const bad=(m,s=400)=>Object.assign(new Error(m),{status:s});
 const route=fn=>async(req,res)=>{try{await fn(req,res);}catch(e){console.error('[AVN receitas]',e);res.status(e.status||500).json({erro:e.status?e.message:'Falha ao processar receita. Consulte os logs.'});}};
@@ -183,10 +196,10 @@ router.get('/catalogo',route(async(req,res)=>{
  const u=uid(req.query.usuarioId);await usuarioExiste(pool,u);
  res.set('Cache-Control','no-store').json(await catalogoUsuario(u));
 }));
-router.post('/interpretar',route(async(req,res)=>{
+router.post('/interpretar',receberImagemReceita,route(async(req,res)=>{
  const u=uid(req.body?.usuarioId);await usuarioExiste(pool,u);
  const catalogo=(await catalogoUsuario(u)).filter(a=>a.fonte!=='receita');
- const dados=await interpretar(req.body?.texto,catalogo);
+ const dados=await interpretar(req.body?.texto,catalogo,req.file);
  res.set('Cache-Control','no-store').json(dados);
 }));
 router.get('/:id',route(async(req,res)=>{const u=uid(req.query.usuarioId);if(!id(req.params.id))throw bad('Receita inválida.');const r=await pool.query('SELECT * FROM public.avn_receitas WHERE id=$1 AND usuario_id=$2',[req.params.id,u]);if(!r.rowCount)throw bad('Receita não encontrada.',404);const q=await pool.query('SELECT alimento_id,quantidade_g,nome_snapshot,ordem,composicao_100g FROM public.avn_receita_ingredientes WHERE receita_id=$1 ORDER BY ordem,id',[r.rows[0].id]);
