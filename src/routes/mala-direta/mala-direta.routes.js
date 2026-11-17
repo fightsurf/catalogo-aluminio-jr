@@ -30,6 +30,7 @@ router.get('/campanhas',handler('histórico de campanhas (PostgreSQL)',()=>svc.l
 router.get('/campanhas/:id/estado',handler('estado salvo da campanha',req=>svc.estadoCampanha(req.params.id)));
 router.get('/campanhas/:id',handler('relatório de campanha (PostgreSQL)',req=>svc.detalhe(req.params.id)));
 router.post('/campanhas',handler('criação de campanha',req=>svc.criar(req.body||{},`${req.protocol}://${req.get('host')}`,req.adminUser)));
+router.post('/campanhas/:id/destinatarios/:destinatarioId/conciliar',handler('conferência de mensagem incerta',req=>svc.conciliarDestinatario(req.params.id,req.params.destinatarioId,req.body||{})));
 router.post('/campanhas/:id/:acao',handler('alteração de campanha',req=>svc.mudarStatus(req.params.id,req.params.acao)));
 router.post('/bloqueios',handler('bloqueio de telefone',req=>svc.bloquear(req.body?.telefone,req.body?.motivo)));
 router.post('/teste',handler('envio de teste',req=>svc.enviarTeste(req.body||{},`${req.protocol}://${req.get('host')}`,req.adminUser)));

@@ -240,6 +240,10 @@ function prepararSequencia(dados,origem,usuario){
     bad('Tipo de mensagem inválido na posição '+(i+1));
   });
 }
+// Cada nova mensagem do mesmo destinatário aguarda 5 segundos após o aceite e checkpoint.
+const INTERVALO_MENSAGENS_MS=5000;
+const INTERVALO_RETENTATIVA_MS=30000;
+const aguardar=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 async function enviarEtapa(telefoneDestino,etapa){
   const opts={timeoutMs:60000,funcionalidade:'mala_direta'};
   if(etapa.tipo==='imagem')return zapi.enviarImagem({telefone:telefoneDestino,imagem:etapa.imagem,legenda:''},opts);
@@ -248,6 +252,18 @@ async function enviarEtapa(telefoneDestino,etapa){
     phone:telefoneDestino,audio:'data:audio/mpeg;base64,'+etapa.mp3
   },opts);
   throw Error('Etapa desconhecida.');
+}
+// Só repetir respostas HTTP 429 (requisição expressamente rejeitada pelo provedor).
+// Timeout, conexão quebrada ou resposta ambígua nunca são autorização para repetir.
+async function enviarEtapaComRetentativa(telefoneDestino,etapa,campanhaId,destinatarioId){
+  for(let tentativa=1;tentativa<=3;tentativa++){
+    try{return await enviarEtapa(telefoneDestino,etapa);}
+    catch(e){
+      if(e.httpStatus!==429||tentativa===3)throw e;
+      console.warn('[mala-direta] Z-API 429, aguardar antes de repetir',campanhaId,destinatarioId,tentativa);
+      await aguardar(INTERVALO_RETENTATIVA_MS);
+    }
+  }
 }
 async function criar(dados, origem,usuario) {
   await preparar();
@@ -383,7 +399,7 @@ async function estadoCampanha(cid){
     mensagem,imagem,sequencia_mensagens,encode(audio_mp3,'base64') AS audio_mp3,
     criada_em,proximo_envio_em,concluida_em FROM mala_direta_campanhas WHERE id=$1`,[id(cid)]);
   if(!c.rows.length)bad('Campanha não encontrada.');
-  const destinatarios=await pool.query(`SELECT favorecido,nome,telefone,origem_destinatario,
+  const destinatarios=await pool.query(`SELECT id,favorecido,nome,telefone,origem_destinatario,
     referencia_destinatario,status,iniciado_envio_em,enviado_em,etapa_enviada_index,etapas_aceitas,erro
     FROM mala_direta_destinatarios WHERE campanha_id=$1 ORDER BY id`,[id(cid)]);
   return {campanha:c.rows[0],destinatarios:destinatarios.rows};
@@ -417,17 +433,63 @@ async function detalhe(cid) {
    FROM jsonb_array_elements(sequencia_mensagens) WITH ORDINALITY AS mensagens(item,ordem)) AS sequencia_resumo
   FROM mala_direta_campanhas WHERE id=$1`,[id(cid)]);
   if(!c.rows.length) bad('Campanha não encontrada.');
-  const d=await pool.query('SELECT favorecido,nome,telefone,status,iniciado_envio_em,enviado_em,atualizado_em,imagem_aceita_em,audio_aceito_em,etapa_enviada_index,etapas_aceitas,erro FROM mala_direta_destinatarios WHERE campanha_id=$1 ORDER BY id',[cid]);
+  const d=await pool.query('SELECT id,favorecido,nome,telefone,status,iniciado_envio_em,enviado_em,atualizado_em,imagem_aceita_em,audio_aceito_em,etapa_enviada_index,etapas_aceitas,erro FROM mala_direta_destinatarios WHERE campanha_id=$1 ORDER BY id',[cid]);
   return {campanha:c.rows[0],destinatarios:d.rows};
 }
 async function mudarStatus(cid, acao) {
   await preparar();
   if(!['pausar','retomar'].includes(acao)) bad('Ação inválida.');
+  if(acao==='retomar'){
+    const incertos=await pool.query(`SELECT EXISTS(
+      SELECT 1 FROM mala_direta_destinatarios WHERE campanha_id=$1 AND status IN ('enviando','incerto')
+    ) AS bloqueado`,[id(cid)]);
+    if(incertos.rows[0]?.bloqueado)bad('Existem mensagens incertas ou em processamento. Confira-as antes de retomar a campanha.');
+  }
   const r=acao==='pausar'
     ?await pool.query(`UPDATE mala_direta_campanhas SET status='pausada' WHERE id=$1 AND status='ativa' RETURNING id`,[id(cid)])
     :await pool.query(`UPDATE mala_direta_campanhas SET status='ativa', proximo_envio_em=NOW() WHERE id=$1 AND status='pausada' RETURNING id`,[id(cid)]);
   if(!r.rowCount) bad('Campanha inexistente ou em estado incompatível.');
   return {id:Number(cid),status:acao==='pausar'?'pausada':'ativa'};
+}
+// A reconciliação de uma mensagem incerta depende de conferência real no WhatsApp.
+// Nunca deduzir que a foto chegou apenas pela tentativa feita pelo servidor.
+async function conciliarDestinatario(cid,destinatarioId,dados){
+  await preparar();
+  const campanhaId=id(cid),destinoId=id(destinatarioId);
+  const quantidade=Number(dados?.quantidadeConfirmada);
+  if(!Number.isSafeInteger(quantidade)||quantidade<0)
+    bad('Informe quantas mensagens foram realmente confirmadas no WhatsApp.');
+  const client=await pool.connect();
+  try{
+    await client.query('BEGIN');
+    const r=await client.query(`SELECT c.status AS campanha_status,c.sequencia_mensagens,
+      d.id,d.status,d.etapa_enviada_index,d.etapas_aceitas
+      FROM mala_direta_destinatarios d JOIN mala_direta_campanhas c ON c.id=d.campanha_id
+      WHERE c.id=$1 AND d.id=$2 FOR UPDATE OF c,d`,[campanhaId,destinoId]);
+    if(!r.rowCount)bad('Destinatário não encontrado nesta campanha.');
+    const atual=r.rows[0], etapas=atual.sequencia_mensagens;
+    if(atual.campanha_status!=='pausada'||atual.status!=='incerto')
+      bad('Pause a campanha e selecione um contato com envio incerto.');
+    if(!Array.isArray(etapas)||!etapas.length)
+      bad('Esta conciliação exige uma campanha com sequência de mensagens.');
+    if(quantidade>etapas.length||quantidade<Number(atual.etapa_enviada_index)+1)
+      bad('Quantidade incompatível com as mensagens já confirmadas.');
+    const historico=Array.isArray(atual.etapas_aceitas)?atual.etapas_aceitas.slice():[];
+    for(let i=Number(atual.etapa_enviada_index)+1;i<quantidade;i++)
+      historico.push({indice:i,tipo:etapas[i].tipo,em:new Date().toISOString(),conferidoManualmente:true});
+    const completo=quantidade===etapas.length;
+    const u=await client.query(`UPDATE mala_direta_destinatarios
+      SET etapa_enviada_index=$2::integer,etapas_aceitas=$3::jsonb,
+        status=$4::varchar(24),enviado_em=CASE WHEN $4::varchar(24)='enviado' THEN NOW() ELSE NULL END,
+        atualizado_em=NOW(),erro=NULL,iniciado_envio_em=NULL
+      WHERE id=$1 AND status='incerto' RETURNING id`,
+      [destinoId,quantidade-1,JSON.stringify(historico),completo?'enviado':'pendente']);
+    if(u.rowCount!==1)throw Error('Status do destinatário alterado durante a conferência.');
+    await client.query('COMMIT');
+    return {campanhaId,destinatarioId:destinoId,quantidadeConfirmada:quantidade,
+      status:completo?'enviado':'pendente',campanhaPausada:true};
+  }catch(e){await client.query('ROLLBACK').catch(()=>{});throw e;}
+  finally{client.release();}
 }
 async function bloquear(fone, motivo) {
   await preparar();
@@ -478,7 +540,7 @@ async function processarProximo() {
     // persistidas. Uma imagem aceita, sem áudio na campanha, já conclui
     // o envio solicitado à Z-API. Áudio configurado exige aceite do áudio.
     // Em qualquer outro caso manter 'incerto', sem reenvio automático.
-    await client.query(`UPDATE mala_direta_destinatarios AS d SET
+    const recuperados=await client.query(`UPDATE mala_direta_destinatarios AS d SET
       status=CASE WHEN c.sequencia_mensagens IS NOT NULL
         THEN CASE WHEN d.etapa_enviada_index=jsonb_array_length(c.sequencia_mensagens)-1 THEN 'enviado' ELSE 'incerto' END
         WHEN d.imagem_aceita_em IS NOT NULL AND (c.audio_mp3 IS NULL OR d.audio_aceito_em IS NOT NULL)
@@ -496,18 +558,32 @@ async function processarProximo() {
       atualizado_em=NOW()
       FROM mala_direta_campanhas AS c
       WHERE d.campanha_id=c.id AND d.status='enviando'
-        AND d.atualizado_em < NOW()-INTERVAL '3 minutes'`);
+        AND d.atualizado_em < NOW()-INTERVAL '3 minutes'
+      RETURNING d.campanha_id,d.status`);
+    // Se todas as mensagens estavam confirmadas antes da queda, preservar
+    // os dez minutos entre contatos ao recuperar o envio concluído.
+    for(const r of recuperados.rows||[]){
+      if(r.status==='enviado')await client.query(`UPDATE mala_direta_campanhas
+        SET proximo_envio_em=GREATEST(proximo_envio_em,NOW()+(intervalo_segundos * INTERVAL '1 second'))
+        WHERE id=$1`,[r.campanha_id]);
+    }
+    // Qualquer destinatário incerto bloqueia a campanha inteira.
+    // Assim, uma foto isolada nunca libera o próximo contato.
+    await client.query(`UPDATE mala_direta_campanhas c SET status='pausada'
+      WHERE c.status='ativa' AND EXISTS (
+        SELECT 1 FROM mala_direta_destinatarios d
+        WHERE d.campanha_id=c.id AND d.status='incerto')`);
     // Finaliza campanhas sem pendências (inclusive últimas linhas bloqueadas).
     await client.query(`UPDATE mala_direta_campanhas c SET status='concluida',concluida_em=NOW()
       WHERE c.status='ativa' AND NOT EXISTS
-        (SELECT 1 FROM mala_direta_destinatarios d WHERE d.campanha_id=c.id AND d.status IN ('pendente','enviando'))`);
+        (SELECT 1 FROM mala_direta_destinatarios d WHERE d.campanha_id=c.id AND d.status IN ('pendente','enviando','incerto'))`);
     const r=await client.query(`
       SELECT d.id,d.campanha_id,d.telefone,d.etapa_enviada_index,c.produto_id,c.produto_nome,c.mensagem,c.imagem,c.intervalo_segundos,c.audio_mp3,c.sequencia_mensagens
       FROM mala_direta_destinatarios d JOIN mala_direta_campanhas c ON c.id=d.campanha_id
       WHERE d.status='pendente' AND c.status='ativa' AND c.proximo_envio_em<=NOW()
         AND (c.horario_inicio IS NULL OR (NOW() AT TIME ZONE 'America/Fortaleza')::time >= c.horario_inicio)
         AND (c.horario_fim IS NULL OR (NOW() AT TIME ZONE 'America/Fortaleza')::time < c.horario_fim)
-        AND NOT EXISTS(SELECT 1 FROM mala_direta_destinatarios v WHERE v.campanha_id=c.id AND v.status='enviando')
+        AND NOT EXISTS(SELECT 1 FROM mala_direta_destinatarios v WHERE v.campanha_id=c.id AND v.status IN ('enviando','incerto'))
       ORDER BY c.proximo_envio_em,c.id,d.id LIMIT 1 FOR UPDATE OF d SKIP LOCKED`);
     if(!r.rows.length){await client.query('COMMIT');return;}
     trabalho=r.rows[0];
@@ -516,8 +592,10 @@ async function processarProximo() {
       await client.query(`UPDATE mala_direta_destinatarios SET status='bloqueado',atualizado_em=NOW() WHERE id=$1`,[trabalho.id]);
     } else {
       await client.query(`UPDATE mala_direta_destinatarios SET status='enviando',iniciado_envio_em=NOW(),atualizado_em=NOW() WHERE id=$1`,[trabalho.id]);
-      await client.query(`UPDATE mala_direta_campanhas SET iniciada_em=COALESCE(iniciada_em,NOW()),
-        proximo_envio_em=NOW()+($2::integer * INTERVAL '1 second') WHERE id=$1`,[trabalho.campanha_id,trabalho.intervalo_segundos]);
+      // Não iniciar os dez minutos entre contatos aqui: o relógio começa
+      // somente depois que TODAS as mensagens deste contato forem aceitas.
+      await client.query(`UPDATE mala_direta_campanhas
+        SET iniciada_em=COALESCE(iniciada_em,NOW()) WHERE id=$1`,[trabalho.campanha_id]);
     }
     await client.query('COMMIT');
     if(blocked.rowCount) return;
@@ -527,13 +605,17 @@ async function processarProximo() {
     if(Array.isArray(trabalho.sequencia_mensagens)){
       for(let i=Number(trabalho.etapa_enviada_index)+1;i<trabalho.sequencia_mensagens.length;i++){
         const etapa=trabalho.sequencia_mensagens[i];
-        resultado=await enviarEtapa(trabalho.telefone,etapa);
+        resultado=await enviarEtapaComRetentativa(trabalho.telefone,etapa,trabalho.campanha_id,trabalho.id);
         // Checkpoint após cada aceite; falhas são marcadas incertas, sem reenvio automático.
-        await pool.query(`UPDATE mala_direta_destinatarios
-          SET etapa_enviada_index=$2,
-            etapas_aceitas=etapas_aceitas || jsonb_build_array(jsonb_build_object('indice',$2,'tipo',$3,'em',NOW())),
+        const checkpoint=await pool.query(`UPDATE mala_direta_destinatarios
+          SET etapa_enviada_index=$2::integer,
+            etapas_aceitas=etapas_aceitas || jsonb_build_array(jsonb_build_object('indice',$2::integer,'tipo',$3::text,'em',NOW())),
             atualizado_em=NOW()
-          WHERE id=$1 AND status='enviando'`,[trabalho.id,i,etapa.tipo]);
+          WHERE id=$1 AND status='enviando' RETURNING id`,[trabalho.id,i,etapa.tipo]);
+        if(checkpoint.rowCount!==1)throw Error('Falha ao persistir aceite da mensagem');
+        // Se o checkpoint falhar, NÃO repetir a foto/texto/áudio aceito.
+        // Pausar toda a campanha e exigir conferência deste contato.
+        if(i<trabalho.sequencia_mensagens.length-1)await aguardar(INTERVALO_MENSAGENS_MS);
       }
     }else{
     resultado=await zapi.enviarImagem({telefone:trabalho.telefone,imagem:trabalho.imagem,legenda:trabalho.mensagem},{timeoutMs:60000, funcionalidade:'mala_direta'});
@@ -545,6 +627,7 @@ async function processarProximo() {
     // Z-API e a conclusão do destinatário. A contagem idempotente roda
     // em processo separado e não bloqueia o envio do restante da lista.
     if(trabalho.audio_mp3) {
+      await aguardar(INTERVALO_MENSAGENS_MS);
       const bytes=Buffer.isBuffer(trabalho.audio_mp3)?trabalho.audio_mp3:Buffer.from(trabalho.audio_mp3);
       await zapi.postZapi('/send-audio',{
         phone:trabalho.telefone,audio:'data:audio/mpeg;base64,'+bytes.toString('base64')
@@ -553,18 +636,41 @@ async function processarProximo() {
         WHERE id=$1 AND status='enviando'`,[trabalho.id]);
     }
     }
-  }catch(e){erro=e;}
+  }catch(e){
+    erro=e;
+    // Sem telefone nem conteúdo no log; manter o destinatário incerto após qualquer falha de checkpoint.
+    console.error('[mala-direta] Falha na sequência:', 'campanha', trabalho.campanha_id, 'destinatário', trabalho.id, e.message);
+  }
   // Rede/Z-API podem ter aceitado uma das mensagens. Não reenviar automaticamente.
+  // Concluir o contato e agendar o próximo atomicamente no PostgreSQL.
   const status=erro?'incerto':'enviado';
+  const finalClient=await pool.connect();
   try {
-    await pool.query(`UPDATE mala_direta_destinatarios SET status=$2,
-      enviado_em=CASE WHEN $2='enviado' THEN NOW() ELSE NULL END,
-      atualizado_em=NOW(),erro=$3 WHERE id=$1 AND status='enviando'`,
+    await finalClient.query('BEGIN');
+    const atualizado=await finalClient.query(`UPDATE mala_direta_destinatarios SET status=$2::varchar(24),
+      enviado_em=CASE WHEN $2::varchar(24)='enviado' THEN NOW() ELSE NULL END,
+      atualizado_em=NOW(),erro=$3 WHERE id=$1 AND status='enviando' RETURNING id`,
       [trabalho.id,status,erro?String(erro.message).slice(0,900):null]);
-  } catch(e) {console.error('[mala-direta] Persistência pós-envio:',e.message);}
+    if(atualizado.rowCount!==1)throw Error('Destinatário não estava mais em processamento');
+    if(erro) {
+      await finalClient.query(`UPDATE mala_direta_campanhas SET status='pausada'
+        WHERE id=$1 AND status='ativa'`,[trabalho.campanha_id]);
+    } else {
+      await finalClient.query(`UPDATE mala_direta_campanhas
+        SET proximo_envio_em=NOW()+($2::integer * INTERVAL '1 second')
+        WHERE id=$1 AND status='ativa'`,[trabalho.campanha_id,trabalho.intervalo_segundos]);
+    }
+    await finalClient.query('COMMIT');
+  } catch(e) {
+    await finalClient.query('ROLLBACK').catch(()=>{});
+    console.error('[mala-direta] Persistência pós-envio:',e.message);
+    // Falha de banco não pode deixar a campanha processar o contato seguinte.
+    await pool.query(`UPDATE mala_direta_campanhas SET status='pausada'
+      WHERE id=$1 AND status='ativa'`,[trabalho.campanha_id]).catch(err=>console.error('[mala-direta] Falha ao pausar:',err.message));
+  } finally {finalClient.release();}
   await pool.query(`UPDATE mala_direta_campanhas c SET status='concluida',concluida_em=NOW()
     WHERE c.id=$1 AND c.status='ativa'
-    AND NOT EXISTS (SELECT 1 FROM mala_direta_destinatarios d WHERE d.campanha_id=c.id AND d.status IN ('pendente','enviando'))`,[trabalho.campanha_id]).catch(e=>console.error('[mala-direta]',e.message));
+    AND NOT EXISTS (SELECT 1 FROM mala_direta_destinatarios d WHERE d.campanha_id=c.id AND d.status IN ('pendente','enviando','incerto'))`,[trabalho.campanha_id]).catch(e=>console.error('[mala-direta]',e.message));
 }
 // Sincronização desacoplada, idempotente e limitada: uma campanha conta
 // uma única aparição depois do primeiro aceite da imagem. Falhas ou
@@ -629,4 +735,4 @@ function iniciarTrabalhador() {
   t=setTimeout(executarTermometro,12000);
   t.unref?.();
 }
-module.exports={produtos,compradores,compradoresPorCriterio,carradas,semanas,primeiraCompra,criar,listar,detalhe,estadoCampanha,lerRascunho,salvarRascunho,excluirRascunho,mudarStatus,bloquear,enviarTeste,iniciarTrabalhador};
+module.exports={produtos,compradores,compradoresPorCriterio,carradas,semanas,primeiraCompra,criar,listar,detalhe,estadoCampanha,lerRascunho,salvarRascunho,excluirRascunho,mudarStatus,conciliarDestinatario,bloquear,enviarTeste,iniciarTrabalhador};

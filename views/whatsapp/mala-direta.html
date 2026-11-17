@@ -204,7 +204,7 @@ a{color:#8bd1ff}.ok{color:#7de0a2}.error{color:#ff9da5}
 <section class="card" id="campanhaRetomada" hidden>
   <div class="row" style="justify-content:space-between"><h2 id="campanhaRetomadaTitulo">Campanha recuperada</h2><div class="row"><button type="button" id="retomarCampanha" hidden>▶ Retomar envios</button><button type="button" class="secondary" id="montarNova">✏️ Montar nova / abrir rascunho</button></div></div>
   <p class="muted" id="campanhaRetomadaResumo"></p>
-  <div class="tablewrap" style="max-height:330px;overflow:auto"><table><thead><tr><th>Destinatário</th><th>WhatsApp</th><th>Situação</th><th>Enviado em</th><th>Etapas aceitas</th><th>Erro / observação</th></tr></thead><tbody id="campanhaDestinatarios"></tbody></table></div>
+  <div class="tablewrap" style="max-height:330px;overflow:auto"><table><thead><tr><th>Destinatário</th><th>WhatsApp</th><th>Situação</th><th>Enviado em</th><th>Etapas aceitas</th><th>Erro / observação</th><th>Conferência</th></tr></thead><tbody id="campanhaDestinatarios"></tbody></table></div>
   <p class="muted small">O conteúdo exibido no simulador corresponde à campanha salva no servidor. A fila continua sem reenviar destinatários já atendidos; itens incertos exigem conferência manual.</p>
 </section>
 <section class="card"><div class="row" style="justify-content:space-between"><h2>Campanhas e relatórios</h2><button class="secondary" id="atualizar">Atualizar</button></div>
@@ -1094,7 +1094,7 @@ function historicoDaCampanha(relatorio){
       for(const etapa of confirmadas){
         const i=Number(etapa.indice);
         if(Number.isInteger(i)&&i>=0&&i<itens.length)
-          registrar(p,i,etapa.em||null,'Aceita pela Z-API');
+          registrar(p,i,etapa.em||null,etapa.conferidoManualmente?'Confirmada manualmente':'Aceita pela Z-API');
       }
     }else if(itens.length&&Number.isInteger(p.etapa_enviada_index)&&p.etapa_enviada_index>=0){
       // Campanhas anteriores podem ter o checkpoint sem a lista de horários.
@@ -1121,8 +1121,8 @@ function renderizarHistorico(relatorio){
   const {registros,contatos}=historicoDaCampanha(relatorio);
   painel.hidden=false;corpo.replaceChildren();
   $('historicoTitulo').textContent='Histórico de mensagens — Campanha #'+cid;
-  const confirmados=registros.filter(x=>x.registro.startsWith('Aceita')||x.registro.startsWith('Aceite')).length;
-  $('historicoResumo').textContent=contatos+' destinatários • '+confirmados+' etapas aceitas/registradas • '+
+  const confirmados=registros.filter(x=>x.registro.startsWith('Aceita')||x.registro.startsWith('Aceite')||x.registro.startsWith('Confirmada')).length;
+  $('historicoResumo').textContent=contatos+' destinatários • '+confirmados+' etapas aceitas/confirmadas • '+
     Math.max(0,registros.length-confirmados)+' registros incertos. Mais recentes primeiro.';
   if(!registros.length){
     const tr=el('tr'),cel=el('td','Nenhuma mensagem com aceite registrado até o momento.');
@@ -1168,6 +1168,32 @@ function preencherTabelaAndamento(destinatarios){
     const aceitas=Array.isArray(d.etapas_aceitas)?d.etapas_aceitas.length:0;
     const contagem=aceitas||(Number.isInteger(d.etapa_enviada_index)&&d.etapa_enviada_index>=0?d.etapa_enviada_index+1:0);
     td(contagem+' etapa(s)');td(d.erro||'-');
+    const conferencia=td('');
+    if(d.status==='incerto'&&campanhaVisualizada?.status==='pausada'){
+      const b=el('button','Conferir mensagens','secondary');
+      b.onclick=async()=>{
+        const total=sequencia.length;
+        const nomes=sequencia.map((x,i)=>(i+1)+'. '+({imagem:'Foto',texto:'Texto',audio:'Áudio'}[x.tipo]||x.tipo)).join('\n');
+        const resposta=window.prompt(
+          'Confira a conversa real deste contato no WhatsApp antes de continuar.\n'+
+          'Quantas mensagens, na ordem, você confirmou que chegaram?\n'+
+          '0 = nenhuma\n'+nomes+'\nDigite um número de 0 a '+total+'.');
+        if(resposta===null)return;
+        if(!/^\d+$/.test(resposta.trim())||Number(resposta)>total){
+          msg('Informe uma quantidade válida, entre zero e '+total+'.',true);return;
+        }
+        const quantidade=Number(resposta),minimo=Math.max(0,Number(d.etapa_enviada_index??-1)+1);
+        if(quantidade<minimo){msg('Não é possível desfazer mensagens já registradas como aceitas.',true);return;}
+        if(!window.confirm('Confirmar '+quantidade+' mensagem(ns) realmente verificadas neste contato? '
+          +'As demais serão consideradas pendentes e poderão ser enviadas quando você retomar. Uma confirmação errada pode repetir mensagens.'))return;
+        try{
+          await post(api+'/campanhas/'+campanhaVisualizada.id+'/destinatarios/'+d.id+'/conciliar',{quantidadeConfirmada:quantidade});
+          await atualizarAndamento();await carregarCampanhas();
+          msg('Conferência salva. Confira os demais contatos incertos antes de retomar.');
+        }catch(e){msg('Falha na conferência: '+e.message,true);}
+      };
+      conferencia.append(b);
+    }
     corpo.append(tr);
   }
 }
@@ -1182,7 +1208,7 @@ function exibirResumoCampanha(c,destinatarios){
   let resumo=`Status: ${c.status} • ${total} contatos • ${enviados} enviados • ${pendentes} pendentes/em envio • ${problemas} problemas. Janela: ${String(c.horario_inicio||'08:00').slice(0,5)}–${String(c.horario_fim||'18:00').slice(0,5)} (Paraíba).`;
   if(c.status==='ativa'&&pendentes&&quando)resumo+=` Próxima tentativa a partir de ${quando}, dentro da janela configurada.`;
   const incertos=destinatarios.filter(d=>d.status==='incerto').length;
-  if(incertos)resumo+=` Atenção: ${incertos} contato(s) incerto(s) aguardam conferência manual.`;
+  if(incertos)resumo+=` Atenção: ${incertos} contato(s) incerto(s) aguardam conferência manual. A campanha não avançará antes da conferência.`;
   $('campanhaRetomadaResumo').textContent=resumo;
   $('retomarCampanha').hidden=c.status!=='pausada';
   preencherTabelaAndamento(destinatarios);
