@@ -8,6 +8,16 @@ test('diagnostico da paginacao publica - sem dados pessoais', async () => {
     if(!response.ok)return;
     const html=await response.text();const $=cheerio.load(html);
     console.log('PAGINACAO_DIAG HTML',html.length,'scripts', $('script[src]').map((_,e)=>$(e).attr('src')).get().slice(0,40));
+    console.log('PAGINACAO_DIAG counts', {origem:(html.match(/Origem:/g)||[]).length, conferir:(html.match(/Conferir rota/g)||[]).length, heading:$('h3').length, nextScripts:(html.match(/self\\.__next_f\\.push/g)||[]).length});
+    const chunk='/_next/static/chunks/app/c/excursoes/page-a7832169bf156013.js';
+    const jsResponse=await fetch(new URL(chunk,'https://omodacenter.com.br'),{signal:AbortSignal.timeout(12000)});
+    const js=await jsResponse.text();console.log('PAGINACAO_DIAG CHUNK',jsResponse.status,js.length);
+    for(const term of ['fetch(', '/api/', 'axios', 'pageSize', 'page:', 'pagina:', 'offset:', 'take:', 'limit:', 'setPage', 'setCurrentPage', 'pagination', 'paginacao', 'totalPages', 'totalPaginas']){
+      const locations=[];let p=-1;
+      while ((p=js.indexOf(term,p+1))>=0 && locations.length<4) locations.push(js.slice(Math.max(0,p-160),Math.min(js.length,p+240)).replace(/[0-9]{10,}/g,'[n]'));
+      if(locations.length)console.log('PAGINACAO_DIAG JS',term,locations);
+    }
+    console.log('PAGINACAO_DIAG ASSETS', [...js.matchAll(/https?:\\/\\/[^\\\"' ]{8,100}/g)].slice(0,20).map(x=>x[0]));
     console.log('PAGINACAO_DIAG PAGER', $('button,a,[role=button]').filter((_,e)=>/^\s*(2|3|>|>>)\s*$/.test($(e).text())).slice(0,12).map((_,e)=>$(e).prop('outerHTML').slice(0,750)).get());
     console.log('PAGINACAO_DIAG STATE', $('script[type="application/json"],#__NEXT_DATA__,script[data-nuxt-data]').map((_,e)=>({attrs:$(e).attr(),size:$(e).text().length,peek:$(e).text().slice(0,160)})).get().slice(0,8));
     for(const q of ['?page=2','?pagina=2','?p=2','?pageNumber=2','?current_page=2']){
