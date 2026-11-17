@@ -403,9 +403,21 @@ async function listar() {
 }
 async function detalhe(cid) {
   await preparar();
-  const c=await pool.query('SELECT id,produto_nome,status,tipo_publico,referencia_publico,grupo_logistica,cidade_logistica_id,horario_inicio,horario_fim, audio_mp3 IS NOT NULL AS com_audio, intervalo_segundos,criada_em,concluida_em FROM mala_direta_campanhas WHERE id=$1',[id(cid)]);
+  const c=await pool.query(`SELECT id,produto_nome,status,tipo_publico,referencia_publico,grupo_logistica,
+  cidade_logistica_id,horario_inicio,horario_fim,proximo_envio_em,
+  (audio_mp3 IS NOT NULL) AS com_audio, (imagem IS NOT NULL AND imagem <> '') AS com_imagem,
+  CASE WHEN imagem LIKE 'data:%' THEN NULL ELSE imagem END AS imagem_resumo,
+  mensagem AS mensagem_resumo, intervalo_segundos,criada_em,concluida_em,
+  (SELECT COALESCE(jsonb_agg(jsonb_build_object(
+    'tipo',item->>'tipo',
+    'texto',CASE WHEN item->>'tipo'='texto' THEN item->>'texto' ELSE NULL END,
+    'imagem',CASE WHEN item->>'tipo'='imagem' AND item->>'imagem' NOT LIKE 'data:%' THEN item->>'imagem' ELSE NULL END,
+    'origem',CASE WHEN item->>'tipo'='audio' THEN item->>'origem' ELSE NULL END
+  ) ORDER BY ordem),'[]'::jsonb)
+   FROM jsonb_array_elements(sequencia_mensagens) WITH ORDINALITY AS mensagens(item,ordem)) AS sequencia_resumo
+  FROM mala_direta_campanhas WHERE id=$1`,[id(cid)]);
   if(!c.rows.length) bad('Campanha não encontrada.');
-  const d=await pool.query('SELECT favorecido,nome,telefone,status,iniciado_envio_em,enviado_em,imagem_aceita_em,audio_aceito_em,etapa_enviada_index,etapas_aceitas,erro FROM mala_direta_destinatarios WHERE campanha_id=$1 ORDER BY id',[cid]);
+  const d=await pool.query('SELECT favorecido,nome,telefone,status,iniciado_envio_em,enviado_em,atualizado_em,imagem_aceita_em,audio_aceito_em,etapa_enviada_index,etapas_aceitas,erro FROM mala_direta_destinatarios WHERE campanha_id=$1 ORDER BY id',[cid]);
   return {campanha:c.rows[0],destinatarios:d.rows};
 }
 async function mudarStatus(cid, acao) {
