@@ -97,8 +97,9 @@ function combinarTelefones(existente, novos) {
     }
   }
   const principalAtual = String(existente.telefone_principal || '').trim();
+  const base = original || (principalAtual ? '55' + telefones(principalAtual)[0] : '');
   return {
-    telefone: [original, ...adicionados].filter(Boolean).join(' / ') || null,
+    telefone: [base, ...adicionados].filter(Boolean).join(' / ') || null,
     telefone_principal: principalAtual || (telefones(original)[0] ? '55' + telefones(original)[0] : adicionados[0] || null),
     adicionados: adicionados.length
   };
