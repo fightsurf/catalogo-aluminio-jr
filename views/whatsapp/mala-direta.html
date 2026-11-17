@@ -288,12 +288,16 @@ $('produtoSelect').onkeydown=e=>{
 document.addEventListener('pointerdown',e=>{
   if(!e.target.closest('.produto-select-field'))fecharProdutos();
 });
-function chaveConsulta(){const c=criterio();return c?`${produto()?.produtoId||0}:${c.tipo}:${c.grupo??c.referencia??c.meses}`:'';}
+function chaveConsulta(){const c=criterio();return c?`${produto()?.produtoId||0}:${c.tipo}:${c.grupo||''}:${c.cidade||''}:${c.referencia??''}:${c.meses??''}`:'';}
 function criterio(){
+  if($('origemDestinatarios').value==='logistica'){
+    if(!$('grupoLogistica').value||!$('cidadeLogistica').value)return null;
+    return {tipo:'logistica',grupo:$('grupoLogistica').value,cidade:Number($('cidadeLogistica').value)};
+  }
+  if($('origemDestinatarios').value!=='compras')return null;
   if($('periodo').value!=='')return {tipo:'periodo',meses:Number($('periodo').value)};
   if($('carrada').value!=='')return {tipo:'carrada',referencia:Number($('carrada').value)};
   if($('semana').value!=='')return {tipo:'semana',referencia:Number($('semana').value)};
-  if($('grupoLogistica').value!=='')return {tipo:'logistica',grupo:$('grupoLogistica').value};
   return null;
 }
 // A cor segue a regra de obterClassesLinhaCarrada() da tela original de carradas.
@@ -402,13 +406,16 @@ document.addEventListener('pointerdown',e=>{
   if(!e.target.closest('.carrada-select-wrapper'))fecharCarradas();
 });
 function atualizarBloqueios(){
-  const c=criterio();
-  $('periodo').disabled=Boolean(c&&c.tipo!=='periodo');
-  $('carrada').disabled=Boolean(c&&c.tipo!=='carrada');
+  const origem=$('origemDestinatarios').value,c=criterio();
+  $('filtrosLogistica').hidden=origem!=='logistica';
+  $('filtrosCompras').hidden=origem!=='compras';
+  $('periodo').disabled=origem!=='compras';
+  $('carrada').disabled=origem!=='compras';
   atualizarSeletorCarradas();
-  $('semana').disabled=Boolean(c&&c.tipo!=='semana');
-  $('grupoLogistica').disabled=Boolean(c&&c.tipo!=='logistica');
-  $('criterioAtivo').textContent=c?`Critério ativo: ${c.tipo==='periodo'?'Período de compras':c.tipo==='carrada'?'Carrada':c.tipo==='semana'?'Semana':'Contatos da logística'}`:'Nenhum critério escolhido';
+  $('semana').disabled=origem!=='compras';
+  $('grupoLogistica').disabled=origem!=='logistica';
+  $('cidadeLogistica').disabled=origem!=='logistica'||!$('grupoLogistica').value;
+  $('criterioAtivo').textContent=c?`Critério ativo: ${c.tipo==='periodo'?'Período de compras':c.tipo==='carrada'?'Carrada':c.tipo==='semana'?'Semana':$('grupoLogistica').selectedOptions[0]?.textContent+' • '+$('cidadeLogistica').selectedOptions[0]?.textContent}`:'Escolha os filtros';
 }
 function resetClientes(){consultaSeq++;clientes=[];ultimaConsulta='';renderClientes();}
 function atualizarProduto(){
@@ -446,13 +453,13 @@ async function carregarFiltros(){
 async function consultar(){
   const p=produto(),c=criterio();const seq=++consultaSeq;
   clientes=[];ultimaConsulta='';renderClientes();
-  if(!c){msg('Escolha período, carrada, semana ou contatos da logística.',true);return;}
+  if(!c){msg('Escolha a origem e complete os filtros (inclusive a cidade, na logística).',true);return;}
   if(c.tipo==='periodo'&&!p){msg('Escolha o produto antes de consultar o período de compras.',true);return;}
   if(c.tipo==='periodo'&&!p.item){msg('O produto precisa de vínculo com o Firebird para consultar seu histórico.',true);return;}
   $('consultar').disabled=true;$('resumo').textContent='Carregando destinatários...';
   const chave=chaveConsulta();msg('Consultando clientes do critério selecionado...');
   try{
-    const dados=await post(api+'/destinatarios',{tipoPublico:c.tipo,referenciaPublico:c.referencia,grupoLogistica:c.grupo,meses:c.meses,item:p?.item});
+    const dados=await post(api+'/destinatarios',{tipoPublico:c.tipo,referenciaPublico:c.referencia,grupoLogistica:c.grupo,cidadeLogistica:c.cidade,meses:c.meses,item:p?.item});
     if(seq!==consultaSeq||chave!==chaveConsulta())return;
     if(!Array.isArray(dados))throw Error('A consulta retornou dados inesperados.');
     clientes=dados.map(x=>({...x,marcado:false}));ultimaConsulta=chave;renderClientes();
@@ -461,13 +468,41 @@ async function consultar(){
   finally{if(seq===consultaSeq)$('consultar').disabled=false;}
 }
 $('consultar').onclick=consultar;
-for(const idFiltro of ['periodo','carrada','semana','grupoLogistica']){
-  $(idFiltro).onchange=()=>{atualizarBloqueios();consultar();};
+$('origemDestinatarios').onchange=()=>{
+  $('periodo').value='';$('carrada').value='';$('semana').value='';
+  $('grupoLogistica').value='';$('cidadeLogistica').replaceChildren(new Option('Escolha o tipo de contato primeiro',''));
+  resetClientes();atualizarBloqueios();
+};
+async function carregarCidadesLogistica(){
+  const grupo=$('grupoLogistica').value,select=$('cidadeLogistica'),anterior=select.value;
+  select.replaceChildren(new Option(grupo?'Escolha a cidade':'Selecione o tipo de contato primeiro',''));
+  resetClientes();atualizarBloqueios();
+  if(!grupo)return;
+  try{
+    const cidades=await get(api+'/cidades-logistica?grupo='+encodeURIComponent(grupo));
+    if(grupo!==$('grupoLogistica').value)return;
+    for(const local of cidades)select.add(new Option(local.label,String(local.id)));
+    if([...select.options].some(x=>x.value===anterior))select.value=anterior;
+  }catch(e){msg('Falha ao carregar cidades da logística: '+e.message,true);}
+  atualizarBloqueios();
+}
+$('grupoLogistica').onchange=carregarCidadesLogistica;
+$('cidadeLogistica').onchange=()=>{atualizarBloqueios();consultar();};
+for(const idFiltro of ['periodo','carrada','semana']){
+  $(idFiltro).onchange=()=>{
+    if($(idFiltro).value!=='')for(const outro of ['periodo','carrada','semana'])if(outro!==idFiltro)$(outro).value='';
+    atualizarBloqueios();consultar();
+  };
 }
 $('limparFiltro').onclick=()=>{
-  $('periodo').value='';$('carrada').value='';$('semana').value='';$('grupoLogistica').value='';
-  atualizarBloqueios();resetClientes();msg('Filtro liberado. Escolha um dos quatro critérios.');
+  $('periodo').value='';$('carrada').value='';$('semana').value='';
+  $('grupoLogistica').value='';$('cidadeLogistica').value='';
+  atualizarBloqueios();resetClientes();msg('Filtros limpos.');
 };
+$('visualizarContatos').onclick=()=>{$('modalContatos').classList.add('active');};
+$('fecharContatos').onclick=()=>{$('modalContatos').classList.remove('active');};
+$('confirmarContatos').onclick=()=>{$('fecharContatos').click();};
+$('modalContatos').onclick=e=>{if(e.target===$('modalContatos'))$('fecharContatos').click();};
 async function copiarTelefone(numero){
   try{
     if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(numero);}
@@ -510,10 +545,12 @@ function renderClientes(){
     }
     body.append(tr);
   }
-  $('resumo').textContent=`${clientes.length} destinatários`;
+  $('resumo').textContent=`${clientes.length} destinatários encontrados`;
+  $('visualizarContatos').disabled=!clientes.length;
+  $('contatosResumo').textContent=`${clientes.length} contatos encontrados. Selecione apenas quem autorizou o recebimento da campanha.`;
   contagem();
 }
-function contagem(){const qtd=selected().length;$('contagem').textContent=`${qtd} selecionados`;$('enviarResumo').textContent=`${qtd} destinatários selecionados`;}
+function contagem(){const qtd=selected().length;$('contagem').textContent=`${qtd} selecionados de ${clientes.length} encontrados`;$('enviarResumo').textContent=`${qtd} destinatários selecionados`;}
 $('selecionarTodos').onclick=()=>{clientes.forEach(c=>{c.marcado=Boolean(c.telefoneNormalizado&&!c.bloqueado)});renderClientes();};
 $('limpar').onclick=()=>{clientes.forEach(c=>c.marcado=false);renderClientes();};
 const dataHora=v=>{if(!v)return '-';const d=new Date(v);return Number.isNaN(d.getTime())?'-':d.toLocaleString('pt-BR',{hour12:false});};
