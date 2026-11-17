@@ -159,8 +159,14 @@ router.post('/confirmar', async (req, res) => {
       if (item.situacao === 'invalido' || item.situacao === 'duplicado_arquivo') {
         resumo.puladas++; resumo.registros.push({ indice: item.indice, nome: item.nome, status: 'ignorado' }); continue;
       }
-      if (acao === 'criar' && item.situacao === 'novo' &&
-          classificar(item, existentes).situacao === 'novo') {
+      // Sugestoes por prefixo nao sao duplicatas confirmadas. Aceita criacao revisada
+      // apenas se nao houver outro cadastro com nome exato ou telefone igual.
+      const candidatosAtuais = classificar(item, existentes).candidatos;
+      const duplicadoForte = candidatosAtuais.some(c => c.tipo === 'nome' || c.tipo === 'telefone');
+      const criarPermitido = acao === 'criar' && !duplicadoForte &&
+        (item.situacao === 'novo' ||
+          (item.situacao === 'revisar' && decisao.revisao_confirmada === true));
+      if (criarPermitido) {
         const nota = [
           'Origem: ' + FONTE,
           item.origem ? 'Cidade de origem: ' + item.origem : '',
