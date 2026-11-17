@@ -44,7 +44,7 @@ function localidade(valor, ufAlternativa) {
     }
   }
   nome = limpar(nome, 120);
-  return nome && /^[A-Z]{2}$/.test(uf) ? { nome, uf } : null;
+  return nome && Object.values(UFS_POR_ESTADO).includes(uf) ? { nome, uf } : null;
 }
 
 function normalizarLinha(dados) {
