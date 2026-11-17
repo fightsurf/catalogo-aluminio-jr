@@ -4,7 +4,7 @@
 Entre como administrador, abra /admin-logistica e clique em **Importar transportadoras (CSV)**. A pagina e a API em /api/logistica/importacao-modacenter exigem sessao administrativa.
 
 ## Origem legal dos dados
-Os termos do site do Moda Center restringem a copia e o uso comercial do conteudo. **Este modulo nao coleta informacoes do site.** Use somente planilhas ou exportacoes obtidas com permissao do titular ou por outra fonte autorizada. Nao oferece sincronizacao automatica sem API/cessao licenciada.
+Os termos do site do Moda Center restringem a copia e o uso comercial do conteudo. **Este modulo oferece coleta direta mediante confirmacao de autorizacao especifica do titular dos dados para copia e uso comercial.** Tambem aceita planilhas ou exportacoes obtidas com permissao do titular.
 
 ## Formato CSV
 Exportar no Excel como **CSV UTF-8** (virgula ou ponto e virgula). Colunas aceitas:
@@ -41,9 +41,10 @@ A pagina /admin-logistica/importacao-modacenter agora tem o botao **Consultar Mo
 
 - O administrador deve confirmar que possui **autorizacao especifica para copiar os cadastros e utiliza-los comercialmente**. Autorizar transporte ou ter relacionamento com as excursoes nao equivale automaticamente a essa permissao.
 - O backend consulta apenas https://omodacenter.com.br/c/excursoes, via HTTPS. Nao tenta contornar bloqueios, logins ou mecanismos anti-automacao.
-- O coletor extrai nome, origem, destino, telefones e rota visiveis no HTML publico, e procura paginas seguintes por links ou por parametros de paginacao. Pode deixar de funcionar se a estrutura do site ou a paginacao forem alteradas.
-- Ha pausas de 400 ms entre requisicoes, timeout de 12 segundos por pagina, maximo de 45 paginas, 1.000 registros e bloqueio de coletas repetidas durante 90 segundos.
+- A pagina do Moda Center usa paginacao virtual em Next.js: o HTML inclui um payload JSON (Flight) com toda a lista, enquanto somente 10 cards aparecem renderizados. O coletor le os argumentos JSON dos scripts incorporados sem executar JavaScript remoto. No teste contra a fonte real em 17/11/2026, esse payload continha 381 excursões com nome, origem, estacionamento, telefones e rotas. Se o formato mudar ou o payload estiver incompleto, o coletor tenta o mecanismo antigo, com aviso de coleta parcial.
+- Na coleta completa pelo payload Next.js basta uma resposta HTML; a interface informa o numero de paginas virtuais cobertas. O mecanismo alternativo utiliza pausas de 400 ms, timeout de 12 segundos por pagina e limite de 45 paginas. O limite de importacao e 1.000 registros, com bloqueio de coletas repetidas durante 90 segundos.
 - **A coleta nao grava nada diretamente**. Os dados extraidos sao enviados ao mesmo endpoint de previa do CSV. A confirmacao final continua obrigatoria.
+- A lista fonte continha 5 registros sem telefone. Agora todos os 381 aparecem na previa: os sem telefone sao sinalizados e nao entram na opcao automatica "Selecionar apenas novos". Podem ser aprovados individualmente para cadastro sem contato.
 - Para nao declarar sucesso enganoso, o status **coleta completa** somente aparece quando o numero de registros unicos atinge o total informado pelo proprio site. Quando nao e possivel acessar as proximas paginas, a interface apresenta aviso de **coleta parcial**.
 - Registros com nomes semelhantes, mas sem nome/telefone identicos, podem ser criados separadamente com revisao explicita. Coincidencias fortes permanecem protegidas.
 - Ainda exige validacao em producao de rede/paginacao, pois o layout e o comportamento da fonte podem variar. Se a fonte passar a carregar as paginas exclusivamente em JavaScript, sera necessario um acordo de API/exportacao ou um adaptador especifico autorizado.
