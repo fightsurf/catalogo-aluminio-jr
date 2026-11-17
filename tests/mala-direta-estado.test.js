@@ -21,6 +21,12 @@ function montar(){
       if(String(query).includes('DELETE FROM mala_direta_rascunhos')){
         rascunho=null;return {rowCount:1,rows:[]};
       }
+      if(String(query).includes('AS sequencia_resumo')){
+        return {rows:[{id:12,produto_nome:'Panela',status:'ativa',
+          proximo_envio_em:'2026-11-17T21:00:00Z',
+          sequencia_resumo:[{tipo:'imagem',imagem:'https://example.com/foto.jpg'},
+            {tipo:'texto',texto:'Oferta autorizada'},{tipo:'audio',origem:'arquivo'}]}]};
+      }
       if(String(query).includes('encode(audio_mp3')){
         return {rows:[{id:12,produto_id:7,produto_nome:'Panela',status:'pausada',
           sequencia_mensagens:[{tipo:'texto',texto:'Promoção autorizada'},{tipo:'audio',origem:'arquivo',mp3:'bXAz'}]}]};
@@ -83,4 +89,28 @@ test('a tela possui salvamento, recuperação, revisão dos contatos e mantém J
   assert.match(script,/await restaurarRascunho\(\)/);
   assert.match(script,/function serializarRascunho\(/);
   assert.match(script,/GET_TODO_NAO_USADO|sem reenvio automático|já realizados não serão repetidos/);
+});
+
+test('relatório mostra por destinatário as etapas aceitas sem expor o áudio base64',async()=>{
+  const {svc,sql}=montar();
+  const relatorio=await svc.detalhe(12);
+  assert.equal(relatorio.campanha.status,'ativa');
+  assert.deepEqual(relatorio.campanha.sequencia_resumo.map(e=>e.tipo),['imagem','texto','audio']);
+  assert.equal(relatorio.campanha.sequencia_resumo[1].texto,'Oferta autorizada');
+  assert.ok(sql.some(q=>q.includes('jsonb_array_elements(sequencia_mensagens)')));
+  assert.ok(sql.some(q=>q.includes('etapas_aceitas')));
+  assert.ok(!JSON.stringify(relatorio).includes('bXAz'));
+});
+
+test('histórico aparece em campanhas e relatórios e o painel iniciar não flutua',()=>{
+  const html=fs.readFileSync(path.join(__dirname,'../views/whatsapp/mala-direta.html'),'utf8');
+  const script=html.split('<script>')[1].split('</script>')[0];
+  assert.doesNotThrow(()=>new Function(script));
+  for(const id of ['historicoMensagens','historicoResumo','historicoLinhas','historicoTitulo'])
+    assert.ok(html.includes('id="'+id+'"'),id);
+  assert.ok(html.includes('.bottom{position:static;'), 'painel iniciar deve acompanhar o scroll normal');
+  assert.match(script,/function historicoDaCampanha\(/);
+  assert.match(script,/function renderizarHistorico\(/);
+  assert.match(script,/historico\.onclick=\(\)=>carregarHistorico/);
+  assert.match(script,/finally\{\$\('enviar'\)\.disabled=!!campanhaVisualizada/);
 });
