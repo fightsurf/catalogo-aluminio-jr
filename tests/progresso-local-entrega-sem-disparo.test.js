@@ -38,3 +38,23 @@ test('envio manual de romaneios permanece disponível', () => {
     assert.ok(view.includes('id="btnEnviarRomaneio' + destinatario + 'Whatsapp"'));
   }
 });
+
+const configuracoes = fs.readFileSync(
+  path.join(__dirname, '../src/services/legado/carradas-progresso/progresso-notificacoes-config.service.js'),
+  'utf8'
+);
+
+test('salvar o modal da logística não calcula nem modifica volumes', () => {
+  assert.doesNotMatch(salvarLocalEntrega, /calcularQuantidadeVolumesPedido\s*\(/);
+  assert.doesNotMatch(salvarLocalEntrega, /salvarQuantidadeVolumesManual\s*\(/);
+  assert.match(salvarLocalEntrega, /volumesCalculadosAutomaticamente:\s*false/);
+  assert.match(salvarLocalEntrega, /\.\.\.pedido,/);
+});
+
+test('aviso ao cliente omite previsão de volumes e limpa modelos antigos no banco', () => {
+  const linhaPadrao = configuracoes.split('\n').find((linha) => linha.includes("['LOCAL_ENTREGA','Local de entrega'"));
+  assert.ok(linhaPadrao, 'Modelo padrão do cliente não localizado');
+  assert.doesNotMatch(linhaPadrao, /Previsão de volumes/);
+  assert.match(configuracoes, /WHERE codigo = 'LOCAL_ENTREGA' AND \(strpos\(texto, \$1\)/);
+  assert.doesNotMatch(salvarLocalEntrega, /extras:\{detalhes_entrega:[^}]*volumes/);
+});
