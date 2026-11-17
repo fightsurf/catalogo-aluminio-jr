@@ -254,7 +254,7 @@ function renderizarPlanilha(resumo) {
   setElementDisplay('btn-alterar-prestacao', !concluida);
   setElementDisplay('btn-excluir-prestacao', !concluida);
   setElementDisplay('btn-whatsapp-resumo', !concluida);
-  setElementDisplay('btn-whatsapp-pdf', !concluida);
+  setElementDisplay('btn-whatsapp-pdf', true);
   setElementDisplay('form-item', !concluida, 'flex');
   setElementDisplay('btn-importar-nota', !concluida);
   if (window.onPrestacaoNotaAtualizada) window.onPrestacaoNotaAtualizada(cabecalho);
