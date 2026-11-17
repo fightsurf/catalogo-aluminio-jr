@@ -48,6 +48,7 @@ const botAutonomiaRoutes = require('./src/routes/bot/botAutonomia.routes');
 const transportadorasRoutes = require('./src/routes/logistica/transportadorasRoutes');
 const agenciasRecebimentoRoutes = require('./src/routes/logistica/agenciasRecebimentoRoutes');
 const logisticaRoutes = require('./src/routes/logistica/logisticaRoutes');
+const importacaoExcursoesRoutes = require('./src/routes/logistica/importacaoExcursoesRoutes');
 const mcpLogisticaRoutes = require('./src/routes/integracao/mcpLogistica.routes');
 
 const funcionarioRoutes = require('./src/routes/funcionario/funcionario.routes');
@@ -134,6 +135,8 @@ app.use('/api/whatsapp/webhook', express.json({ limit: '1mb' }));
 // Aplicar o limite ampliado somente à API de sincronização, antes do parser global.
 app.use('/api/avn/health/sync', express.json({ limit: '1mb' }));
 app.use('/api/avn/treinos-mobile/sono', express.json({ limit: '1mb' }));
+// Importacao de planilhas autorizadas: limite ampliado somente nesta API autenticada.
+app.use('/api/logistica/importacao-modacenter', requireAuth, express.json({ limit: '2mb' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(authRoutes);
@@ -212,6 +215,7 @@ app.use('/api/perfis-preco', perfisPrecoRoutes);
 app.use('/api/assistente/produtos', assistenteProdutosRoutes);
 app.use('/api/assistente/catalogo', assistenteCatalogoRoutes);
 app.use('/api/assistente-pedidos', assistentePedidosRoutes);
+app.use('/api/logistica/importacao-modacenter', requireAuth, importacaoExcursoesRoutes);
 app.use('/api/transportadoras', transportadorasRoutes);
 app.use('/api/agencias-recebimento', agenciasRecebimentoRoutes);
 app.use('/api/logistica', logisticaRoutes);
@@ -401,6 +405,10 @@ app.get('/combinador', (req, res) => {
 });
 
 // 🔥 LOGÍSTICA (MOVIDO PARA PASTA /logistica)
+
+app.get('/admin-logistica/importacao-modacenter', requireAuth, (_req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'logistica', 'importacao-modacenter.html'));
+});
 
 app.get('/admin-logistica', (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'logistica', 'logistica-admin.html'));
