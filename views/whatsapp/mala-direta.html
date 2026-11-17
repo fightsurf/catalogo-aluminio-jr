@@ -915,15 +915,15 @@ async function prepararSequenciaEnvio(){
 desenharSequencia();
 
 async function enviarPreviaTeste(numero){
-  if(!imagemAtual()||!$('mensagem').value.trim())return msg('Selecione a foto e preencha a legenda.',true);
   const tel=norm(numero);
   if(!/^55\d{10,11}$/.test(tel))return msg('Informe um WhatsApp válido (55 + DDD + número).',true);
-  if(!confirm(`Enviar teste REAL para ${tel} com foto, legenda e o áudio selecionado?`))return;
+  if(!sequencia.length)return msg('Adicione mensagens à sequência antes do teste.',true);
+  if(!confirm(`Enviar TESTE REAL para ${tel}, com ${sequencia.length} mensagens na ordem configurada?`))return;
   try{
     $('teste').disabled=true;$('testeFabrica').disabled=true;
-    const audio=await audioParaEnvio();
-    await post(api+'/teste',{telefone:tel,imagem:imagemAtual(),mensagem:$('mensagem').value,...audio});
-    msg(`Prévia aceita pela Z-API para ${tel} (foto e áudio selecionado).`);
+    const mensagens=await prepararSequenciaEnvio();
+    const resposta=await post(api+'/teste',{telefone:tel,sequencia:mensagens});
+    msg(`Teste enviado para ${tel}: ${resposta.mensagensAceitas} etapas aceitas pela Z-API.`);
   }catch(e){msg('Falha no teste: '+e.message,true);}
   finally{$('teste').disabled=false;$('testeFabrica').disabled=false;}
 }
@@ -934,31 +934,30 @@ $('enviar').onclick=async()=>{
   if(!p)return msg('Selecione o produto anunciado.',true);
   if(!c||chaveConsulta()!==ultimaConsulta)return msg('Consulte os destinatários do critério atual antes de enviar.',true);
   if(c.tipo==='periodo'&&!p.item)return msg('Vincule o item legado do produto para filtrar por período.',true);
-  const dest=selected();if(!dest.length)return msg('Selecione pelo menos um destinatário.',true);
-  if(!imagemAtual()||!$('mensagem').value.trim())return msg('Preencha imagem e legenda.',true);
+  const dest=selected();if(!dest.length)return msg('Selecione pelo menos um destinatário no modal.',true);
+  if(!sequencia.length)return msg('Adicione pelo menos uma foto, mensagem de texto ou áudio à sequência.',true);
   const minutos=Number($('intervalo').value);
   if(!Number.isInteger(minutos)||minutos<1||minutos>1440)return msg('Informe intervalo de 1 a 1440 minutos.',true);
   const inicio=$('horarioInicio').value,fim=$('horarioFim').value;
   if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(inicio)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(fim)||inicio>=fim)
     return msg('Defina um horário inicial anterior ao final.',true);
-  let audio;try{audio=await audioParaEnvio();}catch(e){return msg(e.message,true);}
-  if(!confirm(`INICIAR ENVIO REAL para ${dest.length} destinatários? Critério: ${c.tipo}. Intervalo mínimo: ${minutos} minuto(s). Horário: ${inicio}–${fim} (horário da Paraíba). Produto: ${p.nome}. ${audio.audioOrigem!=='nenhum'?'Foto e áudio serão enviados.':''}
-Você confirma que TODOS os telefones selecionados autorizaram receber esta divulgação pelo WhatsApp?`))return;
+  if(!confirm(`INICIAR ENVIO REAL para ${dest.length} destinatários? Sequência: ${sequencia.length} mensagens. Intervalo mínimo entre destinatários: ${minutos} minuto(s). Janela: ${inicio}–${fim} (horário da Paraíba).
+Você confirma que TODOS os telefones selecionados autorizaram esta divulgação pelo WhatsApp?`))return;
   try{
     $('enviar').disabled=true;
+    const mensagens=await prepararSequenciaEnvio();
     const r=await post(api+'/campanhas',{
       item:p.item||null,produtoId:p.produtoId,tipoPublico:c.tipo,referenciaPublico:c.referencia||null,
-      grupoLogistica:c.grupo||null,meses:c.meses??0,
+      grupoLogistica:c.grupo||null,cidadeLogistica:c.cidade||null,meses:c.meses??0,
       destinatarios:dest.map(x=>c.tipo==='logistica'
         ?{referencia:x.referencia,autorizado:true}
         :{favorecido:x.favorecido,autorizado:true}),
-      imagem:imagemAtual(),mensagem:$('mensagem').value,
-      intervaloMinutos:minutos,horarioInicio:inicio,horarioFim:fim,
-      confirmouConsentimento:true,...audio
+      sequencia:mensagens,intervaloMinutos:minutos,horarioInicio:inicio,horarioFim:fim,
+      confirmouConsentimento:true
     });
-    msg(`Campanha ${r.id} iniciada com ${r.total} destinatários. Envios limitados à janela informada.`);
+    msg(`Campanha ${r.id} iniciada com ${r.total} destinatários e ${mensagens.length} mensagens por destinatário.`);
     await carregarCampanhas();
-  }catch(e){msg(e.message,true);}finally{$('enviar').disabled=false;}
+  }catch(e){msg('Falha ao iniciar: '+e.message,true);}finally{$('enviar').disabled=false;}
 };
 async function carregarCampanhas(){try{const campanhas=await get(api+'/campanhas');$('campanhas').replaceChildren();for(const c of campanhas){const tr=el('tr');function td(value){const cel=el('td',String(value));tr.append(cel);return cel;}td(c.id);td(c.produto_nome+(c.com_audio?' 🔊':''));td(c.status);td(`${c.enviados}/${c.total}`);td(c.pendentes);td(c.problemas);const a=td('');const detalhe=el('button','Relatório','secondary');detalhe.onclick=()=>verRelatorio(c.id);a.append(detalhe);if(c.status==='ativa'||c.status==='pausada'){const cmd=c.status==='ativa'?'pausar':'retomar';const b=el('button',cmd==='pausar'?'Pausar':'Retomar','secondary');b.style.marginLeft='5px';b.onclick=async()=>{try{await post(`${api}/campanhas/${c.id}/${cmd}`,{});await carregarCampanhas();}catch(e){msg(e.message,true)}};a.append(b);} $('campanhas').append(tr);}}catch(e){msg(e.message,true);}}
 async function verRelatorio(cid){abrirModal('Campanha '+cid);try{const d=await get(api+'/campanhas/'+cid);const box=$('modalCorpo');box.replaceChildren(el('p',`Status: ${d.campanha.status}`));const table=el('table'),head=el('tr');for(const t of ['Cliente','Telefone','Situação','Início do envio','Intervalo real','Imagem aceita','Áudio aceito','Concluído','Erro','Bloquear'])head.append(el('th',t));table.append(head);let inicioAnterior=null;for(const x of d.destinatarios){const tr=el('tr');const inicio=x.iniciado_envio_em?new Date(x.iniciado_envio_em).getTime():null;const intervaloReal=Number.isFinite(inicio)&&inicioAnterior!==null?((inicio-inicioAnterior)/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})+' s':'-';if(Number.isFinite(inicio))inicioAnterior=inicio;for(const v of [x.nome,x.telefone,x.status,dataHora(x.iniciado_envio_em),intervaloReal,dataHora(x.imagem_aceita_em),dataHora(x.audio_aceito_em),dataHora(x.enviado_em),x.erro||'-'])tr.append(el('td',v));const cell=el('td'),bloq=el('button','Bloquear','danger');bloq.onclick=async()=>{if(!confirm('Bloquear este telefone de futuras promoções?'))return;try{await post(api+'/bloqueios',{telefone:x.telefone,motivo:'Solicitação do cliente'});bloq.disabled=true;bloq.textContent='Bloqueado';}catch(e){msg(e.message,true)}};cell.append(bloq);tr.append(cell);table.append(tr);}const wrap=el('div',undefined,'tablewrap');wrap.append(table);box.append(wrap);}catch(e){$('modalCorpo').textContent=e.message;}}
