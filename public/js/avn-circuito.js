@@ -9,6 +9,46 @@
   };
   let dialog, session = null, interval = null, audio = null, audioOutput = null, wakeLock = null;
   const CHAVE_PREPARO = 'avn_circuito_preparo_seg';
+  const CHAVE_VOZ = 'avn_circuito_anuncio_voz';
+  let falaTimer = null;
+  function vozAnterior() {
+    try { return localStorage.getItem(CHAVE_VOZ) !== 'false'; }
+    catch (_) { return true; }
+  }
+
+  // SpeechSynthesis usa a voz pt-BR disponível no navegador/dispositivo.
+  function cancelarFala() {
+    if (falaTimer !== null) { clearTimeout(falaTimer); falaTimer = null; }
+    try { window.speechSynthesis?.cancel(); } catch (_) { /* Recurso opcional. */ }
+  }
+
+  function anunciarExercicio(s, indice, fase, primeiro = false) {
+    cancelarFala();
+    if (!s.voice || document.visibilityState !== 'visible') return;
+    const nome = s.exercises[indice]?.name;
+    if (!nome || !('speechSynthesis' in window) || !('SpeechSynthesisUtterance' in window)) return;
+    const remaining = Math.max(0, s.endsAt - Date.now());
+    // Após os sinos, dá um pequeno intervalo antes de anunciar a próxima atividade.
+    const delay = Math.min(1200, Math.max(0, remaining - 800));
+    falaTimer = window.setTimeout(() => {
+      falaTimer = null;
+      if (session !== s || s.paused || s.phase !== fase ||
+          document.visibilityState !== 'visible') return;
+      try {
+        const utterance = new window.SpeechSynthesisUtterance(
+          (primeiro ? 'Primeiro exercício: ' : 'Próximo exercício: ') + s.exercises[indice].name
+        );
+        utterance.lang = 'pt-BR';
+        utterance.rate = 0.93;
+        utterance.volume = 1;
+        const voices = window.speechSynthesis.getVoices();
+        const voice = voices.find(v => v.lang.toLowerCase() === 'pt-br') ||
+                      voices.find(v => v.lang.toLowerCase().startsWith('pt'));
+        if (voice) utterance.voice = voice;
+        window.speechSynthesis.speak(utterance);
+      } catch (_) { /* Sem suporte de voz, mantém o cronômetro normalmente. */ }
+    }, delay);
+  }
   function preparoAnterior() {
     try {
       const salvo = localStorage.getItem(CHAVE_PREPARO);
@@ -93,6 +133,8 @@
       '<label>Preparo antes de cada exercício (segundos)<input id="avnCircuitoPreparoSeg" name="preparo" type="number" min="0" max="3600" step="1" value="' + preparoAnterior() + '" required inputmode="numeric"></label>' +
       '<label>Tempo de exercício (segundos)<input id="avnCircuitoExercicioSeg" name="exercicio" type="number" min="1" max="3600" step="1" value="60" required inputmode="numeric"></label>' +
       '<label>Tempo de descanso (segundos)<input id="avnCircuitoDescansoSeg" name="descanso" type="number" min="0" max="3600" step="1" value="15" required inputmode="numeric"></label>' +
+      '<label class="avn-circuito-voz"><input id="avnCircuitoVoz" type="checkbox"' + (vozAnterior() ? ' checked' : '') + '> 🔊 Anunciar próximo exercício por voz</label>' +
+      '<p class="avn-circuito-nota">O anúncio utiliza a voz em português disponível no navegador. O volume depende do aparelho.</p>' +
       '<p class="avn-circuito-nota">Sequência: preparo → exercício → descanso → preparo. O circuito seguirá os ' + exercises.length + ' exercícios uma vez, sem descanso após o último.</p>' +
       '<div id="avnCircuitoErro" class="avn-circuito-erro" role="alert"></div>' +
       '<button class="avn-circuito-iniciar" type="submit">▶ Iniciar circuito</button></form></div>';
@@ -102,11 +144,15 @@
       const prep = Number(byId('avnCircuitoPreparoSeg').value);
       const work = Number(byId('avnCircuitoExercicioSeg').value);
       const rest = Number(byId('avnCircuitoDescansoSeg').value);
+      const voz = byId('avnCircuitoVoz').checked;
       if (!Number.isInteger(prep) || prep < 0 || prep > 3600) return erro('Informe um preparo entre 0 e 3.600 segundos.');
       if (!Number.isInteger(work) || work < 1 || work > 3600) return erro('Informe um tempo de exercício entre 1 e 3.600 segundos.');
       if (!Number.isInteger(rest) || rest < 0 || rest > 3600) return erro('Informe um descanso entre 0 e 3.600 segundos.');
-      try { localStorage.setItem(CHAVE_PREPARO, String(prep)); } catch (_) { /* Preferência opcional. */ }
-      iniciar(exercises, work, rest, prep);
+      try {
+        localStorage.setItem(CHAVE_PREPARO, String(prep));
+        localStorage.setItem(CHAVE_VOZ, String(voz));
+      } catch (_) { /* Preferências opcionais. */ }
+      iniciar(exercises, work, rest, prep, voz);
     };
     if (!modal.open) modal.showModal();
   }
@@ -179,16 +225,17 @@
     }
   }
 
-  function iniciar(exercises, work, rest, prep) {
+  function iniciar(exercises, work, rest, prep, voz) {
     if (session) return;
     iniciarAudio(); // Gesto de clique libera o som no navegador.
-    session = { exercises, work, rest, prep, index: 0, phase: prep > 0 ? 'prepare' : 'exercise',
+    session = { exercises, work, rest, prep, voice: voz, index: 0, phase: prep > 0 ? 'prepare' : 'exercise',
       endsAt: Date.now() + (prep > 0 ? prep : work) * 1000, paused: false, remainingMs: 0, editing: false };
     obterDialog().classList.add('avn-circuito-executando');
     if (prep === 0) tocarSino(3);
     desenhar();
     interval = window.setInterval(atualizar, 150);
     manterTelaAcordada();
+    if (prep > 0) anunciarExercicio(session, 0, 'prepare', true);
   }
 
 
@@ -200,6 +247,7 @@
   function navegarExercicio(direcao) {
     const s = session;
     if (!s || s.editing || ![-1, 1].includes(direcao)) return;
+    cancelarFala();
     const index = s.phase === 'rest' ? (direcao === -1 ? s.index : s.index + 1) : s.index + direcao;
     if (index < 0 || index >= s.exercises.length) return;
     s.index = index;
@@ -208,10 +256,12 @@
     s.endsAt = Date.now() + s.remainingMs;
     if (!s.paused && s.phase === 'exercise') tocarSino(3);
     desenhar();
+    if (!s.paused && s.phase === 'prepare') anunciarExercicio(s, index, 'prepare');
   }
 
   function abrirEdicao() {
     if (!session || !session.paused) return;
+    cancelarFala();
     session.editing = true;
     desenhar();
   }
@@ -361,22 +411,30 @@
     let safety = s.exercises.length * 3 + 3;
     while (session && !s.paused && now >= s.endsAt && safety-- > 0) {
       if (s.phase === 'prepare') {
+        cancelarFala();
         s.phase = 'exercise';
         s.endsAt += segundosExercicio(s) * 1000;
         if (now < s.endsAt && document.visibilityState === 'visible') tocarSino(3);
       } else if (s.phase === 'exercise' && s.rest > 0 && s.index < s.exercises.length - 1) {
         s.phase = 'rest';
         s.endsAt += s.rest * 1000;
-        if (now < s.endsAt && document.visibilityState === 'visible') tocarSino(2);
+        if (now < s.endsAt && document.visibilityState === 'visible') {
+          tocarSino(2);
+          anunciarExercicio(s, s.index + 1, 'rest');
+        }
       } else {
         s.index++;
         if (s.index >= s.exercises.length) {
           concluir();
           return;
         }
+        cancelarFala();
         s.phase = s.prep > 0 ? 'prepare' : 'exercise';
         s.endsAt += (s.phase === 'prepare' ? s.prep : segundosExercicio(s)) * 1000;
-        if (s.phase === 'exercise' && now < s.endsAt && document.visibilityState === 'visible') tocarSino(3);
+        if (now < s.endsAt && document.visibilityState === 'visible') {
+          if (s.phase === 'exercise') tocarSino(3);
+          else if (s.rest === 0) anunciarExercicio(s, s.index, 'prepare');
+        }
       }
       advanced = true;
     }
@@ -391,7 +449,9 @@
       s.endsAt = Date.now() + s.remainingMs;
       s.paused = false;
       manterTelaAcordada();
+      if (s.phase === 'rest') anunciarExercicio(s, s.index + 1, 'rest');
     } else {
+      cancelarFala();
       s.remainingMs = Math.max(0, s.endsAt - Date.now());
       s.paused = true;
       soltarTela();
@@ -401,6 +461,7 @@
 
   function concluir() {
     if (!session) return;
+    cancelarFala();
     const total = session.exercises.length;
     clearInterval(interval); interval = null;
     soltarTela();
@@ -413,6 +474,7 @@
 
   function fechar() {
     if (session && !window.confirm('Encerrar o circuito antes de completar todos os exercícios?')) return;
+    cancelarFala();
     clearInterval(interval); interval = null;
     session = null;
     soltarTela();
@@ -426,6 +488,8 @@
     if (document.visibilityState === 'visible') {
       atualizar();
       manterTelaAcordada();
+    } else {
+      cancelarFala();
     }
   });
   if (document.readyState === 'loading') {
