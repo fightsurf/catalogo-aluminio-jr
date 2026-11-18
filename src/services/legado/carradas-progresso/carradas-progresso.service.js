@@ -2009,6 +2009,7 @@ async function montarDadosEtiquetaImpressao({ codigoCarrada: codigoCarradaParam,
     perfilEtiquetaId: perfil?.etiqueta_cliente_id || null,
     perfilEtiquetaApelido: perfil?.apelido || '',
     quantidadeVolumes: quantidadeVolumes > 0 ? quantidadeVolumes : 1,
+    quantidadeVolumesInformada: quantidadeVolumes > 0,
     quantidadeVolumesConfirmada: quantidadeVolumes > 0 ? quantidadeVolumesConfirmada : false,
     transportadoraNome: localEntrega?.transportadoraNome || '',
     transportadoraObservacao: localEntrega?.transportadoraObservacao || '',
@@ -2043,12 +2044,15 @@ async function gerarPreviewEtiquetaImpressao(params) {
 }
 
 async function enviarEtiquetaImpressaoWhatsapp(params) {
-  const dados = await montarDadosEtiquetaImpressao(params);
+  // O envio ao cliente não deve depender da quantidade de volumes cadastrada.
+  const dados = await montarDadosEtiquetaImpressao({ ...params, permitirSemVolumes: true });
   const imagem = await gerarImagemEtiquetaImpressao(dados);
   const imagemDataUrl = `data:image/png;base64,${imagem.toString('base64')}`;
-  const textoVolumes = dados.quantidadeVolumesConfirmada
-    ? `Serão ${dados.quantidadeVolumes} volume(s).`
-    : `PREVISÃO DE VOLUMES: ${dados.quantidadeVolumes} volume(s).`;
+  const textoVolumes = !dados.quantidadeVolumesInformada
+    ? ''
+    : dados.quantidadeVolumesConfirmada
+      ? `Serão ${dados.quantidadeVolumes} volume(s).`
+      : `PREVISÃO DE VOLUMES: ${dados.quantidadeVolumes} volume(s).`;
   // Apenas o botão "Salvar e enviar imagem ao cliente" usa a mensagem resumida.
   // Outros envios da etiqueta mantêm a legenda de confirmação já existente.
   const legenda = params?.mensagemResumida === true
@@ -2060,7 +2064,7 @@ async function enviarEtiquetaImpressaoWhatsapp(params) {
         `📦 Pedido nº ${dados.numeroPedido}`,
         '',
         'Confirma se os dados desta etiqueta estão corretos para imprimirmos e colarmos nas caixas?',
-        textoVolumes
+        ...(textoVolumes ? [textoVolumes] : [])
       ].join('\n');
 
   let notificacao;
