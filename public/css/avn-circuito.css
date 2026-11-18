@@ -42,6 +42,12 @@ body[data-page="treinar"] .avn-circuito-lista li {display:flex;gap:12px;align-it
 body[data-page="treinar"] .avn-circuito-num {background:#ffc400;color:#171717;border-radius:100%;display:grid;place-items:center;flex:none;width:31px;height:31px;font-weight:900}
 body[data-page="treinar"] .avn-circuito-controles {display:grid;gap:16px}
 body[data-page="treinar"] .avn-circuito-controles label {display:grid;gap:8px;color:#eee;font-size:16px;font-weight:700}
+body[data-page="treinar"] .avn-circuito-controles label.avn-circuito-voz {
+  display:flex;align-items:center;gap:12px;cursor:pointer;font-size:15px;line-height:1.4
+}
+body[data-page="treinar"] .avn-circuito-controles .avn-circuito-voz input {
+  width:22px;height:22px;min-height:22px;flex:none;accent-color:#ffc400
+}
 body[data-page="treinar"] .avn-circuito-controles input {height:58px;background:#101010;color:#fff;border:1px solid #777;border-radius:10px;font-size:26px;font-weight:800;font-variant-numeric:tabular-nums}
 body[data-page="treinar"] .avn-circuito-controles .avn-circuito-nota {color:#bbb!important;font-size:14px;line-height:1.5;margin:0}
 body[data-page="treinar"] .avn-circuito-erro {color:#ff9a9a;font-size:14px;min-height:0}
