@@ -97,6 +97,12 @@
 <h2 id="title-agua_corporal">Água corporal <small>kg</small></h2>
 <p id="status-agua_corporal" class="muted chart-status" role="status">Carregando medições…</p>
 <div id="chart-agua_corporal" class="graph chart-area" role="img" aria-label="Evolução de água corporal por data"></div>
+<div class="imc-reference" aria-label="Faixas orientativas de água corporal para adultos">
+ <strong>Água corporal (% do peso) — referência para adultos</strong>
+ <div id="water-ranges" class="imc-reference-grid"></div>
+ <p id="water-current" class="imc-current" aria-live="polite">Aguardando medições de água corporal e peso.</p>
+ <p id="water-reference-note" class="compare-help">A classificação usa o percentual do peso corporal da mesma sessão, não os quilos isolados.</p>
+</div>
 </section></div>
 
 <dialog id="compare-dialog" class="compare-dialog" aria-labelledby="compare-title">
@@ -120,6 +126,6 @@
 
 <p class="muted">O IMC é calculado a partir do peso de cada medição e da altura atual cadastrada.</p>
 </main>
-<script src="/js/avn-graficos-corporais.js?v=20261110-point-values1" defer></script>
+<script src="/js/avn-graficos-corporais.js?v=20261118-water-reference1" defer></script>
 </body>
 </html>

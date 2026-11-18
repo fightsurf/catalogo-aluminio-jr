@@ -27,8 +27,42 @@ const imcBands=[
 ];
 const imcLimits=[18.5,25,30,35,40];
 function imcBand(value){return imcBands.find(b=>value>=b.min&&value<b.max);}
+// Faixas indicativas para adultos (Tanita). Classificação sobre % do peso,
+// jamais sobre kg isolados. Não é teste de desidratação ou retenção hídrica.
+const waterReferences={
+ masculino:{name:'masculina',min:50,max:65},
+ feminino:{name:'feminina',min:45,max:60}
+};
+function waterBands(sex){
+ const ref=waterReferences[sex];
+ if(!ref)return [];
+ return [
+  {name:'Baixo',range:'Abaixo de '+ref.min+'%',color:'#60a5fa'},
+  {name:'Normal',range:ref.min+'% a '+ref.max+'%',color:'#34d399'},
+  {name:'Elevado',range:'Acima de '+ref.max+'%',color:'#fbbf24'}
+ ];
+}
+function waterBand(value,sex){
+ const ref=waterReferences[sex];
+ if(!ref||!Number.isFinite(value))return null;
+ return waterBands(sex)[value<ref.min?0:value<=ref.max?1:2];
+}
+// Água e peso precisam pertencer à mesma sessão; nunca usar um peso de outro dia.
+function waterWithPercent(waterRows,weightRows){
+ return waterRows.map(row=>{
+  let best=null,delta=Infinity;
+  for(const weight of weightRows){
+   const diff=Math.abs(row.time-weight.time);
+   if(weight.value>0&&diff<=10*60*1000&&diff<delta){best=weight;delta=diff;}
+  }
+  const pct=best?100*row.value/best.value:null;
+  return {...row,percent:pct!==null&&Number.isFinite(pct)&&pct>=0&&pct<=100?pct:null,
+   weight:best?best.value:null};
+ });
+}
 const $=id=>document.getElementById(id);
 const format=n=>Number(n).toLocaleString('pt-BR',{maximumFractionDigits:2});
+const formatPct=n=>Number(n).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
 const formatDate=n=>new Date(n).toLocaleString('pt-BR');
 const formatShort=n=>new Date(n).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
 const state={users:[],data:{},errors:{},request:0,controller:null};
@@ -85,6 +119,38 @@ function renderImcReference(rows){
   ?'Último IMC do período: '+format(latest.value)+' kg/m² — '+active.name+'.'
   :'Sem medição de IMC no período selecionado.';
  [...grid.children].forEach((item,i)=>item.classList.toggle('active',imcBands[i]===active));
+}
+function renderWaterReference(waterRows,weightRows,user){
+ const grid=$('water-ranges'),current=$('water-current'),note=$('water-reference-note');
+ if(!grid||!current)return;
+ const sex=user?.sexo_referencia_calculo;
+ const bands=waterBands(sex);
+ grid.replaceChildren();
+ if(!bands.length){
+  current.textContent='Referência fisiológica não informada: não é possível classificar. Atualize o cadastro de usuários.';
+  if(note)note.textContent='Faixas indicativas para adultos: masculina 50–65%, feminina 45–60%. O percentual é calculado usando o peso da mesma sessão.';
+  return;
+ }
+ for(const band of bands){
+  const item=document.createElement('div');
+  item.className='imc-reference-item';
+  item.style.setProperty('--imc-color',band.color);
+  const range=document.createElement('span');range.textContent=band.range;
+  const name=document.createElement('strong');name.textContent=band.name;
+  item.append(range,name);grid.append(item);
+ }
+ const latest=waterWithPercent(waterRows,weightRows).at(-1);
+ const active=latest?waterBand(latest.percent,sex):null;
+ if(active){
+  current.textContent='Última medição do período: '+format(latest.value)+' kg de água / '+
+   format(latest.weight)+' kg de peso = '+formatPct(latest.percent)+'% — '+active.name+'.';
+ }else if(latest){
+  current.textContent='Última medição: '+format(latest.value)+
+   ' kg de água. Sem registro de peso na mesma sessão (até 10 minutos) para calcular o percentual.';
+ }else current.textContent='Sem medição de água corporal no período selecionado.';
+ [...grid.children].forEach((item,i)=>item.classList.toggle('active',bands[i]===active));
+ if(note)note.textContent='Referência '+waterReferences[sex].name+
+  ' para adultos. Faixas orientativas de composição corporal, não diagnóstico de hidratação. Fonte: Tanita.';
 }
 function drawGraph(area,rows,unit,label,color){
  area.replaceChildren();
@@ -168,7 +234,8 @@ function drawGraph(area,rows,unit,label,color){
   guide.setAttribute('x1',p.px);guide.setAttribute('x2',p.px);guide.setAttribute('visibility','visible');
   focus.setAttribute('cx',p.px);focus.setAttribute('cy',p.py);focus.setAttribute('visibility','visible');
   const band=isImc?imcBand(p.value):null;
-  tooltip.textContent=formatDate(p.date)+' · '+format(p.value)+' '+unit+(band?' · '+band.name:'');
+  const waterExtra=label==='agua corporal'&&Number.isFinite(p.percent)?' · '+formatPct(p.percent)+'% do peso':'';
+  tooltip.textContent=formatDate(p.date)+' · '+format(p.value)+' '+unit+waterExtra+(band?' · '+band.name:'');
   tooltip.hidden=false;
   const xpos=p.px/W*area.clientWidth, ypos=p.py/H*area.clientHeight;
   tooltip.style.left=Math.max(4,Math.min(xpos+10,area.clientWidth-tooltip.offsetWidth-4))+'px';
@@ -410,16 +477,19 @@ function initComparison(){
 }
 
 function render(){
+ const selectedUser=state.users.find(u=>String(u.id)===String($('usuario').value));
  for(const m of definitions){
   const status=$('status-'+m.key),area=$('chart-'+m.key);
   const error=state.errors[m.key],rows=state.data[m.key]||[];
   if(m.key==='imc')renderImcReference(rows);
+  if(m.key==='agua_corporal')renderWaterReference(rows,state.data.peso||[],selectedUser);
   if(error||!rows.length){
    status.hidden=false;status.textContent=error||'Nenhuma medição disponível neste período.';
    area.replaceChildren();continue;
   }
   status.hidden=true;
-  drawGraph(area,rows,m.unit,m.key.replaceAll('_',' '),m.color);
+  const chartRows=m.key==='agua_corporal'?waterWithPercent(rows,state.data.peso||[]):rows;
+  drawGraph(area,chartRows,m.unit,m.key.replaceAll('_',' '),m.color);
  }
  if($('compare-dialog')?.open)renderComparison();
 }
