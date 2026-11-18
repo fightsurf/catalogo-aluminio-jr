@@ -241,9 +241,11 @@
         '<span class="avn-circuito-pausado" id="avnCircuitoEstado">' + (s.paused ? 'PAUSADO' : '') + '</span>' +
         '</section>';
     } else {
+      const seguinte = s.exercises[s.index + 1];
       modal.innerHTML = '<section class="avn-circuito-painel avn-circuito-em-descanso">' +
-        '<div class="avn-circuito-barra"><span>DESCANSO · ' + s.index + ' DE ' + s.exercises.length + '</span>' + controls + '</div>' +
+        '<div class="avn-circuito-barra"><span>DESCANSO · ' + (s.index + 1) + ' DE ' + s.exercises.length + '</span>' + controls + '</div>' +
         '<div class="avn-circuito-descanso-corpo"><h2>DESCANSO</h2><div class="avn-circuito-tempo" id="avnCircuitoRelogio" role="timer">00:00</div>' +
+        '<div class="avn-circuito-proximo"><span>PRÓXIMO EXERCÍCIO</span><strong>' + escapeHtml(seguinte?.name || 'Fim do circuito') + '</strong></div>' +
         '<span class="avn-circuito-pausado" id="avnCircuitoEstado">' + (s.paused ? 'PAUSADO' : '') + '</span></div></section>';
     }
     const imagem = modal.querySelector('img.avn-circuito-foto');
