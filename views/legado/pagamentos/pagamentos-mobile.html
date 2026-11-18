@@ -94,6 +94,14 @@
   </main>
 
   <script>
+    function envioEmergencialPagamentosAtivo() {
+      // Regra válida apenas em 18/11/2026, no horário de Brasília.
+      return new Intl.DateTimeFormat('pt-BR', {
+        timeZone: 'America/Sao_Paulo',
+        year: 'numeric', month: '2-digit', day: '2-digit'
+      }).format(new Date()) === '18/11/2026';
+    }
+
     const params = new URLSearchParams(window.location.search);
     const numeroInicial = params.get('numero') || '';
     const carradaVoltar = params.get('carrada') || '';
@@ -325,7 +333,7 @@
           </div>
           ${baixadoParaCredito ? `<div class="mensagem sucesso" style="display:block;margin-top:10px;">Baixa para crédito: ${escapeHtml(formatarMoeda(estado.resumo?.valorBaixadoParaCredito || 0))}</div>` : ''}
           <div class="linha-acoes">
-            <button type="button" class="whats" id="btnWhatsapp" ${telefone ? '' : 'disabled'}>WhatsApp</button>
+            <button type="button" class="whats" id="btnWhatsapp" ${envioEmergencialPagamentosAtivo() || telefone ? '' : 'disabled'}>WhatsApp ${envioEmergencialPagamentosAtivo() ? '(83 99979-2085)' : ''}</button>
             <button type="button" class="sec" id="btnTrocarPedido">Trocar pedido</button>
             <button type="button" class="sec" id="btnBaixaCredito" ${podeBaixarCredito ? '' : 'disabled'}>Baixa para crédito</button>
           </div>
@@ -648,7 +656,7 @@
     }
 
     async function enviarWhatsappPagamentos() {
-      const telefone = telefonePedido();
+      const telefone = envioEmergencialPagamentosAtivo() ? '5583999792085' : telefonePedido();
       if (!telefone) {
         setMensagem('Telefone do cliente não encontrado.', 'erro');
         return;
