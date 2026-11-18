@@ -8,7 +8,7 @@ const validator = require('../src/services/compras/comprasValidator');
 function criarServicoFalso() {
   const estado = {
     nota: {id:42,fornecedor_id:2,numero_nf:'0007',valor_nf:null,data_nf:null,
-      quantidade_itens_nf:null,valor_frete:null,icms_frete:null,origem:'manual'},
+      quantidade_itens_nf:null,valor_frete:null,icms_frete:null,icms_total:null,origem:'manual'},
     itens:[],
   };
   const cliente = {
@@ -18,8 +18,8 @@ function criarServicoFalso() {
       if (['BEGIN','COMMIT','ROLLBACK'].includes(s)) return {rows:[],rowCount:0};
       if (s.startsWith('SELECT * FROM public.compras_notas')) return {rows:[estado.nota],rowCount:1};
       if (s.startsWith('UPDATE public.compras_notas')) {
-        for(let i=0;i<5;i++) {
-          const campo=['data_nf','valor_nf','quantidade_itens_nf','valor_frete','icms_frete'][i];
+        for(let i=0;i<6;i++) {
+          const campo=['data_nf','valor_nf','quantidade_itens_nf','valor_frete','icms_frete','icms_total'][i];
           estado.nota[campo]=estado.nota[campo] ?? p[i+1];
         }
         return {rowCount:1};
@@ -56,7 +56,7 @@ function criarServicoFalso() {
 }
 test('a mesma foto não duplica os insumos e preenche os campos faltantes',async()=>{
   const {servico,estado}=criarServicoFalso();
-  const registro={fornecedor_id:2,numero_nf:'0007',valor_nf:120.40,valor_frete:4,icms_frete:0.8,
+  const registro={fornecedor_id:2,numero_nf:'0007',valor_nf:120.40,valor_frete:4,icms_frete:0.8,icms_total:16.22,
     itens:[{descricao:'Disco de alumínio',unidade:'kg',quantidade:2,preco_unitario:52}]};
   const primeiro=await servico.importarDaIa(registro);
   const segundo=await servico.importarDaIa(registro);
@@ -66,10 +66,13 @@ test('a mesma foto não duplica os insumos e preenche os campos faltantes',async
   assert.equal(estado.itens.length,1);
   assert.equal(estado.nota.valor_nf,120.4);
   assert.equal(estado.nota.valor_frete,4);
+  assert.equal(estado.nota.icms_total,16.22);
 });
 test('a IA preserva valor já registrado manualmente',async()=>{
   const {servico,estado}=criarServicoFalso();
   estado.nota.valor_nf=99;
-  await servico.importarDaIa({fornecedor_id:2,numero_nf:'0007',valor_nf:120.4,itens:[]});
+  estado.nota.icms_total=15.5;
+  await servico.importarDaIa({fornecedor_id:2,numero_nf:'0007',valor_nf:120.4,icms_total:27.8,itens:[]});
   assert.equal(estado.nota.valor_nf,99);
+  assert.equal(estado.nota.icms_total,15.5);
 });

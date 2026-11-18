@@ -295,14 +295,14 @@
     $('btnSalvar').textContent='Salvar compra';
     $('avisosIa').hidden=true;$('avisosIa').textContent='';
     $('fotos').value='';
-    $('valor_frete').value='';$('icms_frete').value='';
+    $('valor_frete').value='';$('icms_frete').value='';$('icms_total').value='';
     atualizar();atualizarBoletos();
   }
   function preencher(nota) {
     limpar();
     edicaoId=Number(nota.id) || null;
     origem=nota.origem || 'manual';
-    for(const campo of ['fornecedor_id','numero_nf','valor_nf','valor_frete','icms_frete']) {
+    for(const campo of ['fornecedor_id','numero_nf','valor_nf','valor_frete','icms_frete','icms_total']) {
       $(campo).value=nota[campo] ?? '';
     }
     $('data_nf').value=String(nota.data_nf || '').slice(0,10);
@@ -330,6 +330,7 @@
       quantidade_itens_nf:$('quantidade_itens_nf').value,
       valor_frete:$('valor_frete').value || null,
       icms_frete:$('icms_frete').value || null,
+      icms_total:$('icms_total').value || null,
       origem, itens, boletos
     };
     if (!payload.fornecedor_id || !payload.numero_nf.trim())
@@ -377,6 +378,7 @@
       const mensagens=[...(resultado.avisos||[])];
       if(n.valor_frete===null) mensagens.push('Frete não identificado. Deixe em branco ou preencha.');
       if(n.icms_frete===null) mensagens.push('ICMS do frete não identificado. Deixe em branco ou preencha.');
+      if(n.icms_total===null) mensagens.push('ICMS total não identificado. Deixe em branco ou preencha.');
       if(mensagens.length) {
         $('avisosIa').hidden=false;
         $('avisosIa').textContent='CONFERÊNCIA RECOMENDADA\n'+mensagens.join('\n');

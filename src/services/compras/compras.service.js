@@ -54,20 +54,20 @@ async function gravar(dados, id = null) {
       if (validos.rowCount !== ids.length) throw erro('Algum insumo selecionado não existe.');
     }
     const campos = [compra.fornecedor_id, compra.numero_nf, compra.data_nf, compra.valor_nf,
-      compra.quantidade_itens_nf, compra.valor_frete, compra.icms_frete, compra.origem];
+      compra.quantidade_itens_nf, compra.valor_frete, compra.icms_frete, compra.icms_total, compra.origem];
     let nota;
     if (id !== null) {
       if (!Number.isSafeInteger(Number(id)) || Number(id) < 1) throw erro('Nota inválida.');
       const bloqueada = await cliente.query('SELECT id FROM public.compras_notas WHERE id=$1 FOR UPDATE',[id]);
       if (!bloqueada.rowCount) throw erro('Nota fiscal não encontrada.',404);
       const r = await cliente.query(
-        'UPDATE public.compras_notas SET fornecedor_id=$1,numero_nf=$2,data_nf=$3,valor_nf=$4,quantidade_itens_nf=$5,valor_frete=$6,icms_frete=$7,origem=$8,atualizado_em=NOW() WHERE id=$9 RETURNING id',
+        'UPDATE public.compras_notas SET fornecedor_id=$1,numero_nf=$2,data_nf=$3,valor_nf=$4,quantidade_itens_nf=$5,valor_frete=$6,icms_frete=$7,icms_total=$8,origem=$9,atualizado_em=NOW() WHERE id=$10 RETURNING id',
         [...campos,id]);
       nota = r.rows[0];
       await cliente.query('DELETE FROM public.compras_itens WHERE nota_id=$1',[nota.id]);
     } else {
       const r = await cliente.query(
-        'INSERT INTO public.compras_notas (fornecedor_id,numero_nf,data_nf,valor_nf,quantidade_itens_nf,valor_frete,icms_frete,origem) VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id',
+        'INSERT INTO public.compras_notas (fornecedor_id,numero_nf,data_nf,valor_nf,quantidade_itens_nf,valor_frete,icms_frete,icms_total,origem) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id',
         campos);
       nota = r.rows[0];
     }
@@ -114,10 +114,10 @@ async function importarDaIa(dados) {
       [compra.fornecedor_id,compra.numero_nf]);
     if (!nota) {
       const criado=await cliente.query(
-        'INSERT INTO public.compras_notas (fornecedor_id,numero_nf,data_nf,valor_nf,quantidade_itens_nf,valor_frete,icms_frete,origem)' +
-        ' VALUES ($1,$2,$3,$4,$5,$6,$7,$8) ON CONFLICT (fornecedor_id,numero_nf) DO NOTHING RETURNING *',
+        'INSERT INTO public.compras_notas (fornecedor_id,numero_nf,data_nf,valor_nf,quantidade_itens_nf,valor_frete,icms_frete,icms_total,origem)' +
+        ' VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT (fornecedor_id,numero_nf) DO NOTHING RETURNING *',
         [compra.fornecedor_id,compra.numero_nf,compra.data_nf,compra.valor_nf,
-          compra.quantidade_itens_nf ?? (compra.itens.length || null),compra.valor_frete,compra.icms_frete,'ia']);
+          compra.quantidade_itens_nf ?? (compra.itens.length || null),compra.valor_frete,compra.icms_frete,compra.icms_total,'ia']);
       if (criado.rows.length) {nota=criado.rows[0];criada=true;}
       else {
         const achado=await cliente.query(
@@ -135,9 +135,10 @@ async function importarDaIa(dados) {
       'data_nf=COALESCE(data_nf,$2), valor_nf=COALESCE(valor_nf,$3), ' +
       'quantidade_itens_nf=COALESCE(quantidade_itens_nf,$4), ' +
       'valor_frete=COALESCE(valor_frete,$5), icms_frete=COALESCE(icms_frete,$6), ' +
+      'icms_total=COALESCE(icms_total,$7), ' +
       "origem='ia', atualizado_em=NOW() WHERE id=$1",
       [id,compra.data_nf,compra.valor_nf,compra.quantidade_itens_nf ?? (compra.itens.length || null),
-        compra.valor_frete,compra.icms_frete]);
+        compra.valor_frete,compra.icms_frete,compra.icms_total]);
     const {rows:atuais}=await cliente.query(
       'SELECT id, insumo_id, descricao, unidade, quantidade, preco_unitario, valor_total, posicao ' +
       'FROM public.compras_itens WHERE nota_id=$1 ORDER BY posicao FOR UPDATE', [id]);

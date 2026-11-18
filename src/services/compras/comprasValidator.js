@@ -25,6 +25,7 @@ function validarCompra(dados = {}) {
   const valor_nf = numero(dados.valor_nf, 'Valor da NF');
   const valor_frete = numero(dados.valor_frete, 'Valor do frete');
   const icms_frete = numero(dados.icms_frete, 'ICMS do frete');
+  const icms_total = numero(dados.icms_total, 'ICMS total');
   const data_nf = vazio(dados.data_nf) ? null : String(dados.data_nf).trim();
   if (data_nf && !/^\d{4}-\d{2}-\d{2}$/.test(data_nf)) throw erro('Data da NF inválida.');
   if (dados.itens != null && !Array.isArray(dados.itens)) throw erro('Lista de insumos inválida.');
@@ -45,7 +46,7 @@ function validarCompra(dados = {}) {
     return { insumo_id, descricao, unidade, quantidade, preco_unitario, valor_total, posicao:indice+1 };
   });
   const quantidade_itens_nf = inteiro(dados.quantidade_itens_nf, 'Quantidade de itens na NF', 500);
-  return { fornecedor_id, numero_nf, valor_nf, quantidade_itens_nf, valor_frete, icms_frete,
+  return { fornecedor_id, numero_nf, valor_nf, quantidade_itens_nf, valor_frete, icms_frete, icms_total,
     data_nf, origem: dados.origem === 'ia' ? 'ia' : 'manual', itens };
 }
 module.exports = { validarCompra, erro, numero, inteiro };
