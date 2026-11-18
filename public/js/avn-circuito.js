@@ -8,6 +8,14 @@
     return String(Math.floor(s / 60)).padStart(2, '0') + ':' + String(s % 60).padStart(2, '0');
   };
   let dialog, session = null, interval = null, audio = null, audioOutput = null, wakeLock = null;
+  const CHAVE_PREPARO = 'avn_circuito_preparo_seg';
+  function preparoAnterior() {
+    try {
+      const salvo = localStorage.getItem(CHAVE_PREPARO);
+      const value = salvo === null ? 10 : Number(salvo);
+      return Number.isInteger(value) && value >= 0 && value <= 3600 ? value : 10;
+    } catch (_) { return 10; }
+  }
 
   function instalarBotao() {
     const normal = byId('iniciarExecucaoWeb');
@@ -82,6 +90,7 @@
       '<button type="button" class="avn-circuito-fechar" id="avnCircuitoFechar" aria-label="Fechar">×</button></header>' +
       '<div class="avn-circuito-config-grid"><section class="avn-circuito-lista"><h3>Sequência dos exercícios</h3><ol>' + list + '</ol></section>' +
       '<form class="avn-circuito-controles" id="avnCircuitoFormulario"><h3>Configurar tempos</h3>' +
+      '<label>Tempo de preparo (segundos)<input id="avnCircuitoPreparoSeg" name="preparo" type="number" min="0" max="3600" step="1" value="' + preparoAnterior() + '" required inputmode="numeric"></label>' +
       '<label>Tempo de exercício (segundos)<input id="avnCircuitoExercicioSeg" name="exercicio" type="number" min="1" max="3600" step="1" value="60" required inputmode="numeric"></label>' +
       '<label>Tempo de descanso (segundos)<input id="avnCircuitoDescansoSeg" name="descanso" type="number" min="0" max="3600" step="1" value="15" required inputmode="numeric"></label>' +
       '<p class="avn-circuito-nota">O circuito seguirá os ' + exercises.length + ' exercícios uma vez, na ordem do plano. Sem descanso após o último.</p>' +
@@ -90,11 +99,14 @@
     byId('avnCircuitoFechar').onclick = fechar;
     byId('avnCircuitoFormulario').onsubmit = evt => {
       evt.preventDefault();
+      const prep = Number(byId('avnCircuitoPreparoSeg').value);
       const work = Number(byId('avnCircuitoExercicioSeg').value);
       const rest = Number(byId('avnCircuitoDescansoSeg').value);
+      if (!Number.isInteger(prep) || prep < 0 || prep > 3600) return erro('Informe um preparo entre 0 e 3.600 segundos.');
       if (!Number.isInteger(work) || work < 1 || work > 3600) return erro('Informe um tempo de exercício entre 1 e 3.600 segundos.');
       if (!Number.isInteger(rest) || rest < 0 || rest > 3600) return erro('Informe um descanso entre 0 e 3.600 segundos.');
-      iniciar(exercises, work, rest);
+      try { localStorage.setItem(CHAVE_PREPARO, String(prep)); } catch (_) { /* Preferência opcional. */ }
+      iniciar(exercises, work, rest, prep);
     };
     if (!modal.open) modal.showModal();
   }
@@ -105,11 +117,17 @@
       if (!AudioContextClass) return;
       if (!audio || audio.state === 'closed') {
         audio = new AudioContextClass();
-        audioOutput = audio.createDynamicsCompressor();
-        audioOutput.threshold.value = -16;
-        audioOutput.knee.value = 6;
-        audioOutput.ratio.value = 8;
-        audioOutput.connect(audio.destination);
+        // Amplifica os sinos e limita picos para reduzir distorção.
+        audioOutput = audio.createGain();
+        audioOutput.gain.value = 2.8;
+        const limiter = audio.createDynamicsCompressor();
+        limiter.threshold.value = -6;
+        limiter.knee.value = 0;
+        limiter.ratio.value = 16;
+        limiter.attack.value = 0.003;
+        limiter.release.value = 0.15;
+        audioOutput.connect(limiter);
+        limiter.connect(audio.destination);
       }
       audio.resume().catch(() => {});
     } catch (_) {
@@ -161,13 +179,13 @@
     }
   }
 
-  function iniciar(exercises, work, rest) {
+  function iniciar(exercises, work, rest, prep) {
     if (session) return;
     iniciarAudio(); // Gesto de clique libera o som no navegador.
-    session = { exercises, work, rest, index: 0, phase: 'exercise',
-      endsAt: Date.now() + work * 1000, paused: false, remainingMs: 0 };
+    session = { exercises, work, rest, prep, index: 0, phase: prep > 0 ? 'prepare' : 'exercise',
+      endsAt: Date.now() + (prep > 0 ? prep : work) * 1000, paused: false, remainingMs: 0 };
     obterDialog().classList.add('avn-circuito-executando');
-    tocarSino(3);
+    if (prep === 0) tocarSino(3);
     desenhar();
     interval = window.setInterval(atualizar, 150);
     manterTelaAcordada();
@@ -204,7 +222,16 @@
     const controls = '<div class="avn-circuito-acoes"><button type="button" id="avnCircuitoPausar">' +
       (s.paused ? '▶ Continuar' : 'Ⅱ Pausar') +
       '</button><button type="button" id="avnCircuitoSair">Encerrar ×</button></div>';
-    if (s.phase === 'exercise') {
+    if (s.phase === 'prepare') {
+      const first = s.exercises[0];
+      modal.innerHTML = '<section class="avn-circuito-painel avn-circuito-em-preparo">' +
+        '<div class="avn-circuito-barra"><span>PREPARAÇÃO · O TREINO COMEÇA EM</span>' + controls + '</div>' +
+        '<h2>' + escapeHtml(first.name) + '</h2>' +
+        '<div class="avn-circuito-area-foto">' + foto(first) + '</div>' +
+        '<div class="avn-circuito-tempo" id="avnCircuitoRelogio" role="timer">00:00</div>' +
+        '<span class="avn-circuito-pausado" id="avnCircuitoEstado">' + (s.paused ? 'PAUSADO' : 'PREPARE-SE') + '</span>' +
+        '</section>';
+    } else if (s.phase === 'exercise') {
       const ex = s.exercises[s.index];
       modal.innerHTML = '<section class="avn-circuito-painel">' +
         '<div class="avn-circuito-barra"><span>EXERCÍCIO ' + (s.index + 1) + ' DE ' + s.exercises.length + '</span>' + controls + '</div>' +
@@ -244,9 +271,13 @@
     if (!s || s.paused) return;
     const now = Date.now();
     let advanced = false;
-    let safety = s.exercises.length * 2 + 1;
+    let safety = s.exercises.length * 2 + 2;
     while (session && !s.paused && now >= s.endsAt && safety-- > 0) {
-      if (s.phase === 'exercise' && s.rest > 0 && s.index < s.exercises.length - 1) {
+      if (s.phase === 'prepare') {
+        s.phase = 'exercise';
+        s.endsAt += s.work * 1000;
+        if (now < s.endsAt && document.visibilityState === 'visible') tocarSino(3);
+      } else if (s.phase === 'exercise' && s.rest > 0 && s.index < s.exercises.length - 1) {
         s.phase = 'rest';
         s.endsAt += s.rest * 1000;
         if (now < s.endsAt && document.visibilityState === 'visible') tocarSino(2);
