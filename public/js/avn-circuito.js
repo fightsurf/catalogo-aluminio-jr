@@ -90,10 +90,10 @@
       '<button type="button" class="avn-circuito-fechar" id="avnCircuitoFechar" aria-label="Fechar">×</button></header>' +
       '<div class="avn-circuito-config-grid"><section class="avn-circuito-lista"><h3>Sequência dos exercícios</h3><ol>' + list + '</ol></section>' +
       '<form class="avn-circuito-controles" id="avnCircuitoFormulario"><h3>Configurar tempos</h3>' +
-      '<label>Tempo de preparo (segundos)<input id="avnCircuitoPreparoSeg" name="preparo" type="number" min="0" max="3600" step="1" value="' + preparoAnterior() + '" required inputmode="numeric"></label>' +
+      '<label>Preparo antes de cada exercício (segundos)<input id="avnCircuitoPreparoSeg" name="preparo" type="number" min="0" max="3600" step="1" value="' + preparoAnterior() + '" required inputmode="numeric"></label>' +
       '<label>Tempo de exercício (segundos)<input id="avnCircuitoExercicioSeg" name="exercicio" type="number" min="1" max="3600" step="1" value="60" required inputmode="numeric"></label>' +
       '<label>Tempo de descanso (segundos)<input id="avnCircuitoDescansoSeg" name="descanso" type="number" min="0" max="3600" step="1" value="15" required inputmode="numeric"></label>' +
-      '<p class="avn-circuito-nota">O circuito seguirá os ' + exercises.length + ' exercícios uma vez, na ordem do plano. Sem descanso após o último.</p>' +
+      '<p class="avn-circuito-nota">Sequência: preparo → exercício → descanso → preparo. O circuito seguirá os ' + exercises.length + ' exercícios uma vez, sem descanso após o último.</p>' +
       '<div id="avnCircuitoErro" class="avn-circuito-erro" role="alert"></div>' +
       '<button class="avn-circuito-iniciar" type="submit">▶ Iniciar circuito</button></form></div>';
     byId('avnCircuitoFechar').onclick = fechar;
@@ -183,12 +183,88 @@
     if (session) return;
     iniciarAudio(); // Gesto de clique libera o som no navegador.
     session = { exercises, work, rest, prep, index: 0, phase: prep > 0 ? 'prepare' : 'exercise',
-      endsAt: Date.now() + (prep > 0 ? prep : work) * 1000, paused: false, remainingMs: 0 };
+      endsAt: Date.now() + (prep > 0 ? prep : work) * 1000, paused: false, remainingMs: 0, editing: false };
     obterDialog().classList.add('avn-circuito-executando');
     if (prep === 0) tocarSino(3);
     desenhar();
     interval = window.setInterval(atualizar, 150);
     manterTelaAcordada();
+  }
+
+
+  function segundosExercicio(s) {
+    const value = Number(s.exercises[s.index]?.workSec);
+    return Number.isInteger(value) && value >= 1 && value <= 3600 ? value : s.work;
+  }
+
+  function navegarExercicio(direcao) {
+    const s = session;
+    if (!s || s.editing || ![-1, 1].includes(direcao)) return;
+    const index = s.phase === 'rest' ? (direcao === -1 ? s.index : s.index + 1) : s.index + direcao;
+    if (index < 0 || index >= s.exercises.length) return;
+    s.index = index;
+    s.phase = s.prep > 0 ? 'prepare' : 'exercise';
+    s.remainingMs = (s.phase === 'prepare' ? s.prep : segundosExercicio(s)) * 1000;
+    s.endsAt = Date.now() + s.remainingMs;
+    if (!s.paused && s.phase === 'exercise') tocarSino(3);
+    desenhar();
+  }
+
+  function abrirEdicao() {
+    if (!session || !session.paused) return;
+    session.editing = true;
+    desenhar();
+  }
+
+  function desenharEdicao(modal) {
+    const s = session;
+    if (!s || !s.paused || !s.editing) return;
+    const index = s.phase === 'rest' ? Math.min(s.index + 1, s.exercises.length - 1) : s.index;
+    const ex = s.exercises[index];
+    const tempo = Number(ex.workSec);
+    const dur = Number.isInteger(tempo) && tempo >= 1 && tempo <= 3600 ? tempo : s.work;
+    const overlay = document.createElement('div');
+    overlay.className = 'avn-circuito-editor-overlay';
+    overlay.innerHTML = '<form id="avnCircuitoEditor" class="avn-circuito-editor">' +
+      '<h3>Editar treino pausado</h3><p>Alterações nesta execução; o plano salvo não será modificado.</p>' +
+      '<label>Nome do ' + (s.phase === 'rest' ? 'próximo' : 'atual') + ' exercício<input type="text" id="avnEditarNome" maxlength="160" required value="' + escapeHtml(ex.name) + '"></label>' +
+      '<label>Tempo deste exercício (segundos)<input type="number" id="avnEditarExercicio" min="1" max="3600" step="1" required value="' + dur + '"></label>' +
+      '<label>Descanso entre exercícios (segundos)<input type="number" id="avnEditarDescanso" min="0" max="3600" step="1" required value="' + s.rest + '"></label>' +
+      '<label>Preparo antes de cada exercício (segundos)<input type="number" id="avnEditarPreparo" min="0" max="3600" step="1" required value="' + s.prep + '"></label>' +
+      '<label>Tempo restante da etapa pausada (segundos)<input type="number" id="avnEditarRestante" min="0" max="3600" step="1" required value="' + Math.ceil(s.remainingMs / 1000) + '"></label>' +
+      '<div id="avnEditorErro" class="avn-circuito-erro" role="alert"></div>' +
+      '<div class="avn-circuito-editor-acoes"><button type="button" id="avnEditorCancelar">Cancelar</button><button type="submit">Salvar ajustes</button></div></form>';
+    modal.append(overlay);
+    overlay.querySelector('#avnEditorCancelar').onclick = () => { s.editing = false; desenhar(); };
+    overlay.querySelector('form').onsubmit = event => {
+      event.preventDefault();
+      if (session !== s || !s.paused) return;
+      const nome = byId('avnEditarNome').value.trim();
+      const work = Number(byId('avnEditarExercicio').value);
+      const rest = Number(byId('avnEditarDescanso').value);
+      const prep = Number(byId('avnEditarPreparo').value);
+      const rem = Number(byId('avnEditarRestante').value);
+      const valid = (v, min) => Number.isInteger(v) && v >= min && v <= 3600;
+      if (!nome || nome.length > 160 || !valid(work, 1) || !valid(rest, 0) || !valid(prep, 0) || !valid(rem, 0)) {
+        byId('avnEditorErro').textContent = 'Verifique nome e tempos (0–3600 segundos; exercício mínimo de 1 segundo).';
+        return;
+      }
+      ex.name = nome;
+      ex.workSec = work;
+      s.rest = rest;
+      s.prep = prep;
+      s.remainingMs = rem * 1000;
+      s.endsAt = Date.now() + s.remainingMs;
+      if (s.phase === 'prepare' && prep === 0) {
+        s.phase = 'exercise';
+        s.remainingMs = segundosExercicio(s) * 1000;
+        s.endsAt = Date.now() + s.remainingMs;
+      }
+      try { localStorage.setItem(CHAVE_PREPARO, String(prep)); } catch (_) {}
+      s.editing = false;
+      desenhar();
+    };
+    overlay.querySelector('#avnEditarNome').focus();
   }
 
   function enderecoImagem(raw) {
@@ -219,13 +295,18 @@
   function desenhar() {
     if (!session) return;
     const s = session, modal = obterDialog();
-    const controls = '<div class="avn-circuito-acoes"><button type="button" id="avnCircuitoPausar">' +
-      (s.paused ? '▶ Continuar' : 'Ⅱ Pausar') +
-      '</button><button type="button" id="avnCircuitoSair">Encerrar ×</button></div>';
+    const podeVoltar = s.phase === 'rest' || s.index > 0;
+    const podeAvancar = s.index < s.exercises.length - 1;
+    const controls = '<div class="avn-circuito-acoes">' +
+      '<button type="button" id="avnCircuitoAnterior" aria-label="Exercício anterior"' + (podeVoltar ? '' : ' disabled') + '>← Anterior</button>' +
+      '<button type="button" id="avnCircuitoSeguinte" aria-label="Próximo exercício"' + (podeAvancar ? '' : ' disabled') + '>Próximo →</button>' +
+      '<button type="button" id="avnCircuitoPausar">' + (s.paused ? '▶ Continuar' : 'Ⅱ Pausar') + '</button>' +
+      (s.paused ? '<button type="button" id="avnCircuitoEditar">✏️ Editar treino</button>' : '') +
+      '<button type="button" id="avnCircuitoSair">Encerrar ×</button></div>';
     if (s.phase === 'prepare') {
-      const first = s.exercises[0];
+      const first = s.exercises[s.index];
       modal.innerHTML = '<section class="avn-circuito-painel avn-circuito-em-preparo">' +
-        '<div class="avn-circuito-barra"><span>PREPARAÇÃO · O TREINO COMEÇA EM</span>' + controls + '</div>' +
+        '<div class="avn-circuito-barra"><span>PREPARAÇÃO · EXERCÍCIO ' + (s.index + 1) + ' DE ' + s.exercises.length + '</span>' + controls + '</div>' +
         '<h2>' + escapeHtml(first.name) + '</h2>' +
         '<div class="avn-circuito-area-foto">' + foto(first) + '</div>' +
         '<div class="avn-circuito-tempo" id="avnCircuitoRelogio" role="timer">00:00</div>' +
@@ -256,7 +337,11 @@
       aviso.textContent = 'Imagem indisponível';
       imagem.replaceWith(aviso);
     };
+    byId('avnCircuitoAnterior').onclick = () => navegarExercicio(-1);
+    byId('avnCircuitoSeguinte').onclick = () => navegarExercicio(1);
     byId('avnCircuitoPausar').onclick = pausarOuContinuar;
+    if (s.paused) byId('avnCircuitoEditar').onclick = abrirEdicao;
+    if (s.editing) desenharEdicao(modal);
     byId('avnCircuitoSair').onclick = fechar;
     atualizarRelogio();
   }
@@ -273,11 +358,11 @@
     if (!s || s.paused) return;
     const now = Date.now();
     let advanced = false;
-    let safety = s.exercises.length * 2 + 2;
+    let safety = s.exercises.length * 3 + 3;
     while (session && !s.paused && now >= s.endsAt && safety-- > 0) {
       if (s.phase === 'prepare') {
         s.phase = 'exercise';
-        s.endsAt += s.work * 1000;
+        s.endsAt += segundosExercicio(s) * 1000;
         if (now < s.endsAt && document.visibilityState === 'visible') tocarSino(3);
       } else if (s.phase === 'exercise' && s.rest > 0 && s.index < s.exercises.length - 1) {
         s.phase = 'rest';
@@ -289,9 +374,9 @@
           concluir();
           return;
         }
-        s.phase = 'exercise';
-        s.endsAt += s.work * 1000;
-        if (now < s.endsAt && document.visibilityState === 'visible') tocarSino(3);
+        s.phase = s.prep > 0 ? 'prepare' : 'exercise';
+        s.endsAt += (s.phase === 'prepare' ? s.prep : segundosExercicio(s)) * 1000;
+        if (s.phase === 'exercise' && now < s.endsAt && document.visibilityState === 'visible') tocarSino(3);
       }
       advanced = true;
     }
@@ -301,7 +386,7 @@
 
   function pausarOuContinuar() {
     const s = session;
-    if (!s) return;
+    if (!s || s.editing) return;
     if (s.paused) {
       s.endsAt = Date.now() + s.remainingMs;
       s.paused = false;
