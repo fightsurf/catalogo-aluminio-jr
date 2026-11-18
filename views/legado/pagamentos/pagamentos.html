@@ -464,6 +464,14 @@
   </div>
 
   <script>
+    function envioEmergencialPagamentosAtivo() {
+      // Regra válida apenas em 18/11/2026, no horário de Brasília.
+      return new Intl.DateTimeFormat('pt-BR', {
+        timeZone: 'America/Sao_Paulo',
+        year: 'numeric', month: '2-digit', day: '2-digit'
+      }).format(new Date()) === '18/11/2026';
+    }
+
     const estado = {
       modoBusca: 'cliente',
       clientesCarregados: [],
@@ -660,7 +668,9 @@
     }
 
     async function enviarMensagemPagamentoWhatsapp() {
-      const telefone = normalizarTelefone(estado.pedidoSelecionado?.cliente?.telefone1 || estado.pedidoSelecionado?.cliente?.telefonePrincipal);
+      const telefone = envioEmergencialPagamentosAtivo()
+        ? '5583999792085'
+        : normalizarTelefone(estado.pedidoSelecionado?.cliente?.telefone1 || estado.pedidoSelecionado?.cliente?.telefonePrincipal);
 
       if (!telefone) {
         mostrarStatus('warning', 'Telefone 1 não encontrado no legado para este cliente.');
@@ -930,12 +940,12 @@
                   <strong>Telefone</strong>
                   <div class="contact-value ${normalizarTelefone(estado.pedidoSelecionado.cliente?.telefone1 || estado.pedidoSelecionado.cliente?.telefonePrincipal) ? '' : 'empty'}">${normalizarTelefone(estado.pedidoSelecionado.cliente?.telefone1 || estado.pedidoSelecionado.cliente?.telefonePrincipal) ? `<a class="contact-link" href="${escapeHtml(obterWhatsappHref())}" target="_blank" rel="noopener noreferrer">${escapeHtml(formatarTelefoneExibicao(estado.pedidoSelecionado.cliente?.telefone1 || estado.pedidoSelecionado.cliente?.telefonePrincipal))}</a>` : 'Telefone 1 não encontrado no legado.'}</div>
                 </div>
-                <button type="button" id="btnEnviarWhatsappInterno" class="btn-whatsapp" ${normalizarTelefone(estado.pedidoSelecionado.cliente?.telefone1 || estado.pedidoSelecionado.cliente?.telefonePrincipal) ? '' : 'disabled'}>
+                <button type="button" id="btnEnviarWhatsappInterno" class="btn-whatsapp" ${envioEmergencialPagamentosAtivo() || normalizarTelefone(estado.pedidoSelecionado.cliente?.telefone1 || estado.pedidoSelecionado.cliente?.telefonePrincipal) ? '' : 'disabled'}>
                   <svg width="20" height="20" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
                     <path fill="currentColor" d="M19.11 17.2c-.27-.13-1.6-.79-1.85-.88-.25-.09-.43-.13-.61.13-.18.27-.7.88-.86 1.06-.16.18-.31.2-.58.07-.27-.13-1.12-.41-2.14-1.32-.79-.7-1.33-1.57-1.49-1.83-.16-.27-.02-.41.12-.54.12-.12.27-.31.4-.47.13-.16.18-.27.27-.45.09-.18.04-.34-.02-.47-.07-.13-.61-1.47-.83-2.02-.22-.53-.45-.46-.61-.46h-.52c-.18 0-.47.07-.72.34-.25.27-.95.93-.95 2.27s.97 2.63 1.11 2.81c.13.18 1.91 2.92 4.62 4.1.64.27 1.14.43 1.53.55.64.2 1.22.17 1.68.1.51-.08 1.6-.65 1.82-1.28.22-.63.22-1.16.15-1.28-.07-.12-.25-.2-.52-.34Z"/>
                     <path fill="currentColor" d="M27.19 4.8A15.84 15.84 0 0 0 16.05.02C7.3.02.2 7.12.2 15.87c0 2.8.73 5.54 2.13 7.96L.02 31.98l8.37-2.19a15.8 15.8 0 0 0 7.66 1.96h.01c8.74 0 15.85-7.11 15.85-15.86 0-4.24-1.65-8.22-4.72-11.09ZM16.06 29.08h-.01a13.18 13.18 0 0 1-6.71-1.84l-.48-.29-4.97 1.3 1.33-4.85-.31-.5a13.17 13.17 0 0 1-2.02-7.02c0-7.27 5.91-13.18 13.18-13.18 3.52 0 6.82 1.37 9.31 3.86a13.1 13.1 0 0 1 3.85 9.31c0 7.27-5.91 13.18-13.17 13.18Z"/>
                   </svg>
-                  Enviar para WhatsApp
+                  Enviar para WhatsApp ${envioEmergencialPagamentosAtivo() ? '(83 99979-2085)' : ''}
                 </button>
                 <button type="button" id="btnBaixaCredito" class="btn-secondary" ${podeBaixarCredito ? '' : 'disabled'}>
                   Baixa para crédito
