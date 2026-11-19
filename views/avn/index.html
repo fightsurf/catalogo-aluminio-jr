@@ -7,6 +7,20 @@
   <link rel="stylesheet" href="/css/system-launcher.css">
   <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
   <script src="/js/avn-system-launcher.js" defer></script>
+
+  <style>
+    .avn-feature{margin:22px 0 26px}
+    .avn-feature-link{display:flex;align-items:center;gap:18px;padding:25px 28px;border:1px solid #4e7ba8;border-radius:19px;background:linear-gradient(115deg,#183556,#12283e);text-decoration:none;color:#f3f7ff;box-shadow:0 12px 28px #0003;transition:border-color .15s,transform .15s}
+    .avn-feature-link:hover{border-color:#82c8ff;transform:translateY(-1px)}
+    .avn-feature-link:focus-visible{outline:3px solid #82c8ff;outline-offset:3px}
+    .avn-feature-icon{display:grid;place-items:center;flex:none;width:66px;height:66px;border:1px solid #4c86bf;border-radius:18px;background:#2169ab}
+    .avn-feature-icon svg{width:34px;height:34px}
+    .avn-feature-copy{display:flex;flex:1;flex-direction:column;gap:7px;min-width:0}
+    .avn-feature-copy strong{font-size:1.45rem;line-height:1.2}
+    .avn-feature-copy small{font-size:.96rem;line-height:1.5;color:#c1d5eb}
+    .avn-feature-action{display:inline-flex;align-items:center;gap:8px;font-weight:700;white-space:nowrap}
+    @media(max-width:630px){.avn-feature-link{padding:19px 16px;gap:12px;flex-wrap:wrap}.avn-feature-icon{width:52px;height:52px;border-radius:13px}.avn-feature-icon svg{width:27px;height:27px}.avn-feature-copy strong{font-size:1.2rem}.avn-feature-action{width:100%;margin-left:64px}}
+  </style>
 </head>
 <body>
   <main class="shell">
@@ -23,6 +37,14 @@
     <section class="hero">
       <div><p class="eyebrow">ÁREA DE TRABALHO</p><h1 id="pageTitle">Aplicativos</h1><p id="summaryText">Carregando…</p></div>
       <label class="search"><i data-lucide="search"></i><input id="searchInput" type="search" placeholder="Pesquisar aplicativo, categoria ou função" autocomplete="off"></label>
+    </section>
+
+    <section class="avn-feature" aria-label="Acesso principal aos gráficos">
+      <a class="avn-feature-link" href="/avn/sistema/graficos-corporais">
+        <span class="avn-feature-icon" aria-hidden="true"><i data-lucide="chart-no-axes-combined"></i></span>
+        <span class="avn-feature-copy"><strong>Gráficos Corporais</strong><small>Avaliação física, balanço energético e nutrição reunidos em uma só página.</small></span>
+        <span class="avn-feature-action">Abrir <i data-lucide="arrow-right" aria-hidden="true"></i></span>
+      </a>
     </section>
 
     <section id="favoritesSection" class="section" hidden>
