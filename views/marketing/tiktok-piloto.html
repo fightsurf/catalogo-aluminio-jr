@@ -80,7 +80,12 @@ async function loadConnection(){
   el('disconnect').hidden=!j.connected;
   el('connection').textContent=!j.configured
     ? 'Integração não configurada no servidor. O teste local de upload está disponível.'
-    : j.connected?'Conta autorizada para o envio.':'Integração configurada. Conecte sua conta TikTok.';
+    : j.connected?'Conta conectada. Consultando identificação...':'Integração configurada. Conecte sua conta TikTok.';
+  if(j.connected){
+   try{const acc=await jsonRequest('/api/conta');
+    el('connection').textContent='Conta TikTok: '+(acc.display_name||'Nome indisponível')+' (ID final '+acc.open_id_last4+')';
+   }catch(e){el('connection').textContent='Conta conectada; falha ao consultar nome: '+e.message}
+  }
   el('send').disabled=!j.connected||!el('file').files.length;
  }catch(e){el('connection').textContent=e.message}
 }
