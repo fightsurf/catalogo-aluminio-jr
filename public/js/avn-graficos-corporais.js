@@ -552,5 +552,31 @@ window.addEventListener('resize',()=>{
  clearTimeout(resizeTimer);
  resizeTimer=setTimeout(render,120);
 });
+function initTabs(){
+ const abas=[...document.querySelectorAll('[data-avn-graficos-tab]')];
+ if(abas.length!==2)return;
+ function ativar(aba){
+  for(const item of abas){
+   const ativa=item===aba;
+   item.setAttribute('aria-selected',String(ativa));
+   item.tabIndex=ativa?0:-1;
+   const painel=document.getElementById(item.getAttribute('aria-controls'));
+   if(painel)painel.hidden=!ativa;
+  }
+  // SVGs se ajustam à largura disponível quando o painel volta a ficar visível.
+  window.dispatchEvent(new Event('resize'));
+ }
+ abas.forEach((aba,i)=>{
+  aba.addEventListener('click',()=>ativar(aba));
+  aba.addEventListener('keydown',event=>{
+   const direcao=event.key==='ArrowRight'?1:event.key==='ArrowLeft'?-1:0;
+   if(direcao){event.preventDefault();const destino=abas[(i+direcao+abas.length)%abas.length];ativar(destino);destino.focus();}
+   if(event.key==='Home'||event.key==='End'){
+    event.preventDefault();const destino=event.key==='Home'?abas[0]:abas[abas.length-1];ativar(destino);destino.focus();
+   }
+  });
+ });
+}
+initTabs();
 init();
 })();
