@@ -98,12 +98,12 @@ const SQL=[
   ") ativas ON TRUE",
   // Quando houver treinos do Samsung Health, priorizar exclusivamente as calorias
   // dessas sessões; não somar calorias ativas gerais do Health Connect.
-  "LEFT JOIN LATERAL ("
-  " SELECT SUM(a.calorias_kcal * GREATEST(0,EXTRACT(EPOCH FROM (LEAST(a.fim,p.fim)-GREATEST(a.inicio,p.inicio))))"
-  "   / NULLIF(EXTRACT(EPOCH FROM (a.fim-a.inicio)),0)) AS valor"
-  " FROM public.avn_atividades a"
-  " WHERE a.usuario_id=$1 AND a.origem='samsung_health' AND a.calorias_kcal IS NOT NULL"
-  "   AND a.inicio<p.fim AND a.fim>p.inicio"
+  "LEFT JOIN LATERAL (",
+  " SELECT SUM(a.calorias_kcal * GREATEST(0,EXTRACT(EPOCH FROM (LEAST(a.fim,p.fim)-GREATEST(a.inicio,p.inicio))))",
+  "   / NULLIF(EXTRACT(EPOCH FROM (a.fim-a.inicio)),0)) AS valor",
+  " FROM public.avn_atividades a",
+  " WHERE a.usuario_id=$1 AND a.origem='samsung_health' AND a.calorias_kcal IS NOT NULL",
+  "   AND a.inicio<p.fim AND a.fim>p.inicio",
   ") samsung ON TRUE",
   "ORDER BY p.dia"
 ].join('\n');
