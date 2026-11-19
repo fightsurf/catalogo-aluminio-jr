@@ -172,7 +172,7 @@ for (const [rota, arquivo] of [
 }
 router.use('/api/nutricao', requireAuth, avnNutricaoRoutes);
 router.use('/api/balanco-energetico', requireAuth, avnBalancoRoutes);
-router.get('/balanco-energetico', requireAuth, (_req,res)=>res.redirect(302,'/avn/sistema/graficos-corporais'));
+router.get('/balanco-energetico', requireAuth, (_req,res)=>res.redirect(302,'/avn/sistema/graficos-corporais?tab=nutricao'));
 router.use('/api/exames', requireAuth, avnExamesRoutes);
 router.use('/api/analise-integrada', requireAuth, avnAnaliseRoutes);
 router.get('/analise-integrada', requireAuth, (_req,res)=>res.sendFile(path.resolve(__dirname,'../../../views/avn/analise-integrada.html')));
