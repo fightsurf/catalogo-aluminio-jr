@@ -61,7 +61,11 @@ function validarEscolhas(escolhas) {
       throw erro;
     }
   }
-  return opcoes;
+  return {
+    nome_de: opcoes.nome_de,
+    cidade_de: opcoes.cidade_de,
+    principal_de: opcoes.principal_de
+  };
 }
 
 function montarMesclagem(destino, origem, escolhas) {
