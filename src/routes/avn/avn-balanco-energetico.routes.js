@@ -15,7 +15,7 @@ const SQL=[
   " diario.itens, diario.sem_kcal, diario.kcal AS ingeridas,",
   " tmb.valor AS tmb, tmb.data_medicao AS tmb_data,",
   " peso.valor AS peso_kg, u.altura_cm,",
-  " passos.valor AS passos, passos.disponiveis AS passos_disponiveis, ativas.valor AS ativas",
+  " passos.valor AS passos, passos.disponiveis AS passos_disponiveis, COALESCE(samsung.valor,ativas.valor) AS ativas",
   "FROM periodos p",
   "CROSS JOIN (SELECT altura_cm FROM public.avn_usuario WHERE id=$1) u",
   "LEFT JOIN LATERAL (",
@@ -83,6 +83,15 @@ const SQL=[
   " WHERE m.usuario_id=$1 AND m.data_medicao<p.fim",
   " AND (m.data_medicao>=p.inicio OR m.data_fim>p.inicio)",
   ") ativas ON TRUE",
+  // Quando houver treinos do Samsung Health, priorizar exclusivamente as calorias
+  // dessas sessões; não somar calorias ativas gerais do Health Connect.
+  "LEFT JOIN LATERAL ("
+  " SELECT SUM(a.calorias_kcal * GREATEST(0,EXTRACT(EPOCH FROM (LEAST(a.fim,p.fim)-GREATEST(a.inicio,p.inicio))))"
+  "   / NULLIF(EXTRACT(EPOCH FROM (a.fim-a.inicio)),0)) AS valor"
+  " FROM public.avn_atividades a"
+  " WHERE a.usuario_id=$1 AND a.origem='samsung_health' AND a.calorias_kcal IS NOT NULL"
+  "   AND a.inicio<p.fim AND a.fim>p.inicio"
+  ") samsung ON TRUE",
   "ORDER BY p.dia"
 ].join('\n');
 
