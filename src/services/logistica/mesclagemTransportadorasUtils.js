@@ -78,8 +78,10 @@ function montarMesclagem(destino, origem, escolhas) {
     contatoDestino.toLocaleLowerCase('pt-BR') !== contatoOrigem.toLocaleLowerCase('pt-BR')
     ? 'Outro contato principal (cadastro mesclado): ' + contatoOrigem : null;
 
-  const principalPreferido = texto(escolher('principal_de').telefone_principal);
-  const principalAlternativo = texto((opcoes.principal_de === 'origem' ? destino : origem).telefone_principal);
+  const cadastroPreferido = escolher('principal_de');
+  const principalPreferido = texto(cadastroPreferido.telefone_principal || cadastroPreferido.telefone);
+  const cadastroAlternativo = opcoes.principal_de === 'origem' ? destino : origem;
+  const principalAlternativo = texto(cadastroAlternativo.telefone_principal || cadastroAlternativo.telefone);
   const telefoneUnido = unirTelefones(destino, origem);
   return {
     nome: texto(escolher('nome_de').nome),
