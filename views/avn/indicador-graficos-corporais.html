@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>AVN — Gráficos corporais</title>
 <link rel="stylesheet" href="/css/avn-health.css">
-<link rel="stylesheet" href="/css/avn-balanco-energetico.css?v=20261119-central1">
+<link rel="stylesheet" href="/css/avn-balanco-energetico.css?v=20261119-tabs2">
 <style>
 .graphs-list{display:grid;gap:16px}
 .chart-panel{margin-top:0}
@@ -54,6 +54,13 @@
 .compare-help{font-size:.87rem;color:#a9b9d1;line-height:1.5}
 @media(max-width:650px){.compare-dialog{padding:13px;max-height:calc(100dvh - 12px)}.compare-options{grid-template-columns:repeat(2,minmax(0,1fr))}.compare-choice{font-size:.81rem;padding:9px 7px;gap:6px}.compare-chart,.compare-chart svg{height:290px}.compare-open{width:100%}}
 
+
+.avn-graph-tabs{display:flex;gap:8px;margin:18px 0 16px;padding:5px;border:1px solid #34465f;border-radius:13px;background:#101c2e}
+.avn-graph-tab{flex:1;min-height:49px;border:0;border-radius:10px;background:transparent;color:#c2d3eb;font:inherit;font-weight:700;cursor:pointer;padding:11px 13px}
+.avn-graph-tab[aria-selected="true"]{background:#2169ab;color:#fff;box-shadow:0 2px 10px #0004}
+.avn-graph-tab:focus-visible{outline:2px solid #82c8ff;outline-offset:2px}
+.avn-graph-panel[hidden]{display:none!important}
+@media(max-width:650px){.avn-graph-tabs{gap:4px}.avn-graph-tab{padding:9px 5px;font-size:.91rem}}
 </style>
 </head>
 <body data-section="corporal">
@@ -69,6 +76,11 @@
 </select></label>
 <button id="compare-open" class="compare-open" type="button">🔀 Cruzar informações</button>
 </div>
+<nav class="avn-graph-tabs" role="tablist" aria-label="Seções dos gráficos">
+<button id="tab-avaliacao" class="avn-graph-tab" type="button" role="tab" data-avn-graficos-tab aria-selected="true" aria-controls="painel-avaliacao">Avaliação física</button>
+<button id="tab-nutricao" class="avn-graph-tab" type="button" role="tab" data-avn-graficos-tab aria-selected="false" aria-controls="painel-nutricao" tabindex="-1">Nutrição</button>
+</nav>
+<section id="painel-avaliacao" class="avn-graph-panel" role="tabpanel" aria-labelledby="tab-avaliacao">
 <div class="graphs-list"><section class="detail chart-panel" aria-labelledby="title-peso">
 <h2 id="title-peso">Peso <small>kg</small></h2>
 <p id="status-peso" class="muted chart-status" role="status">Carregando medições…</p>
@@ -110,15 +122,10 @@
 <p id="status-agua_ingerida" class="muted chart-status" role="status">Carregando ingestão diária…</p>
 <div id="chart-agua_ingerida" class="graph chart-area" role="img" aria-label="Evolução da quantidade diária de água ingerida"></div>
 </section></div>
-
+</section>
+<section id="painel-nutricao" class="avn-graph-panel" role="tabpanel" aria-labelledby="tab-nutricao" hidden>
 <section class="avn-balanco avn-energy" aria-labelledby="energia-title">
 <h2 id="energia-title">Balanço energético e nutrição</h2>
-<div class="filtros"><div class="data-navegacao" role="group" aria-label="Navegar entre datas do balanço energético">
-<button id="dia-anterior" class="btn-navegacao" type="button" aria-label="Dia anterior">Anterior</button>
-<label>Data <input type="date" id="data" aria-label="Data do balanço energético"></label>
-<button id="dia-seguinte" class="btn-navegacao" type="button" aria-label="Dia seguinte">Seguinte</button>
-</div>
-</div>
 <p id="mensagem" role="status" aria-live="polite">Carregando dados…</p>
 <section class="saldo" id="saldo" aria-live="polite">
 <h2>Balanço calórico do dia</h2>
@@ -153,9 +160,10 @@
 <p class="ajuda" id="nota-gorduras">Consultando o Diário Alimentar e Minhas metas…</p>
 <div id="grafico-gorduras" class="linha-grafico" aria-label="Gorduras consumidas por data, em gramas, com meta hachurada"></div></article>
 </section>
-<p class="aviso">Os três gráficos nutricionais exibem o consumo real registrado no Diário Alimentar nos últimos 7 dias até a data escolhida. A linha amarela tracejada marca a meta atual de Minhas metas, e a faixa hachurada de ±5% é apenas uma referência visual — não é uma faixa de meta prescrita. Dias com nutrientes ausentes não são tratados como zero.</p>
+<p class="aviso">Os três gráficos nutricionais exibem o consumo registrado no Diário Alimentar no período selecionado (até 365 dias), encerrando hoje. A linha amarela tracejada marca a meta atual de Minhas metas, e a faixa hachurada de ±5% é apenas uma referência visual — não é uma faixa de meta prescrita. Dias com nutrientes ausentes não são tratados como zero.</p>
 <p class="aviso">O gasto dos passos é estimado a partir do peso, da altura e dos intervalos registrados, excluindo os trechos coincidentes com calorias ativas para reduzir contagem dupla. Não é uma medida direta do relógio; horários, registros ausentes ou repetidos podem alterar a precisão. Sem registros de calorias ativas ou passos, só a parcela ausente é presumida zero. Dias com diário incompleto ou TMB inválida não têm saldo calculado.</p>
 
+</section>
 </section>
 <dialog id="compare-dialog" class="compare-modal" aria-labelledby="compare-title">
 <div class="compare-header"><div><h2 id="compare-title">🔀 Cruzar informações</h2><p>Selecione indicadores e compare as curvas do mesmo período.</p></div><button id="compare-close" type="button" class="btn-fechar" aria-label="Fechar comparador">✕ Fechar</button></div>
@@ -191,16 +199,15 @@
 </div></fieldset>
 
 </aside><section class="compare-display" aria-label="Gráfico de comparação fixo">
-<div class="compare-filtros"><label>Período <select id="compare-dias"><option value="7" selected>7 dias</option><option value="15">15 dias</option><option value="30">30 dias</option><option value="90">90 dias</option></select></label><span id="compare-status" role="status">Selecione os indicadores.</span></div>
+<div class="compare-filtros"><span class="compare-help">Período definido no topo da página.</span><span id="compare-status" role="status">Selecione os indicadores.</span></div>
 <div id="compare-legend" class="compare-legend" aria-label="Legenda do gráfico"></div>
 <div id="compare-chart" class="compare-chart" role="group" aria-label="Gráfico cruzado dos indicadores"></div>
 <p class="compare-help">Com dois indicadores, cada curva usa seu próprio eixo vertical. Com três ou mais, as curvas são apresentadas em escala relativa de 0 a 100 para comparação de tendências; isso não representa unidades iguais. Pontos sem medição não são inventados.</p>
 
 </section></div></dialog>
 
-<p class="muted">O IMC é calculado a partir do peso de cada medição e da altura atual cadastrada.</p>
 </main>
-<script src="/js/avn-graficos-corporais.js?v=20261119-central1" defer></script>
-<script src="/js/avn-balanco-energetico.js?v=20261119-central1" defer></script>
+<script src="/js/avn-graficos-corporais.js?v=20261119-tabs2" defer></script>
+<script src="/js/avn-balanco-energetico.js?v=20261119-tabs2" defer></script>
 </body>
 </html>
