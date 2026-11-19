@@ -71,3 +71,5 @@ body[data-section="corporal"] .compare-display .compare-chart{height:310px;min-h
 body[data-section="corporal"] .compare-filtros{margin:5px 0 8px;gap:6px;}
 body[data-section="corporal"] .avn-energy{padding:8px 0 22px;}
 }
+
+body[data-section="corporal"] .compare-display .compare-chart svg{height:auto;max-height:none;min-height:0;}
