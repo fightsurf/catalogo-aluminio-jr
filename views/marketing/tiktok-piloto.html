@@ -13,6 +13,7 @@ h1{font-size:28px;margin:0 0 6px}h2{font-size:19px;margin:0 0 12px}
 p{color:#bbcbd5;margin:8px 0 14px}
 button,.link{display:inline-block;border:0;border-radius:9px;padding:12px 17px;background:#19c2b4;color:#061718;
 font-size:15px;font-weight:700;cursor:pointer;text-decoration:none}
+[hidden]{display:none!important}
 button:disabled{opacity:.5;cursor:not-allowed}
 button.secondary,.link.secondary{background:#384c5b;color:white}
 input[type=file]{display:block;background:#101820;border:1px dashed #5a7887;padding:18px;width:100%;border-radius:9px;margin:8px 0 14px}
@@ -63,10 +64,11 @@ video{width:100%;max-height:310px;background:black;border-radius:9px;display:non
 'use strict';
 const base='/marketing/tiktok';
 const el=id=>document.getElementById(id);
+let connected=false;
 let publishId='';
 let currentObjectURL='';
 function message(text){el('message').textContent=text}
-function busy(value){el('verify').disabled=value;el('send').disabled=value||!el('file').files.length||!el('connect').hidden}
+function busy(value){el('verify').disabled=value;el('send').disabled=value||!el('file').files.length||!connected}
 async function jsonRequest(url,options){
  const r=await fetch(base+url,{credentials:'same-origin',...options});
  const j=await r.json().catch(()=>({message:'Resposta inesperada do servidor.'}));
@@ -76,6 +78,7 @@ async function jsonRequest(url,options){
 async function loadConnection(){
  try{
   const j=await jsonRequest('/api/config');
+  connected=j.connected;
   el('connect').hidden=!j.configured||j.connected;
   el('disconnect').hidden=!j.connected;
   el('connection').textContent=!j.configured
@@ -86,7 +89,7 @@ async function loadConnection(){
     el('connection').textContent='Conta TikTok: '+(acc.display_name||'Nome indisponível')+' (ID final '+acc.open_id_last4+')';
    }catch(e){el('connection').textContent='Conta conectada; falha ao consultar nome: '+e.message}
   }
-  el('send').disabled=!j.connected||!el('file').files.length;
+  el('send').disabled=!connected||!el('file').files.length;
  }catch(e){el('connection').textContent=e.message}
 }
 el('file').addEventListener('change',()=>{
@@ -94,7 +97,7 @@ el('file').addEventListener('change',()=>{
  if(currentObjectURL)URL.revokeObjectURL(currentObjectURL);
  el('preview').style.display=file?'block':'none';
  if(file){currentObjectURL=URL.createObjectURL(file);el('preview').src=currentObjectURL}
- el('send').disabled=!file||!el('connect').hidden;
+ el('send').disabled=!file||!connected;
  message(file?'Arquivo selecionado: '+file.name+' ('+file.size+' bytes).':'Selecione um vídeo.');
 });
 async function transfer(endpoint){
