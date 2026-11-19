@@ -105,6 +105,21 @@ router.get('/api/config', (req, res) =>
   res.json({ success: true, configured: enabled(), connected: Boolean(tokens(req)),
     mode: 'enviar_para_caixa_de_entrada', maxBytes: MAX_BYTES }));
 
+router.get('/api/conta', wrap(async (req, res) => {
+  const user = tokens(req);
+  if (!user) return res.status(401).json({ success: false, message: 'Conecte sua conta.' });
+  const response = await fetch('https://open.tiktokapis.com/v2/user/info/?fields=open_id,display_name', {
+    headers: { Authorization: 'Bearer ' + user.access_token },
+    redirect: 'error', signal: AbortSignal.timeout(25000)
+  });
+  const json = await response.json().catch(() => ({}));
+  if (!response.ok || (json.error && json.error.code !== 'ok')) {
+    return res.status(400).json({ success: false, message: 'Nao foi possivel identificar a conta TikTok.' });
+  }
+  res.json({ success: true, display_name: String(json.data?.user?.display_name || ''),
+    open_id_last4: String(user.open_id || '').slice(-4) });
+}));
+
 router.get('/oauth/start', (req, res) => {
   if (!enabled()) return res.status(503).send('Configure TIKTOK_CLIENT_KEY, TIKTOK_CLIENT_SECRET e TIKTOK_REDIRECT_URI no Render.');
   const state = crypto.randomBytes(24).toString('hex');
