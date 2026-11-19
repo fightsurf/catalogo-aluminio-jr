@@ -55,3 +55,23 @@ test('observações idênticas ou com acentos diferentes não se repetem', () =>
 test('não permite escolhas inválidas', () => {
   assert.throws(() => validarEscolhas({ nome_de:'origem', cidade_de:'qualquer', principal_de:'destino' }), /Escolha/);
 });
+
+test('assinatura da prévia não entra nas escolhas da confirmação', () => {
+  const escolhas = validarEscolhas({
+    destino_id: 1, origem_id: 2, nome_de: 'destino',
+    cidade_de: 'origem', principal_de: 'destino',
+    assinatura: 'assinatura-da-previa'
+  });
+  assert.deepEqual(escolhas, {
+    nome_de: 'destino', cidade_de: 'origem', principal_de: 'destino'
+  });
+});
+
+test('telefone principal pode vir do telefone legado da origem', () => {
+  const final = montarMesclagem(
+    { nome:'A', cidade_id:1, telefone:'5583999990000' },
+    { nome:'B', cidade_id:2, telefone:'5583888881111' },
+    { nome_de:'destino', cidade_de:'origem', principal_de:'origem' }
+  );
+  assert.equal(final.telefone_principal, '5583888881111');
+});
