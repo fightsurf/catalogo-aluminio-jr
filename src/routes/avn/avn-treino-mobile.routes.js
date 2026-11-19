@@ -96,7 +96,6 @@ mobile.post('/relogio/autorizar',wrap(async(req,res)=>{
 mobile.use('/agua',hidratacao.mobile);
 mobile.use('/sono',require('./avn-sono-mobile.routes'));
 mobile.use('/exercicios-samsung',require('./avn-exercicios-samsung-mobile.routes'));
-mobile.use('/exercicios-samsung',require('./avn-exercicios-samsung-mobile.routes'));
 mobile.use('/nutricao',require('./avn-nutricao-mobile.routes'));
 
 mobile.get('/planos',wrap(async(req,res)=>{
