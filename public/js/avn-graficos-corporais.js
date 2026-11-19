@@ -576,6 +576,8 @@ function initTabs(){
    }
   });
  });
+ const tabParam=new URLSearchParams(window.location.search).get('tab');
+ if(tabParam==='nutricao')ativar(abas[1]);
 }
 initTabs();
 init();
