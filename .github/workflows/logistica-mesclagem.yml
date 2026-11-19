@@ -1,0 +1,37 @@
+name: Mesclagem de transportadoras
+
+on:
+  pull_request:
+    paths:
+      - 'src/services/logistica/mesclagemTransportadoras*.js'
+      - 'src/routes/logistica/transportadorasRoutes.js'
+      - 'views/logistica/logistica-admin.html'
+      - 'tests/mesclagem-transportadoras-utils.test.js'
+      - '.github/workflows/logistica-mesclagem.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/services/logistica/mesclagemTransportadoras*.js'
+      - 'src/routes/logistica/transportadorasRoutes.js'
+      - 'views/logistica/logistica-admin.html'
+      - 'tests/mesclagem-transportadoras-utils.test.js'
+      - '.github/workflows/logistica-mesclagem.yml'
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Verificar sintaxe do backend
+        run: |
+          node --check src/services/logistica/mesclagemTransportadorasUtils.js
+          node --check src/services/logistica/mesclagemTransportadorasService.js
+          node --check src/routes/logistica/transportadorasRoutes.js
+      - name: Verificar JavaScript da página de logística
+        run: |
+          node -e "const fs=require('node:fs'),vm=require('node:vm');const html=fs.readFileSync('views/logistica/logistica-admin.html','utf8');const scripts=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];if(!scripts.length)throw Error('Nenhum script encontrado');for(const s of scripts)new vm.Script(s[1]);"
+      - name: Testar união de dados e importação
+        run: node --test tests/mesclagem-transportadoras-utils.test.js tests/importacao-excursoes-utils.test.js
