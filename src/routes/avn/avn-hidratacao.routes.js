@@ -27,6 +27,17 @@ async function del(db,u,id){
  const r=await db.query('UPDATE public.avn_agua_registros SET removido_em=COALESCE(removido_em,NOW()),atualizado_em=NOW() WHERE id=$1 AND usuario_id=$2 RETURNING id',[id,u]);
  if(!r.rowCount)throw bad('Registro não encontrado.',404);
 }
+web.get('/serie',wrap(async(req,res)=>{
+ const u=await uid(req.query.usuarioId);
+ const periodo=Number(req.query.dias||7);
+ if(![7,30,90,365,3650].includes(periodo))throw bad('Período inválido.');
+ const r=await pool.query(`SELECT TO_CHAR((ingerido_em AT TIME ZONE 'America/Sao_Paulo')::date,'YYYY-MM-DD') AS dia,
+ SUM(quantidade_ml)::float AS valor FROM public.avn_agua_registros
+ WHERE usuario_id=$1 AND removido_em IS NULL
+ AND (ingerido_em AT TIME ZONE 'America/Sao_Paulo')::date >= (NOW() AT TIME ZONE 'America/Sao_Paulo')::date-($2::int-1)
+ GROUP BY 1 ORDER BY 1`,[u,periodo]);
+ res.set('Cache-Control','no-store').json({registros:r.rows.map(x=>({data_medicao:x.dia+'T12:00:00-03:00',valor:x.valor}))});
+}));
 web.get('/',wrap(async(req,res)=>{res.set('Cache-Control','no-store').json({registros:await list(await uid(req.query.usuarioId),req.query.dias)});}));
 web.post('/',wrap(async(req,res)=>{const u=await uid(req.body?.usuarioId),id=crypto.randomUUID();await upsert(pool,u,{id,quantidade_ml:req.body?.quantidade_ml,ingerido_em:req.body?.ingerido_em||new Date().toISOString()});res.status(201).json({ok:true,id});}));
 web.put('/:id',wrap(async(req,res)=>{await upsert(pool,await uid(req.body?.usuarioId),{id:req.params.id,quantidade_ml:req.body?.quantidade_ml,ingerido_em:req.body?.ingerido_em});res.json({ok:true});}));
