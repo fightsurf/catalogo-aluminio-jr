@@ -519,10 +519,64 @@ async function configurarAndroidNoRegistro(){
 async function carregarTreino(id){state.treino=await fetchJSON('/planos/'+id);if(String(state.treino.usuario_id)!==state.usuarioId)throw Error('Plano não pertence ao usuário.');if(!state.treino.dias.some(d=>Number(d.dia_semana)===state.treinoDia&&d.exercicios.length)){state.treinoDia=Number(state.treino.dias.find(d=>d.exercicios.length)?.dia_semana??0);}}
 function renderTreinoItens(){
  const dia=state.treino.dias.find(d=>Number(d.dia_semana)===state.treinoDia),itens=dia?.exercicios||[],root=$('treinoItens');if(!root)return;
- root.innerHTML=itens.length?`<div class="stack">${itens.map((original,n)=>{const i=cargaParaSessao(original);const ex=state.exercicios.find(e=>Number(e.id)===Number(i.exercicio_id))||i;return `<div class="item avn-workout-card avn-workout-session-card" data-realizado="${n}"><div class="avn-workout-visual">${media(ex,true)}</div><div class="avn-workout-details"><strong>${esc(i.exercicio_nome||buscarNome(i.exercicio_id))}</strong><small>Previsto: ${i.series} × ${esc(i.repeticoes)}</small><div class="fields"><label>Séries feitas<input type="number" class="ses-series" min="0" max="30" value="${i.series}"></label><label>Repetições feitas<input class="ses-reps" maxlength="30" value="${esc(i.repeticoes)}"></label><label>Unidade<select class="ses-unidade"><option value="kg" ${i.carga_unidade!=='placas'?'selected':''}>kg</option><option value="placas" ${i.carga_unidade==='placas'?'selected':''}>Placas</option></select></label><label>Carga<input type="number" class="ses-carga" min="0" max="${i.carga_unidade==='placas'?200:2000}" step="${i.carga_unidade==='placas'?1:0.5}" value="${esc(i.carga_unidade==='placas'?(i.carga_placas??''):(i.carga_kg??''))}"></label></div><label class="label">Observação<input class="ses-obs" maxlength="500"></label></div></div>`}).join('')}</div>`:'<div class="empty">Este dia não possui exercícios.</div>';
+ root.innerHTML=itens.length?`<div class="stack">${itens.map((original,n)=>{const i=cargaParaSessao(original);const ex=state.exercicios.find(e=>Number(e.id)===Number(i.exercicio_id))||i;return `<div class="item avn-workout-card avn-workout-session-card" data-realizado="${n}"><div class="avn-workout-visual">${media(ex,true)}</div><div class="avn-workout-details"><strong>${esc(i.exercicio_nome||buscarNome(i.exercicio_id))}</strong><small>Previsto: ${i.series} × ${esc(i.repeticoes)}</small><div class="fields"><label>Séries feitas<input type="number" class="ses-series" min="0" max="30" value="${i.series}"></label><label>Repetições feitas<input class="ses-reps" maxlength="30" value="${esc(i.repeticoes)}"></label><label>Unidade<select class="ses-unidade"><option value="kg" ${i.carga_unidade!=='placas'?'selected':''}>kg</option><option value="placas" ${i.carga_unidade==='placas'?'selected':''}>Placas</option></select></label><label>Carga<input type="number" class="ses-carga" min="0" max="${i.carga_unidade==='placas'?200:2000}" step="${i.carga_unidade==='placas'?1:0.5}" value="${esc(i.carga_unidade==='placas'?(i.carga_placas??''):(i.carga_kg??''))}"></label></div><label class="label">Observação<input class="ses-obs" maxlength="500"></label></div></div><button type="button" class="avn-inserir-entre" data-inserir="${n+1}">+ Adicionar exercício aqui</button>`}).join('')}</div>`:'<div class="empty">Este dia não possui exercícios. <button type="button" class="avn-inserir-entre" data-inserir="0">+ Adicionar exercício aqui</button></div>';
+ root.querySelectorAll('[data-inserir]').forEach(b=>b.addEventListener('click',()=>abrirAdicionarRegistro(Number(b.dataset.inserir))));
  root.querySelectorAll('.ses-unidade').forEach(sel=>sel.addEventListener('change',()=>{const input=sel.closest('[data-realizado]').querySelector('.ses-carga');input.value='';input.max=sel.value==='placas'?'200':'2000';input.step=sel.value==='placas'?'1':'0.5';}));
  $('salvarSessao').disabled=!itens.length;
  if($('iniciarExecucaoWeb'))$('iniciarExecucaoWeb').disabled=!itens.length;
+}
+async function abrirAdicionarRegistro(indice){
+ if(!state.treino?.id)return toast('Selecione um plano salvo.',true);
+ let modal=$('avn-modal-adicionar-registro');
+ if(!modal){modal=document.createElement('dialog');modal.id='avn-modal-adicionar-registro';modal.className='avn-dialog avn-registro-adicionar';document.body.appendChild(modal);}
+ modal.innerHTML='<div class="avn-dialog-header"><h2>Adicionar exercício nesta posição</h2><button type="button" class="btn ghost" id="fecharRegistroAdicionar">Fechar ×</button></div>'+
+  '<label class="label">Buscar exercício<input id="buscarRegistroAdicionar" type="search" placeholder="Nome ou grupo muscular"></label>'+
+  '<div id="listaRegistroAdicionar" class="exercise-list"></div><p class="hint">O exercício escolhido será gravado neste dia do plano, na posição selecionada.</p>';
+ modal.querySelector('#fecharRegistroAdicionar').onclick=()=>modal.close();
+ const area=modal.querySelector('#listaRegistroAdicionar'),input=modal.querySelector('#buscarRegistroAdicionar');
+ const exibir=()=>{
+  const termo=input.value.trim().toLocaleLowerCase('pt-BR');
+  const list=state.exercicios.filter(x=>(x.nome+' '+(x.grupo||'')).toLocaleLowerCase('pt-BR').includes(termo));
+  area.innerHTML=list.length?list.map(ex=>'<button type="button" class="avn-registro-escolha" data-ex="'+ex.id+'>'+
+   media(ex,true)+'<span><strong>'+esc(ex.nome)+'</strong><small>'+esc(ex.grupo||'')+'</small></span></button>').join(''):'<p class="hint">Nenhum exercício encontrado.</p>';
+  area.querySelectorAll('[data-ex]').forEach(b=>b.onclick=async()=>{
+   const id=Number(b.dataset.ex),plano=JSON.parse(JSON.stringify(state.treino));
+   const dia=plano.dias.find(x=>Number(x.dia_semana)===Number(state.treinoDia));
+   if(!dia)return toast('Dia não encontrado.',true);
+   if(dia.exercicios.length>=50)return toast('O limite é 50 exercícios neste dia.',true);
+   dia.exercicios.splice(Math.min(Math.max(0,indice),dia.exercicios.length),0,
+    {exercicio_id:id,series:3,repeticoes:'10',carga_unidade:'kg',carga_kg:null,carga_placas:null,descanso_seg:60,observacoes:''});
+   // Preserva séries, cargas, repetições e observações que já foram digitadas na sessão.
+   const campos=[...document.querySelectorAll('#treinoItens [data-realizado]')].map(c=>({
+    series:c.querySelector('.ses-series').value,reps:c.querySelector('.ses-reps').value,
+    unidade:c.querySelector('.ses-unidade').value,carga:c.querySelector('.ses-carga').value,
+    obs:c.querySelector('.ses-obs').value
+   }));
+   b.disabled=true;
+   try{
+    await fetchJSON('/planos/'+plano.id,{method:'PUT',body:JSON.stringify(plano)});
+    await carregarTreino(plano.id);
+    renderTreinoItens();
+    campos.forEach((x,i)=>{
+     const pos=i>=indice?i+1:i;
+     const c=document.querySelector('#treinoItens [data-realizado="'+pos+'"]');
+     if(!c)return;
+     c.querySelector('.ses-series').value=x.series;
+     c.querySelector('.ses-reps').value=x.reps;
+     c.querySelector('.ses-unidade').value=x.unidade;
+     const input=c.querySelector('.ses-carga');
+     input.value=x.carga;input.max=x.unidade==='placas'?'200':'2000';
+     input.step=x.unidade==='placas'?'1':'0.5';
+     c.querySelector('.ses-obs').value=x.obs;
+    });
+    await buscarExecucaoWeb();
+    modal.close();toast('Exercício inserido e salvo no plano.');
+   }catch(e){toast('Não foi possível salvar o exercício: '+e.message,true);b.disabled=false;}
+  });
+ };
+ input.addEventListener('input',exibir);exibir();
+ if(!modal.open)modal.showModal();
+ input.focus();
 }
 async function renderHistorico(){
  const area=$('historico');if(!area)return;

@@ -25,7 +25,6 @@ const treinoApps = [
   {rota:'/avn/sistema/treinar', nome:'Registrar Treino', icone:'clipboard-check', descricao:'Registre cargas e séries realmente executadas.'},
 ];
 const nutricaoApps = [
-  {rota:'/avn/sistema/balanco-energetico',nome:'Balanço Energético',categoria:'Nutrição',icone:'chart-column',descricao:'Quatro gráficos diários e estimativa de déficit ou superávit.'},
   {rota:'/avn/sistema/nutricao/diario',nome:'Diário alimentar',categoria:'Nutrição',icone:'notebook-pen',descricao:'Registrar alimentos realmente consumidos e seus nutrientes.'},
   {rota:'/avn/sistema/nutricao/dieta',nome:'Dieta programada',categoria:'Nutrição',icone:'calendar-days',descricao:'Dieta padrão válida para todos os dias.'},
   {rota:'/avn/sistema/nutricao/alimentos',nome:'Alimentos',categoria:'Nutrição',icone:'utensils',descricao:'Cadastro de alimentos, TACO, USDA e consulta IA em JSON.'},
@@ -36,7 +35,7 @@ const nutricaoApps = [
   {rota:'/avn/sistema/nutricao/agua',nome:'Água ingerida',categoria:'Nutrição',icone:'droplets',descricao:'Ingestão diária de água e gráfico, sincronizados com Android.'}
 ];
 const corporalApps = [
-  {rota:'/avn/sistema/graficos-corporais',nome:'Gráficos Corporais',categoria:'Avaliação Física',icone:'chart-line',descricao:'Cinco gráficos de evolução: peso, gordura corporal, massa magra, IMC e água corporal.'},
+  {rota:'/avn/sistema/graficos-corporais',nome:'Gráficos Corporais',categoria:'Avaliação Física',icone:'chart-line',descricao:'Gráficos corporais, hidratação, balanço energético, consumo nutricional e cruzamento de indicadores.'},
   {rota:'/avn/sistema/peso',nome:'Peso',categoria:'Avaliação Física',icone:'scale',descricao:'Histórico de peso corporal.'},
   {rota:'/avn/sistema/imc',nome:'IMC',categoria:'Avaliação Física',icone:'calculator',descricao:'Histórico de índice de massa corporal.'},
   {rota:'/avn/sistema/gordura-corporal',nome:'Gordura Corporal',categoria:'Avaliação Física',icone:'percent',descricao:'Percentual de gordura corporal.'},
@@ -161,7 +160,7 @@ for (const [rota, arquivo] of [
 }
 router.use('/api/nutricao', requireAuth, avnNutricaoRoutes);
 router.use('/api/balanco-energetico', requireAuth, avnBalancoRoutes);
-router.get('/balanco-energetico', requireAuth, (_req,res)=>res.sendFile(path.resolve(__dirname,'../../../views/avn/balanco-energetico.html')));
+router.get('/balanco-energetico', requireAuth, (_req,res)=>res.redirect(302,'/avn/sistema/graficos-corporais'));
 router.use('/api/exames', requireAuth, avnExamesRoutes);
 router.use('/api/analise-integrada', requireAuth, avnAnaliseRoutes);
 router.get('/analise-integrada', requireAuth, (_req,res)=>res.sendFile(path.resolve(__dirname,'../../../views/avn/analise-integrada.html')));

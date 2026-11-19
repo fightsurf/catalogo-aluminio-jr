@@ -22,6 +22,7 @@ const conf={
  proteinas:{nome:'Proteínas consumidas',unidade:'g',cor:'#fca5a5'},
  carboidratos:{nome:'Carboidratos consumidos',unidade:'g',cor:'#fbbf24'},
  agua_ingerida:{nome:'Água ingerida',unidade:'ml',cor:'#67e8f9'},
+ gorduras:{nome:'Gorduras consumidas',unidade:'g',cor:'#a78bfa'},
  sono_efetivo:{nome:'Tempo real dormido',unidade:'h',cor:'#34d399'},
  sono_duracao:{nome:'Duração total informada',unidade:'h',cor:'#60a5fa'},
  sono_leve:{nome:'Sono leve',unidade:'h',cor:'#a3bffa'},
@@ -31,7 +32,7 @@ const conf={
 };
 const metricas=['saldo','ingestao','tmb','passos','calorias_ativas'];
 const fisicas=['peso','gordura_corporal','massa_magra','agua_corporal','massa_ossea'];
-const nutricao=['proteinas','carboidratos','agua_ingerida'];
+const nutricao=['proteinas','carboidratos','gorduras','agua_ingerida'];
 const sono=['sono_efetivo','sono_duracao','sono_leve','sono_profundo','sono_rem','sono_pontuacao'];
 // Mesmas cores usadas no painel nutricional. Metas em gramas vêm de Minhas metas.
 const macrosDiarios=[
@@ -464,19 +465,17 @@ function initComparador(){
 async function iniciar(){
  $('data').value=hoje();$('data').max=hoje();
  initComparador();
- try{
-  usuarios=await getJson('/api/avn/usuarios');
-  $('usuario').replaceChildren();
-  for(const u of usuarios){const option=document.createElement('option');option.value=u.id;option.textContent=u.nome;$('usuario').append(option);}
-  const anterior=localStorage.getItem('avn_nutricao_usuario')||localStorage.getItem('avn_treinos_usuario');
-  if(usuarios.some(u=>String(u.id)===anterior))$('usuario').value=anterior;
+ $('data').addEventListener('change',atualizar);
+ $('dia-anterior').addEventListener('click',()=>navegarDia(-1));
+ $('dia-seguinte').addEventListener('click',()=>navegarDia(1));
+ const pronto=lista=>{
+  usuarios=Array.isArray(lista)?lista:[];
   if(!usuarios.length){$('mensagem').textContent='Cadastre um usuário no AVN.';return;}
-  $('usuario').addEventListener('change',()=>{localStorage.setItem('avn_nutricao_usuario',$('usuario').value);atualizar();});
-  $('data').addEventListener('change',atualizar);
-  $('dia-anterior').addEventListener('click',()=>navegarDia(-1));
-  $('dia-seguinte').addEventListener('click',()=>navegarDia(1));
+  $('usuario').addEventListener('change',atualizar);
   atualizar();
- }catch(e){$('mensagem').textContent=e.message||'Falha ao carregar usuários.';}
+ };
+ if(Array.isArray(window.AVNGraficosUsuarios))pronto(window.AVNGraficosUsuarios);
+ else document.addEventListener('avn-graficos-usuarios',e=>pronto(e.detail),{once:true});
 }
 window.addEventListener('resize',()=>{clearTimeout(resizeHandle);resizeHandle=setTimeout(()=>{if(resultadoAtual){const d=resultadoAtual.dias.find(x=>x.data===$('data').value);if(d)pintarDiarios(resultadoAtual.dias,d);}if($('compare-dialog').open&&comparacao)desenharComparacao();},160);});
 iniciar();
