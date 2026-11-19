@@ -66,3 +66,14 @@ a{color:#8ec1ff}table th,table td{border-color:#34465f!important}hr,.tabs,.avn-t
 .avn-ai-report p{white-space:pre-wrap}
 .avn-workout-action{white-space:nowrap}
 @media(max-width:650px){.avn-dialog{padding:13px}.avn-action-header .row{width:100%;justify-content:flex-start}.avn-workout-details .item-head strong{min-width:0}.avn-library-row{flex-wrap:wrap}.avn-library-row .grow{flex-basis:55%}}
+
+/* Inserção de exercícios na aba Registrar Treino. */
+.avn-inserir-entre{display:block;width:100%;max-width:370px;margin:9px auto;border:1px solid #425674;border-radius:10px;background:#182437;color:#d5e8ff;padding:9px 13px;font:inherit;font-size:13px;font-weight:650;cursor:pointer;}
+.avn-inserir-entre:hover{background:#273c59;border-color:#6ca2e5;}
+.avn-registro-adicionar{max-width:min(780px,calc(100vw - 20px));max-height:85dvh;overflow:auto;}
+.avn-registro-adicionar .exercise-list{max-height:52dvh;overflow-y:auto;display:grid;gap:7px;}
+.avn-registro-escolha{display:flex;align-items:center;text-align:left;gap:12px;width:100%;padding:9px;border-radius:10px;border:1px solid #3c526e;background:#172438;color:#e8f1ff;cursor:pointer;}
+.avn-registro-escolha:hover{background:#263c5b;}
+.avn-registro-escolha .thumb{width:70px;min-width:70px;height:55px;object-fit:contain;}
+.avn-registro-escolha span{display:grid;gap:5px;}
+.avn-registro-escolha small{color:#b6c9e0;}
