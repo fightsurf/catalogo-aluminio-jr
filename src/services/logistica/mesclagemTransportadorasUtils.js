@@ -1,6 +1,7 @@
 'use strict';
 
-const { telefones } = require('./importacaoExcursoesUtils');
+// Exige limites entre dígitos para nunca truncar um telefone malformatado.
+const PADRAO_TELEFONE = /(?<!\d)(?:\+?55[\s().-]*)?\(?\d{2}\)?[\s().-]*(?:9[\s().-]*)?\d{4}[\s().-]*\d{4}(?!\d)/g;
 
 function texto(valor) {
   return String(valor == null ? '' : valor).trim();
@@ -23,32 +24,54 @@ function unirObservacoes() {
   return linhas.join('\n') || null;
 }
 
+function extrairTelefonesComComplementos(valor) {
+  const numeros = [];
+  const complementos = [];
+  for (const trecho of texto(valor).split(/[\/;\n|]+/)) {
+    const campo = trecho.trim();
+    if (!campo) continue;
+    for (const match of campo.matchAll(PADRAO_TELEFONE)) {
+      let digitos = match[0].replace(/\D/g, '');
+      if (digitos.startsWith('55') && (digitos.length === 12 || digitos.length === 13)) {
+        digitos = digitos.slice(2);
+      }
+      if (digitos.length === 10 || (digitos.length === 11 && digitos[2] === '9')) {
+        numeros.push('55' + digitos);
+      }
+    }
+    // Todo texto não reconhecido é preservado, inclusive números malformatados.
+    const complemento = campo.replace(PADRAO_TELEFONE, '').replace(/\s+/g, ' ').trim();
+    if (complemento) complementos.push(complemento);
+  }
+  return { numeros, complementos };
+}
+
 function unirTelefones(destino, origem) {
   const valores = [
     destino.telefone, destino.telefone_principal,
     origem.telefone, origem.telefone_principal
   ].map(texto).filter(Boolean);
-  const encontrados = telefones(valores.join(' / '));
+  const numeros = [];
   const extras = [];
-  const vistos = new Set();
+  const vistosNumeros = new Set();
+  const vistosExtras = new Set();
   for (const valor of valores) {
-    for (const parte of valor.split(/[\/;\n|]+/)) {
-      const campo = parte.trim();
-      if (!campo || telefones(campo).length) continue;
-      const chave = campo.toLocaleLowerCase('pt-BR');
-      if (!vistos.has(chave)) {
-        vistos.add(chave);
-        extras.push(campo);
-      }
+    const partes = extrairTelefonesComComplementos(valor);
+    for (const numero of partes.numeros) {
+      if (!vistosNumeros.has(numero)) { vistosNumeros.add(numero); numeros.push(numero); }
+    }
+    for (const extra of partes.complementos) {
+      const chave = extra.toLocaleLowerCase('pt-BR');
+      if (!vistosExtras.has(chave)) { vistosExtras.add(chave); extras.push(extra); }
     }
   }
-  return [...encontrados.map(n => '55' + n), ...extras].join(' / ') || null;
+  return [...numeros, ...extras].join(' / ') || null;
 }
 
 function telefonePrincipal(valor) {
   const bruto = texto(valor);
-  const encontrados = telefones(bruto);
-  return encontrados.length ? '55' + encontrados[0] : (bruto || null);
+  const encontrados = extrairTelefonesComComplementos(bruto).numeros;
+  return encontrados.length ? encontrados[0] : (bruto || null);
 }
 
 function validarEscolhas(escolhas) {
