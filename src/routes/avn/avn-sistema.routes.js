@@ -65,6 +65,18 @@ async function inserirTreinosNoResumo(summary) {
   summary.total += adicionais.length;
   summary.visiveis += adicionais.filter(a=>a.visibilidade!=='oculto').length;
   for(const a of adicionais){let cat=summary.categoriasDetalhes.find(x=>x.nome===a.categoria);if(cat)cat.quantidade++;else{summary.categorias.push(a.categoria);summary.categoriasDetalhes.push({nome:a.categoria,icone:a.categoria==='Nutrição'?'utensils':a.categoria==='Avaliação Física'?'scale':a.categoria==='Saúde'?'heart-pulse':'activity',ordem:null,quantidade:1,personalizada:false});}}
+  // Consolidação da Central AVN: mantém as rotas antigas acessíveis por URL,
+  // mas não as exibe como aplicativos, nem cria a categoria Avaliação Física.
+  // Gráficos Corporais é acessado somente pelo painel destacado da página inicial.
+  const rotasConsolidadas = new Set(corporalApps.map(app=>app.rota));
+  summary.apps = summary.apps.filter(app=>!rotasConsolidadas.has(app.rota)&&app.categoria!=='Avaliação Física');
+  summary.categoriasDetalhes = summary.categoriasDetalhes.filter(c=>c.nome!=='Avaliação Física');
+  for(const cat of summary.categoriasDetalhes){
+    cat.quantidade = summary.apps.filter(app=>app.categoria===cat.nome).length;
+  }
+  summary.categorias = summary.categoriasDetalhes.map(c=>c.nome);
+  summary.total = summary.apps.length;
+  summary.visiveis = summary.apps.filter(app=>app.visibilidade!=='oculto').length;
   return summary;
 }
 
