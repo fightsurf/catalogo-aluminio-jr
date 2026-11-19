@@ -531,12 +531,12 @@ function fecharMesclagem() {
 function listarOrigensMesclagem() {
   const seletor = document.getElementById('mescla-origem');
   const busca = document.getElementById('mescla-busca').value
-    .normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase();
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const idAnterior = seletor.value;
   seletor.replaceChildren(new Option('Selecione o duplicado', ''));
   for (const t of transportadorasCarregadas) {
     if (String(t.id) === String(transportadoraSelecionada.id)) continue;
-    const nome = String(t.nome || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase();
+    const nome = String(t.nome || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
     if (busca && !nome.includes(busca)) continue;
     seletor.add(new Option(t.nome + ' (ID ' + t.id + ')', String(t.id)));
   }
