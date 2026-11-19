@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="pt-BR"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>Teste TikTok — Alumínio JR</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}
+body{margin:0;background:#101820;color:#e9eef2;font:16px/1.5 system-ui,Arial,sans-serif}
+main{max-width:780px;margin:48px auto;padding:0 20px}
+section{background:#1b2934;border:1px solid #344858;border-radius:14px;padding:24px;margin-bottom:18px}
+h1{font-size:28px;margin:0 0 6px}h2{font-size:19px;margin:0 0 12px}
+p{color:#bbcbd5;margin:8px 0 14px}
+button,.link{display:inline-block;border:0;border-radius:9px;padding:12px 17px;background:#19c2b4;color:#061718;
+font-size:15px;font-weight:700;cursor:pointer;text-decoration:none}
+button:disabled{opacity:.5;cursor:not-allowed}
+button.secondary,.link.secondary{background:#384c5b;color:white}
+input[type=file]{display:block;background:#101820;border:1px dashed #5a7887;padding:18px;width:100%;border-radius:9px;margin:8px 0 14px}
+small{display:block;color:#a8bac6}
+label{display:block;margin:12px 0}
+#message{white-space:pre-wrap;word-break:break-word;background:#0f1d27;padding:15px;border-radius:8px;min-height:55px}
+#statusText{font-weight:700}
+video{width:100%;max-height:310px;background:black;border-radius:9px;display:none;margin:12px 0}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.warning{border-left:4px solid #f4c14c;padding-left:12px}
+</style></head><body><main>
+<h1>Teste de vídeo TikTok</h1>
+<p>Alumínio JR — somente um vídeo, sem agendamento. Upload pelo computador e envio à caixa de entrada do TikTok.</p>
+<section>
+<h2>1. Conectar conta TikTok</h2>
+<p class="warning">O envio pela API oficial <strong>não publica imediatamente</strong>. Depois do envio, abra a notificação no aplicativo TikTok e conclua a postagem.</p>
+<p id="connection">Consultando configuração...</p>
+<div class="row">
+<a class="link" id="connect" href="/marketing/tiktok/oauth/start" hidden>Conectar com TikTok</a>
+<button id="disconnect" class="secondary" hidden type="button">Desconectar</button>
+</div>
+</section>
+<section>
+<h2>2. Selecionar vídeo</h2>
+<form id="videoForm">
+<label for="file">Arquivo MP4 (até 30 MB)</label>
+<input id="file" name="video" type="file" accept="video/mp4,.mp4" required>
+<small>O vídeo é recebido temporariamente pelo servidor. Não será guardado na biblioteca.</small>
+<video id="preview" controls playsinline></video>
+<div class="row">
+<button id="verify" class="secondary" type="button">Testar apenas o upload</button>
+<button id="send" type="submit" disabled>Enviar ao TikTok</button>
+</div>
+</form>
+</section>
+<section>
+<h2>3. Resultado</h2>
+<div id="message" role="status" aria-live="polite">Selecione um arquivo para começar.</div>
+<div id="checkArea" hidden>
+<p>Identificador do envio: <strong id="publishId"></strong></p>
+<button id="check" class="secondary" type="button">Verificar situação no TikTok</button>
+<p id="statusText">Enviado; ainda não publicado.</p>
+</div>
+</section>
+<p><small>O teste exige autorização oficial <code>video.upload</code> e conexão OAuth. Não solicita sua senha TikTok no sistema da fábrica. Só utilize vídeos de sua autoria ou com direitos de publicação.</small></p>
+</main>
+<script>
+'use strict';
+const base='/marketing/tiktok';
+const el=id=>document.getElementById(id);
+let publishId='';
+let currentObjectURL='';
+function message(text){el('message').textContent=text}
+function busy(value){el('verify').disabled=value;el('send').disabled=value||!el('file').files.length||!el('connect').hidden}
+async function jsonRequest(url,options){
+ const r=await fetch(base+url,{credentials:'same-origin',...options});
+ const j=await r.json().catch(()=>({message:'Resposta inesperada do servidor.'}));
+ if(!r.ok||j.success===false)throw Error(j.message||j.erro||'Erro HTTP '+r.status);
+ return j;
+}
+async function loadConnection(){
+ try{
+  const j=await jsonRequest('/api/config');
+  el('connect').hidden=!j.configured||j.connected;
+  el('disconnect').hidden=!j.connected;
+  el('connection').textContent=!j.configured
+    ? 'Integração não configurada no servidor. O teste local de upload está disponível.'
+    : j.connected?'Conta autorizada para o envio.':'Integração configurada. Conecte sua conta TikTok.';
+  el('send').disabled=!j.connected||!el('file').files.length;
+ }catch(e){el('connection').textContent=e.message}
+}
+el('file').addEventListener('change',()=>{
+ const file=el('file').files[0];
+ if(currentObjectURL)URL.revokeObjectURL(currentObjectURL);
+ el('preview').style.display=file?'block':'none';
+ if(file){currentObjectURL=URL.createObjectURL(file);el('preview').src=currentObjectURL}
+ el('send').disabled=!file||!el('connect').hidden;
+ message(file?'Arquivo selecionado: '+file.name+' ('+file.size+' bytes).':'Selecione um vídeo.');
+});
+async function transfer(endpoint){
+ const file=el('file').files[0];
+ if(!file){message('Selecione um arquivo MP4.');return}
+ const data=new FormData();data.append('video',file);
+ busy(true);message('Enviando arquivo, aguarde o resultado...');
+ try{
+  const j=await jsonRequest(endpoint,{method:'POST',body:data});
+  if(endpoint==='/api/verificar-upload'){
+   message('Upload recebido com sucesso no servidor.\nArquivo: '+j.name+'\nTamanho: '+j.bytes+' bytes\nSHA-256: '+j.sha256+'\nNão enviado ao TikTok.');
+  }else{
+   publishId=j.publish_id;
+   el('publishId').textContent=publishId;
+   el('checkArea').hidden=false;
+   el('statusText').textContent='Aguardando publicação pelo titular no aplicativo TikTok.';
+   message(j.message);
+  }
+ }catch(e){message('Falha: '+e.message)}
+ finally{busy(false)}
+}
+el('verify').addEventListener('click',()=>transfer('/api/verificar-upload'));
+el('videoForm').addEventListener('submit',e=>{e.preventDefault();transfer('/api/enviar')});
+el('check').addEventListener('click',async()=>{
+ try{
+  const j=await jsonRequest('/api/status',{method:'POST',
+   headers:{'Content-Type':'application/json'},body:JSON.stringify({publish_id:publishId})});
+  el('statusText').textContent=j.status==='PUBLISH_COMPLETE'
+   ? 'TikTok confirmou a publicação.' : 'Estado TikTok: '+j.status+(j.fail_reason?' — '+j.fail_reason:'');
+ }catch(e){el('statusText').textContent='Falha ao consultar: '+e.message}
+});
+el('disconnect').addEventListener('click',async()=>{
+ try{await jsonRequest('/api/desconectar',{method:'POST'});await loadConnection();message('Conexão local encerrada.')}
+ catch(e){message(e.message)}
+});
+loadConnection();
+</script></body></html>
