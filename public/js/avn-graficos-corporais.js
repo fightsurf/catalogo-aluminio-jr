@@ -6,14 +6,16 @@ const metricColors={
  gordura_corporal:'#fb923c',
  massa_magra:'#34d399',
  imc:'#f472b6',
- agua_corporal:'#c084fc'
+ agua_corporal:'#c084fc',
+ agua_ingerida:'#67e8f9'
 };
 const definitions=[
  {key:'peso',unit:'kg',color:metricColors.peso},
  {key:'gordura_corporal',unit:'%',color:metricColors.gordura_corporal},
  {key:'massa_magra',unit:'kg',color:metricColors.massa_magra},
  {key:'imc',unit:'kg/m²',color:metricColors.imc},
- {key:'agua_corporal',unit:'kg',color:metricColors.agua_corporal}
+ {key:'agua_corporal',unit:'kg',color:metricColors.agua_corporal},
+ {key:'agua_ingerida',unit:'ml',color:metricColors.agua_ingerida}
 ];
 const sources=['peso','gordura_corporal','massa_magra','agua_corporal'];
 // Faixas de referência para adultos; IMC não mede diretamente a gordura corporal.
@@ -491,7 +493,7 @@ function render(){
   const chartRows=m.key==='agua_corporal'?waterWithPercent(rows,state.data.peso||[]):rows;
   drawGraph(area,chartRows,m.unit,m.key.replaceAll('_',' '),m.color);
  }
- if($('compare-dialog')?.open)renderComparison();
+
 }
 async function refresh(){
  const id=$('usuario').value,dias=$('dias').value,token=++state.request;
@@ -504,10 +506,12 @@ async function refresh(){
   $('chart-'+m.key).replaceChildren();
  }
  if(!id)return;
- const responses=await Promise.allSettled(sources.map(key=>
-  getJson('/api/avn/health/usuarios/'+encodeURIComponent(id)+'/historico?metrica='+key+'&dias='+dias,state.controller.signal)));
+ const metricKeys=[...sources,'agua_ingerida'];
+ const responses=await Promise.allSettled(metricKeys.map(key=>key==='agua_ingerida'
+  ?getJson('/avn/sistema/api/hidratacao/serie?usuarioId='+encodeURIComponent(id)+'&dias='+dias,state.controller.signal)
+  :getJson('/api/avn/health/usuarios/'+encodeURIComponent(id)+'/historico?metrica='+key+'&dias='+dias,state.controller.signal)));
  if(token!==state.request)return;
- sources.forEach((key,index)=>{
+ metricKeys.forEach((key,index)=>{
   if(responses[index].status==='fulfilled')state.data[key]=validRows(responses[index].value.registros);
   else state.errors[key]=responses[index].reason?.message||'Não foi possível consultar esta métrica.';
  });
@@ -526,10 +530,14 @@ async function init(){
    const option=document.createElement('option');
    option.value=u.id;option.textContent=u.nome;select.append(option);
   }
+  const savedUser=localStorage.getItem('avn_nutricao_usuario')||localStorage.getItem('avn_treinos_usuario');
+  if(state.users.some(u=>String(u.id)===savedUser))select.value=savedUser;
+  window.AVNGraficosUsuarios=state.users;
+  document.dispatchEvent(new CustomEvent('avn-graficos-usuarios',{detail:state.users}));
   if(!state.users.length){refresh();return;}
   select.addEventListener('change',()=>{
+   localStorage.setItem('avn_nutricao_usuario',select.value);
    refresh();
-   if($('compare-dialog')?.open)loadComparison();
   });
   $('dias').addEventListener('change',refresh);
   await refresh();
@@ -544,6 +552,5 @@ window.addEventListener('resize',()=>{
  clearTimeout(resizeTimer);
  resizeTimer=setTimeout(render,120);
 });
-initComparison();
 init();
 })();
