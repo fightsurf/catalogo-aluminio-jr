@@ -5,6 +5,8 @@ const fmt=(n,dec=0)=>Number(n).toLocaleString('pt-BR',{maximumFractionDigits:dec
 const has=v=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v));
 const roundDay=d=>{const p=new Intl.DateTimeFormat('en-GB',{timeZone:TZ,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(d);const part=k=>p.find(x=>x.type===k)?.value;return part('year')+'-'+part('month')+'-'+part('day');};
 const hoje=()=>roundDay(new Date());
+// O único seletor temporal da página controla o histórico; nutrição limitada a 365 dias.
+const periodoSelecionado=()=>Math.min(365,Math.max(1,Number($('dias')?.value)||7));
 const dataBR=d=>d?d.slice(8,10)+'/'+d.slice(5,7)+'/'+d.slice(0,4):'';
 const isoDay=s=>new Date(s+'T12:00:00-03:00').getTime();
 const conf={
@@ -83,23 +85,20 @@ function graficoDiario(chave,dias,selecionado){
  const pontos=dias.map((d,i)=>validos[i]===null?null:({x:px(i),y:py(validos[i]),d,i,v:validos[i]}));
  segmentos(root,pontos,met.cor);
  for(let i=0;i<dias.length;i++){
-  svg(root,'text',{x:px(i),y:H-B+22,'text-anchor':'middle','font-size':12,fill:dias[i].data===selecionado.data?'#fff':'#a9b9d1','font-weight':dias[i].data===selecionado.data?700:400},dataBR(dias[i].data).slice(0,5));
+  if(i%Math.max(1,Math.ceil(dias.length/7))===0||i===dias.length-1)svg(root,'text',{x:px(i),y:H-B+22,'text-anchor':'middle','font-size':12,fill:dias[i].data===selecionado.data?'#fff':'#a9b9d1','font-weight':dias[i].data===selecionado.data?700:400},dataBR(dias[i].data).slice(0,5));
   const p=pontos[i];if(!p)continue;
   const ativo=p.d.data===selecionado.data;
-  const circle=svg(root,'circle',{cx:p.x,cy:p.y,r:ativo?6:4.5,fill:met.cor,stroke:ativo?'#fff':'#182437','stroke-width':ativo?2:1.5,tabindex:0,role:'button'});
+  const circle=svg(root,'circle',{cx:p.x,cy:p.y,r:ativo?6:4.5,fill:met.cor,stroke:ativo?'#fff':'#182437','stroke-width':ativo?2:1.5});
   let detalhe=dataBR(p.d.data)+' — '+fmt(p.v,1)+' '+met.unidade;
   if(chave==='passos'&&has(p.d.calorias_passos?.valor))detalhe+=' · '+fmt(p.d.calorias_passos.valor,1)+' kcal estimadas';
   svg(circle,'title',{},detalhe);
-  circle.setAttribute('aria-label',detalhe+'; selecionar data');
-  const selecionar=()=>{if($('data').value!==p.d.data){$('data').value=p.d.data;atualizar();}};
-  circle.addEventListener('click',selecionar);
-  circle.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();selecionar();}});
+  circle.setAttribute('aria-label',detalhe);
   // Valor numérico visível em todos os pontos dos gráficos diários.
-  svg(root,'text',{x:p.x,y:Math.max(16,p.y-13),'text-anchor':'middle','font-size':12,'font-weight':700,fill:met.cor,stroke:'#182437','stroke-width':3,'paint-order':'stroke','pointer-events':'none'},(chave==='saldo'&&p.v>0?'+':'')+fmt(p.v,0));
+  if(dias.length<=30)svg(root,'text',{x:p.x,y:Math.max(16,p.y-13),'text-anchor':'middle','font-size':12,'font-weight':700,fill:met.cor,stroke:'#182437','stroke-width':3,'paint-order':'stroke','pointer-events':'none'},(chave==='saldo'&&p.v>0?'+':'')+fmt(p.v,0));
   if(chave==='passos'){
    // Preserva a estimativa de kcal dos passos sob cada ponto, além da contagem de passos acima.
    const kcal=p.d.calorias_passos?.valor;
-   svg(root,'text',{x:p.x,y:Math.min(H-B+17,p.y+19),'text-anchor':'middle','font-size':11,'font-weight':700,fill:'#e1d5ff',stroke:'#182437','stroke-width':3,'paint-order':'stroke','pointer-events':'none'},has(kcal)?fmt(kcal,0)+' kcal':'— kcal');
+   if(dias.length<=30)svg(root,'text',{x:p.x,y:Math.min(H-B+17,p.y+19),'text-anchor':'middle','font-size':11,'font-weight':700,fill:'#e1d5ff',stroke:'#182437','stroke-width':3,'paint-order':'stroke','pointer-events':'none'},has(kcal)?fmt(kcal,0)+' kcal':'— kcal');
   }
  }
  alvo.append(root);
@@ -147,11 +146,11 @@ function datasMacros(fim,quantidade=7){
  const base=Date.parse(fim+'T12:00:00Z');
  return Array.from({length:quantidade},(_,i)=>new Date(base-(quantidade-i-1)*86400000).toISOString().slice(0,10));
 }
-function desenharGraficoMacro(m,registros,meta,fim,erro){
+function desenharGraficoMacro(m,registros,meta,fim,erro,periodo){
  const area=$('grafico-'+m.key),valor=$('valor-'+m.key),nota=$('nota-'+m.key);
  area.replaceChildren();
  if(erro){valor.textContent='Sem dados';nota.textContent=erro;area.textContent='Não foi possível carregar este histórico.';return;}
- const datas=datasMacros(fim),porData=new Map();
+ const datas=datasMacros(fim,periodo),porData=new Map();
  for(const registro of Array.isArray(registros)?registros:[]){
   if(datas.includes(registro.data)&&has(registro.value)&&Number(registro.value)>=0)
    porData.set(registro.data,Number(registro.value));
@@ -202,30 +201,27 @@ function desenharGraficoMacro(m,registros,meta,fim,erro){
  segmentos(root,pontos,m.cor); // Quebra a linha nos dias sem registro; não presume zero.
  for(let i=0;i<datas.length;i++){
   const data=datas[i],ativo=data===fim;
-  svg(root,'text',{x:px(i),y:H-B+22,'text-anchor':'middle','font-size':12,fill:ativo?'#fff':'#a9b9d1','font-weight':ativo?700:400},dataBR(data).slice(0,5));
+  if(i%Math.max(1,Math.ceil(datas.length/7))===0||i===datas.length-1)svg(root,'text',{x:px(i),y:H-B+22,'text-anchor':'middle','font-size':12,fill:ativo?'#fff':'#a9b9d1','font-weight':ativo?700:400},dataBR(data).slice(0,5));
   const p=pontos[i];if(!p)continue;
-  const circle=svg(root,'circle',{cx:p.x,cy:p.y,r:ativo?6:4.5,fill:m.cor,stroke:ativo?'#fff':'#182437','stroke-width':ativo?2:1.5,role:'button',tabindex:0});
+  const circle=svg(root,'circle',{cx:p.x,cy:p.y,r:ativo?6:4.5,fill:m.cor,stroke:ativo?'#fff':'#182437','stroke-width':ativo?2:1.5});
   const detalhe=dataBR(data)+' — '+fmt(p.v,2)+' g'+(alvo===null?'':' · Meta atual: '+fmt(alvo,2)+' g');
   svg(circle,'title',{},detalhe);
-  circle.setAttribute('aria-label',detalhe+'; selecionar data');
-  const selecionar=()=>{if($('data').value!==data){$('data').value=data;atualizar();}};
-  circle.addEventListener('click',selecionar);
-  circle.addEventListener('keydown',event=>{if(event.key==='Enter'||event.key===' '){event.preventDefault();selecionar();}});
-  svg(root,'text',{x:p.x,y:Math.max(16,p.y-13),'text-anchor':'middle','font-size':12,'font-weight':700,fill:m.cor,stroke:'#182437','stroke-width':3,'paint-order':'stroke','pointer-events':'none'},fmt(p.v,1));
+  circle.setAttribute('aria-label',detalhe);
+  if(datas.length<=30)svg(root,'text',{x:p.x,y:Math.max(16,p.y-13),'text-anchor':'middle','font-size':12,'font-weight':700,fill:m.cor,stroke:'#182437','stroke-width':3,'paint-order':'stroke','pointer-events':'none'},fmt(p.v,1));
  }
  area.append(root);
 }
-async function carregarGraficosMacros(token,usuario,dia){
+async function carregarGraficosMacros(token,usuario,dia,periodo){
  const base='/avn/sistema/api/';
  const [consumo,metas]=await Promise.allSettled([
-  getJson(base+'balanco-energetico/nutricao-comparacao/'+encodeURIComponent(usuario)+'?data='+dia+'&dias=7'),
+  getJson(base+'balanco-energetico/nutricao-comparacao/'+encodeURIComponent(usuario)+'?data='+dia+'&dias='+periodo),
   getJson(base+'nutricao/metas/'+encodeURIComponent(usuario))
  ]);
- if(token!==seq||$('usuario').value!==usuario||$('data').value!==dia)return;
+ if(token!==seq||$('usuario').value!==usuario||hoje()!==dia||periodoSelecionado()!==periodo)return;
  const erroConsumo=consumo.status==='rejected'?(consumo.reason?.message||'Falha na consulta nutricional.'):null;
  const metasAtuais=metas.status==='fulfilled'?metas.value:{};
  for(const m of macrosDiarios){
-  desenharGraficoMacro(m,consumo.status==='fulfilled'?consumo.value.series?.[m.key]:[],metasAtuais?.[m.campo],dia,erroConsumo);
+  desenharGraficoMacro(m,consumo.status==='fulfilled'?consumo.value.series?.[m.key]:[],metasAtuais?.[m.campo],dia,erroConsumo,periodo);
   if(metas.status==='rejected'&&!erroConsumo)
    $('nota-'+m.key).textContent='Não foi possível consultar Minhas metas; a linha de referência não foi exibida.';
  }
@@ -235,37 +231,20 @@ function limpar(){
  for(const chave of metricas){$('valor-'+chave).textContent='—';$('grafico-'+chave).replaceChildren();}
  $('saldo').className='saldo';$('saldo-valor').textContent='—';$('saldo-descricao').textContent='Não foi possível consultar os dados.';$('saldo-formula').textContent='';
 }
-function atualizarNavegacao(){
- const dia=$('data').value;
- $('dia-anterior').disabled=!dia;
- $('dia-seguinte').disabled=!dia||dia>=hoje();
-}
-function navegarDia(passos){
- const dia=$('data').value;
- if(!dia)return;
- const data=new Date(dia+'T12:00:00Z');
- if(Number.isNaN(data.getTime()))return;
- data.setUTCDate(data.getUTCDate()+passos);
- const destino=data.toISOString().slice(0,10);
- if(destino>hoje()||destino===dia)return;
- $('data').value=destino;
- atualizar();
-}
 async function atualizar(){
- atualizarNavegacao();
- const current=++seq,user=$('usuario').value,day=$('data').value;
+ const current=++seq,user=$('usuario').value,day=hoje(),dias=periodoSelecionado();
  limparGraficosMacros();
- if(!user||!day){$('mensagem').textContent='Selecione usuário e data.';return;}
+ if(!user){$('mensagem').textContent='Selecione um usuário.';return;}
  $('mensagem').textContent='Carregando gráficos…';
  try{
-  const r=await getJson('/avn/sistema/api/balanco-energetico/'+encodeURIComponent(user)+'?data='+day);
+  const r=await getJson('/avn/sistema/api/balanco-energetico/'+encodeURIComponent(user)+'?data='+day+'&dias='+dias);
   if(current!==seq)return;
   const selected=r.dias.find(d=>d.data===day);
   if(!selected)throw Error('Data não encontrada.');
   resultadoAtual=r;
   pintarDiarios(r.dias,selected);
-  $('mensagem').textContent='Dados de '+dataBR(day)+' · selecione os pontos para consultar outros dias.';
-  carregarGraficosMacros(current,user,day);
+  $('mensagem').textContent='Dados até '+dataBR(day)+' · últimos '+dias+' dias.'+(Number($('dias').value)>365?' O histórico nutricional é limitado a 365 dias; os gráficos corporais mantêm o período de até 10 anos.':'');
+  carregarGraficosMacros(current,user,day,dias);
   if($('compare-dialog').open)await carregarComparacao();
  }catch(err){if(current===seq){resultadoAtual=null;limpar();$('mensagem').textContent=err.message;}}
 }
@@ -320,7 +299,7 @@ function compararDatas(dias,met){return dias.filter(d=>has(met.get(d))).map(d=>(
 async function carregarComparacao(){
  if(!$('compare-dialog').open)return;
  const token=++compareSeq;
- const user=$('usuario').value,day=$('data').value,period=Number($('compare-dias').value);
+ const user=$('usuario').value,day=hoje(),period=periodoSelecionado();
  $('compare-status').textContent='Carregando dados do período…';
  $('compare-chart').replaceChildren();$('compare-legend').replaceChildren();
  if(!user||!day){$('compare-status').textContent='Selecione usuário e data.';return;}
@@ -459,15 +438,12 @@ function initComparador(){
  $('compare-close').addEventListener('click',()=>dialog.close());
  dialog.addEventListener('click',e=>{if(e.target===dialog)dialog.close();});
  dialog.addEventListener('close',()=>{compareSeq++;});
- $('compare-dias').addEventListener('change',carregarComparacao);
+ // O comparador utiliza o seletor de período da página.
  document.querySelectorAll('input[data-compare]').forEach(c=>c.addEventListener('change',desenharComparacao));
 }
 async function iniciar(){
- $('data').value=hoje();$('data').max=hoje();
  initComparador();
- $('data').addEventListener('change',atualizar);
- $('dia-anterior').addEventListener('click',()=>navegarDia(-1));
- $('dia-seguinte').addEventListener('click',()=>navegarDia(1));
+ $('dias').addEventListener('change',atualizar);
  const pronto=lista=>{
   usuarios=Array.isArray(lista)?lista:[];
   if(!usuarios.length){$('mensagem').textContent='Cadastre um usuário no AVN.';return;}
@@ -477,6 +453,6 @@ async function iniciar(){
  if(Array.isArray(window.AVNGraficosUsuarios))pronto(window.AVNGraficosUsuarios);
  else document.addEventListener('avn-graficos-usuarios',e=>pronto(e.detail),{once:true});
 }
-window.addEventListener('resize',()=>{clearTimeout(resizeHandle);resizeHandle=setTimeout(()=>{if(resultadoAtual){const d=resultadoAtual.dias.find(x=>x.data===$('data').value);if(d)pintarDiarios(resultadoAtual.dias,d);}if($('compare-dialog').open&&comparacao)desenharComparacao();},160);});
+window.addEventListener('resize',()=>{clearTimeout(resizeHandle);resizeHandle=setTimeout(()=>{if(resultadoAtual){const d=resultadoAtual.dias.find(x=>x.data===hoje());if(d)pintarDiarios(resultadoAtual.dias,d);}if($('compare-dialog').open&&comparacao)desenharComparacao();},160);});
 iniciar();
 })();
