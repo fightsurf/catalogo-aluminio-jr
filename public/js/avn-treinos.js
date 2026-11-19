@@ -546,11 +546,30 @@ async function abrirAdicionarRegistro(indice){
    if(dia.exercicios.length>=50)return toast('O limite é 50 exercícios neste dia.',true);
    dia.exercicios.splice(Math.min(Math.max(0,indice),dia.exercicios.length),0,
     {exercicio_id:id,series:3,repeticoes:'10',carga_unidade:'kg',carga_kg:null,carga_placas:null,descanso_seg:60,observacoes:''});
+   // Preserva séries, cargas, repetições e observações que já foram digitadas na sessão.
+   const campos=[...document.querySelectorAll('#treinoItens [data-realizado]')].map(c=>({
+    series:c.querySelector('.ses-series').value,reps:c.querySelector('.ses-reps').value,
+    unidade:c.querySelector('.ses-unidade').value,carga:c.querySelector('.ses-carga').value,
+    obs:c.querySelector('.ses-obs').value
+   }));
    b.disabled=true;
    try{
     await fetchJSON('/planos/'+plano.id,{method:'PUT',body:JSON.stringify(plano)});
     await carregarTreino(plano.id);
-    renderTreinoItens();await buscarExecucaoWeb();
+    renderTreinoItens();
+    campos.forEach((x,i)=>{
+     const pos=i>=indice?i+1:i;
+     const c=document.querySelector('#treinoItens [data-realizado="'+pos+'"]');
+     if(!c)return;
+     c.querySelector('.ses-series').value=x.series;
+     c.querySelector('.ses-reps').value=x.reps;
+     c.querySelector('.ses-unidade').value=x.unidade;
+     const input=c.querySelector('.ses-carga');
+     input.value=x.carga;input.max=x.unidade==='placas'?'200':'2000';
+     input.step=x.unidade==='placas'?'1':'0.5';
+     c.querySelector('.ses-obs').value=x.obs;
+    });
+    await buscarExecucaoWeb();
     modal.close();toast('Exercício inserido e salvo no plano.');
    }catch(e){toast('Não foi possível salvar o exercício: '+e.message,true);b.disabled=false;}
   });
