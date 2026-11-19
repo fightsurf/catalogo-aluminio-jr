@@ -131,7 +131,7 @@ function pintarDiarios(dias,selecionado){
   ?'Sem passos sincronizados: 0 kcal estimadas nesta parcela.'
   :!has(e?.valor)
    ?'Estimativa indisponível: registre peso recente e altura.'
-   :'Kcal líquidas estimadas sob cada ponto. No dia escolhido: '+fmt(e.valor,1)+' kcal de '+fmt(e.passos_considerados)+' passos considerados, sem duplicar intervalos de treino.';
+   :'Kcal líquidas estimadas sob cada ponto. Hoje: '+fmt(e.valor,1)+' kcal de '+fmt(e.passos_considerados)+' passos considerados, sem duplicar intervalos de treino.';
  preencherResumo(selecionado);
 }
 
