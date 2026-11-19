@@ -60,6 +60,20 @@ button { padding:6px 12px; border:none; border-radius:4px; cursor:pointer; }
   display:flex;
   justify-content:space-between;
 }
+.modal-merge { width:min(620px, calc(100vw - 48px)); max-height:86vh; overflow:auto; }
+.modal-merge fieldset { border:1px solid #d5dbe4; border-radius:6px; margin:12px 0; padding:10px 12px; }
+.modal-merge legend { font-weight:700; padding:0 5px; }
+.modal-merge .merge-choice { display:block; margin:6px 0; font-size:14px; }
+.modal-merge .merge-choice input[type="radio"] { width:auto; margin:0 6px 0 0; vertical-align:middle; }
+.modal-merge .merge-info { font-size:14px; background:#f5f7fb; padding:10px; border-radius:6px; margin-bottom:10px; }
+.modal-merge .merge-preview { white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.5; }
+.modal-merge .merge-cities { max-height:150px; overflow:auto; padding-left:20px; font-size:14px; }
+.modal-merge button:disabled { opacity:.45; cursor:not-allowed; }
+.modal-merge .merge-error { color:#a81e25; font-size:14px; white-space:pre-wrap; }
+.modal-merge .merge-success { color:#087338; font-size:14px; }
+#modal-mesclagem { z-index:1000; }
+@media(max-width:700px) { .main-grid { grid-template-columns:1fr; } }
+
 </style>
 </head>
 
@@ -120,12 +134,57 @@ button { padding:6px 12px; border:none; border-radius:4px; cursor:pointer; }
   </div>
 </div>
 
+<!-- MESCLAGEM MANUAL DE CADASTROS DUPLICADOS -->
+<div id="modal-mesclagem" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="mescla-titulo">
+  <div class="modal modal-merge">
+    <h3 id="mescla-titulo">🔀 Mesclar transportadoras ou excursões</h3>
+    <p class="merge-info">O cadastro aberto será mantido. Escolha o duplicado a incorporar. Telefones, observações e cidades vinculadas serão reunidos; pedidos e redespachos serão preservados.</p>
+    <strong>Cadastro que permanecerá</strong>
+    <div id="mescla-destino" class="merge-info"></div>
+    <label for="mescla-busca">Localizar cadastro duplicado</label>
+    <input id="mescla-busca" type="search" placeholder="Digite parte do nome..." oninput="listarOrigensMesclagem()">
+    <select id="mescla-origem" onchange="atualizarEscolhasMesclagem()"><option value="">Selecione o duplicado</option></select>
+
+    <div id="mescla-escolhas" style="display:none">
+      <fieldset>
+        <legend>Nome que ficará</legend>
+        <label class="merge-choice"><input type="radio" name="mescla-nome" value="destino" checked onchange="invalidarPreviaMesclagem()"> <span id="mescla-nome-destino"></span></label>
+        <label class="merge-choice"><input type="radio" name="mescla-nome" value="origem" onchange="invalidarPreviaMesclagem()"> <span id="mescla-nome-origem"></span></label>
+      </fieldset>
+      <fieldset>
+        <legend>Cidade principal que ficará</legend>
+        <label class="merge-choice"><input type="radio" name="mescla-cidade" value="destino" checked onchange="invalidarPreviaMesclagem()"> <span id="mescla-cidade-destino"></span></label>
+        <label class="merge-choice"><input type="radio" name="mescla-cidade" value="origem" onchange="invalidarPreviaMesclagem()"> <span id="mescla-cidade-origem"></span></label>
+      </fieldset>
+      <fieldset>
+        <legend>Telefone principal que ficará</legend>
+        <label class="merge-choice"><input type="radio" name="mescla-principal" value="destino" checked onchange="invalidarPreviaMesclagem()"> <span id="mescla-principal-destino"></span></label>
+        <label class="merge-choice"><input type="radio" name="mescla-principal" value="origem" onchange="invalidarPreviaMesclagem()"> <span id="mescla-principal-origem"></span></label>
+      </fieldset>
+      <button class="btn-primary" id="mescla-prever" type="button" onclick="gerarPreviaMesclagem()">Conferir resultado</button>
+    </div>
+    <p id="mescla-status" class="merge-error" role="status"></p>
+    <div id="mescla-resultado" style="display:none">
+      <h4>Prévia da mesclagem</h4>
+      <div id="mescla-resumo" class="merge-info merge-preview"></div>
+      <strong>Cidades vinculadas após a união</strong>
+      <ul id="mescla-cidades" class="merge-cities"></ul>
+    </div>
+    <div class="modal-buttons">
+      <button class="btn-secondary" type="button" onclick="fecharMesclagem()">Cancelar</button>
+      <button class="btn-danger" id="mescla-confirmar" type="button" onclick="confirmarMesclagem()" disabled>Confirmar mesclagem</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const API_TRANSPORTADORAS = '/api/transportadoras';
 const API_LOGISTICA = '/api/logistica';
 
 let transportadoraSelecionada = null;
 let cidadesVinculadasCarregadas = [];
+let transportadorasCarregadas = [];
+let previaMesclagem = null;
 
 // =============================
 async function criarTransportadora() {
@@ -166,6 +225,7 @@ async function criarTransportadora() {
 async function carregarTransportadoras() {
   const res = await fetch(API_TRANSPORTADORAS);
   const dados = await res.json();
+  transportadorasCarregadas = Array.isArray(dados) ? dados : [];
 
   const div = document.getElementById('lista');
   div.innerHTML = '';
@@ -217,6 +277,7 @@ function renderDetalhes() {
     </div>
     <textarea id="edit-observacao">${transportadoraSelecionada.observacao || ''}</textarea>
     <button class="btn-edit" onclick="salvarEdicao()">Salvar</button>
+    <button class="btn-secondary" onclick="abrirMesclagem()">🔀 Mesclar cadastros</button>
     <button class="btn-danger" onclick="excluirTransportadora()">Excluir</button>
   `;
 
@@ -444,6 +505,161 @@ async function removerCidade(codigo_ibge) {
   });
 
   carregarCidades();
+}
+
+
+function rotuloCidadeMescla(t) {
+  return t && t.cidade_nome ? t.cidade_nome + (t.cidade_estado ? ' - ' + t.cidade_estado : '') : 'Sem cidade principal';
+}
+
+function abrirMesclagem() {
+  if (!transportadoraSelecionada) return;
+  previaMesclagem = null;
+  document.getElementById('mescla-busca').value = '';
+  document.getElementById('mescla-destino').textContent = transportadoraSelecionada.nome +
+    ' (ID ' + transportadoraSelecionada.id + ')';
+  document.getElementById('modal-mesclagem').style.display = 'flex';
+  listarOrigensMesclagem();
+  atualizarEscolhasMesclagem();
+}
+
+function fecharMesclagem() {
+  document.getElementById('modal-mesclagem').style.display = 'none';
+  previaMesclagem = null;
+}
+
+function listarOrigensMesclagem() {
+  const seletor = document.getElementById('mescla-origem');
+  const busca = document.getElementById('mescla-busca').value
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const idAnterior = seletor.value;
+  seletor.replaceChildren(new Option('Selecione o duplicado', ''));
+  for (const t of transportadorasCarregadas) {
+    if (String(t.id) === String(transportadoraSelecionada.id)) continue;
+    const nome = String(t.nome || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    if (busca && !nome.includes(busca)) continue;
+    seletor.add(new Option(t.nome + ' (ID ' + t.id + ')', String(t.id)));
+  }
+  if (Array.from(seletor.options).some(op => op.value === idAnterior)) seletor.value = idAnterior;
+  atualizarEscolhasMesclagem();
+}
+
+function origemMesclagem() {
+  return transportadorasCarregadas.find(t => String(t.id) === document.getElementById('mescla-origem').value);
+}
+
+function invalidarPreviaMesclagem() {
+  previaMesclagem = null;
+  document.getElementById('mescla-resultado').style.display = 'none';
+  document.getElementById('mescla-confirmar').disabled = true;
+  document.getElementById('mescla-status').textContent = '';
+}
+
+function atualizarEscolhasMesclagem() {
+  invalidarPreviaMesclagem();
+  const a = transportadoraSelecionada;
+  const b = origemMesclagem();
+  document.getElementById('mescla-escolhas').style.display = b ? 'block' : 'none';
+  if (!a || !b) return;
+  const rotulos = {
+    'mescla-nome-destino': a.nome,
+    'mescla-nome-origem': b.nome,
+    'mescla-cidade-destino': rotuloCidadeMescla(a),
+    'mescla-cidade-origem': rotuloCidadeMescla(b),
+    'mescla-principal-destino': a.telefone_principal || a.telefone || 'Não informado',
+    'mescla-principal-origem': b.telefone_principal || b.telefone || 'Não informado'
+  };
+  Object.entries(rotulos).forEach(([id, valor]) => {
+    document.getElementById(id).textContent = valor;
+  });
+  document.querySelectorAll('input[name="mescla-nome"], input[name="mescla-cidade"], input[name="mescla-principal"]')
+    .forEach(input => { input.checked = input.value === 'destino'; });
+}
+
+function escolhasMesclagem() {
+  return {
+    destino_id: Number(transportadoraSelecionada.id),
+    origem_id: Number(document.getElementById('mescla-origem').value),
+    nome_de: document.querySelector('input[name="mescla-nome"]:checked').value,
+    cidade_de: document.querySelector('input[name="mescla-cidade"]:checked').value,
+    principal_de: document.querySelector('input[name="mescla-principal"]:checked').value
+  };
+}
+
+async function requisicaoMescla(caminho, payload) {
+  const resposta = await fetch(API_TRANSPORTADORAS + '/mesclagem/' + caminho, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload)
+  });
+  const dados = await resposta.json().catch(() => ({}));
+  if (!resposta.ok) throw new Error(dados.error || 'Erro ao mesclar cadastros.');
+  return dados;
+}
+
+async function gerarPreviaMesclagem() {
+  const b = origemMesclagem();
+  if (!b) return;
+  invalidarPreviaMesclagem();
+  const botao = document.getElementById('mescla-prever');
+  botao.disabled = true;
+  try {
+    const dados = await requisicaoMescla('previa', escolhasMesclagem());
+    previaMesclagem = dados;
+    const resumo = [
+      'Nome: ' + dados.dados_finais.nome,
+      'Cidade principal: ' + (dados.dados_finais.cidade_id === transportadoraSelecionada.cidade_id ?
+        rotuloCidadeMescla(transportadoraSelecionada) : rotuloCidadeMescla(b)),
+      'Telefone principal: ' + (dados.dados_finais.telefone_principal || 'Não informado'),
+      'Todos os telefones: ' + (dados.dados_finais.telefone || 'Nenhum'),
+      'Observações unificadas: ' + (dados.dados_finais.observacao || 'Nenhuma'),
+      'Cidades vinculadas: ' + dados.cidades_depois + ' (antes: ' + dados.cidades_antes + ' vínculos)',
+      'Registros que serão reatribuídos: ' + dados.vinculacoes.entregas + ' entregas, ' +
+      dados.vinculacoes.redespachos + ' redespachos e ' + dados.vinculacoes.pre_pedidos + ' pré-pedidos.'
+    ];
+    document.getElementById('mescla-resumo').textContent = resumo.join('\n');
+    const lista = document.getElementById('mescla-cidades');
+    lista.replaceChildren();
+    for (const cidade of dados.cidades) {
+      const li = document.createElement('li');
+      li.textContent = (cidade.nome || 'Cidade ' + cidade.cidade_id) +
+        (cidade.estado ? ' - ' + cidade.estado : '') +
+        (cidade.observacao ? ' — ' + cidade.observacao : '');
+      lista.appendChild(li);
+    }
+    document.getElementById('mescla-resultado').style.display = 'block';
+    document.getElementById('mescla-confirmar').disabled = false;
+  } catch (erro) {
+    document.getElementById('mescla-status').textContent = erro.message;
+  } finally {
+    botao.disabled = false;
+  }
+}
+
+async function confirmarMesclagem() {
+  if (!previaMesclagem || !previaMesclagem.assinatura) return;
+  const duplicado = origemMesclagem();
+  if (!duplicado) return;
+  if (!confirm('Mesclar "' + duplicado.nome + '" no cadastro "' +
+      transportadoraSelecionada.nome + '"? O duplicado sairá da lista, mas seus dados serão preservados no cadastro final e no histórico.')) return;
+  const botao = document.getElementById('mescla-confirmar');
+  botao.disabled = true;
+  try {
+    const dados = await requisicaoMescla('confirmar',
+      Object.assign(escolhasMesclagem(), { assinatura: previaMesclagem.assinatura }));
+    fecharMesclagem();
+    transportadoraSelecionada = null;
+    cidadesVinculadasCarregadas = [];
+    await carregarTransportadoras();
+    const cadastro = transportadorasCarregadas.find(t => Number(t.id) === Number(dados.id));
+    if (cadastro) selecionarTransportadora(cadastro);
+    alert('Mesclagem concluída. Cadastro único: ' + dados.nome + '. ' + dados.cidades + ' cidades vinculadas.');
+  } catch (erro) {
+    invalidarPreviaMesclagem();
+    document.getElementById('mescla-status').textContent = erro.message;
+  } finally {
+    botao.disabled = false;
+  }
 }
 
 // =============================
