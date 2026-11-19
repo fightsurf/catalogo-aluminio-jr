@@ -39,8 +39,9 @@
           (primeiro ? 'Primeiro exercício: ' : 'Próximo exercício: ') + s.exercises[indice].name
         );
         utterance.lang = 'pt-BR';
-        utterance.rate = 0.93;
-        utterance.volume = 1;
+        utterance.rate = 0.87;
+        utterance.pitch = 1.1;
+        utterance.volume = 1; // Limite máximo do navegador: não existe ganho acima de 1 para SpeechSynthesis.
         const voices = window.speechSynthesis.getVoices();
         const voice = voices.find(v => v.lang.toLowerCase() === 'pt-br') ||
                       voices.find(v => v.lang.toLowerCase().startsWith('pt'));
@@ -110,7 +111,7 @@
         mediaType: String(x.midia_tipo || '')
       }));
       if (!exercises.length) throw Error('O dia selecionado não contém exercícios.');
-      configurar(plan.nome, exercises);
+      configurar(plan.nome, exercises, Number(planoId), dia);
     } catch (e) {
       window.alert(e.message || 'Não foi possível preparar o circuito.');
     } finally {
@@ -118,7 +119,7 @@
     }
   }
 
-  function configurar(planName, exercises) {
+  function configurar(planName, exercises, planId, day) {
     if (session) return;
     const modal = obterDialog();
     modal.classList.remove('avn-circuito-executando');
@@ -152,7 +153,7 @@
         localStorage.setItem(CHAVE_PREPARO, String(prep));
         localStorage.setItem(CHAVE_VOZ, String(voz));
       } catch (_) { /* Preferências opcionais. */ }
-      iniciar(exercises, work, rest, prep, voz);
+      iniciar(exercises, work, rest, prep, voz, planId, day);
     };
     if (!modal.open) modal.showModal();
   }
@@ -208,6 +209,21 @@
     } catch (_) { /* O cronômetro continua mesmo sem áudio. */ }
   }
 
+  function tocarBeepDescanso() {
+    if(!audio || !audioOutput || audio.state==='closed')return;
+    try {
+      const at=audio.currentTime+0.01,osc=audio.createOscillator(),gain=audio.createGain();
+      osc.type='sine';osc.frequency.setValueAtTime(990,at);
+      osc.frequency.setValueAtTime(1250,at+0.07);
+      gain.gain.setValueAtTime(0.0001,at);
+      gain.gain.exponentialRampToValueAtTime(0.19,at+0.014);
+      gain.gain.exponentialRampToValueAtTime(0.0001,at+0.18);
+      osc.connect(gain);gain.connect(audioOutput);
+      osc.start(at);osc.stop(at+0.19);
+      osc.onended=()=>{osc.disconnect();gain.disconnect();};
+    }catch(_){}
+  }
+
   async function manterTelaAcordada() {
     try {
       if (!wakeLock && session && !session.paused && document.visibilityState === 'visible' && navigator.wakeLock) {
@@ -225,11 +241,13 @@
     }
   }
 
-  function iniciar(exercises, work, rest, prep, voz) {
+  function iniciar(exercises, work, rest, prep, voz, planId, day) {
     if (session) return;
     iniciarAudio(); // Gesto de clique libera o som no navegador.
-    session = { exercises, work, rest, prep, voice: voz, index: 0, phase: prep > 0 ? 'prepare' : 'exercise',
-      endsAt: Date.now() + (prep > 0 ? prep : work) * 1000, paused: false, remainingMs: 0, editing: false };
+    session = { exercises: exercises.map(e => ({...e})), work, rest, prep, voice: voz,
+      planId, day, userId: Number(byId('usuario')?.value), completed: new Set(), lastRestBeep: null,
+      index: 0, phase: prep > 0 ? 'prepare' : 'exercise',
+      endsAt: Date.now() + (prep > 0 ? prep : work) * 1000, paused: false, remainingMs: 0, editing: false, adding: false };
     obterDialog().classList.add('avn-circuito-executando');
     if (prep === 0) tocarSino(3);
     desenhar();
@@ -246,7 +264,7 @@
 
   function navegarExercicio(direcao) {
     const s = session;
-    if (!s || s.editing || ![-1, 1].includes(direcao)) return;
+    if (!s || s.editing || s.adding || ![-1, 1].includes(direcao)) return;
     cancelarFala();
     const index = s.phase === 'rest' ? (direcao === -1 ? s.index : s.index + 1) : s.index + direcao;
     if (index < 0 || index >= s.exercises.length) return;
@@ -260,7 +278,7 @@
   }
 
   function abrirEdicao() {
-    if (!session || !session.paused) return;
+    if (!session || !session.paused || session.adding) return;
     cancelarFala();
     session.editing = true;
     desenhar();
@@ -317,6 +335,87 @@
     overlay.querySelector('#avnEditarNome').focus();
   }
 
+  function abrirAdicionarCircuito() {
+    const s = session;
+    if (!s || s.editing || s.adding) return;
+    if (!s.paused) {
+      cancelarFala();
+      s.remainingMs = Math.max(0, s.endsAt - Date.now());
+      s.paused = true;
+      soltarTela();
+    }
+    s.adding = true;
+    desenhar();
+  }
+
+  function desenharAdicionarCircuito(modal) {
+    const s = session;
+    if (!s || !s.adding || !s.paused) return;
+    const overlay = document.createElement('div');
+    overlay.className = 'avn-circuito-editor-overlay';
+    overlay.innerHTML = '<div class="avn-circuito-editor avn-circuito-biblioteca">' +
+      '<h3>Adicionar próximo exercício</h3><p>O circuito está pausado. O exercício será inserido depois do atual e salvo no plano.</p>' +
+      '<label>Buscar exercício<input id="avnCircuitoBuscarEx" type="search" placeholder="Nome ou grupo muscular"></label>' +
+      '<div id="avnCircuitoListaEx" class="avn-circuito-lista-ex">Carregando biblioteca…</div>' +
+      '<div class="avn-circuito-editor-acoes"><button type="button" id="avnCircuitoCancelarInclusao">Cancelar</button></div></div>';
+    modal.append(overlay);
+    const lista=overlay.querySelector('#avnCircuitoListaEx');
+    const busca=overlay.querySelector('#avnCircuitoBuscarEx');
+    overlay.querySelector('#avnCircuitoCancelarInclusao').onclick=()=>{s.adding=false;desenhar();};
+    fetch('/avn/sistema/api/treinos/exercicios',{credentials:'same-origin',headers:{Accept:'application/json'}})
+      .then(r=>{if(!r.ok)throw Error('Não foi possível carregar a biblioteca.');return r.json();})
+      .then(exercicios=>{
+        if(session!==s || !s.adding || !lista.isConnected)return;
+        const render=()=>{
+          const termo=busca.value.trim().toLocaleLowerCase('pt-BR');
+          const items=exercicios.filter(ex=>(ex.nome+' '+(ex.grupo||'')).toLocaleLowerCase('pt-BR').includes(termo));
+          lista.innerHTML=items.length?items.map(ex=>'<button type="button" data-id="'+Number(ex.id)+'">'+
+            escapeHtml(ex.nome)+' <small>'+escapeHtml(ex.grupo||'')+'</small></button>').join(''):'<p>Nenhum exercício encontrado.</p>';
+          lista.querySelectorAll('button[data-id]').forEach(btn=>btn.onclick=()=>inserirExercicioCircuito(s,exercicios.find(e=>Number(e.id)===Number(btn.dataset.id)),btn,lista));
+        };
+        busca.addEventListener('input',render);
+        render();
+      })
+      .catch(e=>{if(lista.isConnected)lista.textContent=e.message;});
+    busca.focus();
+  }
+
+  async function inserirExercicioCircuito(s,ex,button,lista) {
+    if(!s || session!==s || !s.adding || !ex || !Number.isInteger(s.planId))return;
+    if(s.exercises.length>=50){lista.textContent='Limite de 50 exercícios por dia.';return;}
+    button.disabled=true;
+    lista.setAttribute('aria-busy','true');
+    try {
+      const url='/avn/sistema/api/treinos/planos/'+encodeURIComponent(s.planId);
+      const resposta=await fetch(url,{credentials:'same-origin',headers:{Accept:'application/json'}});
+      if(!resposta.ok)throw Error('Falha ao carregar o plano para inclusão.');
+      const plano=await resposta.json();
+      if(Number(plano.usuario_id)!==s.userId)throw Error('O plano pertence a outro usuário.');
+      const dia=(plano.dias||[]).find(x=>Number(x.dia_semana)===s.day);
+      if(!dia)throw Error('Dia do treino não encontrado.');
+      const pos=Math.min(s.index+1,dia.exercicios.length);
+      dia.exercicios.splice(pos,0,{
+        exercicio_id:Number(ex.id),series:1,repeticoes:'10',carga_unidade:'kg',
+        carga_kg:null,carga_placas:null,descanso_seg:s.rest,observacoes:'Incluído durante o circuito'
+      });
+      const resp=await fetch(url,{method:'PUT',credentials:'same-origin',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(plano)});
+      const json=await resp.json().catch(()=>({}));
+      if(!resp.ok)throw Error(json.erro||'Falha ao salvar no plano.');
+      if(session!==s)return;
+      s.exercises.splice(s.index+1,0,{
+        id:Number(ex.id),name:String(ex.nome),mediaUrl:String(ex.midia_url||''),
+        mediaType:String(ex.midia_tipo||'')
+      });
+      s.adding=false;
+      desenhar();
+      byId('selectPlano')?.dispatchEvent(new Event('change',{bubbles:true}));
+    } catch(e) {
+      if(lista.isConnected){lista.removeAttribute('aria-busy');lista.insertAdjacentHTML('afterbegin','<p class="avn-circuito-erro">'+escapeHtml(e.message)+'</p>');}
+      button.disabled=false;
+    }
+  }
+
   function enderecoImagem(raw) {
     if (!raw) return '';
     try {
@@ -351,6 +450,7 @@
       '<button type="button" id="avnCircuitoAnterior" aria-label="Exercício anterior"' + (podeVoltar ? '' : ' disabled') + '>← Anterior</button>' +
       '<button type="button" id="avnCircuitoSeguinte" aria-label="Próximo exercício"' + (podeAvancar ? '' : ' disabled') + '>Próximo →</button>' +
       '<button type="button" id="avnCircuitoPausar">' + (s.paused ? '▶ Continuar' : 'Ⅱ Pausar') + '</button>' +
+      '<button type="button" id="avnCircuitoAdicionar">+ Adicionar exercício</button>' +
       (s.paused ? '<button type="button" id="avnCircuitoEditar">✏️ Editar treino</button>' : '') +
       '<button type="button" id="avnCircuitoSair">Encerrar ×</button></div>';
     if (s.phase === 'prepare') {
@@ -376,7 +476,7 @@
       modal.innerHTML = '<section class="avn-circuito-painel avn-circuito-em-descanso">' +
         '<div class="avn-circuito-barra"><span>DESCANSO · ' + (s.index + 1) + ' DE ' + s.exercises.length + '</span>' + controls + '</div>' +
         '<div class="avn-circuito-descanso-corpo"><h2>DESCANSO</h2><div class="avn-circuito-tempo" id="avnCircuitoRelogio" role="timer">00:00</div>' +
-        '<div class="avn-circuito-proximo"><span>PRÓXIMO EXERCÍCIO</span><strong>' + escapeHtml(seguinte?.name || 'Fim do circuito') + '</strong></div>' +
+        '<div class="avn-circuito-proximo"><div class="avn-circuito-proximo-imagem">' + foto(seguinte) + '</div><div class="avn-circuito-proximo-texto"><span>PRÓXIMO EXERCÍCIO</span><strong>' + escapeHtml(seguinte?.name || 'Fim do circuito') + '</strong></div></div>' +
         '<span class="avn-circuito-pausado" id="avnCircuitoEstado">' + (s.paused ? 'PAUSADO' : '') + '</span></div></section>';
     }
     const imagem = modal.querySelector('img.avn-circuito-foto');
@@ -390,8 +490,10 @@
     byId('avnCircuitoAnterior').onclick = () => navegarExercicio(-1);
     byId('avnCircuitoSeguinte').onclick = () => navegarExercicio(1);
     byId('avnCircuitoPausar').onclick = pausarOuContinuar;
+    byId('avnCircuitoAdicionar').onclick = abrirAdicionarCircuito;
     if (s.paused) byId('avnCircuitoEditar').onclick = abrirEdicao;
     if (s.editing) desenharEdicao(modal);
+    if (s.adding) desenharAdicionarCircuito(modal);
     byId('avnCircuitoSair').onclick = fechar;
     atualizarRelogio();
   }
@@ -407,6 +509,10 @@
     const s = session;
     if (!s || s.paused) return;
     const now = Date.now();
+    const restante=Math.max(0,Math.ceil((s.endsAt-now)/1000));
+    if(s.phase==='rest' && restante>=1 && restante<=3 && restante!==s.lastRestBeep && document.visibilityState==='visible'){
+      s.lastRestBeep=restante;tocarBeepDescanso();
+    }
     let advanced = false;
     let safety = s.exercises.length * 3 + 3;
     while (session && !s.paused && now >= s.endsAt && safety-- > 0) {
@@ -416,13 +522,16 @@
         s.endsAt += segundosExercicio(s) * 1000;
         if (now < s.endsAt && document.visibilityState === 'visible') tocarSino(3);
       } else if (s.phase === 'exercise' && s.rest > 0 && s.index < s.exercises.length - 1) {
+        s.completed.add(s.index);
         s.phase = 'rest';
+        s.lastRestBeep=null;
         s.endsAt += s.rest * 1000;
         if (now < s.endsAt && document.visibilityState === 'visible') {
           tocarSino(2);
           anunciarExercicio(s, s.index + 1, 'rest');
         }
       } else {
+        if(s.phase==='exercise')s.completed.add(s.index);
         s.index++;
         if (s.index >= s.exercises.length) {
           concluir();
@@ -444,10 +553,11 @@
 
   function pausarOuContinuar() {
     const s = session;
-    if (!s || s.editing) return;
+    if (!s || s.editing || s.adding) return;
     if (s.paused) {
       s.endsAt = Date.now() + s.remainingMs;
       s.paused = false;
+      s.lastRestBeep = null;
       manterTelaAcordada();
       if (s.phase === 'rest') anunciarExercicio(s, s.index + 1, 'rest');
     } else {
@@ -459,17 +569,53 @@
     desenhar();
   }
 
-  function concluir() {
-    if (!session) return;
+  async function concluir() {
+    const s=session;
+    if(!s || s.saving)return;
+    s.saving=true;
     cancelarFala();
-    const total = session.exercises.length;
-    clearInterval(interval); interval = null;
+    clearInterval(interval);interval=null;
     soltarTela();
-    session = null;
+    session=null;
     tocarSino(3);
-    obterDialog().innerHTML = '<section class="avn-circuito-concluido"><h2>Circuito concluído</h2>' +
-      '<p>' + total + ' exercícios concluídos.</p><button type="button" id="avnCircuitoConcluir">Fechar</button></section>';
-    byId('avnCircuitoConcluir').onclick = fechar;
+    const modal=obterDialog();
+    const realizados=s.exercises.map((ex,i)=>({ex,i})).filter(x=>s.completed.has(x.i)).map(({ex})=>({
+      exercicio_id:ex.id,series_realizadas:1,
+      repeticoes_realizadas:String(Number(ex.workSec)||s.work)+' segundos',
+      carga_unidade:'kg',carga_kg:null,carga_placas:null,observacoes:'Circuito cronometrado'
+    }));
+    const banner='<h2>Circuito concluído</h2><p>'+realizados.length+' exercícios concluídos.</p>';
+    const renderFinal=(message,success)=>{
+      modal.innerHTML='<section class="avn-circuito-concluido">'+banner+'<p role="status">'+escapeHtml(message)+'</p>'+
+        (success?'<button type="button" id="avnCircuitoVerHistorico">Ver histórico recente</button>':
+          '<button type="button" id="avnCircuitoSalvarNovamente">Tentar salvar novamente</button>')+
+        '<button type="button" id="avnCircuitoConcluir">Fechar</button></section>';
+      byId('avnCircuitoConcluir').onclick=fechar;
+      const btn=byId('avnCircuitoVerHistorico');
+      if(btn)btn.onclick=()=>{fechar();byId('verHistoricoTreinos')?.click();};
+      const retry=byId('avnCircuitoSalvarNovamente');
+      if(retry)retry.onclick=salvar;
+    };
+    const salvar=async()=>{
+      if(!realizados.length){renderFinal('Nenhum exercício cronometrado foi concluído. Não há sessão para registrar.',true);return;}
+      modal.innerHTML='<section class="avn-circuito-concluido">'+banner+'<p role="status">Salvando a sessão no histórico…</p></section>';
+      try {
+        const resposta=await fetch('/avn/sistema/api/treinos/sessoes',{
+          method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({
+            usuario_id:s.userId,plano_id:s.planId,dia_semana:s.day,
+            observacoes:'Circuito cronometrado: exercício '+s.work+' s; descanso '+s.rest+' s; preparo '+s.prep+' s.',
+            realizados
+          })
+        });
+        const resultado=await resposta.json().catch(()=>({}));
+        if(!resposta.ok)throw Error(resultado.erro||'Falha ao salvar sessão.');
+        renderFinal('Sessão gravada no histórico de treinos recentes.',true);
+      }catch(e){
+        renderFinal('A sessão ainda não foi gravada: '+(e.message||'erro desconhecido')+'. Use Tentar salvar novamente.',false);
+      }
+    };
+    await salvar();
   }
 
   function fechar() {
