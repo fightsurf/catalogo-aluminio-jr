@@ -49,3 +49,25 @@
  .compare-legend{gap:8px 12px}.compare-help{font-size:11px}
 }
 @media(max-width:375px){.compare-checks label{width:100%}.painel strong{font-size:18px}.btn-principal{width:100%}}
+
+/* Gráficos Corporais: comparador unificado, escolha à esquerda e visualização à direita. */
+body[data-section="corporal"] .compare-modal{position:fixed;inset:0;margin:auto;width:min(1400px,calc(100vw - 20px));max-width:1400px;max-height:calc(100dvh - 20px);}
+body[data-section="corporal"] .compare-layout{display:grid;grid-template-columns:minmax(220px,285px) minmax(0,1fr);gap:18px;align-items:stretch;min-height:340px;}
+body[data-section="corporal"] .compare-indicators{min-width:0;max-height:min(75dvh,730px);overflow-y:auto;padding-right:5px;}
+body[data-section="corporal"] .compare-indicators .compare-group{margin:0 0 12px;}
+body[data-section="corporal"] .compare-indicators .compare-checks{display:grid;grid-template-columns:minmax(0,1fr);}
+body[data-section="corporal"] .compare-indicators .compare-checks label{width:100%;min-height:30px;}
+body[data-section="corporal"] .compare-display{min-width:0;min-height:330px;align-self:stretch;}
+body[data-section="corporal"] .compare-display .compare-chart{height:365px;min-height:365px;}
+body[data-section="corporal"] .avn-energy{padding:8px 0 32px;max-width:none;margin-top:30px;}
+body[data-section="corporal"] .avn-energy h2#energia-title{margin:8px 0;font-size:1.45rem;}
+@media(max-width:700px){
+body[data-section="corporal"] .compare-modal{width:calc(100vw - 8px);max-height:calc(100dvh - 8px);padding:12px;}
+body[data-section="corporal"] .compare-layout{grid-template-columns:minmax(125px,38%) minmax(0,1fr);gap:8px;}
+body[data-section="corporal"] .compare-indicators{max-height:78dvh;}
+body[data-section="corporal"] .compare-indicators .compare-group{padding:7px 5px;}
+body[data-section="corporal"] .compare-indicators .compare-checks label{font-size:11px;overflow-wrap:anywhere;}
+body[data-section="corporal"] .compare-display .compare-chart{height:310px;min-height:310px;}
+body[data-section="corporal"] .compare-filtros{margin:5px 0 8px;gap:6px;}
+body[data-section="corporal"] .avn-energy{padding:8px 0 22px;}
+}
