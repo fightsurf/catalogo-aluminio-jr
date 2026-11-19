@@ -8,8 +8,8 @@ const {
 
 test('telefones dos dois cadastros são unidos sem repetição, inclusive ramais', () => {
   const destino = { telefone: '(83) 99999-0000 / Ramal 12', telefone_principal: '5583999990000' };
-  const origem = { telefone: '5583999990000 / 5583888881111', telefone_principal: '5583888881111' };
-  assert.equal(unirTelefones(destino, origem), '5583999990000 / 5583888881111 / Ramal 12');
+  const origem = { telefone: '5583999990000 / 5583988881111', telefone_principal: '5583988881111' };
+  assert.equal(unirTelefones(destino, origem), '5583999990000 / 5583988881111 / Ramal 12');
 });
 
 test('nome, cidade e telefone principal podem ser escolhidos independentemente', () => {
@@ -20,7 +20,7 @@ test('nome, cidade e telefone principal podem ser escolhidos independentemente',
   };
   const origem = {
     nome: 'Excursão B', cidade_id: 20,
-    telefone: '5583888881111', telefone_principal: '5583888881111',
+    telefone: '5583988881111', telefone_principal: '5583988881111',
     observacao: 'Portão 2', contato_principal: 'João'
   };
   const final = montarMesclagem(destino, origem, {
@@ -28,8 +28,8 @@ test('nome, cidade e telefone principal podem ser escolhidos independentemente',
   });
   assert.equal(final.nome, 'Excursão B');
   assert.equal(final.cidade_id, 10);
-  assert.equal(final.telefone_principal, '5583888881111');
-  assert.equal(final.telefone, '5583999990000 / 5583888881111');
+  assert.equal(final.telefone_principal, '5583988881111');
+  assert.equal(final.telefone, '5583999990000 / 5583988881111');
   assert.equal(final.contato_principal, 'Maria');
   assert.equal(final.observacao, 'Portão 1\nPortão 2\nOutro contato principal (cadastro mesclado): João');
 });
@@ -70,8 +70,16 @@ test('assinatura da prévia não entra nas escolhas da confirmação', () => {
 test('telefone principal pode vir do telefone legado da origem', () => {
   const final = montarMesclagem(
     { nome:'A', cidade_id:1, telefone:'5583999990000' },
-    { nome:'B', cidade_id:2, telefone:'5583888881111' },
+    { nome:'B', cidade_id:2, telefone:'5583988881111' },
     { nome_de:'destino', cidade_de:'origem', principal_de:'origem' }
   );
-  assert.equal(final.telefone_principal, '5583888881111');
+  assert.equal(final.telefone_principal, '5583988881111');
+});
+
+test('telefone malformatado não perde nem um dígito', () => {
+  const unido = unirTelefones(
+    { telefone: '5583999990000' },
+    { telefone: '5583888881111' } // nove dígitos locais começando em 8: preservar como anotado
+  );
+  assert.equal(unido, '5583999990000 / 5583888881111');
 });
