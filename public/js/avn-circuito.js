@@ -403,7 +403,9 @@
       const json=await resp.json().catch(()=>({}));
       if(!resp.ok)throw Error(json.erro||'Falha ao salvar no plano.');
       if(session!==s)return;
-      s.exercises.splice(s.index+1,0,{
+      const inserirEm=s.index+1;
+      s.completed=new Set([...s.completed].map(i=>i>=inserirEm?i+1:i));
+      s.exercises.splice(inserirEm,0,{
         id:Number(ex.id),name:String(ex.nome),mediaUrl:String(ex.midia_url||''),
         mediaType:String(ex.midia_tipo||'')
       });
