@@ -140,6 +140,14 @@ router.get('/alimentos',wrap(async(req,res)=>{
  AND ($3='' OR translate(lower(nome),'áàâãäéèêëíìîïóòôõöúùûüç','aaaaaeeeeiiiiooooouuuuc') LIKE '%' || translate(lower($3),'áàâãäéèêëíìîïóòôõöúùûüç','aaaaaeeeeiiiiooooouuuuc') || '%')
  ORDER BY nome,id LIMIT 300`,[id,tipo,q]);res.set('Cache-Control','no-store');res.json(r.rows);
 }));
+// Consulta pontual para links profundos; independe do limite de 300 do catálogo.
+router.get('/alimentos/:id',wrap(async(req,res)=>{
+ const usuarioId=requiredId(req.query.usuarioId),alimentoId=requiredId(req.params.id);
+ await user(usuarioId);
+ const r=await pool.query('SELECT * FROM public.avn_alimentos WHERE id=$1 AND ativo AND (usuario_id IS NULL OR usuario_id=$2)',[alimentoId,usuarioId]);
+ if(!r.rowCount)throw bad('Alimento não encontrado.',404);
+ res.set('Cache-Control','no-store').json(r.rows[0]);
+}));
 router.post('/alimentos',wrap(async(req,res)=>{
  const uid=requiredId(req.body?.usuarioId);await user(uid);const f=await foodPayload(req.body||{});
  const tipo=String(req.body?.tipo||'alimento');if(!['alimento','suplemento','medicamento'].includes(tipo))throw bad('Tipo de cadastro inválido.');
