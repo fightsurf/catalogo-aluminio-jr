@@ -559,14 +559,14 @@ async function moverExercicioSessao(indice,direcao){
  document.querySelectorAll('#treinoItens [data-mover-sessao]').forEach(b=>b.disabled=true);
  try{
   await fetchJSON('/planos/'+planoId+'/dias/'+diaSemana+'/exercicios/mover',{
-   method:'POST',body:JSON.stringify({usuario_id:Number(state.usuarioId),indice,direcao,posicao_atual:Number(itens[indice].posicao)})
+   method:'POST',body:JSON.stringify({usuario_id:Number(state.usuarioId),indice,direcao,plano_item_id:itens[indice].plano_item_id,posicao_atual:Number(itens[indice].posicao)})
   });
   [campos[indice],campos[destino]]=[campos[destino],campos[indice]];
   await carregarTreino(planoId);
   renderTreinoItens();
   restaurarCamposSessao(campos);
-  await buscarExecucaoWeb();
   toast('Ordem dos exercícios atualizada e salva.');
+  buscarExecucaoWeb().catch(e=>toast('A ordem foi salva, mas não foi possível atualizar o estado da execução: '+e.message,true));
  }catch(e){
   toast('Não foi possível alterar a ordem: '+e.message,true);
  }finally{
