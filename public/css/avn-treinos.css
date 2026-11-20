@@ -77,3 +77,13 @@ a{color:#8ec1ff}table th,table td{border-color:#34465f!important}hr,.tabs,.avn-t
 .avn-registro-escolha .thumb{width:70px;min-width:70px;height:55px;object-fit:contain;}
 .avn-registro-escolha span{display:grid;gap:5px;}
 .avn-registro-escolha small{color:#b6c9e0;}
+
+/* Botões de subir/descer no cabeçalho de cada exercício em Registrar Treino. */
+.avn-sessao-exercicio-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;min-width:0;}
+.avn-sessao-exercicio-titulo{display:flex;align-items:center;min-width:0;gap:9px;}
+.avn-sessao-exercicio-titulo strong{min-width:0;overflow-wrap:anywhere;}
+.avn-sessao-exercicio-numero{display:inline-flex;align-items:center;justify-content:center;flex:0 0 auto;min-width:27px;height:27px;border:1px solid #526b8b;background:#243651;border-radius:8px;color:#e6efff;font-size:12px;font-weight:700;}
+.avn-sessao-mover{display:flex;align-items:center;gap:5px;flex-shrink:0;}
+.avn-sessao-mover button{display:flex;align-items:center;justify-content:center;width:34px;height:34px;min-width:34px;padding:0;font-size:20px;line-height:1;}
+.avn-sessao-mover button:disabled{opacity:.32;cursor:not-allowed;}
+@media(max-width:650px){.avn-sessao-exercicio-head{gap:6px}.avn-sessao-exercicio-numero{min-width:23px;height:23px}.avn-sessao-mover button{width:30px;height:30px;min-width:30px;}}
