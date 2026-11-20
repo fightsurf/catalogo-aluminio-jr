@@ -128,15 +128,16 @@ function htmlMontador(){
  $('novoPlano').onclick=()=>{if(confirm('Começar novo plano sem salvar alterações pendentes?')){state.plano=novoPlano();state.dia=0;htmlMontador();}};
  renderLibraryBuilder();renderDia();
 }
-let bibliotecaSubstituirIndice=null;
-function abrirBiblioteca(index=null){
+let bibliotecaSubstituirIndice=null,bibliotecaInserirIndice=null;
+function abrirBiblioteca(index=null,inserirNaPosicao=null){
  bibliotecaSubstituirIndice=index;
- $('bibliotecaTitulo').textContent=index===null?'Adicionar exercício':'Trocar exercício (preservar configurações)';
+ bibliotecaInserirIndice=inserirNaPosicao;
+ $('bibliotecaTitulo').textContent=index!==null?'Trocar exercício (preservar configurações)':inserirNaPosicao!==null?'Adicionar exercício nesta posição':'Adicionar exercício';
  $('avn-modal-biblioteca').showModal();
  renderLibraryBuilder();
  $('busca').focus();
 }
-function renderLibraryBuilder(){const list=$('listaMontador');if(!list)return;list.innerHTML=listagemExerciciosMontador();list.querySelectorAll('[data-add]').forEach(b=>b.onclick=async()=>{const id=Number(b.dataset.add);if(bibliotecaSubstituirIndice===null)addExercicio(id);else{const item=diaAtual().exercicios[bibliotecaSubstituirIndice];if(item){item.exercicio_id=id;renderDia();}}$('avn-modal-biblioteca').close();bibliotecaSubstituirIndice=null;state.filtro='';state.grupo='';try{await buscarExercicios();renderDia();}catch(e){toast(e.message,true);}});
+function renderLibraryBuilder(){const list=$('listaMontador');if(!list)return;list.innerHTML=listagemExerciciosMontador();list.querySelectorAll('[data-add]').forEach(b=>b.onclick=async()=>{const id=Number(b.dataset.add);if(bibliotecaSubstituirIndice===null)addExercicio(id,bibliotecaInserirIndice===null?undefined:bibliotecaInserirIndice);else{const item=diaAtual().exercicios[bibliotecaSubstituirIndice];if(item){item.exercicio_id=id;renderDia();}}$('avn-modal-biblioteca').close();bibliotecaSubstituirIndice=null;bibliotecaInserirIndice=null;state.filtro='';state.grupo='';try{await buscarExercicios();renderDia();}catch(e){toast(e.message,true);}});
  list.querySelectorAll('[data-exercicio]').forEach(el=>el.addEventListener('dragstart',e=>{e.dataTransfer.setData('text/avn-exercicio-id',el.dataset.exercicio);e.dataTransfer.effectAllowed='copy';}));}
 function addExercicio(id,index){const a=diaAtual().exercicios;const i={exercicio_id:id,series:3,repeticoes:'10',carga_kg:null,carga_unidade:'kg',carga_placas:null,descanso_seg:60,observacoes:''};if(index===undefined)a.push(i);else a.splice(index,0,i);renderDia();}
 function mover(from,to){const a=diaAtual().exercicios;if(from===to||from<0||to<0||from>=a.length||to>=a.length)return;const [x]=a.splice(from,1);a.splice(to,0,x);renderDia();}
@@ -144,9 +145,10 @@ function renderDia(){
  const tabs=$('dias');if(!tabs)return;tabs.innerHTML=NOMES.map((n,i)=>`<button class="btn small ${state.dia===i?'selected':''}" data-dia="${i}" aria-pressed="${state.dia===i}">${n.slice(0,3)}</button>`).join('');
  tabs.querySelectorAll('[data-dia]').forEach(b=>b.onclick=()=>{state.dia=Number(b.dataset.dia);renderDia();});
  const a=diaAtual().exercicios,board=$('itens');
- board.innerHTML=a.length?a.map((it,i)=>`<div class="item avn-workout-card" data-item-index="${i}" draggable="true"><div class="avn-workout-visual">${media(state.exercicios.find(e=>Number(e.id)===Number(it.exercicio_id)),true)}</div><div class="avn-workout-details"><div class="item-head"><span class="handle" title="Arrastar para reordenar" aria-label="Arrastar">⋮⋮</span><strong>${esc(buscarNome(it.exercicio_id))}</strong><button type="button" class="btn small avn-workout-action" data-trocar="${i}">Trocar exercício</button><button class="btn small ghost" data-up="${i}" aria-label="Mover para cima">↑</button><button class="btn small ghost" data-down="${i}" aria-label="Mover para baixo">↓</button><button class="btn danger small" data-del="${i}" aria-label="Remover">×</button></div><div class="fields">
+ board.innerHTML=a.length?`<button type="button" class="avn-inserir-entre" data-montador-inserir="0">+ Adicionar exercício aqui</button>`+a.map((it,i)=>`<div class="item avn-workout-card" data-item-index="${i}" draggable="true"><div class="avn-workout-visual">${media(state.exercicios.find(e=>Number(e.id)===Number(it.exercicio_id)),true)}</div><div class="avn-workout-details"><div class="item-head"><span class="handle" title="Arrastar para reordenar" aria-label="Arrastar">⋮⋮</span><strong>${esc(buscarNome(it.exercicio_id))}</strong><button type="button" class="btn small avn-workout-action" data-trocar="${i}">Trocar exercício</button><button class="btn small ghost" data-up="${i}" aria-label="Mover para cima">↑</button><button class="btn small ghost" data-down="${i}" aria-label="Mover para baixo">↓</button><button class="btn danger small" data-del="${i}" aria-label="Remover">×</button></div><div class="fields">
  <label>Séries<input type="number" data-index="${i}" data-field="series" min="1" max="30" value="${it.series}"></label><label>Repetições<input data-index="${i}" data-field="repeticoes" maxlength="30" value="${esc(it.repeticoes)}"></label><label>Unidade<select data-index="${i}" data-field="carga_unidade"><option value="kg" ${it.carga_unidade!=='placas'?'selected':''}>kg</option><option value="placas" ${it.carga_unidade==='placas'?'selected':''}>Placas</option></select></label><label>Carga (${it.carga_unidade==='placas'?'placas':'kg'})<input type="number" data-index="${i}" data-field="${it.carga_unidade==='placas'?'carga_placas':'carga_kg'}" min="0" max="${it.carga_unidade==='placas'?200:2000}" step="${it.carga_unidade==='placas'?1:0.5}" value="${esc(it.carga_unidade==='placas'?(it.carga_placas??''):(it.carga_kg??''))}"></label><label>Descanso (s)<input type="number" data-index="${i}" data-field="descanso_seg" min="0" max="3600" value="${it.descanso_seg}"></label></div>
- <label class="label">Observações<input data-index="${i}" data-field="observacoes" maxlength="500" value="${esc(it.observacoes)}" placeholder="Ex.: execução controlada"></label></div></div>`).join(''):`<div class="empty">${NOMES[state.dia]}: nenhum exercício. Use o botão + Adicionar exercício.</div>`;
+ <label class="label">Observações<input data-index="${i}" data-field="observacoes" maxlength="500" value="${esc(it.observacoes)}" placeholder="Ex.: execução controlada"></label></div></div><button type="button" class="avn-inserir-entre" data-montador-inserir="${i+1}">+ Adicionar exercício aqui</button>`).join(''):`<div class="empty">${NOMES[state.dia]}: nenhum exercício. <button type="button" class="avn-inserir-entre" data-montador-inserir="0">+ Adicionar exercício aqui</button></div>`;
+ board.querySelectorAll('[data-montador-inserir]').forEach(b=>b.addEventListener('click',()=>abrirBiblioteca(null,Number(b.dataset.montadorInserir))));
  board.querySelectorAll('[data-field]').forEach(el=>el.addEventListener(el.dataset.field==='carga_unidade'?'change':'input',()=>{
   const it=diaAtual().exercicios[Number(el.dataset.index)],field=el.dataset.field;
   if(field==='carga_unidade'){it.carga_unidade=el.value;it.carga_kg=null;it.carga_placas=null;renderDia();return;}
@@ -540,12 +542,14 @@ async function abrirAdicionarRegistro(indice){
   area.innerHTML=list.length?list.map(ex=>'<button type="button" class="avn-registro-escolha" data-ex="'+ex.id+'>'+
    media(ex,true)+'<span><strong>'+esc(ex.nome)+'</strong><small>'+esc(ex.grupo||'')+'</small></span></button>').join(''):'<p class="hint">Nenhum exercício encontrado.</p>';
   area.querySelectorAll('[data-ex]').forEach(b=>b.onclick=async()=>{
-   const id=Number(b.dataset.ex),plano=JSON.parse(JSON.stringify(state.treino));
-   const dia=plano.dias.find(x=>Number(x.dia_semana)===Number(state.treinoDia));
-   if(!dia)return toast('Dia não encontrado.',true);
-   if(dia.exercicios.length>=50)return toast('O limite é 50 exercícios neste dia.',true);
-   dia.exercicios.splice(Math.min(Math.max(0,indice),dia.exercicios.length),0,
-    {exercicio_id:id,series:3,repeticoes:'10',carga_unidade:'kg',carga_kg:null,carga_placas:null,descanso_seg:60,observacoes:''});
+   const id=Number(b.dataset.ex);
+   const planoId=Number(state.treino.id),diaSemana=Number(state.treinoDia);
+   if(!Number.isSafeInteger(id)||id<1)return toast('Selecione um exercício válido.',true);
+   if(!state.exercicios.some(ex=>Number(ex.id)===id))return toast('Exercício indisponível na biblioteca.',true);
+   const dia=state.treino.dias.find(x=>Number(x.dia_semana)===diaSemana);
+   const quantidade=dia?.exercicios?.length||0;
+   if(quantidade>=50)return toast('O limite é 50 exercícios neste dia.',true);
+   const posicao=Math.min(Math.max(0,indice),quantidade);
    // Preserva séries, cargas, repetições e observações que já foram digitadas na sessão.
    const campos=[...document.querySelectorAll('#treinoItens [data-realizado]')].map(c=>({
     series:c.querySelector('.ses-series').value,reps:c.querySelector('.ses-reps').value,
@@ -554,11 +558,13 @@ async function abrirAdicionarRegistro(indice){
    }));
    b.disabled=true;
    try{
-    await fetchJSON('/planos/'+plano.id,{method:'PUT',body:JSON.stringify(plano)});
-    await carregarTreino(plano.id);
+    await fetchJSON('/planos/'+planoId+'/dias/'+diaSemana+'/exercicios',{
+     method:'POST',body:JSON.stringify({usuario_id:Number(state.usuarioId),exercicio_id:id,posicao})
+    });
+    await carregarTreino(planoId);
     renderTreinoItens();
     campos.forEach((x,i)=>{
-     const pos=i>=indice?i+1:i;
+     const pos=i>=posicao?i+1:i;
      const c=document.querySelector('#treinoItens [data-realizado="'+pos+'"]');
      if(!c)return;
      c.querySelector('.ses-series').value=x.series;
