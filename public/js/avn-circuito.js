@@ -399,22 +399,14 @@
     button.disabled=true;
     lista.setAttribute('aria-busy','true');
     try {
-      const url='/avn/sistema/api/treinos/planos/'+encodeURIComponent(s.planId);
-      const resposta=await fetch(url,{credentials:'same-origin',headers:{Accept:'application/json'}});
-      if(!resposta.ok)throw Error('Falha ao carregar o plano para inclusão.');
-      const plano=await resposta.json();
-      if(Number(plano.usuario_id)!==s.userId)throw Error('O plano pertence a outro usuário.');
-      const dia=(plano.dias||[]).find(x=>Number(x.dia_semana)===s.day);
-      if(!dia)throw Error('Dia do treino não encontrado.');
-      const pos=Math.min(s.index+1,dia.exercicios.length);
-      dia.exercicios.splice(pos,0,{
-        exercicio_id:Number(ex.id),series:1,repeticoes:'10',carga_unidade:'kg',
-        carga_kg:null,carga_placas:null,descanso_seg:s.rest,observacoes:'Incluído durante o circuito'
-      });
-      const resp=await fetch(url,{method:'PUT',credentials:'same-origin',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify(plano)});
+      const pos=Math.min(s.index+1,s.exercises.length);
+      const url='/avn/sistema/api/treinos/planos/'+encodeURIComponent(s.planId)+
+        '/dias/'+encodeURIComponent(s.day)+'/exercicios';
+      const resp=await fetch(url,{method:'POST',credentials:'same-origin',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({usuario_id:s.userId,exercicio_id:Number(ex.id),posicao:pos})});
       const json=await resp.json().catch(()=>({}));
-      if(!resp.ok)throw Error(json.erro||'Falha ao salvar no plano.');
+      if(!resp.ok)throw Error(json.erro||'Falha ao salvar o exercício no plano.');
       if(session!==s)return;
       const inserirEm=s.index+1;
       s.completed=new Set([...s.completed].map(i=>i>=inserirEm?i+1:i));
@@ -467,7 +459,8 @@
       '<button type="button" id="avnCircuitoPausar">' + (s.paused ? '▶ Continuar' : 'Ⅱ Pausar') + '</button>' +
       '<button type="button" id="avnCircuitoAdicionar">+ Adicionar exercício</button>' +
       (s.paused ? '<button type="button" id="avnCircuitoEditar">✏️ Editar treino</button>' : '') +
-      '<button type="button" id="avnCircuitoSair">Encerrar ×</button></div>';
+      '<button type="button" id="avnCircuitoFinalizar">✅ Finalizar e salvar</button>' +
+      '<button type="button" id="avnCircuitoSair">Sair sem salvar ×</button></div>';
     if (s.phase === 'initial') {
       const first = s.exercises[0];
       modal.innerHTML = '<section class="avn-circuito-painel avn-circuito-em-preparo">' +
@@ -519,6 +512,7 @@
     if (s.editing) desenharEdicao(modal);
     if (s.adding) desenharAdicionarCircuito(modal);
     byId('avnCircuitoSair').onclick = fechar;
+    byId('avnCircuitoFinalizar').onclick = () => {if(!session?.saving)concluir();};
     atualizarRelogio();
   }
 
@@ -626,19 +620,21 @@
       if(retry)retry.onclick=salvar;
     };
     const salvar=async()=>{
-      if(!realizados.length){renderFinal('Nenhum exercício cronometrado foi concluído. Não há sessão para registrar.',true);return;}
+      if(!realizados.length){renderFinal('Nenhum exercício foi concluído. O circuito não foi registrado.',false);return;}
       modal.innerHTML='<section class="avn-circuito-concluido">'+banner+'<p role="status">Salvando a sessão no histórico…</p></section>';
       try {
         const resposta=await fetch('/avn/sistema/api/treinos/sessoes',{
           method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({
             usuario_id:s.userId,plano_id:s.planId,dia_semana:s.day,
+            modalidade:'circuito',
             observacoes:'Circuito cronometrado: exercício '+s.work+' s; descanso '+s.rest+' s; preparo '+s.prep+' s; preparo inicial '+s.initialPrep+' s.',
             realizados
           })
         });
         const resultado=await resposta.json().catch(()=>({}));
         if(!resposta.ok)throw Error(resultado.erro||'Falha ao salvar sessão.');
+        if(!resultado.ok||!Number.isSafeInteger(Number(resultado.id))||Number(resultado.id)<1)throw Error('Servidor não confirmou a gravação do circuito.');
         renderFinal('Sessão gravada no histórico de treinos recentes.',true);
       }catch(e){
         renderFinal('A sessão ainda não foi gravada: '+(e.message||'erro desconhecido')+'. Use Tentar salvar novamente.',false);
@@ -648,7 +644,7 @@
   }
 
   function fechar() {
-    if (session && !window.confirm('Encerrar o circuito antes de completar todos os exercícios?')) return;
+    if (session && !window.confirm('Descartar este circuito sem registrar os exercícios concluídos? Para gravar, use Finalizar e salvar.')) return;
     cancelarFala();
     clearInterval(interval); interval = null;
     session = null;
