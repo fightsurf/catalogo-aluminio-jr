@@ -125,7 +125,9 @@ function renderDetails(){
     const food=state.alimentos.find(f=>String(f.id)===String(item.alimento_id));
     const canEdit=editable(food);
     const label=item.alimento_nome||food?.nome||'Alimento';
-    return '<div class="avn-micro-food-line"><div>'+foodLink(food,label)+'<small>'+escapeText(item.refeicao||'Refeição')+' · '+numberText(item.quantidade_g,1)+' g planejados</small></div>'+
+    // A lista do catálogo pode estar paginada: o item da dieta informa seu tipo real.
+    const cadastro=food||(item.alimento_tipo?{id:item.alimento_id,tipo:item.alimento_tipo,fonte:item.alimento_fonte}:null);
+    return '<div class="avn-micro-food-line"><div>'+foodLink(cadastro,label)+'<small>'+escapeText(item.refeicao||'Refeição')+' · '+numberText(item.quantidade_g,1)+' g planejados</small></div>'+
      (canEdit?'<button type="button" class="secondary" data-edit-food="'+escapeText(food.id)+'">Preencher micronutrientes</button>':
        '<small>'+(food?.tipo==='receita'?'Receita: edite os ingredientes no módulo Receitas.':'Cadastro não editável aqui; confira o módulo Alimentos.')+'</small>')+
      '</div>';
