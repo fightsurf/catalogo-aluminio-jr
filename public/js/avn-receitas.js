@@ -355,9 +355,9 @@ async function salvarEditorMicronutriente(event){
    resultado(calcLocal(payload()));
    document.getElementById('previa-aba-micros')?.click();
   }
-  alertar('Micronutriente do alimento salvo e análise nutricional atualizada.');
+  alertar(previaAberta?'Alimento salvo e prévia atualizada. Para gravar esta composição na receita, clique em Salvar nova versão.':'Micronutriente do alimento salvo e análise da receita atualizada.');
  }catch(e){
-  const mensagem=salvo?'O alimento foi salvo, mas a receita não pôde ser atualizada automaticamente: ':'Não foi possível salvar a composição: ';
+  const mensagem=salvo?'O alimento foi salvo, mas houve erro ao recalcular ou atualizar a receita na tela: ':'Não foi possível salvar a composição: ';
   if(salvo)alertar(mensagem+e.message,true);
   else{erro.textContent=mensagem+e.message;erro.hidden=false;}
  }finally{
