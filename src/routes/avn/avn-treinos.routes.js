@@ -276,9 +276,18 @@ router.post('/sessoes',route(async(req,res)=>{
     await client.query('BEGIN');
     const p=await client.query('SELECT usuario_id FROM public.avn_planos_treino WHERE id=$1 FOR KEY SHARE',[v.plano_id]);
     if(!p.rowCount||Number(p.rows[0].usuario_id)!==v.usuario_id)throw V.erro('Plano não pertence ao usuário.',403);
-    const r=await client.query(`SELECT i.exercicio_id FROM public.avn_plano_itens i JOIN public.avn_plano_dias d ON d.id=i.plano_dia_id WHERE d.plano_id=$1 AND d.dia_semana=$2`,[v.plano_id,v.dia_semana]);
-    const validos=new Set(r.rows.map(x=>String(x.exercicio_id)));
-    if(v.realizados.some(x=>!validos.has(String(x.exercicio_id))))throw V.erro('Há exercícios que não pertencem a este dia do plano.');
+    const circuito=req.body?.modalidade==='circuito';
+    if(circuito){
+      // Um circuito usa a lista efetivamente executada, mesmo se o plano foi editado enquanto rodava.
+      // Ainda valida a existência de cada exercício e a posse do plano pelo usuário.
+      const ids=[...new Set(v.realizados.map(x=>x.exercicio_id))];
+      const encontrados=await client.query('SELECT id FROM public.avn_exercicios WHERE id=ANY($1::bigint[])',[ids]);
+      if(encontrados.rowCount!==ids.length)throw V.erro('Há exercícios inexistentes no circuito.');
+    }else{
+      const r=await client.query(`SELECT i.exercicio_id FROM public.avn_plano_itens i JOIN public.avn_plano_dias d ON d.id=i.plano_dia_id WHERE d.plano_id=$1 AND d.dia_semana=$2`,[v.plano_id,v.dia_semana]);
+      const validos=new Set(r.rows.map(x=>String(x.exercicio_id)));
+      if(v.realizados.some(x=>!validos.has(String(x.exercicio_id))))throw V.erro('Há exercícios que não pertencem a este dia do plano.');
+    }
     const sessao=await client.query('INSERT INTO public.avn_treino_sessoes(usuario_id,plano_id,dia_semana,observacoes) VALUES($1,$2,$3,$4) RETURNING id',[v.usuario_id,v.plano_id,v.dia_semana,v.observacoes]);
     const sessaoId=sessao.rows[0].id;
     for(const x of v.realizados)await client.query(`INSERT INTO public.avn_treino_sessao_itens(sessao_id,exercicio_id,posicao,series_realizadas,repeticoes_realizadas,carga_kg,carga_unidade,carga_placas,observacoes)
