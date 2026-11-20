@@ -155,7 +155,7 @@ async function consultarPlano(id,client=pool){
  await ensureCarga();
   const r=await client.query('SELECT id,usuario_id,nome,descricao,criado_em,atualizado_em FROM public.avn_planos_treino WHERE id=$1 AND ativo=TRUE',[id]);
   if(!r.rowCount)throw V.erro('Plano não encontrado.',404);
-  const d=await client.query(`SELECT d.id,d.dia_semana,i.exercicio_id,i.posicao,i.series,i.repeticoes,i.carga_kg,i.carga_unidade,i.carga_placas,i.descanso_seg,i.observacoes,e.nome AS exercicio_nome,e.midia_url,e.midia_tipo
+  const d=await client.query(`SELECT d.id,d.dia_semana,i.id AS plano_item_id,i.exercicio_id,i.posicao,i.series,i.repeticoes,i.carga_kg,i.carga_unidade,i.carga_placas,i.descanso_seg,i.observacoes,e.nome AS exercicio_nome,e.midia_url,e.midia_tipo
     FROM public.avn_plano_dias d LEFT JOIN public.avn_plano_itens i ON i.plano_dia_id=d.id
     LEFT JOIN public.avn_exercicios e ON e.id=i.exercicio_id WHERE d.plano_id=$1 ORDER BY d.dia_semana,i.posicao`,[id]);
   const days=new Map();for(const row of d.rows){if(!days.has(row.dia_semana))days.set(row.dia_semana,{dia_semana:row.dia_semana,exercicios:[]});if(row.exercicio_id!==null)days.get(row.dia_semana).exercicios.push({...row,midia_url:catalogo.normalizarMidia(row.midia_url)});}
@@ -242,6 +242,8 @@ router.post('/planos/:id/dias/:dia/exercicios/mover',route(async(req,res)=>{
  const direcao=Number(req.body?.direcao);
  if(direcao!==-1&&direcao!==1)throw V.erro('Direção inválida.');
  const posicaoAtual=V.inteiro(req.body?.posicao_atual,0,99,'Posição atual');
+ const planoItemId=req.body?.plano_item_id;
+ if(!V.id(planoItemId))throw V.erro('Exercício inválido. Atualize a página e tente novamente.');
  const client=await pool.connect();let committed=false;
  try{
   await client.query('BEGIN');
@@ -254,7 +256,7 @@ router.post('/planos/:id/dias/:dia/exercicios/mover',route(async(req,res)=>{
   const destino=indice+direcao;
   if(destino<0||destino>=list.rows.length)throw V.erro('Exercício já está no limite da lista.',400);
   const origem=list.rows[indice],vizinho=list.rows[destino];
-  if(Number(origem.posicao)!==posicaoAtual)throw V.erro('A ordem foi alterada por outra operação. Atualize a página.',409);
+  if(Number(origem.posicao)!==posicaoAtual||String(origem.id)!==String(planoItemId))throw V.erro('A ordem foi alterada por outra operação. Atualize a página.',409);
   // A posição temporária respeita CHECK(0..99) e evita conflito da UNIQUE(plano_dia_id,posicao).
   const ocupadas=new Set(list.rows.map(x=>Number(x.posicao)));
   let temporaria=99;
