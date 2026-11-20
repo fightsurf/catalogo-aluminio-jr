@@ -1,5 +1,6 @@
 (()=>{'use strict';
 const $=id=>document.getElementById(id),API='/avn/sistema/api/nutricao';let alimentos=[],nutrientes=[],receitas=[],editId=null,usuarioId='';
+let receitaEmDetalhe=null,alimentoMicrosEmEdicao=null,codigoMicroEmEdicao='',microSalvando=false;
 const esc=x=>String(x??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 async function api(url,options={}){const r=await fetch(API+url,{credentials:'same-origin',headers:{'Content-Type':'application/json'},...options});const x=await r.json().catch(()=>({}));if(!r.ok)throw Error(x.erro||'Falha no servidor.');return x;}
 function alertar(t,e=false){$('alerta').hidden=false;$('alerta').textContent=t;$('alerta').className='avn-alert'+(e?' error':'');}
@@ -126,7 +127,7 @@ function resultado(o){
  const micros={},parciais={};
  for(const n of nutrientes){const x=o[n.codigo];if(x?.val!=null&&Number(x.val)>0){micros[n.codigo]=x.val;if(x.parcial)parciais[n.codigo]=true;}}
  $('resultado').innerHTML='<p class="muted">Composição estimada por 100 g da receita pronta, calculada com os ingredientes informados (ainda não salvos).</p>'+
-   painelNutrientes(macros,micros,'Macronutrientes por 100 g','por 100 g','previa',parciais);
+   painelNutrientes(macros,micros,'Macronutrientes por 100 g','por 100 g','previa',parciais,payload().ingredientes.map(i=>{const f=alimentos.find(a=>String(a.id)===String(i.alimento_id));return {...i,nome_snapshot:f?.nome||'Ingrediente',composicao_100g:comp(f||{})};}));
  ativarAbasNutrientes($('resultado'));
  if(!$('modalPreviaReceita').open)$('modalPreviaReceita').showModal();
 }
@@ -185,7 +186,39 @@ function formatarMicro(v){
  if(v>0&&v<0.000001)return v.toExponential(2).replace('.',',');
  return fmt(v,9);
 }
-function listaMicronutrientes(valores,titulo,parciais={}){
+// Zero é informação conhecida; ausência ou valor inválido mantém a análise parcial.
+function microsDeComposicao(item){
+ const c=item?.composicao_100g;
+ if(!c)return {};
+ let micros=c.micros||c.micronutrientes_100g||{};
+ if(typeof micros==='string'){try{micros=JSON.parse(micros);}catch(_){micros={};}}
+ return micros&&typeof micros==='object'?micros:{};
+}
+function faltantesDaReceita(codigo,ingredientes){
+ const vistos=new Set();
+ return (Array.isArray(ingredientes)?ingredientes:[]).filter(i=>{
+  const m=microsDeComposicao(i),valor=m[codigo];
+  const naoInformado=valor===undefined||valor===null||valor===''||!Number.isFinite(Number(valor))||Number(valor)<0;
+  const parcial=Boolean(i.composicao_100g?.micros_parciais?.[codigo]);
+  const chave=String(i.alimento_id||'')+':'+String(i.nome_snapshot||'');
+  if((!naoInformado&&!parcial)||vistos.has(chave))return false;
+  vistos.add(chave);return true;
+ });
+}
+function linhaFaltantesMicro(codigo,ingredientes){
+ const ausentes=faltantesDaReceita(codigo,ingredientes);
+ if(!ausentes.length)return '';
+ return '<div class="receita-micro-faltantes"><small>Sem informação em:</small><div class="receita-micro-alimentos">'+
+  ausentes.map(i=>{
+   const alimento=alimentos.find(a=>String(a.id)===String(i.alimento_id));
+   const receita=receitas.find(r=>String(r.alimento_id)===String(i.alimento_id));
+   const nome=esc(i.nome_snapshot||alimento?.nome||'Ingrediente');
+   if(!/^\\d+$/.test(String(i.alimento_id)))return '<span>'+nome+'</span>';
+   const atributo=receita?'data-abrir-micro-receita="'+esc(receita.id)+'"':'data-editar-micro-alimento="'+esc(i.alimento_id)+'" data-editar-micro-codigo="'+esc(codigo)+'"';
+   return '<button type="button" class="receita-micro-corrigir" '+atributo+' title="'+(receita?'Abrir receita e revisar seus ingredientes':'Editar micronutriente do alimento')+'">'+nome+(receita?' (receita)':'')+'</button>';
+  }).join('')+'</div></div>';
+}
+function listaMicronutrientes(valores,titulo,parciais={},ingredientes=[]){
  const itens=nutrientes.map(n=>({
   codigo:n.codigo,nome:String(n.nome||n.codigo),unidade:String(n.unidade||''),
   valor:valores?.[n.codigo]==null?null:Number(valores[n.codigo]),
@@ -194,9 +227,9 @@ function listaMicronutrientes(valores,titulo,parciais={}){
    .sort((a,b)=>b.valor-a.valor||a.nome.localeCompare(b.nome,'pt-BR'));
  if(!itens.length)return `<h3>${esc(titulo)}</h3><p class="muted receita-micros-vazio">Nenhum micronutriente positivo encontrado nos dados cadastrados dos ingredientes.</p>`;
  const temParcial=itens.some(n=>n.parcial);
- return `<h3>${esc(titulo)}</h3><ul class="receita-micros-lista">${itens.map(n=>`<li><span>${esc(n.nome)}${n.parcial?' <small class="receita-micro-parcial" title="Um ou mais ingredientes não têm este micronutriente cadastrado.">parcial</small>':''}</span><strong>${formatarMicro(n.valor)} ${esc(n.unidade)}</strong></li>`).join('')}</ul>${temParcial?'<p class="muted receita-micro-aviso">Parcial: soma dos ingredientes com dados disponíveis. O total real pode ser maior.</p>':''}`;
+ return `<h3>${esc(titulo)}</h3><ul class="receita-micros-lista">${itens.map(n=>`<li class="receita-micro-item"><div class="receita-micro-descricao"><span>${esc(n.nome)}${n.parcial?' <small class="receita-micro-parcial" title="Um ou mais ingredientes não têm este micronutriente cadastrado.">parcial</small>':''}</span>${n.parcial?linhaFaltantesMicro(n.codigo,ingredientes):''}</div><strong>${formatarMicro(n.valor)} ${esc(n.unidade)}</strong></li>`).join('')}</ul>${temParcial?'<p class="muted receita-micro-aviso">Parcial: soma dos ingredientes com dados disponíveis. O total real pode ser maior.</p>':''}`;
 }
-function painelNutrientes(dados,totaisMicros,titulo,escopo,prefixo,parciais={}){
+function painelNutrientes(dados,totaisMicros,titulo,escopo,prefixo,parciais={},ingredientes=[]){
  const macroid=prefixo+'-macros',microid=prefixo+'-micros';
  const macroTab=prefixo+'-aba-macros',microTab=prefixo+'-aba-micros';
  return `<div class="receita-abas" role="tablist" aria-label="Composição nutricional ${esc(escopo)}">
@@ -204,7 +237,7 @@ function painelNutrientes(dados,totaisMicros,titulo,escopo,prefixo,parciais={}){
   <button type="button" id="${microTab}" class="receita-aba" role="tab" aria-selected="false" aria-controls="${microid}" tabindex="-1">Micronutrientes</button>
  </div>
  <div id="${macroid}" class="receita-aba-painel" role="tabpanel" aria-labelledby="${macroTab}">${graficoMacros(dados,titulo,escopo)}</div>
- <div id="${microid}" class="receita-aba-painel" role="tabpanel" aria-labelledby="${microTab}" hidden>${listaMicronutrientes(totaisMicros,'Micronutrientes '+escopo,parciais)}</div>`;
+ <div id="${microid}" class="receita-aba-painel" role="tabpanel" aria-labelledby="${microTab}" hidden>${listaMicronutrientes(totaisMicros,'Micronutrientes '+escopo,parciais,ingredientes)}</div>`;
 }
 function ativarAbasNutrientes(raiz=$('detalheConteudo')){
  raiz.querySelectorAll('.receita-abas').forEach(grupo=>{
@@ -239,8 +272,8 @@ async function ver(id){
   const totais=r.totais_ingredientes;
   const cemGramas=r.composicao_100g;
   const parciais=r.micronutrientes_parciais||{};
-  const graficoInteiro=painelNutrientes(totais,r.micronutrientes_totais||{},'Macronutrientes da receita inteira','da receita inteira','receita-inteira',parciais);
-  const grafico100g=painelNutrientes(cemGramas,cemGramas.micronutrientes_100g||{},'Macronutrientes por 100 g','por 100 g','receita-cem-gramas',parciais);
+  const graficoInteiro=painelNutrientes(totais,r.micronutrientes_totais||{},'Macronutrientes da receita inteira','da receita inteira','receita-inteira',parciais,r.ingredientes);
+  const grafico100g=painelNutrientes(cemGramas,cemGramas.micronutrientes_100g||{},'Macronutrientes por 100 g','por 100 g','receita-cem-gramas',parciais,r.ingredientes);
   const ingredientes=Array.isArray(r.ingredientes)?r.ingredientes:[];
   const historico=(Array.isArray(r.versoes)?r.versoes:[]).map(v=>{
    const itens=Array.isArray(v.ingredientes)?v.ingredientes:[];
@@ -250,6 +283,7 @@ async function ver(id){
     '<ul>'+lista+'</ul></details>';
   }).join('');
   const total=ingredientes.reduce((s,i)=>s+Number(i.quantidade_g||0),0);
+  receitaEmDetalhe=r;
   $('detalheTitulo').textContent=r.nome;
   $('detalheConteudo').innerHTML=`<div class="receita-detalhe-grid">
    <section class="receita-descricao"><h3>Ingredientes</h3>
