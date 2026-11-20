@@ -213,7 +213,7 @@ function linhaFaltantesMicro(codigo,ingredientes){
    const alimento=alimentos.find(a=>String(a.id)===String(i.alimento_id));
    const receita=receitas.find(r=>String(r.alimento_id)===String(i.alimento_id));
    const nome=esc(i.nome_snapshot||alimento?.nome||'Ingrediente');
-   if(!/^\\d+$/.test(String(i.alimento_id)))return '<span>'+nome+'</span>';
+   if(!/^\d+$/.test(String(i.alimento_id)))return '<span>'+nome+'</span>';
    const atributo=receita?'data-abrir-micro-receita="'+esc(receita.id)+'"':'data-editar-micro-alimento="'+esc(i.alimento_id)+'" data-editar-micro-codigo="'+esc(codigo)+'"';
    return '<button type="button" class="receita-micro-corrigir" '+atributo+' title="'+(receita?'Abrir receita e revisar seus ingredientes':'Editar micronutriente do alimento')+'">'+nome+(receita?' (receita)':'')+'</button>';
   }).join('')+'</div></div>';
@@ -268,7 +268,7 @@ function microsDoAlimento(food){
  return m&&typeof m==='object'&&!Array.isArray(m)?m:{};
 }
 async function abrirEditorMicronutriente(alimentoId,codigo){
- if(microSalvando||!/^\\d+$/.test(String(alimentoId)))return;
+ if(microSalvando||!/^\d+$/.test(String(alimentoId)))return;
  const user=usuarioId;
  const n=nutrientes.find(item=>item.codigo===codigo);
  if(!n)return alertar('Micronutriente não encontrado. Atualize a página.',true);
