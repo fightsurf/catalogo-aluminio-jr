@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>AVN — Gráficos corporais</title>
 <link rel="stylesheet" href="/css/avn-health.css">
-<link rel="stylesheet" href="/css/avn-balanco-energetico.css?v=20261119-tabs2">
+<link rel="stylesheet" href="/css/avn-balanco-energetico.css?v=20261120-macros-periodo1">
 <style>
 .graphs-list{display:grid;gap:16px}
 .chart-panel{margin-top:0}
@@ -61,6 +61,15 @@
 .avn-graph-tab:focus-visible{outline:2px solid #82c8ff;outline-offset:2px}
 .avn-graph-panel[hidden]{display:none!important}
 @media(max-width:650px){.avn-graph-tabs{gap:4px}.avn-graph-tab{padding:9px 5px;font-size:.91rem}}
+.macro-tablist{display:flex;gap:6px;overflow-x:auto;margin:16px 0 2px;padding:5px;background:#101c2e;border:1px solid #34465f;border-radius:11px}
+.macro-tab{flex:1;min-width:max-content;padding:10px 13px;border:0;border-radius:8px;background:transparent;color:#c2d3eb;font:inherit;font-weight:700;cursor:pointer}
+.macro-tab[aria-selected="true"]{background:#2169ab;color:white}
+.macro-tab:focus-visible{outline:2px solid #82c8ff;outline-offset:1px}
+.macro-tab-panel{min-width:0;padding-top:12px}
+.macro-tab-panel[hidden]{display:none!important}
+.macro-tab-panel .painel-titulo h3{margin:0;font-size:1rem}
+.macro-tab-panel .painel-titulo small{font-weight:400;color:#a9b9d1}
+@media(max-width:650px){.macro-tablist{gap:2px}.macro-tab{font-size:.82rem;padding:9px 8px}}
 </style>
 </head>
 <body data-section="corporal">
@@ -127,20 +136,42 @@
 <section class="avn-balanco avn-energy" aria-labelledby="energia-title">
 <h2 id="energia-title">Balanço energético e nutrição</h2>
 <p id="mensagem" role="status" aria-live="polite">Carregando dados…</p>
-<section class="saldo" id="saldo" aria-live="polite">
-<h2>Balanço calórico do dia</h2>
-<strong id="saldo-valor">—</strong>
-<p id="saldo-descricao">Selecione um usuário.</p>
-<p class="formula" id="saldo-formula"></p>
-</section>
+
 <section class="graficos" id="graficos" aria-label="Gráficos diários de linha">
 <article class="painel painel-principal">
 <div class="painel-titulo"><h2>📉 Histórico do Balanço Energético</h2><strong id="valor-saldo">—</strong></div>
 <p class="ajuda">Calorias consumidas − TMB − treinamento − calorias estimadas dos passos. Valores negativos indicam déficit e positivos, superávit.</p>
 <div id="grafico-saldo" class="linha-grafico" aria-label="Histórico de déficit ou superávit por data"></div>
 </article>
-<article class="painel"><div class="painel-titulo"><h2>🍽️ Calorias consumidas</h2><div class="painel-acoes"><a class="diario-link" href="/avn/sistema/nutricao/diario">Diário alimentar</a><strong id="valor-ingestao">—</strong></div></div>
-<p class="ajuda">Quilocalorias registradas por dia no Diário Alimentar.</p><div id="grafico-ingestao" class="linha-grafico"></div></article>
+<article class="painel painel-macros" aria-labelledby="macro-title">
+<div class="painel-titulo"><h2 id="macro-title">🍽️ Calorias consumidas e macronutrientes</h2><a class="diario-link" href="/avn/sistema/nutricao/diario">Diário alimentar</a></div>
+<div class="macro-tablist" role="tablist" aria-label="Consumo diário de energia e macronutrientes">
+<button type="button" id="macro-tab-ingestao" class="macro-tab" role="tab" data-macro-tab="ingestao" aria-controls="macro-painel-ingestao" aria-selected="true">Calorias</button>
+<button type="button" id="macro-tab-proteinas" class="macro-tab" role="tab" data-macro-tab="proteinas" aria-controls="macro-painel-proteinas" aria-selected="false" tabindex="-1">Proteína</button>
+<button type="button" id="macro-tab-carboidratos" class="macro-tab" role="tab" data-macro-tab="carboidratos" aria-controls="macro-painel-carboidratos" aria-selected="false" tabindex="-1">Carboidrato</button>
+<button type="button" id="macro-tab-gorduras" class="macro-tab" role="tab" data-macro-tab="gorduras" aria-controls="macro-painel-gorduras" aria-selected="false" tabindex="-1">Gordura</button>
+</div>
+<section id="macro-painel-ingestao" class="macro-tab-panel" role="tabpanel" aria-labelledby="macro-tab-ingestao">
+<div class="painel-titulo"><h3>Calorias consumidas <small>kcal</small></h3><strong id="valor-ingestao">—</strong></div>
+<p class="ajuda">Quilocalorias registradas por dia no Diário Alimentar.</p>
+<div id="grafico-ingestao" class="linha-grafico" aria-label="Calorias consumidas por dia"></div>
+</section>
+<section id="macro-painel-proteinas" class="macro-tab-panel" role="tabpanel" aria-labelledby="macro-tab-proteinas" hidden>
+<div class="painel-titulo"><h3>Proteínas consumidas <small>g</small></h3><strong id="valor-proteinas">—</strong></div>
+<p class="ajuda" id="nota-proteinas">Consultando o Diário Alimentar e Minhas metas…</p>
+<div id="grafico-proteinas" class="linha-grafico" aria-label="Proteínas consumidas por data, em gramas, com meta hachurada"></div>
+</section>
+<section id="macro-painel-carboidratos" class="macro-tab-panel" role="tabpanel" aria-labelledby="macro-tab-carboidratos" hidden>
+<div class="painel-titulo"><h3>Carboidratos consumidos <small>g</small></h3><strong id="valor-carboidratos">—</strong></div>
+<p class="ajuda" id="nota-carboidratos">Consultando o Diário Alimentar e Minhas metas…</p>
+<div id="grafico-carboidratos" class="linha-grafico" aria-label="Carboidratos consumidos por data, em gramas, com meta hachurada"></div>
+</section>
+<section id="macro-painel-gorduras" class="macro-tab-panel" role="tabpanel" aria-labelledby="macro-tab-gorduras" hidden>
+<div class="painel-titulo"><h3>Gorduras consumidas <small>g</small></h3><strong id="valor-gorduras">—</strong></div>
+<p class="ajuda" id="nota-gorduras">Consultando o Diário Alimentar e Minhas metas…</p>
+<div id="grafico-gorduras" class="linha-grafico" aria-label="Gorduras consumidas por data, em gramas, com meta hachurada"></div>
+</section>
+</article>
 <article class="painel"><div class="painel-titulo"><h2>🔥 TMB</h2><strong id="valor-tmb">—</strong></div>
 <p class="ajuda" id="nota-tmb">Metabolismo basal da bioimpedância.</p><div id="grafico-tmb" class="linha-grafico"></div></article>
 <article class="painel"><div class="painel-titulo"><h2>👟 Passos</h2><strong id="valor-passos">—</strong></div>
@@ -148,18 +179,7 @@
 <article class="painel"><div class="painel-titulo"><h2>🏋️ Calorias de treinamento</h2><strong id="valor-calorias_ativas">—</strong></div>
 <p class="ajuda">Calorias ativas sincronizadas pelo Health Connect. Sem registros, adotamos 0 kcal.</p><div id="grafico-calorias_ativas" class="linha-grafico"></div></article>
 </section>
-<section class="graficos graficos-macros" aria-label="Gráficos diários de consumo de macronutrientes">
-<h2 class="secao-graficos-titulo">Consumo diário de macronutrientes</h2>
-<article class="painel"><div class="painel-titulo"><h2>🥚 Proteínas consumidas</h2><strong id="valor-proteinas">—</strong></div>
-<p class="ajuda" id="nota-proteinas">Consultando o Diário Alimentar e Minhas metas…</p>
-<div id="grafico-proteinas" class="linha-grafico" aria-label="Proteínas consumidas por data, em gramas, com meta hachurada"></div></article>
-<article class="painel"><div class="painel-titulo"><h2>🍚 Carboidratos consumidos</h2><strong id="valor-carboidratos">—</strong></div>
-<p class="ajuda" id="nota-carboidratos">Consultando o Diário Alimentar e Minhas metas…</p>
-<div id="grafico-carboidratos" class="linha-grafico" aria-label="Carboidratos consumidos por data, em gramas, com meta hachurada"></div></article>
-<article class="painel painel-macro-amplo"><div class="painel-titulo"><h2>🥑 Gorduras consumidas</h2><strong id="valor-gorduras">—</strong></div>
-<p class="ajuda" id="nota-gorduras">Consultando o Diário Alimentar e Minhas metas…</p>
-<div id="grafico-gorduras" class="linha-grafico" aria-label="Gorduras consumidas por data, em gramas, com meta hachurada"></div></article>
-</section>
+
 </section>
 </section>
 <dialog id="compare-dialog" class="compare-modal" aria-labelledby="compare-title">
@@ -196,7 +216,10 @@
 </div></fieldset>
 
 </aside><section class="compare-display" aria-label="Gráfico de comparação fixo">
-<div class="compare-filtros"><span class="compare-help">Período definido no topo da página.</span><span id="compare-status" role="status">Selecione os indicadores.</span></div>
+<div class="compare-filtros"><label for="compare-period">Período do cruzamento
+<select id="compare-period" aria-label="Período do cruzamento">
+<option value="7" selected>7 dias</option><option value="15">15 dias</option><option value="30">30 dias</option><option value="60">60 dias</option><option value="90">90 dias</option><option value="120">120 dias</option>
+</select></label><span id="compare-status" role="status">Selecione os indicadores.</span></div>
 <div id="compare-legend" class="compare-legend" aria-label="Legenda do gráfico"></div>
 <div id="compare-chart" class="compare-chart" role="group" aria-label="Gráfico cruzado dos indicadores"></div>
 <p class="compare-help">Com dois indicadores, cada curva usa seu próprio eixo vertical. Com três ou mais, as curvas são apresentadas em escala relativa de 0 a 100 para comparação de tendências; isso não representa unidades iguais. Pontos sem medição não são inventados.</p>
@@ -204,7 +227,7 @@
 </section></div></dialog>
 
 </main>
-<script src="/js/avn-graficos-corporais.js?v=20261119-tabs2" defer></script>
-<script src="/js/avn-balanco-energetico.js?v=20261119-tabs2" defer></script>
+<script src="/js/avn-graficos-corporais.js?v=20261120-macros-periodo1" defer></script>
+<script src="/js/avn-balanco-energetico.js?v=20261120-macros-periodo1" defer></script>
 </body>
 </html>

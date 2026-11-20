@@ -9,6 +9,7 @@
   };
   let dialog, session = null, interval = null, audio = null, audioOutput = null, wakeLock = null;
   const CHAVE_PREPARO = 'avn_circuito_preparo_seg';
+  const CHAVE_PREPARO_INICIAL = 'avn_circuito_preparo_inicial_seg';
   const CHAVE_VOZ = 'avn_circuito_anuncio_voz';
   let falaTimer = null;
   function vozAnterior() {
@@ -58,6 +59,13 @@
     } catch (_) { return 10; }
   }
 
+  function preparoInicialAnterior() {
+    try {
+      const salvo = localStorage.getItem(CHAVE_PREPARO_INICIAL);
+      const valor = salvo === null ? 10 : Number(salvo);
+      return Number.isInteger(valor) && valor >= 0 && valor <= 3600 ? valor : 10;
+    } catch (_) { return 10; }
+  }
   function instalarBotao() {
     const normal = byId('iniciarExecucaoWeb');
     if (!normal || byId('iniciarCircuitoWeb')) return;
@@ -131,29 +139,33 @@
       '<button type="button" class="avn-circuito-fechar" id="avnCircuitoFechar" aria-label="Fechar">×</button></header>' +
       '<div class="avn-circuito-config-grid"><section class="avn-circuito-lista"><h3>Sequência dos exercícios</h3><ol>' + list + '</ol></section>' +
       '<form class="avn-circuito-controles" id="avnCircuitoFormulario"><h3>Configurar tempos</h3>' +
+      '<label>Tempo de preparo inicial (segundos)<input id="avnCircuitoPreparoInicialSeg" name="preparoInicial" type="number" min="0" max="3600" step="1" value="' + preparoInicialAnterior() + '" required inputmode="numeric"></label>' +
       '<label>Preparo antes de cada exercício (segundos)<input id="avnCircuitoPreparoSeg" name="preparo" type="number" min="0" max="3600" step="1" value="' + preparoAnterior() + '" required inputmode="numeric"></label>' +
       '<label>Tempo de exercício (segundos)<input id="avnCircuitoExercicioSeg" name="exercicio" type="number" min="1" max="3600" step="1" value="60" required inputmode="numeric"></label>' +
       '<label>Tempo de descanso (segundos)<input id="avnCircuitoDescansoSeg" name="descanso" type="number" min="0" max="3600" step="1" value="15" required inputmode="numeric"></label>' +
       '<label class="avn-circuito-voz"><input id="avnCircuitoVoz" type="checkbox"' + (vozAnterior() ? ' checked' : '') + '> 🔊 Anunciar próximo exercício por voz</label>' +
       '<p class="avn-circuito-nota">O anúncio utiliza a voz em português disponível no navegador. O volume depende do aparelho.</p>' +
-      '<p class="avn-circuito-nota">Sequência: preparo → exercício → descanso → preparo. O circuito seguirá os ' + exercises.length + ' exercícios uma vez, sem descanso após o último.</p>' +
+      '<p class="avn-circuito-nota">Sequência: preparo inicial (uma vez) → preparo por exercício → exercício → descanso. O circuito seguirá os ' + exercises.length + ' exercícios uma vez, sem descanso após o último.</p>' +
       '<div id="avnCircuitoErro" class="avn-circuito-erro" role="alert"></div>' +
       '<button class="avn-circuito-iniciar" type="submit">▶ Iniciar circuito</button></form></div>';
     byId('avnCircuitoFechar').onclick = fechar;
     byId('avnCircuitoFormulario').onsubmit = evt => {
       evt.preventDefault();
       const prep = Number(byId('avnCircuitoPreparoSeg').value);
+      const initialPrep = Number(byId('avnCircuitoPreparoInicialSeg').value);
       const work = Number(byId('avnCircuitoExercicioSeg').value);
       const rest = Number(byId('avnCircuitoDescansoSeg').value);
       const voz = byId('avnCircuitoVoz').checked;
+      if (!Number.isInteger(initialPrep) || initialPrep < 0 || initialPrep > 3600) return erro('Informe um preparo inicial entre 0 e 3.600 segundos.');
       if (!Number.isInteger(prep) || prep < 0 || prep > 3600) return erro('Informe um preparo entre 0 e 3.600 segundos.');
       if (!Number.isInteger(work) || work < 1 || work > 3600) return erro('Informe um tempo de exercício entre 1 e 3.600 segundos.');
       if (!Number.isInteger(rest) || rest < 0 || rest > 3600) return erro('Informe um descanso entre 0 e 3.600 segundos.');
       try {
         localStorage.setItem(CHAVE_PREPARO, String(prep));
+        localStorage.setItem(CHAVE_PREPARO_INICIAL, String(initialPrep));
         localStorage.setItem(CHAVE_VOZ, String(voz));
       } catch (_) { /* Preferências opcionais. */ }
-      iniciar(exercises, work, rest, prep, voz, planId, day);
+      iniciar(exercises, work, rest, prep, initialPrep, voz, planId, day);
     };
     if (!modal.open) modal.showModal();
   }
@@ -241,19 +253,20 @@
     }
   }
 
-  function iniciar(exercises, work, rest, prep, voz, planId, day) {
+  function iniciar(exercises, work, rest, prep, initialPrep, voz, planId, day) {
     if (session) return;
     iniciarAudio(); // Gesto de clique libera o som no navegador.
-    session = { exercises: exercises.map(e => ({...e})), work, rest, prep, voice: voz,
+    session = { exercises: exercises.map(e => ({...e})), work, rest, prep, initialPrep, voice: voz,
       planId, day, userId: Number(byId('usuario')?.value), completed: new Set(), lastRestBeep: null,
-      index: 0, phase: prep > 0 ? 'prepare' : 'exercise',
-      endsAt: Date.now() + (prep > 0 ? prep : work) * 1000, paused: false, remainingMs: 0, editing: false, adding: false };
+      index: 0, phase: initialPrep > 0 ? 'initial' : (prep > 0 ? 'prepare' : 'exercise'),
+      endsAt: Date.now() + (initialPrep > 0 ? initialPrep : prep > 0 ? prep : work) * 1000, paused: false, remainingMs: 0, editing: false, adding: false };
     obterDialog().classList.add('avn-circuito-executando');
-    if (prep === 0) tocarSino(3);
+    if (initialPrep === 0 && prep === 0) tocarSino(3);
     desenhar();
     interval = window.setInterval(atualizar, 150);
     manterTelaAcordada();
-    if (prep > 0) anunciarExercicio(session, 0, 'prepare', true);
+    if (initialPrep > 0) anunciarExercicio(session, 0, 'initial', true);
+    else if (prep > 0) anunciarExercicio(session, 0, 'prepare', true);
   }
 
 
@@ -386,22 +399,14 @@
     button.disabled=true;
     lista.setAttribute('aria-busy','true');
     try {
-      const url='/avn/sistema/api/treinos/planos/'+encodeURIComponent(s.planId);
-      const resposta=await fetch(url,{credentials:'same-origin',headers:{Accept:'application/json'}});
-      if(!resposta.ok)throw Error('Falha ao carregar o plano para inclusão.');
-      const plano=await resposta.json();
-      if(Number(plano.usuario_id)!==s.userId)throw Error('O plano pertence a outro usuário.');
-      const dia=(plano.dias||[]).find(x=>Number(x.dia_semana)===s.day);
-      if(!dia)throw Error('Dia do treino não encontrado.');
-      const pos=Math.min(s.index+1,dia.exercicios.length);
-      dia.exercicios.splice(pos,0,{
-        exercicio_id:Number(ex.id),series:1,repeticoes:'10',carga_unidade:'kg',
-        carga_kg:null,carga_placas:null,descanso_seg:s.rest,observacoes:'Incluído durante o circuito'
-      });
-      const resp=await fetch(url,{method:'PUT',credentials:'same-origin',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify(plano)});
+      const pos=Math.min(s.index+1,s.exercises.length);
+      const url='/avn/sistema/api/treinos/planos/'+encodeURIComponent(s.planId)+
+        '/dias/'+encodeURIComponent(s.day)+'/exercicios';
+      const resp=await fetch(url,{method:'POST',credentials:'same-origin',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({usuario_id:s.userId,exercicio_id:Number(ex.id),posicao:pos})});
       const json=await resp.json().catch(()=>({}));
-      if(!resp.ok)throw Error(json.erro||'Falha ao salvar no plano.');
+      if(!resp.ok)throw Error(json.erro||'Falha ao salvar o exercício no plano.');
       if(session!==s)return;
       const inserirEm=s.index+1;
       s.completed=new Set([...s.completed].map(i=>i>=inserirEm?i+1:i));
@@ -454,8 +459,18 @@
       '<button type="button" id="avnCircuitoPausar">' + (s.paused ? '▶ Continuar' : 'Ⅱ Pausar') + '</button>' +
       '<button type="button" id="avnCircuitoAdicionar">+ Adicionar exercício</button>' +
       (s.paused ? '<button type="button" id="avnCircuitoEditar">✏️ Editar treino</button>' : '') +
-      '<button type="button" id="avnCircuitoSair">Encerrar ×</button></div>';
-    if (s.phase === 'prepare') {
+      '<button type="button" id="avnCircuitoFinalizar">✅ Finalizar e salvar</button>' +
+      '<button type="button" id="avnCircuitoSair">Sair sem salvar ×</button></div>';
+    if (s.phase === 'initial') {
+      const first = s.exercises[0];
+      modal.innerHTML = '<section class="avn-circuito-painel avn-circuito-em-preparo">' +
+        '<div class="avn-circuito-barra"><span>PREPARO INICIAL DO CIRCUITO</span>' + controls + '</div>' +
+        '<h2>Prepare-se para o treino</h2>' +
+        '<div class="avn-circuito-area-foto">' + foto(first) + '</div>' +
+        '<div class="avn-circuito-tempo" id="avnCircuitoRelogio" role="timer">00:00</div>' +
+        '<span class="avn-circuito-pausado" id="avnCircuitoEstado">' + (s.paused ? 'PAUSADO' : 'INICIANDO CIRCUITO') + '</span>' +
+        '</section>';
+    } else if (s.phase === 'prepare') {
       const first = s.exercises[s.index];
       modal.innerHTML = '<section class="avn-circuito-painel avn-circuito-em-preparo">' +
         '<div class="avn-circuito-barra"><span>PREPARAÇÃO · EXERCÍCIO ' + (s.index + 1) + ' DE ' + s.exercises.length + '</span>' + controls + '</div>' +
@@ -497,6 +512,7 @@
     if (s.editing) desenharEdicao(modal);
     if (s.adding) desenharAdicionarCircuito(modal);
     byId('avnCircuitoSair').onclick = fechar;
+    byId('avnCircuitoFinalizar').onclick = () => {if(!session?.saving)concluir();};
     atualizarRelogio();
   }
 
@@ -516,9 +532,14 @@
       s.lastRestBeep=restante;tocarBeepDescanso();
     }
     let advanced = false;
-    let safety = s.exercises.length * 3 + 3;
+    let safety = s.exercises.length * 3 + 4;
     while (session && !s.paused && now >= s.endsAt && safety-- > 0) {
-      if (s.phase === 'prepare') {
+      if (s.phase === 'initial') {
+        cancelarFala();
+        s.phase = s.prep > 0 ? 'prepare' : 'exercise';
+        s.endsAt += (s.phase === 'prepare' ? s.prep : segundosExercicio(s)) * 1000;
+        if (now < s.endsAt && s.phase === 'exercise' && document.visibilityState === 'visible') tocarSino(3);
+      } else if (s.phase === 'prepare') {
         cancelarFala();
         s.phase = 'exercise';
         s.endsAt += segundosExercicio(s) * 1000;
@@ -599,19 +620,21 @@
       if(retry)retry.onclick=salvar;
     };
     const salvar=async()=>{
-      if(!realizados.length){renderFinal('Nenhum exercício cronometrado foi concluído. Não há sessão para registrar.',true);return;}
+      if(!realizados.length){renderFinal('Nenhum exercício foi concluído. O circuito não foi registrado.',false);return;}
       modal.innerHTML='<section class="avn-circuito-concluido">'+banner+'<p role="status">Salvando a sessão no histórico…</p></section>';
       try {
         const resposta=await fetch('/avn/sistema/api/treinos/sessoes',{
           method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},
           body:JSON.stringify({
             usuario_id:s.userId,plano_id:s.planId,dia_semana:s.day,
-            observacoes:'Circuito cronometrado: exercício '+s.work+' s; descanso '+s.rest+' s; preparo '+s.prep+' s.',
+            modalidade:'circuito',
+            observacoes:'Circuito cronometrado: exercício '+s.work+' s; descanso '+s.rest+' s; preparo '+s.prep+' s; preparo inicial '+s.initialPrep+' s.',
             realizados
           })
         });
         const resultado=await resposta.json().catch(()=>({}));
         if(!resposta.ok)throw Error(resultado.erro||'Falha ao salvar sessão.');
+        if(!resultado.ok||!Number.isSafeInteger(Number(resultado.id))||Number(resultado.id)<1)throw Error('Servidor não confirmou a gravação do circuito.');
         renderFinal('Sessão gravada no histórico de treinos recentes.',true);
       }catch(e){
         renderFinal('A sessão ainda não foi gravada: '+(e.message||'erro desconhecido')+'. Use Tentar salvar novamente.',false);
@@ -621,7 +644,7 @@
   }
 
   function fechar() {
-    if (session && !window.confirm('Encerrar o circuito antes de completar todos os exercícios?')) return;
+    if (session && !window.confirm('Descartar este circuito sem registrar os exercícios concluídos? Para gravar, use Finalizar e salvar.')) return;
     cancelarFala();
     clearInterval(interval); interval = null;
     session = null;
