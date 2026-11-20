@@ -904,11 +904,21 @@ async function reload(){
 }
 async function startUsers(){
  const r=await fetch('/api/avn/usuarios',{credentials:'same-origin'});if(!r.ok)throw Error('Não foi possível consultar usuários cadastrados.');const users=await r.json();
+ const params=new URLSearchParams(window.location.search);
+ const requested=params.get('usuario_id');
  const remembered=localStorage.getItem('avn_nutricao_usuario')||localStorage.getItem('avn_treinos_usuario')||'';
- state.usuarioId=users.some(u=>String(u.id)===remembered)?remembered:String(users[0]?.id||'');
+ state.usuarioId=users.some(u=>String(u.id)===requested)?requested:(users.some(u=>String(u.id)===remembered)?remembered:String(users[0]?.id||''));
  $('usuario').innerHTML='<option value="">Selecione usuário</option>'+users.map(u=>`<option value="${u.id}">${esc(u.nome)}</option>`).join('');$('usuario').value=state.usuarioId;
  if(!state.usuarioId){show('Cadastre um usuário na Central AVN antes de registrar alimentos.',true);return;}
  localStorage.setItem('avn_nutricao_usuario',state.usuarioId);await reload();
+ if(IS_CATALOG_PAGE){
+  const id=params.get('editar');
+  if(id&&/^\d+$/.test(id)){
+   const food=state.alimentos.find(f=>String(f.id)===id);
+   if(food){fillFood(food);$('modalAlimento').showModal();}
+   else show('Alimento não encontrado neste cadastro ou para este usuário.',true);
+  }
+ }
 }
 function configurarIA(){
  if(!window.AVNComparadorAlimentos)throw Error('Comparador nutricional não foi carregado. Atualize a página.');
