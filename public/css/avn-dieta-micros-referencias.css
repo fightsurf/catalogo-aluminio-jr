@@ -22,6 +22,8 @@ body[data-nutricao-pagina="dieta"] .avn-micro-ref-header span{
  text-align:right;white-space:nowrap;font-weight:750;color:#f0f6ff
 }
 body[data-nutricao-pagina="dieta"] .avn-micro-bar{
+ /* Não herdar a grade usada em outros gráficos: o preenchimento deve usar a largura inteira. */
+ display:block;
  margin-top:9px;height:13px;background:#3a495f;border-radius:100px;
  overflow:hidden;border:1px solid #607088;
 }
