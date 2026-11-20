@@ -167,3 +167,28 @@ dialog.receita-modal-secundario .receita-resultado{margin:0}
 .receita-importador .importador-imagem-previa{display:flex;align-items:flex-start;flex-wrap:wrap;gap:12px}
 .receita-importador .importador-imagem-previa[hidden]{display:none!important}
 .receita-importador .importador-imagem-previa img{width:auto;max-width:100%;height:auto;max-height:280px;object-fit:contain;border:1px solid #435775;border-radius:7px}
+
+/* Identificação e correção dos ingredientes responsáveis por micronutrientes parciais. */
+.receita-micro-item{align-items:flex-start!important;}
+.receita-micro-descricao{min-width:0;display:grid;gap:6px;flex:1 1 auto;overflow-wrap:anywhere;}
+.receita-micro-descricao>span{color:#ecf2fc;}
+.receita-micro-faltantes{display:grid;gap:5px;}
+.receita-micro-faltantes>small{font-size:.76rem;color:#c1cedf!important;}
+.receita-micro-alimentos{display:flex;flex-wrap:wrap;gap:5px 7px;}
+.receita-micro-corrigir{padding:4px 8px;border:1px solid #5c83ac;border-radius:7px;background:#1e3854;color:#b9e1ff;font-size:.8rem;font-weight:600;line-height:1.35;text-align:left;cursor:pointer;overflow-wrap:anywhere;}
+.receita-micro-corrigir:hover{background:#285477;color:#fff;border-color:#83c5fc;}
+.receita-micro-corrigir:focus-visible{outline:2px solid #93d5ff;outline-offset:2px;}
+dialog.receita-modal-micro-editar{width:min(740px,calc(100% - 24px));}
+.receita-micro-editor-destaque{border:1px solid #6b92bd;background:#1d334f;border-radius:10px;padding:14px;}
+.receita-micro-editor-destaque .avn-field{display:grid;gap:6px;font-weight:650;}
+.receita-micro-editor-destaque input{max-width:240px;width:100%;padding:10px;border:1px solid #547499;border-radius:8px;}
+.receita-micro-editor-destaque small{display:block;margin-top:7px;font-size:.78rem;}
+.receita-micro-editor-outros{border:1px solid #405a7a;border-radius:10px;padding:10px;}
+.receita-micro-editor-outros summary{font-weight:650;cursor:pointer;padding:4px;}
+.receita-micro-editor-lista{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:11px;margin:12px 0;}
+.receita-micro-editor-lista .avn-field{display:grid;gap:4px;font-size:.82rem;}
+.receita-micro-editor-lista input{width:100%;min-width:0;padding:8px;border:1px solid #435775;border-radius:7px;}
+.receita-micro-editor-erro{margin:4px 0;padding:10px;border:1px solid #ba6f71;border-radius:7px;color:#ffd6d6;background:#4a2629;}
+.receita-micro-editor-acoes{display:flex;gap:9px;flex-wrap:wrap;justify-content:flex-end;}
+.receita-micro-editor-acoes button:disabled{opacity:.55;cursor:wait;}
+@media(max-width:620px){.receita-micro-editor-lista{grid-template-columns:1fr}.receita-micro-item>strong{font-size:.8rem}.receita-micro-corrigir{font-size:.77rem;}}
