@@ -155,7 +155,7 @@ async function consultarPlano(id,client=pool){
  await ensureCarga();
   const r=await client.query('SELECT id,usuario_id,nome,descricao,criado_em,atualizado_em FROM public.avn_planos_treino WHERE id=$1 AND ativo=TRUE',[id]);
   if(!r.rowCount)throw V.erro('Plano não encontrado.',404);
-  const d=await client.query(`SELECT d.id,d.dia_semana,i.exercicio_id,i.posicao,i.series,i.repeticoes,i.carga_kg,i.carga_unidade,i.carga_placas,i.descanso_seg,i.observacoes,e.nome AS exercicio_nome,e.midia_url,e.midia_tipo
+  const d=await client.query(`SELECT d.id,d.dia_semana,i.id AS plano_item_id,i.exercicio_id,i.posicao,i.series,i.repeticoes,i.carga_kg,i.carga_unidade,i.carga_placas,i.descanso_seg,i.observacoes,e.nome AS exercicio_nome,e.midia_url,e.midia_tipo
     FROM public.avn_plano_dias d LEFT JOIN public.avn_plano_itens i ON i.plano_dia_id=d.id
     LEFT JOIN public.avn_exercicios e ON e.id=i.exercicio_id WHERE d.plano_id=$1 ORDER BY d.dia_semana,i.posicao`,[id]);
   const days=new Map();for(const row of d.rows){if(!days.has(row.dia_semana))days.set(row.dia_semana,{dia_semana:row.dia_semana,exercicios:[]});if(row.exercicio_id!==null)days.get(row.dia_semana).exercicios.push({...row,midia_url:catalogo.normalizarMidia(row.midia_url)});}
@@ -230,6 +230,44 @@ router.post('/planos/:id/dias/:dia/exercicios',route(async(req,res)=>{
   await client.query('UPDATE public.avn_planos_treino SET atualizado_em=NOW() WHERE id=$1',[planoId]);
   await client.query('COMMIT');committed=true;
   res.status(201).json({ok:true,id:inserted.rows[0].id,exercicio_id:Number(exercicioId),posicao});
+ }catch(e){if(!committed)await client.query('ROLLBACK').catch(()=>{});throw e;}
+ finally{client.release();}
+}));
+// Reordena dois exercícios adjacentes sem recriar o plano ou perder configurações.
+router.post('/planos/:id/dias/:dia/exercicios/mover',route(async(req,res)=>{
+ const planoId=req.params.id,usuarioId=req.body?.usuario_id;
+ if(!V.id(planoId)||!V.id(usuarioId))throw V.erro('Plano ou usuário inválido.');
+ const diaSemana=V.inteiro(req.params.dia,0,6,'Dia');
+ const indice=V.inteiro(req.body?.indice,0,49,'Índice do exercício');
+ const direcao=Number(req.body?.direcao);
+ if(direcao!==-1&&direcao!==1)throw V.erro('Direção inválida.');
+ const posicaoAtual=V.inteiro(req.body?.posicao_atual,0,99,'Posição atual');
+ const planoItemId=req.body?.plano_item_id;
+ if(!V.id(planoItemId))throw V.erro('Exercício inválido. Atualize a página e tente novamente.');
+ const client=await pool.connect();let committed=false;
+ try{
+  await client.query('BEGIN');
+  // Usa o mesmo bloqueio da inserção para serializar mudanças concorrentes.
+  const plano=await client.query('SELECT id FROM public.avn_planos_treino WHERE id=$1 AND usuario_id=$2 AND ativo=TRUE FOR UPDATE',[planoId,usuarioId]);
+  if(!plano.rowCount)throw V.erro('Plano não encontrado para este usuário.',404);
+  const dia=await client.query('SELECT id FROM public.avn_plano_dias WHERE plano_id=$1 AND dia_semana=$2 FOR UPDATE',[planoId,diaSemana]);
+  if(!dia.rowCount)throw V.erro('Dia do plano não encontrado.',404);
+  const list=await client.query('SELECT id,posicao FROM public.avn_plano_itens WHERE plano_dia_id=$1 ORDER BY posicao,id FOR UPDATE',[dia.rows[0].id]);
+  const destino=indice+direcao;
+  if(destino<0||destino>=list.rows.length)throw V.erro('Exercício já está no limite da lista.',400);
+  const origem=list.rows[indice],vizinho=list.rows[destino];
+  if(Number(origem.posicao)!==posicaoAtual||String(origem.id)!==String(planoItemId))throw V.erro('A ordem foi alterada por outra operação. Atualize a página.',409);
+  // A posição temporária respeita CHECK(0..99) e evita conflito da UNIQUE(plano_dia_id,posicao).
+  const ocupadas=new Set(list.rows.map(x=>Number(x.posicao)));
+  let temporaria=99;
+  while(temporaria>=0&&ocupadas.has(temporaria))temporaria--;
+  if(temporaria<0)throw V.erro('Não há posição livre para reorganizar os exercícios.');
+  await client.query('UPDATE public.avn_plano_itens SET posicao=$1 WHERE id=$2',[temporaria,origem.id]);
+  await client.query('UPDATE public.avn_plano_itens SET posicao=$1 WHERE id=$2',[origem.posicao,vizinho.id]);
+  await client.query('UPDATE public.avn_plano_itens SET posicao=$1 WHERE id=$2',[vizinho.posicao,origem.id]);
+  await client.query('UPDATE public.avn_planos_treino SET atualizado_em=NOW() WHERE id=$1',[planoId]);
+  await client.query('COMMIT');committed=true;
+  res.json({ok:true,posicao:Number(vizinho.posicao)});
  }catch(e){if(!committed)await client.query('ROLLBACK').catch(()=>{});throw e;}
  finally{client.release();}
 }));

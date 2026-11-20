@@ -140,6 +140,14 @@ router.get('/alimentos',wrap(async(req,res)=>{
  AND ($3='' OR translate(lower(nome),'áàâãäéèêëíìîïóòôõöúùûüç','aaaaaeeeeiiiiooooouuuuc') LIKE '%' || translate(lower($3),'áàâãäéèêëíìîïóòôõöúùûüç','aaaaaeeeeiiiiooooouuuuc') || '%')
  ORDER BY nome,id LIMIT 300`,[id,tipo,q]);res.set('Cache-Control','no-store');res.json(r.rows);
 }));
+// Consulta pontual para links profundos; independe do limite de 300 do catálogo.
+router.get('/alimentos/:id',wrap(async(req,res)=>{
+ const usuarioId=requiredId(req.query.usuarioId),alimentoId=requiredId(req.params.id);
+ await user(usuarioId);
+ const r=await pool.query('SELECT * FROM public.avn_alimentos WHERE id=$1 AND ativo AND (usuario_id IS NULL OR usuario_id=$2)',[alimentoId,usuarioId]);
+ if(!r.rowCount)throw bad('Alimento não encontrado.',404);
+ res.set('Cache-Control','no-store').json(r.rows[0]);
+}));
 router.post('/alimentos',wrap(async(req,res)=>{
  const uid=requiredId(req.body?.usuarioId);await user(uid);const f=await foodPayload(req.body||{});
  const tipo=String(req.body?.tipo||'alimento');if(!['alimento','suplemento','medicamento'].includes(tipo))throw bad('Tipo de cadastro inválido.');
@@ -413,7 +421,7 @@ router.delete('/dieta/:usuarioId/perfis/:perfilId',wrap(async(req,res)=>{
 router.get('/dieta/:usuarioId',wrap(async(req,res)=>{
  const uid=requiredId(req.params.usuarioId);await user(uid);const plan=await activePlan(uid);
  if(!plan)return res.json({plano:null,itens:[],perfis:[],medicamentos:[]});
- const r=await pool.query(`SELECT i.*,a.nome AS alimento_nome,a.kcal_100g,a.proteinas_g_100g,a.carboidratos_g_100g,a.gorduras_g_100g,a.fibras_g_100g,a.micronutrientes_100g
+ const r=await pool.query(`SELECT i.*,a.nome AS alimento_nome,a.tipo AS alimento_tipo,a.fonte AS alimento_fonte,a.kcal_100g,a.proteinas_g_100g,a.carboidratos_g_100g,a.gorduras_g_100g,a.fibras_g_100g,a.micronutrientes_100g
  FROM public.avn_dieta_itens i JOIN public.avn_alimentos a ON a.id=i.alimento_id JOIN public.avn_dieta_refeicao_perfis pf ON pf.id=i.perfil_id AND pf.ativo WHERE i.plano_id=$1 AND i.dia_semana=(SELECT MIN(dia_semana) FROM public.avn_dieta_itens WHERE plano_id=$1) ORDER BY ordem,i.id`,[plan.id]);
  const perfis=await pool.query('SELECT id,refeicao,nome,ativo,recuperado FROM public.avn_dieta_refeicao_perfis WHERE plano_id=$1 ORDER BY refeicao,id',[plan.id]);
  const medicamentos=await pool.query(`SELECT m.id,m.medicamento_id,m.refeicao,m.dose_texto,m.horario,

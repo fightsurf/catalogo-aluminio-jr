@@ -18,6 +18,18 @@ const foodMicros=food=>{
  return m&&typeof m==='object'?m:{};
 };
 const hasAmount=(v)=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v))&&Number(v)>=0;
+
+function foodLink(food,label){
+ const nome=escapeText(label);
+ if(!food||!/^\d+$/.test(String(food.id))||!/^\d+$/.test(String(state.usuarioId)))return '<strong>'+nome+'</strong>';
+ const tipo=food.tipo==='receita'||food.fonte==='receita'?'receita':food.tipo||'alimento';
+ const pagina={receita:'receitas',alimento:'alimentos',suplemento:'suplementos',medicamento:'medicamentos'}[tipo];
+ if(!pagina)return '<strong>'+nome+'</strong>';
+ const parametro=tipo==='receita'?'alimento_id':'editar';
+ const href='/avn/sistema/nutricao/'+pagina+'?'+parametro+'='+encodeURIComponent(food.id)+'&usuario_id='+encodeURIComponent(state.usuarioId);
+ return '<a class="avn-micro-cadastro-link" href="'+escapeText(href)+'" title="Abrir cadastro de '+nome+'">'+nome+'</a>';
+}
+
 let catalogue=[],activeKey='',view='',editingId='',locked=false,sessionId='';
 let sourcesTab='externos';
 const externalExamples=new Map();
@@ -112,8 +124,10 @@ function renderDetails(){
    (missing.length?'<div class="avn-micro-food-list">'+missing.map(item=>{
     const food=state.alimentos.find(f=>String(f.id)===String(item.alimento_id));
     const canEdit=editable(food);
-    const label=escapeText(item.alimento_nome||food?.nome||'Alimento');
-    return '<div class="avn-micro-food-line"><div><strong>'+label+'</strong><small>'+escapeText(item.refeicao||'Refeição')+' · '+numberText(item.quantidade_g,1)+' g planejados</small></div>'+
+    const label=item.alimento_nome||food?.nome||'Alimento';
+    // A lista do catálogo pode estar paginada: o item da dieta informa seu tipo real.
+    const cadastro=food||(item.alimento_tipo?{id:item.alimento_id,tipo:item.alimento_tipo,fonte:item.alimento_fonte}:null);
+    return '<div class="avn-micro-food-line"><div>'+foodLink(cadastro,label)+'<small>'+escapeText(item.refeicao||'Refeição')+' · '+numberText(item.quantidade_g,1)+' g planejados</small></div>'+
      (canEdit?'<button type="button" class="secondary" data-edit-food="'+escapeText(food.id)+'">Preencher micronutrientes</button>':
        '<small>'+(food?.tipo==='receita'?'Receita: edite os ingredientes no módulo Receitas.':'Cadastro não editável aqui; confira o módulo Alimentos.')+'</small>')+
      '</div>';
@@ -130,7 +144,7 @@ function renderDetails(){
   '<button type="button" role="tab" data-fontes-tab="externos" aria-selected="'+(sourcesTab==='externos')+'" class="'+(sourcesTab==='externos'?'active':'')+'">Outros exemplos de fontes alimentares</button>'+
   '<button type="button" role="tab" data-fontes-tab="avn" aria-selected="'+(sourcesTab==='avn')+'" class="'+(sourcesTab==='avn'?'active':'')+'">Alimentos cadastrados no AVN</button></div>';
  const ownHtml=registered.length?'<div class="avn-micro-food-list">'+registered.map(({food,value})=>
-   '<div class="avn-micro-food-line"><div><strong>'+escapeText(food.nome)+'</strong><small>'+numberText(value,3)+' '+escapeText(n.unidade)+' por 100 g · '+escapeText(food.preparo||food.marca||'Cadastro AVN')+'</small></div>'+
+   '<div class="avn-micro-food-line"><div>'+foodLink(food,food.nome)+'<small>'+numberText(value,3)+' '+escapeText(n.unidade)+' por 100 g · '+escapeText(food.preparo||food.marca||'Cadastro AVN')+'</small></div>'+
    (editable(food)?'<button type="button" class="secondary" data-edit-food="'+escapeText(food.id)+'">Editar composição</button>':'')+'</div>'
    ).join('')+'</div>':'<p class="muted">Nenhum alimento com valor positivo informado para este nutriente no catálogo carregado.</p>';
  target.innerHTML='<p class="muted">Compare as fontes por 100 g, do maior para o menor teor registrado.</p>'+caution+tabs+
