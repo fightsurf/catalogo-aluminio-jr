@@ -521,11 +521,58 @@ async function configurarAndroidNoRegistro(){
 async function carregarTreino(id){state.treino=await fetchJSON('/planos/'+id);if(String(state.treino.usuario_id)!==state.usuarioId)throw Error('Plano não pertence ao usuário.');if(!state.treino.dias.some(d=>Number(d.dia_semana)===state.treinoDia&&d.exercicios.length)){state.treinoDia=Number(state.treino.dias.find(d=>d.exercicios.length)?.dia_semana??0);}}
 function renderTreinoItens(){
  const dia=state.treino.dias.find(d=>Number(d.dia_semana)===state.treinoDia),itens=dia?.exercicios||[],root=$('treinoItens');if(!root)return;
- root.innerHTML=itens.length?`<div class="stack">${itens.map((original,n)=>{const i=cargaParaSessao(original);const ex=state.exercicios.find(e=>Number(e.id)===Number(i.exercicio_id))||i;return `<div class="item avn-workout-card avn-workout-session-card" data-realizado="${n}"><div class="avn-workout-visual">${media(ex,true)}</div><div class="avn-workout-details"><strong>${esc(i.exercicio_nome||buscarNome(i.exercicio_id))}</strong><small>Previsto: ${i.series} × ${esc(i.repeticoes)}</small><div class="fields"><label>Séries feitas<input type="number" class="ses-series" min="0" max="30" value="${i.series}"></label><label>Repetições feitas<input class="ses-reps" maxlength="30" value="${esc(i.repeticoes)}"></label><label>Unidade<select class="ses-unidade"><option value="kg" ${i.carga_unidade!=='placas'?'selected':''}>kg</option><option value="placas" ${i.carga_unidade==='placas'?'selected':''}>Placas</option></select></label><label>Carga<input type="number" class="ses-carga" min="0" max="${i.carga_unidade==='placas'?200:2000}" step="${i.carga_unidade==='placas'?1:0.5}" value="${esc(i.carga_unidade==='placas'?(i.carga_placas??''):(i.carga_kg??''))}"></label></div><label class="label">Observação<input class="ses-obs" maxlength="500"></label></div></div><button type="button" class="avn-inserir-entre" data-inserir="${n+1}">+ Adicionar exercício aqui</button>`}).join('')}</div>`:'<div class="empty">Este dia não possui exercícios. <button type="button" class="avn-inserir-entre" data-inserir="0">+ Adicionar exercício aqui</button></div>';
+ root.innerHTML=itens.length?`<div class="stack">${itens.map((original,n)=>{const i=cargaParaSessao(original);const ex=state.exercicios.find(e=>Number(e.id)===Number(i.exercicio_id))||i;return `<div class="item avn-workout-card avn-workout-session-card" data-realizado="${n}"><div class="avn-workout-visual">${media(ex,true)}</div><div class="avn-workout-details"><div class="avn-sessao-exercicio-head"><div class="avn-sessao-exercicio-titulo"><span class="avn-sessao-exercicio-numero">${n+1}</span><strong>${esc(i.exercicio_nome||buscarNome(i.exercicio_id))}</strong></div><div class="avn-sessao-mover"><button type="button" class="btn small ghost" data-mover-sessao="${n}" data-direcao="-1" aria-label="Mover exercício ${n+1} para cima" title="Mover para cima" ${n===0?'disabled':''}>↑</button><button type="button" class="btn small ghost" data-mover-sessao="${n}" data-direcao="1" aria-label="Mover exercício ${n+1} para baixo" title="Mover para baixo" ${n===itens.length-1?'disabled':''}>↓</button></div></div><small>Previsto: ${i.series} × ${esc(i.repeticoes)}</small><div class="fields"><label>Séries feitas<input type="number" class="ses-series" min="0" max="30" value="${i.series}"></label><label>Repetições feitas<input class="ses-reps" maxlength="30" value="${esc(i.repeticoes)}"></label><label>Unidade<select class="ses-unidade"><option value="kg" ${i.carga_unidade!=='placas'?'selected':''}>kg</option><option value="placas" ${i.carga_unidade==='placas'?'selected':''}>Placas</option></select></label><label>Carga<input type="number" class="ses-carga" min="0" max="${i.carga_unidade==='placas'?200:2000}" step="${i.carga_unidade==='placas'?1:0.5}" value="${esc(i.carga_unidade==='placas'?(i.carga_placas??''):(i.carga_kg??''))}"></label></div><label class="label">Observação<input class="ses-obs" maxlength="500"></label></div></div><button type="button" class="avn-inserir-entre" data-inserir="${n+1}">+ Adicionar exercício aqui</button>`}).join('')}</div>`:'<div class="empty">Este dia não possui exercícios. <button type="button" class="avn-inserir-entre" data-inserir="0">+ Adicionar exercício aqui</button></div>';
  root.querySelectorAll('[data-inserir]').forEach(b=>b.addEventListener('click',()=>abrirAdicionarRegistro(Number(b.dataset.inserir))));
+  root.querySelectorAll('[data-mover-sessao]').forEach(b=>b.addEventListener('click',()=>moverExercicioSessao(Number(b.dataset.moverSessao),Number(b.dataset.direcao))));
  root.querySelectorAll('.ses-unidade').forEach(sel=>sel.addEventListener('change',()=>{const input=sel.closest('[data-realizado]').querySelector('.ses-carga');input.value='';input.max=sel.value==='placas'?'200':'2000';input.step=sel.value==='placas'?'1':'0.5';}));
  $('salvarSessao').disabled=!itens.length;
  if($('iniciarExecucaoWeb'))$('iniciarExecucaoWeb').disabled=!itens.length;
+}
+function obterCamposSessao(){
+ return [...document.querySelectorAll('#treinoItens [data-realizado]')].map(c=>({
+  series:c.querySelector('.ses-series').value,reps:c.querySelector('.ses-reps').value,
+  unidade:c.querySelector('.ses-unidade').value,carga:c.querySelector('.ses-carga').value,
+  obs:c.querySelector('.ses-obs').value
+ }));
+}
+function restaurarCamposSessao(campos){
+ [...document.querySelectorAll('#treinoItens [data-realizado]')].forEach((c,i)=>{
+  const item=campos[i];if(!item)return;
+  c.querySelector('.ses-series').value=item.series;
+  c.querySelector('.ses-reps').value=item.reps;
+  c.querySelector('.ses-unidade').value=item.unidade;
+  const carga=c.querySelector('.ses-carga');
+  carga.value=item.carga;carga.max=item.unidade==='placas'?'200':'2000';
+  carga.step=item.unidade==='placas'?'1':'0.5';
+  c.querySelector('.ses-obs').value=item.obs;
+ });
+}
+let movendoExercicioSessao=false;
+async function moverExercicioSessao(indice,direcao){
+ if(movendoExercicioSessao||![-1,1].includes(direcao))return;
+ const dia=state.treino?.dias.find(d=>Number(d.dia_semana)===state.treinoDia);
+ const itens=dia?.exercicios||[],destino=indice+direcao;
+ if(!itens[indice]||destino<0||destino>=itens.length)return;
+ const planoId=Number(state.treino.id),diaSemana=Number(state.treinoDia);
+ const campos=obterCamposSessao();
+ movendoExercicioSessao=true;
+ document.querySelectorAll('#treinoItens [data-mover-sessao]').forEach(b=>b.disabled=true);
+ try{
+  await fetchJSON('/planos/'+planoId+'/dias/'+diaSemana+'/exercicios/mover',{
+   method:'POST',body:JSON.stringify({usuario_id:Number(state.usuarioId),indice,direcao,posicao_atual:Number(itens[indice].posicao)})
+  });
+  [campos[indice],campos[destino]]=[campos[destino],campos[indice]];
+  await carregarTreino(planoId);
+  renderTreinoItens();
+  restaurarCamposSessao(campos);
+  await buscarExecucaoWeb();
+  toast('Ordem dos exercícios atualizada e salva.');
+ }catch(e){
+  toast('Não foi possível alterar a ordem: '+e.message,true);
+ }finally{
+  movendoExercicioSessao=false;
+  document.querySelectorAll('#treinoItens [data-mover-sessao]').forEach(b=>b.disabled=b.dataset.direcao==='-1'?Number(b.dataset.moverSessao)===0:Number(b.dataset.moverSessao)===dia?.exercicios?.length-1);
+ }
 }
 async function abrirAdicionarRegistro(indice){
  if(!state.treino?.id)return toast('Selecione um plano salvo.',true);
