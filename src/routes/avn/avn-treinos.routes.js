@@ -193,6 +193,46 @@ async function salvarPlano(req,res,atualizar=false){
     await client.query('COMMIT');committed=true;res.status(atualizar?200:201).json({ok:true,id:planoId});
   }catch(e){if(!committed)await client.query('ROLLBACK').catch(()=>{});throw e;}finally{client.release();}
 }
+// Insere um único exercício sem regravar o plano inteiro, preservando suas demais configurações.
+router.post('/planos/:id/dias/:dia/exercicios',route(async(req,res)=>{
+ const planoId=req.params.id,usuarioId=req.body?.usuario_id;
+ if(!V.id(planoId)||!V.id(usuarioId))throw V.erro('Plano ou usuário inválido.');
+ const diaSemana=V.inteiro(req.params.dia,0,6,'Dia');
+ const exercicioId=req.body?.exercicio_id;
+ if(!V.id(exercicioId))throw V.erro('Selecione um exercício válido.');
+ const posicao=V.inteiro(req.body?.posicao,0,50,'Posição');
+ await ensureCarga();
+ const client=await pool.connect();
+ let committed=false;
+ try{
+  await client.query('BEGIN');
+  // Serializa alterações no plano; não altera outros dias nem exercícios já salvos.
+  const plano=await client.query('SELECT id FROM public.avn_planos_treino WHERE id=$1 AND usuario_id=$2 AND ativo=TRUE FOR UPDATE',[planoId,usuarioId]);
+  if(!plano.rowCount)throw V.erro('Plano não encontrado para este usuário.',404);
+  const disponivel=await client.query('SELECT id FROM public.avn_exercicios WHERE id=$1 AND ativo=TRUE',[exercicioId]);
+  if(!disponivel.rowCount)throw V.erro('Exercício selecionado não existe ou está desativado.',400);
+  let dia=await client.query('SELECT id FROM public.avn_plano_dias WHERE plano_id=$1 AND dia_semana=$2 FOR UPDATE',[planoId,diaSemana]);
+  if(!dia.rowCount)dia=await client.query('INSERT INTO public.avn_plano_dias(plano_id,dia_semana) VALUES($1,$2) RETURNING id',[planoId,diaSemana]);
+  const diaId=dia.rows[0].id;
+  const list=await client.query('SELECT id,posicao FROM public.avn_plano_itens WHERE plano_dia_id=$1 ORDER BY posicao DESC FOR UPDATE',[diaId]);
+  if(list.rowCount>=50)throw V.erro('O limite é 50 exercícios por dia.');
+  if(posicao>list.rowCount)throw V.erro('Posição inválida. Atualize o treino e tente novamente.');
+  // Desloca de trás para frente para evitar violações de UNIQUE(plano_dia_id,posicao).
+  for(const item of list.rows){
+   if(Number(item.posicao)>=posicao){
+    if(Number(item.posicao)>=99)throw V.erro('Não foi possível reservar a posição do exercício.');
+    await client.query('UPDATE public.avn_plano_itens SET posicao=posicao+1 WHERE id=$1',[item.id]);
+   }
+  }
+  const inserted=await client.query(`INSERT INTO public.avn_plano_itens
+   (plano_dia_id,exercicio_id,posicao,series,repeticoes,carga_kg,carga_unidade,carga_placas,descanso_seg,observacoes)
+   VALUES ($1,$2,$3,3,'10',NULL,'kg',NULL,60,'') RETURNING id`,[diaId,exercicioId,posicao]);
+  await client.query('UPDATE public.avn_planos_treino SET atualizado_em=NOW() WHERE id=$1',[planoId]);
+  await client.query('COMMIT');committed=true;
+  res.status(201).json({ok:true,id:inserted.rows[0].id,exercicio_id:Number(exercicioId),posicao});
+ }catch(e){if(!committed)await client.query('ROLLBACK').catch(()=>{});throw e;}
+ finally{client.release();}
+}));
 router.post('/planos',route((req,res)=>salvarPlano(req,res,false)));
 router.put('/planos/:id',route((req,res)=>salvarPlano(req,res,true)));
 router.delete('/planos/:id',route(async(req,res)=>{
