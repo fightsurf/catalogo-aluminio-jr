@@ -262,6 +262,109 @@ function ativarAbasNutrientes(raiz=$('detalheConteudo')){
   });
  });
 }
+function microsDoAlimento(food){
+ let m=food?.micronutrientes_100g||{};
+ if(typeof m==='string'){try{m=JSON.parse(m);}catch(_){m={};}}
+ return m&&typeof m==='object'&&!Array.isArray(m)?m:{};
+}
+async function abrirEditorMicronutriente(alimentoId,codigo){
+ if(microSalvando||!/^\\d+$/.test(String(alimentoId)))return;
+ const user=usuarioId;
+ const n=nutrientes.find(item=>item.codigo===codigo);
+ if(!n)return alertar('Micronutriente não encontrado. Atualize a página.',true);
+ try{
+  const food=await api('/alimentos/'+encodeURIComponent(alimentoId)+'?usuarioId='+encodeURIComponent(user));
+  if(user!==usuarioId)return;
+  if(food.fonte==='receita'||food.tipo==='receita'){
+   const recipe=receitas.find(r=>String(r.alimento_id)===String(food.id));
+   if(recipe)return ver(recipe.id);
+   throw Error('Esta entrada é uma receita. Abra o cadastro da receita para revisar seus ingredientes.');
+  }
+  alimentoMicrosEmEdicao=food;
+  codigoMicroEmEdicao=codigo;
+  const micros=microsDoAlimento(food);
+  const input=(nutriente,principal=false)=>{
+   const valor=micros[nutriente.codigo],atual=valor===null||valor===undefined?'':String(valor);
+   return '<label class="avn-field" for="microIngrediente_'+esc(nutriente.codigo)+'">'+esc(nutriente.nome)+' ('+esc(nutriente.unidade)+') por 100 g'+
+    '<input type="number" class="receita-micro-input" id="microIngrediente_'+esc(nutriente.codigo)+'" data-micro="'+esc(nutriente.codigo)+'" min="0" max="1000000" step="any" inputmode="decimal" value="'+esc(atual)+'" placeholder="Sem informação"'+(principal?' required':'')+'></label>';
+  };
+  $('tituloEditarIngredienteMicro').textContent='Editar alimento · '+food.nome;
+  $('destaqueEditorIngredienteMicro').innerHTML=input(n,true)+'<small>Corrija o valor deste micronutriente. Zero significa valor conhecido como zero; não use zero para informação desconhecida.</small>';
+  $('outrosEditorIngredienteMicro').innerHTML=nutrientes.filter(x=>x.codigo!==codigo).map(x=>input(x)).join('');
+  const permitido=String(food.usuario_id)===String(user);
+  $('descricaoEditorIngredienteMicro').textContent=permitido?'A edição será salva no cadastro do alimento. Ao concluir, a receita será recalculada e uma nova versão será registrada somente se a composição mudar.':'Este alimento pertence ao catálogo compartilhado e não pode ser alterado diretamente neste usuário.';
+  $('salvarEditorIngredienteMicro').disabled=!permitido;
+  $('erroEditorIngredienteMicro').hidden=true;
+  const modal=$('modalEditarIngredienteMicro');
+  if(!modal.open)modal.showModal();
+  const destaque=$('microIngrediente_'+codigo);
+  if(destaque)destaque.focus({preventScroll:true});
+ }catch(e){alertar('Não foi possível abrir o ingrediente: '+e.message,true);}
+}
+async function salvarEditorMicronutriente(event){
+ event.preventDefault();
+ if(microSalvando||!alimentoMicrosEmEdicao||!codigoMicroEmEdicao)return;
+ const food=alimentoMicrosEmEdicao,user=usuarioId,erro=$('erroEditorIngredienteMicro');
+ if(String(food.usuario_id)!==String(user)){
+  erro.textContent='O alimento não pertence a este usuário.';erro.hidden=false;return;
+ }
+ const micros={...microsDoAlimento(food)};
+ for(const input of $('formEditarIngredienteMicro').querySelectorAll('input[data-micro]')){
+  const codigo=input.dataset.micro,raw=input.value.trim();
+  if(!raw){delete micros[codigo];continue;}
+  const numero=Number(raw);
+  if(!input.checkValidity()||!Number.isFinite(numero)||numero<0||numero>1000000){
+   erro.textContent='Informe um valor válido para '+(nutrientes.find(n=>n.codigo===codigo)?.nome||codigo)+'.';
+   erro.hidden=false;input.focus();return;
+  }
+  micros[codigo]=numero;
+ }
+ const data={usuarioId:user,tipo:food.tipo||'alimento',nome:food.nome,marca:food.marca||'',
+  preparo:food.preparo||'',porcao_nome:food.porcao_nome||'',porcao_gramas:food.porcao_gramas??null,
+  micronutrientes_100g:micros};
+ for(const key of ['kcal','proteinas_g','carboidratos_g','gorduras_g','fibras_g'])data[key+'_100g']=food[key+'_100g']??null;
+ const detail=$('modalDetalheReceita').open?receitaEmDetalhe:null;
+ const previaAberta=$('modalPreviaReceita').open;
+ microSalvando=true;$('salvarEditorIngredienteMicro').disabled=true;erro.hidden=true;
+ let salvo=false;
+ try{
+  await api('/alimentos/'+encodeURIComponent(food.id),{method:'PUT',body:JSON.stringify(data)});
+  salvo=true;
+  $('modalEditarIngredienteMicro').close();
+  alimentoMicrosEmEdicao=null;codigoMicroEmEdicao='';
+  if(user!==usuarioId){alertar('Alimento salvo. O usuário foi trocado; recarregue a receita.',true);return;}
+  // O detalhe da receita utiliza snapshots: atualize explicitamente a versão atual
+  // depois de corrigir o alimento, sem modificar o histórico de versões anteriores.
+  if(detail&&String(detail.usuario_id)===String(user)&&
+     detail.ingredientes?.some(i=>String(i.alimento_id)===String(food.id))){
+   await api('/receitas/'+encodeURIComponent(detail.id),{method:'PUT',
+    body:JSON.stringify({usuarioId:user,nome:detail.nome,preparo:detail.preparo,
+     rendimento_g:detail.rendimento_g,ingredientes:detail.ingredientes.map(i=>({
+      alimento_id:i.alimento_id,quantidade_g:i.quantidade_g
+     }))})});
+  }
+  alimentos=await api('/receitas/catalogo?usuarioId='+encodeURIComponent(user));
+  if(user!==usuarioId)return;
+  await listar();
+  if(detail&&$('modalDetalheReceita').open){
+   await ver(detail.id);
+   for(const prefixo of ['receita-inteira','receita-cem-gramas'])
+    document.getElementById(prefixo+'-aba-micros')?.click();
+  }
+  if(previaAberta&&$('modalPreviaReceita').open){
+   resultado(calcLocal(payload()));
+   document.getElementById('previa-aba-micros')?.click();
+  }
+  alertar('Micronutriente do alimento salvo e análise nutricional atualizada.');
+ }catch(e){
+  const mensagem=salvo?'O alimento foi salvo, mas a receita não pôde ser atualizada automaticamente: ':'Não foi possível salvar a composição: ';
+  if(salvo)alertar(mensagem+e.message,true);
+  else{erro.textContent=mensagem+e.message;erro.hidden=false;}
+ }finally{
+  microSalvando=false;
+  if($('modalEditarIngredienteMicro').open)$('salvarEditorIngredienteMicro').disabled=false;
+ }
+}
 async function ver(id){
  const usuario=usuarioId;
  try{
@@ -305,7 +408,21 @@ async function ver(id){
 }
 function nova(){limparImportador();editId=null;$('titulo').textContent='Nova receita';$('salvarReceita').textContent='Salvar receita';$('nome').value='';$('preparo').value='';$('rendimento').value='';$('ingredientes').innerHTML='';$('resultado').innerHTML='';addRow();}
 async function editar(id){const usuario=usuarioId;try{const r=await api('/receitas/'+id+'?usuarioId='+usuario);if(usuario!==usuarioId)return;limparImportador();editId=id;$('titulo').textContent='Editar receita';$('salvarReceita').textContent='Salvar nova versão';$('nome').value=r.nome;$('preparo').value=r.preparo||'';$('rendimento').value=r.rendimento_g;$('ingredientes').innerHTML='';r.ingredientes.forEach(i=>addRow(i.alimento_id,i.quantidade_g));$('resultado').innerHTML='';if($('modalDetalheReceita').open)$('modalDetalheReceita').close();if(!$('modalReceita').open)$('modalReceita').showModal();}catch(e){alertar(e.message,true)}}
-async function init(){try{const r=await fetch('/api/avn/usuarios',{credentials:'same-origin'});if(!r.ok)throw Error('Erro ao buscar usuários.');const users=await r.json();$('usuario').innerHTML=users.map(u=>`<option value="${u.id}">${esc(u.nome)}</option>`).join('');const params=new URLSearchParams(window.location.search);const requested=params.get('usuario_id');const stored=localStorage.getItem('avn_nutricao_usuario')||localStorage.getItem('avn_treinos_usuario');$('usuario').value=users.some(u=>String(u.id)===requested)?requested:(users.some(u=>String(u.id)===stored)?stored:users[0]?.id||'');$('usuario').onchange=()=>{if($('modalImportacaoReceita').open)$('modalImportacaoReceita').close();if($('modalPreviaReceita').open)$('modalPreviaReceita').close();if($('modalReceita').open)$('modalReceita').close();if($('modalDetalheReceita').open)$('modalDetalheReceita').close();carregar()};$('nova').onclick=()=>{nova();$('modalReceita').showModal()};$('fecharModalReceita').onclick=()=>{if($('modalImportacaoReceita').open)$('modalImportacaoReceita').close();if($('modalPreviaReceita').open)$('modalPreviaReceita').close();$('modalReceita').close()};$('abrirImportacao').onclick=()=>{if(!$('modalImportacaoReceita').open)$('modalImportacaoReceita').showModal()};$('fecharImportacao').onclick=()=>$('modalImportacaoReceita').close();$('fecharPrevia').onclick=()=>$('modalPreviaReceita').close();$('fecharDetalheReceita').onclick=()=>$('modalDetalheReceita').close();$('adicionar').onclick=()=>addRow();$('interpretarReceita').onclick=interpretarReceita;$('aplicarImportacao').onclick=aplicarImportacao;$('textoReceita').oninput=invalidarImportacao;
+async function init(){try{
+ $('fecharEditorIngredienteMicro').onclick=()=>$('modalEditarIngredienteMicro').close();
+ $('cancelarEditorIngredienteMicro').onclick=()=>$('modalEditarIngredienteMicro').close();
+ $('formEditarIngredienteMicro').onsubmit=salvarEditorMicronutriente;
+ document.addEventListener('click',event=>{
+  const food=event.target.closest('button[data-editar-micro-alimento]');
+  if(food){
+   event.preventDefault();
+   abrirEditorMicronutriente(food.dataset.editarMicroAlimento,food.dataset.editarMicroCodigo);
+   return;
+  }
+  const recipe=event.target.closest('button[data-abrir-micro-receita]');
+  if(recipe){event.preventDefault();ver(recipe.dataset.abrirMicroReceita);}
+ });
+ const r=await fetch('/api/avn/usuarios',{credentials:'same-origin'});if(!r.ok)throw Error('Erro ao buscar usuários.');const users=await r.json();$('usuario').innerHTML=users.map(u=>`<option value="${u.id}">${esc(u.nome)}</option>`).join('');const params=new URLSearchParams(window.location.search);const requested=params.get('usuario_id');const stored=localStorage.getItem('avn_nutricao_usuario')||localStorage.getItem('avn_treinos_usuario');$('usuario').value=users.some(u=>String(u.id)===requested)?requested:(users.some(u=>String(u.id)===stored)?stored:users[0]?.id||'');$('usuario').onchange=()=>{if($('modalEditarIngredienteMicro').open)$('modalEditarIngredienteMicro').close();alimentoMicrosEmEdicao=null;receitaEmDetalhe=null;if($('modalImportacaoReceita').open)$('modalImportacaoReceita').close();if($('modalPreviaReceita').open)$('modalPreviaReceita').close();if($('modalReceita').open)$('modalReceita').close();if($('modalDetalheReceita').open)$('modalDetalheReceita').close();carregar()};$('nova').onclick=()=>{nova();$('modalReceita').showModal()};$('fecharModalReceita').onclick=()=>{if($('modalImportacaoReceita').open)$('modalImportacaoReceita').close();if($('modalPreviaReceita').open)$('modalPreviaReceita').close();$('modalReceita').close()};$('abrirImportacao').onclick=()=>{if(!$('modalImportacaoReceita').open)$('modalImportacaoReceita').showModal()};$('fecharImportacao').onclick=()=>$('modalImportacaoReceita').close();$('fecharPrevia').onclick=()=>$('modalPreviaReceita').close();$('fecharDetalheReceita').onclick=()=>$('modalDetalheReceita').close();$('adicionar').onclick=()=>addRow();$('interpretarReceita').onclick=interpretarReceita;$('aplicarImportacao').onclick=aplicarImportacao;$('textoReceita').oninput=invalidarImportacao;
 $('selecionarImagemReceita').onclick=()=>$('arquivoImagemReceita').click();
 $('arquivoImagemReceita').onchange=e=>receberImagemReceita(e.target.files?.[0]);
 $('removerImagemReceita').onclick=removerImagemReceita;
