@@ -914,9 +914,12 @@ async function startUsers(){
  if(IS_CATALOG_PAGE){
   const id=params.get('editar');
   if(id&&/^\d+$/.test(id)){
-   const food=state.alimentos.find(f=>String(f.id)===id);
-   if(food){fillFood(food);$('modalAlimento').showModal();}
-   else show('Alimento não encontrado neste cadastro ou para este usuário.',true);
+   try{
+    const food=state.alimentos.find(f=>String(f.id)===id)||
+     await api('/alimentos/'+encodeURIComponent(id)+'?usuarioId='+encodeURIComponent(state.usuarioId));
+    if(food?.tipo!==CATALOG_TYPE)throw Error('Este cadastro pertence a outra categoria.');
+    fillFood(food);$('modalAlimento').showModal();
+   }catch(e){show('Não foi possível abrir o cadastro: '+e.message,true);}
   }
  }
 }
