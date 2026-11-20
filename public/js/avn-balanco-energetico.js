@@ -436,7 +436,7 @@ function desenharComparacao(){
  overlay.addEventListener('pointerdown',at);
  overlay.addEventListener('pointerleave',()=>{guide.setAttribute('visibility','hidden');tooltip.hidden=true;});
  area.append(root,tooltip);
- status.textContent=(relative?'Três ou mais indicadores: cada curva em escala relativa 0–100 (mínimo e máximo próprios).':two?'Dois indicadores: cada curva utiliza seu eixo vertical, conforme a cor.':'Um indicador: valores na escala original.')+' Somente datas com registros válidos são exibidas.'+(all.some(a=>!a.rows.length)?' Sem dados: '+all.filter(a=>!a.rows.length).map(a=>a.nome).join(', ')+'.':'')+(escolhidas.some(key=>nutricao.includes(key))?' Proteínas e carboidratos: diário alimentar (g); água ingerida: registros de hidratação (diferente de água corporal).':'')+(escolhidas.some(key=>sono.includes(key))?' Sono: dados do dia do despertar, sem médias. Duração e fases em horas.':'');
+ status.textContent=(relative?'Três ou mais indicadores: cada curva em escala relativa 0–100 (mínimo e máximo próprios).':two?'Dois indicadores: cada curva utiliza seu eixo vertical, conforme a cor.':'Um indicador: valores na escala original.')+' Somente datas com registros válidos são exibidas.'+(all.some(a=>!a.rows.length)?' Sem dados: '+all.filter(a=>!a.rows.length).map(a=>a.nome).join(', ')+'.':'')+(escolhidas.some(key=>nutricao.includes(key))?' Proteínas e carboidratos: diário alimentar (g); água ingerida: registros de hidratação (diferente de água corporal).':'')+(escolhidas.some(key=>sono.includes(key))?' Sono: dados do dia do despertar, sem médias. Duração e fases em HH:MM.':'');
 }
 function initComparador(){
  const dialog=$('compare-dialog');
