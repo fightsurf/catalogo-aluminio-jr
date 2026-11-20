@@ -1,4 +1,4 @@
-<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AVN — Receitas</title><link rel="stylesheet" href="/css/avn-nutricao.css"><link rel="stylesheet" href="/css/avn-receitas.css?v=20261117-imagens"><script src="/js/avn-receitas.js?v=20261120-link-micro1" defer></script></head><body><main class="avn-wrap">
+<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AVN — Receitas</title><link rel="stylesheet" href="/css/avn-nutricao.css"><link rel="stylesheet" href="/css/avn-receitas.css?v=20261120-faltantes1"><script src="/js/avn-receitas.js?v=20261120-faltantes1" defer></script></head><body><main class="avn-wrap">
 <header class="avn-top"><a href="/avn">← Central AVN</a><span class="avn-brand">AVN <em>Nutrição</em></span></header><section class="avn-hero"><div><span class="avn-caption">NUTRIÇÃO · AVN</span><h1>Receitas</h1><p>Combine alimentos cadastrados, pese cada ingrediente e informe o peso final da preparação pronta.</p></div><label class="avn-field user-field">Usuário<select id="usuario"></select></label></section>
 <nav class="avn-tabs avn-links" aria-label="Aplicativos de nutrição"><a href="/avn/sistema/nutricao/diario">Diário alimentar</a><a href="/avn/sistema/nutricao/dieta">Dieta programada</a><a href="/avn/sistema/nutricao/alimentos">Alimentos</a><a href="/avn/sistema/nutricao/suplementos">Suplementos</a><a href="/avn/sistema/nutricao/medicamentos">Medicamentos</a><a href="/avn/sistema/nutricao/metas">Minhas metas</a><a href="/avn/sistema/nutricao/receitas" aria-current="page">Receitas</a><a href="/avn/sistema/nutricao/agua">Água</a></nav>
 <div id="alerta" class="avn-alert" hidden role="status"></div>
@@ -25,5 +25,15 @@
 <dialog id="modalDetalheReceita" class="receita-modal receita-modal-detalhe" aria-labelledby="detalheTitulo">
 <div class="receita-modal-head"><h2 id="detalheTitulo">Detalhes da receita</h2><button type="button" id="fecharDetalheReceita" class="secondary">Fechar</button></div>
 <div id="detalheConteudo" class="receita-modal-conteudo" aria-live="polite"></div>
+</dialog>
+<dialog id="modalEditarIngredienteMicro" class="receita-modal receita-modal-micro-editar" aria-labelledby="tituloEditarIngredienteMicro">
+ <div class="receita-modal-head"><h2 id="tituloEditarIngredienteMicro">Editar micronutriente do alimento</h2><button type="button" id="fecharEditorIngredienteMicro" class="secondary">Fechar</button></div>
+ <form id="formEditarIngredienteMicro" class="receita-modal-conteudo stack">
+  <p id="descricaoEditorIngredienteMicro" class="muted">Corrija a composição por 100 g do alimento. Zero é um valor informado; deixe vazio apenas quando desconhecido.</p>
+  <div id="destaqueEditorIngredienteMicro" class="receita-micro-editor-destaque"></div>
+  <details class="receita-micro-editor-outros"><summary>Outros micronutrientes do alimento</summary><div id="outrosEditorIngredienteMicro" class="receita-micro-editor-lista"></div></details>
+  <p id="erroEditorIngredienteMicro" role="alert" class="receita-micro-editor-erro" hidden></p>
+  <div class="receita-micro-editor-acoes"><button type="submit" class="primary" id="salvarEditorIngredienteMicro">Salvar composição</button><button type="button" class="secondary" id="cancelarEditorIngredienteMicro">Cancelar</button></div>
+ </form>
 </dialog>
 </div><footer>Os nutrientes sem dados completos nos ingredientes permanecem desconhecidos. O Diário registra uma composição histórica quando você lança o consumo.</footer></main></body></html>
