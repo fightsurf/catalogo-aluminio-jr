@@ -7,6 +7,14 @@ const roundDay=d=>{const p=new Intl.DateTimeFormat('en-GB',{timeZone:TZ,year:'nu
 const hoje=()=>roundDay(new Date());
 // O único seletor temporal da página controla o histórico; nutrição limitada a 365 dias.
 const periodoSelecionado=()=>Math.min(365,Math.max(1,Number($('dias')?.value)||7));
+const periodoComparacao=()=>Math.min(120,Math.max(7,Number($('compare-period')?.value)||7));
+const duracaoSono=key=>['sono_efetivo','sono_duracao','sono_leve','sono_profundo','sono_rem'].includes(key);
+function formatarDuracao(horas){
+ const total=Math.max(0,Math.round(Number(horas)*60));
+ return String(Math.floor(total/60)).padStart(2,'0')+':'+String(total%60).padStart(2,'0');
+}
+const formatarIndicador=(key,value,dec=2)=>duracaoSono(key)?formatarDuracao(value):fmt(value,dec);
+const unidadeIndicador=key=>duracaoSono(key)?'':(' '+conf[key].unidade);
 const dataBR=d=>d?d.slice(8,10)+'/'+d.slice(5,7)+'/'+d.slice(0,4):'';
 const isoDay=s=>new Date(s+'T12:00:00-03:00').getTime();
 const conf={
@@ -58,6 +66,17 @@ function segmentos(svgEl,points,color){
  const enviar=()=>{if(segmento.length>1)svg(svgEl,'polyline',{points:segmento.map(p=>p.x+','+p.y).join(' '),fill:'none',stroke:color,'stroke-width':2.7,'stroke-linecap':'round','stroke-linejoin':'round'});segmento=[];};
  for(const p of points){if(!p){enviar();continue;}segmento.push(p);}enviar();
 }
+function calculoDetalhadoSaldo(d){
+ const ing=d.ingestao?.valor,basal=d.tmb?.valor,passos=d.calorias_passos?.valor,treino=d.calorias_ativas?.valor;
+ if(![ing,basal,passos,treino].every(has))return '';
+ const saldo=Math.round((Number(ing)-Number(basal)-Number(passos)-Number(treino))*10)/10;
+ return '\nCálculo (kcal):'+
+ '\nConsumidas: '+fmt(ing,4)+
+ '\n− TMB: '+fmt(basal,4)+
+ '\n− Passos estimados: '+fmt(passos,4)+
+ '\n− Treinamento: '+fmt(treino,4)+
+ '\n= '+fmt(saldo===0?0:saldo,1)+' kcal';
+}
 function graficoDiario(chave,dias,selecionado){
  const alvo=$('grafico-'+chave),met=conf[chave];alvo.replaceChildren();
  const W=650,H=282,L=62,R=23,T=33,B=66;
@@ -91,6 +110,7 @@ function graficoDiario(chave,dias,selecionado){
   const circle=svg(root,'circle',{cx:p.x,cy:p.y,r:ativo?6:4.5,fill:met.cor,stroke:ativo?'#fff':'#182437','stroke-width':ativo?2:1.5});
   let detalhe=dataBR(p.d.data)+' — '+fmt(p.v,1)+' '+met.unidade;
   if(chave==='passos'&&has(p.d.calorias_passos?.valor))detalhe+=' · '+fmt(p.d.calorias_passos.valor,1)+' kcal estimadas';
+   if(chave==='saldo')detalhe+=calculoDetalhadoSaldo(p.d);
   svg(circle,'title',{},detalhe);
   circle.setAttribute('aria-label',detalhe);
   // Valor numérico visível em todos os pontos dos gráficos diários.
@@ -102,19 +122,6 @@ function graficoDiario(chave,dias,selecionado){
   }
  }
  alvo.append(root);
-}
-function preencherResumo(d){
- const s=d.saldo,painel=$('saldo');painel.className='saldo';
- if(s.classificacao==='indisponivel'){
-  $('saldo-valor').textContent='Dados insuficientes';
-  $('saldo-descricao').textContent='Faltam: '+s.faltam.join(', ')+'.';
-  $('saldo-formula').textContent='Não foi possível calcular um saldo confiável nesta data.';
-  return;
- }
- painel.classList.add(s.classificacao);
- $('saldo-valor').textContent=(s.classificacao==='deficit'?'Déficit':s.classificacao==='superavit'?'Superávit':'Equilíbrio')+' de '+fmt(Math.abs(s.saldo_kcal))+' kcal';
- $('saldo-descricao').textContent=(s.classificacao==='deficit'?'Gasto estimado acima do consumo.':s.classificacao==='superavit'?'Consumo acima do gasto estimado.':'Gasto e consumo próximos.')+(d.data===hoje()?' Resultado provisório de hoje.':'');
- $('saldo-formula').textContent='Consumidas: '+fmt(d.ingestao.valor)+' − (TMB: '+fmt(d.tmb.valor)+' + treinamento: '+fmt(d.calorias_ativas.valor)+' + passos estimados: '+fmt(d.calorias_passos.valor)+') = '+(s.saldo_kcal>0?'+':'')+fmt(s.saldo_kcal,1)+' kcal.';
 }
 function pintarDiarios(dias,selecionado){
  for(const chave of metricas){
@@ -132,7 +139,8 @@ function pintarDiarios(dias,selecionado){
   :!has(e?.valor)
    ?'Estimativa indisponível: registre peso recente e altura.'
    :'Kcal líquidas estimadas sob cada ponto. Hoje: '+fmt(e.valor,1)+' kcal de '+fmt(e.passos_considerados)+' passos considerados, sem duplicar intervalos de treino.';
- preencherResumo(selecionado);
+
+
 }
 
 function limparGraficosMacros(){
@@ -229,7 +237,8 @@ async function carregarGraficosMacros(token,usuario,dia,periodo){
 
 function limpar(){
  for(const chave of metricas){$('valor-'+chave).textContent='—';$('grafico-'+chave).replaceChildren();}
- $('saldo').className='saldo';$('saldo-valor').textContent='—';$('saldo-descricao').textContent='Não foi possível consultar os dados.';$('saldo-formula').textContent='';
+
+
 }
 async function atualizar(){
  const current=++seq,user=$('usuario').value,day=hoje(),dias=periodoSelecionado();
@@ -299,7 +308,7 @@ function compararDatas(dias,met){return dias.filter(d=>has(met.get(d))).map(d=>(
 async function carregarComparacao(){
  if(!$('compare-dialog').open)return;
  const token=++compareSeq;
- const user=$('usuario').value,day=hoje(),period=periodoSelecionado();
+ const user=$('usuario').value,day=hoje(),period=periodoComparacao();
  $('compare-status').textContent='Carregando dados do período…';
  $('compare-chart').replaceChildren();$('compare-legend').replaceChildren();
  if(!user||!day){$('compare-status').textContent='Selecione usuário e data.';return;}
@@ -341,7 +350,7 @@ function desenharComparacao(){
  const area=$('compare-chart'),status=$('compare-status'),legend=$('compare-legend');
  area.replaceChildren();legend.replaceChildren();
  const escolhidas=[...document.querySelectorAll('input[data-compare]:checked')].map(x=>x.dataset.compare);
- if(escolhidas.length<2){status.textContent='Marque pelo menos dois indicadores.';return;}
+ if(!escolhidas.length){status.textContent='Selecione ao menos um indicador.';return;}
  if(!comparacao){status.textContent='Carregando registros…';return;}
  const all=escolhidas.map(key=>({...conf[key],key,rows:comparacao.series[key]||[]}));
  for(const a of all){
@@ -374,14 +383,14 @@ function desenharComparacao(){
  for(let i=0;i<=5;i++){
   const yy=T+Hplot*i/5;
   svg(root,'line',{x1:L,x2:W-R,y1:yy,y2:yy,stroke:'#33455f'});
-  svg(root,'text',{x:L-8,y:yy+4,'text-anchor':'end','font-size':12,fill:relative?'#cbd5e1':usable[0].cor},fmt(maximo-(maximo-minimo)*i/5,1));
+  svg(root,'text',{x:L-8,y:yy+4,'text-anchor':'end','font-size':12,fill:relative?'#cbd5e1':usable[0].cor},relative?fmt(maximo-(maximo-minimo)*i/5,1):formatarIndicador(usable[0].key,maximo-(maximo-minimo)*i/5,1));
   if(two){
    const y2=usable[1].range;
-   svg(root,'text',{x:W-R+8,y:yy+4,'text-anchor':'start','font-size':12,fill:usable[1].cor},fmt(y2.max-(y2.max-y2.min)*i/5,1));
+   svg(root,'text',{x:W-R+8,y:yy+4,'text-anchor':'start','font-size':12,fill:usable[1].cor},formatarIndicador(usable[1].key,y2.max-(y2.max-y2.min)*i/5,1));
   }
  }
- svg(root,'text',{x:L,y:18,'font-size':12,fill:relative?'#cbd5e1':usable[0].cor},relative?'Escala relativa 0–100':usable[0].nome+' ('+usable[0].unidade+')');
- if(two)svg(root,'text',{x:W-R,y:18,'text-anchor':'end','font-size':12,fill:usable[1].cor},usable[1].nome+' ('+usable[1].unidade+')');
+ svg(root,'text',{x:L,y:18,'font-size':12,fill:relative?'#cbd5e1':usable[0].cor},relative?'Escala relativa 0–100':usable[0].nome+' ('+(duracaoSono(usable[0].key)?'HH:MM':usable[0].unidade)+')');
+ if(two)svg(root,'text',{x:W-R,y:18,'text-anchor':'end','font-size':12,fill:usable[1].cor},usable[1].nome+' ('+(duracaoSono(usable[1].key)?'HH:MM':usable[1].unidade)+')');
  svg(root,'line',{x1:L,x2:L,y1:T,y2:H-B,stroke:'#91a5c2'});
  svg(root,'line',{x1:L,x2:W-R,y1:H-B,y2:H-B,stroke:'#91a5c2'});
  if(two)svg(root,'line',{x1:W-R,x2:W-R,y1:T,y2:H-B,stroke:'#91a5c2'});
@@ -397,11 +406,11 @@ function desenharComparacao(){
   for(const p of coords){
    allDays.add(p.data);
    const dot=svg(root,'circle',{cx:p.x,cy:p.y,r:4,fill:a.cor});
-   svg(dot,'title',{},dataBR(p.data)+' · '+a.nome+': '+fmt(p.value,2)+' '+a.unidade);
+   svg(dot,'title',{},dataBR(p.data)+' · '+a.nome+': '+formatarIndicador(a.key,p.value,2)+unidadeIndicador(a.key));
    // Exibe o valor real (não o percentual da escala relativa), com alternância para reduzir sobreposição.
    const deslocamento=serieIndice%2===0?-13-Math.floor(serieIndice/2)*13:19+Math.floor(serieIndice/2)*13;
    const yRotulo=Math.max(T+12,Math.min(H-B-7,p.y+deslocamento));
-   svg(root,'text',{x:p.x,y:yRotulo,'text-anchor':'middle','font-size':11,'font-weight':700,fill:a.cor,stroke:'#172439','stroke-width':3,'paint-order':'stroke','pointer-events':'none'},fmt(p.value,Math.abs(p.value)<10?2:1));
+   svg(root,'text',{x:p.x,y:yRotulo,'text-anchor':'middle','font-size':11,'font-weight':700,fill:a.cor,stroke:'#172439','stroke-width':3,'paint-order':'stroke','pointer-events':'none'},formatarIndicador(a.key,p.value,Math.abs(p.value)<10?2:1));
   }
  }
  const guide=svg(root,'line',{x1:L,x2:L,y1:T,y2:H-B,stroke:'#e5e7eb','stroke-dasharray':'4 4',visibility:'hidden'});
@@ -416,7 +425,7 @@ function desenharComparacao(){
   const lines=[dataBR(date)];
   for(const a of all){
    const value=a.byDate?.get(date);
-   lines.push(a.nome+': '+(value?fmt(value.value,2)+' '+a.unidade:'sem medição nesta data'));
+   lines.push(a.nome+': '+(value?formatarIndicador(a.key,value.value,2)+unidadeIndicador(a.key):'sem medição nesta data'));
   }
   tooltip.textContent=lines.join('\n');tooltip.hidden=false;
   const left=x/W*area.clientWidth;
@@ -427,7 +436,7 @@ function desenharComparacao(){
  overlay.addEventListener('pointerdown',at);
  overlay.addEventListener('pointerleave',()=>{guide.setAttribute('visibility','hidden');tooltip.hidden=true;});
  area.append(root,tooltip);
- status.textContent=(relative?'Três ou mais indicadores: cada curva em escala relativa 0–100 (mínimo e máximo próprios).':'Dois indicadores: cada curva utiliza seu eixo vertical, conforme a cor.')+' Somente datas com registros válidos são exibidas.'+(all.some(a=>!a.rows.length)?' Sem dados: '+all.filter(a=>!a.rows.length).map(a=>a.nome).join(', ')+'.':'')+(escolhidas.some(key=>nutricao.includes(key))?' Proteínas e carboidratos: diário alimentar (g); água ingerida: registros de hidratação (diferente de água corporal).':'')+(escolhidas.some(key=>sono.includes(key))?' Sono: dados do dia do despertar, sem médias. Duração e fases em horas.':'');
+ status.textContent=(relative?'Três ou mais indicadores: cada curva em escala relativa 0–100 (mínimo e máximo próprios).':two?'Dois indicadores: cada curva utiliza seu eixo vertical, conforme a cor.':'Um indicador: valores na escala original.')+' Somente datas com registros válidos são exibidas.'+(all.some(a=>!a.rows.length)?' Sem dados: '+all.filter(a=>!a.rows.length).map(a=>a.nome).join(', ')+'.':'')+(escolhidas.some(key=>nutricao.includes(key))?' Proteínas e carboidratos: diário alimentar (g); água ingerida: registros de hidratação (diferente de água corporal).':'')+(escolhidas.some(key=>sono.includes(key))?' Sono: dados do dia do despertar, sem médias. Duração e fases em horas.':'');
 }
 function initComparador(){
  const dialog=$('compare-dialog');
@@ -438,10 +447,32 @@ function initComparador(){
  $('compare-close').addEventListener('click',()=>dialog.close());
  dialog.addEventListener('click',e=>{if(e.target===dialog)dialog.close();});
  dialog.addEventListener('close',()=>{compareSeq++;});
- // O comparador utiliza o seletor de período da página.
- document.querySelectorAll('input[data-compare]').forEach(c=>c.addEventListener('change',desenharComparacao));
+ $('compare-period').addEventListener('change',carregarComparacao);
+  document.querySelectorAll('input[data-compare]').forEach(c=>c.addEventListener('change',desenharComparacao));
+}
+function iniciarAbasMacros(){
+ const tabs=[...document.querySelectorAll('[data-macro-tab]')];
+ const ativar=key=>{
+  tabs.forEach(tab=>{
+   const ativo=tab.dataset.macroTab===key;
+   tab.setAttribute('aria-selected',String(ativo));
+   tab.tabIndex=ativo?0:-1;
+   const painel=$('macro-painel-'+tab.dataset.macroTab);
+   if(painel)painel.hidden=!ativo;
+  });
+ };
+ tabs.forEach((tab,index)=>{
+  tab.addEventListener('click',()=>ativar(tab.dataset.macroTab));
+  tab.addEventListener('keydown',event=>{
+   if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+   event.preventDefault();
+   const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;
+   ativar(tabs[next].dataset.macroTab);tabs[next].focus();
+  });
+ });
 }
 async function iniciar(){
+ iniciarAbasMacros();
  initComparador();
  $('dias').addEventListener('change',atualizar);
  const pronto=lista=>{
