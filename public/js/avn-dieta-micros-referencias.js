@@ -88,7 +88,11 @@
  function valueFor(item,key){
   let comp=item.composicao_100g;
   if(typeof comp==='string'){try{comp=JSON.parse(comp);}catch(_){comp=null;}}
-  let micronutrients=comp&&typeof comp==='object'?(comp.micros||comp.micronutrientes_100g):null;
+  // Na dieta programada, a receita deve refletir os ingredientes do cadastro atual.
+  // Um snapshot antigo da dieta não pode ocultar a correção de um ingrediente.
+  const receita=item.alimento_tipo==='receita'||item.alimento_fonte==='receita';
+  let micronutrients=receita?item.micronutrientes_100g:
+   (comp&&typeof comp==='object'?(comp.micros||comp.micronutrientes_100g):null);
   if(!micronutrients)micronutrients=item.micronutrientes_100g;
   if(typeof micronutrients==='string'){try{micronutrients=JSON.parse(micronutrients);}catch(_){micronutrients=null;}}
   const value=micronutrients?.[key];
