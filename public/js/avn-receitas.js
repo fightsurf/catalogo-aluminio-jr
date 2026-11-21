@@ -145,7 +145,7 @@ function formatarNutrientesExibicao(obterValor){
   ['carboidratos_g','Carboidratos','g','carboidratos'],
   ['gorduras_g','Gorduras','g','gorduras']
  ];
- return campos.map(([chave,rotulo,unidade,cor])=>`<span class="receita-nutriente receita-nutriente-${cor}">${rotulo}: <b>${esc(obterValor(chave,unidade))}</b></span>`).join('');
+ return campos.map(([chave,rotulo,unidade,cor])=>`<span class="receita-nutriente receita-nutriente-${cor}">${rotulo}: <b>${esc(obterValor(chave,unidade))}</b></span>`).join('  ');
 }
 function nutrientePor100g(r,chave,unidade){
  const valor=r[chave+'_100g'];
