@@ -174,7 +174,8 @@ function renderDetails(){
   const microsItem=item=>{
    let comp=item.composicao_100g;
    if(typeof comp==='string'){try{comp=JSON.parse(comp);}catch(_){comp=null;}}
-   let micros=comp?.micros||comp?.micronutrientes_100g||item.micronutrientes_100g||{};
+   const receita=item.alimento_tipo==='receita'||item.alimento_fonte==='receita';
+   let micros=(receita?item.micronutrientes_100g:(comp?.micros||comp?.micronutrientes_100g))||item.micronutrientes_100g||{};
    if(typeof micros==='string'){try{micros=JSON.parse(micros);}catch(_){micros={};}}
    return micros;
   };
