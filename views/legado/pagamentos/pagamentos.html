@@ -94,6 +94,49 @@
     }
     .field input, .field select { height: 42px; }
     .field textarea { min-height: 88px; resize: vertical; }
+    .pix-bank-shortcuts {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .pix-bank-btn {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+      min-height: 44px;
+      height: auto;
+      padding: 6px 8px;
+      background: #fff;
+      border: 1px solid var(--line);
+      font-size: 12px;
+      line-height: 1.2;
+      text-align: center;
+    }
+    .pix-bank-btn:hover { background: #f8fafc; }
+    .pix-bank-btn:focus-visible { outline: 2px solid #2563eb; outline-offset: 2px; }
+    .pix-santander-symbol {
+      display: block;
+      flex: 0 0 28px;
+      width: 28px;
+      height: 28px;
+      overflow: hidden;
+    }
+    .pix-santander-symbol img {
+      display: block;
+      height: 28px;
+      width: auto;
+      max-width: none;
+    }
+    .pix-bb-symbol {
+      display: block;
+      flex: 0 0 28px;
+      width: 28px;
+      height: 28px;
+      object-fit: contain;
+    }
     .prestacao-vinculo-box {
       margin-top: 12px;
       border: 1px solid var(--line);
@@ -1002,6 +1045,18 @@
               <div class="field" style="margin-top: 12px;">
                 <label for="observacaoPagamento">Observação</label>
                 <textarea id="observacaoPagamento" maxlength="300" placeholder="Observações do pagamento">${escapeHtml(estado.pagamentoEmEdicao?.observacao || '')}</textarea>
+                <div class="pix-bank-shortcuts" aria-label="Preencher observação de Pix">
+                  <button type="button" class="pix-bank-btn" data-pix-conta="santander">
+                    <span class="pix-santander-symbol" aria-hidden="true">
+                      <img src="https://upload.wikimedia.org/wikipedia/commons/b/b8/Banco_Santander_Logotipo.svg" alt="" />
+                    </span>
+                    <span>Pix Santander</span>
+                  </button>
+                  <button type="button" class="pix-bank-btn" data-pix-conta="bb">
+                    <img class="pix-bb-symbol" src="https://upload.wikimedia.org/wikipedia/commons/4/42/Logotipo_do_Banco_do_Brasil_%28s%C3%ADmbolo%29.svg" alt="" aria-hidden="true" />
+                    <span>Pix Banco do Brasil</span>
+                  </button>
+                </div>
               </div>
 
               ${estado.modoFormulario === 'novo' ? `
@@ -1145,6 +1200,20 @@
       valorPagamento.addEventListener('input', () => {
         valorPagamento.value = formatarValorPagamentoEmCentavos(valorPagamento.value);
         valorPagamento.setSelectionRange(valorPagamento.value.length, valorPagamento.value.length);
+      });
+
+      document.querySelectorAll('[data-pix-conta]').forEach((botao) => {
+        botao.addEventListener('click', () => {
+          const textosPix = {
+            santander: 'Pix realizado na conta PJ Santander Alumínio JR.',
+            bb: 'Pix realizado na conta pessoa física George Fernandes Maia.'
+          };
+          const observacao = document.getElementById('observacaoPagamento');
+          if (!observacao || !textosPix[botao.dataset.pixConta]) return;
+          observacao.value = textosPix[botao.dataset.pixConta];
+          observacao.dispatchEvent(new Event('input', { bubbles: true }));
+          observacao.focus();
+        });
       });
 
       const formPagamento = document.getElementById('formPagamento');
