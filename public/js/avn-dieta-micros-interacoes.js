@@ -19,6 +19,63 @@ const foodMicros=food=>{
 };
 const hasAmount=(v)=>v!==null&&v!==undefined&&v!==''&&Number.isFinite(Number(v))&&Number(v)>=0;
 
+// Identifica quais ingredientes de uma receita não informam cada micronutriente.
+// Mantém a origem até em receitas que incluem outras receitas.
+let diagnosticoReceitas=null;
+async function carregarDiagnosticoReceitas(itens,usuarioId){
+ const uid=String(usuarioId);
+ const urls='?usuarioId='+encodeURIComponent(uid);
+ const [lista,alimentos]=await Promise.all([api('/receitas'+urls),api('/receitas/catalogo'+urls)]);
+ const receitasPorAlimento=new Map((Array.isArray(lista)?lista:[]).map(r=>[String(r.alimento_id),r]));
+ const catalogo=new Map((Array.isArray(alimentos)?alimentos:[]).map(a=>[String(a.id),a]));
+ const detalhes=new Map(),pendentes=new Map();
+ async function carregarId(id,visitados=new Set()){
+  id=String(id);
+  const receita=receitasPorAlimento.get(id);
+  if(!receita||visitados.has(id))return;
+  if(!pendentes.has(id))pendentes.set(id,api('/receitas/'+encodeURIComponent(receita.id)+urls)
+    .then(d=>{detalhes.set(id,d);return d;}).catch(()=>null));
+  const detalhe=await pendentes.get(id);
+  if(Array.isArray(detalhe?.ingredientes)){
+   const caminho=new Set(visitados);caminho.add(id);
+   await Promise.all(detalhe.ingredientes.map(i=>carregarId(i.alimento_id,caminho)));
+  }
+ }
+ const ids=[...new Set((itens||[]).map(i=>String(i.alimento_id)).filter(id=>receitasPorAlimento.has(id)))];
+ await Promise.all(ids.map(id=>carregarId(id)));
+ const missingFor=(id,chave,visitados=new Set(),caminho=[])=>{
+  id=String(id);
+  const receita=receitasPorAlimento.get(id);
+  if(!receita||visitados.has(id))return [];
+  const trilha=[...caminho,receita.nome||'Receita'];
+  const detalhe=detalhes.get(id);
+  if(!Array.isArray(detalhe?.ingredientes))
+   return [{id,nome:receita.nome||'Receita',tipo:'receita',trilha,indisponivel:true}];
+  const proximo=new Set(visitados);proximo.add(id);
+  const faltantes=[];
+  for(const item of detalhe.ingredientes){
+   const filho=String(item.alimento_id);
+   if(receitasPorAlimento.has(filho)){
+    faltantes.push(...missingFor(filho,chave,proximo,trilha));
+    continue;
+   }
+   let composicao=item.composicao_100g||{};
+   if(typeof composicao==='string'){try{composicao=JSON.parse(composicao);}catch(_){composicao={};}}
+   let micros=composicao.micros||composicao.micronutrientes_100g||{};
+   if(typeof micros==='string'){try{micros=JSON.parse(micros);}catch(_){micros={};}}
+   if(!hasAmount(micros[chave])){
+    const alimento=catalogo.get(filho)||state.alimentos.find(a=>String(a.id)===filho);
+    faltantes.push({id:filho,nome:alimento?.nome||item.nome_snapshot||'Ingrediente',tipo:alimento?.tipo||'alimento',trilha});
+   }
+  }
+  return faltantes;
+ };
+ const resultado={usuarioId:uid,isRecipe:id=>receitasPorAlimento.has(String(id)),missingFor};
+ if(uid===String(state.usuarioId))diagnosticoReceitas=resultado;
+ return resultado;
+}
+window.AVNDietaMicrosReceitas={carregar:carregarDiagnosticoReceitas};
+
 function foodLink(food,label){
  const nome=escapeText(label);
  if(!food||!/^\d+$/.test(String(food.id))||!/^\d+$/.test(String(state.usuarioId)))return '<strong>'+nome+'</strong>';
@@ -113,26 +170,42 @@ function renderDetails(){
  const prefix=view==='missing'?'Sem informação: ':'Fontes alimentares de ';
  $('avnMicroFontesTitulo').textContent=prefix+n.nome;
  if(view==='missing'){
-  const missing=state.dieta.filter(item=>{
+  const diagnostico=diagnosticoReceitas?.usuarioId===String(state.usuarioId)?diagnosticoReceitas:null;
+  const microsItem=item=>{
    let comp=item.composicao_100g;
    if(typeof comp==='string'){try{comp=JSON.parse(comp);}catch(_){comp=null;}}
-   const micros=comp?.micros||comp?.micronutrientes_100g||item.micronutrientes_100g||{};
-   const data=typeof micros==='string'?(()=>{try{return JSON.parse(micros);}catch(_){return {};}})():micros;
-   return !hasAmount(data?.[activeKey]);
-  });
-  target.innerHTML='<p class="muted">Itens da dieta programada sem um valor cadastrado para <strong>'+escapeText(n.nome)+'</strong>. Se o mesmo alimento aparece em duas refeições, as duas ocorrências são contadas.</p>'+
+   let micros=comp?.micros||comp?.micronutrientes_100g||item.micronutrientes_100g||{};
+   if(typeof micros==='string'){try{micros=JSON.parse(micros);}catch(_){micros={};}}
+   return micros;
+  };
+  const missing=state.dieta.filter(item=>!hasAmount(microsItem(item)?.[activeKey])||
+   !!diagnostico?.missingFor(item.alimento_id,activeKey).length);
+  target.innerHTML='<p class="muted">Alimentos e ingredientes de receitas sem informação de <strong>'+escapeText(n.nome)+'</strong>. Toque no nome do ingrediente para abrir o cadastro e corrigir os dados.</p>'+
    (missing.length?'<div class="avn-micro-food-list">'+missing.map(item=>{
     const food=state.alimentos.find(f=>String(f.id)===String(item.alimento_id));
-    const canEdit=editable(food);
     const label=item.alimento_nome||food?.nome||'Alimento';
-    // A lista do catálogo pode estar paginada: o item da dieta informa seu tipo real.
     const cadastro=food||(item.alimento_tipo?{id:item.alimento_id,tipo:item.alimento_tipo,fonte:item.alimento_fonte}:null);
-    return '<div class="avn-micro-food-line"><div>'+foodLink(cadastro,label)+'<small>'+escapeText(item.refeicao||'Refeição')+' · '+numberText(item.quantidade_g,1)+' g planejados</small></div>'+
+    const receita=item.alimento_tipo==='receita'||item.alimento_fonte==='receita'||diagnostico?.isRecipe(item.alimento_id);
+    const ingredientes=receita?diagnostico?.missingFor(item.alimento_id,activeKey)||[]:[];
+    const descricao='<small>'+escapeText(item.refeicao||'Refeição')+' · '+numberText(item.quantidade_g,1)+' g planejados</small>';
+    if(receita){
+     return '<div class="avn-micro-food-line"><div><strong>Receita: '+escapeText(label)+'</strong>'+descricao+
+      (ingredientes.length?'<div class="avn-micro-ingredientes-lista">'+ingredientes.map(ing=>{
+       const meta={id:ing.id,tipo:ing.tipo,fonte:ing.tipo==='receita'?'receita':'manual'};
+       const caminho=ing.trilha.join(' → ');
+       return '<div class="avn-micro-ingrediente-line"><div>'+foodLink(meta,ing.nome)+
+        '<small>'+escapeText(ing.indisponivel?'Não foi possível consultar os ingredientes desta receita.':'Ingrediente de '+caminho+' · '+n.nome+' sem dado')+'</small></div></div>';
+      }).join('')+'</div>':
+      '<small>Não há detalhamento disponível; abra a receita para conferir seus ingredientes.</small>')+
+      '</div></div>';
+    }
+    const canEdit=editable(food);
+    return '<div class="avn-micro-food-line"><div>'+foodLink(cadastro,label)+descricao+'</div>'+
      (canEdit?'<button type="button" class="secondary" data-edit-food="'+escapeText(food.id)+'">Preencher micronutrientes</button>':
-       '<small>'+(food?.tipo==='receita'?'Receita: edite os ingredientes no módulo Receitas.':'Cadastro não editável aqui; confira o módulo Alimentos.')+'</small>')+
+       '<small>Abra o cadastro pelo nome para corrigir a composição.</small>')+
      '</div>';
-   }).join('')+'</div>':'<p class="avn-micro-complete">Todos os itens da dieta têm informação cadastrada para este nutriente.</p>')+
-   '<p class="muted">Os valores novos são salvos no cadastro do alimento. A análise da dieta é recalculada ao salvar.</p>';
+   }).join('')+'</div>':'<p class="avn-micro-complete">Todos os itens e ingredientes analisados têm informação cadastrada para este nutriente.</p>')+
+   '<p class="muted">Valores ausentes não equivalem a zero. Ao corrigir um ingrediente, confira a atualização dos valores da receita e reabra a análise.</p>';
   return;
  }
  const registered=(Array.isArray(state.alimentos)?state.alimentos:[]).map(food=>({food,value:foodMicros(food)[activeKey]}))
