@@ -219,4 +219,6 @@ router.get('/:id',route(async(req,res)=>{const u=uid(req.query.usuarioId);if(!id
  });}));
 router.post('/',route((req,res)=>salvar(req,res,false)));
 router.put('/:id',route((req,res)=>salvar(req,res,true)));
+// Recalcula as receitas afetadas quando um alimento-ingrediente é corrigido.
+router.recalcularDependentes=recalcularDependentes;
 module.exports=router;
