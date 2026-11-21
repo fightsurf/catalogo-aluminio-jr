@@ -9,7 +9,8 @@ const consultaJsonIA = require('../../services/avn/avn-nutricao-ia-json.service'
 const router = express.Router();
 const {metaPorKg,energiaMacros,razoesDaMeta}=require('../../services/avn/avn-metas-gkg');
 router.use('/importacao-lote',require('./avn-alimentos-lote.routes'));
-router.use('/receitas',require('./avn-receitas.routes'));
+const receitasRouter=require('./avn-receitas.routes');
+router.use('/receitas',receitasRouter);
 router.use('/dieta/:usuarioId/ajustes-ia',require('./avn-dieta-ajustes.routes'));
 router.use('/dieta/:usuarioId/fotografias',require('./avn-dieta-fotografias.routes'));
 const REFEICOES = new Set(['cafe','lanche_manha','almoco','lanche_tarde','jantar','ceia','outros']);
@@ -166,8 +167,16 @@ router.put('/alimentos/:id',wrap(async(req,res)=>{
  const uid=requiredId(req.body?.usuarioId),id=requiredId(req.params.id);await user(uid);const f=await foodPayload(req.body);
  const tipo=String(req.body?.tipo||'alimento');if(!['alimento','suplemento','medicamento'].includes(tipo))throw bad('Tipo de cadastro inválido.');
  const vals=A.map(k=>k==='micronutrientes_100g'?JSON.stringify(f[k]):f[k]);
- const r=await pool.query(`UPDATE public.avn_alimentos SET ${A.map((k,i)=>k+'=$'+(i+1)).join(',')},atualizado_em=NOW() WHERE id=$${A.length+1} AND usuario_id=$${A.length+2} AND tipo=$${A.length+3} AND ativo RETURNING *`,[...vals,id,uid,tipo]);
- if(!r.rowCount)throw bad('Cadastro não encontrado nesta categoria.',404);res.json(r.rows[0]);
+ const db=await pool.connect();
+ try{
+  await db.query('BEGIN');
+  const r=await db.query(`UPDATE public.avn_alimentos SET ${A.map((k,i)=>k+'=$'+(i+1)).join(',')},atualizado_em=NOW() WHERE id=$${A.length+1} AND usuario_id=$${A.length+2} AND tipo=$${A.length+3} AND ativo RETURNING *`,[...vals,id,uid,tipo]);
+  if(!r.rowCount)throw bad('Cadastro não encontrado nesta categoria.',404);
+  // Corrigir o ingrediente também atualiza as receitas que o contêm, inclusive aninhadas.
+  const codigos=(await db.query('SELECT codigo FROM public.avn_nutrientes')).rows.map(n=>n.codigo);
+  await receitasRouter.recalcularDependentes(db,0,id,uid,codigos);
+  await db.query('COMMIT');res.json(r.rows[0]);
+ }catch(err){await db.query('ROLLBACK').catch(()=>{});throw err;}finally{db.release();}
 }));
 router.delete('/alimentos/:id',wrap(async(req,res)=>{
  const uid=requiredId(req.query.usuarioId),id=requiredId(req.params.id);await user(uid);
