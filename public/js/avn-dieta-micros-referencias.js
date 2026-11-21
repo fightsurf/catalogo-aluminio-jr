@@ -94,20 +94,22 @@
   const value=micronutrients?.[key];
   return value===null||value===undefined||value===''||!Number.isFinite(Number(value))||Number(value)<0?null:Number(value);
  }
- function compute(items,key){
+ function compute(items,key,diagnostico){
   let amount=0,miss=0,found=0;
   for(const item of items){
    const grams=Number(item.quantidade_g);
    if(!Number.isFinite(grams)||grams<=0){miss++;continue;}
    const v=valueFor(item,key);
    if(v===null){miss++;continue;}
+   // Uma receita pode ter um total positivo, mas faltar dados de algum ingrediente.
+   if(diagnostico?.missingFor(item.alimento_id,key).length)miss++;
    found++;amount+=v*grams/100;
   }
   return {amount,miss,found,total:items.length};
  }
- function renderRow(n,item,p){
+ function renderRow(n,item,p,diagnostico){
   const key=n.codigo,name=n.nome,unit=n.unidade;
-  const calc=compute(item,key),ref=p&&DRI[key]?DRI[key](p):null;
+  const calc=compute(item,key,diagnostico),ref=p&&DRI[key]?DRI[key](p):null;
   const valid=ref&&Number.isFinite(ref.valor)&&ref.valor>0;
   const ratio=valid&&calc.found?100*calc.amount/ref.valor:null;
   const width=ratio===null?0:Math.min(100,Math.max(0,ratio));
@@ -130,7 +132,7 @@
     (note?(calc.miss?'<button type="button" class="avn-micro-ref-note avn-micro-ref-note-link" data-micro-faltantes="'+clean(key)+'" title="Listar alimentos da dieta sem '+clean(name)+'">'+clean(note)+' · ver alimentos</button>':'<small class="avn-micro-ref-note">'+clean(note)+'</small>'):'')+
     '</article>';
  }
- function renderList(catalogue,items,p){
+ function renderList(catalogue,items,p,diagnostico){
   const cats=['Vitaminas','Minerais','Outros'];
   let html='<div class="avn-micro-ref-intro"><b>'+clean(p?referenceLabel(p):'Perfil sem referência adulta definida')+'</b>'+
    '<p>Barras: parte preenchida = quantidade <b>planejada</b>; parte vazia = parcela restante até a referência. '+
@@ -139,7 +141,7 @@
    const list=catalogue.filter(n=>(n.categoria||'Outros')===cat);
    if(!list.length)continue;
    html+='<section class="avn-micro-ref-section"><h4>'+clean(cat==='Outros'?'Outros componentes':cat)+'</h4>';
-   for(const n of list)html+=renderRow(n,items,p);
+   for(const n of list)html+=renderRow(n,items,p,diagnostico);
    html+='</section>';
   }
   html+='<p class="avn-micro-ref-disclaimer">Valores estimados a partir dos alimentos cadastrados. '+
@@ -159,9 +161,11 @@
   const items=Array.isArray(state.dieta)?state.dieta.slice():[];
   target.textContent='Calculando consumo estimado e referências diárias…';
   try{
-   const [list,user]=await Promise.all([catalogue(),profile(id)]);
+   const carregarReceitas=window.AVNDietaMicrosReceitas?.carregar;
+   const [list,user,diagnostico]=await Promise.all([catalogue(),profile(id),
+    carregarReceitas?carregarReceitas(items,id).catch(err=>{console.error('[AVN micronutrientes] Falha ao detalhar ingredientes.',err);return null;}):Promise.resolve(null)]);
    if(current!==token||!modal.open||String(state.usuarioId)!==id)return;
-   target.innerHTML=renderList(list,items,referenceProfile(user));
+   target.innerHTML=renderList(list,items,referenceProfile(user),diagnostico);
   }catch(err){
    if(current===token)target.textContent='Falha ao carregar referências: '+(err.message||'erro desconhecido');
   }
