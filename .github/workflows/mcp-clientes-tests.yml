@@ -1,0 +1,34 @@
+name: MCP consulta clientes
+on:
+  push:
+    branches:
+      - feature/mcp-consulta-clientes-20261121
+    paths:
+      - 'src/services/integracao/mcpClientesOAuth.service.js'
+      - 'src/routes/integracao/mcpClientes*.routes.js'
+      - 'tests/mcp-consulta-clientes.test.js'
+      - '.github/workflows/mcp-clientes-tests.yml'
+  pull_request:
+    paths:
+      - 'src/services/integracao/mcpClientesOAuth.service.js'
+      - 'src/routes/integracao/mcpClientes*.routes.js'
+      - 'tests/mcp-consulta-clientes.test.js'
+      - '.github/workflows/mcp-clientes-tests.yml'
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Conferir sintaxe
+        run: |
+          node --check server.js
+          node --check src/routes/integracao/mcpClientes.routes.js
+          node --check src/routes/integracao/mcpClientesOAuth.routes.js
+          node --check src/services/integracao/mcpClientesOAuth.service.js
+      - name: Testar OAuth e segurança
+        run: node --test tests/mcp-consulta-clientes.test.js

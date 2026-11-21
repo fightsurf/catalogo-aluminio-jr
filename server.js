@@ -50,6 +50,8 @@ const agenciasRecebimentoRoutes = require('./src/routes/logistica/agenciasRecebi
 const logisticaRoutes = require('./src/routes/logistica/logisticaRoutes');
 const importacaoExcursoesRoutes = require('./src/routes/logistica/importacaoExcursoesRoutes');
 const mcpLogisticaRoutes = require('./src/routes/integracao/mcpLogistica.routes');
+const mcpClientesRoutes = require('./src/routes/integracao/mcpClientes.routes');
+const mcpClientesOAuthRoutes = require('./src/routes/integracao/mcpClientesOAuth.routes');
 
 const funcionarioRoutes = require('./src/routes/funcionario/funcionario.routes');
 const fornecedorRoutes = require('./src/routes/fornecedor/fornecedor.routes');
@@ -222,6 +224,9 @@ app.use('/api/agencias-recebimento', agenciasRecebimentoRoutes);
 app.use('/api/logistica', logisticaRoutes);
 // MCP temporariamente sem autenticação: apenas consultas filtradas, sem contatos ou gravação.
 app.use('/mcp', mcpLogisticaRoutes);
+// MCP de clientes: endpoints isolados, desativados até habilitação no Render.
+app.use(mcpClientesOAuthRoutes);
+app.use('/mcp/clientes', mcpClientesRoutes);
 app.use('/api/funcionarios', funcionarioRoutes);
 app.use('/api/fornecedores', fornecedorRoutes);
 // Compras de insumos: APIs privadas, incluindo upload efêmero de fotos.
