@@ -28,7 +28,7 @@ async function fetchJSON(endpoint,options={}){
   const resp=await fetch(API+endpoint,{credentials:'same-origin',headers:{'Content-Type':'application/json'},...options});
   if(resp.redirected && resp.url.includes('/login'))throw Error('Sessão expirada: faça login novamente.');
   const data=await resp.json().catch(()=>{throw Error('Servidor não retornou JSON. Verifique sua sessão.');});
-  if(!resp.ok)throw Error(data.erro||'Operação não concluída.');return data;
+  if(!resp.ok)throw Error((data.erro||'Operação não concluída.')+' (HTTP '+resp.status+')');return data;
 }
 async function users(){
   const resp=await fetch('/api/avn/usuarios',{credentials:'same-origin'});
@@ -603,11 +603,20 @@ async function abrirAdicionarRegistro(indice){
     unidade:c.querySelector('.ses-unidade').value,carga:c.querySelector('.ses-carga').value,
     obs:c.querySelector('.ses-obs').value
    }));
-   b.disabled=true;
+   // Evita múltiplas inserções enquanto a requisição está em andamento.
+   area.querySelectorAll('[data-ex]').forEach(btn=>btn.disabled=true);
    try{
     await fetchJSON('/planos/'+planoId+'/dias/'+diaSemana+'/exercicios',{
      method:'POST',body:JSON.stringify({usuario_id:Number(state.usuarioId),exercicio_id:id,posicao})
     });
+   }catch(e){
+    toast('Não foi possível inserir '+(state.exercicios.find(ex=>Number(ex.id)===id)?.nome||'o exercício')+': '+e.message,true);
+    area.querySelectorAll('[data-ex]').forEach(btn=>btn.disabled=false);
+    return;
+   }
+   // Gravação confirmada: erros posteriores de atualização não devem sugerir nova inclusão.
+   modal.close();
+   try{
     await carregarTreino(planoId);
     renderTreinoItens();
     campos.forEach((x,i)=>{
@@ -622,9 +631,12 @@ async function abrirAdicionarRegistro(indice){
      input.step=x.unidade==='placas'?'1':'0.5';
      c.querySelector('.ses-obs').value=x.obs;
     });
-    await buscarExecucaoWeb();
-    modal.close();toast('Exercício inserido e salvo no plano.');
-   }catch(e){toast('Não foi possível salvar o exercício: '+e.message,true);b.disabled=false;}
+    toast('Exercício inserido e salvo no plano.');
+   }catch(e){
+    toast('Exercício salvo no plano, mas a tela não atualizou: '+e.message+'. Atualize a página para visualizar.',true);
+    return;
+   }
+   buscarExecucaoWeb().catch(e=>console.warn('[AVN treinos] Exercício salvo; estado da execução indisponível:',e));
   });
  };
  input.addEventListener('input',exibir);exibir();
