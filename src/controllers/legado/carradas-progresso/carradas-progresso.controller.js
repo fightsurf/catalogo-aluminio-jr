@@ -150,7 +150,8 @@ async function gerarPreviewEtiquetaImpressao(req, res) {
       nomeImpressao: req.body?.nomeImpressao,
       telefoneImpressao: req.body?.telefoneImpressao,
       cidadeImpressao: req.body?.cidadeImpressao,
-      ufImpressao: req.body?.ufImpressao
+      ufImpressao: req.body?.ufImpressao,
+      etiquetaClienteId: req.body?.etiquetaClienteId
     });
     return res.status(200).json({ success: true, data });
   } catch (error) {
