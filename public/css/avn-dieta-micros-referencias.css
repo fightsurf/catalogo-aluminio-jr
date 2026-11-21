@@ -144,3 +144,12 @@ body[data-nutricao-pagina="dieta"] .avn-micro-ref-note-link:hover{color:#ffe4bb}
 .avn-micro-food-line a.avn-micro-cadastro-link{font-size:inherit;font-weight:700;color:#a8dcff;white-space:normal;text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere;}
 .avn-micro-food-line a.avn-micro-cadastro-link:hover{color:#e5f6ff;}
 .avn-micro-food-line a.avn-micro-cadastro-link:focus-visible{outline:2px solid #a8dcff;outline-offset:3px;border-radius:3px;}
+
+/* Ingredientes incompletos, inclusive dentro de receitas aninhadas. */
+.avn-micro-ingredientes-lista{display:grid;gap:8px;margin-top:11px}
+.avn-micro-ingrediente-line{
+ border-left:3px solid #dda65a;background:#182a40;border-radius:4px 8px 8px 4px;
+ padding:9px 11px;overflow-wrap:anywhere
+}
+.avn-micro-ingrediente-line a.avn-micro-cadastro-link{font-size:14px}
+.avn-micro-ingrediente-line small{font-size:11px;margin-top:3px;white-space:normal}
