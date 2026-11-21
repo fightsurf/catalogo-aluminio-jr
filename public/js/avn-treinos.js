@@ -27,7 +27,7 @@ function toast(message,error=false){const t=$('toast');t.textContent=message;t.c
 async function fetchJSON(endpoint,options={}){
   const resp=await fetch(API+endpoint,{credentials:'same-origin',headers:{'Content-Type':'application/json'},...options});
   if(resp.redirected && resp.url.includes('/login'))throw Error('Sessão expirada: faça login novamente.');
-  const data=await resp.json().catch(()=>{throw Error('Servidor não retornou JSON. Verifique sua sessão.');});
+  const data=await resp.json().catch(()=>{throw Error('Resposta inválida do servidor (HTTP '+resp.status+'). Atualize a página e tente novamente.');});
   if(!resp.ok)throw Error((data.erro||'Operação não concluída.')+' (HTTP '+resp.status+')');return data;
 }
 async function users(){
