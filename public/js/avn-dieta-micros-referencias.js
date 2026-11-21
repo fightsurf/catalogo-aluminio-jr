@@ -121,7 +121,7 @@
   const incomplete=calc.found>0&&calc.miss>0;
   const note=calc.total===0?'Sem alimentos na dieta':
       !calc.found?'Composição não informada nos alimentos':
-      incomplete?'Parcial: '+calc.miss+' alimento(s) sem informação':'';
+      incomplete?'Parcial: '+calc.miss+(calc.miss===1?' item com informação incompleta':' itens com informações incompletas'):'';
   const exceeds=ratio!==null&&ratio>100;
   const caption=valid?(ref.tipo==='limite'?'Limite de referência: ':'Referência '+ref.tipo+': ')+fmt(ref.valor,ref.valor<1?3:1)+' '+unit:
      'Sem referência diária comparável';
