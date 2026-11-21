@@ -11,6 +11,7 @@ const temporarias = require('./whatsapp-conversas-temporarias.service');
 const ordemEntradas = require('./bot-contatos-ultima-entrada.service');
 const fluxo = require('../bot/botFluxo.services');
 const googleContatos = require('../bot/google-contatos.service');
+const relatoriosRecebidos = require('./relatorios-recebidos.service');
 const vistos = new Map();
 
 // A nova integração não cria tabelas de mensagens.
@@ -105,6 +106,23 @@ async function auditar(payload, dados, estado, motivo) {
   botEvents.emit('webhook_recebido', { telefone: dados.telefone || payload?.phone || '' });
 }
 
+// Captura o relatório no recebimento normal da Z-API, sem passar pelo n8n.
+async function capturarRelatorioRecebido(dados) {
+  if (dados.direcao !== 'ENTRADA' || dados.tipo !== 'texto' ||
+      !relatoriosRecebidos.ehRelatorioAluminioJR(dados.mensagem)) {
+    return { salvo: false, motivo: 'nao_e_relatorio' };
+  }
+
+  return relatoriosRecebidos.capturar({
+    telefone: dados.telefone,
+    mensagem: dados.mensagem,
+    tipo: dados.tipo,
+    fromMe: false,
+    instancia: dados.instancia,
+    messageId: dados.messageId
+  });
+}
+
 async function registrar(payload) {
   const dados = normalizarMensagem(payload);
   if (dados.ignorar) {
@@ -130,6 +148,8 @@ async function registrar(payload) {
   try {
     // Conciliar o LID antes de registrar o telefone permanente.
     dados.telefone = await vinculos.resolverRecebimento(payload);
+    // Persistir antes do atendimento do bot: falhas posteriores não perdem o pedido.
+    await capturarRelatorioRecebido(dados);
     if (dados.direcao === 'ENTRADA') {
       const result = await pool.query(`INSERT INTO bot_contatos
         (telefone, criado_em, atualizado_em, fluxo_primeiro_contato_enviado)
@@ -165,4 +185,4 @@ async function registrar(payload) {
   }
 }
 
-module.exports = { normalizarMensagem, registrar, prepararEstrutura };
+module.exports = { normalizarMensagem, registrar, prepararEstrutura, capturarRelatorioRecebido };

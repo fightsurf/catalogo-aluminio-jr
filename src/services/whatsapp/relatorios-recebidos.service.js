@@ -18,6 +18,20 @@ async function criarEstrutura() {
       )
     `);
 
+    // Identificador do callback para impedir duplicações após reenvios e reinícios.
+    // Registros antigos e capturas manuais continuam com esses campos nulos.
+    await pool.query(`
+      ALTER TABLE whatsapp_relatorios
+        ADD COLUMN IF NOT EXISTS zapi_instancia VARCHAR(120),
+        ADD COLUMN IF NOT EXISTS zapi_message_id VARCHAR(250)
+    `);
+
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS uq_whatsapp_relatorios_zapi_evento
+      ON whatsapp_relatorios (zapi_instancia, zapi_message_id)
+      WHERE zapi_instancia IS NOT NULL AND zapi_message_id IS NOT NULL
+    `);
+
     await pool.query(`
       CREATE INDEX IF NOT EXISTS idx_whatsapp_relatorios_telefone
       ON whatsapp_relatorios (telefone)
@@ -141,9 +155,11 @@ async function enriquecerComClientes(registros) {
   return registros;
 }
 
-async function capturar({ telefone, mensagem, relatorio, fromMe, tipo }) {
+async function capturar({ telefone, mensagem, relatorio, fromMe, tipo, instancia, messageId } = {}) {
   const texto = limparTexto(mensagem || relatorio);
   const telefoneLimpo = limparTexto(telefone);
+  const instanciaZapi = limparTexto(instancia) || null;
+  const idMensagemZapi = limparTexto(messageId) || null;
 
   if (fromMe === true || String(fromMe).toLowerCase() === 'true') {
     return { salvo: false, motivo: 'mensagem_enviada_por_mim' };
@@ -161,17 +177,26 @@ async function capturar({ telefone, mensagem, relatorio, fromMe, tipo }) {
     return { salvo: false, motivo: 'nao_e_relatorio' };
   }
 
+  // Nunca persistir identificador incompleto: perderia a deduplicação esperada.
+  if (Boolean(instanciaZapi) !== Boolean(idMensagemZapi)) {
+    return { salvo: false, motivo: 'identificacao_zapi_incompleta' };
+  }
+
   await criarEstrutura();
 
   const result = await pool.query(
     `
-      INSERT INTO whatsapp_relatorios (telefone, relatorio)
-      VALUES ($1, $2)
+      INSERT INTO whatsapp_relatorios (telefone, relatorio, zapi_instancia, zapi_message_id)
+      VALUES ($1, $2, $3, $4)
+      ON CONFLICT (zapi_instancia, zapi_message_id)
+        WHERE zapi_instancia IS NOT NULL AND zapi_message_id IS NOT NULL
+      DO NOTHING
       RETURNING id, telefone, relatorio, recebido_em
     `,
-    [telefoneLimpo, texto]
+    [telefoneLimpo, texto, instanciaZapi, idMensagemZapi]
   );
 
+  if (!result.rows[0]) return { salvo: false, motivo: 'duplicada' };
   return { salvo: true, registro: result.rows[0] };
 }
 
