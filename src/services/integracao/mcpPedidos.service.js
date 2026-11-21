@@ -29,15 +29,17 @@ function inteiro(valor, campo, minimo = 1, maximo = 999999999) {
 }
 function moeda(valor, campo) {
   const n = Number(valor);
-  if (!Number.isFinite(n) || n < 0 || n > 10000000 || Math.round(n * 100) !== n * 100) {
+  if (!Number.isFinite(n) || n < 0 || n > 10000000 || Math.abs(Math.round(n * 100) - n * 100) > 0.0000001) {
     falhar(`Campo inválido: ${campo}; informe reais com até duas casas decimais.`);
   }
-  return n;
+  return Math.round(n * 100) / 100;
 }
 function dataPedido(valor) {
-  const v = valor === undefined ? new Intl.DateTimeFormat('en-CA', {
+  const hoje = new Intl.DateTimeFormat('en-US', {
     timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit'
-  }).format(new Date()) : texto(valor);
+  }).formatToParts(new Date());
+  const partes = Object.fromEntries(hoje.map(p => [p.type, p.value]));
+  const v = valor === undefined ? `${partes.year}-${partes.month}-${partes.day}` : texto(valor);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(v) || new Date(v + 'T00:00:00Z').toISOString().slice(0, 10) !== v) {
     falhar('Data inválida. Use AAAA-MM-DD.');
   }
@@ -134,7 +136,11 @@ async function prepararPedido(args) {
         (modalidade === 'kit-feirinha' && produto.perfil_kit_feirinha !== true)) {
       falhar(`Produto ${id} inativo, sem vínculo ao legado ou não disponível na modalidade.`);
     }
+    if (produto.preco === null || produto.preco === undefined || texto(produto.preco) === '') {
+      falhar(`Produto ${produto.nome} está sem preço cadastrado.`);
+    }
     const referencia = moeda(produto.preco, 'preco_referencia');
+    if (referencia <= 0) falhar(`Produto ${produto.nome} possui preço de referência zerado. Revise no cadastro.`);
     const preco = entrada.preco === undefined ? referencia : moeda(entrada.preco, 'preco');
     if (preco < referencia) {
       falhar(`Preço do produto ${produto.nome} abaixo da referência (R$ ${referencia.toFixed(2)}). O MCP não autoriza descontos; revise no sistema.`);
@@ -210,7 +216,23 @@ async function confirmarPedido({ rascunho_id, codigo_confirmacao, confirmacao })
     return { ...atual, mensagem: 'Rascunho expirado, inválido, já utilizado ou sendo processado. Não reenviar a gravação.' };
   }
   try {
-    const resultado = await pedidosService.inserirPedido(claim.rows[0].payload);
+    const payload = claim.rows[0].payload;
+    // Revalida a tabela imediatamente antes da escrita. Alteração de preço
+    // invalida a prévia antiga; a mesma tentativa nunca é reaberta.
+    for (const item of payload.itens) {
+      const atual = await produtoService.buscar(item.produto_id);
+      if (!atual || atual.ativo === false || !atual.item_legado ||
+          moeda(atual.preco, 'preco_atual') > Number(item.preco)) {
+        await pool.query(`
+          UPDATE mcp_pedidos_rascunhos SET status='revisao_necessaria',
+            erro='Produto ou preço alterado desde a preparação. Refaça a prévia.'
+          WHERE id=$1
+        `, [rascunho_id]);
+        return { status: 'revisao_necessaria', rascunho_id,
+          mensagem: 'Produto ou preço alterado desde a preparação. Faça um novo rascunho; nada foi gravado.' };
+      }
+    }
+    const resultado = await pedidosService.inserirPedido(payload);
     const pedido = resultado?.pedido || resultado?.data?.pedido || resultado?.data || resultado;
     const numero = texto(pedido?.numero);
     if (!numero) {
