@@ -148,7 +148,7 @@ dialog.receita-modal-secundario .receita-resultado{margin:0}
 /* Mesma paleta do gráfico de rosca: kcal branco, proteína azul, carboidrato amarelo e gordura violeta. */
 .receita-ingrediente-info{min-width:0;flex:1}
 .receita-ingrediente-nome{display:block;color:#ecf2fc;font-weight:650}
-.receita-valores-nutricionais{display:flex;flex-wrap:wrap;gap:3px 12px;font-size:.75rem;line-height:1.55}
+.receita-valores-nutricionais{display:block;white-space:pre-wrap;font-size:.75rem;line-height:1.55}
 .receita-valores-nutricionais .receita-nutriente{white-space:nowrap}
 .receita-valores-nutricionais .receita-nutriente b{font-weight:650;color:inherit!important}
 .receita-valores-nutricionais .receita-nutriente.receita-nutriente-calorias{color:#edf5ff!important}
