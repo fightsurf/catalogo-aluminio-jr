@@ -88,6 +88,7 @@
 <nav class="avn-graph-tabs" role="tablist" aria-label="Seções dos gráficos">
 <button id="tab-avaliacao" class="avn-graph-tab" type="button" role="tab" data-avn-graficos-tab aria-selected="true" aria-controls="painel-avaliacao">Avaliação física</button>
 <button id="tab-nutricao" class="avn-graph-tab" type="button" role="tab" data-avn-graficos-tab aria-selected="false" aria-controls="painel-nutricao" tabindex="-1">Nutrição</button>
+<button id="tab-sono" class="avn-graph-tab" type="button" role="tab" data-avn-graficos-tab aria-selected="false" aria-controls="painel-sono" tabindex="-1">Sono</button>
 </nav>
 <section id="painel-avaliacao" class="avn-graph-panel" role="tabpanel" aria-labelledby="tab-avaliacao">
 <div class="graphs-list"><section class="detail chart-panel" aria-labelledby="title-peso">
@@ -182,6 +183,15 @@
 
 </section>
 </section>
+<section id="painel-sono" class="avn-graph-panel" role="tabpanel" aria-labelledby="tab-sono" hidden>
+<p class="compare-help">Histórico sincronizado do Samsung Health, agrupado por data do despertar. Sem registros de fases, não são estimados valores de sono.</p>
+<div class="graphs-list">
+<section class="detail chart-panel" aria-labelledby="title-sono_efetivo"><h2 id="title-sono_efetivo">Tempo real dormido <small>h</small></h2><p id="status-sono_efetivo" class="muted chart-status" role="status">Selecione a aba Sono.</p><div id="chart-sono_efetivo" class="graph chart-area" role="img" aria-label="Evolução de tempo real dormido por data de despertar"></div></section>
+<section class="detail chart-panel" aria-labelledby="title-sono_pontuacao"><h2 id="title-sono_pontuacao">Pontuação do sono <small>pontos</small></h2><p id="status-sono_pontuacao" class="muted chart-status" role="status">Selecione a aba Sono.</p><div id="chart-sono_pontuacao" class="graph chart-area" role="img" aria-label="Evolução de pontuação do sono por data de despertar"></div></section>
+<section class="detail chart-panel" aria-labelledby="title-sono_leve"><h2 id="title-sono_leve">Sono leve <small>h</small></h2><p id="status-sono_leve" class="muted chart-status" role="status">Selecione a aba Sono.</p><div id="chart-sono_leve" class="graph chart-area" role="img" aria-label="Evolução de sono leve por data de despertar"></div></section>
+<section class="detail chart-panel" aria-labelledby="title-sono_profundo"><h2 id="title-sono_profundo">Sono profundo <small>h</small></h2><p id="status-sono_profundo" class="muted chart-status" role="status">Selecione a aba Sono.</p><div id="chart-sono_profundo" class="graph chart-area" role="img" aria-label="Evolução de sono profundo por data de despertar"></div></section>
+<section class="detail chart-panel" aria-labelledby="title-sono_rem"><h2 id="title-sono_rem">Sono REM <small>h</small></h2><p id="status-sono_rem" class="muted chart-status" role="status">Selecione a aba Sono.</p><div id="chart-sono_rem" class="graph chart-area" role="img" aria-label="Evolução de sono rem por data de despertar"></div></section>
+</div></section>
 <dialog id="compare-dialog" class="compare-modal" aria-labelledby="compare-title">
 <div class="compare-header"><div><h2 id="compare-title">🔀 Cruzar informações</h2><p>Selecione indicadores e compare as curvas do mesmo período.</p></div><button id="compare-close" type="button" class="btn-fechar" aria-label="Fechar comparador">✕ Fechar</button></div>
 <div class="compare-layout"><aside class="compare-indicators" aria-label="Indicadores disponíveis">
@@ -227,7 +237,7 @@
 </section></div></dialog>
 
 </main>
-<script src="/js/avn-graficos-corporais.js?v=20261120-macros-periodo1" defer></script>
+<script src="/js/avn-graficos-corporais.js?v=20261122-sono-tab1" defer></script>
 <script src="/js/avn-balanco-energetico.js?v=20261120-macros-periodo1" defer></script>
 </body>
 </html>
