@@ -35,6 +35,19 @@ const tools = [
     }, additionalProperties: false }
   },
   {
+    name: 'buscar_carradas',
+    title: 'Localizar carrada pela data para incluir pedido',
+    description: 'Consulta as carradas da mesma lista usada na Inserção V2 pela data, com descrição opcional. Faça esta pesquisa ao preparar cada novo pedido cuja carrada foi informada por data. Retorna código, data, descrição e bloqueio de vendas, sem gravar ou enviar mensagens. Use o código encontrado internamente; não exija que o usuário o informe. Se total_encontrado for maior que um, pergunte qual carrada pela descrição e percorra proxima_pagina; nunca escolha a primeira automaticamente. Se não encontrar, confira a data antes de preparar o pedido.',
+    securitySchemes: leitura,
+    annotations: readOnly,
+    inputSchema: { type: 'object', properties: {
+      data: { type: 'string', minLength: 10, maxLength: 10, description: 'Data da carrada em AAAA-MM-DD, não a data de cadastro do pedido. Converta datas relativas para uma data concreta; se a semana estiver ambígua, pergunte.' },
+      descricao: { type: 'string', maxLength: 120, description: 'Parte opcional da descrição exibida na lista de carradas.' },
+      pagina: { type: 'integer', minimum: 1, maximum: 100000 },
+      limite: { type: 'integer', minimum: 1, maximum: 30 }
+    }, required: ['data'], additionalProperties: false }
+  },
+  {
     name: 'consultar_pedidos',
     title: 'Consultar pedidos gravados por número, cliente ou data',
     description: 'Consulta pedidos reais por número, cliente (nome ou código favorecido) ou data. Por cliente, pagina o histórico; ultimo=true retorna o último CADASTRADO por id_mestre/SAIDA, sem usar data de expedição. sem_data_expedicao=true filtra somente ausência verificada. Se houver homônimos, escolha o código entre candidatos. Leia resultado_completo, ultimo_pedido_confirmado e avisos; percorra proxima_pagina para obter todos. Use detalhar_pedido para itens. Somente leitura.',
@@ -65,7 +78,7 @@ const tools = [
   {
     name: 'preparar_pedido',
     title: 'Montar prévia de pedido sem gravar',
-    description: 'Para pedidos por voz: depois de identificar cliente, vendedor e produtos, calcula totais e cria apenas rascunho de 15 minutos. Modalidade padrão orçamento. Leia cliente, itens, quantidades, preços e total ao usuário. Se houver carrada, avise que a gravação confirmada tentará enviar automaticamente o aviso de entrada na carrada por WhatsApp ao cliente cadastrado. Solicite confirmação explícita ANTES da gravação. Nunca confirme na mesma etapa.',
+    description: 'Para pedidos por voz: depois de identificar cliente, vendedor e produtos, calcula totais e cria apenas rascunho de 15 minutos. Modalidade padrão orçamento. Quando o usuário informar a carrada por data, consulte buscar_carradas no momento de preparar este pedido e use o código retornado; resolva múltiplas correspondências com o usuário antes de continuar. Não reutilize código de outro pedido nem prepare sem carrada quando ela foi solicitada. Leia cliente, itens, quantidades, preços, total e a data e descrição da carrada escolhida. Se houver carrada, avise que a gravação confirmada tentará enviar automaticamente o aviso de entrada na carrada por WhatsApp ao cliente cadastrado. Solicite confirmação explícita ANTES da gravação. Nunca confirme na mesma etapa.',
     securitySchemes: gravacao,
     annotations: writeTool,
     inputSchema: { type: 'object', properties: {
@@ -74,7 +87,7 @@ const tools = [
       modalidade: { type: 'string', enum: ['orcamento', 'kit-feirinha'] },
       data: { type: 'string', description: 'Data AAAA-MM-DD. Omitir para data atual.' },
       volumes: { type: 'integer', minimum: 0 },
-      carrada_codigo: { type: 'integer', minimum: 1 },
+      carrada_codigo: { type: 'integer', minimum: 1, description: 'Código real retornado por buscar_carradas para a data e carrada escolhidas pelo usuário. O usuário pode informar somente a data; não precisa ditar o código.' },
       observacao: { type: 'string', maxLength: 1000 },
       itens: { type: 'array', minItems: 1, maxItems: 25, items: {
         type: 'object', additionalProperties: false,
@@ -128,6 +141,7 @@ async function executeTool(name, args = {}, contexto = {}) {
   switch (name) {
     case 'buscar_produtos': return pedidos.buscarProdutos(args);
     case 'buscar_vendedores': return pedidos.buscarVendedores(args);
+    case 'buscar_carradas': return consultaPedidos.buscarCarradas(args);
     case 'consultar_pedidos': return consultaPedidos.consultarPedidos(args);
     case 'detalhar_pedido': return consultaPedidos.detalharPedido(args);
     case 'preparar_pedido': return pedidos.prepararPedido(args);
@@ -137,3 +151,4 @@ async function executeTool(name, args = {}, contexto = {}) {
   }
 }
 module.exports = { tools, isPedido, requiresWrite, requiredScopes, executeTool };
+

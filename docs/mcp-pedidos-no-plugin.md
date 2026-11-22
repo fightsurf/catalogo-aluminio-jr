@@ -2,6 +2,35 @@
 
 > Atualização de 22/11/2026: o pacote de consulta e gestão de pedidos, WhatsApp e expedição está descrito em [mcp-alteracoes-acumuladas-20261122.md](mcp-alteracoes-acumuladas-20261122.md), incluindo os novos escopos e os testes. As restrições de escopo da versão inicial abaixo são históricas.
 
+## Carrada pela data no momento de preparar o pedido
+
+O mesmo plugin agora expõe `buscar_carradas`, somente leitura e com escopo
+`clientes:read`. Quando o usuário informar a carrada pela data, o assistente
+deve fazer essa consulta ao preparar **cada novo pedido**, antes de chamar
+`preparar_pedido`. A data da carrada não deve ser confundida com `data`, que
+na preparação continua sendo a data de cadastro do pedido.
+
+A ferramenta recebe `data` em `AAAA-MM-DD`, `descricao` opcional e
+`pagina`/`limite` para consultar até 30 resultados por página. Reutiliza
+`carradasService.listarCarradas({ incluirResumoProducao: false })`, a mesma
+consulta que abastece a lista da Inserção V2, sem calcular resumo de produção.
+Não há SQL próprio, nova rotina de gravação, cache de códigos nem envio de
+mensagens nessa busca. O adaptador filtra a data civil e a descrição e retorna
+código, data, descrição e bloqueio de vendas, sem excluir carradas bloqueadas.
+
+- Uma correspondência: usar o código retornado em `carrada_codigo` e apresentar
+  a data e descrição da carrada na prévia. O usuário não precisa informar código.
+- Várias correspondências: considerar `total_encontrado`, inclusive quando a
+  página tem apenas um item, e pedir a escolha pela descrição. Não selecionar
+  automaticamente a primeira. Consultar `proxima_pagina` quando necessário.
+- Nenhuma correspondência: esclarecer a data com o usuário. Não inventar código
+  nem preparar sem carrada quando ele pediu vínculo com uma carrada.
+- Falha da origem: informar a falha; ela não significa que a data não tem carrada.
+
+Datas relativas devem ser convertidas em datas concretas antes da consulta;
+quando a semana for ambígua, pedir esclarecimento. O rascunho mantém o código
+escolhido e a confirmação continua usando o fluxo existente da Inserção V2.
+
 ## Escopo
 
 O endpoint atual **POST /mcp/clientes** continua sendo o único plugin autenticado.
@@ -58,3 +87,4 @@ Confirmar na prática após mais de 15 minutos sem nova conexão.
 
 Não declarar que pedidos em produção estão funcionando até concluir uma
 gravação controlada e confirmar o pedido na tela do sistema legado.
+

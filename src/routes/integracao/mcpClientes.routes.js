@@ -103,7 +103,7 @@ router.get('/status', (req, res) => {
   const pedidosHabilitados = process.env.MCP_PEDIDOS_ENABLED === 'true';
   const podeEscrever = pedidosHabilitados && pedidosMcp.tools.some(t =>
     t.annotations.readOnlyHint === false && pedidosMcp.requiredScopes(t.name).every(s => scopes.has(s)));
-  return res.json({ ok: true, versao: '1.1.0', escopos: [...scopes],
+  return res.json({ ok: true, versao: '1.2.0', escopos: [...scopes],
     pedidos_habilitados: pedidosHabilitados, somente_leitura: !podeEscrever });
 });
 router.get('/', (_req, res) => res.status(405).set('Allow', 'POST').end());
@@ -119,8 +119,8 @@ router.post('/', async (req, res) => {
     return jsonrpc(res, m.id, {
       protocolVersion: PROTOCOL,
       capabilities: { tools: { listChanged: true } },
-      serverInfo: { name: 'aluminio-jr-clientes', version: '1.1.0' },
-      instructions: 'Consulte clientes, logística e pedidos. Por cliente, permita último cadastrado, histórico paginado e filtro sem data de expedição; respeite avisos de dados incompletos e homônimos. Preparar cria somente prévia. Para criar, alterar, cancelar, registrar expedição ou enviar WhatsApp, leia o resumo e todos os efeitos, aguarde confirmação expressa posterior e use o confirmador correspondente. Expedição usa a ação completa de Progresso com seus avisos. Só existem ações individuais, sem enviar para todos. Nunca repita efeitos incertos. Não invente dados nem alegue entrega pelo simples aceite do provedor.'
+      serverInfo: { name: 'aluminio-jr-clientes', version: '1.2.0' },
+      instructions: 'Consulte clientes, logística e pedidos. Por cliente, permita último cadastrado, histórico paginado e filtro sem data de expedição; respeite avisos de dados incompletos e homônimos. Ao preparar um novo pedido com carrada informada por data, consulte buscar_carradas naquele momento e use o código retornado internamente. Não peça o código ao usuário. Se houver várias correspondências, peça a escolha pela descrição; se não houver, esclareça a data antes de preparar. Não reutilize carrada de outro pedido. Preparar cria somente prévia. Para criar, alterar, cancelar, registrar expedição ou enviar WhatsApp, leia o resumo e todos os efeitos, aguarde confirmação expressa posterior e use o confirmador correspondente. Expedição usa a ação completa de Progresso com seus avisos. Só existem ações individuais, sem enviar para todos. Nunca repita efeitos incertos. Não invente dados nem alegue entrega pelo simples aceite do provedor.'
     });
   }
   if (m.method === 'ping') return jsonrpc(res, m.id, {});
@@ -168,3 +168,4 @@ router.post('/', async (req, res) => {
   }
 });
 module.exports = router;
+

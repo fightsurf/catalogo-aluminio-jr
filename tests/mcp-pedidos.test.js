@@ -118,11 +118,16 @@ test('exige confirmação, grava uma vez e protege contra repetição', async ()
   assert.equal(t.getGravacoes(), 1);
 });
 
-test('bloqueia preços inferiores ao cadastro', async () => {
+test('prévia aceita preço negociado por pedido sem alterar a referência do cadastro', async () => {
   const t = criarAmbiente();
-  await assert.rejects(() => t.service.prepararPedido({
+  const preparado = await t.service.prepararPedido({
     ...dadosBase(), itens: [{ produto_id: 10, quantidade: 2, preco: 20 }]
-  }), /abaixo da referência/);
+  });
+  assert.equal(preparado.resumo.itens[0].preco, 20);
+  assert.equal(preparado.resumo.itens[0].preco_referencia, 25);
+  assert.equal(preparado.resumo.total, 40);
+  const produtos = await t.service.buscarProdutos({ nome: 'Panela' });
+  assert.equal(produtos.produtos[0].preco_referencia, 25);
   assert.equal(t.getGravacoes(), 0);
 });
 
@@ -157,3 +162,4 @@ test('confirmação é escrita aditiva com escopo OAuth e confirmação obrigat�
   assert.match(confirmar, /annotations:\s*\{ readOnlyHint: false, destructiveHint: false, idempotentHint: true/);
   assert.match(confirmar, /confirmacao: \{ type: 'string', enum: \['CONFIRMO'\] \}/);
 });
+

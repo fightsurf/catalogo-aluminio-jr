@@ -25,6 +25,42 @@ function dataIso(v) {
   'Data inválida. Use AAAA-MM-DD.');
   return s;
 }
+async function buscarCarradas({ data, descricao = '', pagina = 1, limite = 30 } = {}) {
+  validar(typeof data === 'string', 'Informe a data da carrada em AAAA-MM-DD.');
+  const dia = dataIso(data);
+  validar(typeof descricao === 'string' && descricao.length <= 120, 'Descrição de carrada inválida.');
+  validar(Number.isInteger(pagina) && pagina >= 1 && pagina <= 100000, 'Página inválida.');
+  validar(Number.isInteger(limite) && limite >= 1 && limite <= 30, 'Limite permitido: de 1 a 30 carradas.');
+  // Mesma consulta do select da Inserção V2, sem calcular o resumo de produção.
+  // Consulta novamente a cada chamada; não reutiliza códigos de pedidos anteriores.
+  const rows = await carradas.listarCarradas({ incluirResumoProducao: false });
+  validar(Array.isArray(rows), 'A consulta de carradas retornou formato inesperado.');
+  const encontradas = rows.filter(c =>
+    // A data do legado é civil: preservar o prefixo ISO, como faz a tela.
+    texto(c?.data).slice(0, 10) === dia &&
+    (!texto(descricao) || normalizar(c?.descricao).includes(normalizar(descricao)))
+  ).map(c => {
+    const codigo = Number(c.codigo);
+    validar(Number.isSafeInteger(codigo) && codigo > 0, 'A carrada encontrada não retornou um código válido.');
+    return { codigo, data: dia, descricao: texto(c.descricao), vendas_bloqueadas: Boolean(c.vendasBloqueadas) };
+  }).sort((a, b) => a.codigo - b.codigo);
+  const total = encontradas.length;
+  const inicio = (pagina - 1) * limite;
+  const selecionadas = encontradas.slice(inicio, inicio + limite);
+  const temMais = inicio + selecionadas.length < total;
+  return {
+    filtros: { data: dia, descricao: texto(descricao) },
+    total_encontrado: total, exibindo: selecionadas.length, pagina, limite,
+    tem_mais: temMais, proxima_pagina: temMais ? pagina + 1 : null,
+    necessita_escolha_carrada: total > 1,
+    carradas: selecionadas, somente_leitura: true,
+    instrucao: total === 0
+      ? 'Nenhuma carrada corresponde à data e descrição consultadas. Confira a data com o usuário; não invente código nem prepare o pedido sem a carrada solicitada.'
+      : total > 1
+        ? 'Há mais de uma carrada correspondente. Mostre data e descrição e pergunte qual o usuário deseja; consulte as próximas páginas quando houver. Não escolha a primeira automaticamente.'
+        : 'Use o código retornado em carrada_codigo ao preparar este pedido e apresente a data e descrição da carrada na prévia. Não peça ao usuário para informar o código.'
+  };
+}
 function situacaoCancelada(p) {
   return p?.cancelado === true || ['C', 'CANCELADO', 'CANCELADA'].includes(texto(p?.situacao).toUpperCase());
 }
@@ -280,4 +316,5 @@ async function detalharPedido({ id_mestre } = {}) {
     somente_leitura: true
   };
 }
-module.exports = { consultarPedidos, detalharPedido };
+module.exports = { buscarCarradas, consultarPedidos, detalharPedido };
+

@@ -39,6 +39,11 @@ function carregarServico(opcoes = {}) {
       }
     },
     '../legado/carradas/carradas.service': {
+      listarCarradas: async filtros => {
+        chamados.push(['listarCarradas', filtros]);
+        if (opcoes.falharListaCarradas) throw opcoes.falharListaCarradas;
+        return Object.prototype.hasOwnProperty.call(opcoes, 'listaCarradas') ? opcoes.listaCarradas : [];
+      },
       buscarResumoCarrada: async codigo => {
         chamados.push(['carrada', codigo]);
         if (opcoes.falharCarrada) throw new Error('carrada indisponível');
@@ -322,3 +327,137 @@ test('MCP registra consulta com autenticação apenas de leitura', () => {
   }
   assert.match(source, /case 'consultar_pedidos': return consultaPedidos\.consultarPedidos\(args\)/);
 });
+
+test('buscar carradas usa a listagem existente, sem consultar ou gravar pedidos', async () => {
+  const { service, chamados } = carregarServico({ listaCarradas: [
+    { codigo: '1697', data: '2026-12-02T00:00:00.000Z', descricao: '  Feira de quarta  ', vendasBloqueadas: true },
+    { codigo: 1698, data: '2026-12-03', descricao: 'Outra data', vendasBloqueadas: false }
+  ] });
+  const r = await service.buscarCarradas({ data: '2026-12-02' });
+  assert.deepEqual(chamados, [['listarCarradas', { incluirResumoProducao: false }]]);
+  assert.deepEqual(r.filtros, { data: '2026-12-02', descricao: '' });
+  assert.deepEqual(r.carradas, [{ codigo: 1697, data: '2026-12-02', descricao: 'Feira de quarta', vendas_bloqueadas: true }]);
+  assert.equal(r.total_encontrado, 1);
+  assert.equal(r.necessita_escolha_carrada, false);
+  assert.equal(r.somente_leitura, true);
+  assert.equal(r.proxima_pagina, null);
+  assert.equal(r.rascunho_id, undefined);
+});
+
+test('buscar carradas preserva a data civil ISO sem deslocar meia-noite pelo fuso', async () => {
+  const { service } = carregarServico({ listaCarradas: [
+    { codigo: 3, data: '2026-12-02T00:00:00Z', descricao: 'UTC' },
+    { codigo: 2, data: '2026-12-02T23:30:00-03:00', descricao: 'Brasil' },
+    { codigo: 1, data: '2026-12-02', descricao: 'Data sem horário' },
+    { codigo: 4, data: '2026-12-01T23:30:00-03:00', descricao: 'Dia anterior' }
+  ] });
+  const r = await service.buscarCarradas({ data: '2026-12-02' });
+  assert.deepEqual(r.carradas.map(c => c.codigo), [1, 2, 3]);
+  assert.ok(r.carradas.every(c => c.data === '2026-12-02'));
+});
+
+test('buscar carradas informa ausência de correspondência sem escolher outra data', async () => {
+  const { service, chamados } = carregarServico({ listaCarradas: [
+    { codigo: 1697, data: '2026-12-03', descricao: 'Carrada seguinte' }
+  ] });
+  const r = await service.buscarCarradas({ data: '2026-12-02' });
+  assert.equal(r.total_encontrado, 0);
+  assert.deepEqual(r.carradas, []);
+  assert.equal(r.exibindo, 0);
+  assert.equal(r.necessita_escolha_carrada, false);
+  assert.equal(r.tem_mais, false);
+  assert.equal(r.proxima_pagina, null);
+  assert.equal(chamados.length, 1);
+});
+
+test('buscar carradas exige escolha pelo total mesmo quando a página mostra apenas uma', async () => {
+  const { service } = carregarServico({ listaCarradas: [
+    { codigo: 1699, data: '2026-12-02', descricao: 'Rota B' },
+    { codigo: 1697, data: '2026-12-02', descricao: 'Rota A' }
+  ] });
+  const primeira = await service.buscarCarradas({ data: '2026-12-02', limite: 1 });
+  assert.equal(primeira.total_encontrado, 2);
+  assert.equal(primeira.exibindo, 1);
+  assert.equal(primeira.necessita_escolha_carrada, true);
+  assert.equal(primeira.carradas[0].codigo, 1697);
+  assert.equal(primeira.proxima_pagina, 2);
+  assert.equal(primeira.tem_mais, true);
+  const segunda = await service.buscarCarradas({ data: '2026-12-02', limite: 1, pagina: 2 });
+  assert.equal(segunda.carradas[0].codigo, 1699);
+  assert.equal(segunda.necessita_escolha_carrada, true);
+  assert.equal(segunda.tem_mais, false);
+  assert.equal(segunda.proxima_pagina, null);
+});
+
+test('buscar carradas permite distinguir descrição ignorando acentos e maiúsculas', async () => {
+  const { service } = carregarServico({ listaCarradas: [
+    { codigo: 1, data: '2026-12-02', descricao: 'Excursão São   José' },
+    { codigo: 2, data: '2026-12-02', descricao: 'Excursão de Patos' },
+    { codigo: 3, data: '2026-12-03', descricao: 'Excursão São José' }
+  ] });
+  const r = await service.buscarCarradas({ data: '2026-12-02', descricao: 'SAO JOSE' });
+  assert.equal(r.total_encontrado, 1);
+  assert.equal(r.carradas[0].codigo, 1);
+  assert.equal(r.necessita_escolha_carrada, false);
+});
+
+test('buscar carradas consulta novamente a origem para cada novo pedido', async () => {
+  const listaCarradas = [{ codigo: 1, data: '2026-12-02', descricao: 'Rota A' }];
+  const { service, chamados } = carregarServico({ listaCarradas });
+  const primeira = await service.buscarCarradas({ data: '2026-12-02' });
+  assert.equal(primeira.total_encontrado, 1);
+  listaCarradas.push({ codigo: 2, data: '2026-12-02', descricao: 'Rota B' });
+  const segunda = await service.buscarCarradas({ data: '2026-12-02' });
+  assert.equal(segunda.total_encontrado, 2);
+  assert.equal(segunda.necessita_escolha_carrada, true);
+  assert.deepEqual(chamados, [
+    ['listarCarradas', { incluirResumoProducao: false }],
+    ['listarCarradas', { incluirResumoProducao: false }]
+  ]);
+});
+
+test('buscar carradas valida data, descrição e paginação antes de acessar a origem', async () => {
+  const { service, chamados } = carregarServico();
+  const argsInvalidos = [
+    {}, { data: '' }, { data: 20261202 }, { data: null },
+    { data: '02/12/2026' }, { data: 'quarta-feira' }, { data: '2026-12-02T00:00:00Z' },
+    { data: '2026-02-29' }, { data: '2026-02-30' }, { data: '2026-13-01' },
+    { data: '2026-12-02', descricao: 123 }, { data: '2026-12-02', descricao: 'a'.repeat(121) },
+    { data: '2026-12-02', limite: 0 }, { data: '2026-12-02', limite: 31 },
+    { data: '2026-12-02', limite: '1' }, { data: '2026-12-02', pagina: 0 },
+    { data: '2026-12-02', pagina: 1.5 }, { data: '2026-12-02', pagina: 100001 }
+  ];
+  for (const args of argsInvalidos) {
+    await assert.rejects(service.buscarCarradas(args), error => error.isValidation === true, JSON.stringify(args));
+  }
+  assert.deepEqual(chamados, []);
+});
+
+test('buscar carradas aceita dia válido de ano bissexto', async () => {
+  const { service } = carregarServico({ listaCarradas: [
+    { codigo: 1, data: '2028-02-29', descricao: 'Data bissexta' }
+  ] });
+  const r = await service.buscarCarradas({ data: '2028-02-29' });
+  assert.equal(r.total_encontrado, 1);
+});
+
+test('buscar carradas preserva erro da origem em vez de reportar lista vazia', async () => {
+  const erro = new Error('bridge indisponível');
+  const { service, chamados } = carregarServico({ falharListaCarradas: erro });
+  await assert.rejects(service.buscarCarradas({ data: '2026-12-02' }), error => error === erro);
+  assert.deepEqual(chamados, [['listarCarradas', { incluirResumoProducao: false }]]);
+});
+
+test('buscar carradas rejeita resposta inválida e código ausente sem escolher outra correspondência', async () => {
+  for (const listaCarradas of [
+    null, {},
+    [{ data: '2026-12-02', descricao: 'Sem código' }],
+    [{ codigo: 0, data: '2026-12-02' }],
+    [{ codigo: '1697x', data: '2026-12-02' }],
+    [{ codigo: 1, data: '2026-12-02' }, { codigo: null, data: '2026-12-02' }]
+  ]) {
+    const { service } = carregarServico({ listaCarradas });
+    await assert.rejects(service.buscarCarradas({ data: '2026-12-02' }), error => error.isValidation === true);
+  }
+});
+

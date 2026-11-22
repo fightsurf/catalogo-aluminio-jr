@@ -28,7 +28,7 @@ function ambiente() {
   });
   const pedidos = carregar('src/routes/integracao/mcpPedidosTools.js', {
     '../../services/integracao/mcpPedidos.service': Object.fromEntries(['buscarProdutos', 'buscarVendedores', 'prepararPedido', 'confirmarPedido', 'consultarRascunho'].map(n => [n, registrar(n)])),
-    '../../services/integracao/mcpConsultaPedidos.service': { consultarPedidos: registrar('consultarPedidos'), detalharPedido: registrar('detalharPedido') },
+    '../../services/integracao/mcpConsultaPedidos.service': { consultarPedidos: registrar('consultarPedidos'), detalharPedido: registrar('detalharPedido'), buscarCarradas: registrar('buscarCarradas') },
     './mcpAcoesPedidosTools': acoes
   });
   let middleware, post;
@@ -160,3 +160,48 @@ test('sem OAuth nenhuma ferramenta é acessível e flag desativada não executa 
     assert.deepEqual(a.chamadas, []);
   } finally { process.env.MCP_PEDIDOS_ENABLED = 'true'; }
 });
+
+test('buscar carradas aparece no catálogo como leitura e usa a consulta existente', async () => {
+  process.env.MCP_PEDIDOS_ENABLED = 'true';
+  const a = ambiente();
+  const list = await a.requisitar(null, {}, 'clientes:read', { method: 'tools/list' });
+  const ferramenta = list.body.result.tools.find(t => t.name === 'buscar_carradas');
+  assert.ok(ferramenta);
+  assert.deepEqual(ferramenta.securitySchemes, [{ type: 'oauth2', scopes: ['clientes:read'] }]);
+  assert.deepEqual(ferramenta._meta.securitySchemes, ferramenta.securitySchemes);
+  assert.equal(ferramenta.annotations.readOnlyHint, true);
+  assert.equal(ferramenta.annotations.destructiveHint, false);
+  assert.equal(a.pedidos.requiresWrite('buscar_carradas'), false);
+  const args = { data: '2026-12-02', descricao: 'São José', pagina: 2, limite: 1 };
+  const res = await a.requisitar('buscar_carradas', args);
+  assert.equal(res.body.result.isError, false);
+  assert.deepEqual(a.chamadas, [{ name: 'buscarCarradas', args: [args] }]);
+});
+
+test('buscar carradas recusa argumentos incompletos ou tipos incorretos antes do serviço', async () => {
+  const a = ambiente();
+  for (const args of [
+    {}, { data: 20261202 }, { data: null },
+    { data: '2026-12-02', descricao: 12 },
+    { data: '2026-12-02', limite: 0 }, { data: '2026-12-02', limite: 31 },
+    { data: '2026-12-02', pagina: 0 }, { data: '2026-12-02', pagina: '2' },
+    { data: '2026-12-02', descricao: 'a'.repeat(121) },
+    { data: '2026-12-02', carrada_codigo: 1697 }
+  ]) {
+    const r = await a.requisitar('buscar_carradas', args);
+    assert.equal(r.body.error?.code, -32602, JSON.stringify(args));
+  }
+  assert.deepEqual(a.chamadas, []);
+});
+
+test('buscar carradas exige OAuth e escopo de leitura sem conceder gravação', async () => {
+  const a = ambiente();
+  const args = { data: '2026-12-02' };
+  const semToken = await a.requisitar('buscar_carradas', args, 'clientes:read', { token: 'invalido' });
+  assert.equal(semToken.statusCode, 401);
+  const semLeitura = await a.requisitar('buscar_carradas', args, 'pedidos:write');
+  assert.equal(semLeitura.body.result.isError, true);
+  assert.match(semLeitura.body.result._meta['mcp/www_authenticate'][0], /insufficient_scope/);
+  assert.deepEqual(a.chamadas, []);
+});
+
