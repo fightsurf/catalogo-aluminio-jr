@@ -174,6 +174,7 @@ function drawGraph(area,rows,unit,label,color){
  let low=minValue,high=maxValue;
  const pad=Math.max((high-low)*.12,Math.abs(high)*.015,.2);
  low-=pad;high+=pad;
+ if(unit==='h')low=Math.max(0,low);
  if(isImc){
   // Mostra os limites da faixa atual sem comprimir o histórico na escala total.
   const lower=imcLimits.filter(limit=>limit<=minValue).pop();
