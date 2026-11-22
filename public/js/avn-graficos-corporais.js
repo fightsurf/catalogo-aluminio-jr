@@ -18,6 +18,14 @@ const definitions=[
  {key:'agua_ingerida',unit:'ml',color:metricColors.agua_ingerida}
 ];
 const sources=['peso','gordura_corporal','massa_magra','agua_corporal'];
+const sleepDefinitions=[
+ {key:'sono_efetivo',name:'Tempo real dormido',unit:'h',color:'#34d399'},
+ {key:'sono_pontuacao',name:'Pontuação do sono',unit:'pontos',color:'#2dd4bf'},
+ {key:'sono_leve',name:'Sono leve',unit:'h',color:'#a3bffa'},
+ {key:'sono_profundo',name:'Sono profundo',unit:'h',color:'#a78bfa'},
+ {key:'sono_rem',name:'Sono REM',unit:'h',color:'#e879f9'}
+];
+const sleepState={user:'',days:'',series:{},error:null,loading:false,request:0,controller:null};
 // Faixas de referência para adultos; IMC não mede diretamente a gordura corporal.
 const imcBands=[
  {name:'Abaixo do peso',range:'Menos de 18,5',min:-Infinity,max:18.5,color:'#60a5fa'},
@@ -64,6 +72,7 @@ function waterWithPercent(waterRows,weightRows){
 }
 const $=id=>document.getElementById(id);
 const format=n=>Number(n).toLocaleString('pt-BR',{maximumFractionDigits:2});
+const formatHours=n=>{const m=Math.round(Number(n)*60);return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0');};
 const formatPct=n=>Number(n).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
 const formatDate=n=>new Date(n).toLocaleString('pt-BR');
 const formatShort=n=>new Date(n).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
@@ -76,7 +85,7 @@ function svgEl(parent,tag,attrs,text){
  parent.append(el);return el;
 }
 // Rotula cada ponto com o valor, sem capturar os eventos do mouse.
-function drawValueLabel(svg,point,value,color,index,limits){
+function drawValueLabel(svg,point,value,color,index,limits,formatter=format){
  let labelY=point.py+(index%2===0?-11:16);
  if(labelY<limits.top+11)labelY=point.py+16;
  if(labelY>limits.bottom-4)labelY=point.py-11;
@@ -87,7 +96,7 @@ function drawValueLabel(svg,point,value,color,index,limits){
   y:labelY,'text-anchor':anchor,fill:color,'font-size':10,'font-weight':700,
   stroke:'#101c2e','stroke-width':3,'stroke-linejoin':'round',
   'paint-order':'stroke','pointer-events':'none'
- },format(value));
+ },formatter(value));
 }
 async function getJson(url,signal){
  const res=await fetch(url,{credentials:'same-origin',cache:'no-store',signal});
@@ -157,6 +166,7 @@ function renderWaterReference(waterRows,weightRows,user){
 function drawGraph(area,rows,unit,label,color){
  area.replaceChildren();
  if(!rows.length)return;
+ const showValue=unit==='h'?formatHours:format;
  const W=Math.max(310,Math.round(area.clientWidth||800)),H=245,L=58,R=18,T=16,B=47;
  const values=rows.map(p=>p.value),times=rows.map(p=>p.time);
  const isImc=label==='imc';
@@ -187,7 +197,7 @@ function drawGraph(area,rows,unit,label,color){
  for(let i=0;i<=4;i++){
   const yy=T+(H-T-B)*i/4;
   svgEl(svg,'line',{x1:L,x2:W-R,y1:yy,y2:yy,stroke:'#34465f'});
-  svgEl(svg,'text',{x:L-8,y:yy+4,'text-anchor':'end',fill:'#a9b9d1','font-size':11},format(high-(high-low)*i/4));
+  svgEl(svg,'text',{x:L-8,y:yy+4,'text-anchor':'end',fill:'#a9b9d1','font-size':11},showValue(high-(high-low)*i/4));
  }
  if(isImc)for(const limit of imcLimits){
   if(limit<=low||limit>=high)continue;
@@ -208,8 +218,8 @@ function drawGraph(area,rows,unit,label,color){
  svgEl(svg,'polyline',{points:poly,fill:'none',stroke:color,'stroke-width':2.5,'stroke-linecap':'round','stroke-linejoin':'round'});
  const pointLabels=points.map((p,index)=>{
   const c=svgEl(svg,'circle',{cx:p.px,cy:p.py,r:3.5,fill:color});
-  svgEl(c,'title',{},formatDate(p.date)+' — '+format(p.value)+' '+unit);
-  return drawValueLabel(svg,p,p.value,color,index,{left:L,right:W-R,top:T,bottom:H-B});
+  svgEl(c,'title',{},formatDate(p.date)+' — '+showValue(p.value)+' '+unit);
+  return drawValueLabel(svg,p,p.value,color,index,{left:L,right:W-R,top:T,bottom:H-B},showValue);
  });
  const guide=svgEl(svg,'line',{x1:L,x2:L,y1:T,y2:H-B,stroke:'#34d399','stroke-width':1.3,'stroke-dasharray':'4 4',visibility:'hidden'});
  const focus=svgEl(svg,'circle',{cx:L,cy:T,r:5.5,fill:'#182437',stroke:color,'stroke-width':2.5,visibility:'hidden'});
@@ -237,7 +247,7 @@ function drawGraph(area,rows,unit,label,color){
   focus.setAttribute('cx',p.px);focus.setAttribute('cy',p.py);focus.setAttribute('visibility','visible');
   const band=isImc?imcBand(p.value):null;
   const waterExtra=label==='agua corporal'&&Number.isFinite(p.percent)?' · '+formatPct(p.percent)+'% do peso':'';
-  tooltip.textContent=formatDate(p.date)+' · '+format(p.value)+' '+unit+waterExtra+(band?' · '+band.name:'');
+  tooltip.textContent=formatDate(p.date)+' · '+showValue(p.value)+' '+unit+waterExtra+(band?' · '+band.name:'');
   tooltip.hidden=false;
   const xpos=p.px/W*area.clientWidth, ypos=p.py/H*area.clientHeight;
   tooltip.style.left=Math.max(4,Math.min(xpos+10,area.clientWidth-tooltip.offsetWidth-4))+'px';
@@ -478,6 +488,78 @@ function initComparison(){
  dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close();});
 }
 
+
+function sleepTabActive(){return $('tab-sono')?.getAttribute('aria-selected')==='true';}
+// O dia de cada registro é o dia local do despertar, não o início da noite.
+function makeSleepSeries(noites,periodo){
+ const hoje=new Date(),ultimo=new Date(hoje.getFullYear(),hoje.getMonth(),hoje.getDate()),primeiro=new Date(hoje.getFullYear(),hoje.getMonth(),hoje.getDate()-Number(periodo)+1),dias=new Map();
+ for(const noite of Array.isArray(noites)?noites:[]){
+  const ini=new Date(noite.inicio).getTime(),fim=new Date(noite.fim).getTime();
+  if(!Number.isFinite(ini)||!Number.isFinite(fim)||fim<ini)continue;
+  const fimDia=new Date(fim),data=new Date(fimDia.getFullYear(),fimDia.getMonth(),fimDia.getDate());
+  if(data<primeiro||data>ultimo)continue;
+  const key=data.getTime();
+  if(!dias.has(key)){
+   const horario=new Date(data.getFullYear(),data.getMonth(),data.getDate(),12);
+   dias.set(key,{time:horario.getTime(),date:horario.toISOString(),LIGHT:0,DEEP:0,REM:0,hasStages:false,score:null,scoreTime:-Infinity});
+  }
+  const dia=dias.get(key),score=noite.pontuacao;
+  if(score!==null&&score!==undefined&&score!==''&&Number.isFinite(Number(score))&&Number(score)>=0&&Number(score)<=100&&fim>=dia.scoreTime){dia.score=Number(score);dia.scoreTime=fim;}
+  for(const etapa of Array.isArray(noite.estagios)?noite.estagios:[]){
+   const tipo=String(etapa?.tipo||'').toUpperCase();
+   if(!['LIGHT','DEEP','REM'].includes(tipo))continue;
+   const a=new Date(etapa.inicio).getTime(),b=new Date(etapa.fim).getTime();
+   if(!Number.isFinite(a)||!Number.isFinite(b)||b<=a)continue;
+   const minutos=Math.max(0,Math.min(fim,b)-Math.max(ini,a))/60000;
+   if(minutos<=0)continue;
+   dia[tipo]+=minutos;dia.hasStages=true;
+  }
+ }
+ const series=Object.fromEntries(sleepDefinitions.map(x=>[x.key,[]]));
+ for(const d of [...dias.values()].sort((a,b)=>a.time-b.time)){
+  const add=(key,value)=>series[key].push({time:d.time,date:d.date,value:Number(value.toFixed(3))});
+  if(d.score!==null)add('sono_pontuacao',d.score);
+  if(!d.hasStages)continue;
+  const total=d.LIGHT+d.DEEP+d.REM;
+  if(total>0)add('sono_efetivo',total/60);
+  add('sono_leve',d.LIGHT/60);add('sono_profundo',d.DEEP/60);add('sono_rem',d.REM/60);
+ }
+ return series;
+}
+function renderSleep(){
+ if(!sleepTabActive())return;
+ for(const m of sleepDefinitions){
+  const status=$('status-'+m.key),area=$('chart-'+m.key),rows=sleepState.series[m.key]||[];
+  area.replaceChildren();
+  if(sleepState.loading||sleepState.error||!sleepState.user||!rows.length){
+   status.hidden=false;
+   status.textContent=sleepState.loading?'Carregando histórico de sono…':sleepState.error||(!sleepState.user?'Selecione um usuário.':'Nenhuma medição disponível neste período.');
+   continue;
+  }
+  status.hidden=true;
+  drawGraph(area,rows,m.unit,m.name,m.color);
+ }
+}
+async function refreshSleep(){
+ const user=String($('usuario')?.value||''),days=String($('dias')?.value||'7'),token=++sleepState.request;
+ if(sleepState.controller)sleepState.controller.abort();
+ const controller=new AbortController();
+ sleepState.controller=controller;sleepState.user=user;sleepState.days=days;sleepState.series={};sleepState.error=null;sleepState.loading=!!user;
+ renderSleep();
+ if(!user)return;
+ try{
+  const dados=await getJson('/api/avn/health/usuarios/'+encodeURIComponent(user)+'/sono?dias='+encodeURIComponent(days),controller.signal);
+  if(token!==sleepState.request)return;
+  if(!Array.isArray(dados.noites))throw new Error('Histórico de sono inválido.');
+  sleepState.series=makeSleepSeries(dados.noites,days);sleepState.loading=false;
+  renderSleep();
+ }catch(error){
+  if(token!==sleepState.request||controller.signal.aborted)return;
+  sleepState.error=error.message||'Não foi possível carregar o histórico de sono.';
+  sleepState.loading=false;renderSleep();
+ }
+}
+
 function render(){
  const selectedUser=state.users.find(u=>String(u.id)===String($('usuario').value));
  for(const m of definitions){
@@ -500,6 +582,7 @@ async function refresh(){
  if(state.controller)state.controller.abort();
  state.controller=new AbortController();
  state.data={};state.errors={};
+ if(sleepTabActive())refreshSleep();
  for(const m of definitions){
   $('status-'+m.key).hidden=false;
   $('status-'+m.key).textContent=id?'Carregando medições…':'Selecione um usuário.';
@@ -550,11 +633,11 @@ async function init(){
 let resizeTimer;
 window.addEventListener('resize',()=>{
  clearTimeout(resizeTimer);
- resizeTimer=setTimeout(render,120);
+ resizeTimer=setTimeout(()=>{render();renderSleep();},120);
 });
 function initTabs(){
  const abas=[...document.querySelectorAll('[data-avn-graficos-tab]')];
- if(abas.length!==2)return;
+ if(!abas.length)return;
  function ativar(aba){
   for(const item of abas){
    const ativa=item===aba;
@@ -565,6 +648,10 @@ function initTabs(){
   }
   // SVGs se ajustam à largura disponível quando o painel volta a ficar visível.
   window.dispatchEvent(new Event('resize'));
+  if(aba.id==='tab-sono'){
+   if(sleepState.user!==String($('usuario').value||'')||sleepState.days!==String($('dias').value||'7'))refreshSleep();
+   else renderSleep();
+  }
  }
  abas.forEach((aba,i)=>{
   aba.addEventListener('click',()=>ativar(aba));
@@ -577,7 +664,8 @@ function initTabs(){
   });
  });
  const tabParam=new URLSearchParams(window.location.search).get('tab');
- if(tabParam==='nutricao')ativar(abas[1]);
+ const initiallySelected=abas.find(aba=>aba.id==='tab-'+tabParam);
+ if(initiallySelected)ativar(initiallySelected);
 }
 initTabs();
 init();
