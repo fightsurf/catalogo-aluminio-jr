@@ -4,14 +4,18 @@ Implementação **somente leitura**, independente do piloto de transportadoras e
 
 ## Endpoints
 
-- `POST /mcp/clientes`: MCP Streamable HTTP, autenticado via OAuth 2.1, com `buscar_clientes` e quatro ferramentas de consulta logística.
+- `POST /mcp/clientes`: MCP Streamable HTTP, autenticado via OAuth 2.1, com `buscar_clientes`, `consultar_cliente`, `listar_excursoes_transportadoras` e quatro ferramentas de consulta logística.
 - `GET /.well-known/oauth-protected-resource/mcp/clientes`: descoberta do recurso.
 - `GET /.well-known/oauth-authorization-server`: descoberta do servidor OAuth.
 - `GET /oauth/mcp-clientes/authorize`: autentica com o login administrativo da Alumínio JR e mostra consentimento expresso.
 - `POST /oauth/mcp-clientes/authorize`: concede/nega o acesso.
 - `POST /oauth/mcp-clientes/token`: troca código com PKCE S256 e renova refresh tokens com rotação.
 
-A consulta de clientes retorna somente `favorecido`, `nome`, `cidade` e `uf`, no máximo 10 resultados. Filtro de nome obrigatório (mínimo três caracteres). Não retorna telefone, documentos, observações ou detalhes de pedidos. Também são oferecidas `consultar_transportadoras`, `buscar_cidades`, `listar_cidades_da_transportadora` e `transportadoras_por_cidade`, reaproveitando o código do MCP de logística já existente. Não retornam telefones, documentos nem observações. Não há ferramenta de escrita neste endpoint.
+`buscar_clientes` retorna até 10 clientes por nome (mínimo três caracteres), com `favorecido`, `nome`, `cidade`, `uf`, `telefone` (número) e `observacao` se a API legada a disponibilizar. `consultar_cliente` retorna esses mesmos campos para o código de favorecido informado. **No momento a API de clientes do legado não disponibiliza observações**, portanto a resposta apresenta `observacao: null`; não inventamos esse dado.
+
+`listar_excursoes_transportadoras` consulta a tabela compartilhada de excursões/transportadoras, com `id`, `nome`, `cidade`, `uf`, `telefone` (prefere telefone principal), `observacao`, e `cidades_vinculadas` (cidade, UF, código IBGE e observação do vínculo). Permite filtro opcional por nome e paginação de 1 até 50 registros, expondo `tem_proxima_pagina` para percorrer todos os cadastros. A base não separa formalmente excursões das transportadoras nessa consulta.
+
+As quatro ferramentas anteriores (`consultar_transportadoras`, `buscar_cidades`, `listar_cidades_da_transportadora`, `transportadoras_por_cidade`) continuam com seus formatos resumidos e **sem dados de contato**, inclusive no MCP público `/mcp`. As ferramentas detalhadas são declaradas apenas no MCP autenticado `/mcp/clientes` e requerem OAuth administrativo. Não há ferramenta de escrita nem retorno de documentos ou pedidos.
 
 ## Segurança
 
@@ -25,7 +29,7 @@ A consulta de clientes retorna somente `favorecido`, `nome`, `cidade` e `uf`, no
 
 ## Publicação segura
 
-1. Rodar `node --test tests/mcp-consulta-clientes.test.js` e observar o GitHub Actions.
+1. Rodar `node --test tests/mcp-consulta-clientes.test.js tests/mcp-consultas-detalhadas.test.js` e observar o GitHub Actions.
 2. Integrar somente o PR de consulta de clientes à branch `main`; não integrar o PR de escrita de pedidos.
 3. Publicar no Render. Inicialmente o endpoint fica bloqueado com 503, porque a variável está desabilitada por padrão.
 4. Conferir presença do login administrativo e acesso à bridge Firebird; então habilitar `MCP_CLIENTES_ENABLED=true` no Render.
