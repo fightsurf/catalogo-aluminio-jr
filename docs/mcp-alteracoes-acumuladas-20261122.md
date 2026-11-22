@@ -39,6 +39,15 @@ Regras antes de publicar ferramentas de WhatsApp:
 - Para data de expedição, localizar o pedido e conferir a carrada, mostrar a data atual e a proposta (formato DD/MM/AAAA), informar que a mesma ação **pode disparar WhatsApp** e pedir confirmação explícita antes de executar. Não disparar na prévia; não executar repetidamente em resposta incerta.
 - Antes de publicar, testar com dados controlados sem enviar mensagens a clientes reais; validar central de bloqueio e autorização OAuth de escrita. Publicação na produção permanece proibida nesta etapa.
 
+## Correção confirmada: aviso da carrada após inserir pedidos pelo MCP
+
+- **Causa identificada:** o backend da Inserção V2 grava pedido e carrada, mas o aviso WhatsApp era uma segunda requisição iniciada pelo JavaScript da tela `views/legado/pedidos-insercao-v2/pedidos-insercao-v2.html`, usando `POST /api/whatsapp/enviar-pedido`. O MCP chamava apenas `inserirPedido`, sem executar essa segunda ação. No caso do pedido 0020021 de Eloise, não presumir que a mensagem tenha sido entregue: foi observada ausência de envio pelo fluxo MCP, sem auditoria externa do provedor.
+- **Correção na branch:** aviso de entrada em carrada passou a ser tratado uma vez pelo servidor no próprio serviço `src/services/legado/pedidos-insercao-v2/pedidos-insercao-v2.service.js`, por meio de `aviso_whatsapp_carrada: true`. A tela de Inserção V2 e o MCP fornecem essa opção; o JavaScript da tela não envia mais a segunda mensagem, evitando duplicidade.
+- Condições: disparar apenas quando `carradaVinculada.sucesso` e número do pedido confirmados; obter telefone do cadastro real do cliente; usar serviço de envio Z-API existente e a funcionalidade `pedidos_texto` como na rota anterior. A preparação por voz informa que a confirmação do pedido em carrada também tenta avisar o cliente.
+- A API retorna `avisoWhatsappCarrada.status`: `aceito_pelo_provedor`, `nao_enviado` ou `resultado_incerto`. Aceitação do provedor não confirma entrega. Falha no aviso não desfaz o pedido já gravado; nunca reenviar o pedido nem a mensagem automaticamente ao encontrar resultado incerto.
+- A flag não é passada ao bridge Firebird e os demais consumidores do serviço não passam a enviar WhatsApp por padrão. Nenhuma mensagem foi enviada a clientes nesta alteração de código.
+- Validar testes automatizados `tests/pedidos-insercao-v2-aviso-mcp.test.js` e teste integrado em homologação, inclusive telefone ausente, carrada não vinculada e central de bloqueio desligada. **Não fazer replay do pedido 0020021.**
+
 ## Publicação e validação
 
 - Antes de atualizar o plugin, validar sintaxe/testes, testar consulta no bridge Firebird, inspecionar autorização OAuth e fluxos de envio em homologação.
