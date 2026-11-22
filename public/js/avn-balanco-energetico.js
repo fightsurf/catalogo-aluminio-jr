@@ -51,6 +51,7 @@ const macrosDiarios=[
  {key:'gorduras',campo:'gorduras_g',nome:'Gorduras consumidas',cor:'#a78bfa'}
 ];
 let seq=0,resultadoAtual=null,usuarios=[],comparacao=null,compareSeq=0,resizeHandle=null;
+let metaCalorias=null;
 const svg=(root,tag,attrs={},txt)=>{const e=document.createElementNS(NS,tag);for(const [k,v] of Object.entries(attrs))e.setAttribute(k,String(v));if(txt!==undefined)e.textContent=String(txt);root.append(e);return e;};
 function svgRoot(W,H,label){const el=document.createElementNS(NS,'svg');el.setAttribute('viewBox','0 0 '+W+' '+H);el.setAttribute('role','img');el.setAttribute('aria-label',label);return el;}
 async function getJson(url){const r=await fetch(url,{cache:'no-store',credentials:'same-origin'});if(r.redirected&&r.url.includes('/login'))throw Error('Sessão expirada. Entre novamente.');const b=await r.json().catch(()=>{throw Error('Resposta inválida do servidor.');});if(!r.ok)throw Error(b.erro||'Erro na consulta.');return b;}
@@ -82,16 +83,34 @@ function graficoDiario(chave,dias,selecionado){
  const W=650,H=282,L=62,R=23,T=33,B=66;
  const validos=dias.map(d=>has(met.get(d))?Number(met.get(d)):null);
  const numeros=validos.filter(v=>v!==null);
- if(!numeros.length){alvo.textContent='Sem dados suficientes para este gráfico.';return;}
- const {min,max}=ranges(numeros,chave==='saldo');
+ const meta=chave==='ingestao'?metaCalorias:null;
+ if(!numeros.length&&meta===null){alvo.textContent='Sem dados suficientes para este gráfico.';return;}
+ const faixas=meta===null?[]:[meta*.95,meta,meta*1.05];
+ const {min,max}=ranges([...numeros,...faixas],chave==='saldo'||meta!==null);
  const px=i=>L+(dias.length===1?.5:i/(dias.length-1))*(W-L-R);
  const py=v=>T+(max-v)/(max-min)*(H-T-B);
- const root=svgRoot(W,H,met.nome+' por data');
+ const root=svgRoot(W,H,met.nome+' por data'+(meta===null?'':' com meta nutricional hachurada'));
+ if(meta!==null){
+  const defs=svg(root,'defs'),id='hatch-ingestao';
+  const pattern=svg(defs,'pattern',{id,width:9,height:9,patternUnits:'userSpaceOnUse',patternTransform:'rotate(45)'});
+  svg(pattern,'line',{x1:0,y1:0,x2:0,y2:9,stroke:'#fbbf24','stroke-width':3,opacity:.55});
+  const yA=py(meta*1.05),yB=py(meta*.95),altura=Math.abs(yB-yA);
+  const yInicio=Math.max(T,Math.min(yA,yB)-(altura<7?3:0));
+  const yFim=Math.min(H-B,Math.max(yA,yB)+(altura<7?3:0));
+  const faixa={x:L,y:yInicio,width:W-L-R,height:Math.max(3,yFim-yInicio),'pointer-events':'none'};
+  svg(root,'rect',{...faixa,fill:'#fbbf24',opacity:.14});
+  svg(root,'rect',{...faixa,fill:'url(#'+id+')'});
+ }
  const painelH=H-T-B;
  for(let j=0;j<=4;j++){
   const y=T+painelH*j/4;
   svg(root,'line',{x1:L,x2:W-R,y1:y,y2:y,stroke:'#33455f','stroke-width':1});
   svg(root,'text',{x:L-7,y:y+4,'text-anchor':'end',fill:'#afbfda','font-size':11},fmt(max-(max-min)*j/4,Math.abs(max-min)<10?1:0));
+ }
+ if(meta!==null){
+  const y=py(meta);
+  svg(root,'line',{x1:L,x2:W-R,y1:y,y2:y,stroke:'#fbbf24','stroke-width':2,'stroke-dasharray':'6 4'});
+  svg(root,'text',{x:W-R-5,y:Math.max(T+12,Math.min(H-B-8,y-8)),'text-anchor':'end','font-size':11,'font-weight':700,fill:'#fbbf24'},'Meta: '+fmt(meta,1)+' kcal');
  }
  if(chave==='saldo'&&min<0&&max>0){
   const zy=py(0);svg(root,'line',{x1:L,x2:W-R,y1:zy,y2:zy,stroke:'#e2e8f0','stroke-dasharray':'5 5','stroke-width':1.3});
@@ -109,6 +128,7 @@ function graficoDiario(chave,dias,selecionado){
   const ativo=p.d.data===selecionado.data;
   const circle=svg(root,'circle',{cx:p.x,cy:p.y,r:ativo?6:4.5,fill:met.cor,stroke:ativo?'#fff':'#182437','stroke-width':ativo?2:1.5});
   let detalhe=dataBR(p.d.data)+' — '+fmt(p.v,1)+' '+met.unidade;
+   if(meta!==null)detalhe+=' · Meta atual: '+fmt(meta,2)+' kcal';
   if(chave==='passos'&&has(p.d.calorias_passos?.valor))detalhe+=' · '+fmt(p.d.calorias_passos.valor,1)+' kcal estimadas';
    if(chave==='saldo')detalhe+=calculoDetalhadoSaldo(p.d);
   svg(circle,'title',{},detalhe);
@@ -228,6 +248,17 @@ async function carregarGraficosMacros(token,usuario,dia,periodo){
  if(token!==seq||$('usuario').value!==usuario||hoje()!==dia||periodoSelecionado()!==periodo)return;
  const erroConsumo=consumo.status==='rejected'?(consumo.reason?.message||'Falha na consulta nutricional.'):null;
  const metasAtuais=metas.status==='fulfilled'?metas.value:{};
+ const alvoKcal=metasAtuais?.kcal;
+ metaCalorias=metas.status==='fulfilled'&&has(alvoKcal)&&Number(alvoKcal)>=0?Number(alvoKcal):null;
+ $('nota-ingestao').textContent=metas.status==='rejected'
+  ?'Não foi possível consultar Minhas metas; a linha de referência não foi exibida.'
+  :metaCalorias===null
+   ?'Quilocalorias registradas por dia no Diário Alimentar. Meta não definida em Minhas metas.'
+   :'Meta atual: '+fmt(metaCalorias,1)+' kcal/dia · área hachurada: referência visual de ±5% da meta.';
+ if(resultadoAtual){
+  const selecionado=resultadoAtual.dias.find(d=>d.data===dia);
+  if(selecionado)graficoDiario('ingestao',resultadoAtual.dias,selecionado);
+ }
  for(const m of macrosDiarios){
   desenharGraficoMacro(m,consumo.status==='fulfilled'?consumo.value.series?.[m.key]:[],metasAtuais?.[m.campo],dia,erroConsumo,periodo);
   if(metas.status==='rejected'&&!erroConsumo)
@@ -242,6 +273,8 @@ function limpar(){
 }
 async function atualizar(){
  const current=++seq,user=$('usuario').value,day=hoje(),dias=periodoSelecionado();
+ metaCalorias=null;
+ $('nota-ingestao').textContent='Quilocalorias registradas por dia no Diário Alimentar. Consultando Minhas metas…';
  limparGraficosMacros();
  if(!user){$('mensagem').textContent='Selecione um usuário.';return;}
  $('mensagem').textContent='Carregando gráficos…';
