@@ -1,4 +1,4 @@
-name: MCP Alumínio JR: clientes, logística e pedidos
+name: MCP Alumínio JR - clientes, logística e pedidos
 on:
   push:
     branches:
