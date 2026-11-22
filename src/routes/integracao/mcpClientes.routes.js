@@ -3,6 +3,7 @@
 const express = require('express');
 const auth = require('../../services/integracao/mcpClientesOAuth.service');
 const clientesService = require('../../services/legado/clientes/clientes.service');
+const logistica = require('./mcpLogistica.routes');
 
 const router = express.Router();
 const PROTOCOL = '2025-06-18';
@@ -24,6 +25,12 @@ const TOOL = {
     additionalProperties: false
   }
 };
+// Ferramentas de logística usam a mesma sessão OAuth do plugin já conectado.
+// Mantemos todas as consultas somente leitura e sem dados de contato.
+const TOOLS = [TOOL, ...logistica.mcpTools.map(t => ({
+  ...t,
+  securitySchemes: [{ type: 'oauth2', scopes: ['clientes:read'] }]
+}))];
 function norm(v) {
   return String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
 }
@@ -79,22 +86,27 @@ router.post('/', async (req, res) => {
       protocolVersion: PROTOCOL,
       capabilities: { tools: { listChanged: false } },
       serverInfo: { name: 'aluminio-jr-clientes', version: '1.0.0' },
-      instructions: 'Pesquise clientes por nomes no sistema Alumínio JR. Se houver mais de um cliente com nome semelhante, apresente os códigos e peça esclarecimento. Não invente dados. Este conector é exclusivamente de leitura.'
+      instructions: 'Consulte clientes por nome e consulte transportadoras, cidades e cidades atendidas no sistema Alumínio JR. Se houver clientes semelhantes, apresente os códigos e peça esclarecimento. Nenhuma ferramenta altera dados. Não invente informações.'
     });
   }
   if (m.method === 'ping') return jsonrpc(res, m.id, {});
-  if (m.method === 'tools/list') return jsonrpc(res, m.id, { tools: [TOOL] });
+  if (m.method === 'tools/list') return jsonrpc(res, m.id, { tools: TOOLS });
   if (m.method !== 'tools/call') return rpcError(res, m.id, -32601, 'Método não encontrado.', 404);
-  if (m.params?.name !== 'buscar_clientes') {
+  const name = m.params?.name;
+  const ferramentaLogistica = logistica.mcpTools.find(t => t.name === name);
+  if (name !== 'buscar_clientes' && !ferramentaLogistica) {
     return rpcError(res, m.id, -32602, 'Ferramenta não encontrada.');
   }
-  const args = m.params.arguments;
+  const args = m.params.arguments === undefined ? {} : m.params.arguments;
+  const allowed = name === 'buscar_clientes' ? TOOL.inputSchema.properties : ferramentaLogistica.inputSchema.properties;
   if (!args || typeof args !== 'object' || Array.isArray(args) ||
-      Object.keys(args).some(k => k !== 'nome')) {
+      Object.keys(args).some(k => !Object.prototype.hasOwnProperty.call(allowed, k))) {
     return rpcError(res, m.id, -32602, 'Parâmetros inválidos.');
   }
   try {
-    const result = await buscar(args);
+    const result = name === 'buscar_clientes'
+      ? await buscar(args)
+      : await logistica.executeTool(name, args);
     return jsonrpc(res, m.id, {
       content: [{ type: 'text', text: JSON.stringify(result) }],
       structuredContent: result,

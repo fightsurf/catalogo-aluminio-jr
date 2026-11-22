@@ -4,14 +4,14 @@ Implementação **somente leitura**, independente do piloto de transportadoras e
 
 ## Endpoints
 
-- `POST /mcp/clientes`: MCP Streamable HTTP, autenticado via OAuth 2.1, com a única ferramenta `buscar_clientes`.
+- `POST /mcp/clientes`: MCP Streamable HTTP, autenticado via OAuth 2.1, com `buscar_clientes` e quatro ferramentas de consulta logística.
 - `GET /.well-known/oauth-protected-resource/mcp/clientes`: descoberta do recurso.
 - `GET /.well-known/oauth-authorization-server`: descoberta do servidor OAuth.
 - `GET /oauth/mcp-clientes/authorize`: autentica com o login administrativo da Alumínio JR e mostra consentimento expresso.
 - `POST /oauth/mcp-clientes/authorize`: concede/nega o acesso.
 - `POST /oauth/mcp-clientes/token`: troca código com PKCE S256 e renova refresh tokens com rotação.
 
-A consulta retorna somente `favorecido`, `nome`, `cidade` e `uf`, no máximo 10 resultados. Filtro de nome obrigatório (mínimo três caracteres). Não retorna telefone, documentos, observações ou detalhes de pedidos. Não há ferramenta de escrita neste endpoint.
+A consulta de clientes retorna somente `favorecido`, `nome`, `cidade` e `uf`, no máximo 10 resultados. Filtro de nome obrigatório (mínimo três caracteres). Não retorna telefone, documentos, observações ou detalhes de pedidos. Também são oferecidas `consultar_transportadoras`, `buscar_cidades`, `listar_cidades_da_transportadora` e `transportadoras_por_cidade`, reaproveitando o código do MCP de logística já existente. Não retornam telefones, documentos nem observações. Não há ferramenta de escrita neste endpoint.
 
 ## Segurança
 
@@ -30,7 +30,7 @@ A consulta retorna somente `favorecido`, `nome`, `cidade` e `uf`, no máximo 10 
 3. Publicar no Render. Inicialmente o endpoint fica bloqueado com 503, porque a variável está desabilitada por padrão.
 4. Conferir presença do login administrativo e acesso à bridge Firebird; então habilitar `MCP_CLIENTES_ENABLED=true` no Render.
 5. Conferir descoberta OAuth em `/.well-known/oauth-protected-resource/mcp/clientes`, autenticação sem token (deve dar 401) e consentimento no navegador. **Não testar com dados sensíveis em logs.**
-6. No ChatGPT web, criar app MCP remoto com URL `https://catalogo-aluminio-jr.onrender.com/mcp/clientes`; selecionar OAuth com CIMD, autorizar como administrador e executar `buscar_clientes` com nome de teste.
+6. No ChatGPT web, criar app MCP remoto com URL `https://catalogo-aluminio-jr.onrender.com/mcp/clientes`; selecionar OAuth com CIMD, autorizar como administrador e executar `buscar_clientes` com nome de teste, depois `consultar_transportadoras` e `transportadoras_por_cidade`. **Não é necessário criar outro plugin:** a URL conectada permanece `/mcp/clientes`. Talvez seja necessário iniciar uma nova conversa/atualizar o plugin para que o ChatGPT descubra as ferramentas adicionadas.
 7. Quando funcionar na web, testar a mesma consulta por voz no Android, sujeito à disponibilidade dos plugins na conta.
 
 A criação de código e os testes de unidade **não comprovam funcionamento real** no Render ou na ponte Firebird. A implementação não altera cadastros nem salva pedidos.

@@ -128,3 +128,19 @@ test('MCP clientes não anuncia operações de escrita', () => {
   assert.match(code, /readOnlyHint: true/);
   assert.match(code, /scope="clientes:read"/);
 });
+
+test('MCP de clientes incorpora as quatro consultas de logística sem outro plugin', () => {
+  const clientes = fs.readFileSync(path.join(__dirname, '../src/routes/integracao/mcpClientes.routes.js'), 'utf8');
+  const logistica = fs.readFileSync(path.join(__dirname, '../src/routes/integracao/mcpLogistica.routes.js'), 'utf8');
+  assert.match(clientes, /require\('\.\/mcpLogistica\.routes'\)/);
+  assert.match(clientes, /tools: TOOLS/);
+  assert.match(clientes, /logistica\.executeTool\(name, args\)/);
+  assert.match(clientes, /validateAccess\(bearer\[1\]\)/);
+  assert.match(logistica, /module\.exports\.mcpTools = tools/);
+  assert.match(logistica, /module\.exports\.executeTool = executeTool/);
+  for (const tool of [
+    'consultar_transportadoras', 'buscar_cidades',
+    'listar_cidades_da_transportadora', 'transportadoras_por_cidade'
+  ]) assert.match(logistica, new RegExp("name: '" + tool + "'"));
+  assert.doesNotMatch(clientes, /name: '(inserir|criar|atualizar|excluir|deletar)_/);
+});

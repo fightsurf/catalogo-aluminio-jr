@@ -6,6 +6,7 @@ on:
     paths:
       - 'src/services/integracao/mcpClientesOAuth.service.js'
       - 'src/routes/integracao/mcpClientes*.routes.js'
+      - 'src/routes/integracao/mcpLogistica.routes.js'
       - 'tests/mcp-consulta-clientes.test.js'
       - '.github/workflows/mcp-clientes-tests.yml'
   pull_request:
@@ -27,6 +28,7 @@ jobs:
       - name: Conferir sintaxe
         run: |
           node --check server.js
+          node --check src/routes/integracao/mcpLogistica.routes.js
           node --check src/routes/integracao/mcpClientes.routes.js
           node --check src/routes/integracao/mcpClientesOAuth.routes.js
           node --check src/services/integracao/mcpClientesOAuth.service.js
