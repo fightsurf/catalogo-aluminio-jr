@@ -111,7 +111,6 @@ async function montarItens(entradas) {
     const referencia = Number(produto.preco);
     if (!Number.isFinite(referencia) || referencia <= 0) falhar('Produto sem preço de referência válido.');
     const preco = entrada.preco === undefined ? referencia : decimal(entrada.preco, 'preco');
-    if (preco < referencia) falhar('O MCP não autoriza preço inferior ao cadastro. Revise o preço no sistema.');
     if (Math.abs(preco * 100 - Math.round(preco * 100)) > 0.000001) falhar('Informe preço com até duas casas decimais.');
     itens.push({ item: Number(produto.item_legado), descricao: texto(produto.nome), quantidade, preco });
     referencias.push({ produto_id: id, item_legado: Number(produto.item_legado), preco });
