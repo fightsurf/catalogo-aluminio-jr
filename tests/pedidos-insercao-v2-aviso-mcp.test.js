@@ -69,7 +69,7 @@ test('entrada em carrada envia o mesmo aviso automático da Inserção V2', asyn
   assert.equal(t.mensagens.length, 1);
   assert.equal(t.chamadasBridge.length, 1);
   assert.match(t.mensagens[0].mensagem, /Pedido: 000123/);
-  assert.match(t.mensagens[0].mensagem, /02\\/12\\/2026/);
+  assert.ok(t.mensagens[0].mensagem.includes('02/12/2026'));
   assert.equal(t.mensagens[0].telefone, '84999999999');
   assert.equal(t.chamadasBridge[0].payload.aviso_whatsapp_carrada, undefined);
 });
