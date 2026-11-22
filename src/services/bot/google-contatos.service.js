@@ -9,11 +9,8 @@ const clientes = require('../legado/clientes/clientes.service');
 const REDIRECT_URI = process.env.GOOGLE_CONTACTS_REDIRECT_URI ||
   'https://catalogo-aluminio-jr.onrender.com/bot/admin/google-contatos/callback';
 const ESCOPO = 'https://www.googleapis.com/auth/contacts.readonly';
-const INTERVALO_MS = 60 * 60 * 1000;
-const VALIDADE_MS = 24 * 60 * 60 * 1000;
 let preparoPendente;
 let syncPendente;
-let agendadorIniciado = false;
 
 function configurado() {
   return Boolean(process.env.GOOGLE_CONTACTS_CLIENT_ID &&
@@ -140,26 +137,28 @@ async function conectarCodigo(codigo) {
     'refresh_token=EXCLUDED.refresh_token, sincronizado_em=NULL, quantidade=0, ultimo_erro=NULL, atualizado_em=NOW()',
     [criptografar(token.refresh_token)]
   );
-  // Nao reutilizar numeros de uma conta antiga enquanto a nova conta sincroniza.
-  await pool.query('DELETE FROM bot_google_contatos');
+  // A autorizacao Google e substituida, mas o historico local nunca e apagado.
 }
 
 async function status() {
   await preparar();
-  const resultado = await pool.query(
-    'SELECT sincronizado_em, quantidade, ultimo_erro FROM bot_google_contatos_conexao WHERE id=1'
-  );
+  const [resultado, historico] = await Promise.all([
+    pool.query('SELECT sincronizado_em, quantidade, ultimo_erro FROM bot_google_contatos_conexao WHERE id=1'),
+    pool.query('SELECT COUNT(*)::integer AS quantidade FROM bot_google_contatos')
+  ]);
   const dados = resultado.rows[0];
   const ligado = await botLigado();
+  const totalHistorico = Number(historico.rows[0]?.quantidade || 0);
   return {
     bot_ligado: ligado,
     configurado: configurado(),
     conectado: Boolean(dados),
     sincronizado_em: dados?.sincronizado_em || null,
     quantidade: dados?.quantidade || 0,
+    historico_quantidade: totalHistorico,
     ultimo_erro: dados?.ultimo_erro || null,
-    apto: Boolean(ligado && configurado() && dados?.sincronizado_em &&
-      new Date(dados.sincronizado_em).getTime() > Date.now() - VALIDADE_MS && dados.quantidade > 0),
+    // O bot consulta a copia permanente local, sem exigir OAuth ou sincronizacao recente.
+    apto: Boolean(ligado && totalHistorico > 0),
     redirect_uri: REDIRECT_URI
   };
 }
@@ -210,7 +209,7 @@ async function sincronizar() {
       if (String(estado.rows[0]?.valor).toLowerCase() !== 'true') {
         throw new Error('Bot desligado durante a sincronizacao.');
       }
-      await client.query('DELETE FROM bot_google_contatos');
+      // Importacao acumulativa: numeros removidos do Google continuam conhecidos localmente.
       const entradas = Array.from(contatos);
       for (let i = 0; i < entradas.length; i += 250) {
         const lote = entradas.slice(i, i + 250);
@@ -221,12 +220,17 @@ async function sincronizar() {
           params.push(numero, contato.nome, contato.recurso);
         });
         await client.query('INSERT INTO bot_google_contatos (telefone,nome,recurso) VALUES ' +
-          colunas.join(','), params);
+          colunas.join(',') +
+          " ON CONFLICT (telefone) DO UPDATE SET " +
+          "nome=COALESCE(NULLIF(EXCLUDED.nome, ''), bot_google_contatos.nome), " +
+          "recurso=COALESCE(NULLIF(EXCLUDED.recurso, ''), bot_google_contatos.recurso), " +
+          "atualizado_em=NOW()", params);
       }
       await client.query('UPDATE bot_google_contatos_conexao SET ' +
         'sincronizado_em=NOW(), quantidade=$1, ultimo_erro=NULL, atualizado_em=NOW() WHERE id=1', [entradas.length]);
+      const total = await client.query('SELECT COUNT(*)::integer AS quantidade FROM bot_google_contatos');
       await client.query('COMMIT');
-      return { quantidade: entradas.length };
+      return { quantidade: entradas.length, historico_quantidade: Number(total.rows[0]?.quantidade || 0) };
     } catch (erro) {
       await client.query('ROLLBACK').catch(() => {});
       throw erro;
@@ -257,13 +261,28 @@ async function desconectar() {
       });
     } catch (erro) { console.warn('[Google Contatos JR] Revogacao remota:', erro.message); }
   }
+  // Desconecta a autorizacao, sem excluir o historico de numeros ja importados.
   await pool.query('DELETE FROM bot_google_contatos_conexao');
-  await pool.query('DELETE FROM bot_google_contatos');
+}
+
+function telefonesEquivalentes(telefone) {
+  const numero = normalizarTelefone(telefone);
+  if (!numero) return [];
+  // O WhatsApp pode omitir o nono digito de numeros brasileiros.
+  if (/^55\d{2}\d{8}$/.test(numero)) {
+    return [numero, numero.slice(0, 4) + '9' + numero.slice(4)];
+  }
+  if (/^55\d{2}9\d{8}$/.test(numero)) {
+    return [numero, numero.slice(0, 4) + numero.slice(5)];
+  }
+  return [numero];
 }
 
 function jaConhecidoGoogle(telefone) {
-  return pool.query('SELECT 1 FROM bot_google_contatos WHERE telefone=$1 LIMIT 1',
-    [normalizarTelefone(telefone)]).then(r => r.rowCount > 0);
+  const telefones = telefonesEquivalentes(telefone);
+  if (!telefones.length) return Promise.resolve(true);
+  return pool.query('SELECT 1 FROM bot_google_contatos WHERE telefone=ANY($1::text[]) LIMIT 1',
+    [telefones]).then(r => r.rowCount > 0);
 }
 
 function camposTelefone(cliente) {
@@ -274,27 +293,30 @@ function camposTelefone(cliente) {
 async function existeNoLegado(telefone) {
   const numero = normalizarTelefone(telefone);
   if (!numero) return true;
-  const variantes = numero.startsWith('55') ? [numero.slice(2), numero] : [numero];
+  const equivalentes = telefonesEquivalentes(numero);
+  const variantes = [...new Set(equivalentes.flatMap(n => n.startsWith('55') ? [n.slice(2), n] : [n]))];
   for (const busca of variantes) {
     const resultado = await Promise.race([
       clientes.listarClientes({ telefone: busca, limite: 10, status: 'todos' }),
       new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout de consulta ao legado')), 2500))
     ]);
     if (!Array.isArray(resultado)) throw new Error('Busca no legado nao retornou lista.');
-    if (resultado.some(c => camposTelefone(c).some(t => numerosEquivalentes(t, numero)))) return true;
+    if (resultado.some(c => camposTelefone(c).some(t =>
+      telefonesEquivalentes(t).some(n => equivalentes.includes(n))))) return true;
   }
   return false;
 }
 
-// Fail-closed: se Google/desconectado/desatualizado ou legado indisponivel,
-// nunca chamar saudacao automatica por engano.
+// Fail-closed: so saudar um numero realmente novo apos consultar o historico
+// importado no PostgreSQL e o cadastro legado; nunca exigir conexao OAuth ativa.
 async function autorizarPrimeiroContato(telefone) {
   if (!(await botLigado())) return false;
   const tel = normalizarTelefone(telefone);
   if (!tel) return false;
   try {
-    const situacao = await status();
-    if (!situacao.apto) return false;
+    await preparar();
+    const historico = await pool.query('SELECT EXISTS (SELECT 1 FROM bot_google_contatos) AS disponivel');
+    if (historico.rows[0]?.disponivel !== true) return false;
     if (await jaConhecidoGoogle(tel)) return false;
     if (await existeNoLegado(tel)) return false;
     return await botLigado();
@@ -305,22 +327,7 @@ async function autorizarPrimeiroContato(telefone) {
 }
 
 function iniciarSincronizador() {
-  if (agendadorIniciado) return;
-  agendadorIniciado = true;
-  async function executar() {
-    if (!(await botLigado())) return;
-    try {
-      const estado = await status();
-      if (estado.conectado && estado.configurado &&
-          (!estado.sincronizado_em || Date.now() - new Date(estado.sincronizado_em).getTime() > INTERVALO_MS)) {
-        await sincronizar();
-      }
-    } catch (erro) { console.warn('[Google Contatos JR] Agendador:', erro.message); }
-  }
-  const inicial = setTimeout(executar, 30000);
-  inicial.unref?.();
-  const repetidor = setInterval(executar, 15 * 60 * 1000);
-  repetidor.unref?.();
+  // Sem sincronizacao automatica: apenas Conectar Google e Sincronizar agora importam contatos.
 }
 
 module.exports = {
