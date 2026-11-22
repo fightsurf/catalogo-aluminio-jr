@@ -29,7 +29,7 @@ const tools = [
       carrada_codigo: { type: ['integer', 'null'], minimum: 1, description: 'Omitir mantém a carrada; null remove. Mudança pode emitir avisos WhatsApp de saída/entrada.' },
       itens: { type: 'array', minItems: 1, maxItems: 100, items: { type: 'object',
         properties: { produto_id: { type: 'integer', minimum: 1 }, quantidade: { type: 'number', exclusiveMinimum: 0 },
-          preco: { type: 'number', minimum: 0, description: 'Omitir usa preço atual do cadastro; descontos abaixo da referência não são permitidos.' } },
+          preco: { type: 'number', minimum: 0, description: 'Omitir usa preço atual do cadastro; permite preço negociado informado explicitamente, inclusive abaixo do cadastro.' } },
         required: ['produto_id', 'quantidade'], additionalProperties: false } }
     }, ['id_mestre']),
   definir('confirmar_alteracao_pedido', 'Executar alteração confirmada de um pedido',
