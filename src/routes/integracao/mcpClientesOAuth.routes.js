@@ -39,7 +39,7 @@ router.get('/.well-known/oauth-authorization-server', (_req, res) => {
 router.get('/oauth/mcp-clientes/authorize', requireAuth, async (req, res) => {
   try {
     const pedido = await auth.newAuthRequest(req.query, req.adminUser);
-    res.set('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
+    res.set('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'");
     res.set('X-Frame-Options', 'DENY');
     res.type('html');
     return res.send([
