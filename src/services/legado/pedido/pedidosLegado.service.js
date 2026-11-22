@@ -367,10 +367,10 @@ async function buscarDetalhePedido(idMestre) {
   }
 
   return {
-    ...normalizarPedido({
+    ...(await enriquecerPedidosComPagamentos([normalizarPedido({
       ...pedido,
       carradaAtual: pedido?.carradaAtual || null
-    }),
+    })]))[0],
     itens: Array.isArray(pedido?.itens)
       ? pedido.itens.map((item) => ({
           saidaItem: item?.saidaItem ?? item?.SAIDAITEM ?? null,
