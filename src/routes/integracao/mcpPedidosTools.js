@@ -78,6 +78,8 @@ const tools = [
     }, required: ['rascunho_id'], additionalProperties: false }
   }
 ];
+// O ChatGPT utiliza _meta.securitySchemes para solicitar o escopo OAuth específico de escrita.
+for (const t of tools) t._meta = { securitySchemes: t.securitySchemes };
 const nomes = new Set(tools.map(t => t.name));
 const precisaEscrita = new Set(['preparar_pedido', 'confirmar_pedido', 'consultar_rascunho']);
 function isPedido(name) { return nomes.has(name); }
