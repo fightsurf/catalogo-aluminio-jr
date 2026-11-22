@@ -1,4 +1,7 @@
 const produtoService = require('../../produto/produto.service');
+const clientesService = require('../clientes/clientes.service');
+const whatsapp = require('../../whatsapp/envio-whatsapp.service');
+const controleWhatsapp = require('../../whatsapp/central-controle.service');
 
 function getBridgeBaseUrl() {
   return (
@@ -111,6 +114,46 @@ async function prepararPayloadLegado(payload = {}) {
   };
 }
 
+
+function formatarDataCarrada(valor) {
+  const texto = limparTexto(valor);
+  const iso = /^(\\d{4})-(\\d{2})-(\\d{2})/.exec(texto);
+  if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
+  const data = new Date(texto);
+  return Number.isNaN(data.getTime())
+    ? (texto || '-')
+    : data.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+}
+
+// Reutilizada por qualquer entrada de pedido (tela e MCP) que autorize o aviso.
+// O envio ocorre somente se a vinculação à carrada foi confirmada pelo bridge.
+async function notificarEntradaCarrada({ favorecido, numeroPedido, carrada }) {
+  try {
+    const cliente = await clientesService.buscarCliente(favorecido);
+    if (!cliente) return { status: 'nao_enviado', motivo: 'cliente_nao_encontrado' };
+    const telefone = limparTexto(cliente.telefonePrincipal || cliente.telefone1 || cliente.telefone)
+      .replace(/\\D+/g, '');
+    if (!telefone) return { status: 'nao_enviado', motivo: 'sem_telefone' };
+    const mensagem = [
+      `📦 Pedido: ${numeroPedido}`,
+      `Cliente: ${limparTexto(cliente.nome || cliente.razao_social || cliente.fantasia) || '-'}`,
+      `Seu pedido entrou na produção da carrada do dia ${formatarDataCarrada(carrada.data)}`,
+      `Descrição da carrada: ${limparTexto(carrada.descricao) || '-'}`
+    ].join('\\n');
+
+    // A tela antes enviava a mesma mensagem via /api/whatsapp/enviar-pedido,
+    // que aplica a funcionalidade pedidos_texto.
+    await controleWhatsapp.comFuncionalidade('pedidos_texto', () =>
+      whatsapp.enviarMensagem({ telefone, mensagem })
+    );
+    return { status: 'aceito_pelo_provedor' };
+  } catch (error) {
+    // Pedido já foi gravado: falha ou resultado incerto no WhatsApp não
+    // pode induzir nova tentativa de gravar nem reenviar automaticamente.
+    return { status: 'resultado_incerto', motivo: limparTexto(error.message) || 'Erro no aviso WhatsApp' };
+  }
+}
+
 async function inserirPedido(payload) {
   const baseUrl = getBridgeBaseUrl();
 
@@ -132,6 +175,17 @@ async function inserirPedido(payload) {
 
   if (!response.ok) {
     throw new Error(data?.detalhe || data?.erro || `Falha HTTP ${response.status}`);
+  }
+
+  // O frontend e o MCP solicitam explicitamente o aviso automático;
+  // outras integrações que já chamavam este serviço não mudam de comportamento.
+  if (payload?.aviso_whatsapp_carrada === true) {
+    const carrada = data?.carradaVinculada;
+    const numero = limparTexto(data?.pedido?.numero);
+    const avisoWhatsappCarrada = carrada?.sucesso === true && numero
+      ? await notificarEntradaCarrada({ favorecido: payloadLegado.favorecido, numeroPedido: numero, carrada })
+      : { status: 'nao_enviado', motivo: 'carrada_nao_vinculada' };
+    return { ...data, avisoWhatsappCarrada };
   }
 
   return data;
