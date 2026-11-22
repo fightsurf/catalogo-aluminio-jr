@@ -161,7 +161,7 @@ test('MCP de clientes incorpora as quatro consultas de logística sem outro plug
   const clientes = fs.readFileSync(path.join(__dirname, '../src/routes/integracao/mcpClientes.routes.js'), 'utf8');
   const logistica = fs.readFileSync(path.join(__dirname, '../src/routes/integracao/mcpLogistica.routes.js'), 'utf8');
   assert.match(clientes, /require\('\.\/mcpLogistica\.routes'\)/);
-  assert.match(clientes, /tools: TOOLS/);
+  assert.match(clientes, /TOOLS\.filter\(t => !pedidosMcp\.isPedido\(t.name\)\)/);
   assert.match(clientes, /logistica\.executeTool\(name, args\)/);
   assert.match(clientes, /validateAccess\(bearer\[1\]\)/);
   assert.match(logistica, /module\.exports\.mcpTools = tools/);
