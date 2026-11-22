@@ -110,6 +110,28 @@ test('OAuth requer conta administrativa e escopo de leitura', async () => {
     const rotated = await oauth.exchangeToken({ grant_type: 'refresh_token', client_id: oauth.CLIENT_ID,
       refresh_token: tokenResponse.refresh_token });
     assert.ok(rotated.access_token);
+    const pendingLeitura = await oauth.newAuthRequest({ ...args, scope: 'clientes:read' }, 'teste');
+    const callbackLeitura = await oauth.decideConsent({ ...pendingLeitura, decision: 'aprovar', user: 'teste' });
+    const tokensLeitura = await oauth.exchangeToken({
+      grant_type: 'authorization_code', client_id: oauth.CLIENT_ID,
+      redirect_uri: oauth.REDIRECT, code: new URL(callbackLeitura).searchParams.get('code'),
+      code_verifier: verifier, resource: oauth.resource()
+    });
+    assert.equal(tokensLeitura.scope, 'clientes:read');
+    assert.ok(tokensLeitura.refresh_token, 'A autorização sem offline_access precisa oferecer renovação');
+    const rotacaoLeitura = await oauth.exchangeToken({ grant_type: 'refresh_token',
+      client_id: oauth.CLIENT_ID, refresh_token: tokensLeitura.refresh_token });
+    assert.equal(rotacaoLeitura.scope, 'clientes:read');
+    assert.ok(rotacaoLeitura.refresh_token);
+    const pendingEscrita = await oauth.newAuthRequest({ ...args, scope: 'clientes:read pedidos:write' }, 'teste');
+    const callbackEscrita = await oauth.decideConsent({ ...pendingEscrita, decision: 'aprovar', user: 'teste' });
+    const tokensEscrita = await oauth.exchangeToken({
+      grant_type: 'authorization_code', client_id: oauth.CLIENT_ID,
+      redirect_uri: oauth.REDIRECT, code: new URL(callbackEscrita).searchParams.get('code'),
+      code_verifier: verifier, resource: oauth.resource()
+    });
+    assert.equal(tokensEscrita.scope, 'clientes:read pedidos:write');
+    assert.ok(tokensEscrita.refresh_token);
     await assert.rejects(
       oauth.exchangeToken({ grant_type: 'refresh_token', client_id: oauth.CLIENT_ID,
         refresh_token: tokenResponse.refresh_token }),
@@ -120,11 +142,17 @@ test('OAuth requer conta administrativa e escopo de leitura', async () => {
   }
 });
 
-test('MCP clientes não anuncia operações de escrita', () => {
-  const filename = path.join(__dirname, '../src/routes/integracao/mcpClientes.routes.js');
-  const code = fs.readFileSync(filename, 'utf8');
+test('MCP preserva leitura e separa criação de pedidos por escopo OAuth', () => {
+  const code = fs.readFileSync(path.join(__dirname, '../src/routes/integracao/mcpClientes.routes.js'), 'utf8');
+  const orders = fs.readFileSync(path.join(__dirname, '../src/routes/integracao/mcpPedidosTools.js'), 'utf8');
   assert.match(code, /name: 'buscar_clientes'/);
-  assert.doesNotMatch(code, /name: '(confirmar_pedido|preparar_pedido|inserir_pedido)'/);
+  assert.match(code, /req\.oauthScopes/);
+  assert.match(code, /pedidosMcp\.requiresWrite\(name\)/);
+  assert.match(code, /MCP_PEDIDOS_ENABLED/);
+  assert.match(code, /mcp\/www_authenticate/);
+  assert.match(orders, /name: 'preparar_pedido'/);
+  assert.match(orders, /name: 'confirmar_pedido'/);
+  assert.match(orders, /'pedidos:write'/);
   assert.match(code, /readOnlyHint: true/);
   assert.match(code, /scope="clientes:read"/);
 });
@@ -133,7 +161,7 @@ test('MCP de clientes incorpora as quatro consultas de logística sem outro plug
   const clientes = fs.readFileSync(path.join(__dirname, '../src/routes/integracao/mcpClientes.routes.js'), 'utf8');
   const logistica = fs.readFileSync(path.join(__dirname, '../src/routes/integracao/mcpLogistica.routes.js'), 'utf8');
   assert.match(clientes, /require\('\.\/mcpLogistica\.routes'\)/);
-  assert.match(clientes, /tools: TOOLS/);
+  assert.match(clientes, /TOOLS\.filter\(t => !pedidosMcp\.isPedido\(t.name\)\)/);
   assert.match(clientes, /logistica\.executeTool\(name, args\)/);
   assert.match(clientes, /validateAccess\(bearer\[1\]\)/);
   assert.match(logistica, /module\.exports\.mcpTools = tools/);
