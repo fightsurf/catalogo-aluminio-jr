@@ -81,7 +81,7 @@ const tools = [
         properties: {
           produto_id: { type: 'integer', minimum: 1 },
           quantidade: { type: 'integer', minimum: 1 },
-          preco: { type: 'number', minimum: 0, description: 'Preço unitário opcional, nunca inferior ao cadastro.' }
+          preco: { type: 'number', minimum: 0, description: 'Preço unitário negociado para este pedido; pode ser inferior ao cadastro, sem alterar o preço geral. A prévia exige confirmação antes da gravação.' }
         }, required: ['produto_id', 'quantidade']
       }}
     }, required: ['favorecido', 'vendedor', 'itens'], additionalProperties: false }
