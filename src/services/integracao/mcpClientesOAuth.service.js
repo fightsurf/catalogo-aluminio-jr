@@ -7,7 +7,7 @@ const pool = require('../../../db/connection');
 // Tokens opacos são armazenados apenas como SHA-256 no PostgreSQL.
 const CLIENT_ID = 'https://chatgpt.com/oauth/client.json';
 const REDIRECT = 'https://chatgpt.com/connector_platform_oauth_redirect';
-const ALLOWED_SCOPES = new Set(['clientes:read', 'offline_access']);
+const ALLOWED_SCOPES = new Set(['clientes:read', 'pedidos:write', 'offline_access']);
 let schemaPromise;
 let cimdCacheUntil = 0;
 
@@ -139,7 +139,10 @@ async function issueTokens(user, scope) {
     [h(access), user, scope, resource()]
   );
   const response = { access_token: access, token_type: 'Bearer', expires_in: expires, scope };
-  if (scope.split(' ').includes('offline_access')) {
+  // OAuth clients públicos do ChatGPT podem solicitar apenas clientes:read.
+  // O RFC 6749 permite emitir refresh_token na troca de authorization_code;
+  // assim a conexão não depende do escopo opcional offline_access.
+  {
     const refresh = token();
     await pool.query(
       'INSERT INTO mcp_clientes_oauth_refresh(token_hash,usuario,escopo,recurso,cliente,expira_em) ' +
