@@ -65,3 +65,14 @@ test('registro do circuito usa caminho único de histórico e não recadastra pl
  assert.match(backend,/req\.body\?\.modalidade==='circuito'/);
  assert.match(registrar,/Circuito cronometrado/);
 });
+
+test('gráfico de calorias mostra a meta em kcal, com faixa de ±5%',()=>{
+ const html=ler('views/avn/indicador-graficos-corporais.html');
+ const js=ler('public/js/avn-balanco-energetico.js');
+ assert.match(html,/id="nota-ingestao"/);
+ assert.match(html,/id="grafico-ingestao"[^>]*meta hachurada/);
+ for(const fragment of ["const alvoKcal=metasAtuais?.kcal","const meta=chave==='ingestao'?metaCalorias:null",
+  "meta*.95,meta,meta*1.05","hatch-ingestao","'Meta: '+fmt(meta,1)+' kcal'",
+  "graficoDiario('ingestao',resultadoAtual.dias,selecionado)"])
+  assert.ok(js.includes(fragment),fragment);
+});
