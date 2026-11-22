@@ -823,39 +823,6 @@
       }
     }
 
-    function montarMensagemWhatsappCarrada() {
-      if (!ultimoPedidoSalvo?.numero || !ultimoPedidoSalvo?.carrada?.codigo) {
-        return '';
-      }
-
-      return [
-        `📦 Pedido: ${ultimoPedidoSalvo.numero}`,
-        `Cliente: ${ultimoPedidoSalvo?.cliente?.nome || '-'}`,
-        `Seu pedido entrou na produção da carrada do dia ${formatarData(ultimoPedidoSalvo?.carrada?.data)}`,
-        `Descrição da carrada: ${ultimoPedidoSalvo?.carrada?.descricao || '-'}`
-      ].join('\n');
-    }
-
-    async function enviarWhatsappCarradaAutomatico() {
-      const telefone = obterTelefoneClienteAtual();
-      if (!telefone) {
-        throw new Error('Telefone do cliente não encontrado.');
-      }
-
-      const mensagemCarrada = montarMensagemWhatsappCarrada();
-      if (!mensagemCarrada) {
-        return;
-      }
-
-      const response = await fetch('/api/whatsapp/enviar-pedido', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ telefone, mensagem: mensagemCarrada })
-      });
-
-      await lerJson(response);
-    }
-
     async function carregarVendedores() {
       try {
         const response = await fetch('/api/legado/vendedores');
@@ -1532,6 +1499,9 @@
         vendedor: Number(vendedorPedido.value || 0) || null,
         volumes: Number(volumesPedido.value || 0),
         carrada_codigo: carradaPedido.value ? Number(carradaPedido.value) : null,
+        // A mesma rotina de aviso ao cliente agora é executada no servidor,
+        // evitando diferenças entre gravação pela tela e pelo MCP.
+        aviso_whatsapp_carrada: Boolean(carradaPedido.value),
         total: Number(calcularTotal().toFixed(2)),
         itens: itensPedido.map((item) => ({
           produto_id: item.produto_id,
@@ -1636,11 +1606,11 @@ if (json?.aviso) {
 }
 
 if (ultimoPedidoSalvo.carrada) {
-  try {
-    await enviarWhatsappCarradaAutomatico();
-    avisos.push(`Aviso de carrada enviado pelo WhatsApp para ${ultimoPedidoSalvo.cliente?.nome || 'o cliente'}.`);
-  } catch (error) {
-    avisos.push(`Pedido e vínculo gravados, mas o aviso de carrada no WhatsApp falhou: ${error.message}`);
+  const avisoWhatsapp = json?.avisoWhatsappCarrada;
+  if (avisoWhatsapp?.status === 'aceito_pelo_provedor') {
+    avisos.push(`Aviso de carrada aceito pelo WhatsApp para ${ultimoPedidoSalvo.cliente?.nome || 'o cliente'}.`);
+  } else {
+    avisos.push(`Pedido e vínculo gravados, mas o aviso de carrada não foi confirmado: ${avisoWhatsapp?.motivo || 'verifique o envio'}.`);
   }
 }
 
