@@ -59,7 +59,7 @@ const tools = [
   {
     name: 'preparar_pedido',
     title: 'Montar prévia de pedido sem gravar',
-    description: 'Para pedidos por voz: depois de identificar cliente, vendedor e produtos, calcula totais e cria apenas rascunho de 15 minutos. Modalidade padrão orçamento. Leia cliente, itens, quantidades, preços e total ao usuário; solicite confirmação explícita ANTES da gravação. Nunca chame confirmar_pedido na mesma etapa sem uma resposta posterior do usuário.',
+    description: 'Para pedidos por voz: depois de identificar cliente, vendedor e produtos, calcula totais e cria apenas rascunho de 15 minutos. Modalidade padrão orçamento. Leia cliente, itens, quantidades, preços e total ao usuário. Se houver carrada, avise que a gravação confirmada tentará enviar automaticamente o aviso de entrada na carrada por WhatsApp ao cliente cadastrado. Solicite confirmação explícita ANTES da gravação. Nunca confirme na mesma etapa.',
     securitySchemes: gravacao,
     annotations: writeTool,
     inputSchema: { type: 'object', properties: {
@@ -83,7 +83,7 @@ const tools = [
   {
     name: 'confirmar_pedido',
     title: 'Gravar pedido confirmado no sistema',
-    description: 'GRAVAÇÃO REAL no Firebird. Executar somente após mostrar o resumo completo do rascunho e o usuário confirmar expressamente na conversa seguinte. Não repetir a gravação em erros ou resultado incerto. Requer pedidos:write.',
+    description: 'GRAVAÇÃO REAL no Firebird. Se o rascunho vincula carrada, a confirmação também tentará enviar ao WhatsApp do cliente o aviso de entrada, pelo fluxo já existente da Inserção V2. Execute somente após mostrar resumo e informar o aviso automático, e o usuário confirmar expressamente na resposta seguinte. Não repetir gravação nem mensagem em erro ou resultado incerto. Requer pedidos:write.',
     securitySchemes: gravacao,
     // A criação de um pedido confirmado acrescenta um registro; não apaga nem substitui pedidos.
     // Continua sendo uma operação de escrita: exige pedidos:write e confirmação expressa.
