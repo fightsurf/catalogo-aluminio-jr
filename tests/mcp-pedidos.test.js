@@ -146,3 +146,14 @@ test('consulta de vendedores para pedido por voz não grava no legado', async ()
   assert.equal(r.vendedores[0].favorecido, 9);
   assert.equal(t.getGravacoes(), 0);
 });
+
+test('confirmação é escrita aditiva com escopo OAuth e confirmação obrigatória', () => {
+  const source = fs.readFileSync(
+    path.join(__dirname, '../src/routes/integracao/mcpPedidosTools.js'), 'utf8'
+  );
+  const confirmar = source.split("name: 'confirmar_pedido'")[1]?.split("name: 'consultar_rascunho'")[0] || '';
+  assert.match(source, /const gravacao = \[\{ type: 'oauth2', scopes: \['clientes:read', 'pedidos:write'\] \}\]/);
+  assert.match(confirmar, /securitySchemes: gravacao/);
+  assert.match(confirmar, /annotations:\s*\{ readOnlyHint: false, destructiveHint: false, idempotentHint: true/);
+  assert.match(confirmar, /confirmacao: \{ type: 'string', enum: \['CONFIRMO'\] \}/);
+});
