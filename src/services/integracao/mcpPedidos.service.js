@@ -155,9 +155,6 @@ async function prepararPedido(args) {
     const referencia = moeda(produto.preco, 'preco_referencia');
     if (referencia <= 0) falhar(`Produto ${produto.nome} possui preço de referência zerado. Revise no cadastro.`);
     const preco = entrada.preco === undefined ? referencia : moeda(entrada.preco, 'preco');
-    if (preco < referencia) {
-      falhar(`Preço do produto ${produto.nome} abaixo da referência (R$ ${referencia.toFixed(2)}). O MCP não autoriza descontos; revise no sistema.`);
-    }
     const subtotal = Math.round(preco * 100) * quantidade;
     itens.push({
       produto_id: id, nome: produto.nome, quantidade,
@@ -172,7 +169,7 @@ async function prepararPedido(args) {
     data, favorecido, vendedor, volumes, total,
     carrada_codigo: carrada, obs: obs || null,
     aviso_whatsapp_carrada: Boolean(carrada),
-    itens: itens.map(i => ({ produto_id: i.produto_id, quantidade: i.quantidade, preco: i.preco }))
+    itens: itens.map(i => ({ produto_id: i.produto_id, quantidade: i.quantidade, preco: i.preco, preco_referencia: i.preco_referencia }))
   };
   const resumo = {
     cliente: { favorecido, nome: texto(cliente.nome || cliente.razao_social || cliente.fantasia) },
@@ -232,12 +229,12 @@ async function confirmarPedido({ rascunho_id, codigo_confirmacao, confirmacao })
   }
   try {
     const payload = claim.rows[0].payload;
-    // Revalida a tabela imediatamente antes da escrita. Alteração de preço
-    // invalida a prévia antiga; a mesma tentativa nunca é reaberta.
+    // Revalida o preço de referência visto na prévia, sem bloquear o preço
+    // negociado por pedido. Mudança de cadastro exige nova confirmação.
     for (const item of payload.itens) {
       const atual = await produtoService.buscar(item.produto_id);
       if (!atual || atual.ativo === false || !atual.item_legado ||
-          moeda(atual.preco, 'preco_atual') > Number(item.preco)) {
+          moeda(atual.preco, 'preco_atual') !== Number(item.preco_referencia)) {
         await pool.query(`
           UPDATE mcp_pedidos_rascunhos SET status='revisao_necessaria',
             erro='Produto ou preço alterado desde a preparação. Refaça a prévia.'
