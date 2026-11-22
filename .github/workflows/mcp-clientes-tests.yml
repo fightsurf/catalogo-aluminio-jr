@@ -1,21 +1,28 @@
-name: MCP consulta clientes
+name: MCP Alumínio JR: clientes, logística e pedidos
 on:
   push:
     branches:
       - feature/mcp-consulta-clientes-20261121
+      - feature/mcp-pedidos-unificado-oauth-20261122
     paths:
       - 'src/services/integracao/mcpClientesOAuth.service.js'
+      - 'src/services/integracao/mcpPedidos.service.js'
+      - 'src/routes/integracao/mcpPedidosTools.js'
       - 'src/services/integracao/mcpConsultasDetalhadas.service.js'
       - 'src/routes/integracao/mcpClientes*.routes.js'
       - 'src/routes/integracao/mcpLogistica.routes.js'
       - 'tests/mcp-consulta-clientes.test.js'
+      - 'tests/mcp-pedidos.test.js'
       - 'tests/mcp-consultas-detalhadas.test.js'
       - '.github/workflows/mcp-clientes-tests.yml'
   pull_request:
     paths:
       - 'src/services/integracao/mcpClientesOAuth.service.js'
+      - 'src/services/integracao/mcpPedidos.service.js'
+      - 'src/routes/integracao/mcpPedidosTools.js'
       - 'src/routes/integracao/mcpClientes*.routes.js'
       - 'tests/mcp-consulta-clientes.test.js'
+      - 'tests/mcp-pedidos.test.js'
       - '.github/workflows/mcp-clientes-tests.yml'
 jobs:
   tests:
@@ -32,8 +39,10 @@ jobs:
           node --check server.js
           node --check src/routes/integracao/mcpLogistica.routes.js
           node --check src/routes/integracao/mcpClientes.routes.js
+          node --check src/routes/integracao/mcpPedidosTools.js
           node --check src/routes/integracao/mcpClientesOAuth.routes.js
           node --check src/services/integracao/mcpClientesOAuth.service.js
+          node --check src/services/integracao/mcpPedidos.service.js
           node --check src/services/integracao/mcpConsultasDetalhadas.service.js
       - name: Testar OAuth e segurança
-        run: node --test tests/mcp-consulta-clientes.test.js tests/mcp-consultas-detalhadas.test.js
+        run: node --test tests/mcp-consulta-clientes.test.js tests/mcp-consultas-detalhadas.test.js tests/mcp-pedidos.test.js
