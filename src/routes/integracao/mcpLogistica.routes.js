@@ -165,6 +165,9 @@ router.use((req, res, next) => {
   return res.status(403).json({ erro: 'Origin não permitido.' });
 });
 
+// Pedidos possuem autenticação própria e não ficam disponíveis no MCP público de consultas.
+router.use('/pedidos', require('./mcpPedidos.routes'));
+
 // Endpoint legível por navegador para diagnóstico, sem revelar dados privados.
 router.get('/status', (_req, res) => {
   res.json({ ok: true, servidor: NAME, versao: VERSION, mcp: '/mcp', autenticacao: 'temporariamente desativada', ferramentas: tools.map(t => t.name), somente_leitura: true });
