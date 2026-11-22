@@ -97,7 +97,7 @@ router.post('/', async (req, res) => {
   if (name !== 'buscar_clientes' && !ferramentaLogistica) {
     return rpcError(res, m.id, -32602, 'Ferramenta não encontrada.');
   }
-  const args = m.params.arguments;
+  const args = m.params.arguments === undefined ? {} : m.params.arguments;
   const allowed = name === 'buscar_clientes' ? TOOL.inputSchema.properties : ferramentaLogistica.inputSchema.properties;
   if (!args || typeof args !== 'object' || Array.isArray(args) ||
       Object.keys(args).some(k => !Object.prototype.hasOwnProperty.call(allowed, k))) {
