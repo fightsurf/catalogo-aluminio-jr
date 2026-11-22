@@ -31,6 +31,14 @@ Regras antes de publicar ferramentas de WhatsApp:
 - Mensagens proativas somente para o cliente do pedido escolhido. Não enviar nenhuma mensagem em testes sem destinatário controlado e autorização expressa.
 - Reaproveitar os serviços e verificações do backend; evitar fazer uma requisição HTTP administrativa sem a sessão adequada.
 
+## Diretriz de arquitetura: reaproveitar ações existentes
+
+- **Pedido (inserção):** as ferramentas MCP `preparar_pedido` e `confirmar_pedido` são apenas a camada de interface/segurança por voz. A confirmação já invoca `src/services/legado/pedidos-insercao-v2/pedidos-insercao-v2.service.js` → `inserirPedido(payload)`, que chama o mesmo bridge `POST /api/pedidos-insercao-v2`. Não duplicar lógica de gravação no Firebird.
+- **Pedido (edição e cancelamento):** acrescentar duas operações MCP com prévia e confirmação explícita, delegando a `src/services/legado/pedido/pedidosLegado.service.js` → `atualizarPedido` e `cancelarPedido`. Verificar status, bloqueios financeiros, divergências e idempotência antes de liberar.
+- **Progresso (data de expedição):** acrescentar comando MCP que delegue a `src/services/legado/carradas-progresso/carradas-progresso.service.js` → `salvarDataExpedicao({ codigoCarrada, numeroPedido, dataExpedicao, silencioso: false })`, preservando o comportamento da tela, inclusive a notificação WhatsApp configurada.
+- Para data de expedição, localizar o pedido e conferir a carrada, mostrar a data atual e a proposta (formato DD/MM/AAAA), informar que a mesma ação **pode disparar WhatsApp** e pedir confirmação explícita antes de executar. Não disparar na prévia; não executar repetidamente em resposta incerta.
+- Antes de publicar, testar com dados controlados sem enviar mensagens a clientes reais; validar central de bloqueio e autorização OAuth de escrita. Publicação na produção permanece proibida nesta etapa.
+
 ## Publicação e validação
 
 - Antes de atualizar o plugin, validar sintaxe/testes, testar consulta no bridge Firebird, inspecionar autorização OAuth e fluxos de envio em homologação.
