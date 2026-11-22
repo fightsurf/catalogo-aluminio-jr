@@ -171,12 +171,14 @@ async function prepararPedido(args) {
   const payload = {
     data, favorecido, vendedor, volumes, total,
     carrada_codigo: carrada, obs: obs || null,
+    aviso_whatsapp_carrada: Boolean(carrada),
     itens: itens.map(i => ({ produto_id: i.produto_id, quantidade: i.quantidade, preco: i.preco }))
   };
   const resumo = {
     cliente: { favorecido, nome: texto(cliente.nome || cliente.razao_social || cliente.fantasia) },
     vendedor: { favorecido: vendedor, nome: texto(vendedorDados.nome || vendedorDados.razao_social) },
     data, modalidade, volumes, carrada_codigo: carrada, observacao: obs || null,
+    aviso_whatsapp_carrada: Boolean(carrada),
     itens, total
   };
   await estrutura();
@@ -189,7 +191,7 @@ async function prepararPedido(args) {
   return {
     status: 'aguardando_confirmacao', rascunho_id: id, codigo_confirmacao: codigo,
     expira_em_minutos: TTL_MINUTOS, resumo,
-    instrucoes: 'Mostre cliente, itens, preços e total ao usuário. Apenas após confirmação explícita do usuário, chame confirmar_pedido com rascunho_id e codigo_confirmacao.'
+    instrucoes: 'Mostre cliente, itens, preços e total. Se existir carrada, informe que confirmar o pedido também dispara automaticamente o aviso WhatsApp de entrada na carrada, pela rotina da Inserção V2. Somente execute confirmar_pedido após confirmação explícita do usuário em resposta posterior.'
   };
 }
 
@@ -261,7 +263,13 @@ async function confirmarPedido({ rascunho_id, codigo_confirmacao, confirmacao })
       SET status='confirmado', pedido_resultado=$2::jsonb, confirmado_em=NOW()
       WHERE id=$1
     `, [rascunho_id, JSON.stringify(resultado)]);
-    return { status: 'confirmado', rascunho_id, numero_pedido: numero, resultado };
+    return {
+      status: 'confirmado', rascunho_id, numero_pedido: numero, resultado,
+      aviso_whatsapp_carrada: resultado?.avisoWhatsappCarrada || null,
+      observacao_envio: payload.aviso_whatsapp_carrada
+        ? 'Verifique aviso_whatsapp_carrada: aceito_pelo_provedor não significa entregue; falhas não devem causar reenvio do pedido.'
+        : null
+    };
   } catch (err) {
     // Em erro de rede, a operação no Firebird pode ter sido concluída.
     // Nunca liberar a mesma tentativa para reenvio automático.
