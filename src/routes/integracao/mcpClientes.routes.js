@@ -4,13 +4,14 @@ const express = require('express');
 const auth = require('../../services/integracao/mcpClientesOAuth.service');
 const clientesService = require('../../services/legado/clientes/clientes.service');
 const logistica = require('./mcpLogistica.routes');
+const consultas = require('../../services/integracao/mcpConsultasDetalhadas.service');
 
 const router = express.Router();
 const PROTOCOL = '2025-06-18';
 const TOOL = {
   name: 'buscar_clientes',
   title: 'Buscar clientes da Alumínio JR',
-  description: 'Use esta ferramenta quando o usuário pedir para procurar cliente por nome na Alumínio JR. Busca somente clientes existentes. Exibe código favorecido, nome, cidade e UF; não mostra telefones, CPF, observações nem pedidos. Nunca cadastra nem altera dados.',
+  description: 'Busca clientes cadastrados por nome. Retorna código favorecido, nome, cidade, UF, número de telefone e observação quando disponível na API do legado. Somente leitura. Não inventa dados ausentes.',
   annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
   securitySchemes: [{ type: 'oauth2', scopes: ['clientes:read'] }],
   inputSchema: {
@@ -27,7 +28,35 @@ const TOOL = {
 };
 // Ferramentas de logística usam a mesma sessão OAuth do plugin já conectado.
 // Mantemos todas as consultas somente leitura e sem dados de contato.
-const TOOLS = [TOOL, ...logistica.mcpTools.map(t => ({
+const TOOL_CLIENTE_ID = {
+  name: 'consultar_cliente',
+  title: 'Consultar cliente pelo código',
+  description: 'Consulta um cliente pelo código favorecido, com nome, cidade, UF, número do telefone e observação quando disponível. Somente leitura.',
+  annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+  securitySchemes: [{ type: 'oauth2', scopes: ['clientes:read'] }],
+  inputSchema: {
+    type: 'object',
+    properties: { favorecido: { type: 'integer', minimum: 1, description: 'Código favorecido do cliente.' } },
+    required: ['favorecido'], additionalProperties: false
+  }
+};
+const TOOL_LOGISTICA = {
+  name: 'listar_excursoes_transportadoras',
+  title: 'Listar excursões e transportadoras com cidades vinculadas',
+  description: 'Lista os cadastros de excursões e transportadoras na mesma tabela, com cidade, UF, número de telefone, observação e todas as cidades vinculadas. Retorna até 50 por página e permite avançar por páginas. Somente leitura.',
+  annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
+  securitySchemes: [{ type: 'oauth2', scopes: ['clientes:read'] }],
+  inputSchema: {
+    type: 'object',
+    properties: {
+      nome: { type: 'string', maxLength: 120, description: 'Parte opcional do nome.' },
+      pagina: { type: 'integer', minimum: 1, maximum: 100000, description: 'Página, começando em 1.' },
+      limite: { type: 'integer', minimum: 1, maximum: 50, description: 'Registros por página (padrão 20).' }
+    },
+    additionalProperties: false
+  }
+};
+const TOOLS = [TOOL, TOOL_CLIENTE_ID, TOOL_LOGISTICA, ...logistica.mcpTools.map(t => ({
   ...t,
   securitySchemes: [{ type: 'oauth2', scopes: ['clientes:read'] }]
 }))];
@@ -42,12 +71,7 @@ async function buscar({ nome } = {}) {
   const encontrados = (Array.isArray(rows) ? rows : []).filter(c =>
     norm(c.nome || c.razao_social || c.fantasia).includes(norm(nome))
   );
-  const clientes = encontrados.slice(0, 10).map(c => ({
-    favorecido: c.favorecido ?? null,
-    nome: String(c.nome || c.razao_social || c.fantasia || '').trim(),
-    cidade: c.cidade || null,
-    uf: c.uf || null
-  }));
+  const clientes = encontrados.slice(0, 10).map(consultas.resumirCliente);
   return { total_encontrado: encontrados.length, exibindo: clientes.length, clientes };
 }
 function jsonrpc(res, id, result) { return res.json({ jsonrpc: '2.0', id, result }); }
@@ -86,7 +110,7 @@ router.post('/', async (req, res) => {
       protocolVersion: PROTOCOL,
       capabilities: { tools: { listChanged: false } },
       serverInfo: { name: 'aluminio-jr-clientes', version: '1.0.0' },
-      instructions: 'Consulte clientes por nome e consulte transportadoras, cidades e cidades atendidas no sistema Alumínio JR. Se houver clientes semelhantes, apresente os códigos e peça esclarecimento. Nenhuma ferramenta altera dados. Não invente informações.'
+      instructions: 'Consulte clientes por nome ou código, excursões, transportadoras e cidades do sistema Alumínio JR. Use a ferramenta autenticada listar_excursoes_transportadoras para obter números de telefone, observações e cidades vinculadas, percorrendo as páginas quando necessário. Se houver clientes semelhantes, apresente os códigos. Nenhuma ferramenta altera dados. Não invente informações ausentes.'
     });
   }
   if (m.method === 'ping') return jsonrpc(res, m.id, {});
@@ -94,18 +118,20 @@ router.post('/', async (req, res) => {
   if (m.method !== 'tools/call') return rpcError(res, m.id, -32601, 'Método não encontrado.', 404);
   const name = m.params?.name;
   const ferramentaLogistica = logistica.mcpTools.find(t => t.name === name);
-  if (name !== 'buscar_clientes' && !ferramentaLogistica) {
+  const ferramentaDetalhada = [TOOL_CLIENTE_ID, TOOL_LOGISTICA].find(t => t.name === name);
+  if (name !== 'buscar_clientes' && !ferramentaLogistica && !ferramentaDetalhada) {
     return rpcError(res, m.id, -32602, 'Ferramenta não encontrada.');
   }
   const args = m.params.arguments === undefined ? {} : m.params.arguments;
-  const allowed = name === 'buscar_clientes' ? TOOL.inputSchema.properties : ferramentaLogistica.inputSchema.properties;
+  const allowed = (name === 'buscar_clientes' ? TOOL : ferramentaDetalhada || ferramentaLogistica).inputSchema.properties;
   if (!args || typeof args !== 'object' || Array.isArray(args) ||
       Object.keys(args).some(k => !Object.prototype.hasOwnProperty.call(allowed, k))) {
     return rpcError(res, m.id, -32602, 'Parâmetros inválidos.');
   }
   try {
-    const result = name === 'buscar_clientes'
-      ? await buscar(args)
+    const result = name === 'buscar_clientes' ? await buscar(args)
+      : name === 'consultar_cliente' ? await consultas.consultarCliente(args)
+      : name === 'listar_excursoes_transportadoras' ? await consultas.listarExcursoesTransportadoras(args)
       : await logistica.executeTool(name, args);
     return jsonrpc(res, m.id, {
       content: [{ type: 'text', text: JSON.stringify(result) }],
@@ -115,7 +141,7 @@ router.post('/', async (req, res) => {
   } catch (err) {
     console.error('[mcp/clientes] Consulta:', err.message);
     return jsonrpc(res, m.id, {
-      content: [{ type: 'text', text: 'Não foi possível consultar clientes. Verifique o nome ou tente novamente.' }],
+      content: [{ type: 'text', text: 'Não foi possível concluir a consulta à Alumínio JR. Confira os parâmetros e tente novamente.' }],
       isError: true
     });
   }
