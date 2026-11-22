@@ -269,10 +269,10 @@ function telefonesEquivalentes(telefone) {
   const numero = normalizarTelefone(telefone);
   if (!numero) return [];
   // O WhatsApp pode omitir o nono digito de numeros brasileiros.
-  if (/^55\\d{2}\\d{8}$/.test(numero)) {
+  if (/^55\d{2}\d{8}$/.test(numero)) {
     return [numero, numero.slice(0, 4) + '9' + numero.slice(4)];
   }
-  if (/^55\\d{2}9\\d{8}$/.test(numero)) {
+  if (/^55\d{2}9\d{8}$/.test(numero)) {
     return [numero, numero.slice(0, 4) + numero.slice(5)];
   }
   return [numero];
