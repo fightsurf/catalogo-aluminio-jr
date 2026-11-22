@@ -219,4 +219,8 @@ router.post('/', async (req, res) => {
   }
 });
 
+// Reutiliza as mesmas consultas no MCP autenticado de clientes, sem expor
+// dados de contato ou operações de gravação.
 module.exports = router;
+module.exports.mcpTools = tools;
+module.exports.executeTool = executeTool;
