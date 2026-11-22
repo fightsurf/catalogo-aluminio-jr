@@ -1,5 +1,7 @@
 # Pedidos por voz no mesmo MCP Alumínio JR
 
+> Atualização de 22/11/2026: o pacote de consulta e gestão de pedidos, WhatsApp e expedição está descrito em [mcp-alteracoes-acumuladas-20261122.md](mcp-alteracoes-acumuladas-20261122.md), incluindo os novos escopos e os testes. As restrições de escopo da versão inicial abaixo são históricas.
+
 ## Escopo
 
 O endpoint atual **POST /mcp/clientes** continua sendo o único plugin autenticado.

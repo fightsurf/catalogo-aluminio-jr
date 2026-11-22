@@ -147,7 +147,7 @@ test('MCP preserva leitura e separa criação de pedidos por escopo OAuth', () =
   const orders = fs.readFileSync(path.join(__dirname, '../src/routes/integracao/mcpPedidosTools.js'), 'utf8');
   assert.match(code, /name: 'buscar_clientes'/);
   assert.match(code, /req\.oauthScopes/);
-  assert.match(code, /pedidosMcp\.requiresWrite\(name\)/);
+  assert.match(code, /pedidosMcp\.requiredScopes\(name\)/);
   assert.match(code, /MCP_PEDIDOS_ENABLED/);
   assert.match(code, /mcp\/www_authenticate/);
   assert.match(orders, /name: 'preparar_pedido'/);

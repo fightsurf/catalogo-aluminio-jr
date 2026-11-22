@@ -2,27 +2,38 @@ name: MCP Alumínio JR - clientes, logística e pedidos
 on:
   push:
     branches:
+      - main
+      - feature/mcp-alteracoes-acumuladas-20261122
       - feature/mcp-consulta-clientes-20261121
       - feature/mcp-pedidos-unificado-oauth-20261122
     paths:
-      - 'src/services/integracao/mcpClientesOAuth.service.js'
-      - 'src/services/integracao/mcpPedidos.service.js'
-      - 'src/routes/integracao/mcpPedidosTools.js'
-      - 'src/services/integracao/mcpConsultasDetalhadas.service.js'
-      - 'src/routes/integracao/mcpClientes*.routes.js'
-      - 'src/routes/integracao/mcpLogistica.routes.js'
-      - 'tests/mcp-consulta-clientes.test.js'
-      - 'tests/mcp-pedidos.test.js'
-      - 'tests/mcp-consultas-detalhadas.test.js'
+      - 'src/services/integracao/mcp*.js'
+      - 'src/routes/integracao/mcp*.js'
+      - 'src/services/legado/pedido/pedidosLegado.service.js'
+      - 'src/services/legado/pedidos-cliente/pedidos-cliente.service.js'
+      - 'src/services/legado/pedidos-insercao-v2/pedidos-insercao-v2.service.js'
+      - 'src/services/whatsapp/relatorio-fotos-whatsapp.service.js'
+      - 'public/js/pedido-mensagem-whatsapp.js'
+      - 'views/legado/pedido/pedidos-legado.html'
+      - 'views/legado/pedidos-insercao-v2/pedidos-insercao-v2.html'
+      - 'tests/mcp-*.test.js'
+      - 'tests/pedidos-insercao-v2-aviso-mcp.test.js'
+      - 'tests/relatorio-fotos-previa.test.js'
       - '.github/workflows/mcp-clientes-tests.yml'
   pull_request:
     paths:
-      - 'src/services/integracao/mcpClientesOAuth.service.js'
-      - 'src/services/integracao/mcpPedidos.service.js'
-      - 'src/routes/integracao/mcpPedidosTools.js'
-      - 'src/routes/integracao/mcpClientes*.routes.js'
-      - 'tests/mcp-consulta-clientes.test.js'
-      - 'tests/mcp-pedidos.test.js'
+      - 'src/services/integracao/mcp*.js'
+      - 'src/routes/integracao/mcp*.js'
+      - 'src/services/legado/pedido/pedidosLegado.service.js'
+      - 'src/services/legado/pedidos-cliente/pedidos-cliente.service.js'
+      - 'src/services/legado/pedidos-insercao-v2/pedidos-insercao-v2.service.js'
+      - 'src/services/whatsapp/relatorio-fotos-whatsapp.service.js'
+      - 'public/js/pedido-mensagem-whatsapp.js'
+      - 'views/legado/pedido/pedidos-legado.html'
+      - 'views/legado/pedidos-insercao-v2/pedidos-insercao-v2.html'
+      - 'tests/mcp-*.test.js'
+      - 'tests/pedidos-insercao-v2-aviso-mcp.test.js'
+      - 'tests/relatorio-fotos-previa.test.js'
       - '.github/workflows/mcp-clientes-tests.yml'
 jobs:
   tests:
@@ -44,5 +55,12 @@ jobs:
           node --check src/services/integracao/mcpClientesOAuth.service.js
           node --check src/services/integracao/mcpPedidos.service.js
           node --check src/services/integracao/mcpConsultasDetalhadas.service.js
+          node --check src/services/integracao/mcpConsultaPedidos.service.js
+          node --check src/services/integracao/mcpAcoesConfirmadas.service.js
+          node --check src/services/integracao/mcpPedidoGestao.service.js
+          node --check src/services/integracao/mcpPedidoWhatsapp.service.js
+          node --check src/routes/integracao/mcpAcoesPedidosTools.js
+          node --check src/routes/integracao/mcpValidacao.js
+          node --check public/js/pedido-mensagem-whatsapp.js
       - name: Testar OAuth e segurança
-        run: node --test tests/mcp-consulta-clientes.test.js tests/mcp-consultas-detalhadas.test.js tests/mcp-pedidos.test.js
+        run: node --test tests/mcp-*.test.js tests/pedidos-insercao-v2-aviso-mcp.test.js tests/relatorio-fotos-previa.test.js

@@ -152,7 +152,7 @@ test('confirmação é escrita aditiva com escopo OAuth e confirmação obrigat�
     path.join(__dirname, '../src/routes/integracao/mcpPedidosTools.js'), 'utf8'
   );
   const confirmar = source.split("name: 'confirmar_pedido'")[1]?.split("name: 'consultar_rascunho'")[0] || '';
-  assert.match(source, /const gravacao = \[\{ type: 'oauth2', scopes: \['clientes:read', 'pedidos:write'\] \}\]/);
+  assert.match(source, /const gravacao = \[\{ type: 'oauth2', scopes: \['clientes:read', 'pedidos:write', 'whatsapp:send'\] \}\]/);
   assert.match(confirmar, /securitySchemes: gravacao/);
   assert.match(confirmar, /annotations:\s*\{ readOnlyHint: false, destructiveHint: false, idempotentHint: true/);
   assert.match(confirmar, /confirmacao: \{ type: 'string', enum: \['CONFIRMO'\] \}/);

@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-function ambiente({ vinculado = true, telefone = '84999999999', falhaWhatsApp = false } = {}) {
+function ambiente({ vinculado = true, telefone = '84999999999', falhaWhatsApp = false, centralBloqueada = false } = {}) {
   const source = fs.readFileSync(
     path.join(__dirname, '../src/services/legado/pedidos-insercao-v2/pedidos-insercao-v2.service.js'), 'utf8'
   );
@@ -21,13 +21,18 @@ function ambiente({ vinculado = true, telefone = '84999999999', falhaWhatsApp = 
     '../../whatsapp/envio-whatsapp.service': {
       enviarMensagem: async payload => {
         mensagens.push(payload);
-        if (falhaWhatsApp) throw new Error('Falha simulada de WhatsApp');
+        if (falhaWhatsApp) throw new Error(typeof falhaWhatsApp === 'string' ? falhaWhatsApp : 'Falha simulada de WhatsApp');
         return { success: true };
       }
     },
     '../../whatsapp/central-controle.service': {
       comFuncionalidade: (id, fn) => {
         assert.equal(id, 'pedidos_texto');
+        if (centralBloqueada) {
+          const erro = new Error('WhatsApp desligado na Central');
+          erro.codigo = 'WHATSAPP_ENVIO_DESATIVADO';
+          throw erro;
+        }
         return fn();
       }
     }
@@ -97,4 +102,23 @@ test('falha de WhatsApp não desfaz o pedido nem repete a gravação', async () 
   assert.equal(r.avisoWhatsappCarrada.status, 'resultado_incerto');
   assert.equal(t.chamadasBridge.length, 1);
   assert.equal(t.mensagens.length, 1);
+});
+
+test('central desligada mantém o pedido gravado e informa aviso não enviado sem replay', async () => {
+  const t = ambiente({ centralBloqueada: true });
+  const r = await t.inserir();
+  assert.equal(r.pedido.numero, '000123');
+  assert.equal(r.avisoWhatsappCarrada.status, 'nao_enviado');
+  assert.equal(r.avisoWhatsappCarrada.motivo, 'envio_bloqueado_central');
+  assert.equal(t.mensagens.length, 0);
+  assert.equal(t.chamadasBridge.length, 1);
+});
+
+test('erro de transporte no aviso não expõe URL nem credenciais do provedor', async () => {
+  const t = ambiente({ falhaWhatsApp: 'Falha em https://provedor.invalid/instances/conta/token/SEGREDO/send-text' });
+  const r = await t.inserir();
+  assert.equal(r.avisoWhatsappCarrada.status, 'resultado_incerto');
+  assert.equal(r.avisoWhatsappCarrada.motivo, 'falha_ou_resultado_incerto_no_aviso_whatsapp');
+  assert.ok(!JSON.stringify(r).includes('SEGREDO'));
+  assert.ok(!JSON.stringify(r).includes('provedor.invalid'));
 });

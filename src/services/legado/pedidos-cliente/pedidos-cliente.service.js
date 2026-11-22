@@ -17,6 +17,9 @@ function textoSeguro(valor) {
 }
 
 function normalizarPedido(item) {
+  const camposExpedicao = ['dataExpedicao', 'DATA_EXPEDICAO', 'data_expedicao', 'CAMPO01', 'campo01'];
+  const campoExpedicao = camposExpedicao.find((campo) => Object.prototype.hasOwnProperty.call(item, campo)
+    && item[campo] !== undefined);
   const situacao = textoSeguro(item.situacao ?? item.SITUACAO ?? item.statusPedido ?? item.STATUS_PEDIDO).toUpperCase();
   const cancelado = ['C', 'CANCELADO', 'CANCELADA'].includes(situacao) ||
     item.cancelado === true || item.CANCELADO === true;
@@ -28,6 +31,7 @@ function normalizarPedido(item) {
     : numeroSeguro(saldoInformado);
 
   return {
+    idMestre: item.idMestre ?? item.IDMESTRE ?? item.idmestre ?? item.saida ?? item.SAIDA ?? null,
     empresa: item.empresa ?? item.EMPRESA ?? -1,
     saida: item.saida ?? item.SAIDA ?? null,
     pdv: item.pdv ?? item.PDV ?? 0,
@@ -35,6 +39,8 @@ function normalizarPedido(item) {
     situacao,
     cancelado,
     data: item.data ?? item.DATA ?? null,
+    dataExpedicao: campoExpedicao === undefined ? null : item[campoExpedicao],
+    dataExpedicaoDisponivel: item.dataExpedicaoDisponivel === false ? false : campoExpedicao !== undefined,
     total,
     totalPago: Number(totalPago.toFixed(2)),
     saldoRestante: Number(saldoRestante.toFixed(2)),
@@ -67,32 +73,12 @@ function normalizarCliente(item, favorecido) {
 }
 
 async function listarPedidosPorCliente(favorecido) {
-  const baseUrl = process.env.LEGADO_BRIDGE_URL;
-
-  if (!baseUrl) {
-    throw new Error('Variável de ambiente LEGADO_BRIDGE_URL não configurada.');
-  }
-
   // Solicita o histórico completo, inclusive os pedidos cancelados.
   // A bridge local precisa respeitar este parâmetro na consulta ao Firebird.
-  const url = `${baseUrl.replace(/\/+$/, '')}/api/pedidos-cliente/${favorecido}?incluirCancelados=1`;
-
-  const response = await fetch(url);
-  let payload = null;
-
-  try {
-    payload = await response.json();
-  } catch (error) {
-    payload = null;
-  }
-
-  if (!response.ok) {
-    throw new Error(
-      payload?.detalhe ||
-      payload?.mensagem ||
-      `Falha ao consumir bridge local. HTTP ${response.status}`
-    );
-  }
+  // Usa o mesmo gateway do restante do legado, incluindo a chave de autenticação.
+  const payload = await legadoBridgeService.get(
+    `/api/pedidos-cliente/${encodeURIComponent(favorecido)}`, { incluirCancelados: 1 }
+  );
 
   const dadosOriginais = Array.isArray(payload?.dados) ? payload.dados : [];
   const clienteOriginal = payload?.cliente || null;
@@ -102,7 +88,12 @@ async function listarPedidosPorCliente(favorecido) {
 
   return {
     cliente: normalizarCliente(clienteOriginal, favorecido),
-    dados: pedidosComBaixaCredito
+    dados: pedidosComBaixaCredito,
+    // Preserva sinais de corte da origem; a consulta MCP nunca deve escondê-los.
+    consultaIncompleta: payload?.hasMore === true || payload?.temMais === true
+      || payload?.tem_mais === true || payload?.truncated === true
+      || Number(payload?.totalRegistros ?? payload?.total_registros ?? payload?.paginacao?.total ?? 0) > dadosOriginais.length,
+    totalOrigem: payload?.totalRegistros ?? payload?.total_registros ?? payload?.paginacao?.total ?? null
   };
 }
 

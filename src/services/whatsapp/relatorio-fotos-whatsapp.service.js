@@ -358,7 +358,9 @@ async function analisarRelatorio({ relatorio, multiplicador, itensPedido, totalP
     const subtotalFinal = arredondar(item.subtotal * multiplicadorNormalizado, 2);
     let problema = localizacao.problema || '';
 
-    if (produto && !foto) {
+    if (produto && !produto.ativo) {
+      problema = 'Produto localizado, mas está inativo.';
+    } else if (produto && !foto) {
       problema = 'Produto localizado, mas está sem foto válida cadastrada.';
     }
 
@@ -376,7 +378,7 @@ async function analisarRelatorio({ relatorio, multiplicador, itensPedido, totalP
       subtotalFinal,
       encontrado: Boolean(produto),
       possuiFoto: Boolean(foto),
-      pronto: Boolean(produto && foto),
+      pronto: Boolean(produto && produto.ativo && foto),
       problema
     };
   });
@@ -427,7 +429,7 @@ function validarInteiroPositivo(valor, nomeCampo) {
   return numero;
 }
 
-async function enviarItem(payload = {}) {
+async function enviarItem(payload = {}, options = {}) {
   const telefone = normalizarTelefoneBrasil(payload.telefone);
   const produtoId = validarInteiroPositivo(payload.produtoId, 'Produto');
   const quantidade = validarNumeroNaoNegativo(payload.quantidade, 'Quantidade');
@@ -444,6 +446,16 @@ async function enviarItem(payload = {}) {
 
   if (!foto) {
     throw new Error(`O produto ${produto.nome} está sem foto cadastrada.`);
+  }
+
+  // A tela continua usando a mesma rotina. O MCP pode fixar a mídia aprovada
+  // na prévia para impedir a troca de foto/legenda antes do envio confirmado.
+  if (options.produtoEsperado && (
+    options.produtoEsperado.foto !== foto || options.produtoEsperado.nome !== produto.nome
+  )) {
+    const erro = new Error('O produto ou sua foto mudou desde a prévia. Refaça a confirmação.');
+    erro.isValidation = true;
+    throw erro;
   }
 
   const legenda = [

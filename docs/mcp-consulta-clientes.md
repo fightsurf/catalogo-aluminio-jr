@@ -1,5 +1,7 @@
 # MCP de consulta de clientes — Alumínio JR
 
+> Atualização de 22/11/2026: o pacote de consulta e gestão de pedidos, WhatsApp e expedição está descrito em [mcp-alteracoes-acumuladas-20261122.md](mcp-alteracoes-acumuladas-20261122.md), incluindo os novos escopos e os testes. As restrições de escopo da versão inicial abaixo são históricas.
+
 Implementação **somente leitura**, independente do piloto de transportadoras e da proposta de MCP com gravação de pedidos.
 
 ## Endpoints

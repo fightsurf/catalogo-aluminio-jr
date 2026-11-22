@@ -747,6 +747,7 @@
   </div>
 
   <script src="/js/relatorio-aluminio-jr.js"></script>
+  <script src="/js/pedido-mensagem-whatsapp.js"></script>
   <script>
     const numeroPedidoInput = document.getElementById('numeroPedido');
     const clientePedidoInput = document.getElementById('clientePedido');
@@ -1072,36 +1073,7 @@
     }
 
     function montarMensagemWhatsappPedido(pedido) {
-      if (!pedido?.numero) return '';
-
-      const linhas = [
-        '📦 *Pedido Alumínio JR*',
-        `Cliente: *${pedido?.cliente?.nome || '-'}*`,
-        `Número do pedido: *${pedido?.numero || '-'}*`,
-        `Vendedor: *${pedido?.vendedor?.nome || '-'}*`,
-        '-----------------------------------------------'
-      ];
-
-      const itens = Array.isArray(pedido?.itens) ? pedido.itens : [];
-      itens.forEach((item, index) => {
-        linhas.push(`- ${item.descricao || '-'}`);
-        linhas.push(`- QTD: ${Number(item.quantidade || 0)}`);
-        linhas.push(`- Preço: *${moeda(item.preco || 0)}*`);
-        linhas.push(`- Subtotal: *${moeda(item.subtotal || 0)}*`);
-        if (index < itens.length - 1) {
-          linhas.push('');
-        }
-      });
-
-      if (itens.length) linhas.push('');
-      linhas.push(`Total do pedido: *${moeda(pedido?.total || 0)}*`);
-
-      if (pedido?.obs) {
-        linhas.push('');
-        linhas.push(`Observação: ${pedido.obs}`);
-      }
-
-      return linhas.join('\n');
+      return window.PedidoMensagemWhatsapp.montarMensagem(pedido);
     }
 
     function numeroParaRelatorioFotos(valor) {

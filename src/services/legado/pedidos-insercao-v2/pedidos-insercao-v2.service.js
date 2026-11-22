@@ -148,9 +148,14 @@ async function notificarEntradaCarrada({ favorecido, numeroPedido, carrada }) {
     );
     return { status: 'aceito_pelo_provedor' };
   } catch (error) {
+    if (error?.codigo === 'WHATSAPP_ENVIO_DESATIVADO') {
+      return { status: 'nao_enviado', motivo: 'envio_bloqueado_central' };
+    }
     // Pedido já foi gravado: falha ou resultado incerto no WhatsApp não
     // pode induzir nova tentativa de gravar nem reenviar automaticamente.
-    return { status: 'resultado_incerto', motivo: limparTexto(error.message) || 'Erro no aviso WhatsApp' };
+    // Erros do transporte podem conter URL de provedor e credenciais no caminho.
+    // O retorno do pedido expõe somente um motivo estável, sem a mensagem bruta.
+    return { status: 'resultado_incerto', motivo: 'falha_ou_resultado_incerto_no_aviso_whatsapp' };
   }
 }
 

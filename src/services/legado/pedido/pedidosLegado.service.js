@@ -154,11 +154,16 @@ async function enviarNotificacoesAlteracaoCarrada({ pedido, carradaAnterior, car
 }
 
 function normalizarPedido(item) {
+  const camposExpedicao = ['dataExpedicao', 'DATA_EXPEDICAO', 'data_expedicao', 'CAMPO01', 'campo01'];
+  const campoExpedicao = camposExpedicao.find((campo) => Object.prototype.hasOwnProperty.call(item, campo)
+    && item[campo] !== undefined);
   return {
     idMestre: item.idMestre ?? item.IDMESTRE ?? item.idmestre ?? null,
     numero: item.numero ?? item.NUMERO ?? null,
     data: item.data ?? item.DATA ?? null,
-    dataExpedicao: item.dataExpedicao ?? item.DATA_EXPEDICAO ?? item.data_expedicao ?? item.CAMPO01 ?? item.campo01 ?? null,
+    dataExpedicao: campoExpedicao === undefined ? null : item[campoExpedicao],
+    // null informado pelo bridge significa sem data; campo omitido significa desconhecido.
+    dataExpedicaoDisponivel: item.dataExpedicaoDisponivel === false ? false : campoExpedicao !== undefined,
     total: Number(item.total ?? item.TOTAL ?? 0),
     totalPago: Number(item.totalPago ?? item.TOTAL_PAGO ?? 0),
     saldoRestante: Number(item.saldoRestante ?? item.SALDO_RESTANTE ?? 0),

@@ -4,9 +4,11 @@
 // Nunca incluir operações de escrita no endpoint público /mcp.
 const pedidos = require('../../services/integracao/mcpPedidos.service');
 const consultaPedidos = require('../../services/integracao/mcpConsultaPedidos.service');
+const acoes = require('./mcpAcoesPedidosTools');
 
 const leitura = [{ type: 'oauth2', scopes: ['clientes:read'] }];
-const gravacao = [{ type: 'oauth2', scopes: ['clientes:read', 'pedidos:write'] }];
+const gravacao = [{ type: 'oauth2', scopes: ['clientes:read', 'pedidos:write', 'whatsapp:send'] }];
+const leituraRascunho = [{ type: 'oauth2', scopes: ['clientes:read', 'pedidos:write'] }];
 const readOnly = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
 const writeTool = { readOnlyHint: false, destructiveHint: false, openWorldHint: false };
 
@@ -35,12 +37,16 @@ const tools = [
   {
     name: 'consultar_pedidos',
     title: 'Consultar pedidos gravados por número, cliente ou data',
-    description: 'Busca pedidos reais gravados na Alumínio JR, inclusive cancelados quando solicitado. Somente leitura. Informe número (ou prefixo), cliente ou data AAAA-MM-DD. Responde com cliente, vendedor, situação, valores e carrada quando disponível. Para visualizar itens, use detalhar_pedido com id_mestre real retornado.',
+    description: 'Consulta pedidos reais por número, cliente (nome ou código favorecido) ou data. Por cliente, pagina o histórico; ultimo=true retorna o último CADASTRADO por id_mestre/SAIDA, sem usar data de expedição. sem_data_expedicao=true filtra somente ausência verificada. Se houver homônimos, escolha o código entre candidatos. Leia resultado_completo, ultimo_pedido_confirmado e avisos; percorra proxima_pagina para obter todos. Use detalhar_pedido para itens. Somente leitura.',
     securitySchemes: leitura,
     annotations: readOnly,
     inputSchema: { type: 'object', properties: {
       numero: { type: 'string', maxLength: 40 },
       cliente: { type: 'string', maxLength: 120 },
+      favorecido: { type: 'integer', minimum: 1, description: 'Código real do cliente; preferível após resolver homônimos.' },
+      ultimo: { type: 'boolean', description: 'Retornar o último pedido cadastrado; usa id_mestre/SAIDA, nunca data de entrega ou expedição.' },
+      sem_data_expedicao: { type: 'boolean', description: 'Somente pedidos com ausência de expedição verificada. Dados não informados pelo legado são reportados separadamente.' },
+      pagina: { type: 'integer', minimum: 1, maximum: 100000 },
       data: { type: 'string', description: 'AAAA-MM-DD (data do pedido)' },
       limite: { type: 'integer', minimum: 1, maximum: 30 },
       incluir_cancelados: { type: 'boolean', description: 'Padrão true. Não omita cancelados sem explicar o filtro.' }
@@ -87,7 +93,7 @@ const tools = [
     securitySchemes: gravacao,
     // A criação de um pedido confirmado acrescenta um registro; não apaga nem substitui pedidos.
     // Continua sendo uma operação de escrita: exige pedidos:write e confirmação expressa.
-    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
     inputSchema: { type: 'object', properties: {
       rascunho_id: { type: 'string', description: 'UUID recebido de preparar_pedido.' },
       codigo_confirmacao: { type: 'string', description: 'Código técnico retornado em preparar_pedido.' },
@@ -98,23 +104,27 @@ const tools = [
     name: 'consultar_rascunho',
     title: 'Verificar status do rascunho e pedido',
     description: 'Consulta o estado da tentativa de gravação. Se estiver em revisão necessária, conferir o legado; não reenviar automaticamente.',
-    securitySchemes: gravacao,
+    securitySchemes: leituraRascunho,
     annotations: readOnly,
     inputSchema: { type: 'object', properties: {
       rascunho_id: { type: 'string' }
     }, required: ['rascunho_id'], additionalProperties: false }
   }
 ];
+tools.push(...acoes.tools);
 // O ChatGPT utiliza _meta.securitySchemes para solicitar o escopo OAuth específico de escrita.
 for (const t of tools) t._meta = { securitySchemes: t.securitySchemes };
 const nomes = new Set(tools.map(t => t.name));
-const precisaEscrita = new Set(['preparar_pedido', 'confirmar_pedido', 'consultar_rascunho']);
 function isPedido(name) { return nomes.has(name); }
-function requiresWrite(name) { return precisaEscrita.has(name); }
-async function executeTool(name, args = {}) {
+function requiredScopes(name) {
+  return tools.find(t => t.name === name)?.securitySchemes[0].scopes || ['clientes:read'];
+}
+function requiresWrite(name) { return requiredScopes(name).some(s => s !== 'clientes:read'); }
+async function executeTool(name, args = {}, contexto = {}) {
   if (process.env.MCP_PEDIDOS_ENABLED !== 'true') {
     const e = new Error('Cadastro de pedidos ainda não habilitado no servidor.'); e.isValidation = true; throw e;
   }
+  if (acoes.isAcao(name)) return acoes.executeTool(name, args, contexto);
   switch (name) {
     case 'buscar_produtos': return pedidos.buscarProdutos(args);
     case 'buscar_vendedores': return pedidos.buscarVendedores(args);
@@ -126,4 +136,4 @@ async function executeTool(name, args = {}) {
     default: { const e = new Error('Ferramenta de pedido inexistente.'); e.isValidation = true; throw e; }
   }
 }
-module.exports = { tools, isPedido, requiresWrite, executeTool };
+module.exports = { tools, isPedido, requiresWrite, requiredScopes, executeTool };
