@@ -1,0 +1,39 @@
+# Pacote acumulado de alterações do plugin Alumínio JR — 22/11/2026
+
+Branch de trabalho: `feature/mcp-alteracoes-acumuladas-20261122`.
+**Não publicar no Render, não alterar a configuração do plugin do ChatGPT antes da revisão.**
+
+## 1. Consulta de pedidos — código incluído na branch
+
+- Novo `consultar_pedidos`: filtro por número, cliente ou data; resultado limitado e inclui situação, cancelamento, valor, vendedor e carrada quando o legado fornecer.
+- Novo `detalhar_pedido`: usa o `id_mestre` real da busca; retorna itens e valores.
+- Reutilizar `pesquisarPedidos` e `buscarDetalhePedido` usados na tela /legado/pedidos, sem consulta direta não autenticada ao Firebird.
+- Leitura OAuth `clientes:read`, sem efeitos colaterais, no mesmo endpoint `/mcp/clientes`.
+- Verificar em ambiente de testes os pedidos 0020020 (cancelado, cliente Kaká) e 0020021 (Eloise Karine, carrada 1697 de 02/12/2026). São apenas exemplos para validação, **não executar escrita nem enviar WhatsApp**.
+
+## 2. Ações do WhatsApp da tela /legado/pedidos — requisitos em desenvolvimento
+
+Botões existentes identificados na tela:
+
+1. **💬 Enviar para WhatsApp**: envia o texto do pedido pela API `POST /api/whatsapp/enviar-pedido`, funcionalidade `pedidos_texto`.
+2. **📷💬 Enviar pedido com fotos**: consulta/valida fotos de cada item; envia as imagens em sequência e, por fim, o resumo, via `/api/whatsapp/relatorio-fotos/analisar`, `/enviar-item`, `/finalizar`; funcionalidades `pedidos_fotos` e `pedidos_fotos_finalizacao`. Bloquear envio se alguma foto necessária estiver ausente.
+3. **📄💬 Enviar PDF WhatsApp**: usa `POST /api/legado/pedidos/:idMestre/whatsapp/pdf`, funcionalidade `pedidos_pdf`.
+4. **🤖 Apresentar pedido com IA → Enviar áudio pelo WhatsApp**: gerar e revisar a apresentação, produzir prévia de áudio ElevenLabs e só então enviar para o telefone validado, conforme fluxo existente.
+5. **📋💬 Copiar relatório WhatsApp**: NÃO é disparo; gera texto para copiar (separar das ferramentas de envio).
+
+Regras antes de publicar ferramentas de WhatsApp:
+- No mesmo plugin autenticado; autorização de envio distinta da leitura, com revisão dos escopos OAuth; **jamais** expor envio em endpoint MCP público.
+- Localizar primeiro um único pedido real; confirmar número, cliente, telefone (preferencialmente dígitos finais), tipo de conteúdo e resumo do que será enviado.
+- Preparo/visualização não envia nada. Exigir resposta posterior **expressa** do usuário antes da execução real.
+- Validar que pedido não esteja cancelado e que destinatário esteja correto; respeitar a central de bloqueio de WhatsApp e as regras de consentimento.
+- Controle contra envio duplicado: chave idempotente registrada por pedido, canal e tentativa; status de envio distinguindo solicitado, aceito pelo provedor, entregue, e falha/resultado incerto.
+- Para fotos, estado de envio por item. Em falha parcial, mostrar quantos itens foram enviados e não reenviar automaticamente os anteriores; não declarar sucesso total apenas por recebimento parcial.
+- Mensagens proativas somente para o cliente do pedido escolhido. Não enviar nenhuma mensagem em testes sem destinatário controlado e autorização expressa.
+- Reaproveitar os serviços e verificações do backend; evitar fazer uma requisição HTTP administrativa sem a sessão adequada.
+
+## Publicação e validação
+
+- Antes de atualizar o plugin, validar sintaxe/testes, testar consulta no bridge Firebird, inspecionar autorização OAuth e fluxos de envio em homologação.
+- Publicar branch somente após revisão/merge. Serviço de produção Render: `catalogo-aluminio-jr` no workspace `George Fernandes's workspace`.
+- Recarregar as ferramentas do plugin no ChatGPT após o deploy. Até lá, as novas ferramentas NÃO aparecem na sessão existente.
+- Continuar acumulando novas solicitações **nesta branch**, sem alterar `main` diretamente.
