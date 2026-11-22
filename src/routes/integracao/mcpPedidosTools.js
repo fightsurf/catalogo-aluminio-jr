@@ -3,6 +3,7 @@
 // Ferramentas de pedido integradas ao MESMO MCP autenticado (/mcp/clientes).
 // Nunca incluir operações de escrita no endpoint público /mcp.
 const pedidos = require('../../services/integracao/mcpPedidos.service');
+const consultaPedidos = require('../../services/integracao/mcpConsultaPedidos.service');
 
 const leitura = [{ type: 'oauth2', scopes: ['clientes:read'] }];
 const gravacao = [{ type: 'oauth2', scopes: ['clientes:read', 'pedidos:write'] }];
@@ -30,6 +31,30 @@ const tools = [
     inputSchema: { type: 'object', properties: {
       nome: { type: 'string', maxLength: 100, description: 'Parte do nome; omitir para listar até 30 vendedores.' }
     }, additionalProperties: false }
+  },
+  {
+    name: 'consultar_pedidos',
+    title: 'Consultar pedidos gravados por número, cliente ou data',
+    description: 'Busca pedidos reais gravados na Alumínio JR, inclusive cancelados quando solicitado. Somente leitura. Informe número (ou prefixo), cliente ou data AAAA-MM-DD. Responde com cliente, vendedor, situação, valores e carrada quando disponível. Para visualizar itens, use detalhar_pedido com id_mestre real retornado.',
+    securitySchemes: leitura,
+    annotations: readOnly,
+    inputSchema: { type: 'object', properties: {
+      numero: { type: 'string', maxLength: 40 },
+      cliente: { type: 'string', maxLength: 120 },
+      data: { type: 'string', description: 'AAAA-MM-DD (data do pedido)' },
+      limite: { type: 'integer', minimum: 1, maximum: 30 },
+      incluir_cancelados: { type: 'boolean', description: 'Padrão true. Não omita cancelados sem explicar o filtro.' }
+    }, additionalProperties: false }
+  },
+  {
+    name: 'detalhar_pedido',
+    title: 'Consultar itens, valores e carrada de pedido gravado',
+    description: 'Detalha um pedido real pelo id_mestre obtido na consulta. Somente leitura; retorna itens, situação, valores, cliente, vendedor e carrada. Não confundir id_mestre (chave interna) com o número do pedido.',
+    securitySchemes: leitura,
+    annotations: readOnly,
+    inputSchema: { type: 'object', properties: {
+      id_mestre: { type: 'integer', minimum: 1 }
+    }, required: ['id_mestre'], additionalProperties: false }
   },
   {
     name: 'preparar_pedido',
@@ -93,6 +118,8 @@ async function executeTool(name, args = {}) {
   switch (name) {
     case 'buscar_produtos': return pedidos.buscarProdutos(args);
     case 'buscar_vendedores': return pedidos.buscarVendedores(args);
+    case 'consultar_pedidos': return consultaPedidos.consultarPedidos(args);
+    case 'detalhar_pedido': return consultaPedidos.detalharPedido(args);
     case 'preparar_pedido': return pedidos.prepararPedido(args);
     case 'confirmar_pedido': return pedidos.confirmarPedido(args);
     case 'consultar_rascunho': return pedidos.consultarRascunho(args);
