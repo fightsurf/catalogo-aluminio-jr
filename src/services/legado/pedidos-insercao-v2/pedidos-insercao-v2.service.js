@@ -117,7 +117,7 @@ async function prepararPayloadLegado(payload = {}) {
 
 function formatarDataCarrada(valor) {
   const texto = limparTexto(valor);
-  const iso = /^(\\d{4})-(\\d{2})-(\\d{2})/.exec(texto);
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(texto);
   if (iso) return `${iso[3]}/${iso[2]}/${iso[1]}`;
   const data = new Date(texto);
   return Number.isNaN(data.getTime())
@@ -132,14 +132,14 @@ async function notificarEntradaCarrada({ favorecido, numeroPedido, carrada }) {
     const cliente = await clientesService.buscarCliente(favorecido);
     if (!cliente) return { status: 'nao_enviado', motivo: 'cliente_nao_encontrado' };
     const telefone = limparTexto(cliente.telefonePrincipal || cliente.telefone1 || cliente.telefone)
-      .replace(/\\D+/g, '');
+      .replace(/\D+/g, '');
     if (!telefone) return { status: 'nao_enviado', motivo: 'sem_telefone' };
     const mensagem = [
       `📦 Pedido: ${numeroPedido}`,
       `Cliente: ${limparTexto(cliente.nome || cliente.razao_social || cliente.fantasia) || '-'}`,
       `Seu pedido entrou na produção da carrada do dia ${formatarDataCarrada(carrada.data)}`,
       `Descrição da carrada: ${limparTexto(carrada.descricao) || '-'}`
-    ].join('\\n');
+    ].join('\n');
 
     // A tela antes enviava a mesma mensagem via /api/whatsapp/enviar-pedido,
     // que aplica a funcionalidade pedidos_texto.
