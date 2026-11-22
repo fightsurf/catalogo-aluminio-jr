@@ -16,7 +16,7 @@ function protectedMetadata(_req, res) {
   return res.json({
     resource: auth.resource(),
     authorization_servers: [auth.issuer()],
-    scopes_supported: ['clientes:read', 'offline_access']
+    scopes_supported: ['clientes:read', 'pedidos:write', 'offline_access']
   });
 }
 router.get('/.well-known/oauth-protected-resource', protectedMetadata);
@@ -33,7 +33,7 @@ router.get('/.well-known/oauth-authorization-server', (_req, res) => {
     response_types_supported: ['code'],
     grant_types_supported: ['authorization_code', 'refresh_token'],
     code_challenge_methods_supported: ['S256'],
-    scopes_supported: ['clientes:read', 'offline_access']
+    scopes_supported: ['clientes:read', 'pedidos:write', 'offline_access']
   });
 });
 router.get('/oauth/mcp-clientes/authorize', requireAuth, async (req, res) => {
@@ -50,10 +50,11 @@ router.get('/oauth/mcp-clientes/authorize', requireAuth, async (req, res) => {
       'form{display:flex;gap:12px}button{padding:12px 18px;cursor:pointer}h1{font-size:24px}</style>',
       '</head><body><h1>Autorizar consulta de clientes</h1>',
       '<p>Conta administrativa: <strong>', auth.escapeHtml(req.adminUser), '</strong>.</p>',
-      '<p>Permitir que o ChatGPT consulte <strong>nome, código, cidade e UF</strong> ',
-      'dos clientes, além de <strong>transportadoras, cidades e localidades atendidas</strong> ',
-      'pela Alumínio JR. Não inclui telefones, documentos, observações ou pedidos. ',
-      'Nenhuma gravação será habilitada.</p>',
+      '<p>Permitir que o ChatGPT consulte clientes (nome, código, cidade, UF, telefone e observação, ',
+      'quando disponíveis), produtos, vendedores, excursões e transportadoras da Alumínio JR.</p>',
+      pedido.scope.split(' ').includes('pedidos:write')
+        ? '<p><strong>Atenção:</strong> esta autorização também permite preparar e gravar pedidos no sistema legado, somente após você confirmar explicitamente cada resumo de pedido. Não permite outras alterações.</p>'
+        : '<p>Esta autorização permite somente consultas. Não permite gravar pedidos.</p>',
       '<p>Você poderá revogar a autorização removendo o plugin e desativando o MCP no servidor.</p>',
       '<form method="post" action="/oauth/mcp-clientes/authorize">',
       '<input type="hidden" name="id" value="', auth.escapeHtml(pedido.id), '">',
