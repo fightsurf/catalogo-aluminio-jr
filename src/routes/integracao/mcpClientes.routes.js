@@ -4,6 +4,7 @@ const express = require('express');
 const auth = require('../../services/integracao/mcpClientesOAuth.service');
 const clientesService = require('../../services/legado/clientes/clientes.service');
 const logistica = require('./mcpLogistica.routes');
+const pedidosMcp = require('./mcpPedidosTools');
 const consultas = require('../../services/integracao/mcpConsultasDetalhadas.service');
 
 const router = express.Router();
@@ -59,7 +60,7 @@ const TOOL_LOGISTICA = {
 const TOOLS = [TOOL, TOOL_CLIENTE_ID, TOOL_LOGISTICA, ...logistica.mcpTools.map(t => ({
   ...t,
   securitySchemes: [{ type: 'oauth2', scopes: ['clientes:read'] }]
-}))];
+})), ...pedidosMcp.tools];
 function norm(v) {
   return String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
 }
@@ -89,6 +90,7 @@ router.use(async (req, res, next) => {
       return res.status(401).json({ erro: 'Autorização OAuth necessária.' });
     }
     req.oauthUser = credential.user;
+    req.oauthScopes = credential.scope;
     return next();
   } catch (err) {
     console.error('[mcp/clientes] Falha ao validar token:', err.message);
@@ -108,22 +110,33 @@ router.post('/', async (req, res) => {
   if (m.method === 'initialize') {
     return jsonrpc(res, m.id, {
       protocolVersion: PROTOCOL,
-      capabilities: { tools: { listChanged: false } },
+      capabilities: { tools: { listChanged: true } },
       serverInfo: { name: 'aluminio-jr-clientes', version: '1.0.0' },
-      instructions: 'Consulte clientes por nome ou código, excursões, transportadoras e cidades do sistema Alumínio JR. Use a ferramenta autenticada listar_excursoes_transportadoras para obter números de telefone, observações e cidades vinculadas, percorrendo as páginas quando necessário. Se houver clientes semelhantes, apresente os códigos. Nenhuma ferramenta altera dados. Não invente informações ausentes.'
+      instructions: 'Consulte clientes, logística, produtos e vendedores. Para pedidos simples por voz, identifique códigos reais e quantidades; preparar_pedido cria somente prévia. Leia o resumo completo, aguarde confirmação expressa do usuário e só então execute confirmar_pedido com pedidos:write. Nunca repita gravações incertas. Não invente informações.'
     });
   }
   if (m.method === 'ping') return jsonrpc(res, m.id, {});
-  if (m.method === 'tools/list') return jsonrpc(res, m.id, { tools: TOOLS });
+  if (m.method === 'tools/list') return jsonrpc(res, m.id, {
+    tools: process.env.MCP_PEDIDOS_ENABLED === 'true' ? TOOLS : TOOLS.filter(t => !pedidosMcp.isPedido(t.name))
+  });
   if (m.method !== 'tools/call') return rpcError(res, m.id, -32601, 'Método não encontrado.', 404);
   const name = m.params?.name;
   const ferramentaLogistica = logistica.mcpTools.find(t => t.name === name);
   const ferramentaDetalhada = [TOOL_CLIENTE_ID, TOOL_LOGISTICA].find(t => t.name === name);
-  if (name !== 'buscar_clientes' && !ferramentaLogistica && !ferramentaDetalhada) {
+  const ferramentaPedido = pedidosMcp.tools.find(t => t.name === name);
+  if (name !== 'buscar_clientes' && !ferramentaLogistica && !ferramentaDetalhada && !ferramentaPedido) {
     return rpcError(res, m.id, -32602, 'Ferramenta não encontrada.');
   }
+  if (pedidosMcp.requiresWrite(name) && !String(req.oauthScopes || '').split(/\s+/).includes('pedidos:write')) {
+    const challenge = 'Bearer resource_metadata="' + auth.metadataUrl() + '", scope="clientes:read pedidos:write", error="insufficient_scope", error_description="Autorize a inclusao de pedidos no Aluminio JR"';
+    return jsonrpc(res, m.id, {
+      content: [{ type: 'text', text: 'É necessário autorizar o cadastro de pedidos no plugin Alumínio JR.' }],
+      _meta: { 'mcp/www_authenticate': [challenge] },
+      isError: true
+    });
+  }
   const args = m.params.arguments === undefined ? {} : m.params.arguments;
-  const allowed = (name === 'buscar_clientes' ? TOOL : ferramentaDetalhada || ferramentaLogistica).inputSchema.properties;
+  const allowed = (name === 'buscar_clientes' ? TOOL : ferramentaDetalhada || ferramentaPedido || ferramentaLogistica).inputSchema.properties;
   if (!args || typeof args !== 'object' || Array.isArray(args) ||
       Object.keys(args).some(k => !Object.prototype.hasOwnProperty.call(allowed, k))) {
     return rpcError(res, m.id, -32602, 'Parâmetros inválidos.');
@@ -132,6 +145,7 @@ router.post('/', async (req, res) => {
     const result = name === 'buscar_clientes' ? await buscar(args)
       : name === 'consultar_cliente' ? await consultas.consultarCliente(args)
       : name === 'listar_excursoes_transportadoras' ? await consultas.listarExcursoesTransportadoras(args)
+      : ferramentaPedido ? await pedidosMcp.executeTool(name, args)
       : await logistica.executeTool(name, args);
     return jsonrpc(res, m.id, {
       content: [{ type: 'text', text: JSON.stringify(result) }],
