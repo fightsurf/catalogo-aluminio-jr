@@ -60,7 +60,9 @@ const tools = [
     title: 'Gravar pedido confirmado no sistema',
     description: 'GRAVAÇÃO REAL no Firebird. Executar somente após mostrar o resumo completo do rascunho e o usuário confirmar expressamente na conversa seguinte. Não repetir a gravação em erros ou resultado incerto. Requer pedidos:write.',
     securitySchemes: gravacao,
-    annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+    // A criação de um pedido confirmado acrescenta um registro; não apaga nem substitui pedidos.
+    // Continua sendo uma operação de escrita: exige pedidos:write e confirmação expressa.
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     inputSchema: { type: 'object', properties: {
       rascunho_id: { type: 'string', description: 'UUID recebido de preparar_pedido.' },
       codigo_confirmacao: { type: 'string', description: 'Código técnico retornado em preparar_pedido.' },
