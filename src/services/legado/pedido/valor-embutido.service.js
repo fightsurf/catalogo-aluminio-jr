@@ -75,15 +75,12 @@ function normalizarValorEmbutido(entrada, itens, { preservarLegado = false } = {
   const valorCentavos = Math.round(valor * 100);
   if (!mesmoNumero(valor * 100, valorCentavos)) falhar('Informe o valor do produto em centavos inteiros.');
   const acrescimoUnitario = arredondar(numero(entrada.acrescimoUnitario, 'acréscimo unitário'));
-  const acrescimoCentavos = Math.floor(valorCentavos / quantidadeTotal);
-  const unidadesCentavoExtra = valorCentavos % quantidadeTotal;
-  const acrescimoCalculado = preservarLegado
-    ? Math.round(valorCentavos / quantidadeTotal) / 100 : acrescimoCentavos / 100;
+  const acrescimoCentavos = Math.ceil(valorCentavos / quantidadeTotal);
   if (!preservarLegado && (!Number.isSafeInteger(quantidadeTotal)
       || atuais.some(item => !Number.isSafeInteger(item.quantidade)))) {
-    falhar('O rateio exato exige quantidades em unidades inteiras.');
+    falhar('O acréscimo uniforme exige quantidades em unidades inteiras.');
   }
-  if (!mesmoNumero(acrescimoUnitario, acrescimoCalculado)
+  if ((!preservarLegado && !mesmoNumero(acrescimoUnitario, acrescimoCentavos / 100))
       || !mesmoNumero(entrada.quantidadeTotal, quantidadeTotal)) {
     falhar('O rateio mudou. Recalcule o valor embutido antes de salvar.');
   }
@@ -92,11 +89,9 @@ function normalizarValorEmbutido(entrada, itens, { preservarLegado = false } = {
     const precoBase = numero(linha?.precoBase, `preço original do item ${indice + 1}`);
     const precoAplicado = numero(linha?.precoAplicado, `preço final do item ${indice + 1}`);
     const acrescimoLinha = numero(linha?.acrescimoUnitario, `acréscimo do item ${indice + 1}`);
-    const incrementoValido = preservarLegado ? mesmoNumero(acrescimoLinha, acrescimoUnitario)
-      : (mesmoNumero(acrescimoLinha, acrescimoCentavos / 100)
-        || (unidadesCentavoExtra > 0 && mesmoNumero(acrescimoLinha, (acrescimoCentavos + 1) / 100)));
+    const incrementoValido = preservarLegado || mesmoNumero(acrescimoLinha, acrescimoCentavos / 100);
     if (!preservarLegado && !mesmoNumero(precoBase * 100, Math.round(precoBase * 100))) {
-      falhar('O rateio exato exige preços-base com no máximo duas casas decimais.');
+      falhar('O acréscimo uniforme exige preços-base com no máximo duas casas decimais.');
     }
     if (Number(linha?.item) !== atual.item || !mesmoNumero(linha?.quantidade, atual.quantidade)
         || !incrementoValido
@@ -117,8 +112,9 @@ function normalizarValorEmbutido(entrada, itens, { preservarLegado = false } = {
   });
   const totalCentavos = linhas.reduce((soma, linha) =>
     soma + linha.quantidade * Math.round(linha.acrescimoUnitario * 100), 0);
-  if (!preservarLegado && (!Number.isSafeInteger(totalCentavos) || totalCentavos !== valorCentavos)) {
-    falhar('O rateio deve distribuir exatamente o valor do produto, sem diferença de centavos.');
+  if (!preservarLegado && (!Number.isSafeInteger(totalCentavos)
+      || totalCentavos !== acrescimoCentavos * quantidadeTotal)) {
+    falhar('O total deve corresponder ao acréscimo uniforme arredondado para cima.');
   }
   const totalPedidoCentavos = linhas.reduce((soma, linha) =>
     soma + linha.quantidade * Math.round(linha.precoAplicado * 100), 0);
@@ -126,18 +122,24 @@ function normalizarValorEmbutido(entrada, itens, { preservarLegado = false } = {
     falhar('O total do pedido ultrapassa o limite seguro para o rateio.');
   }
   const totalDistribuido = preservarLegado
-    ? arredondar(quantidadeTotal * acrescimoUnitario, 2) : totalCentavos / 100;
+    ? arredondar(linhas.reduce((soma, linha) => soma + linha.quantidade * linha.acrescimoUnitario, 0), 2)
+    : totalCentavos / 100;
   const diferenca = arredondar(totalDistribuido - valor, 2);
   if (!mesmoNumero(entrada.totalDistribuido, totalDistribuido)
       || !mesmoNumero(entrada.diferenca, diferenca)) {
     falhar('O total distribuído não confere. Recalcule antes de salvar.');
   }
-  const acrescimoUnitarioMaximo = (acrescimoCentavos + (unidadesCentavoExtra > 0 ? 1 : 0)) / 100;
-  if (!preservarLegado && ((entrada.unidadesCentavoExtra !== undefined
+  const acrescimoUnitarioMinimo = Math.min(...linhas.map(linha => linha.acrescimoUnitario));
+  const acrescimoUnitarioMaximo = Math.max(...linhas.map(linha => linha.acrescimoUnitario));
+  const unidadesCentavoExtra = acrescimoUnitarioMaximo > acrescimoUnitarioMinimo
+    ? linhas.reduce((soma, linha) => soma + (mesmoNumero(linha.acrescimoUnitario, acrescimoUnitarioMaximo) ? linha.quantidade : 0), 0)
+    : 0;
+  if (!mesmoNumero(acrescimoUnitario, acrescimoUnitarioMinimo)
+      || (entrada.unidadesCentavoExtra !== undefined
       && !mesmoNumero(entrada.unidadesCentavoExtra, unidadesCentavoExtra))
       || (entrada.acrescimoUnitarioMaximo !== undefined
-      && !mesmoNumero(entrada.acrescimoUnitarioMaximo, acrescimoUnitarioMaximo)))) {
-    falhar('A distribuição dos centavos restantes não confere. Recalcule antes de salvar.');
+      && !mesmoNumero(entrada.acrescimoUnitarioMaximo, acrescimoUnitarioMaximo))) {
+    falhar('O resumo dos acréscimos não confere. Recalcule antes de salvar.');
   }
   const nome = String(entrada.produto?.nome || '').trim();
   if (!nome || nome.length > 300) falhar('Produto embutido inválido.');
@@ -151,7 +153,8 @@ function normalizarValorEmbutido(entrada, itens, { preservarLegado = false } = {
     valor,
     quantidadeTotal,
     acrescimoUnitario,
-    ...(!preservarLegado ? { acrescimoUnitarioMaximo, unidadesCentavoExtra } : {}),
+    acrescimoUnitarioMaximo,
+    unidadesCentavoExtra,
     totalDistribuido,
     diferenca,
     linhas
@@ -200,13 +203,11 @@ async function prepararEstrutura() {
 }
 
 async function prepararOperacao({ pedidoId = null, valorEmbutido, itens, valorEmbutidoAnterior = null, itensAnteriores = null }) {
-  // Pedidos da primeira versão podem ter rateio aproximado ou preços de três
-  // casas. Conservá-los apenas quando nada mudou; a retirada continua possível.
-  const preservarLegado = mesmoRegistroLegado(valorEmbutido, valorEmbutidoAnterior)
-    && itensConferem(itens, itensAnteriores)
-    && (Math.abs(Number(valorEmbutidoAnterior?.diferenca || 0)) >= 0.005
-      || valorEmbutidoAnterior.linhas.some(linha => !Number.isSafeInteger(Number(linha.quantidade))
-        || !mesmoNumero(Number(linha.precoBase) * 100, Math.round(Number(linha.precoBase) * 100))));
+  // O snapshot anterior vem do histórico durável consultado pelo serviço de
+  // edição. Preservá-lo sem reinterpretar a regra de cálculo somente quando
+  // todos os preços, quantidades e dados do valor embutido continuam iguais.
+  const preservarLegado = pedidoId != null && mesmoRegistroLegado(valorEmbutido, valorEmbutidoAnterior)
+    && itensConferem(itens, itensAnteriores);
   const normalizado = normalizarValorEmbutido(valorEmbutido, itens, { preservarLegado });
   const snapshot = snapshotItens(itens);
   const id = randomUUID();

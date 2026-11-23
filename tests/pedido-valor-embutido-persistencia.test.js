@@ -130,7 +130,7 @@ test('valida rateio de R$ 30 em 500 unidades e preserva bases independentes', ()
   assert.equal(t.estado.chamadas.length, 0);
 });
 
-test('aceita o cálculo compartilhado com centavos restantes sem alterar o valor do produto', () => {
+test('aceita R$ 30 em 499 unidades com acréscimo uniforme de R$ 0,07 e total de R$ 34,93', () => {
   const calculo = require('../public/js/pedido-valor-embutido');
   const linhas = [
     { item: 10, quantidade: 200, preco: 28.8 },
@@ -138,16 +138,18 @@ test('aceita o cálculo compartilhado com centavos restantes sem alterar o valor
   ];
   const valor = calculo.aplicar(linhas, { id: 7, item_legado: 70, nome: 'Produto embutido', preco: 30 });
   const normalizado = armazenamento().service.normalizarValorEmbutido(valor, linhas);
-  assert.equal(normalizado.totalDistribuido, 30);
-  assert.equal(normalizado.diferenca, 0);
-  assert.equal(normalizado.acrescimoUnitario, 0.06);
+  assert.equal(normalizado.valor, 30);
+  assert.equal(normalizado.totalDistribuido, 34.93);
+  assert.equal(normalizado.diferenca, 4.93);
+  assert.equal(normalizado.acrescimoUnitario, 0.07);
   assert.equal(normalizado.acrescimoUnitarioMaximo, 0.07);
-  assert.equal(normalizado.unidadesCentavoExtra, 6);
+  assert.equal(normalizado.unidadesCentavoExtra, 0);
+  assert.equal(normalizado.linhas.length, 2);
   assert.equal(normalizado.linhas.reduce((soma, linha) =>
-    soma + linha.quantidade * Math.round(linha.acrescimoUnitario * 100), 0), 3000);
+    soma + linha.quantidade * Math.round(linha.acrescimoUnitario * 100), 0), 3493);
 });
 
-test('rejeita novos rateios aproximados em vez de persistir diferença de centavos', async () => {
+test('rejeita novos acréscimos arredondados para baixo antes de persistir', async () => {
   const t = armazenamento();
   const legado = metadata();
   legado.quantidadeTotal = 499;
@@ -156,19 +158,124 @@ test('rejeita novos rateios aproximados em vez de persistir diferença de centav
   legado.diferenca = -0.06;
   const linhas = itens();
   linhas[1].quantidade = 299;
-  await assert.rejects(t.service.prepararOperacao({ valorEmbutido: legado, itens: linhas }), /exatamente/);
+  await assert.rejects(t.service.prepararOperacao({ valorEmbutido: legado, itens: linhas }), /rateio mudou/);
   assert.equal(t.estado.registros.length, 0);
 });
 
-test('aceita valor inferior a um centavo por unidade distribuído em parte das unidades', () => {
+test('aplica pelo menos um centavo em cada unidade e confere o excedente', () => {
   const calculo = require('../public/js/pedido-valor-embutido');
   const linhas = [{ item: 10, quantidade: 500, preco: 10 }];
   const meta = calculo.aplicar(linhas, { id: 7, nome: 'Produto embutido', preco: 0.01 });
   const normalizado = armazenamento().service.normalizarValorEmbutido(meta, linhas);
-  assert.equal(normalizado.acrescimoUnitario, 0);
-  assert.equal(normalizado.unidadesCentavoExtra, 1);
-  assert.equal(normalizado.totalDistribuido, 0.01);
-  assert.equal(normalizado.diferenca, 0);
+  assert.equal(normalizado.acrescimoUnitario, 0.01);
+  assert.equal(normalizado.acrescimoUnitarioMaximo, 0.01);
+  assert.equal(normalizado.unidadesCentavoExtra, 0);
+  assert.equal(normalizado.totalDistribuido, 5);
+  assert.equal(normalizado.diferenca, 4.99);
+  assert.equal(normalizado.linhas.length, 1);
+});
+
+test('rejeita acréscimos não uniformes e totais ou excedentes adulterados', () => {
+  const calculo = require('../public/js/pedido-valor-embutido');
+  const linhas = itens(28.8, 35.9);
+  linhas[1].quantidade = 140;
+  const meta = calculo.aplicar(linhas, { id: 7, nome: 'Produto embutido', preco: 29 });
+  const t = armazenamento();
+  for (const [campo, valor] of [['totalDistribuido', 29], ['diferenca', 0], ['acrescimoUnitarioMaximo', 0.10], ['unidadesCentavoExtra', 1]]) {
+    const adulterado = clonar(meta);
+    adulterado[campo] = valor;
+    assert.throws(() => t.service.normalizarValorEmbutido(adulterado, linhas), /não confere/, campo);
+  }
+  const desigual = clonar(meta);
+  const itensDesiguais = clonar(linhas);
+  desigual.linhas[0].acrescimoUnitario = 0.08;
+  desigual.linhas[0].precoAplicado = 28.88;
+  itensDesiguais[0].preco = 28.88;
+  assert.throws(() => t.service.normalizarValorEmbutido(desigual, itensDesiguais), /não corresponde ao item 1/);
+  assert.equal(t.estado.registros.length, 0);
+});
+
+for (const [valor, quantidade, acrescimo, total, diferenca] of [
+  [29, 340, 0.09, 30.60, 1.60],
+  [30, 499, 0.07, 34.93, 4.93]
+]) {
+  test(`R$ ${valor} em ${quantidade} unidades salva, reabre, preserva em edição e retira o acréscimo de R$ ${acrescimo}`, async () => {
+    const calculo = require('../public/js/pedido-valor-embutido');
+    const t = armazenamento();
+    const originais = [{ item: 10, descricao: 'Produto A', quantidade, preco: 10 }];
+    const e = edicao(t, { itens: clonar(originais) });
+    const linhas = clonar(originais);
+    const meta = calculo.aplicar(linhas, { id: 7, nome: 'Produto embutido', preco: valor });
+    const paraSalvar = itensAtuais => itensAtuais.map(({ __valorEmbutido, ...item }) => item);
+    const aplicado = await e.serviceEdicao.atualizarPedido(99, {
+      vendedor: 2, itens: paraSalvar(linhas), valorEmbutido: meta
+    });
+    assert.equal(aplicado.valorEmbutido.totalDistribuido, total);
+    assert.equal(aplicado.valorEmbutido.diferenca, diferenca);
+    assert.equal(e.estadoLegado.itens.length, 1);
+    const relido = await e.serviceEdicao.buscarItensPedido(99);
+    const carregados = clonar(relido.itens);
+    const estado = calculo.carregar(carregados, relido.valorEmbutido);
+    const preservado = await e.serviceEdicao.atualizarPedido(99, {
+      vendedor: 3, obs: 'Apenas observação e vendedor', itens: paraSalvar(carregados),
+      valorEmbutido: calculo.serializar(carregados, estado)
+    });
+    assert.equal(preservado.valorEmbutido.acrescimoUnitario, acrescimo);
+    assert.equal(preservado.valorEmbutido.totalDistribuido, total);
+    assert.equal(preservado.valorEmbutido.diferenca, diferenca);
+    assert.equal((await e.serviceEdicao.buscarItensPedido(99)).valorEmbutido.totalDistribuido, total);
+    calculo.remover(carregados, preservado.valorEmbutido);
+    await e.serviceEdicao.atualizarPedido(99, { vendedor: 3, itens: paraSalvar(carregados), valorEmbutido: null });
+    assert.deepEqual(e.estadoLegado.itens.map(({ item, quantidade, preco }) => ({ item, quantidade, preco })),
+      [{ item: 10, quantidade, preco: 10 }]);
+    assert.equal((await e.serviceEdicao.buscarItensPedido(99)).valorEmbutido, null);
+  });
+}
+
+test('rateio antigo exato em duas linhas preserva os centavos salvos e permite retirar após reabertura', async () => {
+  const calculo = require('../public/js/pedido-valor-embutido');
+  const t = armazenamento();
+  const legado = {
+    versao: 1, produto: { id: 7, itemLegado: 70, nome: 'Produto embutido' }, valor: 29,
+    quantidadeTotal: 340, acrescimoUnitario: 0.08, acrescimoUnitarioMaximo: 0.09,
+    unidadesCentavoExtra: 180, totalDistribuido: 29, diferenca: 0,
+    linhas: [
+      { item: 10, quantidade: 160, precoBase: 10, precoAplicado: 10.08, acrescimoUnitario: 0.08 },
+      { item: 10, quantidade: 180, precoBase: 10, precoAplicado: 10.09, acrescimoUnitario: 0.09 }
+    ]
+  };
+  const anteriores = legado.linhas.map(linha => ({ item: linha.item, quantidade: linha.quantidade, preco: linha.precoAplicado }));
+  t.estado.registros.push({ id: 'legado', pedido_ref: 99, estado: 'aplicado',
+    valor_embutido: clonar(legado), itens: clonar(anteriores), ordem: 0 });
+  const e = edicao(t, { itens: clonar(anteriores) });
+  const relido = await e.serviceEdicao.buscarItensPedido(99);
+  const carregados = clonar(relido.itens).reverse();
+  const estado = calculo.carregar(carregados, relido.valorEmbutido);
+  const preservado = await e.serviceEdicao.atualizarPedido(99, {
+    vendedor: 3, obs: 'Preservar valores já gravados', valorEmbutido: calculo.serializar(carregados, estado),
+    itens: carregados.map(({ __valorEmbutido, ...item }) => item)
+  });
+  assert.equal(preservado.valorEmbutido.totalDistribuido, 29);
+  assert.equal(preservado.valorEmbutido.diferenca, 0);
+  assert.equal(preservado.valorEmbutido.unidadesCentavoExtra, 180);
+  assert.deepEqual(e.estadoLegado.itens.map(item => [item.quantidade, item.preco]), [[180, 10.09], [160, 10.08]]);
+  const reaberto = await e.serviceEdicao.buscarItensPedido(99);
+  const restaurados = clonar(reaberto.itens);
+  calculo.remover(restaurados, reaberto.valorEmbutido);
+  await e.serviceEdicao.atualizarPedido(99, { vendedor: 3, itens: restaurados, valorEmbutido: null });
+  assert.deepEqual(e.estadoLegado.itens.map(({ item, quantidade, preco }) => ({ item, quantidade, preco })),
+    [{ item: 10, quantidade: 340, preco: 10 }]);
+  assert.equal((await e.serviceEdicao.buscarItensPedido(99)).valorEmbutido, null);
+
+  // Sem um snapshot anterior correspondente, o rateio antigo não é uma nova aplicação válida.
+  await assert.rejects(t.service.prepararOperacao({ valorEmbutido: legado, itens: anteriores }), /rateio mudou/);
+  const alterado = clonar(legado);
+  alterado.linhas[0].precoBase = 11;
+  alterado.linhas[0].precoAplicado = 11.08;
+  const itensAlterados = clonar(anteriores);
+  itensAlterados[0].preco = 11.08;
+  await assert.rejects(t.service.prepararOperacao({ pedidoId: 99, valorEmbutido: alterado, itens: itensAlterados,
+    valorEmbutidoAnterior: legado, itensAnteriores: anteriores }), /rateio mudou/);
 });
 
 test('rejeita preço ou quantidade divergente antes de persistir ou gravar o pedido', async () => {

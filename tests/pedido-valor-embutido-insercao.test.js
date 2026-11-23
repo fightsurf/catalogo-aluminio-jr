@@ -137,38 +137,74 @@ test('aguarda importação pendente antes de gravar', async () => {
   assert.equal(ctx.read('ultimoPedidoSalvo'), null);
 });
 
-test('R$ 30 em 400 unidades fecha o valor com dois preços em vez de cobrar R$ 32', async () => {
+test('R$ 30 em 400 unidades aplica R$ 0,08 uniforme e mostra o acréscimo total de R$ 32', async () => {
   const ctx = await contexto();
   ctx.run('itensPedido[1].quantidade = 300; renderItensPedido()');
   const payload = ctx.read('montarPayload()');
-  assert.equal(payload.total, 7030);
-  assert.equal(payload.valorEmbutido.totalDistribuido, 30);
-  assert.equal(payload.valorEmbutido.diferenca, 0);
+  assert.equal(payload.total, 7032);
+  assert.equal(payload.valorEmbutido.totalDistribuido, 32);
+  assert.equal(payload.valorEmbutido.diferenca, 2);
+  assert.equal(payload.itens.length, 2);
+  assert.deepEqual(payload.itens.map(item => item.preco), [10.08, 20.08]);
   assert.equal(payload.itens.reduce((s, i) => s + i.quantidade, 0), 400);
-  assert.equal(payload.itens.reduce((s, i) => s + Math.round(i.preco * 100) * i.quantidade, 0), 703000);
-  assert.match(ctx.elemento('resumoValorEmbutido').innerHTML, /0,07/);
+  assert.equal(payload.itens.reduce((s, i) => s + Math.round(i.preco * 100) * i.quantidade, 0), 703200);
+  assert.doesNotMatch(ctx.elemento('resumoValorEmbutido').innerHTML, /0,07|duas linhas/);
   assert.match(ctx.elemento('resumoValorEmbutido').innerHTML, /0,08/);
+  assert.match(ctx.elemento('resumoValorEmbutido').innerHTML, /32,00/);
   ctx.elemento('btnRetirarValorEmbutido').handlers.click();
   assert.equal(ctx.read('calcularTotal()'), 7000);
   assert.equal(ctx.read('itensPedido.reduce((s, i) => s + i.quantidade, 0)'), 400);
 });
 
-test('valor inferior a um centavo por unidade continua integralmente distribuído e pode ser salvo', async () => {
+test('valor inferior a um centavo por unidade salva o total arredondado para cima', async () => {
   const ctx = await contexto();
   ctx.run('itensPedido[0].quantidade = 10000; renderItensPedido()');
   const payload = ctx.read('montarPayload()');
-  assert.equal(payload.total, 108030);
-  assert.equal(payload.valorEmbutido.totalDistribuido, 30);
-  assert.equal(payload.valorEmbutido.diferenca, 0);
+  assert.equal(payload.total, 108104);
+  assert.equal(payload.valorEmbutido.totalDistribuido, 104);
+  assert.equal(payload.valorEmbutido.diferenca, 74);
+  assert.equal(payload.itens.length, 2);
+  assert.deepEqual(payload.itens.map(item => item.preco), [10.01, 20.01]);
   assert.equal(payload.itens.reduce((s, i) => s + i.quantidade, 0), 10400);
   let chamadas = 0;
   ctx.sandbox.fetch = async (url, options) => {
     chamadas++;
     const dados = JSON.parse(options.body);
-    assert.equal(dados.total, 108030);
+    assert.equal(dados.total, 108104);
     return {ok:true,status:201,json:async()=>({pedido:{idMestre:1002,numero:'TESTE002',total:dados.total}})};
   };
   await ctx.run('salvarPedido()');
   assert.equal(chamadas, 1);
-  assert.equal(ctx.read('ultimoPedidoSalvo.total'), 108030);
+  assert.equal(ctx.read('ultimoPedidoSalvo.total'), 108104);
+});
+
+test('prévia e salvamento de R$ 29 em 340 unidades mantêm R$ 0,09 em cada produto', async () => {
+  const ctx = await contexto();
+  ctx.elemento('btnRetirarValorEmbutido').handlers.click();
+  ctx.run(`
+    itensPedido[0].quantidade = 160;
+    itensPedido[1].quantidade = 180;
+    produtoEmbutidoSelecionado.preco = 29;
+    renderItensPedido();
+  `);
+  const previa = ctx.elemento('previaValorEmbutido').innerHTML;
+  assert.match(previa, /0,09/);
+  assert.match(previa, /30,60/);
+  assert.match(previa, /1,60/);
+  assert.doesNotMatch(previa, /0,08|duas linhas/);
+  ctx.elemento('btnAplicarValorEmbutido').handlers.click();
+  const requisicoes = [];
+  ctx.sandbox.fetch = async (url, options) => {
+    const payload = JSON.parse(options.body);
+    requisicoes.push({ url, payload });
+    return { ok: true, status: 201, json: async () => ({ pedido: { idMestre: 1003, numero: 'TESTE003', total: payload.total } }) };
+  };
+  await ctx.run('salvarPedido()');
+  assert.equal(requisicoes.length, 1);
+  const payload = requisicoes[0].payload;
+  assert.deepEqual(payload.itens.map(item => [item.produto_id, item.quantidade, item.preco]), [[1, 160, 10.09], [2, 180, 20.09]]);
+  assert.equal(payload.valorEmbutido.valor, 29);
+  assert.equal(payload.valorEmbutido.totalDistribuido, 30.6);
+  assert.equal(payload.valorEmbutido.diferenca, 1.6);
+  assert.equal(Math.round(payload.total * 100), 523060);
 });

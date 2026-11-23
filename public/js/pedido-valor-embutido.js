@@ -42,17 +42,17 @@
       if (!Number.isSafeInteger(quantidade)) throw new Error('Para embutir um valor, informe quantidades em unidades inteiras.');
       return validarLimite(soma + quantidade, 'Quantidade total');
     }, 0);
-    // Primeiro distribuir centavos inteiros; o resto recebe um centavo adicional
-    // em exatamente essa quantidade de unidades, sem aumentar o valor escolhido.
-    const pisoCentavos = quantidadeTotal ? Math.floor(valorCentavos / quantidadeTotal) : 0;
-    const unidadesCentavoExtra = quantidadeTotal ? valorCentavos % quantidadeTotal : 0;
+    // O mesmo acréscimo é aplicado a todas as unidades. Arredondar para cima
+    // mantém os preços em centavos, sem dividir um produto em duas linhas.
+    const acrescimoCentavos = quantidadeTotal ? Math.ceil(valorCentavos / quantidadeTotal) : 0;
+    const totalCentavos = validarLimite(acrescimoCentavos * quantidadeTotal, 'Total a embutir');
     return {
       quantidadeTotal,
-      acrescimoUnitario: pisoCentavos / 100,
-      acrescimoUnitarioMaximo: (pisoCentavos + (unidadesCentavoExtra ? 1 : 0)) / 100,
-      unidadesCentavoExtra,
-      totalDistribuido: quantidadeTotal ? valor : 0,
-      diferenca: quantidadeTotal ? 0 : -valor
+      acrescimoUnitario: acrescimoCentavos / 100,
+      acrescimoUnitarioMaximo: acrescimoCentavos / 100,
+      unidadesCentavoExtra: 0,
+      totalDistribuido: totalCentavos / 100,
+      diferenca: arredondar((totalCentavos - valorCentavos) / 100, 2)
     };
   }
 
@@ -139,29 +139,20 @@
       validarLimite(centavos, 'Preço-base');
       validarLimite(centavos * quantidade, 'Total do pedido');
     });
-    let extrasRestantes = resumo.unidadesCentavoExtra;
-    const novasLinhas = [];
-    const adicionar = (grupo, quantidade, acrescimoCentavos) => {
-      if (!quantidade) return;
+    const acrescimoCentavos = Math.round(resumo.acrescimoUnitario * 100);
+    const novasLinhas = grupos.map(grupo => {
       const item = clonar(grupo.item);
       const precoCentavos = validarLimite(Math.round(grupo.base * 100) + acrescimoCentavos, 'Preço');
-      validarLimite(precoCentavos * quantidade, 'Total do pedido');
-      item.quantidade = quantidade;
+      validarLimite(precoCentavos * grupo.quantidade, 'Total do pedido');
+      item.quantidade = grupo.quantidade;
       item.preco = precoCentavos / 100;
       item.__valorEmbutido = { precoBase: grupo.base, acrescimoUnitario: acrescimoCentavos / 100 };
       atualizarSubtotal(item);
-      novasLinhas.push(item);
-    };
-    const pisoCentavos = Math.round(resumo.acrescimoUnitario * 100);
-    grupos.forEach(grupo => {
-      const extras = Math.min(extrasRestantes, grupo.quantidade);
-      adicionar(grupo, grupo.quantidade - extras, pisoCentavos);
-      adicionar(grupo, extras, pisoCentavos + 1);
-      extrasRestantes -= extras;
+      return item;
     });
     const estado = serializar(novasLinhas, metadata);
-    if (novasLinhas.length && (estado.totalDistribuido !== resumo.totalDistribuido || estado.diferenca !== 0)) {
-      throw new Error('Não foi possível distribuir o valor exato. Confira os preços e quantidades.');
+    if (novasLinhas.length && (estado.totalDistribuido !== resumo.totalDistribuido || estado.diferenca !== resumo.diferenca)) {
+      throw new Error('Não foi possível aplicar o acréscimo uniforme. Confira os preços e quantidades.');
     }
     itens.splice(0, itens.length, ...novasLinhas);
     return estado;

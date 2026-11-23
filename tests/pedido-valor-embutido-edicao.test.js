@@ -79,9 +79,10 @@ test('importação agrega pela base e recalcula todas as quantidades sem acumula
   ctx.run("adicionarItemImportadoEdicao({ produto: { item_legado: 1, nome: 'Produto A' }, quantidade: 50, preco: 10 })");
   assert.equal(ctx.read('itensEdicao.filter(item => item.item === 1).reduce((soma, item) => soma + item.quantidade, 0)'), 150);
   assert.equal(ctx.read('valorEmbutidoEdicao.quantidadeTotal'), 550);
-  assert.equal(ctx.read('valorEmbutidoEdicao.totalDistribuido'), 30);
-  assert.equal(ctx.read('valorEmbutidoEdicao.diferenca'), 0);
-  assert.equal(Math.round(ctx.read('totalPedidoAtual()') * 100), 953000);
+  assert.equal(ctx.read('valorEmbutidoEdicao.totalDistribuido'), 33);
+  assert.equal(ctx.read('valorEmbutidoEdicao.diferenca'), 3);
+  assert.deepEqual(ctx.read('itensEdicao.map(item => item.preco)'), [10.06, 20.06]);
+  assert.equal(Math.round(ctx.read('totalPedidoAtual()') * 100), 953300);
   ctx.run('retirarValorEmbutidoEdicao()');
   assert.ok(ctx.read('itensEdicao.every(item => item.preco === (item.item === 1 ? 10 : 20))'));
   assert.equal(ctx.read('totalPedidoAtual()'), 9500);
@@ -161,26 +162,28 @@ test('erro de validação permite corrigir o rascunho sem indicar salvamento inc
   assert.equal(ctx.read('modoEdicao'), true);
 });
 
-test('valor inferior a um centavo médio por unidade ainda grava exatamente o valor escolhido', async () => {
+test('valor inferior a um centavo médio por unidade grava o total uniforme arredondado para cima', async () => {
   const ctx = await abrirPedido();
   ctx.run(`
     globalThis.requisicoes = [];
     fetchJson = async (url, options) => {
       const payload = JSON.parse(options.body);
       requisicoes.push({url, payload});
-      return { data: { ...pedidoCarregado, ...payload, total: 108030 } };
+      return { data: { ...pedidoCarregado, ...payload, total: 108104 } };
     };
   `);
   ctx.run('itensEdicao[0].quantidade = 10000; recalcularValorEmbutidoEdicao()');
-  assert.equal(ctx.read('valorEmbutidoEdicao.totalDistribuido'), 30);
-  assert.equal(ctx.read('valorEmbutidoEdicao.diferenca'), 0);
+  assert.equal(ctx.read('valorEmbutidoEdicao.totalDistribuido'), 104);
+  assert.equal(ctx.read('valorEmbutidoEdicao.diferenca'), 74);
   assert.equal(ctx.read('valorEmbutidoEdicao.quantidadeTotal'), 10400);
   await ctx.run('salvarAlteracoesPedido()');
   const requisicoes = ctx.read('requisicoes');
   assert.equal(requisicoes.length, 1);
   assert.equal(requisicoes[0].payload.valorEmbutido.valor, 30);
-  assert.equal(requisicoes[0].payload.valorEmbutido.totalDistribuido, 30);
-  assert.equal(Math.round(requisicoes[0].payload.itens.reduce((soma, item) => soma + item.quantidade * item.preco, 0) * 100), 10803000);
+  assert.equal(requisicoes[0].payload.valorEmbutido.totalDistribuido, 104);
+  assert.equal(requisicoes[0].payload.itens.length, 2);
+  assert.deepEqual(requisicoes[0].payload.itens.map(item => item.preco), [10.01, 20.01]);
+  assert.equal(Math.round(requisicoes[0].payload.itens.reduce((soma, item) => soma + item.quantidade * item.preco, 0) * 100), 10810400);
   assert.equal(ctx.read('salvamentoIncertoEdicao'), false);
 });
 
@@ -203,16 +206,18 @@ test('painel informa arredondamento e escapa o nome do produto', async () => {
   assert.match(painel, /Retirar produto embutido/);
 });
 
-test('painel descreve os dois acréscimos exatos sem diferença de arredondamento', () => {
+test('painel descreve o acréscimo uniforme e o excedente do arredondamento', () => {
   const ctx = contexto();
   const itens = [{ item: 1, descricao: 'Produto', quantidade: 400, preco: 10 }];
   ctx.sandbox.metadata = rateio.aplicar(itens, { id: 3, nome: '<Brinde>', preco: 30 });
   const painel = ctx.run('montarPainelValorEmbutido(metadata, true)');
   assert.match(painel, /&lt;Brinde&gt;/);
-  assert.match(painel, /200 unidades com R\$\s*0,07 por unidade/);
-  assert.match(painel, /200 unidades com R\$\s*0,08 por unidade/);
-  assert.doesNotMatch(painel, /Diferença de arredondamento/);
-  assert.equal(Math.round(itens.reduce((soma, item) => soma + item.quantidade * item.preco, 0) * 100), 403000);
+  assert.match(painel, /R\$\s*0,08/);
+  assert.match(painel, /R\$\s*32,00/);
+  assert.match(painel, /R\$\s*2,00/);
+  assert.doesNotMatch(painel, /0,07|200 unidades/);
+  assert.equal(itens.length, 1);
+  assert.equal(Math.round(itens.reduce((soma, item) => soma + item.quantidade * item.preco, 0) * 100), 403200);
 });
 
 test('abrir rateio antigo preserva preços gravados e permite retirar o acréscimo original', async () => {
@@ -234,7 +239,56 @@ test('abrir rateio antigo preserva preços gravados e permite retirar o acrésci
   assert.equal(ctx.read('totalPedidoAtual()'), 4000);
 });
 
-test('atualizar preços informa a diferença real e preserva valor exato após rateio dividido', async () => {
+test('edição de pedido antigo dividido preserva o salvo e só uniformiza ao recalcular', async () => {
+  const ctx = contexto();
+  ctx.sandbox.pedidoAntigo = {
+    idMestre: 7, numero: '7', data: '2026-11-23', vendedor: { favorecido: 9 }, cliente: {}, carradaAtual: null,
+    itens: [
+      { item: 1, descricao: 'Produto', quantidade: 160, preco: 10.08 },
+      { item: 1, descricao: 'Produto', quantidade: 180, preco: 10.09 }
+    ],
+    valorEmbutido: {
+      versao: 1, produto: { id: 3, nome: 'Brinde' }, valor: 29,
+      quantidadeTotal: 340, acrescimoUnitario: 0.08, acrescimoUnitarioMaximo: 0.09,
+      unidadesCentavoExtra: 180, totalDistribuido: 29, diferenca: 0,
+      linhas: [
+        { item: 1, quantidade: 160, precoBase: 10, precoAplicado: 10.08, acrescimoUnitario: 0.08 },
+        { item: 1, quantidade: 180, precoBase: 10, precoAplicado: 10.09, acrescimoUnitario: 0.09 }
+      ]
+    }
+  };
+  ctx.run(`
+    pedidoCarregado = pedidoAntigo;
+    globalThis.requisicoes = [];
+    fetchJson = async (url, options) => {
+      const payload = JSON.parse(options.body);
+      requisicoes.push({url, payload});
+      return { data: { ...pedidoCarregado, ...payload, total: 3429 } };
+    };
+  `);
+  await ctx.run('entrarModoEdicao()');
+  assert.deepEqual(ctx.read('itensEdicao.map(item => [item.quantidade, item.preco])'), [[160, 10.08], [180, 10.09]]);
+  assert.equal(Math.round(ctx.read('totalPedidoAtual()') * 100), 342900);
+  const painel = ctx.run('montarPainelValorEmbutido(valorEmbutidoEdicao, true)');
+  assert.match(painel, /160 unidades com R\$\s*0,08/);
+  assert.match(painel, /180 unidades com R\$\s*0,09/);
+  await ctx.run('salvarAlteracoesPedido()');
+  const payload = ctx.read('requisicoes[0].payload');
+  assert.equal(payload.itens.length, 2);
+  assert.equal(payload.valorEmbutido.totalDistribuido, 29);
+  assert.equal(payload.valorEmbutido.diferenca, 0);
+
+  await ctx.run('entrarModoEdicao()');
+  ctx.run('recalcularValorEmbutidoEdicao()');
+  assert.deepEqual(ctx.read('itensEdicao.map(item => [item.quantidade, item.preco])'), [[340, 10.09]]);
+  assert.equal(ctx.read('valorEmbutidoEdicao.totalDistribuido'), 30.6);
+  assert.equal(ctx.read('valorEmbutidoEdicao.diferenca'), 1.6);
+  ctx.run('retirarValorEmbutidoEdicao()');
+  assert.deepEqual(ctx.read('itensEdicao.map(item => [item.quantidade, item.preco])'), [[340, 10]]);
+  assert.equal(ctx.read('totalPedidoAtual()'), 3400);
+});
+
+test('atualizar preços informa a diferença real e preserva o acréscimo uniforme arredondado', async () => {
   const ctx = contexto();
   const itens = [{ item: 1, descricao: 'Produto', quantidade: 400, preco: 10 }];
   const metadata = rateio.aplicar(itens, { id: 3, nome: 'Brinde', preco: 30 });
@@ -250,8 +304,8 @@ test('atualizar preços informa a diferença real e preserva valor exato após r
   `);
   await ctx.run('entrarModoEdicao()');
   await ctx.run('atualizarPrecosEdicao()');
-  assert.equal(Math.round(ctx.read('totalPedidoAtual()') * 100), 483000);
-  assert.equal(ctx.read('valorEmbutidoEdicao.totalDistribuido'), 30);
+  assert.equal(Math.round(ctx.read('totalPedidoAtual()') * 100), 483200);
+  assert.equal(ctx.read('valorEmbutidoEdicao.totalDistribuido'), 32);
   assert.match(ctx.read('confirmacoes[0]'), /R\$\s*800,00/);
   ctx.run('retirarValorEmbutidoEdicao()');
   assert.equal(ctx.read('totalPedidoAtual()'), 4800);

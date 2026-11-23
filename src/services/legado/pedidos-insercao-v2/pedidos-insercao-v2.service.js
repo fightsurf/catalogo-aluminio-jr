@@ -181,8 +181,8 @@ async function inserirPedido(payload) {
     ? await valorEmbutidoService.prepararOperacao({ valorEmbutido: payload.valorEmbutido, itens: payloadLegado.itens })
     : null;
   if (operacao) {
-    // O total acompanha os preços conferidos, inclusive nas linhas separadas
-    // para distribuir exatamente os centavos restantes.
+    // O total acompanha os preços conferidos, incluindo o acréscimo uniforme
+    // arredondado para cima em cada unidade.
     payloadLegado.total = operacao.itens.reduce((soma, item) =>
       soma + Math.round(item.preco * 100) * item.quantidade, 0) / 100;
   }

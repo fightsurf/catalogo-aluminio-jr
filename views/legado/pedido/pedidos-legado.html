@@ -1008,7 +1008,7 @@
       const grupos = [...distribuicao.entries()].sort((a, b) => a[0] - b[0]);
       const resumoAcrescimo = grupos.length > 1
         ? grupos.map(([acrescimo, quantidade]) => `${numero(quantidade)} unidades com ${moeda(acrescimo)} por unidade`).join('; ')
-        : `Acréscimo por unidade: ${moeda(grupos[0]?.[0] ?? valorEmbutido?.acrescimoUnitario)}`;
+        : `Acréscimo uniforme por unidade: ${moeda(grupos[0]?.[0] ?? valorEmbutido?.acrescimoUnitario)}`;
       return `
         <div class="resumo-valor-embutido" aria-live="polite">
           ${valorEmbutido ? `

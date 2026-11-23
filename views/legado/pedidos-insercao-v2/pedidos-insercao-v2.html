@@ -1075,14 +1075,11 @@
     function textoRateio(resumo, valor) {
       const quantidade = Number(resumo.quantidadeTotal).toLocaleString('pt-BR', { maximumFractionDigits: 3 });
       const diferenca = Number(resumo.diferenca || 0);
-      const extras = Number(resumo.unidadesCentavoExtra || 0);
-      const distribuicao = extras
-        ? `${(Number(resumo.quantidadeTotal) - extras).toLocaleString('pt-BR')} unidade(s) com +${formatarMoeda(resumo.acrescimoUnitario)} e ${extras.toLocaleString('pt-BR')} com +${formatarMoeda(resumo.acrescimoUnitarioMaximo)}. Um produto pode aparecer em duas linhas para fechar os centavos.`
-        : `+${formatarMoeda(resumo.acrescimoUnitario)} por unidade.`;
-      return `<p>${formatarMoeda(valor)} distribuídos em ${quantidade} unidades: <strong>${distribuicao}</strong></p>` +
+      return `<p>Valor do produto: <strong>${formatarMoeda(valor)}</strong>.</p>` +
+        `<p>Acréscimo uniforme em ${quantidade} unidades: <strong>+${formatarMoeda(resumo.acrescimoUnitario)} por unidade</strong>.</p>` +
         `<p>Acréscimo total no pedido: <strong>${formatarMoeda(resumo.totalDistribuido)}</strong>.</p>` +
         (Math.abs(diferenca) >= 0.005
-          ? `<p><strong>Arredondamento para centavos:</strong> diferença de ${diferenca > 0 ? '+' : '−'}${formatarMoeda(Math.abs(diferenca))} em relação ao produto escolhido. Confira o total antes de aplicar.</p>` : '');
+          ? `<p><strong>Arredondamento para cima:</strong> diferença de +${formatarMoeda(diferenca)} em relação ao produto escolhido. Confira o total antes de aplicar.</p>` : '');
     }
 
     function atualizarValorEmbutido() {
