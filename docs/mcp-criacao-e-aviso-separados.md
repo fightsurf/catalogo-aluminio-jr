@@ -64,8 +64,13 @@ e etapa: chegada, escopo insuficiente, parâmetros inválidos, resultado ou erro
 Não incluem argumentos, cliente, telefone, tokens ou códigos de confirmação.
 
 Uma chamada negada antes de alcançar o servidor não produz esse registro.
-Correlacionar horário e rastreio com a mensagem exata do cliente; não interpretar
-HTTP 200 como sucesso da operação nem repetir uma ação de resultado incerto.
+A ausência de uma etapa de ferramenta, isoladamente, não comprova esse cenário:
+a requisição também pode parar na autenticação ou na validação do protocolo.
+A partir da versão 1.3.1, recusas de autenticação têm rastreio próprio nos logs,
+na resposta e nos headers `X-MCP-Rastreio` e `X-MCP-Versao`.
+Correlacionar horário e rastreio com a mensagem exata do cliente e os logs HTTP;
+não interpretar HTTP 200 como sucesso da operação nem repetir uma ação de
+resultado incerto. Ver [estabilidade e diagnóstico de 23/11](mcp-estabilidade-20261123.md).
 
 ## Validação e publicação
 

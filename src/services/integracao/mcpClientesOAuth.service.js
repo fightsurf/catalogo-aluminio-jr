@@ -41,6 +41,23 @@ function oauthError(code, message) {
 function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 }
+async function transaction(run) {
+  const client = await pool.connect();
+  let releaseError;
+  try {
+    await client.query('BEGIN');
+    const result = await run(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    try { await client.query('ROLLBACK'); }
+    catch (rollbackError) { releaseError = rollbackError; }
+    throw err;
+  } finally {
+    // Se o rollback falhar, descarte a conexão em vez de devolvê-la ao pool.
+    client.release(releaseError);
+  }
+}
 async function schema() {
   if (!schemaPromise) schemaPromise = pool.query([
     'CREATE TABLE IF NOT EXISTS mcp_clientes_oauth_pedidos (',
@@ -114,26 +131,28 @@ async function decideConsent({ id, csrf, decision, user }) {
     throw oauthError('invalid_request');
   }
   await schema();
-  const result = await pool.query(
-    'UPDATE mcp_clientes_oauth_pedidos SET consumido_em=NOW() ' +
-    'WHERE id=$1 AND csrf_hash=$2 AND usuario=$3 AND consumido_em IS NULL AND expira_em>NOW() ' +
-    'RETURNING estado, escopo, desafio, usuario',
-    [id, h(csrf), user]
-  );
-  if (!result.rows.length) throw oauthError('invalid_request', 'Autorização expirada ou já utilizada.');
-  const row = result.rows[0];
-  if (decision !== 'aprovar') return redirectResponse({ state: row.estado, error: 'access_denied' });
-  const code = token();
-  await pool.query(
-    'INSERT INTO mcp_clientes_oauth_codigos (codigo_hash, usuario, escopo, desafio) VALUES ($1,$2,$3,$4)',
-    [h(code), row.usuario, row.escopo, row.desafio]
-  );
-  return redirectResponse({ code, state: row.estado });
+  return transaction(async client => {
+    const result = await client.query(
+      'UPDATE mcp_clientes_oauth_pedidos SET consumido_em=NOW() ' +
+      'WHERE id=$1 AND csrf_hash=$2 AND usuario=$3 AND consumido_em IS NULL AND expira_em>NOW() ' +
+      'RETURNING estado, escopo, desafio, usuario',
+      [id, h(csrf), user]
+    );
+    if (!result.rows.length) throw oauthError('invalid_request', 'Autorização expirada ou já utilizada.');
+    const row = result.rows[0];
+    if (decision !== 'aprovar') return redirectResponse({ state: row.estado, error: 'access_denied' });
+    const code = token();
+    await client.query(
+      'INSERT INTO mcp_clientes_oauth_codigos (codigo_hash, usuario, escopo, desafio) VALUES ($1,$2,$3,$4)',
+      [h(code), row.usuario, row.escopo, row.desafio]
+    );
+    return redirectResponse({ code, state: row.estado });
+  });
 }
-async function issueTokens(user, scope) {
+async function issueTokens(client, user, scope) {
   const access = token();
   const expires = 900;
-  await pool.query(
+  await client.query(
     'INSERT INTO mcp_clientes_oauth_acessos(token_hash,usuario,escopo,recurso,expira_em) ' +
     "VALUES($1,$2,$3,$4,NOW()+INTERVAL '15 minutes')",
     [h(access), user, scope, resource()]
@@ -144,7 +163,7 @@ async function issueTokens(user, scope) {
   // assim a conexão não depende do escopo opcional offline_access.
   {
     const refresh = token();
-    await pool.query(
+    await client.query(
       'INSERT INTO mcp_clientes_oauth_refresh(token_hash,usuario,escopo,recurso,cliente,expira_em) ' +
       "VALUES($1,$2,$3,$4,$5,NOW()+INTERVAL '30 days')",
       [h(refresh), user, scope, resource(), CLIENT_ID]
@@ -164,29 +183,35 @@ async function exchangeToken(body) {
     if (!/^[A-Za-z0-9._~-]{43,128}$/.test(verifier)) throw oauthError('invalid_grant');
     const code = String(body.code || '');
     if (code.length < 30 || code.length > 200) throw oauthError('invalid_grant');
-    const result = await pool.query(
-      'UPDATE mcp_clientes_oauth_codigos SET consumido_em=NOW() ' +
-      'WHERE codigo_hash=$1 AND consumido_em IS NULL AND expira_em>NOW() ' +
-      'RETURNING usuario,escopo,desafio',
-      [h(code)]
-    );
-    if (!result.rows.length) throw oauthError('invalid_grant');
-    const row = result.rows[0];
-    const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
-    if (!same(challenge, row.desafio)) throw oauthError('invalid_grant');
-    return issueTokens(row.usuario, row.escopo);
+    return transaction(async client => {
+      const result = await client.query(
+        'UPDATE mcp_clientes_oauth_codigos SET consumido_em=NOW() ' +
+        'WHERE codigo_hash=$1 AND consumido_em IS NULL AND expira_em>NOW() ' +
+        'RETURNING usuario,escopo,desafio',
+        [h(code)]
+      );
+      if (!result.rows.length) throw oauthError('invalid_grant');
+      const row = result.rows[0];
+      const challenge = crypto.createHash('sha256').update(verifier).digest('base64url');
+      if (!same(challenge, row.desafio)) throw oauthError('invalid_grant');
+      return issueTokens(client, row.usuario, row.escopo);
+    });
   }
   if (body.grant_type === 'refresh_token') {
     const refresh = String(body.refresh_token || '');
     if (refresh.length < 30 || refresh.length > 200) throw oauthError('invalid_grant');
-    const result = await pool.query(
-      'UPDATE mcp_clientes_oauth_refresh SET consumido_em=NOW() ' +
-      'WHERE token_hash=$1 AND cliente=$2 AND recurso=$3 AND consumido_em IS NULL AND expira_em>NOW() ' +
-      'RETURNING usuario,escopo',
-      [h(refresh), CLIENT_ID, resource()]
-    );
-    if (!result.rows.length) throw oauthError('invalid_grant');
-    return issueTokens(result.rows[0].usuario, result.rows[0].escopo);
+    // O consumo e os dois novos tokens devem confirmar juntos. Uma falha
+    // antes do commit não pode deixar a conexão sem refresh utilizável.
+    return transaction(async client => {
+      const result = await client.query(
+        'UPDATE mcp_clientes_oauth_refresh SET consumido_em=NOW() ' +
+        'WHERE token_hash=$1 AND cliente=$2 AND recurso=$3 AND consumido_em IS NULL AND expira_em>NOW() ' +
+        'RETURNING usuario,escopo',
+        [h(refresh), CLIENT_ID, resource()]
+      );
+      if (!result.rows.length) throw oauthError('invalid_grant');
+      return issueTokens(client, result.rows[0].usuario, result.rows[0].escopo);
+    });
   }
   throw oauthError('unsupported_grant_type');
 }

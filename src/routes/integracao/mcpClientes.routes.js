@@ -11,9 +11,10 @@ const consultas = require('../../services/integracao/mcpConsultasDetalhadas.serv
 
 const router = express.Router();
 const PROTOCOL = '2025-06-18';
-const VERSION = '1.3.0';
+const VERSION = '1.3.1';
 function auditar(ferramenta, rastreio, etapa) {
-  // Apenas nomes validados e etapas constantes. Não registrar argumentos,
+  // Apenas nomes de ferramentas validados (ou null antes da autenticação)
+  // e etapas constantes. Não registrar argumentos,
   // usuário, telefone, tokens, códigos de confirmação ou mensagens de transporte.
   console.info('[mcp/auditoria]', JSON.stringify({ versao: VERSION, ferramenta, rastreio, etapa }));
 }
@@ -88,21 +89,29 @@ function rpcError(res, id, code, message, status = 200) {
   return res.status(status).json({ jsonrpc: '2.0', id, error: { code, message } });
 }
 router.use(async (req, res, next) => {
+  req.mcpRastreio = randomUUID();
+  req.mcpMeta = { 'aluminiojr/versao': VERSION, 'aluminiojr/rastreio': req.mcpRastreio };
   res.set('Cache-Control', 'no-store');
-  if (!auth.enabled()) return res.status(503).json({ erro: 'MCP de clientes desativado.' });
+  res.set('X-MCP-Rastreio', req.mcpRastreio);
+  res.set('X-MCP-Versao', VERSION);
+  if (!auth.enabled()) {
+    auditar(null, req.mcpRastreio, 'servico_desativado');
+    return res.status(503).json({ erro: 'MCP de clientes desativado.', _meta: req.mcpMeta });
+  }
   const bearer = /^Bearer (.+)$/i.exec(req.get('authorization') || '');
   try {
     const credential = bearer ? await auth.validateAccess(bearer[1]) : null;
     if (!credential) {
+      auditar(null, req.mcpRastreio, 'autenticacao_necessaria');
       res.set('WWW-Authenticate', 'Bearer resource_metadata="' + auth.metadataUrl() + '", scope="clientes:read"');
-      return res.status(401).json({ erro: 'Autorização OAuth necessária.' });
+      return res.status(401).json({ erro: 'Autorização OAuth necessária.', _meta: req.mcpMeta });
     }
     req.oauthUser = credential.user;
     req.oauthScopes = credential.scope;
     return next();
-  } catch (err) {
-    console.error('[mcp/clientes] Falha ao validar token:', err.message);
-    return res.status(503).json({ erro: 'Falha temporária na autenticação.' });
+  } catch {
+    auditar(null, req.mcpRastreio, 'autenticacao_indisponivel');
+    return res.status(503).json({ erro: 'Falha temporária na autenticação.', _meta: req.mcpMeta });
   }
 });
 router.get('/status', (req, res) => {
@@ -142,14 +151,14 @@ router.post('/', async (req, res) => {
   if (name !== 'buscar_clientes' && !ferramentaLogistica && !ferramentaDetalhada && !ferramentaPedido) {
     return rpcError(res, m.id, -32602, 'Ferramenta não encontrada.');
   }
-  const rastreio = randomUUID();
-  const meta = { 'aluminiojr/versao': VERSION, 'aluminiojr/rastreio': rastreio };
+  const rastreio = req.mcpRastreio;
+  const meta = req.mcpMeta;
   auditar(name, rastreio, 'recebida');
   const necessarios = ferramentaPedido ? pedidosMcp.requiredScopes(name) : ['clientes:read'];
   const concedidos = new Set(String(req.oauthScopes || '').split(/\s+/));
   if (necessarios.some(scope => !concedidos.has(scope))) {
     auditar(name, rastreio, 'escopo_insuficiente');
-    const challenge = 'Bearer resource_metadata="' + auth.metadataUrl() + '", scope="' + necessarios.join(' ') + '", error="insufficient_scope"';
+    const challenge = 'Bearer resource_metadata="' + auth.metadataUrl() + '", scope="' + necessarios.join(' ') + '", error="insufficient_scope", error_description="This action requires additional OAuth scopes."';
     return jsonrpc(res, m.id, {
       content: [{ type: 'text', text: 'Esta ação precisa de autorização adicional no plugin Alumínio JR: ' + necessarios.filter(s => !concedidos.has(s)).join(', ') + '.' }],
       _meta: { ...meta, 'mcp/www_authenticate': [challenge] },

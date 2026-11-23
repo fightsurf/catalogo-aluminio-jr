@@ -15,7 +15,7 @@ function carregar(nome, dependencias, logger = console) {
   return module.exports;
 }
 
-function ambiente() {
+function ambiente({ authEnabled = true, authError = null } = {}) {
   const chamadas = [];
   const logs = [];
   const registrar = name => async (...args) => { chamadas.push({ name, args }); return { status: 'simulado', pedidos: [], payload: {}, resumo: {} }; };
@@ -39,8 +39,11 @@ function ambiente() {
     express: { Router: () => router },
     'node:crypto': require('node:crypto'),
     '../../services/integracao/mcpClientesOAuth.service': {
-      enabled: () => true, metadataUrl: () => 'https://example.test/.well-known/oauth-protected-resource',
-      validateAccess: async token => token === 'valido' ? { user: 'conta-autenticada', scope: scopes } : null
+      enabled: () => authEnabled, metadataUrl: () => 'https://example.test/.well-known/oauth-protected-resource',
+      validateAccess: async token => {
+        if (authError) throw authError;
+        return token === 'valido' ? { user: 'conta-autenticada', scope: scopes } : null;
+      }
     },
     '../../services/legado/clientes/clientes.service': { listarClientes: async () => [] },
     './mcpLogistica.routes': { mcpTools: [], executeTool: registrar('logistica') },
@@ -50,7 +53,7 @@ function ambiente() {
   }, { info: (...args) => logs.push(args), error: (...args) => logs.push(args) });
   async function requisitar(name, args, scope = 'clientes:read', { token = 'valido', method = 'tools/call' } = {}) {
     scopes = scope;
-    const req = { get: () => 'Bearer ' + token,
+    const req = { get: () => token === null ? undefined : 'Bearer ' + token,
       body: { jsonrpc: '2.0', id: 1, method, params: { name, arguments: args } } };
     const res = { statusCode: 200, headers: {}, body: undefined,
       set(k, v) { this.headers[k] = v; return this; }, status(v) { this.statusCode = v; return this; },
@@ -140,13 +143,86 @@ test('auditoria distingue chegada e escopo sem registrar dados ou códigos de co
   assert.equal(negado.body.result.isError, true);
   const eventos = a.logs.map(l => JSON.parse(l[1]));
   assert.deepEqual(eventos.map(e => e.etapa), ['recebida', 'escopo_insuficiente']);
-  assert.ok(eventos.every(e => e.ferramenta === 'confirmar_pedido' && e.versao === '1.3.0'));
+  assert.ok(eventos.every(e => e.ferramenta === 'confirmar_pedido' && e.versao === '1.3.1'));
   assert.equal(eventos[0].rastreio, eventos[1].rastreio);
   assert.equal(negado.body.result._meta['aluminiojr/rastreio'], eventos[0].rastreio);
+  assert.equal(negado.headers['X-MCP-Rastreio'], eventos[0].rastreio);
+  assert.equal(negado.headers['X-MCP-Versao'], '1.3.1');
+  assert.match(negado.body.result._meta['mcp/www_authenticate'][0], /error="insufficient_scope"/);
+  assert.match(negado.body.result._meta['mcp/www_authenticate'][0], /error_description="This action requires additional OAuth scopes\."/);
   const serializado = JSON.stringify(a.logs);
   for (const segredo of [confirmacaoPedido.rascunho_id, confirmacaoPedido.codigo_confirmacao, 'conta-autenticada', 'Bearer valido']) {
     assert.ok(!serializado.includes(segredo));
   }
+});
+
+test('recusas OAuth antes da ferramenta têm rastreio sem divulgar credenciais ou argumentos', async () => {
+  const a = ambiente();
+  const tokenPrivado = 'token-que-nao-pode-aparecer';
+  const args = { cliente: 'Cliente privado', observacao: 'Observação privada', ...confirmacaoPedido };
+  const respostas = [];
+  for (const token of [null, tokenPrivado]) {
+    const resposta = await a.requisitar('confirmar_pedido', args, 'clientes:read pedidos:write', { token });
+    respostas.push(resposta);
+    assert.equal(resposta.statusCode, 401);
+    assert.match(resposta.headers['WWW-Authenticate'], /resource_metadata=/);
+    assert.match(resposta.headers['WWW-Authenticate'], /scope="clientes:read"/);
+    const evento = JSON.parse(a.logs.at(-1)[1]);
+    assert.deepEqual(evento, {
+      versao: '1.3.1', ferramenta: null, rastreio: resposta.headers['X-MCP-Rastreio'], etapa: 'autenticacao_necessaria'
+    });
+    assert.deepEqual(resposta.body._meta, {
+      'aluminiojr/versao': '1.3.1', 'aluminiojr/rastreio': evento.rastreio
+    });
+    assert.match(evento.rastreio, /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i);
+  }
+  assert.notEqual(respostas[0].headers['X-MCP-Rastreio'], respostas[1].headers['X-MCP-Rastreio']);
+  assert.equal(a.logs.length, 2);
+  assert.deepEqual(a.chamadas, []);
+  const diagnostico = JSON.stringify({ logs: a.logs, respostas: respostas.map(r => r.body) });
+  for (const privado of [tokenPrivado, args.cliente, args.observacao, args.rascunho_id, args.codigo_confirmacao]) {
+    assert.ok(!diagnostico.includes(privado));
+  }
+});
+
+test('indisponibilidade e erro OAuth são distintos sem registrar mensagem arbitrária da falha', async () => {
+  const erroPrivado = new Error('Falha no banco com token-privado, conta-privada e telefone-privado');
+  for (const [authEnabled, etapa, mensagem] of [
+    [false, 'servico_desativado', 'MCP de clientes desativado.'],
+    [true, 'autenticacao_indisponivel', 'Falha temporária na autenticação.']
+  ]) {
+    const a = ambiente({ authEnabled, authError: erroPrivado });
+    const resposta = await a.requisitar('confirmar_pedido', confirmacaoPedido, 'clientes:read pedidos:write');
+    assert.equal(resposta.statusCode, 503);
+    assert.equal(resposta.body.erro, mensagem);
+    assert.deepEqual(a.chamadas, []);
+    assert.equal(a.logs.length, 1);
+    const evento = JSON.parse(a.logs[0][1]);
+    assert.deepEqual(evento, {
+      versao: '1.3.1', ferramenta: null, rastreio: resposta.headers['X-MCP-Rastreio'], etapa
+    });
+    assert.equal(resposta.body._meta['aluminiojr/rastreio'], evento.rastreio);
+    assert.equal(resposta.body._meta['aluminiojr/versao'], '1.3.1');
+    assert.equal(resposta.headers['WWW-Authenticate'], undefined);
+    const diagnostico = JSON.stringify({ logs: a.logs, resposta: resposta.body });
+    for (const privado of [erroPrivado.message, 'token-privado', 'conta-privada', 'telefone-privado', confirmacaoPedido.codigo_confirmacao]) {
+      assert.ok(!diagnostico.includes(privado));
+    }
+  }
+});
+
+test('mesmo rastreio acompanha sucesso da ferramenta e versão anunciada na inicialização', async () => {
+  const a = ambiente();
+  const inicio = await a.requisitar(null, {}, 'clientes:read', { method: 'initialize' });
+  assert.equal(inicio.body.result.serverInfo.version, '1.3.1');
+  assert.equal(inicio.headers['X-MCP-Versao'], '1.3.1');
+  const resposta = await a.requisitar('consultar_pedidos', { numero: '0020001' });
+  assert.equal(resposta.body.result.isError, false);
+  const eventos = a.logs.map(l => JSON.parse(l[1]));
+  assert.deepEqual(eventos.map(e => e.etapa), ['recebida', 'concluida']);
+  assert.ok(eventos.every(e => e.rastreio === resposta.headers['X-MCP-Rastreio']));
+  assert.equal(resposta.body.result._meta['aluminiojr/rastreio'], resposta.headers['X-MCP-Rastreio']);
+  assert.notEqual(inicio.headers['X-MCP-Rastreio'], resposta.headers['X-MCP-Rastreio']);
 });
 
 test('gestão e envio são separados e a expedição exige ambos', async () => {

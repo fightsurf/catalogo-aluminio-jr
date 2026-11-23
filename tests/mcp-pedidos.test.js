@@ -78,6 +78,7 @@ function criarAmbiente(opcoes = {}) {
   } };
   const fakeRequire = name => {
     if (name === 'crypto') return crypto;
+    if (name === './mcpProdutoDescricao') return require('../src/services/integracao/mcpProdutoDescricao');
     if (name === '../../../db/connection') return pool;
     if (name.endsWith('clientes.service')) return clientes;
     if (name.endsWith('vendedores.service')) return vendedores;

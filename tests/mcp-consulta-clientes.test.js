@@ -12,6 +12,7 @@ function stub() {
   const requests = new Map(), codes = new Map(), accesses = new Map(), refreshes = new Map();
   const hash = v => crypto.createHash('sha256').update(v).digest('hex');
   const query = async (sql, p = []) => {
+    if (['BEGIN', 'COMMIT', 'ROLLBACK'].includes(sql)) return { rows: [] };
     if (sql.includes('CREATE TABLE IF NOT EXISTS')) return { rows: [] };
     if (sql.includes('INSERT INTO mcp_clientes_oauth_pedidos')) {
       requests.set(p[0], { id: p[0], csrf_hash: p[1], usuario: p[2], estado: p[3], escopo: p[4], desafio: p[5], used: false });
@@ -57,7 +58,7 @@ function stub() {
   const module = { exports: {} };
   new Function('require', 'module', 'exports', source)((name) => {
     if (name === 'crypto') return crypto;
-    if (name === '../../../db/connection') return { query };
+    if (name === '../../../db/connection') return { query, connect: async () => ({ query, release() {} }) };
     throw Error('Require inesperado: ' + name);
   }, module, module.exports);
   return module.exports;

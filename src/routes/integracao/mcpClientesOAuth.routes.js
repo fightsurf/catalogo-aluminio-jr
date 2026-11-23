@@ -53,7 +53,7 @@ router.get('/oauth/mcp-clientes/authorize', requireAuth, async (req, res) => {
       '<p>Permitir que o ChatGPT consulte clientes (nome, código, cidade, UF, telefone e observação, ',
       'quando disponíveis), pedidos, produtos, vendedores, excursões e transportadoras da Alumínio JR.</p>',
       pedido.scope.split(' ').includes('pedidos:write')
-        ? '<p>Permite criar pedidos após confirmação de cada prévia. Ao vincular uma carrada, inclui o aviso automático descrito na prévia.</p>'
+        ? '<p>Permite criar pedidos e vinculá-los à carrada após confirmação de cada prévia. A criação não envia WhatsApp; o envio requer a permissão de mensagens e confirmação própria.</p>'
         : '',
       pedido.scope.split(' ').includes('pedidos:manage')
         ? '<p>Permite alterar e cancelar pedidos e registrar expedição, sempre após confirmar a prévia de cada ação. Os bloqueios do sistema continuam aplicados.</p>'
