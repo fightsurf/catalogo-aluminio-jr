@@ -7,6 +7,7 @@ const pool = require('../../../db/connection');
 const clientesService = require('../legado/clientes/clientes.service');
 const vendedoresService = require('../legado/vendedores/vendedores.service');
 const produtoService = require('../produto/produto.service');
+const { pontuar } = require('./mcpProdutoDescricao');
 const pedidosService = require('../legado/pedidos-insercao-v2/pedidos-insercao-v2.service');
 
 let schemaPromise;
@@ -110,16 +111,33 @@ async function buscarVendedores({ nome = '' } = {}) {
 async function buscarProdutos({ nome, modalidade = 'orcamento' }) {
   if (texto(nome).length < 2 || texto(nome).length > 100) falhar('Informe pelo menos duas letras do produto.');
   if (!['orcamento', 'kit-feirinha'].includes(modalidade)) falhar('Modalidade inválida.');
-  const produtos = await produtoService.listar({ busca: texto(nome), apenasAtivos: true, perfil: modalidade });
+  const consulta = texto(nome);
+  const diretos = await produtoService.listar({ busca: consulta, apenasAtivos: true, perfil: modalidade });
+  // A busca literal continua prioritária. Na ausência de resultado, pesquisa o catálogo
+  // ativo do mesmo perfil, sem confundir descrição semelhante com produto confirmado.
+  const candidatos = diretos.length ? diretos : await produtoService.listar({ apenasAtivos: true, perfil: modalidade });
+  const ranqueados = diretos.length
+    ? diretos.map(p => ({ p, score: 100 }))
+    : candidatos.map(p => ({ p, score: pontuar(consulta, p) })).filter(x => x.score !== null)
+        .sort((a, b) => b.score - a.score || a.p.nome.localeCompare(b.p.nome));
+  const produtos = ranqueados.slice(0, 20).map(({ p, score }) => ({
+    produto_id: p.id,
+    nome: p.nome,
+    preco_referencia: Number(p.preco),
+    item_legado: p.item_legado || null,
+    pode_inserir: Boolean(p.item_legado),
+    pontuacao_busca: score
+  }));
   return {
-    total_encontrado: produtos.length,
-    produtos: produtos.slice(0, 20).map(p => ({
-      produto_id: p.id,
-      nome: p.nome,
-      preco_referencia: Number(p.preco),
-      item_legado: p.item_legado || null,
-      pode_inserir: Boolean(p.item_legado)
-    }))
+    total_encontrado: ranqueados.length,
+    produtos,
+    busca_por_descricao: !diretos.length,
+    requer_confirmacao_produto: !diretos.length,
+    mensagem: !ranqueados.length
+      ? 'Nenhum produto compatível encontrado no catálogo ativo deste perfil. Não substitua por outro produto.'
+      : !diretos.length
+        ? 'Candidatos por descrição. Confirme o produto exato antes de preparar o pedido.'
+        : 'Produtos encontrados pelo nome cadastrado.'
   };
 }
 
