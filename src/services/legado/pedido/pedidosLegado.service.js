@@ -5,6 +5,7 @@ const pedidoPdfService = require('./pedidoPdf.service');
 const prestacaoContasService = require('../../prestacao_contas/prestacao_contas.service');
 const clientesCreditosService = require('../clientes-creditos/clientes-creditos.service');
 const volumeService = require('../../volume/volume.service');
+const valorEmbutidoService = require('./valor-embutido.service');
 
 function limparTexto(valor) {
   if (typeof valor !== 'string') {
@@ -339,7 +340,7 @@ async function buscarItensPedido(idMestre) {
     return null;
   }
 
-  return {
+  const resultado = {
     carradaAtual: normalizarCarrada(pedido.carradaAtual),
     itens: Array.isArray(pedido.itens)
       ? pedido.itens.map((item) => ({
@@ -353,6 +354,8 @@ async function buscarItensPedido(idMestre) {
         }))
       : []
   };
+  resultado.valorEmbutido = await valorEmbutidoService.obterValorEmbutido(idMestre, resultado.itens);
+  return resultado;
 }
 
 async function buscarDetalhePedido(idMestre) {
@@ -366,7 +369,7 @@ async function buscarDetalhePedido(idMestre) {
     return null;
   }
 
-  return {
+  const resultado = {
     ...(await enriquecerPedidosComPagamentos([normalizarPedido({
       ...pedido,
       carradaAtual: pedido?.carradaAtual || null
@@ -383,6 +386,8 @@ async function buscarDetalhePedido(idMestre) {
         }))
       : []
   };
+  resultado.valorEmbutido = await valorEmbutidoService.obterValorEmbutido(idMestre, resultado.itens);
+  return resultado;
 }
 
 async function enviarPdfWhatsappPedido(idMestre) {
@@ -544,16 +549,40 @@ async function alterarClientePedido(idMestre, payload = {}) {
 }
 
 async function atualizarPedido(idMestre, payload = {}) {
-  const response = await legadoBridgeService.put(
-    `/api/legado/pedidos/${idMestre}`,
-    payload
-  );
+  const possuiValorEmbutido = Object.prototype.hasOwnProperty.call(payload, 'valorEmbutido');
+  const estadoAtual = possuiValorEmbutido
+    ? await legadoBridgeService.get(`/api/legado/pedidos/${idMestre}/itens`) : null;
+  if (possuiValorEmbutido && !Array.isArray(estadoAtual?.data?.itens)) {
+    throw new Error('Não foi possível conferir os itens atuais. Reabra o pedido antes de salvar.');
+  }
+  const valorPreservado = await valorEmbutidoService.obterValorEmbutido(idMestre, estadoAtual?.data?.itens);
+  if (!possuiValorEmbutido) valorEmbutidoService.conferirPreservacao(valorPreservado, payload.itens);
+  const operacao = possuiValorEmbutido && (payload.valorEmbutido !== null || valorPreservado !== null)
+    ? await valorEmbutidoService.prepararOperacao({ pedidoId: idMestre, valorEmbutido: payload.valorEmbutido,
+      itens: payload.itens, valorEmbutidoAnterior: valorPreservado, itensAnteriores: estadoAtual.data.itens })
+    : null;
+  const payloadLegado = { ...payload };
+  delete payloadLegado.valorEmbutido;
+
+  let response;
+  try {
+    response = await legadoBridgeService.put(`/api/legado/pedidos/${idMestre}`, payloadLegado);
+    if (operacao && !response?.data) throw new Error('O bridge não retornou o pedido salvo.');
+  } catch (error) {
+    if (!operacao) throw error;
+    await valorEmbutidoService.marcarIncerto(operacao);
+    return valorEmbutidoService.resultadoIncerto(operacao);
+  }
 
   const pedido = response?.data || null;
 
   if (!pedido) {
     return null;
   }
+
+  const resultadoValor = operacao
+    ? await valorEmbutidoService.concluirOperacao(operacao, { ...pedido, idMestre })
+    : { valorEmbutido: valorPreservado };
 
   return {
     ...normalizarPedido({
@@ -570,7 +599,8 @@ async function atualizarPedido(idMestre, payload = {}) {
           preco: Number(item?.preco ?? 0),
           subtotal: Number(item?.subtotal ?? item?.subtotalitem ?? 0)
         }))
-      : []
+      : [],
+    ...resultadoValor
   };
 }
 
@@ -663,6 +693,10 @@ function normalizarPedidoComItensParticao(pedido) {
 }
 
 async function particionarPedido(idMestre, payload = {}) {
+  const valorEmbutido = await valorEmbutidoService.obterValorEmbutido(idMestre);
+  if (valorEmbutido) {
+    throw new Error('Retire o valor embutido na edição antes de dividir o pedido. Isso preserva a possibilidade de desfazer o acréscimo.');
+  }
   const response = await legadoBridgeService.post(
     `/api/legado/pedidos/${idMestre}/particionar`,
     payload

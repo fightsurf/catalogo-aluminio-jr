@@ -163,23 +163,48 @@ async function inserirPedido(payload) {
   const baseUrl = getBridgeBaseUrl();
 
   if (!baseUrl) {
-    throw new Error('LEGADO_BRIDGE_URL ou LEGACY_FIREBIRD_API_URL não configurada.');
+    const erro = new Error('LEGADO_BRIDGE_URL ou LEGACY_FIREBIRD_API_URL não configurada.');
+    erro.pedidoNaoGravado = true;
+    throw erro;
   }
 
-  const payloadLegado = await prepararPayloadLegado(payload);
+  let payloadLegado;
+  try {
+    payloadLegado = await prepararPayloadLegado(payload);
+  } catch (error) {
+    error.pedidoNaoGravado = true;
+    throw error;
+  }
+  const valorEmbutidoService = payload?.valorEmbutido !== undefined && payload?.valorEmbutido !== null
+    ? require('../pedido/valor-embutido.service') : null;
+  const operacao = valorEmbutidoService
+    ? await valorEmbutidoService.prepararOperacao({ valorEmbutido: payload.valorEmbutido, itens: payloadLegado.itens })
+    : null;
 
-  const response = await fetch(`${baseUrl}/api/pedidos-insercao-v2`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(payloadLegado)
-  });
+  let data;
+  try {
+    const response = await fetch(`${baseUrl}/api/pedidos-insercao-v2`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payloadLegado)
+    });
 
-  const data = await response.json().catch(() => ({}));
+    data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data?.detalhe || data?.erro || `Falha HTTP ${response.status}`);
+    }
+    if (operacao && !data?.pedido) throw new Error('O bridge não retornou o pedido salvo.');
+  } catch (error) {
+    if (!operacao) throw error;
+    await valorEmbutidoService.marcarIncerto(operacao);
+    return valorEmbutidoService.resultadoIncerto(operacao);
+  }
 
-  if (!response.ok) {
-    throw new Error(data?.detalhe || data?.erro || `Falha HTTP ${response.status}`);
+  if (operacao) {
+    const resultadoValor = await valorEmbutidoService.concluirOperacao(operacao, data.pedido);
+    data = { ...data, ...resultadoValor, pedido: { ...data.pedido, valorEmbutido: resultadoValor.valorEmbutido } };
   }
 
   // O frontend e o MCP solicitam explicitamente o aviso automático;

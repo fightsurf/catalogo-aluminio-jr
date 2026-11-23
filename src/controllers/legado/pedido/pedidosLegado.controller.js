@@ -176,6 +176,10 @@ async function atualizarPedido(req, res) {
 
     const pedido = await pedidosLegadoService.atualizarPedido(idMestre, req.body || {});
 
+    if (pedido?.salvamentoIncerto) {
+      return res.status(202).json({ success: true, data: null, ...pedido });
+    }
+
     return res.json({
       success: true,
       message: 'Pedido atualizado com sucesso.',

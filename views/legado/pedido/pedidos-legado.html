@@ -227,6 +227,8 @@
       font-weight: 600;
     }
 
+    .resumo-valor-embutido { margin:14px 0; padding:14px; border:1px solid #bfdbfe; border-radius:8px; background:#eff6ff; font-size:14px; line-height:1.6; }
+
     .acoes-edicao-inline {
       display: flex;
       justify-content: flex-end;
@@ -748,6 +750,7 @@
 
   <script src="/js/relatorio-aluminio-jr.js"></script>
   <script src="/js/pedido-mensagem-whatsapp.js"></script>
+  <script src="/js/pedido-valor-embutido.js"></script>
   <script>
     const numeroPedidoInput = document.getElementById('numeroPedido');
     const clientePedidoInput = document.getElementById('clientePedido');
@@ -830,6 +833,9 @@
     let vendedoresCache = [];
     let carradasCache = [];
     let itensEdicao = [];
+    let valorEmbutidoEdicao = null;
+    let salvandoAlteracoes = false;
+    let salvamentoIncertoEdicao = false;
     let catalogoProdutosEdicao = new Map();
     let atualizandoPrecosEdicao = false;
     let modoEdicao = false;
@@ -978,12 +984,50 @@
       return itensEdicao.reduce((acc, item) => acc + Number(item?.quantidade || 0), 0);
     }
 
+    function recalcularValorEmbutidoEdicao() {
+      if (valorEmbutidoEdicao) {
+        valorEmbutidoEdicao = PedidoValorEmbutido.recalcular(itensEdicao, valorEmbutidoEdicao);
+      }
+    }
+
+    function montarPainelValorEmbutido(valorEmbutido, permitirRetirada = false, aviso = '') {
+      if (!valorEmbutido && !aviso) return '';
+      return `
+        <div class="resumo-valor-embutido" aria-live="polite">
+          ${valorEmbutido ? `
+            <div><strong>Produto embutido:</strong> ${escapeHtml(valorEmbutido.produto?.nome || 'Produto')}</div>
+            <div>Valor do produto: ${moeda(valorEmbutido.valor)} · Acréscimo por unidade: ${moeda(valorEmbutido.acrescimoUnitario)}</div>
+            <div><strong>Total distribuído: ${moeda(valorEmbutido.totalDistribuido)}</strong> em ${numero(valorEmbutido.quantidadeTotal)} unidades.</div>
+            ${Math.abs(Number(valorEmbutido.diferenca || 0)) >= 0.005 ? `<div class="texto-ajuda">Diferença de arredondamento: ${moeda(valorEmbutido.diferenca)}.</div>` : ''}
+            ${permitirRetirada ? `<div style="margin-top:10px;"><button id="btnRetirarValorEmbutido" class="btn btn-danger" type="button">Retirar produto embutido</button><div class="texto-ajuda" style="margin-top:6px;">A retirada remove o acréscimo dos preços e será gravada ao salvar as alterações.</div></div>` : ''}
+          ` : ''}
+          ${aviso ? `<div class="texto-ajuda">${escapeHtml(aviso)}</div>` : ''}
+        </div>
+      `;
+    }
+
+    function retirarValorEmbutidoEdicao() {
+      if (!modoEdicao || !valorEmbutidoEdicao || salvandoAlteracoes) return;
+      try {
+        const totalAnterior = totalPedidoAtual();
+        valorEmbutidoEdicao = PedidoValorEmbutido.remover(itensEdicao, valorEmbutidoEdicao);
+        renderizarCliente(pedidoCarregado);
+        renderizarItens(pedidoCarregado);
+        setMensagem(`Produto embutido retirado. Acréscimo removido: ${moeda(totalAnterior - totalPedidoAtual())}. Clique em Salvar alterações para gravar.`);
+      } catch (error) {
+        setMensagem(error.message || 'Não foi possível retirar o produto embutido.', true);
+      }
+    }
+
     async function fetchJson(url, options = {}) {
       const response = await fetch(url, options);
       const json = await response.json().catch(() => ({}));
 
       if (!response.ok || json?.success === false || json?.sucesso === false) {
-        throw new Error(json?.message || json?.erro || json?.detalhe || 'Erro ao processar requisição.');
+        const error = new Error(json?.message || json?.erro || json?.detalhe || 'Erro ao processar requisição.');
+        error.salvamentoIncerto = json?.salvamentoIncerto === true;
+        error.respostaDefinitiva = response.status >= 400 && response.status < 500;
+        throw error;
       }
 
       return json;
@@ -1038,6 +1082,8 @@
       codigoCarradaEdicao = '';
       observacaoEdicao = '';
       itensEdicao = [];
+      valorEmbutidoEdicao = null;
+      salvamentoIncertoEdicao = false;
       textoRelatorioEdicao = '';
       multiplicadorRelatorioEdicao = '1';
       itensNaoReconhecidosRelatorio = [];
@@ -1605,7 +1651,7 @@
     }
 
     async function atualizarPrecosEdicao(indice = null) {
-      if (!modoEdicao || !pedidoCarregado || atualizandoPrecosEdicao) return;
+      if (!modoEdicao || !pedidoCarregado || atualizandoPrecosEdicao || salvandoAlteracoes) return;
       if (indice !== null && (!Number.isInteger(indice) || !itensEdicao[indice])) return;
       atualizandoPrecosEdicao = true;
       try {
@@ -1618,8 +1664,9 @@
           const produto = catalogo.get(Number(item.item));
           const precoAtual = Number(produto?.preco);
           if (!produto || !Number.isFinite(precoAtual) || precoAtual < 0) { naoEncontrados++; return; }
-          if (Math.abs(precoAtual - Number(item.preco || 0)) >= 0.0005) {
-            alteracoes.push({ index: i, anterior: Number(item.preco || 0), atual: precoAtual, quantidade: Number(item.quantidade || 0) });
+          const precoComEmbutido = Number((precoAtual + Number(valorEmbutidoEdicao?.acrescimoUnitario || 0)).toFixed(3));
+          if (Math.abs(precoComEmbutido - Number(item.preco || 0)) >= 0.0005) {
+            alteracoes.push({ index: i, anterior: Number(item.preco || 0), atual: precoAtual, final: precoComEmbutido, quantidade: Number(item.quantidade || 0) });
           }
         });
         if (!alteracoes.length) {
@@ -1627,10 +1674,14 @@
           return;
         }
         if (indice === null) {
-          const diferenca = alteracoes.reduce((soma, item) => soma + (item.atual - item.anterior) * item.quantidade, 0);
+          const diferenca = alteracoes.reduce((soma, item) => soma + (item.final - item.anterior) * item.quantidade, 0);
           if (!window.confirm(`Atualizar ${alteracoes.length} preço(s) deste pedido? Diferença no total: ${moeda(diferenca)}. Os valores só serão gravados ao clicar em Salvar alterações.`)) return;
         }
-        alteracoes.forEach((item) => { itensEdicao[item.index].preco = item.atual; });
+        alteracoes.forEach((item) => {
+          if (valorEmbutidoEdicao) PedidoValorEmbutido.definirPreco(itensEdicao[item.index], item.atual, { base: true });
+          else itensEdicao[item.index].preco = item.atual;
+        });
+        recalcularValorEmbutidoEdicao();
         renderizarCliente(pedidoCarregado);
         renderizarItens(pedidoCarregado);
         setMensagem(`${alteracoes.length} preço(s) atualizado(s) conforme o cadastro atual. ${naoEncontrados ? `${naoEncontrados} produto(s) não encontrado(s). ` : ''}Clique em Salvar alterações para gravar o pedido.`);
@@ -1690,9 +1741,9 @@
       if (!Number.isFinite(quantidadeNumero) || quantidadeNumero <= 0) return false;
       if (!Number.isFinite(precoNumero) || precoNumero < 0) return false;
 
-      const existente = itensEdicao.find((item) => (
+      const existente = itensEdicao.find((item, index) => (
         Number(item?.item || 0) === codigoItem
-        && Math.abs(Number(item?.preco || 0) - precoNumero) < 0.0001
+        && Math.abs(Number(valorEmbutidoEdicao?.linhas?.[index]?.precoBase ?? item?.preco ?? 0) - precoNumero) < 0.0001
       ));
 
       if (existente) {
@@ -1706,6 +1757,7 @@
         });
       }
 
+      recalcularValorEmbutidoEdicao();
       return true;
     }
 
@@ -1725,7 +1777,7 @@
     }
 
     async function importarRelatorioEdicao() {
-      if (importandoRelatorio) return;
+      if (importandoRelatorio || salvandoAlteracoes || salvamentoIncertoEdicao) return;
 
       const texto = String(textoRelatorioEdicao || '').trim();
       const multiplicador = Number(multiplicadorRelatorioEdicao || 1);
@@ -1871,6 +1923,7 @@
     }
 
     function selecionarProdutoBusca(index = 0) {
+      if (salvandoAlteracoes || salvamentoIncertoEdicao) return;
       const produto = buscaProdutoResultados[index];
       if (!produto) return;
 
@@ -1880,6 +1933,7 @@
         quantidade: 1,
         preco: Number(produto.preco || 0)
       });
+      recalcularValorEmbutidoEdicao();
 
       const nomeProduto = produto.nome || 'Produto';
       limparBuscaProduto();
@@ -1965,14 +2019,29 @@
       if (btnCancelarInline) {
         btnCancelarInline.addEventListener('click', sairModoEdicao);
       }
+      document.getElementById('btnRetirarValorEmbutido')?.addEventListener('click', retirarValorEmbutidoEdicao);
 
       document.querySelectorAll('input[data-campo-item]').forEach((input) => {
         input.addEventListener('change', () => {
           const index = Number(input.dataset.index);
           const campo = input.dataset.campoItem;
           const valor = Number(input.value);
-          if (!Number.isFinite(valor)) return;
-          itensEdicao[index][campo] = valor;
+          const anterior = Number(itensEdicao[index][campo]);
+          try {
+            if (!Number.isFinite(valor) || (campo === 'quantidade' ? valor <= 0 : valor < 0)) {
+              throw new Error(campo === 'quantidade' ? 'Informe uma quantidade maior que zero.' : 'Informe um preço válido.');
+            }
+            if (campo === 'preco' && valorEmbutidoEdicao) {
+              PedidoValorEmbutido.definirPreco(itensEdicao[index], valor);
+            } else {
+              itensEdicao[index][campo] = valor;
+            }
+            recalcularValorEmbutidoEdicao();
+          } catch (error) {
+            if (campo === 'preco' && valorEmbutidoEdicao) PedidoValorEmbutido.definirPreco(itensEdicao[index], anterior);
+            else itensEdicao[index][campo] = anterior;
+            setMensagem(error.message || 'Não foi possível atualizar o item.', true);
+          }
           renderizarCliente(pedidoCarregado);
           renderizarItens(pedidoCarregado);
         });
@@ -1987,6 +2056,7 @@
         button.addEventListener('click', () => {
           const index = Number(button.dataset.index);
           itensEdicao.splice(index, 1);
+          recalcularValorEmbutidoEdicao();
           renderizarCliente(pedidoCarregado);
           renderizarItens(pedidoCarregado);
         });
@@ -2075,11 +2145,13 @@
               Os volumes de cada item são exibidos com duas casas decimais. O total do pedido é a soma dos itens arredondada para cima.
             </div>
           ` : ''}
+          ${montarPainelValorEmbutido(pedido.valorEmbutido, false, pedido.avisoValorEmbutido)}
         `;
         return;
       }
 
       blocoItens.innerHTML = `
+        ${montarPainelValorEmbutido(valorEmbutidoEdicao, true)}
         <div class="cabecalho-box">
           <div>
             <h2 style="margin:0; font-size:18px;">Itens do pedido</h2>
@@ -2138,7 +2210,7 @@
 
         <div class="acoes-edicao-inline">
           <button id="btnCancelarEdicaoInline" class="btn btn-secondary" type="button">Cancelar alterações</button>
-          <button id="btnSalvarAlteracoesInline" class="btn btn-primary" type="button">Salvar alterações</button>
+          <button id="btnSalvarAlteracoesInline" class="btn btn-primary" type="button" ${salvandoAlteracoes || salvamentoIncertoEdicao ? 'disabled' : ''}>${salvamentoIncertoEdicao ? 'Consulte o pedido antes de salvar' : 'Salvar alterações'}</button>
         </div>
       `;
 
@@ -2798,12 +2870,15 @@
         setMensagem('Nenhum pedido carregado para edição.', true);
         return;
       }
+      if (salvamentoIncertoEdicao) {
+        setMensagem('Consulte o pedido novamente para conferir o resultado do último salvamento antes de editar.', true);
+        return;
+      }
 
       try {
         setMensagem('Preparando edição...');
         await Promise.all([carregarVendedores(), carregarCarradasDisponiveis()]);
 
-        modoEdicao = true;
         calculoVolumesItens = [];
         dataVendaEdicao = formatarDataParaInput(pedidoCarregado?.data);
         vendedorEdicao = String(pedidoCarregado?.vendedor?.favorecido || '');
@@ -2812,11 +2887,15 @@
         itensEdicao = Array.isArray(pedidoCarregado?.itens)
           ? pedidoCarregado.itens.map((item) => ({
               item: Number(item?.item || 0),
+              saidaItem: item?.saidaItem,
+              sequencia: item?.sequencia,
               descricao: item?.descricao || '',
               quantidade: Number(item?.quantidade || 0),
               preco: Number(item?.preco || 0)
             }))
           : [];
+        valorEmbutidoEdicao = PedidoValorEmbutido.carregar(itensEdicao, pedidoCarregado.valorEmbutido);
+        modoEdicao = true;
         textoRelatorioEdicao = '';
         multiplicadorRelatorioEdicao = '1';
         itensNaoReconhecidosRelatorio = [];
@@ -2826,6 +2905,10 @@
         renderizarPedidoCompleto();
         setMensagem('Modo edição ativado.');
       } catch (error) {
+        modoEdicao = false;
+        itensEdicao = [];
+        valorEmbutidoEdicao = null;
+        renderizarPedidoCompleto();
         setMensagem(error.message || 'Erro ao preparar edição.', true);
       }
     }
@@ -2838,6 +2921,7 @@
       codigoCarradaEdicao = '';
       observacaoEdicao = '';
       itensEdicao = [];
+      valorEmbutidoEdicao = null;
       modalImportacaoEdicao.classList.add('oculto');
       textoRelatorioEdicao = '';
       multiplicadorRelatorioEdicao = '1';
@@ -3020,6 +3104,8 @@
         saida: pedidoBase?.saida ?? pedidoBase?.idMestre ?? null,
         pdv: pedidoBase?.pdv ?? 0,
         carradaAtual: jsonItens?.data?.carradaAtual || null,
+        valorEmbutido: jsonItens?.data?.valorEmbutido ?? null,
+        avisoValorEmbutido: jsonItens?.data?.avisoValorEmbutido || '',
         itens: Array.isArray(jsonItens?.data?.itens) ? jsonItens.data.itens : []
       };
 
@@ -3029,6 +3115,8 @@
       codigoCarradaEdicao = '';
       observacaoEdicao = '';
       itensEdicao = [];
+      valorEmbutidoEdicao = null;
+      salvamentoIncertoEdicao = false;
       textoRelatorioEdicao = '';
       multiplicadorRelatorioEdicao = '1';
       itensNaoReconhecidosRelatorio = [];
@@ -3109,6 +3197,11 @@
     }
 
     async function salvarAlteracoesPedido() {
+      if (salvandoAlteracoes || salvamentoIncertoEdicao) return;
+      if (importandoRelatorio || atualizandoPrecosEdicao) {
+        setMensagem('Aguarde a importação ou atualização dos preços terminar antes de salvar.', true);
+        return;
+      }
       if (!pedidoCarregado?.idMestre) {
         setMensagem('Nenhum pedido carregado para edição.', true);
         return;
@@ -3128,15 +3221,28 @@
         setMensagem('O pedido precisa ter ao menos 1 item.', true);
         return;
       }
+      if (valorEmbutidoEdicao && Number(valorEmbutidoEdicao.acrescimoUnitario) <= 0) {
+        setMensagem('O valor embutido fica abaixo de um centavo por unidade. Retire-o ou ajuste o pedido antes de salvar.', true);
+        return;
+      }
 
       const codigoCarradaAnterior = String(pedidoCarregado?.carradaAtual?.codigo || '');
       const codigoCarradaNova = String(codigoCarradaEdicao || '');
       const carradaFoiAlterada = codigoCarradaAnterior !== codigoCarradaNova;
 
+      let valorEmbutidoParaSalvar;
+      try {
+        valorEmbutidoParaSalvar = PedidoValorEmbutido.serializar(itensEdicao, valorEmbutidoEdicao);
+      } catch (error) {
+        setMensagem(error.message || 'Não foi possível conferir o valor embutido.', true);
+        return;
+      }
+
       const payload = {
         data: dataVendaEdicao,
         vendedor: Number(vendedorEdicao),
         obs: observacaoEdicao || '',
+        valorEmbutido: valorEmbutidoParaSalvar,
         itens: itensEdicao.map((item) => ({
           item: Number(item.item),
           descricao: item.descricao || '',
@@ -3146,21 +3252,34 @@
       };
 
       const textoOriginal = btnSalvarAlteracoes.textContent;
+      let enviouPedido = false;
+      let respostaValidada = false;
 
       try {
+        salvandoAlteracoes = true;
         btnSalvarAlteracoes.disabled = true;
         btnSalvarAlteracoes.textContent = 'Salvando...';
+        blocoItens.querySelectorAll('button, input').forEach((elemento) => { elemento.disabled = true; });
+        dadosCliente.querySelectorAll('button, input, select, textarea').forEach((elemento) => { elemento.disabled = true; });
+        conteudoImportacaoEdicao.querySelectorAll('button, input, textarea').forEach((elemento) => { elemento.disabled = true; });
 
+        enviouPedido = true;
         const json = await fetchJson(`/api/legado/pedidos/${pedidoCarregado.idMestre}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
 
-        const pedidoAtualizado = json?.data || null;
-        if (!pedidoAtualizado) {
-          throw new Error('A API não retornou o pedido atualizado.');
+        if (json?.salvamentoIncerto === true) {
+          salvamentoIncertoEdicao = true;
+          throw new Error(json?.avisoValorEmbutido || json?.aviso || json?.message || 'O resultado do salvamento precisa ser conferido. Consulte o pedido novamente antes de repetir a operação.');
         }
+
+        const pedidoAtualizado = json?.data || null;
+        if (!pedidoAtualizado || Number(pedidoAtualizado.idMestre ?? pedidoAtualizado.saida) !== Number(pedidoCarregado.idMestre)) {
+          throw new Error('A API não confirmou o pedido atualizado.');
+        }
+        respostaValidada = true;
 
         if (carradaFoiAlterada) {
           const jsonCarrada = await fetchJson(`/api/legado/pedidos/${pedidoCarregado.idMestre}/carrada`, {
@@ -3180,6 +3299,8 @@
         pedidoCarregado = {
           ...pedidoCarregado,
           ...pedidoAtualizado,
+          valorEmbutido: pedidoAtualizado.valorEmbutido !== undefined ? pedidoAtualizado.valorEmbutido : valorEmbutidoParaSalvar,
+          avisoValorEmbutido: pedidoAtualizado.avisoValorEmbutido || json?.avisoValorEmbutido || '',
           totalPago: totalPagoAtual,
           saldoRestante: Math.max(Number(pedidoAtualizado?.total || 0) - totalPagoAtual, 0),
           itens: Array.isArray(pedidoAtualizado?.itens)
@@ -3213,18 +3334,30 @@
         codigoCarradaEdicao = '';
         observacaoEdicao = '';
         itensEdicao = [];
+        valorEmbutidoEdicao = null;
         textoRelatorioEdicao = '';
         multiplicadorRelatorioEdicao = '1';
         itensNaoReconhecidosRelatorio = [];
         importandoRelatorio = false;
         limparBuscaProduto();
         renderizarPedidoCompleto();
-        setMensagem('Pedido atualizado com sucesso.');
+        setMensagem(pedidoCarregado.avisoValorEmbutido || 'Pedido atualizado com sucesso.', !!pedidoCarregado.avisoValorEmbutido);
       } catch (error) {
-        setMensagem(error.message || 'Erro ao salvar alterações do pedido.', true);
+        if (error.salvamentoIncerto) salvamentoIncertoEdicao = true;
+        if (enviouPedido && !respostaValidada && !error.respostaDefinitiva) {
+          salvamentoIncertoEdicao = true;
+          setMensagem('O salvamento não foi confirmado. Consulte o pedido novamente antes de repetir a operação; as alterações podem já ter sido gravadas.', true);
+        } else {
+          setMensagem(error.message || 'Erro ao salvar alterações do pedido.', true);
+        }
       } finally {
-        btnSalvarAlteracoes.disabled = false;
+        salvandoAlteracoes = false;
+        btnSalvarAlteracoes.disabled = salvamentoIncertoEdicao;
         btnSalvarAlteracoes.textContent = textoOriginal;
+        if (modoEdicao) {
+          renderizarCliente(pedidoCarregado);
+          renderizarItens(pedidoCarregado);
+        }
       }
     }
 

@@ -142,11 +142,13 @@ test('itens novos usam cadastro real, lista completa e revalidam preço antes de
   assert.equal(efeitos().length, 0);
 });
 
-test('edição bloqueia desconto abaixo do cadastro e total abaixo do já pago', async () => {
+test('prévia aceita preço negociado e bloqueia total abaixo do já pago', async () => {
   const { service, estado, efeitos } = carregarServico();
-  await assert.rejects(service.prepararAlteracao({
+  const negociado = await service.prepararAlteracao({
     id_mestre: 102, itens: [{ produto_id: 7, quantidade: 1, preco: 1 }]
-  }), /preço inferior/);
+  });
+  assert.equal(negociado.payload.gravar.itens[0].preco, 1);
+  assert.equal(negociado.resumo.proposto.total, 1);
   estado.pedido.totalPago = 15;
   await assert.rejects(service.prepararAlteracao({
     id_mestre: 102, itens: [{ produto_id: 7, quantidade: 1 }]

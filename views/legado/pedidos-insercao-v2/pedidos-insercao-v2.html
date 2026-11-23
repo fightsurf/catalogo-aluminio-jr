@@ -52,6 +52,12 @@
     .tabela-itens th, .tabela-itens td { padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: left; vertical-align: middle; }
     .tabela-itens th { font-size: 13px; color: #374151; }
     .tabela-itens td.valor, .tabela-itens th.valor { text-align: right; }
+    .tabela-itens tfoot { background: #f9fafb; font-weight: bold; }
+    .embutir-acoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .valor-embutido { padding: 12px; margin-top: 12px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; }
+    .valor-embutido p { margin: 6px 0; font-size: 13px; }
+    .valor-embutido .lista-busca { margin-top: 8px; max-height: 220px; }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
     .tabela-itens input[type=number] { text-align: right; }
     .tabela-vazia { padding: 18px; color: #6b7280; background: #f9fafb; border: 1px dashed #d1d5db; border-radius: 10px; }
     .footer-pedido { margin-top: 18px; display: flex; flex-direction: column; gap: 12px; align-items: stretch; }
@@ -153,6 +159,22 @@
 
         <div id="tabelaItensWrap" style="margin-top: 18px;"></div>
 
+        <div class="embutir-acoes">
+          <button id="btnEmbutirValor" class="secundario" type="button">Embutir valor</button>
+        </div>
+        <section id="painelEmbutirValor" class="valor-embutido" aria-label="Embutir valor de um produto" hidden>
+          <p>Escolha o produto cujo preço será dividido entre todas as unidades do pedido.</p>
+          <label class="rotulo-pequeno" for="buscaProdutoEmbutido">Produto a embutir</label>
+          <input id="buscaProdutoEmbutido" type="text" autocomplete="off" placeholder="Digite ao menos 2 letras do produto" />
+          <div id="resultadosProdutoEmbutido" class="lista-busca"></div>
+          <div id="previaValorEmbutido" aria-live="polite"></div>
+          <div class="embutir-acoes">
+            <button id="btnAplicarValorEmbutido" class="acao-principal" type="button" disabled>Aplicar valor</button>
+            <button id="btnFecharValorEmbutido" class="secundario" type="button">Fechar</button>
+          </div>
+        </section>
+        <div id="resumoValorEmbutido" class="valor-embutido" aria-live="polite" hidden></div>
+
         <div class="footer-pedido">
           <div class="footer-pedido-top">
             <div>
@@ -225,6 +247,7 @@
   </div>
 
   <script src="/js/perfil-compras-chart.js"></script>
+  <script src="/js/pedido-valor-embutido.js"></script>
   <script>
     const mensagem = document.getElementById('mensagem');
     const buscaCliente = document.getElementById('buscaCliente');
@@ -247,6 +270,13 @@
     const buscaProduto = document.getElementById('buscaProduto');
     const dropdownProdutos = document.getElementById('dropdownProdutos');
     const tabelaItensWrap = document.getElementById('tabelaItensWrap');
+    const btnEmbutirValor = document.getElementById('btnEmbutirValor');
+    const painelEmbutirValor = document.getElementById('painelEmbutirValor');
+    const buscaProdutoEmbutido = document.getElementById('buscaProdutoEmbutido');
+    const resultadosProdutoEmbutido = document.getElementById('resultadosProdutoEmbutido');
+    const previaValorEmbutido = document.getElementById('previaValorEmbutido');
+    const btnAplicarValorEmbutido = document.getElementById('btnAplicarValorEmbutido');
+    const resumoValorEmbutido = document.getElementById('resumoValorEmbutido');
     const obsPedido = document.getElementById('obsPedido');
     const vendedorPedido = document.getElementById('vendedorPedido');
     const volumesPedido = document.getElementById('volumesPedido');
@@ -276,6 +306,11 @@
     let produtosEncontrados = [];
     let indiceProdutoAtivo = -1;
     let itensPedido = [];
+    let valorEmbutido = null;
+    let produtoEmbutidoSelecionado = null;
+    let sequenciaBuscaEmbutido = 0;
+    let timerBuscaEmbutido = null;
+    let salvamentoIncerto = false;
     let sequenciaGrupoKit = 0;
     let timerBuscaProduto = null;
     let timerBuscaCliente = null;
@@ -347,7 +382,9 @@
     async function lerJson(response) {
       const json = await response.json().catch(() => ({}));
       if (!response.ok) {
-        throw new Error(json?.detalhe || json?.erro || json?.message || 'Erro na requisição.');
+        const erro = new Error(json?.detalhe || json?.erro || json?.message || 'Erro na requisição.');
+        erro.pedidoNaoGravado = json?.pedidoNaoGravado === true;
+        throw erro;
       }
       return json;
     }
@@ -1035,6 +1072,86 @@
       buscaProduto.focus();
     }
 
+    function textoRateio(resumo, valor) {
+      const quantidade = Number(resumo.quantidadeTotal).toLocaleString('pt-BR', { maximumFractionDigits: 3 });
+      const diferenca = Number(resumo.diferenca || 0);
+      return `<p>${formatarMoeda(valor)} ÷ ${quantidade} unidades: <strong>+${formatarMoeda(resumo.acrescimoUnitario)} por unidade</strong>.</p>` +
+        `<p>Acréscimo total no pedido: <strong>${formatarMoeda(resumo.totalDistribuido)}</strong>.</p>` +
+        (Math.abs(diferenca) >= 0.005
+          ? `<p><strong>Arredondamento para centavos:</strong> diferença de ${diferenca > 0 ? '+' : '−'}${formatarMoeda(Math.abs(diferenca))} em relação ao produto escolhido. Confira o total antes de aplicar.</p>` : '');
+    }
+
+    function atualizarValorEmbutido() {
+      btnEmbutirValor.disabled = salvando || salvamentoIncerto || !itensPedido.length;
+      buscaProdutoEmbutido.disabled = salvando || salvamentoIncerto;
+      resumoValorEmbutido.hidden = !valorEmbutido;
+      if (valorEmbutido) {
+        resumoValorEmbutido.innerHTML = `<strong>Produto embutido: ${escapeHtml(valorEmbutido.produto.nome)}</strong>` +
+          textoRateio(valorEmbutido, valorEmbutido.valor) +
+          `<button id="btnRetirarValorEmbutido" class="secundario" type="button" ${salvando || salvamentoIncerto ? 'disabled' : ''}>Retirar produto embutido</button>`;
+        document.getElementById('btnRetirarValorEmbutido').addEventListener('click', () => {
+          if (salvando || salvamentoIncerto) return;
+          valorEmbutido = PedidoValorEmbutido.remover(itensPedido, valorEmbutido);
+          renderItensPedido();
+          setMensagem('Produto embutido retirado. Os preços e o total foram atualizados.');
+        });
+      }
+      btnAplicarValorEmbutido.disabled = true;
+      if (!produtoEmbutidoSelecionado) {
+        previaValorEmbutido.innerHTML = '';
+        return;
+      }
+      const resumo = PedidoValorEmbutido.simular(itensPedido, produtoEmbutidoSelecionado.preco);
+      previaValorEmbutido.innerHTML = `<p><strong>${escapeHtml(produtoEmbutidoSelecionado.nome)}</strong></p>` +
+        textoRateio(resumo, produtoEmbutidoSelecionado.preco);
+      if (itensPedido.length && resumo.acrescimoUnitario <= 0) {
+        previaValorEmbutido.innerHTML += '<p>O valor por unidade fica abaixo de um centavo. Ajuste as quantidades ou escolha outro produto.</p>';
+      }
+      btnAplicarValorEmbutido.disabled = salvando || salvamentoIncerto || !itensPedido.length || resumo.acrescimoUnitario <= 0;
+    }
+
+    async function buscarProdutoParaEmbutir() {
+      const buscaAtual = ++sequenciaBuscaEmbutido;
+      const termo = buscaProdutoEmbutido.value.trim();
+      produtoEmbutidoSelecionado = null;
+      atualizarValorEmbutido();
+      if (termo.length < 2) {
+        resultadosProdutoEmbutido.innerHTML = '';
+        return;
+      }
+      resultadosProdutoEmbutido.textContent = 'Buscando produtos...';
+      try {
+        const response = await fetch(`/api/produtos?busca=${encodeURIComponent(termo)}&ativos=true`);
+        const json = await lerJson(response);
+        if (buscaAtual !== sequenciaBuscaEmbutido) return;
+        const produtos = (Array.isArray(json?.data) ? json.data : []).filter((produto) => Number(produto.preco) > 0);
+        resultadosProdutoEmbutido.innerHTML = produtos.length
+          ? produtos.map((produto, index) => `<button type="button" class="linha-busca" data-produto-embutido="${index}"><strong>${escapeHtml(produto.nome)}</strong><small>${formatarMoeda(produto.preco)}</small></button>`).join('')
+          : '<p>Nenhum produto com preço disponível.</p>';
+        resultadosProdutoEmbutido.querySelectorAll('[data-produto-embutido]').forEach((botao) => {
+          botao.addEventListener('click', () => {
+            if (salvando || salvamentoIncerto) return;
+            produtoEmbutidoSelecionado = produtos[Number(botao.dataset.produtoEmbutido)];
+            buscaProdutoEmbutido.value = produtoEmbutidoSelecionado.nome;
+            resultadosProdutoEmbutido.innerHTML = '';
+            atualizarValorEmbutido();
+          });
+        });
+      } catch (error) {
+        if (buscaAtual === sequenciaBuscaEmbutido) resultadosProdutoEmbutido.textContent = error.message;
+      }
+    }
+
+    function limparValorEmbutido() {
+      valorEmbutido = null;
+      produtoEmbutidoSelecionado = null;
+      painelEmbutirValor.hidden = true;
+      buscaProdutoEmbutido.value = '';
+      resultadosProdutoEmbutido.innerHTML = '';
+      clearTimeout(timerBuscaEmbutido);
+      ++sequenciaBuscaEmbutido;
+    }
+
     function adicionarItemNormalizado({ produto, quantidade, preco, precoMinimo = null, grupoKit = null }) {
       if (!produto || !produto.id) return;
 
@@ -1045,7 +1162,7 @@
       // Não misturar um item comum com um kit ao mesclar linhas de mesmo produto e preço.
       const existente = itensPedido.find((item) =>
         Number(item.produto_id) === Number(produto.id) &&
-        Number(item.preco) === precoNumero &&
+        Number(item.__valorEmbutido?.precoBase ?? item.preco) === precoNumero &&
         (item.grupoKit || null) === grupoKit &&
         !item.precoEditadoManualmente
       );
@@ -1070,6 +1187,7 @@
     }
 
     function adicionarProdutoAoPedido(produto) {
+      if (salvando || salvamentoIncerto) return;
       try {
         const preco = obterPrecoAtualProduto(produto);
         adicionarItemNormalizado({ produto, quantidade: 1, preco, precoMinimo: preco });
@@ -1094,6 +1212,8 @@
     }
 
     function renderItensPedido() {
+      valorEmbutido = PedidoValorEmbutido.recalcular(itensPedido, valorEmbutido);
+      atualizarValorEmbutido();
       if (!itensPedido.length) {
         tabelaItensWrap.innerHTML = '<div class="tabela-vazia">Nenhum item no pedido ainda.</div>';
         atualizarTotal();
@@ -1129,6 +1249,15 @@
               </tr>
             `).join('')}
           </tbody>
+          <tfoot>
+            <tr>
+              <th colspan="2" scope="row">Total de itens</th>
+              <td id="totalItensPedido" class="valor">${itensPedido.reduce((soma, item) => soma + Number(item.quantidade || 0), 0).toLocaleString('pt-BR', { maximumFractionDigits: 3 })}</td>
+              <td class="valor">Total</td>
+              <td class="valor">${formatarMoeda(calcularTotal())}</td>
+              <td></td>
+            </tr>
+          </tfoot>
         </table>
       `;
 
@@ -1143,7 +1272,9 @@
         if (imagem.complete && imagem.naturalWidth === 0) exibirFalha();
       });
       tabelaItensWrap.querySelectorAll('input[data-index]').forEach((input) => {
+        input.disabled = salvando || salvamentoIncerto;
         input.addEventListener('change', (event) => {
+          if (salvando || salvamentoIncerto) return;
           const index = Number(event.target.dataset.index);
           const campo = event.target.dataset.campo;
           const valor = Number(event.target.value);
@@ -1170,7 +1301,13 @@
             if (precoManual !== Number(itensPedido[index].preco)) {
               itensPedido[index].precoEditadoManualmente = true;
             }
-            itensPedido[index].preco = precoManual;
+            try {
+              PedidoValorEmbutido.definirPreco(itensPedido[index], precoManual);
+            } catch (error) {
+              setMensagem(error.message, true);
+              renderItensPedido();
+              return;
+            }
             const minimo = Number(itensPedido[index].precoMinimo || 0);
             if (precoManual < minimo) {
               setMensagem(`ATENÇÃO: ${itensPedido[index].nome} foi alterado manualmente para ${formatarMoeda(precoManual)}, abaixo do preço de referência (${formatarMoeda(minimo)}). Será solicitada confirmação ao salvar.`, true);
@@ -1184,7 +1321,9 @@
       });
 
       tabelaItensWrap.querySelectorAll('button[data-remover]').forEach((botao) => {
+        botao.disabled = salvando || salvamentoIncerto;
         botao.addEventListener('click', () => {
+          if (salvando || salvamentoIncerto) return;
           itensPedido.splice(Number(botao.dataset.remover), 1);
           renderItensPedido();
         });
@@ -1297,6 +1436,7 @@
     }
 
     async function importarRelatorio() {
+      if (salvando || salvamentoIncerto) return;
       const texto = textoRelatorio.value.trim();
       const multiplicador = Number(multiplicadorKit.value || 1);
       const modo = tipoRelatorio.value;
@@ -1473,7 +1613,7 @@
           throw new Error(`Preço mínimo inválido para "${item.nome}". O pedido não foi gravado.`);
         }
         item.precoMinimo = minimo;
-        const preco = arredondarDinheiro(item.preco);
+        const preco = arredondarDinheiro(item.__valorEmbutido?.precoBase ?? item.preco);
         if (!Number.isFinite(preco) || preco <= 0) {
           throw new Error(`Preço inválido para "${item.nome}". Informe um valor maior que zero.`);
         }
@@ -1484,7 +1624,7 @@
           } else {
             // Preço de relatório não pode ficar abaixo do mínimo, nem se o cadastro mudar.
             corrigidos.push(`${item.nome}: ${formatarMoeda(preco)} → ${formatarMoeda(minimo)}`);
-            item.preco = minimo;
+            PedidoValorEmbutido.definirPreco(item, minimo, { base: true });
           }
         }
       }
@@ -1503,6 +1643,7 @@
         // evitando diferenças entre gravação pela tela e pelo MCP.
         aviso_whatsapp_carrada: Boolean(carradaPedido.value),
         total: Number(calcularTotal().toFixed(2)),
+        valorEmbutido: PedidoValorEmbutido.serializar(itensPedido, valorEmbutido),
         itens: itensPedido.map((item) => ({
           produto_id: item.produto_id,
           quantidade: Number(item.quantidade),
@@ -1512,7 +1653,11 @@
     }
 
     async function salvarPedido() {
-      if (salvando) return;
+      if (salvando || salvamentoIncerto) return;
+      if (btnImportarRelatorio.disabled) {
+        setMensagem('Aguarde a importação dos itens terminar antes de salvar.', true);
+        return;
+      }
 
       if (!clienteSelecionado?.favorecido) {
         setMensagem('Selecione um cliente antes de salvar.', true);
@@ -1529,9 +1674,23 @@
         return;
       }
 
+      if (valorEmbutido && valorEmbutido.acrescimoUnitario <= 0) {
+        setMensagem('O valor embutido fica abaixo de um centavo por unidade. Retire-o ou ajuste o pedido antes de salvar.', true);
+        return;
+      }
+
+      let enviouPedido = false;
+      let respostaConhecida = false;
+      const controlesSalvamento = [];
       try {
         salvando = true;
+        document.querySelectorAll('.grid input, .grid textarea, .grid select, .grid button').forEach((controle) => {
+          controlesSalvamento.push({ controle, disabled: controle.disabled });
+          controle.disabled = true;
+        });
         btnSalvarPedido.disabled = true;
+        btnNovoPedido.disabled = true;
+        renderItensPedido();
         resultadoSucesso.style.display = 'none';
         setMensagem('Conferindo preços mínimos atuais antes de salvar...');
         const { corrigidos, abaixoDoMinimoManuais } = await conferirPrecosMinimosAntesDeSalvar();
@@ -1554,16 +1713,33 @@
         }
         setMensagem('Salvando pedido...');
 
+        const payloadPedido = montarPayload();
+        const clienteEnviado = { ...clienteSelecionado };
+        const vendedorEnviado = { ...obterVendedorSelecionado() };
+        const itensEnviados = itensPedido.map((item) => ({ ...item }));
+        enviouPedido = true;
         const response = await fetch('/api/legado/pedidos-insercao-v2', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(montarPayload())
+          body: JSON.stringify(payloadPedido)
         });
 
 
+if (!response.ok && response.status < 500) respostaConhecida = true;
 const json = await lerJson(response);
+if (json?.salvamentoIncerto) {
+  respostaConhecida = true;
+  salvamentoIncerto = true;
+  setMensagem(json.avisoValorEmbutido || json.aviso || 'O resultado da gravação não foi confirmado. Consulte o pedido antes de tentar novamente.', true);
+  return;
+}
 const pedido = json?.pedido || json?.data?.pedido || json?.data || json;
-const vendedorSelecionado = obterVendedorSelecionado();
+const idPedidoGravado = Number(pedido?.idMestre ?? pedido?.saida);
+if (!Number.isSafeInteger(idPedidoGravado) || idPedidoGravado <= 0 || !String(pedido?.numero || '').trim()) {
+  throw new Error('A resposta não confirmou o código do pedido salvo.');
+}
+respostaConhecida = true;
+const vendedorSelecionado = vendedorEnviado;
 const carradaVinculada = json?.carradaVinculada?.sucesso ? json.carradaVinculada : null;
 const avisos = [];
 
@@ -1576,8 +1752,8 @@ ultimoPedidoSalvo = {
   idMestre: pedido?.idMestre ?? pedido?.saida ?? null,
   data: pedido?.data || new Date().toISOString().slice(0, 10),
   cliente: {
-    nome: clienteSelecionado?.nome || '-',
-    telefone: clienteSelecionado?.telefonePrincipal || clienteSelecionado?.telefone1 || ''
+    nome: clienteEnviado.nome || '-',
+    telefone: clienteEnviado.telefonePrincipal || clienteEnviado.telefone1 || ''
   },
   vendedor: {
     favorecido: vendedorSelecionado?.favorecido || null,
@@ -1590,9 +1766,9 @@ ultimoPedidoSalvo = {
         descricao: carradaVinculada.descricao || ''
       }
     : null,
-  obs: obsPedido.value.trim() || '',
-  total: Number(pedido?.total || calcularTotal()),
-  itens: itensPedido.map((item) => ({
+  obs: payloadPedido.obs || '',
+  total: Number(pedido?.total ?? payloadPedido.total),
+  itens: itensEnviados.map((item) => ({
     item: item.item_legado || null,
     descricao: item.nome,
     quantidade: Number(item.quantidade || 0),
@@ -1604,6 +1780,7 @@ ultimoPedidoSalvo = {
 if (json?.aviso) {
   avisos.push(json.aviso);
 }
+if (json?.avisoValorEmbutido) avisos.push(json.avisoValorEmbutido);
 
 if (ultimoPedidoSalvo.carrada) {
   const avisoWhatsapp = json?.avisoWhatsappCarrada;
@@ -1623,12 +1800,13 @@ resultadoSucesso.innerHTML = `
   <strong>Pedido gravado com sucesso.</strong><br>
   Número: ${linkNumeroPedido}<br>
   Saída: ${pedido?.saida || '-'}<br>
-  Total: ${formatarMoeda(pedido?.total || calcularTotal())}<br>Volumes: ${Number(pedido?.volumes ?? volumesPedido.value ?? 0)}${ultimoPedidoSalvo.carrada ? `<br>Carrada: ${montarLinkProgressoCarrada(ultimoPedidoSalvo.carrada)}` : ''}
+  Total: ${formatarMoeda(ultimoPedidoSalvo.total)}<br>Volumes: ${Number(pedido?.volumes ?? payloadPedido.volumes ?? 0)}${ultimoPedidoSalvo.carrada ? `<br>Carrada: ${montarLinkProgressoCarrada(ultimoPedidoSalvo.carrada)}` : ''}
 `;
 resultadoSucesso.style.display = 'block';
 atualizarBotoesAcao();
 
 itensPedido = [];
+limparValorEmbutido();
 textoRelatorio.value = '';
 tipoRelatorio.value = 'automatico';
 multiplicadorKit.value = '1';
@@ -1644,15 +1822,26 @@ setMensagem([
   ...avisos
 ].filter(Boolean).join(' '));
       } catch (error) {
-        setMensagem(error.message, true);
+        if (enviouPedido && !respostaConhecida && !error.pedidoNaoGravado) {
+          salvamentoIncerto = true;
+          setMensagem('A conexão foi interrompida durante a gravação. Consulte o pedido antes de tentar novamente; ele pode já ter sido salvo.', true);
+        } else {
+          setMensagem(error.message, true);
+        }
       } finally {
         salvando = false;
-        btnSalvarPedido.disabled = !!ultimoPedidoSalvo?.numero;
+        controlesSalvamento.forEach(({ controle, disabled }) => { controle.disabled = disabled; });
+        atualizarBotoesAcao();
+        btnSalvarPedido.disabled = !!ultimoPedidoSalvo?.numero || salvamentoIncerto;
+        btnNovoPedido.disabled = salvamentoIncerto;
+        renderItensPedido();
       }
     }
 
     function limparPedidoCompleto() {
+      if (salvando || salvamentoIncerto) return;
       itensPedido = [];
+      limparValorEmbutido();
       clienteSelecionado = null;
       clientes = [];
       clearTimeout(timerBuscaCliente);
@@ -1766,6 +1955,40 @@ setMensagem([
     });
 
     btnImportarRelatorio.addEventListener('click', importarRelatorio);
+    btnEmbutirValor.addEventListener('click', () => {
+      painelEmbutirValor.hidden = !painelEmbutirValor.hidden;
+      atualizarValorEmbutido();
+      if (!painelEmbutirValor.hidden) buscaProdutoEmbutido.focus();
+    });
+    document.getElementById('btnFecharValorEmbutido').addEventListener('click', () => {
+      painelEmbutirValor.hidden = true;
+    });
+    buscaProdutoEmbutido.addEventListener('input', () => {
+      clearTimeout(timerBuscaEmbutido);
+      ++sequenciaBuscaEmbutido;
+      produtoEmbutidoSelecionado = null;
+      resultadosProdutoEmbutido.innerHTML = '';
+      atualizarValorEmbutido();
+      timerBuscaEmbutido = setTimeout(buscarProdutoParaEmbutir, 250);
+    });
+    buscaProdutoEmbutido.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        clearTimeout(timerBuscaEmbutido);
+        buscarProdutoParaEmbutir();
+      }
+    });
+    btnAplicarValorEmbutido.addEventListener('click', () => {
+      if (!produtoEmbutidoSelecionado || salvando || salvamentoIncerto) return;
+      try {
+        valorEmbutido = PedidoValorEmbutido.aplicar(itensPedido, produtoEmbutidoSelecionado, valorEmbutido);
+        painelEmbutirValor.hidden = true;
+        renderItensPedido();
+        setMensagem(`Valor embutido aplicado: +${formatarMoeda(valorEmbutido.acrescimoUnitario)} por unidade, total de ${formatarMoeda(valorEmbutido.totalDistribuido)}. Confira os preços antes de salvar.`);
+      } catch (error) {
+        setMensagem(error.message, true);
+      }
+    });
     btnCalcularVolumes.addEventListener('click', calcularVolumesPedido);
     btnSalvarPedido.addEventListener('click', salvarPedido);
     btnResumoPedidoIA.addEventListener('click', () => window.PedidoResumoIA.abrir({ idMestre: obterIdPedidoAtual(), telefone: obterTelefoneClienteAtual() }));
