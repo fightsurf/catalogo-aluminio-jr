@@ -187,7 +187,9 @@ async function executarEnvio(payload, contexto = {}) {
   if (payload.tipo === 'aviso_carrada') {
     const carrada = carradaDoAviso(atual.pedido);
     const mensagem = montarMensagemEntradaCarrada({ cliente: atual.pedido.cliente, numeroPedido: texto(atual.pedido.numero), carrada });
-    if (!payload.carrada || hash(carrada) !== hash(payload.carrada) || mensagem !== payload.mensagem) {
+    if (!payload.carrada || Number(payload.carrada.codigo) !== carrada.codigo ||
+        payload.carrada.data !== carrada.data || payload.carrada.descricao !== carrada.descricao ||
+        mensagem !== payload.mensagem) {
       falhar('A carrada ou o texto do aviso diverge da prévia. Nada foi enviado; prepare novamente.');
     }
   }
