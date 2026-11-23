@@ -60,5 +60,7 @@ router.get('/localizar',async(req,res)=>{
 router.get('/',async(req,res)=>{try{res.json(await service.listar(req.query));}catch(e){tratar(res,e);}});
 router.get('/:id',async(req,res)=>{try{res.json(await service.buscar(req.params.id));}catch(e){tratar(res,e);}});
 router.post('/',async(req,res)=>{try{res.status(201).json(await service.gravar(req.body));}catch(e){tratar(res,e);}});
+router.put('/:id/boletos',async(req,res)=>{try{res.json(await service.gravarBoletos(req.params.id,req.body?.boletos));}catch(e){tratar(res,e);}});
 router.put('/:id',async(req,res)=>{try{res.json(await service.gravar(req.body,req.params.id));}catch(e){tratar(res,e);}});
 module.exports = router;
+

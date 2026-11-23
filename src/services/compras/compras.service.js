@@ -58,8 +58,9 @@ async function gravar(dados, id = null) {
     let nota;
     if (id !== null) {
       if (!Number.isSafeInteger(Number(id)) || Number(id) < 1) throw erro('Nota inválida.');
-      const bloqueada = await cliente.query('SELECT id FROM public.compras_notas WHERE id=$1 FOR UPDATE',[id]);
+      const bloqueada = await cliente.query('SELECT id, icms_frete FROM public.compras_notas WHERE id=$1 FOR UPDATE',[id]);
       if (!bloqueada.rowCount) throw erro('Nota fiscal não encontrada.',404);
+      if (!Object.prototype.hasOwnProperty.call(dados,'icms_frete')) campos[6]=bloqueada.rows[0].icms_frete;
       const r = await cliente.query(
         'UPDATE public.compras_notas SET fornecedor_id=$1,numero_nf=$2,data_nf=$3,valor_nf=$4,quantidade_itens_nf=$5,valor_frete=$6,icms_frete=$7,icms_total=$8,origem=$9,atualizado_em=NOW() WHERE id=$10 RETURNING id',
         [...campos,id]);
@@ -85,6 +86,27 @@ async function gravar(dados, id = null) {
     if (e.code === '23503') throw erro('Fornecedor ou insumo não encontrado.',400);
     throw e;
   } finally { cliente.release(); }
+}
+
+// A tela de boletos atualiza somente os títulos da NF, sem reenviar seu cabeçalho ou insumos.
+async function gravarBoletos(id, lista) {
+  const notaId=Number(id);
+  if (!Number.isSafeInteger(notaId) || notaId<1) throw erro('Nota inválida.');
+  const listaBoletos=boletos.validarBoletos(lista);
+  const cliente=await pool.connect();
+  try {
+    await cliente.query('BEGIN');
+    const bloqueada=await cliente.query('SELECT id FROM public.compras_notas WHERE id=$1 FOR UPDATE',[notaId]);
+    if (!bloqueada.rowCount) throw erro('Nota fiscal não encontrada.',404);
+    await boletos.sincronizar(cliente,notaId,listaBoletos);
+    const atualizados=await boletos.listar(notaId,cliente);
+    await cliente.query('COMMIT');
+    return {nota_id:notaId,boletos:atualizados};
+  } catch(e) {
+    await cliente.query('ROLLBACK');
+    if (e.code==='23505') throw erro('Já existe uma linha digitável ou código de boleto duplicado.',409);
+    throw e;
+  } finally {cliente.release();}
 }
 
 function chaveItem(item) {
@@ -180,5 +202,6 @@ async function importarDaIa(dados) {
   return {nota:await buscar(id),criada,itensIncluidos,itensCompletados,boletosIncluidos};
 }
 
-module.exports = { fornecedores, insumos, listar, buscar, localizar, gravar, importarDaIa,
+module.exports = { fornecedores, insumos, listar, buscar, localizar, gravar, gravarBoletos, importarDaIa,
   consultarBoletos:boletos.consultar, alterarStatusBoleto:boletos.alterarStatus };
+

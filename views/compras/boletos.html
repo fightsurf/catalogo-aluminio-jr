@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Boletos de compras | Alumínio JR</title>
+  <link rel="stylesheet" href="/css/compras.css">
+  <script src="/js/compras-boletos.js" defer></script>
+</head>
+<body>
+  <main class="container">
+    <header class="header">
+      <div><span class="eyebrow">ALUMÍNIO JR / GESTÃO</span><h1>Boletos de compras</h1><p>Cadastre parcelas e acompanhe os pagamentos das notas fiscais.</p></div>
+      <a class="back" href="/compras">Voltar às compras</a>
+    </header>
+    <div id="aviso" class="aviso" role="status" aria-live="polite" hidden></div>
+    <section class="card" aria-labelledby="tituloSelecionarNota">
+      <div class="card-head row-wrap"><h2 id="tituloSelecionarNota">Selecionar nota fiscal</h2><a class="back" href="/compras">Cadastrar nota</a></div>
+      <form id="formBuscaNotas" class="filters">
+        <label>Pesquisar NF / fornecedor<input type="search" id="buscaNota" placeholder="Número da NF ou fornecedor"></label>
+        <label>Nota fiscal<select id="nota_id"><option value="">Selecione uma nota fiscal</option></select></label>
+        <button class="btn secondary" type="submit" id="btnBuscarNotas">Buscar notas</button>
+      </form>
+      <p id="resumoNotas" class="hint">Carregando notas fiscais...</p>
+    </section>
+
+    <section class="card" id="painelNota" aria-labelledby="tituloNota" hidden>
+      <div class="card-head row-wrap">
+        <div><h2 id="tituloNota">Boletos desta compra</h2><p id="resumoNota"></p></div>
+        <a class="back" id="voltarNota" href="/compras">Abrir nota fiscal</a>
+      </div>
+      <form id="formBoletos" novalidate>
+        <fieldset id="editorBoletos" disabled style="border:0;padding:0;margin:0;min-width:0">
+          <legend class="hint">Informe vencimento e valor de cada boleto.</legend>
+          <div class="modal-tools">
+            <button class="btn secondary" id="btnAdicionarBoleto" type="button">+ Adicionar boleto</button>
+            <span id="contadorBoletos"></span>
+          </div>
+          <p id="semBoletos" class="hint">Nenhum boleto cadastrado nesta nota.</p>
+          <div id="boletosLinhas" class="boletos-linhas"></div>
+          <div class="totais">
+            <div><span>Total em boletos</span><strong id="totalBoletos">R$ 0,00</strong></div>
+            <div><span>Em aberto / a confirmar</span><strong id="totalBoletosAbertos">R$ 0,00</strong></div>
+          </div>
+          <div class="actions"><button class="btn primary" type="submit" id="btnSalvarBoletos">Salvar boletos</button></div>
+        </fieldset>
+      </form>
+      <button class="btn ghost" type="button" id="btnRecarregarNota">Recarregar boletos da nota</button>
+      <p class="hint" id="estadoEdicao" aria-live="polite"></p>
+    </section>
+
+    <section class="card" aria-labelledby="tituloControleBoletos">
+      <div class="card-head row-wrap">
+        <div><h2 id="tituloControleBoletos">Controle de boletos</h2><p>Consulte vencimentos e registre pagamentos.</p></div>
+        <button class="btn ghost" id="btnAtualizarBoletos" type="button">Atualizar</button>
+      </div>
+      <form id="formBuscaBoletos" class="filters">
+        <label>Fornecedor, NF ou documento<input type="search" id="buscaBoleto" placeholder="Pesquisar"></label>
+        <label>Situação
+          <select id="filtroStatusBoleto">
+            <option value="">Todas</option>
+            <option value="a_confirmar">A confirmar</option>
+            <option value="pendente">Pendente</option>
+            <option value="pago">Pago</option>
+            <option value="cancelado">Cancelado</option>
+          </select>
+        </label>
+        <button class="btn secondary" type="submit" id="btnFiltrarBoletos">Pesquisar</button>
+      </form>
+      <p id="resumoControleBoletos" class="hint" aria-live="polite">Consultando boletos...</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Fornecedor / NF</th><th>Parcela / Documento</th><th>Vencimento</th><th>Valor</th><th>Status</th><th>Ações</th></tr></thead>
+          <tbody id="tabelaControleBoletos"><tr><td colspan="6">Aguardando consulta.</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

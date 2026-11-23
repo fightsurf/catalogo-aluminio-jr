@@ -66,8 +66,8 @@ function iguais(a,b){
   return true;
 }
 const CAMPOS='id,nota_id,tipo,parcela,numero_documento,nosso_numero,banco,vencimento,valor,linha_digitavel,codigo_barras,status,data_pagamento,valor_pago,observacao,origem';
-async function listar(notaId){
-  const {rows}=await pool.query('SELECT '+CAMPOS+' FROM public.compras_boletos WHERE nota_id=$1 ORDER BY vencimento,id',[notaId]);
+async function listar(notaId,cliente=pool){
+  const {rows}=await cliente.query('SELECT '+CAMPOS+' FROM public.compras_boletos WHERE nota_id=$1 ORDER BY vencimento,id',[notaId]);
   return rows;
 }
 async function sincronizar(cliente,notaId,lista){
@@ -141,3 +141,4 @@ async function alterarStatus(id,dados={}){
   return atualizado;
 }
 module.exports={validarBoleto,validarBoletos,iguais,listar,sincronizar,importar,consultar,alterarStatus};
+

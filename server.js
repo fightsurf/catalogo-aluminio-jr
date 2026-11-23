@@ -443,6 +443,9 @@ app.get('/admin-funcionarios', (req, res) => {
 app.get('/compras', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'views', 'compras', 'index.html'));
 });
+app.get('/compras/boletos', requireAuth, (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'compras', 'boletos.html'));
+});
 
 // 🔥 FORNECEDORES
 app.get('/admin-fornecedores', (req, res) => {
@@ -636,3 +639,4 @@ require('./src/services/marketing/republicador-youtube.service').inicializar();
 require('./src/services/marketing/agendadorModulos.service').iniciar();
 // Consulta periodica ao Google Contatos apenas quando o bot esta ligado.
 require('./src/services/bot/google-contatos.service').iniciarSincronizador();
+
