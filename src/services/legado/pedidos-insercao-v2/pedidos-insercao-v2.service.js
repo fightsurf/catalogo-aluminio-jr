@@ -180,6 +180,12 @@ async function inserirPedido(payload) {
   const operacao = valorEmbutidoService
     ? await valorEmbutidoService.prepararOperacao({ valorEmbutido: payload.valorEmbutido, itens: payloadLegado.itens })
     : null;
+  if (operacao) {
+    // O total acompanha os preços conferidos, inclusive nas linhas separadas
+    // para distribuir exatamente os centavos restantes.
+    payloadLegado.total = operacao.itens.reduce((soma, item) =>
+      soma + Math.round(item.preco * 100) * item.quantidade, 0) / 100;
+  }
 
   let data;
   try {

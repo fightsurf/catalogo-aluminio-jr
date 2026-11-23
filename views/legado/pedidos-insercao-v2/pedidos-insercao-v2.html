@@ -1075,7 +1075,11 @@
     function textoRateio(resumo, valor) {
       const quantidade = Number(resumo.quantidadeTotal).toLocaleString('pt-BR', { maximumFractionDigits: 3 });
       const diferenca = Number(resumo.diferenca || 0);
-      return `<p>${formatarMoeda(valor)} ÷ ${quantidade} unidades: <strong>+${formatarMoeda(resumo.acrescimoUnitario)} por unidade</strong>.</p>` +
+      const extras = Number(resumo.unidadesCentavoExtra || 0);
+      const distribuicao = extras
+        ? `${(Number(resumo.quantidadeTotal) - extras).toLocaleString('pt-BR')} unidade(s) com +${formatarMoeda(resumo.acrescimoUnitario)} e ${extras.toLocaleString('pt-BR')} com +${formatarMoeda(resumo.acrescimoUnitarioMaximo)}. Um produto pode aparecer em duas linhas para fechar os centavos.`
+        : `+${formatarMoeda(resumo.acrescimoUnitario)} por unidade.`;
+      return `<p>${formatarMoeda(valor)} distribuídos em ${quantidade} unidades: <strong>${distribuicao}</strong></p>` +
         `<p>Acréscimo total no pedido: <strong>${formatarMoeda(resumo.totalDistribuido)}</strong>.</p>` +
         (Math.abs(diferenca) >= 0.005
           ? `<p><strong>Arredondamento para centavos:</strong> diferença de ${diferenca > 0 ? '+' : '−'}${formatarMoeda(Math.abs(diferenca))} em relação ao produto escolhido. Confira o total antes de aplicar.</p>` : '');
@@ -1101,13 +1105,14 @@
         previaValorEmbutido.innerHTML = '';
         return;
       }
-      const resumo = PedidoValorEmbutido.simular(itensPedido, produtoEmbutidoSelecionado.preco);
-      previaValorEmbutido.innerHTML = `<p><strong>${escapeHtml(produtoEmbutidoSelecionado.nome)}</strong></p>` +
-        textoRateio(resumo, produtoEmbutidoSelecionado.preco);
-      if (itensPedido.length && resumo.acrescimoUnitario <= 0) {
-        previaValorEmbutido.innerHTML += '<p>O valor por unidade fica abaixo de um centavo. Ajuste as quantidades ou escolha outro produto.</p>';
+      try {
+        const resumo = PedidoValorEmbutido.simular(itensPedido, produtoEmbutidoSelecionado.preco);
+        previaValorEmbutido.innerHTML = `<p><strong>${escapeHtml(produtoEmbutidoSelecionado.nome)}</strong></p>` +
+          textoRateio(resumo, produtoEmbutidoSelecionado.preco);
+        btnAplicarValorEmbutido.disabled = salvando || salvamentoIncerto || !itensPedido.length;
+      } catch (error) {
+        previaValorEmbutido.textContent = error.message;
       }
-      btnAplicarValorEmbutido.disabled = salvando || salvamentoIncerto || !itensPedido.length || resumo.acrescimoUnitario <= 0;
     }
 
     async function buscarProdutoParaEmbutir() {
@@ -1156,6 +1161,9 @@
       if (!produto || !produto.id) return;
 
       const quantidadeNumero = Number(quantidade || 0);
+      if (valorEmbutido && (!Number.isSafeInteger(quantidadeNumero) || quantidadeNumero <= 0)) {
+        throw new Error('Com valor embutido, informe quantidades inteiras maiores que zero.');
+      }
       const precoNumero = arredondarDinheiro(preco);
       const minimo = precoMinimo === null ? obterPrecoAtualProduto(produto) : arredondarDinheiro(precoMinimo);
 
@@ -1285,6 +1293,11 @@
           }
 
           if (campo === 'quantidade') {
+            if (valorEmbutido && (!Number.isSafeInteger(valor) || valor <= 0)) {
+              setMensagem('Com valor embutido, informe uma quantidade inteira maior que zero.', true);
+              renderItensPedido();
+              return;
+            }
             itensPedido[index].quantidade = valor > 0 ? valor : 1;
           }
 
@@ -1324,6 +1337,10 @@
         botao.disabled = salvando || salvamentoIncerto;
         botao.addEventListener('click', () => {
           if (salvando || salvamentoIncerto) return;
+          if (valorEmbutido && itensPedido.length === 1) {
+            setMensagem('Retire o valor embutido antes de remover o último item.', true);
+            return;
+          }
           itensPedido.splice(Number(botao.dataset.remover), 1);
           renderItensPedido();
         });
@@ -1513,6 +1530,9 @@
         });
         const precosCorrigidos = novosItens.filter((item) => item.precoImportado < item.precoMinimo);
         const precosAcima = novosItens.filter((item) => item.precoImportado > item.precoMinimo);
+        if (valorEmbutido && novosItens.some((item) => !Number.isSafeInteger(item.quantidade))) {
+          throw new Error('Com valor embutido, importe apenas quantidades inteiras. Nenhum item foi importado.');
+        }
 
         novosItens.forEach((item) => {
           adicionarItemNormalizado({
@@ -1671,11 +1691,6 @@
 
       if (!vendedorPedido.value) {
         setMensagem('Selecione um vendedor antes de salvar.', true);
-        return;
-      }
-
-      if (valorEmbutido && valorEmbutido.acrescimoUnitario <= 0) {
-        setMensagem('O valor embutido fica abaixo de um centavo por unidade. Retire-o ou ajuste o pedido antes de salvar.', true);
         return;
       }
 
@@ -1984,7 +1999,7 @@ setMensagem([
         valorEmbutido = PedidoValorEmbutido.aplicar(itensPedido, produtoEmbutidoSelecionado, valorEmbutido);
         painelEmbutirValor.hidden = true;
         renderItensPedido();
-        setMensagem(`Valor embutido aplicado: +${formatarMoeda(valorEmbutido.acrescimoUnitario)} por unidade, total de ${formatarMoeda(valorEmbutido.totalDistribuido)}. Confira os preços antes de salvar.`);
+        setMensagem(`Valor embutido aplicado: ${formatarMoeda(valorEmbutido.totalDistribuido)} distribuídos pelos itens. Confira os preços antes de salvar.`);
       } catch (error) {
         setMensagem(error.message, true);
       }

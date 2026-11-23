@@ -10,11 +10,13 @@ const pedido = () => [
 const clone = value => JSON.parse(JSON.stringify(value));
 const semEstadoLocal = itens => itens.map(({ __valorEmbutido, ...item }) => clone(item));
 
-test('meio centavo arredonda para cima sem erro binário na divisão', () => {
+test('meio centavo divide as unidades sem acrescentar um centavo ao valor escolhido', () => {
   const resumo = rateio.simular([{ quantidade: 2 }], 20.15);
-  assert.equal(resumo.acrescimoUnitario, 10.08);
-  assert.equal(resumo.totalDistribuido, 20.16);
-  assert.equal(resumo.diferenca, 0.01);
+  assert.equal(resumo.acrescimoUnitario, 10.07);
+  assert.equal(resumo.acrescimoUnitarioMaximo, 10.08);
+  assert.equal(resumo.unidadesCentavoExtra, 1);
+  assert.equal(resumo.totalDistribuido, 20.15);
+  assert.equal(resumo.diferenca, 0);
 });
 
 test('R$ 30 em 500 unidades soma R$ 0,06 por unidade e R$ 30 no pedido', () => {
@@ -83,14 +85,18 @@ test('salvar em JSON e recarregar permite desfazer sem depender de estado do nav
   assert.deepEqual(carregados, pedido());
 });
 
-test('carregar preserva diferença manual do preço final e IDs recriados pelo legado', () => {
+test('carregar recusa preço alterado externamente, mas aceita IDs recriados pelo legado', () => {
   const itens = pedido();
   const persistido = clone(rateio.aplicar(itens, produto()));
   const carregados = semEstadoLocal(itens);
   carregados[0].preco = 11.06;
   carregados[0].saidaItem = 999;
+  assert.throws(() => rateio.remover(carregados, persistido), /itens mudaram/);
+  assert.deepEqual(carregados.map(item => item.preco), [11.06, 20.06]);
+  assert.ok(carregados.every(item => !item.__valorEmbutido));
+  carregados[0].preco = 10.06;
   rateio.remover(carregados, persistido);
-  assert.deepEqual(carregados.map(item => item.preco), [11, 20]);
+  assert.deepEqual(carregados.map(item => item.preco), [10, 20]);
   assert.equal(carregados[0].saidaItem, 999);
 });
 
@@ -107,15 +113,16 @@ test('linhas repetidas do mesmo produto são associadas pelo conteúdo após reo
   assert.deepEqual(carregados.map(item => item.quantidade), [400, 100]);
 });
 
-test('arredondamento expõe valor distribuído e diferença sem prometer total exato', () => {
+test('um real em três unidades distribui centavos exatos e não deixa diferença', () => {
   const resumo = rateio.simular([{ item: 1, quantidade: 3, preco: 10 }], 1);
   assert.deepEqual(resumo, {
-    quantidadeTotal: 3, acrescimoUnitario: 0.33, totalDistribuido: 0.99, diferenca: -0.01
+    quantidadeTotal: 3, acrescimoUnitario: 0.33, acrescimoUnitarioMaximo: 0.34, unidadesCentavoExtra: 1, totalDistribuido: 1, diferenca: 0
   });
   const itens = [{ item: 1, quantidade: 3, preco: 10 }];
   const estado = rateio.aplicar(itens, produto(1));
-  assert.equal(estado.totalDistribuido, 0.99);
-  assert.equal(estado.diferenca, -0.01);
+  assert.equal(estado.totalDistribuido, 1);
+  assert.equal(estado.diferenca, 0);
+  assert.deepEqual(itens.map(item => [item.quantidade, item.preco]), [[2, 10.33], [1, 10.34]]);
 });
 
 test('pedido vazio, valores não positivos e quantidades inválidas não alteram itens', () => {
@@ -134,9 +141,15 @@ test('pedido vazio, valores não positivos e quantidades inválidas não alteram
   }
 });
 
-test('acréscimo que arredonda para zero é recusado sem alterar preços', () => {
+test('um centavo em 500 unidades é aplicado a apenas uma unidade', () => {
   const itens = pedido();
-  assert.throws(() => rateio.aplicar(itens, produto(0.01)), /abaixo de um centavo/);
+  const estado = rateio.aplicar(itens, produto(0.01));
+  assert.equal(estado.acrescimoUnitario, 0);
+  assert.equal(estado.unidadesCentavoExtra, 1);
+  assert.equal(estado.totalDistribuido, 0.01);
+  assert.equal(estado.diferenca, 0);
+  assert.equal(itens.reduce((s, item) => s + item.quantidade, 0), 500);
+  rateio.remover(itens, estado);
   assert.deepEqual(itens, pedido());
 });
 
@@ -168,4 +181,98 @@ test('redução abaixo do acréscimo não altera preço nem base e preço-base e
   assert.equal(itens[0].preco, 12.405);
   rateio.remover(itens, estado);
   assert.equal(itens[0].preco, 12.345);
+});
+
+
+test('R$30 em400 unidades fecha R$30 e recálculos repetidos não multiplicam linhas', () => {
+  const itens = [{ item: 1, quantidade: 400, preco: 10 }];
+  let estado = rateio.aplicar(itens, produto(30));
+  assert.deepEqual(itens.map(item => [item.quantidade, item.preco]), [[200, 10.07], [200, 10.08]]);
+  for (let i = 0; i < 20; i++) {
+    estado = rateio.recalcular(itens, estado);
+    assert.equal(itens.length, 2);
+    assert.equal(estado.totalDistribuido, 30);
+    assert.equal(estado.diferenca, 0);
+    assert.equal(itens.reduce((s, item) => s + Math.round(item.quantidade * item.preco * 100), 0), 403000);
+  }
+  const recarregados = semEstadoLocal(itens);
+  const persistido = clone(estado);
+  rateio.carregar(recarregados, persistido);
+  rateio.remover(recarregados, persistido);
+  assert.deepEqual(recarregados, [{ item: 1, quantidade: 400, preco: 10 }]);
+});
+
+test('novos rateios recusam quantidades fracionárias e bases3dec sem mutação parcial', () => {
+  for (const linha of [
+    { item: 1, quantidade: 1.5, preco: 10 },
+    { item: 1, quantidade: 100, preco: 10.005 }
+  ]) {
+    const itens = [{ item: 2, quantidade: 100, preco: 20 }, linha];
+    const antes = clone(itens);
+    assert.throws(() => rateio.aplicar(itens, produto(30)));
+    assert.deepEqual(itens, antes);
+  }
+});
+
+test('carregar antigo aproximado mantém os preços e retirar recupera a base registrada', () => {
+  const metadata = {
+    versao: 1, produto: produto(), valor: 30, quantidadeTotal: 400,
+    acrescimoUnitario: 0.08, totalDistribuido: 32, diferenca: 2,
+    linhas: [{ item: 1, quantidade: 400, precoBase: 10, precoAplicado: 10.08, acrescimoUnitario: 0.08 }]
+  };
+  const itens = [{ item: 1, quantidade: 400, preco: 10.08 }];
+  const carregado = rateio.carregar(itens, metadata);
+  assert.equal(itens[0].preco, 10.08);
+  assert.equal(carregado.totalDistribuido, 32);
+  assert.equal(carregado.diferenca, 2);
+  rateio.remover(itens, carregado);
+  assert.deepEqual(itens, [{ item: 1, quantidade: 400, preco: 10 }]);
+  const migrados = [{ item: 1, quantidade: 400, preco: 10.08 }];
+  const estado = rateio.carregar(migrados, metadata);
+  const novo = rateio.recalcular(migrados, estado);
+  assert.equal(novo.totalDistribuido, 30);
+  assert.equal(novo.diferenca, 0);
+});
+
+test('bases antigas3dec e pedidos normais3dec são preservados ao retirar', () => {
+  const metadata = {
+    versao: 1, produto: produto(), valor: 30, quantidadeTotal: 500,
+    acrescimoUnitario: 0.06, totalDistribuido: 30, diferenca: 0,
+    linhas: [{ item: 1, quantidade: 500, precoBase: 10.005, precoAplicado: 10.065, acrescimoUnitario: 0.06 }]
+  };
+  const itens = [{ item: 1, quantidade: 500, preco: 10.065 }];
+  rateio.carregar(itens, metadata);
+  assert.equal(itens[0].preco, 10.065);
+  rateio.remover(itens, metadata);
+  assert.deepEqual(itens, [{ item: 1, quantidade: 500, preco: 10.005 }]);
+  rateio.recalcular(itens, null);
+  rateio.remover(itens, null);
+  assert.equal(itens[0].preco, 10.005);
+});
+
+test('grupoKit e preços negociados diferentes não são mesclados durante rateio', () => {
+  const itens = [
+    { item: 1, quantidade: 100, preco: 10, grupoKit: 'a' },
+    { item: 1, quantidade: 100, preco: 10, grupoKit: 'b' },
+    { item: 1, quantidade: 200, preco: 12 }
+  ];
+  const original = clone(itens);
+  let estado = rateio.aplicar(itens, produto(30));
+  estado = rateio.recalcular(itens, estado);
+  rateio.remover(itens, estado);
+  assert.deepEqual(itens, original);
+});
+
+test('serializar não muda itens nem recalcula rateio e pedido vazio não lança no render', () => {
+  const itens = pedido();
+  const estado = rateio.aplicar(itens, produto(30));
+  const antes = clone(itens);
+  assert.deepEqual(rateio.serializar(itens, estado), estado);
+  assert.deepEqual(itens, antes);
+  const vazio = [];
+  const resumo = rateio.recalcular(vazio, estado);
+  assert.equal(resumo.quantidadeTotal, 0);
+  assert.equal(resumo.totalDistribuido, 0);
+  assert.deepEqual(resumo.linhas, []);
+  assert.deepEqual(vazio, []);
 });

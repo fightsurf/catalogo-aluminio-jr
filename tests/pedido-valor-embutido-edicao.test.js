@@ -77,12 +77,14 @@ test('reabre pedido salvo, retira acréscimo e cancela sem alterar o pedido carr
 test('importação agrega pela base e recalcula todas as quantidades sem acumular acréscimos', async () => {
   const ctx = await abrirPedido();
   ctx.run("adicionarItemImportadoEdicao({ produto: { item_legado: 1, nome: 'Produto A' }, quantidade: 50, preco: 10 })");
-  assert.equal(ctx.read('itensEdicao.length'), 2);
-  assert.equal(ctx.read('itensEdicao[0].quantidade'), 150);
+  assert.equal(ctx.read('itensEdicao.filter(item => item.item === 1).reduce((soma, item) => soma + item.quantidade, 0)'), 150);
   assert.equal(ctx.read('valorEmbutidoEdicao.quantidadeTotal'), 550);
-  assert.deepEqual(ctx.read('itensEdicao.map(item => item.preco)'), [10.05, 20.05]);
+  assert.equal(ctx.read('valorEmbutidoEdicao.totalDistribuido'), 30);
+  assert.equal(ctx.read('valorEmbutidoEdicao.diferenca'), 0);
+  assert.equal(Math.round(ctx.read('totalPedidoAtual()') * 100), 953000);
   ctx.run('retirarValorEmbutidoEdicao()');
-  assert.deepEqual(ctx.read('itensEdicao.map(item => item.preco)'), [10, 20]);
+  assert.ok(ctx.read('itensEdicao.every(item => item.preco === (item.item === 1 ? 10 : 20))'));
+  assert.equal(ctx.read('totalPedidoAtual()'), 9500);
 });
 
 test('atualizar cadastro mantém rateio e retirada preserva o novo preço-base', async () => {
@@ -159,15 +161,26 @@ test('erro de validação permite corrigir o rascunho sem indicar salvamento inc
   assert.equal(ctx.read('modoEdicao'), true);
 });
 
-test('aumentar quantidade até o acréscimo arredondar para zero exige ajuste antes de salvar', async () => {
+test('valor inferior a um centavo médio por unidade ainda grava exatamente o valor escolhido', async () => {
   const ctx = await abrirPedido();
-  let tentativas = 0;
-  ctx.sandbox.fetch = async () => { tentativas++; throw new Error('Não deve gravar.'); };
+  ctx.run(`
+    globalThis.requisicoes = [];
+    fetchJson = async (url, options) => {
+      const payload = JSON.parse(options.body);
+      requisicoes.push({url, payload});
+      return { data: { ...pedidoCarregado, ...payload, total: 108030 } };
+    };
+  `);
   ctx.run('itensEdicao[0].quantidade = 10000; recalcularValorEmbutidoEdicao()');
-  assert.equal(ctx.read('valorEmbutidoEdicao.acrescimoUnitario'), 0);
+  assert.equal(ctx.read('valorEmbutidoEdicao.totalDistribuido'), 30);
+  assert.equal(ctx.read('valorEmbutidoEdicao.diferenca'), 0);
+  assert.equal(ctx.read('valorEmbutidoEdicao.quantidadeTotal'), 10400);
   await ctx.run('salvarAlteracoesPedido()');
-  assert.equal(tentativas, 0);
-  assert.equal(ctx.read('valorEmbutidoEdicao.valor'), 30);
+  const requisicoes = ctx.read('requisicoes');
+  assert.equal(requisicoes.length, 1);
+  assert.equal(requisicoes[0].payload.valorEmbutido.valor, 30);
+  assert.equal(requisicoes[0].payload.valorEmbutido.totalDistribuido, 30);
+  assert.equal(Math.round(requisicoes[0].payload.itens.reduce((soma, item) => soma + item.quantidade * item.preco, 0) * 100), 10803000);
   assert.equal(ctx.read('salvamentoIncertoEdicao'), false);
 });
 
@@ -188,4 +201,66 @@ test('painel informa arredondamento e escapa o nome do produto', async () => {
   assert.match(painel, /&lt;Brinde&gt;/);
   assert.match(painel, /Diferença de arredondamento/);
   assert.match(painel, /Retirar produto embutido/);
+});
+
+test('painel descreve os dois acréscimos exatos sem diferença de arredondamento', () => {
+  const ctx = contexto();
+  const itens = [{ item: 1, descricao: 'Produto', quantidade: 400, preco: 10 }];
+  ctx.sandbox.metadata = rateio.aplicar(itens, { id: 3, nome: '<Brinde>', preco: 30 });
+  const painel = ctx.run('montarPainelValorEmbutido(metadata, true)');
+  assert.match(painel, /&lt;Brinde&gt;/);
+  assert.match(painel, /200 unidades com R\$\s*0,07 por unidade/);
+  assert.match(painel, /200 unidades com R\$\s*0,08 por unidade/);
+  assert.doesNotMatch(painel, /Diferença de arredondamento/);
+  assert.equal(Math.round(itens.reduce((soma, item) => soma + item.quantidade * item.preco, 0) * 100), 403000);
+});
+
+test('abrir rateio antigo preserva preços gravados e permite retirar o acréscimo original', async () => {
+  const ctx = contexto();
+  ctx.sandbox.pedidoAntigo = {
+    idMestre: 7, numero: '7', data: '2026-11-23', vendedor: { favorecido: 9 }, cliente: {}, carradaAtual: null,
+    itens: [{ item: 1, descricao: 'Produto', quantidade: 400, preco: 10.08 }],
+    valorEmbutido: {
+      versao: 1, produto: { id: 3, nome: 'Brinde' }, valor: 30,
+      quantidadeTotal: 400, acrescimoUnitario: 0.08, totalDistribuido: 32, diferenca: 2,
+      linhas: [{ item: 1, quantidade: 400, precoBase: 10, precoAplicado: 10.08, acrescimoUnitario: 0.08 }]
+    }
+  };
+  ctx.run('pedidoCarregado = pedidoAntigo');
+  await ctx.run('entrarModoEdicao()');
+  assert.equal(ctx.read('totalPedidoAtual()'), 4032);
+  assert.equal(ctx.read('valorEmbutidoEdicao.totalDistribuido'), 32);
+  ctx.run('retirarValorEmbutidoEdicao()');
+  assert.equal(ctx.read('totalPedidoAtual()'), 4000);
+});
+
+test('atualizar preços informa a diferença real e preserva valor exato após rateio dividido', async () => {
+  const ctx = contexto();
+  const itens = [{ item: 1, descricao: 'Produto', quantidade: 400, preco: 10 }];
+  const metadata = rateio.aplicar(itens, { id: 3, nome: 'Brinde', preco: 30 });
+  ctx.sandbox.pedidoSalvo = {
+    idMestre: 7, numero: '7', data: '2026-11-23', vendedor: { favorecido: 9 }, cliente: {}, carradaAtual: null,
+    itens: itens.map(({ __valorEmbutido, ...item }) => item), valorEmbutido: metadata
+  };
+  ctx.run(`
+    pedidoCarregado = pedidoSalvo;
+    globalThis.confirmacoes = [];
+    window.confirm = mensagem => { confirmacoes.push(mensagem); return true; };
+    buscarCatalogoAtualEdicao = async () => new Map([[1, { preco: 12 }]]);
+  `);
+  await ctx.run('entrarModoEdicao()');
+  await ctx.run('atualizarPrecosEdicao()');
+  assert.equal(Math.round(ctx.read('totalPedidoAtual()') * 100), 483000);
+  assert.equal(ctx.read('valorEmbutidoEdicao.totalDistribuido'), 30);
+  assert.match(ctx.read('confirmacoes[0]'), /R\$\s*800,00/);
+  ctx.run('retirarValorEmbutidoEdicao()');
+  assert.equal(ctx.read('totalPedidoAtual()'), 4800);
+});
+
+test('importação com quantidade fracionada não deixa rateio parcialmente alterado', async () => {
+  const ctx = await abrirPedido();
+  const antes = ctx.read('itensEdicao');
+  assert.throws(() => ctx.run("adicionarItemImportadoEdicao({ produto: { item_legado: 1, nome: 'Produto A' }, quantidade: 0.5, preco: 10 })"), /inteir/);
+  assert.deepEqual(ctx.read('itensEdicao'), antes);
+  assert.equal(ctx.read('valorEmbutidoEdicao.totalDistribuido'), 30);
 });

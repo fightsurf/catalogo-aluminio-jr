@@ -130,18 +130,45 @@ test('valida rateio de R$ 30 em 500 unidades e preserva bases independentes', ()
   assert.equal(t.estado.chamadas.length, 0);
 });
 
-test('aceita o resultado do cálculo compartilhado com arredondamento visível e preço-base de três casas', () => {
+test('aceita o cálculo compartilhado com centavos restantes sem alterar o valor do produto', () => {
   const calculo = require('../public/js/pedido-valor-embutido');
   const linhas = [
-    { item: 10, quantidade: 200, preco: 28.805 },
+    { item: 10, quantidade: 200, preco: 28.8 },
     { item: 20, quantidade: 299, preco: 35.9 }
   ];
   const valor = calculo.aplicar(linhas, { id: 7, item_legado: 70, nome: 'Produto embutido', preco: 30 });
   const normalizado = armazenamento().service.normalizarValorEmbutido(valor, linhas);
-  assert.equal(normalizado.totalDistribuido, 29.94);
-  assert.equal(normalizado.diferenca, -0.06);
-  assert.equal(normalizado.linhas[0].precoBase, 28.805);
-  assert.equal(normalizado.linhas[0].precoAplicado, 28.865);
+  assert.equal(normalizado.totalDistribuido, 30);
+  assert.equal(normalizado.diferenca, 0);
+  assert.equal(normalizado.acrescimoUnitario, 0.06);
+  assert.equal(normalizado.acrescimoUnitarioMaximo, 0.07);
+  assert.equal(normalizado.unidadesCentavoExtra, 6);
+  assert.equal(normalizado.linhas.reduce((soma, linha) =>
+    soma + linha.quantidade * Math.round(linha.acrescimoUnitario * 100), 0), 3000);
+});
+
+test('rejeita novos rateios aproximados em vez de persistir diferença de centavos', async () => {
+  const t = armazenamento();
+  const legado = metadata();
+  legado.quantidadeTotal = 499;
+  legado.linhas[1].quantidade = 299;
+  legado.totalDistribuido = 29.94;
+  legado.diferenca = -0.06;
+  const linhas = itens();
+  linhas[1].quantidade = 299;
+  await assert.rejects(t.service.prepararOperacao({ valorEmbutido: legado, itens: linhas }), /exatamente/);
+  assert.equal(t.estado.registros.length, 0);
+});
+
+test('aceita valor inferior a um centavo por unidade distribuído em parte das unidades', () => {
+  const calculo = require('../public/js/pedido-valor-embutido');
+  const linhas = [{ item: 10, quantidade: 500, preco: 10 }];
+  const meta = calculo.aplicar(linhas, { id: 7, nome: 'Produto embutido', preco: 0.01 });
+  const normalizado = armazenamento().service.normalizarValorEmbutido(meta, linhas);
+  assert.equal(normalizado.acrescimoUnitario, 0);
+  assert.equal(normalizado.unidadesCentavoExtra, 1);
+  assert.equal(normalizado.totalDistribuido, 0.01);
+  assert.equal(normalizado.diferenca, 0);
 });
 
 test('rejeita preço ou quantidade divergente antes de persistir ou gravar o pedido', async () => {
@@ -161,6 +188,7 @@ test('snapshot é persistido antes da inserção e vinculado ao id real devolvid
   assert.equal(t.chamadasBridge.length, 1);
   assert.equal(t.chamadasBridge[0].payload.valorEmbutido, undefined);
   assert.equal(t.chamadasBridge[0].payload.itens[0].preco, 28.86);
+  assert.equal(t.chamadasBridge[0].payload.total, 16560);
   assert.equal(resultado.pedido.idMestre, 99);
   assert.equal(resultado.valorEmbutido.valor, 30);
   assert.equal(t.estado.registros[0].pedido_ref, 99);
@@ -168,6 +196,51 @@ test('snapshot é persistido antes da inserção e vinculado ao id real devolvid
   const relido = await t.service.obterValorEmbutido(99, itens());
   assert.equal(relido.produto.nome, 'Produto embutido');
   assert.deepEqual(relido.linhas.map(linha => linha.precoBase), [28.8, 35.9]);
+});
+
+test('total adulterado pelo navegador é recalculado a partir das linhas validadas', async () => {
+  const t = insercao();
+  t.payload.total = 1;
+  await t.serviceInsercao.inserirPedido(t.payload);
+  assert.equal(t.chamadasBridge[0].payload.total, 16560);
+});
+
+test('snapshot aplicado bloqueia retirada se o preço ou a quantidade mudou fora da edição', async () => {
+  const t = armazenamento();
+  const op = await t.service.prepararOperacao({ pedidoId: 99, valorEmbutido: metadata(), itens: itens() });
+  await t.service.concluirOperacao(op, { idMestre: 99 });
+  await assert.rejects(t.service.obterValorEmbutido(99, itens(28.861, 35.96)), /retirada automática foi bloqueada/);
+  const alterados = itens();
+  alterados[0].quantidade = 201;
+  await assert.rejects(t.service.obterValorEmbutido(99, alterados), /retirada automática foi bloqueada/);
+  assert.equal((await t.service.obterValorEmbutido(99, itens().reverse())).valor, 30);
+});
+
+test('metadados antigos aproximados com três casas são preservados em edição sem mudar itens e continuam removíveis', async () => {
+  const t = armazenamento();
+  const legado = metadata();
+  legado.quantidadeTotal = 499;
+  legado.linhas[0].precoBase = 28.805;
+  legado.linhas[0].precoAplicado = 28.865;
+  legado.linhas[1].quantidade = 299;
+  legado.totalDistribuido = 29.94;
+  legado.diferenca = -0.06;
+  const anteriores = itens(28.865, 35.96);
+  anteriores[1].quantidade = 299;
+  t.estado.registros.push({ id: 'legado', pedido_ref: 99, estado: 'aplicado',
+    valor_embutido: clonar(legado), itens: clonar(anteriores), ordem: 0 });
+  const e = edicao(t, { itens: clonar(anteriores) });
+  const preservado = await e.serviceEdicao.atualizarPedido(99, {
+    vendedor: 3, obs: 'Nova observação', valorEmbutido: legado, itens: anteriores
+  });
+  assert.equal(preservado.valorEmbutido.totalDistribuido, 29.94);
+  assert.equal(preservado.valorEmbutido.linhas[0].precoBase, 28.805);
+  const semEmbutido = itens(28.805, 35.9);
+  semEmbutido[1].quantidade = 299;
+  const retirado = await e.serviceEdicao.atualizarPedido(99, { vendedor: 3, valorEmbutido: null, itens: semEmbutido });
+  assert.equal(retirado.valorEmbutido, null);
+  assert.equal((await e.serviceEdicao.buscarItensPedido(99)).valorEmbutido, null);
+  assert.equal(e.estadoLegado.itens[0].preco, 28.805);
 });
 
 test('banco indisponível ao registrar histórico impede a gravação no legado', async () => {

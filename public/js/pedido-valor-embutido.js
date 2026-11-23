@@ -7,13 +7,15 @@
 
   function numero(valor, nome) {
     const n = Number(valor);
-    if (!Number.isFinite(n)) throw new Error(`${nome} inválido.`);
+    if (valor === null || valor === undefined || valor === '' || typeof valor === 'boolean' || !Number.isFinite(n)) {
+      throw new Error(`${nome} inválido.`);
+    }
     return n;
   }
 
   function arredondar(valor, casas = 3) {
     const fator = 10 ** casas;
-    return Math.round((valor + Number.EPSILON) * fator) / fator;
+    return Math.round((valor + Number.EPSILON * Math.max(1, Math.abs(valor))) * fator) / fator;
   }
 
   function codigo(item) {
@@ -24,69 +26,145 @@
     return numero(item.__valorEmbutido?.precoBase ?? item.preco, 'Preço-base');
   }
 
+  function validarLimite(n, nome) {
+    if (!Number.isSafeInteger(n)) throw new Error(`${nome} acima do limite permitido.`);
+    return n;
+  }
+
   function simular(itens, valor) {
+    if (!Array.isArray(itens)) throw new Error('Informe os itens do pedido.');
     valor = arredondar(numero(valor, 'Valor a embutir'), 2);
     if (valor <= 0) throw new Error('O produto escolhido precisa ter preço maior que zero.');
+    const valorCentavos = validarLimite(Math.round(valor * 100), 'Valor a embutir');
     const quantidadeTotal = itens.reduce((soma, item) => {
       const quantidade = numero(item.quantidade, 'Quantidade');
       if (quantidade <= 0) throw new Error('As quantidades devem ser maiores que zero.');
-      return soma + quantidade;
+      if (!Number.isSafeInteger(quantidade)) throw new Error('Para embutir um valor, informe quantidades em unidades inteiras.');
+      return validarLimite(soma + quantidade, 'Quantidade total');
     }, 0);
-    // Dividir centavos inteiros evita perder meio centavo por ponto flutuante
-    // (por exemplo, R$ 20,15 / 2 deve arredondar para R$ 10,08).
-    const acrescimoUnitario = quantidadeTotal ? Math.round(Math.round(valor * 100) / quantidadeTotal) / 100 : 0;
-    const totalDistribuido = arredondar(quantidadeTotal * acrescimoUnitario, 2);
+    // Primeiro distribuir centavos inteiros; o resto recebe um centavo adicional
+    // em exatamente essa quantidade de unidades, sem aumentar o valor escolhido.
+    const pisoCentavos = quantidadeTotal ? Math.floor(valorCentavos / quantidadeTotal) : 0;
+    const unidadesCentavoExtra = quantidadeTotal ? valorCentavos % quantidadeTotal : 0;
     return {
-      quantidadeTotal: arredondar(quantidadeTotal),
-      acrescimoUnitario,
-      totalDistribuido,
-      diferenca: arredondar(totalDistribuido - valor, 2)
+      quantidadeTotal,
+      acrescimoUnitario: pisoCentavos / 100,
+      acrescimoUnitarioMaximo: (pisoCentavos + (unidadesCentavoExtra ? 1 : 0)) / 100,
+      unidadesCentavoExtra,
+      totalDistribuido: quantidadeTotal ? valor : 0,
+      diferenca: quantidadeTotal ? 0 : -valor
     };
   }
 
   function serializar(itens, metadata) {
     if (!metadata) return null;
     const linhas = itens.map((item) => {
-      const base = precoBase(item);
+      const base = arredondar(precoBase(item));
       const preco = arredondar(numero(item.preco, 'Preço'));
+      const quantidade = numero(item.quantidade, 'Quantidade');
+      if (base < 0 || quantidade <= 0 || preco < base) throw new Error('Os preços e quantidades do valor embutido são inválidos.');
       return {
         item: codigo(item),
         saidaItem: item.saidaItem ?? null,
         sequencia: item.sequencia ?? null,
-        quantidade: numero(item.quantidade, 'Quantidade'),
-        precoBase: arredondar(base),
+        quantidade,
+        precoBase: base,
         precoAplicado: preco,
         acrescimoUnitario: arredondar(preco - base)
       };
     });
-    const quantidadeTotal = arredondar(linhas.reduce((s, linha) => s + linha.quantidade, 0));
+    const quantidadeTotal = arredondar(linhas.reduce((s, linha) => s + linha.quantidade, 0), 6);
     const totalDistribuido = arredondar(linhas.reduce((s, linha) => s + linha.quantidade * linha.acrescimoUnitario, 0), 2);
+    const minimo = linhas.length ? Math.min(...linhas.map(linha => linha.acrescimoUnitario)) : 0;
+    const maximo = linhas.length ? Math.max(...linhas.map(linha => linha.acrescimoUnitario)) : 0;
     return {
       versao: 1,
       produto: { ...metadata.produto },
       valor: metadata.valor,
       quantidadeTotal,
-      acrescimoUnitario: linhas[0]?.acrescimoUnitario ?? 0,
+      acrescimoUnitario: minimo,
+      acrescimoUnitarioMaximo: maximo,
+      unidadesCentavoExtra: maximo > minimo ? linhas.reduce((s, linha) => s + (linha.acrescimoUnitario === maximo ? linha.quantidade : 0), 0) : 0,
       totalDistribuido,
       diferenca: arredondar(totalDistribuido - metadata.valor, 2),
       linhas
     };
   }
 
+  function clonar(item) {
+    const copia = { ...item };
+    if (item.__valorEmbutido) copia.__valorEmbutido = { ...item.__valorEmbutido };
+    return copia;
+  }
+
+  function atualizarSubtotal(item) {
+    if (Object.prototype.hasOwnProperty.call(item, 'subtotal')) item.subtotal = arredondar(item.quantidade * item.preco, 2);
+    if (Object.prototype.hasOwnProperty.call(item, 'subtotalitem')) item.subtotalitem = arredondar(item.quantidade * item.preco, 2);
+  }
+
+  // Preço-base e os demais campos comerciais fazem parte da chave. IDs de
+  // detalhes são recriados no legado e não devem impedir reunir partes do rateio.
+  function chaveBase(item, base) {
+    const ignorados = new Set(['quantidade', 'preco', '__valorEmbutido', 'saidaItem', 'sequencia', 'subtotal', 'subtotalitem']);
+    return JSON.stringify([base, Object.keys(item).filter(k => !ignorados.has(k)).sort().map(k => [k, item[k]])]);
+  }
+
+  function agruparBases(itens) {
+    const grupos = new Map();
+    itens.forEach(item => {
+      const base = arredondar(precoBase(item));
+      const chave = chaveBase(item, base);
+      let grupo = grupos.get(chave);
+      if (!grupo) {
+        grupo = { item: clonar(item), base, quantidade: 0 };
+        grupos.set(chave, grupo);
+      }
+      grupo.quantidade += numero(item.quantidade, 'Quantidade');
+    });
+    return Array.from(grupos.values());
+  }
+
   function recalcular(itens, metadata) {
     if (!metadata) return null;
     const resumo = simular(itens, metadata.valor);
-    // Calcular tudo antes de alterar a lista: um preço inválido não deixa rateio parcial.
-    const precos = itens.map((item) => {
-      const base = arredondar(precoBase(item));
+    // Validar e produzir uma lista independente antes do splice. Nenhuma falha
+    // deixa preços ou quantidades parcialmente alterados.
+    const grupos = agruparBases(itens);
+    grupos.forEach(({ base, quantidade }) => {
       if (base < 0) throw new Error('O preço-base não pode ser negativo. Retire o valor embutido para revisar esse preço.');
-      return { base, preco: arredondar(base + resumo.acrescimoUnitario) };
+      const centavos = Math.round(base * 100);
+      if (Math.abs(base * 100 - centavos) > 0.000001) {
+        throw new Error('Para recalcular o valor embutido, os preços-base precisam ter no máximo duas casas decimais. Retire o valor embutido para revisar os preços.');
+      }
+      validarLimite(centavos, 'Preço-base');
+      validarLimite(centavos * quantidade, 'Total do pedido');
     });
-    itens.forEach((item, index) => {
-      item.__valorEmbutido = { precoBase: precos[index].base, acrescimoUnitario: resumo.acrescimoUnitario };
-      item.preco = precos[index].preco;
+    let extrasRestantes = resumo.unidadesCentavoExtra;
+    const novasLinhas = [];
+    const adicionar = (grupo, quantidade, acrescimoCentavos) => {
+      if (!quantidade) return;
+      const item = clonar(grupo.item);
+      const precoCentavos = validarLimite(Math.round(grupo.base * 100) + acrescimoCentavos, 'Preço');
+      validarLimite(precoCentavos * quantidade, 'Total do pedido');
+      item.quantidade = quantidade;
+      item.preco = precoCentavos / 100;
+      item.__valorEmbutido = { precoBase: grupo.base, acrescimoUnitario: acrescimoCentavos / 100 };
+      atualizarSubtotal(item);
+      novasLinhas.push(item);
+    };
+    const pisoCentavos = Math.round(resumo.acrescimoUnitario * 100);
+    grupos.forEach(grupo => {
+      const extras = Math.min(extrasRestantes, grupo.quantidade);
+      adicionar(grupo, grupo.quantidade - extras, pisoCentavos);
+      adicionar(grupo, extras, pisoCentavos + 1);
+      extrasRestantes -= extras;
     });
-    return serializar(itens, { ...metadata, ...resumo });
+    const estado = serializar(novasLinhas, metadata);
+    if (novasLinhas.length && (estado.totalDistribuido !== resumo.totalDistribuido || estado.diferenca !== 0)) {
+      throw new Error('Não foi possível distribuir o valor exato. Confira os preços e quantidades.');
+    }
+    itens.splice(0, itens.length, ...novasLinhas);
+    return estado;
   }
 
   function carregar(itens, metadata) {
@@ -94,43 +172,39 @@
     if (metadata.versao !== 1 || !Array.isArray(metadata.linhas) || !metadata.linhas.length) {
       throw new Error('Não foi possível conferir o valor embutido. Recarregue o pedido antes de editar.');
     }
-    const disponiveis = metadata.linhas.map((linha, index) => ({ linha, index }));
-    const planos = itens.map((item, index) => {
+    const disponiveis = metadata.linhas.slice();
+    const planos = itens.map(item => {
       const preco = numero(item.preco, 'Preço');
-      const candidatos = disponiveis.filter(({ linha }) => Number(linha.item) === codigo(item));
-      // O legado recria os detalhes ao editar. Preferir o conteúdo da linha, não IDs antigos.
-      let escolhido = candidatos.find(({ linha }) =>
-        Math.abs(Number(linha.precoAplicado) - preco) < 0.00001 &&
-        Math.abs(Number(linha.quantidade) - Number(item.quantidade)) < 0.00001);
-      if (!escolhido) escolhido = candidatos.find(({ linha }) => Math.abs(Number(linha.precoAplicado) - preco) < 0.00001);
-      if (!escolhido && candidatos.length === 1) escolhido = candidatos[0];
-      if (!escolhido && candidatos.length > 1) {
-        const incrementos = new Set(candidatos.map(({ linha }) => arredondar(Number(linha.acrescimoUnitario))));
-        if (incrementos.size === 1) escolhido = candidatos.find((c) => c.index === index) || candidatos[0];
+      const quantidade = numero(item.quantidade, 'Quantidade');
+      // Somente uma linha que ainda corresponda ao snapshot pode ser restaurada.
+      // Um preço editado externamente não autoriza subtrair um acréscimo antigo.
+      const indice = disponiveis.findIndex(linha => Number(linha.item) === codigo(item)
+        && Math.abs(Number(linha.precoAplicado) - preco) < 0.000001
+        && Math.abs(Number(linha.quantidade) - quantidade) < 0.000001);
+      if (indice < 0) throw new Error('Os itens mudaram desde o rateio. Confira o pedido antes de retirar o valor embutido.');
+      const linha = disponiveis.splice(indice, 1)[0];
+      const acrescimo = numero(linha.acrescimoUnitario, 'Acréscimo');
+      const base = numero(linha.precoBase, 'Preço-base');
+      if (base < 0 || acrescimo < 0 || Math.abs(base + acrescimo - preco) >= 0.000001) {
+        throw new Error('O preço atual é incompatível com o valor embutido. Confira o pedido.');
       }
-      if (!escolhido) {
-        throw new Error('Os itens mudaram desde o rateio. Confira o pedido antes de retirar o valor embutido.');
-      }
-      disponiveis.splice(disponiveis.indexOf(escolhido), 1);
-      const acrescimo = numero(escolhido.linha.acrescimoUnitario, 'Acréscimo');
-      const base = arredondar(preco - acrescimo);
-      if (base < 0 || acrescimo < 0) throw new Error('O preço atual é incompatível com o valor embutido. Confira o pedido.');
-      return { precoBase: base, acrescimoUnitario: acrescimo };
+      return { precoBase: arredondar(base), acrescimoUnitario: arredondar(acrescimo) };
     });
     if (disponiveis.length) throw new Error('Os itens mudaram desde o rateio. Recarregue o pedido antes de editar.');
+    const temporarios = itens.map((item, index) => ({ ...item, __valorEmbutido: planos[index] }));
+    // Serializar apenas lê: carregar pedidos antigos preserva seu valor aplicado,
+    // inclusive a diferença de arredondamento original, até edição explícita.
+    const estado = serializar(temporarios, metadata);
     itens.forEach((item, index) => { item.__valorEmbutido = planos[index]; });
-    return serializar(itens, metadata);
+    return estado;
   }
 
   function aplicar(itens, produto, anterior = null) {
     if (!itens.length) throw new Error('Adicione os itens do pedido antes de embutir um valor.');
     const valor = arredondar(numero(produto.preco ?? produto.valor, 'Preço do produto'), 2);
-    const resumo = simular(itens, valor);
-    if (resumo.acrescimoUnitario <= 0) {
-      throw new Error('O valor dividido pela quantidade fica abaixo de um centavo por unidade. Escolha outro produto ou ajuste as quantidades.');
-    }
-    if (anterior && itens.some((item) => !item.__valorEmbutido)) carregar(itens, anterior);
-    return recalcular(itens, {
+    const temporarios = itens.map(clonar);
+    if (anterior && temporarios.some(item => !item.__valorEmbutido)) carregar(temporarios, anterior);
+    const estado = recalcular(temporarios, {
       versao: 1,
       produto: {
         id: Number(produto.id) || null,
@@ -139,6 +213,8 @@
       },
       valor
     });
+    itens.splice(0, itens.length, ...temporarios);
+    return estado;
   }
 
   function definirPreco(item, novoPreco, opcoes = {}) {
@@ -148,16 +224,26 @@
     if (base < 0) throw new Error('Esse preço é menor que o acréscimo embutido. Retire o valor embutido antes de reduzir o preço.');
     if (item.__valorEmbutido) item.__valorEmbutido.precoBase = base;
     item.preco = arredondar(base + acrescimo);
+    atualizarSubtotal(item);
     return item.preco;
   }
 
   function remover(itens, metadata) {
-    if (metadata && itens.length && itens.some((item) => !item.__valorEmbutido)) carregar(itens, metadata);
-    itens.forEach((item) => {
-      if (!item.__valorEmbutido) return;
-      item.preco = arredondar(item.__valorEmbutido.precoBase);
+    const temporarios = itens.map(clonar);
+    if (metadata && temporarios.length && temporarios.some(item => !item.__valorEmbutido)) carregar(temporarios, metadata);
+    const haviaRateio = temporarios.some(item => item.__valorEmbutido);
+    if (!haviaRateio) return null;
+    const grupos = agruparBases(temporarios);
+    const restaurados = grupos.map(grupo => {
+      if (grupo.base < 0 || grupo.quantidade <= 0) throw new Error('Os preços-base e quantidades são inválidos.');
+      const item = grupo.item;
+      item.preco = grupo.base;
+      item.quantidade = grupo.quantidade;
       delete item.__valorEmbutido;
+      atualizarSubtotal(item);
+      return item;
     });
+    itens.splice(0, itens.length, ...restaurados);
     return null;
   }
 

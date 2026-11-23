@@ -127,15 +127,48 @@ test('falha confirmada antes da gravação permite corrigir sem perder o rateio'
   assert.equal(ctx.read('valorEmbutido.valor'), 30);
 });
 
-test('aguarda importação pendente e não grava acréscimo arredondado para zero', async () => {
+test('aguarda importação pendente antes de gravar', async () => {
   const ctx = await contexto();
   let chamadas = 0;
   ctx.sandbox.fetch = async () => { chamadas++; throw new Error('Não deve gravar.'); };
   ctx.elemento('btnImportarRelatorio').disabled = true;
   await ctx.run('salvarPedido()');
-  ctx.elemento('btnImportarRelatorio').disabled = false;
-  ctx.run('itensPedido[0].quantidade = 10000; renderItensPedido()');
-  await ctx.run('salvarPedido()');
   assert.equal(chamadas, 0);
   assert.equal(ctx.read('ultimoPedidoSalvo'), null);
+});
+
+test('R$ 30 em 400 unidades fecha o valor com dois preços em vez de cobrar R$ 32', async () => {
+  const ctx = await contexto();
+  ctx.run('itensPedido[1].quantidade = 300; renderItensPedido()');
+  const payload = ctx.read('montarPayload()');
+  assert.equal(payload.total, 7030);
+  assert.equal(payload.valorEmbutido.totalDistribuido, 30);
+  assert.equal(payload.valorEmbutido.diferenca, 0);
+  assert.equal(payload.itens.reduce((s, i) => s + i.quantidade, 0), 400);
+  assert.equal(payload.itens.reduce((s, i) => s + Math.round(i.preco * 100) * i.quantidade, 0), 703000);
+  assert.match(ctx.elemento('resumoValorEmbutido').innerHTML, /0,07/);
+  assert.match(ctx.elemento('resumoValorEmbutido').innerHTML, /0,08/);
+  ctx.elemento('btnRetirarValorEmbutido').handlers.click();
+  assert.equal(ctx.read('calcularTotal()'), 7000);
+  assert.equal(ctx.read('itensPedido.reduce((s, i) => s + i.quantidade, 0)'), 400);
+});
+
+test('valor inferior a um centavo por unidade continua integralmente distribuído e pode ser salvo', async () => {
+  const ctx = await contexto();
+  ctx.run('itensPedido[0].quantidade = 10000; renderItensPedido()');
+  const payload = ctx.read('montarPayload()');
+  assert.equal(payload.total, 108030);
+  assert.equal(payload.valorEmbutido.totalDistribuido, 30);
+  assert.equal(payload.valorEmbutido.diferenca, 0);
+  assert.equal(payload.itens.reduce((s, i) => s + i.quantidade, 0), 10400);
+  let chamadas = 0;
+  ctx.sandbox.fetch = async (url, options) => {
+    chamadas++;
+    const dados = JSON.parse(options.body);
+    assert.equal(dados.total, 108030);
+    return {ok:true,status:201,json:async()=>({pedido:{idMestre:1002,numero:'TESTE002',total:dados.total}})};
+  };
+  await ctx.run('salvarPedido()');
+  assert.equal(chamadas, 1);
+  assert.equal(ctx.read('ultimoPedidoSalvo.total'), 108030);
 });

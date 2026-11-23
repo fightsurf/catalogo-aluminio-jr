@@ -984,19 +984,37 @@
       return itensEdicao.reduce((acc, item) => acc + Number(item?.quantidade || 0), 0);
     }
 
-    function recalcularValorEmbutidoEdicao() {
+    function clonarItensEdicao() {
+      return itensEdicao.map((item) => ({
+        ...item,
+        ...(item.__valorEmbutido ? { __valorEmbutido: { ...item.__valorEmbutido } } : {})
+      }));
+    }
+
+    function recalcularValorEmbutidoEdicao(candidatos = itensEdicao) {
       if (valorEmbutidoEdicao) {
-        valorEmbutidoEdicao = PedidoValorEmbutido.recalcular(itensEdicao, valorEmbutidoEdicao);
+        valorEmbutidoEdicao = PedidoValorEmbutido.recalcular(candidatos, valorEmbutidoEdicao);
       }
+      itensEdicao = candidatos;
     }
 
     function montarPainelValorEmbutido(valorEmbutido, permitirRetirada = false, aviso = '') {
       if (!valorEmbutido && !aviso) return '';
+      const distribuicao = new Map();
+      for (const linha of valorEmbutido?.linhas || []) {
+        const acrescimo = Number(linha.acrescimoUnitario || 0);
+        distribuicao.set(acrescimo, (distribuicao.get(acrescimo) || 0) + Number(linha.quantidade || 0));
+      }
+      const grupos = [...distribuicao.entries()].sort((a, b) => a[0] - b[0]);
+      const resumoAcrescimo = grupos.length > 1
+        ? grupos.map(([acrescimo, quantidade]) => `${numero(quantidade)} unidades com ${moeda(acrescimo)} por unidade`).join('; ')
+        : `Acréscimo por unidade: ${moeda(grupos[0]?.[0] ?? valorEmbutido?.acrescimoUnitario)}`;
       return `
         <div class="resumo-valor-embutido" aria-live="polite">
           ${valorEmbutido ? `
             <div><strong>Produto embutido:</strong> ${escapeHtml(valorEmbutido.produto?.nome || 'Produto')}</div>
-            <div>Valor do produto: ${moeda(valorEmbutido.valor)} · Acréscimo por unidade: ${moeda(valorEmbutido.acrescimoUnitario)}</div>
+            <div>Valor do produto: ${moeda(valorEmbutido.valor)}</div>
+            <div>${resumoAcrescimo}</div>
             <div><strong>Total distribuído: ${moeda(valorEmbutido.totalDistribuido)}</strong> em ${numero(valorEmbutido.quantidadeTotal)} unidades.</div>
             ${Math.abs(Number(valorEmbutido.diferenca || 0)) >= 0.005 ? `<div class="texto-ajuda">Diferença de arredondamento: ${moeda(valorEmbutido.diferenca)}.</div>` : ''}
             ${permitirRetirada ? `<div style="margin-top:10px;"><button id="btnRetirarValorEmbutido" class="btn btn-danger" type="button">Retirar produto embutido</button><div class="texto-ajuda" style="margin-top:6px;">A retirada remove o acréscimo dos preços e será gravada ao salvar as alterações.</div></div>` : ''}
@@ -1664,7 +1682,7 @@
           const produto = catalogo.get(Number(item.item));
           const precoAtual = Number(produto?.preco);
           if (!produto || !Number.isFinite(precoAtual) || precoAtual < 0) { naoEncontrados++; return; }
-          const precoComEmbutido = Number((precoAtual + Number(valorEmbutidoEdicao?.acrescimoUnitario || 0)).toFixed(3));
+          const precoComEmbutido = Number((precoAtual + Number(item.__valorEmbutido?.acrescimoUnitario || 0)).toFixed(3));
           if (Math.abs(precoComEmbutido - Number(item.preco || 0)) >= 0.0005) {
             alteracoes.push({ index: i, anterior: Number(item.preco || 0), atual: precoAtual, final: precoComEmbutido, quantidade: Number(item.quantidade || 0) });
           }
@@ -1673,15 +1691,19 @@
           setMensagem(naoEncontrados ? `Nenhum preço atualizado. ${naoEncontrados} produto(s) sem preço válido no cadastro atual.` : 'Os preços consultados já estão atualizados.');
           return;
         }
+        const candidatos = clonarItensEdicao();
+        alteracoes.forEach((item) => {
+          if (valorEmbutidoEdicao) PedidoValorEmbutido.definirPreco(candidatos[item.index], item.atual, { base: true });
+          else candidatos[item.index].preco = item.atual;
+        });
+        const embutidoAtualizado = valorEmbutidoEdicao
+          ? PedidoValorEmbutido.recalcular(candidatos, valorEmbutidoEdicao) : null;
         if (indice === null) {
-          const diferenca = alteracoes.reduce((soma, item) => soma + (item.final - item.anterior) * item.quantidade, 0);
+          const diferenca = candidatos.reduce((soma, item) => soma + calcularSubtotalItem(item), 0) - totalPedidoAtual();
           if (!window.confirm(`Atualizar ${alteracoes.length} preço(s) deste pedido? Diferença no total: ${moeda(diferenca)}. Os valores só serão gravados ao clicar em Salvar alterações.`)) return;
         }
-        alteracoes.forEach((item) => {
-          if (valorEmbutidoEdicao) PedidoValorEmbutido.definirPreco(itensEdicao[item.index], item.atual, { base: true });
-          else itensEdicao[item.index].preco = item.atual;
-        });
-        recalcularValorEmbutidoEdicao();
+        itensEdicao = candidatos;
+        valorEmbutidoEdicao = embutidoAtualizado;
         renderizarCliente(pedidoCarregado);
         renderizarItens(pedidoCarregado);
         setMensagem(`${alteracoes.length} preço(s) atualizado(s) conforme o cadastro atual. ${naoEncontrados ? `${naoEncontrados} produto(s) não encontrado(s). ` : ''}Clique em Salvar alterações para gravar o pedido.`);
@@ -1741,15 +1763,16 @@
       if (!Number.isFinite(quantidadeNumero) || quantidadeNumero <= 0) return false;
       if (!Number.isFinite(precoNumero) || precoNumero < 0) return false;
 
-      const existente = itensEdicao.find((item, index) => (
+      const candidatos = clonarItensEdicao();
+      const existente = candidatos.find((item) => (
         Number(item?.item || 0) === codigoItem
-        && Math.abs(Number(valorEmbutidoEdicao?.linhas?.[index]?.precoBase ?? item?.preco ?? 0) - precoNumero) < 0.0001
+        && Math.abs(Number(item.__valorEmbutido?.precoBase ?? item?.preco ?? 0) - precoNumero) < 0.0001
       ));
 
       if (existente) {
         existente.quantidade = Number(existente.quantidade || 0) + quantidadeNumero;
       } else {
-        itensEdicao.push({
+        candidatos.push({
           item: codigoItem,
           descricao: produto?.nome || '',
           quantidade: quantidadeNumero,
@@ -1757,7 +1780,7 @@
         });
       }
 
-      recalcularValorEmbutidoEdicao();
+      recalcularValorEmbutidoEdicao(candidatos);
       return true;
     }
 
@@ -1927,13 +1950,19 @@
       const produto = buscaProdutoResultados[index];
       if (!produto) return;
 
-      itensEdicao.push({
+      const candidatos = clonarItensEdicao();
+      candidatos.push({
         item: Number(produto.item_legado || 0),
         descricao: produto.nome || '',
         quantidade: 1,
         preco: Number(produto.preco || 0)
       });
-      recalcularValorEmbutidoEdicao();
+      try {
+        recalcularValorEmbutidoEdicao(candidatos);
+      } catch (error) {
+        setMensagem(error.message || 'Não foi possível adicionar o produto ao pedido.', true);
+        return;
+      }
 
       const nomeProduto = produto.nome || 'Produto';
       limparBuscaProduto();
@@ -2187,7 +2216,7 @@
                 <tr>
                   <td class="celula-foto-item">${miniaturaProdutoEdicao(item)}</td>
                   <td>${escapeHtml(item.descricao || '-')}</td>
-                  <td class="right"><input class="input-curto" type="number" min="0.001" step="0.001" data-campo-item="quantidade" data-index="${index}" value="${numeroFixo(item.quantidade)}" /></td>
+                  <td class="right"><input class="input-curto" type="number" min="${valorEmbutidoEdicao ? '1' : '0.001'}" step="${valorEmbutidoEdicao ? '1' : '0.001'}" data-campo-item="quantidade" data-index="${index}" value="${numeroFixo(item.quantidade)}" /></td>
                   <td class="right"><div class="preco-edicao-grupo"><input class="input-preco" type="number" min="0" step="0.001" data-campo-item="preco" data-index="${index}" value="${numeroFixo(item.preco)}" /><button class="btn-atualizar-preco" type="button" data-acao-preco="atualizar" data-index="${index}" aria-label="Atualizar preço de ${escapeHtml(item.descricao || 'produto')}" title="Atualizar somente este preço" ${atualizandoPrecosEdicao ? 'disabled' : ''}>↻</button></div></td>
                   <td class="right">${moeda(calcularSubtotalItem(item))}</td>
                   <td><button class="btn btn-danger" type="button" data-acao-item="remover" data-index="${index}">Remover</button></td>
@@ -3219,10 +3248,6 @@
 
       if (!itensEdicao.length) {
         setMensagem('O pedido precisa ter ao menos 1 item.', true);
-        return;
-      }
-      if (valorEmbutidoEdicao && Number(valorEmbutidoEdicao.acrescimoUnitario) <= 0) {
-        setMensagem('O valor embutido fica abaixo de um centavo por unidade. Retire-o ou ajuste o pedido antes de salvar.', true);
         return;
       }
 
