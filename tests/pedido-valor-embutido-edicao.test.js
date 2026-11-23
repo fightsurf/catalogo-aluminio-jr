@@ -16,7 +16,10 @@ function contexto() {
     if (!elementos.has(id)) elementos.set(id, {
       value: '', textContent: '', innerHTML: '', disabled: false, style: {},
       classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
-      addEventListener() {}, querySelectorAll() { return []; }, setAttribute() {}, focus() {}
+      eventos: new Map(),
+      addEventListener(tipo, callback) { this.eventos.set(tipo, callback); },
+      click() { if (!this.disabled) return this.eventos.get('click')?.({ target: this }); },
+      querySelectorAll() { return []; }, setAttribute() {}, focus() {}
     });
     return elementos.get(id);
   }
@@ -33,12 +36,14 @@ function contexto() {
     carregarVendedores = async () => {};
     carregarCarradasDisponiveis = async () => {};
     buscarCatalogoAtualEdicao = async () => new Map();
+    globalThis.renderizarItensOriginal = renderizarItens;
     renderizarPedidoCompleto = () => {};
     renderizarCliente = () => {};
     renderizarItens = () => {};
   `, sandbox);
   return {
     sandbox,
+    elemento,
     run: (texto) => vm.runInContext(texto, sandbox),
     read: (texto) => JSON.parse(vm.runInContext(`JSON.stringify(${texto})`, sandbox))
   };
@@ -60,6 +65,204 @@ async function abrirPedido() {
   await ctx.run('entrarModoEdicao()');
   return ctx;
 }
+
+async function abrirPedidoSemValorEmbutido() {
+  const ctx = contexto();
+  ctx.sandbox.pedidoSalvo = {
+    idMestre: 7, numero: '7', data: '2026-11-23', vendedor: { favorecido: 9 },
+    cliente: {}, carradaAtual: null, valorEmbutido: null,
+    itens: [
+      { item: 1, descricao: 'Produto A', quantidade: 160, preco: 10 },
+      { item: 2, descricao: 'Produto B', quantidade: 180, preco: 20 }
+    ]
+  };
+  ctx.run('pedidoCarregado = pedidoSalvo;');
+  await ctx.run('entrarModoEdicao()');
+  return ctx;
+}
+
+function selecionarProdutoParaEmbutir(ctx, preco = 29) {
+  ctx.sandbox.produtoDoCadastro = { id: 3, nome: 'Produto embutido', preco };
+  ctx.run(`
+    painelEmbutirEdicaoAberto = true;
+    produtosEmbutidosEncontradosEdicao = [produtoDoCadastro];
+    selecionarProdutoEmbutidoEdicao(0);
+  `);
+}
+
+test('botão da edição abre o painel e os cliques em selecionar e aplicar usam a prévia uniforme', async () => {
+  const ctx = await abrirPedidoSemValorEmbutido();
+  const lista = ctx.elemento('resultadosProdutoEmbutidoEdicao');
+  const resultado = ctx.elemento('resultadoSimulado');
+  resultado.dataset = { produtoEmbutidoEdicao: '0' };
+  lista.querySelectorAll = () => lista.innerHTML.includes('data-produto-embutido-edicao="0"') ? [resultado] : [];
+  ctx.run('renderizarItens = renderizarItensOriginal; renderizarItens(pedidoCarregado);');
+  assert.match(ctx.elemento('blocoItens').innerHTML, /id="btnEmbutirValorEdicao"/);
+  assert.match(ctx.elemento('blocoItens').innerHTML, /id="painelEmbutirValorEdicao"[^>]*hidden/);
+
+  ctx.elemento('btnEmbutirValorEdicao').click();
+  assert.equal(ctx.read('painelEmbutirEdicaoAberto'), true);
+  assert.doesNotMatch(ctx.elemento('blocoItens').innerHTML, /id="painelEmbutirValorEdicao"[^>]*hidden/);
+  ctx.run(`
+    produtosEmbutidosEncontradosEdicao = [{ id: 3, nome: '<Brinde>', preco: 29 }];
+    renderizarResultadosEmbutidoEdicao();
+  `);
+  resultado.click();
+  assert.equal(ctx.read('produtoEmbutidoSelecionadoEdicao.id'), 3);
+  assert.match(ctx.elemento('previaValorEmbutidoEdicao').innerHTML, /&lt;Brinde&gt;/);
+  assert.match(ctx.elemento('previaValorEmbutidoEdicao').innerHTML, /340 unidades/);
+  assert.match(ctx.elemento('previaValorEmbutidoEdicao').innerHTML, /R\$\s*0,09/);
+  assert.match(ctx.elemento('previaValorEmbutidoEdicao').innerHTML, /R\$\s*30,60/);
+  assert.equal(ctx.elemento('btnAplicarValorEmbutidoEdicao').disabled, false);
+
+  ctx.elemento('btnAplicarValorEmbutidoEdicao').click();
+  assert.deepEqual(ctx.read('itensEdicao.map(item => item.preco)'), [10.09, 20.09]);
+  assert.match(ctx.elemento('blocoItens').innerHTML, /Retirar produto embutido/);
+  assert.equal(ctx.read('painelEmbutirEdicaoAberto'), false);
+  ctx.run('sairModoEdicao(); renderizarItens(pedidoCarregado);');
+  assert.doesNotMatch(ctx.elemento('blocoItens').innerHTML, /id="btnEmbutirValorEdicao"/);
+});
+
+test('busca produto do cadastro e aplica R$29 em 340 unidades somente no rascunho', async () => {
+  const ctx = await abrirPedidoSemValorEmbutido();
+  const requisicoes = [];
+  ctx.sandbox.fetch = async (url, options) => {
+    requisicoes.push({ url, method: options?.method || 'GET' });
+    return {
+      ok: true, status: 200,
+      json: async () => ({ data: [
+        { id: 3, nome: 'Produto sem item legado', preco: 29 },
+        { id: 4, nome: 'Produto sem preço', preco: 0 },
+        { id: 5, nome: 'Preço inválido', preco: -1 }
+      ] })
+    };
+  };
+  ctx.run("painelEmbutirEdicaoAberto = true; termoProdutoEmbutidoEdicao = 'Produto sem';");
+  await ctx.run('buscarProdutoParaEmbutirEdicao()');
+  assert.deepEqual(ctx.read('produtosEmbutidosEncontradosEdicao.map(produto => produto.id)'), [3]);
+  ctx.run('selecionarProdutoEmbutidoEdicao(0); aplicarValorEmbutidoEdicao();');
+
+  assert.deepEqual(requisicoes, [{ url: '/api/produtos?busca=Produto%20sem&ativos=true', method: 'GET' }]);
+  assert.deepEqual(ctx.read('itensEdicao.map(item => [item.quantidade, item.preco])'), [[160, 10.09], [180, 20.09]]);
+  assert.equal(ctx.read('valorEmbutidoEdicao.acrescimoUnitario'), 0.09);
+  assert.equal(ctx.read('valorEmbutidoEdicao.totalDistribuido'), 30.6);
+  assert.equal(ctx.read('valorEmbutidoEdicao.diferenca'), 1.6);
+  assert.equal(Math.round(ctx.read('totalPedidoAtual()') * 100), 523060);
+  assert.deepEqual(ctx.read('pedidoCarregado.itens.map(item => item.preco)'), [10, 20]);
+  assert.equal(ctx.read('pedidoCarregado.valorEmbutido'), null);
+});
+
+test('reaplicar ou trocar o produto embutido substitui o acréscimo sem acumulá-lo', async () => {
+  const ctx = await abrirPedidoSemValorEmbutido();
+  selecionarProdutoParaEmbutir(ctx);
+  ctx.run('aplicarValorEmbutidoEdicao()');
+  selecionarProdutoParaEmbutir(ctx);
+  ctx.run('aplicarValorEmbutidoEdicao()');
+  assert.deepEqual(ctx.read('itensEdicao.map(item => item.preco)'), [10.09, 20.09]);
+  assert.equal(ctx.read('valorEmbutidoEdicao.totalDistribuido'), 30.6);
+
+  selecionarProdutoParaEmbutir(ctx, 68);
+  ctx.run('aplicarValorEmbutidoEdicao()');
+  assert.deepEqual(ctx.read('itensEdicao.map(item => item.preco)'), [10.2, 20.2]);
+  assert.equal(ctx.read('valorEmbutidoEdicao.totalDistribuido'), 68);
+  assert.equal(ctx.read('valorEmbutidoEdicao.linhas.length'), 2);
+  ctx.run('retirarValorEmbutidoEdicao()');
+  assert.deepEqual(ctx.read('itensEdicao.map(item => item.preco)'), [10, 20]);
+});
+
+test('cancelar a aplicação descarta o rascunho e limpa a seleção para a próxima edição', async () => {
+  const ctx = await abrirPedidoSemValorEmbutido();
+  selecionarProdutoParaEmbutir(ctx);
+  ctx.run('aplicarValorEmbutidoEdicao(); sairModoEdicao();');
+  assert.deepEqual(ctx.read('pedidoCarregado.itens.map(item => item.preco)'), [10, 20]);
+  assert.equal(ctx.read('pedidoCarregado.valorEmbutido'), null);
+  assert.equal(ctx.read('produtoEmbutidoSelecionadoEdicao'), null);
+  assert.equal(ctx.read('painelEmbutirEdicaoAberto'), false);
+  await ctx.run('entrarModoEdicao()');
+  assert.deepEqual(ctx.read('itensEdicao.map(item => item.preco)'), [10, 20]);
+  assert.equal(ctx.read('valorEmbutidoEdicao'), null);
+});
+
+test('salvar nova aplicação envia preços e registro juntos e permite reabrir e retirar', async () => {
+  const ctx = await abrirPedidoSemValorEmbutido();
+  selecionarProdutoParaEmbutir(ctx);
+  ctx.run(`
+    globalThis.requisicoes = [];
+    fetchJson = async (url, options) => {
+      const payload = JSON.parse(options.body);
+      requisicoes.push({ url, method: options.method, payload });
+      return { data: { ...pedidoCarregado, ...payload, total: 5230.6 } };
+    };
+    aplicarValorEmbutidoEdicao();
+  `);
+  assert.equal(ctx.read('requisicoes.length'), 0);
+  await ctx.run('salvarAlteracoesPedido()');
+  const [requisicao] = ctx.read('requisicoes');
+  assert.equal(ctx.read('requisicoes.length'), 1);
+  assert.equal(requisicao.url, '/api/legado/pedidos/7');
+  assert.equal(requisicao.method, 'PUT');
+  assert.deepEqual(requisicao.payload.itens.map(item => item.preco), [10.09, 20.09]);
+  assert.equal(requisicao.payload.valorEmbutido.produto.id, 3);
+  assert.equal(requisicao.payload.valorEmbutido.totalDistribuido, 30.6);
+  assert.equal(ctx.read('modoEdicao'), false);
+
+  await ctx.run('entrarModoEdicao()');
+  assert.deepEqual(ctx.read('itensEdicao.map(item => item.preco)'), [10.09, 20.09]);
+  ctx.run('retirarValorEmbutidoEdicao()');
+  assert.deepEqual(ctx.read('itensEdicao.map(item => item.preco)'), [10, 20]);
+  assert.equal(ctx.read('totalPedidoAtual()'), 5200);
+});
+
+test('a busca mais recente prevalece quando as respostas chegam fora de ordem', async () => {
+  const ctx = await abrirPedidoSemValorEmbutido();
+  ctx.run(`
+    globalThis.respostasBusca = [];
+    fetchJson = () => new Promise(resolve => respostasBusca.push(resolve));
+    painelEmbutirEdicaoAberto = true;
+    termoProdutoEmbutidoEdicao = 'Antigo';
+  `);
+  const antiga = ctx.run('buscarProdutoParaEmbutirEdicao()');
+  ctx.run("termoProdutoEmbutidoEdicao = 'Atual';");
+  const atual = ctx.run('buscarProdutoParaEmbutirEdicao()');
+  ctx.run("respostasBusca[1]({ data: [{ id: 4, nome: 'Atual', preco: 29 }] });");
+  await atual;
+  ctx.run("respostasBusca[0]({ data: [{ id: 3, nome: 'Antigo', preco: 68 }] });");
+  await antiga;
+  assert.deepEqual(ctx.read('produtosEmbutidosEncontradosEdicao.map(produto => produto.id)'), [4]);
+  ctx.run('selecionarProdutoEmbutidoEdicao(0); aplicarValorEmbutidoEdicao();');
+  assert.equal(ctx.read('valorEmbutidoEdicao.produto.id'), 4);
+  assert.equal(ctx.read('valorEmbutidoEdicao.totalDistribuido'), 30.6);
+});
+
+test('cancelar a edição invalida resposta pendente mesmo após abrir outro pedido', async () => {
+  const ctx = await abrirPedidoSemValorEmbutido();
+  ctx.run(`
+    fetchJson = () => new Promise(resolve => { globalThis.responderBusca = resolve; });
+    painelEmbutirEdicaoAberto = true;
+    termoProdutoEmbutidoEdicao = 'Brinde';
+  `);
+  const busca = ctx.run('buscarProdutoParaEmbutirEdicao()');
+  ctx.run('sairModoEdicao(); pedidoCarregado = { ...pedidoCarregado, idMestre: 8, numero: "8" };');
+  await ctx.run('entrarModoEdicao()');
+  ctx.run("responderBusca({ data: [{ id: 3, nome: 'Brinde', preco: 29 }] });");
+  await busca;
+  assert.deepEqual(ctx.read('produtosEmbutidosEncontradosEdicao'), []);
+  assert.equal(ctx.read('produtoEmbutidoSelecionadoEdicao'), null);
+  assert.equal(ctx.read('painelEmbutirEdicaoAberto'), false);
+  assert.equal(ctx.read('pedidoCarregado.idMestre'), 8);
+  assert.equal(ctx.read('valorEmbutidoEdicao'), null);
+});
+
+test('aplicação é bloqueada durante gravação, incerteza, importação ou atualização de preços', async () => {
+  for (const estado of ['salvandoAlteracoes', 'salvamentoIncertoEdicao', 'importandoRelatorio', 'atualizandoPrecosEdicao']) {
+    const ctx = await abrirPedidoSemValorEmbutido();
+    selecionarProdutoParaEmbutir(ctx);
+    ctx.run(`${estado} = true; aplicarValorEmbutidoEdicao();`);
+    assert.equal(ctx.read('embutirEdicaoBloqueado()'), true, estado);
+    assert.deepEqual(ctx.read('itensEdicao.map(item => item.preco)'), [10, 20], estado);
+    assert.equal(ctx.read('valorEmbutidoEdicao'), null, estado);
+  }
+});
 
 test('reabre pedido salvo, retira acréscimo e cancela sem alterar o pedido carregado', async () => {
   const ctx = await abrirPedido();

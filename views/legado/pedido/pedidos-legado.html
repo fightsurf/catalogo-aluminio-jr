@@ -228,6 +228,10 @@
     }
 
     .resumo-valor-embutido { margin:14px 0; padding:14px; border:1px solid #bfdbfe; border-radius:8px; background:#eff6ff; font-size:14px; line-height:1.6; }
+    .acoes-embutir-valor { display:flex; flex-wrap:wrap; gap:10px; margin-top:12px; }
+    .lista-produtos-embutidos { display:grid; gap:6px; max-height:220px; overflow-y:auto; margin:10px 0; }
+    .opcao-produto-embutido { display:flex; justify-content:space-between; align-items:center; gap:12px; width:100%; padding:10px; border:1px solid #d1d5db; border-radius:6px; background:#fff; color:#111827; text-align:left; cursor:pointer; }
+    .opcao-produto-embutido:hover { background:#dbeafe; }
 
     .acoes-edicao-inline {
       display: flex;
@@ -834,6 +838,13 @@
     let carradasCache = [];
     let itensEdicao = [];
     let valorEmbutidoEdicao = null;
+    let painelEmbutirEdicaoAberto = false;
+    let produtoEmbutidoSelecionadoEdicao = null;
+    let termoProdutoEmbutidoEdicao = '';
+    let produtosEmbutidosEncontradosEdicao = [];
+    let mensagemBuscaEmbutidoEdicao = '';
+    let timerBuscaEmbutidoEdicao = null;
+    let sequenciaBuscaEmbutidoEdicao = 0;
     let salvandoAlteracoes = false;
     let salvamentoIncertoEdicao = false;
     let catalogoProdutosEdicao = new Map();
@@ -1024,8 +1035,171 @@
       `;
     }
 
+    function embutirEdicaoBloqueado() {
+      return !modoEdicao || salvandoAlteracoes || salvamentoIncertoEdicao || importandoRelatorio || atualizandoPrecosEdicao;
+    }
+
+    function limparBuscaEmbutidoEdicao() {
+      painelEmbutirEdicaoAberto = false;
+      produtoEmbutidoSelecionadoEdicao = null;
+      termoProdutoEmbutidoEdicao = '';
+      produtosEmbutidosEncontradosEdicao = [];
+      mensagemBuscaEmbutidoEdicao = '';
+      clearTimeout(timerBuscaEmbutidoEdicao);
+      timerBuscaEmbutidoEdicao = null;
+      ++sequenciaBuscaEmbutidoEdicao;
+    }
+
+    function montarControlesValorEmbutidoEdicao() {
+      if (!modoEdicao) return '';
+      const bloqueado = embutirEdicaoBloqueado();
+      return `
+        <div class="acoes-embutir-valor">
+          <button id="btnEmbutirValorEdicao" class="btn btn-secondary" type="button" aria-expanded="${painelEmbutirEdicaoAberto}" aria-controls="painelEmbutirValorEdicao" ${bloqueado || !itensEdicao.length ? 'disabled' : ''}>Embutir valor</button>
+        </div>
+        <section id="painelEmbutirValorEdicao" class="resumo-valor-embutido" aria-label="Embutir valor de um produto" ${painelEmbutirEdicaoAberto ? '' : 'hidden'}>
+          <p>Escolha o produto cujo preço será dividido entre todas as unidades do pedido. O acréscimo será igual por unidade, arredondado para cima.</p>
+          <div class="campo">
+            <label for="buscaProdutoEmbutidoEdicao">Produto a embutir</label>
+            <input id="buscaProdutoEmbutidoEdicao" type="text" autocomplete="off" placeholder="Digite ao menos 2 letras do produto" value="${escapeHtml(termoProdutoEmbutidoEdicao)}" ${bloqueado ? 'disabled' : ''} />
+          </div>
+          <div id="resultadosProdutoEmbutidoEdicao" class="lista-produtos-embutidos" aria-live="polite"></div>
+          <div id="previaValorEmbutidoEdicao" aria-live="polite"></div>
+          <div class="acoes-embutir-valor">
+            <button id="btnAplicarValorEmbutidoEdicao" class="btn btn-primary" type="button" disabled>Aplicar valor</button>
+            <button id="btnFecharValorEmbutidoEdicao" class="btn btn-secondary" type="button" ${bloqueado ? 'disabled' : ''}>Fechar</button>
+          </div>
+        </section>
+      `;
+    }
+
+    function atualizarPreviaEmbutidoEdicao() {
+      const previa = document.getElementById('previaValorEmbutidoEdicao');
+      const botao = document.getElementById('btnAplicarValorEmbutidoEdicao');
+      if (!previa || !botao) return;
+      botao.disabled = true;
+      previa.innerHTML = '';
+      if (!produtoEmbutidoSelecionadoEdicao) return;
+      try {
+        const resumo = PedidoValorEmbutido.simular(itensEdicao, produtoEmbutidoSelecionadoEdicao.preco);
+        previa.innerHTML = `
+          <div><strong>Produto selecionado: ${escapeHtml(produtoEmbutidoSelecionadoEdicao.nome)}</strong></div>
+          <div>Valor do produto: ${moeda(produtoEmbutidoSelecionadoEdicao.preco)}</div>
+          <div>Acréscimo uniforme em ${numero(resumo.quantidadeTotal)} unidades: <strong>+${moeda(resumo.acrescimoUnitario)} por unidade</strong>.</div>
+          <div><strong>Acréscimo total no pedido: ${moeda(resumo.totalDistribuido)}</strong>.</div>
+          ${resumo.diferenca > 0 ? `<div>Arredondamento para cima: +${moeda(resumo.diferenca)} em relação ao produto escolhido. Confira o total antes de aplicar.</div>` : ''}
+          ${valorEmbutidoEdicao ? '<div class="texto-ajuda">Ao aplicar, este produto substituirá o valor embutido atual.</div>' : ''}
+        `;
+        botao.disabled = embutirEdicaoBloqueado() || !itensEdicao.length;
+      } catch (error) {
+        previa.textContent = error.message;
+      }
+    }
+
+    function renderizarResultadosEmbutidoEdicao() {
+      const lista = document.getElementById('resultadosProdutoEmbutidoEdicao');
+      if (!lista) return;
+      lista.innerHTML = mensagemBuscaEmbutidoEdicao
+        ? `<div class="texto-ajuda">${escapeHtml(mensagemBuscaEmbutidoEdicao)}</div>`
+        : produtosEmbutidosEncontradosEdicao.map((produto, index) => `
+          <button class="opcao-produto-embutido" type="button" data-produto-embutido-edicao="${index}" ${embutirEdicaoBloqueado() ? 'disabled' : ''}>
+            <strong>${escapeHtml(produto.nome)}</strong><span>${moeda(produto.preco)}</span>
+          </button>
+        `).join('');
+      lista.querySelectorAll('[data-produto-embutido-edicao]').forEach((botao) => {
+        botao.addEventListener('click', () => selecionarProdutoEmbutidoEdicao(Number(botao.dataset.produtoEmbutidoEdicao)));
+      });
+      atualizarPreviaEmbutidoEdicao();
+    }
+
+    async function buscarProdutoParaEmbutirEdicao() {
+      if (embutirEdicaoBloqueado() || !painelEmbutirEdicaoAberto) return;
+      const sequencia = ++sequenciaBuscaEmbutidoEdicao;
+      const termo = termoProdutoEmbutidoEdicao.trim();
+      produtoEmbutidoSelecionadoEdicao = null;
+      produtosEmbutidosEncontradosEdicao = [];
+      mensagemBuscaEmbutidoEdicao = termo.length < 2 ? 'Digite ao menos 2 letras do produto.' : 'Buscando produtos...';
+      renderizarResultadosEmbutidoEdicao();
+      if (termo.length < 2) return;
+      try {
+        const json = await fetchJson(`/api/produtos?busca=${encodeURIComponent(termo)}&ativos=true`);
+        if (sequencia !== sequenciaBuscaEmbutidoEdicao || !modoEdicao || !painelEmbutirEdicaoAberto || termo !== termoProdutoEmbutidoEdicao.trim()) return;
+        produtosEmbutidosEncontradosEdicao = (Array.isArray(json?.data) ? json.data : [])
+          .filter((produto) => Number.isFinite(Number(produto.preco)) && Number(produto.preco) > 0);
+        mensagemBuscaEmbutidoEdicao = produtosEmbutidosEncontradosEdicao.length ? '' : 'Nenhum produto com preço disponível.';
+      } catch (error) {
+        if (sequencia !== sequenciaBuscaEmbutidoEdicao || !modoEdicao || !painelEmbutirEdicaoAberto) return;
+        mensagemBuscaEmbutidoEdicao = error.message || 'Não foi possível buscar os produtos.';
+      }
+      renderizarResultadosEmbutidoEdicao();
+    }
+
+    function selecionarProdutoEmbutidoEdicao(index) {
+      if (embutirEdicaoBloqueado() || !painelEmbutirEdicaoAberto) return;
+      const produto = produtosEmbutidosEncontradosEdicao[index];
+      if (!produto) return;
+      clearTimeout(timerBuscaEmbutidoEdicao);
+      ++sequenciaBuscaEmbutidoEdicao;
+      produtoEmbutidoSelecionadoEdicao = produto;
+      termoProdutoEmbutidoEdicao = String(produto.nome || '');
+      produtosEmbutidosEncontradosEdicao = [];
+      mensagemBuscaEmbutidoEdicao = '';
+      const input = document.getElementById('buscaProdutoEmbutidoEdicao');
+      if (input) input.value = termoProdutoEmbutidoEdicao;
+      renderizarResultadosEmbutidoEdicao();
+    }
+
+    function aplicarValorEmbutidoEdicao() {
+      if (embutirEdicaoBloqueado() || !produtoEmbutidoSelecionadoEdicao) return;
+      try {
+        valorEmbutidoEdicao = PedidoValorEmbutido.aplicar(itensEdicao, produtoEmbutidoSelecionadoEdicao, valorEmbutidoEdicao);
+        limparBuscaEmbutidoEdicao();
+        renderizarCliente(pedidoCarregado);
+        renderizarItens(pedidoCarregado);
+        setMensagem(`Valor embutido aplicado: ${moeda(valorEmbutidoEdicao.totalDistribuido)}, com acréscimo de ${moeda(valorEmbutidoEdicao.acrescimoUnitario)} por unidade. Clique em Salvar alterações para gravar.`);
+      } catch (error) {
+        setMensagem(error.message || 'Não foi possível embutir o valor.', true);
+      }
+    }
+
+    function anexarEventosEmbutidoEdicao() {
+      document.getElementById('btnEmbutirValorEdicao')?.addEventListener('click', () => {
+        if (embutirEdicaoBloqueado() || !itensEdicao.length) return;
+        if (painelEmbutirEdicaoAberto) limparBuscaEmbutidoEdicao();
+        else painelEmbutirEdicaoAberto = true;
+        renderizarItens(pedidoCarregado);
+        if (painelEmbutirEdicaoAberto) document.getElementById('buscaProdutoEmbutidoEdicao')?.focus();
+      });
+      document.getElementById('btnFecharValorEmbutidoEdicao')?.addEventListener('click', () => {
+        if (embutirEdicaoBloqueado()) return;
+        limparBuscaEmbutidoEdicao();
+        renderizarItens(pedidoCarregado);
+        document.getElementById('btnEmbutirValorEdicao')?.focus();
+      });
+      const input = document.getElementById('buscaProdutoEmbutidoEdicao');
+      input?.addEventListener('input', () => {
+        if (embutirEdicaoBloqueado()) return;
+        clearTimeout(timerBuscaEmbutidoEdicao);
+        ++sequenciaBuscaEmbutidoEdicao;
+        termoProdutoEmbutidoEdicao = input.value;
+        produtoEmbutidoSelecionadoEdicao = null;
+        produtosEmbutidosEncontradosEdicao = [];
+        mensagemBuscaEmbutidoEdicao = '';
+        renderizarResultadosEmbutidoEdicao();
+        timerBuscaEmbutidoEdicao = setTimeout(buscarProdutoParaEmbutirEdicao, 250);
+      });
+      input?.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        clearTimeout(timerBuscaEmbutidoEdicao);
+        buscarProdutoParaEmbutirEdicao();
+      });
+      document.getElementById('btnAplicarValorEmbutidoEdicao')?.addEventListener('click', aplicarValorEmbutidoEdicao);
+      renderizarResultadosEmbutidoEdicao();
+    }
+
     function retirarValorEmbutidoEdicao() {
-      if (!modoEdicao || !valorEmbutidoEdicao || salvandoAlteracoes) return;
+      if (embutirEdicaoBloqueado() || !valorEmbutidoEdicao) return;
       try {
         const totalAnterior = totalPedidoAtual();
         valorEmbutidoEdicao = PedidoValorEmbutido.remover(itensEdicao, valorEmbutidoEdicao);
@@ -1101,6 +1275,7 @@
       observacaoEdicao = '';
       itensEdicao = [];
       valorEmbutidoEdicao = null;
+      limparBuscaEmbutidoEdicao();
       salvamentoIncertoEdicao = false;
       textoRelatorioEdicao = '';
       multiplicadorRelatorioEdicao = '1';
@@ -2049,6 +2224,7 @@
         btnCancelarInline.addEventListener('click', sairModoEdicao);
       }
       document.getElementById('btnRetirarValorEmbutido')?.addEventListener('click', retirarValorEmbutidoEdicao);
+      anexarEventosEmbutidoEdicao();
 
       document.querySelectorAll('input[data-campo-item]').forEach((input) => {
         input.addEventListener('change', () => {
@@ -2180,7 +2356,6 @@
       }
 
       blocoItens.innerHTML = `
-        ${montarPainelValorEmbutido(valorEmbutidoEdicao, true)}
         <div class="cabecalho-box">
           <div>
             <h2 style="margin:0; font-size:18px;">Itens do pedido</h2>
@@ -2236,6 +2411,9 @@
             </tbody>
           </table>
         </div>
+
+        ${montarControlesValorEmbutidoEdicao()}
+        ${montarPainelValorEmbutido(valorEmbutidoEdicao, true)}
 
         <div class="acoes-edicao-inline">
           <button id="btnCancelarEdicaoInline" class="btn btn-secondary" type="button">Cancelar alterações</button>
@@ -2924,6 +3102,7 @@
             }))
           : [];
         valorEmbutidoEdicao = PedidoValorEmbutido.carregar(itensEdicao, pedidoCarregado.valorEmbutido);
+        limparBuscaEmbutidoEdicao();
         modoEdicao = true;
         textoRelatorioEdicao = '';
         multiplicadorRelatorioEdicao = '1';
@@ -2937,6 +3116,7 @@
         modoEdicao = false;
         itensEdicao = [];
         valorEmbutidoEdicao = null;
+        limparBuscaEmbutidoEdicao();
         renderizarPedidoCompleto();
         setMensagem(error.message || 'Erro ao preparar edição.', true);
       }
@@ -2951,6 +3131,7 @@
       observacaoEdicao = '';
       itensEdicao = [];
       valorEmbutidoEdicao = null;
+      limparBuscaEmbutidoEdicao();
       modalImportacaoEdicao.classList.add('oculto');
       textoRelatorioEdicao = '';
       multiplicadorRelatorioEdicao = '1';
@@ -3115,6 +3296,7 @@
     }
 
     async function carregarPedidoSelecionado(pedidoBase) {
+      limparBuscaEmbutidoEdicao();
       const jsonItens = await fetchJson(`/api/legado/pedidos/${pedidoBase.idMestre}/itens`);
 
       calculoVolumesItens = [];
@@ -3360,6 +3542,7 @@
         observacaoEdicao = '';
         itensEdicao = [];
         valorEmbutidoEdicao = null;
+        limparBuscaEmbutidoEdicao();
         textoRelatorioEdicao = '';
         multiplicadorRelatorioEdicao = '1';
         itensNaoReconhecidosRelatorio = [];
