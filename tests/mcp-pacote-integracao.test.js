@@ -6,17 +6,18 @@ const fs = require('node:fs');
 const path = require('node:path');
 const validacao = require('../src/routes/integracao/mcpValidacao');
 
-function carregar(nome, dependencias) {
+function carregar(nome, dependencias, logger = console) {
   const module = { exports: {} };
-  new Function('require', 'module', 'exports', fs.readFileSync(path.join(__dirname, '..', nome), 'utf8'))(name => {
+  new Function('require', 'module', 'exports', 'console', fs.readFileSync(path.join(__dirname, '..', nome), 'utf8'))(name => {
     if (!(name in dependencias)) throw new Error('Dependência não simulada: ' + name);
     return dependencias[name];
-  }, module, module.exports);
+  }, module, module.exports, logger);
   return module.exports;
 }
 
 function ambiente() {
   const chamadas = [];
+  const logs = [];
   const registrar = name => async (...args) => { chamadas.push({ name, args }); return { status: 'simulado', pedidos: [], payload: {}, resumo: {} }; };
   const gestao = Object.fromEntries(['prepararAlteracao', 'executarAlteracao', 'prepararCancelamento',
     'executarCancelamento', 'prepararExpedicao', 'executarExpedicao'].map(n => [n, registrar(n)]));
@@ -36,6 +37,7 @@ function ambiente() {
   let scopes = 'clientes:read';
   carregar('src/routes/integracao/mcpClientes.routes.js', {
     express: { Router: () => router },
+    'node:crypto': require('node:crypto'),
     '../../services/integracao/mcpClientesOAuth.service': {
       enabled: () => true, metadataUrl: () => 'https://example.test/.well-known/oauth-protected-resource',
       validateAccess: async token => token === 'valido' ? { user: 'conta-autenticada', scope: scopes } : null
@@ -45,7 +47,7 @@ function ambiente() {
     './mcpPedidosTools': pedidos,
     './mcpValidacao': validacao,
     '../../services/integracao/mcpConsultasDetalhadas.service': {}
-  });
+  }, { info: (...args) => logs.push(args), error: (...args) => logs.push(args) });
   async function requisitar(name, args, scope = 'clientes:read', { token = 'valido', method = 'tools/call' } = {}) {
     scopes = scope;
     const req = { get: () => 'Bearer ' + token,
@@ -58,9 +60,10 @@ function ambiente() {
     if (permitido) await post(req, res);
     return res;
   }
-  return { requisitar, chamadas, pedidos, acoes };
+  return { requisitar, chamadas, logs, pedidos, acoes };
 }
 const confirmacao = { acao_id: 'e47ef4e3-e4de-49f7-aeea-c72d8ae0cfa9', codigo_confirmacao: '0123456789ABCDEF', confirmacao: 'CONFIRMO' };
+const confirmacaoPedido = { rascunho_id: 'e47ef4e3-e4de-49f7-aeea-c72d8ae0cfa9', codigo_confirmacao: '0123456789', confirmacao: 'CONFIRMO' };
 
 test('catálogo contém consultas e ações individuais, com escopos e metadados coerentes', async () => {
   process.env.MCP_PEDIDOS_ENABLED = 'true';
@@ -75,10 +78,14 @@ test('catálogo contém consultas e ações individuais, com escopos e metadados
     assert.deepEqual(a.pedidos.requiredScopes(t.name), t.securitySchemes[0].scopes);
     assert.deepEqual(t._meta.securitySchemes, t.securitySchemes);
   }
-  for (const name of ['confirmar_alteracao_pedido', 'confirmar_cancelamento_pedido', 'confirmar_expedicao_pedido']) {
+  for (const name of ['confirmar_alteracao_pedido', 'confirmar_cancelamento_pedido', 'confirmar_expedicao_pedido', 'confirmar_whatsapp_pedido']) {
     assert.equal(tools.find(t => t.name === name).annotations.destructiveHint, true);
   }
   assert.equal(tools.find(t => t.name === 'confirmar_whatsapp_pedido').annotations.openWorldHint, true);
+  const criar = tools.find(t => t.name === 'confirmar_pedido');
+  assert.equal(criar.annotations.readOnlyHint, false);
+  assert.equal(criar.annotations.openWorldHint, false);
+  assert.deepEqual(criar.securitySchemes[0].scopes, ['clientes:read', 'pedidos:write']);
   assert.deepEqual(a.chamadas, []);
 });
 
@@ -97,13 +104,49 @@ test('leitura permite consultar último e sem expedição e não concede nenhuma
   assert.deepEqual(a.chamadas, []);
 });
 
-test('token antigo de criação não autoriza gestão nem avisos novos', async () => {
+test('permissão de criação grava sem autorizar gestão ou WhatsApp', async () => {
   const a = ambiente();
-  for (const n of ['confirmar_cancelamento_pedido', 'confirmar_whatsapp_pedido', 'confirmar_pedido']) {
+  for (const n of ['confirmar_cancelamento_pedido', 'confirmar_whatsapp_pedido']) {
     const r = await a.requisitar(n, confirmacao, 'clientes:read pedidos:write');
     assert.equal(r.body.result.isError, true);
   }
   assert.deepEqual(a.chamadas, []);
+  const r = await a.requisitar('confirmar_pedido', confirmacaoPedido, 'clientes:read pedidos:write');
+  assert.equal(r.body.result.isError, false);
+  assert.equal(a.chamadas.length, 1);
+  assert.equal(a.chamadas[0].name, 'confirmarPedido');
+  const semEscrita = await a.requisitar('confirmar_pedido', confirmacaoPedido, 'clientes:read whatsapp:send');
+  assert.equal(semEscrita.body.result.isError, true);
+  assert.equal(a.chamadas.length, 1);
+});
+
+test('aviso de carrada usa a preparação de WhatsApp e exige permissão de envio', async () => {
+  const a = ambiente();
+  const args = { id_mestre: 21, tipo: 'aviso_carrada' };
+  const bloqueado = await a.requisitar('preparar_whatsapp_pedido', args, 'clientes:read pedidos:write');
+  assert.equal(bloqueado.body.result.isError, true);
+  assert.deepEqual(a.chamadas, []);
+  const permitido = await a.requisitar('preparar_whatsapp_pedido', args, 'clientes:read whatsapp:send');
+  assert.equal(permitido.body.result.isError, false);
+  assert.equal(a.chamadas[0].name, 'prepararEnvio');
+  assert.deepEqual(a.chamadas[0].args[0], args);
+  assert.equal(a.chamadas[1].name, 'prepararAcao');
+  assert.ok(!a.chamadas.some(c => c.name === 'executarEnvio'));
+});
+
+test('auditoria distingue chegada e escopo sem registrar dados ou códigos de confirmação', async () => {
+  const a = ambiente();
+  const negado = await a.requisitar('confirmar_pedido', confirmacaoPedido, 'clientes:read');
+  assert.equal(negado.body.result.isError, true);
+  const eventos = a.logs.map(l => JSON.parse(l[1]));
+  assert.deepEqual(eventos.map(e => e.etapa), ['recebida', 'escopo_insuficiente']);
+  assert.ok(eventos.every(e => e.ferramenta === 'confirmar_pedido' && e.versao === '1.3.0'));
+  assert.equal(eventos[0].rastreio, eventos[1].rastreio);
+  assert.equal(negado.body.result._meta['aluminiojr/rastreio'], eventos[0].rastreio);
+  const serializado = JSON.stringify(a.logs);
+  for (const segredo of [confirmacaoPedido.rascunho_id, confirmacaoPedido.codigo_confirmacao, 'conta-autenticada', 'Bearer valido']) {
+    assert.ok(!serializado.includes(segredo));
+  }
 });
 
 test('gestão e envio são separados e a expedição exige ambos', async () => {

@@ -12,6 +12,7 @@ function ambiente({ vinculado = true, telefone = '84999999999', falhaWhatsApp = 
   const mensagens = [];
   const chamadasBridge = [];
   const dependencias = {
+    './mensagem-entrada-carrada': require('../src/services/legado/pedidos-insercao-v2/mensagem-entrada-carrada'),
     '../../produto/produto.service': {
       buscar: async () => ({ item_legado: 10, nome: 'Panela de pressão 4,5 L' })
     },
@@ -73,17 +74,20 @@ test('entrada em carrada envia o mesmo aviso automático da Inserção V2', asyn
   assert.equal(r.avisoWhatsappCarrada.status, 'aceito_pelo_provedor');
   assert.equal(t.mensagens.length, 1);
   assert.equal(t.chamadasBridge.length, 1);
-  assert.match(t.mensagens[0].mensagem, /Pedido: 000123/);
-  assert.ok(t.mensagens[0].mensagem.includes('02/12/2026'));
+  assert.equal(t.mensagens[0].mensagem,
+    '📦 Pedido: 000123\nCliente: Cliente de Teste\nSeu pedido entrou na produção da carrada do dia 02/12/2026\nDescrição da carrada: Entrega de quarta');
   assert.equal(t.mensagens[0].telefone, '84999999999');
   assert.equal(t.chamadasBridge[0].payload.aviso_whatsapp_carrada, undefined);
 });
 
-test('não envia quando não autorizado pela tela/MCP', async () => {
+test('pedido sem aviso mantém gravação e vínculo sem disparar WhatsApp', async () => {
   const t = ambiente();
   const r = await t.inserir(false);
   assert.equal(t.mensagens.length, 0);
   assert.equal(r.avisoWhatsappCarrada, undefined);
+  assert.equal(r.pedido.numero, '000123');
+  assert.equal(r.carradaVinculada.codigo, 1697);
+  assert.equal(t.chamadasBridge.length, 1);
 });
 
 test('não envia sem vínculo confirmado nem sem telefone', async () => {

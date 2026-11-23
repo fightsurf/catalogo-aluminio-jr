@@ -93,7 +93,7 @@ As novas ações ficam em `mcp_pedidos_acoes`, associadas à conta OAuth. A rese
 | `pedidos:manage` | Alterar, cancelar e registrar expedição mediante confirmação. |
 | `whatsapp:send` | Envios de WhatsApp individuais confirmados e avisos previstos nas ações. |
 
-Criação e edição com possibilidade de aviso, assim como expedição, anunciam também `whatsapp:send`. O token antigo não recebe permissões novas automaticamente. O servidor devolve o desafio OAuth das permissões faltantes. O catálogo de ferramentas do plugin pode precisar ser atualizado após o deploy; as novas ações solicitarão a autorização correspondente no próprio fluxo do plugin.
+Desde a versão 1.3.0, a criação grava somente pedido e carrada, com `clientes:read pedidos:write`. O aviso de entrada usa `preparar_whatsapp_pedido` com `tipo: aviso_carrada` e confirmação própria sob `whatsapp:send`. Edição com possibilidade de aviso e expedição continuam anunciando também `whatsapp:send`. O token antigo não recebe permissões novas automaticamente. O servidor devolve o desafio OAuth das permissões faltantes. O catálogo de ferramentas do plugin pode precisar ser atualizado após o deploy; as novas ações solicitarão a autorização correspondente no próprio fluxo do plugin. Veja [a separação da criação e do aviso](mcp-criacao-e-aviso-separados.md).
 
 ## Validação
 

@@ -7,7 +7,7 @@ const consultaPedidos = require('../../services/integracao/mcpConsultaPedidos.se
 const acoes = require('./mcpAcoesPedidosTools');
 
 const leitura = [{ type: 'oauth2', scopes: ['clientes:read'] }];
-const gravacao = [{ type: 'oauth2', scopes: ['clientes:read', 'pedidos:write', 'whatsapp:send'] }];
+const gravacao = [{ type: 'oauth2', scopes: ['clientes:read', 'pedidos:write'] }];
 const leituraRascunho = [{ type: 'oauth2', scopes: ['clientes:read', 'pedidos:write'] }];
 const readOnly = { readOnlyHint: true, destructiveHint: false, openWorldHint: false };
 const writeTool = { readOnlyHint: false, destructiveHint: false, openWorldHint: false };
@@ -78,7 +78,7 @@ const tools = [
   {
     name: 'preparar_pedido',
     title: 'Montar prévia de pedido sem gravar',
-    description: 'Para pedidos por voz: depois de identificar cliente, vendedor e produtos, calcula totais e cria apenas rascunho de 15 minutos. Modalidade padrão orçamento. Quando o usuário informar a carrada por data, consulte buscar_carradas no momento de preparar este pedido e use o código retornado; resolva múltiplas correspondências com o usuário antes de continuar. Não reutilize código de outro pedido nem prepare sem carrada quando ela foi solicitada. Leia cliente, itens, quantidades, preços, total e a data e descrição da carrada escolhida. Se houver carrada, avise que a gravação confirmada tentará enviar automaticamente o aviso de entrada na carrada por WhatsApp ao cliente cadastrado. Solicite confirmação explícita ANTES da gravação. Nunca confirme na mesma etapa.',
+    description: 'Para pedidos por voz: depois de identificar cliente, vendedor e produtos, calcula totais e cria apenas rascunho de 15 minutos. Modalidade padrão orçamento. Quando o usuário informar a carrada por data, consulte buscar_carradas no momento de preparar este pedido e use o código retornado; resolva múltiplas correspondências com o usuário antes de continuar. Não reutilize código de outro pedido nem prepare sem carrada quando ela foi solicitada. Leia cliente, itens, quantidades, preços, total e a data e descrição da carrada escolhida. A confirmação grava o pedido e o vínculo com a carrada, sem enviar WhatsApp. Informe que o aviso de entrada é uma ação separada, com prévia do destinatário e texto após a gravação. Solicite confirmação explícita ANTES da gravação. Nunca confirme na mesma etapa.',
     securitySchemes: gravacao,
     annotations: writeTool,
     inputSchema: { type: 'object', properties: {
@@ -102,11 +102,12 @@ const tools = [
   {
     name: 'confirmar_pedido',
     title: 'Gravar pedido confirmado no sistema',
-    description: 'GRAVAÇÃO REAL no Firebird. Se o rascunho vincula carrada, a confirmação também tentará enviar ao WhatsApp do cliente o aviso de entrada, pelo fluxo já existente da Inserção V2. Execute somente após mostrar resumo e informar o aviso automático, e o usuário confirmar expressamente na resposta seguinte. Não repetir gravação nem mensagem em erro ou resultado incerto. Requer pedidos:write.',
+    description: 'GRAVAÇÃO REAL de um pedido e sua carrada pela Inserção V2, sem enviar WhatsApp. Execute somente após mostrar o resumo e o usuário confirmar expressamente na resposta seguinte. Depois de confirmar a gravação e o vínculo da carrada, use preparar_whatsapp_pedido com tipo aviso_carrada se o aviso foi solicitado; mostre destinatário e texto e aguarde a confirmação do envio. Rascunhos da versão anterior que combinavam gravação e envio precisam de nova prévia. Não repetir gravação em erro ou resultado incerto. Requer pedidos:write.',
     securitySchemes: gravacao,
     // A criação de um pedido confirmado acrescenta um registro; não apaga nem substitui pedidos.
     // Continua sendo uma operação de escrita: exige pedidos:write e confirmação expressa.
-    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: true },
+    // O serviço força aviso_whatsapp_carrada=false; mensagens têm ação própria.
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
     inputSchema: { type: 'object', properties: {
       rascunho_id: { type: 'string', description: 'UUID recebido de preparar_pedido.' },
       codigo_confirmacao: { type: 'string', description: 'Código técnico retornado em preparar_pedido.' },

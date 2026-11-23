@@ -31,6 +31,7 @@ function ambiente() {
     'node:timers/promises': { setTimeout: async ms => { assert.equal(ms, 900); } },
     '../legado/pedido/pedidosLegado.service': { buscarDetalhePedido: async () => copiar(estado.pedido) },
     '../../../public/js/pedido-mensagem-whatsapp': require('../public/js/pedido-mensagem-whatsapp'),
+    '../legado/pedidos-insercao-v2/mensagem-entrada-carrada': require('../src/services/legado/pedidos-insercao-v2/mensagem-entrada-carrada'),
     '../whatsapp/envio-whatsapp.service': {
       enviarMensagem: data => enviar('texto', data), enviarDocumentoPdf: data => enviar('pdf', data)
     },
@@ -63,8 +64,8 @@ function ambiente() {
   return { estado, contexto, ...modulo.exports };
 }
 
-test('preparar os quatro formatos nunca envia WhatsApp nem expõe binários no resumo', async () => {
-  for (const tipo of ['texto', 'fotos', 'pdf', 'audio_ia']) {
+test('preparar os cinco formatos nunca envia WhatsApp nem expõe binários no resumo', async () => {
+  for (const tipo of ['texto', 'fotos', 'pdf', 'audio_ia', 'aviso_carrada']) {
     const a = ambiente();
     const r = await a.prepararEnvio({ id_mestre: 123, tipo }, { usuario: 'operador' });
     assert.equal(a.estado.chamadas.length, 0);
@@ -77,6 +78,115 @@ test('preparar os quatro formatos nunca envia WhatsApp nem expõe binários no r
       assert.equal(r.resumo.audio.texto, 'Apresentação do pedido.');
     }
   }
+});
+
+test('aviso da carrada mostra o texto exato, cliente, destinatário e carrada sem enviar', async () => {
+  const a = ambiente();
+  const r = await a.prepararEnvio({ id_mestre: 123, tipo: 'aviso_carrada' });
+  assert.deepEqual(r.resumo.cliente, { favorecido: 321, nome: 'Cliente de Teste' });
+  assert.equal(r.resumo.destinatario.telefone, '5584999999999');
+  assert.deepEqual(r.resumo.carrada, { codigo: 1697, data: '2026-12-02', descricao: 'Quarta-feira' });
+  assert.equal(r.resumo.mensagem,
+    '📦 Pedido: 0020021\nCliente: Cliente de Teste\nSeu pedido entrou na produção da carrada do dia 02/12/2026\nDescrição da carrada: Quarta-feira');
+  assert.equal(r.payload.mensagem, r.resumo.mensagem);
+  assert.deepEqual(a.estado.controles, ['pedidos_texto']);
+  assert.equal(a.estado.chamadas.length, 0);
+  assert.equal(a.estado.resumoGerado, 0);
+  assert.equal(a.estado.audioGerado, 0);
+});
+
+test('confirmação do aviso envia uma mensagem aprovada após persistir o progresso', async () => {
+  const a = ambiente();
+  const r = await a.prepararEnvio({ id_mestre: 123, tipo: 'aviso_carrada' });
+  const resultado = await a.executarEnvio(r.payload, {
+    registrarProgresso: async item => {
+      if (item.status === 'em_processamento') assert.equal(a.estado.chamadas.length, 0);
+      a.estado.progresso.push(copiar(item));
+    }
+  });
+  assert.equal(resultado.status, 'aceito_pelo_provedor');
+  assert.equal(resultado.entrega_confirmada, false);
+  assert.equal(resultado.total, 1);
+  assert.equal(a.estado.chamadas.length, 1);
+  assert.deepEqual(a.estado.chamadas[0].data, { telefone: '5584999999999', mensagem: r.resumo.mensagem });
+  assert.equal(a.estado.chamadas[0].funcao, 'pedidos_texto');
+  assert.deepEqual(a.estado.controles, ['pedidos_texto', 'pedidos_texto']);
+  assert.deepEqual(a.estado.progresso.map(p => [p.tipo, p.status]),
+    [['aviso_carrada', 'em_processamento'], ['aviso_carrada', 'aceito_pelo_provedor']]);
+});
+
+test('aviso da carrada recusa carrada ausente, código inválido e data impossível', async () => {
+  for (const carrada of [
+    null, {}, { codigo: 0, data: '2026-12-02' }, { codigo: true, data: '2026-12-02' },
+    { codigo: 'x', data: '2026-12-02' }, { codigo: 1697 }, { codigo: 1697, data: '' },
+    { codigo: 1697, data: '2026-02-30' }, { codigo: 1697, data: '2026-12-02Tinválida' },
+    { codigo: 1697, data: '2026-12-02', descricao: {} }
+  ]) {
+    const a = ambiente(); a.estado.pedido.carradaAtual = carrada;
+    await assert.rejects(a.prepararEnvio({ id_mestre: 123, tipo: 'aviso_carrada' }), /carrada/i);
+    assert.equal(a.estado.chamadas.length, 0);
+  }
+});
+
+test('aviso da carrada aceita data ISO do legado preservando a data civil', async () => {
+  const a = ambiente(); a.estado.pedido.carradaAtual.data = '2026-12-02T00:00:00.000Z';
+  const r = await a.prepararEnvio({ id_mestre: 123, tipo: 'aviso_carrada' });
+  assert.equal(r.resumo.carrada.data, '2026-12-02');
+  assert.match(r.resumo.mensagem, /dia 02\/12\/2026/);
+  await a.executarEnvio(r.payload, a.contexto);
+  assert.equal(a.estado.chamadas.length, 1);
+});
+
+test('aviso da carrada não permite texto personalizado nem conteúdo alterado após a prévia', async () => {
+  const a = ambiente();
+  await assert.rejects(a.prepararEnvio({ id_mestre: 123, tipo: 'aviso_carrada', mensagem: 'Outro texto' }), /personalizada/);
+  for (const alterar of [
+    p => { p.mensagem = 'Outro aviso'; }, p => { p.carrada.codigo = 1698; },
+    p => { p.carrada.data = '2026-12-03'; }, p => { p.carrada.descricao = 'Outra carrada'; },
+    p => { delete p.carrada; }
+  ]) {
+    const r = await a.prepararEnvio({ id_mestre: 123, tipo: 'aviso_carrada' }); alterar(r.payload);
+    await assert.rejects(a.executarEnvio(r.payload, a.contexto), /diverge da prévia/);
+  }
+  assert.equal(a.estado.chamadas.length, 0);
+  assert.equal(a.estado.progresso.length, 0);
+});
+
+test('alterações do pedido, cliente, telefone ou carrada bloqueiam o aviso confirmado', async () => {
+  for (const alterar of [
+    p => { p.numero = '0020022'; }, p => { p.cliente.nome = 'Outro cliente'; },
+    p => { p.cliente.telefonePrincipal = '84988888888'; }, p => { p.total = 1800; },
+    p => { p.carradaAtual.codigo = 1698; }, p => { p.carradaAtual.data = '2026-12-03'; },
+    p => { p.carradaAtual.descricao = 'Outra entrega'; }, p => { p.carradaAtual = null; }
+  ]) {
+    const a = ambiente(); const r = await a.prepararEnvio({ id_mestre: 123, tipo: 'aviso_carrada' });
+    alterar(a.estado.pedido);
+    await assert.rejects(a.executarEnvio(r.payload, a.contexto), /mudou desde a prévia/);
+    assert.equal(a.estado.chamadas.length, 0);
+    assert.equal(a.estado.progresso.length, 0);
+  }
+});
+
+test('Central de pedidos_texto desligada impede preparar ou confirmar aviso da carrada', async () => {
+  const a = ambiente(); a.estado.bloqueado = true;
+  await assert.rejects(a.prepararEnvio({ id_mestre: 123, tipo: 'aviso_carrada' }), /Bloqueado/);
+  a.estado.bloqueado = false;
+  const r = await a.prepararEnvio({ id_mestre: 123, tipo: 'aviso_carrada' });
+  a.estado.bloqueado = true;
+  await assert.rejects(a.executarEnvio(r.payload, a.contexto), /Bloqueado/);
+  assert.equal(a.estado.chamadas.length, 0);
+  assert.equal(a.estado.progresso.length, 0);
+});
+
+test('falha do provedor no aviso fica incerta sem repetir a mensagem', async () => {
+  const a = ambiente(); const r = await a.prepararEnvio({ id_mestre: 123, tipo: 'aviso_carrada' });
+  a.estado.falharEnvio = 1;
+  const resultado = await a.executarEnvio(r.payload, a.contexto);
+  assert.equal(resultado.status, 'resultado_incerto');
+  assert.equal(resultado.revisao_manual_necessaria, true);
+  assert.equal(resultado.aceitos, 0);
+  assert.equal(a.estado.chamadas.length, 1);
+  assert.deepEqual(a.estado.progresso.map(p => p.status), ['em_processamento', 'resultado_incerto']);
 });
 
 test('texto padrão reutiliza o formatador da tela e registra a tentativa antes do envio', async () => {

@@ -6,6 +6,7 @@ const crypto = require('node:crypto');
 const { setTimeout: aguardar } = require('node:timers/promises');
 const pedidos = require('../legado/pedido/pedidosLegado.service');
 const mensagens = require('../../../public/js/pedido-mensagem-whatsapp');
+const { montarMensagemEntradaCarrada } = require('../legado/pedidos-insercao-v2/mensagem-entrada-carrada');
 const envio = require('../whatsapp/envio-whatsapp.service');
 const fotos = require('../whatsapp/relatorio-fotos-whatsapp.service');
 const controle = require('../whatsapp/central-controle.service');
@@ -14,10 +15,10 @@ const resumoIA = require('../legado/pedido/resumo-pedido-ia.service');
 const vozConfig = require('../legado/pedido/resumo-pedido-voz-config.service');
 const eleven = require('../integracoes/elevenlabs-jr.service');
 
-const TIPOS = ['texto', 'fotos', 'pdf', 'audio_ia'];
+const TIPOS = ['texto', 'fotos', 'pdf', 'audio_ia', 'aviso_carrada'];
 const MAX_BYTES = 5 * 1024 * 1024;
 const TTL_MS = 10 * 60 * 1000;
-const FUNCOES = { texto: ['pedidos_texto'], fotos: ['pedidos_fotos', 'pedidos_fotos_finalizacao'],
+const FUNCOES = { texto: ['pedidos_texto'], aviso_carrada: ['pedidos_texto'], fotos: ['pedidos_fotos', 'pedidos_fotos_finalizacao'],
   pdf: ['pedidos_pdf'], audio_ia: ['envio_manual'] };
 
 function falhar(mensagem) { const e = new Error(mensagem); e.isValidation = true; throw e; }
@@ -61,6 +62,26 @@ async function carregar(id) {
   const telefone = validarPedido(pedido, id);
   return { pedido, telefone, assinatura: hash(retrato(pedido, telefone)) };
 }
+function carradaDoAviso(pedido) {
+  const carrada = pedido.carradaAtual;
+  if (!carrada || typeof carrada !== 'object' || Array.isArray(carrada) ||
+      !['number', 'string'].includes(typeof carrada.codigo) || !/^\d+$/.test(String(carrada.codigo)) ||
+      !Number.isSafeInteger(Number(carrada.codigo)) || Number(carrada.codigo) < 1) {
+    falhar('O aviso exige um pedido já gravado com carrada válida vinculada.');
+  }
+  const dataOriginal = carrada.data;
+  if (typeof dataOriginal !== 'string' || !/^\d{4}-\d{2}-\d{2}(?:$|T)/.test(dataOriginal) ||
+      !Number.isFinite(new Date(dataOriginal).getTime())) falhar('A carrada do pedido não possui uma data válida para o aviso.');
+  const data = dataOriginal.slice(0, 10);
+  const dataValidada = new Date(data + 'T00:00:00Z');
+  if (!Number.isFinite(dataValidada.getTime()) || dataValidada.toISOString().slice(0, 10) !== data) {
+    falhar('A carrada do pedido não possui uma data válida para o aviso.');
+  }
+  if (carrada.descricao !== undefined && carrada.descricao !== null && typeof carrada.descricao !== 'string') {
+    falhar('A descrição da carrada do pedido é inválida.');
+  }
+  return { codigo: Number(carrada.codigo), data, descricao: texto(carrada.descricao) || '-' };
+}
 async function controles(tipo) {
   for (const funcionalidade of FUNCOES[tipo]) await controle.verificar(funcionalidade);
 }
@@ -93,7 +114,7 @@ async function prepararEnvio(args = {}, contexto = {}) {
       Object.keys(args).some(k => !['id_mestre', 'tipo', 'mensagem'].includes(k))) falhar('Parâmetros de envio inválidos.');
   const id = idPedido(args.id_mestre);
   const tipo = args.tipo;
-  if (!TIPOS.includes(tipo)) falhar('Tipo de envio inválido: use texto, fotos, pdf ou audio_ia.');
+  if (!TIPOS.includes(tipo)) falhar('Tipo de envio inválido: use texto, fotos, pdf, audio_ia ou aviso_carrada.');
   if (args.mensagem !== undefined && tipo !== 'texto') falhar('Mensagem personalizada só se aplica ao envio de texto.');
   if (args.mensagem !== undefined && typeof args.mensagem !== 'string') falhar('Mensagem deve ser texto.');
   const { pedido, telefone, assinatura } = await carregar(id);
@@ -106,7 +127,13 @@ async function prepararEnvio(args = {}, contexto = {}) {
     expira_em: payload.expira_em, confirmacao_obrigatoria: true,
     aviso: 'A confirmação enviará apenas ao cliente deste pedido. Aceitação do provedor não comprova entrega.' };
 
-  if (tipo === 'texto') {
+  if (tipo === 'aviso_carrada') {
+    payload.carrada = carradaDoAviso(pedido);
+    payload.mensagem = montarMensagemEntradaCarrada({ cliente: pedido.cliente, numeroPedido: texto(pedido.numero), carrada: payload.carrada });
+    if (payload.mensagem.length > 16000) falhar('O aviso da carrada excede o limite de 16000 caracteres.');
+    resumo.carrada = payload.carrada;
+    resumo.mensagem = payload.mensagem;
+  } else if (tipo === 'texto') {
     payload.mensagem = args.mensagem === undefined ? mensagens.montarMensagem(pedido) : texto(args.mensagem);
     if (!payload.mensagem || payload.mensagem.length > 16000) falhar('O texto deve conter entre 1 e 16000 caracteres.');
     resumo.mensagem = payload.mensagem;
@@ -157,6 +184,13 @@ async function executarEnvio(payload, contexto = {}) {
   const atual = await carregar(id);
   if (atual.telefone !== payload.telefone || atual.assinatura !== payload.assinatura) falhar('Pedido ou destinatário mudou desde a prévia. Nada foi enviado; prepare novamente.');
   await controles(payload.tipo);
+  if (payload.tipo === 'aviso_carrada') {
+    const carrada = carradaDoAviso(atual.pedido);
+    const mensagem = montarMensagemEntradaCarrada({ cliente: atual.pedido.cliente, numeroPedido: texto(atual.pedido.numero), carrada });
+    if (!payload.carrada || hash(carrada) !== hash(payload.carrada) || mensagem !== payload.mensagem) {
+      falhar('A carrada ou o texto do aviso diverge da prévia. Nada foi enviado; prepare novamente.');
+    }
+  }
   if (payload.tipo === 'fotos' && hash(await analisarFotos(atual.pedido)) !== hash(payload.fotos)) {
     falhar('As fotos ou os produtos mudaram desde a prévia. Nada foi enviado; prepare novamente.');
   }
@@ -165,8 +199,8 @@ async function executarEnvio(payload, contexto = {}) {
   if (payload.tipo === 'pdf') lerBinario(payload.documento, 'PDF');
   const etapas = [];
   const adicionar = (tipo, funcionalidade, enviar, produtoId) => etapas.push({ tipo, funcionalidade, enviar, produtoId });
-  if (payload.tipo === 'texto') {
-    adicionar('texto', 'pedidos_texto', () => envio.enviarMensagem({ telefone: payload.telefone, mensagem: payload.mensagem }));
+  if (payload.tipo === 'texto' || payload.tipo === 'aviso_carrada') {
+    adicionar(payload.tipo, 'pedidos_texto', () => envio.enviarMensagem({ telefone: payload.telefone, mensagem: payload.mensagem }));
   } else if (payload.tipo === 'pdf') {
     adicionar('pdf', 'pedidos_pdf', () => envio.enviarDocumentoPdf({ telefone: payload.telefone,
       documentoBase64: payload.documento.base64, nomeArquivo: payload.nome_arquivo, legenda: payload.legenda }));

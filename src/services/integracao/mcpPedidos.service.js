@@ -11,6 +11,14 @@ const pedidosService = require('../legado/pedidos-insercao-v2/pedidos-insercao-v
 
 let schemaPromise;
 const TTL_MINUTOS = 15;
+const VERSAO_FLUXO = 2;
+const ERRO_PREVIA_ANTIGA = 'Prévia de uma versão anterior do fluxo. Prepare e confirme novamente; nada foi gravado nem enviado.';
+const ERROS_SEGUROS = new Set([
+  ERRO_PREVIA_ANTIGA,
+  'Produto ou preço alterado desde a preparação. Refaça a prévia.',
+  'O legado respondeu sem número de pedido. Verifique no sistema antes de qualquer novo envio.',
+  'A gravação teve resultado incerto. Conferir no legado antes de repetir.'
+]);
 const ID_RE = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
 
 function falhar(mensagem) {
@@ -166,16 +174,19 @@ async function prepararPedido(args) {
   if (!Number.isSafeInteger(totalCentavos) || totalCentavos > 1000000000) falhar('Total do pedido fora do limite.');
   const total = totalCentavos / 100;
   const payload = {
+    versao_fluxo: VERSAO_FLUXO,
     data, favorecido, vendedor, volumes, total,
     carrada_codigo: carrada, obs: obs || null,
-    aviso_whatsapp_carrada: Boolean(carrada),
+    aviso_whatsapp_carrada: false,
     itens: itens.map(i => ({ produto_id: i.produto_id, quantidade: i.quantidade, preco: i.preco, preco_referencia: i.preco_referencia }))
   };
   const resumo = {
+    versao_fluxo: VERSAO_FLUXO,
     cliente: { favorecido, nome: texto(cliente.nome || cliente.razao_social || cliente.fantasia) },
     vendedor: { favorecido: vendedor, nome: texto(vendedorDados.nome || vendedorDados.razao_social) },
     data, modalidade, volumes, carrada_codigo: carrada, observacao: obs || null,
-    aviso_whatsapp_carrada: Boolean(carrada),
+    aviso_whatsapp_carrada: false,
+    aviso_whatsapp_separado: Boolean(carrada),
     itens, total
   };
   await estrutura();
@@ -188,7 +199,7 @@ async function prepararPedido(args) {
   return {
     status: 'aguardando_confirmacao', rascunho_id: id, codigo_confirmacao: codigo,
     expira_em_minutos: TTL_MINUTOS, resumo,
-    instrucoes: 'Mostre cliente, itens, preços e total. Se existir carrada, informe que confirmar o pedido também dispara automaticamente o aviso WhatsApp de entrada na carrada, pela rotina da Inserção V2. Somente execute confirmar_pedido após confirmação explícita do usuário em resposta posterior.'
+    instrucoes: 'Mostre cliente, itens, preços, total e carrada. A confirmação grava somente o pedido e seu vínculo com a carrada, sem enviar WhatsApp. Informe que o aviso de entrada é uma ação separada, com prévia e confirmação próprias. Somente execute confirmar_pedido após confirmação explícita do usuário em resposta posterior.'
   };
 }
 
@@ -203,8 +214,9 @@ async function consultarRascunho({ rascunho_id }) {
   const row = r.rows[0];
   return {
     rascunho_id: row.id, status: row.status,
-    expirado: new Date(row.expira_em).getTime() < Date.now(),
+    expirado: new Date(row.expira_em).getTime() <= Date.now(),
     resumo: row.resumo, pedido_resultado: row.pedido_resultado,
+    erro: row.erro ? (ERROS_SEGUROS.has(row.erro) ? row.erro : 'Falha registrada. Confira o pedido no sistema antes de repetir.') : null,
     revisao_manual_necessaria: row.status === 'revisao_necessaria',
     confirmado_em: row.confirmado_em
   };
@@ -229,6 +241,16 @@ async function confirmarPedido({ rascunho_id, codigo_confirmacao, confirmacao })
   }
   try {
     const payload = claim.rows[0].payload;
+    // Não reinterpretar a autorização de uma prévia antiga que incluía envio.
+    // A operação atual é exclusivamente a gravação do pedido e da carrada.
+    if (payload?.versao_fluxo !== VERSAO_FLUXO || payload.aviso_whatsapp_carrada !== false) {
+      await pool.query(`
+        UPDATE mcp_pedidos_rascunhos SET status='revisao_necessaria', erro=$2
+        WHERE id=$1
+      `, [rascunho_id, ERRO_PREVIA_ANTIGA]);
+      return { status: 'revisao_necessaria', rascunho_id, pedido_gravado: false,
+        mensagem: ERRO_PREVIA_ANTIGA };
+    }
     // Revalida o preço de referência visto na prévia, sem bloquear o preço
     // negociado por pedido. Mudança de cadastro exige nova confirmação.
     for (const item of payload.itens) {
@@ -244,7 +266,7 @@ async function confirmarPedido({ rascunho_id, codigo_confirmacao, confirmacao })
           mensagem: 'Produto ou preço alterado desde a preparação. Faça um novo rascunho; nada foi gravado.' };
       }
     }
-    const resultado = await pedidosService.inserirPedido(payload);
+    const resultado = await pedidosService.inserirPedido({ ...payload, aviso_whatsapp_carrada: false });
     const pedido = resultado?.pedido || resultado?.data?.pedido || resultado?.data || resultado;
     const numero = texto(pedido?.numero);
     if (!numero) {
@@ -260,12 +282,22 @@ async function confirmarPedido({ rascunho_id, codigo_confirmacao, confirmacao })
       SET status='confirmado', pedido_resultado=$2::jsonb, confirmado_em=NOW()
       WHERE id=$1
     `, [rascunho_id, JSON.stringify(resultado)]);
+    const idRecebido = pedido?.id_mestre ?? pedido?.idMestre ?? pedido?.saida;
+    const idMestre = ['number', 'string'].includes(typeof idRecebido) && /^\d+$/.test(String(idRecebido)) &&
+      Number.isSafeInteger(Number(idRecebido)) && Number(idRecebido) > 0 ? Number(idRecebido) : null;
+    const carradaVinculada = resultado?.carradaVinculada || resultado?.data?.carradaVinculada;
+    const avisoDisponivel = Boolean(payload.carrada_codigo) && carradaVinculada?.sucesso === true;
+    const proximoPasso = !avisoDisponivel ? null : idMestre
+      ? { ferramenta: 'preparar_whatsapp_pedido', argumentos: { id_mestre: idMestre, tipo: 'aviso_carrada' },
+        instrucao: 'Se o usuário desejar o aviso, prepare a mensagem e apresente destinatário e conteúdo. Envie somente após confirmação explícita da prévia.' }
+      : { ferramenta: 'consultar_pedidos', argumentos: { numero },
+        instrucao: 'O legado não retornou o id_mestre. Consulte este pedido e obtenha o identificador interno real antes de preparar o aviso de carrada; não use o número como id_mestre.' };
     return {
-      status: 'confirmado', rascunho_id, numero_pedido: numero, resultado,
-      aviso_whatsapp_carrada: resultado?.avisoWhatsappCarrada || null,
-      observacao_envio: payload.aviso_whatsapp_carrada
-        ? 'Verifique aviso_whatsapp_carrada: aceito_pelo_provedor não significa entregue; falhas não devem causar reenvio do pedido.'
-        : null
+      status: 'confirmado', pedido_gravado: true, rascunho_id, numero_pedido: numero,
+      ...(idMestre ? { id_mestre: idMestre } : {}), resultado,
+      aviso_whatsapp_carrada: { status: 'nao_enviado', motivo: avisoDisponivel ? 'acao_separada' : 'carrada_nao_vinculada' },
+      observacao_envio: 'Pedido gravado. Nenhuma mensagem foi enviada. O aviso de entrada na carrada exige uma ação separada com prévia e confirmação próprias.',
+      proximo_passo: proximoPasso
     };
   } catch (err) {
     // Em erro de rede, a operação no Firebird pode ter sido concluída.

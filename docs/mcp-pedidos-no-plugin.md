@@ -1,6 +1,6 @@
 # Pedidos por voz no mesmo MCP Alumínio JR
 
-> Atualização de 22/11/2026: o pacote de consulta e gestão de pedidos, WhatsApp e expedição está descrito em [mcp-alteracoes-acumuladas-20261122.md](mcp-alteracoes-acumuladas-20261122.md), incluindo os novos escopos e os testes. As restrições de escopo da versão inicial abaixo são históricas.
+> Atualização de 23/11/2026, MCP 1.3.0: a criação grava pedido e carrada sem enviar WhatsApp. O aviso de entrada usa uma prévia e confirmação próprias, conforme [mcp-criacao-e-aviso-separados.md](mcp-criacao-e-aviso-separados.md). Consulta, edição, cancelamento e expedição continuam descritos em [mcp-alteracoes-acumuladas-20261122.md](mcp-alteracoes-acumuladas-20261122.md).
 
 ## Carrada pela data no momento de preparar o pedido
 
@@ -47,10 +47,14 @@ gravar no Firebird por meio do serviço existente de pedidos V2.
   calcula o total e grava somente rascunho temporário no PostgreSQL (15 minutos).
 - `confirmar_pedido` grava o pedido legado exatamente uma vez mediante ID e
   código de confirmação do rascunho. Em erro incerto, não repete a gravação.
-- Nenhum desconto abaixo do preço de referência é permitido.
+- Preço negociado explicitamente informado pode ser inferior, igual ou superior
+  ao cadastro. A confirmação revalida a referência sem alterar o preço geral.
 - A consulta de vendedores é necessária porque o pedido V2 exige vendedor real.
 - O tipo padrão é `orcamento`; `kit-feirinha` fica disponível quando solicitado.
-- Nenhum envio de mensagem WhatsApp é feito automaticamente pelo MCP.
+- A criação não envia WhatsApp. Depois de conferir o vínculo com a carrada,
+  `preparar_whatsapp_pedido` com `tipo: aviso_carrada` apresenta cliente, telefone,
+  carrada e texto. `confirmar_whatsapp_pedido` exige aprovação posterior dessa
+  prévia e não repete o pedido. As outras ações mantêm os efeitos que declaram.
 - Os controles não substituem a revisão de efeitos colaterais da bridge V2
   nem uma prova de integração com banco real.
 
