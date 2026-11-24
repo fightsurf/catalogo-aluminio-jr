@@ -333,3 +333,14 @@ test('falha para registrar tentativa impede envio; falha após aceitação não 
   assert.equal(resultado.aceitos, 1);
   assert.equal(a.estado.chamadas.length, 1);
 });
+
+test('fotos confirmam após JSONB reordenar as chaves da prévia', async () => {
+  const a = ambiente();
+  const r = await a.prepararEnvio({ id_mestre: 123, tipo: 'fotos' });
+  const payload = JSON.parse(JSON.stringify(r.payload, (_k, v) =>
+    v && typeof v === 'object' && !Array.isArray(v)
+      ? Object.fromEntries(Object.keys(v).sort().reverse().map(k => [k, v[k]])) : v));
+  const resultado = await a.executarEnvio(payload, a.contexto);
+  assert.equal(resultado.aceitos, 3);
+  assert.equal(a.estado.chamadas.length, 3);
+});
