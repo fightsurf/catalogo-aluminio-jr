@@ -49,6 +49,7 @@ const transportadorasRoutes = require('./src/routes/logistica/transportadorasRou
 const agenciasRecebimentoRoutes = require('./src/routes/logistica/agenciasRecebimentoRoutes');
 const logisticaRoutes = require('./src/routes/logistica/logisticaRoutes');
 const importacaoExcursoesRoutes = require('./src/routes/logistica/importacaoExcursoesRoutes');
+const importacaoCidadesRoutes = require('./src/routes/logistica/importacaoCidadesRoutes');
 const mcpLogisticaRoutes = require('./src/routes/integracao/mcpLogistica.routes');
 const mcpClientesRoutes = require('./src/routes/integracao/mcpClientes.routes');
 const mcpClientesOAuthRoutes = require('./src/routes/integracao/mcpClientesOAuth.routes');
@@ -140,6 +141,8 @@ app.use('/api/avn/health/sync', express.json({ limit: '1mb' }));
 app.use('/api/avn/treinos-mobile/sono', express.json({ limit: '1mb' }));
 // Importacao de planilhas autorizadas: limite ampliado somente nesta API autenticada.
 app.use('/api/logistica/importacao-modacenter', requireAuth, express.json({ limit: '2mb' }));
+app.use('/api/logistica/transportadoras/:id/importacao-cidades', requireAuth, express.json({ limit: '256kb' }));
+app.use('/mcp/clientes', express.json({ limit: '256kb' }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(authRoutes);
@@ -219,6 +222,7 @@ app.use('/api/assistente/produtos', assistenteProdutosRoutes);
 app.use('/api/assistente/catalogo', assistenteCatalogoRoutes);
 app.use('/api/assistente-pedidos', assistentePedidosRoutes);
 app.use('/api/logistica/importacao-modacenter', requireAuth, importacaoExcursoesRoutes);
+app.use('/api/logistica/transportadoras/:id/importacao-cidades', importacaoCidadesRoutes);
 app.use('/api/transportadoras', transportadorasRoutes);
 app.use('/api/agencias-recebimento', agenciasRecebimentoRoutes);
 app.use('/api/logistica', logisticaRoutes);

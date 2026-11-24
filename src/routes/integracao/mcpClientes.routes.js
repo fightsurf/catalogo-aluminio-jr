@@ -6,12 +6,13 @@ const auth = require('../../services/integracao/mcpClientesOAuth.service');
 const clientesService = require('../../services/legado/clientes/clientes.service');
 const logistica = require('./mcpLogistica.routes');
 const pedidosMcp = require('./mcpPedidosTools');
+const importacaoCidadesMcp = require('./mcpImportacaoCidadesTools');
 const validacao = require('./mcpValidacao');
 const consultas = require('../../services/integracao/mcpConsultasDetalhadas.service');
 
 const router = express.Router();
 const PROTOCOL = '2025-06-18';
-const VERSION = '1.3.1';
+const VERSION = '1.4.0';
 function auditar(ferramenta, rastreio, etapa) {
   // Apenas nomes de ferramentas validados (ou null antes da autenticação)
   // e etapas constantes. Não registrar argumentos,
@@ -69,7 +70,7 @@ const TOOL_LOGISTICA = {
 const TOOLS = [TOOL, TOOL_CLIENTE_ID, TOOL_LOGISTICA, ...logistica.mcpTools.map(t => ({
   ...t,
   securitySchemes: [{ type: 'oauth2', scopes: ['clientes:read'] }]
-})), ...pedidosMcp.tools];
+})), ...pedidosMcp.tools, ...importacaoCidadesMcp.tools];
 function norm(v) {
   return String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
 }
@@ -117,10 +118,12 @@ router.use(async (req, res, next) => {
 router.get('/status', (req, res) => {
   const scopes = new Set(String(req.oauthScopes || '').split(/\s+/));
   const pedidosHabilitados = process.env.MCP_PEDIDOS_ENABLED === 'true';
-  const podeEscrever = pedidosHabilitados && pedidosMcp.tools.some(t =>
-    t.annotations.readOnlyHint === false && pedidosMcp.requiredScopes(t.name).every(s => scopes.has(s)));
+  const podeImportarCidades = importacaoCidadesMcp.requiredScopes('confirmar_importacao_cidades').every(s => scopes.has(s));
+  const podeEscrever = podeImportarCidades || (pedidosHabilitados && pedidosMcp.tools.some(t =>
+    t.annotations.readOnlyHint === false && pedidosMcp.requiredScopes(t.name).every(s => scopes.has(s))));
   return res.json({ ok: true, versao: VERSION, escopos: [...scopes],
-    pedidos_habilitados: pedidosHabilitados, somente_leitura: !podeEscrever });
+    pedidos_habilitados: pedidosHabilitados, importacao_cidades_habilitada: true,
+    pode_importar_cidades: podeImportarCidades, somente_leitura: !podeEscrever });
 });
 router.get('/', (_req, res) => res.status(405).set('Allow', 'POST').end());
 router.delete('/', (_req, res) => res.status(405).set('Allow', 'POST').end());
@@ -136,7 +139,7 @@ router.post('/', async (req, res) => {
       protocolVersion: PROTOCOL,
       capabilities: { tools: { listChanged: true } },
       serverInfo: { name: 'aluminio-jr-clientes', version: VERSION },
-      instructions: 'Consulte clientes, logística e pedidos. Por cliente, permita último cadastrado, histórico paginado e filtro sem data de expedição; respeite avisos de dados incompletos e homônimos. Ao preparar um novo pedido com carrada informada por data, consulte buscar_carradas naquele momento e use o código retornado internamente. Não peça o código ao usuário. Se houver várias correspondências, peça a escolha pela descrição; se não houver, esclareça a data antes de preparar. Não reutilize carrada de outro pedido. Preparar cria somente prévia. A criação confirma somente o pedido e a carrada, sem WhatsApp. Para o aviso de entrada solicitado, depois da gravação use preparar_whatsapp_pedido com tipo aviso_carrada usando o id_mestre real; apresente destinatário e texto e obtenha confirmação do envio. Falha no aviso não exige repetir a gravação. Para criar, alterar, cancelar, registrar expedição ou enviar WhatsApp, leia o resumo e todos os efeitos, aguarde confirmação expressa posterior e use o confirmador correspondente. Expedição usa a ação completa de Progresso com seus avisos. Só existem ações individuais, sem enviar para todos. Nunca repita efeitos incertos. Não invente dados nem alegue entrega pelo simples aceite do provedor.'
+      instructions: 'Consulte clientes, logística e pedidos. Por cliente, permita último cadastrado, histórico paginado e filtro sem data de expedição; respeite avisos de dados incompletos e homônimos. Ao preparar um novo pedido com carrada informada por data, consulte buscar_carradas naquele momento e use o código retornado internamente. Não peça o código ao usuário. Se houver várias correspondências, peça a escolha pela descrição; se não houver, esclareça a data antes de preparar. Não reutilize carrada de outro pedido. Preparar cria somente prévia. A criação confirma somente o pedido e a carrada, sem WhatsApp. Para o aviso de entrada solicitado, depois da gravação use preparar_whatsapp_pedido com tipo aviso_carrada usando o id_mestre real; apresente destinatário e texto e obtenha confirmação do envio. Falha no aviso não exige repetir a gravação. Para criar, alterar, cancelar, registrar expedição ou enviar WhatsApp, leia o resumo e todos os efeitos, aguarde confirmação expressa posterior e use o confirmador correspondente. Expedição usa a ação completa de Progresso com seus avisos. As ações de pedidos são individuais, sem enviar para todos. Para importar cidades de uma transportadora, use preparar_importacao_cidades com os nomes e UFs fornecidos, apresente a lista e resolva pendências; depois da aprovação, confirme com confirmar_importacao_cidades e o token da prévia. A importação apenas acrescenta vínculos, preserva os existentes e não envia mensagens. Nunca repita efeitos incertos. Não invente dados nem alegue entrega pelo simples aceite do provedor.'
     });
   }
   if (m.method === 'ping') return jsonrpc(res, m.id, {});
@@ -148,13 +151,15 @@ router.post('/', async (req, res) => {
   const ferramentaLogistica = logistica.mcpTools.find(t => t.name === name);
   const ferramentaDetalhada = [TOOL_CLIENTE_ID, TOOL_LOGISTICA].find(t => t.name === name);
   const ferramentaPedido = pedidosMcp.tools.find(t => t.name === name);
-  if (name !== 'buscar_clientes' && !ferramentaLogistica && !ferramentaDetalhada && !ferramentaPedido) {
+  const ferramentaImportacao = importacaoCidadesMcp.tools.find(t => t.name === name);
+  if (name !== 'buscar_clientes' && !ferramentaLogistica && !ferramentaDetalhada && !ferramentaPedido && !ferramentaImportacao) {
     return rpcError(res, m.id, -32602, 'Ferramenta não encontrada.');
   }
   const rastreio = req.mcpRastreio;
   const meta = req.mcpMeta;
   auditar(name, rastreio, 'recebida');
-  const necessarios = ferramentaPedido ? pedidosMcp.requiredScopes(name) : ['clientes:read'];
+  const necessarios = ferramentaPedido ? pedidosMcp.requiredScopes(name)
+    : ferramentaImportacao ? importacaoCidadesMcp.requiredScopes(name) : ['clientes:read'];
   const concedidos = new Set(String(req.oauthScopes || '').split(/\s+/));
   if (necessarios.some(scope => !concedidos.has(scope))) {
     auditar(name, rastreio, 'escopo_insuficiente');
@@ -166,7 +171,7 @@ router.post('/', async (req, res) => {
     });
   }
   const args = m.params.arguments === undefined ? {} : m.params.arguments;
-  const schema = (name === 'buscar_clientes' ? TOOL : ferramentaDetalhada || ferramentaPedido || ferramentaLogistica).inputSchema;
+  const schema = (name === 'buscar_clientes' ? TOOL : ferramentaDetalhada || ferramentaPedido || ferramentaImportacao || ferramentaLogistica).inputSchema;
   if (!validacao.validar(schema, args)) {
     auditar(name, rastreio, 'parametros_invalidos');
     return rpcError(res, m.id, -32602, 'Parâmetros inválidos. Confira campos obrigatórios, tipos, códigos internos e limites.');
@@ -176,6 +181,7 @@ router.post('/', async (req, res) => {
       : name === 'consultar_cliente' ? await consultas.consultarCliente(args)
       : name === 'listar_excursoes_transportadoras' ? await consultas.listarExcursoesTransportadoras(args)
       : ferramentaPedido ? await pedidosMcp.executeTool(name, args, { usuario: req.oauthUser, scopes: req.oauthScopes })
+      : ferramentaImportacao ? await importacaoCidadesMcp.executeTool(name, args, { usuario: req.oauthUser, scopes: req.oauthScopes })
       : await logistica.executeTool(name, args);
     const status = ['confirmado', 'aguardando_confirmacao', 'em_processamento', 'revisao_necessaria',
       'parcial', 'nao_enviado', 'resultado_incerto', 'aceito_pelo_provedor'].includes(result?.status)

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const service = require('../../services/logistica/logisticaService');
 const controller = require('../../controllers/logistica/logisticaController');
+const { requireAuth } = require('../../middlewares/adminAuth.middleware');
 
 // ==========================================
 // LISTAR ESTADOS
@@ -144,6 +145,20 @@ router.post('/transportadoras/:id/cidades', async (req, res) => {
 // ==========================================
 // REMOVER CIDADE
 // ==========================================
+// O identificador interno também atende cidades cadastradas sem código IBGE.
+router.delete('/transportadoras/:id/cidades/id/:cidade_id', requireAuth, async (req, res) => {
+  const ids = [req.params.id, req.params.cidade_id];
+  if (ids.some(id => !/^[1-9]\d*$/.test(String(id)) || !Number.isSafeInteger(Number(id)))) {
+    return res.status(400).json({ error: 'Transportadora ou cidade inválida.' });
+  }
+  try {
+    await service.removerCidadePorId(Number(req.params.id), Number(req.params.cidade_id));
+    return res.json({ success: true });
+  } catch (_) {
+    return res.status(500).json({ error: 'Não foi possível remover o vínculo da cidade.' });
+  }
+});
+
 router.delete('/transportadoras/:id/cidades/:codigo_ibge', async (req, res) => {
   try {
     await service.removerCidade(

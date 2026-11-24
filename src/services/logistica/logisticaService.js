@@ -70,7 +70,7 @@ async function criarCidade(nome, estado) {
 async function listarCidades(transportadora_id) {
     const result = await pool.query(
           `
-              SELECT c.codigo_ibge, c.nome, c.estado, tc.observacao
+              SELECT c.id AS cidade_id, c.codigo_ibge, c.nome, c.estado, tc.observacao
                   FROM transportadora_cidade tc
                       JOIN cidades c ON tc.cidade_id = c.id
                           WHERE tc.transportadora_id = $1
@@ -97,12 +97,22 @@ async function vincularCidade(transportadora_id, codigo_ibge, observacao) {
 
   const cidade_id = cidadeResult.rows[0].id;
 
-  const result = await pool.query(
+  return vincularCidadePorId(transportadora_id, cidade_id, observacao);
+}
+
+// Compartilhado com a importação em lote. A edição manual continua atualizando
+// a observação; a importação usa a transação recebida e preserva vínculos existentes.
+async function vincularCidadePorId(transportadora_id, cidade_id, observacao, opcoes = {}) {
+  const client = opcoes.client || pool;
+  const conflito = opcoes.preservarExistente === true
+    ? 'DO NOTHING'
+    : 'DO UPDATE SET observacao = EXCLUDED.observacao';
+  const result = await client.query(
         `
             INSERT INTO transportadora_cidade (transportadora_id, cidade_id, observacao)
                 VALUES ($1, $2, $3)
                     ON CONFLICT (transportadora_id, cidade_id)
-                        DO UPDATE SET observacao = EXCLUDED.observacao
+                        ${conflito}
                             RETURNING *;
                                 `,
         [transportadora_id, cidade_id, observacao || null]
@@ -124,6 +134,14 @@ async function removerCidade(transportadora_id, codigo_ibge) {
                               AND cidades.codigo_ibge = $2;
                                   `,
           [transportadora_id, codigo_ibge]
+        );
+}
+
+// Cadastros legados podem não ter código IBGE; o ID mantém a remoção inequívoca.
+async function removerCidadePorId(transportadora_id, cidade_id) {
+    await pool.query(
+          'DELETE FROM transportadora_cidade WHERE transportadora_id = $1 AND cidade_id = $2',
+          [transportadora_id, cidade_id]
         );
 }
 
@@ -254,7 +272,9 @@ module.exports = {
     criarCidade,
     listarCidades,
     vincularCidade,
+    vincularCidadePorId,
     removerCidade,
+    removerCidadePorId,
     buscarTransportadorasPorNomeCidade,
     listarCidadesPorEstado,
     listarSomenteCidadesPorEstado

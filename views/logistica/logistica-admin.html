@@ -1,7 +1,8 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Admin Logística - Alumínio JR</title>
 
 <style>
@@ -72,7 +73,38 @@ button { padding:6px 12px; border:none; border-radius:4px; cursor:pointer; }
 .modal-merge .merge-error { color:#a81e25; font-size:14px; white-space:pre-wrap; }
 .modal-merge .merge-success { color:#087338; font-size:14px; }
 #modal-mesclagem { z-index:1000; }
+.importacao-cidades-modal { width:min(760px, calc(100vw - 32px)); max-height:90vh; padding:22px; border:0; border-radius:10px; box-sizing:border-box; color:#17212e; }
+.importacao-cidades-modal::backdrop { background:rgba(0,0,0,.55); }
+.importacao-cidades-modal h3 { margin:0; }
+.importacao-cidades-modal h4 { margin:18px 0 8px; }
+.importacao-cidades-modal p { line-height:1.45; }
+.importacao-cidades-modal input, .importacao-cidades-modal select, .importacao-cidades-modal textarea { box-sizing:border-box; font:inherit; }
+.importacao-cidades-modal textarea { resize:vertical; min-height:120px; }
+.importacao-cidades-modal label { display:block; font-size:14px; margin:10px 0 5px; }
+.importacao-cidades-modal button { min-height:36px; }
+.importacao-cidades-modal button:disabled { opacity:.5; cursor:not-allowed; }
+.importacao-cidades-modal button:focus-visible, .importacao-cidades-modal input:focus-visible, .importacao-cidades-modal select:focus-visible, .importacao-cidades-modal textarea:focus-visible { outline:3px solid #3979c9; outline-offset:2px; }
+.importacao-cidades-cabecalho, .importacao-cidades-acoes { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+.importacao-cidades-destino { background:#edf4ff; padding:12px; border-radius:6px; overflow-wrap:anywhere; }
+.importacao-cidades-ajuda { font-size:13px; color:#536171; }
+.importacao-cidades-uf { max-width:280px; }
+.importacao-cidades-tabela { width:100%; border-collapse:collapse; font-size:14px; }
+.importacao-cidades-tabela th { text-align:left; padding:8px 5px; background:#f1f4f8; }
+.importacao-cidades-tabela td { padding:5px; border-bottom:1px solid #e5e9ef; }
+.importacao-cidades-tabela input, .importacao-cidades-tabela select { margin:0; }
+.importacao-cidades-tabela .coluna-uf { width:88px; }
+.importacao-cidades-tabela .coluna-remover { width:55px; }
+.importacao-cidades-rolagem { max-height:300px; overflow:auto; margin-bottom:10px; }
+.importacao-cidades-resumo { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0; }
+.importacao-cidades-resumo span { padding:8px 10px; border-radius:6px; background:#edf4ff; font-size:14px; }
+.importacao-cidades-lista { max-height:200px; overflow:auto; padding-left:22px; line-height:1.6; }
+.importacao-cidades-status { white-space:pre-wrap; overflow-wrap:anywhere; font-size:14px; }
+.importacao-cidades-status.erro, .importacao-cidades-pendencias { color:#a12525; }
+.importacao-cidades-status.sucesso { color:#12643a; }
+.importacao-cidades-modal [hidden] { display:none !important; }
+.importacao-cidades-modal .importacao-cidades-acoes-final { border-top:1px solid #e0e6ee; padding-top:14px; margin-top:16px; }
 @media(max-width:700px) { .main-grid { grid-template-columns:1fr; } }
+@media(max-width:480px) { .importacao-cidades-modal { padding:15px; } .importacao-cidades-tabela td { padding:4px 2px; } .importacao-cidades-tabela .coluna-uf { width:70px; } .top-actions > * { margin-bottom:6px; } }
 
 </style>
 </head>
@@ -83,6 +115,7 @@ button { padding:6px 12px; border:none; border-radius:4px; cursor:pointer; }
 <div class="top-actions">
   <a class="btn-link btn-secondary" href="/admin-logistica/agencias">Agências de recebimento</a>
   <a class="btn-link btn-primary" href="/admin-logistica/importacao-modacenter">📥 Importar transportadoras (CSV)</a>
+  <button class="btn-primary" id="abrir-importacao-cidades" type="button">🤖 Importar cidades por IA</button>
 </div>
 
 <div class="main-grid">
@@ -177,12 +210,60 @@ button { padding:6px 12px; border:none; border-radius:4px; cursor:pointer; }
   </div>
 </div>
 
+<dialog id="importacao-cidades-modal" class="importacao-cidades-modal" aria-labelledby="importacao-cidades-titulo" aria-describedby="importacao-cidades-descricao">
+  <div class="importacao-cidades-cabecalho">
+    <h3 id="importacao-cidades-titulo">Importar cidades por IA</h3>
+    <button type="button" class="btn-secondary" id="importacao-cidades-fechar" aria-label="Fechar importação">Fechar</button>
+  </div>
+  <p id="importacao-cidades-destino" class="importacao-cidades-destino"></p>
+  <p id="importacao-cidades-descricao">Cole a lista de cidades ou envie fotos ou um PDF da rota. Confira os municípios e suas UFs antes de importar. Os vínculos e as observações já cadastrados serão preservados.</p>
+  <label for="importacao-cidades-texto">Lista ou descrição da rota</label>
+  <textarea id="importacao-cidades-texto" maxlength="20000" rows="5" placeholder="Ex.: Catolé do Rocha - PB; Brejo do Cruz - PB; Mossoró - RN"></textarea>
+  <label for="importacao-cidades-arquivos">Fotos ou PDF (opcional)</label>
+  <input id="importacao-cidades-arquivos" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" multiple aria-describedby="importacao-cidades-arquivos-ajuda">
+  <p id="importacao-cidades-arquivos-ajuda" class="importacao-cidades-ajuda">Até 5 fotos (JPG, PNG ou WebP) ou 1 PDF, com até 10 MB no total.</p>
+  <label for="importacao-cidades-uf">UF para cidades sem estado informado (opcional)</label>
+  <select id="importacao-cidades-uf" class="importacao-cidades-uf"></select>
+  <p class="importacao-cidades-ajuda">Escolha uma UF somente se ela valer para todas as cidades que vierem sem estado.</p>
+  <button type="button" class="btn-primary" id="importacao-cidades-analisar">Analisar com IA</button>
+  <ul id="importacao-cidades-avisos" class="importacao-cidades-lista" hidden></ul>
+  <section id="importacao-cidades-editor" hidden aria-labelledby="importacao-cidades-editor-titulo">
+    <h4 id="importacao-cidades-editor-titulo">Cidades identificadas</h4>
+    <p class="importacao-cidades-ajuda">Corrija o nome ou a UF, ou remova localidades que não fazem parte da rota. Depois clique em “Conferir cidades”.</p>
+    <div class="importacao-cidades-rolagem">
+      <table class="importacao-cidades-tabela">
+        <thead><tr><th scope="col">Município</th><th scope="col" class="coluna-uf">UF</th><th scope="col" class="coluna-remover">Ação</th></tr></thead>
+        <tbody id="importacao-cidades-linhas"></tbody>
+      </table>
+    </div>
+    <div class="importacao-cidades-acoes">
+      <button type="button" class="btn-secondary" id="importacao-cidades-adicionar">Adicionar cidade</button>
+      <button type="button" class="btn-primary" id="importacao-cidades-conferir">Conferir cidades</button>
+    </div>
+  </section>
+  <section id="importacao-cidades-previa" hidden aria-labelledby="importacao-cidades-previa-titulo">
+    <h4 id="importacao-cidades-previa-titulo">Prévia da importação</h4>
+    <div id="importacao-cidades-resumo" class="importacao-cidades-resumo"></div>
+    <ul id="importacao-cidades-validadas" class="importacao-cidades-lista"></ul>
+    <div id="importacao-cidades-pendencias-area" class="importacao-cidades-pendencias" hidden>
+      <strong>Corrija estas pendências para importar:</strong>
+      <ul id="importacao-cidades-pendencias" class="importacao-cidades-lista"></ul>
+    </div>
+  </section>
+  <p id="importacao-cidades-status" class="importacao-cidades-status" role="status" aria-live="polite"></p>
+  <div class="importacao-cidades-acoes importacao-cidades-acoes-final">
+    <button type="button" class="btn-secondary" id="importacao-cidades-cancelar">Cancelar</button>
+    <button type="button" class="btn-primary" id="importacao-cidades-confirmar" disabled>Importar cidades</button>
+  </div>
+</dialog>
+
 <script>
 const API_TRANSPORTADORAS = '/api/transportadoras';
 const API_LOGISTICA = '/api/logistica';
 
 let transportadoraSelecionada = null;
 let cidadesVinculadasCarregadas = [];
+let versaoCarregamentoCidades = 0;
 let transportadorasCarregadas = [];
 let previaMesclagem = null;
 
@@ -341,6 +422,9 @@ async function excluirTransportadora() {
 async function carregarCidades() {
   if (!transportadoraSelecionada) return;
 
+  const transportadoraId = transportadoraSelecionada.id;
+  const versao = ++versaoCarregamentoCidades;
+  cidadesVinculadasCarregadas = [];
   const div = document.getElementById('cidades-area');
 
   div.innerHTML = `
@@ -351,28 +435,48 @@ async function carregarCidades() {
       <strong>Cidades vinculadas:</strong>
       <button class="btn-secondary" type="button" onclick="copiarCidadesVinculadas()">Copiar cidades</button>
     </div>
-    <div id="lista-cidades-vinculadas"></div>
+    <div id="lista-cidades-vinculadas"><small>Carregando cidades...</small></div>
   `;
 
-  const res = await fetch(`/api/logistica/transportadoras/${transportadoraSelecionada.id}/cidades`);
-  const dados = await res.json();
-
   const lista = document.getElementById('lista-cidades-vinculadas');
-  cidadesVinculadasCarregadas = Array.isArray(dados) ? dados : [];
+  const continuaAtual = () => versao === versaoCarregamentoCidades &&
+    String(transportadoraSelecionada?.id) === String(transportadoraId) &&
+    document.getElementById('lista-cidades-vinculadas') === lista;
 
-  if (!dados.length) {
-    lista.innerHTML = '<small>Nenhuma cidade vinculada</small>';
-    return;
+  try {
+    const res = await fetch(`/api/logistica/transportadoras/${encodeURIComponent(transportadoraId)}/cidades`);
+    const dados = await res.json();
+    if (!continuaAtual()) return;
+    if (!res.ok || !Array.isArray(dados)) throw new Error('Não foi possível carregar as cidades vinculadas.');
+    cidadesVinculadasCarregadas = dados;
+    lista.replaceChildren();
+
+    if (!dados.length) {
+      const vazio = document.createElement('small');
+      vazio.textContent = 'Nenhuma cidade vinculada';
+      lista.appendChild(vazio);
+      return;
+    }
+
+    for (const cidade of dados) {
+      const item = document.createElement('div');
+      item.className = 'cidade';
+      const nome = document.createElement('span');
+      nome.textContent = `${cidade.nome || ''} - ${cidade.estado || ''} `;
+      const botao = document.createElement('button');
+      botao.type = 'button';
+      botao.className = 'btn-danger';
+      botao.textContent = 'Remover';
+      botao.setAttribute('aria-label', 'Remover vínculo de ' + (cidade.nome || 'cidade'));
+      botao.addEventListener('click', () => removerCidade(cidade.codigo_ibge, cidade.cidade_id, transportadoraId, botao));
+      item.append(nome, botao);
+      lista.appendChild(item);
+    }
+  } catch (erro) {
+    if (!continuaAtual()) return;
+    cidadesVinculadasCarregadas = [];
+    lista.textContent = 'Não foi possível carregar as cidades vinculadas. Selecione novamente a transportadora.';
   }
-
-  dados.forEach(c => {
-    lista.innerHTML += `
-      <div class="cidade">
-        ${c.nome} - ${c.estado}
-        <button class="btn-danger" onclick="removerCidade(${c.codigo_ibge})">Remover</button>
-      </div>
-    `;
-  });
 }
 
 // =============================
@@ -499,12 +603,29 @@ async function vincular(codigo_ibge) {
   carregarCidades();
 }
 
-async function removerCidade(codigo_ibge) {
-  await fetch(`/api/logistica/transportadoras/${transportadoraSelecionada.id}/cidades/${codigo_ibge}`, {
-    method:'DELETE'
-  });
-
-  carregarCidades();
+async function removerCidade(codigo_ibge, cidade_id = null, transportadora_id = transportadoraSelecionada?.id, botao = null) {
+  if (!transportadora_id || String(transportadoraSelecionada?.id) !== String(transportadora_id) || botao?.disabled) return;
+  const cidadeId = Number(cidade_id);
+  const usaId = Number.isSafeInteger(cidadeId) && cidadeId > 0;
+  if (!usaId && !/^\d{7}$/.test(String(codigo_ibge || ''))) {
+    alert('Este vínculo não tem um identificador válido. Atualize a página antes de remover.');
+    return;
+  }
+  const identificador = usaId ? 'id/' + cidadeId : String(codigo_ibge);
+  if (botao) botao.disabled = true;
+  try {
+    const resposta = await fetch(`/api/logistica/transportadoras/${encodeURIComponent(transportadora_id)}/cidades/${identificador}`, {
+      method: 'DELETE', headers: { Accept: 'application/json' }
+    });
+    if (resposta.status === 401 || resposta.redirected) throw new Error('Sua sessão expirou. Entre novamente como administrador.');
+    const dados = await resposta.json().catch(() => null);
+    if (!resposta.ok || !dados) throw new Error(dados?.erro || dados?.error || 'Não foi possível remover o vínculo.');
+    if (String(transportadoraSelecionada?.id) === String(transportadora_id)) await carregarCidades();
+  } catch (erro) {
+    alert(erro.message);
+  } finally {
+    if (botao) botao.disabled = false;
+  }
 }
 
 
@@ -781,6 +902,7 @@ configurarAutocompleteCidade({
 
 carregarTransportadoras();
 </script>
+<script src="/js/logistica-importacao-cidades.js"></script>
 
 </body>
 </html>

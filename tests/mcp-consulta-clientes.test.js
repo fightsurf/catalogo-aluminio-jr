@@ -133,6 +133,19 @@ test('OAuth requer conta administrativa e escopo de leitura', async () => {
     });
     assert.equal(tokensEscrita.scope, 'clientes:read pedidos:write');
     assert.ok(tokensEscrita.refresh_token);
+    const pendingLogistica = await oauth.newAuthRequest({ ...args, scope: 'clientes:read logistica:write' }, 'teste');
+    const callbackLogistica = await oauth.decideConsent({ ...pendingLogistica, decision: 'aprovar', user: 'teste' });
+    const tokensLogistica = await oauth.exchangeToken({
+      grant_type: 'authorization_code', client_id: oauth.CLIENT_ID,
+      redirect_uri: oauth.REDIRECT, code: new URL(callbackLogistica).searchParams.get('code'),
+      code_verifier: verifier, resource: oauth.resource()
+    });
+    assert.equal(tokensLogistica.scope, 'clientes:read logistica:write');
+    assert.equal((await oauth.validateAccess(tokensLogistica.access_token)).scope, 'clientes:read logistica:write');
+    const rotacaoLogistica = await oauth.exchangeToken({ grant_type: 'refresh_token',
+      client_id: oauth.CLIENT_ID, refresh_token: tokensLogistica.refresh_token });
+    assert.equal(rotacaoLogistica.scope, 'clientes:read logistica:write');
+    assert.equal((await oauth.validateAccess(rotacaoLeitura.access_token)).scope, 'clientes:read');
     await assert.rejects(
       oauth.exchangeToken({ grant_type: 'refresh_token', client_id: oauth.CLIENT_ID,
         refresh_token: tokenResponse.refresh_token }),

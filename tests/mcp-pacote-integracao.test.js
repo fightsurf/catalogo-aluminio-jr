@@ -32,6 +32,11 @@ function ambiente({ authEnabled = true, authError = null } = {}) {
     '../../services/integracao/mcpConsultaPedidos.service': { consultarPedidos: registrar('consultarPedidos'), detalharPedido: registrar('detalharPedido'), buscarCarradas: registrar('buscarCarradas') },
     './mcpAcoesPedidosTools': acoes
   });
+  const importacao = carregar('src/routes/integracao/mcpImportacaoCidadesTools.js', {
+    '../../services/logistica/importacaoCidades.service': {
+      prepararImportacao: registrar('prepararImportacao'), confirmarImportacao: registrar('confirmarImportacao')
+    }
+  });
   let middleware, post;
   const router = { use(fn) { middleware = fn; }, get() {}, delete() {}, post(_url, fn) { post = fn; } };
   let scopes = 'clientes:read';
@@ -48,6 +53,7 @@ function ambiente({ authEnabled = true, authError = null } = {}) {
     '../../services/legado/clientes/clientes.service': { listarClientes: async () => [] },
     './mcpLogistica.routes': { mcpTools: [], executeTool: registrar('logistica') },
     './mcpPedidosTools': pedidos,
+    './mcpImportacaoCidadesTools': importacao,
     './mcpValidacao': validacao,
     '../../services/integracao/mcpConsultasDetalhadas.service': {}
   }, { info: (...args) => logs.push(args), error: (...args) => logs.push(args) });
@@ -63,7 +69,7 @@ function ambiente({ authEnabled = true, authError = null } = {}) {
     if (permitido) await post(req, res);
     return res;
   }
-  return { requisitar, chamadas, logs, pedidos, acoes };
+  return { requisitar, chamadas, logs, pedidos, acoes, importacao };
 }
 const confirmacao = { acao_id: 'e47ef4e3-e4de-49f7-aeea-c72d8ae0cfa9', codigo_confirmacao: '0123456789ABCDEF', confirmacao: 'CONFIRMO' };
 const confirmacaoPedido = { rascunho_id: 'e47ef4e3-e4de-49f7-aeea-c72d8ae0cfa9', codigo_confirmacao: '0123456789', confirmacao: 'CONFIRMO' };
@@ -143,11 +149,11 @@ test('auditoria distingue chegada e escopo sem registrar dados ou códigos de co
   assert.equal(negado.body.result.isError, true);
   const eventos = a.logs.map(l => JSON.parse(l[1]));
   assert.deepEqual(eventos.map(e => e.etapa), ['recebida', 'escopo_insuficiente']);
-  assert.ok(eventos.every(e => e.ferramenta === 'confirmar_pedido' && e.versao === '1.3.1'));
+  assert.ok(eventos.every(e => e.ferramenta === 'confirmar_pedido' && e.versao === '1.4.0'));
   assert.equal(eventos[0].rastreio, eventos[1].rastreio);
   assert.equal(negado.body.result._meta['aluminiojr/rastreio'], eventos[0].rastreio);
   assert.equal(negado.headers['X-MCP-Rastreio'], eventos[0].rastreio);
-  assert.equal(negado.headers['X-MCP-Versao'], '1.3.1');
+  assert.equal(negado.headers['X-MCP-Versao'], '1.4.0');
   assert.match(negado.body.result._meta['mcp/www_authenticate'][0], /error="insufficient_scope"/);
   assert.match(negado.body.result._meta['mcp/www_authenticate'][0], /error_description="This action requires additional OAuth scopes\."/);
   const serializado = JSON.stringify(a.logs);
@@ -169,10 +175,10 @@ test('recusas OAuth antes da ferramenta têm rastreio sem divulgar credenciais o
     assert.match(resposta.headers['WWW-Authenticate'], /scope="clientes:read"/);
     const evento = JSON.parse(a.logs.at(-1)[1]);
     assert.deepEqual(evento, {
-      versao: '1.3.1', ferramenta: null, rastreio: resposta.headers['X-MCP-Rastreio'], etapa: 'autenticacao_necessaria'
+      versao: '1.4.0', ferramenta: null, rastreio: resposta.headers['X-MCP-Rastreio'], etapa: 'autenticacao_necessaria'
     });
     assert.deepEqual(resposta.body._meta, {
-      'aluminiojr/versao': '1.3.1', 'aluminiojr/rastreio': evento.rastreio
+      'aluminiojr/versao': '1.4.0', 'aluminiojr/rastreio': evento.rastreio
     });
     assert.match(evento.rastreio, /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i);
   }
@@ -199,10 +205,10 @@ test('indisponibilidade e erro OAuth são distintos sem registrar mensagem arbit
     assert.equal(a.logs.length, 1);
     const evento = JSON.parse(a.logs[0][1]);
     assert.deepEqual(evento, {
-      versao: '1.3.1', ferramenta: null, rastreio: resposta.headers['X-MCP-Rastreio'], etapa
+      versao: '1.4.0', ferramenta: null, rastreio: resposta.headers['X-MCP-Rastreio'], etapa
     });
     assert.equal(resposta.body._meta['aluminiojr/rastreio'], evento.rastreio);
-    assert.equal(resposta.body._meta['aluminiojr/versao'], '1.3.1');
+    assert.equal(resposta.body._meta['aluminiojr/versao'], '1.4.0');
     assert.equal(resposta.headers['WWW-Authenticate'], undefined);
     const diagnostico = JSON.stringify({ logs: a.logs, resposta: resposta.body });
     for (const privado of [erroPrivado.message, 'token-privado', 'conta-privada', 'telefone-privado', confirmacaoPedido.codigo_confirmacao]) {
@@ -214,8 +220,8 @@ test('indisponibilidade e erro OAuth são distintos sem registrar mensagem arbit
 test('mesmo rastreio acompanha sucesso da ferramenta e versão anunciada na inicialização', async () => {
   const a = ambiente();
   const inicio = await a.requisitar(null, {}, 'clientes:read', { method: 'initialize' });
-  assert.equal(inicio.body.result.serverInfo.version, '1.3.1');
-  assert.equal(inicio.headers['X-MCP-Versao'], '1.3.1');
+  assert.equal(inicio.body.result.serverInfo.version, '1.4.0');
+  assert.equal(inicio.headers['X-MCP-Versao'], '1.4.0');
   const resposta = await a.requisitar('consultar_pedidos', { numero: '0020001' });
   assert.equal(resposta.body.result.isError, false);
   const eventos = a.logs.map(l => JSON.parse(l[1]));
@@ -322,5 +328,78 @@ test('buscar carradas exige OAuth e escopo de leitura sem conceder gravação', 
   assert.equal(semLeitura.body.result.isError, true);
   assert.match(semLeitura.body.result._meta['mcp/www_authenticate'][0], /insufficient_scope/);
   assert.deepEqual(a.chamadas, []);
+});
+
+test('importação de cidades prepara sem gravar e exige escopo próprio para confirmar', async () => {
+  const a = ambiente();
+  const args = { transportadora_id: 110, cidades: [{ nome: 'Catolé do Rocha', uf: 'PB' }] };
+  const previa = await a.requisitar('preparar_importacao_cidades', args);
+  assert.equal(previa.body.result.isError, false);
+  assert.deepEqual(a.chamadas, [{ name: 'prepararImportacao', args: [args, { usuario: 'conta-autenticada', scopes: 'clientes:read' }] }]);
+  a.chamadas.length = 0;
+  const confirmacao = { token_previa: 'token-assinado-de-previa', confirmacao: 'CONFIRMO' };
+  for (const escopos of ['clientes:read', 'clientes:read pedidos:write pedidos:manage whatsapp:send', 'logistica:write']) {
+    const negado = await a.requisitar('confirmar_importacao_cidades', confirmacao, escopos);
+    assert.equal(negado.body.result.isError, true);
+    assert.match(negado.body.result._meta['mcp/www_authenticate'][0], /insufficient_scope/);
+  }
+  assert.deepEqual(a.chamadas, []);
+  const permitido = await a.requisitar('confirmar_importacao_cidades', confirmacao, 'clientes:read logistica:write');
+  assert.equal(permitido.body.result.isError, false);
+  assert.deepEqual(a.chamadas, [{ name: 'confirmarImportacao', args: [
+    { token_previa: confirmacao.token_previa }, { usuario: 'conta-autenticada', scopes: 'clientes:read logistica:write' }
+  ] }]);
+  assert.ok(!JSON.stringify(a.logs).includes(confirmacao.token_previa));
+});
+
+test('importação de cidades tem metadados de escrita corretos e independe da flag de pedidos', async () => {
+  const a = ambiente();
+  process.env.MCP_PEDIDOS_ENABLED = 'false';
+  try {
+    const lista = await a.requisitar(null, {}, 'clientes:read', { method: 'tools/list' });
+    const novas = lista.body.result.tools.filter(t => a.importacao.tools.some(x => x.name === t.name));
+    assert.equal(novas.length, 2);
+    const confirmar = novas.find(t => t.name === 'confirmar_importacao_cidades');
+    assert.equal(confirmar.annotations.readOnlyHint, false);
+    assert.equal(confirmar.annotations.destructiveHint, false);
+    assert.equal(confirmar.annotations.idempotentHint, true);
+    assert.deepEqual(confirmar.securitySchemes[0].scopes, ['clientes:read', 'logistica:write']);
+    for (const t of novas) assert.deepEqual(t._meta.securitySchemes, t.securitySchemes);
+    const resultado = await a.requisitar('confirmar_importacao_cidades', {
+      token_previa: 'token-assinado-de-previa', confirmacao: 'CONFIRMO'
+    }, 'clientes:read logistica:write');
+    assert.equal(resultado.body.result.isError, false);
+  } finally { process.env.MCP_PEDIDOS_ENABLED = 'true'; }
+});
+
+test('importação rejeita lote e confirmação inválidos antes de chamar serviços', async () => {
+  const a = ambiente();
+  for (const args of [
+    { transportadora_id: '110', cidades: [{ nome: 'Patos', uf: 'PB' }] },
+    { transportadora_id: 110, cidades: [] },
+    { transportadora_id: 110, cidades: Array.from({ length: 301 }, () => ({ nome: 'Patos', uf: 'PB' })) },
+    { transportadora_id: 110, cidades: [{ nome: 'Patos', uf: 'PB', cidade_id: 1 }] },
+    { transportadora_id: 110, cidades: [{ nome: 'Patos', uf: 'PB' }], usuario: 'outra-conta' }
+  ]) {
+    const res = await a.requisitar('preparar_importacao_cidades', args);
+    assert.equal(res.body.error?.code, -32602);
+  }
+  for (const args of [{ token_previa: 'token-assinado-de-previa' }, { token_previa: 'token-assinado-de-previa', confirmacao: 'SIM' }]) {
+    const res = await a.requisitar('confirmar_importacao_cidades', args, 'clientes:read logistica:write');
+    assert.equal(res.body.error?.code, -32602);
+  }
+  assert.deepEqual(a.chamadas, []);
+});
+
+test('MCP público continua recusando ferramentas de importação', async () => {
+  const router = { use() {}, get() {}, post() {}, delete() {} };
+  const publico = carregar('src/routes/integracao/mcpLogistica.routes.js', {
+    express: { Router: () => router },
+    '../../services/logistica/transportadoraService': {},
+    '../../services/logistica/logisticaService': {}
+  });
+  assert.equal(publico.mcpTools.length, 4);
+  assert.ok(publico.mcpTools.every(t => t.annotations.readOnlyHint === true));
+  await assert.rejects(publico.executeTool('confirmar_importacao_cidades', {}));
 });
 

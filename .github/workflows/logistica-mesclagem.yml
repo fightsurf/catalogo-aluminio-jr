@@ -1,19 +1,31 @@
-name: Mesclagem de transportadoras
+name: Logística - mesclagem e importação de cidades
 
 on:
   pull_request:
     paths:
       - 'src/services/logistica/mesclagemTransportadoras*.js'
+      - 'src/services/logistica/importacaoCidades*.js'
+      - 'src/services/logistica/logisticaService.js'
+      - 'src/routes/logistica/importacaoCidadesRoutes.js'
+      - 'src/routes/logistica/logisticaRoutes.js'
       - 'src/routes/logistica/transportadorasRoutes.js'
       - 'views/logistica/logistica-admin.html'
+      - 'public/js/logistica-importacao-cidades.js'
+      - 'tests/importacao-cidades*.test.js'
       - 'tests/mesclagem-transportadoras-utils.test.js'
       - '.github/workflows/logistica-mesclagem.yml'
   push:
     branches: [main]
     paths:
       - 'src/services/logistica/mesclagemTransportadoras*.js'
+      - 'src/services/logistica/importacaoCidades*.js'
+      - 'src/services/logistica/logisticaService.js'
+      - 'src/routes/logistica/importacaoCidadesRoutes.js'
+      - 'src/routes/logistica/logisticaRoutes.js'
       - 'src/routes/logistica/transportadorasRoutes.js'
       - 'views/logistica/logistica-admin.html'
+      - 'public/js/logistica-importacao-cidades.js'
+      - 'tests/importacao-cidades*.test.js'
       - 'tests/mesclagem-transportadoras-utils.test.js'
       - '.github/workflows/logistica-mesclagem.yml'
 
@@ -30,8 +42,17 @@ jobs:
           node --check src/services/logistica/mesclagemTransportadorasUtils.js
           node --check src/services/logistica/mesclagemTransportadorasService.js
           node --check src/routes/logistica/transportadorasRoutes.js
+          node --check src/services/logistica/importacaoCidades.service.js
+          node --check src/services/logistica/importacaoCidadesIa.service.js
+          node --check src/routes/logistica/importacaoCidadesRoutes.js
+          node --check src/routes/logistica/logisticaRoutes.js
+          node --check public/js/logistica-importacao-cidades.js
       - name: Verificar JavaScript da página de logística
         run: |
           node -e "const fs=require('node:fs'),vm=require('node:vm');const html=fs.readFileSync('views/logistica/logistica-admin.html','utf8');const scripts=[...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];if(!scripts.length)throw Error('Nenhum script encontrado');for(const s of scripts)new vm.Script(s[1]);"
+      - name: Instalar dependências dos testes HTTP
+        run: npm install --prefix "$RUNNER_TEMP/logistica-test-deps" --no-audit --no-fund --ignore-scripts express@4.18.2 multer@2.0.1
       - name: Testar união de dados e importação
-        run: node --test tests/mesclagem-transportadoras-utils.test.js tests/importacao-excursoes-utils.test.js
+        env:
+          NODE_PATH: ${{ runner.temp }}/logistica-test-deps/node_modules
+        run: node --test tests/mesclagem-transportadoras-utils.test.js tests/importacao-excursoes-utils.test.js tests/importacao-cidades*.test.js
