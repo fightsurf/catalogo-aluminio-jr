@@ -6,18 +6,19 @@
 const express = require('express');
 const transportadorasService = require('../../services/logistica/transportadoraService');
 const logisticaService = require('../../services/logistica/logisticaService');
+const { outputSchemaFor } = require('./mcpOutputSchemas');
+const { validateProtocolRequest } = require('./mcpProtocol');
 
 const router = express.Router();
-const PROTOCOL_VERSION = '2025-06-18';
 const NAME = 'aluminio-jr-consultas';
-const VERSION = '0.1.0';
+const VERSION = '0.1.1';
 
 const tools = [
   {
     name: 'consultar_transportadoras',
     title: 'Consultar transportadoras',
     description: 'Consulta até 20 transportadoras cadastradas na Alumínio JR, opcionalmente por parte do nome. Retorna somente ID, nome, cidade e UF; nunca retorna telefones.',
-    annotations: { readOnlyHint: true, destructiveHint: false },
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     inputSchema: {
       type: 'object',
       properties: { nome: { type: 'string', maxLength: 120, description: 'Nome ou parte do nome da transportadora. Pode ficar vazio para listar as primeiras 20.' } },
@@ -28,7 +29,7 @@ const tools = [
     name: 'buscar_cidades',
     title: 'Buscar cidades',
     description: 'Busca cidades cadastradas pelo nome e retorna nome, UF e ID.',
-    annotations: { readOnlyHint: true, destructiveHint: false },
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     inputSchema: {
       type: 'object',
       properties: { nome: { type: 'string', minLength: 2, maxLength: 120 } },
@@ -40,7 +41,7 @@ const tools = [
     name: 'listar_cidades_da_transportadora',
     title: 'Listar cidades atendidas',
     description: 'Lista cidades vinculadas a uma transportadora por ID, sem informações de contato ou observações.',
-    annotations: { readOnlyHint: true, destructiveHint: false },
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     inputSchema: {
       type: 'object',
       properties: { transportadora_id: { type: 'integer', minimum: 1 } },
@@ -52,7 +53,7 @@ const tools = [
     name: 'transportadoras_por_cidade',
     title: 'Transportadoras que atendem uma cidade',
     description: 'Consulta transportadoras que atendem uma cidade (ex.: Patos, PB) e retorna apenas nomes e origem, sem telefone nem observações.',
-    annotations: { readOnlyHint: true, destructiveHint: false },
+    annotations: { readOnlyHint: true, destructiveHint: false, openWorldHint: false },
     inputSchema: {
       type: 'object',
       properties: {
@@ -63,7 +64,7 @@ const tools = [
       additionalProperties: false
     }
   }
-];
+].map(t => ({ ...t, outputSchema: outputSchemaFor(t.name) }));
 
 function invalid(message) {
   const err = new Error(message);
@@ -171,14 +172,21 @@ router.get('/status', (_req, res) => {
 });
 
 // MCP 2025-06-18: stateless HTTP. Não oferece SSE por GET.
-router.get('/', (_req, res) => res.status(405).set('Allow', 'POST').end());
-router.delete('/', (_req, res) => res.status(405).set('Allow', 'POST').end());
+function metodoNaoSuportado(req, res) {
+  const protocolo = validateProtocolRequest(null, req.get('MCP-Protocol-Version'));
+  if (!protocolo.ok) return error(res, null, protocolo.code, protocolo.message, protocolo.status);
+  return res.status(405).set('Allow', 'POST').end();
+}
+router.get('/', metodoNaoSuportado);
+router.delete('/', metodoNaoSuportado);
 
 router.post('/', async (req, res) => {
   const msg = req.body;
   if (!msg || typeof msg !== 'object' || Array.isArray(msg) || msg.jsonrpc !== '2.0' || typeof msg.method !== 'string') {
     return error(res, null, -32600, 'Requisição JSON-RPC inválida.', 400);
   }
+  const protocolo = validateProtocolRequest(msg, req.get('MCP-Protocol-Version'));
+  if (!protocolo.ok) return error(res, msg.id ?? null, protocolo.code, protocolo.message, protocolo.status);
 
   // Notificações são aceitas sem resposta JSON-RPC.
   if (!Object.prototype.hasOwnProperty.call(msg, 'id')) return res.status(202).end();
@@ -187,7 +195,7 @@ router.post('/', async (req, res) => {
     switch (msg.method) {
       case 'initialize':
         return reply(res, msg.id, {
-          protocolVersion: PROTOCOL_VERSION,
+          protocolVersion: protocolo.protocolVersion,
           capabilities: { tools: { listChanged: false } },
           serverInfo: { name: NAME, version: VERSION },
           instructions: 'Consultar apenas dados de transportadoras e cidades da Alumínio JR. Ferramentas somente leitura. Dados de contato não são expostos.'

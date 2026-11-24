@@ -61,6 +61,8 @@ jobs:
           node --check src/services/integracao/mcpPedidoWhatsapp.service.js
           node --check src/routes/integracao/mcpAcoesPedidosTools.js
           node --check src/routes/integracao/mcpValidacao.js
+          node --check src/routes/integracao/mcpProtocol.js
+          node --check src/routes/integracao/mcpOutputSchemas.js
           node --check public/js/pedido-mensagem-whatsapp.js
       - name: Testar OAuth e segurança
         run: node --test tests/mcp-*.test.js tests/pedidos-insercao-v2-aviso-mcp.test.js tests/relatorio-fotos-previa.test.js

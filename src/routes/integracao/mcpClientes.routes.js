@@ -8,11 +8,12 @@ const logistica = require('./mcpLogistica.routes');
 const pedidosMcp = require('./mcpPedidosTools');
 const importacaoCidadesMcp = require('./mcpImportacaoCidadesTools');
 const validacao = require('./mcpValidacao');
+const { outputSchemaFor } = require('./mcpOutputSchemas');
+const { validateProtocolRequest } = require('./mcpProtocol');
 const consultas = require('../../services/integracao/mcpConsultasDetalhadas.service');
 
 const router = express.Router();
-const PROTOCOL = '2025-06-18';
-const VERSION = '1.4.0';
+const VERSION = '1.4.1';
 function auditar(ferramenta, rastreio, etapa) {
   // Apenas nomes de ferramentas validados (ou null antes da autenticação)
   // e etapas constantes. Não registrar argumentos,
@@ -70,7 +71,8 @@ const TOOL_LOGISTICA = {
 const TOOLS = [TOOL, TOOL_CLIENTE_ID, TOOL_LOGISTICA, ...logistica.mcpTools.map(t => ({
   ...t,
   securitySchemes: [{ type: 'oauth2', scopes: ['clientes:read'] }]
-})), ...pedidosMcp.tools, ...importacaoCidadesMcp.tools];
+})), ...pedidosMcp.tools, ...importacaoCidadesMcp.tools]
+  .map(t => ({ ...t, outputSchema: outputSchemaFor(t.name) }));
 function norm(v) {
   return String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
 }
@@ -125,19 +127,30 @@ router.get('/status', (req, res) => {
     pedidos_habilitados: pedidosHabilitados, importacao_cidades_habilitada: true,
     pode_importar_cidades: podeImportarCidades, somente_leitura: !podeEscrever });
 });
-router.get('/', (_req, res) => res.status(405).set('Allow', 'POST').end());
-router.delete('/', (_req, res) => res.status(405).set('Allow', 'POST').end());
+function metodoNaoSuportado(req, res) {
+  const protocolo = validateProtocolRequest(null, req.get('MCP-Protocol-Version'));
+  if (!protocolo.ok) return rpcError(res, null, protocolo.code, protocolo.message, protocolo.status);
+  return res.status(405).set('Allow', 'POST').end();
+}
+router.get('/', metodoNaoSuportado);
+router.delete('/', metodoNaoSuportado);
 router.post('/', async (req, res) => {
   const m = req.body;
   if (!m || typeof m !== 'object' || Array.isArray(m) ||
       m.jsonrpc !== '2.0' || typeof m.method !== 'string') {
     return rpcError(res, null, -32600, 'JSON-RPC inválido.', 400);
   }
+  const protocolo = validateProtocolRequest(m, req.get('MCP-Protocol-Version'));
+  if (!protocolo.ok) {
+    auditar(null, req.mcpRastreio, 'protocolo_invalido');
+    return rpcError(res, m.id ?? null, protocolo.code, protocolo.message, protocolo.status);
+  }
   if (!Object.prototype.hasOwnProperty.call(m, 'id')) return res.status(202).end();
   if (m.method === 'initialize') {
     return jsonrpc(res, m.id, {
-      protocolVersion: PROTOCOL,
-      capabilities: { tools: { listChanged: true } },
+      protocolVersion: protocolo.protocolVersion,
+      // HTTP sem stream de notificações: o catálogo precisa ser atualizado pelo cliente.
+      capabilities: { tools: { listChanged: false } },
       serverInfo: { name: 'aluminio-jr-clientes', version: VERSION },
       instructions: 'Consulte clientes, logística e pedidos. Por cliente, permita último cadastrado, histórico paginado e filtro sem data de expedição; respeite avisos de dados incompletos e homônimos. Ao preparar um novo pedido com carrada informada por data, consulte buscar_carradas naquele momento e use o código retornado internamente. Não peça o código ao usuário. Se houver várias correspondências, peça a escolha pela descrição; se não houver, esclareça a data antes de preparar. Não reutilize carrada de outro pedido. Preparar cria somente prévia. A criação confirma somente o pedido e a carrada, sem WhatsApp. Para o aviso de entrada solicitado, depois da gravação use preparar_whatsapp_pedido com tipo aviso_carrada usando o id_mestre real; apresente destinatário e texto e obtenha confirmação do envio. Falha no aviso não exige repetir a gravação. Para criar, alterar, cancelar, registrar expedição ou enviar WhatsApp, leia o resumo e todos os efeitos, aguarde confirmação expressa posterior e use o confirmador correspondente. Expedição usa a ação completa de Progresso com seus avisos. As ações de pedidos são individuais, sem enviar para todos. Para importar cidades de uma transportadora, use preparar_importacao_cidades com os nomes e UFs fornecidos, apresente a lista e resolva pendências; depois da aprovação, confirme com confirmar_importacao_cidades e o token da prévia. A importação apenas acrescenta vínculos, preserva os existentes e não envia mensagens. Nunca repita efeitos incertos. Não invente dados nem alegue entrega pelo simples aceite do provedor.'
     });
