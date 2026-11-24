@@ -24,6 +24,12 @@ const FUNCOES = { texto: ['pedidos_texto'], aviso_carrada: ['pedidos_texto'], fo
 function falhar(mensagem) { const e = new Error(mensagem); e.isValidation = true; throw e; }
 function texto(v) { return String(v ?? '').trim(); }
 function hash(v) { return crypto.createHash('sha256').update(typeof v === 'string' ? v : JSON.stringify(v)).digest('hex'); }
+function jsonCanonico(v) {
+  return JSON.stringify(v, (_chave, valor) => {
+    if (!valor || typeof valor !== 'object' || Array.isArray(valor)) return valor;
+    return Object.fromEntries(Object.keys(valor).sort().map(k => [k, valor[k]]));
+  });
+}
 function idPedido(valor) {
   if (!['number', 'string'].includes(typeof valor) || !/^\d+$/.test(String(valor))) falhar('Informe o id_mestre real do pedido.');
   const id = Number(valor);
@@ -193,7 +199,7 @@ async function executarEnvio(payload, contexto = {}) {
       falhar('A carrada ou o texto do aviso diverge da prévia. Nada foi enviado; prepare novamente.');
     }
   }
-  if (payload.tipo === 'fotos' && hash(await analisarFotos(atual.pedido)) !== hash(payload.fotos)) {
+  if (payload.tipo === 'fotos' && hash(jsonCanonico(await analisarFotos(atual.pedido))) !== hash(jsonCanonico(payload.fotos))) {
     falhar('As fotos ou os produtos mudaram desde a prévia. Nada foi enviado; prepare novamente.');
   }
   let audio;
