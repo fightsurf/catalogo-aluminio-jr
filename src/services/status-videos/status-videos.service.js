@@ -6,6 +6,7 @@ const zapiService = require('../integracoes/zapi.service');
 const instagramService = require('../integracoes/instagram.service');
 const facebookService = require('../integracoes/facebook.service');
 const youtubeService = require('../integracoes/youtube.service');
+const youtubeFilaService = require('../integracoes/youtube-fila.service');
 const termometroAparicoesService = require('../termometro/termometroAparicoes.service');
 
 const requisicoesEmAndamento = new Map();
@@ -238,6 +239,30 @@ function mb(bytes) {
   return Math.round((Number(bytes || 0) / 1024 / 1024) * 100) / 100;
 }
 
+function atualizarResumoPublicacao(resultado, canalYoutube) {
+  const canais = { ...resultado.canais };
+  if (canalYoutube) canais.youtube_shorts = { ...canalYoutube };
+  const estados = Object.values(canais).map(canal => canal.status);
+  const publicados = estados.filter(status => status === 'publicado').length;
+  const aguardando = estados.some(status => ['aguardando', 'aguardando_limite', 'processando'].includes(status));
+  const statusGeral = estados.length === 5 && publicados === 5
+    ? 'publicado'
+    : publicados > 0 ? 'parcial' : aguardando ? 'aguardando' : estados.includes('incerto') ? 'incerto' : 'erro';
+  return { ...resultado, canais, success: statusGeral === 'publicado', status_geral: statusGeral };
+}
+
+function resultadoSemContexto(requestId) {
+  const canais = {};
+  for (const canal of ['whatsapp', 'instagram_story', 'facebook_story', 'facebook_feed']) {
+    canais[canal] = {
+      canal,
+      status: 'incerto',
+      aviso: 'O resultado desta rede não foi recuperado. Confira a publicação antes de reenviar.',
+    };
+  }
+  return { request_id: requestId, canais, aviso: 'Resultado parcial recuperado. Nenhum destino já executado será reenviado por esta consulta.' };
+}
+
 async function publicar({ arquivo, requestId, itens: itensBrutos, tipoVideo }) {
   if (!arquivo?.path) throw new Error('Selecione o vídeo antes de publicar.');
 
@@ -339,44 +364,14 @@ async function publicar({ arquivo, requestId, itens: itensBrutos, tipoVideo }) {
       return { post_id: r.post_id, video_id: r.video_id, api_version: r.api_version };
     });
 
-    const youtubeShorts = await executarCanalSeguro(`${idRequisicao}:youtube-shorts`, 'youtube_shorts', async () => {
-      const r = await youtubeService.publicarShort({
-        caminho: videoFinal.caminho,
-        titulo: youtube.titulo,
-        descricao: youtube.descricao,
-        tags: youtube.tags,
-      });
-      return { video_id: r.video_id, url: r.url, privacy_status: r.privacy_status };
-    });
-
     const canais = {
       whatsapp,
       instagram_story: instagram,
       facebook_story: facebookStory,
       facebook_feed: facebookFeed,
-      youtube_shorts: youtubeShorts,
+      youtube_shorts: { canal: 'youtube_shorts', status: 'processando' },
     };
-
-    const publicados = Object.values(canais).filter(canal => canal.status === 'publicado').length;
-    const totalCanais = Object.keys(canais).length;
-    const statusGeral = publicados === totalCanais ? 'publicado' : (publicados > 0 ? 'parcial' : 'erro');
-
-    if (publicados > 0 && itens.length > 0) {
-      try {
-        await termometroAparicoesService.registrarStatusVideos({
-          requestId: idRequisicao,
-          itens,
-          canais,
-        });
-      } catch (error) {
-        console.error('[Status Vídeos] Falha ao registrar aparições no Termômetro:', error);
-      }
-    }
-
-    logMemoria('fim_publicacao', idRequisicao);
-    return {
-      success: statusGeral === 'publicado',
-      status_geral: statusGeral,
+    let resultado = atualizarResumoPublicacao({
       tipo_video: tipo,
       request_id: idRequisicao,
       video_url: r2.url,
@@ -395,7 +390,48 @@ async function publicar({ arquivo, requestId, itens: itensBrutos, tipoVideo }) {
       itens,
       facebook_texto: textoFacebook,
       canais,
-    };
+    });
+
+    // O snapshot das outras redes é persistido antes do upload YouTube. O retry
+    // usa apenas a cópia no R2 e nunca volta a executar os demais publicadores.
+    try {
+      const youtubeShorts = await youtubeFilaService.publicarOuAgendar({
+        requestId: idRequisicao,
+        origem: 'status-videos',
+        caminho: videoFinal.caminho,
+        videoUrl: r2.url,
+        titulo: youtube.titulo,
+        descricao: youtube.descricao,
+        tags: youtube.tags,
+        contexto: resultado,
+      });
+      resultado = atualizarResumoPublicacao(resultado, youtubeShorts);
+    } catch (error) {
+      // Uma falha de persistência não apaga os resultados já confirmados nas redes.
+      resultado = atualizarResumoPublicacao(resultado, {
+        canal: 'youtube_shorts', status: 'incerto',
+        aviso: 'Não foi possível confirmar o estado do envio ao YouTube. Consulte o resultado novamente antes de reenviar.',
+        erro: limitarErro(error),
+      });
+    }
+
+    try {
+      await youtubeFilaService.salvarContexto({ requestId: idRequisicao, origem: 'status-videos', contexto: resultado });
+    } catch (error) {
+      resultado.aviso = 'O resultado completo está disponível nesta sessão, mas sua gravação não foi confirmada. Consulte novamente antes de reenviar.';
+      console.error('[Status Vídeos] Falha ao gravar resultado:', { request_id: idRequisicao, erro: limitarErro(error) });
+    }
+
+    if (Object.values(resultado.canais).some(canal => canal.status === 'publicado') && itens.length > 0) {
+      try {
+        await termometroAparicoesService.registrarStatusVideos({ requestId: idRequisicao, itens, canais: resultado.canais });
+      } catch (error) {
+        console.error('[Status Vídeos] Falha ao registrar aparições no Termômetro:', error);
+      }
+    }
+
+    logMemoria('fim_publicacao', idRequisicao);
+    return resultado;
   } finally {
     await fs.unlink(arquivo.path).catch(() => {});
     if (videoWhatsapp?.temporario && videoWhatsapp?.caminho) await fs.unlink(videoWhatsapp.caminho).catch(() => {});
@@ -434,11 +470,24 @@ async function iniciarPublicacao({ arquivo, requestId, itens, tipoVideo }) {
   const itensNormalizados = tipo === 'promocional' ? [] : parseItens(itens);
   const existente = publicacoes.get(idRequisicao);
 
-  if (existente && ['aguardando', 'processando'].includes(existente.status)) {
+  if (existente) {
     // O navegador pode repetir a requisição se perder a resposta HTTP. Não guardamos
     // uma segunda cópia do mesmo vídeo nem iniciamos outro FFmpeg.
     await fs.unlink(arquivo.path).catch(() => {});
-    return serializarPublicacao(existente);
+    return obterPublicacao(idRequisicao);
+  }
+
+  let persistida;
+  try {
+    persistida = await obterPublicacao(idRequisicao);
+  } catch (error) {
+    await fs.unlink(arquivo.path).catch(() => {});
+    throw error;
+  }
+  // Reconfere o cache após a consulta assíncrona para duas requisições simultâneas.
+  if (persistida || publicacoes.has(idRequisicao)) {
+    await fs.unlink(arquivo.path).catch(() => {});
+    return persistida || serializarPublicacao(publicacoes.get(idRequisicao));
   }
 
   const agora = new Date().toISOString();
@@ -483,9 +532,34 @@ async function iniciarPublicacao({ arquivo, requestId, itens, tipoVideo }) {
   return serializarPublicacao(job);
 }
 
-function obterPublicacao(requestId) {
+async function obterPublicacao(requestId) {
   const idRequisicao = normalizarRequestId(requestId);
-  return serializarPublicacao(publicacoes.get(idRequisicao));
+  const job = publicacoes.get(idRequisicao);
+  if (job && ['aguardando', 'processando'].includes(job.status)) return serializarPublicacao(job);
+
+  let persistida;
+  try {
+    persistida = await youtubeFilaService.obter({ requestId: idRequisicao, origem: 'status-videos' });
+  } catch (error) {
+    if (!job) throw error;
+    const anterior = serializarPublicacao(job);
+    if (anterior.resultado) anterior.resultado = {
+      ...anterior.resultado,
+      aviso: 'Não foi possível atualizar o estado do YouTube. Exibindo o último resultado confirmado; consulte novamente.',
+    };
+    return anterior;
+  }
+  if (!persistida) return serializarPublicacao(job);
+
+  const contexto = job?.resultado || persistida.contexto || resultadoSemContexto(idRequisicao);
+  return {
+    request_id: idRequisicao,
+    status: 'concluido',
+    criado_em: job?.criado_em || persistida.criado_em,
+    atualizado_em: persistida.atualizado_em || job?.atualizado_em,
+    resultado: atualizarResumoPublicacao(contexto, persistida.canal),
+    erro: null,
+  };
 }
 
 function diagnostico() {

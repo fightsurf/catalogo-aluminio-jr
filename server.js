@@ -636,6 +636,8 @@ const avnMigration = require('./src/services/avn/avn-migration.service');
 malaDiretaService.iniciarTrabalhador();
 // Histórico e limpeza exclusiva do republicador; inicialização não bloqueia as outras rotas.
 require('./src/services/marketing/republicador-youtube.service').inicializar();
+// Retoma somente uploads YouTube adiados; resultados das demais redes são preservados.
+require('./src/services/integracoes/youtube-fila.service').iniciar();
 require('./src/services/marketing/agendadorModulos.service').iniciar();
 // Consulta periodica ao Google Contatos apenas quando o bot esta ligado.
 require('./src/services/bot/google-contatos.service').iniciarSincronizador();

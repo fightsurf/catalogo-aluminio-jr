@@ -28,11 +28,11 @@ async function publicar(req, res) {
 
 async function statusPublicacao(req, res) {
   try {
-    const data = statusVideosService.obterPublicacao(req.params.requestId);
+    const data = await statusVideosService.obterPublicacao(req.params.requestId);
     if (!data) {
       return res.status(404).json({
         success: false,
-        message: 'Publicação não encontrada. Se o Render reiniciou durante o processamento, envie novamente o vídeo.',
+        message: 'Publicação não encontrada. Confira os destinos antes de enviar o vídeo novamente.',
       });
     }
     return res.json({ success: true, data });
