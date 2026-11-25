@@ -1,0 +1,40 @@
+name: Créditos de clientes - Dívida avulsa
+
+on:
+  pull_request:
+    paths:
+      - 'src/services/legado/clientes-creditos/clientes-creditos.service.js'
+      - 'src/controllers/legado/clientes-creditos/clientes-creditos.controller.js'
+      - 'src/routes/legado/clientes-creditos/clientes-creditos.routes.js'
+      - 'db/sql/20260623_clientes_creditos.sql'
+      - 'views/legado/clientes-creditos/clientes-creditos-extrato.html'
+      - 'tests/clientes-creditos-divida-avulsa.test.js'
+      - '.github/workflows/clientes-creditos-divida-avulsa.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'src/services/legado/clientes-creditos/clientes-creditos.service.js'
+      - 'src/controllers/legado/clientes-creditos/clientes-creditos.controller.js'
+      - 'src/routes/legado/clientes-creditos/clientes-creditos.routes.js'
+      - 'db/sql/20260623_clientes_creditos.sql'
+      - 'views/legado/clientes-creditos/clientes-creditos-extrato.html'
+      - 'tests/clientes-creditos-divida-avulsa.test.js'
+      - '.github/workflows/clientes-creditos-divida-avulsa.yml'
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Conferir sintaxe do backend
+        run: |
+          node --check src/services/legado/clientes-creditos/clientes-creditos.service.js
+          node --check src/controllers/legado/clientes-creditos/clientes-creditos.controller.js
+          node --check src/routes/legado/clientes-creditos/clientes-creditos.routes.js
+      - name: Testar dívida avulsa, edição e interface
+        run: node --test tests/clientes-creditos-divida-avulsa.test.js
