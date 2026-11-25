@@ -157,11 +157,11 @@ test('auditoria distingue chegada e escopo sem registrar dados ou códigos de co
   assert.equal(negado.body.result.isError, true);
   const eventos = a.logs.map(l => JSON.parse(l[1]));
   assert.deepEqual(eventos.map(e => e.etapa), ['recebida', 'escopo_insuficiente']);
-  assert.ok(eventos.every(e => e.ferramenta === 'confirmar_pedido' && e.versao === '1.4.1'));
+  assert.ok(eventos.every(e => e.ferramenta === 'confirmar_pedido' && e.versao === '1.5.0'));
   assert.equal(eventos[0].rastreio, eventos[1].rastreio);
   assert.equal(negado.body.result._meta['aluminiojr/rastreio'], eventos[0].rastreio);
   assert.equal(negado.headers['X-MCP-Rastreio'], eventos[0].rastreio);
-  assert.equal(negado.headers['X-MCP-Versao'], '1.4.1');
+  assert.equal(negado.headers['X-MCP-Versao'], '1.5.0');
   assert.match(negado.body.result._meta['mcp/www_authenticate'][0], /error="insufficient_scope"/);
   assert.match(negado.body.result._meta['mcp/www_authenticate'][0], /error_description="This action requires additional OAuth scopes\."/);
   const serializado = JSON.stringify(a.logs);
@@ -183,10 +183,10 @@ test('recusas OAuth antes da ferramenta têm rastreio sem divulgar credenciais o
     assert.match(resposta.headers['WWW-Authenticate'], /scope="clientes:read"/);
     const evento = JSON.parse(a.logs.at(-1)[1]);
     assert.deepEqual(evento, {
-      versao: '1.4.1', ferramenta: null, rastreio: resposta.headers['X-MCP-Rastreio'], etapa: 'autenticacao_necessaria'
+      versao: '1.5.0', ferramenta: null, rastreio: resposta.headers['X-MCP-Rastreio'], etapa: 'autenticacao_necessaria'
     });
     assert.deepEqual(resposta.body._meta, {
-      'aluminiojr/versao': '1.4.1', 'aluminiojr/rastreio': evento.rastreio
+      'aluminiojr/versao': '1.5.0', 'aluminiojr/rastreio': evento.rastreio
     });
     assert.match(evento.rastreio, /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i);
   }
@@ -213,10 +213,10 @@ test('indisponibilidade e erro OAuth são distintos sem registrar mensagem arbit
     assert.equal(a.logs.length, 1);
     const evento = JSON.parse(a.logs[0][1]);
     assert.deepEqual(evento, {
-      versao: '1.4.1', ferramenta: null, rastreio: resposta.headers['X-MCP-Rastreio'], etapa
+      versao: '1.5.0', ferramenta: null, rastreio: resposta.headers['X-MCP-Rastreio'], etapa
     });
     assert.equal(resposta.body._meta['aluminiojr/rastreio'], evento.rastreio);
-    assert.equal(resposta.body._meta['aluminiojr/versao'], '1.4.1');
+    assert.equal(resposta.body._meta['aluminiojr/versao'], '1.5.0');
     assert.equal(resposta.headers['WWW-Authenticate'], undefined);
     const diagnostico = JSON.stringify({ logs: a.logs, resposta: resposta.body });
     for (const privado of [erroPrivado.message, 'token-privado', 'conta-privada', 'telefone-privado', confirmacaoPedido.codigo_confirmacao]) {
@@ -228,8 +228,8 @@ test('indisponibilidade e erro OAuth são distintos sem registrar mensagem arbit
 test('mesmo rastreio acompanha sucesso da ferramenta e versão anunciada na inicialização', async () => {
   const a = ambiente();
   const inicio = await a.requisitar(null, {}, 'clientes:read', { method: 'initialize' });
-  assert.equal(inicio.body.result.serverInfo.version, '1.4.1');
-  assert.equal(inicio.headers['X-MCP-Versao'], '1.4.1');
+  assert.equal(inicio.body.result.serverInfo.version, '1.5.0');
+  assert.equal(inicio.headers['X-MCP-Versao'], '1.5.0');
   const resposta = await a.requisitar('consultar_pedidos', { numero: '0020001' });
   assert.equal(resposta.body.result.isError, false);
   const eventos = a.logs.map(l => JSON.parse(l[1]));
