@@ -207,6 +207,8 @@ const schemas = {
   confirmar_expedicao_pedido: confirmarAcao,
   preparar_whatsapp_pedido: prepararAcao,
   confirmar_whatsapp_pedido: confirmarAcao,
+  preparar_whatsapp_pagamentos_cliente: prepararAcao,
+  confirmar_whatsapp_pagamentos_cliente: confirmarAcao,
   consultar_acao_pedido: objeto(acao, ['acao_id', 'tipo', 'status', 'resumo', 'progresso',
     'resultado', 'expirado', 'concluido_em', 'revisao_manual_necessaria', 'pode_reexecutar']),
   preparar_importacao_cidades: objeto({
