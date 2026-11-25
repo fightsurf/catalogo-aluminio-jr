@@ -7,6 +7,10 @@
   <style>
     :root { --bg:#f5f6f8; --card:#fff; --line:#e5e7eb; --text:#111827; --muted:#6b7280; --primary:#111827; --success:#dcfce7; --warning:#fef3c7; --danger:#fee2e2; }
     *{box-sizing:border-box;} body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text);} .page{max-width:1400px;margin:0 auto;padding:20px;} h1,h2,p{margin:0;} .muted{color:var(--muted);} .topbar{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;margin-bottom:16px;} .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:0 2px 10px rgba(0,0,0,.04);margin-bottom:16px;} .grid{display:grid;grid-template-columns:repeat(3,minmax(180px,1fr));gap:12px;} .box{border:1px solid var(--line);border-radius:12px;padding:12px;background:#fff;} .box strong{display:block;color:var(--muted);font-size:13px;margin-bottom:6px}.box .valor{font-size:24px;font-weight:800}.box.ok{background:var(--success)}.box.warn{background:var(--warning)}.box.bad{background:var(--danger)} button,.btn{border:0;border-radius:10px;padding:10px 14px;min-height:40px;font-weight:700;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}.btn-primary{background:var(--primary);color:#fff}.btn-secondary{background:#fff;color:#111827;border:1px solid var(--line)}.btn-small{min-height:32px;padding:6px 10px;font-size:12px}input,textarea{width:100%;border:1px solid var(--line);border-radius:10px;min-height:40px;padding:8px 10px;font:inherit}textarea{min-height:72px;resize:vertical}.form-grid{display:grid;grid-template-columns:repeat(4,minmax(160px,1fr));gap:10px;align-items:end}.field label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px;font-weight:700}.tabs{display:flex;gap:8px}.tabs button.active{background:#1d4ed8;color:#fff}.status{display:none;margin-bottom:12px;padding:12px;border-radius:12px;border:1px solid #bfdbfe;background:#eff6ff;color:#1d4ed8;font-weight:700}.status.show{display:block}.status.error{border-color:#fecaca;background:#fef2f2;color:#b91c1c}.status.success{border-color:#a7f3d0;background:#ecfdf5;color:#047857}.table-wrap{overflow-x:auto}table{width:100%;border-collapse:collapse;background:#fff}th,td{border-bottom:1px solid var(--line);padding:10px;text-align:left;vertical-align:top}th{font-size:12px;color:var(--muted);text-transform:uppercase;background:#f9fafb}.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}.acao{text-align:center;white-space:nowrap}.empty{padding:20px;color:var(--muted);text-align:center}.actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.modal-backdrop{position:fixed;inset:0;background:rgba(17,24,39,.55);display:none;align-items:center;justify-content:center;padding:18px;z-index:1000}.modal-backdrop.show{display:flex}.modal-card{width:min(560px,100%);background:#fff;border-radius:16px;border:1px solid var(--line);box-shadow:0 24px 70px rgba(0,0,0,.24);padding:18px}.modal-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start;margin-bottom:14px}.modal-head h2{margin:0}.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;flex-wrap:wrap}@media(max-width:900px){.grid,.form-grid{grid-template-columns:1fr}.page{padding:12px}table{font-size:13px}th:nth-child(4),td:nth-child(4){display:none}}
+    .btn-whatsapp{background:#128c4c;color:#fff;gap:7px}
+    .btn-whatsapp:disabled{opacity:.55;cursor:wait}
+    .btn-whatsapp svg{width:19px;height:19px;fill:currentColor;flex:none}
+    .whatsapp-previa{white-space:pre-wrap;overflow-wrap:anywhere;max-height:48vh;overflow-y:auto;background:#f9fafb;border:1px solid var(--line);border-radius:12px;padding:12px;font:14px/1.55 Arial,Helvetica,sans-serif;margin:12px 0 0}
   </style>
 </head>
 <body>
@@ -43,6 +47,10 @@
           <div class="actions">
             <button class="btn-primary" type="submit">Registrar pagamento</button>
             <button id="btnRegistrarDivida" class="btn-secondary" type="button">Registrar dívida</button>
+            <button id="btnWhatsappExtrato" class="btn-whatsapp" type="button" title="Enviar saldo atualizado do extrato por WhatsApp">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.966-.273-.099-.472-.149-.67.149-.198.297-.767.966-.94 1.164-.173.198-.347.223-.644.075-.297-.149-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.058-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.52.149-.173.198-.297.297-.495.099-.198.05-.372-.025-.52-.074-.149-.669-1.612-.916-2.206-.242-.579-.487-.5-.669-.51-.173-.008-.372-.01-.57-.01s-.52.074-.792.372c-.272.297-1.04 1.016-1.04 2.479s1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.077 4.487.709.306 1.263.489 1.694.625.712.227 1.36.195 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.4 7.617h-.004a9.9 9.9 0 0 1-5.031-1.378l-.361-.214-3.74.981.998-3.647-.235-.374a9.9 9.9 0 0 1-1.516-5.274c.002-5.469 4.451-9.918 9.922-9.918a9.85 9.85 0 0 1 7.017 2.909 9.85 9.85 0 0 1 2.907 7.017c-.002 5.47-4.451 9.92-9.912 9.92m8.437-18.337A11.86 11.86 0 0 0 12.008 0C5.388 0 .002 5.385 0 12.008c-.001 2.117.552 4.184 1.605 6.006L0 24l6.125-1.606a11.97 11.97 0 0 0 5.877 1.498h.005c6.623 0 12.01-5.386 12.013-12.008a11.87 11.87 0 0 0-3.493-8.442Z"/></svg>
+              WhatsApp
+            </button>
           </div>
         </div>
       </form>
@@ -68,6 +76,20 @@
             <button id="btnSalvarDivida" class="btn-primary" type="submit">Registrar dívida</button>
           </div>
         </form>
+      </div>
+    </div>
+    <div id="modalWhatsappExtrato" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="tituloWhatsappExtrato">
+      <div class="modal-card">
+        <div class="modal-head">
+          <div><h2 id="tituloWhatsappExtrato">Enviar extrato pelo WhatsApp</h2><p class="muted">Confira o cliente, telefone e saldo antes de enviar.</p></div>
+          <button id="btnFecharWhatsappExtrato" class="btn-secondary" type="button">Fechar</button>
+        </div>
+        <p id="whatsappDestino" class="muted"></p>
+        <pre id="whatsappMensagem" class="whatsapp-previa"></pre>
+        <div class="modal-actions">
+          <button id="btnCancelarWhatsappExtrato" class="btn-secondary" type="button">Cancelar</button>
+          <button id="btnConfirmarWhatsappExtrato" class="btn-whatsapp" type="button">Confirmar e enviar</button>
+        </div>
       </div>
     </div>
     <div id="modalAjuste" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="tituloAjuste">
@@ -126,6 +148,8 @@
     let salvandoDivida = false;
     let dados = null;
     let lancamentoEmEdicao = null;
+    let previaWhatsapp = null;
+    let enviandoWhatsapp = false;
 
     const el = {
       titulo: document.getElementById('titulo'),
@@ -146,6 +170,13 @@
       titularCheque: document.getElementById('titularCheque'),
       observacao: document.getElementById('observacao'),
       btnRegistrarDivida: document.getElementById('btnRegistrarDivida'),
+      btnWhatsappExtrato: document.getElementById('btnWhatsappExtrato'),
+      modalWhatsappExtrato: document.getElementById('modalWhatsappExtrato'),
+      btnFecharWhatsappExtrato: document.getElementById('btnFecharWhatsappExtrato'),
+      btnCancelarWhatsappExtrato: document.getElementById('btnCancelarWhatsappExtrato'),
+      btnConfirmarWhatsappExtrato: document.getElementById('btnConfirmarWhatsappExtrato'),
+      whatsappDestino: document.getElementById('whatsappDestino'),
+      whatsappMensagem: document.getElementById('whatsappMensagem'),
       modalDivida: document.getElementById('modalDivida'),
       formDivida: document.getElementById('formDivida'),
       btnFecharDivida: document.getElementById('btnFecharDivida'),
@@ -257,6 +288,58 @@
     function fecharDivida() {
       if (salvandoDivida) return;
       el.modalDivida.classList.remove('show');
+    }
+
+    async function abrirWhatsappExtrato() {
+      if (!favorecido || !dados || enviandoWhatsapp) {
+        msg('Selecione um cliente antes de enviar o extrato.', 'error');
+        return;
+      }
+      el.btnWhatsappExtrato.disabled = true;
+      previaWhatsapp = null;
+      try {
+        msg('Preparando prévia do WhatsApp...');
+        const previa = await request(`/api/legado/clientes-creditos/${encodeURIComponent(favorecido)}/extrato/whatsapp/previa`);
+        previaWhatsapp = previa;
+        el.whatsappDestino.textContent = `Destinatário: ${previa.clienteNome} · +${previa.telefone}`;
+        el.whatsappMensagem.textContent = previa.mensagem;
+        el.modalWhatsappExtrato.classList.add('show');
+        msg('');
+      } catch (error) {
+        msg(error.message || 'Falha ao preparar WhatsApp do extrato.', 'error');
+      } finally {
+        el.btnWhatsappExtrato.disabled = false;
+      }
+    }
+
+    function fecharWhatsappExtrato() {
+      if (enviandoWhatsapp) return;
+      el.modalWhatsappExtrato.classList.remove('show');
+      previaWhatsapp = null;
+    }
+
+    async function confirmarWhatsappExtrato() {
+      if (enviandoWhatsapp || !previaWhatsapp?.confirmacao) return;
+      enviandoWhatsapp = true;
+      el.btnConfirmarWhatsappExtrato.disabled = true;
+      el.btnConfirmarWhatsappExtrato.textContent = 'Enviando...';
+      try {
+        msg('Solicitando envio do extrato...');
+        const resposta = await request(`/api/legado/clientes-creditos/${encodeURIComponent(favorecido)}/extrato/whatsapp`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ confirmacao: previaWhatsapp.confirmacao })
+        });
+        el.modalWhatsappExtrato.classList.remove('show');
+        previaWhatsapp = null;
+        msg(`WhatsApp aceito para envio ao telefone +${resposta.telefone}. Confirme a entrega no aplicativo.`, 'success');
+      } catch (error) {
+        msg((error.message || 'Falha ao enviar extrato.') + ' Verifique a situação antes de reenviar.', 'error');
+      } finally {
+        enviandoWhatsapp = false;
+        el.btnConfirmarWhatsappExtrato.disabled = false;
+        el.btnConfirmarWhatsappExtrato.textContent = 'Confirmar e enviar';
+      }
     }
 
     function abrirAjuste(natureza) {
@@ -500,6 +583,13 @@
     el.btnCheque.addEventListener('click', () => setTipo('C'));
     el.form.addEventListener('submit', salvar);
     el.btnRegistrarDivida.addEventListener('click', abrirDivida);
+    el.btnWhatsappExtrato.addEventListener('click', abrirWhatsappExtrato);
+    el.btnFecharWhatsappExtrato.addEventListener('click', fecharWhatsappExtrato);
+    el.btnCancelarWhatsappExtrato.addEventListener('click', fecharWhatsappExtrato);
+    el.btnConfirmarWhatsappExtrato.addEventListener('click', confirmarWhatsappExtrato);
+    el.modalWhatsappExtrato.addEventListener('click', (evento) => {
+      if (evento.target === el.modalWhatsappExtrato) fecharWhatsappExtrato();
+    });
     el.btnFecharDivida.addEventListener('click', fecharDivida);
     el.btnCancelarDivida.addEventListener('click', fecharDivida);
     el.modalDivida.addEventListener('click', (evento) => {
