@@ -5,6 +5,7 @@ const TIPOS = {
   BAIXA_PARA_CREDITO: 'BAIXA_PARA_CREDITO',
   PAGAMENTO_CLIENTE: 'PAGAMENTO_CLIENTE',
   AJUSTE_DEBITO: 'AJUSTE_DEBITO',
+  DIVIDA_AVULSA: 'DIVIDA_AVULSA',
   AJUSTE_CREDITO: 'AJUSTE_CREDITO',
   ESTORNO: 'ESTORNO'
 };
@@ -26,7 +27,7 @@ class ClientesCreditosService {
           favorecido INTEGER NOT NULL,
           cliente_nome_snapshot VARCHAR(200),
           data_lancamento DATE NOT NULL DEFAULT CURRENT_DATE,
-          tipo VARCHAR(40) NOT NULL CHECK (tipo IN ('BAIXA_PARA_CREDITO', 'PAGAMENTO_CLIENTE', 'AJUSTE_DEBITO', 'AJUSTE_CREDITO', 'ESTORNO')),
+          tipo VARCHAR(40) NOT NULL CHECK (tipo IN ('BAIXA_PARA_CREDITO', 'PAGAMENTO_CLIENTE', 'AJUSTE_DEBITO', 'DIVIDA_AVULSA', 'AJUSTE_CREDITO', 'ESTORNO')),
           descricao TEXT,
           numero_pedido VARCHAR(50),
           origem_tipo VARCHAR(60),
@@ -41,6 +42,25 @@ class ClientesCreditosService {
           created_at TIMESTAMP NOT NULL DEFAULT NOW(),
           updated_at TIMESTAMP NOT NULL DEFAULT NOW()
         )
+      `);
+
+      // Atualiza com segurança o CHECK de bases existentes. Em novas bases, o CREATE já inclui o tipo.
+      await pool.query(`
+        DO $
+        BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint
+            WHERE conrelid = 'cliente_credito_lancamentos'::regclass
+              AND conname = 'cliente_credito_lancamentos_tipo_check'
+              AND pg_get_constraintdef(oid) LIKE '%DIVIDA_AVULSA%'
+          ) THEN
+            ALTER TABLE cliente_credito_lancamentos
+              DROP CONSTRAINT IF EXISTS cliente_credito_lancamentos_tipo_check;
+            ALTER TABLE cliente_credito_lancamentos
+              ADD CONSTRAINT cliente_credito_lancamentos_tipo_check
+              CHECK (tipo IN ('BAIXA_PARA_CREDITO', 'PAGAMENTO_CLIENTE', 'AJUSTE_DEBITO', 'DIVIDA_AVULSA', 'AJUSTE_CREDITO', 'ESTORNO'));
+          END IF;
+        END $;
       `);
 
       await pool.query(`
@@ -749,7 +769,7 @@ class ClientesCreditosService {
         throw this._erro('Lançamento não encontrado.', 404);
       }
 
-      const tiposDebito = [TIPOS.BAIXA_PARA_CREDITO, TIPOS.AJUSTE_DEBITO];
+      const tiposDebito = [TIPOS.BAIXA_PARA_CREDITO, TIPOS.AJUSTE_DEBITO, TIPOS.DIVIDA_AVULSA];
       const tiposCredito = [TIPOS.PAGAMENTO_CLIENTE, TIPOS.AJUSTE_CREDITO, TIPOS.ESTORNO];
 
       if (!tiposDebito.includes(atual.tipo) && !tiposCredito.includes(atual.tipo)) {
@@ -844,6 +864,46 @@ class ClientesCreditosService {
     );
 
     return this._texto(result.rows[0]?.cliente_nome_snapshot).slice(0, 200) || null;
+  }
+
+  async registrarDividaAvulsa(favorecido, data = {}) {
+    await this._ensureSchema();
+    const favorecidoId = this._inteiro(favorecido, 'favorecido', { positivo: true });
+    const valor = this._valor(data.valor);
+    const descricao = this._texto(data.descricao).slice(0, 300);
+    if (!descricao) {
+      throw this._erro('Informe a descrição da dívida.');
+    }
+
+    const observacao = this._texto(data.observacao).slice(0, 500) || null;
+    const dataLancamento = this._dataISO(data.dataLancamento || data.data_lancamento, 'dataLancamento');
+    const dataValidacao = new Date(`${dataLancamento}T00:00:00.000Z`);
+    if (Number.isNaN(dataValidacao.getTime()) || dataValidacao.toISOString().slice(0, 10) !== dataLancamento) {
+      throw this._erro('Informe uma data válida para a dívida.');
+    }
+    const clienteNome = await this._buscarNomeClienteSnapshot(favorecidoId)
+      || this._texto(data.clienteNome || data.cliente_nome).slice(0, 200)
+      || null;
+
+    const result = await pool.query(
+      `
+        INSERT INTO cliente_credito_lancamentos (
+          favorecido,
+          cliente_nome_snapshot,
+          data_lancamento,
+          tipo,
+          descricao,
+          origem_tipo,
+          valor_debito,
+          valor_credito,
+          observacao
+        ) VALUES ($1, $2, $3, 'DIVIDA_AVULSA', $4, 'DIVIDA_MANUAL', $5, 0, $6)
+        RETURNING *
+      `,
+      [favorecidoId, clienteNome, dataLancamento, descricao, valor, observacao]
+    );
+
+    return this._mapLancamento(result.rows[0]);
   }
 
   async registrarAjusteCliente(favorecido, data = {}) {
