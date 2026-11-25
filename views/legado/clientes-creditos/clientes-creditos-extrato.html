@@ -25,7 +25,7 @@
     <div id="status" class="status"></div>
     <section class="panel">
       <div class="grid">
-        <div class="box"><strong>Total baixado para crédito</strong><div id="totalDebito" class="valor">R$ 0,00</div></div>
+        <div class="box"><strong>Total de débitos</strong><div id="totalDebito" class="valor">R$ 0,00</div></div>
         <div class="box"><strong>Total pago</strong><div id="totalCredito" class="valor">R$ 0,00</div></div>
         <div id="boxSaldo" class="box"><strong>Saldo atual</strong><div id="saldo" class="valor">R$ 0,00</div><span id="situacao" class="muted"></span></div>
       </div>
@@ -40,10 +40,36 @@
           <div id="campoNumeroCheque" class="field" style="display:none"><label for="numeroCheque">Número do cheque</label><input id="numeroCheque" type="text" maxlength="10" /></div>
           <div id="campoTitularCheque" class="field" style="display:none"><label for="titularCheque">Titular</label><input id="titularCheque" type="text" maxlength="100" /></div>
           <div class="field"><label for="observacao">Observação</label><input id="observacao" type="text" maxlength="300" /></div>
-          <button class="btn-primary" type="submit">Registrar pagamento</button>
+          <div class="actions">
+            <button class="btn-primary" type="submit">Registrar pagamento</button>
+            <button id="btnRegistrarDivida" class="btn-secondary" type="button">Registrar dívida</button>
+          </div>
         </div>
       </form>
     </section>
+    <div id="modalDivida" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="tituloDivida">
+      <div class="modal-card">
+        <div class="modal-head">
+          <div>
+            <h2 id="tituloDivida">Registrar dívida avulsa</h2>
+            <p class="muted">Nova compra manual no extrato, sem gerar ou vincular pedido.</p>
+          </div>
+          <button id="btnFecharDivida" class="btn-secondary" type="button">Fechar</button>
+        </div>
+        <form id="formDivida">
+          <div class="form-grid" style="grid-template-columns:1fr 1fr;">
+            <div class="field"><label for="dataDivida">Data da dívida</label><input id="dataDivida" type="date" required /></div>
+            <div class="field"><label for="valorDivida">Valor (R$)</label><input id="valorDivida" type="text" inputmode="decimal" placeholder="0,00" required /></div>
+            <div class="field" style="grid-column:1/-1"><label for="descricaoDivida">Descrição da compra</label><input id="descricaoDivida" type="text" maxlength="300" placeholder="Ex.: Mercadoria retirada sem pedido" required /></div>
+            <div class="field" style="grid-column:1/-1"><label for="observacaoDivida">Observação (opcional)</label><textarea id="observacaoDivida" maxlength="500"></textarea></div>
+          </div>
+          <div class="modal-actions">
+            <button id="btnCancelarDivida" class="btn-secondary" type="button">Cancelar</button>
+            <button id="btnSalvarDivida" class="btn-primary" type="submit">Registrar dívida</button>
+          </div>
+        </form>
+      </div>
+    </div>
     <div id="modalAjuste" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="tituloAjuste">
       <div class="modal-card">
         <div class="modal-head">
@@ -97,6 +123,7 @@
     const favorecido = qs.get('favorecido');
     let tipo = 'V';
     let ajusteNatureza = 'DEBITO';
+    let salvandoDivida = false;
     let dados = null;
     let lancamentoEmEdicao = null;
 
@@ -118,6 +145,16 @@
       numeroCheque: document.getElementById('numeroCheque'),
       titularCheque: document.getElementById('titularCheque'),
       observacao: document.getElementById('observacao'),
+      btnRegistrarDivida: document.getElementById('btnRegistrarDivida'),
+      modalDivida: document.getElementById('modalDivida'),
+      formDivida: document.getElementById('formDivida'),
+      btnFecharDivida: document.getElementById('btnFecharDivida'),
+      btnCancelarDivida: document.getElementById('btnCancelarDivida'),
+      btnSalvarDivida: document.getElementById('btnSalvarDivida'),
+      dataDivida: document.getElementById('dataDivida'),
+      valorDivida: document.getElementById('valorDivida'),
+      descricaoDivida: document.getElementById('descricaoDivida'),
+      observacaoDivida: document.getElementById('observacaoDivida'),
       btnAjusteDebito: document.getElementById('btnAjusteDebito'),
       btnAjusteCredito: document.getElementById('btnAjusteCredito'),
       modalAjuste: document.getElementById('modalAjuste'),
@@ -176,6 +213,7 @@
     }
 
     function tipoLabel(valor) {
+      if (valor === 'DIVIDA_AVULSA') return 'Dívida avulsa';
       return String(valor || '').replaceAll('_', ' ');
     }
 
@@ -203,6 +241,22 @@
       document.getElementById('campoTitularCheque').style.display = tipo === 'C' ? 'block' : 'none';
       el.dataPgto.required = tipo === 'V';
       el.dataVencimento.required = tipo === 'C';
+    }
+
+    function abrirDivida() {
+      if (!favorecido || !dados) {
+        msg('Selecione um cliente antes de registrar a dívida.', 'error');
+        return;
+      }
+      el.formDivida.reset();
+      el.dataDivida.value = hoje();
+      el.modalDivida.classList.add('show');
+      setTimeout(() => el.valorDivida.focus(), 50);
+    }
+
+    function fecharDivida() {
+      if (salvandoDivida) return;
+      el.modalDivida.classList.remove('show');
     }
 
     function abrirAjuste(natureza) {
@@ -356,6 +410,38 @@
       }
     }
 
+    async function salvarDivida(evento) {
+      evento.preventDefault();
+      if (salvandoDivida) return;
+      salvandoDivida = true;
+      el.btnSalvarDivida.disabled = true;
+      try {
+        msg('Registrando dívida avulsa...');
+        const payload = {
+          dataLancamento: el.dataDivida.value,
+          valor: el.valorDivida.value,
+          descricao: el.descricaoDivida.value,
+          observacao: el.observacaoDivida.value,
+          clienteNome: dados?.clienteNome || dados?.cliente_nome || ''
+        };
+
+        await request(`/api/legado/clientes-creditos/${encodeURIComponent(favorecido)}/dividas`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        el.modalDivida.classList.remove('show');
+        await carregar();
+        msg('Dívida avulsa registrada no extrato.', 'success');
+      } catch (error) {
+        msg(error.message || 'Falha ao registrar dívida avulsa.', 'error');
+      } finally {
+        salvandoDivida = false;
+        el.btnSalvarDivida.disabled = false;
+      }
+    }
+
     async function salvarAjuste(evento) {
       evento.preventDefault();
       try {
@@ -413,6 +499,13 @@
     el.btnVista.addEventListener('click', () => setTipo('V'));
     el.btnCheque.addEventListener('click', () => setTipo('C'));
     el.form.addEventListener('submit', salvar);
+    el.btnRegistrarDivida.addEventListener('click', abrirDivida);
+    el.btnFecharDivida.addEventListener('click', fecharDivida);
+    el.btnCancelarDivida.addEventListener('click', fecharDivida);
+    el.modalDivida.addEventListener('click', (evento) => {
+      if (evento.target === el.modalDivida) fecharDivida();
+    });
+    el.formDivida.addEventListener('submit', salvarDivida);
     el.btnAjusteDebito.addEventListener('click', () => abrirAjuste('DEBITO'));
     el.btnAjusteCredito.addEventListener('click', () => abrirAjuste('CREDITO'));
     el.btnFecharAjuste.addEventListener('click', fecharAjuste);
