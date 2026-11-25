@@ -80,7 +80,17 @@ async function buscar({ nome } = {}) {
   if (typeof nome !== 'string' || nome.trim().length < 3 || nome.trim().length > 100) {
     throw new Error('Informe pelo menos três caracteres do nome do cliente.');
   }
-  const rows = await clientesService.listarClientes({ nome: nome.trim() });
+  const termo = nome.trim();
+  let rows;
+  try {
+    rows = await clientesService.listarClientes({ nome: termo });
+  } catch (error) {
+    // Algumas versões da bridge rejeitam pesquisas longas (ex.: nome completo
+    // de Júnior Representante). Consultar pelo prefixo e filtrar pelo nome
+    // completo em memória evita respostas erradas sem perder a validação.
+    if (termo.length <= 18) throw error;
+    rows = await clientesService.listarClientes({ nome: termo.slice(0, 18) });
+  }
   const encontrados = (Array.isArray(rows) ? rows : []).filter(c =>
     norm(c.nome || c.razao_social || c.fantasia).includes(norm(nome))
   );

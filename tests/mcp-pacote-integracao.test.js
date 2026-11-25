@@ -17,7 +17,7 @@ function carregar(nome, dependencias, logger = console) {
   return module.exports;
 }
 
-function ambiente({ authEnabled = true, authError = null } = {}) {
+function ambiente({ authEnabled = true, authError = null, listarClientesMock = async () => [] } = {}) {
   const chamadas = [];
   const logs = [];
   const registrar = name => async (...args) => { chamadas.push({ name, args }); return { status: 'simulado', pedidos: [], payload: {}, resumo: {} }; };
@@ -53,14 +53,14 @@ function ambiente({ authEnabled = true, authError = null } = {}) {
         return token === 'valido' ? { user: 'conta-autenticada', scope: scopes } : null;
       }
     },
-    '../../services/legado/clientes/clientes.service': { listarClientes: async () => [] },
+    '../../services/legado/clientes/clientes.service': { listarClientes: listarClientesMock },
     './mcpLogistica.routes': { mcpTools: [], executeTool: registrar('logistica') },
     './mcpPedidosTools': pedidos,
     './mcpImportacaoCidadesTools': importacao,
     './mcpValidacao': validacao,
     './mcpOutputSchemas': outputSchemas,
     './mcpProtocol': protocol,
-    '../../services/integracao/mcpConsultasDetalhadas.service': {}
+    '../../services/integracao/mcpConsultasDetalhadas.service': { resumirCliente: c => ({ favorecido: c.favorecido, nome: c.nome, cidade: c.cidade || null, uf: c.uf || null, telefone: null, observacao: null }) }
   }, { info: (...args) => logs.push(args), error: (...args) => logs.push(args) });
   async function requisitar(name, args, scope = 'clientes:read', { token = 'valido', method = 'tools/call' } = {}) {
     scopes = scope;
@@ -439,4 +439,19 @@ test('WhatsApp financeiro exige prévia, autorização e a mesma conta do client
   assert.equal(enviado.body.result.isError, false);
   assert.equal(a.chamadas[0].name, 'confirmarAcao');
   assert.equal(a.chamadas[0].args[2], 'whatsapp_pagamentos');
+});
+
+test('buscar_clientes aceita nome completo com fallback ao limite da bridge', async () => {
+  const consultas = [];
+  const a = ambiente({ listarClientesMock: async ({ nome }) => {
+    consultas.push(nome);
+    if (nome.length > 18) throw new Error('nome muito longo na bridge');
+    return [{ favorecido: 262123, nome: 'JÚNIOR REPRESENTANTE', cidade: 'Catolé do Rocha', uf: 'PB' },
+      { favorecido: 888, nome: 'JÚNIOR REPRESENTANTE DE OUTRA CIDADE', cidade: 'Outra Cidade', uf: 'PB' }];
+  } });
+  const r = await a.requisitar('buscar_clientes', { nome: 'Júnior Representante' });
+  assert.equal(r.body.result.isError, false);
+  assert.deepEqual(consultas, ['Júnior Representante', 'Júnior Representan']);
+  assert.equal(r.body.result.structuredContent.total_encontrado, 2);
+  assert.equal(r.body.result.structuredContent.clientes[0].favorecido, 262123);
 });

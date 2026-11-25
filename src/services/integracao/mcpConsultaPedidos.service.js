@@ -119,7 +119,15 @@ async function resolverCliente({ cliente, favorecido }) {
       'O nome informado não corresponde ao código do cliente.');
     return { encontrado: true, cliente: escolhido };
   }
-  const rows = await clientes.listarClientes({ nome: cliente });
+  let rows;
+  try {
+    rows = await clientes.listarClientes({ nome: cliente });
+  } catch (error) {
+    // Fallback da consulta de nomes longos no legado. A filtragem completa
+    // abaixo garante que o prefixo não selecione outro cliente.
+    if (texto(cliente).length <= 18) throw error;
+    rows = await clientes.listarClientes({ nome: texto(cliente).slice(0, 18) });
+  }
   validar(Array.isArray(rows), 'A busca de clientes retornou formato inesperado.');
   const correspondencias = rows.map(resumirCliente).filter(c => normalizar(c.nome).includes(normalizar(cliente)));
   const exatos = correspondencias.filter(c => normalizar(c.nome) === normalizar(cliente));
