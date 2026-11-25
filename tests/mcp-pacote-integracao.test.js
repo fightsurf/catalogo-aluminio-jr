@@ -60,7 +60,7 @@ function ambiente({ authEnabled = true, authError = null, listarClientesMock = a
     './mcpValidacao': validacao,
     './mcpOutputSchemas': outputSchemas,
     './mcpProtocol': protocol,
-    '../../services/integracao/mcpConsultasDetalhadas.service': {}
+    '../../services/integracao/mcpConsultasDetalhadas.service': { resumirCliente: c => ({ favorecido: c.favorecido, nome: c.nome, cidade: c.cidade || null, uf: c.uf || null, telefone: null, observacao: null }) }
   }, { info: (...args) => logs.push(args), error: (...args) => logs.push(args) });
   async function requisitar(name, args, scope = 'clientes:read', { token = 'valido', method = 'tools/call' } = {}) {
     scopes = scope;
