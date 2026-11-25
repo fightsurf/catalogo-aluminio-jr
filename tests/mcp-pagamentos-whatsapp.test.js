@@ -65,13 +65,13 @@ test('o texto compartilhado respeita o botão preto, inclusive baixa para crédi
     resumo: { totalVenda: 100, totalPago: 30, saldoRestante: 70 },
     pagamentos: [{ condicao: 'V', dataPgto: '2026-11-24', valor: 30 }]
   };
-  const texto = mensagem.montarMensagem(detalhe);
+  const texto = mensagem.montarMensagem(detalhe).replace(/\u00a0/g, ' ');
   assert.match(texto, /Número do pedido: \*123\*/);
   assert.match(texto, /24\/11\/2026: \*R\$ 30,00\*/);
   assert.match(texto, /Restante a pagar: \*R\$ 70,00\*/);
   const baixa = mensagem.montarMensagem({ ...detalhe, resumo: {
     ...detalhe.resumo, baixadoParaCredito: true, valorBaixadoParaCredito: 70
-  } });
+  } }).replace(/\u00a0/g, ' ');
   assert.match(baixa, /Baixa para crédito/);
   assert.match(baixa, /Saldo do pedido: \*R\$ 0,00\*/);
 });
