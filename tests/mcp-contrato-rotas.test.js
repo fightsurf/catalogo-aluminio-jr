@@ -210,7 +210,7 @@ test('initialize negocia a revisão implementada e não anuncia notificações i
 test('catálogos reais publicam schemas específicos e as três classificações em todas ferramentas', async () => {
   const a = ambiente();
   const catalogs = {};
-  for (const [endpoint, total] of [['public', 4], ['auth', 26]]) {
+  for (const [endpoint, total] of [['public', 4], ['auth', 28]]) {
     const res = await a.request(endpoint, { body: message('tools/list') });
     assert.equal(res.statusCode, 200);
     const tools = catalogs[endpoint] = res.body.result.tools;
