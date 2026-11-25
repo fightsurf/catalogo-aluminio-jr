@@ -7,6 +7,7 @@ router.get('/', controller.listarClientes);
 router.get('/:favorecido/extrato', controller.buscarExtrato);
 router.put('/:favorecido/lancamentos/:lancamentoId', controller.atualizarLancamento);
 router.post('/:favorecido/ajustes', controller.registrarAjusteCliente);
+router.post('/:favorecido/dividas', controller.registrarDividaAvulsa);
 router.post('/:favorecido/pagamentos', controller.registrarPagamentoCliente);
 
 module.exports = router;
