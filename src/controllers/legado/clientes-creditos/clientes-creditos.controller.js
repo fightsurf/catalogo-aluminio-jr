@@ -31,6 +31,16 @@ async function registrarAjusteCliente(req, res) {
   }
 }
 
+async function registrarDividaAvulsa(req, res) {
+  try {
+    const data = await clientesCreditosService.registrarDividaAvulsa(req.params.favorecido, req.body || {});
+    return res.status(201).json({ success: true, data });
+  } catch (error) {
+    console.error('Erro ao registrar dívida avulsa do cliente:', error);
+    return res.status(error.statusCode || 500).json({ success: false, message: 'Erro ao registrar dívida avulsa do cliente.', error: error.message });
+  }
+}
+
 async function registrarPagamentoCliente(req, res) {
   try {
     const data = await clientesCreditosService.registrarPagamentoCliente(req.params.favorecido, req.body || {});
@@ -59,6 +69,7 @@ module.exports = {
   listarClientes,
   buscarExtrato,
   registrarAjusteCliente,
+  registrarDividaAvulsa,
   registrarPagamentoCliente,
   atualizarLancamento
 };
