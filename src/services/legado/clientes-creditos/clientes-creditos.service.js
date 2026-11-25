@@ -46,7 +46,7 @@ class ClientesCreditosService {
 
       // Atualiza com segurança o CHECK de bases existentes. Em novas bases, o CREATE já inclui o tipo.
       await pool.query(`
-        DO $
+        DO $credito_divida$
         BEGIN
           IF NOT EXISTS (
             SELECT 1 FROM pg_constraint
@@ -60,7 +60,7 @@ class ClientesCreditosService {
               ADD CONSTRAINT cliente_credito_lancamentos_tipo_check
               CHECK (tipo IN ('BAIXA_PARA_CREDITO', 'PAGAMENTO_CLIENTE', 'AJUSTE_DEBITO', 'DIVIDA_AVULSA', 'AJUSTE_CREDITO', 'ESTORNO'));
           END IF;
-        END $;
+        END $credito_divida$;
       `);
 
       await pool.query(`
