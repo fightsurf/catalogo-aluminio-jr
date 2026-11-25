@@ -179,7 +179,7 @@ async function executarEnvio(payload, contexto = {}) {
       await controle.verificar('pagamentos_mensagens');
       const resposta = await controle.comFuncionalidade('pagamentos_mensagens',
         () => envio.enviarMensagem({ telefone: pedido.telefone, mensagem: pedido.mensagem }));
-      if (resposta?.success === false) throw new Error('Provedor não confirmou o aceite.');
+      if (!resposta || resposta.success !== true) throw new Error('Provedor não confirmou o aceite.');
       const zapi = resposta?.zapi || resposta;
       const aceito = { ...progresso, status: 'aceito_pelo_provedor',
         id_mensagem: zapi?.messageId || zapi?.id || null };
