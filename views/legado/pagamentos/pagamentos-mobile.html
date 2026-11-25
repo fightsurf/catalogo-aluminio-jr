@@ -93,6 +93,7 @@
     <section id="painelPedido"></section>
   </main>
 
+  <script src="/js/pagamentos-whatsapp-mensagem.js"></script>
   <script>
     function envioEmergencialPagamentosAtivo() {
       // Regra válida apenas em 18/11/2026, no horário de Brasília.
@@ -637,22 +638,11 @@
     }
 
     function montarMensagemWhatsappPagamento() {
-      const linhas = [
-        '💰 *Relatório de pagamentos*',
-        `Cliente: *${estado.pedido?.cliente?.nome || '-'}*`,
-        `Número do pedido: *${estado.pedido?.numero || '-'}*`,
-        '-----------------------------------------------',
-        `Valor do pedido: *${formatarMoeda(estado.resumo?.totalVenda || 0)}*`
-      ];
-
-      estado.pagamentos.forEach((pagamento) => {
-        const data = formatarData(pagamento.condicao === 'C' ? pagamento.dataVencimento : pagamento.dataPgto);
-        linhas.push(`\n- ${data}: *${formatarMoeda(pagamento.valor)}*`);
+      return window.PagamentosWhatsappMensagem.montarMensagem({
+        pedido: estado.pedido,
+        resumo: estado.resumo,
+        pagamentos: estado.pagamentos
       });
-
-      linhas.push(`\nTotal pago: *${formatarMoeda(estado.resumo?.totalPago || 0)}*`);
-      linhas.push(`\nRestante a pagar: *${formatarMoeda(estado.resumo?.saldoRestante || 0)}*`);
-      return linhas.join('\n');
     }
 
     async function enviarWhatsappPagamentos() {

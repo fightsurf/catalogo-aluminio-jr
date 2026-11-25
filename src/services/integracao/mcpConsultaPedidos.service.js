@@ -316,5 +316,5 @@ async function detalharPedido({ id_mestre } = {}) {
     somente_leitura: true
   };
 }
-module.exports = { buscarCarradas, consultarPedidos, detalharPedido };
+module.exports = { buscarCarradas, consultarPedidos, detalharPedido, resolverCliente };
 
