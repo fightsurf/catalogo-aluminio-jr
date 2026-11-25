@@ -96,14 +96,18 @@ test('consultas autenticadas preservam cliente ausente e dados legados opcionais
 
 function consultas() {
   const cliente = { favorecido: 7, nome: 'Cliente', cidade: 'Cidade', uf: 'PB' };
-  const estado = { clientes: [cliente], pedidos: [], carradas: [], incompleto: false };
+  const estado = { clientes: [cliente], pedidos: [], carradas: [], incompleto: false, falhaNomeLongo: false, nomesBuscados: [] };
   const service = carregar('src/services/integracao/mcpConsultaPedidos.service.js', {
     '../legado/pedido/pedidosLegado.service': {
       pesquisarPedidos: async () => estado.pedidos,
       buscarDetalhePedido: async id => estado.pedidos.find(p => Number(p.idMestre) === id) || null
     },
     '../legado/clientes/clientes.service': {
-      listarClientes: async () => estado.clientes,
+      listarClientes: async ({ nome }) => {
+        estado.nomesBuscados.push(nome);
+        if (estado.falhaNomeLongo && nome.length > 18) throw new Error('consulta legada excede tamanho máximo');
+        return estado.clientes;
+      },
       buscarCliente: async id => estado.clientes.find(c => Number(c.favorecido) === id) || null
     },
     '../legado/pedidos-cliente/pedidos-cliente.service': {
@@ -116,6 +120,15 @@ function consultas() {
   });
   return { service, estado, cliente };
 }
+
+test('resolução de nome longo faz fallback e valida nome completo', async () => {
+  const { service, estado, cliente } = consultas();
+  estado.clientes = [{ ...cliente, nome: 'JÚNIOR REPRESENTANTE' }];
+  estado.falhaNomeLongo = true;
+  const consulta = await service.consultarPedidos({ cliente: 'Júnior Representante' });
+  assert.equal(consulta.cliente.nome, 'JÚNIOR REPRESENTANTE');
+  assert.deepEqual(estado.nomesBuscados, ['Júnior Representante', 'Júnior Representan']);
+});
 
 test('consulta de pedidos cobre vazio, ausente, homônimos, incompleto e detalhes', async () => {
   const { service, estado, cliente } = consultas();
