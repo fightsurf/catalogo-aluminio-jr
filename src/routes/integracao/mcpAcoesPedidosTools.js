@@ -3,6 +3,7 @@
 const confirmacoes = require('../../services/integracao/mcpAcoesConfirmadas.service');
 const gestao = require('../../services/integracao/mcpPedidoGestao.service');
 const whatsapp = require('../../services/integracao/mcpPedidoWhatsapp.service');
+const pagamentosWhatsapp = require('../../services/integracao/mcpPagamentosWhatsapp.service');
 
 const consultar = ['clientes:read'];
 const gerenciar = ['clientes:read', 'pedidos:manage'];
@@ -55,6 +56,16 @@ const tools = [
   definir('confirmar_whatsapp_pedido', 'Enviar conteúdo de pedido após confirmação',
     'ENVIA WHATSAPP REAL ao cliente e telefone exibidos na prévia. Só executar após aprovação expressa em resposta posterior. Revalida pedido, destinatário, mídias e Central. Em falha parcial de fotos ou resultado incerto, consulte a ação sem reenviar. Aceitação do provedor não significa entrega.',
     enviar, confirmacao, Object.keys(confirmacao), { destructiveHint: true, idempotentHint: true, openWorldHint: true }),
+  definir('preparar_whatsapp_pagamentos_cliente', 'Preparar WhatsApp com saldos dos últimos pedidos',
+    'Localiza o cliente pelo nome ou código favorecido; seleciona os últimos pedidos ATIVOS por NÚMERO SEQUENCIAL, do maior para o menor (padrão 3, máximo 10). Consulta os pagamentos reais pela mesma rotina do botão preto da tela Pagamentos, com a mesma mensagem por pedido. Mostra número, total, pago, saldo, telefone e texto de CADA mensagem. Exige histórico completo, cliente único e valores verificados. Não envia nada agora. Aguarde aprovação explícita posterior.',
+    enviar, {
+      cliente: { type: 'string', minLength: 3, maxLength: 120, description: 'Nome ou parte do nome do cliente; se houver homônimos, informe o código favorecido.' },
+      favorecido: { type: 'integer', minimum: 1, description: 'Código real do cliente, opcional se o nome identificar unicamente.' },
+      quantidade: { type: 'integer', minimum: 1, maximum: 10, description: 'Quantidade de últimos pedidos por número, padrão 3.' }
+    }, [], { openWorldHint: true }),
+  definir('confirmar_whatsapp_pagamentos_cliente', 'Enviar saldos dos pedidos após autorização',
+    'ENVIA as mensagens financeiras exibidas na prévia, UMA por pedido, somente para o WhatsApp cadastrado do mesmo cliente. Exige aprovação expressa em resposta posterior. Revalida ordem dos pedidos, pagamentos, saldos, texto, telefone e Central de Controle. Registra cada tentativa antes do envio; resultado parcial ou incerto NÃO deve ser repetido automaticamente. Aceite do provedor não garante entrega.',
+    enviar, confirmacao, Object.keys(confirmacao), { destructiveHint: true, idempotentHint: true, openWorldHint: true }),
   definir('consultar_acao_pedido', 'Consultar resultado de uma ação de pedido',
     'Consulta a prévia, estado, progresso e resultado da tentativa desta conta. Somente leitura. Nunca executa novamente alteração, cancelamento, expedição ou WhatsApp. Em em_processamento/parcial/revisao_necessaria, confira o resultado antes de qualquer nova ação.',
     consultar, { acao_id: { type: 'string' } }, ['acao_id'], { readOnlyHint: true })
@@ -64,13 +75,15 @@ const preparadores = {
   preparar_alteracao_pedido: ['alterar_pedido', gestao.prepararAlteracao],
   preparar_cancelamento_pedido: ['cancelar_pedido', gestao.prepararCancelamento],
   preparar_expedicao_pedido: ['expedicao_pedido', gestao.prepararExpedicao],
-  preparar_whatsapp_pedido: ['whatsapp_pedido', whatsapp.prepararEnvio]
+  preparar_whatsapp_pedido: ['whatsapp_pedido', whatsapp.prepararEnvio],
+  preparar_whatsapp_pagamentos_cliente: ['whatsapp_pagamentos', pagamentosWhatsapp.prepararEnvio]
 };
 const executores = {
   confirmar_alteracao_pedido: ['alterar_pedido', gestao.executarAlteracao],
   confirmar_cancelamento_pedido: ['cancelar_pedido', gestao.executarCancelamento],
   confirmar_expedicao_pedido: ['expedicao_pedido', gestao.executarExpedicao],
-  confirmar_whatsapp_pedido: ['whatsapp_pedido', whatsapp.executarEnvio]
+  confirmar_whatsapp_pedido: ['whatsapp_pedido', whatsapp.executarEnvio],
+  confirmar_whatsapp_pagamentos_cliente: ['whatsapp_pagamentos', pagamentosWhatsapp.executarEnvio]
 };
 function requiredScopes(name) { return porNome.get(name)?.securitySchemes[0].scopes || []; }
 async function executeTool(name, args, contexto) {
