@@ -104,6 +104,22 @@ test('confirmação revalida e envia três mensagens separadas ao mesmo cliente'
   ]);
 });
 
+test('a prévia recuperada de JSONB mantém a confirmação apesar da ordem das chaves', async () => {
+  const a = carregar();
+  const previa = await a.prepararEnvio({ favorecido: 91 });
+  const reordenar = valor => {
+    if (Array.isArray(valor)) return valor.map(reordenar);
+    if (valor && typeof valor === 'object') {
+      return Object.fromEntries(Object.entries(valor).reverse().map(([chave, item]) => [chave, reordenar(item)]));
+    }
+    return valor;
+  };
+  const payloadPostgres = reordenar(previa.payload);
+  const resultado = await a.executarEnvio(payloadPostgres, { registrarProgresso: a.registrarProgresso });
+  assert.equal(resultado.aceitos, 3);
+  assert.equal(a.chamadas.enviados.length, 3);
+});
+
 test('mudança de pagamento após a prévia impede qualquer mensagem', async () => {
   const a = carregar();
   const previa = await a.prepararEnvio({ favorecido: 91 });
