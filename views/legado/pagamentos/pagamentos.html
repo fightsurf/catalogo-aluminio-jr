@@ -506,6 +506,7 @@
     <section id="painelPedidoSelecionado" style="display:none;"></section>
   </div>
 
+  <script src="/js/pagamentos-whatsapp-mensagem.js"></script>
   <script>
     function envioEmergencialPagamentosAtivo() {
       // Regra válida apenas em 18/11/2026, no horário de Brasília.
@@ -676,38 +677,12 @@
       return `${window.location.origin}/whatsapp/enviar?${params.toString()}`;
     }
 
-    function obterDataPagamentoMensagem(pagamento) {
-      if (!pagamento) return '-';
-      return formatarData(pagamento.condicao === 'C' ? pagamento.dataVencimento : pagamento.dataPgto) || '-';
-    }
-
     function montarMensagemWhatsappPagamento() {
-      if (!estado.pedidoSelecionado || !estado.resumo) {
-        return '';
-      }
-
-      const linhas = [
-        '💰 *Relatório de pagamentos*',
-        `Cliente: *${estado.pedidoSelecionado.cliente?.nome || '-'}*`,
-        `Número do pedido: *${estado.pedidoSelecionado.numero || '-'}*`,
-        '-----------------------------------------------',
-        `Valor do pedido: *${formatarMoeda(estado.resumo.totalVenda)}*`
-      ];
-
-      (Array.isArray(estado.pagamentos) ? estado.pagamentos : []).forEach((pagamento) => {
-        linhas.push(`\n- ${obterDataPagamentoMensagem(pagamento)}: *${formatarMoeda(pagamento.valor)}*`);
+      return window.PagamentosWhatsappMensagem.montarMensagem({
+        pedido: estado.pedidoSelecionado,
+        resumo: estado.resumo,
+        pagamentos: estado.pagamentos
       });
-
-      linhas.push(`\nTotal pago: *${formatarMoeda(estado.resumo.totalPago)}*`);
-      if (estado.resumo.baixadoParaCredito) {
-        linhas.push(`\nStatus: *Baixa para crédito*`);
-        linhas.push(`\nValor baixado para crédito: *${formatarMoeda(estado.resumo.valorBaixadoParaCredito || 0)}*`);
-        linhas.push('\nSaldo do pedido: *R$ 0,00*');
-      } else {
-        linhas.push(`\nRestante a pagar: *${formatarMoeda(estado.resumo.saldoRestante)}*`);
-      }
-
-      return linhas.join('\n');
     }
 
     async function enviarMensagemPagamentoWhatsapp() {
