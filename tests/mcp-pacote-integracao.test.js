@@ -27,7 +27,8 @@ function ambiente({ authEnabled = true, authError = null } = {}) {
     '../../services/integracao/mcpAcoesConfirmadas.service': {
       prepararAcao: registrar('prepararAcao'), confirmarAcao: registrar('confirmarAcao'), consultarAcao: registrar('consultarAcao') },
     '../../services/integracao/mcpPedidoGestao.service': gestao,
-    '../../services/integracao/mcpPedidoWhatsapp.service': { prepararEnvio: registrar('prepararEnvio'), executarEnvio: registrar('executarEnvio') }
+    '../../services/integracao/mcpPedidoWhatsapp.service': { prepararEnvio: registrar('prepararEnvio'), executarEnvio: registrar('executarEnvio') },
+    '../../services/integracao/mcpPagamentosWhatsapp.service': { prepararEnvio: registrar('prepararEnvioPagamentos'), executarEnvio: registrar('executarEnvioPagamentos') }
   });
   const pedidos = carregar('src/routes/integracao/mcpPedidosTools.js', {
     '../../services/integracao/mcpPedidos.service': Object.fromEntries(['buscarProdutos', 'buscarVendedores', 'prepararPedido', 'confirmarPedido', 'consultarRascunho'].map(n => [n, registrar(n)])),
@@ -412,3 +413,30 @@ test('MCP público continua recusando ferramentas de importação', async () => 
   await assert.rejects(publico.executeTool('confirmar_importacao_cidades', {}));
 });
 
+
+test('WhatsApp financeiro exige prévia, autorização e a mesma conta do cliente', async () => {
+  process.env.MCP_PEDIDOS_ENABLED = 'true';
+  const a = ambiente();
+  const listar = await a.requisitar(null, {}, 'clientes:read', { method: 'tools/list' });
+  const previaFerramenta = listar.body.result.tools.find(t => t.name === 'preparar_whatsapp_pagamentos_cliente');
+  const confirmarFerramenta = listar.body.result.tools.find(t => t.name === 'confirmar_whatsapp_pagamentos_cliente');
+  assert.ok(previaFerramenta);
+  assert.ok(confirmarFerramenta);
+  assert.deepEqual(previaFerramenta.securitySchemes[0].scopes, ['clientes:read', 'whatsapp:send']);
+  assert.equal(confirmarFerramenta.annotations.destructiveHint, true);
+  assert.equal(confirmarFerramenta.annotations.idempotentHint, true);
+  const args = { cliente: 'Júnior Representante', quantidade: 3 };
+  const negado = await a.requisitar('preparar_whatsapp_pagamentos_cliente', args, 'clientes:read');
+  assert.equal(negado.body.result.isError, true);
+  assert.deepEqual(a.chamadas, []);
+  const preparado = await a.requisitar('preparar_whatsapp_pagamentos_cliente', args, 'clientes:read whatsapp:send');
+  assert.equal(preparado.body.result.isError, false);
+  assert.equal(a.chamadas[0].name, 'prepararEnvioPagamentos');
+  assert.equal(a.chamadas[1].name, 'prepararAcao');
+  assert.equal(a.chamadas[1].args[0].tipo, 'whatsapp_pagamentos');
+  a.chamadas.length = 0;
+  const enviado = await a.requisitar('confirmar_whatsapp_pagamentos_cliente', confirmacao, 'clientes:read whatsapp:send');
+  assert.equal(enviado.body.result.isError, false);
+  assert.equal(a.chamadas[0].name, 'confirmarAcao');
+  assert.equal(a.chamadas[0].args[2], 'whatsapp_pagamentos');
+});
