@@ -726,7 +726,9 @@ class ClientesCreditosService {
       favorecido: favorecidoId,
       clienteNome,
       cliente_nome: clienteNome,
-      lancamentos,
+      // O saldo de cada lançamento é calculado cronologicamente (ASC),
+      // mas o extrato deve exibir as movimentações mais recentes primeiro.
+      lancamentos: lancamentos.reverse(),
       resumo: {
         totalDebito: Number(totalDebito.toFixed(2)),
         totalCredito: Number(totalCredito.toFixed(2)),

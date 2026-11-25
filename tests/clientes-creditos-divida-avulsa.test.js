@@ -61,7 +61,7 @@ function preparar() {
   const service = modulo.exports;
   service._ensureSchema = async () => {};
   service._buscarNomeClienteSnapshot = async () => 'Cliente de teste';
-  return { service, consultas, alteracoes, registro };
+  return { service, consultas, alteracoes, registro, pool };
 }
 
 test('registra dívida avulsa como débito, sem pedido nem pagamento legado', async () => {
@@ -110,4 +110,25 @@ test('extrato contém botão ao lado de Registrar pagamento e modal de dívida f
   const script = html.match(/<script>([\s\S]*?)<\/script>/);
   assert.ok(script, 'Script da página ausente');
   assert.doesNotThrow(() => new vm.Script(script[1]));
+});
+
+
+test('extrato exibe movimentações recentes primeiro sem alterar o saldo histórico', async () => {
+  const { service, pool } = preparar();
+  const movimentos = [
+    { id: 1, favorecido: 123, cliente_nome_snapshot: 'Cliente de teste', data_lancamento: '2026-11-20', tipo: 'AJUSTE_DEBITO', valor_debito: 100, valor_credito: 0 },
+    { id: 2, favorecido: 123, cliente_nome_snapshot: 'Cliente de teste', data_lancamento: '2026-11-24', tipo: 'PAGAMENTO_CLIENTE', valor_debito: 0, valor_credito: 30 },
+    { id: 3, favorecido: 123, cliente_nome_snapshot: 'Cliente de teste', data_lancamento: '2026-11-24', tipo: 'DIVIDA_AVULSA', valor_debito: 50, valor_credito: 0 }
+  ];
+  pool.query = async sql => {
+    assert.match(sql, /ORDER BY data_lancamento ASC, id ASC/);
+    return { rows: movimentos };
+  };
+
+  const extrato = await service.buscarExtrato(123);
+  assert.deepEqual(extrato.lancamentos.map(movimento => movimento.id), [3, 2, 1]);
+  assert.deepEqual(extrato.lancamentos.map(movimento => movimento.saldo), [120, 70, 100]);
+  assert.equal(extrato.resumo.saldo, 120);
+  assert.equal(extrato.resumo.totalDebito, 150);
+  assert.equal(extrato.resumo.totalCredito, 30);
 });
