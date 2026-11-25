@@ -16,6 +16,18 @@
 #compararKit .diferente{background:#fff7ed;color:#9a3412;font-weight:bold}
 #compararKit select{max-width:100%;padding:10px;margin-top:8px}
 #compararKit .rolagem{overflow:auto}
+/* Selecao de kits no historico e envio de artes sequencial. */
+.oferta{grid-template-columns:28px minmax(0,1fr) auto}
+.oferta.selecionada{outline:2px solid #86efac;background:#f0fdf4}
+.oferta-selecao{display:flex;align-items:center;justify-content:center}
+.oferta-selecao input{width:20px;height:20px;accent-color:var(--verde);cursor:pointer}
+.envio-kits-historico{margin:12px 0;display:grid;grid-template-columns:auto minmax(200px,1fr) auto;gap:12px;align-items:end}
+.envio-kits-historico .selecionados-contador{font-weight:800;color:#166534;white-space:nowrap;align-self:center}
+.envio-kits-historico .campo{margin:0}
+.envio-kits-historico .campo input{width:100%;padding:10px;border:1px solid #86efac;border-radius:10px;background:#fff}
+.envio-kits-historico .acoes-envio{display:flex;gap:8px;flex-wrap:wrap}
+#statusEnvioKitsHistorico{margin:12px 0}
+@media(max-width:720px){.oferta{grid-template-columns:28px minmax(0,1fr)}.oferta-acoes{grid-column:2}.envio-kits-historico{grid-template-columns:1fr}.envio-kits-historico .acoes-envio button{flex:1}}
 </style>
 </head>
 <body>
@@ -170,6 +182,19 @@
     <button id="pesquisarPrecoMedio" class="azul" type="button">Pesquisar kit</button>
     <button id="limparPesquisa" class="sec oculto" type="button">Mostrar recentes</button>
   </div>
+
+  <section id="barraEnvioKitsHistorico" class="painel envio-kits-historico oculto" aria-label="Enviar kits selecionados para WhatsApp">
+    <div id="quantidadeKitsHistorico" class="selecionados-contador">0 kits selecionados</div>
+    <div class="campo">
+      <label for="telefoneKitsHistorico">Contato do WhatsApp (DDI e DDD)</label>
+      <input id="telefoneKitsHistorico" type="tel" inputmode="numeric" autocomplete="tel" maxlength="20" placeholder="Ex.: 5583999999999">
+    </div>
+    <div class="acoes-envio">
+      <button id="enviarKitsHistorico" type="button" class="verde">Enviar kits pelo WhatsApp</button>
+      <button id="limparKitsHistorico" type="button" class="sec">Limpar seleção</button>
+    </div>
+  </section>
+  <div id="statusEnvioKitsHistorico" class="aviso oculto" role="status" aria-live="polite"></div>
   <div id="historico"></div>
 </section>
 
@@ -267,6 +292,8 @@ let temaArte = 'claro';
 let categoriaSelecionada = '';
 let urlPreviewAtual = null;
 let ofertasHistorico = new Map();
+const ofertasMarcadasNoHistorico = new Map();
+let envioHistoricoEmAndamento = false;
 let filtroPesquisaAtivo = null;
 let ofertaModalAtual = null;
 const selecoesGlobais = new Map();
@@ -291,6 +318,12 @@ const el = {
   telefoneWhatsapp: document.querySelector('#telefoneWhatsapp'),
   enviarWhatsapp: document.querySelector('#enviarWhatsapp'),
   historico: document.querySelector('#historico'),
+  barraEnvioKitsHistorico: document.querySelector('#barraEnvioKitsHistorico'),
+  quantidadeKitsHistorico: document.querySelector('#quantidadeKitsHistorico'),
+  telefoneKitsHistorico: document.querySelector('#telefoneKitsHistorico'),
+  enviarKitsHistorico: document.querySelector('#enviarKitsHistorico'),
+  limparKitsHistorico: document.querySelector('#limparKitsHistorico'),
+  statusEnvioKitsHistorico: document.querySelector('#statusEnvioKitsHistorico'),
   filtroCategoria: document.querySelector('#filtroCategoria'),
   contadorFiltro: document.querySelector('#contadorFiltro'),
   categoriaAtual: document.querySelector('#categoriaAtual'),
@@ -994,6 +1027,110 @@ async function enviarOfertaWhatsapp() {
   }
 }
 
+
+function atualizarBarraEnvioHistorico() {
+  const quantidade = ofertasMarcadasNoHistorico.size;
+  el.barraEnvioKitsHistorico.classList.toggle('oculto', quantidade === 0 && !envioHistoricoEmAndamento);
+  el.quantidadeKitsHistorico.textContent = quantidade === 1 ? '1 kit selecionado' : quantidade + ' kits selecionados';
+  el.telefoneKitsHistorico.disabled = envioHistoricoEmAndamento;
+  el.enviarKitsHistorico.disabled = envioHistoricoEmAndamento || quantidade === 0;
+  el.limparKitsHistorico.disabled = envioHistoricoEmAndamento || quantidade === 0;
+  el.pesquisarPrecoMedio.disabled = envioHistoricoEmAndamento;
+  el.limparPesquisa.disabled = envioHistoricoEmAndamento;
+  el.historico.querySelectorAll('.selecionar-oferta').forEach(input => {
+    input.disabled = envioHistoricoEmAndamento;
+  });
+}
+
+function atualizarStatusEnvioHistorico(mensagem, tipo = 'normal') {
+  el.statusEnvioKitsHistorico.className = 'aviso' +
+    (tipo === 'erro' ? ' erro' : tipo === 'sucesso' ? ' sucesso' : '');
+  el.statusEnvioKitsHistorico.textContent = mensagem;
+}
+
+function marcarOfertaHistorico(checkbox) {
+  if (envioHistoricoEmAndamento) return;
+  const id = Number(checkbox.dataset.id);
+  const oferta = ofertasHistorico.get(id);
+  if (!oferta) { checkbox.checked = false; return; }
+  if (checkbox.checked) ofertasMarcadasNoHistorico.set(id, oferta);
+  else ofertasMarcadasNoHistorico.delete(id);
+  checkbox.closest('.oferta')?.classList.toggle('selecionada', checkbox.checked);
+  atualizarBarraEnvioHistorico();
+}
+
+function limparSelecaoHistorico() {
+  if (envioHistoricoEmAndamento) return;
+  ofertasMarcadasNoHistorico.clear();
+  el.historico.querySelectorAll('.selecionar-oferta').forEach(input => {
+    input.checked = false;
+    input.closest('.oferta')?.classList.remove('selecionada');
+  });
+  atualizarBarraEnvioHistorico();
+}
+
+async function enviarKitsSelecionadosHistorico() {
+  if (envioHistoricoEmAndamento) return;
+  const fila = [...ofertasMarcadasNoHistorico.entries()];
+  if (!fila.length) return;
+
+  const telefone = normalizarTelefone(el.telefoneKitsHistorico.value);
+  if (telefone.length < 10) {
+    atualizarStatusEnvioHistorico('Informe o número do WhatsApp com DDI e DDD.', 'erro');
+    el.telefoneKitsHistorico.focus();
+    return;
+  }
+  if (!window.confirm('Enviar ' + fila.length + ' kit(s) para ' + telefone +
+    '?\\nA arte de cada kit será gerada e enviada separadamente, um após o outro.')) return;
+
+  envioHistoricoEmAndamento = true;
+  atualizarBarraEnvioHistorico();
+  let confirmados = 0;
+  let erroEnvio = null;
+  try {
+    for (let i = 0; i < fila.length; i += 1) {
+      const [id, oferta] = fila[i];
+      const nome = oferta.titulo || oferta.codigo || ('Kit ' + id);
+      atualizarStatusEnvioHistorico('Gerando arte e enviando kit ' + (i + 1) +
+        ' de ' + fila.length + ': ' + nome + '...');
+      try {
+        // Esta API existente gera a arte e aguarda o envio antes do proximo kit.
+        await api('/api/ofertas/' + encodeURIComponent(id) + '/enviar-whatsapp', {
+          method: 'POST',
+          body: JSON.stringify({ telefone }),
+        });
+        confirmados += 1;
+        ofertasMarcadasNoHistorico.delete(id);
+        const checkbox = [...el.historico.querySelectorAll('.selecionar-oferta')]
+          .find(input => Number(input.dataset.id) === id);
+        if (checkbox) {
+          checkbox.checked = false;
+          checkbox.closest('.oferta')?.classList.remove('selecionada');
+        }
+        atualizarStatusEnvioHistorico('Enviado ' + confirmados + ' de ' + fila.length +
+          ' kit(s) para ' + telefone + '.', 'sucesso');
+      } catch (error) {
+        erroEnvio = { index: i, nome, message: error.message };
+        break;
+      }
+    }
+  } finally {
+    envioHistoricoEmAndamento = false;
+    atualizarBarraEnvioHistorico();
+  }
+
+  if (erroEnvio) {
+    atualizarStatusEnvioHistorico('Envio interrompido no kit ' +
+      (erroEnvio.index + 1) + ' de ' + fila.length + ' (' + erroEnvio.nome + '): ' +
+      erroEnvio.message + '. ' + confirmados +
+      ' envio(s) confirmado(s). Confira o WhatsApp antes de repetir: ' +
+      'o kit com erro pode ter sido entregue. Os kits pendentes continuam selecionados.', 'erro');
+  } else {
+    atualizarStatusEnvioHistorico('Concluído: ' + confirmados +
+      ' kit(s) enviados individualmente para ' + telefone + '.', 'sucesso');
+  }
+}
+
 function problemaOferta(oferta) {
   if (oferta.disponivel !== false) return '';
   return `<div class="oferta-problema">${escapeHtml((oferta.problemas || []).join(' '))}</div>`;
@@ -1015,8 +1152,18 @@ async function carregarHistorico(filtro = filtroPesquisaAtivo) {
     })[filtro.condicao] : '';
     const lista = await api(`/api/ofertas${parametro}`);
     ofertasHistorico = new Map(lista.map(oferta => [Number(oferta.id), oferta]));
+    lista.forEach(oferta => {
+      const id = Number(oferta.id);
+      if (ofertasMarcadasNoHistorico.has(id)) ofertasMarcadasNoHistorico.set(id, oferta);
+    });
     el.historico.innerHTML = lista.length ? lista.map(oferta => `
-      <article class="oferta">
+      <article class="oferta ${ofertasMarcadasNoHistorico.has(Number(oferta.id)) ? 'selecionada' : ''}">
+        <label class="oferta-selecao">
+          <input type="checkbox" class="selecionar-oferta" data-id="${oferta.id}"
+            aria-label="Selecionar kit ${escapeHtml(oferta.codigo)}"
+            ${ofertasMarcadasNoHistorico.has(Number(oferta.id)) ? 'checked' : ''}
+            ${envioHistoricoEmAndamento ? 'disabled' : ''}>
+        </label>
         <div class="oferta-info">
           <button class="nome-oferta abrir-oferta" type="button" data-id="${oferta.id}">${escapeHtml(oferta.codigo)} — ${escapeHtml(oferta.titulo)}</button>
           <div class="oferta-meta">
@@ -1033,6 +1180,7 @@ async function carregarHistorico(filtro = filtroPesquisaAtivo) {
           <button class="sec duplicar" type="button" data-id="${oferta.id}" ${oferta.disponivel === false ? 'disabled' : ''}>Duplicar</button>
         </div>
       </article>`).join('') : `<div class="vazio-historico">${filtro ? `Nenhum kit encontrado com preço médio ${descricaoPesquisa}.` : 'Nenhuma oferta criada.'}</div>`;
+    atualizarBarraEnvioHistorico();
   } catch (error) {
     el.historico.textContent = error.message;
   }
@@ -1231,6 +1379,8 @@ el.gerarRelatorioWhatsapp.addEventListener('click', () => {
   abrirRelatorioWhatsappOferta(ofertaAtual);
 });
 el.enviarWhatsapp.addEventListener('click', enviarOfertaWhatsapp);
+el.enviarKitsHistorico.addEventListener('click', enviarKitsSelecionadosHistorico);
+el.limparKitsHistorico.addEventListener('click', limparSelecaoHistorico);
 el.limparR2.addEventListener('click', limparArtesR2);
 el.pesquisaCondicaoPreco.addEventListener('change', atualizarCamposPesquisa);
 atualizarCamposPesquisa();
@@ -1260,6 +1410,9 @@ document.addEventListener('keydown', event => {
     return;
   }
   if (!el.modalOferta.classList.contains('oculto')) fecharModalOferta();
+});
+el.historico.addEventListener('change', event => {
+  if (event.target.matches('.selecionar-oferta')) marcarOfertaHistorico(event.target);
 });
 el.historico.addEventListener('click', event => {
   const abrirOferta = event.target.closest('.abrir-oferta');
