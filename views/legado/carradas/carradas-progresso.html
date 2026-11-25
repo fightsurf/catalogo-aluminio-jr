@@ -3206,7 +3206,7 @@
         const informada = Boolean(faseVolumes.concluido)
           || Boolean(faseVolumes.calculadoAutomaticamente)
           || quantidade > 0;
-        const cliente = formatarNomeClienteExibicao(pedido?.cliente?.nome);
+        const cliente = formatarNomeClienteExibicao(etiquetaVolumes.nomeImpressao || pedido?.cliente?.nome);
         const cidadeAgencia = String(localEntrega.agenciaRecebimentoCidadeNome || localEntrega.agenciaCidade || '').trim();
         const ufAgencia = String(localEntrega.agenciaRecebimentoCidadeUf || '').trim().toUpperCase();
         return {
@@ -3219,7 +3219,7 @@
           cidadeAgencia: cidadeAgencia ? [cidadeAgencia, ufAgencia].filter(Boolean).join(' / ') : '',
           cliente,
           nomeCaixas: String(etiquetaVolumes.apelido || cliente).trim(),
-          cidadeCliente: formatarLocalidadeClienteExibicao(pedido?.cliente?.cidade, pedido?.cliente?.uf, ' / '),
+          cidadeCliente: formatarLocalidadeClienteExibicao(etiquetaVolumes.cidadeImpressao || pedido?.cliente?.cidade, etiquetaVolumes.cidadeImpressao ? etiquetaVolumes.ufImpressao : pedido?.cliente?.uf, ' / '),
           numeroPedido: String(pedido?.numero || '').trim(),
           quantidadeVolumes: informada && Number.isFinite(quantidade) ? Math.max(0, Math.trunc(quantidade)) : null
         };
