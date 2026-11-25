@@ -254,10 +254,15 @@
     }
 
     async function request(url, opcoes = {}) {
-      const response = await fetch(url, opcoes);
+      // Envia o cookie administrativo quando houver sessão no mesmo domínio.
+      const response = await fetch(url, { credentials: 'same-origin', ...opcoes });
       const json = await response.json().catch(() => ({}));
       if (!response.ok || json.success === false) {
-        throw new Error(json.error || json.message || 'Falha na requisição.');
+        // requireAuth responde { erro: 'Sessao administrativa obrigatoria.' }.
+        // Preservar o status permite orientar o login em vez de exibir erro genérico.
+        const falha = new Error(json.error || json.erro || json.message || `Falha na requisição (HTTP ${response.status}).`);
+        falha.status = response.status;
+        throw falha;
       }
       return json.data;
     }
@@ -306,6 +311,14 @@
         el.modalWhatsappExtrato.classList.add('show');
         msg('');
       } catch (error) {
+        if (error.status === 401) {
+          // O extrato público não exige login, mas disparos financeiros precisam
+          // de sessão administrativa. Preserva o cliente na volta do login.
+          const retorno = `${window.location.pathname}${window.location.search}`;
+          msg('Para enviar o extrato por WhatsApp, entre na conta administrativa. Nenhuma mensagem foi enviada.', 'error');
+          window.location.assign(`/login?next=${encodeURIComponent(retorno)}`);
+          return;
+        }
         msg(error.message || 'Falha ao preparar WhatsApp do extrato.', 'error');
       } finally {
         el.btnWhatsappExtrato.disabled = false;

@@ -118,3 +118,18 @@ test('rotas de prévia e envio têm autorização administrativa', () => {
   assert.match(rotas, /router\.get\('\/:favorecido\/extrato\/whatsapp\/previa', requireAuth/);
   assert.match(rotas, /router\.post\('\/:favorecido\/extrato\/whatsapp', requireAuth/);
 });
+
+
+test('erro 401 da prévia orienta login administrativo e preserva retorno ao extrato', () => {
+  const html = fs.readFileSync(path.resolve(__dirname, '../views/legado/clientes-creditos/clientes-creditos-extrato.html'), 'utf8');
+  const auth = fs.readFileSync(path.resolve(__dirname, '../src/middlewares/adminAuth.middleware.js'), 'utf8');
+  assert.match(html, /credentials:\s*'same-origin'/);
+  assert.match(html, /json\.error\s*\|\|\s*json\.erro\s*\|\|\s*json\.message/);
+  assert.match(html, /falha\.status\s*=\s*response\.status/);
+  assert.match(html, /if\s*\(error\.status\s*===\s*401\)/);
+  assert.match(html, /window\.location\.assign\(\s*`\/login\?next=\$\{encodeURIComponent\(retorno\)\}`\s*\)/);
+  assert.match(html, /Nenhuma mensagem foi enviada/);
+  assert.match(auth, /router\.post\('\/auth\/login'/);
+  assert.match(auth, /req\.body\.next/);
+  assert.match(auth, /setSessionCookie/);
+});
