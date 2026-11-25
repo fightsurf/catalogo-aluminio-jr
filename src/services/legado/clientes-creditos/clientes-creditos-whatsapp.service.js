@@ -57,10 +57,11 @@ function telefoneCliente(cliente) {
 
 function formatarMensagem({ nome, lancamentos, saldo, dataEnvio }) {
   const linhas = [
-    `*${dataEnvio}*`,
     `Cliente: *${nome}*`,
+    `Data: *${dataEnvio}*`,
     '',
-    '*Últimas movimentações financeiras (até 5):*'
+    '*Últimas movimentações financeiras (até 5):*',
+    ''
   ];
 
   if (!lancamentos.length) {
@@ -112,8 +113,8 @@ async function preparar(favorecidoParam) {
     throw erro('Saldo do cliente indisponível. Nenhuma mensagem foi enviada.', 409);
   }
   const telefone = telefoneCliente(cliente);
-  // buscarExtrato já fornece ordem decrescente (data e ID).
-  const lancamentos = extrato.lancamentos.slice(0, LIMITE_MOVIMENTACOES);
+  // Seleciona as cinco mais recentes e as apresenta da mais antiga para a mais nova.
+  const lancamentos = extrato.lancamentos.slice(0, LIMITE_MOVIMENTACOES).reverse();
   const mensagem = formatarMensagem({ nome, lancamentos, saldo, dataEnvio: hojeBrasil() });
   const confirmacao = crypto.createHash('sha256')
     .update(JSON.stringify({ favorecido, telefone, mensagem }))
