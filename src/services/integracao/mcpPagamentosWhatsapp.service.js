@@ -19,6 +19,15 @@ function falhar(mensagem) {
   throw erro;
 }
 function texto(valor) { return String(valor ?? '').trim(); }
+
+function jsonCanonico(valor) {
+  // PostgreSQL JSONB pode reorganizar as chaves ao persistir a prévia.
+  // Comparar estruturalmente para não rejeitar uma confirmação válida.
+  return JSON.stringify(valor, (_chave, item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return item;
+    return Object.fromEntries(Object.keys(item).sort().map(chave => [chave, item[chave]]));
+  });
+}
 function numeroMonetario(valor, campo) {
   if (valor === null || valor === undefined || texto(valor) === '' || !Number.isFinite(Number(valor))) {
     falhar('O legado não confirmou ' + campo + '. Nada será enviado.');
@@ -164,7 +173,7 @@ async function executarEnvio(payload, contexto = {}) {
       !payload.expira_em || !Number.isFinite(new Date(payload.expira_em).getTime()) ||
       new Date(payload.expira_em).getTime() <= Date.now()) falhar('Prévia inválida ou expirada. Prepare novamente.');
   const atual = await selecionar({ favorecido: payload.favorecido, quantidade: payload.quantidade });
-  if (JSON.stringify(atual.relatorios) !== JSON.stringify(payload.relatorios)) {
+  if (jsonCanonico(atual.relatorios) !== jsonCanonico(payload.relatorios)) {
     falhar('Pedidos, pagamentos ou telefone mudaram desde a prévia. Nenhuma mensagem enviada; prepare novamente.');
   }
   await controle.verificar('pagamentos_mensagens');
