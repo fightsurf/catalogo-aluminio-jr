@@ -5,7 +5,7 @@
 const crypto = require('crypto');
 const pool = require('../../../db/connection');
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
-const TIPOS = new Set(['alterar_pedido', 'cancelar_pedido', 'expedicao_pedido', 'whatsapp_pedido', 'whatsapp_pagamentos']);
+const TIPOS = new Set(['alterar_pedido', 'cancelar_pedido', 'expedicao_pedido', 'whatsapp_pedido', 'whatsapp_pagamentos', 'pagamento_fornecedor', 'whatsapp_resumo_fornecedor']);
 let schemaPromise;
 
 function falhar(mensagem) {
@@ -65,7 +65,7 @@ async function prepararAcao({ tipo, payload, resumo }, contexto) {
   return {
     status: 'aguardando_confirmacao', acao_id: id, tipo,
     codigo_confirmacao: codigo, expira_em: expiraEm, expira_em_minutos: minutos, resumo,
-    instrucoes: 'Apresente o pedido, cliente, alterações e todos os envios previstos. Aguarde uma resposta posterior de confirmação explícita antes de confirmar a ação. Nenhuma alteração de pedido ou mensagem foi executada nesta prévia.'
+    instrucoes: 'Apresente a operação, a pessoa, os valores e todos os efeitos previstos. Aguarde uma resposta posterior de confirmação explícita. Nenhuma alteração ou mensagem foi executada nesta prévia.'
   };
 }
 
@@ -77,6 +77,8 @@ async function consultarAcao({ acao_id }, contexto) {
     FROM mcp_pedidos_acoes WHERE id=$1 AND usuario=$2`, [acao_id, dono]);
   const row = r.rows[0];
   if (!row) falhar('Ação não encontrada para esta conta.');
+  const scopes = new Set(String(contexto?.scopes || '').split(/\s+/));
+  if (['pagamento_fornecedor', 'whatsapp_resumo_fornecedor'].includes(row.tipo) && !scopes.has('prestacoes:read')) falhar('Ação não encontrada para esta conta.');
   return {
     acao_id: row.id, tipo: row.tipo, status: row.status, resumo: row.resumo,
     progresso: row.progresso || [], resultado: row.resultado || null,

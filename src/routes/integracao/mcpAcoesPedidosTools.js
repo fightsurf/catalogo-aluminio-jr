@@ -5,6 +5,12 @@ const gestao = require('../../services/integracao/mcpPedidoGestao.service');
 const whatsapp = require('../../services/integracao/mcpPedidoWhatsapp.service');
 const pagamentosWhatsapp = require('../../services/integracao/mcpPagamentosWhatsapp.service');
 
+const fornecedores = require('../../services/integracao/mcpPrestacaoFornecedor.service');
+const lerPrestacoes = ['clientes:read', 'prestacoes:read'];
+const pagarFornecedor = [...lerPrestacoes, 'prestacoes:write'];
+const whatsappFornecedor = [...lerPrestacoes, 'whatsapp:send'];
+const idPrestacao = { type: 'integer', minimum: 1, description: 'ID real da prestação aberta, retornado pela consulta. Escolha pelo título e data.' };
+const idFornecedor = { type: 'integer', minimum: 1, description: 'ID real do fornecedor escolhido na consulta.' };
 const consultar = ['clientes:read'];
 const gerenciar = ['clientes:read', 'pedidos:manage'];
 const enviar = ['clientes:read', 'whatsapp:send'];
@@ -22,6 +28,28 @@ function definir(name, title, description, scopes, properties, required, annotat
     inputSchema: { type: 'object', properties, required, additionalProperties: false } };
 }
 const tools = [
+  definir('buscar_prestacoes_fornecedor', 'Consultar prestações abertas dos fornecedores',
+    'Busca pelo nome ou código real do fornecedor. Retorna somente prestações abertas, título, referência, compra, total pago e saldo. Se houver mais de um fornecedor ou prestação, apresente as opções e aguarde a escolha; percorra as páginas. Não invente códigos.',
+    lerPrestacoes, { fornecedor: { type: 'string', minLength: 2, maxLength: 120 }, fornecedor_id: idFornecedor,
+      pagina: { type: 'integer', minimum: 1, maximum: 100000 }, limite: { type: 'integer', minimum: 1, maximum: 50 } }, [], { readOnlyHint: true }),
+  definir('preparar_pagamento_fornecedor', 'Preparar lançamento de pagamento de fornecedor',
+    'Somente prévia: consulte primeiro as prestações abertas e identifique fornecedor e prestação escolhidos. Recebe data civil, valor em reais e observação. Apresente o saldo antes e previsto, data, valor e observação. Não grava nem envia WhatsApp. Aguarde confirmação expressa posterior.',
+    pagarFornecedor, { fornecedor_id: idFornecedor, prestacao_id: idPrestacao,
+      data: { type: 'string', minLength: 10, maxLength: 10, description: 'AAAA-MM-DD' },
+      valor: { type: 'number', exclusiveMinimum: 0 }, observacao: { type: 'string', maxLength: 1000 } },
+      ['fornecedor_id', 'prestacao_id', 'data', 'valor', 'observacao']),
+  definir('confirmar_pagamento_fornecedor', 'Gravar pagamento de fornecedor confirmado',
+    'Registra efetivamente o pagamento pela mesma rotina da prestação web. Só confirme após autorização expressa da prévia em resposta posterior. Não envia WhatsApp. Em resultado incerto, consulte a ação; nunca repita automaticamente.',
+    pagarFornecedor, confirmacao, Object.keys(confirmacao), { destructiveHint: true, idempotentHint: true }),
+  definir('preparar_whatsapp_resumo_fornecedor', 'Preparar WhatsApp Resumo da prestação',
+    'Usa exatamente a mensagem do botão WhatsApp Resumo da prestação aberta, com os últimos cinco pagamentos, valor da compra, total pago e saldo. Mostre fornecedor, telefone e texto; aguarde confirmação posterior. Não envia PDF nem comprovante separado.',
+    whatsappFornecedor, { fornecedor_id: idFornecedor, prestacao_id: idPrestacao }, ['fornecedor_id', 'prestacao_id'], { openWorldHint: true }),
+  definir('confirmar_whatsapp_resumo_fornecedor', 'Enviar WhatsApp Resumo ao fornecedor',
+    'Envia pela rotina original do botão WhatsApp Resumo, somente após autorização explícita posterior. Revalida conteúdo, destinatário e Central de Controle. Aceite do provedor não garante entrega; não repetir em falha incerta.',
+    whatsappFornecedor, confirmacao, Object.keys(confirmacao), { destructiveHint: true, idempotentHint: true, openWorldHint: true }),
+  definir('consultar_acao_prestacao', 'Consultar resultado do lançamento ou envio de resumo',
+    'Consulta o status de uma ação de prestação de fornecedor desta conta. Somente leitura; não reexecuta.',
+    lerPrestacoes, { acao_id: { type: 'string' } }, ['acao_id'], { readOnlyHint: true }),
   definir('preparar_alteracao_pedido', 'Preparar alteração de um pedido',
     'Somente prévia. Identifique um pedido real e informe apenas os campos a mudar. A lista itens, quando informada, SUBSTITUI todos os itens: inclua os que devem permanecer. Mostre antes/depois e total, e aguarde confirmação posterior. Alterar carrada preserva os avisos automáticos da tela. Nunca grava nem envia durante esta preparação.',
     gerenciarEnviar, {
@@ -72,6 +100,8 @@ const tools = [
 ];
 const porNome = new Map(tools.map(t => [t.name, t]));
 const preparadores = {
+  preparar_pagamento_fornecedor: ['pagamento_fornecedor', fornecedores.prepararPagamento],
+  preparar_whatsapp_resumo_fornecedor: ['whatsapp_resumo_fornecedor', fornecedores.prepararWhatsApp],
   preparar_alteracao_pedido: ['alterar_pedido', gestao.prepararAlteracao],
   preparar_cancelamento_pedido: ['cancelar_pedido', gestao.prepararCancelamento],
   preparar_expedicao_pedido: ['expedicao_pedido', gestao.prepararExpedicao],
@@ -79,6 +109,8 @@ const preparadores = {
   preparar_whatsapp_pagamentos_cliente: ['whatsapp_pagamentos', pagamentosWhatsapp.prepararEnvio]
 };
 const executores = {
+  confirmar_pagamento_fornecedor: ['pagamento_fornecedor', fornecedores.executarPagamento],
+  confirmar_whatsapp_resumo_fornecedor: ['whatsapp_resumo_fornecedor', fornecedores.executarWhatsApp],
   confirmar_alteracao_pedido: ['alterar_pedido', gestao.executarAlteracao],
   confirmar_cancelamento_pedido: ['cancelar_pedido', gestao.executarCancelamento],
   confirmar_expedicao_pedido: ['expedicao_pedido', gestao.executarExpedicao],
@@ -87,6 +119,12 @@ const executores = {
 };
 function requiredScopes(name) { return porNome.get(name)?.securitySchemes[0].scopes || []; }
 async function executeTool(name, args, contexto) {
+  if (name === 'buscar_prestacoes_fornecedor') return fornecedores.buscarAbertas(args);
+  if (name === 'consultar_acao_prestacao') {
+    const resultado = await confirmacoes.consultarAcao(args, contexto);
+    if (!['pagamento_fornecedor', 'whatsapp_resumo_fornecedor'].includes(resultado.tipo)) { const e = new Error('Ação não pertence à prestação de fornecedor.'); e.isValidation = true; throw e; }
+    return resultado;
+  }
   if (preparadores[name]) {
     const [tipo, preparar] = preparadores[name];
     const previa = await preparar(args, contexto);

@@ -36,7 +36,7 @@ test('cada ferramenta publicada possui contrato de saída significativo', () => 
       nomes.add(match[1]);
     }
   }
-  assert.equal(nomes.size, 28);
+  assert.equal(nomes.size, 34);
   for (const nome of nomes) {
     const schema = outputSchemaFor(nome);
     assert.equal(schema.type, 'object', nome);

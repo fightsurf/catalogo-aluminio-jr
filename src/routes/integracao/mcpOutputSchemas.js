@@ -89,7 +89,13 @@ const progresso = objeto({
   ordem: contagem, total: contagem, produto_id: identificador,
   id_mensagem: identificador, motivo: texto, registrado_em: texto
 });
+const prestacaoFornecedor = objeto({ prestacao_id: identificador, fornecedor_id: identificador,
+  fornecedor: texto, titulo: texto, data_referencia: texto, total_material: numero,
+  total_pago: numero, saldo_restante: numero }, ['prestacao_id', 'fornecedor_id', 'fornecedor', 'titulo', 'data_referencia', 'total_material', 'total_pago', 'saldo_restante']);
+const pagamentoFornecedor = objeto({ data: texto, valor: numero, observacao: texto });
 const resumoAcao = objeto({
+  prestacao: prestacaoFornecedor, pagamento: pagamentoFornecedor, saldo_previsto: numero, total_pago_previsto: numero,
+  prestacao_id: identificador, fornecedor: texto, quantidade_pagamentos: contagem,
   acao: texto, tipo: texto, pedido, pedido_atual: pedido,
   cliente: pessoa, destinatario: objeto({ telefone: texto, final: texto }),
   proposto: objeto({ data: textoOpcional, observacao: textoOpcional,
@@ -106,6 +112,8 @@ const resumoAcao = objeto({
   resumo_final: objeto({ produtos: contagem, multiplicador: numero, total: numero })
 });
 const resultadoAcao = anulavel(objeto({
+  prestacao: prestacaoFornecedor, pagamento: objeto({ id: identificador, data_pagamento: texto, valor: { type: ['number','string'] }, observacao: textoOpcional }),
+  fornecedor: texto, whatsapp_enviado: booleano,
   status: texto, mensagem: texto, pedido, pedido_alterado: booleano,
   motivo: texto, data_registrada: booleano, id_mestre: identificador,
   numero: identificador, numeroPedido: identificador, pedido_numero: identificador,
@@ -130,6 +138,14 @@ const confirmarAcao = objeto(acao,
   ['acao_id', 'tipo', 'status', 'progresso', 'resultado', 'revisao_manual_necessaria', 'pode_reexecutar']);
 
 const schemas = {
+  buscar_prestacoes_fornecedor: objeto({ total_encontrado: contagem, pagina: contagem, limite: contagem, exibindo: contagem,
+    proxima_pagina: { type: ['integer','null'] }, prestacoes: lista(prestacaoFornecedor), aviso: texto },
+    ['total_encontrado','pagina','limite','exibindo','proxima_pagina','prestacoes','aviso']),
+  preparar_pagamento_fornecedor: prepararAcao,
+  confirmar_pagamento_fornecedor: confirmarAcao,
+  preparar_whatsapp_resumo_fornecedor: prepararAcao,
+  confirmar_whatsapp_resumo_fornecedor: confirmarAcao,
+  consultar_acao_prestacao: objeto(acao, ['acao_id','tipo','status','resumo','progresso','resultado','expirado','concluido_em','revisao_manual_necessaria','pode_reexecutar']),
   buscar_clientes: objeto({
     total_encontrado: contagem, exibindo: contagem, clientes: lista(pessoa)
   }, ['total_encontrado', 'exibindo', 'clientes']),

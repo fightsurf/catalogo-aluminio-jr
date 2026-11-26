@@ -7,7 +7,7 @@ const pool = require('../../../db/connection');
 // Tokens opacos são armazenados apenas como SHA-256 no PostgreSQL.
 const CLIENT_ID = 'https://chatgpt.com/oauth/client.json';
 const REDIRECT = 'https://chatgpt.com/connector_platform_oauth_redirect';
-const ALLOWED_SCOPES = new Set(['clientes:read', 'pedidos:write', 'pedidos:manage', 'whatsapp:send', 'logistica:write', 'offline_access']);
+const ALLOWED_SCOPES = new Set(['clientes:read', 'pedidos:write', 'pedidos:manage', 'whatsapp:send', 'logistica:write', 'prestacoes:read', 'prestacoes:write', 'offline_access']);
 let schemaPromise;
 let cimdCacheUntil = 0;
 

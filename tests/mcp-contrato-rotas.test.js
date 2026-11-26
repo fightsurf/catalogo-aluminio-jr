@@ -64,6 +64,7 @@ function ambiente() {
     '../../services/integracao/mcpPedidoWhatsapp.service': {
       prepararEnvio: registrar('prepararEnvio'), executarEnvio: registrar('executarEnvio')
     },
+    '../../services/integracao/mcpPrestacaoFornecedor.service': Object.fromEntries(['buscarAbertas','prepararPagamento','executarPagamento','prepararWhatsApp','executarWhatsApp'].map(name => [name, registrar(name)])),
     '../../services/integracao/mcpPagamentosWhatsapp.service': {
       prepararEnvio: registrar('prepararEnvioPagamentos'), executarEnvio: registrar('executarEnvioPagamentos')
     }
@@ -186,7 +187,7 @@ test('GET e DELETE validam protocolo e continuam sem oferecer stream ou sessão'
 
 test('initialize negocia a revisão implementada e não anuncia notificações inexistentes', async () => {
   const a = ambiente();
-  for (const [endpoint, version] of [['public', '0.1.1'], ['auth', '1.5.0']]) {
+  for (const [endpoint, version] of [['public', '0.1.1'], ['auth', '1.6.0']]) {
     for (const requested of ['2025-06-18', '2026-07-28']) {
       const res = await a.request(endpoint, { body: init(requested) });
       assert.equal(res.statusCode, 200);
@@ -210,7 +211,7 @@ test('initialize negocia a revisão implementada e não anuncia notificações i
 test('catálogos reais publicam schemas específicos e as três classificações em todas ferramentas', async () => {
   const a = ambiente();
   const catalogs = {};
-  for (const [endpoint, total] of [['public', 4], ['auth', 28]]) {
+  for (const [endpoint, total] of [['public', 4], ['auth', 34]]) {
     const res = await a.request(endpoint, { body: message('tools/list') });
     assert.equal(res.statusCode, 200);
     const tools = catalogs[endpoint] = res.body.result.tools;
