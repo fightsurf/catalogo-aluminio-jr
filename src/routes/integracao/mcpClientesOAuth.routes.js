@@ -16,7 +16,7 @@ function protectedMetadata(_req, res) {
   return res.json({
     resource: auth.resource(),
     authorization_servers: [auth.issuer()],
-    scopes_supported: ['clientes:read', 'pedidos:write', 'pedidos:manage', 'whatsapp:send', 'logistica:write', 'offline_access']
+    scopes_supported: ['clientes:read', 'pedidos:write', 'pedidos:manage', 'whatsapp:send', 'logistica:write', 'prestacoes:read', 'prestacoes:write', 'offline_access']
   });
 }
 router.get('/.well-known/oauth-protected-resource', protectedMetadata);
@@ -33,7 +33,7 @@ router.get('/.well-known/oauth-authorization-server', (_req, res) => {
     response_types_supported: ['code'],
     grant_types_supported: ['authorization_code', 'refresh_token'],
     code_challenge_methods_supported: ['S256'],
-    scopes_supported: ['clientes:read', 'pedidos:write', 'pedidos:manage', 'whatsapp:send', 'logistica:write', 'offline_access']
+    scopes_supported: ['clientes:read', 'pedidos:write', 'pedidos:manage', 'whatsapp:send', 'logistica:write', 'prestacoes:read', 'prestacoes:write', 'offline_access']
   });
 });
 router.get('/oauth/mcp-clientes/authorize', requireAuth, async (req, res) => {
@@ -64,7 +64,11 @@ router.get('/oauth/mcp-clientes/authorize', requireAuth, async (req, res) => {
       pedido.scope.split(' ').includes('logistica:write')
         ? '<p>Permite acrescentar cidades atendidas a uma transportadora, após conferir e aprovar a prévia. Preserva vínculos e observações existentes; não cria municípios nem envia mensagens.</p>'
         : '',
-      !pedido.scope.split(' ').some(s => ['pedidos:write', 'pedidos:manage', 'whatsapp:send', 'logistica:write'].includes(s))
+      pedido.scope.split(' ').includes('prestacoes:read')
+        ? '<p>Permite consultar prestações abertas dos fornecedores, inclusive valores, saldos e resumos financeiros. O envio exige também autorização de WhatsApp e confirmação própria.</p>' : '',
+      pedido.scope.split(' ').includes('prestacoes:write')
+        ? '<p>Permite lançar pagamentos nas prestações abertas do fornecedor, após conferir data, valor, observação e confirmar a prévia. Não movimenta conta bancária nem envia WhatsApp automaticamente.</p>' : '',
+      !pedido.scope.split(' ').some(s => ['pedidos:write', 'pedidos:manage', 'whatsapp:send', 'logistica:write', 'prestacoes:write'].includes(s))
         ? '<p>Esta autorização permite somente consultas.</p>' : '',
       '<p>Você poderá revogar a autorização removendo o plugin e desativando o MCP no servidor.</p>',
       '<form method="post" action="/oauth/mcp-clientes/authorize">',
