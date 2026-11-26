@@ -19,10 +19,10 @@
 <main class="page">
   <header class="header">
     <div><div class="eyebrow">Financeiro / Cheques</div><h1>Controle de cheques</h1><p class="muted">Consulta e encaminhamentos de cheques.</p></div>
-    <div class="header-actions"><span class="pill"><span class="pill-dot"></span> Frontend em validação</span><a class="btn" href="/legado/cheques">Consulta anterior</a><button id="refresh" class="btn primary" type="button">↻ Atualizar dados</button></div>
+    <div class="header-actions"><button id="refresh" class="btn primary" type="button">↻ Atualizar dados</button></div>
   </header>
   <div id="alert" class="notice hide" role="alert"></div>
-    <article class="panel"><div class="panelhead"><div><h2>Encaminhamentos encontrados</h2><p class="muted">Cheques com situação Encaminhado no sistema legado, agrupados por encaminhamento.</p></div><button id="open-draft" class="btn primary" type="button">+ Preparar encaminhamento</button></div>
+    <article class="panel"><div class="panelhead"><div><h2>Encaminhamentos encontrados</h2><p class="muted">Encaminhamentos do sistema legado, do mais recente para o mais antigo.</p></div><button id="open-draft" class="btn primary" type="button">+ Preparar encaminhamento</button></div>
       <div class="tablebox"><table><thead><tr><th>Código</th><th>Data</th><th>Fornecedor</th><th>Observação / descrição</th><th class="num">Cheques</th><th class="num">Valor identificado</th><th>Ação</th></tr></thead><tbody id="forward-body"></tbody></table></div><div id="forward-count" class="footbar"></div>
     </article>
 </main>
@@ -39,14 +39,14 @@
 'use strict';
 (() => {
   const $ = id => document.getElementById(id);
-  const state = { rows: [], available: [], loaded: false, busy: false, failed: false, draftBusy: false, draftLoaded: false, draft: new Set(), groups: [] };
+  const state = { rows: [], available: [], loaded: false, busy: false, failed: false, draftBusy: false, draftLoaded: false, draft: new Set(), groups: [], nextCursor: null, detail: null };
   const formatMoney = new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' });
   const formatNum = new Intl.NumberFormat('pt-BR');
   const money = n => formatMoney.format(Number(n)||0);
   const safe = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const norm = s => String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('pt-BR');
   const dateKey = s => { if (!s) return ''; const v=String(s).trim(); const m=v.match(/^(\d{4})-(\d{2})-(\d{2})/); return m?`${m[1]}-${m[2]}-${m[3]}`:''; };
-  const dateBR = s => { const k=dateKey(s); return k ? `${k.slice(8,10)}/${k.slice(5,7)}/${k.slice(0,4)}` : '-'; };
+  const dateBR = s => { const k=dateKey(s); if(k)return `${k.slice(8,10)}/${k.slice(5,7)}/${k.slice(0,4)}`; const br=String(s??'').match(/^\d{2}\/\d{2}\/\d{4}/); return br?br[0]:'-'; };
   const today = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
   const statusLabel = v => ({N:'Disponível',C:'Encaminhado',D:'Devolvido',S:'Pago'})[v] || (v||'Não informado');
   const tag = value => `<span class="tag ${safe(value||'')}">${safe(value || '?')} · ${safe(statusLabel(value))}</span>`;
@@ -61,17 +61,37 @@
     fornecedorEncaminhamento:r.fornecedorEncaminhamento??'',chequeEncaminhaCod:r.chequeEncaminhaCod??null,
     chequeEncaminhadoDescricao:r.chequeEncaminhadoDescricao??'',chequeEncaminhadoData:r.chequeEncaminhadoData??''
   }; }
-  function grouping(rows){ const map = new Map(); rows.forEach(r=>{const key=groupKey(r);if(!key)return;let group=map.get(key);if(!group){group={id:key,date:r.chequeEncaminhadoData,supplier:r.fornecedorEncaminhamento,description:r.chequeEncaminhadoDescricao,rows:[]};map.set(key,group);}group.rows.push(r);});return Array.from(map.values()).sort((a,b)=>String(b.id).localeCompare(String(a.id),undefined,{numeric:true}));}
-  function renderForward(){const groups=state.groups;
-    $('forward-body').innerHTML=groups.length?groups.map(g=>`<tr><td class="strong">#${safe(g.id)}</td><td>${dateBR(g.date)}</td><td>${safe(g.supplier||'—')}</td><td>${safe(g.description||'—')}</td><td class="num">${g.rows.length}</td><td class="num strong">${money(sum(g.rows))}</td><td><button class="mini" type="button" data-forward="${safe(g.id)}">Detalhes</button></td></tr>`).join(''):`<tr><td colspan="7" class="empty"><strong>${state.busy&&!state.loaded?'Carregando encaminhamentos…':state.failed&&!state.loaded?'Não foi possível carregar os encaminhamentos':'Nenhum encaminhamento encontrado'}</strong>${state.failed&&!state.loaded?'Use Atualizar dados para tentar novamente.':''}</td></tr>`;
-    $('forward-count').textContent=state.loaded?`${formatNum.format(groups.length)} encaminhamento(s) identificados nos cheques encaminhados recebidos.`:'';
+  function renderForward(){
+    const groups=state.groups;
+    $('forward-body').innerHTML=groups.length?groups.map(g=>`<tr><td class="strong">#${safe(g.id)}</td><td>${dateBR(g.date)}</td><td>${safe(g.supplier||'—')}</td><td>${safe(g.description||'—')}</td><td class="num">${formatNum.format(g.count)}</td><td class="num strong">${money(g.total)}</td><td><button class="mini" type="button" data-forward="${safe(g.id)}">Detalhes</button></td></tr>`).join(''):`<tr><td colspan="7" class="empty"><strong>${state.busy?'Carregando encaminhamentos…':state.failed?'Não foi possível carregar os encaminhamentos':'Nenhum encaminhamento encontrado'}</strong>${state.failed?'Use Atualizar dados para tentar novamente.':''}</td></tr>`;
+    $('forward-count').innerHTML=state.loaded?`<span>${formatNum.format(groups.length)} encaminhamento(s) carregados${state.nextCursor?' · há mais registros':''}.</span>${state.nextCursor?`<button class="btn sm" type="button" data-more-forward ${state.busy?'disabled':''}>${state.busy?'Carregando…':'Carregar mais'}</button>`:''}`:'';
   }
-  function render(){state.groups=grouping(state.rows);renderForward();const suppliers=[...new Set(state.rows.map(r=>String(r.fornecedorEncaminhamento||'').trim()).filter(Boolean))];$('known-suppliers').innerHTML=suppliers.map(x=>`<option value="${safe(x)}"></option>`).join('');renderDraft();}
+  function render(){renderForward();const suppliers=[...new Set(state.groups.map(g=>String(g.supplier||'').trim()).filter(Boolean))];$('known-suppliers').innerHTML=suppliers.map(x=>`<option value="${safe(x)}"></option>`).join('');renderDraft();}
   function detail(r){const fields=[['Código de pagamento',r.codigo],['Número do cheque',r.numeroCheque],['Valor',money(r.valor)],['Titular',r.titularCheque],['Cliente',r.cliente],['Vendedor',r.vendedor],['Pedido',r.numeroPedido],['Código da venda',r.codVenda],['Vencimento',dateBR(r.dataVencimento)],['Situação',`${r.pago||'?'} — ${statusLabel(r.pago)}`],['Data de pagamento',dateBR(r.dataPgto)],['Fornecedor',r.fornecedorEncaminhamento],['Encaminhamento',groupKey(r)||'—'],['Data encaminhamento',dateBR(r.chequeEncaminhadoData)],['Descrição',r.chequeEncaminhadoDescricao]];
     $('detail-title').textContent=`Cheque ${r.numeroCheque||r.codigo||'sem número'}`;$('detail-content').innerHTML=`<div class="detailgrid">${fields.map(([a,b])=>`<div class="detailbox"><span class="label">${safe(a)}</span><span class="datum">${safe(b??'—')}</span></div>`).join('')}</div><div class="notice warn" style="margin-top:15px">Histórico de observações, devoluções e edição serão integrados em outra etapa. Nenhuma alteração é feita nesta tela.</div>`;
     $('detail-legacy-link').href=`http://192.168.100.125:8080/AluminioWeb/financeiro/compras/cheques/ChequeObsAdiciona.jsp?pagina=devolvidos&codigoVendaPgto=${encodeURIComponent(r.codigo)}`;$('detail-dialog').showModal();}
-  function forwardDetail(g){$('forward-title').textContent=`Encaminhamento #${g.id}`;$('forward-detail').innerHTML=`<div class="detailgrid"><div class="detailbox"><span class="label">Fornecedor</span><strong>${safe(g.supplier||'—')}</strong></div><div class="detailbox"><span class="label">Data</span><strong>${dateBR(g.date)}</strong></div><div class="detailbox"><span class="label">Soma dos cheques encontrados</span><strong>${money(sum(g.rows))}</strong></div></div><p style="margin:12px 0">${safe(g.description||'Sem observações')}</p><div class="tablebox"><table><thead><tr><th>Cheque</th><th>Titular</th><th>Vencimento</th><th>Cliente</th><th class="num">Valor</th></tr></thead><tbody>${g.rows.map(r=>`<tr><td>${safe(r.numeroCheque||'—')}</td><td>${safe(r.titularCheque||'—')}</td><td>${dateBR(r.dataVencimento)}</td><td>${safe(r.cliente||'—')}</td><td class="num">${money(r.valor)}</td></tr>`).join('')}</tbody></table></div><p class="small muted" style="margin-top:12px">Os dados podem ser parciais, pois esta relação é reconstruída com os cheques retornados pela consulta.</p>`;
-    $('forward-legacy-link').href=`http://192.168.100.125:8080/AluminioWeb/financeiro/compras/cheques/ChequesEscolha.jsp?vi=1&chequeEncaminhaCodigo=${encodeURIComponent(g.id)}`;$('forward-dialog').showModal();}
+  function renderForwardDetail(d){
+    const g=d.group, rows=d.rows;
+    $('forward-detail').innerHTML=`<div class="detailgrid"><div class="detailbox"><span class="label">Fornecedor</span><strong>${safe(g.supplier||'—')}</strong></div><div class="detailbox"><span class="label">Data</span><strong>${dateBR(g.date)}</strong></div><div class="detailbox"><span class="label">Valor do encaminhamento</span><strong>${money(g.total)}</strong></div></div><p style="margin:12px 0">${safe(g.description||'Sem observações')}</p><div class="tablebox"><table><thead><tr><th>Cheque</th><th>Titular</th><th>Vencimento</th><th>Cliente</th><th class="num">Valor</th></tr></thead><tbody>${rows.length?rows.map(r=>`<tr><td>${safe(r.numeroCheque||'—')}</td><td>${safe(r.titularCheque||'—')}</td><td>${dateBR(r.dataVencimento)}</td><td>${safe(r.cliente||'—')}</td><td class="num">${money(r.valor)}</td></tr>`).join(''):`<tr><td colspan="5" class="empty">${d.busy?'Carregando cheques…':d.error?'Não foi possível carregar os cheques.':'Nenhum cheque vinculado encontrado.'}</td></tr>`}</tbody></table></div>${d.error?`<div class="notice error" style="margin-top:12px">${safe(d.error)}</div>`:''}<div class="footbar"><span>${formatNum.format(rows.length)} de ${formatNum.format(g.count)} cheque(s) conforme o total da lista.</span>${d.busy?'<span>Carregando…</span>':d.error||d.nextOffset!==null?`<button class="btn sm" type="button" data-more-details>${d.error?'Tentar novamente':'Carregar mais cheques'}</button>`:''}</div>`;
+  }
+  async function loadForwardDetail(d){
+    if(d.busy||d.nextOffset===null)return;
+    d.busy=true;d.error='';renderForwardDetail(d);
+    try{
+      const offset=d.nextOffset;
+      const result=await requestForward('/'+encodeURIComponent(d.group.id)+'?offset='+encodeURIComponent(offset));
+      if(state.detail!==d)return;
+      if(result.nextOffset!==null&&(!Number.isSafeInteger(result.nextOffset)||result.nextOffset<=offset))throw new Error('Paginação inválida dos cheques.');
+      d.rows.push(...result.dados);d.nextOffset=result.nextOffset;
+    }catch(err){if(state.detail===d)d.error=errorMessage(err);}
+    finally{d.busy=false;if(state.detail===d&&$('forward-dialog').open)renderForwardDetail(d);}
+  }
+  function forwardDetail(g){
+    const d={group:g,rows:[],nextOffset:0,busy:false,error:''};state.detail=d;
+    $('forward-title').textContent='Encaminhamento #'+g.id;
+    $('forward-legacy-link').href='http://192.168.100.125:8080/AluminioWeb/financeiro/compras/cheques/ChequesEscolha.jsp?vi=1&chequeEncaminhaCodigo='+encodeURIComponent(g.id);
+    $('forward-dialog').showModal();loadForwardDetail(d);
+  }
   function draftRows(){return state.available.filter(r=>r.pago==='N'&&!groupKey(r)&&r.codigo!=null);}
   function renderDraft(){const selected=draftRows().filter(r=>state.draft.has(rowId(r))),sumVal=sum(selected);$('draft-sum').textContent=money(sumVal);$('draft-count').textContent=`${selected.length} cheque(s) selecionado(s)`;$('draft-selected').innerHTML=selected.map(r=>`<button type="button" class="chip" data-unselect="${safe(rowId(r))}" title="Retirar da seleção">#${safe(r.numeroCheque||r.codigo)} <strong>${money(r.valor)}</strong> ×</button>`).join('');
     const query=norm($('draft-search').value);const all=draftRows().filter(r=>!query||norm([r.numeroCheque,r.titularCheque,r.cliente,r.numeroPedido].join(' ')).includes(query));const visible=all.slice(0,100);
@@ -90,16 +110,28 @@
     }finally{clearTimeout(timer);}
   }
   function errorMessage(err){return err.name==='AbortError'?'A consulta ao Firebird excedeu 120 segundos. Tente atualizar novamente.':err.message;}
-  async function load(){
-    if(state.busy)return;state.busy=true;state.failed=false;$('refresh').disabled=true;banner('Consultando os encaminhamentos no Firebird...');renderForward();
-    try {
-      const data=await requestChecks('C');state.rows=data.rows.filter(r=>r.pago==='C');state.loaded=true;
-      render();
-      const missing=state.rows.filter(r=>!groupKey(r)).length;
-      const notes=[];
-      if(data.total!==state.rows.length)notes.push('A API informa '+formatNum.format(data.total)+' registros; foram recebidos '+formatNum.format(state.rows.length)+' cheques encaminhados. A lista pode estar incompleta.');
-      if(missing)notes.push(formatNum.format(missing)+' cheque(s) encaminhado(s) sem código de encaminhamento na resposta; não foi possível agrupá-los.');
-      banner(notes.join(' '),notes.length?'warn':'');
+  async function requestForward(suffix=''){
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),120000);
+    try{
+      const resp=await fetch('/api/legado/cheques/encaminhamentos'+suffix,{signal:controller.signal,credentials:'same-origin',headers:{Accept:'application/json'},cache:'no-store'});
+      const data=await resp.json().catch(()=>({}));
+      if(!resp.ok||data.success!==true)throw new Error(data.message||data.erro||'Não foi possível consultar os encaminhamentos.');
+      if(!Array.isArray(data.dados))throw new Error('Resposta inesperada da consulta de encaminhamentos.');
+      return data;
+    }finally{clearTimeout(timer);}
+  }
+  async function load(append=false){
+    if(state.busy||(append&&!state.nextCursor))return;
+    state.busy=true;state.failed=false;$('refresh').disabled=true;
+    banner(append?'Consultando mais encaminhamentos...':'Consultando os encaminhamentos no Firebird...');renderForward();
+    try{
+      const cursor=append?state.nextCursor:null;
+      const result=await requestForward(cursor?'?antes='+encodeURIComponent(cursor):'');
+      if(result.nextCursor!==null&&(typeof result.nextCursor!=='string'||!/^\d+$/.test(result.nextCursor)||(cursor&&Number(result.nextCursor)>=Number(cursor))))throw new Error('Paginação inválida dos encaminhamentos.');
+      const seen=new Set(append?state.groups.map(g=>g.id):[]);
+      const incoming=result.dados.filter(g=>{if(seen.has(g.id))return false;seen.add(g.id);return true;});
+      state.groups=append?state.groups.concat(incoming):incoming;
+      state.nextCursor=result.nextCursor;state.loaded=true;render();banner('');
     }catch(err){state.failed=true;banner(errorMessage(err)+(state.loaded?' Os dados exibidos são da última consulta bem-sucedida.':''),'error');}
     finally{state.busy=false;$('refresh').disabled=false;renderForward();}
   }
@@ -110,8 +142,8 @@
     catch(err){draftStatus(errorMessage(err)+' Feche e abra a janela para tentar novamente.','error');}
     finally{state.draftBusy=false;renderDraft();}
   }
-  document.addEventListener('click',e=>{const detailBtn=e.target.closest('[data-detail]');if(detailBtn){const r=state.rows.find(x=>rowId(x)===detailBtn.dataset.detail);if(r)detail(r);return;}const forward=e.target.closest('[data-forward]');if(forward){const g=state.groups.find(x=>x.id===forward.dataset.forward);if(g)forwardDetail(g);return;}const close=e.target.closest('[data-close]');if(close){$(close.dataset.close)?.close();return;}const unselect=e.target.closest('[data-unselect]');if(unselect){state.draft.delete(unselect.dataset.unselect);renderDraft();}});
-  $('refresh').addEventListener('click',load);
+  document.addEventListener('click',e=>{if(e.target.closest('[data-more-forward]')){load(true);return;}if(e.target.closest('[data-more-details]')){if(state.detail)loadForwardDetail(state.detail);return;}const detailBtn=e.target.closest('[data-detail]');if(detailBtn){const r=state.rows.find(x=>rowId(x)===detailBtn.dataset.detail);if(r)detail(r);return;}const forward=e.target.closest('[data-forward]');if(forward){const g=state.groups.find(x=>x.id===forward.dataset.forward);if(g)forwardDetail(g);return;}const close=e.target.closest('[data-close]');if(close){$(close.dataset.close)?.close();return;}const unselect=e.target.closest('[data-unselect]');if(unselect){state.draft.delete(unselect.dataset.unselect);renderDraft();}});
+  $('refresh').addEventListener('click',()=>load());
   $('open-draft').addEventListener('click',()=>{if(!$('draft-date').value)$('draft-date').value=today();renderDraft();$('draft-dialog').showModal();loadAvailable();});
   $('draft-search').addEventListener('input',renderDraft);$('draft-choices').addEventListener('change',e=>{const inp=e.target.closest('[data-choose]');if(!inp)return;inp.checked?state.draft.add(inp.dataset.choose):state.draft.delete(inp.dataset.choose);renderDraft();});$('draft-reset').addEventListener('click',()=>{state.draft.clear();renderDraft();});
   load();
