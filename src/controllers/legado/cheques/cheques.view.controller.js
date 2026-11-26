@@ -6,6 +6,13 @@ function abrirPaginaCheques(req, res) {
   );
 }
 
+function abrirControleCheques(req, res) {
+  return res.sendFile(
+    path.resolve(__dirname, '../../../../views/legado/cheques/controle-cheques.html')
+  );
+}
+
 module.exports = {
-  abrirPaginaCheques
+  abrirPaginaCheques,
+  abrirControleCheques
 };
