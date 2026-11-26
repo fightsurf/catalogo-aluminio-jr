@@ -64,6 +64,7 @@ function ambiente() {
     '../../services/integracao/mcpPedidoWhatsapp.service': {
       prepararEnvio: registrar('prepararEnvio'), executarEnvio: registrar('executarEnvio')
     },
+    '../../services/integracao/mcpPrestacaoFornecedor.service': Object.fromEntries(['buscarAbertas','prepararPagamento','executarPagamento','prepararWhatsApp','executarWhatsApp'].map(name => [name, registrar(name)])),
     '../../services/integracao/mcpPagamentosWhatsapp.service': {
       prepararEnvio: registrar('prepararEnvioPagamentos'), executarEnvio: registrar('executarEnvioPagamentos')
     }
