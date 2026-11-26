@@ -33,7 +33,7 @@
   <div class="draft-summary"><div class="panelhead" style="margin-bottom:5px"><strong>Cheques selecionados</strong><strong id="draft-sum">R$ 0,00</strong></div><div class="small muted" id="draft-count">Nenhum cheque selecionado</div><div id="draft-selected" class="chips" style="margin-top:10px"></div></div>
   <div id="draft-load-status" class="notice hide" role="status"></div>
   <div class="panelhead"><div><strong>Cheques disponíveis (situação N)</strong><p class="muted">Consultados separadamente ao abrir esta janela</p></div><div class="field"><label for="draft-search">Filtrar disponíveis</label><input id="draft-search" type="search" placeholder="Nome, cheque ou pedido"></div></div><div id="draft-choices" class="draft-choices"></div>
-</div><div class="dialogfooter"><button id="draft-reset" class="btn" type="button">Limpar seleção</button><a class="btn" target="_blank" rel="noopener noreferrer" href="http://192.168.100.125:8080/AluminioWeb/financeiro/compras/cheques/ChequesEncaminha.jsp">Usar sistema Java</a><button class="btn primary" type="button" disabled title="A gravação será implementada após a migração">Salvar encaminhamento (em breve)</button></div></dialog>
+</div><div class="dialogfooter"><button class="btn primary" type="button" disabled title="A gravação será implementada após a migração">Salvar encaminhamento (em breve)</button></div></dialog>
 <script>
 'use strict';
 (() => {
@@ -144,7 +144,7 @@
   document.addEventListener('click',e=>{if(e.target.closest('[data-more-forward]')){load(true);return;}if(e.target.closest('[data-more-details]')){if(state.detail)loadForwardDetail(state.detail);return;}const detailBtn=e.target.closest('[data-detail]');if(detailBtn){const r=state.rows.find(x=>rowId(x)===detailBtn.dataset.detail);if(r)detail(r);return;}const forward=e.target.closest('[data-forward]');if(forward){const g=state.groups.find(x=>x.id===forward.dataset.forward);if(g)forwardDetail(g);return;}const close=e.target.closest('[data-close]');if(close){$(close.dataset.close)?.close();return;}const unselect=e.target.closest('[data-unselect]');if(unselect){state.draft.delete(unselect.dataset.unselect);renderDraft();}});
   $('refresh').addEventListener('click',()=>load());
   $('open-draft').addEventListener('click',()=>{if(!$('draft-date').value)$('draft-date').value=today();renderDraft();$('draft-dialog').showModal();loadAvailable();});
-  $('draft-search').addEventListener('input',renderDraft);$('draft-choices').addEventListener('change',e=>{const inp=e.target.closest('[data-choose]');if(!inp)return;inp.checked?state.draft.add(inp.dataset.choose):state.draft.delete(inp.dataset.choose);renderDraft();});$('draft-reset').addEventListener('click',()=>{state.draft.clear();renderDraft();});
+  $('draft-search').addEventListener('input',renderDraft);$('draft-choices').addEventListener('change',e=>{const inp=e.target.closest('[data-choose]');if(!inp)return;inp.checked?state.draft.add(inp.dataset.choose):state.draft.delete(inp.dataset.choose);renderDraft();});
   load();
 })();
 </script>
