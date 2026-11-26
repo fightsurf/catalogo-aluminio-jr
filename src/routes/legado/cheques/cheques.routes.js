@@ -1,6 +1,7 @@
 const express = require('express');
 const controller = require('../../../controllers/legado/cheques/cheques.controller');
 const sqlTerminal = require('../../../services/admin/sql-terminal.service');
+const bridge = require('../../../services/legado/legadoBridge.service');
 const { requireAuth } = require('../../../middlewares/adminAuth.middleware');
 
 const router = express.Router();
@@ -84,6 +85,42 @@ router.get('/encaminhamentos', requireAuth, async (req, res) => {
     return res.json({ success: true, dados, nextCursor: rows.length > PAGE_SIZE ? dados[dados.length - 1].id : null });
   } catch (error) {
     return failure(res, error);
+  }
+});
+
+// Gravação pela API local. O Firebird permanece a fonte de verdade.
+router.get('/encaminhamentos/fornecedores', requireAuth, async (req, res) => {
+  try {
+    const result = await bridge.get('/api/cheques/encaminhamentos/fornecedores');
+    if (result?.success !== true || result.versao !== 1 || !Array.isArray(result.dados)) throw new Error('API local incompatível');
+    const dados = result.dados.map(f => ({id: integer(String(f.id), {min:1}), nome: String(f.nome || '').trim()})).filter(f => f.id !== null && f.nome);
+    return res.json({success:true, dados});
+  } catch (error) {
+    console.error('[cheques] API local de fornecedores indisponível:', error.message);
+    return res.status(503).json({success:false,message:'A gravação depende da atualização da API local da fábrica.'});
+  }
+});
+
+router.post('/encaminhamentos', requireAuth, async (req, res) => {
+  if (!req.is('application/json')) return res.status(415).json({success:false,message:'Envie JSON.'});
+  const body = req.body || {};
+  const data = typeof body.data === 'string' ? body.data : '';
+  const dt = new Date(data+'T00:00:00Z');
+  const fornecedorId = integer(String(body.fornecedorId ?? ''), {min:1});
+  const observacao = body.observacao ?? '';
+  const cheques = Array.isArray(body.cheques) ? body.cheques.map(x => integer(String(x), {min:1})) : [];
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data) || !Number.isFinite(+dt) || dt.toISOString().slice(0,10)!==data || Number(data.slice(0,4))<1900 || fornecedorId===null ||
+      typeof observacao !== 'string' || observacao.length>100 || cheques.length<1 || cheques.length>200 || cheques.includes(null) || new Set(cheques).size!==cheques.length) {
+    return res.status(400).json({success:false,message:'Confira a data, o fornecedor, a observação (até 100 caracteres) e os cheques (1 a 200, sem repetição).'});
+  }
+  try {
+    const result = await bridge.post('/api/cheques/encaminhamentos', {data,fornecedorId,observacao,cheques});
+    const codigo = integer(String(result?.dados?.codigo ?? ''), {min:1});
+    if (result?.success !== true || codigo===null || Number(result.dados.quantidade)!==cheques.length || !Number.isFinite(Number(result.dados.valorTotal))) throw new Error('Confirmação de gravação inválida');
+    return res.status(201).json({success:true,dados:{codigo,quantidade:cheques.length,valorTotal:Number(result.dados.valorTotal)}});
+  } catch(error) {
+    console.error('[cheques] gravação não confirmada:', error.message);
+    return res.status(502).json({success:false,message:'Gravação não confirmada. Confira os encaminhamentos e os cheques disponíveis antes de tentar novamente.'});
   }
 });
 
