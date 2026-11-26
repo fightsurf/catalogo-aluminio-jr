@@ -93,7 +93,13 @@ const prestacaoFornecedor = objeto({ prestacao_id: identificador, fornecedor_id:
   fornecedor: texto, titulo: texto, data_referencia: texto, total_material: numero,
   total_pago: numero, saldo_restante: numero }, ['prestacao_id', 'fornecedor_id', 'fornecedor', 'titulo', 'data_referencia', 'total_material', 'total_pago', 'saldo_restante']);
 const pagamentoFornecedor = objeto({ data: texto, valor: numero, observacao: texto });
+const localEntrega = objeto({ transportadora_id: identificador, transportadora_nome: texto,
+  redespacho_transportadora_id: identificador, redespacho_nome: texto,
+  agencia_recebimento_codigo: identificador, agencia_nome: texto,
+  agencia_cidade: texto, agencia_uf: texto, marcado_silencioso: booleano,
+  atualizado_em: textoOpcional, fase_atualizada_em: textoOpcional });
 const resumoAcao = objeto({
+  local_entrega_atual: localEntrega, local_entrega_proposto: localEntrega,
   prestacao: prestacaoFornecedor, pagamento: pagamentoFornecedor, saldo_previsto: numero, total_pago_previsto: numero,
   prestacao_id: identificador, fornecedor: texto, quantidade_pagamentos: contagem,
   acao: texto, tipo: texto, pedido, pedido_atual: pedido,
@@ -112,6 +118,7 @@ const resumoAcao = objeto({
   resumo_final: objeto({ produtos: contagem, multiplicador: numero, total: numero })
 });
 const resultadoAcao = anulavel(objeto({
+  local_entrega: localEntrega, local_entrega_gravado: booleano, volumes_alterados: booleano,
   prestacao: prestacaoFornecedor, pagamento: objeto({ id: identificador, data_pagamento: texto, valor: { type: ['number','string'] }, observacao: textoOpcional }),
   fornecedor: texto, whatsapp_enviado: booleano,
   status: texto, mensagem: texto, pedido, pedido_alterado: booleano,
@@ -138,6 +145,12 @@ const confirmarAcao = objeto(acao,
   ['acao_id', 'tipo', 'status', 'progresso', 'resultado', 'revisao_manual_necessaria', 'pode_reexecutar']);
 
 const schemas = {
+  buscar_agencias_recebimento: objeto({ total_encontrado: contagem, pagina: contagem, limite: contagem, exibindo: contagem,
+    proxima_pagina: { type: ['integer','null'] }, agencias: lista(objeto({ codigo: identificador, nome: texto, cidade: textoOpcional, uf: textoOpcional })) },
+    ['total_encontrado','pagina','limite','exibindo','proxima_pagina','agencias']),
+  consultar_local_entrega_pedido: objeto({ pedido, carrada, local_entrega: localEntrega }, ['pedido','carrada','local_entrega']),
+  preparar_local_entrega_pedido: prepararAcao,
+  confirmar_local_entrega_pedido: confirmarAcao,
   buscar_prestacoes_fornecedor: objeto({ total_encontrado: contagem, pagina: contagem, limite: contagem, exibindo: contagem,
     proxima_pagina: { type: ['integer','null'] }, prestacoes: lista(prestacaoFornecedor), aviso: texto },
     ['total_encontrado','pagina','limite','exibindo','proxima_pagina','prestacoes','aviso']),

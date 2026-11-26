@@ -28,6 +28,23 @@ function definir(name, title, description, scopes, properties, required, annotat
     inputSchema: { type: 'object', properties, required, additionalProperties: false } };
 }
 const tools = [
+  definir('buscar_agencias_recebimento', 'Buscar agências de recebimento cadastradas',
+    'Consulta por nome, cidade e UF, paginada. Retorna código real; nunca invente código nem selecione homônimos sem esclarecer.',
+    consultar, { nome: { type: 'string', maxLength: 120 }, cidade: { type: 'string', maxLength: 120 },
+      uf: { type: 'string', minLength: 2, maxLength: 2 }, pagina: { type: 'integer', minimum: 1, maximum: 100000 },
+      limite: { type: 'integer', minimum: 1, maximum: 50 } }, [], { readOnlyHint: true }),
+  definir('consultar_local_entrega_pedido', 'Consultar coluna Entrega de um pedido',
+    'Consulta a excursão/transportadora, redespacho e agência atuais de um pedido real na carrada. Somente leitura.',
+    consultar, { id_mestre: idPedido, carrada_codigo: { type: 'integer', minimum: 1 } }, ['id_mestre'], { readOnlyHint: true }),
+  definir('preparar_local_entrega_pedido', 'Preparar associação de entrega de um pedido',
+    'Prévia da coluna Entrega. Identifique pedido e destinos por códigos reais das consultas de transportadoras e agências. Omitir um campo preserva o vínculo; null remove redespacho ou agência, nunca a excursão principal. Exiba antes/depois e aviso automático ao cliente conforme configuração. Não grava nem envia agora; aguarde aprovação expressa posterior.',
+    gerenciarEnviar, { id_mestre: idPedido, carrada_codigo: { type: 'integer', minimum: 1 },
+      transportadora_id: { type: 'integer', minimum: 1 },
+      redespacho_transportadora_id: { type: ['integer', 'null'], minimum: 1 },
+      agencia_recebimento_codigo: { type: ['integer', 'null'], minimum: 1 } }, ['id_mestre'], { openWorldHint: true }),
+  definir('confirmar_local_entrega_pedido', 'Gravar associação confirmada na coluna Entrega',
+    'Grava a excursão/transportadora, redespacho e agência do pedido pela mesma rotina da tela Progresso, incluindo aviso ao cliente conforme configuração. Somente após aprovação expressa posterior. Não altera volumes ou outros pedidos. Em resultado incerto não repita; consulte a ação e o local de entrega.',
+    gerenciarEnviar, confirmacao, Object.keys(confirmacao), { destructiveHint: true, idempotentHint: true, openWorldHint: true }),
   definir('buscar_prestacoes_fornecedor', 'Consultar prestações abertas dos fornecedores',
     'Busca pelo nome ou código real do fornecedor. Retorna somente prestações abertas, título, referência, compra, total pago e saldo. Se houver mais de um fornecedor ou prestação, apresente as opções e aguarde a escolha; percorra as páginas. Não invente códigos.',
     lerPrestacoes, { fornecedor: { type: 'string', minLength: 2, maxLength: 120 }, fornecedor_id: idFornecedor,
@@ -100,6 +117,7 @@ const tools = [
 ];
 const porNome = new Map(tools.map(t => [t.name, t]));
 const preparadores = {
+  preparar_local_entrega_pedido: ['local_entrega_pedido', gestao.prepararLocalEntrega],
   preparar_pagamento_fornecedor: ['pagamento_fornecedor', fornecedores.prepararPagamento],
   preparar_whatsapp_resumo_fornecedor: ['whatsapp_resumo_fornecedor', fornecedores.prepararWhatsApp],
   preparar_alteracao_pedido: ['alterar_pedido', gestao.prepararAlteracao],
@@ -109,6 +127,7 @@ const preparadores = {
   preparar_whatsapp_pagamentos_cliente: ['whatsapp_pagamentos', pagamentosWhatsapp.prepararEnvio]
 };
 const executores = {
+  confirmar_local_entrega_pedido: ['local_entrega_pedido', gestao.executarLocalEntrega],
   confirmar_pagamento_fornecedor: ['pagamento_fornecedor', fornecedores.executarPagamento],
   confirmar_whatsapp_resumo_fornecedor: ['whatsapp_resumo_fornecedor', fornecedores.executarWhatsApp],
   confirmar_alteracao_pedido: ['alterar_pedido', gestao.executarAlteracao],
@@ -119,6 +138,8 @@ const executores = {
 };
 function requiredScopes(name) { return porNome.get(name)?.securitySchemes[0].scopes || []; }
 async function executeTool(name, args, contexto) {
+  if (name === 'buscar_agencias_recebimento') return gestao.buscarAgenciasRecebimento(args);
+  if (name === 'consultar_local_entrega_pedido') return gestao.consultarLocalEntrega(args);
   if (name === 'buscar_prestacoes_fornecedor') return fornecedores.buscarAbertas(args);
   if (name === 'consultar_acao_prestacao') {
     const resultado = await confirmacoes.consultarAcao(args, contexto);

@@ -2866,6 +2866,28 @@ function montarMensagemDestinoLocalEntrega({ pedido, numeroPedido, carrada, tele
   });
 }
 
+// Consulta individual do mesmo vínculo exibido na matriz de Progresso.
+async function buscarLocalEntregaPedido({ codigoCarrada, numeroPedido, idMestre }) {
+  await garantirTabelasModulo();
+  const codigo = parseCodigoCarrada(codigoCarrada);
+  const numero = normalizarNumeroPedido(numeroPedido);
+  const carrada = await carradasService.buscarResumoCarrada(codigo);
+  if (!carrada) throw criarErro('Carrada não encontrada.', 404);
+  const encontrados = (carrada.pedidos || []).filter(p => String(p.numero) === String(numero));
+  if (encontrados.length !== 1 || normalizarSaida(encontrados[0].saida) !== Number(idMestre)) {
+    throw criarErro('Pedido ausente ou ambíguo na carrada.', 409);
+  }
+  const pedido = encontrados[0];
+  const chave = criarChavePedido({ saida: pedido.saida, numero });
+  const locais = await buscarLocalEntregaRowsDosPedidos([pedido]);
+  const fases = await buscarBooleanRowsDosPedidos([pedido]);
+  const local = locais.get(chave) || null;
+  const silencioso = fases.get(chave)?.LOCAL_ENTREGA;
+  return { local, marcadoSilencioso: Boolean(silencioso?.valorBoolean),
+    faseAtualizadaEm: silencioso?.updatedAt || null,
+    carrada: { codigo, data: carrada.data || null, descricao: carrada.descricao || '' } };
+}
+
 async function salvarLocalEntrega({
   codigoCarrada: codigoCarradaParam,
   numeroPedido: numeroPedidoParam,
@@ -3209,6 +3231,7 @@ module.exports = {
   excluirPerfilEtiquetaPedido,
   enviarEtiquetaVolumes,
   confirmarEtiquetaVolumes,
+  buscarLocalEntregaPedido,
   salvarLocalEntrega,
   buscarHistoricoLocalEntrega,
   perguntarRepeticaoLocalEntrega,

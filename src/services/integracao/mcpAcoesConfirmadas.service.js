@@ -5,7 +5,7 @@
 const crypto = require('crypto');
 const pool = require('../../../db/connection');
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
-const TIPOS = new Set(['alterar_pedido', 'cancelar_pedido', 'expedicao_pedido', 'whatsapp_pedido', 'whatsapp_pagamentos', 'pagamento_fornecedor', 'whatsapp_resumo_fornecedor']);
+const TIPOS = new Set(['alterar_pedido', 'cancelar_pedido', 'expedicao_pedido', 'whatsapp_pedido', 'whatsapp_pagamentos', 'pagamento_fornecedor', 'whatsapp_resumo_fornecedor', 'local_entrega_pedido']);
 let schemaPromise;
 
 function falhar(mensagem) {

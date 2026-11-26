@@ -60,7 +60,7 @@ function ambiente() {
       ['prepararAcao', 'confirmarAcao', 'consultarAcao'].map(name => [name, registrar(name)])),
     '../../services/integracao/mcpPedidoGestao.service': Object.fromEntries(
       ['prepararAlteracao', 'executarAlteracao', 'prepararCancelamento', 'executarCancelamento',
-        'prepararExpedicao', 'executarExpedicao'].map(name => [name, registrar(name)])),
+        'prepararExpedicao', 'executarExpedicao', 'buscarAgenciasRecebimento', 'consultarLocalEntrega', 'prepararLocalEntrega', 'executarLocalEntrega'].map(name => [name, registrar(name)])),
     '../../services/integracao/mcpPedidoWhatsapp.service': {
       prepararEnvio: registrar('prepararEnvio'), executarEnvio: registrar('executarEnvio')
     },
@@ -211,7 +211,7 @@ test('initialize negocia a revisão implementada e não anuncia notificações i
 test('catálogos reais publicam schemas específicos e as três classificações em todas ferramentas', async () => {
   const a = ambiente();
   const catalogs = {};
-  for (const [endpoint, total] of [['public', 4], ['auth', 34]]) {
+  for (const [endpoint, total] of [['public', 4], ['auth', 38]]) {
     const res = await a.request(endpoint, { body: message('tools/list') });
     assert.equal(res.statusCode, 200);
     const tools = catalogs[endpoint] = res.body.result.tools;

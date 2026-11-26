@@ -272,5 +272,115 @@ async function executarExpedicao(payload, { registrarProgresso }) {
 
 }
 
-module.exports = { prepararAlteracao, executarAlteracao, prepararCancelamento, executarCancelamento,
+
+function normalizarBuscaEntrega(v) {
+  return texto(v).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
+async function buscarAgenciasRecebimento(args = {}) {
+  const agencias = require('../logistica/agenciaRecebimentoService');
+  const nome = normalizarBuscaEntrega(args.nome), cidade = normalizarBuscaEntrega(args.cidade);
+  const pagina = args.pagina === undefined ? 1 : inteiro(args.pagina, 'pagina');
+  const limite = args.limite === undefined ? 20 : inteiro(args.limite, 'limite');
+  if (limite > 50 || pagina > 100000) falhar('Paginação inválida.');
+  const rows = (await agencias.listarAgencias()).filter(a =>
+    (!nome || normalizarBuscaEntrega(a.nome).includes(nome)) &&
+    (!cidade || normalizarBuscaEntrega(a.cidade_nome).includes(cidade)) &&
+    (!args.uf || texto(a.cidade_estado).toUpperCase() === texto(args.uf).toUpperCase()));
+  const inicio = (pagina - 1) * limite;
+  const selecionadas = rows.slice(inicio, inicio + limite).map(a => ({
+    codigo: Number(a.codigo), nome: texto(a.nome), cidade: texto(a.cidade_nome) || null,
+    uf: texto(a.cidade_estado) || null
+  }));
+  return { total_encontrado: rows.length, pagina, limite, exibindo: selecionadas.length,
+    proxima_pagina: inicio + limite < rows.length ? pagina + 1 : null, agencias: selecionadas };
+}
+function idEntrega(v) {
+  if (v === null || v === undefined || v === '') return null;
+  return inteiro(Number(v), 'código de entrega cadastrado');
+}
+function resumirLocalEntrega(atual) {
+  const l = atual.local || {};
+  return { transportadora_id: idEntrega(l.transportadoraId), transportadora_nome: texto(l.transportadoraNome),
+    redespacho_transportadora_id: idEntrega(l.redespachoTransportadoraId),
+    redespacho_nome: texto(l.redespachoTransportadoraNome),
+    agencia_recebimento_codigo: idEntrega(l.agenciaRecebimentoCodigo),
+    agencia_nome: texto(l.agenciaRecebimentoNome), marcado_silencioso: atual.marcadoSilencioso === true,
+    atualizado_em: l.updatedAt ? new Date(l.updatedAt).toISOString() : null,
+    fase_atualizada_em: atual.faseAtualizadaEm ? new Date(atual.faseAtualizadaEm).toISOString() : null };
+}
+async function carregarEntrega(p, codigoInformado) {
+  const codigo = inteiro(Number(p.carradaAtual?.codigo), 'carrada do pedido');
+  if (codigoInformado !== undefined && inteiro(codigoInformado, 'carrada_codigo') !== codigo) falhar('A carrada informada não é a carrada atual do pedido.');
+  return progresso.buscarLocalEntregaPedido({ codigoCarrada: codigo, numeroPedido: p.numero, idMestre: p.idMestre });
+}
+async function consultarLocalEntrega(args = {}) {
+  const p = await carregarPedido(args.id_mestre);
+  const atual = await carregarEntrega(p, args.carrada_codigo);
+  return { pedido: resumoPedido(p), carrada: atual.carrada, local_entrega: resumirLocalEntrega(atual) };
+}
+const camposEntrega = ['transportadora_id', 'redespacho_transportadora_id', 'agencia_recebimento_codigo'];
+function idsEntrega(obj) { return Object.fromEntries(camposEntrega.map(k => [k, obj[k] ?? null])); }
+async function resolverDestinosEntrega(ids) {
+  const transportadoras = require('../logistica/transportadoraService');
+  const agencias = require('../logistica/agenciaRecebimentoService');
+  const rows = await transportadoras.listarTransportadoras();
+  const t = rows.find(r => Number(r.id) === ids.transportadora_id);
+  const r = ids.redespacho_transportadora_id === null ? null : rows.find(x => Number(x.id) === ids.redespacho_transportadora_id);
+  const a = ids.agencia_recebimento_codigo === null ? null : await agencias.buscarAgenciaPorCodigo(ids.agencia_recebimento_codigo);
+  if (!t || (ids.redespacho_transportadora_id !== null && !r) || (ids.agencia_recebimento_codigo !== null && !a)) falhar('Excursão, redespacho ou agência não encontrado no cadastro.');
+  const proposto = { ...ids, transportadora_nome: texto(t.nome), redespacho_nome: texto(r?.nome),
+    agencia_nome: texto(a?.nome), agencia_cidade: texto(a?.cidade_nome), agencia_uf: texto(a?.cidade_estado) };
+  const assinaturaDestinos = crypto.createHash('sha256').update(JSON.stringify({
+    proposto, telefone_transportadora: texto(t.telefone_principal), telefone_redespacho: texto(r?.telefone_principal),
+    telefone_agencia: texto(a?.telefone)
+  })).digest('hex');
+  return { proposto, assinaturaDestinos };
+}
+async function prepararLocalEntrega(args = {}) {
+  if (!camposEntrega.some(k => Object.prototype.hasOwnProperty.call(args, k))) falhar('Informe ao menos um vínculo para alterar.');
+  const p = await carregarPedido(args.id_mestre);
+  const atual = await carregarEntrega(p, args.carrada_codigo);
+  const antes = resumirLocalEntrega(atual);
+  const ids = idsEntrega(antes);
+  for (const k of camposEntrega) {
+    if (Object.prototype.hasOwnProperty.call(args, k)) ids[k] = args[k] === null ? null : inteiro(args[k], k);
+  }
+  if (!ids.transportadora_id) falhar('A coluna Entrega exige uma transportadora/excursão principal cadastrada.');
+  if (antes.agencia_nome && antes.agencia_recebimento_codigo === null && !Object.prototype.hasOwnProperty.call(args, 'agencia_recebimento_codigo')) falhar('A agência anterior não possui código; informe a agência cadastrada para preservá-la.');
+  if (JSON.stringify(ids) === JSON.stringify(idsEntrega(antes))) falhar('Os vínculos já estão registrados. Nenhuma nova gravação ou aviso foi preparado.');
+  const { proposto, assinaturaDestinos } = await resolverDestinosEntrega(ids);
+  return { payload: { id_mestre: p.idMestre, assinatura: assinatura(p), carrada_codigo: atual.carrada.codigo,
+    antes, ids, assinaturaDestinos },
+    resumo: { acao: 'local_entrega_pedido', pedido: resumoPedido(p), carrada: atual.carrada,
+      local_entrega_atual: antes, local_entrega_proposto: proposto,
+      aviso_whatsapp: 'A confirmação usa a ação da coluna Entrega e pode enviar texto e áudio configurados ao cliente. Não envia avisos automáticos aos destinos nem altera volumes.',
+      envio_em_lote: false } };
+}
+async function executarLocalEntrega(payload, { registrarProgresso }) {
+  const p = await revalidar(payload);
+  const atual = await carregarEntrega(p, payload.carrada_codigo);
+  if (JSON.stringify(resumirLocalEntrega(atual)) !== JSON.stringify(payload.antes)) falhar('O local de entrega mudou após a prévia. Prepare novamente.');
+  const destinos = await resolverDestinosEntrega(payload.ids);
+  if (destinos.assinaturaDestinos !== payload.assinaturaDestinos) falhar('O cadastro dos destinos mudou após a prévia.');
+  await registrarProgresso({ etapa: 'salvar_local_entrega', estado: 'iniciando' });
+  const r = await controleWhatsapp.comFuncionalidade('progresso_local_entrega', () => progresso.salvarLocalEntrega({
+    codigoCarrada: payload.carrada_codigo, numeroPedido: p.numero,
+    transportadoraId: payload.ids.transportadora_id, redespachoTransportadoraId: payload.ids.redespacho_transportadora_id,
+    agenciaRecebimentoCodigo: payload.ids.agencia_recebimento_codigo
+  }));
+  if (!r?.concluido || texto(r.numeroPedido) !== texto(p.numero) ||
+      idEntrega(r.transportadoraId) !== payload.ids.transportadora_id ||
+      idEntrega(r.redespachoTransportadoraId) !== payload.ids.redespacho_transportadora_id ||
+      idEntrega(r.agenciaRecebimentoCodigo) !== payload.ids.agencia_recebimento_codigo) throw new Error('Vínculos sem confirmação de gravação.');
+  const notificacao = avisoSeguro(r.notificacao), audio = avisoSeguro(r.audio);
+  const parcial = [notificacao, audio].some(a => a && !a.success);
+  await registrarProgresso({ etapa: 'salvar_local_entrega', estado: 'confirmado', notificacao, audio });
+  return { status: parcial ? 'parcial' : 'entrega_associada', local_entrega_gravado: true,
+    id_mestre: p.idMestre, numero: texto(p.numero), carrada_codigo: payload.carrada_codigo,
+    local_entrega: destinos.proposto, notificacao, audio, volumes_alterados: false,
+    entrega_whatsapp_confirmada: false,
+    observacao: parcial ? 'Vínculos gravados; aviso não confirmado. Não repetir a gravação.' : 'Vínculos gravados pela rotina original.' };
+}
+
+module.exports = { buscarAgenciasRecebimento, consultarLocalEntrega, prepararLocalEntrega, executarLocalEntrega, prepararAlteracao, executarAlteracao, prepararCancelamento, executarCancelamento,
   prepararExpedicao, executarExpedicao };

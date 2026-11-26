@@ -22,7 +22,7 @@ function ambiente({ authEnabled = true, authError = null, listarClientesMock = a
   const logs = [];
   const registrar = name => async (...args) => { chamadas.push({ name, args }); return { status: 'simulado', pedidos: [], payload: {}, resumo: {} }; };
   const gestao = Object.fromEntries(['prepararAlteracao', 'executarAlteracao', 'prepararCancelamento',
-    'executarCancelamento', 'prepararExpedicao', 'executarExpedicao'].map(n => [n, registrar(n)]));
+    'executarCancelamento', 'prepararExpedicao', 'executarExpedicao', 'buscarAgenciasRecebimento', 'consultarLocalEntrega', 'prepararLocalEntrega', 'executarLocalEntrega'].map(n => [n, registrar(n)]));
   const acoes = carregar('src/routes/integracao/mcpAcoesPedidosTools.js', {
     '../../services/integracao/mcpAcoesConfirmadas.service': {
       prepararAcao: registrar('prepararAcao'), confirmarAcao: registrar('confirmarAcao'), consultarAcao: registrar('consultarAcao') },
@@ -487,4 +487,21 @@ test('prestação exige escopos financeiros e autorização de WhatsApp distinto
     assert.equal(r.body.result.isError,false,name);
     assert.equal(a.chamadas[0].name,esperado);
   }
+});
+
+test('coluna Entrega: consulta, prévia com permissões e confirmação separada', async () => {
+  const a = ambiente();
+  const escopos = 'clientes:read pedidos:manage whatsapp:send';
+  const args = { id_mestre: 21, redespacho_transportadora_id: 7, agencia_recebimento_codigo: 9 };
+  const ler = await a.requisitar('consultar_local_entrega_pedido', { id_mestre: 21 });
+  assert.equal(ler.body.result.isError, false);
+  const negado = await a.requisitar('preparar_local_entrega_pedido', args, 'clientes:read pedidos:manage');
+  assert.equal(negado.body.result.isError, true);
+  const previa = await a.requisitar('preparar_local_entrega_pedido', args, escopos);
+  assert.equal(previa.body.result.isError, false);
+  assert.ok(a.chamadas.some(c => c.name === 'prepararLocalEntrega'));
+  assert.ok(!a.chamadas.some(c => c.name === 'confirmarAcao'));
+  const conf = await a.requisitar('confirmar_local_entrega_pedido', confirmacao, escopos);
+  assert.equal(conf.body.result.isError, false);
+  assert.ok(a.chamadas.some(c => c.name === 'confirmarAcao' && c.args[2] === 'local_entrega_pedido'));
 });
