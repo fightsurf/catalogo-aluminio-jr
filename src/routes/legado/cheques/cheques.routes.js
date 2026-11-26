@@ -49,19 +49,27 @@ router.get('/encaminhamentos', requireAuth, async (req, res) => {
     return res.status(400).json({ success: false, message: 'Cursor de encaminhamento inválido.' });
   }
   try {
-    const where = cursor === null ? '' : 'WHERE gce.codigo < ' + cursor;
+    // Limitar os cabeçalhos ANTES das junções evita agrupar todo o histórico
+    // de cheques para devolver apenas 50 encaminhamentos à página.
+    const where = cursor === null ? '' : 'WHERE codigo < ' + cursor;
+    const startedAt = Date.now();
     const rows = await select(`
-      SELECT FIRST ${PAGE_SIZE + 1} gce.codigo AS codigo, f.nome AS fornecedor,
+      SELECT gce.codigo AS codigo, f.nome AS fornecedor,
         gce.descricao AS descricao, gce.data AS data_encaminhamento,
         COUNT(gvp.codigo) AS quantidade, COALESCE(SUM(gvp.valor), 0) AS valor_total
-      FROM george_cheques_encaminha gce
+      FROM (
+        SELECT FIRST ${PAGE_SIZE + 1} codigo, favorecido, descricao, data
+        FROM george_cheques_encaminha
+        ${where}
+        ORDER BY codigo DESC
+      ) gce
       LEFT JOIN george_cheques_escolha gces ON gce.codigo = gces.cheque_encaminha_cod
       LEFT JOIN george_vendas_pgto gvp ON gces.carrada_pedidos_pgto_cod = gvp.codigo
       LEFT JOIN favorecidos f ON gce.favorecido = f.favorecido
-      ${where}
       GROUP BY gce.codigo, f.nome, gce.descricao, gce.data
       ORDER BY gce.codigo DESC
     `);
+    console.info('[cheques] Encaminhamentos: SQL do Firebird respondeu em ' + (Date.now() - startedAt) + ' ms; grupos=' + rows.length);
     const dados = rows.slice(0, PAGE_SIZE).map(r => ({
       id: String(numeric(r.codigo, 'codigo')),
       date: r.dataencaminhamento ?? '',
