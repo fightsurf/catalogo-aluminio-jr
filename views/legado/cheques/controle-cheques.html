@@ -29,16 +29,16 @@
 <dialog id="detail-dialog" class="dialog" aria-labelledby="detail-title"><div class="dialoghead"><div><div class="eyebrow">Detalhes do cheque</div><h2 id="detail-title">Cheque</h2></div><button class="btn sm" data-close="detail-dialog" type="button">Fechar ✕</button></div><div id="detail-content" class="dialogbody"></div><div class="dialogfooter"><button class="btn" data-close="detail-dialog" type="button">Voltar</button><a id="detail-legacy-link" class="btn primary" target="_blank" rel="noopener noreferrer" href="http://192.168.100.125:8080/AluminioWeb/financeiro/compras/cheques/index.jsp">Abrir no sistema Java</a></div></dialog>
 <dialog id="forward-dialog" class="dialog" aria-labelledby="forward-title"><div class="dialoghead"><div><div class="eyebrow">Encaminhamento</div><h2 id="forward-title">Cheques encaminhados</h2></div><button class="btn sm" data-close="forward-dialog" type="button">Fechar ✕</button></div><div id="forward-detail" class="dialogbody"></div><div class="dialogfooter"><button class="btn" data-close="forward-dialog" type="button">Fechar</button><a id="forward-legacy-link" class="btn primary" target="_blank" rel="noopener noreferrer" href="http://192.168.100.125:8080/AluminioWeb/financeiro/compras/cheques/ChequesEncaminha.jsp">Abrir no sistema Java</a></div></dialog>
 <dialog id="draft-dialog" class="dialog" aria-label="Preparar encaminhamento"><div class="dialoghead" style="justify-content:flex-end"><button class="btn sm" data-close="draft-dialog" type="button">Fechar ✕</button></div><div class="dialogbody">
-  <div class="draftgrid"><div class="field"><label for="draft-date">Data</label><input id="draft-date" type="date"></div><div class="field" style="grid-column:span 2"><label for="draft-supplier">Fornecedor</label><input id="draft-supplier" list="known-suppliers" placeholder="Informe o fornecedor"><datalist id="known-suppliers"></datalist></div><div class="field wide"><label for="draft-description">Observação</label><textarea id="draft-description" maxlength="100" placeholder="Descrição do encaminhamento (até 100 caracteres)"></textarea></div></div>
+  <div class="draftgrid"><div class="field"><label for="draft-date">Data</label><input id="draft-date" type="date"></div><div class="field" style="grid-column:span 2"><label for="draft-supplier">Fornecedor</label><select id="draft-supplier" disabled><option value="">Carregando fornecedores…</option></select></div><div class="field wide"><label for="draft-description">Observação</label><textarea id="draft-description" maxlength="100" placeholder="Descrição do encaminhamento (até 100 caracteres)"></textarea></div></div>
   <div class="draft-summary"><div class="panelhead" style="margin-bottom:5px"><strong>Cheques selecionados</strong><strong id="draft-sum">R$ 0,00</strong></div><div class="small muted" id="draft-count">Nenhum cheque selecionado</div><div id="draft-selected" class="chips" style="margin-top:10px"></div></div>
-  <div id="draft-load-status" class="notice hide" role="status"></div>
+  <div id="draft-load-status" class="notice hide" role="status"></div><div id="draft-supplier-status" class="notice hide" role="status"></div><div id="draft-save-status" class="notice hide" role="status"></div>
   <div class="panelhead"><div><strong>Cheques disponíveis (situação N)</strong><p class="muted">Consultados separadamente ao abrir esta janela</p></div><div class="field"><label for="draft-search">Filtrar disponíveis</label><input id="draft-search" type="search" placeholder="Nome, cheque ou pedido"></div></div><div id="draft-choices" class="draft-choices"></div>
-</div><div class="dialogfooter"><button class="btn primary" type="button" disabled title="A gravação será implementada após a migração">Salvar encaminhamento (em breve)</button></div></dialog>
+</div><div class="dialogfooter"><button id="draft-save" class="btn primary" type="button" disabled>Salvar encaminhamento</button></div></dialog>
 <script>
 'use strict';
 (() => {
   const $ = id => document.getElementById(id);
-  const state = { rows: [], available: [], loaded: false, busy: false, failed: false, draftBusy: false, draftLoaded: false, draft: new Set(), groups: [], nextCursor: null, detail: null };
+  const state = { rows: [], available: [], loaded: false, busy: false, failed: false, draftBusy: false, draftLoaded: false, draft: new Set(), suppliersReady: false, suppliersBusy: false, saving: false, saveUncertain: false, groups: [], nextCursor: null, detail: null };
   const formatMoney = new Intl.NumberFormat('pt-BR', { style:'currency', currency:'BRL' });
   const formatNum = new Intl.NumberFormat('pt-BR');
   const money = n => formatMoney.format(Number(n)||0);
@@ -65,7 +65,7 @@
     $('forward-body').innerHTML=groups.length?groups.map(g=>`<tr><td class="strong">#${safe(g.id)}</td><td>${dateBR(g.date)}</td><td>${safe(g.supplier||'—')}</td><td>${safe(g.description||'—')}</td><td class="num">${formatNum.format(g.count)}</td><td class="num strong">${money(g.total)}</td><td><button class="mini" type="button" data-forward="${safe(g.id)}">Detalhes</button></td></tr>`).join(''):`<tr><td colspan="7" class="empty"><strong>${state.busy?'Carregando encaminhamentos…':state.failed?'Não foi possível carregar os encaminhamentos':'Nenhum encaminhamento encontrado'}</strong>${state.failed?'Use Atualizar dados para tentar novamente.':''}</td></tr>`;
     $('forward-count').innerHTML=state.loaded?`<span>${formatNum.format(groups.length)} encaminhamento(s) carregados${state.nextCursor?' · há mais registros':''}.</span>${state.nextCursor?`<button class="btn sm" type="button" data-more-forward ${state.busy?'disabled':''}>${state.busy?'Carregando…':'Carregar mais'}</button>`:''}`:'';
   }
-  function render(){renderForward();const suppliers=[...new Set(state.groups.map(g=>String(g.supplier||'').trim()).filter(Boolean))];$('known-suppliers').innerHTML=suppliers.map(x=>`<option value="${safe(x)}"></option>`).join('');renderDraft();}
+  function render(){renderForward();renderDraft();}
   function detail(r){const fields=[['Código de pagamento',r.codigo],['Número do cheque',r.numeroCheque],['Valor',money(r.valor)],['Titular',r.titularCheque],['Cliente',r.cliente],['Vendedor',r.vendedor],['Pedido',r.numeroPedido],['Código da venda',r.codVenda],['Vencimento',dateBR(r.dataVencimento)],['Situação',`${r.pago||'?'} — ${statusLabel(r.pago)}`],['Data de pagamento',dateBR(r.dataPgto)],['Fornecedor',r.fornecedorEncaminhamento],['Encaminhamento',groupKey(r)||'—'],['Data encaminhamento',dateBR(r.chequeEncaminhadoData)],['Descrição',r.chequeEncaminhadoDescricao]];
     $('detail-title').textContent=`Cheque ${r.numeroCheque||r.codigo||'sem número'}`;$('detail-content').innerHTML=`<div class="detailgrid">${fields.map(([a,b])=>`<div class="detailbox"><span class="label">${safe(a)}</span><span class="datum">${safe(b??'—')}</span></div>`).join('')}</div><div class="notice warn" style="margin-top:15px">Histórico de observações, devoluções e edição serão integrados em outra etapa. Nenhuma alteração é feita nesta tela.</div>`;
     $('detail-legacy-link').href=`http://192.168.100.125:8080/AluminioWeb/financeiro/compras/cheques/ChequeObsAdiciona.jsp?pagina=devolvidos&codigoVendaPgto=${encodeURIComponent(r.codigo)}`;$('detail-dialog').showModal();}
@@ -91,11 +91,20 @@
     $('forward-legacy-link').href='http://192.168.100.125:8080/AluminioWeb/financeiro/compras/cheques/ChequesEscolha.jsp?vi=1&chequeEncaminhaCodigo='+encodeURIComponent(g.id);
     $('forward-dialog').showModal();loadForwardDetail(d);
   }
-  function draftRows(){return state.available.filter(r=>r.pago==='N'&&!groupKey(r)&&r.codigo!=null);}
+  function draftRows(){const seen=new Set();return state.available.filter(r=>{const key=rowId(r);if(r.pago!=='N'||groupKey(r)||r.codigo==null||seen.has(key))return false;seen.add(key);return true;});}
+  function syncDraftControls(){
+    const saving=state.saving;
+    $('draft-date').disabled=saving;$('draft-description').disabled=saving;$('draft-search').disabled=saving;
+    $('draft-supplier').disabled=saving||!state.suppliersReady;
+    document.querySelectorAll('#draft-dialog [data-choose],#draft-dialog [data-unselect],#draft-dialog [data-close]').forEach(el=>el.disabled=saving);
+    $('draft-save').disabled=saving||state.saveUncertain||!state.draftLoaded||state.draftBusy||!state.suppliersReady||!$('draft-date').value||!$('draft-supplier').value||state.draft.size<1||state.draft.size>200;
+    $('draft-save').textContent=saving?'Salvando…':'Salvar encaminhamento';
+  }
   function renderDraft(){const selected=draftRows().filter(r=>state.draft.has(rowId(r))),sumVal=sum(selected);$('draft-sum').textContent=money(sumVal);$('draft-count').textContent=`${selected.length} cheque(s) selecionado(s)`;$('draft-selected').innerHTML=selected.map(r=>`<button type="button" class="chip" data-unselect="${safe(rowId(r))}" title="Retirar da seleção">#${safe(r.numeroCheque||r.codigo)} <strong>${money(r.valor)}</strong> ×</button>`).join('');
     const query=norm($('draft-search').value);const all=draftRows().filter(r=>!query||norm([r.numeroCheque,r.titularCheque,r.cliente,r.numeroPedido].join(' ')).includes(query));const visible=all.slice(0,100);
     $('draft-choices').innerHTML=visible.length?visible.map(r=>`<label class="choice"><input type="checkbox" data-choose="${safe(rowId(r))}" ${state.draft.has(rowId(r))?'checked':''}><span><strong>${safe(r.titularCheque||r.cliente||'Cheque')}</strong><span class="minor" style="display:block">Nº ${safe(r.numeroCheque||'—')} · Pedido ${safe(r.numeroPedido||'—')}</span></span><span class="owner small muted">${safe(r.cliente||'—')}</span><strong class="num">${money(r.valor)}</strong></label>`).join(''):`<div class="empty">${state.draftBusy?'Carregando cheques disponíveis…':!state.draftLoaded?'Cheques disponíveis ainda não carregados.':'Nenhum cheque disponível encontrado nos registros carregados.'}</div>`;
     if(all.length>100)$('draft-choices').insertAdjacentHTML('beforeend',`<div class="empty small">Mostrando os primeiros 100 de ${formatNum.format(all.length)}. Use a pesquisa para localizar outros.</div>`);
+    syncDraftControls();
   }
   async function requestChecks(status){
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),120000);
@@ -135,16 +144,60 @@
     finally{state.busy=false;$('refresh').disabled=false;renderForward();}
   }
   function draftStatus(message,kind=''){const el=$('draft-load-status');el.textContent=message;el.className=message?'notice '+kind:'notice hide';}
+  function draftNotice(id,message,kind=''){const el=$(id);el.textContent=message;el.className=message?'notice '+kind:'notice hide';}
+  async function loadSuppliers(){
+    if(state.suppliersBusy)return;
+    state.suppliersBusy=true;state.suppliersReady=false;
+    $('draft-supplier').innerHTML='<option value="">Carregando fornecedores…</option>';
+    draftNotice('draft-supplier-status','');syncDraftControls();
+    try{
+      const resp=await fetch('/api/legado/cheques/encaminhamentos/fornecedores',{credentials:'same-origin',headers:{Accept:'application/json'},cache:'no-store'});
+      const data=await resp.json().catch(()=>({}));
+      if(!resp.ok||data.success!==true||!Array.isArray(data.dados))throw new Error(data.message||data.erro||'Não foi possível consultar os fornecedores.');
+      const suppliers=data.dados;
+      $('draft-supplier').innerHTML='<option value="">Selecione o fornecedor</option>'+suppliers.map(f=>'<option value="'+safe(f.id)+'">'+safe(f.nome)+' (#'+safe(f.id)+')</option>').join('');
+      state.suppliersReady=suppliers.length>0;
+      if(!state.suppliersReady)draftNotice('draft-supplier-status','Nenhum fornecedor ativo encontrado.','warn');
+    }catch(err){
+      $('draft-supplier').innerHTML='<option value="">Fornecedores indisponíveis</option>';
+      draftNotice('draft-supplier-status',err.message,'error');
+    }finally{state.suppliersBusy=false;syncDraftControls();}
+  }
+  async function saveDraft(){
+    if($('draft-save').disabled||state.saving)return;
+    const cheques=draftRows().filter(r=>state.draft.has(rowId(r))).map(r=>rowId(r));
+    if(cheques.length!==state.draft.size||cheques.length<1||cheques.length>200)return;
+    const payload={data:$('draft-date').value,fornecedorId:$('draft-supplier').value,observacao:$('draft-description').value,cheques};
+    state.saving=true;draftNotice('draft-save-status','Gravando o encaminhamento no Firebird…');syncDraftControls();
+    let confirmed=null;
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),120000);
+    try{
+      const resp=await fetch('/api/legado/cheques/encaminhamentos',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json',Accept:'application/json'},body:JSON.stringify(payload),signal:controller.signal});
+      const data=await resp.json().catch(()=>({}));
+      if(!resp.ok||data.success!==true||!data.dados?.codigo||Number(data.dados.quantidade)!==cheques.length)throw new Error(data.message||data.erro||'Não foi possível confirmar a gravação.');
+      confirmed=data.dados;
+    }catch(err){
+      state.saveUncertain=true;
+      draftNotice('draft-save-status',(err.name==='AbortError'?'A gravação excedeu o tempo de resposta.':err.message)+' Confira os encaminhamentos antes de tentar novamente. Feche e abra esta janela para atualizar os cheques.','error');
+    }finally{clearTimeout(timer);state.saving=false;syncDraftControls();}
+    if(!confirmed)return;
+    $('draft-description').value='';state.draft.clear();$('draft-dialog').close();
+    await load();
+    banner('Encaminhamento #'+confirmed.codigo+' salvo: '+confirmed.quantidade+' cheque(s), '+money(confirmed.valorTotal)+(state.failed?'. A lista não foi atualizada; consulte novamente.':'.'),state.failed?'warn':'');
+  }
   async function loadAvailable(){
     if(state.draftBusy)return;state.draftBusy=true;state.draftLoaded=false;state.available=[];state.draft.clear();draftStatus('Consultando cheques disponíveis...');renderDraft();
     try{const data=await requestChecks('N');state.available=data.rows;state.draftLoaded=true;draftStatus(data.total!==data.rows.length?'A consulta retornou apenas parte dos cheques disponíveis.':'','warn');}
     catch(err){draftStatus(errorMessage(err)+' Feche e abra a janela para tentar novamente.','error');}
     finally{state.draftBusy=false;renderDraft();}
   }
-  document.addEventListener('click',e=>{if(e.target.closest('[data-more-forward]')){load(true);return;}if(e.target.closest('[data-more-details]')){if(state.detail)loadForwardDetail(state.detail);return;}const detailBtn=e.target.closest('[data-detail]');if(detailBtn){const r=state.rows.find(x=>rowId(x)===detailBtn.dataset.detail);if(r)detail(r);return;}const forward=e.target.closest('[data-forward]');if(forward){const g=state.groups.find(x=>x.id===forward.dataset.forward);if(g)forwardDetail(g);return;}const close=e.target.closest('[data-close]');if(close){$(close.dataset.close)?.close();return;}const unselect=e.target.closest('[data-unselect]');if(unselect){state.draft.delete(unselect.dataset.unselect);renderDraft();}});
+  document.addEventListener('click',e=>{if(e.target.closest('[data-more-forward]')){load(true);return;}if(e.target.closest('[data-more-details]')){if(state.detail)loadForwardDetail(state.detail);return;}const detailBtn=e.target.closest('[data-detail]');if(detailBtn){const r=state.rows.find(x=>rowId(x)===detailBtn.dataset.detail);if(r)detail(r);return;}const forward=e.target.closest('[data-forward]');if(forward){const g=state.groups.find(x=>x.id===forward.dataset.forward);if(g)forwardDetail(g);return;}const close=e.target.closest('[data-close]');if(close){if(close.dataset.close==='draft-dialog'&&state.saving)return;$(close.dataset.close)?.close();return;}const unselect=e.target.closest('[data-unselect]');if(unselect){state.draft.delete(unselect.dataset.unselect);renderDraft();}});
   $('refresh').addEventListener('click',()=>load());
-  $('open-draft').addEventListener('click',()=>{if(!$('draft-date').value)$('draft-date').value=today();renderDraft();$('draft-dialog').showModal();loadAvailable();});
-  $('draft-search').addEventListener('input',renderDraft);$('draft-choices').addEventListener('change',e=>{const inp=e.target.closest('[data-choose]');if(!inp)return;inp.checked?state.draft.add(inp.dataset.choose):state.draft.delete(inp.dataset.choose);renderDraft();});
+  $('open-draft').addEventListener('click',()=>{if(state.saving)return;if(!$('draft-date').value)$('draft-date').value=today();state.saveUncertain=false;draftNotice('draft-save-status','');$('draft-dialog').showModal();loadAvailable();loadSuppliers();});
+  $('draft-dialog').addEventListener('cancel',e=>{if(state.saving)e.preventDefault();});
+  $('draft-save').addEventListener('click',saveDraft);
+  $('draft-date').addEventListener('change',syncDraftControls);$('draft-supplier').addEventListener('change',syncDraftControls);
+  $('draft-search').addEventListener('input',renderDraft);$('draft-choices').addEventListener('change',e=>{const inp=e.target.closest('[data-choose]');if(!inp||state.saving)return;if(inp.checked&&state.draft.size>=200){inp.checked=false;draftNotice('draft-save-status','Selecione no máximo 200 cheques por encaminhamento.','warn');return;}inp.checked?state.draft.add(inp.dataset.choose):state.draft.delete(inp.dataset.choose);renderDraft();});
   load();
 })();
 </script>
