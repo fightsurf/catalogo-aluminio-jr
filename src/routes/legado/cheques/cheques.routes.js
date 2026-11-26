@@ -4,7 +4,7 @@ const sqlTerminal = require('../../../services/admin/sql-terminal.service');
 const { requireAuth } = require('../../../middlewares/adminAuth.middleware');
 
 const router = express.Router();
-const PAGE_SIZE = 200;
+const PAGE_SIZE = 50;
 const DETAIL_SIZE = 200;
 const MAX_CODE = 2147483647;
 
