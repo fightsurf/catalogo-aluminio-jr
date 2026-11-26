@@ -487,23 +487,31 @@ class PrestacaoContasService {
 
   // ─── PAGAMENTOS ───────────────────────────────────────────────
 
-  async criarPagamento(prestacao_id, data) {
+  async criarPagamento(prestacao_id, data, { validarPrestacao } = {}) {
     await this._ensureSchema();
-    await this._assertAberta(prestacao_id);
-
     const { data: dataPag, valor, observacao } = data;
     const valorNumber = this._validarNumeroPositivo(valor, 'valor');
-
-    const result = await pool.query(`
-      INSERT INTO prestacao_pagamentos (prestacao_id, data_pagamento, valor, observacao)
-      VALUES ($1, $2, $3, $4)
-      RETURNING *
-    `, [prestacao_id, this._parseDate(dataPag), valorNumber, observacao || null]);
-
-    const pagamento = result.rows[0];
-    await this._recalcular(prestacao_id);
-    await this._registrarLog(prestacao_id, 'CRIAR_PAGAMENTO', `Pagamento registrado: R$ ${valorNumber.toFixed(2)}`);
-    return pagamento;
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const prestacao = await this._assertAberta(prestacao_id, client);
+      if (validarPrestacao) await validarPrestacao(prestacao);
+      const result = await client.query(`
+        INSERT INTO prestacao_pagamentos (prestacao_id, data_pagamento, valor, observacao)
+        VALUES ($1, $2, $3, $4)
+        RETURNING *
+      `, [prestacao_id, this._parseDate(dataPag), valorNumber, observacao || null]);
+      const pagamento = result.rows[0];
+      await this._recalcular(prestacao_id, client);
+      await this._registrarLog(prestacao_id, 'CRIAR_PAGAMENTO', `Pagamento registrado: R$ ${valorNumber.toFixed(2)}`, client);
+      await client.query('COMMIT');
+      return pagamento;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   async atualizarPagamento(prestacao_id, pagamentoId, data) {
@@ -1291,9 +1299,8 @@ class PrestacaoContasService {
     }
   }
 
-  async enviarResumoWhatsapp(prestacao_id) {
+  async prepararResumoWhatsapp(prestacao_id) {
     await this._ensureSchema();
-    await this._recalcular(prestacao_id);
 
     const cabecalhoRes = await pool.query(`
       SELECT
@@ -1333,23 +1340,34 @@ class PrestacaoContasService {
     `, [prestacao_id]);
 
     const pagamentos = pagamentosRes.rows.reverse();
+    Object.assign(cabecalho, await this._calcularTotais(prestacao_id));
     const mensagem = this._montarMensagemResumoWhatsapp(cabecalho, pagamentos);
+    return { fornecedor_id: cabecalho.fornecedor_id, fornecedor: cabecalho.fornecedor_nome,
+      telefone: String(cabecalho.fornecedor_telefone), quantidade_pagamentos: pagamentos.length, mensagem };
+  }
+
+  async enviarResumoWhatsapp(prestacao_id, { validarResumo } = {}) {
+    await this._ensureSchema();
+    await this._recalcular(prestacao_id);
+    const previa = await this.prepararResumoWhatsapp(prestacao_id);
+    if (validarResumo) await validarResumo(previa);
     const envio = await envioWhatsappService.enviarMensagem({
-      telefone: cabecalho.fornecedor_telefone,
-      mensagem
+      telefone: previa.telefone,
+      mensagem: previa.mensagem
     });
+    if (!envio || envio.success !== true) throw new Error('Provedor não confirmou o aceite.');
 
     await this._registrarLog(
       prestacao_id,
       'ENVIAR_WHATSAPP_RESUMO',
-      `Resumo enviado ao fornecedor com ${pagamentos.length} pagamento(s).`
+      `Resumo enviado ao fornecedor com ${previa.quantidade_pagamentos} pagamento(s).`
     );
 
     return {
-      fornecedor: cabecalho.fornecedor_nome,
+      fornecedor: previa.fornecedor,
       telefone: envio.telefone,
-      quantidade_pagamentos: pagamentos.length,
-      mensagem
+      quantidade_pagamentos: previa.quantidade_pagamentos,
+      mensagem: previa.mensagem
     };
   }
 
@@ -1595,7 +1613,7 @@ class PrestacaoContasService {
     `, [prestacao_id]);
   }
 
-  async _recalcular(prestacao_id, client = pool) {
+  async _calcularTotais(prestacao_id, client = pool) {
     const itensRes = await client.query(`
       SELECT COALESCE(SUM(total_item), 0) AS total_material
       FROM prestacao_itens
@@ -1611,7 +1629,11 @@ class PrestacaoContasService {
     const total_pago = parseFloat(pagRes.rows[0].total_pago);
 
     const saldo_restante = total_material - total_pago;
+    return { total_material, total_pago, saldo_restante };
+  }
 
+  async _recalcular(prestacao_id, client = pool) {
+    const { total_material, total_pago, saldo_restante } = await this._calcularTotais(prestacao_id, client);
     await client.query(`
       UPDATE prestacoes
       SET total_material = $1, total_pago = $2, saldo_restante = $3
