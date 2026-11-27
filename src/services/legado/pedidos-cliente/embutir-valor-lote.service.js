@@ -70,7 +70,7 @@ function cotas(quantidades, valorCentavos, acrescimoCentavos) {
   const maximos = quantidades.map(q => acrescimoCentavos*q);
   let falta = Math.max(0, valorCentavos - minimos.reduce((s,v) => s+v,0));
   const capacidade = quantidades.reduce((s,q,i) => s+maximos[i]-minimos[i],0);
-  const resultado = minimos.map((v,i) => v + (capacidade ? Math.floor(falta*(maximos[i]-v)/capacidade) : 0));
+  const resultado = minimos.map((v,i) => v + (capacidade ? Number(BigInt(falta)*BigInt(maximos[i]-v)/BigInt(capacidade)) : 0));
   let resto = falta - resultado.reduce((s,v,i) => s+v-minimos[i],0);
   for (let i=0; i<resultado.length && resto>0; i++) {
     const n = Math.min(resto, maximos[i]-resultado[i]);
@@ -136,7 +136,7 @@ async function aplicar(cliente, corpo = {}) {
         r.estado='nao_gravado'; r.mensagem=erro.message; break;
       }
       try {
-        const resposta = await pedidos.atualizarPedido(p.original.id,p.payload);
+        const resposta = await pedidos.atualizarPedido(p.original.id,p.payload,{itensEsperados:p.original.itens});
         if (!resposta || resposta.salvamentoIncerto || resposta.avisoValorEmbutido ||
             Number(resposta.idMestre ?? resposta.saida) !== p.original.id ||
             !resposta.valorEmbutido || centavos(resposta.total) !== centavos(p.resumo.totalNovo)) {
