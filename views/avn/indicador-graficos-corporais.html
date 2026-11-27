@@ -70,6 +70,18 @@
 .macro-tab-panel .painel-titulo h3{margin:0;font-size:1rem}
 .macro-tab-panel .painel-titulo small{font-weight:400;color:#a9b9d1}
 @media(max-width:650px){.macro-tablist{gap:2px}.macro-tab{font-size:.82rem;padding:9px 8px}}
+/* Extremos do período: uma linha compacta por indicador, também no comparador. */
+.avn-resumo-periodo{display:grid;gap:10px;margin:12px 0 4px;min-width:0}
+.avn-resumo-periodo[hidden]{display:none!important}
+.avn-resumo-linha{min-width:0;border:1px solid #34465f;border-radius:9px;padding:10px 12px;background:#142033}
+.avn-resumo-nome{display:block;margin-bottom:8px;font-size:.85rem}
+.avn-resumo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.avn-resumo-item{display:flex;flex-direction:column;gap:4px;min-width:0;padding:2px 8px}
+.avn-resumo-item+ .avn-resumo-item{border-left:1px solid #34465f}
+.avn-resumo-item small{font-size:.73rem;color:#a9b9d1;line-height:1.3}
+.avn-resumo-item strong{font-size:1.02rem;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;color:#e7f0fd}
+.avn-resumo-item:last-child strong{color:#f8fafc}
+@media(max-width:650px){.avn-resumo-linha{padding:8px 5px}.avn-resumo-item{padding:2px 4px}.avn-resumo-grid{gap:3px}.avn-resumo-item strong{font-size:.93rem}.avn-resumo-item small{font-size:.68rem}}
 </style>
 </head>
 <body data-section="corporal">
@@ -237,7 +249,8 @@
 </section></div></dialog>
 
 </main>
-<script src="/js/avn-graficos-corporais.js?v=20261122-sono-tab1" defer></script>
-<script src="/js/avn-balanco-energetico.js?v=20261122-meta-calorica1" defer></script>
+<script src="/js/avn-resumo-periodo.js?v=20261127-1" defer></script>
+<script src="/js/avn-graficos-corporais.js?v=20261127-resumo1" defer></script>
+<script src="/js/avn-balanco-energetico.js?v=20261127-resumo1" defer></script>
 </body>
 </html>
