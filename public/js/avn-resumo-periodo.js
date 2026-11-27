@@ -28,7 +28,7 @@ function extremos(rows,inicio,fim){
   if(!anterior||t>=anterior.t)porDia.set(data,{value:Number(r.value),t,nota:r.nota||''});
  }
  const inicial=porDia.get(inicio)||null,final=porDia.get(fim)||null;
- return {inicial,final,variacao:inicial&&final?final.value-inicial.value:null};
+ return {inicial,final,variacao:inicial&&final?inicial.value-final.value:null};
 }
 function duracao(v){
  const total=Math.round(Math.abs(v)*60);
@@ -70,10 +70,12 @@ function desenhar(area,series,p){
    linha.append(titulo);
   }
   const grid=document.createElement('div');grid.className='avn-resumo-grid';
+  const arredondado=variacao===null?null:Math.round(Math.abs(variacao)*(serie.unidade==='h'?60:100));
+  const direcao=variacao===null?'Dados insuficientes':arredondado===0?'Sem variação':variacao>0?'Redução':'Aumento';
   const itens=[
    ['Início · '+dataBR(p.inicio),inicial?formatar(inicial.value,serie.unidade):'Sem registro',inicial?.nota],
    ['Fim · '+dataBR(p.fim),final?formatar(final.value,serie.unidade):'Sem registro',final?.nota],
-   ['Variação',variacao===null?'—':formatar(variacao,serie.unidade,true),variacao===null?'Dados insuficientes':null]
+   ['Variação',variacao===null?'—':formatar(variacao,serie.unidade,true),direcao]
   ];
   for(const [rotulo,valor,nota] of itens){
    const cel=document.createElement('div');cel.className='avn-resumo-item';
