@@ -9,8 +9,7 @@ const vinculos = require('./zapi-lid-vinculos.service');
 const comandos = require('./whatsapp-comandos-jr.service');
 const temporarias = require('./whatsapp-conversas-temporarias.service');
 const ordemEntradas = require('./bot-contatos-ultima-entrada.service');
-const fluxo = require('../bot/botFluxo.services');
-const googleContatos = require('../bot/google-contatos.service');
+const filaSaudacao = require('../bot/primeiro-contato-fila.service');
 const vistos = new Map();
 
 // A nova integração não cria tabelas de mensagens.
@@ -131,11 +130,7 @@ async function registrar(payload) {
     // Conciliar o LID antes de registrar o telefone permanente.
     dados.telefone = await vinculos.resolverRecebimento(payload);
     if (dados.direcao === 'ENTRADA') {
-      const result = await pool.query(`INSERT INTO bot_contatos
-        (telefone, criado_em, atualizado_em, fluxo_primeiro_contato_enviado)
-        VALUES ($1, NOW(), NOW(), true)
-        ON CONFLICT (telefone) DO NOTHING RETURNING id`, [dados.telefone]);
-      contatoNovo = result.rowCount > 0 && /^\d{10,15}$/.test(dados.telefone);
+      contatoNovo = await filaSaudacao.registrarContato(dados.telefone);
       // Não gravar ultima_mensagem nem conteúdo em bot_mensagens.
       await pool.query('UPDATE bot_contatos SET atualizado_em=NOW() WHERE telefone=$1', [dados.telefone]);
       // Atualizar a ordem dos contatos mesmo com o painel fechado; sem salvar texto.
@@ -143,13 +138,11 @@ async function registrar(payload) {
         console.error('[Webhook Z-API] Falha ao registrar ordem de entrada:', erro.message)
       );
     }
-    // Novo na tabela do bot nao significa novo no Google ou no cadastro da JR.
-    contatoNovo = contatoNovo && await googleContatos.autorizarPrimeiroContato(dados.telefone);
-    // Com bot OFF, ou fontes indisponiveis, nao enviar a saudacao.
-    if (contatoNovo) {
-      fluxo.executarPrimeiroContatoAutomatico(dados.telefone).catch(err =>
-        console.error('[Webhook Z-API] Falha ao saudar contato:', err.message));
-    }
+    // A fila conserva falhas de identificacao sem perder o primeiro contato.
+    contatoNovo = contatoNovo && await filaSaudacao.processarTelefone(dados.telefone).catch(err => {
+      console.error('[Webhook Z-API] Saudacao pendente:', err.message);
+      return false;
+    });
     temporarias.publicar(dados);
     // Só o número do piloto é transcrito, sem interferir nas automações do bot.
     // O piloto de áudio é processado diretamente na rota do webhook, isolado do bot.
