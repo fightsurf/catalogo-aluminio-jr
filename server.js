@@ -625,9 +625,12 @@ const avnMigration = require('./src/services/avn/avn-migration.service');
     await require('./src/services/compras/comprasSchema.service').criarEstrutura();
     // Limpeza única e transacional após instalar o recebimento sem persistência.
     await require('./src/services/whatsapp/whatsapp-limpeza-historico.service').executarUmaVez();
+    const filaSaudacao = require('./src/services/bot/primeiro-contato-fila.service');
+    await filaSaudacao.preparar();
     server.listen(PORT, () => {
       console.log('🟢 Catálogo Alumínio JR rodando na porta', PORT);
       promocaoPosVendaService.iniciarTrabalhador();
+      filaSaudacao.iniciar();
     });
   } catch (err) {
     console.error('[AVN] Falha na migração inicial; servidor não iniciado:', err);

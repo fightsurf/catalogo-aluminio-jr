@@ -309,21 +309,26 @@ async function existeNoLegado(telefone) {
 
 // Fail-closed: so saudar um numero realmente novo apos consultar o historico
 // importado no PostgreSQL e o cadastro legado; nunca exigir conexao OAuth ativa.
-async function autorizarPrimeiroContato(telefone) {
-  if (!(await botLigado())) return false;
+async function avaliarPrimeiroContato(telefone) {
   const tel = normalizarTelefone(telefone);
-  if (!tel) return false;
+  if (!tel) return { estado: 'bloqueado', motivo: 'telefone_invalido' };
   try {
+    if (!(await autonomia.getAutonomiaAtiva())) return { estado: 'pausado', motivo: 'bot_desligado' };
     await preparar();
     const historico = await pool.query('SELECT EXISTS (SELECT 1 FROM bot_google_contatos) AS disponivel');
-    if (historico.rows[0]?.disponivel !== true) return false;
-    if (await jaConhecidoGoogle(tel)) return false;
-    if (await existeNoLegado(tel)) return false;
-    return await botLigado();
+    if (historico.rows[0]?.disponivel !== true) return { estado: 'pendente', motivo: 'historico_indisponivel' };
+    if (await jaConhecidoGoogle(tel)) return { estado: 'bloqueado', motivo: 'google_conhecido' };
+    if (await existeNoLegado(tel)) return { estado: 'bloqueado', motivo: 'cliente_legado' };
+    if (!(await autonomia.getAutonomiaAtiva())) return { estado: 'pausado', motivo: 'bot_desligado' };
+    return { estado: 'autorizado', motivo: 'novo' };
   } catch (erro) {
     console.warn('[Google Contatos JR] Sem saudacao por falha de identificacao:', erro.message);
-    return false;
+    return { estado: 'pendente', motivo: 'falha_identificacao' };
   }
+}
+
+async function autorizarPrimeiroContato(telefone) {
+  return (await avaliarPrimeiroContato(telefone)).estado === 'autorizado';
 }
 
 function iniciarSincronizador() {
@@ -333,5 +338,5 @@ function iniciarSincronizador() {
 module.exports = {
   configurado, normalizarTelefone, preparar, exigirBot, urlAutorizacao,
   conectarCodigo, status, sincronizar, desconectar,
-  autorizarPrimeiroContato, iniciarSincronizador
+  autorizarPrimeiroContato, avaliarPrimeiroContato, iniciarSincronizador
 };
