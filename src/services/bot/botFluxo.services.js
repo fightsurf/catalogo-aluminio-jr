@@ -121,6 +121,7 @@ async function executarFluxo(telefone, intencao, { exigirAutonomiaAtiva = false 
     return { status: 'nenhuma_acao' };
   }
 
+  let falhas = 0;
   for (const acao of acoes) {
     // Revalidar também após delays: desligar o bot interrompe o fluxo automático.
     if (exigirAutonomiaAtiva && !(await botAutonomia.getAutonomiaAtiva())) {
@@ -145,10 +146,14 @@ async function executarFluxo(telefone, intencao, { exigirAutonomiaAtiva = false 
       await enviarAcaoZAPI(tel, acao);
       console.log(`[botFluxo] ação executada | id=${acao.id} tipo=${acao.tipo_acao} ordem=${acao.ordem}`);
     } catch (err) {
+      falhas++;
       console.error(`[botFluxo] falha ao executar ação id=${acao.id}: ${err.message}`);
     }
   }
 
+  if (exigirAutonomiaAtiva && int === 'PRIMEIRO_CONTATO' && falhas > 0) {
+    return { status: 'fluxo_envio_incerto', falhas };
+  }
   return { status: 'fluxo_concluido' };
 }
 
