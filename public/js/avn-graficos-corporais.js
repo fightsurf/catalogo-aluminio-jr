@@ -76,7 +76,8 @@ const formatHours=n=>{const m=Math.round(Number(n)*60);return String(Math.floor(
 const formatPct=n=>Number(n).toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:1});
 const formatDate=n=>new Date(n).toLocaleString('pt-BR');
 const formatShort=n=>new Date(n).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'});
-const state={users:[],data:{},errors:{},request:0,controller:null};
+const state={users:[],data:{},errors:{},request:0,controller:null,loading:false};
+const resumo=window.AVNResumoPeriodo;
 const namespace='http://www.w3.org/2000/svg';
 function svgEl(parent,tag,attrs,text){
  const el=document.createElementNS(namespace,tag);
@@ -104,7 +105,7 @@ async function getJson(url,signal){
  return res.json();
 }
 function validRows(items){
- return (Array.isArray(items)?items:[]).map(row=>({
+ return (Array.isArray(items)?items:[]).filter(row=>row.valor!==null&&row.valor!==undefined&&row.valor!=='').map(row=>({
   time:new Date(row.data_medicao).getTime(),
   value:Number(row.valor),
   date:row.data_medicao
@@ -532,6 +533,8 @@ function renderSleep(){
  for(const m of sleepDefinitions){
   const status=$('status-'+m.key),area=$('chart-'+m.key),rows=sleepState.series[m.key]||[];
   area.replaceChildren();
+  if(sleepState.loading||sleepState.error||!sleepState.user)resumo?.limpar(area);
+  else resumo?.desenhar(area,[{rows,unidade:m.unit}],resumo.periodo(sleepState.days));
   if(sleepState.loading||sleepState.error||!sleepState.user||!rows.length){
    status.hidden=false;
    status.textContent=sleepState.loading?'Carregando histórico de sono…':sleepState.error||(!sleepState.user?'Selecione um usuário.':'Nenhuma medição disponível neste período.');
@@ -566,6 +569,8 @@ function render(){
  for(const m of definitions){
   const status=$('status-'+m.key),area=$('chart-'+m.key);
   const error=state.errors[m.key],rows=state.data[m.key]||[];
+  if(state.loading||!selectedUser||error)resumo?.limpar(area);
+  else resumo?.desenhar(area,[{rows,unidade:m.unit}],resumo.periodo($('dias').value));
   if(m.key==='imc')renderImcReference(rows);
   if(m.key==='agua_corporal')renderWaterReference(rows,state.data.peso||[],selectedUser);
   if(error||!rows.length){
@@ -582,12 +587,13 @@ async function refresh(){
  const id=$('usuario').value,dias=$('dias').value,token=++state.request;
  if(state.controller)state.controller.abort();
  state.controller=new AbortController();
- state.data={};state.errors={};
+ state.data={};state.errors={};state.loading=!!id;
  if(sleepTabActive())refreshSleep();
  for(const m of definitions){
   $('status-'+m.key).hidden=false;
   $('status-'+m.key).textContent=id?'Carregando medições…':'Selecione um usuário.';
   $('chart-'+m.key).replaceChildren();
+  resumo?.limpar($('chart-'+m.key));
  }
  if(!id)return;
  const metricKeys=[...sources,'agua_ingerida'];
@@ -595,8 +601,13 @@ async function refresh(){
   ?getJson('/avn/sistema/api/hidratacao/serie?usuarioId='+encodeURIComponent(id)+'&dias='+dias,state.controller.signal)
   :getJson('/api/avn/health/usuarios/'+encodeURIComponent(id)+'/historico?metrica='+key+'&dias='+dias,state.controller.signal)));
  if(token!==state.request)return;
+ state.loading=false;
+ const limites=resumo?.periodo(dias);
  metricKeys.forEach((key,index)=>{
-  if(responses[index].status==='fulfilled')state.data[key]=validRows(responses[index].value.registros);
+  if(responses[index].status==='fulfilled'){
+   const rows=validRows(responses[index].value.registros);
+   state.data[key]=limites?rows.filter(row=>{const dia=resumo.dia(row.date);return dia>=limites.inicio&&dia<=limites.fim;}):rows;
+  }
   else state.errors[key]=responses[index].reason?.message||'Não foi possível consultar esta métrica.';
  });
  const user=state.users.find(u=>String(u.id)===String(id));
