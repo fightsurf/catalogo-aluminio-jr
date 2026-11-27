@@ -548,7 +548,18 @@ async function alterarClientePedido(idMestre, payload = {}) {
   return normalizarPedido(response?.data || {});
 }
 
-async function atualizarPedido(idMestre, payload = {}) {
+// Conferência adicional usada pelo rateio em lote. O bridge continua sendo a
+// única rotina de atualização de pedidos.
+function itensIguaisParaRateio(a, b) {
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+  const chaves = itens => itens.map(i => JSON.stringify([
+    Number(i.item ?? i.ITEM), Number(i.quantidade ?? i.QUANTIDADE),
+    Number(i.preco ?? i.PRECO)
+  ])).sort();
+  return JSON.stringify(chaves(a)) === JSON.stringify(chaves(b));
+}
+
+async function atualizarPedido(idMestre, payload = {}, opcoes = {}) {
   const possuiValorEmbutido = Object.prototype.hasOwnProperty.call(payload, 'valorEmbutido');
   const estadoAtual = possuiValorEmbutido
     ? await legadoBridgeService.get(`/api/legado/pedidos/${idMestre}/itens`) : null;
@@ -556,6 +567,12 @@ async function atualizarPedido(idMestre, payload = {}) {
     throw new Error('Não foi possível conferir os itens atuais. Reabra o pedido antes de salvar.');
   }
   const valorPreservado = await valorEmbutidoService.obterValorEmbutido(idMestre, estadoAtual?.data?.itens);
+  if (opcoes.itensEsperados && (!possuiValorEmbutido || valorPreservado ||
+      !itensIguaisParaRateio(opcoes.itensEsperados, estadoAtual?.data?.itens))) {
+    const erro = new Error('Os itens ou o valor embutido do pedido mudaram. Gere nova prévia.');
+    erro.pedidoNaoGravado = true;
+    throw erro;
+  }
   if (!possuiValorEmbutido) valorEmbutidoService.conferirPreservacao(valorPreservado, payload.itens);
   const operacao = possuiValorEmbutido && (payload.valorEmbutido !== null || valorPreservado !== null)
     ? await valorEmbutidoService.prepararOperacao({ pedidoId: idMestre, valorEmbutido: payload.valorEmbutido,
@@ -568,6 +585,9 @@ async function atualizarPedido(idMestre, payload = {}) {
   try {
     response = await legadoBridgeService.put(`/api/legado/pedidos/${idMestre}`, payloadLegado);
     if (operacao && !response?.data) throw new Error('O bridge não retornou o pedido salvo.');
+    if (opcoes.itensEsperados && !itensIguaisParaRateio(payload.itens, response?.data?.itens)) {
+      throw new Error('Os itens gravados não puderam ser confirmados pelo bridge.');
+    }
   } catch (error) {
     if (!operacao) throw error;
     await valorEmbutidoService.marcarIncerto(operacao);
