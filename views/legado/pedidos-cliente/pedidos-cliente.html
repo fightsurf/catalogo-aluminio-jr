@@ -443,6 +443,15 @@
         flex: 1 1 100%;
       }
     }
+
+    #modalEmbutir .embutir-busca { display:flex; flex-wrap:wrap; gap:8px; margin:10px 0; }
+    #modalEmbutir .embutir-busca input { flex:1; min-width:180px; padding:10px; border:1px solid #cbd5e1; border-radius:8px; font:inherit; color:inherit; background:transparent; }
+    #modalEmbutir .embutir-resultados { max-height:220px; overflow:auto; display:grid; gap:6px; margin:8px 0; }
+    #modalEmbutir .embutir-produto { display:flex; justify-content:space-between; gap:12px; text-align:left; border:1px solid #cbd5e1; border-radius:8px; background:transparent; color:inherit; padding:10px; cursor:pointer; font:inherit; }
+    #modalEmbutir .embutir-produto:hover { border-color:#2563eb; }
+    #modalEmbutir .embutir-detalhes { line-height:1.65; margin:12px 0; }
+    #modalEmbutir .embutir-detalhes ul { padding-left:20px; }
+    #modalEmbutir .embutir-alerta { font-size:13px; line-height:1.5; }
   </style>
 </head>
 <body>
@@ -460,6 +469,7 @@
           <button type="button" class="btn-primario" id="btnResumoSelecionados" disabled>
             Resumo dos selecionados
           </button>
+          <button type="button" class="btn-primario" id="btnEmbutirValor" disabled>Embutir valor</button>
           <button type="button" class="btn-secundario" id="btnVoltar">Voltar</button>
         </div>
       </div>
@@ -538,6 +548,31 @@
           Enviar imagem pelo WhatsApp
         </button>
         <button type="button" class="btn-secundario" id="btnFecharModalRodape">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modalEmbutir" role="dialog" aria-modal="true" aria-labelledby="modalEmbutirTitulo">
+    <div class="modal">
+      <div class="modal-topo">
+        <h2 class="modal-titulo" id="modalEmbutirTitulo">Embutir valor</h2>
+        <button type="button" class="btn-fechar-modal" id="btnFecharEmbutirTopo" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="modal-conteudo">
+        <p id="embutirSelecao"></p>
+        <label for="embutirBusca">Produto a embutir</label>
+        <div class="embutir-busca">
+          <input id="embutirBusca" type="search" autocomplete="off" placeholder="Digite ao menos 2 letras do produto" />
+          <button type="button" class="btn-secundario" id="btnBuscarEmbutir">Buscar</button>
+        </div>
+        <div class="embutir-resultados" id="embutirResultados" aria-live="polite"></div>
+        <div class="embutir-detalhes" id="embutirPrevia" aria-live="polite"></div>
+        <div class="embutir-alerta">O acréscimo é igual em todas as unidades, arredondado para cima. Cada pedido será gravado individualmente; se houver falha, o sistema interrompe o lote e informa o resultado de cada pedido.</div>
+        <div id="embutirStatus" class="embutir-detalhes" aria-live="polite"></div>
+      </div>
+      <div class="modal-rodape">
+        <button type="button" class="btn-primario" id="btnConfirmarEmbutir" disabled>Confirmar e gravar</button>
+        <button type="button" class="btn-secundario" id="btnFecharEmbutir">Fechar</button>
       </div>
     </div>
   </div>
@@ -1082,6 +1117,7 @@
       const checkboxes = obterCheckboxesPedidos();
       const selecionados = checkboxes.filter((checkbox) => checkbox.checked);
 
+      document.getElementById('btnEmbutirValor').disabled = selecionados.length === 0;
       btnResumoSelecionados.disabled = selecionados.length === 0;
       btnResumoSelecionados.textContent = selecionados.length
         ? `Resumo dos selecionados (${selecionados.length})`
@@ -1346,6 +1382,198 @@
         mostrarStatus('erro', `Erro: ${error.message}`);
       }
     }
+
+
+    // Rateio em lote: os preços, quantidades e o valor do produto são
+    // consultados e validados novamente no servidor antes de gravar.
+    const embutir = {
+      modal: document.getElementById('modalEmbutir'),
+      botao: document.getElementById('btnEmbutirValor'),
+      busca: document.getElementById('embutirBusca'),
+      buscar: document.getElementById('btnBuscarEmbutir'),
+      lista: document.getElementById('embutirResultados'),
+      previa: document.getElementById('embutirPrevia'),
+      status: document.getElementById('embutirStatus'),
+      confirmacao: document.getElementById('btnConfirmarEmbutir'),
+      fechar: document.getElementById('btnFecharEmbutir'),
+      fecharTopo: document.getElementById('btnFecharEmbutirTopo'),
+      selecao: document.getElementById('embutirSelecao'),
+      ids: [], produto: null, token: null, sequencia: 0, timer: null,
+      gravando: false, encerrado: false
+    };
+
+    function limparPreviaEmbutir() {
+      embutir.produto = null;
+      embutir.token = null;
+      embutir.previa.replaceChildren();
+      embutir.confirmacao.disabled = true;
+    }
+
+    function fecharModalEmbutir() {
+      if (embutir.gravando) return;
+      clearTimeout(embutir.timer);
+      ++embutir.sequencia;
+      embutir.modal.classList.remove('aberto');
+      document.body.classList.remove('modal-aberto');
+      embutir.botao.focus();
+    }
+
+    async function apiEmbutir(caminho, opcoes = {}) {
+      const resposta = await fetch(caminho, { ...opcoes, headers: {
+        Accept: 'application/json', ...(opcoes.headers || {})
+      } });
+      const dados = await resposta.json().catch(() => ({}));
+      if (!resposta.ok || dados.sucesso === false || dados.success === false) {
+        throw new Error(dados.mensagem || dados.message || dados.erro || 'Falha na comunicação com o servidor.');
+      }
+      return dados;
+    }
+
+    async function buscarProdutosEmbutir() {
+      if (embutir.encerrado || embutir.gravando || !embutir.modal.classList.contains('aberto')) return;
+      clearTimeout(embutir.timer);
+      const seq = ++embutir.sequencia;
+      limparPreviaEmbutir();
+      const busca = embutir.busca.value.trim();
+      embutir.status.textContent = '';
+      embutir.lista.textContent = busca.length < 2 ? 'Digite ao menos 2 letras.' : 'Buscando produtos...';
+      if (busca.length < 2) return;
+      try {
+        const json = await apiEmbutir('/api/produtos?busca=' + encodeURIComponent(busca) + '&ativos=true');
+        if (seq !== embutir.sequencia) return;
+        const produtos = (Array.isArray(json.data) ? json.data : []).filter(p =>
+          Number.isSafeInteger(Number(p.id)) && Number(p.id)>0 && Number.isFinite(Number(p.preco)) && Number(p.preco)>0);
+        embutir.lista.replaceChildren();
+        for (const p of produtos) {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.className = 'embutir-produto';
+          const nome = document.createElement('span');
+          nome.textContent = p.nome || 'Produto';
+          const preco = document.createElement('strong');
+          preco.textContent = formatarMoeda(p.preco);
+          b.append(nome,preco);
+          b.addEventListener('click', () => selecionarProdutoEmbutir(p));
+          embutir.lista.append(b);
+        }
+        if (!produtos.length) embutir.lista.textContent = 'Nenhum produto com preço disponível.';
+      } catch (error) {
+        if (seq === embutir.sequencia) embutir.lista.textContent = error.message;
+      }
+    }
+
+    function chamarRateio(acao, corpo) {
+      return apiEmbutir('/api/legado/pedidos-cliente/' + encodeURIComponent(favorecido) + '/embutir-valor/' + acao,{
+        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(corpo)
+      });
+    }
+
+    async function selecionarProdutoEmbutir(produto) {
+      if (embutir.gravando || embutir.encerrado) return;
+      clearTimeout(embutir.timer);
+      const seq = ++embutir.sequencia;
+      limparPreviaEmbutir();
+      embutir.lista.replaceChildren();
+      embutir.busca.value = String(produto.nome || '');
+      embutir.status.textContent = 'Calculando a distribuição nos pedidos selecionados...';
+      try {
+        const json = await chamarRateio('previa',{pedidos:embutir.ids,produtoId:Number(produto.id)});
+        if (seq !== embutir.sequencia) return;
+        const p = json.dados;
+        if (!p || !p.token || !Array.isArray(p.pedidos)) throw new Error('Prévia inválida.');
+        embutir.produto = Number(p.produto.id);
+        embutir.token = p.token;
+        const linhas = [
+          ['Produto', p.produto.nome],
+          ['Valor do produto', formatarMoeda(p.produto.preco)],
+          ['Total de unidades', Number(p.quantidadeTotal).toLocaleString('pt-BR')],
+          ['Acréscimo por unidade', formatarMoeda(p.acrescimoUnitario)],
+          ['Total a acrescentar', formatarMoeda(p.totalDistribuido)],
+          ['Diferença de arredondamento', formatarMoeda(p.diferenca)]
+        ];
+        embutir.previa.innerHTML = linhas.map(([rotulo,valor]) =>
+          '<div><strong>' + escapeHtml(rotulo) + ':</strong> ' + escapeHtml(valor) + '</div>').join('') +
+          '<div class="modal-tabela-wrap"><table class="modal-tabela"><thead><tr><th>Pedido</th><th>Unidades</th><th>Acréscimo</th><th>Novo total</th></tr></thead><tbody>' +
+          p.pedidos.map(o => '<tr><td>' + escapeHtml(o.numero) + '</td><td>' + escapeHtml(o.quantidade) +
+            '</td><td>' + escapeHtml(formatarMoeda(o.acrescimo)) + '</td><td>' + escapeHtml(formatarMoeda(o.totalNovo)) + '</td></tr>').join('') +
+          '</tbody></table></div>';
+        embutir.status.textContent = '';
+        embutir.confirmacao.disabled = false;
+      } catch(error) {
+        if (seq === embutir.sequencia) embutir.status.textContent = error.message;
+      }
+    }
+
+    async function confirmarEmbutir() {
+      if (embutir.gravando || embutir.encerrado || !embutir.token || !embutir.produto) return;
+      const corpo = {pedidos:embutir.ids,produtoId:embutir.produto,token:embutir.token};
+      embutir.gravando = true;
+      embutir.encerrado = true;
+      embutir.confirmacao.disabled = embutir.busca.disabled = embutir.buscar.disabled = true;
+      embutir.fechar.disabled = embutir.fecharTopo.disabled = true;
+      embutir.status.textContent = 'Gravando os pedidos. Aguarde...';
+      try {
+        const json = await chamarRateio('aplicar', corpo);
+        const r = json.dados;
+        if (!r || !Array.isArray(r.resultados)) throw new Error('Resposta sem confirmação de gravação.');
+        const tit = document.createElement('strong');
+        tit.textContent = r.completo ? 'Todos os pedidos foram gravados.' : 'Lote interrompido. Confira os resultados antes de qualquer nova tentativa.';
+        const lista = document.createElement('ul');
+        const nomes = {gravado:'Gravado',nao_gravado:'Não gravado',incerto:'Gravação não confirmada',nao_processado:'Não processado'};
+        r.resultados.forEach(item => {
+          const li = document.createElement('li');
+          li.textContent = 'Pedido ' + item.numero + ': ' + (nomes[item.estado] || item.estado) + (item.mensagem ? ' — ' + item.mensagem : '');
+          lista.append(li);
+        });
+        embutir.status.replaceChildren(tit,lista);
+      } catch(error) {
+        embutir.status.textContent = 'Não foi possível concluir ou confirmar o lote. Confira os pedidos antes de repetir: ' + error.message;
+      } finally {
+        await carregarPedidos();
+        embutir.gravando = false;
+        embutir.fechar.disabled = embutir.fecharTopo.disabled = false;
+      }
+    }
+
+    embutir.botao.addEventListener('click', () => {
+      const selecionados = obterPedidosSelecionados();
+      const ids = selecionados.map(p => Number(p.idMestre ?? p.saida));
+      if (!ids.length || ids.length > 30 || ids.some(i => !Number.isSafeInteger(i) || i <= 0) ||
+          new Set(ids).size !== ids.length) {
+        mostrarStatus('erro','Selecione de 1 a 30 pedidos válidos, sem repetição.');
+        return;
+      }
+      ++embutir.sequencia;
+      embutir.ids = ids;
+      embutir.encerrado = false;
+      limparPreviaEmbutir();
+      embutir.busca.value = '';
+      embutir.busca.disabled = embutir.buscar.disabled = false;
+      embutir.lista.replaceChildren();
+      embutir.status.textContent = '';
+      embutir.selecao.textContent = ids.length + ' pedido(s) selecionado(s): ' + selecionados.map(obterNumeroPedido).join(', ');
+      embutir.modal.classList.add('aberto');
+      document.body.classList.add('modal-aberto');
+      embutir.busca.focus();
+    });
+    embutir.busca.addEventListener('input', () => {
+      clearTimeout(embutir.timer);
+      ++embutir.sequencia;
+      limparPreviaEmbutir();
+      embutir.lista.replaceChildren();
+      embutir.status.textContent = '';
+      embutir.timer = setTimeout(buscarProdutosEmbutir,250);
+    });
+    embutir.busca.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); buscarProdutosEmbutir(); }
+    });
+    embutir.buscar.addEventListener('click', buscarProdutosEmbutir);
+    embutir.confirmacao.addEventListener('click', confirmarEmbutir);
+    embutir.fechar.addEventListener('click', fecharModalEmbutir);
+    embutir.fecharTopo.addEventListener('click', fecharModalEmbutir);
+    embutir.modal.addEventListener('click', e => { if(e.target === embutir.modal) fecharModalEmbutir(); });
+    document.addEventListener('keydown', e => { if(e.key === 'Escape' && embutir.modal.classList.contains('aberto')) fecharModalEmbutir(); });
+    window.addEventListener('beforeunload', e => { if (embutir.gravando) { e.preventDefault(); e.returnValue = ''; } });
 
     atualizarSubtitulo(null);
     carregarPedidos();
