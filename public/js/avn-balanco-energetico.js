@@ -52,6 +52,10 @@ const macrosDiarios=[
 ];
 let seq=0,resultadoAtual=null,usuarios=[],comparacao=null,compareSeq=0,resizeHandle=null;
 let metaCalorias=null;
+const resumo=window.AVNResumoPeriodo;
+function pontosResumo(chave,dias){
+ return dias.map(d=>({data:d.data,value:conf[chave].get(d),nota:chave==='calorias_ativas'&&d.calorias_ativas?.sem_registros?'Sem registros; zero adotado':''}));
+}
 const svg=(root,tag,attrs={},txt)=>{const e=document.createElementNS(NS,tag);for(const [k,v] of Object.entries(attrs))e.setAttribute(k,String(v));if(txt!==undefined)e.textContent=String(txt);root.append(e);return e;};
 function svgRoot(W,H,label){const el=document.createElementNS(NS,'svg');el.setAttribute('viewBox','0 0 '+W+' '+H);el.setAttribute('role','img');el.setAttribute('aria-label',label);return el;}
 async function getJson(url){const r=await fetch(url,{cache:'no-store',credentials:'same-origin'});if(r.redirected&&r.url.includes('/login'))throw Error('Sessão expirada. Entre novamente.');const b=await r.json().catch(()=>{throw Error('Resposta inválida do servidor.');});if(!r.ok)throw Error(b.erro||'Erro na consulta.');return b;}
@@ -80,6 +84,7 @@ function calculoDetalhadoSaldo(d){
 }
 function graficoDiario(chave,dias,selecionado){
  const alvo=$('grafico-'+chave),met=conf[chave];alvo.replaceChildren();
+ resumo?.desenhar(alvo,[{rows:pontosResumo(chave,dias),unidade:met.unidade}],resumo.periodo(periodoSelecionado(),selecionado.data));
  const W=650,H=282,L=62,R=23,T=33,B=66;
  const validos=dias.map(d=>has(met.get(d))?Number(met.get(d)):null);
  const numeros=validos.filter(v=>v!==null);
@@ -168,6 +173,7 @@ function limparGraficosMacros(){
   $('valor-'+m.key).textContent='—';
   $('nota-'+m.key).textContent='Consultando o Diário Alimentar e Minhas metas…';
   $('grafico-'+m.key).replaceChildren();
+  resumo?.limpar($('grafico-'+m.key));
  }
 }
 function datasMacros(fim,quantidade=7){
@@ -177,12 +183,13 @@ function datasMacros(fim,quantidade=7){
 function desenharGraficoMacro(m,registros,meta,fim,erro,periodo){
  const area=$('grafico-'+m.key),valor=$('valor-'+m.key),nota=$('nota-'+m.key);
  area.replaceChildren();
- if(erro){valor.textContent='Sem dados';nota.textContent=erro;area.textContent='Não foi possível carregar este histórico.';return;}
+ if(erro){resumo?.limpar(area);valor.textContent='Sem dados';nota.textContent=erro;area.textContent='Não foi possível carregar este histórico.';return;}
  const datas=datasMacros(fim,periodo),porData=new Map();
  for(const registro of Array.isArray(registros)?registros:[]){
   if(datas.includes(registro.data)&&has(registro.value)&&Number(registro.value)>=0)
    porData.set(registro.data,Number(registro.value));
  }
+ resumo?.desenhar(area,[{rows:[...porData].map(([data,value])=>({data,value})),unidade:'g'}],resumo.periodo(periodo,fim));
  const numeros=[...porData.values()];
  const alvo=has(meta)&&Number(meta)>=0?Number(meta):null;
  const diaAtual=porData.get(fim);
@@ -267,13 +274,13 @@ async function carregarGraficosMacros(token,usuario,dia,periodo){
 }
 
 function limpar(){
- for(const chave of metricas){$('valor-'+chave).textContent='—';$('grafico-'+chave).replaceChildren();}
+ for(const chave of metricas){$('valor-'+chave).textContent='—';$('grafico-'+chave).replaceChildren();resumo?.limpar($('grafico-'+chave));}
 
 
 }
 async function atualizar(){
  const current=++seq,user=$('usuario').value,day=hoje(),dias=periodoSelecionado();
- metaCalorias=null;
+ metaCalorias=null;resultadoAtual=null;limpar();
  $('nota-ingestao').textContent='Quilocalorias registradas por dia no Diário Alimentar. Consultando Minhas metas…';
  limparGraficosMacros();
  if(!user){$('mensagem').textContent='Selecione um usuário.';return;}
@@ -337,13 +344,14 @@ function dadosSono(noites,inicio,fim){
  }
  return series;
 }
-function compararDatas(dias,met){return dias.filter(d=>has(met.get(d))).map(d=>({data:d.data,value:Number(met.get(d))}));}
+function compararDatas(dias,met){return dias.filter(d=>has(met.get(d))).map(d=>({data:d.data,value:Number(met.get(d)),nota:met===conf.calorias_ativas&&d.calorias_ativas?.sem_registros?'Sem registros; zero adotado':''}));}
 async function carregarComparacao(){
  if(!$('compare-dialog').open)return;
  const token=++compareSeq;
  const user=$('usuario').value,day=hoje(),period=periodoComparacao();
  $('compare-status').textContent='Carregando dados do período…';
- $('compare-chart').replaceChildren();$('compare-legend').replaceChildren();
+ comparacao=null;
+ $('compare-chart').replaceChildren();$('compare-legend').replaceChildren();resumo?.limpar($('compare-chart'));
  if(!user||!day){$('compare-status').textContent='Selecione usuário e data.';return;}
  try{
   const diferenca=Math.max(0,Math.ceil((Date.now()-isoDay(day))/86400000));
@@ -381,11 +389,12 @@ async function carregarComparacao(){
 }
 function desenharComparacao(){
  const area=$('compare-chart'),status=$('compare-status'),legend=$('compare-legend');
- area.replaceChildren();legend.replaceChildren();
+ area.replaceChildren();legend.replaceChildren();resumo?.limpar(area);
  const escolhidas=[...document.querySelectorAll('input[data-compare]:checked')].map(x=>x.dataset.compare);
  if(!escolhidas.length){status.textContent='Selecione ao menos um indicador.';return;}
  if(!comparacao){status.textContent='Carregando registros…';return;}
  const all=escolhidas.map(key=>({...conf[key],key,rows:comparacao.series[key]||[]}));
+ resumo?.desenhar(area,all.map(a=>({nome:a.nome,unidade:a.unidade,cor:a.cor,rows:a.rows})),resumo.periodo(comparacao.period,comparacao.day));
  for(const a of all){
   const el=document.createElement('span');el.className='legenda-item';
   const dot=document.createElement('i');dot.style.backgroundColor=a.cor;
