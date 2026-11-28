@@ -3,7 +3,7 @@ const zapi = require('../integracoes/zapi.service');
 const { instanciaAtual, ehLid } = require('./zapi-lid-vinculos.service');
 const formatar = require('./whatsapp-comandos-formatos.service');
 const usados = new Map();
-const TODOS = new Set(['@preço','@frete','@cidades','@volume','@kits-hoje','@kits-ontem','@panelapressão','@jogopanela']);
+const TODOS = new Set(['@preço','@frete','@cidades','@volume','@kits-hoje','@kits-ontem','@panelapressão','@jogopanela','@cuscuzeira']);
 function parsear(mensagem) {
  const texto = String(mensagem || '').trim();
  const m = texto.match(/^(@[a-zçãõáéíóú-]+)(?:\s+([\s\S]*))?$/i);
