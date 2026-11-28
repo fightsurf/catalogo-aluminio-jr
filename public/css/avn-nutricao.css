@@ -806,3 +806,10 @@ body[data-nutricao-pagina="diario"] .avn-perfil-acoes button:disabled{opacity:.4
 #modalCopiarDe #statusCopiarDe{line-height:1.6;min-height:48px;margin:0;overflow-wrap:anywhere}
 #modalCopiarDe #confirmarCopiarDe{margin-top:20px;align-self:stretch}
 @media(max-width:600px){#modalCopiarDe[open]{min-height:min(490px,88dvh);max-height:94dvh}}
+
+/* Diário alimentar: atalho para o peso final cadastrado da receita. */
+#formDiario .avn-diario-quantidade{display:flex;align-items:flex-end;gap:8px;min-width:0}
+#formDiario .avn-diario-quantidade .avn-field{flex:1 1 0;min-width:0}
+#formDiario #diarioPesoReceita{flex:0 0 auto;white-space:nowrap;font-size:13px;line-height:1.5;padding:10px 9px}
+#formDiario #diarioPesoReceita:disabled{opacity:.6;cursor:wait}
+#formDiario #statusPesoReceitaDiario{margin:0;overflow-wrap:anywhere}

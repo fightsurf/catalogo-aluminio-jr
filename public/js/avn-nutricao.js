@@ -73,6 +73,58 @@ function selectFoods(){const opt=state.alimentos.filter(f=>f.tipo!=='medicamento
    options.map(f=>'<option value="'+esc(f.id)+'">'+esc(f.nome)+(f.preparo?' · '+esc(f.preparo):'')+(f.marca?' · '+esc(f.marca):'')+'</option>').join('');
   if(options.some(f=>String(f.id)===prev))e.value=prev;
  }
+ atualizarBotaoPesoReceitaDiario();
+}
+
+/* Diário: usar o rendimento final da receita selecionada, sem registrar consumo. */
+let pesoReceitaDiarioRevision=0;
+function receitaSelecionadaDiario(){
+ const id=$('diarioAlimento')?.value;
+ return id?state.alimentos.find(f=>f.tipo==='receita'&&String(f.id)===id):null;
+}
+function atualizarBotaoPesoReceitaDiario(){
+ const botao=$('diarioPesoReceita');
+ if(!botao)return;
+ ++pesoReceitaDiarioRevision;
+ const receita=receitaSelecionadaDiario();
+ botao.hidden=!receita;
+ botao.disabled=!receita;
+ const status=$('statusPesoReceitaDiario');
+ status.hidden=true;status.textContent='';
+}
+async function preencherPesoReceitaDiario(){
+ const botao=$('diarioPesoReceita'),campo=$('diarioGramas'),status=$('statusPesoReceitaDiario');
+ const receita=receitaSelecionadaDiario();
+ if(!receita||!state.usuarioId||botao.disabled)return;
+ const usuario=state.usuarioId,alimentoId=String(receita.id),revision=++pesoReceitaDiarioRevision;
+ const atual=()=>revision===pesoReceitaDiarioRevision&&usuario===state.usuarioId&&
+  $('modalAdicionarDiario').open&&String(receitaSelecionadaDiario()?.id)===alimentoId;
+ botao.disabled=true;
+ status.hidden=false;status.textContent='Consultando peso final da receita…';
+ try{
+  const receitas=await api('/receitas?usuarioId='+encodeURIComponent(usuario));
+  if(!atual())return;
+  const registro=Array.isArray(receitas)?receitas.find(r=>String(r.alimento_id)===alimentoId):null;
+  const peso=Number(registro?.rendimento_g);
+  if(!Number.isFinite(peso)||peso<Number(campo.min)||peso>Number(campo.max))
+   throw Error('Peso final da receita indisponível ou fora dos limites do diário (0,1 a 10.000 g).');
+  campo.value=String(peso);
+  status.hidden=true;status.textContent='';
+ }catch(e){
+  if(atual()){status.hidden=false;status.textContent=e.message||'Não foi possível consultar o peso da receita.';}
+ }finally{if(atual())botao.disabled=false;}
+}
+function configurarPesoReceitaDiario(){
+ const botao=$('diarioPesoReceita');
+ if(!botao)return;
+ $('diarioAlimento').addEventListener('change',atualizarBotaoPesoReceitaDiario);
+ $('modalAdicionarDiario').addEventListener('close',atualizarBotaoPesoReceitaDiario);
+ $('diarioGramas').addEventListener('input',()=>{
+  // Uma pesagem digitada durante a consulta tem prioridade.
+  if(botao.disabled&&!botao.hidden)atualizarBotaoPesoReceitaDiario();
+ });
+ botao.addEventListener('click',preencherPesoReceitaDiario);
+ atualizarBotaoPesoReceitaDiario();
 }
 function composition(a){return {kcal:a.kcal_100g,proteinas_g:a.proteinas_g_100g,carboidratos_g:a.carboidratos_g_100g,gorduras_g:a.gorduras_g_100g,fibras_g:a.fibras_g_100g,micros:a.micronutrientes_100g||{}};}
 function aggregate(items){
@@ -1441,6 +1493,7 @@ function events(){
   if(botao){e.preventDefault();ajustarPesoDiario(botao);}
  });
  window.addEventListener('resize',()=>{if($('modalRankingDiario').open)posicionarRankingDiario();});
+ configurarPesoReceitaDiario();
  $('abrirModalDiario').onclick=()=>$('modalAdicionarDiario').showModal();
  $('fecharModalDiario').onclick=()=>$('modalAdicionarDiario').close();
  $('modalAdicionarDiario').addEventListener('close',()=>ativarAbaDiario('avulso'));
