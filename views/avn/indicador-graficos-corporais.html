@@ -82,6 +82,21 @@
 .avn-resumo-item strong{font-size:1.02rem;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;color:#e7f0fd}
 .avn-resumo-item:last-child strong{color:#f8fafc}
 @media(max-width:650px){.avn-resumo-linha{padding:8px 5px}.avn-resumo-item{padding:2px 4px}.avn-resumo-grid{gap:3px}.avn-resumo-item strong{font-size:.93rem}.avn-resumo-item small{font-size:.68rem}}
+/* Comparador responsivo: o painel, e não o número de dias, define a largura. */
+body[data-section="corporal"] .compare-modal{overflow-x:hidden;overflow-y:auto}
+body[data-section="corporal"] .compare-display .compare-chart{width:100%;max-width:100%;min-width:0;height:auto;min-height:0;overflow:hidden}
+body[data-section="corporal"] .compare-display .compare-chart svg{display:block;width:100%;max-width:100%;min-width:0;height:auto}
+body[data-section="corporal"] .compare-display #compare-status{min-width:0;flex-basis:220px;overflow-wrap:anywhere}
+body[data-section="corporal"] .compare-filtros label{min-width:0;max-width:100%}
+body[data-section="corporal"] .compare-filtros select{width:100%;max-width:100%;min-width:0}
+body[data-section="corporal"] .compare-legend .legenda-item{min-width:0;max-width:100%;overflow-wrap:anywhere}
+body[data-section="corporal"] .compare-legend .legenda-item i{flex-shrink:0}
+body[data-section="corporal"] .compare-tooltip{overflow-wrap:anywhere;max-width:min(360px,calc(100% - 12px))}
+@media(max-width:700px){
+ body[data-section="corporal"] .compare-layout{grid-template-columns:minmax(0,1fr)}
+ body[data-section="corporal"] .compare-indicators{max-height:30dvh;padding-right:4px}
+ body[data-section="corporal"] .compare-header>div{min-width:0;overflow-wrap:anywhere}
+}
 </style>
 </head>
 <body data-section="corporal">
@@ -251,6 +266,6 @@
 </main>
 <script src="/js/avn-resumo-periodo.js?v=20261127-2" defer></script>
 <script src="/js/avn-graficos-corporais.js?v=20261127-resumo1" defer></script>
-<script src="/js/avn-balanco-energetico.js?v=20261127-resumo1" defer></script>
+<script src="/js/avn-balanco-energetico.js?v=20261128-comparador-responsivo1" defer></script>
 </body>
 </html>

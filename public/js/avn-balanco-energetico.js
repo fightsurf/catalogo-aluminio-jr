@@ -405,8 +405,15 @@ function desenharComparacao(){
  if(!usable.length){status.textContent='Nenhum dos indicadores escolhidos tem registros no período.';return;}
  const two=escolhidas.length===2&&usable.length===2;
  const relative=escolhidas.length>=3;
- // O período maior precisa de largura útil para mostrar um valor em cada ponto.
- const W=Math.max(940,comparacao.period*82+155),H=365,L=75,R=two?80:32,T=42,B=61;
+ // Todos os dias ocupam a largura útil do painel, sem ampliar o SVG pelo período.
+ const estilo=window.getComputedStyle(area);
+ const larguraUtil=area.clientWidth-(parseFloat(estilo.paddingLeft)||0)-(parseFloat(estilo.paddingRight)||0);
+ const W=Math.max(200,Math.floor(larguraUtil>0?larguraUtil:320));
+ const compact=W<600,H=compact?280:365,L=compact?52:75,R=two?(compact?52:80):(compact?16:32),T=compact?36:42,B=compact?42:61;
+ const plotWidth=W-L-R;
+ const dateTicks=Math.max(2,Math.min(5,Math.floor(plotWidth/65)));
+ // Em períodos densos, o toque continua exibindo o valor real de todos os pontos.
+ const showPointLabels=plotWidth/Math.max(1,comparacao.period-1)>=Math.max(48,usable.length*24);
  const inicio=isoDay(comparacao.day)-(comparacao.period-1)*86400000,fim=isoDay(comparacao.day);
  const px=d=>L+(isoDay(d)-inicio)/Math.max(1,fim-inicio)*(W-L-R);
  const Hplot=H-T-B;
@@ -421,7 +428,10 @@ function desenharComparacao(){
  const py=(v,range)=>T+(range.max-v)/(range.max-range.min)*Hplot;
  const eixo=a=>relative?{min:0,max:100}:a.range;
  const root=svgRoot(W,H,'Comparação de '+escolhidas.map(k=>conf[k].nome).join(', '));
- if(W>940)root.style.width=W+'px';
+ root.style.width='100%';
+ root.style.minWidth='0';
+ root.style.maxWidth='100%';
+ root.style.height='auto';
  for(let i=0;i<=5;i++){
   const yy=T+Hplot*i/5;
   svg(root,'line',{x1:L,x2:W-R,y1:yy,y2:yy,stroke:'#33455f'});
@@ -431,14 +441,15 @@ function desenharComparacao(){
    svg(root,'text',{x:W-R+8,y:yy+4,'text-anchor':'start','font-size':12,fill:usable[1].cor},formatarIndicador(usable[1].key,y2.max-(y2.max-y2.min)*i/5,1));
   }
  }
- svg(root,'text',{x:L,y:18,'font-size':12,fill:relative?'#cbd5e1':usable[0].cor},relative?'Escala relativa 0–100':usable[0].nome+' ('+(duracaoSono(usable[0].key)?'HH:MM':usable[0].unidade)+')');
- if(two)svg(root,'text',{x:W-R,y:18,'text-anchor':'end','font-size':12,fill:usable[1].cor},usable[1].nome+' ('+(duracaoSono(usable[1].key)?'HH:MM':usable[1].unidade)+')');
+ const tituloEixo=a=>{const unidade=duracaoSono(a.key)?'HH:MM':a.unidade;return compact?unidade:a.nome+' ('+unidade+')';};
+ svg(root,'text',{x:L,y:18,'font-size':compact?11:12,fill:relative?'#cbd5e1':usable[0].cor},relative?'Escala relativa 0–100':tituloEixo(usable[0]));
+ if(two)svg(root,'text',{x:W-R,y:compact?18:32,'text-anchor':'end','font-size':compact?11:12,fill:usable[1].cor},tituloEixo(usable[1]));
  svg(root,'line',{x1:L,x2:L,y1:T,y2:H-B,stroke:'#91a5c2'});
  svg(root,'line',{x1:L,x2:W-R,y1:H-B,y2:H-B,stroke:'#91a5c2'});
  if(two)svg(root,'line',{x1:W-R,x2:W-R,y1:T,y2:H-B,stroke:'#91a5c2'});
- for(let i=0;i<=5;i++){
-  const time=inicio+(fim-inicio)*i/5;
-  svg(root,'text',{x:L+(W-L-R)*i/5,y:H-28,'text-anchor':'middle','font-size':12,fill:'#afbfda'},new Date(time).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',timeZone:'UTC'}));
+ for(let i=0;i<=dateTicks;i++){
+  const time=inicio+(fim-inicio)*i/dateTicks;
+  svg(root,'text',{x:L+plotWidth*i/dateTicks,y:H-(compact?17:28),'text-anchor':'middle','font-size':compact?10:12,fill:'#afbfda'},new Date(time).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',timeZone:'UTC'}));
  }
  const allDays=new Set();
  for(const [serieIndice,a] of usable.entries()){
@@ -447,12 +458,12 @@ function desenharComparacao(){
   if(coords.length>1)svg(root,'polyline',{points:coords.map(p=>p.x+','+p.y).join(' '),fill:'none',stroke:a.cor,'stroke-width':2.8,'stroke-linejoin':'round','stroke-linecap':'round'});
   for(const p of coords){
    allDays.add(p.data);
-   const dot=svg(root,'circle',{cx:p.x,cy:p.y,r:4,fill:a.cor});
+   const dot=svg(root,'circle',{cx:p.x,cy:p.y,r:compact?3:4,fill:a.cor});
    svg(dot,'title',{},dataBR(p.data)+' · '+a.nome+': '+formatarIndicador(a.key,p.value,2)+unidadeIndicador(a.key));
    // Exibe o valor real (não o percentual da escala relativa), com alternância para reduzir sobreposição.
    const deslocamento=serieIndice%2===0?-13-Math.floor(serieIndice/2)*13:19+Math.floor(serieIndice/2)*13;
    const yRotulo=Math.max(T+12,Math.min(H-B-7,p.y+deslocamento));
-   svg(root,'text',{x:p.x,y:yRotulo,'text-anchor':'middle','font-size':11,'font-weight':700,fill:a.cor,stroke:'#172439','stroke-width':3,'paint-order':'stroke','pointer-events':'none'},formatarIndicador(a.key,p.value,Math.abs(p.value)<10?2:1));
+   if(showPointLabels)svg(root,'text',{x:p.x,y:yRotulo,'text-anchor':'middle','font-size':11,'font-weight':700,fill:a.cor,stroke:'#172439','stroke-width':3,'paint-order':'stroke','pointer-events':'none'},formatarIndicador(a.key,p.value,Math.abs(p.value)<10?2:1));
   }
  }
  const guide=svg(root,'line',{x1:L,x2:L,y1:T,y2:H-B,stroke:'#e5e7eb','stroke-dasharray':'4 4',visibility:'hidden'});
@@ -470,7 +481,8 @@ function desenharComparacao(){
    lines.push(a.nome+': '+(value?formatarIndicador(a.key,value.value,2)+unidadeIndicador(a.key):'sem medição nesta data'));
   }
   tooltip.textContent=lines.join('\n');tooltip.hidden=false;
-  const left=x/W*area.clientWidth;
+  const bounds=area.getBoundingClientRect();
+  const left=rect.left-bounds.left-area.clientLeft+x/W*rect.width;
   tooltip.style.left=Math.max(6,Math.min(left+14,area.clientWidth-tooltip.offsetWidth-6))+'px';
   tooltip.style.top='10px';
  };
@@ -478,7 +490,7 @@ function desenharComparacao(){
  overlay.addEventListener('pointerdown',at);
  overlay.addEventListener('pointerleave',()=>{guide.setAttribute('visibility','hidden');tooltip.hidden=true;});
  area.append(root,tooltip);
- status.textContent=(relative?'Três ou mais indicadores: cada curva em escala relativa 0–100 (mínimo e máximo próprios).':two?'Dois indicadores: cada curva utiliza seu eixo vertical, conforme a cor.':'Um indicador: valores na escala original.')+' Somente datas com registros válidos são exibidas.'+(all.some(a=>!a.rows.length)?' Sem dados: '+all.filter(a=>!a.rows.length).map(a=>a.nome).join(', ')+'.':'')+(escolhidas.some(key=>nutricao.includes(key))?' Proteínas e carboidratos: diário alimentar (g); água ingerida: registros de hidratação (diferente de água corporal).':'')+(escolhidas.some(key=>sono.includes(key))?' Sono: dados do dia do despertar, sem médias. Duração e fases em HH:MM.':'');
+ status.textContent=(relative?'Três ou mais indicadores: cada curva em escala relativa 0–100 (mínimo e máximo próprios).':two?'Dois indicadores: cada curva utiliza seu eixo vertical, conforme a cor.':'Um indicador: valores na escala original.')+' Somente datas com registros válidos são exibidas.'+(!showPointLabels?' Toque no gráfico para consultar os valores de cada data.':'')+(all.some(a=>!a.rows.length)?' Sem dados: '+all.filter(a=>!a.rows.length).map(a=>a.nome).join(', ')+'.':'')+(escolhidas.some(key=>nutricao.includes(key))?' Proteínas e carboidratos: diário alimentar (g); água ingerida: registros de hidratação (diferente de água corporal).':'')+(escolhidas.some(key=>sono.includes(key))?' Sono: dados do dia do despertar, sem médias. Duração e fases em HH:MM.':'');
 }
 function initComparador(){
  const dialog=$('compare-dialog');
